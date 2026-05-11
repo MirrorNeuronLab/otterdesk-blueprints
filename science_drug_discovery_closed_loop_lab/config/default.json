@@ -1,0 +1,108 @@
+{
+  "execution_model": [
+    "load_metadata",
+    "resolve_config",
+    "load_inputs",
+    "start_run_store",
+    "observe_simulation_state",
+    "call_llm_agent",
+    "apply_decision_to_simulation",
+    "emit_events",
+    "write_final_artifact"
+  ],
+  "identity": {
+    "blueprint_id": "science_drug_discovery_closed_loop_lab",
+    "name": "Drug Discovery Closed Loop Lab"
+  },
+  "inputs": {
+    "adapter": "mock",
+    "description": "Default synthetic inputs bundled with the blueprint.",
+    "payload": {}
+  },
+  "interfaces": {
+    "config_sections": [
+      "metadata",
+      "identity",
+      "inputs",
+      "simulation",
+      "llm",
+      "outputs",
+      "logging",
+      "real_adapters"
+    ],
+    "identity_fields": [
+      "blueprint_id",
+      "name",
+      "run_id"
+    ],
+    "input_adapters": [
+      "mock",
+      "json",
+      "file",
+      "env_json"
+    ],
+    "output_adapters": [
+      "local_run_store"
+    ],
+    "run_artifacts": [
+      "run.json",
+      "config.json",
+      "inputs.json",
+      "events.jsonl",
+      "result.json",
+      "final_artifact.json"
+    ]
+  },
+  "llm": {
+    "agent_role": "Scientific manager and staged worker agents.",
+    "api_base": "http://192.168.4.173:11434",
+    "mock_mode": "fake",
+    "mode": "ollama",
+    "model": "ollama/nemotron3:33b"
+  },
+  "logging": {
+    "events": [
+      "run_started",
+      "inputs_loaded",
+      "simulation_step_started",
+      "llm_decision",
+      "simulation_state_updated",
+      "run_completed"
+    ],
+    "events_jsonl": true,
+    "level": "INFO",
+    "redact_env_secrets": true
+  },
+  "metadata": {
+    "category": "science",
+    "customizable_for": "Drug discovery, material search, assay planning, scientific literature loops.",
+    "problem_solved": "Discovery workflows are iterative: candidate generation, scoring, extraction, and review need to repeat as new evidence arrives.",
+    "target_users": "Computational biology researchers and scientific AI platform evaluators."
+  },
+  "mode": "mock",
+  "outputs": {
+    "adapter": "local_run_store",
+    "artifact_contract": "Candidate artifacts, stage logs, and discovery summaries.",
+    "run_root": "~/.mn/runs",
+    "write_run_store": true
+  },
+  "real_adapters": {
+    "inline_json": {
+      "adapter": "json",
+      "description": "Load overrides from an inline JSON object.",
+      "payload": {}
+    },
+    "input_file": {
+      "adapter": "file",
+      "description": "Load JSON overrides from a local file path.",
+      "path": null
+    }
+  },
+  "simulation": {
+    "deterministic": true,
+    "enabled": true,
+    "seed_field": "seed",
+    "type": "Long-running scientific pipeline loop."
+  },
+  "standard_version": "1.0"
+}

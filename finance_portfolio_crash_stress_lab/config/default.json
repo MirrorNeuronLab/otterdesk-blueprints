@@ -1,0 +1,131 @@
+{
+  "execution_model": [
+    "load_metadata",
+    "resolve_config",
+    "load_inputs",
+    "start_run_store",
+    "observe_simulation_state",
+    "call_llm_agent",
+    "apply_decision_to_simulation",
+    "emit_events",
+    "write_final_artifact"
+  ],
+  "identity": {
+    "blueprint_id": "finance_portfolio_crash_stress_lab",
+    "name": "Portfolio Crash Stress Lab"
+  },
+  "inputs": {
+    "adapter": "mock",
+    "description": "Default synthetic inputs bundled with the blueprint.",
+    "payload": {
+      "scenario": "stagflation shock",
+      "seed": 42,
+      "steps": 5
+    }
+  },
+  "interfaces": {
+    "config_sections": [
+      "metadata",
+      "identity",
+      "inputs",
+      "simulation",
+      "llm",
+      "outputs",
+      "logging",
+      "real_adapters"
+    ],
+    "identity_fields": [
+      "blueprint_id",
+      "name",
+      "run_id"
+    ],
+    "input_adapters": [
+      "mock",
+      "json",
+      "file",
+      "env_json"
+    ],
+    "output_adapters": [
+      "local_run_store"
+    ],
+    "run_artifacts": [
+      "run.json",
+      "config.json",
+      "inputs.json",
+      "events.jsonl",
+      "result.json",
+      "final_artifact.json"
+    ]
+  },
+  "llm": {
+    "agent_role": "Portfolio stress-test analyst",
+    "api_base": "http://192.168.4.173:11434",
+    "mock_mode": "fake",
+    "mode": "ollama",
+    "model": "ollama/nemotron3:33b",
+    "responsibilities": [
+      "observe macro shocks",
+      "evaluate drawdown and liquidity",
+      "recommend rebalancing"
+    ]
+  },
+  "logging": {
+    "events": [
+      "run_started",
+      "inputs_loaded",
+      "simulation_step_started",
+      "llm_decision",
+      "simulation_state_updated",
+      "run_completed"
+    ],
+    "events_jsonl": true,
+    "level": "INFO",
+    "redact_env_secrets": true
+  },
+  "metadata": {
+    "category": "finance",
+    "customizable_for": "Wealth management, treasury, family offices, robo-advisory risk overlays.",
+    "problem_solved": "Risk changes path-dependently during shocks; one summary cannot show how hedges, cash, and defensive moves alter the next state.",
+    "target_users": "Portfolio managers, wealth advisors, risk officers, and fintech evaluators."
+  },
+  "mode": "mock",
+  "outputs": {
+    "adapter": "local_run_store",
+    "artifact_contract": "Portfolio risk report and rebalance recommendation.",
+    "run_root": "~/.mn/runs",
+    "write_run_store": true
+  },
+  "real_adapters": {
+    "inline_json": {
+      "adapter": "json",
+      "description": "Load overrides from an inline JSON object.",
+      "payload": {}
+    },
+    "input_file": {
+      "adapter": "file",
+      "description": "Load JSON overrides from a local file path.",
+      "path": null
+    }
+  },
+  "simulation": {
+    "actions": [
+      "rebalance_defensive",
+      "hedge_rates",
+      "raise_cash"
+    ],
+    "deterministic": true,
+    "enabled": true,
+    "metrics": [
+      "portfolio_value",
+      "drawdown_pct",
+      "rate_shock_bps",
+      "liquidity_pct"
+    ],
+    "objective": "minimize",
+    "primary_metric": "drawdown_pct",
+    "risk_metric": "liquidity_pct",
+    "seed_field": "seed",
+    "type": "Macro shock and portfolio risk simulation."
+  },
+  "standard_version": "1.0"
+}

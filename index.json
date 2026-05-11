@@ -1,0 +1,97 @@
+[
+  {
+    "description": "Monitor facility video streams and escalate safety-relevant observations with LLM reasoning.",
+    "graph_id": "business_facility_safety_video_guardian_v1",
+    "id": "business_facility_safety_video_guardian",
+    "job_name": "business-facility-safety-video-guardian",
+    "name": "Facility Safety Video Guardian",
+    "path": "business_facility_safety_video_guardian",
+    "product": {
+      "agent_role": "Safety observation and escalation agent.",
+      "customizable_for": "Door monitoring, restricted-area alerts, retail safety, warehouse operations.",
+      "one_line": "Monitor facility video streams and escalate safety-relevant observations with LLM reasoning.",
+      "output": "Detection events, alert decisions, and notification payloads.",
+      "problem": "Video monitoring is continuous, noisy, and operationally sensitive; teams need stateful alerts, cooldowns, and explainable observations rather than raw frames.",
+      "runtime_features": [
+        "video sampling",
+        "Ollama decision path",
+        "cooldown state",
+        "Slack alerting"
+      ],
+      "simulation_type": "Video stream sampling with alert state.",
+      "target_users": "Facilities, security, safety operations, and property management teams."
+    }
+  },
+  {
+    "description": "Stress a portfolio against drawdown, rate shocks, and liquidity pressure before recommending rebalancing.",
+    "graph_id": "finance_portfolio_crash_stress_lab_v1",
+    "id": "finance_portfolio_crash_stress_lab",
+    "job_name": "finance-portfolio-crash-stress-lab",
+    "name": "Portfolio Crash Stress Lab",
+    "path": "finance_portfolio_crash_stress_lab",
+    "product": {
+      "agent_role": "Portfolio stress-test analyst.",
+      "customizable_for": "Wealth management, treasury, family offices, robo-advisory risk overlays.",
+      "one_line": "Stress a portfolio against drawdown, rate shocks, and liquidity pressure before recommending rebalancing.",
+      "output": "Portfolio risk report and rebalance recommendation.",
+      "problem": "Risk changes path-dependently during shocks; one summary cannot show how hedges, cash, and defensive moves alter the next state.",
+      "runtime_features": [
+        "macro shock simulation",
+        "portfolio risk",
+        "LLM risk report",
+        "decision feedback"
+      ],
+      "simulation_type": "Macro shock and portfolio risk simulation.",
+      "target_users": "Portfolio managers, wealth advisors, risk officers, and fintech evaluators."
+    }
+  },
+  {
+    "description": "Rank property acquisition opportunities with working memory over noisy ZIP-code history, broker flow, financing constraints, and prior decision outcomes.",
+    "graph_id": "finance_zip_code_property_alpha_engine_with_memory_v1",
+    "id": "finance_zip_code_property_alpha_engine_with_memory",
+    "job_name": "finance-zip-code-property-alpha-engine-with-memory",
+    "name": "Zip Code Property Alpha Engine With Memory",
+    "path": "finance_zip_code_property_alpha_engine_with_memory",
+    "product": {
+      "agent_role": "Real estate investment analyst with working memory.",
+      "customizable_for": "Rental acquisitions, flipping pipelines, multifamily sourcing, market expansion, diligence memory, and capital-allocation committees.",
+      "one_line": "Rank property acquisition opportunities with working memory over noisy ZIP-code history, broker flow, financing constraints, and prior decision outcomes.",
+      "output": "Ranked opportunities, source-grounded bid/watchlist recommendation, and full-context versus optimized-memory benchmark.",
+      "problem": "Property acquisition decisions often depend on older broker, lender, rent, insurance, and diligence facts that disappear inside large noisy deal flow.",
+      "runtime_features": [
+        "large synthetic finance context",
+        "working memory retrieval",
+        "source_refs",
+        "decision quality benchmark",
+        "full-context baseline",
+        "optimized memory comparison",
+        "LLM investment reasoning"
+      ],
+      "simulation_type": "ZIP-code property market simulation with large historical memory.",
+      "target_users": "Real-estate investors, acquisition analysts, property-tech teams, and diligence operators."
+    }
+  },
+  {
+    "description": "Run a long-lived multi-stage drug-discovery loop that keeps generating and evaluating candidates.",
+    "graph_id": "science_drug_discovery_closed_loop_lab_v1",
+    "id": "science_drug_discovery_closed_loop_lab",
+    "job_name": "science-drug-discovery-closed-loop-lab",
+    "name": "Drug Discovery Closed Loop Lab",
+    "path": "science_drug_discovery_closed_loop_lab",
+    "product": {
+      "agent_role": "Scientific manager and staged worker agents.",
+      "customizable_for": "Drug discovery, material search, assay planning, scientific literature loops.",
+      "one_line": "Run a long-lived multi-stage drug-discovery loop that keeps generating and evaluating candidates.",
+      "output": "Candidate artifacts, stage logs, and discovery summaries.",
+      "problem": "Discovery workflows are iterative: candidate generation, scoring, extraction, and review need to repeat as new evidence arrives.",
+      "runtime_features": [
+        "long-running loop",
+        "multi-stage pipeline",
+        "scientific workers",
+        "artifact extraction"
+      ],
+      "simulation_type": "Long-running scientific pipeline loop.",
+      "target_users": "Computational biology researchers and scientific AI platform evaluators."
+    }
+  }
+]

@@ -1,0 +1,136 @@
+{
+  "actions": [
+    {
+      "cost": 0.0,
+      "description": "Bid on the best source-grounded risk-adjusted listing.",
+      "effects": {
+        "cap_rate_pct": 0.14,
+        "liquidity_score": -2.0,
+        "risk_score": 2.0
+      },
+      "name": "submit_bid"
+    },
+    {
+      "cost": 0.0,
+      "description": "Seek a discount when memory exposes hidden risk or repricing leverage.",
+      "effects": {
+        "cap_rate_pct": 0.28,
+        "median_price_index": -1.4,
+        "risk_score": -1.2
+      },
+      "name": "negotiate_discount"
+    },
+    {
+      "cost": 0.0,
+      "description": "Watchlist listings until risk, liquidity, or source confidence improves.",
+      "effects": {
+        "liquidity_score": 1.5,
+        "risk_score": -2.6
+      },
+      "name": "watchlist_only"
+    }
+  ],
+  "agent_responsibilities": [
+    "observe listing dynamics",
+    "retrieve important historical facts from working memory",
+    "connect broker, lender, rent, insurance, and diligence signals",
+    "rank opportunities against the current snapshot",
+    "explain bid, discount, or watchlist decisions with source_refs"
+  ],
+  "artifact_type": "ranked opportunities with memory benchmark",
+  "blueprint_id": "finance_zip_code_property_alpha_engine_with_memory",
+  "category": "finance",
+  "default_inputs": {
+    "all_context_attention_limit": 36,
+    "all_context_token_budget": 8000,
+    "history_months": 24,
+    "max_price": 950000,
+    "memory_limit": 36,
+    "memory_mode": "compare",
+    "noise_events_per_month": 10,
+    "seed": 77,
+    "steps": 6,
+    "target_zip": "02139"
+  },
+  "description": "Rank property acquisition opportunities with working memory over noisy ZIP-code history, broker flow, financing constraints, and prior decision outcomes.",
+  "entity_label": "property",
+  "entity_names": [
+    "Ivy Duplex",
+    "River Quad",
+    "Central Three",
+    "Garden Six"
+  ],
+  "features": [
+    "market_simulation",
+    "large_context_fixture",
+    "full_context_baseline",
+    "working_memory_retrieval",
+    "source_refs",
+    "decision_quality_benchmark",
+    "llm_investment_agent"
+  ],
+  "llm_role": "Real estate investment analyst with working memory",
+  "metrics": [
+    {
+      "drift": 1.4,
+      "initial": 112,
+      "label": "Median price index",
+      "maximum": 160,
+      "minimum": 80,
+      "name": "median_price_index",
+      "volatility": 2.4
+    },
+    {
+      "drift": 2.0,
+      "initial": 67,
+      "label": "Buyer demand index",
+      "maximum": 140,
+      "minimum": 10,
+      "name": "demand_index",
+      "volatility": 4.0
+    },
+    {
+      "drift": -0.05,
+      "initial": 5.45,
+      "label": "Estimated cap rate percent",
+      "maximum": 10,
+      "minimum": 2,
+      "name": "cap_rate_pct",
+      "volatility": 0.2
+    },
+    {
+      "drift": 2.8,
+      "initial": 58,
+      "label": "Market risk score",
+      "maximum": 100,
+      "minimum": 0,
+      "name": "risk_score",
+      "volatility": 5.0
+    },
+    {
+      "drift": 0.0,
+      "initial": 47,
+      "label": "Liquidity score",
+      "maximum": 100,
+      "minimum": 0,
+      "name": "liquidity_score",
+      "volatility": 4.0
+    },
+    {
+      "drift": 0.3,
+      "initial": 4.1,
+      "label": "Rent growth signal",
+      "maximum": 15,
+      "minimum": -5,
+      "name": "rent_growth_signal",
+      "volatility": 0.8
+    }
+  ],
+  "multi_agent": false,
+  "name": "finance_zip_code_property_alpha_engine_with_memory",
+  "objective": "maximize",
+  "primary_metric": "cap_rate_pct",
+  "requires_human_approval": false,
+  "risk_metric": "risk_score",
+  "uses_tool": false
+}

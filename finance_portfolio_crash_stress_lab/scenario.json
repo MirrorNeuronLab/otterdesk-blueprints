@@ -1,0 +1,104 @@
+{
+  "actions": [
+    {
+      "cost": 0.0,
+      "description": "Reduce equity beta and add defensive exposure.",
+      "effects": {
+        "drawdown_pct": -2.0,
+        "liquidity_pct": 2.0,
+        "portfolio_value": 4000.0
+      },
+      "name": "rebalance_defensive"
+    },
+    {
+      "cost": 0.0,
+      "description": "Add duration hedge against rate moves.",
+      "effects": {
+        "drawdown_pct": -1.0,
+        "portfolio_value": -2000.0,
+        "rate_shock_bps": -20.0
+      },
+      "name": "hedge_rates"
+    },
+    {
+      "cost": 0.0,
+      "description": "Raise cash to protect liquidity.",
+      "effects": {
+        "liquidity_pct": 5.0,
+        "portfolio_value": -3000.0
+      },
+      "name": "raise_cash"
+    }
+  ],
+  "agent_responsibilities": [
+    "observe macro shocks",
+    "evaluate drawdown and liquidity",
+    "recommend rebalancing"
+  ],
+  "artifact_type": "portfolio risk report",
+  "blueprint_id": "finance_portfolio_crash_stress_lab",
+  "category": "finance",
+  "default_inputs": {
+    "scenario": "stagflation shock",
+    "seed": 42,
+    "steps": 5
+  },
+  "description": "Stress a portfolio against drawdown, rate shocks, and liquidity pressure before recommending rebalancing.",
+  "entity_label": "allocation sleeve",
+  "entity_names": [
+    "equities",
+    "duration",
+    "credit"
+  ],
+  "features": [
+    "macro_shock_simulation",
+    "portfolio_risk",
+    "llm_risk_report"
+  ],
+  "llm_role": "Portfolio stress-test analyst",
+  "metrics": [
+    {
+      "drift": -12000.0,
+      "initial": 1000000,
+      "label": "Portfolio value",
+      "maximum": 1200000,
+      "minimum": 600000,
+      "name": "portfolio_value",
+      "volatility": 18000.0
+    },
+    {
+      "drift": 1.5,
+      "initial": 4.0,
+      "label": "Drawdown percent",
+      "maximum": 45,
+      "minimum": 0,
+      "name": "drawdown_pct",
+      "volatility": 1.2
+    },
+    {
+      "drift": 12.0,
+      "initial": 60,
+      "label": "Rate shock bps",
+      "maximum": 300,
+      "minimum": -100,
+      "name": "rate_shock_bps",
+      "volatility": 15.0
+    },
+    {
+      "drift": -1.0,
+      "initial": 18,
+      "label": "Liquidity percent",
+      "maximum": 60,
+      "minimum": 0,
+      "name": "liquidity_pct",
+      "volatility": 1.5
+    }
+  ],
+  "multi_agent": false,
+  "name": "finance_portfolio_crash_stress_lab",
+  "objective": "minimize",
+  "primary_metric": "drawdown_pct",
+  "requires_human_approval": false,
+  "risk_metric": "liquidity_pct",
+  "uses_tool": false
+}

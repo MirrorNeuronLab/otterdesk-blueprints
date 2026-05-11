@@ -1,0 +1,171 @@
+{
+  "daemon": false,
+  "description": "Stress a portfolio against drawdown, rate shocks, and liquidity pressure before recommending rebalancing.",
+  "edges": [
+    {
+      "edge_id": "simulation_to_report",
+      "from_node": "simulation_loop",
+      "message_type": "blueprint_report",
+      "to_node": "report_sink"
+    }
+  ],
+  "entrypoints": [
+    "simulation_loop"
+  ],
+  "graph_id": "finance_portfolio_crash_stress_lab_v1",
+  "initial_inputs": {
+    "simulation_loop": [
+      {
+        "scenario": "stagflation shock",
+        "seed": 42,
+        "steps": 5
+      }
+    ]
+  },
+  "job_name": "finance-portfolio-crash-stress-lab",
+  "manifest_version": "1.0",
+  "metadata": {
+    "blueprint_id": "finance_portfolio_crash_stress_lab",
+    "category": "finance",
+    "customizable_for": "Wealth management, treasury, family offices, robo-advisory risk overlays.",
+    "description": "Stress a portfolio against drawdown, rate shocks, and liquidity pressure before recommending rebalancing.",
+    "interfaces": {
+      "config": [
+        "metadata",
+        "identity",
+        "inputs",
+        "simulation",
+        "llm",
+        "outputs",
+        "logging",
+        "real_adapters"
+      ],
+      "identity": [
+        "blueprint_id",
+        "name",
+        "run_id"
+      ],
+      "input_adapters": [
+        "mock",
+        "json",
+        "file",
+        "env_json"
+      ],
+      "output_adapters": [
+        "local_run_store"
+      ],
+      "outputs": [
+        "run.json",
+        "config.json",
+        "inputs.json",
+        "events.jsonl",
+        "result.json",
+        "final_artifact.json"
+      ]
+    },
+    "llm": {
+      "default_api_base": "http://192.168.4.173:11434",
+      "default_model": "ollama/nemotron3:33b",
+      "mock_mode": "run payloads/simulation_loop/scripts/run_blueprint.py --mock-llm"
+    },
+    "llm_agent_role": "Portfolio stress-test analyst.",
+    "name": "Portfolio Crash Stress Lab",
+    "output": "Portfolio risk report and rebalance recommendation.",
+    "output_contract": {
+      "events": "blueprint_report",
+      "stdout": "JSON object with timeline, state_changes, final_artifact, and llm metadata"
+    },
+    "problem_solved": "Risk changes path-dependently during shocks; one summary cannot show how hedges, cash, and defensive moves alter the next state.",
+    "quick_test": {
+      "command": "python3 payloads/simulation_loop/scripts/run_blueprint.py --mock-llm --steps 2",
+      "enabled": true
+    },
+    "runtime_features": [
+      "macro shock simulation",
+      "portfolio risk",
+      "LLM risk report",
+      "decision feedback"
+    ],
+    "simulation": {
+      "actions": [
+        "rebalance_defensive",
+        "hedge_rates",
+        "raise_cash"
+      ],
+      "agent_role": "Portfolio stress-test analyst",
+      "dynamic_metrics": [
+        "portfolio_value",
+        "drawdown_pct",
+        "rate_shock_bps",
+        "liquidity_pct"
+      ]
+    },
+    "simulation_type": "Macro shock and portfolio risk simulation.",
+    "standard": {
+      "config_path": "config/default.json",
+      "default_input_adapter": "mock",
+      "execution_model": "load metadata -> resolve config -> load inputs -> simulate/decide loop -> emit events -> write final artifact",
+      "output_adapter": "local_run_store",
+      "real_input_adapters": [
+        "file",
+        "json",
+        "env_json"
+      ],
+      "run_store": "~/.mn/runs/<run_id>/",
+      "version": "1.0"
+    },
+    "target_user": "Portfolio managers, wealth advisors, risk officers, and fintech evaluators."
+  },
+  "name": "Portfolio Crash Stress Lab",
+  "nodes": [
+    {
+      "agent_type": "executor",
+      "config": {
+        "command": [
+          "python3",
+          "scripts/run_blueprint.py"
+        ],
+        "environment": {
+          "LITELLM_API_BASE": "http://192.168.4.173:11434",
+          "LITELLM_MAX_TOKENS": "700",
+          "LITELLM_MODEL": "ollama/nemotron3:33b",
+          "LITELLM_NUM_RETRIES": "1",
+          "LITELLM_TIMEOUT_SECONDS": "60",
+          "MN_BLUEPRINT_ID": "finance_portfolio_crash_stress_lab",
+          "MN_LLM_API_BASE": "http://192.168.4.173:11434",
+          "MN_LLM_MAX_TOKENS": "700",
+          "MN_LLM_MODEL": "ollama/nemotron3:33b",
+          "MN_LLM_NUM_RETRIES": "1",
+          "MN_LLM_TIMEOUT_SECONDS": "60"
+        },
+        "from": "base",
+        "name_prefix": "finance_portfolio_crash_stress_lab",
+        "no_auto_providers": true,
+        "no_keep": true,
+        "output_message_type": "blueprint_report",
+        "pool": "default",
+        "pool_slots": 1,
+        "tty": false,
+        "upload_as": "simulation_loop",
+        "upload_path": "simulation_loop",
+        "workdir": "/sandbox/job/simulation_loop"
+      },
+      "node_id": "simulation_loop",
+      "role": "root_coordinator",
+      "type": "generic"
+    },
+    {
+      "agent_type": "aggregator",
+      "config": {
+        "complete_on_message": true
+      },
+      "node_id": "report_sink",
+      "role": "result_sink",
+      "type": "reduce"
+    }
+  ],
+  "policies": {
+    "recovery_mode": "local_restart"
+  },
+  "requiredContextEngine": false
+}

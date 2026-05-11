@@ -1,0 +1,177 @@
+{
+  "benchmark": {
+    "baseline": "all_context",
+    "enabled": true,
+    "quality_metrics": [
+      "action_accuracy",
+      "property_match",
+      "critical_fact_recall",
+      "risk_awareness",
+      "quality_score_delta",
+      "estimated_token_reduction_ratio",
+      "budget_violation_rate"
+    ],
+    "schema_version": "mn.finance.property_alpha.memory_benchmark.v2"
+  },
+  "execution_model": [
+    "load_metadata",
+    "resolve_config",
+    "load_inputs",
+    "start_run_store",
+    "seed_large_context",
+    "retrieve_working_memory",
+    "observe_simulation_state",
+    "call_llm_agent",
+    "score_all_context_vs_optimized_memory",
+    "apply_decision_to_simulation",
+    "emit_events",
+    "write_final_artifact"
+  ],
+  "identity": {
+    "blueprint_id": "finance_zip_code_property_alpha_engine_with_memory",
+    "name": "Zip Code Property Alpha Engine With Memory"
+  },
+  "inputs": {
+    "adapter": "mock",
+    "description": "Default synthetic large-context inputs bundled with the blueprint.",
+    "payload": {
+      "history_months": 24,
+      "all_context_attention_limit": 36,
+      "all_context_token_budget": 8000,
+      "max_price": 950000,
+      "memory_limit": 36,
+      "memory_mode": "compare",
+      "noise_events_per_month": 10,
+      "seed": 77,
+      "steps": 6,
+      "target_zip": "02139"
+    }
+  },
+  "interfaces": {
+    "config_sections": [
+      "metadata",
+      "identity",
+      "inputs",
+      "simulation",
+      "memory",
+      "benchmark",
+      "llm",
+      "outputs",
+      "logging",
+      "real_adapters"
+    ],
+    "identity_fields": [
+      "blueprint_id",
+      "name",
+      "run_id"
+    ],
+    "input_adapters": [
+      "mock",
+      "json",
+      "file",
+      "env_json"
+    ],
+    "output_adapters": [
+      "local_run_store"
+    ],
+    "run_artifacts": [
+      "run.json",
+      "config.json",
+      "inputs.json",
+      "events.jsonl",
+      "result.json",
+      "final_artifact.json"
+    ]
+  },
+  "llm": {
+    "agent_role": "Real estate investment analyst with working memory",
+    "api_base": "http://192.168.4.173:11434",
+    "mock_mode": "fake",
+    "mode": "ollama",
+    "model": "ollama/nemotron3:33b",
+    "responsibilities": [
+      "observe listing dynamics",
+      "retrieve important historical facts from working memory",
+      "connect broker, lender, rent, insurance, and diligence signals",
+      "rank opportunities against the current snapshot",
+      "explain bid, discount, or watchlist decisions with source_refs"
+    ]
+  },
+  "logging": {
+    "events": [
+      "run_started",
+      "inputs_loaded",
+      "large_context_seeded",
+      "simulation_step_started",
+      "memory_context_compiled",
+      "llm_decision",
+      "benchmark_step_scored",
+      "simulation_state_updated",
+      "run_completed"
+    ],
+    "events_jsonl": true,
+    "level": "INFO",
+    "redact_env_secrets": true
+  },
+  "memory": {
+    "compression_goal": "replace full-history agent handoffs with a compact source-grounded decision packet while preserving older critical facts",
+    "enabled": true,
+    "mode": "compare",
+    "retrieval_tags": [
+      "critical",
+      "demand_tailwind",
+      "rent_growth",
+      "risk_flag",
+      "financing"
+    ],
+    "selection_limit": 36
+  },
+  "metadata": {
+    "category": "finance",
+    "customizable_for": "Rental acquisitions, flipping pipelines, multifamily sourcing, market expansion, diligence memory, and capital-allocation committees.",
+    "problem_solved": "Property acquisition decisions often depend on older broker, lender, rent, insurance, and diligence facts that disappear inside large noisy deal flow.",
+    "target_users": "Real-estate investors, acquisition analysts, property-tech teams, and diligence operators."
+  },
+  "mode": "mock",
+  "outputs": {
+    "adapter": "local_run_store",
+    "artifact_contract": "Ranked opportunities, source-grounded bid/watchlist recommendation, and memory decision-quality benchmark.",
+    "run_root": "~/.mn/runs",
+    "write_run_store": true
+  },
+  "real_adapters": {
+    "inline_json": {
+      "adapter": "json",
+      "description": "Load overrides from an inline JSON object.",
+      "payload": {}
+    },
+    "input_file": {
+      "adapter": "file",
+      "description": "Load JSON overrides from a local file path.",
+      "path": null
+    }
+  },
+  "simulation": {
+    "actions": [
+      "submit_bid",
+      "negotiate_discount",
+      "watchlist_only"
+    ],
+    "deterministic": true,
+    "enabled": true,
+    "metrics": [
+      "median_price_index",
+      "demand_index",
+      "cap_rate_pct",
+      "risk_score",
+      "liquidity_score",
+      "rent_growth_signal"
+    ],
+    "objective": "maximize",
+    "primary_metric": "cap_rate_pct",
+    "risk_metric": "risk_score",
+    "seed_field": "seed",
+    "type": "ZIP-code property market simulation with large historical memory."
+  },
+  "standard_version": "1.0"
+}

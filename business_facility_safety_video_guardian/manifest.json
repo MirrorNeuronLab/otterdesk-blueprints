@@ -1,0 +1,177 @@
+{
+  "daemon": true,
+  "description": "Monitor facility video streams and escalate safety-relevant observations with LLM reasoning.",
+  "edges": [
+    {
+      "edge_id": "ingress_to_tick_source",
+      "from_node": "ingress",
+      "message_type": "video_monitor_start",
+      "to_node": "door_camera_tick_source"
+    },
+    {
+      "edge_id": "tick_source_to_person_detector",
+      "from_node": "door_camera_tick_source",
+      "message_type": "door_camera_frame_tick",
+      "to_node": "person_detector"
+    }
+  ],
+  "entrypoints": [
+    "ingress"
+  ],
+  "graph_id": "business_facility_safety_video_guardian_v1",
+  "initial_inputs": {
+    "ingress": [
+      {
+        "description": "Continuously sample a 24/7 door camera or looping demo video, ask Nemotron 3 through Ollama whether a person is visible, and send Slack alerts when someone is detected.",
+        "ollama_base_url": "http://192.168.4.173:11434",
+        "ollama_model": "nemotron3:33b",
+        "scenario": "door_camera_safety_monitor",
+        "slack_optional": true
+      }
+    ]
+  },
+  "job_name": "business-facility-safety-video-guardian",
+  "manifest_version": "1.0",
+  "metadata": {
+    "blueprint_id": "business_facility_safety_video_guardian",
+    "category": "business",
+    "customizable_for": "Door monitoring, restricted-area alerts, retail safety, warehouse operations.",
+    "description": "Monitor facility video streams and escalate safety-relevant observations with LLM reasoning.",
+    "interfaces": {
+      "config": [
+        "metadata",
+        "identity",
+        "inputs",
+        "simulation",
+        "llm",
+        "outputs",
+        "logging",
+        "real_adapters"
+      ],
+      "identity": [
+        "blueprint_id",
+        "name",
+        "run_id"
+      ],
+      "input_adapters": [
+        "mock",
+        "json",
+        "file",
+        "env_json"
+      ],
+      "output_adapters": [
+        "local_run_store"
+      ],
+      "outputs": [
+        "run.json",
+        "config.json",
+        "inputs.json",
+        "events.jsonl",
+        "result.json",
+        "final_artifact.json"
+      ]
+    },
+    "llm": {},
+    "llm_agent_role": "Safety observation and escalation agent.",
+    "name": "Facility Safety Video Guardian",
+    "output": "Detection events, alert decisions, and notification payloads.",
+    "output_contract": {
+      "events": "typed event objects with payload",
+      "status": "JSON lines on stderr",
+      "stdout": "single JSON object, event envelope, or bundle path"
+    },
+    "problem_solved": "Video monitoring is continuous, noisy, and operationally sensitive; teams need stateful alerts, cooldowns, and explainable observations rather than raw frames.",
+    "quick_test": {
+      "description": "Quick test mode shortens the sample interval, disables Slack, and uses mock VLM detection unless OLLAMA_LIVE_IN_QUICK_TEST=1.",
+      "enabled": false,
+      "env": "MN_BLUEPRINT_QUICK_TEST=1"
+    },
+    "runtime_features": [
+      "video sampling",
+      "Ollama decision path",
+      "cooldown state",
+      "Slack alerting"
+    ],
+    "simulation_type": "Video stream sampling with alert state.",
+    "standard": {
+      "config_path": "config/default.json",
+      "default_input_adapter": "mock",
+      "execution_model": "load metadata -> resolve config -> load inputs -> simulate/decide loop -> emit events -> write final artifact",
+      "output_adapter": "local_run_store",
+      "real_input_adapters": [
+        "file",
+        "json",
+        "env_json"
+      ],
+      "run_store": "~/.mn/runs/<run_id>/",
+      "version": "1.0"
+    },
+    "status_logging": {
+      "env": "MN_BLUEPRINT_LOG_LEVEL",
+      "format": "jsonl",
+      "stream": "stderr"
+    },
+    "target_user": "Facilities, security, safety operations, and property management teams."
+  },
+  "name": "Facility Safety Video Guardian",
+  "nodes": [
+    {
+      "agent_type": "router",
+      "config": {
+        "emit_type": "video_monitor_start"
+      },
+      "node_id": "ingress",
+      "role": "root_coordinator",
+      "type": "map"
+    },
+    {
+      "agent_type": "module",
+      "config": {
+        "camera_id": "front-door",
+        "interval_ms": 5000,
+        "module": "MirrorNeuron.Examples.VideoSafetyDoorMonitor.DoorCameraTickSource",
+        "module_source": "beam_modules/door_camera_tick_source.ex",
+        "target_node": "person_detector"
+      },
+      "node_id": "door_camera_tick_source",
+      "role": "door_camera_sampler",
+      "type": "stream"
+    },
+    {
+      "agent_type": "executor",
+      "config": {
+        "command": [
+          "python3",
+          "scripts/analyze_door_camera_frame.py"
+        ],
+        "environment": {
+          "FRAME_JPEG_MAX_WIDTH": "896",
+          "FRAME_SAMPLE_SECONDS": "5.0",
+          "MN_BLUEPRINT_LOG_LEVEL": "info",
+          "OLLAMA_BASE_URL": "http://192.168.4.173:11434",
+          "OLLAMA_MODEL": "nemotron3:33b",
+          "OLLAMA_THINK": "false",
+          "PERSON_ALERT_COOLDOWN_SECONDS": "60",
+          "PERSON_DETECTION_CONFIDENCE_THRESHOLD": "0.65",
+          "SLACK_ALERT_ENABLED": "true",
+          "SLACK_DEFAULT_CHANNEL": "#safety",
+          "SLACK_MESSAGE_PREFIX": "Door camera safety alert",
+          "VIDEO_SOURCE_URI": "samples/door-demo.mp4"
+        },
+        "output_message_type": null,
+        "runner_module": "MirrorNeuron.Runner.HostLocal",
+        "upload_as": "person_detector",
+        "upload_path": "person_detector",
+        "workdir": "/sandbox/job/person_detector"
+      },
+      "node_id": "person_detector",
+      "role": "nemotron3_video_safety_detector",
+      "type": "stream"
+    }
+  ],
+  "policies": {
+    "recovery_mode": "cluster_recover",
+    "stream_mode": "live"
+  },
+  "requiredContextEngine": false
+}

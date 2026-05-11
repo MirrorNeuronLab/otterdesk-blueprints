@@ -1,0 +1,267 @@
+{
+  "description": "Run a long-lived multi-stage drug-discovery loop that keeps generating and evaluating candidates.",
+  "edges": [
+    {
+      "edge_id": "a_to_b",
+      "from_node": "target_discovery",
+      "message_type": "targets_ready",
+      "to_node": "structure_generation"
+    },
+    {
+      "edge_id": "b_to_c",
+      "from_node": "structure_generation",
+      "message_type": "structures_ready",
+      "to_node": "candidate_generation"
+    },
+    {
+      "edge_id": "c_to_d",
+      "from_node": "candidate_generation",
+      "message_type": "candidates_ready",
+      "to_node": "binding_evaluation"
+    },
+    {
+      "edge_id": "d_to_e",
+      "from_node": "binding_evaluation",
+      "message_type": "evaluations_ready",
+      "to_node": "ranking_reporting"
+    },
+    {
+      "edge_id": "manager_listen_a",
+      "from_node": "target_discovery",
+      "message_type": "targets_ready",
+      "to_node": "manager_monitor"
+    },
+    {
+      "edge_id": "manager_listen_b",
+      "from_node": "structure_generation",
+      "message_type": "structures_ready",
+      "to_node": "manager_monitor"
+    },
+    {
+      "edge_id": "manager_listen_c",
+      "from_node": "candidate_generation",
+      "message_type": "candidates_ready",
+      "to_node": "manager_monitor"
+    },
+    {
+      "edge_id": "manager_listen_d",
+      "from_node": "binding_evaluation",
+      "message_type": "evaluations_ready",
+      "to_node": "manager_monitor"
+    },
+    {
+      "edge_id": "manager_listen_e",
+      "from_node": "ranking_reporting",
+      "message_type": "pipeline_complete",
+      "to_node": "manager_monitor"
+    }
+  ],
+  "entrypoints": [
+    "target_discovery"
+  ],
+  "graph_id": "science_drug_discovery_closed_loop_lab_v1",
+  "initial_inputs": {
+    "target_discovery": [
+      {
+        "disease": "Alzheimer"
+      }
+    ]
+  },
+  "job_name": "science-drug-discovery-closed-loop-lab",
+  "manifest_version": "1.0",
+  "metadata": {
+    "blueprint_id": "science_drug_discovery_closed_loop_lab",
+    "category": "science",
+    "customizable_for": "Drug discovery, material search, assay planning, scientific literature loops.",
+    "description": "Run a long-lived multi-stage drug-discovery loop that keeps generating and evaluating candidates.",
+    "interfaces": {
+      "config": [
+        "metadata",
+        "identity",
+        "inputs",
+        "simulation",
+        "llm",
+        "outputs",
+        "logging",
+        "real_adapters"
+      ],
+      "identity": [
+        "blueprint_id",
+        "name",
+        "run_id"
+      ],
+      "input_adapters": [
+        "mock",
+        "json",
+        "file",
+        "env_json"
+      ],
+      "output_adapters": [
+        "local_run_store"
+      ],
+      "outputs": [
+        "run.json",
+        "config.json",
+        "inputs.json",
+        "events.jsonl",
+        "result.json",
+        "final_artifact.json"
+      ]
+    },
+    "llm": {},
+    "llm_agent_role": "Scientific manager and staged worker agents.",
+    "name": "Drug Discovery Closed Loop Lab",
+    "output": "Candidate artifacts, stage logs, and discovery summaries.",
+    "output_contract": {
+      "events": "typed event objects with payload",
+      "status": "JSON lines on stderr",
+      "stdout": "single JSON object, event envelope, or bundle path"
+    },
+    "problem_solved": "Discovery workflows are iterative: candidate generation, scoring, extraction, and review need to repeat as new evidence arrives.",
+    "quick_test": {
+      "description": "Use generated quick-test bundles when available; fixed blueprints use local dry-run/mock provider environment variables and deterministic sample inputs.",
+      "enabled": false,
+      "env": "MN_BLUEPRINT_QUICK_TEST=1"
+    },
+    "runtime_features": [
+      "long-running loop",
+      "multi-stage pipeline",
+      "scientific workers",
+      "artifact extraction"
+    ],
+    "simulation_type": "Long-running scientific pipeline loop.",
+    "standard": {
+      "config_path": "config/default.json",
+      "default_input_adapter": "mock",
+      "execution_model": "load metadata -> resolve config -> load inputs -> simulate/decide loop -> emit events -> write final artifact",
+      "output_adapter": "local_run_store",
+      "real_input_adapters": [
+        "file",
+        "json",
+        "env_json"
+      ],
+      "run_store": "~/.mn/runs/<run_id>/",
+      "version": "1.0"
+    },
+    "status_logging": {
+      "env": "MN_BLUEPRINT_LOG_LEVEL",
+      "format": "jsonl",
+      "stream": "stderr"
+    },
+    "target_user": "Computational biology researchers and scientific AI platform evaluators."
+  },
+  "name": "Drug Discovery Closed Loop Lab",
+  "nodes": [
+    {
+      "agent_type": "executor",
+      "config": {
+        "command": [
+          "python3",
+          "scripts/stage_a.py"
+        ],
+        "output_message_type": "targets_ready",
+        "pool": "default",
+        "pool_slots": 1,
+        "runner_module": "MirrorNeuron.Runner.HostLocal",
+        "upload_as": "worker",
+        "upload_path": "worker",
+        "workdir": "/sandbox/job/worker"
+      },
+      "node_id": "target_discovery",
+      "type": "generic"
+    },
+    {
+      "agent_type": "executor",
+      "config": {
+        "command": [
+          "python3",
+          "scripts/stage_b.py"
+        ],
+        "output_message_type": "structures_ready",
+        "pool": "default",
+        "pool_slots": 1,
+        "runner_module": "MirrorNeuron.Runner.HostLocal",
+        "upload_as": "worker",
+        "upload_path": "worker",
+        "workdir": "/sandbox/job/worker"
+      },
+      "node_id": "structure_generation",
+      "type": "generic"
+    },
+    {
+      "agent_type": "executor",
+      "config": {
+        "command": [
+          "python3",
+          "scripts/stage_c.py"
+        ],
+        "output_message_type": "candidates_ready",
+        "pool": "default",
+        "pool_slots": 1,
+        "runner_module": "MirrorNeuron.Runner.HostLocal",
+        "upload_as": "worker",
+        "upload_path": "worker",
+        "workdir": "/sandbox/job/worker"
+      },
+      "node_id": "candidate_generation",
+      "type": "generic"
+    },
+    {
+      "agent_type": "executor",
+      "config": {
+        "command": [
+          "python3",
+          "scripts/stage_d.py"
+        ],
+        "output_message_type": "evaluations_ready",
+        "pool": "default",
+        "pool_slots": 1,
+        "runner_module": "MirrorNeuron.Runner.HostLocal",
+        "upload_as": "worker",
+        "upload_path": "worker",
+        "workdir": "/sandbox/job/worker"
+      },
+      "node_id": "binding_evaluation",
+      "type": "generic"
+    },
+    {
+      "agent_type": "executor",
+      "config": {
+        "command": [
+          "python3",
+          "scripts/stage_e.py"
+        ],
+        "output_message_type": "pipeline_complete",
+        "pool": "default",
+        "pool_slots": 1,
+        "runner_module": "MirrorNeuron.Runner.HostLocal",
+        "upload_as": "worker",
+        "upload_path": "worker",
+        "workdir": "/sandbox/job/worker"
+      },
+      "node_id": "ranking_reporting",
+      "type": "generic"
+    },
+    {
+      "agent_type": "executor",
+      "config": {
+        "command": [
+          "python3",
+          "scripts/manager.py"
+        ],
+        "pool": "default",
+        "pool_slots": 1,
+        "runner_module": "MirrorNeuron.Runner.HostLocal",
+        "upload_as": "worker",
+        "upload_path": "worker",
+        "workdir": "/sandbox/job/worker"
+      },
+      "node_id": "manager_monitor",
+      "type": "generic"
+    }
+  ],
+  "policies": {
+    "recovery_mode": "cluster_recover"
+  },
+  "requiredContextEngine": false
+}
