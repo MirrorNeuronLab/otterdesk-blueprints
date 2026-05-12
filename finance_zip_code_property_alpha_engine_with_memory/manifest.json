@@ -137,7 +137,10 @@
       "config": {
         "command": [
           "python3",
-          "scripts/run_blueprint.py"
+          "scripts/run_blueprint.py",
+          "--mock-llm",
+          "--steps",
+          "2"
         ],
         "environment": {
           "LITELLM_API_BASE": "http://192.168.4.173:11434",
@@ -162,6 +165,20 @@
         "tty": false,
         "upload_as": "simulation_loop",
         "upload_path": "simulation_loop",
+        "upload_paths": [
+          {
+            "source": "simulation_loop",
+            "target": "simulation_loop"
+          },
+          {
+            "source": "config",
+            "target": "config"
+          },
+          {
+            "source": "mn-skills/blueprint_support_skill",
+            "target": "mn-skills/blueprint_support_skill"
+          }
+        ],
         "workdir": "/sandbox/job/simulation_loop"
       },
       "node_id": "simulation_loop",

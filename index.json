@@ -1,6 +1,7 @@
 [
   {
     "description": "Monitor facility video streams and escalate safety-relevant observations with LLM reasoning.",
+    "category": "Security",
     "graph_id": "business_facility_safety_video_guardian_v1",
     "id": "business_facility_safety_video_guardian",
     "job_name": "business-facility-safety-video-guardian",
@@ -19,11 +20,15 @@
         "Slack alerting"
       ],
       "simulation_type": "Video stream sampling with alert state.",
-      "target_users": "Facilities, security, safety operations, and property management teams."
+      "target_users": "Facilities, security, safety operations, and property management teams.",
+      "benefit": "Reduce missed safety events without asking staff to watch every frame in real time.",
+      "how_it_works": "Samples facility video, reasons over observations, applies cooldown policy, and escalates only safety-relevant events.",
+      "input": "Camera or video stream samples, monitored-zone rules, alert thresholds, and notification destinations."
     }
   },
   {
     "description": "Stress a portfolio against drawdown, rate shocks, and liquidity pressure before recommending rebalancing.",
+    "category": "Finance",
     "graph_id": "finance_portfolio_crash_stress_lab_v1",
     "id": "finance_portfolio_crash_stress_lab",
     "job_name": "finance-portfolio-crash-stress-lab",
@@ -42,11 +47,15 @@
         "decision feedback"
       ],
       "simulation_type": "Macro shock and portfolio risk simulation.",
-      "target_users": "Portfolio managers, wealth advisors, risk officers, and fintech evaluators."
+      "target_users": "Portfolio managers, wealth advisors, risk officers, and fintech evaluators.",
+      "benefit": "See portfolio downside exposure before a shock becomes a client or liquidity problem.",
+      "how_it_works": "Runs macro and liquidity stress scenarios, compares portfolio states, and drafts a rebalance recommendation.",
+      "input": "Portfolio holdings, cash and hedge constraints, risk preferences, and market shock assumptions."
     }
   },
   {
     "description": "Rank property acquisition opportunities with working memory over noisy ZIP-code history, broker flow, financing constraints, and prior decision outcomes.",
+    "category": "Finance",
     "graph_id": "finance_zip_code_property_alpha_engine_with_memory_v1",
     "id": "finance_zip_code_property_alpha_engine_with_memory",
     "job_name": "finance-zip-code-property-alpha-engine-with-memory",
@@ -68,11 +77,15 @@
         "LLM investment reasoning"
       ],
       "simulation_type": "ZIP-code property market simulation with large historical memory.",
-      "target_users": "Real-estate investors, acquisition analysts, property-tech teams, and diligence operators."
+      "target_users": "Real-estate investors, acquisition analysts, property-tech teams, and diligence operators.",
+      "benefit": "Surface better acquisition targets by keeping older deal, lender, rent, and diligence signals in memory.",
+      "how_it_works": "Retrieves relevant historical market context, scores opportunities, and compares memory-optimized reasoning with a full-context baseline.",
+      "input": "Property pipeline data, ZIP-code history, broker notes, financing constraints, and prior investment decisions."
     }
   },
   {
     "description": "Run a long-lived multi-stage drug-discovery loop that keeps generating and evaluating candidates.",
+    "category": "Science",
     "graph_id": "science_drug_discovery_closed_loop_lab_v1",
     "id": "science_drug_discovery_closed_loop_lab",
     "job_name": "science-drug-discovery-closed-loop-lab",
@@ -91,7 +104,10 @@
         "artifact extraction"
       ],
       "simulation_type": "Long-running scientific pipeline loop.",
-      "target_users": "Computational biology researchers and scientific AI platform evaluators."
+      "target_users": "Computational biology researchers and scientific AI platform evaluators.",
+      "benefit": "Keep candidate discovery moving through repeated generate, score, extract, and review cycles.",
+      "how_it_works": "Coordinates staged scientific agents in a long-running loop that generates candidates, evaluates evidence, and emits artifacts.",
+      "input": "Target profile, assay or screening criteria, scientific constraints, and optional literature or candidate seeds."
     }
   }
 ]

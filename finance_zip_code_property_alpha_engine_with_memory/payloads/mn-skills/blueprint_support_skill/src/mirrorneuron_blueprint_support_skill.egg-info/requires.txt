@@ -1,0 +1,3 @@
+
+[webui]
+gradio>=4.0

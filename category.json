@@ -1,0 +1,24 @@
+{
+  "categories": [
+    {
+      "name": "Finance",
+      "slug": "finance"
+    },
+    {
+      "name": "Business",
+      "slug": "business"
+    },
+    {
+      "name": "Science",
+      "slug": "science"
+    },
+    {
+      "name": "Security",
+      "slug": "security"
+    },
+    {
+      "name": "Engineering",
+      "slug": "engineering"
+    }
+  ]
+}

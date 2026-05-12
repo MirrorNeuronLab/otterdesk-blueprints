@@ -205,7 +205,14 @@ def run_blueprint(
         raise ValueError(f"this runner handles {BLUEPRINT_ID!r}, got {blueprint_id!r}")
 
     started_at = utc_now_iso()
-    default_config_path = Path(__file__).resolve().parents[3] / "config" / "default.json"
+    default_config_path = next(
+        (
+            parent / "config" / "default.json"
+            for parent in Path(__file__).resolve().parents
+            if (parent / "config" / "default.json").exists()
+        ),
+        Path(__file__).resolve().parents[3] / "config" / "default.json",
+    )
     resolved_config = load_config(
         BLUEPRINT_ID,
         default_config_path=default_config_path,
