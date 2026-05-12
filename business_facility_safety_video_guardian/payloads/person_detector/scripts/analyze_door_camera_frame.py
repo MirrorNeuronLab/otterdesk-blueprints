@@ -16,6 +16,7 @@ from typing import Any
 
 
 IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
+DEFAULT_VIDEO_SOURCE_URI = "rtsp://127.0.0.1:8554/local-camera"
 
 
 def load_json_env(name: str) -> dict[str, Any]:
@@ -158,8 +159,12 @@ def mock_detection(frame_seq: int) -> dict[str, Any]:
 
 
 def call_ollama(frame: bytes, prompt: str) -> dict[str, Any]:
-    base_url = os.environ.get("OLLAMA_BASE_URL", "http://192.168.4.173:11434").rstrip("/")
-    model = os.environ.get("OLLAMA_MODEL", "nemotron3:33b")
+    base_url = (
+        os.environ.get("VL_MODEL_BASE_URL")
+        or os.environ.get("OLLAMA_BASE_URL")
+        or "http://192.168.4.173:11434"
+    ).rstrip("/")
+    model = os.environ.get("VL_MODEL_NAME") or os.environ.get("OLLAMA_MODEL") or "nemotron3:33b"
     timeout = float(os.environ.get("OLLAMA_TIMEOUT_SECONDS", "90"))
     payload = {
         "model": model,
@@ -293,7 +298,7 @@ def main() -> None:
 
     frame_seq = int(payload.get("tick_seq") or state.get("frames_seen", 0) + 1)
     camera_id = payload.get("camera_id") or os.environ.get("CAMERA_ID", "front-door")
-    source_uri = os.environ.get("VIDEO_SOURCE_URI", "samples/door-demo.mp4")
+    source_uri = os.environ.get("VIDEO_SOURCE_URI", DEFAULT_VIDEO_SOURCE_URI)
     sample_seconds = float(os.environ.get("FRAME_SAMPLE_SECONDS", "5.0"))
     max_width = int(os.environ.get("FRAME_JPEG_MAX_WIDTH", "896"))
 

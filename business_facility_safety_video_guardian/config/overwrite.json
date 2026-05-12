@@ -1,0 +1,11 @@
+{
+  "video_source": {
+    "uri": "rtsp://127.0.0.1:8554/local-camera",
+    "transport": "rtsp",
+    "codec": "h264"
+  },
+  "vl_model": {
+    "base_url": "http://192.168.4.173:11434",
+    "model": "nemotron3:33b"
+  }
+}

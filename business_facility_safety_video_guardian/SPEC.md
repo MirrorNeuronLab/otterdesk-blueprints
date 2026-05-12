@@ -12,13 +12,15 @@ Facilities, security, safety operations, and property management teams need to w
 
 The blueprint is organized as a streaming safety loop. `ingress` starts the monitor, `door_camera_tick_source` emits frame ticks, and `person_detector` samples the configured video source, runs detection, applies confidence and cooldown policy, and emits structured events.
 
-The prototype supports live Ollama/VLM detection and deterministic mock detection for tests. Alert delivery is optional, with Slack-style payloads used as the reference integration. The design goal is to preserve the same input and output shape when replacing the sample video with real camera streams.
+The prototype supports live VL model detection through an Ollama-compatible endpoint and deterministic mock detection for tests. Alert delivery is optional, with Slack-style payloads used as the reference integration. The design goal is to preserve the same input and output shape when replacing the sample video with real camera streams.
 
 ## Input
 
-The prototype accepts a camera or video source, currently represented by a bundled sample video or image-compatible source. The key runtime controls are the frame sampling interval, maximum frame width, person detection confidence threshold, alert cooldown window, and site-specific safety or escalation policy.
+The prototype accepts a configurable camera or video source. By default, it expects a local RTSP stream carrying H.264 video at `rtsp://127.0.0.1:8554/local-camera`; demo runs can override this with the bundled sample video or any image-compatible source. The key runtime controls are the source URI, transport, codec, frame sampling interval, maximum frame width, person detection confidence threshold, alert cooldown window, and site-specific safety or escalation policy.
 
-Notification inputs include Slack enablement, destination channel, message prefix, and any downstream alert routing that a deployment wants to replace Slack with later. Model inputs include the Ollama base URL, VLM model name, prompt behavior, temperature, timeout, and mock or quick-test mode for deterministic local evaluation.
+Notification inputs include Slack enablement, destination channel, message prefix, and any downstream alert routing that a deployment wants to replace Slack with later. Model inputs include the VL model base URL, VL model name, prompt behavior, temperature, timeout, and mock or quick-test mode for deterministic local evaluation. The default VL model location is `http://192.168.4.173:11434` with model `nemotron3:33b`, and deployments can override it through config, generator flags, or `VL_MODEL_BASE_URL` / `VL_MODEL_NAME`.
+
+Third-party apps may edit or replace `config/overwrite.json` before launch to override only the video source and VL model sections. Runtime should resolve `config/default.json` first, then deep-merge `config/overwrite.json` when present, leaving `default.json` as the canonical full baseline config.
 
 For production use, the same contract should be fed by real camera streams, facility metadata, restricted-area definitions, operating hours, incident categories, and customer-specific escalation rules.
 

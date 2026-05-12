@@ -25,6 +25,8 @@
       "identity",
       "inputs",
       "simulation",
+      "video_source",
+      "vl_model",
       "llm",
       "outputs",
       "logging",
@@ -59,6 +61,24 @@
     "mock_mode": "fake",
     "mode": "ollama",
     "model": "ollama/nemotron3:33b"
+  },
+  "video_source": {
+    "uri": "rtsp://127.0.0.1:8554/local-camera",
+    "transport": "rtsp",
+    "codec": "h264",
+    "camera_id": "front-door",
+    "frame_sample_seconds": 5.0,
+    "frame_jpeg_max_width": 896,
+    "description": "Configurable facility video stream. The default expects a local RTSP camera publishing H.264 video."
+  },
+  "vl_model": {
+    "provider": "ollama",
+    "base_url": "http://192.168.4.173:11434",
+    "model": "nemotron3:33b",
+    "endpoint": "/api/generate",
+    "timeout_seconds": 90,
+    "temperature": 0.0,
+    "description": "Configurable vision-language model used to understand sampled facility video frames."
   },
   "logging": {
     "events": [

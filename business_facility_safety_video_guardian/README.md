@@ -2,7 +2,8 @@
 
 `Blueprint ID:` `business_facility_safety_video_guardian`  
 `Category:` business - Business Solution Template  
-`Default LLM:` Ollama `nemotron3:33b` with deterministic fake LLM support for tests
+`Default Video Source:` local RTSP/H.264 stream at `rtsp://127.0.0.1:8554/local-camera`  
+`Default VL Model:` Ollama `nemotron3:33b` at `http://192.168.4.173:11434` with deterministic mock support for tests
 
 ## Intro
 
@@ -17,7 +18,8 @@ This blueprint is for facilities, security, safety operations, and property mana
 ## What It Demonstrates
 
 - Video stream sampling for a door or facility camera.
-- Person detection through a VLM/Ollama path or deterministic mock mode.
+- Configurable camera source, defaulting to a local RTSP/H.264 stream.
+- Person detection through a configurable VL model endpoint or deterministic mock mode.
 - Cooldown-aware alert decisions to avoid notification noise.
 - Structured events and artifacts that a human reviewer can audit.
 
@@ -36,11 +38,27 @@ python3 generate_bundle.py --quick-test --output-dir /tmp/mirror-neuron-bundles
 
 Then run the generated bundle with the MirrorNeuron runtime entrypoint.
 
+Use a live VL model by overriding the endpoint and model name:
+
+```bash
+python3 generate_bundle.py \
+  --video-source-uri rtsp://127.0.0.1:8554/local-camera \
+  --video-source-transport rtsp \
+  --video-source-codec h264 \
+  --vl-model-base-url http://192.168.4.173:11434 \
+  --vl-model-name nemotron3:33b
+```
+
+For bundled demo media instead of a live camera, pass `--video-source-uri samples/door-demo.mp4`. The detector also honors `VIDEO_SOURCE_URI`, `VIDEO_SOURCE_TRANSPORT`, `VIDEO_SOURCE_CODEC`, `VL_MODEL_BASE_URL`, and `VL_MODEL_NAME` at runtime. Existing `OLLAMA_BASE_URL` and `OLLAMA_MODEL` environment variables still work as compatibility aliases.
+
+Third-party apps can edit or replace `config/overwrite.json` before launch to override the video source and VL model settings without changing `config/default.json`. Runtime should load `config/default.json` first, then deep-merge `config/overwrite.json` when present; direct runtime environment variables may still override the resolved config if the runner supports them.
+
 ## Documentation Map
 
 - [SPEC.md](SPEC.md): design details, desired customer outcome, input/output contract, evaluation criteria, prototype limits, and upgrade path.
 - `manifest.json`: runtime graph, nodes, edges, initial inputs, and metadata.
 - `config/default.json`: default identity, inputs, LLM, output, logging, and adapter settings.
+- `config/overwrite.json`: editable third-party override template for video source and VL model settings.
 - `payloads/`: bundled worker code, demo media, and supporting runtime assets.
 
 ## Prototype Status
