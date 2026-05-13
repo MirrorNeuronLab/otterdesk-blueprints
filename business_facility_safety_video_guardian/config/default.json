@@ -148,6 +148,8 @@
     },
     "dashboard": {
       "default_video_source": "person_detector/samples/door-demo.mp4",
+      "browser_video_source": "http://127.0.0.1:8889/local-camera/",
+      "browser_publish_source": "http://127.0.0.1:8889/local-camera/publish?video-codec=h264%2F90000&audio-device=none&video-width=1280&video-height=720&video-framerate=30",
       "event_types": [
         "door_camera_frame_analyzed",
         "door_camera_face_detected",

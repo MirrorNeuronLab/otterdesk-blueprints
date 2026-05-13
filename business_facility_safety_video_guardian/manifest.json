@@ -186,7 +186,9 @@
       "arguments": {
         "run_id": "MirrorNeuron run id used to resolve ~/.mn/runs/<run_id>.",
         "runs_root": "MirrorNeuron runs root, defaulting to ~/.mn/runs.",
-        "url": "Shared support Gradio app URL written to web_ui.json."
+        "url": "Shared support Gradio app URL written to web_ui.json.",
+        "browser_video_source": "MediaMTX WebRTC preview URL, defaulting to http://127.0.0.1:8889/local-camera/ for local testing.",
+        "browser_publish_source": "MediaMTX browser webcam publisher URL, defaulting to the local-camera publish page with H.264 video and no audio for local testing."
       },
       "registration": {
         "module": "mn_blueprint_support.gradio_dashboard",

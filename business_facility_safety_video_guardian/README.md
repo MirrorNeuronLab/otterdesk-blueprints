@@ -53,7 +53,19 @@ For bundled demo media instead of a live camera, pass `--video-source-uri sample
 
 Third-party apps can edit or replace `config/overwrite.json` before launch to override the video source and VL model settings without changing `config/default.json`. Runtime should load `config/default.json` first, then deep-merge `config/overwrite.json` when present; direct runtime environment variables may still override the resolved config if the runner supports them.
 
-For Docker-backed local runs, `config/overwrite.json` points the worker at `rtsp://host.docker.internal:8554/local-camera` so the core container can reach the host RTSP stream. Keep the stream server publishing on the host at `rtsp://127.0.0.1:8554/local-camera`.
+For Docker-backed local runs on Docker Desktop for Mac, `config/overwrite.json` points the HostLocal worker at `rtsp://192.168.65.254:8554/local-camera`, the Docker host gateway that the packaged blueprint ffmpeg can read. Keep the stream server publishing on the host at `rtsp://127.0.0.1:8554/local-camera`. If your Docker host gateway differs, override `video_source.uri` for that environment.
+
+For a local Mac webcam smoke test, start MediaMTX and publish from the browser:
+
+```bash
+scripts/start_demo_camera_stream_for_mac.sh
+```
+
+The script opens the MediaMTX webcam publisher at `http://127.0.0.1:8889/local-camera/publish` with H.264 video and audio disabled. Allow camera access and click Publish; the detector reads the same stream through `rtsp://192.168.65.254:8554/local-camera` from Docker-backed runs, while the dashboard preview reads `http://127.0.0.1:8889/local-camera/`. For a deterministic file-backed stream, use:
+
+```bash
+VIDEO_FILE=payloads/person_detector/samples/door-demo.mp4 scripts/start_demo_camera_stream_for_mac.sh
+```
 
 
 ## Web UI
@@ -70,9 +82,9 @@ Start MirrorNeuron services before running the blueprint:
 mn start
 ```
 
-Open the URL recorded in `web_ui.json`. The shared dashboard reads this blueprint's run store configuration, shows the camera or demo video source, and polls detector events such as `door_camera_frame_analyzed`, `door_camera_face_detected`, alert delivery, and frame-analysis failures.
+Open the URL recorded in `web_ui.json`. The shared dashboard reads this blueprint's run store configuration, shows one merged Video Source area, links the browser webcam publisher, embeds the MediaMTX WebRTC preview for live streams, and polls detector events such as `door_camera_frame_analyzed`, `door_camera_face_detected`, alert delivery, and frame-analysis failures.
 
-Browsers usually cannot play raw RTSP URLs directly. For live review, expose the RTSP camera as browser-playable HLS, MP4, or WebRTC and configure that URL as the video source.
+Browsers usually cannot play raw RTSP URLs directly. For local live review, the default dashboard uses MediaMTX's WebRTC pages: `http://127.0.0.1:8889/local-camera/publish` for webcam publishing and `http://127.0.0.1:8889/local-camera/` for playback.
 
 ## Documentation Map
 
