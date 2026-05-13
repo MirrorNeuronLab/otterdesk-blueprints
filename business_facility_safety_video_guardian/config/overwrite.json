@@ -2,6 +2,10 @@
   "video_source": {
     "transport": "file",
     "codec": "jpeg",
-    "uri": "/sandbox/live/latest.jpg"
+    "uri": "file:///Users/homer/Projects/otterdesk-blueprints/business_facility_safety_video_guardian/payloads/person_detector/samples/door-demo.mp4"
+  },
+  "vl_model": {
+    "base_url": "http://192.168.4.173:11434",
+    "model": "nemotron3:33b"
   }
 }
