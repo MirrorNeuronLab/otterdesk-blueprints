@@ -1,0 +1,26 @@
+version: 1
+
+network_policies:
+  local_rtsp_camera:
+    name: local-rtsp-camera
+    endpoints:
+      - host: 127.0.0.1
+        port: 8554
+      - host: host.docker.internal
+        port: 8554
+      - host: host.openshell.internal
+        port: 8554
+      - host: 192.168.65.254
+        port: 8554
+      - host: 192.168.4.24
+        port: 8554
+    binaries:
+      - path: /usr/bin/ffmpeg
+      - path: /usr/bin/python3
+  local_vl_model:
+    name: local-vl-model
+    endpoints:
+      - host: 192.168.4.173
+        port: 11434
+    binaries:
+      - path: /usr/bin/python3

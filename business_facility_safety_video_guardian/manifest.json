@@ -228,8 +228,8 @@
       "agent_type": "executor",
       "config": {
         "command": [
-          "python3",
-          "scripts/analyze_door_camera_frame.py"
+          "bash",
+          "scripts/run_detector_in_openshell.sh"
         ],
         "environment": {
           "FRAME_JPEG_MAX_WIDTH": "896",
@@ -252,11 +252,15 @@
           "VL_MODEL_BASE_URL": "http://192.168.4.173:11434",
           "VL_MODEL_NAME": "nemotron3:33b"
         },
+        "cleanup_remote_dir": true,
+        "custom_openshell_image": "person_detector/openshell_sandbox",
+        "gpu": false,
+        "name_prefix": "facility-safety-detector",
         "output_message_type": null,
-        "python_environment": {
-          "requirements": "person_detector/requirements.txt"
-        },
-        "runner_module": "MirrorNeuron.Runner.HostLocal",
+        "persistent_workspace": false,
+        "policy": "person_detector/policies/local-video-egress.yaml",
+        "reuse_shared_sandbox": true,
+        "runner_module": "MirrorNeuron.Sandbox.OpenShell",
         "upload_as": "person_detector",
         "upload_path": "person_detector",
         "upload_paths": [
