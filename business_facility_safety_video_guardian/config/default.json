@@ -54,8 +54,8 @@
       "events.jsonl",
       "result.json",
       "final_artifact.json",
-      "web_ui.json",
-      "web/index.html"
+      "ui.json",
+      "web_ui.json"
     ]
   },
   "llm": {
@@ -140,17 +140,14 @@
       "adapter": "none"
     },
     "output": {
-      "adapter": "static_html",
+      "adapter": "gradio",
       "title": "Facility Safety Video Guardian",
-      "path": "payloads/web_ui/index.html",
-      "video_source_query_param": "video",
-      "events_query_param": "events",
-      "registration_script": "payloads/web_ui/register_dashboard.py",
-      "shared_support": "mn_blueprint_support.web_ui.register_web_ui"
+      "server": "blueprint_support",
+      "host": "127.0.0.1",
+      "refresh_seconds": 2.0
     },
     "dashboard": {
-      "path": "payloads/web_ui/index.html",
-      "default_video_source": "../person_detector/samples/door-demo.mp4",
+      "default_video_source": "person_detector/samples/door-demo.mp4",
       "event_types": [
         "door_camera_frame_analyzed",
         "door_camera_face_detected",
@@ -162,14 +159,6 @@
       "event_feed": {
         "format": "jsonl",
         "default_path": "~/.mn/runs/<run_id>/events.jsonl"
-      },
-      "registration": {
-        "script": "payloads/web_ui/register_dashboard.py",
-        "module": "mn_blueprint_support.web_ui",
-        "api": [
-          "WebUIHandle",
-          "register_web_ui"
-        ]
       }
     }
   },

@@ -77,8 +77,8 @@
         "events.jsonl",
         "result.json",
         "final_artifact.json",
-        "web_ui.json",
-        "web/index.html"
+        "ui.json",
+        "web_ui.json"
       ]
     },
     "init_config_review": {
@@ -171,9 +171,10 @@
     },
     "web_ui": {
       "enabled": true,
-      "kind": "static_html",
-      "path": "payloads/web_ui/index.html",
-      "description": "Local dashboard that plays the configured camera/demo video source beside streamed safety events.",
+      "kind": "output",
+      "adapter": "gradio",
+      "server": "blueprint_support",
+      "description": "Shared blueprint support Gradio dashboard that shows this blueprint's configured camera/demo video source beside streamed safety events from the shared run store.",
       "event_types": [
         "door_camera_frame_analyzed",
         "door_camera_face_detected",
@@ -182,20 +183,18 @@
         "door_camera_slack_alert_error",
         "door_camera_frame_analysis_failed"
       ],
-      "query_params": {
-        "video": "Video URL or relative demo media path.",
-        "events": "Optional URL for events.jsonl or JSON event feed.",
-        "pollMs": "Optional event polling interval in milliseconds."
+      "arguments": {
+        "run_id": "MirrorNeuron run id used to resolve ~/.mn/runs/<run_id>.",
+        "runs_root": "MirrorNeuron runs root, defaulting to ~/.mn/runs.",
+        "url": "Shared support Gradio app URL written to web_ui.json."
       },
-      "registration_script": "payloads/web_ui/register_dashboard.py",
-      "shared_support": "mn_blueprint_support.web_ui.register_web_ui",
       "registration": {
-        "module": "mn_blueprint_support.web_ui",
+        "module": "mn_blueprint_support.gradio_dashboard",
+        "package": "mirrorneuron-blueprint-support-skill[webui]",
         "api": [
-          "WebUIHandle",
-          "register_web_ui"
+          "main"
         ],
-        "writes": "web_ui.json"
+        "writes": "ui.json and web_ui.json"
       }
     }
   },
@@ -252,6 +251,9 @@
           "VL_MODEL_NAME": "nemotron3:33b"
         },
         "output_message_type": null,
+        "python_environment": {
+          "requirements": "person_detector/requirements.txt"
+        },
         "runner_module": "MirrorNeuron.Runner.HostLocal",
         "upload_as": "person_detector",
         "upload_path": "person_detector",
@@ -259,10 +261,6 @@
           {
             "source": "person_detector",
             "target": "person_detector"
-          },
-          {
-            "source": "web_ui",
-            "target": "web_ui"
           }
         ],
         "workdir": "/sandbox/job/person_detector"

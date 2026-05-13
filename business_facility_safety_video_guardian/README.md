@@ -53,25 +53,26 @@ For bundled demo media instead of a live camera, pass `--video-source-uri sample
 
 Third-party apps can edit or replace `config/overwrite.json` before launch to override the video source and VL model settings without changing `config/default.json`. Runtime should load `config/default.json` first, then deep-merge `config/overwrite.json` when present; direct runtime environment variables may still override the resolved config if the runner supports them.
 
+For Docker-backed local runs, `config/overwrite.json` points the worker at `rtsp://host.docker.internal:8554/local-camera` so the core container can reach the host RTSP stream. Keep the stream server publishing on the host at `rtsp://127.0.0.1:8554/local-camera`.
+
 
 ## Web UI
 
-This blueprint includes a local static web UI at `payloads/web_ui/index.html`. It is registered through the shared `mn_blueprint_support.web_ui` contract by `payloads/web_ui/register_dashboard.py`, which writes `web_ui.json` with a `WebUIHandle`. The dashboard shows the camera or demo video stream beside detector events such as `door_camera_frame_analyzed`, `door_camera_face_detected`, alert delivery, and frame-analysis failures.
-
-Open it directly for bundled demo media, or pass query parameters for a served video and event feed:
+This blueprint uses the shared Gradio dashboard from `mn_blueprint_support.gradio_dashboard`. `mn run` launches that support module for the blueprint, and the module writes `ui.json` and `web_ui.json` into `~/.mn/runs/<run_id>`.
 
 ```text
-payloads/web_ui/index.html?video=../person_detector/samples/door-demo.mp4&events=/path/to/events.jsonl
+~/.mn/runs/<run_id>/web_ui.json
 ```
 
-
-Register the dashboard for a run store directory with the shared support code:
+Start MirrorNeuron services before running the blueprint:
 
 ```bash
-python3 payloads/web_ui/register_dashboard.py --run-id <run_id>
+mn start
 ```
 
-Browsers usually cannot play raw RTSP URLs directly. For live review, expose the RTSP camera as browser-playable HLS, MP4, or WebRTC and pass that URL as `video`. If direct event polling is blocked by browser file/CORS rules, use the Events file control with the run store `events.jsonl`.
+Open the URL recorded in `web_ui.json`. The shared dashboard reads this blueprint's run store configuration, shows the camera or demo video source, and polls detector events such as `door_camera_frame_analyzed`, `door_camera_face_detected`, alert delivery, and frame-analysis failures.
+
+Browsers usually cannot play raw RTSP URLs directly. For live review, expose the RTSP camera as browser-playable HLS, MP4, or WebRTC and configure that URL as the video source.
 
 ## Documentation Map
 

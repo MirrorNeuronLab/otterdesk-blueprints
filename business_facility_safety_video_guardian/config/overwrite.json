@@ -2,6 +2,6 @@
   "video_source": {
     "transport": "rtsp",
     "codec": "h264",
-    "uri": "file:///Users/homer/Projects/otterdesk-blueprints/business_facility_safety_video_guardian/payloads/person_detector/samples/door-demo.mp4"
+    "uri": "rtsp://host.docker.internal:8554/local-camera"
   }
 }

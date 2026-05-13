@@ -5,6 +5,8 @@ import base64
 import json
 import mimetypes
 import os
+import shutil
+import socket
 import subprocess
 import sys
 import tempfile
@@ -15,17 +17,9 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
-try:
-    from mn_blueprint_support.web_ui import WebUIHandle, register_web_ui
-except ModuleNotFoundError:
-    WebUIHandle = None
-    register_web_ui = None
-
-
 IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
 DEFAULT_VIDEO_SOURCE_URI = "rtsp://127.0.0.1:8554/local-camera"
 LIVE_STREAM_SCHEMES = ("rtsp://", "rtsps://", "rtmp://", "rtmps://")
-WEB_UI_REGISTERED = False
 
 
 def load_json_env(name: str) -> dict[str, Any]:
@@ -70,78 +64,65 @@ def is_live_stream_source(source_uri: str) -> bool:
     return source_uri.strip().lower().startswith(LIVE_STREAM_SCHEMES)
 
 
-def url_for_source(source_uri: str) -> str:
-    if "://" in source_uri:
-        return source_uri
-    resolved = Path(resolve_source_uri(source_uri))
-    if resolved.exists():
-        return resolved.resolve().as_uri()
-    return source_uri
+def source_uri_with_host(parsed: urllib.parse.SplitResult, host: str) -> str:
+    if ":" in host and not host.startswith("["):
+        host = f"[{host}]"
+
+    userinfo = ""
+    if parsed.username:
+        userinfo = parsed.username
+        if parsed.password is not None:
+            userinfo = f"{userinfo}:{parsed.password}"
+        userinfo = f"{userinfo}@"
+
+    if parsed.port is not None:
+        host = f"{host}:{parsed.port}"
+    return urllib.parse.urlunsplit((parsed.scheme, f"{userinfo}{host}", parsed.path, parsed.query, parsed.fragment))
 
 
-def maybe_register_web_ui(source_uri: str) -> None:
-    global WEB_UI_REGISTERED
-    if WEB_UI_REGISTERED:
-        return
+def docker_host_fallback_sources(source_uri: str) -> list[str]:
+    parsed = urllib.parse.urlsplit(source_uri)
+    if parsed.hostname != "host.docker.internal":
+        return []
 
-    run_dir_raw = os.environ.get("MN_RUN_DIR")
-    run_id = os.environ.get("MN_RUN_ID")
-    runs_root = os.environ.get("MN_RUNS_ROOT") or "~/.mn/runs"
-    if run_dir_raw:
-        run_dir = Path(run_dir_raw).expanduser()
-    elif run_id:
-        run_dir = Path(runs_root).expanduser() / run_id
-    else:
-        return
+    candidates: list[str] = []
+    seen: set[str] = set()
+    try:
+        for family, _type, _proto, _canonname, sockaddr in socket.getaddrinfo(
+            "host.docker.internal",
+            parsed.port or 0,
+            socket.AF_INET,
+            socket.SOCK_STREAM,
+        ):
+            if family != socket.AF_INET:
+                continue
+            host = sockaddr[0]
+            if host in seen:
+                continue
+            seen.add(host)
+            candidates.append(source_uri_with_host(parsed, host))
+    except OSError:
+        pass
 
-    script_path = Path(__file__).resolve()
-    candidates = [
-        script_path.parents[2] / "web_ui" / "index.html",
-        script_path.parents[1] / "web_ui" / "index.html",
-        Path.cwd().parent / "web_ui" / "index.html",
-        Path.cwd() / "web_ui" / "index.html",
-    ]
-    dashboard_path = next((candidate for candidate in candidates if candidate.exists()), candidates[0])
-    if not dashboard_path.exists():
-        return
+    gateway_hosts = os.environ.get("MN_DOCKER_HOST_GATEWAY_IPS", "192.168.65.254")
+    for host in [item.strip() for item in gateway_hosts.split(",") if item.strip()]:
+        if host in seen:
+            continue
+        seen.add(host)
+        candidates.append(source_uri_with_host(parsed, host))
 
-    run_dir.mkdir(parents=True, exist_ok=True)
-    events_path = run_dir / "events.jsonl"
-    query = urllib.parse.urlencode(
-        {
-            "video": url_for_source(source_uri),
-            "events": events_path.resolve().as_uri(),
-            "pollMs": "2000",
-        }
+    local_source = source_uri_with_host(parsed, "127.0.0.1")
+    if local_source not in candidates:
+        candidates.append(local_source)
+    return candidates
+
+
+def should_retry_with_docker_host_fallback(source_uri: str, error: str) -> bool:
+    return (
+        bool(docker_host_fallback_sources(source_uri))
+        and "host.docker.internal" in error
+        and "resolve" in error.lower()
     )
-    url = f"{dashboard_path.resolve().as_uri()}?{query}"
-    metadata = {
-            "run_id": run_id,
-            "events_path": str(events_path),
-            "dashboard_path": str(dashboard_path),
-    }
-    if WebUIHandle is not None and register_web_ui is not None:
-        handle = WebUIHandle(
-            kind="output",
-            adapter="static_html",
-            url=url,
-            title="Facility Safety Video Guardian",
-            path=str(dashboard_path),
-            metadata=metadata,
-        )
-        register_web_ui(run_dir, handle)
-    else:
-        handle = {
-            "adapter": "static_html",
-            "kind": "output",
-            "url": url,
-            "title": "Facility Safety Video Guardian",
-            "path": str(dashboard_path),
-            "status": "available",
-            "metadata": metadata,
-        }
-        (run_dir / "web_ui.json").write_text(json.dumps(handle, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    WEB_UI_REGISTERED = True
 
 
 def ffmpeg_rtsp_transport() -> str:
@@ -149,6 +130,27 @@ def ffmpeg_rtsp_transport() -> str:
     if transport not in {"tcp", "udp"}:
         return "tcp"
     return transport
+
+
+def ffmpeg_binary() -> str:
+    configured = os.environ.get("FFMPEG_BINARY", "").strip()
+    if configured:
+        return configured
+    discovered = shutil.which("ffmpeg")
+    if discovered:
+        return discovered
+    try:
+        import imageio_ffmpeg
+
+        packaged = imageio_ffmpeg.get_ffmpeg_exe()
+        if packaged:
+            return packaged
+    except Exception:
+        pass
+    for candidate in ("/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg", "/usr/bin/ffmpeg"):
+        if Path(candidate).is_file():
+            return candidate
+    return "ffmpeg"
 
 
 def extract_frame(source_uri: str, position_seconds: float, max_width: int) -> tuple[bytes, str]:
@@ -161,45 +163,60 @@ def extract_frame(source_uri: str, position_seconds: float, max_width: int) -> t
         temp_path = Path(temp_file.name)
 
     vf = f"scale='min({max_width},iw)':-2"
-    command = [
-        "ffmpeg",
-        "-hide_banner",
-        "-loglevel",
-        "error",
-        "-nostdin",
-    ]
-    if is_live_stream_source(resolved):
-        if resolved.lower().startswith(("rtsp://", "rtsps://")):
-            command.extend(["-rtsp_transport", ffmpeg_rtsp_transport()])
-    else:
-        command.extend(["-ss", f"{position_seconds:.3f}"])
-
-    command.extend(
-        [
-            "-i",
-            resolved,
-            "-frames:v",
-            "1",
-            "-vf",
-            vf,
-            "-q:v",
-            "4",
-            "-y",
-            str(temp_path),
-        ]
-    )
-
     try:
-        subprocess.run(command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
-        data = temp_path.read_bytes()
-        if not data:
-            raise RuntimeError("ffmpeg produced an empty frame")
-        return data, "image/jpeg"
+        last_error: str | None = None
+        fallback_sources = docker_host_fallback_sources(resolved)
+        sources = [resolved, *fallback_sources]
+        using_fallbacks = False
+
+        for index, candidate_source in enumerate(sources):
+            command = [
+                ffmpeg_binary(),
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-nostdin",
+            ]
+            if is_live_stream_source(candidate_source):
+                if candidate_source.lower().startswith(("rtsp://", "rtsps://")):
+                    command.extend(["-rtsp_transport", ffmpeg_rtsp_transport()])
+            else:
+                command.extend(["-ss", f"{position_seconds:.3f}"])
+
+            command.extend(
+                [
+                    "-i",
+                    candidate_source,
+                    "-frames:v",
+                    "1",
+                    "-vf",
+                    vf,
+                    "-q:v",
+                    "4",
+                    "-y",
+                    str(temp_path),
+                ]
+            )
+
+            try:
+                subprocess.run(command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
+                data = temp_path.read_bytes()
+                if not data:
+                    raise RuntimeError("ffmpeg produced an empty frame")
+                return data, "image/jpeg"
+            except subprocess.CalledProcessError as exc:
+                last_error = exc.stderr.decode("utf-8", errors="replace").strip()
+                if candidate_source == resolved:
+                    using_fallbacks = should_retry_with_docker_host_fallback(resolved, last_error)
+                    if using_fallbacks:
+                        continue
+                elif using_fallbacks and index < len(sources) - 1:
+                    continue
+                raise RuntimeError(f"ffmpeg failed to extract frame: {last_error}") from exc
+
+        raise RuntimeError(f"ffmpeg failed to extract frame: {last_error or 'unknown error'}")
     except FileNotFoundError as exc:
         return extract_frame_with_cv2(resolved, position_seconds, max_width, exc)
-    except subprocess.CalledProcessError as exc:
-        error = exc.stderr.decode("utf-8", errors="replace").strip()
-        raise RuntimeError(f"ffmpeg failed to extract frame: {error}") from exc
     finally:
         try:
             temp_path.unlink()
@@ -446,7 +463,6 @@ def main() -> None:
     source_uri = os.environ.get("VIDEO_SOURCE_URI", DEFAULT_VIDEO_SOURCE_URI)
     sample_seconds = float(os.environ.get("FRAME_SAMPLE_SECONDS", "5.0"))
     max_width = int(os.environ.get("FRAME_JPEG_MAX_WIDTH", "896"))
-    maybe_register_web_ui(source_uri)
 
     events: list[dict[str, Any]] = []
     stream = message.get("stream") or {}
