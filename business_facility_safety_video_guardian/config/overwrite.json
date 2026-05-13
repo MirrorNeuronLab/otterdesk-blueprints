@@ -1,7 +1,7 @@
 {
   "video_source": {
-    "transport": "rtsp",
-    "codec": "h264",
-    "uri": "rtsp://192.168.65.254:8554/local-camera"
+    "transport": "file",
+    "codec": "jpeg",
+    "uri": "/sandbox/live/latest.jpg"
   }
 }

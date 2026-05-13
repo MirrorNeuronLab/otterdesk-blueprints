@@ -19,6 +19,14 @@ SERVER_LOG="${SERVER_LOG:-/tmp/business_facility_safety_video_guardian_mediamtx.
 BROWSER_PREVIEW_URI="${BROWSER_PREVIEW_URI:-http://127.0.0.1:8889/${STREAM_PATH}/}"
 BROWSER_PUBLISH_QUERY="${BROWSER_PUBLISH_QUERY:-video-codec=h264%2F90000&audio-device=none&video-width=1280&video-height=720&video-framerate=30}"
 BROWSER_PUBLISH_URI="${BROWSER_PUBLISH_URI:-http://127.0.0.1:8889/${STREAM_PATH}/publish?${BROWSER_PUBLISH_QUERY}}"
+OPENSHELL_RTSP_TUNNEL="${OPENSHELL_RTSP_TUNNEL:-0}"
+OPENSHELL_FRAME_BRIDGE="${OPENSHELL_FRAME_BRIDGE:-1}"
+OPENSHELL_FRAME_BRIDGE_INTERVAL_SECONDS="${OPENSHELL_FRAME_BRIDGE_INTERVAL_SECONDS:-1}"
+OPENSHELL_FRAME_BRIDGE_REMOTE_DIR="${OPENSHELL_FRAME_BRIDGE_REMOTE_DIR:-/sandbox/live}"
+OPENSHELL_FRAME_BRIDGE_LOG="${OPENSHELL_FRAME_BRIDGE_LOG:-/tmp/business_facility_safety_video_guardian_openshell_frame_bridge.log}"
+OPENSHELL_SANDBOX_NAME="${OPENSHELL_SANDBOX_NAME:-}"
+OPENSHELL_SANDBOX_PATTERN="${OPENSHELL_SANDBOX_PATTERN:-mirror-neuron-job-bfsvgv}"
+OPENSHELL_TUNNEL_LOG="${OPENSHELL_TUNNEL_LOG:-/tmp/business_facility_safety_video_guardian_openshell_rtsp_tunnel.log}"
 
 usage() {
   cat <<EOF
@@ -55,6 +63,21 @@ Environment overrides:
                  MediaMTX browser publisher query. Default requests H.264 video and no audio.
   BROWSER_PUBLISH_URI
                  Browser webcam publisher URL. Default: ${BROWSER_PUBLISH_URI}
+  OPENSHELL_RTSP_TUNNEL
+                 Create a reverse SSH tunnel into the detector OpenShell sandbox so
+                 sandbox-local rtsp://127.0.0.1:${RTSP_PORT}/${STREAM_PATH} reaches this Mac.
+                 Default: ${OPENSHELL_RTSP_TUNNEL}
+  OPENSHELL_FRAME_BRIDGE
+                 Upload a rolling latest.jpg frame into the detector OpenShell sandbox.
+                 Default: ${OPENSHELL_FRAME_BRIDGE}
+  OPENSHELL_FRAME_BRIDGE_REMOTE_DIR
+                 Remote sandbox directory for latest.jpg. Default: ${OPENSHELL_FRAME_BRIDGE_REMOTE_DIR}
+  OPENSHELL_SANDBOX_NAME
+                 Optional exact detector sandbox name. If omitted, the script waits for the
+                 newest Ready sandbox matching OPENSHELL_SANDBOX_PATTERN.
+  OPENSHELL_SANDBOX_PATTERN
+                 Sandbox name substring used when OPENSHELL_SANDBOX_NAME is omitted.
+                 Default: ${OPENSHELL_SANDBOX_PATTERN}
 
 Examples:
   scripts/start_demo_camera_stream_for_mac.sh
@@ -87,10 +110,23 @@ is_port_open() {
 
 server_pid=""
 publisher_pid=""
+tunnel_pid=""
+frame_bridge_pid=""
 config_path=""
 config_dir=""
+tunnel_config_path=""
+tunnel_config_dir=""
+frame_bridge_dir=""
 
 cleanup() {
+  if [[ -n "$frame_bridge_pid" ]]; then
+    kill "$frame_bridge_pid" >/dev/null 2>&1 || true
+    wait "$frame_bridge_pid" >/dev/null 2>&1 || true
+  fi
+  if [[ -n "$tunnel_pid" ]]; then
+    kill "$tunnel_pid" >/dev/null 2>&1 || true
+    wait "$tunnel_pid" >/dev/null 2>&1 || true
+  fi
   if [[ -n "$publisher_pid" ]]; then
     kill "$publisher_pid" >/dev/null 2>&1 || true
     wait "$publisher_pid" >/dev/null 2>&1 || true
@@ -101,6 +137,12 @@ cleanup() {
   fi
   if [[ -n "$config_dir" && -d "$config_dir" ]]; then
     rm -rf "$config_dir"
+  fi
+  if [[ -n "$tunnel_config_dir" && -d "$tunnel_config_dir" ]]; then
+    rm -rf "$tunnel_config_dir"
+  fi
+  if [[ -n "$frame_bridge_dir" && -d "$frame_bridge_dir" ]]; then
+    rm -rf "$frame_bridge_dir"
   fi
 }
 trap cleanup EXIT
@@ -188,6 +230,119 @@ wait_for_rtsp_stream() {
   return 1
 }
 
+latest_ready_openshell_sandbox() {
+  if [[ -n "$OPENSHELL_SANDBOX_NAME" ]]; then
+    if openshell sandbox get "$OPENSHELL_SANDBOX_NAME" 2>/dev/null | grep -q "Phase: Ready"; then
+      printf '%s\n' "$OPENSHELL_SANDBOX_NAME"
+      return 0
+    fi
+    return 1
+  fi
+
+  openshell sandbox list 2>/dev/null \
+    | awk -v pattern="$OPENSHELL_SANDBOX_PATTERN" '$1 ~ pattern && $0 ~ /Ready/ {name=$1} END {if (name) print name}'
+}
+
+start_openshell_rtsp_tunnel() {
+  if [[ "$OPENSHELL_RTSP_TUNNEL" != "1" ]]; then
+    return 0
+  fi
+  if ! command -v openshell >/dev/null 2>&1 || ! command -v ssh >/dev/null 2>&1; then
+    echo "OpenShell RTSP tunnel skipped: openshell and ssh are required." >&2
+    return 0
+  fi
+
+  tunnel_config_dir="$(mktemp -d /tmp/business_facility_safety_video_guardian_openshell_tunnel.XXXXXX)"
+  tunnel_config_path="${tunnel_config_dir}/ssh_config"
+  : >"$OPENSHELL_TUNNEL_LOG"
+
+  (
+    set +e
+    current_sandbox=""
+    while true; do
+      sandbox_name="$(latest_ready_openshell_sandbox)"
+      if [[ -z "$sandbox_name" ]]; then
+        sleep 1
+        continue
+      fi
+
+      if [[ "$sandbox_name" != "$current_sandbox" ]]; then
+        echo "Opening OpenShell RTSP tunnel to ${sandbox_name}" >>"$OPENSHELL_TUNNEL_LOG"
+        current_sandbox="$sandbox_name"
+      fi
+
+      if ! openshell sandbox ssh-config "$sandbox_name" >"$tunnel_config_path" 2>>"$OPENSHELL_TUNNEL_LOG"; then
+        sleep 2
+        continue
+      fi
+
+      ssh_host="openshell-${sandbox_name}"
+      ssh \
+        -F "$tunnel_config_path" \
+        -N \
+        -o ExitOnForwardFailure=yes \
+        -o ServerAliveInterval=10 \
+        -o ServerAliveCountMax=2 \
+        -R "127.0.0.1:${RTSP_PORT}:127.0.0.1:${RTSP_PORT}" \
+        "$ssh_host" >>"$OPENSHELL_TUNNEL_LOG" 2>&1
+
+      sleep 2
+    done
+  ) &
+  tunnel_pid="$!"
+  echo "OpenShell RTSP tunnel watcher started (log: ${OPENSHELL_TUNNEL_LOG})"
+}
+
+start_openshell_frame_bridge() {
+  if [[ "$OPENSHELL_FRAME_BRIDGE" != "1" ]]; then
+    return 0
+  fi
+  if ! command -v openshell >/dev/null 2>&1; then
+    echo "OpenShell frame bridge skipped: openshell is required." >&2
+    return 0
+  fi
+
+  frame_bridge_dir="$(mktemp -d /tmp/business_facility_safety_video_guardian_frames.XXXXXX)"
+  : >"$OPENSHELL_FRAME_BRIDGE_LOG"
+
+  (
+    set +e
+    current_sandbox=""
+    while true; do
+      sandbox_name="$(latest_ready_openshell_sandbox)"
+      if [[ -z "$sandbox_name" ]]; then
+        sleep 1
+        continue
+      fi
+
+      if [[ "$sandbox_name" != "$current_sandbox" ]]; then
+        echo "Uploading live frames to ${sandbox_name}:${OPENSHELL_FRAME_BRIDGE_REMOTE_DIR}/latest.jpg" >>"$OPENSHELL_FRAME_BRIDGE_LOG"
+        current_sandbox="$sandbox_name"
+      fi
+
+      frame_path="${frame_bridge_dir}/latest.jpg"
+      ffmpeg \
+        -hide_banner \
+        -loglevel error \
+        -nostdin \
+        -rtsp_transport tcp \
+        -i "$STREAM_URI" \
+        -frames:v 1 \
+        -q:v 4 \
+        -y \
+        "$frame_path" >>"$OPENSHELL_FRAME_BRIDGE_LOG" 2>&1
+
+      if [[ -s "$frame_path" ]]; then
+        openshell sandbox upload "$sandbox_name" "$frame_bridge_dir" "$OPENSHELL_FRAME_BRIDGE_REMOTE_DIR" --no-git-ignore >>"$OPENSHELL_FRAME_BRIDGE_LOG" 2>&1
+      fi
+
+      sleep "$OPENSHELL_FRAME_BRIDGE_INTERVAL_SECONDS"
+    done
+  ) &
+  frame_bridge_pid="$!"
+  echo "OpenShell live frame bridge started (log: ${OPENSHELL_FRAME_BRIDGE_LOG})"
+}
+
 open_browser_publisher() {
   if [[ "$OPEN_BROWSER" != "1" ]]; then
     return 0
@@ -256,6 +411,8 @@ start_ffmpeg_camera_publisher() {
 echo "Keep this script running while the blueprint is active. Press Ctrl-C to stop."
 echo "Browser preview: ${BROWSER_PREVIEW_URI}"
 echo "Browser webcam publisher: ${BROWSER_PUBLISH_URI}"
+start_openshell_rtsp_tunnel
+start_openshell_frame_bridge
 
 case "$PUBLISH_MODE" in
   browser)

@@ -53,7 +53,7 @@ For bundled demo media instead of a live camera, pass `--video-source-uri sample
 
 Third-party apps can edit or replace `config/overwrite.json` before launch to override the video source and VL model settings without changing `config/default.json`. Runtime should load `config/default.json` first, then deep-merge `config/overwrite.json` when present; direct runtime environment variables may still override the resolved config if the runner supports them.
 
-For Docker-backed local runs on Docker Desktop for Mac, `config/overwrite.json` points the detector at `rtsp://192.168.65.254:8554/local-camera`, the Docker host gateway that the packaged blueprint ffmpeg can read. Keep the stream server publishing on the host at `rtsp://127.0.0.1:8554/local-camera`. If your Docker host gateway differs, override `video_source.uri` for that environment.
+For Docker-backed local runs with the detector in OpenShell, `config/overwrite.json` points the detector at sandbox-local `/sandbox/live/latest.jpg`. The Mac webcam script keeps MediaMTX publishing on the host and uploads a rolling `latest.jpg` frame into the detector OpenShell sandbox, so detection uses the live Mac camera without adding OpenCV or ffmpeg to the core Docker image.
 
 The detector runs in its own OpenShell sandbox, not in the core Docker image. The `person_detector` node declares `custom_openshell_image: "person_detector/openshell_sandbox"`, which points at `payloads/person_detector/openshell_sandbox`; that Dockerfile installs ffmpeg and OpenCV with apt inside only the detector sandbox image. Other OpenShell agents can declare their own `custom_openshell_image` values, and agents without that field use the default OpenShell environment. Deleting or stopping the job removes the shared OpenShell sandbox and its ports/resources without adding OpenCV or ffmpeg to MirrorNeuron core Docker.
 
@@ -63,7 +63,7 @@ For a local Mac webcam smoke test, start MediaMTX and publish from the browser:
 scripts/start_demo_camera_stream_for_mac.sh
 ```
 
-The script opens the MediaMTX webcam publisher at `http://127.0.0.1:8889/local-camera/publish` with H.264 video and audio disabled. Allow camera access and click Publish; the detector reads the same stream through `rtsp://192.168.65.254:8554/local-camera` from Docker-backed runs, while the dashboard preview reads `http://127.0.0.1:8889/local-camera/`. For a deterministic file-backed stream, use:
+The script opens the MediaMTX webcam publisher at `http://127.0.0.1:8889/local-camera/publish` with H.264 video and audio disabled. Allow camera access and click Publish; the detector reads live frames uploaded to `/sandbox/live/latest.jpg` inside its OpenShell sandbox, while the dashboard preview reads `http://127.0.0.1:8889/local-camera/`. For a deterministic file-backed stream, use:
 
 ```bash
 VIDEO_FILE=payloads/person_detector/samples/door-demo.mp4 scripts/start_demo_camera_stream_for_mac.sh
