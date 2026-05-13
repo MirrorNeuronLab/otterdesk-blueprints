@@ -22,7 +22,7 @@
   "initial_inputs": {
     "ingress": [
       {
-        "description": "Continuously sample a 24/7 door camera or looping demo video, ask the configured VL model whether a person is visible, and send Slack alerts when someone is detected.",
+        "description": "Continuously sample a 24/7 door camera or looping demo video, ask the configured VL model whether a human face is visible, describe observable facial appearance, and send Slack alerts when a face is detected.",
         "ollama_base_url": "http://192.168.4.173:11434",
         "ollama_model": "nemotron3:33b",
         "scenario": "door_camera_safety_monitor",
@@ -41,7 +41,7 @@
     "blueprint_id": "business_facility_safety_video_guardian",
     "category": "business",
     "customizable_for": "Door monitoring, restricted-area alerts, retail safety, warehouse operations.",
-    "description": "Monitor facility video streams and escalate safety-relevant observations with VL model reasoning.",
+    "description": "Monitor facility video streams, detect visible human faces, describe observable facial appearance, and escalate safety-relevant observations with VL model reasoning.",
     "interfaces": {
       "config": [
         "metadata",
@@ -53,7 +53,8 @@
         "llm",
         "outputs",
         "logging",
-        "real_adapters"
+        "real_adapters",
+        "web_ui"
       ],
       "identity": [
         "blueprint_id",
@@ -75,7 +76,9 @@
         "inputs.json",
         "events.jsonl",
         "result.json",
-        "final_artifact.json"
+        "final_artifact.json",
+        "web_ui.json",
+        "web/index.html"
       ]
     },
     "init_config_review": {
@@ -103,9 +106,9 @@
       ]
     },
     "llm": {},
-    "llm_agent_role": "Safety observation and escalation agent.",
+    "llm_agent_role": "Safety observation and face-description escalation agent.",
     "name": "Facility Safety Video Guardian",
-    "output": "Detection events, alert decisions, and notification payloads.",
+    "output": "Face detection events, observable facial appearance descriptions, alert decisions, and notification payloads.",
     "output_contract": {
       "events": "typed event objects with payload",
       "status": "JSON lines on stderr",
@@ -113,7 +116,7 @@
     },
     "problem_solved": "Video monitoring is continuous, noisy, and operationally sensitive; teams need stateful alerts, cooldowns, and explainable observations rather than raw frames.",
     "quick_test": {
-      "description": "Quick test mode shortens the sample interval, disables Slack, and uses mock VLM detection unless OLLAMA_LIVE_IN_QUICK_TEST=1.",
+      "description": "Quick test mode shortens the sample interval, disables Slack, and uses mock face detection unless OLLAMA_LIVE_IN_QUICK_TEST=1.",
       "enabled": false,
       "env": "MN_BLUEPRINT_QUICK_TEST=1"
     },
@@ -142,18 +145,18 @@
       "format": "jsonl",
       "stream": "stderr"
     },
-        "target_user": "Facilities, security, safety operations, and property management teams.",
-        "video_source": {
-            "uri": "rtsp://127.0.0.1:8554/local-camera",
-            "transport": "rtsp",
-            "codec": "h264",
-            "config_env": [
-                "VIDEO_SOURCE_URI",
-                "VIDEO_SOURCE_TRANSPORT",
-                "VIDEO_SOURCE_CODEC"
-            ]
-        },
-        "vl_model": {
+    "target_user": "Facilities, security, safety operations, and property management teams.",
+    "video_source": {
+      "uri": "rtsp://127.0.0.1:8554/local-camera",
+      "transport": "rtsp",
+      "codec": "h264",
+      "config_env": [
+        "VIDEO_SOURCE_URI",
+        "VIDEO_SOURCE_TRANSPORT",
+        "VIDEO_SOURCE_CODEC"
+      ]
+    },
+    "vl_model": {
       "provider": "ollama",
       "base_url": "http://192.168.4.173:11434",
       "model": "nemotron3:33b",
@@ -165,6 +168,35 @@
         "OLLAMA_BASE_URL",
         "OLLAMA_MODEL"
       ]
+    },
+    "web_ui": {
+      "enabled": true,
+      "kind": "static_html",
+      "path": "payloads/web_ui/index.html",
+      "description": "Local dashboard that plays the configured camera/demo video source beside streamed safety events.",
+      "event_types": [
+        "door_camera_frame_analyzed",
+        "door_camera_face_detected",
+        "door_camera_slack_alert_sent",
+        "door_camera_slack_alert_skipped",
+        "door_camera_slack_alert_error",
+        "door_camera_frame_analysis_failed"
+      ],
+      "query_params": {
+        "video": "Video URL or relative demo media path.",
+        "events": "Optional URL for events.jsonl or JSON event feed.",
+        "pollMs": "Optional event polling interval in milliseconds."
+      },
+      "registration_script": "payloads/web_ui/register_dashboard.py",
+      "shared_support": "mn_blueprint_support.web_ui.register_web_ui",
+      "registration": {
+        "module": "mn_blueprint_support.web_ui",
+        "api": [
+          "WebUIHandle",
+          "register_web_ui"
+        ],
+        "writes": "web_ui.json"
+      }
     }
   },
   "name": "Facility Safety Video Guardian",
@@ -201,15 +233,18 @@
         "environment": {
           "FRAME_JPEG_MAX_WIDTH": "896",
           "FRAME_SAMPLE_SECONDS": "5.0",
+          "FFMPEG_RTSP_TRANSPORT": "tcp",
           "MN_BLUEPRINT_LOG_LEVEL": "info",
           "OLLAMA_BASE_URL": "http://192.168.4.173:11434",
           "OLLAMA_MODEL": "nemotron3:33b",
           "OLLAMA_THINK": "false",
+          "FACE_ALERT_COOLDOWN_SECONDS": "60",
+          "FACE_DETECTION_CONFIDENCE_THRESHOLD": "0.65",
           "PERSON_ALERT_COOLDOWN_SECONDS": "60",
           "PERSON_DETECTION_CONFIDENCE_THRESHOLD": "0.65",
           "SLACK_ALERT_ENABLED": "true",
           "SLACK_DEFAULT_CHANNEL": "#safety",
-          "SLACK_MESSAGE_PREFIX": "Door camera safety alert",
+          "SLACK_MESSAGE_PREFIX": "Door camera face alert",
           "VIDEO_SOURCE_CODEC": "h264",
           "VIDEO_SOURCE_TRANSPORT": "rtsp",
           "VIDEO_SOURCE_URI": "rtsp://127.0.0.1:8554/local-camera",
@@ -220,6 +255,16 @@
         "runner_module": "MirrorNeuron.Runner.HostLocal",
         "upload_as": "person_detector",
         "upload_path": "person_detector",
+        "upload_paths": [
+          {
+            "source": "person_detector",
+            "target": "person_detector"
+          },
+          {
+            "source": "web_ui",
+            "target": "web_ui"
+          }
+        ],
         "workdir": "/sandbox/job/person_detector"
       },
       "node_id": "person_detector",

@@ -30,7 +30,8 @@
       "llm",
       "outputs",
       "logging",
-      "real_adapters"
+      "real_adapters",
+      "web_ui"
     ],
     "identity_fields": [
       "blueprint_id",
@@ -52,11 +53,13 @@
       "inputs.json",
       "events.jsonl",
       "result.json",
-      "final_artifact.json"
+      "final_artifact.json",
+      "web_ui.json",
+      "web/index.html"
     ]
   },
   "llm": {
-    "agent_role": "Safety observation and escalation agent.",
+    "agent_role": "Safety observation and face-description escalation agent.",
     "api_base": "http://192.168.4.173:11434",
     "mock_mode": "fake",
     "mode": "ollama",
@@ -87,7 +90,13 @@
       "simulation_step_started",
       "llm_decision",
       "simulation_state_updated",
-      "run_completed"
+      "run_completed",
+      "door_camera_frame_analyzed",
+      "door_camera_face_detected",
+      "door_camera_slack_alert_sent",
+      "door_camera_slack_alert_skipped",
+      "door_camera_slack_alert_error",
+      "door_camera_frame_analysis_failed"
     ],
     "events_jsonl": true,
     "level": "INFO",
@@ -102,7 +111,7 @@
   "mode": "mock",
   "outputs": {
     "adapter": "local_run_store",
-    "artifact_contract": "Detection events, alert decisions, and notification payloads.",
+    "artifact_contract": "Face detection events, observable facial appearance descriptions, alert decisions, and notification payloads.",
     "run_root": "~/.mn/runs",
     "write_run_store": true
   },
@@ -124,5 +133,56 @@
     "seed_field": "seed",
     "type": "Video stream sampling with alert state."
   },
-  "standard_version": "1.0"
+  "standard_version": "1.0",
+  "web_ui": {
+    "enabled": true,
+    "input": {
+      "adapter": "none"
+    },
+    "output": {
+      "adapter": "static_html",
+      "title": "Facility Safety Video Guardian",
+      "path": "payloads/web_ui/index.html",
+      "video_source_query_param": "video",
+      "events_query_param": "events",
+      "registration_script": "payloads/web_ui/register_dashboard.py",
+      "shared_support": "mn_blueprint_support.web_ui.register_web_ui"
+    },
+    "dashboard": {
+      "path": "payloads/web_ui/index.html",
+      "default_video_source": "../person_detector/samples/door-demo.mp4",
+      "event_types": [
+        "door_camera_frame_analyzed",
+        "door_camera_face_detected",
+        "door_camera_slack_alert_sent",
+        "door_camera_slack_alert_skipped",
+        "door_camera_slack_alert_error",
+        "door_camera_frame_analysis_failed"
+      ],
+      "event_feed": {
+        "format": "jsonl",
+        "default_path": "~/.mn/runs/<run_id>/events.jsonl"
+      },
+      "registration": {
+        "script": "payloads/web_ui/register_dashboard.py",
+        "module": "mn_blueprint_support.web_ui",
+        "api": [
+          "WebUIHandle",
+          "register_web_ui"
+        ]
+      }
+    }
+  },
+  "manifest_config_bindings": [
+    {
+      "config_path": "identity.run_id",
+      "manifest_path": "nodes.person_detector.config.environment.MN_RUN_ID",
+      "stringify": true
+    },
+    {
+      "config_path": "outputs.run_root",
+      "manifest_path": "nodes.person_detector.config.environment.MN_RUNS_ROOT",
+      "stringify": true
+    }
+  ]
 }

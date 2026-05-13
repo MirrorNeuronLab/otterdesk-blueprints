@@ -10,13 +10,22 @@ import sys
 import tempfile
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 from typing import Any
 
+try:
+    from mn_blueprint_support.web_ui import WebUIHandle, register_web_ui
+except ModuleNotFoundError:
+    WebUIHandle = None
+    register_web_ui = None
+
 
 IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
 DEFAULT_VIDEO_SOURCE_URI = "rtsp://127.0.0.1:8554/local-camera"
+LIVE_STREAM_SCHEMES = ("rtsp://", "rtsps://", "rtmp://", "rtmps://")
+WEB_UI_REGISTERED = False
 
 
 def load_json_env(name: str) -> dict[str, Any]:
@@ -36,6 +45,7 @@ def initial_state() -> dict[str, Any]:
         "last_alert_wall_ts": 0.0,
         "detections": 0,
         "last_detection": None,
+        "last_face_description": None,
         "last_error": None,
     }
 
@@ -56,6 +66,91 @@ def resolve_source_uri(source_uri: str) -> str:
     return source_uri
 
 
+def is_live_stream_source(source_uri: str) -> bool:
+    return source_uri.strip().lower().startswith(LIVE_STREAM_SCHEMES)
+
+
+def url_for_source(source_uri: str) -> str:
+    if "://" in source_uri:
+        return source_uri
+    resolved = Path(resolve_source_uri(source_uri))
+    if resolved.exists():
+        return resolved.resolve().as_uri()
+    return source_uri
+
+
+def maybe_register_web_ui(source_uri: str) -> None:
+    global WEB_UI_REGISTERED
+    if WEB_UI_REGISTERED:
+        return
+
+    run_dir_raw = os.environ.get("MN_RUN_DIR")
+    run_id = os.environ.get("MN_RUN_ID")
+    runs_root = os.environ.get("MN_RUNS_ROOT") or "~/.mn/runs"
+    if run_dir_raw:
+        run_dir = Path(run_dir_raw).expanduser()
+    elif run_id:
+        run_dir = Path(runs_root).expanduser() / run_id
+    else:
+        return
+
+    script_path = Path(__file__).resolve()
+    candidates = [
+        script_path.parents[2] / "web_ui" / "index.html",
+        script_path.parents[1] / "web_ui" / "index.html",
+        Path.cwd().parent / "web_ui" / "index.html",
+        Path.cwd() / "web_ui" / "index.html",
+    ]
+    dashboard_path = next((candidate for candidate in candidates if candidate.exists()), candidates[0])
+    if not dashboard_path.exists():
+        return
+
+    run_dir.mkdir(parents=True, exist_ok=True)
+    events_path = run_dir / "events.jsonl"
+    query = urllib.parse.urlencode(
+        {
+            "video": url_for_source(source_uri),
+            "events": events_path.resolve().as_uri(),
+            "pollMs": "2000",
+        }
+    )
+    url = f"{dashboard_path.resolve().as_uri()}?{query}"
+    metadata = {
+            "run_id": run_id,
+            "events_path": str(events_path),
+            "dashboard_path": str(dashboard_path),
+    }
+    if WebUIHandle is not None and register_web_ui is not None:
+        handle = WebUIHandle(
+            kind="output",
+            adapter="static_html",
+            url=url,
+            title="Facility Safety Video Guardian",
+            path=str(dashboard_path),
+            metadata=metadata,
+        )
+        register_web_ui(run_dir, handle)
+    else:
+        handle = {
+            "adapter": "static_html",
+            "kind": "output",
+            "url": url,
+            "title": "Facility Safety Video Guardian",
+            "path": str(dashboard_path),
+            "status": "available",
+            "metadata": metadata,
+        }
+        (run_dir / "web_ui.json").write_text(json.dumps(handle, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    WEB_UI_REGISTERED = True
+
+
+def ffmpeg_rtsp_transport() -> str:
+    transport = os.environ.get("FFMPEG_RTSP_TRANSPORT", "tcp").strip().lower()
+    if transport not in {"tcp", "udp"}:
+        return "tcp"
+    return transport
+
+
 def extract_frame(source_uri: str, position_seconds: float, max_width: int) -> tuple[bytes, str]:
     resolved = resolve_source_uri(source_uri)
     suffix = Path(resolved).suffix.lower()
@@ -72,19 +167,27 @@ def extract_frame(source_uri: str, position_seconds: float, max_width: int) -> t
         "-loglevel",
         "error",
         "-nostdin",
-        "-ss",
-        f"{position_seconds:.3f}",
-        "-i",
-        resolved,
-        "-frames:v",
-        "1",
-        "-vf",
-        vf,
-        "-q:v",
-        "4",
-        "-y",
-        str(temp_path),
     ]
+    if is_live_stream_source(resolved):
+        if resolved.lower().startswith(("rtsp://", "rtsps://")):
+            command.extend(["-rtsp_transport", ffmpeg_rtsp_transport()])
+    else:
+        command.extend(["-ss", f"{position_seconds:.3f}"])
+
+    command.extend(
+        [
+            "-i",
+            resolved,
+            "-frames:v",
+            "1",
+            "-vf",
+            vf,
+            "-q:v",
+            "4",
+            "-y",
+            str(temp_path),
+        ]
+    )
 
     try:
         subprocess.run(command, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
@@ -123,7 +226,7 @@ def extract_frame_with_cv2(
 
     try:
         fps = float(capture.get(cv2.CAP_PROP_FPS) or 0.0)
-        if fps > 0 and position_seconds > 0:
+        if not is_live_stream_source(source_uri) and fps > 0 and position_seconds > 0:
             capture.set(cv2.CAP_PROP_POS_MSEC, position_seconds * 1000.0)
 
         ok, frame = capture.read()
@@ -150,11 +253,19 @@ def extract_frame_with_cv2(
 def mock_detection(frame_seq: int) -> dict[str, Any]:
     detected = frame_seq % 4 in {2, 3}
     return {
+        "face_detected": detected,
         "person_detected": detected,
         "confidence": 0.82 if detected else 0.18,
-        "summary": "Mock mode detected a person near the door." if detected else "Mock mode sees no person at the door.",
+        "summary": "Mock mode detected a visible face near the door." if detected else "Mock mode sees no clear face at the door.",
+        "face_description": (
+            "A face is visible near the camera with a neutral expression; mock mode does not infer identity."
+            if detected
+            else ""
+        ),
+        "facial_features": ["visible face", "neutral expression"] if detected else [],
+        "appearance_notes": ["Face details are synthetic in mock mode."] if detected else [],
         "risk_level": "medium" if detected else "low",
-        "visible_subjects": ["person"] if detected else [],
+        "visible_subjects": ["face"] if detected else [],
     }
 
 
@@ -209,9 +320,9 @@ def normalize_detection(result: dict[str, Any]) -> dict[str, Any]:
     except (TypeError, ValueError):
         confidence = 0.0
 
-    detected = result.get("person_detected", False)
+    detected = result.get("face_detected", result.get("person_detected", False))
     if isinstance(detected, str):
-        detected = detected.strip().lower() in {"true", "yes", "1", "person", "detected"}
+        detected = detected.strip().lower() in {"true", "yes", "1", "face", "person", "detected", "visible"}
 
     risk_level = str(result.get("risk_level", "low")).lower()
     if risk_level not in {"low", "medium", "high"}:
@@ -219,16 +330,32 @@ def normalize_detection(result: dict[str, Any]) -> dict[str, Any]:
 
     summary = str(result.get("summary", "")).strip()
     if not summary:
-        summary = "A person is visible near the door." if detected else "No person is visible near the door."
+        summary = "A human face is visible near the door." if detected else "No clear human face is visible near the door."
+
+    face_description = str(result.get("face_description", "")).strip()
+    if not face_description and detected:
+        face_description = summary
+
+    facial_features = result.get("facial_features", [])
+    if not isinstance(facial_features, list):
+        facial_features = [str(facial_features)]
+
+    appearance_notes = result.get("appearance_notes", [])
+    if not isinstance(appearance_notes, list):
+        appearance_notes = [str(appearance_notes)]
 
     visible_subjects = result.get("visible_subjects", [])
     if not isinstance(visible_subjects, list):
         visible_subjects = [str(visible_subjects)]
 
     return {
+        "face_detected": bool(detected),
         "person_detected": bool(detected),
         "confidence": max(0.0, min(confidence, 1.0)),
         "summary": summary[:500],
+        "face_description": face_description[:700],
+        "facial_features": [str(item)[:120] for item in facial_features[:12] if str(item).strip()],
+        "appearance_notes": [str(item)[:120] for item in appearance_notes[:8] if str(item).strip()],
         "risk_level": risk_level,
         "visible_subjects": [str(item)[:80] for item in visible_subjects[:8]],
     }
@@ -236,20 +363,34 @@ def normalize_detection(result: dict[str, Any]) -> dict[str, Any]:
 
 def detection_prompt(camera_id: str) -> str:
     return os.environ.get(
-        "PERSON_DETECTION_PROMPT",
-        (
-            "You are monitoring a 24/7 door camera for safety. Inspect the image and decide whether any person "
-            "is visible anywhere in the frame. Return only JSON with keys: person_detected boolean, confidence "
-            "number from 0 to 1, summary short string, risk_level one of low/medium/high, and visible_subjects "
-            f"array. Camera id: {camera_id}."
+        "FACE_DETECTION_PROMPT",
+        os.environ.get(
+            "PERSON_DETECTION_PROMPT",
+            (
+                "You are monitoring a 24/7 door camera for safety. Inspect the image and decide whether a "
+                "human face is clearly visible anywhere in the frame. If a face is visible, describe only "
+                "observable, non-identifying appearance details such as face position, expression, hair/facial "
+                "hair if visible, glasses, mask/hat, lighting/occlusion, and notable visible facial features. "
+                "Do not identify the person, compare them to a known person, infer sensitive attributes, or "
+                "guess age, gender, race, ethnicity, health, emotion beyond visible expression, or any private "
+                "trait. Return only JSON with keys: face_detected boolean, confidence number from 0 to 1, "
+                "summary short string, face_description string, facial_features array of strings, "
+                "appearance_notes array of strings, risk_level one of low/medium/high, and visible_subjects "
+                f"array. Camera id: {camera_id}."
+            ),
         ),
     )
 
 
 def should_alert(detection: dict[str, Any], state: dict[str, Any]) -> bool:
-    threshold = float(os.environ.get("PERSON_DETECTION_CONFIDENCE_THRESHOLD", "0.65"))
-    cooldown = float(os.environ.get("PERSON_ALERT_COOLDOWN_SECONDS", "60"))
-    if not detection.get("person_detected") or float(detection.get("confidence", 0)) < threshold:
+    threshold = float(
+        os.environ.get(
+            "FACE_DETECTION_CONFIDENCE_THRESHOLD",
+            os.environ.get("PERSON_DETECTION_CONFIDENCE_THRESHOLD", "0.65"),
+        )
+    )
+    cooldown = float(os.environ.get("FACE_ALERT_COOLDOWN_SECONDS", os.environ.get("PERSON_ALERT_COOLDOWN_SECONDS", "60")))
+    if not detection.get("face_detected") or float(detection.get("confidence", 0)) < threshold:
         return False
     return time.time() - float(state.get("last_alert_wall_ts", 0.0)) >= cooldown
 
@@ -281,11 +422,15 @@ def post_slack(text: str) -> tuple[str, dict[str, Any]]:
 
 
 def alert_text(camera_id: str, detection: dict[str, Any], frame_seq: int, source_uri: str) -> str:
-    prefix = os.environ.get("SLACK_MESSAGE_PREFIX", "Door camera safety alert")
+    prefix = os.environ.get("SLACK_MESSAGE_PREFIX", "Door camera face alert")
+    features = detection.get("facial_features") or []
+    feature_text = ", ".join(str(item) for item in features[:6]) if features else "No specific facial features reported."
+    description = detection.get("face_description") or detection["summary"]
     return (
-        f"{prefix}: person detected on {camera_id}\n"
+        f"{prefix}: human face detected on {camera_id}\n"
         f"Confidence: {detection['confidence']:.2f} | Risk: {detection['risk_level']} | Frame: {frame_seq}\n"
-        f"{detection['summary']}\n"
+        f"{description}\n"
+        f"Visible features: {feature_text}\n"
         f"Source: {source_uri}"
     )
 
@@ -301,6 +446,7 @@ def main() -> None:
     source_uri = os.environ.get("VIDEO_SOURCE_URI", DEFAULT_VIDEO_SOURCE_URI)
     sample_seconds = float(os.environ.get("FRAME_SAMPLE_SECONDS", "5.0"))
     max_width = int(os.environ.get("FRAME_JPEG_MAX_WIDTH", "896"))
+    maybe_register_web_ui(source_uri)
 
     events: list[dict[str, Any]] = []
     stream = message.get("stream") or {}
@@ -323,10 +469,11 @@ def main() -> None:
         }
         events.append({"type": "door_camera_frame_analyzed", "payload": detection_payload})
 
-        if detection["person_detected"]:
+        if detection["face_detected"]:
             state["detections"] = int(state.get("detections", 0)) + 1
             state["last_detection"] = detection_payload
-            events.append({"type": "door_camera_person_detected", "payload": detection_payload})
+            state["last_face_description"] = detection_payload.get("face_description")
+            events.append({"type": "door_camera_face_detected", "payload": detection_payload})
 
         if should_alert(detection, state):
             status, slack_payload = post_slack(alert_text(camera_id, detection, frame_seq, source_uri))
@@ -340,7 +487,11 @@ def main() -> None:
         state["frames_seen"] = int(state.get("frames_seen", 0)) + 1
     except Exception as exc:
         message_text = str(exc)[:800]
-        if "ffmpeg failed" in message_text and float(state.get("video_position_seconds", 0.0)) > 0:
+        if (
+            not is_live_stream_source(source_uri)
+            and "ffmpeg failed" in message_text
+            and float(state.get("video_position_seconds", 0.0)) > 0
+        ):
             state["video_position_seconds"] = 0.0
             message_text = f"{message_text}; rewound source for next tick"
         state["last_error"] = message_text
