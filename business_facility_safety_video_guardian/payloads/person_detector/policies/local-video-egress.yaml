@@ -6,14 +6,27 @@ network_policies:
     endpoints:
       - host: 127.0.0.1
         port: 8554
+        allowed_ips:
+          - 127.0.0.1/32
       - host: host.docker.internal
         port: 8554
+        allowed_ips:
+          - 192.168.65.254/32
+          - 192.168.4.24/32
+          - 127.0.0.1/32
       - host: host.openshell.internal
         port: 8554
+        allowed_ips:
+          - 127.0.0.1/32
+          - 192.168.65.254/32
       - host: 192.168.65.254
         port: 8554
+        allowed_ips:
+          - 192.168.65.254/32
       - host: 192.168.4.24
         port: 8554
+        allowed_ips:
+          - 192.168.4.24/32
     binaries:
       - path: /usr/bin/ffmpeg
       - path: /usr/bin/python3

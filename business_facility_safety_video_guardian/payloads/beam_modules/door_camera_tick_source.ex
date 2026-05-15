@@ -93,11 +93,11 @@ defmodule MirrorNeuron.Examples.VideoSafetyDoorMonitor.DoorCameraTickSource do
           ]}
        ]}
     else
-      {:ok, state, []}
+      {:ok, ensure_scheduled(state, context), []}
     end
   end
 
-  defp emit_tick(_message, state, _context), do: {:ok, state, []}
+  defp emit_tick(_message, state, context), do: {:ok, ensure_scheduled(state, context), []}
 
   defp schedule_next(state, context, delay_ms) do
     token = state.tick_seq + 1
@@ -124,9 +124,15 @@ defmodule MirrorNeuron.Examples.VideoSafetyDoorMonitor.DoorCameraTickSource do
     %{state | scheduled_token: token}
   end
 
+  defp ensure_scheduled(%{scheduled_token: nil} = state, context) do
+    schedule_next(state, context, interval_ms(state.config))
+  end
+
+  defp ensure_scheduled(state, _context), do: state
+
   defp default_stream_id(context), do: "#{context.job_id}:#{context.node.node_id}:video"
 
-  defp interval_ms(config), do: max(Map.get(config, "interval_ms", 5000), 250)
+  defp interval_ms(config), do: max(Map.get(config, "interval_ms", 10_000), 250)
 
   defp target_node(config), do: Map.get(config, "target_node", "person_detector")
 end

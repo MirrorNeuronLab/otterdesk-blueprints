@@ -1,4 +1,60 @@
 {
+  "agent_handoffs": {},
+  "backpressure": {
+    "drop_policy": "skip_with_error",
+    "llm": {
+      "max_calls_per_minute": 30,
+      "max_concurrent_calls": 2
+    },
+    "max_concurrency": 4,
+    "max_events_per_second": 10,
+    "queue_size": 1000
+  },
+  "budgets": {
+    "max_connector_reads": 500,
+    "max_connector_writes": 20,
+    "max_disk_mb": 250,
+    "max_llm_calls": 20,
+    "max_llm_tokens": 20000,
+    "max_runtime_seconds": 600,
+    "max_stream_duration_seconds": 3600
+  },
+  "capabilities": {
+    "optional": [
+      "llm.call",
+      "network.egress",
+      "stream.subscribe"
+    ],
+    "required": [
+      "filesystem.write"
+    ]
+  },
+  "determinism": {
+    "enabled": true,
+    "frozen_clock": null,
+    "replay": {
+      "from_events": "events.jsonl",
+      "from_inputs": "inputs.json",
+      "llm_mode": "mock"
+    },
+    "seed_field": "seed"
+  },
+  "error_handling": {
+    "default_mode": "stop",
+    "policies": {
+      "llm_call": {
+        "backoff_seconds": 2,
+        "max_attempts": 3,
+        "mode": "retry"
+      },
+      "optional_output": {
+        "mode": "skip"
+      },
+      "required_output": {
+        "mode": "stop"
+      }
+    }
+  },
   "execution_model": [
     "load_metadata",
     "resolve_config",
@@ -6,14 +62,19 @@
     "start_run_store",
     "observe_simulation_state",
     "call_llm_agent",
+    "evaluate_workflow_state",
+    "route_by_context",
+    "request_human_input",
     "apply_decision_to_simulation",
     "emit_events",
-    "write_final_artifact"
+    "write_final_artifact",
+    "fan_out_output_skills"
   ],
   "identity": {
     "blueprint_id": "finance_portfolio_crash_stress_lab",
     "name": "Portfolio Crash Stress Lab"
   },
+  "input_skills": {},
   "inputs": {
     "adapter": "mock",
     "description": "Default synthetic inputs bundled with the blueprint.",
@@ -24,15 +85,114 @@
     }
   },
   "interfaces": {
+    "channels": {
+      "artifacts": {
+        "artifacts": [
+          "run.json",
+          "config.json",
+          "inputs.json",
+          "events.jsonl",
+          "result.json",
+          "final_artifact.json"
+        ],
+        "description": "Stable run-store files and domain-specific outputs.",
+        "optional_artifacts": [
+          "job.json",
+          "web_ui.json",
+          "ui.json",
+          "web/index.html",
+          "logs.jsonl"
+        ]
+      },
+      "events": {
+        "artifact": "events.jsonl",
+        "description": "Append-only workflow events."
+      },
+      "input_skills": {
+        "description": "Connector-backed or reusable skill-backed input sources."
+      },
+      "inputs": {
+        "artifact": "inputs.json",
+        "description": "Resolved runtime inputs and adapter provenance."
+      },
+      "logs": {
+        "description": "Runtime stdout/stderr and explicit log artifacts.",
+        "stream": "stdout/stderr"
+      },
+      "output_skills": {
+        "description": "Optional fan-out destinations after local run-store writes."
+      },
+      "outputs": {
+        "artifacts": [
+          "result.json",
+          "final_artifact.json"
+        ],
+        "description": "Primary result and final user-facing artifact."
+      },
+      "streams": {
+        "default": [
+          "events"
+        ],
+        "description": "Named data or event streams exposed by the blueprint.",
+        "kinds": [
+          "audio",
+          "video",
+          "data",
+          "multimodal"
+        ],
+        "transports": [
+          "file",
+          "http",
+          "https",
+          "rtsp",
+          "rtmp",
+          "webrtc",
+          "websocket",
+          "socketio",
+          "tcp",
+          "udp",
+          "sse",
+          "kafka",
+          "mqtt",
+          "custom"
+        ]
+      },
+      "web_ui": {
+        "artifacts": [
+          "web_ui.json",
+          "ui.json",
+          "web/index.html"
+        ],
+        "description": "Optional web input/output handles."
+      }
+    },
     "config_sections": [
-      "metadata",
+      "standard_version",
       "identity",
+      "mode",
+      "metadata",
       "inputs",
       "simulation",
       "llm",
       "outputs",
       "logging",
-      "real_adapters"
+      "real_adapters",
+      "streams",
+      "input_skills",
+      "output_skills",
+      "error_handling",
+      "state",
+      "capabilities",
+      "privacy",
+      "triggers",
+      "backpressure",
+      "determinism",
+      "schemas",
+      "budgets",
+      "agent_handoffs",
+      "web_ui",
+      "interfaces",
+      "execution_model"
     ],
     "identity_fields": [
       "blueprint_id",
@@ -45,9 +205,17 @@
       "file",
       "env_json"
     ],
+    "optional_run_artifacts": [
+      "job.json",
+      "web_ui.json",
+      "ui.json",
+      "web/index.html",
+      "logs.jsonl"
+    ],
     "output_adapters": [
       "local_run_store"
     ],
+    "response_schema": "mn.blueprint.response.v1",
     "run_artifacts": [
       "run.json",
       "config.json",
@@ -55,11 +223,64 @@
       "events.jsonl",
       "result.json",
       "final_artifact.json"
+    ],
+    "stream_kinds": [
+      "audio",
+      "video",
+      "data",
+      "multimodal"
+    ],
+    "stream_transports": [
+      "file",
+      "http",
+      "https",
+      "rtsp",
+      "rtmp",
+      "webrtc",
+      "websocket",
+      "socketio",
+      "tcp",
+      "udp",
+      "sse",
+      "kafka",
+      "mqtt",
+      "custom"
+    ],
+    "web_ui_adapters": [
+      "none",
+      "static_html",
+      "gradio",
+      "custom"
     ]
   },
   "llm": {
     "agent_role": "Portfolio stress-test analyst",
+    "agents": {
+      "default": {
+        "llm_config": "primary",
+        "responsibilities": [
+          "observe macro shocks",
+          "evaluate drawdown and liquidity",
+          "recommend rebalancing"
+        ],
+        "role": "Portfolio stress-test analyst"
+      }
+    },
     "api_base": "http://192.168.4.173:11434",
+    "configs": {
+      "primary": {
+        "api_base": "http://192.168.4.173:11434",
+        "max_tokens": 700,
+        "mock_mode": "fake",
+        "mode": "ollama",
+        "model": "ollama/nemotron3:33b",
+        "num_retries": 1,
+        "provider": "ollama",
+        "timeout_seconds": 60
+      }
+    },
+    "default_config": "primary",
+    "enabled": true,
     "mock_mode": "fake",
     "mode": "ollama",
     "model": "ollama/nemotron3:33b",
@@ -80,20 +301,63 @@
     ],
     "events_jsonl": true,
     "level": "INFO",
-    "redact_env_secrets": true
+    "logs_jsonl": true,
+    "redact_env_secrets": true,
+    "redact_fields": [
+      "api_key",
+      "token",
+      "authorization",
+      "cookie",
+      "password",
+      "private_key"
+    ],
+    "stderr_jsonl": true
   },
   "metadata": {
+    "blueprint_revision": "v1",
     "category": "finance",
     "customizable_for": "Wealth management, treasury, family offices, robo-advisory risk overlays.",
     "problem_solved": "Risk changes path-dependently during shocks; one summary cannot show how hedges, cash, and defensive moves alter the next state.",
+    "standard_version": "1.0",
     "target_users": "Portfolio managers, wealth advisors, risk officers, and fintech evaluators."
   },
   "mode": "mock",
+  "output_skills": {},
   "outputs": {
     "adapter": "local_run_store",
     "artifact_contract": "Portfolio risk report and rebalance recommendation.",
     "run_root": "~/.mn/runs",
+    "skills": {},
+    "tcp": {
+      "enabled": false,
+      "ports": []
+    },
     "write_run_store": true
+  },
+  "privacy": {
+    "default_classification": "internal",
+    "rules": {
+      "confidential": {
+        "log": "redacted",
+        "send_to_llm": "allowed_configs_only",
+        "send_to_output_skills": "approved_destinations_only"
+      },
+      "internal": {
+        "log": "metadata_only",
+        "send_to_llm": true,
+        "send_to_output_skills": true
+      },
+      "public": {
+        "log": true,
+        "send_to_llm": true,
+        "send_to_output_skills": true
+      },
+      "regulated": {
+        "log": "redacted",
+        "send_to_llm": false,
+        "send_to_output_skills": "approved_destinations_only"
+      }
+    }
   },
   "real_adapters": {
     "inline_json": {
@@ -106,6 +370,14 @@
       "description": "Load JSON overrides from a local file path.",
       "path": null
     }
+  },
+  "schemas": {
+    "config": "mn.blueprint.config.v1",
+    "events": "mn.blueprint.events.v1",
+    "final_artifact": "mn.blueprint.final_artifact.v1",
+    "input_skills": "mn.blueprint.input_skills.v1",
+    "inputs": "mn.blueprint.inputs.v1",
+    "output_skills": "mn.blueprint.output_skills.v1"
   },
   "simulation": {
     "actions": [
@@ -127,5 +399,44 @@
     "seed_field": "seed",
     "type": "Macro shock and portfolio risk simulation."
   },
-  "standard_version": "1.0"
+  "standard_version": "1.0",
+  "state": {
+    "checkpoint_interval": {
+      "events": 100,
+      "seconds": 60
+    },
+    "enabled": false,
+    "idempotency_key_fields": [
+      "source_ref",
+      "event_id"
+    ],
+    "resume_mode": "none"
+  },
+  "streams": {},
+  "triggers": {
+    "daemon": false,
+    "schedule": null,
+    "sources": [],
+    "type": "manual"
+  },
+  "web_ui": {
+    "enabled": true,
+    "input": {
+      "adapter": "none",
+      "custom_url": null,
+      "fields": [],
+      "host": "127.0.0.1",
+      "instructions": null,
+      "port": null,
+      "share": false,
+      "title": null
+    },
+    "output": {
+      "adapter": "gradio",
+      "auto_generate": true,
+      "custom_url": null,
+      "refresh_seconds": 2.0,
+      "title": null
+    }
+  }
 }

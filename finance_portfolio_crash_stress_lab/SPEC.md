@@ -2,56 +2,58 @@
 
 ## What We Want To Achieve
 
-Build an explainable portfolio stress workflow that shows how risk evolves across a shock and why a defensive action is recommended. The target customer should understand both the final recommendation and the path that led there.
+Build a reviewable financial decision-support workflow that helps Portfolio managers, wealth advisors, risk officers, and fintech evaluators move from raw signals to an explainable recommendation. Stress a portfolio against drawdown, rate shocks, and liquidity pressure before recommending rebalancing. The target customer should understand what changed, why the system recommended an action, and what evidence a human should review before acting.
 
 ## Customer Problem
 
-Portfolio managers, wealth advisors, risk officers, and fintech evaluators need to understand how a portfolio may behave through a market shock before recommending defensive action. The customer gap is path-dependent risk: drawdown, rate pressure, liquidity, and decisions interact over time, so a one-time summary does not show what happens after an action is applied.
+Risk changes path-dependently during shocks; one summary cannot show how hedges, cash, and defensive moves alter the next state. In a real customer environment, the pain is not only producing an answer; it is preserving context across changing inputs, exposing tradeoffs, and creating an audit trail that business, technical, or governance stakeholders can trust.
 
 ## Design Details
 
-The blueprint runs a deterministic simulation loop. Each step observes portfolio state, asks the stress-test analyst agent to choose from the allowed actions, applies the action effect, records the updated state, and writes a structured report.
+The blueprint is organized as a MirrorNeuron workflow with stable identity, configurable inputs, structured events, and a final artifact. The main agent role is Portfolio stress-test analyst. The workflow uses macro shock and portfolio risk simulation and demonstrates macro shock simulation, portfolio risk, LLM risk report, and decision feedback.
 
-The design is intentionally adapter-friendly. The prototype starts with mock scenario inputs, but the same input contract can later receive real holdings, exposures, and policy constraints. The output contract stays centered on a timeline, state deltas, ranked options, and a final risk report.
+The design is intentionally adapter-friendly. The prototype can run with bundled, mock, or synthetic data even when the current code has not implemented every production integration. The customer-facing contract stays centered on the same concepts: load inputs, observe current state, choose or score an action, emit traceable events, and write an artifact a reviewer can inspect.
+
+A representative scenario is: A stagflation shock raises rates and drawdown while liquidity falls, and the agent chooses hedge, cash, or defensive rebalance actions.
 
 ## Input
 
-The prototype accepts a scenario name, deterministic seed, step count, and starting portfolio state. The core state inputs are initial portfolio value, drawdown percent, rate shock in basis points, and liquidity percent.
+The prototype accepts configuration for scenario identity, run controls, and domain inputs. Current adapters include `mock`, `json`, `file`, and `env_json`, so evaluators can start locally and later replace sample data with production data while preserving the same blueprint identity and output shape.
 
-The current action space is `rebalance_defensive`, `hedge_rates`, and `raise_cash`. Runtime inputs can come from the bundled mock scenario, inline JSON, file-based JSON, environment JSON, or future real adapters.
-
-For production use, the same contract should be fed by real holdings, asset-class exposures, duration, credit risk, liquidity constraints, tax rules, customer policy limits, and advisor-approved rebalancing options.
+Important state inputs include `portfolio_value`, `drawdown_pct`, `rate_shock_bps`, and `liquidity_pct`. Where the blueprint uses an action loop, the current action space includes `rebalance_defensive`, `hedge_rates`, and `raise_cash`. For production use, the same contract should be fed by customer system-of-record data, business rules, approval policies, thresholds, and any regulated or safety-critical constraints needed for the operating environment.
 
 ## Output: Expected Customer Outcome
 
-The expected customer outcome is an explainable stress report that shows how the portfolio changes through the shock and recommends a defensive action. A useful run returns a timeline of observations and decisions, state deltas, ranked options, and a final portfolio risk report.
+The expected customer outcome is portfolio risk report and rebalance recommendation. A useful run should show the starting context, the observations made during the workflow, the action or recommendation rationale, and the final artifact that a domain owner can review.
 
-The customer should be able to see the recommended action, why it was chosen, what happened to drawdown and liquidity over the simulated path, and which next steps a portfolio team should review before acting.
+The customer should be able to answer: what happened, which inputs mattered, what the system recommended, what changed over time, what risks or exceptions remain, and what a human team should do next.
 
 ## Evaluation Criteria
 
-- Action reasonableness: confirm the selected action is plausible for the observed drawdown, rate shock, and liquidity pressure.
-- Scenario consistency: verify recommendations change appropriately when the stress scenario, seed, or initial state changes.
-- State trajectory: inspect whether drawdown, liquidity, rate shock, and portfolio value move coherently over the decision loop.
-- Reproducibility: run with the same seed and mock LLM path and confirm stable results for local evaluation.
-- Advisor alignment: compare recommendations with historical decisions, investment committee guidance, or advisor-approved playbooks.
-- Explanation quality: check whether the rationale links the action to risk drivers rather than giving a generic recommendation.
-- Production readiness: validate against real holdings, customer constraints, market data, and compliance review before any capital allocation decision.
+- Decision quality: confirm the recommendation is plausible for the observed state, customer constraints, and available actions.
+- Scenario sensitivity: verify that outputs change appropriately when inputs, thresholds, seed values, or operating assumptions change.
+- State trajectory: inspect whether `portfolio_value`, `drawdown_pct`, `rate_shock_bps`, and `liquidity_pct` move coherently across the workflow rather than appearing as disconnected summaries.
+- Traceability: confirm every recommendation can be tied back to inputs, events, intermediate decisions, and final artifact fields.
+- Human review fit: check whether the artifact matches the language, evidence, and next-step format the target team already uses.
+- Operational readiness: validate latency, reliability, adapter behavior, permissions, privacy, and approval gates before using real customer data.
+- Outcome measurement: compare recommendations against historical cases, expert review, known policies, or measured business outcomes.
 
 ## Result Artifacts To Inspect
 
-Inspect `timeline` for step-by-step observations, LLM decisions, applied actions, and state after each update. Inspect `state_changes` for starting values, ending values, and deltas across portfolio value, drawdown, rate shock, and liquidity.
+Inspect the event stream for observations, decisions, errors, and handoffs. Inspect the result payload and final artifact for the recommended action, ranked options or findings, supporting rationale, state changes, and next steps.
 
-Inspect `final_artifact` for the recommended action, ranked options, action history, summary, and next steps. When using the local run store, also inspect `run.json`, `config.json`, `inputs.json`, `events.jsonl`, `result.json`, and `final_artifact.json`.
+When using the local run store, inspect `run.json`, `config.json`, `inputs.json`, `events.jsonl`, `result.json`, and `final_artifact.json`. These artifacts are the review surface for debugging the workflow, comparing scenarios, and deciding whether the blueprint is ready for a real adapter.
 
 ## Prototype Limits
 
-The current blueprint uses mock data and simplified market dynamics for repeatable local runs. It does not model all holdings, taxes, trading costs, compliance constraints, client suitability, or full market microstructure.
+The current blueprint is a product-facing template and may include mock data, deterministic simulation, simplified policies, placeholder integrations, or partial worker coverage. It is designed to show the customer problem, target workflow, and expected artifact even where production implementation still needs hardening.
 
-The output is a decision-support artifact, not financial advice or an executable trade instruction.
+Outputs are decision-support artifacts. They should not be treated as final financial advice, medical guidance, safety certification, compliance approval, or executable operating instruction without customer validation and human approval.
 
 ## Upgrade Path To Real Customer Use
 
-Connect portfolio holdings, factor exposures, live or historical market data, liquidity models, and customer-specific policy constraints. Calibrate action effects using historical crisis periods and advisor feedback.
+Connect holdings, factor exposures, risk models, macro scenarios, tax constraints, and policy limits. Add customer-specific policies, review gates, exception handling, retention rules, and monitoring dashboards. Calibrate the workflow against historical data and expert judgment, then track acceptance rate, correction rate, latency, incident reduction, cost impact, and other outcome metrics that prove whether the workflow is helping.
 
-Add approval gates for any client-facing or trade-facing recommendation. Track recommendation quality against backtests, advisor acceptance, realized outcomes, drawdown reduction, liquidity preservation, and compliance review results.
+## Product Narrative
+
+Asset-management risk copilots are commercially attractive because decisions are high-value and require explainable scenario reasoning.

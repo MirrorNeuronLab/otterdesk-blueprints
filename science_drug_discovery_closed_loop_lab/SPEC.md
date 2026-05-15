@@ -2,54 +2,58 @@
 
 ## What We Want To Achieve
 
-Build an auditable scientific discovery loop that repeatedly moves from an initial disease or target question to ranked candidate hypotheses. The target customer should be able to trace each candidate through the stages that produced it and decide what deserves expert review or follow-up experimentation.
+Build a reviewable scientific planning workflow that helps Computational biology researchers and scientific AI platform evaluators move from raw signals to an explainable recommendation. Run a long-lived multi-stage drug-discovery loop that keeps generating and evaluating candidates. The target customer should understand what changed, why the system recommended an action, and what evidence a human should review before acting.
 
 ## Customer Problem
 
-Computational biology researchers and scientific AI platform evaluators need a repeatable loop for generating, evaluating, and ranking candidate hypotheses. The customer gap is traceability across stages: targets, structures, generated candidates, evaluations, and review summaries must remain connected as evidence changes.
+Discovery workflows are iterative: candidate generation, scoring, extraction, and review need to repeat as new evidence arrives. In a real customer environment, the pain is not only producing an answer; it is preserving context across changing inputs, exposing tradeoffs, and creating an audit trail that business, technical, or governance stakeholders can trust.
 
 ## Design Details
 
-The blueprint is organized as a staged worker graph. `target_discovery` emits `targets_ready`, `structure_generation` emits `structures_ready`, `candidate_generation` emits `candidates_ready`, `binding_evaluation` emits `evaluations_ready`, and `ranking_reporting` emits the final ranked result.
+The blueprint is organized as a MirrorNeuron workflow with stable identity, configurable inputs, structured events, and a final artifact. The main agent role is Scientific manager and staged worker agents. The workflow uses long-running scientific pipeline loop and demonstrates long-running loop, multi-stage pipeline, scientific workers, and artifact extraction.
 
-A manager monitor observes the stage outputs so the workflow can be reviewed as a connected discovery trace rather than as disconnected scripts. The design goal is to preserve stage-level provenance when replacing prototype workers with validated scientific models and lab adapters.
+The design is intentionally adapter-friendly. The prototype can run with bundled, mock, or synthetic data even when the current code has not implemented every production integration. The customer-facing contract stays centered on the same concepts: load inputs, observe current state, choose or score an action, emit traceable events, and write an artifact a reviewer can inspect.
+
+A representative scenario is: A pipeline based on BioTarget runs staged workers that manage candidate discovery and result extraction in a continuing loop.
 
 ## Input
 
-The prototype starts with a disease or target discovery seed input and passes staged worker context through target discovery, structure generation, candidate generation, binding evaluation, and ranking/reporting. Intermediate inputs include generated targets, structure artifacts, candidate molecules or representations, evaluation outputs, and stage-specific worker messages.
+The prototype accepts configuration for scenario identity, run controls, and domain inputs. Current adapters include `mock`, `json`, `file`, and `env_json`, so evaluators can start locally and later replace sample data with production data while preserving the same blueprint identity and output shape.
 
-For production use, the same contract should be fed by scientific datasets, literature retrieval, validated target databases, structure predictors, candidate generators, docking or scoring models, assay results, lab automation outputs, and expert review decisions.
+Important state inputs include the configured state metrics. Where the blueprint uses an action loop, the current action space includes the configured domain actions. For production use, the same contract should be fed by customer system-of-record data, business rules, approval policies, thresholds, and any regulated or safety-critical constraints needed for the operating environment.
 
 ## Output: Expected Customer Outcome
 
-The expected customer outcome is an auditable multi-stage discovery loop that repeatedly produces and ranks candidate hypotheses for expert review. A useful run returns candidate artifacts, stage logs, ranked candidate summaries, discovery trace, and evidence showing how each candidate moved from disease or target input through evaluation.
+The expected customer outcome is candidate artifacts, stage logs, and discovery summaries. A useful run should show the starting context, the observations made during the workflow, the action or recommendation rationale, and the final artifact that a domain owner can review.
 
-The customer should be able to answer which targets were considered, which structures or candidates were generated, how candidates were evaluated, which candidates ranked best, and what evidence supports the next scientific review step.
+The customer should be able to answer: what happened, which inputs mattered, what the system recommended, what changed over time, what risks or exceptions remain, and what a human team should do next.
 
 ## Evaluation Criteria
 
-- Stage completion: verify each pipeline stage emits the expected message type and required payload for the next stage.
-- Candidate validity: check that generated candidates are syntactically and scientifically plausible for the configured workflow.
-- Scoring consistency: confirm rankings follow the evaluation scores and do not lose successful candidates.
-- Traceability: verify disease, gene or target, structure, candidate, and evaluation records can be linked end to end.
-- Artifact integrity: confirm generated files, logs, and summaries are present, readable, and tied to the run.
-- Reproducibility: run deterministic or mock paths where available and confirm stable outputs for the same seed or input.
-- Scientific usefulness: have domain reviewers judge whether the ranked candidates and evidence are credible enough to prioritize follow-up experiments.
+- Decision quality: confirm the recommendation is plausible for the observed state, customer constraints, and available actions.
+- Scenario sensitivity: verify that outputs change appropriately when inputs, thresholds, seed values, or operating assumptions change.
+- State trajectory: inspect whether the configured state metrics move coherently across the workflow rather than appearing as disconnected summaries.
+- Traceability: confirm every recommendation can be tied back to inputs, events, intermediate decisions, and final artifact fields.
+- Human review fit: check whether the artifact matches the language, evidence, and next-step format the target team already uses.
+- Operational readiness: validate latency, reliability, adapter behavior, permissions, privacy, and approval gates before using real customer data.
+- Outcome measurement: compare recommendations against historical cases, expert review, known policies, or measured business outcomes.
 
 ## Result Artifacts To Inspect
 
-Inspect worker messages for `targets_ready`, `structures_ready`, `candidates_ready`, `evaluations_ready`, and `pipeline_complete`. Inspect stage logs for errors, skipped records, extraction issues, and ranking decisions.
+Inspect the event stream for observations, decisions, errors, and handoffs. Inspect the result payload and final artifact for the recommended action, ranked options or findings, supporting rationale, state changes, and next steps.
 
-Inspect final candidate summaries and generated files such as ranked candidate reports or best-candidate records. When using the standard local run store, inspect `run.json`, `config.json`, `inputs.json`, `events.jsonl`, `result.json`, and `final_artifact.json` if produced by the runtime path.
+When using the local run store, inspect `run.json`, `config.json`, `inputs.json`, `events.jsonl`, `result.json`, and `final_artifact.json`. These artifacts are the review surface for debugging the workflow, comparing scenarios, and deciding whether the blueprint is ready for a real adapter.
 
 ## Prototype Limits
 
-The current blueprint is an early prototype with simplified staged workers and bundled or mock-style inputs. It is intended for workflow evaluation and platform demonstration, not validated drug discovery or clinical decision-making.
+The current blueprint is a product-facing template and may include mock data, deterministic simulation, simplified policies, placeholder integrations, or partial worker coverage. It is designed to show the customer problem, target workflow, and expected artifact even where production implementation still needs hardening.
 
-Scientific assumptions, model quality, target validity, docking reliability, assay relevance, safety, novelty, and intellectual-property constraints must be validated before any real research program depends on the output.
+Outputs are decision-support artifacts. They should not be treated as final financial advice, medical guidance, safety certification, compliance approval, or executable operating instruction without customer validation and human approval.
 
 ## Upgrade Path To Real Customer Use
 
-Connect validated scientific data sources, structure tools, candidate generation models, docking or binding evaluation systems, assay result adapters, and lab workflow systems. Preserve stage-level provenance so every candidate can be traced back to its source evidence.
+Swap target data, scoring functions, candidate generators, stage policies, and stopping criteria. Add customer-specific policies, review gates, exception handling, retention rules, and monitoring dashboards. Calibrate the workflow against historical data and expert judgment, then track acceptance rate, correction rate, latency, incident reduction, cost impact, and other outcome metrics that prove whether the workflow is helping.
 
-Add domain-specific quality gates, expert review steps, stopping criteria, experiment prioritization, and feedback from real assays. Track candidate validity, reviewer acceptance, cycle-time reduction, hit-rate improvement, reproducibility, and evidence traceability across repeated discovery loops.
+## Product Narrative
+
+Scientific discovery is a high-value vertical where closed-loop agent workflows can reduce cycle time if connected to validated models and labs.

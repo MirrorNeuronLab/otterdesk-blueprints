@@ -70,20 +70,177 @@
   "job_name": "science-drug-discovery-closed-loop-lab",
   "manifest_version": "1.0",
   "metadata": {
+    "agent_templates": {
+      "library": "../mn-agents/index.json",
+      "nodes": [
+        {
+          "node_id": "target_discovery",
+          "uses": "mn-agents.data_python_executor@1.0.0"
+        },
+        {
+          "node_id": "structure_generation",
+          "uses": "mn-agents.data_python_executor@1.0.0"
+        },
+        {
+          "node_id": "candidate_generation",
+          "uses": "mn-agents.data_python_executor@1.0.0"
+        },
+        {
+          "node_id": "binding_evaluation",
+          "uses": "mn-agents.data_python_executor@1.0.0"
+        },
+        {
+          "node_id": "ranking_reporting",
+          "uses": "mn-agents.data_python_executor@1.0.0"
+        },
+        {
+          "node_id": "manager_monitor",
+          "uses": "mn-agents.data_python_executor@1.0.0"
+        }
+      ],
+      "render_tool": "../mn-agents/tools/render_agent_templates.py",
+      "rendered_output": "manifest.rendered.json or runtime metadata",
+      "renderer": "mn_blueprint_support.render_manifest_agent_templates"
+    },
     "blueprint_id": "science_drug_discovery_closed_loop_lab",
     "category": "science",
+    "configuration_contract": {
+      "optional_files": [
+        "scenario.json",
+        "config/overwrite.json"
+      ],
+      "required_files": [
+        "manifest.json",
+        "README.md",
+        "SPEC.md",
+        "config/default.json",
+        "payloads/"
+      ]
+    },
     "customizable_for": "Drug discovery, material search, assay planning, scientific literature loops.",
     "description": "Run a long-lived multi-stage drug-discovery loop that keeps generating and evaluating candidates.",
-    "interfaces": {
-      "config": [
-        "metadata",
+    "init_config_review": {
+      "checks": [
         "identity",
+        "mode",
+        "inputs",
+        "streams",
+        "input_skills",
+        "outputs",
+        "privacy",
+        "budgets"
+      ],
+      "required": true
+    },
+    "interfaces": {
+      "channels": {
+        "artifacts": {
+          "artifacts": [
+            "run.json",
+            "config.json",
+            "inputs.json",
+            "events.jsonl",
+            "result.json",
+            "final_artifact.json"
+          ],
+          "description": "Stable run-store files and domain-specific outputs.",
+          "optional_artifacts": [
+            "job.json",
+            "web_ui.json",
+            "ui.json",
+            "web/index.html",
+            "logs.jsonl"
+          ]
+        },
+        "events": {
+          "artifact": "events.jsonl",
+          "description": "Append-only workflow events."
+        },
+        "input_skills": {
+          "description": "Connector-backed or reusable skill-backed input sources."
+        },
+        "inputs": {
+          "artifact": "inputs.json",
+          "description": "Resolved runtime inputs and adapter provenance."
+        },
+        "logs": {
+          "description": "Runtime stdout/stderr and explicit log artifacts.",
+          "stream": "stdout/stderr"
+        },
+        "output_skills": {
+          "description": "Optional fan-out destinations after local run-store writes."
+        },
+        "outputs": {
+          "artifacts": [
+            "result.json",
+            "final_artifact.json"
+          ],
+          "description": "Primary result and final user-facing artifact."
+        },
+        "streams": {
+          "default": [
+            "events"
+          ],
+          "description": "Named data or event streams exposed by the blueprint.",
+          "kinds": [
+            "audio",
+            "video",
+            "data",
+            "multimodal"
+          ],
+          "transports": [
+            "file",
+            "http",
+            "https",
+            "rtsp",
+            "rtmp",
+            "webrtc",
+            "websocket",
+            "socketio",
+            "tcp",
+            "udp",
+            "sse",
+            "kafka",
+            "mqtt",
+            "custom"
+          ]
+        },
+        "web_ui": {
+          "artifacts": [
+            "web_ui.json",
+            "ui.json",
+            "web/index.html"
+          ],
+          "description": "Optional web input/output handles."
+        }
+      },
+      "config": [
+        "standard_version",
+        "identity",
+        "mode",
+        "metadata",
         "inputs",
         "simulation",
         "llm",
         "outputs",
         "logging",
-        "real_adapters"
+        "real_adapters",
+        "streams",
+        "input_skills",
+        "output_skills",
+        "error_handling",
+        "state",
+        "capabilities",
+        "privacy",
+        "triggers",
+        "backpressure",
+        "determinism",
+        "schemas",
+        "budgets",
+        "agent_handoffs",
+        "web_ui",
+        "interfaces",
+        "execution_model"
       ],
       "identity": [
         "blueprint_id",
@@ -96,6 +253,13 @@
         "file",
         "env_json"
       ],
+      "optional_outputs": [
+        "job.json",
+        "web_ui.json",
+        "ui.json",
+        "web/index.html",
+        "logs.jsonl"
+      ],
       "output_adapters": [
         "local_run_store"
       ],
@@ -106,6 +270,35 @@
         "events.jsonl",
         "result.json",
         "final_artifact.json"
+      ],
+      "response_schema": "mn.blueprint.response.v1",
+      "stream_kinds": [
+        "audio",
+        "video",
+        "data",
+        "multimodal"
+      ],
+      "stream_transports": [
+        "file",
+        "http",
+        "https",
+        "rtsp",
+        "rtmp",
+        "webrtc",
+        "websocket",
+        "socketio",
+        "tcp",
+        "udp",
+        "sse",
+        "kafka",
+        "mqtt",
+        "custom"
+      ],
+      "web_ui_adapters": [
+        "none",
+        "static_html",
+        "gradio",
+        "custom"
       ]
     },
     "llm": {},
@@ -114,6 +307,12 @@
     "output": "Candidate artifacts, stage logs, and discovery summaries.",
     "output_contract": {
       "events": "typed event objects with payload",
+      "events_jsonl": "events.jsonl",
+      "final_artifact_json": "final_artifact.json",
+      "local_run_store": "~/.mn/runs/<run_id>/",
+      "logs_jsonl": "logs.jsonl",
+      "response_schema": "mn.blueprint.response.v1",
+      "result_json": "result.json",
       "status": "JSON lines on stderr",
       "stdout": "single JSON object, event envelope, or bundle path"
     },
@@ -133,7 +332,22 @@
     "standard": {
       "config_path": "config/default.json",
       "default_input_adapter": "mock",
-      "execution_model": "load metadata -> resolve config -> load inputs -> simulate/decide loop -> emit events -> write final artifact",
+      "execution_model": "load_metadata -> resolve_config -> load_inputs -> start_run_store -> observe_simulation_state -> call_llm_agent -> evaluate_workflow_state -> route_by_context -> request_human_input -> apply_decision_to_simulation -> emit_events -> write_final_artifact -> fan_out_output_skills",
+      "execution_steps": [
+        "load_metadata",
+        "resolve_config",
+        "load_inputs",
+        "start_run_store",
+        "observe_simulation_state",
+        "call_llm_agent",
+        "evaluate_workflow_state",
+        "route_by_context",
+        "request_human_input",
+        "apply_decision_to_simulation",
+        "emit_events",
+        "write_final_artifact",
+        "fan_out_output_skills"
+      ],
       "output_adapter": "local_run_store",
       "real_input_adapters": [
         "file",
@@ -168,7 +382,15 @@
         "workdir": "/sandbox/job/worker"
       },
       "node_id": "target_discovery",
-      "type": "generic"
+      "type": "generic",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "with": {
+        "node_type": "generic",
+        "output_message_type": "targets_ready",
+        "runner_module": "MirrorNeuron.Runner.HostLocal",
+        "script": "scripts/stage_a.py",
+        "upload_path": "worker"
+      }
     },
     {
       "agent_type": "executor",
@@ -186,7 +408,15 @@
         "workdir": "/sandbox/job/worker"
       },
       "node_id": "structure_generation",
-      "type": "generic"
+      "type": "generic",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "with": {
+        "node_type": "generic",
+        "output_message_type": "structures_ready",
+        "runner_module": "MirrorNeuron.Runner.HostLocal",
+        "script": "scripts/stage_b.py",
+        "upload_path": "worker"
+      }
     },
     {
       "agent_type": "executor",
@@ -204,7 +434,15 @@
         "workdir": "/sandbox/job/worker"
       },
       "node_id": "candidate_generation",
-      "type": "generic"
+      "type": "generic",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "with": {
+        "node_type": "generic",
+        "output_message_type": "candidates_ready",
+        "runner_module": "MirrorNeuron.Runner.HostLocal",
+        "script": "scripts/stage_c.py",
+        "upload_path": "worker"
+      }
     },
     {
       "agent_type": "executor",
@@ -222,7 +460,15 @@
         "workdir": "/sandbox/job/worker"
       },
       "node_id": "binding_evaluation",
-      "type": "generic"
+      "type": "generic",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "with": {
+        "node_type": "generic",
+        "output_message_type": "evaluations_ready",
+        "runner_module": "MirrorNeuron.Runner.HostLocal",
+        "script": "scripts/stage_d.py",
+        "upload_path": "worker"
+      }
     },
     {
       "agent_type": "executor",
@@ -240,7 +486,15 @@
         "workdir": "/sandbox/job/worker"
       },
       "node_id": "ranking_reporting",
-      "type": "generic"
+      "type": "generic",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "with": {
+        "node_type": "generic",
+        "output_message_type": "pipeline_complete",
+        "runner_module": "MirrorNeuron.Runner.HostLocal",
+        "script": "scripts/stage_e.py",
+        "upload_path": "worker"
+      }
     },
     {
       "agent_type": "executor",
@@ -257,7 +511,14 @@
         "workdir": "/sandbox/job/worker"
       },
       "node_id": "manager_monitor",
-      "type": "generic"
+      "type": "generic",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "with": {
+        "node_type": "generic",
+        "runner_module": "MirrorNeuron.Runner.HostLocal",
+        "script": "scripts/manager.py",
+        "upload_path": "worker"
+      }
     }
   ],
   "policies": {

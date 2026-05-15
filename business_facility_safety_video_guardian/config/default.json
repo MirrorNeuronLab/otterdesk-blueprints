@@ -1,4 +1,62 @@
 {
+  "agent_handoffs": {},
+  "backpressure": {
+    "drop_policy": "skip_with_error",
+    "llm": {
+      "max_calls_per_minute": 30,
+      "max_concurrent_calls": 2
+    },
+    "max_concurrency": 4,
+    "max_events_per_second": 25,
+    "queue_size": 1000
+  },
+  "budgets": {
+    "max_connector_reads": 500,
+    "max_connector_writes": 20,
+    "max_disk_mb": 250,
+    "max_llm_calls": 20,
+    "max_llm_tokens": 20000,
+    "max_runtime_seconds": 600,
+    "max_stream_duration_seconds": 3600
+  },
+  "capabilities": {
+    "optional": [
+      "llm.call",
+      "network.egress",
+      "stream.publish",
+      "stream.subscribe"
+    ],
+    "required": [
+      "filesystem.write",
+      "stream.subscribe"
+    ]
+  },
+  "determinism": {
+    "enabled": true,
+    "frozen_clock": null,
+    "replay": {
+      "from_events": "events.jsonl",
+      "from_inputs": "inputs.json",
+      "llm_mode": "mock"
+    },
+    "seed_field": "seed"
+  },
+  "error_handling": {
+    "default_mode": "stop",
+    "policies": {
+      "llm_call": {
+        "backoff_seconds": 2,
+        "max_attempts": 3,
+        "mode": "retry"
+      },
+      "optional_output": {
+        "mode": "skip"
+      },
+      "required_output": {
+        "mode": "stop"
+      }
+    }
+  },
   "execution_model": [
     "load_metadata",
     "resolve_config",
@@ -6,32 +64,133 @@
     "start_run_store",
     "observe_simulation_state",
     "call_llm_agent",
+    "evaluate_workflow_state",
+    "route_by_context",
+    "request_human_input",
     "apply_decision_to_simulation",
     "emit_events",
-    "write_final_artifact"
+    "write_final_artifact",
+    "fan_out_output_skills"
   ],
   "identity": {
     "blueprint_id": "business_facility_safety_video_guardian",
     "name": "Facility Safety Video Guardian"
   },
+  "input_skills": {},
   "inputs": {
     "adapter": "mock",
     "description": "Default synthetic inputs bundled with the blueprint.",
     "payload": {}
   },
   "interfaces": {
+    "channels": {
+      "artifacts": {
+        "artifacts": [
+          "run.json",
+          "config.json",
+          "inputs.json",
+          "events.jsonl",
+          "result.json",
+          "final_artifact.json"
+        ],
+        "description": "Stable run-store files and domain-specific outputs.",
+        "optional_artifacts": [
+          "job.json",
+          "web_ui.json",
+          "ui.json",
+          "web/index.html",
+          "logs.jsonl"
+        ]
+      },
+      "events": {
+        "artifact": "events.jsonl",
+        "description": "Append-only workflow events."
+      },
+      "input_skills": {
+        "description": "Connector-backed or reusable skill-backed input sources."
+      },
+      "inputs": {
+        "artifact": "inputs.json",
+        "description": "Resolved runtime inputs and adapter provenance."
+      },
+      "logs": {
+        "description": "Runtime stdout/stderr and explicit log artifacts.",
+        "stream": "stdout/stderr"
+      },
+      "output_skills": {
+        "description": "Optional fan-out destinations after local run-store writes."
+      },
+      "outputs": {
+        "artifacts": [
+          "result.json",
+          "final_artifact.json"
+        ],
+        "description": "Primary result and final user-facing artifact."
+      },
+      "streams": {
+        "default": [
+          "events"
+        ],
+        "description": "Named data or event streams exposed by the blueprint.",
+        "kinds": [
+          "audio",
+          "video",
+          "data",
+          "multimodal"
+        ],
+        "transports": [
+          "file",
+          "http",
+          "https",
+          "rtsp",
+          "rtmp",
+          "webrtc",
+          "websocket",
+          "socketio",
+          "tcp",
+          "udp",
+          "sse",
+          "kafka",
+          "mqtt",
+          "custom"
+        ]
+      },
+      "web_ui": {
+        "artifacts": [
+          "web_ui.json",
+          "ui.json",
+          "web/index.html"
+        ],
+        "description": "Optional web input/output handles."
+      }
+    },
     "config_sections": [
-      "metadata",
+      "standard_version",
       "identity",
+      "mode",
+      "metadata",
       "inputs",
       "simulation",
-      "video_source",
-      "vl_model",
       "llm",
       "outputs",
       "logging",
       "real_adapters",
-      "web_ui"
+      "streams",
+      "input_skills",
+      "output_skills",
+      "error_handling",
+      "state",
+      "capabilities",
+      "privacy",
+      "triggers",
+      "backpressure",
+      "determinism",
+      "schemas",
+      "budgets",
+      "agent_handoffs",
+      "web_ui",
+      "interfaces",
+      "execution_model"
     ],
     "identity_fields": [
       "blueprint_id",
@@ -44,44 +203,81 @@
       "file",
       "env_json"
     ],
+    "optional_run_artifacts": [
+      "job.json",
+      "web_ui.json",
+      "ui.json",
+      "web/index.html",
+      "logs.jsonl"
+    ],
     "output_adapters": [
       "local_run_store"
     ],
+    "response_schema": "mn.blueprint.response.v1",
     "run_artifacts": [
       "run.json",
       "config.json",
       "inputs.json",
       "events.jsonl",
       "result.json",
-      "final_artifact.json",
-      "ui.json",
-      "web_ui.json"
+      "final_artifact.json"
+    ],
+    "stream_kinds": [
+      "audio",
+      "video",
+      "data",
+      "multimodal"
+    ],
+    "stream_transports": [
+      "file",
+      "http",
+      "https",
+      "rtsp",
+      "rtmp",
+      "webrtc",
+      "websocket",
+      "socketio",
+      "tcp",
+      "udp",
+      "sse",
+      "kafka",
+      "mqtt",
+      "custom"
+    ],
+    "web_ui_adapters": [
+      "none",
+      "static_html",
+      "gradio",
+      "custom"
     ]
   },
   "llm": {
     "agent_role": "Safety observation and face-description escalation agent.",
+    "agents": {
+      "default": {
+        "llm_config": "primary",
+        "responsibilities": [],
+        "role": "Safety observation and face-description escalation agent."
+      }
+    },
     "api_base": "http://192.168.4.173:11434",
+    "configs": {
+      "primary": {
+        "api_base": "http://192.168.4.173:11434",
+        "max_tokens": 700,
+        "mock_mode": "fake",
+        "mode": "ollama",
+        "model": "ollama/nemotron3:33b",
+        "num_retries": 1,
+        "provider": "ollama",
+        "timeout_seconds": 60
+      }
+    },
+    "default_config": "primary",
+    "enabled": true,
     "mock_mode": "fake",
     "mode": "ollama",
     "model": "ollama/nemotron3:33b"
-  },
-  "video_source": {
-    "uri": "rtsp://127.0.0.1:8554/local-camera",
-    "transport": "rtsp",
-    "codec": "h264",
-    "camera_id": "front-door",
-    "frame_sample_seconds": 5.0,
-    "frame_jpeg_max_width": 896,
-    "description": "Configurable facility video stream. The default expects a local RTSP camera publishing H.264 video."
-  },
-  "vl_model": {
-    "provider": "ollama",
-    "base_url": "http://192.168.4.173:11434",
-    "model": "nemotron3:33b",
-    "endpoint": "/api/generate",
-    "timeout_seconds": 90,
-    "temperature": 0.0,
-    "description": "Configurable vision-language model used to understand sampled facility video frames."
   },
   "logging": {
     "events": [
@@ -91,8 +287,7 @@
       "llm_decision",
       "simulation_state_updated",
       "run_completed",
-      "door_camera_frame_analyzed",
-      "door_camera_face_detected",
+      "door_camera_human_detected",
       "door_camera_slack_alert_sent",
       "door_camera_slack_alert_skipped",
       "door_camera_slack_alert_error",
@@ -100,20 +295,99 @@
     ],
     "events_jsonl": true,
     "level": "INFO",
-    "redact_env_secrets": true
+    "logs_jsonl": true,
+    "redact_env_secrets": true,
+    "redact_fields": [
+      "api_key",
+      "token",
+      "authorization",
+      "cookie",
+      "password",
+      "private_key"
+    ],
+    "stderr_jsonl": true
   },
+  "manifest_config_bindings": [
+    {
+      "config_path": "identity.run_id",
+      "manifest_path": "nodes.person_detector.config.environment.MN_RUN_ID",
+      "stringify": true
+    },
+    {
+      "config_path": "outputs.run_root",
+      "manifest_path": "nodes.person_detector.config.environment.MN_RUNS_ROOT",
+      "stringify": true
+    }
+  ],
   "metadata": {
+    "blueprint_revision": "v1",
     "category": "business",
     "customizable_for": "Door monitoring, restricted-area alerts, retail safety, warehouse operations.",
     "problem_solved": "Video monitoring is continuous, noisy, and operationally sensitive; teams need stateful alerts, cooldowns, and explainable observations rather than raw frames.",
+    "standard_version": "1.0",
     "target_users": "Facilities, security, safety operations, and property management teams."
   },
   "mode": "mock",
+  "output_skills": {
+    "websocket_events": {
+      "connector": "websocket",
+      "content": "events",
+      "direction": "output",
+      "enabled": false,
+      "mock": true,
+      "required": false,
+      "skill": "websocket_stream",
+      "transport": "websocket",
+      "url_env": "MN_BLUEPRINT_EVENTS_WS_URL"
+    }
+  },
   "outputs": {
     "adapter": "local_run_store",
-    "artifact_contract": "Face detection events, observable facial appearance descriptions, alert decisions, and notification payloads.",
+    "artifact_contract": "Human detection events, observable appearance and activity descriptions, alert decisions, and notification payloads.",
     "run_root": "~/.mn/runs",
+    "skills": {
+      "websocket_events": {
+        "connector": "websocket",
+        "content": "events",
+        "direction": "output",
+        "enabled": false,
+        "mock": true,
+        "required": false,
+        "skill": "websocket_stream",
+        "transport": "websocket",
+        "url_env": "MN_BLUEPRINT_EVENTS_WS_URL"
+      }
+    },
+    "tcp": {
+      "enabled": false,
+      "ports": []
+    },
     "write_run_store": true
+  },
+  "privacy": {
+    "default_classification": "internal",
+    "rules": {
+      "confidential": {
+        "log": "redacted",
+        "send_to_llm": "allowed_configs_only",
+        "send_to_output_skills": "approved_destinations_only"
+      },
+      "internal": {
+        "log": "metadata_only",
+        "send_to_llm": true,
+        "send_to_output_skills": true
+      },
+      "public": {
+        "log": true,
+        "send_to_llm": true,
+        "send_to_output_skills": true
+      },
+      "regulated": {
+        "log": "redacted",
+        "send_to_llm": false,
+        "send_to_output_skills": "approved_destinations_only"
+      }
+    }
   },
   "real_adapters": {
     "inline_json": {
@@ -127,6 +401,14 @@
       "path": null
     }
   },
+  "schemas": {
+    "config": "mn.blueprint.config.v1",
+    "events": "mn.blueprint.events.v1",
+    "final_artifact": "mn.blueprint.final_artifact.v1",
+    "input_skills": "mn.blueprint.input_skills.v1",
+    "inputs": "mn.blueprint.inputs.v1",
+    "output_skills": "mn.blueprint.output_skills.v1"
+  },
   "simulation": {
     "deterministic": true,
     "enabled": true,
@@ -134,46 +416,89 @@
     "type": "Video stream sampling with alert state."
   },
   "standard_version": "1.0",
-  "web_ui": {
+  "state": {
+    "checkpoint_interval": {
+      "events": 100,
+      "seconds": 60
+    },
     "enabled": true,
-    "input": {
-      "adapter": "none"
-    },
-    "output": {
-      "adapter": "gradio",
-      "title": "Facility Safety Video Guardian",
-      "server": "blueprint_support",
-      "host": "127.0.0.1",
-      "refresh_seconds": 2.0
-    },
+    "idempotency_key_fields": [
+      "source_ref",
+      "event_id"
+    ],
+    "resume_mode": "checkpoint"
+  },
+  "streams": {
+    "door_camera_video": {
+      "codec": "h264",
+      "enabled": true,
+      "kind": "video",
+      "transport": "rtsp",
+      "uri": "rtsp://host.docker.internal:8554/local-camera"
+    }
+  },
+  "triggers": {
+    "daemon": true,
+    "schedule": null,
+    "sources": [
+      "door_camera_video"
+    ],
+    "type": "stream"
+  },
+  "video_source": {
+    "camera_id": "front-door",
+    "codec": "h264",
+    "description": "Configurable facility video stream. The default expects a local RTSP camera publishing H.264 video.",
+    "frame_jpeg_max_width": 896,
+    "frame_sample_seconds": 10.0,
+    "transport": "rtsp",
+    "uri": "rtsp://host.docker.internal:8554/local-camera"
+  },
+  "vl_model": {
+    "base_url": "http://192.168.4.173:11434",
+    "description": "Configurable vision-language model used to understand sampled facility video frames.",
+    "endpoint": "/api/generate",
+    "model": "nemotron3:33b",
+    "provider": "ollama",
+    "temperature": 0.0,
+    "timeout_seconds": 90
+  },
+  "web_ui": {
     "dashboard": {
-      "default_video_source": "person_detector/samples/door-demo.mp4",
-      "browser_video_source": "http://127.0.0.1:8889/local-camera/",
       "browser_publish_source": "http://127.0.0.1:8889/local-camera/publish?video-codec=h264%2F90000&audio-device=none&video-width=1280&video-height=720&video-framerate=30",
+      "browser_video_source": "http://127.0.0.1:8889/local-camera/",
+      "default_video_source": "rtsp://host.docker.internal:8554/local-camera",
+      "event_feed": {
+        "default_path": "~/.mn/runs/<run_id>/events.jsonl",
+        "format": "jsonl"
+      },
       "event_types": [
-        "door_camera_frame_analyzed",
-        "door_camera_face_detected",
+        "door_camera_human_detected",
         "door_camera_slack_alert_sent",
         "door_camera_slack_alert_skipped",
         "door_camera_slack_alert_error",
         "door_camera_frame_analysis_failed"
-      ],
-      "event_feed": {
-        "format": "jsonl",
-        "default_path": "~/.mn/runs/<run_id>/events.jsonl"
-      }
-    }
-  },
-  "manifest_config_bindings": [
-    {
-      "config_path": "identity.run_id",
-      "manifest_path": "nodes.person_detector.config.environment.MN_RUN_ID",
-      "stringify": true
+      ]
     },
-    {
-      "config_path": "outputs.run_root",
-      "manifest_path": "nodes.person_detector.config.environment.MN_RUNS_ROOT",
-      "stringify": true
+    "enabled": true,
+    "input": {
+      "adapter": "none",
+      "custom_url": null,
+      "fields": [],
+      "host": "127.0.0.1",
+      "instructions": null,
+      "port": null,
+      "share": false,
+      "title": null
+    },
+    "output": {
+      "adapter": "gradio",
+      "auto_generate": true,
+      "custom_url": null,
+      "host": "127.0.0.1",
+      "refresh_seconds": 2.0,
+      "server": "blueprint_support",
+      "title": "Facility Safety Video Guardian"
     }
-  ]
+  }
 }

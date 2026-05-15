@@ -1,6 +1,6 @@
 {
   "daemon": true,
-  "description": "Monitor facility video streams and escalate safety-relevant observations with VL model reasoning.",
+  "description": "Monitor facility video streams, detect visible humans, describe observable appearance and activity, and escalate safety-relevant observations with VL model reasoning.",
   "edges": [
     {
       "edge_id": "ingress_to_tick_source",
@@ -22,14 +22,14 @@
   "initial_inputs": {
     "ingress": [
       {
-        "description": "Continuously sample a 24/7 door camera or looping demo video, ask the configured VL model whether a human face is visible, describe observable facial appearance, and send Slack alerts when a face is detected.",
+        "description": "Continuously sample a 24/7 door camera or local webcam stream, ask the configured VL model whether a human is visible, describe observable appearance and activity, and send Slack alerts when a human is detected.",
         "ollama_base_url": "http://192.168.4.173:11434",
         "ollama_model": "nemotron3:33b",
         "scenario": "door_camera_safety_monitor",
         "slack_optional": true,
         "video_source_codec": "h264",
         "video_source_transport": "rtsp",
-        "video_source_uri": "rtsp://127.0.0.1:8554/local-camera",
+        "video_source_uri": "rtsp://host.docker.internal:8554/local-camera",
         "vl_model_base_url": "http://192.168.4.173:11434",
         "vl_model_name": "nemotron3:33b"
       }
@@ -38,23 +38,176 @@
   "job_name": "business-facility-safety-video-guardian",
   "manifest_version": "1.0",
   "metadata": {
+    "agent_templates": {
+      "library": "../mn-agents/index.json",
+      "nodes": [
+        {
+          "node_id": "ingress",
+          "uses": "mn-agents.control_router@1.0.0"
+        },
+        {
+          "node_id": "door_camera_tick_source",
+          "uses": "mn-agents.data_module@1.0.0"
+        },
+        {
+          "node_id": "person_detector",
+          "uses": "mn-agents.data_python_executor@1.0.0"
+        }
+      ],
+      "render_tool": "../mn-agents/tools/render_agent_templates.py",
+      "rendered_output": "manifest.rendered.json or runtime metadata",
+      "renderer": "mn_blueprint_support.render_manifest_agent_templates"
+    },
     "blueprint_id": "business_facility_safety_video_guardian",
     "category": "business",
+    "configuration_contract": {
+      "optional_files": [
+        "scenario.json",
+        "config/overwrite.json"
+      ],
+      "required_files": [
+        "manifest.json",
+        "README.md",
+        "SPEC.md",
+        "config/default.json",
+        "payloads/"
+      ]
+    },
     "customizable_for": "Door monitoring, restricted-area alerts, retail safety, warehouse operations.",
-    "description": "Monitor facility video streams, detect visible human faces, describe observable facial appearance, and escalate safety-relevant observations with VL model reasoning.",
+    "description": "Monitor facility video streams, detect visible humans, describe observable appearance and activity, and escalate safety-relevant observations with VL model reasoning.",
+    "init_config_review": {
+      "fields": [
+        {
+          "default": "rtsp://host.docker.internal:8554/local-camera",
+          "description": "Facility camera or video stream URI. Default is a local RTSP/H.264 camera stream.",
+          "label": "Video source",
+          "path": "video_source.uri"
+        },
+        {
+          "default": "http://192.168.4.173:11434",
+          "description": "Base URL for the Ollama-compatible vision-language model server.",
+          "label": "VL model URL",
+          "path": "vl_model.base_url"
+        },
+        {
+          "default": "nemotron3:33b",
+          "description": "Vision-language model name used to understand sampled video frames.",
+          "label": "VL model name",
+          "path": "vl_model.model"
+        }
+      ],
+      "instruction": "When running in OtterDesk, show these overwriteable fields during init config and ask the user to change them or keep the defaults before launch.",
+      "required": true
+    },
     "interfaces": {
+      "channels": {
+        "artifacts": {
+          "artifacts": [
+            "run.json",
+            "config.json",
+            "inputs.json",
+            "events.jsonl",
+            "result.json",
+            "final_artifact.json"
+          ],
+          "description": "Stable run-store files and domain-specific outputs.",
+          "optional_artifacts": [
+            "job.json",
+            "web_ui.json",
+            "ui.json",
+            "web/index.html",
+            "logs.jsonl"
+          ]
+        },
+        "events": {
+          "artifact": "events.jsonl",
+          "description": "Append-only workflow events."
+        },
+        "input_skills": {
+          "description": "Connector-backed or reusable skill-backed input sources."
+        },
+        "inputs": {
+          "artifact": "inputs.json",
+          "description": "Resolved runtime inputs and adapter provenance."
+        },
+        "logs": {
+          "description": "Runtime stdout/stderr and explicit log artifacts.",
+          "stream": "stdout/stderr"
+        },
+        "output_skills": {
+          "description": "Optional fan-out destinations after local run-store writes."
+        },
+        "outputs": {
+          "artifacts": [
+            "result.json",
+            "final_artifact.json"
+          ],
+          "description": "Primary result and final user-facing artifact."
+        },
+        "streams": {
+          "default": [
+            "events"
+          ],
+          "description": "Named data or event streams exposed by the blueprint.",
+          "kinds": [
+            "audio",
+            "video",
+            "data",
+            "multimodal"
+          ],
+          "transports": [
+            "file",
+            "http",
+            "https",
+            "rtsp",
+            "rtmp",
+            "webrtc",
+            "websocket",
+            "socketio",
+            "tcp",
+            "udp",
+            "sse",
+            "kafka",
+            "mqtt",
+            "custom"
+          ]
+        },
+        "web_ui": {
+          "artifacts": [
+            "web_ui.json",
+            "ui.json",
+            "web/index.html"
+          ],
+          "description": "Optional web input/output handles."
+        }
+      },
       "config": [
-        "metadata",
+        "standard_version",
         "identity",
+        "mode",
+        "metadata",
         "inputs",
         "simulation",
-        "video_source",
-        "vl_model",
         "llm",
         "outputs",
         "logging",
         "real_adapters",
-        "web_ui"
+        "streams",
+        "input_skills",
+        "output_skills",
+        "error_handling",
+        "state",
+        "capabilities",
+        "privacy",
+        "triggers",
+        "backpressure",
+        "determinism",
+        "schemas",
+        "budgets",
+        "agent_handoffs",
+        "web_ui",
+        "interfaces",
+        "execution_model"
       ],
       "identity": [
         "blueprint_id",
@@ -67,6 +220,13 @@
         "file",
         "env_json"
       ],
+      "optional_outputs": [
+        "job.json",
+        "web_ui.json",
+        "ui.json",
+        "web/index.html",
+        "logs.jsonl"
+      ],
       "output_adapters": [
         "local_run_store"
       ],
@@ -76,47 +236,56 @@
         "inputs.json",
         "events.jsonl",
         "result.json",
-        "final_artifact.json",
-        "ui.json",
-        "web_ui.json"
-      ]
-    },
-    "init_config_review": {
-      "required": true,
-      "instruction": "When running in OtterDesk, show these overwriteable fields during init config and ask the user to change them or keep the defaults before launch.",
-      "fields": [
-        {
-          "path": "video_source.uri",
-          "label": "Video source",
-          "default": "rtsp://127.0.0.1:8554/local-camera",
-          "description": "Facility camera or video stream URI. Default is a local RTSP/H.264 camera stream."
-        },
-        {
-          "path": "vl_model.base_url",
-          "label": "VL model URL",
-          "default": "http://192.168.4.173:11434",
-          "description": "Base URL for the Ollama-compatible vision-language model server."
-        },
-        {
-          "path": "vl_model.model",
-          "label": "VL model name",
-          "default": "nemotron3:33b",
-          "description": "Vision-language model name used to understand sampled video frames."
-        }
+        "final_artifact.json"
+      ],
+      "response_schema": "mn.blueprint.response.v1",
+      "stream_kinds": [
+        "audio",
+        "video",
+        "data",
+        "multimodal"
+      ],
+      "stream_transports": [
+        "file",
+        "http",
+        "https",
+        "rtsp",
+        "rtmp",
+        "webrtc",
+        "websocket",
+        "socketio",
+        "tcp",
+        "udp",
+        "sse",
+        "kafka",
+        "mqtt",
+        "custom"
+      ],
+      "web_ui_adapters": [
+        "none",
+        "static_html",
+        "gradio",
+        "custom"
       ]
     },
     "llm": {},
-    "llm_agent_role": "Safety observation and face-description escalation agent.",
+    "llm_agent_role": "Safety observation and human-activity escalation agent.",
     "name": "Facility Safety Video Guardian",
-    "output": "Face detection events, observable facial appearance descriptions, alert decisions, and notification payloads.",
+    "output": "Human detection events, observable appearance and activity descriptions, alert decisions, and notification payloads.",
     "output_contract": {
       "events": "typed event objects with payload",
+      "events_jsonl": "events.jsonl",
+      "final_artifact_json": "final_artifact.json",
+      "local_run_store": "~/.mn/runs/<run_id>/",
+      "logs_jsonl": "logs.jsonl",
+      "response_schema": "mn.blueprint.response.v1",
+      "result_json": "result.json",
       "status": "JSON lines on stderr",
       "stdout": "single JSON object, event envelope, or bundle path"
     },
     "problem_solved": "Video monitoring is continuous, noisy, and operationally sensitive; teams need stateful alerts, cooldowns, and explainable observations rather than raw frames.",
     "quick_test": {
-      "description": "Quick test mode shortens the sample interval, disables Slack, and uses mock face detection unless OLLAMA_LIVE_IN_QUICK_TEST=1.",
+      "description": "Quick test mode shortens the sample interval, disables Slack, and uses mock human detection unless OLLAMA_LIVE_IN_QUICK_TEST=1.",
       "enabled": false,
       "env": "MN_BLUEPRINT_QUICK_TEST=1"
     },
@@ -130,7 +299,22 @@
     "standard": {
       "config_path": "config/default.json",
       "default_input_adapter": "mock",
-      "execution_model": "load metadata -> resolve config -> load inputs -> simulate/decide loop -> emit events -> write final artifact",
+      "execution_model": "load_metadata -> resolve_config -> load_inputs -> start_run_store -> observe_simulation_state -> call_llm_agent -> evaluate_workflow_state -> route_by_context -> request_human_input -> apply_decision_to_simulation -> emit_events -> write_final_artifact -> fan_out_output_skills",
+      "execution_steps": [
+        "load_metadata",
+        "resolve_config",
+        "load_inputs",
+        "start_run_store",
+        "observe_simulation_state",
+        "call_llm_agent",
+        "evaluate_workflow_state",
+        "route_by_context",
+        "request_human_input",
+        "apply_decision_to_simulation",
+        "emit_events",
+        "write_final_artifact",
+        "fan_out_output_skills"
+      ],
       "output_adapter": "local_run_store",
       "real_input_adapters": [
         "file",
@@ -145,21 +329,35 @@
       "format": "jsonl",
       "stream": "stderr"
     },
+    "streaming": {
+      "backpressure": {
+        "drop_policy": "skip_with_error",
+        "llm": {
+          "max_calls_per_minute": 30,
+          "max_concurrent_calls": 2
+        },
+        "max_concurrency": 4,
+        "max_events_per_second": 25,
+        "queue_size": 1000
+      },
+      "kind": "video",
+      "primary_stream": "door_camera_video",
+      "transport": "rtsp",
+      "websocket_skill": false
+    },
     "target_user": "Facilities, security, safety operations, and property management teams.",
     "video_source": {
-      "uri": "rtsp://127.0.0.1:8554/local-camera",
-      "transport": "rtsp",
       "codec": "h264",
       "config_env": [
         "VIDEO_SOURCE_URI",
         "VIDEO_SOURCE_TRANSPORT",
         "VIDEO_SOURCE_CODEC"
-      ]
+      ],
+      "transport": "rtsp",
+      "uri": "rtsp://host.docker.internal:8554/local-camera"
     },
     "vl_model": {
-      "provider": "ollama",
       "base_url": "http://192.168.4.173:11434",
-      "model": "nemotron3:33b",
       "config_env": [
         "VL_MODEL_BASE_URL",
         "VL_MODEL_NAME"
@@ -167,37 +365,38 @@
       "legacy_env_aliases": [
         "OLLAMA_BASE_URL",
         "OLLAMA_MODEL"
-      ]
+      ],
+      "model": "nemotron3:33b",
+      "provider": "ollama"
     },
     "web_ui": {
-      "enabled": true,
-      "kind": "output",
       "adapter": "gradio",
-      "server": "blueprint_support",
-      "description": "Shared blueprint support Gradio dashboard that shows this blueprint's configured camera/demo video source beside streamed safety events from the shared run store.",
+      "arguments": {
+        "browser_publish_source": "MediaMTX browser webcam publisher URL, defaulting to the local-camera publish page with H.264 video and no audio for local testing.",
+        "browser_video_source": "MediaMTX WebRTC preview URL, defaulting to http://127.0.0.1:8889/local-camera/ for local testing.",
+        "run_id": "MirrorNeuron run id used to resolve ~/.mn/runs/<run_id>.",
+        "runs_root": "MirrorNeuron runs root, defaulting to ~/.mn/runs.",
+        "url": "Shared support Gradio app URL written to web_ui.json."
+      },
+      "description": "Shared blueprint support Gradio dashboard that shows this blueprint's configured live camera source beside streamed safety events from the shared run store.",
+      "enabled": true,
       "event_types": [
-        "door_camera_frame_analyzed",
-        "door_camera_face_detected",
+        "door_camera_human_detected",
         "door_camera_slack_alert_sent",
         "door_camera_slack_alert_skipped",
         "door_camera_slack_alert_error",
         "door_camera_frame_analysis_failed"
       ],
-      "arguments": {
-        "run_id": "MirrorNeuron run id used to resolve ~/.mn/runs/<run_id>.",
-        "runs_root": "MirrorNeuron runs root, defaulting to ~/.mn/runs.",
-        "url": "Shared support Gradio app URL written to web_ui.json.",
-        "browser_video_source": "MediaMTX WebRTC preview URL, defaulting to http://127.0.0.1:8889/local-camera/ for local testing.",
-        "browser_publish_source": "MediaMTX browser webcam publisher URL, defaulting to the local-camera publish page with H.264 video and no audio for local testing."
-      },
+      "kind": "output",
       "registration": {
-        "module": "mn_blueprint_support.gradio_dashboard",
-        "package": "mirrorneuron-blueprint-support-skill[webui]",
         "api": [
           "main"
         ],
+        "module": "mn_blueprint_support.gradio_dashboard",
+        "package": "mirrorneuron-blueprint-support-skill[webui]",
         "writes": "ui.json and web_ui.json"
-      }
+      },
+      "server": "blueprint_support"
     }
   },
   "name": "Facility Safety Video Guardian",
@@ -209,51 +408,68 @@
       },
       "node_id": "ingress",
       "role": "root_coordinator",
-      "type": "map"
+      "type": "map",
+      "uses": "mn-agents.control_router@1.0.0",
+      "with": {
+        "emit_type": "video_monitor_start",
+        "node_type": "map",
+        "role": "root_coordinator"
+      }
     },
     {
       "agent_type": "module",
       "config": {
         "camera_id": "front-door",
-        "interval_ms": 5000,
+        "interval_ms": 10000,
         "module": "MirrorNeuron.Examples.VideoSafetyDoorMonitor.DoorCameraTickSource",
         "module_source": "beam_modules/door_camera_tick_source.ex",
         "target_node": "person_detector"
       },
       "node_id": "door_camera_tick_source",
       "role": "door_camera_sampler",
-      "type": "stream"
+      "type": "stream",
+      "uses": "mn-agents.data_module@1.0.0",
+      "with": {
+        "camera_id": "front-door",
+        "interval_ms": 10000,
+        "module": "MirrorNeuron.Examples.VideoSafetyDoorMonitor.DoorCameraTickSource",
+        "module_source": "beam_modules/door_camera_tick_source.ex",
+        "node_type": "stream",
+        "role": "door_camera_sampler",
+        "target_node": "person_detector"
+      }
     },
     {
       "agent_type": "executor",
       "config": {
+        "cleanup_remote_dir": true,
         "command": [
           "bash",
           "scripts/run_detector_in_openshell.sh"
         ],
+        "custom_openshell_image": "person_detector/openshell_sandbox",
         "environment": {
-          "FRAME_JPEG_MAX_WIDTH": "896",
-          "FRAME_SAMPLE_SECONDS": "5.0",
+          "FACE_ALERT_COOLDOWN_SECONDS": "60",
+          "FACE_DETECTION_CONFIDENCE_THRESHOLD": "0.65",
+          "FFMPEG_FRAME_TIMEOUT_SECONDS": "8",
           "FFMPEG_RTSP_TRANSPORT": "tcp",
+          "FRAME_JPEG_MAX_WIDTH": "896",
+          "FRAME_SAMPLE_SECONDS": "10.0",
           "MN_BLUEPRINT_LOG_LEVEL": "info",
           "OLLAMA_BASE_URL": "http://192.168.4.173:11434",
           "OLLAMA_MODEL": "nemotron3:33b",
           "OLLAMA_THINK": "false",
-          "FACE_ALERT_COOLDOWN_SECONDS": "60",
-          "FACE_DETECTION_CONFIDENCE_THRESHOLD": "0.65",
           "PERSON_ALERT_COOLDOWN_SECONDS": "60",
           "PERSON_DETECTION_CONFIDENCE_THRESHOLD": "0.65",
           "SLACK_ALERT_ENABLED": "true",
           "SLACK_DEFAULT_CHANNEL": "#safety",
-          "SLACK_MESSAGE_PREFIX": "Door camera face alert",
+          "SLACK_MESSAGE_PREFIX": "Door camera human alert",
           "VIDEO_SOURCE_CODEC": "h264",
           "VIDEO_SOURCE_TRANSPORT": "rtsp",
-          "VIDEO_SOURCE_URI": "rtsp://127.0.0.1:8554/local-camera",
+          "VIDEO_SOURCE_URI": "rtsp://host.docker.internal:8554/local-camera",
           "VL_MODEL_BASE_URL": "http://192.168.4.173:11434",
           "VL_MODEL_NAME": "nemotron3:33b"
         },
-        "cleanup_remote_dir": true,
-        "custom_openshell_image": "person_detector/openshell_sandbox",
         "gpu": false,
         "name_prefix": "facility-safety-detector",
         "output_message_type": null,
@@ -273,7 +489,55 @@
       },
       "node_id": "person_detector",
       "role": "vl_model_video_safety_detector",
-      "type": "stream"
+      "type": "stream",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "with": {
+        "cleanup_remote_dir": true,
+        "command": [
+          "bash",
+          "scripts/run_detector_in_openshell.sh"
+        ],
+        "custom_openshell_image": "person_detector/openshell_sandbox",
+        "environment": {
+          "FACE_ALERT_COOLDOWN_SECONDS": "60",
+          "FACE_DETECTION_CONFIDENCE_THRESHOLD": "0.65",
+          "FFMPEG_FRAME_TIMEOUT_SECONDS": "8",
+          "FFMPEG_RTSP_TRANSPORT": "tcp",
+          "FRAME_JPEG_MAX_WIDTH": "896",
+          "FRAME_SAMPLE_SECONDS": "10.0",
+          "MN_BLUEPRINT_LOG_LEVEL": "info",
+          "OLLAMA_BASE_URL": "http://192.168.4.173:11434",
+          "OLLAMA_MODEL": "nemotron3:33b",
+          "OLLAMA_THINK": "false",
+          "PERSON_ALERT_COOLDOWN_SECONDS": "60",
+          "PERSON_DETECTION_CONFIDENCE_THRESHOLD": "0.65",
+          "SLACK_ALERT_ENABLED": "true",
+          "SLACK_DEFAULT_CHANNEL": "#safety",
+          "SLACK_MESSAGE_PREFIX": "Door camera human alert",
+          "VIDEO_SOURCE_CODEC": "h264",
+          "VIDEO_SOURCE_TRANSPORT": "rtsp",
+          "VIDEO_SOURCE_URI": "rtsp://host.docker.internal:8554/local-camera",
+          "VL_MODEL_BASE_URL": "http://192.168.4.173:11434",
+          "VL_MODEL_NAME": "nemotron3:33b"
+        },
+        "gpu": false,
+        "name_prefix": "facility-safety-detector",
+        "node_type": "stream",
+        "output_message_type": null,
+        "persistent_workspace": false,
+        "policy": "person_detector/policies/local-video-egress.yaml",
+        "reuse_shared_sandbox": true,
+        "role": "vl_model_video_safety_detector",
+        "runner_module": "MirrorNeuron.Sandbox.OpenShell",
+        "script": "scripts/run_blueprint.py",
+        "upload_path": "person_detector",
+        "upload_paths": [
+          {
+            "source": "person_detector",
+            "target": "person_detector"
+          }
+        ]
+      }
     }
   ],
   "policies": {
