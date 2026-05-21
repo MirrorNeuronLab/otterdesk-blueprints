@@ -1,4 +1,4 @@
-defmodule MirrorNeuron.Examples.DamVehicleVideoGuardian.DamCameraTickSource do
+defmodule MirrorNeuron.Examples.VideoWatchAssistant.VideoFrameTickSource do
   use MirrorNeuron.AgentTemplate
 
   alias MirrorNeuron.Message
@@ -50,7 +50,7 @@ defmodule MirrorNeuron.Examples.DamVehicleVideoGuardian.DamCameraTickSource do
     if Map.get(payload(message) || %{}, "token") == token do
       stream_id = state.stream_id || default_stream_id(context)
       next_tick = state.tick_seq + 1
-      camera_id = Map.get(state.config, "camera_id", "dam-access")
+      camera_id = Map.get(state.config, "camera_id", "video-watch")
 
       stream = %{
         "stream_id" => stream_id,
@@ -61,7 +61,7 @@ defmodule MirrorNeuron.Examples.DamVehicleVideoGuardian.DamCameraTickSource do
       payload = %{
         "camera_id" => camera_id,
         "tick_seq" => next_tick,
-        "source_kind" => "dam_camera",
+        "source_kind" => "video_stream",
         "sample_requested_at" => DateTime.utc_now() |> DateTime.to_iso8601()
       }
 
@@ -74,18 +74,18 @@ defmodule MirrorNeuron.Examples.DamVehicleVideoGuardian.DamCameraTickSource do
 
       {:ok, next_state,
        [
-         {:event, :dam_camera_frame_tick_generated,
+         {:event, :video_frame_tick_generated,
           %{
             "stream_id" => stream_id,
             "tick_seq" => next_tick,
             "camera_id" => camera_id
           }},
-         {:emit_to, target_node(state.config), "dam_camera_frame_tick", payload,
+         {:emit_to, target_node(state.config), "video_frame_tick", payload,
           [
             class: "stream",
             content_type: "application/json",
             headers: %{
-              "schema_ref" => "com.mirrorneuron.video.dam_camera_frame_tick",
+              "schema_ref" => "com.mirrorneuron.video.video_frame_tick",
               "schema_version" => "1.0.0",
               "stream_role" => "video_monitor"
             },

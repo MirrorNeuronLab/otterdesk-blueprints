@@ -73,8 +73,8 @@
     "fan_out_output_skills"
   ],
   "identity": {
-    "blueprint_id": "dam_access_watch_assistant",
-    "name": "Dam Access Watch Assistant"
+    "blueprint_id": "video_watch_assistant",
+    "name": "Video Watch Assistant"
   },
   "input_skills": {},
   "inputs": {
@@ -252,12 +252,12 @@
     ]
   },
   "llm": {
-    "agent_role": "AI assistant for reviewing dam access camera activity and preparing vehicle-entry alerts.",
+    "agent_role": "AI assistant for reviewing video stream activity and preparing vehicle-entry alerts.",
     "agents": {
       "default": {
         "llm_config": "primary",
         "responsibilities": [],
-        "role": "AI assistant for reviewing dam access camera activity and preparing vehicle-entry alerts."
+        "role": "AI assistant for reviewing video stream activity and preparing vehicle-entry alerts."
       }
     },
     "api_base": "http://192.168.4.173:11434",
@@ -287,11 +287,11 @@
       "llm_decision",
       "simulation_state_updated",
       "run_completed",
-      "dam_camera_vehicle_detected",
-      "dam_camera_slack_alert_sent",
-      "dam_camera_slack_alert_skipped",
-      "dam_camera_slack_alert_error",
-      "dam_camera_frame_analysis_failed"
+      "video_watch_vehicle_detected",
+      "video_watch_slack_alert_sent",
+      "video_watch_slack_alert_skipped",
+      "video_watch_slack_alert_error",
+      "video_watch_frame_analysis_failed"
     ],
     "events_jsonl": true,
     "level": "INFO",
@@ -322,16 +322,16 @@
   "metadata": {
     "blueprint_revision": "v1",
     "category": "business",
-    "customizable_for": "Dam access monitoring, restricted vehicle entry review, critical infrastructure operations, and site safety workflows.",
-    "problem_solved": "Dam access video is continuous and hard to review manually; teams need a helpful assistant that flags likely vehicle entries with plain-language details.",
+    "customizable_for": "Video monitoring, restricted vehicle entry review, facility operations, and site safety workflows.",
+    "problem_solved": "Continuous video is hard to review manually; teams need a helpful assistant that flags likely vehicle entries with plain-language details.",
     "standard_version": "1.0",
-    "target_users": "Dam operators, security reviewers, safety operations teams, and site-access coordinators.",
-    "blueprint_id": "dam_access_watch_assistant",
-    "name": "Dam Access Watch Assistant",
-    "description": "Watches an approved dam camera stream, spots vehicles entering the site, and reports count, vehicle type, color, position, movement, and alert status for review.",
-    "llm_agent_role": "AI assistant for reviewing dam access camera activity and preparing vehicle-entry alerts.",
-    "agent_role": "AI assistant for reviewing dam access camera activity and preparing vehicle-entry alerts.",
-    "target_user": "Dam operators, security reviewers, safety operations teams, and site-access coordinators.",
+    "target_users": "Video operators, security reviewers, safety operations teams, and site-access coordinators.",
+    "blueprint_id": "video_watch_assistant",
+    "name": "Video Watch Assistant",
+    "description": "Watches an approved video stream, spots vehicles entering the monitored area, and reports count, vehicle type, color, position, movement, and alert status for review.",
+    "llm_agent_role": "AI assistant for reviewing video stream activity and preparing vehicle-entry alerts.",
+    "agent_role": "AI assistant for reviewing video stream activity and preparing vehicle-entry alerts.",
+    "target_user": "Video operators, security reviewers, safety operations teams, and site-access coordinators.",
     "simulation_type": "Video stream sampling with vehicle-entry review state."
   },
   "mode": "mock",
@@ -436,7 +436,7 @@
     "resume_mode": "checkpoint"
   },
   "streams": {
-    "dam_camera_video": {
+    "video_watch_stream": {
       "codec": "h264",
       "enabled": true,
       "kind": "video",
@@ -448,14 +448,14 @@
     "daemon": true,
     "schedule": null,
     "sources": [
-      "dam_camera_video"
+      "video_watch_stream"
     ],
     "type": "stream"
   },
   "video_source": {
-    "camera_id": "dam-access",
+    "camera_id": "video-watch",
     "codec": "h264",
-    "description": "Configurable dam access video stream. The default uses the approved Wowza RTSP stream over TCP.",
+    "description": "Configurable video stream. The default uses the approved Wowza RTSP stream over TCP.",
     "frame_jpeg_max_width": 896,
     "frame_sample_seconds": 10,
     "transport": "rtsp",
@@ -463,7 +463,7 @@
   },
   "vl_model": {
     "base_url": "http://192.168.4.173:11434",
-    "description": "Configurable vision-language model used to understand sampled dam access video frames.",
+    "description": "Configurable vision-language model used to understand sampled video video frames.",
     "endpoint": "/api/generate",
     "model": "nemotron3:33b",
     "provider": "ollama",
@@ -474,18 +474,18 @@
     "dashboard": {
       "copy": {
         "event_glossary": {
-          "dam_camera_frame_analysis_failed": "A sampled frame could not be read or analyzed. Check the stream, model endpoint, or sandbox network policy.",
-          "dam_camera_slack_alert_error": "The workflow tried to send a Slack alert but the delivery call failed.",
-          "dam_camera_slack_alert_sent": "A vehicle-entry alert was sent to the configured review channel.",
-          "dam_camera_slack_alert_skipped": "The workflow detected activity but skipped notification because alerting is disabled or the cooldown policy suppressed it.",
-          "dam_camera_vehicle_detected": "The vehicle detector saw likely vehicle activity and recorded observable details for review."
+          "video_watch_frame_analysis_failed": "A sampled frame could not be read or analyzed. Check the stream, model endpoint, or sandbox network policy.",
+          "video_watch_slack_alert_error": "The workflow tried to send a Slack alert but the delivery call failed.",
+          "video_watch_slack_alert_sent": "A vehicle-entry alert was sent to the configured review channel.",
+          "video_watch_slack_alert_skipped": "The workflow detected activity but skipped notification because alerting is disabled or the cooldown policy suppressed it.",
+          "video_watch_vehicle_detected": "The vehicle detector saw likely vehicle activity and recorded observable details for review."
         },
         "events_help": "Each event is a durable breadcrumb from the blueprint run. Operators can scan the friendly stream first, then open raw events when they need exact payloads.",
-        "overview": "This blueprint watches an approved dam access camera stream, samples frames on a schedule, asks the configured vision-language model whether vehicles are entering the site, and writes reviewable events and alert artifacts.",
+        "overview": "This blueprint watches an approved video stream, samples frames on a schedule, asks the configured vision-language model whether vehicles are entering the monitored area, and writes reviewable events and alert artifacts.",
         "review_help": "The final result is not just a video preview. It is a run record: source, frame observations, alert decisions, errors, and event payloads that a human can audit after the workflow runs.",
-        "source_help": "This field is the actual stream URI used by the worker. For the default setup it should be the approved Wowza RTSP stream. The browser preview uses the local MediaMTX WebRTC page exposed by scripts/start_webcam_stream_for_mac.sh, which bridges that RTSP source into a browser-playable preview.",
+        "source_help": "This field is the RTSP stream URI used directly by the OpenShell worker. The browser preview uses a separate local MediaMTX mirror exposed by scripts/start_webcam_stream_for_mac.sh.",
         "workflow_steps": [
-          "Subscribe to the configured dam camera RTSP source.",
+          "Subscribe to the configured RTSP video source.",
           "Sample a frame every 10 seconds through the stream tick source.",
           "Send the sampled frame to the isolated vehicle detector worker.",
           "Use the configured vision-language model to describe vehicle count, type, color, position, and movement.",
@@ -493,19 +493,30 @@
           "Keep all observations in the local run store for review, debugging, and handoff."
         ]
       },
-      "browser_video_source": "http://127.0.0.1:8889/dam-access/",
+      "browser_video_source": "http://127.0.0.1:8889/video-watch/",
       "default_video_source": "rtsp://9627b0bf2a7b.entrypoint.cloud.wowza.com:1935/app-p5260J38/66abe4b9_stream1",
       "event_feed": {
         "default_path": "~/.mn/runs/<run_id>/events.jsonl",
         "format": "jsonl"
       },
       "event_types": [
-        "dam_camera_vehicle_detected",
-        "dam_camera_slack_alert_sent",
-        "dam_camera_slack_alert_skipped",
-        "dam_camera_slack_alert_error",
-        "dam_camera_frame_analysis_failed"
-      ]
+        "video_watch_vehicle_detected",
+        "video_watch_slack_alert_sent",
+        "video_watch_slack_alert_skipped",
+        "video_watch_slack_alert_error",
+        "video_watch_frame_analysis_failed"
+      ],
+      "video_preview_bridge": {
+        "auto_start": true,
+        "enabled": true,
+        "log_path": "/tmp/video_watch_assistant_dashboard_video_bridge.log",
+        "open_browser": 0,
+        "publish_mode": "rtsp",
+        "rtsp_port": 8554,
+        "script": "scripts/start_webcam_stream_for_mac.sh",
+        "stream_path": "video-watch",
+        "use_existing_rtsp_server": 1
+      }
     },
     "enabled": true,
     "input": {
@@ -525,7 +536,7 @@
       "host": "127.0.0.1",
       "refresh_seconds": 2,
       "server": "blueprint_support",
-      "title": "Dam Access Watch Assistant"
+      "title": "Video Watch Assistant"
     }
   }
 }

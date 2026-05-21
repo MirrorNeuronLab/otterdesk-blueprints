@@ -1,39 +1,39 @@
-# Dam Access Watch Assistant
+# Video Watch Assistant
 
-`Blueprint ID:` `dam_access_watch_assistant`  
+`Blueprint ID:` `video_watch_assistant`  
 `Category:` business
 
 ## One-line value proposition
 
-Detect and report vehicles entering a dam site from an approved RTSP stream.
+Detect and report vehicles entering a monitored site from an approved RTSP stream.
 
 ## What it is
 
-Dam Access Watch Assistant is a MirrorNeuron blueprint for continuous vehicle-entry monitoring over a dam access camera. It samples an RTSP stream, asks a configurable vision-language model whether vehicles are entering the dam site, records count/type/color/position/movement details, applies cooldown state, and writes reviewable alert artifacts.
+Video Watch Assistant is a MirrorNeuron blueprint for continuous vehicle-entry monitoring over a video camera. It samples an RTSP stream, asks a configurable vision-language model whether vehicles are entering the monitored site, records count/type/color/position/movement details, applies cooldown state, and writes reviewable alert artifacts.
 
 ## Who this is for
 
-Dam operators, critical-infrastructure security teams, safety operations, and site-access reviewers that need explainable vehicle-entry monitoring without watching every frame.
+Video operators, facility security teams, safety operations, and site-access reviewers that need explainable vehicle-entry monitoring without watching every frame.
 
 ## Why it matters
 
-Dam access video is continuous and operationally sensitive. A stateful workflow can preserve audit context, suppress duplicate alerts, and keep reviewers in control while still surfacing vehicle entries with useful detail.
+Continuous video is operationally sensitive. A stateful workflow can preserve audit context, suppress duplicate alerts, and keep reviewers in control while still surfacing vehicle entries with useful detail.
 
 ## Why this runtime is useful here
 
-The runtime gives this workflow persistent events, local run artifacts, configurable inputs, optional web UI handles, stream declarations, and clean boundaries for OpenShell workers. That makes it easier to connect approved dam camera sources while keeping access decisions inspectable.
+The runtime gives this workflow persistent events, local run artifacts, configurable inputs, optional web UI handles, stream declarations, and clean boundaries for OpenShell workers. That makes it easier to connect approved video stream sources while keeping access decisions inspectable.
 
 ## How it works
 
 1. Loads `config/default.json` and any overrides.
-2. Resolves the dam video source, VL model endpoint, sampling cadence, and cooldown settings.
+2. Resolves the video source, VL model endpoint, sampling cadence, and cooldown settings.
 3. Samples the default RTSP/H.264 stream over TCP.
 4. Emits typed events for frame analysis, vehicle-entry detection, alert decisions, errors, and completion.
 5. Writes `result.json`, `final_artifact.json`, `events.jsonl`, and optional dashboard metadata under the local run store.
 
 ## Example scenario
 
-A dam access camera is sampled every 10 seconds. The agent checks whether cars or other road vehicles appear to be entering the dam site, reports how many vehicles are visible, their type and color, position in the scene, and movement, then emits an alert payload for review or Slack delivery.
+A video camera is sampled every 10 seconds. The agent checks whether cars or other road vehicles appear to be entering the monitored site, reports how many vehicles are visible, their type and color, position in the scene, and movement, then emits an alert payload for review or Slack delivery.
 
 ## Inputs
 
@@ -44,7 +44,7 @@ A dam access camera is sampled every 10 seconds. The agent checks whether cars o
 
 ## Outputs
 
-- Vehicle-entry events emitted when vehicles appear to be entering the dam site.
+- Vehicle-entry events emitted when vehicles appear to be entering the monitored site.
 - Count, type, color, position, movement, and confidence details.
 - Alert decisions and notification payloads.
 - A final artifact summarizing the run, observations, and recommended next steps.
@@ -52,29 +52,23 @@ A dam access camera is sampled every 10 seconds. The agent checks whether cars o
 
 ## How to run
 
-For live video preview, keep the bridge script running while the blueprint is active:
-
-```bash
-scripts/start_webcam_stream_for_mac.sh
-```
-
-By default it reads the approved Wowza RTSP stream, republishes it to local MediaMTX for browser preview at `http://127.0.0.1:8889/dam-access/`, and uploads rolling frames into the OpenShell detector sandbox so the worker can keep analyzing even when sandbox DNS cannot resolve the upstream RTSP host.
+For live video preview, the blueprint dashboard starts the local preview bridge automatically. It reads the approved Wowza RTSP stream and republishes it to local MediaMTX for browser preview at `http://127.0.0.1:8889/video-watch/`. The OpenShell detector worker reads the original RTSP source directly.
 
 Run the detector script from the blueprint directory:
 
 ```bash
-python3 payloads/vehicle_detector/scripts/analyze_dam_vehicle_frame.py
+python3 payloads/vehicle_detector/scripts/analyze_video_vehicle_frame.py
 ```
 
 For a deterministic local smoke test:
 
 ```bash
-MOCK_VLM_DETECTION=1 python3 payloads/vehicle_detector/scripts/analyze_dam_vehicle_frame.py
+MOCK_VLM_DETECTION=1 python3 payloads/vehicle_detector/scripts/analyze_video_vehicle_frame.py
 ```
 
 ## How to customize it
 
-Point the stream URI at an approved dam camera or facility RTSP source, tune sampling cadence and alert cooldown, change the VL model endpoint, update vehicle-entry policy text, and connect approved notification output skills. Third-party apps can edit `config/overwrite.json` before launch without changing `config/default.json`.
+Point the stream URI at an approved video stream or facility RTSP source, tune sampling cadence and alert cooldown, change the VL model endpoint, update vehicle-entry policy text, and connect approved notification output skills. Third-party apps can edit `config/overwrite.json` before launch without changing `config/default.json`.
 
 ## What to look for in results
 
@@ -99,7 +93,7 @@ This prototype is for evaluation and customer discovery. It should be reviewed a
 
 ## Next steps
 
-Calibrate thresholds against representative dam access footage, add site layout zones and entry-direction rules, connect notification output skills, and tune retention and review policy for production deployments.
+Calibrate thresholds against representative video footage, add site layout zones and entry-direction rules, connect notification output skills, and tune retention and review policy for production deployments.
 
 ## Documentation map
 

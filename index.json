@@ -1,17 +1,17 @@
 [
   {
-    "description": "Watches an approved dam camera stream, spots vehicles entering the site, and reports count, vehicle type, color, position, movement, and alert status for review.",
+    "description": "Watches an approved video stream, spots vehicles entering the monitored area, and reports count, vehicle type, color, position, movement, and alert status for review.",
     "category": "Security",
-    "graph_id": "dam_access_watch_assistant_v1",
-    "id": "dam_access_watch_assistant",
-    "job_name": "dam-access-watch-assistant",
-    "name": "Dam Access Watch Assistant",
-    "path": "dam_access_watch_assistant",
+    "graph_id": "video_watch_assistant_v1",
+    "id": "video_watch_assistant",
+    "job_name": "video-watch-assistant",
+    "name": "Video Watch Assistant",
+    "path": "video_watch_assistant",
     "product": {
-      "agent_role": "AI assistant for reviewing dam access camera activity and preparing vehicle-entry alerts.",
-      "customizable_for": "Dam access monitoring, restricted vehicle entry review, critical infrastructure operations, and site safety workflows.",
+      "agent_role": "AI assistant for reviewing video stream activity and preparing vehicle-entry alerts.",
+      "customizable_for": "Video monitoring, restricted vehicle entry review, facility operations, and site safety workflows.",
       "output": "Vehicle-entry observations with count, type, color, position, movement, confidence, and alert status.",
-      "problem": "Dam access video is continuous and hard to review manually; teams need a helpful assistant that flags likely vehicle entries with plain-language details.",
+      "problem": "Continuous video is hard to review manually; teams need a helpful assistant that flags likely vehicle entries with plain-language details.",
       "runtime_features": [
         "video sampling",
         "vehicle-entry review",
@@ -19,10 +19,10 @@
         "Slack alerting"
       ],
       "simulation_type": "Video stream sampling with vehicle-entry review state.",
-      "target_users": "Dam operators, security reviewers, safety operations teams, and site-access coordinators.",
+      "target_users": "Video operators, security reviewers, safety operations teams, and site-access coordinators.",
       "benefit": "Helps reviewers notice vehicle entries faster while keeping the final access or safety decision with people.",
-      "how_it_works": "Samples the approved dam camera stream, asks a vision model whether vehicles are entering, records observable vehicle details, applies cooldown policy, and prepares reviewable alerts.",
-      "input": "Approved dam camera stream, monitored-zone rules, alert thresholds, and notification settings."
+      "how_it_works": "Samples the approved video stream, asks a vision model whether vehicles are entering, records observable vehicle details, applies cooldown policy, and prepares reviewable alerts.",
+      "input": "Approved video stream, monitored-zone rules, alert thresholds, and notification settings."
     }
   },
   {

@@ -109,7 +109,7 @@ def remapped_payload_candidates(source_path: Path, detector_root: Path, blueprin
         candidates.append(detector_root / payload_suffix)
         candidates.append(blueprint_root / "payloads" / "vehicle_detector" / payload_suffix)
 
-    blueprint_suffix = suffix_after(parts, ("dam_access_watch_assistant",))
+    blueprint_suffix = suffix_after(parts, ("video_watch_assistant",))
     if blueprint_suffix is not None:
         candidates.append(blueprint_root / blueprint_suffix)
         nested_suffix = suffix_after(blueprint_suffix.parts, ("payloads", "vehicle_detector"))
@@ -205,23 +205,9 @@ def local_stream_host_fallback_sources(source_uri: str) -> list[str]:
     return candidates
 
 
-def live_frame_bridge_fallback_sources(source_uri: str) -> list[str]:
-    if not is_live_stream_source(source_uri):
-        return []
-    frame_path = Path(os.environ.get("LIVE_FRAME_FALLBACK_PATH", "/sandbox/live/latest.jpg"))
-    if frame_path.is_file() and frame_path.stat().st_size > 0:
-        return [str(frame_path)]
-    return []
-
-
-def prefer_live_frame_bridge() -> bool:
-    return os.environ.get("LIVE_FRAME_FALLBACK_PREFER", "true").strip().lower() in {"1", "true", "yes", "on"}
-
-
 def stream_fallback_sources(source_uri: str) -> list[str]:
     candidates = (
-        live_frame_bridge_fallback_sources(source_uri)
-        + docker_host_fallback_sources(source_uri)
+        docker_host_fallback_sources(source_uri)
         + local_stream_host_fallback_sources(source_uri)
     )
     unique: list[str] = []
@@ -316,11 +302,7 @@ def extract_frame(source_uri: str, position_seconds: float, max_width: int) -> t
     try:
         last_error: str | None = None
         fallback_sources = stream_fallback_sources(resolved)
-        live_frame_sources = live_frame_bridge_fallback_sources(resolved)
-        if prefer_live_frame_bridge() and live_frame_sources:
-            sources = [*live_frame_sources, resolved, *[source for source in fallback_sources if source not in live_frame_sources]]
-        else:
-            sources = [resolved, *fallback_sources]
+        sources = [resolved, *fallback_sources]
 
         for index, candidate_source in enumerate(sources):
             candidate_path = source_path_from_uri(candidate_source)
@@ -441,8 +423,8 @@ def mock_detection(frame_seq: int) -> dict[str, Any]:
             {
                 "type": "pickup truck",
                 "color": "white",
-                "position": "near the dam access road",
-                "activity": "appears to be entering the dam site",
+                "position": "near the video road",
+                "activity": "appears to be entering the monitored site",
                 "confidence": 0.82,
             }
         ]
@@ -451,13 +433,13 @@ def mock_detection(frame_seq: int) -> dict[str, Any]:
     )
     return {
         "vehicle_detected": detected,
-        "vehicles_entered_dam": detected,
+        "vehicles_entered_area": detected,
         "vehicle_count": len(vehicles),
         "vehicles": vehicles,
         "confidence": 0.82 if detected else 0.18,
-        "summary": "Mock mode detected one white pickup truck entering the dam access zone." if detected else "Mock mode sees no vehicles entering the dam.",
-        "vehicle_report": "1 vehicle: white pickup truck entering the dam access zone." if detected else "",
-        "activity_description": "The vehicle appears to be entering the dam site." if detected else "",
+        "summary": "Mock mode detected one white pickup truck entering the video zone." if detected else "Mock mode sees no vehicles entering the monitored area.",
+        "vehicle_report": "1 vehicle: white pickup truck entering the video zone." if detected else "",
+        "activity_description": "The vehicle appears to be entering the monitored site." if detected else "",
         "vehicle_types": ["pickup truck"] if detected else [],
         "vehicle_colors": ["white"] if detected else [],
         "appearance_notes": ["Vehicle details are synthetic in mock mode."] if detected else [],
@@ -517,7 +499,7 @@ def normalize_detection(result: dict[str, Any]) -> dict[str, Any]:
     except (TypeError, ValueError):
         confidence = 0.0
 
-    detected = result.get("vehicles_entered_dam", result.get("vehicle_detected", False))
+    detected = result.get("vehicles_entered_area", result.get("vehicle_detected", False))
     if isinstance(detected, str):
         detected = detected.strip().lower() in {"true", "yes", "1", "car", "vehicle", "detected", "visible", "entered"}
 
@@ -562,7 +544,7 @@ def normalize_detection(result: dict[str, Any]) -> dict[str, Any]:
 
     summary = str(result.get("summary", "")).strip()
     if not summary:
-        summary = f"{vehicle_count} vehicle(s) appear to be entering the dam site." if detected else "No vehicles appear to be entering the dam site."
+        summary = f"{vehicle_count} vehicle(s) appear to be entering the monitored site." if detected else "No vehicles appear to be entering the monitored site."
 
     vehicle_report = str(result.get("vehicle_report", result.get("vehicle_description", ""))).strip()
     if not vehicle_report and detected:
@@ -598,7 +580,7 @@ def normalize_detection(result: dict[str, Any]) -> dict[str, Any]:
 
     return {
         "vehicle_detected": bool(detected),
-        "vehicles_entered_dam": bool(detected),
+        "vehicles_entered_area": bool(detected),
         "vehicle_count": vehicle_count,
         "vehicles": normalized_vehicles,
         "confidence": max(0.0, min(confidence, 1.0)),
@@ -626,14 +608,14 @@ def detection_prompt(camera_id: str) -> str:
         os.environ.get(
             "CAR_DETECTION_PROMPT",
             (
-                "You are monitoring a 24/7 dam access camera. Inspect the image and decide whether one or more "
-                "cars or other road vehicles are visible and appear to be entering the dam site, dam access road, "
-                "or restricted dam zone. Count only real visible vehicles; ignore people, signs, shadows, static "
+                "You are monitoring a 24/7 video camera. Inspect the image and decide whether one or more "
+                "cars or other road vehicles are visible and appear to be entering the monitored site, video road, "
+                "or restricted monitored zone. Count only real visible vehicles; ignore people, signs, shadows, static "
                 "background objects, reflections, and already-parked vehicles unless they appear to be entering. "
                 "For every vehicle that appears to be entering, report the observable type such as sedan, SUV, "
                 "pickup truck, van, bus, motorcycle, heavy truck, or unknown vehicle; the visible color; position "
                 "in the scene; and movement or activity. Return only JSON with keys: vehicle_detected boolean, "
-                "vehicles_entered_dam boolean, vehicle_count integer, vehicles array of objects with type, color, "
+                "vehicles_entered_area boolean, vehicle_count integer, vehicles array of objects with type, color, "
                 "position, activity, and confidence, confidence number from 0 to 1, summary short string, "
                 "vehicle_report string, activity_description string, vehicle_types array of strings, "
                 "vehicle_colors array of strings, appearance_notes array of strings, risk_level one of "
@@ -651,7 +633,7 @@ def should_alert(detection: dict[str, Any], state: dict[str, Any]) -> bool:
         )
     )
     cooldown = float(os.environ.get("VEHICLE_ALERT_COOLDOWN_SECONDS", os.environ.get("CAR_ALERT_COOLDOWN_SECONDS", "60")))
-    if not detection.get("vehicles_entered_dam") or float(detection.get("confidence", 0)) < threshold:
+    if not detection.get("vehicles_entered_area") or float(detection.get("confidence", 0)) < threshold:
         return False
     return time.time() - float(state.get("last_alert_wall_ts", 0.0)) >= cooldown
 
@@ -683,7 +665,7 @@ def post_slack(text: str) -> tuple[str, dict[str, Any]]:
 
 
 def alert_text(camera_id: str, detection: dict[str, Any], frame_seq: int, source_uri: str) -> str:
-    prefix = os.environ.get("SLACK_MESSAGE_PREFIX", "Dam vehicle entry alert")
+    prefix = os.environ.get("SLACK_MESSAGE_PREFIX", "Video vehicle entry alert")
     vehicles = detection.get("vehicles") or []
     vehicle_lines = []
     for index, vehicle in enumerate(vehicles[:8], start=1):
@@ -695,7 +677,7 @@ def alert_text(camera_id: str, detection: dict[str, Any], frame_seq: int, source
     description = detection.get("vehicle_report") or detection["summary"]
     activity = detection.get("activity_description") or "Vehicle movement not clearly visible."
     return (
-        f"{prefix}: {detection.get('vehicle_count', 0)} vehicle(s) entering dam zone on {camera_id}\n"
+        f"{prefix}: {detection.get('vehicle_count', 0)} vehicle(s) entering monitored zone on {camera_id}\n"
         f"Confidence: {detection['confidence']:.2f} | Risk: {detection['risk_level']} | Frame: {frame_seq}\n"
         f"{description}\n"
         f"Activity: {activity}\n"
@@ -711,7 +693,7 @@ def main() -> None:
     state = context.get("agent_state") or initial_state()
 
     frame_seq = int(payload.get("tick_seq") or state.get("frames_seen", 0) + 1)
-    camera_id = payload.get("camera_id") or os.environ.get("CAMERA_ID", "dam-access")
+    camera_id = payload.get("camera_id") or os.environ.get("CAMERA_ID", "video-watch")
     source_uri = os.environ.get("VIDEO_SOURCE_URI", DEFAULT_VIDEO_SOURCE_URI)
     sample_seconds = float(os.environ.get("FRAME_SAMPLE_SECONDS", "10.0"))
     max_width = int(os.environ.get("FRAME_JPEG_MAX_WIDTH", "896"))
@@ -735,15 +717,15 @@ def main() -> None:
             "source_uri": source_uri,
             "stream_id": stream.get("stream_id"),
         }
-        if detection["vehicles_entered_dam"]:
+        if detection["vehicles_entered_area"]:
             state["detections"] = int(state.get("detections", 0)) + 1
             state["last_detection"] = detection_payload
             state["last_vehicle_report"] = detection_payload.get("vehicle_report")
-            events.append({"type": "dam_camera_vehicle_detected", "payload": detection_payload})
+            events.append({"type": "video_watch_vehicle_detected", "payload": detection_payload})
 
         if should_alert(detection, state):
             status, slack_payload = post_slack(alert_text(camera_id, detection, frame_seq, source_uri))
-            event_type = "dam_camera_slack_alert_sent" if status == "sent" else f"dam_camera_slack_alert_{status}"
+            event_type = "video_watch_slack_alert_sent" if status == "sent" else f"video_watch_slack_alert_{status}"
             events.append({"type": event_type, "payload": {**slack_payload, "frame_seq": frame_seq, "camera_id": camera_id}})
             if status in {"sent", "skipped"}:
                 state["last_alert_wall_ts"] = time.time()
@@ -759,7 +741,7 @@ def main() -> None:
         state["last_error"] = message_text
         events.append(
             {
-                "type": "dam_camera_frame_analysis_failed",
+                "type": "video_watch_frame_analysis_failed",
                 "payload": {
                     "camera_id": camera_id,
                     "frame_seq": frame_seq,

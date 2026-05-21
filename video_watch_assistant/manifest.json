@@ -1,31 +1,31 @@
 {
   "daemon": true,
-  "description": "Watches an approved dam camera stream, spots vehicles entering the site, and reports count, vehicle type, color, position, movement, and alert status for review.",
+  "description": "Watches an approved video stream, spots vehicles entering the monitored area, and reports count, vehicle type, color, position, movement, and alert status for review.",
   "edges": [
     {
       "edge_id": "ingress_to_tick_source",
       "from_node": "ingress",
       "message_type": "video_monitor_start",
-      "to_node": "dam_camera_tick_source"
+      "to_node": "video_frame_tick_source"
     },
     {
       "edge_id": "tick_source_to_vehicle_detector",
-      "from_node": "dam_camera_tick_source",
-      "message_type": "dam_camera_frame_tick",
+      "from_node": "video_frame_tick_source",
+      "message_type": "video_frame_tick",
       "to_node": "vehicle_detector"
     }
   ],
   "entrypoints": [
     "ingress"
   ],
-  "graph_id": "dam_access_watch_assistant_v1",
+  "graph_id": "video_watch_assistant_v1",
   "initial_inputs": {
     "ingress": [
       {
-        "description": "Continuously sample the default dam RTSP stream, ask the configured VL model whether vehicles are entering the dam site, report count, type, color, position, and movement, and send alerts when vehicle entry is detected.",
+        "description": "Continuously sample the default video RTSP stream, ask the configured VL model whether vehicles are entering the monitored site, report count, type, color, position, and movement, and send alerts when vehicle entry is detected.",
         "ollama_base_url": "http://192.168.4.173:11434",
         "ollama_model": "nemotron3:33b",
-        "scenario": "dam_vehicle_entry_monitor",
+        "scenario": "video_vehicle_entry_monitor",
         "slack_optional": true,
         "video_source_codec": "h264",
         "video_source_transport": "rtsp",
@@ -35,7 +35,7 @@
       }
     ]
   },
-  "job_name": "dam-access-watch-assistant",
+  "job_name": "video-watch-assistant",
   "license": "LICENSE.md",
   "term": "TERM.md",
   "manifest_version": "1.0",
@@ -48,7 +48,7 @@
           "uses": "mn-agents.control_router@1.0.0"
         },
         {
-          "node_id": "dam_camera_tick_source",
+          "node_id": "video_frame_tick_source",
           "uses": "mn-agents.data_module@1.0.0"
         },
         {
@@ -60,7 +60,7 @@
       "rendered_output": "manifest.rendered.json or runtime metadata",
       "renderer": "mn_blueprint_support.render_manifest_agent_templates"
     },
-    "blueprint_id": "dam_access_watch_assistant",
+    "blueprint_id": "video_watch_assistant",
     "category": "business",
     "configuration_contract": {
       "optional_files": [
@@ -78,14 +78,14 @@
         "TERM.md"
       ]
     },
-    "customizable_for": "Dam access monitoring, restricted vehicle entry review, critical infrastructure operations, and site safety workflows.",
-    "description": "Watches an approved dam camera stream, spots vehicles entering the site, and reports count, vehicle type, color, position, movement, and alert status for review.",
+    "customizable_for": "Video monitoring, restricted vehicle entry review, facility operations, and site safety workflows.",
+    "description": "Watches an approved video stream, spots vehicles entering the monitored area, and reports count, vehicle type, color, position, movement, and alert status for review.",
     "init_config_review": {
       "fields": [
         {
           "default": "rtsp://9627b0bf2a7b.entrypoint.cloud.wowza.com:1935/app-p5260J38/66abe4b9_stream1",
-          "description": "Dam camera or video stream URI. Default is the approved Wowza RTSP stream.",
-          "label": "Dam video source",
+          "description": "Video stream URI. Default is the approved Wowza RTSP stream.",
+          "label": "Video source",
           "path": "video_source.uri"
         },
         {
@@ -274,10 +274,10 @@
       ]
     },
     "llm": {
-      "agent_role": "AI assistant for reviewing dam access camera activity and preparing vehicle-entry alerts."
+      "agent_role": "AI assistant for reviewing video stream activity and preparing vehicle-entry alerts."
     },
-    "llm_agent_role": "AI assistant for reviewing dam access camera activity and preparing vehicle-entry alerts.",
-    "name": "Dam Access Watch Assistant",
+    "llm_agent_role": "AI assistant for reviewing video stream activity and preparing vehicle-entry alerts.",
+    "name": "Video Watch Assistant",
     "output": "Vehicle-entry observations with count, type, color, position, movement, confidence, and alert status.",
     "output_contract": {
       "events": "typed event objects with payload",
@@ -290,7 +290,7 @@
       "status": "JSON lines on stderr",
       "stdout": "single JSON object, event envelope, or bundle path"
     },
-    "problem_solved": "Dam access video is continuous and hard to review manually; teams need a helpful assistant that flags likely vehicle entries with plain-language details.",
+    "problem_solved": "Continuous video is hard to review manually; teams need a helpful assistant that flags likely vehicle entries with plain-language details.",
     "quick_test": {
       "description": "Quick test mode shortens the sample interval, disables Slack, and uses mock vehicle detection unless OLLAMA_LIVE_IN_QUICK_TEST=1.",
       "enabled": false,
@@ -348,11 +348,11 @@
         "queue_size": 1000
       },
       "kind": "video",
-      "primary_stream": "dam_camera_video",
+      "primary_stream": "video_watch_stream",
       "transport": "rtsp",
       "websocket_skill": false
     },
-    "target_user": "Dam operators, security reviewers, safety operations teams, and site-access coordinators.",
+    "target_user": "Video operators, security reviewers, safety operations teams, and site-access coordinators.",
     "video_source": {
       "codec": "h264",
       "config_env": [
@@ -384,14 +384,14 @@
         "runs_root": "MirrorNeuron runs root, defaulting to ~/.mn/runs.",
         "url": "Shared support Gradio app URL written to web_ui.json."
       },
-      "description": "Shared blueprint support Gradio dashboard that shows this blueprint's configured dam camera source beside streamed vehicle-entry events from the shared run store.",
+      "description": "Shared blueprint support Gradio dashboard that shows this blueprint's configured video source beside streamed vehicle-entry events from the shared run store.",
       "enabled": true,
       "event_types": [
-        "dam_camera_vehicle_detected",
-        "dam_camera_slack_alert_sent",
-        "dam_camera_slack_alert_skipped",
-        "dam_camera_slack_alert_error",
-        "dam_camera_frame_analysis_failed"
+        "video_watch_vehicle_detected",
+        "video_watch_slack_alert_sent",
+        "video_watch_slack_alert_skipped",
+        "video_watch_slack_alert_error",
+        "video_watch_frame_analysis_failed"
       ],
       "kind": "output",
       "registration": {
@@ -402,12 +402,18 @@
         "package": "mirrorneuron-blueprint-support-skill[webui]",
         "writes": "ui.json and web_ui.json"
       },
-      "server": "blueprint_support"
+      "server": "blueprint_support",
+      "video_preview_bridge": {
+        "auto_start": true,
+        "enabled": true,
+        "script": "scripts/start_webcam_stream_for_mac.sh",
+        "stream_path": "video-watch"
+      }
     },
-    "agent_role": "AI assistant for reviewing dam access camera activity and preparing vehicle-entry alerts.",
-    "target_users": "Dam operators, security reviewers, safety operations teams, and site-access coordinators."
+    "agent_role": "AI assistant for reviewing video stream activity and preparing vehicle-entry alerts.",
+    "target_users": "Video operators, security reviewers, safety operations teams, and site-access coordinators."
   },
-  "name": "Dam Access Watch Assistant",
+  "name": "Video Watch Assistant",
   "nodes": [
     {
       "agent_type": "router",
@@ -427,23 +433,23 @@
     {
       "agent_type": "module",
       "config": {
-        "camera_id": "dam-access",
+        "camera_id": "video-watch",
         "interval_ms": 10000,
-        "module": "MirrorNeuron.Examples.DamVehicleVideoGuardian.DamCameraTickSource",
-        "module_source": "beam_modules/dam_camera_tick_source.ex",
+        "module": "MirrorNeuron.Examples.VideoWatchAssistant.VideoFrameTickSource",
+        "module_source": "beam_modules/video_frame_tick_source.ex",
         "target_node": "vehicle_detector"
       },
-      "node_id": "dam_camera_tick_source",
-      "role": "dam_camera_sampler",
+      "node_id": "video_frame_tick_source",
+      "role": "video_frame_sampler",
       "type": "stream",
       "uses": "mn-agents.data_module@1.0.0",
       "with": {
-        "camera_id": "dam-access",
+        "camera_id": "video-watch",
         "interval_ms": 10000,
-        "module": "MirrorNeuron.Examples.DamVehicleVideoGuardian.DamCameraTickSource",
-        "module_source": "beam_modules/dam_camera_tick_source.ex",
+        "module": "MirrorNeuron.Examples.VideoWatchAssistant.VideoFrameTickSource",
+        "module_source": "beam_modules/video_frame_tick_source.ex",
         "node_type": "stream",
-        "role": "dam_camera_sampler",
+        "role": "video_frame_sampler",
         "target_node": "vehicle_detector"
       }
     },
@@ -461,15 +467,13 @@
           "FFMPEG_RTSP_TRANSPORT": "tcp",
           "FRAME_JPEG_MAX_WIDTH": "896",
           "FRAME_SAMPLE_SECONDS": "10.0",
-          "LIVE_FRAME_FALLBACK_PATH": "/sandbox/live/latest.jpg",
-          "LIVE_FRAME_FALLBACK_PREFER": "true",
           "MN_BLUEPRINT_LOG_LEVEL": "info",
           "OLLAMA_BASE_URL": "http://192.168.4.173:11434",
           "OLLAMA_MODEL": "nemotron3:33b",
           "OLLAMA_THINK": "false",
           "SLACK_ALERT_ENABLED": "true",
           "SLACK_DEFAULT_CHANNEL": "#safety",
-          "SLACK_MESSAGE_PREFIX": "Dam vehicle entry alert",
+          "SLACK_MESSAGE_PREFIX": "Video vehicle entry alert",
           "VIDEO_SOURCE_CODEC": "h264",
           "VIDEO_SOURCE_TRANSPORT": "rtsp",
           "VIDEO_SOURCE_URI": "rtsp://9627b0bf2a7b.entrypoint.cloud.wowza.com:1935/app-p5260J38/66abe4b9_stream1",
@@ -481,10 +485,10 @@
           "CAR_DETECTION_CONFIDENCE_THRESHOLD": "0.65"
         },
         "gpu": false,
-        "name_prefix": "dam_access_watch_assistant",
+        "name_prefix": "video_watch_assistant",
         "output_message_type": null,
         "persistent_workspace": false,
-        "policy": "vehicle_detector/policies/dam-video-egress.yaml",
+        "policy": "vehicle_detector/policies/video-egress.yaml",
         "reuse_shared_sandbox": true,
         "runner_module": "MirrorNeuron.Sandbox.OpenShell",
         "upload_as": "vehicle_detector",
@@ -498,7 +502,7 @@
         "workdir": "/sandbox/job/vehicle_detector"
       },
       "node_id": "vehicle_detector",
-      "role": "vl_model_dam_vehicle_detector",
+      "role": "vl_model_video_vehicle_detector",
       "type": "stream",
       "uses": "mn-agents.data_python_executor@1.0.0",
       "with": {
@@ -513,15 +517,13 @@
           "FFMPEG_RTSP_TRANSPORT": "tcp",
           "FRAME_JPEG_MAX_WIDTH": "896",
           "FRAME_SAMPLE_SECONDS": "10.0",
-          "LIVE_FRAME_FALLBACK_PATH": "/sandbox/live/latest.jpg",
-          "LIVE_FRAME_FALLBACK_PREFER": "true",
           "MN_BLUEPRINT_LOG_LEVEL": "info",
           "OLLAMA_BASE_URL": "http://192.168.4.173:11434",
           "OLLAMA_MODEL": "nemotron3:33b",
           "OLLAMA_THINK": "false",
           "SLACK_ALERT_ENABLED": "true",
           "SLACK_DEFAULT_CHANNEL": "#safety",
-          "SLACK_MESSAGE_PREFIX": "Dam vehicle entry alert",
+          "SLACK_MESSAGE_PREFIX": "Video vehicle entry alert",
           "VIDEO_SOURCE_CODEC": "h264",
           "VIDEO_SOURCE_TRANSPORT": "rtsp",
           "VIDEO_SOURCE_URI": "rtsp://9627b0bf2a7b.entrypoint.cloud.wowza.com:1935/app-p5260J38/66abe4b9_stream1",
@@ -533,13 +535,13 @@
           "CAR_DETECTION_CONFIDENCE_THRESHOLD": "0.65"
         },
         "gpu": false,
-        "name_prefix": "dam_access_watch_assistant",
+        "name_prefix": "video_watch_assistant",
         "node_type": "stream",
         "output_message_type": null,
         "persistent_workspace": false,
-        "policy": "vehicle_detector/policies/dam-video-egress.yaml",
+        "policy": "vehicle_detector/policies/video-egress.yaml",
         "reuse_shared_sandbox": true,
-        "role": "vl_model_dam_vehicle_detector",
+        "role": "vl_model_video_vehicle_detector",
         "runner_module": "MirrorNeuron.Sandbox.OpenShell",
         "script": "scripts/run_blueprint.py",
         "upload_path": "vehicle_detector",
