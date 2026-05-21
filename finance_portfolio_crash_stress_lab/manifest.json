@@ -23,6 +23,7 @@
     ]
   },
   "job_name": "finance-portfolio-crash-stress-lab",
+  "license": "LICENSE.md",
   "manifest_version": "1.0",
   "metadata": {
     "agent_templates": {
@@ -314,6 +315,7 @@
     },
     "target_user": "Portfolio managers, wealth advisors, risk officers, and fintech evaluators."
   },
+  "term": "TERM.md",
   "name": "Portfolio Crash Stress Lab",
   "nodes": [
     {

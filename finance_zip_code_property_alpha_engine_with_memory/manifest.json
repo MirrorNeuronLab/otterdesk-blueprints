@@ -30,6 +30,7 @@
     ]
   },
   "job_name": "finance-zip-code-property-alpha-engine-with-memory",
+  "license": "LICENSE.md",
   "manifest_version": "1.0",
   "metadata": {
     "agent_templates": {
@@ -326,6 +327,7 @@
     },
     "target_user": "Real-estate investors, acquisition analysts, property-tech teams, and diligence operators."
   },
+  "term": "TERM.md",
   "name": "Zip Code Property Alpha Engine With Memory",
   "nodes": [
     {

@@ -68,6 +68,7 @@
     ]
   },
   "job_name": "science-drug-discovery-closed-loop-lab",
+  "license": "LICENSE.md",
   "manifest_version": "1.0",
   "metadata": {
     "agent_templates": {
@@ -364,6 +365,7 @@
     },
     "target_user": "Computational biology researchers and scientific AI platform evaluators."
   },
+  "term": "TERM.md",
   "name": "Drug Discovery Closed Loop Lab",
   "nodes": [
     {

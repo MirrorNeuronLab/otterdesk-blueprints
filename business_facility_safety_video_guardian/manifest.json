@@ -36,6 +36,7 @@
     ]
   },
   "job_name": "business-facility-safety-video-guardian",
+  "license": "LICENSE.md",
   "manifest_version": "1.0",
   "metadata": {
     "agent_templates": {
@@ -399,6 +400,7 @@
       "server": "blueprint_support"
     }
   },
+  "term": "TERM.md",
   "name": "Facility Safety Video Guardian",
   "nodes": [
     {
