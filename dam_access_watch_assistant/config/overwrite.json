@@ -1,0 +1,11 @@
+{
+  "video_source": {
+    "transport": "rtsp",
+    "codec": "h264",
+    "uri": "rtsp://9627b0bf2a7b.entrypoint.cloud.wowza.com:1935/app-p5260J38/66abe4b9_stream1"
+  },
+  "vl_model": {
+    "base_url": "http://192.168.4.173:11434",
+    "model": "nemotron3:33b"
+  }
+}

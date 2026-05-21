@@ -1,0 +1,405 @@
+{
+  "daemon": false,
+  "description": "Stress-tests a portfolio against market crashes, rate shocks, and liquidity pressure, then explains risks and possible rebalancing options in plain language.",
+  "edges": [
+    {
+      "edge_id": "simulation_to_report",
+      "from_node": "simulation_loop",
+      "message_type": "blueprint_report",
+      "to_node": "report_sink"
+    }
+  ],
+  "entrypoints": [
+    "simulation_loop"
+  ],
+  "graph_id": "portfolio_risk_review_assistant_v1",
+  "initial_inputs": {
+    "simulation_loop": [
+      {
+        "scenario": "stagflation shock",
+        "seed": 42,
+        "steps": 5
+      }
+    ]
+  },
+  "job_name": "portfolio-risk-review-assistant",
+  "license": "LICENSE.md",
+  "term": "TERM.md",
+  "manifest_version": "1.0",
+  "metadata": {
+    "agent_templates": {
+      "library": "../mn-agents/index.json",
+      "nodes": [
+        {
+          "node_id": "simulation_loop",
+          "uses": "mn-agents.data_python_executor@1.0.0"
+        },
+        {
+          "node_id": "report_sink",
+          "uses": "mn-agents.control_join@1.0.0"
+        }
+      ],
+      "render_tool": "../mn-agents/tools/render_agent_templates.py",
+      "rendered_output": "manifest.rendered.json or runtime metadata",
+      "renderer": "mn_blueprint_support.render_manifest_agent_templates"
+    },
+    "blueprint_id": "portfolio_risk_review_assistant",
+    "category": "finance",
+    "configuration_contract": {
+      "optional_files": [
+        "scenario.json",
+        "config/overwrite.json",
+        "knowledge/"
+      ],
+      "required_files": [
+        "manifest.json",
+        "README.md",
+        "SPEC.md",
+        "config/default.json",
+        "payloads/",
+        "LICENSE.md",
+        "TERM.md"
+      ]
+    },
+    "customizable_for": "Wealth management, treasury review, family offices, robo-advisory risk workflows, and portfolio check-ins.",
+    "description": "Stress-tests a portfolio against market crashes, rate shocks, and liquidity pressure, then explains risks and possible rebalancing options in plain language.",
+    "init_config_review": {
+      "checks": [
+        "identity",
+        "mode",
+        "inputs",
+        "streams",
+        "input_skills",
+        "outputs",
+        "privacy",
+        "budgets"
+      ],
+      "required": true
+    },
+    "interfaces": {
+      "channels": {
+        "artifacts": {
+          "artifacts": [
+            "run.json",
+            "config.json",
+            "inputs.json",
+            "events.jsonl",
+            "result.json",
+            "final_artifact.json"
+          ],
+          "description": "Stable run-store files and domain-specific outputs.",
+          "optional_artifacts": [
+            "job.json",
+            "web_ui.json",
+            "ui.json",
+            "web/index.html",
+            "logs.jsonl"
+          ]
+        },
+        "events": {
+          "artifact": "events.jsonl",
+          "description": "Append-only workflow events."
+        },
+        "input_skills": {
+          "description": "Connector-backed or reusable skill-backed input sources."
+        },
+        "inputs": {
+          "artifact": "inputs.json",
+          "description": "Resolved runtime inputs and adapter provenance."
+        },
+        "logs": {
+          "description": "Runtime stdout/stderr and explicit log artifacts.",
+          "stream": "stdout/stderr"
+        },
+        "output_skills": {
+          "description": "Optional fan-out destinations after local run-store writes."
+        },
+        "outputs": {
+          "artifacts": [
+            "result.json",
+            "final_artifact.json"
+          ],
+          "description": "Primary result and final user-facing artifact."
+        },
+        "streams": {
+          "default": [
+            "events"
+          ],
+          "description": "Named data or event streams exposed by the blueprint.",
+          "kinds": [
+            "audio",
+            "video",
+            "data",
+            "multimodal"
+          ],
+          "transports": [
+            "file",
+            "http",
+            "https",
+            "rtsp",
+            "rtmp",
+            "webrtc",
+            "websocket",
+            "socketio",
+            "tcp",
+            "udp",
+            "sse",
+            "kafka",
+            "mqtt",
+            "custom"
+          ]
+        },
+        "web_ui": {
+          "artifacts": [
+            "web_ui.json",
+            "ui.json",
+            "web/index.html"
+          ],
+          "description": "Optional web input/output handles."
+        }
+      },
+      "config": [
+        "standard_version",
+        "identity",
+        "mode",
+        "metadata",
+        "inputs",
+        "simulation",
+        "llm",
+        "outputs",
+        "logging",
+        "real_adapters",
+        "streams",
+        "input_skills",
+        "output_skills",
+        "error_handling",
+        "state",
+        "capabilities",
+        "privacy",
+        "triggers",
+        "backpressure",
+        "determinism",
+        "schemas",
+        "budgets",
+        "agent_handoffs",
+        "web_ui",
+        "interfaces",
+        "execution_model"
+      ],
+      "identity": [
+        "blueprint_id",
+        "name",
+        "run_id"
+      ],
+      "input_adapters": [
+        "mock",
+        "json",
+        "file",
+        "env_json"
+      ],
+      "optional_outputs": [
+        "job.json",
+        "web_ui.json",
+        "ui.json",
+        "web/index.html",
+        "logs.jsonl"
+      ],
+      "output_adapters": [
+        "local_run_store"
+      ],
+      "outputs": [
+        "run.json",
+        "config.json",
+        "inputs.json",
+        "events.jsonl",
+        "result.json",
+        "final_artifact.json"
+      ],
+      "response_schema": "mn.blueprint.response.v1",
+      "stream_kinds": [
+        "audio",
+        "video",
+        "data",
+        "multimodal"
+      ],
+      "stream_transports": [
+        "file",
+        "http",
+        "https",
+        "rtsp",
+        "rtmp",
+        "webrtc",
+        "websocket",
+        "socketio",
+        "tcp",
+        "udp",
+        "sse",
+        "kafka",
+        "mqtt",
+        "custom"
+      ],
+      "web_ui_adapters": [
+        "none",
+        "static_html",
+        "gradio",
+        "custom"
+      ]
+    },
+    "llm": {
+      "default_api_base": "http://192.168.4.173:11434",
+      "default_model": "ollama/nemotron3:33b",
+      "mock_mode": "run payloads/simulation_loop/scripts/run_blueprint.py --mock-llm",
+      "agent_role": "AI assistant for reviewing portfolio stress scenarios and drafting risk notes."
+    },
+    "llm_agent_role": "AI assistant for reviewing portfolio stress scenarios and drafting risk notes.",
+    "name": "Portfolio Risk Review Assistant",
+    "output": "Plain-language portfolio risk notes, stress results, and draft rebalancing options.",
+    "output_contract": {
+      "events": "blueprint_report",
+      "events_jsonl": "events.jsonl",
+      "final_artifact_json": "final_artifact.json",
+      "local_run_store": "~/.mn/runs/<run_id>/",
+      "logs_jsonl": "logs.jsonl",
+      "response_schema": "mn.blueprint.response.v1",
+      "result_json": "result.json",
+      "stdout": "JSON object with timeline, state_changes, final_artifact, and llm metadata"
+    },
+    "problem_solved": "Portfolio risk can change quickly during shocks; users need an assistant that makes downside exposure and possible next steps easier to review.",
+    "quick_test": {
+      "command": "python3 payloads/simulation_loop/scripts/run_blueprint.py --mock-llm --steps 2",
+      "enabled": true
+    },
+    "runtime_features": [
+      "macro shock simulation",
+      "portfolio risk review",
+      "LLM risk notes",
+      "decision feedback"
+    ],
+    "simulation": {
+      "actions": [
+        "rebalance_defensive",
+        "hedge_rates",
+        "raise_cash"
+      ],
+      "agent_role": "Portfolio risk review assistant",
+      "dynamic_metrics": [
+        "portfolio_value",
+        "drawdown_pct",
+        "rate_shock_bps",
+        "liquidity_pct"
+      ]
+    },
+    "simulation_type": "Portfolio stress review with draft rebalancing guidance.",
+    "standard": {
+      "config_path": "config/default.json",
+      "default_input_adapter": "mock",
+      "execution_model": "load_metadata -> resolve_config -> load_inputs -> start_run_store -> observe_simulation_state -> call_llm_agent -> evaluate_workflow_state -> route_by_context -> request_human_input -> apply_decision_to_simulation -> emit_events -> write_final_artifact -> fan_out_output_skills",
+      "execution_steps": [
+        "load_metadata",
+        "resolve_config",
+        "load_inputs",
+        "start_run_store",
+        "observe_simulation_state",
+        "call_llm_agent",
+        "evaluate_workflow_state",
+        "route_by_context",
+        "request_human_input",
+        "apply_decision_to_simulation",
+        "emit_events",
+        "write_final_artifact",
+        "fan_out_output_skills"
+      ],
+      "output_adapter": "local_run_store",
+      "real_input_adapters": [
+        "file",
+        "json",
+        "env_json"
+      ],
+      "run_store": "~/.mn/runs/<run_id>/",
+      "version": "1.0"
+    },
+    "target_user": "Investors, advisors, portfolio managers, treasury teams, and fintech operators.",
+    "agent_role": "AI assistant for reviewing portfolio stress scenarios and drafting risk notes.",
+    "target_users": "Investors, advisors, portfolio managers, treasury teams, and fintech operators."
+  },
+  "name": "Portfolio Risk Review Assistant",
+  "nodes": [
+    {
+      "agent_type": "executor",
+      "config": {
+        "command": [
+          "python3",
+          "scripts/run_blueprint.py"
+        ],
+        "environment": {
+          "LITELLM_API_BASE": "http://192.168.4.173:11434",
+          "LITELLM_MAX_TOKENS": "700",
+          "LITELLM_MODEL": "ollama/nemotron3:33b",
+          "LITELLM_NUM_RETRIES": "1",
+          "LITELLM_TIMEOUT_SECONDS": "60",
+          "MN_BLUEPRINT_ID": "portfolio_risk_review_assistant",
+          "MN_LLM_API_BASE": "http://192.168.4.173:11434",
+          "MN_LLM_MAX_TOKENS": "700",
+          "MN_LLM_MODEL": "ollama/nemotron3:33b",
+          "MN_LLM_NUM_RETRIES": "1",
+          "MN_LLM_TIMEOUT_SECONDS": "60"
+        },
+        "from": "base",
+        "name_prefix": "portfolio_risk_review_assistant",
+        "no_auto_providers": true,
+        "no_keep": true,
+        "output_message_type": "blueprint_report",
+        "pool": "default",
+        "pool_slots": 1,
+        "tty": false,
+        "upload_as": "simulation_loop",
+        "upload_path": "simulation_loop",
+        "workdir": "/sandbox/job/simulation_loop"
+      },
+      "node_id": "simulation_loop",
+      "role": "root_coordinator",
+      "type": "generic",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "with": {
+        "environment": {
+          "LITELLM_API_BASE": "http://192.168.4.173:11434",
+          "LITELLM_MAX_TOKENS": "700",
+          "LITELLM_MODEL": "ollama/nemotron3:33b",
+          "LITELLM_NUM_RETRIES": "1",
+          "LITELLM_TIMEOUT_SECONDS": "60",
+          "MN_BLUEPRINT_ID": "portfolio_risk_review_assistant",
+          "MN_LLM_API_BASE": "http://192.168.4.173:11434",
+          "MN_LLM_MAX_TOKENS": "700",
+          "MN_LLM_MODEL": "ollama/nemotron3:33b",
+          "MN_LLM_NUM_RETRIES": "1",
+          "MN_LLM_TIMEOUT_SECONDS": "60"
+        },
+        "name_prefix": "portfolio_risk_review_assistant",
+        "node_type": "generic",
+        "output_message_type": "blueprint_report",
+        "role": "root_coordinator",
+        "script": "scripts/run_blueprint.py",
+        "upload_path": "simulation_loop"
+      }
+    },
+    {
+      "agent_type": "aggregator",
+      "config": {
+        "complete_on_message": true
+      },
+      "node_id": "report_sink",
+      "role": "result_sink",
+      "type": "reduce",
+      "uses": "mn-agents.control_join@1.0.0",
+      "with": {
+        "complete_on_message": true,
+        "node_type": "reduce",
+        "role": "result_sink"
+      }
+    }
+  ],
+  "policies": {
+    "recovery_mode": "local_restart"
+  },
+  "requiredContextEngine": false
+}

@@ -1,0 +1,21 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+try:
+    from mn_blueprint_support.solution_runner import main
+except ModuleNotFoundError:
+    for parent in Path(__file__).resolve().parents:
+        candidate = parent / "mn-skills" / "blueprint-support-skill" / "src"
+        if candidate.exists():
+            sys.path.insert(0, str(candidate))
+            break
+    from mn_blueprint_support.solution_runner import main
+
+BLUEPRINT_ID = 'portfolio_risk_review_assistant'
+
+
+if __name__ == "__main__":
+    main([BLUEPRINT_ID] + sys.argv[1:])
