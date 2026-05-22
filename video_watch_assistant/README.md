@@ -37,7 +37,7 @@ A video camera is sampled every 10 seconds. The agent checks whether configured 
 
 ## Inputs
 
-- Video source URI, transport, and codec. Leave `video_source.uri` as `rtsp://127.0.0.1:8554/video-watch` to use the bundled demo stream, or replace it with a user RTSP URL for the host-side mapper to validate and republish.
+- Video source URI, transport, and codec. Leave `video_source.uri` as `rtsp://127.0.0.1:8554/video-watch`; the pre-launch hook loops the bundled demo video into that endpoint.
 - VL model base URL and model name.
 - Detection confidence threshold, alert cooldown policy, and optional notification destination.
 - Mock payloads for deterministic tests.
@@ -52,7 +52,7 @@ A video camera is sampled every 10 seconds. The agent checks whether configured 
 
 ## How to run
 
-For live video preview, the standard `scripts/pre-launch.sh` hook starts the local mapper before validation and launch. With the default mapped source, it loops `data/sample.mp4` into local MediaMTX for RTSP and browser preview at `http://127.0.0.1:8889/video-watch/`. If a user supplies an RTSP URL, the host-side mapper validates it outside OpenShell first, then republishes it into the same mapped endpoint for the worker and preview.
+The standard `scripts/pre-launch.sh` hook starts the local mapper before validation and launch. With the default mapped source, it loops `data/sample.mp4` into local MediaMTX and publishes the RTSP stream at `rtsp://127.0.0.1:8554/video-watch`. It does not open a browser or request webcam access.
 
 Run the detector script from the blueprint directory:
 

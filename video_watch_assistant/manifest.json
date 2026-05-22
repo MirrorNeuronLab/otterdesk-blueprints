@@ -118,7 +118,7 @@
       "fields": [
         {
           "default": "rtsp://127.0.0.1:8554/video-watch",
-          "description": "Leave the default mapped endpoint to use the bundled demo video, or replace it with a user RTSP URL for the host-side mapper to validate and republish.",
+          "description": "Leave the default mapped endpoint. The pre-launch hook loops the bundled demo video into it before the worker starts.",
           "label": "Video input",
           "path": "video_source.uri"
         },
@@ -397,7 +397,7 @@
       ],
       "transport": "rtsp",
       "uri": "rtsp://127.0.0.1:8554/video-watch",
-      "description": "Default stable mapped RTSP endpoint consumed by the OpenShell worker. If the user replaces config video_source.uri with an RTSP URL, the host-side mapper validates and republishes it into this mapped endpoint."
+      "description": "Default stable mapped RTSP endpoint consumed by the OpenShell worker. The host-side pre-launch hook loops the bundled demo video into this endpoint before launch."
     },
     "vl_model": {
       "base_url": "http://192.168.4.173:11434",
@@ -415,7 +415,7 @@
     "web_ui": {
       "adapter": "gradio",
       "arguments": {
-        "browser_video_source": "Browser-playable preview URL served by the local MediaMTX mapper.",
+        "browser_video_source": "Disabled for this blueprint; the standard pre-launch hook owns the local RTSP demo stream.",
         "browser_publish_source": "Set to disabled because this blueprint's host-side mapper owns publishing into the local RTSP endpoint.",
         "run_id": "MirrorNeuron run id used to resolve ~/.mn/runs/<run_id>.",
         "runs_root": "MirrorNeuron runs root, defaulting to ~/.mn/runs.",
@@ -441,11 +441,12 @@
       },
       "server": "blueprint_support",
       "video_preview_bridge": {
-        "auto_start": true,
-        "enabled": true,
+        "auto_start": false,
+        "enabled": false,
         "script": "scripts/pre-launch.sh",
         "stream_path": "video-watch"
       },
+      "browser_video_source": "disabled",
       "browser_publish_source": "disabled"
     },
     "agent_role": "AI assistant for reviewing video stream activity and preparing visual detection alerts.",
