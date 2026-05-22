@@ -52,7 +52,7 @@ A video camera is sampled every 10 seconds. The agent checks whether configured 
 
 ## How to run
 
-For live video preview, the blueprint dashboard starts the local mapper automatically. With the default mapped source, it loops `data/sample.mp4` into local MediaMTX for RTSP and browser preview at `http://127.0.0.1:8889/video-watch/`. If a user supplies an RTSP URL, the host-side mapper validates it outside OpenShell first, then republishes it into the same mapped endpoint for the worker and preview.
+For live video preview, the standard `scripts/pre-launch.sh` hook starts the local mapper before validation and launch. With the default mapped source, it loops `data/sample.mp4` into local MediaMTX for RTSP and browser preview at `http://127.0.0.1:8889/video-watch/`. If a user supplies an RTSP URL, the host-side mapper validates it outside OpenShell first, then republishes it into the same mapped endpoint for the worker and preview.
 
 Run the detector script from the blueprint directory:
 

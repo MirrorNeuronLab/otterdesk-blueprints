@@ -13,6 +13,7 @@ SOURCE_CHECK_TIMEOUT_SECONDS="${SOURCE_CHECK_TIMEOUT_SECONDS:-8}"
 SERVER_LOG="${SERVER_LOG:-/tmp/video_watch_assistant_mediamtx.log}"
 BROWSER_PREVIEW_URI="${BROWSER_PREVIEW_URI:-http://127.0.0.1:8889/${STREAM_PATH}/}"
 VIDEO_BITRATE="${VIDEO_BITRATE:-2500k}"
+MN_PRE_LAUNCH_READY_FILE="${MN_PRE_LAUNCH_READY_FILE:-}"
 
 usage() {
   cat <<EOF
@@ -87,7 +88,15 @@ start_rtsp_server() {
   local config_path="${config_dir}/mediamtx.yml"
   cat >"$config_path" <<EOF
 logLevel: info
+rtspTransports: [tcp]
 rtspAddress: :${RTSP_PORT}
+rtmp: false
+hls: false
+webrtc: true
+webrtcAddress: :8889
+webrtcLocalUDPAddress: ''
+webrtcLocalTCPAddress: :8189
+srt: false
 paths:
   ${STREAM_PATH}:
     source: publisher
@@ -191,6 +200,14 @@ open_browser_preview() {
   fi
 }
 
+mark_pre_launch_ready() {
+  if [[ -z "$MN_PRE_LAUNCH_READY_FILE" ]]; then
+    return 0
+  fi
+  mkdir -p "$(dirname "$MN_PRE_LAUNCH_READY_FILE")"
+  printf 'ready\n' >"$MN_PRE_LAUNCH_READY_FILE"
+}
+
 start_upstream_publisher() {
   echo "Mapping user RTSP source to ${STREAM_URI}"
   echo "Upstream source: ${SOURCE_URI}"
@@ -258,8 +275,11 @@ while true; do
     echo "Timed out waiting for mapper to publish ${STREAM_URI}." >&2
     echo "Server log: ${SERVER_LOG}" >&2
   elif [[ "$preview_opened" != "1" ]]; then
+    mark_pre_launch_ready
     open_browser_preview
     preview_opened=1
+  else
+    mark_pre_launch_ready
   fi
 
   wait "$publisher_pid" || true

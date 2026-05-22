@@ -443,7 +443,7 @@
       "video_preview_bridge": {
         "auto_start": true,
         "enabled": true,
-        "script": "scripts/start_webcam_stream_for_mac.sh",
+        "script": "scripts/pre-launch.sh",
         "stream_path": "video-watch"
       },
       "browser_publish_source": "disabled"

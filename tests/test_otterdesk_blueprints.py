@@ -1,13 +1,15 @@
 from __future__ import annotations
 
+import importlib.util
 import json
 import py_compile
+import subprocess
 import sys
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-WORKSPACE = ROOT.parent / "mirror-neuron-set"
+WORKSPACE = ROOT.parent
 SUPPORT_SRC = WORKSPACE / "mn-skills" / "blueprint_support_skill" / "src"
 AGENTS_ROOT = WORKSPACE / "mn-agents"
 if str(SUPPORT_SRC) not in sys.path:
@@ -97,3 +99,59 @@ def test_video_watch_detector_script_compiles_with_shared_helper_import():
         str(ROOT / "video_watch_assistant" / "payloads" / "visual_detector" / "scripts" / "analyze_video_frame.py"),
         doraise=True,
     )
+
+
+def _load_video_watch_validator():
+    path = ROOT / "video_watch_assistant" / "payloads" / "validation" / "validate_rtsp_source.py"
+    spec = importlib.util.spec_from_file_location("video_watch_validate_rtsp_source", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_video_watch_default_validator_checks_demo_video(monkeypatch, tmp_path):
+    validator = _load_video_watch_validator()
+    demo = tmp_path / "sample.mp4"
+    demo.write_bytes(b"fake-video")
+    monkeypatch.setenv(
+        "MN_BLUEPRINT_CONFIG_JSON",
+        json.dumps({
+            "video_source": {
+                "uri": "rtsp://127.0.0.1:8554/video-watch",
+                "demo_video": str(demo),
+            }
+        }),
+    )
+    monkeypatch.setattr(validator.shutil, "which", lambda _name: "/usr/bin/ffprobe")
+    calls = []
+
+    def fake_run(command, **_kwargs):
+        calls.append(command)
+        return subprocess.CompletedProcess(command, 0, stdout="video\n", stderr="")
+
+    monkeypatch.setattr(validator.subprocess, "run", fake_run)
+
+    assert validator.main() == 0
+    assert str(demo) in calls[0]
+    assert "-rtsp_transport" not in calls[0]
+
+
+def test_video_watch_external_rtsp_validator_probes_stream(monkeypatch):
+    validator = _load_video_watch_validator()
+    monkeypatch.setenv(
+        "MN_BLUEPRINT_CONFIG_JSON",
+        json.dumps({"video_source": {"uri": "rtsp://camera.example/live"}}),
+    )
+    monkeypatch.setattr(validator.shutil, "which", lambda _name: "/usr/bin/ffprobe")
+    calls = []
+
+    def fake_run(command, **_kwargs):
+        calls.append(command)
+        return subprocess.CompletedProcess(command, 0, stdout="video\n", stderr="")
+
+    monkeypatch.setattr(validator.subprocess, "run", fake_run)
+
+    assert validator.main() == 0
+    assert "rtsp://camera.example/live" in calls[0]
+    assert "-rtsp_transport" in calls[0]

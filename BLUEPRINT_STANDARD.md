@@ -54,6 +54,7 @@ Blueprints may also contain:
 
 - `scenario.json`: canonical scenario input for simulation or demos.
 - `config/overwrite.json`: local or user-specific override values. This file should not be required for correctness.
+- `scripts/pre-launch.sh`: optional host-side setup hook for long-lived services required before validation and launch.
 - `knowledge/`: optional LLM-agent knowledge content, such as RAG material, prompt context, domain references, embeddings metadata, or other agent knowledge sources.
 - `payloads/.../samples`: bundled demo data.
 - `payloads/.../policies`: runtime or sandbox policy files.
@@ -1285,6 +1286,25 @@ Each review field should include:
 
 The review step should let the user keep defaults or provide overrides before launch.
 
+## Pre-Launch Hook
+
+Blueprints may include `scripts/pre-launch.sh` when a run needs host-side services before validation or worker submission, such as a local RTSP mapper, tunnel, or filesystem watcher. The hook is optional; blueprints without it launch normally.
+
+Launchers start `scripts/pre-launch.sh` before launch-time input validation. The hook may be long-lived and must write the file named by `MN_PRE_LAUNCH_READY_FILE` once the required service is usable. Launchers wait for that file and fail the run cleanly if it is not written before the timeout.
+
+Launchers provide these environment variables:
+
+- `MN_RUN_ID`
+- `MN_RUN_DIR`
+- `MN_RUNS_ROOT`
+- `MN_BLUEPRINT_BUNDLE_DIR`
+- `MN_BLUEPRINT_CONFIG_JSON`
+- `MN_PRE_LAUNCH_READY_FILE`
+
+`MN_PRE_LAUNCH_TIMEOUT_SECONDS` may override the launcher wait timeout.
+
+The hook should log to stdout/stderr, avoid mutating tracked blueprint files, and terminate cleanly on `SIGTERM`. Launchers record `pre_launch.log` and `pre_launch_process.json` in the run directory and stop the process on failed validation, failed submission, cancellation, or run-resource cleanup.
+
 ## Validation Checklist
 
 Use this checklist to separate universal requirements from feature-specific requirements.
@@ -1315,6 +1335,7 @@ Use this checklist to separate universal requirements from feature-specific requ
 - Persisted logs use structured records and canonical levels: `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, and `CRITICAL`.
 - Long-running, daemon, live, or stream blueprints declare state, checkpoint, resume, and idempotency behavior.
 - Blueprints that require external systems declare required and optional capabilities before launch.
+- Blueprints that need host-side setup before validation or submission use the standard `scripts/pre-launch.sh` hook and signal readiness through `MN_PRE_LAUNCH_READY_FILE`.
 - Blueprints that process sensitive, business, operational, financial, health, media, or connector data classify handled data and define logging, LLM, output-skill, and artifact behavior.
 - Blueprints with scheduled, live, webhook, stream, daemon, or batch execution declare trigger type.
 - Live, stream, or high-volume blueprints declare backpressure and rate-limit behavior.

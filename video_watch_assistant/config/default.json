@@ -488,7 +488,7 @@
         "review_help": "The final result is not just a video preview. It is a run record: source, frame observations, alert decisions, errors, and event payloads that a human can audit after the workflow runs.",
         "source_help": "Leave this field as the stable mapped RTSP endpoint to use the bundled demo video. If a user supplies an RTSP URL here, the host-side mapper validates it outside OpenShell and republishes it into the same local endpoint consumed by the sandbox worker.",
         "workflow_steps": [
-          "Start the host-side stream mapper automatically with the dashboard.",
+          "Start the host-side stream mapper automatically with scripts/pre-launch.sh before validation and launch.",
           "If no user RTSP source is provided, loop data/sample.mp4 into the mapped RTSP endpoint.",
           "If a user RTSP source is provided, validate it outside OpenShell before publishing it into the same endpoint.",
           "Sample a frame every 10 seconds through the stream tick source.",
@@ -517,7 +517,7 @@
         "open_browser": 0,
         "publish_mode": "mapped",
         "rtsp_port": 8554,
-        "script": "scripts/start_webcam_stream_for_mac.sh",
+        "script": "scripts/pre-launch.sh",
         "stream_path": "video-watch",
         "use_existing_rtsp_server": 1
       }
