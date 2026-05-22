@@ -118,7 +118,7 @@
       "fields": [
         {
           "default": "rtsp://127.0.0.1:8554/video-watch",
-          "description": "Leave the default mapped endpoint. The pre-launch hook loops the bundled demo video into it before the worker starts.",
+          "description": "Leave the default mapped endpoint. The pre-launch hook loops the bundled demo video into the selected local RTSP port before the worker starts.",
           "label": "Video input",
           "path": "video_source.uri"
         },
@@ -397,7 +397,7 @@
       ],
       "transport": "rtsp",
       "uri": "rtsp://127.0.0.1:8554/video-watch",
-      "description": "Default stable mapped RTSP endpoint consumed by the OpenShell worker. The host-side pre-launch hook loops the bundled demo video into this endpoint before launch."
+      "description": "Default mapped RTSP endpoint consumed by the OpenShell worker. The host-side pre-launch hook loops the bundled demo video into the selected local RTSP port before launch."
     },
     "vl_model": {
       "base_url": "http://192.168.4.173:11434",

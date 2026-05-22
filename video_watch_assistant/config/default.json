@@ -456,7 +456,7 @@
   "video_source": {
     "camera_id": "video-watch",
     "codec": "h264",
-    "description": "Default stable mapped RTSP endpoint consumed by the OpenShell worker. The host-side pre-launch hook loops the bundled demo video into this endpoint before launch.",
+    "description": "Default mapped RTSP endpoint consumed by the OpenShell worker. The host-side pre-launch hook loops the bundled demo video into the selected local RTSP port before launch.",
     "frame_jpeg_max_width": 896,
     "frame_sample_seconds": 10,
     "transport": "rtsp",
@@ -484,9 +484,9 @@
           "video_watch_detection": "The visual detector saw configured target activity and recorded observable details for review."
         },
         "events_help": "Each event is a durable breadcrumb from the blueprint run. Operators can scan the friendly stream first, then open raw events when they need exact payloads.",
-        "overview": "This blueprint watches one stable mapped local RTSP endpoint. A host-side pre-launch hook feeds that endpoint from the bundled looping demo video.",
+        "overview": "This blueprint watches one mapped local RTSP endpoint. A host-side pre-launch hook feeds the selected local port from the bundled looping demo video.",
         "review_help": "The final result is not just a video preview. It is a run record: source, frame observations, alert decisions, errors, and event payloads that a human can audit after the workflow runs.",
-        "source_help": "Leave this field as the stable mapped RTSP endpoint. The host-side pre-launch hook loops data/sample.mp4 into that endpoint before the worker starts.",
+        "source_help": "Leave this field as the mapped RTSP endpoint. The host-side pre-launch hook loops data/sample.mp4 into the selected local port before the worker starts.",
         "workflow_steps": [
           "Start the host-side stream mapper automatically with scripts/pre-launch.sh before validation and launch.",
           "Loop data/sample.mp4 into the mapped RTSP endpoint.",

@@ -3,7 +3,8 @@ set -euo pipefail
 
 RTSP_PORT="${RTSP_PORT:-8554}"
 STREAM_PATH="${STREAM_PATH:-video-watch}"
-STREAM_URI="${STREAM_URI:-rtsp://127.0.0.1:${RTSP_PORT}/${STREAM_PATH}}"
+STREAM_URI_OVERRIDE="${STREAM_URI:-}"
+STREAM_URI="${STREAM_URI_OVERRIDE:-rtsp://127.0.0.1:${RTSP_PORT}/${STREAM_PATH}}"
 DEMO_VIDEO_FILE="${DEMO_VIDEO_FILE:-data/sample.mp4}"
 USE_EXISTING_RTSP_SERVER="${USE_EXISTING_RTSP_SERVER:-0}"
 STREAM_CHECK_TIMEOUT="${STREAM_CHECK_TIMEOUT:-20}"
@@ -41,6 +42,27 @@ fi
 
 is_port_open() {
   nc -z 127.0.0.1 "$RTSP_PORT" >/dev/null 2>&1
+}
+
+refresh_stream_uri() {
+  if [[ -z "$STREAM_URI_OVERRIDE" ]]; then
+    STREAM_URI="rtsp://127.0.0.1:${RTSP_PORT}/${STREAM_PATH}"
+  fi
+}
+
+choose_available_rtsp_port() {
+  local start_port="$RTSP_PORT"
+  local candidate
+  for offset in {0..100}; do
+    candidate=$((start_port + offset))
+    if ! nc -z 127.0.0.1 "$candidate" >/dev/null 2>&1; then
+      RTSP_PORT="$candidate"
+      refresh_stream_uri
+      return 0
+    fi
+  done
+  echo "No available local RTSP port found starting at ${start_port}." >&2
+  exit 1
 }
 
 server_pid=""
@@ -112,10 +134,13 @@ EOF
 
 if is_port_open; then
   if [[ "$USE_EXISTING_RTSP_SERVER" != "1" ]]; then
-    echo "Port ${RTSP_PORT} is already in use. Stop the existing RTSP server or set USE_EXISTING_RTSP_SERVER=1." >&2
-    exit 1
+    previous_port="$RTSP_PORT"
+    choose_available_rtsp_port
+    echo "Port ${previous_port} is already in use; selected RTSP port ${RTSP_PORT}."
+    start_rtsp_server
+  else
+    echo "Using existing RTSP server on 127.0.0.1:${RTSP_PORT}"
   fi
-  echo "Using existing RTSP server on 127.0.0.1:${RTSP_PORT}"
 else
   start_rtsp_server
 fi
@@ -152,7 +177,27 @@ mark_pre_launch_ready() {
     return 0
   fi
   mkdir -p "$(dirname "$MN_PRE_LAUNCH_READY_FILE")"
-  printf 'ready\n' >"$MN_PRE_LAUNCH_READY_FILE"
+  cat >"$MN_PRE_LAUNCH_READY_FILE" <<EOF
+{
+  "status": "ready",
+  "env": {
+    "RTSP_PORT": "${RTSP_PORT}",
+    "STREAM_PATH": "${STREAM_PATH}",
+    "STREAM_URI": "${STREAM_URI}",
+    "VIDEO_SOURCE_URI": "${STREAM_URI}"
+  },
+  "config": {
+    "video_source": {
+      "uri": "${STREAM_URI}"
+    },
+    "web_ui": {
+      "dashboard": {
+        "default_video_source": "${STREAM_URI}"
+      }
+    }
+  }
+}
+EOF
 }
 
 start_demo_publisher() {
