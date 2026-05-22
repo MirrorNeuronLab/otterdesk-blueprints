@@ -1,6 +1,6 @@
 [
   {
-    "description": "Watches an approved video stream, spots vehicles entering the monitored area, and reports count, vehicle type, color, position, movement, and alert status for review.",
+    "description": "Watches an approved video stream, detects configured visual targets, and reports count, label, category, color, position, activity, and alert status for review.",
     "category": "Security",
     "graph_id": "video_watch_assistant_v1",
     "id": "video_watch_assistant",
@@ -8,21 +8,21 @@
     "name": "Video Watch Assistant",
     "path": "video_watch_assistant",
     "product": {
-      "agent_role": "AI assistant for reviewing video stream activity and preparing vehicle-entry alerts.",
-      "customizable_for": "Video monitoring, restricted vehicle entry review, facility operations, and site safety workflows.",
-      "output": "Vehicle-entry observations with count, type, color, position, movement, confidence, and alert status.",
-      "problem": "Continuous video is hard to review manually; teams need a helpful assistant that flags likely vehicle entries with plain-language details.",
+      "agent_role": "AI assistant for reviewing video stream activity and preparing visual detection alerts.",
+      "customizable_for": "Video monitoring, configurable visual detection, facility operations, and site safety workflows.",
+      "output": "Visual detection observations with count, label, category, color, position, activity, confidence, and alert status.",
+      "problem": "Continuous video is hard to review manually; teams need a helpful assistant that flags likely configured visual targets with plain-language details.",
       "runtime_features": [
         "video sampling",
-        "vehicle-entry review",
+        "visual detection",
         "cooldown state",
         "Slack alerting"
       ],
-      "simulation_type": "Video stream sampling with vehicle-entry review state.",
+      "simulation_type": "Video stream sampling with visual detection review state.",
       "target_users": "Video operators, security reviewers, safety operations teams, and site-access coordinators.",
-      "benefit": "Helps reviewers notice vehicle entries faster while keeping the final access or safety decision with people.",
-      "how_it_works": "Samples the approved video stream, asks a vision model whether vehicles are entering, records observable vehicle details, applies cooldown policy, and prepares reviewable alerts.",
-      "input": "Approved video stream, monitored-zone rules, alert thresholds, and notification settings."
+      "benefit": "Helps reviewers notice configured visual targets faster while keeping the final access or safety decision with people.",
+      "how_it_works": "Samples the approved video stream, asks a vision model whether configured targets are visible, records observable detection details, applies cooldown policy, and prepares reviewable alerts.",
+      "input": "Approved video stream, target prompt, alert thresholds, and notification settings."
     }
   },
   {

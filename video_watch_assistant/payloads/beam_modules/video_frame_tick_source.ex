@@ -134,5 +134,5 @@ defmodule MirrorNeuron.Examples.VideoWatchAssistant.VideoFrameTickSource do
 
   defp interval_ms(config), do: max(Map.get(config, "interval_ms", 10_000), 250)
 
-  defp target_node(config), do: Map.get(config, "target_node", "vehicle_detector")
+  defp target_node(config), do: Map.get(config, "target_node", "visual_detector")
 end

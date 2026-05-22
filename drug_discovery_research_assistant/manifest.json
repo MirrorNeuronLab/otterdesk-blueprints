@@ -377,157 +377,116 @@
   "name": "Drug Discovery Research Assistant",
   "nodes": [
     {
-      "agent_type": "executor",
-      "config": {
-        "command": [
-          "python3",
-          "scripts/stage_a.py"
-        ],
-        "output_message_type": "targets_ready",
-        "pool": "default",
-        "pool_slots": 1,
-        "runner_module": "MirrorNeuron.Runner.HostLocal",
-        "upload_as": "worker",
-        "upload_path": "worker",
-        "workdir": "/sandbox/job/worker"
-      },
       "node_id": "target_discovery",
-      "type": "generic",
       "uses": "mn-agents.data_python_executor@1.0.0",
       "with": {
         "node_type": "generic",
         "output_message_type": "targets_ready",
         "runner_module": "MirrorNeuron.Runner.HostLocal",
         "script": "scripts/stage_a.py",
-        "upload_path": "worker"
+        "upload_path": "worker",
+        "command": [
+          "python3",
+          "scripts/stage_a.py"
+        ],
+        "pool": "default",
+        "pool_slots": 1,
+        "upload_as": "worker",
+        "workdir": "/sandbox/job/worker"
       }
     },
     {
-      "agent_type": "executor",
-      "config": {
-        "command": [
-          "python3",
-          "scripts/stage_b.py"
-        ],
-        "output_message_type": "structures_ready",
-        "pool": "default",
-        "pool_slots": 1,
-        "runner_module": "MirrorNeuron.Runner.HostLocal",
-        "upload_as": "worker",
-        "upload_path": "worker",
-        "workdir": "/sandbox/job/worker"
-      },
       "node_id": "structure_generation",
-      "type": "generic",
       "uses": "mn-agents.data_python_executor@1.0.0",
       "with": {
         "node_type": "generic",
         "output_message_type": "structures_ready",
         "runner_module": "MirrorNeuron.Runner.HostLocal",
         "script": "scripts/stage_b.py",
-        "upload_path": "worker"
+        "upload_path": "worker",
+        "command": [
+          "python3",
+          "scripts/stage_b.py"
+        ],
+        "pool": "default",
+        "pool_slots": 1,
+        "upload_as": "worker",
+        "workdir": "/sandbox/job/worker"
       }
     },
     {
-      "agent_type": "executor",
-      "config": {
-        "command": [
-          "python3",
-          "scripts/stage_c.py"
-        ],
-        "output_message_type": "candidates_ready",
-        "pool": "default",
-        "pool_slots": 1,
-        "runner_module": "MirrorNeuron.Runner.HostLocal",
-        "upload_as": "worker",
-        "upload_path": "worker",
-        "workdir": "/sandbox/job/worker"
-      },
       "node_id": "candidate_generation",
-      "type": "generic",
       "uses": "mn-agents.data_python_executor@1.0.0",
       "with": {
         "node_type": "generic",
         "output_message_type": "candidates_ready",
         "runner_module": "MirrorNeuron.Runner.HostLocal",
         "script": "scripts/stage_c.py",
-        "upload_path": "worker"
+        "upload_path": "worker",
+        "command": [
+          "python3",
+          "scripts/stage_c.py"
+        ],
+        "pool": "default",
+        "pool_slots": 1,
+        "upload_as": "worker",
+        "workdir": "/sandbox/job/worker"
       }
     },
     {
-      "agent_type": "executor",
-      "config": {
-        "command": [
-          "python3",
-          "scripts/stage_d.py"
-        ],
-        "output_message_type": "evaluations_ready",
-        "pool": "default",
-        "pool_slots": 1,
-        "runner_module": "MirrorNeuron.Runner.HostLocal",
-        "upload_as": "worker",
-        "upload_path": "worker",
-        "workdir": "/sandbox/job/worker"
-      },
       "node_id": "binding_evaluation",
-      "type": "generic",
       "uses": "mn-agents.data_python_executor@1.0.0",
       "with": {
         "node_type": "generic",
         "output_message_type": "evaluations_ready",
         "runner_module": "MirrorNeuron.Runner.HostLocal",
         "script": "scripts/stage_d.py",
-        "upload_path": "worker"
+        "upload_path": "worker",
+        "command": [
+          "python3",
+          "scripts/stage_d.py"
+        ],
+        "pool": "default",
+        "pool_slots": 1,
+        "upload_as": "worker",
+        "workdir": "/sandbox/job/worker"
       }
     },
     {
-      "agent_type": "executor",
-      "config": {
-        "command": [
-          "python3",
-          "scripts/stage_e.py"
-        ],
-        "output_message_type": "pipeline_complete",
-        "pool": "default",
-        "pool_slots": 1,
-        "runner_module": "MirrorNeuron.Runner.HostLocal",
-        "upload_as": "worker",
-        "upload_path": "worker",
-        "workdir": "/sandbox/job/worker"
-      },
       "node_id": "ranking_reporting",
-      "type": "generic",
       "uses": "mn-agents.data_python_executor@1.0.0",
       "with": {
         "node_type": "generic",
         "output_message_type": "pipeline_complete",
         "runner_module": "MirrorNeuron.Runner.HostLocal",
         "script": "scripts/stage_e.py",
-        "upload_path": "worker"
+        "upload_path": "worker",
+        "command": [
+          "python3",
+          "scripts/stage_e.py"
+        ],
+        "pool": "default",
+        "pool_slots": 1,
+        "upload_as": "worker",
+        "workdir": "/sandbox/job/worker"
       }
     },
     {
-      "agent_type": "executor",
-      "config": {
+      "node_id": "manager_monitor",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "with": {
+        "node_type": "generic",
+        "runner_module": "MirrorNeuron.Runner.HostLocal",
+        "script": "scripts/manager.py",
+        "upload_path": "worker",
         "command": [
           "python3",
           "scripts/manager.py"
         ],
         "pool": "default",
         "pool_slots": 1,
-        "runner_module": "MirrorNeuron.Runner.HostLocal",
         "upload_as": "worker",
-        "upload_path": "worker",
         "workdir": "/sandbox/job/worker"
-      },
-      "node_id": "manager_monitor",
-      "type": "generic",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "node_type": "generic",
-        "runner_module": "MirrorNeuron.Runner.HostLocal",
-        "script": "scripts/manager.py",
-        "upload_path": "worker"
       }
     }
   ],

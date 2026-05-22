@@ -5,19 +5,19 @@
 
 ## One-line value proposition
 
-Detect and report vehicles entering a monitored site from an approved RTSP stream.
+Detect and report configurable visual targets from an approved RTSP stream.
 
 ## What it is
 
-Video Watch Assistant is a MirrorNeuron blueprint for continuous vehicle-entry monitoring over a video camera. It samples an RTSP stream, asks a configurable vision-language model whether vehicles are entering the monitored site, records count/type/color/position/movement details, applies cooldown state, and writes reviewable alert artifacts.
+Video Watch Assistant is a MirrorNeuron blueprint for continuous visual monitoring over a video camera. It samples an RTSP stream, asks a configurable vision-language model whether target subjects or activities are visible, records count/category/color/position/activity details, applies cooldown state, and writes reviewable alert artifacts.
 
 ## Who this is for
 
-Video operators, facility security teams, safety operations, and site-access reviewers that need explainable vehicle-entry monitoring without watching every frame.
+Video operators, facility security teams, safety operations, and site reviewers that need explainable visual detection without watching every frame.
 
 ## Why it matters
 
-Continuous video is operationally sensitive. A stateful workflow can preserve audit context, suppress duplicate alerts, and keep reviewers in control while still surfacing vehicle entries with useful detail.
+Continuous video is operationally sensitive. A stateful workflow can preserve audit context, suppress duplicate alerts, and keep reviewers in control while still surfacing configured visual detections with useful detail.
 
 ## Why this runtime is useful here
 
@@ -28,57 +28,57 @@ The runtime gives this workflow persistent events, local run artifacts, configur
 1. Loads `config/default.json` and any overrides.
 2. Resolves the video source, VL model endpoint, sampling cadence, and cooldown settings.
 3. Samples the default RTSP/H.264 stream over TCP.
-4. Emits typed events for frame analysis, vehicle-entry detection, alert decisions, errors, and completion.
+4. Emits typed events for frame analysis, visual detection, alert decisions, errors, and completion.
 5. Writes `result.json`, `final_artifact.json`, `events.jsonl`, and optional dashboard metadata under the local run store.
 
 ## Example scenario
 
-A video camera is sampled every 10 seconds. The agent checks whether cars or other road vehicles appear to be entering the monitored site, reports how many vehicles are visible, their type and color, position in the scene, and movement, then emits an alert payload for review or Slack delivery.
+A video camera is sampled every 10 seconds. The agent checks whether configured subjects or activities are visible, reports how many detections are present, their label/category/color, position in the scene, and activity, then emits an alert payload for review or Slack delivery.
 
 ## Inputs
 
-- Video source URI, transport, and codec. The default is `rtsp://9627b0bf2a7b.entrypoint.cloud.wowza.com:1935/app-p5260J38/66abe4b9_stream1`.
+- Video source URI, transport, and codec. Leave `video_source.uri` as `rtsp://127.0.0.1:8554/video-watch` to use the bundled demo stream, or replace it with a user RTSP URL for the host-side mapper to validate and republish.
 - VL model base URL and model name.
-- Vehicle-entry confidence threshold, alert cooldown policy, and optional notification destination.
+- Detection confidence threshold, alert cooldown policy, and optional notification destination.
 - Mock payloads for deterministic tests.
 
 ## Outputs
 
-- Vehicle-entry events emitted when vehicles appear to be entering the monitored site.
-- Count, type, color, position, movement, and confidence details.
+- Visual detection events emitted when configured targets appear in the monitored scene.
+- Count, label, category, color, position, activity, and confidence details.
 - Alert decisions and notification payloads.
 - A final artifact summarizing the run, observations, and recommended next steps.
 - Optional shared Gradio or static dashboard metadata in `web_ui.json`.
 
 ## How to run
 
-For live video preview, the blueprint dashboard starts the local preview bridge automatically. It reads the approved Wowza RTSP stream and republishes it to local MediaMTX for browser preview at `http://127.0.0.1:8889/video-watch/`. The OpenShell detector worker reads the original RTSP source directly.
+For live video preview, the blueprint dashboard starts the local mapper automatically. With the default mapped source, it loops `data/sample.mp4` into local MediaMTX for RTSP and browser preview at `http://127.0.0.1:8889/video-watch/`. If a user supplies an RTSP URL, the host-side mapper validates it outside OpenShell first, then republishes it into the same mapped endpoint for the worker and preview.
 
 Run the detector script from the blueprint directory:
 
 ```bash
-python3 payloads/vehicle_detector/scripts/analyze_video_vehicle_frame.py
+python3 payloads/visual_detector/scripts/analyze_video_frame.py
 ```
 
 For a deterministic local smoke test:
 
 ```bash
-MOCK_VLM_DETECTION=1 python3 payloads/vehicle_detector/scripts/analyze_video_vehicle_frame.py
+MOCK_VLM_DETECTION=1 python3 payloads/visual_detector/scripts/analyze_video_frame.py
 ```
 
 ## How to customize it
 
-Point the stream URI at an approved video stream or facility RTSP source, tune sampling cadence and alert cooldown, change the VL model endpoint, update vehicle-entry policy text, and connect approved notification output skills. Third-party apps can edit `config/overwrite.json` before launch without changing `config/default.json`.
+Point the stream URI at an approved video stream or facility RTSP source, tune sampling cadence and alert cooldown, change the VL model endpoint, update the target-detection prompt, and connect approved notification output skills. Third-party apps can edit `config/overwrite.json` before launch without changing `config/default.json`.
 
 ## What to look for in results
 
-Check whether `events.jsonl` shows frame-analysis events, vehicle-entry decisions, cooldown suppressions, alert delivery attempts, and clean completion. The final artifact should explain what vehicles were observed, what action was selected, and which operator follow-up is recommended.
+Check whether `events.jsonl` shows frame-analysis events, visual detection decisions, cooldown suppressions, alert delivery attempts, and clean completion. The final artifact should explain what was observed, what action was selected, and which operator follow-up is recommended.
 
 ## Runtime features demonstrated
 
 - Video stream sampling.
 - VL model decision path with deterministic mock support.
-- Vehicle count, type, color, position, and movement reporting.
+- Detection count, label, category, color, position, and activity reporting.
 - Cooldown state and replayable events.
 - OpenShell detector worker isolation.
 - Local run store artifacts and optional static dashboard or Gradio dashboard handles.

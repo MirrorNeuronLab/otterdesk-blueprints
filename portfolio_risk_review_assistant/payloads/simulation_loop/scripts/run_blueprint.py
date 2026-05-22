@@ -8,7 +8,7 @@ try:
     from mn_blueprint_support.solution_runner import main
 except ModuleNotFoundError:
     for parent in Path(__file__).resolve().parents:
-        candidate = parent / "mn-skills" / "blueprint-support-skill" / "src"
+        candidate = parent / "mn-skills" / "blueprint_support_skill" / "src"
         if candidate.exists():
             sys.path.insert(0, str(candidate))
             break

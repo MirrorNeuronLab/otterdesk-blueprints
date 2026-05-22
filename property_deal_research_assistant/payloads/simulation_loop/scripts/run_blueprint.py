@@ -23,7 +23,7 @@ try:
     from mn_blueprint_support.web_ui import maybe_write_static_output
 except ModuleNotFoundError:
     for parent in Path(__file__).resolve().parents:
-        candidate = parent / "mn-skills" / "blueprint-support-skill" / "src"
+        candidate = parent / "mn-skills" / "blueprint_support_skill" / "src"
         if candidate.exists():
             sys.path.insert(0, str(candidate))
             break

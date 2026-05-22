@@ -2,7 +2,9 @@
   "video_source": {
     "transport": "rtsp",
     "codec": "h264",
-    "uri": "rtsp://9627b0bf2a7b.entrypoint.cloud.wowza.com:1935/app-p5260J38/66abe4b9_stream1"
+    "uri": "rtsp://127.0.0.1:8554/video-watch",
+    "upstream_uri": "",
+    "demo_video": "data/sample.mp4"
   },
   "vl_model": {
     "base_url": "http://192.168.4.173:11434",

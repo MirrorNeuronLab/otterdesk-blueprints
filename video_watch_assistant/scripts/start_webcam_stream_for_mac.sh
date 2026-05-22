@@ -4,52 +4,35 @@ set -euo pipefail
 RTSP_PORT="${RTSP_PORT:-8554}"
 STREAM_PATH="${STREAM_PATH:-video-watch}"
 STREAM_URI="${STREAM_URI:-rtsp://127.0.0.1:${RTSP_PORT}/${STREAM_PATH}}"
-SOURCE_URI="${SOURCE_URI:-rtsp://9627b0bf2a7b.entrypoint.cloud.wowza.com:1935/app-p5260J38/66abe4b9_stream1}"
-PUBLISH_MODE="${PUBLISH_MODE:-rtsp}"
+SOURCE_URI="${SOURCE_URI:-}"
+DEMO_VIDEO_FILE="${DEMO_VIDEO_FILE:-data/sample.mp4}"
 OPEN_BROWSER="${OPEN_BROWSER:-1}"
 USE_EXISTING_RTSP_SERVER="${USE_EXISTING_RTSP_SERVER:-0}"
-CAMERA_DEVICE="${CAMERA_DEVICE:-0}"
-CAMERA_AUDIO_DEVICE="${CAMERA_AUDIO_DEVICE:-none}"
-CAMERA_PIXEL_FORMAT="${CAMERA_PIXEL_FORMAT:-uyvy422}"
-VIDEO_SIZE="${VIDEO_SIZE:-1280x720}"
-FRAMERATE="${FRAMERATE:-30}"
-VIDEO_BITRATE="${VIDEO_BITRATE:-2500k}"
 STREAM_CHECK_TIMEOUT="${STREAM_CHECK_TIMEOUT:-20}"
+SOURCE_CHECK_TIMEOUT_SECONDS="${SOURCE_CHECK_TIMEOUT_SECONDS:-8}"
 SERVER_LOG="${SERVER_LOG:-/tmp/video_watch_assistant_mediamtx.log}"
 BROWSER_PREVIEW_URI="${BROWSER_PREVIEW_URI:-http://127.0.0.1:8889/${STREAM_PATH}/}"
-BROWSER_PUBLISH_QUERY="${BROWSER_PUBLISH_QUERY:-video-codec=h264%2F90000&audio-device=none&video-width=1280&video-height=720&video-framerate=30}"
-BROWSER_PUBLISH_URI="${BROWSER_PUBLISH_URI:-http://127.0.0.1:8889/${STREAM_PATH}/publish?${BROWSER_PUBLISH_QUERY}}"
-RTSP_REPUBLISH_CODEC="${RTSP_REPUBLISH_CODEC:-copy}"
+VIDEO_BITRATE="${VIDEO_BITRATE:-2500k}"
 
 usage() {
   cat <<EOF
-Start a browser-playable local preview bridge for Video Watch Assistant.
+Start the host-side stream mapper for Video Watch Assistant.
 
-Default preview stream:
+Stable mapped RTSP endpoint:
   ${STREAM_URI}
 
-This script is only for the local browser preview. The OpenShell worker reads
-SOURCE_URI directly, so no OpenShell network bridge or frame bridge is started.
-
-Requirements:
-  - network access to SOURCE_URI in rtsp mode
-  - ffmpeg
-  - mediamtx or rtsp-simple-server, unless another RTSP server is already listening on ${RTSP_PORT}
-
-Usage:
-  $(basename "$0") [--list-devices]
+The OpenShell worker always consumes the stable mapped endpoint. This script
+runs outside OpenShell and feeds that endpoint from either:
+  - a validated user RTSP URL in SOURCE_URI, or
+  - the demo video in DEMO_VIDEO_FILE when SOURCE_URI is empty or already points
+    at the mapped endpoint.
 
 Environment overrides:
-  SOURCE_URI      Upstream RTSP source to bridge in rtsp mode. Default: ${SOURCE_URI}
-  STREAM_URI      Local RTSP publish URI for MediaMTX/browser preview. Default: ${STREAM_URI}
+  SOURCE_URI      Optional upstream RTSP source provided by the user.
+  DEMO_VIDEO_FILE Demo file to loop when SOURCE_URI is not a user RTSP URL.
+  STREAM_URI      Local RTSP publish URI. Default: ${STREAM_URI}
   STREAM_PATH     MediaMTX path name. Default: ${STREAM_PATH}
-  PUBLISH_MODE    rtsp, browser, or ffmpeg. Default: ${PUBLISH_MODE}
-  OPEN_BROWSER    Open the browser preview in rtsp mode, or publisher page in browser mode. Default: ${OPEN_BROWSER}
-  USE_EXISTING_RTSP_SERVER
-                 Reuse an RTSP server already listening on RTSP_PORT. Default: ${USE_EXISTING_RTSP_SERVER}
-  RTSP_REPUBLISH_CODEC
-                 ffmpeg video codec for rtsp mode. Use copy for the Wowza H.264 stream,
-                 or libx264 to transcode. Default: ${RTSP_REPUBLISH_CODEC}
+  OPEN_BROWSER    Open browser preview once the stream is live. Default: ${OPEN_BROWSER}
 EOF
 }
 
@@ -61,11 +44,6 @@ fi
 if ! command -v ffmpeg >/dev/null 2>&1; then
   echo "ffmpeg is required. Install it with: brew install ffmpeg" >&2
   exit 1
-fi
-
-if [[ "${1:-}" == "--list-devices" ]]; then
-  ffmpeg -hide_banner -f avfoundation -list_devices true -i "" 2>&1 || true
-  exit 0
 fi
 
 is_port_open() {
@@ -143,10 +121,7 @@ fi
 
 rtsp_stream_available() {
   local uri="${1:-$STREAM_URI}"
-  if ! command -v ffprobe >/dev/null 2>&1; then
-    return 1
-  fi
-  ffprobe -v error -rtsp_transport tcp -show_entries stream=codec_type -of csv=p=0 "$uri" >/dev/null 2>&1
+  ffprobe -v error -rtsp_transport tcp -rw_timeout 3000000 -show_entries stream=codec_type -of csv=p=0 "$uri" 2>/dev/null | grep -q "video"
 }
 
 wait_for_rtsp_stream() {
@@ -162,13 +137,49 @@ wait_for_rtsp_stream() {
   return 1
 }
 
-open_browser_publisher() {
-  if [[ "$OPEN_BROWSER" != "1" ]]; then
+is_mapped_endpoint() {
+  local uri="${1:-}"
+  [[ -z "$uri" ]] && return 0
+  case "$uri" in
+    "$STREAM_URI"|rtsp://127.0.0.1:"$RTSP_PORT"/"$STREAM_PATH"|rtsp://localhost:"$RTSP_PORT"/"$STREAM_PATH")
+      return 0
+      ;;
+  esac
+  return 1
+}
+
+validate_upstream_source() {
+  local uri="$1"
+  [[ "$uri" == rtsp://* || "$uri" == rtsps://* ]] || return 1
+  ffprobe \
+    -v error \
+    -rtsp_transport tcp \
+    -rw_timeout $((SOURCE_CHECK_TIMEOUT_SECONDS * 1000000)) \
+    -show_entries stream=codec_type \
+    -of csv=p=0 \
+    "$uri" 2>/dev/null | grep -q "video"
+}
+
+demo_video_path() {
+  local configured="$DEMO_VIDEO_FILE"
+  if [[ "$configured" = /* ]]; then
+    printf '%s\n' "$configured"
+  else
+    printf '%s\n' "$(pwd)/$configured"
+  fi
+}
+
+choose_source_mode() {
+  if is_mapped_endpoint "$SOURCE_URI"; then
+    echo "demo"
     return 0
   fi
-  if command -v open >/dev/null 2>&1; then
-    open "$BROWSER_PUBLISH_URI" >/dev/null 2>&1 || true
+  if validate_upstream_source "$SOURCE_URI"; then
+    echo "upstream"
+    return 0
   fi
+  echo "Configured RTSP source did not validate outside OpenShell; falling back to demo video: ${SOURCE_URI}" >&2
+  echo "demo"
 }
 
 open_browser_preview() {
@@ -180,14 +191,9 @@ open_browser_preview() {
   fi
 }
 
-start_rtsp_republisher() {
-  echo "Republishing upstream RTSP source to ${STREAM_URI}"
+start_upstream_publisher() {
+  echo "Mapping user RTSP source to ${STREAM_URI}"
   echo "Upstream source: ${SOURCE_URI}"
-  local codec_args=(-c:v "$RTSP_REPUBLISH_CODEC")
-  if [[ "$RTSP_REPUBLISH_CODEC" == "copy" ]]; then
-    codec_args=(-c:v copy)
-  fi
-
   ffmpeg \
     -hide_banner \
     -loglevel info \
@@ -195,36 +201,29 @@ start_rtsp_republisher() {
     -rtsp_transport tcp \
     -i "$SOURCE_URI" \
     -an \
-    "${codec_args[@]}" \
+    -c:v copy \
     -f rtsp \
     -rtsp_transport tcp \
     "$STREAM_URI" &
   publisher_pid="$!"
 }
 
-start_ffmpeg_camera_publisher() {
-  local input="${CAMERA_DEVICE}"
-  if [[ -n "$CAMERA_AUDIO_DEVICE" ]]; then
-    input="${CAMERA_DEVICE}:${CAMERA_AUDIO_DEVICE}"
+start_demo_publisher() {
+  local video_file
+  video_file="$(demo_video_path)"
+  if [[ ! -f "$video_file" ]]; then
+    echo "Demo video file not found: ${video_file}" >&2
+    exit 1
   fi
-  local input_args=(
-    -hide_banner
-    -loglevel info
-    -nostdin
-    -f avfoundation
-    -framerate "$FRAMERATE"
-  )
-  if [[ -n "$CAMERA_PIXEL_FORMAT" && "$CAMERA_PIXEL_FORMAT" != "auto" ]]; then
-    input_args+=(-pixel_format "$CAMERA_PIXEL_FORMAT")
-  fi
-  if [[ -n "$VIDEO_SIZE" && "$VIDEO_SIZE" != "auto" ]]; then
-    input_args+=(-video_size "$VIDEO_SIZE")
-  fi
-
-  echo "Publishing Mac camera '${input}' to ${STREAM_URI} with ffmpeg"
+  echo "Mapping demo video to ${STREAM_URI}"
+  echo "Demo source: ${video_file}"
   ffmpeg \
-    "${input_args[@]}" \
-    -i "$input" \
+    -hide_banner \
+    -loglevel info \
+    -nostdin \
+    -stream_loop -1 \
+    -re \
+    -i "$video_file" \
     -an \
     -c:v libx264 \
     -preset veryfast \
@@ -237,54 +236,33 @@ start_ffmpeg_camera_publisher() {
   publisher_pid="$!"
 }
 
+start_selected_publisher() {
+  case "$(choose_source_mode)" in
+    upstream)
+      start_upstream_publisher
+      ;;
+    *)
+      start_demo_publisher
+      ;;
+  esac
+}
+
 echo "Keep this script running while the blueprint is active. Press Ctrl-C to stop."
-echo "Worker video source: ${SOURCE_URI}"
+echo "OpenShell worker source: ${STREAM_URI}"
 echo "Browser preview: ${BROWSER_PREVIEW_URI}"
 
-case "$PUBLISH_MODE" in
-  rtsp)
-    preview_opened=0
-    while true; do
-      start_rtsp_republisher
-      if ! wait_for_rtsp_stream; then
-        echo "Timed out waiting for upstream RTSP republish to make ${STREAM_URI} available." >&2
-        echo "Check SOURCE_URI with: ffplay -rtsp_transport tcp \"${SOURCE_URI}\"" >&2
-        echo "Server log: ${SERVER_LOG}" >&2
-      elif [[ "$preview_opened" != "1" ]]; then
-        open_browser_preview
-        preview_opened=1
-      fi
+preview_opened=0
+while true; do
+  start_selected_publisher
+  if ! wait_for_rtsp_stream; then
+    echo "Timed out waiting for mapper to publish ${STREAM_URI}." >&2
+    echo "Server log: ${SERVER_LOG}" >&2
+  elif [[ "$preview_opened" != "1" ]]; then
+    open_browser_preview
+    preview_opened=1
+  fi
 
-      wait "$publisher_pid" || true
-      echo "RTSP republisher stopped; restarting in 2s." >&2
-      sleep 2
-    done
-    ;;
-  browser)
-    echo "Open the browser webcam publisher, allow camera access, and click Publish."
-    open_browser_publisher
-    echo "Waiting for the browser publisher to make ${STREAM_URI} available."
-    while true; do
-      if rtsp_stream_available "$STREAM_URI"; then
-        echo "RTSP stream is live at ${STREAM_URI}"
-        break
-      fi
-      sleep 2
-    done
-    while true; do
-      sleep 1
-    done
-    ;;
-  ffmpeg)
-    start_ffmpeg_camera_publisher
-    if ! wait_for_rtsp_stream; then
-      echo "Timed out waiting for ffmpeg camera capture to make ${STREAM_URI} available." >&2
-      echo "Server log: ${SERVER_LOG}" >&2
-    fi
-    wait "$publisher_pid"
-    ;;
-  *)
-    echo "Unsupported PUBLISH_MODE '${PUBLISH_MODE}'. Use rtsp, browser, or ffmpeg." >&2
-    exit 1
-    ;;
-esac
+  wait "$publisher_pid" || true
+  echo "Stream mapper stopped; restarting in 2s." >&2
+  sleep 2
+done

@@ -325,40 +325,7 @@
   "name": "Portfolio Risk Review Assistant",
   "nodes": [
     {
-      "agent_type": "executor",
-      "config": {
-        "command": [
-          "python3",
-          "scripts/run_blueprint.py"
-        ],
-        "environment": {
-          "LITELLM_API_BASE": "http://192.168.4.173:11434",
-          "LITELLM_MAX_TOKENS": "700",
-          "LITELLM_MODEL": "ollama/nemotron3:33b",
-          "LITELLM_NUM_RETRIES": "1",
-          "LITELLM_TIMEOUT_SECONDS": "60",
-          "MN_BLUEPRINT_ID": "portfolio_risk_review_assistant",
-          "MN_LLM_API_BASE": "http://192.168.4.173:11434",
-          "MN_LLM_MAX_TOKENS": "700",
-          "MN_LLM_MODEL": "ollama/nemotron3:33b",
-          "MN_LLM_NUM_RETRIES": "1",
-          "MN_LLM_TIMEOUT_SECONDS": "60"
-        },
-        "from": "base",
-        "name_prefix": "portfolio_risk_review_assistant",
-        "no_auto_providers": true,
-        "no_keep": true,
-        "output_message_type": "blueprint_report",
-        "pool": "default",
-        "pool_slots": 1,
-        "tty": false,
-        "upload_as": "simulation_loop",
-        "upload_path": "simulation_loop",
-        "workdir": "/sandbox/job/simulation_loop"
-      },
       "node_id": "simulation_loop",
-      "role": "root_coordinator",
-      "type": "generic",
       "uses": "mn-agents.data_python_executor@1.0.0",
       "with": {
         "environment": {
@@ -379,17 +346,23 @@
         "output_message_type": "blueprint_report",
         "role": "root_coordinator",
         "script": "scripts/run_blueprint.py",
-        "upload_path": "simulation_loop"
+        "upload_path": "simulation_loop",
+        "command": [
+          "python3",
+          "scripts/run_blueprint.py"
+        ],
+        "from": "base",
+        "no_auto_providers": true,
+        "no_keep": true,
+        "pool": "default",
+        "pool_slots": 1,
+        "tty": false,
+        "upload_as": "simulation_loop",
+        "workdir": "/sandbox/job/simulation_loop"
       }
     },
     {
-      "agent_type": "aggregator",
-      "config": {
-        "complete_on_message": true
-      },
       "node_id": "report_sink",
-      "role": "result_sink",
-      "type": "reduce",
       "uses": "mn-agents.control_join@1.0.0",
       "with": {
         "complete_on_message": true,

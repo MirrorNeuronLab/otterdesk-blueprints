@@ -190,7 +190,8 @@
       "agent_handoffs",
       "web_ui",
       "interfaces",
-      "execution_model"
+      "execution_model",
+      "openshell_network"
     ],
     "identity_fields": [
       "blueprint_id",
@@ -252,12 +253,12 @@
     ]
   },
   "llm": {
-    "agent_role": "AI assistant for reviewing video stream activity and preparing vehicle-entry alerts.",
+    "agent_role": "AI assistant for reviewing video stream activity and preparing visual detection alerts.",
     "agents": {
       "default": {
         "llm_config": "primary",
         "responsibilities": [],
-        "role": "AI assistant for reviewing video stream activity and preparing vehicle-entry alerts."
+        "role": "AI assistant for reviewing video stream activity and preparing visual detection alerts."
       }
     },
     "api_base": "http://192.168.4.173:11434",
@@ -287,7 +288,7 @@
       "llm_decision",
       "simulation_state_updated",
       "run_completed",
-      "video_watch_vehicle_detected",
+      "video_watch_detection",
       "video_watch_slack_alert_sent",
       "video_watch_slack_alert_skipped",
       "video_watch_slack_alert_error",
@@ -310,29 +311,29 @@
   "manifest_config_bindings": [
     {
       "config_path": "identity.run_id",
-      "manifest_path": "nodes.vehicle_detector.config.environment.MN_RUN_ID",
+      "manifest_path": "nodes.visual_detector.config.environment.MN_RUN_ID",
       "stringify": true
     },
     {
       "config_path": "outputs.run_root",
-      "manifest_path": "nodes.vehicle_detector.config.environment.MN_RUNS_ROOT",
+      "manifest_path": "nodes.visual_detector.config.environment.MN_RUNS_ROOT",
       "stringify": true
     }
   ],
   "metadata": {
     "blueprint_revision": "v1",
     "category": "business",
-    "customizable_for": "Video monitoring, restricted vehicle entry review, facility operations, and site safety workflows.",
-    "problem_solved": "Continuous video is hard to review manually; teams need a helpful assistant that flags likely vehicle entries with plain-language details.",
+    "customizable_for": "Video monitoring, configurable visual detection, facility operations, and site safety workflows.",
+    "problem_solved": "User RTSP sources can be unstable or unavailable inside OpenShell, so this blueprint maps any validated upstream video or demo file into one stable local stream endpoint.",
     "standard_version": "1.0",
     "target_users": "Video operators, security reviewers, safety operations teams, and site-access coordinators.",
     "blueprint_id": "video_watch_assistant",
     "name": "Video Watch Assistant",
-    "description": "Watches an approved video stream, spots vehicles entering the monitored area, and reports count, vehicle type, color, position, movement, and alert status for review.",
-    "llm_agent_role": "AI assistant for reviewing video stream activity and preparing vehicle-entry alerts.",
-    "agent_role": "AI assistant for reviewing video stream activity and preparing vehicle-entry alerts.",
+    "description": "Watches a mapped local video stream, detects configured visual targets, and reports count, label, category, color, position, activity, and alert status for review.",
+    "llm_agent_role": "AI assistant for reviewing video stream activity and preparing visual detection alerts.",
+    "agent_role": "AI assistant for reviewing video stream activity and preparing visual detection alerts.",
     "target_user": "Video operators, security reviewers, safety operations teams, and site-access coordinators.",
-    "simulation_type": "Video stream sampling with vehicle-entry review state."
+    "simulation_type": "Video stream sampling with visual detection review state."
   },
   "mode": "mock",
   "output_skills": {
@@ -350,7 +351,7 @@
   },
   "outputs": {
     "adapter": "local_run_store",
-    "artifact_contract": "Vehicle-entry observations with count, type, color, position, movement, confidence, and alert status.",
+    "artifact_contract": "Visual detection observations with count, label, category, color, position, activity, confidence, and alert status.",
     "run_root": "~/.mn/runs",
     "skills": {
       "websocket_events": {
@@ -420,7 +421,7 @@
     "deterministic": true,
     "enabled": true,
     "seed_field": "seed",
-    "type": "Video stream sampling with vehicle-entry review state."
+    "type": "Video stream sampling with visual detection review state."
   },
   "standard_version": "1.0",
   "state": {
@@ -441,7 +442,7 @@
       "enabled": true,
       "kind": "video",
       "transport": "rtsp",
-      "uri": "rtsp://9627b0bf2a7b.entrypoint.cloud.wowza.com:1935/app-p5260J38/66abe4b9_stream1"
+      "uri": "rtsp://127.0.0.1:8554/video-watch"
     }
   },
   "triggers": {
@@ -455,11 +456,13 @@
   "video_source": {
     "camera_id": "video-watch",
     "codec": "h264",
-    "description": "Configurable video stream. The default uses the approved Wowza RTSP stream over TCP.",
+    "description": "Default stable mapped RTSP endpoint consumed by the OpenShell worker. Leave this value for the bundled demo video, or replace it with a user RTSP URL for the host-side mapper to validate and republish into the mapped endpoint.",
     "frame_jpeg_max_width": 896,
     "frame_sample_seconds": 10,
     "transport": "rtsp",
-    "uri": "rtsp://9627b0bf2a7b.entrypoint.cloud.wowza.com:1935/app-p5260J38/66abe4b9_stream1"
+    "uri": "rtsp://127.0.0.1:8554/video-watch",
+    "upstream_uri": "",
+    "demo_video": "data/sample.mp4"
   },
   "vl_model": {
     "base_url": "http://192.168.4.173:11434",
@@ -476,31 +479,32 @@
         "event_glossary": {
           "video_watch_frame_analysis_failed": "A sampled frame could not be read or analyzed. Check the stream, model endpoint, or sandbox network policy.",
           "video_watch_slack_alert_error": "The workflow tried to send a Slack alert but the delivery call failed.",
-          "video_watch_slack_alert_sent": "A vehicle-entry alert was sent to the configured review channel.",
+          "video_watch_slack_alert_sent": "A visual detection alert was sent to the configured review channel.",
           "video_watch_slack_alert_skipped": "The workflow detected activity but skipped notification because alerting is disabled or the cooldown policy suppressed it.",
-          "video_watch_vehicle_detected": "The vehicle detector saw likely vehicle activity and recorded observable details for review."
+          "video_watch_detection": "The visual detector saw configured target activity and recorded observable details for review."
         },
         "events_help": "Each event is a durable breadcrumb from the blueprint run. Operators can scan the friendly stream first, then open raw events when they need exact payloads.",
-        "overview": "This blueprint watches an approved video stream, samples frames on a schedule, asks the configured vision-language model whether vehicles are entering the monitored area, and writes reviewable events and alert artifacts.",
+        "overview": "This blueprint watches one stable mapped local RTSP endpoint. A host-side mapper feeds that endpoint from a looping demo video by default, or from a user RTSP URL after validating it outside OpenShell.",
         "review_help": "The final result is not just a video preview. It is a run record: source, frame observations, alert decisions, errors, and event payloads that a human can audit after the workflow runs.",
-        "source_help": "This field is the RTSP stream URI used directly by the OpenShell worker. The browser preview uses a separate local MediaMTX mirror exposed by scripts/start_webcam_stream_for_mac.sh.",
+        "source_help": "Leave this field as the stable mapped RTSP endpoint to use the bundled demo video. If a user supplies an RTSP URL here, the host-side mapper validates it outside OpenShell and republishes it into the same local endpoint consumed by the sandbox worker.",
         "workflow_steps": [
-          "Subscribe to the configured RTSP video source.",
+          "Start the host-side stream mapper automatically with the dashboard.",
+          "If no user RTSP source is provided, loop data/sample.mp4 into the mapped RTSP endpoint.",
+          "If a user RTSP source is provided, validate it outside OpenShell before publishing it into the same endpoint.",
           "Sample a frame every 10 seconds through the stream tick source.",
-          "Send the sampled frame to the isolated vehicle detector worker.",
-          "Use the configured vision-language model to describe vehicle count, type, color, position, and movement.",
-          "Apply cooldown and alert policy before writing events or sending notifications.",
+          "Use the configured vision-language model to describe detection count, label, category, color, position, and activity.",
           "Keep all observations in the local run store for review, debugging, and handoff."
         ]
       },
       "browser_video_source": "http://127.0.0.1:8889/video-watch/",
-      "default_video_source": "rtsp://9627b0bf2a7b.entrypoint.cloud.wowza.com:1935/app-p5260J38/66abe4b9_stream1",
+      "browser_publish_source": "disabled",
+      "default_video_source": "rtsp://127.0.0.1:8554/video-watch",
       "event_feed": {
         "default_path": "~/.mn/runs/<run_id>/events.jsonl",
         "format": "jsonl"
       },
       "event_types": [
-        "video_watch_vehicle_detected",
+        "video_watch_detection",
         "video_watch_slack_alert_sent",
         "video_watch_slack_alert_skipped",
         "video_watch_slack_alert_error",
@@ -511,7 +515,7 @@
         "enabled": true,
         "log_path": "/tmp/video_watch_assistant_dashboard_video_bridge.log",
         "open_browser": 0,
-        "publish_mode": "rtsp",
+        "publish_mode": "mapped",
         "rtsp_port": 8554,
         "script": "scripts/start_webcam_stream_for_mac.sh",
         "stream_path": "video-watch",
@@ -538,5 +542,81 @@
       "server": "blueprint_support",
       "title": "Video Watch Assistant"
     }
+  },
+  "openshell_network": {
+    "policy_path": "visual_detector/policies/video-egress.yaml",
+    "include_dns": false,
+    "endpoints": [
+      {
+        "name": "mapped-local-rtsp-stream-loopback",
+        "uri": "rtsp://127.0.0.1:8554/video-watch",
+        "binaries": [
+          "/usr/bin/ffmpeg",
+          "/usr/bin/python3"
+        ],
+        "allowed_ips": [
+          "127.0.0.1/32"
+        ]
+      },
+      {
+        "name": "mapped-local-rtsp-stream-localhost",
+        "uri": "rtsp://localhost:8554/video-watch",
+        "binaries": [
+          "/usr/bin/ffmpeg",
+          "/usr/bin/python3"
+        ],
+        "allowed_ips": [
+          "127.0.0.1/32"
+        ]
+      },
+      {
+        "name": "mapped-local-rtsp-stream-openshell-host",
+        "uri": "rtsp://host.openshell.internal:8554/video-watch",
+        "binaries": [
+          "/usr/bin/ffmpeg",
+          "/usr/bin/python3"
+        ],
+        "allowed_ips": [
+          "127.0.0.1/32",
+          "192.168.65.254/32"
+        ]
+      },
+      {
+        "name": "mapped-local-rtsp-stream-docker-host",
+        "uri": "rtsp://host.docker.internal:8554/video-watch",
+        "binaries": [
+          "/usr/bin/ffmpeg",
+          "/usr/bin/python3"
+        ],
+        "allowed_ips": [
+          "192.168.65.254/32",
+          "127.0.0.1/32"
+        ]
+      },
+      {
+        "name": "mapped-local-rtsp-stream-gateway",
+        "uri": "rtsp://192.168.65.254:8554/video-watch",
+        "binaries": [
+          "/usr/bin/ffmpeg",
+          "/usr/bin/python3"
+        ],
+        "allowed_ips": [
+          "192.168.65.254/32"
+        ]
+      },
+      {
+        "name": "local-vl-model",
+        "uri": "http://192.168.4.173:11434",
+        "binaries": [
+          "/bin/bash",
+          "/usr/bin/bash",
+          "/usr/bin/python3",
+          "/usr/bin/python3.12"
+        ],
+        "allowed_ips": [
+          "192.168.4.173/32"
+        ]
+      }
+    ]
   }
 }
