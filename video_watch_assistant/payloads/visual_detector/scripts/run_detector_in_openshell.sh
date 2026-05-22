@@ -13,6 +13,5 @@ print(f"OpenCV {cv2.__version__} available in detector OpenShell sandbox")
 PY
 
 export FFMPEG_BINARY="${FFMPEG_BINARY:-$(command -v ffmpeg)}"
-export PYTHONPATH="../mn-skills/blueprint_support_skill/src${PYTHONPATH:+:${PYTHONPATH}}"
 
 exec /usr/bin/python3 scripts/analyze_video_frame.py

@@ -90,8 +90,8 @@ def test_video_watch_openshell_policy_is_generated_by_shared_helper(tmp_path):
     rendered = render_manifest_agent_templates(manifest, AGENTS_ROOT)
     visual_node = next(node for node in rendered["nodes"] if node["node_id"] == "visual_detector")
     assert visual_node["config"]["policy"] == network["policy_path"]
-    assert {"source": "../mirror-neuron-set/mn-skills/blueprint_support_skill", "target": "mn-skills/blueprint_support_skill"} in visual_node["config"]["upload_paths"]
-    assert visual_node["config"]["environment"]["PYTHONPATH"] == "../mn-skills/blueprint_support_skill/src"
+    assert visual_node["config"]["upload_paths"] == [{"source": "visual_detector", "target": "visual_detector"}]
+    assert "PYTHONPATH" not in visual_node["config"]["environment"]
 
 
 def test_video_watch_detector_script_compiles_with_shared_helper_import():
@@ -99,6 +99,31 @@ def test_video_watch_detector_script_compiles_with_shared_helper_import():
         str(ROOT / "video_watch_assistant" / "payloads" / "visual_detector" / "scripts" / "analyze_video_frame.py"),
         doraise=True,
     )
+
+
+def test_video_watch_pre_launch_owns_mediamtx_preview_config():
+    blueprint_dir = ROOT / "video_watch_assistant"
+    config = json.loads((blueprint_dir / "config" / "default.json").read_text())
+    manifest = json.loads((blueprint_dir / "manifest.json").read_text())
+    script = (blueprint_dir / "scripts" / "pre-launch.sh").read_text()
+
+    assert "webrtc: true" in script
+    assert "choose_available_webrtc_ports" in script
+    assert "BROWSER_PREVIEW_URI" in script
+    assert '"browser_video_source": "${BROWSER_PREVIEW_URI}"' in script
+    assert '"browser_publish_source": "disabled"' in script
+
+    dashboard = config["web_ui"]["dashboard"]
+    assert dashboard["browser_video_source"] == "disabled"
+    assert dashboard["browser_publish_source"] == "disabled"
+    assert dashboard["video_preview_bridge"]["enabled"] is False
+    assert dashboard["video_preview_bridge"]["auto_start"] is False
+
+    manifest_web_ui = manifest["metadata"]["web_ui"]
+    assert manifest_web_ui["browser_video_source"] == "disabled"
+    assert manifest_web_ui["browser_publish_source"] == "disabled"
+    assert manifest_web_ui["video_preview_bridge"]["enabled"] is False
+    assert manifest_web_ui["video_preview_bridge"]["auto_start"] is False
 
 
 def _load_video_watch_validator():
@@ -135,6 +160,49 @@ def test_video_watch_default_validator_checks_demo_video(monkeypatch, tmp_path):
     assert validator.main() == 0
     assert str(demo) in calls[0]
     assert "-rtsp_transport" not in calls[0]
+
+
+def test_video_watch_dynamic_mapped_validator_skips_ffprobe_when_missing(monkeypatch, tmp_path):
+    validator = _load_video_watch_validator()
+    demo = tmp_path / "sample.mp4"
+    demo.write_bytes(b"fake-video")
+    monkeypatch.setenv(
+        "MN_BLUEPRINT_CONFIG_JSON",
+        json.dumps({
+            "video_source": {
+                "uri": "rtsp://127.0.0.1:8567/video-watch",
+                "demo_video": str(demo),
+            }
+        }),
+    )
+    monkeypatch.setattr(validator.shutil, "which", lambda _name: None)
+
+    def fail_run(*_args, **_kwargs):
+        raise AssertionError("demo mapped endpoint should not require ffprobe")
+
+    monkeypatch.setattr(validator.subprocess, "run", fail_run)
+
+    assert validator.main() == 0
+
+
+def test_video_watch_runtime_bundle_allows_host_validated_demo_video(monkeypatch, tmp_path):
+    validator = _load_video_watch_validator()
+    runtime_bundle = tmp_path / "bundle_123"
+    runtime_bundle.mkdir()
+    monkeypatch.chdir(runtime_bundle)
+    monkeypatch.setenv(
+        "MN_BLUEPRINT_CONFIG_JSON",
+        json.dumps({
+            "video_source": {
+                "uri": "rtsp://127.0.0.1:8567/video-watch",
+                "demo_video": "data/sample.mp4",
+            }
+        }),
+    )
+    monkeypatch.setattr(validator.shutil, "which", lambda _name: None)
+    monkeypatch.setattr(validator.Path, "cwd", lambda: Path("/tmp/bundle_123"))
+
+    assert validator.main() == 0
 
 
 def test_video_watch_external_rtsp_validator_probes_stream(monkeypatch):

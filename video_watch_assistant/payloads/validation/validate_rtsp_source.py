@@ -23,35 +23,43 @@ def main() -> int:
             status=2,
         )
 
+    if is_mapped_demo_endpoint(uri):
+        ffprobe = shutil.which("ffprobe")
+        return validate_demo_video(ffprobe, video_source)
+
     ffprobe = shutil.which("ffprobe")
     if not ffprobe:
         return fail(
             "validator.dependency_missing",
-            "ffprobe is required to validate RTSP video streams",
+            "ffprobe is required to validate external RTSP video streams",
             "Install ffmpeg/ffprobe on the runtime host or run with --force if you intentionally want to skip probing.",
             status=2,
         )
 
-    if is_default_mapped_endpoint(uri):
-        return validate_demo_video(ffprobe, video_source)
-
     return validate_rtsp_stream(ffprobe, uri)
 
 
-def validate_demo_video(ffprobe: str, video_source: dict) -> int:
+def validate_demo_video(ffprobe: str | None, video_source: dict) -> int:
     raw_demo = str(video_source.get("demo_video") or os.environ.get("DEMO_VIDEO_FILE") or "data/sample.mp4").strip()
     demo_path = Path(raw_demo)
     if not demo_path.is_absolute():
         demo_path = Path.cwd() / demo_path
     if not demo_path.is_file():
+        if is_submitted_runtime_bundle():
+            print(f"Mapped RTSP demo endpoint selected; bundled demo file is validated by the host pre-launch hook: {demo_path}")
+            return 0
         return fail(
             "demo_video.missing",
             f"Demo video file is not available: {demo_path}",
-            "Keep video_source.demo_video pointed at a readable bundled video file, or provide an external RTSP URL.",
+            "Keep video_source.demo_video pointed at a readable bundled video file.",
             actual=str(demo_path),
             path="video_source.demo_video",
             status=1,
         )
+
+    if not ffprobe:
+        print(f"Demo video exists for mapped RTSP endpoint: {demo_path}")
+        return 0
 
     command = [
         ffprobe,
@@ -71,7 +79,7 @@ def validate_demo_video(ffprobe: str, video_source: dict) -> int:
         return fail(
             "demo_video.invalid",
             f"Demo video file does not expose a readable video track: {detail}",
-            "Replace video_source.demo_video with a readable video file, or provide an external RTSP URL.",
+            "Replace video_source.demo_video with a readable video file.",
             actual=str(demo_path),
             debug={"returncode": result.returncode, "detail": detail},
             path="video_source.demo_video",
@@ -162,11 +170,13 @@ def redact_url(value: str) -> str:
     return parsed._replace(netloc=host, query="[redacted]" if parsed.query else "").geturl()
 
 
-def is_default_mapped_endpoint(uri: str) -> bool:
-    return uri in {
-        "rtsp://127.0.0.1:8554/video-watch",
-        "rtsp://localhost:8554/video-watch",
-    }
+def is_mapped_demo_endpoint(uri: str) -> bool:
+    parsed = urlparse(uri)
+    if parsed.scheme not in {"rtsp", "rtsps"}:
+        return False
+    if parsed.hostname not in {"127.0.0.1", "localhost"}:
+        return False
+    return parsed.path.rstrip("/") == "/video-watch"
 
 
 def blueprint_config() -> dict:
@@ -183,6 +193,11 @@ def blueprint_config() -> dict:
 def video_source_uri(video_source: dict) -> str:
     uri = video_source.get("uri") if isinstance(video_source, dict) else None
     return str(uri or os.environ.get("VIDEO_SOURCE_URI") or "").strip()
+
+
+def is_submitted_runtime_bundle() -> bool:
+    cwd = Path.cwd()
+    return cwd.name.startswith("bundle_") and cwd.parent == Path("/tmp")
 
 
 if __name__ == "__main__":

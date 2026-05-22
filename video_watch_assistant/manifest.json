@@ -415,13 +415,13 @@
     "web_ui": {
       "adapter": "gradio",
       "arguments": {
-        "browser_video_source": "Disabled for this blueprint; the standard pre-launch hook owns the local RTSP demo stream.",
+        "browser_video_source": "Resolved by scripts/pre-launch.sh. The hook starts MediaMTX, selects an available browser preview port, and writes the preview URL into launch config.",
         "browser_publish_source": "Set to disabled because this blueprint's host-side mapper owns publishing into the local RTSP endpoint.",
         "run_id": "MirrorNeuron run id used to resolve ~/.mn/runs/<run_id>.",
         "runs_root": "MirrorNeuron runs root, defaulting to ~/.mn/runs.",
         "url": "Shared support Gradio app URL written to web_ui.json."
       },
-      "description": "Shared blueprint support Gradio dashboard that shows this blueprint's mapped video source beside streamed visual detection events from the shared run store.",
+      "description": "Shared blueprint support Gradio dashboard that shows this blueprint's MediaMTX browser preview beside streamed visual detection events from the shared run store.",
       "enabled": true,
       "event_types": [
         "video_watch_detection",
@@ -586,7 +586,6 @@
           "VIDEO_SOURCE_URI": "rtsp://127.0.0.1:8554/video-watch",
           "VL_MODEL_BASE_URL": "http://192.168.4.173:11434",
           "VL_MODEL_NAME": "nemotron3:33b",
-          "PYTHONPATH": "../mn-skills/blueprint_support_skill/src",
           "MN_HOST_STREAM_FALLBACK_HOSTS": "host.openshell.internal,host.docker.internal,192.168.65.254",
           "DETECTION_ALERT_COOLDOWN_SECONDS": "60",
           "DETECTION_CONFIDENCE_THRESHOLD": "0.65",
@@ -607,10 +606,6 @@
           {
             "source": "visual_detector",
             "target": "visual_detector"
-          },
-          {
-            "source": "../mirror-neuron-set/mn-skills/blueprint_support_skill",
-            "target": "mn-skills/blueprint_support_skill"
           }
         ],
         "upload_as": "visual_detector",

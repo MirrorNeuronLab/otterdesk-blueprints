@@ -7,7 +7,6 @@ import mimetypes
 import os
 import shutil
 import subprocess
-import sys
 import tempfile
 import time
 import urllib.error
@@ -19,23 +18,6 @@ from typing import Any
 IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
 DEFAULT_VIDEO_SOURCE_URI = "rtsp://127.0.0.1:8554/video-watch"
 LIVE_STREAM_SCHEMES = ("rtsp://", "rtsps://", "rtmp://", "rtmps://")
-
-
-def _add_blueprint_support_path() -> None:
-    for parent in Path(__file__).resolve().parents:
-        candidates = [
-            parent / "mn-skills" / "blueprint_support_skill" / "src",
-            parent / "mirror-neuron-set" / "mn-skills" / "blueprint_support_skill" / "src",
-        ]
-        for candidate in candidates:
-            if candidate.exists() and str(candidate) not in sys.path:
-                sys.path.insert(0, str(candidate))
-                return
-
-
-_add_blueprint_support_path()
-
-from mn_blueprint_support.openshell_network import stream_fallback_sources
 
 
 def load_json_env(name: str) -> dict[str, Any]:
@@ -71,6 +53,77 @@ def resolve_source_uri(source_uri: str) -> str:
         if candidate.exists():
             return str(candidate)
     return source_uri
+
+
+def source_uri_with_host(source_uri: str, host: str) -> str:
+    parsed = urllib.parse.urlsplit(source_uri)
+    replacement_host = host
+    if ":" in replacement_host and not replacement_host.startswith("["):
+        replacement_host = f"[{replacement_host}]"
+
+    userinfo = ""
+    if "@" in parsed.netloc:
+        userinfo = parsed.netloc.rsplit("@", 1)[0] + "@"
+
+    try:
+        port = parsed.port
+    except ValueError:
+        return source_uri
+    if port is not None:
+        replacement_host = f"{replacement_host}:{port}"
+    return urllib.parse.urlunsplit((parsed.scheme, f"{userinfo}{replacement_host}", parsed.path, parsed.query, parsed.fragment))
+
+
+def stream_fallback_sources(source_uri: str, fallback_hosts: list[str] | tuple[str, ...] | None = None) -> list[str]:
+    parsed = urllib.parse.urlsplit(source_uri)
+    scheme = parsed.scheme.lower()
+    host = parsed.hostname
+    if scheme not in {"rtsp", "rtsps", "rtmp", "rtmps"} or not host:
+        return []
+
+    if host not in {"127.0.0.1", "localhost", "::1"}:
+        return []
+
+    raw_hosts = fallback_hosts
+    if raw_hosts is None:
+        raw_hosts = [
+            item.strip()
+            for item in os.environ.get(
+                "MN_HOST_STREAM_FALLBACK_HOSTS",
+                "host.docker.internal,host.openshell.internal,192.168.65.254",
+            ).split(",")
+            if item.strip()
+        ]
+
+    candidates: list[str] = []
+    for fallback_host in raw_hosts:
+        candidate = source_uri_with_host(source_uri, fallback_host)
+        if candidate != source_uri and candidate not in candidates:
+            candidates.append(candidate)
+    return candidates
+
+
+def local_demo_fallback_sources(source_uri: str) -> list[str]:
+    parsed = urllib.parse.urlsplit(source_uri)
+    if parsed.scheme.lower() not in {"rtsp", "rtsps"}:
+        return []
+    if parsed.path.rstrip("/") != "/video-watch":
+        return []
+
+    candidates = [
+        os.environ.get("LOCAL_DEMO_VIDEO_FILE", "").strip(),
+        "data/sample.mp4",
+        "/sandbox/job/visual_detector/data/sample.mp4",
+    ]
+    result: list[str] = []
+    for candidate in candidates:
+        if candidate and candidate not in result and Path(candidate).is_file():
+            result.append(candidate)
+    return result
+
+
+def is_local_demo_fallback(candidate_source: str) -> bool:
+    return candidate_source in local_demo_fallback_sources("rtsp://127.0.0.1:8554/video-watch")
 
 
 def source_path_from_uri(source_uri: str) -> Path | None:
@@ -231,7 +284,7 @@ def extract_frame(source_uri: str, position_seconds: float, max_width: int) -> t
     vf = f"scale='min({max_width},iw)':-2"
     try:
         last_error: str | None = None
-        fallback_sources = stream_fallback_sources(resolved)
+        fallback_sources = [*stream_fallback_sources(resolved), *local_demo_fallback_sources(resolved)]
         sources = [resolved, *fallback_sources]
 
         for index, candidate_source in enumerate(sources):
@@ -252,6 +305,8 @@ def extract_frame(source_uri: str, position_seconds: float, max_width: int) -> t
             if is_live_stream_source(candidate_source):
                 if candidate_source.lower().startswith(("rtsp://", "rtsps://")):
                     command.extend(["-rtsp_transport", ffmpeg_rtsp_transport()])
+            elif is_local_demo_fallback(candidate_source):
+                pass
             else:
                 command.extend(["-ss", f"{position_seconds:.3f}"])
 
@@ -280,7 +335,10 @@ def extract_frame(source_uri: str, position_seconds: float, max_width: int) -> t
                 )
                 data = temp_path.read_bytes()
                 if not data:
-                    raise RuntimeError("ffmpeg produced an empty frame")
+                    last_error = f"ffmpeg produced an empty frame from {candidate_source}"
+                    if index < len(sources) - 1:
+                        continue
+                    raise RuntimeError(last_error)
                 return data, "image/jpeg"
             except subprocess.CalledProcessError as exc:
                 last_error = exc.stderr.decode("utf-8", errors="replace").strip()
@@ -414,13 +472,38 @@ def call_ollama(frame: bytes, prompt: str) -> dict[str, Any]:
     text = raw.get("response") or raw.get("message", {}).get("content") or raw.get("thinking") or ""
     try:
         result = json.loads(text)
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as exc:
         start = text.find("{")
         end = text.rfind("}")
         if start == -1 or end == -1 or end <= start:
-            raise RuntimeError(f"ollama returned non-json response: {text[:300]}")
-        result = json.loads(text[start : end + 1])
+            return fallback_detection_from_model_text(text, f"non-json response: {exc}")
+        try:
+            result = json.loads(text[start : end + 1])
+        except json.JSONDecodeError as nested_exc:
+            return fallback_detection_from_model_text(text, f"malformed json response: {nested_exc}")
     return normalize_detection(result)
+
+
+def fallback_detection_from_model_text(text: str, reason: str) -> dict[str, Any]:
+    cleaned = " ".join(str(text or "").split())[:500]
+    summary = cleaned or "The vision model returned an unreadable response."
+    return normalize_detection(
+        {
+            "detected": False,
+            "detected_target": False,
+            "detection_count": 0,
+            "detections": [],
+            "confidence": 0.0,
+            "summary": summary,
+            "detection_report": f"Vision model response could not be parsed as strict JSON; {reason}.",
+            "activity_description": summary,
+            "detected_types": [],
+            "detected_colors": [],
+            "appearance_notes": ["Model response was not strict JSON."],
+            "risk_level": "low",
+            "visible_subjects": [],
+        }
+    )
 
 
 def normalize_detection(result: dict[str, Any]) -> dict[str, Any]:

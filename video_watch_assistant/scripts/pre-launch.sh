@@ -5,12 +5,17 @@ RTSP_PORT="${RTSP_PORT:-8554}"
 STREAM_PATH="${STREAM_PATH:-video-watch}"
 STREAM_URI_OVERRIDE="${STREAM_URI:-}"
 STREAM_URI="${STREAM_URI_OVERRIDE:-rtsp://127.0.0.1:${RTSP_PORT}/${STREAM_PATH}}"
+BROWSER_PREVIEW_URI_OVERRIDE="${BROWSER_PREVIEW_URI:-}"
+WEBRTC_PORT="${WEBRTC_PORT:-8889}"
+WEBRTC_LOCAL_TCP_PORT="${WEBRTC_LOCAL_TCP_PORT:-8189}"
+BROWSER_PREVIEW_URI="${BROWSER_PREVIEW_URI_OVERRIDE:-http://127.0.0.1:${WEBRTC_PORT}/${STREAM_PATH}/}"
 DEMO_VIDEO_FILE="${DEMO_VIDEO_FILE:-data/sample.mp4}"
 USE_EXISTING_RTSP_SERVER="${USE_EXISTING_RTSP_SERVER:-0}"
 STREAM_CHECK_TIMEOUT="${STREAM_CHECK_TIMEOUT:-20}"
 SERVER_LOG="${SERVER_LOG:-/tmp/video_watch_assistant_mediamtx.log}"
 VIDEO_BITRATE="${VIDEO_BITRATE:-2500k}"
 MN_PRE_LAUNCH_READY_FILE="${MN_PRE_LAUNCH_READY_FILE:-}"
+OPENSHELL_STREAM_HOST="${OPENSHELL_STREAM_HOST:-}"
 
 usage() {
   cat <<EOF
@@ -27,6 +32,7 @@ Environment overrides:
   DEMO_VIDEO_FILE Demo file to loop into the local RTSP endpoint.
   STREAM_URI      Local RTSP publish URI. Default: ${STREAM_URI}
   STREAM_PATH     MediaMTX path name. Default: ${STREAM_PATH}
+  WEBRTC_PORT     Local MediaMTX browser preview port. Default: ${WEBRTC_PORT}
 EOF
 }
 
@@ -40,8 +46,13 @@ if ! command -v ffmpeg >/dev/null 2>&1; then
   exit 1
 fi
 
+is_local_port_open() {
+  local port="$1"
+  nc -z 127.0.0.1 "$port" >/dev/null 2>&1
+}
+
 is_port_open() {
-  nc -z 127.0.0.1 "$RTSP_PORT" >/dev/null 2>&1
+  is_local_port_open "$RTSP_PORT"
 }
 
 refresh_stream_uri() {
@@ -50,19 +61,82 @@ refresh_stream_uri() {
   fi
 }
 
-choose_available_rtsp_port() {
-  local start_port="$RTSP_PORT"
+refresh_browser_preview_uri() {
+  if [[ -z "$BROWSER_PREVIEW_URI_OVERRIDE" ]]; then
+    BROWSER_PREVIEW_URI="http://127.0.0.1:${WEBRTC_PORT}/${STREAM_PATH}/"
+  fi
+}
+
+choose_available_port() {
+  local variable_name="$1"
+  local start_port="$2"
+  local label="$3"
   local candidate
   for offset in {0..100}; do
     candidate=$((start_port + offset))
-    if ! nc -z 127.0.0.1 "$candidate" >/dev/null 2>&1; then
-      RTSP_PORT="$candidate"
-      refresh_stream_uri
+    if ! is_local_port_open "$candidate"; then
+      printf -v "$variable_name" '%s' "$candidate"
       return 0
     fi
   done
-  echo "No available local RTSP port found starting at ${start_port}." >&2
+  echo "No available ${label} port found starting at ${start_port}." >&2
   exit 1
+}
+
+detect_host_stream_host() {
+  if [[ -n "$OPENSHELL_STREAM_HOST" ]]; then
+    printf '%s\n' "$OPENSHELL_STREAM_HOST"
+    return 0
+  fi
+
+  if command -v ipconfig >/dev/null 2>&1; then
+    local iface ip
+    for iface in en0 en1 bridge100; do
+      ip="$(ipconfig getifaddr "$iface" 2>/dev/null || true)"
+      if [[ -n "$ip" ]]; then
+        printf '%s\n' "$ip"
+        return 0
+      fi
+    done
+  fi
+
+  if command -v hostname >/dev/null 2>&1; then
+    local ip
+    ip="$(hostname -I 2>/dev/null | awk '{print $1}' || true)"
+    if [[ -n "$ip" ]]; then
+      printf '%s\n' "$ip"
+      return 0
+    fi
+  fi
+
+  printf '127.0.0.1\n'
+}
+
+sandbox_stream_uri() {
+  local host
+  host="$(detect_host_stream_host)"
+  printf 'rtsp://%s:%s/%s\n' "$host" "$RTSP_PORT" "$STREAM_PATH"
+}
+
+choose_available_rtsp_port() {
+  local start_port="$RTSP_PORT"
+  choose_available_port RTSP_PORT "$start_port" "local RTSP"
+  refresh_stream_uri
+}
+
+choose_available_webrtc_ports() {
+  local previous_port previous_tcp_port
+  previous_port="$WEBRTC_PORT"
+  previous_tcp_port="$WEBRTC_LOCAL_TCP_PORT"
+  choose_available_port WEBRTC_PORT "$WEBRTC_PORT" "MediaMTX browser preview"
+  choose_available_port WEBRTC_LOCAL_TCP_PORT "$WEBRTC_LOCAL_TCP_PORT" "MediaMTX WebRTC TCP"
+  refresh_browser_preview_uri
+  if [[ "$previous_port" != "$WEBRTC_PORT" ]]; then
+    echo "Port ${previous_port} is already in use; selected browser preview port ${WEBRTC_PORT}."
+  fi
+  if [[ "$previous_tcp_port" != "$WEBRTC_LOCAL_TCP_PORT" ]]; then
+    echo "Port ${previous_tcp_port} is already in use; selected MediaMTX WebRTC TCP port ${WEBRTC_LOCAL_TCP_PORT}."
+  fi
 }
 
 server_pid=""
@@ -98,6 +172,8 @@ start_rtsp_server() {
     exit 1
   fi
 
+  choose_available_webrtc_ports
+
   config_dir="$(mktemp -d /tmp/video_watch_assistant_mediamtx.XXXXXX)"
   local config_path="${config_dir}/mediamtx.yml"
   cat >"$config_path" <<EOF
@@ -107,9 +183,9 @@ rtspAddress: :${RTSP_PORT}
 rtmp: false
 hls: false
 webrtc: true
-webrtcAddress: :8889
+webrtcAddress: :${WEBRTC_PORT}
 webrtcLocalUDPAddress: ''
-webrtcLocalTCPAddress: :8189
+webrtcLocalTCPAddress: :${WEBRTC_LOCAL_TCP_PORT}
 srt: false
 paths:
   ${STREAM_PATH}:
@@ -117,6 +193,7 @@ paths:
 EOF
 
   echo "Starting ${server_cmd} on ${STREAM_URI}"
+  echo "Browser preview will be available at ${BROWSER_PREVIEW_URI}"
   "$server_cmd" "$config_path" >"$SERVER_LOG" 2>&1 &
   server_pid="$!"
 
@@ -177,14 +254,22 @@ mark_pre_launch_ready() {
     return 0
   fi
   mkdir -p "$(dirname "$MN_PRE_LAUNCH_READY_FILE")"
+  local worker_stream_uri host_stream_host
+  worker_stream_uri="$(sandbox_stream_uri)"
+  host_stream_host="${worker_stream_uri#rtsp://}"
+  host_stream_host="${host_stream_host%%:*}"
   cat >"$MN_PRE_LAUNCH_READY_FILE" <<EOF
 {
   "status": "ready",
   "env": {
     "RTSP_PORT": "${RTSP_PORT}",
+    "WEBRTC_PORT": "${WEBRTC_PORT}",
+    "WEBRTC_LOCAL_TCP_PORT": "${WEBRTC_LOCAL_TCP_PORT}",
     "STREAM_PATH": "${STREAM_PATH}",
     "STREAM_URI": "${STREAM_URI}",
-    "VIDEO_SOURCE_URI": "${STREAM_URI}"
+    "BROWSER_PREVIEW_URI": "${BROWSER_PREVIEW_URI}",
+    "VIDEO_SOURCE_URI": "${worker_stream_uri}",
+    "MN_HOST_STREAM_FALLBACK_HOSTS": "${host_stream_host},host.openshell.internal,host.docker.internal,192.168.65.254"
   },
   "config": {
     "video_source": {
@@ -192,7 +277,21 @@ mark_pre_launch_ready() {
     },
     "web_ui": {
       "dashboard": {
-        "default_video_source": "${STREAM_URI}"
+        "default_video_source": "${STREAM_URI}",
+        "browser_video_source": "${BROWSER_PREVIEW_URI}",
+        "browser_publish_source": "disabled",
+        "video_preview_bridge": {
+          "enabled": false,
+          "auto_start": false,
+          "script": "scripts/pre-launch.sh",
+          "stream_path": "${STREAM_PATH}",
+          "rtsp_port": ${RTSP_PORT},
+          "browser_video_source": "${BROWSER_PREVIEW_URI}"
+        }
+      },
+      "output": {
+        "browser_video_source": "${BROWSER_PREVIEW_URI}",
+        "browser_publish_source": "disabled"
       }
     }
   }
@@ -234,6 +333,7 @@ start_selected_publisher() {
 
 echo "Keep this script running while the blueprint is active. Press Ctrl-C to stop."
 echo "OpenShell worker source: ${STREAM_URI}"
+echo "Browser preview: ${BROWSER_PREVIEW_URI}"
 
 while true; do
   start_selected_publisher
