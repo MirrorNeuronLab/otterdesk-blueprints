@@ -39,6 +39,40 @@
   "license": "LICENSE.md",
   "term": "TERM.md",
   "manifest_version": "1.0",
+  "requirements": {
+    "cpu": {
+      "min_cores": 1
+    },
+    "gpu": {
+      "min_count": 0
+    },
+    "memory": {
+      "min_gb": 2
+    },
+    "disk": {
+      "min_gb": 1
+    }
+  },
+  "input_validation": {
+    "rules": [
+      {
+        "name": "video_source_uri_rtsp",
+        "type": "pattern",
+        "path": "video_source.uri",
+        "pattern": "^rtsps?://",
+        "message": "video_source.uri must be an rtsp:// or rtsps:// URL."
+      },
+      {
+        "name": "video_source_rtsp_probe",
+        "type": "command",
+        "command": [
+          "python3",
+          "payloads/validation/validate_rtsp_source.py"
+        ],
+        "timeout_seconds": 12
+      }
+    ]
+  },
   "metadata": {
     "agent_templates": {
       "library": "../mn-agents/index.json",

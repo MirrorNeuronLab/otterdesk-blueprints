@@ -33,6 +33,23 @@
   "license": "LICENSE.md",
   "term": "TERM.md",
   "manifest_version": "1.0",
+  "requirements": {
+    "cpu": {
+      "min_cores": 1
+    },
+    "gpu": {
+      "min_count": 0
+    },
+    "memory": {
+      "min_gb": 2
+    },
+    "disk": {
+      "min_gb": 1
+    }
+  },
+  "input_validation": {
+    "rules": []
+  },
   "metadata": {
     "agent_templates": {
       "library": "../mn-agents/index.json",
