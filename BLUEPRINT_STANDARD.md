@@ -1305,6 +1305,20 @@ Launchers provide these environment variables:
 
 The hook should log to stdout/stderr, avoid mutating tracked blueprint files, and terminate cleanly on `SIGTERM`. Launchers record `pre_launch.log` and `pre_launch_process.json` in the run directory and stop the process on failed validation, failed submission, cancellation, or run-resource cleanup.
 
+## Post-Launch Hook
+
+Blueprints may include `scripts/post-launch.sh` when host-side services need an explicit cleanup pass after the job leaves the active launch lifecycle. The hook is optional and should be idempotent.
+
+Launchers run `scripts/post-launch.sh` after terminal completion, failed launch, cancellation, or run-resource cleanup. Launchers provide the same run-directory context as pre-launch plus:
+
+- `MN_POST_LAUNCH_REASON`
+- `MN_POST_LAUNCH_STATE_FILE`
+- `MN_PRE_LAUNCH_PROCESS_FILE`
+
+The hook should only clean resources owned by this blueprint run, such as recorded PIDs, temp directories, or service listeners that match the run metadata. It should be safe to run multiple times and should not fail when resources are already gone.
+
+Future blueprint work that adds a pre-launch host service must also add a matching post-launch cleanup contract in the same change. The complete lifecycle must be tested end to end for start, stop or cancel, pause and resume when supported, restart, retire or archive, and permanent delete. After every lifecycle path, the blueprint must leave no stale PIDs, process groups, temp directories, bound ports, Docker resources, or run metadata beyond the records intentionally retained for audit.
+
 ## Validation Checklist
 
 Use this checklist to separate universal requirements from feature-specific requirements.

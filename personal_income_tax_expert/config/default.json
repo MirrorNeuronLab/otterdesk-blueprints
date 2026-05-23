@@ -1,0 +1,374 @@
+{
+  "standard_version": "1.0",
+  "identity": {
+    "blueprint_id": "personal_income_tax_expert",
+    "name": "Personal Income Tax Expert"
+  },
+  "mode": {
+    "default": "document_automation",
+    "supports_mock": true,
+    "supports_real_inputs": true
+  },
+  "metadata": {
+    "blueprint_revision": "2026-05-23",
+    "category": "finance",
+    "description": "Reads a local folder of tax PDFs, extracts source evidence, proposes a draft Form 1040 line map, reviews the packet, and explains the result like a personal tax advisor.",
+    "runtime_features": [
+      "local tax PDF intake",
+      "LLM OCR handoff",
+      "multi-agent tax proposal",
+      "tax review gate",
+      "draft Form 1040 packet",
+      "Membrane context memory optimization"
+    ]
+  },
+  "memory_layer": {
+    "collection": "mn_memory",
+    "containers": "optional_sidecar",
+    "context_addr_env": "MN_CONTEXT_ADDR",
+    "conversation": {
+      "agent_role": "otterdesk_chat",
+      "include_human_events": true,
+      "include_runtime_events": true,
+      "include_runtime_logs": true,
+      "target_tokens": 2400,
+      "token_budget": 6000,
+      "use_model_compression": false
+    },
+    "conversation_enabled": true,
+    "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
+    "default_context_addr": "localhost:50052",
+    "enabled": true,
+    "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
+    "namespace": "personal_income_tax_expert_context",
+    "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
+    "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
+    "sdk_distribution": "mirrorneuron-membrane-python-sdk",
+    "sdk_import_package": "mn_context_engine_sdk"
+  },
+  "tax_profile": {
+    "tax_year": 2025,
+    "filing_status": "single",
+    "state_return": "not_prepared",
+    "advisor_voice": "warm, direct, evidence-grounded, and careful like a personal tax advisor"
+  },
+  "tax_documents": {
+    "folder_path": "",
+    "recommended_forms": [
+      "W-2",
+      "1099-INT",
+      "1099-R"
+    ],
+    "accepted_forms": [
+      "W-2",
+      "1099-INT",
+      "1099-R",
+      "1099-DIV",
+      "1099-B",
+      "1099-NEC",
+      "1098",
+      "1095-A",
+      "5498",
+      "brokerage_statement"
+    ],
+    "sample_documents": [
+      {
+        "path": "examples/sample_tax_documents/sample-w2.txt",
+        "filename": "sample-w2.txt",
+        "document_type": "W-2",
+        "text": "Form W-2 Wage and Tax Statement. Box 1 wages 86000.00. Box 2 federal income tax withheld 11200.00.",
+        "ocr_required": false,
+        "extraction_method": "sample_text"
+      },
+      {
+        "path": "examples/sample_tax_documents/sample-1099-int.txt",
+        "filename": "sample-1099-int.txt",
+        "document_type": "1099-INT",
+        "text": "Form 1099-INT Interest Income. Box 1 interest income 128.44. Box 4 federal income tax withheld 0.00.",
+        "ocr_required": false,
+        "extraction_method": "sample_text"
+      },
+      {
+        "path": "examples/sample_tax_documents/sample-1099-r-401k.txt",
+        "filename": "sample-1099-r-401k.txt",
+        "document_type": "1099-R",
+        "text": "Form 1099-R Distributions From Pensions, Annuities, Retirement or Profit-Sharing Plans, IRAs, Insurance Contracts. 401(k) gross distribution 2400.00. Taxable amount 2400.00. Box 4 federal income tax withheld 240.00.",
+        "ocr_required": false,
+        "extraction_method": "sample_text"
+      }
+    ]
+  },
+  "tax_knowledge": {
+    "standard_deduction_2025": {
+      "single": 15750,
+      "married_filing_separately": 15750,
+      "married_filing_jointly": 31500,
+      "qualifying_surviving_spouse": 31500,
+      "head_of_household": 23625
+    },
+    "form_1040_line_mapping": {
+      "W-2": [
+        "Line 1z wages",
+        "Line 25a federal income tax withheld"
+      ],
+      "1099-INT": [
+        "Line 2b taxable interest",
+        "Schedule B review when thresholds or special cases apply"
+      ],
+      "1099-R": [
+        "Line 4a distributions",
+        "Line 4b taxable amount",
+        "Schedule 2 review when early-distribution additional tax may apply"
+      ]
+    }
+  },
+  "knowledge": {
+    "irs_sources": [
+      {
+        "name": "IRS Form 1040",
+        "url": "https://www.irs.gov/Form1040",
+        "use": "current Form 1040, schedules, and filing instructions"
+      },
+      {
+        "name": "IRS Publication 17",
+        "url": "https://www.irs.gov/publications/p17",
+        "use": "general individual federal income tax preparation knowledge"
+      },
+      {
+        "name": "IRS Form 1099-INT",
+        "url": "https://www.irs.gov/forms-pubs/about-form-1099-int",
+        "use": "interest income source form knowledge"
+      },
+      {
+        "name": "IRS Form 1099-R",
+        "url": "https://www.irs.gov/forms-pubs/about-form-1099-r",
+        "use": "retirement, IRA, annuity, and 401(k) distribution source form knowledge"
+      }
+    ],
+    "local_files": [
+      "knowledge/irs-source-map.md",
+      "knowledge/tax-document-routing.md",
+      "knowledge/advisor-conversation-style.md"
+    ]
+  },
+  "inputs": {
+    "adapter": "mock",
+    "description": "Default demo inputs use bundled sample text records. For real use, select a local folder containing tax PDFs.",
+    "payload": {
+      "tax_year": 2025,
+      "filing_status": "single",
+      "document_folder": ""
+    }
+  },
+  "llm": {
+    "enabled": true,
+    "mode": "ollama",
+    "mock_mode": "fake",
+    "api_base": "http://192.168.4.173:11434",
+    "model": "ollama/nemotron3:33b",
+    "default_config": "primary",
+    "agent_role": "Personal tax advisor who prepares a source-grounded draft Form 1040 packet while asking careful review questions.",
+    "responsibilities": [
+      "extract document evidence",
+      "propose Form 1040 line mapping",
+      "review assumptions and missing forms",
+      "explain the draft in a real advisor voice"
+    ],
+    "configs": {
+      "primary": {
+        "provider": "ollama",
+        "mode": "ollama",
+        "api_base": "http://192.168.4.173:11434",
+        "model": "ollama/nemotron3:33b",
+        "max_tokens": 900,
+        "num_retries": 1,
+        "timeout_seconds": 90,
+        "mock_mode": "fake"
+      }
+    },
+    "agents": {
+      "document_intake": {
+        "role": "Document intake agent",
+        "llm_config": "primary",
+        "responsibilities": [
+          "scan the local folder",
+          "classify tax PDFs",
+          "identify OCR and missing-document gaps"
+        ]
+      },
+      "proposal": {
+        "role": "Tax proposal agent",
+        "llm_config": "primary",
+        "responsibilities": [
+          "map evidence to likely Form 1040 lines",
+          "make conservative assumptions",
+          "ask targeted follow-up questions"
+        ]
+      },
+      "review": {
+        "role": "Tax review agent",
+        "llm_config": "primary",
+        "responsibilities": [
+          "check source support",
+          "flag filing risks",
+          "hold unsupported deductions and credits"
+        ]
+      },
+      "advisor": {
+        "role": "Personal tax advisor conversation agent",
+        "llm_config": "primary",
+        "responsibilities": [
+          "explain the draft in plain English",
+          "sound warm and professional",
+          "tell the user exactly what to confirm next"
+        ]
+      }
+    }
+  },
+  "outputs": {
+    "adapter": "local_run_store",
+    "artifact_contract": "Prepared draft Form 1040 packet with source evidence, assumptions, review warnings, and advisor-style next steps.",
+    "run_root": "~/.mn/runs",
+    "write_run_store": true,
+    "skills": {},
+    "tcp": {
+      "enabled": false,
+      "ports": []
+    }
+  },
+  "real_adapters": {
+    "file": {
+      "description": "JSON input file can provide document_folder, tax_year, filing_status, and taxpayer profile fields."
+    },
+    "env_json": {
+      "env": "MN_BLUEPRINT_INPUT_JSON"
+    }
+  },
+  "streams": {},
+  "input_skills": {
+    "tax_pdf_ocr": {
+      "skill": "tax_pdf_ocr_skill",
+      "package": "mirrorneuron-tax-pdf-ocr-skill",
+      "purpose": "extract embedded text, classify tax PDFs, and mark LLM OCR needs"
+    },
+    "pdf_extract": {
+      "skill": "pdf_extract_skill",
+      "package": "mirrorneuron-pdf-extract-skill",
+      "purpose": "fallback PDF text extraction"
+    }
+  },
+  "output_skills": {},
+  "privacy": {
+    "default_classification": "regulated",
+    "rules": {
+      "regulated": {
+        "log": "redacted",
+        "send_to_llm": "allowed_configs_only",
+        "send_to_output_skills": "approved_destinations_only"
+      },
+      "confidential": {
+        "log": "redacted",
+        "send_to_llm": "allowed_configs_only",
+        "send_to_output_skills": "approved_destinations_only"
+      },
+      "internal": {
+        "log": "metadata_only",
+        "send_to_llm": true,
+        "send_to_output_skills": true
+      },
+      "public": {
+        "log": true,
+        "send_to_llm": true,
+        "send_to_output_skills": true
+      }
+    }
+  },
+  "capabilities": {
+    "required": [
+      "filesystem.read",
+      "filesystem.write",
+      "pdf.extract"
+    ],
+    "optional": [
+      "llm.call",
+      "llm.ocr",
+      "document.ocr"
+    ]
+  },
+  "budgets": {
+    "max_connector_reads": 500,
+    "max_connector_writes": 0,
+    "max_disk_mb": 500,
+    "max_llm_calls": 20,
+    "max_llm_tokens": 30000,
+    "max_runtime_seconds": 600,
+    "max_stream_duration_seconds": 0
+  },
+  "agent_handoffs": {
+    "workflow": [
+      "document_intake_agent",
+      "tax_proposal_agent",
+      "tax_review_agent",
+      "form_1040_packet_writer"
+    ],
+    "review_required": true
+  },
+  "interfaces": {
+    "config_sections": [
+      "tax_profile",
+      "tax_documents",
+      "tax_knowledge",
+      "knowledge",
+      "llm",
+      "privacy",
+      "budgets",
+      "agent_handoffs"
+    ]
+  },
+  "execution_model": [
+    "load_metadata",
+    "resolve_config",
+    "load_inputs",
+    "scan_local_tax_folder",
+    "extract_pdf_text_or_mark_ocr",
+    "classify_tax_forms",
+    "proposal_agent_maps_1040_lines",
+    "review_agent_checks_assumptions",
+    "write_final_artifact",
+    "request_human_review"
+  ],
+  "logging": {
+    "level": "info",
+    "redact_tax_identifiers": true
+  },
+  "error_handling": {
+    "default_mode": "stop",
+    "policies": {
+      "ocr_required": {
+        "mode": "continue_with_review_warning"
+      },
+      "missing_folder": {
+        "mode": "use_sample_documents"
+      }
+    }
+  },
+  "web_ui": {
+    "enabled": true,
+    "input": {
+      "adapter": "none",
+      "fields": [],
+      "title": null,
+      "instructions": null,
+      "host": "127.0.0.1",
+      "port": null,
+      "share": false,
+      "custom_url": null
+    },
+    "output": {
+      "adapter": "gradio",
+      "auto_generate": true,
+      "refresh_seconds": 2,
+      "title": "Personal Income Tax Expert"
+    }
+  }
+}

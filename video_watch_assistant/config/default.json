@@ -288,7 +288,10 @@
       "llm_decision",
       "simulation_state_updated",
       "run_completed",
+      "video_watch_frame_observed",
+      "video_watch_attention_updated",
       "video_watch_detection",
+      "human_notice",
       "video_watch_slack_alert_sent",
       "video_watch_slack_alert_skipped",
       "video_watch_slack_alert_error",
@@ -320,6 +323,30 @@
       "stringify": true
     }
   ],
+  "memory_layer": {
+    "collection": "mn_memory",
+    "containers": "optional_sidecar",
+    "context_addr_env": "MN_CONTEXT_ADDR",
+    "conversation": {
+      "agent_role": "otterdesk_chat",
+      "include_human_events": true,
+      "include_runtime_events": true,
+      "include_runtime_logs": true,
+      "target_tokens": 2400,
+      "token_budget": 6000,
+      "use_model_compression": false
+    },
+    "conversation_enabled": true,
+    "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
+    "default_context_addr": "localhost:50052",
+    "enabled": true,
+    "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
+    "namespace": "video_watch_assistant_context",
+    "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
+    "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
+    "sdk_distribution": "mirrorneuron-membrane-python-sdk",
+    "sdk_import_package": "mn_context_engine_sdk"
+  },
   "metadata": {
     "blueprint_revision": "v1",
     "category": "business",
@@ -478,6 +505,9 @@
       "copy": {
         "event_glossary": {
           "video_watch_frame_analysis_failed": "A sampled frame could not be read or analyzed. Check the stream, model endpoint, or sandbox network policy.",
+          "video_watch_frame_observed": "A sampled frame was analyzed and summarized for co-worker chat and audit review.",
+          "video_watch_attention_updated": "The operator asked the video co-worker to pay attention to a specific visual detail.",
+          "human_notice": "The co-worker saw a meaningful video change that should be surfaced promptly in OtterDesk chat.",
           "video_watch_slack_alert_error": "The workflow tried to send a Slack alert but the delivery call failed.",
           "video_watch_slack_alert_sent": "A visual detection alert was sent to the configured review channel.",
           "video_watch_slack_alert_skipped": "The workflow detected activity but skipped notification because alerting is disabled or the cooldown policy suppressed it.",
@@ -503,7 +533,10 @@
         "format": "jsonl"
       },
       "event_types": [
+        "video_watch_frame_observed",
+        "video_watch_attention_updated",
         "video_watch_detection",
+        "human_notice",
         "video_watch_slack_alert_sent",
         "video_watch_slack_alert_skipped",
         "video_watch_slack_alert_error",
@@ -516,6 +549,7 @@
         "open_browser": 0,
         "publish_mode": "mapped",
         "rtsp_port": 8554,
+        "cleanup_script": "scripts/post-launch.sh",
         "script": "scripts/pre-launch.sh",
         "stream_path": "video-watch",
         "use_existing_rtsp_server": 1

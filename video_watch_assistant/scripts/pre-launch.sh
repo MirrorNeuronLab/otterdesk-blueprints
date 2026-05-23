@@ -8,11 +8,17 @@ STREAM_URI="${STREAM_URI_OVERRIDE:-rtsp://127.0.0.1:${RTSP_PORT}/${STREAM_PATH}}
 BROWSER_PREVIEW_URI_OVERRIDE="${BROWSER_PREVIEW_URI:-}"
 WEBRTC_PORT="${WEBRTC_PORT:-8889}"
 WEBRTC_LOCAL_TCP_PORT="${WEBRTC_LOCAL_TCP_PORT:-8189}"
+MEDIAMTX_BIND_HOST="${MEDIAMTX_BIND_HOST:-}"
 BROWSER_PREVIEW_URI="${BROWSER_PREVIEW_URI_OVERRIDE:-http://127.0.0.1:${WEBRTC_PORT}/${STREAM_PATH}/}"
 DEMO_VIDEO_FILE="${DEMO_VIDEO_FILE:-data/sample.mp4}"
 USE_EXISTING_RTSP_SERVER="${USE_EXISTING_RTSP_SERVER:-0}"
 STREAM_CHECK_TIMEOUT="${STREAM_CHECK_TIMEOUT:-20}"
 SERVER_LOG="${SERVER_LOG:-/tmp/video_watch_assistant_mediamtx.log}"
+MN_RUN_DIR="${MN_RUN_DIR:-}"
+MN_POST_LAUNCH_STATE_FILE="${MN_POST_LAUNCH_STATE_FILE:-}"
+if [[ -z "$MN_POST_LAUNCH_STATE_FILE" && -n "$MN_RUN_DIR" ]]; then
+  MN_POST_LAUNCH_STATE_FILE="${MN_RUN_DIR}/post_launch_state.json"
+fi
 VIDEO_BITRATE="${VIDEO_BITRATE:-2500k}"
 MN_PRE_LAUNCH_READY_FILE="${MN_PRE_LAUNCH_READY_FILE:-}"
 OPENSHELL_STREAM_HOST="${OPENSHELL_STREAM_HOST:-}"
@@ -45,6 +51,23 @@ if ! command -v ffmpeg >/dev/null 2>&1; then
   echo "ffmpeg is required. Install it with: brew install ffmpeg" >&2
   exit 1
 fi
+
+cleanup_stale_mapper_on_start() {
+  if [[ "$USE_EXISTING_RTSP_SERVER" == "1" ]]; then
+    return 0
+  fi
+  local cleanup_script
+  cleanup_script="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/post-launch.sh"
+  if [[ ! -f "$cleanup_script" ]]; then
+    return 0
+  fi
+  echo "Checking for stale Video Watch Assistant mapper processes on ${RTSP_PORT}/${WEBRTC_PORT}."
+  MN_POST_LAUNCH_REASON="pre_launch_preflight" \
+    RTSP_PORT="$RTSP_PORT" \
+    WEBRTC_PORT="$WEBRTC_PORT" \
+    WEBRTC_LOCAL_TCP_PORT="$WEBRTC_LOCAL_TCP_PORT" \
+    bash "$cleanup_script" || true
+}
 
 is_local_port_open() {
   local port="$1"
@@ -139,9 +162,55 @@ choose_available_webrtc_ports() {
   fi
 }
 
+mediamtx_address() {
+  local port="$1"
+  if [[ -n "$MEDIAMTX_BIND_HOST" ]]; then
+    printf '%s:%s\n' "$MEDIAMTX_BIND_HOST" "$port"
+  else
+    printf ':%s\n' "$port"
+  fi
+}
+
 server_pid=""
 publisher_pid=""
 config_dir=""
+
+json_escape() {
+  if command -v python3 >/dev/null 2>&1; then
+    JSON_VALUE="$1" python3 - <<'PY'
+import json
+import os
+print(json.dumps(os.environ.get("JSON_VALUE", "")))
+PY
+  else
+    printf '"%s"' "$(printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g')"
+  fi
+}
+
+write_post_launch_state() {
+  if [[ -z "$MN_POST_LAUNCH_STATE_FILE" ]]; then
+    return 0
+  fi
+  mkdir -p "$(dirname "$MN_POST_LAUNCH_STATE_FILE")"
+  cat >"$MN_POST_LAUNCH_STATE_FILE" <<EOF
+{
+  "schema": "otterdesk.video_watch.post_launch_state.v1",
+  "run_id": $(json_escape "${MN_RUN_ID:-}"),
+  "server_pid": $(json_escape "$server_pid"),
+  "publisher_pid": $(json_escape "$publisher_pid"),
+  "rtsp_port": $(json_escape "$RTSP_PORT"),
+  "webrtc_port": $(json_escape "$WEBRTC_PORT"),
+  "webrtc_local_tcp_port": $(json_escape "$WEBRTC_LOCAL_TCP_PORT"),
+  "mediamtx_bind_host": $(json_escape "$MEDIAMTX_BIND_HOST"),
+  "stream_path": $(json_escape "$STREAM_PATH"),
+  "stream_uri": $(json_escape "$STREAM_URI"),
+  "browser_preview_uri": $(json_escape "$BROWSER_PREVIEW_URI"),
+  "server_log": $(json_escape "$SERVER_LOG"),
+  "config_dir": $(json_escape "$config_dir"),
+  "updated_at": $(json_escape "$(date -u +"%Y-%m-%dT%H:%M:%SZ")")
+}
+EOF
+}
 
 cleanup() {
   if [[ -n "$publisher_pid" ]]; then
@@ -179,13 +248,13 @@ start_rtsp_server() {
   cat >"$config_path" <<EOF
 logLevel: info
 rtspTransports: [tcp]
-rtspAddress: :${RTSP_PORT}
+rtspAddress: $(mediamtx_address "$RTSP_PORT")
 rtmp: false
 hls: false
 webrtc: true
-webrtcAddress: :${WEBRTC_PORT}
+webrtcAddress: $(mediamtx_address "$WEBRTC_PORT")
 webrtcLocalUDPAddress: ''
-webrtcLocalTCPAddress: :${WEBRTC_LOCAL_TCP_PORT}
+webrtcLocalTCPAddress: $(mediamtx_address "$WEBRTC_LOCAL_TCP_PORT")
 srt: false
 paths:
   ${STREAM_PATH}:
@@ -196,6 +265,7 @@ EOF
   echo "Browser preview will be available at ${BROWSER_PREVIEW_URI}"
   "$server_cmd" "$config_path" >"$SERVER_LOG" 2>&1 &
   server_pid="$!"
+  write_post_launch_state
 
   for _ in {1..50}; do
     if is_port_open; then
@@ -208,6 +278,8 @@ EOF
   echo "Server log: ${SERVER_LOG}" >&2
   exit 1
 }
+
+cleanup_stale_mapper_on_start
 
 if is_port_open; then
   if [[ "$USE_EXISTING_RTSP_SERVER" != "1" ]]; then
@@ -286,7 +358,9 @@ mark_pre_launch_ready() {
           "script": "scripts/pre-launch.sh",
           "stream_path": "${STREAM_PATH}",
           "rtsp_port": ${RTSP_PORT},
-          "browser_video_source": "${BROWSER_PREVIEW_URI}"
+          "browser_video_source": "${BROWSER_PREVIEW_URI}",
+          "cleanup_script": "scripts/post-launch.sh",
+          "post_launch_state_file": "${MN_POST_LAUNCH_STATE_FILE}"
         }
       },
       "output": {
@@ -325,6 +399,7 @@ start_demo_publisher() {
     -rtsp_transport tcp \
     "$STREAM_URI" &
   publisher_pid="$!"
+  write_post_launch_state
 }
 
 start_selected_publisher() {

@@ -27,6 +27,37 @@ def _manifest_paths() -> list[Path]:
     return sorted(path / "manifest.json" for path in ROOT.iterdir() if (path / "manifest.json").exists())
 
 
+def test_otterdesk_blueprints_declare_membrane_context_memory_layer():
+    for manifest_path in _manifest_paths():
+        blueprint_dir = manifest_path.parent
+        manifest = json.loads(manifest_path.read_text())
+        config = json.loads((blueprint_dir / "config" / "default.json").read_text())
+        blueprint_id = manifest["metadata"]["blueprint_id"]
+        expected_namespace = f"{blueprint_id}_context"
+
+        config_layer = config.get("memory_layer")
+        manifest_layer = manifest["metadata"].get("memory_layer")
+        assert config_layer == manifest_layer, blueprint_dir.name
+        assert config_layer["enabled"] is True
+        assert config_layer["enabled_env"] == "MN_CONTEXT_MEMORY_ENABLED"
+        assert config_layer["conversation_enabled"] is True
+        assert config_layer["conversation_enabled_env"] == "OTTERDESK_CONTEXT_MEMORY_ENABLED"
+        assert config_layer["namespace"] == expected_namespace
+        assert config_layer["collection"] == "mn_memory"
+        assert config_layer["sdk_distribution"] == "mirrorneuron-membrane-python-sdk"
+        assert config_layer["sdk_import_package"] == "mn_context_engine_sdk"
+        assert config_layer["project_path"] == "${MN_MEMBRANE_PROJECT_PATH}"
+        assert config_layer["python_sdk_path"] == "${MN_MEMBRANE_SDK_PATH}"
+
+        conversation = config_layer["conversation"]
+        assert conversation["agent_role"] == "otterdesk_chat"
+        assert conversation["include_runtime_events"] is True
+        assert conversation["include_runtime_logs"] is True
+        assert conversation["include_human_events"] is True
+        assert conversation["token_budget"] > conversation["target_tokens"] > 0
+        assert "Membrane context memory optimization" in manifest["metadata"]["runtime_features"]
+
+
 def test_index_entries_point_to_loadable_blueprint_folders():
     index = json.loads((ROOT / "index.json").read_text())
     assert index
@@ -106,24 +137,34 @@ def test_video_watch_pre_launch_owns_mediamtx_preview_config():
     config = json.loads((blueprint_dir / "config" / "default.json").read_text())
     manifest = json.loads((blueprint_dir / "manifest.json").read_text())
     script = (blueprint_dir / "scripts" / "pre-launch.sh").read_text()
+    cleanup_script = (blueprint_dir / "scripts" / "post-launch.sh").read_text()
 
     assert "webrtc: true" in script
     assert "choose_available_webrtc_ports" in script
     assert "BROWSER_PREVIEW_URI" in script
+    assert "MN_POST_LAUNCH_STATE_FILE" in script
+    assert "post_launch_state.json" in script
+    assert "pre_launch_preflight" in script
     assert '"browser_video_source": "${BROWSER_PREVIEW_URI}"' in script
     assert '"browser_publish_source": "disabled"' in script
+    assert '"cleanup_script": "scripts/post-launch.sh"' in script
+    assert "terminate_mediamtx_on_port" in cleanup_script
+    assert "RTSP_PORT" in cleanup_script
+    assert "WEBRTC_PORT" in cleanup_script
 
     dashboard = config["web_ui"]["dashboard"]
     assert dashboard["browser_video_source"] == "disabled"
     assert dashboard["browser_publish_source"] == "disabled"
     assert dashboard["video_preview_bridge"]["enabled"] is False
     assert dashboard["video_preview_bridge"]["auto_start"] is False
+    assert dashboard["video_preview_bridge"]["cleanup_script"] == "scripts/post-launch.sh"
 
     manifest_web_ui = manifest["metadata"]["web_ui"]
     assert manifest_web_ui["browser_video_source"] == "disabled"
     assert manifest_web_ui["browser_publish_source"] == "disabled"
     assert manifest_web_ui["video_preview_bridge"]["enabled"] is False
     assert manifest_web_ui["video_preview_bridge"]["auto_start"] is False
+    assert manifest_web_ui["video_preview_bridge"]["cleanup_script"] == "scripts/post-launch.sh"
 
 
 def _load_video_watch_validator():

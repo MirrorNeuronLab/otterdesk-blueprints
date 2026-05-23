@@ -10,13 +10,13 @@ Video operators and critical-infrastructure security teams need to watch continu
 
 ## Design Details
 
-The blueprint is organized as a streaming visual-detection loop. `ingress` starts the monitor, `video_frame_tick_source` emits frame ticks, and `visual_detector` samples the configured video source, runs visual detection, reports count/label/category/color/position/activity details, applies confidence and cooldown policy, and emits structured events when configured targets appear in the monitored scene.
+The blueprint is organized as a streaming visual-detection loop. `ingress` starts the monitor, `video_frame_tick_source` emits frame ticks, and `visual_detector` samples the configured video source, runs visual detection, reports count/label/category/color/position/activity details, applies confidence and cooldown policy, and emits structured events when configured targets appear in the monitored scene. It also maintains conversation context so OtterDesk local AI can answer what happened from live observations, accepts operator attention requests, and emits chat-facing `human_notice` events when a significant change should be surfaced promptly.
 
 The prototype supports live VL model detection through an Ollama-compatible endpoint and deterministic mock detection for tests. The model is asked to count only real visible subjects or activity relevant to the configured targets, and to ignore shadows, reflections, signage text, static background clutter, and uncertain guesses. Alert delivery is optional, with Slack-style payloads used as the reference integration.
 
 ## Input
 
-The prototype accepts a mapped local RTSP source through a host-side mapper started by the standard `scripts/pre-launch.sh` hook. By default, the mapper loops `data/sample.mp4` into `rtsp://127.0.0.1:8554/video-watch`; if that port is busy, it selects another local port and reports the resolved URI back to the runner before validation and submission. The key runtime controls are the mapped source URI, transport, codec, frame sampling interval, maximum frame width, detection confidence threshold, alert cooldown window, target prompt, and site-specific escalation policy.
+The prototype accepts a mapped local RTSP source through a host-side mapper started by the standard `scripts/pre-launch.sh` hook and cleaned by `scripts/post-launch.sh`. By default, the mapper loops `data/sample.mp4` into `rtsp://127.0.0.1:8554/video-watch`; if that port is busy, it selects another local port and reports the resolved URI back to the runner before validation and submission. On stop, cancel, failed launch, terminal completion, or stale run cleanup, the post-launch hook stops the recorded ffmpeg/MediaMTX mapper and matching MediaMTX listeners on the selected preview ports. The key runtime controls are the mapped source URI, transport, codec, frame sampling interval, maximum frame width, detection confidence threshold, alert cooldown window, target prompt, and site-specific escalation policy.
 
 Notification inputs include Slack enablement, destination channel, message prefix, and any downstream alert routing that a deployment wants to replace Slack with later. Model inputs include the VL model base URL, VL model name, prompt behavior, temperature, timeout, and mock or quick-test mode for deterministic local evaluation. The default VL model location is `http://192.168.4.173:11434` with model `nemotron3:33b`, and deployments can override it through config, generator flags, or `VL_MODEL_BASE_URL` / `VL_MODEL_NAME`.
 
@@ -26,9 +26,9 @@ For production use, the same contract should be fed by real video stream streams
 
 ## Output: Expected Customer Outcome
 
-The expected customer outcome is reduced manual monitoring burden while meaningful visual observations are escalated with enough context to review. A useful run produces explainable detection events, count/label/category/color/position/activity details, alert or no-alert decisions, cooldown-aware notification payloads, and operational evidence showing why the system did or did not escalate.
+The expected customer outcome is reduced manual monitoring burden while meaningful visual observations are escalated with enough context to review. A useful run produces explainable frame observations, detection events, count/label/category/color/position/activity details, chat-facing human notices for major changes, alert or no-alert decisions, cooldown-aware notification payloads, and operational evidence showing why the system did or did not escalate.
 
-The result should help a safety or security team answer: what configured targets were seen, how many were detected, what visible labels/categories/colors were observed, where and when they were seen, how confident the system was, whether an alert was sent, whether an alert was suppressed by policy or cooldown, and what a reviewer should inspect next.
+The result should help a safety or security team answer: what configured targets were seen, how many were detected, what visible labels/categories/colors were observed, where and when they were seen, how confident the system was, whether the co-worker notified the user in chat, whether an alert was sent, whether an alert was suppressed by policy or cooldown, and what a reviewer should inspect next.
 
 ## Evaluation Criteria
 

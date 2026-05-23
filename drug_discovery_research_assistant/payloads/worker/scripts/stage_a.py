@@ -8,7 +8,8 @@ from extract_utils import extract_payload
 from logging_utils import get_logger
 
 try:
-    sys.path.append(os.environ.get("BIOTARGET_SOURCE_DIR", "/Users/homer/Projects/BioTarget"))
+    if os.environ.get("BIOTARGET_SOURCE_DIR"):
+        sys.path.append(os.environ["BIOTARGET_SOURCE_DIR"])
     from biotarget.stages.stage_a_discovery import stage_a_target_discovery
 except Exception:
     stage_a_target_discovery = None

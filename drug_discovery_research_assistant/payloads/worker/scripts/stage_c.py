@@ -5,7 +5,8 @@ import sys
 from pathlib import Path
 import random
 
-sys.path.append("/Users/homer/Projects/BioTarget")
+if os.environ.get("BIOTARGET_SOURCE_DIR"):
+    sys.path.append(os.environ["BIOTARGET_SOURCE_DIR"])
 from extract_utils import extract_payload
 from logging_utils import get_logger
 

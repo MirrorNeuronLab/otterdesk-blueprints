@@ -312,6 +312,30 @@
       "agent_role": "AI assistant for reviewing video stream activity and preparing visual detection alerts."
     },
     "llm_agent_role": "AI assistant for reviewing video stream activity and preparing visual detection alerts.",
+    "memory_layer": {
+      "collection": "mn_memory",
+      "containers": "optional_sidecar",
+      "context_addr_env": "MN_CONTEXT_ADDR",
+      "conversation": {
+        "agent_role": "otterdesk_chat",
+        "include_human_events": true,
+        "include_runtime_events": true,
+        "include_runtime_logs": true,
+        "target_tokens": 2400,
+        "token_budget": 6000,
+        "use_model_compression": false
+      },
+      "conversation_enabled": true,
+      "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
+      "default_context_addr": "localhost:50052",
+      "enabled": true,
+      "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
+      "namespace": "video_watch_assistant_context",
+      "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
+      "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
+      "sdk_distribution": "mirrorneuron-membrane-python-sdk",
+      "sdk_import_package": "mn_context_engine_sdk"
+    },
     "name": "Video Watch Assistant",
     "output": "Visual detection observations with count, label, category, color, position, activity, confidence, and alert status.",
     "output_contract": {
@@ -335,7 +359,8 @@
       "video sampling",
       "visual detection review",
       "cooldown state",
-      "Slack alerting"
+      "Slack alerting",
+      "Membrane context memory optimization"
     ],
     "simulation_type": "Video stream sampling with visual detection review state.",
     "standard": {
@@ -424,7 +449,10 @@
       "description": "Shared blueprint support Gradio dashboard that shows this blueprint's MediaMTX browser preview beside streamed visual detection events from the shared run store.",
       "enabled": true,
       "event_types": [
+        "video_watch_frame_observed",
+        "video_watch_attention_updated",
         "video_watch_detection",
+        "human_notice",
         "video_watch_slack_alert_sent",
         "video_watch_slack_alert_skipped",
         "video_watch_slack_alert_error",
@@ -443,6 +471,7 @@
       "video_preview_bridge": {
         "auto_start": false,
         "enabled": false,
+        "cleanup_script": "scripts/post-launch.sh",
         "script": "scripts/pre-launch.sh",
         "stream_path": "video-watch"
       },

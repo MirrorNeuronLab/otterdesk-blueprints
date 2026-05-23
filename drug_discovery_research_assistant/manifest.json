@@ -327,6 +327,30 @@
       "agent_role": "AI assistant for organizing drug discovery candidate generation, filtering, and evidence review."
     },
     "llm_agent_role": "AI assistant for organizing drug discovery candidate generation, filtering, and evidence review.",
+    "memory_layer": {
+      "collection": "mn_memory",
+      "containers": "optional_sidecar",
+      "context_addr_env": "MN_CONTEXT_ADDR",
+      "conversation": {
+        "agent_role": "otterdesk_chat",
+        "include_human_events": true,
+        "include_runtime_events": true,
+        "include_runtime_logs": true,
+        "target_tokens": 2400,
+        "token_budget": 6000,
+        "use_model_compression": false
+      },
+      "conversation_enabled": true,
+      "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
+      "default_context_addr": "localhost:50052",
+      "enabled": true,
+      "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
+      "namespace": "drug_discovery_research_assistant_context",
+      "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
+      "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
+      "sdk_distribution": "mirrorneuron-membrane-python-sdk",
+      "sdk_import_package": "mn_context_engine_sdk"
+    },
     "name": "Drug Discovery Research Assistant",
     "output": "Candidate artifacts, stage logs, evidence notes, and discovery summaries for researcher review.",
     "output_contract": {
@@ -351,7 +375,8 @@
       "multi-stage pipeline",
       "scientific worker tasks",
       "artifact extraction",
-      "research summaries"
+      "research summaries",
+      "Membrane context memory optimization"
     ],
     "simulation_type": "Iterative scientific research workflow with staged candidate review.",
     "standard": {

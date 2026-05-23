@@ -9,7 +9,8 @@ from extract_utils import extract_payload
 from logging_utils import get_logger
 
 try:
-    sys.path.append(os.environ.get("BIOTARGET_SOURCE_DIR", "/Users/homer/Projects/BioTarget"))
+    if os.environ.get("BIOTARGET_SOURCE_DIR"):
+        sys.path.append(os.environ["BIOTARGET_SOURCE_DIR"])
     from biotarget.stages.stage_b_structure import stage_b_structure_generation
 except Exception:
     stage_b_structure_generation = None

@@ -35,9 +35,21 @@ def initial_state() -> dict[str, Any]:
         "frames_seen": 0,
         "video_position_seconds": 0.0,
         "last_alert_wall_ts": 0.0,
+        "last_human_notice_wall_ts": 0.0,
+        "last_human_notice_signature": None,
         "detections": 0,
         "last_detection": None,
         "last_detection_report": None,
+        "last_observation": None,
+        "recent_observations": [],
+        "attention_instruction": "",
+        "attention_targets": [],
+        "last_attention_update": None,
+        "conversation_context": {
+            "what_happened": "No video frames have been analyzed yet.",
+            "attention_instruction": "",
+            "recent_observations": [],
+        },
         "last_error": None,
     }
 
@@ -621,10 +633,126 @@ def safe_confidence(value: Any) -> float:
         return 0.0
 
 
-def detection_prompt(camera_id: str) -> str:
+def safe_int(value: Any, default: int = 0) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def compact_string(value: Any, limit: int = 500) -> str:
+    text = "" if value is None else " ".join(str(value).split())
+    return text[:limit]
+
+
+def normalize_attention_instruction(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, (list, tuple)):
+        return compact_string(", ".join(item for item in (normalize_attention_instruction(item) for item in value) if item))
+    if isinstance(value, dict):
+        parts = []
+        for key in ("target", "label", "detail", "description", "zone", "color", "activity"):
+            text = compact_string(value.get(key), limit=120)
+            if text:
+                parts.append(f"{key}: {text}")
+        if parts:
+            return compact_string("; ".join(parts))
+        try:
+            return compact_string(json.dumps(value, sort_keys=True))
+        except TypeError:
+            return compact_string(value)
+    return compact_string(value)
+
+
+def looks_like_attention_request(text: str) -> bool:
+    normalized = text.lower()
+    return any(
+        phrase in normalized
+        for phrase in (
+            "pay attention",
+            "watch for",
+            "focus on",
+            "look for",
+            "track ",
+            "keep an eye",
+            "notice if",
+            "tell me if",
+            "monitor for",
+        )
+    )
+
+
+def attention_request_from_inputs(payload: dict[str, Any], message: dict[str, Any]) -> str:
+    direct_keys = (
+        "attention_instruction",
+        "attention_request",
+        "attention_targets",
+        "watch_for",
+        "watch_details",
+        "pay_attention_to",
+        "focus_on",
+        "look_for",
+        "track_details",
+    )
+    message_payload = message.get("payload") if isinstance(message.get("payload"), dict) else {}
+    for container in (payload, message, message_payload):
+        if not isinstance(container, dict):
+            continue
+        for key in direct_keys:
+            instruction = normalize_attention_instruction(container.get(key))
+            if instruction:
+                return instruction
+
+        for key in ("user_message", "chat_message", "message", "prompt"):
+            instruction = normalize_attention_instruction(container.get(key))
+            if instruction and looks_like_attention_request(instruction):
+                return instruction
+    return ""
+
+
+def apply_attention_request(
+    state: dict[str, Any],
+    payload: dict[str, Any],
+    message: dict[str, Any],
+    camera_id: str,
+) -> dict[str, Any] | None:
+    instruction = attention_request_from_inputs(payload, message)
+    if not instruction:
+        return None
+
+    previous = normalize_attention_instruction(state.get("attention_instruction"))
+    state["attention_instruction"] = instruction
+    state["attention_targets"] = [instruction]
+    state["last_attention_update"] = {
+        "camera_id": camera_id,
+        "instruction": instruction,
+        "updated_at_wall_ts": time.time(),
+    }
+    if previous == instruction:
+        return None
+
+    return {
+        "type": "video_watch_attention_updated",
+        "payload": {
+            "camera_id": camera_id,
+            "attention_instruction": instruction,
+            "attention_targets": [instruction],
+            "summary": f"Operator attention request updated: {instruction}",
+        },
+    }
+
+
+def detection_prompt(camera_id: str, attention_instruction: str | None = None) -> str:
     target_description = os.environ.get(
         "VISUAL_DETECTION_TARGETS",
         "notable people, equipment, objects, hazards, access activity, workflow activity, or other user-defined subjects",
+    )
+    attention_text = normalize_attention_instruction(attention_instruction)
+    attention_clause = (
+        f" The operator also asked you to pay particular attention to: {attention_text}."
+        if attention_text
+        else ""
     )
     return os.environ.get(
         "VISUAL_DETECTION_PROMPT",
@@ -632,7 +760,8 @@ def detection_prompt(camera_id: str) -> str:
             "You are monitoring a 24/7 video camera. Inspect the image and decide whether any configured "
             f"visual targets are present or active. Targets to watch for: {target_description}. Count only real "
             "visible subjects or activity; ignore shadows, reflections, signage text, static background clutter, "
-            "and uncertain guesses unless they are directly relevant to the configured targets. For every detection, "
+            f"and uncertain guesses unless they are directly relevant to the configured targets.{attention_clause} "
+            "For every detection, "
             "report the observable label, category, visible color if useful, position in the scene, and activity. "
             "Return only JSON with keys: detected boolean, detected_target boolean, detection_count integer, "
             "detections array of objects with label, category, color, position, activity, and confidence, confidence "
@@ -641,6 +770,220 @@ def detection_prompt(camera_id: str) -> str:
             f"risk_level one of low/medium/high, and visible_subjects array. Camera id: {camera_id}."
         ),
     )
+
+
+PERSON_TERMS = ("person", "people", "human", "worker", "visitor", "operator", "pedestrian")
+
+
+def person_like_count(detection: dict[str, Any]) -> int:
+    detections = detection.get("detections") if isinstance(detection.get("detections"), list) else []
+    detection_people = 0
+    for item in detections:
+        if not isinstance(item, dict):
+            continue
+        text = " ".join(
+            compact_string(item.get(key), limit=100).lower()
+            for key in ("label", "category", "activity")
+        )
+        if any(term in text for term in PERSON_TERMS):
+            detection_people += 1
+
+    visible_subjects = detection.get("visible_subjects") if isinstance(detection.get("visible_subjects"), list) else []
+    subject_people = sum(
+        1
+        for subject in visible_subjects
+        if any(term in compact_string(subject, limit=100).lower() for term in PERSON_TERMS)
+    )
+
+    count = safe_int(detection.get("detection_count"), 0)
+    text = " ".join(
+        compact_string(detection.get(key), limit=500).lower()
+        for key in ("summary", "detection_report", "activity_description")
+    )
+    inferred_people = count if count >= 2 and any(term in text for term in PERSON_TERMS) else 0
+    return max(detection_people, subject_people, inferred_people)
+
+
+def observation_from_detection(detection_payload: dict[str, Any]) -> dict[str, Any]:
+    detected = bool(detection_payload.get("detected_target"))
+    summary = compact_string(detection_payload.get("summary"), limit=500)
+    report = compact_string(detection_payload.get("detection_report"), limit=900)
+    activity = compact_string(detection_payload.get("activity_description"), limit=700)
+    fallback = "No configured targets were observed in the monitored scene."
+    return {
+        "frame_seq": detection_payload.get("frame_seq"),
+        "camera_id": detection_payload.get("camera_id"),
+        "video_position_seconds": detection_payload.get("video_position_seconds"),
+        "source_uri": detection_payload.get("source_uri"),
+        "stream_id": detection_payload.get("stream_id"),
+        "detected_target": detected,
+        "detection_count": safe_int(detection_payload.get("detection_count"), 0),
+        "confidence": safe_confidence(detection_payload.get("confidence")),
+        "risk_level": compact_string(detection_payload.get("risk_level"), limit=40) or "low",
+        "summary": summary or fallback,
+        "detection_report": report,
+        "activity_description": activity,
+        "visible_subjects": detection_payload.get("visible_subjects") if isinstance(detection_payload.get("visible_subjects"), list) else [],
+        "detections": detection_payload.get("detections") if isinstance(detection_payload.get("detections"), list) else [],
+        "person_like_count": person_like_count(detection_payload),
+        "attention_instruction": compact_string(detection_payload.get("attention_instruction"), limit=500),
+    }
+
+
+def what_happened_summary(observations: list[dict[str, Any]]) -> str:
+    if not observations:
+        return "No video frames have been analyzed yet."
+
+    last = observations[-1]
+    frame = last.get("frame_seq", "unknown")
+    camera_id = last.get("camera_id") or "the monitored camera"
+    if last.get("detected_target"):
+        report = compact_string(last.get("detection_report"), limit=500) or compact_string(last.get("summary"), limit=500)
+        activity = compact_string(last.get("activity_description"), limit=300)
+        details = f" Activity: {activity}" if activity else ""
+        return f"Most recently on frame {frame} from {camera_id}, {report}{details}"
+
+    previous_notable = next((item for item in reversed(observations[:-1]) if item.get("detected_target")), None)
+    if previous_notable:
+        notable_report = (
+            compact_string(previous_notable.get("detection_report"), limit=400)
+            or compact_string(previous_notable.get("summary"), limit=400)
+        )
+        return (
+            f"Most recently on frame {frame} from {camera_id}, no configured targets were observed. "
+            f"The last notable observation was frame {previous_notable.get('frame_seq')}: {notable_report}"
+        ).strip()
+
+    return (
+        f"Most recently on frame {frame} from {camera_id}, no configured targets were observed. "
+        f"{compact_string(last.get('summary'), limit=300)}"
+    ).strip()
+
+
+def update_conversation_context(state: dict[str, Any], detection_payload: dict[str, Any]) -> dict[str, Any]:
+    observation = observation_from_detection(detection_payload)
+    recent = state.get("recent_observations")
+    if not isinstance(recent, list):
+        recent = []
+    recent = [item for item in recent if isinstance(item, dict)]
+    recent.append(observation)
+    recent = recent[-10:]
+    state["recent_observations"] = recent
+    state["last_observation"] = observation
+    state["conversation_context"] = {
+        "what_happened": what_happened_summary(recent),
+        "last_observation": observation,
+        "recent_observations": recent[-5:],
+        "attention_instruction": compact_string(state.get("attention_instruction"), limit=500),
+    }
+    return observation
+
+
+def frame_observed_event(observation: dict[str, Any], conversation_summary: str = "") -> dict[str, Any]:
+    return {
+        "type": "video_watch_frame_observed",
+        "payload": {
+            "camera_id": observation.get("camera_id"),
+            "frame_seq": observation.get("frame_seq"),
+            "video_position_seconds": observation.get("video_position_seconds"),
+            "stream_id": observation.get("stream_id"),
+            "detected_target": observation.get("detected_target"),
+            "detection_count": observation.get("detection_count"),
+            "confidence": observation.get("confidence"),
+            "risk_level": observation.get("risk_level"),
+            "summary": observation.get("summary"),
+            "detection_report": observation.get("detection_report"),
+            "activity_description": observation.get("activity_description"),
+            "visible_subjects": observation.get("visible_subjects"),
+            "attention_instruction": observation.get("attention_instruction"),
+            "conversation_summary": conversation_summary or what_happened_summary([observation]),
+        },
+    }
+
+
+def human_notice_cooldown_seconds() -> float:
+    try:
+        return max(0.0, float(os.environ.get("HUMAN_NOTICE_COOLDOWN_SECONDS", "30")))
+    except ValueError:
+        return 30.0
+
+
+def scene_change_reason(detection_payload: dict[str, Any], previous_observation: dict[str, Any]) -> str:
+    if not detection_payload.get("detected_target"):
+        return ""
+
+    current_count = safe_int(detection_payload.get("detection_count"), 0)
+    previous_count = safe_int(previous_observation.get("detection_count"), 0)
+    current_people = person_like_count(detection_payload)
+    previous_people = safe_int(previous_observation.get("person_like_count"), 0)
+    risk_level = compact_string(detection_payload.get("risk_level"), limit=40).lower()
+    previous_risk = compact_string(previous_observation.get("risk_level"), limit=40).lower()
+
+    if current_people >= 2 and previous_people < 2:
+        return f"{current_people} people are now visible in the monitored scene."
+    if current_count >= 2 and previous_count == 0:
+        return f"{current_count} configured targets appeared in the monitored scene."
+    if current_count - previous_count >= 2:
+        return f"The scene changed from {previous_count} to {current_count} configured targets."
+    if risk_level == "high" and previous_risk != "high":
+        return "The scene is now marked high risk."
+    return ""
+
+
+def scene_change_signature(detection_payload: dict[str, Any]) -> str:
+    labels = []
+    detections = detection_payload.get("detections") if isinstance(detection_payload.get("detections"), list) else []
+    for item in detections:
+        if isinstance(item, dict):
+            label = compact_string(item.get("label"), limit=80)
+            position = compact_string(item.get("position"), limit=80)
+            labels.append(f"{label}@{position}".strip("@"))
+    if not labels:
+        labels = [compact_string(item, limit=80) for item in detection_payload.get("visible_subjects", [])]
+    return "|".join(sorted(item for item in labels if item))[:300] or compact_string(detection_payload.get("summary"), limit=300)
+
+
+def maybe_build_big_change_notice(
+    detection_payload: dict[str, Any],
+    state: dict[str, Any],
+    previous_observation: dict[str, Any],
+) -> dict[str, Any] | None:
+    reason = scene_change_reason(detection_payload, previous_observation)
+    if not reason:
+        return None
+
+    signature = f"video_big_change:{detection_payload.get('camera_id')}:{scene_change_signature(detection_payload)}"
+    now = time.time()
+    last_signature = state.get("last_human_notice_signature")
+    last_notice_ts = float(state.get("last_human_notice_wall_ts", 0.0) or 0.0)
+    if signature == last_signature and now - last_notice_ts < human_notice_cooldown_seconds():
+        return None
+
+    state["last_human_notice_signature"] = signature
+    state["last_human_notice_wall_ts"] = now
+    camera_id = compact_string(detection_payload.get("camera_id"), limit=80) or "video-watch"
+    frame_seq = detection_payload.get("frame_seq")
+    summary = compact_string(detection_payload.get("detection_report"), limit=600) or compact_string(detection_payload.get("summary"), limit=500)
+    message = compact_string(f"{reason} {summary}", limit=900)
+    notice_id = f"video-watch-big-change-{camera_id}-{frame_seq}"
+    return {
+        "type": "human_notice",
+        "channel": "human",
+        "payload": {
+            "notice_id": notice_id,
+            "kind": "video_big_change",
+            "level": "attention",
+            "title": "Big change in video",
+            "message": message,
+            "detail": summary,
+            "camera_id": camera_id,
+            "frame_seq": frame_seq,
+            "detection_count": detection_payload.get("detection_count"),
+            "visible_subjects": detection_payload.get("visible_subjects"),
+            "chat_delivery": "otterdesk_worker_chat",
+            "requires_ack": True,
+        },
+    }
 
 
 def should_alert(detection: dict[str, Any], state: dict[str, Any]) -> bool:
@@ -709,6 +1052,8 @@ def main() -> None:
     payload = load_json_env("MN_INPUT_FILE")
     context = load_json_env("MN_CONTEXT_FILE")
     state = context.get("agent_state") or initial_state()
+    if not isinstance(state, dict):
+        state = initial_state()
 
     frame_seq = int(payload.get("tick_seq") or state.get("frames_seen", 0) + 1)
     camera_id = payload.get("camera_id") or os.environ.get("CAMERA_ID", "video-watch")
@@ -720,12 +1065,16 @@ def main() -> None:
     stream = message.get("stream") or {}
 
     try:
+        attention_event = apply_attention_request(state, payload, message, camera_id)
+        if attention_event:
+            events.append(attention_event)
+        attention_instruction = normalize_attention_instruction(state.get("attention_instruction"))
         position = float(state.get("video_position_seconds", 0.0))
         if os.environ.get("MOCK_VLM_DETECTION", "false").strip().lower() in {"1", "true", "yes", "on"}:
             detection = mock_detection(frame_seq)
         else:
             frame, _content_type = extract_frame(source_uri, position, max_width)
-            detection = call_ollama(frame, detection_prompt(camera_id))
+            detection = call_ollama(frame, detection_prompt(camera_id, attention_instruction))
 
         detection_payload = {
             **detection,
@@ -734,12 +1083,22 @@ def main() -> None:
             "video_position_seconds": round(position, 3),
             "source_uri": source_uri,
             "stream_id": stream.get("stream_id"),
+            "attention_instruction": attention_instruction,
         }
+        previous_observation = state.get("last_observation") if isinstance(state.get("last_observation"), dict) else {}
+        observation = update_conversation_context(state, detection_payload)
+        conversation_context = state.get("conversation_context") if isinstance(state.get("conversation_context"), dict) else {}
+        conversation_summary = conversation_context.get("what_happened", "")
+        events.append(frame_observed_event(observation, conversation_summary))
         if detection["detected_target"]:
             state["detections"] = int(state.get("detections", 0)) + 1
             state["last_detection"] = detection_payload
             state["last_detection_report"] = detection_payload.get("detection_report")
             events.append({"type": "video_watch_detection", "payload": detection_payload})
+
+        big_change_notice = maybe_build_big_change_notice(detection_payload, state, previous_observation)
+        if big_change_notice:
+            events.append(big_change_notice)
 
         if should_alert(detection, state):
             status, slack_payload = post_slack(alert_text(camera_id, detection, frame_seq, source_uri))

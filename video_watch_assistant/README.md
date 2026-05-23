@@ -28,7 +28,7 @@ The runtime gives this workflow persistent events, local run artifacts, configur
 1. Loads `config/default.json` and any overrides.
 2. Resolves the video source, VL model endpoint, sampling cadence, and cooldown settings.
 3. Samples the default RTSP/H.264 stream over TCP.
-4. Emits typed events for frame analysis, visual detection, alert decisions, errors, and completion.
+4. Emits typed events for frame analysis, visual detection, operator attention updates, chat-facing human notices, alert decisions, errors, and completion.
 5. Writes `result.json`, `final_artifact.json`, `events.jsonl`, and optional dashboard metadata under the local run store.
 
 ## Example scenario
@@ -40,11 +40,14 @@ A video camera is sampled every 10 seconds. The agent checks whether configured 
 - Video source URI, transport, and codec. Leave `video_source.uri` as the default mapped endpoint; the pre-launch hook loops the bundled demo video into the selected local RTSP port and passes that runtime URI into validation and the worker.
 - VL model base URL and model name.
 - Detection confidence threshold, alert cooldown policy, and optional notification destination.
+- Optional operator attention requests, such as "pay attention to the red backpack near the left doorway."
 - Mock payloads for deterministic tests.
 
 ## Outputs
 
 - Visual detection events emitted when configured targets appear in the monitored scene.
+- Frame observation summaries that let OtterDesk local AI answer "what happened?" from live run context.
+- Chat-facing `human_notice` events when the video changes significantly, such as two people appearing.
 - Count, label, category, color, position, activity, and confidence details.
 - Alert decisions and notification payloads.
 - A final artifact summarizing the run, observations, and recommended next steps.
@@ -52,7 +55,7 @@ A video camera is sampled every 10 seconds. The agent checks whether configured 
 
 ## How to run
 
-The standard `scripts/pre-launch.sh` hook starts the local mapper before validation and launch. With the default mapped source, it loops `data/sample.mp4` into local MediaMTX and publishes the RTSP stream at the selected local port, usually `rtsp://127.0.0.1:8554/video-watch`. If that port is busy, the hook selects another local port and reports the resolved URI back to the runner. It does not open a browser or request webcam access.
+The standard `scripts/pre-launch.sh` hook starts the local mapper before validation and launch. With the default mapped source, it loops `data/sample.mp4` into local MediaMTX and publishes the RTSP stream at the selected local port, usually `rtsp://127.0.0.1:8554/video-watch`. If that port is busy, the hook selects another local port and reports the resolved URI back to the runner. The matching `scripts/post-launch.sh` hook is idempotent cleanup: it stops the recorded ffmpeg/MediaMTX mapper and any matching MediaMTX listeners on the selected RTSP/browser-preview ports after stop, cancel, failed launch, or completed cleanup. It does not open a browser or request webcam access.
 
 Run the detector script from the blueprint directory:
 
@@ -72,12 +75,14 @@ Point the stream URI at an approved video stream or facility RTSP source, tune s
 
 ## What to look for in results
 
-Check whether `events.jsonl` shows frame-analysis events, visual detection decisions, cooldown suppressions, alert delivery attempts, and clean completion. The final artifact should explain what was observed, what action was selected, and which operator follow-up is recommended.
+Check whether `events.jsonl` shows frame-observation summaries, visual detection decisions, chat-facing human notices, cooldown suppressions, alert delivery attempts, and clean completion. The final artifact should explain what was observed, what action was selected, and which operator follow-up is recommended.
 
 ## Runtime features demonstrated
 
 - Video stream sampling.
 - VL model decision path with deterministic mock support.
+- Co-worker conversation context for "what happened?" questions and operator attention requests.
+- Human notice events that OtterDesk chat can surface promptly during a running co-worker shift.
 - Detection count, label, category, color, position, and activity reporting.
 - Cooldown state and replayable events.
 - OpenShell detector worker isolation.
@@ -85,7 +90,7 @@ Check whether `events.jsonl` shows frame-analysis events, visual detection decis
 
 ## Test coverage
 
-The blueprint includes deterministic mock-friendly paths and catalog tests for standard config, manifest metadata, interface channels, run artifacts, and product documentation.
+The blueprint includes deterministic mock-friendly paths, procedural conversation tests, and catalog tests for standard config, manifest metadata, interface channels, run artifacts, and product documentation.
 
 ## Limitations
 

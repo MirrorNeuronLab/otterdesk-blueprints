@@ -269,6 +269,30 @@
       "agent_role": "AI assistant for reviewing portfolio stress scenarios and drafting risk notes."
     },
     "llm_agent_role": "AI assistant for reviewing portfolio stress scenarios and drafting risk notes.",
+    "memory_layer": {
+      "collection": "mn_memory",
+      "containers": "optional_sidecar",
+      "context_addr_env": "MN_CONTEXT_ADDR",
+      "conversation": {
+        "agent_role": "otterdesk_chat",
+        "include_human_events": true,
+        "include_runtime_events": true,
+        "include_runtime_logs": true,
+        "target_tokens": 2400,
+        "token_budget": 6000,
+        "use_model_compression": false
+      },
+      "conversation_enabled": true,
+      "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
+      "default_context_addr": "localhost:50052",
+      "enabled": true,
+      "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
+      "namespace": "portfolio_risk_review_assistant_context",
+      "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
+      "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
+      "sdk_distribution": "mirrorneuron-membrane-python-sdk",
+      "sdk_import_package": "mn_context_engine_sdk"
+    },
     "name": "Portfolio Risk Review Assistant",
     "output": "Plain-language portfolio risk notes, stress results, and draft rebalancing options.",
     "output_contract": {
@@ -290,7 +314,8 @@
       "macro shock simulation",
       "portfolio risk review",
       "LLM risk notes",
-      "decision feedback"
+      "decision feedback",
+      "Membrane context memory optimization"
     ],
     "simulation": {
       "actions": [
