@@ -7,6 +7,7 @@
     "job_name": "video-watch-assistant",
     "name": "Video Watch Assistant",
     "path": "video_watch_assistant",
+    "type": "service",
     "product": {
       "agent_role": "AI assistant for reviewing video stream activity and preparing visual detection alerts.",
       "customizable_for": "Video monitoring, configurable visual detection, facility operations, and site safety workflows.",

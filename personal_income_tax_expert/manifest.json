@@ -3,7 +3,6 @@
   "graph_id": "personal_income_tax_expert_v1",
   "job_name": "personal-income-tax-expert",
   "description": "Reads a local folder of tax PDFs, extracts source evidence, proposes a draft Form 1040 line map, reviews the packet, and explains the result like a personal tax advisor.",
-  "daemon": false,
   "license": "LICENSE.md",
   "term": "TERM.md",
   "requirements": {

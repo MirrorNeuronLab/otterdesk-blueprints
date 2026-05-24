@@ -488,7 +488,6 @@
   },
   "streams": {},
   "triggers": {
-    "daemon": false,
     "schedule": null,
     "sources": [],
     "type": "manual"

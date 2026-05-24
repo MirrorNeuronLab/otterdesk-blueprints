@@ -1,5 +1,4 @@
 {
-  "daemon": true,
   "description": "Watches a mapped local video stream, detects configured visual targets, and reports count, label, category, color, position, activity, and alert status for review.",
   "edges": [
     {
@@ -39,6 +38,7 @@
   "license": "LICENSE.md",
   "term": "TERM.md",
   "manifest_version": "1.0",
+  "type": "service",
   "requirements": {
     "cpu": {
       "min_cores": 1

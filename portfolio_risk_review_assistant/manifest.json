@@ -1,5 +1,4 @@
 {
-  "daemon": false,
   "description": "Stress-tests a portfolio against market crashes, rate shocks, and liquidity pressure, then explains risks and possible rebalancing options in plain language.",
   "edges": [
     {

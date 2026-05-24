@@ -694,7 +694,7 @@ The selected error mode changes control flow only. It must not suppress logs, ev
 
 ## State And Checkpoint Contract
 
-Long-running, daemon, live-input, stream, or multi-stage blueprints should declare how runtime state is stored and resumed.
+Long-running service, live-input, stream, or multi-stage blueprints should declare how runtime state is stored and resumed.
 
 Recommended state config shape:
 
@@ -833,7 +833,7 @@ Supported trigger types:
 - `live_input`
 - `webhook`
 - `stream`
-- `daemon`
+- `service`
 - `batch`
 
 Recommended trigger config shape:
@@ -841,20 +841,19 @@ Recommended trigger config shape:
 ```json
 {
   "triggers": {
-    "type": "live_input",
+    "type": "service",
     "sources": [
       "input_skills.deal_room",
       "input_skills.ops_channel"
     ],
-    "schedule": null,
-    "daemon": true
+    "schedule": null
   }
 }
 ```
 
 If an input skill has `live: true`, the blueprint should declare a `live_input` trigger or another trigger that explains how live updates are received. Scheduled triggers should use a stable schedule representation owned by the orchestration layer rather than ad hoc worker sleep loops.
 
-`daemon: true` means the blueprint expects to remain active after initialization. `batch` means the blueprint processes a bounded input set and exits.
+Top-level manifest `type: "service"` means the blueprint expects to remain active after initialization. Omitted top-level `type` means the blueprint defaults to a finite batch run.
 
 ## Backpressure And Rate Limit Contract
 
@@ -1078,7 +1077,7 @@ Edges must include:
 
 Multi-agent workflows should keep message types stable and explicit. Avoid implicit handoffs through shared files unless the artifact is also declared in metadata or output contracts.
 
-Long-running blueprints should set `daemon: true`. Finite batch blueprints should set `daemon: false` or omit it when the default is finite.
+Long-running blueprints should set top-level manifest `type: "service"`. Finite batch blueprints should omit top-level `type`.
 
 ### Custom OpenShell Image Port Note
 
@@ -1347,11 +1346,11 @@ Use this checklist to separate universal requirements from feature-specific requ
 - External output destinations are declared as output skills and combined as fan-out after local run-store writes.
 - TCP outputs use fixed external ports: `8080` for primary output and `8081` for fallback or secondary output.
 - Persisted logs use structured records and canonical levels: `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, and `CRITICAL`.
-- Long-running, daemon, live, or stream blueprints declare state, checkpoint, resume, and idempotency behavior.
+- Long-running service, live, or stream blueprints declare state, checkpoint, resume, and idempotency behavior.
 - Blueprints that require external systems declare required and optional capabilities before launch.
 - Blueprints that need host-side setup before validation or submission use the standard `scripts/pre-launch.sh` hook and signal readiness through `MN_PRE_LAUNCH_READY_FILE`.
 - Blueprints that process sensitive, business, operational, financial, health, media, or connector data classify handled data and define logging, LLM, output-skill, and artifact behavior.
-- Blueprints with scheduled, live, webhook, stream, daemon, or batch execution declare trigger type.
+- Blueprints with scheduled, live, webhook, stream, service, or batch execution declare trigger type.
 - Live, stream, or high-volume blueprints declare backpressure and rate-limit behavior.
 - Deterministic or replayable blueprints declare seed, replay inputs/events, and mock LLM behavior.
 - Blueprints with validator-consumed schemas declare schema ids for config, inputs, events, final artifacts, input skills, output skills, and handoffs.

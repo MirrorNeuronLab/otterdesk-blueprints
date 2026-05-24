@@ -1,5 +1,4 @@
 {
-  "daemon": false,
   "description": "Reviews ZIP-code history, broker notes, financing constraints, and deal memory to rank property opportunities and explain which ones deserve attention.",
   "edges": [
     {

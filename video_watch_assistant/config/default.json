@@ -473,7 +473,6 @@
     }
   },
   "triggers": {
-    "daemon": true,
     "schedule": null,
     "sources": [
       "video_watch_stream"
