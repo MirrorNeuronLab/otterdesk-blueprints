@@ -4,6 +4,8 @@ import importlib.util
 import json
 from pathlib import Path
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parents[1]
 RUNNER_PATH = (
@@ -29,10 +31,20 @@ def _load_runner():
     return _load_module(RUNNER_PATH, "personal_income_tax_expert_runner")
 
 
+@pytest.fixture(autouse=True)
+def clear_blueprint_config_env(monkeypatch):
+    monkeypatch.delenv("MN_BLUEPRINT_CONFIG_JSON", raising=False)
+    monkeypatch.delenv("MN_BLUEPRINT_CONFIG_PATH", raising=False)
+
+
 def test_personal_tax_expert_speaks_like_advisor_and_prepares_1040_packet(tmp_path):
     runner = _load_runner()
 
-    result = runner.run_blueprint(runs_root=tmp_path, run_id="tax-advisor-unit")
+    result = runner.run_blueprint(
+        config={"tax_documents": {"folder_path": ""}, "inputs": {"payload": {"document_folder": ""}}},
+        runs_root=tmp_path,
+        run_id="tax-advisor-unit",
+    )
     artifact = result["final_artifact"]
 
     assert artifact["type"] == "prepared_1040_tax_packet"
@@ -77,9 +89,72 @@ def test_personal_tax_expert_reads_local_folder_fixture(tmp_path):
     assert result["final_artifact"]["prepared_form_1040"]["line_map"]["2b_taxable_interest"] == "$55.25"
 
 
+def test_personal_tax_expert_reads_staged_env_config_folder(tmp_path, monkeypatch):
+    runner = _load_runner()
+    docs = tmp_path / "mn_local_inputs" / "tax_documents"
+    docs.mkdir(parents=True)
+    (docs / "w2.txt").write_text(
+        "Form W-2 Wage and Tax Statement. Box 1 wages 123456.00. Box 2 federal income tax withheld 22000.00.",
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv(
+        "MN_BLUEPRINT_CONFIG_JSON",
+        json.dumps(
+            {
+                "tax_documents": {
+                    "folder_path": "mn_local_inputs/tax_documents",
+                    "recommended_forms": ["W-2"],
+                },
+                "inputs": {
+                    "payload": {
+                        "document_folder": "mn_local_inputs/tax_documents",
+                        "filing_status": "single",
+                        "tax_year": 2025,
+                    }
+                },
+            }
+        ),
+    )
+
+    result = runner.run_blueprint(runs_root=tmp_path, run_id="tax-staged-env-unit")
+
+    assert result["document_summary"]["document_types"]["W-2"] == 1
+    assert result["final_artifact"]["prepared_form_1040"]["line_map"]["1z_wages"] == "$123,456.00"
+    assert "A real local tax document folder has not been provided." not in result["warnings"]
+
+
 def test_personal_tax_folder_validator_accepts_demo_mode(monkeypatch, capsys):
     validator = _load_module(VALIDATOR_PATH, "personal_income_tax_expert_validator")
     monkeypatch.setenv("MN_BLUEPRINT_CONFIG_JSON", json.dumps({"tax_documents": {"folder_path": ""}}))
 
     assert validator.main() == 0
     assert "demo sample documents" in capsys.readouterr().out
+
+
+def test_personal_tax_folder_validator_accepts_staged_runtime_path(tmp_path, monkeypatch, capsys):
+    validator = _load_module(VALIDATOR_PATH, "personal_income_tax_expert_staged_validator")
+    staged = tmp_path / "payloads" / "tax_workflow" / "mn_local_inputs" / "tax_documents"
+    staged.mkdir(parents=True)
+    (staged / "w2.txt").write_text("Form W-2 Box 1 wages 100", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv(
+        "MN_BLUEPRINT_CONFIG_JSON",
+        json.dumps(
+            {
+                "tax_documents": {"folder_path": "mn_local_inputs/tax_documents"},
+                "local_inputs": {
+                    "folders": [
+                        {
+                            "config_path": "tax_documents.folder_path",
+                            "payload_path": "tax_workflow/mn_local_inputs/tax_documents",
+                            "runtime_path": "mn_local_inputs/tax_documents",
+                        }
+                    ]
+                },
+            }
+        ),
+    )
+
+    assert validator.main() == 0
+    assert "Validated tax document folder with 1 candidate" in capsys.readouterr().out

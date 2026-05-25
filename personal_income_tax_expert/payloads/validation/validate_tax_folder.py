@@ -17,7 +17,7 @@ def main() -> int:
     if not folder:
         print("No tax document folder configured; demo sample documents will be used until the user selects a local folder.")
         return 0
-    path = Path(str(folder)).expanduser()
+    path = resolve_tax_folder(config, str(folder))
     if not path.exists() or not path.is_dir():
         print(
             json.dumps(
@@ -63,6 +63,24 @@ def main() -> int:
         return 1
     print(f"Validated tax document folder with {len(files)} candidate file(s): {path}")
     return 0
+
+
+def resolve_tax_folder(config: dict, folder: str) -> Path:
+    path = Path(folder).expanduser()
+    if path.exists():
+        return path
+
+    for spec in ((config.get("local_inputs") or {}).get("folders") or []):
+        if not isinstance(spec, dict):
+            continue
+        runtime_path = str(spec.get("runtime_path") or spec.get("path_in_runtime") or "").strip()
+        payload_path = str(spec.get("payload_path") or spec.get("target_path") or "").strip()
+        if not runtime_path or not payload_path or runtime_path != folder:
+            continue
+        candidate = Path("payloads") / payload_path
+        if candidate.exists():
+            return candidate
+    return path
 
 
 if __name__ == "__main__":

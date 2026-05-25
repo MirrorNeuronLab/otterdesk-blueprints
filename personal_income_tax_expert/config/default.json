@@ -98,6 +98,23 @@
       }
     ]
   },
+  "local_inputs": {
+    "folders": [
+      {
+        "config_path": "tax_documents.folder_path",
+        "payload_path": "tax_workflow/mn_local_inputs/tax_documents",
+        "runtime_path": "mn_local_inputs/tax_documents",
+        "allowed_extensions": [
+          ".pdf",
+          ".txt",
+          ".json"
+        ],
+        "linked_config_paths": [
+          "inputs.payload.document_folder"
+        ]
+      }
+    ]
+  },
   "tax_knowledge": {
     "standard_deduction_2025": {
       "single": 15750,

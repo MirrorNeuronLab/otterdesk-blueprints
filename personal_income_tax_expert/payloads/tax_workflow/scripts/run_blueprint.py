@@ -83,6 +83,10 @@ except ModuleNotFoundError:  # pragma: no cover - exercised by host-local runtim
         input_file: str | Path | None = None,
         write_run_store: bool | None = None,
     ) -> dict[str, Any]:
+        if config_path is None:
+            config_path = os.environ.get("MN_BLUEPRINT_CONFIG_PATH")
+        if config_json is None:
+            config_json = os.environ.get("MN_BLUEPRINT_CONFIG_JSON")
         resolved = _read_json_object(Path(default_config_path)) if Path(default_config_path).exists() else {}
         if config_path:
             resolved = _deep_merge(resolved, _read_json_object(Path(config_path)))
@@ -334,7 +338,7 @@ def run_blueprint(
         write_run_store=write_run_store,
     )
     adapter_inputs, input_source = resolve_input_overrides(resolved_config)
-    runtime_inputs = {**adapter_inputs, **_runtime_message_payload(), **(inputs or {})}
+    runtime_inputs = _merge_runtime_inputs(adapter_inputs, _runtime_message_payload(), inputs or {})
     context = create_runtime_context(blueprint_id, resolved_config, runtime_inputs, input_source)
     started_at = utc_now_iso()
     context.start()
@@ -406,12 +410,7 @@ def run_blueprint(
 
 
 def _load_documents(config: dict[str, Any], runtime_inputs: dict[str, Any]) -> list[dict[str, Any]]:
-    folder = (
-        runtime_inputs.get("document_folder")
-        or runtime_inputs.get("tax_document_folder")
-        or (config.get("tax_documents") or {}).get("folder_path")
-        or ""
-    )
+    folder = _document_folder_value(config, runtime_inputs)
     folder_path = Path(str(folder)).expanduser() if folder else None
     if folder_path and folder_path.exists() and folder_path.is_dir() and extract_tax_pdf_folder is not None:
         return extract_tax_pdf_folder(folder_path)
@@ -521,7 +520,7 @@ def _proposal_agent(
             "Standard deduction is used until itemized deductions are supplied and reviewed.",
             "State tax return preparation is outside this federal 1040 draft packet.",
         ],
-        "questions_for_user": _questions_for_user(intake, values, runtime_inputs),
+        "questions_for_user": _questions_for_user(intake, values, runtime_inputs, config),
     }
 
 
@@ -658,9 +657,14 @@ def _record_evidence(values: dict[str, Any], document: dict[str, Any], doc_type:
     )
 
 
-def _questions_for_user(intake: dict[str, Any], values: dict[str, Any], runtime_inputs: dict[str, Any]) -> list[str]:
+def _questions_for_user(
+    intake: dict[str, Any],
+    values: dict[str, Any],
+    runtime_inputs: dict[str, Any],
+    config: dict[str, Any],
+) -> list[str]:
     questions = []
-    if not runtime_inputs.get("document_folder") and not runtime_inputs.get("tax_document_folder"):
+    if not _document_folder_value(config, runtime_inputs):
         questions.append("tax_document_folder")
     if "W-2" not in intake["found_forms"]:
         questions.append("Do you have W-2 wages, self-employment income, or only investment/retirement income?")
@@ -670,6 +674,25 @@ def _questions_for_user(intake: dict[str, Any], values: dict[str, Any], runtime_
         questions.append("Did any form report federal income tax withholding?")
     questions.append("Will you claim the standard deduction, or do you have itemized deductions to review?")
     return questions
+
+
+def _merge_runtime_inputs(*sources: dict[str, Any]) -> dict[str, Any]:
+    merged: dict[str, Any] = {}
+    for source in sources:
+        for key, value in source.items():
+            if value in (None, "") and key in merged:
+                continue
+            merged[key] = value
+    return merged
+
+
+def _document_folder_value(config: dict[str, Any], runtime_inputs: dict[str, Any]) -> Any:
+    return (
+        runtime_inputs.get("document_folder")
+        or runtime_inputs.get("tax_document_folder")
+        or (config.get("tax_documents") or {}).get("folder_path")
+        or ""
+    )
 
 
 def _normalize_status(value: str) -> str:
