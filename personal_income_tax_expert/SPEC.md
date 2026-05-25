@@ -3,7 +3,9 @@
 ## Purpose
 
 Create a local-first tax document workflow that prepares a reviewable draft
-federal Form 1040 packet from user-supplied tax PDFs.
+federal Form 1040 packet from user-supplied tax PDFs. The workflow runs a
+specialist LLM tax-preparation team and produces a draft review packet, not a
+filing-ready return.
 
 ## Inputs
 
@@ -40,15 +42,26 @@ The blueprint uses local knowledge files and current IRS source anchors for:
    artifacts.
 4. Classify known documents before mapping values.
 5. Keep every mapped value tied to source document evidence.
+6. Use LLM specialist agents to understand document meaning, extract fields,
+   prepare workpapers, audit assumptions, and write the report, with
+   deterministic fallback values for tests and offline runs.
 
 ## Agents
 
-- Document intake agent: classifies documents and checks OCR needs.
-- Tax proposal agent: maps extracted values to likely Form 1040 lines.
-- Tax review agent: checks assumptions, unsupported credits/deductions, and
-  missing documents.
+- Client intake coordinator: confirms scope and missing taxpayer facts.
+- Document understanding agent: classifies documents and explains each form's
+  tax role.
+- Source field extractor: extracts box-level facts and source evidence.
+- Income preparer: prepares income-line workpapers.
+- Deductions and credits preparer: prepares deduction and credit review notes.
+- Form 1040 assembler: maps supported facts to draft Form 1040 lines.
+- Tax auditor: checks assumptions, unsupported credits/deductions, OCR gaps,
+  schedule triggers, and missing documents.
+- Manager reviewer: records blockers and keeps the packet not approved for
+  filing.
+- Advisor report writer: explains the result in plain English.
 - Packet writer agent: writes `final_artifact.json` with the draft line map,
-  advisor message, and next actions.
+  advisor message, next actions, Markdown report, and PDF review packet.
 
 ## Output Contract
 
@@ -58,6 +71,11 @@ The final artifact contains:
 - `title`: `Prepared Form 1040 Draft - What Is a 1040 Tax Form`
 - `prepared_form_1040.line_map`
 - `prepared_form_1040.source_evidence`
+- `document_dossier`
+- `preparer_workpapers`
+- `audit_review`
+- `manager_review`
+- `llm`
 - `advisor_message`
 - `conversation_context`
 - `review`
@@ -67,8 +85,9 @@ The final artifact contains:
 The status must remain `draft_needs_review` unless a future human-reviewed
 filing workflow explicitly changes it.
 
-When `outputs.folder_path` is writable, the worker writes a JSON packet and a
-Markdown report named with the blueprint id and run id.
+When `outputs.folder_path` is writable, the worker writes a JSON packet,
+Markdown report, and PDF tax review packet named with the blueprint id and run
+id.
 
 ## Safety Rules
 

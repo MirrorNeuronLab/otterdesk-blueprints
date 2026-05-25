@@ -31,6 +31,23 @@ def _load_runner():
     return _load_module(RUNNER_PATH, "personal_income_tax_expert_runner")
 
 
+class EchoingHugeLLM:
+    provider = "test"
+    model = "huge-echo-test"
+
+    def __init__(self):
+        self.calls = 0
+        self.fallback_calls = 0
+
+    def generate_json(self, *, system_prompt, user_prompt, fallback):
+        self.calls += 1
+        response = dict(fallback)
+        response["payload_echo"] = "x" * 5_000_000
+        if "advisor_message" in response:
+            response["advisor_message"] = "A" * 80_000
+        return response
+
+
 @pytest.fixture(autouse=True)
 def clear_blueprint_config_env(monkeypatch):
     monkeypatch.delenv("MN_BLUEPRINT_CONFIG_JSON", raising=False)
@@ -39,9 +56,15 @@ def clear_blueprint_config_env(monkeypatch):
 
 def test_personal_tax_expert_speaks_like_advisor_and_prepares_1040_packet(tmp_path):
     runner = _load_runner()
+    output_dir = tmp_path / "exports"
 
     result = runner.run_blueprint(
-        config={"tax_documents": {"folder_path": ""}, "inputs": {"payload": {"document_folder": ""}}},
+        config={
+            "llm": {"mode": "fake"},
+            "tax_documents": {"folder_path": ""},
+            "inputs": {"payload": {"document_folder": ""}},
+            "outputs": {"folder_path": str(output_dir)},
+        },
         runs_root=tmp_path,
         run_id="tax-advisor-unit",
     )
@@ -57,8 +80,28 @@ def test_personal_tax_expert_speaks_like_advisor_and_prepares_1040_packet(tmp_pa
     assert "I took a first pass through your tax packet" in artifact["advisor_message"]
     assert "Before we treat this as ready" in artifact["advisor_message"]
     assert artifact["conversation_context"]["advisor_voice"] == "personal_tax_advisor"
-    assert any(item["agent"] == "tax_review_agent" for item in result["timeline"])
+    assert "document_dossier" in artifact
+    assert "preparer_workpapers" in artifact
+    assert "audit_review" in artifact
+    assert "manager_review" in artifact
+    assert artifact["manager_review"]["manager_signoff"] == "not_approved_for_filing"
+    assert result["llm"]["calls"] == result["llm"]["specialist_stage_count"] == 9
+    assert any(item["agent"] == "tax_auditor" for item in result["timeline"])
+    assert any(item["agent"] == "manager_reviewer" for item in result["timeline"])
     assert (tmp_path / "tax-advisor-unit" / "final_artifact.json").exists()
+    output_kinds = {item["kind"] for item in result["output_files"]}
+    assert output_kinds == {"final_artifact_json", "report_markdown", "tax_review_packet_pdf"}
+    for item in result["output_files"]:
+        assert Path(item["path"]).exists()
+
+    reader = pytest.importorskip("pypdf").PdfReader(
+        next(Path(item["path"]) for item in result["output_files"] if item["kind"] == "tax_review_packet_pdf")
+    )
+    pdf_text = "\n".join(page.extract_text() or "" for page in reader.pages)
+    assert "Prepared Form 1040 Draft" in pdf_text
+    assert "Draft review packet only" in pdf_text
+    assert "Draft Form 1040 Line Map" in pdf_text
+    assert "Manager Review And Signoff" in pdf_text
 
 
 def test_personal_tax_expert_reads_local_folder_fixture(tmp_path):
@@ -70,6 +113,7 @@ def test_personal_tax_expert_reads_local_folder_fixture(tmp_path):
         encoding="utf-8",
     )
     config = {
+        "llm": {"mode": "fake"},
         "tax_documents": {
             "folder_path": str(docs),
             "recommended_forms": ["1099-INT"],
@@ -81,12 +125,35 @@ def test_personal_tax_expert_reads_local_folder_fixture(tmp_path):
                 "tax_year": 2025,
             }
         },
+        "outputs": {"folder_path": str(tmp_path / "exports")},
     }
 
     result = runner.run_blueprint(config=config, runs_root=tmp_path, run_id="tax-folder-unit")
 
     assert result["document_summary"]["document_types"]["1099-INT"] == 1
     assert result["final_artifact"]["prepared_form_1040"]["line_map"]["2b_taxable_interest"] == "$55.25"
+    assert result["llm"]["calls"] == 9
+
+
+def test_personal_tax_expert_compacts_huge_llm_echo_for_transport(tmp_path):
+    runner = _load_runner()
+    llm = EchoingHugeLLM()
+    result = runner.run_blueprint(
+        llm_client=llm,
+        config={
+            "tax_documents": {"folder_path": ""},
+            "inputs": {"payload": {"document_folder": ""}},
+            "outputs": {"folder_path": str(tmp_path / "exports")},
+        },
+        runs_root=tmp_path,
+        run_id="tax-huge-echo-unit",
+    )
+
+    encoded = json.dumps(result, sort_keys=True).encode("utf-8")
+    assert len(encoded) < 4_000_000
+    assert "payload_echo" not in encoded.decode("utf-8", errors="ignore")
+    assert result["llm"]["calls"] == 9
+    assert result["final_artifact"]["prepared_form_1040"]["line_map"]["1z_wages"] == "$86,000.00"
 
 
 def test_personal_tax_expert_reads_staged_env_config_folder(tmp_path, monkeypatch):
@@ -102,6 +169,7 @@ def test_personal_tax_expert_reads_staged_env_config_folder(tmp_path, monkeypatc
         "MN_BLUEPRINT_CONFIG_JSON",
         json.dumps(
             {
+                "llm": {"mode": "fake"},
                 "tax_documents": {
                     "folder_path": "mn_local_inputs/tax_documents",
                     "recommended_forms": ["W-2"],
@@ -113,6 +181,7 @@ def test_personal_tax_expert_reads_staged_env_config_folder(tmp_path, monkeypatc
                         "tax_year": 2025,
                     }
                 },
+                "outputs": {"folder_path": str(tmp_path / "exports")},
             }
         ),
     )

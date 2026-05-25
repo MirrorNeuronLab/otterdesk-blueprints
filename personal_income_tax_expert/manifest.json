@@ -2,7 +2,7 @@
   "manifest_version": "1.0",
   "graph_id": "personal_income_tax_expert_v1",
   "job_name": "personal-income-tax-expert",
-  "description": "Reads a local folder of tax PDFs, extracts source evidence, proposes a draft Form 1040 line map, reviews the packet, and explains the result like a personal tax advisor.",
+  "description": "Runs an LLM-assisted tax preparation team over local tax documents, builds draft Form 1040 workpapers, audits the packet, and writes JSON, Markdown, and PDF review outputs.",
   "license": "LICENSE.md",
   "term": "TERM.md",
   "requirements": {
@@ -20,30 +20,30 @@
     }
   },
   "entrypoints": [
-    "document_intake_agent"
+    "client_intake_coordinator"
   ],
   "initial_inputs": {
-    "document_intake_agent": [
+    "client_intake_coordinator": [
       {
         "scenario": "personal_income_tax_packet",
         "tax_year": 2025,
         "filing_status": "single",
         "document_folder": "",
-        "description": "Prepare a draft Form 1040 packet from a local folder of tax PDFs, using bundled sample documents until the user selects a real folder."
+        "description": "Prepare a draft Form 1040 review packet from a local folder of tax PDFs, using bundled sample documents until the user selects a real folder."
       }
     ]
   },
   "nodes": [
     {
-      "node_id": "document_intake_agent",
+      "node_id": "client_intake_coordinator",
       "uses": "mn-agents.data_python_executor@1.0.0",
       "with": {
-        "role": "document_intake_agent",
+        "role": "client_intake_coordinator",
         "node_type": "generic",
         "name_prefix": "personal_income_tax_expert",
         "script": "scripts/run_blueprint.py",
         "upload_path": "tax_workflow",
-        "output_message_type": "tax_intake_complete",
+        "output_message_type": "client_intake_complete",
         "environment": {
           "MN_BLUEPRINT_ID": "personal_income_tax_expert",
           "PYTHONPATH": "${MN_SKILLS_ROOT}/blueprint_support_skill/src:${MN_SKILLS_ROOT}/tax_pdf_ocr_skill/src:${MN_SKILLS_ROOT}/pdf_extract_skill/src",
@@ -55,27 +55,99 @@
       }
     },
     {
-      "node_id": "tax_proposal_agent",
+      "node_id": "document_understanding_agent",
       "uses": "mn-agents.data_python_executor@1.0.0",
       "with": {
-        "role": "tax_proposal_agent",
+        "role": "document_understanding_agent",
         "node_type": "generic",
         "name_prefix": "personal_income_tax_expert",
         "script": "scripts/run_blueprint.py",
         "upload_path": "tax_workflow",
-        "output_message_type": "tax_proposal"
+        "output_message_type": "document_understanding_complete"
       }
     },
     {
-      "node_id": "tax_review_agent",
+      "node_id": "source_field_extractor",
       "uses": "mn-agents.data_python_executor@1.0.0",
       "with": {
-        "role": "tax_review_agent",
+        "role": "source_field_extractor",
         "node_type": "generic",
         "name_prefix": "personal_income_tax_expert",
         "script": "scripts/run_blueprint.py",
         "upload_path": "tax_workflow",
-        "output_message_type": "tax_review"
+        "output_message_type": "source_fields_extracted"
+      }
+    },
+    {
+      "node_id": "income_preparer",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "with": {
+        "role": "income_preparer",
+        "node_type": "generic",
+        "name_prefix": "personal_income_tax_expert",
+        "script": "scripts/run_blueprint.py",
+        "upload_path": "tax_workflow",
+        "output_message_type": "income_workpaper"
+      }
+    },
+    {
+      "node_id": "deductions_credits_preparer",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "with": {
+        "role": "deductions_credits_preparer",
+        "node_type": "generic",
+        "name_prefix": "personal_income_tax_expert",
+        "script": "scripts/run_blueprint.py",
+        "upload_path": "tax_workflow",
+        "output_message_type": "deductions_credits_workpaper"
+      }
+    },
+    {
+      "node_id": "form_1040_assembler",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "with": {
+        "role": "form_1040_assembler",
+        "node_type": "generic",
+        "name_prefix": "personal_income_tax_expert",
+        "script": "scripts/run_blueprint.py",
+        "upload_path": "tax_workflow",
+        "output_message_type": "form_1040_draft"
+      }
+    },
+    {
+      "node_id": "tax_auditor",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "with": {
+        "role": "tax_auditor",
+        "node_type": "generic",
+        "name_prefix": "personal_income_tax_expert",
+        "script": "scripts/run_blueprint.py",
+        "upload_path": "tax_workflow",
+        "output_message_type": "tax_audit_review"
+      }
+    },
+    {
+      "node_id": "manager_reviewer",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "with": {
+        "role": "manager_reviewer",
+        "node_type": "generic",
+        "name_prefix": "personal_income_tax_expert",
+        "script": "scripts/run_blueprint.py",
+        "upload_path": "tax_workflow",
+        "output_message_type": "manager_review"
+      }
+    },
+    {
+      "node_id": "advisor_report_writer",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "with": {
+        "role": "advisor_report_writer",
+        "node_type": "generic",
+        "name_prefix": "personal_income_tax_expert",
+        "script": "scripts/run_blueprint.py",
+        "upload_path": "tax_workflow",
+        "output_message_type": "advisor_report"
       }
     },
     {
@@ -110,21 +182,57 @@
   ],
   "edges": [
     {
-      "edge_id": "intake_to_proposal",
-      "from_node": "document_intake_agent",
-      "message_type": "tax_intake_complete",
-      "to_node": "tax_proposal_agent"
+      "edge_id": "intake_to_document_understanding",
+      "from_node": "client_intake_coordinator",
+      "message_type": "client_intake_complete",
+      "to_node": "document_understanding_agent"
     },
     {
-      "edge_id": "proposal_to_review",
-      "from_node": "tax_proposal_agent",
-      "message_type": "tax_proposal",
-      "to_node": "tax_review_agent"
+      "edge_id": "document_understanding_to_source_fields",
+      "from_node": "document_understanding_agent",
+      "message_type": "document_understanding_complete",
+      "to_node": "source_field_extractor"
     },
     {
-      "edge_id": "review_to_packet_writer",
-      "from_node": "tax_review_agent",
-      "message_type": "tax_review",
+      "edge_id": "source_fields_to_income",
+      "from_node": "source_field_extractor",
+      "message_type": "source_fields_extracted",
+      "to_node": "income_preparer"
+    },
+    {
+      "edge_id": "income_to_deductions_credits",
+      "from_node": "income_preparer",
+      "message_type": "income_workpaper",
+      "to_node": "deductions_credits_preparer"
+    },
+    {
+      "edge_id": "deductions_credits_to_1040",
+      "from_node": "deductions_credits_preparer",
+      "message_type": "deductions_credits_workpaper",
+      "to_node": "form_1040_assembler"
+    },
+    {
+      "edge_id": "1040_to_audit",
+      "from_node": "form_1040_assembler",
+      "message_type": "form_1040_draft",
+      "to_node": "tax_auditor"
+    },
+    {
+      "edge_id": "audit_to_manager",
+      "from_node": "tax_auditor",
+      "message_type": "tax_audit_review",
+      "to_node": "manager_reviewer"
+    },
+    {
+      "edge_id": "manager_to_advisor",
+      "from_node": "manager_reviewer",
+      "message_type": "manager_review",
+      "to_node": "advisor_report_writer"
+    },
+    {
+      "edge_id": "advisor_to_packet_writer",
+      "from_node": "advisor_report_writer",
+      "message_type": "advisor_report",
       "to_node": "form_1040_packet_writer"
     },
     {
@@ -151,21 +259,23 @@
     "blueprint_id": "personal_income_tax_expert",
     "name": "Personal Income Tax Expert",
     "category": "finance",
-    "description": "Reads a local folder of tax PDFs, extracts source evidence, proposes a draft Form 1040 line map, reviews the packet, and explains the result like a personal tax advisor.",
-    "problem_solved": "Tax source documents arrive as scattered PDFs; users need a private workflow that turns W-2, 1099-INT, 1099-R, and related forms into a reviewable Form 1040 draft packet.",
+    "description": "Runs an LLM-assisted tax preparation team over local tax documents, builds draft Form 1040 workpapers, audits the packet, and writes JSON, Markdown, and PDF review outputs.",
+    "problem_solved": "Tax source documents arrive as scattered PDFs; users need a private workflow that turns W-2, 1099-INT, 1099-R, and related forms into a reviewable Form 1040 draft packet with preparer workpapers and manager review.",
     "target_user": "Individual taxpayers, household finance operators, bookkeepers, and tax preparers who want a source-grounded draft before using filing software.",
     "target_users": "Individual taxpayers, household finance operators, bookkeepers, and tax preparers.",
     "customizable_for": "Personal federal tax preparation, 401(k) and retirement distribution review, interest income intake, brokerage statements, mortgage interest review, and tax document checklists.",
-    "simulation_type": "Document automation tax preparation workflow with proposal and review agents.",
-    "llm_agent_role": "Personal tax advisor who prepares a source-grounded draft Form 1040 packet while asking careful review questions.",
-    "agent_role": "Personal tax advisor who prepares a source-grounded draft Form 1040 packet while asking careful review questions.",
-    "output": "Prepared draft Form 1040 packet with source evidence, assumptions, review warnings, and advisor-style next steps.",
+    "simulation_type": "Document automation tax preparation workflow with a specialist LLM preparer team, auditor, and manager review.",
+    "llm_agent_role": "Personal tax preparation team that prepares a source-grounded draft Form 1040 review packet while asking careful review questions.",
+    "agent_role": "Personal tax preparation team that prepares a source-grounded draft Form 1040 review packet while asking careful review questions.",
+    "output": "Prepared draft Form 1040 review packet with source evidence, specialist workpapers, audit and manager review, advisor-style next steps, Markdown, and PDF outputs.",
     "runtime_features": [
       "local tax PDF intake",
-      "LLM OCR handoff",
-      "multi-agent tax proposal",
-      "tax review gate",
-      "draft Form 1040 packet",
+      "LLM document understanding",
+      "specialist tax preparer team",
+      "source field extraction workpapers",
+      "tax auditor and manager review gates",
+      "draft Form 1040 review packet",
+      "Markdown and PDF final packet",
       "Membrane context memory optimization"
     ],
     "memory_layer": {
@@ -196,15 +306,39 @@
       "library": "../mn-agents/index.json",
       "nodes": [
         {
-          "node_id": "document_intake_agent",
+          "node_id": "client_intake_coordinator",
           "uses": "mn-agents.data_python_executor@1.0.0"
         },
         {
-          "node_id": "tax_proposal_agent",
+          "node_id": "document_understanding_agent",
           "uses": "mn-agents.data_python_executor@1.0.0"
         },
         {
-          "node_id": "tax_review_agent",
+          "node_id": "source_field_extractor",
+          "uses": "mn-agents.data_python_executor@1.0.0"
+        },
+        {
+          "node_id": "income_preparer",
+          "uses": "mn-agents.data_python_executor@1.0.0"
+        },
+        {
+          "node_id": "deductions_credits_preparer",
+          "uses": "mn-agents.data_python_executor@1.0.0"
+        },
+        {
+          "node_id": "form_1040_assembler",
+          "uses": "mn-agents.data_python_executor@1.0.0"
+        },
+        {
+          "node_id": "tax_auditor",
+          "uses": "mn-agents.data_python_executor@1.0.0"
+        },
+        {
+          "node_id": "manager_reviewer",
+          "uses": "mn-agents.data_python_executor@1.0.0"
+        },
+        {
+          "node_id": "advisor_report_writer",
           "uses": "mn-agents.data_python_executor@1.0.0"
         },
         {
@@ -277,10 +411,12 @@
           "artifact": "events.jsonl"
         },
         "outputs": {
-          "description": "Primary prepared draft packet and Form 1040 line map.",
+          "description": "Primary prepared draft packet, Form 1040 line map, and local report files.",
           "artifacts": [
             "result.json",
-            "final_artifact.json"
+            "final_artifact.json",
+            "*-report.md",
+            "*-tax-review-packet.pdf"
           ]
         },
         "artifacts": {
@@ -298,7 +434,9 @@
             "web_ui.json",
             "ui.json",
             "web/index.html",
-            "logs.jsonl"
+            "logs.jsonl",
+            "*-report.md",
+            "*-tax-review-packet.pdf"
           ]
         },
         "logs": {
@@ -374,7 +512,9 @@
         "web_ui.json",
         "ui.json",
         "web/index.html",
-        "logs.jsonl"
+        "logs.jsonl",
+        "*-report.md",
+        "*-tax-review-packet.pdf"
       ],
       "response_schema": "mn.blueprint.response.v1",
       "web_ui_adapters": [
@@ -387,7 +527,13 @@
       "local_run_store": "~/.mn/runs/<run_id>/",
       "result_json": "result.json",
       "final_artifact_json": "final_artifact.json",
+      "markdown_report": "<outputs.folder_path>/<run_id>-report.md",
+      "pdf_review_packet": "<outputs.folder_path>/<run_id>-tax-review-packet.pdf",
       "prepared_form_1040": "final_artifact.prepared_form_1040",
+      "document_dossier": "final_artifact.document_dossier",
+      "preparer_workpapers": "final_artifact.preparer_workpapers",
+      "audit_review": "final_artifact.audit_review",
+      "manager_review": "final_artifact.manager_review",
       "advisor_message": "final_artifact.advisor_message",
       "status": "draft_needs_review"
     },
@@ -407,17 +553,25 @@
       ],
       "output_adapter": "local_run_store",
       "run_store": "~/.mn/runs/<run_id>/",
-      "execution_model": "load_metadata -> resolve_config -> load_inputs -> scan_local_tax_folder -> extract_pdf_text_or_mark_ocr -> classify_tax_forms -> proposal_agent_maps_1040_lines -> review_agent_checks_assumptions -> write_final_artifact -> request_human_review",
+      "execution_model": "load_metadata -> resolve_config -> load_inputs -> scan_local_tax_folder -> extract_pdf_text_or_mark_ocr -> client_intake_coordinator -> llm_document_understanding -> llm_source_field_extraction -> income_preparer_workpaper -> deductions_credits_preparer_workpaper -> form_1040_assembler_maps_supported_lines -> tax_auditor_checks_assumptions -> manager_reviewer_blocks_filing_ready_claims -> advisor_report_writer -> write_final_artifact -> write_markdown_report -> write_pdf_review_packet -> request_human_review",
       "execution_steps": [
         "load_metadata",
         "resolve_config",
         "load_inputs",
         "scan_local_tax_folder",
         "extract_pdf_text_or_mark_ocr",
-        "classify_tax_forms",
-        "proposal_agent_maps_1040_lines",
-        "review_agent_checks_assumptions",
+        "client_intake_coordinator",
+        "llm_document_understanding",
+        "llm_source_field_extraction",
+        "income_preparer_workpaper",
+        "deductions_credits_preparer_workpaper",
+        "form_1040_assembler_maps_supported_lines",
+        "tax_auditor_checks_assumptions",
+        "manager_reviewer_blocks_filing_ready_claims",
+        "advisor_report_writer",
         "write_final_artifact",
+        "write_markdown_report",
+        "write_pdf_review_packet",
         "request_human_review"
       ]
     },

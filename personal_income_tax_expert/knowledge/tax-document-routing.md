@@ -20,6 +20,34 @@
 - Ask about rollover, Roth, early distribution, and exception codes before
   calculating additional tax.
 
+## 1099-DIV
+
+- Route ordinary dividends to Form 1040 dividend review.
+- Keep qualified dividends and capital gain distributions as review-required
+  until the qualified dividends/capital gain worksheet and Schedule D facts are
+  confirmed.
+
+## 1099-B and Brokerage Statements
+
+- Do not calculate capital gain or loss from proceeds alone.
+- Route proceeds, basis, holding period, and adjustments to Schedule D/Form 8949
+  review.
+
+## 1099-NEC
+
+- Route nonemployee compensation to Schedule C review.
+- Ask about business expenses, business type, and self-employment tax.
+
+## 1098
+
+- Treat mortgage interest as Schedule A review-only until itemizing is chosen
+  and other itemized deduction facts are supplied.
+
+## 1095-A
+
+- Route marketplace health insurance data to Form 8962 review.
+- Do not claim or repay premium tax credit without the complete reconciliation.
+
 ## Other Common Forms
 
 - 1099-DIV and 1099-B need dividend/capital gain handling.

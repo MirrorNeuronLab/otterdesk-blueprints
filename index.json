@@ -80,7 +80,7 @@
     }
   },
   {
-    "description": "Reads a local folder of tax PDFs, extracts source evidence, proposes a draft Form 1040 line map, reviews the packet, and explains the result like a personal tax advisor.",
+    "description": "Runs an LLM-assisted tax preparation team over local tax documents, builds draft Form 1040 workpapers, audits the packet, and writes JSON, Markdown, and PDF review outputs.",
     "category": "Finance",
     "graph_id": "personal_income_tax_expert_v1",
     "id": "personal_income_tax_expert",
@@ -88,22 +88,24 @@
     "name": "Personal Income Tax Expert",
     "path": "personal_income_tax_expert",
     "product": {
-      "agent_role": "Personal tax advisor who prepares a source-grounded draft Form 1040 packet while asking careful review questions.",
+      "agent_role": "Personal tax preparation team that prepares a source-grounded draft Form 1040 review packet while asking careful review questions.",
       "customizable_for": "Personal federal tax preparation, 401(k) and retirement distribution review, interest income intake, brokerage statements, mortgage interest review, and tax document checklists.",
-      "output": "Prepared draft Form 1040 packet with source evidence, assumptions, review warnings, and advisor-style next steps.",
-      "problem": "Tax source documents arrive as scattered PDFs; users need a private workflow that turns W-2, 1099-INT, 1099-R, and related forms into a reviewable Form 1040 draft packet.",
+      "output": "Prepared draft Form 1040 review packet with source evidence, specialist workpapers, audit and manager review, advisor-style next steps, Markdown, and PDF outputs.",
+      "problem": "Tax source documents arrive as scattered PDFs; users need a private workflow that turns W-2, 1099-INT, 1099-R, and related forms into a reviewable Form 1040 draft packet with preparer workpapers and manager review.",
       "runtime_features": [
         "local tax PDF intake",
-        "LLM OCR handoff",
-        "multi-agent tax proposal",
-        "tax review gate",
-        "draft Form 1040 packet",
+        "LLM document understanding",
+        "specialist tax preparer team",
+        "source field extraction workpapers",
+        "tax auditor and manager review gates",
+        "draft Form 1040 review packet",
+        "Markdown and PDF final packet",
         "Membrane context memory optimization"
       ],
-      "simulation_type": "Document automation tax preparation workflow with proposal and review agents.",
+      "simulation_type": "Document automation tax preparation workflow with a specialist LLM preparer team, auditor, and manager review.",
       "target_users": "Individual taxpayers, household finance operators, bookkeepers, and tax preparers.",
       "benefit": "Turns a folder of tax forms into a clear draft packet and review checklist before the user opens filing software or talks to a preparer.",
-      "how_it_works": "Classifies tax PDFs, extracts embedded text or marks OCR needs, maps source evidence to likely Form 1040 lines, asks proposal and review agents to check the packet, and writes an advisor-style summary.",
+      "how_it_works": "Classifies tax PDFs, extracts embedded text or marks OCR needs, sends redacted evidence through specialist LLM preparer stages, maps supported facts to likely Form 1040 lines, audits schedule risks, and writes JSON, Markdown, and PDF review artifacts.",
       "input": "Local folder with tax PDFs such as W-2, 1099-INT, 1099-R or 401(k), 1099-DIV, 1098, 1095-A, and brokerage statements."
     }
   },

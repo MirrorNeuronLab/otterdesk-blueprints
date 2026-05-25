@@ -12,13 +12,15 @@
   "metadata": {
     "blueprint_revision": "2026-05-23",
     "category": "finance",
-    "description": "Reads a local folder of tax PDFs, extracts source evidence, proposes a draft Form 1040 line map, reviews the packet, and explains the result like a personal tax advisor.",
+    "description": "Runs an LLM-assisted tax preparation team over a local folder of tax documents, builds source-grounded draft Form 1040 workpapers, audits the packet, and writes JSON, Markdown, and PDF review outputs.",
     "runtime_features": [
       "local tax PDF intake",
-      "LLM OCR handoff",
-      "multi-agent tax proposal",
-      "tax review gate",
-      "draft Form 1040 packet",
+      "LLM document understanding",
+      "specialist tax preparer team",
+      "source field extraction workpapers",
+      "tax auditor and manager review gates",
+      "draft Form 1040 review packet",
+      "Markdown and PDF final packet",
       "Membrane context memory optimization"
     ]
   },
@@ -184,12 +186,13 @@
     "api_base": "http://192.168.4.173:11434",
     "model": "ollama/nemotron3:33b",
     "default_config": "primary",
-    "agent_role": "Personal tax advisor who prepares a source-grounded draft Form 1040 packet while asking careful review questions.",
+    "agent_role": "Personal tax preparation team that prepares a source-grounded draft Form 1040 review packet while asking careful review questions.",
     "responsibilities": [
-      "extract document evidence",
-      "propose Form 1040 line mapping",
-      "review assumptions and missing forms",
-      "explain the draft in a real advisor voice"
+      "understand tax documents with LLM specialist agents",
+      "extract source fields and build preparer workpapers",
+      "assemble supported Form 1040 draft lines",
+      "audit assumptions, missing forms, and schedule risks",
+      "write JSON, Markdown, and PDF review outputs"
     ],
     "configs": {
       "primary": {
@@ -197,54 +200,99 @@
         "mode": "ollama",
         "api_base": "http://192.168.4.173:11434",
         "model": "ollama/nemotron3:33b",
-        "max_tokens": 900,
+        "max_tokens": 1200,
         "num_retries": 1,
         "timeout_seconds": 90,
         "mock_mode": "fake"
       }
     },
     "agents": {
-      "document_intake": {
-        "role": "Document intake agent",
+      "client_intake_coordinator": {
+        "role": "Client intake coordinator",
         "llm_config": "primary",
         "responsibilities": [
-          "scan the local folder",
-          "classify tax PDFs",
-          "identify OCR and missing-document gaps"
+          "confirm engagement scope",
+          "identify missing taxpayer profile facts",
+          "build a preparer-style intake checklist"
         ]
       },
-      "proposal": {
-        "role": "Tax proposal agent",
+      "document_understanding_agent": {
+        "role": "Document understanding agent",
         "llm_config": "primary",
         "responsibilities": [
-          "map evidence to likely Form 1040 lines",
-          "make conservative assumptions",
-          "ask targeted follow-up questions"
+          "classify tax documents",
+          "summarize each form's tax meaning",
+          "separate simple source forms from schedule-triggering forms"
         ]
       },
-      "review": {
-        "role": "Tax review agent",
+      "source_field_extractor": {
+        "role": "Source field extractor",
         "llm_config": "primary",
         "responsibilities": [
-          "check source support",
-          "flag filing risks",
-          "hold unsupported deductions and credits"
+          "extract box-level source facts",
+          "tie every amount to evidence",
+          "flag OCR and unsupported fields"
         ]
       },
-      "advisor": {
-        "role": "Personal tax advisor conversation agent",
+      "income_preparer": {
+        "role": "Income preparer",
+        "llm_config": "primary",
+        "responsibilities": [
+          "prepare income workpapers",
+          "map source facts to Form 1040 income lines",
+          "flag Schedule C, D, and dividend review items"
+        ]
+      },
+      "deductions_credits_preparer": {
+        "role": "Deductions and credits preparer",
+        "llm_config": "primary",
+        "responsibilities": [
+          "prepare standard deduction treatment",
+          "flag itemized deduction evidence",
+          "identify credits requiring follow-up"
+        ]
+      },
+      "form_1040_assembler": {
+        "role": "Form 1040 assembler",
+        "llm_config": "primary",
+        "responsibilities": [
+          "assemble supported draft Form 1040 lines",
+          "preserve assumptions and source evidence",
+          "avoid unsupported filing-ready calculations"
+        ]
+      },
+      "tax_auditor": {
+        "role": "Tax auditor",
+        "llm_config": "primary",
+        "responsibilities": [
+          "audit source support",
+          "flag missing evidence and filing risks",
+          "block unsupported return-ready claims"
+        ]
+      },
+      "manager_reviewer": {
+        "role": "Tax manager reviewer",
+        "llm_config": "primary",
+        "responsibilities": [
+          "perform manager-level review",
+          "write blockers and signoff status",
+          "hold the packet as draft only"
+        ]
+      },
+      "advisor_report_writer": {
+        "role": "Advisor and report writer",
         "llm_config": "primary",
         "responsibilities": [
           "explain the draft in plain English",
-          "sound warm and professional",
-          "tell the user exactly what to confirm next"
+          "summarize open review items",
+          "prepare the user-facing report voice"
         ]
       }
     }
   },
   "outputs": {
     "adapter": "local_run_store",
-    "artifact_contract": "Prepared draft Form 1040 packet with source evidence, assumptions, review warnings, and advisor-style next steps.",
+    "artifact_contract": "Prepared draft Form 1040 review packet with source evidence, specialist workpapers, audit and manager review, advisor-style next steps, Markdown, and PDF outputs.",
     "folder_path": "~/Downloads",
     "run_root": "~/.mn/runs",
     "write_run_store": true,
@@ -310,23 +358,30 @@
     "optional": [
       "llm.call",
       "llm.ocr",
-      "document.ocr"
+      "document.ocr",
+      "pdf.render"
     ]
   },
   "budgets": {
     "max_connector_reads": 500,
     "max_connector_writes": 0,
     "max_disk_mb": 500,
-    "max_llm_calls": 20,
-    "max_llm_tokens": 30000,
-    "max_runtime_seconds": 600,
+    "max_llm_calls": 45,
+    "max_llm_tokens": 60000,
+    "max_runtime_seconds": 900,
     "max_stream_duration_seconds": 0
   },
   "agent_handoffs": {
     "workflow": [
-      "document_intake_agent",
-      "tax_proposal_agent",
-      "tax_review_agent",
+      "client_intake_coordinator",
+      "document_understanding_agent",
+      "source_field_extractor",
+      "income_preparer",
+      "deductions_credits_preparer",
+      "form_1040_assembler",
+      "tax_auditor",
+      "manager_reviewer",
+      "advisor_report_writer",
       "form_1040_packet_writer"
     ],
     "review_required": true
@@ -349,10 +404,18 @@
     "load_inputs",
     "scan_local_tax_folder",
     "extract_pdf_text_or_mark_ocr",
-    "classify_tax_forms",
-    "proposal_agent_maps_1040_lines",
-    "review_agent_checks_assumptions",
+    "client_intake_coordinator",
+    "llm_document_understanding",
+    "llm_source_field_extraction",
+    "income_preparer_workpaper",
+    "deductions_credits_preparer_workpaper",
+    "form_1040_assembler_maps_supported_lines",
+    "tax_auditor_checks_assumptions",
+    "manager_reviewer_blocks_filing_ready_claims",
+    "advisor_report_writer",
     "write_final_artifact",
+    "write_markdown_report",
+    "write_pdf_review_packet",
     "request_human_review"
   ],
   "logging": {
