@@ -38,6 +38,31 @@ print(value)
 PY
 }
 
+process_field() {
+  local field="$1"
+  if [[ -z "${MN_PRE_LAUNCH_PROCESS_FILE:-}" || ! -f "$MN_PRE_LAUNCH_PROCESS_FILE" ]]; then
+    return 0
+  fi
+  if ! command -v python3 >/dev/null 2>&1; then
+    return 0
+  fi
+  python3 - "$MN_PRE_LAUNCH_PROCESS_FILE" "$field" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+field = sys.argv[2]
+try:
+    value = json.loads(path.read_text()).get(field, "")
+except Exception:
+    value = ""
+if value is None:
+    value = ""
+print(value)
+PY
+}
+
 ready_env_field() {
   local field="$1"
   if [[ -z "$MN_PRE_LAUNCH_READY_FILE" || ! -f "$MN_PRE_LAUNCH_READY_FILE" ]]; then
@@ -75,9 +100,15 @@ WEBRTC_LOCAL_TCP_PORT="${WEBRTC_LOCAL_TCP_PORT:-$(ready_env_field WEBRTC_LOCAL_T
 WEBRTC_LOCAL_TCP_PORT="${WEBRTC_LOCAL_TCP_PORT:-$(state_field webrtc_local_tcp_port)}"
 WEBRTC_LOCAL_TCP_PORT="${WEBRTC_LOCAL_TCP_PORT:-8189}"
 CONFIG_DIR="${CONFIG_DIR:-$(state_field config_dir)}"
+PRE_LAUNCH_PID="${MN_PRE_LAUNCH_PID:-$(process_field pid)}"
+PRE_LAUNCH_PROCESS_GROUP_ID="${MN_PRE_LAUNCH_PROCESS_GROUP_ID:-$(process_field process_group_id)}"
 
 is_integer() {
   [[ "${1:-}" =~ ^[0-9]+$ ]]
+}
+
+current_process_group_id() {
+  ps -p "$$" -o pgid= 2>/dev/null | tr -d '[:space:]' || true
 }
 
 process_command() {
@@ -91,6 +122,47 @@ process_command() {
   if command -v lsof >/dev/null 2>&1; then
     lsof -nP -p "$pid" 2>/dev/null | awk 'NR == 2 { print $1; exit }' || true
   fi
+}
+
+process_group_exists() {
+  local pgid="$1"
+  if ! is_integer "$pgid"; then
+    return 1
+  fi
+  kill -0 -- "-$pgid" >/dev/null 2>&1
+}
+
+terminate_process_group() {
+  local pgid="$1"
+  local label="$2"
+  if ! is_integer "$pgid" || [[ "$pgid" == "1" ]]; then
+    return 0
+  fi
+  local current_pgid
+  current_pgid="$(current_process_group_id)"
+  if [[ -n "$current_pgid" && "$pgid" == "$current_pgid" ]]; then
+    echo "Skipping ${label} process group ${pgid}; it is the cleanup script's current process group."
+    return 0
+  fi
+  if ! process_group_exists "$pgid"; then
+    return 0
+  fi
+
+  echo "Stopping ${label} process group ${pgid} for ${MN_POST_LAUNCH_REASON}."
+  kill -TERM -- "-$pgid" >/dev/null 2>&1 || true
+  for _ in {1..30}; do
+    if ! process_group_exists "$pgid"; then
+      return 0
+    fi
+    sleep 0.1
+  done
+  kill -KILL -- "-$pgid" >/dev/null 2>&1 || true
+  for _ in {1..30}; do
+    if ! process_group_exists "$pgid"; then
+      return 0
+    fi
+    sleep 0.1
+  done
 }
 
 is_expected_mapper_pid() {
@@ -113,7 +185,13 @@ terminate_pid() {
   if ! is_integer "$pid"; then
     return 0
   fi
-  if ! kill -0 "$pid" >/dev/null 2>&1 && ! lsof -nP -p "$pid" >/dev/null 2>&1; then
+  local process_exists="false"
+  if kill -0 "$pid" >/dev/null 2>&1; then
+    process_exists="true"
+  elif command -v lsof >/dev/null 2>&1 && lsof -nP -p "$pid" >/dev/null 2>&1; then
+    process_exists="true"
+  fi
+  if [[ "$process_exists" != "true" ]]; then
     return 0
   fi
   if ! is_expected_mapper_pid "$pid"; then
@@ -123,7 +201,9 @@ terminate_pid() {
 
   echo "Stopping ${label} PID ${pid} for ${MN_POST_LAUNCH_REASON}."
   if ! kill "$pid" >/dev/null 2>&1; then
-    echo "Could not stop ${label} PID ${pid}; permission may be restricted."
+    if kill -0 "$pid" >/dev/null 2>&1 || { command -v lsof >/dev/null 2>&1 && lsof -nP -p "$pid" >/dev/null 2>&1; }; then
+      echo "Could not stop ${label} PID ${pid}; permission may be restricted."
+    fi
     return 0
   fi
   for _ in {1..30}; do
@@ -169,6 +249,8 @@ terminate_pid "$SERVER_PID" "MediaMTX demo server"
 terminate_mediamtx_on_port "$RTSP_PORT" "RTSP"
 terminate_mediamtx_on_port "$WEBRTC_PORT" "browser preview"
 terminate_mediamtx_on_port "$WEBRTC_LOCAL_TCP_PORT" "WebRTC TCP"
+terminate_process_group "$PRE_LAUNCH_PROCESS_GROUP_ID" "pre-launch hook"
+terminate_pid "$PRE_LAUNCH_PID" "pre-launch hook"
 
 if [[ -n "$CONFIG_DIR" ]]; then
   case "$CONFIG_DIR" in

@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import py_compile
 import subprocess
 import sys
+import tempfile
+import time
 from pathlib import Path
 
 
@@ -21,6 +24,23 @@ from mn_blueprint_support.openshell_network import (
     endpoint_from_uri,
     write_openshell_network_policy,
 )
+
+
+def _pid_exists(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+        return True
+    except OSError:
+        return False
+
+
+def _wait_until(predicate, timeout: float = 5.0) -> bool:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if predicate():
+            return True
+        time.sleep(0.1)
+    return predicate()
 
 
 def _manifest_paths() -> list[Path]:
@@ -149,6 +169,9 @@ def test_video_watch_pre_launch_owns_mediamtx_preview_config():
     assert '"browser_publish_source": "disabled"' in script
     assert '"cleanup_script": "scripts/post-launch.sh"' in script
     assert "terminate_mediamtx_on_port" in cleanup_script
+    assert "MN_PRE_LAUNCH_PROCESS_FILE" in cleanup_script
+    assert "PRE_LAUNCH_PROCESS_GROUP_ID" in cleanup_script
+    assert "terminate_process_group" in cleanup_script
     assert "RTSP_PORT" in cleanup_script
     assert "WEBRTC_PORT" in cleanup_script
 
@@ -165,6 +188,76 @@ def test_video_watch_pre_launch_owns_mediamtx_preview_config():
     assert manifest_web_ui["video_preview_bridge"]["enabled"] is False
     assert manifest_web_ui["video_preview_bridge"]["auto_start"] is False
     assert manifest_web_ui["video_preview_bridge"]["cleanup_script"] == "scripts/post-launch.sh"
+
+
+def test_video_watch_post_launch_collects_pre_launch_process_group():
+    blueprint_dir = ROOT / "video_watch_assistant"
+    child_pid: int | None = None
+    process_group_id: int | None = None
+    proc: subprocess.Popen | None = None
+    with tempfile.TemporaryDirectory() as tmpdir:
+        root = Path(tmpdir)
+        run_dir = root / "run"
+        run_dir.mkdir()
+        marker = root / "spawned.json"
+        spawner = root / "spawn_child.py"
+        spawner.write_text(
+            "import json\n"
+            "import os\n"
+            "import subprocess\n"
+            "import sys\n"
+            "from pathlib import Path\n"
+            "child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(120)'])\n"
+            "Path(sys.argv[1]).write_text(json.dumps({\n"
+            "    'parent_pid': os.getpid(),\n"
+            "    'process_group_id': os.getpgrp(),\n"
+            "    'child_pid': child.pid,\n"
+            "}))\n"
+        )
+        try:
+            proc = subprocess.Popen([sys.executable, str(spawner), str(marker)], start_new_session=True)
+            assert _wait_until(marker.exists)
+            process_info = json.loads(marker.read_text())
+            child_pid = int(process_info["child_pid"])
+            process_group_id = int(process_info["process_group_id"])
+            proc.wait(timeout=5)
+            assert _pid_exists(child_pid)
+
+            process_file = run_dir / "pre_launch_process.json"
+            process_file.write_text(json.dumps({
+                "pid": int(process_info["parent_pid"]),
+                "process_group_id": process_group_id,
+            }))
+            env = os.environ.copy()
+            env.update({
+                "MN_RUN_DIR": str(run_dir),
+                "MN_PRE_LAUNCH_PROCESS_FILE": str(process_file),
+                "MN_POST_LAUNCH_REASON": "test",
+            })
+
+            subprocess.run(
+                ["bash", str(blueprint_dir / "scripts" / "post-launch.sh")],
+                cwd=blueprint_dir,
+                env=env,
+                check=True,
+                timeout=12,
+            )
+
+            assert _wait_until(lambda: not _pid_exists(child_pid), timeout=8)
+        finally:
+            if process_group_id is not None:
+                try:
+                    os.killpg(process_group_id, 9)
+                except OSError:
+                    pass
+            if child_pid is not None and _pid_exists(child_pid):
+                try:
+                    os.kill(child_pid, 9)
+                except OSError:
+                    pass
+            if proc is not None and proc.poll() is None:
+                proc.kill()
+                proc.wait(timeout=5)
 
 
 def _load_video_watch_validator():
