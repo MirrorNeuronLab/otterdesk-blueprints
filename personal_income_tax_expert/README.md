@@ -34,6 +34,12 @@ examples:
 If no folder is selected, the blueprint uses bundled sample text records so the
 conversation and output shape can be tested without personal documents.
 
+## Output Folder
+
+Set `outputs.folder_path` to choose where the prepared packet files should be
+written. The default is `~/Downloads`. The worker writes both
+`*-final-artifact.json` and `*-report.md` when the selected folder is writable.
+
 ## Multi-Agent Flow
 
 1. `document_intake_agent` scans documents, classifies forms, and flags OCR gaps.

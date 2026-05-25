@@ -67,11 +67,62 @@ cleanup_stale_mapper_on_start() {
     WEBRTC_PORT="$WEBRTC_PORT" \
     WEBRTC_LOCAL_TCP_PORT="$WEBRTC_LOCAL_TCP_PORT" \
     bash "$cleanup_script" || true
+  cleanup_stale_pre_launch_hooks
 }
 
 is_local_port_open() {
   local port="$1"
   nc -z 127.0.0.1 "$port" >/dev/null 2>&1
+}
+
+current_process_group_id() {
+  ps -p "$$" -o pgid= 2>/dev/null | tr -d '[:space:]' || true
+}
+
+process_group_exists() {
+  local pgid="$1"
+  [[ "$pgid" =~ ^[0-9]+$ ]] || return 1
+  kill -0 -- "-$pgid" >/dev/null 2>&1
+}
+
+terminate_stale_process_group() {
+  local pgid="$1"
+  [[ "$pgid" =~ ^[0-9]+$ ]] || return 0
+  [[ "$pgid" != "1" ]] || return 0
+  if ! process_group_exists "$pgid"; then
+    return 0
+  fi
+  echo "Stopping stale Video Watch Assistant pre-launch process group ${pgid}."
+  kill -TERM -- "-$pgid" >/dev/null 2>&1 || true
+  for _ in {1..30}; do
+    if ! process_group_exists "$pgid"; then
+      return 0
+    fi
+    sleep 0.1
+  done
+  kill -KILL -- "-$pgid" >/dev/null 2>&1 || true
+}
+
+cleanup_stale_pre_launch_hooks() {
+  if ! command -v ps >/dev/null 2>&1; then
+    return 0
+  fi
+  local script_path current_pgid
+  script_path="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+  current_pgid="$(current_process_group_id)"
+  ps -axo pid=,pgid=,command= 2>/dev/null | while read -r pid pgid command; do
+    if [[ -z "${pid:-}" || -z "${pgid:-}" || -z "${command:-}" ]]; then
+      continue
+    fi
+    if [[ "$pid" == "$$" || "$pgid" == "$current_pgid" ]]; then
+      continue
+    fi
+    case "$command" in
+      *"$script_path"*)
+        terminate_stale_process_group "$pgid"
+        ;;
+    esac
+  done
 }
 
 is_port_open() {

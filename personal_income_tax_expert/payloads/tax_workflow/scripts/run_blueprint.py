@@ -356,6 +356,9 @@ def run_blueprint(
         context.event("tax_review_agent_completed", review)
 
         final_artifact = _packet_writer_agent(documents, intake, proposal, review, resolved_config, runtime_inputs)
+        output_files = _write_output_folder_artifacts(final_artifact, resolved_config, runtime_inputs)
+        if output_files:
+            final_artifact["output_files"] = output_files
         context.event(
             "human_notice",
             {
@@ -400,6 +403,7 @@ def run_blueprint(
                 {"agent": "form_1040_packet_writer", "output": final_artifact},
             ],
             "final_artifact": final_artifact,
+            "output_files": output_files,
             "warnings": review.get("warnings", []),
         }
         context.finish(result)
@@ -599,6 +603,108 @@ def _packet_writer_agent(
         ],
         "knowledge_sources": list((config.get("knowledge") or {}).get("irs_sources") or []),
     }
+
+
+def _write_output_folder_artifacts(
+    final_artifact: dict[str, Any],
+    config: dict[str, Any],
+    runtime_inputs: dict[str, Any],
+) -> list[dict[str, str]]:
+    folder_value = _output_folder_value(config, runtime_inputs)
+    if not folder_value:
+        return []
+
+    output_dir = _expand_output_folder(folder_value, config)
+    run_id = str((config.get("identity") or {}).get("run_id") or "tax-run")
+    report_base = run_id if run_id.startswith("personal_income_tax_expert") else f"personal_income_tax_expert-{run_id}"
+    stem = _safe_filename(report_base)
+    json_path = output_dir / f"{stem}-final-artifact.json"
+    markdown_path = output_dir / f"{stem}-report.md"
+
+    try:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        json_path.write_text(json.dumps(final_artifact, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        markdown_path.write_text(_render_final_artifact_markdown(final_artifact), encoding="utf-8")
+    except OSError as error:
+        final_artifact.setdefault("output_warnings", []).append(
+            f"Could not write output folder artifacts to {output_dir}: {error}"
+        )
+        return []
+
+    return [
+        {"kind": "final_artifact_json", "path": str(json_path)},
+        {"kind": "report_markdown", "path": str(markdown_path)},
+    ]
+
+
+def _output_folder_value(config: dict[str, Any], runtime_inputs: dict[str, Any]) -> str:
+    outputs = config.get("outputs") if isinstance(config.get("outputs"), dict) else {}
+    return str(
+        runtime_inputs.get("output_folder")
+        or runtime_inputs.get("output_folder_path")
+        or outputs.get("folder_path")
+        or outputs.get("output_folder")
+        or ""
+    ).strip()
+
+
+def _expand_output_folder(value: str, config: dict[str, Any]) -> Path:
+    if value == "~" or value.startswith("~/"):
+        home = _host_home_from_config(config) or Path.home()
+        suffix = value[2:] if value.startswith("~/") else ""
+        return home / suffix
+    return Path(value).expanduser()
+
+
+def _host_home_from_config(config: dict[str, Any]) -> Path | None:
+    run_root = str((config.get("outputs") or {}).get("run_root") or "").strip()
+    if run_root.startswith("/Users/"):
+        parts = Path(run_root).parts
+        if len(parts) >= 3:
+            return Path(parts[0]) / parts[1] / parts[2]
+    return None
+
+
+def _safe_filename(value: str) -> str:
+    safe = re.sub(r"[^A-Za-z0-9._-]+", "-", value).strip(".-")
+    return safe or "personal_income_tax_expert-report"
+
+
+def _render_final_artifact_markdown(final_artifact: dict[str, Any]) -> str:
+    prepared = final_artifact.get("prepared_form_1040") if isinstance(final_artifact.get("prepared_form_1040"), dict) else {}
+    review = final_artifact.get("review") if isinstance(final_artifact.get("review"), dict) else {}
+    document_summary = final_artifact.get("document_summary") if isinstance(final_artifact.get("document_summary"), dict) else {}
+    line_map = prepared.get("line_map") if isinstance(prepared.get("line_map"), dict) else {}
+    warnings = review.get("warnings") if isinstance(review.get("warnings"), list) else []
+    next_steps = final_artifact.get("next_steps") if isinstance(final_artifact.get("next_steps"), list) else []
+
+    lines = [
+        f"# {final_artifact.get('title') or 'Prepared Form 1040 Draft'}",
+        "",
+        str(final_artifact.get("advisor_message") or "").strip(),
+        "",
+        "## Draft Form 1040 Line Map",
+        "",
+    ]
+    for key, value in line_map.items():
+        lines.append(f"- {key}: {value}")
+    lines.extend(["", "## Document Summary", ""])
+    lines.append(f"- Document count: {document_summary.get('document_count', 0)}")
+    doc_types = document_summary.get("document_types") if isinstance(document_summary.get("document_types"), dict) else {}
+    for key, value in doc_types.items():
+        lines.append(f"- {key}: {value}")
+    lines.extend(["", "## Review Warnings", ""])
+    if warnings:
+        lines.extend(f"- {warning}" for warning in warnings)
+    else:
+        lines.append("- None")
+    lines.extend(["", "## Next Steps", ""])
+    if next_steps:
+        lines.extend(f"- {step}" for step in next_steps)
+    else:
+        lines.append("- Review the packet with the taxpayer or a qualified preparer.")
+    lines.extend(["", "This is a draft review packet, not a filed tax return.", ""])
+    return "\n".join(lines)
 
 
 def _extract_values(documents: list[dict[str, Any]]) -> dict[str, Any]:

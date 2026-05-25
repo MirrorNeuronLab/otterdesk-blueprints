@@ -245,6 +245,7 @@
   "outputs": {
     "adapter": "local_run_store",
     "artifact_contract": "Prepared draft Form 1040 packet with source evidence, assumptions, review warnings, and advisor-style next steps.",
+    "folder_path": "~/Downloads",
     "run_root": "~/.mn/runs",
     "write_run_store": true,
     "skills": {},

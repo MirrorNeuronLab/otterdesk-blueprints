@@ -240,9 +240,15 @@
           "label": "Tax year",
           "default": "2025",
           "description": "Federal tax year for the draft packet."
+        },
+        {
+          "path": "outputs.folder_path",
+          "label": "Output folder",
+          "default": "~/Downloads",
+          "description": "Choose where the prepared draft packet files should be written on this computer."
         }
       ],
-      "instruction": "Ask the user to select the local tax document folder and confirm filing status before launch. If they skip it, run the demo sample packet and explain that it is not filing-ready."
+      "instruction": "Ask the user to select the local tax document folder, confirm filing status, and choose the output folder before launch. If they skip the document folder, run the demo sample packet and explain that it is not filing-ready."
     },
     "configuration_contract": {
       "required_files": [

@@ -16,6 +16,8 @@ Optional input:
 
 - `tax_profile.tax_year`
 - `tax_profile.filing_status`
+- `outputs.folder_path`: output folder for prepared packet files; defaults to
+  `~/Downloads`.
 - `inputs.payload.document_folder`
 - `inputs.payload.tax_year`
 - `inputs.payload.filing_status`
@@ -60,9 +62,13 @@ The final artifact contains:
 - `conversation_context`
 - `review`
 - `next_steps`
+- `output_files` when packet files were written to `outputs.folder_path`
 
 The status must remain `draft_needs_review` unless a future human-reviewed
 filing workflow explicitly changes it.
+
+When `outputs.folder_path` is writable, the worker writes a JSON packet and a
+Markdown report named with the blueprint id and run id.
 
 ## Safety Rules
 
