@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -17,6 +19,7 @@ RUNNER_PATH = (
     / "run_blueprint.py"
 )
 VALIDATOR_PATH = ROOT / "personal_income_tax_expert" / "payloads" / "validation" / "validate_tax_folder.py"
+POST_LAUNCH_PATH = ROOT / "personal_income_tax_expert" / "scripts" / "post-launch.sh"
 
 
 def _load_module(path: Path, name: str):
@@ -154,6 +157,57 @@ def test_personal_tax_expert_compacts_huge_llm_echo_for_transport(tmp_path):
     assert "payload_echo" not in encoded.decode("utf-8", errors="ignore")
     assert result["llm"]["calls"] == 9
     assert result["final_artifact"]["prepared_form_1040"]["line_map"]["1z_wages"] == "$86,000.00"
+
+
+def test_personal_tax_post_launch_materializes_host_outputs(tmp_path):
+    runner = _load_runner()
+    run_id = "personal_income_tax_expert-post-launch-unit"
+    output_dir = tmp_path / "host-exports"
+    result = runner.run_blueprint(
+        config={
+            "llm": {"mode": "fake"},
+            "tax_documents": {"folder_path": ""},
+            "inputs": {"payload": {"document_folder": ""}},
+            "outputs": {"folder_path": str(tmp_path / "sandbox-exports")},
+        },
+        runs_root=tmp_path / "sandbox-runs",
+        run_id=run_id,
+    )
+    result["config"]["outputs"]["folder_path"] = str(output_dir)
+    result["final_artifact"].pop("output_files", None)
+
+    run_dir = tmp_path / "host-runs" / run_id
+    run_dir.mkdir(parents=True)
+    (run_dir / "events.jsonl").write_text(
+        json.dumps(
+            {
+                "type": "job_completed",
+                "result": {
+                    "count": 1,
+                    "last_message": {
+                        "sandbox": {
+                            "logs": json.dumps(result),
+                        }
+                    },
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    env = os.environ.copy()
+    env.update({"MN_RUN_DIR": str(run_dir), "MN_RUN_ID": run_id, "MN_RUNS_ROOT": str(run_dir.parent)})
+    subprocess.run(["bash", str(POST_LAUNCH_PATH)], check=True, env=env, cwd=POST_LAUNCH_PATH.parent)
+
+    assert (run_dir / "result.json").exists()
+    assert (run_dir / "final_artifact.json").exists()
+    artifact = json.loads((run_dir / "final_artifact.json").read_text())
+    output_kinds = {item["kind"] for item in artifact["output_files"]}
+    assert output_kinds == {"final_artifact_json", "report_markdown", "tax_review_packet_pdf"}
+    assert (output_dir / f"{run_id}-final-artifact.json").exists()
+    assert (output_dir / f"{run_id}-report.md").read_text().startswith("# Prepared Form 1040 Draft")
+    assert (output_dir / f"{run_id}-tax-review-packet.pdf").exists()
 
 
 def test_personal_tax_expert_reads_staged_env_config_folder(tmp_path, monkeypatch):

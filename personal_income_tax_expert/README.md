@@ -46,6 +46,8 @@ written. The default is `~/Downloads`. The worker writes
 `*-final-artifact.json`, `*-report.md`, and `*-tax-review-packet.pdf` when the
 selected folder is writable. If PDF rendering support is unavailable, the JSON
 and Markdown files are still written and the final artifact records a warning.
+For `mn run`, `scripts/post-launch.sh` also materializes `result.json` and
+`final_artifact.json` into the host run store after the sandbox job completes.
 
 ## Multi-Agent Flow
 

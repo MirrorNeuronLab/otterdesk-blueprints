@@ -114,6 +114,25 @@ def test_otterdesk_nodes_use_shared_agent_templates_and_render():
         assert all("uses" not in node and "with" not in node for node in rendered["nodes"])
 
 
+def test_personal_income_tax_expert_runs_as_single_runtime_executor():
+    manifest = json.loads((ROOT / "personal_income_tax_expert" / "manifest.json").read_text())
+    executor_nodes = [
+        node for node in manifest["nodes"] if node["uses"].startswith("mn-agents.data_python_executor@")
+    ]
+
+    assert manifest["entrypoints"] == ["tax_workflow_runner"]
+    assert [node["node_id"] for node in executor_nodes] == ["tax_workflow_runner"]
+    assert manifest["nodes"][-1]["node_id"] == "report_sink"
+    assert manifest["edges"] == [
+        {
+            "edge_id": "tax_workflow_to_report",
+            "from_node": "tax_workflow_runner",
+            "message_type": "blueprint_report",
+            "to_node": "report_sink",
+        }
+    ]
+
+
 def test_video_watch_openshell_policy_is_generated_by_shared_helper(tmp_path):
     blueprint_dir = ROOT / "video_watch_assistant"
     config = json.loads((blueprint_dir / "config" / "default.json").read_text())

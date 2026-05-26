@@ -89,6 +89,10 @@ When `outputs.folder_path` is writable, the worker writes a JSON packet,
 Markdown report, and PDF tax review packet named with the blueprint id and run
 id.
 
+For `mn run`, the host-side `scripts/post-launch.sh` hook reads the completed
+job event and materializes `result.json`, `final_artifact.json`, Markdown, and
+PDF files outside the sandbox so CLI and OtterDesk users have durable outputs.
+
 ## Safety Rules
 
 - Do not claim to be a CPA, attorney, or enrolled agent.

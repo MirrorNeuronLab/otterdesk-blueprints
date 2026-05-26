@@ -20,10 +20,10 @@
     }
   },
   "entrypoints": [
-    "client_intake_coordinator"
+    "tax_workflow_runner"
   ],
   "initial_inputs": {
-    "client_intake_coordinator": [
+    "tax_workflow_runner": [
       {
         "scenario": "personal_income_tax_packet",
         "tax_year": 2025,
@@ -35,126 +35,10 @@
   },
   "nodes": [
     {
-      "node_id": "client_intake_coordinator",
+      "node_id": "tax_workflow_runner",
       "uses": "mn-agents.data_python_executor@1.0.0",
       "with": {
-        "role": "client_intake_coordinator",
-        "node_type": "generic",
-        "name_prefix": "personal_income_tax_expert",
-        "script": "scripts/run_blueprint.py",
-        "upload_path": "tax_workflow",
-        "output_message_type": "client_intake_complete",
-        "environment": {
-          "MN_BLUEPRINT_ID": "personal_income_tax_expert",
-          "PYTHONPATH": "${MN_SKILLS_ROOT}/blueprint_support_skill/src:${MN_SKILLS_ROOT}/tax_pdf_ocr_skill/src:${MN_SKILLS_ROOT}/pdf_extract_skill/src",
-          "MN_LLM_API_BASE": "http://192.168.4.173:11434",
-          "MN_LLM_MODEL": "ollama/nemotron3:33b",
-          "MN_LLM_TIMEOUT_SECONDS": "90",
-          "MN_TAX_REDACT_LOGS": "true"
-        }
-      }
-    },
-    {
-      "node_id": "document_understanding_agent",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "role": "document_understanding_agent",
-        "node_type": "generic",
-        "name_prefix": "personal_income_tax_expert",
-        "script": "scripts/run_blueprint.py",
-        "upload_path": "tax_workflow",
-        "output_message_type": "document_understanding_complete"
-      }
-    },
-    {
-      "node_id": "source_field_extractor",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "role": "source_field_extractor",
-        "node_type": "generic",
-        "name_prefix": "personal_income_tax_expert",
-        "script": "scripts/run_blueprint.py",
-        "upload_path": "tax_workflow",
-        "output_message_type": "source_fields_extracted"
-      }
-    },
-    {
-      "node_id": "income_preparer",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "role": "income_preparer",
-        "node_type": "generic",
-        "name_prefix": "personal_income_tax_expert",
-        "script": "scripts/run_blueprint.py",
-        "upload_path": "tax_workflow",
-        "output_message_type": "income_workpaper"
-      }
-    },
-    {
-      "node_id": "deductions_credits_preparer",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "role": "deductions_credits_preparer",
-        "node_type": "generic",
-        "name_prefix": "personal_income_tax_expert",
-        "script": "scripts/run_blueprint.py",
-        "upload_path": "tax_workflow",
-        "output_message_type": "deductions_credits_workpaper"
-      }
-    },
-    {
-      "node_id": "form_1040_assembler",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "role": "form_1040_assembler",
-        "node_type": "generic",
-        "name_prefix": "personal_income_tax_expert",
-        "script": "scripts/run_blueprint.py",
-        "upload_path": "tax_workflow",
-        "output_message_type": "form_1040_draft"
-      }
-    },
-    {
-      "node_id": "tax_auditor",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "role": "tax_auditor",
-        "node_type": "generic",
-        "name_prefix": "personal_income_tax_expert",
-        "script": "scripts/run_blueprint.py",
-        "upload_path": "tax_workflow",
-        "output_message_type": "tax_audit_review"
-      }
-    },
-    {
-      "node_id": "manager_reviewer",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "role": "manager_reviewer",
-        "node_type": "generic",
-        "name_prefix": "personal_income_tax_expert",
-        "script": "scripts/run_blueprint.py",
-        "upload_path": "tax_workflow",
-        "output_message_type": "manager_review"
-      }
-    },
-    {
-      "node_id": "advisor_report_writer",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "role": "advisor_report_writer",
-        "node_type": "generic",
-        "name_prefix": "personal_income_tax_expert",
-        "script": "scripts/run_blueprint.py",
-        "upload_path": "tax_workflow",
-        "output_message_type": "advisor_report"
-      }
-    },
-    {
-      "node_id": "form_1040_packet_writer",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "role": "form_1040_packet_writer",
+        "role": "personal_income_tax_expert_team",
         "node_type": "generic",
         "name_prefix": "personal_income_tax_expert",
         "script": "scripts/run_blueprint.py",
@@ -182,62 +66,8 @@
   ],
   "edges": [
     {
-      "edge_id": "intake_to_document_understanding",
-      "from_node": "client_intake_coordinator",
-      "message_type": "client_intake_complete",
-      "to_node": "document_understanding_agent"
-    },
-    {
-      "edge_id": "document_understanding_to_source_fields",
-      "from_node": "document_understanding_agent",
-      "message_type": "document_understanding_complete",
-      "to_node": "source_field_extractor"
-    },
-    {
-      "edge_id": "source_fields_to_income",
-      "from_node": "source_field_extractor",
-      "message_type": "source_fields_extracted",
-      "to_node": "income_preparer"
-    },
-    {
-      "edge_id": "income_to_deductions_credits",
-      "from_node": "income_preparer",
-      "message_type": "income_workpaper",
-      "to_node": "deductions_credits_preparer"
-    },
-    {
-      "edge_id": "deductions_credits_to_1040",
-      "from_node": "deductions_credits_preparer",
-      "message_type": "deductions_credits_workpaper",
-      "to_node": "form_1040_assembler"
-    },
-    {
-      "edge_id": "1040_to_audit",
-      "from_node": "form_1040_assembler",
-      "message_type": "form_1040_draft",
-      "to_node": "tax_auditor"
-    },
-    {
-      "edge_id": "audit_to_manager",
-      "from_node": "tax_auditor",
-      "message_type": "tax_audit_review",
-      "to_node": "manager_reviewer"
-    },
-    {
-      "edge_id": "manager_to_advisor",
-      "from_node": "manager_reviewer",
-      "message_type": "manager_review",
-      "to_node": "advisor_report_writer"
-    },
-    {
-      "edge_id": "advisor_to_packet_writer",
-      "from_node": "advisor_report_writer",
-      "message_type": "advisor_report",
-      "to_node": "form_1040_packet_writer"
-    },
-    {
-      "edge_id": "packet_writer_to_report",
-      "from_node": "form_1040_packet_writer",
+      "edge_id": "tax_workflow_to_report",
+      "from_node": "tax_workflow_runner",
       "message_type": "blueprint_report",
       "to_node": "report_sink"
     }
@@ -306,43 +136,7 @@
       "library": "../mn-agents/index.json",
       "nodes": [
         {
-          "node_id": "client_intake_coordinator",
-          "uses": "mn-agents.data_python_executor@1.0.0"
-        },
-        {
-          "node_id": "document_understanding_agent",
-          "uses": "mn-agents.data_python_executor@1.0.0"
-        },
-        {
-          "node_id": "source_field_extractor",
-          "uses": "mn-agents.data_python_executor@1.0.0"
-        },
-        {
-          "node_id": "income_preparer",
-          "uses": "mn-agents.data_python_executor@1.0.0"
-        },
-        {
-          "node_id": "deductions_credits_preparer",
-          "uses": "mn-agents.data_python_executor@1.0.0"
-        },
-        {
-          "node_id": "form_1040_assembler",
-          "uses": "mn-agents.data_python_executor@1.0.0"
-        },
-        {
-          "node_id": "tax_auditor",
-          "uses": "mn-agents.data_python_executor@1.0.0"
-        },
-        {
-          "node_id": "manager_reviewer",
-          "uses": "mn-agents.data_python_executor@1.0.0"
-        },
-        {
-          "node_id": "advisor_report_writer",
-          "uses": "mn-agents.data_python_executor@1.0.0"
-        },
-        {
-          "node_id": "form_1040_packet_writer",
+          "node_id": "tax_workflow_runner",
           "uses": "mn-agents.data_python_executor@1.0.0"
         },
         {
