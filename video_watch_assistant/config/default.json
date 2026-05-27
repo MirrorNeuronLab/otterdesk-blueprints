@@ -288,6 +288,7 @@
       "llm_decision",
       "simulation_state_updated",
       "run_completed",
+      "video_frame_tick_generated",
       "video_watch_frame_observed",
       "video_watch_attention_updated",
       "video_watch_detection",
@@ -503,6 +504,7 @@
     "dashboard": {
       "copy": {
         "event_glossary": {
+          "video_frame_tick_generated": "A frame was queued for real model analysis. The dashboard can show this as an in-progress state until a result event arrives.",
           "video_watch_frame_analysis_failed": "A sampled frame could not be read or analyzed. Check the stream, model endpoint, or sandbox network policy.",
           "video_watch_frame_observed": "A sampled frame was analyzed and summarized for co-worker chat and audit review.",
           "video_watch_attention_updated": "The operator asked the video co-worker to pay attention to a specific visual detail.",
@@ -532,6 +534,7 @@
         "format": "jsonl"
       },
       "event_types": [
+        "video_frame_tick_generated",
         "video_watch_frame_observed",
         "video_watch_attention_updated",
         "video_watch_detection",

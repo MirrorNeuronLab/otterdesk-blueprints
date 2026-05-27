@@ -449,6 +449,7 @@
       "description": "Shared blueprint support Gradio dashboard that shows this blueprint's MediaMTX browser preview beside streamed visual detection events from the shared run store.",
       "enabled": true,
       "event_types": [
+        "video_frame_tick_generated",
         "video_watch_frame_observed",
         "video_watch_attention_updated",
         "video_watch_detection",

@@ -395,6 +395,8 @@ Optional run artifacts:
 
 `result.json` should contain enough context to audit the run without reading stdout. `final_artifact.json` should contain the durable product answer, not internal logs.
 
+`events.jsonl` is also the canonical live event stream. Dashboards, OtterDesk GUI views, CLI tails, and runtime integrations should read this artifact directly from the run store. If a blueprint is submitted to MirrorNeuron core through OtterDesk, OtterDesk mirrors core gRPC events into this file so the same contract works for every blueprint. Relay process bookkeeping files are internal runtime diagnostics and are not standard blueprint outputs.
+
 Blueprints may also declare skill-backed output destinations. Output skills are optional fan-out destinations, not replacements for local logs and events.
 
 Output skills are useful for destinations such as:
@@ -563,6 +565,8 @@ Recommended lifecycle events:
 - `simulation_state_updated`
 - `artifact_written`
 - `web_ui_available`
+
+Long-running work should expose real lifecycle progress with domain-specific `*_started`, `*_completed`, and `*_failed` events when possible. User interfaces may show an in-progress state only from those durable events or from runtime events mirrored into `events.jsonl`; they must not invent model results, detections, or decisions.
 
 Blueprint-specific events are encouraged when they expose useful product behavior. Event names should be stable and domain-readable, for example:
 
