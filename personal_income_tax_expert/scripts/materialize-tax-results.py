@@ -171,11 +171,18 @@ def _write_output_folder_artifacts(
         _write_json(json_path, final_artifact)
         markdown_path.write_text(_render_markdown(final_artifact), encoding="utf-8")
     except ModuleNotFoundError as exc:
-        warnings.append(f"PDF review packet was skipped because reportlab is unavailable: {exc}")
+        _write_basic_pdf(final_artifact, pdf_path)
+        output_files.append({"kind": "tax_review_packet_pdf", "path": str(pdf_path)})
+        warnings.append(f"PDF review packet used the built-in renderer because reportlab is unavailable: {exc}")
     except OSError as exc:
         warnings.append(f"PDF review packet could not be written to {pdf_path}: {exc}")
     except Exception as exc:  # pragma: no cover - defensive for host PDF renderer differences
-        warnings.append(f"PDF review packet could not be rendered: {exc}")
+        try:
+            _write_basic_pdf(final_artifact, pdf_path)
+            output_files.append({"kind": "tax_review_packet_pdf", "path": str(pdf_path)})
+            warnings.append(f"PDF review packet used the built-in renderer after reportlab failed: {exc}")
+        except OSError as fallback_exc:
+            warnings.append(f"PDF review packet could not be rendered: {exc}; built-in renderer also failed: {fallback_exc}")
     return output_files, warnings
 
 
@@ -229,6 +236,106 @@ def _render_markdown(final_artifact: dict[str, Any]) -> str:
     lines.extend(f"- {item}" for item in (next_steps or ["Review the packet with the taxpayer or a qualified preparer."]))
     lines.extend(["", "This is a draft review packet, not a filed tax return.", ""])
     return "\n".join(lines)
+
+
+def _write_basic_pdf(final_artifact: dict[str, Any], path: Path) -> None:
+    prepared = final_artifact.get("prepared_form_1040") if isinstance(final_artifact.get("prepared_form_1040"), dict) else {}
+    review = final_artifact.get("review") if isinstance(final_artifact.get("review"), dict) else {}
+    manager = final_artifact.get("manager_review") if isinstance(final_artifact.get("manager_review"), dict) else {}
+    line_map = prepared.get("line_map") if isinstance(prepared.get("line_map"), dict) else {}
+    lines = [
+        str(final_artifact.get("title") or "Prepared Form 1040 Draft"),
+        "",
+        f"Draft warning: {final_artifact.get('draft_warning') or 'Draft review packet only.'}",
+        str(final_artifact.get("advisor_message") or ""),
+        "",
+        "Draft Form 1040 Line Map",
+    ]
+    lines.extend(f"{key}: {value}" for key, value in line_map.items())
+    lines.extend(["", "Review Warnings"])
+    lines.extend(str(item) for item in (_as_list(review.get("warnings")) or ["None"]))
+    lines.extend(["", "Manager Review"])
+    lines.append(f"Review status: {manager.get('review_status', 'manager_review_required')}")
+    lines.append(f"Signoff: {manager.get('manager_signoff', 'not_approved_for_filing')}")
+    lines.extend(["", "This packet is not filing-ready until all open items are reviewed."])
+    _write_basic_pdf_lines(path, lines)
+
+
+def _write_basic_pdf_lines(path: Path, lines: list[str]) -> None:
+    wrapped: list[str] = []
+    for line in lines:
+        wrapped.extend(_wrap_pdf_line(line))
+    pages = [wrapped[index : index + 48] for index in range(0, max(len(wrapped), 1), 48)] or [[]]
+    objects: dict[int, bytes] = {
+        1: b"<< /Type /Catalog /Pages 2 0 R >>",
+        3: b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    }
+    page_ids: list[int] = []
+    next_id = 4
+    for page_index, page_lines in enumerate(pages, start=1):
+        page_id = next_id
+        content_id = next_id + 1
+        next_id += 2
+        page_ids.append(page_id)
+        content_lines = ["BT", "/F1 10 Tf", "50 750 Td", "14 TL"]
+        for text in page_lines:
+            content_lines.append(f"({_pdf_literal(text)}) Tj")
+            content_lines.append("T*")
+        content_lines.append(f"(Page {page_index} of {len(pages)}) Tj")
+        content_lines.append("ET")
+        content = "\n".join(content_lines).encode("latin-1", errors="replace")
+        objects[page_id] = (
+            f"<< /Type /Page /Parent 2 0 R /Resources << /Font << /F1 3 0 R >> >> "
+            f"/MediaBox [0 0 612 792] /Contents {content_id} 0 R >>"
+        ).encode("ascii")
+        objects[content_id] = b"<< /Length " + str(len(content)).encode("ascii") + b" >>\nstream\n" + content + b"\nendstream"
+    kids = " ".join(f"{page_id} 0 R" for page_id in page_ids)
+    objects[2] = f"<< /Type /Pages /Kids [{kids}] /Count {len(page_ids)} >>".encode("ascii")
+    payload = bytearray(b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n")
+    offsets = [0]
+    for object_id in range(1, max(objects) + 1):
+        offsets.append(len(payload))
+        payload.extend(f"{object_id} 0 obj\n".encode("ascii"))
+        payload.extend(objects[object_id])
+        payload.extend(b"\nendobj\n")
+    xref_offset = len(payload)
+    payload.extend(f"xref\n0 {len(objects) + 1}\n".encode("ascii"))
+    payload.extend(b"0000000000 65535 f \n")
+    for offset in offsets[1:]:
+        payload.extend(f"{offset:010d} 00000 n \n".encode("ascii"))
+    payload.extend(
+        f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\nstartxref\n{xref_offset}\n%%EOF\n".encode("ascii")
+    )
+    path.write_bytes(payload)
+
+
+def _wrap_pdf_line(value: Any, *, width: int = 92) -> list[str]:
+    text = re.sub(r"\s+", " ", str(value or "")).strip()
+    if not text:
+        return [""]
+    words = text.split(" ")
+    result: list[str] = []
+    current = ""
+    for word in words:
+        candidate = f"{current} {word}".strip()
+        if len(candidate) <= width:
+            current = candidate
+            continue
+        if current:
+            result.append(current)
+        current = word[:width]
+        remainder = word[width:]
+        while remainder:
+            result.append(current)
+            current = remainder[:width]
+            remainder = remainder[width:]
+    if current:
+        result.append(current)
+    return result or [""]
+
+
+def _pdf_literal(value: Any) -> str:
+    return str(value or "").replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
 
 
 def _write_pdf(final_artifact: dict[str, Any], path: Path) -> None:
@@ -337,7 +444,17 @@ def _remove_pdf_skip_warning(final_artifact: dict[str, Any]) -> None:
 def _write_status(run_dir: Path, payload: dict[str, Any]) -> None:
     try:
         run_dir.mkdir(parents=True, exist_ok=True)
-        _write_json(run_dir / "post_launch_materialized.json", payload)
+        state_payload = dict(payload)
+        state_payload.setdefault("status", "completed" if state_payload.get("ok") else "failed")
+        state_payload.setdefault("materialized_at", _utc_now_iso())
+        materialized_path = run_dir / "post_launch_materialized.json"
+        _write_json(materialized_path, state_payload)
+        state_file = os.environ.get("MN_POST_LAUNCH_STATE_FILE")
+        if state_file:
+            state_path = Path(state_file).expanduser()
+            state_path.parent.mkdir(parents=True, exist_ok=True)
+            if state_path.resolve() != materialized_path.resolve():
+                _write_json(state_path, state_payload)
     except OSError:
         pass
 

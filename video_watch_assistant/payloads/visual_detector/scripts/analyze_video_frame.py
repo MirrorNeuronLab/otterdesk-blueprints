@@ -5,6 +5,7 @@ import base64
 import json
 import mimetypes
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -482,23 +483,123 @@ def call_ollama(frame: bytes, prompt: str) -> dict[str, Any]:
         raise RuntimeError(f"ollama request failed: {exc}") from exc
 
     text = raw.get("response") or raw.get("message", {}).get("content") or raw.get("thinking") or ""
-    try:
-        result = json.loads(text)
-    except json.JSONDecodeError as exc:
-        start = text.find("{")
-        end = text.rfind("}")
-        if start == -1 or end == -1 or end <= start:
-            return fallback_detection_from_model_text(text, f"non-json response: {exc}")
-        try:
-            result = json.loads(text[start : end + 1])
-        except json.JSONDecodeError as nested_exc:
-            return fallback_detection_from_model_text(text, f"malformed json response: {nested_exc}")
+    result, parse_error = parse_model_json(text)
+    if result is None:
+        return fallback_detection_from_model_text(text, parse_error)
     return normalize_detection(result)
 
 
-def fallback_detection_from_model_text(text: str, reason: str) -> dict[str, Any]:
-    cleaned = " ".join(str(text or "").split())[:500]
-    summary = cleaned or "The vision model returned an unreadable response."
+def parse_model_json(value: Any) -> tuple[dict[str, Any] | None, str]:
+    if isinstance(value, dict):
+        return value, ""
+    if not isinstance(value, str):
+        return None, f"unsupported response type: {type(value).__name__}"
+
+    errors: list[str] = []
+    candidates = model_json_candidates(value)
+    for candidate in candidates:
+        for variant in repair_json_candidates(candidate):
+            try:
+                parsed = json.loads(variant)
+            except json.JSONDecodeError as exc:
+                errors.append(str(exc))
+                continue
+            if isinstance(parsed, dict):
+                return parsed, ""
+            return None, f"JSON response was {type(parsed).__name__}, expected object"
+
+    if not candidates:
+        return None, "non-json response"
+    return None, f"malformed json response: {errors[-1] if errors else 'unknown parse error'}"
+
+
+def model_json_candidates(text: str) -> list[str]:
+    stripped = strip_json_code_fence(text)
+    candidates = [stripped] if stripped else []
+
+    balanced = first_balanced_json_object(stripped)
+    if balanced and balanced not in candidates:
+        candidates.append(balanced)
+
+    start = stripped.find("{")
+    end = stripped.rfind("}")
+    if start != -1 and end > start:
+        loose = stripped[start : end + 1]
+        if loose not in candidates:
+            candidates.append(loose)
+    return candidates
+
+
+def strip_json_code_fence(text: str) -> str:
+    stripped = str(text or "").strip()
+    if not stripped.startswith("```"):
+        return stripped
+
+    lines = stripped.splitlines()
+    if len(lines) >= 2 and lines[-1].strip().startswith("```"):
+        return "\n".join(lines[1:-1]).strip()
+    return stripped
+
+
+def first_balanced_json_object(text: str) -> str:
+    start = text.find("{")
+    if start == -1:
+        return ""
+
+    depth = 0
+    in_string = False
+    escaped = False
+    for index, char in enumerate(text[start:], start=start):
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+            continue
+
+        if char == '"':
+            in_string = True
+        elif char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                return text[start : index + 1]
+    return ""
+
+
+def repair_json_candidates(candidate: str) -> list[str]:
+    repaired = remove_trailing_json_commas(insert_missing_json_commas(candidate))
+    candidates = [candidate]
+    if repaired != candidate:
+        candidates.append(repaired)
+    return candidates
+
+
+JSON_KEY_PATTERN = r'("(?:(?:\\.)|[^"\\])*"\s*:)'
+
+
+def insert_missing_json_commas(candidate: str) -> str:
+    fixed = re.sub(
+        rf'([}}\]"0-9])(\s*\n\s*){JSON_KEY_PATTERN}',
+        r"\1,\2\3",
+        candidate,
+    )
+    fixed = re.sub(
+        rf'\b(true|false|null)(\s*\n\s*){JSON_KEY_PATTERN}',
+        r"\1,\2\3",
+        fixed,
+    )
+    return fixed
+
+
+def remove_trailing_json_commas(candidate: str) -> str:
+    return re.sub(r",(\s*[}\]])", r"\1", candidate)
+
+
+def fallback_detection_from_model_text(_text: str, _reason: str) -> dict[str, Any]:
     return normalize_detection(
         {
             "detected": False,
@@ -506,12 +607,12 @@ def fallback_detection_from_model_text(text: str, reason: str) -> dict[str, Any]
             "detection_count": 0,
             "detections": [],
             "confidence": 0.0,
-            "summary": summary,
-            "detection_report": f"Vision model response could not be parsed as strict JSON; {reason}.",
-            "activity_description": summary,
+            "summary": "No reliable visual detection was produced for this frame.",
+            "detection_report": "",
+            "activity_description": "",
             "detected_types": [],
             "detected_colors": [],
-            "appearance_notes": ["Model response was not strict JSON."],
+            "appearance_notes": [],
             "risk_level": "low",
             "visible_subjects": [],
         }

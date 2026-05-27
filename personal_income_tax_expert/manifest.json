@@ -29,6 +29,8 @@
         "tax_year": 2025,
         "filing_status": "single",
         "document_folder": "",
+        "ollama_base_url": "http://192.168.4.173:11434",
+        "ollama_model": "nemotron3:33b",
         "description": "Prepare a draft Form 1040 review packet from a local folder of tax PDFs, using bundled sample documents until the user selects a real folder."
       }
     ]
@@ -49,6 +51,8 @@
           "PYTHONPATH": "${MN_SKILLS_ROOT}/blueprint_support_skill/src:${MN_SKILLS_ROOT}/tax_pdf_ocr_skill/src:${MN_SKILLS_ROOT}/pdf_extract_skill/src",
           "MN_LLM_API_BASE": "http://192.168.4.173:11434",
           "MN_LLM_MODEL": "ollama/nemotron3:33b",
+          "MN_LLM_MAX_TOKENS": "1200",
+          "MN_LLM_NUM_RETRIES": "1",
           "MN_LLM_TIMEOUT_SECONDS": "90",
           "MN_TAX_REDACT_LOGS": "true"
         }
@@ -102,6 +106,7 @@
       "local tax PDF intake",
       "LLM document understanding",
       "specialist tax preparer team",
+      "filesystem-backed agent handoffs",
       "source field extraction workpapers",
       "tax auditor and manager review gates",
       "draft Form 1040 review packet",
@@ -174,6 +179,24 @@
           "label": "Output folder",
           "default": "~/Downloads",
           "description": "Choose where the prepared draft packet files should be written on this computer."
+        },
+        {
+          "path": "llm.mode",
+          "label": "LLM mode",
+          "default": "ollama",
+          "description": "Use ollama for the real Nemotron tax team; fake is only for tests and quick runs."
+        },
+        {
+          "path": "llm.api_base",
+          "label": "Ollama URL",
+          "default": "http://192.168.4.173:11434",
+          "description": "Base URL for the local Ollama-compatible Nemotron tax team model server."
+        },
+        {
+          "path": "llm.model",
+          "label": "LLM model",
+          "default": "ollama/nemotron3:33b",
+          "description": "Model used by the specialist tax advisor team."
         }
       ],
       "instruction": "Ask the user to select the local tax document folder, confirm filing status, and choose the output folder before launch. If they skip the document folder, run the demo sample packet and explain that it is not filing-ready."
@@ -209,6 +232,7 @@
           "artifacts": [
             "result.json",
             "final_artifact.json",
+            "tax_team/artifact_manifest.json",
             "*-report.md",
             "*-tax-review-packet.pdf"
           ]
@@ -221,7 +245,8 @@
             "inputs.json",
             "events.jsonl",
             "result.json",
-            "final_artifact.json"
+            "final_artifact.json",
+            "tax_team/artifact_manifest.json"
           ],
           "optional_artifacts": [
             "job.json",
@@ -229,6 +254,11 @@
             "ui.json",
             "web/index.html",
             "logs.jsonl",
+            "tax_team/commands/*.json",
+            "tax_team/agent_outputs/*.json",
+            "tax_team/workpapers/*.json",
+            "tax_team/documents/*",
+            "tax_team/final/final_artifact.json",
             "*-report.md",
             "*-tax-review-packet.pdf"
           ]
@@ -299,7 +329,8 @@
         "inputs.json",
         "events.jsonl",
         "result.json",
-        "final_artifact.json"
+        "final_artifact.json",
+        "tax_team/artifact_manifest.json"
       ],
       "optional_outputs": [
         "job.json",
@@ -307,6 +338,11 @@
         "ui.json",
         "web/index.html",
         "logs.jsonl",
+        "tax_team/commands/*.json",
+        "tax_team/agent_outputs/*.json",
+        "tax_team/workpapers/*.json",
+        "tax_team/documents/*",
+        "tax_team/final/final_artifact.json",
         "*-report.md",
         "*-tax-review-packet.pdf"
       ],
@@ -321,6 +357,10 @@
       "local_run_store": "~/.mn/runs/<run_id>/",
       "result_json": "result.json",
       "final_artifact_json": "final_artifact.json",
+      "team_artifact_manifest": "tax_team/artifact_manifest.json",
+      "agent_commands": "tax_team/commands/*.json",
+      "agent_outputs": "tax_team/agent_outputs/*.json",
+      "agent_workpapers": "tax_team/workpapers/*.json",
       "markdown_report": "<outputs.folder_path>/<run_id>-report.md",
       "pdf_review_packet": "<outputs.folder_path>/<run_id>-tax-review-packet.pdf",
       "prepared_form_1040": "final_artifact.prepared_form_1040",
@@ -328,11 +368,16 @@
       "preparer_workpapers": "final_artifact.preparer_workpapers",
       "audit_review": "final_artifact.audit_review",
       "manager_review": "final_artifact.manager_review",
+      "risk_register": "final_artifact.risk_register",
+      "advisor_recommendations": "final_artifact.advisor_recommendations",
+      "filing_readiness": "final_artifact.filing_readiness",
+      "source_evidence_index": "final_artifact.source_evidence_index",
+      "strategic_review": "final_artifact.strategic_review",
       "advisor_message": "final_artifact.advisor_message",
       "status": "draft_needs_review"
     },
     "quick_test": {
-      "enabled": true,
+      "enabled": false,
       "env": "MN_BLUEPRINT_QUICK_TEST=1",
       "description": "Uses bundled sample W-2, 1099-INT, and 1099-R records without sending data to external services."
     },
@@ -347,13 +392,16 @@
       ],
       "output_adapter": "local_run_store",
       "run_store": "~/.mn/runs/<run_id>/",
-      "execution_model": "load_metadata -> resolve_config -> load_inputs -> scan_local_tax_folder -> extract_pdf_text_or_mark_ocr -> client_intake_coordinator -> llm_document_understanding -> llm_source_field_extraction -> income_preparer_workpaper -> deductions_credits_preparer_workpaper -> form_1040_assembler_maps_supported_lines -> tax_auditor_checks_assumptions -> manager_reviewer_blocks_filing_ready_claims -> advisor_report_writer -> write_final_artifact -> write_markdown_report -> write_pdf_review_packet -> request_human_review",
+      "execution_model": "load_metadata -> resolve_config -> load_inputs -> create_tax_team_workspace -> scan_local_tax_folder -> write_artifact_manifest -> extract_pdf_text_or_mark_ocr -> command_only_agent_handoffs -> client_intake_coordinator -> llm_document_understanding -> llm_source_field_extraction -> income_preparer_workpaper -> deductions_credits_preparer_workpaper -> form_1040_assembler_maps_supported_lines -> tax_auditor_checks_assumptions -> manager_reviewer_blocks_filing_ready_claims -> advisor_report_writer -> write_final_artifact -> write_markdown_report -> write_pdf_review_packet -> request_human_review",
       "execution_steps": [
         "load_metadata",
         "resolve_config",
         "load_inputs",
+        "create_tax_team_workspace",
         "scan_local_tax_folder",
+        "write_artifact_manifest",
         "extract_pdf_text_or_mark_ocr",
+        "command_only_agent_handoffs",
         "client_intake_coordinator",
         "llm_document_understanding",
         "llm_source_field_extraction",

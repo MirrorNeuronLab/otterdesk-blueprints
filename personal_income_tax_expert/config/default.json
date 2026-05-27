@@ -17,6 +17,7 @@
       "local tax PDF intake",
       "LLM document understanding",
       "specialist tax preparer team",
+      "filesystem-backed agent handoffs",
       "source field extraction workpapers",
       "tax auditor and manager review gates",
       "draft Form 1040 review packet",
@@ -185,6 +186,9 @@
     "mock_mode": "fake",
     "api_base": "http://192.168.4.173:11434",
     "model": "ollama/nemotron3:33b",
+    "prefer_shared_skill": false,
+    "quick_test_uses_fake": false,
+    "strict_json": true,
     "default_config": "primary",
     "agent_role": "Personal tax preparation team that prepares a source-grounded draft Form 1040 review packet while asking careful review questions.",
     "responsibilities": [
@@ -203,6 +207,8 @@
         "max_tokens": 1200,
         "num_retries": 1,
         "timeout_seconds": 90,
+        "prefer_shared_skill": false,
+        "strict_json": true,
         "mock_mode": "fake"
       }
     },
@@ -286,6 +292,15 @@
           "explain the draft in plain English",
           "summarize open review items",
           "prepare the user-facing report voice"
+        ]
+      },
+      "form_1040_packet_writer": {
+        "role": "Form 1040 packet writer",
+        "llm_config": "primary",
+        "responsibilities": [
+          "assemble the final review packet",
+          "preserve filesystem artifact references",
+          "keep large workpapers out of inter-agent messages"
         ]
       }
     }
@@ -372,6 +387,8 @@
     "max_stream_duration_seconds": 0
   },
   "agent_handoffs": {
+    "transport": "filesystem_artifact_refs_only",
+    "artifact_manifest": "tax_team/artifact_manifest.json",
     "workflow": [
       "client_intake_coordinator",
       "document_understanding_agent",
@@ -402,8 +419,11 @@
     "load_metadata",
     "resolve_config",
     "load_inputs",
+    "create_tax_team_workspace",
     "scan_local_tax_folder",
+    "write_artifact_manifest",
     "extract_pdf_text_or_mark_ocr",
+    "command_only_agent_handoffs",
     "client_intake_coordinator",
     "llm_document_understanding",
     "llm_source_field_extraction",

@@ -8,5 +8,12 @@
   },
   "outputs": {
     "folder_path": "~/Downloads"
+  },
+  "llm": {
+    "api_base": "http://192.168.4.173:11434",
+    "mode": "ollama",
+    "model": "ollama/nemotron3:33b",
+    "prefer_shared_skill": false,
+    "strict_json": true
   }
 }
