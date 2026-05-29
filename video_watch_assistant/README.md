@@ -41,6 +41,7 @@ A video camera is sampled every 10 seconds. The agent checks whether configured 
 - VL model base URL and model name.
 - Detection confidence threshold, alert cooldown policy, and optional notification destination.
 - Optional operator attention requests, such as "pay attention to the red backpack near the left doorway."
+- Co-worker chat behavior from `prompts/chat-system.md`.
 - Mock payloads for deterministic tests.
 
 ## Outputs
@@ -85,6 +86,7 @@ Check whether `events.jsonl` shows frame-observation summaries, visual detection
 - VL model decision path with deterministic mock support.
 - Co-worker conversation context for "what happened?" questions and operator attention requests.
 - Human notice events that OtterDesk chat can surface promptly during a running co-worker shift.
+- Blueprint-owned co-worker chat prompt in `prompts/chat-system.md`.
 - Detection count, label, category, color, position, and activity reporting.
 - Cooldown state and replayable events.
 - OpenShell detector worker isolation.
@@ -108,4 +110,5 @@ Calibrate thresholds against representative video footage, add site layout zones
 - `manifest.json`: graph, nodes, edges, initial inputs, metadata, stream declarations, and interface contract.
 - `config/default.json`: default identity, inputs, streams, LLM, outputs, logging, privacy, budgets, and adapters.
 - `config/overwrite.json`: editable local override template.
+- `prompts/chat-system.md`: OtterDesk local AI system prompt for this co-worker's chat voice and job boundaries.
 - `payloads/`: worker code, policies, and supporting runtime assets.

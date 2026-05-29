@@ -54,6 +54,7 @@ Blueprints may also contain:
 
 - `scenario.json`: canonical scenario input for simulation or demos.
 - `config/overwrite.json`: local or user-specific override values. This file should not be required for correctness.
+- `prompts/`: optional named prompts used by OtterDesk, runtime agents, or blueprint tooling.
 - `scripts/pre-launch.sh`: optional host-side setup hook for long-lived services required before validation and launch.
 - `knowledge/`: optional LLM-agent knowledge content, such as RAG material, prompt context, domain references, embeddings metadata, or other agent knowledge sources.
 - `payloads/.../samples`: bundled demo data.
@@ -365,6 +366,18 @@ The `knowledge/` directory is optional. If present, it must contain exactly thes
 - `learned/`: runtime-, feedback-, or experience-derived knowledge.
 
 The standard does not prescribe file formats, indexing behavior, retrieval precedence, embedding strategy, or how agents use these folders. Blueprints and runtime integrations may decide those details.
+
+## Prompt Contract
+
+Blueprints may include a `prompts/` directory beside `config/`, `knowledge/`, and `payloads/` for named instruction prompts that should travel with the blueprint instead of living in app code.
+
+For OtterDesk local co-worker chat, use:
+
+- `prompts/chat-system.md`: the initial system prompt for the local AI chat model when a user talks with this co-worker.
+
+This prompt should make the model represent the co-worker, not a generic assistant. It should define the co-worker voice, job responsibility, evidence boundaries, human-in-the-loop behavior, and how to answer job-related questions from runtime memory, human events, logs, and blueprint knowledge.
+
+Prompt files should be plain UTF-8 text or Markdown. They must not contain secrets, literal API keys, user-specific private data, or concrete model endpoint credentials. If a prompt needs deployment-specific facts, reference config fields, runtime memory, or knowledge documents instead.
 
 ## Output Contract
 
@@ -1364,6 +1377,7 @@ Use this checklist to separate universal requirements from feature-specific requ
 - External endpoints and model settings are configurable when used.
 - LLM-using blueprints declare model usage under `llm.configs`.
 - Agents reference named `LLM_CONFIG` entries instead of repeating concrete model settings.
+- Blueprints that support OtterDesk local co-worker chat place the chat system prompt in `prompts/chat-system.md`.
 
 ### Recommended
 

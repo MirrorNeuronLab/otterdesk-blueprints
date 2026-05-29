@@ -95,6 +95,17 @@ def test_index_entries_point_to_loadable_blueprint_folders():
         assert manifest["job_name"] == entry["job_name"]
 
 
+def test_video_watch_declares_otterdesk_chat_system_prompt():
+    blueprint_dir = ROOT / "video_watch_assistant"
+    manifest = json.loads((blueprint_dir / "manifest.json").read_text())
+    prompt = (blueprint_dir / "prompts" / "chat-system.md").read_text()
+
+    assert "prompts/" in manifest["metadata"]["configuration_contract"]["optional_files"]
+    assert "Video Watch Assistant" in prompt
+    assert "co-worker" in prompt
+    assert "human-in-the-loop" in prompt
+
+
 def test_otterdesk_nodes_use_shared_agent_templates_and_render():
     for manifest_path in _manifest_paths():
         manifest = json.loads(manifest_path.read_text())
