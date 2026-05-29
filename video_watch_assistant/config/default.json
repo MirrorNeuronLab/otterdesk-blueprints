@@ -526,6 +526,282 @@
           "Keep all observations in the local run store for review, debugging, and handoff."
         ]
       },
+      "grafana": {
+        "title": "Video Watch Assistant",
+        "tags": [
+          "mirrorneuron",
+          "blueprint",
+          "video"
+        ],
+        "timezone": "browser",
+        "editable": false,
+        "refresh": "2s",
+        "schemaVersion": 39,
+        "time": {
+          "from": "now-1h",
+          "to": "now"
+        },
+        "templating": {
+          "list": []
+        },
+        "panels": [
+          {
+            "id": 1,
+            "type": "text",
+            "title": "Overview",
+            "gridPos": {
+              "x": 0,
+              "y": 0,
+              "w": 24,
+              "h": 4
+            },
+            "options": {
+              "mode": "markdown",
+              "content": "This blueprint watches one mapped local RTSP endpoint. A host-side pre-launch hook feeds the selected local port from the bundled looping demo video and exposes a browser preview through MediaMTX."
+            }
+          },
+          {
+            "id": 2,
+            "type": "video",
+            "title": "Mapped Stream Preview",
+            "gridPos": {
+              "x": 0,
+              "y": 4,
+              "w": 12,
+              "h": 10
+            },
+            "options": {
+              "source": "rtsp://127.0.0.1:8554/video-watch",
+              "browserSource": "disabled",
+              "browserPublishSource": "disabled"
+            }
+          },
+          {
+            "id": 3,
+            "type": "stat",
+            "title": "Run Status",
+            "gridPos": {
+              "x": 12,
+              "y": 4,
+              "w": 4,
+              "h": 4
+            },
+            "targets": [
+              {
+                "refId": "A",
+                "queryType": "run_status"
+              }
+            ]
+          },
+          {
+            "id": 4,
+            "type": "stat",
+            "title": "Detections",
+            "gridPos": {
+              "x": 16,
+              "y": 4,
+              "w": 4,
+              "h": 4
+            },
+            "targets": [
+              {
+                "refId": "A",
+                "queryType": "event_count",
+                "eventTypes": [
+                  "video_watch_detection"
+                ]
+              }
+            ]
+          },
+          {
+            "id": 5,
+            "type": "stat",
+            "title": "Latest Observation",
+            "gridPos": {
+              "x": 20,
+              "y": 4,
+              "w": 4,
+              "h": 4
+            },
+            "targets": [
+              {
+                "refId": "A",
+                "queryType": "latest_event_type",
+                "eventTypes": [
+                  "video_frame_tick_generated",
+                  "video_watch_frame_observed",
+                  "video_watch_attention_updated",
+                  "video_watch_detection",
+                  "human_notice",
+                  "video_watch_slack_alert_sent",
+                  "video_watch_slack_alert_skipped",
+                  "video_watch_slack_alert_error",
+                  "video_watch_frame_analysis_failed"
+                ]
+              }
+            ]
+          },
+          {
+            "id": 6,
+            "type": "table",
+            "title": "Detection Timeline",
+            "gridPos": {
+              "x": 12,
+              "y": 8,
+              "w": 12,
+              "h": 10
+            },
+            "targets": [
+              {
+                "refId": "A",
+                "queryType": "events",
+                "limit": 50,
+                "eventTypes": [
+                  "video_watch_frame_observed",
+                  "video_watch_detection",
+                  "video_watch_frame_analysis_failed",
+                  "human_notice"
+                ]
+              }
+            ],
+            "options": {
+              "columns": [
+                {
+                  "text": "Time",
+                  "field": "timestamp"
+                },
+                {
+                  "text": "Event",
+                  "field": "type",
+                  "transform": "humanize"
+                },
+                {
+                  "text": "Summary",
+                  "field": "summary"
+                },
+                {
+                  "text": "Camera",
+                  "field": "camera_id"
+                },
+                {
+                  "text": "Frame",
+                  "field": "frame_seq"
+                },
+                {
+                  "text": "Confidence",
+                  "field": "confidence"
+                }
+              ]
+            }
+          },
+          {
+            "id": 7,
+            "type": "logs",
+            "title": "Operator Event Log",
+            "gridPos": {
+              "x": 0,
+              "y": 14,
+              "w": 12,
+              "h": 8
+            },
+            "targets": [
+              {
+                "refId": "A",
+                "queryType": "events",
+                "limit": 12,
+                "eventTypes": [
+                  "video_frame_tick_generated",
+                  "video_watch_frame_observed",
+                  "video_watch_attention_updated",
+                  "video_watch_detection",
+                  "human_notice",
+                  "video_watch_slack_alert_sent",
+                  "video_watch_slack_alert_skipped",
+                  "video_watch_slack_alert_error",
+                  "video_watch_frame_analysis_failed"
+                ]
+              }
+            ]
+          },
+          {
+            "id": 8,
+            "type": "timeseries",
+            "title": "Event Rate",
+            "gridPos": {
+              "x": 12,
+              "y": 18,
+              "w": 12,
+              "h": 7
+            },
+            "targets": [
+              {
+                "refId": "A",
+                "queryType": "event_timeseries",
+                "eventTypes": [
+                  "video_frame_tick_generated",
+                  "video_watch_frame_observed",
+                  "video_watch_attention_updated",
+                  "video_watch_detection",
+                  "human_notice",
+                  "video_watch_slack_alert_sent",
+                  "video_watch_slack_alert_skipped",
+                  "video_watch_slack_alert_error",
+                  "video_watch_frame_analysis_failed"
+                ]
+              }
+            ],
+            "options": {
+              "x": "time",
+              "y": "value"
+            }
+          },
+          {
+            "id": 9,
+            "type": "json",
+            "title": "Latest Raw Event",
+            "gridPos": {
+              "x": 0,
+              "y": 22,
+              "w": 12,
+              "h": 8
+            },
+            "targets": [
+              {
+                "refId": "A",
+                "queryType": "latest_event",
+                "eventTypes": [
+                  "video_frame_tick_generated",
+                  "video_watch_frame_observed",
+                  "video_watch_attention_updated",
+                  "video_watch_detection",
+                  "human_notice",
+                  "video_watch_slack_alert_sent",
+                  "video_watch_slack_alert_skipped",
+                  "video_watch_slack_alert_error",
+                  "video_watch_frame_analysis_failed"
+                ]
+              }
+            ]
+          },
+          {
+            "id": 10,
+            "type": "json",
+            "title": "Final Artifact",
+            "gridPos": {
+              "x": 12,
+              "y": 25,
+              "w": 12,
+              "h": 8
+            },
+            "targets": [
+              {
+                "refId": "A",
+                "queryType": "final_artifact"
+              }
+            ]
+          }
+        ]
+      },
       "browser_video_source": "disabled",
       "browser_publish_source": "disabled",
       "default_video_source": "rtsp://127.0.0.1:8554/video-watch",

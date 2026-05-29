@@ -30,6 +30,8 @@ The expected customer outcome is reduced manual monitoring burden while meaningf
 
 The result should help a safety or security team answer: what configured targets were seen, how many were detected, what visible labels/categories/colors were observed, where and when they were seen, how confident the system was, whether the co-worker notified the user in chat, whether an alert was sent, whether an alert was suppressed by policy or cooldown, and what a reviewer should inspect next.
 
+The live review surface is declared as Grafana-style dashboard JSON under `web_ui.dashboard.grafana` and rendered by the shared blueprint support Gradio service. The video-specific behavior lives in panel declarations and event targets, not in custom dashboard HTML.
+
 ## Evaluation Criteria
 
 - Detection quality: measure precision, recall, false-alert rate, and missed-detection rate against labeled clips or sampled frames.

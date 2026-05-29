@@ -51,11 +51,13 @@ A video camera is sampled every 10 seconds. The agent checks whether configured 
 - Count, label, category, color, position, activity, and confidence details.
 - Alert decisions and notification payloads.
 - A final artifact summarizing the run, observations, and recommended next steps.
-- Optional shared Gradio or static dashboard metadata in `web_ui.json`.
+- Shared Gradio dashboard metadata in `web_ui.json` and Grafana-style layout metadata in `ui.json`.
 
 ## How to run
 
 The standard `scripts/pre-launch.sh` hook starts the local mapper before validation and launch. With the default mapped source, it loops `data/sample.mp4` into local MediaMTX and publishes the RTSP stream at the selected local port, usually `rtsp://127.0.0.1:8554/video-watch`. If that port is busy, the hook selects another local port and reports the resolved URI back to the runner. The matching `scripts/post-launch.sh` hook is idempotent cleanup: it stops the recorded ffmpeg/MediaMTX mapper and any matching MediaMTX listeners on the selected RTSP/browser-preview ports after stop, cancel, failed launch, or completed cleanup. It does not open a browser or request webcam access.
+
+The web UI uses the shared blueprint support renderer with a Grafana JSON dashboard model in `config/default.json`. The blueprint only declares panels and event queries; the shared skill renders those panels through Gradio for this blueprint and for non-video blueprints.
 
 Run the detector script from the blueprint directory:
 
@@ -86,7 +88,7 @@ Check whether `events.jsonl` shows frame-observation summaries, visual detection
 - Detection count, label, category, color, position, and activity reporting.
 - Cooldown state and replayable events.
 - OpenShell detector worker isolation.
-- Local run store artifacts and optional static dashboard or Gradio dashboard handles.
+- Local run store artifacts and shared Grafana JSON to Gradio dashboard handles.
 
 ## Test coverage
 
