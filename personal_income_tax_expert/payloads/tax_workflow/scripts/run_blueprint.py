@@ -2252,6 +2252,8 @@ def _packet_writer_agent(
     filing_readiness = _build_filing_readiness(audit_review, manager_review, risk_register)
     open_questions = _build_open_questions(intake, form_1040, manager_review)
     source_evidence_index = _build_source_evidence_index(form_1040, source_extraction, team)
+    source_refs = _final_artifact_source_refs(source_evidence_index, form_1040, audit_review, manager_review)
+    confidence = min(float(filing_readiness.get("confidence", 0.6) or 0.6), 0.85)
     strategic_review = _build_strategic_review(
         documents,
         intake,
@@ -2273,6 +2275,15 @@ def _packet_writer_agent(
     artifact = {
         "type": "prepared_1040_tax_packet",
         "title": f"Personal Income Tax Preparation & Strategic Review | Tax Year {tax_year}",
+        "executive_summary": (
+            f"Prepared a draft Form 1040 review packet for tax year {tax_year} from "
+            f"{len(documents)} source document(s). The packet remains draft-only and "
+            f"{filing_readiness['status'].replace('_', ' ')} until the listed blockers and source evidence are reviewed."
+        ),
+        "recommended_action": "Review the draft packet with the taxpayer or a qualified tax professional before filing or sharing it.",
+        "confidence": confidence,
+        "evidence": source_evidence_index[:12],
+        "source_refs": source_refs,
         "tax_year": tax_year,
         "status": "draft_needs_review",
         "draft_warning": "Draft review packet only. This is not an official IRS form, not a filed return, and not an e-file submission.",
@@ -2636,6 +2647,25 @@ def _build_source_evidence_index(
             }
         )
     return index
+
+
+def _final_artifact_source_refs(
+    source_evidence_index: list[dict[str, Any]],
+    form_1040: dict[str, Any],
+    audit_review: dict[str, Any],
+    manager_review: dict[str, Any],
+) -> list[str]:
+    refs: list[str] = ["inputs.json", "events.jsonl", "result.json"]
+    for line in source_evidence_index:
+        refs.append(f"form_1040.line:{line.get('line')}")
+        for source in _as_list(line.get("sources")):
+            if isinstance(source, dict):
+                if source.get("artifact_ref"):
+                    refs.append(str(source["artifact_ref"]))
+                if source.get("filename"):
+                    refs.append(f"document:{source['filename']}")
+    refs.extend(_team_refs(form_1040, audit_review, manager_review))
+    return _dedupe_strings([ref for ref in refs if ref])
 
 
 def _document_refs_by_filename(team: TaxTeamWorkspace | None) -> dict[str, str]:

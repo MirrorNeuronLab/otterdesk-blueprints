@@ -102,6 +102,11 @@ def test_personal_tax_expert_speaks_like_advisor_and_prepares_1040_packet(tmp_pa
     artifact = result["final_artifact"]
 
     assert artifact["type"] == "prepared_1040_tax_packet"
+    assert artifact["executive_summary"]
+    assert artifact["recommended_action"].startswith("Review the draft packet")
+    assert 0 < artifact["confidence"] <= 0.85
+    assert artifact["evidence"]
+    assert {"inputs.json", "events.jsonl", "result.json"} <= set(artifact["source_refs"])
     assert artifact["status"] == "draft_needs_review"
     assert artifact["title"] == "Personal Income Tax Preparation & Strategic Review | Tax Year 2025"
     assert "Form 1040 is the main U.S. individual income tax return" in artifact["what_is_a_1040_tax_form"]

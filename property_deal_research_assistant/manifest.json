@@ -28,28 +28,14 @@
       }
     ]
   },
-  "job_name": "property-deal-research-assistant",
-  "license": "LICENSE.md",
-  "term": "TERM.md",
-  "manifest_version": "1.0",
-  "requirements": {
-    "cpu": {
-      "min_cores": 1
-    },
-    "gpu": {
-      "min_count": 0
-    },
-    "memory": {
-      "min_gb": 2
-    },
-    "disk": {
-      "min_gb": 1
-    }
-  },
   "input_validation": {
     "rules": []
   },
+  "job_name": "property-deal-research-assistant",
+  "license": "LICENSE.md",
+  "manifest_version": "1.0",
   "metadata": {
+    "agent_role": "AI assistant for researching property deals and drafting opportunity rankings.",
     "agent_templates": {
       "library": "../mn-agents/index.json",
       "nodes": [
@@ -86,6 +72,35 @@
     },
     "customizable_for": "Rental acquisitions, flipping pipelines, multifamily sourcing, market expansion, diligence review, and capital-allocation meetings.",
     "description": "Reviews ZIP-code history, broker notes, financing constraints, and deal memory to rank property opportunities and explain which ones deserve attention.",
+    "human_control": {
+      "allowed_decisions": [
+        "approve",
+        "revise",
+        "reject"
+      ],
+      "blocked_actions": [
+        "submit_bid",
+        "send_loi",
+        "negotiate_discount",
+        "notify_broker_without_review"
+      ],
+      "decision_event": "human_decision_applied",
+      "default_action": "reject",
+      "enabled": true,
+      "events": [
+        "human_notice",
+        "human_input_requested",
+        "human_input_received",
+        "human_input_timeout",
+        "human_decision_applied"
+      ],
+      "mode": "approval_required",
+      "reason": "Human approval is required before high-impact downstream actions such as submit_bid, send_loi, negotiate_discount.",
+      "request_event": "human_input_requested",
+      "response_event": "human_input_received",
+      "timeout_event": "human_input_timeout",
+      "timeout_seconds": 3600
+    },
     "init_config_review": {
       "checks": [
         "identity",
@@ -97,7 +112,136 @@
         "privacy",
         "budgets"
       ],
+      "fields": [
+        {
+          "default": "02139",
+          "description": "Confirm the market area to evaluate.",
+          "label": "Target ZIP",
+          "path": "inputs.payload.target_zip"
+        },
+        {
+          "default": 950000,
+          "description": "Confirm the acquisition price ceiling.",
+          "label": "Max price",
+          "path": "inputs.payload.max_price"
+        },
+        {
+          "default": "compare",
+          "description": "Choose compare, on, or off for working-memory evaluation.",
+          "label": "Memory mode",
+          "path": "inputs.payload.memory_mode"
+        },
+        {
+          "default": 6,
+          "description": "Number of decision-loop steps to run.",
+          "label": "Simulation steps",
+          "path": "inputs.payload.steps"
+        },
+        {
+          "default": "http://192.168.4.173:11434",
+          "description": "Base URL for the local property research model server.",
+          "label": "LLM URL",
+          "path": "llm.api_base"
+        },
+        {
+          "default": "ollama/nemotron3:33b",
+          "description": "Model used to draft opportunity rankings.",
+          "label": "LLM model",
+          "path": "llm.model"
+        }
+      ],
+      "instruction": "When running in OtterDesk, show these overwriteable fields during init config and ask the user to change them or keep the defaults before launch.",
       "required": true
+    },
+    "input_contract": {
+      "description": "Property deal review depends on older broker, lender, rent, insurance, and diligence details that are easy to lose in noisy pipelines.",
+      "optional_inputs": [
+        {
+          "description": "DSCR, leverage, rate, insurance, and lender assumptions.",
+          "example": {
+            "dscr_min": 1.25
+          },
+          "name": "financing_constraints",
+          "type": "domain_value"
+        },
+        {
+          "description": "Current opportunity notes or watchlist changes.",
+          "example": "seller motivated, inspection clean",
+          "name": "broker_notes",
+          "type": "domain_value"
+        }
+      ],
+      "privacy_classification": "confidential",
+      "profiles": {
+        "connector": {
+          "adapter": "json",
+          "description": "MLS, CRM, lender, insurance, and diligence notes supplied by approved connectors."
+        },
+        "env_json": {
+          "adapter": "env_json",
+          "description": "JSON object loaded from MN_BLUEPRINT_INPUT_JSON."
+        },
+        "file": {
+          "adapter": "file",
+          "description": "JSON object loaded from a local file path."
+        },
+        "json": {
+          "adapter": "json",
+          "description": "Inline JSON object supplied through config or runtime overrides."
+        },
+        "mock": {
+          "adapter": "mock",
+          "description": "Bundled Cambridge ZIP-code memory benchmark scenario.",
+          "payload": {
+            "max_price": 950000,
+            "memory_mode": "compare",
+            "target_zip": "02139"
+          }
+        },
+        "sample_file": {
+          "adapter": "file",
+          "description": "JSON deal history and scenario loaded from disk.",
+          "path": "scenario.json"
+        }
+      },
+      "required_inputs": [
+        {
+          "description": "ZIP code or market area to research.",
+          "example": "02139",
+          "name": "target_zip",
+          "type": "domain_value"
+        },
+        {
+          "description": "Maximum acquisition price or underwriting limit.",
+          "example": 950000,
+          "name": "price_ceiling",
+          "type": "domain_value"
+        },
+        {
+          "description": "Broker notes, lender constraints, comps, rent, insurance, and diligence history.",
+          "example": "scenario.json",
+          "name": "deal_history",
+          "type": "domain_value"
+        },
+        {
+          "description": "Memory mode and fact limit used to compare full context with optimized memory.",
+          "example": {
+            "memory_limit": 36,
+            "memory_mode": "compare"
+          },
+          "name": "memory_policy",
+          "type": "domain_value"
+        }
+      ],
+      "resolved_artifact": "inputs.json",
+      "schema_version": "mn.blueprint.input_contract.v1",
+      "supported_adapters": [
+        "mock",
+        "json",
+        "file",
+        "env_json"
+      ],
+      "validation_rules": []
     },
     "interfaces": {
       "channels": {
@@ -123,6 +267,10 @@
           "artifact": "events.jsonl",
           "description": "Append-only workflow events."
         },
+        "human": {
+          "artifact": "human.jsonl",
+          "description": "Human notices, approval requests, responses, timeouts, and applied decisions."
+        },
         "input_skills": {
           "description": "Connector-backed or reusable skill-backed input sources."
         },
@@ -143,6 +291,10 @@
             "final_artifact.json"
           ],
           "description": "Primary result and final user-facing artifact."
+        },
+        "resources": {
+          "artifact": "resources.jsonl",
+          "description": "Resource samples such as token, runtime, connector, and disk usage."
         },
         "streams": {
           "default": [
@@ -191,6 +343,8 @@
         "llm",
         "outputs",
         "logging",
+        "resources",
+        "human_control",
         "real_adapters",
         "streams",
         "input_skills",
@@ -269,10 +423,10 @@
       ]
     },
     "llm": {
+      "agent_role": "AI assistant for researching property deals and drafting opportunity rankings.",
       "default_api_base": "http://192.168.4.173:11434",
       "default_model": "ollama/nemotron3:33b",
-      "mock_mode": "run payloads/simulation_loop/scripts/run_blueprint.py --mock-llm",
-      "agent_role": "AI assistant for researching property deals and drafting opportunity rankings."
+      "mock_mode": "run payloads/simulation_loop/scripts/run_blueprint.py --mock-llm"
     },
     "llm_agent_role": "AI assistant for researching property deals and drafting opportunity rankings.",
     "memory_layer": {
@@ -300,13 +454,182 @@
       "sdk_import_package": "mn_context_engine_sdk"
     },
     "name": "Property Deal Research Assistant",
+    "observability_dashboard": {
+      "panels": [
+        "current_status",
+        "recent_events",
+        "pending_human_requests",
+        "output_artifacts",
+        "resource_usage",
+        "errors",
+        "llm_calls",
+        "token_budget",
+        "llm_retries"
+      ],
+      "reads": [
+        "events.jsonl",
+        "human.jsonl",
+        "logs.jsonl",
+        "resources.jsonl",
+        "result.json",
+        "final_artifact.json",
+        "web_ui.json"
+      ],
+      "schema_version": "mn.blueprint.observability_dashboard.v1",
+      "source": "local_run_store"
+    },
     "output": "Ranked property opportunities, source-grounded notes, and watchlist or bid recommendations for review.",
     "output_contract": {
+      "artifacts": [
+        {
+          "artifact_id": "run_metadata",
+          "mime_type": "application/json",
+          "path": "run.json",
+          "producer": "local_run_store",
+          "schema_version": "mn.artifact.run_summary.v1",
+          "source_refs": [],
+          "type": "run_summary"
+        },
+        {
+          "artifact_id": "resolved_config",
+          "mime_type": "application/json",
+          "path": "config.json",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.config.v1",
+          "source_refs": [],
+          "type": "config"
+        },
+        {
+          "artifact_id": "resolved_inputs",
+          "mime_type": "application/json",
+          "path": "inputs.json",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.inputs.v1",
+          "source_refs": [],
+          "type": "inputs"
+        },
+        {
+          "artifact_id": "event_stream",
+          "mime_type": "application/x-jsonlines",
+          "path": "events.jsonl",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.events.v1",
+          "source_refs": [],
+          "type": "events"
+        },
+        {
+          "artifact_id": "result",
+          "mime_type": "application/json",
+          "path": "result.json",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.response.v1",
+          "source_refs": [
+            "inputs.json",
+            "events.jsonl"
+          ],
+          "type": "result"
+        },
+        {
+          "artifact_id": "final_artifact",
+          "mime_type": "application/json",
+          "path": "final_artifact.json",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.final_artifact.v1",
+          "source_refs": [
+            "inputs.json",
+            "events.jsonl",
+            "result.json"
+          ],
+          "type": "final_artifact"
+        },
+        {
+          "artifact_id": "logs",
+          "mime_type": "application/x-jsonlines",
+          "path": "logs.jsonl",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.logs.v1",
+          "source_refs": [
+            "events.jsonl"
+          ],
+          "type": "logs"
+        },
+        {
+          "artifact_id": "resources",
+          "mime_type": "application/x-jsonlines",
+          "path": "resources.jsonl",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.resources.v1",
+          "source_refs": [
+            "run.json"
+          ],
+          "type": "resource_samples"
+        },
+        {
+          "artifact_id": "web_ui",
+          "mime_type": "application/json",
+          "path": "web_ui.json",
+          "producer": "web_ui",
+          "schema_version": "mn.blueprint.web_ui.v1",
+          "source_refs": [
+            "run.json"
+          ],
+          "type": "web_ui"
+        },
+        {
+          "artifact_id": "human_events",
+          "mime_type": "application/x-jsonlines",
+          "path": "human.jsonl",
+          "producer": "human_control",
+          "schema_version": "mn.blueprint.human_events.v1",
+          "source_refs": [
+            "events.jsonl"
+          ],
+          "type": "human_events"
+        },
+        {
+          "artifact_id": "property_research_report",
+          "mime_type": "application/json",
+          "path": "final_artifact.json",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.generated_report.v1",
+          "source_refs": [
+            "inputs.json",
+            "events.jsonl",
+            "result.json"
+          ],
+          "type": "generated_report"
+        },
+        {
+          "artifact_id": "memory_benchmark",
+          "mime_type": "application/json",
+          "path": "result.json#/benchmark",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.benchmark_report.v1",
+          "source_refs": [
+            "events.jsonl"
+          ],
+          "type": "benchmark_report"
+        }
+      ],
       "events": "blueprint_report",
       "events_jsonl": "events.jsonl",
+      "final_artifact": {
+        "description": "The durable user-facing artifact should summarize the result, recommendation, confidence, evidence, next steps, and source references.",
+        "required_fields": [
+          "type",
+          "executive_summary",
+          "recommended_action",
+          "confidence",
+          "evidence",
+          "next_steps",
+          "source_refs"
+        ],
+        "schema_version": "mn.blueprint.final_artifact_contract.v1"
+      },
       "final_artifact_json": "final_artifact.json",
       "local_run_store": "~/.mn/runs/<run_id>/",
       "logs_jsonl": "logs.jsonl",
+      "output_skills": [],
       "response_schema": "mn.blueprint.response.v1",
       "result_json": "result.json",
       "stdout": "JSON object with timeline, all-context summaries, memory packets, state_changes, benchmark, final_artifact, and llm metadata"
@@ -322,7 +645,12 @@
       "source_refs",
       "decision quality benchmark",
       "LLM investment notes",
-      "Membrane context memory optimization"
+      "Membrane context memory optimization",
+      "product input contract",
+      "transparent run status",
+      "human control policy",
+      "artifact records",
+      "run-store observability dashboard"
     ],
     "simulation": {
       "actions": [
@@ -369,9 +697,80 @@
       "run_store": "~/.mn/runs/<run_id>/",
       "version": "1.0"
     },
+    "status_contract": {
+      "heartbeat_event": "blueprint_status",
+      "heartbeat_required": false,
+      "phases": [
+        {
+          "completion_event": "blueprint_phase_completed",
+          "failure_event": "blueprint_phase_failed",
+          "phase": "loading_inputs",
+          "progress_event": "blueprint_status",
+          "required": true,
+          "start_event": "blueprint_phase_started"
+        },
+        {
+          "completion_event": "blueprint_phase_completed",
+          "failure_event": "blueprint_phase_failed",
+          "phase": "running_worker",
+          "progress_event": "blueprint_status",
+          "required": true,
+          "start_event": "blueprint_phase_started"
+        },
+        {
+          "completion_event": "blueprint_phase_completed",
+          "failure_event": "blueprint_phase_failed",
+          "phase": "waiting_for_human",
+          "progress_event": "blueprint_status",
+          "required": true,
+          "start_event": "blueprint_phase_started"
+        },
+        {
+          "completion_event": "blueprint_phase_completed",
+          "failure_event": "blueprint_phase_failed",
+          "phase": "writing_artifacts",
+          "progress_event": "blueprint_status",
+          "required": true,
+          "start_event": "blueprint_phase_started"
+        },
+        {
+          "completion_event": "blueprint_phase_completed",
+          "failure_event": "blueprint_phase_failed",
+          "phase": "completed",
+          "progress_event": "blueprint_status",
+          "required": true,
+          "start_event": "blueprint_phase_started"
+        }
+      ],
+      "schema_version": "mn.blueprint.status_contract.v1",
+      "source": "run_store",
+      "status_event": "blueprint_status"
+    },
     "target_user": "Real-estate investors, acquisition analysts, property-tech teams, and diligence operators.",
-    "agent_role": "AI assistant for researching property deals and drafting opportunity rankings.",
-    "target_users": "Real-estate investors, acquisition analysts, property-tech teams, and diligence operators."
+    "target_users": "Real-estate investors, acquisition analysts, property-tech teams, and diligence operators.",
+    "web_ui": {
+      "data_source": "local_run_store",
+      "reads": [
+        "events.jsonl",
+        "human.jsonl",
+        "logs.jsonl",
+        "resources.jsonl",
+        "result.json",
+        "final_artifact.json",
+        "web_ui.json"
+      ],
+      "standard_panels": [
+        "current_status",
+        "recent_events",
+        "pending_human_requests",
+        "output_artifacts",
+        "resource_usage",
+        "errors",
+        "llm_calls",
+        "token_budget",
+        "llm_retries"
+      ]
+    }
   },
   "name": "Property Deal Research Assistant",
   "nodes": [
@@ -399,11 +798,18 @@
           "MN_LLM_NUM_RETRIES": "1",
           "MN_LLM_TIMEOUT_SECONDS": "60"
         },
+        "from": "base",
         "name_prefix": "property_deal_research_assistant",
+        "no_auto_providers": true,
+        "no_keep": true,
         "node_type": "generic",
         "output_message_type": "blueprint_report",
+        "pool": "default",
+        "pool_slots": 1,
         "role": "root_coordinator",
         "script": "scripts/run_blueprint.py",
+        "tty": false,
+        "upload_as": "simulation_loop",
         "upload_path": "simulation_loop",
         "upload_paths": [
           {
@@ -419,13 +825,6 @@
             "target": "mn-skills/blueprint_support_skill"
           }
         ],
-        "from": "base",
-        "no_auto_providers": true,
-        "no_keep": true,
-        "pool": "default",
-        "pool_slots": 1,
-        "tty": false,
-        "upload_as": "simulation_loop",
         "workdir": "/sandbox/job/simulation_loop"
       }
     },
@@ -442,5 +841,20 @@
   "policies": {
     "recovery_mode": "local_restart"
   },
-  "requiredContextEngine": false
+  "requiredContextEngine": false,
+  "requirements": {
+    "cpu": {
+      "min_cores": 1
+    },
+    "disk": {
+      "min_gb": 1
+    },
+    "gpu": {
+      "min_count": 0
+    },
+    "memory": {
+      "min_gb": 2
+    }
+  },
+  "term": "TERM.md"
 }

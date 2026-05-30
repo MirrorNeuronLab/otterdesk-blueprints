@@ -70,8 +70,25 @@
     "apply_decision_to_simulation",
     "emit_events",
     "write_final_artifact",
-    "fan_out_output_skills"
+    "fan_out_output_skills",
+    "emit_status_events",
+    "handle_human_control",
+    "write_artifact_records"
   ],
+  "human_control": {
+    "enabled": true,
+    "events": [
+      "human_notice",
+      "human_input_requested",
+      "human_input_received",
+      "human_input_timeout",
+      "human_decision_applied"
+    ],
+    "mode": "notice_only",
+    "notice_event": "human_notice",
+    "reason": "The workflow surfaces notable visual changes to reviewers but does not execute physical security actions by itself.",
+    "requires_ack": false
+  },
   "identity": {
     "blueprint_id": "video_watch_assistant",
     "name": "Video Watch Assistant"
@@ -106,6 +123,11 @@
         "artifact": "events.jsonl",
         "description": "Append-only workflow events."
       },
+      "human": {
+        "artifact": "human.jsonl",
+        "description": "Human notices, approval requests, responses, timeouts, and applied decisions.",
+        "mirrored_to": "events.jsonl"
+      },
       "input_skills": {
         "description": "Connector-backed or reusable skill-backed input sources."
       },
@@ -114,7 +136,9 @@
         "description": "Resolved runtime inputs and adapter provenance."
       },
       "logs": {
+        "artifact": "logs.jsonl",
         "description": "Runtime stdout/stderr and explicit log artifacts.",
+        "index": "logs.index.json",
         "stream": "stdout/stderr"
       },
       "output_skills": {
@@ -126,6 +150,10 @@
           "final_artifact.json"
         ],
         "description": "Primary result and final user-facing artifact."
+      },
+      "resources": {
+        "artifact": "resources.jsonl",
+        "description": "Resource samples such as token, runtime, connector, and disk usage."
       },
       "streams": {
         "default": [
@@ -174,6 +202,8 @@
       "llm",
       "outputs",
       "logging",
+      "resources",
+      "human_control",
       "real_adapters",
       "streams",
       "input_skills",
@@ -209,7 +239,10 @@
       "web_ui.json",
       "ui.json",
       "web/index.html",
-      "logs.jsonl"
+      "logs.jsonl",
+      "logs.index.json",
+      "human.jsonl",
+      "resources.jsonl"
     ],
     "output_adapters": [
       "local_run_store"
@@ -296,7 +329,19 @@
       "video_watch_slack_alert_sent",
       "video_watch_slack_alert_skipped",
       "video_watch_slack_alert_error",
-      "video_watch_frame_analysis_failed"
+      "video_watch_frame_analysis_failed",
+      "blueprint_status",
+      "blueprint_phase_started",
+      "blueprint_phase_completed",
+      "blueprint_phase_failed",
+      "artifact_written",
+      "human_input_requested",
+      "human_input_received",
+      "human_input_timeout",
+      "human_decision_applied",
+      "output_skill_started",
+      "output_skill_completed",
+      "output_skill_failed"
     ],
     "events_jsonl": true,
     "level": "INFO",
@@ -310,7 +355,24 @@
       "password",
       "private_key"
     ],
-    "stderr_jsonl": true
+    "resources_jsonl": true,
+    "rotation": {
+      "check_interval_records": 100,
+      "compress": "background",
+      "enabled": true,
+      "max_bytes_mb": 100,
+      "max_segments": 7,
+      "span_seconds": 86400
+    },
+    "stderr_jsonl": true,
+    "writer": {
+      "batch_size": 100,
+      "flush_interval_seconds": 0.5,
+      "mode": "async",
+      "overflow_policy": "drop_low_priority",
+      "queue_size": 10000,
+      "shutdown_flush_timeout_seconds": 2
+    }
   },
   "manifest_config_bindings": [
     {
@@ -349,27 +411,105 @@
     "sdk_import_package": "mn_context_engine_sdk"
   },
   "metadata": {
+    "agent_role": "AI assistant for reviewing video stream activity and preparing visual detection alerts.",
+    "blueprint_id": "video_watch_assistant",
     "blueprint_revision": "v1",
     "category": "business",
     "customizable_for": "Video monitoring, configurable visual detection, facility operations, and site safety workflows.",
-    "problem_solved": "User RTSP sources can be unstable or unavailable inside OpenShell, so this blueprint maps any validated upstream video or demo file into one stable local stream endpoint.",
-    "standard_version": "1.0",
-    "target_users": "Video operators, security reviewers, safety operations teams, and site-access coordinators.",
-    "blueprint_id": "video_watch_assistant",
-    "name": "Video Watch Assistant",
     "description": "Watches a mapped local video stream, detects configured visual targets, and reports count, label, category, color, position, activity, and alert status for review.",
     "llm_agent_role": "AI assistant for reviewing video stream activity and preparing visual detection alerts.",
-    "agent_role": "AI assistant for reviewing video stream activity and preparing visual detection alerts.",
+    "name": "Video Watch Assistant",
+    "problem_solved": "User RTSP sources can be unstable or unavailable inside OpenShell, so this blueprint maps any validated upstream video or demo file into one stable local stream endpoint.",
+    "simulation_type": "Video stream sampling with visual detection review state.",
+    "standard_version": "1.0",
     "target_user": "Video operators, security reviewers, safety operations teams, and site-access coordinators.",
-    "simulation_type": "Video stream sampling with visual detection review state."
+    "target_users": "Video operators, security reviewers, safety operations teams, and site-access coordinators."
   },
   "mode": "mock",
+  "openshell_network": {
+    "endpoints": [
+      {
+        "allowed_ips": [
+          "127.0.0.1/32"
+        ],
+        "binaries": [
+          "/usr/bin/ffmpeg",
+          "/usr/bin/python3"
+        ],
+        "name": "mapped-local-rtsp-stream-loopback",
+        "uri": "rtsp://127.0.0.1:8554/video-watch"
+      },
+      {
+        "allowed_ips": [
+          "127.0.0.1/32"
+        ],
+        "binaries": [
+          "/usr/bin/ffmpeg",
+          "/usr/bin/python3"
+        ],
+        "name": "mapped-local-rtsp-stream-localhost",
+        "uri": "rtsp://localhost:8554/video-watch"
+      },
+      {
+        "allowed_ips": [
+          "127.0.0.1/32",
+          "192.168.65.254/32"
+        ],
+        "binaries": [
+          "/usr/bin/ffmpeg",
+          "/usr/bin/python3"
+        ],
+        "name": "mapped-local-rtsp-stream-openshell-host",
+        "uri": "rtsp://host.openshell.internal:8554/video-watch"
+      },
+      {
+        "allowed_ips": [
+          "192.168.65.254/32",
+          "127.0.0.1/32"
+        ],
+        "binaries": [
+          "/usr/bin/ffmpeg",
+          "/usr/bin/python3"
+        ],
+        "name": "mapped-local-rtsp-stream-docker-host",
+        "uri": "rtsp://host.docker.internal:8554/video-watch"
+      },
+      {
+        "allowed_ips": [
+          "192.168.65.254/32"
+        ],
+        "binaries": [
+          "/usr/bin/ffmpeg",
+          "/usr/bin/python3"
+        ],
+        "name": "mapped-local-rtsp-stream-gateway",
+        "uri": "rtsp://192.168.65.254:8554/video-watch"
+      },
+      {
+        "allowed_ips": [
+          "192.168.4.173/32"
+        ],
+        "binaries": [
+          "/bin/bash",
+          "/usr/bin/bash",
+          "/usr/bin/python3",
+          "/usr/bin/python3.12"
+        ],
+        "name": "local-vl-model",
+        "uri": "http://192.168.4.173:11434"
+      }
+    ],
+    "include_dns": false,
+    "policy_path": "visual_detector/policies/video-egress.yaml"
+  },
   "output_skills": {
     "websocket_events": {
       "connector": "websocket",
       "content": "events",
+      "destination": "MN_BLUEPRINT_EVENTS_WS_URL",
       "direction": "output",
       "enabled": false,
+      "failure_policy": "skip",
       "mock": true,
       "required": false,
       "skill": "websocket_stream",
@@ -437,13 +577,28 @@
       "path": null
     }
   },
+  "resources": {
+    "enabled": true,
+    "gpu_enabled": "auto",
+    "gpu_sample_interval_seconds": 60,
+    "history_window_hours": 24,
+    "raw_retention_hours": 48,
+    "rollup_bucket_seconds": 3600,
+    "sample_interval_seconds": 10
+  },
   "schemas": {
+    "artifact_record": "mn.artifact.record.v1",
     "config": "mn.blueprint.config.v1",
     "events": "mn.blueprint.events.v1",
     "final_artifact": "mn.blueprint.final_artifact.v1",
+    "human_control": "mn.blueprint.human_control.v1",
     "input_skills": "mn.blueprint.input_skills.v1",
     "inputs": "mn.blueprint.inputs.v1",
-    "output_skills": "mn.blueprint.output_skills.v1"
+    "logs": "mn.blueprint.logs.v1",
+    "output_skills": "mn.blueprint.output_skills.v1",
+    "resources": "mn.blueprint.resources.v1",
+    "status_contract": "mn.blueprint.status_contract.v1",
+    "web_ui": "mn.blueprint.web_ui.v1"
   },
   "simulation": {
     "deterministic": true,
@@ -483,13 +638,13 @@
   "video_source": {
     "camera_id": "video-watch",
     "codec": "h264",
+    "demo_video": "data/sample.mp4",
     "description": "Default mapped RTSP endpoint consumed by the OpenShell worker. The host-side pre-launch hook loops the bundled demo video into the selected local RTSP port before launch.",
     "frame_jpeg_max_width": 896,
     "frame_sample_seconds": 10,
     "transport": "rtsp",
-    "uri": "rtsp://127.0.0.1:8554/video-watch",
     "upstream_uri": "",
-    "demo_video": "data/sample.mp4"
+    "uri": "rtsp://127.0.0.1:8554/video-watch"
   },
   "vl_model": {
     "base_url": "http://192.168.4.173:11434",
@@ -502,17 +657,19 @@
   },
   "web_ui": {
     "dashboard": {
+      "browser_publish_source": "disabled",
+      "browser_video_source": "disabled",
       "copy": {
         "event_glossary": {
+          "human_notice": "The co-worker saw a meaningful video change that should be surfaced promptly in OtterDesk chat.",
           "video_frame_tick_generated": "A frame was queued for real model analysis. The dashboard can show this as an in-progress state until a result event arrives.",
+          "video_watch_attention_updated": "The operator asked the video co-worker to pay attention to a specific visual detail.",
+          "video_watch_detection": "The visual detector saw configured target activity and recorded observable details for review.",
           "video_watch_frame_analysis_failed": "A sampled frame could not be read or analyzed. Check the stream, model endpoint, or sandbox network policy.",
           "video_watch_frame_observed": "A sampled frame was analyzed and summarized for co-worker chat and audit review.",
-          "video_watch_attention_updated": "The operator asked the video co-worker to pay attention to a specific visual detail.",
-          "human_notice": "The co-worker saw a meaningful video change that should be surfaced promptly in OtterDesk chat.",
           "video_watch_slack_alert_error": "The workflow tried to send a Slack alert but the delivery call failed.",
           "video_watch_slack_alert_sent": "A visual detection alert was sent to the configured review channel.",
-          "video_watch_slack_alert_skipped": "The workflow detected activity but skipped notification because alerting is disabled or the cooldown policy suppressed it.",
-          "video_watch_detection": "The visual detector saw configured target activity and recorded observable details for review."
+          "video_watch_slack_alert_skipped": "The workflow detected activity but skipped notification because alerting is disabled or the cooldown policy suppressed it."
         },
         "events_help": "Each event is a durable breadcrumb from the blueprint run. Operators can scan the friendly stream first, then open raw events when they need exact payloads.",
         "overview": "This blueprint watches one mapped local RTSP endpoint. A host-side pre-launch hook feeds the selected local port from the bundled looping demo video and exposes a browser preview through MediaMTX.",
@@ -526,284 +683,7 @@
           "Keep all observations in the local run store for review, debugging, and handoff."
         ]
       },
-      "grafana": {
-        "title": "Video Watch Assistant",
-        "tags": [
-          "mirrorneuron",
-          "blueprint",
-          "video"
-        ],
-        "timezone": "browser",
-        "editable": false,
-        "refresh": "2s",
-        "schemaVersion": 39,
-        "time": {
-          "from": "now-1h",
-          "to": "now"
-        },
-        "templating": {
-          "list": []
-        },
-        "panels": [
-          {
-            "id": 1,
-            "type": "text",
-            "title": "Overview",
-            "gridPos": {
-              "x": 0,
-              "y": 0,
-              "w": 24,
-              "h": 4
-            },
-            "options": {
-              "mode": "markdown",
-              "content": "This blueprint watches one mapped local RTSP endpoint. A host-side pre-launch hook feeds the selected local port from the bundled looping demo video and exposes a browser preview through MediaMTX."
-            }
-          },
-          {
-            "id": 2,
-            "type": "video",
-            "title": "Mapped Stream Preview",
-            "gridPos": {
-              "x": 0,
-              "y": 4,
-              "w": 12,
-              "h": 10
-            },
-            "options": {
-              "source": "rtsp://127.0.0.1:8554/video-watch",
-              "browserSource": "disabled",
-              "browserPublishSource": "disabled"
-            }
-          },
-          {
-            "id": 3,
-            "type": "stat",
-            "title": "Run Status",
-            "gridPos": {
-              "x": 12,
-              "y": 4,
-              "w": 4,
-              "h": 4
-            },
-            "targets": [
-              {
-                "refId": "A",
-                "queryType": "run_status"
-              }
-            ]
-          },
-          {
-            "id": 4,
-            "type": "stat",
-            "title": "Detections",
-            "gridPos": {
-              "x": 16,
-              "y": 4,
-              "w": 4,
-              "h": 4
-            },
-            "targets": [
-              {
-                "refId": "A",
-                "queryType": "event_count",
-                "eventTypes": [
-                  "video_watch_detection"
-                ]
-              }
-            ]
-          },
-          {
-            "id": 5,
-            "type": "stat",
-            "title": "Latest Observation",
-            "gridPos": {
-              "x": 20,
-              "y": 4,
-              "w": 4,
-              "h": 4
-            },
-            "targets": [
-              {
-                "refId": "A",
-                "queryType": "latest_event_type",
-                "eventTypes": [
-                  "video_frame_tick_generated",
-                  "video_watch_frame_observed",
-                  "video_watch_attention_updated",
-                  "video_watch_detection",
-                  "human_notice",
-                  "video_watch_slack_alert_sent",
-                  "video_watch_slack_alert_skipped",
-                  "video_watch_slack_alert_error",
-                  "video_watch_frame_analysis_failed"
-                ]
-              }
-            ]
-          },
-          {
-            "id": 6,
-            "type": "table",
-            "title": "Detection Timeline",
-            "gridPos": {
-              "x": 12,
-              "y": 8,
-              "w": 12,
-              "h": 10
-            },
-            "targets": [
-              {
-                "refId": "A",
-                "queryType": "events",
-                "limit": 50,
-                "eventTypes": [
-                  "video_watch_frame_observed",
-                  "video_watch_detection",
-                  "video_watch_frame_analysis_failed",
-                  "human_notice"
-                ]
-              }
-            ],
-            "options": {
-              "columns": [
-                {
-                  "text": "Time",
-                  "field": "timestamp"
-                },
-                {
-                  "text": "Event",
-                  "field": "type",
-                  "transform": "humanize"
-                },
-                {
-                  "text": "Summary",
-                  "field": "summary"
-                },
-                {
-                  "text": "Camera",
-                  "field": "camera_id"
-                },
-                {
-                  "text": "Frame",
-                  "field": "frame_seq"
-                },
-                {
-                  "text": "Confidence",
-                  "field": "confidence"
-                }
-              ]
-            }
-          },
-          {
-            "id": 7,
-            "type": "logs",
-            "title": "Operator Event Log",
-            "gridPos": {
-              "x": 0,
-              "y": 14,
-              "w": 12,
-              "h": 8
-            },
-            "targets": [
-              {
-                "refId": "A",
-                "queryType": "events",
-                "limit": 12,
-                "eventTypes": [
-                  "video_frame_tick_generated",
-                  "video_watch_frame_observed",
-                  "video_watch_attention_updated",
-                  "video_watch_detection",
-                  "human_notice",
-                  "video_watch_slack_alert_sent",
-                  "video_watch_slack_alert_skipped",
-                  "video_watch_slack_alert_error",
-                  "video_watch_frame_analysis_failed"
-                ]
-              }
-            ]
-          },
-          {
-            "id": 8,
-            "type": "timeseries",
-            "title": "Event Rate",
-            "gridPos": {
-              "x": 12,
-              "y": 18,
-              "w": 12,
-              "h": 7
-            },
-            "targets": [
-              {
-                "refId": "A",
-                "queryType": "event_timeseries",
-                "eventTypes": [
-                  "video_frame_tick_generated",
-                  "video_watch_frame_observed",
-                  "video_watch_attention_updated",
-                  "video_watch_detection",
-                  "human_notice",
-                  "video_watch_slack_alert_sent",
-                  "video_watch_slack_alert_skipped",
-                  "video_watch_slack_alert_error",
-                  "video_watch_frame_analysis_failed"
-                ]
-              }
-            ],
-            "options": {
-              "x": "time",
-              "y": "value"
-            }
-          },
-          {
-            "id": 9,
-            "type": "json",
-            "title": "Latest Raw Event",
-            "gridPos": {
-              "x": 0,
-              "y": 22,
-              "w": 12,
-              "h": 8
-            },
-            "targets": [
-              {
-                "refId": "A",
-                "queryType": "latest_event",
-                "eventTypes": [
-                  "video_frame_tick_generated",
-                  "video_watch_frame_observed",
-                  "video_watch_attention_updated",
-                  "video_watch_detection",
-                  "human_notice",
-                  "video_watch_slack_alert_sent",
-                  "video_watch_slack_alert_skipped",
-                  "video_watch_slack_alert_error",
-                  "video_watch_frame_analysis_failed"
-                ]
-              }
-            ]
-          },
-          {
-            "id": 10,
-            "type": "json",
-            "title": "Final Artifact",
-            "gridPos": {
-              "x": 12,
-              "y": 25,
-              "w": 12,
-              "h": 8
-            },
-            "targets": [
-              {
-                "refId": "A",
-                "queryType": "final_artifact"
-              }
-            ]
-          }
-        ]
-      },
-      "browser_video_source": "disabled",
-      "browser_publish_source": "disabled",
+      "data_source": "local_run_store",
       "default_video_source": "rtsp://127.0.0.1:8554/video-watch",
       "event_feed": {
         "default_path": "~/.mn/runs/<run_id>/events.jsonl",
@@ -820,14 +700,329 @@
         "video_watch_slack_alert_error",
         "video_watch_frame_analysis_failed"
       ],
+      "grafana": {
+        "editable": false,
+        "panels": [
+          {
+            "gridPos": {
+              "h": 4,
+              "w": 24,
+              "x": 0,
+              "y": 0
+            },
+            "id": 1,
+            "options": {
+              "content": "This blueprint watches one mapped local RTSP endpoint. A host-side pre-launch hook feeds the selected local port from the bundled looping demo video and exposes a browser preview through MediaMTX.",
+              "mode": "markdown"
+            },
+            "title": "Overview",
+            "type": "text"
+          },
+          {
+            "gridPos": {
+              "h": 10,
+              "w": 12,
+              "x": 0,
+              "y": 4
+            },
+            "id": 2,
+            "options": {
+              "browserPublishSource": "disabled",
+              "browserSource": "disabled",
+              "source": "rtsp://127.0.0.1:8554/video-watch"
+            },
+            "title": "Mapped Stream Preview",
+            "type": "video"
+          },
+          {
+            "gridPos": {
+              "h": 4,
+              "w": 4,
+              "x": 12,
+              "y": 4
+            },
+            "id": 3,
+            "targets": [
+              {
+                "queryType": "run_status",
+                "refId": "A"
+              }
+            ],
+            "title": "Run Status",
+            "type": "stat"
+          },
+          {
+            "gridPos": {
+              "h": 4,
+              "w": 4,
+              "x": 16,
+              "y": 4
+            },
+            "id": 4,
+            "targets": [
+              {
+                "eventTypes": [
+                  "video_watch_detection"
+                ],
+                "queryType": "event_count",
+                "refId": "A"
+              }
+            ],
+            "title": "Detections",
+            "type": "stat"
+          },
+          {
+            "gridPos": {
+              "h": 4,
+              "w": 4,
+              "x": 20,
+              "y": 4
+            },
+            "id": 5,
+            "targets": [
+              {
+                "eventTypes": [
+                  "video_frame_tick_generated",
+                  "video_watch_frame_observed",
+                  "video_watch_attention_updated",
+                  "video_watch_detection",
+                  "human_notice",
+                  "video_watch_slack_alert_sent",
+                  "video_watch_slack_alert_skipped",
+                  "video_watch_slack_alert_error",
+                  "video_watch_frame_analysis_failed"
+                ],
+                "queryType": "latest_event_type",
+                "refId": "A"
+              }
+            ],
+            "title": "Latest Observation",
+            "type": "stat"
+          },
+          {
+            "gridPos": {
+              "h": 10,
+              "w": 12,
+              "x": 12,
+              "y": 8
+            },
+            "id": 6,
+            "options": {
+              "columns": [
+                {
+                  "field": "timestamp",
+                  "text": "Time"
+                },
+                {
+                  "field": "type",
+                  "text": "Event",
+                  "transform": "humanize"
+                },
+                {
+                  "field": "summary",
+                  "text": "Summary"
+                },
+                {
+                  "field": "camera_id",
+                  "text": "Camera"
+                },
+                {
+                  "field": "frame_seq",
+                  "text": "Frame"
+                },
+                {
+                  "field": "confidence",
+                  "text": "Confidence"
+                }
+              ]
+            },
+            "targets": [
+              {
+                "eventTypes": [
+                  "video_watch_frame_observed",
+                  "video_watch_detection",
+                  "video_watch_frame_analysis_failed",
+                  "human_notice"
+                ],
+                "limit": 50,
+                "queryType": "events",
+                "refId": "A"
+              }
+            ],
+            "title": "Detection Timeline",
+            "type": "table"
+          },
+          {
+            "gridPos": {
+              "h": 8,
+              "w": 12,
+              "x": 0,
+              "y": 14
+            },
+            "id": 7,
+            "targets": [
+              {
+                "eventTypes": [
+                  "video_frame_tick_generated",
+                  "video_watch_frame_observed",
+                  "video_watch_attention_updated",
+                  "video_watch_detection",
+                  "human_notice",
+                  "video_watch_slack_alert_sent",
+                  "video_watch_slack_alert_skipped",
+                  "video_watch_slack_alert_error",
+                  "video_watch_frame_analysis_failed"
+                ],
+                "limit": 12,
+                "queryType": "events",
+                "refId": "A"
+              }
+            ],
+            "title": "Operator Event Log",
+            "type": "logs"
+          },
+          {
+            "gridPos": {
+              "h": 7,
+              "w": 12,
+              "x": 12,
+              "y": 18
+            },
+            "id": 8,
+            "options": {
+              "x": "time",
+              "y": "value"
+            },
+            "targets": [
+              {
+                "eventTypes": [
+                  "video_frame_tick_generated",
+                  "video_watch_frame_observed",
+                  "video_watch_attention_updated",
+                  "video_watch_detection",
+                  "human_notice",
+                  "video_watch_slack_alert_sent",
+                  "video_watch_slack_alert_skipped",
+                  "video_watch_slack_alert_error",
+                  "video_watch_frame_analysis_failed"
+                ],
+                "queryType": "event_timeseries",
+                "refId": "A"
+              }
+            ],
+            "title": "Event Rate",
+            "type": "timeseries"
+          },
+          {
+            "gridPos": {
+              "h": 8,
+              "w": 12,
+              "x": 0,
+              "y": 22
+            },
+            "id": 9,
+            "targets": [
+              {
+                "eventTypes": [
+                  "video_frame_tick_generated",
+                  "video_watch_frame_observed",
+                  "video_watch_attention_updated",
+                  "video_watch_detection",
+                  "human_notice",
+                  "video_watch_slack_alert_sent",
+                  "video_watch_slack_alert_skipped",
+                  "video_watch_slack_alert_error",
+                  "video_watch_frame_analysis_failed"
+                ],
+                "queryType": "latest_event",
+                "refId": "A"
+              }
+            ],
+            "title": "Latest Raw Event",
+            "type": "json"
+          },
+          {
+            "gridPos": {
+              "h": 8,
+              "w": 12,
+              "x": 12,
+              "y": 25
+            },
+            "id": 10,
+            "targets": [
+              {
+                "queryType": "final_artifact",
+                "refId": "A"
+              }
+            ],
+            "title": "Final Artifact",
+            "type": "json"
+          }
+        ],
+        "refresh": "2s",
+        "schemaVersion": 39,
+        "tags": [
+          "mirrorneuron",
+          "blueprint",
+          "video"
+        ],
+        "templating": {
+          "list": []
+        },
+        "time": {
+          "from": "now-1h",
+          "to": "now"
+        },
+        "timezone": "browser",
+        "title": "Video Watch Assistant"
+      },
+      "panels": [
+        "current_status",
+        "recent_events",
+        "pending_human_requests",
+        "output_artifacts",
+        "resource_usage",
+        "errors",
+        "input_lag",
+        "backpressure",
+        "llm_calls",
+        "token_budget",
+        "llm_retries",
+        "output_skill_attempts",
+        "output_skill_failures"
+      ],
+      "reads": [
+        "events.jsonl",
+        "human.jsonl",
+        "logs.jsonl",
+        "resources.jsonl",
+        "result.json",
+        "final_artifact.json",
+        "web_ui.json"
+      ],
+      "standard_panels": [
+        "current_status",
+        "recent_events",
+        "pending_human_requests",
+        "output_artifacts",
+        "resource_usage",
+        "errors",
+        "input_lag",
+        "backpressure",
+        "llm_calls",
+        "token_budget",
+        "llm_retries",
+        "output_skill_attempts",
+        "output_skill_failures"
+      ],
       "video_preview_bridge": {
         "auto_start": false,
+        "cleanup_script": "scripts/post-launch.sh",
         "enabled": false,
         "log_path": "/tmp/video_watch_assistant_dashboard_video_bridge.log",
         "open_browser": 0,
         "publish_mode": "mapped",
         "rtsp_port": 8554,
-        "cleanup_script": "scripts/post-launch.sh",
         "script": "scripts/pre-launch.sh",
         "stream_path": "video-watch",
         "use_existing_rtsp_server": 1
@@ -853,81 +1048,5 @@
       "server": "blueprint_support",
       "title": "Video Watch Assistant"
     }
-  },
-  "openshell_network": {
-    "policy_path": "visual_detector/policies/video-egress.yaml",
-    "include_dns": false,
-    "endpoints": [
-      {
-        "name": "mapped-local-rtsp-stream-loopback",
-        "uri": "rtsp://127.0.0.1:8554/video-watch",
-        "binaries": [
-          "/usr/bin/ffmpeg",
-          "/usr/bin/python3"
-        ],
-        "allowed_ips": [
-          "127.0.0.1/32"
-        ]
-      },
-      {
-        "name": "mapped-local-rtsp-stream-localhost",
-        "uri": "rtsp://localhost:8554/video-watch",
-        "binaries": [
-          "/usr/bin/ffmpeg",
-          "/usr/bin/python3"
-        ],
-        "allowed_ips": [
-          "127.0.0.1/32"
-        ]
-      },
-      {
-        "name": "mapped-local-rtsp-stream-openshell-host",
-        "uri": "rtsp://host.openshell.internal:8554/video-watch",
-        "binaries": [
-          "/usr/bin/ffmpeg",
-          "/usr/bin/python3"
-        ],
-        "allowed_ips": [
-          "127.0.0.1/32",
-          "192.168.65.254/32"
-        ]
-      },
-      {
-        "name": "mapped-local-rtsp-stream-docker-host",
-        "uri": "rtsp://host.docker.internal:8554/video-watch",
-        "binaries": [
-          "/usr/bin/ffmpeg",
-          "/usr/bin/python3"
-        ],
-        "allowed_ips": [
-          "192.168.65.254/32",
-          "127.0.0.1/32"
-        ]
-      },
-      {
-        "name": "mapped-local-rtsp-stream-gateway",
-        "uri": "rtsp://192.168.65.254:8554/video-watch",
-        "binaries": [
-          "/usr/bin/ffmpeg",
-          "/usr/bin/python3"
-        ],
-        "allowed_ips": [
-          "192.168.65.254/32"
-        ]
-      },
-      {
-        "name": "local-vl-model",
-        "uri": "http://192.168.4.173:11434",
-        "binaries": [
-          "/bin/bash",
-          "/usr/bin/bash",
-          "/usr/bin/python3",
-          "/usr/bin/python3.12"
-        ],
-        "allowed_ips": [
-          "192.168.4.173/32"
-        ]
-      }
-    ]
   }
 }

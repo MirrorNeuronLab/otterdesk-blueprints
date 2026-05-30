@@ -19,6 +19,12 @@ if str(SUPPORT_SRC) not in sys.path:
     sys.path.insert(0, str(SUPPORT_SRC))
 
 from mn_blueprint_support import render_manifest_agent_templates
+from mn_blueprint_support.experience import (
+    FINAL_ARTIFACT_REQUIRED_FIELDS,
+    HUMAN_CONTROL_MODES,
+    STANDARD_OBSERVABILITY_PANELS,
+    STATUS_PHASES,
+)
 from mn_blueprint_support.openshell_network import (
     build_openshell_network_policy,
     endpoint_from_uri,
@@ -78,6 +84,109 @@ def test_otterdesk_blueprints_declare_membrane_context_memory_layer():
         assert "Membrane context memory optimization" in manifest["metadata"]["runtime_features"]
 
 
+def test_otterdesk_blueprints_declare_product_experience_contracts():
+    expected_modes = {
+        "drug_discovery_research_assistant": "approval_required",
+        "personal_income_tax_expert": "approval_required",
+        "portfolio_risk_review_assistant": "approval_required",
+        "property_deal_research_assistant": "approval_required",
+        "video_watch_assistant": "notice_only",
+    }
+    required_schema_keys = {
+        "artifact_record",
+        "events",
+        "final_artifact",
+        "human_control",
+        "inputs",
+        "logs",
+        "resources",
+        "status_contract",
+        "web_ui",
+    }
+    required_events = {
+        "blueprint_status",
+        "blueprint_phase_started",
+        "blueprint_phase_completed",
+        "blueprint_phase_failed",
+        "artifact_written",
+        "human_notice",
+        "human_input_requested",
+        "human_input_received",
+        "human_input_timeout",
+        "human_decision_applied",
+    }
+
+    for manifest_path in _manifest_paths():
+        blueprint_dir = manifest_path.parent
+        manifest = json.loads(manifest_path.read_text())
+        config = json.loads((blueprint_dir / "config" / "default.json").read_text())
+        metadata = manifest["metadata"]
+        blueprint_id = metadata["blueprint_id"]
+
+        input_contract = metadata["input_contract"]
+        assert input_contract["schema_version"] == "mn.blueprint.input_contract.v1", blueprint_id
+        assert {"mock", "json", "file", "env_json"} <= set(input_contract["supported_adapters"])
+        assert input_contract["required_inputs"], blueprint_id
+        assert input_contract["resolved_artifact"] == "inputs.json"
+        assert "mock" in input_contract["profiles"]
+        assert input_contract["privacy_classification"] == config["privacy"]["default_classification"]
+        for item in input_contract["required_inputs"] + input_contract["optional_inputs"]:
+            assert {"name", "type", "description", "example"} <= set(item), (blueprint_id, item)
+
+        human_control = metadata["human_control"]
+        assert human_control == config["human_control"], blueprint_id
+        assert human_control["mode"] in HUMAN_CONTROL_MODES
+        assert human_control["mode"] == expected_modes[blueprint_id]
+        assert human_control["enabled"] is True
+        if human_control["mode"] == "approval_required":
+            assert human_control["allowed_decisions"] == ["approve", "revise", "reject"]
+            assert human_control["blocked_actions"], blueprint_id
+            assert human_control["timeout_seconds"] > 0
+            assert human_control["default_action"] in {"reject", "revise"}
+        else:
+            assert human_control["notice_event"] == "human_notice"
+            assert human_control["requires_ack"] is False
+
+        status_contract = metadata["status_contract"]
+        assert status_contract["schema_version"] == "mn.blueprint.status_contract.v1"
+        assert status_contract["source"] == "run_store"
+        assert [phase["phase"] for phase in status_contract["phases"]] == list(STATUS_PHASES)
+        assert all(phase["start_event"] == "blueprint_phase_started" for phase in status_contract["phases"])
+        assert all(phase["completion_event"] == "blueprint_phase_completed" for phase in status_contract["phases"])
+        assert all(phase["failure_event"] == "blueprint_phase_failed" for phase in status_contract["phases"])
+
+        final_contract = metadata["output_contract"]["final_artifact"]
+        assert final_contract["schema_version"] == "mn.blueprint.final_artifact_contract.v1"
+        assert set(FINAL_ARTIFACT_REQUIRED_FIELDS) <= set(final_contract["required_fields"])
+        artifacts = metadata["output_contract"]["artifacts"]
+        artifact_ids = {artifact["artifact_id"] for artifact in artifacts}
+        assert {"run_metadata", "resolved_config", "resolved_inputs", "event_stream", "result", "final_artifact"} <= artifact_ids
+        assert {"logs", "resources", "web_ui", "human_events"} <= artifact_ids
+        for artifact in artifacts:
+            assert {"artifact_id", "type", "path", "producer", "mime_type", "schema_version", "source_refs"} <= set(artifact), (
+                blueprint_id,
+                artifact,
+            )
+
+        dashboard = metadata["observability_dashboard"]
+        assert dashboard["schema_version"] == "mn.blueprint.observability_dashboard.v1"
+        assert set(STANDARD_OBSERVABILITY_PANELS) <= set(dashboard["panels"])
+        assert {"events.jsonl", "human.jsonl", "logs.jsonl", "resources.jsonl", "final_artifact.json"} <= set(dashboard["reads"])
+        assert set(dashboard["panels"]) <= set(config["web_ui"]["dashboard"]["standard_panels"])
+
+        schemas = config["schemas"]
+        assert required_schema_keys <= set(schemas), blueprint_id
+        assert required_events <= set(config["logging"]["events"]), blueprint_id
+        assert "human_control" in config["interfaces"]["config_sections"]
+        assert "human_control" in metadata["interfaces"]["config"]
+
+        review = metadata["init_config_review"]
+        assert review["required"] is True
+        assert review["fields"], blueprint_id
+        for field in review["fields"]:
+            assert {"path", "label", "default", "description"} <= set(field), (blueprint_id, field)
+
+
 def test_index_entries_point_to_loadable_blueprint_folders():
     index = json.loads((ROOT / "index.json").read_text())
     assert index
@@ -93,6 +202,35 @@ def test_index_entries_point_to_loadable_blueprint_folders():
         assert manifest["metadata"]["blueprint_id"] == entry["id"]
         assert manifest["graph_id"] == entry["graph_id"]
         assert manifest["job_name"] == entry["job_name"]
+
+
+def test_property_deal_final_artifact_uses_product_output_fields(tmp_path):
+    runner_path = ROOT / "property_deal_research_assistant" / "payloads" / "simulation_loop" / "scripts" / "run_blueprint.py"
+    spec = importlib.util.spec_from_file_location("otterdesk_property_runner_product_test", runner_path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+
+    result = module.run_blueprint(
+        inputs={"steps": 1, "seed": 77},
+        config={"llm": {"mode": "fake"}},
+        runs_root=tmp_path,
+        run_id="property-product-contract",
+    )
+    artifact = result["final_artifact"]
+
+    assert set(FINAL_ARTIFACT_REQUIRED_FIELDS) <= set(artifact)
+    assert artifact["evidence"]
+    assert {"inputs.json", "events.jsonl", "result.json"} <= set(artifact["source_refs"])
+
+    events = [
+        json.loads(line)
+        for line in (tmp_path / "property-product-contract" / "events.jsonl").read_text().splitlines()
+        if line.strip()
+    ]
+    event_types = {event["type"] for event in events}
+    assert {"blueprint_status", "blueprint_phase_started", "blueprint_phase_completed", "artifact_written"} <= event_types
 
 
 def test_video_watch_declares_otterdesk_chat_system_prompt():

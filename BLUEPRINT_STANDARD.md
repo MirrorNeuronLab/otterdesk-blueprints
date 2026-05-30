@@ -202,6 +202,21 @@ Input fields should be domain concepts, not internal implementation toggles. Exa
 - Property alpha: target ZIP, price ceiling, history months, broker notes, financing constraints.
 - Drug discovery: disease or target profile, screening criteria, candidate seeds.
 
+Each blueprint must also declare a product-facing input contract at `manifest.json.metadata.input_contract`. This metadata is what launchers and OtterDesk UI use to ask for meaningful values instead of exposing internal toggles.
+
+Required `metadata.input_contract` fields:
+
+- `schema_version`, currently `mn.blueprint.input_contract.v1`.
+- `required_inputs`: domain input records with `name`, `type`, `description`, and `example`.
+- `optional_inputs`: optional domain inputs with the same record shape.
+- `supported_adapters`: at least `mock`, `json`, `file`, and `env_json`.
+- `profiles`: named launch profiles such as `mock`, `sample_file`, `live_stream`, `local_folder`, or `connector`.
+- `privacy_classification`: the default handling class for the input data.
+- `validation_rules`: manifest validation rules or an empty list.
+- `resolved_artifact`: usually `inputs.json`.
+
+`metadata.init_config_review.fields` should mirror only the launch-time values a user can reasonably confirm, such as a video URI, tax document folder, target ZIP, output folder, model URL, or runtime budget. It should not ask users to review every default config section.
+
 ### Stream Inputs
 
 Blueprints that consume live or replayed streams should declare those inputs under `streams` or `inputs.streams`.
@@ -408,6 +423,18 @@ Optional run artifacts:
 
 `result.json` should contain enough context to audit the run without reading stdout. `final_artifact.json` should contain the durable product answer, not internal logs.
 
+Every `final_artifact.json` should explain:
+
+- `type`: the artifact kind.
+- `executive_summary`: what happened or what was found.
+- `recommended_action`: the safest next action for the user.
+- `confidence`: confidence level or score with enough context to interpret it.
+- `evidence`: source-grounded facts, observations, or citations behind the result.
+- `next_steps`: concrete follow-up steps.
+- `source_refs`: references to input files, events, streams, documents, or artifacts.
+
+The expected final artifact contract is declared at `manifest.json.metadata.output_contract.final_artifact` with schema version `mn.blueprint.final_artifact_contract.v1` and `required_fields`.
+
 `events.jsonl` is also the canonical live event stream. Dashboards, OtterDesk GUI views, CLI tails, and runtime integrations should read this artifact directly from the run store. If a blueprint is submitted to MirrorNeuron core through OtterDesk, OtterDesk mirrors core gRPC events into this file so the same contract works for every blueprint. Relay process bookkeeping files are internal runtime diagnostics and are not standard blueprint outputs.
 
 Blueprints may also declare skill-backed output destinations. Output skills are optional fan-out destinations, not replacements for local logs and events.
@@ -456,6 +483,8 @@ Each output skill should include:
 - destination identity fields, such as `folder_id`, `channel_id`, `database_id`, `bucket`, `path`, or `webhook_url_env`.
 - `content`: what to send, such as `final_artifact`, `result`, `summary`, `events`, `logs`, or a named artifact.
 - `enabled`
+- `required`: whether failure should fail the run.
+- `failure_policy`: usually `skip` for optional fan-out and `stop` for required fan-out.
 - optional formatting fields, such as `filename_template`, `message_template`, `mime_type`, or `include_run_link`
 
 Multiple output skills may be enabled at the same time. The blueprint should treat them as a fan-out list: write the local run store first, then attempt each enabled output skill.
@@ -554,6 +583,8 @@ Each artifact record should include:
 
 Named artifacts may be routed through output skills by setting `content` to the artifact id. Output skills should record the artifact id and destination reference in their completion event payload.
 
+The manifest output contract must declare artifact records at `metadata.output_contract.artifacts` for standard run-store files and user-facing outputs such as reports, dashboards, PDFs, generated files, alerts, connector fan-out results, and benchmark summaries.
+
 ## Event And Observability Contract
 
 Every event in `events.jsonl` must be one JSON object per line with:
@@ -590,6 +621,26 @@ Blueprint-specific events are encouraged when they expose useful product behavio
 - `pipeline_complete`
 
 Status logging may also write JSONL to stderr, but stderr is not the durable observability surface. The run store is the system of record.
+
+Blueprints must declare a status contract at `manifest.json.metadata.status_contract`. The standard phases are:
+
+- `loading_inputs`
+- `running_worker`
+- `waiting_for_human`
+- `writing_artifacts`
+- `completed`
+
+Each phase declares start, progress, completion, and failure event names. Long-running, stream, service, and multi-stage blueprints must also set `heartbeat_required: true` and emit `blueprint_status` progress events while work is active.
+
+Human-control policy is declared at both `config/default.json.human_control` and `manifest.json.metadata.human_control`.
+
+Allowed modes:
+
+- `disabled`: no human intervention is needed; include a reason.
+- `notice_only`: the workflow emits `human_notice` events but does not wait for approval.
+- `approval_required`: high-impact actions require `human_input_requested`, `human_input_received`, `human_input_timeout`, and `human_decision_applied` events before the blocked action can proceed.
+
+Approval policies must include allowed decisions, timeout, default fallback, and a blocked action list. Human events belong in `human.jsonl` and should also be visible through the run-store event stream.
 
 Secrets and sensitive environment values must be redacted from config summaries, logs, and events.
 
@@ -1266,6 +1317,17 @@ UI configuration belongs under `web_ui`. If a UI is enabled, the blueprint shoul
 
 Input UIs should collect config/input values and pass them through the normal config and input adapters. Output UIs should read from the run store instead of private worker state.
 
+Enabled web UIs should expose a standard observability dashboard from run-store artifacts, not private worker state. `manifest.json.metadata.observability_dashboard` and `web_ui.dashboard` should include panels for:
+
+- current status
+- recent events
+- pending human requests
+- output artifacts
+- resource use
+- errors
+
+Stream blueprints should add input lag and backpressure panels. LLM blueprints should add LLM calls, token budget, retry, and failure panels. Output-skill blueprints should show fan-out attempts and failures.
+
 ## Quick Test Contract
 
 Every blueprint should define `metadata.quick_test`.
@@ -1349,6 +1411,11 @@ Use this checklist to separate universal requirements from feature-specific requ
 - `config/default.json.identity.blueprint_id` matches the directory name.
 - It declares standard version `1.0`.
 - It supports `mock`, `json`, `file`, and `env_json` input adapters.
+- It declares `metadata.input_contract` with required inputs, optional inputs, profiles, privacy classification, adapters, and validation rules.
+- It declares `human_control` in both config and metadata, even when disabled.
+- It declares `metadata.status_contract` and emits status from the run store.
+- It declares `metadata.output_contract.final_artifact` and named artifact records.
+- It declares `metadata.observability_dashboard` backed by run-store artifacts.
 - It always writes local logs, events, and required run artifacts through `local_run_store`.
 - It emits `run_started`, `inputs_loaded`, and completion or failure events.
 - It records every error and declares whether recoverable errors use `retry`, `skip`, or `stop`.

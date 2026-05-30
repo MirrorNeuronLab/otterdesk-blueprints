@@ -1,114 +1,71 @@
 # Video Watch Assistant
 
-`Blueprint ID:` `video_watch_assistant`  
-`Category:` business
+`Blueprint ID:` `video_watch_assistant`
+`Category:` `Security`
 
-## One-line value proposition
+Watches an approved video stream, detects configured visual targets, and reports count, label, category, color, position, activity, and alert status for review.
 
-Detect and report configurable visual targets from an approved RTSP stream.
+## What It Does
 
-## What it is
+This folder is a self-contained MirrorNeuron blueprint. It defines the runtime
+manifest, default configuration, payload code, local documentation, and any
+fixtures needed to review or run the workflow from this checkout.
 
-Video Watch Assistant is a MirrorNeuron blueprint for continuous visual monitoring over a video camera. It samples an RTSP stream, asks a configurable vision-language model whether target subjects or activities are visible, records count/category/color/position/activity details, applies cooldown state, and writes reviewable alert artifacts.
+## Quick Start
 
-## Who this is for
+Run from the catalog:
 
-Video operators, facility security teams, safety operations, and site reviewers that need explainable visual detection without watching every frame.
+```bash
+mn run video_watch_assistant
+```
 
-## Why it matters
+Run directly from this folder:
 
-Continuous video is operationally sensitive. A stateful workflow can preserve audit context, suppress duplicate alerts, and keep reviewers in control while still surfacing configured visual detections with useful detail.
+```bash
+mn run --folder .
+```
 
-## Why this runtime is useful here
+Inspect recent run state:
 
-The runtime gives this workflow persistent events, local run artifacts, configurable inputs, optional web UI handles, stream declarations, and clean boundaries for OpenShell workers. That makes it easier to connect approved video stream sources while keeping access decisions inspectable.
+```bash
+mn blueprint monitor --follow
+```
 
-## How it works
+## Inputs And Configuration
 
-1. Loads `config/default.json` and any overrides.
-2. Resolves the video source, VL model endpoint, sampling cadence, and cooldown settings.
-3. Samples the default RTSP/H.264 stream over TCP.
-4. Emits typed events for frame analysis, visual detection, operator attention updates, chat-facing human notices, alert decisions, errors, and completion.
-5. Writes `result.json`, `final_artifact.json`, `events.jsonl`, and optional dashboard metadata under the local run store.
-
-## Example scenario
-
-A video camera is sampled every 10 seconds. The agent checks whether configured subjects or activities are visible, reports how many detections are present, their label/category/color, position in the scene, and activity, then emits an alert payload for review or Slack delivery.
-
-## Inputs
-
-- Video source URI, transport, and codec. Leave `video_source.uri` as the default mapped endpoint; the pre-launch hook loops the bundled demo video into the selected local RTSP port and passes that runtime URI into validation and the worker.
-- VL model base URL and model name.
-- Detection confidence threshold, alert cooldown policy, and optional notification destination.
-- Optional operator attention requests, such as "pay attention to the red backpack near the left doorway."
-- Co-worker chat behavior from `prompts/chat-system.md`.
-- Mock payloads for deterministic tests.
+- `manifest.json`: graph shape, entrypoints, runtime metadata, runners, services, and environment access.
+- `config/default.json`: default launch configuration and mock/sample input settings.
+- `config/overwrite.json`: optional local overrides layered on defaults.
+- `payloads/`: worker scripts, policies, fixtures, prompts, and support files used by this blueprint.
 
 ## Outputs
 
-- Visual detection events emitted when configured targets appear in the monitored scene.
-- Frame observation summaries that let OtterDesk local AI answer "what happened?" from live run context.
-- Chat-facing `human_notice` events when the video changes significantly, such as two people appearing.
-- Count, label, category, color, position, activity, and confidence details.
-- Alert decisions and notification payloads.
-- A final artifact summarizing the run, observations, and recommended next steps.
-- Shared Gradio dashboard metadata in `web_ui.json` and Grafana-style layout metadata in `ui.json`.
+Most runs write artifacts under `~/.mn/runs/<run_id>/`. Common files include
+`events.jsonl`, `result.json`, `final_artifact.json`, worker logs, and generated
+reports when the blueprint produces them.
 
-## How to run
+## Safety Checklist
 
-The standard `scripts/pre-launch.sh` hook starts the local mapper before validation and launch. With the default mapped source, it loops `data/sample.mp4` into local MediaMTX and publishes the RTSP stream at the selected local port, usually `rtsp://127.0.0.1:8554/video-watch`. If that port is busy, the hook selects another local port and reports the resolved URI back to the runner. The matching `scripts/post-launch.sh` hook is idempotent cleanup: it stops the recorded ffmpeg/MediaMTX mapper and any matching MediaMTX listeners on the selected RTSP/browser-preview ports after stop, cancel, failed launch, or completed cleanup. It does not open a browser or request webcam access.
+- Review `manifest.json` and `payloads/` before running with real data.
+- Check `pass_env`, provider credentials, Slack/email/web adapters, and any shell or OpenShell runners.
+- Start with mock, dry-run, or quick-test configuration before live external integrations.
+- Keep local customer overrides out of committed defaults.
 
-The web UI uses the shared blueprint support renderer with a Grafana JSON dashboard model in `config/default.json`. The blueprint only declares panels and event queries; the shared skill renders those panels through Gradio for this blueprint and for non-video blueprints.
+## Local Documentation
 
-Run the detector script from the blueprint directory:
+- [SPEC](SPEC.md)
+- [TERM](TERM.md)
+- [License](LICENSE.md)
+
+- [Manifest](manifest.json)
+- [Default config](config/default.json)
+
+## Validation
+
+Run repository-level tests from `otterdesk-blueprints` after changing catalog metadata,
+manifest structure, payload behavior, or shared fixtures:
 
 ```bash
-python3 payloads/visual_detector/scripts/analyze_video_frame.py
+cd ..
+python3 -m pytest -q
 ```
-
-For a deterministic local smoke test:
-
-```bash
-MOCK_VLM_DETECTION=1 python3 payloads/visual_detector/scripts/analyze_video_frame.py
-```
-
-## How to customize it
-
-Point the stream URI at an approved video stream or facility RTSP source, tune sampling cadence and alert cooldown, change the VL model endpoint, update the target-detection prompt, and connect approved notification output skills. Third-party apps can edit `config/overwrite.json` before launch without changing `config/default.json`.
-
-## What to look for in results
-
-Check whether `events.jsonl` shows frame-observation summaries, visual detection decisions, chat-facing human notices, cooldown suppressions, alert delivery attempts, and clean completion. The final artifact should explain what was observed, what action was selected, and which operator follow-up is recommended.
-
-## Runtime features demonstrated
-
-- Video stream sampling.
-- VL model decision path with deterministic mock support.
-- Co-worker conversation context for "what happened?" questions and operator attention requests.
-- Human notice events that OtterDesk chat can surface promptly during a running co-worker shift.
-- Blueprint-owned co-worker chat prompt in `prompts/chat-system.md`.
-- Detection count, label, category, color, position, and activity reporting.
-- Cooldown state and replayable events.
-- OpenShell detector worker isolation.
-- Local run store artifacts and shared Grafana JSON to Gradio dashboard handles.
-
-## Test coverage
-
-The blueprint includes deterministic mock-friendly paths, procedural conversation tests, and catalog tests for standard config, manifest metadata, interface channels, run artifacts, and product documentation.
-
-## Limitations
-
-This prototype is for evaluation and customer discovery. It should be reviewed against site policy, privacy rules, model behavior, and notification requirements before connecting real cameras or incident workflows.
-
-## Next steps
-
-Calibrate thresholds against representative video footage, add site layout zones and entry-direction rules, connect notification output skills, and tune retention and review policy for production deployments.
-
-## Documentation map
-
-- [SPEC.md](SPEC.md): detailed behavior contract, customer outcome, input/output contract, and upgrade path.
-- `manifest.json`: graph, nodes, edges, initial inputs, metadata, stream declarations, and interface contract.
-- `config/default.json`: default identity, inputs, streams, LLM, outputs, logging, privacy, budgets, and adapters.
-- `config/overwrite.json`: editable local override template.
-- `prompts/chat-system.md`: OtterDesk local AI system prompt for this co-worker's chat voice and job boundaries.
-- `payloads/`: worker code, policies, and supporting runtime assets.

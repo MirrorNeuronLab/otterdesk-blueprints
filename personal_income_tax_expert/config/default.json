@@ -1,146 +1,367 @@
 {
-  "standard_version": "1.0",
+  "agent_handoffs": {
+    "artifact_manifest": "tax_team/artifact_manifest.json",
+    "review_required": true,
+    "transport": "filesystem_artifact_refs_only",
+    "workflow": [
+      "client_intake_coordinator",
+      "document_understanding_agent",
+      "source_field_extractor",
+      "income_preparer",
+      "deductions_credits_preparer",
+      "form_1040_assembler",
+      "tax_auditor",
+      "manager_reviewer",
+      "advisor_report_writer",
+      "form_1040_packet_writer"
+    ]
+  },
+  "backpressure": {
+    "drop_policy": "skip_with_error",
+    "llm": {
+      "max_calls_per_minute": 30,
+      "max_concurrent_calls": 2
+    },
+    "max_concurrency": 4,
+    "max_events_per_second": 10,
+    "queue_size": 1000
+  },
+  "budgets": {
+    "max_connector_reads": 500,
+    "max_connector_writes": 0,
+    "max_disk_mb": 500,
+    "max_llm_calls": 45,
+    "max_llm_tokens": 60000,
+    "max_runtime_seconds": 900,
+    "max_stream_duration_seconds": 0
+  },
+  "capabilities": {
+    "optional": [
+      "llm.call",
+      "llm.ocr",
+      "document.ocr",
+      "pdf.render"
+    ],
+    "required": [
+      "filesystem.read",
+      "filesystem.write",
+      "pdf.extract"
+    ]
+  },
+  "determinism": {
+    "enabled": true,
+    "frozen_clock": null,
+    "replay": {
+      "from_events": "events.jsonl",
+      "from_inputs": "inputs.json",
+      "llm_mode": "mock"
+    },
+    "seed_field": "seed"
+  },
+  "error_handling": {
+    "default_mode": "stop",
+    "policies": {
+      "llm_call": {
+        "backoff_seconds": 2,
+        "max_attempts": 3,
+        "mode": "retry"
+      },
+      "missing_folder": {
+        "mode": "use_sample_documents"
+      },
+      "ocr_required": {
+        "mode": "continue_with_review_warning"
+      },
+      "optional_output": {
+        "mode": "skip"
+      },
+      "required_output": {
+        "mode": "stop"
+      }
+    }
+  },
+  "execution_model": [
+    "load_metadata",
+    "resolve_config",
+    "load_inputs",
+    "start_run_store",
+    "observe_simulation_state",
+    "call_llm_agent",
+    "evaluate_workflow_state",
+    "route_by_context",
+    "request_human_input",
+    "apply_decision_to_simulation",
+    "emit_events",
+    "write_final_artifact",
+    "fan_out_output_skills",
+    "create_tax_team_workspace",
+    "scan_local_tax_folder",
+    "write_artifact_manifest",
+    "extract_pdf_text_or_mark_ocr",
+    "command_only_agent_handoffs",
+    "client_intake_coordinator",
+    "llm_document_understanding",
+    "llm_source_field_extraction",
+    "income_preparer_workpaper",
+    "deductions_credits_preparer_workpaper",
+    "form_1040_assembler_maps_supported_lines",
+    "tax_auditor_checks_assumptions",
+    "manager_reviewer_blocks_filing_ready_claims",
+    "advisor_report_writer",
+    "write_markdown_report",
+    "write_pdf_review_packet",
+    "request_human_review",
+    "emit_status_events",
+    "handle_human_control",
+    "write_artifact_records"
+  ],
+  "human_control": {
+    "allowed_decisions": [
+      "approve",
+      "revise",
+      "reject"
+    ],
+    "blocked_actions": [
+      "file_tax_return",
+      "submit_to_irs",
+      "send_to_tax_preparer",
+      "write_tax_packet_to_connector_without_review"
+    ],
+    "decision_event": "human_decision_applied",
+    "default_action": "reject",
+    "enabled": true,
+    "events": [
+      "human_notice",
+      "human_input_requested",
+      "human_input_received",
+      "human_input_timeout",
+      "human_decision_applied"
+    ],
+    "mode": "approval_required",
+    "reason": "Human approval is required before high-impact downstream actions such as file_tax_return, submit_to_irs, send_to_tax_preparer.",
+    "request_event": "human_input_requested",
+    "response_event": "human_input_received",
+    "timeout_event": "human_input_timeout",
+    "timeout_seconds": 3600
+  },
   "identity": {
     "blueprint_id": "personal_income_tax_expert",
     "name": "Personal Income Tax Expert"
   },
-  "mode": {
-    "default": "document_automation",
-    "supports_mock": true,
-    "supports_real_inputs": true
-  },
-  "metadata": {
-    "blueprint_revision": "2026-05-23",
-    "category": "finance",
-    "description": "Runs an LLM-assisted tax preparation team over a local folder of tax documents, builds source-grounded draft Form 1040 workpapers, audits the packet, and writes JSON, Markdown, and PDF review outputs.",
-    "runtime_features": [
-      "local tax PDF intake",
-      "LLM document understanding",
-      "specialist tax preparer team",
-      "filesystem-backed agent handoffs",
-      "source field extraction workpapers",
-      "tax auditor and manager review gates",
-      "draft Form 1040 review packet",
-      "Markdown and PDF final packet",
-      "Membrane context memory optimization"
-    ]
-  },
-  "memory_layer": {
-    "collection": "mn_memory",
-    "containers": "optional_sidecar",
-    "context_addr_env": "MN_CONTEXT_ADDR",
-    "conversation": {
-      "agent_role": "otterdesk_chat",
-      "include_human_events": true,
-      "include_runtime_events": true,
-      "include_runtime_logs": true,
-      "target_tokens": 2400,
-      "token_budget": 6000,
-      "use_model_compression": false
+  "input_skills": {
+    "pdf_extract": {
+      "connector": "local_filesystem",
+      "package": "mirrorneuron-pdf-extract-skill",
+      "purpose": "fallback PDF text extraction",
+      "skill": "pdf_extract_skill"
     },
-    "conversation_enabled": true,
-    "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
-    "default_context_addr": "localhost:50052",
-    "enabled": true,
-    "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
-    "namespace": "personal_income_tax_expert_context",
-    "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
-    "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
-    "sdk_distribution": "mirrorneuron-membrane-python-sdk",
-    "sdk_import_package": "mn_context_engine_sdk"
-  },
-  "tax_profile": {
-    "tax_year": 2025,
-    "filing_status": "single",
-    "state_return": "not_prepared",
-    "advisor_voice": "warm, direct, evidence-grounded, and careful like a personal tax advisor"
-  },
-  "tax_documents": {
-    "folder_path": "",
-    "recommended_forms": [
-      "W-2",
-      "1099-INT",
-      "1099-R"
-    ],
-    "accepted_forms": [
-      "W-2",
-      "1099-INT",
-      "1099-R",
-      "1099-DIV",
-      "1099-B",
-      "1099-NEC",
-      "1098",
-      "1095-A",
-      "5498",
-      "brokerage_statement"
-    ],
-    "sample_documents": [
-      {
-        "path": "examples/sample_tax_documents/sample-w2.txt",
-        "filename": "sample-w2.txt",
-        "document_type": "W-2",
-        "text": "Form W-2 Wage and Tax Statement. Box 1 wages 86000.00. Box 2 federal income tax withheld 11200.00.",
-        "ocr_required": false,
-        "extraction_method": "sample_text"
-      },
-      {
-        "path": "examples/sample_tax_documents/sample-1099-int.txt",
-        "filename": "sample-1099-int.txt",
-        "document_type": "1099-INT",
-        "text": "Form 1099-INT Interest Income. Box 1 interest income 128.44. Box 4 federal income tax withheld 0.00.",
-        "ocr_required": false,
-        "extraction_method": "sample_text"
-      },
-      {
-        "path": "examples/sample_tax_documents/sample-1099-r-401k.txt",
-        "filename": "sample-1099-r-401k.txt",
-        "document_type": "1099-R",
-        "text": "Form 1099-R Distributions From Pensions, Annuities, Retirement or Profit-Sharing Plans, IRAs, Insurance Contracts. 401(k) gross distribution 2400.00. Taxable amount 2400.00. Box 4 federal income tax withheld 240.00.",
-        "ocr_required": false,
-        "extraction_method": "sample_text"
-      }
-    ]
-  },
-  "local_inputs": {
-    "folders": [
-      {
-        "config_path": "tax_documents.folder_path",
-        "payload_path": "tax_workflow/mn_local_inputs/tax_documents",
-        "runtime_path": "mn_local_inputs/tax_documents",
-        "allowed_extensions": [
-          ".pdf",
-          ".txt",
-          ".json"
-        ],
-        "linked_config_paths": [
-          "inputs.payload.document_folder"
-        ]
-      }
-    ]
-  },
-  "tax_knowledge": {
-    "standard_deduction_2025": {
-      "single": 15750,
-      "married_filing_separately": 15750,
-      "married_filing_jointly": 31500,
-      "qualifying_surviving_spouse": 31500,
-      "head_of_household": 23625
-    },
-    "form_1040_line_mapping": {
-      "W-2": [
-        "Line 1z wages",
-        "Line 25a federal income tax withheld"
-      ],
-      "1099-INT": [
-        "Line 2b taxable interest",
-        "Schedule B review when thresholds or special cases apply"
-      ],
-      "1099-R": [
-        "Line 4a distributions",
-        "Line 4b taxable amount",
-        "Schedule 2 review when early-distribution additional tax may apply"
-      ]
+    "tax_pdf_ocr": {
+      "connector": "local_filesystem",
+      "package": "mirrorneuron-tax-pdf-ocr-skill",
+      "purpose": "extract embedded text, classify tax PDFs, and mark LLM OCR needs",
+      "skill": "tax_pdf_ocr_skill"
     }
+  },
+  "inputs": {
+    "adapter": "mock",
+    "description": "Default demo inputs use bundled sample text records. For real use, select a local folder containing tax PDFs.",
+    "payload": {
+      "document_folder": "",
+      "filing_status": "single",
+      "tax_year": 2025
+    }
+  },
+  "interfaces": {
+    "channels": {
+      "artifacts": {
+        "artifacts": [
+          "run.json",
+          "config.json",
+          "inputs.json",
+          "events.jsonl",
+          "result.json",
+          "final_artifact.json"
+        ],
+        "description": "Stable run-store files and domain-specific outputs.",
+        "optional_artifacts": [
+          "job.json",
+          "web_ui.json",
+          "ui.json",
+          "web/index.html",
+          "logs.jsonl",
+          "logs.index.json",
+          "human.jsonl",
+          "resources.jsonl"
+        ]
+      },
+      "events": {
+        "artifact": "events.jsonl",
+        "description": "Append-only workflow events."
+      },
+      "human": {
+        "artifact": "human.jsonl",
+        "description": "Human notices, approval requests, responses, timeouts, and applied decisions.",
+        "mirrored_to": "events.jsonl"
+      },
+      "input_skills": {
+        "description": "Connector-backed or reusable skill-backed input sources."
+      },
+      "inputs": {
+        "artifact": "inputs.json",
+        "description": "Resolved runtime inputs and adapter provenance."
+      },
+      "logs": {
+        "artifact": "logs.jsonl",
+        "description": "Runtime stdout/stderr and explicit log artifacts.",
+        "index": "logs.index.json",
+        "stream": "stdout/stderr"
+      },
+      "output_skills": {
+        "description": "Optional fan-out destinations after local run-store writes."
+      },
+      "outputs": {
+        "artifacts": [
+          "result.json",
+          "final_artifact.json"
+        ],
+        "description": "Primary result and final user-facing artifact."
+      },
+      "resources": {
+        "artifact": "resources.jsonl",
+        "description": "Resource samples such as token, runtime, connector, and disk usage."
+      },
+      "streams": {
+        "default": [
+          "events"
+        ],
+        "description": "Named data or event streams exposed by the blueprint.",
+        "kinds": [
+          "audio",
+          "video",
+          "data",
+          "multimodal"
+        ],
+        "transports": [
+          "file",
+          "http",
+          "https",
+          "rtsp",
+          "rtmp",
+          "webrtc",
+          "websocket",
+          "socketio",
+          "tcp",
+          "udp",
+          "sse",
+          "kafka",
+          "mqtt",
+          "custom"
+        ]
+      },
+      "web_ui": {
+        "artifacts": [
+          "web_ui.json",
+          "ui.json",
+          "web/index.html"
+        ],
+        "description": "Optional web input/output handles."
+      }
+    },
+    "config_sections": [
+      "standard_version",
+      "identity",
+      "mode",
+      "metadata",
+      "inputs",
+      "simulation",
+      "llm",
+      "outputs",
+      "logging",
+      "resources",
+      "human_control",
+      "real_adapters",
+      "streams",
+      "input_skills",
+      "output_skills",
+      "error_handling",
+      "state",
+      "capabilities",
+      "privacy",
+      "triggers",
+      "backpressure",
+      "determinism",
+      "schemas",
+      "budgets",
+      "agent_handoffs",
+      "web_ui",
+      "interfaces",
+      "execution_model",
+      "tax_profile",
+      "tax_documents",
+      "tax_knowledge",
+      "knowledge"
+    ],
+    "identity_fields": [
+      "blueprint_id",
+      "name",
+      "run_id"
+    ],
+    "input_adapters": [
+      "mock",
+      "json",
+      "file",
+      "env_json"
+    ],
+    "optional_run_artifacts": [
+      "job.json",
+      "web_ui.json",
+      "ui.json",
+      "web/index.html",
+      "logs.jsonl",
+      "logs.index.json",
+      "human.jsonl",
+      "resources.jsonl"
+    ],
+    "output_adapters": [
+      "local_run_store"
+    ],
+    "response_schema": "mn.blueprint.response.v1",
+    "run_artifacts": [
+      "run.json",
+      "config.json",
+      "inputs.json",
+      "events.jsonl",
+      "result.json",
+      "final_artifact.json"
+    ],
+    "stream_kinds": [
+      "audio",
+      "video",
+      "data",
+      "multimodal"
+    ],
+    "stream_transports": [
+      "file",
+      "http",
+      "https",
+      "rtsp",
+      "rtmp",
+      "webrtc",
+      "websocket",
+      "socketio",
+      "tcp",
+      "udp",
+      "sse",
+      "kafka",
+      "mqtt",
+      "custom"
+    ],
+    "web_ui_adapters": [
+      "none",
+      "static_html",
+      "gradio",
+      "custom"
+    ]
   },
   "knowledge": {
     "irs_sources": [
@@ -171,26 +392,122 @@
       "knowledge/advisor-conversation-style.md"
     ]
   },
-  "inputs": {
-    "adapter": "mock",
-    "description": "Default demo inputs use bundled sample text records. For real use, select a local folder containing tax PDFs.",
-    "payload": {
-      "tax_year": 2025,
-      "filing_status": "single",
-      "document_folder": ""
-    }
-  },
   "llm": {
-    "enabled": true,
-    "mode": "ollama",
-    "mock_mode": "fake",
+    "agent_role": "Personal tax preparation team that prepares a source-grounded draft Form 1040 review packet while asking careful review questions.",
+    "agents": {
+      "advisor_report_writer": {
+        "llm_config": "primary",
+        "responsibilities": [
+          "explain the draft in plain English",
+          "summarize open review items",
+          "prepare the user-facing report voice"
+        ],
+        "role": "Advisor and report writer"
+      },
+      "client_intake_coordinator": {
+        "llm_config": "primary",
+        "responsibilities": [
+          "confirm engagement scope",
+          "identify missing taxpayer profile facts",
+          "build a preparer-style intake checklist"
+        ],
+        "role": "Client intake coordinator"
+      },
+      "deductions_credits_preparer": {
+        "llm_config": "primary",
+        "responsibilities": [
+          "prepare standard deduction treatment",
+          "flag itemized deduction evidence",
+          "identify credits requiring follow-up"
+        ],
+        "role": "Deductions and credits preparer"
+      },
+      "document_understanding_agent": {
+        "llm_config": "primary",
+        "responsibilities": [
+          "classify tax documents",
+          "summarize each form's tax meaning",
+          "separate simple source forms from schedule-triggering forms"
+        ],
+        "role": "Document understanding agent"
+      },
+      "form_1040_assembler": {
+        "llm_config": "primary",
+        "responsibilities": [
+          "assemble supported draft Form 1040 lines",
+          "preserve assumptions and source evidence",
+          "avoid unsupported filing-ready calculations"
+        ],
+        "role": "Form 1040 assembler"
+      },
+      "form_1040_packet_writer": {
+        "llm_config": "primary",
+        "responsibilities": [
+          "assemble the final review packet",
+          "preserve filesystem artifact references",
+          "keep large workpapers out of inter-agent messages"
+        ],
+        "role": "Form 1040 packet writer"
+      },
+      "income_preparer": {
+        "llm_config": "primary",
+        "responsibilities": [
+          "prepare income workpapers",
+          "map source facts to Form 1040 income lines",
+          "flag Schedule C, D, and dividend review items"
+        ],
+        "role": "Income preparer"
+      },
+      "manager_reviewer": {
+        "llm_config": "primary",
+        "responsibilities": [
+          "perform manager-level review",
+          "write blockers and signoff status",
+          "hold the packet as draft only"
+        ],
+        "role": "Tax manager reviewer"
+      },
+      "source_field_extractor": {
+        "llm_config": "primary",
+        "responsibilities": [
+          "extract box-level source facts",
+          "tie every amount to evidence",
+          "flag OCR and unsupported fields"
+        ],
+        "role": "Source field extractor"
+      },
+      "tax_auditor": {
+        "llm_config": "primary",
+        "responsibilities": [
+          "audit source support",
+          "flag missing evidence and filing risks",
+          "block unsupported return-ready claims"
+        ],
+        "role": "Tax auditor"
+      }
+    },
     "api_base": "http://192.168.4.173:11434",
+    "configs": {
+      "primary": {
+        "api_base": "http://192.168.4.173:11434",
+        "max_tokens": 1200,
+        "mock_mode": "fake",
+        "mode": "ollama",
+        "model": "ollama/nemotron3:33b",
+        "num_retries": 1,
+        "prefer_shared_skill": false,
+        "provider": "ollama",
+        "strict_json": true,
+        "timeout_seconds": 90
+      }
+    },
+    "default_config": "primary",
+    "enabled": true,
+    "mock_mode": "fake",
+    "mode": "ollama",
     "model": "ollama/nemotron3:33b",
     "prefer_shared_skill": false,
     "quick_test_uses_fake": false,
-    "strict_json": true,
-    "default_config": "primary",
-    "agent_role": "Personal tax preparation team that prepares a source-grounded draft Form 1040 review packet while asking careful review questions.",
     "responsibilities": [
       "understand tax documents with LLM specialist agents",
       "extract source fields and build preparer workpapers",
@@ -198,155 +515,137 @@
       "audit assumptions, missing forms, and schedule risks",
       "write JSON, Markdown, and PDF review outputs"
     ],
-    "configs": {
-      "primary": {
-        "provider": "ollama",
-        "mode": "ollama",
-        "api_base": "http://192.168.4.173:11434",
-        "model": "ollama/nemotron3:33b",
-        "max_tokens": 1200,
-        "num_retries": 1,
-        "timeout_seconds": 90,
-        "prefer_shared_skill": false,
-        "strict_json": true,
-        "mock_mode": "fake"
+    "strict_json": true
+  },
+  "local_inputs": {
+    "folders": [
+      {
+        "allowed_extensions": [
+          ".pdf",
+          ".txt",
+          ".json"
+        ],
+        "config_path": "tax_documents.folder_path",
+        "linked_config_paths": [
+          "inputs.payload.document_folder"
+        ],
+        "payload_path": "tax_workflow/mn_local_inputs/tax_documents",
+        "runtime_path": "mn_local_inputs/tax_documents"
       }
+    ]
+  },
+  "logging": {
+    "events": [
+      "blueprint_status",
+      "blueprint_phase_started",
+      "blueprint_phase_completed",
+      "blueprint_phase_failed",
+      "artifact_written",
+      "human_notice",
+      "human_input_requested",
+      "human_input_received",
+      "human_input_timeout",
+      "human_decision_applied",
+      "output_skill_started",
+      "output_skill_completed",
+      "output_skill_failed"
+    ],
+    "events_jsonl": true,
+    "level": "info",
+    "logs_jsonl": true,
+    "redact_env_secrets": true,
+    "redact_fields": [
+      "api_key",
+      "token",
+      "authorization",
+      "cookie",
+      "password",
+      "private_key"
+    ],
+    "redact_tax_identifiers": true,
+    "resources_jsonl": true,
+    "rotation": {
+      "check_interval_records": 100,
+      "compress": "background",
+      "enabled": true,
+      "max_bytes_mb": 100,
+      "max_segments": 7,
+      "span_seconds": 86400
     },
-    "agents": {
-      "client_intake_coordinator": {
-        "role": "Client intake coordinator",
-        "llm_config": "primary",
-        "responsibilities": [
-          "confirm engagement scope",
-          "identify missing taxpayer profile facts",
-          "build a preparer-style intake checklist"
-        ]
-      },
-      "document_understanding_agent": {
-        "role": "Document understanding agent",
-        "llm_config": "primary",
-        "responsibilities": [
-          "classify tax documents",
-          "summarize each form's tax meaning",
-          "separate simple source forms from schedule-triggering forms"
-        ]
-      },
-      "source_field_extractor": {
-        "role": "Source field extractor",
-        "llm_config": "primary",
-        "responsibilities": [
-          "extract box-level source facts",
-          "tie every amount to evidence",
-          "flag OCR and unsupported fields"
-        ]
-      },
-      "income_preparer": {
-        "role": "Income preparer",
-        "llm_config": "primary",
-        "responsibilities": [
-          "prepare income workpapers",
-          "map source facts to Form 1040 income lines",
-          "flag Schedule C, D, and dividend review items"
-        ]
-      },
-      "deductions_credits_preparer": {
-        "role": "Deductions and credits preparer",
-        "llm_config": "primary",
-        "responsibilities": [
-          "prepare standard deduction treatment",
-          "flag itemized deduction evidence",
-          "identify credits requiring follow-up"
-        ]
-      },
-      "form_1040_assembler": {
-        "role": "Form 1040 assembler",
-        "llm_config": "primary",
-        "responsibilities": [
-          "assemble supported draft Form 1040 lines",
-          "preserve assumptions and source evidence",
-          "avoid unsupported filing-ready calculations"
-        ]
-      },
-      "tax_auditor": {
-        "role": "Tax auditor",
-        "llm_config": "primary",
-        "responsibilities": [
-          "audit source support",
-          "flag missing evidence and filing risks",
-          "block unsupported return-ready claims"
-        ]
-      },
-      "manager_reviewer": {
-        "role": "Tax manager reviewer",
-        "llm_config": "primary",
-        "responsibilities": [
-          "perform manager-level review",
-          "write blockers and signoff status",
-          "hold the packet as draft only"
-        ]
-      },
-      "advisor_report_writer": {
-        "role": "Advisor and report writer",
-        "llm_config": "primary",
-        "responsibilities": [
-          "explain the draft in plain English",
-          "summarize open review items",
-          "prepare the user-facing report voice"
-        ]
-      },
-      "form_1040_packet_writer": {
-        "role": "Form 1040 packet writer",
-        "llm_config": "primary",
-        "responsibilities": [
-          "assemble the final review packet",
-          "preserve filesystem artifact references",
-          "keep large workpapers out of inter-agent messages"
-        ]
-      }
+    "stderr_jsonl": true,
+    "writer": {
+      "batch_size": 100,
+      "flush_interval_seconds": 0.5,
+      "mode": "async",
+      "overflow_policy": "drop_low_priority",
+      "queue_size": 10000,
+      "shutdown_flush_timeout_seconds": 2
     }
   },
+  "memory_layer": {
+    "collection": "mn_memory",
+    "containers": "optional_sidecar",
+    "context_addr_env": "MN_CONTEXT_ADDR",
+    "conversation": {
+      "agent_role": "otterdesk_chat",
+      "include_human_events": true,
+      "include_runtime_events": true,
+      "include_runtime_logs": true,
+      "target_tokens": 2400,
+      "token_budget": 6000,
+      "use_model_compression": false
+    },
+    "conversation_enabled": true,
+    "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
+    "default_context_addr": "localhost:50052",
+    "enabled": true,
+    "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
+    "namespace": "personal_income_tax_expert_context",
+    "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
+    "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
+    "sdk_distribution": "mirrorneuron-membrane-python-sdk",
+    "sdk_import_package": "mn_context_engine_sdk"
+  },
+  "metadata": {
+    "blueprint_revision": "2026-05-23",
+    "category": "finance",
+    "customizable_for": null,
+    "description": "Runs an LLM-assisted tax preparation team over a local folder of tax documents, builds source-grounded draft Form 1040 workpapers, audits the packet, and writes JSON, Markdown, and PDF review outputs.",
+    "problem_solved": null,
+    "runtime_features": [
+      "local tax PDF intake",
+      "LLM document understanding",
+      "specialist tax preparer team",
+      "filesystem-backed agent handoffs",
+      "source field extraction workpapers",
+      "tax auditor and manager review gates",
+      "draft Form 1040 review packet",
+      "Markdown and PDF final packet",
+      "Membrane context memory optimization"
+    ],
+    "target_users": null
+  },
+  "mode": {
+    "default": "document_automation",
+    "supports_mock": true,
+    "supports_real_inputs": true
+  },
+  "output_skills": {},
   "outputs": {
     "adapter": "local_run_store",
     "artifact_contract": "Prepared draft Form 1040 review packet with source evidence, specialist workpapers, audit and manager review, advisor-style next steps, Markdown, and PDF outputs.",
     "folder_path": "~/Downloads",
     "run_root": "~/.mn/runs",
-    "write_run_store": true,
     "skills": {},
     "tcp": {
       "enabled": false,
       "ports": []
-    }
-  },
-  "real_adapters": {
-    "file": {
-      "description": "JSON input file can provide document_folder, tax_year, filing_status, and taxpayer profile fields."
     },
-    "env_json": {
-      "env": "MN_BLUEPRINT_INPUT_JSON"
-    }
+    "write_run_store": true
   },
-  "streams": {},
-  "input_skills": {
-    "tax_pdf_ocr": {
-      "skill": "tax_pdf_ocr_skill",
-      "package": "mirrorneuron-tax-pdf-ocr-skill",
-      "purpose": "extract embedded text, classify tax PDFs, and mark LLM OCR needs"
-    },
-    "pdf_extract": {
-      "skill": "pdf_extract_skill",
-      "package": "mirrorneuron-pdf-extract-skill",
-      "purpose": "fallback PDF text extraction"
-    }
-  },
-  "output_skills": {},
   "privacy": {
     "default_classification": "regulated",
     "rules": {
-      "regulated": {
-        "log": "redacted",
-        "send_to_llm": "allowed_configs_only",
-        "send_to_output_skills": "approved_destinations_only"
-      },
       "confidential": {
         "log": "redacted",
         "send_to_llm": "allowed_configs_only",
@@ -361,113 +660,205 @@
         "log": true,
         "send_to_llm": true,
         "send_to_output_skills": true
-      }
-    }
-  },
-  "capabilities": {
-    "required": [
-      "filesystem.read",
-      "filesystem.write",
-      "pdf.extract"
-    ],
-    "optional": [
-      "llm.call",
-      "llm.ocr",
-      "document.ocr",
-      "pdf.render"
-    ]
-  },
-  "budgets": {
-    "max_connector_reads": 500,
-    "max_connector_writes": 0,
-    "max_disk_mb": 500,
-    "max_llm_calls": 45,
-    "max_llm_tokens": 60000,
-    "max_runtime_seconds": 900,
-    "max_stream_duration_seconds": 0
-  },
-  "agent_handoffs": {
-    "transport": "filesystem_artifact_refs_only",
-    "artifact_manifest": "tax_team/artifact_manifest.json",
-    "workflow": [
-      "client_intake_coordinator",
-      "document_understanding_agent",
-      "source_field_extractor",
-      "income_preparer",
-      "deductions_credits_preparer",
-      "form_1040_assembler",
-      "tax_auditor",
-      "manager_reviewer",
-      "advisor_report_writer",
-      "form_1040_packet_writer"
-    ],
-    "review_required": true
-  },
-  "interfaces": {
-    "config_sections": [
-      "tax_profile",
-      "tax_documents",
-      "tax_knowledge",
-      "knowledge",
-      "llm",
-      "privacy",
-      "budgets",
-      "agent_handoffs"
-    ]
-  },
-  "execution_model": [
-    "load_metadata",
-    "resolve_config",
-    "load_inputs",
-    "create_tax_team_workspace",
-    "scan_local_tax_folder",
-    "write_artifact_manifest",
-    "extract_pdf_text_or_mark_ocr",
-    "command_only_agent_handoffs",
-    "client_intake_coordinator",
-    "llm_document_understanding",
-    "llm_source_field_extraction",
-    "income_preparer_workpaper",
-    "deductions_credits_preparer_workpaper",
-    "form_1040_assembler_maps_supported_lines",
-    "tax_auditor_checks_assumptions",
-    "manager_reviewer_blocks_filing_ready_claims",
-    "advisor_report_writer",
-    "write_final_artifact",
-    "write_markdown_report",
-    "write_pdf_review_packet",
-    "request_human_review"
-  ],
-  "logging": {
-    "level": "info",
-    "redact_tax_identifiers": true
-  },
-  "error_handling": {
-    "default_mode": "stop",
-    "policies": {
-      "ocr_required": {
-        "mode": "continue_with_review_warning"
       },
-      "missing_folder": {
-        "mode": "use_sample_documents"
+      "regulated": {
+        "log": "redacted",
+        "send_to_llm": "allowed_configs_only",
+        "send_to_output_skills": "approved_destinations_only"
       }
     }
+  },
+  "real_adapters": {
+    "env_json": {
+      "env": "MN_BLUEPRINT_INPUT_JSON"
+    },
+    "file": {
+      "description": "JSON input file can provide document_folder, tax_year, filing_status, and taxpayer profile fields."
+    },
+    "inline_json": {
+      "adapter": "json",
+      "description": "Load overrides from an inline JSON object.",
+      "payload": {}
+    },
+    "input_file": {
+      "adapter": "file",
+      "description": "Load JSON overrides from a local file path.",
+      "path": null
+    }
+  },
+  "resources": {
+    "enabled": true,
+    "gpu_enabled": "auto",
+    "gpu_sample_interval_seconds": 60,
+    "history_window_hours": 24,
+    "raw_retention_hours": 48,
+    "rollup_bucket_seconds": 3600,
+    "sample_interval_seconds": 10
+  },
+  "schemas": {
+    "artifact_record": "mn.artifact.record.v1",
+    "config": "mn.blueprint.config.v1",
+    "events": "mn.blueprint.events.v1",
+    "final_artifact": "mn.blueprint.final_artifact.v1",
+    "human_control": "mn.blueprint.human_control.v1",
+    "input_skills": "mn.blueprint.input_skills.v1",
+    "inputs": "mn.blueprint.inputs.v1",
+    "logs": "mn.blueprint.logs.v1",
+    "output_skills": "mn.blueprint.output_skills.v1",
+    "resources": "mn.blueprint.resources.v1",
+    "status_contract": "mn.blueprint.status_contract.v1",
+    "web_ui": "mn.blueprint.web_ui.v1"
+  },
+  "simulation": {
+    "deterministic": true,
+    "enabled": true,
+    "seed_field": "seed"
+  },
+  "standard_version": "1.0",
+  "state": {
+    "checkpoint_interval": {
+      "events": 100,
+      "seconds": 60
+    },
+    "enabled": false,
+    "idempotency_key_fields": [
+      "source_ref",
+      "event_id"
+    ],
+    "resume_mode": "none"
+  },
+  "streams": {},
+  "tax_documents": {
+    "accepted_forms": [
+      "W-2",
+      "1099-INT",
+      "1099-R",
+      "1099-DIV",
+      "1099-B",
+      "1099-NEC",
+      "1098",
+      "1095-A",
+      "5498",
+      "brokerage_statement"
+    ],
+    "folder_path": "",
+    "recommended_forms": [
+      "W-2",
+      "1099-INT",
+      "1099-R"
+    ],
+    "sample_documents": [
+      {
+        "document_type": "W-2",
+        "extraction_method": "sample_text",
+        "filename": "sample-w2.txt",
+        "ocr_required": false,
+        "path": "examples/sample_tax_documents/sample-w2.txt",
+        "text": "Form W-2 Wage and Tax Statement. Box 1 wages 86000.00. Box 2 federal income tax withheld 11200.00."
+      },
+      {
+        "document_type": "1099-INT",
+        "extraction_method": "sample_text",
+        "filename": "sample-1099-int.txt",
+        "ocr_required": false,
+        "path": "examples/sample_tax_documents/sample-1099-int.txt",
+        "text": "Form 1099-INT Interest Income. Box 1 interest income 128.44. Box 4 federal income tax withheld 0.00."
+      },
+      {
+        "document_type": "1099-R",
+        "extraction_method": "sample_text",
+        "filename": "sample-1099-r-401k.txt",
+        "ocr_required": false,
+        "path": "examples/sample_tax_documents/sample-1099-r-401k.txt",
+        "text": "Form 1099-R Distributions From Pensions, Annuities, Retirement or Profit-Sharing Plans, IRAs, Insurance Contracts. 401(k) gross distribution 2400.00. Taxable amount 2400.00. Box 4 federal income tax withheld 240.00."
+      }
+    ]
+  },
+  "tax_knowledge": {
+    "form_1040_line_mapping": {
+      "1099-INT": [
+        "Line 2b taxable interest",
+        "Schedule B review when thresholds or special cases apply"
+      ],
+      "1099-R": [
+        "Line 4a distributions",
+        "Line 4b taxable amount",
+        "Schedule 2 review when early-distribution additional tax may apply"
+      ],
+      "W-2": [
+        "Line 1z wages",
+        "Line 25a federal income tax withheld"
+      ]
+    },
+    "standard_deduction_2025": {
+      "head_of_household": 23625,
+      "married_filing_jointly": 31500,
+      "married_filing_separately": 15750,
+      "qualifying_surviving_spouse": 31500,
+      "single": 15750
+    }
+  },
+  "tax_profile": {
+    "advisor_voice": "warm, direct, evidence-grounded, and careful like a personal tax advisor",
+    "filing_status": "single",
+    "state_return": "not_prepared",
+    "tax_year": 2025
+  },
+  "triggers": {
+    "schedule": null,
+    "sources": [],
+    "type": "manual"
   },
   "web_ui": {
+    "dashboard": {
+      "data_source": "local_run_store",
+      "panels": [
+        "current_status",
+        "recent_events",
+        "pending_human_requests",
+        "output_artifacts",
+        "resource_usage",
+        "errors",
+        "llm_calls",
+        "token_budget",
+        "llm_retries"
+      ],
+      "reads": [
+        "events.jsonl",
+        "human.jsonl",
+        "logs.jsonl",
+        "resources.jsonl",
+        "result.json",
+        "final_artifact.json",
+        "web_ui.json"
+      ],
+      "standard_panels": [
+        "current_status",
+        "recent_events",
+        "pending_human_requests",
+        "output_artifacts",
+        "resource_usage",
+        "errors",
+        "llm_calls",
+        "token_budget",
+        "llm_retries"
+      ]
+    },
     "enabled": true,
     "input": {
       "adapter": "none",
+      "custom_url": null,
       "fields": [],
-      "title": null,
-      "instructions": null,
       "host": "127.0.0.1",
+      "instructions": null,
       "port": null,
       "share": false,
-      "custom_url": null
+      "title": null
     },
     "output": {
       "adapter": "gradio",
       "auto_generate": true,
+      "custom_url": null,
       "refresh_seconds": 2,
       "title": "Personal Income Tax Expert"
     }

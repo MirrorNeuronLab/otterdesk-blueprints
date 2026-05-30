@@ -391,6 +391,35 @@ def run_blueprint(
             "state_changes": state_changes,
             "benchmark": benchmark_report,
             "final_artifact": final_artifact(state, timeline, state_changes, benchmark_report),
+            "artifacts": [
+                {
+                    "artifact_id": "result",
+                    "type": "result",
+                    "path": "result.json",
+                    "producer": "local_run_store",
+                    "mime_type": "application/json",
+                    "schema_version": "mn.blueprint.response.v1",
+                    "source_refs": ["inputs.json", "events.jsonl"],
+                },
+                {
+                    "artifact_id": "final_artifact",
+                    "type": "final_artifact",
+                    "path": "final_artifact.json",
+                    "producer": "workflow",
+                    "mime_type": "application/json",
+                    "schema_version": "mn.blueprint.final_artifact.v1",
+                    "source_refs": ["inputs.json", "events.jsonl", "result.json"],
+                },
+                {
+                    "artifact_id": "memory_benchmark",
+                    "type": "benchmark_report",
+                    "path": "result.json#/benchmark",
+                    "producer": "workflow",
+                    "mime_type": "application/json",
+                    "schema_version": "mn.blueprint.benchmark_report.v1",
+                    "source_refs": ["events.jsonl"],
+                },
+            ],
             "llm": {
                 "provider": getattr(llm, "provider", "unknown"),
                 "model": getattr(llm, "model", "unknown"),
@@ -978,6 +1007,19 @@ def final_artifact(
 ) -> dict[str, Any]:
     last = timeline[-1]
     decision = last["decision"]
+    source_refs = sorted(
+        {
+            str(ref)
+            for ref in [
+                "inputs.json",
+                "events.jsonl",
+                "result.json",
+                *decision.get("parameters", {}).get("source_refs", []),
+                *benchmark.get("required_memory", {}).get("critical_source_refs", []),
+            ]
+            if ref
+        }
+    )
     return {
         "type": "ranked property acquisition opportunities with memory benchmark",
         "executive_summary": (
@@ -985,6 +1027,17 @@ def final_artifact(
             "smaller source-grounded packet."
         ),
         "recommended_action": decision["action"],
+        "confidence": decision.get("confidence", 0.0),
+        "evidence": [
+            {
+                "kind": "ranked_option",
+                "property_id": option.get("property_id"),
+                "score": option.get("score"),
+                "rationale": option.get("rationale"),
+            }
+            for option in last["ranked_entities"][:3]
+        ],
+        "source_refs": source_refs,
         "recommended_property_id": decision.get("property_id"),
         "action_history": [step["decision"]["action"] for step in timeline],
         "key_metrics": rounded_state(state),

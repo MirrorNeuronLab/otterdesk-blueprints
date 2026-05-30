@@ -82,8 +82,40 @@
     "apply_decision_to_simulation",
     "emit_events",
     "write_final_artifact",
-    "fan_out_output_skills"
+    "fan_out_output_skills",
+    "emit_status_events",
+    "handle_human_control",
+    "write_artifact_records"
   ],
+  "human_control": {
+    "allowed_decisions": [
+      "approve",
+      "revise",
+      "reject"
+    ],
+    "blocked_actions": [
+      "submit_bid",
+      "send_loi",
+      "negotiate_discount",
+      "notify_broker_without_review"
+    ],
+    "decision_event": "human_decision_applied",
+    "default_action": "reject",
+    "enabled": true,
+    "events": [
+      "human_notice",
+      "human_input_requested",
+      "human_input_received",
+      "human_input_timeout",
+      "human_decision_applied"
+    ],
+    "mode": "approval_required",
+    "reason": "Human approval is required before high-impact downstream actions such as submit_bid, send_loi, negotiate_discount.",
+    "request_event": "human_input_requested",
+    "response_event": "human_input_received",
+    "timeout_event": "human_input_timeout",
+    "timeout_seconds": 3600
+  },
   "identity": {
     "blueprint_id": "property_deal_research_assistant",
     "name": "Property Deal Research Assistant"
@@ -129,6 +161,11 @@
         "artifact": "events.jsonl",
         "description": "Append-only workflow events."
       },
+      "human": {
+        "artifact": "human.jsonl",
+        "description": "Human notices, approval requests, responses, timeouts, and applied decisions.",
+        "mirrored_to": "events.jsonl"
+      },
       "input_skills": {
         "description": "Connector-backed or reusable skill-backed input sources."
       },
@@ -137,7 +174,9 @@
         "description": "Resolved runtime inputs and adapter provenance."
       },
       "logs": {
+        "artifact": "logs.jsonl",
         "description": "Runtime stdout/stderr and explicit log artifacts.",
+        "index": "logs.index.json",
         "stream": "stdout/stderr"
       },
       "output_skills": {
@@ -149,6 +188,10 @@
           "final_artifact.json"
         ],
         "description": "Primary result and final user-facing artifact."
+      },
+      "resources": {
+        "artifact": "resources.jsonl",
+        "description": "Resource samples such as token, runtime, connector, and disk usage."
       },
       "streams": {
         "default": [
@@ -197,6 +240,8 @@
       "llm",
       "outputs",
       "logging",
+      "resources",
+      "human_control",
       "real_adapters",
       "streams",
       "input_skills",
@@ -231,7 +276,10 @@
       "web_ui.json",
       "ui.json",
       "web/index.html",
-      "logs.jsonl"
+      "logs.jsonl",
+      "logs.index.json",
+      "human.jsonl",
+      "resources.jsonl"
     ],
     "output_adapters": [
       "local_run_store"
@@ -325,7 +373,20 @@
       "llm_decision",
       "benchmark_step_scored",
       "simulation_state_updated",
-      "run_completed"
+      "run_completed",
+      "blueprint_status",
+      "blueprint_phase_started",
+      "blueprint_phase_completed",
+      "blueprint_phase_failed",
+      "artifact_written",
+      "human_notice",
+      "human_input_requested",
+      "human_input_received",
+      "human_input_timeout",
+      "human_decision_applied",
+      "output_skill_started",
+      "output_skill_completed",
+      "output_skill_failed"
     ],
     "events_jsonl": true,
     "level": "INFO",
@@ -339,7 +400,24 @@
       "password",
       "private_key"
     ],
-    "stderr_jsonl": true
+    "resources_jsonl": true,
+    "rotation": {
+      "check_interval_records": 100,
+      "compress": "background",
+      "enabled": true,
+      "max_bytes_mb": 100,
+      "max_segments": 7,
+      "span_seconds": 86400
+    },
+    "stderr_jsonl": true,
+    "writer": {
+      "batch_size": 100,
+      "flush_interval_seconds": 0.5,
+      "mode": "async",
+      "overflow_policy": "drop_low_priority",
+      "queue_size": 10000,
+      "shutdown_flush_timeout_seconds": 2
+    }
   },
   "memory": {
     "compression_goal": "replace full-history agent handoffs with a compact source-grounded decision packet while preserving older critical facts",
@@ -379,19 +457,19 @@
     "sdk_import_package": "mn_context_engine_sdk"
   },
   "metadata": {
+    "agent_role": "AI assistant for researching property deals and drafting opportunity rankings.",
+    "blueprint_id": "property_deal_research_assistant",
     "blueprint_revision": "v1",
     "category": "finance",
     "customizable_for": "Rental acquisitions, flipping pipelines, multifamily sourcing, market expansion, diligence review, and capital-allocation meetings.",
-    "problem_solved": "Property deal review depends on older broker, lender, rent, insurance, and diligence details that are easy to lose in noisy pipelines.",
-    "standard_version": "1.0",
-    "target_users": "Real-estate investors, acquisition analysts, property-tech teams, and diligence operators.",
-    "blueprint_id": "property_deal_research_assistant",
-    "name": "Property Deal Research Assistant",
     "description": "Reviews ZIP-code history, broker notes, financing constraints, and deal memory to rank property opportunities and explain which ones deserve attention.",
     "llm_agent_role": "AI assistant for researching property deals and drafting opportunity rankings.",
-    "agent_role": "AI assistant for researching property deals and drafting opportunity rankings.",
+    "name": "Property Deal Research Assistant",
+    "problem_solved": "Property deal review depends on older broker, lender, rent, insurance, and diligence details that are easy to lose in noisy pipelines.",
+    "simulation_type": "Property opportunity research with deal-memory retrieval.",
+    "standard_version": "1.0",
     "target_user": "Real-estate investors, acquisition analysts, property-tech teams, and diligence operators.",
-    "simulation_type": "Property opportunity research with deal-memory retrieval."
+    "target_users": "Real-estate investors, acquisition analysts, property-tech teams, and diligence operators."
   },
   "mode": "mock",
   "output_skills": {},
@@ -407,7 +485,7 @@
     "write_run_store": true
   },
   "privacy": {
-    "default_classification": "internal",
+    "default_classification": "confidential",
     "rules": {
       "confidential": {
         "log": "redacted",
@@ -443,13 +521,28 @@
       "path": null
     }
   },
+  "resources": {
+    "enabled": true,
+    "gpu_enabled": "auto",
+    "gpu_sample_interval_seconds": 60,
+    "history_window_hours": 24,
+    "raw_retention_hours": 48,
+    "rollup_bucket_seconds": 3600,
+    "sample_interval_seconds": 10
+  },
   "schemas": {
+    "artifact_record": "mn.artifact.record.v1",
     "config": "mn.blueprint.config.v1",
     "events": "mn.blueprint.events.v1",
     "final_artifact": "mn.blueprint.final_artifact.v1",
+    "human_control": "mn.blueprint.human_control.v1",
     "input_skills": "mn.blueprint.input_skills.v1",
     "inputs": "mn.blueprint.inputs.v1",
-    "output_skills": "mn.blueprint.output_skills.v1"
+    "logs": "mn.blueprint.logs.v1",
+    "output_skills": "mn.blueprint.output_skills.v1",
+    "resources": "mn.blueprint.resources.v1",
+    "status_contract": "mn.blueprint.status_contract.v1",
+    "web_ui": "mn.blueprint.web_ui.v1"
   },
   "simulation": {
     "actions": [
@@ -493,6 +586,40 @@
     "type": "manual"
   },
   "web_ui": {
+    "dashboard": {
+      "data_source": "local_run_store",
+      "panels": [
+        "current_status",
+        "recent_events",
+        "pending_human_requests",
+        "output_artifacts",
+        "resource_usage",
+        "errors",
+        "llm_calls",
+        "token_budget",
+        "llm_retries"
+      ],
+      "reads": [
+        "events.jsonl",
+        "human.jsonl",
+        "logs.jsonl",
+        "resources.jsonl",
+        "result.json",
+        "final_artifact.json",
+        "web_ui.json"
+      ],
+      "standard_panels": [
+        "current_status",
+        "recent_events",
+        "pending_human_requests",
+        "output_artifacts",
+        "resource_usage",
+        "errors",
+        "llm_calls",
+        "token_budget",
+        "llm_retries"
+      ]
+    },
     "enabled": true,
     "input": {
       "adapter": "none",

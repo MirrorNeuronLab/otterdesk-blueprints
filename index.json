@@ -1,34 +1,39 @@
 [
   {
-    "description": "Watches an approved video stream, detects configured visual targets, and reports count, label, category, color, position, activity, and alert status for review.",
     "category": "Security",
+    "description": "Watches an approved video stream, detects configured visual targets, and reports count, label, category, color, position, activity, and alert status for review.",
     "graph_id": "video_watch_assistant_v1",
     "id": "video_watch_assistant",
     "job_name": "video-watch-assistant",
     "name": "Video Watch Assistant",
     "path": "video_watch_assistant",
-    "type": "service",
     "product": {
       "agent_role": "AI assistant for reviewing video stream activity and preparing visual detection alerts.",
+      "benefit": "Helps reviewers notice configured visual targets faster while keeping the final access or safety decision with people.",
       "customizable_for": "Video monitoring, configurable visual detection, facility operations, and site safety workflows.",
+      "how_it_works": "Samples the approved video stream, asks a vision model whether configured targets are visible, records observable detection details, applies cooldown policy, and prepares reviewable alerts.",
+      "input": "Approved video stream, target prompt, alert thresholds, and notification settings.",
       "output": "Visual detection observations with count, label, category, color, position, activity, confidence, and alert status.",
       "problem": "Continuous video is hard to review manually; teams need a helpful assistant that flags likely configured visual targets with plain-language details.",
       "runtime_features": [
         "video sampling",
         "visual detection",
         "cooldown state",
-        "Slack alerting"
+        "Slack alerting",
+        "product input contract",
+        "transparent run status",
+        "human control policy",
+        "artifact records",
+        "run-store observability dashboard"
       ],
       "simulation_type": "Video stream sampling with visual detection review state.",
-      "target_users": "Video operators, security reviewers, safety operations teams, and site-access coordinators.",
-      "benefit": "Helps reviewers notice configured visual targets faster while keeping the final access or safety decision with people.",
-      "how_it_works": "Samples the approved video stream, asks a vision model whether configured targets are visible, records observable detection details, applies cooldown policy, and prepares reviewable alerts.",
-      "input": "Approved video stream, target prompt, alert thresholds, and notification settings."
-    }
+      "target_users": "Video operators, security reviewers, safety operations teams, and site-access coordinators."
+    },
+    "type": "service"
   },
   {
-    "description": "Stress-tests a portfolio against market crashes, rate shocks, and liquidity pressure, then explains risks and possible rebalancing options in plain language.",
     "category": "Finance",
+    "description": "Stress-tests a portfolio against market crashes, rate shocks, and liquidity pressure, then explains risks and possible rebalancing options in plain language.",
     "graph_id": "portfolio_risk_review_assistant_v1",
     "id": "portfolio_risk_review_assistant",
     "job_name": "portfolio-risk-review-assistant",
@@ -36,25 +41,30 @@
     "path": "portfolio_risk_review_assistant",
     "product": {
       "agent_role": "AI assistant for reviewing portfolio stress scenarios and drafting risk notes.",
+      "benefit": "Helps investors and advisors understand portfolio weak spots before they become client or liquidity problems.",
       "customizable_for": "Wealth management, treasury review, family offices, robo-advisory risk workflows, and portfolio check-ins.",
+      "how_it_works": "Runs crash, rate, and liquidity stress scenarios, compares portfolio states, and drafts a risk review with possible rebalancing choices.",
+      "input": "Portfolio holdings, cash and hedge constraints, risk preferences, and market shock assumptions.",
       "output": "Plain-language portfolio risk notes, stress results, and draft rebalancing options.",
       "problem": "Portfolio risk can change quickly during shocks; users need an assistant that makes downside exposure and possible next steps easier to review.",
       "runtime_features": [
         "macro shock simulation",
         "portfolio risk review",
         "LLM risk notes",
-        "decision feedback"
+        "decision feedback",
+        "product input contract",
+        "transparent run status",
+        "human control policy",
+        "artifact records",
+        "run-store observability dashboard"
       ],
       "simulation_type": "Portfolio stress review with draft rebalancing guidance.",
-      "target_users": "Investors, advisors, portfolio managers, treasury teams, and fintech operators.",
-      "benefit": "Helps investors and advisors understand portfolio weak spots before they become client or liquidity problems.",
-      "how_it_works": "Runs crash, rate, and liquidity stress scenarios, compares portfolio states, and drafts a risk review with possible rebalancing choices.",
-      "input": "Portfolio holdings, cash and hedge constraints, risk preferences, and market shock assumptions."
+      "target_users": "Investors, advisors, portfolio managers, treasury teams, and fintech operators."
     }
   },
   {
-    "description": "Reviews ZIP-code history, broker notes, financing constraints, and deal memory to rank property opportunities and explain which ones deserve attention.",
     "category": "Finance",
+    "description": "Reviews ZIP-code history, broker notes, financing constraints, and deal memory to rank property opportunities and explain which ones deserve attention.",
     "graph_id": "property_deal_research_assistant_v1",
     "id": "property_deal_research_assistant",
     "job_name": "property-deal-research-assistant",
@@ -62,7 +72,10 @@
     "path": "property_deal_research_assistant",
     "product": {
       "agent_role": "AI assistant for researching property deals and drafting opportunity rankings.",
+      "benefit": "Helps acquisition teams surface stronger property opportunities while keeping investment decisions reviewable.",
       "customizable_for": "Rental acquisitions, flipping pipelines, multifamily sourcing, market expansion, diligence review, and capital-allocation meetings.",
+      "how_it_works": "Retrieves relevant deal and ZIP-code history, scores opportunities, and drafts a clear recommendation with supporting context.",
+      "input": "Property pipeline data, ZIP-code history, broker notes, financing constraints, and prior investment decisions.",
       "output": "Ranked property opportunities, source-grounded notes, and watchlist or bid recommendations for review.",
       "problem": "Property deal review depends on older broker, lender, rent, insurance, and diligence details that are easy to lose in noisy pipelines.",
       "runtime_features": [
@@ -70,18 +83,20 @@
         "working memory retrieval",
         "source_refs",
         "decision quality benchmark",
-        "LLM investment notes"
+        "LLM investment notes",
+        "product input contract",
+        "transparent run status",
+        "human control policy",
+        "artifact records",
+        "run-store observability dashboard"
       ],
       "simulation_type": "Property opportunity research with deal-memory retrieval.",
-      "target_users": "Real-estate investors, acquisition analysts, property-tech teams, and diligence operators.",
-      "benefit": "Helps acquisition teams surface stronger property opportunities while keeping investment decisions reviewable.",
-      "how_it_works": "Retrieves relevant deal and ZIP-code history, scores opportunities, and drafts a clear recommendation with supporting context.",
-      "input": "Property pipeline data, ZIP-code history, broker notes, financing constraints, and prior investment decisions."
+      "target_users": "Real-estate investors, acquisition analysts, property-tech teams, and diligence operators."
     }
   },
   {
-    "description": "Runs an LLM-assisted tax preparation team over local tax documents, builds draft Form 1040 workpapers, audits the packet, and writes JSON, Markdown, and PDF review outputs.",
     "category": "Finance",
+    "description": "Runs an LLM-assisted tax preparation team over local tax documents, builds draft Form 1040 workpapers, audits the packet, and writes JSON, Markdown, and PDF review outputs.",
     "graph_id": "personal_income_tax_expert_v1",
     "id": "personal_income_tax_expert",
     "job_name": "personal-income-tax-expert",
@@ -89,7 +104,10 @@
     "path": "personal_income_tax_expert",
     "product": {
       "agent_role": "Personal tax preparation team that prepares a source-grounded draft Form 1040 review packet while asking careful review questions.",
+      "benefit": "Turns a folder of tax forms into a clear draft packet and review checklist before the user opens filing software or talks to a preparer.",
       "customizable_for": "Personal federal tax preparation, 401(k) and retirement distribution review, interest income intake, brokerage statements, mortgage interest review, and tax document checklists.",
+      "how_it_works": "Classifies tax PDFs, extracts embedded text or marks OCR needs, sends redacted evidence through specialist LLM preparer stages, maps supported facts to likely Form 1040 lines, audits schedule risks, and writes JSON, Markdown, and PDF review artifacts.",
+      "input": "Local folder with tax PDFs such as W-2, 1099-INT, 1099-R or 401(k), 1099-DIV, 1098, 1095-A, and brokerage statements.",
       "output": "Prepared draft Form 1040 review packet with source evidence, specialist workpapers, audit and manager review, advisor-style next steps, Markdown, and PDF outputs.",
       "problem": "Tax source documents arrive as scattered PDFs; users need a private workflow that turns W-2, 1099-INT, 1099-R, and related forms into a reviewable Form 1040 draft packet with preparer workpapers and manager review.",
       "runtime_features": [
@@ -100,18 +118,20 @@
         "tax auditor and manager review gates",
         "draft Form 1040 review packet",
         "Markdown and PDF final packet",
-        "Membrane context memory optimization"
+        "Membrane context memory optimization",
+        "product input contract",
+        "transparent run status",
+        "human control policy",
+        "artifact records",
+        "run-store observability dashboard"
       ],
       "simulation_type": "Document automation tax preparation workflow with a specialist LLM preparer team, auditor, and manager review.",
-      "target_users": "Individual taxpayers, household finance operators, bookkeepers, and tax preparers.",
-      "benefit": "Turns a folder of tax forms into a clear draft packet and review checklist before the user opens filing software or talks to a preparer.",
-      "how_it_works": "Classifies tax PDFs, extracts embedded text or marks OCR needs, sends redacted evidence through specialist LLM preparer stages, maps supported facts to likely Form 1040 lines, audits schedule risks, and writes JSON, Markdown, and PDF review artifacts.",
-      "input": "Local folder with tax PDFs such as W-2, 1099-INT, 1099-R or 401(k), 1099-DIV, 1098, 1095-A, and brokerage statements."
+      "target_users": "Individual taxpayers, household finance operators, bookkeepers, and tax preparers."
     }
   },
   {
-    "description": "Helps run a reviewable discovery workflow that proposes, filters, and evaluates drug candidates across repeated research stages.",
     "category": "Science",
+    "description": "Helps run a reviewable discovery workflow that proposes, filters, and evaluates drug candidates across repeated research stages.",
     "graph_id": "drug_discovery_research_assistant_v1",
     "id": "drug_discovery_research_assistant",
     "job_name": "drug-discovery-research-assistant",
@@ -119,7 +139,10 @@
     "path": "drug_discovery_research_assistant",
     "product": {
       "agent_role": "AI assistant for organizing drug discovery candidate generation, filtering, and evidence review.",
+      "benefit": "Helps research teams keep candidate discovery organized across repeated generate, score, extract, and review stages.",
       "customizable_for": "Drug discovery, material search, assay planning, scientific literature review, and research pipeline support.",
+      "how_it_works": "Coordinates staged research tasks that generate candidates, evaluate evidence, extract artifacts, and summarize progress for review.",
+      "input": "Target profile, assay or screening criteria, scientific constraints, and optional literature or candidate seeds.",
       "output": "Candidate artifacts, stage logs, evidence notes, and discovery summaries for researcher review.",
       "problem": "Discovery work is iterative and evidence-heavy; researchers need an assistant that keeps candidate generation, scoring, extraction, and review moving in order.",
       "runtime_features": [
@@ -127,13 +150,15 @@
         "multi-stage pipeline",
         "scientific worker tasks",
         "artifact extraction",
-        "research summaries"
+        "research summaries",
+        "product input contract",
+        "transparent run status",
+        "human control policy",
+        "artifact records",
+        "run-store observability dashboard"
       ],
       "simulation_type": "Iterative scientific research workflow with staged candidate review.",
-      "target_users": "Computational biology researchers, scientific AI platform teams, and research operations groups.",
-      "benefit": "Helps research teams keep candidate discovery organized across repeated generate, score, extract, and review stages.",
-      "how_it_works": "Coordinates staged research tasks that generate candidates, evaluate evidence, extract artifacts, and summarize progress for review.",
-      "input": "Target profile, assay or screening criteria, scientific constraints, and optional literature or candidate seeds."
+      "target_users": "Computational biology researchers, scientific AI platform teams, and research operations groups."
     }
   }
 ]

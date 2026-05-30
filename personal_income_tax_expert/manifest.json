@@ -1,73 +1,5 @@
 {
-  "manifest_version": "1.0",
-  "graph_id": "personal_income_tax_expert_v1",
-  "job_name": "personal-income-tax-expert",
   "description": "Runs an LLM-assisted tax preparation team over local tax documents, builds draft Form 1040 workpapers, audits the packet, and writes JSON, Markdown, and PDF review outputs.",
-  "license": "LICENSE.md",
-  "term": "TERM.md",
-  "requirements": {
-    "cpu": {
-      "min_cores": 1
-    },
-    "gpu": {
-      "min_count": 0
-    },
-    "memory": {
-      "min_gb": 2
-    },
-    "disk": {
-      "min_gb": 1
-    }
-  },
-  "entrypoints": [
-    "tax_workflow_runner"
-  ],
-  "initial_inputs": {
-    "tax_workflow_runner": [
-      {
-        "scenario": "personal_income_tax_packet",
-        "tax_year": 2025,
-        "filing_status": "single",
-        "document_folder": "",
-        "ollama_base_url": "http://192.168.4.173:11434",
-        "ollama_model": "nemotron3:33b",
-        "description": "Prepare a draft Form 1040 review packet from a local folder of tax PDFs, using bundled sample documents until the user selects a real folder."
-      }
-    ]
-  },
-  "nodes": [
-    {
-      "node_id": "tax_workflow_runner",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "role": "personal_income_tax_expert_team",
-        "node_type": "generic",
-        "name_prefix": "personal_income_tax_expert",
-        "script": "scripts/run_blueprint.py",
-        "upload_path": "tax_workflow",
-        "output_message_type": "blueprint_report",
-        "environment": {
-          "MN_BLUEPRINT_ID": "personal_income_tax_expert",
-          "PYTHONPATH": "${MN_SKILLS_ROOT}/blueprint_support_skill/src:${MN_SKILLS_ROOT}/tax_pdf_ocr_skill/src:${MN_SKILLS_ROOT}/pdf_extract_skill/src",
-          "MN_LLM_API_BASE": "http://192.168.4.173:11434",
-          "MN_LLM_MODEL": "ollama/nemotron3:33b",
-          "MN_LLM_MAX_TOKENS": "1200",
-          "MN_LLM_NUM_RETRIES": "1",
-          "MN_LLM_TIMEOUT_SECONDS": "90",
-          "MN_TAX_REDACT_LOGS": "true"
-        }
-      }
-    },
-    {
-      "node_id": "report_sink",
-      "uses": "mn-agents.control_join@1.0.0",
-      "with": {
-        "role": "result_sink",
-        "node_type": "reduce",
-        "complete_on_message": true
-      }
-    }
-  ],
   "edges": [
     {
       "edge_id": "tax_workflow_to_report",
@@ -76,43 +8,407 @@
       "to_node": "report_sink"
     }
   ],
+  "entrypoints": [
+    "tax_workflow_runner"
+  ],
+  "graph_id": "personal_income_tax_expert_v1",
+  "initial_inputs": {
+    "tax_workflow_runner": [
+      {
+        "description": "Prepare a draft Form 1040 review packet from a local folder of tax PDFs, using bundled sample documents until the user selects a real folder.",
+        "document_folder": "",
+        "filing_status": "single",
+        "ollama_base_url": "http://192.168.4.173:11434",
+        "ollama_model": "nemotron3:33b",
+        "scenario": "personal_income_tax_packet",
+        "tax_year": 2025
+      }
+    ]
+  },
   "input_validation": {
     "rules": [
       {
-        "name": "tax_document_folder",
-        "type": "command",
         "command": [
           "python3",
           "payloads/validation/validate_tax_folder.py"
         ],
-        "timeout_seconds": 10
+        "name": "tax_document_folder",
+        "timeout_seconds": 10,
+        "type": "command"
       }
     ]
   },
+  "job_name": "personal-income-tax-expert",
+  "license": "LICENSE.md",
+  "manifest_version": "1.0",
   "metadata": {
-    "blueprint_id": "personal_income_tax_expert",
-    "name": "Personal Income Tax Expert",
-    "category": "finance",
-    "description": "Runs an LLM-assisted tax preparation team over local tax documents, builds draft Form 1040 workpapers, audits the packet, and writes JSON, Markdown, and PDF review outputs.",
-    "problem_solved": "Tax source documents arrive as scattered PDFs; users need a private workflow that turns W-2, 1099-INT, 1099-R, and related forms into a reviewable Form 1040 draft packet with preparer workpapers and manager review.",
-    "target_user": "Individual taxpayers, household finance operators, bookkeepers, and tax preparers who want a source-grounded draft before using filing software.",
-    "target_users": "Individual taxpayers, household finance operators, bookkeepers, and tax preparers.",
-    "customizable_for": "Personal federal tax preparation, 401(k) and retirement distribution review, interest income intake, brokerage statements, mortgage interest review, and tax document checklists.",
-    "simulation_type": "Document automation tax preparation workflow with a specialist LLM preparer team, auditor, and manager review.",
-    "llm_agent_role": "Personal tax preparation team that prepares a source-grounded draft Form 1040 review packet while asking careful review questions.",
     "agent_role": "Personal tax preparation team that prepares a source-grounded draft Form 1040 review packet while asking careful review questions.",
-    "output": "Prepared draft Form 1040 review packet with source evidence, specialist workpapers, audit and manager review, advisor-style next steps, Markdown, and PDF outputs.",
-    "runtime_features": [
-      "local tax PDF intake",
-      "LLM document understanding",
-      "specialist tax preparer team",
-      "filesystem-backed agent handoffs",
-      "source field extraction workpapers",
-      "tax auditor and manager review gates",
-      "draft Form 1040 review packet",
-      "Markdown and PDF final packet",
-      "Membrane context memory optimization"
-    ],
+    "agent_templates": {
+      "library": "../mn-agents/index.json",
+      "nodes": [
+        {
+          "node_id": "tax_workflow_runner",
+          "uses": "mn-agents.data_python_executor@1.0.0"
+        },
+        {
+          "node_id": "report_sink",
+          "uses": "mn-agents.control_join@1.0.0"
+        }
+      ],
+      "render_tool": "../mn-agents/tools/render_agent_templates.py",
+      "rendered_output": "manifest.rendered.json or runtime metadata",
+      "renderer": "mn_blueprint_support.render_manifest_agent_templates"
+    },
+    "blueprint_id": "personal_income_tax_expert",
+    "category": "finance",
+    "configuration_contract": {
+      "optional_files": [
+        "config/overwrite.json",
+        "knowledge/",
+        "examples/sample_tax_documents/"
+      ],
+      "required_files": [
+        "manifest.json",
+        "README.md",
+        "SPEC.md",
+        "config/default.json",
+        "payloads/",
+        "LICENSE.md",
+        "TERM.md"
+      ]
+    },
+    "customizable_for": "Personal federal tax preparation, 401(k) and retirement distribution review, interest income intake, brokerage statements, mortgage interest review, and tax document checklists.",
+    "description": "Runs an LLM-assisted tax preparation team over local tax documents, builds draft Form 1040 workpapers, audits the packet, and writes JSON, Markdown, and PDF review outputs.",
+    "human_control": {
+      "allowed_decisions": [
+        "approve",
+        "revise",
+        "reject"
+      ],
+      "blocked_actions": [
+        "file_tax_return",
+        "submit_to_irs",
+        "send_to_tax_preparer",
+        "write_tax_packet_to_connector_without_review"
+      ],
+      "decision_event": "human_decision_applied",
+      "default_action": "reject",
+      "enabled": true,
+      "events": [
+        "human_notice",
+        "human_input_requested",
+        "human_input_received",
+        "human_input_timeout",
+        "human_decision_applied"
+      ],
+      "mode": "approval_required",
+      "reason": "Human approval is required before high-impact downstream actions such as file_tax_return, submit_to_irs, send_to_tax_preparer.",
+      "request_event": "human_input_requested",
+      "response_event": "human_input_received",
+      "timeout_event": "human_input_timeout",
+      "timeout_seconds": 3600
+    },
+    "init_config_review": {
+      "fields": [
+        {
+          "default": "",
+          "description": "Choose a local folder containing W-2, 1099, 1098, brokerage, or related tax documents.",
+          "label": "Tax document folder",
+          "path": "tax_documents.folder_path"
+        },
+        {
+          "default": "single",
+          "description": "Confirm filing status before treating draft calculations as meaningful.",
+          "label": "Filing status",
+          "path": "tax_profile.filing_status"
+        },
+        {
+          "default": 2025,
+          "description": "Federal tax year for the review packet.",
+          "label": "Tax year",
+          "path": "tax_profile.tax_year"
+        },
+        {
+          "default": "~/Downloads",
+          "description": "Choose where JSON, Markdown, and PDF review files should be written.",
+          "label": "Output folder",
+          "path": "outputs.folder_path"
+        },
+        {
+          "default": "ollama",
+          "description": "Use ollama for the real local model, fake only for deterministic tests.",
+          "label": "LLM mode",
+          "path": "llm.mode"
+        },
+        {
+          "default": "http://192.168.4.173:11434",
+          "description": "Base URL for the local Ollama-compatible model server.",
+          "label": "Ollama URL",
+          "path": "llm.api_base"
+        },
+        {
+          "default": "ollama/nemotron3:33b",
+          "description": "Model used by the specialist tax team.",
+          "label": "LLM model",
+          "path": "llm.model"
+        }
+      ],
+      "instruction": "Ask the user to select the local tax document folder, confirm filing status, and choose the output folder before launch. If they skip the document folder, run the demo sample packet and explain that it is not filing-ready.",
+      "required": true
+    },
+    "input_contract": {
+      "description": "Tax source documents arrive as scattered PDFs; users need a private workflow that turns W-2, 1099-INT, 1099-R, and related forms into a reviewable Form 1040 draft packet with preparer workpapers and manager review.",
+      "optional_inputs": [
+        {
+          "description": "Expected source forms for completeness checks.",
+          "example": [
+            "W-2",
+            "1099-INT",
+            "1099-R"
+          ],
+          "name": "recommended_forms",
+          "type": "domain_value"
+        },
+        {
+          "description": "Tone and boundary guidance for the final advisor message.",
+          "example": "warm, direct, evidence-grounded",
+          "name": "advisor_voice",
+          "type": "domain_value"
+        }
+      ],
+      "privacy_classification": "regulated",
+      "profiles": {
+        "env_json": {
+          "adapter": "env_json",
+          "description": "JSON object loaded from MN_BLUEPRINT_INPUT_JSON."
+        },
+        "file": {
+          "adapter": "file",
+          "description": "JSON object loaded from a local file path."
+        },
+        "json": {
+          "adapter": "json",
+          "description": "Inline JSON object supplied through config or runtime overrides."
+        },
+        "local_folder": {
+          "adapter": "file",
+          "description": "Local folder mounted through OtterDesk local input handling.",
+          "path": "tax_documents.folder_path"
+        },
+        "mock": {
+          "adapter": "mock",
+          "description": "Bundled sample W-2, 1099-INT, and 1099-R text records.",
+          "payload": {
+            "document_folder": "",
+            "filing_status": "single",
+            "tax_year": 2025
+          }
+        },
+        "sample_file": {
+          "adapter": "file",
+          "description": "JSON payload pointing to a staged local tax document folder.",
+          "path": "inputs/personal_tax_sample.json"
+        }
+      },
+      "required_inputs": [
+        {
+          "description": "Local folder of tax documents to review.",
+          "example": "/Users/me/Documents/2025-tax-docs",
+          "name": "tax_document_folder",
+          "type": "domain_value"
+        },
+        {
+          "description": "Federal tax year for the draft packet.",
+          "example": 2025,
+          "name": "tax_year",
+          "type": "domain_value"
+        },
+        {
+          "description": "Filing status used for assumptions and readiness checks.",
+          "example": "single",
+          "name": "filing_status",
+          "type": "domain_value"
+        },
+        {
+          "description": "Local folder where JSON, Markdown, and PDF review files should be written.",
+          "example": "~/Downloads",
+          "name": "output_folder",
+          "type": "domain_value"
+        }
+      ],
+      "resolved_artifact": "inputs.json",
+      "schema_version": "mn.blueprint.input_contract.v1",
+      "supported_adapters": [
+        "mock",
+        "json",
+        "file",
+        "env_json"
+      ],
+      "validation_rules": [
+        {
+          "command": [
+            "python3",
+            "payloads/validation/validate_tax_folder.py"
+          ],
+          "name": "tax_document_folder",
+          "timeout_seconds": 10,
+          "type": "command"
+        }
+      ]
+    },
+    "interfaces": {
+      "channels": {
+        "artifacts": {
+          "artifacts": [
+            "run.json",
+            "config.json",
+            "inputs.json",
+            "events.jsonl",
+            "result.json",
+            "final_artifact.json",
+            "tax_team/artifact_manifest.json"
+          ],
+          "description": "Stable run-store files and domain-specific outputs.",
+          "optional_artifacts": [
+            "job.json",
+            "web_ui.json",
+            "ui.json",
+            "web/index.html",
+            "logs.jsonl",
+            "tax_team/commands/*.json",
+            "tax_team/agent_outputs/*.json",
+            "tax_team/workpapers/*.json",
+            "tax_team/documents/*",
+            "tax_team/final/final_artifact.json",
+            "*-report.md",
+            "*-tax-review-packet.pdf"
+          ]
+        },
+        "events": {
+          "artifact": "events.jsonl",
+          "description": "Append-only tax workflow events."
+        },
+        "human": {
+          "artifact": "human.jsonl",
+          "description": "Human notices, approval requests, responses, timeouts, and applied decisions."
+        },
+        "input_skills": {
+          "description": "PDF extraction, LLM OCR handoff, and tax form classification skills."
+        },
+        "inputs": {
+          "artifact": "inputs.json",
+          "description": "Local tax document folder and optional profile fields."
+        },
+        "logs": {
+          "description": "Runtime stdout/stderr and redacted tax workflow logs.",
+          "stream": "stdout/stderr"
+        },
+        "output_skills": {
+          "description": "Optional downstream filing software export is intentionally disabled by default."
+        },
+        "outputs": {
+          "artifacts": [
+            "result.json",
+            "final_artifact.json",
+            "tax_team/artifact_manifest.json",
+            "*-report.md",
+            "*-tax-review-packet.pdf"
+          ],
+          "description": "Primary prepared draft packet, Form 1040 line map, and local report files."
+        },
+        "resources": {
+          "artifact": "resources.jsonl",
+          "description": "Resource samples such as token, runtime, connector, and disk usage."
+        },
+        "web_ui": {
+          "artifacts": [
+            "web_ui.json",
+            "ui.json",
+            "web/index.html"
+          ],
+          "description": "Optional review dashboard for final artifact inspection."
+        }
+      },
+      "config": [
+        "standard_version",
+        "identity",
+        "mode",
+        "metadata",
+        "inputs",
+        "simulation",
+        "llm",
+        "outputs",
+        "logging",
+        "resources",
+        "human_control",
+        "real_adapters",
+        "streams",
+        "input_skills",
+        "output_skills",
+        "error_handling",
+        "state",
+        "capabilities",
+        "privacy",
+        "triggers",
+        "backpressure",
+        "determinism",
+        "schemas",
+        "budgets",
+        "agent_handoffs",
+        "web_ui",
+        "interfaces",
+        "execution_model",
+        "memory_layer",
+        "tax_profile",
+        "tax_documents",
+        "tax_knowledge",
+        "knowledge"
+      ],
+      "identity": [
+        "blueprint_id",
+        "name",
+        "run_id"
+      ],
+      "input_adapters": [
+        "mock",
+        "json",
+        "file",
+        "env_json"
+      ],
+      "optional_outputs": [
+        "job.json",
+        "web_ui.json",
+        "ui.json",
+        "web/index.html",
+        "logs.jsonl",
+        "tax_team/commands/*.json",
+        "tax_team/agent_outputs/*.json",
+        "tax_team/workpapers/*.json",
+        "tax_team/documents/*",
+        "tax_team/final/final_artifact.json",
+        "*-report.md",
+        "*-tax-review-packet.pdf"
+      ],
+      "output_adapters": [
+        "local_run_store"
+      ],
+      "outputs": [
+        "run.json",
+        "config.json",
+        "inputs.json",
+        "events.jsonl",
+        "result.json",
+        "final_artifact.json",
+        "tax_team/artifact_manifest.json"
+      ],
+      "response_schema": "mn.blueprint.response.v1",
+      "web_ui_adapters": [
+        "none",
+        "static_html",
+        "gradio"
+      ]
+    },
+    "llm_agent_role": "Personal tax preparation team that prepares a source-grounded draft Form 1040 review packet while asking careful review questions.",
     "memory_layer": {
       "collection": "mn_memory",
       "containers": "optional_sidecar",
@@ -137,261 +433,245 @@
       "sdk_distribution": "mirrorneuron-membrane-python-sdk",
       "sdk_import_package": "mn_context_engine_sdk"
     },
-    "agent_templates": {
-      "library": "../mn-agents/index.json",
-      "nodes": [
-        {
-          "node_id": "tax_workflow_runner",
-          "uses": "mn-agents.data_python_executor@1.0.0"
-        },
-        {
-          "node_id": "report_sink",
-          "uses": "mn-agents.control_join@1.0.0"
-        }
+    "name": "Personal Income Tax Expert",
+    "observability_dashboard": {
+      "panels": [
+        "current_status",
+        "recent_events",
+        "pending_human_requests",
+        "output_artifacts",
+        "resource_usage",
+        "errors",
+        "llm_calls",
+        "token_budget",
+        "llm_retries"
       ],
-      "render_tool": "../mn-agents/tools/render_agent_templates.py",
-      "rendered_output": "manifest.rendered.json or runtime metadata",
-      "renderer": "mn_blueprint_support.render_manifest_agent_templates"
-    },
-    "init_config_review": {
-      "required": true,
-      "fields": [
-        {
-          "path": "tax_documents.folder_path",
-          "label": "Tax document folder",
-          "default": "",
-          "description": "Choose a local folder containing tax PDFs such as W-2, 1099-INT, 1099-R, 1099-DIV, 1098, 1095-A, or brokerage statements."
-        },
-        {
-          "path": "tax_profile.filing_status",
-          "label": "Filing status",
-          "default": "single",
-          "description": "Confirm the filing status before treating the draft Form 1040 line map as meaningful."
-        },
-        {
-          "path": "tax_profile.tax_year",
-          "label": "Tax year",
-          "default": "2025",
-          "description": "Federal tax year for the draft packet."
-        },
-        {
-          "path": "outputs.folder_path",
-          "label": "Output folder",
-          "default": "~/Downloads",
-          "description": "Choose where the prepared draft packet files should be written on this computer."
-        },
-        {
-          "path": "llm.mode",
-          "label": "LLM mode",
-          "default": "ollama",
-          "description": "Use ollama for the real Nemotron tax team; fake is only for tests and quick runs."
-        },
-        {
-          "path": "llm.api_base",
-          "label": "Ollama URL",
-          "default": "http://192.168.4.173:11434",
-          "description": "Base URL for the local Ollama-compatible Nemotron tax team model server."
-        },
-        {
-          "path": "llm.model",
-          "label": "LLM model",
-          "default": "ollama/nemotron3:33b",
-          "description": "Model used by the specialist tax advisor team."
-        }
-      ],
-      "instruction": "Ask the user to select the local tax document folder, confirm filing status, and choose the output folder before launch. If they skip the document folder, run the demo sample packet and explain that it is not filing-ready."
-    },
-    "configuration_contract": {
-      "required_files": [
-        "manifest.json",
-        "README.md",
-        "SPEC.md",
-        "config/default.json",
-        "payloads/",
-        "LICENSE.md",
-        "TERM.md"
-      ],
-      "optional_files": [
-        "config/overwrite.json",
-        "knowledge/",
-        "examples/sample_tax_documents/"
-      ]
-    },
-    "interfaces": {
-      "channels": {
-        "inputs": {
-          "description": "Local tax document folder and optional profile fields.",
-          "artifact": "inputs.json"
-        },
-        "events": {
-          "description": "Append-only tax workflow events.",
-          "artifact": "events.jsonl"
-        },
-        "outputs": {
-          "description": "Primary prepared draft packet, Form 1040 line map, and local report files.",
-          "artifacts": [
-            "result.json",
-            "final_artifact.json",
-            "tax_team/artifact_manifest.json",
-            "*-report.md",
-            "*-tax-review-packet.pdf"
-          ]
-        },
-        "artifacts": {
-          "description": "Stable run-store files and domain-specific outputs.",
-          "artifacts": [
-            "run.json",
-            "config.json",
-            "inputs.json",
-            "events.jsonl",
-            "result.json",
-            "final_artifact.json",
-            "tax_team/artifact_manifest.json"
-          ],
-          "optional_artifacts": [
-            "job.json",
-            "web_ui.json",
-            "ui.json",
-            "web/index.html",
-            "logs.jsonl",
-            "tax_team/commands/*.json",
-            "tax_team/agent_outputs/*.json",
-            "tax_team/workpapers/*.json",
-            "tax_team/documents/*",
-            "tax_team/final/final_artifact.json",
-            "*-report.md",
-            "*-tax-review-packet.pdf"
-          ]
-        },
-        "logs": {
-          "description": "Runtime stdout/stderr and redacted tax workflow logs.",
-          "stream": "stdout/stderr"
-        },
-        "input_skills": {
-          "description": "PDF extraction, LLM OCR handoff, and tax form classification skills."
-        },
-        "output_skills": {
-          "description": "Optional downstream filing software export is intentionally disabled by default."
-        },
-        "web_ui": {
-          "description": "Optional review dashboard for final artifact inspection.",
-          "artifacts": [
-            "web_ui.json",
-            "ui.json",
-            "web/index.html"
-          ]
-        }
-      },
-      "config": [
-        "standard_version",
-        "identity",
-        "mode",
-        "metadata",
-        "memory_layer",
-        "tax_profile",
-        "tax_documents",
-        "tax_knowledge",
-        "knowledge",
-        "inputs",
-        "llm",
-        "outputs",
-        "real_adapters",
-        "streams",
-        "input_skills",
-        "output_skills",
-        "privacy",
-        "capabilities",
-        "budgets",
-        "agent_handoffs",
-        "interfaces",
-        "execution_model",
-        "logging",
-        "error_handling",
-        "web_ui"
-      ],
-      "identity": [
-        "blueprint_id",
-        "name",
-        "run_id"
-      ],
-      "input_adapters": [
-        "mock",
-        "json",
-        "file",
-        "env_json"
-      ],
-      "output_adapters": [
-        "local_run_store"
-      ],
-      "outputs": [
-        "run.json",
-        "config.json",
-        "inputs.json",
+      "reads": [
         "events.jsonl",
+        "human.jsonl",
+        "logs.jsonl",
+        "resources.jsonl",
         "result.json",
         "final_artifact.json",
-        "tax_team/artifact_manifest.json"
+        "web_ui.json"
       ],
-      "optional_outputs": [
-        "job.json",
-        "web_ui.json",
-        "ui.json",
-        "web/index.html",
-        "logs.jsonl",
-        "tax_team/commands/*.json",
-        "tax_team/agent_outputs/*.json",
-        "tax_team/workpapers/*.json",
-        "tax_team/documents/*",
-        "tax_team/final/final_artifact.json",
-        "*-report.md",
-        "*-tax-review-packet.pdf"
-      ],
-      "response_schema": "mn.blueprint.response.v1",
-      "web_ui_adapters": [
-        "none",
-        "static_html",
-        "gradio"
-      ]
+      "schema_version": "mn.blueprint.observability_dashboard.v1",
+      "source": "local_run_store"
     },
+    "output": "Prepared draft Form 1040 review packet with source evidence, specialist workpapers, audit and manager review, advisor-style next steps, Markdown, and PDF outputs.",
     "output_contract": {
-      "local_run_store": "~/.mn/runs/<run_id>/",
-      "result_json": "result.json",
-      "final_artifact_json": "final_artifact.json",
-      "team_artifact_manifest": "tax_team/artifact_manifest.json",
+      "advisor_message": "final_artifact.advisor_message",
+      "advisor_recommendations": "final_artifact.advisor_recommendations",
       "agent_commands": "tax_team/commands/*.json",
       "agent_outputs": "tax_team/agent_outputs/*.json",
       "agent_workpapers": "tax_team/workpapers/*.json",
+      "artifacts": [
+        {
+          "artifact_id": "run_metadata",
+          "mime_type": "application/json",
+          "path": "run.json",
+          "producer": "local_run_store",
+          "schema_version": "mn.artifact.run_summary.v1",
+          "source_refs": [],
+          "type": "run_summary"
+        },
+        {
+          "artifact_id": "resolved_config",
+          "mime_type": "application/json",
+          "path": "config.json",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.config.v1",
+          "source_refs": [],
+          "type": "config"
+        },
+        {
+          "artifact_id": "resolved_inputs",
+          "mime_type": "application/json",
+          "path": "inputs.json",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.inputs.v1",
+          "source_refs": [],
+          "type": "inputs"
+        },
+        {
+          "artifact_id": "event_stream",
+          "mime_type": "application/x-jsonlines",
+          "path": "events.jsonl",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.events.v1",
+          "source_refs": [],
+          "type": "events"
+        },
+        {
+          "artifact_id": "result",
+          "mime_type": "application/json",
+          "path": "result.json",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.response.v1",
+          "source_refs": [
+            "inputs.json",
+            "events.jsonl"
+          ],
+          "type": "result"
+        },
+        {
+          "artifact_id": "final_artifact",
+          "mime_type": "application/json",
+          "path": "final_artifact.json",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.final_artifact.v1",
+          "source_refs": [
+            "inputs.json",
+            "events.jsonl",
+            "result.json"
+          ],
+          "type": "final_artifact"
+        },
+        {
+          "artifact_id": "logs",
+          "mime_type": "application/x-jsonlines",
+          "path": "logs.jsonl",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.logs.v1",
+          "source_refs": [
+            "events.jsonl"
+          ],
+          "type": "logs"
+        },
+        {
+          "artifact_id": "resources",
+          "mime_type": "application/x-jsonlines",
+          "path": "resources.jsonl",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.resources.v1",
+          "source_refs": [
+            "run.json"
+          ],
+          "type": "resource_samples"
+        },
+        {
+          "artifact_id": "web_ui",
+          "mime_type": "application/json",
+          "path": "web_ui.json",
+          "producer": "web_ui",
+          "schema_version": "mn.blueprint.web_ui.v1",
+          "source_refs": [
+            "run.json"
+          ],
+          "type": "web_ui"
+        },
+        {
+          "artifact_id": "human_events",
+          "mime_type": "application/x-jsonlines",
+          "path": "human.jsonl",
+          "producer": "human_control",
+          "schema_version": "mn.blueprint.human_events.v1",
+          "source_refs": [
+            "events.jsonl"
+          ],
+          "type": "human_events"
+        },
+        {
+          "artifact_id": "tax_review_packet_pdf",
+          "mime_type": "application/pdf",
+          "path": "<outputs.folder_path>/<run_id>-tax-review-packet.pdf",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.generated_file.v1",
+          "source_refs": [
+            "final_artifact.json"
+          ],
+          "type": "generated_file"
+        },
+        {
+          "artifact_id": "tax_report_markdown",
+          "mime_type": "text/markdown",
+          "path": "<outputs.folder_path>/<run_id>-report.md",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.generated_report.v1",
+          "source_refs": [
+            "final_artifact.json"
+          ],
+          "type": "generated_report"
+        },
+        {
+          "artifact_id": "tax_team_manifest",
+          "mime_type": "application/json",
+          "path": "tax_team/artifact_manifest.json",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.agent_handoff_manifest.v1",
+          "source_refs": [
+            "inputs.json",
+            "events.jsonl"
+          ],
+          "type": "agent_handoff_manifest"
+        }
+      ],
+      "audit_review": "final_artifact.audit_review",
+      "document_dossier": "final_artifact.document_dossier",
+      "filing_readiness": "final_artifact.filing_readiness",
+      "final_artifact": {
+        "description": "The durable user-facing artifact should summarize the result, recommendation, confidence, evidence, next steps, and source references.",
+        "required_fields": [
+          "type",
+          "executive_summary",
+          "recommended_action",
+          "confidence",
+          "evidence",
+          "next_steps",
+          "source_refs"
+        ],
+        "schema_version": "mn.blueprint.final_artifact_contract.v1"
+      },
+      "final_artifact_json": "final_artifact.json",
+      "local_run_store": "~/.mn/runs/<run_id>/",
+      "manager_review": "final_artifact.manager_review",
       "markdown_report": "<outputs.folder_path>/<run_id>-report.md",
+      "output_skills": [],
       "pdf_review_packet": "<outputs.folder_path>/<run_id>-tax-review-packet.pdf",
       "prepared_form_1040": "final_artifact.prepared_form_1040",
-      "document_dossier": "final_artifact.document_dossier",
       "preparer_workpapers": "final_artifact.preparer_workpapers",
-      "audit_review": "final_artifact.audit_review",
-      "manager_review": "final_artifact.manager_review",
+      "result_json": "result.json",
       "risk_register": "final_artifact.risk_register",
-      "advisor_recommendations": "final_artifact.advisor_recommendations",
-      "filing_readiness": "final_artifact.filing_readiness",
       "source_evidence_index": "final_artifact.source_evidence_index",
+      "status": "draft_needs_review",
       "strategic_review": "final_artifact.strategic_review",
-      "advisor_message": "final_artifact.advisor_message",
-      "status": "draft_needs_review"
+      "team_artifact_manifest": "tax_team/artifact_manifest.json"
     },
+    "problem_solved": "Tax source documents arrive as scattered PDFs; users need a private workflow that turns W-2, 1099-INT, 1099-R, and related forms into a reviewable Form 1040 draft packet with preparer workpapers and manager review.",
     "quick_test": {
+      "description": "Uses bundled sample W-2, 1099-INT, and 1099-R records without sending data to external services.",
       "enabled": false,
-      "env": "MN_BLUEPRINT_QUICK_TEST=1",
-      "description": "Uses bundled sample W-2, 1099-INT, and 1099-R records without sending data to external services."
+      "env": "MN_BLUEPRINT_QUICK_TEST=1"
     },
+    "runtime_features": [
+      "local tax PDF intake",
+      "LLM document understanding",
+      "specialist tax preparer team",
+      "filesystem-backed agent handoffs",
+      "source field extraction workpapers",
+      "tax auditor and manager review gates",
+      "draft Form 1040 review packet",
+      "Markdown and PDF final packet",
+      "Membrane context memory optimization",
+      "product input contract",
+      "transparent run status",
+      "human control policy",
+      "artifact records",
+      "run-store observability dashboard"
+    ],
+    "search_terms": [
+      "tax preparation",
+      "Form 1040",
+      "1099-INT",
+      "1099-R",
+      "401k",
+      "PDF OCR",
+      "personal tax advisor"
+    ],
+    "simulation_type": "Document automation tax preparation workflow with a specialist LLM preparer team, auditor, and manager review.",
     "standard": {
-      "version": "1.0",
       "config_path": "config/default.json",
       "default_input_adapter": "mock",
-      "real_input_adapters": [
-        "file",
-        "json",
-        "env_json"
-      ],
-      "output_adapter": "local_run_store",
-      "run_store": "~/.mn/runs/<run_id>/",
       "execution_model": "load_metadata -> resolve_config -> load_inputs -> create_tax_team_workspace -> scan_local_tax_folder -> write_artifact_manifest -> extract_pdf_text_or_mark_ocr -> command_only_agent_handoffs -> client_intake_coordinator -> llm_document_understanding -> llm_source_field_extraction -> income_preparer_workpaper -> deductions_credits_preparer_workpaper -> form_1040_assembler_maps_supported_lines -> tax_auditor_checks_assumptions -> manager_reviewer_blocks_filing_ready_claims -> advisor_report_writer -> write_final_artifact -> write_markdown_report -> write_pdf_review_packet -> request_human_review",
       "execution_steps": [
         "load_metadata",
@@ -415,16 +695,137 @@
         "write_markdown_report",
         "write_pdf_review_packet",
         "request_human_review"
-      ]
+      ],
+      "output_adapter": "local_run_store",
+      "real_input_adapters": [
+        "file",
+        "json",
+        "env_json"
+      ],
+      "run_store": "~/.mn/runs/<run_id>/",
+      "version": "1.0"
     },
-    "search_terms": [
-      "tax preparation",
-      "Form 1040",
-      "1099-INT",
-      "1099-R",
-      "401k",
-      "PDF OCR",
-      "personal tax advisor"
-    ]
-  }
+    "status_contract": {
+      "heartbeat_event": "blueprint_status",
+      "heartbeat_required": true,
+      "phases": [
+        {
+          "completion_event": "blueprint_phase_completed",
+          "failure_event": "blueprint_phase_failed",
+          "phase": "loading_inputs",
+          "progress_event": "blueprint_status",
+          "required": true,
+          "start_event": "blueprint_phase_started"
+        },
+        {
+          "completion_event": "blueprint_phase_completed",
+          "failure_event": "blueprint_phase_failed",
+          "phase": "running_worker",
+          "progress_event": "blueprint_status",
+          "required": true,
+          "start_event": "blueprint_phase_started"
+        },
+        {
+          "completion_event": "blueprint_phase_completed",
+          "failure_event": "blueprint_phase_failed",
+          "phase": "waiting_for_human",
+          "progress_event": "blueprint_status",
+          "required": true,
+          "start_event": "blueprint_phase_started"
+        },
+        {
+          "completion_event": "blueprint_phase_completed",
+          "failure_event": "blueprint_phase_failed",
+          "phase": "writing_artifacts",
+          "progress_event": "blueprint_status",
+          "required": true,
+          "start_event": "blueprint_phase_started"
+        },
+        {
+          "completion_event": "blueprint_phase_completed",
+          "failure_event": "blueprint_phase_failed",
+          "phase": "completed",
+          "progress_event": "blueprint_status",
+          "required": true,
+          "start_event": "blueprint_phase_started"
+        }
+      ],
+      "schema_version": "mn.blueprint.status_contract.v1",
+      "source": "run_store",
+      "status_event": "blueprint_status"
+    },
+    "target_user": "Individual taxpayers, household finance operators, bookkeepers, and tax preparers who want a source-grounded draft before using filing software.",
+    "target_users": "Individual taxpayers, household finance operators, bookkeepers, and tax preparers.",
+    "web_ui": {
+      "data_source": "local_run_store",
+      "reads": [
+        "events.jsonl",
+        "human.jsonl",
+        "logs.jsonl",
+        "resources.jsonl",
+        "result.json",
+        "final_artifact.json",
+        "web_ui.json"
+      ],
+      "standard_panels": [
+        "current_status",
+        "recent_events",
+        "pending_human_requests",
+        "output_artifacts",
+        "resource_usage",
+        "errors",
+        "llm_calls",
+        "token_budget",
+        "llm_retries"
+      ]
+    }
+  },
+  "nodes": [
+    {
+      "node_id": "tax_workflow_runner",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "with": {
+        "environment": {
+          "MN_BLUEPRINT_ID": "personal_income_tax_expert",
+          "MN_LLM_API_BASE": "http://192.168.4.173:11434",
+          "MN_LLM_MAX_TOKENS": "1200",
+          "MN_LLM_MODEL": "ollama/nemotron3:33b",
+          "MN_LLM_NUM_RETRIES": "1",
+          "MN_LLM_TIMEOUT_SECONDS": "90",
+          "MN_TAX_REDACT_LOGS": "true",
+          "PYTHONPATH": "${MN_SKILLS_ROOT}/blueprint_support_skill/src:${MN_SKILLS_ROOT}/tax_pdf_ocr_skill/src:${MN_SKILLS_ROOT}/pdf_extract_skill/src"
+        },
+        "name_prefix": "personal_income_tax_expert",
+        "node_type": "generic",
+        "output_message_type": "blueprint_report",
+        "role": "personal_income_tax_expert_team",
+        "script": "scripts/run_blueprint.py",
+        "upload_path": "tax_workflow"
+      }
+    },
+    {
+      "node_id": "report_sink",
+      "uses": "mn-agents.control_join@1.0.0",
+      "with": {
+        "complete_on_message": true,
+        "node_type": "reduce",
+        "role": "result_sink"
+      }
+    }
+  ],
+  "requirements": {
+    "cpu": {
+      "min_cores": 1
+    },
+    "disk": {
+      "min_gb": 1
+    },
+    "gpu": {
+      "min_count": 0
+    },
+    "memory": {
+      "min_gb": 2
+    }
+  },
+  "term": "TERM.md"
 }

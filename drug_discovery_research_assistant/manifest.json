@@ -67,28 +67,14 @@
       }
     ]
   },
-  "job_name": "drug-discovery-research-assistant",
-  "license": "LICENSE.md",
-  "term": "TERM.md",
-  "manifest_version": "1.0",
-  "requirements": {
-    "cpu": {
-      "min_cores": 1
-    },
-    "gpu": {
-      "min_count": 0
-    },
-    "memory": {
-      "min_gb": 2
-    },
-    "disk": {
-      "min_gb": 1
-    }
-  },
   "input_validation": {
     "rules": []
   },
+  "job_name": "drug-discovery-research-assistant",
+  "license": "LICENSE.md",
+  "manifest_version": "1.0",
   "metadata": {
+    "agent_role": "AI assistant for organizing drug discovery candidate generation, filtering, and evidence review.",
     "agent_templates": {
       "library": "../mn-agents/index.json",
       "nodes": [
@@ -141,6 +127,35 @@
     },
     "customizable_for": "Drug discovery, material search, assay planning, scientific literature review, and research pipeline support.",
     "description": "Helps run a reviewable discovery workflow that proposes, filters, and evaluates drug candidates across repeated research stages.",
+    "human_control": {
+      "allowed_decisions": [
+        "approve",
+        "revise",
+        "reject"
+      ],
+      "blocked_actions": [
+        "advance_to_lab_experiment",
+        "make_clinical_claim",
+        "submit_regulatory_material",
+        "send_candidate_to_external_system_without_review"
+      ],
+      "decision_event": "human_decision_applied",
+      "default_action": "reject",
+      "enabled": true,
+      "events": [
+        "human_notice",
+        "human_input_requested",
+        "human_input_received",
+        "human_input_timeout",
+        "human_decision_applied"
+      ],
+      "mode": "approval_required",
+      "reason": "Human approval is required before high-impact downstream actions such as advance_to_lab_experiment, make_clinical_claim, submit_regulatory_material.",
+      "request_event": "human_input_requested",
+      "response_event": "human_input_received",
+      "timeout_event": "human_input_timeout",
+      "timeout_seconds": 3600
+    },
     "init_config_review": {
       "checks": [
         "identity",
@@ -152,7 +167,119 @@
         "privacy",
         "budgets"
       ],
+      "fields": [
+        {
+          "default": "Alzheimer",
+          "description": "Confirm the disease, phenotype, or target family to investigate.",
+          "label": "Disease or target",
+          "path": "inputs.payload.disease"
+        },
+        {
+          "default": "http://192.168.4.173:11434",
+          "description": "Base URL for the local research LLM endpoint.",
+          "label": "LLM URL",
+          "path": "llm.api_base"
+        },
+        {
+          "default": "ollama/nemotron3:33b",
+          "description": "Model used to draft candidate and evidence summaries.",
+          "label": "LLM model",
+          "path": "llm.model"
+        },
+        {
+          "default": 600,
+          "description": "Maximum runtime for the staged discovery loop.",
+          "label": "Runtime limit",
+          "path": "budgets.max_runtime_seconds"
+        }
+      ],
+      "instruction": "When running in OtterDesk, show these overwriteable fields during init config and ask the user to change them or keep the defaults before launch.",
       "required": true
+    },
+    "input_contract": {
+      "description": "Discovery work is iterative and evidence-heavy; researchers need an assistant that keeps candidate generation, scoring, extraction, and review moving in order.",
+      "optional_inputs": [
+        {
+          "description": "Research papers, notes, or database exports used as evidence.",
+          "example": "pubmed-export.json",
+          "name": "literature_corpus",
+          "type": "domain_value"
+        },
+        {
+          "description": "Wet-lab, ADMET, or computational constraints that shape recommendations.",
+          "example": {
+            "assay": "in vitro",
+            "species": "human"
+          },
+          "name": "assay_constraints",
+          "type": "domain_value"
+        }
+      ],
+      "privacy_classification": "confidential",
+      "profiles": {
+        "connector": {
+          "adapter": "json",
+          "description": "Connector-provided target profile and evidence summaries from approved research systems."
+        },
+        "env_json": {
+          "adapter": "env_json",
+          "description": "JSON object loaded from MN_BLUEPRINT_INPUT_JSON."
+        },
+        "file": {
+          "adapter": "file",
+          "description": "JSON object loaded from a local file path."
+        },
+        "json": {
+          "adapter": "json",
+          "description": "Inline JSON object supplied through config or runtime overrides."
+        },
+        "mock": {
+          "adapter": "mock",
+          "description": "Bundled Alzheimer demo target and synthetic candidate workflow.",
+          "payload": {
+            "disease": "Alzheimer"
+          }
+        },
+        "sample_file": {
+          "adapter": "file",
+          "description": "JSON disease profile, candidate seeds, and screening criteria loaded from a local file.",
+          "path": "inputs/drug_discovery_sample.json"
+        }
+      },
+      "required_inputs": [
+        {
+          "description": "Disease, target, pathway, or phenotype that frames the discovery run.",
+          "example": "Alzheimer disease BACE1 modulation",
+          "name": "disease_or_target_profile",
+          "type": "domain_value"
+        },
+        {
+          "description": "Desired candidate, assay, safety, novelty, or evidence criteria.",
+          "example": {
+            "potency": "sub-micromolar",
+            "toxicity": "low"
+          },
+          "name": "screening_criteria",
+          "type": "domain_value"
+        },
+        {
+          "description": "Optional seed molecules, protein targets, or prior candidates to compare.",
+          "example": [
+            "known_reference_compound_a"
+          ],
+          "name": "candidate_seed_set",
+          "type": "domain_value"
+        }
+      ],
+      "resolved_artifact": "inputs.json",
+      "schema_version": "mn.blueprint.input_contract.v1",
+      "supported_adapters": [
+        "mock",
+        "json",
+        "file",
+        "env_json"
+      ],
+      "validation_rules": []
     },
     "interfaces": {
       "channels": {
@@ -178,6 +305,10 @@
           "artifact": "events.jsonl",
           "description": "Append-only workflow events."
         },
+        "human": {
+          "artifact": "human.jsonl",
+          "description": "Human notices, approval requests, responses, timeouts, and applied decisions."
+        },
         "input_skills": {
           "description": "Connector-backed or reusable skill-backed input sources."
         },
@@ -198,6 +329,10 @@
             "final_artifact.json"
           ],
           "description": "Primary result and final user-facing artifact."
+        },
+        "resources": {
+          "artifact": "resources.jsonl",
+          "description": "Resource samples such as token, runtime, connector, and disk usage."
         },
         "streams": {
           "default": [
@@ -246,6 +381,8 @@
         "llm",
         "outputs",
         "logging",
+        "resources",
+        "human_control",
         "real_adapters",
         "streams",
         "input_skills",
@@ -352,13 +489,181 @@
       "sdk_import_package": "mn_context_engine_sdk"
     },
     "name": "Drug Discovery Research Assistant",
+    "observability_dashboard": {
+      "panels": [
+        "current_status",
+        "recent_events",
+        "pending_human_requests",
+        "output_artifacts",
+        "resource_usage",
+        "errors",
+        "llm_calls",
+        "token_budget",
+        "llm_retries"
+      ],
+      "reads": [
+        "events.jsonl",
+        "human.jsonl",
+        "logs.jsonl",
+        "resources.jsonl",
+        "result.json",
+        "final_artifact.json",
+        "web_ui.json"
+      ],
+      "schema_version": "mn.blueprint.observability_dashboard.v1",
+      "source": "local_run_store"
+    },
     "output": "Candidate artifacts, stage logs, evidence notes, and discovery summaries for researcher review.",
     "output_contract": {
+      "artifacts": [
+        {
+          "artifact_id": "run_metadata",
+          "mime_type": "application/json",
+          "path": "run.json",
+          "producer": "local_run_store",
+          "schema_version": "mn.artifact.run_summary.v1",
+          "source_refs": [],
+          "type": "run_summary"
+        },
+        {
+          "artifact_id": "resolved_config",
+          "mime_type": "application/json",
+          "path": "config.json",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.config.v1",
+          "source_refs": [],
+          "type": "config"
+        },
+        {
+          "artifact_id": "resolved_inputs",
+          "mime_type": "application/json",
+          "path": "inputs.json",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.inputs.v1",
+          "source_refs": [],
+          "type": "inputs"
+        },
+        {
+          "artifact_id": "event_stream",
+          "mime_type": "application/x-jsonlines",
+          "path": "events.jsonl",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.events.v1",
+          "source_refs": [],
+          "type": "events"
+        },
+        {
+          "artifact_id": "result",
+          "mime_type": "application/json",
+          "path": "result.json",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.response.v1",
+          "source_refs": [
+            "inputs.json",
+            "events.jsonl"
+          ],
+          "type": "result"
+        },
+        {
+          "artifact_id": "final_artifact",
+          "mime_type": "application/json",
+          "path": "final_artifact.json",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.final_artifact.v1",
+          "source_refs": [
+            "inputs.json",
+            "events.jsonl",
+            "result.json"
+          ],
+          "type": "final_artifact"
+        },
+        {
+          "artifact_id": "logs",
+          "mime_type": "application/x-jsonlines",
+          "path": "logs.jsonl",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.logs.v1",
+          "source_refs": [
+            "events.jsonl"
+          ],
+          "type": "logs"
+        },
+        {
+          "artifact_id": "resources",
+          "mime_type": "application/x-jsonlines",
+          "path": "resources.jsonl",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.resources.v1",
+          "source_refs": [
+            "run.json"
+          ],
+          "type": "resource_samples"
+        },
+        {
+          "artifact_id": "web_ui",
+          "mime_type": "application/json",
+          "path": "web_ui.json",
+          "producer": "web_ui",
+          "schema_version": "mn.blueprint.web_ui.v1",
+          "source_refs": [
+            "run.json"
+          ],
+          "type": "web_ui"
+        },
+        {
+          "artifact_id": "human_events",
+          "mime_type": "application/x-jsonlines",
+          "path": "human.jsonl",
+          "producer": "human_control",
+          "schema_version": "mn.blueprint.human_events.v1",
+          "source_refs": [
+            "events.jsonl"
+          ],
+          "type": "human_events"
+        },
+        {
+          "artifact_id": "candidate_report",
+          "mime_type": "application/json",
+          "path": "final_artifact.candidate_artifacts",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.generated_report.v1",
+          "source_refs": [
+            "inputs.json",
+            "events.jsonl"
+          ],
+          "type": "generated_report"
+        },
+        {
+          "artifact_id": "stage_logs",
+          "mime_type": "application/x-jsonlines",
+          "path": "events.jsonl",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.event_log.v1",
+          "source_refs": [
+            "run.json"
+          ],
+          "type": "event_log"
+        }
+      ],
       "events": "typed event objects with payload",
       "events_jsonl": "events.jsonl",
+      "final_artifact": {
+        "description": "The durable user-facing artifact should summarize the result, recommendation, confidence, evidence, next steps, and source references.",
+        "required_fields": [
+          "type",
+          "executive_summary",
+          "recommended_action",
+          "confidence",
+          "evidence",
+          "next_steps",
+          "source_refs"
+        ],
+        "schema_version": "mn.blueprint.final_artifact_contract.v1"
+      },
       "final_artifact_json": "final_artifact.json",
       "local_run_store": "~/.mn/runs/<run_id>/",
       "logs_jsonl": "logs.jsonl",
+      "output_skills": [],
       "response_schema": "mn.blueprint.response.v1",
       "result_json": "result.json",
       "status": "JSON lines on stderr",
@@ -376,7 +681,12 @@
       "scientific worker tasks",
       "artifact extraction",
       "research summaries",
-      "Membrane context memory optimization"
+      "Membrane context memory optimization",
+      "product input contract",
+      "transparent run status",
+      "human control policy",
+      "artifact records",
+      "run-store observability dashboard"
     ],
     "simulation_type": "Iterative scientific research workflow with staged candidate review.",
     "standard": {
@@ -407,14 +717,85 @@
       "run_store": "~/.mn/runs/<run_id>/",
       "version": "1.0"
     },
+    "status_contract": {
+      "heartbeat_event": "blueprint_status",
+      "heartbeat_required": true,
+      "phases": [
+        {
+          "completion_event": "blueprint_phase_completed",
+          "failure_event": "blueprint_phase_failed",
+          "phase": "loading_inputs",
+          "progress_event": "blueprint_status",
+          "required": true,
+          "start_event": "blueprint_phase_started"
+        },
+        {
+          "completion_event": "blueprint_phase_completed",
+          "failure_event": "blueprint_phase_failed",
+          "phase": "running_worker",
+          "progress_event": "blueprint_status",
+          "required": true,
+          "start_event": "blueprint_phase_started"
+        },
+        {
+          "completion_event": "blueprint_phase_completed",
+          "failure_event": "blueprint_phase_failed",
+          "phase": "waiting_for_human",
+          "progress_event": "blueprint_status",
+          "required": true,
+          "start_event": "blueprint_phase_started"
+        },
+        {
+          "completion_event": "blueprint_phase_completed",
+          "failure_event": "blueprint_phase_failed",
+          "phase": "writing_artifacts",
+          "progress_event": "blueprint_status",
+          "required": true,
+          "start_event": "blueprint_phase_started"
+        },
+        {
+          "completion_event": "blueprint_phase_completed",
+          "failure_event": "blueprint_phase_failed",
+          "phase": "completed",
+          "progress_event": "blueprint_status",
+          "required": true,
+          "start_event": "blueprint_phase_started"
+        }
+      ],
+      "schema_version": "mn.blueprint.status_contract.v1",
+      "source": "run_store",
+      "status_event": "blueprint_status"
+    },
     "status_logging": {
       "env": "MN_BLUEPRINT_LOG_LEVEL",
       "format": "jsonl",
       "stream": "stderr"
     },
     "target_user": "Computational biology researchers, scientific AI platform teams, and research operations groups.",
-    "agent_role": "AI assistant for organizing drug discovery candidate generation, filtering, and evidence review.",
-    "target_users": "Computational biology researchers, scientific AI platform teams, and research operations groups."
+    "target_users": "Computational biology researchers, scientific AI platform teams, and research operations groups.",
+    "web_ui": {
+      "data_source": "local_run_store",
+      "reads": [
+        "events.jsonl",
+        "human.jsonl",
+        "logs.jsonl",
+        "resources.jsonl",
+        "result.json",
+        "final_artifact.json",
+        "web_ui.json"
+      ],
+      "standard_panels": [
+        "current_status",
+        "recent_events",
+        "pending_human_requests",
+        "output_artifacts",
+        "resource_usage",
+        "errors",
+        "llm_calls",
+        "token_budget",
+        "llm_retries"
+      ]
+    }
   },
   "name": "Drug Discovery Research Assistant",
   "nodes": [
@@ -422,18 +803,18 @@
       "node_id": "target_discovery",
       "uses": "mn-agents.data_python_executor@1.0.0",
       "with": {
-        "node_type": "generic",
-        "output_message_type": "targets_ready",
-        "runner_module": "MirrorNeuron.Runner.HostLocal",
-        "script": "scripts/stage_a.py",
-        "upload_path": "worker",
         "command": [
           "python3",
           "scripts/stage_a.py"
         ],
+        "node_type": "generic",
+        "output_message_type": "targets_ready",
         "pool": "default",
         "pool_slots": 1,
+        "runner_module": "MirrorNeuron.Runner.HostLocal",
+        "script": "scripts/stage_a.py",
         "upload_as": "worker",
+        "upload_path": "worker",
         "workdir": "/sandbox/job/worker"
       }
     },
@@ -441,18 +822,18 @@
       "node_id": "structure_generation",
       "uses": "mn-agents.data_python_executor@1.0.0",
       "with": {
-        "node_type": "generic",
-        "output_message_type": "structures_ready",
-        "runner_module": "MirrorNeuron.Runner.HostLocal",
-        "script": "scripts/stage_b.py",
-        "upload_path": "worker",
         "command": [
           "python3",
           "scripts/stage_b.py"
         ],
+        "node_type": "generic",
+        "output_message_type": "structures_ready",
         "pool": "default",
         "pool_slots": 1,
+        "runner_module": "MirrorNeuron.Runner.HostLocal",
+        "script": "scripts/stage_b.py",
         "upload_as": "worker",
+        "upload_path": "worker",
         "workdir": "/sandbox/job/worker"
       }
     },
@@ -460,18 +841,18 @@
       "node_id": "candidate_generation",
       "uses": "mn-agents.data_python_executor@1.0.0",
       "with": {
-        "node_type": "generic",
-        "output_message_type": "candidates_ready",
-        "runner_module": "MirrorNeuron.Runner.HostLocal",
-        "script": "scripts/stage_c.py",
-        "upload_path": "worker",
         "command": [
           "python3",
           "scripts/stage_c.py"
         ],
+        "node_type": "generic",
+        "output_message_type": "candidates_ready",
         "pool": "default",
         "pool_slots": 1,
+        "runner_module": "MirrorNeuron.Runner.HostLocal",
+        "script": "scripts/stage_c.py",
         "upload_as": "worker",
+        "upload_path": "worker",
         "workdir": "/sandbox/job/worker"
       }
     },
@@ -479,18 +860,18 @@
       "node_id": "binding_evaluation",
       "uses": "mn-agents.data_python_executor@1.0.0",
       "with": {
-        "node_type": "generic",
-        "output_message_type": "evaluations_ready",
-        "runner_module": "MirrorNeuron.Runner.HostLocal",
-        "script": "scripts/stage_d.py",
-        "upload_path": "worker",
         "command": [
           "python3",
           "scripts/stage_d.py"
         ],
+        "node_type": "generic",
+        "output_message_type": "evaluations_ready",
         "pool": "default",
         "pool_slots": 1,
+        "runner_module": "MirrorNeuron.Runner.HostLocal",
+        "script": "scripts/stage_d.py",
         "upload_as": "worker",
+        "upload_path": "worker",
         "workdir": "/sandbox/job/worker"
       }
     },
@@ -498,18 +879,18 @@
       "node_id": "ranking_reporting",
       "uses": "mn-agents.data_python_executor@1.0.0",
       "with": {
-        "node_type": "generic",
-        "output_message_type": "pipeline_complete",
-        "runner_module": "MirrorNeuron.Runner.HostLocal",
-        "script": "scripts/stage_e.py",
-        "upload_path": "worker",
         "command": [
           "python3",
           "scripts/stage_e.py"
         ],
+        "node_type": "generic",
+        "output_message_type": "pipeline_complete",
         "pool": "default",
         "pool_slots": 1,
+        "runner_module": "MirrorNeuron.Runner.HostLocal",
+        "script": "scripts/stage_e.py",
         "upload_as": "worker",
+        "upload_path": "worker",
         "workdir": "/sandbox/job/worker"
       }
     },
@@ -517,17 +898,17 @@
       "node_id": "manager_monitor",
       "uses": "mn-agents.data_python_executor@1.0.0",
       "with": {
-        "node_type": "generic",
-        "runner_module": "MirrorNeuron.Runner.HostLocal",
-        "script": "scripts/manager.py",
-        "upload_path": "worker",
         "command": [
           "python3",
           "scripts/manager.py"
         ],
+        "node_type": "generic",
         "pool": "default",
         "pool_slots": 1,
+        "runner_module": "MirrorNeuron.Runner.HostLocal",
+        "script": "scripts/manager.py",
         "upload_as": "worker",
+        "upload_path": "worker",
         "workdir": "/sandbox/job/worker"
       }
     }
@@ -535,5 +916,20 @@
   "policies": {
     "recovery_mode": "cluster_recover"
   },
-  "requiredContextEngine": false
+  "requiredContextEngine": false,
+  "requirements": {
+    "cpu": {
+      "min_cores": 1
+    },
+    "disk": {
+      "min_gb": 1
+    },
+    "gpu": {
+      "min_count": 0
+    },
+    "memory": {
+      "min_gb": 2
+    }
+  },
+  "term": "TERM.md"
 }
