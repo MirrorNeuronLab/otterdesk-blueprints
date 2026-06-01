@@ -1,4 +1,284 @@
 {
+  "apiVersion": "mn.workflow/v1",
+  "contract": {
+    "events": {
+      "human_stream": "human.jsonl",
+      "stream": "events.jsonl",
+      "types": [
+        "run_started",
+        "inputs_loaded",
+        "large_context_seeded",
+        "simulation_step_started",
+        "memory_context_compiled",
+        "llm_decision",
+        "benchmark_step_scored",
+        "simulation_state_updated",
+        "run_completed",
+        "blueprint_status",
+        "blueprint_phase_started",
+        "blueprint_phase_completed",
+        "blueprint_phase_failed",
+        "artifact_written",
+        "human_notice",
+        "human_input_requested",
+        "human_input_received",
+        "human_input_timeout",
+        "human_decision_applied",
+        "output_skill_started",
+        "output_skill_completed",
+        "output_skill_failed"
+      ]
+    },
+    "input_adapters": {
+      "default": "mock",
+      "resolved_artifact": "inputs.json",
+      "supported": [
+        "mock",
+        "json",
+        "file",
+        "env_json"
+      ]
+    },
+    "inputs": {
+      "broker_notes": {
+        "description": "Current opportunity notes or watchlist changes.",
+        "example": "seller motivated, inspection clean",
+        "privacy": "confidential",
+        "required": false,
+        "type": "domain_value"
+      },
+      "deal_history": {
+        "description": "Broker notes, lender constraints, comps, rent, insurance, and diligence history.",
+        "example": "scenario.json",
+        "privacy": "confidential",
+        "required": true,
+        "type": "domain_value"
+      },
+      "financing_constraints": {
+        "description": "DSCR, leverage, rate, insurance, and lender assumptions.",
+        "example": {
+          "dscr_min": 1.25
+        },
+        "privacy": "confidential",
+        "required": false,
+        "type": "domain_value"
+      },
+      "memory_policy": {
+        "description": "Memory mode and fact limit used to compare full context with optimized memory.",
+        "example": {
+          "memory_limit": 36,
+          "memory_mode": "compare"
+        },
+        "privacy": "confidential",
+        "required": true,
+        "type": "domain_value"
+      },
+      "price_ceiling": {
+        "description": "Maximum acquisition price or underwriting limit.",
+        "example": 950000,
+        "privacy": "confidential",
+        "required": true,
+        "type": "domain_value"
+      },
+      "target_zip": {
+        "default": "02139",
+        "description": "ZIP code or market area to research.",
+        "example": "02139",
+        "privacy": "confidential",
+        "required": true,
+        "type": "domain_value"
+      }
+    },
+    "outputs": {
+      "artifacts": [
+        {
+          "artifact_id": "run_metadata",
+          "mime_type": "application/json",
+          "path": "run.json",
+          "producer": "local_run_store",
+          "schema_version": "mn.artifact.run_summary.v1",
+          "source_refs": [],
+          "type": "run_summary"
+        },
+        {
+          "artifact_id": "resolved_config",
+          "mime_type": "application/json",
+          "path": "config.json",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.config.v1",
+          "source_refs": [],
+          "type": "config"
+        },
+        {
+          "artifact_id": "resolved_inputs",
+          "mime_type": "application/json",
+          "path": "inputs.json",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.inputs.v1",
+          "source_refs": [],
+          "type": "inputs"
+        },
+        {
+          "artifact_id": "event_stream",
+          "mime_type": "application/x-jsonlines",
+          "path": "events.jsonl",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.events.v1",
+          "source_refs": [],
+          "type": "events"
+        },
+        {
+          "artifact_id": "result",
+          "mime_type": "application/json",
+          "path": "result.json",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.response.v1",
+          "source_refs": [
+            "inputs.json",
+            "events.jsonl"
+          ],
+          "type": "result"
+        },
+        {
+          "artifact_id": "final_artifact",
+          "mime_type": "application/json",
+          "path": "final_artifact.json",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.final_artifact.v1",
+          "source_refs": [
+            "inputs.json",
+            "events.jsonl",
+            "result.json"
+          ],
+          "type": "final_artifact"
+        },
+        {
+          "artifact_id": "logs",
+          "mime_type": "application/x-jsonlines",
+          "path": "logs.jsonl",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.logs.v1",
+          "source_refs": [
+            "events.jsonl"
+          ],
+          "type": "logs"
+        },
+        {
+          "artifact_id": "resources",
+          "mime_type": "application/x-jsonlines",
+          "path": "resources.jsonl",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.resources.v1",
+          "source_refs": [
+            "run.json"
+          ],
+          "type": "resource_samples"
+        },
+        {
+          "artifact_id": "web_ui",
+          "mime_type": "application/json",
+          "path": "web_ui.json",
+          "producer": "web_ui",
+          "schema_version": "mn.blueprint.web_ui.v1",
+          "source_refs": [
+            "run.json"
+          ],
+          "type": "web_ui"
+        },
+        {
+          "artifact_id": "human_events",
+          "mime_type": "application/x-jsonlines",
+          "path": "human.jsonl",
+          "producer": "human_control",
+          "schema_version": "mn.blueprint.human_events.v1",
+          "source_refs": [
+            "events.jsonl"
+          ],
+          "type": "human_events"
+        },
+        {
+          "artifact_id": "property_research_report",
+          "mime_type": "application/json",
+          "path": "final_artifact.json",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.generated_report.v1",
+          "source_refs": [
+            "inputs.json",
+            "events.jsonl",
+            "result.json"
+          ],
+          "type": "generated_report"
+        },
+        {
+          "artifact_id": "memory_benchmark",
+          "mime_type": "application/json",
+          "path": "result.json#/benchmark",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.benchmark_report.v1",
+          "source_refs": [
+            "events.jsonl"
+          ],
+          "type": "benchmark_report"
+        }
+      ],
+      "primary": {
+        "id": "final_artifact",
+        "path": "final_artifact.json",
+        "required_fields": [
+          "type",
+          "executive_summary",
+          "recommended_action",
+          "confidence",
+          "evidence",
+          "next_steps",
+          "source_refs"
+        ],
+        "schema_version": "mn.blueprint.final_artifact_contract.v1",
+        "type": "final_artifact"
+      },
+      "profile": "standard_run_store"
+    },
+    "privacy": {
+      "default_classification": "confidential",
+      "rules": {
+        "confidential": {
+          "log": "redacted",
+          "send_to_llm": "allowed_configs_only",
+          "send_to_output_skills": "approved_destinations_only"
+        },
+        "internal": {
+          "log": "metadata_only",
+          "send_to_llm": true,
+          "send_to_output_skills": true
+        },
+        "public": {
+          "log": true,
+          "send_to_llm": true,
+          "send_to_output_skills": true
+        },
+        "regulated": {
+          "log": "redacted",
+          "send_to_llm": false,
+          "send_to_output_skills": "approved_destinations_only"
+        }
+      }
+    },
+    "status": {
+      "event": "blueprint_status",
+      "heartbeat": false,
+      "phases": [
+        "loading_inputs",
+        "running_worker",
+        "waiting_for_human",
+        "writing_artifacts",
+        "completed"
+      ]
+    },
+    "summary": "Property deal review depends on older broker, lender, rent, insurance, and diligence details that are easy to lose in noisy pipelines.",
+    "users": [
+      "Real-estate investors, acquisition analysts, property-tech teams, and diligence operators."
+    ]
+  },
   "description": "Reviews ZIP-code history, broker notes, financing constraints, and deal memory to rank property opportunities and explain which ones deserve attention.",
   "edges": [
     {
@@ -11,7 +291,147 @@
   "entrypoints": [
     "simulation_loop"
   ],
+  "flow": {
+    "entrypoint": "collect_deal_context",
+    "observers": [],
+    "policy": {
+      "failure": {
+        "default": "fail_closed"
+      },
+      "human": {
+        "decisions": [
+          "approve",
+          "revise",
+          "reject"
+        ],
+        "default": "reject",
+        "enabled": true,
+        "events": {
+          "decision": "human_decision_applied",
+          "request": "human_input_requested",
+          "response": "human_input_received",
+          "timeout": "human_input_timeout"
+        },
+        "mode": "approval_required",
+        "timeout_seconds": 3600
+      },
+      "safety": {
+        "blocked_actions": [
+          "submit_bid",
+          "send_loi",
+          "negotiate_discount",
+          "notify_broker_without_review"
+        ],
+        "default": "allow",
+        "rules": [
+          {
+            "effect": "require_human_approval",
+            "id": "write_deal_memo_requires_human_approval",
+            "message": "Human approval is required before this workflow writes or releases high-impact recommendations.",
+            "when": "step == 'write_deal_memo'"
+          }
+        ]
+      }
+    },
+    "state": {
+      "deal_context": {},
+      "deal_history": {
+        "from": "$inputs.deal_history"
+      },
+      "final_report": {},
+      "memory_policy": {
+        "from": "$inputs.memory_policy"
+      },
+      "memory_signals": {},
+      "price_ceiling": {
+        "from": "$inputs.price_ceiling"
+      },
+      "ranked_opportunities": {},
+      "target_zip": {
+        "from": "$inputs.target_zip"
+      }
+    },
+    "steps": [
+      {
+        "action": "collect_deal_context",
+        "emits": "deal_context_ready",
+        "goal": "Collect ZIP-code history, broker notes, financing constraints, and market assumptions.",
+        "id": "collect_deal_context",
+        "in": {
+          "ceiling": "$state.price_ceiling",
+          "zip": "$state.target_zip"
+        },
+        "kind": "stage",
+        "label": "Collect Deal Context",
+        "on": {
+          "deal_context_ready": "compare_memory_signals"
+        },
+        "out": {
+          "deal_context": "$state.deal_context"
+        },
+        "run": "collect_deal_context"
+      },
+      {
+        "action": "compare_memory_signals",
+        "emits": "memory_signals_ready",
+        "goal": "Retrieve and compare prior deal memory under the declared memory policy.",
+        "id": "compare_memory_signals",
+        "in": {
+          "deal_context": "$state.deal_context",
+          "history": "$state.deal_history",
+          "policy": "$state.memory_policy"
+        },
+        "kind": "stage",
+        "label": "Compare Memory Signals",
+        "on": {
+          "memory_signals_ready": "score_opportunities"
+        },
+        "out": {
+          "memory_signals": "$state.memory_signals"
+        },
+        "run": "compare_memory_signals"
+      },
+      {
+        "action": "score_property_opportunities",
+        "emits": "opportunities_scored",
+        "goal": "Rank candidate opportunities and explain financing and risk tradeoffs.",
+        "id": "score_opportunities",
+        "in": {
+          "deal_context": "$state.deal_context",
+          "signals": "$state.memory_signals"
+        },
+        "kind": "stage",
+        "label": "Score Opportunities",
+        "on": {
+          "opportunities_scored": "write_deal_memo"
+        },
+        "out": {
+          "ranked_opportunities": "$state.ranked_opportunities"
+        },
+        "run": "score_opportunities"
+      },
+      {
+        "action": "notify_broker_without_review",
+        "emits": "deal_memo_ready",
+        "goal": "Write the deal memo with evidence, caveats, and reviewable next steps.",
+        "id": "write_deal_memo",
+        "in": {
+          "opportunities": "$state.ranked_opportunities"
+        },
+        "kind": "stage",
+        "label": "Write Deal Memo",
+        "on": {
+          "deal_memo_ready": "completed"
+        },
+        "out": {
+          "final_report": "$state.final_report"
+        },
+        "run": "write_deal_memo"
+      }
+    ]
+  },
   "graph_id": "property_deal_research_assistant_v1",
+  "id": "property_deal_research_assistant",
   "initial_inputs": {
     "simulation_loop": [
       {
@@ -32,6 +452,7 @@
     "rules": []
   },
   "job_name": "property-deal-research-assistant",
+  "kind": "Workflow",
   "license": "LICENSE.md",
   "manifest_version": "1.0",
   "metadata": {
@@ -650,7 +1071,9 @@
       "transparent run status",
       "human control policy",
       "artifact records",
-      "run-store observability dashboard"
+      "run-store observability dashboard",
+      "workflow-driven flow graph",
+      "step-scoped worker teams"
     ],
     "simulation": {
       "actions": [
@@ -695,7 +1118,9 @@
         "env_json"
       ],
       "run_store": "~/.mn/runs/<run_id>/",
-      "version": "1.0"
+      "version": "1.0",
+      "workflow_api_version": "mn.workflow/v1",
+      "workflow_model": "contract -> flow -> runtime"
     },
     "status_contract": {
       "heartbeat_event": "blueprint_status",
@@ -856,5 +1281,195 @@
       "min_gb": 2
     }
   },
-  "term": "TERM.md"
+  "runtime": {
+    "bindings": {
+      "collect_deal_context": {
+        "legacy_entrypoint": "simulation_loop",
+        "risk": "low",
+        "side_effect": "read",
+        "strategy": "fanout_reduce",
+        "type": "team",
+        "workers": [
+          {
+            "id": "property:zip_market",
+            "model": "Ollama/Nemotron3 33B",
+            "role": "Review ZIP history",
+            "tokens": 14000,
+            "tools": 4
+          },
+          {
+            "id": "property:broker_notes",
+            "model": "Ollama/Nemotron3 33B",
+            "role": "Parse broker notes",
+            "tokens": 14000,
+            "tools": 4
+          },
+          {
+            "id": "property:financing",
+            "model": "Ollama/Nemotron3 33B",
+            "role": "Read financing constraints",
+            "tokens": 14000,
+            "tools": 4
+          }
+        ]
+      },
+      "compare_memory_signals": {
+        "legacy_entrypoint": "simulation_loop",
+        "risk": "low",
+        "side_effect": "read",
+        "strategy": "fanout_reduce",
+        "type": "team",
+        "workers": [
+          {
+            "id": "property:memory_retriever",
+            "model": "Ollama/Nemotron3 33B",
+            "role": "Retrieve comparable memory",
+            "tokens": 14000,
+            "tools": 4
+          },
+          {
+            "id": "property:signal_comparer",
+            "model": "Ollama/Nemotron3 33B",
+            "role": "Compare historical deal signals",
+            "tokens": 14000,
+            "tools": 4
+          }
+        ]
+      },
+      "score_opportunities": {
+        "legacy_entrypoint": "simulation_loop",
+        "risk": "low",
+        "side_effect": "read",
+        "strategy": "fanout_reduce",
+        "type": "team",
+        "workers": [
+          {
+            "id": "property:ranker",
+            "model": "Ollama/Nemotron3 33B",
+            "role": "Rank property opportunities",
+            "tokens": 14000,
+            "tools": 4
+          },
+          {
+            "id": "property:risk_reviewer",
+            "model": "Ollama/Nemotron3 33B",
+            "role": "Review downside risks",
+            "tokens": 14000,
+            "tools": 4
+          }
+        ]
+      },
+      "write_deal_memo": {
+        "legacy_entrypoint": "simulation_loop",
+        "risk": "medium",
+        "side_effect": "internal_write",
+        "strategy": "single",
+        "type": "worker",
+        "workers": [
+          {
+            "id": "property:memo_writer",
+            "model": "Ollama/Nemotron3 33B",
+            "role": "Write final deal memo",
+            "tokens": 14000,
+            "tools": 4
+          }
+        ]
+      }
+    },
+    "memory": {
+      "collection": "mn_memory",
+      "containers": "optional_sidecar",
+      "context_addr_env": "MN_CONTEXT_ADDR",
+      "conversation": {
+        "agent_role": "otterdesk_chat",
+        "include_human_events": true,
+        "include_runtime_events": true,
+        "include_runtime_logs": true,
+        "target_tokens": 2400,
+        "token_budget": 6000,
+        "use_model_compression": false
+      },
+      "conversation_enabled": true,
+      "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
+      "default_context_addr": "localhost:50052",
+      "enabled": true,
+      "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
+      "namespace": "property_deal_research_assistant_context",
+      "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
+      "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
+      "sdk_distribution": "mirrorneuron-membrane-python-sdk",
+      "sdk_import_package": "mn_context_engine_sdk"
+    },
+    "models": {
+      "primary": {
+        "model": "ollama/nemotron3:33b",
+        "provider": "ollama",
+        "role": "AI assistant for researching property deals and drafting opportunity rankings.",
+        "type": "llm"
+      }
+    },
+    "observability": {
+      "panels": [
+        "current_status",
+        "recent_events",
+        "pending_human_requests",
+        "output_artifacts",
+        "resource_usage",
+        "errors",
+        "llm_calls",
+        "token_budget",
+        "llm_retries"
+      ],
+      "reads": [
+        "events.jsonl",
+        "human.jsonl",
+        "logs.jsonl",
+        "resources.jsonl",
+        "result.json",
+        "final_artifact.json",
+        "web_ui.json"
+      ],
+      "schema_version": "mn.blueprint.observability_dashboard.v1",
+      "source": "local_run_store"
+    },
+    "resources": {
+      "cpu": {
+        "min_cores": 1
+      },
+      "disk": {
+        "min_gb": 1
+      },
+      "gpu": {
+        "min_count": 0
+      },
+      "memory": {
+        "min_gb": 2
+      }
+    },
+    "store": {
+      "artifacts": [
+        "run.json",
+        "config.json",
+        "inputs.json",
+        "events.jsonl",
+        "human.jsonl",
+        "logs.jsonl",
+        "resources.jsonl",
+        "result.json",
+        "final_artifact.json"
+      ],
+      "path": "./runs/${run_id}",
+      "type": "local_run_store"
+    },
+    "worker_defaults": {
+      "model": "ollama/nemotron3:33b",
+      "pool": "default",
+      "pool_slots": 1,
+      "runner": "MirrorNeuron.Runner.HostLocal",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "workdir": "/sandbox/job/workflow"
+    }
+  },
+  "term": "TERM.md",
+  "version": "1.0.0"
 }

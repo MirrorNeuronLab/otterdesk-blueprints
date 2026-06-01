@@ -1,4 +1,280 @@
 {
+  "apiVersion": "mn.workflow/v1",
+  "contract": {
+    "events": {
+      "human_stream": "human.jsonl",
+      "stream": "events.jsonl",
+      "types": [
+        "run_started",
+        "inputs_loaded",
+        "simulation_step_started",
+        "llm_decision",
+        "simulation_state_updated",
+        "run_completed",
+        "video_frame_tick_generated",
+        "video_watch_frame_observed",
+        "video_watch_attention_updated",
+        "video_watch_detection",
+        "human_notice",
+        "video_watch_slack_alert_sent",
+        "video_watch_slack_alert_skipped",
+        "video_watch_slack_alert_error",
+        "video_watch_frame_analysis_failed",
+        "blueprint_status",
+        "blueprint_phase_started",
+        "blueprint_phase_completed",
+        "blueprint_phase_failed",
+        "artifact_written",
+        "human_input_requested",
+        "human_input_received",
+        "human_input_timeout",
+        "human_decision_applied",
+        "output_skill_started",
+        "output_skill_completed",
+        "output_skill_failed"
+      ]
+    },
+    "input_adapters": {
+      "default": "mock",
+      "resolved_artifact": "inputs.json",
+      "supported": [
+        "mock",
+        "json",
+        "file",
+        "env_json"
+      ]
+    },
+    "inputs": {
+      "alert_policy": {
+        "description": "Cooldown, confidence, and notification policy for reviewer notices.",
+        "example": {
+          "cooldown_seconds": 120
+        },
+        "privacy": "internal",
+        "required": true,
+        "type": "domain_value"
+      },
+      "attention_instruction": {
+        "description": "Operator instruction for a detail to watch in the current stream.",
+        "example": "Pay attention to the red backpack near the left doorway.",
+        "privacy": "internal",
+        "required": false,
+        "type": "domain_value"
+      },
+      "slack_destination": {
+        "description": "Optional approved Slack destination for alert delivery.",
+        "example": "MN_SLACK_WEBHOOK_URL",
+        "privacy": "internal",
+        "required": false,
+        "type": "domain_value"
+      },
+      "video_source": {
+        "description": "Approved RTSP stream or bundled demo feed.",
+        "example": "rtsp://127.0.0.1:8554/video-watch",
+        "privacy": "internal",
+        "required": true,
+        "type": "domain_value"
+      },
+      "visual_targets": {
+        "description": "Configured subjects, objects, or activities to detect.",
+        "example": [
+          "person",
+          "configured target activity"
+        ],
+        "privacy": "internal",
+        "required": true,
+        "type": "domain_value"
+      }
+    },
+    "outputs": {
+      "artifacts": [
+        {
+          "artifact_id": "run_metadata",
+          "mime_type": "application/json",
+          "path": "run.json",
+          "producer": "local_run_store",
+          "schema_version": "mn.artifact.run_summary.v1",
+          "source_refs": [],
+          "type": "run_summary"
+        },
+        {
+          "artifact_id": "resolved_config",
+          "mime_type": "application/json",
+          "path": "config.json",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.config.v1",
+          "source_refs": [],
+          "type": "config"
+        },
+        {
+          "artifact_id": "resolved_inputs",
+          "mime_type": "application/json",
+          "path": "inputs.json",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.inputs.v1",
+          "source_refs": [],
+          "type": "inputs"
+        },
+        {
+          "artifact_id": "event_stream",
+          "mime_type": "application/x-jsonlines",
+          "path": "events.jsonl",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.events.v1",
+          "source_refs": [],
+          "type": "events"
+        },
+        {
+          "artifact_id": "result",
+          "mime_type": "application/json",
+          "path": "result.json",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.response.v1",
+          "source_refs": [
+            "inputs.json",
+            "events.jsonl"
+          ],
+          "type": "result"
+        },
+        {
+          "artifact_id": "final_artifact",
+          "mime_type": "application/json",
+          "path": "final_artifact.json",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.final_artifact.v1",
+          "source_refs": [
+            "inputs.json",
+            "events.jsonl",
+            "result.json"
+          ],
+          "type": "final_artifact"
+        },
+        {
+          "artifact_id": "logs",
+          "mime_type": "application/x-jsonlines",
+          "path": "logs.jsonl",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.logs.v1",
+          "source_refs": [
+            "events.jsonl"
+          ],
+          "type": "logs"
+        },
+        {
+          "artifact_id": "resources",
+          "mime_type": "application/x-jsonlines",
+          "path": "resources.jsonl",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.resources.v1",
+          "source_refs": [
+            "run.json"
+          ],
+          "type": "resource_samples"
+        },
+        {
+          "artifact_id": "web_ui",
+          "mime_type": "application/json",
+          "path": "web_ui.json",
+          "producer": "web_ui",
+          "schema_version": "mn.blueprint.web_ui.v1",
+          "source_refs": [
+            "run.json"
+          ],
+          "type": "web_ui"
+        },
+        {
+          "artifact_id": "human_events",
+          "mime_type": "application/x-jsonlines",
+          "path": "human.jsonl",
+          "producer": "human_control",
+          "schema_version": "mn.blueprint.human_events.v1",
+          "source_refs": [
+            "events.jsonl"
+          ],
+          "type": "human_events"
+        },
+        {
+          "artifact_id": "video_detection_timeline",
+          "mime_type": "application/x-jsonlines",
+          "path": "events.jsonl",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.event_log.v1",
+          "source_refs": [
+            "inputs.json"
+          ],
+          "type": "event_log"
+        },
+        {
+          "artifact_id": "video_dashboard",
+          "mime_type": "application/json",
+          "path": "web_ui.json",
+          "producer": "web_ui",
+          "schema_version": "mn.blueprint.dashboard.v1",
+          "source_refs": [
+            "events.jsonl",
+            "final_artifact.json"
+          ],
+          "type": "dashboard"
+        }
+      ],
+      "primary": {
+        "id": "final_artifact",
+        "path": "final_artifact.json",
+        "required_fields": [
+          "type",
+          "executive_summary",
+          "recommended_action",
+          "confidence",
+          "evidence",
+          "next_steps",
+          "source_refs"
+        ],
+        "schema_version": "mn.blueprint.final_artifact_contract.v1",
+        "type": "final_artifact"
+      },
+      "profile": "standard_run_store"
+    },
+    "privacy": {
+      "default_classification": "internal",
+      "rules": {
+        "confidential": {
+          "log": "redacted",
+          "send_to_llm": "allowed_configs_only",
+          "send_to_output_skills": "approved_destinations_only"
+        },
+        "internal": {
+          "log": "metadata_only",
+          "send_to_llm": true,
+          "send_to_output_skills": true
+        },
+        "public": {
+          "log": true,
+          "send_to_llm": true,
+          "send_to_output_skills": true
+        },
+        "regulated": {
+          "log": "redacted",
+          "send_to_llm": false,
+          "send_to_output_skills": "approved_destinations_only"
+        }
+      }
+    },
+    "status": {
+      "event": "blueprint_status",
+      "heartbeat": true,
+      "phases": [
+        "loading_inputs",
+        "running_worker",
+        "waiting_for_human",
+        "writing_artifacts",
+        "completed"
+      ]
+    },
+    "summary": "User RTSP sources can be unstable or unavailable inside OpenShell, so this blueprint maps any validated upstream video or demo file into one stable local stream endpoint.",
+    "users": [
+      "Video operators, security reviewers, safety operations teams, and site-access coordinators."
+    ]
+  },
   "description": "Watches a mapped local video stream, detects configured visual targets, and reports count, label, category, color, position, activity, and alert status for review.",
   "edges": [
     {
@@ -17,7 +293,130 @@
   "entrypoints": [
     "ingress"
   ],
+  "flow": {
+    "entrypoint": "start_video_monitor",
+    "observers": [],
+    "policy": {
+      "failure": {
+        "default": "fail_closed"
+      },
+      "human": {
+        "decisions": [
+          "approve",
+          "revise",
+          "reject"
+        ],
+        "default": "reject",
+        "enabled": true,
+        "events": {
+          "decision": "human_decision_applied",
+          "request": "human_input_requested",
+          "response": "human_input_received",
+          "timeout": "human_input_timeout"
+        },
+        "mode": "notice_only",
+        "timeout_seconds": null
+      },
+      "safety": {
+        "blocked_actions": [],
+        "default": "allow",
+        "rules": []
+      }
+    },
+    "state": {
+      "alert_policy": {
+        "from": "$inputs.alert_policy"
+      },
+      "detections": {},
+      "final_report": {},
+      "frame_ticks": {},
+      "stream_session": {},
+      "video_source": {
+        "from": "$inputs.video_source"
+      },
+      "visual_targets": {
+        "from": "$inputs.visual_targets"
+      }
+    },
+    "steps": [
+      {
+        "action": "start_video_monitor",
+        "emits": "video_monitor_start",
+        "goal": "Validate the mapped stream source and start the monitoring session.",
+        "id": "start_video_monitor",
+        "in": {
+          "video_source": "$state.video_source"
+        },
+        "kind": "stage",
+        "label": "Start Video Monitor",
+        "on": {
+          "video_monitor_start": "sample_video_frames"
+        },
+        "out": {
+          "stream_session": "$state.stream_session"
+        },
+        "run": "start_video_monitor"
+      },
+      {
+        "action": "sample_video_frames",
+        "emits": "video_frame_tick_generated",
+        "goal": "Emit frame ticks according to the configured sample interval.",
+        "id": "sample_video_frames",
+        "in": {
+          "session": "$state.stream_session"
+        },
+        "kind": "stage",
+        "label": "Sample Video Frames",
+        "on": {
+          "video_frame_tick_generated": "detect_visual_targets"
+        },
+        "out": {
+          "frame_ticks": "$state.frame_ticks"
+        },
+        "run": "sample_video_frames"
+      },
+      {
+        "action": "detect_visual_targets",
+        "emits": "video_watch_detection",
+        "goal": "Analyze sampled frames for configured targets and alert status.",
+        "id": "detect_visual_targets",
+        "in": {
+          "frame_ticks": "$state.frame_ticks",
+          "policy": "$state.alert_policy",
+          "targets": "$state.visual_targets"
+        },
+        "kind": "stage",
+        "label": "Detect Visual Targets",
+        "on": {
+          "video_watch_detection": "write_watch_summary"
+        },
+        "out": {
+          "detections": "$state.detections"
+        },
+        "run": "detect_visual_targets"
+      },
+      {
+        "action": "write_watch_summary",
+        "emits": "video_watch_summary_ready",
+        "goal": "Write the current visual detection review artifact and notice events.",
+        "id": "write_watch_summary",
+        "in": {
+          "detections": "$state.detections"
+        },
+        "kind": "stage",
+        "label": "Write Watch Summary",
+        "on": {
+          "video_watch_summary_ready": "completed"
+        },
+        "out": {
+          "final_report": "$state.final_report"
+        },
+        "run": "write_watch_summary"
+      }
+    ]
+  },
   "graph_id": "video_watch_assistant_v1",
+  "id": "video_watch_assistant",
   "initial_inputs": {
     "ingress": [
       {
@@ -55,6 +454,7 @@
     ]
   },
   "job_name": "video-watch-assistant",
+  "kind": "Workflow",
   "license": "LICENSE.md",
   "manifest_version": "1.0",
   "metadata": {
@@ -732,7 +1132,9 @@
       "transparent run status",
       "human control policy",
       "artifact records",
-      "run-store observability dashboard"
+      "run-store observability dashboard",
+      "workflow-driven flow graph",
+      "step-scoped worker teams"
     ],
     "search_terms": [
       "video monitoring",
@@ -768,7 +1170,9 @@
         "env_json"
       ],
       "run_store": "~/.mn/runs/<run_id>/",
-      "version": "1.0"
+      "version": "1.0",
+      "workflow_api_version": "mn.workflow/v1",
+      "workflow_model": "contract -> flow -> runtime"
     },
     "status_contract": {
       "heartbeat_event": "blueprint_status",
@@ -1032,6 +1436,186 @@
       "min_gb": 2
     }
   },
+  "runtime": {
+    "bindings": {
+      "detect_visual_targets": {
+        "legacy_entrypoint": "ingress",
+        "risk": "low",
+        "side_effect": "read",
+        "strategy": "fanout_reduce",
+        "type": "team",
+        "workers": [
+          {
+            "id": "video:visual_detector",
+            "model": "Ollama/Nemotron3 33B",
+            "role": "Run visual detection",
+            "tokens": 14000,
+            "tools": 4
+          },
+          {
+            "id": "video:alert_policy",
+            "model": "Ollama/Nemotron3 33B",
+            "role": "Evaluate cooldown and alert policy",
+            "tokens": 14000,
+            "tools": 4
+          }
+        ]
+      },
+      "sample_video_frames": {
+        "legacy_entrypoint": "ingress",
+        "risk": "low",
+        "side_effect": "read",
+        "strategy": "single",
+        "type": "worker",
+        "workers": [
+          {
+            "id": "video:tick_source",
+            "model": "Ollama/Nemotron3 33B",
+            "role": "Generate frame tick events",
+            "tokens": 14000,
+            "tools": 4
+          }
+        ]
+      },
+      "start_video_monitor": {
+        "legacy_entrypoint": "ingress",
+        "risk": "low",
+        "side_effect": "read",
+        "strategy": "fanout_reduce",
+        "type": "team",
+        "workers": [
+          {
+            "id": "video:source_validator",
+            "model": "Ollama/Nemotron3 33B",
+            "role": "Validate stream source",
+            "tokens": 14000,
+            "tools": 4
+          },
+          {
+            "id": "video:monitor_router",
+            "model": "Ollama/Nemotron3 33B",
+            "role": "Route monitor start event",
+            "tokens": 14000,
+            "tools": 4
+          }
+        ]
+      },
+      "write_watch_summary": {
+        "legacy_entrypoint": "ingress",
+        "risk": "low",
+        "side_effect": "read",
+        "strategy": "single",
+        "type": "worker",
+        "workers": [
+          {
+            "id": "video:summary_writer",
+            "model": "Ollama/Nemotron3 33B",
+            "role": "Write detection summary",
+            "tokens": 14000,
+            "tools": 4
+          }
+        ]
+      }
+    },
+    "memory": {
+      "collection": "mn_memory",
+      "containers": "optional_sidecar",
+      "context_addr_env": "MN_CONTEXT_ADDR",
+      "conversation": {
+        "agent_role": "otterdesk_chat",
+        "include_human_events": true,
+        "include_runtime_events": true,
+        "include_runtime_logs": true,
+        "target_tokens": 2400,
+        "token_budget": 6000,
+        "use_model_compression": false
+      },
+      "conversation_enabled": true,
+      "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
+      "default_context_addr": "localhost:50052",
+      "enabled": true,
+      "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
+      "namespace": "video_watch_assistant_context",
+      "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
+      "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
+      "sdk_distribution": "mirrorneuron-membrane-python-sdk",
+      "sdk_import_package": "mn_context_engine_sdk"
+    },
+    "models": {
+      "primary": {
+        "model": "ollama/nemotron3:33b",
+        "provider": "ollama",
+        "role": "AI assistant for reviewing video stream activity and preparing visual detection alerts.",
+        "type": "llm"
+      }
+    },
+    "observability": {
+      "panels": [
+        "current_status",
+        "recent_events",
+        "pending_human_requests",
+        "output_artifacts",
+        "resource_usage",
+        "errors",
+        "input_lag",
+        "backpressure",
+        "llm_calls",
+        "token_budget",
+        "llm_retries",
+        "output_skill_attempts",
+        "output_skill_failures"
+      ],
+      "reads": [
+        "events.jsonl",
+        "human.jsonl",
+        "logs.jsonl",
+        "resources.jsonl",
+        "result.json",
+        "final_artifact.json",
+        "web_ui.json"
+      ],
+      "schema_version": "mn.blueprint.observability_dashboard.v1",
+      "source": "local_run_store"
+    },
+    "resources": {
+      "cpu": {
+        "min_cores": 1
+      },
+      "disk": {
+        "min_gb": 1
+      },
+      "gpu": {
+        "min_count": 0
+      },
+      "memory": {
+        "min_gb": 2
+      }
+    },
+    "store": {
+      "artifacts": [
+        "run.json",
+        "config.json",
+        "inputs.json",
+        "events.jsonl",
+        "human.jsonl",
+        "logs.jsonl",
+        "resources.jsonl",
+        "result.json",
+        "final_artifact.json"
+      ],
+      "path": "./runs/${run_id}",
+      "type": "local_run_store"
+    },
+    "worker_defaults": {
+      "model": "ollama/nemotron3:33b",
+      "pool": "default",
+      "pool_slots": 1,
+      "runner": "MirrorNeuron.Runner.HostLocal",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "workdir": "/sandbox/job/workflow"
+    }
+  },
   "term": "TERM.md",
-  "type": "service"
+  "type": "service",
+  "version": "1.0.0"
 }

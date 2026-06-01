@@ -6,7 +6,32 @@ The current standard version is `1.0`.
 
 ## Architecture Model
 
-Agents are the working units of a MirrorNeuron workflow. A blueprint should describe how agents work together: what starts the graph, which messages move between agents, what each agent produces, and which runtime boundaries apply. Shared `mn-agents` entries are generic agent templates. A blueprint actualizes those templates into concrete workflow agents with `uses`, `with`, and `config`, then assembles them like reusable blocks.
+OtterDesk blueprints are workflow-first. A blueprint should describe the user-facing contract, the ordered or branching workflow steps, and the runtime bindings that execute those steps. Agents are worker units attached to a step; they are not the top-level meaning of the blueprint. One workflow step may run one deterministic worker, a team of agents, a tool, a model, a service, or a subworkflow.
+
+The manifest authority is:
+
+```text
+contract defines what the workflow promises.
+flow decides what may happen.
+runtime executes what flow authorizes.
+```
+
+The top-level workflow shape is:
+
+```json
+{
+  "apiVersion": "mn.workflow/v1",
+  "kind": "Workflow",
+  "id": "portfolio_risk_review_assistant",
+  "name": "Portfolio Risk Review Assistant",
+  "version": "1.0.0",
+  "contract": {},
+  "flow": {},
+  "runtime": {}
+}
+```
+
+Shared `mn-agents` entries are still reusable worker templates. A blueprint may actualize those templates with `uses`, `with`, and runtime config, but those workers should be bound under `runtime.bindings` and referenced from `flow.steps[].run`.
 
 Actualized agents may be deterministic workers, routers, reducers, stream processors, services, output adapters, or LLM-backed decision makers. Control templates coordinate workflow behavior such as lifecycle, retry, joins, filters, checkpoints, approval, and fanout. Data templates are the workhorse units that blueprints customize for Python execution, native modules, LLM decisions/tools, observation, sandboxed code work, edge model inference, and data services.
 
@@ -42,7 +67,7 @@ Every blueprint should be:
 
 Each blueprint directory must contain:
 
-- `manifest.json`: graph, metadata, node, adapter, and product contract.
+- `manifest.json`: workflow contract, flow steps, runtime bindings, metadata, legacy graph compatibility, adapter, and product contract.
 - `README.md`: user-facing summary and quick-start instructions.
 - `SPEC.md`: implementation and behavior specification.
 - `LICENSE.md`: license terms for the blueprint code, docs, configuration, scripts, and payloads.
@@ -70,6 +95,10 @@ Required identity fields:
 
 - `blueprint_id`: snake_case directory-aligned id.
 - `name`: human-readable display name.
+- `apiVersion`: workflow manifest API version, currently `mn.workflow/v1`.
+- `kind`: manifest kind, currently `Workflow`.
+- `id`: workflow id, usually the same as `blueprint_id`.
+- `version`: workflow version.
 - `graph_id`: versioned graph id, usually `<blueprint_id>_v1`.
 - `job_name`: kebab-case job name.
 - `manifest_version`: manifest schema version.
@@ -1109,10 +1138,18 @@ Blueprints may insert domain-specific steps, such as:
 
 Domain-specific steps should preserve the shared lifecycle ordering around config, inputs, run store, events, and final artifacts.
 
-## Manifest Graph Contract
+## Workflow Manifest Contract
 
 `manifest.json` must declare:
 
+- `apiVersion`
+- `kind`
+- `id`
+- `name`
+- `version`
+- `contract`
+- `flow`
+- `runtime`
 - `entrypoints`
 - `nodes`
 - `edges`
@@ -1120,7 +1157,35 @@ Domain-specific steps should preserve the shared lifecycle ordering around confi
 - `license`
 - `term`
 
-The manifest graph is the actualized-agent communication contract. It should make the workflow inspectable without reading every payload script. A reader should be able to identify the templates used, the concrete agents produced from those templates, their responsibilities, their message handoffs, and the runtime concerns that matter for reliability or edge execution.
+The workflow layer is the authoritative execution contract. It should make the workflow inspectable without reading every payload script. A reader should be able to identify the external promise, the ordered or branching steps, the workers assigned to each step, the observable events, human-control gates, safety rules, and runtime concerns that matter for reliability or edge execution.
+
+`contract` MUST describe:
+
+- public inputs and supported input adapters
+- primary and secondary outputs
+- observable event streams
+- status phases
+- privacy and retention expectations
+
+`flow` MUST describe:
+
+- `entrypoint`
+- `state`
+- `steps`
+- step input and output references
+- transition routing through `on`
+- safety, human, and failure policy
+- observers, when a manager or monitor watches workflow events
+
+`runtime` MUST describe:
+
+- run-store location or profile
+- `bindings` referenced by `flow.steps[].run`
+- worker defaults
+- teams or workers assigned to each binding
+- models, memory, resources, and observability settings
+
+The legacy graph fields remain for current MirrorNeuron compatibility. They are the actualized-agent communication contract and SHOULD be derivable from, or at least consistent with, the workflow layer.
 
 Each node should include:
 

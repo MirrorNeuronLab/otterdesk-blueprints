@@ -1,4 +1,277 @@
 {
+  "apiVersion": "mn.workflow/v1",
+  "contract": {
+    "events": {
+      "human_stream": "human.jsonl",
+      "stream": "events.jsonl",
+      "types": [
+        "run_started",
+        "inputs_loaded",
+        "simulation_step_started",
+        "llm_decision",
+        "simulation_state_updated",
+        "run_completed",
+        "blueprint_status",
+        "blueprint_phase_started",
+        "blueprint_phase_completed",
+        "blueprint_phase_failed",
+        "artifact_written",
+        "human_notice",
+        "human_input_requested",
+        "human_input_received",
+        "human_input_timeout",
+        "human_decision_applied",
+        "output_skill_started",
+        "output_skill_completed",
+        "output_skill_failed"
+      ]
+    },
+    "input_adapters": {
+      "default": "mock",
+      "resolved_artifact": "inputs.json",
+      "supported": [
+        "mock",
+        "json",
+        "file",
+        "env_json"
+      ]
+    },
+    "inputs": {
+      "advisor_notes": {
+        "description": "Human notes that should shape the risk explanation.",
+        "example": "client needs two years of cash buffer",
+        "privacy": "confidential",
+        "required": false,
+        "type": "domain_value"
+      },
+      "portfolio_snapshot": {
+        "description": "Holdings, exposure, liquidity, and constraints used for the stress review.",
+        "example": {
+          "liquidity_pct": 18,
+          "portfolio_value": 1000000
+        },
+        "privacy": "confidential",
+        "required": true,
+        "type": "domain_value"
+      },
+      "rebalancing_constraints": {
+        "description": "Allowed actions, no-trade assets, cash needs, and client restrictions.",
+        "example": [
+          "raise_cash",
+          "hedge_rates"
+        ],
+        "privacy": "confidential",
+        "required": false,
+        "type": "domain_value"
+      },
+      "risk_policy": {
+        "description": "Risk, liquidity, drawdown, tax, and mandate limits used to evaluate actions.",
+        "example": {
+          "max_drawdown_pct": 12
+        },
+        "privacy": "confidential",
+        "required": true,
+        "type": "domain_value"
+      },
+      "shock_scenario": {
+        "description": "Market scenario or macro shock to test.",
+        "example": "stagflation shock",
+        "privacy": "confidential",
+        "required": true,
+        "type": "domain_value"
+      }
+    },
+    "outputs": {
+      "artifacts": [
+        {
+          "artifact_id": "run_metadata",
+          "mime_type": "application/json",
+          "path": "run.json",
+          "producer": "local_run_store",
+          "schema_version": "mn.artifact.run_summary.v1",
+          "source_refs": [],
+          "type": "run_summary"
+        },
+        {
+          "artifact_id": "resolved_config",
+          "mime_type": "application/json",
+          "path": "config.json",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.config.v1",
+          "source_refs": [],
+          "type": "config"
+        },
+        {
+          "artifact_id": "resolved_inputs",
+          "mime_type": "application/json",
+          "path": "inputs.json",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.inputs.v1",
+          "source_refs": [],
+          "type": "inputs"
+        },
+        {
+          "artifact_id": "event_stream",
+          "mime_type": "application/x-jsonlines",
+          "path": "events.jsonl",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.events.v1",
+          "source_refs": [],
+          "type": "events"
+        },
+        {
+          "artifact_id": "result",
+          "mime_type": "application/json",
+          "path": "result.json",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.response.v1",
+          "source_refs": [
+            "inputs.json",
+            "events.jsonl"
+          ],
+          "type": "result"
+        },
+        {
+          "artifact_id": "final_artifact",
+          "mime_type": "application/json",
+          "path": "final_artifact.json",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.final_artifact.v1",
+          "source_refs": [
+            "inputs.json",
+            "events.jsonl",
+            "result.json"
+          ],
+          "type": "final_artifact"
+        },
+        {
+          "artifact_id": "logs",
+          "mime_type": "application/x-jsonlines",
+          "path": "logs.jsonl",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.logs.v1",
+          "source_refs": [
+            "events.jsonl"
+          ],
+          "type": "logs"
+        },
+        {
+          "artifact_id": "resources",
+          "mime_type": "application/x-jsonlines",
+          "path": "resources.jsonl",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.resources.v1",
+          "source_refs": [
+            "run.json"
+          ],
+          "type": "resource_samples"
+        },
+        {
+          "artifact_id": "web_ui",
+          "mime_type": "application/json",
+          "path": "web_ui.json",
+          "producer": "web_ui",
+          "schema_version": "mn.blueprint.web_ui.v1",
+          "source_refs": [
+            "run.json"
+          ],
+          "type": "web_ui"
+        },
+        {
+          "artifact_id": "human_events",
+          "mime_type": "application/x-jsonlines",
+          "path": "human.jsonl",
+          "producer": "human_control",
+          "schema_version": "mn.blueprint.human_events.v1",
+          "source_refs": [
+            "events.jsonl"
+          ],
+          "type": "human_events"
+        },
+        {
+          "artifact_id": "risk_dashboard",
+          "mime_type": "application/json",
+          "path": "web_ui.json",
+          "producer": "web_ui",
+          "schema_version": "mn.blueprint.dashboard.v1",
+          "source_refs": [
+            "events.jsonl",
+            "final_artifact.json"
+          ],
+          "type": "dashboard"
+        },
+        {
+          "artifact_id": "portfolio_risk_report",
+          "mime_type": "application/json",
+          "path": "final_artifact.json",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.generated_report.v1",
+          "source_refs": [
+            "inputs.json",
+            "events.jsonl",
+            "result.json"
+          ],
+          "type": "generated_report"
+        }
+      ],
+      "primary": {
+        "id": "final_artifact",
+        "path": "final_artifact.json",
+        "required_fields": [
+          "type",
+          "executive_summary",
+          "recommended_action",
+          "confidence",
+          "evidence",
+          "next_steps",
+          "source_refs"
+        ],
+        "schema_version": "mn.blueprint.final_artifact_contract.v1",
+        "type": "final_artifact"
+      },
+      "profile": "standard_run_store"
+    },
+    "privacy": {
+      "default_classification": "confidential",
+      "rules": {
+        "confidential": {
+          "log": "redacted",
+          "send_to_llm": "allowed_configs_only",
+          "send_to_output_skills": "approved_destinations_only"
+        },
+        "internal": {
+          "log": "metadata_only",
+          "send_to_llm": true,
+          "send_to_output_skills": true
+        },
+        "public": {
+          "log": true,
+          "send_to_llm": true,
+          "send_to_output_skills": true
+        },
+        "regulated": {
+          "log": "redacted",
+          "send_to_llm": false,
+          "send_to_output_skills": "approved_destinations_only"
+        }
+      }
+    },
+    "status": {
+      "event": "blueprint_status",
+      "heartbeat": false,
+      "phases": [
+        "loading_inputs",
+        "running_worker",
+        "waiting_for_human",
+        "writing_artifacts",
+        "completed"
+      ]
+    },
+    "summary": "Portfolio risk can change quickly during shocks; users need an assistant that makes downside exposure and possible next steps easier to review.",
+    "users": [
+      "Investors, advisors, portfolio managers, treasury teams, and fintech operators."
+    ]
+  },
   "description": "Stress-tests a portfolio against market crashes, rate shocks, and liquidity pressure, then explains risks and possible rebalancing options in plain language.",
   "edges": [
     {
@@ -11,7 +284,143 @@
   "entrypoints": [
     "simulation_loop"
   ],
+  "flow": {
+    "entrypoint": "load_portfolio_context",
+    "observers": [],
+    "policy": {
+      "failure": {
+        "default": "fail_closed"
+      },
+      "human": {
+        "decisions": [
+          "approve",
+          "revise",
+          "reject"
+        ],
+        "default": "reject",
+        "enabled": true,
+        "events": {
+          "decision": "human_decision_applied",
+          "request": "human_input_requested",
+          "response": "human_input_received",
+          "timeout": "human_input_timeout"
+        },
+        "mode": "approval_required",
+        "timeout_seconds": 3600
+      },
+      "safety": {
+        "blocked_actions": [
+          "place_trade",
+          "rebalance_portfolio",
+          "send_order",
+          "notify_client_with_recommendation_without_review"
+        ],
+        "default": "allow",
+        "rules": [
+          {
+            "effect": "require_human_approval",
+            "id": "finalize_risk_report_requires_human_approval",
+            "message": "Human approval is required before this workflow writes or releases high-impact recommendations.",
+            "when": "step == 'finalize_risk_report'"
+          }
+        ]
+      }
+    },
+    "state": {
+      "final_report": {},
+      "portfolio_context": {},
+      "portfolio_snapshot": {
+        "from": "$inputs.portfolio_snapshot"
+      },
+      "risk_options": {},
+      "risk_policy": {
+        "from": "$inputs.risk_policy"
+      },
+      "shock_scenario": {
+        "from": "$inputs.shock_scenario"
+      },
+      "stress_path": {}
+    },
+    "steps": [
+      {
+        "action": "load_portfolio_context",
+        "emits": "portfolio_context_ready",
+        "goal": "Normalize holdings, liquidity needs, constraints, and policy limits.",
+        "id": "load_portfolio_context",
+        "in": {
+          "policy": "$state.risk_policy",
+          "portfolio": "$state.portfolio_snapshot"
+        },
+        "kind": "stage",
+        "label": "Load Portfolio Context",
+        "on": {
+          "portfolio_context_ready": "simulate_shock_path"
+        },
+        "out": {
+          "portfolio_context": "$state.portfolio_context"
+        },
+        "run": "load_portfolio_context"
+      },
+      {
+        "action": "simulate_macro_shock",
+        "emits": "stress_path_ready",
+        "goal": "Stress the portfolio against drawdown, rate, and liquidity shocks.",
+        "id": "simulate_shock_path",
+        "in": {
+          "context": "$state.portfolio_context",
+          "scenario": "$state.shock_scenario"
+        },
+        "kind": "stage",
+        "label": "Simulate Shock Path",
+        "on": {
+          "stress_path_ready": "review_rebalance_options"
+        },
+        "out": {
+          "stress_path": "$state.stress_path"
+        },
+        "run": "simulate_shock_path"
+      },
+      {
+        "action": "review_rebalance_options",
+        "emits": "risk_options_ready",
+        "goal": "Draft and score possible hedge, cash, and rebalance options for review.",
+        "id": "review_rebalance_options",
+        "in": {
+          "policy": "$state.risk_policy",
+          "stress_path": "$state.stress_path"
+        },
+        "kind": "stage",
+        "label": "Review Rebalance Options",
+        "on": {
+          "risk_options_ready": "finalize_risk_report"
+        },
+        "out": {
+          "risk_options": "$state.risk_options"
+        },
+        "run": "review_rebalance_options"
+      },
+      {
+        "action": "notify_client_with_recommendation_without_review",
+        "emits": "risk_report_ready",
+        "goal": "Write a plain-language risk report and recommended review action.",
+        "id": "finalize_risk_report",
+        "in": {
+          "risk_options": "$state.risk_options"
+        },
+        "kind": "stage",
+        "label": "Finalize Risk Report",
+        "on": {
+          "risk_report_ready": "completed"
+        },
+        "out": {
+          "final_report": "$state.final_report"
+        },
+        "run": "finalize_risk_report"
+      }
+    ]
+  },
   "graph_id": "portfolio_risk_review_assistant_v1",
+  "id": "portfolio_risk_review_assistant",
   "initial_inputs": {
     "simulation_loop": [
       {
@@ -25,6 +434,7 @@
     "rules": []
   },
   "job_name": "portfolio-risk-review-assistant",
+  "kind": "Workflow",
   "license": "LICENSE.md",
   "manifest_version": "1.0",
   "metadata": {
@@ -628,7 +1038,9 @@
       "transparent run status",
       "human control policy",
       "artifact records",
-      "run-store observability dashboard"
+      "run-store observability dashboard",
+      "workflow-driven flow graph",
+      "step-scoped worker teams"
     ],
     "simulation": {
       "actions": [
@@ -671,7 +1083,9 @@
         "env_json"
       ],
       "run_store": "~/.mn/runs/<run_id>/",
-      "version": "1.0"
+      "version": "1.0",
+      "workflow_api_version": "mn.workflow/v1",
+      "workflow_model": "contract -> flow -> runtime"
     },
     "status_contract": {
       "heartbeat_event": "blueprint_status",
@@ -815,5 +1229,195 @@
       "min_gb": 2
     }
   },
-  "term": "TERM.md"
+  "runtime": {
+    "bindings": {
+      "finalize_risk_report": {
+        "legacy_entrypoint": "simulation_loop",
+        "risk": "medium",
+        "side_effect": "internal_write",
+        "strategy": "single",
+        "type": "worker",
+        "workers": [
+          {
+            "id": "portfolio:report_writer",
+            "model": "Ollama/Nemotron3 33B",
+            "role": "Write final risk artifact",
+            "tokens": 14000,
+            "tools": 4
+          }
+        ]
+      },
+      "load_portfolio_context": {
+        "legacy_entrypoint": "simulation_loop",
+        "risk": "low",
+        "side_effect": "read",
+        "strategy": "fanout_reduce",
+        "type": "team",
+        "workers": [
+          {
+            "id": "portfolio:holdings",
+            "model": "Ollama/Nemotron3 33B",
+            "role": "Normalize holdings and exposures",
+            "tokens": 14000,
+            "tools": 4
+          },
+          {
+            "id": "portfolio:policy",
+            "model": "Ollama/Nemotron3 33B",
+            "role": "Read liquidity and risk policy",
+            "tokens": 14000,
+            "tools": 4
+          }
+        ]
+      },
+      "review_rebalance_options": {
+        "legacy_entrypoint": "simulation_loop",
+        "risk": "low",
+        "side_effect": "read",
+        "strategy": "fanout_reduce",
+        "type": "team",
+        "workers": [
+          {
+            "id": "portfolio:hedge_options",
+            "model": "Ollama/Nemotron3 33B",
+            "role": "Draft hedge and cash options",
+            "tokens": 14000,
+            "tools": 4
+          },
+          {
+            "id": "portfolio:risk_notes",
+            "model": "Ollama/Nemotron3 33B",
+            "role": "Explain downside tradeoffs",
+            "tokens": 14000,
+            "tools": 4
+          },
+          {
+            "id": "portfolio:compliance",
+            "model": "Ollama/Nemotron3 33B",
+            "role": "Check policy constraints",
+            "tokens": 14000,
+            "tools": 4
+          }
+        ]
+      },
+      "simulate_shock_path": {
+        "legacy_entrypoint": "simulation_loop",
+        "risk": "low",
+        "side_effect": "read",
+        "strategy": "fanout_reduce",
+        "type": "team",
+        "workers": [
+          {
+            "id": "portfolio:macro_shock",
+            "model": "Ollama/Nemotron3 33B",
+            "role": "Run macro shock path",
+            "tokens": 14000,
+            "tools": 4
+          },
+          {
+            "id": "portfolio:liquidity",
+            "model": "Ollama/Nemotron3 33B",
+            "role": "Stress liquidity and cash needs",
+            "tokens": 14000,
+            "tools": 4
+          }
+        ]
+      }
+    },
+    "memory": {
+      "collection": "mn_memory",
+      "containers": "optional_sidecar",
+      "context_addr_env": "MN_CONTEXT_ADDR",
+      "conversation": {
+        "agent_role": "otterdesk_chat",
+        "include_human_events": true,
+        "include_runtime_events": true,
+        "include_runtime_logs": true,
+        "target_tokens": 2400,
+        "token_budget": 6000,
+        "use_model_compression": false
+      },
+      "conversation_enabled": true,
+      "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
+      "default_context_addr": "localhost:50052",
+      "enabled": true,
+      "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
+      "namespace": "portfolio_risk_review_assistant_context",
+      "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
+      "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
+      "sdk_distribution": "mirrorneuron-membrane-python-sdk",
+      "sdk_import_package": "mn_context_engine_sdk"
+    },
+    "models": {
+      "primary": {
+        "model": "ollama/nemotron3:33b",
+        "provider": "ollama",
+        "role": "AI assistant for reviewing portfolio stress scenarios and drafting risk notes.",
+        "type": "llm"
+      }
+    },
+    "observability": {
+      "panels": [
+        "current_status",
+        "recent_events",
+        "pending_human_requests",
+        "output_artifacts",
+        "resource_usage",
+        "errors",
+        "llm_calls",
+        "token_budget",
+        "llm_retries"
+      ],
+      "reads": [
+        "events.jsonl",
+        "human.jsonl",
+        "logs.jsonl",
+        "resources.jsonl",
+        "result.json",
+        "final_artifact.json",
+        "web_ui.json"
+      ],
+      "schema_version": "mn.blueprint.observability_dashboard.v1",
+      "source": "local_run_store"
+    },
+    "resources": {
+      "cpu": {
+        "min_cores": 1
+      },
+      "disk": {
+        "min_gb": 1
+      },
+      "gpu": {
+        "min_count": 0
+      },
+      "memory": {
+        "min_gb": 2
+      }
+    },
+    "store": {
+      "artifacts": [
+        "run.json",
+        "config.json",
+        "inputs.json",
+        "events.jsonl",
+        "human.jsonl",
+        "logs.jsonl",
+        "resources.jsonl",
+        "result.json",
+        "final_artifact.json"
+      ],
+      "path": "./runs/${run_id}",
+      "type": "local_run_store"
+    },
+    "worker_defaults": {
+      "model": "ollama/nemotron3:33b",
+      "pool": "default",
+      "pool_slots": 1,
+      "runner": "MirrorNeuron.Runner.HostLocal",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "workdir": "/sandbox/job/workflow"
+    }
+  },
+  "term": "TERM.md",
+  "version": "1.0.0"
 }

@@ -1,4 +1,285 @@
 {
+  "apiVersion": "mn.workflow/v1",
+  "contract": {
+    "events": {
+      "human_stream": "human.jsonl",
+      "stream": "events.jsonl",
+      "types": [
+        "blueprint_status",
+        "blueprint_phase_started",
+        "blueprint_phase_completed",
+        "blueprint_phase_failed",
+        "artifact_written",
+        "human_notice",
+        "human_input_requested",
+        "human_input_received",
+        "human_input_timeout",
+        "human_decision_applied",
+        "output_skill_started",
+        "output_skill_completed",
+        "output_skill_failed"
+      ]
+    },
+    "input_adapters": {
+      "default": "mock",
+      "resolved_artifact": "inputs.json",
+      "supported": [
+        "mock",
+        "json",
+        "file",
+        "env_json"
+      ]
+    },
+    "inputs": {
+      "advisor_voice": {
+        "description": "Tone and boundary guidance for the final advisor message.",
+        "example": "warm, direct, evidence-grounded",
+        "privacy": "regulated",
+        "required": false,
+        "type": "domain_value"
+      },
+      "filing_status": {
+        "default": "single",
+        "description": "Filing status used for assumptions and readiness checks.",
+        "example": "single",
+        "privacy": "regulated",
+        "required": true,
+        "type": "domain_value"
+      },
+      "output_folder": {
+        "description": "Local folder where JSON, Markdown, and PDF review files should be written.",
+        "example": "~/Downloads",
+        "privacy": "regulated",
+        "required": true,
+        "type": "domain_value"
+      },
+      "recommended_forms": {
+        "description": "Expected source forms for completeness checks.",
+        "example": [
+          "W-2",
+          "1099-INT",
+          "1099-R"
+        ],
+        "privacy": "regulated",
+        "required": false,
+        "type": "domain_value"
+      },
+      "tax_document_folder": {
+        "description": "Local folder of tax documents to review.",
+        "example": "/Users/me/Documents/2025-tax-docs",
+        "privacy": "regulated",
+        "required": true,
+        "type": "domain_value"
+      },
+      "tax_year": {
+        "default": 2025,
+        "description": "Federal tax year for the draft packet.",
+        "example": 2025,
+        "privacy": "regulated",
+        "required": true,
+        "type": "domain_value"
+      }
+    },
+    "outputs": {
+      "artifacts": [
+        {
+          "artifact_id": "run_metadata",
+          "mime_type": "application/json",
+          "path": "run.json",
+          "producer": "local_run_store",
+          "schema_version": "mn.artifact.run_summary.v1",
+          "source_refs": [],
+          "type": "run_summary"
+        },
+        {
+          "artifact_id": "resolved_config",
+          "mime_type": "application/json",
+          "path": "config.json",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.config.v1",
+          "source_refs": [],
+          "type": "config"
+        },
+        {
+          "artifact_id": "resolved_inputs",
+          "mime_type": "application/json",
+          "path": "inputs.json",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.inputs.v1",
+          "source_refs": [],
+          "type": "inputs"
+        },
+        {
+          "artifact_id": "event_stream",
+          "mime_type": "application/x-jsonlines",
+          "path": "events.jsonl",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.events.v1",
+          "source_refs": [],
+          "type": "events"
+        },
+        {
+          "artifact_id": "result",
+          "mime_type": "application/json",
+          "path": "result.json",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.response.v1",
+          "source_refs": [
+            "inputs.json",
+            "events.jsonl"
+          ],
+          "type": "result"
+        },
+        {
+          "artifact_id": "final_artifact",
+          "mime_type": "application/json",
+          "path": "final_artifact.json",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.final_artifact.v1",
+          "source_refs": [
+            "inputs.json",
+            "events.jsonl",
+            "result.json"
+          ],
+          "type": "final_artifact"
+        },
+        {
+          "artifact_id": "logs",
+          "mime_type": "application/x-jsonlines",
+          "path": "logs.jsonl",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.logs.v1",
+          "source_refs": [
+            "events.jsonl"
+          ],
+          "type": "logs"
+        },
+        {
+          "artifact_id": "resources",
+          "mime_type": "application/x-jsonlines",
+          "path": "resources.jsonl",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.resources.v1",
+          "source_refs": [
+            "run.json"
+          ],
+          "type": "resource_samples"
+        },
+        {
+          "artifact_id": "web_ui",
+          "mime_type": "application/json",
+          "path": "web_ui.json",
+          "producer": "web_ui",
+          "schema_version": "mn.blueprint.web_ui.v1",
+          "source_refs": [
+            "run.json"
+          ],
+          "type": "web_ui"
+        },
+        {
+          "artifact_id": "human_events",
+          "mime_type": "application/x-jsonlines",
+          "path": "human.jsonl",
+          "producer": "human_control",
+          "schema_version": "mn.blueprint.human_events.v1",
+          "source_refs": [
+            "events.jsonl"
+          ],
+          "type": "human_events"
+        },
+        {
+          "artifact_id": "tax_review_packet_pdf",
+          "mime_type": "application/pdf",
+          "path": "<outputs.folder_path>/<run_id>-tax-review-packet.pdf",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.generated_file.v1",
+          "source_refs": [
+            "final_artifact.json"
+          ],
+          "type": "generated_file"
+        },
+        {
+          "artifact_id": "tax_report_markdown",
+          "mime_type": "text/markdown",
+          "path": "<outputs.folder_path>/<run_id>-report.md",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.generated_report.v1",
+          "source_refs": [
+            "final_artifact.json"
+          ],
+          "type": "generated_report"
+        },
+        {
+          "artifact_id": "tax_team_manifest",
+          "mime_type": "application/json",
+          "path": "tax_team/artifact_manifest.json",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.agent_handoff_manifest.v1",
+          "source_refs": [
+            "inputs.json",
+            "events.jsonl"
+          ],
+          "type": "agent_handoff_manifest"
+        }
+      ],
+      "primary": {
+        "id": "final_artifact",
+        "path": "final_artifact.json",
+        "required_fields": [
+          "type",
+          "executive_summary",
+          "recommended_action",
+          "confidence",
+          "evidence",
+          "next_steps",
+          "source_refs"
+        ],
+        "schema_version": "mn.blueprint.final_artifact_contract.v1",
+        "type": "final_artifact"
+      },
+      "profile": "standard_run_store"
+    },
+    "privacy": {
+      "default_classification": "regulated",
+      "rules": {
+        "confidential": {
+          "log": "redacted",
+          "send_to_llm": "allowed_configs_only",
+          "send_to_output_skills": "approved_destinations_only"
+        },
+        "internal": {
+          "log": "metadata_only",
+          "send_to_llm": true,
+          "send_to_output_skills": true
+        },
+        "public": {
+          "log": true,
+          "send_to_llm": true,
+          "send_to_output_skills": true
+        },
+        "regulated": {
+          "log": "redacted",
+          "send_to_llm": "allowed_configs_only",
+          "send_to_output_skills": "approved_destinations_only"
+        }
+      }
+    },
+    "status": {
+      "event": "blueprint_status",
+      "heartbeat": true,
+      "phases": [
+        "loading_inputs",
+        "running_worker",
+        "waiting_for_human",
+        "writing_artifacts",
+        "completed"
+      ]
+    },
+    "summary": "Tax source documents arrive as scattered PDFs; users need a private workflow that turns W-2, 1099-INT, 1099-R, and related forms into a reviewable Form 1040 draft packet with preparer workpapers and manager review.",
+    "users": [
+      "Individual taxpayers, household finance operators, bookkeepers, and tax preparers who want a source-grounded draft before using filing software."
+    ]
+  },
   "description": "Runs an LLM-assisted tax preparation team over local tax documents, builds draft Form 1040 workpapers, audits the packet, and writes JSON, Markdown, and PDF review outputs.",
   "edges": [
     {
@@ -11,7 +292,146 @@
   "entrypoints": [
     "tax_workflow_runner"
   ],
+  "flow": {
+    "entrypoint": "intake_documents",
+    "observers": [],
+    "policy": {
+      "failure": {
+        "default": "fail_closed"
+      },
+      "human": {
+        "decisions": [
+          "approve",
+          "revise",
+          "reject"
+        ],
+        "default": "reject",
+        "enabled": true,
+        "events": {
+          "decision": "human_decision_applied",
+          "request": "human_input_requested",
+          "response": "human_input_received",
+          "timeout": "human_input_timeout"
+        },
+        "mode": "approval_required",
+        "timeout_seconds": 3600
+      },
+      "safety": {
+        "blocked_actions": [
+          "file_tax_return",
+          "submit_to_irs",
+          "send_to_tax_preparer",
+          "write_tax_packet_to_connector_without_review"
+        ],
+        "default": "allow",
+        "rules": [
+          {
+            "effect": "require_human_approval",
+            "id": "write_review_packet_requires_human_approval",
+            "message": "Human approval is required before this workflow writes or releases high-impact recommendations.",
+            "when": "step == 'write_review_packet'"
+          }
+        ]
+      }
+    },
+    "state": {
+      "filing_status": {
+        "from": "$inputs.filing_status"
+      },
+      "final_report": {},
+      "intake": {},
+      "output_folder": {
+        "from": "$inputs.output_folder"
+      },
+      "review": {},
+      "tax_document_folder": {
+        "from": "$inputs.tax_document_folder"
+      },
+      "tax_year": {
+        "from": "$inputs.tax_year"
+      },
+      "workpapers": {}
+    },
+    "steps": [
+      {
+        "action": "scan_local_tax_folder",
+        "emits": "tax_intake_ready",
+        "goal": "Stage local tax documents, classify source files, and build a preparer-style intake checklist.",
+        "id": "intake_documents",
+        "in": {
+          "folder": "$state.tax_document_folder",
+          "tax_year": "$state.tax_year"
+        },
+        "kind": "stage",
+        "label": "Intake Documents",
+        "on": {
+          "tax_intake_ready": "prepare_return_workpapers"
+        },
+        "out": {
+          "intake": "$state.intake"
+        },
+        "run": "intake_documents"
+      },
+      {
+        "action": "prepare_tax_workpapers",
+        "emits": "tax_workpapers_ready",
+        "goal": "Extract source fields, prepare income and deduction workpapers, and assemble supported draft Form 1040 lines.",
+        "id": "prepare_return_workpapers",
+        "in": {
+          "filing_status": "$state.filing_status",
+          "intake": "$state.intake"
+        },
+        "kind": "stage",
+        "label": "Prepare Workpapers",
+        "on": {
+          "tax_workpapers_ready": "audit_and_manager_review"
+        },
+        "out": {
+          "workpapers": "$state.workpapers"
+        },
+        "run": "prepare_return_workpapers"
+      },
+      {
+        "action": "audit_tax_packet",
+        "emits": "tax_review_ready",
+        "goal": "Audit source support, preserve assumptions, and block unsupported filing-ready claims.",
+        "id": "audit_and_manager_review",
+        "in": {
+          "workpapers": "$state.workpapers"
+        },
+        "kind": "stage",
+        "label": "Audit & Manager Review",
+        "on": {
+          "tax_review_ready": "write_review_packet"
+        },
+        "out": {
+          "review": "$state.review"
+        },
+        "run": "audit_and_manager_review"
+      },
+      {
+        "action": "release_tax_packet",
+        "emits": "tax_packet_ready",
+        "goal": "Write JSON, Markdown, and PDF review outputs for human approval.",
+        "id": "write_review_packet",
+        "in": {
+          "output_folder": "$state.output_folder",
+          "review": "$state.review"
+        },
+        "kind": "stage",
+        "label": "Write Review Packet",
+        "on": {
+          "tax_packet_ready": "completed"
+        },
+        "out": {
+          "final_report": "$state.final_report"
+        },
+        "run": "write_review_packet"
+      }
+    ]
+  },
   "graph_id": "personal_income_tax_expert_v1",
+  "id": "personal_income_tax_expert",
   "initial_inputs": {
     "tax_workflow_runner": [
       {
@@ -39,6 +459,7 @@
     ]
   },
   "job_name": "personal-income-tax-expert",
+  "kind": "Workflow",
   "license": "LICENSE.md",
   "manifest_version": "1.0",
   "metadata": {
@@ -657,7 +1078,9 @@
       "transparent run status",
       "human control policy",
       "artifact records",
-      "run-store observability dashboard"
+      "run-store observability dashboard",
+      "workflow-driven flow graph",
+      "step-scoped worker teams"
     ],
     "search_terms": [
       "tax preparation",
@@ -703,7 +1126,9 @@
         "env_json"
       ],
       "run_store": "~/.mn/runs/<run_id>/",
-      "version": "1.0"
+      "version": "1.0",
+      "workflow_api_version": "mn.workflow/v1",
+      "workflow_model": "contract -> flow -> runtime"
     },
     "status_contract": {
       "heartbeat_event": "blueprint_status",
@@ -780,6 +1205,7 @@
       ]
     }
   },
+  "name": "Personal Income Tax Expert",
   "nodes": [
     {
       "node_id": "tax_workflow_runner",
@@ -827,5 +1253,209 @@
       "min_gb": 2
     }
   },
-  "term": "TERM.md"
+  "runtime": {
+    "bindings": {
+      "audit_and_manager_review": {
+        "legacy_entrypoint": "tax_workflow_runner",
+        "risk": "low",
+        "side_effect": "read",
+        "strategy": "fanout_reduce",
+        "type": "team",
+        "workers": [
+          {
+            "id": "tax_auditor",
+            "model": "primary",
+            "role": "Tax auditor",
+            "tokens": 16000,
+            "tools": 5
+          },
+          {
+            "id": "manager_reviewer",
+            "model": "primary",
+            "role": "Tax manager reviewer",
+            "tokens": 16000,
+            "tools": 5
+          }
+        ]
+      },
+      "intake_documents": {
+        "legacy_entrypoint": "tax_workflow_runner",
+        "risk": "low",
+        "side_effect": "read",
+        "strategy": "fanout_reduce",
+        "type": "team",
+        "workers": [
+          {
+            "id": "client_intake_coordinator",
+            "model": "primary",
+            "role": "Client intake coordinator",
+            "tokens": 16000,
+            "tools": 5
+          },
+          {
+            "id": "document_understanding_agent",
+            "model": "primary",
+            "role": "Document understanding agent",
+            "tokens": 16000,
+            "tools": 5
+          },
+          {
+            "id": "source_field_extractor",
+            "model": "primary",
+            "role": "Source field extractor",
+            "tokens": 16000,
+            "tools": 5
+          }
+        ]
+      },
+      "prepare_return_workpapers": {
+        "legacy_entrypoint": "tax_workflow_runner",
+        "risk": "low",
+        "side_effect": "read",
+        "strategy": "fanout_reduce",
+        "type": "team",
+        "workers": [
+          {
+            "id": "income_preparer",
+            "model": "primary",
+            "role": "Income preparer",
+            "tokens": 16000,
+            "tools": 5
+          },
+          {
+            "id": "deductions_credits_preparer",
+            "model": "primary",
+            "role": "Deductions and credits preparer",
+            "tokens": 16000,
+            "tools": 5
+          },
+          {
+            "id": "form_1040_assembler",
+            "model": "primary",
+            "role": "Form 1040 assembler",
+            "tokens": 16000,
+            "tools": 5
+          }
+        ]
+      },
+      "write_review_packet": {
+        "legacy_entrypoint": "tax_workflow_runner",
+        "risk": "medium",
+        "side_effect": "internal_write",
+        "strategy": "fanout_reduce",
+        "type": "team",
+        "workers": [
+          {
+            "id": "advisor_report_writer",
+            "model": "primary",
+            "role": "Advisor and report writer",
+            "tokens": 16000,
+            "tools": 5
+          },
+          {
+            "id": "form_1040_packet_writer",
+            "model": "primary",
+            "role": "Form 1040 packet writer",
+            "tokens": 16000,
+            "tools": 5
+          }
+        ]
+      }
+    },
+    "memory": {
+      "collection": "mn_memory",
+      "containers": "optional_sidecar",
+      "context_addr_env": "MN_CONTEXT_ADDR",
+      "conversation": {
+        "agent_role": "otterdesk_chat",
+        "include_human_events": true,
+        "include_runtime_events": true,
+        "include_runtime_logs": true,
+        "target_tokens": 2400,
+        "token_budget": 6000,
+        "use_model_compression": false
+      },
+      "conversation_enabled": true,
+      "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
+      "default_context_addr": "localhost:50052",
+      "enabled": true,
+      "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
+      "namespace": "personal_income_tax_expert_context",
+      "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
+      "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
+      "sdk_distribution": "mirrorneuron-membrane-python-sdk",
+      "sdk_import_package": "mn_context_engine_sdk"
+    },
+    "models": {
+      "primary": {
+        "model": "ollama/nemotron3:33b",
+        "provider": "ollama",
+        "role": "Personal tax preparation team that prepares a source-grounded draft Form 1040 review packet while asking careful review questions.",
+        "type": "llm"
+      }
+    },
+    "observability": {
+      "panels": [
+        "current_status",
+        "recent_events",
+        "pending_human_requests",
+        "output_artifacts",
+        "resource_usage",
+        "errors",
+        "llm_calls",
+        "token_budget",
+        "llm_retries"
+      ],
+      "reads": [
+        "events.jsonl",
+        "human.jsonl",
+        "logs.jsonl",
+        "resources.jsonl",
+        "result.json",
+        "final_artifact.json",
+        "web_ui.json"
+      ],
+      "schema_version": "mn.blueprint.observability_dashboard.v1",
+      "source": "local_run_store"
+    },
+    "resources": {
+      "cpu": {
+        "min_cores": 1
+      },
+      "disk": {
+        "min_gb": 1
+      },
+      "gpu": {
+        "min_count": 0
+      },
+      "memory": {
+        "min_gb": 2
+      }
+    },
+    "store": {
+      "artifacts": [
+        "run.json",
+        "config.json",
+        "inputs.json",
+        "events.jsonl",
+        "human.jsonl",
+        "logs.jsonl",
+        "resources.jsonl",
+        "result.json",
+        "final_artifact.json"
+      ],
+      "path": "./runs/${run_id}",
+      "type": "local_run_store"
+    },
+    "worker_defaults": {
+      "model": "ollama/nemotron3:33b",
+      "pool": "default",
+      "pool_slots": 1,
+      "runner": "MirrorNeuron.Runner.HostLocal",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "workdir": "/sandbox/job/workflow"
+    }
+  },
+  "term": "TERM.md",
+  "version": "1.0.0"
 }

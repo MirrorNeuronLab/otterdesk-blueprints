@@ -49,7 +49,7 @@ Most blueprint folders contain:
 | `README.md` | Self-contained quickstart, inspection notes, and validation guidance. |
 | `SPEC.md` | User-facing problem, outcome, evaluation criteria, limits, and upgrade path. |
 | `TERM.md` | Terms, assumptions, or domain notes when present. |
-| `manifest.json` | Runtime graph, entrypoints, metadata, runners, services, and environment access. |
+| `manifest.json` | Workflow contract, flow steps, runtime worker bindings, compatibility graph, metadata, runners, services, and environment access. |
 | `config/default.json` | Default launch configuration and mock/sample inputs. |
 | `config/overwrite.json` | Optional local overrides. Do not commit customer secrets. |
 | `payloads/` | Worker code, prompts, policies, fixtures, and support files. |

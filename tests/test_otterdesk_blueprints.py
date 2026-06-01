@@ -30,6 +30,7 @@ from mn_blueprint_support.openshell_network import (
     endpoint_from_uri,
     write_openshell_network_policy,
 )
+from mn_blueprint_support.workflow_manifest import run_workflow_manifest_file, validate_workflow_manifest
 
 
 def _pid_exists(pid: int) -> bool:
@@ -51,6 +52,60 @@ def _wait_until(predicate, timeout: float = 5.0) -> bool:
 
 def _manifest_paths() -> list[Path]:
     return sorted(path / "manifest.json" for path in ROOT.iterdir() if (path / "manifest.json").exists())
+
+
+def test_otterdesk_blueprints_are_workflow_driven_manifests():
+    for manifest_path in _manifest_paths():
+        manifest = json.loads(manifest_path.read_text())
+        blueprint_id = manifest["metadata"]["blueprint_id"]
+
+        assert manifest["apiVersion"] == "mn.workflow/v1", blueprint_id
+        assert manifest["kind"] == "Workflow", blueprint_id
+        assert manifest["id"] == blueprint_id
+        assert manifest["contract"]["inputs"], blueprint_id
+        assert manifest["contract"]["outputs"]["primary"]["path"] == "final_artifact.json"
+        assert validate_workflow_manifest(manifest) == []
+
+        steps = manifest["flow"]["steps"]
+        bindings = manifest["runtime"]["bindings"]
+        assert steps, blueprint_id
+        assert manifest["flow"]["entrypoint"] == steps[0]["id"]
+        assert "nodes" in manifest and "edges" in manifest
+        assert manifest["metadata"]["standard"]["workflow_model"] == "contract -> flow -> runtime"
+        for step in steps:
+            assert {"id", "kind", "label", "goal", "action", "run", "emits", "on"} <= set(step), (blueprint_id, step)
+            assert step["run"] in bindings, (blueprint_id, step)
+            workers = bindings[step["run"]].get("workers") or []
+            assert workers, (blueprint_id, step["run"])
+            for worker in workers:
+                assert {"id", "role"} <= set(worker), (blueprint_id, step["run"], worker)
+
+
+def test_otterdesk_workflow_runtime_executes_manifest_steps(tmp_path):
+    manifest_path = ROOT / "personal_income_tax_expert" / "manifest.json"
+    result = run_workflow_manifest_file(
+        manifest_path,
+        run_dir=tmp_path / "tax-workflow-run",
+        run_id="tax-workflow-run",
+        auto_human="approve",
+        ui=False,
+    )
+
+    assert result["run"]["status"] == "completed"
+    assert result["workflow"]["steps"] == [
+        "intake_documents",
+        "prepare_return_workpapers",
+        "audit_and_manager_review",
+        "write_review_packet",
+    ]
+    run_dir = tmp_path / "tax-workflow-run"
+    assert {"run.json", "config.json", "inputs.json", "events.jsonl", "resources.jsonl", "result.json", "final_artifact.json"} <= {
+        path.name for path in run_dir.iterdir()
+    }
+    events = [json.loads(line)["type"] for line in (run_dir / "events.jsonl").read_text().splitlines() if line.strip()]
+    assert "workflow_step_started" in events
+    assert "workflow_worker_completed" in events
+    assert "human_decision_applied" in events
 
 
 def test_otterdesk_blueprints_declare_membrane_context_memory_layer():
