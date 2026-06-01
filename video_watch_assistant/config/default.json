@@ -377,12 +377,12 @@
   "manifest_config_bindings": [
     {
       "config_path": "identity.run_id",
-      "manifest_path": "nodes.visual_detector.config.environment.MN_RUN_ID",
+      "manifest_path": "runtime.bindings.run_workflow.workers.visual_detector.with.environment.MN_RUN_ID",
       "stringify": true
     },
     {
       "config_path": "outputs.run_root",
-      "manifest_path": "nodes.visual_detector.config.environment.MN_RUNS_ROOT",
+      "manifest_path": "runtime.bindings.run_workflow.workers.visual_detector.with.environment.MN_RUNS_ROOT",
       "stringify": true
     }
   ],

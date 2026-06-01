@@ -1,5 +1,13 @@
 {
   "apiVersion": "mn.workflow/v1",
+  "kind": "Workflow",
+  "id": "personal_income_tax_expert",
+  "name": "Personal Income Tax Expert",
+  "version": "1.0.0",
+  "manifest_version": "1.0",
+  "description": "Runs an LLM-assisted tax preparation team over local tax documents, builds draft Form 1040 workpapers, audits the packet, and writes JSON, Markdown, and PDF review outputs.",
+  "graph_id": "personal_income_tax_expert_v1",
+  "job_name": "personal-income-tax-expert",
   "contract": {
     "events": {
       "human_stream": "human.jsonl",
@@ -280,66 +288,6 @@
       "Individual taxpayers, household finance operators, bookkeepers, and tax preparers who want a source-grounded draft before using filing software."
     ]
   },
-  "description": "Runs an LLM-assisted tax preparation team over local tax documents, builds draft Form 1040 workpapers, audits the packet, and writes JSON, Markdown, and PDF review outputs.",
-  "edges": [
-    {
-      "edge_id": "intake_to_income",
-      "from_node": "intake_documents",
-      "message_type": "tax_intake_ready",
-      "to_node": "prepare_income_workpapers"
-    },
-    {
-      "edge_id": "intake_to_property",
-      "from_node": "intake_documents",
-      "message_type": "tax_intake_ready",
-      "to_node": "prepare_property_workpapers"
-    },
-    {
-      "edge_id": "intake_to_investment",
-      "from_node": "intake_documents",
-      "message_type": "tax_intake_ready",
-      "to_node": "prepare_investment_workpapers"
-    },
-    {
-      "edge_id": "income_to_merge",
-      "from_node": "prepare_income_workpapers",
-      "message_type": "tax_income_workpapers_ready",
-      "to_node": "merge_tax_workpapers"
-    },
-    {
-      "edge_id": "property_to_merge",
-      "from_node": "prepare_property_workpapers",
-      "message_type": "tax_property_workpapers_ready",
-      "to_node": "merge_tax_workpapers"
-    },
-    {
-      "edge_id": "investment_to_merge",
-      "from_node": "prepare_investment_workpapers",
-      "message_type": "tax_investment_workpapers_ready",
-      "to_node": "merge_tax_workpapers"
-    },
-    {
-      "edge_id": "merge_to_review",
-      "from_node": "merge_tax_workpapers",
-      "message_type": "tax_workpapers_merged",
-      "to_node": "audit_and_manager_review"
-    },
-    {
-      "edge_id": "review_to_packet",
-      "from_node": "audit_and_manager_review",
-      "message_type": "tax_review_ready",
-      "to_node": "write_review_packet"
-    },
-    {
-      "edge_id": "packet_to_report",
-      "from_node": "write_review_packet",
-      "message_type": "blueprint_report",
-      "to_node": "report_sink"
-    }
-  ],
-  "entrypoints": [
-    "intake_documents"
-  ],
   "flow": {
     "entrypoint": "intake_documents",
     "graph": {
@@ -785,20 +733,277 @@
       }
     ]
   },
-  "graph_id": "personal_income_tax_expert_v1",
-  "id": "personal_income_tax_expert",
-  "initial_inputs": {
-    "intake_documents": [
-      {
-        "description": "Prepare a draft Form 1040 review packet from a local folder of tax PDFs, using bundled sample documents until the user selects a real folder.",
-        "document_folder": "",
-        "filing_status": "single",
-        "ollama_base_url": "http://192.168.4.173:11434",
-        "ollama_model": "nemotron3:33b",
-        "scenario": "personal_income_tax_packet",
-        "tax_year": 2025
+  "runtime": {
+    "bindings": {
+      "audit_and_manager_review": {
+        "risk": "low",
+        "side_effect": "read",
+        "strategy": "fanout_reduce",
+        "type": "team",
+        "workers": [
+          {
+            "id": "tax_auditor",
+            "model": "primary",
+            "role": "Tax auditor",
+            "tokens": 16000,
+            "tools": 5
+          },
+          {
+            "id": "manager_reviewer",
+            "model": "primary",
+            "role": "Tax manager reviewer",
+            "tokens": 16000,
+            "tools": 5
+          }
+        ]
+      },
+      "intake_documents": {
+        "risk": "low",
+        "side_effect": "read",
+        "strategy": "fanout_reduce",
+        "type": "team",
+        "workers": [
+          {
+            "id": "client_intake_coordinator",
+            "model": "primary",
+            "role": "Client intake coordinator",
+            "tokens": 16000,
+            "tools": 5
+          },
+          {
+            "id": "document_understanding_agent",
+            "model": "primary",
+            "role": "Document understanding agent",
+            "tokens": 16000,
+            "tools": 5
+          },
+          {
+            "id": "source_field_extractor",
+            "model": "primary",
+            "role": "Source field extractor",
+            "tokens": 16000,
+            "tools": 5
+          }
+        ]
+      },
+      "merge_tax_workpapers": {
+        "risk": "low",
+        "side_effect": "read",
+        "strategy": "single",
+        "type": "worker",
+        "workers": [
+          {
+            "id": "form_1040_assembler",
+            "model": "primary",
+            "role": "Form 1040 assembler",
+            "tokens": 16000,
+            "tools": 5
+          }
+        ]
+      },
+      "prepare_income_workpapers": {
+        "risk": "low",
+        "side_effect": "read",
+        "strategy": "fanout_reduce",
+        "type": "team",
+        "workers": [
+          {
+            "id": "income_preparer",
+            "kind": "worker",
+            "model": "primary",
+            "required": true,
+            "role": "Income preparer",
+            "tokens": 16000,
+            "tools": 5
+          },
+          {
+            "depends_on": [
+              "income_preparer"
+            ],
+            "id": "income_validator",
+            "kind": "validator",
+            "model": "primary",
+            "required": true,
+            "role": "Income workpaper validator",
+            "tokens": 12000,
+            "tools": 4
+          }
+        ]
+      },
+      "prepare_investment_workpapers": {
+        "risk": "low",
+        "side_effect": "read",
+        "strategy": "fanout_reduce",
+        "type": "team",
+        "workers": [
+          {
+            "id": "investment_preparer",
+            "kind": "worker",
+            "model": "primary",
+            "required": true,
+            "role": "Investment preparer",
+            "tokens": 16000,
+            "tools": 5
+          },
+          {
+            "depends_on": [
+              "investment_preparer"
+            ],
+            "id": "investment_validator",
+            "kind": "validator",
+            "model": "primary",
+            "required": false,
+            "role": "Investment workpaper validator",
+            "tokens": 12000,
+            "tools": 4
+          }
+        ]
+      },
+      "prepare_property_workpapers": {
+        "risk": "low",
+        "side_effect": "read",
+        "strategy": "fanout_reduce",
+        "type": "team",
+        "workers": [
+          {
+            "id": "property_preparer",
+            "kind": "worker",
+            "model": "primary",
+            "required": true,
+            "role": "Property and deduction preparer",
+            "tokens": 16000,
+            "tools": 5
+          },
+          {
+            "depends_on": [
+              "property_preparer"
+            ],
+            "id": "property_tax_validator",
+            "kind": "validator",
+            "model": "primary",
+            "required": false,
+            "role": "Property and deduction validator",
+            "tokens": 12000,
+            "tools": 4
+          }
+        ]
+      },
+      "write_review_packet": {
+        "risk": "medium",
+        "side_effect": "internal_write",
+        "strategy": "fanout_reduce",
+        "type": "team",
+        "workers": [
+          {
+            "id": "advisor_report_writer",
+            "model": "primary",
+            "role": "Advisor and report writer",
+            "tokens": 16000,
+            "tools": 5
+          },
+          {
+            "id": "form_1040_packet_writer",
+            "model": "primary",
+            "role": "Form 1040 packet writer",
+            "tokens": 16000,
+            "tools": 5
+          }
+        ]
       }
-    ]
+    },
+    "memory": {
+      "collection": "mn_memory",
+      "containers": "optional_sidecar",
+      "context_addr_env": "MN_CONTEXT_ADDR",
+      "conversation": {
+        "agent_role": "otterdesk_chat",
+        "include_human_events": true,
+        "include_runtime_events": true,
+        "include_runtime_logs": true,
+        "target_tokens": 2400,
+        "token_budget": 6000,
+        "use_model_compression": false
+      },
+      "conversation_enabled": true,
+      "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
+      "default_context_addr": "localhost:50052",
+      "enabled": true,
+      "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
+      "namespace": "personal_income_tax_expert_context",
+      "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
+      "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
+      "sdk_distribution": "mirrorneuron-membrane-python-sdk",
+      "sdk_import_package": "mn_context_engine_sdk"
+    },
+    "models": {
+      "primary": {
+        "model": "ollama/nemotron3:33b",
+        "provider": "ollama",
+        "role": "Personal tax preparation team that prepares a source-grounded draft Form 1040 review packet while asking careful review questions.",
+        "type": "llm"
+      }
+    },
+    "observability": {
+      "panels": [
+        "current_status",
+        "recent_events",
+        "pending_human_requests",
+        "output_artifacts",
+        "resource_usage",
+        "errors",
+        "llm_calls",
+        "token_budget",
+        "llm_retries"
+      ],
+      "reads": [
+        "events.jsonl",
+        "human.jsonl",
+        "logs.jsonl",
+        "resources.jsonl",
+        "result.json",
+        "final_artifact.json",
+        "web_ui.json"
+      ],
+      "schema_version": "mn.blueprint.observability_dashboard.v1",
+      "source": "local_run_store"
+    },
+    "resources": {
+      "cpu": {
+        "min_cores": 1
+      },
+      "disk": {
+        "min_gb": 1
+      },
+      "gpu": {
+        "min_count": 0
+      },
+      "memory": {
+        "min_gb": 2
+      }
+    },
+    "store": {
+      "artifacts": [
+        "run.json",
+        "config.json",
+        "inputs.json",
+        "events.jsonl",
+        "human.jsonl",
+        "logs.jsonl",
+        "resources.jsonl",
+        "result.json",
+        "final_artifact.json"
+      ],
+      "path": "./runs/${run_id}",
+      "type": "local_run_store"
+    },
+    "worker_defaults": {
+      "model": "ollama/nemotron3:33b",
+      "pool": "default",
+      "pool_slots": 1,
+      "runner": "MirrorNeuron.Runner.HostLocal",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "workdir": "/sandbox/job/workflow"
+    }
   },
   "input_validation": {
     "rules": [
@@ -813,10 +1018,22 @@
       }
     ]
   },
-  "job_name": "personal-income-tax-expert",
-  "kind": "Workflow",
+  "requirements": {
+    "cpu": {
+      "min_cores": 1
+    },
+    "disk": {
+      "min_gb": 1
+    },
+    "gpu": {
+      "min_count": 0
+    },
+    "memory": {
+      "min_gb": 2
+    }
+  },
   "license": "LICENSE.md",
-  "manifest_version": "1.0",
+  "term": "TERM.md",
   "metadata": {
     "agent_role": "Personal tax preparation team that prepares a source-grounded draft Form 1040 review packet while asking careful review questions.",
     "agent_templates": {
@@ -1583,461 +1800,5 @@
         "llm_retries"
       ]
     }
-  },
-  "name": "Personal Income Tax Expert",
-  "nodes": [
-    {
-      "node_id": "intake_documents",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "environment": {
-          "MN_BLUEPRINT_ID": "personal_income_tax_expert",
-          "MN_LLM_API_BASE": "http://192.168.4.173:11434",
-          "MN_LLM_MAX_TOKENS": "1200",
-          "MN_LLM_MODEL": "ollama/nemotron3:33b",
-          "MN_LLM_NUM_RETRIES": "1",
-          "MN_LLM_TIMEOUT_SECONDS": "90",
-          "MN_TAX_REDACT_LOGS": "true",
-          "MN_WORKFLOW_STEP_ID": "intake_documents",
-          "PYTHONPATH": "${MN_SKILLS_ROOT}/blueprint_support_skill/src:${MN_SKILLS_ROOT}/tax_pdf_ocr_skill/src:${MN_SKILLS_ROOT}/pdf_extract_skill/src"
-        },
-        "name_prefix": "personal_income_tax_expert",
-        "node_type": "generic",
-        "output_message_type": "tax_intake_ready",
-        "role": "tax_intake_source",
-        "script": "scripts/run_blueprint.py",
-        "upload_path": "tax_workflow"
-      }
-    },
-    {
-      "node_id": "prepare_income_workpapers",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "environment": {
-          "MN_BLUEPRINT_ID": "personal_income_tax_expert",
-          "MN_LLM_API_BASE": "http://192.168.4.173:11434",
-          "MN_LLM_MAX_TOKENS": "1200",
-          "MN_LLM_MODEL": "ollama/nemotron3:33b",
-          "MN_LLM_NUM_RETRIES": "1",
-          "MN_LLM_TIMEOUT_SECONDS": "90",
-          "MN_TAX_REDACT_LOGS": "true",
-          "MN_WORKFLOW_STEP_ID": "prepare_income_workpapers",
-          "PYTHONPATH": "${MN_SKILLS_ROOT}/blueprint_support_skill/src:${MN_SKILLS_ROOT}/tax_pdf_ocr_skill/src:${MN_SKILLS_ROOT}/pdf_extract_skill/src"
-        },
-        "name_prefix": "personal_income_tax_expert",
-        "node_type": "generic",
-        "output_message_type": "tax_income_workpapers_ready",
-        "role": "income_workpaper_preparer",
-        "script": "scripts/run_blueprint.py",
-        "upload_path": "tax_workflow"
-      }
-    },
-    {
-      "node_id": "prepare_property_workpapers",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "environment": {
-          "MN_BLUEPRINT_ID": "personal_income_tax_expert",
-          "MN_LLM_API_BASE": "http://192.168.4.173:11434",
-          "MN_LLM_MAX_TOKENS": "1200",
-          "MN_LLM_MODEL": "ollama/nemotron3:33b",
-          "MN_LLM_NUM_RETRIES": "1",
-          "MN_LLM_TIMEOUT_SECONDS": "90",
-          "MN_TAX_REDACT_LOGS": "true",
-          "MN_WORKFLOW_STEP_ID": "prepare_property_workpapers",
-          "PYTHONPATH": "${MN_SKILLS_ROOT}/blueprint_support_skill/src:${MN_SKILLS_ROOT}/tax_pdf_ocr_skill/src:${MN_SKILLS_ROOT}/pdf_extract_skill/src"
-        },
-        "name_prefix": "personal_income_tax_expert",
-        "node_type": "generic",
-        "output_message_type": "tax_property_workpapers_ready",
-        "role": "property_workpaper_preparer",
-        "script": "scripts/run_blueprint.py",
-        "upload_path": "tax_workflow"
-      }
-    },
-    {
-      "node_id": "prepare_investment_workpapers",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "environment": {
-          "MN_BLUEPRINT_ID": "personal_income_tax_expert",
-          "MN_LLM_API_BASE": "http://192.168.4.173:11434",
-          "MN_LLM_MAX_TOKENS": "1200",
-          "MN_LLM_MODEL": "ollama/nemotron3:33b",
-          "MN_LLM_NUM_RETRIES": "1",
-          "MN_LLM_TIMEOUT_SECONDS": "90",
-          "MN_TAX_REDACT_LOGS": "true",
-          "MN_WORKFLOW_STEP_ID": "prepare_investment_workpapers",
-          "PYTHONPATH": "${MN_SKILLS_ROOT}/blueprint_support_skill/src:${MN_SKILLS_ROOT}/tax_pdf_ocr_skill/src:${MN_SKILLS_ROOT}/pdf_extract_skill/src"
-        },
-        "name_prefix": "personal_income_tax_expert",
-        "node_type": "generic",
-        "output_message_type": "tax_investment_workpapers_ready",
-        "role": "investment_workpaper_preparer",
-        "script": "scripts/run_blueprint.py",
-        "upload_path": "tax_workflow"
-      }
-    },
-    {
-      "node_id": "merge_tax_workpapers",
-      "uses": "mn-agents.control_join@1.0.0",
-      "with": {
-        "complete_after": 3,
-        "complete_job": false,
-        "node_type": "reduce",
-        "output_message_type": "tax_workpapers_merged",
-        "role": "tax_workpaper_join"
-      }
-    },
-    {
-      "node_id": "audit_and_manager_review",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "environment": {
-          "MN_BLUEPRINT_ID": "personal_income_tax_expert",
-          "MN_LLM_API_BASE": "http://192.168.4.173:11434",
-          "MN_LLM_MAX_TOKENS": "1200",
-          "MN_LLM_MODEL": "ollama/nemotron3:33b",
-          "MN_LLM_NUM_RETRIES": "1",
-          "MN_LLM_TIMEOUT_SECONDS": "90",
-          "MN_TAX_REDACT_LOGS": "true",
-          "MN_WORKFLOW_STEP_ID": "audit_and_manager_review",
-          "PYTHONPATH": "${MN_SKILLS_ROOT}/blueprint_support_skill/src:${MN_SKILLS_ROOT}/tax_pdf_ocr_skill/src:${MN_SKILLS_ROOT}/pdf_extract_skill/src"
-        },
-        "name_prefix": "personal_income_tax_expert",
-        "node_type": "generic",
-        "output_message_type": "tax_review_ready",
-        "role": "tax_audit_and_manager_review",
-        "script": "scripts/run_blueprint.py",
-        "upload_path": "tax_workflow"
-      }
-    },
-    {
-      "node_id": "write_review_packet",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "environment": {
-          "MN_BLUEPRINT_ID": "personal_income_tax_expert",
-          "MN_LLM_API_BASE": "http://192.168.4.173:11434",
-          "MN_LLM_MAX_TOKENS": "1200",
-          "MN_LLM_MODEL": "ollama/nemotron3:33b",
-          "MN_LLM_NUM_RETRIES": "1",
-          "MN_LLM_TIMEOUT_SECONDS": "90",
-          "MN_TAX_REDACT_LOGS": "true",
-          "MN_WORKFLOW_STEP_ID": "write_review_packet",
-          "PYTHONPATH": "${MN_SKILLS_ROOT}/blueprint_support_skill/src:${MN_SKILLS_ROOT}/tax_pdf_ocr_skill/src:${MN_SKILLS_ROOT}/pdf_extract_skill/src"
-        },
-        "name_prefix": "personal_income_tax_expert",
-        "node_type": "generic",
-        "output_message_type": "blueprint_report",
-        "role": "tax_packet_writer",
-        "script": "scripts/run_blueprint.py",
-        "upload_path": "tax_workflow"
-      }
-    },
-    {
-      "node_id": "report_sink",
-      "uses": "mn-agents.control_join@1.0.0",
-      "with": {
-        "complete_on_message": true,
-        "node_type": "reduce",
-        "role": "result_sink"
-      }
-    }
-  ],
-  "requirements": {
-    "cpu": {
-      "min_cores": 1
-    },
-    "disk": {
-      "min_gb": 1
-    },
-    "gpu": {
-      "min_count": 0
-    },
-    "memory": {
-      "min_gb": 2
-    }
-  },
-  "runtime": {
-    "bindings": {
-      "audit_and_manager_review": {
-        "legacy_entrypoint": "audit_and_manager_review",
-        "risk": "low",
-        "side_effect": "read",
-        "strategy": "fanout_reduce",
-        "type": "team",
-        "workers": [
-          {
-            "id": "tax_auditor",
-            "model": "primary",
-            "role": "Tax auditor",
-            "tokens": 16000,
-            "tools": 5
-          },
-          {
-            "id": "manager_reviewer",
-            "model": "primary",
-            "role": "Tax manager reviewer",
-            "tokens": 16000,
-            "tools": 5
-          }
-        ]
-      },
-      "intake_documents": {
-        "legacy_entrypoint": "intake_documents",
-        "risk": "low",
-        "side_effect": "read",
-        "strategy": "fanout_reduce",
-        "type": "team",
-        "workers": [
-          {
-            "id": "client_intake_coordinator",
-            "model": "primary",
-            "role": "Client intake coordinator",
-            "tokens": 16000,
-            "tools": 5
-          },
-          {
-            "id": "document_understanding_agent",
-            "model": "primary",
-            "role": "Document understanding agent",
-            "tokens": 16000,
-            "tools": 5
-          },
-          {
-            "id": "source_field_extractor",
-            "model": "primary",
-            "role": "Source field extractor",
-            "tokens": 16000,
-            "tools": 5
-          }
-        ]
-      },
-      "merge_tax_workpapers": {
-        "legacy_entrypoint": "merge_tax_workpapers",
-        "risk": "low",
-        "side_effect": "read",
-        "strategy": "fanout_reduce",
-        "type": "team",
-        "workers": [
-          {
-            "id": "form_1040_assembler",
-            "model": "primary",
-            "role": "Form 1040 assembler",
-            "tokens": 16000,
-            "tools": 5
-          }
-        ]
-      },
-      "prepare_income_workpapers": {
-        "legacy_entrypoint": "prepare_income_workpapers",
-        "risk": "low",
-        "side_effect": "read",
-        "strategy": "sequential",
-        "type": "team",
-        "workers": [
-          {
-            "id": "income_preparer",
-            "kind": "worker",
-            "model": "primary",
-            "required": true,
-            "role": "Income preparer",
-            "tokens": 16000,
-            "tools": 5
-          },
-          {
-            "depends_on": [
-              "income_preparer"
-            ],
-            "id": "income_validator",
-            "kind": "validator",
-            "model": "primary",
-            "required": true,
-            "role": "Income workpaper validator",
-            "tokens": 12000,
-            "tools": 4
-          }
-        ]
-      },
-      "prepare_investment_workpapers": {
-        "legacy_entrypoint": "prepare_investment_workpapers",
-        "risk": "low",
-        "side_effect": "read",
-        "strategy": "sequential",
-        "type": "team",
-        "workers": [
-          {
-            "id": "investment_preparer",
-            "kind": "worker",
-            "model": "primary",
-            "required": true,
-            "role": "Investment preparer",
-            "tokens": 16000,
-            "tools": 5
-          },
-          {
-            "depends_on": [
-              "investment_preparer"
-            ],
-            "id": "investment_validator",
-            "kind": "validator",
-            "model": "primary",
-            "required": false,
-            "role": "Investment workpaper validator",
-            "tokens": 12000,
-            "tools": 4
-          }
-        ]
-      },
-      "prepare_property_workpapers": {
-        "legacy_entrypoint": "prepare_property_workpapers",
-        "risk": "low",
-        "side_effect": "read",
-        "strategy": "sequential",
-        "type": "team",
-        "workers": [
-          {
-            "id": "property_preparer",
-            "kind": "worker",
-            "model": "primary",
-            "required": true,
-            "role": "Property and deduction preparer",
-            "tokens": 16000,
-            "tools": 5
-          },
-          {
-            "depends_on": [
-              "property_preparer"
-            ],
-            "id": "property_tax_validator",
-            "kind": "validator",
-            "model": "primary",
-            "required": false,
-            "role": "Property and deduction validator",
-            "tokens": 12000,
-            "tools": 4
-          }
-        ]
-      },
-      "write_review_packet": {
-        "legacy_entrypoint": "write_review_packet",
-        "risk": "medium",
-        "side_effect": "internal_write",
-        "strategy": "fanout_reduce",
-        "type": "team",
-        "workers": [
-          {
-            "id": "advisor_report_writer",
-            "model": "primary",
-            "role": "Advisor and report writer",
-            "tokens": 16000,
-            "tools": 5
-          },
-          {
-            "id": "form_1040_packet_writer",
-            "model": "primary",
-            "role": "Form 1040 packet writer",
-            "tokens": 16000,
-            "tools": 5
-          }
-        ]
-      }
-    },
-    "memory": {
-      "collection": "mn_memory",
-      "containers": "optional_sidecar",
-      "context_addr_env": "MN_CONTEXT_ADDR",
-      "conversation": {
-        "agent_role": "otterdesk_chat",
-        "include_human_events": true,
-        "include_runtime_events": true,
-        "include_runtime_logs": true,
-        "target_tokens": 2400,
-        "token_budget": 6000,
-        "use_model_compression": false
-      },
-      "conversation_enabled": true,
-      "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
-      "default_context_addr": "localhost:50052",
-      "enabled": true,
-      "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
-      "namespace": "personal_income_tax_expert_context",
-      "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
-      "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
-      "sdk_distribution": "mirrorneuron-membrane-python-sdk",
-      "sdk_import_package": "mn_context_engine_sdk"
-    },
-    "models": {
-      "primary": {
-        "model": "ollama/nemotron3:33b",
-        "provider": "ollama",
-        "role": "Personal tax preparation team that prepares a source-grounded draft Form 1040 review packet while asking careful review questions.",
-        "type": "llm"
-      }
-    },
-    "observability": {
-      "panels": [
-        "current_status",
-        "recent_events",
-        "pending_human_requests",
-        "output_artifacts",
-        "resource_usage",
-        "errors",
-        "llm_calls",
-        "token_budget",
-        "llm_retries"
-      ],
-      "reads": [
-        "events.jsonl",
-        "human.jsonl",
-        "logs.jsonl",
-        "resources.jsonl",
-        "result.json",
-        "final_artifact.json",
-        "web_ui.json"
-      ],
-      "schema_version": "mn.blueprint.observability_dashboard.v1",
-      "source": "local_run_store"
-    },
-    "resources": {
-      "cpu": {
-        "min_cores": 1
-      },
-      "disk": {
-        "min_gb": 1
-      },
-      "gpu": {
-        "min_count": 0
-      },
-      "memory": {
-        "min_gb": 2
-      }
-    },
-    "store": {
-      "artifacts": [
-        "run.json",
-        "config.json",
-        "inputs.json",
-        "events.jsonl",
-        "human.jsonl",
-        "logs.jsonl",
-        "resources.jsonl",
-        "result.json",
-        "final_artifact.json"
-      ],
-      "path": "./runs/${run_id}",
-      "type": "local_run_store"
-    },
-    "worker_defaults": {
-      "model": "ollama/nemotron3:33b",
-      "pool": "default",
-      "pool_slots": 1,
-      "runner": "MirrorNeuron.Runner.HostLocal",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "workdir": "/sandbox/job/workflow"
-    }
-  },
-  "term": "TERM.md",
-  "version": "1.0.0"
+  }
 }

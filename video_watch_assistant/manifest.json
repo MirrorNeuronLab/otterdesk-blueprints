@@ -1,5 +1,14 @@
 {
   "apiVersion": "mn.workflow/v1",
+  "kind": "Workflow",
+  "id": "video_watch_assistant",
+  "name": "Video Watch Assistant",
+  "version": "1.0.0",
+  "manifest_version": "1.0",
+  "description": "Watches a mapped local video stream, detects configured visual targets, and reports count, label, category, color, position, activity, and alert status for review.",
+  "graph_id": "video_watch_assistant_v1",
+  "job_name": "video-watch-assistant",
+  "type": "service",
   "contract": {
     "events": {
       "human_stream": "human.jsonl",
@@ -275,24 +284,6 @@
       "Video operators, security reviewers, safety operations teams, and site-access coordinators."
     ]
   },
-  "description": "Watches a mapped local video stream, detects configured visual targets, and reports count, label, category, color, position, activity, and alert status for review.",
-  "edges": [
-    {
-      "edge_id": "ingress_to_tick_source",
-      "from_node": "ingress",
-      "message_type": "video_monitor_start",
-      "to_node": "video_frame_tick_source"
-    },
-    {
-      "edge_id": "tick_source_to_visual_detector",
-      "from_node": "video_frame_tick_source",
-      "message_type": "video_frame_tick",
-      "to_node": "visual_detector"
-    }
-  ],
-  "entrypoints": [
-    "ingress"
-  ],
   "flow": {
     "entrypoint": "start_video_monitor",
     "graph": {
@@ -521,23 +512,180 @@
       }
     ]
   },
-  "graph_id": "video_watch_assistant_v1",
-  "id": "video_watch_assistant",
-  "initial_inputs": {
-    "ingress": [
-      {
-        "description": "Continuously sample the mapped local RTSP stream, ask the configured VL model whether configured visual targets are present or active, report count, label, category, color, position, and activity, and send alerts when a target is detected.",
-        "ollama_base_url": "http://192.168.4.173:11434",
-        "ollama_model": "nemotron3:33b",
-        "scenario": "video_visual_monitor",
-        "slack_optional": true,
-        "video_source_codec": "h264",
-        "video_source_transport": "rtsp",
-        "video_source_uri": "rtsp://127.0.0.1:8554/video-watch",
-        "vl_model_base_url": "http://192.168.4.173:11434",
-        "vl_model_name": "nemotron3:33b"
+  "runtime": {
+    "bindings": {
+      "detect_visual_targets": {
+        "risk": "low",
+        "side_effect": "read",
+        "strategy": "fanout_reduce",
+        "type": "team",
+        "workers": [
+          {
+            "id": "video:visual_detector",
+            "model": "Ollama/Nemotron3 33B",
+            "role": "Run visual detection",
+            "tokens": 14000,
+            "tools": 4
+          },
+          {
+            "id": "video:alert_policy",
+            "model": "Ollama/Nemotron3 33B",
+            "role": "Evaluate cooldown and alert policy",
+            "tokens": 14000,
+            "tools": 4
+          }
+        ]
+      },
+      "sample_video_frames": {
+        "risk": "low",
+        "side_effect": "read",
+        "strategy": "single",
+        "type": "worker",
+        "workers": [
+          {
+            "id": "video:tick_source",
+            "model": "Ollama/Nemotron3 33B",
+            "role": "Generate frame tick events",
+            "tokens": 14000,
+            "tools": 4
+          }
+        ]
+      },
+      "start_video_monitor": {
+        "risk": "low",
+        "side_effect": "read",
+        "strategy": "fanout_reduce",
+        "type": "team",
+        "workers": [
+          {
+            "id": "video:source_validator",
+            "model": "Ollama/Nemotron3 33B",
+            "role": "Validate stream source",
+            "tokens": 14000,
+            "tools": 4
+          },
+          {
+            "id": "video:monitor_router",
+            "model": "Ollama/Nemotron3 33B",
+            "role": "Route monitor start event",
+            "tokens": 14000,
+            "tools": 4
+          }
+        ]
+      },
+      "write_watch_summary": {
+        "risk": "low",
+        "side_effect": "read",
+        "strategy": "single",
+        "type": "worker",
+        "workers": [
+          {
+            "id": "video:summary_writer",
+            "model": "Ollama/Nemotron3 33B",
+            "role": "Write detection summary",
+            "tokens": 14000,
+            "tools": 4
+          }
+        ]
       }
-    ]
+    },
+    "memory": {
+      "collection": "mn_memory",
+      "containers": "optional_sidecar",
+      "context_addr_env": "MN_CONTEXT_ADDR",
+      "conversation": {
+        "agent_role": "otterdesk_chat",
+        "include_human_events": true,
+        "include_runtime_events": true,
+        "include_runtime_logs": true,
+        "target_tokens": 2400,
+        "token_budget": 6000,
+        "use_model_compression": false
+      },
+      "conversation_enabled": true,
+      "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
+      "default_context_addr": "localhost:50052",
+      "enabled": true,
+      "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
+      "namespace": "video_watch_assistant_context",
+      "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
+      "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
+      "sdk_distribution": "mirrorneuron-membrane-python-sdk",
+      "sdk_import_package": "mn_context_engine_sdk"
+    },
+    "models": {
+      "primary": {
+        "model": "ollama/nemotron3:33b",
+        "provider": "ollama",
+        "role": "AI assistant for reviewing video stream activity and preparing visual detection alerts.",
+        "type": "llm"
+      }
+    },
+    "observability": {
+      "panels": [
+        "current_status",
+        "recent_events",
+        "pending_human_requests",
+        "output_artifacts",
+        "resource_usage",
+        "errors",
+        "input_lag",
+        "backpressure",
+        "llm_calls",
+        "token_budget",
+        "llm_retries",
+        "output_skill_attempts",
+        "output_skill_failures"
+      ],
+      "reads": [
+        "events.jsonl",
+        "human.jsonl",
+        "logs.jsonl",
+        "resources.jsonl",
+        "result.json",
+        "final_artifact.json",
+        "web_ui.json"
+      ],
+      "schema_version": "mn.blueprint.observability_dashboard.v1",
+      "source": "local_run_store"
+    },
+    "resources": {
+      "cpu": {
+        "min_cores": 1
+      },
+      "disk": {
+        "min_gb": 1
+      },
+      "gpu": {
+        "min_count": 0
+      },
+      "memory": {
+        "min_gb": 2
+      }
+    },
+    "store": {
+      "artifacts": [
+        "run.json",
+        "config.json",
+        "inputs.json",
+        "events.jsonl",
+        "human.jsonl",
+        "logs.jsonl",
+        "resources.jsonl",
+        "result.json",
+        "final_artifact.json"
+      ],
+      "path": "./runs/${run_id}",
+      "type": "local_run_store"
+    },
+    "worker_defaults": {
+      "model": "ollama/nemotron3:33b",
+      "pool": "default",
+      "pool_slots": 1,
+      "runner": "MirrorNeuron.Runner.HostLocal",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "workdir": "/sandbox/job/workflow"
+    }
   },
   "input_validation": {
     "rules": [
@@ -559,10 +707,27 @@
       }
     ]
   },
-  "job_name": "video-watch-assistant",
-  "kind": "Workflow",
+  "requirements": {
+    "cpu": {
+      "min_cores": 1
+    },
+    "disk": {
+      "min_gb": 1
+    },
+    "gpu": {
+      "min_count": 0
+    },
+    "memory": {
+      "min_gb": 2
+    }
+  },
+  "policies": {
+    "recovery_mode": "cluster_recover",
+    "stream_mode": "live"
+  },
+  "requiredContextEngine": false,
   "license": "LICENSE.md",
-  "manifest_version": "1.0",
+  "term": "TERM.md",
   "metadata": {
     "agent_role": "AI assistant for reviewing video stream activity and preparing visual detection alerts.",
     "agent_templates": {
@@ -1444,284 +1609,5 @@
         "stream_path": "video-watch"
       }
     }
-  },
-  "name": "Video Watch Assistant",
-  "nodes": [
-    {
-      "node_id": "ingress",
-      "uses": "mn-agents.control_router@1.0.0",
-      "with": {
-        "emit_type": "video_monitor_start",
-        "node_type": "map",
-        "role": "root_coordinator"
-      }
-    },
-    {
-      "node_id": "video_frame_tick_source",
-      "uses": "mn-agents.data_module@1.0.0",
-      "with": {
-        "camera_id": "video-watch",
-        "interval_ms": 10000,
-        "module": "MirrorNeuron.Examples.VideoWatchAssistant.VideoFrameTickSource",
-        "module_source": "beam_modules/video_frame_tick_source.ex",
-        "node_type": "stream",
-        "role": "video_frame_sampler",
-        "target_node": "visual_detector"
-      }
-    },
-    {
-      "node_id": "visual_detector",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "cleanup_remote_dir": true,
-        "command": [
-          "bash",
-          "scripts/run_detector_in_openshell.sh"
-        ],
-        "custom_openshell_image": "visual_detector/openshell_sandbox",
-        "environment": {
-          "DETECTION_ALERT_COOLDOWN_SECONDS": "60",
-          "DETECTION_CONFIDENCE_THRESHOLD": "0.65",
-          "FFMPEG_FRAME_TIMEOUT_SECONDS": "8",
-          "FFMPEG_RTSP_TRANSPORT": "tcp",
-          "FRAME_JPEG_MAX_WIDTH": "896",
-          "FRAME_SAMPLE_SECONDS": "10.0",
-          "MN_BLUEPRINT_LOG_LEVEL": "info",
-          "MN_HOST_STREAM_FALLBACK_HOSTS": "host.openshell.internal,host.docker.internal,192.168.65.254",
-          "OLLAMA_BASE_URL": "http://192.168.4.173:11434",
-          "OLLAMA_MODEL": "nemotron3:33b",
-          "OLLAMA_THINK": "false",
-          "SLACK_ALERT_ENABLED": "true",
-          "SLACK_DEFAULT_CHANNEL": "#safety",
-          "SLACK_MESSAGE_PREFIX": "Video detection alert",
-          "VIDEO_SOURCE_CODEC": "h264",
-          "VIDEO_SOURCE_TRANSPORT": "rtsp",
-          "VIDEO_SOURCE_URI": "rtsp://127.0.0.1:8554/video-watch",
-          "VISUAL_DETECTION_TARGETS": "people, equipment, objects, hazards, access activity, workflow activity, and other configured visual targets",
-          "VL_MODEL_BASE_URL": "http://192.168.4.173:11434",
-          "VL_MODEL_NAME": "nemotron3:33b"
-        },
-        "gpu": false,
-        "name_prefix": "video_watch_assistant",
-        "node_type": "stream",
-        "output_message_type": null,
-        "persistent_workspace": false,
-        "policy": "visual_detector/policies/video-egress.yaml",
-        "reuse_shared_sandbox": true,
-        "role": "vl_model_video_visual_detector",
-        "runner_module": "MirrorNeuron.Sandbox.OpenShell",
-        "script": "scripts/run_blueprint.py",
-        "upload_as": "visual_detector",
-        "upload_path": "visual_detector",
-        "upload_paths": [
-          {
-            "source": "visual_detector",
-            "target": "visual_detector"
-          }
-        ],
-        "workdir": "/sandbox/job/visual_detector"
-      }
-    }
-  ],
-  "policies": {
-    "recovery_mode": "cluster_recover",
-    "stream_mode": "live"
-  },
-  "requiredContextEngine": false,
-  "requirements": {
-    "cpu": {
-      "min_cores": 1
-    },
-    "disk": {
-      "min_gb": 1
-    },
-    "gpu": {
-      "min_count": 0
-    },
-    "memory": {
-      "min_gb": 2
-    }
-  },
-  "runtime": {
-    "bindings": {
-      "detect_visual_targets": {
-        "legacy_entrypoint": "ingress",
-        "risk": "low",
-        "side_effect": "read",
-        "strategy": "fanout_reduce",
-        "type": "team",
-        "workers": [
-          {
-            "id": "video:visual_detector",
-            "model": "Ollama/Nemotron3 33B",
-            "role": "Run visual detection",
-            "tokens": 14000,
-            "tools": 4
-          },
-          {
-            "id": "video:alert_policy",
-            "model": "Ollama/Nemotron3 33B",
-            "role": "Evaluate cooldown and alert policy",
-            "tokens": 14000,
-            "tools": 4
-          }
-        ]
-      },
-      "sample_video_frames": {
-        "legacy_entrypoint": "ingress",
-        "risk": "low",
-        "side_effect": "read",
-        "strategy": "single",
-        "type": "worker",
-        "workers": [
-          {
-            "id": "video:tick_source",
-            "model": "Ollama/Nemotron3 33B",
-            "role": "Generate frame tick events",
-            "tokens": 14000,
-            "tools": 4
-          }
-        ]
-      },
-      "start_video_monitor": {
-        "legacy_entrypoint": "ingress",
-        "risk": "low",
-        "side_effect": "read",
-        "strategy": "fanout_reduce",
-        "type": "team",
-        "workers": [
-          {
-            "id": "video:source_validator",
-            "model": "Ollama/Nemotron3 33B",
-            "role": "Validate stream source",
-            "tokens": 14000,
-            "tools": 4
-          },
-          {
-            "id": "video:monitor_router",
-            "model": "Ollama/Nemotron3 33B",
-            "role": "Route monitor start event",
-            "tokens": 14000,
-            "tools": 4
-          }
-        ]
-      },
-      "write_watch_summary": {
-        "legacy_entrypoint": "ingress",
-        "risk": "low",
-        "side_effect": "read",
-        "strategy": "single",
-        "type": "worker",
-        "workers": [
-          {
-            "id": "video:summary_writer",
-            "model": "Ollama/Nemotron3 33B",
-            "role": "Write detection summary",
-            "tokens": 14000,
-            "tools": 4
-          }
-        ]
-      }
-    },
-    "memory": {
-      "collection": "mn_memory",
-      "containers": "optional_sidecar",
-      "context_addr_env": "MN_CONTEXT_ADDR",
-      "conversation": {
-        "agent_role": "otterdesk_chat",
-        "include_human_events": true,
-        "include_runtime_events": true,
-        "include_runtime_logs": true,
-        "target_tokens": 2400,
-        "token_budget": 6000,
-        "use_model_compression": false
-      },
-      "conversation_enabled": true,
-      "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
-      "default_context_addr": "localhost:50052",
-      "enabled": true,
-      "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
-      "namespace": "video_watch_assistant_context",
-      "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
-      "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
-      "sdk_distribution": "mirrorneuron-membrane-python-sdk",
-      "sdk_import_package": "mn_context_engine_sdk"
-    },
-    "models": {
-      "primary": {
-        "model": "ollama/nemotron3:33b",
-        "provider": "ollama",
-        "role": "AI assistant for reviewing video stream activity and preparing visual detection alerts.",
-        "type": "llm"
-      }
-    },
-    "observability": {
-      "panels": [
-        "current_status",
-        "recent_events",
-        "pending_human_requests",
-        "output_artifacts",
-        "resource_usage",
-        "errors",
-        "input_lag",
-        "backpressure",
-        "llm_calls",
-        "token_budget",
-        "llm_retries",
-        "output_skill_attempts",
-        "output_skill_failures"
-      ],
-      "reads": [
-        "events.jsonl",
-        "human.jsonl",
-        "logs.jsonl",
-        "resources.jsonl",
-        "result.json",
-        "final_artifact.json",
-        "web_ui.json"
-      ],
-      "schema_version": "mn.blueprint.observability_dashboard.v1",
-      "source": "local_run_store"
-    },
-    "resources": {
-      "cpu": {
-        "min_cores": 1
-      },
-      "disk": {
-        "min_gb": 1
-      },
-      "gpu": {
-        "min_count": 0
-      },
-      "memory": {
-        "min_gb": 2
-      }
-    },
-    "store": {
-      "artifacts": [
-        "run.json",
-        "config.json",
-        "inputs.json",
-        "events.jsonl",
-        "human.jsonl",
-        "logs.jsonl",
-        "resources.jsonl",
-        "result.json",
-        "final_artifact.json"
-      ],
-      "path": "./runs/${run_id}",
-      "type": "local_run_store"
-    },
-    "worker_defaults": {
-      "model": "ollama/nemotron3:33b",
-      "pool": "default",
-      "pool_slots": 1,
-      "runner": "MirrorNeuron.Runner.HostLocal",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "workdir": "/sandbox/job/workflow"
-    }
-  },
-  "term": "TERM.md",
-  "type": "service",
-  "version": "1.0.0"
+  }
 }

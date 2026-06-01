@@ -1,5 +1,13 @@
 {
   "apiVersion": "mn.workflow/v1",
+  "kind": "Workflow",
+  "id": "drug_discovery_research_assistant",
+  "name": "Drug Discovery Research Assistant",
+  "version": "1.0.0",
+  "manifest_version": "1.0",
+  "description": "Helps run a reviewable discovery workflow that proposes, filters, and evaluates drug candidates across repeated research stages.",
+  "graph_id": "drug_discovery_research_assistant_v1",
+  "job_name": "drug-discovery-research-assistant",
   "contract": {
     "events": {
       "human_stream": "human.jsonl",
@@ -270,66 +278,6 @@
       "Computational biology researchers, scientific AI platform teams, and research operations groups."
     ]
   },
-  "description": "Helps run a reviewable discovery workflow that proposes, filters, and evaluates drug candidates across repeated research stages.",
-  "edges": [
-    {
-      "edge_id": "a_to_b",
-      "from_node": "target_discovery",
-      "message_type": "targets_ready",
-      "to_node": "structure_generation"
-    },
-    {
-      "edge_id": "b_to_c",
-      "from_node": "structure_generation",
-      "message_type": "structures_ready",
-      "to_node": "candidate_generation"
-    },
-    {
-      "edge_id": "c_to_d",
-      "from_node": "candidate_generation",
-      "message_type": "candidates_ready",
-      "to_node": "binding_evaluation"
-    },
-    {
-      "edge_id": "d_to_e",
-      "from_node": "binding_evaluation",
-      "message_type": "evaluations_ready",
-      "to_node": "ranking_reporting"
-    },
-    {
-      "edge_id": "manager_listen_a",
-      "from_node": "target_discovery",
-      "message_type": "targets_ready",
-      "to_node": "manager_monitor"
-    },
-    {
-      "edge_id": "manager_listen_b",
-      "from_node": "structure_generation",
-      "message_type": "structures_ready",
-      "to_node": "manager_monitor"
-    },
-    {
-      "edge_id": "manager_listen_c",
-      "from_node": "candidate_generation",
-      "message_type": "candidates_ready",
-      "to_node": "manager_monitor"
-    },
-    {
-      "edge_id": "manager_listen_d",
-      "from_node": "binding_evaluation",
-      "message_type": "evaluations_ready",
-      "to_node": "manager_monitor"
-    },
-    {
-      "edge_id": "manager_listen_e",
-      "from_node": "ranking_reporting",
-      "message_type": "pipeline_complete",
-      "to_node": "manager_monitor"
-    }
-  ],
-  "entrypoints": [
-    "target_discovery"
-  ],
   "flow": {
     "entrypoint": "target_discovery",
     "graph": {
@@ -631,22 +579,472 @@
       }
     ]
   },
-  "graph_id": "drug_discovery_research_assistant_v1",
-  "id": "drug_discovery_research_assistant",
-  "initial_inputs": {
-    "target_discovery": [
-      {
-        "disease": "Alzheimer"
+  "runtime": {
+    "bindings": {
+      "binding_evaluation": {
+        "risk": "medium",
+        "side_effect": "internal_write",
+        "strategy": "single",
+        "type": "worker",
+        "uses": "mn-agents.data_python_executor@1.0.0",
+        "worker": {
+          "id": "binding_evaluation",
+          "model": "Ollama/Nemotron3 33B",
+          "role": "binding_evaluation",
+          "script": "scripts/stage_d.py",
+          "tokens": 18000,
+          "tools": 4,
+          "uses": "mn-agents.data_python_executor@1.0.0",
+          "with": {
+            "command": [
+              "python3",
+              "scripts/stage_d.py"
+            ],
+            "node_type": "generic",
+            "output_message_type": "evaluations_ready",
+            "pool": "default",
+            "pool_slots": 1,
+            "runner_module": "MirrorNeuron.Runner.HostLocal",
+            "script": "scripts/stage_d.py",
+            "upload_as": "worker",
+            "upload_path": "worker",
+            "workdir": "/sandbox/job/worker"
+          }
+        },
+        "workers": [
+          {
+            "id": "binding_evaluation",
+            "model": "Ollama/Nemotron3 33B",
+            "role": "binding_evaluation",
+            "script": "scripts/stage_d.py",
+            "tokens": 18000,
+            "tools": 4,
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "command": [
+                "python3",
+                "scripts/stage_d.py"
+              ],
+              "node_type": "generic",
+              "output_message_type": "evaluations_ready",
+              "pool": "default",
+              "pool_slots": 1,
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "script": "scripts/stage_d.py",
+              "upload_as": "worker",
+              "upload_path": "worker",
+              "workdir": "/sandbox/job/worker"
+            },
+            "kind": "generic"
+          }
+        ]
+      },
+      "candidate_generation": {
+        "risk": "medium",
+        "side_effect": "internal_write",
+        "strategy": "single",
+        "type": "worker",
+        "uses": "mn-agents.data_python_executor@1.0.0",
+        "worker": {
+          "id": "candidate_generation",
+          "model": "Ollama/Nemotron3 33B",
+          "role": "candidate_generation",
+          "script": "scripts/stage_c.py",
+          "tokens": 18000,
+          "tools": 4,
+          "uses": "mn-agents.data_python_executor@1.0.0",
+          "with": {
+            "command": [
+              "python3",
+              "scripts/stage_c.py"
+            ],
+            "node_type": "generic",
+            "output_message_type": "candidates_ready",
+            "pool": "default",
+            "pool_slots": 1,
+            "runner_module": "MirrorNeuron.Runner.HostLocal",
+            "script": "scripts/stage_c.py",
+            "upload_as": "worker",
+            "upload_path": "worker",
+            "workdir": "/sandbox/job/worker"
+          }
+        },
+        "workers": [
+          {
+            "id": "candidate_generation",
+            "model": "Ollama/Nemotron3 33B",
+            "role": "candidate_generation",
+            "script": "scripts/stage_c.py",
+            "tokens": 18000,
+            "tools": 4,
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "command": [
+                "python3",
+                "scripts/stage_c.py"
+              ],
+              "node_type": "generic",
+              "output_message_type": "candidates_ready",
+              "pool": "default",
+              "pool_slots": 1,
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "script": "scripts/stage_c.py",
+              "upload_as": "worker",
+              "upload_path": "worker",
+              "workdir": "/sandbox/job/worker"
+            },
+            "kind": "generic"
+          }
+        ]
+      },
+      "manager_monitor": {
+        "risk": "low",
+        "side_effect": "none",
+        "strategy": "single",
+        "type": "worker",
+        "uses": "mn-agents.data_python_executor@1.0.0",
+        "worker": {
+          "id": "manager_monitor",
+          "model": "Ollama/Nemotron3 33B",
+          "role": "manager_monitor",
+          "script": "scripts/manager.py",
+          "tokens": 18000,
+          "tools": 4,
+          "uses": "mn-agents.data_python_executor@1.0.0",
+          "with": {
+            "command": [
+              "python3",
+              "scripts/manager.py"
+            ],
+            "node_type": "generic",
+            "pool": "default",
+            "pool_slots": 1,
+            "runner_module": "MirrorNeuron.Runner.HostLocal",
+            "script": "scripts/manager.py",
+            "upload_as": "worker",
+            "upload_path": "worker",
+            "workdir": "/sandbox/job/worker"
+          }
+        },
+        "workers": [
+          {
+            "id": "manager_monitor",
+            "model": "Ollama/Nemotron3 33B",
+            "role": "manager_monitor",
+            "script": "scripts/manager.py",
+            "tokens": 18000,
+            "tools": 4,
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "command": [
+                "python3",
+                "scripts/manager.py"
+              ],
+              "node_type": "generic",
+              "pool": "default",
+              "pool_slots": 1,
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "script": "scripts/manager.py",
+              "upload_as": "worker",
+              "upload_path": "worker",
+              "workdir": "/sandbox/job/worker"
+            },
+            "kind": "generic"
+          }
+        ]
+      },
+      "ranking_reporting": {
+        "risk": "medium",
+        "side_effect": "internal_write",
+        "strategy": "single",
+        "type": "worker",
+        "uses": "mn-agents.data_python_executor@1.0.0",
+        "worker": {
+          "id": "ranking_reporting",
+          "model": "Ollama/Nemotron3 33B",
+          "role": "ranking_reporting",
+          "script": "scripts/stage_e.py",
+          "tokens": 18000,
+          "tools": 4,
+          "uses": "mn-agents.data_python_executor@1.0.0",
+          "with": {
+            "command": [
+              "python3",
+              "scripts/stage_e.py"
+            ],
+            "node_type": "generic",
+            "output_message_type": "pipeline_complete",
+            "pool": "default",
+            "pool_slots": 1,
+            "runner_module": "MirrorNeuron.Runner.HostLocal",
+            "script": "scripts/stage_e.py",
+            "upload_as": "worker",
+            "upload_path": "worker",
+            "workdir": "/sandbox/job/worker"
+          }
+        },
+        "workers": [
+          {
+            "id": "ranking_reporting",
+            "model": "Ollama/Nemotron3 33B",
+            "role": "ranking_reporting",
+            "script": "scripts/stage_e.py",
+            "tokens": 18000,
+            "tools": 4,
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "command": [
+                "python3",
+                "scripts/stage_e.py"
+              ],
+              "node_type": "generic",
+              "output_message_type": "pipeline_complete",
+              "pool": "default",
+              "pool_slots": 1,
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "script": "scripts/stage_e.py",
+              "upload_as": "worker",
+              "upload_path": "worker",
+              "workdir": "/sandbox/job/worker"
+            },
+            "kind": "generic"
+          }
+        ]
+      },
+      "structure_generation": {
+        "risk": "medium",
+        "side_effect": "internal_write",
+        "strategy": "single",
+        "type": "worker",
+        "uses": "mn-agents.data_python_executor@1.0.0",
+        "worker": {
+          "id": "structure_generation",
+          "model": "Ollama/Nemotron3 33B",
+          "role": "structure_generation",
+          "script": "scripts/stage_b.py",
+          "tokens": 18000,
+          "tools": 4,
+          "uses": "mn-agents.data_python_executor@1.0.0",
+          "with": {
+            "command": [
+              "python3",
+              "scripts/stage_b.py"
+            ],
+            "node_type": "generic",
+            "output_message_type": "structures_ready",
+            "pool": "default",
+            "pool_slots": 1,
+            "runner_module": "MirrorNeuron.Runner.HostLocal",
+            "script": "scripts/stage_b.py",
+            "upload_as": "worker",
+            "upload_path": "worker",
+            "workdir": "/sandbox/job/worker"
+          }
+        },
+        "workers": [
+          {
+            "id": "structure_generation",
+            "model": "Ollama/Nemotron3 33B",
+            "role": "structure_generation",
+            "script": "scripts/stage_b.py",
+            "tokens": 18000,
+            "tools": 4,
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "command": [
+                "python3",
+                "scripts/stage_b.py"
+              ],
+              "node_type": "generic",
+              "output_message_type": "structures_ready",
+              "pool": "default",
+              "pool_slots": 1,
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "script": "scripts/stage_b.py",
+              "upload_as": "worker",
+              "upload_path": "worker",
+              "workdir": "/sandbox/job/worker"
+            },
+            "kind": "generic"
+          }
+        ]
+      },
+      "target_discovery": {
+        "risk": "medium",
+        "side_effect": "internal_write",
+        "strategy": "single",
+        "type": "worker",
+        "uses": "mn-agents.data_python_executor@1.0.0",
+        "worker": {
+          "id": "target_discovery",
+          "model": "Ollama/Nemotron3 33B",
+          "role": "target_discovery",
+          "script": "scripts/stage_a.py",
+          "tokens": 18000,
+          "tools": 4,
+          "uses": "mn-agents.data_python_executor@1.0.0",
+          "with": {
+            "command": [
+              "python3",
+              "scripts/stage_a.py"
+            ],
+            "node_type": "generic",
+            "output_message_type": "targets_ready",
+            "pool": "default",
+            "pool_slots": 1,
+            "runner_module": "MirrorNeuron.Runner.HostLocal",
+            "script": "scripts/stage_a.py",
+            "upload_as": "worker",
+            "upload_path": "worker",
+            "workdir": "/sandbox/job/worker"
+          }
+        },
+        "workers": [
+          {
+            "id": "target_discovery",
+            "model": "Ollama/Nemotron3 33B",
+            "role": "target_discovery",
+            "script": "scripts/stage_a.py",
+            "tokens": 18000,
+            "tools": 4,
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "command": [
+                "python3",
+                "scripts/stage_a.py"
+              ],
+              "node_type": "generic",
+              "output_message_type": "targets_ready",
+              "pool": "default",
+              "pool_slots": 1,
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "script": "scripts/stage_a.py",
+              "upload_as": "worker",
+              "upload_path": "worker",
+              "workdir": "/sandbox/job/worker"
+            },
+            "kind": "generic"
+          }
+        ]
       }
-    ]
+    },
+    "memory": {
+      "collection": "mn_memory",
+      "containers": "optional_sidecar",
+      "context_addr_env": "MN_CONTEXT_ADDR",
+      "conversation": {
+        "agent_role": "otterdesk_chat",
+        "include_human_events": true,
+        "include_runtime_events": true,
+        "include_runtime_logs": true,
+        "target_tokens": 2400,
+        "token_budget": 6000,
+        "use_model_compression": false
+      },
+      "conversation_enabled": true,
+      "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
+      "default_context_addr": "localhost:50052",
+      "enabled": true,
+      "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
+      "namespace": "drug_discovery_research_assistant_context",
+      "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
+      "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
+      "sdk_distribution": "mirrorneuron-membrane-python-sdk",
+      "sdk_import_package": "mn_context_engine_sdk"
+    },
+    "models": {
+      "primary": {
+        "model": "ollama/nemotron3:33b",
+        "provider": "ollama",
+        "role": "AI assistant for organizing drug discovery candidate generation, filtering, and evidence review.",
+        "type": "llm"
+      }
+    },
+    "observability": {
+      "panels": [
+        "current_status",
+        "recent_events",
+        "pending_human_requests",
+        "output_artifacts",
+        "resource_usage",
+        "errors",
+        "llm_calls",
+        "token_budget",
+        "llm_retries"
+      ],
+      "reads": [
+        "events.jsonl",
+        "human.jsonl",
+        "logs.jsonl",
+        "resources.jsonl",
+        "result.json",
+        "final_artifact.json",
+        "web_ui.json"
+      ],
+      "schema_version": "mn.blueprint.observability_dashboard.v1",
+      "source": "local_run_store"
+    },
+    "resources": {
+      "cpu": {
+        "min_cores": 1
+      },
+      "disk": {
+        "min_gb": 1
+      },
+      "gpu": {
+        "min_count": 0
+      },
+      "memory": {
+        "min_gb": 2
+      }
+    },
+    "store": {
+      "artifacts": [
+        "run.json",
+        "config.json",
+        "inputs.json",
+        "events.jsonl",
+        "human.jsonl",
+        "logs.jsonl",
+        "resources.jsonl",
+        "result.json",
+        "final_artifact.json"
+      ],
+      "path": "./runs/${run_id}",
+      "type": "local_run_store"
+    },
+    "worker_defaults": {
+      "model": "ollama/nemotron3:33b",
+      "pool": "default",
+      "pool_slots": 1,
+      "runner": "MirrorNeuron.Runner.HostLocal",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "workdir": "/sandbox/job/workflow"
+    }
   },
   "input_validation": {
     "rules": []
   },
-  "job_name": "drug-discovery-research-assistant",
-  "kind": "Workflow",
+  "requirements": {
+    "cpu": {
+      "min_cores": 1
+    },
+    "disk": {
+      "min_gb": 1
+    },
+    "gpu": {
+      "min_count": 0
+    },
+    "memory": {
+      "min_gb": 2
+    }
+  },
+  "policies": {
+    "recovery_mode": "cluster_recover"
+  },
+  "requiredContextEngine": false,
   "license": "LICENSE.md",
-  "manifest_version": "1.0",
+  "term": "TERM.md",
   "metadata": {
     "agent_role": "AI assistant for organizing drug discovery candidate generation, filtering, and evidence review.",
     "agent_templates": {
@@ -1374,578 +1772,5 @@
         "llm_retries"
       ]
     }
-  },
-  "name": "Drug Discovery Research Assistant",
-  "nodes": [
-    {
-      "node_id": "target_discovery",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "command": [
-          "python3",
-          "scripts/stage_a.py"
-        ],
-        "node_type": "generic",
-        "output_message_type": "targets_ready",
-        "pool": "default",
-        "pool_slots": 1,
-        "runner_module": "MirrorNeuron.Runner.HostLocal",
-        "script": "scripts/stage_a.py",
-        "upload_as": "worker",
-        "upload_path": "worker",
-        "workdir": "/sandbox/job/worker"
-      }
-    },
-    {
-      "node_id": "structure_generation",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "command": [
-          "python3",
-          "scripts/stage_b.py"
-        ],
-        "node_type": "generic",
-        "output_message_type": "structures_ready",
-        "pool": "default",
-        "pool_slots": 1,
-        "runner_module": "MirrorNeuron.Runner.HostLocal",
-        "script": "scripts/stage_b.py",
-        "upload_as": "worker",
-        "upload_path": "worker",
-        "workdir": "/sandbox/job/worker"
-      }
-    },
-    {
-      "node_id": "candidate_generation",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "command": [
-          "python3",
-          "scripts/stage_c.py"
-        ],
-        "node_type": "generic",
-        "output_message_type": "candidates_ready",
-        "pool": "default",
-        "pool_slots": 1,
-        "runner_module": "MirrorNeuron.Runner.HostLocal",
-        "script": "scripts/stage_c.py",
-        "upload_as": "worker",
-        "upload_path": "worker",
-        "workdir": "/sandbox/job/worker"
-      }
-    },
-    {
-      "node_id": "binding_evaluation",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "command": [
-          "python3",
-          "scripts/stage_d.py"
-        ],
-        "node_type": "generic",
-        "output_message_type": "evaluations_ready",
-        "pool": "default",
-        "pool_slots": 1,
-        "runner_module": "MirrorNeuron.Runner.HostLocal",
-        "script": "scripts/stage_d.py",
-        "upload_as": "worker",
-        "upload_path": "worker",
-        "workdir": "/sandbox/job/worker"
-      }
-    },
-    {
-      "node_id": "ranking_reporting",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "command": [
-          "python3",
-          "scripts/stage_e.py"
-        ],
-        "node_type": "generic",
-        "output_message_type": "pipeline_complete",
-        "pool": "default",
-        "pool_slots": 1,
-        "runner_module": "MirrorNeuron.Runner.HostLocal",
-        "script": "scripts/stage_e.py",
-        "upload_as": "worker",
-        "upload_path": "worker",
-        "workdir": "/sandbox/job/worker"
-      }
-    },
-    {
-      "node_id": "manager_monitor",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "command": [
-          "python3",
-          "scripts/manager.py"
-        ],
-        "node_type": "generic",
-        "pool": "default",
-        "pool_slots": 1,
-        "runner_module": "MirrorNeuron.Runner.HostLocal",
-        "script": "scripts/manager.py",
-        "upload_as": "worker",
-        "upload_path": "worker",
-        "workdir": "/sandbox/job/worker"
-      }
-    }
-  ],
-  "policies": {
-    "recovery_mode": "cluster_recover"
-  },
-  "requiredContextEngine": false,
-  "requirements": {
-    "cpu": {
-      "min_cores": 1
-    },
-    "disk": {
-      "min_gb": 1
-    },
-    "gpu": {
-      "min_count": 0
-    },
-    "memory": {
-      "min_gb": 2
-    }
-  },
-  "runtime": {
-    "bindings": {
-      "binding_evaluation": {
-        "risk": "medium",
-        "side_effect": "internal_write",
-        "strategy": "single",
-        "type": "worker",
-        "uses": "mn-agents.data_python_executor@1.0.0",
-        "worker": {
-          "id": "binding_evaluation",
-          "model": "Ollama/Nemotron3 33B",
-          "role": "binding_evaluation",
-          "script": "scripts/stage_d.py",
-          "tokens": 18000,
-          "tools": 4,
-          "uses": "mn-agents.data_python_executor@1.0.0",
-          "with": {
-            "command": [
-              "python3",
-              "scripts/stage_d.py"
-            ],
-            "node_type": "generic",
-            "output_message_type": "evaluations_ready",
-            "pool": "default",
-            "pool_slots": 1,
-            "runner_module": "MirrorNeuron.Runner.HostLocal",
-            "script": "scripts/stage_d.py",
-            "upload_as": "worker",
-            "upload_path": "worker",
-            "workdir": "/sandbox/job/worker"
-          }
-        },
-        "workers": [
-          {
-            "id": "binding_evaluation",
-            "model": "Ollama/Nemotron3 33B",
-            "role": "binding_evaluation",
-            "script": "scripts/stage_d.py",
-            "tokens": 18000,
-            "tools": 4,
-            "uses": "mn-agents.data_python_executor@1.0.0",
-            "with": {
-              "command": [
-                "python3",
-                "scripts/stage_d.py"
-              ],
-              "node_type": "generic",
-              "output_message_type": "evaluations_ready",
-              "pool": "default",
-              "pool_slots": 1,
-              "runner_module": "MirrorNeuron.Runner.HostLocal",
-              "script": "scripts/stage_d.py",
-              "upload_as": "worker",
-              "upload_path": "worker",
-              "workdir": "/sandbox/job/worker"
-            }
-          }
-        ]
-      },
-      "candidate_generation": {
-        "risk": "medium",
-        "side_effect": "internal_write",
-        "strategy": "single",
-        "type": "worker",
-        "uses": "mn-agents.data_python_executor@1.0.0",
-        "worker": {
-          "id": "candidate_generation",
-          "model": "Ollama/Nemotron3 33B",
-          "role": "candidate_generation",
-          "script": "scripts/stage_c.py",
-          "tokens": 18000,
-          "tools": 4,
-          "uses": "mn-agents.data_python_executor@1.0.0",
-          "with": {
-            "command": [
-              "python3",
-              "scripts/stage_c.py"
-            ],
-            "node_type": "generic",
-            "output_message_type": "candidates_ready",
-            "pool": "default",
-            "pool_slots": 1,
-            "runner_module": "MirrorNeuron.Runner.HostLocal",
-            "script": "scripts/stage_c.py",
-            "upload_as": "worker",
-            "upload_path": "worker",
-            "workdir": "/sandbox/job/worker"
-          }
-        },
-        "workers": [
-          {
-            "id": "candidate_generation",
-            "model": "Ollama/Nemotron3 33B",
-            "role": "candidate_generation",
-            "script": "scripts/stage_c.py",
-            "tokens": 18000,
-            "tools": 4,
-            "uses": "mn-agents.data_python_executor@1.0.0",
-            "with": {
-              "command": [
-                "python3",
-                "scripts/stage_c.py"
-              ],
-              "node_type": "generic",
-              "output_message_type": "candidates_ready",
-              "pool": "default",
-              "pool_slots": 1,
-              "runner_module": "MirrorNeuron.Runner.HostLocal",
-              "script": "scripts/stage_c.py",
-              "upload_as": "worker",
-              "upload_path": "worker",
-              "workdir": "/sandbox/job/worker"
-            }
-          }
-        ]
-      },
-      "manager_monitor": {
-        "risk": "low",
-        "side_effect": "none",
-        "strategy": "observer",
-        "type": "worker",
-        "uses": "mn-agents.data_python_executor@1.0.0",
-        "worker": {
-          "id": "manager_monitor",
-          "model": "Ollama/Nemotron3 33B",
-          "role": "manager_monitor",
-          "script": "scripts/manager.py",
-          "tokens": 18000,
-          "tools": 4,
-          "uses": "mn-agents.data_python_executor@1.0.0",
-          "with": {
-            "command": [
-              "python3",
-              "scripts/manager.py"
-            ],
-            "node_type": "generic",
-            "pool": "default",
-            "pool_slots": 1,
-            "runner_module": "MirrorNeuron.Runner.HostLocal",
-            "script": "scripts/manager.py",
-            "upload_as": "worker",
-            "upload_path": "worker",
-            "workdir": "/sandbox/job/worker"
-          }
-        },
-        "workers": [
-          {
-            "id": "manager_monitor",
-            "model": "Ollama/Nemotron3 33B",
-            "role": "manager_monitor",
-            "script": "scripts/manager.py",
-            "tokens": 18000,
-            "tools": 4,
-            "uses": "mn-agents.data_python_executor@1.0.0",
-            "with": {
-              "command": [
-                "python3",
-                "scripts/manager.py"
-              ],
-              "node_type": "generic",
-              "pool": "default",
-              "pool_slots": 1,
-              "runner_module": "MirrorNeuron.Runner.HostLocal",
-              "script": "scripts/manager.py",
-              "upload_as": "worker",
-              "upload_path": "worker",
-              "workdir": "/sandbox/job/worker"
-            }
-          }
-        ]
-      },
-      "ranking_reporting": {
-        "risk": "medium",
-        "side_effect": "internal_write",
-        "strategy": "single",
-        "type": "worker",
-        "uses": "mn-agents.data_python_executor@1.0.0",
-        "worker": {
-          "id": "ranking_reporting",
-          "model": "Ollama/Nemotron3 33B",
-          "role": "ranking_reporting",
-          "script": "scripts/stage_e.py",
-          "tokens": 18000,
-          "tools": 4,
-          "uses": "mn-agents.data_python_executor@1.0.0",
-          "with": {
-            "command": [
-              "python3",
-              "scripts/stage_e.py"
-            ],
-            "node_type": "generic",
-            "output_message_type": "pipeline_complete",
-            "pool": "default",
-            "pool_slots": 1,
-            "runner_module": "MirrorNeuron.Runner.HostLocal",
-            "script": "scripts/stage_e.py",
-            "upload_as": "worker",
-            "upload_path": "worker",
-            "workdir": "/sandbox/job/worker"
-          }
-        },
-        "workers": [
-          {
-            "id": "ranking_reporting",
-            "model": "Ollama/Nemotron3 33B",
-            "role": "ranking_reporting",
-            "script": "scripts/stage_e.py",
-            "tokens": 18000,
-            "tools": 4,
-            "uses": "mn-agents.data_python_executor@1.0.0",
-            "with": {
-              "command": [
-                "python3",
-                "scripts/stage_e.py"
-              ],
-              "node_type": "generic",
-              "output_message_type": "pipeline_complete",
-              "pool": "default",
-              "pool_slots": 1,
-              "runner_module": "MirrorNeuron.Runner.HostLocal",
-              "script": "scripts/stage_e.py",
-              "upload_as": "worker",
-              "upload_path": "worker",
-              "workdir": "/sandbox/job/worker"
-            }
-          }
-        ]
-      },
-      "structure_generation": {
-        "risk": "medium",
-        "side_effect": "internal_write",
-        "strategy": "single",
-        "type": "worker",
-        "uses": "mn-agents.data_python_executor@1.0.0",
-        "worker": {
-          "id": "structure_generation",
-          "model": "Ollama/Nemotron3 33B",
-          "role": "structure_generation",
-          "script": "scripts/stage_b.py",
-          "tokens": 18000,
-          "tools": 4,
-          "uses": "mn-agents.data_python_executor@1.0.0",
-          "with": {
-            "command": [
-              "python3",
-              "scripts/stage_b.py"
-            ],
-            "node_type": "generic",
-            "output_message_type": "structures_ready",
-            "pool": "default",
-            "pool_slots": 1,
-            "runner_module": "MirrorNeuron.Runner.HostLocal",
-            "script": "scripts/stage_b.py",
-            "upload_as": "worker",
-            "upload_path": "worker",
-            "workdir": "/sandbox/job/worker"
-          }
-        },
-        "workers": [
-          {
-            "id": "structure_generation",
-            "model": "Ollama/Nemotron3 33B",
-            "role": "structure_generation",
-            "script": "scripts/stage_b.py",
-            "tokens": 18000,
-            "tools": 4,
-            "uses": "mn-agents.data_python_executor@1.0.0",
-            "with": {
-              "command": [
-                "python3",
-                "scripts/stage_b.py"
-              ],
-              "node_type": "generic",
-              "output_message_type": "structures_ready",
-              "pool": "default",
-              "pool_slots": 1,
-              "runner_module": "MirrorNeuron.Runner.HostLocal",
-              "script": "scripts/stage_b.py",
-              "upload_as": "worker",
-              "upload_path": "worker",
-              "workdir": "/sandbox/job/worker"
-            }
-          }
-        ]
-      },
-      "target_discovery": {
-        "risk": "medium",
-        "side_effect": "internal_write",
-        "strategy": "single",
-        "type": "worker",
-        "uses": "mn-agents.data_python_executor@1.0.0",
-        "worker": {
-          "id": "target_discovery",
-          "model": "Ollama/Nemotron3 33B",
-          "role": "target_discovery",
-          "script": "scripts/stage_a.py",
-          "tokens": 18000,
-          "tools": 4,
-          "uses": "mn-agents.data_python_executor@1.0.0",
-          "with": {
-            "command": [
-              "python3",
-              "scripts/stage_a.py"
-            ],
-            "node_type": "generic",
-            "output_message_type": "targets_ready",
-            "pool": "default",
-            "pool_slots": 1,
-            "runner_module": "MirrorNeuron.Runner.HostLocal",
-            "script": "scripts/stage_a.py",
-            "upload_as": "worker",
-            "upload_path": "worker",
-            "workdir": "/sandbox/job/worker"
-          }
-        },
-        "workers": [
-          {
-            "id": "target_discovery",
-            "model": "Ollama/Nemotron3 33B",
-            "role": "target_discovery",
-            "script": "scripts/stage_a.py",
-            "tokens": 18000,
-            "tools": 4,
-            "uses": "mn-agents.data_python_executor@1.0.0",
-            "with": {
-              "command": [
-                "python3",
-                "scripts/stage_a.py"
-              ],
-              "node_type": "generic",
-              "output_message_type": "targets_ready",
-              "pool": "default",
-              "pool_slots": 1,
-              "runner_module": "MirrorNeuron.Runner.HostLocal",
-              "script": "scripts/stage_a.py",
-              "upload_as": "worker",
-              "upload_path": "worker",
-              "workdir": "/sandbox/job/worker"
-            }
-          }
-        ]
-      }
-    },
-    "memory": {
-      "collection": "mn_memory",
-      "containers": "optional_sidecar",
-      "context_addr_env": "MN_CONTEXT_ADDR",
-      "conversation": {
-        "agent_role": "otterdesk_chat",
-        "include_human_events": true,
-        "include_runtime_events": true,
-        "include_runtime_logs": true,
-        "target_tokens": 2400,
-        "token_budget": 6000,
-        "use_model_compression": false
-      },
-      "conversation_enabled": true,
-      "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
-      "default_context_addr": "localhost:50052",
-      "enabled": true,
-      "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
-      "namespace": "drug_discovery_research_assistant_context",
-      "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
-      "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
-      "sdk_distribution": "mirrorneuron-membrane-python-sdk",
-      "sdk_import_package": "mn_context_engine_sdk"
-    },
-    "models": {
-      "primary": {
-        "model": "ollama/nemotron3:33b",
-        "provider": "ollama",
-        "role": "AI assistant for organizing drug discovery candidate generation, filtering, and evidence review.",
-        "type": "llm"
-      }
-    },
-    "observability": {
-      "panels": [
-        "current_status",
-        "recent_events",
-        "pending_human_requests",
-        "output_artifacts",
-        "resource_usage",
-        "errors",
-        "llm_calls",
-        "token_budget",
-        "llm_retries"
-      ],
-      "reads": [
-        "events.jsonl",
-        "human.jsonl",
-        "logs.jsonl",
-        "resources.jsonl",
-        "result.json",
-        "final_artifact.json",
-        "web_ui.json"
-      ],
-      "schema_version": "mn.blueprint.observability_dashboard.v1",
-      "source": "local_run_store"
-    },
-    "resources": {
-      "cpu": {
-        "min_cores": 1
-      },
-      "disk": {
-        "min_gb": 1
-      },
-      "gpu": {
-        "min_count": 0
-      },
-      "memory": {
-        "min_gb": 2
-      }
-    },
-    "store": {
-      "artifacts": [
-        "run.json",
-        "config.json",
-        "inputs.json",
-        "events.jsonl",
-        "human.jsonl",
-        "logs.jsonl",
-        "resources.jsonl",
-        "result.json",
-        "final_artifact.json"
-      ],
-      "path": "./runs/${run_id}",
-      "type": "local_run_store"
-    },
-    "worker_defaults": {
-      "model": "ollama/nemotron3:33b",
-      "pool": "default",
-      "pool_slots": 1,
-      "runner": "MirrorNeuron.Runner.HostLocal",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "workdir": "/sandbox/job/workflow"
-    }
-  },
-  "term": "TERM.md",
-  "version": "1.0.0"
+  }
 }

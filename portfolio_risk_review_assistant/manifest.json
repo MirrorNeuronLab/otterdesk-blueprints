@@ -1,5 +1,13 @@
 {
   "apiVersion": "mn.workflow/v1",
+  "kind": "Workflow",
+  "id": "portfolio_risk_review_assistant",
+  "name": "Portfolio Risk Review Assistant",
+  "version": "1.0.0",
+  "manifest_version": "1.0",
+  "description": "Stress-tests a portfolio against market crashes, rate shocks, and liquidity pressure, then explains risks and possible rebalancing options in plain language.",
+  "graph_id": "portfolio_risk_review_assistant_v1",
+  "job_name": "portfolio-risk-review-assistant",
   "contract": {
     "events": {
       "human_stream": "human.jsonl",
@@ -272,18 +280,6 @@
       "Investors, advisors, portfolio managers, treasury teams, and fintech operators."
     ]
   },
-  "description": "Stress-tests a portfolio against market crashes, rate shocks, and liquidity pressure, then explains risks and possible rebalancing options in plain language.",
-  "edges": [
-    {
-      "edge_id": "simulation_to_report",
-      "from_node": "simulation_loop",
-      "message_type": "blueprint_report",
-      "to_node": "report_sink"
-    }
-  ],
-  "entrypoints": [
-    "simulation_loop"
-  ],
   "flow": {
     "entrypoint": "load_portfolio_context",
     "graph": {
@@ -525,24 +521,214 @@
       }
     ]
   },
-  "graph_id": "portfolio_risk_review_assistant_v1",
-  "id": "portfolio_risk_review_assistant",
-  "initial_inputs": {
-    "simulation_loop": [
-      {
-        "scenario": "stagflation shock",
-        "seed": 42,
-        "steps": 5
+  "runtime": {
+    "bindings": {
+      "finalize_risk_report": {
+        "risk": "medium",
+        "side_effect": "internal_write",
+        "strategy": "single",
+        "type": "worker",
+        "workers": [
+          {
+            "id": "portfolio:report_writer",
+            "model": "Ollama/Nemotron3 33B",
+            "role": "Write final risk artifact",
+            "tokens": 14000,
+            "tools": 4
+          }
+        ]
+      },
+      "load_portfolio_context": {
+        "risk": "low",
+        "side_effect": "read",
+        "strategy": "fanout_reduce",
+        "type": "team",
+        "workers": [
+          {
+            "id": "portfolio:holdings",
+            "model": "Ollama/Nemotron3 33B",
+            "role": "Normalize holdings and exposures",
+            "tokens": 14000,
+            "tools": 4
+          },
+          {
+            "id": "portfolio:policy",
+            "model": "Ollama/Nemotron3 33B",
+            "role": "Read liquidity and risk policy",
+            "tokens": 14000,
+            "tools": 4
+          }
+        ]
+      },
+      "review_rebalance_options": {
+        "risk": "low",
+        "side_effect": "read",
+        "strategy": "fanout_reduce",
+        "type": "team",
+        "workers": [
+          {
+            "id": "portfolio:hedge_options",
+            "model": "Ollama/Nemotron3 33B",
+            "role": "Draft hedge and cash options",
+            "tokens": 14000,
+            "tools": 4
+          },
+          {
+            "id": "portfolio:risk_notes",
+            "model": "Ollama/Nemotron3 33B",
+            "role": "Explain downside tradeoffs",
+            "tokens": 14000,
+            "tools": 4
+          },
+          {
+            "id": "portfolio:compliance",
+            "model": "Ollama/Nemotron3 33B",
+            "role": "Check policy constraints",
+            "tokens": 14000,
+            "tools": 4
+          }
+        ]
+      },
+      "simulate_shock_path": {
+        "risk": "low",
+        "side_effect": "read",
+        "strategy": "fanout_reduce",
+        "type": "team",
+        "workers": [
+          {
+            "id": "portfolio:macro_shock",
+            "model": "Ollama/Nemotron3 33B",
+            "role": "Run macro shock path",
+            "tokens": 14000,
+            "tools": 4
+          },
+          {
+            "id": "portfolio:liquidity",
+            "model": "Ollama/Nemotron3 33B",
+            "role": "Stress liquidity and cash needs",
+            "tokens": 14000,
+            "tools": 4
+          }
+        ]
       }
-    ]
+    },
+    "memory": {
+      "collection": "mn_memory",
+      "containers": "optional_sidecar",
+      "context_addr_env": "MN_CONTEXT_ADDR",
+      "conversation": {
+        "agent_role": "otterdesk_chat",
+        "include_human_events": true,
+        "include_runtime_events": true,
+        "include_runtime_logs": true,
+        "target_tokens": 2400,
+        "token_budget": 6000,
+        "use_model_compression": false
+      },
+      "conversation_enabled": true,
+      "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
+      "default_context_addr": "localhost:50052",
+      "enabled": true,
+      "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
+      "namespace": "portfolio_risk_review_assistant_context",
+      "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
+      "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
+      "sdk_distribution": "mirrorneuron-membrane-python-sdk",
+      "sdk_import_package": "mn_context_engine_sdk"
+    },
+    "models": {
+      "primary": {
+        "model": "ollama/nemotron3:33b",
+        "provider": "ollama",
+        "role": "AI assistant for reviewing portfolio stress scenarios and drafting risk notes.",
+        "type": "llm"
+      }
+    },
+    "observability": {
+      "panels": [
+        "current_status",
+        "recent_events",
+        "pending_human_requests",
+        "output_artifacts",
+        "resource_usage",
+        "errors",
+        "llm_calls",
+        "token_budget",
+        "llm_retries"
+      ],
+      "reads": [
+        "events.jsonl",
+        "human.jsonl",
+        "logs.jsonl",
+        "resources.jsonl",
+        "result.json",
+        "final_artifact.json",
+        "web_ui.json"
+      ],
+      "schema_version": "mn.blueprint.observability_dashboard.v1",
+      "source": "local_run_store"
+    },
+    "resources": {
+      "cpu": {
+        "min_cores": 1
+      },
+      "disk": {
+        "min_gb": 1
+      },
+      "gpu": {
+        "min_count": 0
+      },
+      "memory": {
+        "min_gb": 2
+      }
+    },
+    "store": {
+      "artifacts": [
+        "run.json",
+        "config.json",
+        "inputs.json",
+        "events.jsonl",
+        "human.jsonl",
+        "logs.jsonl",
+        "resources.jsonl",
+        "result.json",
+        "final_artifact.json"
+      ],
+      "path": "./runs/${run_id}",
+      "type": "local_run_store"
+    },
+    "worker_defaults": {
+      "model": "ollama/nemotron3:33b",
+      "pool": "default",
+      "pool_slots": 1,
+      "runner": "MirrorNeuron.Runner.HostLocal",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "workdir": "/sandbox/job/workflow"
+    }
   },
   "input_validation": {
     "rules": []
   },
-  "job_name": "portfolio-risk-review-assistant",
-  "kind": "Workflow",
+  "requirements": {
+    "cpu": {
+      "min_cores": 1
+    },
+    "disk": {
+      "min_gb": 1
+    },
+    "gpu": {
+      "min_count": 0
+    },
+    "memory": {
+      "min_gb": 2
+    }
+  },
+  "policies": {
+    "recovery_mode": "local_restart"
+  },
+  "requiredContextEngine": false,
   "license": "LICENSE.md",
-  "manifest_version": "1.0",
+  "term": "TERM.md",
   "metadata": {
     "agent_role": "AI assistant for reviewing portfolio stress scenarios and drafting risk notes.",
     "agent_templates": {
@@ -1267,263 +1453,5 @@
         "llm_retries"
       ]
     }
-  },
-  "name": "Portfolio Risk Review Assistant",
-  "nodes": [
-    {
-      "node_id": "simulation_loop",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "command": [
-          "python3",
-          "scripts/run_blueprint.py"
-        ],
-        "environment": {
-          "LITELLM_API_BASE": "http://192.168.4.173:11434",
-          "LITELLM_MAX_TOKENS": "700",
-          "LITELLM_MODEL": "ollama/nemotron3:33b",
-          "LITELLM_NUM_RETRIES": "1",
-          "LITELLM_TIMEOUT_SECONDS": "60",
-          "MN_BLUEPRINT_ID": "portfolio_risk_review_assistant",
-          "MN_LLM_API_BASE": "http://192.168.4.173:11434",
-          "MN_LLM_MAX_TOKENS": "700",
-          "MN_LLM_MODEL": "ollama/nemotron3:33b",
-          "MN_LLM_NUM_RETRIES": "1",
-          "MN_LLM_TIMEOUT_SECONDS": "60"
-        },
-        "from": "base",
-        "name_prefix": "portfolio_risk_review_assistant",
-        "no_auto_providers": true,
-        "no_keep": true,
-        "node_type": "generic",
-        "output_message_type": "blueprint_report",
-        "pool": "default",
-        "pool_slots": 1,
-        "role": "root_coordinator",
-        "script": "scripts/run_blueprint.py",
-        "tty": false,
-        "upload_as": "simulation_loop",
-        "upload_path": "simulation_loop",
-        "workdir": "/sandbox/job/simulation_loop"
-      }
-    },
-    {
-      "node_id": "report_sink",
-      "uses": "mn-agents.control_join@1.0.0",
-      "with": {
-        "complete_on_message": true,
-        "node_type": "reduce",
-        "role": "result_sink"
-      }
-    }
-  ],
-  "policies": {
-    "recovery_mode": "local_restart"
-  },
-  "requiredContextEngine": false,
-  "requirements": {
-    "cpu": {
-      "min_cores": 1
-    },
-    "disk": {
-      "min_gb": 1
-    },
-    "gpu": {
-      "min_count": 0
-    },
-    "memory": {
-      "min_gb": 2
-    }
-  },
-  "runtime": {
-    "bindings": {
-      "finalize_risk_report": {
-        "legacy_entrypoint": "simulation_loop",
-        "risk": "medium",
-        "side_effect": "internal_write",
-        "strategy": "single",
-        "type": "worker",
-        "workers": [
-          {
-            "id": "portfolio:report_writer",
-            "model": "Ollama/Nemotron3 33B",
-            "role": "Write final risk artifact",
-            "tokens": 14000,
-            "tools": 4
-          }
-        ]
-      },
-      "load_portfolio_context": {
-        "legacy_entrypoint": "simulation_loop",
-        "risk": "low",
-        "side_effect": "read",
-        "strategy": "fanout_reduce",
-        "type": "team",
-        "workers": [
-          {
-            "id": "portfolio:holdings",
-            "model": "Ollama/Nemotron3 33B",
-            "role": "Normalize holdings and exposures",
-            "tokens": 14000,
-            "tools": 4
-          },
-          {
-            "id": "portfolio:policy",
-            "model": "Ollama/Nemotron3 33B",
-            "role": "Read liquidity and risk policy",
-            "tokens": 14000,
-            "tools": 4
-          }
-        ]
-      },
-      "review_rebalance_options": {
-        "legacy_entrypoint": "simulation_loop",
-        "risk": "low",
-        "side_effect": "read",
-        "strategy": "fanout_reduce",
-        "type": "team",
-        "workers": [
-          {
-            "id": "portfolio:hedge_options",
-            "model": "Ollama/Nemotron3 33B",
-            "role": "Draft hedge and cash options",
-            "tokens": 14000,
-            "tools": 4
-          },
-          {
-            "id": "portfolio:risk_notes",
-            "model": "Ollama/Nemotron3 33B",
-            "role": "Explain downside tradeoffs",
-            "tokens": 14000,
-            "tools": 4
-          },
-          {
-            "id": "portfolio:compliance",
-            "model": "Ollama/Nemotron3 33B",
-            "role": "Check policy constraints",
-            "tokens": 14000,
-            "tools": 4
-          }
-        ]
-      },
-      "simulate_shock_path": {
-        "legacy_entrypoint": "simulation_loop",
-        "risk": "low",
-        "side_effect": "read",
-        "strategy": "fanout_reduce",
-        "type": "team",
-        "workers": [
-          {
-            "id": "portfolio:macro_shock",
-            "model": "Ollama/Nemotron3 33B",
-            "role": "Run macro shock path",
-            "tokens": 14000,
-            "tools": 4
-          },
-          {
-            "id": "portfolio:liquidity",
-            "model": "Ollama/Nemotron3 33B",
-            "role": "Stress liquidity and cash needs",
-            "tokens": 14000,
-            "tools": 4
-          }
-        ]
-      }
-    },
-    "memory": {
-      "collection": "mn_memory",
-      "containers": "optional_sidecar",
-      "context_addr_env": "MN_CONTEXT_ADDR",
-      "conversation": {
-        "agent_role": "otterdesk_chat",
-        "include_human_events": true,
-        "include_runtime_events": true,
-        "include_runtime_logs": true,
-        "target_tokens": 2400,
-        "token_budget": 6000,
-        "use_model_compression": false
-      },
-      "conversation_enabled": true,
-      "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
-      "default_context_addr": "localhost:50052",
-      "enabled": true,
-      "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
-      "namespace": "portfolio_risk_review_assistant_context",
-      "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
-      "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
-      "sdk_distribution": "mirrorneuron-membrane-python-sdk",
-      "sdk_import_package": "mn_context_engine_sdk"
-    },
-    "models": {
-      "primary": {
-        "model": "ollama/nemotron3:33b",
-        "provider": "ollama",
-        "role": "AI assistant for reviewing portfolio stress scenarios and drafting risk notes.",
-        "type": "llm"
-      }
-    },
-    "observability": {
-      "panels": [
-        "current_status",
-        "recent_events",
-        "pending_human_requests",
-        "output_artifacts",
-        "resource_usage",
-        "errors",
-        "llm_calls",
-        "token_budget",
-        "llm_retries"
-      ],
-      "reads": [
-        "events.jsonl",
-        "human.jsonl",
-        "logs.jsonl",
-        "resources.jsonl",
-        "result.json",
-        "final_artifact.json",
-        "web_ui.json"
-      ],
-      "schema_version": "mn.blueprint.observability_dashboard.v1",
-      "source": "local_run_store"
-    },
-    "resources": {
-      "cpu": {
-        "min_cores": 1
-      },
-      "disk": {
-        "min_gb": 1
-      },
-      "gpu": {
-        "min_count": 0
-      },
-      "memory": {
-        "min_gb": 2
-      }
-    },
-    "store": {
-      "artifacts": [
-        "run.json",
-        "config.json",
-        "inputs.json",
-        "events.jsonl",
-        "human.jsonl",
-        "logs.jsonl",
-        "resources.jsonl",
-        "result.json",
-        "final_artifact.json"
-      ],
-      "path": "./runs/${run_id}",
-      "type": "local_run_store"
-    },
-    "worker_defaults": {
-      "model": "ollama/nemotron3:33b",
-      "pool": "default",
-      "pool_slots": 1,
-      "runner": "MirrorNeuron.Runner.HostLocal",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "workdir": "/sandbox/job/workflow"
-    }
-  },
-  "term": "TERM.md",
-  "version": "1.0.0"
+  }
 }
