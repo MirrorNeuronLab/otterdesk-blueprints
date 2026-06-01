@@ -659,6 +659,20 @@
     "dashboard": {
       "browser_publish_source": "disabled",
       "browser_video_source": "disabled",
+      "rendering": {
+        "layout": {
+          "column_regions": [
+            {
+              "w": 12,
+              "x": 0
+            },
+            {
+              "w": 12,
+              "x": 12
+            }
+          ]
+        }
+      },
       "copy": {
         "event_glossary": {
           "human_notice": "The co-worker saw a meaningful video change that should be surfaced promptly in OtterDesk chat.",
@@ -727,8 +741,8 @@
             },
             "id": 2,
             "options": {
-              "browserPublishSource": "disabled",
-              "browserSource": "disabled",
+              "browserPublishSource": "${browser_publish_source}",
+              "browserSource": "${browser_video_source}",
               "source": "rtsp://127.0.0.1:8554/video-watch"
             },
             "title": "Mapped Stream Preview",

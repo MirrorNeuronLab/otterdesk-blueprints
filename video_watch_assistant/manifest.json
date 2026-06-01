@@ -1585,6 +1585,20 @@
         "package": "mirrorneuron-blueprint-support-skill[webui]",
         "writes": "ui.json and web_ui.json"
       },
+      "rendering": {
+        "layout": {
+          "column_regions": [
+            {
+              "w": 12,
+              "x": 0
+            },
+            {
+              "w": 12,
+              "x": 12
+            }
+          ]
+        }
+      },
       "server": "blueprint_support",
       "standard_panels": [
         "current_status",

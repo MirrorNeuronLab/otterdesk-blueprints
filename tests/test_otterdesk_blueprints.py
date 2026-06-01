@@ -610,6 +610,13 @@ def test_video_watch_pre_launch_owns_mediamtx_preview_config():
     dashboard = config["web_ui"]["dashboard"]
     assert dashboard["browser_video_source"] == "disabled"
     assert dashboard["browser_publish_source"] == "disabled"
+    assert dashboard["rendering"]["layout"]["column_regions"] == [
+        {"w": 12, "x": 0},
+        {"w": 12, "x": 12},
+    ]
+    video_panel = next(panel for panel in dashboard["grafana"]["panels"] if panel["type"] == "video")
+    assert video_panel["options"]["browserSource"] == "${browser_video_source}"
+    assert video_panel["options"]["browserPublishSource"] == "${browser_publish_source}"
     assert dashboard["video_preview_bridge"]["enabled"] is False
     assert dashboard["video_preview_bridge"]["auto_start"] is False
     assert dashboard["video_preview_bridge"]["cleanup_script"] == "scripts/post-launch.sh"
@@ -617,6 +624,10 @@ def test_video_watch_pre_launch_owns_mediamtx_preview_config():
     manifest_web_ui = manifest["metadata"]["web_ui"]
     assert manifest_web_ui["browser_video_source"] == "disabled"
     assert manifest_web_ui["browser_publish_source"] == "disabled"
+    assert manifest_web_ui["rendering"]["layout"]["column_regions"] == [
+        {"w": 12, "x": 0},
+        {"w": 12, "x": 12},
+    ]
     assert manifest_web_ui["video_preview_bridge"]["enabled"] is False
     assert manifest_web_ui["video_preview_bridge"]["auto_start"] is False
     assert manifest_web_ui["video_preview_bridge"]["cleanup_script"] == "scripts/post-launch.sh"
