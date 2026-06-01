@@ -37,12 +37,22 @@ independent review, or human judgment, especially for consequential decisions
 involving safety, health, law, finance, employment, housing, security,
 eligibility, or access to essential services.
 
+For portfolio workflows, this blueprint is review-only decision support. It
+does not provide personalized financial advice, investment recommendations,
+trade execution, order routing, suitability review, tax advice, or compliance
+approval. Do not place trades, rebalance accounts, notify clients, or make
+financial decisions solely from its outputs.
+
 ## Third-Party Services and Data
 
 This blueprint may be used with third-party models, services, software,
 systems, APIs, datasets, or content. Those third parties may have their own
 licenses, terms, restrictions, fees, privacy practices, and security
 requirements. You are responsible for reviewing and complying with them.
+
+Public market data can be delayed, stale, incomplete, adjusted, unavailable, or
+subject to third-party terms. You are responsible for validating data quality,
+licensing, and fitness for your use case.
 
 ## Limitation of Liability
 

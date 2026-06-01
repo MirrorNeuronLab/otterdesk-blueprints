@@ -2,58 +2,99 @@
 
 ## What We Want To Achieve
 
-Build a reviewable portfolio support workflow that helps investors, advisors, portfolio managers, treasury teams, and fintech operators move from raw stress signals to plain-language risk notes. Stress a portfolio against drawdown, rate shocks, and liquidity pressure before drafting possible rebalancing options. The target customer should understand what changed, why the system drafted an option, and what evidence a human should review before acting.
+Build a review-only real-time portfolio advisor that separates financial
+engineering from language generation. The workflow should use public market
+data, deterministic risk calculations, Monte Carlo simulation, historical
+stress evidence, decision scoring, and benchmark comparison before an LLM writes
+the human-facing report.
 
 ## Customer Problem
 
-Risk changes path-dependently during shocks; one summary cannot show how hedges, cash, and defensive moves alter the next state. In a real customer environment, the pain is not only producing an answer; it is preserving context across changing inputs, exposing tradeoffs, and creating an audit trail that business, technical, or governance stakeholders can trust.
+Portfolio risk changes quickly as prices, volatility, liquidity, and macro
+signals move. Advisors and portfolio teams need more than a narrative answer:
+they need a traceable loop that proposes a decision, simulates that decision,
+evaluates it against policy, benchmarks it against doing nothing, and preserves
+the evidence for human review.
 
 ## Design Details
 
-The blueprint is organized as a MirrorNeuron workflow with stable identity, configurable inputs, structured events, and a final artifact. The main agent role is Portfolio Risk Review Assistant. The workflow uses macro shock and portfolio risk simulation and demonstrates macro shock simulation, portfolio risk, LLM risk report, and decision feedback.
+The blueprint follows the MirrorNeuron blueprint standard with stable identity,
+structured inputs, event telemetry, run-store artifacts, and human-control
+policy. The workflow stages are:
 
-The design is intentionally adapter-friendly. The prototype can run with bundled, mock, or synthetic data even when the current code has not implemented every production integration. The customer-facing contract stays centered on the same concepts: load inputs, observe current state, choose or score an action, emit traceable events, and write an artifact a reviewer can inspect.
-
-A representative scenario is: A stagflation shock raises rates and drawdown while liquidity falls, and the agent chooses hedge, cash, or defensive rebalance actions.
+1. Normalize portfolio, policy, benchmark, and review-only constraints.
+2. Fetch public market quote/history data and enforce source freshness.
+3. Compute returns, covariance, volatility, beta, VaR, CVaR, drawdown,
+   concentration, cash percentage, and policy breaches.
+4. Propose candidate decisions such as no action, raise cash, reduce
+   concentration, reduce equity beta, duration hedge, and credit-risk reduction.
+5. Simulate each candidate with seeded Monte Carlo paths and historical return
+   distributions.
+6. Benchmark candidates against no-action and policy metrics.
+7. Use the LLM only to summarize supplied market signals and write a report
+   from structured evidence.
 
 ## Input
 
-The prototype accepts configuration for scenario identity, run controls, and domain inputs. Current adapters include `mock`, `json`, `file`, and `env_json`, so evaluators can start locally and later replace sample data with production data while preserving the same blueprint identity and output shape.
+Required runtime inputs are:
 
-Important state inputs include `portfolio_value`, `drawdown_pct`, `rate_shock_bps`, and `liquidity_pct`. Where the blueprint uses an action loop, the current action space includes `rebalance_defensive`, `hedge_rates`, and `raise_cash`. For production use, the same contract should be fed by customer system-of-record data, business rules, approval policies, thresholds, and any regulated or safety-critical constraints needed for the operating environment.
+- `portfolio`: holdings with `symbol`, `quantity` or `market_value`, optional
+  cost basis, asset class, sleeve, and liquidity tags.
+- `risk_policy`: drawdown, VaR/CVaR, concentration, cash, liquidity, and
+  turnover limits.
+- `decision_constraints`: permitted review-only actions, restricted symbols,
+  no-trade assets, tax notes, and mandate constraints.
+
+Optional inputs are `market_signals`, `benchmark_portfolio`,
+`poll_seconds`, `simulation_horizon_days`, `monte_carlo_paths`, and `seed`.
+
+The default product path uses public market data through `public_yahoo_chart`.
+Mock input remains available only for local validation and demos required by
+the shared blueprint standard.
 
 ## Output: Expected Customer Outcome
 
-The expected customer outcome is portfolio risk report and rebalance recommendation. A useful run should show the starting context, the observations made during the workflow, the action or recommendation rationale, and the final artifact that a domain owner can review.
+The final artifact should let a reviewer answer:
 
-The customer should be able to answer: what happened, which inputs mattered, what the system recommended, what changed over time, what risks or exceptions remain, and what a human team should do next.
+- Which action was recommended for review?
+- How did each candidate perform under Monte Carlo simulation?
+- How did the recommendation benchmark against no-action?
+- Which policy limits were breached before and after simulation?
+- Which market data sources and timestamps supported the result?
+- What should a human approve, revise, or reject next?
+
+The artifact is decision support, not financial advice or trade execution.
 
 ## Evaluation Criteria
 
-- Decision quality: confirm the recommendation is plausible for the observed state, customer constraints, and available actions.
-- Scenario sensitivity: verify that outputs change appropriately when inputs, thresholds, seed values, or operating assumptions change.
-- State trajectory: inspect whether `portfolio_value`, `drawdown_pct`, `rate_shock_bps`, and `liquidity_pct` move coherently across the workflow rather than appearing as disconnected summaries.
-- Traceability: confirm every recommendation can be tied back to inputs, events, intermediate decisions, and final artifact fields.
-- Human review fit: check whether the artifact matches the language, evidence, and next-step format the target team already uses.
-- Operational readiness: validate latency, reliability, adapter behavior, permissions, privacy, and approval gates before using real customer data.
-- Outcome measurement: compare recommendations against historical cases, expert review, known policies, or measured business outcomes.
+- Real-data readiness: required public market data loads with source refs and
+  freshness checks, or the run fails closed.
+- Financial engineering quality: returns, covariance, VaR/CVaR, drawdown,
+  concentration, beta, and cash metrics are deterministic and testable.
+- Decision quality: candidate rankings improve policy fit and risk metrics
+  relative to no-action where possible.
+- Simulation reproducibility: seeded Monte Carlo runs are deterministic.
+- Traceability: recommendations tie back to inputs, market data, events,
+  simulations, benchmark rows, and final artifact fields.
+- LLM boundary: model output does not create prices, risk metrics, or trades.
+- Human review fit: the report clearly marks review-only recommendations and
+  next steps.
 
 ## Result Artifacts To Inspect
 
-Inspect the event stream for observations, decisions, errors, and handoffs. Inspect the result payload and final artifact for the recommended action, ranked options or findings, supporting rationale, state changes, and next steps.
+Inspect `events.jsonl` for `market_data_loaded`, `risk_state_computed`,
+`decision_candidates_proposed`, `decision_simulated`, `decision_evaluated`,
+`benchmark_step_scored`, and `llm_report_written`.
 
-When using the local run store, inspect `run.json`, `config.json`, `inputs.json`, `events.jsonl`, `result.json`, and `final_artifact.json`. These artifacts are the review surface for debugging the workflow, comparing scenarios, and deciding whether the blueprint is ready for a real adapter.
+Inspect `result.json` and `final_artifact.json` for ranked candidates,
+simulation summaries, benchmark comparison, policy violations, market data
+freshness, and source refs.
 
 ## Prototype Limits
 
-The current blueprint is a product-facing template and may include mock data, deterministic simulation, simplified policies, placeholder integrations, or partial worker coverage. It is designed to show the customer problem, target workflow, and expected artifact even where production implementation still needs hardening.
-
-Outputs are decision-support artifacts. They should not be treated as final financial advice, medical guidance, safety certification, compliance approval, or executable operating instruction without customer validation and human approval.
-
-## Upgrade Path To Real Customer Use
-
-Connect holdings, factor exposures, risk models, macro scenarios, tax constraints, and policy limits. Add customer-specific policies, review gates, exception handling, retention rules, and monitoring dashboards. Calibrate the workflow against historical data and expert judgment, then track acceptance rate, correction rate, latency, incident reduction, cost impact, and other outcome metrics that prove whether the workflow is helping.
-
-## Product Narrative
-
-Asset-management risk copilots are commercially attractive because decisions are high-value and require explainable scenario reasoning.
+The v1 public-market adapter is suitable for review and evaluation workflows,
+not certified valuation, trade execution, regulated advice, or compliance
+approval. Public data can be delayed, stale, adjusted, incomplete, or
+unavailable. Customer deployments should validate data licensing, benchmark
+definitions, tax constraints, mandate rules, review gates, monitoring, and
+retention policies before production use.

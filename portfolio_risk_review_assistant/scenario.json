@@ -2,32 +2,39 @@
   "actions": [
     {
       "cost": 0,
-      "description": "Reduce equity beta and add defensive exposure.",
-      "effects": {
-        "drawdown_pct": -2,
-        "liquidity_pct": 2,
-        "portfolio_value": 4000
-      },
-      "name": "rebalance_defensive"
+      "description": "Review-only candidate action.",
+      "effects": {},
+      "name": "no_action"
     },
     {
       "cost": 0,
-      "description": "Add duration hedge against rate moves.",
-      "effects": {
-        "drawdown_pct": -1,
-        "portfolio_value": -2000,
-        "rate_shock_bps": -20
-      },
-      "name": "hedge_rates"
-    },
-    {
-      "cost": 0,
-      "description": "Raise cash to protect liquidity.",
-      "effects": {
-        "liquidity_pct": 5,
-        "portfolio_value": -3000
-      },
+      "description": "Review-only candidate action.",
+      "effects": {},
       "name": "raise_cash"
+    },
+    {
+      "cost": 0,
+      "description": "Review-only candidate action.",
+      "effects": {},
+      "name": "reduce_concentration"
+    },
+    {
+      "cost": 0,
+      "description": "Review-only candidate action.",
+      "effects": {},
+      "name": "reduce_equity_beta"
+    },
+    {
+      "cost": 0,
+      "description": "Review-only candidate action.",
+      "effects": {},
+      "name": "duration_hedge"
+    },
+    {
+      "cost": 0,
+      "description": "Review-only candidate action.",
+      "effects": {},
+      "name": "credit_risk_reduction"
     }
   ],
   "agent_responsibilities": [
@@ -35,15 +42,65 @@
     "evaluate drawdown and liquidity",
     "recommend rebalancing"
   ],
-  "artifact_type": "portfolio risk report",
+  "artifact_type": "review-only portfolio risk report with Monte Carlo benchmark",
   "blueprint_id": "portfolio_risk_review_assistant",
   "category": "finance",
   "default_inputs": {
-    "scenario": "stagflation shock",
+    "benchmark_portfolio": {
+      "AGG": 0.3,
+      "GLD": 0.1,
+      "SPY": 0.6
+    },
+    "decision_constraints": {
+      "allowed_actions": [
+        "no_action",
+        "raise_cash",
+        "reduce_concentration",
+        "reduce_equity_beta",
+        "duration_hedge",
+        "credit_risk_reduction"
+      ],
+      "restricted_symbols": [],
+      "review_only": true
+    },
+    "market_signals": [],
+    "monte_carlo_paths": 1000,
+    "portfolio": {
+      "base_currency": "USD",
+      "cash": 50000.0,
+      "holdings": [
+        {
+          "asset_class": "equity",
+          "liquidity": "daily",
+          "quantity": 180,
+          "symbol": "SPY"
+        },
+        {
+          "asset_class": "rates",
+          "liquidity": "daily",
+          "quantity": 300,
+          "symbol": "AGG"
+        },
+        {
+          "asset_class": "commodity",
+          "liquidity": "daily",
+          "quantity": 80,
+          "symbol": "GLD"
+        }
+      ]
+    },
+    "risk_policy": {
+      "max_cvar_pct": 11.0,
+      "max_drawdown_pct": 15.0,
+      "max_single_name_weight_pct": 45.0,
+      "max_turnover_pct": 15.0,
+      "max_var_pct": 8.0,
+      "min_cash_pct": 5.0
+    },
     "seed": 42,
-    "steps": 5
+    "simulation_horizon_days": 20
   },
-  "description": "Stress-tests a portfolio against market crashes, rate shocks, and liquidity pressure, then explains risks and possible rebalancing options in plain language.",
+  "description": "Real-time, review-only portfolio risk advisor that uses public market data, financial engineering simulation, decision benchmarking, and LLM-written review reports.",
   "entity_label": "allocation sleeve",
   "entity_names": [
     "equities",
@@ -51,54 +108,92 @@
     "credit"
   ],
   "features": [
-    "macro_shock_simulation",
-    "portfolio_risk",
-    "llm_risk_report"
+    "public_market_data",
+    "risk_feature_engineering",
+    "monte_carlo_simulation",
+    "decision_benchmarking",
+    "llm_report_writer"
   ],
-  "llm_role": "AI assistant for reviewing portfolio stress scenarios and drafting risk notes.",
+  "llm_role": "LLM report writer that summarizes supplied market signals and structured simulation evidence; deterministic finance workers propose, simulate, evaluate, and benchmark decisions.",
   "metrics": [
     {
-      "drift": -12000,
-      "initial": 1000000,
-      "label": "Portfolio value",
-      "maximum": 1200000,
-      "minimum": 600000,
+      "drift": 0,
+      "initial": 0,
+      "label": "Portfolio Value",
+      "maximum": 100,
+      "minimum": 0,
       "name": "portfolio_value",
-      "volatility": 18000
+      "volatility": 0
     },
     {
-      "drift": 1.5,
-      "initial": 4,
-      "label": "Drawdown percent",
-      "maximum": 45,
+      "drift": 0,
+      "initial": 0,
+      "label": "Cash Pct",
+      "maximum": 100,
       "minimum": 0,
-      "name": "drawdown_pct",
-      "volatility": 1.2
+      "name": "cash_pct",
+      "volatility": 0
     },
     {
-      "drift": 12,
-      "initial": 60,
-      "label": "Rate shock bps",
-      "maximum": 300,
-      "minimum": -100,
-      "name": "rate_shock_bps",
-      "volatility": 15
-    },
-    {
-      "drift": -1,
-      "initial": 18,
-      "label": "Liquidity percent",
-      "maximum": 60,
+      "drift": 0,
+      "initial": 0,
+      "label": "Volatility Pct",
+      "maximum": 100,
       "minimum": 0,
-      "name": "liquidity_pct",
-      "volatility": 1.5
+      "name": "volatility_pct",
+      "volatility": 0
+    },
+    {
+      "drift": 0,
+      "initial": 0,
+      "label": "Var Pct",
+      "maximum": 100,
+      "minimum": 0,
+      "name": "var_pct",
+      "volatility": 0
+    },
+    {
+      "drift": 0,
+      "initial": 0,
+      "label": "Cvar Pct",
+      "maximum": 100,
+      "minimum": 0,
+      "name": "cvar_pct",
+      "volatility": 0
+    },
+    {
+      "drift": 0,
+      "initial": 0,
+      "label": "Max Drawdown Pct",
+      "maximum": 100,
+      "minimum": 0,
+      "name": "max_drawdown_pct",
+      "volatility": 0
+    },
+    {
+      "drift": 0,
+      "initial": 0,
+      "label": "Single Name Concentration Pct",
+      "maximum": 100,
+      "minimum": 0,
+      "name": "single_name_concentration_pct",
+      "volatility": 0
+    },
+    {
+      "drift": 0,
+      "initial": 0,
+      "label": "Equity Beta",
+      "maximum": 100,
+      "minimum": 0,
+      "name": "equity_beta",
+      "volatility": 0
     }
   ],
   "multi_agent": false,
   "name": "Portfolio Risk Review Assistant",
   "objective": "minimize",
   "primary_metric": "drawdown_pct",
-  "requires_human_approval": false,
+  "requires_human_approval": true,
   "risk_metric": "liquidity_pct",
-  "uses_tool": false
+  "uses_tool": true
 }

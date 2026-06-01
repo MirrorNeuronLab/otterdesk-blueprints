@@ -1,1 +1,12 @@
-{}
+{
+  "inputs": {
+    "payload": {
+      "scenario": "stagflation shock",
+      "steps": "5"
+    }
+  },
+  "llm": {
+    "api_base": "http://192.168.4.173:11434",
+    "model": "ollama/nemotron3:33b"
+  }
+}

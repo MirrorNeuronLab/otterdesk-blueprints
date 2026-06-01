@@ -1,1 +1,14 @@
-{}
+{
+  "inputs": {
+    "payload": {
+      "disease": "Alzheimer"
+    }
+  },
+  "llm": {
+    "api_base": "http://192.168.4.173:11434",
+    "model": "ollama/nemotron3:33b"
+  },
+  "budgets": {
+    "max_runtime_seconds": "600"
+  }
+}

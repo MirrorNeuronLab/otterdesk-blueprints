@@ -1,13 +1,5 @@
 {
   "apiVersion": "mn.workflow/v1",
-  "kind": "Workflow",
-  "id": "portfolio_risk_review_assistant",
-  "name": "Portfolio Risk Review Assistant",
-  "version": "1.0.0",
-  "manifest_version": "1.0",
-  "description": "Stress-tests a portfolio against market crashes, rate shocks, and liquidity pressure, then explains risks and possible rebalancing options in plain language.",
-  "graph_id": "portfolio_risk_review_assistant_v1",
-  "job_name": "portfolio-risk-review-assistant",
   "contract": {
     "events": {
       "human_stream": "human.jsonl",
@@ -31,6 +23,13 @@
         "human_decision_applied",
         "output_skill_started",
         "output_skill_completed",
+        "market_data_loaded",
+        "risk_state_computed",
+        "decision_candidates_proposed",
+        "decision_simulated",
+        "decision_evaluated",
+        "benchmark_step_scored",
+        "llm_report_written",
         "output_skill_failed"
       ]
     },
@@ -45,48 +44,87 @@
       ]
     },
     "inputs": {
-      "advisor_notes": {
-        "description": "Human notes that should shape the risk explanation.",
-        "example": "client needs two years of cash buffer",
+      "benchmark_portfolio": {
+        "description": "Optional benchmark weights by symbol.",
+        "example": {
+          "AGG": 0.3,
+          "GLD": 0.1,
+          "SPY": 0.6
+        },
         "privacy": "confidential",
         "required": false,
-        "type": "domain_value"
+        "type": "object"
       },
-      "portfolio_snapshot": {
-        "description": "Holdings, exposure, liquidity, and constraints used for the stress review.",
+      "decision_constraints": {
+        "description": "Permitted review-only actions, no-trade symbols, and mandate notes.",
         "example": {
-          "liquidity_pct": 18,
-          "portfolio_value": 1000000
+          "allowed_actions": [
+            "no_action",
+            "raise_cash",
+            "reduce_concentration",
+            "reduce_equity_beta",
+            "duration_hedge",
+            "credit_risk_reduction"
+          ],
+          "restricted_symbols": [],
+          "review_only": true
         },
         "privacy": "confidential",
         "required": true,
-        "type": "domain_value"
+        "type": "object"
       },
-      "rebalancing_constraints": {
-        "description": "Allowed actions, no-trade assets, cash needs, and client restrictions.",
+      "market_signals": {
+        "description": "Optional macro notes, analyst comments, or signal snippets for LLM interpretation.",
         "example": [
-          "raise_cash",
-          "hedge_rates"
+          "Fed path uncertainty remains elevated."
         ],
         "privacy": "confidential",
         "required": false,
-        "type": "domain_value"
+        "type": "array"
       },
-      "risk_policy": {
-        "description": "Risk, liquidity, drawdown, tax, and mandate limits used to evaluate actions.",
+      "portfolio": {
+        "description": "Holdings with symbol and quantity or market value.",
         "example": {
-          "max_drawdown_pct": 12
+          "base_currency": "USD",
+          "cash": 50000.0,
+          "holdings": [
+            {
+              "asset_class": "equity",
+              "liquidity": "daily",
+              "quantity": 180,
+              "symbol": "SPY"
+            },
+            {
+              "asset_class": "rates",
+              "liquidity": "daily",
+              "quantity": 300,
+              "symbol": "AGG"
+            },
+            {
+              "asset_class": "commodity",
+              "liquidity": "daily",
+              "quantity": 80,
+              "symbol": "GLD"
+            }
+          ]
         },
         "privacy": "confidential",
         "required": true,
-        "type": "domain_value"
+        "type": "object"
       },
-      "shock_scenario": {
-        "description": "Market scenario or macro shock to test.",
-        "example": "stagflation shock",
+      "risk_policy": {
+        "description": "Drawdown, VaR/CVaR, concentration, cash, liquidity, and turnover limits.",
+        "example": {
+          "max_cvar_pct": 11.0,
+          "max_drawdown_pct": 15.0,
+          "max_single_name_weight_pct": 45.0,
+          "max_turnover_pct": 15.0,
+          "max_var_pct": 8.0,
+          "min_cash_pct": 5.0
+        },
         "privacy": "confidential",
         "required": true,
-        "type": "domain_value"
+        "type": "object"
       }
     },
     "outputs": {
@@ -220,6 +258,17 @@
             "result.json"
           ],
           "type": "generated_report"
+        },
+        {
+          "artifact_id": "risk_benchmark",
+          "mime_type": "application/json",
+          "path": "result.json#/benchmark",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.benchmark_report.v1",
+          "source_refs": [
+            "events.jsonl"
+          ],
+          "type": "benchmark_report"
         }
       ],
       "primary": {
@@ -232,7 +281,12 @@
           "confidence",
           "evidence",
           "next_steps",
-          "source_refs"
+          "source_refs",
+          "ranked_decisions",
+          "simulation_results",
+          "benchmark_comparison",
+          "policy_violations",
+          "market_data_freshness"
         ],
         "schema_version": "mn.blueprint.final_artifact_contract.v1",
         "type": "final_artifact"
@@ -280,6 +334,33 @@
       "Investors, advisors, portfolio managers, treasury teams, and fintech operators."
     ]
   },
+  "description": "Real-time, review-only portfolio risk advisor that uses public market data, financial engineering simulation, decision benchmarking, and LLM-written review reports.",
+  "edges": [
+    {
+      "event": "portfolio_context_ready",
+      "from_node": "load_portfolio_context",
+      "required": true,
+      "to_node": "load_public_market_data"
+    },
+    {
+      "event": "market_data_ready",
+      "from_node": "load_public_market_data",
+      "required": true,
+      "to_node": "compute_risk_state"
+    },
+    {
+      "event": "risk_state_ready",
+      "from_node": "compute_risk_state",
+      "required": true,
+      "to_node": "simulate_decision_candidates"
+    },
+    {
+      "event": "decision_simulations_ready",
+      "from_node": "simulate_decision_candidates",
+      "required": true,
+      "to_node": "evaluate_and_write_report"
+    }
+  ],
   "flow": {
     "entrypoint": "load_portfolio_context",
     "graph": {
@@ -295,29 +376,39 @@
           ],
           "event": "portfolio_context_ready",
           "from": "load_portfolio_context",
-          "id": "load_portfolio_context_to_simulate_shock_path",
+          "id": "load_portfolio_context_to_load_public_market_data",
           "required": true,
-          "to": "simulate_shock_path"
+          "to": "load_public_market_data"
         },
         {
           "accepts": [
             "done"
           ],
-          "event": "stress_path_ready",
-          "from": "simulate_shock_path",
-          "id": "simulate_shock_path_to_review_rebalance_options",
+          "event": "market_data_ready",
+          "from": "load_public_market_data",
+          "id": "load_public_market_data_to_compute_risk_state",
           "required": true,
-          "to": "review_rebalance_options"
+          "to": "compute_risk_state"
         },
         {
           "accepts": [
             "done"
           ],
-          "event": "risk_options_ready",
-          "from": "review_rebalance_options",
-          "id": "review_rebalance_options_to_finalize_risk_report",
+          "event": "risk_state_ready",
+          "from": "compute_risk_state",
+          "id": "compute_risk_state_to_simulate_decision_candidates",
           "required": true,
-          "to": "finalize_risk_report"
+          "to": "simulate_decision_candidates"
+        },
+        {
+          "accepts": [
+            "done"
+          ],
+          "event": "decision_simulations_ready",
+          "from": "simulate_decision_candidates",
+          "id": "simulate_decision_candidates_to_evaluate_and_write_report",
+          "required": true,
+          "to": "evaluate_and_write_report"
         }
       ],
       "execution": {
@@ -325,7 +416,7 @@
       },
       "mode": "static_dag",
       "schema": "mn.workflow.problem_graph/v1",
-      "sink": "finalize_risk_report",
+      "sink": "evaluate_and_write_report",
       "source": "load_portfolio_context"
     },
     "observers": [],
@@ -369,19 +460,21 @@
       }
     },
     "state": {
-      "final_report": {},
-      "portfolio_context": {},
-      "portfolio_snapshot": {
-        "from": "$inputs.portfolio_snapshot"
+      "benchmark": {},
+      "decision_candidates": [],
+      "decision_constraints": {
+        "from": "$inputs.decision_constraints"
       },
-      "risk_options": {},
+      "final_report": {},
+      "market_data": {},
+      "portfolio": {
+        "from": "$inputs.portfolio"
+      },
       "risk_policy": {
         "from": "$inputs.risk_policy"
       },
-      "shock_scenario": {
-        "from": "$inputs.shock_scenario"
-      },
-      "stress_path": {}
+      "risk_state": {},
+      "simulations": []
     },
     "steps": [
       {
@@ -402,24 +495,19 @@
           }
         },
         "emits": "portfolio_context_ready",
-        "goal": "Normalize holdings, liquidity needs, constraints, and policy limits.",
+        "goal": "Normalize holdings, constraints, benchmark, and policy.",
         "id": "load_portfolio_context",
-        "in": {
-          "policy": "$state.risk_policy",
-          "portfolio": "$state.portfolio_snapshot"
-        },
+        "in": {},
         "kind": "stage",
         "label": "Load Portfolio Context",
         "on": {
-          "portfolio_context_ready": "simulate_shock_path"
+          "portfolio_context_ready": "load_public_market_data"
         },
-        "out": {
-          "portfolio_context": "$state.portfolio_context"
-        },
+        "out": {},
         "run": "load_portfolio_context"
       },
       {
-        "action": "simulate_macro_shock",
+        "action": "load_public_market_data",
         "control": {
           "failure_policy": "fail_workflow",
           "required": true,
@@ -435,25 +523,20 @@
             "on_low_confidence": "continue_with_warning"
           }
         },
-        "emits": "stress_path_ready",
-        "goal": "Stress the portfolio against drawdown, rate, and liquidity shocks.",
-        "id": "simulate_shock_path",
-        "in": {
-          "context": "$state.portfolio_context",
-          "scenario": "$state.shock_scenario"
-        },
+        "emits": "market_data_ready",
+        "goal": "Fetch fresh public quote/history data for portfolio and benchmark symbols.",
+        "id": "load_public_market_data",
+        "in": {},
         "kind": "stage",
-        "label": "Simulate Shock Path",
+        "label": "Load Public Market Data",
         "on": {
-          "stress_path_ready": "review_rebalance_options"
+          "market_data_ready": "compute_risk_state"
         },
-        "out": {
-          "stress_path": "$state.stress_path"
-        },
-        "run": "simulate_shock_path"
+        "out": {},
+        "run": "load_public_market_data"
       },
       {
-        "action": "review_rebalance_options",
+        "action": "compute_risk_state",
         "control": {
           "failure_policy": "fail_workflow",
           "required": true,
@@ -469,25 +552,49 @@
             "on_low_confidence": "continue_with_warning"
           }
         },
-        "emits": "risk_options_ready",
-        "goal": "Draft and score possible hedge, cash, and rebalance options for review.",
-        "id": "review_rebalance_options",
-        "in": {
-          "policy": "$state.risk_policy",
-          "stress_path": "$state.stress_path"
-        },
+        "emits": "risk_state_ready",
+        "goal": "Build returns, covariance, VaR/CVaR, drawdown, beta, concentration, and policy violations.",
+        "id": "compute_risk_state",
+        "in": {},
         "kind": "stage",
-        "label": "Review Rebalance Options",
+        "label": "Compute Risk State",
         "on": {
-          "risk_options_ready": "finalize_risk_report"
+          "risk_state_ready": "simulate_decision_candidates"
         },
-        "out": {
-          "risk_options": "$state.risk_options"
-        },
-        "run": "review_rebalance_options"
+        "out": {},
+        "run": "compute_risk_state"
       },
       {
-        "action": "notify_client_with_recommendation_without_review",
+        "action": "simulate_decision_candidates",
+        "control": {
+          "failure_policy": "fail_workflow",
+          "required": true,
+          "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 1,
+            "jitter": 0,
+            "max_attempts": 2
+          },
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.0,
+            "on_low_confidence": "continue_with_warning"
+          }
+        },
+        "emits": "decision_simulations_ready",
+        "goal": "Propose review-only actions and run Monte Carlo/historical stress simulations.",
+        "id": "simulate_decision_candidates",
+        "in": {},
+        "kind": "stage",
+        "label": "Simulate Decision Candidates",
+        "on": {
+          "decision_simulations_ready": "evaluate_and_write_report"
+        },
+        "out": {},
+        "run": "simulate_decision_candidates"
+      },
+      {
+        "action": "evaluate_and_write_report",
         "control": {
           "failure_policy": "fail_workflow",
           "required": true,
@@ -504,233 +611,30 @@
           }
         },
         "emits": "risk_report_ready",
-        "goal": "Write a plain-language risk report and recommended review action.",
-        "id": "finalize_risk_report",
-        "in": {
-          "risk_options": "$state.risk_options"
-        },
+        "goal": "Benchmark candidates, select a review recommendation, and use the LLM only to draft the report.",
+        "id": "evaluate_and_write_report",
+        "in": {},
         "kind": "stage",
-        "label": "Finalize Risk Report",
+        "label": "Evaluate And Write Report",
         "on": {
           "risk_report_ready": "completed"
         },
-        "out": {
-          "final_report": "$state.final_report"
-        },
-        "run": "finalize_risk_report"
+        "out": {},
+        "run": "evaluate_and_write_report"
       }
     ]
   },
-  "runtime": {
-    "bindings": {
-      "finalize_risk_report": {
-        "risk": "medium",
-        "side_effect": "internal_write",
-        "strategy": "single",
-        "type": "worker",
-        "workers": [
-          {
-            "id": "portfolio:report_writer",
-            "model": "Ollama/Nemotron3 33B",
-            "role": "Write final risk artifact",
-            "tokens": 14000,
-            "tools": 4
-          }
-        ]
-      },
-      "load_portfolio_context": {
-        "risk": "low",
-        "side_effect": "read",
-        "strategy": "fanout_reduce",
-        "type": "team",
-        "workers": [
-          {
-            "id": "portfolio:holdings",
-            "model": "Ollama/Nemotron3 33B",
-            "role": "Normalize holdings and exposures",
-            "tokens": 14000,
-            "tools": 4
-          },
-          {
-            "id": "portfolio:policy",
-            "model": "Ollama/Nemotron3 33B",
-            "role": "Read liquidity and risk policy",
-            "tokens": 14000,
-            "tools": 4
-          }
-        ]
-      },
-      "review_rebalance_options": {
-        "risk": "low",
-        "side_effect": "read",
-        "strategy": "fanout_reduce",
-        "type": "team",
-        "workers": [
-          {
-            "id": "portfolio:hedge_options",
-            "model": "Ollama/Nemotron3 33B",
-            "role": "Draft hedge and cash options",
-            "tokens": 14000,
-            "tools": 4
-          },
-          {
-            "id": "portfolio:risk_notes",
-            "model": "Ollama/Nemotron3 33B",
-            "role": "Explain downside tradeoffs",
-            "tokens": 14000,
-            "tools": 4
-          },
-          {
-            "id": "portfolio:compliance",
-            "model": "Ollama/Nemotron3 33B",
-            "role": "Check policy constraints",
-            "tokens": 14000,
-            "tools": 4
-          }
-        ]
-      },
-      "simulate_shock_path": {
-        "risk": "low",
-        "side_effect": "read",
-        "strategy": "fanout_reduce",
-        "type": "team",
-        "workers": [
-          {
-            "id": "portfolio:macro_shock",
-            "model": "Ollama/Nemotron3 33B",
-            "role": "Run macro shock path",
-            "tokens": 14000,
-            "tools": 4
-          },
-          {
-            "id": "portfolio:liquidity",
-            "model": "Ollama/Nemotron3 33B",
-            "role": "Stress liquidity and cash needs",
-            "tokens": 14000,
-            "tools": 4
-          }
-        ]
-      }
-    },
-    "memory": {
-      "collection": "mn_memory",
-      "containers": "optional_sidecar",
-      "context_addr_env": "MN_CONTEXT_ADDR",
-      "conversation": {
-        "agent_role": "otterdesk_chat",
-        "include_human_events": true,
-        "include_runtime_events": true,
-        "include_runtime_logs": true,
-        "target_tokens": 2400,
-        "token_budget": 6000,
-        "use_model_compression": false
-      },
-      "conversation_enabled": true,
-      "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
-      "default_context_addr": "localhost:50052",
-      "enabled": true,
-      "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
-      "namespace": "portfolio_risk_review_assistant_context",
-      "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
-      "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
-      "sdk_distribution": "mirrorneuron-membrane-python-sdk",
-      "sdk_import_package": "mn_context_engine_sdk"
-    },
-    "models": {
-      "primary": {
-        "model": "ollama/nemotron3:33b",
-        "provider": "ollama",
-        "role": "AI assistant for reviewing portfolio stress scenarios and drafting risk notes.",
-        "type": "llm"
-      }
-    },
-    "observability": {
-      "panels": [
-        "current_status",
-        "recent_events",
-        "pending_human_requests",
-        "output_artifacts",
-        "resource_usage",
-        "errors",
-        "llm_calls",
-        "token_budget",
-        "llm_retries"
-      ],
-      "reads": [
-        "events.jsonl",
-        "human.jsonl",
-        "logs.jsonl",
-        "resources.jsonl",
-        "result.json",
-        "final_artifact.json",
-        "web_ui.json"
-      ],
-      "schema_version": "mn.blueprint.observability_dashboard.v1",
-      "source": "local_run_store"
-    },
-    "resources": {
-      "cpu": {
-        "min_cores": 1
-      },
-      "disk": {
-        "min_gb": 1
-      },
-      "gpu": {
-        "min_count": 0
-      },
-      "memory": {
-        "min_gb": 2
-      }
-    },
-    "store": {
-      "artifacts": [
-        "run.json",
-        "config.json",
-        "inputs.json",
-        "events.jsonl",
-        "human.jsonl",
-        "logs.jsonl",
-        "resources.jsonl",
-        "result.json",
-        "final_artifact.json"
-      ],
-      "path": "./runs/${run_id}",
-      "type": "local_run_store"
-    },
-    "worker_defaults": {
-      "model": "ollama/nemotron3:33b",
-      "pool": "default",
-      "pool_slots": 1,
-      "runner": "MirrorNeuron.Runner.HostLocal",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "workdir": "/sandbox/job/workflow"
-    }
-  },
+  "graph_id": "portfolio_risk_review_assistant_v1",
+  "id": "portfolio_risk_review_assistant",
   "input_validation": {
     "rules": []
   },
-  "requirements": {
-    "cpu": {
-      "min_cores": 1
-    },
-    "disk": {
-      "min_gb": 1
-    },
-    "gpu": {
-      "min_count": 0
-    },
-    "memory": {
-      "min_gb": 2
-    }
-  },
-  "policies": {
-    "recovery_mode": "local_restart"
-  },
-  "requiredContextEngine": false,
+  "job_name": "portfolio-risk-review-assistant",
+  "kind": "Workflow",
   "license": "LICENSE.md",
-  "term": "TERM.md",
+  "manifest_version": "1.0",
   "metadata": {
-    "agent_role": "AI assistant for reviewing portfolio stress scenarios and drafting risk notes.",
+    "agent_role": "LLM report writer that summarizes supplied market signals and structured simulation evidence; deterministic finance workers propose, simulate, evaluate, and benchmark decisions.",
     "agent_templates": {
       "library": "../mn-agents/index.json",
       "nodes": [
@@ -765,8 +669,8 @@
         "TERM.md"
       ]
     },
-    "customizable_for": "Wealth management, treasury review, family offices, robo-advisory risk workflows, and portfolio check-ins.",
-    "description": "Stress-tests a portfolio against market crashes, rate shocks, and liquidity pressure, then explains risks and possible rebalancing options in plain language.",
+    "customizable_for": "Wealth management, treasury review, family offices, robo-advisory risk workflows, portfolio monitoring, and review-only advisor workbenches.",
+    "description": "Real-time, review-only portfolio risk advisor that uses public market data, financial engineering simulation, decision benchmarking, and LLM-written review reports.",
     "human_control": {
       "allowed_decisions": [
         "approve",
@@ -809,26 +713,45 @@
       ],
       "fields": [
         {
-          "default": "stagflation shock",
-          "description": "Confirm the macro or market shock to evaluate.",
-          "label": "Stress scenario",
-          "path": "inputs.payload.scenario"
+          "default": [
+            {
+              "asset_class": "equity",
+              "liquidity": "daily",
+              "quantity": 180,
+              "symbol": "SPY"
+            },
+            {
+              "asset_class": "rates",
+              "liquidity": "daily",
+              "quantity": 300,
+              "symbol": "AGG"
+            },
+            {
+              "asset_class": "commodity",
+              "liquidity": "daily",
+              "quantity": 80,
+              "symbol": "GLD"
+            }
+          ],
+          "description": "Symbols and quantities or market values to review.",
+          "label": "Portfolio holdings",
+          "path": "inputs.payload.portfolio.holdings"
         },
         {
-          "default": 5,
-          "description": "Number of decision-loop steps to run.",
-          "label": "Simulation steps",
-          "path": "inputs.payload.steps"
+          "default": "public_yahoo_chart",
+          "description": "Public market data adapter used for quote/history lookup.",
+          "label": "Market data provider",
+          "path": "market_data.provider"
         },
         {
-          "default": "http://192.168.4.173:11434",
-          "description": "Base URL for the local risk-review model server.",
-          "label": "LLM URL",
-          "path": "llm.api_base"
+          "default": 1000,
+          "description": "Number of simulation paths per candidate decision.",
+          "label": "Monte Carlo paths",
+          "path": "monte_carlo.paths"
         },
         {
           "default": "ollama/nemotron3:33b",
-          "description": "Model used to draft risk notes and ranked options.",
+          "description": "Model used only for market-signal interpretation and final report writing.",
           "label": "LLM model",
           "path": "llm.model"
         }
@@ -837,80 +760,175 @@
       "required": true
     },
     "input_contract": {
-      "description": "Portfolio risk can change quickly during shocks; users need an assistant that makes downside exposure and possible next steps easier to review.",
+      "description": "Portfolio teams need reviewable real-time risk advice that separates deterministic financial engineering from LLM narrative generation.",
       "optional_inputs": [
         {
-          "description": "Allowed actions, no-trade assets, cash needs, and client restrictions.",
+          "description": "Macro notes, analyst comments, or signal snippets for LLM interpretation.",
           "example": [
-            "raise_cash",
-            "hedge_rates"
+            "Credit spreads widened in the latest session."
           ],
-          "name": "rebalancing_constraints",
-          "type": "domain_value"
+          "name": "market_signals",
+          "type": "array"
         },
         {
-          "description": "Human notes that should shape the risk explanation.",
-          "example": "client needs two years of cash buffer",
-          "name": "advisor_notes",
-          "type": "domain_value"
+          "description": "Custom benchmark weights by symbol.",
+          "example": {
+            "AGG": 0.3,
+            "GLD": 0.1,
+            "SPY": 0.6
+          },
+          "name": "benchmark_portfolio",
+          "type": "object"
+        },
+        {
+          "description": "Override the configured number of Monte Carlo paths.",
+          "example": 1000,
+          "name": "monte_carlo_paths",
+          "type": "integer"
         }
       ],
       "privacy_classification": "confidential",
       "profiles": {
-        "connector": {
-          "adapter": "json",
-          "description": "Portfolio snapshot supplied by an approved PMS, custodian, or risk connector."
-        },
         "env_json": {
           "adapter": "env_json",
           "description": "JSON object loaded from MN_BLUEPRINT_INPUT_JSON."
         },
         "file": {
           "adapter": "file",
-          "description": "JSON object loaded from a local file path."
+          "description": "Local JSON portfolio and policy file."
         },
         "json": {
           "adapter": "json",
-          "description": "Inline JSON object supplied through config or runtime overrides."
+          "description": "Inline real portfolio and policy payload."
         },
         "mock": {
           "adapter": "mock",
-          "description": "Bundled stagflation stress scenario.",
+          "description": "Demo portfolio shape for validation only; production path uses public market data.",
           "payload": {
-            "scenario": "stagflation shock",
+            "benchmark_portfolio": {
+              "AGG": 0.3,
+              "GLD": 0.1,
+              "SPY": 0.6
+            },
+            "decision_constraints": {
+              "allowed_actions": [
+                "no_action",
+                "raise_cash",
+                "reduce_concentration",
+                "reduce_equity_beta",
+                "duration_hedge",
+                "credit_risk_reduction"
+              ],
+              "restricted_symbols": [],
+              "review_only": true
+            },
+            "market_signals": [],
+            "monte_carlo_paths": 1000,
+            "portfolio": {
+              "base_currency": "USD",
+              "cash": 50000.0,
+              "holdings": [
+                {
+                  "asset_class": "equity",
+                  "liquidity": "daily",
+                  "quantity": 180,
+                  "symbol": "SPY"
+                },
+                {
+                  "asset_class": "rates",
+                  "liquidity": "daily",
+                  "quantity": 300,
+                  "symbol": "AGG"
+                },
+                {
+                  "asset_class": "commodity",
+                  "liquidity": "daily",
+                  "quantity": 80,
+                  "symbol": "GLD"
+                }
+              ]
+            },
+            "risk_policy": {
+              "max_cvar_pct": 11.0,
+              "max_drawdown_pct": 15.0,
+              "max_single_name_weight_pct": 45.0,
+              "max_turnover_pct": 15.0,
+              "max_var_pct": 8.0,
+              "min_cash_pct": 5.0
+            },
             "seed": 42,
-            "steps": 5
+            "simulation_horizon_days": 20
           }
+        },
+        "public_market": {
+          "adapter": "json",
+          "description": "Real public market quote/history lookup for supplied symbols."
         },
         "sample_file": {
           "adapter": "file",
-          "description": "JSON holdings and scenario file loaded from disk.",
+          "description": "Sample review-only portfolio scenario loaded from disk.",
           "path": "scenario.json"
         }
       },
       "required_inputs": [
         {
-          "description": "Holdings, exposure, liquidity, and constraints used for the stress review.",
+          "description": "Holdings with symbol and quantity or market value.",
           "example": {
-            "liquidity_pct": 18,
-            "portfolio_value": 1000000
+            "base_currency": "USD",
+            "cash": 50000.0,
+            "holdings": [
+              {
+                "asset_class": "equity",
+                "liquidity": "daily",
+                "quantity": 180,
+                "symbol": "SPY"
+              },
+              {
+                "asset_class": "rates",
+                "liquidity": "daily",
+                "quantity": 300,
+                "symbol": "AGG"
+              },
+              {
+                "asset_class": "commodity",
+                "liquidity": "daily",
+                "quantity": 80,
+                "symbol": "GLD"
+              }
+            ]
           },
-          "name": "portfolio_snapshot",
-          "type": "domain_value"
+          "name": "portfolio",
+          "type": "object"
         },
         {
-          "description": "Market scenario or macro shock to test.",
-          "example": "stagflation shock",
-          "name": "shock_scenario",
-          "type": "domain_value"
-        },
-        {
-          "description": "Risk, liquidity, drawdown, tax, and mandate limits used to evaluate actions.",
+          "description": "Drawdown, VaR/CVaR, concentration, cash, liquidity, and turnover limits.",
           "example": {
-            "max_drawdown_pct": 12
+            "max_cvar_pct": 11.0,
+            "max_drawdown_pct": 15.0,
+            "max_single_name_weight_pct": 45.0,
+            "max_turnover_pct": 15.0,
+            "max_var_pct": 8.0,
+            "min_cash_pct": 5.0
           },
           "name": "risk_policy",
-          "type": "domain_value"
+          "type": "object"
+        },
+        {
+          "description": "Permitted review-only actions, no-trade symbols, tax notes, and mandate constraints.",
+          "example": {
+            "allowed_actions": [
+              "no_action",
+              "raise_cash",
+              "reduce_concentration",
+              "reduce_equity_beta",
+              "duration_hedge",
+              "credit_risk_reduction"
+            ],
+            "restricted_symbols": [],
+            "review_only": true
+          },
+          "name": "decision_constraints",
+          "type": "object"
         }
       ],
       "resolved_artifact": "inputs.json",
@@ -921,7 +939,10 @@
         "file",
         "env_json"
       ],
-      "validation_rules": []
+      "validation_rules": [
+        "portfolio.holdings must include symbols",
+        "required market data must be fresh or the run fails closed"
+      ]
     },
     "interfaces": {
       "channels": {
@@ -1040,6 +1061,11 @@
         "budgets",
         "agent_handoffs",
         "web_ui",
+        "market_data",
+        "risk_engine",
+        "monte_carlo",
+        "decision_policy",
+        "benchmark",
         "interfaces",
         "execution_model"
       ],
@@ -1103,12 +1129,17 @@
       ]
     },
     "llm": {
-      "agent_role": "AI assistant for reviewing portfolio stress scenarios and drafting risk notes.",
+      "agent_role": "LLM report writer that summarizes supplied market signals and structured simulation evidence; deterministic finance workers propose, simulate, evaluate, and benchmark decisions.",
       "default_api_base": "http://192.168.4.173:11434",
       "default_model": "ollama/nemotron3:33b",
-      "mock_mode": "run payloads/simulation_loop/scripts/run_blueprint.py --mock-llm"
+      "mock_mode": "run payloads/simulation_loop/scripts/run_blueprint.py --mock-llm",
+      "responsibilities": [
+        "interpret supplied market signals",
+        "write final report from structured metrics",
+        "avoid inventing prices or executable trades"
+      ]
     },
-    "llm_agent_role": "AI assistant for reviewing portfolio stress scenarios and drafting risk notes.",
+    "llm_agent_role": "LLM report writer that summarizes supplied market signals and structured simulation evidence; deterministic finance workers propose, simulate, evaluate, and benchmark decisions.",
     "memory_layer": {
       "collection": "mn_memory",
       "containers": "optional_sidecar",
@@ -1158,7 +1189,7 @@
       "schema_version": "mn.blueprint.observability_dashboard.v1",
       "source": "local_run_store"
     },
-    "output": "Plain-language portfolio risk notes, stress results, and draft rebalancing options.",
+    "output": "Review-only risk advisor report with ranked simulated decisions, benchmark comparison, policy violations, and market data source refs.",
     "output_contract": {
       "artifacts": [
         {
@@ -1290,6 +1321,17 @@
             "result.json"
           ],
           "type": "generated_report"
+        },
+        {
+          "artifact_id": "risk_benchmark",
+          "mime_type": "application/json",
+          "path": "result.json#/benchmark",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.benchmark_report.v1",
+          "source_refs": [
+            "events.jsonl"
+          ],
+          "type": "benchmark_report"
         }
       ],
       "events": "blueprint_report",
@@ -1303,7 +1345,12 @@
           "confidence",
           "evidence",
           "next_steps",
-          "source_refs"
+          "source_refs",
+          "ranked_decisions",
+          "simulation_results",
+          "benchmark_comparison",
+          "policy_violations",
+          "market_data_freshness"
         ],
         "schema_version": "mn.blueprint.final_artifact_contract.v1"
       },
@@ -1315,63 +1362,83 @@
       "result_json": "result.json",
       "stdout": "JSON object with timeline, state_changes, final_artifact, and llm metadata"
     },
-    "problem_solved": "Portfolio risk can change quickly during shocks; users need an assistant that makes downside exposure and possible next steps easier to review.",
+    "problem_solved": "Portfolio teams need reviewable real-time risk advice that separates deterministic financial engineering from LLM narrative generation.",
     "quick_test": {
       "command": "python3 payloads/simulation_loop/scripts/run_blueprint.py --mock-llm --steps 2",
       "enabled": true
     },
     "runtime_features": [
-      "macro shock simulation",
-      "portfolio risk review",
-      "LLM risk notes",
-      "decision feedback",
+      "public market data",
+      "near-real-time quote freshness checks",
+      "risk feature engineering",
+      "Monte Carlo simulation",
+      "historical stress review",
+      "decision proposal and simulation",
+      "decision benchmarking",
+      "LLM market-signal interpretation",
+      "LLM final report writing",
       "Membrane context memory optimization",
+      "review-only human approval policy",
       "product input contract",
       "transparent run status",
       "human control policy",
       "artifact records",
       "run-store observability dashboard",
       "workflow-driven flow graph",
-      "step-scoped worker teams"
+      "step-scoped deterministic workers"
     ],
     "simulation": {
       "actions": [
-        "rebalance_defensive",
-        "hedge_rates",
-        "raise_cash"
+        "no_action",
+        "raise_cash",
+        "reduce_concentration",
+        "reduce_equity_beta",
+        "duration_hedge",
+        "credit_risk_reduction"
       ],
-      "agent_role": "Portfolio risk review assistant",
-      "dynamic_metrics": [
+      "deterministic": true,
+      "enabled": true,
+      "metrics": [
         "portfolio_value",
-        "drawdown_pct",
-        "rate_shock_bps",
-        "liquidity_pct"
-      ]
+        "cash_pct",
+        "volatility_pct",
+        "var_pct",
+        "cvar_pct",
+        "max_drawdown_pct",
+        "single_name_concentration_pct",
+        "equity_beta"
+      ],
+      "objective": "maximize",
+      "primary_metric": "quality_score",
+      "risk_metric": "cvar_pct",
+      "seed_field": "seed",
+      "type": "Real-time public-market portfolio risk review with Monte Carlo decision benchmarking."
     },
-    "simulation_type": "Portfolio stress review with draft rebalancing guidance.",
+    "simulation_type": "Real-time public-market portfolio risk review with Monte Carlo decision benchmarking.",
     "standard": {
       "config_path": "config/default.json",
-      "default_input_adapter": "mock",
-      "execution_model": "load_metadata -> resolve_config -> load_inputs -> start_run_store -> observe_simulation_state -> call_llm_agent -> evaluate_workflow_state -> route_by_context -> request_human_input -> apply_decision_to_simulation -> emit_events -> write_final_artifact -> fan_out_output_skills",
+      "default_input_adapter": "json",
+      "execution_model": "load_metadata -> resolve_config -> load_inputs -> start_run_store -> load_public_market_data -> compute_risk_state -> propose_decisions -> simulate_decisions -> evaluate_and_benchmark -> call_llm_report_writer -> request_human_input -> emit_events -> write_final_artifact -> fan_out_output_skills",
       "execution_steps": [
         "load_metadata",
         "resolve_config",
         "load_inputs",
         "start_run_store",
-        "observe_simulation_state",
-        "call_llm_agent",
-        "evaluate_workflow_state",
-        "route_by_context",
+        "load_public_market_data",
+        "compute_risk_state",
+        "propose_decisions",
+        "simulate_decisions",
+        "evaluate_and_benchmark",
+        "call_llm_report_writer",
         "request_human_input",
-        "apply_decision_to_simulation",
         "emit_events",
         "write_final_artifact",
         "fan_out_output_skills"
       ],
       "output_adapter": "local_run_store",
       "real_input_adapters": [
-        "file",
         "json",
+        "file",
         "env_json"
       ],
       "run_store": "~/.mn/runs/<run_id>/",
@@ -1453,5 +1520,246 @@
         "llm_retries"
       ]
     }
-  }
+  },
+  "name": "Portfolio Risk Review Assistant",
+  "nodes": [
+    {
+      "node_id": "load_portfolio_context",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "with": {
+        "output_message_type": "portfolio_context_ready",
+        "script": "scripts/run_blueprint.py",
+        "upload_path": "simulation_loop"
+      }
+    },
+    {
+      "node_id": "load_public_market_data",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "with": {
+        "output_message_type": "market_data_ready",
+        "script": "scripts/run_blueprint.py",
+        "upload_path": "simulation_loop"
+      }
+    },
+    {
+      "node_id": "compute_risk_state",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "with": {
+        "output_message_type": "risk_state_ready",
+        "script": "scripts/run_blueprint.py",
+        "upload_path": "simulation_loop"
+      }
+    },
+    {
+      "node_id": "simulate_decision_candidates",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "with": {
+        "output_message_type": "decision_simulations_ready",
+        "script": "scripts/run_blueprint.py",
+        "upload_path": "simulation_loop"
+      }
+    },
+    {
+      "node_id": "evaluate_and_write_report",
+      "uses": "mn-agents.data_llm_decision@1.0.0",
+      "with": {
+        "llm_config": "primary",
+        "output_message_type": "llm_report_written",
+        "role": "Benchmark candidates, select a review recommendation, and use the LLM only to draft the report."
+      }
+    }
+  ],
+  "policies": {
+    "recovery_mode": "local_restart"
+  },
+  "requiredContextEngine": false,
+  "requirements": {
+    "cpu": {
+      "min_cores": 1
+    },
+    "disk": {
+      "min_gb": 1
+    },
+    "gpu": {
+      "min_count": 0
+    },
+    "memory": {
+      "min_gb": 2
+    }
+  },
+  "runtime": {
+    "bindings": {
+      "compute_risk_state": {
+        "risk": "low",
+        "side_effect": "read",
+        "strategy": "single",
+        "type": "worker",
+        "workers": [
+          {
+            "id": "portfolio:risk_engine",
+            "kind": "deterministic_worker",
+            "role": "Compute returns, covariance, volatility, beta, VaR, CVaR, drawdown, concentration, and policy breaches"
+          }
+        ]
+      },
+      "evaluate_and_write_report": {
+        "risk": "medium",
+        "side_effect": "internal_write",
+        "strategy": "fanout_reduce",
+        "type": "team",
+        "workers": [
+          {
+            "id": "portfolio:benchmark_evaluator",
+            "kind": "deterministic_worker",
+            "role": "Benchmark candidates against no-action and policy metrics"
+          },
+          {
+            "id": "portfolio:llm_report_writer",
+            "kind": "llm_agent",
+            "llm_config": "primary",
+            "role": "Write the review report from structured metrics and supplied market signals"
+          }
+        ]
+      },
+      "load_portfolio_context": {
+        "risk": "low",
+        "side_effect": "read",
+        "strategy": "single",
+        "type": "worker",
+        "workers": [
+          {
+            "id": "portfolio:context_loader",
+            "kind": "deterministic_worker",
+            "role": "Validate and normalize portfolio, policy, and constraints"
+          }
+        ]
+      },
+      "load_public_market_data": {
+        "risk": "medium",
+        "side_effect": "network_read",
+        "strategy": "single",
+        "type": "worker",
+        "workers": [
+          {
+            "id": "portfolio:market_data_loader",
+            "kind": "data_service",
+            "role": "Fetch public Yahoo chart quote/history data and enforce freshness"
+          }
+        ]
+      },
+      "simulate_decision_candidates": {
+        "risk": "low",
+        "side_effect": "read",
+        "strategy": "fanout_reduce",
+        "type": "team",
+        "workers": [
+          {
+            "id": "portfolio:decision_policy",
+            "kind": "deterministic_worker",
+            "role": "Propose review-only candidate decisions"
+          },
+          {
+            "id": "portfolio:monte_carlo",
+            "kind": "deterministic_worker",
+            "role": "Run seeded Monte Carlo and historical stress simulation for each candidate"
+          }
+        ]
+      }
+    },
+    "memory": {
+      "collection": "mn_memory",
+      "containers": "optional_sidecar",
+      "context_addr_env": "MN_CONTEXT_ADDR",
+      "conversation": {
+        "agent_role": "otterdesk_chat",
+        "include_human_events": true,
+        "include_runtime_events": true,
+        "include_runtime_logs": true,
+        "target_tokens": 2400,
+        "token_budget": 6000,
+        "use_model_compression": false
+      },
+      "conversation_enabled": true,
+      "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
+      "default_context_addr": "localhost:50052",
+      "enabled": true,
+      "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
+      "namespace": "portfolio_risk_review_assistant_context",
+      "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
+      "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
+      "sdk_distribution": "mirrorneuron-membrane-python-sdk",
+      "sdk_import_package": "mn_context_engine_sdk"
+    },
+    "models": {
+      "primary": {
+        "model": "ollama/nemotron3:33b",
+        "provider": "ollama",
+        "role": "AI assistant for reviewing portfolio stress scenarios and drafting risk notes.",
+        "type": "llm"
+      }
+    },
+    "observability": {
+      "panels": [
+        "current_status",
+        "recent_events",
+        "pending_human_requests",
+        "output_artifacts",
+        "resource_usage",
+        "errors",
+        "llm_calls",
+        "token_budget",
+        "llm_retries"
+      ],
+      "reads": [
+        "events.jsonl",
+        "human.jsonl",
+        "logs.jsonl",
+        "resources.jsonl",
+        "result.json",
+        "final_artifact.json",
+        "web_ui.json"
+      ],
+      "schema_version": "mn.blueprint.observability_dashboard.v1",
+      "source": "local_run_store"
+    },
+    "resources": {
+      "cpu": {
+        "min_cores": 1
+      },
+      "disk": {
+        "min_gb": 1
+      },
+      "gpu": {
+        "min_count": 0
+      },
+      "memory": {
+        "min_gb": 2
+      }
+    },
+    "store": {
+      "artifacts": [
+        "run.json",
+        "config.json",
+        "inputs.json",
+        "events.jsonl",
+        "human.jsonl",
+        "logs.jsonl",
+        "resources.jsonl",
+        "result.json",
+        "final_artifact.json"
+      ],
+      "path": "./runs/${run_id}",
+      "type": "local_run_store"
+    },
+    "worker_defaults": {
+      "model": "ollama/nemotron3:33b",
+      "pool": "default",
+      "pool_slots": 1,
+      "runner": "MirrorNeuron.Runner.HostLocal",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "workdir": "/sandbox/job/workflow"
+    }
+  },
+  "term": "TERM.md",
+  "version": "1.0.0"
 }

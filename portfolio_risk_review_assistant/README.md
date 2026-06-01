@@ -3,13 +3,21 @@
 `Blueprint ID:` `portfolio_risk_review_assistant`
 `Category:` `Finance`
 
-Stress-tests a portfolio against market crashes, rate shocks, and liquidity pressure, then explains risks and possible rebalancing options in plain language.
+Real-time, review-only portfolio risk advisor that uses public market data,
+financial engineering simulation, decision benchmarking, and LLM-written review
+reports.
 
 ## What It Does
 
-This folder is a self-contained MirrorNeuron blueprint. It defines the runtime
-manifest, default configuration, payload code, local documentation, and any
-fixtures needed to review or run the workflow from this checkout.
+This blueprint loads a portfolio, fetches public market quote/history data for
+the supplied symbols, computes risk features, proposes review-only candidate
+actions, simulates each decision with Monte Carlo paths, benchmarks candidates
+against no-action, and writes a human-review report.
+
+The LLM is not the risk engine. Deterministic workers handle market data,
+returns, covariance, VaR/CVaR, drawdown, concentration, candidate generation,
+simulation, scoring, and benchmark ranking. The LLM only summarizes supplied
+market-signal notes and turns structured evidence into the final report.
 
 ## Quick Start
 
@@ -33,39 +41,47 @@ mn blueprint monitor --follow
 
 ## Inputs And Configuration
 
-- `manifest.json`: graph shape, entrypoints, runtime metadata, runners, services, and environment access.
-- `config/default.json`: default launch configuration and mock/sample input settings.
-- `config/overwrite.json`: optional local overrides layered on defaults.
-- `payloads/`: worker scripts, policies, fixtures, prompts, and support files used by this blueprint.
+- `portfolio`: holdings with `symbol` plus `quantity` or `market_value`.
+- `risk_policy`: drawdown, VaR/CVaR, concentration, cash, and turnover limits.
+- `decision_constraints`: permitted review-only actions and restricted symbols.
+- `market_signals`: optional macro notes or analyst comments for the LLM.
+- `benchmark_portfolio`: optional benchmark weights by symbol.
+
+The default configuration uses `public_yahoo_chart` for public market data and
+fails closed if required symbols cannot be loaded or are stale. The standard
+`mock`, `json`, `file`, and `env_json` adapters are still declared for
+blueprint compatibility, but production use should provide real portfolio
+inputs through `json`, `file`, or `env_json`.
 
 ## Outputs
 
-Most runs write artifacts under `~/.mn/runs/<run_id>/`. Common files include
-`events.jsonl`, `result.json`, `final_artifact.json`, worker logs, and generated
-reports when the blueprint produces them.
+Runs write artifacts under `~/.mn/runs/<run_id>/`. The main artifact is
+`final_artifact.json`, containing ranked decisions, simulation results,
+benchmark comparison, policy violations, market data freshness, source refs,
+and human-review next steps.
 
 ## Safety Checklist
 
-- Review `manifest.json` and `payloads/` before running with real data.
-- Check `pass_env`, provider credentials, Slack/email/web adapters, and any shell or OpenShell runners.
-- Start with mock, dry-run, or quick-test configuration before live external integrations.
-- Keep local customer overrides out of committed defaults.
+- This blueprint is review-only and must not place trades or send orders.
+- Human approval is required before any downstream action.
+- Confirm market data freshness and source refs before relying on results.
+- Validate tax, mandate, liquidity, and restricted-symbol constraints outside
+  the LLM report.
+- Keep local customer overrides and portfolio files out of committed defaults.
 
 ## Local Documentation
 
 - [SPEC](SPEC.md)
 - [TERM](TERM.md)
 - [License](LICENSE.md)
-
 - [Manifest](manifest.json)
 - [Default config](config/default.json)
 
 ## Validation
 
-Run repository-level tests from `otterdesk-blueprints` after changing catalog metadata,
-manifest structure, payload behavior, or shared fixtures:
+Run repository-level tests from `otterdesk-blueprints` after changing catalog
+metadata, manifest structure, payload behavior, or shared fixtures:
 
 ```bash
-cd ..
 python3 -m pytest -q
 ```

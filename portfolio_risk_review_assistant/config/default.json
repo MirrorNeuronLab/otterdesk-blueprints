@@ -10,11 +10,29 @@
     "max_events_per_second": 10,
     "queue_size": 1000
   },
+  "benchmark": {
+    "baseline": "no_action",
+    "benchmark_portfolio": {
+      "AGG": 0.3,
+      "GLD": 0.1,
+      "SPY": 0.6
+    },
+    "enabled": true,
+    "quality_metrics": [
+      "expected_return",
+      "var_reduction",
+      "cvar_reduction",
+      "drawdown_reduction",
+      "policy_fit",
+      "turnover"
+    ],
+    "schema_version": "mn.finance.portfolio_risk.benchmark.v1"
+  },
   "budgets": {
     "max_connector_reads": 500,
     "max_connector_writes": 20,
     "max_disk_mb": 250,
-    "max_llm_calls": 20,
+    "max_llm_calls": 5,
     "max_llm_tokens": 20000,
     "max_runtime_seconds": 600,
     "max_stream_duration_seconds": 3600
@@ -28,6 +46,26 @@
     "required": [
       "filesystem.write"
     ]
+  },
+  "decision_policy": {
+    "allowed_actions": [
+      "no_action",
+      "raise_cash",
+      "reduce_concentration",
+      "reduce_equity_beta",
+      "duration_hedge",
+      "credit_risk_reduction"
+    ],
+    "blocked_actions": [
+      "place_trade",
+      "rebalance_portfolio",
+      "send_order",
+      "notify_client_with_recommendation_without_review"
+    ],
+    "max_turnover_pct": 15.0,
+    "minimum_cash_pct": 5.0,
+    "restricted_symbols": [],
+    "review_only": true
   },
   "determinism": {
     "enabled": true,
@@ -108,12 +146,62 @@
   },
   "input_skills": {},
   "inputs": {
-    "adapter": "mock",
-    "description": "Default synthetic inputs bundled with the blueprint.",
+    "adapter": "json",
+    "description": "Real-data default portfolio using public market quotes for supplied symbols.",
     "payload": {
-      "scenario": "stagflation shock",
+      "benchmark_portfolio": {
+        "AGG": 0.3,
+        "GLD": 0.1,
+        "SPY": 0.6
+      },
+      "decision_constraints": {
+        "allowed_actions": [
+          "no_action",
+          "raise_cash",
+          "reduce_concentration",
+          "reduce_equity_beta",
+          "duration_hedge",
+          "credit_risk_reduction"
+        ],
+        "restricted_symbols": [],
+        "review_only": true
+      },
+      "market_signals": [],
+      "monte_carlo_paths": 1000,
+      "portfolio": {
+        "base_currency": "USD",
+        "cash": 50000.0,
+        "holdings": [
+          {
+            "asset_class": "equity",
+            "liquidity": "daily",
+            "quantity": 180,
+            "symbol": "SPY"
+          },
+          {
+            "asset_class": "rates",
+            "liquidity": "daily",
+            "quantity": 300,
+            "symbol": "AGG"
+          },
+          {
+            "asset_class": "commodity",
+            "liquidity": "daily",
+            "quantity": 80,
+            "symbol": "GLD"
+          }
+        ]
+      },
+      "risk_policy": {
+        "max_cvar_pct": 11.0,
+        "max_drawdown_pct": 15.0,
+        "max_single_name_weight_pct": 45.0,
+        "max_turnover_pct": 15.0,
+        "max_var_pct": 8.0,
+        "min_cash_pct": 5.0
+      },
       "seed": 42,
-      "steps": 5
+      "simulation_horizon_days": 20
     }
   },
   "interfaces": {
@@ -236,6 +324,11 @@
       "budgets",
       "agent_handoffs",
       "web_ui",
+      "market_data",
+      "risk_engine",
+      "monte_carlo",
+      "decision_policy",
+      "benchmark",
       "interfaces",
       "execution_model"
     ],
@@ -302,16 +395,16 @@
     ]
   },
   "llm": {
-    "agent_role": "AI assistant for reviewing portfolio stress scenarios and drafting risk notes.",
+    "agent_role": "LLM report writer that summarizes supplied market signals and structured simulation evidence; deterministic finance workers propose, simulate, evaluate, and benchmark decisions.",
     "agents": {
       "default": {
         "llm_config": "primary",
         "responsibilities": [
-          "observe macro shocks",
-          "evaluate drawdown and liquidity",
-          "recommend rebalancing"
+          "interpret supplied market signals",
+          "write final report from structured metrics",
+          "avoid inventing prices or executable trades"
         ],
-        "role": "AI assistant for reviewing portfolio stress scenarios and drafting risk notes."
+        "role": "LLM report writer that summarizes supplied market signals and structured simulation evidence; deterministic finance workers propose, simulate, evaluate, and benchmark decisions."
       }
     },
     "api_base": "http://192.168.4.173:11434",
@@ -333,9 +426,9 @@
     "mode": "ollama",
     "model": "ollama/nemotron3:33b",
     "responsibilities": [
-      "observe macro shocks",
-      "evaluate drawdown and liquidity",
-      "recommend rebalancing"
+      "interpret supplied market signals",
+      "write final report from structured metrics",
+      "avoid inventing prices or executable trades"
     ]
   },
   "logging": {
@@ -358,6 +451,13 @@
       "human_decision_applied",
       "output_skill_started",
       "output_skill_completed",
+      "market_data_loaded",
+      "risk_state_computed",
+      "decision_candidates_proposed",
+      "decision_simulated",
+      "decision_evaluated",
+      "benchmark_step_scored",
+      "llm_report_written",
       "output_skill_failed"
     ],
     "events_jsonl": true,
@@ -391,6 +491,24 @@
       "shutdown_flush_timeout_seconds": 2
     }
   },
+  "market_data": {
+    "benchmark_symbols": [
+      "SPY",
+      "AGG",
+      "GLD"
+    ],
+    "fail_closed": true,
+    "history_range": "1y",
+    "interval": "1d",
+    "provider": "public_yahoo_chart",
+    "refresh_seconds": 60,
+    "retry": {
+      "backoff_seconds": 1,
+      "max_attempts": 2
+    },
+    "stale_after_seconds": 259200,
+    "timeout_seconds": 8
+  },
   "memory_layer": {
     "collection": "mn_memory",
     "containers": "optional_sidecar",
@@ -416,21 +534,30 @@
     "sdk_import_package": "mn_context_engine_sdk"
   },
   "metadata": {
-    "agent_role": "AI assistant for reviewing portfolio stress scenarios and drafting risk notes.",
+    "agent_role": "LLM report writer that summarizes supplied market signals and structured simulation evidence; deterministic finance workers propose, simulate, evaluate, and benchmark decisions.",
     "blueprint_id": "portfolio_risk_review_assistant",
     "blueprint_revision": "v1",
     "category": "finance",
-    "customizable_for": "Wealth management, treasury review, family offices, robo-advisory risk workflows, and portfolio check-ins.",
-    "description": "Stress-tests a portfolio against market crashes, rate shocks, and liquidity pressure, then explains risks and possible rebalancing options in plain language.",
-    "llm_agent_role": "AI assistant for reviewing portfolio stress scenarios and drafting risk notes.",
+    "customizable_for": "Wealth management, treasury review, family offices, robo-advisory risk workflows, portfolio monitoring, and review-only advisor workbenches.",
+    "description": "Real-time, review-only portfolio risk advisor that uses public market data, financial engineering simulation, decision benchmarking, and LLM-written review reports.",
+    "llm_agent_role": "LLM report writer that summarizes supplied market signals and structured simulation evidence; deterministic finance workers propose, simulate, evaluate, and benchmark decisions.",
     "name": "Portfolio Risk Review Assistant",
-    "problem_solved": "Portfolio risk can change quickly during shocks; users need an assistant that makes downside exposure and possible next steps easier to review.",
-    "simulation_type": "Portfolio stress review with draft rebalancing guidance.",
+    "problem_solved": "Portfolio teams need reviewable real-time risk advice that separates deterministic financial engineering from LLM narrative generation.",
+    "simulation_type": "Real-time public-market portfolio risk review with Monte Carlo decision benchmarking.",
     "standard_version": "1.0",
     "target_user": "Investors, advisors, portfolio managers, treasury teams, and fintech operators.",
     "target_users": "Investors, advisors, portfolio managers, treasury teams, and fintech operators."
   },
-  "mode": "mock",
+  "mode": "real_time_review",
+  "monte_carlo": {
+    "horizon_days": 20,
+    "paths": 1000,
+    "rebalance_assumption": "review_only_partial_trim_to_cash",
+    "seed": 42,
+    "shock_overlays": [
+      "historical_return_distribution"
+    ]
+  },
   "output_skills": {},
   "outputs": {
     "adapter": "local_run_store",
@@ -489,6 +616,15 @@
     "rollup_bucket_seconds": 3600,
     "sample_interval_seconds": 10
   },
+  "risk_engine": {
+    "annualization_factor": 252,
+    "beta_proxy_symbol": "SPY",
+    "concentration_limit_field": "max_single_name_weight_pct",
+    "covariance_method": "sample",
+    "cvar_confidence": 0.95,
+    "return_horizon": "daily",
+    "var_confidence": 0.95
+  },
   "schemas": {
     "artifact_record": "mn.artifact.record.v1",
     "config": "mn.blueprint.config.v1",
@@ -505,23 +641,30 @@
   },
   "simulation": {
     "actions": [
-      "rebalance_defensive",
-      "hedge_rates",
-      "raise_cash"
+      "no_action",
+      "raise_cash",
+      "reduce_concentration",
+      "reduce_equity_beta",
+      "duration_hedge",
+      "credit_risk_reduction"
     ],
     "deterministic": true,
     "enabled": true,
     "metrics": [
       "portfolio_value",
-      "drawdown_pct",
-      "rate_shock_bps",
-      "liquidity_pct"
+      "cash_pct",
+      "volatility_pct",
+      "var_pct",
+      "cvar_pct",
+      "max_drawdown_pct",
+      "single_name_concentration_pct",
+      "equity_beta"
     ],
-    "objective": "minimize",
-    "primary_metric": "drawdown_pct",
-    "risk_metric": "liquidity_pct",
+    "objective": "maximize",
+    "primary_metric": "quality_score",
+    "risk_metric": "cvar_pct",
     "seed_field": "seed",
-    "type": "Portfolio stress review with draft rebalancing guidance."
+    "type": "Real-time public-market portfolio risk review with Monte Carlo decision benchmarking."
   },
   "standard_version": "1.0",
   "state": {
