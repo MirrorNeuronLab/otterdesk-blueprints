@@ -37,6 +37,7 @@ mn blueprint monitor --follow
 - `config/default.json`: default launch configuration and mock/sample input settings.
 - `config/overwrite.json`: optional local overrides layered on defaults.
 - `payloads/`: worker scripts, policies, fixtures, prompts, and support files used by this blueprint.
+- Scanned PDFs use the shared `llm_ocr_skill` through Docker Model Runner when OCR is needed. The LightOnOCR model is pulled and loaded only for image-only documents, then remains shared until manually removed.
 
 ## Outputs
 

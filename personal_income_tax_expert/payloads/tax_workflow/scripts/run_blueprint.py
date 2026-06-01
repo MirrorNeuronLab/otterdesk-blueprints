@@ -41,11 +41,11 @@ def _add_repo_paths() -> None:
 
     for skill_root in skill_roots:
         support = skill_root / "blueprint_support_skill" / "src"
-        tax_skill = skill_root / "tax_pdf_ocr_skill" / "src"
+        llm_ocr_skill = skill_root / "llm_ocr_skill" / "src"
         if support.exists() and str(support) not in sys.path:
             sys.path.insert(0, str(support))
-        if tax_skill.exists() and str(tax_skill) not in sys.path:
-            sys.path.insert(0, str(tax_skill))
+        if llm_ocr_skill.exists() and str(llm_ocr_skill) not in sys.path:
+            sys.path.insert(0, str(llm_ocr_skill))
 
 
 _add_repo_paths()
@@ -364,13 +364,24 @@ except ModuleNotFoundError:  # pragma: no cover - exercised by host-local runtim
         print(json.dumps(result, indent=2, sort_keys=True))
 
 try:  # noqa: E402
-    from mn_tax_pdf_ocr_skill import extract_tax_pdf_folder, redact_tax_identifiers
+    from mn_llm_ocr_skill import docker_ocr_client_factory_from_config, extract_document_folder
 except ModuleNotFoundError:  # pragma: no cover - fallback for minimal bundles
-    extract_tax_pdf_folder = None
+    docker_ocr_client_factory_from_config = None
+    extract_document_folder = None
 
-    def redact_tax_identifiers(text: str) -> str:
-        return re.sub(r"\b\d{3}-\d{2}-\d{4}\b", "[REDACTED]", text or "")
 
+SENSITIVE_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"\b\d{3}-\d{2}-\d{4}\b"),
+    re.compile(r"\b\d{9}\b"),
+    re.compile(r"\b(?:account|acct)\s*(?:number|no\.?)?\s*[:#]?\s*[A-Z0-9-]{6,}\b", re.IGNORECASE),
+)
+
+
+def redact_tax_identifiers(text: str) -> str:
+    redacted = text or ""
+    for pattern in SENSITIVE_PATTERNS:
+        redacted = pattern.sub("[REDACTED]", redacted)
+    return redacted
 
 BLUEPRINT_ID = "personal_income_tax_expert"
 
@@ -2115,8 +2126,23 @@ def _advisor_report_writer(
 def _load_documents(config: dict[str, Any], runtime_inputs: dict[str, Any]) -> list[dict[str, Any]]:
     folder = _document_folder_value(config, runtime_inputs)
     folder_path = Path(str(folder)).expanduser() if folder else None
-    if folder_path and folder_path.exists() and folder_path.is_dir() and extract_tax_pdf_folder is not None:
-        return extract_tax_pdf_folder(folder_path)
+    if folder_path and folder_path.exists() and folder_path.is_dir() and extract_document_folder is not None:
+        ocr_factory = (
+            docker_ocr_client_factory_from_config(config)
+            if docker_ocr_client_factory_from_config is not None
+            else None
+        )
+        input_skills = config.get("input_skills") if isinstance(config.get("input_skills"), dict) else {}
+        ocr_config = input_skills.get("llm_ocr") if isinstance(input_skills.get("llm_ocr"), dict) else {}
+        if not ocr_config:
+            ocr_config = config.get("llm_ocr") if isinstance(config.get("llm_ocr"), dict) else {}
+        return extract_document_folder(
+            folder_path,
+            classifier=_classify_document_text,
+            redactor=redact_tax_identifiers,
+            llm_ocr_client_factory=ocr_factory,
+            min_text_chars=int(ocr_config.get("min_text_chars") or 40),
+        )
     if folder_path and folder_path.exists() and folder_path.is_dir():
         return _fallback_folder_scan(folder_path)
     return list((config.get("tax_documents") or {}).get("sample_documents") or [])
@@ -2169,6 +2195,10 @@ def _classify(filename: str, text: str) -> str:
     if "brokerage" in haystack or "consolidated tax statement" in haystack:
         return "brokerage_statement"
     return "unknown_tax_document"
+
+
+def _classify_document_text(text: str, filename: str) -> str:
+    return _classify(filename, text)
 
 
 def _document_summary(documents: list[dict[str, Any]]) -> dict[str, Any]:
@@ -3577,18 +3607,48 @@ def _write_basic_final_artifact_pdf(final_artifact: dict[str, Any], path: Path) 
     review = final_artifact.get("review") if isinstance(final_artifact.get("review"), dict) else {}
     readiness = final_artifact.get("filing_readiness") if isinstance(final_artifact.get("filing_readiness"), dict) else {}
     line_map = prepared.get("line_map") if isinstance(prepared.get("line_map"), dict) else {}
+    strategic = final_artifact.get("strategic_review") if isinstance(final_artifact.get("strategic_review"), dict) else {}
+    executive = strategic.get("executive_engagement_summary") if isinstance(strategic.get("executive_engagement_summary"), dict) else {}
+    financial_leaf = strategic.get("executive_financial_leaf") if isinstance(strategic.get("executive_financial_leaf"), dict) else {}
+    post_mortem = strategic.get("strategic_post_mortem_advisory") if isinstance(strategic.get("strategic_post_mortem_advisory"), dict) else {}
     lines = [
         str(final_artifact.get("title") or "Personal Income Tax Preparation & Strategic Review"),
         "",
         f"Draft warning: {final_artifact.get('draft_warning') or 'Draft review packet only.'}",
         str(final_artifact.get("advisor_message") or ""),
         "",
-        "Filing Readiness",
-        f"Status: {readiness.get('status', 'not_ready_for_filing')}",
-        f"Manager signoff: {readiness.get('manager_signoff', 'not_approved_for_filing')}",
+        "Executive Engagement Summary",
+        str(executive.get("executive_tax_regime_overview") or "Draft strategic review pending complete source documents."),
         "",
-        "Draft Form 1040 Line Map",
+        "Flexible Document & Data Intake Tracker",
+        "Source documents are indexed in the run workspace and reviewed through redacted document artifacts.",
+        "",
+        "Executive Financial Output Summary",
     ]
+    for row in _as_list(financial_leaf.get("rows"), [])[:12]:
+        if isinstance(row, dict):
+            lines.append(f"{row.get('code', '')}: {row.get('label', '')} {row.get('amount', '')}")
+    lines.extend(
+        [
+            "",
+            "Strategic Post-Mortem Advisory",
+        ]
+    )
+    for option in _as_list(post_mortem.get("high_impact_structural_pivots"), [])[:8]:
+        if isinstance(option, dict):
+            lines.append(f"{option.get('option', '')}: {option.get('advisor_note', '')}")
+        else:
+            lines.append(str(option))
+    lines.extend(
+        [
+            "",
+            "Filing Readiness",
+            f"Status: {readiness.get('status', 'not_ready_for_filing')}",
+            f"Manager signoff: {readiness.get('manager_signoff', 'not_approved_for_filing')}",
+            "",
+            "Draft Form 1040 Line Map",
+        ]
+    )
     lines.extend(f"{key}: {value}" for key, value in line_map.items())
     lines.extend(["", "Risk Register"])
     for risk in _as_list(final_artifact.get("risk_register"), [])[:20]:
@@ -3604,7 +3664,16 @@ def _write_basic_final_artifact_pdf(final_artifact: dict[str, Any], path: Path) 
             lines.append(f"P{item.get('priority', '')}: {item.get('action', '')}")
         else:
             lines.append(str(item))
-    lines.extend(["", "This packet is not filing-ready until all open items are reviewed."])
+    lines.extend(
+        [
+            "",
+            "Manager Review And Signoff",
+            "Reviewer signoff: ________________________________",
+            "Date: ____________________",
+            "",
+            "This packet is not filing-ready until all open items are reviewed.",
+        ]
+    )
     _write_basic_pdf(path, lines)
 
 

@@ -470,6 +470,45 @@ def test_video_watch_declares_otterdesk_chat_system_prompt():
     assert "human-in-the-loop" in prompt
 
 
+def test_video_watch_declares_domain_agent_aliases():
+    manifest = json.loads((ROOT / "video_watch_assistant" / "manifest.json").read_text())
+
+    template_aliases = {
+        node["node_id"]: node["alias"]
+        for node in manifest["metadata"]["agent_templates"]["nodes"]
+    }
+    assert template_aliases == {
+        "ingress": "video_monitor",
+        "video_frame_tick_source": "frame_sampler",
+        "visual_detector": "quality_controller",
+    }
+
+    worker_ids = [
+        worker["id"]
+        for binding in manifest["runtime"]["bindings"].values()
+        for worker in binding["workers"]
+    ]
+    assert worker_ids == [
+        "visual_target_detector",
+        "quality_controller",
+        "frame_sampler",
+        "video_source_validator",
+        "video_monitor",
+        "watch_summary_writer",
+    ]
+    assert all(
+        worker.get("alias") == worker["id"]
+        for binding in manifest["runtime"]["bindings"].values()
+        for worker in binding["workers"]
+    )
+    assert [step["label"] for step in manifest["flow"]["steps"]] == [
+        "Start Video Monitor",
+        "Sample Video Frames",
+        "Detect Visual Targets",
+        "Write Watch Summary",
+    ]
+
+
 def test_otterdesk_nodes_use_shared_agent_templates_and_render():
     for manifest_path in _manifest_paths():
         manifest = json.loads(manifest_path.read_text())

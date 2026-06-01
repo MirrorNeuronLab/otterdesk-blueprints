@@ -37,7 +37,8 @@ The blueprint uses local knowledge files and current IRS source anchors for:
 ## Extraction Rules
 
 1. Read embedded PDF text where available.
-2. Mark blank/scanned PDFs as `ocr_required`.
+2. Use the shared `llm_ocr_skill` for scanned PDFs and document images when
+   Docker Model Runner is available; otherwise keep `ocr_required` warnings.
 3. Redact SSNs, account numbers, and other tax identifiers in logs and run
    artifacts.
 4. Classify known documents before mapping values.

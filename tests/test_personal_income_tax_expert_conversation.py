@@ -223,6 +223,46 @@ def test_personal_tax_expert_reads_local_folder_fixture(tmp_path):
     _assert_command_envelopes_are_blob_safe(tmp_path / "tax-folder-unit" / "tax_team")
 
 
+def test_personal_tax_expert_uses_shared_llm_ocr_for_scanned_pdf(tmp_path, monkeypatch):
+    runner = _load_runner()
+    docs = tmp_path / "tax-docs"
+    docs.mkdir()
+    (docs / "scan-w2.pdf").write_bytes(b"%PDF-1.4\n1 0 obj <<>> endobj\ntrailer <<>>\n%%EOF\n")
+    factory_calls = 0
+
+    class FakeOcrClient:
+        def ocr_path(self, path):
+            return "Form W-2 Wage and Tax Statement. Box 1 wages 321.00. Box 2 federal income tax withheld 45.00."
+
+    def fake_ocr_factory_from_config(config):
+        assert config["input_skills"]["llm_ocr"]["skill"] == "llm_ocr_skill"
+
+        def factory():
+            nonlocal factory_calls
+            factory_calls += 1
+            return FakeOcrClient()
+
+        return factory
+
+    monkeypatch.setattr(runner, "docker_ocr_client_factory_from_config", fake_ocr_factory_from_config)
+    result = runner.run_blueprint(
+        config={
+            "llm": {"mode": "fake"},
+            "tax_documents": {"folder_path": str(docs), "recommended_forms": ["W-2"]},
+            "inputs": {"payload": {"document_folder": str(docs), "filing_status": "single", "tax_year": 2025}},
+            "outputs": {"folder_path": str(tmp_path / "exports")},
+        },
+        runs_root=tmp_path,
+        run_id="tax-shared-ocr-unit",
+    )
+
+    assert factory_calls == 1
+    assert result["document_summary"]["document_types"]["W-2"] == 1
+    assert result["document_summary"]["ocr_required"] == []
+    assert result["final_artifact"]["prepared_form_1040"]["line_map"]["1z_wages"] == "$321.00"
+    assert result["final_artifact"]["prepared_form_1040"]["line_map"]["25d_total_federal_income_tax_withheld"] == "$45.00"
+
+
 def test_personal_tax_team_command_envelopes_do_not_embed_large_document_blobs(tmp_path):
     runner = _load_runner()
     docs = tmp_path / "tax-docs"

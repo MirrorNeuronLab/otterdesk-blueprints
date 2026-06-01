@@ -521,16 +521,20 @@
         "type": "team",
         "workers": [
           {
-            "id": "video:visual_detector",
+            "id": "visual_target_detector",
+            "alias": "visual_target_detector",
+            "display_name": "Visual Target Detector",
             "model": "Ollama/Nemotron3 33B",
             "role": "Run visual detection",
             "tokens": 14000,
             "tools": 4
           },
           {
-            "id": "video:alert_policy",
+            "id": "quality_controller",
+            "alias": "quality_controller",
+            "display_name": "Quality Controller",
             "model": "Ollama/Nemotron3 33B",
-            "role": "Evaluate cooldown and alert policy",
+            "role": "Review alert quality",
             "tokens": 14000,
             "tools": 4
           }
@@ -543,9 +547,11 @@
         "type": "worker",
         "workers": [
           {
-            "id": "video:tick_source",
+            "id": "frame_sampler",
+            "alias": "frame_sampler",
+            "display_name": "Frame Sampler",
             "model": "Ollama/Nemotron3 33B",
-            "role": "Generate frame tick events",
+            "role": "Sample video frames",
             "tokens": 14000,
             "tools": 4
           }
@@ -558,16 +564,20 @@
         "type": "team",
         "workers": [
           {
-            "id": "video:source_validator",
+            "id": "video_source_validator",
+            "alias": "video_source_validator",
+            "display_name": "Video Source Validator",
             "model": "Ollama/Nemotron3 33B",
-            "role": "Validate stream source",
+            "role": "Validate video source",
             "tokens": 14000,
             "tools": 4
           },
           {
-            "id": "video:monitor_router",
+            "id": "video_monitor",
+            "alias": "video_monitor",
+            "display_name": "Video Monitor",
             "model": "Ollama/Nemotron3 33B",
-            "role": "Route monitor start event",
+            "role": "Coordinate video monitoring",
             "tokens": 14000,
             "tools": 4
           }
@@ -580,9 +590,11 @@
         "type": "worker",
         "workers": [
           {
-            "id": "video:summary_writer",
+            "id": "watch_summary_writer",
+            "alias": "watch_summary_writer",
+            "display_name": "Watch Summary Writer",
             "model": "Ollama/Nemotron3 33B",
-            "role": "Write detection summary",
+            "role": "Write watch summary",
             "tokens": 14000,
             "tools": 4
           }
@@ -735,15 +747,39 @@
       "nodes": [
         {
           "node_id": "ingress",
+          "alias": "video_monitor",
+          "display_name": "Video Monitor",
           "uses": "mn-agents.control_router@1.0.0"
         },
         {
           "node_id": "video_frame_tick_source",
-          "uses": "mn-agents.data_module@1.0.0"
+          "alias": "frame_sampler",
+          "display_name": "Frame Sampler",
+          "uses": "mn-agents.data_module@1.0.0",
+          "with": {
+            "module": "MirrorNeuron.Examples.VideoWatchAssistant.VideoFrameTickSource",
+            "module_source": "payloads/beam_modules/video_frame_tick_source.ex",
+            "emit_type": "video_frame_tick_generated"
+          }
         },
         {
           "node_id": "visual_detector",
-          "uses": "mn-agents.data_python_executor@1.0.0"
+          "alias": "quality_controller",
+          "display_name": "Quality Controller",
+          "uses": "mn-agents.data_python_executor@1.0.0",
+          "with": {
+            "script": "scripts/analyze_video_frame.py",
+            "upload_path": "visual_detector",
+            "upload_paths": [
+              {
+                "source": "visual_detector",
+                "target": "visual_detector"
+              }
+            ],
+            "output_message_type": "video_watch_detection",
+            "policy": "visual_detector/policies/video-egress.yaml",
+            "environment": {}
+          }
         }
       ],
       "render_tool": "../mn-agents/tools/render_agent_templates.py",

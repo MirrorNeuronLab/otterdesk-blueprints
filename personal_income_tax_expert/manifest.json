@@ -1310,7 +1310,7 @@
           "description": "Human notices, approval requests, responses, timeouts, and applied decisions."
         },
         "input_skills": {
-          "description": "PDF extraction, LLM OCR handoff, and tax form classification skills."
+          "description": "PDF extraction, shared Docker Model Runner LLM OCR, and tax form classification skills."
         },
         "inputs": {
           "artifact": "inputs.json",
@@ -1662,6 +1662,7 @@
     },
     "runtime_features": [
       "local tax PDF intake",
+      "shared LightOnOCR Docker Model Runner OCR for scanned tax PDFs",
       "LLM document understanding",
       "specialist tax preparer team",
       "filesystem-backed agent handoffs",
@@ -1685,6 +1686,8 @@
       "1099-R",
       "401k",
       "PDF OCR",
+      "LightOnOCR",
+      "Docker Model Runner OCR",
       "personal tax advisor"
     ],
     "simulation_type": "Document automation tax preparation workflow with a specialist LLM preparer team, auditor, and manager review.",

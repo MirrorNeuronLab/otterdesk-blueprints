@@ -155,11 +155,24 @@
       "purpose": "fallback PDF text extraction",
       "skill": "pdf_extract_skill"
     },
-    "tax_pdf_ocr": {
-      "connector": "local_filesystem",
-      "package": "mirrorneuron-tax-pdf-ocr-skill",
-      "purpose": "extract embedded text, classify tax PDFs, and mark LLM OCR needs",
-      "skill": "tax_pdf_ocr_skill"
+    "llm_ocr": {
+      "backend": "auto",
+      "connector": "docker_model_runner",
+      "enabled": true,
+      "endpoint": "http://localhost:12434",
+      "install_policy": "on_first_required_document",
+      "max_pages": null,
+      "min_text_chars": 40,
+      "model": null,
+      "package": "mirrorneuron-llm-ocr-skill",
+      "preload": false,
+      "purpose": "shared local LightOnOCR-2-1B OCR for scanned PDFs, images, and forms",
+      "quantization": null,
+      "remove_policy": "manual",
+      "require_hardware_acceleration": true,
+      "required": false,
+      "skill": "llm_ocr_skill",
+      "timeout_seconds": 180
     }
   },
   "inputs": {
