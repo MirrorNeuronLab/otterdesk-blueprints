@@ -332,6 +332,62 @@
   ],
   "flow": {
     "entrypoint": "target_discovery",
+    "graph": {
+      "dynamic": {
+        "apply_at": "between_steps",
+        "enabled": false,
+        "patch_events": []
+      },
+      "edges": [
+        {
+          "accepts": [
+            "done"
+          ],
+          "event": "targets_ready",
+          "from": "target_discovery",
+          "id": "target_discovery_to_structure_generation",
+          "required": true,
+          "to": "structure_generation"
+        },
+        {
+          "accepts": [
+            "done"
+          ],
+          "event": "structures_ready",
+          "from": "structure_generation",
+          "id": "structure_generation_to_candidate_generation",
+          "required": true,
+          "to": "candidate_generation"
+        },
+        {
+          "accepts": [
+            "done"
+          ],
+          "event": "candidates_ready",
+          "from": "candidate_generation",
+          "id": "candidate_generation_to_binding_evaluation",
+          "required": true,
+          "to": "binding_evaluation"
+        },
+        {
+          "accepts": [
+            "done"
+          ],
+          "event": "evaluations_ready",
+          "from": "binding_evaluation",
+          "id": "binding_evaluation_to_ranking_reporting",
+          "required": true,
+          "to": "ranking_reporting"
+        }
+      ],
+      "execution": {
+        "strategy": "parallel"
+      },
+      "mode": "static_dag",
+      "schema": "mn.workflow.problem_graph/v1",
+      "sink": "ranking_reporting",
+      "source": "target_discovery"
+    },
     "observers": [
       {
         "failure_policy": "warn",
@@ -406,6 +462,21 @@
     "steps": [
       {
         "action": "discover_targets",
+        "control": {
+          "failure_policy": "fail_workflow",
+          "required": true,
+          "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 1,
+            "jitter": 0,
+            "max_attempts": 2
+          },
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.0,
+            "on_low_confidence": "continue_with_warning"
+          }
+        },
         "emits": "targets_ready",
         "goal": "Identify and summarize disease targets and biological constraints.",
         "id": "target_discovery",
@@ -425,6 +496,21 @@
       },
       {
         "action": "generate_structures",
+        "control": {
+          "failure_policy": "fail_workflow",
+          "required": true,
+          "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 1,
+            "jitter": 0,
+            "max_attempts": 2
+          },
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.0,
+            "on_low_confidence": "continue_with_warning"
+          }
+        },
         "emits": "structures_ready",
         "goal": "Generate or retrieve useful target structures for screening.",
         "id": "structure_generation",
@@ -443,6 +529,21 @@
       },
       {
         "action": "generate_candidates",
+        "control": {
+          "failure_policy": "fail_workflow",
+          "required": true,
+          "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 1,
+            "jitter": 0,
+            "max_attempts": 2
+          },
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.0,
+            "on_low_confidence": "continue_with_warning"
+          }
+        },
         "emits": "candidates_ready",
         "goal": "Generate candidate molecules and filter against screening criteria.",
         "id": "candidate_generation",
@@ -462,6 +563,21 @@
       },
       {
         "action": "evaluate_binding",
+        "control": {
+          "failure_policy": "fail_workflow",
+          "required": true,
+          "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 1,
+            "jitter": 0,
+            "max_attempts": 2
+          },
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.0,
+            "on_low_confidence": "continue_with_warning"
+          }
+        },
         "emits": "evaluations_ready",
         "goal": "Evaluate candidate binding, risk, and evidence quality.",
         "id": "binding_evaluation",
@@ -481,6 +597,21 @@
       },
       {
         "action": "rank_drug_candidates",
+        "control": {
+          "failure_policy": "fail_workflow",
+          "required": true,
+          "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 1,
+            "jitter": 0,
+            "max_attempts": 2
+          },
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.0,
+            "on_low_confidence": "continue_with_warning"
+          }
+        },
         "emits": "pipeline_complete",
         "goal": "Rank candidates, summarize evidence, and prepare a human-reviewable research artifact.",
         "id": "ranking_reporting",

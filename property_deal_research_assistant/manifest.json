@@ -293,6 +293,52 @@
   ],
   "flow": {
     "entrypoint": "collect_deal_context",
+    "graph": {
+      "dynamic": {
+        "apply_at": "between_steps",
+        "enabled": false,
+        "patch_events": []
+      },
+      "edges": [
+        {
+          "accepts": [
+            "done"
+          ],
+          "event": "deal_context_ready",
+          "from": "collect_deal_context",
+          "id": "collect_deal_context_to_compare_memory_signals",
+          "required": true,
+          "to": "compare_memory_signals"
+        },
+        {
+          "accepts": [
+            "done"
+          ],
+          "event": "memory_signals_ready",
+          "from": "compare_memory_signals",
+          "id": "compare_memory_signals_to_score_opportunities",
+          "required": true,
+          "to": "score_opportunities"
+        },
+        {
+          "accepts": [
+            "done"
+          ],
+          "event": "opportunities_scored",
+          "from": "score_opportunities",
+          "id": "score_opportunities_to_write_deal_memo",
+          "required": true,
+          "to": "write_deal_memo"
+        }
+      ],
+      "execution": {
+        "strategy": "parallel"
+      },
+      "mode": "static_dag",
+      "schema": "mn.workflow.problem_graph/v1",
+      "sink": "write_deal_memo",
+      "source": "collect_deal_context"
+    },
     "observers": [],
     "policy": {
       "failure": {
@@ -354,6 +400,21 @@
     "steps": [
       {
         "action": "collect_deal_context",
+        "control": {
+          "failure_policy": "fail_workflow",
+          "required": true,
+          "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 1,
+            "jitter": 0,
+            "max_attempts": 2
+          },
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.0,
+            "on_low_confidence": "continue_with_warning"
+          }
+        },
         "emits": "deal_context_ready",
         "goal": "Collect ZIP-code history, broker notes, financing constraints, and market assumptions.",
         "id": "collect_deal_context",
@@ -373,6 +434,21 @@
       },
       {
         "action": "compare_memory_signals",
+        "control": {
+          "failure_policy": "fail_workflow",
+          "required": true,
+          "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 1,
+            "jitter": 0,
+            "max_attempts": 2
+          },
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.0,
+            "on_low_confidence": "continue_with_warning"
+          }
+        },
         "emits": "memory_signals_ready",
         "goal": "Retrieve and compare prior deal memory under the declared memory policy.",
         "id": "compare_memory_signals",
@@ -393,6 +469,21 @@
       },
       {
         "action": "score_property_opportunities",
+        "control": {
+          "failure_policy": "fail_workflow",
+          "required": true,
+          "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 1,
+            "jitter": 0,
+            "max_attempts": 2
+          },
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.0,
+            "on_low_confidence": "continue_with_warning"
+          }
+        },
         "emits": "opportunities_scored",
         "goal": "Rank candidate opportunities and explain financing and risk tradeoffs.",
         "id": "score_opportunities",
@@ -412,6 +503,21 @@
       },
       {
         "action": "notify_broker_without_review",
+        "control": {
+          "failure_policy": "fail_workflow",
+          "required": true,
+          "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 1,
+            "jitter": 0,
+            "max_attempts": 2
+          },
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.0,
+            "on_low_confidence": "continue_with_warning"
+          }
+        },
         "emits": "deal_memo_ready",
         "goal": "Write the deal memo with evidence, caveats, and reviewable next steps.",
         "id": "write_deal_memo",

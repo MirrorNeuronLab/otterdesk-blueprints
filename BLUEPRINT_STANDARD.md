@@ -31,7 +31,7 @@ The top-level workflow shape is:
 }
 ```
 
-Shared `mn-agents` entries are still reusable worker templates. A blueprint may actualize those templates with `uses`, `with`, and runtime config, but those workers should be bound under `runtime.bindings` and referenced from `flow.steps[].run`.
+Shared `mn-agents` entries are still reusable worker templates. A blueprint may actualize those templates with `uses`, `with`, and runtime config, but those workers should be bound under `runtime.bindings`. A step may reference a binding with `flow.steps[].run`; when `run` is omitted, the binding id defaults to the step id.
 
 Actualized agents may be deterministic workers, routers, reducers, stream processors, services, output adapters, or LLM-backed decision makers. Control templates coordinate workflow behavior such as lifecycle, retry, joins, filters, checkpoints, approval, and fanout. Data templates are the workhorse units that blueprints customize for Python execution, native modules, LLM decisions/tools, observation, sandboxed code work, edge model inference, and data services.
 
@@ -1172,20 +1172,75 @@ The workflow layer is the authoritative execution contract. It should make the w
 - `entrypoint`
 - `state`
 - `steps`
+- `graph`, when the workflow is branching or when progress should render the problem DAG
 - step input and output references
 - transition routing through `on`
 - safety, human, and failure policy
 - observers, when a manager or monitor watches workflow events
 
+`flow.graph` is the problem workflow, not the agent topology. It describes the customer problem plan: source, sink, task/action nodes, dependencies, joins, optional branches, retry and failure behavior, and future adaptive graph updates. A workflow step may be executed by one worker, a worker plus validator, a reducer, a service, or a multi-agent team through `runtime.bindings`.
+
+Recommended problem graph shape:
+
+```json
+{
+  "schema": "mn.workflow.problem_graph/v1",
+  "mode": "static_dag",
+  "source": "intake_documents",
+  "sink": "write_review_packet",
+  "execution": {
+    "strategy": "parallel",
+    "max_parallel_steps": 4
+  },
+  "dynamic": {
+    "enabled": false,
+    "patch_events": [],
+    "apply_at": "between_steps"
+  },
+  "edges": [
+    {
+      "id": "intake_to_income",
+      "from": "intake_documents",
+      "to": "prepare_income_workpapers",
+      "event": "tax_intake_ready",
+      "required": true,
+      "accepts": ["done"]
+    }
+  ]
+}
+```
+
+Each `flow.steps[]` item may declare `control`:
+
+```json
+{
+  "required": true,
+  "timeout_seconds": 300,
+  "retry": {
+    "max_attempts": 2,
+    "backoff_seconds": 1,
+    "backoff_multiplier": 2,
+    "jitter": 0
+  },
+  "failure_policy": "fail_workflow",
+  "uncertainty": {
+    "min_confidence": 0.75,
+    "on_low_confidence": "human_review"
+  }
+}
+```
+
+Supported step failure policies are `fail_workflow`, `continue_partial`, `skip_downstream`, and `use_fallback`. Supported join modes are `all_required`, `all_success`, `all_done`, `min_success`, and `any_success`. Retry must always be bounded.
+
 `runtime` MUST describe:
 
 - run-store location or profile
-- `bindings` referenced by `flow.steps[].run`
+- `bindings` referenced by `flow.steps[].run`, or by the step id when `run` is omitted
 - worker defaults
 - teams or workers assigned to each binding
 - models, memory, resources, and observability settings
 
-The legacy graph fields remain for current MirrorNeuron compatibility. They are the actualized-agent communication contract and SHOULD be derivable from, or at least consistent with, the workflow layer.
+The legacy top-level `nodes` and `edges` fields remain for current MirrorNeuron compatibility. They are the actualized-agent communication contract and SHOULD be derivable from, or at least consistent with, the workflow layer. They are not the problem workflow; Web UI graph views should label them as agent topology.
 
 Each node should include:
 

@@ -10,6 +10,8 @@ import tempfile
 import time
 from pathlib import Path
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKSPACE = ROOT.parent
@@ -30,7 +32,13 @@ from mn_blueprint_support.openshell_network import (
     endpoint_from_uri,
     write_openshell_network_policy,
 )
-from mn_blueprint_support.workflow_manifest import run_workflow_manifest_file, validate_workflow_manifest
+from mn_blueprint_support.workflow_manifest import (
+    WorkflowManifestError,
+    compile_workflow_graph,
+    run_workflow_manifest,
+    run_workflow_manifest_file,
+    validate_workflow_manifest,
+)
 
 
 def _pid_exists(pid: int) -> bool:
@@ -70,10 +78,14 @@ def test_otterdesk_blueprints_are_workflow_driven_manifests():
         bindings = manifest["runtime"]["bindings"]
         assert steps, blueprint_id
         assert manifest["flow"]["entrypoint"] == steps[0]["id"]
+        assert manifest["flow"]["graph"]["schema"] == "mn.workflow.problem_graph/v1"
+        assert manifest["flow"]["graph"]["dynamic"]["enabled"] is False
         assert "nodes" in manifest and "edges" in manifest
         assert manifest["metadata"]["standard"]["workflow_model"] == "contract -> flow -> runtime"
         for step in steps:
             assert {"id", "kind", "label", "goal", "action", "run", "emits", "on"} <= set(step), (blueprint_id, step)
+            assert {"required", "retry", "failure_policy", "uncertainty"} <= set(step["control"]), (blueprint_id, step)
+            assert step["control"]["retry"]["max_attempts"] >= 1, (blueprint_id, step)
             assert step["run"] in bindings, (blueprint_id, step)
             workers = bindings[step["run"]].get("workers") or []
             assert workers, (blueprint_id, step["run"])
@@ -88,24 +100,183 @@ def test_otterdesk_workflow_runtime_executes_manifest_steps(tmp_path):
         run_dir=tmp_path / "tax-workflow-run",
         run_id="tax-workflow-run",
         auto_human="approve",
+        speed=0.01,
         ui=False,
     )
 
     assert result["run"]["status"] == "completed"
     assert result["workflow"]["steps"] == [
         "intake_documents",
-        "prepare_return_workpapers",
+        "prepare_income_workpapers",
+        "prepare_property_workpapers",
+        "prepare_investment_workpapers",
+        "merge_tax_workpapers",
         "audit_and_manager_review",
         "write_review_packet",
+    ]
+    assert result["workflow"]["graph"]["mode"] == "static_dag"
+    assert result["workflow"]["graph"]["layers"][1] == [
+        "prepare_income_workpapers",
+        "prepare_property_workpapers",
+        "prepare_investment_workpapers",
     ]
     run_dir = tmp_path / "tax-workflow-run"
     assert {"run.json", "config.json", "inputs.json", "events.jsonl", "resources.jsonl", "result.json", "final_artifact.json"} <= {
         path.name for path in run_dir.iterdir()
     }
-    events = [json.loads(line)["type"] for line in (run_dir / "events.jsonl").read_text().splitlines() if line.strip()]
+    event_records = [json.loads(line) for line in (run_dir / "events.jsonl").read_text().splitlines() if line.strip()]
+    events = [record["type"] for record in event_records]
     assert "workflow_step_started" in events
     assert "workflow_worker_completed" in events
+    assert "workflow_graph_compiled" in events
+    assert "workflow_edge_satisfied" in events
+    assert "workflow_join_waiting" in events
     assert "human_decision_applied" in events
+    branch_ids = {"prepare_income_workpapers", "prepare_property_workpapers", "prepare_investment_workpapers"}
+    branch_start_indexes = [
+        index
+        for index, record in enumerate(event_records)
+        if record["type"] == "workflow_step_started" and record.get("payload", {}).get("step") in branch_ids
+    ]
+    branch_completion_indexes = [
+        index
+        for index, record in enumerate(event_records)
+        if record["type"] == "workflow_step_completed" and record.get("payload", {}).get("step") in branch_ids
+    ]
+    assert len(branch_start_indexes) == 3
+    assert len(branch_completion_indexes) == 3
+    assert max(branch_start_indexes) < min(branch_completion_indexes)
+
+
+def test_tax_workflow_compiles_as_static_fork_join_graph():
+    manifest_path = ROOT / "personal_income_tax_expert" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    graph = compile_workflow_graph(manifest)
+
+    assert graph.enabled is True
+    assert graph.schema == "mn.workflow.problem_graph/v1"
+    assert graph.source == "intake_documents"
+    assert graph.sink == "write_review_packet"
+    assert graph.execution == "parallel"
+    assert graph.layers[1] == [
+        "prepare_income_workpapers",
+        "prepare_property_workpapers",
+        "prepare_investment_workpapers",
+    ]
+    assert graph.parents["merge_tax_workpapers"] == [
+        "prepare_income_workpapers",
+        "prepare_property_workpapers",
+        "prepare_investment_workpapers",
+    ]
+    merge_edges = {edge.from_step: edge for edge in graph.edges_to("merge_tax_workpapers")}
+    assert merge_edges["prepare_income_workpapers"].required is True
+    assert merge_edges["prepare_property_workpapers"].required is False
+    assert "partial" in merge_edges["prepare_property_workpapers"].accepts
+    income_workers = manifest["runtime"]["bindings"]["prepare_income_workpapers"]["workers"]
+    assert [worker["id"] for worker in income_workers] == ["income_preparer", "income_validator"]
+    assert income_workers[1]["kind"] == "validator"
+    assert income_workers[1]["depends_on"] == ["income_preparer"]
+
+
+def test_static_graph_validation_rejects_cycles_and_overlapping_parallel_outputs():
+    manifest_path = ROOT / "personal_income_tax_expert" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+
+    cyclic = json.loads(json.dumps(manifest))
+    cyclic["flow"]["graph"]["edges"].append(
+        {
+            "id": "write_review_packet_to_intake_documents",
+            "from": "write_review_packet",
+            "to": "intake_documents",
+            "event": "tax_packet_ready",
+        }
+    )
+    with pytest.raises(WorkflowManifestError, match="source must not have incoming edges|sink must not have outgoing edges|acyclic"):
+        validate_workflow_manifest(cyclic)
+
+    overlapping = json.loads(json.dumps(manifest))
+    for step in overlapping["flow"]["steps"]:
+        if step["id"] in {"prepare_income_workpapers", "prepare_property_workpapers"}:
+            step["out"] = {"workpapers": "$state.workpapers.branch"}
+    with pytest.raises(WorkflowManifestError, match="overlapping output paths"):
+        validate_workflow_manifest(overlapping)
+
+    duplicate_edge = json.loads(json.dumps(manifest))
+    duplicate_edge["flow"]["graph"]["edges"][1]["id"] = duplicate_edge["flow"]["graph"]["edges"][0]["id"]
+    with pytest.raises(WorkflowManifestError, match="duplicate flow graph edge id"):
+        validate_workflow_manifest(duplicate_edge)
+
+    missing_source = json.loads(json.dumps(manifest))
+    del missing_source["flow"]["graph"]["source"]
+    with pytest.raises(WorkflowManifestError, match="missing required field flow.graph.source"):
+        validate_workflow_manifest(missing_source)
+
+    unreachable = json.loads(json.dumps(manifest))
+    unreachable["flow"]["steps"].append(
+        {
+            **json.loads(json.dumps(unreachable["flow"]["steps"][1])),
+            "id": "orphan_workpapers",
+            "run": "prepare_income_workpapers",
+        }
+    )
+    with pytest.raises(WorkflowManifestError, match="missing an incoming edge|unreachable from source"):
+        validate_workflow_manifest(unreachable)
+
+    invalid_retry = json.loads(json.dumps(manifest))
+    invalid_retry["flow"]["steps"][1]["control"]["retry"]["max_attempts"] = 0
+    with pytest.raises(WorkflowManifestError, match="max_attempts must be at least 1"):
+        validate_workflow_manifest(invalid_retry)
+
+    unbounded_retry = json.loads(json.dumps(manifest))
+    unbounded_retry["flow"]["steps"][1]["control"]["retry"]["unlimited"] = True
+    with pytest.raises(WorkflowManifestError, match="must be bounded"):
+        validate_workflow_manifest(unbounded_retry)
+
+    invalid_timeout = json.loads(json.dumps(manifest))
+    invalid_timeout["flow"]["steps"][1]["control"]["timeout_seconds"] = -1
+    with pytest.raises(WorkflowManifestError, match="timeout_seconds must be greater than or equal to zero"):
+        validate_workflow_manifest(invalid_timeout)
+
+    invalid_join = json.loads(json.dumps(manifest))
+    invalid_join["flow"]["steps"][4]["join"] = {"mode": "sometimes"}
+    with pytest.raises(WorkflowManifestError, match="join.mode"):
+        validate_workflow_manifest(invalid_join)
+
+
+def test_optional_tax_branch_can_finish_partial_and_still_merge(tmp_path):
+    manifest = json.loads((ROOT / "personal_income_tax_expert" / "manifest.json").read_text())
+    for step in manifest["flow"]["steps"]:
+        if step["id"] == "prepare_property_workpapers":
+            step["control"]["timeout_seconds"] = 0
+            step["control"]["retry"]["max_attempts"] = 1
+
+    result = run_workflow_manifest(
+        manifest,
+        run_dir=tmp_path / "tax-partial-run",
+        run_id="tax-partial-run",
+        auto_human="approve",
+        speed=0.01,
+        ui=False,
+    )
+
+    assert result["run"]["status"] == "completed"
+    event_records = [
+        json.loads(line)
+        for line in (tmp_path / "tax-partial-run" / "events.jsonl").read_text().splitlines()
+        if line.strip()
+    ]
+    assert any(
+        record["type"] == "workflow_step_partial"
+        and record.get("payload", {}).get("step") == "prepare_property_workpapers"
+        for record in event_records
+    )
+    assert any(
+        record["type"] == "workflow_edge_satisfied"
+        and record.get("payload", {}).get("from") == "prepare_property_workpapers"
+        and record.get("payload", {}).get("outcome") == "partial"
+        and record.get("payload", {}).get("satisfied") is True
+        for record in event_records
+    )
 
 
 def test_otterdesk_blueprints_declare_membrane_context_memory_layer():
@@ -318,23 +489,61 @@ def test_otterdesk_nodes_use_shared_agent_templates_and_render():
         assert all("uses" not in node and "with" not in node for node in rendered["nodes"])
 
 
-def test_personal_income_tax_expert_runs_as_single_runtime_executor():
+def test_personal_income_tax_expert_runtime_topology_mirrors_workflow_graph():
     manifest = json.loads((ROOT / "personal_income_tax_expert" / "manifest.json").read_text())
     executor_nodes = [
         node for node in manifest["nodes"] if node["uses"].startswith("mn-agents.data_python_executor@")
     ]
 
-    assert manifest["entrypoints"] == ["tax_workflow_runner"]
-    assert [node["node_id"] for node in executor_nodes] == ["tax_workflow_runner"]
-    assert manifest["nodes"][-1]["node_id"] == "report_sink"
-    assert manifest["edges"] == [
-        {
-            "edge_id": "tax_workflow_to_report",
-            "from_node": "tax_workflow_runner",
-            "message_type": "blueprint_report",
-            "to_node": "report_sink",
-        }
+    assert manifest["entrypoints"] == ["intake_documents"]
+    assert [node["node_id"] for node in executor_nodes] == [
+        "intake_documents",
+        "prepare_income_workpapers",
+        "prepare_property_workpapers",
+        "prepare_investment_workpapers",
+        "audit_and_manager_review",
+        "write_review_packet",
     ]
+    assert [edge["from_node"] for edge in manifest["edges"][:3]] == ["intake_documents"] * 3
+    assert {edge["to_node"] for edge in manifest["edges"][:3]} == {
+        "prepare_income_workpapers",
+        "prepare_property_workpapers",
+        "prepare_investment_workpapers",
+    }
+    assert [edge["from_node"] for edge in manifest["edges"][3:6]] == [
+        "prepare_income_workpapers",
+        "prepare_property_workpapers",
+        "prepare_investment_workpapers",
+    ]
+    assert {edge["to_node"] for edge in manifest["edges"][3:6]} == {"merge_tax_workpapers"}
+    assert manifest["nodes"][-1]["node_id"] == "report_sink"
+    assert manifest["edges"][-1] == {
+        "edge_id": "packet_to_report",
+        "from_node": "write_review_packet",
+        "message_type": "blueprint_report",
+        "to_node": "report_sink",
+    }
+
+
+def test_personal_income_tax_expert_runtime_branch_step_exits_without_full_packet(tmp_path):
+    script = ROOT / "personal_income_tax_expert" / "payloads" / "tax_workflow" / "scripts" / "run_blueprint.py"
+    env = os.environ.copy()
+    env["MN_WORKFLOW_STEP_ID"] = "prepare_income_workpapers"
+    result = subprocess.run(
+        [sys.executable, str(script), "--no-run-store", "--run-id", "tax-branch-step"],
+        cwd=script.parents[1],
+        env=env,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    decoded = json.loads(result.stdout)
+
+    assert decoded["schema"] == "mn.workflow.step_result.v1"
+    assert decoded["agent_id"] == "prepare_income_workpapers"
+    assert decoded["workflow_step_id"] == "prepare_income_workpapers"
+    assert decoded["status"] == "completed"
+    assert "final_artifact" not in decoded
 
 
 def test_video_watch_openshell_policy_is_generated_by_shared_helper(tmp_path):

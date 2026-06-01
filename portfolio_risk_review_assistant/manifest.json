@@ -286,6 +286,52 @@
   ],
   "flow": {
     "entrypoint": "load_portfolio_context",
+    "graph": {
+      "dynamic": {
+        "apply_at": "between_steps",
+        "enabled": false,
+        "patch_events": []
+      },
+      "edges": [
+        {
+          "accepts": [
+            "done"
+          ],
+          "event": "portfolio_context_ready",
+          "from": "load_portfolio_context",
+          "id": "load_portfolio_context_to_simulate_shock_path",
+          "required": true,
+          "to": "simulate_shock_path"
+        },
+        {
+          "accepts": [
+            "done"
+          ],
+          "event": "stress_path_ready",
+          "from": "simulate_shock_path",
+          "id": "simulate_shock_path_to_review_rebalance_options",
+          "required": true,
+          "to": "review_rebalance_options"
+        },
+        {
+          "accepts": [
+            "done"
+          ],
+          "event": "risk_options_ready",
+          "from": "review_rebalance_options",
+          "id": "review_rebalance_options_to_finalize_risk_report",
+          "required": true,
+          "to": "finalize_risk_report"
+        }
+      ],
+      "execution": {
+        "strategy": "parallel"
+      },
+      "mode": "static_dag",
+      "schema": "mn.workflow.problem_graph/v1",
+      "sink": "finalize_risk_report",
+      "source": "load_portfolio_context"
+    },
     "observers": [],
     "policy": {
       "failure": {
@@ -344,6 +390,21 @@
     "steps": [
       {
         "action": "load_portfolio_context",
+        "control": {
+          "failure_policy": "fail_workflow",
+          "required": true,
+          "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 1,
+            "jitter": 0,
+            "max_attempts": 2
+          },
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.0,
+            "on_low_confidence": "continue_with_warning"
+          }
+        },
         "emits": "portfolio_context_ready",
         "goal": "Normalize holdings, liquidity needs, constraints, and policy limits.",
         "id": "load_portfolio_context",
@@ -363,6 +424,21 @@
       },
       {
         "action": "simulate_macro_shock",
+        "control": {
+          "failure_policy": "fail_workflow",
+          "required": true,
+          "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 1,
+            "jitter": 0,
+            "max_attempts": 2
+          },
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.0,
+            "on_low_confidence": "continue_with_warning"
+          }
+        },
         "emits": "stress_path_ready",
         "goal": "Stress the portfolio against drawdown, rate, and liquidity shocks.",
         "id": "simulate_shock_path",
@@ -382,6 +458,21 @@
       },
       {
         "action": "review_rebalance_options",
+        "control": {
+          "failure_policy": "fail_workflow",
+          "required": true,
+          "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 1,
+            "jitter": 0,
+            "max_attempts": 2
+          },
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.0,
+            "on_low_confidence": "continue_with_warning"
+          }
+        },
         "emits": "risk_options_ready",
         "goal": "Draft and score possible hedge, cash, and rebalance options for review.",
         "id": "review_rebalance_options",
@@ -401,6 +492,21 @@
       },
       {
         "action": "notify_client_with_recommendation_without_review",
+        "control": {
+          "failure_policy": "fail_workflow",
+          "required": true,
+          "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 1,
+            "jitter": 0,
+            "max_attempts": 2
+          },
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.0,
+            "on_low_confidence": "continue_with_warning"
+          }
+        },
         "emits": "risk_report_ready",
         "goal": "Write a plain-language risk report and recommended review action.",
         "id": "finalize_risk_report",

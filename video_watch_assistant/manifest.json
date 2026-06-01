@@ -295,6 +295,52 @@
   ],
   "flow": {
     "entrypoint": "start_video_monitor",
+    "graph": {
+      "dynamic": {
+        "apply_at": "between_steps",
+        "enabled": false,
+        "patch_events": []
+      },
+      "edges": [
+        {
+          "accepts": [
+            "done"
+          ],
+          "event": "video_monitor_start",
+          "from": "start_video_monitor",
+          "id": "start_video_monitor_to_sample_video_frames",
+          "required": true,
+          "to": "sample_video_frames"
+        },
+        {
+          "accepts": [
+            "done"
+          ],
+          "event": "video_frame_tick_generated",
+          "from": "sample_video_frames",
+          "id": "sample_video_frames_to_detect_visual_targets",
+          "required": true,
+          "to": "detect_visual_targets"
+        },
+        {
+          "accepts": [
+            "done"
+          ],
+          "event": "video_watch_detection",
+          "from": "detect_visual_targets",
+          "id": "detect_visual_targets_to_write_watch_summary",
+          "required": true,
+          "to": "write_watch_summary"
+        }
+      ],
+      "execution": {
+        "strategy": "parallel"
+      },
+      "mode": "static_dag",
+      "schema": "mn.workflow.problem_graph/v1",
+      "sink": "write_watch_summary",
+      "source": "start_video_monitor"
+    },
     "observers": [],
     "policy": {
       "failure": {
@@ -341,6 +387,21 @@
     "steps": [
       {
         "action": "start_video_monitor",
+        "control": {
+          "failure_policy": "fail_workflow",
+          "required": true,
+          "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 1,
+            "jitter": 0,
+            "max_attempts": 2
+          },
+          "timeout_seconds": null,
+          "uncertainty": {
+            "min_confidence": 0.0,
+            "on_low_confidence": "continue_with_warning"
+          }
+        },
         "emits": "video_monitor_start",
         "goal": "Validate the mapped stream source and start the monitoring session.",
         "id": "start_video_monitor",
@@ -359,6 +420,21 @@
       },
       {
         "action": "sample_video_frames",
+        "control": {
+          "failure_policy": "fail_workflow",
+          "required": true,
+          "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 1,
+            "jitter": 0,
+            "max_attempts": 2
+          },
+          "timeout_seconds": null,
+          "uncertainty": {
+            "min_confidence": 0.0,
+            "on_low_confidence": "continue_with_warning"
+          }
+        },
         "emits": "video_frame_tick_generated",
         "goal": "Emit frame ticks according to the configured sample interval.",
         "id": "sample_video_frames",
@@ -377,6 +453,21 @@
       },
       {
         "action": "detect_visual_targets",
+        "control": {
+          "failure_policy": "fail_workflow",
+          "required": true,
+          "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 1,
+            "jitter": 0,
+            "max_attempts": 2
+          },
+          "timeout_seconds": null,
+          "uncertainty": {
+            "min_confidence": 0.0,
+            "on_low_confidence": "continue_with_warning"
+          }
+        },
         "emits": "video_watch_detection",
         "goal": "Analyze sampled frames for configured targets and alert status.",
         "id": "detect_visual_targets",
@@ -397,6 +488,21 @@
       },
       {
         "action": "write_watch_summary",
+        "control": {
+          "failure_policy": "fail_workflow",
+          "required": true,
+          "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 1,
+            "jitter": 0,
+            "max_attempts": 2
+          },
+          "timeout_seconds": null,
+          "uncertainty": {
+            "min_confidence": 0.0,
+            "on_low_confidence": "continue_with_warning"
+          }
+        },
         "emits": "video_watch_summary_ready",
         "goal": "Write the current visual detection review artifact and notice events.",
         "id": "write_watch_summary",

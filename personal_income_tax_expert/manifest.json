@@ -283,17 +283,165 @@
   "description": "Runs an LLM-assisted tax preparation team over local tax documents, builds draft Form 1040 workpapers, audits the packet, and writes JSON, Markdown, and PDF review outputs.",
   "edges": [
     {
-      "edge_id": "tax_workflow_to_report",
-      "from_node": "tax_workflow_runner",
+      "edge_id": "intake_to_income",
+      "from_node": "intake_documents",
+      "message_type": "tax_intake_ready",
+      "to_node": "prepare_income_workpapers"
+    },
+    {
+      "edge_id": "intake_to_property",
+      "from_node": "intake_documents",
+      "message_type": "tax_intake_ready",
+      "to_node": "prepare_property_workpapers"
+    },
+    {
+      "edge_id": "intake_to_investment",
+      "from_node": "intake_documents",
+      "message_type": "tax_intake_ready",
+      "to_node": "prepare_investment_workpapers"
+    },
+    {
+      "edge_id": "income_to_merge",
+      "from_node": "prepare_income_workpapers",
+      "message_type": "tax_income_workpapers_ready",
+      "to_node": "merge_tax_workpapers"
+    },
+    {
+      "edge_id": "property_to_merge",
+      "from_node": "prepare_property_workpapers",
+      "message_type": "tax_property_workpapers_ready",
+      "to_node": "merge_tax_workpapers"
+    },
+    {
+      "edge_id": "investment_to_merge",
+      "from_node": "prepare_investment_workpapers",
+      "message_type": "tax_investment_workpapers_ready",
+      "to_node": "merge_tax_workpapers"
+    },
+    {
+      "edge_id": "merge_to_review",
+      "from_node": "merge_tax_workpapers",
+      "message_type": "tax_workpapers_merged",
+      "to_node": "audit_and_manager_review"
+    },
+    {
+      "edge_id": "review_to_packet",
+      "from_node": "audit_and_manager_review",
+      "message_type": "tax_review_ready",
+      "to_node": "write_review_packet"
+    },
+    {
+      "edge_id": "packet_to_report",
+      "from_node": "write_review_packet",
       "message_type": "blueprint_report",
       "to_node": "report_sink"
     }
   ],
   "entrypoints": [
-    "tax_workflow_runner"
+    "intake_documents"
   ],
   "flow": {
     "entrypoint": "intake_documents",
+    "graph": {
+      "dynamic": {
+        "apply_at": "between_steps",
+        "enabled": false,
+        "patch_events": []
+      },
+      "edges": [
+        {
+          "accepts": [
+            "done"
+          ],
+          "event": "tax_intake_ready",
+          "from": "intake_documents",
+          "id": "intake_documents_to_prepare_income_workpapers",
+          "required": true,
+          "to": "prepare_income_workpapers"
+        },
+        {
+          "accepts": [
+            "done"
+          ],
+          "event": "tax_intake_ready",
+          "from": "intake_documents",
+          "id": "intake_documents_to_prepare_property_workpapers",
+          "required": true,
+          "to": "prepare_property_workpapers"
+        },
+        {
+          "accepts": [
+            "done"
+          ],
+          "event": "tax_intake_ready",
+          "from": "intake_documents",
+          "id": "intake_documents_to_prepare_investment_workpapers",
+          "required": true,
+          "to": "prepare_investment_workpapers"
+        },
+        {
+          "accepts": [
+            "done"
+          ],
+          "event": "tax_income_workpapers_ready",
+          "from": "prepare_income_workpapers",
+          "id": "prepare_income_workpapers_to_merge_tax_workpapers",
+          "required": true,
+          "to": "merge_tax_workpapers"
+        },
+        {
+          "accepts": [
+            "done",
+            "partial",
+            "skipped"
+          ],
+          "event": "tax_property_workpapers_ready",
+          "from": "prepare_property_workpapers",
+          "id": "prepare_property_workpapers_to_merge_tax_workpapers",
+          "required": false,
+          "to": "merge_tax_workpapers"
+        },
+        {
+          "accepts": [
+            "done",
+            "partial",
+            "skipped"
+          ],
+          "event": "tax_investment_workpapers_ready",
+          "from": "prepare_investment_workpapers",
+          "id": "prepare_investment_workpapers_to_merge_tax_workpapers",
+          "required": false,
+          "to": "merge_tax_workpapers"
+        },
+        {
+          "accepts": [
+            "done"
+          ],
+          "event": "tax_workpapers_merged",
+          "from": "merge_tax_workpapers",
+          "id": "merge_tax_workpapers_to_audit_and_manager_review",
+          "required": true,
+          "to": "audit_and_manager_review"
+        },
+        {
+          "accepts": [
+            "done"
+          ],
+          "event": "tax_review_ready",
+          "from": "audit_and_manager_review",
+          "id": "audit_and_manager_review_to_write_review_packet",
+          "required": true,
+          "to": "write_review_packet"
+        }
+      ],
+      "execution": {
+        "strategy": "parallel"
+      },
+      "mode": "static_dag",
+      "schema": "mn.workflow.problem_graph/v1",
+      "sink": "write_review_packet",
+      "source": "intake_documents"
+    },
     "observers": [],
     "policy": {
       "failure": {
@@ -355,6 +503,21 @@
     "steps": [
       {
         "action": "scan_local_tax_folder",
+        "control": {
+          "failure_policy": "fail_workflow",
+          "required": true,
+          "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 1,
+            "jitter": 0,
+            "max_attempts": 2
+          },
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.0,
+            "on_low_confidence": "continue_with_warning"
+          }
+        },
         "emits": "tax_intake_ready",
         "goal": "Stage local tax documents, classify source files, and build a preparer-style intake checklist.",
         "id": "intake_documents",
@@ -365,34 +528,199 @@
         "kind": "stage",
         "label": "Intake Documents",
         "on": {
-          "tax_intake_ready": "prepare_return_workpapers"
+          "tax_intake_ready": "prepare_income_workpapers"
         },
         "out": {
           "intake": "$state.intake"
         },
+        "provides": [
+          "tax.documents.intake_ready"
+        ],
         "run": "intake_documents"
       },
       {
-        "action": "prepare_tax_workpapers",
-        "emits": "tax_workpapers_ready",
-        "goal": "Extract source fields, prepare income and deduction workpapers, and assemble supported draft Form 1040 lines.",
-        "id": "prepare_return_workpapers",
+        "action": "prepare_income_workpapers",
+        "control": {
+          "failure_policy": "fail_workflow",
+          "required": true,
+          "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 1,
+            "jitter": 0,
+            "max_attempts": 2
+          },
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.75,
+            "on_low_confidence": "human_review"
+          }
+        },
+        "emits": "tax_income_workpapers_ready",
+        "goal": "Prepare W-2, 1099, retirement distribution, and other income workpapers from staged source documents.",
+        "id": "prepare_income_workpapers",
         "in": {
           "filing_status": "$state.filing_status",
           "intake": "$state.intake"
         },
         "kind": "stage",
-        "label": "Prepare Workpapers",
+        "label": "Prepare Income Workpapers",
         "on": {
-          "tax_workpapers_ready": "audit_and_manager_review"
+          "tax_income_workpapers_ready": "merge_tax_workpapers"
         },
         "out": {
-          "workpapers": "$state.workpapers"
+          "income_workpapers": "$state.workpapers.income"
         },
-        "run": "prepare_return_workpapers"
+        "provides": [
+          "tax.workpapers.income_ready"
+        ],
+        "requires": [
+          "tax.documents.intake_ready"
+        ],
+        "run": "prepare_income_workpapers"
+      },
+      {
+        "action": "prepare_property_workpapers",
+        "control": {
+          "failure_policy": "continue_partial",
+          "required": false,
+          "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 1,
+            "jitter": 0,
+            "max_attempts": 2
+          },
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.65,
+            "on_low_confidence": "human_review"
+          }
+        },
+        "emits": "tax_property_workpapers_ready",
+        "goal": "Prepare property, deduction, credit, and household-support workpapers from staged source documents.",
+        "id": "prepare_property_workpapers",
+        "in": {
+          "filing_status": "$state.filing_status",
+          "intake": "$state.intake"
+        },
+        "kind": "stage",
+        "label": "Prepare Property Workpapers",
+        "on": {
+          "tax_property_workpapers_ready": "merge_tax_workpapers"
+        },
+        "out": {
+          "property_workpapers": "$state.workpapers.property"
+        },
+        "provides": [
+          "tax.workpapers.property_ready"
+        ],
+        "requires": [
+          "tax.documents.intake_ready"
+        ],
+        "run": "prepare_property_workpapers"
+      },
+      {
+        "action": "prepare_investment_workpapers",
+        "control": {
+          "failure_policy": "continue_partial",
+          "required": false,
+          "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 1,
+            "jitter": 0,
+            "max_attempts": 2
+          },
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.65,
+            "on_low_confidence": "human_review"
+          }
+        },
+        "emits": "tax_investment_workpapers_ready",
+        "goal": "Prepare interest, dividend, brokerage, and investment activity workpapers from staged source documents.",
+        "id": "prepare_investment_workpapers",
+        "in": {
+          "filing_status": "$state.filing_status",
+          "intake": "$state.intake"
+        },
+        "kind": "stage",
+        "label": "Prepare Investment Workpapers",
+        "on": {
+          "tax_investment_workpapers_ready": "merge_tax_workpapers"
+        },
+        "out": {
+          "investment_workpapers": "$state.workpapers.investment"
+        },
+        "provides": [
+          "tax.workpapers.investment_ready"
+        ],
+        "requires": [
+          "tax.documents.intake_ready"
+        ],
+        "run": "prepare_investment_workpapers"
+      },
+      {
+        "action": "merge_tax_workpapers",
+        "control": {
+          "failure_policy": "fail_workflow",
+          "required": true,
+          "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 1,
+            "jitter": 0,
+            "max_attempts": 2
+          },
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.0,
+            "on_low_confidence": "continue_with_warning"
+          }
+        },
+        "emits": "tax_workpapers_merged",
+        "goal": "Merge parallel income, property, and investment workpapers into one supported draft return workpaper set.",
+        "id": "merge_tax_workpapers",
+        "in": {
+          "income": "$state.workpapers.income",
+          "investment": "$state.workpapers.investment",
+          "property": "$state.workpapers.property"
+        },
+        "join": {
+          "mode": "all_required"
+        },
+        "kind": "join",
+        "label": "Merge Tax Workpapers",
+        "on": {
+          "tax_workpapers_merged": "audit_and_manager_review"
+        },
+        "out": {
+          "workpapers": "$state.workpapers.merged"
+        },
+        "provides": [
+          "tax.workpapers.merged_ready"
+        ],
+        "requires": [
+          "tax.workpapers.income_ready",
+          "tax.workpapers.property_ready",
+          "tax.workpapers.investment_ready"
+        ],
+        "run": "merge_tax_workpapers"
       },
       {
         "action": "audit_tax_packet",
+        "control": {
+          "failure_policy": "fail_workflow",
+          "required": true,
+          "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 1,
+            "jitter": 0,
+            "max_attempts": 2
+          },
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.0,
+            "on_low_confidence": "continue_with_warning"
+          }
+        },
         "emits": "tax_review_ready",
         "goal": "Audit source support, preserve assumptions, and block unsupported filing-ready claims.",
         "id": "audit_and_manager_review",
@@ -407,10 +735,31 @@
         "out": {
           "review": "$state.review"
         },
+        "provides": [
+          "tax.review.ready"
+        ],
+        "requires": [
+          "tax.workpapers.merged_ready"
+        ],
         "run": "audit_and_manager_review"
       },
       {
         "action": "release_tax_packet",
+        "control": {
+          "failure_policy": "fail_workflow",
+          "required": true,
+          "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 1,
+            "jitter": 0,
+            "max_attempts": 2
+          },
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.0,
+            "on_low_confidence": "continue_with_warning"
+          }
+        },
         "emits": "tax_packet_ready",
         "goal": "Write JSON, Markdown, and PDF review outputs for human approval.",
         "id": "write_review_packet",
@@ -418,7 +767,7 @@
           "output_folder": "$state.output_folder",
           "review": "$state.review"
         },
-        "kind": "stage",
+        "kind": "sink",
         "label": "Write Review Packet",
         "on": {
           "tax_packet_ready": "completed"
@@ -426,6 +775,12 @@
         "out": {
           "final_report": "$state.final_report"
         },
+        "provides": [
+          "tax.packet.ready"
+        ],
+        "requires": [
+          "tax.review.ready"
+        ],
         "run": "write_review_packet"
       }
     ]
@@ -433,7 +788,7 @@
   "graph_id": "personal_income_tax_expert_v1",
   "id": "personal_income_tax_expert",
   "initial_inputs": {
-    "tax_workflow_runner": [
+    "intake_documents": [
       {
         "description": "Prepare a draft Form 1040 review packet from a local folder of tax PDFs, using bundled sample documents until the user selects a real folder.",
         "document_folder": "",
@@ -468,7 +823,31 @@
       "library": "../mn-agents/index.json",
       "nodes": [
         {
-          "node_id": "tax_workflow_runner",
+          "node_id": "intake_documents",
+          "uses": "mn-agents.data_python_executor@1.0.0"
+        },
+        {
+          "node_id": "prepare_income_workpapers",
+          "uses": "mn-agents.data_python_executor@1.0.0"
+        },
+        {
+          "node_id": "prepare_property_workpapers",
+          "uses": "mn-agents.data_python_executor@1.0.0"
+        },
+        {
+          "node_id": "prepare_investment_workpapers",
+          "uses": "mn-agents.data_python_executor@1.0.0"
+        },
+        {
+          "node_id": "merge_tax_workpapers",
+          "uses": "mn-agents.control_join@1.0.0"
+        },
+        {
+          "node_id": "audit_and_manager_review",
+          "uses": "mn-agents.data_python_executor@1.0.0"
+        },
+        {
+          "node_id": "write_review_packet",
           "uses": "mn-agents.data_python_executor@1.0.0"
         },
         {
@@ -1208,7 +1587,7 @@
   "name": "Personal Income Tax Expert",
   "nodes": [
     {
-      "node_id": "tax_workflow_runner",
+      "node_id": "intake_documents",
       "uses": "mn-agents.data_python_executor@1.0.0",
       "with": {
         "environment": {
@@ -1219,12 +1598,139 @@
           "MN_LLM_NUM_RETRIES": "1",
           "MN_LLM_TIMEOUT_SECONDS": "90",
           "MN_TAX_REDACT_LOGS": "true",
+          "MN_WORKFLOW_STEP_ID": "intake_documents",
+          "PYTHONPATH": "${MN_SKILLS_ROOT}/blueprint_support_skill/src:${MN_SKILLS_ROOT}/tax_pdf_ocr_skill/src:${MN_SKILLS_ROOT}/pdf_extract_skill/src"
+        },
+        "name_prefix": "personal_income_tax_expert",
+        "node_type": "generic",
+        "output_message_type": "tax_intake_ready",
+        "role": "tax_intake_source",
+        "script": "scripts/run_blueprint.py",
+        "upload_path": "tax_workflow"
+      }
+    },
+    {
+      "node_id": "prepare_income_workpapers",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "with": {
+        "environment": {
+          "MN_BLUEPRINT_ID": "personal_income_tax_expert",
+          "MN_LLM_API_BASE": "http://192.168.4.173:11434",
+          "MN_LLM_MAX_TOKENS": "1200",
+          "MN_LLM_MODEL": "ollama/nemotron3:33b",
+          "MN_LLM_NUM_RETRIES": "1",
+          "MN_LLM_TIMEOUT_SECONDS": "90",
+          "MN_TAX_REDACT_LOGS": "true",
+          "MN_WORKFLOW_STEP_ID": "prepare_income_workpapers",
+          "PYTHONPATH": "${MN_SKILLS_ROOT}/blueprint_support_skill/src:${MN_SKILLS_ROOT}/tax_pdf_ocr_skill/src:${MN_SKILLS_ROOT}/pdf_extract_skill/src"
+        },
+        "name_prefix": "personal_income_tax_expert",
+        "node_type": "generic",
+        "output_message_type": "tax_income_workpapers_ready",
+        "role": "income_workpaper_preparer",
+        "script": "scripts/run_blueprint.py",
+        "upload_path": "tax_workflow"
+      }
+    },
+    {
+      "node_id": "prepare_property_workpapers",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "with": {
+        "environment": {
+          "MN_BLUEPRINT_ID": "personal_income_tax_expert",
+          "MN_LLM_API_BASE": "http://192.168.4.173:11434",
+          "MN_LLM_MAX_TOKENS": "1200",
+          "MN_LLM_MODEL": "ollama/nemotron3:33b",
+          "MN_LLM_NUM_RETRIES": "1",
+          "MN_LLM_TIMEOUT_SECONDS": "90",
+          "MN_TAX_REDACT_LOGS": "true",
+          "MN_WORKFLOW_STEP_ID": "prepare_property_workpapers",
+          "PYTHONPATH": "${MN_SKILLS_ROOT}/blueprint_support_skill/src:${MN_SKILLS_ROOT}/tax_pdf_ocr_skill/src:${MN_SKILLS_ROOT}/pdf_extract_skill/src"
+        },
+        "name_prefix": "personal_income_tax_expert",
+        "node_type": "generic",
+        "output_message_type": "tax_property_workpapers_ready",
+        "role": "property_workpaper_preparer",
+        "script": "scripts/run_blueprint.py",
+        "upload_path": "tax_workflow"
+      }
+    },
+    {
+      "node_id": "prepare_investment_workpapers",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "with": {
+        "environment": {
+          "MN_BLUEPRINT_ID": "personal_income_tax_expert",
+          "MN_LLM_API_BASE": "http://192.168.4.173:11434",
+          "MN_LLM_MAX_TOKENS": "1200",
+          "MN_LLM_MODEL": "ollama/nemotron3:33b",
+          "MN_LLM_NUM_RETRIES": "1",
+          "MN_LLM_TIMEOUT_SECONDS": "90",
+          "MN_TAX_REDACT_LOGS": "true",
+          "MN_WORKFLOW_STEP_ID": "prepare_investment_workpapers",
+          "PYTHONPATH": "${MN_SKILLS_ROOT}/blueprint_support_skill/src:${MN_SKILLS_ROOT}/tax_pdf_ocr_skill/src:${MN_SKILLS_ROOT}/pdf_extract_skill/src"
+        },
+        "name_prefix": "personal_income_tax_expert",
+        "node_type": "generic",
+        "output_message_type": "tax_investment_workpapers_ready",
+        "role": "investment_workpaper_preparer",
+        "script": "scripts/run_blueprint.py",
+        "upload_path": "tax_workflow"
+      }
+    },
+    {
+      "node_id": "merge_tax_workpapers",
+      "uses": "mn-agents.control_join@1.0.0",
+      "with": {
+        "complete_after": 3,
+        "complete_job": false,
+        "node_type": "reduce",
+        "output_message_type": "tax_workpapers_merged",
+        "role": "tax_workpaper_join"
+      }
+    },
+    {
+      "node_id": "audit_and_manager_review",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "with": {
+        "environment": {
+          "MN_BLUEPRINT_ID": "personal_income_tax_expert",
+          "MN_LLM_API_BASE": "http://192.168.4.173:11434",
+          "MN_LLM_MAX_TOKENS": "1200",
+          "MN_LLM_MODEL": "ollama/nemotron3:33b",
+          "MN_LLM_NUM_RETRIES": "1",
+          "MN_LLM_TIMEOUT_SECONDS": "90",
+          "MN_TAX_REDACT_LOGS": "true",
+          "MN_WORKFLOW_STEP_ID": "audit_and_manager_review",
+          "PYTHONPATH": "${MN_SKILLS_ROOT}/blueprint_support_skill/src:${MN_SKILLS_ROOT}/tax_pdf_ocr_skill/src:${MN_SKILLS_ROOT}/pdf_extract_skill/src"
+        },
+        "name_prefix": "personal_income_tax_expert",
+        "node_type": "generic",
+        "output_message_type": "tax_review_ready",
+        "role": "tax_audit_and_manager_review",
+        "script": "scripts/run_blueprint.py",
+        "upload_path": "tax_workflow"
+      }
+    },
+    {
+      "node_id": "write_review_packet",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "with": {
+        "environment": {
+          "MN_BLUEPRINT_ID": "personal_income_tax_expert",
+          "MN_LLM_API_BASE": "http://192.168.4.173:11434",
+          "MN_LLM_MAX_TOKENS": "1200",
+          "MN_LLM_MODEL": "ollama/nemotron3:33b",
+          "MN_LLM_NUM_RETRIES": "1",
+          "MN_LLM_TIMEOUT_SECONDS": "90",
+          "MN_TAX_REDACT_LOGS": "true",
+          "MN_WORKFLOW_STEP_ID": "write_review_packet",
           "PYTHONPATH": "${MN_SKILLS_ROOT}/blueprint_support_skill/src:${MN_SKILLS_ROOT}/tax_pdf_ocr_skill/src:${MN_SKILLS_ROOT}/pdf_extract_skill/src"
         },
         "name_prefix": "personal_income_tax_expert",
         "node_type": "generic",
         "output_message_type": "blueprint_report",
-        "role": "personal_income_tax_expert_team",
+        "role": "tax_packet_writer",
         "script": "scripts/run_blueprint.py",
         "upload_path": "tax_workflow"
       }
@@ -1256,7 +1762,7 @@
   "runtime": {
     "bindings": {
       "audit_and_manager_review": {
-        "legacy_entrypoint": "tax_workflow_runner",
+        "legacy_entrypoint": "audit_and_manager_review",
         "risk": "low",
         "side_effect": "read",
         "strategy": "fanout_reduce",
@@ -1279,7 +1785,7 @@
         ]
       },
       "intake_documents": {
-        "legacy_entrypoint": "tax_workflow_runner",
+        "legacy_entrypoint": "intake_documents",
         "risk": "low",
         "side_effect": "read",
         "strategy": "fanout_reduce",
@@ -1308,27 +1814,13 @@
           }
         ]
       },
-      "prepare_return_workpapers": {
-        "legacy_entrypoint": "tax_workflow_runner",
+      "merge_tax_workpapers": {
+        "legacy_entrypoint": "merge_tax_workpapers",
         "risk": "low",
         "side_effect": "read",
         "strategy": "fanout_reduce",
         "type": "team",
         "workers": [
-          {
-            "id": "income_preparer",
-            "model": "primary",
-            "role": "Income preparer",
-            "tokens": 16000,
-            "tools": 5
-          },
-          {
-            "id": "deductions_credits_preparer",
-            "model": "primary",
-            "role": "Deductions and credits preparer",
-            "tokens": 16000,
-            "tools": 5
-          },
           {
             "id": "form_1040_assembler",
             "model": "primary",
@@ -1338,8 +1830,98 @@
           }
         ]
       },
+      "prepare_income_workpapers": {
+        "legacy_entrypoint": "prepare_income_workpapers",
+        "risk": "low",
+        "side_effect": "read",
+        "strategy": "sequential",
+        "type": "team",
+        "workers": [
+          {
+            "id": "income_preparer",
+            "kind": "worker",
+            "model": "primary",
+            "required": true,
+            "role": "Income preparer",
+            "tokens": 16000,
+            "tools": 5
+          },
+          {
+            "depends_on": [
+              "income_preparer"
+            ],
+            "id": "income_validator",
+            "kind": "validator",
+            "model": "primary",
+            "required": true,
+            "role": "Income workpaper validator",
+            "tokens": 12000,
+            "tools": 4
+          }
+        ]
+      },
+      "prepare_investment_workpapers": {
+        "legacy_entrypoint": "prepare_investment_workpapers",
+        "risk": "low",
+        "side_effect": "read",
+        "strategy": "sequential",
+        "type": "team",
+        "workers": [
+          {
+            "id": "investment_preparer",
+            "kind": "worker",
+            "model": "primary",
+            "required": true,
+            "role": "Investment preparer",
+            "tokens": 16000,
+            "tools": 5
+          },
+          {
+            "depends_on": [
+              "investment_preparer"
+            ],
+            "id": "investment_validator",
+            "kind": "validator",
+            "model": "primary",
+            "required": false,
+            "role": "Investment workpaper validator",
+            "tokens": 12000,
+            "tools": 4
+          }
+        ]
+      },
+      "prepare_property_workpapers": {
+        "legacy_entrypoint": "prepare_property_workpapers",
+        "risk": "low",
+        "side_effect": "read",
+        "strategy": "sequential",
+        "type": "team",
+        "workers": [
+          {
+            "id": "property_preparer",
+            "kind": "worker",
+            "model": "primary",
+            "required": true,
+            "role": "Property and deduction preparer",
+            "tokens": 16000,
+            "tools": 5
+          },
+          {
+            "depends_on": [
+              "property_preparer"
+            ],
+            "id": "property_tax_validator",
+            "kind": "validator",
+            "model": "primary",
+            "required": false,
+            "role": "Property and deduction validator",
+            "tokens": 12000,
+            "tools": 4
+          }
+        ]
+      },
       "write_review_packet": {
-        "legacy_entrypoint": "tax_workflow_runner",
+        "legacy_entrypoint": "write_review_packet",
         "risk": "medium",
         "side_effect": "internal_write",
         "strategy": "fanout_reduce",

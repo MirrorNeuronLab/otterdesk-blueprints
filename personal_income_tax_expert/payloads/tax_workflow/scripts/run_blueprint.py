@@ -843,6 +843,41 @@ def _find_tax_payload(value: Any) -> dict[str, Any]:
     return {}
 
 
+def _runtime_graph_step_id() -> str:
+    return os.environ.get("MN_WORKFLOW_STEP_ID", "").strip()
+
+
+def _run_runtime_graph_step(
+    blueprint_id: str,
+    step_id: str,
+    *,
+    resolved_config: dict[str, Any],
+    runtime_inputs: dict[str, Any],
+    input_source: dict[str, Any],
+) -> dict[str, Any]:
+    now = utc_now_iso()
+    run_id = (resolved_config.get("identity") or {}).get("run_id") or os.environ.get("MN_RUN_ID") or f"{step_id}-{int(time.time())}"
+    return {
+        "schema": "mn.workflow.step_result.v1",
+        "agent_id": step_id,
+        "workflow_step_id": step_id,
+        "blueprint": blueprint_id,
+        "status": "completed",
+        "summary": f"{step_id.replace('_', ' ').title()} completed for the static DAG runtime.",
+        "run": {
+            "run_id": run_id,
+            "started_at": now,
+            "ended_at": now,
+            "status": "completed",
+        },
+        "inputs": {
+            "tax_year": runtime_inputs.get("tax_year"),
+            "filing_status": runtime_inputs.get("filing_status"),
+            "source": input_source,
+        },
+    }
+
+
 def run_blueprint(
     blueprint_id: str = BLUEPRINT_ID,
     *,
@@ -873,6 +908,15 @@ def run_blueprint(
     adapter_inputs, input_source = resolve_input_overrides(resolved_config)
     runtime_inputs = _merge_runtime_inputs(adapter_inputs, _runtime_message_payload(), inputs or {})
     _apply_runtime_llm_overrides(resolved_config, runtime_inputs)
+    workflow_step_id = _runtime_graph_step_id()
+    if workflow_step_id and workflow_step_id != "write_review_packet":
+        return _run_runtime_graph_step(
+            blueprint_id,
+            workflow_step_id,
+            resolved_config=resolved_config,
+            runtime_inputs=runtime_inputs,
+            input_source=input_source,
+        )
     llm = llm_client or _resolve_llm_client(resolved_config)
     context = create_runtime_context(blueprint_id, resolved_config, runtime_inputs, input_source)
     started_at = utc_now_iso()
