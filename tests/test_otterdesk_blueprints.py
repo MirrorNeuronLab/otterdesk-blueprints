@@ -62,6 +62,22 @@ def _manifest_paths() -> list[Path]:
     return sorted(path / "manifest.json" for path in ROOT.iterdir() if (path / "manifest.json").exists())
 
 
+def _contains_key(value, target: str) -> bool:
+    if isinstance(value, dict):
+        return any(key == target or _contains_key(item, target) for key, item in value.items())
+    if isinstance(value, list):
+        return any(_contains_key(item, target) for item in value)
+    return False
+
+
+def _completion_threshold(value) -> bool:
+    if isinstance(value, int):
+        return value > 0
+    if isinstance(value, str):
+        return value.isdigit() and int(value) > 0
+    return False
+
+
 def test_otterdesk_blueprints_are_workflow_driven_manifests():
     for manifest_path in _manifest_paths():
         manifest = json.loads(manifest_path.read_text())
@@ -79,6 +95,11 @@ def test_otterdesk_blueprints_are_workflow_driven_manifests():
         bindings = manifest["runtime"]["bindings"]
         assert steps, blueprint_id
         assert manifest["flow"]["entrypoint"] == steps[0]["id"]
+        if manifest.get("type") == "service":
+            node_ids = {node["node_id"] for node in manifest["nodes"]}
+            assert set(manifest["entrypoints"]) <= node_ids, blueprint_id
+        else:
+            assert manifest["entrypoints"] == [manifest["flow"]["entrypoint"]]
         assert manifest["flow"]["graph"]["schema"] == "mn.workflow.problem_graph/v1"
         assert manifest["flow"]["graph"]["dynamic"]["enabled"] is False
         assert "nodes" in manifest and "edges" in manifest
@@ -92,6 +113,99 @@ def test_otterdesk_blueprints_are_workflow_driven_manifests():
             assert workers, (blueprint_id, step["run"])
             for worker in workers:
                 assert {"id", "role"} <= set(worker), (blueprint_id, step["run"], worker)
+
+
+def test_otterdesk_topology_metadata_matches_runtime_nodes():
+    for manifest_path in _manifest_paths():
+        manifest = json.loads(manifest_path.read_text())
+        blueprint_id = manifest["metadata"]["blueprint_id"]
+        runtime_nodes = {node["node_id"]: node["uses"] for node in manifest["nodes"]}
+        metadata_nodes = {
+            node["node_id"]: node["uses"]
+            for node in manifest["metadata"]["agent_templates"]["nodes"]
+        }
+
+        assert metadata_nodes == runtime_nodes, blueprint_id
+
+
+def test_otterdesk_completion_contract_is_explicit_and_terminal_sinks_are_reachable():
+    for manifest_path in _manifest_paths():
+        manifest = json.loads(manifest_path.read_text())
+        blueprint_id = manifest["metadata"]["blueprint_id"]
+        node_by_id = {node["node_id"]: node for node in manifest["nodes"]}
+        step_runs = {step["run"] for step in manifest["flow"]["steps"]}
+        outgoing_counts: dict[str, int] = {}
+        incoming_edges: dict[str, list[dict]] = {}
+
+        assert not _contains_key(manifest, "complete_job"), blueprint_id
+        assert not _contains_key(manifest, "complete_job?"), blueprint_id
+
+        for edge in manifest["edges"]:
+            assert "message_type" in edge and edge["message_type"], (blueprint_id, edge)
+            assert "event" not in edge, (blueprint_id, edge)
+            assert edge["from_node"] in node_by_id, (blueprint_id, edge)
+            assert edge["to_node"] in node_by_id, (blueprint_id, edge)
+            outgoing_counts[edge["from_node"]] = outgoing_counts.get(edge["from_node"], 0) + 1
+            incoming_edges.setdefault(edge["to_node"], []).append(edge)
+
+        terminal_sinks = []
+        for node in manifest["nodes"]:
+            node_id = node["node_id"]
+            config = node.get("with", {})
+            terminal_sink = config.get("terminal_sink") is True
+            complete_run = config.get("complete_run") is True
+            complete_on_message = config.get("complete_on_message") is True
+            complete_after = _completion_threshold(config.get("complete_after"))
+            output_message_type = config.get("output_message_type")
+
+            assert not _contains_key(config, "complete_job"), (blueprint_id, node_id)
+            assert not _contains_key(config, "complete_job?"), (blueprint_id, node_id)
+            assert not (node_id in step_runs and complete_run), (blueprint_id, node_id)
+            if complete_run or terminal_sink:
+                assert terminal_sink is True, (blueprint_id, node_id)
+                assert complete_run is True, (blueprint_id, node_id)
+                assert outgoing_counts.get(node_id, 0) == 0, (blueprint_id, node_id)
+                terminal_sinks.append(node_id)
+            if complete_on_message or complete_after:
+                assert output_message_type or (terminal_sink and complete_run), (blueprint_id, node_id)
+
+        if manifest.get("type") == "service":
+            assert terminal_sinks == [], blueprint_id
+            continue
+
+        assert terminal_sinks == ["report_sink"], blueprint_id
+        sink_edges = incoming_edges.get("report_sink", [])
+        assert len(sink_edges) == 1, blueprint_id
+        final_step_node = manifest["flow"]["graph"]["sink"]
+        final_step_config = node_by_id[final_step_node]["with"]
+        assert sink_edges[0]["from_node"] == final_step_node, blueprint_id
+        assert sink_edges[0]["message_type"] == final_step_config["output_message_type"], blueprint_id
+
+
+def test_otterdesk_rendered_completion_contract_is_valid():
+    for manifest_path in _manifest_paths():
+        manifest = json.loads(manifest_path.read_text())
+        blueprint_id = manifest["metadata"]["blueprint_id"]
+        rendered = render_manifest_agent_templates(manifest, AGENTS_ROOT)
+        rendered_nodes = {node["node_id"]: node for node in rendered["nodes"]}
+        step_runs = {step["run"] for step in manifest["flow"]["steps"]}
+        outgoing_counts: dict[str, int] = {}
+
+        for edge in rendered.get("edges", manifest["edges"]):
+            outgoing_counts[edge["from_node"]] = outgoing_counts.get(edge["from_node"], 0) + 1
+
+        for node_id, node in rendered_nodes.items():
+            config = node.get("config", {})
+            assert not _contains_key(config, "complete_job"), (blueprint_id, node_id)
+            assert not _contains_key(config, "complete_job?"), (blueprint_id, node_id)
+            if config.get("complete_run") is True:
+                assert config.get("terminal_sink") is True, (blueprint_id, node_id)
+                assert node_id not in step_runs, (blueprint_id, node_id)
+                assert outgoing_counts.get(node_id, 0) == 0, (blueprint_id, node_id)
+            if config.get("complete_on_message") is True or _completion_threshold(config.get("complete_after")):
+                assert config.get("output_message_type") or (
+                    config.get("terminal_sink") is True and config.get("complete_run") is True
+                ), (blueprint_id, node_id)
 
 
 def test_otterdesk_workflow_runtime_executes_manifest_steps(tmp_path):
@@ -147,6 +261,32 @@ def test_otterdesk_workflow_runtime_executes_manifest_steps(tmp_path):
     assert len(branch_start_indexes) == 3
     assert len(branch_completion_indexes) == 3
     assert max(branch_start_indexes) < min(branch_completion_indexes)
+
+
+def test_otterdesk_batch_workflows_complete_with_shared_runner(tmp_path):
+    for manifest_path in _manifest_paths():
+        manifest = json.loads(manifest_path.read_text())
+        if manifest.get("type") == "service":
+            continue
+
+        blueprint_id = manifest["metadata"]["blueprint_id"]
+        run_dir = tmp_path / blueprint_id
+        result = run_workflow_manifest_file(
+            manifest_path,
+            run_dir=run_dir,
+            run_id=f"{blueprint_id}-test-run",
+            auto_human="approve",
+            speed=0.001,
+            ui=False,
+        )
+
+        assert result["run"]["status"] == "completed", blueprint_id
+        assert len(result["workflow"]["steps"]) == len(manifest["flow"]["steps"]), blueprint_id
+        assert (run_dir / "final_artifact.json").exists(), blueprint_id
+        event_records = [json.loads(line) for line in (run_dir / "events.jsonl").read_text().splitlines() if line.strip()]
+        event_types = {record["type"] for record in event_records}
+        assert "workflow_step_attempt_completed" in event_types, blueprint_id
+        assert "workflow_finished" in event_types, blueprint_id
 
 
 def test_tax_workflow_compiles_as_static_fork_join_graph():
@@ -581,6 +721,7 @@ def test_otterdesk_manifests_require_runtime_workflow_control_contract():
     expected_events = {
         "workflow_step_attempt_started",
         "workflow_step_beacon",
+        "workflow_step_attempt_completed",
         "workflow_step_attempt_timed_out",
         "workflow_step_attempt_retry_scheduled",
         "workflow_step_blocked",

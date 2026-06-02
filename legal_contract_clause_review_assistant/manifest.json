@@ -8,6 +8,9 @@
   "description": "Reviews local contract PDFs, extracts important clauses, compares them with a playbook, and writes a source-grounded legal review packet.",
   "graph_id": "legal_contract_clause_review_assistant_v1",
   "job_name": "legal-contract-clause-review-assistant",
+  "entrypoints": [
+    "stage_contract_inputs"
+  ],
   "contract": {
     "events": {
       "stream": "events.jsonl",
@@ -878,6 +881,7 @@
       "events": [
         "workflow_step_attempt_started",
         "workflow_step_beacon",
+        "workflow_step_attempt_completed",
         "workflow_step_attempt_timed_out",
         "workflow_step_attempt_retry_scheduled",
         "workflow_step_blocked",
@@ -966,6 +970,10 @@
         {
           "node_id": "write_clause_review_packet",
           "uses": "mn-agents.data_python_executor@1.0.0"
+        },
+        {
+          "node_id": "report_sink",
+          "uses": "mn-agents.control_join@1.0.0"
         }
       ],
       "renderer": "mn_blueprint_support.render_manifest_agent_templates",
@@ -1624,6 +1632,15 @@
         "upload_path": "document_workflow",
         "output_message_type": "clause_review_packet_written"
       }
+    },
+    {
+      "node_id": "report_sink",
+      "uses": "mn-agents.control_join@1.0.0",
+      "with": {
+        "complete_on_message": true,
+        "terminal_sink": true,
+        "complete_run": true
+      }
     }
   ],
   "edges": [
@@ -1650,6 +1667,12 @@
       "from_node": "compare_contract_playbook",
       "to_node": "write_clause_review_packet",
       "message_type": "contract_playbook_compared"
+    },
+    {
+      "edge_id": "write_clause_review_packet_to_report",
+      "from_node": "write_clause_review_packet",
+      "to_node": "report_sink",
+      "message_type": "clause_review_packet_written"
     }
   ]
 }

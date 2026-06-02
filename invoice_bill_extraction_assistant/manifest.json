@@ -8,6 +8,9 @@
   "description": "Extracts invoice, bill, supplier, tax, total, line item, consumption, and approval-routing fields from local invoice PDFs with shared LLM OCR fallback.",
   "graph_id": "invoice_bill_extraction_assistant_v1",
   "job_name": "invoice-bill-extraction-assistant",
+  "entrypoints": [
+    "stage_invoice_inputs"
+  ],
   "contract": {
     "events": {
       "stream": "events.jsonl",
@@ -872,6 +875,7 @@
       "events": [
         "workflow_step_attempt_started",
         "workflow_step_beacon",
+        "workflow_step_attempt_completed",
         "workflow_step_attempt_timed_out",
         "workflow_step_attempt_retry_scheduled",
         "workflow_step_blocked",
@@ -960,6 +964,10 @@
         {
           "node_id": "write_invoice_packet",
           "uses": "mn-agents.data_python_executor@1.0.0"
+        },
+        {
+          "node_id": "report_sink",
+          "uses": "mn-agents.control_join@1.0.0"
         }
       ],
       "renderer": "mn_blueprint_support.render_manifest_agent_templates",
@@ -1615,6 +1623,15 @@
         "upload_path": "document_workflow",
         "output_message_type": "invoice_packet_written"
       }
+    },
+    {
+      "node_id": "report_sink",
+      "uses": "mn-agents.control_join@1.0.0",
+      "with": {
+        "complete_on_message": true,
+        "terminal_sink": true,
+        "complete_run": true
+      }
     }
   ],
   "edges": [
@@ -1641,6 +1658,12 @@
       "from_node": "validate_invoice_packet",
       "to_node": "write_invoice_packet",
       "message_type": "invoice_packet_validated"
+    },
+    {
+      "edge_id": "write_invoice_packet_to_report",
+      "from_node": "write_invoice_packet",
+      "to_node": "report_sink",
+      "message_type": "invoice_packet_written"
     }
   ]
 }

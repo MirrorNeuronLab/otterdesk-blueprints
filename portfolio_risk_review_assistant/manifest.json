@@ -337,28 +337,34 @@
   "description": "Real-time, review-only portfolio risk advisor that uses public market data, financial engineering simulation, decision benchmarking, and LLM-written review reports.",
   "edges": [
     {
-      "event": "portfolio_context_ready",
+      "edge_id": "load_portfolio_context_to_load_public_market_data",
       "from_node": "load_portfolio_context",
-      "required": true,
+      "message_type": "portfolio_context_ready",
       "to_node": "load_public_market_data"
     },
     {
-      "event": "market_data_ready",
+      "edge_id": "load_public_market_data_to_compute_risk_state",
       "from_node": "load_public_market_data",
-      "required": true,
+      "message_type": "market_data_ready",
       "to_node": "compute_risk_state"
     },
     {
-      "event": "risk_state_ready",
+      "edge_id": "compute_risk_state_to_simulate_decision_candidates",
       "from_node": "compute_risk_state",
-      "required": true,
+      "message_type": "risk_state_ready",
       "to_node": "simulate_decision_candidates"
     },
     {
-      "event": "decision_simulations_ready",
+      "edge_id": "simulate_decision_candidates_to_evaluate_and_write_report",
       "from_node": "simulate_decision_candidates",
-      "required": true,
+      "message_type": "decision_simulations_ready",
       "to_node": "evaluate_and_write_report"
+    },
+    {
+      "edge_id": "evaluate_and_write_report_to_report",
+      "from_node": "evaluate_and_write_report",
+      "message_type": "llm_report_written",
+      "to_node": "report_sink"
     }
   ],
   "flow": {
@@ -630,6 +636,9 @@
     "rules": []
   },
   "job_name": "portfolio-risk-review-assistant",
+  "entrypoints": [
+    "load_portfolio_context"
+  ],
   "kind": "Workflow",
   "license": "LICENSE.md",
   "manifest_version": "1.0",
@@ -639,8 +648,24 @@
       "library": "../mn-agents/index.json",
       "nodes": [
         {
-          "node_id": "simulation_loop",
+          "node_id": "load_portfolio_context",
           "uses": "mn-agents.data_python_executor@1.0.0"
+        },
+        {
+          "node_id": "load_public_market_data",
+          "uses": "mn-agents.data_python_executor@1.0.0"
+        },
+        {
+          "node_id": "compute_risk_state",
+          "uses": "mn-agents.data_python_executor@1.0.0"
+        },
+        {
+          "node_id": "simulate_decision_candidates",
+          "uses": "mn-agents.data_python_executor@1.0.0"
+        },
+        {
+          "node_id": "evaluate_and_write_report",
+          "uses": "mn-agents.data_llm_decision@1.0.0"
         },
         {
           "node_id": "report_sink",
@@ -1581,6 +1606,15 @@
         "output_message_type": "llm_report_written",
         "role": "Benchmark candidates, select a review recommendation, and use the LLM only to draft the report."
       }
+    },
+    {
+      "node_id": "report_sink",
+      "uses": "mn-agents.control_join@1.0.0",
+      "with": {
+        "complete_on_message": true,
+        "terminal_sink": true,
+        "complete_run": true
+      }
     }
   ],
   "policies": {
@@ -1830,6 +1864,7 @@
       "events": [
         "workflow_step_attempt_started",
         "workflow_step_beacon",
+        "workflow_step_attempt_completed",
         "workflow_step_attempt_timed_out",
         "workflow_step_attempt_retry_scheduled",
         "workflow_step_blocked",

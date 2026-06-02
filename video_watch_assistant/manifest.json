@@ -755,6 +755,7 @@
       "events": [
         "workflow_step_attempt_started",
         "workflow_step_beacon",
+        "workflow_step_attempt_completed",
         "workflow_step_attempt_timed_out",
         "workflow_step_attempt_retry_scheduled",
         "workflow_step_blocked",

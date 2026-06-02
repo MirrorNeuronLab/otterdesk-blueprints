@@ -1078,6 +1078,7 @@
       "events": [
         "workflow_step_attempt_started",
         "workflow_step_beacon",
+        "workflow_step_attempt_completed",
         "workflow_step_attempt_timed_out",
         "workflow_step_attempt_retry_scheduled",
         "workflow_step_blocked",
@@ -1138,6 +1139,10 @@
         {
           "node_id": "manager_monitor",
           "uses": "mn-agents.data_python_executor@1.0.0"
+        },
+        {
+          "node_id": "report_sink",
+          "uses": "mn-agents.control_join@1.0.0"
         }
       ],
       "render_tool": "../mn-agents/tools/render_agent_templates.py",
@@ -1909,6 +1914,15 @@
         "upload_path": "worker",
         "output_message_type": "manager_monitor"
       }
+    },
+    {
+      "node_id": "report_sink",
+      "uses": "mn-agents.control_join@1.0.0",
+      "with": {
+        "complete_on_message": true,
+        "terminal_sink": true,
+        "complete_run": true
+      }
     }
   ],
   "edges": [
@@ -1935,6 +1949,12 @@
       "from_node": "binding_evaluation",
       "message_type": "evaluations_ready",
       "to_node": "ranking_reporting"
+    },
+    {
+      "edge_id": "ranking_reporting_to_report",
+      "from_node": "ranking_reporting",
+      "message_type": "ranking_reporting",
+      "to_node": "report_sink"
     }
   ]
 }

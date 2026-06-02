@@ -498,7 +498,7 @@
         "run": "score_opportunities"
       },
       {
-        "action": "notify_broker_without_review",
+      "action": "write_deal_memo_packet",
         "control": {
           "failure_policy": "fail_workflow",
           "required": true,
@@ -773,6 +773,7 @@
       "events": [
         "workflow_step_attempt_started",
         "workflow_step_beacon",
+        "workflow_step_attempt_completed",
         "workflow_step_attempt_timed_out",
         "workflow_step_attempt_retry_scheduled",
         "workflow_step_blocked",
@@ -811,7 +812,19 @@
       "library": "../mn-agents/index.json",
       "nodes": [
         {
-          "node_id": "simulation_loop",
+          "node_id": "collect_deal_context",
+          "uses": "mn-agents.data_python_executor@1.0.0"
+        },
+        {
+          "node_id": "compare_memory_signals",
+          "uses": "mn-agents.data_python_executor@1.0.0"
+        },
+        {
+          "node_id": "score_opportunities",
+          "uses": "mn-agents.data_python_executor@1.0.0"
+        },
+        {
+          "node_id": "write_deal_memo",
           "uses": "mn-agents.data_python_executor@1.0.0"
         },
         {
@@ -1633,7 +1646,7 @@
     {
       "edge_id": "memo_to_report",
       "from_node": "write_deal_memo",
-      "message_type": "blueprint_report",
+      "message_type": "deal_memo_ready",
       "to_node": "report_sink"
     }
   ]

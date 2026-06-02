@@ -8,6 +8,9 @@
   "description": "Classifies tax forms, locates fields, captures structured taxpayer and line-item values, validates totals, and writes a review-only tax intake packet.",
   "graph_id": "tax_form_ocr_capture_assistant_v1",
   "job_name": "tax-form-ocr-capture-assistant",
+  "entrypoints": [
+    "stage_tax_form_inputs"
+  ],
   "contract": {
     "events": {
       "stream": "events.jsonl",
@@ -876,6 +879,7 @@
       "events": [
         "workflow_step_attempt_started",
         "workflow_step_beacon",
+        "workflow_step_attempt_completed",
         "workflow_step_attempt_timed_out",
         "workflow_step_attempt_retry_scheduled",
         "workflow_step_blocked",
@@ -964,6 +968,10 @@
         {
           "node_id": "write_tax_capture_packet",
           "uses": "mn-agents.data_python_executor@1.0.0"
+        },
+        {
+          "node_id": "report_sink",
+          "uses": "mn-agents.control_join@1.0.0"
         }
       ],
       "renderer": "mn_blueprint_support.render_manifest_agent_templates",
@@ -1621,6 +1629,15 @@
         "upload_path": "document_workflow",
         "output_message_type": "tax_capture_packet_written"
       }
+    },
+    {
+      "node_id": "report_sink",
+      "uses": "mn-agents.control_join@1.0.0",
+      "with": {
+        "complete_on_message": true,
+        "terminal_sink": true,
+        "complete_run": true
+      }
     }
   ],
   "edges": [
@@ -1647,6 +1664,12 @@
       "from_node": "validate_tax_capture",
       "to_node": "write_tax_capture_packet",
       "message_type": "tax_capture_validated"
+    },
+    {
+      "edge_id": "write_tax_capture_packet_to_report",
+      "from_node": "write_tax_capture_packet",
+      "to_node": "report_sink",
+      "message_type": "tax_capture_packet_written"
     }
   ]
 }

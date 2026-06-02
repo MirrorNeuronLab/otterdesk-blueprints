@@ -8,6 +8,9 @@
   "description": "Detects and redacts PHI or PII from clinical-style PDFs, extracts patient-record intake fields, and writes a review-gated de-identification packet.",
   "graph_id": "medical_deid_record_intake_assistant_v1",
   "job_name": "medical-deid-record-intake-assistant",
+  "entrypoints": [
+    "stage_medical_inputs"
+  ],
   "contract": {
     "events": {
       "stream": "events.jsonl",
@@ -876,6 +879,7 @@
       "events": [
         "workflow_step_attempt_started",
         "workflow_step_beacon",
+        "workflow_step_attempt_completed",
         "workflow_step_attempt_timed_out",
         "workflow_step_attempt_retry_scheduled",
         "workflow_step_blocked",
@@ -964,6 +968,10 @@
         {
           "node_id": "write_deid_review_packet",
           "uses": "mn-agents.data_python_executor@1.0.0"
+        },
+        {
+          "node_id": "report_sink",
+          "uses": "mn-agents.control_join@1.0.0"
         }
       ],
       "renderer": "mn_blueprint_support.render_manifest_agent_templates",
@@ -1621,6 +1629,15 @@
         "upload_path": "document_workflow",
         "output_message_type": "deid_review_packet_written"
       }
+    },
+    {
+      "node_id": "report_sink",
+      "uses": "mn-agents.control_join@1.0.0",
+      "with": {
+        "complete_on_message": true,
+        "terminal_sink": true,
+        "complete_run": true
+      }
     }
   ],
   "edges": [
@@ -1647,6 +1664,12 @@
       "from_node": "redact_and_validate_medical_packet",
       "to_node": "write_deid_review_packet",
       "message_type": "medical_packet_validated"
+    },
+    {
+      "edge_id": "write_deid_review_packet_to_report",
+      "from_node": "write_deid_review_packet",
+      "to_node": "report_sink",
+      "message_type": "deid_review_packet_written"
     }
   ]
 }
