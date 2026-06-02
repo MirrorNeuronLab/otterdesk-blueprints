@@ -6,6 +6,11 @@ from pathlib import Path
 
 if os.environ.get("BIOTARGET_SOURCE_DIR"):
     sys.path.append(os.environ["BIOTARGET_SOURCE_DIR"])
+try:
+    from mn_blueprint_support import start_agent_beacon_thread
+except Exception:  # pragma: no cover - optional runtime support
+    def start_agent_beacon_thread(message=None):
+        return None
 from extract_utils import extract_payload
 from logging_utils import get_logger
 
@@ -24,6 +29,7 @@ def write_log(progress_log, message_text):
     logger.info(message_text.strip())
 
 def main():
+    start_agent_beacon_thread("Drug discovery manager is running")
     try:
         context = load_context()
         job_id = context.get("job_id", "unknown_job")
@@ -106,7 +112,7 @@ def main():
 
             log += f"\n[✓] Pipeline execution complete. One optimal drug candidate found.\n"
             write_log(progress_log, log)
-            print(json.dumps({"complete_job": True}))
+            print(json.dumps({"complete_run": True}))
             
     except Exception as e:
         logger.exception("Manager failed")

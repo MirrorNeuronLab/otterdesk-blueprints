@@ -11,6 +11,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+try:
+    from mn_blueprint_support import start_agent_beacon_thread
+except Exception:  # pragma: no cover - optional runtime support
+    def start_agent_beacon_thread(message: str | None = None) -> None:
+        return None
+
 BLUEPRINT_ID = 'medical_deid_record_intake_assistant'
 BLUEPRINT_NAME = 'Medical De-Identification Record Intake Assistant'
 OUTPUT_TYPE = 'medical_deidentification_review_packet'
@@ -151,6 +157,7 @@ def run_blueprint(
     runs_root: str | Path | None = None,
     run_id: str | None = None,
 ) -> dict[str, Any]:
+    start_agent_beacon_thread(f"{BLUEPRINT_NAME} is running")
     blueprint_dir = Path(__file__).resolve().parents[3]
     resolved_config = read_json(blueprint_dir / "config" / "default.json")
     if config:
@@ -207,6 +214,7 @@ def run_blueprint(
 
 
 def main() -> None:
+    start_agent_beacon_thread(f"{BLUEPRINT_NAME} is running")
     parser = argparse.ArgumentParser(description=BLUEPRINT_NAME)
     parser.add_argument("--input-folder", default="")
     parser.add_argument("--runs-root", default="")

@@ -72,6 +72,7 @@ def test_otterdesk_blueprints_are_workflow_driven_manifests():
         assert manifest["id"] == blueprint_id
         assert manifest["contract"]["inputs"], blueprint_id
         assert manifest["contract"]["outputs"]["primary"]["path"] == "final_artifact.json"
+        assert manifest["contract"]["status"]["heartbeat"] is True, blueprint_id
         assert validate_workflow_manifest(manifest) == []
 
         steps = manifest["flow"]["steps"]
@@ -127,7 +128,7 @@ def test_otterdesk_workflow_runtime_executes_manifest_steps(tmp_path):
     event_records = [json.loads(line) for line in (run_dir / "events.jsonl").read_text().splitlines() if line.strip()]
     events = [record["type"] for record in event_records]
     assert "workflow_step_started" in events
-    assert "workflow_worker_completed" in events
+    assert "workflow_step_attempt_completed" in events
     assert "workflow_graph_compiled" in events
     assert "workflow_edge_satisfied" in events
     assert "workflow_join_waiting" in events
@@ -381,6 +382,12 @@ def test_otterdesk_blueprints_declare_product_experience_contracts():
         status_contract = metadata["status_contract"]
         assert status_contract["schema_version"] == "mn.blueprint.status_contract.v1"
         assert status_contract["source"] == "run_store"
+        assert status_contract["heartbeat_event"] == "agent_beacon"
+        assert status_contract["heartbeat_required"] is True
+        assert status_contract["beacon_event"] == "agent_beacon"
+        assert status_contract["beacon_interval_ms"] == 15000
+        assert status_contract["beacon_timeout_ms"] == 45000
+        assert status_contract["beacon_missed_action"] == "fail_attempt"
         assert [phase["phase"] for phase in status_contract["phases"]] == list(STATUS_PHASES)
         assert all(phase["start_event"] == "blueprint_phase_started" for phase in status_contract["phases"])
         assert all(phase["completion_event"] == "blueprint_phase_completed" for phase in status_contract["phases"])
@@ -517,6 +524,12 @@ def test_video_watch_declares_domain_agent_aliases():
 def test_otterdesk_nodes_use_shared_agent_templates_and_render():
     for manifest_path in _manifest_paths():
         manifest = json.loads(manifest_path.read_text())
+        original_nodes = {node["node_id"]: node for node in manifest["nodes"]}
+        control_by_step = {
+            step["id"]: step["control"]
+            for step in manifest.get("flow", {}).get("steps", [])
+            if isinstance(step.get("control"), dict)
+        }
         assert manifest.get("nodes"), manifest_path
         for node in manifest["nodes"]:
             assert "uses" in node, (manifest_path.parent.name, node.get("node_id"))
@@ -531,6 +544,108 @@ def test_otterdesk_nodes_use_shared_agent_templates_and_render():
         rendered = render_manifest_agent_templates(manifest, AGENTS_ROOT)
         assert len(rendered["nodes"]) == len(manifest["nodes"])
         assert all("uses" not in node and "with" not in node for node in rendered["nodes"])
+        for node in rendered["nodes"]:
+            if node.get("agent_type") != "executor":
+                continue
+            config = node["config"]
+            node_id = node["node_id"]
+            assert config["beacon_enabled"] is True, (manifest_path.parent.name, node_id)
+            assert config["beacon_interval_ms"] == 15000, (manifest_path.parent.name, node_id)
+            assert config["beacon_timeout_ms"] == 45000, (manifest_path.parent.name, node_id)
+            assert config["beacon_missed_action"] == "fail_attempt", (manifest_path.parent.name, node_id)
+            if original_nodes[node_id]["uses"].startswith("mn-agents.data_python_executor@"):
+                assert config["agent_beacon_required"] is True, (manifest_path.parent.name, node_id)
+            if node_id in control_by_step:
+                control = control_by_step[node_id]
+                assert config["timeout_seconds"] == control["timeout_seconds"], (manifest_path.parent.name, node_id)
+                assert config["max_attempts"] == control["retry"]["max_attempts"], (manifest_path.parent.name, node_id)
+                assert config["retry_backoff_ms"] == int(control["retry"]["backoff_seconds"] * 1000), (
+                    manifest_path.parent.name,
+                    node_id,
+                )
+
+
+def test_otterdesk_manifests_require_runtime_workflow_control_contract():
+    expected_statuses = {
+        "pending",
+        "ready",
+        "queued",
+        "running",
+        "retry_wait",
+        "blocked",
+        "completed",
+        "partial",
+        "skipped",
+        "failed",
+    }
+    expected_events = {
+        "workflow_step_attempt_started",
+        "workflow_step_beacon",
+        "workflow_step_attempt_timed_out",
+        "workflow_step_attempt_retry_scheduled",
+        "workflow_step_blocked",
+        "workflow_step_completed",
+        "workflow_step_failed",
+        "workflow_message_dead_lettered",
+    }
+
+    for manifest_path in _manifest_paths():
+        manifest = json.loads(manifest_path.read_text())
+        workflow_control = manifest.get("runtime", {}).get("workflow_control")
+        assert workflow_control, manifest_path.parent.name
+        assert workflow_control["schema_version"] == "mn.workflow.runtime_control.v1"
+        assert workflow_control["enabled"] is True
+        assert workflow_control["source_of_truth"] == "flow.steps"
+        assert workflow_control["state_ledger"]["enabled"] is True
+        assert workflow_control["state_ledger"]["persisted_field"] == "workflow_state"
+        assert set(workflow_control["state_ledger"]["step_statuses"]) == expected_statuses
+        assert workflow_control["state_ledger"]["message_ledger"] is True
+        assert workflow_control["state_ledger"]["delivery_semantics"] == "at_least_once_with_idempotency"
+        assert workflow_control["attempts"]["stale_attempt_outputs"] == "ignore"
+        assert workflow_control["attempts"]["retry_policy_source"] == "flow.steps[].control.retry"
+        assert workflow_control["attempts"]["timeout_source"] == "flow.steps[].control.timeout_seconds"
+        assert workflow_control["liveness"] == {
+            "event": "agent_beacon",
+            "interval_ms": 15000,
+            "timeout_ms": 45000,
+            "required": True,
+            "missed_action": "fail_attempt",
+        }
+        assert workflow_control["reconciliation"] == {
+            "interval_ms": 2000,
+            "on_timeout": "fail_attempt_then_retry",
+            "on_missed_beacon": "fail_attempt_then_retry",
+            "on_retry_exhausted": "apply_step_failure_policy",
+        }
+        assert workflow_control["pause_cancel"] == {
+            "pause_mode": "stop_active_attempts",
+            "resume_mode": "reconcile_from_workflow_state",
+            "cancel_mode": "terminate_active_attempts",
+        }
+        assert set(workflow_control["events"]) == expected_events
+
+        status_contract = manifest.get("metadata", {}).get("status_contract", {})
+        assert status_contract["runtime_state_source"] == "workflow_state"
+        assert status_contract["attempt_event"] == "workflow_step_attempt_started"
+        assert status_contract["retry_event"] == "workflow_step_attempt_retry_scheduled"
+        assert status_contract["blocked_event"] == "workflow_step_blocked"
+        assert set(status_contract["terminal_step_events"]) == {
+            "workflow_step_completed",
+            "workflow_step_partial",
+            "workflow_step_skipped",
+            "workflow_step_failed",
+        }
+
+
+def test_otterdesk_workflow_steps_are_bounded_and_retryable():
+    for manifest_path in _manifest_paths():
+        manifest = json.loads(manifest_path.read_text())
+        for step in manifest.get("flow", {}).get("steps", []):
+            control = step.get("control", {})
+            assert isinstance(control.get("timeout_seconds"), int), (manifest_path.parent.name, step.get("id"))
+            assert control["timeout_seconds"] > 0, (manifest_path.parent.name, step.get("id"))
+            assert control["retry"]["max_attempts"] >= 1, (manifest_path.parent.name, step.get("id"))
+            assert control["retry"]["backoff_seconds"] >= 0, (manifest_path.parent.name, step.get("id"))
 
 
 def test_personal_income_tax_expert_runtime_topology_mirrors_workflow_graph():
@@ -538,6 +653,8 @@ def test_personal_income_tax_expert_runtime_topology_mirrors_workflow_graph():
     executor_nodes = [
         node for node in manifest["nodes"] if node["uses"].startswith("mn-agents.data_python_executor@")
     ]
+    rendered = render_manifest_agent_templates(manifest, AGENTS_ROOT)
+    rendered_nodes = {node["node_id"]: node for node in rendered["nodes"]}
 
     assert manifest["entrypoints"] == ["intake_documents"]
     assert [node["node_id"] for node in executor_nodes] == [
@@ -548,6 +665,33 @@ def test_personal_income_tax_expert_runtime_topology_mirrors_workflow_graph():
         "audit_and_manager_review",
         "write_review_packet",
     ]
+    for node in executor_nodes:
+        node_id = node["node_id"]
+        node_config = node["with"]
+        rendered_config = rendered_nodes[node_id]["config"]
+        assert node_config["environment"]["MN_WORKFLOW_STEP_ID"] == node_id
+        assert rendered_config["environment"]["MN_WORKFLOW_STEP_ID"] == node_id
+        if node_id == "write_review_packet":
+            assert "safe_to_retry" not in node_config
+            assert "idempotent" not in node_config
+        else:
+            assert node_config["safe_to_retry"] is True
+            assert node_config["idempotent"] is True
+            assert node_config["side_effect"] == "read"
+            assert rendered_config["safe_to_retry"] is True
+            assert rendered_config["idempotent"] is True
+            assert rendered_config["side_effect"] == "read"
+    merge_config = next(node["with"] for node in manifest["nodes"] if node["node_id"] == "merge_tax_workpapers")
+    rendered_merge_config = rendered_nodes["merge_tax_workpapers"]["config"]
+    assert merge_config["complete_on_message"] is True
+    assert merge_config["output_message_type"] == "tax_workpapers_merged"
+    assert rendered_merge_config["output_message_type"] == "tax_workpapers_merged"
+    report_config = next(node["with"] for node in manifest["nodes"] if node["node_id"] == "report_sink")
+    rendered_report_config = rendered_nodes["report_sink"]["config"]
+    assert report_config["terminal_sink"] is True
+    assert report_config["complete_run"] is True
+    assert rendered_report_config["terminal_sink"] is True
+    assert rendered_report_config["complete_run"] is True
     assert [edge["from_node"] for edge in manifest["edges"][:3]] == ["intake_documents"] * 3
     assert {edge["to_node"] for edge in manifest["edges"][:3]} == {
         "prepare_income_workpapers",
@@ -560,6 +704,12 @@ def test_personal_income_tax_expert_runtime_topology_mirrors_workflow_graph():
         "prepare_investment_workpapers",
     ]
     assert {edge["to_node"] for edge in manifest["edges"][3:6]} == {"merge_tax_workpapers"}
+    assert manifest["edges"][6] == {
+        "edge_id": "merge_to_audit",
+        "from_node": "merge_tax_workpapers",
+        "message_type": "tax_workpapers_merged",
+        "to_node": "audit_and_manager_review",
+    }
     assert manifest["nodes"][-1]["node_id"] == "report_sink"
     assert manifest["edges"][-1] == {
         "edge_id": "packet_to_report",
@@ -586,6 +736,61 @@ def test_personal_income_tax_expert_runtime_branch_step_exits_without_full_packe
     assert decoded["schema"] == "mn.workflow.step_result.v1"
     assert decoded["agent_id"] == "prepare_income_workpapers"
     assert decoded["workflow_step_id"] == "prepare_income_workpapers"
+    assert decoded["status"] == "completed"
+    assert "final_artifact" not in decoded
+
+
+def test_personal_income_tax_expert_runtime_branch_step_infers_agent_id_without_full_packet(tmp_path):
+    script = ROOT / "personal_income_tax_expert" / "payloads" / "tax_workflow" / "scripts" / "run_blueprint.py"
+    env = os.environ.copy()
+    env.pop("MN_WORKFLOW_STEP_ID", None)
+    env["MN_AGENT_ID"] = "prepare_income_workpapers"
+    result = subprocess.run(
+        [sys.executable, str(script), "--no-run-store", "--run-id", "tax-agent-id-step"],
+        cwd=script.parents[1],
+        env=env,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    decoded = json.loads(result.stdout)
+
+    assert decoded["schema"] == "mn.workflow.step_result.v1"
+    assert decoded["workflow_step_id"] == "prepare_income_workpapers"
+    assert decoded["status"] == "completed"
+    assert "final_artifact" not in decoded
+
+
+def test_personal_income_tax_expert_runtime_branch_step_infers_message_destination(tmp_path):
+    script = ROOT / "personal_income_tax_expert" / "payloads" / "tax_workflow" / "scripts" / "run_blueprint.py"
+    message_file = tmp_path / "message.json"
+    message_file.write_text(
+        json.dumps(
+            {
+                "to": "prepare_property_workpapers",
+                "type": "tax_intake_ready",
+                "payload": {"tax_year": 2025, "filing_status": "single"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    env = os.environ.copy()
+    env.pop("MN_WORKFLOW_STEP_ID", None)
+    env.pop("MN_AGENT_ID", None)
+    env["MN_MESSAGE_FILE"] = str(message_file)
+    result = subprocess.run(
+        [sys.executable, str(script), "--no-run-store", "--run-id", "tax-message-step"],
+        cwd=script.parents[1],
+        env=env,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    decoded = json.loads(result.stdout)
+
+    assert decoded["schema"] == "mn.workflow.step_result.v1"
+    assert decoded["workflow_step_id"] == "prepare_property_workpapers"
+    assert decoded["inputs"]["tax_year"] == 2025
     assert decoded["status"] == "completed"
     assert "final_artifact" not in decoded
 

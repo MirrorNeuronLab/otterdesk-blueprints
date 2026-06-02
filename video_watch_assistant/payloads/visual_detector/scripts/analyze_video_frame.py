@@ -16,6 +16,12 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
+try:
+    from mn_blueprint_support import start_agent_beacon_thread
+except Exception:  # pragma: no cover - optional runtime support
+    def start_agent_beacon_thread(message: str | None = None) -> None:
+        return None
+
 IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
 DEFAULT_VIDEO_SOURCE_URI = "rtsp://127.0.0.1:8554/video-watch"
 LIVE_STREAM_SCHEMES = ("rtsp://", "rtsps://", "rtmp://", "rtmps://")
@@ -1149,6 +1155,7 @@ def alert_text(camera_id: str, detection: dict[str, Any], frame_seq: int, source
 
 
 def main() -> None:
+    start_agent_beacon_thread("Video detector is analyzing a frame")
     message = load_json_env("MN_MESSAGE_FILE")
     payload = load_json_env("MN_INPUT_FILE")
     context = load_json_env("MN_CONTEXT_FILE")

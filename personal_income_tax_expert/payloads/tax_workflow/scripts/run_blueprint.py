@@ -471,6 +471,16 @@ TAX_INPUT_KEYS = {
     "tax_year",
 }
 
+RUNTIME_GRAPH_STEP_IDS = {
+    "intake_documents",
+    "prepare_income_workpapers",
+    "prepare_property_workpapers",
+    "prepare_investment_workpapers",
+    "merge_tax_workpapers",
+    "audit_and_manager_review",
+    "write_review_packet",
+}
+
 
 class TaxTeamWorkspace:
     def __init__(self, root: Path, run_id: str) -> None:
@@ -825,7 +835,20 @@ def _default_config_path() -> Path:
 
 
 def _runtime_message_payload() -> dict[str, Any]:
-    for env_name in ("MN_MESSAGE_FILE", "MIRROR_NEURON_MESSAGE_FILE"):
+    payload = _find_tax_payload(_runtime_message_envelope())
+    return payload if payload else {}
+
+
+def _runtime_message_envelope() -> dict[str, Any]:
+    return _runtime_json_from_env("MN_MESSAGE_FILE", "MIRROR_NEURON_MESSAGE_FILE")
+
+
+def _runtime_context_payload() -> dict[str, Any]:
+    return _runtime_json_from_env("MN_CONTEXT_FILE", "MIRROR_NEURON_CONTEXT_FILE")
+
+
+def _runtime_json_from_env(*env_names: str) -> dict[str, Any]:
+    for env_name in env_names:
         raw_path = os.environ.get(env_name)
         if not raw_path:
             continue
@@ -836,9 +859,8 @@ def _runtime_message_payload() -> dict[str, Any]:
             decoded = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             continue
-        payload = _find_tax_payload(decoded)
-        if payload:
-            return payload
+        if isinstance(decoded, dict):
+            return decoded
     return {}
 
 
@@ -855,7 +877,23 @@ def _find_tax_payload(value: Any) -> dict[str, Any]:
 
 
 def _runtime_graph_step_id() -> str:
-    return os.environ.get("MN_WORKFLOW_STEP_ID", "").strip()
+    context = _runtime_context_payload()
+    message = _runtime_message_envelope()
+    candidates = [
+        os.environ.get("MN_WORKFLOW_STEP_ID", ""),
+        os.environ.get("MN_AGENT_ID", ""),
+        os.environ.get("MN_NODE_ID", ""),
+        os.environ.get("MIRROR_NEURON_AGENT_ID", ""),
+        os.environ.get("MIRROR_NEURON_NODE_ID", ""),
+        str(context.get("agent_id") or ""),
+        str(context.get("node_id") or ""),
+        str(message.get("to") or ""),
+    ]
+    for candidate in candidates:
+        step_id = candidate.strip()
+        if step_id in RUNTIME_GRAPH_STEP_IDS:
+            return step_id
+    return ""
 
 
 def _run_runtime_graph_step(

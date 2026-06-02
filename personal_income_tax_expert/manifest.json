@@ -1003,6 +1003,71 @@
       "runner": "MirrorNeuron.Runner.HostLocal",
       "uses": "mn-agents.data_python_executor@1.0.0",
       "workdir": "/sandbox/job/workflow"
+    },
+    "workflow_control": {
+      "schema_version": "mn.workflow.runtime_control.v1",
+      "enabled": true,
+      "source_of_truth": "flow.steps",
+      "state_ledger": {
+        "enabled": true,
+        "persisted_field": "workflow_state",
+        "step_statuses": [
+          "pending",
+          "ready",
+          "queued",
+          "running",
+          "retry_wait",
+          "blocked",
+          "completed",
+          "partial",
+          "skipped",
+          "failed"
+        ],
+        "message_ledger": true,
+        "delivery_semantics": "at_least_once_with_idempotency"
+      },
+      "attempts": {
+        "dispatch_metadata": [
+          "workflow_run_id",
+          "step_id",
+          "attempt_id",
+          "attempt",
+          "deadline_at",
+          "heartbeat_deadline_at",
+          "idempotency_key"
+        ],
+        "stale_attempt_outputs": "ignore",
+        "retry_policy_source": "flow.steps[].control.retry",
+        "timeout_source": "flow.steps[].control.timeout_seconds"
+      },
+      "liveness": {
+        "event": "agent_beacon",
+        "interval_ms": 15000,
+        "timeout_ms": 45000,
+        "required": true,
+        "missed_action": "fail_attempt"
+      },
+      "reconciliation": {
+        "interval_ms": 2000,
+        "on_timeout": "fail_attempt_then_retry",
+        "on_missed_beacon": "fail_attempt_then_retry",
+        "on_retry_exhausted": "apply_step_failure_policy"
+      },
+      "pause_cancel": {
+        "pause_mode": "stop_active_attempts",
+        "resume_mode": "reconcile_from_workflow_state",
+        "cancel_mode": "terminate_active_attempts"
+      },
+      "events": [
+        "workflow_step_attempt_started",
+        "workflow_step_beacon",
+        "workflow_step_attempt_timed_out",
+        "workflow_step_attempt_retry_scheduled",
+        "workflow_step_blocked",
+        "workflow_step_completed",
+        "workflow_step_failed",
+        "workflow_message_dead_lettered"
+      ]
     }
   },
   "input_validation": {
@@ -1730,7 +1795,7 @@
       "workflow_model": "contract -> flow -> runtime"
     },
     "status_contract": {
-      "heartbeat_event": "blueprint_status",
+      "heartbeat_event": "agent_beacon",
       "heartbeat_required": true,
       "phases": [
         {
@@ -1776,7 +1841,21 @@
       ],
       "schema_version": "mn.blueprint.status_contract.v1",
       "source": "run_store",
-      "status_event": "blueprint_status"
+      "status_event": "blueprint_status",
+      "beacon_event": "agent_beacon",
+      "beacon_interval_ms": 15000,
+      "beacon_timeout_ms": 45000,
+      "beacon_missed_action": "fail_attempt",
+      "runtime_state_source": "workflow_state",
+      "attempt_event": "workflow_step_attempt_started",
+      "retry_event": "workflow_step_attempt_retry_scheduled",
+      "blocked_event": "workflow_step_blocked",
+      "terminal_step_events": [
+        "workflow_step_completed",
+        "workflow_step_partial",
+        "workflow_step_skipped",
+        "workflow_step_failed"
+      ]
     },
     "target_user": "Individual taxpayers, household finance operators, bookkeepers, and tax preparers who want a source-grounded draft before using filing software.",
     "target_users": "Individual taxpayers, household finance operators, bookkeepers, and tax preparers.",
@@ -1812,7 +1891,13 @@
       "node_id": "intake_documents",
       "uses": "mn-agents.data_python_executor@1.0.0",
       "with": {
+        "environment": {
+          "MN_WORKFLOW_STEP_ID": "intake_documents"
+        },
+        "idempotent": true,
         "script": "scripts/run_blueprint.py",
+        "side_effect": "read",
+        "safe_to_retry": true,
         "upload_path": "tax_workflow",
         "output_message_type": "tax_intake_ready"
       }
@@ -1821,7 +1906,13 @@
       "node_id": "prepare_income_workpapers",
       "uses": "mn-agents.data_python_executor@1.0.0",
       "with": {
+        "environment": {
+          "MN_WORKFLOW_STEP_ID": "prepare_income_workpapers"
+        },
+        "idempotent": true,
         "script": "scripts/run_blueprint.py",
+        "side_effect": "read",
+        "safe_to_retry": true,
         "upload_path": "tax_workflow",
         "output_message_type": "tax_income_workpapers_ready"
       }
@@ -1830,7 +1921,13 @@
       "node_id": "prepare_property_workpapers",
       "uses": "mn-agents.data_python_executor@1.0.0",
       "with": {
+        "environment": {
+          "MN_WORKFLOW_STEP_ID": "prepare_property_workpapers"
+        },
+        "idempotent": true,
         "script": "scripts/run_blueprint.py",
+        "side_effect": "read",
+        "safe_to_retry": true,
         "upload_path": "tax_workflow",
         "output_message_type": "tax_property_workpapers_ready"
       }
@@ -1839,7 +1936,13 @@
       "node_id": "prepare_investment_workpapers",
       "uses": "mn-agents.data_python_executor@1.0.0",
       "with": {
+        "environment": {
+          "MN_WORKFLOW_STEP_ID": "prepare_investment_workpapers"
+        },
+        "idempotent": true,
         "script": "scripts/run_blueprint.py",
+        "side_effect": "read",
+        "safe_to_retry": true,
         "upload_path": "tax_workflow",
         "output_message_type": "tax_investment_workpapers_ready"
       }
@@ -1848,14 +1951,21 @@
       "node_id": "merge_tax_workpapers",
       "uses": "mn-agents.control_join@1.0.0",
       "with": {
-        "complete_on_message": true
+        "complete_on_message": true,
+        "output_message_type": "tax_workpapers_merged"
       }
     },
     {
       "node_id": "audit_and_manager_review",
       "uses": "mn-agents.data_python_executor@1.0.0",
       "with": {
+        "environment": {
+          "MN_WORKFLOW_STEP_ID": "audit_and_manager_review"
+        },
+        "idempotent": true,
         "script": "scripts/run_blueprint.py",
+        "side_effect": "read",
+        "safe_to_retry": true,
         "upload_path": "tax_workflow",
         "output_message_type": "tax_review_ready"
       }
@@ -1864,6 +1974,9 @@
       "node_id": "write_review_packet",
       "uses": "mn-agents.data_python_executor@1.0.0",
       "with": {
+        "environment": {
+          "MN_WORKFLOW_STEP_ID": "write_review_packet"
+        },
         "script": "scripts/run_blueprint.py",
         "upload_path": "tax_workflow",
         "output_message_type": "blueprint_report"
@@ -1873,7 +1986,9 @@
       "node_id": "report_sink",
       "uses": "mn-agents.control_join@1.0.0",
       "with": {
-        "complete_on_message": true
+        "complete_on_message": true,
+        "terminal_sink": true,
+        "complete_run": true
       }
     }
   ],

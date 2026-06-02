@@ -387,7 +387,7 @@
             "jitter": 0,
             "max_attempts": 2
           },
-          "timeout_seconds": null,
+          "timeout_seconds": 300,
           "uncertainty": {
             "min_confidence": 0.0,
             "on_low_confidence": "continue_with_warning"
@@ -420,7 +420,7 @@
             "jitter": 0,
             "max_attempts": 2
           },
-          "timeout_seconds": null,
+          "timeout_seconds": 300,
           "uncertainty": {
             "min_confidence": 0.0,
             "on_low_confidence": "continue_with_warning"
@@ -453,7 +453,7 @@
             "jitter": 0,
             "max_attempts": 2
           },
-          "timeout_seconds": null,
+          "timeout_seconds": 300,
           "uncertainty": {
             "min_confidence": 0.0,
             "on_low_confidence": "continue_with_warning"
@@ -488,7 +488,7 @@
             "jitter": 0,
             "max_attempts": 2
           },
-          "timeout_seconds": null,
+          "timeout_seconds": 300,
           "uncertainty": {
             "min_confidence": 0.0,
             "on_low_confidence": "continue_with_warning"
@@ -697,6 +697,71 @@
       "runner": "MirrorNeuron.Runner.HostLocal",
       "uses": "mn-agents.data_python_executor@1.0.0",
       "workdir": "/sandbox/job/workflow"
+    },
+    "workflow_control": {
+      "schema_version": "mn.workflow.runtime_control.v1",
+      "enabled": true,
+      "source_of_truth": "flow.steps",
+      "state_ledger": {
+        "enabled": true,
+        "persisted_field": "workflow_state",
+        "step_statuses": [
+          "pending",
+          "ready",
+          "queued",
+          "running",
+          "retry_wait",
+          "blocked",
+          "completed",
+          "partial",
+          "skipped",
+          "failed"
+        ],
+        "message_ledger": true,
+        "delivery_semantics": "at_least_once_with_idempotency"
+      },
+      "attempts": {
+        "dispatch_metadata": [
+          "workflow_run_id",
+          "step_id",
+          "attempt_id",
+          "attempt",
+          "deadline_at",
+          "heartbeat_deadline_at",
+          "idempotency_key"
+        ],
+        "stale_attempt_outputs": "ignore",
+        "retry_policy_source": "flow.steps[].control.retry",
+        "timeout_source": "flow.steps[].control.timeout_seconds"
+      },
+      "liveness": {
+        "event": "agent_beacon",
+        "interval_ms": 15000,
+        "timeout_ms": 45000,
+        "required": true,
+        "missed_action": "fail_attempt"
+      },
+      "reconciliation": {
+        "interval_ms": 2000,
+        "on_timeout": "fail_attempt_then_retry",
+        "on_missed_beacon": "fail_attempt_then_retry",
+        "on_retry_exhausted": "apply_step_failure_policy"
+      },
+      "pause_cancel": {
+        "pause_mode": "stop_active_attempts",
+        "resume_mode": "reconcile_from_workflow_state",
+        "cancel_mode": "terminate_active_attempts"
+      },
+      "events": [
+        "workflow_step_attempt_started",
+        "workflow_step_beacon",
+        "workflow_step_attempt_timed_out",
+        "workflow_step_attempt_retry_scheduled",
+        "workflow_step_blocked",
+        "workflow_step_completed",
+        "workflow_step_failed",
+        "workflow_message_dead_lettered"
+      ]
     }
   },
   "input_validation": {
@@ -1482,7 +1547,7 @@
       "workflow_model": "contract -> flow -> runtime"
     },
     "status_contract": {
-      "heartbeat_event": "blueprint_status",
+      "heartbeat_event": "agent_beacon",
       "heartbeat_required": true,
       "phases": [
         {
@@ -1528,7 +1593,21 @@
       ],
       "schema_version": "mn.blueprint.status_contract.v1",
       "source": "run_store",
-      "status_event": "blueprint_status"
+      "status_event": "blueprint_status",
+      "beacon_event": "agent_beacon",
+      "beacon_interval_ms": 15000,
+      "beacon_timeout_ms": 45000,
+      "beacon_missed_action": "fail_attempt",
+      "runtime_state_source": "workflow_state",
+      "attempt_event": "workflow_step_attempt_started",
+      "retry_event": "workflow_step_attempt_retry_scheduled",
+      "blocked_event": "workflow_step_blocked",
+      "terminal_step_events": [
+        "workflow_step_completed",
+        "workflow_step_partial",
+        "workflow_step_skipped",
+        "workflow_step_failed"
+      ]
     },
     "status_logging": {
       "env": "MN_BLUEPRINT_LOG_LEVEL",
