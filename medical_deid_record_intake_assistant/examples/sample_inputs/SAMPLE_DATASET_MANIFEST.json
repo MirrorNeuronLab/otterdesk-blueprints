@@ -1,0 +1,19 @@
+{
+  "blueprint_id": "medical_deid_record_intake_assistant",
+  "downloaded_at": "2026-06-02T11:55:06+00:00",
+  "demo_source": {
+    "name": "RootCauseAnalytics Healthcare Library Sample",
+    "url": "https://huggingface.co/datasets/RootCauseAnalytics/Healthcare-Library-Sample",
+    "license": "CC BY-NC 4.0 according to the dataset note; review source terms before production use"
+  },
+  "source_paths": {
+    "healthcare_0001_home_care_plan.pdf": "pdfs/0001_home_care_plan_SUDDEN_HEARING_LOSS_Clark.pdf",
+    "ground_truth.jsonl": "ground_truth.jsonl",
+    "bboxes.jsonl": "bboxes.jsonl"
+  },
+  "files": [
+    "bboxes.jsonl",
+    "ground_truth.jsonl",
+    "healthcare_0001_home_care_plan.pdf"
+  ]
+}

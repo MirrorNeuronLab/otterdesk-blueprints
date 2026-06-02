@@ -1659,5 +1659,61 @@
         "stream_path": "video-watch"
       }
     }
-  }
+  },
+  "entrypoints": [
+    "ingress"
+  ],
+  "nodes": [
+    {
+      "node_id": "ingress",
+      "uses": "mn-agents.control_router@1.0.0",
+      "with": {},
+      "alias": "video_monitor",
+      "display_name": "Video Monitor"
+    },
+    {
+      "node_id": "video_frame_tick_source",
+      "uses": "mn-agents.data_module@1.0.0",
+      "with": {
+        "module": "MirrorNeuron.Examples.VideoWatchAssistant.VideoFrameTickSource",
+        "module_source": "payloads/beam_modules/video_frame_tick_source.ex",
+        "emit_type": "video_frame_tick_generated"
+      },
+      "alias": "frame_sampler",
+      "display_name": "Frame Sampler"
+    },
+    {
+      "node_id": "visual_detector",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "with": {
+        "script": "scripts/analyze_video_frame.py",
+        "upload_path": "visual_detector",
+        "upload_paths": [
+          {
+            "source": "visual_detector",
+            "target": "visual_detector"
+          }
+        ],
+        "output_message_type": "video_watch_detection",
+        "policy": "visual_detector/policies/video-egress.yaml",
+        "environment": {}
+      },
+      "alias": "quality_controller",
+      "display_name": "Quality Controller"
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "ingress_to_frame_tick",
+      "from_node": "ingress",
+      "message_type": "video_watch_start",
+      "to_node": "video_frame_tick_source"
+    },
+    {
+      "edge_id": "frame_tick_to_visual_detector",
+      "from_node": "video_frame_tick_source",
+      "message_type": "video_frame_tick_generated",
+      "to_node": "visual_detector"
+    }
+  ]
 }

@@ -39,6 +39,11 @@ python3 -m pytest -q
 | [`portfolio_risk_review_assistant`](portfolio_risk_review_assistant/README.md) | Finance | Stress-tests a portfolio against market crashes, rate shocks, and liquidity pressure, then explains risks and possible rebalancing options in plain language. |
 | [`property_deal_research_assistant`](property_deal_research_assistant/README.md) | Finance | Reviews ZIP-code history, broker notes, financing constraints, and deal memory to rank property opportunities and explain which ones deserve attention. |
 | [`video_watch_assistant`](video_watch_assistant/README.md) | Security | Watches an approved video stream, detects configured visual targets, and reports count, label, category, color, position, activity, and alert status for review. |
+| [`invoice_bill_extraction_assistant`](invoice_bill_extraction_assistant/README.md) | Finance | Extracts invoice, bill, supplier, tax, total, line item, consumption, and approval-routing fields from local invoice PDFs with shared LLM OCR fallback. |
+| [`legal_contract_clause_review_assistant`](legal_contract_clause_review_assistant/README.md) | Legal | Reviews local contract PDFs, extracts important clauses, compares them with a playbook, and writes a source-grounded legal review packet. |
+| [`medical_deid_record_intake_assistant`](medical_deid_record_intake_assistant/README.md) | Healthcare | Detects and redacts PHI or PII from clinical-style PDFs, extracts patient-record intake fields, and writes a review-gated de-identification packet. |
+| [`tax_form_ocr_capture_assistant`](tax_form_ocr_capture_assistant/README.md) | Finance | Classifies tax forms, locates fields, captures structured taxpayer and line-item values, validates totals, and writes a review-only tax intake packet. |
+| [`bank_statement_extraction_assistant`](bank_statement_extraction_assistant/README.md) | Finance | Extracts bank statement account metadata, balances, transaction rows, debits, credits, fees, and validation checks from local statement PDFs. |
 
 ## Folder Contract
 

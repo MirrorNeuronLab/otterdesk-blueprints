@@ -1772,5 +1772,90 @@
         "llm_retries"
       ]
     }
-  }
+  },
+  "entrypoints": [
+    "target_discovery"
+  ],
+  "nodes": [
+    {
+      "node_id": "target_discovery",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "with": {
+        "script": "scripts/manager.py",
+        "upload_path": "worker",
+        "output_message_type": "target_discovery"
+      }
+    },
+    {
+      "node_id": "structure_generation",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "with": {
+        "script": "scripts/manager.py",
+        "upload_path": "worker",
+        "output_message_type": "structure_generation"
+      }
+    },
+    {
+      "node_id": "candidate_generation",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "with": {
+        "script": "scripts/manager.py",
+        "upload_path": "worker",
+        "output_message_type": "candidate_generation"
+      }
+    },
+    {
+      "node_id": "binding_evaluation",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "with": {
+        "script": "scripts/manager.py",
+        "upload_path": "worker",
+        "output_message_type": "binding_evaluation"
+      }
+    },
+    {
+      "node_id": "ranking_reporting",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "with": {
+        "script": "scripts/manager.py",
+        "upload_path": "worker",
+        "output_message_type": "ranking_reporting"
+      }
+    },
+    {
+      "node_id": "manager_monitor",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "with": {
+        "script": "scripts/manager.py",
+        "upload_path": "worker",
+        "output_message_type": "manager_monitor"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "target_discovery_to_structure_generation",
+      "from_node": "target_discovery",
+      "message_type": "targets_ready",
+      "to_node": "structure_generation"
+    },
+    {
+      "edge_id": "structure_generation_to_candidate_generation",
+      "from_node": "structure_generation",
+      "message_type": "structures_ready",
+      "to_node": "candidate_generation"
+    },
+    {
+      "edge_id": "candidate_generation_to_binding_evaluation",
+      "from_node": "candidate_generation",
+      "message_type": "candidates_ready",
+      "to_node": "binding_evaluation"
+    },
+    {
+      "edge_id": "binding_evaluation_to_ranking_reporting",
+      "from_node": "binding_evaluation",
+      "message_type": "evaluations_ready",
+      "to_node": "ranking_reporting"
+    }
+  ]
 }

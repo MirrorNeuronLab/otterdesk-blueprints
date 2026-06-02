@@ -19,6 +19,14 @@
     {
       "name": "Engineering",
       "slug": "engineering"
+    },
+    {
+      "name": "Legal",
+      "slug": "legal"
+    },
+    {
+      "name": "Healthcare",
+      "slug": "healthcare"
     }
   ]
 }

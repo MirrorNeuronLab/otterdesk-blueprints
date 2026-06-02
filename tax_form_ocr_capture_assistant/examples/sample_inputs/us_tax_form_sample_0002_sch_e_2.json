@@ -1,0 +1,10 @@
+{
+  "source_dataset": "hyturing/US_tax_forms_donut",
+  "source_row": 1,
+  "label": "sch_e_2",
+  "ground_truth": {
+    "gt_parse": {
+      "class": "sch_e_2"
+    }
+  }
+}

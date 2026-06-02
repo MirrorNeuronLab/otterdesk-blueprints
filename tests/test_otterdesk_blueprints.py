@@ -317,6 +317,11 @@ def test_otterdesk_blueprints_declare_product_experience_contracts():
         "portfolio_risk_review_assistant": "approval_required",
         "property_deal_research_assistant": "approval_required",
         "video_watch_assistant": "notice_only",
+        "invoice_bill_extraction_assistant": "approval_required",
+        "legal_contract_clause_review_assistant": "approval_required",
+        "medical_deid_record_intake_assistant": "approval_required",
+        "tax_form_ocr_capture_assistant": "approval_required",
+        "bank_statement_extraction_assistant": "approval_required",
     }
     required_schema_keys = {
         "artifact_record",

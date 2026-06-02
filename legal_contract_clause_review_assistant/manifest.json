@@ -1,0 +1,1576 @@
+{
+  "apiVersion": "mn.workflow/v1",
+  "kind": "Workflow",
+  "id": "legal_contract_clause_review_assistant",
+  "name": "Legal Contract Clause Review Assistant",
+  "version": "1.0.0",
+  "manifest_version": "1.0",
+  "description": "Reviews local contract PDFs, extracts important clauses, compares them with a playbook, and writes a source-grounded legal review packet.",
+  "graph_id": "legal_contract_clause_review_assistant_v1",
+  "job_name": "legal-contract-clause-review-assistant",
+  "contract": {
+    "events": {
+      "stream": "events.jsonl",
+      "human_stream": "human.jsonl",
+      "types": [
+        "blueprint_status",
+        "blueprint_phase_started",
+        "blueprint_phase_completed",
+        "blueprint_phase_failed",
+        "artifact_written",
+        "human_notice",
+        "human_input_requested",
+        "human_input_received",
+        "human_input_timeout",
+        "human_decision_applied",
+        "output_skill_started",
+        "output_skill_completed",
+        "output_skill_failed",
+        "contract_inputs_staged",
+        "contract_text_extracted",
+        "clause_matrix_extracted",
+        "contract_playbook_compared",
+        "clause_review_packet_written"
+      ]
+    },
+    "input_adapters": {
+      "default": "mock",
+      "resolved_artifact": "inputs.json",
+      "supported": [
+        "mock",
+        "json",
+        "file",
+        "env_json"
+      ]
+    },
+    "inputs": {
+      "document_folder": {
+        "type": "domain_value",
+        "description": "Local folder containing Commercial contract PDFs, TXT, CSV, JSON, and clause annotations.",
+        "privacy": "confidential",
+        "required": true,
+        "example": "/Users/me/Documents/legal_contract_clause_review_assistant/sample_inputs"
+      },
+      "output_folder": {
+        "type": "domain_value",
+        "description": "Local folder where review packets should be written.",
+        "privacy": "confidential",
+        "required": true,
+        "example": "/Users/homer/Download/legal_contract_clause_review_assistant"
+      },
+      "field_profile": {
+        "type": "domain_value",
+        "description": "Field names or extraction profile for this workflow.",
+        "privacy": "internal",
+        "required": false,
+        "example": [
+          "governing_law",
+          "change_of_control",
+          "assignment",
+          "indemnity",
+          "termination",
+          "audit_rights",
+          "renewal",
+          "exclusivity",
+          "liability"
+        ]
+      },
+      "public_dataset": {
+        "type": "domain_value",
+        "description": "Public dataset selected as the sample input source.",
+        "privacy": "public",
+        "required": false,
+        "example": {
+          "name": "Contract Understanding Atticus Dataset (CUAD) v1",
+          "provider": "The Atticus Project on Zenodo and Hugging Face",
+          "url": "https://zenodo.org/records/4595826",
+          "alternate_url": "https://huggingface.co/datasets/theatticusproject/cuad",
+          "license": "CC BY 4.0",
+          "availability_note": "Public dataset with 510 commercial contracts and 13,000+ labels across 41 clause types.",
+          "expected_files": [
+            "full_contracts_pdf/*.pdf",
+            "full_contracts_txt/*.txt",
+            "*.csv",
+            "*.json"
+          ],
+          "download_hint": "Download CUAD_v1.zip from Zenodo or use the Hugging Face dataset for text-oriented experiments."
+        }
+      }
+    },
+    "outputs": {
+      "profile": "standard_run_store",
+      "artifacts": [
+        {
+          "artifact_id": "run_metadata",
+          "type": "run_summary",
+          "path": "run.json",
+          "producer": "local_run_store",
+          "mime_type": "application/json",
+          "schema_version": "mn.artifact.run_summary.v1",
+          "source_refs": []
+        },
+        {
+          "artifact_id": "resolved_config",
+          "type": "config",
+          "path": "config.json",
+          "producer": "local_run_store",
+          "mime_type": "application/json",
+          "schema_version": "mn.blueprint.config.v1",
+          "source_refs": []
+        },
+        {
+          "artifact_id": "resolved_inputs",
+          "type": "inputs",
+          "path": "inputs.json",
+          "producer": "local_run_store",
+          "mime_type": "application/json",
+          "schema_version": "mn.blueprint.inputs.v1",
+          "source_refs": []
+        },
+        {
+          "artifact_id": "event_stream",
+          "type": "events",
+          "path": "events.jsonl",
+          "producer": "local_run_store",
+          "mime_type": "application/x-jsonlines",
+          "schema_version": "mn.blueprint.events.v1",
+          "source_refs": []
+        },
+        {
+          "artifact_id": "result",
+          "type": "result",
+          "path": "result.json",
+          "producer": "local_run_store",
+          "mime_type": "application/json",
+          "schema_version": "mn.blueprint.response.v1",
+          "source_refs": [
+            "inputs.json",
+            "events.jsonl"
+          ]
+        },
+        {
+          "artifact_id": "final_artifact",
+          "type": "final_artifact",
+          "path": "final_artifact.json",
+          "producer": "workflow",
+          "mime_type": "application/json",
+          "schema_version": "mn.blueprint.final_artifact.v1",
+          "source_refs": [
+            "inputs.json",
+            "events.jsonl",
+            "result.json"
+          ]
+        },
+        {
+          "artifact_id": "logs",
+          "type": "logs",
+          "path": "logs.jsonl",
+          "producer": "local_run_store",
+          "mime_type": "application/x-jsonlines",
+          "schema_version": "mn.blueprint.logs.v1",
+          "source_refs": [
+            "events.jsonl"
+          ]
+        },
+        {
+          "artifact_id": "resources",
+          "type": "resource_samples",
+          "path": "resources.jsonl",
+          "producer": "local_run_store",
+          "mime_type": "application/x-jsonlines",
+          "schema_version": "mn.blueprint.resources.v1",
+          "source_refs": [
+            "run.json"
+          ]
+        },
+        {
+          "artifact_id": "web_ui",
+          "type": "web_ui",
+          "path": "web_ui.json",
+          "producer": "web_ui",
+          "mime_type": "application/json",
+          "schema_version": "mn.blueprint.web_ui.v1",
+          "source_refs": [
+            "run.json"
+          ]
+        },
+        {
+          "artifact_id": "human_events",
+          "type": "human_events",
+          "path": "human.jsonl",
+          "producer": "human_control",
+          "mime_type": "application/x-jsonlines",
+          "schema_version": "mn.blueprint.human_events.v1",
+          "source_refs": [
+            "events.jsonl"
+          ]
+        },
+        {
+          "artifact_id": "public_dataset_note",
+          "type": "dataset_reference",
+          "path": "inputs/public_dataset.json",
+          "producer": "workflow",
+          "mime_type": "application/json",
+          "schema_version": "mn.blueprint.dataset_reference.v1",
+          "source_refs": []
+        },
+        {
+          "artifact_id": "review_packet_markdown",
+          "type": "generated_report",
+          "path": "<outputs.folder_path>/<run_id>-legal-contract-clause-review-review.md",
+          "producer": "workflow",
+          "mime_type": "text/markdown",
+          "schema_version": "mn.blueprint.generated_report.v1",
+          "source_refs": [
+            "final_artifact.json"
+          ]
+        }
+      ],
+      "primary": {
+        "id": "final_artifact",
+        "path": "final_artifact.json",
+        "type": "final_artifact",
+        "schema_version": "mn.blueprint.final_artifact_contract.v1",
+        "required_fields": [
+          "type",
+          "executive_summary",
+          "recommended_action",
+          "confidence",
+          "evidence",
+          "next_steps",
+          "source_refs"
+        ]
+      }
+    },
+    "privacy": {
+      "default_classification": "confidential",
+      "rules": {
+        "confidential": {
+          "log": "redacted",
+          "send_to_llm": "allowed_configs_only",
+          "send_to_output_skills": "approved_destinations_only"
+        },
+        "internal": {
+          "log": "metadata_only",
+          "send_to_llm": true,
+          "send_to_output_skills": true
+        },
+        "public": {
+          "log": true,
+          "send_to_llm": true,
+          "send_to_output_skills": true
+        },
+        "regulated": {
+          "log": "redacted",
+          "send_to_llm": "allowed_configs_only",
+          "send_to_output_skills": "approved_destinations_only"
+        }
+      }
+    },
+    "status": {
+      "event": "blueprint_status",
+      "heartbeat": true,
+      "phases": [
+        "loading_inputs",
+        "running_worker",
+        "waiting_for_human",
+        "writing_artifacts",
+        "completed"
+      ]
+    },
+    "summary": "Law firms, in-house legal teams, CLM vendors, and diligence teams need private extraction of privileged or deal-sensitive contract terms without uploading client agreements to external services.",
+    "users": [
+      "Law firms, in-house legal teams, CLM vendors, M&A diligence teams, and contract operations groups."
+    ]
+  },
+  "flow": {
+    "entrypoint": "stage_contract_inputs",
+    "graph": {
+      "schema": "mn.workflow.problem_graph/v1",
+      "mode": "static_dag",
+      "source": "stage_contract_inputs",
+      "sink": "write_clause_review_packet",
+      "execution": {
+        "strategy": "serial"
+      },
+      "dynamic": {
+        "enabled": false,
+        "apply_at": "between_steps",
+        "patch_events": []
+      },
+      "edges": [
+        {
+          "id": "stage_contract_inputs_to_extract_contract_text",
+          "from": "stage_contract_inputs",
+          "to": "extract_contract_text",
+          "event": "contract_inputs_staged",
+          "required": true,
+          "accepts": [
+            "done"
+          ]
+        },
+        {
+          "id": "extract_contract_text_to_extract_clause_matrix",
+          "from": "extract_contract_text",
+          "to": "extract_clause_matrix",
+          "event": "contract_text_extracted",
+          "required": true,
+          "accepts": [
+            "done"
+          ]
+        },
+        {
+          "id": "extract_clause_matrix_to_compare_contract_playbook",
+          "from": "extract_clause_matrix",
+          "to": "compare_contract_playbook",
+          "event": "clause_matrix_extracted",
+          "required": true,
+          "accepts": [
+            "done"
+          ]
+        },
+        {
+          "id": "compare_contract_playbook_to_write_clause_review_packet",
+          "from": "compare_contract_playbook",
+          "to": "write_clause_review_packet",
+          "event": "contract_playbook_compared",
+          "required": true,
+          "accepts": [
+            "done"
+          ]
+        }
+      ]
+    },
+    "policy": {
+      "failure": {
+        "default": "fail_closed"
+      },
+      "human": {
+        "allowed_decisions": [
+          "approve",
+          "revise",
+          "reject"
+        ],
+        "blocked_actions": [
+          "send_legal_advice",
+          "approve_contract",
+          "route_for_signature",
+          "send_to_counterparty_without_review"
+        ],
+        "decision_event": "human_decision_applied",
+        "default_action": "reject",
+        "enabled": true,
+        "events": [
+          "human_notice",
+          "human_input_requested",
+          "human_input_received",
+          "human_input_timeout",
+          "human_decision_applied"
+        ],
+        "mode": "approval_required",
+        "reason": "Human approval is required before any downstream release, filing, payment, legal, clinical, credit, or system-sync action.",
+        "request_event": "human_input_requested",
+        "response_event": "human_input_received",
+        "timeout_event": "human_input_timeout",
+        "timeout_seconds": 3600
+      },
+      "safety": {
+        "default": "allow",
+        "blocked_actions": [
+          "send_legal_advice",
+          "approve_contract",
+          "route_for_signature",
+          "send_to_counterparty_without_review"
+        ],
+        "rules": [
+          {
+            "id": "review_required_before_downstream_release",
+            "effect": "require_human_approval",
+            "when": "step == 'write_clause_review_packet'",
+            "message": "Human approval is required before extracted values are released to downstream systems or used for consequential decisions."
+          }
+        ]
+      }
+    },
+    "state": {
+      "document_folder": {
+        "from": "$inputs.document_folder"
+      },
+      "output_folder": {
+        "from": "$inputs.output_folder"
+      },
+      "dataset_input": {
+        "name": "Contract Understanding Atticus Dataset (CUAD) v1",
+        "provider": "The Atticus Project on Zenodo and Hugging Face",
+        "url": "https://zenodo.org/records/4595826",
+        "alternate_url": "https://huggingface.co/datasets/theatticusproject/cuad",
+        "license": "CC BY 4.0",
+        "availability_note": "Public dataset with 510 commercial contracts and 13,000+ labels across 41 clause types.",
+        "expected_files": [
+          "full_contracts_pdf/*.pdf",
+          "full_contracts_txt/*.txt",
+          "*.csv",
+          "*.json"
+        ],
+        "download_hint": "Download CUAD_v1.zip from Zenodo or use the Hugging Face dataset for text-oriented experiments."
+      },
+      "workflow": {},
+      "final_report": {}
+    },
+    "steps": [
+      {
+        "id": "stage_contract_inputs",
+        "kind": "source",
+        "label": "Stage Contract Inputs",
+        "goal": "Resolve the contract folder and CUAD sample input notes.",
+        "action": "stage_contract_inputs",
+        "run": "stage_contract_inputs",
+        "emits": "contract_inputs_staged",
+        "on": {
+          "contract_inputs_staged": "extract_contract_text"
+        },
+        "control": {
+          "required": true,
+          "retry": {
+            "max_attempts": 2,
+            "backoff_seconds": 1,
+            "backoff_multiplier": 2,
+            "jitter": 0
+          },
+          "failure_policy": "fail_workflow",
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.0,
+            "on_low_confidence": "continue_with_warning"
+          }
+        },
+        "in": {
+          "document_folder": "$state.document_folder",
+          "dataset_input": "$state.dataset_input"
+        },
+        "out": {
+          "stage_contract_inputs": "$state.workflow.stage_contract_inputs"
+        },
+        "provides": [
+          "legal_contract_clause_review_assistant.stage_contract_inputs.ready"
+        ],
+        "requires": []
+      },
+      {
+        "id": "extract_contract_text",
+        "kind": "stage",
+        "label": "Extract Contract Text",
+        "goal": "Read embedded text and call shared llm_ocr_skill only for scanned or low-text contract pages.",
+        "action": "extract_contract_text",
+        "run": "extract_contract_text",
+        "emits": "contract_text_extracted",
+        "on": {
+          "contract_text_extracted": "extract_clause_matrix"
+        },
+        "control": {
+          "required": true,
+          "retry": {
+            "max_attempts": 2,
+            "backoff_seconds": 1,
+            "backoff_multiplier": 2,
+            "jitter": 0
+          },
+          "failure_policy": "fail_workflow",
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.0,
+            "on_low_confidence": "continue_with_warning"
+          }
+        },
+        "in": {
+          "previous": "$state.workflow"
+        },
+        "out": {
+          "extract_contract_text": "$state.workflow.extract_contract_text"
+        },
+        "provides": [
+          "legal_contract_clause_review_assistant.extract_contract_text.ready"
+        ],
+        "requires": [
+          "legal_contract_clause_review_assistant.stage_contract_inputs.ready"
+        ]
+      },
+      {
+        "id": "extract_clause_matrix",
+        "kind": "stage",
+        "label": "Extract Clause Matrix",
+        "goal": "Extract governing law, assignment, indemnity, termination, renewal, exclusivity, and liability evidence.",
+        "action": "extract_clause_matrix",
+        "run": "extract_clause_matrix",
+        "emits": "clause_matrix_extracted",
+        "on": {
+          "clause_matrix_extracted": "compare_contract_playbook"
+        },
+        "control": {
+          "required": true,
+          "retry": {
+            "max_attempts": 2,
+            "backoff_seconds": 1,
+            "backoff_multiplier": 2,
+            "jitter": 0
+          },
+          "failure_policy": "fail_workflow",
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.7,
+            "on_low_confidence": "human_review"
+          }
+        },
+        "in": {
+          "previous": "$state.workflow"
+        },
+        "out": {
+          "extract_clause_matrix": "$state.workflow.extract_clause_matrix"
+        },
+        "provides": [
+          "legal_contract_clause_review_assistant.extract_clause_matrix.ready"
+        ],
+        "requires": [
+          "legal_contract_clause_review_assistant.extract_contract_text.ready"
+        ]
+      },
+      {
+        "id": "compare_contract_playbook",
+        "kind": "stage",
+        "label": "Compare Contract Playbook",
+        "goal": "Compare extracted clauses against the supplied playbook and flag gaps or negotiation risks.",
+        "action": "compare_contract_playbook",
+        "run": "compare_contract_playbook",
+        "emits": "contract_playbook_compared",
+        "on": {
+          "contract_playbook_compared": "write_clause_review_packet"
+        },
+        "control": {
+          "required": true,
+          "retry": {
+            "max_attempts": 2,
+            "backoff_seconds": 1,
+            "backoff_multiplier": 2,
+            "jitter": 0
+          },
+          "failure_policy": "fail_workflow",
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.7,
+            "on_low_confidence": "human_review"
+          }
+        },
+        "in": {
+          "previous": "$state.workflow"
+        },
+        "out": {
+          "compare_contract_playbook": "$state.workflow.compare_contract_playbook"
+        },
+        "provides": [
+          "legal_contract_clause_review_assistant.compare_contract_playbook.ready"
+        ],
+        "requires": [
+          "legal_contract_clause_review_assistant.extract_clause_matrix.ready"
+        ]
+      },
+      {
+        "id": "write_clause_review_packet",
+        "kind": "sink",
+        "label": "Write Clause Review Packet",
+        "goal": "Write a review-only contract clause packet with source excerpts and attorney review questions.",
+        "action": "write_clause_review_packet",
+        "run": "write_clause_review_packet",
+        "emits": "clause_review_packet_written",
+        "on": {
+          "clause_review_packet_written": "completed"
+        },
+        "control": {
+          "required": true,
+          "retry": {
+            "max_attempts": 2,
+            "backoff_seconds": 1,
+            "backoff_multiplier": 2,
+            "jitter": 0
+          },
+          "failure_policy": "fail_workflow",
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.0,
+            "on_low_confidence": "continue_with_warning"
+          }
+        },
+        "in": {
+          "previous": "$state.workflow"
+        },
+        "out": {
+          "write_clause_review_packet": "$state.workflow.write_clause_review_packet"
+        },
+        "provides": [
+          "legal_contract_clause_review_assistant.write_clause_review_packet.ready"
+        ],
+        "requires": [
+          "legal_contract_clause_review_assistant.compare_contract_playbook.ready"
+        ]
+      }
+    ],
+    "observers": []
+  },
+  "runtime": {
+    "bindings": {
+      "stage_contract_inputs": {
+        "type": "worker",
+        "strategy": "single",
+        "side_effect": "read",
+        "risk": "low",
+        "workers": [
+          {
+            "id": "contract_dataset_intake",
+            "alias": "contract_dataset_intake",
+            "kind": "worker",
+            "role": "Contract dataset intake analyst",
+            "model": "primary",
+            "tokens": 12000,
+            "tools": 4,
+            "required": true
+          }
+        ]
+      },
+      "extract_contract_text": {
+        "type": "team",
+        "strategy": "fanout_reduce",
+        "side_effect": "read",
+        "risk": "low",
+        "workers": [
+          {
+            "id": "contract_ocr_extractor",
+            "alias": "contract_ocr_extractor",
+            "kind": "worker",
+            "role": "Contract OCR extractor",
+            "model": "primary",
+            "tokens": 12000,
+            "tools": 4,
+            "required": true
+          },
+          {
+            "id": "privilege_redactor",
+            "alias": "privilege_redactor",
+            "kind": "worker",
+            "role": "Privilege-aware redactor",
+            "model": "primary",
+            "tokens": 12000,
+            "tools": 4,
+            "required": true
+          }
+        ]
+      },
+      "extract_clause_matrix": {
+        "type": "team",
+        "strategy": "fanout_reduce",
+        "side_effect": "read",
+        "risk": "low",
+        "workers": [
+          {
+            "id": "clause_extractor",
+            "alias": "clause_extractor",
+            "kind": "worker",
+            "role": "Clause extraction specialist",
+            "model": "primary",
+            "tokens": 12000,
+            "tools": 4,
+            "required": true
+          },
+          {
+            "id": "contract_taxonomy_mapper",
+            "alias": "contract_taxonomy_mapper",
+            "kind": "worker",
+            "role": "CUAD taxonomy mapper",
+            "model": "primary",
+            "tokens": 12000,
+            "tools": 4,
+            "required": true
+          }
+        ]
+      },
+      "compare_contract_playbook": {
+        "type": "worker",
+        "strategy": "single",
+        "side_effect": "read",
+        "risk": "low",
+        "workers": [
+          {
+            "id": "playbook_comparator",
+            "alias": "playbook_comparator",
+            "kind": "worker",
+            "role": "Contract playbook comparator",
+            "model": "primary",
+            "tokens": 12000,
+            "tools": 4,
+            "required": true
+          }
+        ]
+      },
+      "write_clause_review_packet": {
+        "type": "worker",
+        "strategy": "single",
+        "side_effect": "internal_write",
+        "risk": "medium",
+        "workers": [
+          {
+            "id": "legal_review_writer",
+            "alias": "legal_review_writer",
+            "kind": "worker",
+            "role": "Legal review packet writer",
+            "model": "primary",
+            "tokens": 12000,
+            "tools": 4,
+            "required": true
+          }
+        ]
+      }
+    },
+    "models": {
+      "primary": {
+        "type": "llm",
+        "provider": "ollama",
+        "model": "ollama/nemotron3:33b",
+        "role": "Local contract review team that extracts clause evidence and keeps legal conclusions review-only."
+      }
+    },
+    "memory": {
+      "collection": "mn_memory",
+      "containers": "optional_sidecar",
+      "context_addr_env": "MN_CONTEXT_ADDR",
+      "conversation": {
+        "agent_role": "otterdesk_chat",
+        "include_human_events": true,
+        "include_runtime_events": true,
+        "include_runtime_logs": true,
+        "target_tokens": 2400,
+        "token_budget": 6000,
+        "use_model_compression": false
+      },
+      "conversation_enabled": true,
+      "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
+      "default_context_addr": "localhost:50052",
+      "enabled": true,
+      "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
+      "namespace": "legal_contract_clause_review_assistant_context",
+      "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
+      "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
+      "sdk_distribution": "mirrorneuron-membrane-python-sdk",
+      "sdk_import_package": "mn_context_engine_sdk"
+    },
+    "observability": {
+      "schema_version": "mn.blueprint.observability_dashboard.v1",
+      "source": "local_run_store",
+      "reads": [
+        "events.jsonl",
+        "human.jsonl",
+        "logs.jsonl",
+        "resources.jsonl",
+        "result.json",
+        "final_artifact.json",
+        "web_ui.json"
+      ],
+      "panels": [
+        "current_status",
+        "recent_events",
+        "pending_human_requests",
+        "output_artifacts",
+        "resource_usage",
+        "errors",
+        "llm_calls",
+        "token_budget",
+        "llm_retries"
+      ]
+    },
+    "resources": {
+      "cpu": {
+        "min_cores": 1
+      },
+      "memory": {
+        "min_gb": 2
+      },
+      "disk": {
+        "min_gb": 1
+      },
+      "gpu": {
+        "min_count": 0
+      }
+    },
+    "store": {
+      "type": "local_run_store",
+      "path": "./runs/${run_id}",
+      "artifacts": [
+        "run.json",
+        "config.json",
+        "inputs.json",
+        "events.jsonl",
+        "human.jsonl",
+        "logs.jsonl",
+        "resources.jsonl",
+        "result.json",
+        "final_artifact.json"
+      ]
+    },
+    "worker_defaults": {
+      "runner": "MirrorNeuron.Runner.HostLocal",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "model": "ollama/nemotron3:33b",
+      "pool": "default",
+      "pool_slots": 1,
+      "workdir": "/sandbox/job/workflow"
+    }
+  },
+  "requirements": {
+    "cpu": {
+      "min_cores": 1
+    },
+    "memory": {
+      "min_gb": 2
+    },
+    "disk": {
+      "min_gb": 1
+    },
+    "gpu": {
+      "min_count": 0
+    }
+  },
+  "input_validation": {
+    "rules": []
+  },
+  "license": "LICENSE.md",
+  "term": "TERM.md",
+  "metadata": {
+    "blueprint_id": "legal_contract_clause_review_assistant",
+    "name": "Legal Contract Clause Review Assistant",
+    "category": "legal",
+    "description": "Reviews local contract PDFs, extracts important clauses, compares them with a playbook, and writes a source-grounded legal review packet.",
+    "agent_role": "Local contract review team that extracts clause evidence and keeps legal conclusions review-only.",
+    "target_users": "Law firms, in-house legal teams, CLM vendors, M&A diligence teams, and contract operations groups.",
+    "customizable_for": "M&A diligence, commercial contract review, CLM intake, renewal review, assignment and change-of-control checks, and playbook comparison.",
+    "problem": "Law firms, in-house legal teams, CLM vendors, and diligence teams need private extraction of privileged or deal-sensitive contract terms without uploading client agreements to external services.",
+    "standard": {
+      "workflow_model": "contract -> flow -> runtime"
+    },
+    "runtime_features": [
+      "local document folder intake",
+      "shared llm_ocr_skill OCR fallback",
+      "source-grounded structured extraction",
+      "redacted run-store evidence",
+      "human approval policy",
+      "artifact records",
+      "run-store observability dashboard",
+      "Membrane context memory optimization"
+    ],
+    "configuration_contract": {
+      "required_files": [
+        "manifest.json",
+        "README.md",
+        "SPEC.md",
+        "config/default.json",
+        "payloads/",
+        "LICENSE.md",
+        "TERM.md"
+      ],
+      "optional_files": [
+        "config/overwrite.json",
+        "inputs/public_dataset.json",
+        "examples/sample_inputs/"
+      ]
+    },
+    "agent_templates": {
+      "library": "../mn-agents/index.json",
+      "nodes": [
+        {
+          "node_id": "stage_contract_inputs",
+          "uses": "mn-agents.data_python_executor@1.0.0"
+        },
+        {
+          "node_id": "extract_contract_text",
+          "uses": "mn-agents.data_python_executor@1.0.0"
+        },
+        {
+          "node_id": "extract_clause_matrix",
+          "uses": "mn-agents.data_python_executor@1.0.0"
+        },
+        {
+          "node_id": "compare_contract_playbook",
+          "uses": "mn-agents.data_python_executor@1.0.0"
+        },
+        {
+          "node_id": "write_clause_review_packet",
+          "uses": "mn-agents.data_python_executor@1.0.0"
+        }
+      ],
+      "renderer": "mn_blueprint_support.render_manifest_agent_templates",
+      "render_tool": "../mn-agents/tools/render_agent_templates.py",
+      "rendered_output": "manifest.rendered.json or runtime metadata"
+    },
+    "input_contract": {
+      "schema_version": "mn.blueprint.input_contract.v1",
+      "description": "Law firms, in-house legal teams, CLM vendors, and diligence teams need private extraction of privileged or deal-sensitive contract terms without uploading client agreements to external services.",
+      "privacy_classification": "confidential",
+      "resolved_artifact": "inputs.json",
+      "supported_adapters": [
+        "mock",
+        "json",
+        "file",
+        "env_json"
+      ],
+      "required_inputs": [
+        {
+          "name": "document_folder",
+          "type": "domain_value",
+          "description": "Local folder containing Commercial contract PDFs, TXT, CSV, JSON, and clause annotations.",
+          "example": "/Users/me/Documents/legal_contract_clause_review_assistant/sample_inputs"
+        },
+        {
+          "name": "output_folder",
+          "type": "domain_value",
+          "description": "Local folder where review packets should be written.",
+          "example": "/Users/homer/Download/legal_contract_clause_review_assistant"
+        },
+        {
+          "name": "field_profile",
+          "type": "domain_value",
+          "description": "Structured field names or extraction profile for this document workflow.",
+          "example": [
+            "governing_law",
+            "change_of_control",
+            "assignment",
+            "indemnity"
+          ]
+        }
+      ],
+      "optional_inputs": [
+        {
+          "name": "public_dataset",
+          "type": "domain_value",
+          "description": "Downloadable public dataset reference used for sample input selection.",
+          "example": "https://zenodo.org/records/4595826"
+        },
+        {
+          "name": "review_policy",
+          "type": "domain_value",
+          "description": "Human review and confidence thresholds for final packet release.",
+          "example": {
+            "min_confidence": 0.75,
+            "approval_required": true
+          }
+        }
+      ],
+      "profiles": {
+        "mock": {
+          "adapter": "mock",
+          "description": "Uses the public dataset note and bundled text fixture when no local documents are selected.",
+          "payload": {
+            "document_folder": "",
+            "dataset_url": "https://zenodo.org/records/4595826"
+          }
+        },
+        "json": {
+          "adapter": "json",
+          "description": "Inline JSON object supplied through config or runtime overrides."
+        },
+        "file": {
+          "adapter": "file",
+          "description": "JSON object loaded from a local file path."
+        },
+        "env_json": {
+          "adapter": "env_json",
+          "description": "JSON object loaded from MN_BLUEPRINT_INPUT_JSON."
+        },
+        "local_folder": {
+          "adapter": "file",
+          "description": "Local folder mounted through OtterDesk local input handling.",
+          "path": "document_sources.folder_path"
+        }
+      }
+    },
+    "output_contract": {
+      "final_artifact": {
+        "schema_version": "mn.blueprint.final_artifact_contract.v1",
+        "required_fields": [
+          "type",
+          "executive_summary",
+          "recommended_action",
+          "confidence",
+          "evidence",
+          "next_steps",
+          "source_refs"
+        ],
+        "description": "Review-only structured document automation packet with source evidence, confidence, next steps, and source references."
+      },
+      "artifacts": [
+        {
+          "artifact_id": "run_metadata",
+          "type": "run_summary",
+          "path": "run.json",
+          "producer": "local_run_store",
+          "mime_type": "application/json",
+          "schema_version": "mn.artifact.run_summary.v1",
+          "source_refs": []
+        },
+        {
+          "artifact_id": "resolved_config",
+          "type": "config",
+          "path": "config.json",
+          "producer": "local_run_store",
+          "mime_type": "application/json",
+          "schema_version": "mn.blueprint.config.v1",
+          "source_refs": []
+        },
+        {
+          "artifact_id": "resolved_inputs",
+          "type": "inputs",
+          "path": "inputs.json",
+          "producer": "local_run_store",
+          "mime_type": "application/json",
+          "schema_version": "mn.blueprint.inputs.v1",
+          "source_refs": []
+        },
+        {
+          "artifact_id": "event_stream",
+          "type": "events",
+          "path": "events.jsonl",
+          "producer": "local_run_store",
+          "mime_type": "application/x-jsonlines",
+          "schema_version": "mn.blueprint.events.v1",
+          "source_refs": []
+        },
+        {
+          "artifact_id": "result",
+          "type": "result",
+          "path": "result.json",
+          "producer": "local_run_store",
+          "mime_type": "application/json",
+          "schema_version": "mn.blueprint.response.v1",
+          "source_refs": [
+            "inputs.json",
+            "events.jsonl"
+          ]
+        },
+        {
+          "artifact_id": "final_artifact",
+          "type": "final_artifact",
+          "path": "final_artifact.json",
+          "producer": "workflow",
+          "mime_type": "application/json",
+          "schema_version": "mn.blueprint.final_artifact.v1",
+          "source_refs": [
+            "inputs.json",
+            "events.jsonl",
+            "result.json"
+          ]
+        },
+        {
+          "artifact_id": "logs",
+          "type": "logs",
+          "path": "logs.jsonl",
+          "producer": "local_run_store",
+          "mime_type": "application/x-jsonlines",
+          "schema_version": "mn.blueprint.logs.v1",
+          "source_refs": [
+            "events.jsonl"
+          ]
+        },
+        {
+          "artifact_id": "resources",
+          "type": "resource_samples",
+          "path": "resources.jsonl",
+          "producer": "local_run_store",
+          "mime_type": "application/x-jsonlines",
+          "schema_version": "mn.blueprint.resources.v1",
+          "source_refs": [
+            "run.json"
+          ]
+        },
+        {
+          "artifact_id": "web_ui",
+          "type": "web_ui",
+          "path": "web_ui.json",
+          "producer": "web_ui",
+          "mime_type": "application/json",
+          "schema_version": "mn.blueprint.web_ui.v1",
+          "source_refs": [
+            "run.json"
+          ]
+        },
+        {
+          "artifact_id": "human_events",
+          "type": "human_events",
+          "path": "human.jsonl",
+          "producer": "human_control",
+          "mime_type": "application/x-jsonlines",
+          "schema_version": "mn.blueprint.human_events.v1",
+          "source_refs": [
+            "events.jsonl"
+          ]
+        },
+        {
+          "artifact_id": "public_dataset_note",
+          "type": "dataset_reference",
+          "path": "inputs/public_dataset.json",
+          "producer": "workflow",
+          "mime_type": "application/json",
+          "schema_version": "mn.blueprint.dataset_reference.v1",
+          "source_refs": []
+        },
+        {
+          "artifact_id": "review_packet_markdown",
+          "type": "generated_report",
+          "path": "<outputs.folder_path>/<run_id>-legal-contract-clause-review-review.md",
+          "producer": "workflow",
+          "mime_type": "text/markdown",
+          "schema_version": "mn.blueprint.generated_report.v1",
+          "source_refs": [
+            "final_artifact.json"
+          ]
+        }
+      ],
+      "stdout": "JSON object with result, final_artifact, artifact paths, and run metadata when the runner is executed directly.",
+      "result_json": "result.json",
+      "final_artifact_json": "final_artifact.json",
+      "events_jsonl": "events.jsonl"
+    },
+    "human_control": {
+      "allowed_decisions": [
+        "approve",
+        "revise",
+        "reject"
+      ],
+      "blocked_actions": [
+        "send_legal_advice",
+        "approve_contract",
+        "route_for_signature",
+        "send_to_counterparty_without_review"
+      ],
+      "decision_event": "human_decision_applied",
+      "default_action": "reject",
+      "enabled": true,
+      "events": [
+        "human_notice",
+        "human_input_requested",
+        "human_input_received",
+        "human_input_timeout",
+        "human_decision_applied"
+      ],
+      "mode": "approval_required",
+      "reason": "Human approval is required before any downstream release, filing, payment, legal, clinical, credit, or system-sync action.",
+      "request_event": "human_input_requested",
+      "response_event": "human_input_received",
+      "timeout_event": "human_input_timeout",
+      "timeout_seconds": 3600
+    },
+    "status_contract": {
+      "schema_version": "mn.blueprint.status_contract.v1",
+      "source": "run_store",
+      "status_event": "blueprint_status",
+      "heartbeat_event": "blueprint_status",
+      "heartbeat_required": true,
+      "phases": [
+        {
+          "phase": "loading_inputs",
+          "required": true,
+          "start_event": "blueprint_phase_started",
+          "progress_event": "blueprint_status",
+          "completion_event": "blueprint_phase_completed",
+          "failure_event": "blueprint_phase_failed"
+        },
+        {
+          "phase": "running_worker",
+          "required": true,
+          "start_event": "blueprint_phase_started",
+          "progress_event": "blueprint_status",
+          "completion_event": "blueprint_phase_completed",
+          "failure_event": "blueprint_phase_failed"
+        },
+        {
+          "phase": "waiting_for_human",
+          "required": true,
+          "start_event": "blueprint_phase_started",
+          "progress_event": "blueprint_status",
+          "completion_event": "blueprint_phase_completed",
+          "failure_event": "blueprint_phase_failed"
+        },
+        {
+          "phase": "writing_artifacts",
+          "required": true,
+          "start_event": "blueprint_phase_started",
+          "progress_event": "blueprint_status",
+          "completion_event": "blueprint_phase_completed",
+          "failure_event": "blueprint_phase_failed"
+        },
+        {
+          "phase": "completed",
+          "required": true,
+          "start_event": "blueprint_phase_started",
+          "progress_event": "blueprint_status",
+          "completion_event": "blueprint_phase_completed",
+          "failure_event": "blueprint_phase_failed"
+        }
+      ]
+    },
+    "observability_dashboard": {
+      "schema_version": "mn.blueprint.observability_dashboard.v1",
+      "source": "local_run_store",
+      "reads": [
+        "events.jsonl",
+        "human.jsonl",
+        "logs.jsonl",
+        "resources.jsonl",
+        "result.json",
+        "final_artifact.json",
+        "web_ui.json"
+      ],
+      "panels": [
+        "current_status",
+        "recent_events",
+        "pending_human_requests",
+        "output_artifacts",
+        "resource_usage",
+        "errors",
+        "llm_calls",
+        "token_budget",
+        "llm_retries"
+      ]
+    },
+    "interfaces": {
+      "channels": {
+        "artifacts": {
+          "description": "Stable run-store files and domain-specific document automation outputs.",
+          "artifacts": [
+            "run.json",
+            "config.json",
+            "inputs.json",
+            "events.jsonl",
+            "result.json",
+            "final_artifact.json"
+          ],
+          "optional_artifacts": [
+            "job.json",
+            "web_ui.json",
+            "ui.json",
+            "web/index.html",
+            "logs.jsonl",
+            "human.jsonl",
+            "resources.jsonl",
+            "*-review.md"
+          ]
+        },
+        "events": {
+          "artifact": "events.jsonl",
+          "description": "Append-only workflow events."
+        },
+        "human": {
+          "artifact": "human.jsonl",
+          "description": "Human notices, approval requests, responses, timeouts, and applied decisions."
+        },
+        "input_skills": {
+          "description": "Local filesystem intake plus shared llm_ocr_skill OCR through Docker Model Runner."
+        },
+        "inputs": {
+          "artifact": "inputs.json",
+          "description": "Resolved document folder, public dataset reference, and field extraction profile."
+        },
+        "logs": {
+          "artifact": "logs.jsonl",
+          "description": "Runtime stdout/stderr and redacted document automation logs.",
+          "stream": "stdout/stderr"
+        },
+        "outputs": {
+          "artifacts": [
+            "result.json",
+            "final_artifact.json",
+            "*-review.md"
+          ],
+          "description": "Primary review packet and structured extraction results."
+        },
+        "resources": {
+          "artifact": "resources.jsonl",
+          "description": "Resource samples such as token, runtime, connector, and disk usage."
+        },
+        "web_ui": {
+          "artifacts": [
+            "web_ui.json",
+            "ui.json",
+            "web/index.html"
+          ],
+          "description": "Optional review dashboard for artifact inspection."
+        }
+      },
+      "config": [
+        "standard_version",
+        "identity",
+        "mode",
+        "metadata",
+        "inputs",
+        "simulation",
+        "llm",
+        "outputs",
+        "logging",
+        "resources",
+        "human_control",
+        "real_adapters",
+        "streams",
+        "input_skills",
+        "output_skills",
+        "error_handling",
+        "state",
+        "capabilities",
+        "privacy",
+        "triggers",
+        "backpressure",
+        "determinism",
+        "schemas",
+        "budgets",
+        "agent_handoffs",
+        "web_ui",
+        "interfaces",
+        "execution_model",
+        "memory_layer",
+        "dataset_input",
+        "document_automation"
+      ],
+      "config_sections": [
+        "standard_version",
+        "identity",
+        "mode",
+        "metadata",
+        "inputs",
+        "simulation",
+        "llm",
+        "outputs",
+        "logging",
+        "resources",
+        "human_control",
+        "real_adapters",
+        "streams",
+        "input_skills",
+        "output_skills",
+        "error_handling",
+        "state",
+        "capabilities",
+        "privacy",
+        "triggers",
+        "backpressure",
+        "determinism",
+        "schemas",
+        "budgets",
+        "agent_handoffs",
+        "web_ui",
+        "interfaces",
+        "execution_model",
+        "memory_layer",
+        "dataset_input",
+        "document_automation"
+      ],
+      "identity": [
+        "blueprint_id",
+        "name",
+        "run_id"
+      ],
+      "identity_fields": [
+        "blueprint_id",
+        "name",
+        "run_id"
+      ],
+      "input_adapters": [
+        "mock",
+        "json",
+        "file",
+        "env_json"
+      ],
+      "output_adapters": [
+        "local_run_store"
+      ],
+      "outputs": [
+        "run.json",
+        "config.json",
+        "inputs.json",
+        "events.jsonl",
+        "result.json",
+        "final_artifact.json"
+      ],
+      "run_artifacts": [
+        "run.json",
+        "config.json",
+        "inputs.json",
+        "events.jsonl",
+        "result.json",
+        "final_artifact.json"
+      ],
+      "optional_outputs": [
+        "job.json",
+        "web_ui.json",
+        "ui.json",
+        "web/index.html",
+        "logs.jsonl",
+        "human.jsonl",
+        "resources.jsonl",
+        "*-review.md"
+      ],
+      "optional_run_artifacts": [
+        "job.json",
+        "web_ui.json",
+        "ui.json",
+        "web/index.html",
+        "logs.jsonl",
+        "human.jsonl",
+        "resources.jsonl",
+        "*-review.md"
+      ],
+      "response_schema": "mn.blueprint.response.v1",
+      "web_ui_adapters": [
+        "none",
+        "static_html",
+        "gradio",
+        "custom"
+      ]
+    },
+    "memory_layer": {
+      "collection": "mn_memory",
+      "containers": "optional_sidecar",
+      "context_addr_env": "MN_CONTEXT_ADDR",
+      "conversation": {
+        "agent_role": "otterdesk_chat",
+        "include_human_events": true,
+        "include_runtime_events": true,
+        "include_runtime_logs": true,
+        "target_tokens": 2400,
+        "token_budget": 6000,
+        "use_model_compression": false
+      },
+      "conversation_enabled": true,
+      "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
+      "default_context_addr": "localhost:50052",
+      "enabled": true,
+      "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
+      "namespace": "legal_contract_clause_review_assistant_context",
+      "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
+      "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
+      "sdk_distribution": "mirrorneuron-membrane-python-sdk",
+      "sdk_import_package": "mn_context_engine_sdk"
+    },
+    "init_config_review": {
+      "required": true,
+      "instruction": "Ask the user to select a local folder containing Commercial contract PDFs, TXT, CSV, JSON, and clause annotations, confirm the output folder, and keep the public dataset terms visible before launch.",
+      "fields": [
+        {
+          "path": "document_sources.folder_path",
+          "label": "Contract folder",
+          "default": "",
+          "description": "Choose a local folder containing Commercial contract PDFs, TXT, CSV, JSON, and clause annotations."
+        },
+        {
+          "path": "outputs.folder_path",
+          "label": "Output folder",
+          "default": "/Users/homer/Download/legal_contract_clause_review_assistant",
+          "description": "Choose where review files should be written."
+        },
+        {
+          "path": "input_skills.llm_ocr.enabled",
+          "label": "LLM OCR",
+          "default": true,
+          "description": "Use the shared local LightOnOCR Docker Model Runner path for scanned or low-text documents."
+        },
+        {
+          "path": "llm.mode",
+          "label": "LLM mode",
+          "default": "ollama",
+          "description": "Use ollama for local model calls, fake only for deterministic tests."
+        }
+      ]
+    },
+    "dataset_input": {
+      "name": "Contract Understanding Atticus Dataset (CUAD) v1",
+      "provider": "The Atticus Project on Zenodo and Hugging Face",
+      "url": "https://zenodo.org/records/4595826",
+      "alternate_url": "https://huggingface.co/datasets/theatticusproject/cuad",
+      "license": "CC BY 4.0",
+      "availability_note": "Public dataset with 510 commercial contracts and 13,000+ labels across 41 clause types.",
+      "expected_files": [
+        "full_contracts_pdf/*.pdf",
+        "full_contracts_txt/*.txt",
+        "*.csv",
+        "*.json"
+      ],
+      "download_hint": "Download CUAD_v1.zip from Zenodo or use the Hugging Face dataset for text-oriented experiments."
+    },
+    "local_on_prem_rationale": "Law firms, in-house legal teams, CLM vendors, and diligence teams need private extraction of privileged or deal-sensitive contract terms without uploading client agreements to external services."
+  },
+  "nodes": [
+    {
+      "node_id": "stage_contract_inputs",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "with": {
+        "script": "scripts/run_blueprint.py",
+        "upload_path": "document_workflow",
+        "output_message_type": "contract_inputs_staged"
+      }
+    },
+    {
+      "node_id": "extract_contract_text",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "with": {
+        "script": "scripts/run_blueprint.py",
+        "upload_path": "document_workflow",
+        "output_message_type": "contract_text_extracted"
+      }
+    },
+    {
+      "node_id": "extract_clause_matrix",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "with": {
+        "script": "scripts/run_blueprint.py",
+        "upload_path": "document_workflow",
+        "output_message_type": "clause_matrix_extracted"
+      }
+    },
+    {
+      "node_id": "compare_contract_playbook",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "with": {
+        "script": "scripts/run_blueprint.py",
+        "upload_path": "document_workflow",
+        "output_message_type": "contract_playbook_compared"
+      }
+    },
+    {
+      "node_id": "write_clause_review_packet",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "with": {
+        "script": "scripts/run_blueprint.py",
+        "upload_path": "document_workflow",
+        "output_message_type": "clause_review_packet_written"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "stage_contract_inputs_to_extract_contract_text",
+      "from_node": "stage_contract_inputs",
+      "to_node": "extract_contract_text",
+      "message_type": "contract_inputs_staged"
+    },
+    {
+      "edge_id": "extract_contract_text_to_extract_clause_matrix",
+      "from_node": "extract_contract_text",
+      "to_node": "extract_clause_matrix",
+      "message_type": "contract_text_extracted"
+    },
+    {
+      "edge_id": "extract_clause_matrix_to_compare_contract_playbook",
+      "from_node": "extract_clause_matrix",
+      "to_node": "compare_contract_playbook",
+      "message_type": "clause_matrix_extracted"
+    },
+    {
+      "edge_id": "compare_contract_playbook_to_write_clause_review_packet",
+      "from_node": "compare_contract_playbook",
+      "to_node": "write_clause_review_packet",
+      "message_type": "contract_playbook_compared"
+    }
+  ]
+}

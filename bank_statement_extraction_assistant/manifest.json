@@ -1,0 +1,1568 @@
+{
+  "apiVersion": "mn.workflow/v1",
+  "kind": "Workflow",
+  "id": "bank_statement_extraction_assistant",
+  "name": "Bank Statement Extraction Assistant",
+  "version": "1.0.0",
+  "manifest_version": "1.0",
+  "description": "Extracts bank statement account metadata, balances, transaction rows, debits, credits, fees, and validation checks from local statement PDFs.",
+  "graph_id": "bank_statement_extraction_assistant_v1",
+  "job_name": "bank-statement-extraction-assistant",
+  "contract": {
+    "events": {
+      "stream": "events.jsonl",
+      "human_stream": "human.jsonl",
+      "types": [
+        "blueprint_status",
+        "blueprint_phase_started",
+        "blueprint_phase_completed",
+        "blueprint_phase_failed",
+        "artifact_written",
+        "human_notice",
+        "human_input_requested",
+        "human_input_received",
+        "human_input_timeout",
+        "human_decision_applied",
+        "output_skill_started",
+        "output_skill_completed",
+        "output_skill_failed",
+        "bank_inputs_staged",
+        "bank_text_extracted",
+        "transaction_ledger_extracted",
+        "statement_consistency_validated",
+        "bank_statement_packet_written"
+      ]
+    },
+    "input_adapters": {
+      "default": "mock",
+      "resolved_artifact": "inputs.json",
+      "supported": [
+        "mock",
+        "json",
+        "file",
+        "env_json"
+      ]
+    },
+    "inputs": {
+      "document_folder": {
+        "type": "domain_value",
+        "description": "Local folder containing Synthetic scanned bank statement PDFs with structured JSON metadata.",
+        "privacy": "regulated",
+        "required": true,
+        "example": "/Users/me/Documents/bank_statement_extraction_assistant/sample_inputs"
+      },
+      "output_folder": {
+        "type": "domain_value",
+        "description": "Local folder where review packets should be written.",
+        "privacy": "regulated",
+        "required": true,
+        "example": "/Users/homer/Download/bank_statement_extraction_assistant"
+      },
+      "field_profile": {
+        "type": "domain_value",
+        "description": "Field names or extraction profile for this workflow.",
+        "privacy": "internal",
+        "required": false,
+        "example": [
+          "account_holder",
+          "account_number",
+          "ifsc_or_routing",
+          "statement_period",
+          "opening_balance",
+          "closing_balance",
+          "transactions",
+          "debits",
+          "credits",
+          "fees"
+        ]
+      },
+      "public_dataset": {
+        "type": "domain_value",
+        "description": "Public dataset selected as the sample input source.",
+        "privacy": "public",
+        "required": false,
+        "example": {
+          "name": "AgamiAI Indian Bank Statement Synthetic Dataset",
+          "provider": "AgamiAI on Hugging Face",
+          "url": "https://huggingface.co/datasets/AgamiAI/Indian-Bank-Statements",
+          "license": "Apache 2.0",
+          "availability_note": "Public synthetic bank statement dataset with scanned PDFs and structured JSON metadata.",
+          "expected_files": [
+            "*.pdf",
+            "*.json"
+          ],
+          "download_hint": "Use huggingface_hub or git-lfs to fetch a small sample before the full dataset."
+        }
+      }
+    },
+    "outputs": {
+      "profile": "standard_run_store",
+      "artifacts": [
+        {
+          "artifact_id": "run_metadata",
+          "type": "run_summary",
+          "path": "run.json",
+          "producer": "local_run_store",
+          "mime_type": "application/json",
+          "schema_version": "mn.artifact.run_summary.v1",
+          "source_refs": []
+        },
+        {
+          "artifact_id": "resolved_config",
+          "type": "config",
+          "path": "config.json",
+          "producer": "local_run_store",
+          "mime_type": "application/json",
+          "schema_version": "mn.blueprint.config.v1",
+          "source_refs": []
+        },
+        {
+          "artifact_id": "resolved_inputs",
+          "type": "inputs",
+          "path": "inputs.json",
+          "producer": "local_run_store",
+          "mime_type": "application/json",
+          "schema_version": "mn.blueprint.inputs.v1",
+          "source_refs": []
+        },
+        {
+          "artifact_id": "event_stream",
+          "type": "events",
+          "path": "events.jsonl",
+          "producer": "local_run_store",
+          "mime_type": "application/x-jsonlines",
+          "schema_version": "mn.blueprint.events.v1",
+          "source_refs": []
+        },
+        {
+          "artifact_id": "result",
+          "type": "result",
+          "path": "result.json",
+          "producer": "local_run_store",
+          "mime_type": "application/json",
+          "schema_version": "mn.blueprint.response.v1",
+          "source_refs": [
+            "inputs.json",
+            "events.jsonl"
+          ]
+        },
+        {
+          "artifact_id": "final_artifact",
+          "type": "final_artifact",
+          "path": "final_artifact.json",
+          "producer": "workflow",
+          "mime_type": "application/json",
+          "schema_version": "mn.blueprint.final_artifact.v1",
+          "source_refs": [
+            "inputs.json",
+            "events.jsonl",
+            "result.json"
+          ]
+        },
+        {
+          "artifact_id": "logs",
+          "type": "logs",
+          "path": "logs.jsonl",
+          "producer": "local_run_store",
+          "mime_type": "application/x-jsonlines",
+          "schema_version": "mn.blueprint.logs.v1",
+          "source_refs": [
+            "events.jsonl"
+          ]
+        },
+        {
+          "artifact_id": "resources",
+          "type": "resource_samples",
+          "path": "resources.jsonl",
+          "producer": "local_run_store",
+          "mime_type": "application/x-jsonlines",
+          "schema_version": "mn.blueprint.resources.v1",
+          "source_refs": [
+            "run.json"
+          ]
+        },
+        {
+          "artifact_id": "web_ui",
+          "type": "web_ui",
+          "path": "web_ui.json",
+          "producer": "web_ui",
+          "mime_type": "application/json",
+          "schema_version": "mn.blueprint.web_ui.v1",
+          "source_refs": [
+            "run.json"
+          ]
+        },
+        {
+          "artifact_id": "human_events",
+          "type": "human_events",
+          "path": "human.jsonl",
+          "producer": "human_control",
+          "mime_type": "application/x-jsonlines",
+          "schema_version": "mn.blueprint.human_events.v1",
+          "source_refs": [
+            "events.jsonl"
+          ]
+        },
+        {
+          "artifact_id": "public_dataset_note",
+          "type": "dataset_reference",
+          "path": "inputs/public_dataset.json",
+          "producer": "workflow",
+          "mime_type": "application/json",
+          "schema_version": "mn.blueprint.dataset_reference.v1",
+          "source_refs": []
+        },
+        {
+          "artifact_id": "review_packet_markdown",
+          "type": "generated_report",
+          "path": "<outputs.folder_path>/<run_id>-bank-statement-extraction-review.md",
+          "producer": "workflow",
+          "mime_type": "text/markdown",
+          "schema_version": "mn.blueprint.generated_report.v1",
+          "source_refs": [
+            "final_artifact.json"
+          ]
+        }
+      ],
+      "primary": {
+        "id": "final_artifact",
+        "path": "final_artifact.json",
+        "type": "final_artifact",
+        "schema_version": "mn.blueprint.final_artifact_contract.v1",
+        "required_fields": [
+          "type",
+          "executive_summary",
+          "recommended_action",
+          "confidence",
+          "evidence",
+          "next_steps",
+          "source_refs"
+        ]
+      }
+    },
+    "privacy": {
+      "default_classification": "regulated",
+      "rules": {
+        "confidential": {
+          "log": "redacted",
+          "send_to_llm": "allowed_configs_only",
+          "send_to_output_skills": "approved_destinations_only"
+        },
+        "internal": {
+          "log": "metadata_only",
+          "send_to_llm": true,
+          "send_to_output_skills": true
+        },
+        "public": {
+          "log": true,
+          "send_to_llm": true,
+          "send_to_output_skills": true
+        },
+        "regulated": {
+          "log": "redacted",
+          "send_to_llm": "allowed_configs_only",
+          "send_to_output_skills": "approved_destinations_only"
+        }
+      }
+    },
+    "status": {
+      "event": "blueprint_status",
+      "heartbeat": true,
+      "phases": [
+        "loading_inputs",
+        "running_worker",
+        "waiting_for_human",
+        "writing_artifacts",
+        "completed"
+      ]
+    },
+    "summary": "Lenders, fintechs, SMB accounting tools, underwriting teams, and auditors need private extraction of account numbers, balances, merchant history, salaries, and cash-flow data.",
+    "users": [
+      "Lenders, fintech teams, SMB accounting tools, underwriting teams, auditors, and financial operations groups."
+    ]
+  },
+  "flow": {
+    "entrypoint": "stage_bank_inputs",
+    "graph": {
+      "schema": "mn.workflow.problem_graph/v1",
+      "mode": "static_dag",
+      "source": "stage_bank_inputs",
+      "sink": "write_bank_statement_packet",
+      "execution": {
+        "strategy": "serial"
+      },
+      "dynamic": {
+        "enabled": false,
+        "apply_at": "between_steps",
+        "patch_events": []
+      },
+      "edges": [
+        {
+          "id": "stage_bank_inputs_to_extract_bank_text",
+          "from": "stage_bank_inputs",
+          "to": "extract_bank_text",
+          "event": "bank_inputs_staged",
+          "required": true,
+          "accepts": [
+            "done"
+          ]
+        },
+        {
+          "id": "extract_bank_text_to_extract_transaction_ledger",
+          "from": "extract_bank_text",
+          "to": "extract_transaction_ledger",
+          "event": "bank_text_extracted",
+          "required": true,
+          "accepts": [
+            "done"
+          ]
+        },
+        {
+          "id": "extract_transaction_ledger_to_validate_statement_consistency",
+          "from": "extract_transaction_ledger",
+          "to": "validate_statement_consistency",
+          "event": "transaction_ledger_extracted",
+          "required": true,
+          "accepts": [
+            "done"
+          ]
+        },
+        {
+          "id": "validate_statement_consistency_to_write_bank_statement_packet",
+          "from": "validate_statement_consistency",
+          "to": "write_bank_statement_packet",
+          "event": "statement_consistency_validated",
+          "required": true,
+          "accepts": [
+            "done"
+          ]
+        }
+      ]
+    },
+    "policy": {
+      "failure": {
+        "default": "fail_closed"
+      },
+      "human": {
+        "allowed_decisions": [
+          "approve",
+          "revise",
+          "reject"
+        ],
+        "blocked_actions": [
+          "approve_credit_decision",
+          "sync_to_loan_system",
+          "sync_to_accounting_system",
+          "send_customer_report_without_review"
+        ],
+        "decision_event": "human_decision_applied",
+        "default_action": "reject",
+        "enabled": true,
+        "events": [
+          "human_notice",
+          "human_input_requested",
+          "human_input_received",
+          "human_input_timeout",
+          "human_decision_applied"
+        ],
+        "mode": "approval_required",
+        "reason": "Human approval is required before any downstream release, filing, payment, legal, clinical, credit, or system-sync action.",
+        "request_event": "human_input_requested",
+        "response_event": "human_input_received",
+        "timeout_event": "human_input_timeout",
+        "timeout_seconds": 3600
+      },
+      "safety": {
+        "default": "allow",
+        "blocked_actions": [
+          "approve_credit_decision",
+          "sync_to_loan_system",
+          "sync_to_accounting_system",
+          "send_customer_report_without_review"
+        ],
+        "rules": [
+          {
+            "id": "review_required_before_downstream_release",
+            "effect": "require_human_approval",
+            "when": "step == 'write_bank_statement_packet'",
+            "message": "Human approval is required before extracted values are released to downstream systems or used for consequential decisions."
+          }
+        ]
+      }
+    },
+    "state": {
+      "document_folder": {
+        "from": "$inputs.document_folder"
+      },
+      "output_folder": {
+        "from": "$inputs.output_folder"
+      },
+      "dataset_input": {
+        "name": "AgamiAI Indian Bank Statement Synthetic Dataset",
+        "provider": "AgamiAI on Hugging Face",
+        "url": "https://huggingface.co/datasets/AgamiAI/Indian-Bank-Statements",
+        "license": "Apache 2.0",
+        "availability_note": "Public synthetic bank statement dataset with scanned PDFs and structured JSON metadata.",
+        "expected_files": [
+          "*.pdf",
+          "*.json"
+        ],
+        "download_hint": "Use huggingface_hub or git-lfs to fetch a small sample before the full dataset."
+      },
+      "workflow": {},
+      "final_report": {}
+    },
+    "steps": [
+      {
+        "id": "stage_bank_inputs",
+        "kind": "source",
+        "label": "Stage Bank Inputs",
+        "goal": "Resolve the bank-statement folder and AgamiAI sample input notes.",
+        "action": "stage_bank_inputs",
+        "run": "stage_bank_inputs",
+        "emits": "bank_inputs_staged",
+        "on": {
+          "bank_inputs_staged": "extract_bank_text"
+        },
+        "control": {
+          "required": true,
+          "retry": {
+            "max_attempts": 2,
+            "backoff_seconds": 1,
+            "backoff_multiplier": 2,
+            "jitter": 0
+          },
+          "failure_policy": "fail_workflow",
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.0,
+            "on_low_confidence": "continue_with_warning"
+          }
+        },
+        "in": {
+          "document_folder": "$state.document_folder",
+          "dataset_input": "$state.dataset_input"
+        },
+        "out": {
+          "stage_bank_inputs": "$state.workflow.stage_bank_inputs"
+        },
+        "provides": [
+          "bank_statement_extraction_assistant.stage_bank_inputs.ready"
+        ],
+        "requires": []
+      },
+      {
+        "id": "extract_bank_text",
+        "kind": "stage",
+        "label": "Extract Bank Text",
+        "goal": "Read embedded text and call shared llm_ocr_skill only for scanned or low-text statement pages.",
+        "action": "extract_bank_text",
+        "run": "extract_bank_text",
+        "emits": "bank_text_extracted",
+        "on": {
+          "bank_text_extracted": "extract_transaction_ledger"
+        },
+        "control": {
+          "required": true,
+          "retry": {
+            "max_attempts": 2,
+            "backoff_seconds": 1,
+            "backoff_multiplier": 2,
+            "jitter": 0
+          },
+          "failure_policy": "fail_workflow",
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.0,
+            "on_low_confidence": "continue_with_warning"
+          }
+        },
+        "in": {
+          "previous": "$state.workflow"
+        },
+        "out": {
+          "extract_bank_text": "$state.workflow.extract_bank_text"
+        },
+        "provides": [
+          "bank_statement_extraction_assistant.extract_bank_text.ready"
+        ],
+        "requires": [
+          "bank_statement_extraction_assistant.stage_bank_inputs.ready"
+        ]
+      },
+      {
+        "id": "extract_transaction_ledger",
+        "kind": "stage",
+        "label": "Extract Transaction Ledger",
+        "goal": "Extract account metadata, balances, transaction rows, debits, credits, fees, and running balances.",
+        "action": "extract_transaction_ledger",
+        "run": "extract_transaction_ledger",
+        "emits": "transaction_ledger_extracted",
+        "on": {
+          "transaction_ledger_extracted": "validate_statement_consistency"
+        },
+        "control": {
+          "required": true,
+          "retry": {
+            "max_attempts": 2,
+            "backoff_seconds": 1,
+            "backoff_multiplier": 2,
+            "jitter": 0
+          },
+          "failure_policy": "fail_workflow",
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.7,
+            "on_low_confidence": "human_review"
+          }
+        },
+        "in": {
+          "previous": "$state.workflow"
+        },
+        "out": {
+          "extract_transaction_ledger": "$state.workflow.extract_transaction_ledger"
+        },
+        "provides": [
+          "bank_statement_extraction_assistant.extract_transaction_ledger.ready"
+        ],
+        "requires": [
+          "bank_statement_extraction_assistant.extract_bank_text.ready"
+        ]
+      },
+      {
+        "id": "validate_statement_consistency",
+        "kind": "stage",
+        "label": "Validate Statement Consistency",
+        "goal": "Reconcile opening, closing, and running balances and compare to JSON labels when available.",
+        "action": "validate_statement_consistency",
+        "run": "validate_statement_consistency",
+        "emits": "statement_consistency_validated",
+        "on": {
+          "statement_consistency_validated": "write_bank_statement_packet"
+        },
+        "control": {
+          "required": true,
+          "retry": {
+            "max_attempts": 2,
+            "backoff_seconds": 1,
+            "backoff_multiplier": 2,
+            "jitter": 0
+          },
+          "failure_policy": "fail_workflow",
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.7,
+            "on_low_confidence": "human_review"
+          }
+        },
+        "in": {
+          "previous": "$state.workflow"
+        },
+        "out": {
+          "validate_statement_consistency": "$state.workflow.validate_statement_consistency"
+        },
+        "provides": [
+          "bank_statement_extraction_assistant.validate_statement_consistency.ready"
+        ],
+        "requires": [
+          "bank_statement_extraction_assistant.extract_transaction_ledger.ready"
+        ]
+      },
+      {
+        "id": "write_bank_statement_packet",
+        "kind": "sink",
+        "label": "Write Bank Statement Packet",
+        "goal": "Write a review-only bank statement extraction packet with cash-flow and exception notes.",
+        "action": "write_bank_statement_packet",
+        "run": "write_bank_statement_packet",
+        "emits": "bank_statement_packet_written",
+        "on": {
+          "bank_statement_packet_written": "completed"
+        },
+        "control": {
+          "required": true,
+          "retry": {
+            "max_attempts": 2,
+            "backoff_seconds": 1,
+            "backoff_multiplier": 2,
+            "jitter": 0
+          },
+          "failure_policy": "fail_workflow",
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.0,
+            "on_low_confidence": "continue_with_warning"
+          }
+        },
+        "in": {
+          "previous": "$state.workflow"
+        },
+        "out": {
+          "write_bank_statement_packet": "$state.workflow.write_bank_statement_packet"
+        },
+        "provides": [
+          "bank_statement_extraction_assistant.write_bank_statement_packet.ready"
+        ],
+        "requires": [
+          "bank_statement_extraction_assistant.validate_statement_consistency.ready"
+        ]
+      }
+    ],
+    "observers": []
+  },
+  "runtime": {
+    "bindings": {
+      "stage_bank_inputs": {
+        "type": "worker",
+        "strategy": "single",
+        "side_effect": "read",
+        "risk": "low",
+        "workers": [
+          {
+            "id": "bank_dataset_intake",
+            "alias": "bank_dataset_intake",
+            "kind": "worker",
+            "role": "Bank dataset intake analyst",
+            "model": "primary",
+            "tokens": 12000,
+            "tools": 4,
+            "required": true
+          }
+        ]
+      },
+      "extract_bank_text": {
+        "type": "team",
+        "strategy": "fanout_reduce",
+        "side_effect": "read",
+        "risk": "low",
+        "workers": [
+          {
+            "id": "statement_ocr_extractor",
+            "alias": "statement_ocr_extractor",
+            "kind": "worker",
+            "role": "Statement OCR extractor",
+            "model": "primary",
+            "tokens": 12000,
+            "tools": 4,
+            "required": true
+          },
+          {
+            "id": "financial_identifier_redactor",
+            "alias": "financial_identifier_redactor",
+            "kind": "worker",
+            "role": "Financial identifier redactor",
+            "model": "primary",
+            "tokens": 12000,
+            "tools": 4,
+            "required": true
+          }
+        ]
+      },
+      "extract_transaction_ledger": {
+        "type": "team",
+        "strategy": "fanout_reduce",
+        "side_effect": "read",
+        "risk": "low",
+        "workers": [
+          {
+            "id": "transaction_row_extractor",
+            "alias": "transaction_row_extractor",
+            "kind": "worker",
+            "role": "Transaction row extractor",
+            "model": "primary",
+            "tokens": 12000,
+            "tools": 4,
+            "required": true
+          },
+          {
+            "id": "cash_flow_normalizer",
+            "alias": "cash_flow_normalizer",
+            "kind": "worker",
+            "role": "Cash-flow normalizer",
+            "model": "primary",
+            "tokens": 12000,
+            "tools": 4,
+            "required": true
+          }
+        ]
+      },
+      "validate_statement_consistency": {
+        "type": "worker",
+        "strategy": "single",
+        "side_effect": "read",
+        "risk": "low",
+        "workers": [
+          {
+            "id": "balance_reconciliation_validator",
+            "alias": "balance_reconciliation_validator",
+            "kind": "worker",
+            "role": "Balance reconciliation validator",
+            "model": "primary",
+            "tokens": 12000,
+            "tools": 4,
+            "required": true
+          }
+        ]
+      },
+      "write_bank_statement_packet": {
+        "type": "worker",
+        "strategy": "single",
+        "side_effect": "internal_write",
+        "risk": "medium",
+        "workers": [
+          {
+            "id": "statement_report_writer",
+            "alias": "statement_report_writer",
+            "kind": "worker",
+            "role": "Statement extraction packet writer",
+            "model": "primary",
+            "tokens": 12000,
+            "tools": 4,
+            "required": true
+          }
+        ]
+      }
+    },
+    "models": {
+      "primary": {
+        "type": "llm",
+        "provider": "ollama",
+        "model": "ollama/nemotron3:33b",
+        "role": "Local bank statement OCR and transaction extraction team that prepares source-grounded cash-flow review packets."
+      }
+    },
+    "memory": {
+      "collection": "mn_memory",
+      "containers": "optional_sidecar",
+      "context_addr_env": "MN_CONTEXT_ADDR",
+      "conversation": {
+        "agent_role": "otterdesk_chat",
+        "include_human_events": true,
+        "include_runtime_events": true,
+        "include_runtime_logs": true,
+        "target_tokens": 2400,
+        "token_budget": 6000,
+        "use_model_compression": false
+      },
+      "conversation_enabled": true,
+      "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
+      "default_context_addr": "localhost:50052",
+      "enabled": true,
+      "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
+      "namespace": "bank_statement_extraction_assistant_context",
+      "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
+      "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
+      "sdk_distribution": "mirrorneuron-membrane-python-sdk",
+      "sdk_import_package": "mn_context_engine_sdk"
+    },
+    "observability": {
+      "schema_version": "mn.blueprint.observability_dashboard.v1",
+      "source": "local_run_store",
+      "reads": [
+        "events.jsonl",
+        "human.jsonl",
+        "logs.jsonl",
+        "resources.jsonl",
+        "result.json",
+        "final_artifact.json",
+        "web_ui.json"
+      ],
+      "panels": [
+        "current_status",
+        "recent_events",
+        "pending_human_requests",
+        "output_artifacts",
+        "resource_usage",
+        "errors",
+        "llm_calls",
+        "token_budget",
+        "llm_retries"
+      ]
+    },
+    "resources": {
+      "cpu": {
+        "min_cores": 1
+      },
+      "memory": {
+        "min_gb": 2
+      },
+      "disk": {
+        "min_gb": 1
+      },
+      "gpu": {
+        "min_count": 0
+      }
+    },
+    "store": {
+      "type": "local_run_store",
+      "path": "./runs/${run_id}",
+      "artifacts": [
+        "run.json",
+        "config.json",
+        "inputs.json",
+        "events.jsonl",
+        "human.jsonl",
+        "logs.jsonl",
+        "resources.jsonl",
+        "result.json",
+        "final_artifact.json"
+      ]
+    },
+    "worker_defaults": {
+      "runner": "MirrorNeuron.Runner.HostLocal",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "model": "ollama/nemotron3:33b",
+      "pool": "default",
+      "pool_slots": 1,
+      "workdir": "/sandbox/job/workflow"
+    }
+  },
+  "requirements": {
+    "cpu": {
+      "min_cores": 1
+    },
+    "memory": {
+      "min_gb": 2
+    },
+    "disk": {
+      "min_gb": 1
+    },
+    "gpu": {
+      "min_count": 0
+    }
+  },
+  "input_validation": {
+    "rules": []
+  },
+  "license": "LICENSE.md",
+  "term": "TERM.md",
+  "metadata": {
+    "blueprint_id": "bank_statement_extraction_assistant",
+    "name": "Bank Statement Extraction Assistant",
+    "category": "finance",
+    "description": "Extracts bank statement account metadata, balances, transaction rows, debits, credits, fees, and validation checks from local statement PDFs.",
+    "agent_role": "Local bank statement OCR and transaction extraction team that prepares source-grounded cash-flow review packets.",
+    "target_users": "Lenders, fintech teams, SMB accounting tools, underwriting teams, auditors, and financial operations groups.",
+    "customizable_for": "Underwriting intake, cash-flow analysis, audit workpapers, bank statement reconciliation, transaction normalization, and SMB bookkeeping.",
+    "problem": "Lenders, fintechs, SMB accounting tools, underwriting teams, and auditors need private extraction of account numbers, balances, merchant history, salaries, and cash-flow data.",
+    "standard": {
+      "workflow_model": "contract -> flow -> runtime"
+    },
+    "runtime_features": [
+      "local document folder intake",
+      "shared llm_ocr_skill OCR fallback",
+      "source-grounded structured extraction",
+      "redacted run-store evidence",
+      "human approval policy",
+      "artifact records",
+      "run-store observability dashboard",
+      "Membrane context memory optimization"
+    ],
+    "configuration_contract": {
+      "required_files": [
+        "manifest.json",
+        "README.md",
+        "SPEC.md",
+        "config/default.json",
+        "payloads/",
+        "LICENSE.md",
+        "TERM.md"
+      ],
+      "optional_files": [
+        "config/overwrite.json",
+        "inputs/public_dataset.json",
+        "examples/sample_inputs/"
+      ]
+    },
+    "agent_templates": {
+      "library": "../mn-agents/index.json",
+      "nodes": [
+        {
+          "node_id": "stage_bank_inputs",
+          "uses": "mn-agents.data_python_executor@1.0.0"
+        },
+        {
+          "node_id": "extract_bank_text",
+          "uses": "mn-agents.data_python_executor@1.0.0"
+        },
+        {
+          "node_id": "extract_transaction_ledger",
+          "uses": "mn-agents.data_python_executor@1.0.0"
+        },
+        {
+          "node_id": "validate_statement_consistency",
+          "uses": "mn-agents.data_python_executor@1.0.0"
+        },
+        {
+          "node_id": "write_bank_statement_packet",
+          "uses": "mn-agents.data_python_executor@1.0.0"
+        }
+      ],
+      "renderer": "mn_blueprint_support.render_manifest_agent_templates",
+      "render_tool": "../mn-agents/tools/render_agent_templates.py",
+      "rendered_output": "manifest.rendered.json or runtime metadata"
+    },
+    "input_contract": {
+      "schema_version": "mn.blueprint.input_contract.v1",
+      "description": "Lenders, fintechs, SMB accounting tools, underwriting teams, and auditors need private extraction of account numbers, balances, merchant history, salaries, and cash-flow data.",
+      "privacy_classification": "regulated",
+      "resolved_artifact": "inputs.json",
+      "supported_adapters": [
+        "mock",
+        "json",
+        "file",
+        "env_json"
+      ],
+      "required_inputs": [
+        {
+          "name": "document_folder",
+          "type": "domain_value",
+          "description": "Local folder containing Synthetic scanned bank statement PDFs with structured JSON metadata.",
+          "example": "/Users/me/Documents/bank_statement_extraction_assistant/sample_inputs"
+        },
+        {
+          "name": "output_folder",
+          "type": "domain_value",
+          "description": "Local folder where review packets should be written.",
+          "example": "/Users/homer/Download/bank_statement_extraction_assistant"
+        },
+        {
+          "name": "field_profile",
+          "type": "domain_value",
+          "description": "Structured field names or extraction profile for this document workflow.",
+          "example": [
+            "account_holder",
+            "account_number",
+            "ifsc_or_routing",
+            "statement_period"
+          ]
+        }
+      ],
+      "optional_inputs": [
+        {
+          "name": "public_dataset",
+          "type": "domain_value",
+          "description": "Downloadable public dataset reference used for sample input selection.",
+          "example": "https://huggingface.co/datasets/AgamiAI/Indian-Bank-Statements"
+        },
+        {
+          "name": "review_policy",
+          "type": "domain_value",
+          "description": "Human review and confidence thresholds for final packet release.",
+          "example": {
+            "min_confidence": 0.75,
+            "approval_required": true
+          }
+        }
+      ],
+      "profiles": {
+        "mock": {
+          "adapter": "mock",
+          "description": "Uses the public dataset note and bundled text fixture when no local documents are selected.",
+          "payload": {
+            "document_folder": "",
+            "dataset_url": "https://huggingface.co/datasets/AgamiAI/Indian-Bank-Statements"
+          }
+        },
+        "json": {
+          "adapter": "json",
+          "description": "Inline JSON object supplied through config or runtime overrides."
+        },
+        "file": {
+          "adapter": "file",
+          "description": "JSON object loaded from a local file path."
+        },
+        "env_json": {
+          "adapter": "env_json",
+          "description": "JSON object loaded from MN_BLUEPRINT_INPUT_JSON."
+        },
+        "local_folder": {
+          "adapter": "file",
+          "description": "Local folder mounted through OtterDesk local input handling.",
+          "path": "document_sources.folder_path"
+        }
+      }
+    },
+    "output_contract": {
+      "final_artifact": {
+        "schema_version": "mn.blueprint.final_artifact_contract.v1",
+        "required_fields": [
+          "type",
+          "executive_summary",
+          "recommended_action",
+          "confidence",
+          "evidence",
+          "next_steps",
+          "source_refs"
+        ],
+        "description": "Review-only structured document automation packet with source evidence, confidence, next steps, and source references."
+      },
+      "artifacts": [
+        {
+          "artifact_id": "run_metadata",
+          "type": "run_summary",
+          "path": "run.json",
+          "producer": "local_run_store",
+          "mime_type": "application/json",
+          "schema_version": "mn.artifact.run_summary.v1",
+          "source_refs": []
+        },
+        {
+          "artifact_id": "resolved_config",
+          "type": "config",
+          "path": "config.json",
+          "producer": "local_run_store",
+          "mime_type": "application/json",
+          "schema_version": "mn.blueprint.config.v1",
+          "source_refs": []
+        },
+        {
+          "artifact_id": "resolved_inputs",
+          "type": "inputs",
+          "path": "inputs.json",
+          "producer": "local_run_store",
+          "mime_type": "application/json",
+          "schema_version": "mn.blueprint.inputs.v1",
+          "source_refs": []
+        },
+        {
+          "artifact_id": "event_stream",
+          "type": "events",
+          "path": "events.jsonl",
+          "producer": "local_run_store",
+          "mime_type": "application/x-jsonlines",
+          "schema_version": "mn.blueprint.events.v1",
+          "source_refs": []
+        },
+        {
+          "artifact_id": "result",
+          "type": "result",
+          "path": "result.json",
+          "producer": "local_run_store",
+          "mime_type": "application/json",
+          "schema_version": "mn.blueprint.response.v1",
+          "source_refs": [
+            "inputs.json",
+            "events.jsonl"
+          ]
+        },
+        {
+          "artifact_id": "final_artifact",
+          "type": "final_artifact",
+          "path": "final_artifact.json",
+          "producer": "workflow",
+          "mime_type": "application/json",
+          "schema_version": "mn.blueprint.final_artifact.v1",
+          "source_refs": [
+            "inputs.json",
+            "events.jsonl",
+            "result.json"
+          ]
+        },
+        {
+          "artifact_id": "logs",
+          "type": "logs",
+          "path": "logs.jsonl",
+          "producer": "local_run_store",
+          "mime_type": "application/x-jsonlines",
+          "schema_version": "mn.blueprint.logs.v1",
+          "source_refs": [
+            "events.jsonl"
+          ]
+        },
+        {
+          "artifact_id": "resources",
+          "type": "resource_samples",
+          "path": "resources.jsonl",
+          "producer": "local_run_store",
+          "mime_type": "application/x-jsonlines",
+          "schema_version": "mn.blueprint.resources.v1",
+          "source_refs": [
+            "run.json"
+          ]
+        },
+        {
+          "artifact_id": "web_ui",
+          "type": "web_ui",
+          "path": "web_ui.json",
+          "producer": "web_ui",
+          "mime_type": "application/json",
+          "schema_version": "mn.blueprint.web_ui.v1",
+          "source_refs": [
+            "run.json"
+          ]
+        },
+        {
+          "artifact_id": "human_events",
+          "type": "human_events",
+          "path": "human.jsonl",
+          "producer": "human_control",
+          "mime_type": "application/x-jsonlines",
+          "schema_version": "mn.blueprint.human_events.v1",
+          "source_refs": [
+            "events.jsonl"
+          ]
+        },
+        {
+          "artifact_id": "public_dataset_note",
+          "type": "dataset_reference",
+          "path": "inputs/public_dataset.json",
+          "producer": "workflow",
+          "mime_type": "application/json",
+          "schema_version": "mn.blueprint.dataset_reference.v1",
+          "source_refs": []
+        },
+        {
+          "artifact_id": "review_packet_markdown",
+          "type": "generated_report",
+          "path": "<outputs.folder_path>/<run_id>-bank-statement-extraction-review.md",
+          "producer": "workflow",
+          "mime_type": "text/markdown",
+          "schema_version": "mn.blueprint.generated_report.v1",
+          "source_refs": [
+            "final_artifact.json"
+          ]
+        }
+      ],
+      "stdout": "JSON object with result, final_artifact, artifact paths, and run metadata when the runner is executed directly.",
+      "result_json": "result.json",
+      "final_artifact_json": "final_artifact.json",
+      "events_jsonl": "events.jsonl"
+    },
+    "human_control": {
+      "allowed_decisions": [
+        "approve",
+        "revise",
+        "reject"
+      ],
+      "blocked_actions": [
+        "approve_credit_decision",
+        "sync_to_loan_system",
+        "sync_to_accounting_system",
+        "send_customer_report_without_review"
+      ],
+      "decision_event": "human_decision_applied",
+      "default_action": "reject",
+      "enabled": true,
+      "events": [
+        "human_notice",
+        "human_input_requested",
+        "human_input_received",
+        "human_input_timeout",
+        "human_decision_applied"
+      ],
+      "mode": "approval_required",
+      "reason": "Human approval is required before any downstream release, filing, payment, legal, clinical, credit, or system-sync action.",
+      "request_event": "human_input_requested",
+      "response_event": "human_input_received",
+      "timeout_event": "human_input_timeout",
+      "timeout_seconds": 3600
+    },
+    "status_contract": {
+      "schema_version": "mn.blueprint.status_contract.v1",
+      "source": "run_store",
+      "status_event": "blueprint_status",
+      "heartbeat_event": "blueprint_status",
+      "heartbeat_required": true,
+      "phases": [
+        {
+          "phase": "loading_inputs",
+          "required": true,
+          "start_event": "blueprint_phase_started",
+          "progress_event": "blueprint_status",
+          "completion_event": "blueprint_phase_completed",
+          "failure_event": "blueprint_phase_failed"
+        },
+        {
+          "phase": "running_worker",
+          "required": true,
+          "start_event": "blueprint_phase_started",
+          "progress_event": "blueprint_status",
+          "completion_event": "blueprint_phase_completed",
+          "failure_event": "blueprint_phase_failed"
+        },
+        {
+          "phase": "waiting_for_human",
+          "required": true,
+          "start_event": "blueprint_phase_started",
+          "progress_event": "blueprint_status",
+          "completion_event": "blueprint_phase_completed",
+          "failure_event": "blueprint_phase_failed"
+        },
+        {
+          "phase": "writing_artifacts",
+          "required": true,
+          "start_event": "blueprint_phase_started",
+          "progress_event": "blueprint_status",
+          "completion_event": "blueprint_phase_completed",
+          "failure_event": "blueprint_phase_failed"
+        },
+        {
+          "phase": "completed",
+          "required": true,
+          "start_event": "blueprint_phase_started",
+          "progress_event": "blueprint_status",
+          "completion_event": "blueprint_phase_completed",
+          "failure_event": "blueprint_phase_failed"
+        }
+      ]
+    },
+    "observability_dashboard": {
+      "schema_version": "mn.blueprint.observability_dashboard.v1",
+      "source": "local_run_store",
+      "reads": [
+        "events.jsonl",
+        "human.jsonl",
+        "logs.jsonl",
+        "resources.jsonl",
+        "result.json",
+        "final_artifact.json",
+        "web_ui.json"
+      ],
+      "panels": [
+        "current_status",
+        "recent_events",
+        "pending_human_requests",
+        "output_artifacts",
+        "resource_usage",
+        "errors",
+        "llm_calls",
+        "token_budget",
+        "llm_retries"
+      ]
+    },
+    "interfaces": {
+      "channels": {
+        "artifacts": {
+          "description": "Stable run-store files and domain-specific document automation outputs.",
+          "artifacts": [
+            "run.json",
+            "config.json",
+            "inputs.json",
+            "events.jsonl",
+            "result.json",
+            "final_artifact.json"
+          ],
+          "optional_artifacts": [
+            "job.json",
+            "web_ui.json",
+            "ui.json",
+            "web/index.html",
+            "logs.jsonl",
+            "human.jsonl",
+            "resources.jsonl",
+            "*-review.md"
+          ]
+        },
+        "events": {
+          "artifact": "events.jsonl",
+          "description": "Append-only workflow events."
+        },
+        "human": {
+          "artifact": "human.jsonl",
+          "description": "Human notices, approval requests, responses, timeouts, and applied decisions."
+        },
+        "input_skills": {
+          "description": "Local filesystem intake plus shared llm_ocr_skill OCR through Docker Model Runner."
+        },
+        "inputs": {
+          "artifact": "inputs.json",
+          "description": "Resolved document folder, public dataset reference, and field extraction profile."
+        },
+        "logs": {
+          "artifact": "logs.jsonl",
+          "description": "Runtime stdout/stderr and redacted document automation logs.",
+          "stream": "stdout/stderr"
+        },
+        "outputs": {
+          "artifacts": [
+            "result.json",
+            "final_artifact.json",
+            "*-review.md"
+          ],
+          "description": "Primary review packet and structured extraction results."
+        },
+        "resources": {
+          "artifact": "resources.jsonl",
+          "description": "Resource samples such as token, runtime, connector, and disk usage."
+        },
+        "web_ui": {
+          "artifacts": [
+            "web_ui.json",
+            "ui.json",
+            "web/index.html"
+          ],
+          "description": "Optional review dashboard for artifact inspection."
+        }
+      },
+      "config": [
+        "standard_version",
+        "identity",
+        "mode",
+        "metadata",
+        "inputs",
+        "simulation",
+        "llm",
+        "outputs",
+        "logging",
+        "resources",
+        "human_control",
+        "real_adapters",
+        "streams",
+        "input_skills",
+        "output_skills",
+        "error_handling",
+        "state",
+        "capabilities",
+        "privacy",
+        "triggers",
+        "backpressure",
+        "determinism",
+        "schemas",
+        "budgets",
+        "agent_handoffs",
+        "web_ui",
+        "interfaces",
+        "execution_model",
+        "memory_layer",
+        "dataset_input",
+        "document_automation"
+      ],
+      "config_sections": [
+        "standard_version",
+        "identity",
+        "mode",
+        "metadata",
+        "inputs",
+        "simulation",
+        "llm",
+        "outputs",
+        "logging",
+        "resources",
+        "human_control",
+        "real_adapters",
+        "streams",
+        "input_skills",
+        "output_skills",
+        "error_handling",
+        "state",
+        "capabilities",
+        "privacy",
+        "triggers",
+        "backpressure",
+        "determinism",
+        "schemas",
+        "budgets",
+        "agent_handoffs",
+        "web_ui",
+        "interfaces",
+        "execution_model",
+        "memory_layer",
+        "dataset_input",
+        "document_automation"
+      ],
+      "identity": [
+        "blueprint_id",
+        "name",
+        "run_id"
+      ],
+      "identity_fields": [
+        "blueprint_id",
+        "name",
+        "run_id"
+      ],
+      "input_adapters": [
+        "mock",
+        "json",
+        "file",
+        "env_json"
+      ],
+      "output_adapters": [
+        "local_run_store"
+      ],
+      "outputs": [
+        "run.json",
+        "config.json",
+        "inputs.json",
+        "events.jsonl",
+        "result.json",
+        "final_artifact.json"
+      ],
+      "run_artifacts": [
+        "run.json",
+        "config.json",
+        "inputs.json",
+        "events.jsonl",
+        "result.json",
+        "final_artifact.json"
+      ],
+      "optional_outputs": [
+        "job.json",
+        "web_ui.json",
+        "ui.json",
+        "web/index.html",
+        "logs.jsonl",
+        "human.jsonl",
+        "resources.jsonl",
+        "*-review.md"
+      ],
+      "optional_run_artifacts": [
+        "job.json",
+        "web_ui.json",
+        "ui.json",
+        "web/index.html",
+        "logs.jsonl",
+        "human.jsonl",
+        "resources.jsonl",
+        "*-review.md"
+      ],
+      "response_schema": "mn.blueprint.response.v1",
+      "web_ui_adapters": [
+        "none",
+        "static_html",
+        "gradio",
+        "custom"
+      ]
+    },
+    "memory_layer": {
+      "collection": "mn_memory",
+      "containers": "optional_sidecar",
+      "context_addr_env": "MN_CONTEXT_ADDR",
+      "conversation": {
+        "agent_role": "otterdesk_chat",
+        "include_human_events": true,
+        "include_runtime_events": true,
+        "include_runtime_logs": true,
+        "target_tokens": 2400,
+        "token_budget": 6000,
+        "use_model_compression": false
+      },
+      "conversation_enabled": true,
+      "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
+      "default_context_addr": "localhost:50052",
+      "enabled": true,
+      "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
+      "namespace": "bank_statement_extraction_assistant_context",
+      "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
+      "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
+      "sdk_distribution": "mirrorneuron-membrane-python-sdk",
+      "sdk_import_package": "mn_context_engine_sdk"
+    },
+    "init_config_review": {
+      "required": true,
+      "instruction": "Ask the user to select a local folder containing Synthetic scanned bank statement PDFs with structured JSON metadata, confirm the output folder, and keep the public dataset terms visible before launch.",
+      "fields": [
+        {
+          "path": "document_sources.folder_path",
+          "label": "Bank statement folder",
+          "default": "",
+          "description": "Choose a local folder containing Synthetic scanned bank statement PDFs with structured JSON metadata."
+        },
+        {
+          "path": "outputs.folder_path",
+          "label": "Output folder",
+          "default": "/Users/homer/Download/bank_statement_extraction_assistant",
+          "description": "Choose where review files should be written."
+        },
+        {
+          "path": "input_skills.llm_ocr.enabled",
+          "label": "LLM OCR",
+          "default": true,
+          "description": "Use the shared local LightOnOCR Docker Model Runner path for scanned or low-text documents."
+        },
+        {
+          "path": "llm.mode",
+          "label": "LLM mode",
+          "default": "ollama",
+          "description": "Use ollama for local model calls, fake only for deterministic tests."
+        }
+      ]
+    },
+    "dataset_input": {
+      "name": "AgamiAI Indian Bank Statement Synthetic Dataset",
+      "provider": "AgamiAI on Hugging Face",
+      "url": "https://huggingface.co/datasets/AgamiAI/Indian-Bank-Statements",
+      "license": "Apache 2.0",
+      "availability_note": "Public synthetic bank statement dataset with scanned PDFs and structured JSON metadata.",
+      "expected_files": [
+        "*.pdf",
+        "*.json"
+      ],
+      "download_hint": "Use huggingface_hub or git-lfs to fetch a small sample before the full dataset."
+    },
+    "local_on_prem_rationale": "Lenders, fintechs, SMB accounting tools, underwriting teams, and auditors need private extraction of account numbers, balances, merchant history, salaries, and cash-flow data."
+  },
+  "nodes": [
+    {
+      "node_id": "stage_bank_inputs",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "with": {
+        "script": "scripts/run_blueprint.py",
+        "upload_path": "document_workflow",
+        "output_message_type": "bank_inputs_staged"
+      }
+    },
+    {
+      "node_id": "extract_bank_text",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "with": {
+        "script": "scripts/run_blueprint.py",
+        "upload_path": "document_workflow",
+        "output_message_type": "bank_text_extracted"
+      }
+    },
+    {
+      "node_id": "extract_transaction_ledger",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "with": {
+        "script": "scripts/run_blueprint.py",
+        "upload_path": "document_workflow",
+        "output_message_type": "transaction_ledger_extracted"
+      }
+    },
+    {
+      "node_id": "validate_statement_consistency",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "with": {
+        "script": "scripts/run_blueprint.py",
+        "upload_path": "document_workflow",
+        "output_message_type": "statement_consistency_validated"
+      }
+    },
+    {
+      "node_id": "write_bank_statement_packet",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "with": {
+        "script": "scripts/run_blueprint.py",
+        "upload_path": "document_workflow",
+        "output_message_type": "bank_statement_packet_written"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "stage_bank_inputs_to_extract_bank_text",
+      "from_node": "stage_bank_inputs",
+      "to_node": "extract_bank_text",
+      "message_type": "bank_inputs_staged"
+    },
+    {
+      "edge_id": "extract_bank_text_to_extract_transaction_ledger",
+      "from_node": "extract_bank_text",
+      "to_node": "extract_transaction_ledger",
+      "message_type": "bank_text_extracted"
+    },
+    {
+      "edge_id": "extract_transaction_ledger_to_validate_statement_consistency",
+      "from_node": "extract_transaction_ledger",
+      "to_node": "validate_statement_consistency",
+      "message_type": "transaction_ledger_extracted"
+    },
+    {
+      "edge_id": "validate_statement_consistency_to_write_bank_statement_packet",
+      "from_node": "validate_statement_consistency",
+      "to_node": "write_bank_statement_packet",
+      "message_type": "statement_consistency_validated"
+    }
+  ]
+}

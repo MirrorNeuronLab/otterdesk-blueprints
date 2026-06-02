@@ -1,0 +1,18 @@
+{
+  "name": "IDSEM Dataset",
+  "provider": "University of Las Palmas de Gran Canaria on Zenodo",
+  "url": "https://zenodo.org/records/6373179",
+  "license": "Dataset record on Zenodo; review source terms before production use.",
+  "availability_note": "Public Zenodo dataset with electricity bill PDFs and JSON labels; includes reduced preview subsets as described by the dataset record.",
+  "expected_files": [
+    "*.pdf",
+    "*.json"
+  ],
+  "demo_sample_source": {
+    "name": "IDSEM reduced training set",
+    "url": "https://springernature.figshare.com/articles/dataset/Reduced_training_set/21565605",
+    "download_url": "https://ndownloader.figshare.com/files/38227599",
+    "local_manifest": "examples/sample_inputs/SAMPLE_DATASET_MANIFEST.json"
+  },
+  "download_hint": "Use the reduced preview first; the full idsem.zip is large."
+}

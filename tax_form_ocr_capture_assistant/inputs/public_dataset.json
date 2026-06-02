@@ -1,0 +1,20 @@
+{
+  "name": "NIST Special Database 2 and NIST Special Database 6",
+  "provider": "National Institute of Standards and Technology",
+  "url": "https://www.nist.gov/srd/nist-special-database-2",
+  "alternate_url": "https://www.nist.gov/srd/nist-special-database-6",
+  "license": "NIST free reference data; review source terms before production use.",
+  "availability_note": "Public NIST structured-form reference sets with simulated tax submissions, form images, and answer files.",
+  "expected_files": [
+    "*.png",
+    "*.fmt",
+    "field context tables"
+  ],
+  "demo_sample_source": {
+    "name": "US Tax Forms Donut Dataset derived from NIST-SD2",
+    "url": "https://huggingface.co/datasets/hyturing/US_tax_forms_donut",
+    "download_url": "https://huggingface.co/datasets/hyturing/US_tax_forms_donut/resolve/main/data/test-00000-of-00001.parquet",
+    "local_manifest": "examples/sample_inputs/SAMPLE_DATASET_MANIFEST.json"
+  },
+  "download_hint": "Download the Special Database 2 or 6 ZIP from NIST, then point document_sources.folder_path at an extracted submission folder."
+}

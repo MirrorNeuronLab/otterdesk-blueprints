@@ -1481,5 +1481,79 @@
         "llm_retries"
       ]
     }
-  }
+  },
+  "entrypoints": [
+    "collect_deal_context"
+  ],
+  "nodes": [
+    {
+      "node_id": "collect_deal_context",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "with": {
+        "script": "scripts/run_blueprint.py",
+        "upload_path": "simulation_loop",
+        "output_message_type": "deal_context_ready"
+      }
+    },
+    {
+      "node_id": "compare_memory_signals",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "with": {
+        "script": "scripts/run_blueprint.py",
+        "upload_path": "simulation_loop",
+        "output_message_type": "memory_signals_ready"
+      }
+    },
+    {
+      "node_id": "score_opportunities",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "with": {
+        "script": "scripts/run_blueprint.py",
+        "upload_path": "simulation_loop",
+        "output_message_type": "opportunities_scored"
+      }
+    },
+    {
+      "node_id": "write_deal_memo",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "with": {
+        "script": "scripts/run_blueprint.py",
+        "upload_path": "simulation_loop",
+        "output_message_type": "deal_memo_ready"
+      }
+    },
+    {
+      "node_id": "report_sink",
+      "uses": "mn-agents.control_join@1.0.0",
+      "with": {
+        "complete_on_message": true
+      }
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "collect_deal_context_to_compare_memory_signals",
+      "from_node": "collect_deal_context",
+      "message_type": "deal_context_ready",
+      "to_node": "compare_memory_signals"
+    },
+    {
+      "edge_id": "compare_memory_signals_to_score_opportunities",
+      "from_node": "compare_memory_signals",
+      "message_type": "memory_signals_ready",
+      "to_node": "score_opportunities"
+    },
+    {
+      "edge_id": "score_opportunities_to_write_deal_memo",
+      "from_node": "score_opportunities",
+      "message_type": "opportunities_scored",
+      "to_node": "write_deal_memo"
+    },
+    {
+      "edge_id": "memo_to_report",
+      "from_node": "write_deal_memo",
+      "message_type": "blueprint_report",
+      "to_node": "report_sink"
+    }
+  ]
 }

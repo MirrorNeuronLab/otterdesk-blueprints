@@ -1,0 +1,20 @@
+{
+  "name": "Contract Understanding Atticus Dataset (CUAD) v1",
+  "provider": "The Atticus Project on Zenodo and Hugging Face",
+  "url": "https://zenodo.org/records/4595826",
+  "alternate_url": "https://huggingface.co/datasets/theatticusproject/cuad",
+  "license": "CC BY 4.0",
+  "availability_note": "Public dataset with 510 commercial contracts and 13,000+ labels across 41 clause types.",
+  "expected_files": [
+    "full_contracts_pdf/*.pdf",
+    "full_contracts_txt/*.txt",
+    "*.csv",
+    "*.json"
+  ],
+  "demo_sample_source": {
+    "name": "CUAD v1 Hugging Face mirror",
+    "url": "https://huggingface.co/datasets/theatticusproject/cuad",
+    "local_manifest": "examples/sample_inputs/SAMPLE_DATASET_MANIFEST.json"
+  },
+  "download_hint": "Download CUAD_v1.zip from Zenodo or use the Hugging Face dataset for text-oriented experiments."
+}

@@ -1,0 +1,17 @@
+{
+  "blueprint_id": "legal_contract_clause_review_assistant",
+  "downloaded_at": "2026-06-02T11:55:06+00:00",
+  "demo_source": {
+    "name": "CUAD v1 Hugging Face mirror",
+    "url": "https://huggingface.co/datasets/theatticusproject/cuad",
+    "license": "CC BY 4.0 according to CUAD dataset card/source record"
+  },
+  "source_paths": {
+    "cuad_bangi_premium_managed_hosting_agreement.pdf": "CUAD_v1/full_contract_pdf/Part_II/Commercial Contracts (Part II-A)/Hosting/BANGIINC_05_25_2005-EX-10-Premium Managed Hosting Agreement.PDF",
+    "cuad_bangi_premium_managed_hosting_agreement.txt": "CUAD_v1/full_contract_txt/Part_I/BANGIINC_05_25_2005-EX-10-Premium Managed Hosting Agreement.txt"
+  },
+  "files": [
+    "cuad_bangi_premium_managed_hosting_agreement.pdf",
+    "cuad_bangi_premium_managed_hosting_agreement.txt"
+  ]
+}

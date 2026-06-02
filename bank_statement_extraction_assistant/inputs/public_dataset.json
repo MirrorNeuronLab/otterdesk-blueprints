@@ -1,0 +1,17 @@
+{
+  "name": "AgamiAI Indian Bank Statement Synthetic Dataset",
+  "provider": "AgamiAI on Hugging Face",
+  "url": "https://huggingface.co/datasets/AgamiAI/Indian-Bank-Statements",
+  "license": "Apache 2.0",
+  "availability_note": "Public synthetic bank statement dataset with scanned PDFs and structured JSON metadata.",
+  "expected_files": [
+    "*.pdf",
+    "*.json"
+  ],
+  "demo_sample_source": {
+    "name": "AgamiAI Indian Bank Statement Synthetic Dataset sample",
+    "url": "https://huggingface.co/datasets/AgamiAI/Indian-Bank-Statements",
+    "local_manifest": "examples/sample_inputs/SAMPLE_DATASET_MANIFEST.json"
+  },
+  "download_hint": "Use huggingface_hub or git-lfs to fetch a small sample before the full dataset."
+}
