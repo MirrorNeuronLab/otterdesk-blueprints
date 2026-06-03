@@ -1,0 +1,865 @@
+{
+  "agent_handoffs": {},
+  "backpressure": {
+    "drop_policy": "skip_with_error",
+    "llm": {
+      "max_calls_per_minute": 30,
+      "max_concurrent_calls": 2
+    },
+    "max_concurrency": 4,
+    "max_events_per_second": 25,
+    "queue_size": 1000
+  },
+  "budgets": {
+    "max_connector_reads": 500,
+    "max_connector_writes": 20,
+    "max_disk_mb": 250,
+    "max_llm_calls": 20,
+    "max_llm_tokens": 20000,
+    "max_runtime_seconds": 600,
+    "max_stream_duration_seconds": 3600
+  },
+  "capabilities": {
+    "optional": [
+      "llm.call",
+      "network.egress",
+      "stream.publish",
+      "stream.subscribe"
+    ],
+    "required": [
+      "filesystem.write",
+      "stream.subscribe"
+    ]
+  },
+  "determinism": {
+    "enabled": true,
+    "frozen_clock": null,
+    "replay": {
+      "from_events": "events.jsonl",
+      "from_inputs": "inputs.json",
+      "llm_mode": "mock"
+    },
+    "seed_field": "seed"
+  },
+  "error_handling": {
+    "default_mode": "stop",
+    "policies": {
+      "llm_call": {
+        "backoff_seconds": 2,
+        "max_attempts": 3,
+        "mode": "retry"
+      },
+      "optional_output": {
+        "mode": "skip"
+      },
+      "required_output": {
+        "mode": "stop"
+      }
+    }
+  },
+  "execution_model": {
+    "execution_profile": "customer-service-voice-nvidia",
+    "placement": {
+      "node_constraint": "mn2@192.168.4.173",
+      "spark_host": "homer@spark",
+      "spark_ip": "192.168.4.173"
+    },
+    "required_gpu": {
+      "gpu_count": 1
+    },
+    "runner": "MirrorNeuron.Runner.HostLocal",
+    "target_node": "mn2@192.168.4.173"
+  },
+  "human_control": {
+    "enabled": true,
+    "events": [
+      "human_notice",
+      "human_input_requested",
+      "human_input_received",
+      "human_input_timeout",
+      "human_decision_applied"
+    ],
+    "mode": "notice_only",
+    "notice_event": "human_notice",
+    "reason": "The co-worker can converse with customers and recommend escalation, but it does not approve refunds, account changes, or other business actions by itself.",
+    "requires_ack": false
+  },
+  "identity": {
+    "blueprint_id": "generic_customer_service_voice_coworker",
+    "name": "Generic Customer Service Voice AI Co-worker"
+  },
+  "input_skills": {},
+  "inputs": {
+    "adapter": "mock",
+    "description": "Default generic customer-service voice co-worker inputs.",
+    "payload": {
+      "business_name": "Acme Customer Care",
+      "escalation_policy": "Escalate billing disputes, emergencies, account security issues, angry or distressed callers, requests for refunds or account changes, and any answer not grounded in the knowledge base.",
+      "knowledge_text": "",
+      "opening_message": "Thanks for calling Acme Customer Care. How can I help today?",
+      "service_scope": "Answer common customer-service questions from the editable knowledge base, ask clarifying questions, and recommend escalation when needed.",
+      "spark_host": "homer@spark",
+      "spark_ip": "192.168.4.173",
+      "spark_node": "mn2@192.168.4.173",
+      "voice": "magpie-neutral",
+      "voice_https_port": 7863,
+      "voice_public_url": "https://192.168.4.173:7863/customer-service"
+    }
+  },
+  "interfaces": {
+    "channels": {
+      "artifacts": {
+        "artifacts": [
+          "run.json",
+          "config.json",
+          "inputs.json",
+          "events.jsonl",
+          "result.json",
+          "final_artifact.json"
+        ],
+        "description": "Stable run-store files and domain-specific outputs.",
+        "optional_artifacts": [
+          "job.json",
+          "web_ui.json",
+          "ui.json",
+          "web/index.html",
+          "logs.jsonl"
+        ]
+      },
+      "events": {
+        "artifact": "events.jsonl",
+        "description": "Append-only workflow events."
+      },
+      "human": {
+        "artifact": "human.jsonl",
+        "description": "Human notices, approval requests, responses, timeouts, and applied decisions.",
+        "mirrored_to": "events.jsonl"
+      },
+      "input_skills": {
+        "description": "Connector-backed or reusable skill-backed input sources."
+      },
+      "inputs": {
+        "artifact": "inputs.json",
+        "description": "Resolved runtime inputs and adapter provenance."
+      },
+      "logs": {
+        "artifact": "logs.jsonl",
+        "description": "Runtime stdout/stderr and explicit log artifacts.",
+        "index": "logs.index.json",
+        "stream": "stdout/stderr"
+      },
+      "output_skills": {
+        "description": "Optional fan-out destinations after local run-store writes."
+      },
+      "outputs": {
+        "artifacts": [
+          "result.json",
+          "final_artifact.json"
+        ],
+        "description": "Primary result and final user-facing artifact."
+      },
+      "resources": {
+        "artifact": "resources.jsonl",
+        "description": "Resource samples such as token, runtime, connector, and disk usage."
+      },
+      "streams": {
+        "default": [
+          "events"
+        ],
+        "description": "Named data or event streams exposed by the blueprint.",
+        "kinds": [
+          "audio",
+          "video",
+          "data",
+          "multimodal"
+        ],
+        "transports": [
+          "file",
+          "http",
+          "https",
+          "rtsp",
+          "rtmp",
+          "webrtc",
+          "websocket",
+          "socketio",
+          "tcp",
+          "udp",
+          "sse",
+          "kafka",
+          "mqtt",
+          "custom"
+        ]
+      },
+      "web_ui": {
+        "artifacts": [
+          "web_ui.json",
+          "ui.json",
+          "web/index.html"
+        ],
+        "description": "Optional web input/output handles."
+      }
+    },
+    "config_sections": [
+      "standard_version",
+      "identity",
+      "mode",
+      "metadata",
+      "inputs",
+      "simulation",
+      "llm",
+      "outputs",
+      "logging",
+      "resources",
+      "human_control",
+      "real_adapters",
+      "streams",
+      "input_skills",
+      "output_skills",
+      "error_handling",
+      "state",
+      "capabilities",
+      "privacy",
+      "triggers",
+      "backpressure",
+      "determinism",
+      "schemas",
+      "budgets",
+      "agent_handoffs",
+      "web_ui",
+      "interfaces",
+      "execution_model",
+      "openshell_network"
+    ],
+    "identity_fields": [
+      "blueprint_id",
+      "name",
+      "run_id"
+    ],
+    "input_adapters": [
+      "mock",
+      "json",
+      "file",
+      "env_json"
+    ],
+    "optional_run_artifacts": [
+      "job.json",
+      "web_ui.json",
+      "ui.json",
+      "web/index.html",
+      "logs.jsonl",
+      "logs.index.json",
+      "human.jsonl",
+      "resources.jsonl",
+      "voice_service.json",
+      "conversation.jsonl",
+      "knowledge/customer_service_knowledge.txt"
+    ],
+    "output_adapters": [
+      "local_run_store"
+    ],
+    "response_schema": "mn.blueprint.response.v1",
+    "run_artifacts": [
+      "run.json",
+      "config.json",
+      "inputs.json",
+      "events.jsonl",
+      "result.json",
+      "final_artifact.json"
+    ],
+    "stream_kinds": [
+      "audio",
+      "video",
+      "data",
+      "multimodal"
+    ],
+    "stream_transports": [
+      "file",
+      "http",
+      "https",
+      "rtsp",
+      "rtmp",
+      "webrtc",
+      "websocket",
+      "socketio",
+      "tcp",
+      "udp",
+      "sse",
+      "kafka",
+      "mqtt",
+      "custom"
+    ],
+    "web_ui_adapters": [
+      "none",
+      "static_html",
+      "gradio",
+      "custom"
+    ]
+  },
+  "llm": {
+    "agent_role": "Customer-service voice co-worker that answers from the customer knowledge base, asks clarifying questions when needed, and recommends escalation when it is unsure or outside scope.",
+    "base_url": "http://127.0.0.1:8000/v1",
+    "model": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16",
+    "provider": "openai-compatible",
+    "system_prompt": "prompts/chat-system.md",
+    "temperature": 0.2
+  },
+  "logging": {
+    "events": [
+      "run_started",
+      "inputs_loaded",
+      "simulation_step_started",
+      "llm_decision",
+      "simulation_state_updated",
+      "run_completed",
+      "human_notice",
+      "blueprint_status",
+      "blueprint_phase_started",
+      "blueprint_phase_completed",
+      "blueprint_phase_failed",
+      "artifact_written",
+      "human_input_requested",
+      "human_input_received",
+      "human_input_timeout",
+      "human_decision_applied",
+      "output_skill_started",
+      "output_skill_completed",
+      "output_skill_failed",
+      "customer_service_voice_start_requested",
+      "customer_service_voice_prepared",
+      "customer_service_voice_stack_ready",
+      "customer_service_voice_started",
+      "customer_service_voice_ready",
+      "customer_service_voice_health_checked",
+      "customer_service_knowledge_loaded",
+      "customer_service_knowledge_updated",
+      "customer_service_rag_context_selected",
+      "customer_service_turn_started",
+      "customer_service_turn_completed",
+      "customer_service_escalation_recommended",
+      "customer_service_voice_error"
+    ],
+    "events_jsonl": true,
+    "level": "INFO",
+    "logs_jsonl": true,
+    "redact_env_secrets": true,
+    "redact_fields": [
+      "api_key",
+      "token",
+      "authorization",
+      "cookie",
+      "password",
+      "private_key"
+    ],
+    "resources_jsonl": true,
+    "rotation": {
+      "check_interval_records": 100,
+      "compress": "background",
+      "enabled": true,
+      "max_bytes_mb": 100,
+      "max_segments": 7,
+      "span_seconds": 86400
+    },
+    "stderr_jsonl": true,
+    "writer": {
+      "batch_size": 100,
+      "flush_interval_seconds": 0.5,
+      "mode": "async",
+      "overflow_policy": "drop_low_priority",
+      "queue_size": 10000,
+      "shutdown_flush_timeout_seconds": 2
+    }
+  },
+  "manifest_config_bindings": [
+    {
+      "config_path": "identity.run_id",
+      "manifest_path": "runtime.bindings.run_workflow.workers.visual_detector.with.environment.MN_RUN_ID",
+      "stringify": true
+    },
+    {
+      "config_path": "outputs.run_root",
+      "manifest_path": "runtime.bindings.run_workflow.workers.visual_detector.with.environment.MN_RUNS_ROOT",
+      "stringify": true
+    }
+  ],
+  "memory_layer": {
+    "collection": "mn_memory",
+    "containers": "optional_sidecar",
+    "context_addr_env": "MN_CONTEXT_ADDR",
+    "conversation": {
+      "agent_role": "otterdesk_chat",
+      "include_human_events": true,
+      "include_runtime_events": true,
+      "include_runtime_logs": true,
+      "target_tokens": 2400,
+      "token_budget": 6000,
+      "use_model_compression": false
+    },
+    "conversation_enabled": true,
+    "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
+    "default_context_addr": "localhost:50052",
+    "enabled": true,
+    "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
+    "namespace": "generic_customer_service_voice_coworker_context",
+    "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
+    "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
+    "sdk_distribution": "mirrorneuron-membrane-python-sdk",
+    "sdk_import_package": "mn_context_engine_sdk"
+  },
+  "metadata": {
+    "category": "Business",
+    "description": "Runs a Spark-hosted HTTPS/WebRTC customer-service voice co-worker backed by NVIDIA ASR, Nemotron vLLM, Magpie TTS, and editable plain-text RAG knowledge.",
+    "execution_profile": "customer-service-voice-nvidia",
+    "spark_default_target": "mn2@192.168.4.173",
+    "voice_url": "https://192.168.4.173:7863/customer-service"
+  },
+  "mode": "service",
+  "openshell_network": {
+    "endpoints": [
+      {
+        "allowed_ips": [
+          "192.168.4.173/32"
+        ],
+        "binaries": [
+          "/bin/bash",
+          "/usr/bin/bash",
+          "/usr/bin/python3",
+          "/usr/bin/python3.12"
+        ],
+        "name": "spark-customer-service-voice-page",
+        "uri": "https://192.168.4.173:7863/customer-service"
+      },
+      {
+        "allowed_ips": [
+          "192.168.4.173/32"
+        ],
+        "binaries": [
+          "/bin/bash",
+          "/usr/bin/bash",
+          "/usr/bin/python3",
+          "/usr/bin/python3.12"
+        ],
+        "name": "spark-nvidia-asr",
+        "uri": "http://192.168.4.173:8080"
+      },
+      {
+        "allowed_ips": [
+          "192.168.4.173/32"
+        ],
+        "binaries": [
+          "/bin/bash",
+          "/usr/bin/bash",
+          "/usr/bin/python3",
+          "/usr/bin/python3.12"
+        ],
+        "name": "spark-nemotron-vllm",
+        "uri": "http://192.168.4.173:8000"
+      },
+      {
+        "allowed_ips": [
+          "192.168.4.173/32"
+        ],
+        "binaries": [
+          "/bin/bash",
+          "/usr/bin/bash",
+          "/usr/bin/python3",
+          "/usr/bin/python3.12"
+        ],
+        "name": "spark-magpie-tts",
+        "uri": "http://192.168.4.173:8001"
+      }
+    ],
+    "include_dns": false,
+    "policy_path": "voice_service/policies/customer-service-egress.yaml"
+  },
+  "output_skills": {
+    "websocket_events": {
+      "connector": "websocket",
+      "content": "events",
+      "destination": "MN_BLUEPRINT_EVENTS_WS_URL",
+      "direction": "output",
+      "enabled": false,
+      "failure_policy": "skip",
+      "mock": true,
+      "required": false,
+      "skill": "websocket_stream",
+      "transport": "websocket",
+      "url_env": "MN_BLUEPRINT_EVENTS_WS_URL"
+    }
+  },
+  "outputs": {
+    "adapter": "local_run_store",
+    "artifact_contract": "Voice service handle, editable knowledge snapshot, conversation transcript, event stream, and final run summary.",
+    "run_root": "~/.mn/runs",
+    "skills": {
+      "websocket_events": {
+        "connector": "websocket",
+        "content": "events",
+        "direction": "output",
+        "enabled": false,
+        "mock": true,
+        "required": false,
+        "skill": "websocket_stream",
+        "transport": "websocket",
+        "url_env": "MN_BLUEPRINT_EVENTS_WS_URL"
+      }
+    },
+    "tcp": {
+      "enabled": false,
+      "ports": []
+    },
+    "write_run_store": true
+  },
+  "privacy": {
+    "default_classification": "internal",
+    "rules": {
+      "confidential": {
+        "log": "redacted",
+        "send_to_llm": "allowed_configs_only",
+        "send_to_output_skills": "approved_destinations_only"
+      },
+      "internal": {
+        "log": "metadata_only",
+        "send_to_llm": true,
+        "send_to_output_skills": true
+      },
+      "public": {
+        "log": true,
+        "send_to_llm": true,
+        "send_to_output_skills": true
+      },
+      "regulated": {
+        "log": "redacted",
+        "send_to_llm": false,
+        "send_to_output_skills": "approved_destinations_only"
+      }
+    }
+  },
+  "real_adapters": {
+    "asr": "nvidia_parakeet",
+    "enabled": true,
+    "llm": "nemotron_vllm_openai_compatible",
+    "tts": "magpie_tts",
+    "voice_service": "spark_https_webrtc"
+  },
+  "resources": {
+    "enabled": true,
+    "gpu_count": 1,
+    "gpu_enabled": true,
+    "gpu_sample_interval_seconds": 10,
+    "history_window_hours": 24,
+    "raw_retention_hours": 48,
+    "rollup_bucket_seconds": 3600,
+    "sample_interval_seconds": 10
+  },
+  "schemas": {
+    "artifact_record": "mn.artifact.record.v1",
+    "config": "mn.blueprint.config.v1",
+    "events": "mn.blueprint.events.v1",
+    "final_artifact": "mn.blueprint.final_artifact.v1",
+    "human_control": "mn.blueprint.human_control.v1",
+    "input_skills": "mn.blueprint.input_skills.v1",
+    "inputs": "mn.blueprint.inputs.v1",
+    "logs": "mn.blueprint.logs.v1",
+    "output_skills": "mn.blueprint.output_skills.v1",
+    "resources": "mn.blueprint.resources.v1",
+    "status_contract": "mn.blueprint.status_contract.v1",
+    "web_ui": "mn.blueprint.web_ui.v1"
+  },
+  "simulation": {
+    "deterministic": true,
+    "enabled": true,
+    "seed_field": "seed",
+    "type": "Video stream sampling with visual detection review state."
+  },
+  "standard_version": "1.0",
+  "state": {
+    "checkpoint_interval": {
+      "events": 100,
+      "seconds": 60
+    },
+    "enabled": true,
+    "idempotency_key_fields": [
+      "source_ref",
+      "event_id"
+    ],
+    "resume_mode": "checkpoint"
+  },
+  "streams": {
+    "customer_service_voice_stream": {
+      "codec": "opus",
+      "enabled": true,
+      "kind": "audio",
+      "transport": "webrtc",
+      "uri": "https://192.168.4.173:7863/customer-service"
+    }
+  },
+  "triggers": {
+    "schedule": null,
+    "sources": [
+      "video_watch_stream"
+    ],
+    "type": "stream"
+  },
+  "video_source": {
+    "camera_id": "video-watch",
+    "codec": "h264",
+    "demo_video": "data/sample.mp4",
+    "description": "Default mapped RTSP endpoint consumed by the OpenShell worker. The host-side pre-launch hook loops the bundled demo video into the selected local RTSP port before launch.",
+    "frame_jpeg_max_width": 896,
+    "frame_sample_seconds": 10,
+    "transport": "rtsp",
+    "upstream_uri": "",
+    "uri": "rtsp://127.0.0.1:8554/video-watch"
+  },
+  "vl_model": {
+    "base_url": "http://192.168.4.173:11434",
+    "description": "Configurable vision-language model used to understand sampled video video frames.",
+    "endpoint": "/api/generate",
+    "model": "nemotron3:33b",
+    "provider": "ollama",
+    "temperature": 0,
+    "timeout_seconds": 90
+  },
+  "web_ui": {
+    "dashboard": {
+      "browser_publish_source": "disabled",
+      "browser_video_source": "disabled",
+      "conversation_artifact": "conversation.jsonl",
+      "copy": {
+        "event_glossary": {
+          "customer_service_escalation_recommended": "The co-worker recommended human handoff because the request was outside scope or not grounded in knowledge.",
+          "customer_service_knowledge_updated": "The editable plain-text knowledge was saved for this run.",
+          "customer_service_rag_context_selected": "The service selected knowledge snippets for the current user turn.",
+          "customer_service_turn_completed": "A customer voice turn was answered and logged.",
+          "customer_service_voice_error": "The voice service or NVIDIA stack reported an error.",
+          "customer_service_voice_ready": "The Spark HTTPS/WebRTC voice page is accepting browser calls."
+        },
+        "events_help": "Events show service health, knowledge edits, RAG selections, conversation turns, and escalation recommendations.",
+        "overview": "This service launches a Spark-hosted customer-service voice page at https://192.168.4.173:7863/customer-service. The customer knowledge is plain text and can be edited during the run.",
+        "review_help": "Review the voice service handle, conversation log, editable knowledge snapshot, and final run summary before handoff.",
+        "workflow_steps": [
+          "Confirm Spark is reachable and has an NVIDIA GPU.",
+          "Start or reuse the shared NVIDIA ASR, Nemotron vLLM, and Magpie TTS stack.",
+          "Prepare the run-scoped editable knowledge file.",
+          "Serve the HTTPS/WebRTC customer-service voice page from Spark.",
+          "Copy knowledge and conversation artifacts back into the local run store during cleanup."
+        ]
+      },
+      "data_source": "local_run_store",
+      "event_feed": {
+        "default_path": "~/.mn/runs/<run_id>/events.jsonl",
+        "format": "jsonl"
+      },
+      "event_types": [
+        "customer_service_voice_start_requested",
+        "customer_service_voice_prepared",
+        "customer_service_voice_stack_ready",
+        "customer_service_voice_started",
+        "customer_service_voice_ready",
+        "customer_service_voice_health_checked",
+        "customer_service_knowledge_loaded",
+        "customer_service_knowledge_updated",
+        "customer_service_rag_context_selected",
+        "customer_service_turn_started",
+        "customer_service_turn_completed",
+        "customer_service_escalation_recommended",
+        "customer_service_voice_error"
+      ],
+      "grafana": {
+        "editable": false,
+        "panels": [
+          {
+            "gridPos": {
+              "h": 4,
+              "w": 24,
+              "x": 0,
+              "y": 0
+            },
+            "id": 1,
+            "options": {
+              "content": "Spark voice page: https://192.168.4.173:7863/customer-service",
+              "mode": "markdown"
+            },
+            "title": "Overview",
+            "type": "text"
+          },
+          {
+            "gridPos": {
+              "h": 4,
+              "w": 6,
+              "x": 0,
+              "y": 4
+            },
+            "id": 2,
+            "targets": [
+              {
+                "queryType": "run_status",
+                "refId": "A"
+              }
+            ],
+            "title": "Run Status",
+            "type": "stat"
+          },
+          {
+            "gridPos": {
+              "h": 4,
+              "w": 6,
+              "x": 6,
+              "y": 4
+            },
+            "id": 3,
+            "targets": [
+              {
+                "eventType": "customer_service_voice_ready",
+                "queryType": "latest_event",
+                "refId": "A"
+              }
+            ],
+            "title": "Voice Service",
+            "type": "stat"
+          },
+          {
+            "gridPos": {
+              "h": 4,
+              "w": 6,
+              "x": 12,
+              "y": 4
+            },
+            "id": 4,
+            "targets": [
+              {
+                "eventType": "customer_service_knowledge_updated",
+                "queryType": "event_count",
+                "refId": "A"
+              }
+            ],
+            "title": "Knowledge Updates",
+            "type": "stat"
+          },
+          {
+            "gridPos": {
+              "h": 4,
+              "w": 6,
+              "x": 18,
+              "y": 4
+            },
+            "id": 5,
+            "targets": [
+              {
+                "eventType": "customer_service_turn_completed",
+                "queryType": "event_count",
+                "refId": "A"
+              }
+            ],
+            "title": "Conversation Turns",
+            "type": "stat"
+          },
+          {
+            "gridPos": {
+              "h": 10,
+              "w": 12,
+              "x": 0,
+              "y": 8
+            },
+            "id": 6,
+            "targets": [
+              {
+                "queryType": "events",
+                "refId": "A"
+              }
+            ],
+            "title": "Operator Event Log",
+            "type": "logs"
+          },
+          {
+            "gridPos": {
+              "h": 10,
+              "w": 12,
+              "x": 12,
+              "y": 8
+            },
+            "id": 7,
+            "options": {
+              "path": "voice_service.json"
+            },
+            "title": "Voice Service Handle",
+            "type": "json"
+          }
+        ]
+      },
+      "knowledge_artifact": "knowledge/customer_service_knowledge.txt",
+      "panels": [
+        "current_status",
+        "recent_events",
+        "pending_human_requests",
+        "output_artifacts",
+        "resource_usage",
+        "errors",
+        "input_lag",
+        "backpressure",
+        "llm_calls",
+        "token_budget",
+        "llm_retries",
+        "output_skill_attempts",
+        "output_skill_failures"
+      ],
+      "reads": [
+        "events.jsonl",
+        "human.jsonl",
+        "logs.jsonl",
+        "resources.jsonl",
+        "final_artifact.json",
+        "web_ui.json",
+        "voice_service.json",
+        "conversation.jsonl",
+        "knowledge/customer_service_knowledge.txt"
+      ],
+      "rendering": {
+        "layout": {
+          "column_regions": [
+            {
+              "w": 12,
+              "x": 0
+            },
+            {
+              "w": 12,
+              "x": 12
+            }
+          ]
+        }
+      },
+      "spark_health_url": "https://192.168.4.173:7863/health",
+      "standard_panels": [
+        "current_status",
+        "recent_events",
+        "pending_human_requests",
+        "output_artifacts",
+        "resource_usage",
+        "errors",
+        "input_lag",
+        "backpressure",
+        "llm_calls",
+        "token_budget",
+        "llm_retries",
+        "output_skill_attempts",
+        "output_skill_failures"
+      ],
+      "video_preview_bridge": {
+        "auto_start": false,
+        "cleanup_script": "scripts/post-launch.sh",
+        "enabled": false
+      },
+      "voice_url": "https://192.168.4.173:7863/customer-service"
+    },
+    "enabled": true,
+    "input": {
+      "adapter": "gradio",
+      "enabled": true
+    },
+    "output": {
+      "adapter": "gradio",
+      "artifact": "web_ui.json",
+      "enabled": true
+    }
+  }
+}

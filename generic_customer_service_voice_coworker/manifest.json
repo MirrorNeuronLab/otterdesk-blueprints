@@ -1,0 +1,1767 @@
+{
+  "apiVersion": "mn.workflow/v1",
+  "contract": {
+    "events": {
+      "human_stream": "human.jsonl",
+      "stream": "events.jsonl",
+      "types": [
+        "run_started",
+        "inputs_loaded",
+        "simulation_step_started",
+        "llm_decision",
+        "simulation_state_updated",
+        "run_completed",
+        "human_notice",
+        "blueprint_status",
+        "blueprint_phase_started",
+        "blueprint_phase_completed",
+        "blueprint_phase_failed",
+        "artifact_written",
+        "human_input_requested",
+        "human_input_received",
+        "human_input_timeout",
+        "human_decision_applied",
+        "output_skill_started",
+        "output_skill_completed",
+        "output_skill_failed",
+        "customer_service_voice_start_requested",
+        "customer_service_voice_prepared",
+        "customer_service_voice_stack_ready",
+        "customer_service_voice_started",
+        "customer_service_voice_ready",
+        "customer_service_voice_health_checked",
+        "customer_service_knowledge_loaded",
+        "customer_service_knowledge_updated",
+        "customer_service_rag_context_selected",
+        "customer_service_turn_started",
+        "customer_service_turn_completed",
+        "customer_service_escalation_recommended",
+        "customer_service_voice_error"
+      ]
+    },
+    "input_adapters": {
+      "default": "mock",
+      "resolved_artifact": "inputs.json",
+      "supported": [
+        "mock",
+        "json",
+        "file",
+        "env_json"
+      ]
+    },
+    "inputs": {
+      "business_name": {
+        "description": "Name of the customer business the voice co-worker represents.",
+        "example": "Acme Home Services",
+        "privacy": "internal",
+        "required": true,
+        "type": "domain_value"
+      },
+      "escalation_policy": {
+        "description": "When and how the co-worker should recommend human escalation.",
+        "example": "Escalate billing disputes, account security issues, medical emergencies, and any answer not grounded in the knowledge base.",
+        "privacy": "internal",
+        "required": true,
+        "type": "domain_value"
+      },
+      "knowledge_text": {
+        "description": "Editable customer-service knowledge used as the initial RAG text for this run.",
+        "example": "Hours: Monday-Friday 9 AM-5 PM. Emergency calls are escalated to the on-call dispatcher.",
+        "privacy": "internal",
+        "required": true,
+        "type": "domain_text"
+      },
+      "opening_message": {
+        "description": "First spoken message after the caller connects.",
+        "example": "Thanks for calling Acme Home Services. How can I help today?",
+        "privacy": "internal",
+        "required": true,
+        "type": "domain_value"
+      },
+      "service_scope": {
+        "description": "Plain-language scope of what the co-worker should help customers with.",
+        "example": "Answer questions about appointments, service areas, pricing basics, and support handoff.",
+        "privacy": "internal",
+        "required": true,
+        "type": "domain_value"
+      },
+      "spark_host": {
+        "description": "SSH destination for the NVIDIA Spark box.",
+        "example": "homer@spark",
+        "privacy": "internal",
+        "required": false,
+        "type": "domain_value"
+      },
+      "voice": {
+        "description": "TTS voice name or preset used by the Magpie service.",
+        "example": "magpie-neutral",
+        "privacy": "internal",
+        "required": false,
+        "type": "domain_value"
+      },
+      "voice_https_port": {
+        "description": "HTTPS port for the Spark-hosted WebRTC voice page.",
+        "example": 7863,
+        "privacy": "internal",
+        "required": false,
+        "type": "number"
+      }
+    },
+    "outputs": {
+      "artifacts": [
+        {
+          "artifact_id": "run_metadata",
+          "mime_type": "application/json",
+          "path": "run.json",
+          "producer": "local_run_store",
+          "schema_version": "mn.artifact.run_summary.v1",
+          "source_refs": [],
+          "type": "run_summary"
+        },
+        {
+          "artifact_id": "resolved_config",
+          "mime_type": "application/json",
+          "path": "config.json",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.config.v1",
+          "source_refs": [],
+          "type": "config"
+        },
+        {
+          "artifact_id": "resolved_inputs",
+          "mime_type": "application/json",
+          "path": "inputs.json",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.inputs.v1",
+          "source_refs": [],
+          "type": "inputs"
+        },
+        {
+          "artifact_id": "event_stream",
+          "mime_type": "application/x-jsonlines",
+          "path": "events.jsonl",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.events.v1",
+          "source_refs": [],
+          "type": "events"
+        },
+        {
+          "artifact_id": "result",
+          "mime_type": "application/json",
+          "path": "result.json",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.response.v1",
+          "source_refs": [
+            "inputs.json",
+            "events.jsonl"
+          ],
+          "type": "result"
+        },
+        {
+          "artifact_id": "final_artifact",
+          "mime_type": "application/json",
+          "path": "final_artifact.json",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.final_artifact.v1",
+          "source_refs": [
+            "inputs.json",
+            "events.jsonl",
+            "result.json"
+          ],
+          "type": "final_artifact"
+        },
+        {
+          "artifact_id": "logs",
+          "mime_type": "application/x-jsonlines",
+          "path": "logs.jsonl",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.logs.v1",
+          "source_refs": [
+            "events.jsonl"
+          ],
+          "type": "logs"
+        },
+        {
+          "artifact_id": "resources",
+          "mime_type": "application/x-jsonlines",
+          "path": "resources.jsonl",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.resources.v1",
+          "source_refs": [
+            "run.json"
+          ],
+          "type": "resource_samples"
+        },
+        {
+          "artifact_id": "web_ui",
+          "mime_type": "application/json",
+          "path": "web_ui.json",
+          "producer": "web_ui",
+          "schema_version": "mn.blueprint.web_ui.v1",
+          "source_refs": [
+            "run.json"
+          ],
+          "type": "web_ui"
+        },
+        {
+          "artifact_id": "human_events",
+          "mime_type": "application/x-jsonlines",
+          "path": "human.jsonl",
+          "producer": "human_control",
+          "schema_version": "mn.blueprint.human_events.v1",
+          "source_refs": [
+            "events.jsonl"
+          ],
+          "type": "human_events"
+        },
+        {
+          "artifact_id": "voice_service_handle",
+          "mime_type": "application/json",
+          "path": "voice_service.json",
+          "producer": "voice_service",
+          "schema_version": "mn.blueprint.voice_service.v1",
+          "source_refs": [
+            "run.json",
+            "events.jsonl"
+          ],
+          "type": "service_handle"
+        },
+        {
+          "artifact_id": "knowledge_snapshot",
+          "mime_type": "text/plain",
+          "path": "knowledge/customer_service_knowledge.txt",
+          "producer": "voice_service",
+          "schema_version": "mn.blueprint.knowledge_text.v1",
+          "source_refs": [
+            "inputs.json",
+            "events.jsonl"
+          ],
+          "type": "knowledge_text"
+        },
+        {
+          "artifact_id": "conversation_log",
+          "mime_type": "application/x-jsonlines",
+          "path": "conversation.jsonl",
+          "producer": "voice_service",
+          "schema_version": "mn.blueprint.conversation.v1",
+          "source_refs": [
+            "events.jsonl",
+            "knowledge/customer_service_knowledge.txt"
+          ],
+          "type": "conversation_log"
+        },
+        {
+          "artifact_id": "voice_dashboard",
+          "mime_type": "application/json",
+          "path": "web_ui.json",
+          "producer": "web_ui",
+          "schema_version": "mn.blueprint.dashboard.v1",
+          "source_refs": [
+            "voice_service.json",
+            "events.jsonl",
+            "final_artifact.json"
+          ],
+          "type": "dashboard"
+        }
+      ],
+      "primary": {
+        "id": "final_artifact",
+        "path": "final_artifact.json",
+        "required_fields": [
+          "type",
+          "executive_summary",
+          "recommended_action",
+          "confidence",
+          "evidence",
+          "next_steps",
+          "source_refs"
+        ],
+        "schema_version": "mn.blueprint.final_artifact_contract.v1",
+        "type": "final_artifact"
+      },
+      "profile": "service_run_store"
+    },
+    "privacy": {
+      "default_classification": "internal",
+      "rules": {
+        "confidential": {
+          "log": "redacted",
+          "send_to_llm": "allowed_configs_only",
+          "send_to_output_skills": "approved_destinations_only"
+        },
+        "internal": {
+          "log": "metadata_only",
+          "send_to_llm": true,
+          "send_to_output_skills": true
+        },
+        "public": {
+          "log": true,
+          "send_to_llm": true,
+          "send_to_output_skills": true
+        },
+        "regulated": {
+          "log": "redacted",
+          "send_to_llm": false,
+          "send_to_output_skills": "approved_destinations_only"
+        }
+      }
+    },
+    "status": {
+      "event": "blueprint_status",
+      "heartbeat": true,
+      "phases": [
+        "loading_inputs",
+        "running_worker",
+        "waiting_for_human",
+        "writing_artifacts",
+        "completed"
+      ]
+    },
+    "summary": "Runs a Spark-hosted HTTPS/WebRTC customer-service voice co-worker backed by NVIDIA ASR, Nemotron vLLM, Magpie TTS, and editable plain-text RAG knowledge.",
+    "users": [
+      "Support teams, customer operations leads, small businesses, service desks, and AI operations teams."
+    ]
+  },
+  "description": "Runs a Spark-hosted HTTPS/WebRTC customer-service voice co-worker backed by NVIDIA ASR, Nemotron vLLM, Magpie TTS, and editable plain-text RAG knowledge.",
+  "edges": [
+    {
+      "edge_id": "ingress_to_voice_service",
+      "from_node": "ingress",
+      "message_type": "customer_service_voice_start_requested",
+      "to_node": "voice_service"
+    }
+  ],
+  "entrypoints": [
+    "ingress"
+  ],
+  "flow": {
+    "entrypoint": "prepare_voice_service",
+    "graph": {
+      "dynamic": {
+        "apply_at": "between_steps",
+        "enabled": false,
+        "patch_events": []
+      },
+      "edges": [
+        {
+          "accepts": [
+            "done"
+          ],
+          "event": "customer_service_voice_prepared",
+          "from": "prepare_voice_service",
+          "id": "prepare_voice_service_to_serve_customer_conversation",
+          "required": true,
+          "to": "serve_customer_conversation"
+        }
+      ],
+      "execution": {
+        "strategy": "parallel"
+      },
+      "mode": "static_dag",
+      "schema": "mn.workflow.problem_graph/v1",
+      "sink": "serve_customer_conversation",
+      "source": "prepare_voice_service"
+    },
+    "observers": [],
+    "policy": {
+      "failure": {
+        "default": "fail_closed"
+      },
+      "human": {
+        "decisions": [
+          "approve",
+          "revise",
+          "reject"
+        ],
+        "default": "reject",
+        "enabled": true,
+        "events": {
+          "decision": "human_decision_applied",
+          "request": "human_input_requested",
+          "response": "human_input_received",
+          "timeout": "human_input_timeout"
+        },
+        "mode": "notice_only",
+        "timeout_seconds": null
+      },
+      "safety": {
+        "blocked_actions": [],
+        "default": "allow",
+        "rules": []
+      }
+    },
+    "state": {
+      "business_name": {
+        "from": "$inputs.business_name"
+      },
+      "escalation_policy": {
+        "from": "$inputs.escalation_policy"
+      },
+      "knowledge_text": {
+        "from": "$inputs.knowledge_text"
+      },
+      "service_scope": {
+        "from": "$inputs.service_scope"
+      },
+      "voice_service": {},
+      "voice_url": {
+        "from": "$inputs.voice_url"
+      }
+    },
+    "steps": [
+      {
+        "action": "prepare_voice_service",
+        "control": {
+          "failure_policy": "fail_workflow",
+          "required": true,
+          "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 2,
+            "jitter": 0,
+            "max_attempts": 2
+          },
+          "timeout_seconds": 900,
+          "uncertainty": {
+            "min_confidence": 0.0,
+            "on_low_confidence": "continue_with_warning"
+          }
+        },
+        "emits": "customer_service_voice_prepared",
+        "goal": "Validate Spark, prepare run knowledge, and make the NVIDIA voice stack ready.",
+        "id": "prepare_voice_service",
+        "in": {
+          "business_name": "$state.business_name",
+          "knowledge_text": "$state.knowledge_text"
+        },
+        "kind": "stage",
+        "label": "Prepare Voice Service",
+        "on": {
+          "customer_service_voice_prepared": "serve_customer_conversation"
+        },
+        "out": {
+          "voice_service": "$state.voice_service"
+        },
+        "run": "prepare_voice_service"
+      },
+      {
+        "action": "serve_customer_conversation",
+        "control": {
+          "failure_policy": "fail_workflow",
+          "required": true,
+          "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 2,
+            "jitter": 0,
+            "max_attempts": 2
+          },
+          "timeout_seconds": 900,
+          "uncertainty": {
+            "min_confidence": 0.0,
+            "on_low_confidence": "continue_with_warning"
+          }
+        },
+        "emits": "customer_service_voice_started",
+        "goal": "Run the Spark-hosted WebRTC page so a customer can talk to the co-worker.",
+        "id": "serve_customer_conversation",
+        "in": {
+          "voice_service": "$state.voice_service"
+        },
+        "kind": "stage",
+        "label": "Serve Customer Conversation",
+        "on": {
+          "customer_service_voice_started": "completed"
+        },
+        "out": {
+          "voice_url": "$state.voice_url"
+        },
+        "run": "serve_customer_conversation"
+      }
+    ]
+  },
+  "graph_id": "generic_customer_service_voice_coworker_v1",
+  "id": "generic_customer_service_voice_coworker",
+  "input_validation": {
+    "rules": [
+      {
+        "message": "video_source.uri must be an rtsp:// or rtsps:// URL.",
+        "name": "video_source_uri_rtsp",
+        "path": "video_source.uri",
+        "pattern": "^rtsps?://",
+        "type": "pattern"
+      },
+      {
+        "command": [
+          "python3",
+          "payloads/validation/validate_rtsp_source.py"
+        ],
+        "name": "video_source_rtsp_probe",
+        "timeout_seconds": 12,
+        "type": "command"
+      }
+    ]
+  },
+  "job_name": "generic-customer-service-voice-coworker",
+  "kind": "Workflow",
+  "license": "LICENSE.md",
+  "manifest_version": "1.0",
+  "metadata": {
+    "agent_role": "Customer-service voice co-worker that answers from the customer knowledge base, asks clarifying questions when needed, and recommends escalation when it is unsure or outside scope.",
+    "agent_templates": {
+      "library": "../mn-agents/index.json",
+      "nodes": [
+        {
+          "alias": "customer_service_voice_router",
+          "display_name": "Customer Service Voice Router",
+          "node_id": "ingress",
+          "uses": "mn-agents.control_router@1.0.0"
+        },
+        {
+          "alias": "customer_service_voice_host",
+          "display_name": "Customer Service Voice Host",
+          "node_id": "voice_service",
+          "uses": "mn-agents.data_python_executor@1.0.0",
+          "with": {
+            "command": [
+              "bash",
+              "payloads/voice_service/scripts/run_voice_service.sh"
+            ],
+            "environment": {
+              "CUSTOMER_SERVICE_PUBLIC_URL": "https://192.168.4.173:7863/customer-service",
+              "CUSTOMER_SERVICE_RUN_ID": "${MN_RUN_ID}",
+              "CUSTOMER_SERVICE_SPARK_HOST": "homer@spark",
+              "CUSTOMER_SERVICE_SPARK_IP": "192.168.4.173",
+              "NEMOTRON_ROOT": "/home/homer/Sandbox/nemotron-january-2026",
+              "NVIDIA_ASR_URL": "ws://127.0.0.1:8080",
+              "NVIDIA_LLM_MODEL": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16",
+              "NVIDIA_LLM_URL": "http://127.0.0.1:8000/v1",
+              "NVIDIA_TTS_URL": "http://127.0.0.1:8001",
+              "VOICE_HTTPS_PORT": "7863"
+            },
+            "execution_profile": "customer-service-voice-nvidia",
+            "gpu_count": 1,
+            "health_url": "https://192.168.4.173:7863/health",
+            "output_message_type": "customer_service_voice_started",
+            "pool": "customer-service-voice-nvidia",
+            "pool_slots": 1,
+            "public_url": "https://192.168.4.173:7863/customer-service",
+            "script": "payloads/voice_service/scripts/run_voice_service.sh",
+            "service": true,
+            "service_kind": "https_webrtc_voice",
+            "target_node": "mn2@192.168.4.173",
+            "upload_path": "voice_service",
+            "upload_paths": [
+              {
+                "source": "voice_service",
+                "target": "voice_service"
+              }
+            ]
+          }
+        }
+      ],
+      "render_tool": "../mn-agents/tools/render_agent_templates.py",
+      "rendered_output": "manifest.rendered.json or runtime metadata",
+      "renderer": "mn_blueprint_support.render_manifest_agent_templates"
+    },
+    "benefit": "Lets an operator launch a local OtterDesk run, update plain-text support knowledge, and hand customers a Spark HTTPS voice link backed by the NVIDIA stack.",
+    "blueprint_id": "generic_customer_service_voice_coworker",
+    "category": "business",
+    "configuration_contract": {
+      "optional_files": [
+        "config/overwrite.json",
+        "prompts/",
+        "knowledge/"
+      ],
+      "required_files": [
+        "manifest.json",
+        "README.md",
+        "SPEC.md",
+        "config/default.json",
+        "payloads/",
+        "LICENSE.md",
+        "TERM.md"
+      ]
+    },
+    "customizable_for": "Customer support, service desks, appointment intake, SaaS help desks, retail support, and internal help lines.",
+    "description": "Runs a Spark-hosted HTTPS/WebRTC customer-service voice co-worker backed by NVIDIA ASR, Nemotron vLLM, Magpie TTS, and editable plain-text RAG knowledge.",
+    "human_control": {
+      "enabled": true,
+      "events": [
+        "human_notice",
+        "human_input_requested",
+        "human_input_received",
+        "human_input_timeout",
+        "human_decision_applied"
+      ],
+      "mode": "notice_only",
+      "notice_event": "human_notice",
+      "reason": "The co-worker can converse with customers and recommend escalation, but it does not approve refunds, account changes, or other business actions by itself.",
+      "requires_ack": false
+    },
+    "init_config_review": {
+      "fields": [
+        {
+          "default": "Acme Customer Care",
+          "description": "The name the voice co-worker should use with callers.",
+          "label": "Business name",
+          "path": "inputs.payload.business_name"
+        },
+        {
+          "default": "Answer common support questions and recommend escalation when unsure.",
+          "description": "The boundaries of what the co-worker may discuss.",
+          "label": "Service scope",
+          "path": "inputs.payload.service_scope"
+        },
+        {
+          "default": "Use knowledge/default_knowledge.txt",
+          "description": "Plain text support knowledge seeded into the run and editable from the voice page.",
+          "label": "Knowledge text",
+          "path": "inputs.payload.knowledge_text"
+        },
+        {
+          "default": "Escalate billing disputes, emergencies, account security issues, and any answer not grounded in knowledge.",
+          "description": "Rules for asking a human to take over.",
+          "label": "Escalation policy",
+          "path": "inputs.payload.escalation_policy"
+        },
+        {
+          "default": "homer@spark",
+          "description": "SSH destination for the NVIDIA box used by pre-launch and cleanup.",
+          "label": "Spark SSH host",
+          "path": "inputs.payload.spark_host"
+        },
+        {
+          "default": 7863,
+          "description": "HTTPS/WebRTC voice page port on Spark.",
+          "label": "Spark HTTPS port",
+          "path": "inputs.payload.voice_https_port"
+        }
+      ],
+      "instruction": "When running in OtterDesk, show these overwriteable fields during init config and ask the user to confirm or edit them before launch.",
+      "required": true
+    },
+    "input_contract": {
+      "description": "Runs a Spark-hosted HTTPS/WebRTC customer-service voice co-worker backed by NVIDIA ASR, Nemotron vLLM, Magpie TTS, and editable plain-text RAG knowledge.",
+      "optional_inputs": [
+        {
+          "description": "TTS voice name or preset used by the Magpie service.",
+          "example": "magpie-neutral",
+          "name": "voice",
+          "type": "domain_value"
+        },
+        {
+          "description": "SSH destination for the NVIDIA Spark box.",
+          "example": "homer@spark",
+          "name": "spark_host",
+          "type": "domain_value"
+        },
+        {
+          "description": "HTTPS port for the Spark-hosted WebRTC voice page.",
+          "example": 7863,
+          "name": "voice_https_port",
+          "type": "number"
+        }
+      ],
+      "privacy_classification": "internal",
+      "profiles": {
+        "env_json": {
+          "adapter": "env_json",
+          "description": "JSON object loaded from MN_BLUEPRINT_INPUT_JSON."
+        },
+        "file": {
+          "adapter": "file",
+          "description": "JSON object loaded from a local file path."
+        },
+        "json": {
+          "adapter": "json",
+          "description": "Inline business and knowledge settings supplied through config or runtime overrides."
+        },
+        "live_voice": {
+          "adapter": "mock",
+          "description": "Runtime WebRTC voice page served from Spark.",
+          "streams": [
+            "customer_service_voice_stream"
+          ]
+        },
+        "mock": {
+          "adapter": "mock",
+          "description": "Bundled generic support desk example.",
+          "payload": {}
+        }
+      },
+      "required_inputs": [
+        {
+          "description": "Name of the customer business the voice co-worker represents.",
+          "example": "Acme Home Services",
+          "name": "business_name",
+          "type": "domain_value"
+        },
+        {
+          "description": "Plain-language scope of what the co-worker should help customers with.",
+          "example": "Answer questions about appointments, service areas, pricing basics, and support handoff.",
+          "name": "service_scope",
+          "type": "domain_value"
+        },
+        {
+          "description": "First spoken message after the caller connects.",
+          "example": "Thanks for calling Acme Home Services. How can I help today?",
+          "name": "opening_message",
+          "type": "domain_value"
+        },
+        {
+          "description": "Editable customer-service knowledge used as the initial RAG text for this run.",
+          "example": "Hours: Monday-Friday 9 AM-5 PM. Emergency calls are escalated to the on-call dispatcher.",
+          "name": "knowledge_text",
+          "type": "domain_text"
+        },
+        {
+          "description": "When and how the co-worker should recommend human escalation.",
+          "example": "Escalate billing disputes, account security issues, medical emergencies, and any answer not grounded in the knowledge base.",
+          "name": "escalation_policy",
+          "type": "domain_value"
+        }
+      ],
+      "resolved_artifact": "inputs.json",
+      "schema_version": "mn.blueprint.input_contract.v1",
+      "supported_adapters": [
+        "mock",
+        "json",
+        "file",
+        "env_json"
+      ],
+      "validation_rules": [
+        {
+          "message": "spark_host must point to the Spark SSH host.",
+          "name": "spark_host_present",
+          "path": "spark_host",
+          "type": "required"
+        },
+        {
+          "max": 65535,
+          "message": "voice_https_port must be a user-accessible HTTPS port.",
+          "min": 1024,
+          "name": "voice_https_port_number",
+          "path": "voice_https_port",
+          "type": "range"
+        }
+      ]
+    },
+    "interfaces": {
+      "channels": {
+        "artifacts": {
+          "artifacts": [
+            "run.json",
+            "config.json",
+            "inputs.json",
+            "events.jsonl",
+            "result.json",
+            "final_artifact.json"
+          ],
+          "description": "Stable run-store files and domain-specific outputs.",
+          "optional_artifacts": [
+            "job.json",
+            "web_ui.json",
+            "ui.json",
+            "web/index.html",
+            "logs.jsonl"
+          ]
+        },
+        "events": {
+          "artifact": "events.jsonl",
+          "description": "Append-only workflow events."
+        },
+        "human": {
+          "artifact": "human.jsonl",
+          "description": "Human notices, approval requests, responses, timeouts, and applied decisions."
+        },
+        "input_skills": {
+          "description": "Connector-backed or reusable skill-backed input sources."
+        },
+        "inputs": {
+          "artifact": "inputs.json",
+          "description": "Resolved runtime inputs and adapter provenance."
+        },
+        "logs": {
+          "description": "Runtime stdout/stderr and explicit log artifacts.",
+          "stream": "stdout/stderr"
+        },
+        "output_skills": {
+          "description": "Optional fan-out destinations after local run-store writes."
+        },
+        "outputs": {
+          "artifacts": [
+            "result.json",
+            "final_artifact.json"
+          ],
+          "description": "Primary result and final user-facing artifact."
+        },
+        "resources": {
+          "artifact": "resources.jsonl",
+          "description": "Resource samples such as token, runtime, connector, and disk usage."
+        },
+        "streams": {
+          "default": [
+            "events"
+          ],
+          "description": "Named data or event streams exposed by the blueprint.",
+          "kinds": [
+            "audio",
+            "video",
+            "data",
+            "multimodal"
+          ],
+          "transports": [
+            "file",
+            "http",
+            "https",
+            "rtsp",
+            "rtmp",
+            "webrtc",
+            "websocket",
+            "socketio",
+            "tcp",
+            "udp",
+            "sse",
+            "kafka",
+            "mqtt",
+            "custom"
+          ]
+        },
+        "web_ui": {
+          "artifacts": [
+            "web_ui.json",
+            "ui.json",
+            "web/index.html"
+          ],
+          "description": "Optional web input/output handles."
+        }
+      },
+      "config": [
+        "standard_version",
+        "identity",
+        "mode",
+        "metadata",
+        "inputs",
+        "simulation",
+        "llm",
+        "outputs",
+        "logging",
+        "resources",
+        "human_control",
+        "real_adapters",
+        "streams",
+        "input_skills",
+        "output_skills",
+        "error_handling",
+        "state",
+        "capabilities",
+        "privacy",
+        "triggers",
+        "backpressure",
+        "determinism",
+        "schemas",
+        "budgets",
+        "agent_handoffs",
+        "web_ui",
+        "interfaces",
+        "execution_model",
+        "openshell_network"
+      ],
+      "identity": [
+        "blueprint_id",
+        "name",
+        "run_id"
+      ],
+      "input_adapters": [
+        "mock",
+        "json",
+        "file",
+        "env_json"
+      ],
+      "optional_outputs": [
+        "job.json",
+        "web_ui.json",
+        "ui.json",
+        "web/index.html",
+        "logs.jsonl"
+      ],
+      "output_adapters": [
+        "local_run_store"
+      ],
+      "outputs": [
+        "run.json",
+        "config.json",
+        "inputs.json",
+        "events.jsonl",
+        "result.json",
+        "final_artifact.json"
+      ],
+      "response_schema": "mn.blueprint.response.v1",
+      "stream_kinds": [
+        "audio",
+        "video",
+        "data",
+        "multimodal"
+      ],
+      "stream_transports": [
+        "file",
+        "http",
+        "https",
+        "rtsp",
+        "rtmp",
+        "webrtc",
+        "websocket",
+        "socketio",
+        "tcp",
+        "udp",
+        "sse",
+        "kafka",
+        "mqtt",
+        "custom"
+      ],
+      "web_ui_adapters": [
+        "none",
+        "static_html",
+        "gradio",
+        "custom"
+      ]
+    },
+    "llm": {
+      "agent_role": "Customer-service voice co-worker that answers from the customer knowledge base, asks clarifying questions when needed, and recommends escalation when it is unsure or outside scope.",
+      "base_url": "http://127.0.0.1:8000/v1",
+      "model": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16",
+      "provider": "openai-compatible"
+    },
+    "llm_agent_role": "Customer-service voice co-worker that answers from the customer knowledge base, asks clarifying questions when needed, and recommends escalation when it is unsure or outside scope.",
+    "memory_layer": {
+      "collection": "mn_memory",
+      "containers": "optional_sidecar",
+      "context_addr_env": "MN_CONTEXT_ADDR",
+      "conversation": {
+        "agent_role": "otterdesk_chat",
+        "include_human_events": true,
+        "include_runtime_events": true,
+        "include_runtime_logs": true,
+        "target_tokens": 2400,
+        "token_budget": 6000,
+        "use_model_compression": false
+      },
+      "conversation_enabled": true,
+      "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
+      "default_context_addr": "localhost:50052",
+      "enabled": true,
+      "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
+      "namespace": "generic_customer_service_voice_coworker_context",
+      "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
+      "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
+      "sdk_distribution": "mirrorneuron-membrane-python-sdk",
+      "sdk_import_package": "mn_context_engine_sdk"
+    },
+    "name": "Generic Customer Service Voice AI Co-worker",
+    "observability_dashboard": {
+      "panels": [
+        "current_status",
+        "recent_events",
+        "pending_human_requests",
+        "output_artifacts",
+        "resource_usage",
+        "errors",
+        "input_lag",
+        "backpressure",
+        "llm_calls",
+        "token_budget",
+        "llm_retries",
+        "output_skill_attempts",
+        "output_skill_failures"
+      ],
+      "reads": [
+        "events.jsonl",
+        "human.jsonl",
+        "logs.jsonl",
+        "resources.jsonl",
+        "final_artifact.json",
+        "web_ui.json",
+        "voice_service.json",
+        "conversation.jsonl",
+        "knowledge/customer_service_knowledge.txt"
+      ],
+      "schema_version": "mn.blueprint.observability_dashboard.v1",
+      "source": "local_run_store"
+    },
+    "openshell_network": {
+      "endpoints": [
+        {
+          "allowed_ips": [
+            "127.0.0.1/32"
+          ],
+          "binaries": [
+            "/usr/bin/ffmpeg",
+            "/usr/bin/python3"
+          ],
+          "name": "mapped-local-rtsp-stream-loopback",
+          "uri": "rtsp://127.0.0.1:8554/video-watch"
+        },
+        {
+          "allowed_ips": [
+            "127.0.0.1/32"
+          ],
+          "binaries": [
+            "/usr/bin/ffmpeg",
+            "/usr/bin/python3"
+          ],
+          "name": "mapped-local-rtsp-stream-localhost",
+          "uri": "rtsp://localhost:8554/video-watch"
+        },
+        {
+          "allowed_ips": [
+            "127.0.0.1/32",
+            "192.168.65.254/32"
+          ],
+          "binaries": [
+            "/usr/bin/ffmpeg",
+            "/usr/bin/python3"
+          ],
+          "name": "mapped-local-rtsp-stream-openshell-host",
+          "uri": "rtsp://host.openshell.internal:8554/video-watch"
+        },
+        {
+          "allowed_ips": [
+            "192.168.65.254/32",
+            "127.0.0.1/32"
+          ],
+          "binaries": [
+            "/usr/bin/ffmpeg",
+            "/usr/bin/python3"
+          ],
+          "name": "mapped-local-rtsp-stream-docker-host",
+          "uri": "rtsp://host.docker.internal:8554/video-watch"
+        },
+        {
+          "allowed_ips": [
+            "192.168.65.254/32"
+          ],
+          "binaries": [
+            "/usr/bin/ffmpeg",
+            "/usr/bin/python3"
+          ],
+          "name": "mapped-local-rtsp-stream-gateway",
+          "uri": "rtsp://192.168.65.254:8554/video-watch"
+        },
+        {
+          "allowed_ips": [
+            "192.168.4.173/32"
+          ],
+          "binaries": [
+            "/bin/bash",
+            "/usr/bin/bash",
+            "/usr/bin/python3",
+            "/usr/bin/python3.12"
+          ],
+          "name": "local-vl-model",
+          "uri": "http://192.168.4.173:11434"
+        }
+      ],
+      "include_dns": false,
+      "policy_path": "visual_detector/policies/video-egress.yaml"
+    },
+    "output": "Visual detection observations with count, label, category, color, position, activity, confidence, and alert status.",
+    "output_contract": {
+      "artifacts": [
+        {
+          "artifact_id": "run_metadata",
+          "mime_type": "application/json",
+          "path": "run.json",
+          "producer": "local_run_store",
+          "schema_version": "mn.artifact.run_summary.v1",
+          "source_refs": [],
+          "type": "run_summary"
+        },
+        {
+          "artifact_id": "resolved_config",
+          "mime_type": "application/json",
+          "path": "config.json",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.config.v1",
+          "source_refs": [],
+          "type": "config"
+        },
+        {
+          "artifact_id": "resolved_inputs",
+          "mime_type": "application/json",
+          "path": "inputs.json",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.inputs.v1",
+          "source_refs": [],
+          "type": "inputs"
+        },
+        {
+          "artifact_id": "event_stream",
+          "mime_type": "application/x-jsonlines",
+          "path": "events.jsonl",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.events.v1",
+          "source_refs": [],
+          "type": "events"
+        },
+        {
+          "artifact_id": "result",
+          "mime_type": "application/json",
+          "path": "result.json",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.response.v1",
+          "source_refs": [
+            "inputs.json",
+            "events.jsonl"
+          ],
+          "type": "result"
+        },
+        {
+          "artifact_id": "final_artifact",
+          "mime_type": "application/json",
+          "path": "final_artifact.json",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.final_artifact.v1",
+          "source_refs": [
+            "inputs.json",
+            "events.jsonl",
+            "result.json"
+          ],
+          "type": "final_artifact"
+        },
+        {
+          "artifact_id": "logs",
+          "mime_type": "application/x-jsonlines",
+          "path": "logs.jsonl",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.logs.v1",
+          "source_refs": [
+            "events.jsonl"
+          ],
+          "type": "logs"
+        },
+        {
+          "artifact_id": "resources",
+          "mime_type": "application/x-jsonlines",
+          "path": "resources.jsonl",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.resources.v1",
+          "source_refs": [
+            "run.json"
+          ],
+          "type": "resource_samples"
+        },
+        {
+          "artifact_id": "web_ui",
+          "mime_type": "application/json",
+          "path": "web_ui.json",
+          "producer": "web_ui",
+          "schema_version": "mn.blueprint.web_ui.v1",
+          "source_refs": [
+            "run.json"
+          ],
+          "type": "web_ui"
+        },
+        {
+          "artifact_id": "human_events",
+          "mime_type": "application/x-jsonlines",
+          "path": "human.jsonl",
+          "producer": "human_control",
+          "schema_version": "mn.blueprint.human_events.v1",
+          "source_refs": [
+            "events.jsonl"
+          ],
+          "type": "human_events"
+        },
+        {
+          "artifact_id": "voice_service_handle",
+          "mime_type": "application/json",
+          "path": "voice_service.json",
+          "producer": "voice_service",
+          "schema_version": "mn.blueprint.voice_service.v1",
+          "source_refs": [
+            "run.json",
+            "events.jsonl"
+          ],
+          "type": "service_handle"
+        },
+        {
+          "artifact_id": "knowledge_snapshot",
+          "mime_type": "text/plain",
+          "path": "knowledge/customer_service_knowledge.txt",
+          "producer": "voice_service",
+          "schema_version": "mn.blueprint.knowledge_text.v1",
+          "source_refs": [
+            "inputs.json",
+            "events.jsonl"
+          ],
+          "type": "knowledge_text"
+        },
+        {
+          "artifact_id": "conversation_log",
+          "mime_type": "application/x-jsonlines",
+          "path": "conversation.jsonl",
+          "producer": "voice_service",
+          "schema_version": "mn.blueprint.conversation.v1",
+          "source_refs": [
+            "events.jsonl",
+            "knowledge/customer_service_knowledge.txt"
+          ],
+          "type": "conversation_log"
+        },
+        {
+          "artifact_id": "voice_dashboard",
+          "mime_type": "application/json",
+          "path": "web_ui.json",
+          "producer": "web_ui",
+          "schema_version": "mn.blueprint.dashboard.v1",
+          "source_refs": [
+            "voice_service.json",
+            "events.jsonl",
+            "final_artifact.json"
+          ],
+          "type": "dashboard"
+        }
+      ],
+      "events": "typed event objects with payload",
+      "events_jsonl": "events.jsonl",
+      "final_artifact": {
+        "description": "The durable user-facing artifact should summarize the result, recommendation, confidence, evidence, next steps, and source references.",
+        "required_fields": [
+          "type",
+          "executive_summary",
+          "recommended_action",
+          "confidence",
+          "evidence",
+          "next_steps",
+          "source_refs"
+        ],
+        "schema_version": "mn.blueprint.final_artifact_contract.v1"
+      },
+      "final_artifact_json": "final_artifact.json",
+      "local_run_store": "~/.mn/runs/<run_id>/",
+      "logs_jsonl": "logs.jsonl",
+      "output_skills": [
+        {
+          "connector": "websocket",
+          "content": "events",
+          "destination": "MN_BLUEPRINT_EVENTS_WS_URL",
+          "failure_policy": "skip",
+          "name": "websocket_events",
+          "required": false,
+          "skill": "websocket_stream"
+        }
+      ],
+      "response_schema": "mn.blueprint.response.v1",
+      "result_json": "result.json",
+      "status": "JSON lines on stderr",
+      "stdout": "single JSON object, event envelope, or bundle path"
+    },
+    "problem_solved": "Teams need a reusable voice co-worker that can answer customer questions from editable local knowledge without building a one-off demo for each business.",
+    "quick_test": {
+      "description": "Quick test mode shortens the sample interval, disables Slack, and uses mock visual detection unless OLLAMA_LIVE_IN_QUICK_TEST=1.",
+      "enabled": false,
+      "env": "MN_BLUEPRINT_QUICK_TEST=1"
+    },
+    "runtime_features": [
+      "Spark NVIDIA placement",
+      "customer-service-voice-nvidia execution profile",
+      "HTTPS WebRTC voice page",
+      "NVIDIA Parakeet ASR",
+      "Nemotron vLLM OpenAI-compatible chat",
+      "Magpie TTS",
+      "editable plain-text RAG",
+      "knowledge persistence",
+      "conversation artifacts",
+      "local Gradio run dashboard",
+      "human escalation notice policy",
+      "product input contract",
+      "transparent run status",
+      "human control policy",
+      "artifact records",
+      "run-store observability dashboard",
+      "Membrane context memory optimization"
+    ],
+    "search_terms": [
+      "video monitoring",
+      "visual detection",
+      "facility operations",
+      "site safety",
+      "rtsp stream"
+    ],
+    "simulation_type": "Spark-hosted real-time WebRTC voice conversation with editable text RAG.",
+    "standard": {
+      "config_path": "config/default.json",
+      "default_input_adapter": "mock",
+      "execution_model": "load_metadata -> resolve_config -> load_inputs -> start_run_store -> observe_simulation_state -> call_llm_agent -> evaluate_workflow_state -> route_by_context -> request_human_input -> apply_decision_to_simulation -> emit_events -> write_final_artifact -> fan_out_output_skills",
+      "execution_steps": [
+        "load_metadata",
+        "resolve_config",
+        "load_inputs",
+        "start_run_store",
+        "observe_simulation_state",
+        "call_llm_agent",
+        "evaluate_workflow_state",
+        "route_by_context",
+        "request_human_input",
+        "apply_decision_to_simulation",
+        "emit_events",
+        "write_final_artifact",
+        "fan_out_output_skills"
+      ],
+      "output_adapter": "local_run_store",
+      "real_input_adapters": [
+        "file",
+        "json",
+        "env_json"
+      ],
+      "run_store": "~/.mn/runs/<run_id>/",
+      "version": "1.0",
+      "workflow_api_version": "mn.workflow/v1",
+      "workflow_model": "contract -> flow -> runtime"
+    },
+    "status_contract": {
+      "attempt_event": "workflow_step_attempt_started",
+      "beacon_event": "agent_beacon",
+      "beacon_interval_ms": 15000,
+      "beacon_missed_action": "fail_attempt",
+      "beacon_timeout_ms": 45000,
+      "blocked_event": "workflow_step_blocked",
+      "heartbeat_event": "agent_beacon",
+      "heartbeat_required": true,
+      "phases": [
+        {
+          "completion_event": "blueprint_phase_completed",
+          "failure_event": "blueprint_phase_failed",
+          "phase": "loading_inputs",
+          "progress_event": "blueprint_status",
+          "required": true,
+          "start_event": "blueprint_phase_started"
+        },
+        {
+          "completion_event": "blueprint_phase_completed",
+          "failure_event": "blueprint_phase_failed",
+          "phase": "running_worker",
+          "progress_event": "blueprint_status",
+          "required": true,
+          "start_event": "blueprint_phase_started"
+        },
+        {
+          "completion_event": "blueprint_phase_completed",
+          "failure_event": "blueprint_phase_failed",
+          "phase": "waiting_for_human",
+          "progress_event": "blueprint_status",
+          "required": true,
+          "start_event": "blueprint_phase_started"
+        },
+        {
+          "completion_event": "blueprint_phase_completed",
+          "failure_event": "blueprint_phase_failed",
+          "phase": "writing_artifacts",
+          "progress_event": "blueprint_status",
+          "required": true,
+          "start_event": "blueprint_phase_started"
+        },
+        {
+          "completion_event": "blueprint_phase_completed",
+          "failure_event": "blueprint_phase_failed",
+          "phase": "completed",
+          "progress_event": "blueprint_status",
+          "required": true,
+          "start_event": "blueprint_phase_started"
+        }
+      ],
+      "retry_event": "workflow_step_attempt_retry_scheduled",
+      "runtime_state_source": "workflow_state",
+      "schema_version": "mn.blueprint.status_contract.v1",
+      "source": "run_store",
+      "status_event": "blueprint_status",
+      "terminal_step_events": [
+        "workflow_step_completed",
+        "workflow_step_partial",
+        "workflow_step_skipped",
+        "workflow_step_failed"
+      ]
+    },
+    "status_logging": {
+      "env": "MN_BLUEPRINT_LOG_LEVEL",
+      "format": "jsonl",
+      "stream": "stderr"
+    },
+    "streaming": {
+      "backpressure": {
+        "drop_policy": "skip_with_error",
+        "llm": {
+          "max_calls_per_minute": 30,
+          "max_concurrent_calls": 2
+        },
+        "max_concurrency": 4,
+        "max_events_per_second": 25,
+        "queue_size": 1000
+      },
+      "kind": "video",
+      "primary_stream": "video_watch_stream",
+      "transport": "rtsp",
+      "websocket_skill": false
+    },
+    "target_user": "Video operators, security reviewers, safety operations teams, and site-access coordinators.",
+    "target_users": "Support teams, customer operations leads, small businesses, service desks, and AI operations teams.",
+    "video_source": {
+      "codec": "h264",
+      "config_env": [
+        "VIDEO_SOURCE_URI",
+        "VIDEO_SOURCE_TRANSPORT",
+        "VIDEO_SOURCE_CODEC"
+      ],
+      "description": "Default mapped RTSP endpoint consumed by the OpenShell worker. The host-side pre-launch hook loops the bundled demo video into the selected local RTSP port before launch.",
+      "transport": "rtsp",
+      "uri": "rtsp://127.0.0.1:8554/video-watch"
+    },
+    "vl_model": {
+      "base_url": "http://192.168.4.173:11434",
+      "config_env": [
+        "VL_MODEL_BASE_URL",
+        "VL_MODEL_NAME"
+      ],
+      "legacy_env_aliases": [
+        "OLLAMA_BASE_URL",
+        "OLLAMA_MODEL"
+      ],
+      "model": "nemotron3:33b",
+      "provider": "ollama"
+    },
+    "web_ui": {
+      "adapter": "gradio",
+      "browser_publish_source": "disabled",
+      "browser_video_source": "disabled",
+      "description": "Local shared OtterDesk dashboard with Spark voice URL, service health, events, knowledge metadata, and conversation artifacts.",
+      "enabled": true,
+      "output_artifact": "web_ui.json",
+      "rendering": {
+        "layout": {
+          "column_regions": [
+            {
+              "w": 12,
+              "x": 0
+            },
+            {
+              "w": 12,
+              "x": 12
+            }
+          ]
+        }
+      },
+      "spark_health_url": "https://192.168.4.173:7863/health",
+      "video_preview_bridge": {
+        "auto_start": false,
+        "cleanup_script": "scripts/post-launch.sh",
+        "enabled": false
+      },
+      "voice_url": "https://192.168.4.173:7863/customer-service"
+    }
+  },
+  "name": "Generic Customer Service Voice AI Co-worker",
+  "nodes": [
+    {
+      "alias": "customer_service_voice_router",
+      "display_name": "Customer Service Voice Router",
+      "node_id": "ingress",
+      "uses": "mn-agents.control_router@1.0.0",
+      "with": {}
+    },
+    {
+      "alias": "customer_service_voice_host",
+      "constraints": [
+        {
+          "attribute": "node.name",
+          "operator": "==",
+          "value": "mn2@192.168.4.173"
+        }
+      ],
+      "display_name": "Customer Service Voice Host",
+      "node_id": "voice_service",
+      "resources": {
+        "gpu_count": 1,
+        "ports": [
+          7863,
+          8080,
+          8000,
+          8001
+        ]
+      },
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "with": {
+        "command": [
+          "bash",
+          "payloads/voice_service/scripts/run_voice_service.sh"
+        ],
+        "environment": {
+          "CUSTOMER_SERVICE_PUBLIC_URL": "https://192.168.4.173:7863/customer-service",
+          "CUSTOMER_SERVICE_RUN_ID": "${MN_RUN_ID}",
+          "CUSTOMER_SERVICE_SPARK_HOST": "homer@spark",
+          "CUSTOMER_SERVICE_SPARK_IP": "192.168.4.173",
+          "NEMOTRON_ROOT": "/home/homer/Sandbox/nemotron-january-2026",
+          "NVIDIA_ASR_URL": "ws://127.0.0.1:8080",
+          "NVIDIA_LLM_MODEL": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16",
+          "NVIDIA_LLM_URL": "http://127.0.0.1:8000/v1",
+          "NVIDIA_TTS_URL": "http://127.0.0.1:8001",
+          "VOICE_HTTPS_PORT": "7863"
+        },
+        "execution_profile": "customer-service-voice-nvidia",
+        "gpu_count": 1,
+        "health_url": "https://192.168.4.173:7863/health",
+        "output_message_type": "customer_service_voice_started",
+        "pool": "customer-service-voice-nvidia",
+        "pool_slots": 1,
+        "public_url": "https://192.168.4.173:7863/customer-service",
+        "script": "payloads/voice_service/scripts/run_voice_service.sh",
+        "service": true,
+        "service_kind": "https_webrtc_voice",
+        "target_node": "mn2@192.168.4.173",
+        "upload_path": "voice_service",
+        "upload_paths": [
+          {
+            "source": "voice_service",
+            "target": "voice_service"
+          }
+        ]
+      }
+    }
+  ],
+  "policies": {
+    "recovery_mode": "cluster_recover",
+    "stream_mode": "live"
+  },
+  "requiredContextEngine": false,
+  "requirements": {
+    "cpu": {
+      "min_cores": 1
+    },
+    "disk": {
+      "min_gb": 1
+    },
+    "gpu": {
+      "min_count": 0
+    },
+    "memory": {
+      "min_gb": 2
+    }
+  },
+  "runtime": {
+    "bindings": {
+      "prepare_voice_service": {
+        "risk": "low",
+        "side_effect": "write",
+        "strategy": "single",
+        "type": "worker",
+        "workers": [
+          {
+            "alias": "spark_voice_preparer",
+            "display_name": "Spark Voice Preparer",
+            "id": "spark_voice_preparer",
+            "model": "NVIDIA Nemotron vLLM",
+            "role": "Prepare Spark voice runtime and knowledge store",
+            "tokens": 8000,
+            "tools": 4
+          }
+        ]
+      },
+      "serve_customer_conversation": {
+        "risk": "low",
+        "side_effect": "network_service",
+        "strategy": "single",
+        "type": "worker",
+        "workers": [
+          {
+            "alias": "customer_service_voice_host",
+            "display_name": "Customer Service Voice Host",
+            "id": "customer_service_voice_host",
+            "model": "NVIDIA ASR + Nemotron vLLM + Magpie TTS",
+            "role": "Host WebRTC voice conversation service on Spark",
+            "tokens": 8000,
+            "tools": 4
+          }
+        ]
+      }
+    },
+    "memory": {
+      "collection": "mn_memory",
+      "containers": "optional_sidecar",
+      "context_addr_env": "MN_CONTEXT_ADDR",
+      "conversation": {
+        "agent_role": "otterdesk_chat",
+        "include_human_events": true,
+        "include_runtime_events": true,
+        "include_runtime_logs": true,
+        "target_tokens": 2400,
+        "token_budget": 6000,
+        "use_model_compression": false
+      },
+      "conversation_enabled": true,
+      "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
+      "default_context_addr": "localhost:50052",
+      "enabled": true,
+      "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
+      "namespace": "generic_customer_service_voice_coworker_context",
+      "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
+      "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
+      "sdk_distribution": "mirrorneuron-membrane-python-sdk",
+      "sdk_import_package": "mn_context_engine_sdk"
+    },
+    "models": {
+      "asr": {
+        "model": "parakeet",
+        "provider": "nvidia",
+        "type": "speech_to_text",
+        "url": "ws://127.0.0.1:8080"
+      },
+      "primary": {
+        "base_url": "http://127.0.0.1:8000/v1",
+        "model": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16",
+        "provider": "openai-compatible",
+        "role": "Customer-service voice co-worker that answers from the customer knowledge base, asks clarifying questions when needed, and recommends escalation when it is unsure or outside scope.",
+        "type": "llm"
+      },
+      "tts": {
+        "model": "magpie",
+        "provider": "nvidia",
+        "type": "text_to_speech",
+        "url": "http://127.0.0.1:8001"
+      }
+    },
+    "observability": {
+      "panels": [
+        "current_status",
+        "recent_events",
+        "pending_human_requests",
+        "output_artifacts",
+        "resource_usage",
+        "errors",
+        "input_lag",
+        "backpressure",
+        "llm_calls",
+        "token_budget",
+        "llm_retries",
+        "output_skill_attempts",
+        "output_skill_failures"
+      ],
+      "reads": [
+        "events.jsonl",
+        "human.jsonl",
+        "logs.jsonl",
+        "resources.jsonl",
+        "result.json",
+        "final_artifact.json",
+        "web_ui.json",
+        "voice_service.json",
+        "conversation.jsonl"
+      ],
+      "schema_version": "mn.blueprint.observability_dashboard.v1",
+      "source": "local_run_store"
+    },
+    "resources": {
+      "cpu": {
+        "min_cores": 2
+      },
+      "disk": {
+        "min_gb": 4
+      },
+      "gpu": {
+        "min_count": 1
+      },
+      "memory": {
+        "min_gb": 8
+      }
+    },
+    "store": {
+      "artifacts": [
+        "run.json",
+        "config.json",
+        "inputs.json",
+        "events.jsonl",
+        "human.jsonl",
+        "logs.jsonl",
+        "resources.jsonl",
+        "result.json",
+        "final_artifact.json"
+      ],
+      "path": "./runs/${run_id}",
+      "type": "local_run_store"
+    },
+    "worker_defaults": {
+      "model": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16",
+      "pool": "customer-service-voice-nvidia",
+      "pool_slots": 1,
+      "runner": "MirrorNeuron.Runner.HostLocal",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "workdir": "/sandbox/job/workflow"
+    },
+    "workflow_control": {
+      "attempts": {
+        "dispatch_metadata": [
+          "workflow_run_id",
+          "step_id",
+          "attempt_id",
+          "attempt",
+          "deadline_at",
+          "heartbeat_deadline_at",
+          "idempotency_key"
+        ],
+        "retry_policy_source": "flow.steps[].control.retry",
+        "stale_attempt_outputs": "ignore",
+        "timeout_source": "flow.steps[].control.timeout_seconds"
+      },
+      "enabled": true,
+      "events": [
+        "workflow_step_attempt_started",
+        "workflow_step_beacon",
+        "workflow_step_attempt_completed",
+        "workflow_step_attempt_timed_out",
+        "workflow_step_attempt_retry_scheduled",
+        "workflow_step_blocked",
+        "workflow_step_completed",
+        "workflow_step_failed",
+        "workflow_message_dead_lettered"
+      ],
+      "liveness": {
+        "event": "agent_beacon",
+        "interval_ms": 15000,
+        "missed_action": "fail_attempt",
+        "required": true,
+        "timeout_ms": 45000
+      },
+      "pause_cancel": {
+        "cancel_mode": "terminate_active_attempts",
+        "pause_mode": "stop_active_attempts",
+        "resume_mode": "reconcile_from_workflow_state"
+      },
+      "reconciliation": {
+        "interval_ms": 2000,
+        "on_missed_beacon": "fail_attempt_then_retry",
+        "on_retry_exhausted": "apply_step_failure_policy",
+        "on_timeout": "fail_attempt_then_retry"
+      },
+      "schema_version": "mn.workflow.runtime_control.v1",
+      "source_of_truth": "flow.steps",
+      "state_ledger": {
+        "delivery_semantics": "at_least_once_with_idempotency",
+        "enabled": true,
+        "message_ledger": true,
+        "persisted_field": "workflow_state",
+        "step_statuses": [
+          "pending",
+          "ready",
+          "queued",
+          "running",
+          "retry_wait",
+          "blocked",
+          "completed",
+          "partial",
+          "skipped",
+          "failed"
+        ]
+      }
+    }
+  },
+  "term": "TERM.md",
+  "type": "service",
+  "version": "0.1.0"
+}

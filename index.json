@@ -32,6 +32,46 @@
     "type": "service"
   },
   {
+    "category": "Business",
+    "description": "Runs a Spark-hosted HTTPS/WebRTC customer-service voice co-worker backed by NVIDIA ASR, Nemotron vLLM, Magpie TTS, and editable plain-text RAG knowledge.",
+    "graph_id": "generic_customer_service_voice_coworker_v1",
+    "id": "generic_customer_service_voice_coworker",
+    "job_name": "generic-customer-service-voice-coworker",
+    "name": "Generic Customer Service Voice AI Co-worker",
+    "path": "generic_customer_service_voice_coworker",
+    "product": {
+      "agent_role": "Customer-service voice co-worker that answers from the customer knowledge base, asks clarifying questions when needed, and recommends escalation when it is unsure or outside scope.",
+      "benefit": "Lets an operator launch a local OtterDesk run, update plain-text support knowledge, and hand customers a Spark HTTPS voice link backed by the NVIDIA stack.",
+      "customizable_for": "Customer support, service desks, appointment intake, SaaS help desks, retail support, and internal help lines.",
+      "how_it_works": "Pre-launch prepares Spark and the shared NVIDIA stack, the runtime voice node serves an HTTPS/WebRTC page, and each turn retrieves relevant snippets from editable plain-text knowledge before answering.",
+      "input": "Business name, service scope, opening message, editable knowledge text, escalation policy, voice, Spark host, and HTTPS port.",
+      "output": "Spark voice URL, service health, editable knowledge snapshot, conversation log, events, and final run artifact.",
+      "problem": "Teams need a reusable voice co-worker that can answer customer questions from editable local knowledge without building a one-off demo for each business.",
+      "runtime_features": [
+        "Spark NVIDIA placement",
+        "customer-service-voice-nvidia execution profile",
+        "HTTPS WebRTC voice page",
+        "NVIDIA Parakeet ASR",
+        "Nemotron vLLM OpenAI-compatible chat",
+        "Magpie TTS",
+        "editable plain-text RAG",
+        "knowledge persistence",
+        "conversation artifacts",
+        "local Gradio run dashboard",
+        "human escalation notice policy",
+        "product input contract",
+        "transparent run status",
+        "human control policy",
+        "artifact records",
+        "run-store observability dashboard",
+        "Membrane context memory optimization"
+      ],
+      "simulation_type": "Spark-hosted real-time WebRTC voice conversation with editable text RAG.",
+      "target_users": "Support teams, customer operations leads, small businesses, service desks, and AI operations teams."
+    },
+    "type": "service"
+  },
+  {
     "category": "Finance",
     "description": "Real-time, review-only portfolio risk advisor that uses public market data, financial engineering simulation, decision benchmarking, and LLM-written review reports.",
     "graph_id": "portfolio_risk_review_assistant_v1",

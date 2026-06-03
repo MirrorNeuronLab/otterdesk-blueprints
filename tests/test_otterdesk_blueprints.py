@@ -458,6 +458,7 @@ def test_otterdesk_blueprints_declare_product_experience_contracts():
         "portfolio_risk_review_assistant": "approval_required",
         "property_deal_research_assistant": "approval_required",
         "video_watch_assistant": "notice_only",
+        "generic_customer_service_voice_coworker": "notice_only",
         "invoice_bill_extraction_assistant": "approval_required",
         "legal_contract_clause_review_assistant": "approval_required",
         "medical_deid_record_intake_assistant": "approval_required",
@@ -580,6 +581,95 @@ def test_index_entries_point_to_loadable_blueprint_folders():
         assert manifest["metadata"]["blueprint_id"] == entry["id"]
         assert manifest["graph_id"] == entry["graph_id"]
         assert manifest["job_name"] == entry["job_name"]
+
+
+def test_generic_customer_service_voice_blueprint_contract():
+    blueprint_dir = ROOT / "generic_customer_service_voice_coworker"
+    manifest = json.loads((blueprint_dir / "manifest.json").read_text())
+    config = json.loads((blueprint_dir / "config" / "default.json").read_text())
+    script = (blueprint_dir / "scripts" / "pre-launch.sh").read_text()
+    cleanup = (blueprint_dir / "scripts" / "post-launch.sh").read_text()
+
+    assert manifest["type"] == "service"
+    assert manifest["runtime"]["resources"]["gpu"]["min_count"] == 1
+    assert manifest["runtime"]["worker_defaults"]["pool"] == "customer-service-voice-nvidia"
+    voice_node = next(node for node in manifest["nodes"] if node["node_id"] == "voice_service")
+    assert voice_node["with"]["execution_profile"] == "customer-service-voice-nvidia"
+    assert voice_node["resources"]["gpu_count"] == 1
+    assert voice_node["constraints"] == [
+        {"attribute": "node.name", "operator": "==", "value": "mn2@192.168.4.173"}
+    ]
+    assert voice_node["with"]["public_url"] == "https://192.168.4.173:7863/customer-service"
+
+    payload = config["inputs"]["payload"]
+    assert payload["spark_host"] == "homer@spark"
+    assert payload["voice_https_port"] == 7863
+    assert config["web_ui"]["dashboard"]["voice_url"] == "https://192.168.4.173:7863/customer-service"
+    assert config["streams"]["customer_service_voice_stream"]["transport"] == "webrtc"
+
+    assert "scripts/nemotron.sh start --mode vllm" in script
+    assert "CUSTOMER_SERVICE_KNOWLEDGE_PATH" in script
+    assert "MN_PRE_LAUNCH_READY_FILE" in script
+    assert "customer_service_knowledge.txt" in script
+    assert "voice_service.pid" in cleanup
+    assert "serve_customer_service_https.py" in cleanup
+    assert "scripts/nemotron.sh stop" not in cleanup
+
+
+def test_generic_customer_service_rag_chunking_and_retrieval():
+    payload_dir = ROOT / "generic_customer_service_voice_coworker" / "payloads" / "voice_service"
+    sys.path.insert(0, str(payload_dir))
+    try:
+        from rag import build_rag_context, chunk_text, retrieve
+    finally:
+        try:
+            sys.path.remove(str(payload_dir))
+        except ValueError:
+            pass
+
+    text = """
+    Hours:
+    The support desk is open Monday through Friday from 9 AM to 5 PM.
+
+    Appointments:
+    Customers can reschedule an appointment with at least 24 hours notice.
+
+    Billing:
+    Billing disputes must be escalated to a human support lead.
+    """
+    chunks = chunk_text(text, max_tokens=18, overlap=4)
+    assert len(chunks) >= 3
+    results = retrieve("Can I reschedule my appointment tomorrow?", chunks, top_k=2)
+    assert results
+    assert "reschedule" in results[0].text.lower()
+
+    context, selected = build_rag_context("billing dispute refund", text, top_k=2)
+    assert selected
+    assert "Billing disputes" in context
+
+
+def test_generic_customer_service_knowledge_persistence(tmp_path, monkeypatch):
+    payload_dir = ROOT / "generic_customer_service_voice_coworker" / "payloads" / "voice_service"
+    sys.path.insert(0, str(payload_dir))
+    try:
+        from knowledge_store import ensure_knowledge_file, knowledge_metadata, read_knowledge, write_knowledge
+    finally:
+        try:
+            sys.path.remove(str(payload_dir))
+        except ValueError:
+            pass
+
+    knowledge_path = tmp_path / "knowledge" / "customer_service_knowledge.txt"
+    monkeypatch.setenv("CUSTOMER_SERVICE_KNOWLEDGE_PATH", str(knowledge_path))
+    ensure_knowledge_file(seed_text="Hours are 10 to 4.")
+    assert read_knowledge() == "Hours are 10 to 4.\n"
+
+    metadata = write_knowledge("Emergency calls go to the dispatcher.")
+    assert metadata.bytes > 0
+    assert metadata.sha256
+    assert "dispatcher" in read_knowledge()
+    assert knowledge_metadata().sha256 == metadata.sha256
+    assert (knowledge_path.parent / "customer_service_knowledge.meta.json").exists()
 
 
 def test_property_deal_final_artifact_uses_product_output_fields(tmp_path):
