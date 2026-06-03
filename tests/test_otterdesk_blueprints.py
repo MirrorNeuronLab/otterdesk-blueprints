@@ -596,6 +596,8 @@ def test_generic_customer_service_voice_blueprint_contract():
     assert manifest["runtime"]["worker_defaults"]["pool"] == "customer-service-voice-nvidia"
     voice_node = next(node for node in manifest["nodes"] if node["node_id"] == "voice_service")
     assert voice_node["with"]["execution_profile"] == "customer-service-voice-nvidia"
+    assert voice_node["with"]["command"] == ["bash", "scripts/run_voice_service.sh"]
+    assert voice_node["with"]["upload_path"] == "voice_service"
     assert voice_node["resources"]["gpu_count"] == 1
     assert {port["label"]: port["port"] for port in voice_node["resources"]["ports"]} == {
         "voice_https": 7863,

@@ -507,7 +507,7 @@
           "with": {
             "command": [
               "bash",
-              "payloads/voice_service/scripts/run_voice_service.sh"
+              "scripts/run_voice_service.sh"
             ],
             "environment": {
               "CUSTOMER_SERVICE_PUBLIC_URL": "https://192.168.4.173:7863/customer-service",
@@ -528,7 +528,7 @@
             "pool": "customer-service-voice-nvidia",
             "pool_slots": 1,
             "public_url": "https://192.168.4.173:7863/customer-service",
-            "script": "payloads/voice_service/scripts/run_voice_service.sh",
+            "script": "scripts/run_voice_service.sh",
             "service": true,
             "service_kind": "https_webrtc_voice",
             "target_node": "mn2@192.168.4.173",
@@ -1491,7 +1491,7 @@
       "with": {
         "command": [
           "bash",
-          "payloads/voice_service/scripts/run_voice_service.sh"
+          "scripts/run_voice_service.sh"
         ],
         "environment": {
           "CUSTOMER_SERVICE_PUBLIC_URL": "https://192.168.4.173:7863/customer-service",
@@ -1512,7 +1512,7 @@
         "pool": "customer-service-voice-nvidia",
         "pool_slots": 1,
         "public_url": "https://192.168.4.173:7863/customer-service",
-        "script": "payloads/voice_service/scripts/run_voice_service.sh",
+        "script": "scripts/run_voice_service.sh",
         "service": true,
         "service_kind": "https_webrtc_voice",
         "target_node": "mn2@192.168.4.173",
