@@ -26,10 +26,11 @@ export NEMOTRON_BOT_HOST="${NEMOTRON_BOT_HOST:-0.0.0.0}"
 export NEMOTRON_BOT_PORT="${VOICE_PORT}"
 export NEMOTRON_SSL_CERT="${CERT_FILE}"
 export NEMOTRON_SSL_KEY="${KEY_FILE}"
-export NVIDIA_ASR_URL="${NVIDIA_ASR_URL:-ws://127.0.0.1:8080}"
-export NVIDIA_LLM_URL="${NVIDIA_LLM_URL:-http://127.0.0.1:8000/v1}"
+NVIDIA_HOST="${CUSTOMER_SERVICE_NVIDIA_HOST:-${CUSTOMER_SERVICE_SPARK_IP:-127.0.0.1}}"
+export NVIDIA_ASR_URL="${NVIDIA_ASR_URL:-ws://${NVIDIA_HOST}:8080}"
+export NVIDIA_LLM_URL="${NVIDIA_LLM_URL:-http://${NVIDIA_HOST}:8000/v1}"
 export NVIDIA_LLM_MODEL="${NVIDIA_LLM_MODEL:-nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16}"
-export NVIDIA_TTS_URL="${NVIDIA_TTS_URL:-http://127.0.0.1:8001}"
+export NVIDIA_TTS_URL="${NVIDIA_TTS_URL:-http://${NVIDIA_HOST}:8001}"
 export NEMOTRON_ROOT="${NEMOTRON_ROOT:-/home/homer/Sandbox/nemotron-january-2026}"
 if [[ -x "${NEMOTRON_ROOT}/.venv/bin/python" ]]; then
   export CUSTOMER_SERVICE_PYTHON="${CUSTOMER_SERVICE_PYTHON:-${NEMOTRON_ROOT}/.venv/bin/python}"
@@ -116,9 +117,9 @@ terminate_owned_voice_process() {
 }
 
 STACK_WAIT_SECONDS="${CUSTOMER_SERVICE_STACK_WAIT_SECONDS:-900}"
-wait_http "NVIDIA ASR" "${NVIDIA_ASR_HEALTH_URL:-http://127.0.0.1:8080/health}" "${STACK_WAIT_SECONDS}"
-wait_http "Nemotron vLLM" "${NVIDIA_LLM_HEALTH_URL:-http://127.0.0.1:8000/health}" "${STACK_WAIT_SECONDS}"
-wait_http "Magpie TTS" "${NVIDIA_TTS_HEALTH_URL:-http://127.0.0.1:8001/health}" "${STACK_WAIT_SECONDS}"
+wait_http "NVIDIA ASR" "${NVIDIA_ASR_HEALTH_URL:-http://${NVIDIA_HOST}:8080/health}" "${STACK_WAIT_SECONDS}"
+wait_http "Nemotron vLLM" "${NVIDIA_LLM_HEALTH_URL:-http://${NVIDIA_HOST}:8000/health}" "${STACK_WAIT_SECONDS}"
+wait_http "Magpie TTS" "${NVIDIA_TTS_HEALTH_URL:-http://${NVIDIA_HOST}:8001/health}" "${STACK_WAIT_SECONDS}"
 
 terminate_owned_voice_process
 

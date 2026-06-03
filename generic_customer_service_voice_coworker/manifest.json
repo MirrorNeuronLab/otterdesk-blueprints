@@ -523,10 +523,10 @@
               "CUSTOMER_SERVICE_SPARK_HOST": "homer@spark",
               "CUSTOMER_SERVICE_SPARK_IP": "192.168.4.173",
               "NEMOTRON_ROOT": "/home/homer/Sandbox/nemotron-january-2026",
-              "NVIDIA_ASR_URL": "ws://127.0.0.1:8080",
+              "NVIDIA_ASR_URL": "ws://192.168.4.173:8080",
               "NVIDIA_LLM_MODEL": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16",
-              "NVIDIA_LLM_URL": "http://127.0.0.1:8000/v1",
-              "NVIDIA_TTS_URL": "http://127.0.0.1:8001",
+              "NVIDIA_LLM_URL": "http://192.168.4.173:8000/v1",
+              "NVIDIA_TTS_URL": "http://192.168.4.173:8001",
               "VOICE_HTTPS_PORT": "7863"
             },
             "execution_profile": "customer-service-voice-nvidia",
@@ -926,7 +926,7 @@
     },
     "llm": {
       "agent_role": "Customer-service voice co-worker that answers from the customer knowledge base, asks clarifying questions when needed, and recommends escalation when it is unsure or outside scope.",
-      "base_url": "http://127.0.0.1:8000/v1",
+      "base_url": "http://192.168.4.173:8000/v1",
       "model": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16",
       "provider": "openai-compatible"
     },
@@ -1514,10 +1514,10 @@
           "CUSTOMER_SERVICE_SPARK_HOST": "homer@spark",
           "CUSTOMER_SERVICE_SPARK_IP": "192.168.4.173",
           "NEMOTRON_ROOT": "/home/homer/Sandbox/nemotron-january-2026",
-          "NVIDIA_ASR_URL": "ws://127.0.0.1:8080",
+          "NVIDIA_ASR_URL": "ws://192.168.4.173:8080",
           "NVIDIA_LLM_MODEL": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16",
-          "NVIDIA_LLM_URL": "http://127.0.0.1:8000/v1",
-          "NVIDIA_TTS_URL": "http://127.0.0.1:8001",
+          "NVIDIA_LLM_URL": "http://192.168.4.173:8000/v1",
+          "NVIDIA_TTS_URL": "http://192.168.4.173:8001",
           "VOICE_HTTPS_PORT": "7863"
         },
         "execution_profile": "customer-service-voice-nvidia",
@@ -1627,10 +1627,10 @@
         "model": "parakeet",
         "provider": "nvidia",
         "type": "speech_to_text",
-        "url": "ws://127.0.0.1:8080"
+        "url": "ws://192.168.4.173:8080"
       },
       "primary": {
-        "base_url": "http://127.0.0.1:8000/v1",
+        "base_url": "http://192.168.4.173:8000/v1",
         "model": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16",
         "provider": "openai-compatible",
         "role": "Customer-service voice co-worker that answers from the customer knowledge base, asks clarifying questions when needed, and recommends escalation when it is unsure or outside scope.",
@@ -1640,7 +1640,7 @@
         "model": "magpie",
         "provider": "nvidia",
         "type": "text_to_speech",
-        "url": "http://127.0.0.1:8001"
+        "url": "http://192.168.4.173:8001"
       }
     },
     "observability": {
