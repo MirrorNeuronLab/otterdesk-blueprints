@@ -483,20 +483,18 @@
   "input_validation": {
     "rules": [
       {
-        "message": "video_source.uri must be an rtsp:// or rtsps:// URL.",
-        "name": "video_source_uri_rtsp",
-        "path": "video_source.uri",
-        "pattern": "^rtsps?://",
-        "type": "pattern"
+        "message": "spark_host must point to the Spark SSH host.",
+        "name": "spark_host_present",
+        "path": "spark_host",
+        "type": "required"
       },
       {
-        "command": [
-          "python3",
-          "payloads/validation/validate_rtsp_source.py"
-        ],
-        "name": "video_source_rtsp_probe",
-        "timeout_seconds": 12,
-        "type": "command"
+        "max": 65535,
+        "message": "voice_https_port must be a user-accessible HTTPS port.",
+        "min": 1024,
+        "name": "voice_https_port_number",
+        "path": "voice_https_port",
+        "type": "range"
       }
     ]
   },
