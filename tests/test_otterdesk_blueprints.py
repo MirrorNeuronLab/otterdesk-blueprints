@@ -606,9 +606,8 @@ def test_generic_customer_service_voice_blueprint_contract():
     assert payload["voice_https_port"] == 7863
     assert config["web_ui"]["dashboard"]["voice_url"] == "https://192.168.4.173:7863/customer-service"
     assert config["streams"]["customer_service_voice_stream"]["transport"] == "webrtc"
-    validation_rules = manifest["input_validation"]["rules"]
-    assert {rule["name"] for rule in validation_rules} == {"spark_host_present", "voice_https_port_number"}
-    assert "validate_rtsp_source.py" not in json.dumps(validation_rules)
+    assert manifest["input_validation"]["rules"] == []
+    assert "validate_rtsp_source.py" not in json.dumps(manifest)
 
     assert "scripts/nemotron.sh start --mode vllm" in script
     assert "CUSTOMER_SERVICE_KNOWLEDGE_PATH" in script

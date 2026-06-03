@@ -481,22 +481,7 @@
   "graph_id": "generic_customer_service_voice_coworker_v1",
   "id": "generic_customer_service_voice_coworker",
   "input_validation": {
-    "rules": [
-      {
-        "message": "spark_host must point to the Spark SSH host.",
-        "name": "spark_host_present",
-        "path": "spark_host",
-        "type": "required"
-      },
-      {
-        "max": 65535,
-        "message": "voice_https_port must be a user-accessible HTTPS port.",
-        "min": 1024,
-        "name": "voice_https_port_number",
-        "path": "voice_https_port",
-        "type": "range"
-      }
-    ]
+    "rules": []
   },
   "job_name": "generic-customer-service-voice-coworker",
   "kind": "Workflow",
