@@ -31,6 +31,11 @@ export NVIDIA_LLM_URL="${NVIDIA_LLM_URL:-http://127.0.0.1:8000/v1}"
 export NVIDIA_LLM_MODEL="${NVIDIA_LLM_MODEL:-nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16}"
 export NVIDIA_TTS_URL="${NVIDIA_TTS_URL:-http://127.0.0.1:8001}"
 export NEMOTRON_ROOT="${NEMOTRON_ROOT:-/home/homer/Sandbox/nemotron-january-2026}"
+if [[ -x "${NEMOTRON_ROOT}/.venv/bin/python" ]]; then
+  export CUSTOMER_SERVICE_PYTHON="${CUSTOMER_SERVICE_PYTHON:-${NEMOTRON_ROOT}/.venv/bin/python}"
+else
+  export CUSTOMER_SERVICE_PYTHON="${CUSTOMER_SERVICE_PYTHON:-python3}"
+fi
 export PYTHONPATH="${VOICE_ROOT}:${NEMOTRON_ROOT}/pipecat_bots:${PYTHONPATH:-}"
 
 mkdir -p "${RUN_DIR}/knowledge" "${CERT_DIR}"
@@ -58,7 +63,7 @@ write_jsonl() {
   local path="$1"
   local event_type="$2"
   local payload="$3"
-  python3 - "$path" "$event_type" "$payload" <<'PY'
+  "${CUSTOMER_SERVICE_PYTHON}" - "$path" "$event_type" "$payload" <<'PY'
 import json
 import sys
 from datetime import datetime, timezone
@@ -152,9 +157,8 @@ JSON
 
 write_jsonl "${RUN_DIR}/events.jsonl" "customer_service_voice_stack_ready" "{\"asr\":\"${NVIDIA_ASR_URL}\",\"llm\":\"${NVIDIA_LLM_URL}\",\"tts\":\"${NVIDIA_TTS_URL}\"}"
 
-python3 "${VOICE_ROOT}/serve_customer_service_https.py" >> "${LOG_FILE}" 2>&1 &
+"${CUSTOMER_SERVICE_PYTHON}" "${VOICE_ROOT}/serve_customer_service_https.py" >> "${LOG_FILE}" 2>&1 &
 server_pid="$!"
 echo "${server_pid}" > "${PID_FILE}"
 write_jsonl "${RUN_DIR}/events.jsonl" "customer_service_voice_ready" "{\"pid\":${server_pid},\"public_url\":\"${PUBLIC_URL}\"}"
 wait "${server_pid}"
-
