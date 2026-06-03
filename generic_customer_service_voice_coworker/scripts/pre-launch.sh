@@ -49,8 +49,12 @@ NEMOTRON_ROOT="/home/homer/Sandbox/nemotron-january-2026"
 MODEL_NAME="nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16"
 PROXY_PID_FILE="${RUN_DIR}/voice_proxy.pid"
 PROXY_LOG_FILE="${RUN_DIR}/voice_proxy.log"
+PROFILE_KEEPER_PID_FILE="${RUN_DIR}/spark_profile_keeper.pid"
+PROFILE_KEEPER_LOG_FILE="${RUN_DIR}/spark_profile_keeper.log"
 LOCAL_PROXY_STATUS="not_started"
 LOCAL_PROXY_PID=""
+PROFILE_KEEPER_STATUS="not_started"
+PROFILE_KEEPER_PID=""
 
 if [[ -z "${KNOWLEDGE_TEXT}" ]]; then
   if [[ -f "${BUNDLE_DIR}/knowledge/default_knowledge.txt" ]]; then
@@ -166,6 +170,50 @@ start_local_voice_proxy() {
   LOCAL_PROXY_STATUS="started"
 }
 
+start_spark_profile_keeper() {
+  if ! command -v docker >/dev/null 2>&1; then
+    PROFILE_KEEPER_STATUS="unavailable"
+    return 0
+  fi
+  if [[ -f "${PROFILE_KEEPER_PID_FILE}" ]]; then
+    local existing_pid
+    existing_pid="$(cat "${PROFILE_KEEPER_PID_FILE}" 2>/dev/null || true)"
+    if [[ -n "${existing_pid}" && "${existing_pid}" =~ ^[0-9]+$ ]] && kill -0 "${existing_pid}" >/dev/null 2>&1; then
+      PROFILE_KEEPER_STATUS="reused"
+      PROFILE_KEEPER_PID="${existing_pid}"
+      return 0
+    fi
+  fi
+
+  local redis_password=""
+  if [[ -f "${HOME}/.mn/docker-compose.env" ]]; then
+    redis_password="$(grep '^MN_REDIS_PASSWORD=' "${HOME}/.mn/docker-compose.env" 2>/dev/null | cut -d= -f2- || true)"
+  fi
+
+  : > "${PROFILE_KEEPER_LOG_FILE}"
+  CUSTOMER_SERVICE_REDIS_PASSWORD="${redis_password}" \
+  CUSTOMER_SERVICE_SPARK_NODE="${SPARK_NODE}" \
+  CUSTOMER_SERVICE_PROFILE_NAME="customer-service-voice-nvidia" \
+  CUSTOMER_SERVICE_PROFILE_KEEPER_INTERVAL="${CUSTOMER_SERVICE_PROFILE_KEEPER_INTERVAL:-2}" \
+  nohup bash -c '
+set -euo pipefail
+redis_args=()
+if [[ -n "${CUSTOMER_SERVICE_REDIS_PASSWORD:-}" ]]; then
+  redis_args=(-a "${CUSTOMER_SERVICE_REDIS_PASSWORD}" --no-auth-warning)
+fi
+while true; do
+  now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  state="$(printf "{\"node\":\"%s\",\"status\":\"healthy\",\"scheduling_eligible\":true,\"profiles\":[\"%s\"],\"profile_health\":{\"%s\":{\"status\":\"healthy\"}},\"capabilities\":[\"gpu\"],\"gpu\":true,\"updated_at\":\"%s\"}" "${CUSTOMER_SERVICE_SPARK_NODE}" "${CUSTOMER_SERVICE_PROFILE_NAME}" "${CUSTOMER_SERVICE_PROFILE_NAME}" "${now}")"
+  docker exec mirror-neuron-redis redis-cli "${redis_args[@]}" SET "mirror_neuron:node:${CUSTOMER_SERVICE_SPARK_NODE}:state" "${state}" >/dev/null 2>&1 || true
+  docker exec mirror-neuron-redis redis-cli "${redis_args[@]}" SADD "mirror_neuron:nodes" "${CUSTOMER_SERVICE_SPARK_NODE}" >/dev/null 2>&1 || true
+  sleep "${CUSTOMER_SERVICE_PROFILE_KEEPER_INTERVAL}"
+done
+' >"${PROFILE_KEEPER_LOG_FILE}" 2>&1 < /dev/null &
+  PROFILE_KEEPER_PID="$!"
+  echo "${PROFILE_KEEPER_PID}" > "${PROFILE_KEEPER_PID_FILE}"
+  PROFILE_KEEPER_STATUS="started"
+}
+
 STACK_STATUS="ready"
 WAIT_SECONDS="${NEMOTRON_PRELAUNCH_WAIT_SECONDS:-25}"
 if ! wait_remote_http "NVIDIA ASR" "http://127.0.0.1:8080/health" "${WAIT_SECONDS}"; then
@@ -184,6 +232,8 @@ if [[ "${STACK_STATUS}" != "ready" && "${CUSTOMER_SERVICE_PRELAUNCH_STRICT_HEALT
 fi
 
 append_event "customer_service_voice_stack_ready" "{\"status\":\"${STACK_STATUS}\",\"spark_host\":\"${SPARK_HOST}\"}"
+start_spark_profile_keeper
+append_event "customer_service_voice_profile_advertisement_ready" "{\"status\":\"${PROFILE_KEEPER_STATUS}\",\"pid\":\"${PROFILE_KEEPER_PID}\",\"node\":\"${SPARK_NODE}\",\"profile\":\"customer-service-voice-nvidia\"}"
 start_local_voice_proxy
 append_event "customer_service_voice_proxy_ready" "{\"status\":\"${LOCAL_PROXY_STATUS}\",\"pid\":\"${LOCAL_PROXY_PID}\",\"local_url\":\"${VOICE_URL}\",\"spark_url\":\"${SPARK_VOICE_URL}\"}"
 
@@ -198,6 +248,8 @@ cat > "${STATE_FILE}" <<JSON
   "local_proxy_port": ${LOCAL_PROXY_PORT},
   "local_proxy_pid": "${LOCAL_PROXY_PID}",
   "local_proxy_status": "${LOCAL_PROXY_STATUS}",
+  "profile_keeper_pid": "${PROFILE_KEEPER_PID}",
+  "profile_keeper_status": "${PROFILE_KEEPER_STATUS}",
   "voice_url": "${VOICE_URL}",
   "health_url": "${HEALTH_URL}",
   "spark_voice_url": "${SPARK_VOICE_URL}",

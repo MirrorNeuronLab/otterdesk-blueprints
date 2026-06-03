@@ -596,6 +596,8 @@ def test_generic_customer_service_voice_blueprint_contract():
     assert manifest["runtime"]["worker_defaults"]["pool"] == "customer-service-voice-nvidia"
     voice_node = next(node for node in manifest["nodes"] if node["node_id"] == "voice_service")
     assert voice_node["with"]["execution_profile"] == "customer-service-voice-nvidia"
+    assert voice_node["with"]["pool"] == "customer-service-voice-nvidia"
+    assert voice_node["with"]["pool_slots"] == 1
     assert voice_node["with"]["agent_beacon_required"] is False
     assert voice_node["with"]["command"] == ["bash", "scripts/run_voice_service.sh"]
     assert voice_node["with"]["upload_path"] == "voice_service"
@@ -625,9 +627,12 @@ def test_generic_customer_service_voice_blueprint_contract():
     assert "scripts/nemotron.sh start --mode vllm" in script
     assert "127.0.0.1:${LOCAL_PROXY_PORT}:127.0.0.1:${VOICE_PORT}" in script
     assert "customer_service_voice_proxy_ready" in script
+    assert 'SADD "mirror_neuron:nodes" "${CUSTOMER_SERVICE_SPARK_NODE}"' in script
     assert "CUSTOMER_SERVICE_KNOWLEDGE_PATH" in script
     assert "MN_PRE_LAUNCH_READY_FILE" in script
     assert "customer_service_knowledge.txt" in script
+    assert "MN_POST_LAUNCH_REASON" in cleanup
+    assert "customer_service_voice_cleanup_deferred" in cleanup
     assert "voice_proxy.pid" in cleanup
     assert "voice_service.pid" in cleanup
     assert "serve_customer_service_https.py" in cleanup

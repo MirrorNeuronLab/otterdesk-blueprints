@@ -862,6 +862,13 @@
     "output": {
       "adapter": "gradio",
       "artifact": "web_ui.json",
+      "constraints": [
+        {
+          "attribute": "node.name",
+          "operator": "==",
+          "value": "mirror_neuron@192.168.4.34"
+        }
+      ],
       "enabled": true
     }
   }

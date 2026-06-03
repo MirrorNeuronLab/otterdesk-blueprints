@@ -118,23 +118,48 @@ wait_http() {
   done
 }
 
+process_command() {
+  local pid="$1"
+  local cmd=""
+  if command -v ps >/dev/null 2>&1; then
+    cmd="$(ps -p "${pid}" -o command= 2>/dev/null || true)"
+  fi
+  if [[ -z "${cmd}" && -r "/proc/${pid}/cmdline" ]]; then
+    cmd="$(tr '\000' ' ' < "/proc/${pid}/cmdline" 2>/dev/null || true)"
+  fi
+  printf '%s' "${cmd}"
+}
+
+kill_voice_pid_if_owned() {
+  local pid="$1"
+  if [[ -z "${pid}" || ! "${pid}" =~ ^[0-9]+$ ]]; then
+    return 0
+  fi
+  local cmd
+  cmd="$(process_command "${pid}")"
+  if [[ "${cmd}" == *"serve_customer_service_https.py"* ]]; then
+    kill "${pid}" >/dev/null 2>&1 || true
+    return 0
+  fi
+}
+
 terminate_owned_voice_process() {
   if [[ ! -f "${PID_FILE}" ]]; then
     return 0
   fi
   local old_pid
   old_pid="$(cat "${PID_FILE}" 2>/dev/null || true)"
-  if [[ -z "${old_pid}" || ! "${old_pid}" =~ ^[0-9]+$ ]]; then
-    rm -f "${PID_FILE}"
-    return 0
-  fi
-  local cmd
-  cmd="$(ps -p "${old_pid}" -o command= 2>/dev/null || true)"
-  if [[ "${cmd}" == *"serve_customer_service_https.py"* ]]; then
-    kill "${old_pid}" >/dev/null 2>&1 || true
-    sleep 1
-  fi
+  kill_voice_pid_if_owned "${old_pid}"
+  sleep 1
   rm -f "${PID_FILE}"
+}
+
+terminate_orphan_voice_processes() {
+  for proc_dir in /proc/[0-9]*; do
+    [[ -d "${proc_dir}" ]] || continue
+    kill_voice_pid_if_owned "${proc_dir##*/}"
+  done
+  sleep 1
 }
 
 STACK_WAIT_SECONDS="${CUSTOMER_SERVICE_STACK_WAIT_SECONDS:-900}"
@@ -143,6 +168,7 @@ wait_http "Nemotron vLLM" "${NVIDIA_LLM_HEALTH_URL:-http://${NVIDIA_HOST}:8000/h
 wait_http "Magpie TTS" "${NVIDIA_TTS_HEALTH_URL:-http://${NVIDIA_HOST}:8001/health}" "${STACK_WAIT_SECONDS}"
 
 terminate_owned_voice_process
+terminate_orphan_voice_processes
 
 cat > "${RUN_DIR}/voice_service.json" <<JSON
 {

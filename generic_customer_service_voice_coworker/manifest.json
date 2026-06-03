@@ -529,9 +529,9 @@
               "NVIDIA_TTS_URL": "http://192.168.4.173:8001",
               "VOICE_HTTPS_PORT": "7863"
             },
-            "execution_profile": "customer-service-voice-nvidia",
             "agent_beacon_required": false,
             "cleanup_remote_dir": false,
+            "execution_profile": "customer-service-voice-nvidia",
             "gpu_count": 1,
             "health_url": "https://localhost:7863/health",
             "output_message_type": "customer_service_voice_started",
@@ -1435,6 +1435,13 @@
       "description": "Local shared OtterDesk dashboard with localhost voice URL, service health, events, menu knowledge metadata, and conversation artifacts.",
       "enabled": true,
       "output_artifact": "web_ui.json",
+      "constraints": [
+        {
+          "attribute": "node.name",
+          "operator": "==",
+          "value": "mirror_neuron@192.168.4.34"
+        }
+      ],
       "rendering": {
         "layout": {
           "column_regions": [
@@ -1521,9 +1528,9 @@
           "NVIDIA_TTS_URL": "http://192.168.4.173:8001",
           "VOICE_HTTPS_PORT": "7863"
         },
-        "execution_profile": "customer-service-voice-nvidia",
         "agent_beacon_required": false,
         "cleanup_remote_dir": false,
+        "execution_profile": "customer-service-voice-nvidia",
         "gpu_count": 1,
         "health_url": "https://localhost:7863/health",
         "output_message_type": "customer_service_voice_started",
