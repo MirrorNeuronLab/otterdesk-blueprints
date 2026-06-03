@@ -1464,10 +1464,26 @@
       "resources": {
         "gpu_count": 1,
         "ports": [
-          7863,
-          8080,
-          8000,
-          8001
+          {
+            "label": "voice_https",
+            "port": 7863,
+            "protocol": "tcp"
+          },
+          {
+            "label": "nvidia_asr",
+            "port": 8080,
+            "protocol": "tcp"
+          },
+          {
+            "label": "nemotron_vllm",
+            "port": 8000,
+            "protocol": "tcp"
+          },
+          {
+            "label": "magpie_tts",
+            "port": 8001,
+            "protocol": "tcp"
+          }
         ]
       },
       "uses": "mn-agents.data_python_executor@1.0.0",
