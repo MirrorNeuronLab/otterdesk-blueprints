@@ -27,6 +27,7 @@
         "customer_service_voice_start_requested",
         "customer_service_voice_prepared",
         "customer_service_voice_stack_ready",
+        "customer_service_voice_proxy_ready",
         "customer_service_voice_started",
         "customer_service_voice_ready",
         "customer_service_voice_health_checked",
@@ -52,35 +53,35 @@
     "inputs": {
       "business_name": {
         "description": "Name of the customer business the voice co-worker represents.",
-        "example": "Acme Home Services",
+        "example": "Otter Slice Pizza",
         "privacy": "internal",
         "required": true,
         "type": "domain_value"
       },
       "escalation_policy": {
         "description": "When and how the co-worker should recommend human escalation.",
-        "example": "Escalate billing disputes, account security issues, medical emergencies, and any answer not grounded in the knowledge base.",
+        "example": "Escalate allergies, food-safety concerns, refunds, complaints, payment-card questions, missing orders, angry callers, and anything not grounded in the knowledge base.",
         "privacy": "internal",
         "required": true,
         "type": "domain_value"
       },
       "knowledge_text": {
         "description": "Editable customer-service knowledge used as the initial RAG text for this run.",
-        "example": "Hours: Monday-Friday 9 AM-5 PM. Emergency calls are escalated to the on-call dispatcher.",
+        "example": "Menu, prices, hours, pickup/delivery steps, and escalation rules for Otter Slice Pizza.",
         "privacy": "internal",
         "required": true,
         "type": "domain_text"
       },
       "opening_message": {
         "description": "First spoken message after the caller connects.",
-        "example": "Thanks for calling Acme Home Services. How can I help today?",
+        "example": "Thanks for calling Otter Slice Pizza. What delicious trouble can I help you get into today?",
         "privacy": "internal",
         "required": true,
         "type": "domain_value"
       },
       "service_scope": {
         "description": "Plain-language scope of what the co-worker should help customers with.",
-        "example": "Answer questions about appointments, service areas, pricing basics, and support handoff.",
+        "example": "Take pizza orders, explain menu options, collect pickup or delivery details, and summarize the order.",
         "privacy": "internal",
         "required": true,
         "type": "domain_value"
@@ -101,6 +102,13 @@
       },
       "voice_https_port": {
         "description": "HTTPS port for the Spark-hosted WebRTC voice page.",
+        "example": 7863,
+        "privacy": "internal",
+        "required": false,
+        "type": "number"
+      },
+      "voice_local_proxy_port": {
+        "description": "Localhost HTTPS port that proxies browser traffic to Spark.",
         "example": 7863,
         "privacy": "internal",
         "required": false,
@@ -317,12 +325,12 @@
         "completed"
       ]
     },
-    "summary": "Runs a Spark-hosted HTTPS/WebRTC customer-service voice co-worker backed by NVIDIA ASR, Nemotron vLLM, Magpie TTS, and editable plain-text RAG knowledge.",
+    "summary": "Runs a localhost-proxied Spark HTTPS/WebRTC pizza-ordering voice co-worker backed by NVIDIA ASR, Nemotron vLLM, Magpie TTS, and editable plain-text menu RAG knowledge.",
     "users": [
-      "Support teams, customer operations leads, small businesses, service desks, and AI operations teams."
+      "Restaurant operators, pizza shops, customer operations leads, small businesses, and AI operations teams."
     ]
   },
-  "description": "Runs a Spark-hosted HTTPS/WebRTC customer-service voice co-worker backed by NVIDIA ASR, Nemotron vLLM, Magpie TTS, and editable plain-text RAG knowledge.",
+  "description": "Runs a localhost-proxied Spark HTTPS/WebRTC pizza-ordering voice co-worker backed by NVIDIA ASR, Nemotron vLLM, Magpie TTS, and editable plain-text menu RAG knowledge.",
   "edges": [
     {
       "edge_id": "ingress_to_voice_service",
@@ -462,7 +470,7 @@
           }
         },
         "emits": "customer_service_voice_started",
-        "goal": "Run the Spark-hosted WebRTC page so a customer can talk to the co-worker.",
+        "goal": "Run the localhost-proxied WebRTC page so a caller can place a pizza order with the co-worker.",
         "id": "serve_customer_conversation",
         "in": {
           "voice_service": "$state.voice_service"
@@ -489,19 +497,19 @@
   "license": "LICENSE.md",
   "manifest_version": "1.0",
   "metadata": {
-    "agent_role": "Customer-service voice co-worker that answers from the customer knowledge base, asks clarifying questions when needed, and recommends escalation when it is unsure or outside scope.",
+    "agent_role": "Pizza-ordering voice co-worker that answers from editable menu knowledge, helps collect an order, asks clarifying questions, and recommends human handoff when it is unsure or outside scope.",
     "agent_templates": {
       "library": "../mn-agents/index.json",
       "nodes": [
         {
           "alias": "customer_service_voice_router",
-          "display_name": "Customer Service Voice Router",
+          "display_name": "Pizza Order Voice Router",
           "node_id": "ingress",
           "uses": "mn-agents.control_router@1.0.0"
         },
         {
           "alias": "customer_service_voice_host",
-          "display_name": "Customer Service Voice Host",
+          "display_name": "Pizza Order Voice Host",
           "node_id": "voice_service",
           "uses": "mn-agents.data_python_executor@1.0.0",
           "with": {
@@ -510,7 +518,7 @@
               "scripts/run_voice_service.sh"
             ],
             "environment": {
-              "CUSTOMER_SERVICE_PUBLIC_URL": "https://192.168.4.173:7863/customer-service",
+              "CUSTOMER_SERVICE_PUBLIC_URL": "https://localhost:7863/customer-service",
               "CUSTOMER_SERVICE_RUN_ID": "${MN_RUN_ID}",
               "CUSTOMER_SERVICE_SPARK_HOST": "homer@spark",
               "CUSTOMER_SERVICE_SPARK_IP": "192.168.4.173",
@@ -524,11 +532,11 @@
             "execution_profile": "customer-service-voice-nvidia",
             "agent_beacon_required": false,
             "gpu_count": 1,
-            "health_url": "https://192.168.4.173:7863/health",
+            "health_url": "https://localhost:7863/health",
             "output_message_type": "customer_service_voice_started",
             "pool": "customer-service-voice-nvidia",
             "pool_slots": 1,
-            "public_url": "https://192.168.4.173:7863/customer-service",
+            "public_url": "https://localhost:7863/customer-service",
             "script": "scripts/run_voice_service.sh",
             "service": true,
             "service_kind": "https_webrtc_voice",
@@ -547,7 +555,7 @@
       "rendered_output": "manifest.rendered.json or runtime metadata",
       "renderer": "mn_blueprint_support.render_manifest_agent_templates"
     },
-    "benefit": "Lets an operator launch a local OtterDesk run, update plain-text support knowledge, and hand customers a Spark HTTPS voice link backed by the NVIDIA stack.",
+    "benefit": "Lets an operator launch a local OtterDesk run, update plain-text pizza menu knowledge, and hand callers a localhost HTTPS voice link backed by the Spark NVIDIA stack.",
     "blueprint_id": "generic_customer_service_voice_coworker",
     "category": "business",
     "configuration_contract": {
@@ -566,8 +574,8 @@
         "TERM.md"
       ]
     },
-    "customizable_for": "Customer support, service desks, appointment intake, SaaS help desks, retail support, and internal help lines.",
-    "description": "Runs a Spark-hosted HTTPS/WebRTC customer-service voice co-worker backed by NVIDIA ASR, Nemotron vLLM, Magpie TTS, and editable plain-text RAG knowledge.",
+    "customizable_for": "Pizza shops, takeout counters, small restaurants, delivery intake, and friendly food-ordering demos.",
+    "description": "Runs a localhost-proxied Spark HTTPS/WebRTC pizza-ordering voice co-worker backed by NVIDIA ASR, Nemotron vLLM, Magpie TTS, and editable plain-text menu RAG knowledge.",
     "human_control": {
       "enabled": true,
       "events": [
@@ -585,25 +593,25 @@
     "init_config_review": {
       "fields": [
         {
-          "default": "Acme Customer Care",
+          "default": "Otter Slice Pizza",
           "description": "The name the voice co-worker should use with callers.",
           "label": "Business name",
           "path": "inputs.payload.business_name"
         },
         {
-          "default": "Answer common support questions and recommend escalation when unsure.",
+          "default": "Take pizza orders from editable menu knowledge and recommend human handoff when unsure.",
           "description": "The boundaries of what the co-worker may discuss.",
           "label": "Service scope",
           "path": "inputs.payload.service_scope"
         },
         {
           "default": "Use knowledge/default_knowledge.txt",
-          "description": "Plain text support knowledge seeded into the run and editable from the voice page.",
+          "description": "Plain text menu and ordering knowledge seeded into the run and editable from the voice page.",
           "label": "Knowledge text",
           "path": "inputs.payload.knowledge_text"
         },
         {
-          "default": "Escalate billing disputes, emergencies, account security issues, and any answer not grounded in knowledge.",
+          "default": "Escalate allergies, food-safety concerns, refunds, complaints, payment-card questions, missing orders, angry callers, and anything not grounded in knowledge.",
           "description": "Rules for asking a human to take over.",
           "label": "Escalation policy",
           "path": "inputs.payload.escalation_policy"
@@ -625,7 +633,7 @@
       "required": true
     },
     "input_contract": {
-      "description": "Runs a Spark-hosted HTTPS/WebRTC customer-service voice co-worker backed by NVIDIA ASR, Nemotron vLLM, Magpie TTS, and editable plain-text RAG knowledge.",
+      "description": "Runs a localhost-proxied Spark HTTPS/WebRTC pizza-ordering voice co-worker backed by NVIDIA ASR, Nemotron vLLM, Magpie TTS, and editable plain-text menu RAG knowledge.",
       "optional_inputs": [
         {
           "description": "TTS voice name or preset used by the Magpie service.",
@@ -643,6 +651,12 @@
           "description": "HTTPS port for the Spark-hosted WebRTC voice page.",
           "example": 7863,
           "name": "voice_https_port",
+          "type": "number"
+        },
+        {
+          "description": "Localhost HTTPS port that proxies browser traffic to Spark.",
+          "example": 7863,
+          "name": "voice_local_proxy_port",
           "type": "number"
         }
       ],
@@ -669,38 +683,38 @@
         },
         "mock": {
           "adapter": "mock",
-          "description": "Bundled generic support desk example.",
+          "description": "Bundled pizza-ordering example.",
           "payload": {}
         }
       },
       "required_inputs": [
         {
           "description": "Name of the customer business the voice co-worker represents.",
-          "example": "Acme Home Services",
+          "example": "Otter Slice Pizza",
           "name": "business_name",
           "type": "domain_value"
         },
         {
           "description": "Plain-language scope of what the co-worker should help customers with.",
-          "example": "Answer questions about appointments, service areas, pricing basics, and support handoff.",
+          "example": "Take pizza orders, explain menu options, collect pickup or delivery details, and summarize the order.",
           "name": "service_scope",
           "type": "domain_value"
         },
         {
           "description": "First spoken message after the caller connects.",
-          "example": "Thanks for calling Acme Home Services. How can I help today?",
+          "example": "Thanks for calling Otter Slice Pizza. What delicious trouble can I help you get into today?",
           "name": "opening_message",
           "type": "domain_value"
         },
         {
           "description": "Editable customer-service knowledge used as the initial RAG text for this run.",
-          "example": "Hours: Monday-Friday 9 AM-5 PM. Emergency calls are escalated to the on-call dispatcher.",
+          "example": "Menu, prices, hours, pickup/delivery steps, and escalation rules for Otter Slice Pizza.",
           "name": "knowledge_text",
           "type": "domain_text"
         },
         {
           "description": "When and how the co-worker should recommend human escalation.",
-          "example": "Escalate billing disputes, account security issues, medical emergencies, and any answer not grounded in the knowledge base.",
+          "example": "Escalate allergies, food-safety concerns, refunds, complaints, payment-card questions, missing orders, angry callers, and anything not grounded in the knowledge base.",
           "name": "escalation_policy",
           "type": "domain_value"
         }
@@ -941,7 +955,7 @@
       "sdk_distribution": "mirrorneuron-membrane-python-sdk",
       "sdk_import_package": "mn_context_engine_sdk"
     },
-    "name": "Generic Customer Service Voice AI Co-worker",
+    "name": "Pizza Order Voice AI Co-worker",
     "observability_dashboard": {
       "panels": [
         "current_status",
@@ -1240,20 +1254,20 @@
       "status": "JSON lines on stderr",
       "stdout": "single JSON object, event envelope, or bundle path"
     },
-    "problem_solved": "Teams need a reusable voice co-worker that can answer customer questions from editable local knowledge without building a one-off demo for each business.",
+    "problem_solved": "Pizza shops need a friendly voice co-worker that can help callers place basic orders from editable menu knowledge while handing sensitive or uncertain calls to people.",
     "quick_test": {
-      "description": "Quick test mode shortens the sample interval, disables Slack, and uses mock visual detection unless OLLAMA_LIVE_IN_QUICK_TEST=1.",
+      "description": "Quick test mode uses the bundled pizza menu knowledge and skips external customer-specific inputs.",
       "enabled": false,
       "env": "MN_BLUEPRINT_QUICK_TEST=1"
     },
     "runtime_features": [
       "Spark NVIDIA placement",
       "customer-service-voice-nvidia execution profile",
-      "HTTPS WebRTC voice page",
+      "localhost-proxied HTTPS WebRTC voice page",
       "NVIDIA Parakeet ASR",
       "Nemotron vLLM OpenAI-compatible chat",
       "Magpie TTS",
-      "editable plain-text RAG",
+      "editable plain-text menu RAG",
       "knowledge persistence",
       "conversation artifacts",
       "local Gradio run dashboard",
@@ -1266,13 +1280,13 @@
       "Membrane context memory optimization"
     ],
     "search_terms": [
-      "video monitoring",
-      "visual detection",
-      "facility operations",
-      "site safety",
-      "rtsp stream"
+      "pizza orders",
+      "voice ordering",
+      "restaurant calls",
+      "webrtc voice",
+      "editable menu"
     ],
-    "simulation_type": "Spark-hosted real-time WebRTC voice conversation with editable text RAG.",
+    "simulation_type": "Spark-hosted real-time WebRTC pizza-ordering conversation exposed through localhost with editable text RAG.",
     "standard": {
       "config_path": "config/default.json",
       "default_input_adapter": "mock",
@@ -1417,7 +1431,7 @@
       "adapter": "gradio",
       "browser_publish_source": "disabled",
       "browser_video_source": "disabled",
-      "description": "Local shared OtterDesk dashboard with Spark voice URL, service health, events, knowledge metadata, and conversation artifacts.",
+      "description": "Local shared OtterDesk dashboard with localhost voice URL, service health, events, menu knowledge metadata, and conversation artifacts.",
       "enabled": true,
       "output_artifact": "web_ui.json",
       "rendering": {
@@ -1434,20 +1448,20 @@
           ]
         }
       },
-      "spark_health_url": "https://192.168.4.173:7863/health",
+      "spark_health_url": "https://localhost:7863/health",
       "video_preview_bridge": {
         "auto_start": false,
         "cleanup_script": "scripts/post-launch.sh",
         "enabled": false
       },
-      "voice_url": "https://192.168.4.173:7863/customer-service"
+      "voice_url": "https://localhost:7863/customer-service"
     }
   },
-  "name": "Generic Customer Service Voice AI Co-worker",
+  "name": "Pizza Order Voice AI Co-worker",
   "nodes": [
     {
       "alias": "customer_service_voice_router",
-      "display_name": "Customer Service Voice Router",
+      "display_name": "Pizza Order Voice Router",
       "node_id": "ingress",
       "uses": "mn-agents.control_router@1.0.0",
       "with": {}
@@ -1461,7 +1475,7 @@
           "value": "mn2@192.168.4.173"
         }
       ],
-      "display_name": "Customer Service Voice Host",
+      "display_name": "Pizza Order Voice Host",
       "node_id": "voice_service",
       "resources": {
         "gpu_count": 1,
@@ -1495,7 +1509,7 @@
           "scripts/run_voice_service.sh"
         ],
         "environment": {
-          "CUSTOMER_SERVICE_PUBLIC_URL": "https://192.168.4.173:7863/customer-service",
+          "CUSTOMER_SERVICE_PUBLIC_URL": "https://localhost:7863/customer-service",
           "CUSTOMER_SERVICE_RUN_ID": "${MN_RUN_ID}",
           "CUSTOMER_SERVICE_SPARK_HOST": "homer@spark",
           "CUSTOMER_SERVICE_SPARK_IP": "192.168.4.173",
@@ -1509,11 +1523,11 @@
         "execution_profile": "customer-service-voice-nvidia",
         "agent_beacon_required": false,
         "gpu_count": 1,
-        "health_url": "https://192.168.4.173:7863/health",
+        "health_url": "https://localhost:7863/health",
         "output_message_type": "customer_service_voice_started",
         "pool": "customer-service-voice-nvidia",
         "pool_slots": 1,
-        "public_url": "https://192.168.4.173:7863/customer-service",
+        "public_url": "https://localhost:7863/customer-service",
         "script": "scripts/run_voice_service.sh",
         "service": true,
         "service_kind": "https_webrtc_voice",
@@ -1574,7 +1588,7 @@
         "workers": [
           {
             "alias": "customer_service_voice_host",
-            "display_name": "Customer Service Voice Host",
+            "display_name": "Pizza Order Voice Host",
             "id": "customer_service_voice_host",
             "model": "NVIDIA ASR + Nemotron vLLM + Magpie TTS",
             "role": "Host WebRTC voice conversation service on Spark",

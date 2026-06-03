@@ -1,4 +1,4 @@
-"""Small plain-text RAG helper for the customer-service voice co-worker."""
+"""Small plain-text RAG helper for the pizza-ordering voice co-worker."""
 
 from __future__ import annotations
 
@@ -142,4 +142,3 @@ def build_rag_context(query: str, knowledge_text: str, *, top_k: int = 4) -> tup
     for index, result in enumerate(results, start=1):
         lines.append(f"[{index}] {result.text}")
     return "\n\n".join(lines), results
-

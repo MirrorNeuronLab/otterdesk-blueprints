@@ -1,2 +1,1 @@
-"""Spark-hosted customer-service voice co-worker payload."""
-
+"""Spark-hosted pizza-ordering voice co-worker payload."""

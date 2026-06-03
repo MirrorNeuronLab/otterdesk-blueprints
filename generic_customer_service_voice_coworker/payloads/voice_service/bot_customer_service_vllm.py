@@ -80,32 +80,34 @@ transport_params = {
 
 
 def system_prompt() -> str:
-    business_name = os.getenv("CUSTOMER_SERVICE_BUSINESS_NAME", "Acme Customer Care")
+    business_name = os.getenv("CUSTOMER_SERVICE_BUSINESS_NAME", "Otter Slice Pizza")
     service_scope = os.getenv(
         "CUSTOMER_SERVICE_SCOPE",
-        "Answer common customer-service questions from the editable knowledge base.",
+        "Take pizza orders from the editable menu knowledge, collect pickup or delivery details, and recommend human handoff when needed.",
     )
     escalation_policy = os.getenv(
         "CUSTOMER_SERVICE_ESCALATION_POLICY",
-        "Escalate anything not grounded in the knowledge base.",
+        "Escalate allergies, food-safety concerns, refunds, complaints, payment-card questions, missing orders, angry callers, and anything not grounded in the knowledge base.",
     )
     opening_message = os.getenv(
         "CUSTOMER_SERVICE_OPENING_MESSAGE",
-        f"Thanks for calling {business_name}. How can I help today?",
+        f"Thanks for calling {business_name}. What delicious trouble can I help you get into today?",
     )
     return f"""
-You are the voice customer-service co-worker for {business_name}.
+You are the pizza-ordering voice co-worker for {business_name}.
 
-You speak naturally, briefly, and kindly. Keep responses under two spoken sentences unless the customer asks for detail.
+You speak naturally, briefly, kindly, and with a little warmth. Tiny pizza jokes are okay when they fit, but keep the order moving. Keep responses under two spoken sentences unless the customer asks for detail.
 
 Service scope:
 {service_scope}
 
 Editable knowledge rules:
-- Use only the retrieved editable customer knowledge injected into each user turn.
+- Use only the retrieved editable pizza-shop knowledge injected into each user turn.
 - If the knowledge does not contain the answer, say you do not have that information and ask one clarifying question or recommend escalation.
-- Never invent business policies, prices, schedules, account status, refunds, legal advice, medical advice, or safety instructions.
-- If the user asks for an account change, refund approval, emergency support, legal/medical advice, or anything outside scope, recommend human handoff.
+- Never invent menu items, prices, coupons, hours, delivery promises, payment methods, allergen guarantees, refunds, legal advice, medical advice, or safety instructions.
+- Ask one order question at a time: item, size, crust, sauce, toppings, quantity, pickup or delivery, name, phone, and address for delivery.
+- Do not collect card numbers or full payment details.
+- If the user mentions allergies, refunds, complaints, emergency support, or anything outside scope, recommend human handoff.
 
 Escalation policy:
 {escalation_policy}
@@ -117,7 +119,7 @@ Opening message:
 
 async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> None:
     ensure_knowledge_file()
-    logger.info("Starting generic customer-service voice co-worker")
+    logger.info("Starting pizza-ordering voice co-worker")
     logger.info(f"  ASR URL: {NVIDIA_ASR_URL}")
     logger.info(f"  LLM URL: {NVIDIA_LLM_URL}")
     logger.info(f"  LLM Model: {NVIDIA_LLM_MODEL}")
@@ -151,7 +153,7 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
 
     opening_message = os.getenv(
         "CUSTOMER_SERVICE_OPENING_MESSAGE",
-        f"Thanks for calling {os.getenv('CUSTOMER_SERVICE_BUSINESS_NAME', 'Acme Customer Care')}. How can I help today?",
+        f"Thanks for calling {os.getenv('CUSTOMER_SERVICE_BUSINESS_NAME', 'Otter Slice Pizza')}. What delicious trouble can I help you get into today?",
     )
     context = LLMContext(
         [
@@ -228,4 +230,3 @@ if __name__ == "__main__":
     from pipecat.runner.run import main
 
     main()
-

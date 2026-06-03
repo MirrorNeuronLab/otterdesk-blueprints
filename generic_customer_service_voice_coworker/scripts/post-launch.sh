@@ -17,7 +17,16 @@ import shlex
 from pathlib import Path
 
 state = json.loads(Path(os.environ["STATE_FILE"]).read_text(encoding="utf-8"))
-for key in ["spark_host", "remote_run_dir", "voice_port", "voice_url", "health_url"]:
+for key in [
+    "spark_host",
+    "remote_run_dir",
+    "voice_port",
+    "local_proxy_port",
+    "local_proxy_pid",
+    "local_proxy_status",
+    "voice_url",
+    "health_url",
+]:
     value = state.get(key) or ""
     print(f"{key.upper()}={shlex.quote(str(value))}")
 PY
@@ -38,6 +47,15 @@ copy_if_exists "${REMOTE_RUN_DIR}/knowledge/customer_service_knowledge.meta.json
 copy_if_exists "${REMOTE_RUN_DIR}/conversation.jsonl" "${RUN_DIR}/conversation.jsonl"
 copy_if_exists "${REMOTE_RUN_DIR}/voice_service.json" "${RUN_DIR}/voice_service.json"
 copy_if_exists "${REMOTE_RUN_DIR}/logs.jsonl" "${RUN_DIR}/logs.jsonl"
+
+if [[ "${LOCAL_PROXY_STATUS:-}" == "started" && -n "${LOCAL_PROXY_PID:-}" && "${LOCAL_PROXY_PID}" =~ ^[0-9]+$ ]]; then
+  proxy_cmd="$(ps -p "${LOCAL_PROXY_PID}" -o command= 2>/dev/null || true)"
+  if [[ "${proxy_cmd}" == *"ssh"* && "${proxy_cmd}" == *"127.0.0.1:${LOCAL_PROXY_PORT}:127.0.0.1:${VOICE_PORT}"* ]]; then
+    kill "${LOCAL_PROXY_PID}" >/dev/null 2>&1 || true
+    sleep 1
+  fi
+fi
+rm -f "${RUN_DIR}/voice_proxy.pid"
 
 ssh "${SPARK_HOST}" "RUN_ID='${RUN_ID}' REMOTE_RUN_DIR='${REMOTE_RUN_DIR}' bash -s" <<'SH' || true
 set -euo pipefail
@@ -63,7 +81,7 @@ SH
 cat > "${RUN_DIR}/final_artifact.json" <<JSON
 {
   "type": "customer_service_voice_service",
-  "executive_summary": "The Spark-hosted customer-service voice co-worker run has been cleaned up.",
+  "executive_summary": "The Spark-hosted pizza-ordering voice co-worker run has been cleaned up.",
   "recommended_action": "Review the copied knowledge snapshot and conversation artifacts in the local run store.",
   "confidence": 0.85,
   "evidence": [
@@ -79,4 +97,3 @@ cat > "${RUN_DIR}/final_artifact.json" <<JSON
   "source_refs": ["voice_service.json", "knowledge/customer_service_knowledge.txt", "conversation.jsonl", "events.jsonl", "logs.jsonl"]
 }
 JSON
-

@@ -1,4 +1,4 @@
-"""Browser UI routes for the generic customer-service voice app."""
+"""Browser UI routes for the pizza-ordering voice app."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ CUSTOMER_SERVICE_HTML = """<!doctype html>
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Customer Service Voice Co-worker</title>
+  <title>Pizza Order Voice Co-worker</title>
   <style>
     :root {
       color-scheme: light;
@@ -365,8 +365,8 @@ CUSTOMER_SERVICE_HTML = """<!doctype html>
       <div class="brand">
         <div class="mark" aria-hidden="true"></div>
         <div>
-          <h1 id="business-title">Customer Service Voice</h1>
-          <p class="subtle">Editable support knowledge for this live run.</p>
+          <h1 id="business-title">Pizza Order Voice</h1>
+          <p class="subtle">Editable menu and ordering knowledge for this live run.</p>
         </div>
       </div>
 
@@ -377,13 +377,13 @@ CUSTOMER_SERVICE_HTML = """<!doctype html>
 
       <section class="knowledge">
         <div>
-          <h2>Knowledge</h2>
+          <h2>Menu knowledge</h2>
           <p class="subtle">Saved text is used on the next customer turn.</p>
         </div>
         <textarea id="knowledge-text" spellcheck="true"></textarea>
         <div class="row">
           <button id="reload-knowledge" type="button">Reload</button>
-          <button id="save-knowledge" class="primary" type="button">Save knowledge</button>
+          <button id="save-knowledge" class="primary" type="button">Save menu</button>
         </div>
         <p id="knowledge-meta" class="subtle"></p>
       </section>
@@ -666,4 +666,3 @@ def register_customer_service_routes(app: FastAPI) -> None:
     @app.get("/customer-service", include_in_schema=False)
     async def customer_service():
         return HTMLResponse(CUSTOMER_SERVICE_HTML)
-

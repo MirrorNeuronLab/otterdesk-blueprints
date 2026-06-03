@@ -102,7 +102,7 @@ def register_api_routes(app: FastAPI) -> None:
                 text = raw.decode("utf-8", errors="replace")
         metadata = write_knowledge(text).as_dict()
         emit_event("customer_service_knowledge_updated", metadata)
-        emit_log("customer service knowledge updated", metadata=metadata)
+        emit_log("pizza menu knowledge updated", metadata=metadata)
         return {"ok": True, "metadata": metadata}
 
 
@@ -133,4 +133,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

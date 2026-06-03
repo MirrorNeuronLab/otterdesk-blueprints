@@ -86,24 +86,25 @@
   },
   "identity": {
     "blueprint_id": "generic_customer_service_voice_coworker",
-    "name": "Generic Customer Service Voice AI Co-worker"
+    "name": "Pizza Order Voice AI Co-worker"
   },
   "input_skills": {},
   "inputs": {
     "adapter": "mock",
-    "description": "Default generic customer-service voice co-worker inputs.",
+    "description": "Default pizza-ordering voice co-worker inputs.",
     "payload": {
-      "business_name": "Acme Customer Care",
-      "escalation_policy": "Escalate billing disputes, emergencies, account security issues, angry or distressed callers, requests for refunds or account changes, and any answer not grounded in the knowledge base.",
+      "business_name": "Otter Slice Pizza",
+      "escalation_policy": "Escalate allergies, food-safety concerns, refunds, complaints, payment-card questions, missing orders, angry callers, and anything not grounded in the knowledge base.",
       "knowledge_text": "",
-      "opening_message": "Thanks for calling Acme Customer Care. How can I help today?",
-      "service_scope": "Answer common customer-service questions from the editable knowledge base, ask clarifying questions, and recommend escalation when needed.",
+      "opening_message": "Thanks for calling Otter Slice Pizza. What delicious trouble can I help you get into today?",
+      "service_scope": "Take pizza orders from the editable menu knowledge, collect pickup or delivery details, and recommend human handoff when needed.",
       "spark_host": "homer@spark",
       "spark_ip": "192.168.4.173",
       "spark_node": "mn2@192.168.4.173",
       "voice": "aria",
       "voice_https_port": 7863,
-      "voice_public_url": "https://192.168.4.173:7863/customer-service"
+      "voice_public_url": "https://localhost:7863/customer-service",
+      "voice_local_proxy_port": 7863
     }
   },
   "interfaces": {
@@ -407,10 +408,10 @@
   },
   "metadata": {
     "category": "Business",
-    "description": "Runs a Spark-hosted HTTPS/WebRTC customer-service voice co-worker backed by NVIDIA ASR, Nemotron vLLM, Magpie TTS, and editable plain-text RAG knowledge.",
+    "description": "Runs a localhost-proxied Spark HTTPS/WebRTC pizza-ordering voice co-worker backed by NVIDIA ASR, Nemotron vLLM, Magpie TTS, and editable plain-text menu RAG knowledge.",
     "execution_profile": "customer-service-voice-nvidia",
     "spark_default_target": "mn2@192.168.4.173",
-    "voice_url": "https://192.168.4.173:7863/customer-service"
+    "voice_url": "https://localhost:7863/customer-service"
   },
   "mode": "service",
   "openshell_network": {
@@ -426,7 +427,7 @@
           "/usr/bin/python3.12"
         ],
         "name": "spark-customer-service-voice-page",
-        "uri": "https://192.168.4.173:7863/customer-service"
+        "uri": "https://localhost:7863/customer-service"
       },
       {
         "allowed_ips": [
@@ -569,7 +570,7 @@
     "deterministic": true,
     "enabled": true,
     "seed_field": "seed",
-    "type": "Video stream sampling with visual detection review state."
+    "type": "Spark-hosted real-time WebRTC pizza-ordering conversation exposed through localhost with editable text RAG."
   },
   "standard_version": "1.0",
   "state": {
@@ -590,7 +591,7 @@
       "enabled": true,
       "kind": "audio",
       "transport": "webrtc",
-      "uri": "https://192.168.4.173:7863/customer-service"
+      "uri": "https://localhost:7863/customer-service"
     }
   },
   "triggers": {
@@ -632,16 +633,17 @@
           "customer_service_rag_context_selected": "The service selected knowledge snippets for the current user turn.",
           "customer_service_turn_completed": "A customer voice turn was answered and logged.",
           "customer_service_voice_error": "The voice service or NVIDIA stack reported an error.",
-          "customer_service_voice_ready": "The Spark HTTPS/WebRTC voice page is accepting browser calls."
+          "customer_service_voice_proxy_ready": "The localhost proxy to the Spark voice service is ready.",
+          "customer_service_voice_ready": "The localhost HTTPS/WebRTC voice page is accepting browser calls."
         },
         "events_help": "Events show service health, knowledge edits, RAG selections, conversation turns, and escalation recommendations.",
-        "overview": "This service launches a Spark-hosted customer-service voice page at https://192.168.4.173:7863/customer-service. The customer knowledge is plain text and can be edited during the run.",
+        "overview": "This service launches a localhost-proxied pizza-ordering voice page at https://localhost:7863/customer-service. The menu knowledge is plain text and can be edited during the run.",
         "review_help": "Review the voice service handle, conversation log, editable knowledge snapshot, and final run summary before handoff.",
         "workflow_steps": [
           "Confirm Spark is reachable and has an NVIDIA GPU.",
           "Start or reuse the shared NVIDIA ASR, Nemotron vLLM, and Magpie TTS stack.",
           "Prepare the run-scoped editable knowledge file.",
-          "Serve the HTTPS/WebRTC customer-service voice page from Spark.",
+          "Serve the HTTPS/WebRTC pizza-ordering voice page through localhost.",
           "Copy knowledge and conversation artifacts back into the local run store during cleanup."
         ]
       },
@@ -654,6 +656,7 @@
         "customer_service_voice_start_requested",
         "customer_service_voice_prepared",
         "customer_service_voice_stack_ready",
+        "customer_service_voice_proxy_ready",
         "customer_service_voice_started",
         "customer_service_voice_ready",
         "customer_service_voice_health_checked",
@@ -677,7 +680,7 @@
             },
             "id": 1,
             "options": {
-              "content": "Spark voice page: https://192.168.4.173:7863/customer-service",
+              "content": "Local pizza voice page: https://localhost:7863/customer-service",
               "mode": "markdown"
             },
             "title": "Overview",
@@ -828,7 +831,7 @@
           ]
         }
       },
-      "spark_health_url": "https://192.168.4.173:7863/health",
+      "spark_health_url": "https://localhost:7863/health",
       "standard_panels": [
         "current_status",
         "recent_events",
@@ -849,7 +852,7 @@
         "cleanup_script": "scripts/post-launch.sh",
         "enabled": false
       },
-      "voice_url": "https://192.168.4.173:7863/customer-service"
+      "voice_url": "https://localhost:7863/customer-service"
     },
     "enabled": true,
     "input": {

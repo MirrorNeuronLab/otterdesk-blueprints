@@ -609,21 +609,26 @@ def test_generic_customer_service_voice_blueprint_contract():
     assert voice_node["constraints"] == [
         {"attribute": "node.name", "operator": "==", "value": "mn2@192.168.4.173"}
     ]
-    assert voice_node["with"]["public_url"] == "https://192.168.4.173:7863/customer-service"
+    assert voice_node["with"]["public_url"] == "https://localhost:7863/customer-service"
 
     payload = config["inputs"]["payload"]
+    assert payload["business_name"] == "Otter Slice Pizza"
     assert payload["spark_host"] == "homer@spark"
     assert payload["voice"] == "aria"
     assert payload["voice_https_port"] == 7863
-    assert config["web_ui"]["dashboard"]["voice_url"] == "https://192.168.4.173:7863/customer-service"
+    assert payload["voice_local_proxy_port"] == 7863
+    assert config["web_ui"]["dashboard"]["voice_url"] == "https://localhost:7863/customer-service"
     assert config["streams"]["customer_service_voice_stream"]["transport"] == "webrtc"
     assert manifest["input_validation"]["rules"] == []
     assert "validate_rtsp_source.py" not in json.dumps(manifest)
 
     assert "scripts/nemotron.sh start --mode vllm" in script
+    assert "127.0.0.1:${LOCAL_PROXY_PORT}:127.0.0.1:${VOICE_PORT}" in script
+    assert "customer_service_voice_proxy_ready" in script
     assert "CUSTOMER_SERVICE_KNOWLEDGE_PATH" in script
     assert "MN_PRE_LAUNCH_READY_FILE" in script
     assert "customer_service_knowledge.txt" in script
+    assert "voice_proxy.pid" in cleanup
     assert "voice_service.pid" in cleanup
     assert "serve_customer_service_https.py" in cleanup
     assert "scripts/nemotron.sh stop" not in cleanup

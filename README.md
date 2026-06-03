@@ -35,7 +35,7 @@ python3 -m pytest -q
 | Blueprint | Category | Purpose |
 | --- | --- | --- |
 | [`drug_discovery_research_assistant`](drug_discovery_research_assistant/README.md) | Science | Helps run a reviewable discovery workflow that proposes, filters, and evaluates drug candidates across repeated research stages. |
-| [`generic_customer_service_voice_coworker`](generic_customer_service_voice_coworker/README.md) | Business | Runs a Spark-hosted HTTPS/WebRTC customer-service voice co-worker with editable plain-text knowledge and NVIDIA ASR, Nemotron vLLM, and Magpie TTS. |
+| [`generic_customer_service_voice_coworker`](generic_customer_service_voice_coworker/README.md) | Business | Runs a localhost-proxied Spark HTTPS/WebRTC pizza-ordering voice co-worker with editable menu knowledge and NVIDIA ASR, Nemotron vLLM, and Magpie TTS. |
 | [`personal_income_tax_expert`](personal_income_tax_expert/README.md) | Finance | Runs an LLM-assisted tax preparation team over local tax documents, builds draft Form 1040 workpapers, audits the packet, and writes JSON, Markdown, and PDF review outputs. |
 | [`portfolio_risk_review_assistant`](portfolio_risk_review_assistant/README.md) | Finance | Stress-tests a portfolio against market crashes, rate shocks, and liquidity pressure, then explains risks and possible rebalancing options in plain language. |
 | [`property_deal_research_assistant`](property_deal_research_assistant/README.md) | Finance | Reviews ZIP-code history, broker notes, financing constraints, and deal memory to rank property opportunities and explain which ones deserve attention. |

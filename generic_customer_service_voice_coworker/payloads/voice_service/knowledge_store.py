@@ -12,16 +12,22 @@ from pathlib import Path
 
 
 DEFAULT_KNOWLEDGE = """Business overview:
-This is a generic customer-service desk. Answer common questions about hours,
-service scope, appointment intake, pricing basics, and human handoff.
+Otter Slice Pizza is a friendly neighborhood pizza shop. Help callers place
+pickup or delivery orders from the editable menu knowledge.
 
-Default hours:
-Monday through Friday, 9:00 AM to 5:00 PM local time.
+Hours:
+Open daily from 11:00 AM to 10:00 PM. Last delivery order is 9:30 PM.
+
+Menu basics:
+Signature pizzas include Margherita, Pepperoni Classic, Funghi, BBQ Chicken,
+Veggie Garden, and Diablo. Ask for size, crust, sauce, toppings, quantity, and
+pickup or delivery. Collect name and phone for pickup. Collect name, phone,
+delivery address, and delivery notes for delivery.
 
 Escalation:
-Escalate urgent safety issues, account security issues, billing disputes,
-refund or cancellation approvals, legal or medical questions, and anything
-not grounded in the knowledge text.
+Escalate allergies, food-safety concerns, refunds, complaints, payment-card
+questions, missing orders, angry callers, and anything not grounded in the
+knowledge text.
 """
 
 
@@ -109,4 +115,3 @@ def knowledge_metadata(path: Path | None = None) -> KnowledgeMetadata:
         sha256=digest,
         updated_at=updated.isoformat().replace("+00:00", "Z"),
     )
-

@@ -46,7 +46,7 @@ if [[ ! -s "${KNOWLEDGE_PATH}" ]]; then
   elif [[ -f "${VOICE_ROOT}/knowledge/default_knowledge.txt" ]]; then
     cp "${VOICE_ROOT}/knowledge/default_knowledge.txt" "${KNOWLEDGE_PATH}"
   else
-    printf "Generic customer-service knowledge is not configured yet.\n" > "${KNOWLEDGE_PATH}"
+    printf "Otter Slice Pizza knowledge is not configured yet. Ask a human before taking a real order.\n" > "${KNOWLEDGE_PATH}"
   fi
 fi
 
@@ -139,7 +139,7 @@ JSON
 cat > "${RUN_DIR}/final_artifact.json" <<JSON
 {
   "type": "customer_service_voice_service",
-  "executive_summary": "The Spark-hosted customer-service voice co-worker is starting.",
+  "executive_summary": "The Spark-hosted pizza-ordering voice co-worker is starting behind the localhost proxy.",
   "recommended_action": "Open ${PUBLIC_URL} and test a customer call.",
   "confidence": 0.8,
   "evidence": [
