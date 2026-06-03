@@ -101,7 +101,7 @@
       "spark_host": "homer@spark",
       "spark_ip": "192.168.4.173",
       "spark_node": "mn2@192.168.4.173",
-      "voice": "magpie-neutral",
+      "voice": "aria",
       "voice_https_port": 7863,
       "voice_public_url": "https://192.168.4.173:7863/customer-service"
     }

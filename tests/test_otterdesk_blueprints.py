@@ -591,6 +591,7 @@ def test_generic_customer_service_voice_blueprint_contract():
     cleanup = (blueprint_dir / "scripts" / "post-launch.sh").read_text()
 
     assert manifest["type"] == "service"
+    assert "voice_service" in manifest["entrypoints"]
     assert manifest["runtime"]["resources"]["gpu"]["min_count"] == 1
     assert manifest["runtime"]["worker_defaults"]["pool"] == "customer-service-voice-nvidia"
     voice_node = next(node for node in manifest["nodes"] if node["node_id"] == "voice_service")
@@ -609,6 +610,7 @@ def test_generic_customer_service_voice_blueprint_contract():
 
     payload = config["inputs"]["payload"]
     assert payload["spark_host"] == "homer@spark"
+    assert payload["voice"] == "aria"
     assert payload["voice_https_port"] == 7863
     assert config["web_ui"]["dashboard"]["voice_url"] == "https://192.168.4.173:7863/customer-service"
     assert config["streams"]["customer_service_voice_stream"]["transport"] == "webrtc"

@@ -94,7 +94,7 @@
       },
       "voice": {
         "description": "TTS voice name or preset used by the Magpie service.",
-        "example": "magpie-neutral",
+        "example": "aria",
         "privacy": "internal",
         "required": false,
         "type": "domain_value"
@@ -332,7 +332,8 @@
     }
   ],
   "entrypoints": [
-    "ingress"
+    "ingress",
+    "voice_service"
   ],
   "flow": {
     "entrypoint": "prepare_voice_service",
@@ -627,7 +628,7 @@
       "optional_inputs": [
         {
           "description": "TTS voice name or preset used by the Magpie service.",
-          "example": "magpie-neutral",
+          "example": "aria",
           "name": "voice",
           "type": "domain_value"
         },
