@@ -17,6 +17,17 @@ KEY_FILE="${NEMOTRON_SSL_KEY:-${CERT_DIR}/customer-service.key}"
 PID_FILE="${RUN_DIR}/voice_service.pid"
 LOG_FILE="${RUN_DIR}/voice_service.log"
 
+mkdir -p "${RUN_DIR}/knowledge" "${CERT_DIR}"
+touch "${LOG_FILE}"
+
+log() {
+  local message="$*"
+  printf '%s\n' "${message}"
+  printf '%s\n' "${message}" >> "${LOG_FILE}" 2>/dev/null || true
+}
+
+trap 'status=$?; log "customer service voice runner failed with exit ${status} near line ${LINENO}"; exit "${status}"' ERR
+
 export CUSTOMER_SERVICE_RUN_ID="${RUN_ID}"
 export CUSTOMER_SERVICE_RUN_DIR="${RUN_DIR}"
 export CUSTOMER_SERVICE_PUBLIC_URL="${PUBLIC_URL}"
@@ -39,7 +50,17 @@ else
 fi
 export PYTHONPATH="${VOICE_ROOT}:${NEMOTRON_ROOT}/pipecat_bots:${PYTHONPATH:-}"
 
-mkdir -p "${RUN_DIR}/knowledge" "${CERT_DIR}"
+log "Starting pizza-order voice runner for ${RUN_ID}"
+log "Voice root: ${VOICE_ROOT}"
+log "Run dir: ${RUN_DIR}"
+log "Python: ${CUSTOMER_SERVICE_PYTHON}"
+log "Nemotron root: ${NEMOTRON_ROOT}"
+log "NVIDIA host: ${NVIDIA_HOST}"
+ls -ld "${NEMOTRON_ROOT}" "${NEMOTRON_ROOT}/.venv" "${NEMOTRON_ROOT}/pipecat_bots" 2>&1 | while IFS= read -r line; do log "${line}"; done
+"${CUSTOMER_SERVICE_PYTHON}" - <<'PY'
+import sys
+print(f"Python executable OK: {sys.executable}")
+PY
 
 if [[ ! -s "${KNOWLEDGE_PATH}" ]]; then
   if [[ -n "${CUSTOMER_SERVICE_KNOWLEDGE_TEXT:-}" ]]; then
