@@ -596,6 +596,7 @@ def test_generic_customer_service_voice_blueprint_contract():
     assert manifest["runtime"]["worker_defaults"]["pool"] == "customer-service-voice-nvidia"
     voice_node = next(node for node in manifest["nodes"] if node["node_id"] == "voice_service")
     assert voice_node["with"]["execution_profile"] == "customer-service-voice-nvidia"
+    assert voice_node["with"]["agent_beacon_required"] is False
     assert voice_node["with"]["command"] == ["bash", "scripts/run_voice_service.sh"]
     assert voice_node["with"]["upload_path"] == "voice_service"
     assert voice_node["resources"]["gpu_count"] == 1
@@ -796,7 +797,19 @@ def test_otterdesk_nodes_use_shared_agent_templates_and_render():
             assert config["beacon_timeout_ms"] == 45000, (manifest_path.parent.name, node_id)
             assert config["beacon_missed_action"] == "fail_attempt", (manifest_path.parent.name, node_id)
             if original_nodes[node_id]["uses"].startswith("mn-agents.data_python_executor@"):
-                assert config["agent_beacon_required"] is True, (manifest_path.parent.name, node_id)
+                configured_beacon_required = original_nodes[node_id].get("with", {}).get(
+                    "agent_beacon_required"
+                )
+                if isinstance(configured_beacon_required, bool):
+                    assert config["agent_beacon_required"] is configured_beacon_required, (
+                        manifest_path.parent.name,
+                        node_id,
+                    )
+                else:
+                    assert config["agent_beacon_required"] is True, (
+                        manifest_path.parent.name,
+                        node_id,
+                    )
             if node_id in control_by_step:
                 control = control_by_step[node_id]
                 assert config["timeout_seconds"] == control["timeout_seconds"], (manifest_path.parent.name, node_id)

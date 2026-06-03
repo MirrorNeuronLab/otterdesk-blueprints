@@ -522,6 +522,7 @@
               "VOICE_HTTPS_PORT": "7863"
             },
             "execution_profile": "customer-service-voice-nvidia",
+            "agent_beacon_required": false,
             "gpu_count": 1,
             "health_url": "https://192.168.4.173:7863/health",
             "output_message_type": "customer_service_voice_started",
@@ -1506,6 +1507,7 @@
           "VOICE_HTTPS_PORT": "7863"
         },
         "execution_profile": "customer-service-voice-nvidia",
+        "agent_beacon_required": false,
         "gpu_count": 1,
         "health_url": "https://192.168.4.173:7863/health",
         "output_message_type": "customer_service_voice_started",
