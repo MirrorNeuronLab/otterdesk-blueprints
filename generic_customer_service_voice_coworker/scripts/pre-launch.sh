@@ -3,7 +3,10 @@ set -euo pipefail
 
 RUN_ID="${MN_RUN_ID:-customer-service-voice-dev}"
 RUN_DIR="${MN_RUN_DIR:-$HOME/.mn/runs/${RUN_ID}}"
-CONFIG_JSON="${MN_BLUEPRINT_CONFIG_JSON:-{}}"
+CONFIG_JSON="${MN_BLUEPRINT_CONFIG_JSON:-}"
+if [[ -z "${CONFIG_JSON}" ]]; then
+  CONFIG_JSON="{}"
+fi
 READY_FILE="${MN_PRE_LAUNCH_READY_FILE:-${RUN_DIR}/pre_launch.ready}"
 STATE_FILE="${MN_POST_LAUNCH_STATE_FILE:-${RUN_DIR}/post_launch_state.json}"
 BUNDLE_DIR="${MN_BLUEPRINT_BUNDLE_DIR:-$(pwd)}"
@@ -231,4 +234,3 @@ cat > "${READY_FILE}" <<JSON
   }
 }
 JSON
-
