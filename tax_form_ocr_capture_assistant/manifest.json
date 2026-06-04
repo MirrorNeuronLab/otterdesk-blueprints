@@ -629,7 +629,7 @@
             "alias": "tax_dataset_intake",
             "kind": "worker",
             "role": "Tax dataset intake analyst",
-            "model": "primary",
+            "model": "default",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -647,7 +647,7 @@
             "alias": "tax_ocr_extractor",
             "kind": "worker",
             "role": "Tax OCR extractor",
-            "model": "primary",
+            "model": "default",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -657,7 +657,7 @@
             "alias": "tax_identifier_redactor",
             "kind": "worker",
             "role": "Tax identifier redactor",
-            "model": "primary",
+            "model": "default",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -675,7 +675,7 @@
             "alias": "tax_form_classifier",
             "kind": "worker",
             "role": "Tax form classifier",
-            "model": "primary",
+            "model": "default",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -685,7 +685,7 @@
             "alias": "field_locator",
             "kind": "worker",
             "role": "Structured form field locator",
-            "model": "primary",
+            "model": "default",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -703,7 +703,7 @@
             "alias": "tax_answer_validator",
             "kind": "worker",
             "role": "Tax answer-file validator",
-            "model": "primary",
+            "model": "default",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -721,7 +721,7 @@
             "alias": "tax_capture_report_writer",
             "kind": "worker",
             "role": "Tax capture packet writer",
-            "model": "primary",
+            "model": "default",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -731,10 +731,7 @@
     },
     "models": {
       "primary": {
-        "type": "llm",
-        "provider": "ollama",
-        "model": "ollama/nemotron3:33b",
-        "role": "Local tax form OCR and structured capture team that prepares reviewable field maps without filing or advice claims."
+        "model": "default"
       }
     },
     "memory": {
@@ -817,7 +814,7 @@
     "worker_defaults": {
       "runner": "MirrorNeuron.Runner.HostLocal",
       "uses": "mn-agents.data_python_executor@1.0.0",
-      "model": "ollama/nemotron3:33b",
+      "model": "default",
       "pool": "default",
       "pool_slots": 1,
       "workdir": "/sandbox/job/workflow"
@@ -1559,12 +1556,6 @@
           "label": "LLM OCR",
           "default": true,
           "description": "Use the shared local LightOnOCR Docker Model Runner path for scanned or low-text documents."
-        },
-        {
-          "path": "llm.mode",
-          "label": "LLM mode",
-          "default": "ollama",
-          "description": "Use ollama for local model calls, fake only for deterministic tests."
         }
       ]
     },

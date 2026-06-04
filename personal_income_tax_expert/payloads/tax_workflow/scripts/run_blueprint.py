@@ -157,14 +157,28 @@ except ModuleNotFoundError:  # pragma: no cover - exercised by host-local runtim
             response["model"] = self.model
             return response
 
+    DEFAULT_DMR_BASE = "http://localhost:12434/engines/v1"
+    DEFAULT_DMR_MODEL = "ai/gemma4:E2B"
+    DEFAULT_OLLAMA_BASE = "http://localhost:11434"
+
     class _OllamaLLMClient:
-        provider = "ollama"
+        provider = "docker_model_runner"
 
         def __init__(self) -> None:
-            self.model = _env_value("MN_LLM_MODEL", "LITELLM_MODEL", default="ollama/nemotron3:33b")
-            if not self.model.startswith("ollama/"):
+            self.provider = _normalize_llm_provider(
+                _env_value("MN_LLM_PROVIDER", "LITELLM_PROVIDER", default="docker_model_runner")
+            )
+            self.model = _normalize_runtime_model(
+                _env_value("MN_LLM_MODEL", "LITELLM_MODEL", default=_default_model_for_provider(self.provider)),
+                provider=self.provider,
+            )
+            if self.provider == "ollama" and not self.model.startswith("ollama/"):
                 self.model = f"ollama/{self.model}"
-            self.api_base = _env_value("MN_LLM_API_BASE", "LITELLM_API_BASE", default="http://192.168.4.173:11434").rstrip("/")
+            api_base_default = DEFAULT_OLLAMA_BASE if self.provider == "ollama" else DEFAULT_DMR_BASE
+            self.api_base = _normalize_runtime_api_base(
+                _env_value("MN_LLM_API_BASE", "LITELLM_API_BASE", default=api_base_default),
+                provider=self.provider,
+            )
             self.timeout_seconds = float(_env_value("MN_LLM_TIMEOUT_SECONDS", "LITELLM_TIMEOUT_SECONDS", default="90"))
             self.max_tokens = int(_env_value("MN_LLM_MAX_TOKENS", "LITELLM_MAX_TOKENS", default="1200"))
             self.num_retries = max(int(_env_value("MN_LLM_NUM_RETRIES", "LITELLM_NUM_RETRIES", default="1")), 0)
@@ -197,9 +211,35 @@ except ModuleNotFoundError:  # pragma: no cover - exercised by host-local runtim
                     last_error = error
                     if attempt < self.num_retries and self.retry_backoff_seconds:
                         time.sleep(self.retry_backoff_seconds * (2**attempt))
-            raise RuntimeError(f"Ollama request failed or returned non-JSON: {last_error}") from last_error
+            raise RuntimeError(f"LLM request failed or returned non-JSON: {last_error}") from last_error
 
         def _generate_direct(self, system_prompt: str, user_prompt: str) -> str:
+            if _uses_openai_compatible_runtime(self.provider, self.api_base, self.model):
+                payload = {
+                    "model": self.model,
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": f"{system_prompt}\nReturn only valid JSON.",
+                        },
+                        {"role": "user", "content": user_prompt},
+                    ],
+                    "max_tokens": self.max_tokens,
+                    "temperature": 0.1,
+                    "response_format": {"type": "json_object"},
+                }
+                request = urllib.request.Request(
+                    f"{self.api_base}/chat/completions",
+                    data=json.dumps(payload).encode("utf-8"),
+                    headers={"Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urllib.request.urlopen(request, timeout=self.timeout_seconds) as response:
+                    data = json.loads(response.read().decode("utf-8"))
+                choice = (data.get("choices") or [{}])[0]
+                message = choice.get("message") if isinstance(choice, dict) else {}
+                return str((message or {}).get("content") or "")
+
             payload = {
                 "model": self.model.removeprefix("ollama/"),
                 "messages": [
@@ -230,6 +270,41 @@ except ModuleNotFoundError:  # pragma: no cover - exercised by host-local runtim
             return value.strip() or default
         return os.environ.get(legacy, default).strip() or default
 
+    def _normalize_llm_provider(provider: str) -> str:
+        value = str(provider or "docker_model_runner").strip().lower().replace("-", "_")
+        if value in {"", "dmr", "openai", "openai_compatible"}:
+            return "docker_model_runner"
+        return value
+
+    def _default_model_for_provider(provider: str) -> str:
+        return "ollama/gemma4:e2b" if provider == "ollama" else DEFAULT_DMR_MODEL
+
+    def _normalize_runtime_model(model: str, *, provider: str) -> str:
+        value = str(model or "").strip()
+        if value.lower() in {"", "default", "gemma4", "gemme4", "gemma4:e2b", "gemme4:e2b"}:
+            return _default_model_for_provider(provider)
+        return value
+
+    def _normalize_runtime_api_base(api_base: str, *, provider: str) -> str:
+        value = str(api_base or "").strip().rstrip("/")
+        if not value:
+            return DEFAULT_OLLAMA_BASE if provider == "ollama" else DEFAULT_DMR_BASE
+        if "/engines/" in value:
+            if value.endswith("/chat/completions"):
+                value = value[: -len("/chat/completions")]
+            return value.rstrip("/")
+        for suffix in ("/v1/chat/completions", "/chat/completions", "/v1"):
+            if value.endswith(suffix):
+                value = value[: -len(suffix)]
+        return value.rstrip("/")
+
+    def _uses_openai_compatible_runtime(provider: str, api_base: str, model: str) -> bool:
+        return (
+            provider in {"docker_model_runner", "openai", "openai_compatible"}
+            or "/engines/" in api_base
+            or not model.startswith("ollama/")
+        )
+
     def _parse_json_object(text: str) -> dict[str, Any]:
         cleaned = str(text or "").strip()
         if cleaned.startswith("```"):
@@ -248,12 +323,12 @@ except ModuleNotFoundError:  # pragma: no cover - exercised by host-local runtim
         return value
 
     def get_llm_client(mode: str | None = None) -> Any:
-        selected = str(mode or os.environ.get("MN_BLUEPRINT_LLM_MODE") or "ollama").strip().lower()
+        selected = str(mode or os.environ.get("MN_BLUEPRINT_LLM_MODE") or "live").strip().lower()
         if selected in {"fake", "mock", "deterministic"}:
             return _FakeLLMClient()
-        if selected in {"ollama", "live", "real"}:
+        if selected in {"docker_model_runner", "docker-model-runner", "dmr", "openai-compatible", "openai_compatible", "ollama", "live", "real"}:
             return _OllamaLLMClient()
-        raise ValueError(f"unknown LLM mode {selected!r}; expected fake or ollama")
+        raise ValueError(f"unknown LLM mode {selected!r}; expected fake or live")
 
     class _RuntimeContext:
         def __init__(
@@ -1242,7 +1317,7 @@ def _resolve_llm_client(config: dict[str, Any]) -> Any:
     llm_config = config.get("llm") if isinstance(config.get("llm"), dict) else {}
     if llm_config.get("enabled") is False:
         return get_llm_client("fake")
-    mode = str(llm_config.get("mode") or os.environ.get("MN_BLUEPRINT_LLM_MODE") or "ollama").strip().lower()
+    mode = str(llm_config.get("mode") or os.environ.get("MN_BLUEPRINT_LLM_MODE") or "live").strip().lower()
     if (
         os.environ.get("MN_BLUEPRINT_QUICK_TEST", "").strip().lower() in {"1", "true", "yes", "on"}
         and bool(llm_config.get("quick_test_uses_fake", False))
@@ -1250,9 +1325,11 @@ def _resolve_llm_client(config: dict[str, Any]) -> Any:
         return get_llm_client("fake")
     if mode in {"fake", "mock", "deterministic"}:
         return get_llm_client("fake")
-    if mode in {"ollama", "live", "real"}:
+    if mode in {"docker_model_runner", "docker-model-runner", "dmr", "openai-compatible", "openai_compatible", "ollama", "live", "real"}:
         _apply_llm_config_env(llm_config)
-        client = get_llm_client("ollama")
+        if mode == "ollama" and not os.environ.get("MN_LLM_PROVIDER"):
+            os.environ["MN_LLM_PROVIDER"] = "ollama"
+        client = get_llm_client(mode)
         if hasattr(client, "prefer_shared_skill"):
             client.prefer_shared_skill = bool(llm_config.get("prefer_shared_skill", False))
         if hasattr(client, "strict"):
@@ -1262,6 +1339,8 @@ def _resolve_llm_client(config: dict[str, Any]) -> Any:
 
 
 def _apply_runtime_llm_overrides(config: dict[str, Any], runtime_inputs: dict[str, Any]) -> None:
+    if os.environ.get("MN_ALLOW_LEGACY_LLM_INPUT_OVERRIDES", "").strip().lower() not in {"1", "true", "yes", "on"}:
+        return
     api_base = runtime_inputs.get("ollama_base_url") or runtime_inputs.get("llm_api_base")
     model = runtime_inputs.get("ollama_model") or runtime_inputs.get("llm_model")
     if not api_base and not model:
@@ -1272,7 +1351,8 @@ def _apply_runtime_llm_overrides(config: dict[str, Any], runtime_inputs: dict[st
         llm_config["api_base"] = str(api_base).rstrip("/")
         primary["api_base"] = str(api_base).rstrip("/")
     if model:
-        normalized_model = _normalize_ollama_model(str(model))
+        provider = str(llm_config.get("provider") or os.environ.get("MN_LLM_PROVIDER") or "docker_model_runner").strip().lower()
+        normalized_model = _normalize_runtime_config_model(str(model), provider=provider)
         llm_config["model"] = normalized_model
         primary["model"] = normalized_model
 
@@ -1285,6 +1365,7 @@ def _apply_llm_config_env(llm_config: dict[str, Any]) -> None:
         primary = configs[default_config]
     values = {
         "MN_LLM_API_BASE": llm_config.get("api_base") or primary.get("api_base"),
+        "MN_LLM_PROVIDER": llm_config.get("provider") or primary.get("provider"),
         "MN_LLM_MODEL": llm_config.get("model") or primary.get("model"),
         "MN_LLM_TIMEOUT_SECONDS": llm_config.get("timeout_seconds") or primary.get("timeout_seconds"),
         "MN_LLM_MAX_TOKENS": llm_config.get("max_tokens") or primary.get("max_tokens"),
@@ -1298,18 +1379,27 @@ def _apply_llm_config_env(llm_config: dict[str, Any]) -> None:
 def _normalize_ollama_model(model: str) -> str:
     value = model.strip()
     if not value:
-        return "ollama/nemotron3:33b"
+        return "ollama/gemma4:e2b"
     return value if value.startswith("ollama/") else f"ollama/{value}"
+
+
+def _normalize_runtime_config_model(model: str, *, provider: str) -> str:
+    value = model.strip()
+    if value.lower() in {"", "default", "gemma4", "gemme4", "gemma4:e2b", "gemme4:e2b"}:
+        return "ollama/gemma4:e2b" if provider == "ollama" else "ai/gemma4:E2B"
+    if provider == "ollama":
+        return value if value.startswith("ollama/") else f"ollama/{value}"
+    return value
 
 
 def _llm_metadata(llm: Any, config: dict[str, Any]) -> dict[str, Any]:
     llm_config = config.get("llm") if isinstance(config.get("llm"), dict) else {}
     return {
         "enabled": llm_config.get("enabled", True) is not False,
-        "mode": str(llm_config.get("mode") or "ollama"),
+        "mode": str(llm_config.get("mode") or "live"),
         "provider": getattr(llm, "provider", "unknown"),
         "model": getattr(llm, "model", str(llm_config.get("model") or "unknown")),
-        "api_base": str(llm_config.get("api_base") or "http://192.168.4.173:11434"),
+        "api_base": str(llm_config.get("api_base") or getattr(llm, "api_base", "http://localhost:12434/engines/v1")),
         "calls": int(getattr(llm, "calls", 0) or 0),
         "fallback_calls": int(getattr(llm, "fallback_calls", 0) or 0),
         "specialist_stage_count": len(SPECIALIST_STAGES),

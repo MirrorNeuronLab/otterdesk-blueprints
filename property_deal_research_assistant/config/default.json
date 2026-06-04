@@ -323,6 +323,8 @@
     ]
   },
   "llm": {
+    "model": "default",
+    "enabled": true,
     "agent_role": "AI assistant for researching property deals and drafting opportunity rankings.",
     "agents": {
       "default": {
@@ -337,31 +339,14 @@
         "role": "AI assistant for researching property deals and drafting opportunity rankings."
       }
     },
-    "api_base": "http://192.168.4.173:11434",
-    "configs": {
-      "primary": {
-        "api_base": "http://192.168.4.173:11434",
-        "max_tokens": 700,
-        "mock_mode": "fake",
-        "mode": "ollama",
-        "model": "ollama/nemotron3:33b",
-        "num_retries": 1,
-        "provider": "ollama",
-        "timeout_seconds": 60
-      }
-    },
-    "default_config": "primary",
-    "enabled": true,
-    "mock_mode": "fake",
-    "mode": "ollama",
-    "model": "ollama/nemotron3:33b",
     "responsibilities": [
       "observe listing dynamics",
       "retrieve important historical facts from working memory",
       "connect broker, lender, rent, insurance, and diligence signals",
       "rank opportunities against the current snapshot",
       "explain bid, discount, or watchlist decisions with source_refs"
-    ]
+    ],
+    "mock_mode": "fake"
   },
   "logging": {
     "events": [

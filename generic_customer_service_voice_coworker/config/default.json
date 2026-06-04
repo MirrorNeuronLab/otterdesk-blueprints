@@ -60,15 +60,19 @@
   "execution_model": {
     "execution_profile": "customer-service-voice-nvidia",
     "placement": {
-      "node_constraint": "mn2@192.168.4.173",
-      "spark_host": "homer@spark",
-      "spark_ip": "192.168.4.173"
+      "required_capabilities": [
+        "nvidia-dgx-spark",
+        "nvidia-gh200",
+        "nvidia-h100",
+        "nvidia-h200",
+        "nvidia-b200",
+        "nvidia-gb200"
+      ]
     },
     "required_gpu": {
       "gpu_count": 1
     },
-    "runner": "MirrorNeuron.Runner.HostLocal",
-    "target_node": "mn2@192.168.4.173"
+    "runner": "MirrorNeuron.Runner.HostLocal"
   },
   "human_control": {
     "enabled": true,
@@ -98,9 +102,6 @@
       "knowledge_text": "",
       "opening_message": "Thanks for calling Otter Slice Pizza. What delicious trouble can I help you get into today?",
       "service_scope": "Take pizza orders from the editable menu knowledge, collect pickup or delivery details, and recommend human handoff when needed.",
-      "spark_host": "homer@spark",
-      "spark_ip": "192.168.4.173",
-      "spark_node": "mn2@192.168.4.173",
       "voice": "aria",
       "voice_https_port": 7863,
       "voice_public_url": "https://localhost:7863/customer-service",
@@ -297,12 +298,12 @@
     ]
   },
   "llm": {
+    "model": "otterdesk-voice-llm:default",
+    "provider": "docker_model_runner",
+    "runtime_model": "otterdesk-voice-llm:default",
+    "backend": "llama.cpp",
     "agent_role": "Customer-service voice co-worker that answers from the customer knowledge base, asks clarifying questions when needed, and recommends escalation when it is unsure or outside scope.",
-    "base_url": "http://192.168.4.173:8000/v1",
-    "model": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16",
-    "provider": "openai-compatible",
-    "system_prompt": "prompts/chat-system.md",
-    "temperature": 0.2
+    "system_prompt": "prompts/chat-system.md"
   },
   "logging": {
     "events": [
@@ -410,65 +411,19 @@
     "category": "Business",
     "description": "Runs a localhost-proxied Spark HTTPS/WebRTC pizza-ordering voice co-worker backed by NVIDIA ASR, Nemotron vLLM, Magpie TTS, and editable plain-text menu RAG knowledge.",
     "execution_profile": "customer-service-voice-nvidia",
-    "spark_default_target": "mn2@192.168.4.173",
-    "voice_url": "https://localhost:7863/customer-service"
+    "voice_url": "https://localhost:7863/customer-service",
+    "required_cluster_capabilities": [
+      "nvidia-dgx-spark",
+      "nvidia-gh200",
+      "nvidia-h100",
+      "nvidia-h200",
+      "nvidia-b200",
+      "nvidia-gb200"
+    ]
   },
   "mode": "service",
   "openshell_network": {
-    "endpoints": [
-      {
-        "allowed_ips": [
-          "192.168.4.173/32"
-        ],
-        "binaries": [
-          "/bin/bash",
-          "/usr/bin/bash",
-          "/usr/bin/python3",
-          "/usr/bin/python3.12"
-        ],
-        "name": "spark-customer-service-voice-page",
-        "uri": "https://localhost:7863/customer-service"
-      },
-      {
-        "allowed_ips": [
-          "192.168.4.173/32"
-        ],
-        "binaries": [
-          "/bin/bash",
-          "/usr/bin/bash",
-          "/usr/bin/python3",
-          "/usr/bin/python3.12"
-        ],
-        "name": "spark-nvidia-asr",
-        "uri": "http://192.168.4.173:8080"
-      },
-      {
-        "allowed_ips": [
-          "192.168.4.173/32"
-        ],
-        "binaries": [
-          "/bin/bash",
-          "/usr/bin/bash",
-          "/usr/bin/python3",
-          "/usr/bin/python3.12"
-        ],
-        "name": "spark-nemotron-vllm",
-        "uri": "http://192.168.4.173:8000"
-      },
-      {
-        "allowed_ips": [
-          "192.168.4.173/32"
-        ],
-        "binaries": [
-          "/bin/bash",
-          "/usr/bin/bash",
-          "/usr/bin/python3",
-          "/usr/bin/python3.12"
-        ],
-        "name": "spark-magpie-tts",
-        "uri": "http://192.168.4.173:8001"
-      }
-    ],
+    "endpoints": [],
     "include_dns": false,
     "policy_path": "voice_service/policies/customer-service-egress.yaml"
   },
@@ -550,7 +505,15 @@
     "history_window_hours": 24,
     "raw_retention_hours": 48,
     "rollup_bucket_seconds": 3600,
-    "sample_interval_seconds": 10
+    "sample_interval_seconds": 10,
+    "required_capabilities": [
+      "nvidia-dgx-spark",
+      "nvidia-gh200",
+      "nvidia-h100",
+      "nvidia-h200",
+      "nvidia-b200",
+      "nvidia-gb200"
+    ]
   },
   "schemas": {
     "artifact_record": "mn.artifact.record.v1",
@@ -611,15 +574,6 @@
     "transport": "rtsp",
     "upstream_uri": "",
     "uri": "rtsp://127.0.0.1:8554/video-watch"
-  },
-  "vl_model": {
-    "base_url": "http://192.168.4.173:11434",
-    "description": "Configurable vision-language model used to understand sampled video video frames.",
-    "endpoint": "/api/generate",
-    "model": "nemotron3:33b",
-    "provider": "ollama",
-    "temperature": 0,
-    "timeout_seconds": 90
   },
   "web_ui": {
     "dashboard": {

@@ -6,10 +6,10 @@ VOICE_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 RUN_ID="${CUSTOMER_SERVICE_RUN_ID:-${MN_RUN_ID:-customer-service-voice-dev}}"
 RUN_DIR="${CUSTOMER_SERVICE_RUN_DIR:-${MN_RUN_DIR:-$HOME/.mn/runs/${RUN_ID}}}"
-SPARK_IP="${CUSTOMER_SERVICE_SPARK_IP:-192.168.4.173}"
 VOICE_PORT="${VOICE_HTTPS_PORT:-7863}"
-PUBLIC_URL="${CUSTOMER_SERVICE_PUBLIC_URL:-https://${SPARK_IP}:${VOICE_PORT}/customer-service}"
-HEALTH_URL="${CUSTOMER_SERVICE_HEALTH_URL:-https://${SPARK_IP}:${VOICE_PORT}/health}"
+PUBLIC_HOST="${CUSTOMER_SERVICE_PUBLIC_HOST:-localhost}"
+PUBLIC_URL="${CUSTOMER_SERVICE_PUBLIC_URL:-https://${PUBLIC_HOST}:${VOICE_PORT}/customer-service}"
+HEALTH_URL="${CUSTOMER_SERVICE_HEALTH_URL:-https://${PUBLIC_HOST}:${VOICE_PORT}/health}"
 KNOWLEDGE_PATH="${CUSTOMER_SERVICE_KNOWLEDGE_PATH:-${RUN_DIR}/knowledge/customer_service_knowledge.txt}"
 CERT_DIR="${RUN_DIR}/certs"
 CERT_FILE="${NEMOTRON_SSL_CERT:-${CERT_DIR}/customer-service.crt}"
@@ -37,11 +37,12 @@ export NEMOTRON_BOT_HOST="${NEMOTRON_BOT_HOST:-0.0.0.0}"
 export NEMOTRON_BOT_PORT="${VOICE_PORT}"
 export NEMOTRON_SSL_CERT="${CERT_FILE}"
 export NEMOTRON_SSL_KEY="${KEY_FILE}"
-NVIDIA_HOST="${CUSTOMER_SERVICE_NVIDIA_HOST:-${CUSTOMER_SERVICE_SPARK_IP:-127.0.0.1}}"
-export NVIDIA_ASR_URL="${NVIDIA_ASR_URL:-ws://${NVIDIA_HOST}:8080}"
-export NVIDIA_LLM_URL="${NVIDIA_LLM_URL:-http://${NVIDIA_HOST}:8000/v1}"
-export NVIDIA_LLM_MODEL="${NVIDIA_LLM_MODEL:-nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16}"
-export NVIDIA_TTS_URL="${NVIDIA_TTS_URL:-http://${NVIDIA_HOST}:8001}"
+NVIDIA_SERVICE_HOST="${CUSTOMER_SERVICE_NVIDIA_SERVICE_HOST:-127.0.0.1}"
+export MN_LLM_PROVIDER="${MN_LLM_PROVIDER:-docker_model_runner}"
+export MN_LLM_API_BASE="${MN_LLM_API_BASE:-http://localhost:12434/engines/v1}"
+export MN_LLM_MODEL="${MN_LLM_MODEL:-otterdesk-voice-llm:default}"
+export NVIDIA_ASR_URL="${MN_ASR_URL:-${NVIDIA_ASR_URL:-ws://${NVIDIA_SERVICE_HOST}:8080}}"
+export NVIDIA_TTS_URL="${MN_TTS_URL:-${NVIDIA_TTS_URL:-http://${NVIDIA_SERVICE_HOST}:8001}}"
 export NEMOTRON_ROOT="${NEMOTRON_ROOT:-/home/homer/Sandbox/nemotron-january-2026}"
 if [[ -x "${NEMOTRON_ROOT}/.venv/bin/python" ]]; then
   export CUSTOMER_SERVICE_PYTHON="${CUSTOMER_SERVICE_PYTHON:-${NEMOTRON_ROOT}/.venv/bin/python}"
@@ -55,7 +56,8 @@ log "Voice root: ${VOICE_ROOT}"
 log "Run dir: ${RUN_DIR}"
 log "Python: ${CUSTOMER_SERVICE_PYTHON}"
 log "Nemotron root: ${NEMOTRON_ROOT}"
-log "NVIDIA host: ${NVIDIA_HOST}"
+log "NVIDIA service host: ${NVIDIA_SERVICE_HOST}"
+log "Docker Model Runner LLM: ${MN_LLM_MODEL}"
 ls -ld "${NEMOTRON_ROOT}" "${NEMOTRON_ROOT}/.venv" "${NEMOTRON_ROOT}/pipecat_bots" 2>&1 | while IFS= read -r line; do log "${line}"; done
 "${CUSTOMER_SERVICE_PYTHON}" - <<'PY'
 import sys
@@ -77,8 +79,8 @@ if [[ ! -s "${CERT_FILE}" || ! -s "${KEY_FILE}" ]]; then
     -keyout "${KEY_FILE}" \
     -out "${CERT_FILE}" \
     -days 365 \
-    -subj "/CN=${SPARK_IP}" \
-    -addext "subjectAltName=IP:${SPARK_IP},DNS:spark,DNS:localhost,IP:127.0.0.1" >/dev/null 2>&1
+    -subj "/CN=${PUBLIC_HOST}" \
+    -addext "subjectAltName=DNS:${PUBLIC_HOST},DNS:localhost,IP:127.0.0.1" >/dev/null 2>&1
 fi
 
 write_jsonl() {
@@ -163,9 +165,9 @@ terminate_orphan_voice_processes() {
 }
 
 STACK_WAIT_SECONDS="${CUSTOMER_SERVICE_STACK_WAIT_SECONDS:-900}"
-wait_http "NVIDIA ASR" "${NVIDIA_ASR_HEALTH_URL:-http://${NVIDIA_HOST}:8080/health}" "${STACK_WAIT_SECONDS}"
-wait_http "Nemotron vLLM" "${NVIDIA_LLM_HEALTH_URL:-http://${NVIDIA_HOST}:8000/health}" "${STACK_WAIT_SECONDS}"
-wait_http "Magpie TTS" "${NVIDIA_TTS_HEALTH_URL:-http://${NVIDIA_HOST}:8001/health}" "${STACK_WAIT_SECONDS}"
+wait_http "NVIDIA ASR" "${NVIDIA_ASR_HEALTH_URL:-http://${NVIDIA_SERVICE_HOST}:8080/health}" "${STACK_WAIT_SECONDS}"
+wait_http "Docker Model Runner" "${NVIDIA_LLM_HEALTH_URL:-${MN_LLM_API_BASE%/}/models}" "${STACK_WAIT_SECONDS}"
+wait_http "Magpie TTS" "${NVIDIA_TTS_HEALTH_URL:-http://${NVIDIA_SERVICE_HOST}:8001/health}" "${STACK_WAIT_SECONDS}"
 
 terminate_owned_voice_process
 terminate_orphan_voice_processes
@@ -187,7 +189,7 @@ JSON
 cat > "${RUN_DIR}/final_artifact.json" <<JSON
 {
   "type": "customer_service_voice_service",
-  "executive_summary": "The Spark-hosted pizza-ordering voice co-worker is starting behind the localhost proxy.",
+  "executive_summary": "The NVIDIA-accelerated pizza-ordering voice co-worker is starting behind the local proxy.",
   "recommended_action": "Open ${PUBLIC_URL} and test a customer call.",
   "confidence": 0.8,
   "evidence": [
@@ -203,7 +205,7 @@ cat > "${RUN_DIR}/final_artifact.json" <<JSON
 }
 JSON
 
-write_jsonl "${RUN_DIR}/events.jsonl" "customer_service_voice_stack_ready" "{\"asr\":\"${NVIDIA_ASR_URL}\",\"llm\":\"${NVIDIA_LLM_URL}\",\"tts\":\"${NVIDIA_TTS_URL}\"}"
+write_jsonl "${RUN_DIR}/events.jsonl" "customer_service_voice_stack_ready" "{\"asr\":\"${NVIDIA_ASR_URL}\",\"llm\":\"${MN_LLM_API_BASE}\",\"tts\":\"${NVIDIA_TTS_URL}\"}"
 
 "${CUSTOMER_SERVICE_PYTHON}" "${VOICE_ROOT}/serve_customer_service_https.py" >> "${LOG_FILE}" 2>&1 &
 server_pid="$!"

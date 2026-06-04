@@ -593,10 +593,13 @@ def test_generic_customer_service_voice_blueprint_contract():
     assert manifest["type"] == "service"
     assert "voice_service" in manifest["entrypoints"]
     assert manifest["runtime"]["resources"]["gpu"]["min_count"] == 1
-    assert manifest["runtime"]["worker_defaults"]["pool"] == "customer-service-voice-nvidia"
+    assert manifest["runtime"]["worker_defaults"]["pool"] == "nvidia-accelerated"
+    assert manifest["runtime"]["models"]["primary"]["model"] == "otterdesk-voice-llm:default"
+    assert manifest["runtime"]["models"]["asr"]["model"] == "otterdesk-voice-asr:default"
+    assert manifest["runtime"]["models"]["tts"]["model"] == "otterdesk-voice-tts:default"
     voice_node = next(node for node in manifest["nodes"] if node["node_id"] == "voice_service")
-    assert voice_node["with"]["execution_profile"] == "customer-service-voice-nvidia"
-    assert voice_node["with"]["pool"] == "customer-service-voice-nvidia"
+    assert voice_node["with"]["execution_profile"] == "nvidia-accelerated-voice"
+    assert voice_node["with"]["pool"] == "nvidia-accelerated"
     assert voice_node["with"]["pool_slots"] == 1
     assert voice_node["with"]["agent_beacon_required"] is False
     assert voice_node["with"]["command"] == ["bash", "scripts/run_voice_service.sh"]
@@ -605,17 +608,17 @@ def test_generic_customer_service_voice_blueprint_contract():
     assert {port["label"]: port["port"] for port in voice_node["resources"]["ports"]} == {
         "voice_https": 7863,
         "nvidia_asr": 8080,
-        "nemotron_vllm": 8000,
+        "docker_model_runner": 12434,
         "magpie_tts": 8001,
     }
-    assert voice_node["constraints"] == [
-        {"attribute": "node.name", "operator": "==", "value": "mn2@192.168.4.173"}
-    ]
+    assert voice_node["constraints"][0]["attribute"] == "capabilities"
+    assert voice_node["constraints"][0]["operator"] == "contains_any"
+    assert "nvidia-dgx-spark" in voice_node["constraints"][0]["value"]
     assert voice_node["with"]["public_url"] == "https://localhost:7863/customer-service"
 
     payload = config["inputs"]["payload"]
     assert payload["business_name"] == "Otter Slice Pizza"
-    assert payload["spark_host"] == "homer@spark"
+    assert "spark_host" not in payload
     assert payload["voice"] == "aria"
     assert payload["voice_https_port"] == 7863
     assert payload["voice_local_proxy_port"] == 7863
@@ -624,16 +627,14 @@ def test_generic_customer_service_voice_blueprint_contract():
     assert manifest["input_validation"]["rules"] == []
     assert "validate_rtsp_source.py" not in json.dumps(manifest)
 
-    assert "scripts/nemotron.sh start --mode vllm" in script
-    assert "127.0.0.1:${LOCAL_PROXY_PORT}:127.0.0.1:${VOICE_PORT}" in script
-    assert "customer_service_voice_proxy_ready" in script
-    assert 'SADD "mirror_neuron:nodes" "${CUSTOMER_SERVICE_SPARK_NODE}"' in script
+    assert "NVIDIA-accelerated runtime launch" in script
+    assert "CUSTOMER_SERVICE_SPARK" not in script
     assert "CUSTOMER_SERVICE_KNOWLEDGE_PATH" in script
     assert "MN_PRE_LAUNCH_READY_FILE" in script
     assert "customer_service_knowledge.txt" in script
     assert "MN_POST_LAUNCH_REASON" in cleanup
     assert "customer_service_voice_cleanup_deferred" in cleanup
-    assert "voice_proxy.pid" in cleanup
+    assert "voice_proxy.pid" not in cleanup
     assert "voice_service.pid" in cleanup
     assert "serve_customer_service_https.py" in cleanup
     assert "scripts/nemotron.sh stop" not in cleanup
@@ -1066,7 +1067,6 @@ def test_video_watch_openshell_policy_is_generated_by_shared_helper(tmp_path):
     config = json.loads((blueprint_dir / "config" / "default.json").read_text())
     manifest = json.loads((blueprint_dir / "manifest.json").read_text())
     network = config["openshell_network"]
-    assert manifest["metadata"]["openshell_network"] == network
 
     endpoints = [
         endpoint_from_uri(

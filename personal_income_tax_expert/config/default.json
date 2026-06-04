@@ -406,6 +406,8 @@
     ]
   },
   "llm": {
+    "model": "default",
+    "enabled": true,
     "agent_role": "Personal tax preparation team that prepares a source-grounded draft Form 1040 review packet while asking careful review questions.",
     "agents": {
       "advisor_report_writer": {
@@ -499,28 +501,6 @@
         "role": "Tax auditor"
       }
     },
-    "api_base": "http://192.168.4.173:11434",
-    "configs": {
-      "primary": {
-        "api_base": "http://192.168.4.173:11434",
-        "max_tokens": 1200,
-        "mock_mode": "fake",
-        "mode": "ollama",
-        "model": "ollama/nemotron3:33b",
-        "num_retries": 1,
-        "prefer_shared_skill": false,
-        "provider": "ollama",
-        "strict_json": true,
-        "timeout_seconds": 90
-      }
-    },
-    "default_config": "primary",
-    "enabled": true,
-    "mock_mode": "fake",
-    "mode": "ollama",
-    "model": "ollama/nemotron3:33b",
-    "prefer_shared_skill": false,
-    "quick_test_uses_fake": false,
     "responsibilities": [
       "understand tax documents with LLM specialist agents",
       "extract source fields and build preparer workpapers",
@@ -528,6 +508,9 @@
       "audit assumptions, missing forms, and schedule risks",
       "write JSON, Markdown, and PDF review outputs"
     ],
+    "mock_mode": "fake",
+    "quick_test_uses_fake": false,
+    "prefer_shared_skill": false,
     "strict_json": true
   },
   "local_inputs": {

@@ -498,7 +498,7 @@
         "run": "score_opportunities"
       },
       {
-      "action": "write_deal_memo_packet",
+        "action": "write_deal_memo_packet",
         "control": {
           "failure_policy": "fail_workflow",
           "required": true,
@@ -542,21 +542,21 @@
         "workers": [
           {
             "id": "property:zip_market",
-            "model": "Ollama/Nemotron3 33B",
+            "model": "default",
             "role": "Review ZIP history",
             "tokens": 14000,
             "tools": 4
           },
           {
             "id": "property:broker_notes",
-            "model": "Ollama/Nemotron3 33B",
+            "model": "default",
             "role": "Parse broker notes",
             "tokens": 14000,
             "tools": 4
           },
           {
             "id": "property:financing",
-            "model": "Ollama/Nemotron3 33B",
+            "model": "default",
             "role": "Read financing constraints",
             "tokens": 14000,
             "tools": 4
@@ -571,14 +571,14 @@
         "workers": [
           {
             "id": "property:memory_retriever",
-            "model": "Ollama/Nemotron3 33B",
+            "model": "default",
             "role": "Retrieve comparable memory",
             "tokens": 14000,
             "tools": 4
           },
           {
             "id": "property:signal_comparer",
-            "model": "Ollama/Nemotron3 33B",
+            "model": "default",
             "role": "Compare historical deal signals",
             "tokens": 14000,
             "tools": 4
@@ -593,14 +593,14 @@
         "workers": [
           {
             "id": "property:ranker",
-            "model": "Ollama/Nemotron3 33B",
+            "model": "default",
             "role": "Rank property opportunities",
             "tokens": 14000,
             "tools": 4
           },
           {
             "id": "property:risk_reviewer",
-            "model": "Ollama/Nemotron3 33B",
+            "model": "default",
             "role": "Review downside risks",
             "tokens": 14000,
             "tools": 4
@@ -615,7 +615,7 @@
         "workers": [
           {
             "id": "property:memo_writer",
-            "model": "Ollama/Nemotron3 33B",
+            "model": "default",
             "role": "Write final deal memo",
             "tokens": 14000,
             "tools": 4
@@ -649,10 +649,7 @@
     },
     "models": {
       "primary": {
-        "model": "ollama/nemotron3:33b",
-        "provider": "ollama",
-        "role": "AI assistant for researching property deals and drafting opportunity rankings.",
-        "type": "llm"
+        "model": "default"
       }
     },
     "observability": {
@@ -709,7 +706,7 @@
       "type": "local_run_store"
     },
     "worker_defaults": {
-      "model": "ollama/nemotron3:33b",
+      "model": "default",
       "pool": "default",
       "pool_slots": 1,
       "runner": "MirrorNeuron.Runner.HostLocal",
@@ -920,18 +917,6 @@
           "description": "Number of decision-loop steps to run.",
           "label": "Simulation steps",
           "path": "inputs.payload.steps"
-        },
-        {
-          "default": "http://192.168.4.173:11434",
-          "description": "Base URL for the local property research model server.",
-          "label": "LLM URL",
-          "path": "llm.api_base"
-        },
-        {
-          "default": "ollama/nemotron3:33b",
-          "description": "Model used to draft opportunity rankings.",
-          "label": "LLM model",
-          "path": "llm.model"
         }
       ],
       "instruction": "When running in OtterDesk, show these overwriteable fields during init config and ask the user to change them or keep the defaults before launch.",
@@ -1205,12 +1190,6 @@
         "gradio",
         "custom"
       ]
-    },
-    "llm": {
-      "agent_role": "AI assistant for researching property deals and drafting opportunity rankings.",
-      "default_api_base": "http://192.168.4.173:11434",
-      "default_model": "ollama/nemotron3:33b",
-      "mock_mode": "run payloads/simulation_loop/scripts/run_blueprint.py --mock-llm"
     },
     "llm_agent_role": "AI assistant for researching property deals and drafting opportunity rankings.",
     "memory_layer": {

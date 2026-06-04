@@ -614,7 +614,7 @@
         "workers": [
           {
             "id": "binding_evaluation",
-            "model": "Ollama/Nemotron3 33B",
+            "model": "default",
             "role": "binding_evaluation",
             "script": "scripts/stage_d.py",
             "tokens": 18000,
@@ -672,7 +672,7 @@
         "workers": [
           {
             "id": "candidate_generation",
-            "model": "Ollama/Nemotron3 33B",
+            "model": "default",
             "role": "candidate_generation",
             "script": "scripts/stage_c.py",
             "tokens": 18000,
@@ -729,7 +729,7 @@
         "workers": [
           {
             "id": "manager_monitor",
-            "model": "Ollama/Nemotron3 33B",
+            "model": "default",
             "role": "manager_monitor",
             "script": "scripts/manager.py",
             "tokens": 18000,
@@ -786,7 +786,7 @@
         "workers": [
           {
             "id": "ranking_reporting",
-            "model": "Ollama/Nemotron3 33B",
+            "model": "default",
             "role": "ranking_reporting",
             "script": "scripts/stage_e.py",
             "tokens": 18000,
@@ -844,7 +844,7 @@
         "workers": [
           {
             "id": "structure_generation",
-            "model": "Ollama/Nemotron3 33B",
+            "model": "default",
             "role": "structure_generation",
             "script": "scripts/stage_b.py",
             "tokens": 18000,
@@ -902,7 +902,7 @@
         "workers": [
           {
             "id": "target_discovery",
-            "model": "Ollama/Nemotron3 33B",
+            "model": "default",
             "role": "target_discovery",
             "script": "scripts/stage_a.py",
             "tokens": 18000,
@@ -954,10 +954,7 @@
     },
     "models": {
       "primary": {
-        "model": "ollama/nemotron3:33b",
-        "provider": "ollama",
-        "role": "AI assistant for organizing drug discovery candidate generation, filtering, and evidence review.",
-        "type": "llm"
+        "model": "default"
       }
     },
     "observability": {
@@ -1014,7 +1011,7 @@
       "type": "local_run_store"
     },
     "worker_defaults": {
-      "model": "ollama/nemotron3:33b",
+      "model": "default",
       "pool": "default",
       "pool_slots": 1,
       "runner": "MirrorNeuron.Runner.HostLocal",
@@ -1215,18 +1212,6 @@
           "description": "Confirm the disease, phenotype, or target family to investigate.",
           "label": "Disease or target",
           "path": "inputs.payload.disease"
-        },
-        {
-          "default": "http://192.168.4.173:11434",
-          "description": "Base URL for the local research LLM endpoint.",
-          "label": "LLM URL",
-          "path": "llm.api_base"
-        },
-        {
-          "default": "ollama/nemotron3:33b",
-          "description": "Model used to draft candidate and evidence summaries.",
-          "label": "LLM model",
-          "path": "llm.model"
         },
         {
           "default": 600,
@@ -1501,9 +1486,6 @@
         "gradio",
         "custom"
       ]
-    },
-    "llm": {
-      "agent_role": "AI assistant for organizing drug discovery candidate generation, filtering, and evidence review."
     },
     "llm_agent_role": "AI assistant for organizing drug discovery candidate generation, filtering, and evidence review.",
     "memory_layer": {

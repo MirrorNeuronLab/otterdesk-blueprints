@@ -77,12 +77,7 @@
     "recommended_action": "review_extracted_invoice_fields_before_erp_or_payment_use"
   },
   "llm": {
-    "mode": "ollama",
-    "provider": "ollama",
-    "model": "ollama/nemotron3:33b",
-    "api_base": "http://192.168.4.173:11434",
-    "temperature": 0.1,
-    "max_tokens": 16000
+    "model": "default"
   },
   "outputs": {
     "folder_path": "/Users/homer/Download/invoice_bill_extraction_assistant",

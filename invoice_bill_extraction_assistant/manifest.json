@@ -625,7 +625,7 @@
             "alias": "invoice_dataset_intake",
             "kind": "worker",
             "role": "Invoice dataset intake analyst",
-            "model": "primary",
+            "model": "default",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -643,7 +643,7 @@
             "alias": "invoice_ocr_extractor",
             "kind": "worker",
             "role": "Invoice OCR extractor",
-            "model": "primary",
+            "model": "default",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -653,7 +653,7 @@
             "alias": "invoice_text_redactor",
             "kind": "worker",
             "role": "Invoice text redactor",
-            "model": "primary",
+            "model": "default",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -671,7 +671,7 @@
             "alias": "ap_field_extractor",
             "kind": "worker",
             "role": "AP field extractor",
-            "model": "primary",
+            "model": "default",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -681,7 +681,7 @@
             "alias": "utility_bill_specialist",
             "kind": "worker",
             "role": "Utility billing specialist",
-            "model": "primary",
+            "model": "default",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -699,7 +699,7 @@
             "alias": "invoice_label_validator",
             "kind": "worker",
             "role": "Invoice label validator",
-            "model": "primary",
+            "model": "default",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -717,7 +717,7 @@
             "alias": "ap_report_writer",
             "kind": "worker",
             "role": "AP review packet writer",
-            "model": "primary",
+            "model": "default",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -727,10 +727,7 @@
     },
     "models": {
       "primary": {
-        "type": "llm",
-        "provider": "ollama",
-        "model": "ollama/nemotron3:33b",
-        "role": "Local invoice OCR and field extraction team that prepares source-grounded payable review packets."
+        "model": "default"
       }
     },
     "memory": {
@@ -813,7 +810,7 @@
     "worker_defaults": {
       "runner": "MirrorNeuron.Runner.HostLocal",
       "uses": "mn-agents.data_python_executor@1.0.0",
-      "model": "ollama/nemotron3:33b",
+      "model": "default",
       "pool": "default",
       "pool_slots": 1,
       "workdir": "/sandbox/job/workflow"
@@ -1555,12 +1552,6 @@
           "label": "LLM OCR",
           "default": true,
           "description": "Use the shared local LightOnOCR Docker Model Runner path for scanned or low-text documents."
-        },
-        {
-          "path": "llm.mode",
-          "label": "LLM mode",
-          "default": "ollama",
-          "description": "Use ollama for local model calls, fake only for deterministic tests."
         }
       ]
     },

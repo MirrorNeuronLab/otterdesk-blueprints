@@ -629,7 +629,7 @@
             "alias": "medical_dataset_intake",
             "kind": "worker",
             "role": "Medical dataset intake analyst",
-            "model": "primary",
+            "model": "default",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -647,7 +647,7 @@
             "alias": "medical_ocr_extractor",
             "kind": "worker",
             "role": "Medical OCR extractor",
-            "model": "primary",
+            "model": "default",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -657,7 +657,7 @@
             "alias": "clinical_text_normalizer",
             "kind": "worker",
             "role": "Clinical text normalizer",
-            "model": "primary",
+            "model": "default",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -675,7 +675,7 @@
             "alias": "phi_detector",
             "kind": "worker",
             "role": "PHI entity detector",
-            "model": "primary",
+            "model": "default",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -685,7 +685,7 @@
             "alias": "clinical_field_extractor",
             "kind": "worker",
             "role": "Clinical field extractor",
-            "model": "primary",
+            "model": "default",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -703,7 +703,7 @@
             "alias": "medical_redaction_validator",
             "kind": "worker",
             "role": "Medical redaction validator",
-            "model": "primary",
+            "model": "default",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -721,7 +721,7 @@
             "alias": "privacy_report_writer",
             "kind": "worker",
             "role": "Privacy review packet writer",
-            "model": "primary",
+            "model": "default",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -731,10 +731,7 @@
     },
     "models": {
       "primary": {
-        "type": "llm",
-        "provider": "ollama",
-        "model": "ollama/nemotron3:33b",
-        "role": "Local medical document OCR and de-identification team that prepares redaction evidence for human privacy review."
+        "model": "default"
       }
     },
     "memory": {
@@ -817,7 +814,7 @@
     "worker_defaults": {
       "runner": "MirrorNeuron.Runner.HostLocal",
       "uses": "mn-agents.data_python_executor@1.0.0",
-      "model": "ollama/nemotron3:33b",
+      "model": "default",
       "pool": "default",
       "pool_slots": 1,
       "workdir": "/sandbox/job/workflow"
@@ -1559,12 +1556,6 @@
           "label": "LLM OCR",
           "default": true,
           "description": "Use the shared local LightOnOCR Docker Model Runner path for scanned or low-text documents."
-        },
-        {
-          "path": "llm.mode",
-          "label": "LLM mode",
-          "default": "ollama",
-          "description": "Use ollama for local model calls, fake only for deterministic tests."
         }
       ]
     },

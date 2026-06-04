@@ -524,7 +524,7 @@
             "id": "visual_target_detector",
             "alias": "visual_target_detector",
             "display_name": "Visual Target Detector",
-            "model": "Ollama/Nemotron3 33B",
+            "model": "otterdesk-video-watch:default",
             "role": "Run visual detection",
             "tokens": 14000,
             "tools": 4
@@ -533,7 +533,7 @@
             "id": "quality_controller",
             "alias": "quality_controller",
             "display_name": "Quality Controller",
-            "model": "Ollama/Nemotron3 33B",
+            "model": "otterdesk-video-watch:default",
             "role": "Review alert quality",
             "tokens": 14000,
             "tools": 4
@@ -550,7 +550,7 @@
             "id": "frame_sampler",
             "alias": "frame_sampler",
             "display_name": "Frame Sampler",
-            "model": "Ollama/Nemotron3 33B",
+            "model": "otterdesk-video-watch:default",
             "role": "Sample video frames",
             "tokens": 14000,
             "tools": 4
@@ -567,7 +567,7 @@
             "id": "video_source_validator",
             "alias": "video_source_validator",
             "display_name": "Video Source Validator",
-            "model": "Ollama/Nemotron3 33B",
+            "model": "otterdesk-video-watch:default",
             "role": "Validate video source",
             "tokens": 14000,
             "tools": 4
@@ -576,7 +576,7 @@
             "id": "video_monitor",
             "alias": "video_monitor",
             "display_name": "Video Monitor",
-            "model": "Ollama/Nemotron3 33B",
+            "model": "otterdesk-video-watch:default",
             "role": "Coordinate video monitoring",
             "tokens": 14000,
             "tools": 4
@@ -593,7 +593,7 @@
             "id": "watch_summary_writer",
             "alias": "watch_summary_writer",
             "display_name": "Watch Summary Writer",
-            "model": "Ollama/Nemotron3 33B",
+            "model": "otterdesk-video-watch:default",
             "role": "Write watch summary",
             "tokens": 14000,
             "tools": 4
@@ -627,10 +627,12 @@
     },
     "models": {
       "primary": {
-        "model": "ollama/nemotron3:33b",
-        "provider": "ollama",
-        "role": "AI assistant for reviewing video stream activity and preparing visual detection alerts.",
-        "type": "llm"
+        "type": "llm",
+        "provider": "docker_model_runner",
+        "model": "otterdesk-video-watch:default",
+        "runtime_model": "otterdesk-video-watch:default",
+        "backend": "llama.cpp",
+        "required": true
       }
     },
     "observability": {
@@ -669,7 +671,16 @@
         "min_gb": 1
       },
       "gpu": {
-        "min_count": 0
+        "min_count": 1,
+        "vendor": "nvidia",
+        "required_capabilities": [
+          "nvidia-dgx-spark",
+          "nvidia-gh200",
+          "nvidia-h100",
+          "nvidia-h200",
+          "nvidia-b200",
+          "nvidia-gb200"
+        ]
       },
       "memory": {
         "min_gb": 2
@@ -691,7 +702,7 @@
       "type": "local_run_store"
     },
     "worker_defaults": {
-      "model": "ollama/nemotron3:33b",
+      "model": "otterdesk-video-watch:default",
       "pool": "default",
       "pool_slots": 1,
       "runner": "MirrorNeuron.Runner.HostLocal",
@@ -793,7 +804,16 @@
       "min_gb": 1
     },
     "gpu": {
-      "min_count": 0
+      "min_count": 1,
+      "vendor": "nvidia",
+      "required_capabilities": [
+        "nvidia-dgx-spark",
+        "nvidia-gh200",
+        "nvidia-h100",
+        "nvidia-h200",
+        "nvidia-b200",
+        "nvidia-gb200"
+      ]
     },
     "memory": {
       "min_gb": 2
@@ -894,18 +914,6 @@
           "description": "Leave the default mapped endpoint unless using an approved RTSP stream.",
           "label": "Video input",
           "path": "video_source.uri"
-        },
-        {
-          "default": "http://192.168.4.173:11434",
-          "description": "Base URL for the vision-language model server.",
-          "label": "VL model URL",
-          "path": "vl_model.base_url"
-        },
-        {
-          "default": "nemotron3:33b",
-          "description": "Vision-language model used to understand sampled frames.",
-          "label": "VL model name",
-          "path": "vl_model.model"
         }
       ],
       "instruction": "When running in OtterDesk, show these overwriteable fields during init config and ask the user to change them or keep the defaults before launch.",
@@ -1190,9 +1198,6 @@
         "custom"
       ]
     },
-    "llm": {
-      "agent_role": "AI assistant for reviewing video stream activity and preparing visual detection alerts."
-    },
     "llm_agent_role": "AI assistant for reviewing video stream activity and preparing visual detection alerts.",
     "memory_layer": {
       "collection": "mn_memory",
@@ -1246,82 +1251,6 @@
       ],
       "schema_version": "mn.blueprint.observability_dashboard.v1",
       "source": "local_run_store"
-    },
-    "openshell_network": {
-      "endpoints": [
-        {
-          "allowed_ips": [
-            "127.0.0.1/32"
-          ],
-          "binaries": [
-            "/usr/bin/ffmpeg",
-            "/usr/bin/python3"
-          ],
-          "name": "mapped-local-rtsp-stream-loopback",
-          "uri": "rtsp://127.0.0.1:8554/video-watch"
-        },
-        {
-          "allowed_ips": [
-            "127.0.0.1/32"
-          ],
-          "binaries": [
-            "/usr/bin/ffmpeg",
-            "/usr/bin/python3"
-          ],
-          "name": "mapped-local-rtsp-stream-localhost",
-          "uri": "rtsp://localhost:8554/video-watch"
-        },
-        {
-          "allowed_ips": [
-            "127.0.0.1/32",
-            "192.168.65.254/32"
-          ],
-          "binaries": [
-            "/usr/bin/ffmpeg",
-            "/usr/bin/python3"
-          ],
-          "name": "mapped-local-rtsp-stream-openshell-host",
-          "uri": "rtsp://host.openshell.internal:8554/video-watch"
-        },
-        {
-          "allowed_ips": [
-            "192.168.65.254/32",
-            "127.0.0.1/32"
-          ],
-          "binaries": [
-            "/usr/bin/ffmpeg",
-            "/usr/bin/python3"
-          ],
-          "name": "mapped-local-rtsp-stream-docker-host",
-          "uri": "rtsp://host.docker.internal:8554/video-watch"
-        },
-        {
-          "allowed_ips": [
-            "192.168.65.254/32"
-          ],
-          "binaries": [
-            "/usr/bin/ffmpeg",
-            "/usr/bin/python3"
-          ],
-          "name": "mapped-local-rtsp-stream-gateway",
-          "uri": "rtsp://192.168.65.254:8554/video-watch"
-        },
-        {
-          "allowed_ips": [
-            "192.168.4.173/32"
-          ],
-          "binaries": [
-            "/bin/bash",
-            "/usr/bin/bash",
-            "/usr/bin/python3",
-            "/usr/bin/python3.12"
-          ],
-          "name": "local-vl-model",
-          "uri": "http://192.168.4.173:11434"
-        }
-      ],
-      "include_dns": false,
-      "policy_path": "visual_detector/policies/video-egress.yaml"
     },
     "output": "Visual detection observations with count, label, category, color, position, activity, confidence, and alert status.",
     "output_contract": {
@@ -1644,19 +1573,6 @@
       "transport": "rtsp",
       "uri": "rtsp://127.0.0.1:8554/video-watch"
     },
-    "vl_model": {
-      "base_url": "http://192.168.4.173:11434",
-      "config_env": [
-        "VL_MODEL_BASE_URL",
-        "VL_MODEL_NAME"
-      ],
-      "legacy_env_aliases": [
-        "OLLAMA_BASE_URL",
-        "OLLAMA_MODEL"
-      ],
-      "model": "nemotron3:33b",
-      "provider": "ollama"
-    },
     "web_ui": {
       "adapter": "gradio",
       "arguments": {
@@ -1738,7 +1654,15 @@
         "script": "scripts/pre-launch.sh",
         "stream_path": "video-watch"
       }
-    }
+    },
+    "required_cluster_capabilities": [
+      "nvidia-dgx-spark",
+      "nvidia-gh200",
+      "nvidia-h100",
+      "nvidia-h200",
+      "nvidia-b200",
+      "nvidia-gb200"
+    ]
   },
   "entrypoints": [
     "ingress"
@@ -1779,7 +1703,41 @@
         "environment": {}
       },
       "alias": "quality_controller",
-      "display_name": "Quality Controller"
+      "display_name": "Quality Controller",
+      "constraints": [
+        {
+          "attribute": "capabilities",
+          "operator": "contains_any",
+          "value": [
+            "nvidia-dgx-spark",
+            "nvidia-gh200",
+            "nvidia-h100",
+            "nvidia-h200",
+            "nvidia-b200",
+            "nvidia-gb200"
+          ]
+        }
+      ],
+      "resources": {
+        "gpu_count": 1,
+        "devices": [
+          {
+            "kind": "gpu",
+            "type": "nvidia/gpu",
+            "driver": "cuda",
+            "count": 1
+          }
+        ]
+      },
+      "requires_services": [
+        {
+          "name": "docker-model-runner",
+          "tags": [
+            "nvidia",
+            "cuda"
+          ]
+        }
+      ]
     }
   ],
   "edges": [
@@ -1794,6 +1752,16 @@
       "from_node": "video_frame_tick_source",
       "message_type": "video_frame_tick_generated",
       "to_node": "visual_detector"
+    }
+  ],
+  "required_services": [
+    {
+      "name": "docker-model-runner",
+      "tags": [
+        "nvidia",
+        "cuda"
+      ],
+      "required": true
     }
   ]
 }

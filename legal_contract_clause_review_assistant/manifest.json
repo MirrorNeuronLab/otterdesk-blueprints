@@ -631,7 +631,7 @@
             "alias": "contract_dataset_intake",
             "kind": "worker",
             "role": "Contract dataset intake analyst",
-            "model": "primary",
+            "model": "default",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -649,7 +649,7 @@
             "alias": "contract_ocr_extractor",
             "kind": "worker",
             "role": "Contract OCR extractor",
-            "model": "primary",
+            "model": "default",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -659,7 +659,7 @@
             "alias": "privilege_redactor",
             "kind": "worker",
             "role": "Privilege-aware redactor",
-            "model": "primary",
+            "model": "default",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -677,7 +677,7 @@
             "alias": "clause_extractor",
             "kind": "worker",
             "role": "Clause extraction specialist",
-            "model": "primary",
+            "model": "default",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -687,7 +687,7 @@
             "alias": "contract_taxonomy_mapper",
             "kind": "worker",
             "role": "CUAD taxonomy mapper",
-            "model": "primary",
+            "model": "default",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -705,7 +705,7 @@
             "alias": "playbook_comparator",
             "kind": "worker",
             "role": "Contract playbook comparator",
-            "model": "primary",
+            "model": "default",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -723,7 +723,7 @@
             "alias": "legal_review_writer",
             "kind": "worker",
             "role": "Legal review packet writer",
-            "model": "primary",
+            "model": "default",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -733,10 +733,7 @@
     },
     "models": {
       "primary": {
-        "type": "llm",
-        "provider": "ollama",
-        "model": "ollama/nemotron3:33b",
-        "role": "Local contract review team that extracts clause evidence and keeps legal conclusions review-only."
+        "model": "default"
       }
     },
     "memory": {
@@ -819,7 +816,7 @@
     "worker_defaults": {
       "runner": "MirrorNeuron.Runner.HostLocal",
       "uses": "mn-agents.data_python_executor@1.0.0",
-      "model": "ollama/nemotron3:33b",
+      "model": "default",
       "pool": "default",
       "pool_slots": 1,
       "workdir": "/sandbox/job/workflow"
@@ -1561,12 +1558,6 @@
           "label": "LLM OCR",
           "default": true,
           "description": "Use the shared local LightOnOCR Docker Model Runner path for scanned or low-text documents."
-        },
-        {
-          "path": "llm.mode",
-          "label": "LLM mode",
-          "default": "ollama",
-          "description": "Use ollama for local model calls, fake only for deterministic tests."
         }
       ]
     },

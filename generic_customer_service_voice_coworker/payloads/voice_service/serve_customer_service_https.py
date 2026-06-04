@@ -37,8 +37,9 @@ def _http_probe(url: str, *, timeout: float = 2.0) -> dict[str, Any]:
 
 
 def service_health() -> dict[str, Any]:
+    dmr_base = (os.getenv("MN_LLM_API_BASE") or "http://localhost:12434/engines/v1").rstrip("/")
     asr_health = os.getenv("NVIDIA_ASR_HEALTH_URL", "http://127.0.0.1:8080/health")
-    llm_health = os.getenv("NVIDIA_LLM_HEALTH_URL", "http://127.0.0.1:8000/health")
+    llm_health = os.getenv("NVIDIA_LLM_HEALTH_URL", f"{dmr_base}/models")
     tts_health = os.getenv("NVIDIA_TTS_HEALTH_URL", "http://127.0.0.1:8001/health")
     upstream = {
         "asr": _http_probe(asr_health),

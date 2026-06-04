@@ -1,7 +1,7 @@
 # Pizza Order Voice AI Co-worker
 
 This OtterDesk blueprint launches a warm pizza-ordering HTTPS/WebRTC voice page
-backed by NVIDIA Parakeet ASR, Nemotron vLLM, Magpie TTS, and editable
+backed by NVIDIA Parakeet ASR, Docker Model Runner LLM service, Magpie TTS, and editable
 plain-text menu RAG knowledge.
 
 The local shared OtterDesk/Gradio dashboard stays enabled and records the
@@ -18,25 +18,23 @@ conversation log, and final run artifact.
 | `knowledge_text` | Initial editable RAG knowledge for the run. |
 | `escalation_policy` | Rules for recommending human handoff. |
 | `voice` | Magpie voice or preset. |
-| `spark_host` | SSH target for Spark. Default: `homer@spark`. |
-| `voice_https_port` | Spark HTTPS/WebRTC port. Default: `7863`. |
+| `voice_https_port` | HTTPS/WebRTC port. Default: `7863`. |
 | `voice_local_proxy_port` | Local HTTPS proxy port. Default: `7863`. |
 
-## Spark Runtime
+## NVIDIA Runtime
 
-The service is GPU/Spark-bound:
+The service is NVIDIA-bound:
 
-- Execution profile: `customer-service-voice-nvidia`
+- Execution profile: `nvidia-accelerated-voice`
 - Required GPU: `gpu_count: 1`
-- Default node target: `mn2@192.168.4.173`
+- Required node capability: DGX Spark, GH200, H100, H200, B200, or GB200 class NVIDIA hardware
+- LLM model alias: `otterdesk-voice-llm:default`
+- ASR/TTS service aliases: `otterdesk-voice-asr:default`, `otterdesk-voice-tts:default`
 - Default voice page: `https://localhost:7863/customer-service`
-- Spark backend: `mn2@192.168.4.173` serves port `7863` behind the localhost tunnel.
 
-The pre-launch hook connects to `homer@spark`, starts or reuses
-`/home/homer/Sandbox/nemotron-january-2026/scripts/nemotron.sh start --mode vllm`,
-prepares `~/.mn/runs/<run_id>/knowledge/customer_service_knowledge.txt`, and
-writes local web UI metadata, including a local SSH proxy so browser traffic can
-use localhost. The runtime voice node runs on Spark and serves:
+The pre-launch hook prepares `~/.mn/runs/<run_id>/knowledge/customer_service_knowledge.txt`
+and writes local web UI metadata. The runtime voice node runs on an eligible
+NVIDIA cluster node and serves:
 
 - `GET /customer-service`
 - `POST /api/offer`
@@ -44,7 +42,7 @@ use localhost. The runtime voice node runs on Spark and serves:
 - `POST /api/knowledge`
 - `GET /health`
 
-For a cold NVIDIA stack, launch with a longer pre-launch timeout:
+For a cold NVIDIA stack, launch with a longer runtime timeout:
 
 ```bash
 MN_PRE_LAUNCH_TIMEOUT_SECONDS=900 NEMOTRON_PRELAUNCH_WAIT_SECONDS=900 mn run generic_customer_service_voice_coworker
@@ -52,12 +50,9 @@ MN_PRE_LAUNCH_TIMEOUT_SECONDS=900 NEMOTRON_PRELAUNCH_WAIT_SECONDS=900 mn run gen
 
 ## Cluster Notes
 
-Start the local node and add Spark as the second node with Spark advertising the
-`customer-service-voice-nvidia` profile. The voice node is constrained to
-`mn2@192.168.4.173`, and the local dashboard links to the localhost HTTPS page.
-
-Code changes are made locally and synced to Spark through git only. Runtime
-knowledge and conversation artifacts are copied through the blueprint hooks.
+Start a cluster node advertising one of the required NVIDIA capabilities above.
+The local dashboard links to the localhost HTTPS page, while model lifecycle is
+handled by `mn model` and Docker Model Runner.
 
 ## Artifacts
 

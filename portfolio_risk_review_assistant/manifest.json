@@ -773,12 +773,6 @@
           "description": "Number of simulation paths per candidate decision.",
           "label": "Monte Carlo paths",
           "path": "monte_carlo.paths"
-        },
-        {
-          "default": "ollama/nemotron3:33b",
-          "description": "Model used only for market-signal interpretation and final report writing.",
-          "label": "LLM model",
-          "path": "llm.model"
         }
       ],
       "instruction": "When running in OtterDesk, show these overwriteable fields during init config and ask the user to change them or keep the defaults before launch.",
@@ -1151,17 +1145,6 @@
         "static_html",
         "gradio",
         "custom"
-      ]
-    },
-    "llm": {
-      "agent_role": "LLM report writer that summarizes supplied market signals and structured simulation evidence; deterministic finance workers propose, simulate, evaluate, and benchmark decisions.",
-      "default_api_base": "http://192.168.4.173:11434",
-      "default_model": "ollama/nemotron3:33b",
-      "mock_mode": "run payloads/simulation_loop/scripts/run_blueprint.py --mock-llm",
-      "responsibilities": [
-        "interpret supplied market signals",
-        "write final report from structured metrics",
-        "avoid inventing prices or executable trades"
       ]
     },
     "llm_agent_role": "LLM report writer that summarizes supplied market signals and structured simulation evidence; deterministic finance workers propose, simulate, evaluate, and benchmark decisions.",
@@ -1646,7 +1629,8 @@
           {
             "id": "portfolio:risk_engine",
             "kind": "deterministic_worker",
-            "role": "Compute returns, covariance, volatility, beta, VaR, CVaR, drawdown, concentration, and policy breaches"
+            "role": "Compute returns, covariance, volatility, beta, VaR, CVaR, drawdown, concentration, and policy breaches",
+            "model": "default"
           }
         ]
       },
@@ -1659,13 +1643,15 @@
           {
             "id": "portfolio:benchmark_evaluator",
             "kind": "deterministic_worker",
-            "role": "Benchmark candidates against no-action and policy metrics"
+            "role": "Benchmark candidates against no-action and policy metrics",
+            "model": "default"
           },
           {
             "id": "portfolio:llm_report_writer",
             "kind": "llm_agent",
             "llm_config": "primary",
-            "role": "Write the review report from structured metrics and supplied market signals"
+            "role": "Write the review report from structured metrics and supplied market signals",
+            "model": "default"
           }
         ]
       },
@@ -1678,7 +1664,8 @@
           {
             "id": "portfolio:context_loader",
             "kind": "deterministic_worker",
-            "role": "Validate and normalize portfolio, policy, and constraints"
+            "role": "Validate and normalize portfolio, policy, and constraints",
+            "model": "default"
           }
         ]
       },
@@ -1691,7 +1678,8 @@
           {
             "id": "portfolio:market_data_loader",
             "kind": "data_service",
-            "role": "Fetch public Yahoo chart quote/history data and enforce freshness"
+            "role": "Fetch public Yahoo chart quote/history data and enforce freshness",
+            "model": "default"
           }
         ]
       },
@@ -1704,12 +1692,14 @@
           {
             "id": "portfolio:decision_policy",
             "kind": "deterministic_worker",
-            "role": "Propose review-only candidate decisions"
+            "role": "Propose review-only candidate decisions",
+            "model": "default"
           },
           {
             "id": "portfolio:monte_carlo",
             "kind": "deterministic_worker",
-            "role": "Run seeded Monte Carlo and historical stress simulation for each candidate"
+            "role": "Run seeded Monte Carlo and historical stress simulation for each candidate",
+            "model": "default"
           }
         ]
       }
@@ -1740,10 +1730,7 @@
     },
     "models": {
       "primary": {
-        "model": "ollama/nemotron3:33b",
-        "provider": "ollama",
-        "role": "AI assistant for reviewing portfolio stress scenarios and drafting risk notes.",
-        "type": "llm"
+        "model": "default"
       }
     },
     "observability": {
@@ -1800,7 +1787,7 @@
       "type": "local_run_store"
     },
     "worker_defaults": {
-      "model": "ollama/nemotron3:33b",
+      "model": "default",
       "pool": "default",
       "pool_slots": 1,
       "runner": "MirrorNeuron.Runner.HostLocal",

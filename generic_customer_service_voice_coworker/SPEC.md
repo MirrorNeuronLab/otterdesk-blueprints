@@ -4,11 +4,11 @@
 
 Pizza shops need a reusable voice co-worker that can speak with callers through
 a browser, answer from editable menu knowledge, collect basic order details, and
-run on the local NVIDIA Spark box without becoming a one-off demo.
+run on an eligible NVIDIA cluster node without becoming a one-off demo.
 
 ## Outcome
 
-The blueprint runs a Spark-hosted HTTPS/WebRTC page exposed locally at
+The blueprint runs an NVIDIA-hosted HTTPS/WebRTC page exposed locally at
 `https://localhost:7863/customer-service`. Customers can talk to the co-worker
 through the browser. Operators can edit the run-scoped menu knowledge text in
 the same page, and later turns retrieve from the updated text.
@@ -16,12 +16,10 @@ the same page, and later turns retrieve from the updated text.
 ## Architecture
 
 - Local OtterDesk blueprint and Gradio dashboard.
-- Spark runtime node constrained to `mn2@192.168.4.173`.
-- Local SSH tunnel from `localhost:7863` to the Spark HTTPS voice service.
-- Shared NVIDIA stack from `/home/homer/Sandbox/nemotron-january-2026`.
+- Runtime node constrained to DGX Spark, GH200, H100, H200, B200, or GB200 class NVIDIA capabilities.
 - Pipecat SmallWebRTC over HTTPS.
 - NVIDIA Parakeet ASR.
-- Nemotron vLLM through an OpenAI-compatible API.
+- Docker Model Runner LLM through an OpenAI-compatible API.
 - Magpie TTS.
 - Plain-text lexical RAG with per-turn snippet injection.
 
@@ -43,14 +41,13 @@ human handoff when the answer is not grounded in knowledge.
 - The co-worker recommends human handoff but does not approve refunds, collect
 card numbers, make allergen guarantees, make legal or medical judgments, or
 finalize customer-impacting actions without a human.
-- The shared NVIDIA ASR/LLM/TTS stack may be started or reused, but post-launch
-cleanup stops only blueprint-owned voice-service processes.
+- NVIDIA ASR/TTS services may be started or reused, while Docker Model Runner
+serves the LLM. Post-launch cleanup stops only blueprint-owned voice-service processes.
 
 ## Evaluation
 
 - Manifest and catalog tests pass.
 - RAG chunking/retrieval and knowledge persistence tests pass.
-- Spark is reachable as `homer@spark`.
-- Spark has an NVIDIA GPU.
+- The cluster has an advertised DGX Spark, GH200, H100, H200, B200, or GB200 class NVIDIA node.
 - `/health`, `/api/knowledge`, and `/customer-service` respond through localhost.
 - Editing knowledge changes later answers.

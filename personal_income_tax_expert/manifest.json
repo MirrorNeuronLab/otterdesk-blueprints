@@ -743,14 +743,14 @@
         "workers": [
           {
             "id": "tax_auditor",
-            "model": "primary",
+            "model": "default",
             "role": "Tax auditor",
             "tokens": 16000,
             "tools": 5
           },
           {
             "id": "manager_reviewer",
-            "model": "primary",
+            "model": "default",
             "role": "Tax manager reviewer",
             "tokens": 16000,
             "tools": 5
@@ -765,21 +765,21 @@
         "workers": [
           {
             "id": "client_intake_coordinator",
-            "model": "primary",
+            "model": "default",
             "role": "Client intake coordinator",
             "tokens": 16000,
             "tools": 5
           },
           {
             "id": "document_understanding_agent",
-            "model": "primary",
+            "model": "default",
             "role": "Document understanding agent",
             "tokens": 16000,
             "tools": 5
           },
           {
             "id": "source_field_extractor",
-            "model": "primary",
+            "model": "default",
             "role": "Source field extractor",
             "tokens": 16000,
             "tools": 5
@@ -794,7 +794,7 @@
         "workers": [
           {
             "id": "form_1040_assembler",
-            "model": "primary",
+            "model": "default",
             "role": "Form 1040 assembler",
             "tokens": 16000,
             "tools": 5
@@ -810,7 +810,7 @@
           {
             "id": "income_preparer",
             "kind": "worker",
-            "model": "primary",
+            "model": "default",
             "required": true,
             "role": "Income preparer",
             "tokens": 16000,
@@ -822,7 +822,7 @@
             ],
             "id": "income_validator",
             "kind": "validator",
-            "model": "primary",
+            "model": "default",
             "required": true,
             "role": "Income workpaper validator",
             "tokens": 12000,
@@ -839,7 +839,7 @@
           {
             "id": "investment_preparer",
             "kind": "worker",
-            "model": "primary",
+            "model": "default",
             "required": true,
             "role": "Investment preparer",
             "tokens": 16000,
@@ -851,7 +851,7 @@
             ],
             "id": "investment_validator",
             "kind": "validator",
-            "model": "primary",
+            "model": "default",
             "required": false,
             "role": "Investment workpaper validator",
             "tokens": 12000,
@@ -868,7 +868,7 @@
           {
             "id": "property_preparer",
             "kind": "worker",
-            "model": "primary",
+            "model": "default",
             "required": true,
             "role": "Property and deduction preparer",
             "tokens": 16000,
@@ -880,7 +880,7 @@
             ],
             "id": "property_tax_validator",
             "kind": "validator",
-            "model": "primary",
+            "model": "default",
             "required": false,
             "role": "Property and deduction validator",
             "tokens": 12000,
@@ -896,14 +896,14 @@
         "workers": [
           {
             "id": "advisor_report_writer",
-            "model": "primary",
+            "model": "default",
             "role": "Advisor and report writer",
             "tokens": 16000,
             "tools": 5
           },
           {
             "id": "form_1040_packet_writer",
-            "model": "primary",
+            "model": "default",
             "role": "Form 1040 packet writer",
             "tokens": 16000,
             "tools": 5
@@ -937,10 +937,7 @@
     },
     "models": {
       "primary": {
-        "model": "ollama/nemotron3:33b",
-        "provider": "ollama",
-        "role": "Personal tax preparation team that prepares a source-grounded draft Form 1040 review packet while asking careful review questions.",
-        "type": "llm"
+        "model": "default"
       }
     },
     "observability": {
@@ -997,7 +994,7 @@
       "type": "local_run_store"
     },
     "worker_defaults": {
-      "model": "ollama/nemotron3:33b",
+      "model": "default",
       "pool": "default",
       "pool_slots": 1,
       "runner": "MirrorNeuron.Runner.HostLocal",
@@ -1216,24 +1213,6 @@
           "description": "Choose where JSON, Markdown, and PDF review files should be written.",
           "label": "Output folder",
           "path": "outputs.folder_path"
-        },
-        {
-          "default": "ollama",
-          "description": "Use ollama for the real local model, fake only for deterministic tests.",
-          "label": "LLM mode",
-          "path": "llm.mode"
-        },
-        {
-          "default": "http://192.168.4.173:11434",
-          "description": "Base URL for the local Ollama-compatible model server.",
-          "label": "Ollama URL",
-          "path": "llm.api_base"
-        },
-        {
-          "default": "ollama/nemotron3:33b",
-          "description": "Model used by the specialist tax team.",
-          "label": "LLM model",
-          "path": "llm.model"
         }
       ],
       "instruction": "Ask the user to select the local tax document folder, confirm filing status, and choose the output folder before launch. If they skip the document folder, run the demo sample packet and explain that it is not filing-ready.",

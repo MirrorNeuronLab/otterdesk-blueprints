@@ -286,6 +286,11 @@
     ]
   },
   "llm": {
+    "model": "otterdesk-video-watch:default",
+    "provider": "docker_model_runner",
+    "runtime_model": "otterdesk-video-watch:default",
+    "backend": "llama.cpp",
+    "enabled": true,
     "agent_role": "AI assistant for reviewing video stream activity and preparing visual detection alerts.",
     "agents": {
       "default": {
@@ -294,24 +299,7 @@
         "role": "AI assistant for reviewing video stream activity and preparing visual detection alerts."
       }
     },
-    "api_base": "http://192.168.4.173:11434",
-    "configs": {
-      "primary": {
-        "api_base": "http://192.168.4.173:11434",
-        "max_tokens": 700,
-        "mock_mode": "fake",
-        "mode": "ollama",
-        "model": "ollama/nemotron3:33b",
-        "num_retries": 1,
-        "provider": "ollama",
-        "timeout_seconds": 60
-      }
-    },
-    "default_config": "primary",
-    "enabled": true,
-    "mock_mode": "fake",
-    "mode": "ollama",
-    "model": "ollama/nemotron3:33b"
+    "mock_mode": "fake"
   },
   "logging": {
     "events": [
@@ -484,19 +472,6 @@
         ],
         "name": "mapped-local-rtsp-stream-gateway",
         "uri": "rtsp://192.168.65.254:8554/video-watch"
-      },
-      {
-        "allowed_ips": [
-          "192.168.4.173/32"
-        ],
-        "binaries": [
-          "/bin/bash",
-          "/usr/bin/bash",
-          "/usr/bin/python3",
-          "/usr/bin/python3.12"
-        ],
-        "name": "local-vl-model",
-        "uri": "http://192.168.4.173:11434"
       }
     ],
     "include_dns": false,
@@ -579,12 +554,21 @@
   },
   "resources": {
     "enabled": true,
-    "gpu_enabled": "auto",
+    "gpu_enabled": true,
     "gpu_sample_interval_seconds": 60,
     "history_window_hours": 24,
     "raw_retention_hours": 48,
     "rollup_bucket_seconds": 3600,
-    "sample_interval_seconds": 10
+    "sample_interval_seconds": 10,
+    "gpu_count": 1,
+    "required_capabilities": [
+      "nvidia-dgx-spark",
+      "nvidia-gh200",
+      "nvidia-h100",
+      "nvidia-h200",
+      "nvidia-b200",
+      "nvidia-gb200"
+    ]
   },
   "schemas": {
     "artifact_record": "mn.artifact.record.v1",
@@ -645,15 +629,6 @@
     "transport": "rtsp",
     "upstream_uri": "",
     "uri": "rtsp://127.0.0.1:8554/video-watch"
-  },
-  "vl_model": {
-    "base_url": "http://192.168.4.173:11434",
-    "description": "Configurable vision-language model used to understand sampled video video frames.",
-    "endpoint": "/api/generate",
-    "model": "nemotron3:33b",
-    "provider": "ollama",
-    "temperature": 0,
-    "timeout_seconds": 90
   },
   "web_ui": {
     "dashboard": {

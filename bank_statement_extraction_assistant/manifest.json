@@ -626,7 +626,7 @@
             "alias": "bank_dataset_intake",
             "kind": "worker",
             "role": "Bank dataset intake analyst",
-            "model": "primary",
+            "model": "default",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -644,7 +644,7 @@
             "alias": "statement_ocr_extractor",
             "kind": "worker",
             "role": "Statement OCR extractor",
-            "model": "primary",
+            "model": "default",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -654,7 +654,7 @@
             "alias": "financial_identifier_redactor",
             "kind": "worker",
             "role": "Financial identifier redactor",
-            "model": "primary",
+            "model": "default",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -672,7 +672,7 @@
             "alias": "transaction_row_extractor",
             "kind": "worker",
             "role": "Transaction row extractor",
-            "model": "primary",
+            "model": "default",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -682,7 +682,7 @@
             "alias": "cash_flow_normalizer",
             "kind": "worker",
             "role": "Cash-flow normalizer",
-            "model": "primary",
+            "model": "default",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -700,7 +700,7 @@
             "alias": "balance_reconciliation_validator",
             "kind": "worker",
             "role": "Balance reconciliation validator",
-            "model": "primary",
+            "model": "default",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -718,7 +718,7 @@
             "alias": "statement_report_writer",
             "kind": "worker",
             "role": "Statement extraction packet writer",
-            "model": "primary",
+            "model": "default",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -728,10 +728,7 @@
     },
     "models": {
       "primary": {
-        "type": "llm",
-        "provider": "ollama",
-        "model": "ollama/nemotron3:33b",
-        "role": "Local bank statement OCR and transaction extraction team that prepares source-grounded cash-flow review packets."
+        "model": "default"
       }
     },
     "memory": {
@@ -814,7 +811,7 @@
     "worker_defaults": {
       "runner": "MirrorNeuron.Runner.HostLocal",
       "uses": "mn-agents.data_python_executor@1.0.0",
-      "model": "ollama/nemotron3:33b",
+      "model": "default",
       "pool": "default",
       "pool_slots": 1,
       "workdir": "/sandbox/job/workflow"
@@ -1556,12 +1553,6 @@
           "label": "LLM OCR",
           "default": true,
           "description": "Use the shared local LightOnOCR Docker Model Runner path for scanned or low-text documents."
-        },
-        {
-          "path": "llm.mode",
-          "label": "LLM mode",
-          "default": "ollama",
-          "description": "Use ollama for local model calls, fake only for deterministic tests."
         }
       ]
     },

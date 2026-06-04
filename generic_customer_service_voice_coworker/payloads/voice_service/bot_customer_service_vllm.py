@@ -46,14 +46,24 @@ from pipecat.transports.websocket.fastapi import FastAPIWebsocketParams
 
 load_dotenv(override=True)
 
-NVIDIA_ASR_URL = os.getenv("NVIDIA_ASR_URL", "ws://127.0.0.1:8080")
-NVIDIA_LLM_URL = os.getenv("NVIDIA_LLM_URL", "http://127.0.0.1:8000/v1")
-NVIDIA_LLM_MODEL = os.getenv(
-    "NVIDIA_LLM_MODEL",
-    "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16",
+NVIDIA_ASR_URL = os.getenv("MN_ASR_URL") or os.getenv("NVIDIA_ASR_URL", "ws://127.0.0.1:8080")
+NVIDIA_LLM_URL = (
+    os.getenv("MN_LLM_API_BASE")
+    or os.getenv("NVIDIA_LLM_URL")
+    or "http://localhost:12434/engines/v1"
+).rstrip("/")
+NVIDIA_LLM_MODEL = (
+    os.getenv("MN_LLM_MODEL")
+    or os.getenv("NVIDIA_LLM_MODEL")
+    or "otterdesk-voice-llm:default"
+)
+NVIDIA_LLM_MODEL = (
+    "hf.co/nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16"
+    if NVIDIA_LLM_MODEL in {"otterdesk-voice-llm:default", "voice-customer-service:default", "nemotron3-voice"}
+    else NVIDIA_LLM_MODEL
 )
 NVIDIA_LLM_API_KEY = os.getenv("NVIDIA_LLM_API_KEY", "not-needed")
-NVIDIA_TTS_URL = os.getenv("NVIDIA_TTS_URL", "http://127.0.0.1:8001")
+NVIDIA_TTS_URL = os.getenv("MN_TTS_URL") or os.getenv("NVIDIA_TTS_URL", "http://127.0.0.1:8001")
 VAD_STOP_SECS = float(os.getenv("VAD_STOP_SECS", "0.2"))
 
 

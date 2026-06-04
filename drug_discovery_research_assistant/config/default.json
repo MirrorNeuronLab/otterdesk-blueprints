@@ -298,6 +298,8 @@
     ]
   },
   "llm": {
+    "model": "default",
+    "enabled": true,
     "agent_role": "AI assistant for organizing drug discovery candidate generation, filtering, and evidence review.",
     "agents": {
       "default": {
@@ -306,24 +308,7 @@
         "role": "AI assistant for organizing drug discovery candidate generation, filtering, and evidence review."
       }
     },
-    "api_base": "http://192.168.4.173:11434",
-    "configs": {
-      "primary": {
-        "api_base": "http://192.168.4.173:11434",
-        "max_tokens": 700,
-        "mock_mode": "fake",
-        "mode": "ollama",
-        "model": "ollama/nemotron3:33b",
-        "num_retries": 1,
-        "provider": "ollama",
-        "timeout_seconds": 60
-      }
-    },
-    "default_config": "primary",
-    "enabled": true,
-    "mock_mode": "fake",
-    "mode": "ollama",
-    "model": "ollama/nemotron3:33b"
+    "mock_mode": "fake"
   },
   "logging": {
     "events": [

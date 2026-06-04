@@ -395,6 +395,8 @@
     ]
   },
   "llm": {
+    "model": "default",
+    "enabled": true,
     "agent_role": "LLM report writer that summarizes supplied market signals and structured simulation evidence; deterministic finance workers propose, simulate, evaluate, and benchmark decisions.",
     "agents": {
       "default": {
@@ -407,29 +409,12 @@
         "role": "LLM report writer that summarizes supplied market signals and structured simulation evidence; deterministic finance workers propose, simulate, evaluate, and benchmark decisions."
       }
     },
-    "api_base": "http://192.168.4.173:11434",
-    "configs": {
-      "primary": {
-        "api_base": "http://192.168.4.173:11434",
-        "max_tokens": 700,
-        "mock_mode": "fake",
-        "mode": "ollama",
-        "model": "ollama/nemotron3:33b",
-        "num_retries": 1,
-        "provider": "ollama",
-        "timeout_seconds": 60
-      }
-    },
-    "default_config": "primary",
-    "enabled": true,
-    "mock_mode": "fake",
-    "mode": "ollama",
-    "model": "ollama/nemotron3:33b",
     "responsibilities": [
       "interpret supplied market signals",
       "write final report from structured metrics",
       "avoid inventing prices or executable trades"
-    ]
+    ],
+    "mock_mode": "fake"
   },
   "logging": {
     "events": [

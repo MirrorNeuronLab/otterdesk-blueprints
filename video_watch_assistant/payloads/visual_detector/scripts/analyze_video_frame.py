@@ -457,15 +457,66 @@ def mock_detection(frame_seq: int) -> dict[str, Any]:
 
 
 def call_ollama(frame: bytes, prompt: str) -> dict[str, Any]:
-    base_url = (
-        os.environ.get("VL_MODEL_BASE_URL")
+    provider = (
+        os.environ.get("MN_VLM_PROVIDER")
+        or os.environ.get("MN_LLM_PROVIDER")
+        or os.environ.get("VL_MODEL_PROVIDER")
+        or "docker_model_runner"
+    ).strip().lower().replace("-", "_")
+    base_url = _normalize_model_api_base(
+        os.environ.get("MN_VLM_API_BASE")
+        or os.environ.get("MN_LLM_API_BASE")
+        or os.environ.get("VL_MODEL_BASE_URL")
         or os.environ.get("OLLAMA_BASE_URL")
-        or "http://192.168.4.173:11434"
-    ).rstrip("/")
-    model = os.environ.get("VL_MODEL_NAME") or os.environ.get("OLLAMA_MODEL") or "nemotron3:33b"
-    timeout = float(os.environ.get("OLLAMA_TIMEOUT_SECONDS", "90"))
+        or ("http://localhost:11434" if provider == "ollama" else "http://localhost:12434/engines/v1"),
+        provider=provider,
+    )
+    model = _normalize_vlm_model(
+        os.environ.get("MN_VLM_MODEL")
+        or os.environ.get("MN_LLM_MODEL")
+        or os.environ.get("VL_MODEL_NAME")
+        or os.environ.get("OLLAMA_MODEL")
+        or "otterdesk-video-watch:default"
+    )
+    timeout = float(os.environ.get("MN_VLM_TIMEOUT_SECONDS") or os.environ.get("MN_LLM_TIMEOUT_SECONDS") or os.environ.get("OLLAMA_TIMEOUT_SECONDS", "90"))
+    if _uses_openai_compatible_runtime(provider, base_url):
+        encoded = base64.b64encode(frame).decode("ascii")
+        payload = {
+            "model": model,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{encoded}"}},
+                    ],
+                }
+            ],
+            "max_tokens": int(os.environ.get("MN_VLM_MAX_TOKENS") or os.environ.get("MN_LLM_MAX_TOKENS") or os.environ.get("OLLAMA_NUM_PREDICT", "300")),
+            "temperature": float(os.environ.get("MN_VLM_TEMPERATURE") or os.environ.get("OLLAMA_TEMPERATURE", "0.0")),
+            "response_format": {"type": "json_object"},
+        }
+        request = urllib.request.Request(
+            f"{base_url}/chat/completions",
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=timeout) as response:
+                raw = json.loads(response.read().decode("utf-8"))
+        except urllib.error.URLError as exc:
+            raise RuntimeError(f"model runner request failed: {exc}") from exc
+        choice = (raw.get("choices") or [{}])[0]
+        message = choice.get("message") if isinstance(choice, dict) else {}
+        text = str((message or {}).get("content") or "")
+        result, parse_error = parse_model_json(text)
+        if result is None:
+            return fallback_detection_from_model_text(text, parse_error)
+        return normalize_detection(result)
+
     payload = {
-        "model": model,
+        "model": model.removeprefix("ollama/"),
         "prompt": prompt,
         "stream": False,
         "format": "json",
@@ -486,13 +537,40 @@ def call_ollama(frame: bytes, prompt: str) -> dict[str, Any]:
         with urllib.request.urlopen(request, timeout=timeout) as response:
             raw = json.loads(response.read().decode("utf-8"))
     except urllib.error.URLError as exc:
-        raise RuntimeError(f"ollama request failed: {exc}") from exc
+        raise RuntimeError(f"legacy Ollama request failed: {exc}") from exc
 
     text = raw.get("response") or raw.get("message", {}).get("content") or raw.get("thinking") or ""
     result, parse_error = parse_model_json(text)
     if result is None:
         return fallback_detection_from_model_text(text, parse_error)
     return normalize_detection(result)
+
+
+def _normalize_vlm_model(model: str) -> str:
+    value = str(model or "").strip()
+    if value.lower() in {"", "default", "otterdesk-video-watch:default", "video-watch:default"}:
+        return os.environ.get("MN_LLM_RUNTIME_MODEL") or "hf.co/nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-BF16"
+    if value.lower() in {"gemma4", "gemme4", "gemma4:e2b", "gemme4:e2b"}:
+        return "ai/gemma4:E2B"
+    return value
+
+
+def _normalize_model_api_base(api_base: str, *, provider: str) -> str:
+    value = str(api_base or "").strip().rstrip("/")
+    if not value:
+        return "http://localhost:11434" if provider == "ollama" else "http://localhost:12434/engines/v1"
+    if "/engines/" in value:
+        if value.endswith("/chat/completions"):
+            value = value[: -len("/chat/completions")]
+        return value.rstrip("/")
+    for suffix in ("/v1/chat/completions", "/chat/completions", "/v1"):
+        if value.endswith(suffix):
+            value = value[: -len(suffix)]
+    return value.rstrip("/")
+
+
+def _uses_openai_compatible_runtime(provider: str, api_base: str) -> bool:
+    return provider in {"docker_model_runner", "dmr", "openai", "openai_compatible"} or "/engines/" in api_base
 
 
 def parse_model_json(value: Any) -> tuple[dict[str, Any] | None, str]:

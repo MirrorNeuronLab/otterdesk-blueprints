@@ -520,28 +520,21 @@
             "environment": {
               "CUSTOMER_SERVICE_PUBLIC_URL": "https://localhost:7863/customer-service",
               "CUSTOMER_SERVICE_RUN_ID": "${MN_RUN_ID}",
-              "CUSTOMER_SERVICE_SPARK_HOST": "homer@spark",
-              "CUSTOMER_SERVICE_SPARK_IP": "192.168.4.173",
               "NEMOTRON_ROOT": "/home/homer/Sandbox/nemotron-january-2026",
-              "NVIDIA_ASR_URL": "ws://192.168.4.173:8080",
-              "NVIDIA_LLM_MODEL": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16",
-              "NVIDIA_LLM_URL": "http://192.168.4.173:8000/v1",
-              "NVIDIA_TTS_URL": "http://192.168.4.173:8001",
               "VOICE_HTTPS_PORT": "7863"
             },
             "agent_beacon_required": false,
             "cleanup_remote_dir": false,
-            "execution_profile": "customer-service-voice-nvidia",
+            "execution_profile": "nvidia-accelerated-voice",
             "gpu_count": 1,
             "health_url": "https://localhost:7863/health",
             "output_message_type": "customer_service_voice_started",
-            "pool": "customer-service-voice-nvidia",
+            "pool": "nvidia-accelerated",
             "pool_slots": 1,
             "public_url": "https://localhost:7863/customer-service",
             "script": "scripts/run_voice_service.sh",
             "service": true,
             "service_kind": "https_webrtc_voice",
-            "target_node": "mn2@192.168.4.173",
             "upload_path": "voice_service",
             "upload_paths": [
               {
@@ -616,12 +609,6 @@
           "description": "Rules for asking a human to take over.",
           "label": "Escalation policy",
           "path": "inputs.payload.escalation_policy"
-        },
-        {
-          "default": "homer@spark",
-          "description": "SSH destination for the NVIDIA box used by pre-launch and cleanup.",
-          "label": "Spark SSH host",
-          "path": "inputs.payload.spark_host"
         },
         {
           "default": 7863,
@@ -925,12 +912,6 @@
         "custom"
       ]
     },
-    "llm": {
-      "agent_role": "Customer-service voice co-worker that answers from the customer knowledge base, asks clarifying questions when needed, and recommends escalation when it is unsure or outside scope.",
-      "base_url": "http://192.168.4.173:8000/v1",
-      "model": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16",
-      "provider": "openai-compatible"
-    },
     "llm_agent_role": "Customer-service voice co-worker that answers from the customer knowledge base, asks clarifying questions when needed, and recommends escalation when it is unsure or outside scope.",
     "memory_layer": {
       "collection": "mn_memory",
@@ -986,82 +967,6 @@
       ],
       "schema_version": "mn.blueprint.observability_dashboard.v1",
       "source": "local_run_store"
-    },
-    "openshell_network": {
-      "endpoints": [
-        {
-          "allowed_ips": [
-            "127.0.0.1/32"
-          ],
-          "binaries": [
-            "/usr/bin/ffmpeg",
-            "/usr/bin/python3"
-          ],
-          "name": "mapped-local-rtsp-stream-loopback",
-          "uri": "rtsp://127.0.0.1:8554/video-watch"
-        },
-        {
-          "allowed_ips": [
-            "127.0.0.1/32"
-          ],
-          "binaries": [
-            "/usr/bin/ffmpeg",
-            "/usr/bin/python3"
-          ],
-          "name": "mapped-local-rtsp-stream-localhost",
-          "uri": "rtsp://localhost:8554/video-watch"
-        },
-        {
-          "allowed_ips": [
-            "127.0.0.1/32",
-            "192.168.65.254/32"
-          ],
-          "binaries": [
-            "/usr/bin/ffmpeg",
-            "/usr/bin/python3"
-          ],
-          "name": "mapped-local-rtsp-stream-openshell-host",
-          "uri": "rtsp://host.openshell.internal:8554/video-watch"
-        },
-        {
-          "allowed_ips": [
-            "192.168.65.254/32",
-            "127.0.0.1/32"
-          ],
-          "binaries": [
-            "/usr/bin/ffmpeg",
-            "/usr/bin/python3"
-          ],
-          "name": "mapped-local-rtsp-stream-docker-host",
-          "uri": "rtsp://host.docker.internal:8554/video-watch"
-        },
-        {
-          "allowed_ips": [
-            "192.168.65.254/32"
-          ],
-          "binaries": [
-            "/usr/bin/ffmpeg",
-            "/usr/bin/python3"
-          ],
-          "name": "mapped-local-rtsp-stream-gateway",
-          "uri": "rtsp://192.168.65.254:8554/video-watch"
-        },
-        {
-          "allowed_ips": [
-            "192.168.4.173/32"
-          ],
-          "binaries": [
-            "/bin/bash",
-            "/usr/bin/bash",
-            "/usr/bin/python3",
-            "/usr/bin/python3.12"
-          ],
-          "name": "local-vl-model",
-          "uri": "http://192.168.4.173:11434"
-        }
-      ],
-      "include_dns": false,
-      "policy_path": "visual_detector/policies/video-egress.yaml"
     },
     "output": "Visual detection observations with count, label, category, color, position, activity, confidence, and alert status.",
     "output_contract": {
@@ -1415,19 +1320,6 @@
       "transport": "rtsp",
       "uri": "rtsp://127.0.0.1:8554/video-watch"
     },
-    "vl_model": {
-      "base_url": "http://192.168.4.173:11434",
-      "config_env": [
-        "VL_MODEL_BASE_URL",
-        "VL_MODEL_NAME"
-      ],
-      "legacy_env_aliases": [
-        "OLLAMA_BASE_URL",
-        "OLLAMA_MODEL"
-      ],
-      "model": "nemotron3:33b",
-      "provider": "ollama"
-    },
     "web_ui": {
       "adapter": "gradio",
       "browser_publish_source": "disabled",
@@ -1463,7 +1355,15 @@
         "enabled": false
       },
       "voice_url": "https://localhost:7863/customer-service"
-    }
+    },
+    "required_cluster_capabilities": [
+      "nvidia-dgx-spark",
+      "nvidia-gh200",
+      "nvidia-h100",
+      "nvidia-h200",
+      "nvidia-b200",
+      "nvidia-gb200"
+    ]
   },
   "name": "Pizza Order Voice AI Co-worker",
   "nodes": [
@@ -1478,9 +1378,16 @@
       "alias": "customer_service_voice_host",
       "constraints": [
         {
-          "attribute": "node.name",
-          "operator": "==",
-          "value": "mn2@192.168.4.173"
+          "attribute": "capabilities",
+          "operator": "contains_any",
+          "value": [
+            "nvidia-dgx-spark",
+            "nvidia-gh200",
+            "nvidia-h100",
+            "nvidia-h200",
+            "nvidia-b200",
+            "nvidia-gb200"
+          ]
         }
       ],
       "display_name": "Pizza Order Voice Host",
@@ -1499,14 +1406,22 @@
             "protocol": "tcp"
           },
           {
-            "label": "nemotron_vllm",
-            "port": 8000,
+            "label": "docker_model_runner",
+            "port": 12434,
             "protocol": "tcp"
           },
           {
             "label": "magpie_tts",
             "port": 8001,
             "protocol": "tcp"
+          }
+        ],
+        "devices": [
+          {
+            "kind": "gpu",
+            "type": "nvidia/gpu",
+            "driver": "cuda",
+            "count": 1
           }
         ]
       },
@@ -1519,28 +1434,21 @@
         "environment": {
           "CUSTOMER_SERVICE_PUBLIC_URL": "https://localhost:7863/customer-service",
           "CUSTOMER_SERVICE_RUN_ID": "${MN_RUN_ID}",
-          "CUSTOMER_SERVICE_SPARK_HOST": "homer@spark",
-          "CUSTOMER_SERVICE_SPARK_IP": "192.168.4.173",
           "NEMOTRON_ROOT": "/home/homer/Sandbox/nemotron-january-2026",
-          "NVIDIA_ASR_URL": "ws://192.168.4.173:8080",
-          "NVIDIA_LLM_MODEL": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16",
-          "NVIDIA_LLM_URL": "http://192.168.4.173:8000/v1",
-          "NVIDIA_TTS_URL": "http://192.168.4.173:8001",
           "VOICE_HTTPS_PORT": "7863"
         },
         "agent_beacon_required": false,
         "cleanup_remote_dir": false,
-        "execution_profile": "customer-service-voice-nvidia",
+        "execution_profile": "nvidia-accelerated-voice",
         "gpu_count": 1,
         "health_url": "https://localhost:7863/health",
         "output_message_type": "customer_service_voice_started",
-        "pool": "customer-service-voice-nvidia",
+        "pool": "nvidia-accelerated",
         "pool_slots": 1,
         "public_url": "https://localhost:7863/customer-service",
         "script": "scripts/run_voice_service.sh",
         "service": true,
         "service_kind": "https_webrtc_voice",
-        "target_node": "mn2@192.168.4.173",
         "upload_path": "voice_service",
         "upload_paths": [
           {
@@ -1548,7 +1456,30 @@
             "target": "voice_service"
           }
         ]
-      }
+      },
+      "requires_services": [
+        {
+          "name": "docker-model-runner",
+          "tags": [
+            "nvidia",
+            "cuda"
+          ]
+        },
+        {
+          "name": "nvidia-asr",
+          "tags": [
+            "nvidia",
+            "speech-to-text"
+          ]
+        },
+        {
+          "name": "nvidia-tts",
+          "tags": [
+            "nvidia",
+            "text-to-speech"
+          ]
+        }
+      ]
     }
   ],
   "policies": {
@@ -1564,7 +1495,16 @@
       "min_gb": 1
     },
     "gpu": {
-      "min_count": 0
+      "min_count": 1,
+      "vendor": "nvidia",
+      "required_capabilities": [
+        "nvidia-dgx-spark",
+        "nvidia-gh200",
+        "nvidia-h100",
+        "nvidia-h200",
+        "nvidia-b200",
+        "nvidia-gb200"
+      ]
     },
     "memory": {
       "min_gb": 2
@@ -1582,7 +1522,7 @@
             "alias": "spark_voice_preparer",
             "display_name": "Spark Voice Preparer",
             "id": "spark_voice_preparer",
-            "model": "NVIDIA Nemotron vLLM",
+            "model": "otterdesk-voice-llm:default",
             "role": "Prepare Spark voice runtime and knowledge store",
             "tokens": 8000,
             "tools": 4
@@ -1599,7 +1539,7 @@
             "alias": "customer_service_voice_host",
             "display_name": "Pizza Order Voice Host",
             "id": "customer_service_voice_host",
-            "model": "NVIDIA ASR + Nemotron vLLM + Magpie TTS",
+            "model": "otterdesk-voice-llm:default",
             "role": "Host WebRTC voice conversation service on Spark",
             "tokens": 8000,
             "tools": 4
@@ -1632,24 +1572,25 @@
       "sdk_import_package": "mn_context_engine_sdk"
     },
     "models": {
-      "asr": {
-        "model": "parakeet",
-        "provider": "nvidia",
-        "type": "speech_to_text",
-        "url": "ws://192.168.4.173:8080"
-      },
       "primary": {
-        "base_url": "http://192.168.4.173:8000/v1",
-        "model": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16",
-        "provider": "openai-compatible",
-        "role": "Customer-service voice co-worker that answers from the customer knowledge base, asks clarifying questions when needed, and recommends escalation when it is unsure or outside scope.",
-        "type": "llm"
+        "type": "llm",
+        "provider": "docker_model_runner",
+        "model": "otterdesk-voice-llm:default",
+        "runtime_model": "otterdesk-voice-llm:default",
+        "backend": "llama.cpp",
+        "required": true
+      },
+      "asr": {
+        "type": "speech_to_text",
+        "provider": "nvidia_service",
+        "model": "otterdesk-voice-asr:default",
+        "required": true
       },
       "tts": {
-        "model": "magpie",
-        "provider": "nvidia",
         "type": "text_to_speech",
-        "url": "http://192.168.4.173:8001"
+        "provider": "nvidia_service",
+        "model": "otterdesk-voice-tts:default",
+        "required": true
       }
     },
     "observability": {
@@ -1690,7 +1631,16 @@
         "min_gb": 4
       },
       "gpu": {
-        "min_count": 1
+        "min_count": 1,
+        "vendor": "nvidia",
+        "required_capabilities": [
+          "nvidia-dgx-spark",
+          "nvidia-gh200",
+          "nvidia-h100",
+          "nvidia-h200",
+          "nvidia-b200",
+          "nvidia-gb200"
+        ]
       },
       "memory": {
         "min_gb": 8
@@ -1712,8 +1662,8 @@
       "type": "local_run_store"
     },
     "worker_defaults": {
-      "model": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16",
-      "pool": "customer-service-voice-nvidia",
+      "model": "otterdesk-voice-llm:default",
+      "pool": "nvidia-accelerated",
       "pool_slots": 1,
       "runner": "MirrorNeuron.Runner.HostLocal",
       "uses": "mn-agents.data_python_executor@1.0.0",
@@ -1788,5 +1738,31 @@
   },
   "term": "TERM.md",
   "type": "service",
-  "version": "0.1.0"
+  "version": "0.1.0",
+  "required_services": [
+    {
+      "name": "docker-model-runner",
+      "tags": [
+        "nvidia",
+        "cuda"
+      ],
+      "required": true
+    },
+    {
+      "name": "nvidia-asr",
+      "tags": [
+        "nvidia",
+        "speech-to-text"
+      ],
+      "required": true
+    },
+    {
+      "name": "nvidia-tts",
+      "tags": [
+        "nvidia",
+        "text-to-speech"
+      ],
+      "required": true
+    }
+  ]
 }
