@@ -567,7 +567,8 @@
       "nvidia-h100",
       "nvidia-h200",
       "nvidia-b200",
-      "nvidia-gb200"
+      "nvidia-gb200",
+      "nvidia-gb10"
     ]
   },
   "schemas": {
@@ -623,7 +624,7 @@
     "camera_id": "video-watch",
     "codec": "h264",
     "demo_video": "data/sample.mp4",
-    "description": "Default mapped RTSP endpoint consumed by the OpenShell worker. The host-side pre-launch hook loops the bundled demo video into the selected local RTSP port before launch.",
+    "description": "Default mapped RTSP endpoint consumed by the DockerWorker detector. The host-side pre-launch hook loops the bundled demo video into the selected local RTSP port before launch.",
     "frame_jpeg_max_width": 896,
     "frame_sample_seconds": 10,
     "transport": "rtsp",

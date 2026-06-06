@@ -679,7 +679,8 @@
           "nvidia-h100",
           "nvidia-h200",
           "nvidia-b200",
-          "nvidia-gb200"
+          "nvidia-gb200",
+          "nvidia-gb10"
         ]
       },
       "memory": {
@@ -812,7 +813,8 @@
         "nvidia-h100",
         "nvidia-h200",
         "nvidia-b200",
-        "nvidia-gb200"
+        "nvidia-gb200",
+        "nvidia-gb10"
       ]
     },
     "memory": {
@@ -855,6 +857,14 @@
           "uses": "mn-agents.data_python_executor@1.0.0",
           "with": {
             "script": "scripts/analyze_video_frame.py",
+            "runner_module": "MirrorNeuron.Runner.DockerWorker",
+            "docker_worker_image": "visual_detector/docker_worker",
+            "image": "mirror-neuron/video-watch-detector:local",
+            "workdir": "/mn/job/visual_detector",
+            "command": [
+              "bash",
+              "scripts/run_detector_in_docker_worker.sh"
+            ],
             "upload_path": "visual_detector",
             "upload_paths": [
               {
@@ -1569,7 +1579,7 @@
         "VIDEO_SOURCE_TRANSPORT",
         "VIDEO_SOURCE_CODEC"
       ],
-      "description": "Default mapped RTSP endpoint consumed by the OpenShell worker. The host-side pre-launch hook loops the bundled demo video into the selected local RTSP port before launch.",
+      "description": "Default mapped RTSP endpoint consumed by the DockerWorker detector. The host-side pre-launch hook loops the bundled demo video into the selected local RTSP port before launch.",
       "transport": "rtsp",
       "uri": "rtsp://127.0.0.1:8554/video-watch"
     },
@@ -1661,7 +1671,8 @@
       "nvidia-h100",
       "nvidia-h200",
       "nvidia-b200",
-      "nvidia-gb200"
+      "nvidia-gb200",
+      "nvidia-gb10"
     ]
   },
   "entrypoints": [
@@ -1691,6 +1702,14 @@
       "uses": "mn-agents.data_python_executor@1.0.0",
       "with": {
         "script": "scripts/analyze_video_frame.py",
+        "runner_module": "MirrorNeuron.Runner.DockerWorker",
+        "docker_worker_image": "visual_detector/docker_worker",
+        "image": "mirror-neuron/video-watch-detector:local",
+        "workdir": "/mn/job/visual_detector",
+        "command": [
+          "bash",
+          "scripts/run_detector_in_docker_worker.sh"
+        ],
         "upload_path": "visual_detector",
         "upload_paths": [
           {
@@ -1714,7 +1733,8 @@
             "nvidia-h100",
             "nvidia-h200",
             "nvidia-b200",
-            "nvidia-gb200"
+            "nvidia-gb200",
+            "nvidia-gb10"
           ]
         }
       ],

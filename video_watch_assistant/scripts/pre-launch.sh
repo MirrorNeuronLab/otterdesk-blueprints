@@ -30,8 +30,8 @@ Start the host-side stream mapper for Video Watch Assistant.
 Stable mapped RTSP endpoint:
   ${STREAM_URI}
 
-The OpenShell worker always consumes the stable mapped endpoint. This script
-runs outside OpenShell and feeds that endpoint from the demo video in
+The DockerWorker detector always consumes the stable mapped endpoint. This script
+runs outside the worker container and feeds that endpoint from the demo video in
 DEMO_VIDEO_FILE.
 
 Environment overrides:
@@ -458,7 +458,7 @@ start_selected_publisher() {
 }
 
 echo "Keep this script running while the blueprint is active. Press Ctrl-C to stop."
-echo "OpenShell worker source: ${STREAM_URI}"
+echo "DockerWorker detector source: ${STREAM_URI}"
 echo "Browser preview: ${BROWSER_PREVIEW_URI}"
 
 while true; do

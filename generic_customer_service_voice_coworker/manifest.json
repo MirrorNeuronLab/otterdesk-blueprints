@@ -1316,7 +1316,7 @@
         "VIDEO_SOURCE_TRANSPORT",
         "VIDEO_SOURCE_CODEC"
       ],
-      "description": "Default mapped RTSP endpoint consumed by the OpenShell worker. The host-side pre-launch hook loops the bundled demo video into the selected local RTSP port before launch.",
+      "description": "Default mapped media endpoint consumed by the runtime worker. The host-side pre-launch hook prepares local media and service handles before launch.",
       "transport": "rtsp",
       "uri": "rtsp://127.0.0.1:8554/video-watch"
     },
@@ -1362,7 +1362,8 @@
       "nvidia-h100",
       "nvidia-h200",
       "nvidia-b200",
-      "nvidia-gb200"
+      "nvidia-gb200",
+      "nvidia-gb10"
     ]
   },
   "name": "Pizza Order Voice AI Co-worker",
@@ -1386,7 +1387,8 @@
             "nvidia-h100",
             "nvidia-h200",
             "nvidia-b200",
-            "nvidia-gb200"
+            "nvidia-gb200",
+            "nvidia-gb10"
           ]
         }
       ],
@@ -1503,7 +1505,8 @@
         "nvidia-h100",
         "nvidia-h200",
         "nvidia-b200",
-        "nvidia-gb200"
+        "nvidia-gb200",
+        "nvidia-gb10"
       ]
     },
     "memory": {
@@ -1639,7 +1642,8 @@
           "nvidia-h100",
           "nvidia-h200",
           "nvidia-b200",
-          "nvidia-gb200"
+          "nvidia-gb200",
+          "nvidia-gb10"
         ]
       },
       "memory": {

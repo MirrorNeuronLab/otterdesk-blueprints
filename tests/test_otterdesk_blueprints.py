@@ -614,6 +614,7 @@ def test_generic_customer_service_voice_blueprint_contract():
     assert voice_node["constraints"][0]["attribute"] == "capabilities"
     assert voice_node["constraints"][0]["operator"] == "contains_any"
     assert "nvidia-dgx-spark" in voice_node["constraints"][0]["value"]
+    assert "nvidia-gb10" in voice_node["constraints"][0]["value"]
     assert voice_node["with"]["public_url"] == "https://localhost:7863/customer-service"
 
     payload = config["inputs"]["payload"]
@@ -1087,6 +1088,10 @@ def test_video_watch_openshell_policy_is_generated_by_shared_helper(tmp_path):
 
     rendered = render_manifest_agent_templates(manifest, AGENTS_ROOT)
     visual_node = next(node for node in rendered["nodes"] if node["node_id"] == "visual_detector")
+    assert visual_node["config"]["runner_module"] == "MirrorNeuron.Runner.DockerWorker"
+    assert visual_node["config"]["docker_worker_image"] == "visual_detector/docker_worker"
+    assert visual_node["config"]["workdir"] == "/mn/job/visual_detector"
+    assert visual_node["config"]["command"] == ["bash", "scripts/run_detector_in_docker_worker.sh"]
     assert visual_node["config"]["policy"] == network["policy_path"]
     assert visual_node["config"]["upload_paths"] == [{"source": "visual_detector", "target": "visual_detector"}]
     assert "PYTHONPATH" not in visual_node["config"]["environment"]
