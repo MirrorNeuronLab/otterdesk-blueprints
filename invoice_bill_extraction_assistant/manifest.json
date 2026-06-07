@@ -437,7 +437,7 @@
           "failure_policy": "fail_workflow",
           "timeout_seconds": 300,
           "uncertainty": {
-            "min_confidence": 0.0,
+            "min_confidence": 0,
             "on_low_confidence": "continue_with_warning"
           }
         },
@@ -475,7 +475,7 @@
           "failure_policy": "fail_workflow",
           "timeout_seconds": 300,
           "uncertainty": {
-            "min_confidence": 0.0,
+            "min_confidence": 0,
             "on_low_confidence": "continue_with_warning"
           }
         },
@@ -592,7 +592,7 @@
           "failure_policy": "fail_workflow",
           "timeout_seconds": 300,
           "uncertainty": {
-            "min_confidence": 0.0,
+            "min_confidence": 0,
             "on_low_confidence": "continue_with_warning"
           }
         },
@@ -610,7 +610,202 @@
         ]
       }
     ],
-    "observers": []
+    "observers": [],
+    "nodes": [
+      {
+        "node_id": "stage_invoice_inputs",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "upload_path": "document_workflow",
+          "upload_as": "document_workflow",
+          "workdir": "/sandbox/job/document_workflow",
+          "command": [
+            "python3",
+            "scripts/run_blueprint.py"
+          ],
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "output_message_type": "invoice_inputs_staged",
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000
+        }
+      },
+      {
+        "node_id": "extract_invoice_text",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "upload_path": "document_workflow",
+          "upload_as": "document_workflow",
+          "workdir": "/sandbox/job/document_workflow",
+          "command": [
+            "python3",
+            "scripts/run_blueprint.py"
+          ],
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "output_message_type": "invoice_text_extracted",
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000
+        }
+      },
+      {
+        "node_id": "extract_payable_fields",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "upload_path": "document_workflow",
+          "upload_as": "document_workflow",
+          "workdir": "/sandbox/job/document_workflow",
+          "command": [
+            "python3",
+            "scripts/run_blueprint.py"
+          ],
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "output_message_type": "payable_fields_extracted",
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000
+        }
+      },
+      {
+        "node_id": "validate_invoice_packet",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "upload_path": "document_workflow",
+          "upload_as": "document_workflow",
+          "workdir": "/sandbox/job/document_workflow",
+          "command": [
+            "python3",
+            "scripts/run_blueprint.py"
+          ],
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "output_message_type": "invoice_packet_validated",
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000
+        }
+      },
+      {
+        "node_id": "write_invoice_packet",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "upload_path": "document_workflow",
+          "upload_as": "document_workflow",
+          "workdir": "/sandbox/job/document_workflow",
+          "command": [
+            "python3",
+            "scripts/run_blueprint.py"
+          ],
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "output_message_type": "invoice_packet_written",
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000
+        }
+      },
+      {
+        "node_id": "report_sink",
+        "type": "reduce",
+        "agent_type": "aggregator",
+        "config": {
+          "complete_on_message": true,
+          "terminal_sink": true,
+          "complete_run": true
+        },
+        "role": "result_sink"
+      }
+    ],
+    "edges": [
+      {
+        "edge_id": "stage_invoice_inputs_to_extract_invoice_text",
+        "from_node": "stage_invoice_inputs",
+        "to_node": "extract_invoice_text",
+        "message_type": "invoice_inputs_staged"
+      },
+      {
+        "edge_id": "extract_invoice_text_to_extract_payable_fields",
+        "from_node": "extract_invoice_text",
+        "to_node": "extract_payable_fields",
+        "message_type": "invoice_text_extracted"
+      },
+      {
+        "edge_id": "extract_payable_fields_to_validate_invoice_packet",
+        "from_node": "extract_payable_fields",
+        "to_node": "validate_invoice_packet",
+        "message_type": "payable_fields_extracted"
+      },
+      {
+        "edge_id": "validate_invoice_packet_to_write_invoice_packet",
+        "from_node": "validate_invoice_packet",
+        "to_node": "write_invoice_packet",
+        "message_type": "invoice_packet_validated"
+      },
+      {
+        "edge_id": "write_invoice_packet_to_report",
+        "from_node": "write_invoice_packet",
+        "to_node": "report_sink",
+        "message_type": "invoice_packet_written"
+      }
+    ]
   },
   "runtime": {
     "bindings": {
@@ -723,11 +918,6 @@
             "required": true
           }
         ]
-      }
-    },
-    "models": {
-      "primary": {
-        "model": "default"
       }
     },
     "memory": {
@@ -880,6 +1070,11 @@
         "workflow_step_failed",
         "workflow_message_dead_lettered"
       ]
+    },
+    "models": {
+      "primary": {
+        "model": "default"
+      }
     }
   },
   "requirements": {
@@ -969,7 +1164,254 @@
       ],
       "renderer": "mn_blueprint_support.render_manifest_agent_templates",
       "render_tool": "../mn-agents/tools/render_agent_templates.py",
-      "rendered_output": "manifest.rendered.json or runtime metadata"
+      "rendered_output": "manifest.rendered.json or runtime metadata",
+      "rendered": [
+        {
+          "node_id": "stage_invoice_inputs",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "stage_invoice_inputs",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "script": "scripts/run_blueprint.py",
+              "upload_path": "document_workflow",
+              "output_message_type": "invoice_inputs_staged"
+            }
+          },
+          "rendered_node": {
+            "node_id": "stage_invoice_inputs",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "upload_path": "document_workflow",
+              "upload_as": "document_workflow",
+              "workdir": "/sandbox/job/document_workflow",
+              "command": [
+                "python3",
+                "scripts/run_blueprint.py"
+              ],
+              "from": "base",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "pool": "default",
+              "pool_slots": 1,
+              "tty": false,
+              "output_message_type": "invoice_inputs_staged",
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "agent_beacon_required": true,
+              "timeout_seconds": 300,
+              "max_attempts": 2,
+              "retry_backoff_ms": 1000
+            }
+          }
+        },
+        {
+          "node_id": "extract_invoice_text",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "extract_invoice_text",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "script": "scripts/run_blueprint.py",
+              "upload_path": "document_workflow",
+              "output_message_type": "invoice_text_extracted"
+            }
+          },
+          "rendered_node": {
+            "node_id": "extract_invoice_text",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "upload_path": "document_workflow",
+              "upload_as": "document_workflow",
+              "workdir": "/sandbox/job/document_workflow",
+              "command": [
+                "python3",
+                "scripts/run_blueprint.py"
+              ],
+              "from": "base",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "pool": "default",
+              "pool_slots": 1,
+              "tty": false,
+              "output_message_type": "invoice_text_extracted",
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "agent_beacon_required": true,
+              "timeout_seconds": 300,
+              "max_attempts": 2,
+              "retry_backoff_ms": 1000
+            }
+          }
+        },
+        {
+          "node_id": "extract_payable_fields",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "extract_payable_fields",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "script": "scripts/run_blueprint.py",
+              "upload_path": "document_workflow",
+              "output_message_type": "payable_fields_extracted"
+            }
+          },
+          "rendered_node": {
+            "node_id": "extract_payable_fields",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "upload_path": "document_workflow",
+              "upload_as": "document_workflow",
+              "workdir": "/sandbox/job/document_workflow",
+              "command": [
+                "python3",
+                "scripts/run_blueprint.py"
+              ],
+              "from": "base",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "pool": "default",
+              "pool_slots": 1,
+              "tty": false,
+              "output_message_type": "payable_fields_extracted",
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "agent_beacon_required": true,
+              "timeout_seconds": 300,
+              "max_attempts": 2,
+              "retry_backoff_ms": 1000
+            }
+          }
+        },
+        {
+          "node_id": "validate_invoice_packet",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "validate_invoice_packet",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "script": "scripts/run_blueprint.py",
+              "upload_path": "document_workflow",
+              "output_message_type": "invoice_packet_validated"
+            }
+          },
+          "rendered_node": {
+            "node_id": "validate_invoice_packet",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "upload_path": "document_workflow",
+              "upload_as": "document_workflow",
+              "workdir": "/sandbox/job/document_workflow",
+              "command": [
+                "python3",
+                "scripts/run_blueprint.py"
+              ],
+              "from": "base",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "pool": "default",
+              "pool_slots": 1,
+              "tty": false,
+              "output_message_type": "invoice_packet_validated",
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "agent_beacon_required": true,
+              "timeout_seconds": 300,
+              "max_attempts": 2,
+              "retry_backoff_ms": 1000
+            }
+          }
+        },
+        {
+          "node_id": "write_invoice_packet",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "write_invoice_packet",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "script": "scripts/run_blueprint.py",
+              "upload_path": "document_workflow",
+              "output_message_type": "invoice_packet_written"
+            }
+          },
+          "rendered_node": {
+            "node_id": "write_invoice_packet",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "upload_path": "document_workflow",
+              "upload_as": "document_workflow",
+              "workdir": "/sandbox/job/document_workflow",
+              "command": [
+                "python3",
+                "scripts/run_blueprint.py"
+              ],
+              "from": "base",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "pool": "default",
+              "pool_slots": 1,
+              "tty": false,
+              "output_message_type": "invoice_packet_written",
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "agent_beacon_required": true,
+              "timeout_seconds": 300,
+              "max_attempts": 2,
+              "retry_backoff_ms": 1000
+            }
+          }
+        },
+        {
+          "node_id": "report_sink",
+          "template_id": "mn-agents.control_join",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "report_sink",
+            "uses": "mn-agents.control_join@1.0.0",
+            "with": {
+              "complete_on_message": true,
+              "terminal_sink": true,
+              "complete_run": true
+            }
+          },
+          "rendered_node": {
+            "node_id": "report_sink",
+            "type": "reduce",
+            "agent_type": "aggregator",
+            "config": {
+              "complete_on_message": true,
+              "terminal_sink": true,
+              "complete_run": true
+            },
+            "role": "result_sink"
+          }
+        }
+      ]
     },
     "input_contract": {
       "schema_version": "mn.blueprint.input_contract.v1",
@@ -1568,93 +2010,5 @@
       "download_hint": "Use the reduced preview first; the full idsem.zip is large."
     },
     "local_on_prem_rationale": "AP, ERP, BPO, and utility billing teams need private extraction of supplier pricing, tax identifiers, customer data, bank details, and spending patterns from high-volume invoice and bill PDFs."
-  },
-  "nodes": [
-    {
-      "node_id": "stage_invoice_inputs",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "script": "scripts/run_blueprint.py",
-        "upload_path": "document_workflow",
-        "output_message_type": "invoice_inputs_staged"
-      }
-    },
-    {
-      "node_id": "extract_invoice_text",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "script": "scripts/run_blueprint.py",
-        "upload_path": "document_workflow",
-        "output_message_type": "invoice_text_extracted"
-      }
-    },
-    {
-      "node_id": "extract_payable_fields",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "script": "scripts/run_blueprint.py",
-        "upload_path": "document_workflow",
-        "output_message_type": "payable_fields_extracted"
-      }
-    },
-    {
-      "node_id": "validate_invoice_packet",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "script": "scripts/run_blueprint.py",
-        "upload_path": "document_workflow",
-        "output_message_type": "invoice_packet_validated"
-      }
-    },
-    {
-      "node_id": "write_invoice_packet",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "script": "scripts/run_blueprint.py",
-        "upload_path": "document_workflow",
-        "output_message_type": "invoice_packet_written"
-      }
-    },
-    {
-      "node_id": "report_sink",
-      "uses": "mn-agents.control_join@1.0.0",
-      "with": {
-        "complete_on_message": true,
-        "terminal_sink": true,
-        "complete_run": true
-      }
-    }
-  ],
-  "edges": [
-    {
-      "edge_id": "stage_invoice_inputs_to_extract_invoice_text",
-      "from_node": "stage_invoice_inputs",
-      "to_node": "extract_invoice_text",
-      "message_type": "invoice_inputs_staged"
-    },
-    {
-      "edge_id": "extract_invoice_text_to_extract_payable_fields",
-      "from_node": "extract_invoice_text",
-      "to_node": "extract_payable_fields",
-      "message_type": "invoice_text_extracted"
-    },
-    {
-      "edge_id": "extract_payable_fields_to_validate_invoice_packet",
-      "from_node": "extract_payable_fields",
-      "to_node": "validate_invoice_packet",
-      "message_type": "payable_fields_extracted"
-    },
-    {
-      "edge_id": "validate_invoice_packet_to_write_invoice_packet",
-      "from_node": "validate_invoice_packet",
-      "to_node": "write_invoice_packet",
-      "message_type": "invoice_packet_validated"
-    },
-    {
-      "edge_id": "write_invoice_packet_to_report",
-      "from_node": "write_invoice_packet",
-      "to_node": "report_sink",
-      "message_type": "invoice_packet_written"
-    }
-  ]
+  }
 }

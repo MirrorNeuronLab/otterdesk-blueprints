@@ -285,7 +285,7 @@
     ]
   },
   "flow": {
-    "entrypoint": "start_video_monitor",
+    "entrypoint": "ingress",
     "graph": {
       "dynamic": {
         "apply_at": "between_steps",
@@ -389,7 +389,7 @@
           },
           "timeout_seconds": 300,
           "uncertainty": {
-            "min_confidence": 0.0,
+            "min_confidence": 0,
             "on_low_confidence": "continue_with_warning"
           }
         },
@@ -422,7 +422,7 @@
           },
           "timeout_seconds": 300,
           "uncertainty": {
-            "min_confidence": 0.0,
+            "min_confidence": 0,
             "on_low_confidence": "continue_with_warning"
           }
         },
@@ -455,7 +455,7 @@
           },
           "timeout_seconds": 300,
           "uncertainty": {
-            "min_confidence": 0.0,
+            "min_confidence": 0,
             "on_low_confidence": "continue_with_warning"
           }
         },
@@ -490,7 +490,7 @@
           },
           "timeout_seconds": 300,
           "uncertainty": {
-            "min_confidence": 0.0,
+            "min_confidence": 0,
             "on_low_confidence": "continue_with_warning"
           }
         },
@@ -509,6 +509,116 @@
           "final_report": "$state.final_report"
         },
         "run": "write_watch_summary"
+      }
+    ],
+    "nodes": [
+      {
+        "node_id": "ingress",
+        "type": "map",
+        "agent_type": "router",
+        "config": {},
+        "alias": "video_monitor",
+        "display_name": "Video Monitor"
+      },
+      {
+        "node_id": "video_frame_tick_source",
+        "type": "generic",
+        "agent_type": "module",
+        "config": {
+          "module": "MirrorNeuron.Examples.VideoWatchAssistant.VideoFrameTickSource",
+          "module_source": "payloads/beam_modules/video_frame_tick_source.ex",
+          "emit_type": "video_frame_tick_generated"
+        },
+        "alias": "frame_sampler",
+        "display_name": "Frame Sampler"
+      },
+      {
+        "node_id": "visual_detector",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.DockerWorker",
+          "upload_path": "visual_detector",
+          "upload_as": "visual_detector",
+          "workdir": "/mn/job/visual_detector",
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "docker_worker_image": "visual_detector/docker_worker",
+          "image": "mirror-neuron/video-watch-detector:local",
+          "upload_paths": [
+            {
+              "source": "visual_detector",
+              "target": "visual_detector"
+            }
+          ],
+          "output_message_type": "video_watch_detection",
+          "policy": "visual_detector/policies/video-egress.yaml",
+          "environment": {},
+          "command": [
+            "bash",
+            "scripts/run_detector_in_docker_worker.sh"
+          ],
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true
+        },
+        "alias": "quality_controller",
+        "display_name": "Quality Controller",
+        "constraints": [
+          {
+            "attribute": "capabilities",
+            "operator": "contains_any",
+            "value": [
+              "nvidia-dgx-spark",
+              "nvidia-gh200",
+              "nvidia-h100",
+              "nvidia-h200",
+              "nvidia-b200",
+              "nvidia-gb200",
+              "nvidia-gb10"
+            ]
+          }
+        ],
+        "resources": {
+          "gpu_count": 1,
+          "devices": [
+            {
+              "kind": "gpu",
+              "type": "nvidia/gpu",
+              "driver": "cuda",
+              "count": 1
+            }
+          ]
+        },
+        "requires_services": [
+          {
+            "name": "docker-model-runner",
+            "tags": [
+              "nvidia",
+              "cuda"
+            ]
+          }
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "edge_id": "ingress_to_frame_tick",
+        "from_node": "ingress",
+        "message_type": "video_watch_start",
+        "to_node": "video_frame_tick_source"
+      },
+      {
+        "edge_id": "frame_tick_to_visual_detector",
+        "from_node": "video_frame_tick_source",
+        "message_type": "video_frame_tick_generated",
+        "to_node": "visual_detector"
       }
     ]
   },
@@ -880,7 +990,198 @@
       ],
       "render_tool": "../mn-agents/tools/render_agent_templates.py",
       "rendered_output": "manifest.rendered.json or runtime metadata",
-      "renderer": "mn_blueprint_support.render_manifest_agent_templates"
+      "renderer": "mn_blueprint_support.render_manifest_agent_templates",
+      "rendered": [
+        {
+          "node_id": "ingress",
+          "template_id": "mn-agents.control_router",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "ingress",
+            "uses": "mn-agents.control_router@1.0.0",
+            "with": {},
+            "alias": "video_monitor",
+            "display_name": "Video Monitor"
+          },
+          "rendered_node": {
+            "node_id": "ingress",
+            "type": "map",
+            "agent_type": "router",
+            "config": {},
+            "alias": "video_monitor",
+            "display_name": "Video Monitor"
+          }
+        },
+        {
+          "node_id": "video_frame_tick_source",
+          "template_id": "mn-agents.data_module",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "video_frame_tick_source",
+            "uses": "mn-agents.data_module@1.0.0",
+            "with": {
+              "module": "MirrorNeuron.Examples.VideoWatchAssistant.VideoFrameTickSource",
+              "module_source": "payloads/beam_modules/video_frame_tick_source.ex",
+              "emit_type": "video_frame_tick_generated"
+            },
+            "alias": "frame_sampler",
+            "display_name": "Frame Sampler"
+          },
+          "rendered_node": {
+            "node_id": "video_frame_tick_source",
+            "type": "generic",
+            "agent_type": "module",
+            "config": {
+              "module": "MirrorNeuron.Examples.VideoWatchAssistant.VideoFrameTickSource",
+              "module_source": "payloads/beam_modules/video_frame_tick_source.ex",
+              "emit_type": "video_frame_tick_generated"
+            },
+            "alias": "frame_sampler",
+            "display_name": "Frame Sampler"
+          }
+        },
+        {
+          "node_id": "visual_detector",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "visual_detector",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "script": "scripts/analyze_video_frame.py",
+              "runner_module": "MirrorNeuron.Runner.DockerWorker",
+              "docker_worker_image": "visual_detector/docker_worker",
+              "image": "mirror-neuron/video-watch-detector:local",
+              "workdir": "/mn/job/visual_detector",
+              "command": [
+                "bash",
+                "scripts/run_detector_in_docker_worker.sh"
+              ],
+              "upload_path": "visual_detector",
+              "upload_paths": [
+                {
+                  "source": "visual_detector",
+                  "target": "visual_detector"
+                }
+              ],
+              "output_message_type": "video_watch_detection",
+              "policy": "visual_detector/policies/video-egress.yaml",
+              "environment": {}
+            },
+            "alias": "quality_controller",
+            "display_name": "Quality Controller",
+            "constraints": [
+              {
+                "attribute": "capabilities",
+                "operator": "contains_any",
+                "value": [
+                  "nvidia-dgx-spark",
+                  "nvidia-gh200",
+                  "nvidia-h100",
+                  "nvidia-h200",
+                  "nvidia-b200",
+                  "nvidia-gb200",
+                  "nvidia-gb10"
+                ]
+              }
+            ],
+            "resources": {
+              "gpu_count": 1,
+              "devices": [
+                {
+                  "kind": "gpu",
+                  "type": "nvidia/gpu",
+                  "driver": "cuda",
+                  "count": 1
+                }
+              ]
+            },
+            "requires_services": [
+              {
+                "name": "docker-model-runner",
+                "tags": [
+                  "nvidia",
+                  "cuda"
+                ]
+              }
+            ]
+          },
+          "rendered_node": {
+            "node_id": "visual_detector",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "runner_module": "MirrorNeuron.Runner.DockerWorker",
+              "upload_path": "visual_detector",
+              "upload_as": "visual_detector",
+              "workdir": "/mn/job/visual_detector",
+              "from": "base",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "pool": "default",
+              "pool_slots": 1,
+              "tty": false,
+              "docker_worker_image": "visual_detector/docker_worker",
+              "image": "mirror-neuron/video-watch-detector:local",
+              "upload_paths": [
+                {
+                  "source": "visual_detector",
+                  "target": "visual_detector"
+                }
+              ],
+              "output_message_type": "video_watch_detection",
+              "policy": "visual_detector/policies/video-egress.yaml",
+              "environment": {},
+              "command": [
+                "bash",
+                "scripts/run_detector_in_docker_worker.sh"
+              ],
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "agent_beacon_required": true
+            },
+            "alias": "quality_controller",
+            "display_name": "Quality Controller",
+            "constraints": [
+              {
+                "attribute": "capabilities",
+                "operator": "contains_any",
+                "value": [
+                  "nvidia-dgx-spark",
+                  "nvidia-gh200",
+                  "nvidia-h100",
+                  "nvidia-h200",
+                  "nvidia-b200",
+                  "nvidia-gb200",
+                  "nvidia-gb10"
+                ]
+              }
+            ],
+            "resources": {
+              "gpu_count": 1,
+              "devices": [
+                {
+                  "kind": "gpu",
+                  "type": "nvidia/gpu",
+                  "driver": "cuda",
+                  "count": 1
+                }
+              ]
+            },
+            "requires_services": [
+              {
+                "name": "docker-model-runner",
+                "tags": [
+                  "nvidia",
+                  "cuda"
+                ]
+              }
+            ]
+          }
+        }
+      ]
     },
     "blueprint_id": "video_watch_assistant",
     "category": "business",
@@ -1677,102 +1978,6 @@
   },
   "entrypoints": [
     "ingress"
-  ],
-  "nodes": [
-    {
-      "node_id": "ingress",
-      "uses": "mn-agents.control_router@1.0.0",
-      "with": {},
-      "alias": "video_monitor",
-      "display_name": "Video Monitor"
-    },
-    {
-      "node_id": "video_frame_tick_source",
-      "uses": "mn-agents.data_module@1.0.0",
-      "with": {
-        "module": "MirrorNeuron.Examples.VideoWatchAssistant.VideoFrameTickSource",
-        "module_source": "payloads/beam_modules/video_frame_tick_source.ex",
-        "emit_type": "video_frame_tick_generated"
-      },
-      "alias": "frame_sampler",
-      "display_name": "Frame Sampler"
-    },
-    {
-      "node_id": "visual_detector",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "script": "scripts/analyze_video_frame.py",
-        "runner_module": "MirrorNeuron.Runner.DockerWorker",
-        "docker_worker_image": "visual_detector/docker_worker",
-        "image": "mirror-neuron/video-watch-detector:local",
-        "workdir": "/mn/job/visual_detector",
-        "command": [
-          "bash",
-          "scripts/run_detector_in_docker_worker.sh"
-        ],
-        "upload_path": "visual_detector",
-        "upload_paths": [
-          {
-            "source": "visual_detector",
-            "target": "visual_detector"
-          }
-        ],
-        "output_message_type": "video_watch_detection",
-        "policy": "visual_detector/policies/video-egress.yaml",
-        "environment": {}
-      },
-      "alias": "quality_controller",
-      "display_name": "Quality Controller",
-      "constraints": [
-        {
-          "attribute": "capabilities",
-          "operator": "contains_any",
-          "value": [
-            "nvidia-dgx-spark",
-            "nvidia-gh200",
-            "nvidia-h100",
-            "nvidia-h200",
-            "nvidia-b200",
-            "nvidia-gb200",
-            "nvidia-gb10"
-          ]
-        }
-      ],
-      "resources": {
-        "gpu_count": 1,
-        "devices": [
-          {
-            "kind": "gpu",
-            "type": "nvidia/gpu",
-            "driver": "cuda",
-            "count": 1
-          }
-        ]
-      },
-      "requires_services": [
-        {
-          "name": "docker-model-runner",
-          "tags": [
-            "nvidia",
-            "cuda"
-          ]
-        }
-      ]
-    }
-  ],
-  "edges": [
-    {
-      "edge_id": "ingress_to_frame_tick",
-      "from_node": "ingress",
-      "message_type": "video_watch_start",
-      "to_node": "video_frame_tick_source"
-    },
-    {
-      "edge_id": "frame_tick_to_visual_detector",
-      "from_node": "video_frame_tick_source",
-      "message_type": "video_frame_tick_generated",
-      "to_node": "visual_detector"
-    }
   ],
   "required_services": [
     {

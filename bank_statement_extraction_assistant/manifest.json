@@ -438,7 +438,7 @@
           "failure_policy": "fail_workflow",
           "timeout_seconds": 300,
           "uncertainty": {
-            "min_confidence": 0.0,
+            "min_confidence": 0,
             "on_low_confidence": "continue_with_warning"
           }
         },
@@ -476,7 +476,7 @@
           "failure_policy": "fail_workflow",
           "timeout_seconds": 300,
           "uncertainty": {
-            "min_confidence": 0.0,
+            "min_confidence": 0,
             "on_low_confidence": "continue_with_warning"
           }
         },
@@ -593,7 +593,7 @@
           "failure_policy": "fail_workflow",
           "timeout_seconds": 300,
           "uncertainty": {
-            "min_confidence": 0.0,
+            "min_confidence": 0,
             "on_low_confidence": "continue_with_warning"
           }
         },
@@ -611,7 +611,202 @@
         ]
       }
     ],
-    "observers": []
+    "observers": [],
+    "nodes": [
+      {
+        "node_id": "stage_bank_inputs",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "upload_path": "document_workflow",
+          "upload_as": "document_workflow",
+          "workdir": "/sandbox/job/document_workflow",
+          "command": [
+            "python3",
+            "scripts/run_blueprint.py"
+          ],
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "output_message_type": "bank_inputs_staged",
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000
+        }
+      },
+      {
+        "node_id": "extract_bank_text",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "upload_path": "document_workflow",
+          "upload_as": "document_workflow",
+          "workdir": "/sandbox/job/document_workflow",
+          "command": [
+            "python3",
+            "scripts/run_blueprint.py"
+          ],
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "output_message_type": "bank_text_extracted",
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000
+        }
+      },
+      {
+        "node_id": "extract_transaction_ledger",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "upload_path": "document_workflow",
+          "upload_as": "document_workflow",
+          "workdir": "/sandbox/job/document_workflow",
+          "command": [
+            "python3",
+            "scripts/run_blueprint.py"
+          ],
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "output_message_type": "transaction_ledger_extracted",
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000
+        }
+      },
+      {
+        "node_id": "validate_statement_consistency",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "upload_path": "document_workflow",
+          "upload_as": "document_workflow",
+          "workdir": "/sandbox/job/document_workflow",
+          "command": [
+            "python3",
+            "scripts/run_blueprint.py"
+          ],
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "output_message_type": "statement_consistency_validated",
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000
+        }
+      },
+      {
+        "node_id": "write_bank_statement_packet",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "upload_path": "document_workflow",
+          "upload_as": "document_workflow",
+          "workdir": "/sandbox/job/document_workflow",
+          "command": [
+            "python3",
+            "scripts/run_blueprint.py"
+          ],
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "output_message_type": "bank_statement_packet_written",
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000
+        }
+      },
+      {
+        "node_id": "report_sink",
+        "type": "reduce",
+        "agent_type": "aggregator",
+        "config": {
+          "complete_on_message": true,
+          "terminal_sink": true,
+          "complete_run": true
+        },
+        "role": "result_sink"
+      }
+    ],
+    "edges": [
+      {
+        "edge_id": "stage_bank_inputs_to_extract_bank_text",
+        "from_node": "stage_bank_inputs",
+        "to_node": "extract_bank_text",
+        "message_type": "bank_inputs_staged"
+      },
+      {
+        "edge_id": "extract_bank_text_to_extract_transaction_ledger",
+        "from_node": "extract_bank_text",
+        "to_node": "extract_transaction_ledger",
+        "message_type": "bank_text_extracted"
+      },
+      {
+        "edge_id": "extract_transaction_ledger_to_validate_statement_consistency",
+        "from_node": "extract_transaction_ledger",
+        "to_node": "validate_statement_consistency",
+        "message_type": "transaction_ledger_extracted"
+      },
+      {
+        "edge_id": "validate_statement_consistency_to_write_bank_statement_packet",
+        "from_node": "validate_statement_consistency",
+        "to_node": "write_bank_statement_packet",
+        "message_type": "statement_consistency_validated"
+      },
+      {
+        "edge_id": "write_bank_statement_packet_to_report",
+        "from_node": "write_bank_statement_packet",
+        "to_node": "report_sink",
+        "message_type": "bank_statement_packet_written"
+      }
+    ]
   },
   "runtime": {
     "bindings": {
@@ -724,11 +919,6 @@
             "required": true
           }
         ]
-      }
-    },
-    "models": {
-      "primary": {
-        "model": "default"
       }
     },
     "memory": {
@@ -881,6 +1071,11 @@
         "workflow_step_failed",
         "workflow_message_dead_lettered"
       ]
+    },
+    "models": {
+      "primary": {
+        "model": "default"
+      }
     }
   },
   "requirements": {
@@ -970,7 +1165,254 @@
       ],
       "renderer": "mn_blueprint_support.render_manifest_agent_templates",
       "render_tool": "../mn-agents/tools/render_agent_templates.py",
-      "rendered_output": "manifest.rendered.json or runtime metadata"
+      "rendered_output": "manifest.rendered.json or runtime metadata",
+      "rendered": [
+        {
+          "node_id": "stage_bank_inputs",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "stage_bank_inputs",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "script": "scripts/run_blueprint.py",
+              "upload_path": "document_workflow",
+              "output_message_type": "bank_inputs_staged"
+            }
+          },
+          "rendered_node": {
+            "node_id": "stage_bank_inputs",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "upload_path": "document_workflow",
+              "upload_as": "document_workflow",
+              "workdir": "/sandbox/job/document_workflow",
+              "command": [
+                "python3",
+                "scripts/run_blueprint.py"
+              ],
+              "from": "base",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "pool": "default",
+              "pool_slots": 1,
+              "tty": false,
+              "output_message_type": "bank_inputs_staged",
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "agent_beacon_required": true,
+              "timeout_seconds": 300,
+              "max_attempts": 2,
+              "retry_backoff_ms": 1000
+            }
+          }
+        },
+        {
+          "node_id": "extract_bank_text",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "extract_bank_text",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "script": "scripts/run_blueprint.py",
+              "upload_path": "document_workflow",
+              "output_message_type": "bank_text_extracted"
+            }
+          },
+          "rendered_node": {
+            "node_id": "extract_bank_text",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "upload_path": "document_workflow",
+              "upload_as": "document_workflow",
+              "workdir": "/sandbox/job/document_workflow",
+              "command": [
+                "python3",
+                "scripts/run_blueprint.py"
+              ],
+              "from": "base",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "pool": "default",
+              "pool_slots": 1,
+              "tty": false,
+              "output_message_type": "bank_text_extracted",
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "agent_beacon_required": true,
+              "timeout_seconds": 300,
+              "max_attempts": 2,
+              "retry_backoff_ms": 1000
+            }
+          }
+        },
+        {
+          "node_id": "extract_transaction_ledger",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "extract_transaction_ledger",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "script": "scripts/run_blueprint.py",
+              "upload_path": "document_workflow",
+              "output_message_type": "transaction_ledger_extracted"
+            }
+          },
+          "rendered_node": {
+            "node_id": "extract_transaction_ledger",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "upload_path": "document_workflow",
+              "upload_as": "document_workflow",
+              "workdir": "/sandbox/job/document_workflow",
+              "command": [
+                "python3",
+                "scripts/run_blueprint.py"
+              ],
+              "from": "base",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "pool": "default",
+              "pool_slots": 1,
+              "tty": false,
+              "output_message_type": "transaction_ledger_extracted",
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "agent_beacon_required": true,
+              "timeout_seconds": 300,
+              "max_attempts": 2,
+              "retry_backoff_ms": 1000
+            }
+          }
+        },
+        {
+          "node_id": "validate_statement_consistency",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "validate_statement_consistency",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "script": "scripts/run_blueprint.py",
+              "upload_path": "document_workflow",
+              "output_message_type": "statement_consistency_validated"
+            }
+          },
+          "rendered_node": {
+            "node_id": "validate_statement_consistency",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "upload_path": "document_workflow",
+              "upload_as": "document_workflow",
+              "workdir": "/sandbox/job/document_workflow",
+              "command": [
+                "python3",
+                "scripts/run_blueprint.py"
+              ],
+              "from": "base",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "pool": "default",
+              "pool_slots": 1,
+              "tty": false,
+              "output_message_type": "statement_consistency_validated",
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "agent_beacon_required": true,
+              "timeout_seconds": 300,
+              "max_attempts": 2,
+              "retry_backoff_ms": 1000
+            }
+          }
+        },
+        {
+          "node_id": "write_bank_statement_packet",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "write_bank_statement_packet",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "script": "scripts/run_blueprint.py",
+              "upload_path": "document_workflow",
+              "output_message_type": "bank_statement_packet_written"
+            }
+          },
+          "rendered_node": {
+            "node_id": "write_bank_statement_packet",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "upload_path": "document_workflow",
+              "upload_as": "document_workflow",
+              "workdir": "/sandbox/job/document_workflow",
+              "command": [
+                "python3",
+                "scripts/run_blueprint.py"
+              ],
+              "from": "base",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "pool": "default",
+              "pool_slots": 1,
+              "tty": false,
+              "output_message_type": "bank_statement_packet_written",
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "agent_beacon_required": true,
+              "timeout_seconds": 300,
+              "max_attempts": 2,
+              "retry_backoff_ms": 1000
+            }
+          }
+        },
+        {
+          "node_id": "report_sink",
+          "template_id": "mn-agents.control_join",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "report_sink",
+            "uses": "mn-agents.control_join@1.0.0",
+            "with": {
+              "complete_on_message": true,
+              "terminal_sink": true,
+              "complete_run": true
+            }
+          },
+          "rendered_node": {
+            "node_id": "report_sink",
+            "type": "reduce",
+            "agent_type": "aggregator",
+            "config": {
+              "complete_on_message": true,
+              "terminal_sink": true,
+              "complete_run": true
+            },
+            "role": "result_sink"
+          }
+        }
+      ]
     },
     "input_contract": {
       "schema_version": "mn.blueprint.input_contract.v1",
@@ -1569,93 +2011,5 @@
       "download_hint": "Use huggingface_hub or git-lfs to fetch a small sample before the full dataset."
     },
     "local_on_prem_rationale": "Lenders, fintechs, SMB accounting tools, underwriting teams, and auditors need private extraction of account numbers, balances, merchant history, salaries, and cash-flow data."
-  },
-  "nodes": [
-    {
-      "node_id": "stage_bank_inputs",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "script": "scripts/run_blueprint.py",
-        "upload_path": "document_workflow",
-        "output_message_type": "bank_inputs_staged"
-      }
-    },
-    {
-      "node_id": "extract_bank_text",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "script": "scripts/run_blueprint.py",
-        "upload_path": "document_workflow",
-        "output_message_type": "bank_text_extracted"
-      }
-    },
-    {
-      "node_id": "extract_transaction_ledger",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "script": "scripts/run_blueprint.py",
-        "upload_path": "document_workflow",
-        "output_message_type": "transaction_ledger_extracted"
-      }
-    },
-    {
-      "node_id": "validate_statement_consistency",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "script": "scripts/run_blueprint.py",
-        "upload_path": "document_workflow",
-        "output_message_type": "statement_consistency_validated"
-      }
-    },
-    {
-      "node_id": "write_bank_statement_packet",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "script": "scripts/run_blueprint.py",
-        "upload_path": "document_workflow",
-        "output_message_type": "bank_statement_packet_written"
-      }
-    },
-    {
-      "node_id": "report_sink",
-      "uses": "mn-agents.control_join@1.0.0",
-      "with": {
-        "complete_on_message": true,
-        "terminal_sink": true,
-        "complete_run": true
-      }
-    }
-  ],
-  "edges": [
-    {
-      "edge_id": "stage_bank_inputs_to_extract_bank_text",
-      "from_node": "stage_bank_inputs",
-      "to_node": "extract_bank_text",
-      "message_type": "bank_inputs_staged"
-    },
-    {
-      "edge_id": "extract_bank_text_to_extract_transaction_ledger",
-      "from_node": "extract_bank_text",
-      "to_node": "extract_transaction_ledger",
-      "message_type": "bank_text_extracted"
-    },
-    {
-      "edge_id": "extract_transaction_ledger_to_validate_statement_consistency",
-      "from_node": "extract_transaction_ledger",
-      "to_node": "validate_statement_consistency",
-      "message_type": "transaction_ledger_extracted"
-    },
-    {
-      "edge_id": "validate_statement_consistency_to_write_bank_statement_packet",
-      "from_node": "validate_statement_consistency",
-      "to_node": "write_bank_statement_packet",
-      "message_type": "statement_consistency_validated"
-    },
-    {
-      "edge_id": "write_bank_statement_packet_to_report",
-      "from_node": "write_bank_statement_packet",
-      "to_node": "report_sink",
-      "message_type": "bank_statement_packet_written"
-    }
-  ]
+  }
 }

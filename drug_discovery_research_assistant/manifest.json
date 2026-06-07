@@ -421,7 +421,7 @@
           },
           "timeout_seconds": 300,
           "uncertainty": {
-            "min_confidence": 0.0,
+            "min_confidence": 0,
             "on_low_confidence": "continue_with_warning"
           }
         },
@@ -455,7 +455,7 @@
           },
           "timeout_seconds": 300,
           "uncertainty": {
-            "min_confidence": 0.0,
+            "min_confidence": 0,
             "on_low_confidence": "continue_with_warning"
           }
         },
@@ -488,7 +488,7 @@
           },
           "timeout_seconds": 300,
           "uncertainty": {
-            "min_confidence": 0.0,
+            "min_confidence": 0,
             "on_low_confidence": "continue_with_warning"
           }
         },
@@ -522,7 +522,7 @@
           },
           "timeout_seconds": 300,
           "uncertainty": {
-            "min_confidence": 0.0,
+            "min_confidence": 0,
             "on_low_confidence": "continue_with_warning"
           }
         },
@@ -556,7 +556,7 @@
           },
           "timeout_seconds": 300,
           "uncertainty": {
-            "min_confidence": 0.0,
+            "min_confidence": 0,
             "on_low_confidence": "continue_with_warning"
           }
         },
@@ -576,6 +576,228 @@
           "final_report": "$state.final_report"
         },
         "run": "ranking_reporting"
+      }
+    ],
+    "nodes": [
+      {
+        "node_id": "target_discovery",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "upload_path": "worker",
+          "upload_as": "worker",
+          "workdir": "/sandbox/job/worker",
+          "command": [
+            "python3",
+            "scripts/manager.py"
+          ],
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "output_message_type": "target_discovery",
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000
+        }
+      },
+      {
+        "node_id": "structure_generation",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "upload_path": "worker",
+          "upload_as": "worker",
+          "workdir": "/sandbox/job/worker",
+          "command": [
+            "python3",
+            "scripts/manager.py"
+          ],
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "output_message_type": "structure_generation",
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000
+        }
+      },
+      {
+        "node_id": "candidate_generation",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "upload_path": "worker",
+          "upload_as": "worker",
+          "workdir": "/sandbox/job/worker",
+          "command": [
+            "python3",
+            "scripts/manager.py"
+          ],
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "output_message_type": "candidate_generation",
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000
+        }
+      },
+      {
+        "node_id": "binding_evaluation",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "upload_path": "worker",
+          "upload_as": "worker",
+          "workdir": "/sandbox/job/worker",
+          "command": [
+            "python3",
+            "scripts/manager.py"
+          ],
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "output_message_type": "binding_evaluation",
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000
+        }
+      },
+      {
+        "node_id": "ranking_reporting",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "upload_path": "worker",
+          "upload_as": "worker",
+          "workdir": "/sandbox/job/worker",
+          "command": [
+            "python3",
+            "scripts/manager.py"
+          ],
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "output_message_type": "ranking_reporting",
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000
+        }
+      },
+      {
+        "node_id": "manager_monitor",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "upload_path": "worker",
+          "upload_as": "worker",
+          "workdir": "/sandbox/job/worker",
+          "command": [
+            "python3",
+            "scripts/manager.py"
+          ],
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "output_message_type": "manager_monitor",
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true
+        }
+      },
+      {
+        "node_id": "report_sink",
+        "type": "reduce",
+        "agent_type": "aggregator",
+        "config": {
+          "complete_on_message": true,
+          "terminal_sink": true,
+          "complete_run": true
+        },
+        "role": "result_sink"
+      }
+    ],
+    "edges": [
+      {
+        "edge_id": "target_discovery_to_structure_generation",
+        "from_node": "target_discovery",
+        "message_type": "targets_ready",
+        "to_node": "structure_generation"
+      },
+      {
+        "edge_id": "structure_generation_to_candidate_generation",
+        "from_node": "structure_generation",
+        "message_type": "structures_ready",
+        "to_node": "candidate_generation"
+      },
+      {
+        "edge_id": "candidate_generation_to_binding_evaluation",
+        "from_node": "candidate_generation",
+        "message_type": "candidates_ready",
+        "to_node": "binding_evaluation"
+      },
+      {
+        "edge_id": "binding_evaluation_to_ranking_reporting",
+        "from_node": "binding_evaluation",
+        "message_type": "evaluations_ready",
+        "to_node": "ranking_reporting"
+      },
+      {
+        "edge_id": "ranking_reporting_to_report",
+        "from_node": "ranking_reporting",
+        "message_type": "ranking_reporting",
+        "to_node": "report_sink"
       }
     ]
   },
@@ -689,62 +911,6 @@
               "pool_slots": 1,
               "runner_module": "MirrorNeuron.Runner.HostLocal",
               "script": "scripts/stage_c.py",
-              "upload_as": "worker",
-              "upload_path": "worker",
-              "workdir": "/sandbox/job/worker"
-            },
-            "kind": "generic"
-          }
-        ]
-      },
-      "manager_monitor": {
-        "risk": "low",
-        "side_effect": "none",
-        "strategy": "single",
-        "type": "worker",
-        "uses": "mn-agents.data_python_executor@1.0.0",
-        "worker": {
-          "id": "manager_monitor",
-          "model": "Ollama/Nemotron3 33B",
-          "role": "manager_monitor",
-          "script": "scripts/manager.py",
-          "tokens": 18000,
-          "tools": 4,
-          "uses": "mn-agents.data_python_executor@1.0.0",
-          "with": {
-            "command": [
-              "python3",
-              "scripts/manager.py"
-            ],
-            "node_type": "generic",
-            "pool": "default",
-            "pool_slots": 1,
-            "runner_module": "MirrorNeuron.Runner.HostLocal",
-            "script": "scripts/manager.py",
-            "upload_as": "worker",
-            "upload_path": "worker",
-            "workdir": "/sandbox/job/worker"
-          }
-        },
-        "workers": [
-          {
-            "id": "manager_monitor",
-            "model": "default",
-            "role": "manager_monitor",
-            "script": "scripts/manager.py",
-            "tokens": 18000,
-            "tools": 4,
-            "uses": "mn-agents.data_python_executor@1.0.0",
-            "with": {
-              "command": [
-                "python3",
-                "scripts/manager.py"
-              ],
-              "node_type": "generic",
-              "pool": "default",
-              "pool_slots": 1,
-              "runner_module": "MirrorNeuron.Runner.HostLocal",
-              "script": "scripts/manager.py",
               "upload_as": "worker",
               "upload_path": "worker",
               "workdir": "/sandbox/job/worker"
@@ -952,11 +1118,6 @@
       "sdk_distribution": "mirrorneuron-membrane-python-sdk",
       "sdk_import_package": "mn_context_engine_sdk"
     },
-    "models": {
-      "primary": {
-        "model": "default"
-      }
-    },
     "observability": {
       "panels": [
         "current_status",
@@ -1083,6 +1244,11 @@
         "workflow_step_failed",
         "workflow_message_dead_lettered"
       ]
+    },
+    "models": {
+      "primary": {
+        "model": "default"
+      }
     }
   },
   "input_validation": {
@@ -1144,7 +1310,295 @@
       ],
       "render_tool": "../mn-agents/tools/render_agent_templates.py",
       "rendered_output": "manifest.rendered.json or runtime metadata",
-      "renderer": "mn_blueprint_support.render_manifest_agent_templates"
+      "renderer": "mn_blueprint_support.render_manifest_agent_templates",
+      "rendered": [
+        {
+          "node_id": "target_discovery",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "target_discovery",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "script": "scripts/manager.py",
+              "upload_path": "worker",
+              "output_message_type": "target_discovery"
+            }
+          },
+          "rendered_node": {
+            "node_id": "target_discovery",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "upload_path": "worker",
+              "upload_as": "worker",
+              "workdir": "/sandbox/job/worker",
+              "command": [
+                "python3",
+                "scripts/manager.py"
+              ],
+              "from": "base",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "pool": "default",
+              "pool_slots": 1,
+              "tty": false,
+              "output_message_type": "target_discovery",
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "agent_beacon_required": true,
+              "timeout_seconds": 300,
+              "max_attempts": 2,
+              "retry_backoff_ms": 1000
+            }
+          }
+        },
+        {
+          "node_id": "structure_generation",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "structure_generation",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "script": "scripts/manager.py",
+              "upload_path": "worker",
+              "output_message_type": "structure_generation"
+            }
+          },
+          "rendered_node": {
+            "node_id": "structure_generation",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "upload_path": "worker",
+              "upload_as": "worker",
+              "workdir": "/sandbox/job/worker",
+              "command": [
+                "python3",
+                "scripts/manager.py"
+              ],
+              "from": "base",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "pool": "default",
+              "pool_slots": 1,
+              "tty": false,
+              "output_message_type": "structure_generation",
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "agent_beacon_required": true,
+              "timeout_seconds": 300,
+              "max_attempts": 2,
+              "retry_backoff_ms": 1000
+            }
+          }
+        },
+        {
+          "node_id": "candidate_generation",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "candidate_generation",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "script": "scripts/manager.py",
+              "upload_path": "worker",
+              "output_message_type": "candidate_generation"
+            }
+          },
+          "rendered_node": {
+            "node_id": "candidate_generation",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "upload_path": "worker",
+              "upload_as": "worker",
+              "workdir": "/sandbox/job/worker",
+              "command": [
+                "python3",
+                "scripts/manager.py"
+              ],
+              "from": "base",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "pool": "default",
+              "pool_slots": 1,
+              "tty": false,
+              "output_message_type": "candidate_generation",
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "agent_beacon_required": true,
+              "timeout_seconds": 300,
+              "max_attempts": 2,
+              "retry_backoff_ms": 1000
+            }
+          }
+        },
+        {
+          "node_id": "binding_evaluation",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "binding_evaluation",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "script": "scripts/manager.py",
+              "upload_path": "worker",
+              "output_message_type": "binding_evaluation"
+            }
+          },
+          "rendered_node": {
+            "node_id": "binding_evaluation",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "upload_path": "worker",
+              "upload_as": "worker",
+              "workdir": "/sandbox/job/worker",
+              "command": [
+                "python3",
+                "scripts/manager.py"
+              ],
+              "from": "base",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "pool": "default",
+              "pool_slots": 1,
+              "tty": false,
+              "output_message_type": "binding_evaluation",
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "agent_beacon_required": true,
+              "timeout_seconds": 300,
+              "max_attempts": 2,
+              "retry_backoff_ms": 1000
+            }
+          }
+        },
+        {
+          "node_id": "ranking_reporting",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "ranking_reporting",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "script": "scripts/manager.py",
+              "upload_path": "worker",
+              "output_message_type": "ranking_reporting"
+            }
+          },
+          "rendered_node": {
+            "node_id": "ranking_reporting",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "upload_path": "worker",
+              "upload_as": "worker",
+              "workdir": "/sandbox/job/worker",
+              "command": [
+                "python3",
+                "scripts/manager.py"
+              ],
+              "from": "base",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "pool": "default",
+              "pool_slots": 1,
+              "tty": false,
+              "output_message_type": "ranking_reporting",
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "agent_beacon_required": true,
+              "timeout_seconds": 300,
+              "max_attempts": 2,
+              "retry_backoff_ms": 1000
+            }
+          }
+        },
+        {
+          "node_id": "manager_monitor",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "manager_monitor",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "script": "scripts/manager.py",
+              "upload_path": "worker",
+              "output_message_type": "manager_monitor"
+            }
+          },
+          "rendered_node": {
+            "node_id": "manager_monitor",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "upload_path": "worker",
+              "upload_as": "worker",
+              "workdir": "/sandbox/job/worker",
+              "command": [
+                "python3",
+                "scripts/manager.py"
+              ],
+              "from": "base",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "pool": "default",
+              "pool_slots": 1,
+              "tty": false,
+              "output_message_type": "manager_monitor",
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "agent_beacon_required": true
+            }
+          }
+        },
+        {
+          "node_id": "report_sink",
+          "template_id": "mn-agents.control_join",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "report_sink",
+            "uses": "mn-agents.control_join@1.0.0",
+            "with": {
+              "complete_on_message": true,
+              "terminal_sink": true,
+              "complete_run": true
+            }
+          },
+          "rendered_node": {
+            "node_id": "report_sink",
+            "type": "reduce",
+            "agent_type": "aggregator",
+            "config": {
+              "complete_on_message": true,
+              "terminal_sink": true,
+              "complete_run": true
+            },
+            "role": "result_sink"
+          }
+        }
+      ]
     },
     "blueprint_id": "drug_discovery_research_assistant",
     "category": "science",
@@ -1841,102 +2295,5 @@
   },
   "entrypoints": [
     "target_discovery"
-  ],
-  "nodes": [
-    {
-      "node_id": "target_discovery",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "script": "scripts/manager.py",
-        "upload_path": "worker",
-        "output_message_type": "target_discovery"
-      }
-    },
-    {
-      "node_id": "structure_generation",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "script": "scripts/manager.py",
-        "upload_path": "worker",
-        "output_message_type": "structure_generation"
-      }
-    },
-    {
-      "node_id": "candidate_generation",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "script": "scripts/manager.py",
-        "upload_path": "worker",
-        "output_message_type": "candidate_generation"
-      }
-    },
-    {
-      "node_id": "binding_evaluation",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "script": "scripts/manager.py",
-        "upload_path": "worker",
-        "output_message_type": "binding_evaluation"
-      }
-    },
-    {
-      "node_id": "ranking_reporting",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "script": "scripts/manager.py",
-        "upload_path": "worker",
-        "output_message_type": "ranking_reporting"
-      }
-    },
-    {
-      "node_id": "manager_monitor",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "script": "scripts/manager.py",
-        "upload_path": "worker",
-        "output_message_type": "manager_monitor"
-      }
-    },
-    {
-      "node_id": "report_sink",
-      "uses": "mn-agents.control_join@1.0.0",
-      "with": {
-        "complete_on_message": true,
-        "terminal_sink": true,
-        "complete_run": true
-      }
-    }
-  ],
-  "edges": [
-    {
-      "edge_id": "target_discovery_to_structure_generation",
-      "from_node": "target_discovery",
-      "message_type": "targets_ready",
-      "to_node": "structure_generation"
-    },
-    {
-      "edge_id": "structure_generation_to_candidate_generation",
-      "from_node": "structure_generation",
-      "message_type": "structures_ready",
-      "to_node": "candidate_generation"
-    },
-    {
-      "edge_id": "candidate_generation_to_binding_evaluation",
-      "from_node": "candidate_generation",
-      "message_type": "candidates_ready",
-      "to_node": "binding_evaluation"
-    },
-    {
-      "edge_id": "binding_evaluation_to_ranking_reporting",
-      "from_node": "binding_evaluation",
-      "message_type": "evaluations_ready",
-      "to_node": "ranking_reporting"
-    },
-    {
-      "edge_id": "ranking_reporting_to_report",
-      "from_node": "ranking_reporting",
-      "message_type": "ranking_reporting",
-      "to_node": "report_sink"
-    }
   ]
 }

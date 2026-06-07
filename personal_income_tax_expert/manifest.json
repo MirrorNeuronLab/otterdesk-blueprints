@@ -462,7 +462,7 @@
           },
           "timeout_seconds": 300,
           "uncertainty": {
-            "min_confidence": 0.0,
+            "min_confidence": 0,
             "on_low_confidence": "continue_with_warning"
           }
         },
@@ -619,7 +619,7 @@
           },
           "timeout_seconds": 300,
           "uncertainty": {
-            "min_confidence": 0.0,
+            "min_confidence": 0,
             "on_low_confidence": "continue_with_warning"
           }
         },
@@ -665,7 +665,7 @@
           },
           "timeout_seconds": 300,
           "uncertainty": {
-            "min_confidence": 0.0,
+            "min_confidence": 0,
             "on_low_confidence": "continue_with_warning"
           }
         },
@@ -704,7 +704,7 @@
           },
           "timeout_seconds": 300,
           "uncertainty": {
-            "min_confidence": 0.0,
+            "min_confidence": 0,
             "on_low_confidence": "continue_with_warning"
           }
         },
@@ -730,6 +730,324 @@
           "tax.review.ready"
         ],
         "run": "write_review_packet"
+      }
+    ],
+    "nodes": [
+      {
+        "node_id": "intake_documents",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "upload_path": "tax_workflow",
+          "upload_as": "tax_workflow",
+          "workdir": "/sandbox/job/tax_workflow",
+          "command": [
+            "python3",
+            "scripts/run_blueprint.py"
+          ],
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "environment": {
+            "MN_WORKFLOW_STEP_ID": "intake_documents"
+          },
+          "idempotent": true,
+          "side_effect": "read",
+          "safe_to_retry": true,
+          "output_message_type": "tax_intake_ready",
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000
+        }
+      },
+      {
+        "node_id": "prepare_income_workpapers",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "upload_path": "tax_workflow",
+          "upload_as": "tax_workflow",
+          "workdir": "/sandbox/job/tax_workflow",
+          "command": [
+            "python3",
+            "scripts/run_blueprint.py"
+          ],
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "environment": {
+            "MN_WORKFLOW_STEP_ID": "prepare_income_workpapers"
+          },
+          "idempotent": true,
+          "side_effect": "read",
+          "safe_to_retry": true,
+          "output_message_type": "tax_income_workpapers_ready",
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000
+        }
+      },
+      {
+        "node_id": "prepare_property_workpapers",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "upload_path": "tax_workflow",
+          "upload_as": "tax_workflow",
+          "workdir": "/sandbox/job/tax_workflow",
+          "command": [
+            "python3",
+            "scripts/run_blueprint.py"
+          ],
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "environment": {
+            "MN_WORKFLOW_STEP_ID": "prepare_property_workpapers"
+          },
+          "idempotent": true,
+          "side_effect": "read",
+          "safe_to_retry": true,
+          "output_message_type": "tax_property_workpapers_ready",
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000
+        }
+      },
+      {
+        "node_id": "prepare_investment_workpapers",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "upload_path": "tax_workflow",
+          "upload_as": "tax_workflow",
+          "workdir": "/sandbox/job/tax_workflow",
+          "command": [
+            "python3",
+            "scripts/run_blueprint.py"
+          ],
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "environment": {
+            "MN_WORKFLOW_STEP_ID": "prepare_investment_workpapers"
+          },
+          "idempotent": true,
+          "side_effect": "read",
+          "safe_to_retry": true,
+          "output_message_type": "tax_investment_workpapers_ready",
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000
+        }
+      },
+      {
+        "node_id": "merge_tax_workpapers",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "upload_path": "tax_workflow",
+          "upload_as": "tax_workflow",
+          "workdir": "/sandbox/job/tax_workflow",
+          "command": [
+            "python3",
+            "scripts/run_blueprint.py"
+          ],
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "environment": {
+            "MN_WORKFLOW_STEP_ID": "merge_tax_workpapers"
+          },
+          "idempotent": true,
+          "side_effect": "read",
+          "safe_to_retry": true,
+          "output_message_type": "tax_workpapers_merged",
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000
+        }
+      },
+      {
+        "node_id": "audit_and_manager_review",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "upload_path": "tax_workflow",
+          "upload_as": "tax_workflow",
+          "workdir": "/sandbox/job/tax_workflow",
+          "command": [
+            "python3",
+            "scripts/run_blueprint.py"
+          ],
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "environment": {
+            "MN_WORKFLOW_STEP_ID": "audit_and_manager_review"
+          },
+          "idempotent": true,
+          "side_effect": "read",
+          "safe_to_retry": true,
+          "output_message_type": "tax_review_ready",
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000
+        }
+      },
+      {
+        "node_id": "write_review_packet",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "upload_path": "tax_workflow",
+          "upload_as": "tax_workflow",
+          "workdir": "/sandbox/job/tax_workflow",
+          "command": [
+            "python3",
+            "scripts/run_blueprint.py"
+          ],
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "environment": {
+            "MN_WORKFLOW_STEP_ID": "write_review_packet"
+          },
+          "output_message_type": "blueprint_report",
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000
+        }
+      },
+      {
+        "node_id": "report_sink",
+        "type": "reduce",
+        "agent_type": "aggregator",
+        "config": {
+          "complete_on_message": true,
+          "terminal_sink": true,
+          "complete_run": true
+        },
+        "role": "result_sink"
+      }
+    ],
+    "edges": [
+      {
+        "edge_id": "intake_to_income",
+        "from_node": "intake_documents",
+        "message_type": "tax_intake_ready",
+        "to_node": "prepare_income_workpapers"
+      },
+      {
+        "edge_id": "intake_to_property",
+        "from_node": "intake_documents",
+        "message_type": "tax_intake_ready",
+        "to_node": "prepare_property_workpapers"
+      },
+      {
+        "edge_id": "intake_to_investment",
+        "from_node": "intake_documents",
+        "message_type": "tax_intake_ready",
+        "to_node": "prepare_investment_workpapers"
+      },
+      {
+        "edge_id": "income_to_merge",
+        "from_node": "prepare_income_workpapers",
+        "message_type": "tax_income_workpapers_ready",
+        "to_node": "merge_tax_workpapers"
+      },
+      {
+        "edge_id": "property_to_merge",
+        "from_node": "prepare_property_workpapers",
+        "message_type": "tax_property_workpapers_ready",
+        "to_node": "merge_tax_workpapers"
+      },
+      {
+        "edge_id": "investment_to_merge",
+        "from_node": "prepare_investment_workpapers",
+        "message_type": "tax_investment_workpapers_ready",
+        "to_node": "merge_tax_workpapers"
+      },
+      {
+        "edge_id": "merge_to_audit",
+        "from_node": "merge_tax_workpapers",
+        "message_type": "tax_workpapers_merged",
+        "to_node": "audit_and_manager_review"
+      },
+      {
+        "edge_id": "audit_to_packet",
+        "from_node": "audit_and_manager_review",
+        "message_type": "tax_review_ready",
+        "to_node": "write_review_packet"
+      },
+      {
+        "edge_id": "packet_to_report",
+        "from_node": "write_review_packet",
+        "message_type": "blueprint_report",
+        "to_node": "report_sink"
       }
     ]
   },
@@ -935,11 +1253,6 @@
       "sdk_distribution": "mirrorneuron-membrane-python-sdk",
       "sdk_import_package": "mn_context_engine_sdk"
     },
-    "models": {
-      "primary": {
-        "model": "default"
-      }
-    },
     "observability": {
       "panels": [
         "current_status",
@@ -1066,6 +1379,11 @@
         "workflow_step_failed",
         "workflow_message_dead_lettered"
       ]
+    },
+    "models": {
+      "primary": {
+        "model": "default"
+      }
     }
   },
   "input_validation": {
@@ -1120,7 +1438,7 @@
         },
         {
           "node_id": "merge_tax_workpapers",
-          "uses": "mn-agents.control_join@1.0.0"
+          "uses": "mn-agents.data_python_executor@1.0.0"
         },
         {
           "node_id": "audit_and_manager_review",
@@ -1137,7 +1455,420 @@
       ],
       "render_tool": "../mn-agents/tools/render_agent_templates.py",
       "rendered_output": "manifest.rendered.json or runtime metadata",
-      "renderer": "mn_blueprint_support.render_manifest_agent_templates"
+      "renderer": "mn_blueprint_support.render_manifest_agent_templates",
+      "rendered": [
+        {
+          "node_id": "intake_documents",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "intake_documents",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "environment": {
+                "MN_WORKFLOW_STEP_ID": "intake_documents"
+              },
+              "idempotent": true,
+              "script": "scripts/run_blueprint.py",
+              "side_effect": "read",
+              "safe_to_retry": true,
+              "upload_path": "tax_workflow",
+              "output_message_type": "tax_intake_ready"
+            }
+          },
+          "rendered_node": {
+            "node_id": "intake_documents",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "upload_path": "tax_workflow",
+              "upload_as": "tax_workflow",
+              "workdir": "/sandbox/job/tax_workflow",
+              "command": [
+                "python3",
+                "scripts/run_blueprint.py"
+              ],
+              "from": "base",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "pool": "default",
+              "pool_slots": 1,
+              "tty": false,
+              "environment": {
+                "MN_WORKFLOW_STEP_ID": "intake_documents"
+              },
+              "idempotent": true,
+              "side_effect": "read",
+              "safe_to_retry": true,
+              "output_message_type": "tax_intake_ready",
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "agent_beacon_required": true,
+              "timeout_seconds": 300,
+              "max_attempts": 2,
+              "retry_backoff_ms": 1000
+            }
+          }
+        },
+        {
+          "node_id": "prepare_income_workpapers",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "prepare_income_workpapers",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "environment": {
+                "MN_WORKFLOW_STEP_ID": "prepare_income_workpapers"
+              },
+              "idempotent": true,
+              "script": "scripts/run_blueprint.py",
+              "side_effect": "read",
+              "safe_to_retry": true,
+              "upload_path": "tax_workflow",
+              "output_message_type": "tax_income_workpapers_ready"
+            }
+          },
+          "rendered_node": {
+            "node_id": "prepare_income_workpapers",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "upload_path": "tax_workflow",
+              "upload_as": "tax_workflow",
+              "workdir": "/sandbox/job/tax_workflow",
+              "command": [
+                "python3",
+                "scripts/run_blueprint.py"
+              ],
+              "from": "base",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "pool": "default",
+              "pool_slots": 1,
+              "tty": false,
+              "environment": {
+                "MN_WORKFLOW_STEP_ID": "prepare_income_workpapers"
+              },
+              "idempotent": true,
+              "side_effect": "read",
+              "safe_to_retry": true,
+              "output_message_type": "tax_income_workpapers_ready",
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "agent_beacon_required": true,
+              "timeout_seconds": 300,
+              "max_attempts": 2,
+              "retry_backoff_ms": 1000
+            }
+          }
+        },
+        {
+          "node_id": "prepare_property_workpapers",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "prepare_property_workpapers",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "environment": {
+                "MN_WORKFLOW_STEP_ID": "prepare_property_workpapers"
+              },
+              "idempotent": true,
+              "script": "scripts/run_blueprint.py",
+              "side_effect": "read",
+              "safe_to_retry": true,
+              "upload_path": "tax_workflow",
+              "output_message_type": "tax_property_workpapers_ready"
+            }
+          },
+          "rendered_node": {
+            "node_id": "prepare_property_workpapers",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "upload_path": "tax_workflow",
+              "upload_as": "tax_workflow",
+              "workdir": "/sandbox/job/tax_workflow",
+              "command": [
+                "python3",
+                "scripts/run_blueprint.py"
+              ],
+              "from": "base",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "pool": "default",
+              "pool_slots": 1,
+              "tty": false,
+              "environment": {
+                "MN_WORKFLOW_STEP_ID": "prepare_property_workpapers"
+              },
+              "idempotent": true,
+              "side_effect": "read",
+              "safe_to_retry": true,
+              "output_message_type": "tax_property_workpapers_ready",
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "agent_beacon_required": true,
+              "timeout_seconds": 300,
+              "max_attempts": 2,
+              "retry_backoff_ms": 1000
+            }
+          }
+        },
+        {
+          "node_id": "prepare_investment_workpapers",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "prepare_investment_workpapers",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "environment": {
+                "MN_WORKFLOW_STEP_ID": "prepare_investment_workpapers"
+              },
+              "idempotent": true,
+              "script": "scripts/run_blueprint.py",
+              "side_effect": "read",
+              "safe_to_retry": true,
+              "upload_path": "tax_workflow",
+              "output_message_type": "tax_investment_workpapers_ready"
+            }
+          },
+          "rendered_node": {
+            "node_id": "prepare_investment_workpapers",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "upload_path": "tax_workflow",
+              "upload_as": "tax_workflow",
+              "workdir": "/sandbox/job/tax_workflow",
+              "command": [
+                "python3",
+                "scripts/run_blueprint.py"
+              ],
+              "from": "base",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "pool": "default",
+              "pool_slots": 1,
+              "tty": false,
+              "environment": {
+                "MN_WORKFLOW_STEP_ID": "prepare_investment_workpapers"
+              },
+              "idempotent": true,
+              "side_effect": "read",
+              "safe_to_retry": true,
+              "output_message_type": "tax_investment_workpapers_ready",
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "agent_beacon_required": true,
+              "timeout_seconds": 300,
+              "max_attempts": 2,
+              "retry_backoff_ms": 1000
+            }
+          }
+        },
+        {
+          "node_id": "merge_tax_workpapers",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "merge_tax_workpapers",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "environment": {
+                "MN_WORKFLOW_STEP_ID": "merge_tax_workpapers"
+              },
+              "idempotent": true,
+              "script": "scripts/run_blueprint.py",
+              "side_effect": "read",
+              "safe_to_retry": true,
+              "upload_path": "tax_workflow",
+              "output_message_type": "tax_workpapers_merged"
+            }
+          },
+          "rendered_node": {
+            "node_id": "merge_tax_workpapers",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "upload_path": "tax_workflow",
+              "upload_as": "tax_workflow",
+              "workdir": "/sandbox/job/tax_workflow",
+              "command": [
+                "python3",
+                "scripts/run_blueprint.py"
+              ],
+              "from": "base",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "pool": "default",
+              "pool_slots": 1,
+              "tty": false,
+              "environment": {
+                "MN_WORKFLOW_STEP_ID": "merge_tax_workpapers"
+              },
+              "idempotent": true,
+              "side_effect": "read",
+              "safe_to_retry": true,
+              "output_message_type": "tax_workpapers_merged",
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "agent_beacon_required": true,
+              "timeout_seconds": 300,
+              "max_attempts": 2,
+              "retry_backoff_ms": 1000
+            }
+          }
+        },
+        {
+          "node_id": "audit_and_manager_review",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "audit_and_manager_review",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "environment": {
+                "MN_WORKFLOW_STEP_ID": "audit_and_manager_review"
+              },
+              "idempotent": true,
+              "script": "scripts/run_blueprint.py",
+              "side_effect": "read",
+              "safe_to_retry": true,
+              "upload_path": "tax_workflow",
+              "output_message_type": "tax_review_ready"
+            }
+          },
+          "rendered_node": {
+            "node_id": "audit_and_manager_review",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "upload_path": "tax_workflow",
+              "upload_as": "tax_workflow",
+              "workdir": "/sandbox/job/tax_workflow",
+              "command": [
+                "python3",
+                "scripts/run_blueprint.py"
+              ],
+              "from": "base",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "pool": "default",
+              "pool_slots": 1,
+              "tty": false,
+              "environment": {
+                "MN_WORKFLOW_STEP_ID": "audit_and_manager_review"
+              },
+              "idempotent": true,
+              "side_effect": "read",
+              "safe_to_retry": true,
+              "output_message_type": "tax_review_ready",
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "agent_beacon_required": true,
+              "timeout_seconds": 300,
+              "max_attempts": 2,
+              "retry_backoff_ms": 1000
+            }
+          }
+        },
+        {
+          "node_id": "write_review_packet",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "write_review_packet",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "environment": {
+                "MN_WORKFLOW_STEP_ID": "write_review_packet"
+              },
+              "script": "scripts/run_blueprint.py",
+              "upload_path": "tax_workflow",
+              "output_message_type": "blueprint_report"
+            }
+          },
+          "rendered_node": {
+            "node_id": "write_review_packet",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "upload_path": "tax_workflow",
+              "upload_as": "tax_workflow",
+              "workdir": "/sandbox/job/tax_workflow",
+              "command": [
+                "python3",
+                "scripts/run_blueprint.py"
+              ],
+              "from": "base",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "pool": "default",
+              "pool_slots": 1,
+              "tty": false,
+              "environment": {
+                "MN_WORKFLOW_STEP_ID": "write_review_packet"
+              },
+              "output_message_type": "blueprint_report",
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "agent_beacon_required": true,
+              "timeout_seconds": 300,
+              "max_attempts": 2,
+              "retry_backoff_ms": 1000
+            }
+          }
+        },
+        {
+          "node_id": "report_sink",
+          "template_id": "mn-agents.control_join",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "report_sink",
+            "uses": "mn-agents.control_join@1.0.0",
+            "with": {
+              "complete_on_message": true,
+              "terminal_sink": true,
+              "complete_run": true
+            }
+          },
+          "rendered_node": {
+            "node_id": "report_sink",
+            "type": "reduce",
+            "agent_type": "aggregator",
+            "config": {
+              "complete_on_message": true,
+              "terminal_sink": true,
+              "complete_run": true
+            },
+            "role": "result_sink"
+          }
+        }
+      ]
     },
     "blueprint_id": "personal_income_tax_expert",
     "category": "finance",
@@ -1865,167 +2596,5 @@
   },
   "entrypoints": [
     "intake_documents"
-  ],
-  "nodes": [
-    {
-      "node_id": "intake_documents",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "environment": {
-          "MN_WORKFLOW_STEP_ID": "intake_documents"
-        },
-        "idempotent": true,
-        "script": "scripts/run_blueprint.py",
-        "side_effect": "read",
-        "safe_to_retry": true,
-        "upload_path": "tax_workflow",
-        "output_message_type": "tax_intake_ready"
-      }
-    },
-    {
-      "node_id": "prepare_income_workpapers",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "environment": {
-          "MN_WORKFLOW_STEP_ID": "prepare_income_workpapers"
-        },
-        "idempotent": true,
-        "script": "scripts/run_blueprint.py",
-        "side_effect": "read",
-        "safe_to_retry": true,
-        "upload_path": "tax_workflow",
-        "output_message_type": "tax_income_workpapers_ready"
-      }
-    },
-    {
-      "node_id": "prepare_property_workpapers",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "environment": {
-          "MN_WORKFLOW_STEP_ID": "prepare_property_workpapers"
-        },
-        "idempotent": true,
-        "script": "scripts/run_blueprint.py",
-        "side_effect": "read",
-        "safe_to_retry": true,
-        "upload_path": "tax_workflow",
-        "output_message_type": "tax_property_workpapers_ready"
-      }
-    },
-    {
-      "node_id": "prepare_investment_workpapers",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "environment": {
-          "MN_WORKFLOW_STEP_ID": "prepare_investment_workpapers"
-        },
-        "idempotent": true,
-        "script": "scripts/run_blueprint.py",
-        "side_effect": "read",
-        "safe_to_retry": true,
-        "upload_path": "tax_workflow",
-        "output_message_type": "tax_investment_workpapers_ready"
-      }
-    },
-    {
-      "node_id": "merge_tax_workpapers",
-      "uses": "mn-agents.control_join@1.0.0",
-      "with": {
-        "complete_on_message": true,
-        "output_message_type": "tax_workpapers_merged"
-      }
-    },
-    {
-      "node_id": "audit_and_manager_review",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "environment": {
-          "MN_WORKFLOW_STEP_ID": "audit_and_manager_review"
-        },
-        "idempotent": true,
-        "script": "scripts/run_blueprint.py",
-        "side_effect": "read",
-        "safe_to_retry": true,
-        "upload_path": "tax_workflow",
-        "output_message_type": "tax_review_ready"
-      }
-    },
-    {
-      "node_id": "write_review_packet",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "environment": {
-          "MN_WORKFLOW_STEP_ID": "write_review_packet"
-        },
-        "script": "scripts/run_blueprint.py",
-        "upload_path": "tax_workflow",
-        "output_message_type": "blueprint_report"
-      }
-    },
-    {
-      "node_id": "report_sink",
-      "uses": "mn-agents.control_join@1.0.0",
-      "with": {
-        "complete_on_message": true,
-        "terminal_sink": true,
-        "complete_run": true
-      }
-    }
-  ],
-  "edges": [
-    {
-      "edge_id": "intake_to_income",
-      "from_node": "intake_documents",
-      "message_type": "tax_intake_ready",
-      "to_node": "prepare_income_workpapers"
-    },
-    {
-      "edge_id": "intake_to_property",
-      "from_node": "intake_documents",
-      "message_type": "tax_intake_ready",
-      "to_node": "prepare_property_workpapers"
-    },
-    {
-      "edge_id": "intake_to_investment",
-      "from_node": "intake_documents",
-      "message_type": "tax_intake_ready",
-      "to_node": "prepare_investment_workpapers"
-    },
-    {
-      "edge_id": "income_to_merge",
-      "from_node": "prepare_income_workpapers",
-      "message_type": "tax_income_workpapers_ready",
-      "to_node": "merge_tax_workpapers"
-    },
-    {
-      "edge_id": "property_to_merge",
-      "from_node": "prepare_property_workpapers",
-      "message_type": "tax_property_workpapers_ready",
-      "to_node": "merge_tax_workpapers"
-    },
-    {
-      "edge_id": "investment_to_merge",
-      "from_node": "prepare_investment_workpapers",
-      "message_type": "tax_investment_workpapers_ready",
-      "to_node": "merge_tax_workpapers"
-    },
-    {
-      "edge_id": "merge_to_audit",
-      "from_node": "merge_tax_workpapers",
-      "message_type": "tax_workpapers_merged",
-      "to_node": "audit_and_manager_review"
-    },
-    {
-      "edge_id": "audit_to_packet",
-      "from_node": "audit_and_manager_review",
-      "message_type": "tax_review_ready",
-      "to_node": "write_review_packet"
-    },
-    {
-      "edge_id": "packet_to_report",
-      "from_node": "write_review_packet",
-      "message_type": "blueprint_report",
-      "to_node": "report_sink"
-    }
   ]
 }

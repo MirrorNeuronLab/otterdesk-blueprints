@@ -406,7 +406,6 @@
     ]
   },
   "llm": {
-    "model": "default",
     "enabled": true,
     "agent_role": "Personal tax preparation team that prepares a source-grounded draft Form 1040 review packet while asking careful review questions.",
     "agents": {
@@ -511,7 +510,8 @@
     "mock_mode": "fake",
     "quick_test_uses_fake": false,
     "prefer_shared_skill": false,
-    "strict_json": true
+    "strict_json": true,
+    "model": "default"
   },
   "local_inputs": {
     "folders": [

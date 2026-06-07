@@ -443,7 +443,7 @@
           "failure_policy": "fail_workflow",
           "timeout_seconds": 300,
           "uncertainty": {
-            "min_confidence": 0.0,
+            "min_confidence": 0,
             "on_low_confidence": "continue_with_warning"
           }
         },
@@ -481,7 +481,7 @@
           "failure_policy": "fail_workflow",
           "timeout_seconds": 300,
           "uncertainty": {
-            "min_confidence": 0.0,
+            "min_confidence": 0,
             "on_low_confidence": "continue_with_warning"
           }
         },
@@ -598,7 +598,7 @@
           "failure_policy": "fail_workflow",
           "timeout_seconds": 300,
           "uncertainty": {
-            "min_confidence": 0.0,
+            "min_confidence": 0,
             "on_low_confidence": "continue_with_warning"
           }
         },
@@ -616,7 +616,202 @@
         ]
       }
     ],
-    "observers": []
+    "observers": [],
+    "nodes": [
+      {
+        "node_id": "stage_contract_inputs",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "upload_path": "document_workflow",
+          "upload_as": "document_workflow",
+          "workdir": "/sandbox/job/document_workflow",
+          "command": [
+            "python3",
+            "scripts/run_blueprint.py"
+          ],
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "output_message_type": "contract_inputs_staged",
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000
+        }
+      },
+      {
+        "node_id": "extract_contract_text",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "upload_path": "document_workflow",
+          "upload_as": "document_workflow",
+          "workdir": "/sandbox/job/document_workflow",
+          "command": [
+            "python3",
+            "scripts/run_blueprint.py"
+          ],
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "output_message_type": "contract_text_extracted",
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000
+        }
+      },
+      {
+        "node_id": "extract_clause_matrix",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "upload_path": "document_workflow",
+          "upload_as": "document_workflow",
+          "workdir": "/sandbox/job/document_workflow",
+          "command": [
+            "python3",
+            "scripts/run_blueprint.py"
+          ],
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "output_message_type": "clause_matrix_extracted",
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000
+        }
+      },
+      {
+        "node_id": "compare_contract_playbook",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "upload_path": "document_workflow",
+          "upload_as": "document_workflow",
+          "workdir": "/sandbox/job/document_workflow",
+          "command": [
+            "python3",
+            "scripts/run_blueprint.py"
+          ],
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "output_message_type": "contract_playbook_compared",
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000
+        }
+      },
+      {
+        "node_id": "write_clause_review_packet",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "upload_path": "document_workflow",
+          "upload_as": "document_workflow",
+          "workdir": "/sandbox/job/document_workflow",
+          "command": [
+            "python3",
+            "scripts/run_blueprint.py"
+          ],
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "output_message_type": "clause_review_packet_written",
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000
+        }
+      },
+      {
+        "node_id": "report_sink",
+        "type": "reduce",
+        "agent_type": "aggregator",
+        "config": {
+          "complete_on_message": true,
+          "terminal_sink": true,
+          "complete_run": true
+        },
+        "role": "result_sink"
+      }
+    ],
+    "edges": [
+      {
+        "edge_id": "stage_contract_inputs_to_extract_contract_text",
+        "from_node": "stage_contract_inputs",
+        "to_node": "extract_contract_text",
+        "message_type": "contract_inputs_staged"
+      },
+      {
+        "edge_id": "extract_contract_text_to_extract_clause_matrix",
+        "from_node": "extract_contract_text",
+        "to_node": "extract_clause_matrix",
+        "message_type": "contract_text_extracted"
+      },
+      {
+        "edge_id": "extract_clause_matrix_to_compare_contract_playbook",
+        "from_node": "extract_clause_matrix",
+        "to_node": "compare_contract_playbook",
+        "message_type": "clause_matrix_extracted"
+      },
+      {
+        "edge_id": "compare_contract_playbook_to_write_clause_review_packet",
+        "from_node": "compare_contract_playbook",
+        "to_node": "write_clause_review_packet",
+        "message_type": "contract_playbook_compared"
+      },
+      {
+        "edge_id": "write_clause_review_packet_to_report",
+        "from_node": "write_clause_review_packet",
+        "to_node": "report_sink",
+        "message_type": "clause_review_packet_written"
+      }
+    ]
   },
   "runtime": {
     "bindings": {
@@ -729,11 +924,6 @@
             "required": true
           }
         ]
-      }
-    },
-    "models": {
-      "primary": {
-        "model": "default"
       }
     },
     "memory": {
@@ -886,6 +1076,11 @@
         "workflow_step_failed",
         "workflow_message_dead_lettered"
       ]
+    },
+    "models": {
+      "primary": {
+        "model": "default"
+      }
     }
   },
   "requirements": {
@@ -975,7 +1170,254 @@
       ],
       "renderer": "mn_blueprint_support.render_manifest_agent_templates",
       "render_tool": "../mn-agents/tools/render_agent_templates.py",
-      "rendered_output": "manifest.rendered.json or runtime metadata"
+      "rendered_output": "manifest.rendered.json or runtime metadata",
+      "rendered": [
+        {
+          "node_id": "stage_contract_inputs",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "stage_contract_inputs",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "script": "scripts/run_blueprint.py",
+              "upload_path": "document_workflow",
+              "output_message_type": "contract_inputs_staged"
+            }
+          },
+          "rendered_node": {
+            "node_id": "stage_contract_inputs",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "upload_path": "document_workflow",
+              "upload_as": "document_workflow",
+              "workdir": "/sandbox/job/document_workflow",
+              "command": [
+                "python3",
+                "scripts/run_blueprint.py"
+              ],
+              "from": "base",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "pool": "default",
+              "pool_slots": 1,
+              "tty": false,
+              "output_message_type": "contract_inputs_staged",
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "agent_beacon_required": true,
+              "timeout_seconds": 300,
+              "max_attempts": 2,
+              "retry_backoff_ms": 1000
+            }
+          }
+        },
+        {
+          "node_id": "extract_contract_text",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "extract_contract_text",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "script": "scripts/run_blueprint.py",
+              "upload_path": "document_workflow",
+              "output_message_type": "contract_text_extracted"
+            }
+          },
+          "rendered_node": {
+            "node_id": "extract_contract_text",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "upload_path": "document_workflow",
+              "upload_as": "document_workflow",
+              "workdir": "/sandbox/job/document_workflow",
+              "command": [
+                "python3",
+                "scripts/run_blueprint.py"
+              ],
+              "from": "base",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "pool": "default",
+              "pool_slots": 1,
+              "tty": false,
+              "output_message_type": "contract_text_extracted",
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "agent_beacon_required": true,
+              "timeout_seconds": 300,
+              "max_attempts": 2,
+              "retry_backoff_ms": 1000
+            }
+          }
+        },
+        {
+          "node_id": "extract_clause_matrix",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "extract_clause_matrix",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "script": "scripts/run_blueprint.py",
+              "upload_path": "document_workflow",
+              "output_message_type": "clause_matrix_extracted"
+            }
+          },
+          "rendered_node": {
+            "node_id": "extract_clause_matrix",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "upload_path": "document_workflow",
+              "upload_as": "document_workflow",
+              "workdir": "/sandbox/job/document_workflow",
+              "command": [
+                "python3",
+                "scripts/run_blueprint.py"
+              ],
+              "from": "base",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "pool": "default",
+              "pool_slots": 1,
+              "tty": false,
+              "output_message_type": "clause_matrix_extracted",
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "agent_beacon_required": true,
+              "timeout_seconds": 300,
+              "max_attempts": 2,
+              "retry_backoff_ms": 1000
+            }
+          }
+        },
+        {
+          "node_id": "compare_contract_playbook",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "compare_contract_playbook",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "script": "scripts/run_blueprint.py",
+              "upload_path": "document_workflow",
+              "output_message_type": "contract_playbook_compared"
+            }
+          },
+          "rendered_node": {
+            "node_id": "compare_contract_playbook",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "upload_path": "document_workflow",
+              "upload_as": "document_workflow",
+              "workdir": "/sandbox/job/document_workflow",
+              "command": [
+                "python3",
+                "scripts/run_blueprint.py"
+              ],
+              "from": "base",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "pool": "default",
+              "pool_slots": 1,
+              "tty": false,
+              "output_message_type": "contract_playbook_compared",
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "agent_beacon_required": true,
+              "timeout_seconds": 300,
+              "max_attempts": 2,
+              "retry_backoff_ms": 1000
+            }
+          }
+        },
+        {
+          "node_id": "write_clause_review_packet",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "write_clause_review_packet",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "script": "scripts/run_blueprint.py",
+              "upload_path": "document_workflow",
+              "output_message_type": "clause_review_packet_written"
+            }
+          },
+          "rendered_node": {
+            "node_id": "write_clause_review_packet",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "upload_path": "document_workflow",
+              "upload_as": "document_workflow",
+              "workdir": "/sandbox/job/document_workflow",
+              "command": [
+                "python3",
+                "scripts/run_blueprint.py"
+              ],
+              "from": "base",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "pool": "default",
+              "pool_slots": 1,
+              "tty": false,
+              "output_message_type": "clause_review_packet_written",
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "agent_beacon_required": true,
+              "timeout_seconds": 300,
+              "max_attempts": 2,
+              "retry_backoff_ms": 1000
+            }
+          }
+        },
+        {
+          "node_id": "report_sink",
+          "template_id": "mn-agents.control_join",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "report_sink",
+            "uses": "mn-agents.control_join@1.0.0",
+            "with": {
+              "complete_on_message": true,
+              "terminal_sink": true,
+              "complete_run": true
+            }
+          },
+          "rendered_node": {
+            "node_id": "report_sink",
+            "type": "reduce",
+            "agent_type": "aggregator",
+            "config": {
+              "complete_on_message": true,
+              "terminal_sink": true,
+              "complete_run": true
+            },
+            "role": "result_sink"
+          }
+        }
+      ]
     },
     "input_contract": {
       "schema_version": "mn.blueprint.input_contract.v1",
@@ -1577,93 +2019,5 @@
       "download_hint": "Download CUAD_v1.zip from Zenodo or use the Hugging Face dataset for text-oriented experiments."
     },
     "local_on_prem_rationale": "Law firms, in-house legal teams, CLM vendors, and diligence teams need private extraction of privileged or deal-sensitive contract terms without uploading client agreements to external services."
-  },
-  "nodes": [
-    {
-      "node_id": "stage_contract_inputs",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "script": "scripts/run_blueprint.py",
-        "upload_path": "document_workflow",
-        "output_message_type": "contract_inputs_staged"
-      }
-    },
-    {
-      "node_id": "extract_contract_text",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "script": "scripts/run_blueprint.py",
-        "upload_path": "document_workflow",
-        "output_message_type": "contract_text_extracted"
-      }
-    },
-    {
-      "node_id": "extract_clause_matrix",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "script": "scripts/run_blueprint.py",
-        "upload_path": "document_workflow",
-        "output_message_type": "clause_matrix_extracted"
-      }
-    },
-    {
-      "node_id": "compare_contract_playbook",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "script": "scripts/run_blueprint.py",
-        "upload_path": "document_workflow",
-        "output_message_type": "contract_playbook_compared"
-      }
-    },
-    {
-      "node_id": "write_clause_review_packet",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "script": "scripts/run_blueprint.py",
-        "upload_path": "document_workflow",
-        "output_message_type": "clause_review_packet_written"
-      }
-    },
-    {
-      "node_id": "report_sink",
-      "uses": "mn-agents.control_join@1.0.0",
-      "with": {
-        "complete_on_message": true,
-        "terminal_sink": true,
-        "complete_run": true
-      }
-    }
-  ],
-  "edges": [
-    {
-      "edge_id": "stage_contract_inputs_to_extract_contract_text",
-      "from_node": "stage_contract_inputs",
-      "to_node": "extract_contract_text",
-      "message_type": "contract_inputs_staged"
-    },
-    {
-      "edge_id": "extract_contract_text_to_extract_clause_matrix",
-      "from_node": "extract_contract_text",
-      "to_node": "extract_clause_matrix",
-      "message_type": "contract_text_extracted"
-    },
-    {
-      "edge_id": "extract_clause_matrix_to_compare_contract_playbook",
-      "from_node": "extract_clause_matrix",
-      "to_node": "compare_contract_playbook",
-      "message_type": "clause_matrix_extracted"
-    },
-    {
-      "edge_id": "compare_contract_playbook_to_write_clause_review_packet",
-      "from_node": "compare_contract_playbook",
-      "to_node": "write_clause_review_packet",
-      "message_type": "contract_playbook_compared"
-    },
-    {
-      "edge_id": "write_clause_review_packet_to_report",
-      "from_node": "write_clause_review_packet",
-      "to_node": "report_sink",
-      "message_type": "clause_review_packet_written"
-    }
-  ]
+  }
 }

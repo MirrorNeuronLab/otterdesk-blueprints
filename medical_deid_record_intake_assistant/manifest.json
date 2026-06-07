@@ -441,7 +441,7 @@
           "failure_policy": "fail_workflow",
           "timeout_seconds": 300,
           "uncertainty": {
-            "min_confidence": 0.0,
+            "min_confidence": 0,
             "on_low_confidence": "continue_with_warning"
           }
         },
@@ -479,7 +479,7 @@
           "failure_policy": "fail_workflow",
           "timeout_seconds": 300,
           "uncertainty": {
-            "min_confidence": 0.0,
+            "min_confidence": 0,
             "on_low_confidence": "continue_with_warning"
           }
         },
@@ -596,7 +596,7 @@
           "failure_policy": "fail_workflow",
           "timeout_seconds": 300,
           "uncertainty": {
-            "min_confidence": 0.0,
+            "min_confidence": 0,
             "on_low_confidence": "continue_with_warning"
           }
         },
@@ -614,7 +614,202 @@
         ]
       }
     ],
-    "observers": []
+    "observers": [],
+    "nodes": [
+      {
+        "node_id": "stage_medical_inputs",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "upload_path": "document_workflow",
+          "upload_as": "document_workflow",
+          "workdir": "/sandbox/job/document_workflow",
+          "command": [
+            "python3",
+            "scripts/run_blueprint.py"
+          ],
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "output_message_type": "medical_inputs_staged",
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000
+        }
+      },
+      {
+        "node_id": "extract_medical_text",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "upload_path": "document_workflow",
+          "upload_as": "document_workflow",
+          "workdir": "/sandbox/job/document_workflow",
+          "command": [
+            "python3",
+            "scripts/run_blueprint.py"
+          ],
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "output_message_type": "medical_text_extracted",
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000
+        }
+      },
+      {
+        "node_id": "detect_phi_entities",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "upload_path": "document_workflow",
+          "upload_as": "document_workflow",
+          "workdir": "/sandbox/job/document_workflow",
+          "command": [
+            "python3",
+            "scripts/run_blueprint.py"
+          ],
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "output_message_type": "phi_entities_detected",
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000
+        }
+      },
+      {
+        "node_id": "redact_and_validate_medical_packet",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "upload_path": "document_workflow",
+          "upload_as": "document_workflow",
+          "workdir": "/sandbox/job/document_workflow",
+          "command": [
+            "python3",
+            "scripts/run_blueprint.py"
+          ],
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "output_message_type": "medical_packet_validated",
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000
+        }
+      },
+      {
+        "node_id": "write_deid_review_packet",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "upload_path": "document_workflow",
+          "upload_as": "document_workflow",
+          "workdir": "/sandbox/job/document_workflow",
+          "command": [
+            "python3",
+            "scripts/run_blueprint.py"
+          ],
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "output_message_type": "deid_review_packet_written",
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000
+        }
+      },
+      {
+        "node_id": "report_sink",
+        "type": "reduce",
+        "agent_type": "aggregator",
+        "config": {
+          "complete_on_message": true,
+          "terminal_sink": true,
+          "complete_run": true
+        },
+        "role": "result_sink"
+      }
+    ],
+    "edges": [
+      {
+        "edge_id": "stage_medical_inputs_to_extract_medical_text",
+        "from_node": "stage_medical_inputs",
+        "to_node": "extract_medical_text",
+        "message_type": "medical_inputs_staged"
+      },
+      {
+        "edge_id": "extract_medical_text_to_detect_phi_entities",
+        "from_node": "extract_medical_text",
+        "to_node": "detect_phi_entities",
+        "message_type": "medical_text_extracted"
+      },
+      {
+        "edge_id": "detect_phi_entities_to_redact_and_validate_medical_packet",
+        "from_node": "detect_phi_entities",
+        "to_node": "redact_and_validate_medical_packet",
+        "message_type": "phi_entities_detected"
+      },
+      {
+        "edge_id": "redact_and_validate_medical_packet_to_write_deid_review_packet",
+        "from_node": "redact_and_validate_medical_packet",
+        "to_node": "write_deid_review_packet",
+        "message_type": "medical_packet_validated"
+      },
+      {
+        "edge_id": "write_deid_review_packet_to_report",
+        "from_node": "write_deid_review_packet",
+        "to_node": "report_sink",
+        "message_type": "deid_review_packet_written"
+      }
+    ]
   },
   "runtime": {
     "bindings": {
@@ -727,11 +922,6 @@
             "required": true
           }
         ]
-      }
-    },
-    "models": {
-      "primary": {
-        "model": "default"
       }
     },
     "memory": {
@@ -884,6 +1074,11 @@
         "workflow_step_failed",
         "workflow_message_dead_lettered"
       ]
+    },
+    "models": {
+      "primary": {
+        "model": "default"
+      }
     }
   },
   "requirements": {
@@ -973,7 +1168,254 @@
       ],
       "renderer": "mn_blueprint_support.render_manifest_agent_templates",
       "render_tool": "../mn-agents/tools/render_agent_templates.py",
-      "rendered_output": "manifest.rendered.json or runtime metadata"
+      "rendered_output": "manifest.rendered.json or runtime metadata",
+      "rendered": [
+        {
+          "node_id": "stage_medical_inputs",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "stage_medical_inputs",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "script": "scripts/run_blueprint.py",
+              "upload_path": "document_workflow",
+              "output_message_type": "medical_inputs_staged"
+            }
+          },
+          "rendered_node": {
+            "node_id": "stage_medical_inputs",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "upload_path": "document_workflow",
+              "upload_as": "document_workflow",
+              "workdir": "/sandbox/job/document_workflow",
+              "command": [
+                "python3",
+                "scripts/run_blueprint.py"
+              ],
+              "from": "base",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "pool": "default",
+              "pool_slots": 1,
+              "tty": false,
+              "output_message_type": "medical_inputs_staged",
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "agent_beacon_required": true,
+              "timeout_seconds": 300,
+              "max_attempts": 2,
+              "retry_backoff_ms": 1000
+            }
+          }
+        },
+        {
+          "node_id": "extract_medical_text",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "extract_medical_text",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "script": "scripts/run_blueprint.py",
+              "upload_path": "document_workflow",
+              "output_message_type": "medical_text_extracted"
+            }
+          },
+          "rendered_node": {
+            "node_id": "extract_medical_text",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "upload_path": "document_workflow",
+              "upload_as": "document_workflow",
+              "workdir": "/sandbox/job/document_workflow",
+              "command": [
+                "python3",
+                "scripts/run_blueprint.py"
+              ],
+              "from": "base",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "pool": "default",
+              "pool_slots": 1,
+              "tty": false,
+              "output_message_type": "medical_text_extracted",
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "agent_beacon_required": true,
+              "timeout_seconds": 300,
+              "max_attempts": 2,
+              "retry_backoff_ms": 1000
+            }
+          }
+        },
+        {
+          "node_id": "detect_phi_entities",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "detect_phi_entities",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "script": "scripts/run_blueprint.py",
+              "upload_path": "document_workflow",
+              "output_message_type": "phi_entities_detected"
+            }
+          },
+          "rendered_node": {
+            "node_id": "detect_phi_entities",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "upload_path": "document_workflow",
+              "upload_as": "document_workflow",
+              "workdir": "/sandbox/job/document_workflow",
+              "command": [
+                "python3",
+                "scripts/run_blueprint.py"
+              ],
+              "from": "base",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "pool": "default",
+              "pool_slots": 1,
+              "tty": false,
+              "output_message_type": "phi_entities_detected",
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "agent_beacon_required": true,
+              "timeout_seconds": 300,
+              "max_attempts": 2,
+              "retry_backoff_ms": 1000
+            }
+          }
+        },
+        {
+          "node_id": "redact_and_validate_medical_packet",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "redact_and_validate_medical_packet",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "script": "scripts/run_blueprint.py",
+              "upload_path": "document_workflow",
+              "output_message_type": "medical_packet_validated"
+            }
+          },
+          "rendered_node": {
+            "node_id": "redact_and_validate_medical_packet",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "upload_path": "document_workflow",
+              "upload_as": "document_workflow",
+              "workdir": "/sandbox/job/document_workflow",
+              "command": [
+                "python3",
+                "scripts/run_blueprint.py"
+              ],
+              "from": "base",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "pool": "default",
+              "pool_slots": 1,
+              "tty": false,
+              "output_message_type": "medical_packet_validated",
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "agent_beacon_required": true,
+              "timeout_seconds": 300,
+              "max_attempts": 2,
+              "retry_backoff_ms": 1000
+            }
+          }
+        },
+        {
+          "node_id": "write_deid_review_packet",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "write_deid_review_packet",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "script": "scripts/run_blueprint.py",
+              "upload_path": "document_workflow",
+              "output_message_type": "deid_review_packet_written"
+            }
+          },
+          "rendered_node": {
+            "node_id": "write_deid_review_packet",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "upload_path": "document_workflow",
+              "upload_as": "document_workflow",
+              "workdir": "/sandbox/job/document_workflow",
+              "command": [
+                "python3",
+                "scripts/run_blueprint.py"
+              ],
+              "from": "base",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "pool": "default",
+              "pool_slots": 1,
+              "tty": false,
+              "output_message_type": "deid_review_packet_written",
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "agent_beacon_required": true,
+              "timeout_seconds": 300,
+              "max_attempts": 2,
+              "retry_backoff_ms": 1000
+            }
+          }
+        },
+        {
+          "node_id": "report_sink",
+          "template_id": "mn-agents.control_join",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "report_sink",
+            "uses": "mn-agents.control_join@1.0.0",
+            "with": {
+              "complete_on_message": true,
+              "terminal_sink": true,
+              "complete_run": true
+            }
+          },
+          "rendered_node": {
+            "node_id": "report_sink",
+            "type": "reduce",
+            "agent_type": "aggregator",
+            "config": {
+              "complete_on_message": true,
+              "terminal_sink": true,
+              "complete_run": true
+            },
+            "role": "result_sink"
+          }
+        }
+      ]
     },
     "input_contract": {
       "schema_version": "mn.blueprint.input_contract.v1",
@@ -1574,93 +2016,5 @@
       "download_hint": "Use the Hugging Face dataset files or clone with git-lfs/huggingface_hub when available."
     },
     "local_on_prem_rationale": "Hospitals, clinics, health-tech vendors, clinical research teams, and medical BPOs need local OCR and de-identification of PHI-bearing records before downstream use."
-  },
-  "nodes": [
-    {
-      "node_id": "stage_medical_inputs",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "script": "scripts/run_blueprint.py",
-        "upload_path": "document_workflow",
-        "output_message_type": "medical_inputs_staged"
-      }
-    },
-    {
-      "node_id": "extract_medical_text",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "script": "scripts/run_blueprint.py",
-        "upload_path": "document_workflow",
-        "output_message_type": "medical_text_extracted"
-      }
-    },
-    {
-      "node_id": "detect_phi_entities",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "script": "scripts/run_blueprint.py",
-        "upload_path": "document_workflow",
-        "output_message_type": "phi_entities_detected"
-      }
-    },
-    {
-      "node_id": "redact_and_validate_medical_packet",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "script": "scripts/run_blueprint.py",
-        "upload_path": "document_workflow",
-        "output_message_type": "medical_packet_validated"
-      }
-    },
-    {
-      "node_id": "write_deid_review_packet",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "script": "scripts/run_blueprint.py",
-        "upload_path": "document_workflow",
-        "output_message_type": "deid_review_packet_written"
-      }
-    },
-    {
-      "node_id": "report_sink",
-      "uses": "mn-agents.control_join@1.0.0",
-      "with": {
-        "complete_on_message": true,
-        "terminal_sink": true,
-        "complete_run": true
-      }
-    }
-  ],
-  "edges": [
-    {
-      "edge_id": "stage_medical_inputs_to_extract_medical_text",
-      "from_node": "stage_medical_inputs",
-      "to_node": "extract_medical_text",
-      "message_type": "medical_inputs_staged"
-    },
-    {
-      "edge_id": "extract_medical_text_to_detect_phi_entities",
-      "from_node": "extract_medical_text",
-      "to_node": "detect_phi_entities",
-      "message_type": "medical_text_extracted"
-    },
-    {
-      "edge_id": "detect_phi_entities_to_redact_and_validate_medical_packet",
-      "from_node": "detect_phi_entities",
-      "to_node": "redact_and_validate_medical_packet",
-      "message_type": "phi_entities_detected"
-    },
-    {
-      "edge_id": "redact_and_validate_medical_packet_to_write_deid_review_packet",
-      "from_node": "redact_and_validate_medical_packet",
-      "to_node": "write_deid_review_packet",
-      "message_type": "medical_packet_validated"
-    },
-    {
-      "edge_id": "write_deid_review_packet_to_report",
-      "from_node": "write_deid_review_packet",
-      "to_node": "report_sink",
-      "message_type": "deid_review_packet_written"
-    }
-  ]
+  }
 }

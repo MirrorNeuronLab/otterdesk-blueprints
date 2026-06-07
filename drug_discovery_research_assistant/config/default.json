@@ -298,7 +298,6 @@
     ]
   },
   "llm": {
-    "model": "default",
     "enabled": true,
     "agent_role": "AI assistant for organizing drug discovery candidate generation, filtering, and evidence review.",
     "agents": {
@@ -308,7 +307,8 @@
         "role": "AI assistant for organizing drug discovery candidate generation, filtering, and evidence review."
       }
     },
-    "mock_mode": "fake"
+    "mock_mode": "fake",
+    "model": "default"
   },
   "logging": {
     "events": [

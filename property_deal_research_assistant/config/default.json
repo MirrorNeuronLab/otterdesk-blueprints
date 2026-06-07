@@ -323,7 +323,6 @@
     ]
   },
   "llm": {
-    "model": "default",
     "enabled": true,
     "agent_role": "AI assistant for researching property deals and drafting opportunity rankings.",
     "agents": {
@@ -346,7 +345,8 @@
       "rank opportunities against the current snapshot",
       "explain bid, discount, or watchlist decisions with source_refs"
     ],
-    "mock_mode": "fake"
+    "mock_mode": "fake",
+    "model": "default"
   },
   "logging": {
     "events": [

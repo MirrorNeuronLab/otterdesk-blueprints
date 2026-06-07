@@ -331,20 +331,12 @@
     ]
   },
   "description": "Runs a localhost-proxied Spark HTTPS/WebRTC pizza-ordering voice co-worker backed by NVIDIA ASR, Nemotron vLLM, Magpie TTS, and editable plain-text menu RAG knowledge.",
-  "edges": [
-    {
-      "edge_id": "ingress_to_voice_service",
-      "from_node": "ingress",
-      "message_type": "customer_service_voice_start_requested",
-      "to_node": "voice_service"
-    }
-  ],
   "entrypoints": [
     "ingress",
     "voice_service"
   ],
   "flow": {
-    "entrypoint": "prepare_voice_service",
+    "entrypoint": "ingress",
     "graph": {
       "dynamic": {
         "apply_at": "between_steps",
@@ -431,7 +423,7 @@
           },
           "timeout_seconds": 900,
           "uncertainty": {
-            "min_confidence": 0.0,
+            "min_confidence": 0,
             "on_low_confidence": "continue_with_warning"
           }
         },
@@ -465,7 +457,7 @@
           },
           "timeout_seconds": 900,
           "uncertainty": {
-            "min_confidence": 0.0,
+            "min_confidence": 0,
             "on_low_confidence": "continue_with_warning"
           }
         },
@@ -484,6 +476,143 @@
           "voice_url": "$state.voice_url"
         },
         "run": "serve_customer_conversation"
+      }
+    ],
+    "nodes": [
+      {
+        "node_id": "ingress",
+        "type": "map",
+        "agent_type": "router",
+        "config": {},
+        "alias": "customer_service_voice_router",
+        "display_name": "Pizza Order Voice Router"
+      },
+      {
+        "node_id": "voice_service",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "upload_path": "voice_service",
+          "upload_as": "voice_service",
+          "workdir": "/sandbox/job/voice_service",
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "nvidia-accelerated",
+          "pool_slots": 1,
+          "tty": false,
+          "environment": {
+            "CUSTOMER_SERVICE_PUBLIC_URL": "https://localhost:7863/customer-service",
+            "CUSTOMER_SERVICE_RUN_ID": "${MN_RUN_ID}",
+            "NEMOTRON_ROOT": "/home/homer/Sandbox/nemotron-january-2026",
+            "VOICE_HTTPS_PORT": "7863"
+          },
+          "agent_beacon_required": false,
+          "cleanup_remote_dir": false,
+          "execution_profile": "nvidia-accelerated-voice",
+          "gpu_count": 1,
+          "health_url": "https://localhost:7863/health",
+          "output_message_type": "customer_service_voice_started",
+          "public_url": "https://localhost:7863/customer-service",
+          "service": true,
+          "service_kind": "https_webrtc_voice",
+          "upload_paths": [
+            {
+              "source": "voice_service",
+              "target": "voice_service"
+            }
+          ],
+          "command": [
+            "bash",
+            "scripts/run_voice_service.sh"
+          ],
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt"
+        },
+        "alias": "customer_service_voice_host",
+        "display_name": "Pizza Order Voice Host",
+        "constraints": [
+          {
+            "attribute": "capabilities",
+            "operator": "contains_any",
+            "value": [
+              "nvidia-dgx-spark",
+              "nvidia-gh200",
+              "nvidia-h100",
+              "nvidia-h200",
+              "nvidia-b200",
+              "nvidia-gb200",
+              "nvidia-gb10"
+            ]
+          }
+        ],
+        "resources": {
+          "gpu_count": 1,
+          "ports": [
+            {
+              "label": "voice_https",
+              "port": 7863,
+              "protocol": "tcp"
+            },
+            {
+              "label": "nvidia_asr",
+              "port": 8080,
+              "protocol": "tcp"
+            },
+            {
+              "label": "docker_model_runner",
+              "port": 12434,
+              "protocol": "tcp"
+            },
+            {
+              "label": "magpie_tts",
+              "port": 8001,
+              "protocol": "tcp"
+            }
+          ],
+          "devices": [
+            {
+              "kind": "gpu",
+              "type": "nvidia/gpu",
+              "driver": "cuda",
+              "count": 1
+            }
+          ]
+        },
+        "requires_services": [
+          {
+            "name": "docker-model-runner",
+            "tags": [
+              "nvidia",
+              "cuda"
+            ]
+          },
+          {
+            "name": "nvidia-asr",
+            "tags": [
+              "nvidia",
+              "speech-to-text"
+            ]
+          },
+          {
+            "name": "nvidia-tts",
+            "tags": [
+              "nvidia",
+              "text-to-speech"
+            ]
+          }
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "edge_id": "ingress_to_voice_service",
+        "from_node": "ingress",
+        "message_type": "customer_service_voice_start_requested",
+        "to_node": "voice_service"
       }
     ]
   },
@@ -547,7 +676,261 @@
       ],
       "render_tool": "../mn-agents/tools/render_agent_templates.py",
       "rendered_output": "manifest.rendered.json or runtime metadata",
-      "renderer": "mn_blueprint_support.render_manifest_agent_templates"
+      "renderer": "mn_blueprint_support.render_manifest_agent_templates",
+      "rendered": [
+        {
+          "node_id": "ingress",
+          "template_id": "mn-agents.control_router",
+          "version": "1.0.0",
+          "original_node": {
+            "alias": "customer_service_voice_router",
+            "display_name": "Pizza Order Voice Router",
+            "node_id": "ingress",
+            "uses": "mn-agents.control_router@1.0.0",
+            "with": {}
+          },
+          "rendered_node": {
+            "node_id": "ingress",
+            "type": "map",
+            "agent_type": "router",
+            "config": {},
+            "alias": "customer_service_voice_router",
+            "display_name": "Pizza Order Voice Router"
+          }
+        },
+        {
+          "node_id": "voice_service",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "alias": "customer_service_voice_host",
+            "constraints": [
+              {
+                "attribute": "capabilities",
+                "operator": "contains_any",
+                "value": [
+                  "nvidia-dgx-spark",
+                  "nvidia-gh200",
+                  "nvidia-h100",
+                  "nvidia-h200",
+                  "nvidia-b200",
+                  "nvidia-gb200",
+                  "nvidia-gb10"
+                ]
+              }
+            ],
+            "display_name": "Pizza Order Voice Host",
+            "node_id": "voice_service",
+            "resources": {
+              "gpu_count": 1,
+              "ports": [
+                {
+                  "label": "voice_https",
+                  "port": 7863,
+                  "protocol": "tcp"
+                },
+                {
+                  "label": "nvidia_asr",
+                  "port": 8080,
+                  "protocol": "tcp"
+                },
+                {
+                  "label": "docker_model_runner",
+                  "port": 12434,
+                  "protocol": "tcp"
+                },
+                {
+                  "label": "magpie_tts",
+                  "port": 8001,
+                  "protocol": "tcp"
+                }
+              ],
+              "devices": [
+                {
+                  "kind": "gpu",
+                  "type": "nvidia/gpu",
+                  "driver": "cuda",
+                  "count": 1
+                }
+              ]
+            },
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "command": [
+                "bash",
+                "scripts/run_voice_service.sh"
+              ],
+              "environment": {
+                "CUSTOMER_SERVICE_PUBLIC_URL": "https://localhost:7863/customer-service",
+                "CUSTOMER_SERVICE_RUN_ID": "${MN_RUN_ID}",
+                "NEMOTRON_ROOT": "/home/homer/Sandbox/nemotron-january-2026",
+                "VOICE_HTTPS_PORT": "7863"
+              },
+              "agent_beacon_required": false,
+              "cleanup_remote_dir": false,
+              "execution_profile": "nvidia-accelerated-voice",
+              "gpu_count": 1,
+              "health_url": "https://localhost:7863/health",
+              "output_message_type": "customer_service_voice_started",
+              "pool": "nvidia-accelerated",
+              "pool_slots": 1,
+              "public_url": "https://localhost:7863/customer-service",
+              "script": "scripts/run_voice_service.sh",
+              "service": true,
+              "service_kind": "https_webrtc_voice",
+              "upload_path": "voice_service",
+              "upload_paths": [
+                {
+                  "source": "voice_service",
+                  "target": "voice_service"
+                }
+              ]
+            },
+            "requires_services": [
+              {
+                "name": "docker-model-runner",
+                "tags": [
+                  "nvidia",
+                  "cuda"
+                ]
+              },
+              {
+                "name": "nvidia-asr",
+                "tags": [
+                  "nvidia",
+                  "speech-to-text"
+                ]
+              },
+              {
+                "name": "nvidia-tts",
+                "tags": [
+                  "nvidia",
+                  "text-to-speech"
+                ]
+              }
+            ]
+          },
+          "rendered_node": {
+            "node_id": "voice_service",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "upload_path": "voice_service",
+              "upload_as": "voice_service",
+              "workdir": "/sandbox/job/voice_service",
+              "from": "base",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "pool": "nvidia-accelerated",
+              "pool_slots": 1,
+              "tty": false,
+              "environment": {
+                "CUSTOMER_SERVICE_PUBLIC_URL": "https://localhost:7863/customer-service",
+                "CUSTOMER_SERVICE_RUN_ID": "${MN_RUN_ID}",
+                "NEMOTRON_ROOT": "/home/homer/Sandbox/nemotron-january-2026",
+                "VOICE_HTTPS_PORT": "7863"
+              },
+              "agent_beacon_required": false,
+              "cleanup_remote_dir": false,
+              "execution_profile": "nvidia-accelerated-voice",
+              "gpu_count": 1,
+              "health_url": "https://localhost:7863/health",
+              "output_message_type": "customer_service_voice_started",
+              "public_url": "https://localhost:7863/customer-service",
+              "service": true,
+              "service_kind": "https_webrtc_voice",
+              "upload_paths": [
+                {
+                  "source": "voice_service",
+                  "target": "voice_service"
+                }
+              ],
+              "command": [
+                "bash",
+                "scripts/run_voice_service.sh"
+              ],
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt"
+            },
+            "alias": "customer_service_voice_host",
+            "display_name": "Pizza Order Voice Host",
+            "constraints": [
+              {
+                "attribute": "capabilities",
+                "operator": "contains_any",
+                "value": [
+                  "nvidia-dgx-spark",
+                  "nvidia-gh200",
+                  "nvidia-h100",
+                  "nvidia-h200",
+                  "nvidia-b200",
+                  "nvidia-gb200",
+                  "nvidia-gb10"
+                ]
+              }
+            ],
+            "resources": {
+              "gpu_count": 1,
+              "ports": [
+                {
+                  "label": "voice_https",
+                  "port": 7863,
+                  "protocol": "tcp"
+                },
+                {
+                  "label": "nvidia_asr",
+                  "port": 8080,
+                  "protocol": "tcp"
+                },
+                {
+                  "label": "docker_model_runner",
+                  "port": 12434,
+                  "protocol": "tcp"
+                },
+                {
+                  "label": "magpie_tts",
+                  "port": 8001,
+                  "protocol": "tcp"
+                }
+              ],
+              "devices": [
+                {
+                  "kind": "gpu",
+                  "type": "nvidia/gpu",
+                  "driver": "cuda",
+                  "count": 1
+                }
+              ]
+            },
+            "requires_services": [
+              {
+                "name": "docker-model-runner",
+                "tags": [
+                  "nvidia",
+                  "cuda"
+                ]
+              },
+              {
+                "name": "nvidia-asr",
+                "tags": [
+                  "nvidia",
+                  "speech-to-text"
+                ]
+              },
+              {
+                "name": "nvidia-tts",
+                "tags": [
+                  "nvidia",
+                  "text-to-speech"
+                ]
+              }
+            ]
+          }
+        }
+      ]
     },
     "benefit": "Lets an operator launch a local OtterDesk run, update plain-text pizza menu knowledge, and hand callers a localhost HTTPS voice link backed by the Spark NVIDIA stack.",
     "blueprint_id": "generic_customer_service_voice_coworker",
@@ -1367,123 +1750,6 @@
     ]
   },
   "name": "Pizza Order Voice AI Co-worker",
-  "nodes": [
-    {
-      "alias": "customer_service_voice_router",
-      "display_name": "Pizza Order Voice Router",
-      "node_id": "ingress",
-      "uses": "mn-agents.control_router@1.0.0",
-      "with": {}
-    },
-    {
-      "alias": "customer_service_voice_host",
-      "constraints": [
-        {
-          "attribute": "capabilities",
-          "operator": "contains_any",
-          "value": [
-            "nvidia-dgx-spark",
-            "nvidia-gh200",
-            "nvidia-h100",
-            "nvidia-h200",
-            "nvidia-b200",
-            "nvidia-gb200",
-            "nvidia-gb10"
-          ]
-        }
-      ],
-      "display_name": "Pizza Order Voice Host",
-      "node_id": "voice_service",
-      "resources": {
-        "gpu_count": 1,
-        "ports": [
-          {
-            "label": "voice_https",
-            "port": 7863,
-            "protocol": "tcp"
-          },
-          {
-            "label": "nvidia_asr",
-            "port": 8080,
-            "protocol": "tcp"
-          },
-          {
-            "label": "docker_model_runner",
-            "port": 12434,
-            "protocol": "tcp"
-          },
-          {
-            "label": "magpie_tts",
-            "port": 8001,
-            "protocol": "tcp"
-          }
-        ],
-        "devices": [
-          {
-            "kind": "gpu",
-            "type": "nvidia/gpu",
-            "driver": "cuda",
-            "count": 1
-          }
-        ]
-      },
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "command": [
-          "bash",
-          "scripts/run_voice_service.sh"
-        ],
-        "environment": {
-          "CUSTOMER_SERVICE_PUBLIC_URL": "https://localhost:7863/customer-service",
-          "CUSTOMER_SERVICE_RUN_ID": "${MN_RUN_ID}",
-          "NEMOTRON_ROOT": "/home/homer/Sandbox/nemotron-january-2026",
-          "VOICE_HTTPS_PORT": "7863"
-        },
-        "agent_beacon_required": false,
-        "cleanup_remote_dir": false,
-        "execution_profile": "nvidia-accelerated-voice",
-        "gpu_count": 1,
-        "health_url": "https://localhost:7863/health",
-        "output_message_type": "customer_service_voice_started",
-        "pool": "nvidia-accelerated",
-        "pool_slots": 1,
-        "public_url": "https://localhost:7863/customer-service",
-        "script": "scripts/run_voice_service.sh",
-        "service": true,
-        "service_kind": "https_webrtc_voice",
-        "upload_path": "voice_service",
-        "upload_paths": [
-          {
-            "source": "voice_service",
-            "target": "voice_service"
-          }
-        ]
-      },
-      "requires_services": [
-        {
-          "name": "docker-model-runner",
-          "tags": [
-            "nvidia",
-            "cuda"
-          ]
-        },
-        {
-          "name": "nvidia-asr",
-          "tags": [
-            "nvidia",
-            "speech-to-text"
-          ]
-        },
-        {
-          "name": "nvidia-tts",
-          "tags": [
-            "nvidia",
-            "text-to-speech"
-          ]
-        }
-      ]
-    }
-  ],
   "policies": {
     "recovery_mode": "cluster_recover",
     "stream_mode": "live"

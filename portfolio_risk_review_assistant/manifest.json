@@ -86,7 +86,7 @@
         "description": "Holdings with symbol and quantity or market value.",
         "example": {
           "base_currency": "USD",
-          "cash": 50000.0,
+          "cash": 50000,
           "holdings": [
             {
               "asset_class": "equity",
@@ -115,12 +115,12 @@
       "risk_policy": {
         "description": "Drawdown, VaR/CVaR, concentration, cash, liquidity, and turnover limits.",
         "example": {
-          "max_cvar_pct": 11.0,
-          "max_drawdown_pct": 15.0,
-          "max_single_name_weight_pct": 45.0,
-          "max_turnover_pct": 15.0,
-          "max_var_pct": 8.0,
-          "min_cash_pct": 5.0
+          "max_cvar_pct": 11,
+          "max_drawdown_pct": 15,
+          "max_single_name_weight_pct": 45,
+          "max_turnover_pct": 15,
+          "max_var_pct": 8,
+          "min_cash_pct": 5
         },
         "privacy": "confidential",
         "required": true,
@@ -335,38 +335,6 @@
     ]
   },
   "description": "Real-time, review-only portfolio risk advisor that uses public market data, financial engineering simulation, decision benchmarking, and LLM-written review reports.",
-  "edges": [
-    {
-      "edge_id": "load_portfolio_context_to_load_public_market_data",
-      "from_node": "load_portfolio_context",
-      "message_type": "portfolio_context_ready",
-      "to_node": "load_public_market_data"
-    },
-    {
-      "edge_id": "load_public_market_data_to_compute_risk_state",
-      "from_node": "load_public_market_data",
-      "message_type": "market_data_ready",
-      "to_node": "compute_risk_state"
-    },
-    {
-      "edge_id": "compute_risk_state_to_simulate_decision_candidates",
-      "from_node": "compute_risk_state",
-      "message_type": "risk_state_ready",
-      "to_node": "simulate_decision_candidates"
-    },
-    {
-      "edge_id": "simulate_decision_candidates_to_evaluate_and_write_report",
-      "from_node": "simulate_decision_candidates",
-      "message_type": "decision_simulations_ready",
-      "to_node": "evaluate_and_write_report"
-    },
-    {
-      "edge_id": "evaluate_and_write_report_to_report",
-      "from_node": "evaluate_and_write_report",
-      "message_type": "llm_report_written",
-      "to_node": "report_sink"
-    }
-  ],
   "flow": {
     "entrypoint": "load_portfolio_context",
     "graph": {
@@ -496,7 +464,7 @@
           },
           "timeout_seconds": 300,
           "uncertainty": {
-            "min_confidence": 0.0,
+            "min_confidence": 0,
             "on_low_confidence": "continue_with_warning"
           }
         },
@@ -525,7 +493,7 @@
           },
           "timeout_seconds": 300,
           "uncertainty": {
-            "min_confidence": 0.0,
+            "min_confidence": 0,
             "on_low_confidence": "continue_with_warning"
           }
         },
@@ -554,7 +522,7 @@
           },
           "timeout_seconds": 300,
           "uncertainty": {
-            "min_confidence": 0.0,
+            "min_confidence": 0,
             "on_low_confidence": "continue_with_warning"
           }
         },
@@ -583,7 +551,7 @@
           },
           "timeout_seconds": 300,
           "uncertainty": {
-            "min_confidence": 0.0,
+            "min_confidence": 0,
             "on_low_confidence": "continue_with_warning"
           }
         },
@@ -612,7 +580,7 @@
           },
           "timeout_seconds": 300,
           "uncertainty": {
-            "min_confidence": 0.0,
+            "min_confidence": 0,
             "on_low_confidence": "continue_with_warning"
           }
         },
@@ -627,6 +595,189 @@
         },
         "out": {},
         "run": "evaluate_and_write_report"
+      }
+    ],
+    "nodes": [
+      {
+        "node_id": "load_portfolio_context",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "upload_path": "simulation_loop",
+          "upload_as": "simulation_loop",
+          "workdir": "/sandbox/job/simulation_loop",
+          "command": [
+            "python3",
+            "scripts/run_blueprint.py"
+          ],
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "output_message_type": "portfolio_context_ready",
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000
+        }
+      },
+      {
+        "node_id": "load_public_market_data",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "upload_path": "simulation_loop",
+          "upload_as": "simulation_loop",
+          "workdir": "/sandbox/job/simulation_loop",
+          "command": [
+            "python3",
+            "scripts/run_blueprint.py"
+          ],
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "output_message_type": "market_data_ready",
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000
+        }
+      },
+      {
+        "node_id": "compute_risk_state",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "upload_path": "simulation_loop",
+          "upload_as": "simulation_loop",
+          "workdir": "/sandbox/job/simulation_loop",
+          "command": [
+            "python3",
+            "scripts/run_blueprint.py"
+          ],
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "output_message_type": "risk_state_ready",
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000
+        }
+      },
+      {
+        "node_id": "simulate_decision_candidates",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "upload_path": "simulation_loop",
+          "upload_as": "simulation_loop",
+          "workdir": "/sandbox/job/simulation_loop",
+          "command": [
+            "python3",
+            "scripts/run_blueprint.py"
+          ],
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "output_message_type": "decision_simulations_ready",
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000
+        }
+      },
+      {
+        "node_id": "evaluate_and_write_report",
+        "type": "map",
+        "agent_type": "executor",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "llm_config": "primary",
+          "output_message_type": "llm_report_written",
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000
+        },
+        "role": "Benchmark candidates, select a review recommendation, and use the LLM only to draft the report."
+      },
+      {
+        "node_id": "report_sink",
+        "type": "reduce",
+        "agent_type": "aggregator",
+        "config": {
+          "complete_on_message": true,
+          "terminal_sink": true,
+          "complete_run": true
+        },
+        "role": "result_sink"
+      }
+    ],
+    "edges": [
+      {
+        "edge_id": "load_portfolio_context_to_load_public_market_data",
+        "from_node": "load_portfolio_context",
+        "message_type": "portfolio_context_ready",
+        "to_node": "load_public_market_data"
+      },
+      {
+        "edge_id": "load_public_market_data_to_compute_risk_state",
+        "from_node": "load_public_market_data",
+        "message_type": "market_data_ready",
+        "to_node": "compute_risk_state"
+      },
+      {
+        "edge_id": "compute_risk_state_to_simulate_decision_candidates",
+        "from_node": "compute_risk_state",
+        "message_type": "risk_state_ready",
+        "to_node": "simulate_decision_candidates"
+      },
+      {
+        "edge_id": "simulate_decision_candidates_to_evaluate_and_write_report",
+        "from_node": "simulate_decision_candidates",
+        "message_type": "decision_simulations_ready",
+        "to_node": "evaluate_and_write_report"
+      },
+      {
+        "edge_id": "evaluate_and_write_report_to_report",
+        "from_node": "evaluate_and_write_report",
+        "message_type": "llm_report_written",
+        "to_node": "report_sink"
       }
     ]
   },
@@ -674,7 +825,242 @@
       ],
       "render_tool": "../mn-agents/tools/render_agent_templates.py",
       "rendered_output": "manifest.rendered.json or runtime metadata",
-      "renderer": "mn_blueprint_support.render_manifest_agent_templates"
+      "renderer": "mn_blueprint_support.render_manifest_agent_templates",
+      "rendered": [
+        {
+          "node_id": "load_portfolio_context",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "load_portfolio_context",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "output_message_type": "portfolio_context_ready",
+              "script": "scripts/run_blueprint.py",
+              "upload_path": "simulation_loop"
+            }
+          },
+          "rendered_node": {
+            "node_id": "load_portfolio_context",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "upload_path": "simulation_loop",
+              "upload_as": "simulation_loop",
+              "workdir": "/sandbox/job/simulation_loop",
+              "command": [
+                "python3",
+                "scripts/run_blueprint.py"
+              ],
+              "from": "base",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "pool": "default",
+              "pool_slots": 1,
+              "tty": false,
+              "output_message_type": "portfolio_context_ready",
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "agent_beacon_required": true,
+              "timeout_seconds": 300,
+              "max_attempts": 2,
+              "retry_backoff_ms": 1000
+            }
+          }
+        },
+        {
+          "node_id": "load_public_market_data",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "load_public_market_data",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "output_message_type": "market_data_ready",
+              "script": "scripts/run_blueprint.py",
+              "upload_path": "simulation_loop"
+            }
+          },
+          "rendered_node": {
+            "node_id": "load_public_market_data",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "upload_path": "simulation_loop",
+              "upload_as": "simulation_loop",
+              "workdir": "/sandbox/job/simulation_loop",
+              "command": [
+                "python3",
+                "scripts/run_blueprint.py"
+              ],
+              "from": "base",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "pool": "default",
+              "pool_slots": 1,
+              "tty": false,
+              "output_message_type": "market_data_ready",
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "agent_beacon_required": true,
+              "timeout_seconds": 300,
+              "max_attempts": 2,
+              "retry_backoff_ms": 1000
+            }
+          }
+        },
+        {
+          "node_id": "compute_risk_state",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "compute_risk_state",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "output_message_type": "risk_state_ready",
+              "script": "scripts/run_blueprint.py",
+              "upload_path": "simulation_loop"
+            }
+          },
+          "rendered_node": {
+            "node_id": "compute_risk_state",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "upload_path": "simulation_loop",
+              "upload_as": "simulation_loop",
+              "workdir": "/sandbox/job/simulation_loop",
+              "command": [
+                "python3",
+                "scripts/run_blueprint.py"
+              ],
+              "from": "base",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "pool": "default",
+              "pool_slots": 1,
+              "tty": false,
+              "output_message_type": "risk_state_ready",
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "agent_beacon_required": true,
+              "timeout_seconds": 300,
+              "max_attempts": 2,
+              "retry_backoff_ms": 1000
+            }
+          }
+        },
+        {
+          "node_id": "simulate_decision_candidates",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "simulate_decision_candidates",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "output_message_type": "decision_simulations_ready",
+              "script": "scripts/run_blueprint.py",
+              "upload_path": "simulation_loop"
+            }
+          },
+          "rendered_node": {
+            "node_id": "simulate_decision_candidates",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "upload_path": "simulation_loop",
+              "upload_as": "simulation_loop",
+              "workdir": "/sandbox/job/simulation_loop",
+              "command": [
+                "python3",
+                "scripts/run_blueprint.py"
+              ],
+              "from": "base",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "pool": "default",
+              "pool_slots": 1,
+              "tty": false,
+              "output_message_type": "decision_simulations_ready",
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "agent_beacon_required": true,
+              "timeout_seconds": 300,
+              "max_attempts": 2,
+              "retry_backoff_ms": 1000
+            }
+          }
+        },
+        {
+          "node_id": "evaluate_and_write_report",
+          "template_id": "mn-agents.data_llm_decision",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "evaluate_and_write_report",
+            "uses": "mn-agents.data_llm_decision@1.0.0",
+            "with": {
+              "llm_config": "primary",
+              "output_message_type": "llm_report_written",
+              "role": "Benchmark candidates, select a review recommendation, and use the LLM only to draft the report."
+            }
+          },
+          "rendered_node": {
+            "node_id": "evaluate_and_write_report",
+            "type": "map",
+            "agent_type": "executor",
+            "config": {
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "llm_config": "primary",
+              "output_message_type": "llm_report_written",
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "timeout_seconds": 300,
+              "max_attempts": 2,
+              "retry_backoff_ms": 1000
+            },
+            "role": "Benchmark candidates, select a review recommendation, and use the LLM only to draft the report."
+          }
+        },
+        {
+          "node_id": "report_sink",
+          "template_id": "mn-agents.control_join",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "report_sink",
+            "uses": "mn-agents.control_join@1.0.0",
+            "with": {
+              "complete_on_message": true,
+              "terminal_sink": true,
+              "complete_run": true
+            }
+          },
+          "rendered_node": {
+            "node_id": "report_sink",
+            "type": "reduce",
+            "agent_type": "aggregator",
+            "config": {
+              "complete_on_message": true,
+              "terminal_sink": true,
+              "complete_run": true
+            },
+            "role": "result_sink"
+          }
+        }
+      ]
     },
     "blueprint_id": "portfolio_risk_review_assistant",
     "category": "finance",
@@ -845,7 +1231,7 @@
             "monte_carlo_paths": 1000,
             "portfolio": {
               "base_currency": "USD",
-              "cash": 50000.0,
+              "cash": 50000,
               "holdings": [
                 {
                   "asset_class": "equity",
@@ -868,12 +1254,12 @@
               ]
             },
             "risk_policy": {
-              "max_cvar_pct": 11.0,
-              "max_drawdown_pct": 15.0,
-              "max_single_name_weight_pct": 45.0,
-              "max_turnover_pct": 15.0,
-              "max_var_pct": 8.0,
-              "min_cash_pct": 5.0
+              "max_cvar_pct": 11,
+              "max_drawdown_pct": 15,
+              "max_single_name_weight_pct": 45,
+              "max_turnover_pct": 15,
+              "max_var_pct": 8,
+              "min_cash_pct": 5
             },
             "seed": 42,
             "simulation_horizon_days": 20
@@ -894,7 +1280,7 @@
           "description": "Holdings with symbol and quantity or market value.",
           "example": {
             "base_currency": "USD",
-            "cash": 50000.0,
+            "cash": 50000,
             "holdings": [
               {
                 "asset_class": "equity",
@@ -922,12 +1308,12 @@
         {
           "description": "Drawdown, VaR/CVaR, concentration, cash, liquidity, and turnover limits.",
           "example": {
-            "max_cvar_pct": 11.0,
-            "max_drawdown_pct": 15.0,
-            "max_single_name_weight_pct": 45.0,
-            "max_turnover_pct": 15.0,
-            "max_var_pct": 8.0,
-            "min_cash_pct": 5.0
+            "max_cvar_pct": 11,
+            "max_drawdown_pct": 15,
+            "max_single_name_weight_pct": 45,
+            "max_turnover_pct": 15,
+            "max_var_pct": 8,
+            "min_cash_pct": 5
           },
           "name": "risk_policy",
           "type": "object"
@@ -1544,62 +1930,6 @@
     }
   },
   "name": "Portfolio Risk Review Assistant",
-  "nodes": [
-    {
-      "node_id": "load_portfolio_context",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "output_message_type": "portfolio_context_ready",
-        "script": "scripts/run_blueprint.py",
-        "upload_path": "simulation_loop"
-      }
-    },
-    {
-      "node_id": "load_public_market_data",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "output_message_type": "market_data_ready",
-        "script": "scripts/run_blueprint.py",
-        "upload_path": "simulation_loop"
-      }
-    },
-    {
-      "node_id": "compute_risk_state",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "output_message_type": "risk_state_ready",
-        "script": "scripts/run_blueprint.py",
-        "upload_path": "simulation_loop"
-      }
-    },
-    {
-      "node_id": "simulate_decision_candidates",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "output_message_type": "decision_simulations_ready",
-        "script": "scripts/run_blueprint.py",
-        "upload_path": "simulation_loop"
-      }
-    },
-    {
-      "node_id": "evaluate_and_write_report",
-      "uses": "mn-agents.data_llm_decision@1.0.0",
-      "with": {
-        "llm_config": "primary",
-        "output_message_type": "llm_report_written",
-        "role": "Benchmark candidates, select a review recommendation, and use the LLM only to draft the report."
-      }
-    },
-    {
-      "node_id": "report_sink",
-      "uses": "mn-agents.control_join@1.0.0",
-      "with": {
-        "complete_on_message": true,
-        "terminal_sink": true,
-        "complete_run": true
-      }
-    }
-  ],
   "policies": {
     "recovery_mode": "local_restart"
   },
@@ -1728,11 +2058,6 @@
       "sdk_distribution": "mirrorneuron-membrane-python-sdk",
       "sdk_import_package": "mn_context_engine_sdk"
     },
-    "models": {
-      "primary": {
-        "model": "default"
-      }
-    },
     "observability": {
       "panels": [
         "current_status",
@@ -1859,6 +2184,11 @@
         "workflow_step_failed",
         "workflow_message_dead_lettered"
       ]
+    },
+    "models": {
+      "primary": {
+        "model": "default"
+      }
     }
   },
   "term": "TERM.md",

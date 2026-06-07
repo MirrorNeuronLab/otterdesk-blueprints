@@ -407,7 +407,7 @@
           },
           "timeout_seconds": 300,
           "uncertainty": {
-            "min_confidence": 0.0,
+            "min_confidence": 0,
             "on_low_confidence": "continue_with_warning"
           }
         },
@@ -441,7 +441,7 @@
           },
           "timeout_seconds": 300,
           "uncertainty": {
-            "min_confidence": 0.0,
+            "min_confidence": 0,
             "on_low_confidence": "continue_with_warning"
           }
         },
@@ -476,7 +476,7 @@
           },
           "timeout_seconds": 300,
           "uncertainty": {
-            "min_confidence": 0.0,
+            "min_confidence": 0,
             "on_low_confidence": "continue_with_warning"
           }
         },
@@ -510,7 +510,7 @@
           },
           "timeout_seconds": 300,
           "uncertainty": {
-            "min_confidence": 0.0,
+            "min_confidence": 0,
             "on_low_confidence": "continue_with_warning"
           }
         },
@@ -529,6 +529,165 @@
           "final_report": "$state.final_report"
         },
         "run": "write_deal_memo"
+      }
+    ],
+    "nodes": [
+      {
+        "node_id": "collect_deal_context",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "upload_path": "simulation_loop",
+          "upload_as": "simulation_loop",
+          "workdir": "/sandbox/job/simulation_loop",
+          "command": [
+            "python3",
+            "scripts/run_blueprint.py"
+          ],
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "output_message_type": "deal_context_ready",
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000
+        }
+      },
+      {
+        "node_id": "compare_memory_signals",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "upload_path": "simulation_loop",
+          "upload_as": "simulation_loop",
+          "workdir": "/sandbox/job/simulation_loop",
+          "command": [
+            "python3",
+            "scripts/run_blueprint.py"
+          ],
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "output_message_type": "memory_signals_ready",
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000
+        }
+      },
+      {
+        "node_id": "score_opportunities",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "upload_path": "simulation_loop",
+          "upload_as": "simulation_loop",
+          "workdir": "/sandbox/job/simulation_loop",
+          "command": [
+            "python3",
+            "scripts/run_blueprint.py"
+          ],
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "output_message_type": "opportunities_scored",
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000
+        }
+      },
+      {
+        "node_id": "write_deal_memo",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "upload_path": "simulation_loop",
+          "upload_as": "simulation_loop",
+          "workdir": "/sandbox/job/simulation_loop",
+          "command": [
+            "python3",
+            "scripts/run_blueprint.py"
+          ],
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "output_message_type": "deal_memo_ready",
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000
+        }
+      },
+      {
+        "node_id": "report_sink",
+        "type": "reduce",
+        "agent_type": "aggregator",
+        "config": {
+          "complete_on_message": true,
+          "terminal_sink": true,
+          "complete_run": true
+        },
+        "role": "result_sink"
+      }
+    ],
+    "edges": [
+      {
+        "edge_id": "collect_deal_context_to_compare_memory_signals",
+        "from_node": "collect_deal_context",
+        "message_type": "deal_context_ready",
+        "to_node": "compare_memory_signals"
+      },
+      {
+        "edge_id": "compare_memory_signals_to_score_opportunities",
+        "from_node": "compare_memory_signals",
+        "message_type": "memory_signals_ready",
+        "to_node": "score_opportunities"
+      },
+      {
+        "edge_id": "score_opportunities_to_write_deal_memo",
+        "from_node": "score_opportunities",
+        "message_type": "opportunities_scored",
+        "to_node": "write_deal_memo"
+      },
+      {
+        "edge_id": "memo_to_report",
+        "from_node": "write_deal_memo",
+        "message_type": "deal_memo_ready",
+        "to_node": "report_sink"
       }
     ]
   },
@@ -646,11 +805,6 @@
       "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
       "sdk_distribution": "mirrorneuron-membrane-python-sdk",
       "sdk_import_package": "mn_context_engine_sdk"
-    },
-    "models": {
-      "primary": {
-        "model": "default"
-      }
     },
     "observability": {
       "panels": [
@@ -778,6 +932,11 @@
         "workflow_step_failed",
         "workflow_message_dead_lettered"
       ]
+    },
+    "models": {
+      "primary": {
+        "model": "default"
+      }
     }
   },
   "input_validation": {
@@ -831,7 +990,210 @@
       ],
       "render_tool": "../mn-agents/tools/render_agent_templates.py",
       "rendered_output": "manifest.rendered.json or runtime metadata",
-      "renderer": "mn_blueprint_support.render_manifest_agent_templates"
+      "renderer": "mn_blueprint_support.render_manifest_agent_templates",
+      "rendered": [
+        {
+          "node_id": "collect_deal_context",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "collect_deal_context",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "script": "scripts/run_blueprint.py",
+              "upload_path": "simulation_loop",
+              "output_message_type": "deal_context_ready"
+            }
+          },
+          "rendered_node": {
+            "node_id": "collect_deal_context",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "upload_path": "simulation_loop",
+              "upload_as": "simulation_loop",
+              "workdir": "/sandbox/job/simulation_loop",
+              "command": [
+                "python3",
+                "scripts/run_blueprint.py"
+              ],
+              "from": "base",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "pool": "default",
+              "pool_slots": 1,
+              "tty": false,
+              "output_message_type": "deal_context_ready",
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "agent_beacon_required": true,
+              "timeout_seconds": 300,
+              "max_attempts": 2,
+              "retry_backoff_ms": 1000
+            }
+          }
+        },
+        {
+          "node_id": "compare_memory_signals",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "compare_memory_signals",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "script": "scripts/run_blueprint.py",
+              "upload_path": "simulation_loop",
+              "output_message_type": "memory_signals_ready"
+            }
+          },
+          "rendered_node": {
+            "node_id": "compare_memory_signals",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "upload_path": "simulation_loop",
+              "upload_as": "simulation_loop",
+              "workdir": "/sandbox/job/simulation_loop",
+              "command": [
+                "python3",
+                "scripts/run_blueprint.py"
+              ],
+              "from": "base",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "pool": "default",
+              "pool_slots": 1,
+              "tty": false,
+              "output_message_type": "memory_signals_ready",
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "agent_beacon_required": true,
+              "timeout_seconds": 300,
+              "max_attempts": 2,
+              "retry_backoff_ms": 1000
+            }
+          }
+        },
+        {
+          "node_id": "score_opportunities",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "score_opportunities",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "script": "scripts/run_blueprint.py",
+              "upload_path": "simulation_loop",
+              "output_message_type": "opportunities_scored"
+            }
+          },
+          "rendered_node": {
+            "node_id": "score_opportunities",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "upload_path": "simulation_loop",
+              "upload_as": "simulation_loop",
+              "workdir": "/sandbox/job/simulation_loop",
+              "command": [
+                "python3",
+                "scripts/run_blueprint.py"
+              ],
+              "from": "base",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "pool": "default",
+              "pool_slots": 1,
+              "tty": false,
+              "output_message_type": "opportunities_scored",
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "agent_beacon_required": true,
+              "timeout_seconds": 300,
+              "max_attempts": 2,
+              "retry_backoff_ms": 1000
+            }
+          }
+        },
+        {
+          "node_id": "write_deal_memo",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "write_deal_memo",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "script": "scripts/run_blueprint.py",
+              "upload_path": "simulation_loop",
+              "output_message_type": "deal_memo_ready"
+            }
+          },
+          "rendered_node": {
+            "node_id": "write_deal_memo",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "upload_path": "simulation_loop",
+              "upload_as": "simulation_loop",
+              "workdir": "/sandbox/job/simulation_loop",
+              "command": [
+                "python3",
+                "scripts/run_blueprint.py"
+              ],
+              "from": "base",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "pool": "default",
+              "pool_slots": 1,
+              "tty": false,
+              "output_message_type": "deal_memo_ready",
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "agent_beacon_required": true,
+              "timeout_seconds": 300,
+              "max_attempts": 2,
+              "retry_backoff_ms": 1000
+            }
+          }
+        },
+        {
+          "node_id": "report_sink",
+          "template_id": "mn-agents.control_join",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "report_sink",
+            "uses": "mn-agents.control_join@1.0.0",
+            "with": {
+              "complete_on_message": true,
+              "terminal_sink": true,
+              "complete_run": true
+            }
+          },
+          "rendered_node": {
+            "node_id": "report_sink",
+            "type": "reduce",
+            "agent_type": "aggregator",
+            "config": {
+              "complete_on_message": true,
+              "terminal_sink": true,
+              "complete_run": true
+            },
+            "role": "result_sink"
+          }
+        }
+      ]
     },
     "blueprint_id": "property_deal_research_assistant",
     "category": "finance",
@@ -1555,78 +1917,5 @@
   },
   "entrypoints": [
     "collect_deal_context"
-  ],
-  "nodes": [
-    {
-      "node_id": "collect_deal_context",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "script": "scripts/run_blueprint.py",
-        "upload_path": "simulation_loop",
-        "output_message_type": "deal_context_ready"
-      }
-    },
-    {
-      "node_id": "compare_memory_signals",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "script": "scripts/run_blueprint.py",
-        "upload_path": "simulation_loop",
-        "output_message_type": "memory_signals_ready"
-      }
-    },
-    {
-      "node_id": "score_opportunities",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "script": "scripts/run_blueprint.py",
-        "upload_path": "simulation_loop",
-        "output_message_type": "opportunities_scored"
-      }
-    },
-    {
-      "node_id": "write_deal_memo",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "script": "scripts/run_blueprint.py",
-        "upload_path": "simulation_loop",
-        "output_message_type": "deal_memo_ready"
-      }
-    },
-    {
-      "node_id": "report_sink",
-      "uses": "mn-agents.control_join@1.0.0",
-      "with": {
-        "complete_on_message": true,
-        "terminal_sink": true,
-        "complete_run": true
-      }
-    }
-  ],
-  "edges": [
-    {
-      "edge_id": "collect_deal_context_to_compare_memory_signals",
-      "from_node": "collect_deal_context",
-      "message_type": "deal_context_ready",
-      "to_node": "compare_memory_signals"
-    },
-    {
-      "edge_id": "compare_memory_signals_to_score_opportunities",
-      "from_node": "compare_memory_signals",
-      "message_type": "memory_signals_ready",
-      "to_node": "score_opportunities"
-    },
-    {
-      "edge_id": "score_opportunities_to_write_deal_memo",
-      "from_node": "score_opportunities",
-      "message_type": "opportunities_scored",
-      "to_node": "write_deal_memo"
-    },
-    {
-      "edge_id": "memo_to_report",
-      "from_node": "write_deal_memo",
-      "message_type": "deal_memo_ready",
-      "to_node": "report_sink"
-    }
   ]
 }

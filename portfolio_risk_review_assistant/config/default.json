@@ -62,8 +62,8 @@
       "send_order",
       "notify_client_with_recommendation_without_review"
     ],
-    "max_turnover_pct": 15.0,
-    "minimum_cash_pct": 5.0,
+    "max_turnover_pct": 15,
+    "minimum_cash_pct": 5,
     "restricted_symbols": [],
     "review_only": true
   },
@@ -170,7 +170,7 @@
       "monte_carlo_paths": 1000,
       "portfolio": {
         "base_currency": "USD",
-        "cash": 50000.0,
+        "cash": 50000,
         "holdings": [
           {
             "asset_class": "equity",
@@ -193,12 +193,12 @@
         ]
       },
       "risk_policy": {
-        "max_cvar_pct": 11.0,
-        "max_drawdown_pct": 15.0,
-        "max_single_name_weight_pct": 45.0,
-        "max_turnover_pct": 15.0,
-        "max_var_pct": 8.0,
-        "min_cash_pct": 5.0
+        "max_cvar_pct": 11,
+        "max_drawdown_pct": 15,
+        "max_single_name_weight_pct": 45,
+        "max_turnover_pct": 15,
+        "max_var_pct": 8,
+        "min_cash_pct": 5
       },
       "seed": 42,
       "simulation_horizon_days": 20
@@ -395,7 +395,6 @@
     ]
   },
   "llm": {
-    "model": "default",
     "enabled": true,
     "agent_role": "LLM report writer that summarizes supplied market signals and structured simulation evidence; deterministic finance workers propose, simulate, evaluate, and benchmark decisions.",
     "agents": {
@@ -414,7 +413,8 @@
       "write final report from structured metrics",
       "avoid inventing prices or executable trades"
     ],
-    "mock_mode": "fake"
+    "mock_mode": "fake",
+    "model": "default"
   },
   "logging": {
     "events": [
