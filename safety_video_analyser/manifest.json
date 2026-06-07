@@ -1,0 +1,192 @@
+{
+  "manifest_version": "1.0",
+  "graph_id": "safety_video_analyser_v1",
+  "job_name": "safety-video-analyser",
+  "type": "batch",
+  "entrypoints": [
+    "video_understanding_agent"
+  ],
+  "policies": {
+    "recovery_mode": "local_restart",
+    "job_type": "batch",
+    "scheduler": {
+      "strategy": "binpack"
+    }
+  },
+  "metadata": {
+    "blueprint_id": "safety_video_analyser",
+    "name": "Safety Video Analyser",
+    "category": "Security",
+    "description": "Analyses local work-safety videos on a powerful VLM node, then asks a report generator on a preferred weaker node to summarize findings.",
+    "init_config_review": {
+      "required": true,
+      "instruction": "Review the local video folder and optional report-generator node preference before launch.",
+      "fields": [
+        {
+          "label": "Video folder",
+          "path": "video_inputs.folder_path",
+          "default": "~/Downloads/videos",
+          "description": "Host-local folder containing sample safety videos. Files are staged through BlobRef sharing."
+        },
+        {
+          "label": "Report node",
+          "path": "node_allocation.report_generator_preferred_node",
+          "default": "mirror_neuron@192.168.4.173",
+          "description": "Suggestive node preference for the report generator. Scheduler falls back automatically if unavailable."
+        }
+      ]
+    }
+  },
+  "flow": {
+    "entrypoint": "video_understanding_agent",
+    "nodes": [
+      {
+        "node_id": "video_understanding_agent",
+        "type": "generic",
+        "agent_type": "executor",
+        "role": "root",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "upload_path": "safety_video_analyser",
+          "upload_as": "safety_video_analyser",
+          "workdir": "/sandbox/job/safety_video_analyser",
+          "command": [
+            "python3",
+            "scripts/run_video_understanding.py"
+          ],
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "model": "otterdesk-video-watch:default",
+          "output_message_type": "safety_video_understood",
+          "environment": {
+            "MN_WORKFLOW_STEP_ID": "video_understanding_agent",
+            "MN_VLM_PROVIDER": "docker_model_runner",
+            "MN_VLM_MODEL": "hf.co/nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-BF16",
+            "MN_LLM_MODEL": "hf.co/nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-BF16",
+            "MN_LLM_RUNTIME_MODEL": "hf.co/nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-BF16"
+          },
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 600,
+          "max_attempts": 1
+        },
+        "constraints": [
+          {
+            "attribute": "capabilities",
+            "operator": "contains_any",
+            "value": [
+              "nvidia-dgx-spark",
+              "nvidia-gh200",
+              "nvidia-h100",
+              "nvidia-h200",
+              "nvidia-b200",
+              "nvidia-gb10",
+              "nvidia-gb200"
+            ]
+          }
+        ],
+        "resources": {
+          "cpu_cores": 4,
+          "memory_mb": 8192,
+          "gpu_count": 1,
+          "devices": [
+            {
+              "kind": "gpu",
+              "type": "nvidia/gpu",
+              "driver": "cuda",
+              "count": 1,
+              "min_memory_mb": 24576
+            }
+          ]
+        }
+      },
+      {
+        "node_id": "report_generator",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "upload_path": "safety_video_analyser",
+          "upload_as": "safety_video_analyser",
+          "workdir": "/sandbox/job/safety_video_analyser",
+          "command": [
+            "python3",
+            "scripts/run_report_generator.py"
+          ],
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "output_message_type": "safety_report_ready",
+          "terminal_sink": true,
+          "complete_run": true,
+          "environment": {
+            "MN_WORKFLOW_STEP_ID": "report_generator"
+          },
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 1
+        },
+        "policies": {
+          "scheduler": {
+            "preferred_node": "mirror_neuron@192.168.4.173"
+          }
+        },
+        "resources": {
+          "cpu_cores": 1,
+          "memory_mb": 1024
+        }
+      }
+    ],
+    "edges": [
+      {
+        "edge_id": "video_to_report",
+        "from_node": "video_understanding_agent",
+        "message_type": "safety_video_understood",
+        "to_node": "report_generator"
+      }
+    ]
+  },
+  "runtime": {
+    "models": {
+      "default": {
+        "type": "llm",
+        "provider": "docker_model_runner",
+        "model": "gemma4:e2b",
+        "runtime_model": "gemma4:e2b",
+        "backend": "llama.cpp",
+        "required": true
+      },
+      "video_understanding": {
+        "type": "vlm",
+        "provider": "docker_model_runner",
+        "model": "otterdesk-video-watch:default",
+        "runtime_model": "otterdesk-video-watch:default",
+        "backend": "llama.cpp",
+        "install_mode": "cluster_provided",
+        "required": true
+      }
+    }
+  },
+  "initial_inputs": {
+    "video_understanding_agent": [
+      {
+        "task": "analyse_safety_videos",
+        "source": "local_video_folder"
+      }
+    ]
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "identity": {
+    "blueprint_id": "safety_video_analyser",
+    "name": "Safety Video Analyser"
+  },
+  "video_inputs": {
+    "folder_path": "~/Downloads/videos"
+  },
+  "inputs": {
+    "payload": {
+      "video_folder": "~/Downloads/videos"
+    }
+  },
+  "node_allocation": {
+    "report_generator_preferred_node": "mirror_neuron@192.168.4.173"
+  },
+  "llm": {
+    "enabled": true,
+    "provider": "docker_model_runner",
+    "model": "gemma4:e2b",
+    "backend": "llama.cpp",
+    "context_size": 4096,
+    "max_tokens": 800,
+    "timeout_seconds": 120
+  },
+  "vl_model": {
+    "provider": "docker_model_runner",
+    "model": "otterdesk-video-watch:default",
+    "runtime_model": "hf.co/nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-BF16",
+    "timeout_seconds": 300
+  },
+  "local_inputs": {
+    "folders": [
+      {
+        "config_path": "video_inputs.folder_path",
+        "payload_path": "safety_video_analyser/mn_local_inputs/videos",
+        "runtime_path": "mn_local_inputs/videos",
+        "allowed_extensions": [
+          ".mp4",
+          ".mov",
+          ".mkv",
+          ".avi",
+          ".webm"
+        ],
+        "linked_config_paths": [
+          "inputs.payload.video_folder"
+        ]
+      }
+    ]
+  },
+  "manifest_config_bindings": [
+    {
+      "config_path": "node_allocation.report_generator_preferred_node",
+      "manifest_path": "flow.nodes.report_generator.policies.scheduler.preferred_node"
+    }
+  ]
+}

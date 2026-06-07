@@ -1,6 +1,34 @@
 [
   {
     "category": "Security",
+    "description": "Runs a safety-video understanding agent on a powerful NVIDIA VLM node, then generates a Gemma-backed report on a preferred weaker node while staging videos through BlobRef sharing.",
+    "graph_id": "safety_video_analyser_v1",
+    "id": "safety_video_analyser",
+    "job_name": "safety-video-analyser",
+    "name": "Safety Video Analyser",
+    "path": "safety_video_analyser",
+    "product": {
+      "agent_role": "Video understanding and safety report team that validates smart node allocation across a desktop cluster.",
+      "benefit": "Confirms large local videos can move by BlobRef to the model node while report generation can prefer a lighter local node.",
+      "customizable_for": "Workplace safety review, video QA, facility operations, and cluster placement validation.",
+      "how_it_works": "Stages local videos from the selected folder, schedules the VLM worker on a high-end NVIDIA node, routes structured video metadata to a report worker, and records a Markdown report.",
+      "input": "Local folder of safety videos.",
+      "output": "Safety video metadata and Markdown report with placement/model routing evidence.",
+      "problem": "Large video inputs should not travel through gRPC, and model-heavy agents should run near the right hardware while lighter agents can prefer weaker nodes.",
+      "runtime_features": [
+        "BlobRef video staging",
+        "smart node allocation",
+        "suggestive preferred node",
+        "Docker Model Runner VLM",
+        "default Gemma report generation"
+      ],
+      "simulation_type": "Two-agent cross-node video analysis placement smoke test.",
+      "target_users": "OtterDesk operators, cluster runtime developers, and safety operations teams."
+    },
+    "type": "batch"
+  },
+  {
+    "category": "Security",
     "description": "Watches an approved video stream, detects configured visual targets, and reports count, label, category, color, position, activity, and alert status for review.",
     "graph_id": "video_watch_assistant_v1",
     "id": "video_watch_assistant",
