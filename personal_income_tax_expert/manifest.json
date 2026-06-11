@@ -6,7 +6,6 @@
   "version": "1.0.0",
   "manifest_version": "1.0",
   "description": "Runs an LLM-assisted tax preparation team over local tax documents, builds draft Form 1040 workpapers, audits the packet, and writes JSON, Markdown, and PDF review outputs.",
-  "graph_id": "personal_income_tax_expert_v1",
   "job_name": "personal-income-tax-expert",
   "contract": {
     "events": {
@@ -288,147 +287,20 @@
       "Individual taxpayers, household finance operators, bookkeepers, and tax preparers who want a source-grounded draft before using filing software."
     ]
   },
-  "flow": {
+  "workflow": {
+    "schema": "mn.workflow.problem_graph/v1",
+    "workflow_id": "personal_income_tax_expert_v1",
+    "mode": "static_dag",
     "entrypoint": "intake_documents",
-    "graph": {
-      "dynamic": {
-        "apply_at": "between_steps",
-        "enabled": false,
-        "patch_events": []
-      },
-      "edges": [
-        {
-          "accepts": [
-            "done"
-          ],
-          "event": "tax_intake_ready",
-          "from": "intake_documents",
-          "id": "intake_documents_to_prepare_income_workpapers",
-          "required": true,
-          "to": "prepare_income_workpapers"
-        },
-        {
-          "accepts": [
-            "done"
-          ],
-          "event": "tax_intake_ready",
-          "from": "intake_documents",
-          "id": "intake_documents_to_prepare_property_workpapers",
-          "required": true,
-          "to": "prepare_property_workpapers"
-        },
-        {
-          "accepts": [
-            "done"
-          ],
-          "event": "tax_intake_ready",
-          "from": "intake_documents",
-          "id": "intake_documents_to_prepare_investment_workpapers",
-          "required": true,
-          "to": "prepare_investment_workpapers"
-        },
-        {
-          "accepts": [
-            "done"
-          ],
-          "event": "tax_income_workpapers_ready",
-          "from": "prepare_income_workpapers",
-          "id": "prepare_income_workpapers_to_merge_tax_workpapers",
-          "required": true,
-          "to": "merge_tax_workpapers"
-        },
-        {
-          "accepts": [
-            "done",
-            "partial",
-            "skipped"
-          ],
-          "event": "tax_property_workpapers_ready",
-          "from": "prepare_property_workpapers",
-          "id": "prepare_property_workpapers_to_merge_tax_workpapers",
-          "required": false,
-          "to": "merge_tax_workpapers"
-        },
-        {
-          "accepts": [
-            "done",
-            "partial",
-            "skipped"
-          ],
-          "event": "tax_investment_workpapers_ready",
-          "from": "prepare_investment_workpapers",
-          "id": "prepare_investment_workpapers_to_merge_tax_workpapers",
-          "required": false,
-          "to": "merge_tax_workpapers"
-        },
-        {
-          "accepts": [
-            "done"
-          ],
-          "event": "tax_workpapers_merged",
-          "from": "merge_tax_workpapers",
-          "id": "merge_tax_workpapers_to_audit_and_manager_review",
-          "required": true,
-          "to": "audit_and_manager_review"
-        },
-        {
-          "accepts": [
-            "done"
-          ],
-          "event": "tax_review_ready",
-          "from": "audit_and_manager_review",
-          "id": "audit_and_manager_review_to_write_review_packet",
-          "required": true,
-          "to": "write_review_packet"
-        }
-      ],
-      "execution": {
-        "strategy": "parallel"
-      },
-      "mode": "static_dag",
-      "schema": "mn.workflow.problem_graph/v1",
-      "sink": "write_review_packet",
-      "source": "intake_documents"
+    "source": "intake_documents",
+    "sink": "write_review_packet",
+    "execution": {
+      "strategy": "parallel"
     },
-    "observers": [],
-    "policy": {
-      "failure": {
-        "default": "fail_closed"
-      },
-      "human": {
-        "decisions": [
-          "approve",
-          "revise",
-          "reject"
-        ],
-        "default": "reject",
-        "enabled": true,
-        "events": {
-          "decision": "human_decision_applied",
-          "request": "human_input_requested",
-          "response": "human_input_received",
-          "timeout": "human_input_timeout"
-        },
-        "mode": "approval_required",
-        "timeout_seconds": 3600
-      },
-      "safety": {
-        "blocked_actions": [
-          "file_tax_return",
-          "submit_to_irs",
-          "send_to_tax_preparer",
-          "write_tax_packet_to_connector_without_review"
-        ],
-        "default": "allow",
-        "rules": [
-          {
-            "effect": "require_human_approval",
-            "id": "write_review_packet_requires_human_approval",
-            "message": "Human approval is required before this workflow writes or releases high-impact recommendations.",
-            "when": "step == 'write_review_packet'"
-          }
-        ]
-      }
+    "dynamic": {
+      "apply_at": "between_steps",
+      "enabled": false,
+      "patch_events": []
     },
     "state": {
       "filing_status": {
@@ -731,6 +603,138 @@
         ],
         "run": "write_review_packet"
       }
+    ],
+    "edges": [
+      {
+        "accepts": [
+          "done"
+        ],
+        "event": "tax_intake_ready",
+        "from": "intake_documents",
+        "id": "intake_documents_to_prepare_income_workpapers",
+        "required": true,
+        "to": "prepare_income_workpapers"
+      },
+      {
+        "accepts": [
+          "done"
+        ],
+        "event": "tax_intake_ready",
+        "from": "intake_documents",
+        "id": "intake_documents_to_prepare_property_workpapers",
+        "required": true,
+        "to": "prepare_property_workpapers"
+      },
+      {
+        "accepts": [
+          "done"
+        ],
+        "event": "tax_intake_ready",
+        "from": "intake_documents",
+        "id": "intake_documents_to_prepare_investment_workpapers",
+        "required": true,
+        "to": "prepare_investment_workpapers"
+      },
+      {
+        "accepts": [
+          "done"
+        ],
+        "event": "tax_income_workpapers_ready",
+        "from": "prepare_income_workpapers",
+        "id": "prepare_income_workpapers_to_merge_tax_workpapers",
+        "required": true,
+        "to": "merge_tax_workpapers"
+      },
+      {
+        "accepts": [
+          "done",
+          "partial",
+          "skipped"
+        ],
+        "event": "tax_property_workpapers_ready",
+        "from": "prepare_property_workpapers",
+        "id": "prepare_property_workpapers_to_merge_tax_workpapers",
+        "required": false,
+        "to": "merge_tax_workpapers"
+      },
+      {
+        "accepts": [
+          "done",
+          "partial",
+          "skipped"
+        ],
+        "event": "tax_investment_workpapers_ready",
+        "from": "prepare_investment_workpapers",
+        "id": "prepare_investment_workpapers_to_merge_tax_workpapers",
+        "required": false,
+        "to": "merge_tax_workpapers"
+      },
+      {
+        "accepts": [
+          "done"
+        ],
+        "event": "tax_workpapers_merged",
+        "from": "merge_tax_workpapers",
+        "id": "merge_tax_workpapers_to_audit_and_manager_review",
+        "required": true,
+        "to": "audit_and_manager_review"
+      },
+      {
+        "accepts": [
+          "done"
+        ],
+        "event": "tax_review_ready",
+        "from": "audit_and_manager_review",
+        "id": "audit_and_manager_review_to_write_review_packet",
+        "required": true,
+        "to": "write_review_packet"
+      }
+    ],
+    "policy": {
+      "failure": {
+        "default": "fail_closed"
+      },
+      "human": {
+        "decisions": [
+          "approve",
+          "revise",
+          "reject"
+        ],
+        "default": "reject",
+        "enabled": true,
+        "events": {
+          "decision": "human_decision_applied",
+          "request": "human_input_requested",
+          "response": "human_input_received",
+          "timeout": "human_input_timeout"
+        },
+        "mode": "approval_required",
+        "timeout_seconds": 3600
+      },
+      "safety": {
+        "blocked_actions": [
+          "file_tax_return",
+          "submit_to_irs",
+          "send_to_tax_preparer",
+          "write_tax_packet_to_connector_without_review"
+        ],
+        "default": "allow",
+        "rules": [
+          {
+            "effect": "require_human_approval",
+            "id": "write_review_packet_requires_human_approval",
+            "message": "Human approval is required before this workflow writes or releases high-impact recommendations.",
+            "when": "step == 'write_review_packet'"
+          }
+        ]
+      }
+    },
+    "observers": []
+  },
+  "agents": {
+    "schema": "mn.agents.communication_graph/v1",
+    "entrypoints": [
+      "intake_documents"
     ],
     "nodes": [
       {
@@ -1317,7 +1321,7 @@
     "workflow_control": {
       "schema_version": "mn.workflow.runtime_control.v1",
       "enabled": true,
-      "source_of_truth": "flow.steps",
+      "source_of_truth": "workflow.steps",
       "state_ledger": {
         "enabled": true,
         "persisted_field": "workflow_state",
@@ -1347,8 +1351,8 @@
           "idempotency_key"
         ],
         "stale_attempt_outputs": "ignore",
-        "retry_policy_source": "flow.steps[].control.retry",
-        "timeout_source": "flow.steps[].control.timeout_seconds"
+        "retry_policy_source": "workflow.steps[].control.retry",
+        "timeout_source": "workflow.steps[].control.timeout_seconds"
       },
       "liveness": {
         "event": "agent_beacon",
@@ -2447,7 +2451,7 @@
       "human control policy",
       "artifact records",
       "run-store observability dashboard",
-      "workflow-driven flow graph",
+      "workflow-driven problem graph",
       "step-scoped worker teams"
     ],
     "search_terms": [
@@ -2498,7 +2502,7 @@
       "run_store": "~/.mn/runs/<run_id>/",
       "version": "1.0",
       "workflow_api_version": "mn.workflow/v1",
-      "workflow_model": "contract -> flow -> runtime"
+      "workflow_model": "contract -> workflow -> agents/runtime"
     },
     "status_contract": {
       "heartbeat_event": "agent_beacon",
@@ -2588,8 +2592,5 @@
         "llm_retries"
       ]
     }
-  },
-  "entrypoints": [
-    "intake_documents"
-  ]
+  }
 }

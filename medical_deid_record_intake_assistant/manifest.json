@@ -6,11 +6,7 @@
   "version": "1.0.0",
   "manifest_version": "1.0",
   "description": "Detects and redacts PHI or PII from clinical-style PDFs, extracts patient-record intake fields, and writes a review-gated de-identification packet.",
-  "graph_id": "medical_deid_record_intake_assistant_v1",
   "job_name": "medical-deid-record-intake-assistant",
-  "entrypoints": [
-    "stage_medical_inputs"
-  ],
   "contract": {
     "events": {
       "stream": "events.jsonl",
@@ -285,114 +281,20 @@
       "Hospitals, clinics, health-tech vendors, clinical research teams, and medical document operations teams."
     ]
   },
-  "flow": {
+  "workflow": {
+    "schema": "mn.workflow.problem_graph/v1",
+    "workflow_id": "medical_deid_record_intake_assistant_v1",
+    "mode": "static_dag",
     "entrypoint": "stage_medical_inputs",
-    "graph": {
-      "schema": "mn.workflow.problem_graph/v1",
-      "mode": "static_dag",
-      "source": "stage_medical_inputs",
-      "sink": "write_deid_review_packet",
-      "execution": {
-        "strategy": "serial"
-      },
-      "dynamic": {
-        "enabled": false,
-        "apply_at": "between_steps",
-        "patch_events": []
-      },
-      "edges": [
-        {
-          "id": "stage_medical_inputs_to_extract_medical_text",
-          "from": "stage_medical_inputs",
-          "to": "extract_medical_text",
-          "event": "medical_inputs_staged",
-          "required": true,
-          "accepts": [
-            "done"
-          ]
-        },
-        {
-          "id": "extract_medical_text_to_detect_phi_entities",
-          "from": "extract_medical_text",
-          "to": "detect_phi_entities",
-          "event": "medical_text_extracted",
-          "required": true,
-          "accepts": [
-            "done"
-          ]
-        },
-        {
-          "id": "detect_phi_entities_to_redact_and_validate_medical_packet",
-          "from": "detect_phi_entities",
-          "to": "redact_and_validate_medical_packet",
-          "event": "phi_entities_detected",
-          "required": true,
-          "accepts": [
-            "done"
-          ]
-        },
-        {
-          "id": "redact_and_validate_medical_packet_to_write_deid_review_packet",
-          "from": "redact_and_validate_medical_packet",
-          "to": "write_deid_review_packet",
-          "event": "medical_packet_validated",
-          "required": true,
-          "accepts": [
-            "done"
-          ]
-        }
-      ]
+    "source": "stage_medical_inputs",
+    "sink": "write_deid_review_packet",
+    "execution": {
+      "strategy": "serial"
     },
-    "policy": {
-      "failure": {
-        "default": "fail_closed"
-      },
-      "human": {
-        "allowed_decisions": [
-          "approve",
-          "revise",
-          "reject"
-        ],
-        "blocked_actions": [
-          "release_deidentified_record",
-          "send_to_research_dataset",
-          "upload_to_external_service",
-          "mark_hipaa_safe_without_review"
-        ],
-        "decision_event": "human_decision_applied",
-        "default_action": "reject",
-        "enabled": true,
-        "events": [
-          "human_notice",
-          "human_input_requested",
-          "human_input_received",
-          "human_input_timeout",
-          "human_decision_applied"
-        ],
-        "mode": "approval_required",
-        "reason": "Human approval is required before any downstream release, filing, payment, legal, clinical, credit, or system-sync action.",
-        "request_event": "human_input_requested",
-        "response_event": "human_input_received",
-        "timeout_event": "human_input_timeout",
-        "timeout_seconds": 3600
-      },
-      "safety": {
-        "default": "allow",
-        "blocked_actions": [
-          "release_deidentified_record",
-          "send_to_research_dataset",
-          "upload_to_external_service",
-          "mark_hipaa_safe_without_review"
-        ],
-        "rules": [
-          {
-            "id": "review_required_before_downstream_release",
-            "effect": "require_human_approval",
-            "when": "step == 'write_deid_review_packet'",
-            "message": "Human approval is required before extracted values are released to downstream systems or used for consequential decisions."
-          }
-        ]
-      }
+    "dynamic": {
+      "enabled": false,
+      "apply_at": "between_steps",
+      "patch_events": []
     },
     "state": {
       "document_folder": {
@@ -614,7 +516,106 @@
         ]
       }
     ],
-    "observers": [],
+    "edges": [
+      {
+        "id": "stage_medical_inputs_to_extract_medical_text",
+        "from": "stage_medical_inputs",
+        "to": "extract_medical_text",
+        "event": "medical_inputs_staged",
+        "required": true,
+        "accepts": [
+          "done"
+        ]
+      },
+      {
+        "id": "extract_medical_text_to_detect_phi_entities",
+        "from": "extract_medical_text",
+        "to": "detect_phi_entities",
+        "event": "medical_text_extracted",
+        "required": true,
+        "accepts": [
+          "done"
+        ]
+      },
+      {
+        "id": "detect_phi_entities_to_redact_and_validate_medical_packet",
+        "from": "detect_phi_entities",
+        "to": "redact_and_validate_medical_packet",
+        "event": "phi_entities_detected",
+        "required": true,
+        "accepts": [
+          "done"
+        ]
+      },
+      {
+        "id": "redact_and_validate_medical_packet_to_write_deid_review_packet",
+        "from": "redact_and_validate_medical_packet",
+        "to": "write_deid_review_packet",
+        "event": "medical_packet_validated",
+        "required": true,
+        "accepts": [
+          "done"
+        ]
+      }
+    ],
+    "policy": {
+      "failure": {
+        "default": "fail_closed"
+      },
+      "human": {
+        "allowed_decisions": [
+          "approve",
+          "revise",
+          "reject"
+        ],
+        "blocked_actions": [
+          "release_deidentified_record",
+          "send_to_research_dataset",
+          "upload_to_external_service",
+          "mark_hipaa_safe_without_review"
+        ],
+        "decision_event": "human_decision_applied",
+        "default_action": "reject",
+        "enabled": true,
+        "events": [
+          "human_notice",
+          "human_input_requested",
+          "human_input_received",
+          "human_input_timeout",
+          "human_decision_applied"
+        ],
+        "mode": "approval_required",
+        "reason": "Human approval is required before any downstream release, filing, payment, legal, clinical, credit, or system-sync action.",
+        "request_event": "human_input_requested",
+        "response_event": "human_input_received",
+        "timeout_event": "human_input_timeout",
+        "timeout_seconds": 3600
+      },
+      "safety": {
+        "default": "allow",
+        "blocked_actions": [
+          "release_deidentified_record",
+          "send_to_research_dataset",
+          "upload_to_external_service",
+          "mark_hipaa_safe_without_review"
+        ],
+        "rules": [
+          {
+            "id": "review_required_before_downstream_release",
+            "effect": "require_human_approval",
+            "when": "step == 'write_deid_review_packet'",
+            "message": "Human approval is required before extracted values are released to downstream systems or used for consequential decisions."
+          }
+        ]
+      }
+    },
+    "observers": []
+  },
+  "agents": {
+    "schema": "mn.agents.communication_graph/v1",
+    "entrypoints": [
+      "stage_medical_inputs"
+    ],
     "nodes": [
       {
         "node_id": "stage_medical_inputs",
@@ -1012,7 +1013,7 @@
     "workflow_control": {
       "schema_version": "mn.workflow.runtime_control.v1",
       "enabled": true,
-      "source_of_truth": "flow.steps",
+      "source_of_truth": "workflow.steps",
       "state_ledger": {
         "enabled": true,
         "persisted_field": "workflow_state",
@@ -1042,8 +1043,8 @@
           "idempotency_key"
         ],
         "stale_attempt_outputs": "ignore",
-        "retry_policy_source": "flow.steps[].control.retry",
-        "timeout_source": "flow.steps[].control.timeout_seconds"
+        "retry_policy_source": "workflow.steps[].control.retry",
+        "timeout_source": "workflow.steps[].control.timeout_seconds"
       },
       "liveness": {
         "event": "agent_beacon",
@@ -1110,7 +1111,7 @@
     "customizable_for": "Patient-record intake, clinical PDF redaction, medical BPO queues, research chart abstraction, and HIPAA-constrained document preprocessing.",
     "problem": "Hospitals, clinics, health-tech vendors, clinical research teams, and medical BPOs need local OCR and de-identification of PHI-bearing records before downstream use.",
     "standard": {
-      "workflow_model": "contract -> flow -> runtime"
+      "workflow_model": "contract -> workflow -> agents/runtime"
     },
     "runtime_features": [
       "local document folder intake",

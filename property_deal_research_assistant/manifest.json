@@ -6,7 +6,6 @@
   "version": "1.0.0",
   "manifest_version": "1.0",
   "description": "Reviews ZIP-code history, broker notes, financing constraints, and deal memory to rank property opportunities and explain which ones deserve attention.",
-  "graph_id": "property_deal_research_assistant_v1",
   "job_name": "property-deal-research-assistant",
   "contract": {
     "events": {
@@ -287,93 +286,20 @@
       "Real-estate investors, acquisition analysts, property-tech teams, and diligence operators."
     ]
   },
-  "flow": {
+  "workflow": {
+    "schema": "mn.workflow.problem_graph/v1",
+    "workflow_id": "property_deal_research_assistant_v1",
+    "mode": "static_dag",
     "entrypoint": "collect_deal_context",
-    "graph": {
-      "dynamic": {
-        "apply_at": "between_steps",
-        "enabled": false,
-        "patch_events": []
-      },
-      "edges": [
-        {
-          "accepts": [
-            "done"
-          ],
-          "event": "deal_context_ready",
-          "from": "collect_deal_context",
-          "id": "collect_deal_context_to_compare_memory_signals",
-          "required": true,
-          "to": "compare_memory_signals"
-        },
-        {
-          "accepts": [
-            "done"
-          ],
-          "event": "memory_signals_ready",
-          "from": "compare_memory_signals",
-          "id": "compare_memory_signals_to_score_opportunities",
-          "required": true,
-          "to": "score_opportunities"
-        },
-        {
-          "accepts": [
-            "done"
-          ],
-          "event": "opportunities_scored",
-          "from": "score_opportunities",
-          "id": "score_opportunities_to_write_deal_memo",
-          "required": true,
-          "to": "write_deal_memo"
-        }
-      ],
-      "execution": {
-        "strategy": "parallel"
-      },
-      "mode": "static_dag",
-      "schema": "mn.workflow.problem_graph/v1",
-      "sink": "write_deal_memo",
-      "source": "collect_deal_context"
+    "source": "collect_deal_context",
+    "sink": "write_deal_memo",
+    "execution": {
+      "strategy": "parallel"
     },
-    "observers": [],
-    "policy": {
-      "failure": {
-        "default": "fail_closed"
-      },
-      "human": {
-        "decisions": [
-          "approve",
-          "revise",
-          "reject"
-        ],
-        "default": "reject",
-        "enabled": true,
-        "events": {
-          "decision": "human_decision_applied",
-          "request": "human_input_requested",
-          "response": "human_input_received",
-          "timeout": "human_input_timeout"
-        },
-        "mode": "approval_required",
-        "timeout_seconds": 3600
-      },
-      "safety": {
-        "blocked_actions": [
-          "submit_bid",
-          "send_loi",
-          "negotiate_discount",
-          "notify_broker_without_review"
-        ],
-        "default": "allow",
-        "rules": [
-          {
-            "effect": "require_human_approval",
-            "id": "write_deal_memo_requires_human_approval",
-            "message": "Human approval is required before this workflow writes or releases high-impact recommendations.",
-            "when": "step == 'write_deal_memo'"
-          }
-        ]
-      }
+    "dynamic": {
+      "apply_at": "between_steps",
+      "enabled": false,
+      "patch_events": []
     },
     "state": {
       "deal_context": {},
@@ -530,6 +456,84 @@
         },
         "run": "write_deal_memo"
       }
+    ],
+    "edges": [
+      {
+        "accepts": [
+          "done"
+        ],
+        "event": "deal_context_ready",
+        "from": "collect_deal_context",
+        "id": "collect_deal_context_to_compare_memory_signals",
+        "required": true,
+        "to": "compare_memory_signals"
+      },
+      {
+        "accepts": [
+          "done"
+        ],
+        "event": "memory_signals_ready",
+        "from": "compare_memory_signals",
+        "id": "compare_memory_signals_to_score_opportunities",
+        "required": true,
+        "to": "score_opportunities"
+      },
+      {
+        "accepts": [
+          "done"
+        ],
+        "event": "opportunities_scored",
+        "from": "score_opportunities",
+        "id": "score_opportunities_to_write_deal_memo",
+        "required": true,
+        "to": "write_deal_memo"
+      }
+    ],
+    "policy": {
+      "failure": {
+        "default": "fail_closed"
+      },
+      "human": {
+        "decisions": [
+          "approve",
+          "revise",
+          "reject"
+        ],
+        "default": "reject",
+        "enabled": true,
+        "events": {
+          "decision": "human_decision_applied",
+          "request": "human_input_requested",
+          "response": "human_input_received",
+          "timeout": "human_input_timeout"
+        },
+        "mode": "approval_required",
+        "timeout_seconds": 3600
+      },
+      "safety": {
+        "blocked_actions": [
+          "submit_bid",
+          "send_loi",
+          "negotiate_discount",
+          "notify_broker_without_review"
+        ],
+        "default": "allow",
+        "rules": [
+          {
+            "effect": "require_human_approval",
+            "id": "write_deal_memo_requires_human_approval",
+            "message": "Human approval is required before this workflow writes or releases high-impact recommendations.",
+            "when": "step == 'write_deal_memo'"
+          }
+        ]
+      }
+    },
+    "observers": []
+  },
+  "agents": {
+    "schema": "mn.agents.communication_graph/v1",
+    "entrypoints": [
+      "collect_deal_context"
     ],
     "nodes": [
       {
@@ -870,7 +874,7 @@
     "workflow_control": {
       "schema_version": "mn.workflow.runtime_control.v1",
       "enabled": true,
-      "source_of_truth": "flow.steps",
+      "source_of_truth": "workflow.steps",
       "state_ledger": {
         "enabled": true,
         "persisted_field": "workflow_state",
@@ -900,8 +904,8 @@
           "idempotency_key"
         ],
         "stale_attempt_outputs": "ignore",
-        "retry_policy_source": "flow.steps[].control.retry",
-        "timeout_source": "flow.steps[].control.timeout_seconds"
+        "retry_policy_source": "workflow.steps[].control.retry",
+        "timeout_source": "workflow.steps[].control.timeout_seconds"
       },
       "liveness": {
         "event": "agent_beacon",
@@ -1776,7 +1780,7 @@
       "human control policy",
       "artifact records",
       "run-store observability dashboard",
-      "workflow-driven flow graph",
+      "workflow-driven problem graph",
       "step-scoped worker teams"
     ],
     "simulation": {
@@ -1824,7 +1828,7 @@
       "run_store": "~/.mn/runs/<run_id>/",
       "version": "1.0",
       "workflow_api_version": "mn.workflow/v1",
-      "workflow_model": "contract -> flow -> runtime"
+      "workflow_model": "contract -> workflow -> agents/runtime"
     },
     "status_contract": {
       "heartbeat_event": "agent_beacon",
@@ -1914,8 +1918,5 @@
         "llm_retries"
       ]
     }
-  },
-  "entrypoints": [
-    "collect_deal_context"
-  ]
+  }
 }

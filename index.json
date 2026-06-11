@@ -2,7 +2,6 @@
   {
     "category": "Security",
     "description": "Runs a safety-video understanding agent on a powerful NVIDIA VLM node, then generates a Gemma-backed report on a preferred weaker node while staging videos through BlobRef sharing.",
-    "graph_id": "safety_video_analyser_v1",
     "id": "safety_video_analyser",
     "job_name": "safety-video-analyser",
     "name": "Safety Video Analyser",
@@ -25,12 +24,12 @@
       "simulation_type": "Two-agent cross-node video analysis placement smoke test.",
       "target_users": "OtterDesk operators, cluster runtime developers, and safety operations teams."
     },
-    "type": "batch"
+    "type": "batch",
+    "workflow_id": "safety_video_analyser_v1"
   },
   {
     "category": "Security",
     "description": "Watches an approved video stream, detects configured visual targets, and reports count, label, category, color, position, activity, and alert status for review.",
-    "graph_id": "video_watch_assistant_v1",
     "id": "video_watch_assistant",
     "job_name": "video-watch-assistant",
     "name": "Video Watch Assistant",
@@ -57,12 +56,12 @@
       "simulation_type": "Video stream sampling with visual detection review state.",
       "target_users": "Video operators, security reviewers, safety operations teams, and site-access coordinators."
     },
-    "type": "service"
+    "type": "service",
+    "workflow_id": "video_watch_assistant_v1"
   },
   {
     "category": "Business",
     "description": "Runs a localhost-proxied Spark HTTPS/WebRTC pizza-ordering voice co-worker backed by NVIDIA ASR, Nemotron vLLM, Magpie TTS, and editable plain-text menu knowledge.",
-    "graph_id": "generic_customer_service_voice_coworker_v1",
     "id": "generic_customer_service_voice_coworker",
     "job_name": "generic-customer-service-voice-coworker",
     "name": "Pizza Order Voice AI Co-worker",
@@ -97,12 +96,12 @@
       "simulation_type": "Spark-hosted real-time WebRTC pizza-ordering conversation exposed through localhost with editable text RAG.",
       "target_users": "Restaurant operators, pizza shops, customer operations leads, small businesses, and AI operations teams."
     },
-    "type": "service"
+    "type": "service",
+    "workflow_id": "generic_customer_service_voice_coworker_v1"
   },
   {
     "category": "Business",
     "description": "Long-running GTM AI service that finds and researches target accounts, drafts personalized outreach, tracks replies, updates a local CSV CRM, recommends next actions, and feeds market insight back to product and marketing.",
-    "graph_id": "gtm_ai_workflow_v1",
     "id": "gtm_ai_workflow",
     "job_name": "gtm-ai-workflow",
     "name": "GTM AI Workflow",
@@ -132,12 +131,12 @@
       "simulation_type": "Long-running GTM learning loop with account research, outreach, inbox monitoring, CRM CSV updates, and product-marketing feedback.",
       "target_users": "Growth, sales, RevOps, product marketing, and founder-led GTM teams."
     },
-    "type": "service"
+    "type": "service",
+    "workflow_id": "gtm_ai_workflow_v1"
   },
   {
     "category": "Finance",
     "description": "Real-time, review-only portfolio risk advisor that uses public market data, financial engineering simulation, decision benchmarking, and LLM-written review reports.",
-    "graph_id": "portfolio_risk_review_assistant_v1",
     "id": "portfolio_risk_review_assistant",
     "job_name": "portfolio-risk-review-assistant",
     "name": "Portfolio Risk Review Assistant",
@@ -171,12 +170,12 @@
       ],
       "simulation_type": "Real-time public-market portfolio risk review with Monte Carlo decision benchmarking.",
       "target_users": "Investors, advisors, portfolio managers, treasury teams, and fintech operators."
-    }
+    },
+    "workflow_id": "portfolio_risk_review_assistant_v1"
   },
   {
     "category": "Finance",
     "description": "Reviews ZIP-code history, broker notes, financing constraints, and deal memory to rank property opportunities and explain which ones deserve attention.",
-    "graph_id": "property_deal_research_assistant_v1",
     "id": "property_deal_research_assistant",
     "job_name": "property-deal-research-assistant",
     "name": "Property Deal Research Assistant",
@@ -203,12 +202,12 @@
       ],
       "simulation_type": "Property opportunity research with deal-memory retrieval.",
       "target_users": "Real-estate investors, acquisition analysts, property-tech teams, and diligence operators."
-    }
+    },
+    "workflow_id": "property_deal_research_assistant_v1"
   },
   {
     "category": "Finance",
     "description": "Runs an LLM-assisted tax preparation team over local tax documents, builds draft Form 1040 workpapers, audits the packet, and writes JSON, Markdown, and PDF review outputs.",
-    "graph_id": "personal_income_tax_expert_v1",
     "id": "personal_income_tax_expert",
     "job_name": "personal-income-tax-expert",
     "name": "Personal Income Tax Expert",
@@ -238,12 +237,12 @@
       ],
       "simulation_type": "Document automation tax preparation workflow with a specialist LLM preparer team, auditor, and manager review.",
       "target_users": "Individual taxpayers, household finance operators, bookkeepers, and tax preparers."
-    }
+    },
+    "workflow_id": "personal_income_tax_expert_v1"
   },
   {
     "category": "Science",
     "description": "Helps run a reviewable discovery workflow that proposes, filters, and evaluates drug candidates across repeated research stages.",
-    "graph_id": "drug_discovery_research_assistant_v1",
     "id": "drug_discovery_research_assistant",
     "job_name": "drug-discovery-research-assistant",
     "name": "Drug Discovery Research Assistant",
@@ -270,12 +269,12 @@
       ],
       "simulation_type": "Iterative scientific research workflow with staged candidate review.",
       "target_users": "Computational biology researchers, scientific AI platform teams, and research operations groups."
-    }
+    },
+    "workflow_id": "drug_discovery_research_assistant_v1"
   },
   {
     "category": "Finance",
     "description": "Extracts invoice, bill, supplier, tax, total, line item, consumption, and approval-routing fields from local invoice PDFs with shared LLM OCR fallback.",
-    "graph_id": "invoice_bill_extraction_assistant_v1",
     "id": "invoice_bill_extraction_assistant",
     "job_name": "invoice-bill-extraction-assistant",
     "name": "Invoice Bill Extraction Assistant",
@@ -302,12 +301,12 @@
       ],
       "simulation_type": "Document automation workflow with local OCR and review-gated structured extraction.",
       "target_users": "Enterprises, AP teams, BPOs, ERP vendors, and energy or utility billing processors."
-    }
+    },
+    "workflow_id": "invoice_bill_extraction_assistant_v1"
   },
   {
     "category": "Legal",
     "description": "Reviews local contract PDFs, extracts important clauses, compares them with a playbook, and writes a source-grounded legal review packet.",
-    "graph_id": "legal_contract_clause_review_assistant_v1",
     "id": "legal_contract_clause_review_assistant",
     "job_name": "legal-contract-clause-review-assistant",
     "name": "Legal Contract Clause Review Assistant",
@@ -334,12 +333,12 @@
       ],
       "simulation_type": "Document automation workflow with local OCR and review-gated structured extraction.",
       "target_users": "Law firms, in-house legal teams, CLM vendors, M&A diligence teams, and contract operations groups."
-    }
+    },
+    "workflow_id": "legal_contract_clause_review_assistant_v1"
   },
   {
     "category": "Healthcare",
     "description": "Detects and redacts PHI or PII from clinical-style PDFs, extracts patient-record intake fields, and writes a review-gated de-identification packet.",
-    "graph_id": "medical_deid_record_intake_assistant_v1",
     "id": "medical_deid_record_intake_assistant",
     "job_name": "medical-deid-record-intake-assistant",
     "name": "Medical De-Identification Record Intake Assistant",
@@ -366,12 +365,12 @@
       ],
       "simulation_type": "Document automation workflow with local OCR and review-gated structured extraction.",
       "target_users": "Hospitals, clinics, health-tech vendors, clinical research teams, and medical document operations teams."
-    }
+    },
+    "workflow_id": "medical_deid_record_intake_assistant_v1"
   },
   {
     "category": "Finance",
     "description": "Classifies tax forms, locates fields, captures structured taxpayer and line-item values, validates totals, and writes a review-only tax intake packet.",
-    "graph_id": "tax_form_ocr_capture_assistant_v1",
     "id": "tax_form_ocr_capture_assistant",
     "job_name": "tax-form-ocr-capture-assistant",
     "name": "Tax Form OCR Capture Assistant",
@@ -398,12 +397,12 @@
       ],
       "simulation_type": "Document automation workflow with local OCR and review-gated structured extraction.",
       "target_users": "CPA firms, tax-prep software vendors, payroll providers, banks, government agencies, and document capture teams."
-    }
+    },
+    "workflow_id": "tax_form_ocr_capture_assistant_v1"
   },
   {
     "category": "Finance",
     "description": "Extracts bank statement account metadata, balances, transaction rows, debits, credits, fees, and validation checks from local statement PDFs.",
-    "graph_id": "bank_statement_extraction_assistant_v1",
     "id": "bank_statement_extraction_assistant",
     "job_name": "bank-statement-extraction-assistant",
     "name": "Bank Statement Extraction Assistant",
@@ -430,6 +429,7 @@
       ],
       "simulation_type": "Document automation workflow with local OCR and review-gated structured extraction.",
       "target_users": "Lenders, fintech teams, SMB accounting tools, underwriting teams, auditors, and financial operations groups."
-    }
+    },
+    "workflow_id": "bank_statement_extraction_assistant_v1"
   }
 ]

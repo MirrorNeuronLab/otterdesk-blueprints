@@ -331,65 +331,20 @@
     ]
   },
   "description": "Runs a localhost-proxied Spark HTTPS/WebRTC pizza-ordering voice co-worker backed by NVIDIA ASR, Nemotron vLLM, Magpie TTS, and editable plain-text menu RAG knowledge.",
-  "entrypoints": [
-    "ingress",
-    "voice_service"
-  ],
-  "flow": {
-    "entrypoint": "ingress",
-    "graph": {
-      "dynamic": {
-        "apply_at": "between_steps",
-        "enabled": false,
-        "patch_events": []
-      },
-      "edges": [
-        {
-          "accepts": [
-            "done"
-          ],
-          "event": "customer_service_voice_prepared",
-          "from": "prepare_voice_service",
-          "id": "prepare_voice_service_to_serve_customer_conversation",
-          "required": true,
-          "to": "serve_customer_conversation"
-        }
-      ],
-      "execution": {
-        "strategy": "parallel"
-      },
-      "mode": "static_dag",
-      "schema": "mn.workflow.problem_graph/v1",
-      "sink": "serve_customer_conversation",
-      "source": "prepare_voice_service"
+  "workflow": {
+    "schema": "mn.workflow.problem_graph/v1",
+    "workflow_id": "generic_customer_service_voice_coworker_v1",
+    "mode": "static_dag",
+    "entrypoint": "prepare_voice_service",
+    "source": "prepare_voice_service",
+    "sink": "serve_customer_conversation",
+    "execution": {
+      "strategy": "parallel"
     },
-    "observers": [],
-    "policy": {
-      "failure": {
-        "default": "fail_closed"
-      },
-      "human": {
-        "decisions": [
-          "approve",
-          "revise",
-          "reject"
-        ],
-        "default": "reject",
-        "enabled": true,
-        "events": {
-          "decision": "human_decision_applied",
-          "request": "human_input_requested",
-          "response": "human_input_received",
-          "timeout": "human_input_timeout"
-        },
-        "mode": "notice_only",
-        "timeout_seconds": null
-      },
-      "safety": {
-        "blocked_actions": [],
-        "default": "allow",
-        "rules": []
-      }
+    "dynamic": {
+      "apply_at": "between_steps",
+      "enabled": false,
+      "patch_events": []
     },
     "state": {
       "business_name": {
@@ -477,6 +432,53 @@
         },
         "run": "serve_customer_conversation"
       }
+    ],
+    "edges": [
+      {
+        "accepts": [
+          "done"
+        ],
+        "event": "customer_service_voice_prepared",
+        "from": "prepare_voice_service",
+        "id": "prepare_voice_service_to_serve_customer_conversation",
+        "required": true,
+        "to": "serve_customer_conversation"
+      }
+    ],
+    "policy": {
+      "failure": {
+        "default": "fail_closed"
+      },
+      "human": {
+        "decisions": [
+          "approve",
+          "revise",
+          "reject"
+        ],
+        "default": "reject",
+        "enabled": true,
+        "events": {
+          "decision": "human_decision_applied",
+          "request": "human_input_requested",
+          "response": "human_input_received",
+          "timeout": "human_input_timeout"
+        },
+        "mode": "notice_only",
+        "timeout_seconds": null
+      },
+      "safety": {
+        "blocked_actions": [],
+        "default": "allow",
+        "rules": []
+      }
+    },
+    "observers": []
+  },
+  "agents": {
+    "schema": "mn.agents.communication_graph/v1",
+    "entrypoints": [
+      "ingress",
+      "voice_service"
     ],
     "nodes": [
       {
@@ -616,7 +618,6 @@
       }
     ]
   },
-  "graph_id": "generic_customer_service_voice_coworker_v1",
   "id": "generic_customer_service_voice_coworker",
   "input_validation": {
     "rules": []
@@ -1604,7 +1605,7 @@
       "run_store": "~/.mn/runs/<run_id>/",
       "version": "1.0",
       "workflow_api_version": "mn.workflow/v1",
-      "workflow_model": "contract -> flow -> runtime"
+      "workflow_model": "contract -> workflow -> agents/runtime"
     },
     "status_contract": {
       "attempt_event": "workflow_step_attempt_started",
@@ -1950,9 +1951,9 @@
           "heartbeat_deadline_at",
           "idempotency_key"
         ],
-        "retry_policy_source": "flow.steps[].control.retry",
+        "retry_policy_source": "workflow.steps[].control.retry",
         "stale_attempt_outputs": "ignore",
-        "timeout_source": "flow.steps[].control.timeout_seconds"
+        "timeout_source": "workflow.steps[].control.timeout_seconds"
       },
       "enabled": true,
       "events": [
@@ -1985,7 +1986,7 @@
         "on_timeout": "fail_attempt_then_retry"
       },
       "schema_version": "mn.workflow.runtime_control.v1",
-      "source_of_truth": "flow.steps",
+      "source_of_truth": "workflow.steps",
       "state_ledger": {
         "delivery_semantics": "at_least_once_with_idempotency",
         "enabled": true,

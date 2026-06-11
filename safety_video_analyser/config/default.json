@@ -51,7 +51,7 @@
   "manifest_config_bindings": [
     {
       "config_path": "node_allocation.report_generator_preferred_node",
-      "manifest_path": "flow.nodes.report_generator.policies.scheduler.preferred_node"
+      "manifest_path": "agents.nodes.report_generator.policies.scheduler.preferred_node"
     }
   ]
 }

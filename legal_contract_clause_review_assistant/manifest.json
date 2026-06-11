@@ -6,11 +6,7 @@
   "version": "1.0.0",
   "manifest_version": "1.0",
   "description": "Reviews local contract PDFs, extracts important clauses, compares them with a playbook, and writes a source-grounded legal review packet.",
-  "graph_id": "legal_contract_clause_review_assistant_v1",
   "job_name": "legal-contract-clause-review-assistant",
-  "entrypoints": [
-    "stage_contract_inputs"
-  ],
   "contract": {
     "events": {
       "stream": "events.jsonl",
@@ -286,114 +282,20 @@
       "Law firms, in-house legal teams, CLM vendors, M&A diligence teams, and contract operations groups."
     ]
   },
-  "flow": {
+  "workflow": {
+    "schema": "mn.workflow.problem_graph/v1",
+    "workflow_id": "legal_contract_clause_review_assistant_v1",
+    "mode": "static_dag",
     "entrypoint": "stage_contract_inputs",
-    "graph": {
-      "schema": "mn.workflow.problem_graph/v1",
-      "mode": "static_dag",
-      "source": "stage_contract_inputs",
-      "sink": "write_clause_review_packet",
-      "execution": {
-        "strategy": "serial"
-      },
-      "dynamic": {
-        "enabled": false,
-        "apply_at": "between_steps",
-        "patch_events": []
-      },
-      "edges": [
-        {
-          "id": "stage_contract_inputs_to_extract_contract_text",
-          "from": "stage_contract_inputs",
-          "to": "extract_contract_text",
-          "event": "contract_inputs_staged",
-          "required": true,
-          "accepts": [
-            "done"
-          ]
-        },
-        {
-          "id": "extract_contract_text_to_extract_clause_matrix",
-          "from": "extract_contract_text",
-          "to": "extract_clause_matrix",
-          "event": "contract_text_extracted",
-          "required": true,
-          "accepts": [
-            "done"
-          ]
-        },
-        {
-          "id": "extract_clause_matrix_to_compare_contract_playbook",
-          "from": "extract_clause_matrix",
-          "to": "compare_contract_playbook",
-          "event": "clause_matrix_extracted",
-          "required": true,
-          "accepts": [
-            "done"
-          ]
-        },
-        {
-          "id": "compare_contract_playbook_to_write_clause_review_packet",
-          "from": "compare_contract_playbook",
-          "to": "write_clause_review_packet",
-          "event": "contract_playbook_compared",
-          "required": true,
-          "accepts": [
-            "done"
-          ]
-        }
-      ]
+    "source": "stage_contract_inputs",
+    "sink": "write_clause_review_packet",
+    "execution": {
+      "strategy": "serial"
     },
-    "policy": {
-      "failure": {
-        "default": "fail_closed"
-      },
-      "human": {
-        "allowed_decisions": [
-          "approve",
-          "revise",
-          "reject"
-        ],
-        "blocked_actions": [
-          "send_legal_advice",
-          "approve_contract",
-          "route_for_signature",
-          "send_to_counterparty_without_review"
-        ],
-        "decision_event": "human_decision_applied",
-        "default_action": "reject",
-        "enabled": true,
-        "events": [
-          "human_notice",
-          "human_input_requested",
-          "human_input_received",
-          "human_input_timeout",
-          "human_decision_applied"
-        ],
-        "mode": "approval_required",
-        "reason": "Human approval is required before any downstream release, filing, payment, legal, clinical, credit, or system-sync action.",
-        "request_event": "human_input_requested",
-        "response_event": "human_input_received",
-        "timeout_event": "human_input_timeout",
-        "timeout_seconds": 3600
-      },
-      "safety": {
-        "default": "allow",
-        "blocked_actions": [
-          "send_legal_advice",
-          "approve_contract",
-          "route_for_signature",
-          "send_to_counterparty_without_review"
-        ],
-        "rules": [
-          {
-            "id": "review_required_before_downstream_release",
-            "effect": "require_human_approval",
-            "when": "step == 'write_clause_review_packet'",
-            "message": "Human approval is required before extracted values are released to downstream systems or used for consequential decisions."
-          }
-        ]
-      }
+    "dynamic": {
+      "enabled": false,
+      "apply_at": "between_steps",
+      "patch_events": []
     },
     "state": {
       "document_folder": {
@@ -616,7 +518,106 @@
         ]
       }
     ],
-    "observers": [],
+    "edges": [
+      {
+        "id": "stage_contract_inputs_to_extract_contract_text",
+        "from": "stage_contract_inputs",
+        "to": "extract_contract_text",
+        "event": "contract_inputs_staged",
+        "required": true,
+        "accepts": [
+          "done"
+        ]
+      },
+      {
+        "id": "extract_contract_text_to_extract_clause_matrix",
+        "from": "extract_contract_text",
+        "to": "extract_clause_matrix",
+        "event": "contract_text_extracted",
+        "required": true,
+        "accepts": [
+          "done"
+        ]
+      },
+      {
+        "id": "extract_clause_matrix_to_compare_contract_playbook",
+        "from": "extract_clause_matrix",
+        "to": "compare_contract_playbook",
+        "event": "clause_matrix_extracted",
+        "required": true,
+        "accepts": [
+          "done"
+        ]
+      },
+      {
+        "id": "compare_contract_playbook_to_write_clause_review_packet",
+        "from": "compare_contract_playbook",
+        "to": "write_clause_review_packet",
+        "event": "contract_playbook_compared",
+        "required": true,
+        "accepts": [
+          "done"
+        ]
+      }
+    ],
+    "policy": {
+      "failure": {
+        "default": "fail_closed"
+      },
+      "human": {
+        "allowed_decisions": [
+          "approve",
+          "revise",
+          "reject"
+        ],
+        "blocked_actions": [
+          "send_legal_advice",
+          "approve_contract",
+          "route_for_signature",
+          "send_to_counterparty_without_review"
+        ],
+        "decision_event": "human_decision_applied",
+        "default_action": "reject",
+        "enabled": true,
+        "events": [
+          "human_notice",
+          "human_input_requested",
+          "human_input_received",
+          "human_input_timeout",
+          "human_decision_applied"
+        ],
+        "mode": "approval_required",
+        "reason": "Human approval is required before any downstream release, filing, payment, legal, clinical, credit, or system-sync action.",
+        "request_event": "human_input_requested",
+        "response_event": "human_input_received",
+        "timeout_event": "human_input_timeout",
+        "timeout_seconds": 3600
+      },
+      "safety": {
+        "default": "allow",
+        "blocked_actions": [
+          "send_legal_advice",
+          "approve_contract",
+          "route_for_signature",
+          "send_to_counterparty_without_review"
+        ],
+        "rules": [
+          {
+            "id": "review_required_before_downstream_release",
+            "effect": "require_human_approval",
+            "when": "step == 'write_clause_review_packet'",
+            "message": "Human approval is required before extracted values are released to downstream systems or used for consequential decisions."
+          }
+        ]
+      }
+    },
+    "observers": []
+  },
+  "agents": {
+    "schema": "mn.agents.communication_graph/v1",
+    "entrypoints": [
+      "stage_contract_inputs"
+    ],
     "nodes": [
       {
         "node_id": "stage_contract_inputs",
@@ -1014,7 +1015,7 @@
     "workflow_control": {
       "schema_version": "mn.workflow.runtime_control.v1",
       "enabled": true,
-      "source_of_truth": "flow.steps",
+      "source_of_truth": "workflow.steps",
       "state_ledger": {
         "enabled": true,
         "persisted_field": "workflow_state",
@@ -1044,8 +1045,8 @@
           "idempotency_key"
         ],
         "stale_attempt_outputs": "ignore",
-        "retry_policy_source": "flow.steps[].control.retry",
-        "timeout_source": "flow.steps[].control.timeout_seconds"
+        "retry_policy_source": "workflow.steps[].control.retry",
+        "timeout_source": "workflow.steps[].control.timeout_seconds"
       },
       "liveness": {
         "event": "agent_beacon",
@@ -1112,7 +1113,7 @@
     "customizable_for": "M&A diligence, commercial contract review, CLM intake, renewal review, assignment and change-of-control checks, and playbook comparison.",
     "problem": "Law firms, in-house legal teams, CLM vendors, and diligence teams need private extraction of privileged or deal-sensitive contract terms without uploading client agreements to external services.",
     "standard": {
-      "workflow_model": "contract -> flow -> runtime"
+      "workflow_model": "contract -> workflow -> agents/runtime"
     },
     "runtime_features": [
       "local document folder intake",

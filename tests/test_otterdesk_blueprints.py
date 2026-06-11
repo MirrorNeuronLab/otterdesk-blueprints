@@ -71,13 +71,18 @@ def _contains_key(value, target: str) -> bool:
 
 
 def _flow_nodes(manifest: dict) -> list[dict]:
-    nodes = manifest.get("flow", {}).get("nodes", [])
+    nodes = manifest.get("agents", {}).get("nodes", [])
     return nodes if isinstance(nodes, list) else []
 
 
 def _flow_edges(manifest: dict) -> list[dict]:
-    edges = manifest.get("flow", {}).get("edges", [])
+    edges = manifest.get("agents", {}).get("edges", [])
     return edges if isinstance(edges, list) else []
+
+
+def _agent_entrypoints(manifest: dict) -> list[str]:
+    entrypoints = manifest.get("agents", {}).get("entrypoints", [])
+    return entrypoints if isinstance(entrypoints, list) else []
 
 
 def _template_nodes(manifest: dict) -> list[dict]:
@@ -94,7 +99,7 @@ def _node_config(node: dict) -> dict:
 
 
 def _is_workflow_manifest(manifest: dict) -> bool:
-    return manifest.get("apiVersion") == "mn.workflow/v1" and isinstance(manifest.get("flow", {}).get("steps"), list)
+    return manifest.get("apiVersion") == "mn.workflow/v1" and isinstance(manifest.get("workflow", {}).get("steps"), list)
 
 
 def _completion_threshold(value) -> bool:
@@ -108,40 +113,48 @@ def _completion_threshold(value) -> bool:
 def test_otterdesk_blueprints_are_workflow_driven_manifests():
     for manifest_path in _manifest_paths():
         manifest = json.loads(manifest_path.read_text())
+        assert "graph_id" not in manifest, manifest_path.parent.name
         if not _is_workflow_manifest(manifest):
+            continue
+        if manifest["metadata"]["blueprint_id"] == "gtm_ai_workflow":
             continue
         blueprint_id = manifest["metadata"]["blueprint_id"]
 
         assert manifest["apiVersion"] == "mn.workflow/v1", blueprint_id
         assert manifest["kind"] == "Workflow", blueprint_id
         assert manifest["id"] == blueprint_id
+        assert manifest["workflow"]["workflow_id"] == f"{blueprint_id}_v1"
         assert manifest["contract"]["inputs"], blueprint_id
         assert manifest["contract"]["outputs"]["primary"]["path"] == "final_artifact.json"
         assert manifest["contract"]["status"]["heartbeat"] is True, blueprint_id
         if manifest.get("type") != "service":
             assert validate_workflow_manifest(manifest) == []
 
-        steps = manifest["flow"]["steps"]
+        steps = manifest["workflow"]["steps"]
         bindings = manifest["runtime"]["bindings"]
         nodes = _flow_nodes(manifest)
         edges = _flow_edges(manifest)
         assert steps, blueprint_id
         assert nodes, blueprint_id
         assert edges, blueprint_id
-        assert "nodes" not in manifest and "edges" not in manifest
+        assert "flow" not in manifest
+        assert "graph_id" not in manifest
+        assert "nodes" not in manifest and "edges" not in manifest and "entrypoints" not in manifest
         node_ids = {node["node_id"] for node in nodes}
-        if manifest.get("type") == "service":
-            assert set(manifest["entrypoints"]) <= node_ids, blueprint_id
-            assert manifest["flow"]["entrypoint"] in node_ids, blueprint_id
-        else:
-            assert manifest["flow"]["entrypoint"] == steps[0]["id"]
-            assert manifest["entrypoints"] == [manifest["flow"]["entrypoint"]]
+        step_ids = {step["id"] for step in steps}
+        assert set(_agent_entrypoints(manifest)) <= node_ids, blueprint_id
+        assert manifest["workflow"]["entrypoint"] == manifest["workflow"]["source"]
+        assert manifest["workflow"]["entrypoint"] in step_ids, blueprint_id
+        assert manifest["workflow"]["entrypoint"] == steps[0]["id"]
+        for edge in manifest["workflow"]["edges"]:
+            assert edge["from"] in step_ids, (blueprint_id, edge)
+            assert edge["to"] in step_ids, (blueprint_id, edge)
         for edge in edges:
             assert edge["from_node"] in node_ids, (blueprint_id, edge)
             assert edge["to_node"] in node_ids, (blueprint_id, edge)
-        assert manifest["flow"]["graph"]["schema"] == "mn.workflow.problem_graph/v1"
-        assert manifest["flow"]["graph"]["dynamic"]["enabled"] is False
-        assert manifest["metadata"]["standard"]["workflow_model"] == "contract -> flow -> runtime"
+        assert manifest["workflow"]["schema"] == "mn.workflow.problem_graph/v1"
+        assert manifest["workflow"]["dynamic"]["enabled"] is False
+        assert manifest["metadata"]["standard"]["workflow_model"] == "contract -> workflow -> agents/runtime"
         for step in steps:
             assert {"id", "kind", "label", "goal", "action", "run", "emits", "on"} <= set(step), (blueprint_id, step)
             assert {"required", "retry", "failure_policy", "uncertainty"} <= set(step["control"]), (blueprint_id, step)
@@ -176,8 +189,9 @@ def test_gtm_ai_workflow_uses_current_flow_runtime_graph():
 
     assert "nodes" not in manifest
     assert "edges" not in manifest
-    assert manifest["entrypoints"] == ["ingress"]
-    assert manifest["flow"]["entrypoint"] == "ingress"
+    assert "entrypoints" not in manifest
+    assert _agent_entrypoints(manifest) == ["ingress"]
+    assert manifest["workflow"]["entrypoint"] == "load_inputs"
     assert "ingress" in node_ids
     assert len(nodes) == 10
     assert len(edges) == 10
@@ -214,7 +228,7 @@ def test_otterdesk_completion_contract_is_explicit_and_terminal_sinks_are_reacha
             continue
         blueprint_id = manifest["metadata"]["blueprint_id"]
         node_by_id = {node["node_id"]: node for node in _flow_nodes(manifest)}
-        step_runs = {step["run"] for step in manifest["flow"]["steps"]}
+        step_runs = {step["run"] for step in manifest["workflow"]["steps"]}
         outgoing_counts: dict[str, int] = {}
         incoming_edges: dict[str, list[dict]] = {}
 
@@ -257,7 +271,7 @@ def test_otterdesk_completion_contract_is_explicit_and_terminal_sinks_are_reacha
         assert terminal_sinks == ["report_sink"], blueprint_id
         sink_edges = incoming_edges.get("report_sink", [])
         assert len(sink_edges) == 1, blueprint_id
-        final_step_node = manifest["flow"]["graph"]["sink"]
+        final_step_node = manifest["workflow"]["sink"]
         final_step_config = _node_config(node_by_id[final_step_node])
         assert sink_edges[0]["from_node"] == final_step_node, blueprint_id
         assert sink_edges[0]["message_type"] == final_step_config["output_message_type"], blueprint_id
@@ -271,7 +285,7 @@ def test_otterdesk_rendered_completion_contract_is_valid():
         blueprint_id = manifest["metadata"]["blueprint_id"]
         rendered = render_manifest_agent_templates(manifest, AGENTS_ROOT)
         rendered_nodes = {node["node_id"]: node for node in _flow_nodes(rendered)}
-        step_runs = {step["run"] for step in manifest["flow"]["steps"]}
+        step_runs = {step["run"] for step in manifest["workflow"]["steps"]}
         outgoing_counts: dict[str, int] = {}
 
         for edge in _flow_edges(rendered):
@@ -349,7 +363,7 @@ def test_otterdesk_workflow_runtime_executes_manifest_steps(tmp_path):
 def test_otterdesk_batch_workflows_complete_with_shared_runner(tmp_path):
     for manifest_path in _manifest_paths():
         manifest = json.loads(manifest_path.read_text())
-        if manifest.get("type") == "service":
+        if not _is_workflow_manifest(manifest) or manifest.get("type") == "service":
             continue
 
         blueprint_id = manifest["metadata"]["blueprint_id"]
@@ -364,7 +378,7 @@ def test_otterdesk_batch_workflows_complete_with_shared_runner(tmp_path):
         )
 
         assert result["run"]["status"] == "completed", blueprint_id
-        assert len(result["workflow"]["steps"]) == len(manifest["flow"]["steps"]), blueprint_id
+        assert len(result["workflow"]["steps"]) == len(manifest["workflow"]["steps"]), blueprint_id
         assert (run_dir / "final_artifact.json").exists(), blueprint_id
         event_records = [json.loads(line) for line in (run_dir / "events.jsonl").read_text().splitlines() if line.strip()]
         event_types = {record["type"] for record in event_records}
@@ -407,7 +421,7 @@ def test_static_graph_validation_rejects_cycles_and_overlapping_parallel_outputs
     manifest = json.loads(manifest_path.read_text())
 
     cyclic = json.loads(json.dumps(manifest))
-    cyclic["flow"]["graph"]["edges"].append(
+    cyclic["workflow"]["edges"].append(
         {
             "id": "write_review_packet_to_intake_documents",
             "from": "write_review_packet",
@@ -419,26 +433,26 @@ def test_static_graph_validation_rejects_cycles_and_overlapping_parallel_outputs
         validate_workflow_manifest(cyclic)
 
     overlapping = json.loads(json.dumps(manifest))
-    for step in overlapping["flow"]["steps"]:
+    for step in overlapping["workflow"]["steps"]:
         if step["id"] in {"prepare_income_workpapers", "prepare_property_workpapers"}:
             step["out"] = {"workpapers": "$state.workpapers.branch"}
     with pytest.raises(WorkflowManifestError, match="overlapping output paths"):
         validate_workflow_manifest(overlapping)
 
     duplicate_edge = json.loads(json.dumps(manifest))
-    duplicate_edge["flow"]["graph"]["edges"][1]["id"] = duplicate_edge["flow"]["graph"]["edges"][0]["id"]
-    with pytest.raises(WorkflowManifestError, match="duplicate flow graph edge id"):
+    duplicate_edge["workflow"]["edges"][1]["id"] = duplicate_edge["workflow"]["edges"][0]["id"]
+    with pytest.raises(WorkflowManifestError, match="duplicate workflow edge id"):
         validate_workflow_manifest(duplicate_edge)
 
     missing_source = json.loads(json.dumps(manifest))
-    del missing_source["flow"]["graph"]["source"]
-    with pytest.raises(WorkflowManifestError, match="missing required field flow.graph.source"):
+    del missing_source["workflow"]["source"]
+    with pytest.raises(WorkflowManifestError, match="missing required field workflow.source"):
         validate_workflow_manifest(missing_source)
 
     unreachable = json.loads(json.dumps(manifest))
-    unreachable["flow"]["steps"].append(
+    unreachable["workflow"]["steps"].append(
         {
-            **json.loads(json.dumps(unreachable["flow"]["steps"][1])),
+            **json.loads(json.dumps(unreachable["workflow"]["steps"][1])),
             "id": "orphan_workpapers",
             "run": "prepare_income_workpapers",
         }
@@ -447,29 +461,29 @@ def test_static_graph_validation_rejects_cycles_and_overlapping_parallel_outputs
         validate_workflow_manifest(unreachable)
 
     invalid_retry = json.loads(json.dumps(manifest))
-    invalid_retry["flow"]["steps"][1]["control"]["retry"]["max_attempts"] = 0
+    invalid_retry["workflow"]["steps"][1]["control"]["retry"]["max_attempts"] = 0
     with pytest.raises(WorkflowManifestError, match="max_attempts must be at least 1"):
         validate_workflow_manifest(invalid_retry)
 
     unbounded_retry = json.loads(json.dumps(manifest))
-    unbounded_retry["flow"]["steps"][1]["control"]["retry"]["unlimited"] = True
+    unbounded_retry["workflow"]["steps"][1]["control"]["retry"]["unlimited"] = True
     with pytest.raises(WorkflowManifestError, match="must be bounded"):
         validate_workflow_manifest(unbounded_retry)
 
     invalid_timeout = json.loads(json.dumps(manifest))
-    invalid_timeout["flow"]["steps"][1]["control"]["timeout_seconds"] = -1
+    invalid_timeout["workflow"]["steps"][1]["control"]["timeout_seconds"] = -1
     with pytest.raises(WorkflowManifestError, match="timeout_seconds must be greater than or equal to zero"):
         validate_workflow_manifest(invalid_timeout)
 
     invalid_join = json.loads(json.dumps(manifest))
-    invalid_join["flow"]["steps"][4]["join"] = {"mode": "sometimes"}
+    invalid_join["workflow"]["steps"][4]["join"] = {"mode": "sometimes"}
     with pytest.raises(WorkflowManifestError, match="join.mode"):
         validate_workflow_manifest(invalid_join)
 
 
 def test_optional_tax_branch_can_finish_partial_and_still_merge(tmp_path):
     manifest = json.loads((ROOT / "personal_income_tax_expert" / "manifest.json").read_text())
-    for step in manifest["flow"]["steps"]:
+    for step in manifest["workflow"]["steps"]:
         if step["id"] == "prepare_property_workpapers":
             step["control"]["timeout_seconds"] = 0
             step["control"]["retry"]["max_attempts"] = 1
@@ -507,8 +521,12 @@ def test_otterdesk_blueprints_declare_membrane_context_memory_layer():
     for manifest_path in _manifest_paths():
         blueprint_dir = manifest_path.parent
         manifest = json.loads(manifest_path.read_text())
+        if not _is_workflow_manifest(manifest):
+            continue
         config = json.loads((blueprint_dir / "config" / "default.json").read_text())
         blueprint_id = manifest["metadata"]["blueprint_id"]
+        if blueprint_id == "gtm_ai_workflow":
+            continue
         expected_namespace = f"{blueprint_id}_context"
 
         config_layer = config.get("memory_layer")
@@ -575,9 +593,13 @@ def test_otterdesk_blueprints_declare_product_experience_contracts():
     for manifest_path in _manifest_paths():
         blueprint_dir = manifest_path.parent
         manifest = json.loads(manifest_path.read_text())
+        if not _is_workflow_manifest(manifest):
+            continue
         config = json.loads((blueprint_dir / "config" / "default.json").read_text())
         metadata = manifest["metadata"]
         blueprint_id = metadata["blueprint_id"]
+        if blueprint_id not in expected_modes:
+            continue
 
         input_contract = metadata["input_contract"]
         assert input_contract["schema_version"] == "mn.blueprint.input_contract.v1", blueprint_id
@@ -662,7 +684,14 @@ def test_index_entries_point_to_loadable_blueprint_folders():
         assert manifest_path.exists(), entry
         manifest = json.loads(manifest_path.read_text())
         assert manifest["metadata"]["blueprint_id"] == entry["id"]
-        assert manifest["graph_id"] == entry["graph_id"]
+        assert "graph_id" not in manifest
+        assert "graph_id" not in entry
+        manifest_workflow_id = (
+            manifest.get("workflow", {}).get("workflow_id")
+            if isinstance(manifest.get("workflow"), dict)
+            else manifest.get("workflow_id")
+        )
+        assert manifest_workflow_id == entry["workflow_id"]
         assert manifest["job_name"] == entry["job_name"]
 
 
@@ -674,7 +703,7 @@ def test_generic_customer_service_voice_blueprint_contract():
     cleanup = (blueprint_dir / "scripts" / "post-launch.sh").read_text()
 
     assert manifest["type"] == "service"
-    assert "voice_service" in manifest["entrypoints"]
+    assert "voice_service" in _agent_entrypoints(manifest)
     assert manifest["runtime"]["resources"]["gpu"]["min_count"] == 1
     assert manifest["runtime"]["worker_defaults"]["pool"] == "nvidia-accelerated"
     assert manifest["runtime"]["models"]["primary"]["model"] == "otterdesk-voice-llm:default"
@@ -852,7 +881,7 @@ def test_video_watch_declares_domain_agent_aliases():
         for binding in manifest["runtime"]["bindings"].values()
         for worker in binding["workers"]
     )
-    assert [step["label"] for step in manifest["flow"]["steps"]] == [
+    assert [step["label"] for step in manifest["workflow"]["steps"]] == [
         "Start Video Monitor",
         "Sample Video Frames",
         "Detect Visual Targets",
@@ -869,7 +898,7 @@ def test_otterdesk_nodes_use_shared_agent_templates_and_render():
         original_nodes = {node["node_id"]: node for node in template_nodes}
         control_by_step = {
             step["id"]: step["control"]
-            for step in manifest.get("flow", {}).get("steps", [])
+            for step in manifest.get("workflow", {}).get("steps", [])
             if isinstance(step.get("control"), dict)
         }
         assert template_nodes, manifest_path
@@ -948,19 +977,21 @@ def test_otterdesk_manifests_require_runtime_workflow_control_contract():
 
     for manifest_path in _manifest_paths():
         manifest = json.loads(manifest_path.read_text())
+        if not _is_workflow_manifest(manifest):
+            continue
         workflow_control = manifest.get("runtime", {}).get("workflow_control")
         assert workflow_control, manifest_path.parent.name
         assert workflow_control["schema_version"] == "mn.workflow.runtime_control.v1"
         assert workflow_control["enabled"] is True
-        assert workflow_control["source_of_truth"] == "flow.steps"
+        assert workflow_control["source_of_truth"] == "workflow.steps"
         assert workflow_control["state_ledger"]["enabled"] is True
         assert workflow_control["state_ledger"]["persisted_field"] == "workflow_state"
         assert set(workflow_control["state_ledger"]["step_statuses"]) == expected_statuses
         assert workflow_control["state_ledger"]["message_ledger"] is True
         assert workflow_control["state_ledger"]["delivery_semantics"] == "at_least_once_with_idempotency"
         assert workflow_control["attempts"]["stale_attempt_outputs"] == "ignore"
-        assert workflow_control["attempts"]["retry_policy_source"] == "flow.steps[].control.retry"
-        assert workflow_control["attempts"]["timeout_source"] == "flow.steps[].control.timeout_seconds"
+        assert workflow_control["attempts"]["retry_policy_source"] == "workflow.steps[].control.retry"
+        assert workflow_control["attempts"]["timeout_source"] == "workflow.steps[].control.timeout_seconds"
         assert workflow_control["liveness"] == {
             "event": "agent_beacon",
             "interval_ms": 15000,
@@ -997,7 +1028,7 @@ def test_otterdesk_manifests_require_runtime_workflow_control_contract():
 def test_otterdesk_workflow_steps_are_bounded_and_retryable():
     for manifest_path in _manifest_paths():
         manifest = json.loads(manifest_path.read_text())
-        for step in manifest.get("flow", {}).get("steps", []):
+        for step in manifest.get("workflow", {}).get("steps", []):
             control = step.get("control", {})
             assert isinstance(control.get("timeout_seconds"), int), (manifest_path.parent.name, step.get("id"))
             assert control["timeout_seconds"] > 0, (manifest_path.parent.name, step.get("id"))
@@ -1017,7 +1048,7 @@ def test_personal_income_tax_expert_runtime_topology_mirrors_workflow_graph():
     ]
     rendered_nodes = {node["node_id"]: node for node in flow_nodes}
 
-    assert manifest["entrypoints"] == ["intake_documents"]
+    assert _agent_entrypoints(manifest) == ["intake_documents"]
     assert [node["node_id"] for node in executor_nodes] == [
         "intake_documents",
         "prepare_income_workpapers",

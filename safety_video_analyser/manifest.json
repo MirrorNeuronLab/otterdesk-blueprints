@@ -1,11 +1,8 @@
 {
   "manifest_version": "1.0",
-  "graph_id": "safety_video_analyser_v1",
+  "workflow_id": "safety_video_analyser_v1",
   "job_name": "safety-video-analyser",
   "type": "batch",
-  "entrypoints": [
-    "video_understanding_agent"
-  ],
   "policies": {
     "recovery_mode": "local_restart",
     "job_type": "batch",
@@ -37,8 +34,11 @@
       ]
     }
   },
-  "flow": {
-    "entrypoint": "video_understanding_agent",
+  "agents": {
+    "schema": "mn.agents.communication_graph/v1",
+    "entrypoints": [
+      "video_understanding_agent"
+    ],
     "nodes": [
       {
         "node_id": "video_understanding_agent",

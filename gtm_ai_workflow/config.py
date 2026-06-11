@@ -24,10 +24,10 @@ def read_env_file(path):
 
 
 def manifest_nodes(manifest):
-    flow = manifest.get("flow", {})
-    if not isinstance(flow, dict):
+    agents = manifest.get("agents", {})
+    if not isinstance(agents, dict):
         return []
-    nodes = flow.get("nodes", [])
+    nodes = agents.get("nodes", [])
     if not isinstance(nodes, list):
         return []
     return nodes

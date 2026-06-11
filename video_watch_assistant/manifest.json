@@ -6,7 +6,6 @@
   "version": "1.0.0",
   "manifest_version": "1.0",
   "description": "Watches a mapped local video stream, detects configured visual targets, and reports count, label, category, color, position, activity, and alert status for review.",
-  "graph_id": "video_watch_assistant_v1",
   "job_name": "video-watch-assistant",
   "type": "service",
   "contract": {
@@ -284,81 +283,20 @@
       "Video operators, security reviewers, safety operations teams, and site-access coordinators."
     ]
   },
-  "flow": {
-    "entrypoint": "ingress",
-    "graph": {
-      "dynamic": {
-        "apply_at": "between_steps",
-        "enabled": false,
-        "patch_events": []
-      },
-      "edges": [
-        {
-          "accepts": [
-            "done"
-          ],
-          "event": "video_monitor_start",
-          "from": "start_video_monitor",
-          "id": "start_video_monitor_to_sample_video_frames",
-          "required": true,
-          "to": "sample_video_frames"
-        },
-        {
-          "accepts": [
-            "done"
-          ],
-          "event": "video_frame_tick_generated",
-          "from": "sample_video_frames",
-          "id": "sample_video_frames_to_detect_visual_targets",
-          "required": true,
-          "to": "detect_visual_targets"
-        },
-        {
-          "accepts": [
-            "done"
-          ],
-          "event": "video_watch_detection",
-          "from": "detect_visual_targets",
-          "id": "detect_visual_targets_to_write_watch_summary",
-          "required": true,
-          "to": "write_watch_summary"
-        }
-      ],
-      "execution": {
-        "strategy": "parallel"
-      },
-      "mode": "static_dag",
-      "schema": "mn.workflow.problem_graph/v1",
-      "sink": "write_watch_summary",
-      "source": "start_video_monitor"
+  "workflow": {
+    "schema": "mn.workflow.problem_graph/v1",
+    "workflow_id": "video_watch_assistant_v1",
+    "mode": "static_dag",
+    "entrypoint": "start_video_monitor",
+    "source": "start_video_monitor",
+    "sink": "write_watch_summary",
+    "execution": {
+      "strategy": "parallel"
     },
-    "observers": [],
-    "policy": {
-      "failure": {
-        "default": "fail_closed"
-      },
-      "human": {
-        "decisions": [
-          "approve",
-          "revise",
-          "reject"
-        ],
-        "default": "reject",
-        "enabled": true,
-        "events": {
-          "decision": "human_decision_applied",
-          "request": "human_input_requested",
-          "response": "human_input_received",
-          "timeout": "human_input_timeout"
-        },
-        "mode": "notice_only",
-        "timeout_seconds": null
-      },
-      "safety": {
-        "blocked_actions": [],
-        "default": "allow",
-        "rules": []
-      }
+    "dynamic": {
+      "apply_at": "between_steps",
+      "enabled": false,
+      "patch_events": []
     },
     "state": {
       "alert_policy": {
@@ -510,6 +448,72 @@
         },
         "run": "write_watch_summary"
       }
+    ],
+    "edges": [
+      {
+        "accepts": [
+          "done"
+        ],
+        "event": "video_monitor_start",
+        "from": "start_video_monitor",
+        "id": "start_video_monitor_to_sample_video_frames",
+        "required": true,
+        "to": "sample_video_frames"
+      },
+      {
+        "accepts": [
+          "done"
+        ],
+        "event": "video_frame_tick_generated",
+        "from": "sample_video_frames",
+        "id": "sample_video_frames_to_detect_visual_targets",
+        "required": true,
+        "to": "detect_visual_targets"
+      },
+      {
+        "accepts": [
+          "done"
+        ],
+        "event": "video_watch_detection",
+        "from": "detect_visual_targets",
+        "id": "detect_visual_targets_to_write_watch_summary",
+        "required": true,
+        "to": "write_watch_summary"
+      }
+    ],
+    "policy": {
+      "failure": {
+        "default": "fail_closed"
+      },
+      "human": {
+        "decisions": [
+          "approve",
+          "revise",
+          "reject"
+        ],
+        "default": "reject",
+        "enabled": true,
+        "events": {
+          "decision": "human_decision_applied",
+          "request": "human_input_requested",
+          "response": "human_input_received",
+          "timeout": "human_input_timeout"
+        },
+        "mode": "notice_only",
+        "timeout_seconds": null
+      },
+      "safety": {
+        "blocked_actions": [],
+        "default": "allow",
+        "rules": []
+      }
+    },
+    "observers": []
+  },
+  "agents": {
+    "schema": "mn.agents.communication_graph/v1",
+    "entrypoints": [
+      "ingress"
     ],
     "nodes": [
       {
@@ -823,7 +827,7 @@
     "workflow_control": {
       "schema_version": "mn.workflow.runtime_control.v1",
       "enabled": true,
-      "source_of_truth": "flow.steps",
+      "source_of_truth": "workflow.steps",
       "state_ledger": {
         "enabled": true,
         "persisted_field": "workflow_state",
@@ -853,8 +857,8 @@
           "idempotency_key"
         ],
         "stale_attempt_outputs": "ignore",
-        "retry_policy_source": "flow.steps[].control.retry",
-        "timeout_source": "flow.steps[].control.timeout_seconds"
+        "retry_policy_source": "workflow.steps[].control.retry",
+        "timeout_source": "workflow.steps[].control.timeout_seconds"
       },
       "liveness": {
         "event": "agent_beacon",
@@ -1746,7 +1750,7 @@
       "human control policy",
       "artifact records",
       "run-store observability dashboard",
-      "workflow-driven flow graph",
+      "workflow-driven problem graph",
       "step-scoped worker teams"
     ],
     "search_terms": [
@@ -1785,7 +1789,7 @@
       "run_store": "~/.mn/runs/<run_id>/",
       "version": "1.0",
       "workflow_api_version": "mn.workflow/v1",
-      "workflow_model": "contract -> flow -> runtime"
+      "workflow_model": "contract -> workflow -> agents/runtime"
     },
     "status_contract": {
       "heartbeat_event": "agent_beacon",
@@ -1976,9 +1980,6 @@
       "nvidia-gb10"
     ]
   },
-  "entrypoints": [
-    "ingress"
-  ],
   "required_services": [
     {
       "name": "docker-model-runner",

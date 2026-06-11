@@ -6,7 +6,6 @@
   "version": "1.0.0",
   "manifest_version": "1.0",
   "description": "Long-running GTM AI service that finds and researches target accounts, drafts personalized outreach, tracks replies, updates a local CSV CRM, recommends next actions, and feeds market insight back to product and marketing.",
-  "graph_id": "gtm_ai_workflow_v1",
   "job_name": "gtm-ai-workflow",
   "contract": {
     "summary": "Long-running GTM AI service that finds and researches target accounts, drafts personalized outreach, tracks replies, updates a local CSV CRM, recommends next actions, and feeds market insight back to product and marketing.",
@@ -284,8 +283,21 @@
       }
     }
   },
-  "flow": {
-    "entrypoint": "ingress",
+  "workflow": {
+    "schema": "mn.workflow.problem_graph/v1",
+    "workflow_id": "gtm_ai_workflow_v1",
+    "mode": "static_dag",
+    "entrypoint": "load_inputs",
+    "source": "load_inputs",
+    "sink": "write_final_artifact",
+    "execution": {
+      "strategy": "serial"
+    },
+    "dynamic": {
+      "enabled": false,
+      "patch_events": [],
+      "apply_at": "between_steps"
+    },
     "state": {
       "resolved_inputs": {},
       "workflow_result": {},
@@ -342,7 +354,7 @@
         },
         "control": {
           "required": true,
-          "timeout_seconds": null,
+          "timeout_seconds": 86400,
           "retry": {
             "max_attempts": 2,
             "backoff_seconds": 1,
@@ -390,42 +402,28 @@
         }
       }
     ],
-    "graph": {
-      "schema": "mn.workflow.problem_graph/v1",
-      "mode": "static_dag",
-      "source": "load_inputs",
-      "sink": "write_final_artifact",
-      "execution": {
-        "strategy": "serial"
+    "edges": [
+      {
+        "id": "load_inputs_to_run_workflow",
+        "from": "load_inputs",
+        "to": "run_workflow",
+        "event": "inputs_loaded",
+        "required": true,
+        "accepts": [
+          "done"
+        ]
       },
-      "dynamic": {
-        "enabled": false,
-        "patch_events": [],
-        "apply_at": "between_steps"
-      },
-      "edges": [
-        {
-          "id": "load_inputs_to_run_workflow",
-          "from": "load_inputs",
-          "to": "run_workflow",
-          "event": "inputs_loaded",
-          "required": true,
-          "accepts": [
-            "done"
-          ]
-        },
-        {
-          "id": "run_workflow_to_write_final_artifact",
-          "from": "run_workflow",
-          "to": "write_final_artifact",
-          "event": "workflow_result_ready",
-          "required": true,
-          "accepts": [
-            "done"
-          ]
-        }
-      ]
-    },
+      {
+        "id": "run_workflow_to_write_final_artifact",
+        "from": "run_workflow",
+        "to": "write_final_artifact",
+        "event": "workflow_result_ready",
+        "required": true,
+        "accepts": [
+          "done"
+        ]
+      }
+    ],
     "policy": {
       "safety": {
         "default": "allow",
@@ -453,7 +451,13 @@
         "default": "fail_closed"
       }
     },
-    "observers": [],
+    "observers": []
+  },
+  "agents": {
+    "schema": "mn.agents.communication_graph/v1",
+    "entrypoints": [
+      "ingress"
+    ],
     "nodes": [
       {
         "node_id": "ingress",
@@ -1974,6 +1978,72 @@
         "final_artifact.json",
         "web_ui.json"
       ]
+    },
+    "workflow_control": {
+      "attempts": {
+        "dispatch_metadata": [
+          "workflow_run_id",
+          "step_id",
+          "attempt_id",
+          "attempt",
+          "deadline_at",
+          "heartbeat_deadline_at",
+          "idempotency_key"
+        ],
+        "retry_policy_source": "workflow.steps[].control.retry",
+        "stale_attempt_outputs": "ignore",
+        "timeout_source": "workflow.steps[].control.timeout_seconds"
+      },
+      "enabled": true,
+      "events": [
+        "workflow_step_attempt_started",
+        "workflow_step_beacon",
+        "workflow_step_attempt_completed",
+        "workflow_step_attempt_timed_out",
+        "workflow_step_attempt_retry_scheduled",
+        "workflow_step_blocked",
+        "workflow_step_completed",
+        "workflow_step_failed",
+        "workflow_message_dead_lettered"
+      ],
+      "liveness": {
+        "event": "agent_beacon",
+        "interval_ms": 15000,
+        "missed_action": "fail_attempt",
+        "required": true,
+        "timeout_ms": 45000
+      },
+      "pause_cancel": {
+        "cancel_mode": "terminate_active_attempts",
+        "pause_mode": "stop_active_attempts",
+        "resume_mode": "reconcile_from_workflow_state"
+      },
+      "reconciliation": {
+        "interval_ms": 2000,
+        "on_missed_beacon": "fail_attempt_then_retry",
+        "on_retry_exhausted": "apply_step_failure_policy",
+        "on_timeout": "fail_attempt_then_retry"
+      },
+      "schema_version": "mn.workflow.runtime_control.v1",
+      "source_of_truth": "workflow.steps",
+      "state_ledger": {
+        "delivery_semantics": "at_least_once_with_idempotency",
+        "enabled": true,
+        "message_ledger": true,
+        "persisted_field": "workflow_state",
+        "step_statuses": [
+          "pending",
+          "ready",
+          "queued",
+          "running",
+          "retry_wait",
+          "blocked",
+          "completed",
+          "partial",
+          "skipped",
+          "failed"
+        ]
+      }
     }
   },
   "input_validation": {
@@ -4272,7 +4342,7 @@
       "run_store": "~/.mn/runs/<run_id>/",
       "version": "1.0",
       "workflow_api_version": "mn.workflow/v1",
-      "workflow_model": "contract -> flow -> runtime"
+      "workflow_model": "contract -> workflow -> agents/runtime"
     },
     "standard_version": "1.0",
     "status_contract": {
@@ -4322,7 +4392,17 @@
       ],
       "schema_version": "mn.blueprint.status_contract.v1",
       "source": "run_store",
-      "status_event": "blueprint_status"
+      "status_event": "blueprint_status",
+      "runtime_state_source": "workflow_state",
+      "attempt_event": "workflow_step_attempt_started",
+      "retry_event": "workflow_step_attempt_retry_scheduled",
+      "blocked_event": "workflow_step_blocked",
+      "terminal_step_events": [
+        "workflow_step_completed",
+        "workflow_step_partial",
+        "workflow_step_skipped",
+        "workflow_step_failed"
+      ]
     },
     "status_logging": {
       "env": "MN_BLUEPRINT_LOG_LEVEL",
@@ -4387,8 +4467,5 @@
   "long_lived": true,
   "require_config": false,
   "requiredContextEngine": false,
-  "type": "service",
-  "entrypoints": [
-    "ingress"
-  ]
+  "type": "service"
 }

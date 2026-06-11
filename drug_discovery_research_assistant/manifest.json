@@ -6,7 +6,6 @@
   "version": "1.0.0",
   "manifest_version": "1.0",
   "description": "Helps run a reviewable discovery workflow that proposes, filters, and evaluates drug candidates across repeated research stages.",
-  "graph_id": "drug_discovery_research_assistant_v1",
   "job_name": "drug-discovery-research-assistant",
   "contract": {
     "events": {
@@ -278,118 +277,20 @@
       "Computational biology researchers, scientific AI platform teams, and research operations groups."
     ]
   },
-  "flow": {
+  "workflow": {
+    "schema": "mn.workflow.problem_graph/v1",
+    "workflow_id": "drug_discovery_research_assistant_v1",
+    "mode": "static_dag",
     "entrypoint": "target_discovery",
-    "graph": {
-      "dynamic": {
-        "apply_at": "between_steps",
-        "enabled": false,
-        "patch_events": []
-      },
-      "edges": [
-        {
-          "accepts": [
-            "done"
-          ],
-          "event": "targets_ready",
-          "from": "target_discovery",
-          "id": "target_discovery_to_structure_generation",
-          "required": true,
-          "to": "structure_generation"
-        },
-        {
-          "accepts": [
-            "done"
-          ],
-          "event": "structures_ready",
-          "from": "structure_generation",
-          "id": "structure_generation_to_candidate_generation",
-          "required": true,
-          "to": "candidate_generation"
-        },
-        {
-          "accepts": [
-            "done"
-          ],
-          "event": "candidates_ready",
-          "from": "candidate_generation",
-          "id": "candidate_generation_to_binding_evaluation",
-          "required": true,
-          "to": "binding_evaluation"
-        },
-        {
-          "accepts": [
-            "done"
-          ],
-          "event": "evaluations_ready",
-          "from": "binding_evaluation",
-          "id": "binding_evaluation_to_ranking_reporting",
-          "required": true,
-          "to": "ranking_reporting"
-        }
-      ],
-      "execution": {
-        "strategy": "parallel"
-      },
-      "mode": "static_dag",
-      "schema": "mn.workflow.problem_graph/v1",
-      "sink": "ranking_reporting",
-      "source": "target_discovery"
+    "source": "target_discovery",
+    "sink": "ranking_reporting",
+    "execution": {
+      "strategy": "parallel"
     },
-    "observers": [
-      {
-        "failure_policy": "warn",
-        "id": "manager_monitor",
-        "label": "Manager Monitor",
-        "mode": "async",
-        "on": [
-          "targets_ready",
-          "structures_ready",
-          "candidates_ready",
-          "evaluations_ready",
-          "pipeline_complete"
-        ],
-        "run": "manager_monitor"
-      }
-    ],
-    "policy": {
-      "failure": {
-        "default": "fail_closed"
-      },
-      "human": {
-        "decisions": [
-          "approve",
-          "revise",
-          "reject"
-        ],
-        "default": "reject",
-        "enabled": true,
-        "events": {
-          "decision": "human_decision_applied",
-          "request": "human_input_requested",
-          "response": "human_input_received",
-          "timeout": "human_input_timeout"
-        },
-        "mode": "approval_required",
-        "timeout_seconds": 3600
-      },
-      "safety": {
-        "blocked_actions": [
-          "advance_to_lab_experiment",
-          "make_clinical_claim",
-          "submit_regulatory_material",
-          "send_candidate_to_external_system_without_review"
-        ],
-        "default": "allow",
-        "rules": [
-          {
-            "effect": "require_human_approval",
-            "id": "ranking_reporting_requires_human_approval",
-            "message": "Human approval is required before this workflow writes or releases high-impact recommendations.",
-            "when": "step == 'ranking_reporting'"
-          }
-        ]
-      }
+    "dynamic": {
+      "apply_at": "between_steps",
+      "enabled": false,
+      "patch_events": []
     },
     "state": {
       "candidate_seed_set": {
@@ -577,6 +478,109 @@
         },
         "run": "ranking_reporting"
       }
+    ],
+    "edges": [
+      {
+        "accepts": [
+          "done"
+        ],
+        "event": "targets_ready",
+        "from": "target_discovery",
+        "id": "target_discovery_to_structure_generation",
+        "required": true,
+        "to": "structure_generation"
+      },
+      {
+        "accepts": [
+          "done"
+        ],
+        "event": "structures_ready",
+        "from": "structure_generation",
+        "id": "structure_generation_to_candidate_generation",
+        "required": true,
+        "to": "candidate_generation"
+      },
+      {
+        "accepts": [
+          "done"
+        ],
+        "event": "candidates_ready",
+        "from": "candidate_generation",
+        "id": "candidate_generation_to_binding_evaluation",
+        "required": true,
+        "to": "binding_evaluation"
+      },
+      {
+        "accepts": [
+          "done"
+        ],
+        "event": "evaluations_ready",
+        "from": "binding_evaluation",
+        "id": "binding_evaluation_to_ranking_reporting",
+        "required": true,
+        "to": "ranking_reporting"
+      }
+    ],
+    "policy": {
+      "failure": {
+        "default": "fail_closed"
+      },
+      "human": {
+        "decisions": [
+          "approve",
+          "revise",
+          "reject"
+        ],
+        "default": "reject",
+        "enabled": true,
+        "events": {
+          "decision": "human_decision_applied",
+          "request": "human_input_requested",
+          "response": "human_input_received",
+          "timeout": "human_input_timeout"
+        },
+        "mode": "approval_required",
+        "timeout_seconds": 3600
+      },
+      "safety": {
+        "blocked_actions": [
+          "advance_to_lab_experiment",
+          "make_clinical_claim",
+          "submit_regulatory_material",
+          "send_candidate_to_external_system_without_review"
+        ],
+        "default": "allow",
+        "rules": [
+          {
+            "effect": "require_human_approval",
+            "id": "ranking_reporting_requires_human_approval",
+            "message": "Human approval is required before this workflow writes or releases high-impact recommendations.",
+            "when": "step == 'ranking_reporting'"
+          }
+        ]
+      }
+    },
+    "observers": [
+      {
+        "failure_policy": "warn",
+        "id": "manager_monitor",
+        "label": "Manager Monitor",
+        "mode": "async",
+        "on": [
+          "targets_ready",
+          "structures_ready",
+          "candidates_ready",
+          "evaluations_ready",
+          "pipeline_complete"
+        ],
+        "run": "manager_monitor"
+      }
+    ]
+  },
+  "agents": {
+    "schema": "mn.agents.communication_graph/v1",
+    "entrypoints": [
+      "target_discovery"
     ],
     "nodes": [
       {
@@ -1182,7 +1186,7 @@
     "workflow_control": {
       "schema_version": "mn.workflow.runtime_control.v1",
       "enabled": true,
-      "source_of_truth": "flow.steps",
+      "source_of_truth": "workflow.steps",
       "state_ledger": {
         "enabled": true,
         "persisted_field": "workflow_state",
@@ -1212,8 +1216,8 @@
           "idempotency_key"
         ],
         "stale_attempt_outputs": "ignore",
-        "retry_policy_source": "flow.steps[].control.retry",
-        "timeout_source": "flow.steps[].control.timeout_seconds"
+        "retry_policy_source": "workflow.steps[].control.retry",
+        "timeout_source": "workflow.steps[].control.timeout_seconds"
       },
       "liveness": {
         "event": "agent_beacon",
@@ -2165,7 +2169,7 @@
       "human control policy",
       "artifact records",
       "run-store observability dashboard",
-      "workflow-driven flow graph",
+      "workflow-driven problem graph",
       "step-scoped worker teams"
     ],
     "simulation_type": "Iterative scientific research workflow with staged candidate review.",
@@ -2197,7 +2201,7 @@
       "run_store": "~/.mn/runs/<run_id>/",
       "version": "1.0",
       "workflow_api_version": "mn.workflow/v1",
-      "workflow_model": "contract -> flow -> runtime"
+      "workflow_model": "contract -> workflow -> agents/runtime"
     },
     "status_contract": {
       "heartbeat_event": "agent_beacon",
@@ -2292,8 +2296,5 @@
         "llm_retries"
       ]
     }
-  },
-  "entrypoints": [
-    "target_discovery"
-  ]
+  }
 }

@@ -6,7 +6,6 @@
     "market_insights.csv"
   ],
   "generated_at": "2026-04-15T00:18:42+00:00",
-  "graph_id": "gtm_ai_workflow_v1",
   "input_dir": "input",
   "llm_config": "ollama.json",
   "long_lived": true,
@@ -22,5 +21,6 @@
     "inbox_reply"
   ],
   "test_mode": true,
-  "total_customers": 3
+  "total_customers": 3,
+  "workflow_id": "gtm_ai_workflow_v1"
 }

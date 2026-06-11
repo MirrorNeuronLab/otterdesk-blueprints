@@ -335,103 +335,20 @@
     ]
   },
   "description": "Real-time, review-only portfolio risk advisor that uses public market data, financial engineering simulation, decision benchmarking, and LLM-written review reports.",
-  "flow": {
+  "workflow": {
+    "schema": "mn.workflow.problem_graph/v1",
+    "workflow_id": "portfolio_risk_review_assistant_v1",
+    "mode": "static_dag",
     "entrypoint": "load_portfolio_context",
-    "graph": {
-      "dynamic": {
-        "apply_at": "between_steps",
-        "enabled": false,
-        "patch_events": []
-      },
-      "edges": [
-        {
-          "accepts": [
-            "done"
-          ],
-          "event": "portfolio_context_ready",
-          "from": "load_portfolio_context",
-          "id": "load_portfolio_context_to_load_public_market_data",
-          "required": true,
-          "to": "load_public_market_data"
-        },
-        {
-          "accepts": [
-            "done"
-          ],
-          "event": "market_data_ready",
-          "from": "load_public_market_data",
-          "id": "load_public_market_data_to_compute_risk_state",
-          "required": true,
-          "to": "compute_risk_state"
-        },
-        {
-          "accepts": [
-            "done"
-          ],
-          "event": "risk_state_ready",
-          "from": "compute_risk_state",
-          "id": "compute_risk_state_to_simulate_decision_candidates",
-          "required": true,
-          "to": "simulate_decision_candidates"
-        },
-        {
-          "accepts": [
-            "done"
-          ],
-          "event": "decision_simulations_ready",
-          "from": "simulate_decision_candidates",
-          "id": "simulate_decision_candidates_to_evaluate_and_write_report",
-          "required": true,
-          "to": "evaluate_and_write_report"
-        }
-      ],
-      "execution": {
-        "strategy": "parallel"
-      },
-      "mode": "static_dag",
-      "schema": "mn.workflow.problem_graph/v1",
-      "sink": "evaluate_and_write_report",
-      "source": "load_portfolio_context"
+    "source": "load_portfolio_context",
+    "sink": "evaluate_and_write_report",
+    "execution": {
+      "strategy": "parallel"
     },
-    "observers": [],
-    "policy": {
-      "failure": {
-        "default": "fail_closed"
-      },
-      "human": {
-        "decisions": [
-          "approve",
-          "revise",
-          "reject"
-        ],
-        "default": "reject",
-        "enabled": true,
-        "events": {
-          "decision": "human_decision_applied",
-          "request": "human_input_requested",
-          "response": "human_input_received",
-          "timeout": "human_input_timeout"
-        },
-        "mode": "approval_required",
-        "timeout_seconds": 3600
-      },
-      "safety": {
-        "blocked_actions": [
-          "place_trade",
-          "rebalance_portfolio",
-          "send_order",
-          "notify_client_with_recommendation_without_review"
-        ],
-        "default": "allow",
-        "rules": [
-          {
-            "effect": "require_human_approval",
-            "id": "finalize_risk_report_requires_human_approval",
-            "message": "Human approval is required before this workflow writes or releases high-impact recommendations.",
-            "when": "step == 'finalize_risk_report'"
-          }
-        ]
-      }
+    "dynamic": {
+      "apply_at": "between_steps",
+      "enabled": false,
+      "patch_events": []
     },
     "state": {
       "benchmark": {},
@@ -596,6 +513,94 @@
         "out": {},
         "run": "evaluate_and_write_report"
       }
+    ],
+    "edges": [
+      {
+        "accepts": [
+          "done"
+        ],
+        "event": "portfolio_context_ready",
+        "from": "load_portfolio_context",
+        "id": "load_portfolio_context_to_load_public_market_data",
+        "required": true,
+        "to": "load_public_market_data"
+      },
+      {
+        "accepts": [
+          "done"
+        ],
+        "event": "market_data_ready",
+        "from": "load_public_market_data",
+        "id": "load_public_market_data_to_compute_risk_state",
+        "required": true,
+        "to": "compute_risk_state"
+      },
+      {
+        "accepts": [
+          "done"
+        ],
+        "event": "risk_state_ready",
+        "from": "compute_risk_state",
+        "id": "compute_risk_state_to_simulate_decision_candidates",
+        "required": true,
+        "to": "simulate_decision_candidates"
+      },
+      {
+        "accepts": [
+          "done"
+        ],
+        "event": "decision_simulations_ready",
+        "from": "simulate_decision_candidates",
+        "id": "simulate_decision_candidates_to_evaluate_and_write_report",
+        "required": true,
+        "to": "evaluate_and_write_report"
+      }
+    ],
+    "policy": {
+      "failure": {
+        "default": "fail_closed"
+      },
+      "human": {
+        "decisions": [
+          "approve",
+          "revise",
+          "reject"
+        ],
+        "default": "reject",
+        "enabled": true,
+        "events": {
+          "decision": "human_decision_applied",
+          "request": "human_input_requested",
+          "response": "human_input_received",
+          "timeout": "human_input_timeout"
+        },
+        "mode": "approval_required",
+        "timeout_seconds": 3600
+      },
+      "safety": {
+        "blocked_actions": [
+          "place_trade",
+          "rebalance_portfolio",
+          "send_order",
+          "notify_client_with_recommendation_without_review"
+        ],
+        "default": "allow",
+        "rules": [
+          {
+            "effect": "require_human_approval",
+            "id": "finalize_risk_report_requires_human_approval",
+            "message": "Human approval is required before this workflow writes or releases high-impact recommendations.",
+            "when": "step == 'finalize_risk_report'"
+          }
+        ]
+      }
+    },
+    "observers": []
+  },
+  "agents": {
+    "schema": "mn.agents.communication_graph/v1",
+    "entrypoints": [
+      "load_portfolio_context"
     ],
     "nodes": [
       {
@@ -781,15 +786,11 @@
       }
     ]
   },
-  "graph_id": "portfolio_risk_review_assistant_v1",
   "id": "portfolio_risk_review_assistant",
   "input_validation": {
     "rules": []
   },
   "job_name": "portfolio-risk-review-assistant",
-  "entrypoints": [
-    "load_portfolio_context"
-  ],
   "kind": "Workflow",
   "license": "LICENSE.md",
   "manifest_version": "1.0",
@@ -1778,7 +1779,7 @@
       "human control policy",
       "artifact records",
       "run-store observability dashboard",
-      "workflow-driven flow graph",
+      "workflow-driven problem graph",
       "step-scoped deterministic workers"
     ],
     "simulation": {
@@ -1838,7 +1839,7 @@
       "run_store": "~/.mn/runs/<run_id>/",
       "version": "1.0",
       "workflow_api_version": "mn.workflow/v1",
-      "workflow_model": "contract -> flow -> runtime"
+      "workflow_model": "contract -> workflow -> agents/runtime"
     },
     "status_contract": {
       "heartbeat_event": "agent_beacon",
@@ -2122,7 +2123,7 @@
     "workflow_control": {
       "schema_version": "mn.workflow.runtime_control.v1",
       "enabled": true,
-      "source_of_truth": "flow.steps",
+      "source_of_truth": "workflow.steps",
       "state_ledger": {
         "enabled": true,
         "persisted_field": "workflow_state",
@@ -2152,8 +2153,8 @@
           "idempotency_key"
         ],
         "stale_attempt_outputs": "ignore",
-        "retry_policy_source": "flow.steps[].control.retry",
-        "timeout_source": "flow.steps[].control.timeout_seconds"
+        "retry_policy_source": "workflow.steps[].control.retry",
+        "timeout_source": "workflow.steps[].control.timeout_seconds"
       },
       "liveness": {
         "event": "agent_beacon",

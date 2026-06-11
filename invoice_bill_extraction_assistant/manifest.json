@@ -6,11 +6,7 @@
   "version": "1.0.0",
   "manifest_version": "1.0",
   "description": "Extracts invoice, bill, supplier, tax, total, line item, consumption, and approval-routing fields from local invoice PDFs with shared LLM OCR fallback.",
-  "graph_id": "invoice_bill_extraction_assistant_v1",
   "job_name": "invoice-bill-extraction-assistant",
-  "entrypoints": [
-    "stage_invoice_inputs"
-  ],
   "contract": {
     "events": {
       "stream": "events.jsonl",
@@ -283,114 +279,20 @@
       "Enterprises, AP teams, BPOs, ERP vendors, and energy or utility billing processors."
     ]
   },
-  "flow": {
+  "workflow": {
+    "schema": "mn.workflow.problem_graph/v1",
+    "workflow_id": "invoice_bill_extraction_assistant_v1",
+    "mode": "static_dag",
     "entrypoint": "stage_invoice_inputs",
-    "graph": {
-      "schema": "mn.workflow.problem_graph/v1",
-      "mode": "static_dag",
-      "source": "stage_invoice_inputs",
-      "sink": "write_invoice_packet",
-      "execution": {
-        "strategy": "serial"
-      },
-      "dynamic": {
-        "enabled": false,
-        "apply_at": "between_steps",
-        "patch_events": []
-      },
-      "edges": [
-        {
-          "id": "stage_invoice_inputs_to_extract_invoice_text",
-          "from": "stage_invoice_inputs",
-          "to": "extract_invoice_text",
-          "event": "invoice_inputs_staged",
-          "required": true,
-          "accepts": [
-            "done"
-          ]
-        },
-        {
-          "id": "extract_invoice_text_to_extract_payable_fields",
-          "from": "extract_invoice_text",
-          "to": "extract_payable_fields",
-          "event": "invoice_text_extracted",
-          "required": true,
-          "accepts": [
-            "done"
-          ]
-        },
-        {
-          "id": "extract_payable_fields_to_validate_invoice_packet",
-          "from": "extract_payable_fields",
-          "to": "validate_invoice_packet",
-          "event": "payable_fields_extracted",
-          "required": true,
-          "accepts": [
-            "done"
-          ]
-        },
-        {
-          "id": "validate_invoice_packet_to_write_invoice_packet",
-          "from": "validate_invoice_packet",
-          "to": "write_invoice_packet",
-          "event": "invoice_packet_validated",
-          "required": true,
-          "accepts": [
-            "done"
-          ]
-        }
-      ]
+    "source": "stage_invoice_inputs",
+    "sink": "write_invoice_packet",
+    "execution": {
+      "strategy": "serial"
     },
-    "policy": {
-      "failure": {
-        "default": "fail_closed"
-      },
-      "human": {
-        "allowed_decisions": [
-          "approve",
-          "revise",
-          "reject"
-        ],
-        "blocked_actions": [
-          "approve_invoice_for_payment",
-          "post_to_erp",
-          "send_payment_instruction",
-          "email_vendor_without_review"
-        ],
-        "decision_event": "human_decision_applied",
-        "default_action": "reject",
-        "enabled": true,
-        "events": [
-          "human_notice",
-          "human_input_requested",
-          "human_input_received",
-          "human_input_timeout",
-          "human_decision_applied"
-        ],
-        "mode": "approval_required",
-        "reason": "Human approval is required before any downstream release, filing, payment, legal, clinical, credit, or system-sync action.",
-        "request_event": "human_input_requested",
-        "response_event": "human_input_received",
-        "timeout_event": "human_input_timeout",
-        "timeout_seconds": 3600
-      },
-      "safety": {
-        "default": "allow",
-        "blocked_actions": [
-          "approve_invoice_for_payment",
-          "post_to_erp",
-          "send_payment_instruction",
-          "email_vendor_without_review"
-        ],
-        "rules": [
-          {
-            "id": "review_required_before_downstream_release",
-            "effect": "require_human_approval",
-            "when": "step == 'write_invoice_packet'",
-            "message": "Human approval is required before extracted values are released to downstream systems or used for consequential decisions."
-          }
-        ]
-      }
+    "dynamic": {
+      "enabled": false,
+      "apply_at": "between_steps",
+      "patch_events": []
     },
     "state": {
       "document_folder": {
@@ -610,7 +512,106 @@
         ]
       }
     ],
-    "observers": [],
+    "edges": [
+      {
+        "id": "stage_invoice_inputs_to_extract_invoice_text",
+        "from": "stage_invoice_inputs",
+        "to": "extract_invoice_text",
+        "event": "invoice_inputs_staged",
+        "required": true,
+        "accepts": [
+          "done"
+        ]
+      },
+      {
+        "id": "extract_invoice_text_to_extract_payable_fields",
+        "from": "extract_invoice_text",
+        "to": "extract_payable_fields",
+        "event": "invoice_text_extracted",
+        "required": true,
+        "accepts": [
+          "done"
+        ]
+      },
+      {
+        "id": "extract_payable_fields_to_validate_invoice_packet",
+        "from": "extract_payable_fields",
+        "to": "validate_invoice_packet",
+        "event": "payable_fields_extracted",
+        "required": true,
+        "accepts": [
+          "done"
+        ]
+      },
+      {
+        "id": "validate_invoice_packet_to_write_invoice_packet",
+        "from": "validate_invoice_packet",
+        "to": "write_invoice_packet",
+        "event": "invoice_packet_validated",
+        "required": true,
+        "accepts": [
+          "done"
+        ]
+      }
+    ],
+    "policy": {
+      "failure": {
+        "default": "fail_closed"
+      },
+      "human": {
+        "allowed_decisions": [
+          "approve",
+          "revise",
+          "reject"
+        ],
+        "blocked_actions": [
+          "approve_invoice_for_payment",
+          "post_to_erp",
+          "send_payment_instruction",
+          "email_vendor_without_review"
+        ],
+        "decision_event": "human_decision_applied",
+        "default_action": "reject",
+        "enabled": true,
+        "events": [
+          "human_notice",
+          "human_input_requested",
+          "human_input_received",
+          "human_input_timeout",
+          "human_decision_applied"
+        ],
+        "mode": "approval_required",
+        "reason": "Human approval is required before any downstream release, filing, payment, legal, clinical, credit, or system-sync action.",
+        "request_event": "human_input_requested",
+        "response_event": "human_input_received",
+        "timeout_event": "human_input_timeout",
+        "timeout_seconds": 3600
+      },
+      "safety": {
+        "default": "allow",
+        "blocked_actions": [
+          "approve_invoice_for_payment",
+          "post_to_erp",
+          "send_payment_instruction",
+          "email_vendor_without_review"
+        ],
+        "rules": [
+          {
+            "id": "review_required_before_downstream_release",
+            "effect": "require_human_approval",
+            "when": "step == 'write_invoice_packet'",
+            "message": "Human approval is required before extracted values are released to downstream systems or used for consequential decisions."
+          }
+        ]
+      }
+    },
+    "observers": []
+  },
+  "agents": {
+    "schema": "mn.agents.communication_graph/v1",
+    "entrypoints": [
+      "stage_invoice_inputs"
+    ],
     "nodes": [
       {
         "node_id": "stage_invoice_inputs",
@@ -1008,7 +1009,7 @@
     "workflow_control": {
       "schema_version": "mn.workflow.runtime_control.v1",
       "enabled": true,
-      "source_of_truth": "flow.steps",
+      "source_of_truth": "workflow.steps",
       "state_ledger": {
         "enabled": true,
         "persisted_field": "workflow_state",
@@ -1038,8 +1039,8 @@
           "idempotency_key"
         ],
         "stale_attempt_outputs": "ignore",
-        "retry_policy_source": "flow.steps[].control.retry",
-        "timeout_source": "flow.steps[].control.timeout_seconds"
+        "retry_policy_source": "workflow.steps[].control.retry",
+        "timeout_source": "workflow.steps[].control.timeout_seconds"
       },
       "liveness": {
         "event": "agent_beacon",
@@ -1106,7 +1107,7 @@
     "customizable_for": "Accounts payable, utility bill intake, ERP invoice routing, vendor onboarding, spend analytics, and BPO document queues.",
     "problem": "AP, ERP, BPO, and utility billing teams need private extraction of supplier pricing, tax identifiers, customer data, bank details, and spending patterns from high-volume invoice and bill PDFs.",
     "standard": {
-      "workflow_model": "contract -> flow -> runtime"
+      "workflow_model": "contract -> workflow -> agents/runtime"
     },
     "runtime_features": [
       "local document folder intake",
