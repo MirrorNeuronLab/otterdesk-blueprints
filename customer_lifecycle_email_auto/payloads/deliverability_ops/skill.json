@@ -1,0 +1,8 @@
+{
+  "skill_id": "deliverability_ops",
+  "action_type": "check_deliverability",
+  "bundle_name": "deliverability_ops",
+  "workdir": "deliverability_ops",
+  "command": ["python3", "scripts/execute.py"],
+  "description": "Maintains sender reputation and enforces compliance."
+}

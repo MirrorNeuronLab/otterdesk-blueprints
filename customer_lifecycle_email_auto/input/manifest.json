@@ -1,0 +1,76 @@
+{
+  "product_name": "Bibblio",
+  "database": {
+    "connection_string": "sqlite:///var/synaptic.db"
+  },
+  "bootstrap": {
+    "customers": [
+      {
+        "customer_id": "cust_maya_new_parent",
+        "name": "Maya Thompson",
+        "email": "maya.thompson@example.com",
+        "company": "Household",
+        "job_title": "Parent",
+        "source": "seed",
+        "stage": "new_signup",
+        "tags": ["parent", "caregiver", "bedtime", "big-feelings"],
+        "opt_in_status": "subscribed",
+        "suppression_status": "active",
+        "engagement_score": 0.62,
+        "intent_score": 0.74,
+        "profile": "Parent of a 5-year-old who has been dealing with bedtime resistance and big feelings after preschool. Wants practical support that feels warm instead of preachy.",
+        "factual_attributes": {
+          "favorite_age_range": "4-6",
+          "child_name": "Luca"
+        },
+        "inferred_attributes": {
+          "preferred_topics": ["bedtime", "routine", "feelings"]
+        }
+      },
+      {
+        "customer_id": "cust_mr_davis_teacher",
+        "name": "Mr. Davis",
+        "email": "davis.teacher@example.com",
+        "company": "Elementary School",
+        "job_title": "Teacher",
+        "source": "seed",
+        "stage": "repeat_creator",
+        "tags": ["teacher", "classroom", "reading", "education"],
+        "opt_in_status": "subscribed",
+        "suppression_status": "active",
+        "engagement_score": 0.85,
+        "intent_score": 0.90,
+        "profile": "2nd grade teacher using Bibblio to create personalized stories for his classroom to encourage reading. Needs bulk creation or classroom-oriented stories.",
+        "factual_attributes": {
+          "favorite_age_range": "7-8",
+          "student_count": 24
+        },
+        "inferred_attributes": {
+          "preferred_topics": ["classroom", "learning", "teamwork", "reading"]
+        }
+      }
+    ],
+    "activities": [
+      {
+        "activity_id": "activity_maya_signed_up",
+        "customer_id": "cust_maya_new_parent",
+        "summary": "Signed up for Bibblio with starter credits and has not started a story yet."
+      },
+      {
+        "activity_id": "activity_maya_viewed_create",
+        "customer_id": "cust_maya_new_parent",
+        "summary": "Viewed story ideas for bedtime routines and big feelings."
+      },
+      {
+        "activity_id": "activity_davis_created_story",
+        "customer_id": "cust_mr_davis_teacher",
+        "summary": "Created a classroom teamwork story for his 2nd grade class."
+      },
+      {
+        "activity_id": "activity_davis_downloaded_pdf",
+        "customer_id": "cust_mr_davis_teacher",
+        "summary": "Downloaded PDF of the classroom story to print for his students."
+      }
+    ]
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "skill_id": "monitor_scheduler",
+  "action_type": "schedule_email_monitor",
+  "bundle_name": "monitor_scheduler",
+  "workdir": "monitor_scheduler",
+  "command": ["python3", "scripts/execute.py"],
+  "description": "Schedules repeated email test cycles for the long-lived monitor bundle."
+}

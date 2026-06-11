@@ -1,0 +1,111 @@
+[
+  {
+    "customer_id": "cust_ava_repeat_creator",
+    "name": "Ava Martinez",
+    "email": "ava.martinez@example.com",
+    "company": "Household",
+    "job_title": "Parent",
+    "location": null,
+    "source": "seed",
+    "stage": "repeat_creator",
+    "opt_in_status": "subscribed",
+    "suppression_status": "active",
+    "engagement_score": 0.91,
+    "intent_score": 0.88,
+    "profile": "Parent of two children who has already created and downloaded multiple stories. Uses Bibblio for confidence-building moments and family keepsakes.",
+    "created_at": "2026-04-15T00:14:58+00:00",
+    "updated_at": "2026-04-15T00:14:58+00:00",
+    "tags": [
+      "parent",
+      "repeat",
+      "credits",
+      "referral"
+    ],
+    "factual_attributes": {
+      "children_count": 2,
+      "favorite_age_range": "5-8"
+    },
+    "inferred_attributes": {
+      "preferred_topics": [
+        "bravery",
+        "school",
+        "keepsake",
+        "credits"
+      ]
+    },
+    "title": "Parent",
+    "profile_summary": "Parent of two children who has already created and downloaded multiple stories. Uses Bibblio for confidence-building moments and family keepsakes."
+  },
+  {
+    "customer_id": "cust_jordan_draft_creator",
+    "name": "Jordan Lee",
+    "email": "jordan.lee@example.com",
+    "company": "Household",
+    "job_title": "Parent",
+    "location": null,
+    "source": "seed",
+    "stage": "draft_abandoned",
+    "opt_in_status": "subscribed",
+    "suppression_status": "active",
+    "engagement_score": 0.79,
+    "intent_score": 0.86,
+    "profile": "Parent of a 7-year-old working through playground friendship bumps. Started a story but got interrupted and has not come back yet.",
+    "created_at": "2026-04-15T00:14:58+00:00",
+    "updated_at": "2026-04-15T00:14:58+00:00",
+    "tags": [
+      "parent",
+      "draft",
+      "friendship",
+      "resume"
+    ],
+    "factual_attributes": {
+      "child_name": "Noah",
+      "favorite_age_range": "6-8"
+    },
+    "inferred_attributes": {
+      "preferred_topics": [
+        "friendship",
+        "kindness",
+        "conflict"
+      ]
+    },
+    "title": "Parent",
+    "profile_summary": "Parent of a 7-year-old working through playground friendship bumps. Started a story but got interrupted and has not come back yet."
+  },
+  {
+    "customer_id": "cust_maya_new_parent",
+    "name": "Maya Thompson",
+    "email": "maya.thompson@example.com",
+    "company": "Household",
+    "job_title": "Parent",
+    "location": null,
+    "source": "seed",
+    "stage": "new_signup",
+    "opt_in_status": "subscribed",
+    "suppression_status": "active",
+    "engagement_score": 0.62,
+    "intent_score": 0.74,
+    "profile": "Parent of a 5-year-old who has been dealing with bedtime resistance and big feelings after preschool. Wants practical support that feels warm instead of preachy.",
+    "created_at": "2026-04-15T00:14:58+00:00",
+    "updated_at": "2026-04-15T00:14:58+00:00",
+    "tags": [
+      "parent",
+      "caregiver",
+      "bedtime",
+      "big-feelings"
+    ],
+    "factual_attributes": {
+      "child_name": "Luca",
+      "favorite_age_range": "4-6"
+    },
+    "inferred_attributes": {
+      "preferred_topics": [
+        "bedtime",
+        "routine",
+        "feelings"
+      ]
+    },
+    "title": "Parent",
+    "profile_summary": "Parent of a 5-year-old who has been dealing with bedtime resistance and big feelings after preschool. Wants practical support that feels warm instead of preachy."
+  }
+]

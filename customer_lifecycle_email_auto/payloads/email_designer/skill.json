@@ -1,0 +1,8 @@
+{
+  "skill_id": "email_designer",
+  "action_type": "design_email",
+  "bundle_name": "email_designer",
+  "workdir": "email_designer",
+  "command": ["python3", "scripts/execute.py"],
+  "description": "Designs responsive, mobile-first email templates."
+}

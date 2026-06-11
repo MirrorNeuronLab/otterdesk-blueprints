@@ -1,0 +1,26 @@
+{
+  "template_id": "product_spotlight",
+  "name": "Emotional Learning Spotlight",
+  "design_template": "card_email.html",
+  "purpose": "Highlight one story-based emotional learning use case with concrete value.",
+  "recommended_campaigns": ["teacher_use_case", "creator_education", "creator_use_case", "product_spotlight"],
+  "recommended_phases": ["education", "use_case"],
+  "recommended_audiences": ["teachers", "parents", "creators_educators"],
+  "tone": "clear, credible, practical, outcome-oriented",
+  "layout_guidance": {
+    "eyebrow_role": "Signal the use case or emotional theme.",
+    "headline_role": "State the practical emotional outcome, not the feature.",
+    "body_pattern": [
+      "Name the emotional or classroom moment.",
+      "Show how a personalized story helps the child process it.",
+      "Invite the recipient to choose or create the story."
+    ],
+    "cta_style": "specific creation or exploration action"
+  },
+  "required_slots": ["preheader", "eyebrow", "headline", "body_sections", "cta_label", "cta_url", "secondary_text", "footer_text"],
+  "palette": {
+    "accent": "#0f766e",
+    "accent_soft": "#ecfdf5",
+    "text": "#1f2937"
+  }
+}

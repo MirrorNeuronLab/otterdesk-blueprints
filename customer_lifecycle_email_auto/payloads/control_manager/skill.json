@@ -1,0 +1,8 @@
+{
+  "skill_id": "control_manager",
+  "action_type": "control_send",
+  "bundle_name": "control_manager",
+  "workdir": "control_manager",
+  "command": ["python3", "scripts/execute.py"],
+  "description": "Applies hard email rules, saves ready drafts, and makes final send decisions."
+}

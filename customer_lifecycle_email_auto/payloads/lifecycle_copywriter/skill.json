@@ -1,0 +1,8 @@
+{
+  "skill_id": "lifecycle_copywriter",
+  "action_type": "write_copy",
+  "bundle_name": "lifecycle_copywriter",
+  "workdir": "lifecycle_copywriter",
+  "command": ["python3", "scripts/execute.py"],
+  "description": "Writes high-converting email content across lifecycle stages."
+}

@@ -1,0 +1,26 @@
+{
+  "template_id": "interest_followup",
+  "name": "Professional Follow-up",
+  "design_template": "card_email.html",
+  "purpose": "Bring a high-intent recipient back to one practical next step without sounding promotional.",
+  "recommended_campaigns": ["teacher_education", "teacher_reminder", "interest_followup"],
+  "recommended_phases": ["education", "reminder"],
+  "recommended_audiences": ["teachers", "parents", "creators_educators"],
+  "tone": "consultative, specific, calm, useful",
+  "layout_guidance": {
+    "eyebrow_role": "Name the campaign phase or practical use case.",
+    "headline_role": "Reframe the recipient's problem through story-based emotional learning.",
+    "body_pattern": [
+      "Acknowledge the real moment or constraint.",
+      "Explain why stories create a gentler path to understanding.",
+      "Offer one concrete next action."
+    ],
+    "cta_style": "low-friction return action"
+  },
+  "required_slots": ["preheader", "eyebrow", "headline", "body_sections", "cta_label", "cta_url", "secondary_text", "footer_text"],
+  "palette": {
+    "accent": "#1d4ed8",
+    "accent_soft": "#eef4ff",
+    "text": "#1e293b"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "generated_at": "2026-04-15T00:18:42+00:00",
+  "bundle_dir": "business_email_campaign",
+  "graph_id": "business_email_campaign_v1",
+  "long_lived": true,
+  "test_mode": true,
+  "llm_config": "ollama.json",
+  "input_dir": "input",
+  "total_customers": 3,
+  "planned_actions": 3,
+  "blocked_actions": 0,
+  "skills_used": [
+    "monitor_scheduler",
+    "customer_research",
+    "lifecycle_copywriter",
+    "email_designer",
+    "deliverability_ops",
+    "control_manager",
+    "marketing_automation"
+  ]
+}

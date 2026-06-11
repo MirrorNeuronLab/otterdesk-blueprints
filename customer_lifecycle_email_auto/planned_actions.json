@@ -1,0 +1,195 @@
+[
+  {
+    "plan_id": "plan_cust_ava_repeat_creator_execute_send",
+    "customer_id": "cust_ava_repeat_creator",
+    "action_type": "execute_send",
+    "status": "planned",
+    "rationale": "Email Marketing Lead Agent generated an outreach plan based on recent activity, audience segment, and offer fit.",
+    "confidence": 0.9,
+    "payload": {
+      "plan_id": "plan_cust_ava_repeat_creator_execute_send",
+      "idempotency_key": "cust_ava_repeat_creator:execute_send",
+      "customer_id": "cust_ava_repeat_creator",
+      "action_type": "execute_send",
+      "objective": "Turn a satisfied parent into an advocate who shares Bibblio with another parent.",
+      "channel": "email",
+      "campaign_type": "referral_invite",
+      "audience_segment": "new_parents",
+      "primary_offer": "Bravery and New Experience Story",
+      "primary_offer_id": "bravery_new_experience_story",
+      "why_now": "Parents are most likely to share right after seeing a story they are proud of.",
+      "goal": "Turn a satisfied parent into an advocate who shares Bibblio with another parent.",
+      "success_metric": "Referral link copied or shared",
+      "customer": {
+        "customer_id": "cust_ava_repeat_creator",
+        "name": "Ava Martinez",
+        "email": "ava.martinez@example.com",
+        "company": "Household",
+        "job_title": "Parent",
+        "stage": "repeat_creator",
+        "profile": "Parent of two children who has already created and downloaded multiple stories. Uses Bibblio for confidence-building moments and family keepsakes.",
+        "factual_attributes": {
+          "children_count": 2,
+          "favorite_age_range": "5-8"
+        },
+        "inferred_attributes": {
+          "preferred_topics": [
+            "bravery",
+            "school",
+            "keepsake",
+            "credits"
+          ]
+        },
+        "suppression_status": "active",
+        "opt_in_status": "subscribed"
+      },
+      "recent_activities": [
+        {
+          "activity_id": "activity_ava_referral_ready",
+          "customer_id": "cust_ava_repeat_creator",
+          "summary": "Shared referral link from profile after downloading a completed story.",
+          "created_at": "2026-04-15T00:14:58+00:00"
+        },
+        {
+          "activity_id": "activity_ava_low_credits",
+          "customer_id": "cust_ava_repeat_creator",
+          "summary": "Low remaining credits after creating 2 stories this month.",
+          "created_at": "2026-04-15T00:14:58+00:00"
+        },
+        {
+          "activity_id": "activity_ava_completed_story",
+          "customer_id": "cust_ava_repeat_creator",
+          "summary": "Completed book about first-day-of-school courage and downloaded PDF.",
+          "created_at": "2026-04-15T00:14:58+00:00"
+        }
+      ],
+      "rationale": "Email Marketing Lead Agent generated an outreach plan based on recent activity, audience segment, and offer fit.",
+      "generated_at": "2026-04-15T00:18:41+00:00"
+    },
+    "created_at": "2026-04-15T00:18:41+00:00"
+  },
+  {
+    "plan_id": "plan_cust_jordan_draft_creator_execute_send",
+    "customer_id": "cust_jordan_draft_creator",
+    "action_type": "execute_send",
+    "status": "planned",
+    "rationale": "Email Marketing Lead Agent generated an outreach plan based on recent activity, audience segment, and offer fit.",
+    "confidence": 0.9,
+    "payload": {
+      "plan_id": "plan_cust_jordan_draft_creator_execute_send",
+      "idempotency_key": "cust_jordan_draft_creator:execute_send",
+      "customer_id": "cust_jordan_draft_creator",
+      "action_type": "execute_send",
+      "objective": "Recover a partially started book before the parent loses momentum.",
+      "channel": "email",
+      "campaign_type": "draft_recovery",
+      "audience_segment": "new_parents",
+      "primary_offer": "Friendship and Conflict Story",
+      "primary_offer_id": "friendship_conflict_story",
+      "why_now": "The parent already invested effort, so a reassuring nudge can help them finish.",
+      "goal": "Recover a partially started book before the parent loses momentum.",
+      "success_metric": "Draft resumed or completed",
+      "customer": {
+        "customer_id": "cust_jordan_draft_creator",
+        "name": "Jordan Lee",
+        "email": "jordan.lee@example.com",
+        "company": "Household",
+        "job_title": "Parent",
+        "stage": "draft_abandoned",
+        "profile": "Parent of a 7-year-old working through playground friendship bumps. Started a story but got interrupted and has not come back yet.",
+        "factual_attributes": {
+          "child_name": "Noah",
+          "favorite_age_range": "6-8"
+        },
+        "inferred_attributes": {
+          "preferred_topics": [
+            "friendship",
+            "kindness",
+            "conflict"
+          ]
+        },
+        "suppression_status": "active",
+        "opt_in_status": "subscribed"
+      },
+      "recent_activities": [
+        {
+          "activity_id": "activity_jordan_started_book",
+          "customer_id": "cust_jordan_draft_creator",
+          "summary": "Started a book about friendship challenges on the playground.",
+          "created_at": "2026-04-15T00:14:58+00:00"
+        },
+        {
+          "activity_id": "activity_jordan_abandoned_draft",
+          "customer_id": "cust_jordan_draft_creator",
+          "summary": "Draft abandoned after writing the first few pages of a friendship story.",
+          "created_at": "2026-04-15T00:14:58+00:00"
+        }
+      ],
+      "rationale": "Email Marketing Lead Agent generated an outreach plan based on recent activity, audience segment, and offer fit.",
+      "generated_at": "2026-04-15T00:18:41+00:00"
+    },
+    "created_at": "2026-04-15T00:18:41+00:00"
+  },
+  {
+    "plan_id": "plan_cust_maya_new_parent_execute_send",
+    "customer_id": "cust_maya_new_parent",
+    "action_type": "execute_send",
+    "status": "planned",
+    "rationale": "Email Marketing Lead Agent generated an outreach plan based on recent activity, audience segment, and offer fit.",
+    "confidence": 0.9,
+    "payload": {
+      "plan_id": "plan_cust_maya_new_parent_execute_send",
+      "idempotency_key": "cust_maya_new_parent:execute_send",
+      "customer_id": "cust_maya_new_parent",
+      "action_type": "execute_send",
+      "objective": "Get a new parent to start their first personalized story.",
+      "channel": "email",
+      "campaign_type": "first_story_activation",
+      "audience_segment": "new_parents",
+      "primary_offer": "Bedtime Routine Story",
+      "primary_offer_id": "bedtime_routine_story",
+      "why_now": "Signup intent is highest right after a parent joins and the parenting moment is still fresh.",
+      "goal": "Get a new parent to start their first personalized story.",
+      "success_metric": "First story draft started",
+      "customer": {
+        "customer_id": "cust_maya_new_parent",
+        "name": "Maya Thompson",
+        "email": "maya.thompson@example.com",
+        "company": "Household",
+        "job_title": "Parent",
+        "stage": "new_signup",
+        "profile": "Parent of a 5-year-old who has been dealing with bedtime resistance and big feelings after preschool. Wants practical support that feels warm instead of preachy.",
+        "factual_attributes": {
+          "child_name": "Luca",
+          "favorite_age_range": "4-6"
+        },
+        "inferred_attributes": {
+          "preferred_topics": [
+            "bedtime",
+            "routine",
+            "feelings"
+          ]
+        },
+        "suppression_status": "active",
+        "opt_in_status": "subscribed"
+      },
+      "recent_activities": [
+        {
+          "activity_id": "activity_maya_viewed_create",
+          "customer_id": "cust_maya_new_parent",
+          "summary": "Viewed story ideas for bedtime routines and big feelings.",
+          "created_at": "2026-04-15T00:14:58+00:00"
+        },
+        {
+          "activity_id": "activity_maya_signed_up",
+          "customer_id": "cust_maya_new_parent",
+          "summary": "Signed up for Bibblio with starter credits and has not started a story yet.",
+          "created_at": "2026-04-15T00:14:58+00:00"
+        }
+      ],
+      "rationale": "Email Marketing Lead Agent generated an outreach plan based on recent activity, audience segment, and offer fit.",
+      "generated_at": "2026-04-15T00:18:41+00:00"
+    },
+    "created_at": "2026-04-15T00:18:41+00:00"
+  }
+]

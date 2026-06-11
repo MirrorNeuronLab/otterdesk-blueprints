@@ -1,0 +1,26 @@
+{
+  "template_id": "program_reminder",
+  "name": "Awareness Reminder",
+  "design_template": "card_email.html",
+  "purpose": "Open a campaign sequence by naming the problem and creating urgency around emotional learning.",
+  "recommended_campaigns": ["teacher_awareness", "creator_awareness", "program_reminder"],
+  "recommended_phases": ["awareness"],
+  "recommended_audiences": ["teachers", "parents", "creators_educators"],
+  "tone": "professional, thoughtful, problem-aware, non-alarmist",
+  "layout_guidance": {
+    "eyebrow_role": "Signal the audience problem or emotional learning theme.",
+    "headline_role": "Lead with the human tension before introducing Bibblio.",
+    "body_pattern": [
+      "Name the pain the recipient already recognizes.",
+      "Explain why generic content or lessons miss the emotional moment.",
+      "Introduce story creation as the easier first step."
+    ],
+    "cta_style": "awareness-to-exploration action"
+  },
+  "required_slots": ["preheader", "eyebrow", "headline", "body_sections", "cta_label", "cta_url", "secondary_text", "footer_text"],
+  "palette": {
+    "accent": "#9a3412",
+    "accent_soft": "#fff7ed",
+    "text": "#2f241b"
+  }
+}

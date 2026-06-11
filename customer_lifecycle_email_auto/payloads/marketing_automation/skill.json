@@ -1,0 +1,8 @@
+{
+  "skill_id": "marketing_automation",
+  "action_type": "execute_send",
+  "bundle_name": "marketing_automation",
+  "workdir": "marketing_automation",
+  "command": ["python3", "scripts/execute.py"],
+  "description": "Translates strategy into scalable systems, enabling real-time communication."
+}

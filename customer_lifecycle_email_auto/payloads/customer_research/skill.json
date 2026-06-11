@@ -1,0 +1,8 @@
+{
+  "skill_id": "customer_research",
+  "action_type": "research_customer",
+  "bundle_name": "customer_research",
+  "workdir": "customer_research",
+  "command": ["python3", "scripts/execute.py"],
+  "description": "Builds a customer-specific brief using context and recent activity history."
+}

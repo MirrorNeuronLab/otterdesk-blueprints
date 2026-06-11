@@ -1,0 +1,113 @@
+{
+  "product_name": "Bibblio",
+  "database": {
+    "connection_string": "sqlite:///var/synaptic.db"
+  },
+  "bootstrap": {
+    "customers": [
+      {
+        "customer_id": "cust_maya_new_parent",
+        "name": "Maya Thompson",
+        "email": "maya.thompson@example.com",
+        "company": "Household",
+        "job_title": "Parent",
+        "source": "seed",
+        "stage": "new_signup",
+        "tags": ["parent", "caregiver", "bedtime", "big-feelings"],
+        "opt_in_status": "subscribed",
+        "suppression_status": "active",
+        "engagement_score": 0.62,
+        "intent_score": 0.74,
+        "profile": "Parent of a 5-year-old who has been dealing with bedtime resistance and big feelings after preschool. Wants practical support that feels warm instead of preachy.",
+        "factual_attributes": {
+          "favorite_age_range": "4-6",
+          "child_name": "Luca"
+        },
+        "inferred_attributes": {
+          "preferred_topics": ["bedtime", "routine", "feelings"]
+        }
+      },
+      {
+        "customer_id": "cust_jordan_draft_creator",
+        "name": "Jordan Lee",
+        "email": "jordan.lee@example.com",
+        "company": "Household",
+        "job_title": "Parent",
+        "source": "seed",
+        "stage": "draft_abandoned",
+        "tags": ["parent", "draft", "friendship", "resume"],
+        "opt_in_status": "subscribed",
+        "suppression_status": "active",
+        "engagement_score": 0.79,
+        "intent_score": 0.86,
+        "profile": "Parent of a 7-year-old working through playground friendship bumps. Started a story but got interrupted and has not come back yet.",
+        "factual_attributes": {
+          "favorite_age_range": "6-8",
+          "child_name": "Noah"
+        },
+        "inferred_attributes": {
+          "preferred_topics": ["friendship", "kindness", "conflict"]
+        }
+      },
+      {
+        "customer_id": "cust_ava_repeat_creator",
+        "name": "Ava Martinez",
+        "email": "ava.martinez@example.com",
+        "company": "Household",
+        "job_title": "Parent",
+        "source": "seed",
+        "stage": "repeat_creator",
+        "tags": ["parent", "repeat", "credits", "referral"],
+        "opt_in_status": "subscribed",
+        "suppression_status": "active",
+        "engagement_score": 0.91,
+        "intent_score": 0.88,
+        "profile": "Parent of two children who has already created and downloaded multiple stories. Uses Bibblio for confidence-building moments and family keepsakes.",
+        "factual_attributes": {
+          "favorite_age_range": "5-8",
+          "children_count": 2
+        },
+        "inferred_attributes": {
+          "preferred_topics": ["bravery", "school", "keepsake", "credits"]
+        }
+      }
+    ],
+    "activities": [
+      {
+        "activity_id": "activity_maya_signed_up",
+        "customer_id": "cust_maya_new_parent",
+        "summary": "Signed up for Bibblio with starter credits and has not started a story yet."
+      },
+      {
+        "activity_id": "activity_maya_viewed_create",
+        "customer_id": "cust_maya_new_parent",
+        "summary": "Viewed story ideas for bedtime routines and big feelings."
+      },
+      {
+        "activity_id": "activity_jordan_started_book",
+        "customer_id": "cust_jordan_draft_creator",
+        "summary": "Started a book about friendship challenges on the playground."
+      },
+      {
+        "activity_id": "activity_jordan_abandoned_draft",
+        "customer_id": "cust_jordan_draft_creator",
+        "summary": "Draft abandoned after writing the first few pages of a friendship story."
+      },
+      {
+        "activity_id": "activity_ava_completed_story",
+        "customer_id": "cust_ava_repeat_creator",
+        "summary": "Completed book about first-day-of-school courage and downloaded PDF."
+      },
+      {
+        "activity_id": "activity_ava_low_credits",
+        "customer_id": "cust_ava_repeat_creator",
+        "summary": "Low remaining credits after creating 2 stories this month."
+      },
+      {
+        "activity_id": "activity_ava_referral_ready",
+        "customer_id": "cust_ava_repeat_creator",
+        "summary": "Shared referral link from profile after downloading a completed story."
+      }
+    ]
+  }
+}

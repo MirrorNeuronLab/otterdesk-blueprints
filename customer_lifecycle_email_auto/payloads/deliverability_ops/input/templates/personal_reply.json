@@ -1,0 +1,26 @@
+{
+  "template_id": "personal_reply",
+  "name": "Personal Reply",
+  "design_template": "personal_reply.html",
+  "purpose": "Send a concise human reply when someone writes back to the campaign.",
+  "recommended_campaigns": ["reply_followup"],
+  "recommended_phases": ["reply"],
+  "recommended_audiences": ["teachers", "parents", "creators_educators"],
+  "tone": "human, direct, warm, specific",
+  "layout_guidance": {
+    "eyebrow_role": "Keep understated; this should feel like an email from a person.",
+    "headline_role": "Use a short reply-oriented line, not a marketing headline.",
+    "body_pattern": [
+      "Acknowledge what they said.",
+      "Answer or clarify directly.",
+      "Offer one helpful next step."
+    ],
+    "cta_style": "text link or simple action"
+  },
+  "required_slots": ["preheader", "eyebrow", "headline", "body_sections", "cta_label", "cta_url", "secondary_text", "footer_text"],
+  "palette": {
+    "accent": "#2563eb",
+    "accent_soft": "#eff6ff",
+    "text": "#1f2937"
+  }
+}
