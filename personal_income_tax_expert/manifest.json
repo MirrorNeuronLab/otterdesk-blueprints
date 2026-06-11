@@ -1379,11 +1379,6 @@
         "workflow_step_failed",
         "workflow_message_dead_lettered"
       ]
-    },
-    "models": {
-      "primary": {
-        "model": "default"
-      }
     }
   },
   "input_validation": {

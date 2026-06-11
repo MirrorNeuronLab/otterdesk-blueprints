@@ -100,6 +100,41 @@
     "type": "service"
   },
   {
+    "category": "Business",
+    "description": "Long-running GTM AI service that finds and researches target accounts, drafts personalized outreach, tracks replies, updates a local CSV CRM, recommends next actions, and feeds market insight back to product and marketing.",
+    "graph_id": "gtm_ai_workflow_v1",
+    "id": "gtm_ai_workflow",
+    "job_name": "gtm-ai-workflow",
+    "name": "GTM AI Workflow",
+    "path": "gtm_ai_workflow",
+    "product": {
+      "agent_role": "Account researcher, pain hypothesis analyst, sales email drafter, response summarizer, CRM updater, and product-marketing feedback assistant.",
+      "benefit": "Turns target-account signals and outreach responses into a continuously updated local CRM and sharper product and marketing insight.",
+      "customizable_for": "Account-based outbound, founder-led sales, RevOps CRM hygiene, product marketing feedback loops, and sales-assist workflows.",
+      "how_it_works": "Starts from an optional target account list, researches accounts, identifies likely pain, prepares personalized outreach, tracks replies, summarizes responses, updates crm.csv and market_insights.csv, and recommends the next GTM action.",
+      "input": "Optional initial customer or target-account list, local CRM CSV output folder, and optional internal test-mode email recipient.",
+      "output": "Personalized outreach drafts, delivery and reply events, crm.csv, market_insights.csv, response summaries, and recommended next actions.",
+      "problem": "GTM teams need a learning loop from target-account signal to outreach, response, CRM state, product insight, and sharper positioning.",
+      "runtime_features": [
+        "target account research",
+        "pain hypothesis generation",
+        "personalized outreach drafting",
+        "email delivery test mode",
+        "inbox response tracking",
+        "local CSV CRM updates",
+        "market insight feedback loop",
+        "next-action recommendations",
+        "transparent run status",
+        "human control policy",
+        "artifact records",
+        "run-store observability dashboard"
+      ],
+      "simulation_type": "Long-running GTM learning loop with account research, outreach, inbox monitoring, CRM CSV updates, and product-marketing feedback.",
+      "target_users": "Growth, sales, RevOps, product marketing, and founder-led GTM teams."
+    },
+    "type": "service"
+  },
+  {
     "category": "Finance",
     "description": "Real-time, review-only portfolio risk advisor that uses public market data, financial engineering simulation, decision benchmarking, and LLM-written review reports.",
     "graph_id": "portfolio_risk_review_assistant_v1",
