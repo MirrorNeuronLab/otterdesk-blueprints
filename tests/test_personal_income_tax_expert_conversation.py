@@ -481,6 +481,7 @@ def test_personal_tax_expert_reads_staged_env_config_folder(tmp_path, monkeypatc
     result = runner.run_blueprint(runs_root=tmp_path, run_id="tax-staged-env-unit")
 
     assert result["document_summary"]["document_types"]["W-2"] == 1
+    assert result["input_source"]["real_ready"] is True
     assert result["final_artifact"]["prepared_form_1040"]["line_map"]["1z_wages"] == "$123,456.00"
     assert "A real local tax document folder has not been provided." not in result["warnings"]
 

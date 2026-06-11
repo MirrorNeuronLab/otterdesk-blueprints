@@ -128,7 +128,11 @@ except ModuleNotFoundError:  # pragma: no cover - exercised by host-local runtim
             "adapter": inputs.get("adapter") or "mock",
             "description": inputs.get("description"),
             "path": inputs.get("path"),
-            "real_ready": bool(payload.get("document_folder") or payload.get("tax_document_folder")),
+            "real_ready": bool(
+                payload.get("document_folder")
+                or payload.get("tax_document_folder")
+                or (config.get("tax_documents") or {}).get("folder_path")
+            ),
         }
         return dict(payload), source
 
