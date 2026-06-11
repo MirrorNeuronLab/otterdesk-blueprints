@@ -23,6 +23,16 @@ def read_env_file(path):
     return values
 
 
+def manifest_nodes(manifest):
+    flow = manifest.get("flow", {})
+    if not isinstance(flow, dict):
+        return []
+    nodes = flow.get("nodes", [])
+    if not isinstance(nodes, list):
+        return []
+    return nodes
+
+
 def main():
     print("Welcome to the Business Email Campaign Settings Setup!")
     print("This will configure your blueprint to use Ollama and AgentMail.")
@@ -75,10 +85,11 @@ def main():
     with open(manifest_path, "r") as f:
         manifest = json.load(f)
 
-    # Update nodes
-    for node in manifest.get("nodes", []):
-        if "config" in node and "environment" in node["config"]:
-            env = node["config"]["environment"]
+    # Update rendered flow nodes.
+    for node in manifest_nodes(manifest):
+        config = node.get("config", {})
+        if isinstance(config, dict) and "environment" in config:
+            env = config["environment"]
             
             # Update LLM Settings
             env["LITELLM_API_BASE"] = llm_base
@@ -134,10 +145,11 @@ def main():
                 env["SYNAPTIC_TEST_EMAIL_TO"] = ""
                 env["SYNAPTIC_EMAIL_DELIVERY_MODE"] = "agentmail"
 
-    for node in manifest.get("nodes", []):
+    for node in manifest_nodes(manifest):
         if node.get("node_id") == "monitor_scheduler_agent":
-            node.setdefault("config", {})["fast_test_mode"] = is_test_mode
-            node.setdefault("config", {})["interval_ms"] = 0 if is_test_mode else 300000
+            config = node.setdefault("config", {})
+            config["fast_test_mode"] = is_test_mode
+            config["interval_ms"] = 0 if is_test_mode else 300000
 
     # Mark as configured
     if "require_config" in manifest:

@@ -285,7 +285,7 @@
     }
   },
   "flow": {
-    "entrypoint": "load_inputs",
+    "entrypoint": "ingress",
     "state": {
       "resolved_inputs": {},
       "workflow_result": {},
@@ -453,7 +453,636 @@
         "default": "fail_closed"
       }
     },
-    "observers": []
+    "observers": [],
+    "nodes": [
+      {
+        "node_id": "ingress",
+        "type": "map",
+        "agent_type": "router",
+        "config": {
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt"
+        },
+        "role": "Service ingress"
+      },
+      {
+        "node_id": "monitor_scheduler_agent",
+        "type": "stream",
+        "agent_type": "module",
+        "config": {
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "module": "Synaptic.MonitorScheduler",
+          "module_source": "monitor_scheduler/beam_modules/monitor_scheduler.ex",
+          "emit_type": "plan_cycle"
+        },
+        "role": "Monitor Scheduler Agent"
+      },
+      {
+        "node_id": "account_research_agent",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "upload_path": "account_research",
+          "upload_as": "account_research",
+          "workdir": "/sandbox/job/account_research",
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "environment": {
+            "AGENTMAIL_API_KEY": "",
+            "AGENTMAIL_INBOX": "",
+            "LITELLM_API_BASE": "http://192.168.4.173:11434",
+            "LITELLM_API_KEY": "",
+            "LITELLM_MODEL": "ollama/nemotron3:33b",
+            "MN_LLM_API_BASE": "http://192.168.4.173:11434",
+            "MN_LLM_API_KEY": "",
+            "MN_LLM_MODEL": "ollama/nemotron3:33b",
+            "RESEND_API_KEY": "",
+            "RESEND_FROM_EMAIL": "sales@example.com",
+            "SLACK_DEFAULT_CHANNEL": "#claw",
+            "SYNAPTIC_DB_CONNECTION": "sqlite:////tmp/mn_gtm_ai_workflow.db",
+            "SYNAPTIC_DB_PATH": "/tmp/mn_gtm_ai_workflow.db",
+            "SYNAPTIC_EMAIL_DELIVERY_MODE": "agentmail",
+            "SYNAPTIC_EMIT_CYCLE_TRIGGER": "true",
+            "SYNAPTIC_TEST_EMAIL_TO": "",
+            "GTM_TEST_EMAIL_TO": "",
+            "GTM_CRM_CSV_DIR": "/tmp/mn_gtm_ai_workflow_crm"
+          },
+          "name_prefix": "account_research",
+          "output_message_type": "account_research_result",
+          "upload_paths": [
+            {
+              "source": "account_research",
+              "target": "account_research"
+            },
+            {
+              "source": "knowledge",
+              "target": "knowledge"
+            },
+            {
+              "source": "_shared_skills/gtm_outreach_skill",
+              "target": "_shared_skills/gtm_outreach_skill"
+            },
+            {
+              "source": "_shared_skills/mn_email_delivery_skill",
+              "target": "_shared_skills/mn_email_delivery_skill"
+            },
+            {
+              "source": "_shared_skills/mn_litellm_communicate_skill",
+              "target": "_shared_skills/mn_litellm_communicate_skill"
+            },
+            {
+              "source": "_shared_skills/mn_external_rate_limit_skill",
+              "target": "_shared_skills/mn_external_rate_limit_skill"
+            }
+          ],
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "command": [
+            "python3",
+            "scripts/execute.py"
+          ],
+          "agent_beacon_required": true
+        },
+        "role": "Account Research Agent"
+      },
+      {
+        "node_id": "outreach_copywriter_agent",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "upload_path": "outreach_copywriter",
+          "upload_as": "outreach_copywriter",
+          "workdir": "/sandbox/job/outreach_copywriter",
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "environment": {
+            "AGENTMAIL_API_KEY": "",
+            "AGENTMAIL_INBOX": "",
+            "LITELLM_API_BASE": "http://192.168.4.173:11434",
+            "LITELLM_API_KEY": "",
+            "LITELLM_MODEL": "ollama/nemotron3:33b",
+            "MN_LLM_API_BASE": "http://192.168.4.173:11434",
+            "MN_LLM_API_KEY": "",
+            "MN_LLM_MODEL": "ollama/nemotron3:33b",
+            "RESEND_API_KEY": "",
+            "RESEND_FROM_EMAIL": "sales@example.com",
+            "SLACK_DEFAULT_CHANNEL": "#claw",
+            "SYNAPTIC_DB_CONNECTION": "sqlite:////tmp/mn_gtm_ai_workflow.db",
+            "SYNAPTIC_DB_PATH": "/tmp/mn_gtm_ai_workflow.db",
+            "SYNAPTIC_EMAIL_DELIVERY_MODE": "agentmail",
+            "SYNAPTIC_EMIT_CYCLE_TRIGGER": "true",
+            "SYNAPTIC_TEST_EMAIL_TO": "",
+            "GTM_TEST_EMAIL_TO": "",
+            "GTM_CRM_CSV_DIR": "/tmp/mn_gtm_ai_workflow_crm"
+          },
+          "name_prefix": "outreach_copywriter",
+          "output_message_type": "outreach_copywriter_result",
+          "upload_paths": [
+            {
+              "source": "outreach_copywriter",
+              "target": "outreach_copywriter"
+            },
+            {
+              "source": "knowledge",
+              "target": "knowledge"
+            },
+            {
+              "source": "_shared_skills/gtm_outreach_skill",
+              "target": "_shared_skills/gtm_outreach_skill"
+            },
+            {
+              "source": "_shared_skills/mn_email_delivery_skill",
+              "target": "_shared_skills/mn_email_delivery_skill"
+            },
+            {
+              "source": "_shared_skills/mn_litellm_communicate_skill",
+              "target": "_shared_skills/mn_litellm_communicate_skill"
+            },
+            {
+              "source": "_shared_skills/mn_external_rate_limit_skill",
+              "target": "_shared_skills/mn_external_rate_limit_skill"
+            }
+          ],
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "command": [
+            "python3",
+            "scripts/execute.py"
+          ],
+          "agent_beacon_required": true
+        },
+        "role": "Outreach Copywriter Agent"
+      },
+      {
+        "node_id": "email_designer_agent",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "upload_path": "email_designer",
+          "upload_as": "email_designer",
+          "workdir": "/sandbox/job/email_designer",
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "environment": {
+            "AGENTMAIL_API_KEY": "",
+            "AGENTMAIL_INBOX": "",
+            "LITELLM_API_BASE": "http://192.168.4.173:11434",
+            "LITELLM_API_KEY": "",
+            "LITELLM_MODEL": "ollama/nemotron3:33b",
+            "MN_LLM_API_BASE": "http://192.168.4.173:11434",
+            "MN_LLM_API_KEY": "",
+            "MN_LLM_MODEL": "ollama/nemotron3:33b",
+            "RESEND_API_KEY": "",
+            "RESEND_FROM_EMAIL": "sales@example.com",
+            "SLACK_DEFAULT_CHANNEL": "#claw",
+            "SYNAPTIC_DB_CONNECTION": "sqlite:////tmp/mn_gtm_ai_workflow.db",
+            "SYNAPTIC_DB_PATH": "/tmp/mn_gtm_ai_workflow.db",
+            "SYNAPTIC_EMAIL_DELIVERY_MODE": "agentmail",
+            "SYNAPTIC_EMIT_CYCLE_TRIGGER": "true",
+            "SYNAPTIC_TEST_EMAIL_TO": "",
+            "GTM_TEST_EMAIL_TO": "",
+            "GTM_CRM_CSV_DIR": "/tmp/mn_gtm_ai_workflow_crm"
+          },
+          "name_prefix": "email_designer",
+          "output_message_type": "email_designer_result",
+          "upload_paths": [
+            {
+              "source": "email_designer",
+              "target": "email_designer"
+            },
+            {
+              "source": "knowledge",
+              "target": "knowledge"
+            },
+            {
+              "source": "_shared_skills/gtm_outreach_skill",
+              "target": "_shared_skills/gtm_outreach_skill"
+            },
+            {
+              "source": "_shared_skills/mn_email_delivery_skill",
+              "target": "_shared_skills/mn_email_delivery_skill"
+            },
+            {
+              "source": "_shared_skills/mn_litellm_communicate_skill",
+              "target": "_shared_skills/mn_litellm_communicate_skill"
+            },
+            {
+              "source": "_shared_skills/mn_external_rate_limit_skill",
+              "target": "_shared_skills/mn_external_rate_limit_skill"
+            }
+          ],
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "command": [
+            "python3",
+            "scripts/execute.py"
+          ],
+          "agent_beacon_required": true
+        },
+        "role": "Email Designer Agent"
+      },
+      {
+        "node_id": "deliverability_ops_agent",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "upload_path": "deliverability_ops",
+          "upload_as": "deliverability_ops",
+          "workdir": "/sandbox/job/deliverability_ops",
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "environment": {
+            "AGENTMAIL_API_KEY": "",
+            "AGENTMAIL_INBOX": "",
+            "LITELLM_API_BASE": "http://192.168.4.173:11434",
+            "LITELLM_API_KEY": "",
+            "LITELLM_MODEL": "ollama/nemotron3:33b",
+            "MN_LLM_API_BASE": "http://192.168.4.173:11434",
+            "MN_LLM_API_KEY": "",
+            "MN_LLM_MODEL": "ollama/nemotron3:33b",
+            "RESEND_API_KEY": "",
+            "RESEND_FROM_EMAIL": "sales@example.com",
+            "SLACK_DEFAULT_CHANNEL": "#claw",
+            "SYNAPTIC_DB_CONNECTION": "sqlite:////tmp/mn_gtm_ai_workflow.db",
+            "SYNAPTIC_DB_PATH": "/tmp/mn_gtm_ai_workflow.db",
+            "SYNAPTIC_EMAIL_DELIVERY_MODE": "agentmail",
+            "SYNAPTIC_EMIT_CYCLE_TRIGGER": "true",
+            "SYNAPTIC_TEST_EMAIL_TO": "",
+            "GTM_TEST_EMAIL_TO": "",
+            "GTM_CRM_CSV_DIR": "/tmp/mn_gtm_ai_workflow_crm"
+          },
+          "name_prefix": "deliverability_ops",
+          "output_message_type": "deliverability_ops_result",
+          "upload_paths": [
+            {
+              "source": "deliverability_ops",
+              "target": "deliverability_ops"
+            },
+            {
+              "source": "knowledge",
+              "target": "knowledge"
+            },
+            {
+              "source": "_shared_skills/gtm_outreach_skill",
+              "target": "_shared_skills/gtm_outreach_skill"
+            },
+            {
+              "source": "_shared_skills/mn_email_delivery_skill",
+              "target": "_shared_skills/mn_email_delivery_skill"
+            },
+            {
+              "source": "_shared_skills/mn_litellm_communicate_skill",
+              "target": "_shared_skills/mn_litellm_communicate_skill"
+            },
+            {
+              "source": "_shared_skills/mn_external_rate_limit_skill",
+              "target": "_shared_skills/mn_external_rate_limit_skill"
+            }
+          ],
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "command": [
+            "python3",
+            "scripts/execute.py"
+          ],
+          "agent_beacon_required": true
+        },
+        "role": "Deliverability & Ops Specialist Agent"
+      },
+      {
+        "node_id": "control_manager_agent",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "upload_path": "control_manager",
+          "upload_as": "control_manager",
+          "workdir": "/sandbox/job/control_manager",
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "environment": {
+            "AGENTMAIL_API_KEY": "",
+            "AGENTMAIL_INBOX": "",
+            "LITELLM_API_BASE": "http://192.168.4.173:11434",
+            "LITELLM_API_KEY": "",
+            "LITELLM_MODEL": "ollama/nemotron3:33b",
+            "MN_LLM_API_BASE": "http://192.168.4.173:11434",
+            "MN_LLM_API_KEY": "",
+            "MN_LLM_MODEL": "ollama/nemotron3:33b",
+            "RESEND_API_KEY": "",
+            "RESEND_FROM_EMAIL": "sales@example.com",
+            "SLACK_DEFAULT_CHANNEL": "#claw",
+            "SYNAPTIC_DB_CONNECTION": "sqlite:////tmp/mn_gtm_ai_workflow.db",
+            "SYNAPTIC_DB_PATH": "/tmp/mn_gtm_ai_workflow.db",
+            "SYNAPTIC_EMAIL_DELIVERY_MODE": "agentmail",
+            "SYNAPTIC_EMIT_CYCLE_TRIGGER": "true",
+            "SYNAPTIC_TEST_EMAIL_TO": "",
+            "GTM_TEST_EMAIL_TO": "",
+            "GTM_CRM_CSV_DIR": "/tmp/mn_gtm_ai_workflow_crm"
+          },
+          "name_prefix": "control_manager",
+          "output_message_type": "control_manager_result",
+          "upload_paths": [
+            {
+              "source": "control_manager",
+              "target": "control_manager"
+            },
+            {
+              "source": "knowledge",
+              "target": "knowledge"
+            },
+            {
+              "source": "_shared_skills/gtm_outreach_skill",
+              "target": "_shared_skills/gtm_outreach_skill"
+            },
+            {
+              "source": "_shared_skills/mn_email_delivery_skill",
+              "target": "_shared_skills/mn_email_delivery_skill"
+            },
+            {
+              "source": "_shared_skills/mn_litellm_communicate_skill",
+              "target": "_shared_skills/mn_litellm_communicate_skill"
+            },
+            {
+              "source": "_shared_skills/mn_external_rate_limit_skill",
+              "target": "_shared_skills/mn_external_rate_limit_skill"
+            }
+          ],
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "command": [
+            "python3",
+            "scripts/execute.py"
+          ],
+          "agent_beacon_required": true
+        },
+        "role": "Control Manager Agent"
+      },
+      {
+        "node_id": "gtm_automation_agent",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "upload_path": "gtm_automation",
+          "upload_as": "gtm_automation",
+          "workdir": "/sandbox/job/gtm_automation",
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "environment": {
+            "AGENTMAIL_API_KEY": "",
+            "AGENTMAIL_INBOX": "",
+            "LITELLM_API_BASE": "http://192.168.4.173:11434",
+            "LITELLM_API_KEY": "",
+            "LITELLM_MODEL": "ollama/nemotron3:33b",
+            "MN_LLM_API_BASE": "http://192.168.4.173:11434",
+            "MN_LLM_API_KEY": "",
+            "MN_LLM_MODEL": "ollama/nemotron3:33b",
+            "RESEND_API_KEY": "",
+            "RESEND_FROM_EMAIL": "sales@example.com",
+            "SLACK_DEFAULT_CHANNEL": "#claw",
+            "SYNAPTIC_DB_CONNECTION": "sqlite:////tmp/mn_gtm_ai_workflow.db",
+            "SYNAPTIC_DB_PATH": "/tmp/mn_gtm_ai_workflow.db",
+            "SYNAPTIC_EMAIL_DELIVERY_MODE": "agentmail",
+            "SYNAPTIC_EMIT_CYCLE_TRIGGER": "true",
+            "SYNAPTIC_TEST_EMAIL_TO": "",
+            "GTM_TEST_EMAIL_TO": "",
+            "GTM_CRM_CSV_DIR": "/tmp/mn_gtm_ai_workflow_crm"
+          },
+          "name_prefix": "gtm_automation",
+          "upload_paths": [
+            {
+              "source": "gtm_automation",
+              "target": "gtm_automation"
+            },
+            {
+              "source": "knowledge",
+              "target": "knowledge"
+            },
+            {
+              "source": "_shared_skills/gtm_outreach_skill",
+              "target": "_shared_skills/gtm_outreach_skill"
+            },
+            {
+              "source": "_shared_skills/mn_email_delivery_skill",
+              "target": "_shared_skills/mn_email_delivery_skill"
+            },
+            {
+              "source": "_shared_skills/mn_litellm_communicate_skill",
+              "target": "_shared_skills/mn_litellm_communicate_skill"
+            },
+            {
+              "source": "_shared_skills/mn_external_rate_limit_skill",
+              "target": "_shared_skills/mn_external_rate_limit_skill"
+            }
+          ],
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "command": [
+            "python3",
+            "scripts/execute.py"
+          ],
+          "agent_beacon_required": true
+        },
+        "role": "GTM Automation Engineer Agent"
+      },
+      {
+        "node_id": "inbox_reply_agent",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "upload_path": "inbox_reply",
+          "upload_as": "inbox_reply",
+          "workdir": "/sandbox/job/inbox_reply",
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "environment": {
+            "AGENTMAIL_API_KEY": "",
+            "AGENTMAIL_INBOX": "",
+            "LITELLM_API_BASE": "http://192.168.4.173:11434",
+            "LITELLM_API_KEY": "",
+            "LITELLM_MODEL": "ollama/nemotron3:33b",
+            "MN_LLM_API_BASE": "http://192.168.4.173:11434",
+            "MN_LLM_API_KEY": "",
+            "MN_LLM_MODEL": "ollama/nemotron3:33b",
+            "RESEND_API_KEY": "",
+            "RESEND_FROM_EMAIL": "sales@example.com",
+            "SLACK_DEFAULT_CHANNEL": "#claw",
+            "SYNAPTIC_DB_CONNECTION": "sqlite:////tmp/mn_gtm_ai_workflow.db",
+            "SYNAPTIC_DB_PATH": "/tmp/mn_gtm_ai_workflow.db",
+            "SYNAPTIC_EMAIL_DELIVERY_MODE": "agentmail",
+            "SYNAPTIC_EMIT_CYCLE_TRIGGER": "true",
+            "SYNAPTIC_TEST_EMAIL_TO": "",
+            "GTM_TEST_EMAIL_TO": "",
+            "GTM_CRM_CSV_DIR": "/tmp/mn_gtm_ai_workflow_crm"
+          },
+          "name_prefix": "inbox_reply",
+          "upload_paths": [
+            {
+              "source": "inbox_reply",
+              "target": "inbox_reply"
+            },
+            {
+              "source": "knowledge",
+              "target": "knowledge"
+            },
+            {
+              "source": "_shared_skills/gtm_outreach_skill",
+              "target": "_shared_skills/gtm_outreach_skill"
+            },
+            {
+              "source": "_shared_skills/mn_email_delivery_skill",
+              "target": "_shared_skills/mn_email_delivery_skill"
+            },
+            {
+              "source": "_shared_skills/mn_litellm_communicate_skill",
+              "target": "_shared_skills/mn_litellm_communicate_skill"
+            },
+            {
+              "source": "_shared_skills/mn_external_rate_limit_skill",
+              "target": "_shared_skills/mn_external_rate_limit_skill"
+            }
+          ],
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "command": [
+            "python3",
+            "scripts/execute.py"
+          ],
+          "agent_beacon_required": true
+        },
+        "role": "Inbox Reply Agent"
+      },
+      {
+        "node_id": "inbox_poller_agent",
+        "type": "stream",
+        "agent_type": "module",
+        "config": {
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "module": "Synaptic.InboxPoller",
+          "module_source": "inbox_poller/beam_modules/inbox_poller.ex",
+          "emit_type": "poll"
+        },
+        "role": "Inbox Poller"
+      }
+    ],
+    "edges": [
+      {
+        "edge_id": "ingress_to_monitor_scheduler",
+        "from_node": "ingress",
+        "to_node": "monitor_scheduler_agent",
+        "message_type": "bundle_request"
+      },
+      {
+        "edge_id": "monitor_scheduler_to_pipeline",
+        "from_node": "monitor_scheduler_agent",
+        "to_node": "account_research_agent",
+        "message_type": "plan_cycle"
+      },
+      {
+        "edge_id": "account_research_agent_to_outreach_copywriter",
+        "from_node": "account_research_agent",
+        "to_node": "outreach_copywriter_agent",
+        "message_type": "account_research_result"
+      },
+      {
+        "edge_id": "outreach_copywriter_agent_to_email_designer",
+        "from_node": "outreach_copywriter_agent",
+        "to_node": "email_designer_agent",
+        "message_type": "outreach_copywriter_result"
+      },
+      {
+        "edge_id": "email_designer_agent_to_deliverability_ops",
+        "from_node": "email_designer_agent",
+        "to_node": "deliverability_ops_agent",
+        "message_type": "email_designer_result"
+      },
+      {
+        "edge_id": "deliverability_ops_agent_to_control_manager",
+        "from_node": "deliverability_ops_agent",
+        "to_node": "control_manager_agent",
+        "message_type": "deliverability_ops_result"
+      },
+      {
+        "edge_id": "control_manager_agent_to_gtm_automation",
+        "from_node": "control_manager_agent",
+        "to_node": "gtm_automation_agent",
+        "message_type": "control_manager_result"
+      },
+      {
+        "edge_id": "gtm_automation_to_monitor_scheduler",
+        "from_node": "gtm_automation_agent",
+        "to_node": "monitor_scheduler_agent",
+        "message_type": "cycle_trigger"
+      },
+      {
+        "edge_id": "ingress_to_inbox_poller",
+        "from_node": "ingress",
+        "to_node": "inbox_poller_agent",
+        "message_type": "bundle_request"
+      },
+      {
+        "edge_id": "inbox_poller_to_inbox_reply",
+        "from_node": "inbox_poller_agent",
+        "to_node": "inbox_reply_agent",
+        "message_type": "poll"
+      }
+    ]
   },
   "runtime": {
     "store": {
@@ -503,8 +1132,8 @@
             "uses": "mn-agents.data_module@1.0.0",
             "kind": "stream",
             "with": {
-              "module": "MirrorNeuron.Examples.GtmAiWorkflow.MonitorScheduler",
-              "module_source": "payloads/monitor_scheduler",
+              "module": "Synaptic.MonitorScheduler",
+              "module_source": "monitor_scheduler/beam_modules/monitor_scheduler.ex",
               "emit_type": "plan_cycle"
             }
           },
@@ -1024,8 +1653,8 @@
             "uses": "mn-agents.data_module@1.0.0",
             "kind": "stream",
             "with": {
-              "module": "MirrorNeuron.Examples.GtmAiWorkflow.InboxPoller",
-              "module_source": "payloads/inbox_poller",
+              "module": "Synaptic.InboxPoller",
+              "module_source": "inbox_poller/beam_modules/inbox_poller.ex",
               "emit_type": "poll"
             }
           }
@@ -1375,48 +2004,1755 @@
       "nodes": [
         {
           "node_id": "ingress",
-          "uses": "mn-agents.control_router@1.0.0"
+          "uses": "mn-agents.control_router@1.0.0",
+          "with": {
+            "role": "Service ingress",
+            "beacon_enabled": true,
+            "beacon_interval_ms": 15000,
+            "beacon_timeout_ms": 45000,
+            "beacon_missed_action": "fail_attempt"
+          }
         },
         {
           "node_id": "monitor_scheduler_agent",
-          "uses": "mn-agents.data_module@1.0.0"
+          "uses": "mn-agents.data_module@1.0.0",
+          "with": {
+            "role": "Monitor Scheduler Agent",
+            "node_type": "stream",
+            "beacon_enabled": true,
+            "beacon_interval_ms": 15000,
+            "beacon_timeout_ms": 45000,
+            "beacon_missed_action": "fail_attempt",
+            "module": "Synaptic.MonitorScheduler",
+            "module_source": "monitor_scheduler/beam_modules/monitor_scheduler.ex",
+            "emit_type": "plan_cycle"
+          }
         },
         {
           "node_id": "account_research_agent",
-          "uses": "mn-agents.data_python_executor@1.0.0"
+          "uses": "mn-agents.data_python_executor@1.0.0",
+          "with": {
+            "command": [
+              "python3",
+              "scripts/execute.py"
+            ],
+            "environment": {
+              "AGENTMAIL_API_KEY": "",
+              "AGENTMAIL_INBOX": "",
+              "LITELLM_API_BASE": "http://192.168.4.173:11434",
+              "LITELLM_API_KEY": "",
+              "LITELLM_MODEL": "ollama/nemotron3:33b",
+              "MN_LLM_API_BASE": "http://192.168.4.173:11434",
+              "MN_LLM_API_KEY": "",
+              "MN_LLM_MODEL": "ollama/nemotron3:33b",
+              "RESEND_API_KEY": "",
+              "RESEND_FROM_EMAIL": "sales@example.com",
+              "SLACK_DEFAULT_CHANNEL": "#claw",
+              "SYNAPTIC_DB_CONNECTION": "sqlite:////tmp/mn_gtm_ai_workflow.db",
+              "SYNAPTIC_DB_PATH": "/tmp/mn_gtm_ai_workflow.db",
+              "SYNAPTIC_EMAIL_DELIVERY_MODE": "agentmail",
+              "SYNAPTIC_EMIT_CYCLE_TRIGGER": "true",
+              "SYNAPTIC_TEST_EMAIL_TO": "",
+              "GTM_TEST_EMAIL_TO": "",
+              "GTM_CRM_CSV_DIR": "/tmp/mn_gtm_ai_workflow_crm"
+            },
+            "from": "base",
+            "name_prefix": "account_research",
+            "no_auto_providers": true,
+            "no_keep": true,
+            "node_type": "generic",
+            "output_message_type": "account_research_result",
+            "pool": "default",
+            "pool_slots": 1,
+            "role": "Account Research Agent",
+            "runner_module": "MirrorNeuron.Runner.HostLocal",
+            "script": "scripts/execute.py",
+            "tty": false,
+            "upload_as": "account_research",
+            "upload_path": "account_research",
+            "upload_paths": [
+              {
+                "source": "account_research",
+                "target": "account_research"
+              },
+              {
+                "source": "knowledge",
+                "target": "knowledge"
+              },
+              {
+                "source": "_shared_skills/gtm_outreach_skill",
+                "target": "_shared_skills/gtm_outreach_skill"
+              },
+              {
+                "source": "_shared_skills/mn_email_delivery_skill",
+                "target": "_shared_skills/mn_email_delivery_skill"
+              },
+              {
+                "source": "_shared_skills/mn_litellm_communicate_skill",
+                "target": "_shared_skills/mn_litellm_communicate_skill"
+              },
+              {
+                "source": "_shared_skills/mn_external_rate_limit_skill",
+                "target": "_shared_skills/mn_external_rate_limit_skill"
+              }
+            ],
+            "workdir": "/sandbox/job/account_research",
+            "beacon_enabled": true,
+            "beacon_interval_ms": 15000,
+            "beacon_timeout_ms": 45000,
+            "beacon_missed_action": "fail_attempt"
+          }
         },
         {
           "node_id": "outreach_copywriter_agent",
-          "uses": "mn-agents.data_python_executor@1.0.0"
+          "uses": "mn-agents.data_python_executor@1.0.0",
+          "with": {
+            "command": [
+              "python3",
+              "scripts/execute.py"
+            ],
+            "environment": {
+              "AGENTMAIL_API_KEY": "",
+              "AGENTMAIL_INBOX": "",
+              "LITELLM_API_BASE": "http://192.168.4.173:11434",
+              "LITELLM_API_KEY": "",
+              "LITELLM_MODEL": "ollama/nemotron3:33b",
+              "MN_LLM_API_BASE": "http://192.168.4.173:11434",
+              "MN_LLM_API_KEY": "",
+              "MN_LLM_MODEL": "ollama/nemotron3:33b",
+              "RESEND_API_KEY": "",
+              "RESEND_FROM_EMAIL": "sales@example.com",
+              "SLACK_DEFAULT_CHANNEL": "#claw",
+              "SYNAPTIC_DB_CONNECTION": "sqlite:////tmp/mn_gtm_ai_workflow.db",
+              "SYNAPTIC_DB_PATH": "/tmp/mn_gtm_ai_workflow.db",
+              "SYNAPTIC_EMAIL_DELIVERY_MODE": "agentmail",
+              "SYNAPTIC_EMIT_CYCLE_TRIGGER": "true",
+              "SYNAPTIC_TEST_EMAIL_TO": "",
+              "GTM_TEST_EMAIL_TO": "",
+              "GTM_CRM_CSV_DIR": "/tmp/mn_gtm_ai_workflow_crm"
+            },
+            "from": "base",
+            "name_prefix": "outreach_copywriter",
+            "no_auto_providers": true,
+            "no_keep": true,
+            "node_type": "generic",
+            "output_message_type": "outreach_copywriter_result",
+            "pool": "default",
+            "pool_slots": 1,
+            "role": "Outreach Copywriter Agent",
+            "runner_module": "MirrorNeuron.Runner.HostLocal",
+            "script": "scripts/execute.py",
+            "tty": false,
+            "upload_as": "outreach_copywriter",
+            "upload_path": "outreach_copywriter",
+            "upload_paths": [
+              {
+                "source": "outreach_copywriter",
+                "target": "outreach_copywriter"
+              },
+              {
+                "source": "knowledge",
+                "target": "knowledge"
+              },
+              {
+                "source": "_shared_skills/gtm_outreach_skill",
+                "target": "_shared_skills/gtm_outreach_skill"
+              },
+              {
+                "source": "_shared_skills/mn_email_delivery_skill",
+                "target": "_shared_skills/mn_email_delivery_skill"
+              },
+              {
+                "source": "_shared_skills/mn_litellm_communicate_skill",
+                "target": "_shared_skills/mn_litellm_communicate_skill"
+              },
+              {
+                "source": "_shared_skills/mn_external_rate_limit_skill",
+                "target": "_shared_skills/mn_external_rate_limit_skill"
+              }
+            ],
+            "workdir": "/sandbox/job/outreach_copywriter",
+            "beacon_enabled": true,
+            "beacon_interval_ms": 15000,
+            "beacon_timeout_ms": 45000,
+            "beacon_missed_action": "fail_attempt"
+          }
         },
         {
           "node_id": "email_designer_agent",
-          "uses": "mn-agents.data_python_executor@1.0.0"
+          "uses": "mn-agents.data_python_executor@1.0.0",
+          "with": {
+            "command": [
+              "python3",
+              "scripts/execute.py"
+            ],
+            "environment": {
+              "AGENTMAIL_API_KEY": "",
+              "AGENTMAIL_INBOX": "",
+              "LITELLM_API_BASE": "http://192.168.4.173:11434",
+              "LITELLM_API_KEY": "",
+              "LITELLM_MODEL": "ollama/nemotron3:33b",
+              "MN_LLM_API_BASE": "http://192.168.4.173:11434",
+              "MN_LLM_API_KEY": "",
+              "MN_LLM_MODEL": "ollama/nemotron3:33b",
+              "RESEND_API_KEY": "",
+              "RESEND_FROM_EMAIL": "sales@example.com",
+              "SLACK_DEFAULT_CHANNEL": "#claw",
+              "SYNAPTIC_DB_CONNECTION": "sqlite:////tmp/mn_gtm_ai_workflow.db",
+              "SYNAPTIC_DB_PATH": "/tmp/mn_gtm_ai_workflow.db",
+              "SYNAPTIC_EMAIL_DELIVERY_MODE": "agentmail",
+              "SYNAPTIC_EMIT_CYCLE_TRIGGER": "true",
+              "SYNAPTIC_TEST_EMAIL_TO": "",
+              "GTM_TEST_EMAIL_TO": "",
+              "GTM_CRM_CSV_DIR": "/tmp/mn_gtm_ai_workflow_crm"
+            },
+            "from": "base",
+            "name_prefix": "email_designer",
+            "no_auto_providers": true,
+            "no_keep": true,
+            "node_type": "generic",
+            "output_message_type": "email_designer_result",
+            "pool": "default",
+            "pool_slots": 1,
+            "role": "Email Designer Agent",
+            "runner_module": "MirrorNeuron.Runner.HostLocal",
+            "script": "scripts/execute.py",
+            "tty": false,
+            "upload_as": "email_designer",
+            "upload_path": "email_designer",
+            "upload_paths": [
+              {
+                "source": "email_designer",
+                "target": "email_designer"
+              },
+              {
+                "source": "knowledge",
+                "target": "knowledge"
+              },
+              {
+                "source": "_shared_skills/gtm_outreach_skill",
+                "target": "_shared_skills/gtm_outreach_skill"
+              },
+              {
+                "source": "_shared_skills/mn_email_delivery_skill",
+                "target": "_shared_skills/mn_email_delivery_skill"
+              },
+              {
+                "source": "_shared_skills/mn_litellm_communicate_skill",
+                "target": "_shared_skills/mn_litellm_communicate_skill"
+              },
+              {
+                "source": "_shared_skills/mn_external_rate_limit_skill",
+                "target": "_shared_skills/mn_external_rate_limit_skill"
+              }
+            ],
+            "workdir": "/sandbox/job/email_designer",
+            "beacon_enabled": true,
+            "beacon_interval_ms": 15000,
+            "beacon_timeout_ms": 45000,
+            "beacon_missed_action": "fail_attempt"
+          }
         },
         {
           "node_id": "deliverability_ops_agent",
-          "uses": "mn-agents.data_python_executor@1.0.0"
+          "uses": "mn-agents.data_python_executor@1.0.0",
+          "with": {
+            "command": [
+              "python3",
+              "scripts/execute.py"
+            ],
+            "environment": {
+              "AGENTMAIL_API_KEY": "",
+              "AGENTMAIL_INBOX": "",
+              "LITELLM_API_BASE": "http://192.168.4.173:11434",
+              "LITELLM_API_KEY": "",
+              "LITELLM_MODEL": "ollama/nemotron3:33b",
+              "MN_LLM_API_BASE": "http://192.168.4.173:11434",
+              "MN_LLM_API_KEY": "",
+              "MN_LLM_MODEL": "ollama/nemotron3:33b",
+              "RESEND_API_KEY": "",
+              "RESEND_FROM_EMAIL": "sales@example.com",
+              "SLACK_DEFAULT_CHANNEL": "#claw",
+              "SYNAPTIC_DB_CONNECTION": "sqlite:////tmp/mn_gtm_ai_workflow.db",
+              "SYNAPTIC_DB_PATH": "/tmp/mn_gtm_ai_workflow.db",
+              "SYNAPTIC_EMAIL_DELIVERY_MODE": "agentmail",
+              "SYNAPTIC_EMIT_CYCLE_TRIGGER": "true",
+              "SYNAPTIC_TEST_EMAIL_TO": "",
+              "GTM_TEST_EMAIL_TO": "",
+              "GTM_CRM_CSV_DIR": "/tmp/mn_gtm_ai_workflow_crm"
+            },
+            "from": "base",
+            "name_prefix": "deliverability_ops",
+            "no_auto_providers": true,
+            "no_keep": true,
+            "node_type": "generic",
+            "output_message_type": "deliverability_ops_result",
+            "pool": "default",
+            "pool_slots": 1,
+            "role": "Deliverability & Ops Specialist Agent",
+            "runner_module": "MirrorNeuron.Runner.HostLocal",
+            "script": "scripts/execute.py",
+            "tty": false,
+            "upload_as": "deliverability_ops",
+            "upload_path": "deliverability_ops",
+            "upload_paths": [
+              {
+                "source": "deliverability_ops",
+                "target": "deliverability_ops"
+              },
+              {
+                "source": "knowledge",
+                "target": "knowledge"
+              },
+              {
+                "source": "_shared_skills/gtm_outreach_skill",
+                "target": "_shared_skills/gtm_outreach_skill"
+              },
+              {
+                "source": "_shared_skills/mn_email_delivery_skill",
+                "target": "_shared_skills/mn_email_delivery_skill"
+              },
+              {
+                "source": "_shared_skills/mn_litellm_communicate_skill",
+                "target": "_shared_skills/mn_litellm_communicate_skill"
+              },
+              {
+                "source": "_shared_skills/mn_external_rate_limit_skill",
+                "target": "_shared_skills/mn_external_rate_limit_skill"
+              }
+            ],
+            "workdir": "/sandbox/job/deliverability_ops",
+            "beacon_enabled": true,
+            "beacon_interval_ms": 15000,
+            "beacon_timeout_ms": 45000,
+            "beacon_missed_action": "fail_attempt"
+          }
         },
         {
           "node_id": "control_manager_agent",
-          "uses": "mn-agents.data_python_executor@1.0.0"
+          "uses": "mn-agents.data_python_executor@1.0.0",
+          "with": {
+            "command": [
+              "python3",
+              "scripts/execute.py"
+            ],
+            "environment": {
+              "AGENTMAIL_API_KEY": "",
+              "AGENTMAIL_INBOX": "",
+              "LITELLM_API_BASE": "http://192.168.4.173:11434",
+              "LITELLM_API_KEY": "",
+              "LITELLM_MODEL": "ollama/nemotron3:33b",
+              "MN_LLM_API_BASE": "http://192.168.4.173:11434",
+              "MN_LLM_API_KEY": "",
+              "MN_LLM_MODEL": "ollama/nemotron3:33b",
+              "RESEND_API_KEY": "",
+              "RESEND_FROM_EMAIL": "sales@example.com",
+              "SLACK_DEFAULT_CHANNEL": "#claw",
+              "SYNAPTIC_DB_CONNECTION": "sqlite:////tmp/mn_gtm_ai_workflow.db",
+              "SYNAPTIC_DB_PATH": "/tmp/mn_gtm_ai_workflow.db",
+              "SYNAPTIC_EMAIL_DELIVERY_MODE": "agentmail",
+              "SYNAPTIC_EMIT_CYCLE_TRIGGER": "true",
+              "SYNAPTIC_TEST_EMAIL_TO": "",
+              "GTM_TEST_EMAIL_TO": "",
+              "GTM_CRM_CSV_DIR": "/tmp/mn_gtm_ai_workflow_crm"
+            },
+            "from": "base",
+            "name_prefix": "control_manager",
+            "no_auto_providers": true,
+            "no_keep": true,
+            "node_type": "generic",
+            "output_message_type": "control_manager_result",
+            "pool": "default",
+            "pool_slots": 1,
+            "role": "Control Manager Agent",
+            "runner_module": "MirrorNeuron.Runner.HostLocal",
+            "script": "scripts/execute.py",
+            "tty": false,
+            "upload_as": "control_manager",
+            "upload_path": "control_manager",
+            "upload_paths": [
+              {
+                "source": "control_manager",
+                "target": "control_manager"
+              },
+              {
+                "source": "knowledge",
+                "target": "knowledge"
+              },
+              {
+                "source": "_shared_skills/gtm_outreach_skill",
+                "target": "_shared_skills/gtm_outreach_skill"
+              },
+              {
+                "source": "_shared_skills/mn_email_delivery_skill",
+                "target": "_shared_skills/mn_email_delivery_skill"
+              },
+              {
+                "source": "_shared_skills/mn_litellm_communicate_skill",
+                "target": "_shared_skills/mn_litellm_communicate_skill"
+              },
+              {
+                "source": "_shared_skills/mn_external_rate_limit_skill",
+                "target": "_shared_skills/mn_external_rate_limit_skill"
+              }
+            ],
+            "workdir": "/sandbox/job/control_manager",
+            "beacon_enabled": true,
+            "beacon_interval_ms": 15000,
+            "beacon_timeout_ms": 45000,
+            "beacon_missed_action": "fail_attempt"
+          }
         },
         {
           "node_id": "gtm_automation_agent",
-          "uses": "mn-agents.data_python_executor@1.0.0"
+          "uses": "mn-agents.data_python_executor@1.0.0",
+          "with": {
+            "command": [
+              "python3",
+              "scripts/execute.py"
+            ],
+            "environment": {
+              "AGENTMAIL_API_KEY": "",
+              "AGENTMAIL_INBOX": "",
+              "LITELLM_API_BASE": "http://192.168.4.173:11434",
+              "LITELLM_API_KEY": "",
+              "LITELLM_MODEL": "ollama/nemotron3:33b",
+              "MN_LLM_API_BASE": "http://192.168.4.173:11434",
+              "MN_LLM_API_KEY": "",
+              "MN_LLM_MODEL": "ollama/nemotron3:33b",
+              "RESEND_API_KEY": "",
+              "RESEND_FROM_EMAIL": "sales@example.com",
+              "SLACK_DEFAULT_CHANNEL": "#claw",
+              "SYNAPTIC_DB_CONNECTION": "sqlite:////tmp/mn_gtm_ai_workflow.db",
+              "SYNAPTIC_DB_PATH": "/tmp/mn_gtm_ai_workflow.db",
+              "SYNAPTIC_EMAIL_DELIVERY_MODE": "agentmail",
+              "SYNAPTIC_EMIT_CYCLE_TRIGGER": "true",
+              "SYNAPTIC_TEST_EMAIL_TO": "",
+              "GTM_TEST_EMAIL_TO": "",
+              "GTM_CRM_CSV_DIR": "/tmp/mn_gtm_ai_workflow_crm"
+            },
+            "from": "base",
+            "name_prefix": "gtm_automation",
+            "no_auto_providers": true,
+            "no_keep": true,
+            "node_type": "generic",
+            "output_message_type": null,
+            "pool": "default",
+            "pool_slots": 1,
+            "role": "GTM Automation Engineer Agent",
+            "runner_module": "MirrorNeuron.Runner.HostLocal",
+            "script": "scripts/execute.py",
+            "tty": false,
+            "upload_as": "gtm_automation",
+            "upload_path": "gtm_automation",
+            "upload_paths": [
+              {
+                "source": "gtm_automation",
+                "target": "gtm_automation"
+              },
+              {
+                "source": "knowledge",
+                "target": "knowledge"
+              },
+              {
+                "source": "_shared_skills/gtm_outreach_skill",
+                "target": "_shared_skills/gtm_outreach_skill"
+              },
+              {
+                "source": "_shared_skills/mn_email_delivery_skill",
+                "target": "_shared_skills/mn_email_delivery_skill"
+              },
+              {
+                "source": "_shared_skills/mn_litellm_communicate_skill",
+                "target": "_shared_skills/mn_litellm_communicate_skill"
+              },
+              {
+                "source": "_shared_skills/mn_external_rate_limit_skill",
+                "target": "_shared_skills/mn_external_rate_limit_skill"
+              }
+            ],
+            "workdir": "/sandbox/job/gtm_automation",
+            "beacon_enabled": true,
+            "beacon_interval_ms": 15000,
+            "beacon_timeout_ms": 45000,
+            "beacon_missed_action": "fail_attempt"
+          }
         },
         {
           "node_id": "inbox_reply_agent",
-          "uses": "mn-agents.data_python_executor@1.0.0"
+          "uses": "mn-agents.data_python_executor@1.0.0",
+          "with": {
+            "command": [
+              "python3",
+              "scripts/execute.py"
+            ],
+            "environment": {
+              "AGENTMAIL_API_KEY": "",
+              "AGENTMAIL_INBOX": "",
+              "LITELLM_API_BASE": "http://192.168.4.173:11434",
+              "LITELLM_API_KEY": "",
+              "LITELLM_MODEL": "ollama/nemotron3:33b",
+              "MN_LLM_API_BASE": "http://192.168.4.173:11434",
+              "MN_LLM_API_KEY": "",
+              "MN_LLM_MODEL": "ollama/nemotron3:33b",
+              "RESEND_API_KEY": "",
+              "RESEND_FROM_EMAIL": "sales@example.com",
+              "SLACK_DEFAULT_CHANNEL": "#claw",
+              "SYNAPTIC_DB_CONNECTION": "sqlite:////tmp/mn_gtm_ai_workflow.db",
+              "SYNAPTIC_DB_PATH": "/tmp/mn_gtm_ai_workflow.db",
+              "SYNAPTIC_EMAIL_DELIVERY_MODE": "agentmail",
+              "SYNAPTIC_EMIT_CYCLE_TRIGGER": "true",
+              "SYNAPTIC_TEST_EMAIL_TO": "",
+              "GTM_TEST_EMAIL_TO": "",
+              "GTM_CRM_CSV_DIR": "/tmp/mn_gtm_ai_workflow_crm"
+            },
+            "from": "base",
+            "name_prefix": "inbox_reply",
+            "no_auto_providers": true,
+            "no_keep": true,
+            "node_type": "generic",
+            "pool": "default",
+            "pool_slots": 1,
+            "role": "Inbox Reply Agent",
+            "runner_module": "MirrorNeuron.Runner.HostLocal",
+            "script": "scripts/execute.py",
+            "tty": false,
+            "upload_as": "inbox_reply",
+            "upload_path": "inbox_reply",
+            "upload_paths": [
+              {
+                "source": "inbox_reply",
+                "target": "inbox_reply"
+              },
+              {
+                "source": "knowledge",
+                "target": "knowledge"
+              },
+              {
+                "source": "_shared_skills/gtm_outreach_skill",
+                "target": "_shared_skills/gtm_outreach_skill"
+              },
+              {
+                "source": "_shared_skills/mn_email_delivery_skill",
+                "target": "_shared_skills/mn_email_delivery_skill"
+              },
+              {
+                "source": "_shared_skills/mn_litellm_communicate_skill",
+                "target": "_shared_skills/mn_litellm_communicate_skill"
+              },
+              {
+                "source": "_shared_skills/mn_external_rate_limit_skill",
+                "target": "_shared_skills/mn_external_rate_limit_skill"
+              }
+            ],
+            "workdir": "/sandbox/job/inbox_reply",
+            "beacon_enabled": true,
+            "beacon_interval_ms": 15000,
+            "beacon_timeout_ms": 45000,
+            "beacon_missed_action": "fail_attempt"
+          }
         },
         {
           "node_id": "inbox_poller_agent",
-          "uses": "mn-agents.data_module@1.0.0"
+          "uses": "mn-agents.data_module@1.0.0",
+          "with": {
+            "role": "Inbox Poller",
+            "node_type": "stream",
+            "beacon_enabled": true,
+            "beacon_interval_ms": 15000,
+            "beacon_timeout_ms": 45000,
+            "beacon_missed_action": "fail_attempt",
+            "module": "Synaptic.InboxPoller",
+            "module_source": "inbox_poller/beam_modules/inbox_poller.ex",
+            "emit_type": "poll"
+          }
         }
       ],
       "render_tool": "../mn-agents/tools/render_agent_templates.py",
       "rendered_output": "manifest.rendered.json or runtime metadata",
-      "renderer": "mn_blueprint_support.render_manifest_agent_templates"
+      "renderer": "mn_blueprint_support.render_manifest_agent_templates",
+      "rendered": [
+        {
+          "node_id": "ingress",
+          "template_id": "mn-agents.control_router",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "ingress",
+            "uses": "mn-agents.control_router@1.0.0",
+            "with": {
+              "role": "Service ingress",
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt"
+            }
+          },
+          "rendered_node": {
+            "node_id": "ingress",
+            "type": "map",
+            "agent_type": "router",
+            "config": {
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt"
+            },
+            "role": "Service ingress"
+          }
+        },
+        {
+          "node_id": "monitor_scheduler_agent",
+          "template_id": "mn-agents.data_module",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "monitor_scheduler_agent",
+            "uses": "mn-agents.data_module@1.0.0",
+            "with": {
+              "role": "Monitor Scheduler Agent",
+              "node_type": "stream",
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "module": "Synaptic.MonitorScheduler",
+              "module_source": "monitor_scheduler/beam_modules/monitor_scheduler.ex",
+              "emit_type": "plan_cycle"
+            }
+          },
+          "rendered_node": {
+            "node_id": "monitor_scheduler_agent",
+            "type": "stream",
+            "agent_type": "module",
+            "config": {
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "module": "Synaptic.MonitorScheduler",
+              "module_source": "monitor_scheduler/beam_modules/monitor_scheduler.ex",
+              "emit_type": "plan_cycle"
+            },
+            "role": "Monitor Scheduler Agent"
+          }
+        },
+        {
+          "node_id": "account_research_agent",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "account_research_agent",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "command": [
+                "python3",
+                "scripts/execute.py"
+              ],
+              "environment": {
+                "AGENTMAIL_API_KEY": "",
+                "AGENTMAIL_INBOX": "",
+                "LITELLM_API_BASE": "http://192.168.4.173:11434",
+                "LITELLM_API_KEY": "",
+                "LITELLM_MODEL": "ollama/nemotron3:33b",
+                "MN_LLM_API_BASE": "http://192.168.4.173:11434",
+                "MN_LLM_API_KEY": "",
+                "MN_LLM_MODEL": "ollama/nemotron3:33b",
+                "RESEND_API_KEY": "",
+                "RESEND_FROM_EMAIL": "sales@example.com",
+                "SLACK_DEFAULT_CHANNEL": "#claw",
+                "SYNAPTIC_DB_CONNECTION": "sqlite:////tmp/mn_gtm_ai_workflow.db",
+                "SYNAPTIC_DB_PATH": "/tmp/mn_gtm_ai_workflow.db",
+                "SYNAPTIC_EMAIL_DELIVERY_MODE": "agentmail",
+                "SYNAPTIC_EMIT_CYCLE_TRIGGER": "true",
+                "SYNAPTIC_TEST_EMAIL_TO": "",
+                "GTM_TEST_EMAIL_TO": "",
+                "GTM_CRM_CSV_DIR": "/tmp/mn_gtm_ai_workflow_crm"
+              },
+              "from": "base",
+              "name_prefix": "account_research",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "node_type": "generic",
+              "output_message_type": "account_research_result",
+              "pool": "default",
+              "pool_slots": 1,
+              "role": "Account Research Agent",
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "script": "scripts/execute.py",
+              "tty": false,
+              "upload_as": "account_research",
+              "upload_path": "account_research",
+              "upload_paths": [
+                {
+                  "source": "account_research",
+                  "target": "account_research"
+                },
+                {
+                  "source": "knowledge",
+                  "target": "knowledge"
+                },
+                {
+                  "source": "_shared_skills/gtm_outreach_skill",
+                  "target": "_shared_skills/gtm_outreach_skill"
+                },
+                {
+                  "source": "_shared_skills/mn_email_delivery_skill",
+                  "target": "_shared_skills/mn_email_delivery_skill"
+                },
+                {
+                  "source": "_shared_skills/mn_litellm_communicate_skill",
+                  "target": "_shared_skills/mn_litellm_communicate_skill"
+                },
+                {
+                  "source": "_shared_skills/mn_external_rate_limit_skill",
+                  "target": "_shared_skills/mn_external_rate_limit_skill"
+                }
+              ],
+              "workdir": "/sandbox/job/account_research",
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt"
+            }
+          },
+          "rendered_node": {
+            "node_id": "account_research_agent",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "upload_path": "account_research",
+              "upload_as": "account_research",
+              "workdir": "/sandbox/job/account_research",
+              "from": "base",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "pool": "default",
+              "pool_slots": 1,
+              "tty": false,
+              "environment": {
+                "AGENTMAIL_API_KEY": "",
+                "AGENTMAIL_INBOX": "",
+                "LITELLM_API_BASE": "http://192.168.4.173:11434",
+                "LITELLM_API_KEY": "",
+                "LITELLM_MODEL": "ollama/nemotron3:33b",
+                "MN_LLM_API_BASE": "http://192.168.4.173:11434",
+                "MN_LLM_API_KEY": "",
+                "MN_LLM_MODEL": "ollama/nemotron3:33b",
+                "RESEND_API_KEY": "",
+                "RESEND_FROM_EMAIL": "sales@example.com",
+                "SLACK_DEFAULT_CHANNEL": "#claw",
+                "SYNAPTIC_DB_CONNECTION": "sqlite:////tmp/mn_gtm_ai_workflow.db",
+                "SYNAPTIC_DB_PATH": "/tmp/mn_gtm_ai_workflow.db",
+                "SYNAPTIC_EMAIL_DELIVERY_MODE": "agentmail",
+                "SYNAPTIC_EMIT_CYCLE_TRIGGER": "true",
+                "SYNAPTIC_TEST_EMAIL_TO": "",
+                "GTM_TEST_EMAIL_TO": "",
+                "GTM_CRM_CSV_DIR": "/tmp/mn_gtm_ai_workflow_crm"
+              },
+              "name_prefix": "account_research",
+              "output_message_type": "account_research_result",
+              "upload_paths": [
+                {
+                  "source": "account_research",
+                  "target": "account_research"
+                },
+                {
+                  "source": "knowledge",
+                  "target": "knowledge"
+                },
+                {
+                  "source": "_shared_skills/gtm_outreach_skill",
+                  "target": "_shared_skills/gtm_outreach_skill"
+                },
+                {
+                  "source": "_shared_skills/mn_email_delivery_skill",
+                  "target": "_shared_skills/mn_email_delivery_skill"
+                },
+                {
+                  "source": "_shared_skills/mn_litellm_communicate_skill",
+                  "target": "_shared_skills/mn_litellm_communicate_skill"
+                },
+                {
+                  "source": "_shared_skills/mn_external_rate_limit_skill",
+                  "target": "_shared_skills/mn_external_rate_limit_skill"
+                }
+              ],
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "command": [
+                "python3",
+                "scripts/execute.py"
+              ],
+              "agent_beacon_required": true
+            },
+            "role": "Account Research Agent"
+          }
+        },
+        {
+          "node_id": "outreach_copywriter_agent",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "outreach_copywriter_agent",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "command": [
+                "python3",
+                "scripts/execute.py"
+              ],
+              "environment": {
+                "AGENTMAIL_API_KEY": "",
+                "AGENTMAIL_INBOX": "",
+                "LITELLM_API_BASE": "http://192.168.4.173:11434",
+                "LITELLM_API_KEY": "",
+                "LITELLM_MODEL": "ollama/nemotron3:33b",
+                "MN_LLM_API_BASE": "http://192.168.4.173:11434",
+                "MN_LLM_API_KEY": "",
+                "MN_LLM_MODEL": "ollama/nemotron3:33b",
+                "RESEND_API_KEY": "",
+                "RESEND_FROM_EMAIL": "sales@example.com",
+                "SLACK_DEFAULT_CHANNEL": "#claw",
+                "SYNAPTIC_DB_CONNECTION": "sqlite:////tmp/mn_gtm_ai_workflow.db",
+                "SYNAPTIC_DB_PATH": "/tmp/mn_gtm_ai_workflow.db",
+                "SYNAPTIC_EMAIL_DELIVERY_MODE": "agentmail",
+                "SYNAPTIC_EMIT_CYCLE_TRIGGER": "true",
+                "SYNAPTIC_TEST_EMAIL_TO": "",
+                "GTM_TEST_EMAIL_TO": "",
+                "GTM_CRM_CSV_DIR": "/tmp/mn_gtm_ai_workflow_crm"
+              },
+              "from": "base",
+              "name_prefix": "outreach_copywriter",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "node_type": "generic",
+              "output_message_type": "outreach_copywriter_result",
+              "pool": "default",
+              "pool_slots": 1,
+              "role": "Outreach Copywriter Agent",
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "script": "scripts/execute.py",
+              "tty": false,
+              "upload_as": "outreach_copywriter",
+              "upload_path": "outreach_copywriter",
+              "upload_paths": [
+                {
+                  "source": "outreach_copywriter",
+                  "target": "outreach_copywriter"
+                },
+                {
+                  "source": "knowledge",
+                  "target": "knowledge"
+                },
+                {
+                  "source": "_shared_skills/gtm_outreach_skill",
+                  "target": "_shared_skills/gtm_outreach_skill"
+                },
+                {
+                  "source": "_shared_skills/mn_email_delivery_skill",
+                  "target": "_shared_skills/mn_email_delivery_skill"
+                },
+                {
+                  "source": "_shared_skills/mn_litellm_communicate_skill",
+                  "target": "_shared_skills/mn_litellm_communicate_skill"
+                },
+                {
+                  "source": "_shared_skills/mn_external_rate_limit_skill",
+                  "target": "_shared_skills/mn_external_rate_limit_skill"
+                }
+              ],
+              "workdir": "/sandbox/job/outreach_copywriter",
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt"
+            }
+          },
+          "rendered_node": {
+            "node_id": "outreach_copywriter_agent",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "upload_path": "outreach_copywriter",
+              "upload_as": "outreach_copywriter",
+              "workdir": "/sandbox/job/outreach_copywriter",
+              "from": "base",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "pool": "default",
+              "pool_slots": 1,
+              "tty": false,
+              "environment": {
+                "AGENTMAIL_API_KEY": "",
+                "AGENTMAIL_INBOX": "",
+                "LITELLM_API_BASE": "http://192.168.4.173:11434",
+                "LITELLM_API_KEY": "",
+                "LITELLM_MODEL": "ollama/nemotron3:33b",
+                "MN_LLM_API_BASE": "http://192.168.4.173:11434",
+                "MN_LLM_API_KEY": "",
+                "MN_LLM_MODEL": "ollama/nemotron3:33b",
+                "RESEND_API_KEY": "",
+                "RESEND_FROM_EMAIL": "sales@example.com",
+                "SLACK_DEFAULT_CHANNEL": "#claw",
+                "SYNAPTIC_DB_CONNECTION": "sqlite:////tmp/mn_gtm_ai_workflow.db",
+                "SYNAPTIC_DB_PATH": "/tmp/mn_gtm_ai_workflow.db",
+                "SYNAPTIC_EMAIL_DELIVERY_MODE": "agentmail",
+                "SYNAPTIC_EMIT_CYCLE_TRIGGER": "true",
+                "SYNAPTIC_TEST_EMAIL_TO": "",
+                "GTM_TEST_EMAIL_TO": "",
+                "GTM_CRM_CSV_DIR": "/tmp/mn_gtm_ai_workflow_crm"
+              },
+              "name_prefix": "outreach_copywriter",
+              "output_message_type": "outreach_copywriter_result",
+              "upload_paths": [
+                {
+                  "source": "outreach_copywriter",
+                  "target": "outreach_copywriter"
+                },
+                {
+                  "source": "knowledge",
+                  "target": "knowledge"
+                },
+                {
+                  "source": "_shared_skills/gtm_outreach_skill",
+                  "target": "_shared_skills/gtm_outreach_skill"
+                },
+                {
+                  "source": "_shared_skills/mn_email_delivery_skill",
+                  "target": "_shared_skills/mn_email_delivery_skill"
+                },
+                {
+                  "source": "_shared_skills/mn_litellm_communicate_skill",
+                  "target": "_shared_skills/mn_litellm_communicate_skill"
+                },
+                {
+                  "source": "_shared_skills/mn_external_rate_limit_skill",
+                  "target": "_shared_skills/mn_external_rate_limit_skill"
+                }
+              ],
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "command": [
+                "python3",
+                "scripts/execute.py"
+              ],
+              "agent_beacon_required": true
+            },
+            "role": "Outreach Copywriter Agent"
+          }
+        },
+        {
+          "node_id": "email_designer_agent",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "email_designer_agent",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "command": [
+                "python3",
+                "scripts/execute.py"
+              ],
+              "environment": {
+                "AGENTMAIL_API_KEY": "",
+                "AGENTMAIL_INBOX": "",
+                "LITELLM_API_BASE": "http://192.168.4.173:11434",
+                "LITELLM_API_KEY": "",
+                "LITELLM_MODEL": "ollama/nemotron3:33b",
+                "MN_LLM_API_BASE": "http://192.168.4.173:11434",
+                "MN_LLM_API_KEY": "",
+                "MN_LLM_MODEL": "ollama/nemotron3:33b",
+                "RESEND_API_KEY": "",
+                "RESEND_FROM_EMAIL": "sales@example.com",
+                "SLACK_DEFAULT_CHANNEL": "#claw",
+                "SYNAPTIC_DB_CONNECTION": "sqlite:////tmp/mn_gtm_ai_workflow.db",
+                "SYNAPTIC_DB_PATH": "/tmp/mn_gtm_ai_workflow.db",
+                "SYNAPTIC_EMAIL_DELIVERY_MODE": "agentmail",
+                "SYNAPTIC_EMIT_CYCLE_TRIGGER": "true",
+                "SYNAPTIC_TEST_EMAIL_TO": "",
+                "GTM_TEST_EMAIL_TO": "",
+                "GTM_CRM_CSV_DIR": "/tmp/mn_gtm_ai_workflow_crm"
+              },
+              "from": "base",
+              "name_prefix": "email_designer",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "node_type": "generic",
+              "output_message_type": "email_designer_result",
+              "pool": "default",
+              "pool_slots": 1,
+              "role": "Email Designer Agent",
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "script": "scripts/execute.py",
+              "tty": false,
+              "upload_as": "email_designer",
+              "upload_path": "email_designer",
+              "upload_paths": [
+                {
+                  "source": "email_designer",
+                  "target": "email_designer"
+                },
+                {
+                  "source": "knowledge",
+                  "target": "knowledge"
+                },
+                {
+                  "source": "_shared_skills/gtm_outreach_skill",
+                  "target": "_shared_skills/gtm_outreach_skill"
+                },
+                {
+                  "source": "_shared_skills/mn_email_delivery_skill",
+                  "target": "_shared_skills/mn_email_delivery_skill"
+                },
+                {
+                  "source": "_shared_skills/mn_litellm_communicate_skill",
+                  "target": "_shared_skills/mn_litellm_communicate_skill"
+                },
+                {
+                  "source": "_shared_skills/mn_external_rate_limit_skill",
+                  "target": "_shared_skills/mn_external_rate_limit_skill"
+                }
+              ],
+              "workdir": "/sandbox/job/email_designer",
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt"
+            }
+          },
+          "rendered_node": {
+            "node_id": "email_designer_agent",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "upload_path": "email_designer",
+              "upload_as": "email_designer",
+              "workdir": "/sandbox/job/email_designer",
+              "from": "base",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "pool": "default",
+              "pool_slots": 1,
+              "tty": false,
+              "environment": {
+                "AGENTMAIL_API_KEY": "",
+                "AGENTMAIL_INBOX": "",
+                "LITELLM_API_BASE": "http://192.168.4.173:11434",
+                "LITELLM_API_KEY": "",
+                "LITELLM_MODEL": "ollama/nemotron3:33b",
+                "MN_LLM_API_BASE": "http://192.168.4.173:11434",
+                "MN_LLM_API_KEY": "",
+                "MN_LLM_MODEL": "ollama/nemotron3:33b",
+                "RESEND_API_KEY": "",
+                "RESEND_FROM_EMAIL": "sales@example.com",
+                "SLACK_DEFAULT_CHANNEL": "#claw",
+                "SYNAPTIC_DB_CONNECTION": "sqlite:////tmp/mn_gtm_ai_workflow.db",
+                "SYNAPTIC_DB_PATH": "/tmp/mn_gtm_ai_workflow.db",
+                "SYNAPTIC_EMAIL_DELIVERY_MODE": "agentmail",
+                "SYNAPTIC_EMIT_CYCLE_TRIGGER": "true",
+                "SYNAPTIC_TEST_EMAIL_TO": "",
+                "GTM_TEST_EMAIL_TO": "",
+                "GTM_CRM_CSV_DIR": "/tmp/mn_gtm_ai_workflow_crm"
+              },
+              "name_prefix": "email_designer",
+              "output_message_type": "email_designer_result",
+              "upload_paths": [
+                {
+                  "source": "email_designer",
+                  "target": "email_designer"
+                },
+                {
+                  "source": "knowledge",
+                  "target": "knowledge"
+                },
+                {
+                  "source": "_shared_skills/gtm_outreach_skill",
+                  "target": "_shared_skills/gtm_outreach_skill"
+                },
+                {
+                  "source": "_shared_skills/mn_email_delivery_skill",
+                  "target": "_shared_skills/mn_email_delivery_skill"
+                },
+                {
+                  "source": "_shared_skills/mn_litellm_communicate_skill",
+                  "target": "_shared_skills/mn_litellm_communicate_skill"
+                },
+                {
+                  "source": "_shared_skills/mn_external_rate_limit_skill",
+                  "target": "_shared_skills/mn_external_rate_limit_skill"
+                }
+              ],
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "command": [
+                "python3",
+                "scripts/execute.py"
+              ],
+              "agent_beacon_required": true
+            },
+            "role": "Email Designer Agent"
+          }
+        },
+        {
+          "node_id": "deliverability_ops_agent",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "deliverability_ops_agent",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "command": [
+                "python3",
+                "scripts/execute.py"
+              ],
+              "environment": {
+                "AGENTMAIL_API_KEY": "",
+                "AGENTMAIL_INBOX": "",
+                "LITELLM_API_BASE": "http://192.168.4.173:11434",
+                "LITELLM_API_KEY": "",
+                "LITELLM_MODEL": "ollama/nemotron3:33b",
+                "MN_LLM_API_BASE": "http://192.168.4.173:11434",
+                "MN_LLM_API_KEY": "",
+                "MN_LLM_MODEL": "ollama/nemotron3:33b",
+                "RESEND_API_KEY": "",
+                "RESEND_FROM_EMAIL": "sales@example.com",
+                "SLACK_DEFAULT_CHANNEL": "#claw",
+                "SYNAPTIC_DB_CONNECTION": "sqlite:////tmp/mn_gtm_ai_workflow.db",
+                "SYNAPTIC_DB_PATH": "/tmp/mn_gtm_ai_workflow.db",
+                "SYNAPTIC_EMAIL_DELIVERY_MODE": "agentmail",
+                "SYNAPTIC_EMIT_CYCLE_TRIGGER": "true",
+                "SYNAPTIC_TEST_EMAIL_TO": "",
+                "GTM_TEST_EMAIL_TO": "",
+                "GTM_CRM_CSV_DIR": "/tmp/mn_gtm_ai_workflow_crm"
+              },
+              "from": "base",
+              "name_prefix": "deliverability_ops",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "node_type": "generic",
+              "output_message_type": "deliverability_ops_result",
+              "pool": "default",
+              "pool_slots": 1,
+              "role": "Deliverability & Ops Specialist Agent",
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "script": "scripts/execute.py",
+              "tty": false,
+              "upload_as": "deliverability_ops",
+              "upload_path": "deliverability_ops",
+              "upload_paths": [
+                {
+                  "source": "deliverability_ops",
+                  "target": "deliverability_ops"
+                },
+                {
+                  "source": "knowledge",
+                  "target": "knowledge"
+                },
+                {
+                  "source": "_shared_skills/gtm_outreach_skill",
+                  "target": "_shared_skills/gtm_outreach_skill"
+                },
+                {
+                  "source": "_shared_skills/mn_email_delivery_skill",
+                  "target": "_shared_skills/mn_email_delivery_skill"
+                },
+                {
+                  "source": "_shared_skills/mn_litellm_communicate_skill",
+                  "target": "_shared_skills/mn_litellm_communicate_skill"
+                },
+                {
+                  "source": "_shared_skills/mn_external_rate_limit_skill",
+                  "target": "_shared_skills/mn_external_rate_limit_skill"
+                }
+              ],
+              "workdir": "/sandbox/job/deliverability_ops",
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt"
+            }
+          },
+          "rendered_node": {
+            "node_id": "deliverability_ops_agent",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "upload_path": "deliverability_ops",
+              "upload_as": "deliverability_ops",
+              "workdir": "/sandbox/job/deliverability_ops",
+              "from": "base",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "pool": "default",
+              "pool_slots": 1,
+              "tty": false,
+              "environment": {
+                "AGENTMAIL_API_KEY": "",
+                "AGENTMAIL_INBOX": "",
+                "LITELLM_API_BASE": "http://192.168.4.173:11434",
+                "LITELLM_API_KEY": "",
+                "LITELLM_MODEL": "ollama/nemotron3:33b",
+                "MN_LLM_API_BASE": "http://192.168.4.173:11434",
+                "MN_LLM_API_KEY": "",
+                "MN_LLM_MODEL": "ollama/nemotron3:33b",
+                "RESEND_API_KEY": "",
+                "RESEND_FROM_EMAIL": "sales@example.com",
+                "SLACK_DEFAULT_CHANNEL": "#claw",
+                "SYNAPTIC_DB_CONNECTION": "sqlite:////tmp/mn_gtm_ai_workflow.db",
+                "SYNAPTIC_DB_PATH": "/tmp/mn_gtm_ai_workflow.db",
+                "SYNAPTIC_EMAIL_DELIVERY_MODE": "agentmail",
+                "SYNAPTIC_EMIT_CYCLE_TRIGGER": "true",
+                "SYNAPTIC_TEST_EMAIL_TO": "",
+                "GTM_TEST_EMAIL_TO": "",
+                "GTM_CRM_CSV_DIR": "/tmp/mn_gtm_ai_workflow_crm"
+              },
+              "name_prefix": "deliverability_ops",
+              "output_message_type": "deliverability_ops_result",
+              "upload_paths": [
+                {
+                  "source": "deliverability_ops",
+                  "target": "deliverability_ops"
+                },
+                {
+                  "source": "knowledge",
+                  "target": "knowledge"
+                },
+                {
+                  "source": "_shared_skills/gtm_outreach_skill",
+                  "target": "_shared_skills/gtm_outreach_skill"
+                },
+                {
+                  "source": "_shared_skills/mn_email_delivery_skill",
+                  "target": "_shared_skills/mn_email_delivery_skill"
+                },
+                {
+                  "source": "_shared_skills/mn_litellm_communicate_skill",
+                  "target": "_shared_skills/mn_litellm_communicate_skill"
+                },
+                {
+                  "source": "_shared_skills/mn_external_rate_limit_skill",
+                  "target": "_shared_skills/mn_external_rate_limit_skill"
+                }
+              ],
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "command": [
+                "python3",
+                "scripts/execute.py"
+              ],
+              "agent_beacon_required": true
+            },
+            "role": "Deliverability & Ops Specialist Agent"
+          }
+        },
+        {
+          "node_id": "control_manager_agent",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "control_manager_agent",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "command": [
+                "python3",
+                "scripts/execute.py"
+              ],
+              "environment": {
+                "AGENTMAIL_API_KEY": "",
+                "AGENTMAIL_INBOX": "",
+                "LITELLM_API_BASE": "http://192.168.4.173:11434",
+                "LITELLM_API_KEY": "",
+                "LITELLM_MODEL": "ollama/nemotron3:33b",
+                "MN_LLM_API_BASE": "http://192.168.4.173:11434",
+                "MN_LLM_API_KEY": "",
+                "MN_LLM_MODEL": "ollama/nemotron3:33b",
+                "RESEND_API_KEY": "",
+                "RESEND_FROM_EMAIL": "sales@example.com",
+                "SLACK_DEFAULT_CHANNEL": "#claw",
+                "SYNAPTIC_DB_CONNECTION": "sqlite:////tmp/mn_gtm_ai_workflow.db",
+                "SYNAPTIC_DB_PATH": "/tmp/mn_gtm_ai_workflow.db",
+                "SYNAPTIC_EMAIL_DELIVERY_MODE": "agentmail",
+                "SYNAPTIC_EMIT_CYCLE_TRIGGER": "true",
+                "SYNAPTIC_TEST_EMAIL_TO": "",
+                "GTM_TEST_EMAIL_TO": "",
+                "GTM_CRM_CSV_DIR": "/tmp/mn_gtm_ai_workflow_crm"
+              },
+              "from": "base",
+              "name_prefix": "control_manager",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "node_type": "generic",
+              "output_message_type": "control_manager_result",
+              "pool": "default",
+              "pool_slots": 1,
+              "role": "Control Manager Agent",
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "script": "scripts/execute.py",
+              "tty": false,
+              "upload_as": "control_manager",
+              "upload_path": "control_manager",
+              "upload_paths": [
+                {
+                  "source": "control_manager",
+                  "target": "control_manager"
+                },
+                {
+                  "source": "knowledge",
+                  "target": "knowledge"
+                },
+                {
+                  "source": "_shared_skills/gtm_outreach_skill",
+                  "target": "_shared_skills/gtm_outreach_skill"
+                },
+                {
+                  "source": "_shared_skills/mn_email_delivery_skill",
+                  "target": "_shared_skills/mn_email_delivery_skill"
+                },
+                {
+                  "source": "_shared_skills/mn_litellm_communicate_skill",
+                  "target": "_shared_skills/mn_litellm_communicate_skill"
+                },
+                {
+                  "source": "_shared_skills/mn_external_rate_limit_skill",
+                  "target": "_shared_skills/mn_external_rate_limit_skill"
+                }
+              ],
+              "workdir": "/sandbox/job/control_manager",
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt"
+            }
+          },
+          "rendered_node": {
+            "node_id": "control_manager_agent",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "upload_path": "control_manager",
+              "upload_as": "control_manager",
+              "workdir": "/sandbox/job/control_manager",
+              "from": "base",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "pool": "default",
+              "pool_slots": 1,
+              "tty": false,
+              "environment": {
+                "AGENTMAIL_API_KEY": "",
+                "AGENTMAIL_INBOX": "",
+                "LITELLM_API_BASE": "http://192.168.4.173:11434",
+                "LITELLM_API_KEY": "",
+                "LITELLM_MODEL": "ollama/nemotron3:33b",
+                "MN_LLM_API_BASE": "http://192.168.4.173:11434",
+                "MN_LLM_API_KEY": "",
+                "MN_LLM_MODEL": "ollama/nemotron3:33b",
+                "RESEND_API_KEY": "",
+                "RESEND_FROM_EMAIL": "sales@example.com",
+                "SLACK_DEFAULT_CHANNEL": "#claw",
+                "SYNAPTIC_DB_CONNECTION": "sqlite:////tmp/mn_gtm_ai_workflow.db",
+                "SYNAPTIC_DB_PATH": "/tmp/mn_gtm_ai_workflow.db",
+                "SYNAPTIC_EMAIL_DELIVERY_MODE": "agentmail",
+                "SYNAPTIC_EMIT_CYCLE_TRIGGER": "true",
+                "SYNAPTIC_TEST_EMAIL_TO": "",
+                "GTM_TEST_EMAIL_TO": "",
+                "GTM_CRM_CSV_DIR": "/tmp/mn_gtm_ai_workflow_crm"
+              },
+              "name_prefix": "control_manager",
+              "output_message_type": "control_manager_result",
+              "upload_paths": [
+                {
+                  "source": "control_manager",
+                  "target": "control_manager"
+                },
+                {
+                  "source": "knowledge",
+                  "target": "knowledge"
+                },
+                {
+                  "source": "_shared_skills/gtm_outreach_skill",
+                  "target": "_shared_skills/gtm_outreach_skill"
+                },
+                {
+                  "source": "_shared_skills/mn_email_delivery_skill",
+                  "target": "_shared_skills/mn_email_delivery_skill"
+                },
+                {
+                  "source": "_shared_skills/mn_litellm_communicate_skill",
+                  "target": "_shared_skills/mn_litellm_communicate_skill"
+                },
+                {
+                  "source": "_shared_skills/mn_external_rate_limit_skill",
+                  "target": "_shared_skills/mn_external_rate_limit_skill"
+                }
+              ],
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "command": [
+                "python3",
+                "scripts/execute.py"
+              ],
+              "agent_beacon_required": true
+            },
+            "role": "Control Manager Agent"
+          }
+        },
+        {
+          "node_id": "gtm_automation_agent",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "gtm_automation_agent",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "command": [
+                "python3",
+                "scripts/execute.py"
+              ],
+              "environment": {
+                "AGENTMAIL_API_KEY": "",
+                "AGENTMAIL_INBOX": "",
+                "LITELLM_API_BASE": "http://192.168.4.173:11434",
+                "LITELLM_API_KEY": "",
+                "LITELLM_MODEL": "ollama/nemotron3:33b",
+                "MN_LLM_API_BASE": "http://192.168.4.173:11434",
+                "MN_LLM_API_KEY": "",
+                "MN_LLM_MODEL": "ollama/nemotron3:33b",
+                "RESEND_API_KEY": "",
+                "RESEND_FROM_EMAIL": "sales@example.com",
+                "SLACK_DEFAULT_CHANNEL": "#claw",
+                "SYNAPTIC_DB_CONNECTION": "sqlite:////tmp/mn_gtm_ai_workflow.db",
+                "SYNAPTIC_DB_PATH": "/tmp/mn_gtm_ai_workflow.db",
+                "SYNAPTIC_EMAIL_DELIVERY_MODE": "agentmail",
+                "SYNAPTIC_EMIT_CYCLE_TRIGGER": "true",
+                "SYNAPTIC_TEST_EMAIL_TO": "",
+                "GTM_TEST_EMAIL_TO": "",
+                "GTM_CRM_CSV_DIR": "/tmp/mn_gtm_ai_workflow_crm"
+              },
+              "from": "base",
+              "name_prefix": "gtm_automation",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "node_type": "generic",
+              "output_message_type": null,
+              "pool": "default",
+              "pool_slots": 1,
+              "role": "GTM Automation Engineer Agent",
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "script": "scripts/execute.py",
+              "tty": false,
+              "upload_as": "gtm_automation",
+              "upload_path": "gtm_automation",
+              "upload_paths": [
+                {
+                  "source": "gtm_automation",
+                  "target": "gtm_automation"
+                },
+                {
+                  "source": "knowledge",
+                  "target": "knowledge"
+                },
+                {
+                  "source": "_shared_skills/gtm_outreach_skill",
+                  "target": "_shared_skills/gtm_outreach_skill"
+                },
+                {
+                  "source": "_shared_skills/mn_email_delivery_skill",
+                  "target": "_shared_skills/mn_email_delivery_skill"
+                },
+                {
+                  "source": "_shared_skills/mn_litellm_communicate_skill",
+                  "target": "_shared_skills/mn_litellm_communicate_skill"
+                },
+                {
+                  "source": "_shared_skills/mn_external_rate_limit_skill",
+                  "target": "_shared_skills/mn_external_rate_limit_skill"
+                }
+              ],
+              "workdir": "/sandbox/job/gtm_automation",
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt"
+            }
+          },
+          "rendered_node": {
+            "node_id": "gtm_automation_agent",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "upload_path": "gtm_automation",
+              "upload_as": "gtm_automation",
+              "workdir": "/sandbox/job/gtm_automation",
+              "from": "base",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "pool": "default",
+              "pool_slots": 1,
+              "tty": false,
+              "environment": {
+                "AGENTMAIL_API_KEY": "",
+                "AGENTMAIL_INBOX": "",
+                "LITELLM_API_BASE": "http://192.168.4.173:11434",
+                "LITELLM_API_KEY": "",
+                "LITELLM_MODEL": "ollama/nemotron3:33b",
+                "MN_LLM_API_BASE": "http://192.168.4.173:11434",
+                "MN_LLM_API_KEY": "",
+                "MN_LLM_MODEL": "ollama/nemotron3:33b",
+                "RESEND_API_KEY": "",
+                "RESEND_FROM_EMAIL": "sales@example.com",
+                "SLACK_DEFAULT_CHANNEL": "#claw",
+                "SYNAPTIC_DB_CONNECTION": "sqlite:////tmp/mn_gtm_ai_workflow.db",
+                "SYNAPTIC_DB_PATH": "/tmp/mn_gtm_ai_workflow.db",
+                "SYNAPTIC_EMAIL_DELIVERY_MODE": "agentmail",
+                "SYNAPTIC_EMIT_CYCLE_TRIGGER": "true",
+                "SYNAPTIC_TEST_EMAIL_TO": "",
+                "GTM_TEST_EMAIL_TO": "",
+                "GTM_CRM_CSV_DIR": "/tmp/mn_gtm_ai_workflow_crm"
+              },
+              "name_prefix": "gtm_automation",
+              "upload_paths": [
+                {
+                  "source": "gtm_automation",
+                  "target": "gtm_automation"
+                },
+                {
+                  "source": "knowledge",
+                  "target": "knowledge"
+                },
+                {
+                  "source": "_shared_skills/gtm_outreach_skill",
+                  "target": "_shared_skills/gtm_outreach_skill"
+                },
+                {
+                  "source": "_shared_skills/mn_email_delivery_skill",
+                  "target": "_shared_skills/mn_email_delivery_skill"
+                },
+                {
+                  "source": "_shared_skills/mn_litellm_communicate_skill",
+                  "target": "_shared_skills/mn_litellm_communicate_skill"
+                },
+                {
+                  "source": "_shared_skills/mn_external_rate_limit_skill",
+                  "target": "_shared_skills/mn_external_rate_limit_skill"
+                }
+              ],
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "command": [
+                "python3",
+                "scripts/execute.py"
+              ],
+              "agent_beacon_required": true
+            },
+            "role": "GTM Automation Engineer Agent"
+          }
+        },
+        {
+          "node_id": "inbox_reply_agent",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "inbox_reply_agent",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "command": [
+                "python3",
+                "scripts/execute.py"
+              ],
+              "environment": {
+                "AGENTMAIL_API_KEY": "",
+                "AGENTMAIL_INBOX": "",
+                "LITELLM_API_BASE": "http://192.168.4.173:11434",
+                "LITELLM_API_KEY": "",
+                "LITELLM_MODEL": "ollama/nemotron3:33b",
+                "MN_LLM_API_BASE": "http://192.168.4.173:11434",
+                "MN_LLM_API_KEY": "",
+                "MN_LLM_MODEL": "ollama/nemotron3:33b",
+                "RESEND_API_KEY": "",
+                "RESEND_FROM_EMAIL": "sales@example.com",
+                "SLACK_DEFAULT_CHANNEL": "#claw",
+                "SYNAPTIC_DB_CONNECTION": "sqlite:////tmp/mn_gtm_ai_workflow.db",
+                "SYNAPTIC_DB_PATH": "/tmp/mn_gtm_ai_workflow.db",
+                "SYNAPTIC_EMAIL_DELIVERY_MODE": "agentmail",
+                "SYNAPTIC_EMIT_CYCLE_TRIGGER": "true",
+                "SYNAPTIC_TEST_EMAIL_TO": "",
+                "GTM_TEST_EMAIL_TO": "",
+                "GTM_CRM_CSV_DIR": "/tmp/mn_gtm_ai_workflow_crm"
+              },
+              "from": "base",
+              "name_prefix": "inbox_reply",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "node_type": "generic",
+              "pool": "default",
+              "pool_slots": 1,
+              "role": "Inbox Reply Agent",
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "script": "scripts/execute.py",
+              "tty": false,
+              "upload_as": "inbox_reply",
+              "upload_path": "inbox_reply",
+              "upload_paths": [
+                {
+                  "source": "inbox_reply",
+                  "target": "inbox_reply"
+                },
+                {
+                  "source": "knowledge",
+                  "target": "knowledge"
+                },
+                {
+                  "source": "_shared_skills/gtm_outreach_skill",
+                  "target": "_shared_skills/gtm_outreach_skill"
+                },
+                {
+                  "source": "_shared_skills/mn_email_delivery_skill",
+                  "target": "_shared_skills/mn_email_delivery_skill"
+                },
+                {
+                  "source": "_shared_skills/mn_litellm_communicate_skill",
+                  "target": "_shared_skills/mn_litellm_communicate_skill"
+                },
+                {
+                  "source": "_shared_skills/mn_external_rate_limit_skill",
+                  "target": "_shared_skills/mn_external_rate_limit_skill"
+                }
+              ],
+              "workdir": "/sandbox/job/inbox_reply",
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt"
+            }
+          },
+          "rendered_node": {
+            "node_id": "inbox_reply_agent",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "upload_path": "inbox_reply",
+              "upload_as": "inbox_reply",
+              "workdir": "/sandbox/job/inbox_reply",
+              "from": "base",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "pool": "default",
+              "pool_slots": 1,
+              "tty": false,
+              "environment": {
+                "AGENTMAIL_API_KEY": "",
+                "AGENTMAIL_INBOX": "",
+                "LITELLM_API_BASE": "http://192.168.4.173:11434",
+                "LITELLM_API_KEY": "",
+                "LITELLM_MODEL": "ollama/nemotron3:33b",
+                "MN_LLM_API_BASE": "http://192.168.4.173:11434",
+                "MN_LLM_API_KEY": "",
+                "MN_LLM_MODEL": "ollama/nemotron3:33b",
+                "RESEND_API_KEY": "",
+                "RESEND_FROM_EMAIL": "sales@example.com",
+                "SLACK_DEFAULT_CHANNEL": "#claw",
+                "SYNAPTIC_DB_CONNECTION": "sqlite:////tmp/mn_gtm_ai_workflow.db",
+                "SYNAPTIC_DB_PATH": "/tmp/mn_gtm_ai_workflow.db",
+                "SYNAPTIC_EMAIL_DELIVERY_MODE": "agentmail",
+                "SYNAPTIC_EMIT_CYCLE_TRIGGER": "true",
+                "SYNAPTIC_TEST_EMAIL_TO": "",
+                "GTM_TEST_EMAIL_TO": "",
+                "GTM_CRM_CSV_DIR": "/tmp/mn_gtm_ai_workflow_crm"
+              },
+              "name_prefix": "inbox_reply",
+              "upload_paths": [
+                {
+                  "source": "inbox_reply",
+                  "target": "inbox_reply"
+                },
+                {
+                  "source": "knowledge",
+                  "target": "knowledge"
+                },
+                {
+                  "source": "_shared_skills/gtm_outreach_skill",
+                  "target": "_shared_skills/gtm_outreach_skill"
+                },
+                {
+                  "source": "_shared_skills/mn_email_delivery_skill",
+                  "target": "_shared_skills/mn_email_delivery_skill"
+                },
+                {
+                  "source": "_shared_skills/mn_litellm_communicate_skill",
+                  "target": "_shared_skills/mn_litellm_communicate_skill"
+                },
+                {
+                  "source": "_shared_skills/mn_external_rate_limit_skill",
+                  "target": "_shared_skills/mn_external_rate_limit_skill"
+                }
+              ],
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "command": [
+                "python3",
+                "scripts/execute.py"
+              ],
+              "agent_beacon_required": true
+            },
+            "role": "Inbox Reply Agent"
+          }
+        },
+        {
+          "node_id": "inbox_poller_agent",
+          "template_id": "mn-agents.data_module",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "inbox_poller_agent",
+            "uses": "mn-agents.data_module@1.0.0",
+            "with": {
+              "role": "Inbox Poller",
+              "node_type": "stream",
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "module": "Synaptic.InboxPoller",
+              "module_source": "inbox_poller/beam_modules/inbox_poller.ex",
+              "emit_type": "poll"
+            }
+          },
+          "rendered_node": {
+            "node_id": "inbox_poller_agent",
+            "type": "stream",
+            "agent_type": "module",
+            "config": {
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "module": "Synaptic.InboxPoller",
+              "module_source": "inbox_poller/beam_modules/inbox_poller.ex",
+              "emit_type": "poll"
+            },
+            "role": "Inbox Poller"
+          }
+        }
+      ]
     },
     "blueprint_id": "gtm_ai_workflow",
     "category": "business",
@@ -2054,635 +4390,5 @@
   "type": "service",
   "entrypoints": [
     "ingress"
-  ],
-  "nodes": [
-    {
-      "node_id": "ingress",
-      "uses": "mn-agents.control_router@1.0.0",
-      "with": {
-        "role": "Service ingress",
-        "node_type": "router",
-        "beacon_enabled": true,
-        "beacon_interval_ms": 15000,
-        "beacon_timeout_ms": 45000,
-        "beacon_missed_action": "fail_attempt"
-      }
-    },
-    {
-      "node_id": "monitor_scheduler_agent",
-      "uses": "mn-agents.data_module@1.0.0",
-      "with": {
-        "role": "Monitor Scheduler Agent",
-        "node_type": "stream",
-        "beacon_enabled": true,
-        "beacon_interval_ms": 15000,
-        "beacon_timeout_ms": 45000,
-        "beacon_missed_action": "fail_attempt",
-        "module": "MirrorNeuron.Examples.GtmAiWorkflow.MonitorScheduler",
-        "module_source": "payloads/monitor_scheduler",
-        "emit_type": "plan_cycle"
-      }
-    },
-    {
-      "node_id": "account_research_agent",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "command": [
-          "python3",
-          "scripts/execute.py"
-        ],
-        "environment": {
-          "AGENTMAIL_API_KEY": "",
-          "AGENTMAIL_INBOX": "",
-          "LITELLM_API_BASE": "http://192.168.4.173:11434",
-          "LITELLM_API_KEY": "",
-          "LITELLM_MODEL": "ollama/nemotron3:33b",
-          "MN_LLM_API_BASE": "http://192.168.4.173:11434",
-          "MN_LLM_API_KEY": "",
-          "MN_LLM_MODEL": "ollama/nemotron3:33b",
-          "RESEND_API_KEY": "",
-          "RESEND_FROM_EMAIL": "sales@example.com",
-          "SLACK_DEFAULT_CHANNEL": "#claw",
-          "SYNAPTIC_DB_CONNECTION": "sqlite:////tmp/mn_gtm_ai_workflow.db",
-          "SYNAPTIC_DB_PATH": "/tmp/mn_gtm_ai_workflow.db",
-          "SYNAPTIC_EMAIL_DELIVERY_MODE": "agentmail",
-          "SYNAPTIC_EMIT_CYCLE_TRIGGER": "true",
-          "SYNAPTIC_TEST_EMAIL_TO": "",
-          "GTM_TEST_EMAIL_TO": "",
-          "GTM_CRM_CSV_DIR": "/tmp/mn_gtm_ai_workflow_crm"
-        },
-        "from": "base",
-        "name_prefix": "account_research",
-        "no_auto_providers": true,
-        "no_keep": true,
-        "node_type": "generic",
-        "output_message_type": "account_research_result",
-        "pool": "default",
-        "pool_slots": 1,
-        "role": "Account Research Agent",
-        "runner_module": "MirrorNeuron.Runner.HostLocal",
-        "script": "scripts/execute.py",
-        "tty": false,
-        "upload_as": "account_research",
-        "upload_path": "account_research",
-        "upload_paths": [
-          {
-            "source": "account_research",
-            "target": "account_research"
-          },
-          {
-            "source": "knowledge",
-            "target": "knowledge"
-          },
-          {
-            "source": "_shared_skills/gtm_outreach_skill",
-            "target": "_shared_skills/gtm_outreach_skill"
-          },
-          {
-            "source": "_shared_skills/mn_email_delivery_skill",
-            "target": "_shared_skills/mn_email_delivery_skill"
-          },
-          {
-            "source": "_shared_skills/mn_litellm_communicate_skill",
-            "target": "_shared_skills/mn_litellm_communicate_skill"
-          },
-          {
-            "source": "_shared_skills/mn_external_rate_limit_skill",
-            "target": "_shared_skills/mn_external_rate_limit_skill"
-          }
-        ],
-        "workdir": "/sandbox/job/account_research",
-        "beacon_enabled": true,
-        "beacon_interval_ms": 15000,
-        "beacon_timeout_ms": 45000,
-        "beacon_missed_action": "fail_attempt"
-      }
-    },
-    {
-      "node_id": "outreach_copywriter_agent",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "command": [
-          "python3",
-          "scripts/execute.py"
-        ],
-        "environment": {
-          "AGENTMAIL_API_KEY": "",
-          "AGENTMAIL_INBOX": "",
-          "LITELLM_API_BASE": "http://192.168.4.173:11434",
-          "LITELLM_API_KEY": "",
-          "LITELLM_MODEL": "ollama/nemotron3:33b",
-          "MN_LLM_API_BASE": "http://192.168.4.173:11434",
-          "MN_LLM_API_KEY": "",
-          "MN_LLM_MODEL": "ollama/nemotron3:33b",
-          "RESEND_API_KEY": "",
-          "RESEND_FROM_EMAIL": "sales@example.com",
-          "SLACK_DEFAULT_CHANNEL": "#claw",
-          "SYNAPTIC_DB_CONNECTION": "sqlite:////tmp/mn_gtm_ai_workflow.db",
-          "SYNAPTIC_DB_PATH": "/tmp/mn_gtm_ai_workflow.db",
-          "SYNAPTIC_EMAIL_DELIVERY_MODE": "agentmail",
-          "SYNAPTIC_EMIT_CYCLE_TRIGGER": "true",
-          "SYNAPTIC_TEST_EMAIL_TO": "",
-          "GTM_TEST_EMAIL_TO": "",
-          "GTM_CRM_CSV_DIR": "/tmp/mn_gtm_ai_workflow_crm"
-        },
-        "from": "base",
-        "name_prefix": "outreach_copywriter",
-        "no_auto_providers": true,
-        "no_keep": true,
-        "node_type": "generic",
-        "output_message_type": "outreach_copywriter_result",
-        "pool": "default",
-        "pool_slots": 1,
-        "role": "Outreach Copywriter Agent",
-        "runner_module": "MirrorNeuron.Runner.HostLocal",
-        "script": "scripts/execute.py",
-        "tty": false,
-        "upload_as": "outreach_copywriter",
-        "upload_path": "outreach_copywriter",
-        "upload_paths": [
-          {
-            "source": "outreach_copywriter",
-            "target": "outreach_copywriter"
-          },
-          {
-            "source": "knowledge",
-            "target": "knowledge"
-          },
-          {
-            "source": "_shared_skills/gtm_outreach_skill",
-            "target": "_shared_skills/gtm_outreach_skill"
-          },
-          {
-            "source": "_shared_skills/mn_email_delivery_skill",
-            "target": "_shared_skills/mn_email_delivery_skill"
-          },
-          {
-            "source": "_shared_skills/mn_litellm_communicate_skill",
-            "target": "_shared_skills/mn_litellm_communicate_skill"
-          },
-          {
-            "source": "_shared_skills/mn_external_rate_limit_skill",
-            "target": "_shared_skills/mn_external_rate_limit_skill"
-          }
-        ],
-        "workdir": "/sandbox/job/outreach_copywriter",
-        "beacon_enabled": true,
-        "beacon_interval_ms": 15000,
-        "beacon_timeout_ms": 45000,
-        "beacon_missed_action": "fail_attempt"
-      }
-    },
-    {
-      "node_id": "email_designer_agent",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "command": [
-          "python3",
-          "scripts/execute.py"
-        ],
-        "environment": {
-          "AGENTMAIL_API_KEY": "",
-          "AGENTMAIL_INBOX": "",
-          "LITELLM_API_BASE": "http://192.168.4.173:11434",
-          "LITELLM_API_KEY": "",
-          "LITELLM_MODEL": "ollama/nemotron3:33b",
-          "MN_LLM_API_BASE": "http://192.168.4.173:11434",
-          "MN_LLM_API_KEY": "",
-          "MN_LLM_MODEL": "ollama/nemotron3:33b",
-          "RESEND_API_KEY": "",
-          "RESEND_FROM_EMAIL": "sales@example.com",
-          "SLACK_DEFAULT_CHANNEL": "#claw",
-          "SYNAPTIC_DB_CONNECTION": "sqlite:////tmp/mn_gtm_ai_workflow.db",
-          "SYNAPTIC_DB_PATH": "/tmp/mn_gtm_ai_workflow.db",
-          "SYNAPTIC_EMAIL_DELIVERY_MODE": "agentmail",
-          "SYNAPTIC_EMIT_CYCLE_TRIGGER": "true",
-          "SYNAPTIC_TEST_EMAIL_TO": "",
-          "GTM_TEST_EMAIL_TO": "",
-          "GTM_CRM_CSV_DIR": "/tmp/mn_gtm_ai_workflow_crm"
-        },
-        "from": "base",
-        "name_prefix": "email_designer",
-        "no_auto_providers": true,
-        "no_keep": true,
-        "node_type": "generic",
-        "output_message_type": "email_designer_result",
-        "pool": "default",
-        "pool_slots": 1,
-        "role": "Email Designer Agent",
-        "runner_module": "MirrorNeuron.Runner.HostLocal",
-        "script": "scripts/execute.py",
-        "tty": false,
-        "upload_as": "email_designer",
-        "upload_path": "email_designer",
-        "upload_paths": [
-          {
-            "source": "email_designer",
-            "target": "email_designer"
-          },
-          {
-            "source": "knowledge",
-            "target": "knowledge"
-          },
-          {
-            "source": "_shared_skills/gtm_outreach_skill",
-            "target": "_shared_skills/gtm_outreach_skill"
-          },
-          {
-            "source": "_shared_skills/mn_email_delivery_skill",
-            "target": "_shared_skills/mn_email_delivery_skill"
-          },
-          {
-            "source": "_shared_skills/mn_litellm_communicate_skill",
-            "target": "_shared_skills/mn_litellm_communicate_skill"
-          },
-          {
-            "source": "_shared_skills/mn_external_rate_limit_skill",
-            "target": "_shared_skills/mn_external_rate_limit_skill"
-          }
-        ],
-        "workdir": "/sandbox/job/email_designer",
-        "beacon_enabled": true,
-        "beacon_interval_ms": 15000,
-        "beacon_timeout_ms": 45000,
-        "beacon_missed_action": "fail_attempt"
-      }
-    },
-    {
-      "node_id": "deliverability_ops_agent",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "command": [
-          "python3",
-          "scripts/execute.py"
-        ],
-        "environment": {
-          "AGENTMAIL_API_KEY": "",
-          "AGENTMAIL_INBOX": "",
-          "LITELLM_API_BASE": "http://192.168.4.173:11434",
-          "LITELLM_API_KEY": "",
-          "LITELLM_MODEL": "ollama/nemotron3:33b",
-          "MN_LLM_API_BASE": "http://192.168.4.173:11434",
-          "MN_LLM_API_KEY": "",
-          "MN_LLM_MODEL": "ollama/nemotron3:33b",
-          "RESEND_API_KEY": "",
-          "RESEND_FROM_EMAIL": "sales@example.com",
-          "SLACK_DEFAULT_CHANNEL": "#claw",
-          "SYNAPTIC_DB_CONNECTION": "sqlite:////tmp/mn_gtm_ai_workflow.db",
-          "SYNAPTIC_DB_PATH": "/tmp/mn_gtm_ai_workflow.db",
-          "SYNAPTIC_EMAIL_DELIVERY_MODE": "agentmail",
-          "SYNAPTIC_EMIT_CYCLE_TRIGGER": "true",
-          "SYNAPTIC_TEST_EMAIL_TO": "",
-          "GTM_TEST_EMAIL_TO": "",
-          "GTM_CRM_CSV_DIR": "/tmp/mn_gtm_ai_workflow_crm"
-        },
-        "from": "base",
-        "name_prefix": "deliverability_ops",
-        "no_auto_providers": true,
-        "no_keep": true,
-        "node_type": "generic",
-        "output_message_type": "deliverability_ops_result",
-        "pool": "default",
-        "pool_slots": 1,
-        "role": "Deliverability & Ops Specialist Agent",
-        "runner_module": "MirrorNeuron.Runner.HostLocal",
-        "script": "scripts/execute.py",
-        "tty": false,
-        "upload_as": "deliverability_ops",
-        "upload_path": "deliverability_ops",
-        "upload_paths": [
-          {
-            "source": "deliverability_ops",
-            "target": "deliverability_ops"
-          },
-          {
-            "source": "knowledge",
-            "target": "knowledge"
-          },
-          {
-            "source": "_shared_skills/gtm_outreach_skill",
-            "target": "_shared_skills/gtm_outreach_skill"
-          },
-          {
-            "source": "_shared_skills/mn_email_delivery_skill",
-            "target": "_shared_skills/mn_email_delivery_skill"
-          },
-          {
-            "source": "_shared_skills/mn_litellm_communicate_skill",
-            "target": "_shared_skills/mn_litellm_communicate_skill"
-          },
-          {
-            "source": "_shared_skills/mn_external_rate_limit_skill",
-            "target": "_shared_skills/mn_external_rate_limit_skill"
-          }
-        ],
-        "workdir": "/sandbox/job/deliverability_ops",
-        "beacon_enabled": true,
-        "beacon_interval_ms": 15000,
-        "beacon_timeout_ms": 45000,
-        "beacon_missed_action": "fail_attempt"
-      }
-    },
-    {
-      "node_id": "control_manager_agent",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "command": [
-          "python3",
-          "scripts/execute.py"
-        ],
-        "environment": {
-          "AGENTMAIL_API_KEY": "",
-          "AGENTMAIL_INBOX": "",
-          "LITELLM_API_BASE": "http://192.168.4.173:11434",
-          "LITELLM_API_KEY": "",
-          "LITELLM_MODEL": "ollama/nemotron3:33b",
-          "MN_LLM_API_BASE": "http://192.168.4.173:11434",
-          "MN_LLM_API_KEY": "",
-          "MN_LLM_MODEL": "ollama/nemotron3:33b",
-          "RESEND_API_KEY": "",
-          "RESEND_FROM_EMAIL": "sales@example.com",
-          "SLACK_DEFAULT_CHANNEL": "#claw",
-          "SYNAPTIC_DB_CONNECTION": "sqlite:////tmp/mn_gtm_ai_workflow.db",
-          "SYNAPTIC_DB_PATH": "/tmp/mn_gtm_ai_workflow.db",
-          "SYNAPTIC_EMAIL_DELIVERY_MODE": "agentmail",
-          "SYNAPTIC_EMIT_CYCLE_TRIGGER": "true",
-          "SYNAPTIC_TEST_EMAIL_TO": "",
-          "GTM_TEST_EMAIL_TO": "",
-          "GTM_CRM_CSV_DIR": "/tmp/mn_gtm_ai_workflow_crm"
-        },
-        "from": "base",
-        "name_prefix": "control_manager",
-        "no_auto_providers": true,
-        "no_keep": true,
-        "node_type": "generic",
-        "output_message_type": "control_manager_result",
-        "pool": "default",
-        "pool_slots": 1,
-        "role": "Control Manager Agent",
-        "runner_module": "MirrorNeuron.Runner.HostLocal",
-        "script": "scripts/execute.py",
-        "tty": false,
-        "upload_as": "control_manager",
-        "upload_path": "control_manager",
-        "upload_paths": [
-          {
-            "source": "control_manager",
-            "target": "control_manager"
-          },
-          {
-            "source": "knowledge",
-            "target": "knowledge"
-          },
-          {
-            "source": "_shared_skills/gtm_outreach_skill",
-            "target": "_shared_skills/gtm_outreach_skill"
-          },
-          {
-            "source": "_shared_skills/mn_email_delivery_skill",
-            "target": "_shared_skills/mn_email_delivery_skill"
-          },
-          {
-            "source": "_shared_skills/mn_litellm_communicate_skill",
-            "target": "_shared_skills/mn_litellm_communicate_skill"
-          },
-          {
-            "source": "_shared_skills/mn_external_rate_limit_skill",
-            "target": "_shared_skills/mn_external_rate_limit_skill"
-          }
-        ],
-        "workdir": "/sandbox/job/control_manager",
-        "beacon_enabled": true,
-        "beacon_interval_ms": 15000,
-        "beacon_timeout_ms": 45000,
-        "beacon_missed_action": "fail_attempt"
-      }
-    },
-    {
-      "node_id": "gtm_automation_agent",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "command": [
-          "python3",
-          "scripts/execute.py"
-        ],
-        "environment": {
-          "AGENTMAIL_API_KEY": "",
-          "AGENTMAIL_INBOX": "",
-          "LITELLM_API_BASE": "http://192.168.4.173:11434",
-          "LITELLM_API_KEY": "",
-          "LITELLM_MODEL": "ollama/nemotron3:33b",
-          "MN_LLM_API_BASE": "http://192.168.4.173:11434",
-          "MN_LLM_API_KEY": "",
-          "MN_LLM_MODEL": "ollama/nemotron3:33b",
-          "RESEND_API_KEY": "",
-          "RESEND_FROM_EMAIL": "sales@example.com",
-          "SLACK_DEFAULT_CHANNEL": "#claw",
-          "SYNAPTIC_DB_CONNECTION": "sqlite:////tmp/mn_gtm_ai_workflow.db",
-          "SYNAPTIC_DB_PATH": "/tmp/mn_gtm_ai_workflow.db",
-          "SYNAPTIC_EMAIL_DELIVERY_MODE": "agentmail",
-          "SYNAPTIC_EMIT_CYCLE_TRIGGER": "true",
-          "SYNAPTIC_TEST_EMAIL_TO": "",
-          "GTM_TEST_EMAIL_TO": "",
-          "GTM_CRM_CSV_DIR": "/tmp/mn_gtm_ai_workflow_crm"
-        },
-        "from": "base",
-        "name_prefix": "gtm_automation",
-        "no_auto_providers": true,
-        "no_keep": true,
-        "node_type": "generic",
-        "output_message_type": null,
-        "pool": "default",
-        "pool_slots": 1,
-        "role": "GTM Automation Engineer Agent",
-        "runner_module": "MirrorNeuron.Runner.HostLocal",
-        "script": "scripts/execute.py",
-        "tty": false,
-        "upload_as": "gtm_automation",
-        "upload_path": "gtm_automation",
-        "upload_paths": [
-          {
-            "source": "gtm_automation",
-            "target": "gtm_automation"
-          },
-          {
-            "source": "knowledge",
-            "target": "knowledge"
-          },
-          {
-            "source": "_shared_skills/gtm_outreach_skill",
-            "target": "_shared_skills/gtm_outreach_skill"
-          },
-          {
-            "source": "_shared_skills/mn_email_delivery_skill",
-            "target": "_shared_skills/mn_email_delivery_skill"
-          },
-          {
-            "source": "_shared_skills/mn_litellm_communicate_skill",
-            "target": "_shared_skills/mn_litellm_communicate_skill"
-          },
-          {
-            "source": "_shared_skills/mn_external_rate_limit_skill",
-            "target": "_shared_skills/mn_external_rate_limit_skill"
-          }
-        ],
-        "workdir": "/sandbox/job/gtm_automation",
-        "beacon_enabled": true,
-        "beacon_interval_ms": 15000,
-        "beacon_timeout_ms": 45000,
-        "beacon_missed_action": "fail_attempt"
-      }
-    },
-    {
-      "node_id": "inbox_reply_agent",
-      "uses": "mn-agents.data_python_executor@1.0.0",
-      "with": {
-        "command": [
-          "python3",
-          "scripts/execute.py"
-        ],
-        "environment": {
-          "AGENTMAIL_API_KEY": "",
-          "AGENTMAIL_INBOX": "",
-          "LITELLM_API_BASE": "http://192.168.4.173:11434",
-          "LITELLM_API_KEY": "",
-          "LITELLM_MODEL": "ollama/nemotron3:33b",
-          "MN_LLM_API_BASE": "http://192.168.4.173:11434",
-          "MN_LLM_API_KEY": "",
-          "MN_LLM_MODEL": "ollama/nemotron3:33b",
-          "RESEND_API_KEY": "",
-          "RESEND_FROM_EMAIL": "sales@example.com",
-          "SLACK_DEFAULT_CHANNEL": "#claw",
-          "SYNAPTIC_DB_CONNECTION": "sqlite:////tmp/mn_gtm_ai_workflow.db",
-          "SYNAPTIC_DB_PATH": "/tmp/mn_gtm_ai_workflow.db",
-          "SYNAPTIC_EMAIL_DELIVERY_MODE": "agentmail",
-          "SYNAPTIC_EMIT_CYCLE_TRIGGER": "true",
-          "SYNAPTIC_TEST_EMAIL_TO": "",
-          "GTM_TEST_EMAIL_TO": "",
-          "GTM_CRM_CSV_DIR": "/tmp/mn_gtm_ai_workflow_crm"
-        },
-        "from": "base",
-        "name_prefix": "inbox_reply",
-        "no_auto_providers": true,
-        "no_keep": true,
-        "node_type": "generic",
-        "pool": "default",
-        "pool_slots": 1,
-        "role": "Inbox Reply Agent",
-        "runner_module": "MirrorNeuron.Runner.HostLocal",
-        "script": "scripts/execute.py",
-        "tty": false,
-        "upload_as": "inbox_reply",
-        "upload_path": "inbox_reply",
-        "upload_paths": [
-          {
-            "source": "inbox_reply",
-            "target": "inbox_reply"
-          },
-          {
-            "source": "knowledge",
-            "target": "knowledge"
-          },
-          {
-            "source": "_shared_skills/gtm_outreach_skill",
-            "target": "_shared_skills/gtm_outreach_skill"
-          },
-          {
-            "source": "_shared_skills/mn_email_delivery_skill",
-            "target": "_shared_skills/mn_email_delivery_skill"
-          },
-          {
-            "source": "_shared_skills/mn_litellm_communicate_skill",
-            "target": "_shared_skills/mn_litellm_communicate_skill"
-          },
-          {
-            "source": "_shared_skills/mn_external_rate_limit_skill",
-            "target": "_shared_skills/mn_external_rate_limit_skill"
-          }
-        ],
-        "workdir": "/sandbox/job/inbox_reply",
-        "beacon_enabled": true,
-        "beacon_interval_ms": 15000,
-        "beacon_timeout_ms": 45000,
-        "beacon_missed_action": "fail_attempt"
-      }
-    },
-    {
-      "node_id": "inbox_poller_agent",
-      "uses": "mn-agents.data_module@1.0.0",
-      "with": {
-        "role": "Inbox Poller",
-        "node_type": "stream",
-        "beacon_enabled": true,
-        "beacon_interval_ms": 15000,
-        "beacon_timeout_ms": 45000,
-        "beacon_missed_action": "fail_attempt",
-        "module": "MirrorNeuron.Examples.GtmAiWorkflow.InboxPoller",
-        "module_source": "payloads/inbox_poller",
-        "emit_type": "poll"
-      }
-    }
-  ],
-  "edges": [
-    {
-      "edge_id": "ingress_to_monitor_scheduler",
-      "from_node": "ingress",
-      "to_node": "monitor_scheduler_agent",
-      "message_type": "bundle_request"
-    },
-    {
-      "edge_id": "monitor_scheduler_to_pipeline",
-      "from_node": "monitor_scheduler_agent",
-      "to_node": "account_research_agent",
-      "message_type": "plan_cycle"
-    },
-    {
-      "edge_id": "account_research_agent_to_outreach_copywriter",
-      "from_node": "account_research_agent",
-      "to_node": "outreach_copywriter_agent",
-      "message_type": "account_research_result"
-    },
-    {
-      "edge_id": "outreach_copywriter_agent_to_email_designer",
-      "from_node": "outreach_copywriter_agent",
-      "to_node": "email_designer_agent",
-      "message_type": "outreach_copywriter_result"
-    },
-    {
-      "edge_id": "email_designer_agent_to_deliverability_ops",
-      "from_node": "email_designer_agent",
-      "to_node": "deliverability_ops_agent",
-      "message_type": "email_designer_result"
-    },
-    {
-      "edge_id": "deliverability_ops_agent_to_control_manager",
-      "from_node": "deliverability_ops_agent",
-      "to_node": "control_manager_agent",
-      "message_type": "deliverability_ops_result"
-    },
-    {
-      "edge_id": "control_manager_agent_to_gtm_automation",
-      "from_node": "control_manager_agent",
-      "to_node": "gtm_automation_agent",
-      "message_type": "control_manager_result"
-    },
-    {
-      "edge_id": "gtm_automation_to_monitor_scheduler",
-      "from_node": "gtm_automation_agent",
-      "to_node": "monitor_scheduler_agent",
-      "message_type": "cycle_trigger"
-    },
-    {
-      "edge_id": "ingress_to_inbox_poller",
-      "from_node": "ingress",
-      "to_node": "inbox_poller_agent",
-      "message_type": "bundle_request"
-    },
-    {
-      "edge_id": "inbox_poller_to_inbox_reply",
-      "from_node": "inbox_poller_agent",
-      "to_node": "inbox_reply_agent",
-      "message_type": "poll"
-    }
   ]
 }

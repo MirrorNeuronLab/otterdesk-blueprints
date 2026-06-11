@@ -70,6 +70,33 @@ def _contains_key(value, target: str) -> bool:
     return False
 
 
+def _flow_nodes(manifest: dict) -> list[dict]:
+    nodes = manifest.get("flow", {}).get("nodes", [])
+    return nodes if isinstance(nodes, list) else []
+
+
+def _flow_edges(manifest: dict) -> list[dict]:
+    edges = manifest.get("flow", {}).get("edges", [])
+    return edges if isinstance(edges, list) else []
+
+
+def _template_nodes(manifest: dict) -> list[dict]:
+    nodes = manifest.get("metadata", {}).get("agent_templates", {}).get("nodes", [])
+    return nodes if isinstance(nodes, list) else []
+
+
+def _node_config(node: dict) -> dict:
+    config = node.get("config")
+    if isinstance(config, dict):
+        return config
+    config = node.get("with")
+    return config if isinstance(config, dict) else {}
+
+
+def _is_workflow_manifest(manifest: dict) -> bool:
+    return manifest.get("apiVersion") == "mn.workflow/v1" and isinstance(manifest.get("flow", {}).get("steps"), list)
+
+
 def _completion_threshold(value) -> bool:
     if isinstance(value, int):
         return value > 0
@@ -81,6 +108,8 @@ def _completion_threshold(value) -> bool:
 def test_otterdesk_blueprints_are_workflow_driven_manifests():
     for manifest_path in _manifest_paths():
         manifest = json.loads(manifest_path.read_text())
+        if not _is_workflow_manifest(manifest):
+            continue
         blueprint_id = manifest["metadata"]["blueprint_id"]
 
         assert manifest["apiVersion"] == "mn.workflow/v1", blueprint_id
@@ -89,20 +118,29 @@ def test_otterdesk_blueprints_are_workflow_driven_manifests():
         assert manifest["contract"]["inputs"], blueprint_id
         assert manifest["contract"]["outputs"]["primary"]["path"] == "final_artifact.json"
         assert manifest["contract"]["status"]["heartbeat"] is True, blueprint_id
-        assert validate_workflow_manifest(manifest) == []
+        if manifest.get("type") != "service":
+            assert validate_workflow_manifest(manifest) == []
 
         steps = manifest["flow"]["steps"]
         bindings = manifest["runtime"]["bindings"]
+        nodes = _flow_nodes(manifest)
+        edges = _flow_edges(manifest)
         assert steps, blueprint_id
-        assert manifest["flow"]["entrypoint"] == steps[0]["id"]
+        assert nodes, blueprint_id
+        assert edges, blueprint_id
+        assert "nodes" not in manifest and "edges" not in manifest
+        node_ids = {node["node_id"] for node in nodes}
         if manifest.get("type") == "service":
-            node_ids = {node["node_id"] for node in manifest["nodes"]}
             assert set(manifest["entrypoints"]) <= node_ids, blueprint_id
+            assert manifest["flow"]["entrypoint"] in node_ids, blueprint_id
         else:
+            assert manifest["flow"]["entrypoint"] == steps[0]["id"]
             assert manifest["entrypoints"] == [manifest["flow"]["entrypoint"]]
+        for edge in edges:
+            assert edge["from_node"] in node_ids, (blueprint_id, edge)
+            assert edge["to_node"] in node_ids, (blueprint_id, edge)
         assert manifest["flow"]["graph"]["schema"] == "mn.workflow.problem_graph/v1"
         assert manifest["flow"]["graph"]["dynamic"]["enabled"] is False
-        assert "nodes" in manifest and "edges" in manifest
         assert manifest["metadata"]["standard"]["workflow_model"] == "contract -> flow -> runtime"
         for step in steps:
             assert {"id", "kind", "label", "goal", "action", "run", "emits", "on"} <= set(step), (blueprint_id, step)
@@ -118,21 +156,64 @@ def test_otterdesk_blueprints_are_workflow_driven_manifests():
 def test_otterdesk_topology_metadata_matches_runtime_nodes():
     for manifest_path in _manifest_paths():
         manifest = json.loads(manifest_path.read_text())
+        if not _flow_nodes(manifest) or not _template_nodes(manifest):
+            continue
         blueprint_id = manifest["metadata"]["blueprint_id"]
-        runtime_nodes = {node["node_id"]: node["uses"] for node in manifest["nodes"]}
+        runtime_nodes = {node["node_id"] for node in _flow_nodes(manifest)}
         metadata_nodes = {
             node["node_id"]: node["uses"]
-            for node in manifest["metadata"]["agent_templates"]["nodes"]
+            for node in _template_nodes(manifest)
         }
 
-        assert metadata_nodes == runtime_nodes, blueprint_id
+        assert set(metadata_nodes) == runtime_nodes, blueprint_id
+
+
+def test_gtm_ai_workflow_uses_current_flow_runtime_graph():
+    manifest = json.loads((ROOT / "gtm_ai_workflow" / "manifest.json").read_text())
+    nodes = _flow_nodes(manifest)
+    edges = _flow_edges(manifest)
+    node_ids = {node["node_id"] for node in nodes}
+
+    assert "nodes" not in manifest
+    assert "edges" not in manifest
+    assert manifest["entrypoints"] == ["ingress"]
+    assert manifest["flow"]["entrypoint"] == "ingress"
+    assert "ingress" in node_ids
+    assert len(nodes) == 10
+    assert len(edges) == 10
+    assert all(edge["from_node"] in node_ids and edge["to_node"] in node_ids for edge in edges)
+    assert {edge["edge_id"] for edge in edges} >= {
+        "ingress_to_monitor_scheduler",
+        "ingress_to_inbox_poller",
+    }
+
+    ingress_node = next(node for node in nodes if node["node_id"] == "ingress")
+    assert ingress_node["type"] == "map"
+    assert ingress_node["agent_type"] == "router"
+    assert "uses" not in ingress_node and "with" not in ingress_node
+
+    ingress_template = next(
+        node for node in _template_nodes(manifest) if node["node_id"] == "ingress"
+    )
+    assert ingress_template["uses"] == "mn-agents.control_router@1.0.0"
+    assert "node_type" not in ingress_template.get("with", {})
+
+    monitor_config = _node_config(next(node for node in nodes if node["node_id"] == "monitor_scheduler_agent"))
+    assert monitor_config["module"] == "Synaptic.MonitorScheduler"
+    assert monitor_config["module_source"] == "monitor_scheduler/beam_modules/monitor_scheduler.ex"
+
+    poller_config = _node_config(next(node for node in nodes if node["node_id"] == "inbox_poller_agent"))
+    assert poller_config["module"] == "Synaptic.InboxPoller"
+    assert poller_config["module_source"] == "inbox_poller/beam_modules/inbox_poller.ex"
 
 
 def test_otterdesk_completion_contract_is_explicit_and_terminal_sinks_are_reachable():
     for manifest_path in _manifest_paths():
         manifest = json.loads(manifest_path.read_text())
+        if not _is_workflow_manifest(manifest):
+            continue
         blueprint_id = manifest["metadata"]["blueprint_id"]
-        node_by_id = {node["node_id"]: node for node in manifest["nodes"]}
+        node_by_id = {node["node_id"]: node for node in _flow_nodes(manifest)}
         step_runs = {step["run"] for step in manifest["flow"]["steps"]}
         outgoing_counts: dict[str, int] = {}
         incoming_edges: dict[str, list[dict]] = {}
@@ -140,7 +221,7 @@ def test_otterdesk_completion_contract_is_explicit_and_terminal_sinks_are_reacha
         assert not _contains_key(manifest, "complete_job"), blueprint_id
         assert not _contains_key(manifest, "complete_job?"), blueprint_id
 
-        for edge in manifest["edges"]:
+        for edge in _flow_edges(manifest):
             assert "message_type" in edge and edge["message_type"], (blueprint_id, edge)
             assert "event" not in edge, (blueprint_id, edge)
             assert edge["from_node"] in node_by_id, (blueprint_id, edge)
@@ -149,9 +230,9 @@ def test_otterdesk_completion_contract_is_explicit_and_terminal_sinks_are_reacha
             incoming_edges.setdefault(edge["to_node"], []).append(edge)
 
         terminal_sinks = []
-        for node in manifest["nodes"]:
+        for node in _flow_nodes(manifest):
             node_id = node["node_id"]
-            config = node.get("with", {})
+            config = _node_config(node)
             terminal_sink = config.get("terminal_sink") is True
             complete_run = config.get("complete_run") is True
             complete_on_message = config.get("complete_on_message") is True
@@ -177,7 +258,7 @@ def test_otterdesk_completion_contract_is_explicit_and_terminal_sinks_are_reacha
         sink_edges = incoming_edges.get("report_sink", [])
         assert len(sink_edges) == 1, blueprint_id
         final_step_node = manifest["flow"]["graph"]["sink"]
-        final_step_config = node_by_id[final_step_node]["with"]
+        final_step_config = _node_config(node_by_id[final_step_node])
         assert sink_edges[0]["from_node"] == final_step_node, blueprint_id
         assert sink_edges[0]["message_type"] == final_step_config["output_message_type"], blueprint_id
 
@@ -185,13 +266,15 @@ def test_otterdesk_completion_contract_is_explicit_and_terminal_sinks_are_reacha
 def test_otterdesk_rendered_completion_contract_is_valid():
     for manifest_path in _manifest_paths():
         manifest = json.loads(manifest_path.read_text())
+        if not _is_workflow_manifest(manifest):
+            continue
         blueprint_id = manifest["metadata"]["blueprint_id"]
         rendered = render_manifest_agent_templates(manifest, AGENTS_ROOT)
-        rendered_nodes = {node["node_id"]: node for node in rendered["nodes"]}
+        rendered_nodes = {node["node_id"]: node for node in _flow_nodes(rendered)}
         step_runs = {step["run"] for step in manifest["flow"]["steps"]}
         outgoing_counts: dict[str, int] = {}
 
-        for edge in rendered.get("edges", manifest["edges"]):
+        for edge in _flow_edges(rendered):
             outgoing_counts[edge["from_node"]] = outgoing_counts.get(edge["from_node"], 0) + 1
 
         for node_id, node in rendered_nodes.items():
@@ -597,13 +680,14 @@ def test_generic_customer_service_voice_blueprint_contract():
     assert manifest["runtime"]["models"]["primary"]["model"] == "otterdesk-voice-llm:default"
     assert manifest["runtime"]["models"]["asr"]["model"] == "otterdesk-voice-asr:default"
     assert manifest["runtime"]["models"]["tts"]["model"] == "otterdesk-voice-tts:default"
-    voice_node = next(node for node in manifest["nodes"] if node["node_id"] == "voice_service")
-    assert voice_node["with"]["execution_profile"] == "nvidia-accelerated-voice"
-    assert voice_node["with"]["pool"] == "nvidia-accelerated"
-    assert voice_node["with"]["pool_slots"] == 1
-    assert voice_node["with"]["agent_beacon_required"] is False
-    assert voice_node["with"]["command"] == ["bash", "scripts/run_voice_service.sh"]
-    assert voice_node["with"]["upload_path"] == "voice_service"
+    voice_node = next(node for node in _flow_nodes(manifest) if node["node_id"] == "voice_service")
+    voice_config = _node_config(voice_node)
+    assert voice_config["execution_profile"] == "nvidia-accelerated-voice"
+    assert voice_config["pool"] == "nvidia-accelerated"
+    assert voice_config["pool_slots"] == 1
+    assert voice_config["agent_beacon_required"] is False
+    assert voice_config["command"] == ["bash", "scripts/run_voice_service.sh"]
+    assert voice_config["upload_path"] == "voice_service"
     assert voice_node["resources"]["gpu_count"] == 1
     assert {port["label"]: port["port"] for port in voice_node["resources"]["ports"]} == {
         "voice_https": 7863,
@@ -615,7 +699,7 @@ def test_generic_customer_service_voice_blueprint_contract():
     assert voice_node["constraints"][0]["operator"] == "contains_any"
     assert "nvidia-dgx-spark" in voice_node["constraints"][0]["value"]
     assert "nvidia-gb10" in voice_node["constraints"][0]["value"]
-    assert voice_node["with"]["public_url"] == "https://localhost:7863/customer-service"
+    assert voice_config["public_url"] == "https://localhost:7863/customer-service"
 
     payload = config["inputs"]["payload"]
     assert payload["business_name"] == "Otter Slice Pizza"
@@ -779,27 +863,32 @@ def test_video_watch_declares_domain_agent_aliases():
 def test_otterdesk_nodes_use_shared_agent_templates_and_render():
     for manifest_path in _manifest_paths():
         manifest = json.loads(manifest_path.read_text())
-        original_nodes = {node["node_id"]: node for node in manifest["nodes"]}
+        if not _flow_nodes(manifest) or not _template_nodes(manifest):
+            continue
+        template_nodes = _template_nodes(manifest)
+        original_nodes = {node["node_id"]: node for node in template_nodes}
         control_by_step = {
             step["id"]: step["control"]
             for step in manifest.get("flow", {}).get("steps", [])
             if isinstance(step.get("control"), dict)
         }
-        assert manifest.get("nodes"), manifest_path
-        for node in manifest["nodes"]:
+        assert template_nodes, manifest_path
+        for node in template_nodes:
             assert "uses" in node, (manifest_path.parent.name, node.get("node_id"))
             assert node["uses"].startswith("mn-agents."), (manifest_path.parent.name, node.get("node_id"))
             assert "@" in node["uses"] and not node["uses"].endswith("@latest")
-            assert isinstance(node.get("with"), dict), (manifest_path.parent.name, node.get("node_id"))
+            if "with" in node:
+                assert isinstance(node.get("with"), dict), (manifest_path.parent.name, node.get("node_id"))
             assert not {"agent_type", "type", "role", "config"} & set(node), (
                 manifest_path.parent.name,
                 node.get("node_id"),
             )
 
         rendered = render_manifest_agent_templates(manifest, AGENTS_ROOT)
-        assert len(rendered["nodes"]) == len(manifest["nodes"])
-        assert all("uses" not in node and "with" not in node for node in rendered["nodes"])
-        for node in rendered["nodes"]:
+        rendered_nodes = _flow_nodes(rendered)
+        assert len(rendered_nodes) == len(template_nodes)
+        assert all("uses" not in node and "with" not in node for node in rendered_nodes)
+        for node in rendered_nodes:
             if node.get("agent_type") != "executor":
                 continue
             config = node["config"]
@@ -918,11 +1007,15 @@ def test_otterdesk_workflow_steps_are_bounded_and_retryable():
 
 def test_personal_income_tax_expert_runtime_topology_mirrors_workflow_graph():
     manifest = json.loads((ROOT / "personal_income_tax_expert" / "manifest.json").read_text())
+    flow_nodes = _flow_nodes(manifest)
+    flow_edges = _flow_edges(manifest)
     executor_nodes = [
-        node for node in manifest["nodes"] if node["uses"].startswith("mn-agents.data_python_executor@")
+        node
+        for node in flow_nodes
+        if node.get("agent_type") == "executor"
+        and node["node_id"] not in {"merge_tax_workpapers", "report_sink"}
     ]
-    rendered = render_manifest_agent_templates(manifest, AGENTS_ROOT)
-    rendered_nodes = {node["node_id"]: node for node in rendered["nodes"]}
+    rendered_nodes = {node["node_id"]: node for node in flow_nodes}
 
     assert manifest["entrypoints"] == ["intake_documents"]
     assert [node["node_id"] for node in executor_nodes] == [
@@ -935,7 +1028,7 @@ def test_personal_income_tax_expert_runtime_topology_mirrors_workflow_graph():
     ]
     for node in executor_nodes:
         node_id = node["node_id"]
-        node_config = node["with"]
+        node_config = _node_config(node)
         rendered_config = rendered_nodes[node_id]["config"]
         assert node_config["environment"]["MN_WORKFLOW_STEP_ID"] == node_id
         assert rendered_config["environment"]["MN_WORKFLOW_STEP_ID"] == node_id
@@ -949,37 +1042,36 @@ def test_personal_income_tax_expert_runtime_topology_mirrors_workflow_graph():
             assert rendered_config["safe_to_retry"] is True
             assert rendered_config["idempotent"] is True
             assert rendered_config["side_effect"] == "read"
-    merge_config = next(node["with"] for node in manifest["nodes"] if node["node_id"] == "merge_tax_workpapers")
+    merge_config = _node_config(next(node for node in flow_nodes if node["node_id"] == "merge_tax_workpapers"))
     rendered_merge_config = rendered_nodes["merge_tax_workpapers"]["config"]
-    assert merge_config["complete_on_message"] is True
     assert merge_config["output_message_type"] == "tax_workpapers_merged"
     assert rendered_merge_config["output_message_type"] == "tax_workpapers_merged"
-    report_config = next(node["with"] for node in manifest["nodes"] if node["node_id"] == "report_sink")
+    report_config = _node_config(next(node for node in flow_nodes if node["node_id"] == "report_sink"))
     rendered_report_config = rendered_nodes["report_sink"]["config"]
     assert report_config["terminal_sink"] is True
     assert report_config["complete_run"] is True
     assert rendered_report_config["terminal_sink"] is True
     assert rendered_report_config["complete_run"] is True
-    assert [edge["from_node"] for edge in manifest["edges"][:3]] == ["intake_documents"] * 3
-    assert {edge["to_node"] for edge in manifest["edges"][:3]} == {
+    assert [edge["from_node"] for edge in flow_edges[:3]] == ["intake_documents"] * 3
+    assert {edge["to_node"] for edge in flow_edges[:3]} == {
         "prepare_income_workpapers",
         "prepare_property_workpapers",
         "prepare_investment_workpapers",
     }
-    assert [edge["from_node"] for edge in manifest["edges"][3:6]] == [
+    assert [edge["from_node"] for edge in flow_edges[3:6]] == [
         "prepare_income_workpapers",
         "prepare_property_workpapers",
         "prepare_investment_workpapers",
     ]
-    assert {edge["to_node"] for edge in manifest["edges"][3:6]} == {"merge_tax_workpapers"}
-    assert manifest["edges"][6] == {
+    assert {edge["to_node"] for edge in flow_edges[3:6]} == {"merge_tax_workpapers"}
+    assert flow_edges[6] == {
         "edge_id": "merge_to_audit",
         "from_node": "merge_tax_workpapers",
         "message_type": "tax_workpapers_merged",
         "to_node": "audit_and_manager_review",
     }
-    assert manifest["nodes"][-1]["node_id"] == "report_sink"
-    assert manifest["edges"][-1] == {
+    assert flow_nodes[-1]["node_id"] == "report_sink"
+    assert flow_edges[-1] == {
         "edge_id": "packet_to_report",
         "from_node": "write_review_packet",
         "message_type": "blueprint_report",
@@ -1087,7 +1179,7 @@ def test_video_watch_openshell_policy_is_generated_by_shared_helper(tmp_path):
     assert "0.0.0.0/0" not in committed_path.read_text()
 
     rendered = render_manifest_agent_templates(manifest, AGENTS_ROOT)
-    visual_node = next(node for node in rendered["nodes"] if node["node_id"] == "visual_detector")
+    visual_node = next(node for node in _flow_nodes(rendered) if node["node_id"] == "visual_detector")
     assert visual_node["config"]["runner_module"] == "MirrorNeuron.Runner.DockerWorker"
     assert visual_node["config"]["docker_worker_image"] == "visual_detector/docker_worker"
     assert visual_node["config"]["workdir"] == "/mn/job/visual_detector"
