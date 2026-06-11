@@ -1,0 +1,130 @@
+{
+  "brand": {
+    "base_url": "https://example.com/gtm-ai-workflow",
+    "brand_name": "GTM AI Workflow",
+    "footer_variants": {
+      "default": "You are receiving this because your account matched our B2B GTM research criteria or replied to outreach.",
+      "followup": "You are receiving this because your team showed relevant GTM, sales, product, or marketing signals.",
+      "reply": "You are receiving this because you replied to a GTM AI Workflow email or contacted the team directly."
+    },
+    "human_reply_from": "GTM AI Workflow <sales@example.com>",
+    "preference_center_path": "email-preferences",
+    "signoff_name": "The GTM AI team",
+    "unsubscribe_path": "unsubscribe"
+  },
+  "offers_catalog": {
+    "offers": [
+      {
+        "benefit_bullets": [
+          "Shows where account research, outreach, responses, and product-marketing feedback currently break down.",
+          "Produces a practical next-step map for turning market signal into better positioning."
+        ],
+        "id": "gtm_signal_loop_assessment",
+        "keywords": [
+          "signal",
+          "loop",
+          "market",
+          "feedback",
+          "positioning"
+        ],
+        "name": "GTM signal-loop assessment",
+        "story_prompt_example": "Map one outreach cycle from target selection through response summary and product insight.",
+        "url_slug": "signal-loop-assessment"
+      },
+      {
+        "benefit_bullets": [
+          "Ranks target accounts, identifies likely pain, and drafts a sales email with traceable rationale.",
+          "Keeps test-mode sends isolated while still updating local CRM CSV records."
+        ],
+        "id": "ai_account_research_pilot",
+        "keywords": [
+          "account research",
+          "outreach",
+          "sales email",
+          "personalization",
+          "pipeline"
+        ],
+        "name": "AI account research and outreach pilot",
+        "story_prompt_example": "Run a pilot on a small target-account list and compare pain hypotheses against actual replies.",
+        "url_slug": "account-research-pilot"
+      },
+      {
+        "benefit_bullets": [
+          "Writes outreach status, response summaries, and next actions to a local CSV CRM.",
+          "Feeds repeated pain signals back to product and marketing as structured insight rows."
+        ],
+        "id": "crm_learning_loop",
+        "keywords": [
+          "crm",
+          "csv",
+          "responses",
+          "next action",
+          "learning loop"
+        ],
+        "name": "Local CRM learning loop",
+        "story_prompt_example": "Review CRM and insight CSVs after each outreach cycle to refine ICP, pain language, and product claims.",
+        "url_slug": "crm-learning-loop"
+      }
+    ]
+  },
+  "segments": {
+    "founders": {
+      "job_to_be_done": "Find a repeatable GTM motion before scaling headcount or tooling.",
+      "keywords": [
+        "founder",
+        "ceo",
+        "co-founder",
+        "operator",
+        "general manager"
+      ],
+      "label": "Founder or executive operator",
+      "objection_to_address": "Can this create a real learning loop instead of generic AI copy?",
+      "pain_point": "The team needs learning velocity from every outreach cycle, not just more generated emails.",
+      "tone": "plainspoken, outcome-focused, practical"
+    },
+    "product_marketing": {
+      "job_to_be_done": "Turn frontline GTM signals into sharper positioning and campaign insight.",
+      "keywords": [
+        "product marketing",
+        "positioning",
+        "messaging",
+        "launch",
+        "pmm",
+        "marketing"
+      ],
+      "label": "Product marketing leader",
+      "objection_to_address": "Will the feedback loop produce evidence, not just anecdotes?",
+      "pain_point": "Sales conversations contain positioning clues, but they rarely become structured product or marketing feedback.",
+      "tone": "strategic, insight-led, concrete"
+    },
+    "revenue_leaders": {
+      "job_to_be_done": "Create more qualified pipeline without asking reps to manually research every account.",
+      "keywords": [
+        "cro",
+        "vp sales",
+        "sales leader",
+        "revenue",
+        "growth",
+        "sales"
+      ],
+      "label": "Revenue leader",
+      "objection_to_address": "Will this improve account quality without creating another automation queue to babysit?",
+      "pain_point": "Outbound quality is uneven because account research, pain hypotheses, and follow-up notes live in too many places.",
+      "tone": "commercial, specific, direct"
+    },
+    "sales_ops": {
+      "job_to_be_done": "Keep CRM data, outreach state, and next actions current without manual admin drag.",
+      "keywords": [
+        "revops",
+        "sales ops",
+        "operations",
+        "crm",
+        "pipeline operations"
+      ],
+      "label": "Sales operations or RevOps",
+      "objection_to_address": "Can the workflow remain auditable and deterministic enough for operating teams?",
+      "pain_point": "CRM hygiene breaks when outreach, replies, and market insights are captured outside the system of record.",
+      "tone": "operational, precise, low-hype"
+    }
+  }
+}

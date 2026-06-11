@@ -1,0 +1,120 @@
+{
+  "customer_marketing_activity": [
+    {
+      "activity_id": "seed_activity_luma_crm_noise",
+      "created_at": "2026-04-15T00:14:58+00:00",
+      "customer_id": "acct_luma_revops",
+      "summary": "Research signal: hiring sales operations roles while reps test AI outbound, suggesting CRM hygiene and handoff risk."
+    },
+    {
+      "activity_id": "seed_activity_luma_pipeline_quality",
+      "created_at": "2026-04-15T00:16:58+00:00",
+      "customer_id": "acct_luma_revops",
+      "summary": "Likely pain: account research and reply summaries are not consistently captured in the CRM."
+    },
+    {
+      "activity_id": "seed_activity_northstar_positioning",
+      "created_at": "2026-04-15T00:14:58+00:00",
+      "customer_id": "acct_northstar_pmm",
+      "summary": "Research signal: product marketing is refreshing category positioning and needs structured market feedback from sales conversations."
+    },
+    {
+      "activity_id": "seed_activity_cascade_founder_led",
+      "created_at": "2026-04-15T00:14:58+00:00",
+      "customer_id": "acct_cascade_founder",
+      "summary": "Research signal: founder-led sales motion needs a lightweight loop from target hypothesis to reply insight."
+    }
+  ],
+  "customers": [
+    {
+      "audience_segment": "sales_ops",
+      "customer_id": "acct_luma_revops",
+      "email": "riley.chen@example.com",
+      "name": "Riley Chen",
+      "stage": "target"
+    },
+    {
+      "audience_segment": "product_marketing",
+      "customer_id": "acct_northstar_pmm",
+      "email": "mina.patel@example.com",
+      "name": "Mina Patel",
+      "stage": "target"
+    },
+    {
+      "audience_segment": "founders",
+      "customer_id": "acct_cascade_founder",
+      "email": "alex.morgan@example.com",
+      "name": "Alex Morgan",
+      "stage": "target"
+    }
+  ],
+  "description": "Mock GTM target-account seed data used when the workflow creates a fresh SQLite database.",
+  "email_drafts": [
+    {
+      "body_sections": [
+        "Hi Mina, product marketing teams often hear the best market language secondhand from sales calls and outbound replies.",
+        "GTM AI Workflow can track the account signal, draft the outreach, summarize responses, and write insight rows your product and marketing teams can review.",
+        "A small pilot can start with a handful of accounts and a local CRM CSV before anything touches production systems."
+      ],
+      "body_text": "Hi Mina, product marketing teams often hear the best market language secondhand from sales calls and outbound replies. GTM AI Workflow can track the account signal, draft the outreach, summarize responses, and write insight rows your product and marketing teams can review.",
+      "cta_label": "Review the signal loop",
+      "cta_url_slug": "signal-loop-assessment",
+      "customer_id": "acct_northstar_pmm",
+      "draft_id": "seed_ready_northstar_signal_loop",
+      "eyebrow": "GTM signal loop",
+      "footer_variant": "default",
+      "from_email": "sales@example.com",
+      "headline": "Turn every reply into sharper positioning",
+      "html_body": "<p>Hi Mina, product marketing teams often hear the best market language secondhand from sales calls and outbound replies.</p>",
+      "in_reply_to_message_id": "",
+      "prepared_at": "2026-04-15T00:19:30+00:00",
+      "preview_text": "A small GTM workflow idea for capturing market feedback from outreach and replies.",
+      "provider_id": "",
+      "references_message_ids_json": "[]",
+      "render_from_template": true,
+      "runtime_job_id": "seed",
+      "scheduled_send_at": "2026-04-15T00:20:00+00:00",
+      "secondary_text": "The useful part is the learning loop, not just another generated email.",
+      "sent_at": "",
+      "signoff": "The GTM AI team",
+      "source_payload_json": {
+        "audience_segment": "product_marketing",
+        "campaign_type": "pain_point_outreach",
+        "design": {
+          "template": "gtm_workflow_spotlight"
+        },
+        "primary_offer": "GTM signal-loop assessment"
+      },
+      "status": "ready",
+      "subject": "Mina, a way to turn sales replies into positioning signal",
+      "template": "gtm_workflow_spotlight",
+      "thread_message_id": "seed_thread_northstar_signal_loop"
+    },
+    {
+      "body_text": "Riley, when AI outbound runs ahead of CRM state, reps lose the thread. A local GTM workflow can capture outreach, replies, and next action in one CSV-backed loop.",
+      "customer_id": "acct_luma_revops",
+      "draft_id": "seed_sent_luma_crm_loop",
+      "from_email": "sales@example.com",
+      "html_body": "<p>Riley, when AI outbound runs ahead of CRM state, reps lose the thread.</p>",
+      "in_reply_to_message_id": "",
+      "prepared_at": "2026-04-15T00:19:00+00:00",
+      "preview_text": "A short GTM workflow idea for RevOps.",
+      "provider_id": "seed_provider_luma_crm_loop",
+      "references_message_ids_json": "[]",
+      "runtime_job_id": "seed",
+      "scheduled_send_at": "2026-04-15T00:20:00+00:00",
+      "sent_at": "2026-04-15T00:21:00+00:00",
+      "source_payload_json": {
+        "campaign_type": "pain_point_outreach",
+        "design": {
+          "template": "pain_hypothesis_followup"
+        },
+        "primary_offer": "Local CRM learning loop"
+      },
+      "status": "sent",
+      "subject": "Riley, keeping AI outbound tied to CRM truth",
+      "thread_message_id": "seed_thread_luma_crm_loop"
+    }
+  ],
+  "version": 1
+}

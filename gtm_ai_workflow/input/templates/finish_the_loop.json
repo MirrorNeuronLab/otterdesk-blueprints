@@ -1,0 +1,46 @@
+{
+  "design_template": "card_email.html",
+  "layout_guidance": {
+    "body_pattern": [
+      "Reference the account signal.",
+      "Clarify the missing action.",
+      "Offer the next step."
+    ],
+    "cta_style": "resume workflow action",
+    "eyebrow_role": "Name the incomplete step.",
+    "headline_role": "Show the value of finishing the loop."
+  },
+  "name": "Finish The Loop",
+  "palette": {
+    "accent": "#0f766e",
+    "accent_soft": "#ecfdf5",
+    "text": "#1f2937"
+  },
+  "purpose": "Recover an incomplete account research or follow-up cycle.",
+  "recommended_audiences": [
+    "revenue_leaders",
+    "sales_ops",
+    "product_marketing",
+    "founders"
+  ],
+  "recommended_campaigns": [
+    "target_account_discovery",
+    "pain_point_outreach"
+  ],
+  "recommended_phases": [
+    "research",
+    "outreach"
+  ],
+  "required_slots": [
+    "preheader",
+    "eyebrow",
+    "headline",
+    "body_sections",
+    "cta_label",
+    "cta_url",
+    "secondary_text",
+    "footer_text"
+  ],
+  "template_id": "finish_the_loop",
+  "tone": "helpful, concise, momentum-building"
+}

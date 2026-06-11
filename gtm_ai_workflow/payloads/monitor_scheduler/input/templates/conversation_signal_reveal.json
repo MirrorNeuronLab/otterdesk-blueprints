@@ -1,0 +1,45 @@
+{
+  "design_template": "card_email.html",
+  "layout_guidance": {
+    "body_pattern": [
+      "Summarize the reply.",
+      "Extract the pain or objection.",
+      "Recommend the next GTM action."
+    ],
+    "cta_style": "review insight action",
+    "eyebrow_role": "Name the response signal.",
+    "headline_role": "State the insight in business language."
+  },
+  "name": "Conversation Signal Reveal",
+  "palette": {
+    "accent": "#4338ca",
+    "accent_soft": "#eef2ff",
+    "text": "#1f2937"
+  },
+  "purpose": "Summarize what a response revealed and how the GTM motion should adapt.",
+  "recommended_audiences": [
+    "product_marketing",
+    "sales_ops",
+    "revenue_leaders"
+  ],
+  "recommended_campaigns": [
+    "response_followup",
+    "product_marketing_feedback"
+  ],
+  "recommended_phases": [
+    "response",
+    "insight_feedback"
+  ],
+  "required_slots": [
+    "preheader",
+    "eyebrow",
+    "headline",
+    "body_sections",
+    "cta_label",
+    "cta_url",
+    "secondary_text",
+    "footer_text"
+  ],
+  "template_id": "conversation_signal_reveal",
+  "tone": "insightful, grounded, action-oriented"
+}

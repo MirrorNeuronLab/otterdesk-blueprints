@@ -1,0 +1,43 @@
+{
+  "design_template": "card_email.html",
+  "layout_guidance": {
+    "body_pattern": [
+      "Summarize the signal learned.",
+      "Explain why more accounts improve confidence.",
+      "Offer expansion criteria."
+    ],
+    "cta_style": "expand pilot action",
+    "eyebrow_role": "Name the proof from the pilot.",
+    "headline_role": "Show what gets better with more accounts."
+  },
+  "name": "More Accounts, Better Learning",
+  "palette": {
+    "accent": "#b45309",
+    "accent_soft": "#fffbeb",
+    "text": "#1f2937"
+  },
+  "purpose": "Invite the team to expand a small pilot after the loop proves useful.",
+  "recommended_audiences": [
+    "founders",
+    "revenue_leaders",
+    "sales_ops"
+  ],
+  "recommended_campaigns": [
+    "product_marketing_feedback"
+  ],
+  "recommended_phases": [
+    "insight_feedback"
+  ],
+  "required_slots": [
+    "preheader",
+    "eyebrow",
+    "headline",
+    "body_sections",
+    "cta_label",
+    "cta_url",
+    "secondary_text",
+    "footer_text"
+  ],
+  "template_id": "expand_account_learning",
+  "tone": "evidence-led, practical, expansion-aware"
+}

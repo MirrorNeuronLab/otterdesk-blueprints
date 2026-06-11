@@ -1,0 +1,43 @@
+{
+  "design_template": "card_email.html",
+  "layout_guidance": {
+    "body_pattern": [
+      "Summarize the insight.",
+      "Connect it to product or positioning.",
+      "Recommend the owner and next action."
+    ],
+    "cta_style": "share or review action",
+    "eyebrow_role": "Name the team that should see the insight.",
+    "headline_role": "State what the market signal changes."
+  },
+  "name": "Share GTM Insight",
+  "palette": {
+    "accent": "#be123c",
+    "accent_soft": "#fff1f2",
+    "text": "#1f2937"
+  },
+  "purpose": "Route useful GTM insight to product, marketing, or revenue leaders.",
+  "recommended_audiences": [
+    "product_marketing",
+    "revenue_leaders",
+    "founders"
+  ],
+  "recommended_campaigns": [
+    "product_marketing_feedback"
+  ],
+  "recommended_phases": [
+    "insight_feedback"
+  ],
+  "required_slots": [
+    "preheader",
+    "eyebrow",
+    "headline",
+    "body_sections",
+    "cta_label",
+    "cta_url",
+    "secondary_text",
+    "footer_text"
+  ],
+  "template_id": "share_gtm_insight",
+  "tone": "collaborative, evidence-led, concise"
+}

@@ -1,0 +1,47 @@
+{
+  "design_template": "card_email.html",
+  "layout_guidance": {
+    "body_pattern": [
+      "Acknowledge the likely operating constraint.",
+      "Explain why a learning loop improves the workflow.",
+      "Offer one low-friction next action."
+    ],
+    "cta_style": "small pilot or review action",
+    "eyebrow_role": "Name the account signal or GTM constraint.",
+    "headline_role": "Reframe the recipient problem through the signal loop."
+  },
+  "name": "Pain Hypothesis Follow-up",
+  "palette": {
+    "accent": "#1d4ed8",
+    "accent_soft": "#eef4ff",
+    "text": "#1e293b"
+  },
+  "purpose": "Bring a target account back to one practical next step without sounding automated.",
+  "recommended_audiences": [
+    "revenue_leaders",
+    "sales_ops",
+    "product_marketing",
+    "founders"
+  ],
+  "recommended_campaigns": [
+    "pain_point_outreach",
+    "target_account_discovery",
+    "pain_hypothesis_followup"
+  ],
+  "recommended_phases": [
+    "pain_hypothesis",
+    "outreach"
+  ],
+  "required_slots": [
+    "preheader",
+    "eyebrow",
+    "headline",
+    "body_sections",
+    "cta_label",
+    "cta_url",
+    "secondary_text",
+    "footer_text"
+  ],
+  "template_id": "pain_hypothesis_followup",
+  "tone": "consultative, specific, calm, useful"
+}

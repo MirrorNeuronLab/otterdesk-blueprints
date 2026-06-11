@@ -1,0 +1,49 @@
+{
+  "design_template": "card_email.html",
+  "layout_guidance": {
+    "body_pattern": [
+      "Name the market or account signal.",
+      "Connect it to likely GTM pain.",
+      "Offer one concrete next step."
+    ],
+    "cta_style": "specific comparison or pilot action",
+    "eyebrow_role": "Signal the account pain or workflow phase.",
+    "headline_role": "State the operational GTM outcome, not a feature list."
+  },
+  "name": "GTM Workflow Spotlight",
+  "palette": {
+    "accent": "#0f766e",
+    "accent_soft": "#ecfdf5",
+    "text": "#1f2937"
+  },
+  "purpose": "Highlight one GTM workflow use case with concrete operational value.",
+  "recommended_audiences": [
+    "revenue_leaders",
+    "sales_ops",
+    "product_marketing",
+    "founders"
+  ],
+  "recommended_campaigns": [
+    "target_account_discovery",
+    "pain_point_outreach",
+    "product_marketing_feedback",
+    "gtm_workflow_spotlight"
+  ],
+  "recommended_phases": [
+    "research",
+    "outreach",
+    "insight_feedback"
+  ],
+  "required_slots": [
+    "preheader",
+    "eyebrow",
+    "headline",
+    "body_sections",
+    "cta_label",
+    "cta_url",
+    "secondary_text",
+    "footer_text"
+  ],
+  "template_id": "gtm_workflow_spotlight",
+  "tone": "clear, credible, practical, outcome-oriented"
+}

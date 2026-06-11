@@ -1,0 +1,138 @@
+{
+  "bootstrap": {
+    "activities": [
+      {
+        "activity_id": "seed_activity_luma_crm_noise",
+        "created_at": "2026-04-15T00:14:58+00:00",
+        "customer_id": "acct_luma_revops",
+        "summary": "Research signal: hiring sales operations roles while reps test AI outbound, suggesting CRM hygiene and handoff risk."
+      },
+      {
+        "activity_id": "seed_activity_luma_pipeline_quality",
+        "created_at": "2026-04-15T00:16:58+00:00",
+        "customer_id": "acct_luma_revops",
+        "summary": "Likely pain: account research and reply summaries are not consistently captured in the CRM."
+      },
+      {
+        "activity_id": "seed_activity_northstar_positioning",
+        "created_at": "2026-04-15T00:14:58+00:00",
+        "customer_id": "acct_northstar_pmm",
+        "summary": "Research signal: product marketing is refreshing category positioning and needs structured market feedback from sales conversations."
+      },
+      {
+        "activity_id": "seed_activity_cascade_founder_led",
+        "created_at": "2026-04-15T00:14:58+00:00",
+        "customer_id": "acct_cascade_founder",
+        "summary": "Research signal: founder-led sales motion needs a lightweight loop from target hypothesis to reply insight."
+      }
+    ],
+    "customers": [
+      {
+        "account_id": "acct_luma_revops",
+        "company": "Luma Systems",
+        "customer_id": "acct_luma_revops",
+        "email": "riley.chen@example.com",
+        "engagement_score": 0.71,
+        "factual_attributes": {
+          "employee_count": 220,
+          "region": "North America"
+        },
+        "inferred_attributes": {
+          "preferred_topics": [
+            "crm",
+            "pipeline quality",
+            "sales operations"
+          ],
+          "segment": "sales_ops"
+        },
+        "intent_score": 0.82,
+        "job_title": "VP Revenue Operations",
+        "name": "Riley Chen",
+        "opt_in_status": "subscribed",
+        "profile": "Revenue operations leader at a 220-person SaaS company. Likely owns CRM hygiene, handoff quality, and pipeline reporting while sales experiments with AI-written outbound.",
+        "source": "seed",
+        "stage": "target",
+        "suppression_status": "active",
+        "tags": [
+          "revops",
+          "crm",
+          "pipeline",
+          "sales-ops"
+        ],
+        "title": "VP Revenue Operations"
+      },
+      {
+        "account_id": "acct_northstar_pmm",
+        "company": "Northstar Analytics",
+        "customer_id": "acct_northstar_pmm",
+        "email": "mina.patel@example.com",
+        "engagement_score": 0.68,
+        "factual_attributes": {
+          "employee_count": 140,
+          "region": "EMEA"
+        },
+        "inferred_attributes": {
+          "preferred_topics": [
+            "positioning",
+            "feedback loop",
+            "sales insights"
+          ],
+          "segment": "product_marketing"
+        },
+        "intent_score": 0.79,
+        "job_title": "Head of Product Marketing",
+        "name": "Mina Patel",
+        "opt_in_status": "subscribed",
+        "profile": "Product marketing leader preparing a category narrative refresh. Likely needs better feedback from sales conversations and outbound replies.",
+        "source": "seed",
+        "stage": "target",
+        "suppression_status": "active",
+        "tags": [
+          "product-marketing",
+          "positioning",
+          "launch",
+          "market-signal"
+        ],
+        "title": "Head of Product Marketing"
+      },
+      {
+        "account_id": "acct_cascade_founder",
+        "company": "Cascade Robotics",
+        "customer_id": "acct_cascade_founder",
+        "email": "alex.morgan@example.com",
+        "engagement_score": 0.63,
+        "factual_attributes": {
+          "employee_count": 38,
+          "region": "US"
+        },
+        "inferred_attributes": {
+          "preferred_topics": [
+            "repeatable outbound",
+            "learning velocity",
+            "pipeline"
+          ],
+          "segment": "founders"
+        },
+        "intent_score": 0.76,
+        "job_title": "Co-founder and CEO",
+        "name": "Alex Morgan",
+        "opt_in_status": "subscribed",
+        "profile": "Founder-led B2B company testing repeatable outbound. Likely wants more learning from each conversation before hiring a larger GTM team.",
+        "source": "seed",
+        "stage": "target",
+        "suppression_status": "active",
+        "tags": [
+          "founder",
+          "gtm",
+          "early-pipeline",
+          "sales"
+        ],
+        "title": "Co-founder and CEO"
+      }
+    ]
+  },
+  "database": {
+    "connection_string": "sqlite:///var/synaptic-gtm-ai.db"
+  },
+  "product_name": "GTM AI Workflow"
+}

@@ -1,0 +1,46 @@
+{
+  "design_template": "card_email.html",
+  "layout_guidance": {
+    "body_pattern": [
+      "Identify the signal.",
+      "Infer likely pain.",
+      "Invite a small next step."
+    ],
+    "cta_style": "pilot or compare action",
+    "eyebrow_role": "Name the signal.",
+    "headline_role": "Show how it becomes a relevant email."
+  },
+  "name": "Signal To Outreach",
+  "palette": {
+    "accent": "#0369a1",
+    "accent_soft": "#e0f2fe",
+    "text": "#1f2937"
+  },
+  "purpose": "Turn one market signal into a specific outreach action.",
+  "recommended_audiences": [
+    "revenue_leaders",
+    "sales_ops",
+    "product_marketing",
+    "founders"
+  ],
+  "recommended_campaigns": [
+    "target_account_discovery",
+    "pain_point_outreach"
+  ],
+  "recommended_phases": [
+    "target",
+    "pain_hypothesis"
+  ],
+  "required_slots": [
+    "preheader",
+    "eyebrow",
+    "headline",
+    "body_sections",
+    "cta_label",
+    "cta_url",
+    "secondary_text",
+    "footer_text"
+  ],
+  "template_id": "signal_to_outreach",
+  "tone": "specific, practical, direct"
+}
