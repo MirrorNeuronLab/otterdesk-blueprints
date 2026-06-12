@@ -23,6 +23,19 @@ except Exception:  # pragma: no cover - optional runtime support
     def get_llm_client(mode: str | None = None) -> Any:
         return _FallbackLLMClient()
 
+try:
+    from mn_blueprint_support import (
+        AGENT_EVENT_STDOUT_PREFIX,
+        agent_activity_event as support_agent_activity_event,
+        emit_agent_activity_stdout as support_emit_agent_activity_stdout,
+        redact_observability_value as support_redact_observability_value,
+    )
+except Exception:  # pragma: no cover - optional runtime support
+    AGENT_EVENT_STDOUT_PREFIX = "__MN_EVENT__"
+    support_agent_activity_event = None
+    support_emit_agent_activity_stdout = None
+    support_redact_observability_value = None
+
 
 BLUEPRINT_ID = "personal_financial_advisor"
 BLUEPRINT_NAME = "Personal Financial Advisor"
@@ -354,6 +367,110 @@ def append_event(run_dir: Path, event_type: str, payload: dict[str, Any]) -> Non
     record = {"type": event_type, "timestamp": utc_now_iso(), "payload": payload}
     with (run_dir / "events.jsonl").open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(record, sort_keys=True, default=str) + "\n")
+
+
+def emit_activity(
+    run_dir: Path | None,
+    event_type: str,
+    *,
+    message: str,
+    category: str = "agent",
+    agent_id: str | None = None,
+    step_id: str | None = None,
+    status: str | None = None,
+    tool_name: str | None = None,
+    target: str | None = None,
+    duration_ms: int | float | None = None,
+    result_summary: str | None = None,
+    details: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    agent_id = agent_id or step_id or _runtime_graph_step_id() or BLUEPRINT_ID
+    step_id = step_id or agent_id
+    if support_agent_activity_event is not None:
+        event = support_agent_activity_event(
+            event_type,
+            message=message,
+            category=category,
+            agent_id=agent_id,
+            step_id=step_id,
+            status=status,
+            tool_name=tool_name,
+            target=target,
+            duration_ms=duration_ms,
+            result_summary=result_summary,
+            details=details,
+        )
+    else:
+        event = {
+            "type": event_type,
+            "payload": {
+                "schema": "mn.agent.activity.v1",
+                "category": category,
+                "message": str(message or "")[:300],
+                "agent_id": agent_id,
+                "step_id": step_id,
+                "step": step_id,
+                "status": status,
+                "tool_name": tool_name,
+                "target": target,
+                "duration_ms": duration_ms,
+                "result_summary": str(result_summary or "")[:700] if result_summary else None,
+                "details": _redact_activity_value(details or {}),
+                "component": BLUEPRINT_ID,
+                "emitted_at": utc_now_iso(),
+            },
+        }
+    payload = {key: value for key, value in dict(event.get("payload") or {}).items() if value not in (None, "", {})}
+    payload.setdefault("component", BLUEPRINT_ID)
+    payload.setdefault("agent_id", agent_id)
+    payload.setdefault("step_id", step_id)
+    event = {"type": event_type, "payload": payload}
+    if run_dir is not None:
+        append_event(run_dir, event_type, payload)
+    if _live_runtime_events_enabled():
+        if support_emit_agent_activity_stdout is not None:
+            support_emit_agent_activity_stdout(event)
+        else:
+            print(AGENT_EVENT_STDOUT_PREFIX + json.dumps(event, sort_keys=True, default=str), flush=True)
+    return event
+
+
+def emit_actor_activity(
+    run_dir: Path | None,
+    actor_id: str,
+    message: str,
+    *,
+    status: str = "working",
+    details: dict[str, Any] | None = None,
+    result_summary: str | None = None,
+) -> dict[str, Any]:
+    return emit_activity(
+        run_dir,
+        "agent_activity",
+        message=message,
+        category="agent",
+        agent_id=actor_id,
+        step_id=actor_id,
+        status=status,
+        result_summary=result_summary,
+        details=details,
+    )
+
+
+def _redact_activity_value(value: Any) -> Any:
+    if support_redact_observability_value is not None:
+        return support_redact_observability_value(value)
+    if isinstance(value, dict):
+        return {str(key): _redact_activity_value(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_redact_activity_value(item) for item in value[:25]]
+    if isinstance(value, str):
+        return redactor(value)[:700]
+    return value
+
+
+def _live_runtime_events_enabled() -> bool:
+    return bool(os.environ.get("MN_JOB_ID") or os.environ.get("MN_RUNTIME_DRIVER"))
 
 
 def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
@@ -910,9 +1027,18 @@ def financial_market_researcher(
     config: dict[str, Any],
     run_id: str,
     llm: Any | None = None,
+    run_dir: Path | None = None,
 ) -> dict[str, Any]:
+    actor_id = "financial_market_researcher"
     research_config = resolve_research_config(config)
     if not research_config.get("enabled"):
+        emit_actor_activity(
+            run_dir,
+            actor_id,
+            "Browser research is disabled for this run.",
+            status="skipped",
+            details={"reason": "internet_research.disabled"},
+        )
         return {
             "research_summary": "Browser research is disabled for this run.",
             "research_sources": [],
@@ -924,6 +1050,13 @@ def financial_market_researcher(
         }
     _load_w3m_browser_skill()
     if W3mBrowserConfig is None or browse_url is None or build_search_url is None:
+        emit_actor_activity(
+            run_dir,
+            actor_id,
+            "Browser research could not start because w3m_browser_skill is unavailable.",
+            status="failed",
+            details={"reason": "w3m_browser_skill unavailable"},
+        )
         return {
             "research_summary": "Browser research was requested, but w3m_browser_skill is not available.",
             "research_sources": [],
@@ -944,6 +1077,16 @@ def financial_market_researcher(
     )
     source_url_fallbacks = [str(url) for url in research_config.get("source_urls") or [] if str(url).strip()]
     safe_inputs = _safe_research_inputs(risks, document_summary, research_config["max_queries"])
+    emit_actor_activity(
+        run_dir,
+        actor_id,
+        "Planning privacy-safe public financial research.",
+        status="started",
+        details={
+            "risk_categories": safe_inputs.get("risk_categories", []),
+            "document_types": safe_inputs.get("document_types", []),
+        },
+    )
     plan_fallback = {
         "search_queries": safe_inputs["default_queries"],
         "research_focus": safe_inputs["risk_categories"] or ["review_required"],
@@ -958,13 +1101,67 @@ def financial_market_researcher(
         plan_fallback,
     )
     queries = _sanitize_research_queries(plan.get("search_queries"), safe_inputs["default_queries"], research_config["max_queries"])
+    emit_actor_activity(
+        run_dir,
+        actor_id,
+        "Research plan created.",
+        status="completed",
+        details={"queries": queries, "research_focus": plan.get("research_focus") or safe_inputs["risk_categories"]},
+    )
     collected_sources: list[dict[str, Any]] = []
     search_pages: list[dict[str, Any]] = []
     warnings: list[str] = []
 
+    def browser_observer(event_type: str, payload: dict[str, Any]) -> None:
+        payload = dict(payload or {})
+        emit_activity(
+            run_dir,
+            event_type,
+            message=str(payload.get("message") or "Browser tool activity"),
+            category=str(payload.get("category") or "tool"),
+            agent_id=actor_id,
+            step_id=actor_id,
+            status=str(payload.get("status") or ""),
+            tool_name=str(payload.get("tool_name") or "w3m"),
+            target=str(payload.get("target") or ""),
+            duration_ms=payload.get("duration_ms"),
+            result_summary=str(payload.get("result_summary") or ""),
+            details=payload.get("details") if isinstance(payload.get("details"), dict) else {},
+        )
+
+    def browse_with_observer(url: str) -> dict[str, Any]:
+        try:
+            return browse_url(url, browser_config, observer=browser_observer)
+        except TypeError:
+            browser_observer(
+                "tool_call_started",
+                {"message": f"Browsing {url}", "category": "tool", "tool_name": "w3m", "target": url, "status": "started"},
+            )
+            result = browse_url(url, browser_config)
+            browser_observer(
+                "tool_call_completed" if result.get("status") == "ok" else "tool_call_failed",
+                {
+                    "message": f"Browsed {url}" if result.get("status") == "ok" else f"Could not browse {url}",
+                    "category": "tool" if result.get("status") == "ok" else "error",
+                    "tool_name": "w3m",
+                    "target": url,
+                    "status": result.get("status"),
+                    "result_summary": result.get("snippet") or result.get("error") or "",
+                    "details": {"title": result.get("title"), "returncode": result.get("returncode")},
+                },
+            )
+            return result
+
     for query in queries:
         search_url = build_search_url(query, browser_config)
-        search_page = browse_url(search_url, browser_config)
+        emit_actor_activity(
+            run_dir,
+            actor_id,
+            "Searching DuckDuckGo for public financial guidance.",
+            status="working",
+            details={"query": query, "search_url": search_url},
+        )
+        search_page = browse_with_observer(search_url)
         if search_page.get("status") != "ok":
             warnings.append(f"{search_url}: {search_page.get('error') or search_page.get('status')}")
             candidates = source_url_fallbacks[: research_config["max_sources_per_query"]]
@@ -974,6 +1171,13 @@ def financial_market_researcher(
             candidates = source_url_fallbacks[: research_config["max_sources_per_query"]]
         if search_page.get("status") != "ok" and not candidates:
             continue
+        emit_actor_activity(
+            run_dir,
+            actor_id,
+            "Candidate public sources collected.",
+            status="working",
+            details={"query": query, "candidate_count": len(candidates), "candidate_urls": candidates[:6]},
+        )
         search_pages.append(
             {
                 "query": query,
@@ -1000,7 +1204,14 @@ def financial_market_researcher(
             select_fallback,
         )
         for url in _select_urls_from_llm(selection, candidates, research_config["max_sources_per_query"]):
-            source = browse_url(url, browser_config)
+            emit_actor_activity(
+                run_dir,
+                actor_id,
+                "Browsing selected public source.",
+                status="working",
+                details={"query": query, "url": url},
+            )
+            source = browse_with_observer(url)
             if source.get("status") != "ok":
                 warnings.append(f"{url}: {source.get('error') or source.get('status')}")
                 continue
@@ -1014,6 +1225,18 @@ def financial_market_researcher(
                     "title": str(source.get("title") or source_url)[:200],
                     "snippet": redactor(str(source.get("snippet") or source.get("text") or ""))[:700],
                 }
+            )
+            emit_actor_activity(
+                run_dir,
+                actor_id,
+                "Public source captured.",
+                status="completed",
+                details={
+                    "query": query,
+                    "url": source_url,
+                    "title": str(source.get("title") or source_url)[:200],
+                },
+                result_summary=redactor(str(source.get("snippet") or source.get("text") or ""))[:500],
             )
 
     findings_fallback = {
@@ -1048,6 +1271,19 @@ def financial_market_researcher(
     )
     summary = str(findings.get("summary") or findings_fallback["summary"]).strip()
     compression = compile_research_context(run_id, summary, collected_sources, config, research_config)
+    emit_actor_activity(
+        run_dir,
+        actor_id,
+        "Financial market research completed.",
+        status="completed",
+        details={
+            "query_count": len(queries),
+            "source_count": len(collected_sources),
+            "warning_count": len(warnings),
+            "source_urls": [source.get("url") for source in collected_sources[:10]],
+        },
+        result_summary=summary[:700],
+    )
     return {
         "research_summary": summary,
         "research_plan": {
@@ -1745,6 +1981,7 @@ def run_runtime_step(
         },
     )
     append_event(run_dir, "runtime_step_started", {"step_id": step_id, "component": BLUEPRINT_ID})
+    emit_actor_activity(run_dir, step_id, f"{step_id.replace('_', ' ').title()} started.", status="started")
 
     if step_id == "financial_folder_watcher":
         watch_state = _watch_state_for_step(document_folder, monitoring)
@@ -1843,6 +2080,7 @@ def run_runtime_step(
             resolved_config,
             run_id,
             llm,
+            run_dir,
         )
         state["research"] = research
         _record_actor_finding(
@@ -1922,6 +2160,7 @@ def run_runtime_step(
         }
 
     _save_workflow_state(run_dir, state)
+    emit_actor_activity(run_dir, step_id, f"{step_id.replace('_', ' ').title()} completed.", status="completed")
     append_event(run_dir, "runtime_step_completed", {"step_id": step_id, "component": BLUEPRINT_ID})
     return _runtime_step_result(
         step_id,
@@ -2066,6 +2305,13 @@ def run_scan_cycle(
     actor_findings = _actor_findings(state)
     state["watch_state"] = watch_state
     append_event(run_dir, "blueprint_phase_started", {"phase": "loading_inputs", "component": BLUEPRINT_ID, "cycle": cycle})
+    emit_actor_activity(
+        run_dir,
+        "financial_folder_watcher",
+        "Scanning the monitored financial document folder.",
+        status="started",
+        details={"cycle": cycle, "document_folder": str(document_folder)},
+    )
     append_event(
         run_dir,
         "financial_folder_watcher_completed",
@@ -2076,6 +2322,17 @@ def run_scan_cycle(
             "cycle": cycle,
         },
     )
+    emit_actor_activity(
+        run_dir,
+        "financial_folder_watcher",
+        "Folder scan completed.",
+        status="completed",
+        details={
+            "cycle": cycle,
+            "file_count": len(watch_state.get("processed_files") or []),
+            "changed_file_count": len(watch_state.get("new_or_changed_files") or []),
+        },
+    )
     _record_actor_finding(
         state,
         "financial_folder_watcher",
@@ -2084,9 +2341,23 @@ def run_scan_cycle(
     append_event(run_dir, "blueprint_phase_completed", {"phase": "loading_inputs", "component": BLUEPRINT_ID, "cycle": cycle})
     append_event(run_dir, "blueprint_phase_started", {"phase": "running_worker", "component": BLUEPRINT_ID, "cycle": cycle})
 
+    emit_actor_activity(
+        run_dir,
+        "financial_document_reader",
+        "Reading financial documents and OCR metadata.",
+        status="started",
+        details={"cycle": cycle},
+    )
     records = extract_records(document_folder, config)
     state["records"] = records
     append_event(run_dir, "financial_document_reader_completed", {"record_count": len(records), "cycle": cycle})
+    emit_actor_activity(
+        run_dir,
+        "financial_document_reader",
+        "Document reading completed.",
+        status="completed",
+        details={"cycle": cycle, "record_count": len(records)},
+    )
     _record_actor_finding(
         state,
         "financial_document_reader",
@@ -2095,7 +2366,21 @@ def run_scan_cycle(
     document_summary = build_document_summary(records)
     sections = _classification_from_records(records)
     state.update(sections)
+    emit_actor_activity(
+        run_dir,
+        "financial_activity_classifier",
+        "Classifying financial activity by document type and cash-flow category.",
+        status="started",
+        details={"cycle": cycle, "record_count": len(records)},
+    )
     append_event(run_dir, "financial_activity_classifier_completed", {"document_types": document_summary["document_types"], "cycle": cycle})
+    emit_actor_activity(
+        run_dir,
+        "financial_activity_classifier",
+        "Financial activity classification completed.",
+        status="completed",
+        details={"cycle": cycle, "document_types": document_summary["document_types"]},
+    )
     _record_actor_finding(
         state,
         "financial_activity_classifier",
@@ -2109,6 +2394,13 @@ def run_scan_cycle(
         "reminders": final_artifact["reminders"],
     }
     state.update(assessment)
+    emit_actor_activity(
+        run_dir,
+        "financial_health_assessor",
+        "Assessing household financial health and risks.",
+        status="started",
+        details={"cycle": cycle},
+    )
     _record_actor_finding(
         state,
         "financial_health_assessor",
@@ -2123,12 +2415,20 @@ def run_scan_cycle(
             "cycle": cycle,
         },
     )
+    emit_actor_activity(
+        run_dir,
+        "financial_health_assessor",
+        "Financial health assessment completed.",
+        status="completed",
+        details={"cycle": cycle, "status": final_artifact["status"], "risk_count": len(final_artifact["risk_register"])},
+    )
     research = financial_market_researcher(
         final_artifact["risk_register"],
         final_artifact["document_summary"],
         config,
         run_id,
         llm,
+        run_dir,
     )
     state["research"] = research
     _record_actor_finding(
@@ -2168,6 +2468,13 @@ def run_scan_cycle(
         {"mode": "approval_required", "reason": "Review advisor report before any financial action.", "cycle": cycle},
     )
     append_event(run_dir, "blueprint_phase_started", {"phase": "writing_artifacts", "component": BLUEPRINT_ID, "cycle": cycle})
+    emit_actor_activity(
+        run_dir,
+        "financial_advice_reporter",
+        "Writing the review-only advisor report.",
+        status="started",
+        details={"cycle": cycle},
+    )
     _record_actor_finding(
         state,
         "financial_advice_reporter",
@@ -2198,6 +2505,13 @@ def run_scan_cycle(
     for item in output_files:
         append_event(run_dir, "artifact_written", {"path": item["path"], "cycle": cycle})
     append_event(run_dir, "financial_advice_reporter_completed", {"output_files": output_files, "cycle": cycle})
+    emit_actor_activity(
+        run_dir,
+        "financial_advice_reporter",
+        "Advisor report written.",
+        status="completed",
+        details={"cycle": cycle, "output_files": output_files},
+    )
     append_event(run_dir, "blueprint_phase_completed", {"phase": "writing_artifacts", "component": BLUEPRINT_ID, "cycle": cycle})
     append_event(run_dir, "blueprint_phase_completed", {"phase": "completed", "component": BLUEPRINT_ID, "cycle": cycle})
     _save_workflow_state(run_dir, state)

@@ -127,10 +127,21 @@ def _install_fake_actor_runtime(monkeypatch, runner) -> tuple[FakeActorLLM, list
     def fake_build_search_url(query, config=None):
         return f"https://duckduckgo.com/html/?q={str(query).replace(' ', '+')}"
 
-    def fake_browse_url(url, config=None):
+    def fake_browse_url(url, config=None, observer=None):
         browse_calls.append(url)
+        if observer:
+            observer(
+                "tool_call_started",
+                {
+                    "category": "tool",
+                    "tool_name": "w3m",
+                    "target": url,
+                    "status": "started",
+                    "message": f"Browsing {url}",
+                },
+            )
         if "duckduckgo.com" in url:
-            return {
+            result = {
                 "status": "ok",
                 "url": url,
                 "title": "DuckDuckGo",
@@ -143,13 +154,28 @@ def _install_fake_actor_runtime(monkeypatch, runner) -> tuple[FakeActorLLM, list
                 ),
                 "snippet": "Public consumer finance search results.",
             }
-        return {
-            "status": "ok",
-            "url": url,
-            "title": "Managing Your Money",
-            "text": "Managing Your Money\nReview bills, fees, and spending before making financial decisions.",
-            "snippet": "Review bills, fees, and spending before making financial decisions.",
-        }
+        else:
+            result = {
+                "status": "ok",
+                "url": url,
+                "title": "Managing Your Money",
+                "text": "Managing Your Money\nReview bills, fees, and spending before making financial decisions.",
+                "snippet": "Review bills, fees, and spending before making financial decisions.",
+            }
+        if observer:
+            observer(
+                "tool_call_completed",
+                {
+                    "category": "tool",
+                    "tool_name": "w3m",
+                    "target": url,
+                    "status": "completed",
+                    "message": f"Browsed {url}",
+                    "result_summary": result["snippet"],
+                    "details": {"title": result["title"]},
+                },
+            )
+        return result
 
     monkeypatch.setattr(runner, "W3mBrowserConfig", FakeW3mBrowserConfig)
     monkeypatch.setattr(runner, "build_search_url", fake_build_search_url)
@@ -226,6 +252,19 @@ def test_personal_financial_advisor_writes_review_report_outputs(tmp_path, monke
 
     run_artifact = json.loads((tmp_path / "advisor-unit" / "final_artifact.json").read_text(encoding="utf-8"))
     assert run_artifact["type"] == "personal_financial_advisor_report"
+    run_events = [
+        json.loads(line)
+        for line in (tmp_path / "advisor-unit" / "events.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    tool_events = [event for event in run_events if event["type"] in {"tool_call_started", "tool_call_completed"}]
+    assert tool_events
+    assert any("duckduckgo.com" in (event["payload"].get("target") or "") for event in tool_events)
+    assert any(event["payload"].get("target") == "https://consumer.gov/managing-your-money" for event in tool_events)
+    assert all(event["payload"].get("category") == "tool" for event in tool_events)
+    serialized_events = json.dumps(run_events)
+    for private_text in ["ACME", "Fresh Market", "Community Bank", "$5,200.00", "$145.22"]:
+        assert private_text not in serialized_events
 
 
 def test_personal_financial_advisor_manifest_is_service_without_terminal_sink():
@@ -410,6 +449,12 @@ def test_financial_market_researcher_uses_llm_guided_w3m_without_private_queries
     joined = "\n".join(research_prompts)
     for private_text in ["ACME", "Fresh Market", "Community Bank", "$5,200.00", "$145.22"]:
         assert private_text not in joined
+    events = [
+        json.loads(line)
+        for line in (tmp_path / "advisor-research-step" / "events.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    assert any(event["type"] == "tool_call_completed" and event["payload"].get("target") == "https://consumer.gov/managing-your-money" for event in events)
 
 
 def test_personal_financial_advisor_runtime_step_infers_agent_id_without_full_cycle(tmp_path):
