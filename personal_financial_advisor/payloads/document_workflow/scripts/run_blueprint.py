@@ -942,6 +942,7 @@ def financial_market_researcher(
         allow_hosts=tuple(research_config.get("allow_hosts") or ()),
         deny_hosts=tuple(research_config.get("deny_hosts") or ()),
     )
+    source_url_fallbacks = [str(url) for url in research_config.get("source_urls") or [] if str(url).strip()]
     safe_inputs = _safe_research_inputs(risks, document_summary, research_config["max_queries"])
     plan_fallback = {
         "search_queries": safe_inputs["default_queries"],
@@ -966,8 +967,13 @@ def financial_market_researcher(
         search_page = browse_url(search_url, browser_config)
         if search_page.get("status") != "ok":
             warnings.append(f"{search_url}: {search_page.get('error') or search_page.get('status')}")
+            candidates = source_url_fallbacks[: research_config["max_sources_per_query"]]
+        else:
+            candidates = _extract_public_urls(str(search_page.get("text") or ""), search_url, limit=12)
+        if not candidates:
+            candidates = source_url_fallbacks[: research_config["max_sources_per_query"]]
+        if search_page.get("status") != "ok" and not candidates:
             continue
-        candidates = _extract_public_urls(str(search_page.get("text") or ""), search_url, limit=12)
         search_pages.append(
             {
                 "query": query,
@@ -1557,12 +1563,145 @@ def _assessment_from_state(state: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _run_financial_folder_watcher_actor(llm: Any, config: dict[str, Any], watch_state: dict[str, Any], document_folder: Path) -> dict[str, Any]:
+    file_count = len(watch_state.get("processed_files") or [])
+    fallback = {
+        "status": "ready" if file_count else "waiting_for_documents",
+        "summary": f"Folder watcher saw {file_count} supported finance file(s).",
+        "attention_items": ["Add finance documents to the watched folder."] if not file_count else [],
+        "confidence": 0.82 if file_count else 0.45,
+    }
+    return _actor_generate_json(
+        llm,
+        config,
+        "financial_folder_watcher",
+        "watch_folder",
+        {
+            "document_folder": str(document_folder),
+            "file_count": file_count,
+            "changed_file_count": len(watch_state.get("new_or_changed_files") or []),
+            "supported_file_types": sorted(SUPPORTED_SUFFIXES),
+        },
+        fallback,
+    )
+
+
+def _run_financial_document_reader_actor(llm: Any, config: dict[str, Any], records: list[dict[str, Any]]) -> dict[str, Any]:
+    document_summary = build_document_summary(records)
+    fallback = {
+        "summary": f"Document reader processed {len(records)} record(s) and preserved OCR metadata for review.",
+        "document_notes": [
+            {
+                "source": item.get("source"),
+                "document_type": item.get("document_type"),
+                "review_note": item.get("warnings", ["Ready for source review"])[0] if item.get("warnings") else "Ready for source review",
+            }
+            for item in summarize_records(records)[:12]
+        ],
+        "confidence": 0.72 if records else 0.35,
+    }
+    return _actor_generate_json(
+        llm,
+        config,
+        "financial_document_reader",
+        "read_financial_documents",
+        {"document_summary": document_summary, "redacted_evidence": summarize_records(records)[:12]},
+        fallback,
+    )
+
+
+def _run_financial_activity_classifier_actor(llm: Any, config: dict[str, Any], sections: dict[str, Any]) -> dict[str, Any]:
+    fallback = {
+        "summary": "Activity classifier organized detected income, expenses, balances, and document categories.",
+        "allowed_categories": sorted(
+            {
+                "income_document",
+                "receipt",
+                "bill_or_invoice",
+                "credit_card_statement",
+                "loan_or_debt_statement",
+                "bank_statement",
+                "tax_document",
+                "financial_document",
+                "unknown_financial_document",
+            }
+        ),
+        "confidence": 0.74,
+    }
+    return _actor_generate_json(
+        llm,
+        config,
+        "financial_activity_classifier",
+        "financial_activity_classifier_review",
+        sections,
+        fallback,
+    )
+
+
+def _run_financial_health_assessor_actor(
+    llm: Any,
+    config: dict[str, Any],
+    assessment: dict[str, Any],
+    sections: dict[str, Any],
+) -> dict[str, Any]:
+    fallback = {
+        "summary": f"Health assessor found {len(assessment.get('risk_register') or [])} review risk(s).",
+        "review_questions": [
+            "Are all income sources for this period included?",
+            "Have OCR-derived amounts been checked against source files?",
+            "Are due dates, fees, and minimum payments confirmed before acting?",
+        ],
+        "confidence": 0.72,
+    }
+    return _actor_generate_json(
+        llm,
+        config,
+        "financial_health_assessor",
+        "financial_health_assessor_review",
+        {
+            "financial_snapshot": sections.get("financial_snapshot", {}),
+            "document_summary": sections.get("document_summary", {}),
+            "risk_register": assessment.get("risk_register", []),
+            "advisor_recommendations": assessment.get("advisor_recommendations", []),
+            "reminders": assessment.get("reminders", []),
+        },
+        fallback,
+    )
+
+
+def _run_financial_advice_reporter_actor(llm: Any, config: dict[str, Any], final_artifact: dict[str, Any]) -> dict[str, Any]:
+    fallback = {
+        "summary": "Advice reporter prepared the review-only household finance report.",
+        "executive_summary": final_artifact.get("executive_summary", ""),
+        "advisor_message": final_artifact.get("advisor_message", ""),
+        "next_steps": final_artifact.get("next_steps", []),
+        "confidence": final_artifact.get("confidence", 0.7),
+    }
+    return _actor_generate_json(
+        llm,
+        config,
+        "financial_advice_reporter",
+        "financial_advice_reporter_review",
+        {
+            "status": final_artifact.get("status"),
+            "document_summary": final_artifact.get("document_summary"),
+            "financial_snapshot": final_artifact.get("financial_snapshot"),
+            "risk_register": final_artifact.get("risk_register"),
+            "research_summary": final_artifact.get("research_summary"),
+            "research_findings": final_artifact.get("research_findings"),
+            "safety_boundary": final_artifact.get("safety_boundary"),
+        },
+        fallback,
+    )
+
+
 def run_runtime_step(
     step_id: str,
     inputs: dict[str, Any] | None = None,
     config: dict[str, Any] | None = None,
     runs_root: str | Path | None = None,
     run_id: str | None = None,
+    llm_client: Any | None = None,
 ) -> dict[str, Any]:
     if step_id not in RUNTIME_GRAPH_STEP_IDS:
         raise ValueError(f"Unknown workflow step: {step_id}")
@@ -1584,6 +1723,7 @@ def run_runtime_step(
     run_dir = runs_root_path / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
     document_folder = resolve_document_folder(payload, blueprint_dir)
+    llm = llm_client or _resolve_llm_client(resolved_config)
     state = _load_workflow_state(run_dir)
     state.update(
         {
@@ -1620,16 +1760,34 @@ def run_runtime_step(
                 "cycle": watch_state.get("cycles_completed", 1),
             },
         )
-        outputs = {"watch_state": watch_state, "document_folder": str(document_folder), "output_folder": str(output_folder)}
+        finding = _record_actor_finding(
+            state,
+            "financial_folder_watcher",
+            _run_financial_folder_watcher_actor(llm, resolved_config, watch_state, document_folder),
+        )
+        outputs = {
+            "watch_state": watch_state,
+            "document_folder": str(document_folder),
+            "output_folder": str(output_folder),
+            "actor_finding": finding,
+            "llm_usage": _llm_usage(llm),
+        }
     elif step_id == "financial_document_reader":
         records = extract_records(document_folder, resolved_config)
         state["records"] = records
         write_json(run_dir / "financial_records.json", records)
         append_event(run_dir, "financial_document_reader_completed", {"record_count": len(records), "cycle": 1})
+        finding = _record_actor_finding(
+            state,
+            "financial_document_reader",
+            _run_financial_document_reader_actor(llm, resolved_config, records),
+        )
         outputs = {
             "record_count": len(records),
             "records_path": str(run_dir / "financial_records.json"),
             "ocr_metadata_present": all("ocr_required" in item and "extraction_method" in item for item in records),
+            "actor_finding": finding,
+            "llm_usage": _llm_usage(llm),
         }
     elif step_id == "financial_activity_classifier":
         records = _state_records(state)
@@ -1640,6 +1798,13 @@ def run_runtime_step(
             "financial_activity_classifier_completed",
             {"document_types": sections["document_summary"]["document_types"], "cycle": 1},
         )
+        finding = _record_actor_finding(
+            state,
+            "financial_activity_classifier",
+            _run_financial_activity_classifier_actor(llm, resolved_config, sections),
+        )
+        sections["actor_finding"] = finding
+        sections["llm_usage"] = _llm_usage(llm)
         outputs = sections
     elif step_id == "financial_health_assessor":
         assessment = _assessment_from_state(state)
@@ -1652,6 +1817,19 @@ def run_runtime_step(
                 "cycle": 1,
             },
         )
+        sections = {
+            "document_summary": state.get("document_summary", {}),
+            "financial_snapshot": state.get("financial_snapshot", {}),
+            "income_summary": state.get("income_summary", {}),
+            "expense_summary": state.get("expense_summary", {}),
+        }
+        finding = _record_actor_finding(
+            state,
+            "financial_health_assessor",
+            _run_financial_health_assessor_actor(llm, resolved_config, assessment, sections),
+        )
+        assessment["actor_finding"] = finding
+        assessment["llm_usage"] = _llm_usage(llm)
         outputs = assessment
     elif step_id == "financial_market_researcher":
         records = _state_records(state)
@@ -1664,8 +1842,22 @@ def run_runtime_step(
             state.get("document_summary") if isinstance(state.get("document_summary"), dict) else build_document_summary(records),
             resolved_config,
             run_id,
+            llm,
         )
         state["research"] = research
+        _record_actor_finding(
+            state,
+            "financial_market_researcher",
+            {
+                "actor_id": "financial_market_researcher",
+                "role": "Financial market researcher",
+                "summary": research.get("research_summary", ""),
+                "research_plan": research.get("research_plan", {}),
+                "research_findings": research.get("research_findings", []),
+                "confidence": 0.72 if research.get("research_sources") else 0.4,
+                "generated_at": utc_now_iso(),
+            },
+        )
         write_json(run_dir / "research.json", research)
         append_event(
             run_dir,
@@ -1676,12 +1868,34 @@ def run_runtime_step(
                 "cycle": 1,
             },
         )
+        research["actor_findings"] = _actor_findings(state)
+        research["llm_usage"] = _llm_usage(llm)
         outputs = research
     else:
         records = _state_records(state)
         watch_state = state.get("watch_state") if isinstance(state.get("watch_state"), dict) else _watch_state_for_step(document_folder, monitoring)
         research = state.get("research") if isinstance(state.get("research"), dict) else None
-        final_artifact = build_final_artifact(records, watch_state, run_id, research=research)
+        final_artifact = build_final_artifact(
+            records,
+            watch_state,
+            run_id,
+            research=research,
+            actor_findings=_actor_findings(state),
+            llm_usage=_llm_usage(llm),
+        )
+        reporter_finding = _record_actor_finding(
+            state,
+            "financial_advice_reporter",
+            _run_financial_advice_reporter_actor(llm, resolved_config, final_artifact),
+        )
+        final_artifact = build_final_artifact(
+            records,
+            watch_state,
+            run_id,
+            research=research,
+            actor_findings=_actor_findings(state),
+            llm_usage=_llm_usage(llm),
+        )
         append_event(
             run_dir,
             "human_input_requested",
@@ -1700,7 +1914,12 @@ def run_runtime_step(
         write_json(run_dir / "result.json", result)
         write_json(run_dir / "final_artifact.json", final_artifact)
         append_event(run_dir, "financial_advice_reporter_completed", {"output_files": output_files, "cycle": 1})
-        outputs = {"final_artifact": final_artifact, "output_files": output_files}
+        outputs = {
+            "final_artifact": final_artifact,
+            "output_files": output_files,
+            "actor_finding": reporter_finding,
+            "llm_usage": _llm_usage(llm),
+        }
 
     _save_workflow_state(run_dir, state)
     append_event(run_dir, "runtime_step_completed", {"step_id": step_id, "component": BLUEPRINT_ID})
@@ -1718,6 +1937,7 @@ def run_blueprint(
     config: dict[str, Any] | None = None,
     runs_root: str | Path | None = None,
     run_id: str | None = None,
+    llm_client: Any | None = None,
 ) -> dict[str, Any]:
     start_agent_beacon_thread(f"{BLUEPRINT_NAME} is running")
     blueprint_dir = Path(__file__).resolve().parents[3]
@@ -1737,6 +1957,7 @@ def run_blueprint(
     run_dir = runs_root_path / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
     document_folder = resolve_document_folder(payload, blueprint_dir)
+    llm = llm_client or _resolve_llm_client(resolved_config)
 
     workflow_step_id = _runtime_graph_step_id()
     if workflow_step_id:
@@ -1746,6 +1967,7 @@ def run_blueprint(
             config=resolved_config,
             runs_root=runs_root_path,
             run_id=run_id,
+            llm_client=llm,
         )
 
     write_json(run_dir / "config.json", resolved_config)
@@ -1765,7 +1987,7 @@ def run_blueprint(
     )
 
     if monitoring["enabled"]:
-        result = run_watch_loop(document_folder, output_folder, resolved_config, run_dir, run_id, monitoring)
+        result = run_watch_loop(document_folder, output_folder, resolved_config, run_dir, run_id, monitoring, llm)
     else:
         fingerprints = {str(path): fingerprint_file(path) for path in iter_financial_files(document_folder)}
         watch_state = {
@@ -1776,7 +1998,7 @@ def run_blueprint(
             "poll_interval_seconds": None,
             "last_scan_at": utc_now_iso(),
         }
-        result = run_scan_cycle(document_folder, output_folder, resolved_config, run_dir, run_id, watch_state, cycle=1)
+        result = run_scan_cycle(document_folder, output_folder, resolved_config, run_dir, run_id, watch_state, cycle=1, llm=llm)
 
     write_json(
         run_dir / "run.json",
@@ -1792,6 +2014,7 @@ def run_watch_loop(
     run_dir: Path,
     run_id: str,
     monitoring: dict[str, Any],
+    llm: Any,
 ) -> dict[str, Any]:
     processed: dict[str, dict[str, Any]] = {}
     final_result: dict[str, Any] | None = None
@@ -1817,7 +2040,7 @@ def run_watch_loop(
             "last_scan_at": utc_now_iso(),
         }
         write_json(run_dir / str(monitoring.get("processed_state_file") or "watch_state.json"), watch_state)
-        final_result = run_scan_cycle(document_folder, output_folder, config, run_dir, run_id, watch_state, cycle=cycle)
+        final_result = run_scan_cycle(document_folder, output_folder, config, run_dir, run_id, watch_state, cycle=cycle, llm=llm)
         append_event(
             run_dir,
             "watch_cycle_completed",
@@ -1837,7 +2060,11 @@ def run_scan_cycle(
     run_id: str,
     watch_state: dict[str, Any],
     cycle: int,
+    llm: Any,
 ) -> dict[str, Any]:
+    state = _load_workflow_state(run_dir)
+    actor_findings = _actor_findings(state)
+    state["watch_state"] = watch_state
     append_event(run_dir, "blueprint_phase_started", {"phase": "loading_inputs", "component": BLUEPRINT_ID, "cycle": cycle})
     append_event(
         run_dir,
@@ -1849,15 +2076,44 @@ def run_scan_cycle(
             "cycle": cycle,
         },
     )
+    _record_actor_finding(
+        state,
+        "financial_folder_watcher",
+        _run_financial_folder_watcher_actor(llm, config, watch_state, document_folder),
+    )
     append_event(run_dir, "blueprint_phase_completed", {"phase": "loading_inputs", "component": BLUEPRINT_ID, "cycle": cycle})
     append_event(run_dir, "blueprint_phase_started", {"phase": "running_worker", "component": BLUEPRINT_ID, "cycle": cycle})
 
     records = extract_records(document_folder, config)
+    state["records"] = records
     append_event(run_dir, "financial_document_reader_completed", {"record_count": len(records), "cycle": cycle})
+    _record_actor_finding(
+        state,
+        "financial_document_reader",
+        _run_financial_document_reader_actor(llm, config, records),
+    )
     document_summary = build_document_summary(records)
+    sections = _classification_from_records(records)
+    state.update(sections)
     append_event(run_dir, "financial_activity_classifier_completed", {"document_types": document_summary["document_types"], "cycle": cycle})
+    _record_actor_finding(
+        state,
+        "financial_activity_classifier",
+        _run_financial_activity_classifier_actor(llm, config, sections),
+    )
 
-    final_artifact = build_final_artifact(records, watch_state, run_id)
+    final_artifact = build_final_artifact(records, watch_state, run_id, actor_findings=actor_findings, llm_usage=_llm_usage(llm))
+    assessment = {
+        "risk_register": final_artifact["risk_register"],
+        "advisor_recommendations": final_artifact["advisor_recommendations"],
+        "reminders": final_artifact["reminders"],
+    }
+    state.update(assessment)
+    _record_actor_finding(
+        state,
+        "financial_health_assessor",
+        _run_financial_health_assessor_actor(llm, config, assessment, sections),
+    )
     append_event(
         run_dir,
         "financial_health_assessor_completed",
@@ -1872,6 +2128,21 @@ def run_scan_cycle(
         final_artifact["document_summary"],
         config,
         run_id,
+        llm,
+    )
+    state["research"] = research
+    _record_actor_finding(
+        state,
+        "financial_market_researcher",
+        {
+            "actor_id": "financial_market_researcher",
+            "role": "Financial market researcher",
+            "summary": research.get("research_summary", ""),
+            "research_plan": research.get("research_plan", {}),
+            "research_findings": research.get("research_findings", []),
+            "confidence": 0.72 if research.get("research_sources") else 0.4,
+            "generated_at": utc_now_iso(),
+        },
     )
     append_event(
         run_dir,
@@ -1882,7 +2153,14 @@ def run_scan_cycle(
             "cycle": cycle,
         },
     )
-    final_artifact = build_final_artifact(records, watch_state, run_id, research=research)
+    final_artifact = build_final_artifact(
+        records,
+        watch_state,
+        run_id,
+        research=research,
+        actor_findings=actor_findings,
+        llm_usage=_llm_usage(llm),
+    )
     append_event(run_dir, "blueprint_phase_completed", {"phase": "running_worker", "component": BLUEPRINT_ID, "cycle": cycle})
     append_event(
         run_dir,
@@ -1890,6 +2168,19 @@ def run_scan_cycle(
         {"mode": "approval_required", "reason": "Review advisor report before any financial action.", "cycle": cycle},
     )
     append_event(run_dir, "blueprint_phase_started", {"phase": "writing_artifacts", "component": BLUEPRINT_ID, "cycle": cycle})
+    _record_actor_finding(
+        state,
+        "financial_advice_reporter",
+        _run_financial_advice_reporter_actor(llm, config, final_artifact),
+    )
+    final_artifact = build_final_artifact(
+        records,
+        watch_state,
+        run_id,
+        research=research,
+        actor_findings=actor_findings,
+        llm_usage=_llm_usage(llm),
+    )
     output_files = write_output_folder_artifacts(final_artifact, output_folder, run_id, cycle)
     result = {
         "run_id": run_id,
@@ -1909,6 +2200,7 @@ def run_scan_cycle(
     append_event(run_dir, "financial_advice_reporter_completed", {"output_files": output_files, "cycle": cycle})
     append_event(run_dir, "blueprint_phase_completed", {"phase": "writing_artifacts", "component": BLUEPRINT_ID, "cycle": cycle})
     append_event(run_dir, "blueprint_phase_completed", {"phase": "completed", "component": BLUEPRINT_ID, "cycle": cycle})
+    _save_workflow_state(run_dir, state)
     return result
 
 

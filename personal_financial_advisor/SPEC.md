@@ -20,9 +20,9 @@ The workflow uses `mn-skills/llm_ocr_skill` via `extract_document_folder(...)` a
 
 ## Browser Research Skill
 
-The workflow uses `mn-skills/w3m_browser_skill` only inside the `financial_market_researcher` DockerWorker image. The skill shells out to `w3m -dump` for public web pages and returns compact source notes. It does not start Docker, manage sidecars, or browse with a GUI.
+The workflow uses `mn-skills/w3m_browser_skill` only inside the `financial_market_researcher` DockerWorker image. The actor uses the configured default LLM to plan public searches, starts from DuckDuckGo, selects public result URLs, and shells out to `w3m -dump` for source pages. The skill does not start Docker, manage sidecars, or browse with a GUI.
 
-Research queries are generated only from generic risk categories and document types. The advisor must not send raw customer document text, account numbers, taxpayer IDs, names, transaction descriptions, or other regulated identifiers to public web services.
+Research queries are generated only from generic risk categories and document types. The market researcher must not send raw customer document text, account numbers, taxpayer IDs, names, transaction descriptions, or other regulated identifiers to public web services.
 
 Research context requests set `use_model_compression=true` for Membrane. Operators must also run Membrane with `MN_CONTEXT_MODEL_COMPRESSION_ENABLED=true` and Docker Model Runner model `hf.co/homerquan/mn-context-engine-model-v-Q4_K_M` for model compression to activate.
 
@@ -41,8 +41,12 @@ Research context requests set `use_model_compression=true` for Membrane. Operato
 - `risk_flags`
 - `recommended_actions`
 - `research_summary`
+- `research_plan`
+- `research_findings`
 - `research_sources`
 - `research_warnings`
+- `actor_findings`
+- `llm_usage`
 
 ## Workflow
 
@@ -50,8 +54,8 @@ Research context requests set `use_model_compression=true` for Membrane. Operato
 - Financial Document Reader: Read embedded text and call shared `llm_ocr_skill` for scanned or low-text statements, receipts, bills, income documents, and images.
 - Financial Activity Classifier: Classify income, expenses, balances, bills, fees, debt obligations, and source document types.
 - Financial Health Assessor: Estimate cash-flow status, identify document gaps, reminders, anomalies, and review-only risk flags.
-- Financial Market Researcher: Use `w3m_browser_skill` to gather privacy-safe public guidance for detected review categories.
-- Financial Advice Reporter: Write a review-only personal financial advisor report with status, advice, reminders, risks, and source evidence.
+- Financial Market Researcher: Use the default LLM plus `w3m_browser_skill` to plan, browse, and summarize privacy-safe public guidance for detected review categories.
+- Financial Advice Reporter: Use the default LLM to write a review-only personal financial advisor report with status, advice, reminders, risks, actor findings, and source evidence.
 
 ## Output Contract
 
@@ -74,8 +78,12 @@ The final artifact contains the standard OtterDesk fields plus personal finance 
 - `advisor_recommendations`
 - `reminders`
 - `research_summary`
+- `research_plan`
+- `research_findings`
 - `research_sources`
 - `research_warnings`
+- `actor_findings`
+- `llm_usage`
 - `watch_state`
 - `output_files`
 
@@ -85,7 +93,7 @@ Continuous folder polling is the default service behavior. Polling uses `monitor
 
 ## Mixed Runtime
 
-The default worker runner is `MirrorNeuron.Runner.HostLocal`. The folder watch, extraction, classification, assessment, and report-writing agents use the HostLocal `scripts/run_blueprint.py` phase worker shape.
+The default worker runner is `MirrorNeuron.Runner.HostLocal`. The folder watch, extraction, classification, assessment, and report-writing actors use the HostLocal `scripts/run_blueprint.py` phase worker shape and the configured default LLM.
 
 Only `financial_market_researcher` uses `MirrorNeuron.Runner.DockerWorker` with the payload-local image build source `document_workflow/docker_worker` and command `bash scripts/run_blueprint_in_docker_worker.sh`. The blueprint must not declare a browser sidecar, publish host ports, or require HostLocal phases to import `w3m_browser_skill`.
 

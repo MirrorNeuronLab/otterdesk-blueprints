@@ -17,6 +17,14 @@ RUNNER_PATH = (
     / "scripts"
     / "run_blueprint.py"
 )
+ACTOR_IDS = [
+    "financial_folder_watcher",
+    "financial_document_reader",
+    "financial_activity_classifier",
+    "financial_health_assessor",
+    "financial_market_researcher",
+    "financial_advice_reporter",
+]
 
 
 def _load_runner():
@@ -74,39 +82,91 @@ def _write_fixture_folder(path: Path) -> None:
     )
 
 
-def _install_fake_research(monkeypatch, runner) -> None:
+class FakeActorLLM:
+    provider = "fake"
+    model = "fake-default-llm"
+
+    def __init__(self) -> None:
+        self.calls = 0
+        self.fallback_calls = 0
+        self.prompts: list[dict[str, str]] = []
+
+    def generate_json(self, *, system_prompt: str, user_prompt: str, fallback: dict):
+        self.calls += 1
+        self.prompts.append({"system": system_prompt, "user": user_prompt})
+        response = dict(fallback)
+        if "search_queries" in response:
+            response["search_queries"] = ["official consumer guidance avoiding bank fees"]
+            response["research_focus"] = ["fees", "cash_flow"]
+            response["rationale"] = "Search public consumer-finance guidance from generic risk categories."
+        if "selected_urls" in response:
+            response["selected_urls"] = response["selected_urls"][:1]
+        if "findings" in response:
+            response["summary"] = "Consumer guidance: review fees, due dates, and household budget tradeoffs before acting."
+            response["findings"] = [
+                {
+                    "topic": "fees",
+                    "finding": "Review bank fees and due dates before changing household plans.",
+                    "source_url": "https://consumer.gov/managing-your-money",
+                }
+            ]
+        if "advisor_message" in response:
+            response["advisor_message"] = response["advisor_message"] or "Review the source-grounded report before taking action."
+        response["provider"] = self.provider
+        response["model"] = self.model
+        return response
+
+
+def _install_fake_actor_runtime(monkeypatch, runner) -> tuple[FakeActorLLM, list[str]]:
     class FakeW3mBrowserConfig:
         def __init__(self, **kwargs):
             self.kwargs = kwargs
 
-    def fake_research_topic(query, config=None, source_urls=None, max_sources=3):
+    browse_calls: list[str] = []
+
+    def fake_build_search_url(query, config=None):
+        return f"https://duckduckgo.com/html/?q={str(query).replace(' ', '+')}"
+
+    def fake_browse_url(url, config=None):
+        browse_calls.append(url)
+        if "duckduckgo.com" in url:
+            return {
+                "status": "ok",
+                "url": url,
+                "title": "DuckDuckGo",
+                "text": "\n".join(
+                    [
+                        "Search results",
+                        "https://consumer.gov/managing-your-money",
+                        "https://www.consumerfinance.gov/consumer-tools/bank-accounts/",
+                    ]
+                ),
+                "snippet": "Public consumer finance search results.",
+            }
         return {
-            "query": query,
-            "search_url": "https://duckduckgo.com/html/?q=finance",
-            "source_count": 1,
-            "summary": "Consumer guidance: review fees, due dates, and household budget tradeoffs before acting.",
-            "warnings": [],
-            "sources": [
-                {
-                    "url": "https://consumer.gov/managing-your-money",
-                    "title": "Managing Your Money",
-                    "snippet": "Review bills, fees, and spending before making financial decisions.",
-                }
-            ],
+            "status": "ok",
+            "url": url,
+            "title": "Managing Your Money",
+            "text": "Managing Your Money\nReview bills, fees, and spending before making financial decisions.",
+            "snippet": "Review bills, fees, and spending before making financial decisions.",
         }
 
     monkeypatch.setattr(runner, "W3mBrowserConfig", FakeW3mBrowserConfig)
-    monkeypatch.setattr(runner, "research_topic", fake_research_topic)
+    monkeypatch.setattr(runner, "build_search_url", fake_build_search_url)
+    monkeypatch.setattr(runner, "browse_url", fake_browse_url)
+    monkeypatch.setattr(runner, "research_topic", lambda *args, **kwargs: {})
+    monkeypatch.setattr(runner, "_load_w3m_browser_skill", lambda: None)
     monkeypatch.setattr(
         runner,
         "compile_research_context",
         lambda *args, **kwargs: {"enabled": True, "use_model_compression": True, "compressed": True},
     )
+    return FakeActorLLM(), browse_calls
 
 
 def test_personal_financial_advisor_writes_review_report_outputs(tmp_path, monkeypatch):
     runner = _load_runner()
-    _install_fake_research(monkeypatch, runner)
+    fake_llm, browse_calls = _install_fake_actor_runtime(monkeypatch, runner)
     docs = tmp_path / "finance-inbox"
     outputs = tmp_path / "exports"
     _write_fixture_folder(docs)
@@ -119,6 +179,7 @@ def test_personal_financial_advisor_writes_review_report_outputs(tmp_path, monke
         },
         runs_root=tmp_path,
         run_id="advisor-unit",
+        llm_client=fake_llm,
     )
 
     artifact = result["final_artifact"]
@@ -134,8 +195,13 @@ def test_personal_financial_advisor_writes_review_report_outputs(tmp_path, monke
     assert artifact["advisor_recommendations"]
     assert artifact["reminders"]
     assert artifact["research_summary"]
+    assert artifact["research_plan"]["search_queries"]
+    assert artifact["research_findings"]
     assert artifact["research_sources"]
     assert artifact["research_warnings"] == []
+    assert set(artifact["actor_findings"]) == set(ACTOR_IDS)
+    assert artifact["llm_usage"]["calls"] >= len(ACTOR_IDS)
+    assert any("duckduckgo.com" in url for url in browse_calls)
     assert artifact["context_compression"]["use_model_compression"] is True
     assert artifact["watch_state"]["mode"] == "watch"
     assert artifact["watch_state"]["cycles_completed"] == 1
@@ -153,6 +219,8 @@ def test_personal_financial_advisor_writes_review_report_outputs(tmp_path, monke
     assert "# Personal Financial Advisor Report" in markdown_text
     assert "## Risk Reminders" in markdown_text
     assert "## Research Context" in markdown_text
+    assert "## Actor Findings" in markdown_text
+    assert "### Research Findings" in markdown_text
     assert "Managing Your Money" in markdown_text
     assert "review-only report" in markdown_text
 
@@ -181,6 +249,8 @@ def test_personal_financial_advisor_manifest_is_service_without_terminal_sink():
         for node in nodes
         if node["config"]["runner_module"] == "MirrorNeuron.Runner.DockerWorker"
     ]
+    assert {step["id"] for step in manifest["workflow"]["steps"]} == set(ACTOR_IDS)
+    assert set(node_by_id) == set(ACTOR_IDS)
     assert docker_nodes == ["financial_market_researcher"]
 
     for node_id, node in node_by_id.items():
@@ -219,11 +289,14 @@ def test_personal_financial_advisor_manifest_is_service_without_terminal_sink():
     assert manifest["runtime"]["worker_defaults"]["runner"] == "MirrorNeuron.Runner.HostLocal"
     assert manifest["runtime"]["memory"]["conversation"]["use_model_compression"] is True
     assert manifest["metadata"]["memory_layer"]["conversation"]["use_model_compression"] is True
+    llm_agents = manifest["metadata"]["llm"]["agents"]
+    assert set(llm_agents) == set(ACTOR_IDS)
+    assert all(config["model"] == "default" for config in llm_agents.values())
 
 
 def test_personal_financial_advisor_watch_mode_stops_after_max_cycle(tmp_path, monkeypatch):
     runner = _load_runner()
-    _install_fake_research(monkeypatch, runner)
+    fake_llm, _browse_calls = _install_fake_actor_runtime(monkeypatch, runner)
     docs = tmp_path / "finance-inbox"
     outputs = tmp_path / "exports"
     _write_fixture_folder(docs)
@@ -236,6 +309,7 @@ def test_personal_financial_advisor_watch_mode_stops_after_max_cycle(tmp_path, m
         },
         runs_root=tmp_path,
         run_id="advisor-watch-unit",
+        llm_client=fake_llm,
     )
 
     artifact = result["final_artifact"]
@@ -278,12 +352,14 @@ def test_personal_financial_advisor_non_research_step_mode_does_not_call_browser
         inputs=inputs,
         runs_root=tmp_path,
         run_id="advisor-step-mode",
+        llm_client=FakeActorLLM(),
     )
     result = runner.run_runtime_step(
         "financial_health_assessor",
         inputs=inputs,
         runs_root=tmp_path,
         run_id="advisor-step-mode",
+        llm_client=FakeActorLLM(),
     )
 
     assert result["schema"] == "mn.workflow.step_result.v1"
@@ -300,11 +376,48 @@ def test_personal_financial_advisor_non_research_step_mode_does_not_call_browser
     assert "financial_market_researcher_completed" not in {event["type"] for event in events}
 
 
+def test_financial_market_researcher_uses_llm_guided_w3m_without_private_queries(tmp_path, monkeypatch):
+    runner = _load_runner()
+    fake_llm, browse_calls = _install_fake_actor_runtime(monkeypatch, runner)
+    docs = tmp_path / "finance-inbox"
+    outputs = tmp_path / "exports"
+    _write_fixture_folder(docs)
+    inputs = {
+        "document_folder": str(docs),
+        "output_folder": str(outputs),
+        "monitoring": {"enabled": True, "poll_interval_seconds": 1, "max_cycles": 1},
+    }
+
+    runner.run_runtime_step("financial_document_reader", inputs=inputs, runs_root=tmp_path, run_id="advisor-research-step", llm_client=fake_llm)
+    runner.run_runtime_step("financial_activity_classifier", inputs=inputs, runs_root=tmp_path, run_id="advisor-research-step", llm_client=fake_llm)
+    runner.run_runtime_step("financial_health_assessor", inputs=inputs, runs_root=tmp_path, run_id="advisor-research-step", llm_client=fake_llm)
+    result = runner.run_runtime_step("financial_market_researcher", inputs=inputs, runs_root=tmp_path, run_id="advisor-research-step", llm_client=fake_llm)
+
+    assert result["schema"] == "mn.workflow.step_result.v1"
+    assert result["workflow_step_id"] == "financial_market_researcher"
+    assert result["outputs"]["research_plan"]["search_queries"]
+    assert result["outputs"]["research_findings"]
+    assert result["outputs"]["research_sources"]
+    assert any("duckduckgo.com" in url for url in browse_calls)
+    assert any(url == "https://consumer.gov/managing-your-money" for url in browse_calls)
+
+    research_prompts = [
+        prompt["user"]
+        for prompt in fake_llm.prompts
+        if "financial_market_researcher" in prompt["user"]
+    ]
+    assert research_prompts
+    joined = "\n".join(research_prompts)
+    for private_text in ["ACME", "Fresh Market", "Community Bank", "$5,200.00", "$145.22"]:
+        assert private_text not in joined
+
+
 def test_personal_financial_advisor_runtime_step_infers_agent_id_without_full_cycle(tmp_path):
     docs = tmp_path / "finance-inbox"
     _write_fixture_folder(docs)
     env = os.environ.copy()
     env["MN_AGENT_ID"] = "financial_folder_watcher"
+    env["MN_BLUEPRINT_LLM_MODE"] = "fake"
 
     result = subprocess.run(
         [
@@ -351,6 +464,7 @@ def test_personal_financial_advisor_runtime_step_infers_message_destination(tmp_
     env.pop("MN_WORKFLOW_STEP_ID", None)
     env.pop("MN_AGENT_ID", None)
     env["MN_MESSAGE_FILE"] = str(message_file)
+    env["MN_BLUEPRINT_LLM_MODE"] = "fake"
 
     result = subprocess.run(
         [sys.executable, str(RUNNER_PATH), "--no-run-store", "--run-id", "advisor-message-step"],

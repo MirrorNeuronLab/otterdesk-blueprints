@@ -3,7 +3,7 @@
 `Blueprint ID:` `personal_financial_advisor`
 `Category:` `Finance`
 
-Continuously monitors a local personal finance folder, OCRs statements, income documents, receipts, bills, and related records, researches public financial guidance with `w3m_browser_skill`, then writes review-only household finance status, advice, risk reminders, and source-grounded reports.
+Continuously monitors a local personal finance folder with actor-style default-LLM specialists, OCRs statements, income documents, receipts, bills, and related records, researches public financial guidance with an LLM-guided `w3m_browser_skill` market researcher, then writes review-only household finance status, advice, risk reminders, and source-grounded reports.
 
 ## Public Sample Input
 
@@ -14,9 +14,9 @@ Continuously monitors a local personal finance folder, OCRs statements, income d
 
 ## What It Does
 
-This OtterDesk blueprint runs as a continuous local service that watches a local document folder, extracts embedded text where available, uses the shared `llm_ocr_skill` from `mn-skills` for scanned or low-text pages, classifies household finance activity, assesses cash-flow status and risks, uses a DockerWorker-only `w3m_browser_skill` phase for privacy-safe public research, and writes JSON plus Markdown advisor reports for human review each scan cycle.
+This OtterDesk blueprint runs as a continuous local service made of collaborating actors: `financial_folder_watcher`, `financial_document_reader`, `financial_activity_classifier`, `financial_health_assessor`, `financial_market_researcher`, and `financial_advice_reporter`. Each actor uses the configured default LLM with deterministic fallback evidence, while the shared `llm_ocr_skill` handles scanned or low-text pages.
 
-Only the `financial_market_researcher` agent runs in DockerWorker. The DockerWorker image installs Python, `w3m`, `llm_ocr_skill`, `w3m_browser_skill`, and blueprint support for that research phase; all document intake, extraction, classification, assessment, and report-writing agents remain HostLocal.
+Only the `financial_market_researcher` agent runs in DockerWorker. It uses the default LLM to plan privacy-safe public searches, starts from DuckDuckGo, browses selected pages through `w3m_browser_skill`, and hands source-grounded findings to the other actors. The document intake, extraction, classification, assessment, and report-writing actors remain HostLocal.
 
 ## Quick Start
 
@@ -60,7 +60,7 @@ python3.11 payloads/document_workflow/scripts/run_blueprint.py --input-folder ~/
 
 ## Browser Research
 
-The advisor only sends generic public queries derived from risk categories and document types, such as fee review, cash-flow planning, debt review, and document organization. It must not send raw customer document text, account numbers, taxpayer IDs, names, or transaction descriptions to the web.
+The market researcher only sends generic public queries derived from risk categories and document types, such as fee review, cash-flow planning, debt review, and document organization. It must not send raw customer document text, account numbers, taxpayer IDs, names, or transaction descriptions to the web.
 
 Membrane model compression is requested for research context packets with `use_model_compression=true`. The Membrane service must also run with `MN_CONTEXT_MODEL_COMPRESSION_ENABLED=true` and Docker Model Runner model `hf.co/homerquan/mn-context-engine-model-v-Q4_K_M`.
 

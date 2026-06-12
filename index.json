@@ -402,16 +402,16 @@
   },
   {
     "category": "Finance",
-    "description": "Continuously monitors a local personal finance folder, OCRs statements and receipts, researches public context with a DockerWorker-only w3m phase, then writes review-only household finance status, advice, risk reminders, and source-grounded reports.",
+    "description": "Continuously monitors a local personal finance folder with default-LLM finance actors, OCRs statements and receipts, researches public context with a DockerWorker-only w3m market researcher, then writes review-only household finance reports.",
     "id": "personal_financial_advisor",
     "job_name": "personal-financial-advisor",
     "name": "Personal Financial Advisor",
     "path": "personal_financial_advisor",
     "product": {
-      "agent_role": "Continuous local personal finance service with a DockerWorker browser research agent that watches a document folder, researches public context, and prepares review-only household finance reports.",
-      "benefit": "Turns a local finance inbox into source-grounded household finance reports while keeping document review local and isolating public browser research to one DockerWorker phase.",
+      "agent_role": "Actor-style continuous personal finance service with default-LLM specialists and a DockerWorker financial market researcher.",
+      "benefit": "Turns a local finance inbox into source-grounded household finance reports while keeping document review local and isolating public browser research to one DockerWorker actor.",
       "customizable_for": "Household budgeting, income and expense review, receipt tracking, bill reminders, cash-flow checks, and financial document intake.",
-      "how_it_works": "Continuously watches a local folder, extracts embedded text, uses shared local LLM OCR when needed, classifies income and expenses, assesses cash-flow health and risks, gathers privacy-safe public research with w3m, then writes a human-review advisor report each scan cycle.",
+      "how_it_works": "Continuously watches a local folder, extracts embedded text, uses shared local LLM OCR when needed, lets default-LLM actors classify activity and assess risks, has financial_market_researcher plan DuckDuckGo/w3m public research, then writes a human-review advisor report each scan cycle.",
       "input": "Local folder with income records, bank statements, receipts, bills, images, text, JSON, and CSV finance files.",
       "output": "Review-only personal_financial_advisor_report with status, advice, risks, reminders, research sources, source evidence, and Markdown report output.",
       "problem": "Households, solo operators, and financial coaches need a private continuous service coworker that can watch incoming finance documents, summarize cash-flow status, identify missing or risky items, research public guidance, and prepare human-review advice without moving money or sharing private data.",
@@ -426,7 +426,9 @@
         "human approval policy",
         "artifact records",
         "run-store observability dashboard",
-        "Membrane context memory optimization"
+        "Membrane context memory optimization",
+        "actor-style default LLM specialists",
+        "LLM-guided w3m market research"
       ],
       "simulation_type": "Continuous folder-monitoring service with local OCR and review-gated personal finance advice.",
       "target_users": "Individuals, households, freelancers, financial coaches, and operations teams reviewing personal finance documents."
