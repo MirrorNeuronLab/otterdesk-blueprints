@@ -44,7 +44,7 @@ Run repository tests:
 | [`legal_contract_clause_review_assistant`](legal_contract_clause_review_assistant/README.md) | Legal | Reviews local contract PDFs, extracts important clauses, compares them with a playbook, and writes a source-grounded legal review packet. |
 | [`medical_deid_record_intake_assistant`](medical_deid_record_intake_assistant/README.md) | Healthcare | Detects and redacts PHI or PII from clinical-style PDFs, extracts patient-record intake fields, and writes a review-gated de-identification packet. |
 | [`tax_form_ocr_capture_assistant`](tax_form_ocr_capture_assistant/README.md) | Finance | Classifies tax forms, locates fields, captures structured taxpayer and line-item values, validates totals, and writes a review-only tax intake packet. |
-| [`bank_statement_extraction_assistant`](bank_statement_extraction_assistant/README.md) | Finance | Extracts bank statement account metadata, balances, transaction rows, debits, credits, fees, and validation checks from local statement PDFs. |
+| [`personal_financial_advisor`](personal_financial_advisor/README.md) | Finance | Continuously monitors a local personal finance folder, OCRs income documents, statements, receipts, bills, and related records, researches public context with w3m, then writes review-only status, advice, risk reminders, and Markdown reports. |
 
 ## Folder Contract
 

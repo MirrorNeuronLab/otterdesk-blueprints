@@ -1,12 +1,12 @@
 {
   "apiVersion": "mn.workflow/v1",
   "kind": "Workflow",
-  "id": "bank_statement_extraction_assistant",
-  "name": "Bank Statement Extraction Assistant",
+  "id": "personal_financial_advisor",
+  "name": "Personal Financial Advisor",
   "version": "1.0.0",
   "manifest_version": "1.0",
-  "description": "Extracts bank statement account metadata, balances, transaction rows, debits, credits, fees, and validation checks from local statement PDFs.",
-  "job_name": "bank-statement-extraction-assistant",
+  "description": "Continuously monitors a local personal finance folder, OCRs statements, income documents, receipts, bills, and related records, then writes review-only household finance status, advice, risk reminders, and source-grounded reports.",
+  "job_name": "personal-financial-advisor",
   "contract": {
     "events": {
       "stream": "events.jsonl",
@@ -25,11 +25,14 @@
         "output_skill_started",
         "output_skill_completed",
         "output_skill_failed",
-        "bank_inputs_staged",
-        "bank_text_extracted",
-        "transaction_ledger_extracted",
-        "statement_consistency_validated",
-        "bank_statement_packet_written"
+        "financial_folder_watched",
+        "financial_documents_extracted",
+        "financial_activity_classified",
+        "financial_health_assessed",
+        "advisor_report_written",
+        "watch_cycle_started",
+        "watch_cycle_completed",
+        "financial_context_researched"
       ]
     },
     "input_adapters": {
@@ -45,34 +48,36 @@
     "inputs": {
       "document_folder": {
         "type": "domain_value",
-        "description": "Local folder containing Synthetic scanned bank statement PDFs with structured JSON metadata.",
+        "description": "Local folder monitored for personal finance documents, statements, receipts, bills, income records, and images.",
         "privacy": "regulated",
         "required": true,
-        "example": "/Users/me/Documents/bank_statement_extraction_assistant/sample_inputs"
+        "example": "/Users/me/Documents/personal_financial_advisor/inbox"
       },
       "output_folder": {
         "type": "domain_value",
-        "description": "Local folder where review packets should be written.",
+        "description": "Local folder where JSON and Markdown advisor reports should be written.",
         "privacy": "regulated",
         "required": true,
-        "example": "/Users/homer/Download/bank_statement_extraction_assistant"
+        "example": "/Users/homer/Download/personal_financial_advisor"
       },
       "field_profile": {
         "type": "domain_value",
-        "description": "Field names or extraction profile for this workflow.",
+        "description": "Financial fields and review areas captured by the advisor.",
         "privacy": "internal",
         "required": false,
         "example": [
-          "account_holder",
-          "account_number",
-          "ifsc_or_routing",
-          "statement_period",
-          "opening_balance",
-          "closing_balance",
-          "transactions",
-          "debits",
-          "credits",
-          "fees"
+          "document_kind",
+          "institution_or_merchant",
+          "account_or_source",
+          "document_date",
+          "income_amounts",
+          "expense_amounts",
+          "recurring_items",
+          "balances",
+          "debt_or_credit_obligations",
+          "fees",
+          "risk_flags",
+          "recommended_actions"
         ]
       },
       "public_dataset": {
@@ -85,12 +90,31 @@
           "provider": "AgamiAI on Hugging Face",
           "url": "https://huggingface.co/datasets/AgamiAI/Indian-Bank-Statements",
           "license": "Apache 2.0",
-          "availability_note": "Public synthetic bank statement dataset with scanned PDFs and structured JSON metadata.",
+          "availability_note": "Public synthetic bank statement sample used only as one finance-document demo source; real runs can include statements, income docs, receipts, bills, images, text, JSON, and CSV files.",
           "expected_files": [
             "*.pdf",
-            "*.json"
+            "*.png",
+            "*.jpg",
+            "*.jpeg",
+            "*.tif",
+            "*.tiff",
+            "*.webp",
+            "*.txt",
+            "*.json",
+            "*.csv"
           ],
-          "download_hint": "Use huggingface_hub or git-lfs to fetch a small sample before the full dataset."
+          "download_hint": "Use the bundled sample files or fetch a small public sample before trying a larger local folder."
+        }
+      },
+      "monitoring": {
+        "type": "domain_value",
+        "description": "Folder monitoring configuration for one-shot or continuous polling runs.",
+        "privacy": "internal",
+        "required": false,
+        "example": {
+          "enabled": true,
+          "poll_interval_seconds": 60,
+          "max_cycles": 1
         }
       }
     },
@@ -214,7 +238,7 @@
         {
           "artifact_id": "review_packet_markdown",
           "type": "generated_report",
-          "path": "<outputs.folder_path>/<run_id>-bank-statement-extraction-review.md",
+          "path": "<outputs.folder_path>/<run_id>-personal-financial-advisor-report.md",
           "producer": "workflow",
           "mime_type": "text/markdown",
           "schema_version": "mn.blueprint.generated_report.v1",
@@ -235,7 +259,10 @@
           "confidence",
           "evidence",
           "next_steps",
-          "source_refs"
+          "source_refs",
+          "research_summary",
+          "research_sources",
+          "research_warnings"
         ]
       }
     },
@@ -275,18 +302,18 @@
         "completed"
       ]
     },
-    "summary": "Lenders, fintechs, SMB accounting tools, underwriting teams, and auditors need private extraction of account numbers, balances, merchant history, salaries, and cash-flow data.",
+    "summary": "Households, solo operators, and financial coaches need a private continuous service coworker that can watch incoming finance documents, summarize cash-flow status, identify missing or risky items, and prepare human-review advice without moving money or sharing data.",
     "users": [
-      "Lenders, fintech teams, SMB accounting tools, underwriting teams, auditors, and financial operations groups."
+      "Individuals, households, freelancers, financial coaches, and operations teams reviewing personal finance documents."
     ]
   },
   "workflow": {
     "schema": "mn.workflow.problem_graph/v1",
-    "workflow_id": "bank_statement_extraction_assistant_v1",
+    "workflow_id": "personal_financial_advisor_v1",
     "mode": "static_dag",
-    "entrypoint": "stage_bank_inputs",
-    "source": "stage_bank_inputs",
-    "sink": "write_bank_statement_packet",
+    "entrypoint": "watch_financial_folder",
+    "source": "watch_financial_folder",
+    "sink": "write_advisor_report",
     "execution": {
       "strategy": "serial"
     },
@@ -307,27 +334,35 @@
         "provider": "AgamiAI on Hugging Face",
         "url": "https://huggingface.co/datasets/AgamiAI/Indian-Bank-Statements",
         "license": "Apache 2.0",
-        "availability_note": "Public synthetic bank statement dataset with scanned PDFs and structured JSON metadata.",
+        "availability_note": "Public synthetic bank statement sample used only as one finance-document demo source; real runs can include statements, income docs, receipts, bills, images, text, JSON, and CSV files.",
         "expected_files": [
           "*.pdf",
-          "*.json"
+          "*.png",
+          "*.jpg",
+          "*.jpeg",
+          "*.tif",
+          "*.tiff",
+          "*.webp",
+          "*.txt",
+          "*.json",
+          "*.csv"
         ],
-        "download_hint": "Use huggingface_hub or git-lfs to fetch a small sample before the full dataset."
+        "download_hint": "Use the bundled sample files or fetch a small public sample before trying a larger local folder."
       },
       "workflow": {},
       "final_report": {}
     },
     "steps": [
       {
-        "id": "stage_bank_inputs",
+        "id": "watch_financial_folder",
         "kind": "source",
-        "label": "Stage Bank Inputs",
-        "goal": "Resolve the bank-statement folder and AgamiAI sample input notes.",
-        "action": "stage_bank_inputs",
-        "run": "stage_bank_inputs",
-        "emits": "bank_inputs_staged",
+        "label": "Watch Financial Folder",
+        "goal": "Resolve the monitored folder, output folder, monitoring settings, and sample input notes.",
+        "action": "watch_financial_folder",
+        "run": "watch_financial_folder",
+        "emits": "financial_folder_watched",
         "on": {
-          "bank_inputs_staged": "extract_bank_text"
+          "financial_folder_watched": "extract_financial_documents"
         },
         "control": {
           "required": true,
@@ -346,26 +381,27 @@
         },
         "in": {
           "document_folder": "$state.document_folder",
-          "dataset_input": "$state.dataset_input"
+          "dataset_input": "$state.dataset_input",
+          "monitoring": "$inputs.monitoring"
         },
         "out": {
-          "stage_bank_inputs": "$state.workflow.stage_bank_inputs"
+          "watch_financial_folder": "$state.workflow.watch_financial_folder"
         },
         "provides": [
-          "bank_statement_extraction_assistant.stage_bank_inputs.ready"
+          "personal_financial_advisor.watch_financial_folder.ready"
         ],
         "requires": []
       },
       {
-        "id": "extract_bank_text",
+        "id": "extract_financial_documents",
         "kind": "stage",
-        "label": "Extract Bank Text",
-        "goal": "Read embedded text and call shared llm_ocr_skill only for scanned or low-text statement pages.",
-        "action": "extract_bank_text",
-        "run": "extract_bank_text",
-        "emits": "bank_text_extracted",
+        "label": "Extract Financial Documents",
+        "goal": "Read embedded text and call shared llm_ocr_skill for scanned or low-text statements, receipts, bills, income documents, and images.",
+        "action": "extract_financial_documents",
+        "run": "extract_financial_documents",
+        "emits": "financial_documents_extracted",
         "on": {
-          "bank_text_extracted": "extract_transaction_ledger"
+          "financial_documents_extracted": "classify_financial_activity"
         },
         "control": {
           "required": true,
@@ -386,25 +422,25 @@
           "previous": "$state.workflow"
         },
         "out": {
-          "extract_bank_text": "$state.workflow.extract_bank_text"
+          "extract_financial_documents": "$state.workflow.extract_financial_documents"
         },
         "provides": [
-          "bank_statement_extraction_assistant.extract_bank_text.ready"
+          "personal_financial_advisor.extract_financial_documents.ready"
         ],
         "requires": [
-          "bank_statement_extraction_assistant.stage_bank_inputs.ready"
+          "personal_financial_advisor.watch_financial_folder.ready"
         ]
       },
       {
-        "id": "extract_transaction_ledger",
+        "id": "classify_financial_activity",
         "kind": "stage",
-        "label": "Extract Transaction Ledger",
-        "goal": "Extract account metadata, balances, transaction rows, debits, credits, fees, and running balances.",
-        "action": "extract_transaction_ledger",
-        "run": "extract_transaction_ledger",
-        "emits": "transaction_ledger_extracted",
+        "label": "Classify Financial Activity",
+        "goal": "Classify income, expenses, balances, bills, fees, debt obligations, and source document types.",
+        "action": "classify_financial_activity",
+        "run": "classify_financial_activity",
+        "emits": "financial_activity_classified",
         "on": {
-          "transaction_ledger_extracted": "validate_statement_consistency"
+          "financial_activity_classified": "assess_financial_health"
         },
         "control": {
           "required": true,
@@ -425,25 +461,25 @@
           "previous": "$state.workflow"
         },
         "out": {
-          "extract_transaction_ledger": "$state.workflow.extract_transaction_ledger"
+          "classify_financial_activity": "$state.workflow.classify_financial_activity"
         },
         "provides": [
-          "bank_statement_extraction_assistant.extract_transaction_ledger.ready"
+          "personal_financial_advisor.classify_financial_activity.ready"
         ],
         "requires": [
-          "bank_statement_extraction_assistant.extract_bank_text.ready"
+          "personal_financial_advisor.extract_financial_documents.ready"
         ]
       },
       {
-        "id": "validate_statement_consistency",
+        "id": "assess_financial_health",
         "kind": "stage",
-        "label": "Validate Statement Consistency",
-        "goal": "Reconcile opening, closing, and running balances and compare to JSON labels when available.",
-        "action": "validate_statement_consistency",
-        "run": "validate_statement_consistency",
-        "emits": "statement_consistency_validated",
+        "label": "Assess Financial Health",
+        "goal": "Estimate cash-flow status, identify document gaps, reminders, anomalies, and review-only risk flags.",
+        "action": "assess_financial_health",
+        "run": "assess_financial_health",
+        "emits": "financial_health_assessed",
         "on": {
-          "statement_consistency_validated": "write_bank_statement_packet"
+          "financial_health_assessed": "research_financial_context"
         },
         "control": {
           "required": true,
@@ -464,25 +500,64 @@
           "previous": "$state.workflow"
         },
         "out": {
-          "validate_statement_consistency": "$state.workflow.validate_statement_consistency"
+          "assess_financial_health": "$state.workflow.assess_financial_health"
         },
         "provides": [
-          "bank_statement_extraction_assistant.validate_statement_consistency.ready"
+          "personal_financial_advisor.assess_financial_health.ready"
         ],
         "requires": [
-          "bank_statement_extraction_assistant.extract_transaction_ledger.ready"
+          "personal_financial_advisor.classify_financial_activity.ready"
         ]
       },
       {
-        "id": "write_bank_statement_packet",
+        "id": "research_financial_context",
+        "kind": "stage",
+        "label": "Research Financial Context",
+        "goal": "Use w3m_browser_skill to gather privacy-safe public financial guidance that can improve review-only household finance advice.",
+        "action": "research_financial_context",
+        "run": "research_financial_context",
+        "emits": "financial_context_researched",
+        "on": {
+          "financial_context_researched": "write_advisor_report"
+        },
+        "control": {
+          "required": true,
+          "retry": {
+            "max_attempts": 2,
+            "backoff_seconds": 1,
+            "backoff_multiplier": 2,
+            "jitter": 0
+          },
+          "failure_policy": "fail_workflow",
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.7,
+            "on_low_confidence": "human_review"
+          }
+        },
+        "in": {
+          "previous": "$state.workflow"
+        },
+        "out": {
+          "research_financial_context": "$state.workflow.research_financial_context"
+        },
+        "provides": [
+          "personal_financial_advisor.research_financial_context.ready"
+        ],
+        "requires": [
+          "personal_financial_advisor.assess_financial_health.ready"
+        ]
+      },
+      {
+        "id": "write_advisor_report",
         "kind": "sink",
-        "label": "Write Bank Statement Packet",
-        "goal": "Write a review-only bank statement extraction packet with cash-flow and exception notes.",
-        "action": "write_bank_statement_packet",
-        "run": "write_bank_statement_packet",
-        "emits": "bank_statement_packet_written",
+        "label": "Write Advisor Report",
+        "goal": "Write a review-only personal financial advisor report with status, advice, reminders, risks, and source evidence.",
+        "action": "write_advisor_report",
+        "run": "write_advisor_report",
+        "emits": "advisor_report_written",
         "on": {
-          "bank_statement_packet_written": "completed"
+          "advisor_report_written": "completed"
         },
         "control": {
           "required": true,
@@ -503,52 +578,62 @@
           "previous": "$state.workflow"
         },
         "out": {
-          "write_bank_statement_packet": "$state.workflow.write_bank_statement_packet"
+          "write_advisor_report": "$state.workflow.write_advisor_report"
         },
         "provides": [
-          "bank_statement_extraction_assistant.write_bank_statement_packet.ready"
+          "personal_financial_advisor.write_advisor_report.ready"
         ],
         "requires": [
-          "bank_statement_extraction_assistant.validate_statement_consistency.ready"
+          "personal_financial_advisor.research_financial_context.ready"
         ]
       }
     ],
     "edges": [
       {
-        "id": "stage_bank_inputs_to_extract_bank_text",
-        "from": "stage_bank_inputs",
-        "to": "extract_bank_text",
-        "event": "bank_inputs_staged",
+        "id": "watch_financial_folder_to_extract_financial_documents",
+        "from": "watch_financial_folder",
+        "to": "extract_financial_documents",
+        "event": "financial_folder_watched",
         "required": true,
         "accepts": [
           "done"
         ]
       },
       {
-        "id": "extract_bank_text_to_extract_transaction_ledger",
-        "from": "extract_bank_text",
-        "to": "extract_transaction_ledger",
-        "event": "bank_text_extracted",
+        "id": "extract_financial_documents_to_classify_financial_activity",
+        "from": "extract_financial_documents",
+        "to": "classify_financial_activity",
+        "event": "financial_documents_extracted",
         "required": true,
         "accepts": [
           "done"
         ]
       },
       {
-        "id": "extract_transaction_ledger_to_validate_statement_consistency",
-        "from": "extract_transaction_ledger",
-        "to": "validate_statement_consistency",
-        "event": "transaction_ledger_extracted",
+        "id": "classify_financial_activity_to_assess_financial_health",
+        "from": "classify_financial_activity",
+        "to": "assess_financial_health",
+        "event": "financial_activity_classified",
         "required": true,
         "accepts": [
           "done"
         ]
       },
       {
-        "id": "validate_statement_consistency_to_write_bank_statement_packet",
-        "from": "validate_statement_consistency",
-        "to": "write_bank_statement_packet",
-        "event": "statement_consistency_validated",
+        "id": "assess_financial_health_to_research_financial_context",
+        "from": "assess_financial_health",
+        "to": "research_financial_context",
+        "event": "financial_health_assessed",
+        "required": true,
+        "accepts": [
+          "done"
+        ]
+      },
+      {
+        "id": "research_financial_context_to_write_advisor_report",
+        "from": "research_financial_context",
+        "to": "write_advisor_report",
+        "event": "financial_context_researched",
         "required": true,
         "accepts": [
           "done"
@@ -566,10 +651,14 @@
           "reject"
         ],
         "blocked_actions": [
-          "approve_credit_decision",
-          "sync_to_loan_system",
+          "move_money",
+          "pay_bill",
+          "place_trade",
+          "file_tax_return",
           "sync_to_accounting_system",
-          "send_customer_report_without_review"
+          "sync_to_bank_or_brokerage",
+          "send_report_without_review",
+          "mark_advice_final_without_review"
         ],
         "decision_event": "human_decision_applied",
         "default_action": "reject",
@@ -582,7 +671,7 @@
           "human_decision_applied"
         ],
         "mode": "approval_required",
-        "reason": "Human approval is required before any downstream release, filing, payment, legal, clinical, credit, or system-sync action.",
+        "reason": "Human approval is required before any financial action, external sharing, filing, payment, investment, or system-sync action.",
         "request_event": "human_input_requested",
         "response_event": "human_input_received",
         "timeout_event": "human_input_timeout",
@@ -591,17 +680,21 @@
       "safety": {
         "default": "allow",
         "blocked_actions": [
-          "approve_credit_decision",
-          "sync_to_loan_system",
+          "move_money",
+          "pay_bill",
+          "place_trade",
+          "file_tax_return",
           "sync_to_accounting_system",
-          "send_customer_report_without_review"
+          "sync_to_bank_or_brokerage",
+          "send_report_without_review",
+          "mark_advice_final_without_review"
         ],
         "rules": [
           {
             "id": "review_required_before_downstream_release",
             "effect": "require_human_approval",
-            "when": "step == 'write_bank_statement_packet'",
-            "message": "Human approval is required before extracted values are released to downstream systems or used for consequential decisions."
+            "when": "step == 'write_advisor_report'",
+            "message": "Human approval is required before advisor outputs are treated as final or used for consequential financial actions."
           }
         ]
       }
@@ -611,29 +704,22 @@
   "agents": {
     "schema": "mn.agents.communication_graph/v1",
     "entrypoints": [
-      "stage_bank_inputs"
+      "watch_financial_folder"
     ],
     "nodes": [
       {
-        "node_id": "stage_bank_inputs",
+        "node_id": "watch_financial_folder",
         "type": "generic",
         "agent_type": "executor",
         "config": {
-          "runner_module": "MirrorNeuron.Runner.HostLocal",
           "upload_path": "document_workflow",
           "upload_as": "document_workflow",
-          "workdir": "/sandbox/job/document_workflow",
-          "command": [
-            "python3.11",
-            "scripts/run_blueprint.py"
-          ],
           "from": "base",
           "no_auto_providers": true,
           "no_keep": true,
           "pool": "default",
           "pool_slots": 1,
           "tty": false,
-          "output_message_type": "bank_inputs_staged",
           "beacon_enabled": true,
           "beacon_interval_ms": 15000,
           "beacon_timeout_ms": 45000,
@@ -641,29 +727,35 @@
           "agent_beacon_required": true,
           "timeout_seconds": 300,
           "max_attempts": 2,
-          "retry_backoff_ms": 1000
-        }
-      },
-      {
-        "node_id": "extract_bank_text",
-        "type": "generic",
-        "agent_type": "executor",
-        "config": {
+          "retry_backoff_ms": 1000,
           "runner_module": "MirrorNeuron.Runner.HostLocal",
-          "upload_path": "document_workflow",
-          "upload_as": "document_workflow",
           "workdir": "/sandbox/job/document_workflow",
           "command": [
             "python3.11",
             "scripts/run_blueprint.py"
           ],
+          "environment": {
+            "MN_WORKFLOW_STEP_ID": "watch_financial_folder"
+          },
+          "output_message_type": "financial_folder_watched",
+          "idempotent": true,
+          "side_effect": "read",
+          "safe_to_retry": true
+        }
+      },
+      {
+        "node_id": "extract_financial_documents",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "upload_path": "document_workflow",
+          "upload_as": "document_workflow",
           "from": "base",
           "no_auto_providers": true,
           "no_keep": true,
           "pool": "default",
           "pool_slots": 1,
           "tty": false,
-          "output_message_type": "bank_text_extracted",
           "beacon_enabled": true,
           "beacon_interval_ms": 15000,
           "beacon_timeout_ms": 45000,
@@ -671,29 +763,35 @@
           "agent_beacon_required": true,
           "timeout_seconds": 300,
           "max_attempts": 2,
-          "retry_backoff_ms": 1000
-        }
-      },
-      {
-        "node_id": "extract_transaction_ledger",
-        "type": "generic",
-        "agent_type": "executor",
-        "config": {
+          "retry_backoff_ms": 1000,
           "runner_module": "MirrorNeuron.Runner.HostLocal",
-          "upload_path": "document_workflow",
-          "upload_as": "document_workflow",
           "workdir": "/sandbox/job/document_workflow",
           "command": [
             "python3.11",
             "scripts/run_blueprint.py"
           ],
+          "environment": {
+            "MN_WORKFLOW_STEP_ID": "extract_financial_documents"
+          },
+          "output_message_type": "financial_documents_extracted",
+          "idempotent": true,
+          "side_effect": "read",
+          "safe_to_retry": true
+        }
+      },
+      {
+        "node_id": "classify_financial_activity",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "upload_path": "document_workflow",
+          "upload_as": "document_workflow",
           "from": "base",
           "no_auto_providers": true,
           "no_keep": true,
           "pool": "default",
           "pool_slots": 1,
           "tty": false,
-          "output_message_type": "transaction_ledger_extracted",
           "beacon_enabled": true,
           "beacon_interval_ms": 15000,
           "beacon_timeout_ms": 45000,
@@ -701,29 +799,35 @@
           "agent_beacon_required": true,
           "timeout_seconds": 300,
           "max_attempts": 2,
-          "retry_backoff_ms": 1000
-        }
-      },
-      {
-        "node_id": "validate_statement_consistency",
-        "type": "generic",
-        "agent_type": "executor",
-        "config": {
+          "retry_backoff_ms": 1000,
           "runner_module": "MirrorNeuron.Runner.HostLocal",
-          "upload_path": "document_workflow",
-          "upload_as": "document_workflow",
           "workdir": "/sandbox/job/document_workflow",
           "command": [
             "python3.11",
             "scripts/run_blueprint.py"
           ],
+          "environment": {
+            "MN_WORKFLOW_STEP_ID": "classify_financial_activity"
+          },
+          "output_message_type": "financial_activity_classified",
+          "idempotent": true,
+          "side_effect": "read",
+          "safe_to_retry": true
+        }
+      },
+      {
+        "node_id": "assess_financial_health",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "upload_path": "document_workflow",
+          "upload_as": "document_workflow",
           "from": "base",
           "no_auto_providers": true,
           "no_keep": true,
           "pool": "default",
           "pool_slots": 1,
           "tty": false,
-          "output_message_type": "statement_consistency_validated",
           "beacon_enabled": true,
           "beacon_interval_ms": 15000,
           "beacon_timeout_ms": 45000,
@@ -731,29 +835,35 @@
           "agent_beacon_required": true,
           "timeout_seconds": 300,
           "max_attempts": 2,
-          "retry_backoff_ms": 1000
-        }
-      },
-      {
-        "node_id": "write_bank_statement_packet",
-        "type": "generic",
-        "agent_type": "executor",
-        "config": {
+          "retry_backoff_ms": 1000,
           "runner_module": "MirrorNeuron.Runner.HostLocal",
-          "upload_path": "document_workflow",
-          "upload_as": "document_workflow",
           "workdir": "/sandbox/job/document_workflow",
           "command": [
             "python3.11",
             "scripts/run_blueprint.py"
           ],
+          "environment": {
+            "MN_WORKFLOW_STEP_ID": "assess_financial_health"
+          },
+          "output_message_type": "financial_health_assessed",
+          "idempotent": true,
+          "side_effect": "read",
+          "safe_to_retry": true
+        }
+      },
+      {
+        "node_id": "research_financial_context",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "upload_path": "document_workflow",
+          "upload_as": "document_workflow",
           "from": "base",
           "no_auto_providers": true,
           "no_keep": true,
           "pool": "default",
           "pool_slots": 1,
           "tty": false,
-          "output_message_type": "bank_statement_packet_written",
           "beacon_enabled": true,
           "beacon_interval_ms": 15000,
           "beacon_timeout_ms": 45000,
@@ -761,57 +871,106 @@
           "agent_beacon_required": true,
           "timeout_seconds": 300,
           "max_attempts": 2,
-          "retry_backoff_ms": 1000
+          "retry_backoff_ms": 1000,
+          "runner_module": "MirrorNeuron.Runner.DockerWorker",
+          "workdir": "/mn/job/document_workflow",
+          "command": [
+            "bash",
+            "scripts/run_blueprint_in_docker_worker.sh"
+          ],
+          "docker_worker_image": "document_workflow/docker_worker",
+          "image": "mirror-neuron/personal-financial-advisor:local",
+          "reuse_shared_container": true,
+          "shared_container": true,
+          "upload_paths": [
+            {
+              "source": "document_workflow",
+              "target": "document_workflow"
+            }
+          ],
+          "environment": {
+            "MN_WORKFLOW_STEP_ID": "research_financial_context",
+            "MN_CONTEXT_USE_MODEL_COMPRESSION": "true",
+            "W3M_BROWSER_TIMEOUT_SECONDS": "12",
+            "W3M_BROWSER_MAX_CHARS": "6000"
+          },
+          "output_message_type": "financial_context_researched",
+          "idempotent": true,
+          "side_effect": "network_read",
+          "safe_to_retry": true
         }
       },
       {
-        "node_id": "report_sink",
-        "type": "reduce",
-        "agent_type": "aggregator",
+        "node_id": "write_advisor_report",
+        "type": "generic",
+        "agent_type": "executor",
         "config": {
-          "complete_on_message": true,
-          "terminal_sink": true,
-          "complete_run": true
-        },
-        "role": "result_sink"
+          "upload_path": "document_workflow",
+          "upload_as": "document_workflow",
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000,
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "workdir": "/sandbox/job/document_workflow",
+          "command": [
+            "python3.11",
+            "scripts/run_blueprint.py"
+          ],
+          "environment": {
+            "MN_WORKFLOW_STEP_ID": "write_advisor_report"
+          },
+          "output_message_type": "advisor_report_written",
+          "side_effect": "internal_write"
+        }
       }
     ],
     "edges": [
       {
-        "edge_id": "stage_bank_inputs_to_extract_bank_text",
-        "from_node": "stage_bank_inputs",
-        "to_node": "extract_bank_text",
-        "message_type": "bank_inputs_staged"
+        "edge_id": "watch_financial_folder_to_extract_financial_documents",
+        "from_node": "watch_financial_folder",
+        "to_node": "extract_financial_documents",
+        "message_type": "financial_folder_watched"
       },
       {
-        "edge_id": "extract_bank_text_to_extract_transaction_ledger",
-        "from_node": "extract_bank_text",
-        "to_node": "extract_transaction_ledger",
-        "message_type": "bank_text_extracted"
+        "edge_id": "extract_financial_documents_to_classify_financial_activity",
+        "from_node": "extract_financial_documents",
+        "to_node": "classify_financial_activity",
+        "message_type": "financial_documents_extracted"
       },
       {
-        "edge_id": "extract_transaction_ledger_to_validate_statement_consistency",
-        "from_node": "extract_transaction_ledger",
-        "to_node": "validate_statement_consistency",
-        "message_type": "transaction_ledger_extracted"
+        "edge_id": "classify_financial_activity_to_assess_financial_health",
+        "from_node": "classify_financial_activity",
+        "to_node": "assess_financial_health",
+        "message_type": "financial_activity_classified"
       },
       {
-        "edge_id": "validate_statement_consistency_to_write_bank_statement_packet",
-        "from_node": "validate_statement_consistency",
-        "to_node": "write_bank_statement_packet",
-        "message_type": "statement_consistency_validated"
+        "edge_id": "assess_financial_health_to_research_financial_context",
+        "from_node": "assess_financial_health",
+        "to_node": "research_financial_context",
+        "message_type": "financial_health_assessed"
       },
       {
-        "edge_id": "write_bank_statement_packet_to_report",
-        "from_node": "write_bank_statement_packet",
-        "to_node": "report_sink",
-        "message_type": "bank_statement_packet_written"
+        "edge_id": "research_financial_context_to_write_advisor_report",
+        "from_node": "research_financial_context",
+        "to_node": "write_advisor_report",
+        "message_type": "financial_context_researched"
       }
     ]
   },
   "runtime": {
     "bindings": {
-      "stage_bank_inputs": {
+      "watch_financial_folder": {
         "type": "worker",
         "strategy": "single",
         "side_effect": "read",
@@ -821,7 +980,7 @@
             "id": "bank_dataset_intake",
             "alias": "bank_dataset_intake",
             "kind": "worker",
-            "role": "Bank dataset intake analyst",
+            "role": "Financial folder monitor",
             "model": "default",
             "tokens": 12000,
             "tools": 4,
@@ -829,17 +988,17 @@
           }
         ]
       },
-      "extract_bank_text": {
+      "extract_financial_documents": {
         "type": "team",
         "strategy": "fanout_reduce",
         "side_effect": "read",
         "risk": "low",
         "workers": [
           {
-            "id": "statement_ocr_extractor",
-            "alias": "statement_ocr_extractor",
+            "id": "financial_document_ocr_extractor",
+            "alias": "financial_document_ocr_extractor",
             "kind": "worker",
-            "role": "Statement OCR extractor",
+            "role": "Financial document OCR extractor",
             "model": "default",
             "tokens": 12000,
             "tools": 4,
@@ -857,17 +1016,17 @@
           }
         ]
       },
-      "extract_transaction_ledger": {
+      "classify_financial_activity": {
         "type": "team",
         "strategy": "fanout_reduce",
         "side_effect": "read",
         "risk": "low",
         "workers": [
           {
-            "id": "transaction_row_extractor",
-            "alias": "transaction_row_extractor",
+            "id": "financial_activity_classifier",
+            "alias": "financial_activity_classifier",
             "kind": "worker",
-            "role": "Transaction row extractor",
+            "role": "Financial activity classifier",
             "model": "default",
             "tokens": 12000,
             "tools": 4,
@@ -877,7 +1036,7 @@
             "id": "cash_flow_normalizer",
             "alias": "cash_flow_normalizer",
             "kind": "worker",
-            "role": "Cash-flow normalizer",
+            "role": "Household cash-flow normalizer",
             "model": "default",
             "tokens": 12000,
             "tools": 4,
@@ -885,17 +1044,17 @@
           }
         ]
       },
-      "validate_statement_consistency": {
+      "assess_financial_health": {
         "type": "worker",
         "strategy": "single",
         "side_effect": "read",
         "risk": "low",
         "workers": [
           {
-            "id": "balance_reconciliation_validator",
-            "alias": "balance_reconciliation_validator",
+            "id": "financial_health_assessor",
+            "alias": "financial_health_assessor",
             "kind": "worker",
-            "role": "Balance reconciliation validator",
+            "role": "Financial health assessor",
             "model": "default",
             "tokens": 12000,
             "tools": 4,
@@ -903,17 +1062,35 @@
           }
         ]
       },
-      "write_bank_statement_packet": {
+      "research_financial_context": {
+        "type": "worker",
+        "strategy": "single",
+        "side_effect": "network_read",
+        "risk": "low",
+        "workers": [
+          {
+            "id": "financial_context_researcher",
+            "alias": "financial_context_researcher",
+            "kind": "worker",
+            "role": "Privacy-safe public financial context researcher",
+            "model": "default",
+            "tokens": 12000,
+            "tools": 4,
+            "required": true
+          }
+        ]
+      },
+      "write_advisor_report": {
         "type": "worker",
         "strategy": "single",
         "side_effect": "internal_write",
         "risk": "medium",
         "workers": [
           {
-            "id": "statement_report_writer",
-            "alias": "statement_report_writer",
+            "id": "advisor_report_writer",
+            "alias": "advisor_report_writer",
             "kind": "worker",
-            "role": "Statement extraction packet writer",
+            "role": "Advisor report writer",
             "model": "default",
             "tokens": 12000,
             "tools": 4,
@@ -933,14 +1110,14 @@
         "include_runtime_logs": true,
         "target_tokens": 2400,
         "token_budget": 6000,
-        "use_model_compression": false
+        "use_model_compression": true
       },
       "conversation_enabled": true,
       "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
       "default_context_addr": "localhost:50052",
       "enabled": true,
       "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
-      "namespace": "bank_statement_extraction_assistant_context",
+      "namespace": "personal_financial_advisor_context",
       "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
       "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
       "sdk_distribution": "mirrorneuron-membrane-python-sdk",
@@ -1005,7 +1182,7 @@
       "model": "default",
       "pool": "default",
       "pool_slots": 1,
-      "workdir": "/sandbox/job/workflow"
+      "workdir": "/sandbox/job/document_workflow"
     },
     "workflow_control": {
       "schema_version": "mn.workflow.runtime_control.v1",
@@ -1099,26 +1276,29 @@
   "license": "LICENSE.md",
   "term": "TERM.md",
   "metadata": {
-    "blueprint_id": "bank_statement_extraction_assistant",
-    "name": "Bank Statement Extraction Assistant",
+    "blueprint_id": "personal_financial_advisor",
+    "name": "Personal Financial Advisor",
     "category": "finance",
-    "description": "Extracts bank statement account metadata, balances, transaction rows, debits, credits, fees, and validation checks from local statement PDFs.",
-    "agent_role": "Local bank statement OCR and transaction extraction team that prepares source-grounded cash-flow review packets.",
-    "target_users": "Lenders, fintech teams, SMB accounting tools, underwriting teams, auditors, and financial operations groups.",
-    "customizable_for": "Underwriting intake, cash-flow analysis, audit workpapers, bank statement reconciliation, transaction normalization, and SMB bookkeeping.",
-    "problem": "Lenders, fintechs, SMB accounting tools, underwriting teams, and auditors need private extraction of account numbers, balances, merchant history, salaries, and cash-flow data.",
+    "description": "Continuously monitors a local personal finance folder, OCRs statements, income documents, receipts, bills, and related records, researches public context through a DockerWorker browser research phase, then writes review-only household finance status, advice, risk reminders, and source-grounded reports.",
+    "agent_role": "Continuous local personal finance service with a DockerWorker-only browser research agent that watches a document folder and prepares review-only household finance reports.",
+    "target_users": "Individuals, households, freelancers, financial coaches, and operations teams reviewing personal finance documents.",
+    "customizable_for": "Household budgeting, income and expense review, receipt tracking, bill reminders, cash-flow checks, and financial document intake.",
+    "problem": "Households, solo operators, and financial coaches need a private continuous service coworker that can watch incoming finance documents, summarize cash-flow status, identify missing or risky items, and prepare human-review advice without moving money or sharing data.",
     "standard": {
       "workflow_model": "contract -> workflow -> agents/runtime"
     },
     "runtime_features": [
-      "local document folder intake",
+      "continuous local folder monitoring service",
       "shared llm_ocr_skill OCR fallback",
-      "source-grounded structured extraction",
-      "redacted run-store evidence",
+      "source-grounded financial document classification",
+      "household cash-flow and risk review",
+      "per-cycle Markdown advisor report output",
       "human approval policy",
       "artifact records",
       "run-store observability dashboard",
-      "Membrane context memory optimization"
+      "Membrane context memory optimization",
+      "DockerWorker-only browser research phase",
+      "w3m_browser_skill public research"
     ],
     "configuration_contract": {
       "required_files": [
@@ -1140,28 +1320,99 @@
       "library": "../mn-agents/index.json",
       "nodes": [
         {
-          "node_id": "stage_bank_inputs",
-          "uses": "mn-agents.data_python_executor@1.0.0"
+          "node_id": "watch_financial_folder",
+          "uses": "mn-agents.data_python_executor@1.0.0",
+          "with": {
+            "environment": {
+              "MN_WORKFLOW_STEP_ID": "watch_financial_folder"
+            },
+            "script": "scripts/run_blueprint.py",
+            "upload_path": "document_workflow",
+            "output_message_type": "financial_folder_watched",
+            "runner_module": "MirrorNeuron.Runner.HostLocal",
+            "idempotent": true,
+            "side_effect": "read",
+            "safe_to_retry": true
+          }
         },
         {
-          "node_id": "extract_bank_text",
-          "uses": "mn-agents.data_python_executor@1.0.0"
+          "node_id": "extract_financial_documents",
+          "uses": "mn-agents.data_python_executor@1.0.0",
+          "with": {
+            "environment": {
+              "MN_WORKFLOW_STEP_ID": "extract_financial_documents"
+            },
+            "script": "scripts/run_blueprint.py",
+            "upload_path": "document_workflow",
+            "output_message_type": "financial_documents_extracted",
+            "runner_module": "MirrorNeuron.Runner.HostLocal",
+            "idempotent": true,
+            "side_effect": "read",
+            "safe_to_retry": true
+          }
         },
         {
-          "node_id": "extract_transaction_ledger",
-          "uses": "mn-agents.data_python_executor@1.0.0"
+          "node_id": "classify_financial_activity",
+          "uses": "mn-agents.data_python_executor@1.0.0",
+          "with": {
+            "environment": {
+              "MN_WORKFLOW_STEP_ID": "classify_financial_activity"
+            },
+            "script": "scripts/run_blueprint.py",
+            "upload_path": "document_workflow",
+            "output_message_type": "financial_activity_classified",
+            "runner_module": "MirrorNeuron.Runner.HostLocal",
+            "idempotent": true,
+            "side_effect": "read",
+            "safe_to_retry": true
+          }
         },
         {
-          "node_id": "validate_statement_consistency",
-          "uses": "mn-agents.data_python_executor@1.0.0"
+          "node_id": "assess_financial_health",
+          "uses": "mn-agents.data_python_executor@1.0.0",
+          "with": {
+            "environment": {
+              "MN_WORKFLOW_STEP_ID": "assess_financial_health"
+            },
+            "script": "scripts/run_blueprint.py",
+            "upload_path": "document_workflow",
+            "output_message_type": "financial_health_assessed",
+            "runner_module": "MirrorNeuron.Runner.HostLocal",
+            "idempotent": true,
+            "side_effect": "read",
+            "safe_to_retry": true
+          }
         },
         {
-          "node_id": "write_bank_statement_packet",
-          "uses": "mn-agents.data_python_executor@1.0.0"
+          "node_id": "research_financial_context",
+          "uses": "mn-agents.data_python_executor@1.0.0",
+          "with": {
+            "environment": {
+              "MN_WORKFLOW_STEP_ID": "research_financial_context"
+            },
+            "script": "scripts/run_blueprint_in_docker_worker.sh",
+            "upload_path": "document_workflow",
+            "output_message_type": "financial_context_researched",
+            "runner_module": "MirrorNeuron.Runner.DockerWorker",
+            "docker_worker_image": "document_workflow/docker_worker",
+            "idempotent": true,
+            "side_effect": "network_read",
+            "safe_to_retry": true
+          }
         },
         {
-          "node_id": "report_sink",
-          "uses": "mn-agents.control_join@1.0.0"
+          "node_id": "write_advisor_report",
+          "uses": "mn-agents.data_python_executor@1.0.0",
+          "with": {
+            "environment": {
+              "MN_WORKFLOW_STEP_ID": "write_advisor_report"
+            },
+            "script": "scripts/run_blueprint.py",
+            "upload_path": "document_workflow",
+            "output_message_type": "advisor_report_written",
+            "runner_module": "MirrorNeuron.Runner.HostLocal",
+            "side_effect": "internal_write"
+          }
         }
       ],
       "renderer": "mn_blueprint_support.render_manifest_agent_templates",
@@ -1169,38 +1420,38 @@
       "rendered_output": "manifest.rendered.json or runtime metadata",
       "rendered": [
         {
-          "node_id": "stage_bank_inputs",
+          "node_id": "watch_financial_folder",
           "template_id": "mn-agents.data_python_executor",
           "version": "1.0.0",
           "original_node": {
-            "node_id": "stage_bank_inputs",
+            "node_id": "watch_financial_folder",
             "uses": "mn-agents.data_python_executor@1.0.0",
             "with": {
+              "environment": {
+                "MN_WORKFLOW_STEP_ID": "watch_financial_folder"
+              },
               "script": "scripts/run_blueprint.py",
               "upload_path": "document_workflow",
-              "output_message_type": "bank_inputs_staged"
+              "output_message_type": "financial_folder_watched",
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "idempotent": true,
+              "side_effect": "read",
+              "safe_to_retry": true
             }
           },
           "rendered_node": {
-            "node_id": "stage_bank_inputs",
+            "node_id": "watch_financial_folder",
             "type": "generic",
             "agent_type": "executor",
             "config": {
-              "runner_module": "MirrorNeuron.Runner.HostLocal",
               "upload_path": "document_workflow",
               "upload_as": "document_workflow",
-              "workdir": "/sandbox/job/document_workflow",
-              "command": [
-                "python3.11",
-                "scripts/run_blueprint.py"
-              ],
               "from": "base",
               "no_auto_providers": true,
               "no_keep": true,
               "pool": "default",
               "pool_slots": 1,
               "tty": false,
-              "output_message_type": "bank_inputs_staged",
               "beacon_enabled": true,
               "beacon_interval_ms": 15000,
               "beacon_timeout_ms": 45000,
@@ -1208,43 +1459,56 @@
               "agent_beacon_required": true,
               "timeout_seconds": 300,
               "max_attempts": 2,
-              "retry_backoff_ms": 1000
-            }
-          }
-        },
-        {
-          "node_id": "extract_bank_text",
-          "template_id": "mn-agents.data_python_executor",
-          "version": "1.0.0",
-          "original_node": {
-            "node_id": "extract_bank_text",
-            "uses": "mn-agents.data_python_executor@1.0.0",
-            "with": {
-              "script": "scripts/run_blueprint.py",
-              "upload_path": "document_workflow",
-              "output_message_type": "bank_text_extracted"
-            }
-          },
-          "rendered_node": {
-            "node_id": "extract_bank_text",
-            "type": "generic",
-            "agent_type": "executor",
-            "config": {
+              "retry_backoff_ms": 1000,
               "runner_module": "MirrorNeuron.Runner.HostLocal",
-              "upload_path": "document_workflow",
-              "upload_as": "document_workflow",
               "workdir": "/sandbox/job/document_workflow",
               "command": [
                 "python3.11",
                 "scripts/run_blueprint.py"
               ],
+              "environment": {
+                "MN_WORKFLOW_STEP_ID": "watch_financial_folder"
+              },
+              "output_message_type": "financial_folder_watched",
+              "idempotent": true,
+              "side_effect": "read",
+              "safe_to_retry": true
+            }
+          }
+        },
+        {
+          "node_id": "extract_financial_documents",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "extract_financial_documents",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "environment": {
+                "MN_WORKFLOW_STEP_ID": "extract_financial_documents"
+              },
+              "script": "scripts/run_blueprint.py",
+              "upload_path": "document_workflow",
+              "output_message_type": "financial_documents_extracted",
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "idempotent": true,
+              "side_effect": "read",
+              "safe_to_retry": true
+            }
+          },
+          "rendered_node": {
+            "node_id": "extract_financial_documents",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "upload_path": "document_workflow",
+              "upload_as": "document_workflow",
               "from": "base",
               "no_auto_providers": true,
               "no_keep": true,
               "pool": "default",
               "pool_slots": 1,
               "tty": false,
-              "output_message_type": "bank_text_extracted",
               "beacon_enabled": true,
               "beacon_interval_ms": 15000,
               "beacon_timeout_ms": 45000,
@@ -1252,43 +1516,56 @@
               "agent_beacon_required": true,
               "timeout_seconds": 300,
               "max_attempts": 2,
-              "retry_backoff_ms": 1000
-            }
-          }
-        },
-        {
-          "node_id": "extract_transaction_ledger",
-          "template_id": "mn-agents.data_python_executor",
-          "version": "1.0.0",
-          "original_node": {
-            "node_id": "extract_transaction_ledger",
-            "uses": "mn-agents.data_python_executor@1.0.0",
-            "with": {
-              "script": "scripts/run_blueprint.py",
-              "upload_path": "document_workflow",
-              "output_message_type": "transaction_ledger_extracted"
-            }
-          },
-          "rendered_node": {
-            "node_id": "extract_transaction_ledger",
-            "type": "generic",
-            "agent_type": "executor",
-            "config": {
+              "retry_backoff_ms": 1000,
               "runner_module": "MirrorNeuron.Runner.HostLocal",
-              "upload_path": "document_workflow",
-              "upload_as": "document_workflow",
               "workdir": "/sandbox/job/document_workflow",
               "command": [
                 "python3.11",
                 "scripts/run_blueprint.py"
               ],
+              "environment": {
+                "MN_WORKFLOW_STEP_ID": "extract_financial_documents"
+              },
+              "output_message_type": "financial_documents_extracted",
+              "idempotent": true,
+              "side_effect": "read",
+              "safe_to_retry": true
+            }
+          }
+        },
+        {
+          "node_id": "classify_financial_activity",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "classify_financial_activity",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "environment": {
+                "MN_WORKFLOW_STEP_ID": "classify_financial_activity"
+              },
+              "script": "scripts/run_blueprint.py",
+              "upload_path": "document_workflow",
+              "output_message_type": "financial_activity_classified",
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "idempotent": true,
+              "side_effect": "read",
+              "safe_to_retry": true
+            }
+          },
+          "rendered_node": {
+            "node_id": "classify_financial_activity",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "upload_path": "document_workflow",
+              "upload_as": "document_workflow",
               "from": "base",
               "no_auto_providers": true,
               "no_keep": true,
               "pool": "default",
               "pool_slots": 1,
               "tty": false,
-              "output_message_type": "transaction_ledger_extracted",
               "beacon_enabled": true,
               "beacon_interval_ms": 15000,
               "beacon_timeout_ms": 45000,
@@ -1296,43 +1573,56 @@
               "agent_beacon_required": true,
               "timeout_seconds": 300,
               "max_attempts": 2,
-              "retry_backoff_ms": 1000
-            }
-          }
-        },
-        {
-          "node_id": "validate_statement_consistency",
-          "template_id": "mn-agents.data_python_executor",
-          "version": "1.0.0",
-          "original_node": {
-            "node_id": "validate_statement_consistency",
-            "uses": "mn-agents.data_python_executor@1.0.0",
-            "with": {
-              "script": "scripts/run_blueprint.py",
-              "upload_path": "document_workflow",
-              "output_message_type": "statement_consistency_validated"
-            }
-          },
-          "rendered_node": {
-            "node_id": "validate_statement_consistency",
-            "type": "generic",
-            "agent_type": "executor",
-            "config": {
+              "retry_backoff_ms": 1000,
               "runner_module": "MirrorNeuron.Runner.HostLocal",
-              "upload_path": "document_workflow",
-              "upload_as": "document_workflow",
               "workdir": "/sandbox/job/document_workflow",
               "command": [
                 "python3.11",
                 "scripts/run_blueprint.py"
               ],
+              "environment": {
+                "MN_WORKFLOW_STEP_ID": "classify_financial_activity"
+              },
+              "output_message_type": "financial_activity_classified",
+              "idempotent": true,
+              "side_effect": "read",
+              "safe_to_retry": true
+            }
+          }
+        },
+        {
+          "node_id": "assess_financial_health",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "assess_financial_health",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "environment": {
+                "MN_WORKFLOW_STEP_ID": "assess_financial_health"
+              },
+              "script": "scripts/run_blueprint.py",
+              "upload_path": "document_workflow",
+              "output_message_type": "financial_health_assessed",
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "idempotent": true,
+              "side_effect": "read",
+              "safe_to_retry": true
+            }
+          },
+          "rendered_node": {
+            "node_id": "assess_financial_health",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "upload_path": "document_workflow",
+              "upload_as": "document_workflow",
               "from": "base",
               "no_auto_providers": true,
               "no_keep": true,
               "pool": "default",
               "pool_slots": 1,
               "tty": false,
-              "output_message_type": "statement_consistency_validated",
               "beacon_enabled": true,
               "beacon_interval_ms": 15000,
               "beacon_timeout_ms": 45000,
@@ -1340,43 +1630,57 @@
               "agent_beacon_required": true,
               "timeout_seconds": 300,
               "max_attempts": 2,
-              "retry_backoff_ms": 1000
-            }
-          }
-        },
-        {
-          "node_id": "write_bank_statement_packet",
-          "template_id": "mn-agents.data_python_executor",
-          "version": "1.0.0",
-          "original_node": {
-            "node_id": "write_bank_statement_packet",
-            "uses": "mn-agents.data_python_executor@1.0.0",
-            "with": {
-              "script": "scripts/run_blueprint.py",
-              "upload_path": "document_workflow",
-              "output_message_type": "bank_statement_packet_written"
-            }
-          },
-          "rendered_node": {
-            "node_id": "write_bank_statement_packet",
-            "type": "generic",
-            "agent_type": "executor",
-            "config": {
+              "retry_backoff_ms": 1000,
               "runner_module": "MirrorNeuron.Runner.HostLocal",
-              "upload_path": "document_workflow",
-              "upload_as": "document_workflow",
               "workdir": "/sandbox/job/document_workflow",
               "command": [
                 "python3.11",
                 "scripts/run_blueprint.py"
               ],
+              "environment": {
+                "MN_WORKFLOW_STEP_ID": "assess_financial_health"
+              },
+              "output_message_type": "financial_health_assessed",
+              "idempotent": true,
+              "side_effect": "read",
+              "safe_to_retry": true
+            }
+          }
+        },
+        {
+          "node_id": "research_financial_context",
+          "template_id": "mn-agents.data_python_executor",
+          "version": "1.0.0",
+          "original_node": {
+            "node_id": "research_financial_context",
+            "uses": "mn-agents.data_python_executor@1.0.0",
+            "with": {
+              "environment": {
+                "MN_WORKFLOW_STEP_ID": "research_financial_context"
+              },
+              "script": "scripts/run_blueprint_in_docker_worker.sh",
+              "upload_path": "document_workflow",
+              "output_message_type": "financial_context_researched",
+              "runner_module": "MirrorNeuron.Runner.DockerWorker",
+              "docker_worker_image": "document_workflow/docker_worker",
+              "idempotent": true,
+              "side_effect": "network_read",
+              "safe_to_retry": true
+            }
+          },
+          "rendered_node": {
+            "node_id": "research_financial_context",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "upload_path": "document_workflow",
+              "upload_as": "document_workflow",
               "from": "base",
               "no_auto_providers": true,
               "no_keep": true,
               "pool": "default",
               "pool_slots": 1,
               "tty": false,
-              "output_message_type": "bank_statement_packet_written",
               "beacon_enabled": true,
               "beacon_interval_ms": 15000,
               "beacon_timeout_ms": 45000,
@@ -1384,40 +1688,94 @@
               "agent_beacon_required": true,
               "timeout_seconds": 300,
               "max_attempts": 2,
-              "retry_backoff_ms": 1000
+              "retry_backoff_ms": 1000,
+              "runner_module": "MirrorNeuron.Runner.DockerWorker",
+              "workdir": "/mn/job/document_workflow",
+              "command": [
+                "bash",
+                "scripts/run_blueprint_in_docker_worker.sh"
+              ],
+              "docker_worker_image": "document_workflow/docker_worker",
+              "image": "mirror-neuron/personal-financial-advisor:local",
+              "reuse_shared_container": true,
+              "shared_container": true,
+              "upload_paths": [
+                {
+                  "source": "document_workflow",
+                  "target": "document_workflow"
+                }
+              ],
+              "environment": {
+                "MN_WORKFLOW_STEP_ID": "research_financial_context",
+                "MN_CONTEXT_USE_MODEL_COMPRESSION": "true",
+                "W3M_BROWSER_TIMEOUT_SECONDS": "12",
+                "W3M_BROWSER_MAX_CHARS": "6000"
+              },
+              "output_message_type": "financial_context_researched",
+              "idempotent": true,
+              "side_effect": "network_read",
+              "safe_to_retry": true
             }
           }
         },
         {
-          "node_id": "report_sink",
-          "template_id": "mn-agents.control_join",
+          "node_id": "write_advisor_report",
+          "template_id": "mn-agents.data_python_executor",
           "version": "1.0.0",
           "original_node": {
-            "node_id": "report_sink",
-            "uses": "mn-agents.control_join@1.0.0",
+            "node_id": "write_advisor_report",
+            "uses": "mn-agents.data_python_executor@1.0.0",
             "with": {
-              "complete_on_message": true,
-              "terminal_sink": true,
-              "complete_run": true
+              "environment": {
+                "MN_WORKFLOW_STEP_ID": "write_advisor_report"
+              },
+              "script": "scripts/run_blueprint.py",
+              "upload_path": "document_workflow",
+              "output_message_type": "advisor_report_written",
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "side_effect": "internal_write"
             }
           },
           "rendered_node": {
-            "node_id": "report_sink",
-            "type": "reduce",
-            "agent_type": "aggregator",
+            "node_id": "write_advisor_report",
+            "type": "generic",
+            "agent_type": "executor",
             "config": {
-              "complete_on_message": true,
-              "terminal_sink": true,
-              "complete_run": true
-            },
-            "role": "result_sink"
+              "upload_path": "document_workflow",
+              "upload_as": "document_workflow",
+              "from": "base",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "pool": "default",
+              "pool_slots": 1,
+              "tty": false,
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "agent_beacon_required": true,
+              "timeout_seconds": 300,
+              "max_attempts": 2,
+              "retry_backoff_ms": 1000,
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "workdir": "/sandbox/job/document_workflow",
+              "command": [
+                "python3.11",
+                "scripts/run_blueprint.py"
+              ],
+              "environment": {
+                "MN_WORKFLOW_STEP_ID": "write_advisor_report"
+              },
+              "output_message_type": "advisor_report_written",
+              "side_effect": "internal_write"
+            }
           }
         }
       ]
     },
     "input_contract": {
       "schema_version": "mn.blueprint.input_contract.v1",
-      "description": "Lenders, fintechs, SMB accounting tools, underwriting teams, and auditors need private extraction of account numbers, balances, merchant history, salaries, and cash-flow data.",
+      "description": "Households, solo operators, and financial coaches need a private continuous service coworker that can watch incoming finance documents, summarize cash-flow status, identify missing or risky items, and prepare human-review advice without moving money or sharing data.",
       "privacy_classification": "regulated",
       "resolved_artifact": "inputs.json",
       "supported_adapters": [
@@ -1430,24 +1788,24 @@
         {
           "name": "document_folder",
           "type": "domain_value",
-          "description": "Local folder containing Synthetic scanned bank statement PDFs with structured JSON metadata.",
-          "example": "/Users/me/Documents/bank_statement_extraction_assistant/sample_inputs"
+          "description": "Local folder monitored for personal finance documents, statements, receipts, bills, income records, and images.",
+          "example": "/Users/me/Documents/personal_financial_advisor/inbox"
         },
         {
           "name": "output_folder",
           "type": "domain_value",
-          "description": "Local folder where review packets should be written.",
-          "example": "/Users/homer/Download/bank_statement_extraction_assistant"
+          "description": "Local folder where JSON and Markdown advisor reports should be written.",
+          "example": "/Users/homer/Download/personal_financial_advisor"
         },
         {
           "name": "field_profile",
           "type": "domain_value",
-          "description": "Structured field names or extraction profile for this document workflow.",
+          "description": "Financial review fields captured by the advisor.",
           "example": [
-            "account_holder",
-            "account_number",
-            "ifsc_or_routing",
-            "statement_period"
+            "document_kind",
+            "institution_or_merchant",
+            "account_or_source",
+            "document_date"
           ]
         }
       ],
@@ -1466,6 +1824,16 @@
             "min_confidence": 0.75,
             "approval_required": true
           }
+        },
+        {
+          "name": "monitoring",
+          "type": "domain_value",
+          "description": "Enable continuous folder polling and set interval/max cycles.",
+          "example": {
+            "enabled": true,
+            "poll_interval_seconds": 60,
+            "max_cycles": 1
+          }
         }
       ],
       "profiles": {
@@ -1474,7 +1842,11 @@
           "description": "Uses the public dataset note and bundled text fixture when no local documents are selected.",
           "payload": {
             "document_folder": "",
-            "dataset_url": "https://huggingface.co/datasets/AgamiAI/Indian-Bank-Statements"
+            "dataset_url": "https://huggingface.co/datasets/AgamiAI/Indian-Bank-Statements",
+            "monitoring": {
+              "enabled": true,
+              "max_cycles": 1
+            }
           }
         },
         "json": {
@@ -1508,7 +1880,8 @@
           "next_steps",
           "source_refs"
         ],
-        "description": "Review-only structured document automation packet with source evidence, confidence, next steps, and source references."
+        "description": "Review-only structured document automation packet with source evidence, confidence, next steps, and source references.",
+        "type": "personal_financial_advisor_report"
       },
       "artifacts": [
         {
@@ -1628,7 +2001,7 @@
         {
           "artifact_id": "review_packet_markdown",
           "type": "generated_report",
-          "path": "<outputs.folder_path>/<run_id>-bank-statement-extraction-review.md",
+          "path": "<outputs.folder_path>/<run_id>-personal-financial-advisor-review.md",
           "producer": "workflow",
           "mime_type": "text/markdown",
           "schema_version": "mn.blueprint.generated_report.v1",
@@ -1649,10 +2022,14 @@
         "reject"
       ],
       "blocked_actions": [
-        "approve_credit_decision",
-        "sync_to_loan_system",
+        "move_money",
+        "pay_bill",
+        "place_trade",
+        "file_tax_return",
         "sync_to_accounting_system",
-        "send_customer_report_without_review"
+        "sync_to_bank_or_brokerage",
+        "send_report_without_review",
+        "mark_advice_final_without_review"
       ],
       "decision_event": "human_decision_applied",
       "default_action": "reject",
@@ -1665,7 +2042,7 @@
         "human_decision_applied"
       ],
       "mode": "approval_required",
-      "reason": "Human approval is required before any downstream release, filing, payment, legal, clinical, credit, or system-sync action.",
+      "reason": "Human approval is required before any financial action, external sharing, filing, payment, investment, or system-sync action.",
       "request_event": "human_input_requested",
       "response_event": "human_input_received",
       "timeout_event": "human_input_timeout",
@@ -1732,7 +2109,8 @@
         "workflow_step_partial",
         "workflow_step_skipped",
         "workflow_step_failed"
-      ]
+      ],
+      "events": []
     },
     "observability_dashboard": {
       "schema_version": "mn.blueprint.observability_dashboard.v1",
@@ -1790,7 +2168,7 @@
           "description": "Human notices, approval requests, responses, timeouts, and applied decisions."
         },
         "input_skills": {
-          "description": "Local filesystem intake plus shared llm_ocr_skill OCR through Docker Model Runner."
+          "description": "HostLocal filesystem intake and shared llm_ocr_skill OCR, with w3m_browser_skill public web research isolated to the research DockerWorker image."
         },
         "inputs": {
           "artifact": "inputs.json",
@@ -1962,14 +2340,14 @@
         "include_runtime_logs": true,
         "target_tokens": 2400,
         "token_budget": 6000,
-        "use_model_compression": false
+        "use_model_compression": true
       },
       "conversation_enabled": true,
       "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
       "default_context_addr": "localhost:50052",
       "enabled": true,
       "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
-      "namespace": "bank_statement_extraction_assistant_context",
+      "namespace": "personal_financial_advisor_context",
       "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
       "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
       "sdk_distribution": "mirrorneuron-membrane-python-sdk",
@@ -1977,7 +2355,7 @@
     },
     "init_config_review": {
       "required": true,
-      "instruction": "Ask the user to select a local folder containing Synthetic scanned bank statement PDFs with structured JSON metadata, confirm the output folder, and keep the public dataset terms visible before launch.",
+      "instruction": "Ask the user to select a local folder containing personal finance documents, confirm the output folder, and make clear that launch starts a continuous review-only monitoring service unless a bounded max cycle is set.",
       "fields": [
         {
           "path": "document_sources.folder_path",
@@ -1988,7 +2366,7 @@
         {
           "path": "outputs.folder_path",
           "label": "Output folder",
-          "default": "/Users/homer/Download/bank_statement_extraction_assistant",
+          "default": "/Users/homer/Download/personal_financial_advisor",
           "description": "Choose where review files should be written."
         },
         {
@@ -2004,13 +2382,27 @@
       "provider": "AgamiAI on Hugging Face",
       "url": "https://huggingface.co/datasets/AgamiAI/Indian-Bank-Statements",
       "license": "Apache 2.0",
-      "availability_note": "Public synthetic bank statement dataset with scanned PDFs and structured JSON metadata.",
+      "availability_note": "Public synthetic bank statement sample used only as one finance-document demo source; real runs can include statements, income docs, receipts, bills, images, text, JSON, and CSV files.",
       "expected_files": [
         "*.pdf",
-        "*.json"
+        "*.png",
+        "*.jpg",
+        "*.jpeg",
+        "*.tif",
+        "*.tiff",
+        "*.webp",
+        "*.txt",
+        "*.json",
+        "*.csv"
       ],
-      "download_hint": "Use huggingface_hub or git-lfs to fetch a small sample before the full dataset."
+      "download_hint": "Use the bundled sample files or fetch a small public sample before trying a larger local folder."
     },
-    "local_on_prem_rationale": "Lenders, fintechs, SMB accounting tools, underwriting teams, and auditors need private extraction of account numbers, balances, merchant history, salaries, and cash-flow data."
-  }
+    "local_on_prem_rationale": "Personal finance documents can contain regulated and confidential details; local OCR and local report writing reduce unnecessary third-party transfer.",
+    "features": [
+      "w3m browser public research",
+      "Membrane model context compression",
+      "DockerWorker-only browser research phase"
+    ]
+  },
+  "type": "service"
 }

@@ -402,34 +402,35 @@
   },
   {
     "category": "Finance",
-    "description": "Extracts bank statement account metadata, balances, transaction rows, debits, credits, fees, and validation checks from local statement PDFs.",
-    "id": "bank_statement_extraction_assistant",
-    "job_name": "bank-statement-extraction-assistant",
-    "name": "Bank Statement Extraction Assistant",
-    "path": "bank_statement_extraction_assistant",
+    "description": "Continuously monitors a local personal finance folder, OCRs statements and receipts, researches public context with a DockerWorker-only w3m phase, then writes review-only household finance status, advice, risk reminders, and source-grounded reports.",
+    "id": "personal_financial_advisor",
+    "job_name": "personal-financial-advisor",
+    "name": "Personal Financial Advisor",
+    "path": "personal_financial_advisor",
     "product": {
-      "agent_role": "Local bank statement OCR and transaction extraction team that prepares source-grounded cash-flow review packets.",
-      "benefit": "Turns sensitive document folders into source-grounded review packets while keeping OCR and extraction local.",
-      "customizable_for": "Underwriting intake, cash-flow analysis, audit workpapers, bank statement reconciliation, transaction normalization, and SMB bookkeeping.",
-      "how_it_works": "Stages a local document folder, extracts embedded text, uses shared local LLM OCR when needed, extracts structured fields, validates against labels when available, and writes a human-review packet.",
-      "input": "Synthetic scanned bank statement PDFs with structured JSON metadata",
-      "output": "Review-only bank_statement_extraction_packet with evidence, confidence, next steps, and source references.",
-      "problem": "Lenders, fintechs, SMB accounting tools, underwriting teams, and auditors need private extraction of account numbers, balances, merchant history, salaries, and cash-flow data.",
+      "agent_role": "Continuous local personal finance service with a DockerWorker browser research agent that watches a document folder, researches public context, and prepares review-only household finance reports.",
+      "benefit": "Turns a local finance inbox into source-grounded household finance reports while keeping document review local and isolating public browser research to one DockerWorker phase.",
+      "customizable_for": "Household budgeting, income and expense review, receipt tracking, bill reminders, cash-flow checks, and financial document intake.",
+      "how_it_works": "Continuously watches a local folder, extracts embedded text, uses shared local LLM OCR when needed, classifies income and expenses, assesses cash-flow health and risks, gathers privacy-safe public research with w3m, then writes a human-review advisor report each scan cycle.",
+      "input": "Local folder with income records, bank statements, receipts, bills, images, text, JSON, and CSV finance files.",
+      "output": "Review-only personal_financial_advisor_report with status, advice, risks, reminders, research sources, source evidence, and Markdown report output.",
+      "problem": "Households, solo operators, and financial coaches need a private continuous service coworker that can watch incoming finance documents, summarize cash-flow status, identify missing or risky items, research public guidance, and prepare human-review advice without moving money or sharing private data.",
       "runtime_features": [
-        "local document folder intake",
+        "continuous local folder monitoring service",
+        "DockerWorker-only browser research phase",
         "shared llm_ocr_skill OCR fallback",
-        "structured extraction",
-        "label-aware validation",
+        "w3m_browser_skill public research",
+        "source-grounded financial document classification",
+        "household cash-flow and risk review",
+        "per-cycle Markdown advisor report output",
         "human approval policy",
-        "product input contract",
-        "transparent run status",
         "artifact records",
         "run-store observability dashboard",
         "Membrane context memory optimization"
       ],
-      "simulation_type": "Document automation workflow with local OCR and review-gated structured extraction.",
-      "target_users": "Lenders, fintech teams, SMB accounting tools, underwriting teams, auditors, and financial operations groups."
+      "simulation_type": "Continuous folder-monitoring service with local OCR and review-gated personal finance advice.",
+      "target_users": "Individuals, households, freelancers, financial coaches, and operations teams reviewing personal finance documents."
     },
-    "workflow_id": "bank_statement_extraction_assistant_v1"
+    "workflow_id": "personal_financial_advisor_v1"
   }
 ]

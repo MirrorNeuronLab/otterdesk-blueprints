@@ -1,43 +1,58 @@
 {
   "standard_version": "mn.blueprint.config.v1",
   "identity": {
-    "blueprint_id": "bank_statement_extraction_assistant",
-    "name": "Bank Statement Extraction Assistant"
+    "blueprint_id": "personal_financial_advisor",
+    "name": "Personal Financial Advisor"
   },
-  "mode": "document_automation_review",
+  "mode": "service",
   "metadata": {
     "category": "Finance",
-    "description": "Extracts bank statement account metadata, balances, transaction rows, debits, credits, fees, and validation checks from local statement PDFs."
+    "description": "Continuously monitors a local personal finance folder, OCRs statements, income documents, receipts, bills, and related records, then writes review-only household finance status, advice, risk reminders, and source-grounded reports."
   },
   "inputs": {
     "adapter": "mock",
-    "description": "Default demo inputs use the public dataset reference; for real use select a local downloaded dataset folder.",
+    "description": "Default demo inputs start the continuous folder-monitoring service; set monitoring.max_cycles for bounded smoke tests.",
     "payload": {
       "document_folder": "",
-      "output_folder": "/Users/homer/Download/bank_statement_extraction_assistant",
+      "output_folder": "/Users/homer/Download/personal_financial_advisor",
       "field_profile": [
-        "account_holder",
-        "account_number",
-        "ifsc_or_routing",
-        "statement_period",
-        "opening_balance",
-        "closing_balance",
-        "transactions",
-        "debits",
-        "credits",
-        "fees"
+        "document_kind",
+        "institution_or_merchant",
+        "account_or_source",
+        "document_date",
+        "income_amounts",
+        "expense_amounts",
+        "recurring_items",
+        "balances",
+        "debt_or_credit_obligations",
+        "fees",
+        "risk_flags",
+        "recommended_actions"
       ],
+      "monitoring": {
+        "enabled": true,
+        "poll_interval_seconds": 60,
+        "max_cycles": null
+      },
       "public_dataset": {
         "name": "AgamiAI Indian Bank Statement Synthetic Dataset",
         "provider": "AgamiAI on Hugging Face",
         "url": "https://huggingface.co/datasets/AgamiAI/Indian-Bank-Statements",
         "license": "Apache 2.0",
-        "availability_note": "Public synthetic bank statement dataset with scanned PDFs and structured JSON metadata.",
+        "availability_note": "Public synthetic bank statement sample used only as one finance-document demo source; real runs can include statements, income docs, receipts, bills, images, text, JSON, and CSV files.",
         "expected_files": [
           "*.pdf",
-          "*.json"
+          "*.png",
+          "*.jpg",
+          "*.jpeg",
+          "*.tif",
+          "*.tiff",
+          "*.webp",
+          "*.txt",
+          "*.json",
+          "*.csv"
         ],
-        "download_hint": "Use huggingface_hub or git-lfs to fetch a small sample before the full dataset."
+        "download_hint": "Use the bundled sample files or fetch a small public sample before trying a larger local folder."
       }
     }
   },
@@ -45,7 +60,15 @@
     "folder_path": "",
     "expected_files": [
       "*.pdf",
-      "*.json"
+      "*.png",
+      "*.jpg",
+      "*.jpeg",
+      "*.tif",
+      "*.tiff",
+      "*.webp",
+      "*.txt",
+      "*.json",
+      "*.csv"
     ],
     "public_dataset_url": "https://huggingface.co/datasets/AgamiAI/Indian-Bank-Statements"
   },
@@ -54,35 +77,45 @@
     "provider": "AgamiAI on Hugging Face",
     "url": "https://huggingface.co/datasets/AgamiAI/Indian-Bank-Statements",
     "license": "Apache 2.0",
-    "availability_note": "Public synthetic bank statement dataset with scanned PDFs and structured JSON metadata.",
+    "availability_note": "Public synthetic bank statement sample used only as one finance-document demo source; real runs can include statements, income docs, receipts, bills, images, text, JSON, and CSV files.",
     "expected_files": [
       "*.pdf",
-      "*.json"
+      "*.png",
+      "*.jpg",
+      "*.jpeg",
+      "*.tif",
+      "*.tiff",
+      "*.webp",
+      "*.txt",
+      "*.json",
+      "*.csv"
     ],
-    "download_hint": "Use huggingface_hub or git-lfs to fetch a small sample before the full dataset."
+    "download_hint": "Use the bundled sample files or fetch a small public sample before trying a larger local folder."
   },
   "document_automation": {
     "fields": [
-      "account_holder",
-      "account_number",
-      "ifsc_or_routing",
-      "statement_period",
-      "opening_balance",
-      "closing_balance",
-      "transactions",
-      "debits",
-      "credits",
-      "fees"
+      "document_kind",
+      "institution_or_merchant",
+      "account_or_source",
+      "document_date",
+      "income_amounts",
+      "expense_amounts",
+      "recurring_items",
+      "balances",
+      "debt_or_credit_obligations",
+      "fees",
+      "risk_flags",
+      "recommended_actions"
     ],
-    "output_type": "bank_statement_extraction_packet",
+    "output_type": "personal_financial_advisor_report",
     "review_required": true,
-    "recommended_action": "review_transactions_and_balance_reconciliation_before_downstream_use"
+    "recommended_action": "review_household_finance_report_before_any_financial_action"
   },
   "llm": {
     "model": "default"
   },
   "outputs": {
-    "folder_path": "/Users/homer/Download/bank_statement_extraction_assistant",
+    "folder_path": "/Users/homer/Download/personal_financial_advisor",
     "write_run_store": true,
     "write_markdown_report": true
   },
@@ -119,11 +152,14 @@
       "output_skill_started",
       "output_skill_completed",
       "output_skill_failed",
-      "bank_inputs_staged",
-      "bank_text_extracted",
-      "transaction_ledger_extracted",
-      "statement_consistency_validated",
-      "bank_statement_packet_written"
+      "financial_folder_watched",
+      "financial_documents_extracted",
+      "financial_activity_classified",
+      "financial_health_assessed",
+      "advisor_report_written",
+      "watch_cycle_started",
+      "watch_cycle_completed",
+      "financial_context_researched"
     ]
   },
   "resources": {
@@ -147,10 +183,14 @@
       "reject"
     ],
     "blocked_actions": [
-      "approve_credit_decision",
-      "sync_to_loan_system",
+      "move_money",
+      "pay_bill",
+      "place_trade",
+      "file_tax_return",
       "sync_to_accounting_system",
-      "send_customer_report_without_review"
+      "sync_to_bank_or_brokerage",
+      "send_report_without_review",
+      "mark_advice_final_without_review"
     ],
     "decision_event": "human_decision_applied",
     "default_action": "reject",
@@ -163,7 +203,7 @@
       "human_decision_applied"
     ],
     "mode": "approval_required",
-    "reason": "Human approval is required before any downstream release, filing, payment, legal, clinical, credit, or system-sync action.",
+    "reason": "Human approval is required before any financial action, external sharing, filing, payment, investment, or system-sync action.",
     "request_event": "human_input_requested",
     "response_event": "human_input_received",
     "timeout_event": "human_input_timeout",
@@ -188,6 +228,26 @@
       "remove_policy": "manual",
       "require_hardware_acceleration": true,
       "timeout_seconds": 180
+    },
+    "w3m_browser": {
+      "skill": "w3m_browser_skill",
+      "package": "mirrorneuron-w3m-browser-skill",
+      "runner": "w3m",
+      "purpose": "privacy-safe public web research for source-grounded personal finance advice",
+      "enabled": true,
+      "required": false,
+      "install_policy": "docker_worker_image",
+      "timeout_seconds": 12,
+      "max_chars": 6000,
+      "max_queries": 3,
+      "max_sources_per_query": 2,
+      "source_urls": [
+        "https://consumer.gov/managing-your-money",
+        "https://www.consumerfinance.gov/consumer-tools/bank-accounts/",
+        "https://www.consumerfinance.gov/consumer-tools/credit-cards/",
+        "https://www.consumerfinance.gov/consumer-tools/debt-collection/"
+      ],
+      "use_model_compression": true
     }
   },
   "output_skills": {},
@@ -267,7 +327,9 @@
       "document.ocr",
       "llm.ocr",
       "llm.call",
-      "pdf.render"
+      "pdf.render",
+      "image.ocr",
+      "csv.read"
     ]
   },
   "determinism": {
@@ -306,7 +368,7 @@
       "adapter": "gradio",
       "auto_generate": true,
       "refresh_seconds": 2,
-      "title": "Bank Statement Extraction Assistant",
+      "title": "Personal Financial Advisor",
       "custom_url": null
     },
     "dashboard": {
@@ -380,7 +442,7 @@
       },
       "inputs": {
         "artifact": "inputs.json",
-        "description": "Resolved document folder, public dataset reference, and field extraction profile."
+        "description": "Resolved finance document folder, continuous monitoring settings, public sample reference, and field review profile."
       },
       "logs": {
         "artifact": "logs.jsonl",
@@ -391,9 +453,9 @@
         "artifacts": [
           "result.json",
           "final_artifact.json",
-          "*-review.md"
+          "*-report.md"
         ],
-        "description": "Primary review packet and structured extraction results."
+        "description": "Primary review packet, advisor report, and structured personal finance review results."
       },
       "resources": {
         "artifact": "resources.jsonl",
@@ -542,12 +604,16 @@
     "resolve_config",
     "load_inputs",
     "start_run_store",
+    "start_folder_monitoring_service",
+    "watch_financial_folder",
     "extract_embedded_text_or_ocr",
     "redact_sensitive_values",
-    "extract_structured_fields",
-    "validate_against_public_labels_when_available",
+    "classify_financial_activity",
+    "assess_financial_health",
+    "research_financial_context",
     "request_human_review",
-    "write_final_artifact",
+    "write_final_artifact_each_cycle",
+    "write_markdown_report_each_cycle",
     "write_artifact_records"
   ],
   "memory_layer": {
@@ -561,14 +627,14 @@
       "include_runtime_logs": true,
       "target_tokens": 2400,
       "token_budget": 6000,
-      "use_model_compression": false
+      "use_model_compression": true
     },
     "conversation_enabled": true,
     "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
     "default_context_addr": "localhost:50052",
     "enabled": true,
     "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
-    "namespace": "bank_statement_extraction_assistant_context",
+    "namespace": "personal_financial_advisor_context",
     "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
     "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
     "sdk_distribution": "mirrorneuron-membrane-python-sdk",
@@ -576,13 +642,16 @@
   },
   "state": {
     "document_folder": "",
-    "output_folder": "/Users/homer/Download/bank_statement_extraction_assistant",
-    "review": {},
+    "output_folder": "/Users/homer/Download/personal_financial_advisor",
+    "watch_state": {},
     "final_report": {}
   },
   "triggers": {
-    "manual": true,
-    "schedule": false
+    "type": "folder_watch",
+    "sources": [
+      "personal_financial_advisor_folder"
+    ],
+    "schedule": null
   },
   "real_adapters": {
     "filesystem": {
@@ -596,5 +665,33 @@
   },
   "simulation": {
     "enabled": false
+  },
+  "monitoring": {
+    "enabled": true,
+    "poll_interval_seconds": 60,
+    "max_cycles": null,
+    "processed_state_file": "watch_state.json"
+  },
+  "internet_research": {
+    "enabled": true,
+    "browser_skill": "w3m_browser_skill",
+    "privacy": "derive queries from generic risk categories and document types only",
+    "default_source_urls": [
+      "https://consumer.gov/managing-your-money",
+      "https://www.consumerfinance.gov/consumer-tools/bank-accounts/",
+      "https://www.consumerfinance.gov/consumer-tools/credit-cards/",
+      "https://www.consumerfinance.gov/consumer-tools/debt-collection/"
+    ],
+    "blocked_inputs": [
+      "raw_document_text",
+      "account_numbers",
+      "customer_names",
+      "transaction_descriptions",
+      "taxpayer_ids"
+    ],
+    "max_queries": 3,
+    "max_sources_per_query": 2,
+    "timeout_seconds": 12,
+    "use_model_compression": true
   }
 }

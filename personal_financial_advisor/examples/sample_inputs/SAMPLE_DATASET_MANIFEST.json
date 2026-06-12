@@ -1,5 +1,5 @@
 {
-  "blueprint_id": "bank_statement_extraction_assistant",
+  "blueprint_id": "personal_financial_advisor",
   "downloaded_at": "2026-06-02T11:55:06+00:00",
   "demo_source": {
     "name": "AgamiAI Indian Bank Statement Synthetic Dataset",

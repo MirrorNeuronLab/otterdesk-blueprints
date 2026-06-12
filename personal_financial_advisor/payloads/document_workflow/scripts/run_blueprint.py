@@ -1,0 +1,1584 @@
+#!/usr/bin/env python3.11
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import re
+import sys
+import time
+import uuid
+from collections import Counter
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+try:
+    from mn_blueprint_support import start_agent_beacon_thread
+except Exception:  # pragma: no cover - optional runtime support
+    def start_agent_beacon_thread(message: str | None = None) -> None:
+        return None
+
+
+BLUEPRINT_ID = "personal_financial_advisor"
+BLUEPRINT_NAME = "Personal Financial Advisor"
+OUTPUT_TYPE = "personal_financial_advisor_report"
+RECOMMENDED_ACTION = "review_household_finance_report_before_any_financial_action"
+SUPPORTED_SUFFIXES = {".pdf", ".png", ".jpg", ".jpeg", ".tif", ".tiff", ".webp", ".txt", ".json", ".csv"}
+TEXT_SUFFIXES = {".txt", ".json", ".csv"}
+FIELD_PROFILE = [
+    "document_kind",
+    "institution_or_merchant",
+    "account_or_source",
+    "document_date",
+    "income_amounts",
+    "expense_amounts",
+    "recurring_items",
+    "balances",
+    "debt_or_credit_obligations",
+    "fees",
+    "risk_flags",
+    "recommended_actions",
+]
+DEFAULT_RESEARCH_SOURCE_URLS = [
+    "https://consumer.gov/managing-your-money",
+    "https://www.consumerfinance.gov/consumer-tools/bank-accounts/",
+    "https://www.consumerfinance.gov/consumer-tools/credit-cards/",
+    "https://www.consumerfinance.gov/consumer-tools/debt-collection/",
+]
+RESEARCH_TOPIC_BY_RISK = {
+    "missing_documents": "official consumer guidance organizing household financial records",
+    "ocr_review": "official consumer guidance reviewing financial statements for errors",
+    "classification": "official consumer guidance organizing financial documents and bills",
+    "income_visibility": "official consumer guidance tracking income household budget",
+    "cash_flow": "official consumer guidance cash flow budget expenses exceed income",
+    "fees": "official consumer guidance avoiding bank account fees overdraft fees",
+    "review_required": "official consumer guidance monthly budget review emergency savings",
+    "document_hygiene": "official consumer guidance keeping financial records organized",
+}
+DATASET_INPUT = {
+    "name": "AgamiAI Indian Bank Statement Synthetic Dataset",
+    "provider": "AgamiAI on Hugging Face",
+    "url": "https://huggingface.co/datasets/AgamiAI/Indian-Bank-Statements",
+    "license": "Apache 2.0",
+    "availability_note": (
+        "Public synthetic bank statement sample used only as one finance-document demo source; "
+        "real runs can include statements, income docs, receipts, bills, images, text, JSON, and CSV files."
+    ),
+    "expected_files": sorted(SUPPORTED_SUFFIXES),
+    "download_hint": "Use the bundled sample files or fetch a small public sample before trying a larger local folder.",
+}
+OUTPUT_MESSAGE_BY_STEP = {
+    "watch_financial_folder": "financial_folder_watched",
+    "extract_financial_documents": "financial_documents_extracted",
+    "classify_financial_activity": "financial_activity_classified",
+    "assess_financial_health": "financial_health_assessed",
+    "research_financial_context": "financial_context_researched",
+    "write_advisor_report": "advisor_report_written",
+}
+RUNTIME_GRAPH_STEP_IDS = set(OUTPUT_MESSAGE_BY_STEP)
+ADVISOR_INPUT_KEYS = {
+    "document_folder",
+    "output_folder",
+    "monitoring",
+    "field_profile",
+    "run_id",
+    "watch",
+}
+
+
+def _workspace_root() -> Path | None:
+    for name in ("MN_WORKSPACE_ROOT", "MIRROR_NEURON_WORKSPACE", "OTTERDESK_MIRROR_NEURON_WORKSPACE"):
+        value = os.environ.get(name)
+        if value:
+            return Path(value).expanduser()
+    for parent in Path(__file__).resolve().parents:
+        if (parent / "mn-skills").exists():
+            return parent
+    return None
+
+
+def _add_repo_paths() -> None:
+    roots = []
+    if os.environ.get("MN_SKILLS_ROOT"):
+        roots.append(Path(os.environ["MN_SKILLS_ROOT"]).expanduser())
+    workspace = _workspace_root()
+    if workspace:
+        roots.append(workspace / "mn-skills")
+    for parent in Path(__file__).resolve().parents:
+        roots.append(parent / "mn-skills")
+    for root in roots:
+        for skill_name in ("llm_ocr_skill", "w3m_browser_skill", "blueprint_support_skill"):
+            candidate = root / skill_name / "src"
+            if candidate.exists() and str(candidate) not in sys.path:
+                sys.path.insert(0, str(candidate))
+
+
+_add_repo_paths()
+
+try:
+    from mn_llm_ocr_skill import docker_ocr_client_factory_from_config, extract_document_folder
+except Exception:  # pragma: no cover - fallback for minimal local checks
+    docker_ocr_client_factory_from_config = None
+    extract_document_folder = None
+
+W3mBrowserConfig = None
+research_topic = None
+
+try:
+    from mn_blueprint_support.context_memory import (
+        add_item,
+        compile_context,
+        compile_context_state,
+        context_stub,
+        make_content,
+    )
+except Exception:  # pragma: no cover - optional runtime support
+    add_item = None
+    compile_context = None
+    compile_context_state = None
+    context_stub = None
+    make_content = None
+
+
+def _load_w3m_browser_skill() -> None:
+    global W3mBrowserConfig, research_topic
+    if W3mBrowserConfig is not None and research_topic is not None:
+        return
+    try:
+        from mn_w3m_browser_skill import W3mBrowserConfig as imported_config
+        from mn_w3m_browser_skill import research_topic as imported_research_topic
+    except Exception:  # pragma: no cover - optional outside the research DockerWorker
+        return
+    W3mBrowserConfig = imported_config
+    research_topic = imported_research_topic
+
+
+def utc_now_iso() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+
+def read_json(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    value = json.loads(path.read_text(encoding="utf-8"))
+    return value if isinstance(value, dict) else {}
+
+
+def write_json(path: Path, value: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(value, indent=2, sort_keys=False, default=str) + "\n", encoding="utf-8")
+
+
+def append_event(run_dir: Path, event_type: str, payload: dict[str, Any]) -> None:
+    record = {"type": event_type, "timestamp": utc_now_iso(), "payload": payload}
+    with (run_dir / "events.jsonl").open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(record, sort_keys=True, default=str) + "\n")
+
+
+def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
+    result = dict(base)
+    for key, value in override.items():
+        if isinstance(value, dict) and isinstance(result.get(key), dict):
+            result[key] = deep_merge(result[key], value)
+        else:
+            result[key] = value
+    return result
+
+
+def redactor(text: str) -> str:
+    value = re.sub(r"\b\d{3}[- ]?\d{2}[- ]?\d{4}\b", "[REDACTED-SSN]", text or "")
+    value = re.sub(r"\b(?:\d[ -]*?){13,19}\b", "[REDACTED-CARD]", value)
+    value = re.sub(r"\b\d{9,18}\b", "[REDACTED-ID]", value)
+    value = re.sub(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", "[REDACTED-EMAIL]", value)
+    return value
+
+
+def classifier(text: str, filename: str) -> str:
+    haystack = f"{filename}\n{text}".lower()
+    if any(token in haystack for token in ("paystub", "payroll", "salary", "wage", "form w-2", "1099", "income")):
+        return "income_document"
+    if any(token in haystack for token in ("receipt", "merchant", "store", "purchase", "subtotal", "tip")):
+        return "receipt"
+    if any(token in haystack for token in ("invoice", "bill", "amount due", "due date", "utility")):
+        return "bill_or_invoice"
+    if any(token in haystack for token in ("credit card", "visa", "mastercard", "statement balance", "minimum payment")):
+        return "credit_card_statement"
+    if any(token in haystack for token in ("loan", "mortgage", "principal", "apr", "interest rate")):
+        return "loan_or_debt_statement"
+    if any(token in haystack for token in ("bank statement", "opening balance", "closing balance", "account number", "deposit", "withdrawal")):
+        return "bank_statement"
+    if any(token in haystack for token in ("form 1040", "schedule c", "tax return", "tax year")):
+        return "tax_document"
+    if any(token in haystack for token in ("debit", "credit", "balance", "transaction", "expense")):
+        return "financial_document"
+    return "unknown_financial_document"
+
+
+def iter_financial_files(folder: Path) -> list[Path]:
+    if not folder.exists() or not folder.is_dir():
+        return []
+    return sorted(
+        path
+        for path in folder.rglob("*")
+        if path.is_file() and path.suffix.lower() in SUPPORTED_SUFFIXES
+    )
+
+
+def fallback_extract(folder: Path) -> list[dict[str, Any]]:
+    records = []
+    for path in iter_financial_files(folder):
+        warnings: list[str] = []
+        text = ""
+        ocr_required = path.suffix.lower() not in TEXT_SUFFIXES
+        extraction_method = "ocr_required_no_skill" if ocr_required else "embedded_text_fallback"
+        if path.suffix.lower() in TEXT_SUFFIXES:
+            try:
+                text = path.read_text(encoding="utf-8", errors="ignore")
+            except Exception as exc:
+                warnings.append(str(exc))
+                extraction_method = "fallback_read_error"
+        else:
+            warnings.append("OCR skill was unavailable; file was fingerprinted but not text-extracted.")
+        records.append(
+            {
+                "path": str(path),
+                "filename": path.name,
+                "document_type": classifier(text, path.name),
+                "text": redactor(text),
+                "ocr_required": ocr_required,
+                "extraction_method": extraction_method,
+                "warnings": warnings,
+                "metadata": {"suffix": path.suffix.lower(), "size_bytes": _safe_stat(path).get("size_bytes", 0)},
+            }
+        )
+    return records
+
+
+def extract_records(folder: Path, config: dict[str, Any]) -> list[dict[str, Any]]:
+    fallback_records = fallback_extract(folder)
+    if extract_document_folder is None:
+        return fallback_records
+
+    skill_config = {"input_skills": config.get("input_skills", {})}
+    ocr_config = (config.get("input_skills") or {}).get("llm_ocr") or {}
+    factory = docker_ocr_client_factory_from_config(skill_config) if docker_ocr_client_factory_from_config else None
+    try:
+        records = extract_document_folder(
+            folder,
+            classifier=classifier,
+            redactor=redactor,
+            llm_ocr_client_factory=factory,
+            min_text_chars=int(ocr_config.get("min_text_chars") or 40),
+        )
+    except Exception as exc:
+        fallback_records.append(
+            {
+                "path": str(folder),
+                "filename": folder.name,
+                "document_type": "ocr_warning",
+                "text": "",
+                "ocr_required": True,
+                "extraction_method": "fallback_after_ocr_error",
+                "warnings": [str(exc)],
+                "metadata": {"dataset_input": DATASET_INPUT},
+            }
+        )
+        return fallback_records
+
+    seen = {str(Path(str(record.get("path") or "")).resolve()) for record in records if record.get("path")}
+    for record in fallback_records:
+        record_path = str(Path(str(record.get("path") or "")).resolve())
+        if record_path not in seen:
+            records.append(record)
+    return records
+
+
+def _safe_stat(path: Path) -> dict[str, int]:
+    try:
+        stat = path.stat()
+    except OSError:
+        return {"size_bytes": 0, "mtime_ns": 0}
+    return {"size_bytes": stat.st_size, "mtime_ns": stat.st_mtime_ns}
+
+
+def fingerprint_file(path: Path) -> dict[str, Any]:
+    digest = hashlib.sha256()
+    try:
+        with path.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+    except OSError:
+        digest.update(str(path).encode("utf-8"))
+    stat = _safe_stat(path)
+    return {
+        "path": str(path),
+        "filename": path.name,
+        "size_bytes": stat["size_bytes"],
+        "mtime_ns": stat["mtime_ns"],
+        "sha256": digest.hexdigest(),
+    }
+
+
+MONEY_RE = re.compile(r"(?<![\w.])(?:USD\s*|US\$\s*|\$\s*)?(-?\d{1,3}(?:,\d{3})+(?:\.\d{2})|-?\d+\.\d{2})(?![\w.])")
+INCOME_HINTS = {"salary", "payroll", "paystub", "wage", "income", "deposit", "credit", "1099", "w-2"}
+EXPENSE_HINTS = {"receipt", "purchase", "debit", "withdrawal", "payment", "paid", "total", "amount due", "fee", "charge", "bill", "invoice"}
+BALANCE_HINTS = {"balance", "opening balance", "closing balance", "available balance", "statement balance"}
+
+
+def _money(value: float) -> str:
+    return f"${value:,.2f}"
+
+
+def _extract_money_amounts(text: str) -> list[float]:
+    amounts = []
+    for match in MONEY_RE.finditer(text or ""):
+        try:
+            amounts.append(float(match.group(1).replace(",", "")))
+        except ValueError:
+            continue
+    return amounts
+
+
+def _line_amount_entries(records: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
+    income: list[dict[str, Any]] = []
+    expenses: list[dict[str, Any]] = []
+    balances: list[dict[str, Any]] = []
+    for record in records:
+        text = str(record.get("text") or "")
+        document_type = str(record.get("document_type") or "")
+        for line in text.splitlines() or [text]:
+            line_text = line.strip()
+            if not line_text:
+                continue
+            amounts = _extract_money_amounts(line_text)
+            if not amounts:
+                continue
+            lower = line_text.lower()
+            entry_base = {
+                "source": record.get("filename"),
+                "document_type": document_type,
+                "line_preview": redactor(line_text[:220]),
+            }
+            for amount in amounts:
+                entry = {**entry_base, "amount": round(abs(amount), 2), "display_amount": _money(abs(amount))}
+                if any(hint in lower for hint in BALANCE_HINTS):
+                    balances.append(entry)
+                elif document_type == "income_document" or any(hint in lower for hint in INCOME_HINTS):
+                    income.append(entry)
+                elif document_type in {"receipt", "bill_or_invoice", "credit_card_statement", "loan_or_debt_statement"} or any(hint in lower for hint in EXPENSE_HINTS):
+                    expenses.append(entry)
+    return income, expenses, balances
+
+
+def build_document_summary(records: list[dict[str, Any]]) -> dict[str, Any]:
+    counts = Counter(str(record.get("document_type") or "unknown") for record in records)
+    ocr_required = [str(record.get("filename")) for record in records if record.get("ocr_required")]
+    warnings = [
+        {"source": record.get("filename"), "warning": warning}
+        for record in records
+        for warning in (record.get("warnings") or [])
+    ]
+    return {
+        "document_count": len(records),
+        "document_types": dict(sorted(counts.items())),
+        "ocr_required": ocr_required,
+        "warning_count": len(warnings),
+        "warnings": warnings[:20],
+        "supported_file_types": sorted(SUPPORTED_SUFFIXES),
+    }
+
+
+def summarize_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    evidence = []
+    for record in records[:30]:
+        text = str(record.get("text") or "")
+        evidence.append(
+            {
+                "source": record.get("filename"),
+                "document_type": record.get("document_type"),
+                "text_preview": text[:500],
+                "ocr_required": bool(record.get("ocr_required")),
+                "extraction_method": record.get("extraction_method"),
+                "warnings": record.get("warnings") or [],
+            }
+        )
+    if not evidence:
+        evidence.append(
+            {
+                "source": "inputs/public_dataset.json",
+                "document_type": "dataset_reference",
+                "text_preview": DATASET_INPUT.get("availability_note", ""),
+                "ocr_required": False,
+                "extraction_method": "public_dataset_note",
+                "warnings": ["No local finance documents were processed; add files to the monitored folder and rerun."],
+            }
+        )
+    return evidence
+
+
+def build_financial_sections(records: list[dict[str, Any]]) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    income_entries, expense_entries, balance_entries = _line_amount_entries(records)
+    income_total = round(sum(item["amount"] for item in income_entries), 2)
+    expense_total = round(sum(item["amount"] for item in expense_entries), 2)
+    net_cash_flow = round(income_total - expense_total, 2)
+    savings_rate = round((net_cash_flow / income_total) * 100.0, 2) if income_total > 0 else None
+
+    snapshot = {
+        "detected_income_total": _money(income_total),
+        "detected_expense_total": _money(expense_total),
+        "detected_net_cash_flow": _money(net_cash_flow),
+        "savings_rate_estimate_pct": savings_rate,
+        "balance_mentions": balance_entries[:12],
+        "basis": "Amounts are source-text estimates for review, not a reconciled ledger.",
+    }
+    income_summary = {
+        "total_detected": _money(income_total),
+        "entry_count": len(income_entries),
+        "entries": income_entries[:20],
+        "sources": sorted({str(item.get("source")) for item in income_entries if item.get("source")}),
+    }
+    expense_summary = {
+        "total_detected": _money(expense_total),
+        "entry_count": len(expense_entries),
+        "entries": expense_entries[:30],
+        "sources": sorted({str(item.get("source")) for item in expense_entries if item.get("source")}),
+    }
+    return snapshot, income_summary, expense_summary
+
+
+def _risk_item(
+    severity: str,
+    category: str,
+    finding: str,
+    advice: str,
+    *,
+    owner: str = "human_reviewer",
+    blocker: bool = False,
+) -> dict[str, Any]:
+    return {
+        "severity": severity,
+        "category": category,
+        "finding": finding,
+        "advice": advice,
+        "owner": owner,
+        "blocker": blocker,
+    }
+
+
+def build_risk_register(
+    records: list[dict[str, Any]],
+    document_summary: dict[str, Any],
+    income_summary: dict[str, Any],
+    expense_summary: dict[str, Any],
+) -> list[dict[str, Any]]:
+    risks: list[dict[str, Any]] = []
+    if not records:
+        risks.append(
+            _risk_item(
+                "high",
+                "missing_documents",
+                "No finance documents were processed.",
+                "Add income records, statements, receipts, bills, or CSV exports to the monitored folder.",
+                blocker=True,
+            )
+        )
+    if document_summary["ocr_required"]:
+        risks.append(
+            _risk_item(
+                "medium",
+                "ocr_review",
+                f"{len(document_summary['ocr_required'])} file(s) required OCR or image/PDF review.",
+                "Compare every OCR-derived amount against the source file before relying on the report.",
+            )
+        )
+    if document_summary["document_types"].get("unknown_financial_document"):
+        risks.append(
+            _risk_item(
+                "medium",
+                "classification",
+                "Some files could not be confidently classified.",
+                "Open unknown files and rename or annotate them so the next run can classify them correctly.",
+            )
+        )
+    income_total = _parse_money(income_summary.get("total_detected"))
+    expense_total = _parse_money(expense_summary.get("total_detected"))
+    if income_total <= 0 and records:
+        risks.append(
+            _risk_item(
+                "medium",
+                "income_visibility",
+                "No income amounts were detected in the current document set.",
+                "Add paystubs, payroll exports, deposit statements, or income summaries before treating cash-flow status as complete.",
+            )
+        )
+    if income_total > 0 and expense_total > income_total:
+        risks.append(
+            _risk_item(
+                "high",
+                "cash_flow",
+                "Detected expenses exceed detected income for this review packet.",
+                "Review discretionary spending, upcoming bills, and missing income documents before making budget decisions.",
+                blocker=True,
+            )
+        )
+    if any("fee" in str(record.get("text") or "").lower() for record in records):
+        risks.append(
+            _risk_item(
+                "low",
+                "fees",
+                "One or more source documents mention fees.",
+                "Review bank, card, overdraft, late, or service fees and decide whether any can be avoided next cycle.",
+            )
+        )
+    if not risks:
+        risks.append(
+            _risk_item(
+                "low",
+                "review_required",
+                "No blocking automated risk was detected, but this remains a draft review packet.",
+                "Confirm source documents, amounts, and reminders before taking any financial action.",
+            )
+        )
+    return risks
+
+
+def _parse_money(value: Any) -> float:
+    text = str(value or "0")
+    try:
+        return float(text.replace("$", "").replace(",", ""))
+    except ValueError:
+        return 0.0
+
+
+def build_reminders(records: list[dict[str, Any]], risks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    reminders: list[dict[str, Any]] = []
+    for record in records:
+        text = str(record.get("text") or "")
+        for line in text.splitlines():
+            lower = line.lower()
+            if "due date" in lower or "payment due" in lower or "minimum payment" in lower:
+                reminders.append(
+                    {
+                        "kind": "payment_or_bill_review",
+                        "source": record.get("filename"),
+                        "reminder": redactor(line.strip()[:220]),
+                        "action": "Confirm due date, amount, autopay status, and available cash before payment.",
+                    }
+                )
+    if any(risk.get("blocker") for risk in risks):
+        reminders.append(
+            {
+                "kind": "human_review",
+                "source": "risk_register",
+                "reminder": "Blocking review items are present.",
+                "action": "Resolve blocker risks before using this report for planning decisions.",
+            }
+        )
+    if not reminders:
+        reminders.append(
+            {
+                "kind": "monthly_review",
+                "source": "advisor_policy",
+                "reminder": "Schedule a monthly review of income, recurring expenses, fees, debt payments, and emergency cash.",
+                "action": "Keep adding receipts, statements, and income records to the monitored folder.",
+            }
+        )
+    return reminders[:20]
+
+
+def build_advisor_recommendations(risks: list[dict[str, Any]], records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    recommendations = []
+    for risk in risks:
+        recommendations.append(
+            {
+                "priority": len(recommendations) + 1,
+                "action": risk.get("advice"),
+                "reason": risk.get("finding"),
+                "risk_category": risk.get("category"),
+                "owner": risk.get("owner"),
+            }
+        )
+    if records and not any(item.get("risk_category") == "document_hygiene" for item in recommendations):
+        recommendations.append(
+            {
+                "priority": len(recommendations) + 1,
+                "action": "Keep the folder organized by month and document type so future watch cycles can spot changes faster.",
+                "reason": "Source-grounded reports improve when documents are complete and easy to classify.",
+                "risk_category": "document_hygiene",
+                "owner": "human_reviewer",
+            }
+        )
+    return recommendations[:12]
+
+
+def resolve_research_config(config: dict[str, Any]) -> dict[str, Any]:
+    default = {
+        "enabled": True,
+        "max_queries": 3,
+        "max_sources_per_query": 2,
+        "timeout_seconds": 12,
+        "max_chars": 6000,
+        "width": 100,
+        "source_urls": DEFAULT_RESEARCH_SOURCE_URLS,
+        "use_model_compression": True,
+        "token_budget": 6000,
+        "target_tokens": 2400,
+    }
+    input_skill_config = ((config.get("input_skills") or {}).get("w3m_browser") or {})
+    research_config = config.get("internet_research") or {}
+    merged = deep_merge(default, input_skill_config if isinstance(input_skill_config, dict) else {})
+    if isinstance(research_config, dict):
+        merged = deep_merge(merged, research_config)
+    merged["enabled"] = bool(merged.get("enabled"))
+    merged["max_queries"] = max(1, int(merged.get("max_queries") or 3))
+    merged["max_sources_per_query"] = max(1, int(merged.get("max_sources_per_query") or 2))
+    merged["timeout_seconds"] = max(1, int(merged.get("timeout_seconds") or 12))
+    merged["max_chars"] = max(1000, int(merged.get("max_chars") or 6000))
+    return merged
+
+
+def build_research_queries(risks: list[dict[str, Any]], document_summary: dict[str, Any], limit: int) -> list[str]:
+    categories = [str(risk.get("category") or "") for risk in risks if isinstance(risk, dict)]
+    if document_summary.get("document_types", {}).get("invoice_or_bill"):
+        categories.append("cash_flow")
+    if document_summary.get("document_types", {}).get("credit_or_loan_statement"):
+        categories.append("fees")
+    queries: list[str] = []
+    for category in categories:
+        query = RESEARCH_TOPIC_BY_RISK.get(category)
+        if query and query not in queries:
+            queries.append(query)
+    if not queries:
+        queries.append(RESEARCH_TOPIC_BY_RISK["review_required"])
+    return queries[:limit]
+
+
+def research_financial_context(
+    risks: list[dict[str, Any]],
+    document_summary: dict[str, Any],
+    config: dict[str, Any],
+    run_id: str,
+) -> dict[str, Any]:
+    research_config = resolve_research_config(config)
+    if not research_config.get("enabled"):
+        return {
+            "research_summary": "Browser research is disabled for this run.",
+            "research_sources": [],
+            "research_warnings": ["internet_research.disabled"],
+            "research_queries": [],
+            "context_compression": {"enabled": False, "reason": "research disabled"},
+        }
+    _load_w3m_browser_skill()
+    if research_topic is None or W3mBrowserConfig is None:
+        return {
+            "research_summary": "Browser research was requested, but w3m_browser_skill is not available.",
+            "research_sources": [],
+            "research_warnings": ["w3m_browser_skill unavailable"],
+            "research_queries": [],
+            "context_compression": {"enabled": False, "reason": "w3m_browser_skill unavailable"},
+        }
+
+    browser_config = W3mBrowserConfig(
+        timeout_seconds=research_config["timeout_seconds"],
+        max_chars=research_config["max_chars"],
+        width=int(research_config.get("width") or 100),
+        allow_hosts=tuple(research_config.get("allow_hosts") or ()),
+        deny_hosts=tuple(research_config.get("deny_hosts") or ()),
+    )
+    source_urls = [str(url) for url in research_config.get("source_urls") or [] if str(url).strip()]
+    queries = build_research_queries(risks, document_summary, research_config["max_queries"])
+    collected_sources: list[dict[str, Any]] = []
+    summaries: list[str] = []
+    warnings: list[str] = []
+
+    for query in queries:
+        result = research_topic(
+            query,
+            browser_config,
+            source_urls=source_urls or None,
+            max_sources=research_config["max_sources_per_query"],
+        )
+        if result.get("summary"):
+            summaries.append(str(result["summary"]))
+        warnings.extend(str(item) for item in result.get("warnings") or [])
+        for source in result.get("sources") or []:
+            if not isinstance(source, dict):
+                continue
+            url = str(source.get("url") or "")
+            if not url or any(existing.get("url") == url for existing in collected_sources):
+                continue
+            collected_sources.append(
+                {
+                    "query": query,
+                    "url": url,
+                    "title": str(source.get("title") or url)[:200],
+                    "snippet": redactor(str(source.get("snippet") or source.get("text") or ""))[:700],
+                }
+            )
+
+    summary = "\n".join(item for item in summaries if item).strip()
+    if not summary:
+        summary = "No public web research source text was collected."
+    compression = compile_research_context(run_id, summary, collected_sources, config, research_config)
+    return {
+        "research_summary": summary,
+        "research_sources": collected_sources[:20],
+        "research_warnings": warnings[:20],
+        "research_queries": queries,
+        "context_compression": compression,
+    }
+
+
+def compile_research_context(
+    run_id: str,
+    summary: str,
+    sources: list[dict[str, Any]],
+    config: dict[str, Any],
+    research_config: dict[str, Any],
+) -> dict[str, Any]:
+    memory = config.get("memory_layer") or config.get("memory") or {}
+    conversation = memory.get("conversation") or {}
+    use_model_compression = bool(
+        research_config.get("use_model_compression", conversation.get("use_model_compression", False))
+    )
+    if not use_model_compression:
+        return {"enabled": False, "use_model_compression": False}
+    if not all([context_stub, make_content, add_item, compile_context, compile_context_state]):
+        return {
+            "enabled": False,
+            "use_model_compression": True,
+            "warning": "Membrane context helpers are unavailable",
+        }
+    try:
+        stub = context_stub()
+        focus_id = f"{run_id}_financial_research"
+        content = make_content(
+            goal_id=focus_id,
+            artifact_type="financial_research_context",
+            payload={"summary": summary, "sources": sources},
+            allow_roles=["financial_advisor", "otterdesk_chat"],
+            source_refs=[source["url"] for source in sources if source.get("url")],
+            validation={"review_only": True, "private_document_text_used_in_queries": False},
+        )
+        add_item(stub, run_id, focus_id, "Fact", "validated", BLUEPRINT_ID, content, confidence=0.8)
+        compiled = compile_context(
+            stub,
+            run_id,
+            "financial_advisor",
+            focus_id,
+            token_budget=int(research_config.get("token_budget") or conversation.get("token_budget") or 6000),
+            target_tokens=int(research_config.get("target_tokens") or conversation.get("target_tokens") or 2400),
+            objective="Summarize public financial guidance for a review-only household finance report.",
+            current_subtask="Use source-grounded public research without exposing private customer document text.",
+            use_model_compression=True,
+        )
+        state = compile_context_state(compiled)
+        state["enabled"] = True
+        state["use_model_compression"] = True
+        return state
+    except Exception as exc:  # pragma: no cover - depends on optional runtime service
+        return {"enabled": False, "use_model_compression": True, "warning": str(exc)}
+
+
+def build_final_artifact(
+    records: list[dict[str, Any]],
+    watch_state: dict[str, Any],
+    run_id: str,
+    research: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    document_summary = build_document_summary(records)
+    financial_snapshot, income_summary, expense_summary = build_financial_sections(records)
+    risks = build_risk_register(records, document_summary, income_summary, expense_summary)
+    recommendations = build_advisor_recommendations(risks, records)
+    reminders = build_reminders(records, risks)
+    research = research or {
+        "research_summary": "No browser research was run for this cycle.",
+        "research_sources": [],
+        "research_warnings": [],
+        "research_queries": [],
+        "context_compression": {"enabled": False, "reason": "not requested"},
+    }
+    blocker_count = sum(1 for risk in risks if risk.get("blocker"))
+    status = "waiting_for_documents" if not records else ("needs_review" if blocker_count else "review_ready")
+    confidence = 0.35 if not records else (0.62 if document_summary["ocr_required"] else 0.78)
+    final_artifact = {
+        "type": OUTPUT_TYPE,
+        "title": "Personal Financial Advisor Report",
+        "status": status,
+        "executive_summary": (
+            f"{BLUEPRINT_NAME} processed {len(records)} finance document record(s), "
+            f"estimated detected income at {income_summary['total_detected']} and detected expenses at {expense_summary['total_detected']}, "
+            "and prepared a review-only household finance report."
+        ),
+        "advisor_message": _advisor_message(status, risks, financial_snapshot),
+        "recommended_action": RECOMMENDED_ACTION,
+        "confidence": confidence,
+        "evidence": summarize_records(records),
+        "document_summary": document_summary,
+        "financial_snapshot": financial_snapshot,
+        "income_summary": income_summary,
+        "expense_summary": expense_summary,
+        "risk_register": risks,
+        "advisor_recommendations": recommendations,
+        "reminders": reminders,
+        "research_summary": research.get("research_summary", ""),
+        "research_sources": research.get("research_sources", []),
+        "research_warnings": research.get("research_warnings", []),
+        "research_queries": research.get("research_queries", []),
+        "context_compression": research.get("context_compression", {}),
+        "next_steps": [item["action"] for item in recommendations[:5] if item.get("action")],
+        "source_refs": ["inputs.json", "events.jsonl", "result.json", "final_artifact.json"],
+        "dataset_input": DATASET_INPUT,
+        "field_profile": FIELD_PROFILE,
+        "watch_state": watch_state,
+        "review_only": True,
+        "human_review_required": True,
+        "safety_boundary": [
+            "Does not move money.",
+            "Does not pay bills.",
+            "Does not place trades.",
+            "Does not file taxes.",
+            "Does not sync accounting or banking systems.",
+            "Does not share reports without human approval.",
+        ],
+        "run_id": run_id,
+        "generated_at": utc_now_iso(),
+    }
+    return final_artifact
+
+
+def _advisor_message(status: str, risks: list[dict[str, Any]], snapshot: dict[str, Any]) -> str:
+    if status == "waiting_for_documents":
+        return (
+            "I am ready to watch the folder, but I did not find usable finance documents yet. "
+            "Add income records, statements, receipts, bills, or CSV exports and rerun the scan."
+        )
+    risk_sentence = "No blocker was detected." if not any(risk.get("blocker") for risk in risks) else "There are blocker items to review first."
+    return (
+        "I took a first pass through the folder and prepared a source-grounded household finance snapshot. "
+        f"Detected net cash flow is {snapshot['detected_net_cash_flow']}. {risk_sentence} "
+        "Treat this as a review packet, not final financial advice."
+    )
+
+
+def write_output_folder_artifacts(
+    final_artifact: dict[str, Any],
+    output_folder: Path,
+    run_id: str,
+    cycle: int,
+) -> list[dict[str, str]]:
+    output_folder.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    stem = _safe_filename(f"{run_id}-cycle-{cycle}-{timestamp}")
+    json_path = output_folder / f"{stem}-final-artifact.json"
+    markdown_path = output_folder / f"{stem}-report.md"
+    output_files = [
+        {"kind": "final_artifact_json", "path": str(json_path)},
+        {"kind": "report_markdown", "path": str(markdown_path)},
+    ]
+    final_artifact["output_files"] = output_files
+    write_json(json_path, final_artifact)
+    markdown_path.write_text(render_markdown_report(final_artifact), encoding="utf-8")
+    return output_files
+
+
+def render_markdown_report(final_artifact: dict[str, Any]) -> str:
+    snapshot = final_artifact.get("financial_snapshot") if isinstance(final_artifact.get("financial_snapshot"), dict) else {}
+    doc_summary = final_artifact.get("document_summary") if isinstance(final_artifact.get("document_summary"), dict) else {}
+    income = final_artifact.get("income_summary") if isinstance(final_artifact.get("income_summary"), dict) else {}
+    expenses = final_artifact.get("expense_summary") if isinstance(final_artifact.get("expense_summary"), dict) else {}
+    watch = final_artifact.get("watch_state") if isinstance(final_artifact.get("watch_state"), dict) else {}
+    lines = [
+        "# Personal Financial Advisor Report",
+        "",
+        f"**Status:** {final_artifact.get('status', 'needs_review')}",
+        "",
+        str(final_artifact.get("advisor_message") or ""),
+        "",
+        "## Cash-Flow Snapshot",
+        "",
+        f"- Detected income: {snapshot.get('detected_income_total', '$0.00')}",
+        f"- Detected expenses: {snapshot.get('detected_expense_total', '$0.00')}",
+        f"- Detected net cash flow: {snapshot.get('detected_net_cash_flow', '$0.00')}",
+        f"- Savings rate estimate: {snapshot.get('savings_rate_estimate_pct', 'n/a')}",
+        "",
+        "## Document Status",
+        "",
+        f"- Documents processed: {doc_summary.get('document_count', 0)}",
+        f"- OCR/image review required: {len(doc_summary.get('ocr_required') or [])}",
+        f"- Watch mode: {watch.get('mode', 'one_shot')}",
+        f"- New or changed files: {len(watch.get('new_or_changed_files') or [])}",
+        "",
+        "## Income Sources",
+        "",
+    ]
+    lines.extend(_markdown_table(["Source", "Amount", "Evidence"], _amount_rows(income.get("entries"))))
+    lines.extend(["", "## Expenses And Bills", ""])
+    lines.extend(_markdown_table(["Source", "Amount", "Evidence"], _amount_rows(expenses.get("entries"))))
+    lines.extend(["", "## Risk Reminders", ""])
+    lines.extend(
+        _markdown_table(
+            ["Severity", "Category", "Finding", "Advice"],
+            [
+                [risk.get("severity", ""), risk.get("category", ""), risk.get("finding", ""), risk.get("advice", "")]
+                for risk in final_artifact.get("risk_register", [])
+                if isinstance(risk, dict)
+            ],
+        )
+    )
+    lines.extend(["", "## Research Context", ""])
+    lines.append(str(final_artifact.get("research_summary") or "No public web research was collected."))
+    lines.extend(["", "### Research Sources", ""])
+    lines.extend(
+        _markdown_table(
+            ["Source", "Query", "Snippet"],
+            [
+                [
+                    source.get("title") or source.get("url", ""),
+                    source.get("query", ""),
+                    f"{source.get('url', '')}<br>{source.get('snippet', '')}",
+                ]
+                for source in final_artifact.get("research_sources", [])
+                if isinstance(source, dict)
+            ],
+        )
+    )
+    if final_artifact.get("research_warnings"):
+        lines.extend(["", "### Research Warnings", ""])
+        for warning in final_artifact.get("research_warnings", []):
+            lines.append(f"- {warning}")
+    lines.extend(["", "## Advisor Recommendations", ""])
+    for item in final_artifact.get("advisor_recommendations", []):
+        if isinstance(item, dict):
+            lines.append(f"- P{item.get('priority')}: {item.get('action')} ({item.get('reason')})")
+    lines.extend(["", "## Reminders", ""])
+    for reminder in final_artifact.get("reminders", []):
+        if isinstance(reminder, dict):
+            lines.append(f"- **{reminder.get('kind', 'review')}:** {reminder.get('reminder', '')} Action: {reminder.get('action', '')}")
+    lines.extend(
+        [
+            "",
+            "## Source Evidence",
+            "",
+        ]
+    )
+    lines.extend(
+        _markdown_table(
+            ["Source", "Type", "Method", "Preview"],
+            [
+                [
+                    evidence.get("source", ""),
+                    evidence.get("document_type", ""),
+                    evidence.get("extraction_method", ""),
+                    evidence.get("text_preview", ""),
+                ]
+                for evidence in final_artifact.get("evidence", [])
+                if isinstance(evidence, dict)
+            ],
+        )
+    )
+    lines.extend(["", "This is a review-only report. Do not use it to move money, pay bills, place trades, file taxes, or share financial information without human approval.", ""])
+    return "\n".join(lines)
+
+
+def _amount_rows(entries: Any) -> list[list[Any]]:
+    rows = []
+    for entry in entries or []:
+        if isinstance(entry, dict):
+            rows.append([entry.get("source", ""), entry.get("display_amount", ""), entry.get("line_preview", "")])
+    return rows
+
+
+def _markdown_table(headers: list[str], rows: list[list[Any]]) -> list[str]:
+    if not rows:
+        rows = [["None" for _ in headers]]
+    lines = [
+        "| " + " | ".join(_markdown_cell(header) for header in headers) + " |",
+        "| " + " | ".join("---" for _ in headers) + " |",
+    ]
+    for row in rows:
+        padded = [*row, *[""] * (len(headers) - len(row))]
+        lines.append("| " + " | ".join(_markdown_cell(cell) for cell in padded[: len(headers)]) + " |")
+    return lines
+
+
+def _markdown_cell(value: Any) -> str:
+    return str(value or "").replace("|", "\\|").replace("\n", "<br>")
+
+
+def _safe_filename(value: str) -> str:
+    safe = re.sub(r"[^A-Za-z0-9._-]+", "-", value).strip(".-")
+    return safe or "personal_financial_advisor-report"
+
+
+def resolve_runtime_inputs(resolved_config: dict[str, Any], inputs: dict[str, Any] | None) -> dict[str, Any]:
+    payload = dict((resolved_config.get("inputs") or {}).get("payload") or {})
+    if inputs:
+        payload = deep_merge(payload, inputs)
+    return payload
+
+
+def resolve_monitoring(resolved_config: dict[str, Any], payload: dict[str, Any]) -> dict[str, Any]:
+    monitoring = dict(resolved_config.get("monitoring") or {})
+    payload_monitoring = payload.get("monitoring")
+    if isinstance(payload_monitoring, dict):
+        monitoring = deep_merge(monitoring, payload_monitoring)
+    if "watch" in payload:
+        monitoring["enabled"] = bool(payload.get("watch"))
+    monitoring["enabled"] = bool(monitoring.get("enabled"))
+    monitoring["poll_interval_seconds"] = max(1, int(monitoring.get("poll_interval_seconds") or 60))
+    max_cycles = monitoring.get("max_cycles")
+    monitoring["max_cycles"] = int(max_cycles) if str(max_cycles).strip().isdigit() else None
+    return monitoring
+
+
+def resolve_document_folder(payload: dict[str, Any], blueprint_dir: Path) -> Path:
+    configured = str(payload.get("document_folder") or "").strip()
+    if configured:
+        return Path(configured).expanduser()
+    return blueprint_dir / "examples" / "sample_inputs"
+
+
+def _runtime_json_from_env(*env_names: str) -> dict[str, Any]:
+    for env_name in env_names:
+        raw_path = os.environ.get(env_name)
+        if not raw_path:
+            continue
+        path = Path(raw_path)
+        if not path.exists():
+            continue
+        try:
+            decoded = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if isinstance(decoded, dict):
+            return decoded
+    return {}
+
+
+def _runtime_message_envelope() -> dict[str, Any]:
+    return _runtime_json_from_env("MN_MESSAGE_FILE", "MIRROR_NEURON_MESSAGE_FILE")
+
+
+def _runtime_context_payload() -> dict[str, Any]:
+    return _runtime_json_from_env("MN_CONTEXT_FILE", "MIRROR_NEURON_CONTEXT_FILE")
+
+
+def _runtime_message_payload() -> dict[str, Any]:
+    payload = _find_advisor_payload(_runtime_message_envelope())
+    return payload if payload else {}
+
+
+def _find_advisor_payload(value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        return {}
+    if any(key in value for key in ADVISOR_INPUT_KEYS):
+        return {key: value[key] for key in ADVISOR_INPUT_KEYS if key in value}
+    for key in ("payload", "input", "body", "data", "message", "content", "outputs"):
+        payload = _find_advisor_payload(value.get(key))
+        if payload:
+            return payload
+    return {}
+
+
+def _runtime_graph_step_id() -> str:
+    context = _runtime_context_payload()
+    message = _runtime_message_envelope()
+    candidates = [
+        os.environ.get("MN_WORKFLOW_STEP_ID", ""),
+        os.environ.get("MN_AGENT_ID", ""),
+        os.environ.get("MN_NODE_ID", ""),
+        os.environ.get("MIRROR_NEURON_AGENT_ID", ""),
+        os.environ.get("MIRROR_NEURON_NODE_ID", ""),
+        str(context.get("workflow_step_id") or ""),
+        str(context.get("agent_id") or ""),
+        str(context.get("node_id") or ""),
+        str(message.get("to") or ""),
+    ]
+    for candidate in candidates:
+        step_id = candidate.strip()
+        if step_id in RUNTIME_GRAPH_STEP_IDS:
+            return step_id
+    return ""
+
+
+def _workflow_state_path(run_dir: Path) -> Path:
+    return run_dir / "workflow_state.json"
+
+
+def _load_workflow_state(run_dir: Path) -> dict[str, Any]:
+    return read_json(_workflow_state_path(run_dir))
+
+
+def _save_workflow_state(run_dir: Path, state: dict[str, Any]) -> None:
+    state["updated_at"] = utc_now_iso()
+    write_json(_workflow_state_path(run_dir), state)
+
+
+def _runtime_step_result(
+    step_id: str,
+    run_id: str,
+    output_message_type: str,
+    outputs: dict[str, Any],
+    *,
+    status: str = "completed",
+    summary: str | None = None,
+) -> dict[str, Any]:
+    now = utc_now_iso()
+    return {
+        "schema": "mn.workflow.step_result.v1",
+        "agent_id": step_id,
+        "workflow_step_id": step_id,
+        "blueprint": BLUEPRINT_ID,
+        "status": status,
+        "output_message_type": output_message_type,
+        "summary": summary or f"{step_id.replace('_', ' ').title()} completed.",
+        "run": {
+            "run_id": run_id,
+            "started_at": now,
+            "ended_at": now,
+            "status": status,
+        },
+        "outputs": outputs,
+    }
+
+
+def _watch_state_for_step(document_folder: Path, monitoring: dict[str, Any], cycle: int = 1) -> dict[str, Any]:
+    fingerprints = {str(path): fingerprint_file(path) for path in iter_financial_files(document_folder)}
+    return {
+        "mode": "watch" if monitoring.get("enabled") else "one_shot",
+        "cycles_completed": cycle,
+        "processed_files": list(fingerprints.values()),
+        "new_or_changed_files": list(fingerprints.values()),
+        "poll_interval_seconds": monitoring.get("poll_interval_seconds") if monitoring.get("enabled") else None,
+        "last_scan_at": utc_now_iso(),
+    }
+
+
+def _state_records(state: dict[str, Any]) -> list[dict[str, Any]]:
+    records = state.get("records")
+    return records if isinstance(records, list) else []
+
+
+def _classification_from_records(records: list[dict[str, Any]]) -> dict[str, Any]:
+    document_summary = build_document_summary(records)
+    financial_snapshot, income_summary, expense_summary = build_financial_sections(records)
+    return {
+        "document_summary": document_summary,
+        "financial_snapshot": financial_snapshot,
+        "income_summary": income_summary,
+        "expense_summary": expense_summary,
+    }
+
+
+def _assessment_from_state(state: dict[str, Any]) -> dict[str, Any]:
+    records = _state_records(state)
+    document_summary = state.get("document_summary") if isinstance(state.get("document_summary"), dict) else None
+    income_summary = state.get("income_summary") if isinstance(state.get("income_summary"), dict) else None
+    expense_summary = state.get("expense_summary") if isinstance(state.get("expense_summary"), dict) else None
+    if not all([document_summary, income_summary, expense_summary]):
+        sections = _classification_from_records(records)
+        document_summary = sections["document_summary"]
+        income_summary = sections["income_summary"]
+        expense_summary = sections["expense_summary"]
+    risks = build_risk_register(records, document_summary, income_summary, expense_summary)
+    return {
+        "risk_register": risks,
+        "advisor_recommendations": build_advisor_recommendations(risks, records),
+        "reminders": build_reminders(records, risks),
+    }
+
+
+def run_runtime_step(
+    step_id: str,
+    inputs: dict[str, Any] | None = None,
+    config: dict[str, Any] | None = None,
+    runs_root: str | Path | None = None,
+    run_id: str | None = None,
+) -> dict[str, Any]:
+    if step_id not in RUNTIME_GRAPH_STEP_IDS:
+        raise ValueError(f"Unknown workflow step: {step_id}")
+
+    blueprint_dir = Path(__file__).resolve().parents[3]
+    resolved_config = read_json(blueprint_dir / "config" / "default.json")
+    if config:
+        resolved_config = deep_merge(resolved_config, config)
+    runtime_inputs = deep_merge(_runtime_message_payload(), inputs or {})
+    payload = resolve_runtime_inputs(resolved_config, runtime_inputs)
+    monitoring = resolve_monitoring(resolved_config, payload)
+    run_id = run_id or payload.get("run_id") or os.environ.get("MN_RUN_ID") or f"{BLUEPRINT_ID}-{uuid.uuid4().hex[:8]}"
+    output_folder = Path(
+        payload.get("output_folder")
+        or (resolved_config.get("outputs") or {}).get("folder_path")
+        or f"~/Download/{BLUEPRINT_ID}"
+    ).expanduser()
+    runs_root_path = Path(runs_root).expanduser() if runs_root else output_folder / "runs"
+    run_dir = runs_root_path / run_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+    document_folder = resolve_document_folder(payload, blueprint_dir)
+    state = _load_workflow_state(run_dir)
+    state.update(
+        {
+            "blueprint_id": BLUEPRINT_ID,
+            "run_id": run_id,
+            "document_folder": str(document_folder),
+            "output_folder": str(output_folder),
+            "monitoring": monitoring,
+        }
+    )
+    write_json(
+        run_dir / "inputs.json",
+        {
+            "payload": payload,
+            "document_folder": str(document_folder),
+            "output_folder": str(output_folder),
+            "monitoring": monitoring,
+            "dataset_input": DATASET_INPUT,
+        },
+    )
+    append_event(run_dir, "runtime_step_started", {"step_id": step_id, "component": BLUEPRINT_ID})
+
+    if step_id == "watch_financial_folder":
+        watch_state = _watch_state_for_step(document_folder, monitoring)
+        state["watch_state"] = watch_state
+        write_json(run_dir / str(monitoring.get("processed_state_file") or "watch_state.json"), watch_state)
+        append_event(
+            run_dir,
+            "financial_folder_watched",
+            {
+                "document_folder": str(document_folder),
+                "file_count": len(watch_state.get("processed_files") or []),
+                "changed_file_count": len(watch_state.get("new_or_changed_files") or []),
+                "cycle": watch_state.get("cycles_completed", 1),
+            },
+        )
+        outputs = {"watch_state": watch_state, "document_folder": str(document_folder), "output_folder": str(output_folder)}
+    elif step_id == "extract_financial_documents":
+        records = extract_records(document_folder, resolved_config)
+        state["records"] = records
+        write_json(run_dir / "financial_records.json", records)
+        append_event(run_dir, "financial_documents_extracted", {"record_count": len(records), "cycle": 1})
+        outputs = {
+            "record_count": len(records),
+            "records_path": str(run_dir / "financial_records.json"),
+            "ocr_metadata_present": all("ocr_required" in item and "extraction_method" in item for item in records),
+        }
+    elif step_id == "classify_financial_activity":
+        records = _state_records(state)
+        sections = _classification_from_records(records)
+        state.update(sections)
+        append_event(
+            run_dir,
+            "financial_activity_classified",
+            {"document_types": sections["document_summary"]["document_types"], "cycle": 1},
+        )
+        outputs = sections
+    elif step_id == "assess_financial_health":
+        assessment = _assessment_from_state(state)
+        state.update(assessment)
+        append_event(
+            run_dir,
+            "financial_health_assessed",
+            {
+                "risk_count": len(assessment["risk_register"]),
+                "cycle": 1,
+            },
+        )
+        outputs = assessment
+    elif step_id == "research_financial_context":
+        records = _state_records(state)
+        if not isinstance(state.get("document_summary"), dict):
+            state.update(_classification_from_records(records))
+        if not isinstance(state.get("risk_register"), list):
+            state.update(_assessment_from_state(state))
+        research = research_financial_context(
+            state.get("risk_register") if isinstance(state.get("risk_register"), list) else [],
+            state.get("document_summary") if isinstance(state.get("document_summary"), dict) else build_document_summary(records),
+            resolved_config,
+            run_id,
+        )
+        state["research"] = research
+        write_json(run_dir / "research.json", research)
+        append_event(
+            run_dir,
+            "financial_context_researched",
+            {
+                "source_count": len(research.get("research_sources") or []),
+                "warning_count": len(research.get("research_warnings") or []),
+                "cycle": 1,
+            },
+        )
+        outputs = research
+    else:
+        records = _state_records(state)
+        watch_state = state.get("watch_state") if isinstance(state.get("watch_state"), dict) else _watch_state_for_step(document_folder, monitoring)
+        research = state.get("research") if isinstance(state.get("research"), dict) else None
+        final_artifact = build_final_artifact(records, watch_state, run_id, research=research)
+        append_event(
+            run_dir,
+            "human_input_requested",
+            {"mode": "approval_required", "reason": "Review advisor report before any financial action.", "cycle": 1},
+        )
+        output_files = write_output_folder_artifacts(final_artifact, output_folder, run_id, cycle=1)
+        result = {
+            "run_id": run_id,
+            "blueprint_id": BLUEPRINT_ID,
+            "status": "completed",
+            "cycle": 1,
+            "records": records,
+            "final_artifact": final_artifact,
+            "output_files": output_files,
+        }
+        write_json(run_dir / "result.json", result)
+        write_json(run_dir / "final_artifact.json", final_artifact)
+        append_event(run_dir, "advisor_report_written", {"output_files": output_files, "cycle": 1})
+        outputs = {"final_artifact": final_artifact, "output_files": output_files}
+
+    _save_workflow_state(run_dir, state)
+    append_event(run_dir, "runtime_step_completed", {"step_id": step_id, "component": BLUEPRINT_ID})
+    return _runtime_step_result(
+        step_id,
+        run_id,
+        OUTPUT_MESSAGE_BY_STEP[step_id],
+        outputs,
+        summary=f"{step_id.replace('_', ' ').title()} completed in runtime step mode.",
+    )
+
+
+def run_blueprint(
+    inputs: dict[str, Any] | None = None,
+    config: dict[str, Any] | None = None,
+    runs_root: str | Path | None = None,
+    run_id: str | None = None,
+) -> dict[str, Any]:
+    start_agent_beacon_thread(f"{BLUEPRINT_NAME} is running")
+    blueprint_dir = Path(__file__).resolve().parents[3]
+    resolved_config = read_json(blueprint_dir / "config" / "default.json")
+    if config:
+        resolved_config = deep_merge(resolved_config, config)
+    runtime_inputs = deep_merge(_runtime_message_payload(), inputs or {})
+    payload = resolve_runtime_inputs(resolved_config, runtime_inputs)
+    monitoring = resolve_monitoring(resolved_config, payload)
+    run_id = run_id or payload.get("run_id") or f"{BLUEPRINT_ID}-{uuid.uuid4().hex[:8]}"
+    output_folder = Path(
+        payload.get("output_folder")
+        or (resolved_config.get("outputs") or {}).get("folder_path")
+        or f"~/Download/{BLUEPRINT_ID}"
+    ).expanduser()
+    runs_root_path = Path(runs_root).expanduser() if runs_root else output_folder / "runs"
+    run_dir = runs_root_path / run_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+    document_folder = resolve_document_folder(payload, blueprint_dir)
+
+    workflow_step_id = _runtime_graph_step_id()
+    if workflow_step_id:
+        return run_runtime_step(
+            workflow_step_id,
+            inputs=payload,
+            config=resolved_config,
+            runs_root=runs_root_path,
+            run_id=run_id,
+        )
+
+    write_json(run_dir / "config.json", resolved_config)
+    write_json(
+        run_dir / "inputs.json",
+        {
+            "payload": payload,
+            "document_folder": str(document_folder),
+            "output_folder": str(output_folder),
+            "monitoring": monitoring,
+            "dataset_input": DATASET_INPUT,
+        },
+    )
+    write_json(
+        run_dir / "run.json",
+        {"run_id": run_id, "blueprint_id": BLUEPRINT_ID, "status": "running", "started_at": utc_now_iso()},
+    )
+
+    if monitoring["enabled"]:
+        result = run_watch_loop(document_folder, output_folder, resolved_config, run_dir, run_id, monitoring)
+    else:
+        fingerprints = {str(path): fingerprint_file(path) for path in iter_financial_files(document_folder)}
+        watch_state = {
+            "mode": "one_shot",
+            "cycles_completed": 1,
+            "processed_files": list(fingerprints.values()),
+            "new_or_changed_files": list(fingerprints.values()),
+            "poll_interval_seconds": None,
+            "last_scan_at": utc_now_iso(),
+        }
+        result = run_scan_cycle(document_folder, output_folder, resolved_config, run_dir, run_id, watch_state, cycle=1)
+
+    write_json(
+        run_dir / "run.json",
+        {"run_id": run_id, "blueprint_id": BLUEPRINT_ID, "status": "completed", "completed_at": utc_now_iso()},
+    )
+    return result
+
+
+def run_watch_loop(
+    document_folder: Path,
+    output_folder: Path,
+    config: dict[str, Any],
+    run_dir: Path,
+    run_id: str,
+    monitoring: dict[str, Any],
+) -> dict[str, Any]:
+    processed: dict[str, dict[str, Any]] = {}
+    final_result: dict[str, Any] | None = None
+    cycle = 0
+    max_cycles = monitoring.get("max_cycles")
+    while True:
+        cycle += 1
+        append_event(run_dir, "watch_cycle_started", {"cycle": cycle, "component": BLUEPRINT_ID})
+        current = {str(path): fingerprint_file(path) for path in iter_financial_files(document_folder)}
+        changed = [
+            fingerprint
+            for key, fingerprint in current.items()
+            if processed.get(key, {}).get("sha256") != fingerprint.get("sha256")
+            or processed.get(key, {}).get("mtime_ns") != fingerprint.get("mtime_ns")
+        ]
+        processed = current
+        watch_state = {
+            "mode": "watch",
+            "cycles_completed": cycle,
+            "processed_files": list(processed.values()),
+            "new_or_changed_files": changed,
+            "poll_interval_seconds": monitoring["poll_interval_seconds"],
+            "last_scan_at": utc_now_iso(),
+        }
+        write_json(run_dir / str(monitoring.get("processed_state_file") or "watch_state.json"), watch_state)
+        final_result = run_scan_cycle(document_folder, output_folder, config, run_dir, run_id, watch_state, cycle=cycle)
+        append_event(
+            run_dir,
+            "watch_cycle_completed",
+            {"cycle": cycle, "changed_files": len(changed), "component": BLUEPRINT_ID},
+        )
+        if max_cycles is not None and cycle >= max_cycles:
+            break
+        time.sleep(monitoring["poll_interval_seconds"])
+    return final_result or {}
+
+
+def run_scan_cycle(
+    document_folder: Path,
+    output_folder: Path,
+    config: dict[str, Any],
+    run_dir: Path,
+    run_id: str,
+    watch_state: dict[str, Any],
+    cycle: int,
+) -> dict[str, Any]:
+    append_event(run_dir, "blueprint_phase_started", {"phase": "loading_inputs", "component": BLUEPRINT_ID, "cycle": cycle})
+    append_event(
+        run_dir,
+        "financial_folder_watched",
+        {
+            "document_folder": str(document_folder),
+            "file_count": len(watch_state.get("processed_files") or []),
+            "changed_file_count": len(watch_state.get("new_or_changed_files") or []),
+            "cycle": cycle,
+        },
+    )
+    append_event(run_dir, "blueprint_phase_completed", {"phase": "loading_inputs", "component": BLUEPRINT_ID, "cycle": cycle})
+    append_event(run_dir, "blueprint_phase_started", {"phase": "running_worker", "component": BLUEPRINT_ID, "cycle": cycle})
+
+    records = extract_records(document_folder, config)
+    append_event(run_dir, "financial_documents_extracted", {"record_count": len(records), "cycle": cycle})
+    document_summary = build_document_summary(records)
+    append_event(run_dir, "financial_activity_classified", {"document_types": document_summary["document_types"], "cycle": cycle})
+
+    final_artifact = build_final_artifact(records, watch_state, run_id)
+    append_event(
+        run_dir,
+        "financial_health_assessed",
+        {
+            "status": final_artifact["status"],
+            "risk_count": len(final_artifact["risk_register"]),
+            "cycle": cycle,
+        },
+    )
+    research = research_financial_context(
+        final_artifact["risk_register"],
+        final_artifact["document_summary"],
+        config,
+        run_id,
+    )
+    append_event(
+        run_dir,
+        "financial_context_researched",
+        {
+            "source_count": len(research.get("research_sources") or []),
+            "warning_count": len(research.get("research_warnings") or []),
+            "cycle": cycle,
+        },
+    )
+    final_artifact = build_final_artifact(records, watch_state, run_id, research=research)
+    append_event(run_dir, "blueprint_phase_completed", {"phase": "running_worker", "component": BLUEPRINT_ID, "cycle": cycle})
+    append_event(
+        run_dir,
+        "human_input_requested",
+        {"mode": "approval_required", "reason": "Review advisor report before any financial action.", "cycle": cycle},
+    )
+    append_event(run_dir, "blueprint_phase_started", {"phase": "writing_artifacts", "component": BLUEPRINT_ID, "cycle": cycle})
+    output_files = write_output_folder_artifacts(final_artifact, output_folder, run_id, cycle)
+    result = {
+        "run_id": run_id,
+        "blueprint_id": BLUEPRINT_ID,
+        "status": "completed",
+        "cycle": cycle,
+        "records": records,
+        "final_artifact": final_artifact,
+        "output_files": output_files,
+    }
+    write_json(run_dir / "result.json", result)
+    write_json(run_dir / "final_artifact.json", final_artifact)
+    append_event(run_dir, "artifact_written", {"path": "result.json", "cycle": cycle})
+    append_event(run_dir, "artifact_written", {"path": "final_artifact.json", "cycle": cycle})
+    for item in output_files:
+        append_event(run_dir, "artifact_written", {"path": item["path"], "cycle": cycle})
+    append_event(run_dir, "advisor_report_written", {"output_files": output_files, "cycle": cycle})
+    append_event(run_dir, "blueprint_phase_completed", {"phase": "writing_artifacts", "component": BLUEPRINT_ID, "cycle": cycle})
+    append_event(run_dir, "blueprint_phase_completed", {"phase": "completed", "component": BLUEPRINT_ID, "cycle": cycle})
+    return result
+
+
+def main() -> None:
+    start_agent_beacon_thread(f"{BLUEPRINT_NAME} is running")
+    parser = argparse.ArgumentParser(description=BLUEPRINT_NAME)
+    parser.add_argument("--input-folder", default="")
+    parser.add_argument("--output-folder", default="")
+    parser.add_argument("--runs-root", default="")
+    parser.add_argument("--run-id", default="")
+    parser.add_argument("--watch", action="store_true")
+    parser.add_argument("--once", action="store_true")
+    parser.add_argument("--poll-interval", type=int, default=60)
+    parser.add_argument("--max-cycles", type=int, default=0)
+    parser.add_argument("--no-run-store", action="store_true", help=argparse.SUPPRESS)
+    args = parser.parse_args()
+    inputs: dict[str, Any] = {}
+    if args.input_folder:
+        inputs["document_folder"] = args.input_folder
+    if args.output_folder:
+        inputs["output_folder"] = args.output_folder
+    if args.once:
+        inputs["monitoring"] = {"enabled": False}
+    elif args.watch or args.max_cycles:
+        inputs["monitoring"] = {"enabled": True, "poll_interval_seconds": args.poll_interval}
+        if args.max_cycles:
+            inputs["monitoring"]["max_cycles"] = args.max_cycles
+    runs_root = args.runs_root or None
+    if args.no_run_store and not runs_root:
+        runs_root = os.environ.get("TMPDIR", "/tmp")
+    result = run_blueprint(inputs=inputs, runs_root=runs_root, run_id=args.run_id or None)
+    if result.get("schema") == "mn.workflow.step_result.v1":
+        print(json.dumps(result, indent=2))
+    else:
+        print(json.dumps({"run_id": result["run_id"], "status": result["status"], "final_artifact": result["final_artifact"]}, indent=2))
+
+
+if __name__ == "__main__":
+    main()
