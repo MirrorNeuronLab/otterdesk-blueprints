@@ -6,7 +6,7 @@ if ! command -v ffmpeg >/dev/null 2>&1; then
   exit 2
 fi
 
-python3 - <<'PY' >&2
+/usr/bin/python3 - <<'PY' >&2
 import cv2
 
 print(f"OpenCV {cv2.__version__} available in detector DockerWorker image")
@@ -14,4 +14,4 @@ PY
 
 export FFMPEG_BINARY="${FFMPEG_BINARY:-$(command -v ffmpeg)}"
 
-exec python3 scripts/analyze_video_frame.py
+exec /usr/bin/python3 scripts/analyze_video_frame.py
