@@ -67,5 +67,5 @@ manifest structure, payload behavior, or shared fixtures:
 
 ```bash
 cd ..
-python3 -m pytest -q
+.venv/bin/python -m pytest -q
 ```

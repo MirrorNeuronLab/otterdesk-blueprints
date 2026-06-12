@@ -546,7 +546,7 @@
           "upload_as": "simulation_loop",
           "workdir": "/sandbox/job/simulation_loop",
           "command": [
-            "python3",
+            "python3.11",
             "scripts/run_blueprint.py"
           ],
           "from": "base",
@@ -576,7 +576,7 @@
           "upload_as": "simulation_loop",
           "workdir": "/sandbox/job/simulation_loop",
           "command": [
-            "python3",
+            "python3.11",
             "scripts/run_blueprint.py"
           ],
           "from": "base",
@@ -606,7 +606,7 @@
           "upload_as": "simulation_loop",
           "workdir": "/sandbox/job/simulation_loop",
           "command": [
-            "python3",
+            "python3.11",
             "scripts/run_blueprint.py"
           ],
           "from": "base",
@@ -636,7 +636,7 @@
           "upload_as": "simulation_loop",
           "workdir": "/sandbox/job/simulation_loop",
           "command": [
-            "python3",
+            "python3.11",
             "scripts/run_blueprint.py"
           ],
           "from": "base",
@@ -1019,7 +1019,7 @@
               "upload_as": "simulation_loop",
               "workdir": "/sandbox/job/simulation_loop",
               "command": [
-                "python3",
+                "python3.11",
                 "scripts/run_blueprint.py"
               ],
               "from": "base",
@@ -1063,7 +1063,7 @@
               "upload_as": "simulation_loop",
               "workdir": "/sandbox/job/simulation_loop",
               "command": [
-                "python3",
+                "python3.11",
                 "scripts/run_blueprint.py"
               ],
               "from": "base",
@@ -1107,7 +1107,7 @@
               "upload_as": "simulation_loop",
               "workdir": "/sandbox/job/simulation_loop",
               "command": [
-                "python3",
+                "python3.11",
                 "scripts/run_blueprint.py"
               ],
               "from": "base",
@@ -1151,7 +1151,7 @@
               "upload_as": "simulation_loop",
               "workdir": "/sandbox/job/simulation_loop",
               "command": [
-                "python3",
+                "python3.11",
                 "scripts/run_blueprint.py"
               ],
               "from": "base",
@@ -1765,7 +1765,7 @@
     },
     "problem_solved": "Property deal review depends on older broker, lender, rent, insurance, and diligence details that are easy to lose in noisy pipelines.",
     "quick_test": {
-      "command": "python3 payloads/simulation_loop/scripts/run_blueprint.py --mock-llm --steps 2",
+      "command": "python3.11 payloads/simulation_loop/scripts/run_blueprint.py --mock-llm --steps 2",
       "enabled": true
     },
     "runtime_features": [

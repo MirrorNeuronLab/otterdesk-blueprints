@@ -7,11 +7,12 @@ CONFIG_JSON="${MN_BLUEPRINT_CONFIG_JSON:-{}}"
 READY_FILE="${MN_PRE_LAUNCH_READY_FILE:-${RUN_DIR}/pre_launch.ready}"
 STATE_FILE="${MN_POST_LAUNCH_STATE_FILE:-${RUN_DIR}/post_launch_state.json}"
 BUNDLE_DIR="${MN_BLUEPRINT_BUNDLE_DIR:-$(pwd)}"
+PYTHON_BIN="${PYTHON_BIN:-python3.11}"
 
 mkdir -p "${RUN_DIR}/knowledge"
 
 eval "$(
-  CONFIG_JSON="${CONFIG_JSON}" python3 - <<'PY'
+  CONFIG_JSON="${CONFIG_JSON}" "${PYTHON_BIN}" - <<'PY'
 import json
 import os
 import shlex
@@ -54,7 +55,7 @@ printf "%s\n" "${KNOWLEDGE_TEXT}" > "${KNOWLEDGE_PATH}"
 append_event() {
   local event_type="$1"
   local payload="$2"
-  python3 - "${RUN_DIR}/events.jsonl" "${event_type}" "${payload}" <<'PY'
+  "${PYTHON_BIN}" - "${RUN_DIR}/events.jsonl" "${event_type}" "${payload}" <<'PY'
 import json
 import sys
 from datetime import datetime, timezone

@@ -67,7 +67,7 @@ handled by `mn model` and Docker Model Runner.
 ## Validation
 
 ```bash
-python3 -m pytest -q
+.venv/bin/python -m pytest -q
 ```
 
 Manual acceptance:

@@ -5,12 +5,13 @@ RUN_ID="${MN_RUN_ID:-customer-service-voice-dev}"
 RUN_DIR="${MN_RUN_DIR:-$HOME/.mn/runs/${RUN_ID}}"
 STATE_FILE="${MN_POST_LAUNCH_STATE_FILE:-${RUN_DIR}/post_launch_state.json}"
 CLEANUP_REASON="${MN_POST_LAUNCH_REASON:-unknown}"
+PYTHON_BIN="${PYTHON_BIN:-python3.11}"
 
 VOICE_URL=""
 HEALTH_URL=""
 if [[ -f "${STATE_FILE}" ]]; then
   eval "$(
-    STATE_FILE="${STATE_FILE}" python3 - <<'PY'
+    STATE_FILE="${STATE_FILE}" "${PYTHON_BIN}" - <<'PY'
 import json
 import os
 import shlex
@@ -31,7 +32,7 @@ mkdir -p "${RUN_DIR}/knowledge"
 append_event() {
   local event_type="$1"
   local payload="$2"
-  python3 - "${RUN_DIR}/events.jsonl" "${event_type}" "${payload}" <<'PY'
+  "${PYTHON_BIN}" - "${RUN_DIR}/events.jsonl" "${event_type}" "${payload}" <<'PY'
 import json
 import sys
 from datetime import datetime, timezone

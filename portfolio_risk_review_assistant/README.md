@@ -83,5 +83,5 @@ Run repository-level tests from `otterdesk-blueprints` after changing catalog
 metadata, manifest structure, payload behavior, or shared fixtures:
 
 ```bash
-python3 -m pytest -q
+.venv/bin/python -m pytest -q
 ```

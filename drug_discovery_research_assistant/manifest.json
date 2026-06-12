@@ -593,7 +593,7 @@
           "upload_as": "worker",
           "workdir": "/sandbox/job/worker",
           "command": [
-            "python3",
+            "python3.11",
             "scripts/manager.py"
           ],
           "from": "base",
@@ -623,7 +623,7 @@
           "upload_as": "worker",
           "workdir": "/sandbox/job/worker",
           "command": [
-            "python3",
+            "python3.11",
             "scripts/manager.py"
           ],
           "from": "base",
@@ -653,7 +653,7 @@
           "upload_as": "worker",
           "workdir": "/sandbox/job/worker",
           "command": [
-            "python3",
+            "python3.11",
             "scripts/manager.py"
           ],
           "from": "base",
@@ -683,7 +683,7 @@
           "upload_as": "worker",
           "workdir": "/sandbox/job/worker",
           "command": [
-            "python3",
+            "python3.11",
             "scripts/manager.py"
           ],
           "from": "base",
@@ -713,7 +713,7 @@
           "upload_as": "worker",
           "workdir": "/sandbox/job/worker",
           "command": [
-            "python3",
+            "python3.11",
             "scripts/manager.py"
           ],
           "from": "base",
@@ -743,7 +743,7 @@
           "upload_as": "worker",
           "workdir": "/sandbox/job/worker",
           "command": [
-            "python3",
+            "python3.11",
             "scripts/manager.py"
           ],
           "from": "base",
@@ -823,7 +823,7 @@
           "uses": "mn-agents.data_python_executor@1.0.0",
           "with": {
             "command": [
-              "python3",
+              "python3.11",
               "scripts/stage_d.py"
             ],
             "node_type": "generic",
@@ -848,7 +848,7 @@
             "uses": "mn-agents.data_python_executor@1.0.0",
             "with": {
               "command": [
-                "python3",
+                "python3.11",
                 "scripts/stage_d.py"
               ],
               "node_type": "generic",
@@ -881,7 +881,7 @@
           "uses": "mn-agents.data_python_executor@1.0.0",
           "with": {
             "command": [
-              "python3",
+              "python3.11",
               "scripts/stage_c.py"
             ],
             "node_type": "generic",
@@ -906,7 +906,7 @@
             "uses": "mn-agents.data_python_executor@1.0.0",
             "with": {
               "command": [
-                "python3",
+                "python3.11",
                 "scripts/stage_c.py"
               ],
               "node_type": "generic",
@@ -939,7 +939,7 @@
           "uses": "mn-agents.data_python_executor@1.0.0",
           "with": {
             "command": [
-              "python3",
+              "python3.11",
               "scripts/stage_e.py"
             ],
             "node_type": "generic",
@@ -964,7 +964,7 @@
             "uses": "mn-agents.data_python_executor@1.0.0",
             "with": {
               "command": [
-                "python3",
+                "python3.11",
                 "scripts/stage_e.py"
               ],
               "node_type": "generic",
@@ -997,7 +997,7 @@
           "uses": "mn-agents.data_python_executor@1.0.0",
           "with": {
             "command": [
-              "python3",
+              "python3.11",
               "scripts/stage_b.py"
             ],
             "node_type": "generic",
@@ -1022,7 +1022,7 @@
             "uses": "mn-agents.data_python_executor@1.0.0",
             "with": {
               "command": [
-                "python3",
+                "python3.11",
                 "scripts/stage_b.py"
               ],
               "node_type": "generic",
@@ -1055,7 +1055,7 @@
           "uses": "mn-agents.data_python_executor@1.0.0",
           "with": {
             "command": [
-              "python3",
+              "python3.11",
               "scripts/stage_a.py"
             ],
             "node_type": "generic",
@@ -1080,7 +1080,7 @@
             "uses": "mn-agents.data_python_executor@1.0.0",
             "with": {
               "command": [
-                "python3",
+                "python3.11",
                 "scripts/stage_a.py"
               ],
               "node_type": "generic",
@@ -1339,7 +1339,7 @@
               "upload_as": "worker",
               "workdir": "/sandbox/job/worker",
               "command": [
-                "python3",
+                "python3.11",
                 "scripts/manager.py"
               ],
               "from": "base",
@@ -1383,7 +1383,7 @@
               "upload_as": "worker",
               "workdir": "/sandbox/job/worker",
               "command": [
-                "python3",
+                "python3.11",
                 "scripts/manager.py"
               ],
               "from": "base",
@@ -1427,7 +1427,7 @@
               "upload_as": "worker",
               "workdir": "/sandbox/job/worker",
               "command": [
-                "python3",
+                "python3.11",
                 "scripts/manager.py"
               ],
               "from": "base",
@@ -1471,7 +1471,7 @@
               "upload_as": "worker",
               "workdir": "/sandbox/job/worker",
               "command": [
-                "python3",
+                "python3.11",
                 "scripts/manager.py"
               ],
               "from": "base",
@@ -1515,7 +1515,7 @@
               "upload_as": "worker",
               "workdir": "/sandbox/job/worker",
               "command": [
-                "python3",
+                "python3.11",
                 "scripts/manager.py"
               ],
               "from": "base",
@@ -1559,7 +1559,7 @@
               "upload_as": "worker",
               "workdir": "/sandbox/job/worker",
               "command": [
-                "python3",
+                "python3.11",
                 "scripts/manager.py"
               ],
               "from": "base",

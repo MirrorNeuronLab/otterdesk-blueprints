@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3.11
 """Customer-service voice bot using NVIDIA ASR, Nemotron vLLM, and Magpie TTS."""
 
 from __future__ import annotations

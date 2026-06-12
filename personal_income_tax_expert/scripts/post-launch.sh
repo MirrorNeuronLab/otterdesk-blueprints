@@ -3,9 +3,11 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-if ! command -v python3 >/dev/null 2>&1; then
-  echo "python3 is required to materialize Personal Income Tax Expert outputs." >&2
+PYTHON_BIN="${PYTHON_BIN:-python3.11}"
+
+if ! command -v "$PYTHON_BIN" >/dev/null 2>&1; then
+  echo "$PYTHON_BIN is required to materialize Personal Income Tax Expert outputs." >&2
   exit 0
 fi
 
-python3 "${SCRIPT_DIR}/materialize-tax-results.py"
+"$PYTHON_BIN" "${SCRIPT_DIR}/materialize-tax-results.py"

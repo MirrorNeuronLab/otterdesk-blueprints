@@ -33,7 +33,7 @@ mn run --folder .
 Direct runner smoke test:
 
 ```bash
-python3 payloads/document_workflow/scripts/run_blueprint.py --runs-root /tmp/mn-runs --run-id medical_deid_record_intake_assistant-demo
+python3.11 payloads/document_workflow/scripts/run_blueprint.py --runs-root /tmp/mn-runs --run-id medical_deid_record_intake_assistant-demo
 ```
 
 ## Inputs And Configuration

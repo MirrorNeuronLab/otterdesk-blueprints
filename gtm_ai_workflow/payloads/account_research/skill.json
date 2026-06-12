@@ -2,7 +2,7 @@
   "action_type": "research_account",
   "bundle_name": "account_research",
   "command": [
-    "python3",
+    "python3.11",
     "scripts/execute.py"
   ],
   "description": "Builds an account-specific GTM brief with likely pain, signal rationale, recommended offer, and CRM CSV update.",

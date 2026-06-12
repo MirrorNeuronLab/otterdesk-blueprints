@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3.11
 """HTTPS launcher for the generic customer-service WebRTC voice co-worker."""
 
 from __future__ import annotations

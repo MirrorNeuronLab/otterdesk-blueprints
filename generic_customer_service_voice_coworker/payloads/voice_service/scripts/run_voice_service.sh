@@ -47,7 +47,7 @@ export NEMOTRON_ROOT="${NEMOTRON_ROOT:-/home/homer/Sandbox/nemotron-january-2026
 if [[ -x "${NEMOTRON_ROOT}/.venv/bin/python" ]]; then
   export CUSTOMER_SERVICE_PYTHON="${CUSTOMER_SERVICE_PYTHON:-${NEMOTRON_ROOT}/.venv/bin/python}"
 else
-  export CUSTOMER_SERVICE_PYTHON="${CUSTOMER_SERVICE_PYTHON:-python3}"
+  export CUSTOMER_SERVICE_PYTHON="${CUSTOMER_SERVICE_PYTHON:-python3.11}"
 fi
 export PYTHONPATH="${VOICE_ROOT}:${NEMOTRON_ROOT}/pipecat_bots:${PYTHONPATH:-}"
 

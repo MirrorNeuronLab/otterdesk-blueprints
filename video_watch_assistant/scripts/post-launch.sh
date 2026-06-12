@@ -5,6 +5,7 @@ MN_RUN_DIR="${MN_RUN_DIR:-}"
 MN_POST_LAUNCH_STATE_FILE="${MN_POST_LAUNCH_STATE_FILE:-}"
 MN_PRE_LAUNCH_READY_FILE="${MN_PRE_LAUNCH_READY_FILE:-}"
 MN_POST_LAUNCH_REASON="${MN_POST_LAUNCH_REASON:-post_launch}"
+PYTHON_BIN="${PYTHON_BIN:-python3.11}"
 
 if [[ -z "$MN_POST_LAUNCH_STATE_FILE" && -n "$MN_RUN_DIR" ]]; then
   MN_POST_LAUNCH_STATE_FILE="${MN_RUN_DIR}/post_launch_state.json"
@@ -18,10 +19,10 @@ state_field() {
   if [[ -z "$MN_POST_LAUNCH_STATE_FILE" || ! -f "$MN_POST_LAUNCH_STATE_FILE" ]]; then
     return 0
   fi
-  if ! command -v python3 >/dev/null 2>&1; then
+  if ! command -v "$PYTHON_BIN" >/dev/null 2>&1; then
     return 0
   fi
-  python3 - "$MN_POST_LAUNCH_STATE_FILE" "$field" <<'PY'
+  "$PYTHON_BIN" - "$MN_POST_LAUNCH_STATE_FILE" "$field" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -43,10 +44,10 @@ process_field() {
   if [[ -z "${MN_PRE_LAUNCH_PROCESS_FILE:-}" || ! -f "$MN_PRE_LAUNCH_PROCESS_FILE" ]]; then
     return 0
   fi
-  if ! command -v python3 >/dev/null 2>&1; then
+  if ! command -v "$PYTHON_BIN" >/dev/null 2>&1; then
     return 0
   fi
-  python3 - "$MN_PRE_LAUNCH_PROCESS_FILE" "$field" <<'PY'
+  "$PYTHON_BIN" - "$MN_PRE_LAUNCH_PROCESS_FILE" "$field" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -68,10 +69,10 @@ ready_env_field() {
   if [[ -z "$MN_PRE_LAUNCH_READY_FILE" || ! -f "$MN_PRE_LAUNCH_READY_FILE" ]]; then
     return 0
   fi
-  if ! command -v python3 >/dev/null 2>&1; then
+  if ! command -v "$PYTHON_BIN" >/dev/null 2>&1; then
     return 0
   fi
-  python3 - "$MN_PRE_LAUNCH_READY_FILE" "$field" <<'PY'
+  "$PYTHON_BIN" - "$MN_PRE_LAUNCH_READY_FILE" "$field" <<'PY'
 import json
 import sys
 from pathlib import Path

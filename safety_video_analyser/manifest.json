@@ -51,7 +51,7 @@
           "upload_as": "safety_video_analyser",
           "workdir": "/sandbox/job/safety_video_analyser",
           "command": [
-            "python3",
+            "python3.11",
             "scripts/run_video_understanding.py"
           ],
           "from": "base",
@@ -117,7 +117,7 @@
           "upload_as": "safety_video_analyser",
           "workdir": "/sandbox/job/safety_video_analyser",
           "command": [
-            "python3",
+            "python3.11",
             "scripts/run_report_generator.py"
           ],
           "from": "base",

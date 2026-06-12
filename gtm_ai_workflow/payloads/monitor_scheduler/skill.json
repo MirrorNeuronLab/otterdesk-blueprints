@@ -2,7 +2,7 @@
   "action_type": "schedule_gtm_loop",
   "bundle_name": "monitor_scheduler",
   "command": [
-    "python3",
+    "python3.11",
     "scripts/execute.py"
   ],
   "description": "Schedules repeated GTM outreach and response-monitoring cycles for the long-lived service.",

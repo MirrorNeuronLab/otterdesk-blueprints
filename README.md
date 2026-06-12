@@ -27,7 +27,7 @@ mn run --folder .
 Run repository tests:
 
 ```bash
-python3 -m pytest -q
+.venv/bin/python -m pytest -q
 ```
 
 ## Catalog

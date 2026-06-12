@@ -225,10 +225,11 @@ mediamtx_address() {
 server_pid=""
 publisher_pid=""
 config_dir=""
+PYTHON_BIN="${PYTHON_BIN:-python3.11}"
 
 json_escape() {
-  if command -v python3 >/dev/null 2>&1; then
-    JSON_VALUE="$1" python3 - <<'PY'
+  if command -v "$PYTHON_BIN" >/dev/null 2>&1; then
+    JSON_VALUE="$1" "$PYTHON_BIN" - <<'PY'
 import json
 import os
 print(json.dumps(os.environ.get("JSON_VALUE", "")))

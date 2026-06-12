@@ -554,7 +554,7 @@
           "beacon_timeout_ms": 45000,
           "beacon_missed_action": "fail_attempt",
           "command": [
-            "python3",
+            "python3.11",
             "scripts/execute.py"
           ],
           "agent_beacon_required": true
@@ -629,7 +629,7 @@
           "beacon_timeout_ms": 45000,
           "beacon_missed_action": "fail_attempt",
           "command": [
-            "python3",
+            "python3.11",
             "scripts/execute.py"
           ],
           "agent_beacon_required": true
@@ -704,7 +704,7 @@
           "beacon_timeout_ms": 45000,
           "beacon_missed_action": "fail_attempt",
           "command": [
-            "python3",
+            "python3.11",
             "scripts/execute.py"
           ],
           "agent_beacon_required": true
@@ -779,7 +779,7 @@
           "beacon_timeout_ms": 45000,
           "beacon_missed_action": "fail_attempt",
           "command": [
-            "python3",
+            "python3.11",
             "scripts/execute.py"
           ],
           "agent_beacon_required": true
@@ -854,7 +854,7 @@
           "beacon_timeout_ms": 45000,
           "beacon_missed_action": "fail_attempt",
           "command": [
-            "python3",
+            "python3.11",
             "scripts/execute.py"
           ],
           "agent_beacon_required": true
@@ -928,7 +928,7 @@
           "beacon_timeout_ms": 45000,
           "beacon_missed_action": "fail_attempt",
           "command": [
-            "python3",
+            "python3.11",
             "scripts/execute.py"
           ],
           "agent_beacon_required": true
@@ -1002,7 +1002,7 @@
           "beacon_timeout_ms": 45000,
           "beacon_missed_action": "fail_attempt",
           "command": [
-            "python3",
+            "python3.11",
             "scripts/execute.py"
           ],
           "agent_beacon_required": true
@@ -1148,7 +1148,7 @@
             "kind": "generic",
             "with": {
               "command": [
-                "python3",
+                "python3.11",
                 "scripts/execute.py"
               ],
               "environment": {
@@ -1221,7 +1221,7 @@
             "kind": "generic",
             "with": {
               "command": [
-                "python3",
+                "python3.11",
                 "scripts/execute.py"
               ],
               "environment": {
@@ -1294,7 +1294,7 @@
             "kind": "generic",
             "with": {
               "command": [
-                "python3",
+                "python3.11",
                 "scripts/execute.py"
               ],
               "environment": {
@@ -1367,7 +1367,7 @@
             "kind": "generic",
             "with": {
               "command": [
-                "python3",
+                "python3.11",
                 "scripts/execute.py"
               ],
               "environment": {
@@ -1440,7 +1440,7 @@
             "kind": "generic",
             "with": {
               "command": [
-                "python3",
+                "python3.11",
                 "scripts/execute.py"
               ],
               "environment": {
@@ -1513,7 +1513,7 @@
             "kind": "generic",
             "with": {
               "command": [
-                "python3",
+                "python3.11",
                 "scripts/execute.py"
               ],
               "environment": {
@@ -1586,7 +1586,7 @@
             "kind": "generic",
             "with": {
               "command": [
-                "python3",
+                "python3.11",
                 "scripts/execute.py"
               ],
               "environment": {
@@ -2103,7 +2103,7 @@
           "uses": "mn-agents.data_python_executor@1.0.0",
           "with": {
             "command": [
-              "python3",
+              "python3.11",
               "scripts/execute.py"
             ],
             "environment": {
@@ -2178,7 +2178,7 @@
           "uses": "mn-agents.data_python_executor@1.0.0",
           "with": {
             "command": [
-              "python3",
+              "python3.11",
               "scripts/execute.py"
             ],
             "environment": {
@@ -2253,7 +2253,7 @@
           "uses": "mn-agents.data_python_executor@1.0.0",
           "with": {
             "command": [
-              "python3",
+              "python3.11",
               "scripts/execute.py"
             ],
             "environment": {
@@ -2328,7 +2328,7 @@
           "uses": "mn-agents.data_python_executor@1.0.0",
           "with": {
             "command": [
-              "python3",
+              "python3.11",
               "scripts/execute.py"
             ],
             "environment": {
@@ -2403,7 +2403,7 @@
           "uses": "mn-agents.data_python_executor@1.0.0",
           "with": {
             "command": [
-              "python3",
+              "python3.11",
               "scripts/execute.py"
             ],
             "environment": {
@@ -2478,7 +2478,7 @@
           "uses": "mn-agents.data_python_executor@1.0.0",
           "with": {
             "command": [
-              "python3",
+              "python3.11",
               "scripts/execute.py"
             ],
             "environment": {
@@ -2553,7 +2553,7 @@
           "uses": "mn-agents.data_python_executor@1.0.0",
           "with": {
             "command": [
-              "python3",
+              "python3.11",
               "scripts/execute.py"
             ],
             "environment": {
@@ -2714,7 +2714,7 @@
             "uses": "mn-agents.data_python_executor@1.0.0",
             "with": {
               "command": [
-                "python3",
+                "python3.11",
                 "scripts/execute.py"
               ],
               "environment": {
@@ -2852,7 +2852,7 @@
               "beacon_timeout_ms": 45000,
               "beacon_missed_action": "fail_attempt",
               "command": [
-                "python3",
+                "python3.11",
                 "scripts/execute.py"
               ],
               "agent_beacon_required": true
@@ -2869,7 +2869,7 @@
             "uses": "mn-agents.data_python_executor@1.0.0",
             "with": {
               "command": [
-                "python3",
+                "python3.11",
                 "scripts/execute.py"
               ],
               "environment": {
@@ -3007,7 +3007,7 @@
               "beacon_timeout_ms": 45000,
               "beacon_missed_action": "fail_attempt",
               "command": [
-                "python3",
+                "python3.11",
                 "scripts/execute.py"
               ],
               "agent_beacon_required": true
@@ -3024,7 +3024,7 @@
             "uses": "mn-agents.data_python_executor@1.0.0",
             "with": {
               "command": [
-                "python3",
+                "python3.11",
                 "scripts/execute.py"
               ],
               "environment": {
@@ -3162,7 +3162,7 @@
               "beacon_timeout_ms": 45000,
               "beacon_missed_action": "fail_attempt",
               "command": [
-                "python3",
+                "python3.11",
                 "scripts/execute.py"
               ],
               "agent_beacon_required": true
@@ -3179,7 +3179,7 @@
             "uses": "mn-agents.data_python_executor@1.0.0",
             "with": {
               "command": [
-                "python3",
+                "python3.11",
                 "scripts/execute.py"
               ],
               "environment": {
@@ -3317,7 +3317,7 @@
               "beacon_timeout_ms": 45000,
               "beacon_missed_action": "fail_attempt",
               "command": [
-                "python3",
+                "python3.11",
                 "scripts/execute.py"
               ],
               "agent_beacon_required": true
@@ -3334,7 +3334,7 @@
             "uses": "mn-agents.data_python_executor@1.0.0",
             "with": {
               "command": [
-                "python3",
+                "python3.11",
                 "scripts/execute.py"
               ],
               "environment": {
@@ -3472,7 +3472,7 @@
               "beacon_timeout_ms": 45000,
               "beacon_missed_action": "fail_attempt",
               "command": [
-                "python3",
+                "python3.11",
                 "scripts/execute.py"
               ],
               "agent_beacon_required": true
@@ -3489,7 +3489,7 @@
             "uses": "mn-agents.data_python_executor@1.0.0",
             "with": {
               "command": [
-                "python3",
+                "python3.11",
                 "scripts/execute.py"
               ],
               "environment": {
@@ -3626,7 +3626,7 @@
               "beacon_timeout_ms": 45000,
               "beacon_missed_action": "fail_attempt",
               "command": [
-                "python3",
+                "python3.11",
                 "scripts/execute.py"
               ],
               "agent_beacon_required": true
@@ -3643,7 +3643,7 @@
             "uses": "mn-agents.data_python_executor@1.0.0",
             "with": {
               "command": [
-                "python3",
+                "python3.11",
                 "scripts/execute.py"
               ],
               "environment": {
@@ -3779,7 +3779,7 @@
               "beacon_timeout_ms": 45000,
               "beacon_missed_action": "fail_attempt",
               "command": [
-                "python3",
+                "python3.11",
                 "scripts/execute.py"
               ],
               "agent_beacon_required": true

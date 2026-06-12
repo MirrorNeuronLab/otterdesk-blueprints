@@ -4,6 +4,7 @@ import importlib.util
 import json
 import os
 import py_compile
+import re
 import subprocess
 import sys
 import tempfile
@@ -68,6 +69,17 @@ def _contains_key(value, target: str) -> bool:
     if isinstance(value, list):
         return any(_contains_key(item, target) for item in value)
     return False
+
+
+def _json_strings(value, path: tuple[str, ...] = ()):
+    if isinstance(value, dict):
+        for key, item in value.items():
+            yield from _json_strings(item, (*path, str(key)))
+    elif isinstance(value, list):
+        for index, item in enumerate(value):
+            yield from _json_strings(item, (*path, str(index)))
+    elif isinstance(value, str):
+        yield path, value
 
 
 def _flow_nodes(manifest: dict) -> list[dict]:
@@ -164,6 +176,19 @@ def test_otterdesk_blueprints_are_workflow_driven_manifests():
             assert workers, (blueprint_id, step["run"])
             for worker in workers:
                 assert {"id", "role"} <= set(worker), (blueprint_id, step["run"], worker)
+
+
+def test_otterdesk_json_uses_python311_for_host_python_commands():
+    bare_python3 = re.compile(r"(?<![\w.])python3(?!\.\d)")
+
+    for json_path in sorted(ROOT.rglob("*.json")):
+        if ".pytest_cache" in json_path.parts:
+            continue
+        data = json.loads(json_path.read_text())
+        for value_path, value in _json_strings(data):
+            if not bare_python3.search(value):
+                continue
+            assert value.startswith("/usr/bin/python3"), (json_path, value_path, value)
 
 
 def test_otterdesk_topology_metadata_matches_runtime_nodes():

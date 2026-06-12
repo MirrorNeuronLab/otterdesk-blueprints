@@ -624,7 +624,7 @@
           "upload_as": "document_workflow",
           "workdir": "/sandbox/job/document_workflow",
           "command": [
-            "python3",
+            "python3.11",
             "scripts/run_blueprint.py"
           ],
           "from": "base",
@@ -654,7 +654,7 @@
           "upload_as": "document_workflow",
           "workdir": "/sandbox/job/document_workflow",
           "command": [
-            "python3",
+            "python3.11",
             "scripts/run_blueprint.py"
           ],
           "from": "base",
@@ -684,7 +684,7 @@
           "upload_as": "document_workflow",
           "workdir": "/sandbox/job/document_workflow",
           "command": [
-            "python3",
+            "python3.11",
             "scripts/run_blueprint.py"
           ],
           "from": "base",
@@ -714,7 +714,7 @@
           "upload_as": "document_workflow",
           "workdir": "/sandbox/job/document_workflow",
           "command": [
-            "python3",
+            "python3.11",
             "scripts/run_blueprint.py"
           ],
           "from": "base",
@@ -744,7 +744,7 @@
           "upload_as": "document_workflow",
           "workdir": "/sandbox/job/document_workflow",
           "command": [
-            "python3",
+            "python3.11",
             "scripts/run_blueprint.py"
           ],
           "from": "base",
@@ -1191,7 +1191,7 @@
               "upload_as": "document_workflow",
               "workdir": "/sandbox/job/document_workflow",
               "command": [
-                "python3",
+                "python3.11",
                 "scripts/run_blueprint.py"
               ],
               "from": "base",
@@ -1235,7 +1235,7 @@
               "upload_as": "document_workflow",
               "workdir": "/sandbox/job/document_workflow",
               "command": [
-                "python3",
+                "python3.11",
                 "scripts/run_blueprint.py"
               ],
               "from": "base",
@@ -1279,7 +1279,7 @@
               "upload_as": "document_workflow",
               "workdir": "/sandbox/job/document_workflow",
               "command": [
-                "python3",
+                "python3.11",
                 "scripts/run_blueprint.py"
               ],
               "from": "base",
@@ -1323,7 +1323,7 @@
               "upload_as": "document_workflow",
               "workdir": "/sandbox/job/document_workflow",
               "command": [
-                "python3",
+                "python3.11",
                 "scripts/run_blueprint.py"
               ],
               "from": "base",
@@ -1367,7 +1367,7 @@
               "upload_as": "document_workflow",
               "workdir": "/sandbox/job/document_workflow",
               "command": [
-                "python3",
+                "python3.11",
                 "scripts/run_blueprint.py"
               ],
               "from": "base",

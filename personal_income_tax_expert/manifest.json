@@ -747,7 +747,7 @@
           "upload_as": "tax_workflow",
           "workdir": "/sandbox/job/tax_workflow",
           "command": [
-            "python3",
+            "python3.11",
             "scripts/run_blueprint.py"
           ],
           "from": "base",
@@ -783,7 +783,7 @@
           "upload_as": "tax_workflow",
           "workdir": "/sandbox/job/tax_workflow",
           "command": [
-            "python3",
+            "python3.11",
             "scripts/run_blueprint.py"
           ],
           "from": "base",
@@ -819,7 +819,7 @@
           "upload_as": "tax_workflow",
           "workdir": "/sandbox/job/tax_workflow",
           "command": [
-            "python3",
+            "python3.11",
             "scripts/run_blueprint.py"
           ],
           "from": "base",
@@ -855,7 +855,7 @@
           "upload_as": "tax_workflow",
           "workdir": "/sandbox/job/tax_workflow",
           "command": [
-            "python3",
+            "python3.11",
             "scripts/run_blueprint.py"
           ],
           "from": "base",
@@ -891,7 +891,7 @@
           "upload_as": "tax_workflow",
           "workdir": "/sandbox/job/tax_workflow",
           "command": [
-            "python3",
+            "python3.11",
             "scripts/run_blueprint.py"
           ],
           "from": "base",
@@ -927,7 +927,7 @@
           "upload_as": "tax_workflow",
           "workdir": "/sandbox/job/tax_workflow",
           "command": [
-            "python3",
+            "python3.11",
             "scripts/run_blueprint.py"
           ],
           "from": "base",
@@ -963,7 +963,7 @@
           "upload_as": "tax_workflow",
           "workdir": "/sandbox/job/tax_workflow",
           "command": [
-            "python3",
+            "python3.11",
             "scripts/run_blueprint.py"
           ],
           "from": "base",
@@ -1389,7 +1389,7 @@
     "rules": [
       {
         "command": [
-          "python3",
+          "python3.11",
           "payloads/validation/validate_tax_folder.py"
         ],
         "name": "tax_document_folder",
@@ -1485,7 +1485,7 @@
               "upload_as": "tax_workflow",
               "workdir": "/sandbox/job/tax_workflow",
               "command": [
-                "python3",
+                "python3.11",
                 "scripts/run_blueprint.py"
               ],
               "from": "base",
@@ -1541,7 +1541,7 @@
               "upload_as": "tax_workflow",
               "workdir": "/sandbox/job/tax_workflow",
               "command": [
-                "python3",
+                "python3.11",
                 "scripts/run_blueprint.py"
               ],
               "from": "base",
@@ -1597,7 +1597,7 @@
               "upload_as": "tax_workflow",
               "workdir": "/sandbox/job/tax_workflow",
               "command": [
-                "python3",
+                "python3.11",
                 "scripts/run_blueprint.py"
               ],
               "from": "base",
@@ -1653,7 +1653,7 @@
               "upload_as": "tax_workflow",
               "workdir": "/sandbox/job/tax_workflow",
               "command": [
-                "python3",
+                "python3.11",
                 "scripts/run_blueprint.py"
               ],
               "from": "base",
@@ -1709,7 +1709,7 @@
               "upload_as": "tax_workflow",
               "workdir": "/sandbox/job/tax_workflow",
               "command": [
-                "python3",
+                "python3.11",
                 "scripts/run_blueprint.py"
               ],
               "from": "base",
@@ -1765,7 +1765,7 @@
               "upload_as": "tax_workflow",
               "workdir": "/sandbox/job/tax_workflow",
               "command": [
-                "python3",
+                "python3.11",
                 "scripts/run_blueprint.py"
               ],
               "from": "base",
@@ -1818,7 +1818,7 @@
               "upload_as": "tax_workflow",
               "workdir": "/sandbox/job/tax_workflow",
               "command": [
-                "python3",
+                "python3.11",
                 "scripts/run_blueprint.py"
               ],
               "from": "base",
@@ -2039,7 +2039,7 @@
       "validation_rules": [
         {
           "command": [
-            "python3",
+            "python3.11",
             "payloads/validation/validate_tax_folder.py"
           ],
           "name": "tax_document_folder",
