@@ -112,7 +112,92 @@
     "recommended_action": "review_household_finance_report_before_any_financial_action"
   },
   "llm": {
-    "model": "default"
+    "enabled": true,
+    "mode": "live",
+    "mock_mode": "fake",
+    "model": "default",
+    "agent_role": "Actor-style household finance coworker using the default LLM for source-grounded review work.",
+    "default_config": "primary",
+    "quick_test_uses_fake": true,
+    "strict_json": false,
+    "prefer_shared_skill": true,
+    "configs": {
+      "primary": {
+        "provider": "docker_model_runner",
+        "model": "default",
+        "api_base": "http://localhost:12434/engines/v1",
+        "timeout_seconds": 60,
+        "max_tokens": 1200,
+        "num_retries": 1
+      }
+    },
+    "agents": {
+      "financial_folder_watcher": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Financial folder watcher",
+        "responsibilities": [
+          "review the monitored folder status",
+          "identify missing or newly changed document types",
+          "explain intake readiness without opening private web channels"
+        ]
+      },
+      "financial_document_reader": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Financial document reader",
+        "responsibilities": [
+          "summarize redacted finance document snippets",
+          "separate income, statement, receipt, bill, debt, and tax-document evidence",
+          "flag OCR or source-quality review needs"
+        ]
+      },
+      "financial_activity_classifier": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Financial activity classifier",
+        "responsibilities": [
+          "classify source-grounded income, expenses, balances, fees, and obligations",
+          "stay within allowed finance-document categories",
+          "explain classification uncertainty for human review"
+        ]
+      },
+      "financial_health_assessor": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Financial health assessor",
+        "responsibilities": [
+          "review cash-flow status from structured totals",
+          "explain blocker risks and reminders",
+          "prepare review questions without making consequential financial decisions"
+        ]
+      },
+      "financial_market_researcher": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Financial market researcher",
+        "responsibilities": [
+          "plan privacy-safe public web searches from generic risk categories",
+          "choose public sources from DuckDuckGo search results",
+          "summarize source-grounded public guidance without exposing private document text"
+        ]
+      },
+      "financial_advice_reporter": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Financial advice reporter",
+        "responsibilities": [
+          "write the final review-only household finance report",
+          "combine document analysis, health assessment, and research findings",
+          "preserve source refs and human-approval boundaries"
+        ]
+      }
+    },
+    "responsibilities": [
+      "keep private document text out of public web searches",
+      "ground every recommendation in local evidence or cited public sources",
+      "keep outputs review-only and require human approval before action"
+    ]
   },
   "outputs": {
     "folder_path": "/Users/homer/Download/personal_financial_advisor",
@@ -152,14 +237,14 @@
       "output_skill_started",
       "output_skill_completed",
       "output_skill_failed",
-      "financial_folder_watched",
-      "financial_documents_extracted",
-      "financial_activity_classified",
-      "financial_health_assessed",
-      "advisor_report_written",
+      "financial_folder_watcher_completed",
+      "financial_document_reader_completed",
+      "financial_activity_classifier_completed",
+      "financial_health_assessor_completed",
+      "financial_advice_reporter_completed",
       "watch_cycle_started",
       "watch_cycle_completed",
-      "financial_context_researched"
+      "financial_market_researcher_completed"
     ]
   },
   "resources": {
@@ -605,16 +690,19 @@
     "load_inputs",
     "start_run_store",
     "start_folder_monitoring_service",
-    "watch_financial_folder",
+    "financial_folder_watcher",
     "extract_embedded_text_or_ocr",
     "redact_sensitive_values",
-    "classify_financial_activity",
-    "assess_financial_health",
-    "research_financial_context",
+    "financial_activity_classifier",
+    "financial_health_assessor",
+    "financial_market_researcher",
     "request_human_review",
     "write_final_artifact_each_cycle",
     "write_markdown_report_each_cycle",
-    "write_artifact_records"
+    "write_artifact_records",
+    "call_actor_llm",
+    "write_actor_findings",
+    "llm_guided_public_research"
   ],
   "memory_layer": {
     "collection": "mn_memory",

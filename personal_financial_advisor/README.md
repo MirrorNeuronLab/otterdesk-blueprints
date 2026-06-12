@@ -16,7 +16,7 @@ Continuously monitors a local personal finance folder, OCRs statements, income d
 
 This OtterDesk blueprint runs as a continuous local service that watches a local document folder, extracts embedded text where available, uses the shared `llm_ocr_skill` from `mn-skills` for scanned or low-text pages, classifies household finance activity, assesses cash-flow status and risks, uses a DockerWorker-only `w3m_browser_skill` phase for privacy-safe public research, and writes JSON plus Markdown advisor reports for human review each scan cycle.
 
-Only the `research_financial_context` agent runs in DockerWorker. The DockerWorker image installs Python, `w3m`, `llm_ocr_skill`, `w3m_browser_skill`, and blueprint support for that research phase; all document intake, extraction, classification, assessment, and report-writing agents remain HostLocal.
+Only the `financial_market_researcher` agent runs in DockerWorker. The DockerWorker image installs Python, `w3m`, `llm_ocr_skill`, `w3m_browser_skill`, and blueprint support for that research phase; all document intake, extraction, classification, assessment, and report-writing agents remain HostLocal.
 
 ## Quick Start
 

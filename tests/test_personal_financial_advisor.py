@@ -181,7 +181,7 @@ def test_personal_financial_advisor_manifest_is_service_without_terminal_sink():
         for node in nodes
         if node["config"]["runner_module"] == "MirrorNeuron.Runner.DockerWorker"
     ]
-    assert docker_nodes == ["research_financial_context"]
+    assert docker_nodes == ["financial_market_researcher"]
 
     for node_id, node in node_by_id.items():
         config = node["config"]
@@ -189,7 +189,7 @@ def test_personal_financial_advisor_manifest_is_service_without_terminal_sink():
         assert config["environment"]["MN_WORKFLOW_STEP_ID"] == node_id
         assert rendered_config["environment"]["MN_WORKFLOW_STEP_ID"] == node_id
         assert "publish_ports" not in config
-        if node_id == "research_financial_context":
+        if node_id == "financial_market_researcher":
             assert config["runner_module"] == "MirrorNeuron.Runner.DockerWorker"
             assert config["docker_worker_image"] == "document_workflow/docker_worker"
             assert config["image"] == "mirror-neuron/personal-financial-advisor:local"
@@ -214,8 +214,8 @@ def test_personal_financial_advisor_manifest_is_service_without_terminal_sink():
         for node in nodes
         for item in node["config"].get("upload_paths", [])
     )
-    assert "research_financial_context" in {step["id"] for step in manifest["workflow"]["steps"]}
-    assert "financial_context_researched" in manifest["contract"]["events"]["types"]
+    assert "financial_market_researcher" in {step["id"] for step in manifest["workflow"]["steps"]}
+    assert "financial_market_researcher_completed" in manifest["contract"]["events"]["types"]
     assert manifest["runtime"]["worker_defaults"]["runner"] == "MirrorNeuron.Runner.HostLocal"
     assert manifest["runtime"]["memory"]["conversation"]["use_model_compression"] is True
     assert manifest["metadata"]["memory_layer"]["conversation"]["use_model_compression"] is True
@@ -250,7 +250,7 @@ def test_personal_financial_advisor_watch_mode_stops_after_max_cycle(tmp_path, m
         for line in (tmp_path / "advisor-watch-unit" / "events.jsonl").read_text(encoding="utf-8").splitlines()
         if line.strip()
     ]
-    assert {"watch_cycle_started", "watch_cycle_completed", "financial_context_researched", "advisor_report_written"} <= {
+    assert {"watch_cycle_started", "watch_cycle_completed", "financial_market_researcher_completed", "financial_advice_reporter_completed"} <= {
         event["type"] for event in events
     }
 
@@ -264,7 +264,7 @@ def test_personal_financial_advisor_non_research_step_mode_does_not_call_browser
     def forbidden_browser_call(*args, **kwargs):
         raise AssertionError("HostLocal runtime steps must not run browser research")
 
-    monkeypatch.setattr(runner, "research_financial_context", forbidden_browser_call)
+    monkeypatch.setattr(runner, "financial_market_researcher", forbidden_browser_call)
     monkeypatch.setattr(runner, "research_topic", forbidden_browser_call)
     monkeypatch.setattr(runner, "_load_w3m_browser_skill", forbidden_browser_call)
 
@@ -274,20 +274,20 @@ def test_personal_financial_advisor_non_research_step_mode_does_not_call_browser
         "monitoring": {"enabled": True, "poll_interval_seconds": 1, "max_cycles": 1},
     }
     runner.run_runtime_step(
-        "extract_financial_documents",
+        "financial_document_reader",
         inputs=inputs,
         runs_root=tmp_path,
         run_id="advisor-step-mode",
     )
     result = runner.run_runtime_step(
-        "assess_financial_health",
+        "financial_health_assessor",
         inputs=inputs,
         runs_root=tmp_path,
         run_id="advisor-step-mode",
     )
 
     assert result["schema"] == "mn.workflow.step_result.v1"
-    assert result["workflow_step_id"] == "assess_financial_health"
+    assert result["workflow_step_id"] == "financial_health_assessor"
     assert result["status"] == "completed"
     assert "final_artifact" not in result
     assert result["outputs"]["risk_register"]
@@ -297,14 +297,14 @@ def test_personal_financial_advisor_non_research_step_mode_does_not_call_browser
         for line in (tmp_path / "advisor-step-mode" / "events.jsonl").read_text(encoding="utf-8").splitlines()
         if line.strip()
     ]
-    assert "financial_context_researched" not in {event["type"] for event in events}
+    assert "financial_market_researcher_completed" not in {event["type"] for event in events}
 
 
 def test_personal_financial_advisor_runtime_step_infers_agent_id_without_full_cycle(tmp_path):
     docs = tmp_path / "finance-inbox"
     _write_fixture_folder(docs)
     env = os.environ.copy()
-    env["MN_AGENT_ID"] = "watch_financial_folder"
+    env["MN_AGENT_ID"] = "financial_folder_watcher"
 
     result = subprocess.run(
         [
@@ -328,7 +328,7 @@ def test_personal_financial_advisor_runtime_step_infers_agent_id_without_full_cy
     decoded = json.loads(result.stdout)
 
     assert decoded["schema"] == "mn.workflow.step_result.v1"
-    assert decoded["workflow_step_id"] == "watch_financial_folder"
+    assert decoded["workflow_step_id"] == "financial_folder_watcher"
     assert decoded["outputs"]["watch_state"]["processed_files"]
     assert "final_artifact" not in decoded
 
@@ -340,8 +340,8 @@ def test_personal_financial_advisor_runtime_step_infers_message_destination(tmp_
     message_file.write_text(
         json.dumps(
             {
-                "to": "watch_financial_folder",
-                "type": "personal_financial_advisor.watch_financial_folder.ready",
+                "to": "financial_folder_watcher",
+                "type": "personal_financial_advisor.financial_folder_watcher.ready",
                 "payload": {"document_folder": str(docs), "monitoring": {"enabled": True, "max_cycles": 1}},
             }
         ),
@@ -363,6 +363,6 @@ def test_personal_financial_advisor_runtime_step_infers_message_destination(tmp_
     decoded = json.loads(result.stdout)
 
     assert decoded["schema"] == "mn.workflow.step_result.v1"
-    assert decoded["workflow_step_id"] == "watch_financial_folder"
+    assert decoded["workflow_step_id"] == "financial_folder_watcher"
     assert len(decoded["outputs"]["watch_state"]["processed_files"]) == 4
     assert "final_artifact" not in decoded

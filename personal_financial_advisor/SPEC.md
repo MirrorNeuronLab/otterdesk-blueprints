@@ -20,7 +20,7 @@ The workflow uses `mn-skills/llm_ocr_skill` via `extract_document_folder(...)` a
 
 ## Browser Research Skill
 
-The workflow uses `mn-skills/w3m_browser_skill` only inside the `research_financial_context` DockerWorker image. The skill shells out to `w3m -dump` for public web pages and returns compact source notes. It does not start Docker, manage sidecars, or browse with a GUI.
+The workflow uses `mn-skills/w3m_browser_skill` only inside the `financial_market_researcher` DockerWorker image. The skill shells out to `w3m -dump` for public web pages and returns compact source notes. It does not start Docker, manage sidecars, or browse with a GUI.
 
 Research queries are generated only from generic risk categories and document types. The advisor must not send raw customer document text, account numbers, taxpayer IDs, names, transaction descriptions, or other regulated identifiers to public web services.
 
@@ -46,12 +46,12 @@ Research context requests set `use_model_compression=true` for Membrane. Operato
 
 ## Workflow
 
-- Watch Financial Folder: Resolve the monitored folder, output folder, monitoring settings, and sample input notes.
-- Extract Financial Documents: Read embedded text and call shared `llm_ocr_skill` for scanned or low-text statements, receipts, bills, income documents, and images.
-- Classify Financial Activity: Classify income, expenses, balances, bills, fees, debt obligations, and source document types.
-- Assess Financial Health: Estimate cash-flow status, identify document gaps, reminders, anomalies, and review-only risk flags.
-- Research Financial Context: Use `w3m_browser_skill` to gather privacy-safe public guidance for detected review categories.
-- Write Advisor Report: Write a review-only personal financial advisor report with status, advice, reminders, risks, and source evidence.
+- Financial Folder Watcher: Resolve the monitored folder, output folder, monitoring settings, and sample input notes.
+- Financial Document Reader: Read embedded text and call shared `llm_ocr_skill` for scanned or low-text statements, receipts, bills, income documents, and images.
+- Financial Activity Classifier: Classify income, expenses, balances, bills, fees, debt obligations, and source document types.
+- Financial Health Assessor: Estimate cash-flow status, identify document gaps, reminders, anomalies, and review-only risk flags.
+- Financial Market Researcher: Use `w3m_browser_skill` to gather privacy-safe public guidance for detected review categories.
+- Financial Advice Reporter: Write a review-only personal financial advisor report with status, advice, reminders, risks, and source evidence.
 
 ## Output Contract
 
@@ -87,7 +87,7 @@ Continuous folder polling is the default service behavior. Polling uses `monitor
 
 The default worker runner is `MirrorNeuron.Runner.HostLocal`. The folder watch, extraction, classification, assessment, and report-writing agents use the HostLocal `scripts/run_blueprint.py` phase worker shape.
 
-Only `research_financial_context` uses `MirrorNeuron.Runner.DockerWorker` with the payload-local image build source `document_workflow/docker_worker` and command `bash scripts/run_blueprint_in_docker_worker.sh`. The blueprint must not declare a browser sidecar, publish host ports, or require HostLocal phases to import `w3m_browser_skill`.
+Only `financial_market_researcher` uses `MirrorNeuron.Runner.DockerWorker` with the payload-local image build source `document_workflow/docker_worker` and command `bash scripts/run_blueprint_in_docker_worker.sh`. The blueprint must not declare a browser sidecar, publish host ports, or require HostLocal phases to import `w3m_browser_skill`.
 
 ## Safety Rules
 

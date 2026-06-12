@@ -25,14 +25,14 @@
         "output_skill_started",
         "output_skill_completed",
         "output_skill_failed",
-        "financial_folder_watched",
-        "financial_documents_extracted",
-        "financial_activity_classified",
-        "financial_health_assessed",
-        "advisor_report_written",
+        "financial_folder_watcher_completed",
+        "financial_document_reader_completed",
+        "financial_activity_classifier_completed",
+        "financial_health_assessor_completed",
+        "financial_advice_reporter_completed",
         "watch_cycle_started",
         "watch_cycle_completed",
-        "financial_context_researched"
+        "financial_market_researcher_completed"
       ]
     },
     "input_adapters": {
@@ -311,9 +311,9 @@
     "schema": "mn.workflow.problem_graph/v1",
     "workflow_id": "personal_financial_advisor_v1",
     "mode": "static_dag",
-    "entrypoint": "watch_financial_folder",
-    "source": "watch_financial_folder",
-    "sink": "write_advisor_report",
+    "entrypoint": "financial_folder_watcher",
+    "source": "financial_folder_watcher",
+    "sink": "financial_advice_reporter",
     "execution": {
       "strategy": "serial"
     },
@@ -354,15 +354,15 @@
     },
     "steps": [
       {
-        "id": "watch_financial_folder",
+        "id": "financial_folder_watcher",
         "kind": "source",
-        "label": "Watch Financial Folder",
+        "label": "Financial Folder Watcher",
         "goal": "Resolve the monitored folder, output folder, monitoring settings, and sample input notes.",
-        "action": "watch_financial_folder",
-        "run": "watch_financial_folder",
-        "emits": "financial_folder_watched",
+        "action": "financial_folder_watcher",
+        "run": "financial_folder_watcher",
+        "emits": "financial_folder_watcher_completed",
         "on": {
-          "financial_folder_watched": "extract_financial_documents"
+          "financial_folder_watcher_completed": "financial_document_reader"
         },
         "control": {
           "required": true,
@@ -385,23 +385,23 @@
           "monitoring": "$inputs.monitoring"
         },
         "out": {
-          "watch_financial_folder": "$state.workflow.watch_financial_folder"
+          "financial_folder_watcher": "$state.workflow.financial_folder_watcher"
         },
         "provides": [
-          "personal_financial_advisor.watch_financial_folder.ready"
+          "personal_financial_advisor.financial_folder_watcher.ready"
         ],
         "requires": []
       },
       {
-        "id": "extract_financial_documents",
+        "id": "financial_document_reader",
         "kind": "stage",
-        "label": "Extract Financial Documents",
+        "label": "Financial Document Reader",
         "goal": "Read embedded text and call shared llm_ocr_skill for scanned or low-text statements, receipts, bills, income documents, and images.",
-        "action": "extract_financial_documents",
-        "run": "extract_financial_documents",
-        "emits": "financial_documents_extracted",
+        "action": "financial_document_reader",
+        "run": "financial_document_reader",
+        "emits": "financial_document_reader_completed",
         "on": {
-          "financial_documents_extracted": "classify_financial_activity"
+          "financial_document_reader_completed": "financial_activity_classifier"
         },
         "control": {
           "required": true,
@@ -422,25 +422,25 @@
           "previous": "$state.workflow"
         },
         "out": {
-          "extract_financial_documents": "$state.workflow.extract_financial_documents"
+          "financial_document_reader": "$state.workflow.financial_document_reader"
         },
         "provides": [
-          "personal_financial_advisor.extract_financial_documents.ready"
+          "personal_financial_advisor.financial_document_reader.ready"
         ],
         "requires": [
-          "personal_financial_advisor.watch_financial_folder.ready"
+          "personal_financial_advisor.financial_folder_watcher.ready"
         ]
       },
       {
-        "id": "classify_financial_activity",
+        "id": "financial_activity_classifier",
         "kind": "stage",
-        "label": "Classify Financial Activity",
+        "label": "Financial Activity Classifier",
         "goal": "Classify income, expenses, balances, bills, fees, debt obligations, and source document types.",
-        "action": "classify_financial_activity",
-        "run": "classify_financial_activity",
-        "emits": "financial_activity_classified",
+        "action": "financial_activity_classifier",
+        "run": "financial_activity_classifier",
+        "emits": "financial_activity_classifier_completed",
         "on": {
-          "financial_activity_classified": "assess_financial_health"
+          "financial_activity_classifier_completed": "financial_health_assessor"
         },
         "control": {
           "required": true,
@@ -461,25 +461,25 @@
           "previous": "$state.workflow"
         },
         "out": {
-          "classify_financial_activity": "$state.workflow.classify_financial_activity"
+          "financial_activity_classifier": "$state.workflow.financial_activity_classifier"
         },
         "provides": [
-          "personal_financial_advisor.classify_financial_activity.ready"
+          "personal_financial_advisor.financial_activity_classifier.ready"
         ],
         "requires": [
-          "personal_financial_advisor.extract_financial_documents.ready"
+          "personal_financial_advisor.financial_document_reader.ready"
         ]
       },
       {
-        "id": "assess_financial_health",
+        "id": "financial_health_assessor",
         "kind": "stage",
-        "label": "Assess Financial Health",
+        "label": "Financial Health Assessor",
         "goal": "Estimate cash-flow status, identify document gaps, reminders, anomalies, and review-only risk flags.",
-        "action": "assess_financial_health",
-        "run": "assess_financial_health",
-        "emits": "financial_health_assessed",
+        "action": "financial_health_assessor",
+        "run": "financial_health_assessor",
+        "emits": "financial_health_assessor_completed",
         "on": {
-          "financial_health_assessed": "research_financial_context"
+          "financial_health_assessor_completed": "financial_market_researcher"
         },
         "control": {
           "required": true,
@@ -500,25 +500,25 @@
           "previous": "$state.workflow"
         },
         "out": {
-          "assess_financial_health": "$state.workflow.assess_financial_health"
+          "financial_health_assessor": "$state.workflow.financial_health_assessor"
         },
         "provides": [
-          "personal_financial_advisor.assess_financial_health.ready"
+          "personal_financial_advisor.financial_health_assessor.ready"
         ],
         "requires": [
-          "personal_financial_advisor.classify_financial_activity.ready"
+          "personal_financial_advisor.financial_activity_classifier.ready"
         ]
       },
       {
-        "id": "research_financial_context",
+        "id": "financial_market_researcher",
         "kind": "stage",
-        "label": "Research Financial Context",
+        "label": "Financial Market Researcher",
         "goal": "Use w3m_browser_skill to gather privacy-safe public financial guidance that can improve review-only household finance advice.",
-        "action": "research_financial_context",
-        "run": "research_financial_context",
-        "emits": "financial_context_researched",
+        "action": "financial_market_researcher",
+        "run": "financial_market_researcher",
+        "emits": "financial_market_researcher_completed",
         "on": {
-          "financial_context_researched": "write_advisor_report"
+          "financial_market_researcher_completed": "financial_advice_reporter"
         },
         "control": {
           "required": true,
@@ -539,25 +539,25 @@
           "previous": "$state.workflow"
         },
         "out": {
-          "research_financial_context": "$state.workflow.research_financial_context"
+          "financial_market_researcher": "$state.workflow.financial_market_researcher"
         },
         "provides": [
-          "personal_financial_advisor.research_financial_context.ready"
+          "personal_financial_advisor.financial_market_researcher.ready"
         ],
         "requires": [
-          "personal_financial_advisor.assess_financial_health.ready"
+          "personal_financial_advisor.financial_health_assessor.ready"
         ]
       },
       {
-        "id": "write_advisor_report",
+        "id": "financial_advice_reporter",
         "kind": "sink",
-        "label": "Write Advisor Report",
+        "label": "Financial Advice Reporter",
         "goal": "Write a review-only personal financial advisor report with status, advice, reminders, risks, and source evidence.",
-        "action": "write_advisor_report",
-        "run": "write_advisor_report",
-        "emits": "advisor_report_written",
+        "action": "financial_advice_reporter",
+        "run": "financial_advice_reporter",
+        "emits": "financial_advice_reporter_completed",
         "on": {
-          "advisor_report_written": "completed"
+          "financial_advice_reporter_completed": "completed"
         },
         "control": {
           "required": true,
@@ -578,62 +578,62 @@
           "previous": "$state.workflow"
         },
         "out": {
-          "write_advisor_report": "$state.workflow.write_advisor_report"
+          "financial_advice_reporter": "$state.workflow.financial_advice_reporter"
         },
         "provides": [
-          "personal_financial_advisor.write_advisor_report.ready"
+          "personal_financial_advisor.financial_advice_reporter.ready"
         ],
         "requires": [
-          "personal_financial_advisor.research_financial_context.ready"
+          "personal_financial_advisor.financial_market_researcher.ready"
         ]
       }
     ],
     "edges": [
       {
-        "id": "watch_financial_folder_to_extract_financial_documents",
-        "from": "watch_financial_folder",
-        "to": "extract_financial_documents",
-        "event": "financial_folder_watched",
+        "id": "financial_folder_watcher_to_financial_document_reader",
+        "from": "financial_folder_watcher",
+        "to": "financial_document_reader",
+        "event": "financial_folder_watcher_completed",
         "required": true,
         "accepts": [
           "done"
         ]
       },
       {
-        "id": "extract_financial_documents_to_classify_financial_activity",
-        "from": "extract_financial_documents",
-        "to": "classify_financial_activity",
-        "event": "financial_documents_extracted",
+        "id": "financial_document_reader_to_financial_activity_classifier",
+        "from": "financial_document_reader",
+        "to": "financial_activity_classifier",
+        "event": "financial_document_reader_completed",
         "required": true,
         "accepts": [
           "done"
         ]
       },
       {
-        "id": "classify_financial_activity_to_assess_financial_health",
-        "from": "classify_financial_activity",
-        "to": "assess_financial_health",
-        "event": "financial_activity_classified",
+        "id": "financial_activity_classifier_to_financial_health_assessor",
+        "from": "financial_activity_classifier",
+        "to": "financial_health_assessor",
+        "event": "financial_activity_classifier_completed",
         "required": true,
         "accepts": [
           "done"
         ]
       },
       {
-        "id": "assess_financial_health_to_research_financial_context",
-        "from": "assess_financial_health",
-        "to": "research_financial_context",
-        "event": "financial_health_assessed",
+        "id": "financial_health_assessor_to_financial_market_researcher",
+        "from": "financial_health_assessor",
+        "to": "financial_market_researcher",
+        "event": "financial_health_assessor_completed",
         "required": true,
         "accepts": [
           "done"
         ]
       },
       {
-        "id": "research_financial_context_to_write_advisor_report",
-        "from": "research_financial_context",
-        "to": "write_advisor_report",
-        "event": "financial_context_researched",
+        "id": "financial_market_researcher_to_financial_advice_reporter",
+        "from": "financial_market_researcher",
+        "to": "financial_advice_reporter",
+        "event": "financial_market_researcher_completed",
         "required": true,
         "accepts": [
           "done"
@@ -693,7 +693,7 @@
           {
             "id": "review_required_before_downstream_release",
             "effect": "require_human_approval",
-            "when": "step == 'write_advisor_report'",
+            "when": "step == 'financial_advice_reporter'",
             "message": "Human approval is required before advisor outputs are treated as final or used for consequential financial actions."
           }
         ]
@@ -704,11 +704,11 @@
   "agents": {
     "schema": "mn.agents.communication_graph/v1",
     "entrypoints": [
-      "watch_financial_folder"
+      "financial_folder_watcher"
     ],
     "nodes": [
       {
-        "node_id": "watch_financial_folder",
+        "node_id": "financial_folder_watcher",
         "type": "generic",
         "agent_type": "executor",
         "config": {
@@ -735,16 +735,16 @@
             "scripts/run_blueprint.py"
           ],
           "environment": {
-            "MN_WORKFLOW_STEP_ID": "watch_financial_folder"
+            "MN_WORKFLOW_STEP_ID": "financial_folder_watcher"
           },
-          "output_message_type": "financial_folder_watched",
+          "output_message_type": "financial_folder_watcher_completed",
           "idempotent": true,
           "side_effect": "read",
           "safe_to_retry": true
         }
       },
       {
-        "node_id": "extract_financial_documents",
+        "node_id": "financial_document_reader",
         "type": "generic",
         "agent_type": "executor",
         "config": {
@@ -771,16 +771,16 @@
             "scripts/run_blueprint.py"
           ],
           "environment": {
-            "MN_WORKFLOW_STEP_ID": "extract_financial_documents"
+            "MN_WORKFLOW_STEP_ID": "financial_document_reader"
           },
-          "output_message_type": "financial_documents_extracted",
+          "output_message_type": "financial_document_reader_completed",
           "idempotent": true,
           "side_effect": "read",
           "safe_to_retry": true
         }
       },
       {
-        "node_id": "classify_financial_activity",
+        "node_id": "financial_activity_classifier",
         "type": "generic",
         "agent_type": "executor",
         "config": {
@@ -807,16 +807,16 @@
             "scripts/run_blueprint.py"
           ],
           "environment": {
-            "MN_WORKFLOW_STEP_ID": "classify_financial_activity"
+            "MN_WORKFLOW_STEP_ID": "financial_activity_classifier"
           },
-          "output_message_type": "financial_activity_classified",
+          "output_message_type": "financial_activity_classifier_completed",
           "idempotent": true,
           "side_effect": "read",
           "safe_to_retry": true
         }
       },
       {
-        "node_id": "assess_financial_health",
+        "node_id": "financial_health_assessor",
         "type": "generic",
         "agent_type": "executor",
         "config": {
@@ -843,16 +843,16 @@
             "scripts/run_blueprint.py"
           ],
           "environment": {
-            "MN_WORKFLOW_STEP_ID": "assess_financial_health"
+            "MN_WORKFLOW_STEP_ID": "financial_health_assessor"
           },
-          "output_message_type": "financial_health_assessed",
+          "output_message_type": "financial_health_assessor_completed",
           "idempotent": true,
           "side_effect": "read",
           "safe_to_retry": true
         }
       },
       {
-        "node_id": "research_financial_context",
+        "node_id": "financial_market_researcher",
         "type": "generic",
         "agent_type": "executor",
         "config": {
@@ -889,19 +889,19 @@
             }
           ],
           "environment": {
-            "MN_WORKFLOW_STEP_ID": "research_financial_context",
+            "MN_WORKFLOW_STEP_ID": "financial_market_researcher",
             "MN_CONTEXT_USE_MODEL_COMPRESSION": "true",
             "W3M_BROWSER_TIMEOUT_SECONDS": "12",
             "W3M_BROWSER_MAX_CHARS": "6000"
           },
-          "output_message_type": "financial_context_researched",
+          "output_message_type": "financial_market_researcher_completed",
           "idempotent": true,
           "side_effect": "network_read",
           "safe_to_retry": true
         }
       },
       {
-        "node_id": "write_advisor_report",
+        "node_id": "financial_advice_reporter",
         "type": "generic",
         "agent_type": "executor",
         "config": {
@@ -928,49 +928,49 @@
             "scripts/run_blueprint.py"
           ],
           "environment": {
-            "MN_WORKFLOW_STEP_ID": "write_advisor_report"
+            "MN_WORKFLOW_STEP_ID": "financial_advice_reporter"
           },
-          "output_message_type": "advisor_report_written",
+          "output_message_type": "financial_advice_reporter_completed",
           "side_effect": "internal_write"
         }
       }
     ],
     "edges": [
       {
-        "edge_id": "watch_financial_folder_to_extract_financial_documents",
-        "from_node": "watch_financial_folder",
-        "to_node": "extract_financial_documents",
-        "message_type": "financial_folder_watched"
+        "edge_id": "financial_folder_watcher_to_financial_document_reader",
+        "from_node": "financial_folder_watcher",
+        "to_node": "financial_document_reader",
+        "message_type": "financial_folder_watcher_completed"
       },
       {
-        "edge_id": "extract_financial_documents_to_classify_financial_activity",
-        "from_node": "extract_financial_documents",
-        "to_node": "classify_financial_activity",
-        "message_type": "financial_documents_extracted"
+        "edge_id": "financial_document_reader_to_financial_activity_classifier",
+        "from_node": "financial_document_reader",
+        "to_node": "financial_activity_classifier",
+        "message_type": "financial_document_reader_completed"
       },
       {
-        "edge_id": "classify_financial_activity_to_assess_financial_health",
-        "from_node": "classify_financial_activity",
-        "to_node": "assess_financial_health",
-        "message_type": "financial_activity_classified"
+        "edge_id": "financial_activity_classifier_to_financial_health_assessor",
+        "from_node": "financial_activity_classifier",
+        "to_node": "financial_health_assessor",
+        "message_type": "financial_activity_classifier_completed"
       },
       {
-        "edge_id": "assess_financial_health_to_research_financial_context",
-        "from_node": "assess_financial_health",
-        "to_node": "research_financial_context",
-        "message_type": "financial_health_assessed"
+        "edge_id": "financial_health_assessor_to_financial_market_researcher",
+        "from_node": "financial_health_assessor",
+        "to_node": "financial_market_researcher",
+        "message_type": "financial_health_assessor_completed"
       },
       {
-        "edge_id": "research_financial_context_to_write_advisor_report",
-        "from_node": "research_financial_context",
-        "to_node": "write_advisor_report",
-        "message_type": "financial_context_researched"
+        "edge_id": "financial_market_researcher_to_financial_advice_reporter",
+        "from_node": "financial_market_researcher",
+        "to_node": "financial_advice_reporter",
+        "message_type": "financial_market_researcher_completed"
       }
     ]
   },
   "runtime": {
     "bindings": {
-      "watch_financial_folder": {
+      "financial_folder_watcher": {
         "type": "worker",
         "strategy": "single",
         "side_effect": "read",
@@ -980,7 +980,7 @@
             "id": "bank_dataset_intake",
             "alias": "bank_dataset_intake",
             "kind": "worker",
-            "role": "Financial folder monitor",
+            "role": "Financial folder watcher",
             "model": "default",
             "tokens": 12000,
             "tools": 4,
@@ -988,7 +988,7 @@
           }
         ]
       },
-      "extract_financial_documents": {
+      "financial_document_reader": {
         "type": "team",
         "strategy": "fanout_reduce",
         "side_effect": "read",
@@ -998,7 +998,7 @@
             "id": "financial_document_ocr_extractor",
             "alias": "financial_document_ocr_extractor",
             "kind": "worker",
-            "role": "Financial document OCR extractor",
+            "role": "Financial document reader",
             "model": "default",
             "tokens": 12000,
             "tools": 4,
@@ -1016,7 +1016,7 @@
           }
         ]
       },
-      "classify_financial_activity": {
+      "financial_activity_classifier": {
         "type": "team",
         "strategy": "fanout_reduce",
         "side_effect": "read",
@@ -1044,7 +1044,7 @@
           }
         ]
       },
-      "assess_financial_health": {
+      "financial_health_assessor": {
         "type": "worker",
         "strategy": "single",
         "side_effect": "read",
@@ -1062,17 +1062,17 @@
           }
         ]
       },
-      "research_financial_context": {
+      "financial_market_researcher": {
         "type": "worker",
         "strategy": "single",
         "side_effect": "network_read",
         "risk": "low",
         "workers": [
           {
-            "id": "financial_context_researcher",
-            "alias": "financial_context_researcher",
+            "id": "financial_market_researcher",
+            "alias": "financial_market_researcher",
             "kind": "worker",
-            "role": "Privacy-safe public financial context researcher",
+            "role": "Financial market researcher",
             "model": "default",
             "tokens": 12000,
             "tools": 4,
@@ -1080,17 +1080,17 @@
           }
         ]
       },
-      "write_advisor_report": {
+      "financial_advice_reporter": {
         "type": "worker",
         "strategy": "single",
         "side_effect": "internal_write",
         "risk": "medium",
         "workers": [
           {
-            "id": "advisor_report_writer",
-            "alias": "advisor_report_writer",
+            "id": "financial_advice_reporter",
+            "alias": "financial_advice_reporter",
             "kind": "worker",
-            "role": "Advisor report writer",
+            "role": "Financial advice reporter",
             "model": "default",
             "tokens": 12000,
             "tools": 4,
@@ -1280,7 +1280,7 @@
     "name": "Personal Financial Advisor",
     "category": "finance",
     "description": "Continuously monitors a local personal finance folder, OCRs statements, income documents, receipts, bills, and related records, researches public context through a DockerWorker browser research phase, then writes review-only household finance status, advice, risk reminders, and source-grounded reports.",
-    "agent_role": "Continuous local personal finance service with a DockerWorker-only browser research agent that watches a document folder and prepares review-only household finance reports.",
+    "agent_role": "Actor-style continuous personal finance coworker with default-LLM specialists and a DockerWorker financial market researcher.",
     "target_users": "Individuals, households, freelancers, financial coaches, and operations teams reviewing personal finance documents.",
     "customizable_for": "Household budgeting, income and expense review, receipt tracking, bill reminders, cash-flow checks, and financial document intake.",
     "problem": "Households, solo operators, and financial coaches need a private continuous service coworker that can watch incoming finance documents, summarize cash-flow status, identify missing or risky items, and prepare human-review advice without moving money or sharing data.",
@@ -1298,7 +1298,9 @@
       "run-store observability dashboard",
       "Membrane context memory optimization",
       "DockerWorker-only browser research phase",
-      "w3m_browser_skill public research"
+      "w3m_browser_skill public research",
+      "actor-style default LLM specialists",
+      "LLM-guided DockerWorker market research"
     ],
     "configuration_contract": {
       "required_files": [
@@ -1320,15 +1322,15 @@
       "library": "../mn-agents/index.json",
       "nodes": [
         {
-          "node_id": "watch_financial_folder",
+          "node_id": "financial_folder_watcher",
           "uses": "mn-agents.data_python_executor@1.0.0",
           "with": {
             "environment": {
-              "MN_WORKFLOW_STEP_ID": "watch_financial_folder"
+              "MN_WORKFLOW_STEP_ID": "financial_folder_watcher"
             },
             "script": "scripts/run_blueprint.py",
             "upload_path": "document_workflow",
-            "output_message_type": "financial_folder_watched",
+            "output_message_type": "financial_folder_watcher_completed",
             "runner_module": "MirrorNeuron.Runner.HostLocal",
             "idempotent": true,
             "side_effect": "read",
@@ -1336,15 +1338,15 @@
           }
         },
         {
-          "node_id": "extract_financial_documents",
+          "node_id": "financial_document_reader",
           "uses": "mn-agents.data_python_executor@1.0.0",
           "with": {
             "environment": {
-              "MN_WORKFLOW_STEP_ID": "extract_financial_documents"
+              "MN_WORKFLOW_STEP_ID": "financial_document_reader"
             },
             "script": "scripts/run_blueprint.py",
             "upload_path": "document_workflow",
-            "output_message_type": "financial_documents_extracted",
+            "output_message_type": "financial_document_reader_completed",
             "runner_module": "MirrorNeuron.Runner.HostLocal",
             "idempotent": true,
             "side_effect": "read",
@@ -1352,15 +1354,15 @@
           }
         },
         {
-          "node_id": "classify_financial_activity",
+          "node_id": "financial_activity_classifier",
           "uses": "mn-agents.data_python_executor@1.0.0",
           "with": {
             "environment": {
-              "MN_WORKFLOW_STEP_ID": "classify_financial_activity"
+              "MN_WORKFLOW_STEP_ID": "financial_activity_classifier"
             },
             "script": "scripts/run_blueprint.py",
             "upload_path": "document_workflow",
-            "output_message_type": "financial_activity_classified",
+            "output_message_type": "financial_activity_classifier_completed",
             "runner_module": "MirrorNeuron.Runner.HostLocal",
             "idempotent": true,
             "side_effect": "read",
@@ -1368,15 +1370,15 @@
           }
         },
         {
-          "node_id": "assess_financial_health",
+          "node_id": "financial_health_assessor",
           "uses": "mn-agents.data_python_executor@1.0.0",
           "with": {
             "environment": {
-              "MN_WORKFLOW_STEP_ID": "assess_financial_health"
+              "MN_WORKFLOW_STEP_ID": "financial_health_assessor"
             },
             "script": "scripts/run_blueprint.py",
             "upload_path": "document_workflow",
-            "output_message_type": "financial_health_assessed",
+            "output_message_type": "financial_health_assessor_completed",
             "runner_module": "MirrorNeuron.Runner.HostLocal",
             "idempotent": true,
             "side_effect": "read",
@@ -1384,15 +1386,15 @@
           }
         },
         {
-          "node_id": "research_financial_context",
+          "node_id": "financial_market_researcher",
           "uses": "mn-agents.data_python_executor@1.0.0",
           "with": {
             "environment": {
-              "MN_WORKFLOW_STEP_ID": "research_financial_context"
+              "MN_WORKFLOW_STEP_ID": "financial_market_researcher"
             },
             "script": "scripts/run_blueprint_in_docker_worker.sh",
             "upload_path": "document_workflow",
-            "output_message_type": "financial_context_researched",
+            "output_message_type": "financial_market_researcher_completed",
             "runner_module": "MirrorNeuron.Runner.DockerWorker",
             "docker_worker_image": "document_workflow/docker_worker",
             "idempotent": true,
@@ -1401,15 +1403,15 @@
           }
         },
         {
-          "node_id": "write_advisor_report",
+          "node_id": "financial_advice_reporter",
           "uses": "mn-agents.data_python_executor@1.0.0",
           "with": {
             "environment": {
-              "MN_WORKFLOW_STEP_ID": "write_advisor_report"
+              "MN_WORKFLOW_STEP_ID": "financial_advice_reporter"
             },
             "script": "scripts/run_blueprint.py",
             "upload_path": "document_workflow",
-            "output_message_type": "advisor_report_written",
+            "output_message_type": "financial_advice_reporter_completed",
             "runner_module": "MirrorNeuron.Runner.HostLocal",
             "side_effect": "internal_write"
           }
@@ -1420,19 +1422,19 @@
       "rendered_output": "manifest.rendered.json or runtime metadata",
       "rendered": [
         {
-          "node_id": "watch_financial_folder",
+          "node_id": "financial_folder_watcher",
           "template_id": "mn-agents.data_python_executor",
           "version": "1.0.0",
           "original_node": {
-            "node_id": "watch_financial_folder",
+            "node_id": "financial_folder_watcher",
             "uses": "mn-agents.data_python_executor@1.0.0",
             "with": {
               "environment": {
-                "MN_WORKFLOW_STEP_ID": "watch_financial_folder"
+                "MN_WORKFLOW_STEP_ID": "financial_folder_watcher"
               },
               "script": "scripts/run_blueprint.py",
               "upload_path": "document_workflow",
-              "output_message_type": "financial_folder_watched",
+              "output_message_type": "financial_folder_watcher_completed",
               "runner_module": "MirrorNeuron.Runner.HostLocal",
               "idempotent": true,
               "side_effect": "read",
@@ -1440,7 +1442,7 @@
             }
           },
           "rendered_node": {
-            "node_id": "watch_financial_folder",
+            "node_id": "financial_folder_watcher",
             "type": "generic",
             "agent_type": "executor",
             "config": {
@@ -1467,9 +1469,9 @@
                 "scripts/run_blueprint.py"
               ],
               "environment": {
-                "MN_WORKFLOW_STEP_ID": "watch_financial_folder"
+                "MN_WORKFLOW_STEP_ID": "financial_folder_watcher"
               },
-              "output_message_type": "financial_folder_watched",
+              "output_message_type": "financial_folder_watcher_completed",
               "idempotent": true,
               "side_effect": "read",
               "safe_to_retry": true
@@ -1477,19 +1479,19 @@
           }
         },
         {
-          "node_id": "extract_financial_documents",
+          "node_id": "financial_document_reader",
           "template_id": "mn-agents.data_python_executor",
           "version": "1.0.0",
           "original_node": {
-            "node_id": "extract_financial_documents",
+            "node_id": "financial_document_reader",
             "uses": "mn-agents.data_python_executor@1.0.0",
             "with": {
               "environment": {
-                "MN_WORKFLOW_STEP_ID": "extract_financial_documents"
+                "MN_WORKFLOW_STEP_ID": "financial_document_reader"
               },
               "script": "scripts/run_blueprint.py",
               "upload_path": "document_workflow",
-              "output_message_type": "financial_documents_extracted",
+              "output_message_type": "financial_document_reader_completed",
               "runner_module": "MirrorNeuron.Runner.HostLocal",
               "idempotent": true,
               "side_effect": "read",
@@ -1497,7 +1499,7 @@
             }
           },
           "rendered_node": {
-            "node_id": "extract_financial_documents",
+            "node_id": "financial_document_reader",
             "type": "generic",
             "agent_type": "executor",
             "config": {
@@ -1524,9 +1526,9 @@
                 "scripts/run_blueprint.py"
               ],
               "environment": {
-                "MN_WORKFLOW_STEP_ID": "extract_financial_documents"
+                "MN_WORKFLOW_STEP_ID": "financial_document_reader"
               },
-              "output_message_type": "financial_documents_extracted",
+              "output_message_type": "financial_document_reader_completed",
               "idempotent": true,
               "side_effect": "read",
               "safe_to_retry": true
@@ -1534,19 +1536,19 @@
           }
         },
         {
-          "node_id": "classify_financial_activity",
+          "node_id": "financial_activity_classifier",
           "template_id": "mn-agents.data_python_executor",
           "version": "1.0.0",
           "original_node": {
-            "node_id": "classify_financial_activity",
+            "node_id": "financial_activity_classifier",
             "uses": "mn-agents.data_python_executor@1.0.0",
             "with": {
               "environment": {
-                "MN_WORKFLOW_STEP_ID": "classify_financial_activity"
+                "MN_WORKFLOW_STEP_ID": "financial_activity_classifier"
               },
               "script": "scripts/run_blueprint.py",
               "upload_path": "document_workflow",
-              "output_message_type": "financial_activity_classified",
+              "output_message_type": "financial_activity_classifier_completed",
               "runner_module": "MirrorNeuron.Runner.HostLocal",
               "idempotent": true,
               "side_effect": "read",
@@ -1554,7 +1556,7 @@
             }
           },
           "rendered_node": {
-            "node_id": "classify_financial_activity",
+            "node_id": "financial_activity_classifier",
             "type": "generic",
             "agent_type": "executor",
             "config": {
@@ -1581,9 +1583,9 @@
                 "scripts/run_blueprint.py"
               ],
               "environment": {
-                "MN_WORKFLOW_STEP_ID": "classify_financial_activity"
+                "MN_WORKFLOW_STEP_ID": "financial_activity_classifier"
               },
-              "output_message_type": "financial_activity_classified",
+              "output_message_type": "financial_activity_classifier_completed",
               "idempotent": true,
               "side_effect": "read",
               "safe_to_retry": true
@@ -1591,19 +1593,19 @@
           }
         },
         {
-          "node_id": "assess_financial_health",
+          "node_id": "financial_health_assessor",
           "template_id": "mn-agents.data_python_executor",
           "version": "1.0.0",
           "original_node": {
-            "node_id": "assess_financial_health",
+            "node_id": "financial_health_assessor",
             "uses": "mn-agents.data_python_executor@1.0.0",
             "with": {
               "environment": {
-                "MN_WORKFLOW_STEP_ID": "assess_financial_health"
+                "MN_WORKFLOW_STEP_ID": "financial_health_assessor"
               },
               "script": "scripts/run_blueprint.py",
               "upload_path": "document_workflow",
-              "output_message_type": "financial_health_assessed",
+              "output_message_type": "financial_health_assessor_completed",
               "runner_module": "MirrorNeuron.Runner.HostLocal",
               "idempotent": true,
               "side_effect": "read",
@@ -1611,7 +1613,7 @@
             }
           },
           "rendered_node": {
-            "node_id": "assess_financial_health",
+            "node_id": "financial_health_assessor",
             "type": "generic",
             "agent_type": "executor",
             "config": {
@@ -1638,9 +1640,9 @@
                 "scripts/run_blueprint.py"
               ],
               "environment": {
-                "MN_WORKFLOW_STEP_ID": "assess_financial_health"
+                "MN_WORKFLOW_STEP_ID": "financial_health_assessor"
               },
-              "output_message_type": "financial_health_assessed",
+              "output_message_type": "financial_health_assessor_completed",
               "idempotent": true,
               "side_effect": "read",
               "safe_to_retry": true
@@ -1648,19 +1650,19 @@
           }
         },
         {
-          "node_id": "research_financial_context",
+          "node_id": "financial_market_researcher",
           "template_id": "mn-agents.data_python_executor",
           "version": "1.0.0",
           "original_node": {
-            "node_id": "research_financial_context",
+            "node_id": "financial_market_researcher",
             "uses": "mn-agents.data_python_executor@1.0.0",
             "with": {
               "environment": {
-                "MN_WORKFLOW_STEP_ID": "research_financial_context"
+                "MN_WORKFLOW_STEP_ID": "financial_market_researcher"
               },
               "script": "scripts/run_blueprint_in_docker_worker.sh",
               "upload_path": "document_workflow",
-              "output_message_type": "financial_context_researched",
+              "output_message_type": "financial_market_researcher_completed",
               "runner_module": "MirrorNeuron.Runner.DockerWorker",
               "docker_worker_image": "document_workflow/docker_worker",
               "idempotent": true,
@@ -1669,7 +1671,7 @@
             }
           },
           "rendered_node": {
-            "node_id": "research_financial_context",
+            "node_id": "financial_market_researcher",
             "type": "generic",
             "agent_type": "executor",
             "config": {
@@ -1706,12 +1708,12 @@
                 }
               ],
               "environment": {
-                "MN_WORKFLOW_STEP_ID": "research_financial_context",
+                "MN_WORKFLOW_STEP_ID": "financial_market_researcher",
                 "MN_CONTEXT_USE_MODEL_COMPRESSION": "true",
                 "W3M_BROWSER_TIMEOUT_SECONDS": "12",
                 "W3M_BROWSER_MAX_CHARS": "6000"
               },
-              "output_message_type": "financial_context_researched",
+              "output_message_type": "financial_market_researcher_completed",
               "idempotent": true,
               "side_effect": "network_read",
               "safe_to_retry": true
@@ -1719,25 +1721,25 @@
           }
         },
         {
-          "node_id": "write_advisor_report",
+          "node_id": "financial_advice_reporter",
           "template_id": "mn-agents.data_python_executor",
           "version": "1.0.0",
           "original_node": {
-            "node_id": "write_advisor_report",
+            "node_id": "financial_advice_reporter",
             "uses": "mn-agents.data_python_executor@1.0.0",
             "with": {
               "environment": {
-                "MN_WORKFLOW_STEP_ID": "write_advisor_report"
+                "MN_WORKFLOW_STEP_ID": "financial_advice_reporter"
               },
               "script": "scripts/run_blueprint.py",
               "upload_path": "document_workflow",
-              "output_message_type": "advisor_report_written",
+              "output_message_type": "financial_advice_reporter_completed",
               "runner_module": "MirrorNeuron.Runner.HostLocal",
               "side_effect": "internal_write"
             }
           },
           "rendered_node": {
-            "node_id": "write_advisor_report",
+            "node_id": "financial_advice_reporter",
             "type": "generic",
             "agent_type": "executor",
             "config": {
@@ -1764,9 +1766,9 @@
                 "scripts/run_blueprint.py"
               ],
               "environment": {
-                "MN_WORKFLOW_STEP_ID": "write_advisor_report"
+                "MN_WORKFLOW_STEP_ID": "financial_advice_reporter"
               },
-              "output_message_type": "advisor_report_written",
+              "output_message_type": "financial_advice_reporter_completed",
               "side_effect": "internal_write"
             }
           }
@@ -2401,8 +2403,98 @@
     "features": [
       "w3m browser public research",
       "Membrane model context compression",
-      "DockerWorker-only browser research phase"
-    ]
+      "DockerWorker-only browser research phase",
+      "actor-style default LLM specialists",
+      "LLM-guided w3m public research"
+    ],
+    "llm": {
+      "enabled": true,
+      "mode": "live",
+      "mock_mode": "fake",
+      "model": "default",
+      "agent_role": "Actor-style household finance coworker using the default LLM for source-grounded review work.",
+      "default_config": "primary",
+      "quick_test_uses_fake": true,
+      "strict_json": false,
+      "prefer_shared_skill": true,
+      "configs": {
+        "primary": {
+          "provider": "docker_model_runner",
+          "model": "default",
+          "api_base": "http://localhost:12434/engines/v1",
+          "timeout_seconds": 60,
+          "max_tokens": 1200,
+          "num_retries": 1
+        }
+      },
+      "agents": {
+        "financial_folder_watcher": {
+          "llm_config": "primary",
+          "model": "default",
+          "role": "Financial folder watcher",
+          "responsibilities": [
+            "review the monitored folder status",
+            "identify missing or newly changed document types",
+            "explain intake readiness without opening private web channels"
+          ]
+        },
+        "financial_document_reader": {
+          "llm_config": "primary",
+          "model": "default",
+          "role": "Financial document reader",
+          "responsibilities": [
+            "summarize redacted finance document snippets",
+            "separate income, statement, receipt, bill, debt, and tax-document evidence",
+            "flag OCR or source-quality review needs"
+          ]
+        },
+        "financial_activity_classifier": {
+          "llm_config": "primary",
+          "model": "default",
+          "role": "Financial activity classifier",
+          "responsibilities": [
+            "classify source-grounded income, expenses, balances, fees, and obligations",
+            "stay within allowed finance-document categories",
+            "explain classification uncertainty for human review"
+          ]
+        },
+        "financial_health_assessor": {
+          "llm_config": "primary",
+          "model": "default",
+          "role": "Financial health assessor",
+          "responsibilities": [
+            "review cash-flow status from structured totals",
+            "explain blocker risks and reminders",
+            "prepare review questions without making consequential financial decisions"
+          ]
+        },
+        "financial_market_researcher": {
+          "llm_config": "primary",
+          "model": "default",
+          "role": "Financial market researcher",
+          "responsibilities": [
+            "plan privacy-safe public web searches from generic risk categories",
+            "choose public sources from DuckDuckGo search results",
+            "summarize source-grounded public guidance without exposing private document text"
+          ]
+        },
+        "financial_advice_reporter": {
+          "llm_config": "primary",
+          "model": "default",
+          "role": "Financial advice reporter",
+          "responsibilities": [
+            "write the final review-only household finance report",
+            "combine document analysis, health assessment, and research findings",
+            "preserve source refs and human-approval boundaries"
+          ]
+        }
+      },
+      "responsibilities": [
+        "keep private document text out of public web searches",
+        "ground every recommendation in local evidence or cited public sources",
+        "keep outputs review-only and require human approval before action"
+      ]
+    }
   },
   "type": "service"
 }

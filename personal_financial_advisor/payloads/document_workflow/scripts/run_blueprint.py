@@ -15,10 +15,13 @@ from pathlib import Path
 from typing import Any
 
 try:
-    from mn_blueprint_support import start_agent_beacon_thread
+    from mn_blueprint_support import get_llm_client, start_agent_beacon_thread
 except Exception:  # pragma: no cover - optional runtime support
     def start_agent_beacon_thread(message: str | None = None) -> None:
         return None
+
+    def get_llm_client(mode: str | None = None) -> Any:
+        return _FallbackLLMClient()
 
 
 BLUEPRINT_ID = "personal_financial_advisor"
@@ -70,12 +73,12 @@ DATASET_INPUT = {
     "download_hint": "Use the bundled sample files or fetch a small public sample before trying a larger local folder.",
 }
 OUTPUT_MESSAGE_BY_STEP = {
-    "watch_financial_folder": "financial_folder_watched",
-    "extract_financial_documents": "financial_documents_extracted",
-    "classify_financial_activity": "financial_activity_classified",
-    "assess_financial_health": "financial_health_assessed",
-    "research_financial_context": "financial_context_researched",
-    "write_advisor_report": "advisor_report_written",
+    "financial_folder_watcher": "financial_folder_watcher_completed",
+    "financial_document_reader": "financial_document_reader_completed",
+    "financial_activity_classifier": "financial_activity_classifier_completed",
+    "financial_health_assessor": "financial_health_assessor_completed",
+    "financial_market_researcher": "financial_market_researcher_completed",
+    "financial_advice_reporter": "financial_advice_reporter_completed",
 }
 RUNTIME_GRAPH_STEP_IDS = set(OUTPUT_MESSAGE_BY_STEP)
 ADVISOR_INPUT_KEYS = {
@@ -125,6 +128,8 @@ except Exception:  # pragma: no cover - fallback for minimal local checks
 
 W3mBrowserConfig = None
 research_topic = None
+browse_url = None
+build_search_url = None
 
 try:
     from mn_blueprint_support.context_memory import (
@@ -143,16 +148,190 @@ except Exception:  # pragma: no cover - optional runtime support
 
 
 def _load_w3m_browser_skill() -> None:
-    global W3mBrowserConfig, research_topic
-    if W3mBrowserConfig is not None and research_topic is not None:
+    global W3mBrowserConfig, browse_url, build_search_url, research_topic
+    if W3mBrowserConfig is not None and research_topic is not None and browse_url is not None and build_search_url is not None:
         return
     try:
         from mn_w3m_browser_skill import W3mBrowserConfig as imported_config
+        from mn_w3m_browser_skill import browse_url as imported_browse_url
+        from mn_w3m_browser_skill import build_search_url as imported_build_search_url
         from mn_w3m_browser_skill import research_topic as imported_research_topic
     except Exception:  # pragma: no cover - optional outside the research DockerWorker
         return
     W3mBrowserConfig = imported_config
+    browse_url = imported_browse_url
+    build_search_url = imported_build_search_url
     research_topic = imported_research_topic
+
+
+class _FallbackLLMClient:
+    provider = "fallback"
+    model = "deterministic-fallback"
+
+    def __init__(self) -> None:
+        self.calls = 0
+        self.fallback_calls = 0
+        self.prompts: list[dict[str, str]] = []
+
+    def generate_json(self, *, system_prompt: str, user_prompt: str, fallback: dict[str, Any]) -> dict[str, Any]:
+        self.calls += 1
+        self.fallback_calls += 1
+        self.prompts.append({"system": system_prompt, "user": user_prompt})
+        response = dict(fallback)
+        response.setdefault("confidence", 0.55)
+        response.setdefault("rationale", "Deterministic fallback used because the default LLM was unavailable.")
+        response["provider"] = self.provider
+        response["model"] = self.model
+        response["used_fallback"] = True
+        return response
+
+
+def _resolve_llm_client(config: dict[str, Any]) -> Any:
+    llm_config = config.get("llm") if isinstance(config.get("llm"), dict) else {}
+    if llm_config.get("enabled") is False:
+        return get_llm_client("fake")
+    mode = str(llm_config.get("mode") or os.environ.get("MN_BLUEPRINT_LLM_MODE") or "live").strip().lower()
+    if (
+        os.environ.get("MN_BLUEPRINT_QUICK_TEST", "").strip().lower() in {"1", "true", "yes", "on"}
+        and bool(llm_config.get("quick_test_uses_fake", False))
+    ):
+        return get_llm_client("fake")
+    if mode in {"fake", "mock", "deterministic"}:
+        return get_llm_client("fake")
+    _apply_llm_config_env(llm_config)
+    try:
+        client = get_llm_client(mode if mode not in {"default"} else None)
+    except Exception:
+        client = _FallbackLLMClient()
+    if hasattr(client, "prefer_shared_skill"):
+        client.prefer_shared_skill = bool(llm_config.get("prefer_shared_skill", True))
+    if hasattr(client, "strict"):
+        client.strict = bool(llm_config.get("strict_json", False))
+    return client
+
+
+def _apply_llm_config_env(llm_config: dict[str, Any]) -> None:
+    configs = llm_config.get("configs") if isinstance(llm_config.get("configs"), dict) else {}
+    default_config = str(llm_config.get("default_config") or "primary")
+    primary = configs.get(default_config) if isinstance(configs.get(default_config), dict) else {}
+    values = {
+        "MN_LLM_API_BASE": llm_config.get("api_base") or primary.get("api_base"),
+        "MN_LLM_PROVIDER": llm_config.get("provider") or primary.get("provider"),
+        "MN_LLM_MODEL": llm_config.get("model") or primary.get("model"),
+        "MN_LLM_TIMEOUT_SECONDS": llm_config.get("timeout_seconds") or primary.get("timeout_seconds"),
+        "MN_LLM_MAX_TOKENS": llm_config.get("max_tokens") or primary.get("max_tokens"),
+        "MN_LLM_NUM_RETRIES": llm_config.get("num_retries") or primary.get("num_retries"),
+    }
+    for env_name, value in values.items():
+        if value not in (None, "") and not os.environ.get(env_name):
+            os.environ[env_name] = str(value)
+
+
+def _llm_usage(llm: Any) -> dict[str, Any]:
+    return {
+        "provider": str(getattr(llm, "provider", "unknown")),
+        "model": str(getattr(llm, "model", "unknown")),
+        "calls": int(getattr(llm, "calls", 0) or 0),
+        "fallback_calls": int(getattr(llm, "fallback_calls", 0) or 0),
+    }
+
+
+def _actor_spec(config: dict[str, Any], actor_id: str) -> dict[str, Any]:
+    llm_config = config.get("llm") if isinstance(config.get("llm"), dict) else {}
+    agents = llm_config.get("agents") if isinstance(llm_config.get("agents"), dict) else {}
+    spec = agents.get(actor_id) if isinstance(agents.get(actor_id), dict) else {}
+    return {
+        "role": spec.get("role") or actor_id.replace("_", " ").title(),
+        "responsibilities": spec.get("responsibilities") if isinstance(spec.get("responsibilities"), list) else [],
+        "model": spec.get("model") or llm_config.get("model") or "default",
+    }
+
+
+def _actor_generate_json(
+    llm: Any,
+    config: dict[str, Any],
+    actor_id: str,
+    stage: str,
+    payload: dict[str, Any],
+    fallback: dict[str, Any],
+) -> dict[str, Any]:
+    spec = _actor_spec(config, actor_id)
+    system_prompt = (
+        f"You are the {spec['role']} for a review-only personal finance coworker. "
+        "Return only JSON. Stay source-grounded, preserve privacy, and never recommend moving money, "
+        "paying bills, trading, filing taxes, syncing accounts, or sharing reports without human approval."
+    )
+    user_prompt = json.dumps(
+        {
+            "actor_id": actor_id,
+            "stage": stage,
+            "responsibilities": spec["responsibilities"],
+            "privacy_rules": [
+                "Local LLM prompts may use redacted snippets and structured values.",
+                "Public web searches must use only generic risk categories and document types.",
+            ],
+            "payload": payload,
+            "fallback_schema": fallback,
+        },
+        indent=2,
+        sort_keys=True,
+        default=str,
+    )
+    try:
+        response = llm.generate_json(system_prompt=system_prompt, user_prompt=user_prompt, fallback=fallback)
+    except Exception as exc:
+        response = dict(fallback)
+        response["llm_error"] = str(exc)
+        response["used_fallback"] = True
+        if hasattr(llm, "fallback_calls"):
+            try:
+                llm.fallback_calls += 1
+            except Exception:
+                pass
+    if not isinstance(response, dict):
+        response = dict(fallback)
+        response["used_fallback"] = True
+    merged = dict(fallback)
+    for key, value in response.items():
+        if value is not None:
+            merged[key] = _compact_json_value(value)
+    merged["actor_id"] = actor_id
+    merged["role"] = spec["role"]
+    merged["model"] = spec["model"]
+    merged["generated_at"] = utc_now_iso()
+    return merged
+
+
+def _compact_json_value(value: Any, *, string_limit: int = 2000, list_limit: int = 30, dict_limit: int = 40) -> Any:
+    if isinstance(value, str):
+        return value[:string_limit]
+    if isinstance(value, list):
+        return [_compact_json_value(item, string_limit=string_limit, list_limit=list_limit, dict_limit=dict_limit) for item in value[:list_limit]]
+    if isinstance(value, dict):
+        compact: dict[str, Any] = {}
+        for index, (key, item) in enumerate(value.items()):
+            if index >= dict_limit:
+                break
+            compact[str(key)] = _compact_json_value(item, string_limit=string_limit, list_limit=list_limit, dict_limit=dict_limit)
+        return compact
+    return value
+
+
+def _actor_findings(state: dict[str, Any] | None = None) -> dict[str, Any]:
+    if state is None:
+        return {}
+    findings = state.get("actor_findings")
+    if isinstance(findings, dict):
+        return findings
+    findings = {}
+    state["actor_findings"] = findings
+    return findings
+
+
+def _record_actor_finding(state: dict[str, Any], actor_id: str, finding: dict[str, Any]) -> dict[str, Any]:
+    findings = _actor_findings(state)
+    findings[actor_id] = finding
+    return finding
 
 
 def utc_now_iso() -> str:
@@ -655,11 +834,82 @@ def build_research_queries(risks: list[dict[str, Any]], document_summary: dict[s
     return queries[:limit]
 
 
-def research_financial_context(
+def _safe_research_inputs(risks: list[dict[str, Any]], document_summary: dict[str, Any], limit: int) -> dict[str, Any]:
+    categories = []
+    for risk in risks:
+        if isinstance(risk, dict) and risk.get("category"):
+            category = str(risk.get("category"))
+            if category not in categories:
+                categories.append(category)
+    return {
+        "risk_categories": categories[:12],
+        "document_types": document_summary.get("document_types", {}),
+        "document_count": document_summary.get("document_count", 0),
+        "ocr_required_count": len(document_summary.get("ocr_required") or []),
+        "default_queries": build_research_queries(risks, document_summary, limit),
+    }
+
+
+def _sanitize_research_queries(queries: Any, fallback: list[str], limit: int) -> list[str]:
+    safe: list[str] = []
+    blocked = re.compile(r"[$@#]|\b\d{4,}\b|account|routing|ssn|social security|acme|fresh market|community bank", re.I)
+    for query in queries if isinstance(queries, list) else []:
+        value = " ".join(str(query or "").split())
+        if not value or blocked.search(value):
+            continue
+        if value not in safe:
+            safe.append(value[:160])
+    for query in fallback:
+        if query not in safe:
+            safe.append(query)
+    return safe[:limit]
+
+
+def _extract_public_urls(text: str, search_url: str, limit: int) -> list[str]:
+    search_host = _url_host(search_url)
+    urls: list[str] = []
+    for raw in re.findall(r"https?://[^\s<>()\"']+", text or ""):
+        url = raw.rstrip("].,;:")
+        host = _url_host(url)
+        if not host or host == search_host or "duckduckgo.com" in host:
+            continue
+        if url not in urls:
+            urls.append(url)
+        if len(urls) >= limit:
+            break
+    return urls
+
+
+def _url_host(url: str) -> str:
+    match = re.match(r"https?://([^/]+)", str(url or ""))
+    return match.group(1).lower() if match else ""
+
+
+def _select_urls_from_llm(response: dict[str, Any], candidates: list[str], max_sources: int) -> list[str]:
+    allowed = set(candidates)
+    selected: list[str] = []
+    raw_items = response.get("selected_urls") or response.get("urls") or []
+    if isinstance(raw_items, list):
+        for item in raw_items:
+            url = str(item.get("url") if isinstance(item, dict) else item)
+            if url in allowed and url not in selected:
+                selected.append(url)
+            if len(selected) >= max_sources:
+                break
+    for url in candidates:
+        if len(selected) >= max_sources:
+            break
+        if url not in selected:
+            selected.append(url)
+    return selected[:max_sources]
+
+
+def financial_market_researcher(
     risks: list[dict[str, Any]],
     document_summary: dict[str, Any],
     config: dict[str, Any],
     run_id: str,
+    llm: Any | None = None,
 ) -> dict[str, Any]:
     research_config = resolve_research_config(config)
     if not research_config.get("enabled"):
@@ -668,18 +918,23 @@ def research_financial_context(
             "research_sources": [],
             "research_warnings": ["internet_research.disabled"],
             "research_queries": [],
+            "research_plan": {},
+            "research_findings": [],
             "context_compression": {"enabled": False, "reason": "research disabled"},
         }
     _load_w3m_browser_skill()
-    if research_topic is None or W3mBrowserConfig is None:
+    if W3mBrowserConfig is None or browse_url is None or build_search_url is None:
         return {
             "research_summary": "Browser research was requested, but w3m_browser_skill is not available.",
             "research_sources": [],
             "research_warnings": ["w3m_browser_skill unavailable"],
             "research_queries": [],
+            "research_plan": {},
+            "research_findings": [],
             "context_compression": {"enabled": False, "reason": "w3m_browser_skill unavailable"},
         }
 
+    llm = llm or _resolve_llm_client(config)
     browser_config = W3mBrowserConfig(
         timeout_seconds=research_config["timeout_seconds"],
         max_chars=research_config["max_chars"],
@@ -687,43 +942,115 @@ def research_financial_context(
         allow_hosts=tuple(research_config.get("allow_hosts") or ()),
         deny_hosts=tuple(research_config.get("deny_hosts") or ()),
     )
-    source_urls = [str(url) for url in research_config.get("source_urls") or [] if str(url).strip()]
-    queries = build_research_queries(risks, document_summary, research_config["max_queries"])
+    safe_inputs = _safe_research_inputs(risks, document_summary, research_config["max_queries"])
+    plan_fallback = {
+        "search_queries": safe_inputs["default_queries"],
+        "research_focus": safe_inputs["risk_categories"] or ["review_required"],
+        "rationale": "Use generic consumer-finance guidance derived from risk categories and document types.",
+    }
+    plan = _actor_generate_json(
+        llm,
+        config,
+        "financial_market_researcher",
+        "plan_public_research",
+        safe_inputs,
+        plan_fallback,
+    )
+    queries = _sanitize_research_queries(plan.get("search_queries"), safe_inputs["default_queries"], research_config["max_queries"])
     collected_sources: list[dict[str, Any]] = []
-    summaries: list[str] = []
+    search_pages: list[dict[str, Any]] = []
     warnings: list[str] = []
 
     for query in queries:
-        result = research_topic(
-            query,
-            browser_config,
-            source_urls=source_urls or None,
-            max_sources=research_config["max_sources_per_query"],
+        search_url = build_search_url(query, browser_config)
+        search_page = browse_url(search_url, browser_config)
+        if search_page.get("status") != "ok":
+            warnings.append(f"{search_url}: {search_page.get('error') or search_page.get('status')}")
+            continue
+        candidates = _extract_public_urls(str(search_page.get("text") or ""), search_url, limit=12)
+        search_pages.append(
+            {
+                "query": query,
+                "search_url": search_url,
+                "candidate_urls": candidates,
+                "snippet": str(search_page.get("snippet") or search_page.get("text") or "")[:700],
+            }
         )
-        if result.get("summary"):
-            summaries.append(str(result["summary"]))
-        warnings.extend(str(item) for item in result.get("warnings") or [])
-        for source in result.get("sources") or []:
-            if not isinstance(source, dict):
+        select_fallback = {
+            "selected_urls": candidates[: research_config["max_sources_per_query"]],
+            "rationale": "Use the first public result URLs from the text browser search page.",
+        }
+        selection = _actor_generate_json(
+            llm,
+            config,
+            "financial_market_researcher",
+            "select_public_sources",
+            {
+                "query": query,
+                "search_url": search_url,
+                "candidate_urls": candidates,
+                "candidate_count": len(candidates),
+            },
+            select_fallback,
+        )
+        for url in _select_urls_from_llm(selection, candidates, research_config["max_sources_per_query"]):
+            source = browse_url(url, browser_config)
+            if source.get("status") != "ok":
+                warnings.append(f"{url}: {source.get('error') or source.get('status')}")
                 continue
-            url = str(source.get("url") or "")
-            if not url or any(existing.get("url") == url for existing in collected_sources):
+            source_url = str(source.get("url") or url)
+            if any(existing.get("url") == source_url for existing in collected_sources):
                 continue
             collected_sources.append(
                 {
                     "query": query,
-                    "url": url,
-                    "title": str(source.get("title") or url)[:200],
+                    "url": source_url,
+                    "title": str(source.get("title") or source_url)[:200],
                     "snippet": redactor(str(source.get("snippet") or source.get("text") or ""))[:700],
                 }
             )
 
-    summary = "\n".join(item for item in summaries if item).strip()
-    if not summary:
-        summary = "No public web research source text was collected."
+    findings_fallback = {
+        "summary": "No public web research source text was collected." if not collected_sources else "\n".join(
+            f"{source.get('title')}: {source.get('snippet')}" for source in collected_sources[:6]
+        ),
+        "findings": [
+            {
+                "topic": source.get("query", ""),
+                "finding": source.get("snippet", ""),
+                "source_url": source.get("url", ""),
+            }
+            for source in collected_sources[:10]
+        ],
+        "warnings": warnings,
+    }
+    findings = _actor_generate_json(
+        llm,
+        config,
+        "financial_market_researcher",
+        "summarize_public_research",
+        {
+            "research_plan": {
+                "search_queries": queries,
+                "research_focus": plan.get("research_focus") or safe_inputs["risk_categories"],
+                "search_pages": search_pages,
+            },
+            "sources": collected_sources,
+            "warnings": warnings,
+        },
+        findings_fallback,
+    )
+    summary = str(findings.get("summary") or findings_fallback["summary"]).strip()
     compression = compile_research_context(run_id, summary, collected_sources, config, research_config)
     return {
         "research_summary": summary,
+        "research_plan": {
+            "search_queries": queries,
+            "research_focus": plan.get("research_focus") or safe_inputs["risk_categories"],
+            "search_pages": search_pages,
+            "rationale": plan.get("rationale", ""),
+        },
+        "research_findings": findings.get("findings") if isinstance(findings.get("findings"), list) else findings_fallback["findings"],
         "research_sources": collected_sources[:20],
         "research_warnings": warnings[:20],
         "research_queries": queries,
@@ -787,6 +1114,8 @@ def build_final_artifact(
     watch_state: dict[str, Any],
     run_id: str,
     research: dict[str, Any] | None = None,
+    actor_findings: dict[str, Any] | None = None,
+    llm_usage: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     document_summary = build_document_summary(records)
     financial_snapshot, income_summary, expense_summary = build_financial_sections(records)
@@ -798,21 +1127,25 @@ def build_final_artifact(
         "research_sources": [],
         "research_warnings": [],
         "research_queries": [],
+        "research_plan": {},
+        "research_findings": [],
         "context_compression": {"enabled": False, "reason": "not requested"},
     }
+    actor_findings = actor_findings or {}
     blocker_count = sum(1 for risk in risks if risk.get("blocker"))
     status = "waiting_for_documents" if not records else ("needs_review" if blocker_count else "review_ready")
     confidence = 0.35 if not records else (0.62 if document_summary["ocr_required"] else 0.78)
+    reporter = actor_findings.get("financial_advice_reporter") if isinstance(actor_findings.get("financial_advice_reporter"), dict) else {}
     final_artifact = {
         "type": OUTPUT_TYPE,
         "title": "Personal Financial Advisor Report",
         "status": status,
-        "executive_summary": (
+        "executive_summary": reporter.get("executive_summary") or (
             f"{BLUEPRINT_NAME} processed {len(records)} finance document record(s), "
             f"estimated detected income at {income_summary['total_detected']} and detected expenses at {expense_summary['total_detected']}, "
             "and prepared a review-only household finance report."
         ),
-        "advisor_message": _advisor_message(status, risks, financial_snapshot),
+        "advisor_message": reporter.get("advisor_message") or _advisor_message(status, risks, financial_snapshot),
         "recommended_action": RECOMMENDED_ACTION,
         "confidence": confidence,
         "evidence": summarize_records(records),
@@ -824,11 +1157,15 @@ def build_final_artifact(
         "advisor_recommendations": recommendations,
         "reminders": reminders,
         "research_summary": research.get("research_summary", ""),
+        "research_plan": research.get("research_plan", {}),
+        "research_findings": research.get("research_findings", []),
         "research_sources": research.get("research_sources", []),
         "research_warnings": research.get("research_warnings", []),
         "research_queries": research.get("research_queries", []),
         "context_compression": research.get("context_compression", {}),
-        "next_steps": [item["action"] for item in recommendations[:5] if item.get("action")],
+        "actor_findings": actor_findings,
+        "llm_usage": llm_usage or {},
+        "next_steps": reporter.get("next_steps") if isinstance(reporter.get("next_steps"), list) else [item["action"] for item in recommendations[:5] if item.get("action")],
         "source_refs": ["inputs.json", "events.jsonl", "result.json", "final_artifact.json"],
         "dataset_input": DATASET_INPUT,
         "field_profile": FIELD_PROFILE,
@@ -930,6 +1267,22 @@ def render_markdown_report(final_artifact: dict[str, Any]) -> str:
     )
     lines.extend(["", "## Research Context", ""])
     lines.append(str(final_artifact.get("research_summary") or "No public web research was collected."))
+    if final_artifact.get("research_findings"):
+        lines.extend(["", "### Research Findings", ""])
+        lines.extend(
+            _markdown_table(
+                ["Topic", "Finding", "Source"],
+                [
+                    [
+                        finding.get("topic", ""),
+                        finding.get("finding", ""),
+                        finding.get("source_url", ""),
+                    ]
+                    for finding in final_artifact.get("research_findings", [])
+                    if isinstance(finding, dict)
+                ],
+            )
+        )
     lines.extend(["", "### Research Sources", ""])
     lines.extend(
         _markdown_table(
@@ -949,6 +1302,19 @@ def render_markdown_report(final_artifact: dict[str, Any]) -> str:
         lines.extend(["", "### Research Warnings", ""])
         for warning in final_artifact.get("research_warnings", []):
             lines.append(f"- {warning}")
+    if final_artifact.get("actor_findings"):
+        lines.extend(["", "## Actor Findings", ""])
+        actor_rows = []
+        for actor_id, finding in (final_artifact.get("actor_findings") or {}).items():
+            if isinstance(finding, dict):
+                actor_rows.append(
+                    [
+                        actor_id,
+                        finding.get("summary") or finding.get("rationale") or finding.get("status") or "",
+                        finding.get("confidence", ""),
+                    ]
+                )
+        lines.extend(_markdown_table(["Actor", "Finding", "Confidence"], actor_rows))
     lines.extend(["", "## Advisor Recommendations", ""])
     for item in final_artifact.get("advisor_recommendations", []):
         if isinstance(item, dict):
@@ -1240,13 +1606,13 @@ def run_runtime_step(
     )
     append_event(run_dir, "runtime_step_started", {"step_id": step_id, "component": BLUEPRINT_ID})
 
-    if step_id == "watch_financial_folder":
+    if step_id == "financial_folder_watcher":
         watch_state = _watch_state_for_step(document_folder, monitoring)
         state["watch_state"] = watch_state
         write_json(run_dir / str(monitoring.get("processed_state_file") or "watch_state.json"), watch_state)
         append_event(
             run_dir,
-            "financial_folder_watched",
+            "financial_folder_watcher_completed",
             {
                 "document_folder": str(document_folder),
                 "file_count": len(watch_state.get("processed_files") or []),
@@ -1255,45 +1621,45 @@ def run_runtime_step(
             },
         )
         outputs = {"watch_state": watch_state, "document_folder": str(document_folder), "output_folder": str(output_folder)}
-    elif step_id == "extract_financial_documents":
+    elif step_id == "financial_document_reader":
         records = extract_records(document_folder, resolved_config)
         state["records"] = records
         write_json(run_dir / "financial_records.json", records)
-        append_event(run_dir, "financial_documents_extracted", {"record_count": len(records), "cycle": 1})
+        append_event(run_dir, "financial_document_reader_completed", {"record_count": len(records), "cycle": 1})
         outputs = {
             "record_count": len(records),
             "records_path": str(run_dir / "financial_records.json"),
             "ocr_metadata_present": all("ocr_required" in item and "extraction_method" in item for item in records),
         }
-    elif step_id == "classify_financial_activity":
+    elif step_id == "financial_activity_classifier":
         records = _state_records(state)
         sections = _classification_from_records(records)
         state.update(sections)
         append_event(
             run_dir,
-            "financial_activity_classified",
+            "financial_activity_classifier_completed",
             {"document_types": sections["document_summary"]["document_types"], "cycle": 1},
         )
         outputs = sections
-    elif step_id == "assess_financial_health":
+    elif step_id == "financial_health_assessor":
         assessment = _assessment_from_state(state)
         state.update(assessment)
         append_event(
             run_dir,
-            "financial_health_assessed",
+            "financial_health_assessor_completed",
             {
                 "risk_count": len(assessment["risk_register"]),
                 "cycle": 1,
             },
         )
         outputs = assessment
-    elif step_id == "research_financial_context":
+    elif step_id == "financial_market_researcher":
         records = _state_records(state)
         if not isinstance(state.get("document_summary"), dict):
             state.update(_classification_from_records(records))
         if not isinstance(state.get("risk_register"), list):
             state.update(_assessment_from_state(state))
-        research = research_financial_context(
+        research = financial_market_researcher(
             state.get("risk_register") if isinstance(state.get("risk_register"), list) else [],
             state.get("document_summary") if isinstance(state.get("document_summary"), dict) else build_document_summary(records),
             resolved_config,
@@ -1303,7 +1669,7 @@ def run_runtime_step(
         write_json(run_dir / "research.json", research)
         append_event(
             run_dir,
-            "financial_context_researched",
+            "financial_market_researcher_completed",
             {
                 "source_count": len(research.get("research_sources") or []),
                 "warning_count": len(research.get("research_warnings") or []),
@@ -1333,7 +1699,7 @@ def run_runtime_step(
         }
         write_json(run_dir / "result.json", result)
         write_json(run_dir / "final_artifact.json", final_artifact)
-        append_event(run_dir, "advisor_report_written", {"output_files": output_files, "cycle": 1})
+        append_event(run_dir, "financial_advice_reporter_completed", {"output_files": output_files, "cycle": 1})
         outputs = {"final_artifact": final_artifact, "output_files": output_files}
 
     _save_workflow_state(run_dir, state)
@@ -1475,7 +1841,7 @@ def run_scan_cycle(
     append_event(run_dir, "blueprint_phase_started", {"phase": "loading_inputs", "component": BLUEPRINT_ID, "cycle": cycle})
     append_event(
         run_dir,
-        "financial_folder_watched",
+        "financial_folder_watcher_completed",
         {
             "document_folder": str(document_folder),
             "file_count": len(watch_state.get("processed_files") or []),
@@ -1487,21 +1853,21 @@ def run_scan_cycle(
     append_event(run_dir, "blueprint_phase_started", {"phase": "running_worker", "component": BLUEPRINT_ID, "cycle": cycle})
 
     records = extract_records(document_folder, config)
-    append_event(run_dir, "financial_documents_extracted", {"record_count": len(records), "cycle": cycle})
+    append_event(run_dir, "financial_document_reader_completed", {"record_count": len(records), "cycle": cycle})
     document_summary = build_document_summary(records)
-    append_event(run_dir, "financial_activity_classified", {"document_types": document_summary["document_types"], "cycle": cycle})
+    append_event(run_dir, "financial_activity_classifier_completed", {"document_types": document_summary["document_types"], "cycle": cycle})
 
     final_artifact = build_final_artifact(records, watch_state, run_id)
     append_event(
         run_dir,
-        "financial_health_assessed",
+        "financial_health_assessor_completed",
         {
             "status": final_artifact["status"],
             "risk_count": len(final_artifact["risk_register"]),
             "cycle": cycle,
         },
     )
-    research = research_financial_context(
+    research = financial_market_researcher(
         final_artifact["risk_register"],
         final_artifact["document_summary"],
         config,
@@ -1509,7 +1875,7 @@ def run_scan_cycle(
     )
     append_event(
         run_dir,
-        "financial_context_researched",
+        "financial_market_researcher_completed",
         {
             "source_count": len(research.get("research_sources") or []),
             "warning_count": len(research.get("research_warnings") or []),
@@ -1540,7 +1906,7 @@ def run_scan_cycle(
     append_event(run_dir, "artifact_written", {"path": "final_artifact.json", "cycle": cycle})
     for item in output_files:
         append_event(run_dir, "artifact_written", {"path": item["path"], "cycle": cycle})
-    append_event(run_dir, "advisor_report_written", {"output_files": output_files, "cycle": cycle})
+    append_event(run_dir, "financial_advice_reporter_completed", {"output_files": output_files, "cycle": cycle})
     append_event(run_dir, "blueprint_phase_completed", {"phase": "writing_artifacts", "component": BLUEPRINT_ID, "cycle": cycle})
     append_event(run_dir, "blueprint_phase_completed", {"phase": "completed", "component": BLUEPRINT_ID, "cycle": cycle})
     return result
