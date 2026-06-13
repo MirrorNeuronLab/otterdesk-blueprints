@@ -132,6 +132,16 @@ def safe_save_sent_email_copy(**kwargs) -> dict:
         return {"status": "failed", "reason": "sent_email_copy_error", "error": str(exc)}
 
 
+def sent_email_copy_observability_payload(sent_email_copy: dict | None) -> dict | None:
+    if not isinstance(sent_email_copy, dict):
+        return sent_email_copy
+    return {
+        key: value
+        for key, value in sent_email_copy.items()
+        if key not in {"html_content", "text_content"}
+    }
+
+
 def quick_testing_enabled(delivery_settings: dict) -> bool:
     values = [
         os.environ.get("SYNAPTIC_QUICK_TEST_MODE", ""),
@@ -810,7 +820,7 @@ def main(email_sender=None, slack_sender=None) -> None:
                     "delivery_recipient": actual_recipient,
                     "test_recipient_override": bool(test_recipient),
                     "subject": saved_draft["subject"],
-                    "sent_email_copy": sent_email_copy,
+                    "sent_email_copy": sent_email_copy_observability_payload(sent_email_copy),
                 },
             )
         else:
@@ -886,7 +896,7 @@ def main(email_sender=None, slack_sender=None) -> None:
                             "dry_run": bool(delivery.get("dry_run")),
                             "quick_testing": quick_testing,
                             "test_recipient_override": bool(test_recipient),
-                            "sent_email_copy": sent_email_copy,
+                            "sent_email_copy": sent_email_copy_observability_payload(sent_email_copy),
                         },
                     },
                     *(

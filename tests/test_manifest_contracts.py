@@ -1,0 +1,17 @@
+from __future__ import annotations
+
+from otterdesk_blueprint_suite import (
+    test_all_blueprints_declare_actor_style_llm_config,
+    test_index_entries_point_to_loadable_blueprint_folders,
+    test_otterdesk_blueprints_are_workflow_driven_manifests,
+    test_otterdesk_blueprints_declare_membrane_context_memory_layer,
+    test_otterdesk_blueprints_declare_product_experience_contracts,
+    test_otterdesk_completion_contract_is_explicit_and_terminal_sinks_are_reachable,
+    test_otterdesk_json_uses_python311_for_host_python_commands,
+    test_otterdesk_manifests_require_runtime_workflow_control_contract,
+    test_otterdesk_nodes_use_shared_agent_templates_and_render,
+    test_otterdesk_rendered_completion_contract_is_valid,
+    test_otterdesk_topology_metadata_matches_runtime_nodes,
+    test_otterdesk_workflow_steps_are_bounded_and_retryable,
+    test_video_gpu_blueprints_declare_hard_nvidia_cuda_requirements_consistently,
+)

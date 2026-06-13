@@ -1,0 +1,14 @@
+from __future__ import annotations
+
+from otterdesk_blueprint_suite import (
+    test_video_watch_declares_domain_agent_aliases,
+    test_video_watch_declares_otterdesk_chat_system_prompt,
+    test_video_watch_default_validator_checks_demo_video,
+    test_video_watch_detector_script_compiles_with_shared_helper_import,
+    test_video_watch_dynamic_mapped_validator_skips_ffprobe_when_missing,
+    test_video_watch_external_rtsp_validator_probes_stream,
+    test_video_watch_openshell_policy_is_generated_by_shared_helper,
+    test_video_watch_post_launch_collects_pre_launch_process_group,
+    test_video_watch_pre_launch_owns_mediamtx_preview_config,
+    test_video_watch_runtime_bundle_allows_host_validated_demo_video,
+)

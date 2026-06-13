@@ -71,6 +71,10 @@ def test_inbox_reply_saves_sent_email_copy(tmp_path, monkeypatch):
     assert metadata["runtime_job_id"] == "job_1"
     assert metadata["recipient"] == "buyer@example.com"
     assert metadata["has_personal_reply_marker"] is True
+    observability_payload = module.sent_email_copy_observability_payload(result)
+    assert "html_content" not in observability_payload
+    assert "text_content" not in observability_payload
+    assert observability_payload["html_path"] == result["html_path"]
 
 
 def test_inbox_reply_updates_local_crm_csv(tmp_path, monkeypatch):

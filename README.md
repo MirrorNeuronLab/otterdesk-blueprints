@@ -27,8 +27,14 @@ mn run --folder .
 Run repository tests:
 
 ```bash
+python3.11 -m venv .venv
+.venv/bin/python -m pip install -r requirements-test.txt
 .venv/bin/python -m pytest -q
 ```
+
+The catalog contract tests also expect this repository to live beside the companion
+`mn-skills` and `mn-agents` folders because they import shared blueprint support
+helpers and render shared agent templates.
 
 ## Catalog
 

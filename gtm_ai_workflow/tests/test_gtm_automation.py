@@ -181,6 +181,8 @@ class GtmAutomationTests(unittest.TestCase):
         self.assertEqual(payload["events"][0]["payload"]["subject"], "A small GTM loop idea")
         sent_copy = payload["events"][0]["payload"]["sent_email_copy"]
         self.assertEqual(sent_copy["status"], "saved")
+        self.assertNotIn("html_content", sent_copy)
+        self.assertNotIn("text_content", sent_copy)
         self.assertTrue(Path(sent_copy["html_path"]).exists())
         self.assertTrue(Path(sent_copy["text_path"]).exists())
         self.assertTrue(Path(sent_copy["metadata_path"]).exists())
@@ -220,11 +222,19 @@ class GtmAutomationTests(unittest.TestCase):
             log = conn.execute(
                 "SELECT details_json FROM agent_logs WHERE message = 'Email sent event.'"
             ).fetchone()
+            sent_log = conn.execute(
+                "SELECT details_json FROM agent_logs WHERE message = 'Sent email to customer.'"
+            ).fetchone()
         self.assertIsNotNone(log)
         self.assertEqual(
             json.loads(log[0]),
             {"to": "test@example.com", "subject": "A small GTM loop idea"},
         )
+        self.assertIsNotNone(sent_log)
+        sent_log_details = json.loads(sent_log[0])
+        self.assertIn("sent_email_copy", sent_log_details)
+        self.assertNotIn("html_content", sent_log_details["sent_email_copy"])
+        self.assertNotIn("text_content", sent_log_details["sent_email_copy"])
         crm_text = Path(self.crm_dir, "crm.csv").read_text()
         insights_text = Path(self.crm_dir, "market_insights.csv").read_text()
         self.assertIn("cust_1", crm_text)

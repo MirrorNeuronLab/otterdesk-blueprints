@@ -162,6 +162,16 @@ def safe_save_sent_email_copy(**kwargs) -> dict:
         return {"status": "failed", "reason": "sent_email_copy_error", "error": str(exc)}
 
 
+def sent_email_copy_observability_payload(sent_email_copy: dict | None) -> dict | None:
+    if not isinstance(sent_email_copy, dict):
+        return sent_email_copy
+    return {
+        key: value
+        for key, value in sent_email_copy.items()
+        if key not in {"html_content", "text_content"}
+    }
+
+
 def load_json_file(path: Path) -> dict:
     if not path.exists():
         return {}
@@ -614,7 +624,7 @@ def check_agentmail() -> list:
                     "html_template": "personal_reply" if reply_html else None,
                     "delivery": reply_delivery,
                     "slack": slack_delivery,
-                    "sent_email_copy": sent_email_copy,
+                    "sent_email_copy": sent_email_copy_observability_payload(sent_email_copy),
                 }
             })
             
@@ -719,7 +729,7 @@ def check_agentmail_with_skill() -> list:
                     "html_template": "personal_reply" if reply_html else None,
                     "delivery": reply_delivery,
                     "slack": slack_delivery,
-                    "sent_email_copy": sent_email_copy,
+                    "sent_email_copy": sent_email_copy_observability_payload(sent_email_copy),
                 }
             })
     except Exception as e:
