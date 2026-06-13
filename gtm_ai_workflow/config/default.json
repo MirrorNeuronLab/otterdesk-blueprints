@@ -294,30 +294,143 @@
   "llm": {
     "agent_role": "Account researcher, pain hypothesis analyst, sales email drafter, response summarizer, CRM updater, and product-marketing feedback assistant.",
     "agents": {
-      "default": {
+      "input_adapter": {
         "llm_config": "primary",
-        "responsibilities": [],
-        "role": "Account researcher, pain hypothesis analyst, sales email drafter, response summarizer, CRM updater, and product-marketing feedback assistant."
+        "model": "ollama/nemotron3:33b",
+        "role": "GTM intake adapter",
+        "responsibilities": [
+          "Normalize strategy, customer, template, and inbox inputs.",
+          "Preserve provenance for downstream GTM actors.",
+          "Flag missing required campaign context."
+        ]
+      },
+      "monitor_scheduler_agent": {
+        "llm_config": "primary",
+        "model": "ollama/nemotron3:33b",
+        "role": "Buying-signal monitor",
+        "responsibilities": [
+          "Schedule account and inbox monitoring work.",
+          "Prioritize signals that match the GTM strategy.",
+          "Avoid inventing intent signals not present in inputs."
+        ]
+      },
+      "account_research_agent": {
+        "llm_config": "primary",
+        "model": "ollama/nemotron3:33b",
+        "role": "Account research actor",
+        "responsibilities": [
+          "Summarize account context and likely pain hypotheses.",
+          "Tie claims to supplied customer evidence.",
+          "Flag assumptions for review."
+        ]
+      },
+      "outreach_copywriter_agent": {
+        "llm_config": "primary",
+        "model": "ollama/nemotron3:33b",
+        "role": "Outbound copywriter actor",
+        "responsibilities": [
+          "Draft concise account-specific outreach.",
+          "Use approved templates and product positioning.",
+          "Keep copy reviewable before delivery."
+        ]
+      },
+      "email_designer_agent": {
+        "llm_config": "primary",
+        "model": "ollama/nemotron3:33b",
+        "role": "Email design actor",
+        "responsibilities": [
+          "Convert copy into approved email layouts.",
+          "Preserve brand and accessibility constraints.",
+          "Flag missing assets or unsupported formatting."
+        ]
+      },
+      "deliverability_ops_agent": {
+        "llm_config": "primary",
+        "model": "ollama/nemotron3:33b",
+        "role": "Deliverability operations actor",
+        "responsibilities": [
+          "Check send readiness, rate limits, and delivery policy.",
+          "Summarize deliverability blockers.",
+          "Avoid sending when controls are not satisfied."
+        ]
+      },
+      "control_manager_agent": {
+        "llm_config": "primary",
+        "model": "ollama/nemotron3:33b",
+        "role": "GTM control manager",
+        "responsibilities": [
+          "Review workflow decisions before automation.",
+          "Apply human-control and compliance boundaries.",
+          "Record blockers and approvals."
+        ]
+      },
+      "gtm_automation_agent": {
+        "llm_config": "primary",
+        "model": "ollama/nemotron3:33b",
+        "role": "GTM automation actor",
+        "responsibilities": [
+          "Execute approved workflow actions only.",
+          "Record action provenance and outcomes.",
+          "Stop on policy or delivery blockers."
+        ]
+      },
+      "inbox_reply_agent": {
+        "llm_config": "primary",
+        "model": "ollama/nemotron3:33b",
+        "role": "Inbox reply actor",
+        "responsibilities": [
+          "Summarize inbound replies and intent.",
+          "Draft response options from approved context.",
+          "Avoid promising unavailable commitments."
+        ]
+      },
+      "inbox_poller_agent": {
+        "llm_config": "primary",
+        "model": "ollama/nemotron3:33b",
+        "role": "Inbox polling actor",
+        "responsibilities": [
+          "Poll configured inbox sources.",
+          "Classify new messages for workflow routing.",
+          "Preserve message provenance and privacy boundaries."
+        ]
+      },
+      "artifact_writer": {
+        "llm_config": "primary",
+        "model": "ollama/nemotron3:33b",
+        "role": "GTM artifact writer",
+        "responsibilities": [
+          "Assemble final workflow artifacts.",
+          "Summarize completed and blocked actions.",
+          "Preserve source references for review."
+        ]
       }
     },
     "api_base": "http://192.168.4.173:11434",
     "configs": {
       "primary": {
-        "api_base": "http://192.168.4.173:11434",
-        "max_tokens": 700,
-        "mock_mode": "fake",
-        "mode": "ollama",
-        "model": "ollama/nemotron3:33b",
-        "num_retries": 1,
         "provider": "ollama",
-        "timeout_seconds": 60
+        "model": "ollama/nemotron3:33b",
+        "api_base": "http://192.168.4.173:11434",
+        "timeout_seconds": 60,
+        "max_tokens": 700,
+        "num_retries": 1,
+        "mock_mode": "fake",
+        "mode": "ollama"
       }
     },
     "default_config": "primary",
     "enabled": true,
     "mock_mode": "fake",
     "mode": "ollama",
-    "model": "ollama/nemotron3:33b"
+    "model": "ollama/nemotron3:33b",
+    "quick_test_uses_fake": true,
+    "strict_json": false,
+    "prefer_shared_skill": true,
+    "responsibilities": [
+      "Coordinate GTM workflow actors around account context, outreach, design, delivery, and control checks.",
+      "Keep outbound content reviewable and tied to strategy inputs.",
+      "Avoid fabricating customer facts or sending without policy approval."
+    ]
   },
   "logging": {
     "events": [

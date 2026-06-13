@@ -85,7 +85,103 @@
     "recommended_action": "attorney_review_required_before_relying_on_clause_findings"
   },
   "llm": {
-    "model": "default"
+    "model": "default",
+    "enabled": true,
+    "mode": "live",
+    "mock_mode": "fake",
+    "default_config": "primary",
+    "quick_test_uses_fake": true,
+    "strict_json": false,
+    "prefer_shared_skill": true,
+    "responsibilities": [
+      "Keep clause extraction tied to source contract text and playbook terms.",
+      "Use actors to summarize legal review risks without giving legal advice.",
+      "Require attorney review before relying on any clause finding."
+    ],
+    "configs": {
+      "primary": {
+        "provider": "docker_model_runner",
+        "model": "default",
+        "api_base": "http://localhost:12434/engines/v1",
+        "timeout_seconds": 60,
+        "max_tokens": 900,
+        "num_retries": 1,
+        "mock_mode": "fake",
+        "mode": "live"
+      }
+    },
+    "agents": {
+      "contract_dataset_intake": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Contract intake coordinator",
+        "responsibilities": [
+          "Stage contract inputs and dataset notes.",
+          "Check file readability and provenance.",
+          "Flag missing agreement context."
+        ]
+      },
+      "contract_ocr_extractor": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Contract text reader",
+        "responsibilities": [
+          "Review OCR or text extraction quality.",
+          "Preserve clause source snippets.",
+          "Flag incomplete or noisy contract pages."
+        ]
+      },
+      "privilege_redactor": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Legal privacy redactor",
+        "responsibilities": [
+          "Redact sensitive party and privilege indicators as configured.",
+          "Preserve clause meaning for review.",
+          "Flag privacy or confidentiality risks."
+        ]
+      },
+      "clause_extractor": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Clause extraction attorney assistant",
+        "responsibilities": [
+          "Identify candidate clauses from source text.",
+          "Tie each clause to evidence snippets.",
+          "Flag ambiguous or missing clause language."
+        ]
+      },
+      "contract_taxonomy_mapper": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Contract taxonomy mapper",
+        "responsibilities": [
+          "Map clauses to the configured taxonomy.",
+          "Explain taxonomy uncertainty.",
+          "Flag unsupported clause categories."
+        ]
+      },
+      "playbook_comparator": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Contract playbook comparator",
+        "responsibilities": [
+          "Compare extracted clauses to review playbook expectations.",
+          "Flag deviations and negotiation risks.",
+          "Avoid giving legal advice."
+        ]
+      },
+      "legal_review_writer": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Legal review packet writer",
+        "responsibilities": [
+          "Prepare attorney-review packet summaries.",
+          "Preserve source references and caveats.",
+          "Require attorney review before reliance."
+        ]
+      }
+    }
   },
   "outputs": {
     "folder_path": "/Users/homer/Download/legal_contract_clause_review_assistant",

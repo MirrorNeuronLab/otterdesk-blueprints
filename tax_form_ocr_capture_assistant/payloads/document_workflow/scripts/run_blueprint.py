@@ -46,12 +46,17 @@ def _add_repo_paths() -> None:
     for parent in Path(__file__).resolve().parents:
         roots.append(parent / "mn-skills")
     for root in roots:
+        support = root / "blueprint_support_skill" / "src"
+        if support.exists() and str(support) not in sys.path:
+            sys.path.insert(0, str(support))
         candidate = root / "llm_ocr_skill" / "src"
         if candidate.exists() and str(candidate) not in sys.path:
             sys.path.insert(0, str(candidate))
 
 
 _add_repo_paths()
+
+from mn_blueprint_support import get_actor_llm_client, llm_usage, resolve_actor_specs, run_actor_reviews
 
 try:
     from mn_llm_ocr_skill import docker_ocr_client_factory_from_config, extract_document_folder
@@ -69,6 +74,31 @@ def read_json(path: Path) -> dict[str, Any]:
         return {}
     value = json.loads(path.read_text(encoding="utf-8"))
     return value if isinstance(value, dict) else {}
+
+
+def deep_merge(base: dict[str, Any], overlay: dict[str, Any]) -> dict[str, Any]:
+    merged = dict(base)
+    for key, value in overlay.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = deep_merge(merged[key], value)
+        else:
+            merged[key] = value
+    return merged
+
+
+def load_resolved_config(default_path: Path, overlay: dict[str, Any] | None = None) -> dict[str, Any]:
+    resolved = read_json(default_path)
+    env_path = os.environ.get("MN_BLUEPRINT_CONFIG_PATH")
+    if env_path:
+        resolved = deep_merge(resolved, read_json(Path(env_path)))
+    env_json = os.environ.get("MN_BLUEPRINT_CONFIG_JSON")
+    if env_json:
+        decoded = json.loads(env_json)
+        if isinstance(decoded, dict):
+            resolved = deep_merge(resolved, decoded)
+    if overlay:
+        resolved = deep_merge(resolved, overlay)
+    return resolved
 
 
 def write_json(path: Path, value: Any) -> None:
@@ -156,12 +186,11 @@ def run_blueprint(
     config: dict[str, Any] | None = None,
     runs_root: str | Path | None = None,
     run_id: str | None = None,
+    llm_client: Any | None = None,
 ) -> dict[str, Any]:
     start_agent_beacon_thread(f"{BLUEPRINT_NAME} is running")
     blueprint_dir = Path(__file__).resolve().parents[3]
-    resolved_config = read_json(blueprint_dir / "config" / "default.json")
-    if config:
-        resolved_config.update(config)
+    resolved_config = load_resolved_config(blueprint_dir / "config" / "default.json", config)
     payload = dict((resolved_config.get("inputs") or {}).get("payload") or {})
     if inputs:
         payload.update(inputs)
@@ -198,6 +227,27 @@ def run_blueprint(
         "field_profile": FIELD_PROFILE,
         "document_count": len(records),
     }
+    llm = get_actor_llm_client(resolved_config, llm_client)
+    actor_state: dict[str, Any] = {}
+    actor_ids = list(resolve_actor_specs(resolved_config).keys())
+    actor_findings = run_actor_reviews(
+        config=resolved_config,
+        llm=llm,
+        actor_ids=actor_ids,
+        state=actor_state,
+        task="Review the extraction packet and prepare actor findings for human approval.",
+        context={
+            "blueprint_id": BLUEPRINT_ID,
+            "document_count": len(records),
+            "output_type": OUTPUT_TYPE,
+            "recommended_action": RECOMMENDED_ACTION,
+            "evidence": evidence[:8],
+            "field_profile": FIELD_PROFILE,
+        },
+        event_sink=run_dir,
+    )
+    final_artifact["actor_findings"] = actor_findings
+    final_artifact["llm_usage"] = llm_usage(llm)
     result = {"run_id": run_id, "blueprint_id": BLUEPRINT_ID, "status": "completed", "records": records, "final_artifact": final_artifact}
 
     append_event(run_dir, "blueprint_phase_completed", {"phase": "running_worker", "component": BLUEPRINT_ID})

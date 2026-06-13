@@ -20,8 +20,11 @@ try:
         architecture_contract,
         create_runtime_context,
         get_llm_client,
+        llm_usage,
         load_config,
         resolve_input_overrides,
+        resolve_actor_specs,
+        run_actor_reviews,
         run_blueprint_cli,
         utc_now_iso,
     )
@@ -33,14 +36,17 @@ except ModuleNotFoundError:
             sys.path.insert(0, str(candidate))
             break
     from mn_blueprint_support import (
-        architecture_contract,
-        create_runtime_context,
-        get_llm_client,
-        load_config,
-        resolve_input_overrides,
-        run_blueprint_cli,
-        utc_now_iso,
-    )
+            architecture_contract,
+            create_runtime_context,
+            get_llm_client,
+            llm_usage,
+            load_config,
+            resolve_input_overrides,
+            resolve_actor_specs,
+            run_actor_reviews,
+            run_blueprint_cli,
+            utc_now_iso,
+        )
     from mn_blueprint_support.web_ui import maybe_write_static_output
 
 
@@ -208,7 +214,25 @@ def run_blueprint(
             },
         )
 
+        actor_state: dict[str, Any] = {}
+        actor_findings = run_actor_reviews(
+            config=resolved_config,
+            llm=llm,
+            actor_ids=list(resolve_actor_specs(resolved_config).keys()),
+            state=actor_state,
+            task="Review the portfolio risk packet and prepare actor findings for human approval.",
+            context={
+                "portfolio_metrics": risk_state["metrics"],
+                "policy_violations": risk_state["policy_violations"],
+                "ranked_decisions": benchmark["ranking"][:5],
+                "market_data": market_data_summary(market_data),
+                "report_packet": report_packet,
+            },
+            event_sink=context,
+        )
         final = final_artifact(runtime_inputs, risk_state, simulations, benchmark, report_packet, market_data)
+        final["actor_findings"] = actor_findings
+        final["llm_usage"] = llm_usage(llm)
         result = {
             "identity": {
                 "blueprint_id": context.blueprint_id,
@@ -246,12 +270,7 @@ def run_blueprint(
             "market_data": market_data_summary(market_data),
             "final_artifact": final,
             "artifacts": artifact_records(),
-            "llm": {
-                "provider": getattr(llm, "provider", "unknown"),
-                "model": getattr(llm, "model", "unknown"),
-                "calls": getattr(llm, "calls", 0),
-                "fallback_calls": getattr(llm, "fallback_calls", 0),
-            },
+            "llm": llm_usage(llm),
         }
         web_ui = maybe_write_static_output(context.run_store, result, resolved_config)
         if web_ui:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import math
 import sys
 import time
@@ -50,9 +51,12 @@ class FakeLLM:
         self.calls = 0
 
     def generate_json(self, *, system_prompt: str, user_prompt: str, fallback: dict) -> dict:
-        assert "Do not invent trades" in system_prompt
-        assert "benchmark_selected" in user_prompt
         self.calls += 1
+        if self.calls == 1:
+            assert "Do not invent trades" in system_prompt
+            assert "benchmark_selected" in user_prompt
+        else:
+            assert "Act as a domain actor" in system_prompt
         return dict(fallback)
 
 
@@ -107,9 +111,16 @@ def test_runner_uses_fake_market_data_and_writes_ranked_review_artifact(tmp_path
 
     final = result["final_artifact"]
     assert result["run"]["status"] == "completed"
-    assert llm.calls == 1
+    expected_actor_count = len(
+        json.loads((ROOT / "portfolio_risk_review_assistant" / "config" / "default.json").read_text())["llm"]["agents"]
+    )
+    assert llm.calls == 1 + expected_actor_count
     assert final["review_only"] is True
     assert final["human_review_required"] is True
+    assert set(final["actor_findings"]) == set(
+        json.loads((ROOT / "portfolio_risk_review_assistant" / "config" / "default.json").read_text())["llm"]["agents"]
+    )
+    assert final["llm_usage"]["calls"] == llm.calls
     assert final["ranked_decisions"]
     assert final["simulation_results"]
     assert final["benchmark_comparison"]["baseline"] == "no_action"

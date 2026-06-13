@@ -1205,6 +1205,20 @@ def run_blueprint(
                 advisor_report,
             ),
         )
+        actor_outputs = {
+            "client_intake_coordinator": client_intake,
+            "document_understanding_agent": document_dossier,
+            "source_field_extractor": source_extraction,
+            "income_preparer": income_workpaper,
+            "deductions_credits_preparer": deductions_workpaper,
+            "form_1040_assembler": form_1040,
+            "tax_auditor": audit_review,
+            "manager_reviewer": manager_review,
+            "advisor_report_writer": advisor_report,
+            "form_1040_packet_writer": final_artifact,
+        }
+        final_artifact["actor_findings"] = _tax_actor_findings(resolved_config, actor_outputs)
+        final_artifact["llm_usage"] = llm_metadata
         progress_summary = {
             "schema": "otterdesk.batch_progress.v1",
             "blueprint_id": BLUEPRINT_ID,
@@ -1411,6 +1425,39 @@ def _llm_metadata(llm: Any, config: dict[str, Any]) -> dict[str, Any]:
         "team_stage_count": len(TAX_TEAM_STAGES),
         "team_stages": list(TAX_TEAM_STAGES),
     }
+
+
+def _tax_actor_findings(config: dict[str, Any], actor_outputs: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    specs = ((config.get("llm") or {}).get("agents") or {}) if isinstance(config.get("llm"), dict) else {}
+    findings: dict[str, Any] = {}
+    for actor_id in TAX_TEAM_STAGES:
+        output = actor_outputs.get(actor_id)
+        if not isinstance(output, dict):
+            continue
+        spec = specs.get(actor_id) if isinstance(specs.get(actor_id), dict) else {}
+        summary = (
+            output.get("summary")
+            or output.get("advisor_message")
+            or output.get("manager_summary")
+            or output.get("audit_summary")
+            or f"{actor_id.replace('_', ' ').title()} completed its draft tax review stage."
+        )
+        risks = output.get("risk_flags") or output.get("blockers") or output.get("warnings") or []
+        if isinstance(risks, dict):
+            risks = [f"{key}: {value}" for key, value in risks.items()]
+        if not isinstance(risks, list):
+            risks = [str(risks)]
+        findings[actor_id] = {
+            "actor_id": actor_id,
+            "role": spec.get("role") or actor_id.replace("_", " ").title(),
+            "responsibilities": spec.get("responsibilities") or [],
+            "summary": str(summary)[:700],
+            "findings": output.get("findings") if isinstance(output.get("findings"), list) else [],
+            "risks": risks[:8],
+            "recommended_next_step": output.get("recommended_next_step") or "Review this draft tax stage before filing use.",
+            "confidence": float(output.get("confidence") or 0.72),
+        }
+    return findings
 
 
 def _call_tax_specialist(

@@ -21,12 +21,58 @@
     "backend": "llama.cpp",
     "context_size": 4096,
     "max_tokens": 800,
-    "timeout_seconds": 120
+    "timeout_seconds": 120,
+    "mode": "live",
+    "mock_mode": "fake",
+    "default_config": "primary",
+    "quick_test_uses_fake": true,
+    "strict_json": false,
+    "prefer_shared_skill": true,
+    "responsibilities": [
+      "Keep video metadata and model outputs tied to staged media evidence.",
+      "Use actors to summarize observed safety review signals and reporting caveats.",
+      "Avoid treating the report as a substitute for human safety review."
+    ],
+    "configs": {
+      "primary": {
+        "provider": "docker_model_runner",
+        "model": "gemma4:e2b",
+        "api_base": "http://localhost:12434/engines/v1",
+        "timeout_seconds": 60,
+        "max_tokens": 900,
+        "num_retries": 1,
+        "mock_mode": "fake",
+        "mode": "live"
+      }
+    },
+    "agents": {
+      "video_understanding_agent": {
+        "llm_config": "primary",
+        "model": "gemma4:e2b",
+        "role": "Safety video understanding actor",
+        "responsibilities": [
+          "Inspect staged video metadata and model outputs.",
+          "Summarize visible safety-review context.",
+          "Flag missing videos, model, or media-quality blockers."
+        ]
+      },
+      "report_generator": {
+        "llm_config": "primary",
+        "model": "gemma4:e2b",
+        "role": "Safety report generator actor",
+        "responsibilities": [
+          "Write a concise safety review report.",
+          "Preserve video evidence and routing context.",
+          "Keep findings review-only for human safety review."
+        ]
+      }
+    }
   },
   "vl_model": {
     "provider": "docker_model_runner",
     "model": "otterdesk-video-watch:default",
     "runtime_model": "hf.co/nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-BF16",
+    "install_mode": "cluster_provided",
     "timeout_seconds": 300
   },
   "local_inputs": {

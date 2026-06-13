@@ -77,7 +77,103 @@
     "recommended_action": "review_extracted_invoice_fields_before_erp_or_payment_use"
   },
   "llm": {
-    "model": "default"
+    "model": "default",
+    "enabled": true,
+    "mode": "live",
+    "mock_mode": "fake",
+    "default_config": "primary",
+    "quick_test_uses_fake": true,
+    "strict_json": false,
+    "prefer_shared_skill": true,
+    "responsibilities": [
+      "Keep OCR and field extraction deterministic and evidence-bound.",
+      "Use actors to review payable fields, utility bill details, and approval risks.",
+      "Require human review before ERP, payment, or accounting use."
+    ],
+    "configs": {
+      "primary": {
+        "provider": "docker_model_runner",
+        "model": "default",
+        "api_base": "http://localhost:12434/engines/v1",
+        "timeout_seconds": 60,
+        "max_tokens": 900,
+        "num_retries": 1,
+        "mock_mode": "fake",
+        "mode": "live"
+      }
+    },
+    "agents": {
+      "invoice_dataset_intake": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Invoice intake coordinator",
+        "responsibilities": [
+          "Stage invoice and utility-bill inputs.",
+          "Check dataset provenance and expected files.",
+          "Flag missing or unreadable documents."
+        ]
+      },
+      "invoice_ocr_extractor": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Invoice OCR reader",
+        "responsibilities": [
+          "Review OCR text quality and extraction warnings.",
+          "Keep source-page evidence attached to extracted fields.",
+          "Flag documents needing manual review."
+        ]
+      },
+      "invoice_text_redactor": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Payables privacy redactor",
+        "responsibilities": [
+          "Redact identifiers before actor summaries.",
+          "Preserve non-sensitive payable evidence.",
+          "Flag unredacted sensitive fields."
+        ]
+      },
+      "ap_field_extractor": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Accounts-payable field extractor",
+        "responsibilities": [
+          "Review supplier, customer, invoice, due-date, and total fields.",
+          "Tie field confidence to source evidence.",
+          "Flag ambiguous payable values."
+        ]
+      },
+      "utility_bill_specialist": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Utility bill specialist",
+        "responsibilities": [
+          "Review billing period and consumption fields.",
+          "Explain utility-specific extraction caveats.",
+          "Flag missing meter or tax details."
+        ]
+      },
+      "invoice_label_validator": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Invoice label validator",
+        "responsibilities": [
+          "Compare extracted labels against expected field profile.",
+          "Flag inconsistent totals or dates.",
+          "Keep validation review-only."
+        ]
+      },
+      "ap_report_writer": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Accounts-payable report writer",
+        "responsibilities": [
+          "Prepare the review packet narrative.",
+          "Summarize evidence, warnings, and next steps.",
+          "Require approval before ERP or payment use."
+        ]
+      }
+    }
   },
   "outputs": {
     "folder_path": "/Users/homer/Download/invoice_bill_extraction_assistant",

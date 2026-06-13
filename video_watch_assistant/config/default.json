@@ -290,16 +290,94 @@
     "provider": "docker_model_runner",
     "runtime_model": "otterdesk-video-watch:default",
     "backend": "llama.cpp",
+    "install_mode": "cluster_provided",
     "enabled": true,
     "agent_role": "AI assistant for reviewing video stream activity and preparing visual detection alerts.",
     "agents": {
-      "default": {
+      "visual_target_detector": {
         "llm_config": "primary",
-        "responsibilities": [],
-        "role": "AI assistant for reviewing video stream activity and preparing visual detection alerts."
+        "model": "otterdesk-video-watch:default",
+        "role": "Visual target detector actor",
+        "responsibilities": [
+          "Detect configured visual targets from sampled frames.",
+          "Tie alerts to frame evidence and model state.",
+          "Flag uncertain detections for review."
+        ]
+      },
+      "quality_controller": {
+        "llm_config": "primary",
+        "model": "otterdesk-video-watch:default",
+        "role": "Video quality controller",
+        "responsibilities": [
+          "Check detection confidence and stream quality.",
+          "Flag blurry, missing, or stale frames.",
+          "Keep alert quality visible to reviewers."
+        ]
+      },
+      "frame_sampler": {
+        "llm_config": "primary",
+        "model": "otterdesk-video-watch:default",
+        "role": "Frame sampler actor",
+        "responsibilities": [
+          "Sample frames from configured video sources.",
+          "Track sample cadence and source provenance.",
+          "Flag source gaps or decode failures."
+        ]
+      },
+      "video_source_validator": {
+        "llm_config": "primary",
+        "model": "otterdesk-video-watch:default",
+        "role": "Video source validator",
+        "responsibilities": [
+          "Validate video source configuration and reachability.",
+          "Flag unsupported or unavailable sources.",
+          "Keep service readiness separate from hardware gating."
+        ]
+      },
+      "video_monitor": {
+        "llm_config": "primary",
+        "model": "otterdesk-video-watch:default",
+        "role": "Video monitor actor",
+        "responsibilities": [
+          "Maintain watch state and runtime lifecycle.",
+          "Summarize active monitoring status.",
+          "Escalate service or stream blockers."
+        ]
+      },
+      "watch_summary_writer": {
+        "llm_config": "primary",
+        "model": "otterdesk-video-watch:default",
+        "role": "Watch summary writer",
+        "responsibilities": [
+          "Write concise watch summaries from detection events.",
+          "Preserve frame and source references.",
+          "Avoid claiming certainty beyond sampled evidence."
+        ]
       }
     },
-    "mock_mode": "fake"
+    "mock_mode": "fake",
+    "mode": "live",
+    "default_config": "primary",
+    "quick_test_uses_fake": true,
+    "strict_json": false,
+    "prefer_shared_skill": true,
+    "responsibilities": [
+      "Keep visual detection evidence tied to sampled frames and runtime service state.",
+      "Use actors to explain alerts, quality checks, and watch summaries.",
+      "Avoid claiming surveillance certainty beyond the sampled evidence."
+    ],
+    "configs": {
+      "primary": {
+        "provider": "docker_model_runner",
+        "model": "otterdesk-video-watch:default",
+        "api_base": "http://localhost:12434/engines/v1",
+        "timeout_seconds": 60,
+        "max_tokens": 900,
+        "num_retries": 1,
+        "mock_mode": "fake",
+        "mode": "live"
+      }
+    }
   },
   "logging": {
     "events": [

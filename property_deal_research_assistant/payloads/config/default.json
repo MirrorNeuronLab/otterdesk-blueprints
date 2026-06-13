@@ -84,16 +84,114 @@
     ]
   },
   "llm": {
-    "model": "default",
+    "enabled": true,
     "agent_role": "AI assistant for researching property deals and drafting opportunity rankings.",
+    "agents": {
+      "property:zip_market": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "ZIP-market researcher",
+        "responsibilities": [
+          "Review target ZIP demand and pricing signals.",
+          "Separate target and distractor market evidence.",
+          "Flag stale or noisy market facts."
+        ]
+      },
+      "property:broker_notes": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Broker-note analyst",
+        "responsibilities": [
+          "Extract broker motivation and diligence signals.",
+          "Tie broker claims to source references.",
+          "Flag unsupported seller claims."
+        ]
+      },
+      "property:financing": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Property financing reviewer",
+        "responsibilities": [
+          "Review lender notes and DSCR constraints.",
+          "Flag financing exceptions and liquidity blockers.",
+          "Keep underwriting assumptions review-only."
+        ]
+      },
+      "property:memory_retriever": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Property memory curator",
+        "responsibilities": [
+          "Retrieve important historical facts from working memory.",
+          "Drop noisy or irrelevant facts under budget.",
+          "Preserve critical source references."
+        ]
+      },
+      "property:signal_comparer": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Property signal comparer",
+        "responsibilities": [
+          "Connect rent, risk, financing, and seller signals.",
+          "Compare optimized memory with full context.",
+          "Flag decision quality gaps."
+        ]
+      },
+      "property:ranker": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Acquisition opportunity ranker",
+        "responsibilities": [
+          "Rank candidate properties from source-grounded signals.",
+          "Explain bid, discount, or watchlist logic.",
+          "Avoid final investment advice."
+        ]
+      },
+      "property:risk_reviewer": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Property risk reviewer",
+        "responsibilities": [
+          "Review flood, roof, insurance, and inspection risks.",
+          "Flag blockers needing diligence.",
+          "Keep risk calls tied to evidence."
+        ]
+      },
+      "property:memo_writer": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Property deal memo writer",
+        "responsibilities": [
+          "Prepare the review-only acquisition memo.",
+          "Summarize ranking, evidence, and open questions.",
+          "Require human approval before action."
+        ]
+      }
+    },
     "responsibilities": [
-      "observe listing dynamics",
-      "retrieve important historical facts from working memory",
-      "connect broker, lender, rent, insurance, and diligence signals",
-      "rank opportunities against the current snapshot",
-      "explain bid, discount, or watchlist decisions with source_refs"
+      "Keep working-memory retrieval and scoring outputs as the source of truth.",
+      "Use actors to connect property, lender, broker, rent, and diligence signals.",
+      "Keep acquisition decisions review-only and source-referenced."
     ],
-    "mock_mode": "fake"
+    "mock_mode": "fake",
+    "model": "default",
+    "mode": "live",
+    "default_config": "primary",
+    "quick_test_uses_fake": true,
+    "strict_json": false,
+    "prefer_shared_skill": true,
+    "configs": {
+      "primary": {
+        "provider": "docker_model_runner",
+        "model": "default",
+        "api_base": "http://localhost:12434/engines/v1",
+        "timeout_seconds": 60,
+        "max_tokens": 900,
+        "num_retries": 1,
+        "mock_mode": "fake",
+        "mode": "live"
+      }
+    }
   },
   "logging": {
     "events": [

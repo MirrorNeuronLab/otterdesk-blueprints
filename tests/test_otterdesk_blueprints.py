@@ -114,6 +114,15 @@ def _is_workflow_manifest(manifest: dict) -> bool:
     return manifest.get("apiVersion") == "mn.workflow/v1" and isinstance(manifest.get("workflow", {}).get("steps"), list)
 
 
+def _runtime_worker_ids(manifest: dict) -> list[str]:
+    workers: list[str] = []
+    for binding in ((manifest.get("runtime") or {}).get("bindings") or {}).values():
+        for worker in binding.get("workers") or []:
+            if isinstance(worker, dict) and worker.get("id"):
+                workers.append(worker["id"])
+    return workers
+
+
 GPU_HARD_REQUIREMENT = {
     "min_count": 1,
     "vendor": "nvidia",
@@ -146,13 +155,15 @@ def _completion_threshold(value) -> bool:
 
 def test_video_gpu_blueprints_declare_hard_nvidia_cuda_requirements_consistently():
     targets = {
-        "safety_video_analyser": "video_understanding_agent",
-        "video_watch_assistant": "visual_detector",
+        "safety_video_analyser": ("video_understanding_agent", "video_understanding"),
+        "video_watch_assistant": ("visual_detector", "primary"),
     }
-    for blueprint_id, worker_id in targets.items():
+    for blueprint_id, (worker_id, runtime_model_key) in targets.items():
         manifest = json.loads((ROOT / blueprint_id / "manifest.json").read_text())
         assert manifest["requirements"]["gpu"] == GPU_HARD_REQUIREMENT
         assert manifest["runtime"]["resources"]["gpu"] == GPU_HARD_REQUIREMENT
+        assert manifest["runtime"]["models"][runtime_model_key]["model"] == "otterdesk-video-watch:default"
+        assert manifest["runtime"]["models"][runtime_model_key]["install_mode"] == "cluster_provided"
 
         worker = next(node for node in _flow_nodes(manifest) if node["node_id"] == worker_id)
         _assert_hard_gpu_worker_requirements(worker)
@@ -164,8 +175,44 @@ def test_video_gpu_blueprints_declare_hard_nvidia_cuda_requirements_consistently
                     _assert_hard_gpu_worker_requirements(rendered)
 
     config = json.loads((ROOT / "video_watch_assistant" / "config" / "default.json").read_text())
+    assert config["llm"]["model"] == "otterdesk-video-watch:default"
+    assert config["llm"]["install_mode"] == "cluster_provided"
     assert config["resources"]["gpu"] == GPU_HARD_REQUIREMENT
     assert config["resources"]["required_capabilities"] == ["nvidia", "cuda"]
+
+    safety_config = json.loads((ROOT / "safety_video_analyser" / "config" / "default.json").read_text())
+    assert safety_config["vl_model"]["model"] == "otterdesk-video-watch:default"
+    assert safety_config["vl_model"]["install_mode"] == "cluster_provided"
+
+
+def test_all_blueprints_declare_actor_style_llm_config():
+    required_llm_keys = {"enabled", "mode", "mock_mode", "model", "default_config", "configs", "agents", "responsibilities"}
+    for manifest_path in _manifest_paths():
+        manifest = json.loads(manifest_path.read_text())
+        blueprint_id = manifest["metadata"]["blueprint_id"]
+        config = json.loads((manifest_path.parent / "config" / "default.json").read_text())
+        llm = config.get("llm")
+        assert isinstance(llm, dict), blueprint_id
+        assert required_llm_keys <= set(llm), blueprint_id
+        assert llm["enabled"] is True, blueprint_id
+        assert llm["default_config"] in llm["configs"], blueprint_id
+        assert isinstance(llm["responsibilities"], list) and len(llm["responsibilities"]) >= 3, blueprint_id
+
+        workers = _runtime_worker_ids(manifest)
+        graph_nodes = [node["node_id"] for node in _flow_nodes(manifest)]
+        required_actor_ids = workers or graph_nodes
+        valid_actor_ids = set(workers) | set(graph_nodes)
+        agents = llm["agents"]
+        assert isinstance(agents, dict) and agents, blueprint_id
+        assert set(required_actor_ids) <= set(agents), blueprint_id
+        assert set(agents) <= valid_actor_ids, blueprint_id
+        for actor_id, spec in agents.items():
+            assert spec.get("llm_config") == llm["default_config"], (blueprint_id, actor_id)
+            assert spec.get("model"), (blueprint_id, actor_id)
+            assert str(spec.get("role") or "").strip(), (blueprint_id, actor_id)
+            responsibilities = spec.get("responsibilities")
+            assert isinstance(responsibilities, list) and len(responsibilities) >= 3, (blueprint_id, actor_id)
+            assert all(str(item).strip() for item in responsibilities), (blueprint_id, actor_id)
 
 
 def _assert_hard_gpu_worker_requirements(worker: dict) -> None:
@@ -469,6 +516,110 @@ def test_otterdesk_batch_workflows_complete_with_shared_runner(tmp_path):
         event_types = {record["type"] for record in event_records}
         assert "workflow_step_attempt_completed" in event_types, blueprint_id
         assert "workflow_finished" in event_types, blueprint_id
+
+
+class FakeBlueprintActorLLM:
+    provider = "fake"
+    model = "fake-blueprint-actor"
+
+    def __init__(self) -> None:
+        self.calls = 0
+        self.fallback_calls = 0
+        self.prompts: list[dict[str, str]] = []
+
+    def generate_json(self, *, system_prompt: str, user_prompt: str, fallback: dict):
+        self.calls += 1
+        self.prompts.append({"system": system_prompt, "user": user_prompt})
+        response = dict(fallback)
+        response["summary"] = response.get("summary") or "Actor reviewed the packet."
+        response["provider"] = self.provider
+        response["model"] = self.model
+        return response
+
+
+def _load_script(path: Path, module_name: str):
+    spec = importlib.util.spec_from_file_location(module_name, path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_document_ocr_blueprints_emit_actor_findings_and_usage(tmp_path):
+    targets = [
+        "invoice_bill_extraction_assistant",
+        "legal_contract_clause_review_assistant",
+        "medical_deid_record_intake_assistant",
+        "tax_form_ocr_capture_assistant",
+    ]
+    for blueprint_id in targets:
+        runner_path = ROOT / blueprint_id / "payloads" / "document_workflow" / "scripts" / "run_blueprint.py"
+        module = _load_script(runner_path, f"{blueprint_id}_actor_runner_test")
+        docs = tmp_path / blueprint_id / "docs"
+        docs.mkdir(parents=True)
+        (docs / "sample.txt").write_text("Sample source text with invoice total 123.45 and review notes.", encoding="utf-8")
+        fake_llm = FakeBlueprintActorLLM()
+
+        result = module.run_blueprint(
+            inputs={"document_folder": str(docs)},
+            config={"llm": {"mode": "fake"}},
+            runs_root=tmp_path,
+            run_id=f"{blueprint_id}-actors",
+            llm_client=fake_llm,
+        )
+
+        artifact = result["final_artifact"]
+        actor_ids = set((result["final_artifact"]["actor_findings"] or {}).keys())
+        expected_actor_ids = set((json.loads((ROOT / blueprint_id / "config" / "default.json").read_text())["llm"]["agents"]).keys())
+        assert actor_ids == expected_actor_ids, blueprint_id
+        assert artifact["llm_usage"]["calls"] == len(expected_actor_ids), blueprint_id
+        assert fake_llm.calls == len(expected_actor_ids), blueprint_id
+        events = [
+            json.loads(line)
+            for line in (tmp_path / f"{blueprint_id}-actors" / "events.jsonl").read_text().splitlines()
+            if line.strip()
+        ]
+        actor_events = [event for event in events if event["type"] == "actor_activity"]
+        assert {event["payload"]["agent_id"] for event in actor_events} == expected_actor_ids, blueprint_id
+
+
+def test_safety_video_scripts_emit_actor_findings(tmp_path):
+    video_dir = tmp_path / "videos"
+    video_dir.mkdir()
+    (video_dir / "workplace_safety.mp4").write_bytes(b"fake-video")
+    env = dict(os.environ)
+    env["MN_BLUEPRINT_CONFIG_JSON"] = json.dumps({"video_inputs": {"folder_path": str(video_dir)}})
+
+    understanding = subprocess.run(
+        [sys.executable, str(ROOT / "safety_video_analyser" / "payloads" / "safety_video_analyser" / "scripts" / "run_video_understanding.py")],
+        cwd=tmp_path,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert understanding.returncode == 0, understanding.stderr
+    analysis = json.loads((tmp_path / "video_analysis.json").read_text())
+    assert set(analysis["actor_findings"]) == {"video_understanding_agent"}
+    assert analysis["actor_activity"][0]["agent_id"] == "video_understanding_agent"
+
+    input_file = tmp_path / "report_input.json"
+    input_file.write_text(json.dumps({"analysis": analysis}), encoding="utf-8")
+    report_env = dict(os.environ)
+    report_env["MN_INPUT_FILE"] = str(input_file)
+    report = subprocess.run(
+        [sys.executable, str(ROOT / "safety_video_analyser" / "payloads" / "safety_video_analyser" / "scripts" / "run_report_generator.py")],
+        cwd=tmp_path,
+        env=report_env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert report.returncode == 0, report.stderr
+    result = json.loads((tmp_path / "safety_video_report.json").read_text())
+    assert set(result["actor_findings"]) == {"video_understanding_agent", "report_generator"}
+    assert {event["agent_id"] for event in result["actor_activity"]} == {"video_understanding_agent", "report_generator"}
 
 
 def test_tax_workflow_compiles_as_static_fork_join_graph():
@@ -914,6 +1065,9 @@ def test_property_deal_final_artifact_uses_product_output_fields(tmp_path):
     assert set(FINAL_ARTIFACT_REQUIRED_FIELDS) <= set(artifact)
     assert artifact["evidence"]
     assert {"inputs.json", "events.jsonl", "result.json"} <= set(artifact["source_refs"])
+    expected_actor_ids = set(json.loads((ROOT / "property_deal_research_assistant" / "config" / "default.json").read_text())["llm"]["agents"])
+    assert set(artifact["actor_findings"]) == expected_actor_ids
+    assert artifact["llm_usage"]["calls"] >= len(expected_actor_ids)
 
     events = [
         json.loads(line)

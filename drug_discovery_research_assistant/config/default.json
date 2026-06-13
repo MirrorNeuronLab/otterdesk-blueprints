@@ -301,14 +301,81 @@
     "enabled": true,
     "agent_role": "AI assistant for organizing drug discovery candidate generation, filtering, and evidence review.",
     "agents": {
-      "default": {
+      "binding_evaluation": {
         "llm_config": "primary",
-        "responsibilities": [],
-        "role": "AI assistant for organizing drug discovery candidate generation, filtering, and evidence review."
+        "model": "default",
+        "role": "Binding evaluation analyst",
+        "responsibilities": [
+          "Review docking or binding-score outputs.",
+          "Explain affinity ranking caveats.",
+          "Flag candidates needing wet-lab validation."
+        ]
+      },
+      "candidate_generation": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Candidate generation strategist",
+        "responsibilities": [
+          "Compare generated compounds against project constraints.",
+          "Summarize candidate families and tradeoffs.",
+          "Flag manufacturability or novelty review needs."
+        ]
+      },
+      "ranking_reporting": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Discovery report lead",
+        "responsibilities": [
+          "Assemble candidate ranking evidence.",
+          "Summarize go/no-go review points.",
+          "Keep conclusions preclinical and hypothesis-only."
+        ]
+      },
+      "structure_generation": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Molecular design chemist",
+        "responsibilities": [
+          "Generate candidate structure rationale from deterministic outputs.",
+          "Explain scaffold diversity and chemistry caveats.",
+          "Keep generated structures review-only."
+        ]
+      },
+      "target_discovery": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Target discovery scientist",
+        "responsibilities": [
+          "Identify disease-target hypotheses from configured inputs.",
+          "Summarize target evidence and uncertainty.",
+          "Flag missing assay or literature support."
+        ]
       }
     },
     "mock_mode": "fake",
-    "model": "default"
+    "model": "default",
+    "mode": "live",
+    "default_config": "primary",
+    "quick_test_uses_fake": true,
+    "strict_json": false,
+    "prefer_shared_skill": true,
+    "responsibilities": [
+      "Keep cheminformatics scoring and simulation outputs as the source of truth.",
+      "Use LLM actors to explain hypotheses, evidence gaps, and review packets.",
+      "Avoid claiming experimental validation or clinical readiness."
+    ],
+    "configs": {
+      "primary": {
+        "provider": "docker_model_runner",
+        "model": "default",
+        "api_base": "http://localhost:12434/engines/v1",
+        "timeout_seconds": 60,
+        "max_tokens": 900,
+        "num_retries": 1,
+        "mock_mode": "fake",
+        "mode": "live"
+      }
+    }
   },
   "logging": {
     "events": [

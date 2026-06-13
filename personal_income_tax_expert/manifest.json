@@ -1115,6 +1115,13 @@
         "type": "worker",
         "workers": [
           {
+            "id": "deductions_credits_preparer",
+            "model": "default",
+            "role": "Deductions and credits preparer",
+            "tokens": 16000,
+            "tools": 5
+          },
+          {
             "id": "form_1040_assembler",
             "model": "default",
             "role": "Form 1040 assembler",

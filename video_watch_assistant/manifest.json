@@ -746,6 +746,7 @@
         "model": "otterdesk-video-watch:default",
         "runtime_model": "otterdesk-video-watch:default",
         "backend": "llama.cpp",
+        "install_mode": "cluster_provided",
         "required": true
       }
     },

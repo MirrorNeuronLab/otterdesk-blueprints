@@ -81,14 +81,52 @@ def main() -> int:
     analysis = parse_video_analysis(incoming)
     markdown = report_markdown(analysis)
     Path("safety_video_report.md").write_text(markdown, encoding="utf-8")
+    video_count = len(analysis.get("videos") or [])
+    incoming_findings = analysis.get("actor_findings") if isinstance(analysis.get("actor_findings"), dict) else {}
+    report_finding = {
+        "actor_id": "report_generator",
+        "role": "Safety report generator actor",
+        "summary": f"Wrote a review-only safety video report for {video_count} staged video file(s).",
+        "findings": [
+            {
+                "video_count": video_count,
+                "report_path": "safety_video_report.md",
+            }
+        ],
+        "risks": [] if video_count else ["no_video_findings_to_report"],
+        "recommended_next_step": "Have a human safety reviewer confirm the report before operational use.",
+        "confidence": 0.74 if video_count else 0.35,
+    }
+    actor_findings = {**incoming_findings, "report_generator": report_finding}
+    analysis_usage = analysis.get("llm_usage") if isinstance(analysis.get("llm_usage"), dict) else {}
     result = {
         "schema": "otterdesk.safety_video_report.v1",
         "agent": "report_generator",
         "model": os.getenv("MN_LLM_MODEL") or "unknown",
         "provider": os.getenv("MN_LLM_PROVIDER") or "unknown",
-        "video_count": len(analysis.get("videos") or []),
+        "video_count": video_count,
         "report_path": "safety_video_report.md",
         "report_markdown": markdown,
+        "actor_findings": actor_findings,
+        "llm_usage": {
+            "provider": os.getenv("MN_LLM_PROVIDER") or analysis_usage.get("provider") or "unknown",
+            "model": os.getenv("MN_LLM_MODEL") or analysis_usage.get("model") or "unknown",
+            "calls": int(analysis_usage.get("calls") or 0),
+            "fallback_calls": int(analysis_usage.get("fallback_calls") or 0),
+        },
+        "actor_activity": [
+            *(
+                analysis.get("actor_activity")
+                if isinstance(analysis.get("actor_activity"), list)
+                else []
+            ),
+            {
+                "agent_id": "report_generator",
+                "step_id": "report_generator",
+                "status": "completed",
+                "summary": report_finding["summary"],
+            },
+        ],
     }
     Path("safety_video_report.json").write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
     emit_result(result)

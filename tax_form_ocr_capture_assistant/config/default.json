@@ -82,7 +82,103 @@
     "recommended_action": "review_captured_fields_against_source_forms_before_tax_use"
   },
   "llm": {
-    "model": "default"
+    "model": "default",
+    "enabled": true,
+    "mode": "live",
+    "mock_mode": "fake",
+    "default_config": "primary",
+    "quick_test_uses_fake": true,
+    "strict_json": false,
+    "prefer_shared_skill": true,
+    "responsibilities": [
+      "Keep OCR, field capture, and validation tied to source form evidence.",
+      "Use actors to review tax form identity, field locations, and capture risks.",
+      "Require human review before tax preparation or filing use."
+    ],
+    "configs": {
+      "primary": {
+        "provider": "docker_model_runner",
+        "model": "default",
+        "api_base": "http://localhost:12434/engines/v1",
+        "timeout_seconds": 60,
+        "max_tokens": 900,
+        "num_retries": 1,
+        "mock_mode": "fake",
+        "mode": "live"
+      }
+    },
+    "agents": {
+      "tax_dataset_intake": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Tax form intake coordinator",
+        "responsibilities": [
+          "Stage tax form images and answer files.",
+          "Check dataset provenance and expected files.",
+          "Flag missing or unreadable forms."
+        ]
+      },
+      "tax_ocr_extractor": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Tax form OCR reader",
+        "responsibilities": [
+          "Review OCR text and image extraction quality.",
+          "Preserve source-form evidence.",
+          "Flag fields needing manual readback."
+        ]
+      },
+      "tax_identifier_redactor": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Tax identifier redactor",
+        "responsibilities": [
+          "Redact taxpayer identifiers before summaries.",
+          "Preserve non-sensitive field evidence.",
+          "Flag unredacted identifier risk."
+        ]
+      },
+      "tax_form_classifier": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Tax form classifier",
+        "responsibilities": [
+          "Classify form type and schedule context.",
+          "Tie classification to visible evidence.",
+          "Flag ambiguous or unsupported forms."
+        ]
+      },
+      "field_locator": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Tax field locator",
+        "responsibilities": [
+          "Locate wages, deductions, credits, totals, and line items.",
+          "Preserve field-location evidence.",
+          "Flag low-confidence boxes or lines."
+        ]
+      },
+      "tax_answer_validator": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Tax capture validator",
+        "responsibilities": [
+          "Compare captured fields against expected answer profile.",
+          "Flag inconsistent totals or unsupported values.",
+          "Keep validation review-only."
+        ]
+      },
+      "tax_capture_report_writer": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Tax capture report writer",
+        "responsibilities": [
+          "Prepare the tax capture review packet.",
+          "Summarize evidence, warnings, and next steps.",
+          "Require review before tax preparation use."
+        ]
+      }
+    }
   },
   "outputs": {
     "folder_path": "/Users/homer/Download/tax_form_ocr_capture_assistant",

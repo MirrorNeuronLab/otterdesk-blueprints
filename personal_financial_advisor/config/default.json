@@ -128,7 +128,9 @@
         "api_base": "http://localhost:12434/engines/v1",
         "timeout_seconds": 60,
         "max_tokens": 1200,
-        "num_retries": 1
+        "num_retries": 1,
+        "mock_mode": "fake",
+        "mode": "live"
       }
     },
     "agents": {
@@ -137,9 +139,9 @@
         "model": "default",
         "role": "Financial folder watcher",
         "responsibilities": [
-          "review the monitored folder status",
-          "identify missing or newly changed document types",
-          "explain intake readiness without opening private web channels"
+          "Review monitored folder status.",
+          "Identify missing or changed document types.",
+          "Explain intake readiness without opening private web channels."
         ]
       },
       "financial_document_reader": {
@@ -147,9 +149,9 @@
         "model": "default",
         "role": "Financial document reader",
         "responsibilities": [
-          "summarize redacted finance document snippets",
-          "separate income, statement, receipt, bill, debt, and tax-document evidence",
-          "flag OCR or source-quality review needs"
+          "Summarize redacted finance document snippets.",
+          "Separate income, statement, receipt, bill, debt, and tax-document evidence.",
+          "Flag OCR or source-quality review needs."
         ]
       },
       "financial_activity_classifier": {
@@ -157,9 +159,9 @@
         "model": "default",
         "role": "Financial activity classifier",
         "responsibilities": [
-          "classify source-grounded income, expenses, balances, fees, and obligations",
-          "stay within allowed finance-document categories",
-          "explain classification uncertainty for human review"
+          "Classify source-grounded income, expenses, balances, fees, and obligations.",
+          "Stay within allowed finance-document categories.",
+          "Explain classification uncertainty for human review."
         ]
       },
       "financial_health_assessor": {
@@ -167,9 +169,9 @@
         "model": "default",
         "role": "Financial health assessor",
         "responsibilities": [
-          "review cash-flow status from structured totals",
-          "explain blocker risks and reminders",
-          "prepare review questions without making consequential financial decisions"
+          "Review cash-flow status from structured totals.",
+          "Explain blocker risks and reminders.",
+          "Prepare review questions without making consequential financial decisions."
         ]
       },
       "financial_market_researcher": {
@@ -177,9 +179,9 @@
         "model": "default",
         "role": "Financial market researcher",
         "responsibilities": [
-          "plan privacy-safe public web searches from generic risk categories",
-          "choose public sources from DuckDuckGo search results",
-          "summarize source-grounded public guidance without exposing private document text"
+          "Plan privacy-safe public web searches from generic risk categories.",
+          "Choose public sources from search results.",
+          "Summarize source-grounded public guidance without exposing private document text."
         ]
       },
       "financial_advice_reporter": {
@@ -187,16 +189,56 @@
         "model": "default",
         "role": "Financial advice reporter",
         "responsibilities": [
-          "write the final review-only household finance report",
-          "combine document analysis, health assessment, and research findings",
-          "preserve source refs and human-approval boundaries"
+          "Write the final review-only household finance report.",
+          "Combine document analysis, health assessment, and research findings.",
+          "Preserve source refs and human-approval boundaries."
+        ]
+      },
+      "bank_dataset_intake": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Bank dataset intake actor",
+        "responsibilities": [
+          "Stage finance document samples and dataset notes.",
+          "Check file availability and provenance.",
+          "Flag missing source folders."
+        ]
+      },
+      "financial_document_ocr_extractor": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Financial OCR extractor",
+        "responsibilities": [
+          "Review OCR quality and extraction warnings.",
+          "Preserve document evidence and source pages.",
+          "Flag low-quality scans."
+        ]
+      },
+      "financial_identifier_redactor": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Financial identifier redactor",
+        "responsibilities": [
+          "Redact account and personal identifiers.",
+          "Preserve non-sensitive financial evidence.",
+          "Flag residual sensitive data risk."
+        ]
+      },
+      "cash_flow_normalizer": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Cash-flow normalizer",
+        "responsibilities": [
+          "Normalize income and expense entries.",
+          "Check balances, fees, and obligations.",
+          "Flag unexplained or inconsistent amounts."
         ]
       }
     },
     "responsibilities": [
-      "keep private document text out of public web searches",
-      "ground every recommendation in local evidence or cited public sources",
-      "keep outputs review-only and require human approval before action"
+      "Keep household finance outputs review-only and source-grounded.",
+      "Use actors to explain cash flow, document evidence, research context, and reminders.",
+      "Avoid consequential financial decisions or private-data web disclosure."
     ]
   },
   "outputs": {

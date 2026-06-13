@@ -83,7 +83,103 @@
     "recommended_action": "privacy_officer_review_required_before_release"
   },
   "llm": {
-    "model": "default"
+    "model": "default",
+    "enabled": true,
+    "mode": "live",
+    "mock_mode": "fake",
+    "default_config": "primary",
+    "quick_test_uses_fake": true,
+    "strict_json": false,
+    "prefer_shared_skill": true,
+    "responsibilities": [
+      "Keep PHI detection and redaction evidence-bound and privacy-first.",
+      "Use actors to review clinical context and de-identification risk.",
+      "Require privacy officer review before release or downstream use."
+    ],
+    "configs": {
+      "primary": {
+        "provider": "docker_model_runner",
+        "model": "default",
+        "api_base": "http://localhost:12434/engines/v1",
+        "timeout_seconds": 60,
+        "max_tokens": 900,
+        "num_retries": 1,
+        "mock_mode": "fake",
+        "mode": "live"
+      }
+    },
+    "agents": {
+      "medical_dataset_intake": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Medical intake coordinator",
+        "responsibilities": [
+          "Stage clinical records and dataset notes.",
+          "Check document readability and provenance.",
+          "Flag missing consent or review context."
+        ]
+      },
+      "medical_ocr_extractor": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Clinical OCR reader",
+        "responsibilities": [
+          "Review OCR quality for clinical records.",
+          "Preserve evidence needed for de-identification review.",
+          "Flag unreadable or incomplete pages."
+        ]
+      },
+      "clinical_text_normalizer": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Clinical text normalizer",
+        "responsibilities": [
+          "Normalize clinical snippets for review.",
+          "Keep medical meaning without adding diagnoses.",
+          "Flag source-quality caveats."
+        ]
+      },
+      "phi_detector": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "PHI detection specialist",
+        "responsibilities": [
+          "Identify patient identifiers and sensitive spans.",
+          "Tie PHI findings to source evidence.",
+          "Flag uncertain redaction spans."
+        ]
+      },
+      "clinical_field_extractor": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Clinical field reviewer",
+        "responsibilities": [
+          "Review medications, diagnoses, visit dates, and tables.",
+          "Separate clinical evidence from identifiers.",
+          "Flag fields needing human review."
+        ]
+      },
+      "medical_redaction_validator": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Medical redaction validator",
+        "responsibilities": [
+          "Check de-identification completeness.",
+          "Flag residual PHI risks.",
+          "Keep release recommendations review-only."
+        ]
+      },
+      "privacy_report_writer": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Privacy review report writer",
+        "responsibilities": [
+          "Prepare the de-identification packet.",
+          "Summarize PHI risks and validation status.",
+          "Require privacy officer approval before release."
+        ]
+      }
+    }
   },
   "outputs": {
     "folder_path": "/Users/homer/Download/medical_deid_record_intake_assistant",

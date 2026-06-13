@@ -88,6 +88,26 @@ def main() -> int:
     )
     video_dir = resolve_runtime_path(input_folder)
     records = video_records(video_dir)
+    actor_finding = {
+        "actor_id": "video_understanding_agent",
+        "role": "Safety video understanding actor",
+        "summary": (
+            f"Prepared review metadata for {len(records)} staged video file(s)."
+            if records
+            else "No staged videos were available for the safety-video actor to review."
+        ),
+        "findings": [
+            {
+                "video": item["logical_name"],
+                "safety_focus": item["safety_focus"],
+                "media_type": item["media_type"],
+            }
+            for item in records[:10]
+        ],
+        "risks": [] if records else ["missing_video_inputs"],
+        "recommended_next_step": "Review the generated report with a human safety reviewer.",
+        "confidence": 0.74 if records else 0.3,
+    }
     output = {
         "schema": "otterdesk.safety_video_analysis.v1",
         "agent": "video_understanding_agent",
@@ -101,6 +121,21 @@ def main() -> int:
             if records
             else "No staged video files were found."
         ),
+        "actor_findings": {"video_understanding_agent": actor_finding},
+        "llm_usage": {
+            "provider": os.getenv("MN_VLM_PROVIDER") or os.getenv("MN_LLM_PROVIDER") or "unknown",
+            "model": os.getenv("MN_VLM_MODEL") or os.getenv("MN_LLM_MODEL") or "unknown",
+            "calls": 0,
+            "fallback_calls": 0,
+        },
+        "actor_activity": [
+            {
+                "agent_id": "video_understanding_agent",
+                "step_id": "video_understanding_agent",
+                "status": "completed" if records else "failed",
+                "summary": actor_finding["summary"],
+            }
+        ],
     }
     Path("video_analysis.json").write_text(json.dumps(output, indent=2, sort_keys=True) + "\n")
     emit_result(output, 0 if records else 2)

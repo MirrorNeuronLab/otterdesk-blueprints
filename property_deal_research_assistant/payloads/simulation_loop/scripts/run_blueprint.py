@@ -15,8 +15,11 @@ try:
         architecture_contract,
         create_runtime_context,
         get_llm_client,
+        llm_usage,
         load_config,
         resolve_input_overrides,
+        resolve_actor_specs,
+        run_actor_reviews,
         run_blueprint_cli,
         utc_now_iso,
     )
@@ -28,14 +31,17 @@ except ModuleNotFoundError:
             sys.path.insert(0, str(candidate))
             break
     from mn_blueprint_support import (
-        architecture_contract,
-        create_runtime_context,
-        get_llm_client,
-        load_config,
-        resolve_input_overrides,
-        run_blueprint_cli,
-        utc_now_iso,
-    )
+            architecture_contract,
+            create_runtime_context,
+            get_llm_client,
+            llm_usage,
+            load_config,
+            resolve_input_overrides,
+            resolve_actor_specs,
+            run_actor_reviews,
+            run_blueprint_cli,
+            utc_now_iso,
+        )
     from mn_blueprint_support.web_ui import maybe_write_static_output
 
 
@@ -356,6 +362,25 @@ def run_blueprint(
 
         state_changes = state_delta(initial, state)
         benchmark_report = aggregate_benchmark(benchmark_rows, timeline)
+        final = final_artifact(state, timeline, state_changes, benchmark_report)
+        actor_state: dict[str, Any] = {}
+        actor_findings = run_actor_reviews(
+            config=resolved_config,
+            llm=llm,
+            actor_ids=list(resolve_actor_specs(resolved_config).keys()),
+            state=actor_state,
+            task="Review the property deal ranking packet and prepare actor findings for human approval.",
+            context={
+                "target_zip": runtime_inputs["target_zip"],
+                "state_changes": state_changes,
+                "benchmark": benchmark_report,
+                "latest_decision": timeline[-1]["decision"] if timeline else {},
+                "critical_source_refs": list(CRITICAL_SOURCE_REFS),
+            },
+            event_sink=context,
+        )
+        final["actor_findings"] = actor_findings
+        final["llm_usage"] = llm_usage(llm)
         result = {
             "identity": {
                 "blueprint_id": context.blueprint_id,
@@ -390,7 +415,7 @@ def run_blueprint(
             "timeline": timeline,
             "state_changes": state_changes,
             "benchmark": benchmark_report,
-            "final_artifact": final_artifact(state, timeline, state_changes, benchmark_report),
+            "final_artifact": final,
             "artifacts": [
                 {
                     "artifact_id": "result",
@@ -420,12 +445,7 @@ def run_blueprint(
                     "source_refs": ["events.jsonl"],
                 },
             ],
-            "llm": {
-                "provider": getattr(llm, "provider", "unknown"),
-                "model": getattr(llm, "model", "unknown"),
-                "calls": getattr(llm, "calls", 0),
-                "fallback_calls": getattr(llm, "fallback_calls", 0),
-            },
+            "llm": llm_usage(llm),
         }
         web_ui = maybe_write_static_output(context.run_store, result, resolved_config)
         if web_ui:

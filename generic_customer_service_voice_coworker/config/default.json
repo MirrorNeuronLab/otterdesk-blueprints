@@ -304,7 +304,53 @@
     "runtime_model": "otterdesk-voice-llm:default",
     "backend": "llama.cpp",
     "agent_role": "Customer-service voice co-worker that answers from the customer knowledge base, asks clarifying questions when needed, and recommends escalation when it is unsure or outside scope.",
-    "system_prompt": "prompts/chat-system.md"
+    "system_prompt": "prompts/chat-system.md",
+    "enabled": true,
+    "mode": "live",
+    "mock_mode": "fake",
+    "default_config": "primary",
+    "quick_test_uses_fake": true,
+    "strict_json": false,
+    "prefer_shared_skill": true,
+    "responsibilities": [
+      "Answer only from the configured customer knowledge and conversation context.",
+      "Ask clarifying questions when intent or account details are incomplete.",
+      "Escalate sensitive, unsafe, or out-of-scope requests to a human."
+    ],
+    "configs": {
+      "primary": {
+        "provider": "docker_model_runner",
+        "model": "otterdesk-voice-llm:default",
+        "api_base": "http://localhost:12434/engines/v1",
+        "timeout_seconds": 60,
+        "max_tokens": 900,
+        "num_retries": 1,
+        "mock_mode": "fake",
+        "mode": "live"
+      }
+    },
+    "agents": {
+      "spark_voice_preparer": {
+        "llm_config": "primary",
+        "model": "otterdesk-voice-llm:default",
+        "role": "Spark voice runtime preparer",
+        "responsibilities": [
+          "Prepare voice runtime prerequisites and knowledge files.",
+          "Check service readiness before conversation hosting.",
+          "Report setup blockers clearly without handling customer content."
+        ]
+      },
+      "customer_service_voice_host": {
+        "llm_config": "primary",
+        "model": "otterdesk-voice-llm:default",
+        "role": "Customer-service voice co-worker",
+        "responsibilities": [
+          "Answer customer questions from the knowledge base.",
+          "Ask clarifying questions when intent is incomplete.",
+          "Escalate uncertain, sensitive, or out-of-scope requests."
+        ]
+      }
+    }
   },
   "logging": {
     "events": [

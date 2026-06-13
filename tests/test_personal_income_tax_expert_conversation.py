@@ -135,6 +135,8 @@ def test_personal_tax_expert_speaks_like_advisor_and_prepares_1040_packet(tmp_pa
     assert artifact["expert_team"]["handoff_mode"] == "filesystem_artifact_refs"
     assert "team_workspace" in artifact
     assert artifact["manager_review"]["manager_signoff"] == "not_approved_for_filing"
+    assert set(artifact["actor_findings"]) == set(artifact["llm_usage"]["team_stages"])
+    assert artifact["llm_usage"]["calls"] == result["llm"]["calls"]
     assert result["llm"]["calls"] == result["llm"]["specialist_stage_count"] == 9
     assert result["llm"]["team_stage_count"] == 10
     assert any(item["agent"] == "tax_auditor" for item in result["timeline"])

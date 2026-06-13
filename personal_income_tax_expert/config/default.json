@@ -409,109 +409,261 @@
     "enabled": true,
     "agent_role": "Personal tax preparation team that prepares a source-grounded draft Form 1040 review packet while asking careful review questions.",
     "agents": {
-      "advisor_report_writer": {
+      "intake_documents": {
         "llm_config": "primary",
+        "model": "default",
+        "role": "Intake Documents",
         "responsibilities": [
-          "explain the draft in plain English",
-          "summarize open review items",
-          "prepare the user-facing report voice"
-        ],
-        "role": "Advisor and report writer"
+          "Review the deterministic workflow state for domain-specific risks.",
+          "Summarize evidence, caveats, and next review steps without inventing facts.",
+          "Keep the output review-only and preserve the source workflow results."
+        ]
       },
-      "client_intake_coordinator": {
+      "prepare_income_workpapers": {
         "llm_config": "primary",
+        "model": "default",
+        "role": "Prepare Income Workpapers",
         "responsibilities": [
-          "confirm engagement scope",
-          "identify missing taxpayer profile facts",
-          "build a preparer-style intake checklist"
-        ],
-        "role": "Client intake coordinator"
+          "Review the deterministic workflow state for domain-specific risks.",
+          "Summarize evidence, caveats, and next review steps without inventing facts.",
+          "Keep the output review-only and preserve the source workflow results."
+        ]
       },
-      "deductions_credits_preparer": {
+      "prepare_property_workpapers": {
         "llm_config": "primary",
+        "model": "default",
+        "role": "Prepare Property Workpapers",
         "responsibilities": [
-          "prepare standard deduction treatment",
-          "flag itemized deduction evidence",
-          "identify credits requiring follow-up"
-        ],
-        "role": "Deductions and credits preparer"
+          "Review the deterministic workflow state for domain-specific risks.",
+          "Summarize evidence, caveats, and next review steps without inventing facts.",
+          "Keep the output review-only and preserve the source workflow results."
+        ]
       },
-      "document_understanding_agent": {
+      "prepare_investment_workpapers": {
         "llm_config": "primary",
+        "model": "default",
+        "role": "Prepare Investment Workpapers",
         "responsibilities": [
-          "classify tax documents",
-          "summarize each form's tax meaning",
-          "separate simple source forms from schedule-triggering forms"
-        ],
-        "role": "Document understanding agent"
+          "Review the deterministic workflow state for domain-specific risks.",
+          "Summarize evidence, caveats, and next review steps without inventing facts.",
+          "Keep the output review-only and preserve the source workflow results."
+        ]
       },
-      "form_1040_assembler": {
+      "merge_tax_workpapers": {
         "llm_config": "primary",
+        "model": "default",
+        "role": "Merge Tax Workpapers",
         "responsibilities": [
-          "assemble supported draft Form 1040 lines",
-          "preserve assumptions and source evidence",
-          "avoid unsupported filing-ready calculations"
-        ],
-        "role": "Form 1040 assembler"
+          "Review the deterministic workflow state for domain-specific risks.",
+          "Summarize evidence, caveats, and next review steps without inventing facts.",
+          "Keep the output review-only and preserve the source workflow results."
+        ]
       },
-      "form_1040_packet_writer": {
+      "audit_and_manager_review": {
         "llm_config": "primary",
+        "model": "default",
+        "role": "Audit And Manager Review",
         "responsibilities": [
-          "assemble the final review packet",
-          "preserve filesystem artifact references",
-          "keep large workpapers out of inter-agent messages"
-        ],
-        "role": "Form 1040 packet writer"
+          "Review the deterministic workflow state for domain-specific risks.",
+          "Summarize evidence, caveats, and next review steps without inventing facts.",
+          "Keep the output review-only and preserve the source workflow results."
+        ]
       },
-      "income_preparer": {
+      "write_review_packet": {
         "llm_config": "primary",
+        "model": "default",
+        "role": "Write Review Packet",
         "responsibilities": [
-          "prepare income workpapers",
-          "map source facts to Form 1040 income lines",
-          "flag Schedule C, D, and dividend review items"
-        ],
-        "role": "Income preparer"
+          "Review the deterministic workflow state for domain-specific risks.",
+          "Summarize evidence, caveats, and next review steps without inventing facts.",
+          "Keep the output review-only and preserve the source workflow results."
+        ]
       },
-      "manager_reviewer": {
+      "report_sink": {
         "llm_config": "primary",
+        "model": "default",
+        "role": "Report Sink",
         "responsibilities": [
-          "perform manager-level review",
-          "write blockers and signoff status",
-          "hold the packet as draft only"
-        ],
-        "role": "Tax manager reviewer"
-      },
-      "source_field_extractor": {
-        "llm_config": "primary",
-        "responsibilities": [
-          "extract box-level source facts",
-          "tie every amount to evidence",
-          "flag OCR and unsupported fields"
-        ],
-        "role": "Source field extractor"
+          "Review the deterministic workflow state for domain-specific risks.",
+          "Summarize evidence, caveats, and next review steps without inventing facts.",
+          "Keep the output review-only and preserve the source workflow results."
+        ]
       },
       "tax_auditor": {
         "llm_config": "primary",
         "responsibilities": [
-          "audit source support",
-          "flag missing evidence and filing risks",
-          "block unsupported return-ready claims"
+          "Audit source support.",
+          "Flag missing evidence and filing risks.",
+          "Block unsupported return-ready claims."
         ],
-        "role": "Tax auditor"
+        "role": "Tax auditor",
+        "model": "default"
+      },
+      "manager_reviewer": {
+        "llm_config": "primary",
+        "responsibilities": [
+          "Perform manager-level review.",
+          "Write blockers and signoff status.",
+          "Hold the packet as draft only."
+        ],
+        "role": "Tax manager reviewer",
+        "model": "default"
+      },
+      "client_intake_coordinator": {
+        "llm_config": "primary",
+        "responsibilities": [
+          "Confirm engagement scope.",
+          "Identify missing taxpayer profile facts.",
+          "Build a preparer-style intake checklist."
+        ],
+        "role": "Client intake coordinator",
+        "model": "default"
+      },
+      "document_understanding_agent": {
+        "llm_config": "primary",
+        "responsibilities": [
+          "Classify tax documents.",
+          "Summarize each form tax meaning.",
+          "Separate simple source forms from schedule-triggering forms."
+        ],
+        "role": "Document understanding agent",
+        "model": "default"
+      },
+      "source_field_extractor": {
+        "llm_config": "primary",
+        "responsibilities": [
+          "Extract box-level source facts.",
+          "Tie every amount to evidence.",
+          "Flag OCR and unsupported fields."
+        ],
+        "role": "Source field extractor",
+        "model": "default"
+      },
+      "form_1040_assembler": {
+        "llm_config": "primary",
+        "responsibilities": [
+          "Assemble supported draft Form 1040 lines.",
+          "Preserve assumptions and source evidence.",
+          "Avoid unsupported filing-ready calculations."
+        ],
+        "role": "Form 1040 assembler",
+        "model": "default"
+      },
+      "income_preparer": {
+        "llm_config": "primary",
+        "responsibilities": [
+          "Prepare income workpapers.",
+          "Map source facts to Form 1040 income lines.",
+          "Flag Schedule C, D, and dividend review items."
+        ],
+        "role": "Income preparer",
+        "model": "default"
+      },
+      "income_validator": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Income validator",
+        "responsibilities": [
+          "Validate income workpapers against source forms.",
+          "Flag missing income support.",
+          "Keep validation draft-only."
+        ]
+      },
+      "investment_preparer": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Investment preparer",
+        "responsibilities": [
+          "Prepare investment-income workpapers.",
+          "Separate interest, dividends, and capital activity.",
+          "Flag missing brokerage details."
+        ]
+      },
+      "investment_validator": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Investment validator",
+        "responsibilities": [
+          "Validate investment workpapers and assumptions.",
+          "Flag unsupported capital-gain treatment.",
+          "Keep validation source-grounded."
+        ]
+      },
+      "property_preparer": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Rental property preparer",
+        "responsibilities": [
+          "Prepare property and rental workpapers.",
+          "Map property facts to draft schedules.",
+          "Flag missing expense and basis support."
+        ]
+      },
+      "property_tax_validator": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Property tax validator",
+        "responsibilities": [
+          "Validate property workpapers against evidence.",
+          "Flag rental or deduction risks.",
+          "Keep outputs draft-only."
+        ]
+      },
+      "advisor_report_writer": {
+        "llm_config": "primary",
+        "responsibilities": [
+          "Explain the draft in plain English.",
+          "Summarize open review items.",
+          "Prepare the user-facing report voice."
+        ],
+        "role": "Advisor and report writer",
+        "model": "default"
+      },
+      "form_1040_packet_writer": {
+        "llm_config": "primary",
+        "responsibilities": [
+          "Assemble the final review packet.",
+          "Preserve filesystem artifact references.",
+          "Keep large workpapers out of inter-agent messages."
+        ],
+        "role": "Form 1040 packet writer",
+        "model": "default"
+      },
+      "deductions_credits_preparer": {
+        "llm_config": "primary",
+        "responsibilities": [
+          "Prepare standard deduction treatment.",
+          "Flag itemized deduction evidence.",
+          "Identify credits requiring follow-up."
+        ],
+        "role": "Deductions and credits preparer",
+        "model": "default"
       }
     },
     "responsibilities": [
-      "understand tax documents with LLM specialist agents",
-      "extract source fields and build preparer workpapers",
-      "assemble supported Form 1040 draft lines",
-      "audit assumptions, missing forms, and schedule risks",
-      "write JSON, Markdown, and PDF review outputs"
+      "Keep tax preparation outputs draft-only and tied to source evidence.",
+      "Use specialist actors to prepare, audit, review, and explain the packet.",
+      "Block filing-ready claims until human tax review is complete."
     ],
     "mock_mode": "fake",
     "quick_test_uses_fake": false,
     "prefer_shared_skill": false,
     "strict_json": true,
-    "model": "default"
+    "model": "default",
+    "mode": "live",
+    "default_config": "primary",
+    "configs": {
+      "primary": {
+        "provider": "docker_model_runner",
+        "model": "default",
+        "api_base": "http://localhost:12434/engines/v1",
+        "timeout_seconds": 60,
+        "max_tokens": 900,
+        "num_retries": 1,
+        "mock_mode": "fake",
+        "mode": "live"
+      }
+    }
   },
   "local_inputs": {
     "folders": [

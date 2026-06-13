@@ -398,23 +398,101 @@
     "enabled": true,
     "agent_role": "LLM report writer that summarizes supplied market signals and structured simulation evidence; deterministic finance workers propose, simulate, evaluate, and benchmark decisions.",
     "agents": {
-      "default": {
+      "portfolio:risk_engine": {
         "llm_config": "primary",
+        "model": "default",
+        "role": "Portfolio risk engine reviewer",
         "responsibilities": [
-          "interpret supplied market signals",
-          "write final report from structured metrics",
-          "avoid inventing prices or executable trades"
-        ],
-        "role": "LLM report writer that summarizes supplied market signals and structured simulation evidence; deterministic finance workers propose, simulate, evaluate, and benchmark decisions."
+          "Explain deterministic risk metrics and policy breaches.",
+          "Flag concentration, drawdown, VaR, and liquidity risks.",
+          "Keep calculations as source of truth."
+        ]
+      },
+      "portfolio:benchmark_evaluator": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Portfolio benchmark evaluator",
+        "responsibilities": [
+          "Compare candidate decisions against the benchmark.",
+          "Summarize ranked tradeoffs and policy effects.",
+          "Avoid inventing market data."
+        ]
+      },
+      "portfolio:llm_report_writer": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Portfolio report writer",
+        "responsibilities": [
+          "Write the review-only risk narrative.",
+          "Tie recommendations to simulation evidence.",
+          "Avoid executable trading instructions."
+        ]
+      },
+      "portfolio:context_loader": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Portfolio context loader",
+        "responsibilities": [
+          "Review portfolio inputs and constraints.",
+          "Flag missing holdings or policy settings.",
+          "Preserve input provenance."
+        ]
+      },
+      "portfolio:market_data_loader": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Market data loader",
+        "responsibilities": [
+          "Check public market data freshness and coverage.",
+          "Summarize data-source caveats.",
+          "Fail closed on stale or missing required series."
+        ]
+      },
+      "portfolio:decision_policy": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Decision policy reviewer",
+        "responsibilities": [
+          "Review allowed actions and restrictions.",
+          "Flag policy conflicts or turnover blockers.",
+          "Keep decisions review-only."
+        ]
+      },
+      "portfolio:monte_carlo": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Monte Carlo simulator reviewer",
+        "responsibilities": [
+          "Summarize simulation assumptions and outcomes.",
+          "Flag unstable or low-confidence candidates.",
+          "Preserve deterministic path statistics."
+        ]
       }
     },
     "responsibilities": [
-      "interpret supplied market signals",
-      "write final report from structured metrics",
-      "avoid inventing prices or executable trades"
+      "Keep market data, simulation, and benchmark math as the source of truth.",
+      "Use actors to interpret risk evidence and prepare review-only recommendations.",
+      "Avoid inventing market prices or executable trades."
     ],
     "mock_mode": "fake",
-    "model": "default"
+    "model": "default",
+    "mode": "live",
+    "default_config": "primary",
+    "quick_test_uses_fake": true,
+    "strict_json": false,
+    "prefer_shared_skill": true,
+    "configs": {
+      "primary": {
+        "provider": "docker_model_runner",
+        "model": "default",
+        "api_base": "http://localhost:12434/engines/v1",
+        "timeout_seconds": 60,
+        "max_tokens": 900,
+        "num_retries": 1,
+        "mock_mode": "fake",
+        "mode": "live"
+      }
+    }
   },
   "logging": {
     "events": [
