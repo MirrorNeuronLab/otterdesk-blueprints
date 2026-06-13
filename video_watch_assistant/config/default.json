@@ -561,14 +561,19 @@
     "rollup_bucket_seconds": 3600,
     "sample_interval_seconds": 10,
     "gpu_count": 1,
+    "gpu": {
+      "min_count": 1,
+      "vendor": "nvidia",
+      "driver": "cuda",
+      "min_api_version": "12.0",
+      "api_version_operator": ">",
+      "min_memory_mb": 49152,
+      "memory_operator": ">",
+      "enforcement": "hard"
+    },
     "required_capabilities": [
-      "nvidia-dgx-spark",
-      "nvidia-gh200",
-      "nvidia-h100",
-      "nvidia-h200",
-      "nvidia-b200",
-      "nvidia-gb200",
-      "nvidia-gb10"
+      "nvidia",
+      "cuda"
     ]
   },
   "schemas": {

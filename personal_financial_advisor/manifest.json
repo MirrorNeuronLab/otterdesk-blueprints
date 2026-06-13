@@ -897,7 +897,24 @@
           "output_message_type": "financial_market_researcher_completed",
           "idempotent": true,
           "side_effect": "network_read",
-          "safe_to_retry": true
+          "safe_to_retry": true,
+          "build_context_upload_paths": [
+            {
+              "base": "skills_root",
+              "source": "blueprint_support_skill",
+              "target": "document_workflow/docker_worker/build_context/blueprint_support_skill"
+            },
+            {
+              "base": "skills_root",
+              "source": "llm_ocr_skill",
+              "target": "document_workflow/docker_worker/build_context/llm_ocr_skill"
+            },
+            {
+              "base": "skills_root",
+              "source": "w3m_browser_skill",
+              "target": "document_workflow/docker_worker/build_context/w3m_browser_skill"
+            }
+          ]
         }
       },
       {
@@ -1399,7 +1416,24 @@
             "docker_worker_image": "document_workflow/docker_worker",
             "idempotent": true,
             "side_effect": "network_read",
-            "safe_to_retry": true
+            "safe_to_retry": true,
+            "build_context_upload_paths": [
+              {
+                "base": "skills_root",
+                "source": "blueprint_support_skill",
+                "target": "document_workflow/docker_worker/build_context/blueprint_support_skill"
+              },
+              {
+                "base": "skills_root",
+                "source": "llm_ocr_skill",
+                "target": "document_workflow/docker_worker/build_context/llm_ocr_skill"
+              },
+              {
+                "base": "skills_root",
+                "source": "w3m_browser_skill",
+                "target": "document_workflow/docker_worker/build_context/w3m_browser_skill"
+              }
+            ]
           }
         },
         {
@@ -1667,7 +1701,24 @@
               "docker_worker_image": "document_workflow/docker_worker",
               "idempotent": true,
               "side_effect": "network_read",
-              "safe_to_retry": true
+              "safe_to_retry": true,
+              "build_context_upload_paths": [
+                {
+                  "base": "skills_root",
+                  "source": "blueprint_support_skill",
+                  "target": "document_workflow/docker_worker/build_context/blueprint_support_skill"
+                },
+                {
+                  "base": "skills_root",
+                  "source": "llm_ocr_skill",
+                  "target": "document_workflow/docker_worker/build_context/llm_ocr_skill"
+                },
+                {
+                  "base": "skills_root",
+                  "source": "w3m_browser_skill",
+                  "target": "document_workflow/docker_worker/build_context/w3m_browser_skill"
+                }
+              ]
             }
           },
           "rendered_node": {
@@ -1716,7 +1767,24 @@
               "output_message_type": "financial_market_researcher_completed",
               "idempotent": true,
               "side_effect": "network_read",
-              "safe_to_retry": true
+              "safe_to_retry": true,
+              "build_context_upload_paths": [
+                {
+                  "base": "skills_root",
+                  "source": "blueprint_support_skill",
+                  "target": "document_workflow/docker_worker/build_context/blueprint_support_skill"
+                },
+                {
+                  "base": "skills_root",
+                  "source": "llm_ocr_skill",
+                  "target": "document_workflow/docker_worker/build_context/llm_ocr_skill"
+                },
+                {
+                  "base": "skills_root",
+                  "source": "w3m_browser_skill",
+                  "target": "document_workflow/docker_worker/build_context/w3m_browser_skill"
+                }
+              ]
             }
           }
         },

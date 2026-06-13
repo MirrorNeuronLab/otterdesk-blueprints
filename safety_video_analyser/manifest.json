@@ -10,6 +10,18 @@
       "strategy": "binpack"
     }
   },
+  "requirements": {
+    "gpu": {
+      "min_count": 1,
+      "vendor": "nvidia",
+      "driver": "cuda",
+      "min_api_version": "12.0",
+      "api_version_operator": ">",
+      "min_memory_mb": 49152,
+      "memory_operator": ">",
+      "enforcement": "hard"
+    }
+  },
   "metadata": {
     "blueprint_id": "safety_video_analyser",
     "name": "Safety Video Analyser",
@@ -80,15 +92,10 @@
         "constraints": [
           {
             "attribute": "capabilities",
-            "operator": "contains_any",
+            "operator": "contains_all",
             "value": [
-              "nvidia-dgx-spark",
-              "nvidia-gh200",
-              "nvidia-h100",
-              "nvidia-h200",
-              "nvidia-b200",
-              "nvidia-gb10",
-              "nvidia-gb200"
+              "nvidia",
+              "cuda"
             ]
           }
         ],
@@ -100,9 +107,13 @@
             {
               "kind": "gpu",
               "type": "nvidia/gpu",
+              "vendor": "nvidia",
               "driver": "cuda",
               "count": 1,
-              "min_memory_mb": 24576
+              "min_api_version": "12.0",
+              "api_version_operator": ">",
+              "min_memory_mb": 49152,
+              "memory_operator": ">"
             }
           ]
         }
@@ -178,6 +189,18 @@
         "backend": "llama.cpp",
         "install_mode": "cluster_provided",
         "required": true
+      }
+    },
+    "resources": {
+      "gpu": {
+        "min_count": 1,
+        "vendor": "nvidia",
+        "driver": "cuda",
+        "min_api_version": "12.0",
+        "api_version_operator": ">",
+        "min_memory_mb": 49152,
+        "memory_operator": ">",
+        "enforcement": "hard"
       }
     }
   },

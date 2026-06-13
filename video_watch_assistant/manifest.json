@@ -577,15 +577,10 @@
         "constraints": [
           {
             "attribute": "capabilities",
-            "operator": "contains_any",
+            "operator": "contains_all",
             "value": [
-              "nvidia-dgx-spark",
-              "nvidia-gh200",
-              "nvidia-h100",
-              "nvidia-h200",
-              "nvidia-b200",
-              "nvidia-gb200",
-              "nvidia-gb10"
+              "nvidia",
+              "cuda"
             ]
           }
         ],
@@ -595,8 +590,13 @@
             {
               "kind": "gpu",
               "type": "nvidia/gpu",
+              "vendor": "nvidia",
               "driver": "cuda",
-              "count": 1
+              "count": 1,
+              "min_api_version": "12.0",
+              "api_version_operator": ">",
+              "min_memory_mb": 49152,
+              "memory_operator": ">"
             }
           ]
         },
@@ -787,15 +787,12 @@
       "gpu": {
         "min_count": 1,
         "vendor": "nvidia",
-        "required_capabilities": [
-          "nvidia-dgx-spark",
-          "nvidia-gh200",
-          "nvidia-h100",
-          "nvidia-h200",
-          "nvidia-b200",
-          "nvidia-gb200",
-          "nvidia-gb10"
-        ]
+        "driver": "cuda",
+        "min_api_version": "12.0",
+        "api_version_operator": ">",
+        "min_memory_mb": 49152,
+        "memory_operator": ">",
+        "enforcement": "hard"
       },
       "memory": {
         "min_gb": 2
@@ -921,15 +918,12 @@
     "gpu": {
       "min_count": 1,
       "vendor": "nvidia",
-      "required_capabilities": [
-        "nvidia-dgx-spark",
-        "nvidia-gh200",
-        "nvidia-h100",
-        "nvidia-h200",
-        "nvidia-b200",
-        "nvidia-gb200",
-        "nvidia-gb10"
-      ]
+      "driver": "cuda",
+      "min_api_version": "12.0",
+      "api_version_operator": ">",
+      "min_memory_mb": 49152,
+      "memory_operator": ">",
+      "enforcement": "hard"
     },
     "memory": {
       "min_gb": 2
@@ -1077,15 +1071,10 @@
             "constraints": [
               {
                 "attribute": "capabilities",
-                "operator": "contains_any",
+                "operator": "contains_all",
                 "value": [
-                  "nvidia-dgx-spark",
-                  "nvidia-gh200",
-                  "nvidia-h100",
-                  "nvidia-h200",
-                  "nvidia-b200",
-                  "nvidia-gb200",
-                  "nvidia-gb10"
+                  "nvidia",
+                  "cuda"
                 ]
               }
             ],
@@ -1095,8 +1084,13 @@
                 {
                   "kind": "gpu",
                   "type": "nvidia/gpu",
+                  "vendor": "nvidia",
                   "driver": "cuda",
-                  "count": 1
+                  "count": 1,
+                  "min_api_version": "12.0",
+                  "api_version_operator": ">",
+                  "min_memory_mb": 49152,
+                  "memory_operator": ">"
                 }
               ]
             },
@@ -1151,15 +1145,10 @@
             "constraints": [
               {
                 "attribute": "capabilities",
-                "operator": "contains_any",
+                "operator": "contains_all",
                 "value": [
-                  "nvidia-dgx-spark",
-                  "nvidia-gh200",
-                  "nvidia-h100",
-                  "nvidia-h200",
-                  "nvidia-b200",
-                  "nvidia-gb200",
-                  "nvidia-gb10"
+                  "nvidia",
+                  "cuda"
                 ]
               }
             ],
@@ -1169,8 +1158,13 @@
                 {
                   "kind": "gpu",
                   "type": "nvidia/gpu",
+                  "vendor": "nvidia",
                   "driver": "cuda",
-                  "count": 1
+                  "count": 1,
+                  "min_api_version": "12.0",
+                  "api_version_operator": ">",
+                  "min_memory_mb": 49152,
+                  "memory_operator": ">"
                 }
               ]
             },
@@ -1971,13 +1965,8 @@
       }
     },
     "required_cluster_capabilities": [
-      "nvidia-dgx-spark",
-      "nvidia-gh200",
-      "nvidia-h100",
-      "nvidia-h200",
-      "nvidia-b200",
-      "nvidia-gb200",
-      "nvidia-gb10"
+      "nvidia",
+      "cuda"
     ]
   },
   "required_services": [

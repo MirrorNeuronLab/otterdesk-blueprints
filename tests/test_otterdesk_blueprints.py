@@ -114,12 +114,72 @@ def _is_workflow_manifest(manifest: dict) -> bool:
     return manifest.get("apiVersion") == "mn.workflow/v1" and isinstance(manifest.get("workflow", {}).get("steps"), list)
 
 
+GPU_HARD_REQUIREMENT = {
+    "min_count": 1,
+    "vendor": "nvidia",
+    "driver": "cuda",
+    "min_api_version": "12.0",
+    "api_version_operator": ">",
+    "min_memory_mb": 49152,
+    "memory_operator": ">",
+    "enforcement": "hard",
+}
+
+
+GPU_WORKER_DEVICE_REQUIREMENT = {
+    "vendor": "nvidia",
+    "driver": "cuda",
+    "min_api_version": "12.0",
+    "api_version_operator": ">",
+    "min_memory_mb": 49152,
+    "memory_operator": ">",
+}
+
+
 def _completion_threshold(value) -> bool:
     if isinstance(value, int):
         return value > 0
     if isinstance(value, str):
         return value.isdigit() and int(value) > 0
     return False
+
+
+def test_video_gpu_blueprints_declare_hard_nvidia_cuda_requirements_consistently():
+    targets = {
+        "safety_video_analyser": "video_understanding_agent",
+        "video_watch_assistant": "visual_detector",
+    }
+    for blueprint_id, worker_id in targets.items():
+        manifest = json.loads((ROOT / blueprint_id / "manifest.json").read_text())
+        assert manifest["requirements"]["gpu"] == GPU_HARD_REQUIREMENT
+        assert manifest["runtime"]["resources"]["gpu"] == GPU_HARD_REQUIREMENT
+
+        worker = next(node for node in _flow_nodes(manifest) if node["node_id"] == worker_id)
+        _assert_hard_gpu_worker_requirements(worker)
+
+        for template in _template_nodes(manifest):
+            for key in ("original_node", "rendered_node"):
+                rendered = template.get(key)
+                if isinstance(rendered, dict) and rendered.get("node_id") == worker_id:
+                    _assert_hard_gpu_worker_requirements(rendered)
+
+    config = json.loads((ROOT / "video_watch_assistant" / "config" / "default.json").read_text())
+    assert config["resources"]["gpu"] == GPU_HARD_REQUIREMENT
+    assert config["resources"]["required_capabilities"] == ["nvidia", "cuda"]
+
+
+def _assert_hard_gpu_worker_requirements(worker: dict) -> None:
+    assert worker["constraints"] == [
+        {"attribute": "capabilities", "operator": "contains_all", "value": ["nvidia", "cuda"]}
+    ]
+    assert worker["resources"]["gpu_count"] == 1
+    devices = worker["resources"]["devices"]
+    assert len(devices) == 1
+    assert devices[0]["kind"] == "gpu"
+    assert devices[0]["type"] == "nvidia/gpu"
+    assert devices[0]["count"] == 1
+    for key, value in GPU_WORKER_DEVICE_REQUIREMENT.items():
+        assert devices[0][key] == value
 
 
 def test_otterdesk_blueprints_are_workflow_driven_manifests():

@@ -306,8 +306,20 @@ def test_personal_financial_advisor_manifest_is_service_without_terminal_sink():
             assert config["workdir"] == "/mn/job/document_workflow"
             assert config.get("reuse_shared_container") is True
             assert config.get("side_effect") == "network_read"
+            build_context_uploads = config["build_context_upload_paths"]
+            assert {item["source"] for item in build_context_uploads} == {
+                "blueprint_support_skill",
+                "llm_ocr_skill",
+                "w3m_browser_skill",
+            }
+            assert all(item["base"] == "skills_root" for item in build_context_uploads)
+            assert all(
+                item["target"].startswith("document_workflow/docker_worker/build_context/")
+                for item in build_context_uploads
+            )
             assert rendered_config["runner_module"] == "MirrorNeuron.Runner.DockerWorker"
             assert rendered_config["command"] == ["bash", "scripts/run_blueprint_in_docker_worker.sh"]
+            assert rendered_config["build_context_upload_paths"] == build_context_uploads
         else:
             assert config["runner_module"] == "MirrorNeuron.Runner.HostLocal"
             assert config["command"] == ["python3.11", "scripts/run_blueprint.py"]
@@ -315,6 +327,7 @@ def test_personal_financial_advisor_manifest_is_service_without_terminal_sink():
             assert "docker_worker_image" not in config
             assert "image" not in config
             assert "reuse_shared_container" not in config
+            assert "build_context_upload_paths" not in config
             assert rendered_config["runner_module"] == "MirrorNeuron.Runner.HostLocal"
             assert rendered_config["command"] == ["python3.11", "scripts/run_blueprint.py"]
 

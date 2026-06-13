@@ -56,7 +56,7 @@ python3.11 payloads/document_workflow/scripts/run_blueprint.py --input-folder ~/
 - `config/default.json`: default OCR, continuous monitoring, output, and public sample settings.
 - `inputs/public_dataset.json`: public downloadable dataset reference selected for sample inputs.
 - `payloads/document_workflow/scripts/run_blueprint.py`: lightweight local runner demonstrating the OCR-backed extraction, browser research, folder polling, and runtime step-mode contract.
-- `payloads/document_workflow/docker_worker/Dockerfile`: research-agent-only DockerWorker image with `w3m` and required skills installed.
+- `payloads/document_workflow/docker_worker/Dockerfile`: research-agent-only DockerWorker image with `w3m`; required local skill packages are staged from `MN_SKILLS_ROOT` at build time and installed into the image.
 
 ## Browser Research
 

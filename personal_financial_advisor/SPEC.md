@@ -95,7 +95,7 @@ Continuous folder polling is the default service behavior. Polling uses `monitor
 
 The default worker runner is `MirrorNeuron.Runner.HostLocal`. The folder watch, extraction, classification, assessment, and report-writing actors use the HostLocal `scripts/run_blueprint.py` phase worker shape and the configured default LLM.
 
-Only `financial_market_researcher` uses `MirrorNeuron.Runner.DockerWorker` with the payload-local image build source `document_workflow/docker_worker` and command `bash scripts/run_blueprint_in_docker_worker.sh`. The blueprint must not declare a browser sidecar, publish host ports, or require HostLocal phases to import `w3m_browser_skill`.
+Only `financial_market_researcher` uses `MirrorNeuron.Runner.DockerWorker` with the payload-local image build source `document_workflow/docker_worker` and command `bash scripts/run_blueprint_in_docker_worker.sh`. The DockerWorker build stages `blueprint_support_skill`, `llm_ocr_skill`, and `w3m_browser_skill` from `MN_SKILLS_ROOT` into the image build context, then installs them inside the researcher image. The blueprint must not declare a browser sidecar, publish host ports, or require HostLocal phases to import `w3m_browser_skill`.
 
 ## Safety Rules
 
