@@ -1,4 +1,87 @@
+# Python bytecode and caches
 __pycache__/
 *.py[cod]
+*$py.class
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pyre/
+
+# Python packaging and build output
+build/
+dist/
+*.egg-info/
+.eggs/
+*.egg
+pip-wheel-metadata/
+*.whl
+
+# Test and coverage output
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+junit*.xml
+.tox/
+.nox/
+
+# Virtual environments and local env files
+.venv/
+venv/
+env/
+ENV/
+.env
+.env.*
+!.env.example
+!.env.sample
+
+# Node and frontend build output
+node_modules/
+.npm/
+.pnpm-store/
+.yarn/
+.next/
+.vite/
+.turbo/
+coverage/
+
+# Elixir build output
+_build/
+deps/
+*.beam
+.elixir_ls/
+
+# Blueprint/runtime generated output
+previews/
+output/
+outputs/
+artifacts/
+run_store/
+runs/
+.mn/
+events.jsonl
+result.json
+final_artifact.json
+run.json
+inputs.json
+logs.jsonl
+logs.index.json
+human.jsonl
+resources.jsonl
+job.json
+web_ui.json
+ui.json
+crm.csv
+market_insights.csv
+
+# Generated SDK/client output
+generated/
+generated-sources/
+.openapi-generator/
+
+# Local machine and IDE files
 .DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
