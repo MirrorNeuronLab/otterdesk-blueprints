@@ -26,10 +26,9 @@ DATASET_INPUT = {'name': 'RootCauseAnalytics Healthcare Library Sample', 'provid
 
 
 def _workspace_root() -> Path | None:
-    for name in ("MN_WORKSPACE_ROOT", "MIRROR_NEURON_WORKSPACE", "OTTERDESK_MIRROR_NEURON_WORKSPACE"):
-        value = os.environ.get(name)
-        if value:
-            return Path(value).expanduser()
+    value = os.environ.get("MN_WORKSPACE_ROOT")
+    if value:
+        return Path(value).expanduser()
     for parent in Path(__file__).resolve().parents:
         if (parent / "mn-skills").exists():
             return parent

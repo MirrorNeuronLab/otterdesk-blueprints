@@ -20,10 +20,9 @@ from xml.sax.saxutils import escape
 
 
 def _workspace_root() -> Path | None:
-    for name in ("MN_WORKSPACE_ROOT", "MIRROR_NEURON_WORKSPACE", "OTTERDESK_MIRROR_NEURON_WORKSPACE"):
-        value = os.environ.get(name)
-        if value:
-            return Path(value).expanduser()
+    value = os.environ.get("MN_WORKSPACE_ROOT")
+    if value:
+        return Path(value).expanduser()
     return None
 
 
