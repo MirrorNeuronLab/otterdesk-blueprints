@@ -2,6 +2,10 @@
 
 This blueprint produces score-only startup analysis reports for human review.
 
+The workflow may create many reports. Root-level index and coverage files are intended to help reviewers navigate large batches without turning the workflow into an automated investment filter.
+
+Platform human-control approval values are generic workflow controls and must not be interpreted as company-level investment labels.
+
 It must not:
 
 - issue invest, pass, watch, or reject decisions,

@@ -3,11 +3,11 @@
 `Blueprint ID:` `vc_assistant`
 `Category:` `Finance`
 
-Monitors a local folder of startup documents, groups files by company, researches public context, applies seven early VC heuristic analysis methods, and writes organized score-only reports for human review.
+Monitors a local folder of startup documents, builds a company work queue, runs specialist research and deterministic numerical-analysis agents, and writes organized score-only VC reports for human review.
 
 ## What It Does
 
-This blueprint is a report-only early diligence assistant. It helps a reviewer inspect one or more startup document packets with Berkus, Scorecard / Bill Payne, Risk Factor Summation, Venture Capital, First Chicago, Comparables / Market Multiple, and Cost-to-Duplicate methods.
+This blueprint is a report-only early diligence assistant. It helps a reviewer inspect one or more startup document packets with specialist agents for grouping, evidence extraction, fact normalization, public research, seven deterministic scoring methods, score auditing, and batch report writing. The local runner uses bounded parallelism for changed company packets, per-company research stages, and method scoring while preserving stable company-slug output order.
 
 It does not decide whether to invest, pass, watch, or reject. It writes scores, evidence, assumptions, missing-evidence flags, and source references so the user can decide.
 
@@ -19,6 +19,17 @@ The research phase is configured to use:
 - `web_browser_skill` as an optional Playwright fallback for JavaScript-rendered public pages such as Crunchbase profiles.
 
 The workflow plans privacy-safe searches for company websites, Crunchbase, founder public profiles, funding mentions, competitors, press, and market context. Blocked, login-required, CAPTCHA, robots, or rate-limit responses are recorded in `sources.json`; the blueprint does not bypass them.
+
+## Workflow Shape
+
+The service uses a static DAG with fanout/fan-in stages:
+
+- Intake and grouping: `startup_folder_watcher`, `company_packet_grouper`.
+- Evidence normalization: `document_evidence_extractor`, `claim_normalizer`.
+- Research planning and parallel research: `research_planner`, `company_identity_researcher`, `funding_researcher`, `market_comp_researcher`, `traction_verifier`, `rendered_page_researcher`.
+- Research merge: `research_reconciler`.
+- Parallel numerical scoring: one scorer for each of the seven requested methods.
+- Quality and output: `score_consistency_auditor`, `company_report_writer`, `batch_index_writer`.
 
 ## Quick Start
 
@@ -45,7 +56,10 @@ mn blueprint monitor --follow
 - `document_folder`: folder containing startup documents. Each first-level subfolder is treated as one company; loose files are grouped by inferred company name.
 - `output_folder`: folder where per-company analysis folders and root index files are written.
 - `monitoring`: folder polling controls, including bounded `max_cycles` for tests and demos.
+- `execution.max_company_workers`: maximum changed-company packets processed concurrently.
 - `internet_research`: public verification targets, browser-skill settings, Crunchbase/profile URL templates, and rendered-browser fallback controls.
+- `internet_research.max_stage_workers`: maximum parallel research stages per changed company.
+- `scoring.max_workers`: maximum parallel method scorers per changed company.
 
 ## Outputs
 
@@ -53,10 +67,13 @@ Each company receives a subfolder containing:
 
 - `analysis.json`
 - `analysis.md`
+- `method_scores.json`
+- `research_sources.json`
 - `sources.json`
 - `evidence.json`
+- `warnings.json`
 
-The output root also contains `company_index.json` and `company_index.md`.
+The output root also contains `company_index.json`, `company_index.md`, `company_work_queue.json`, `research_coverage.json`, `method_coverage.json`, `run_summary.md`, and internal artifact folders for fact tables, research ledgers, method scores, and audit findings.
 
 ## Safety Checklist
 
@@ -64,6 +81,7 @@ The output root also contains `company_index.json` and `company_index.md`.
 - Keep confidential pitch decks, financials, and customer names local.
 - Public research queries should use company names, categories, domains, and public claims, not confidential source excerpts.
 - Treat scores as heuristic review aids, not investment advice.
+- Generic human-control approval actions in platform metadata are workflow controls, not company filter labels or investment decisions.
 
 ## Local Documentation
 

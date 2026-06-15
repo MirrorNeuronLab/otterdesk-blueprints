@@ -7,8 +7,10 @@ import json
 import os
 import re
 import sys
+import threading
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -99,6 +101,9 @@ build_search_url = None
 research_topic = None
 WebBrowserConfig = None
 scrape_page = None
+EVENT_LOCK = threading.Lock()
+SKILL_LOAD_LOCK = threading.Lock()
+NON_SUBSTANTIVE_SOURCE_STATUSES = {"planned", "configured_reference", "disabled", "skill_unavailable", "failed", "blocked", "warning", "error"}
 
 
 def _workspace_root() -> Path | None:
@@ -128,30 +133,36 @@ def _load_w3m_browser_skill() -> None:
     global W3mBrowserConfig, browse_url, build_search_url, research_topic
     if W3mBrowserConfig is not None and browse_url is not None and research_topic is not None:
         return
-    try:
-        from mn_w3m_browser_skill import W3mBrowserConfig as imported_config
-        from mn_w3m_browser_skill import browse_url as imported_browse_url
-        from mn_w3m_browser_skill import build_search_url as imported_build_search_url
-        from mn_w3m_browser_skill import research_topic as imported_research_topic
-    except Exception:
-        return
-    W3mBrowserConfig = imported_config
-    browse_url = imported_browse_url
-    build_search_url = imported_build_search_url
-    research_topic = imported_research_topic
+    with SKILL_LOAD_LOCK:
+        if W3mBrowserConfig is not None and browse_url is not None and research_topic is not None:
+            return
+        try:
+            from mn_w3m_browser_skill import W3mBrowserConfig as imported_config
+            from mn_w3m_browser_skill import browse_url as imported_browse_url
+            from mn_w3m_browser_skill import build_search_url as imported_build_search_url
+            from mn_w3m_browser_skill import research_topic as imported_research_topic
+        except Exception:
+            return
+        W3mBrowserConfig = imported_config
+        browse_url = imported_browse_url
+        build_search_url = imported_build_search_url
+        research_topic = imported_research_topic
 
 
 def _load_web_browser_skill() -> None:
     global WebBrowserConfig, scrape_page
     if WebBrowserConfig is not None and scrape_page is not None:
         return
-    try:
-        from mn_web_browser_skill import WebBrowserConfig as imported_config
-        from mn_web_browser_skill import scrape_page as imported_scrape_page
-    except Exception:
-        return
-    WebBrowserConfig = imported_config
-    scrape_page = imported_scrape_page
+    with SKILL_LOAD_LOCK:
+        if WebBrowserConfig is not None and scrape_page is not None:
+            return
+        try:
+            from mn_web_browser_skill import WebBrowserConfig as imported_config
+            from mn_web_browser_skill import scrape_page as imported_scrape_page
+        except Exception:
+            return
+        WebBrowserConfig = imported_config
+        scrape_page = imported_scrape_page
 
 
 def utc_now_iso() -> str:
@@ -172,8 +183,17 @@ def write_json(path: Path, value: Any) -> None:
 
 def append_event(run_dir: Path, event_type: str, payload: dict[str, Any]) -> None:
     record = {"type": event_type, "timestamp": utc_now_iso(), "payload": payload}
-    with (run_dir / "events.jsonl").open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(record, sort_keys=True) + "\n")
+    with EVENT_LOCK:
+        with (run_dir / "events.jsonl").open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(record, sort_keys=True) + "\n")
+
+
+def bounded_int(value: Any, *, default: int, minimum: int = 1, maximum: int = 32) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        parsed = default
+    return max(minimum, min(maximum, parsed))
 
 
 def deep_merge(base: dict[str, Any], overlay: dict[str, Any]) -> dict[str, Any]:
@@ -279,7 +299,7 @@ def load_watch_state(output_folder: Path) -> dict[str, Any]:
 def build_company_work_queue(company_records: dict[str, list[dict[str, Any]]], previous_state: dict[str, Any]) -> list[dict[str, Any]]:
     previous_companies = previous_state.get("companies") if isinstance(previous_state.get("companies"), dict) else {}
     queue = []
-    for company, records in sorted(company_records.items()):
+    for company, records in sorted(company_records.items(), key=lambda item: slugify(item[0])):
         slug = slugify(company)
         fingerprint = company_fingerprint(records)
         previous = previous_companies.get(slug) if isinstance(previous_companies.get(slug), dict) else {}
@@ -315,6 +335,26 @@ def update_watch_state(output_folder: Path, run_dir: Path, queue: list[dict[str,
     write_json(output_folder / "watch_state.json", state)
     write_json(run_dir / "watch_state.json", state)
     return state
+
+
+def load_cached_company_analysis(output_folder: Path, company: str) -> dict[str, Any] | None:
+    analysis = read_json(output_folder / slugify(company) / "analysis.json")
+    if analysis.get("company_name") != company:
+        return None
+    if not isinstance(analysis.get("methods"), dict):
+        return None
+    return analysis
+
+
+def load_cached_research_ledger(output_folder: Path, company: str) -> dict[str, list[dict[str, Any]]] | None:
+    ledger = read_json(output_folder / "research_ledgers" / f"{slugify(company)}.json")
+    if not ledger:
+        return None
+    normalized: dict[str, list[dict[str, Any]]] = {}
+    for stage in RESEARCH_STAGE_IDS:
+        values = ledger.get(stage)
+        normalized[stage] = values if isinstance(values, list) else []
+    return normalized
 
 
 def keyword_score(text: str, keywords: list[str], maximum: int = 100) -> int:
@@ -358,6 +398,17 @@ def source_refs_from_sources(sources: list[dict[str, Any]]) -> list[str]:
     return refs
 
 
+def is_substantive_public_source(source: dict[str, Any]) -> bool:
+    status = str(source.get("status") or "").lower()
+    url = str(source.get("url") or "")
+    snippet = str(source.get("snippet") or "")
+    if status in NON_SUBSTANTIVE_SOURCE_STATUSES:
+        return False
+    if not url.startswith(("http://", "https://")):
+        return False
+    return bool(snippet.strip())
+
+
 def extract_domains(text: str) -> list[str]:
     domains = []
     for match in re.finditer(r"\b(?:https?://)?([a-z0-9-]+\.[a-z0-9.-]+)\b", text, flags=re.I):
@@ -369,7 +420,8 @@ def extract_domains(text: str) -> list[str]:
 
 def build_fact_table(company: str, records: list[dict[str, Any]], sources: list[dict[str, Any]]) -> dict[str, Any]:
     text = "\n".join(str(record.get("text_preview") or "") for record in records)
-    source_text = "\n".join(str(source.get("snippet") or "") for source in sources)
+    substantive_sources = [source for source in sources if is_substantive_public_source(source)]
+    source_text = "\n".join(str(source.get("snippet") or "") for source in substantive_sources)
     values = money_values(text)
     source_values = money_values(source_text)
     keywords = {
@@ -395,7 +447,7 @@ def build_fact_table(company: str, records: list[dict[str, Any]], sources: list[
         "market_facts": {
             "score": max(scores["market"], source_scores["market"]),
             "keywords": keywords["market"],
-            "public_source_refs": source_refs_from_sources(sources),
+            "public_source_refs": source_refs_from_sources(substantive_sources),
         },
         "traction_facts": {
             "score": scores["traction"],
@@ -425,13 +477,14 @@ def build_fact_table(company: str, records: list[dict[str, Any]], sources: list[
             "keywords": keywords["strategic"],
         },
         "comparable_candidates": {
-            "source_count": len(sources),
-            "domains": extract_domains(text) + [str(source.get("url") or "").split("//", 1)[-1].split("/", 1)[0] for source in sources[:8]],
-            "public_source_refs": source_refs_from_sources(sources),
+            "source_count": len(substantive_sources),
+            "domains": extract_domains(text) + [str(source.get("url") or "").split("//", 1)[-1].split("/", 1)[0] for source in substantive_sources[:8]],
+            "public_source_refs": source_refs_from_sources(substantive_sources),
         },
         "raw_counts": {
             "document_count": len(records),
             "research_source_count": len(sources),
+            "substantive_research_source_count": len(substantive_sources),
             "character_count": sum(int(record.get("character_count") or 0) for record in records),
         },
     }
@@ -506,7 +559,10 @@ def score_scorecard(facts: dict[str, Any]) -> dict[str, Any]:
         "competition": max(0, 100 - facts["risk_facts"]["score"]),
         "financing_need": 60 if facts["financial_facts"]["local_monetary_values"] else 25,
     }
-    status = "scored" if any(factors.values()) else "insufficient_evidence"
+    substantive_inputs = [key for key in ("team", "market", "product", "traction") if factors[key] > 0]
+    if facts["financial_facts"]["local_monetary_values"]:
+        substantive_inputs.append("financing_need")
+    status = "scored" if substantive_inputs else "insufficient_evidence"
     return method_result(
         method_id="scorecard_bill_payne_method",
         scorer_id="scorecard_bill_payne_scorer",
@@ -517,7 +573,12 @@ def score_scorecard(facts: dict[str, Any]) -> dict[str, Any]:
         formula_or_weighting=weights,
         assumptions=["Weights are default early-stage screening weights and should be calibrated by fund strategy."],
         source_refs=facts["team_facts"]["evidence_refs"] + facts["market_facts"]["public_source_refs"][:5],
-        details={"factors": factors},
+        warnings=["Competition and financing-need defaults are not sufficient evidence by themselves."] if status == "scored" else ["No substantive Scorecard evidence found."],
+        details={
+            "factors": factors,
+            "substantive_inputs": substantive_inputs,
+            "non_substantive_default_inputs": ["competition"] + ([] if facts["financial_facts"]["local_monetary_values"] else ["financing_need"]),
+        },
     )
 
 
@@ -617,7 +678,7 @@ def score_comparables(facts: dict[str, Any]) -> dict[str, Any]:
         formula_or_weighting="average(market_score, traction_score) when public comparable evidence exists",
         assumptions=["Public comparable snippets are screening evidence; no private transaction database is assumed."],
         source_refs=facts["comparable_candidates"]["public_source_refs"],
-        warnings=[] if status == "scored" else ["No public comparable evidence found."],
+        warnings=[] if status == "scored" else ["No substantive public comparable evidence found."],
         details={"source_count": source_count, "domains": facts["comparable_candidates"]["domains"][:12]},
     )
 
@@ -639,7 +700,7 @@ def score_cost_to_duplicate(facts: dict[str, Any]) -> dict[str, Any]:
     )
 
 
-def score_company_methods(facts: dict[str, Any]) -> dict[str, Any]:
+def score_company_methods(facts: dict[str, Any], max_workers: int = 1) -> dict[str, Any]:
     scorers = [
         score_berkus,
         score_scorecard,
@@ -649,7 +710,15 @@ def score_company_methods(facts: dict[str, Any]) -> dict[str, Any]:
         score_comparables,
         score_cost_to_duplicate,
     ]
-    return {result["method_id"]: result for result in (scorer(facts) for scorer in scorers)}
+    worker_count = bounded_int(max_workers, default=min(7, len(scorers)), maximum=len(scorers))
+    if worker_count <= 1:
+        results = [scorer(facts) for scorer in scorers]
+    else:
+        with ThreadPoolExecutor(max_workers=worker_count, thread_name_prefix="vc-scorer") as executor:
+            futures = {executor.submit(scorer, facts): scorer.__name__ for scorer in scorers}
+            results = [future.result() for future in as_completed(futures)]
+    by_method = {result["method_id"]: result for result in results}
+    return {method_id: by_method[method_id] for method_id in METHOD_IDS}
 
 
 def audit_method_scores(methods: dict[str, dict[str, Any]], facts: dict[str, Any]) -> dict[str, Any]:
@@ -666,23 +735,25 @@ def audit_method_scores(methods: dict[str, dict[str, Any]], facts: dict[str, Any
         for field in ("inputs_used", "formula_or_weighting", "assumptions", "source_refs", "warnings"):
             if field not in method:
                 findings.append({"severity": "error", "method_id": method_id, "message": f"Missing {field}."})
+        if method_id == "scorecard_bill_payne_method" and method["status"] == "scored" and method.get("details", {}).get("non_substantive_default_inputs"):
+            findings.append({"severity": "warning", "method_id": method_id, "message": "Scorecard includes non-substantive default inputs; substantive evidence gates controlled scoring status."})
     unsupported = []
     if facts["financial_facts"]["largest_local_value"] and not facts["traction_facts"]["score"]:
         unsupported.append("Financial value found without traction terms; review whether value is relevant.")
     return {
         "company_name": facts["company_name"],
         "company_slug": facts["company_slug"],
-        "status": "passed_with_warnings" if findings or unsupported else "passed",
+        "status": "checked_with_warnings" if findings or unsupported else "checked",
         "findings": findings,
         "unsupported_assumption_warnings": unsupported,
         "checked_at": utc_now_iso(),
     }
 
 
-def build_company_analysis(company: str, records: list[dict[str, Any]], research_ledger: dict[str, list[dict[str, Any]]]) -> dict[str, Any]:
+def build_company_analysis(company: str, records: list[dict[str, Any]], research_ledger: dict[str, list[dict[str, Any]]], scoring_workers: int = 1) -> dict[str, Any]:
     sources = [source for stage_sources in research_ledger.values() for source in stage_sources]
     facts = build_fact_table(company, records, sources)
-    methods = score_company_methods(facts)
+    methods = score_company_methods(facts, max_workers=scoring_workers)
     audit = audit_method_scores(methods, facts)
     scored = [item["score"] for item in methods.values() if isinstance(item.get("score"), (int, float))]
     return {
@@ -801,6 +872,7 @@ def _append_w3m_research(
     plan: dict[str, Any],
     internet: dict[str, Any],
     run_dir: Path | None,
+    verification_target: str = "search_result_or_public_source",
 ) -> None:
     _load_w3m_browser_skill()
     query = plan["queries"][0]
@@ -815,7 +887,7 @@ def _append_w3m_research(
                 snippet="Install mirrorneuron-w3m-browser-skill and w3m in the worker image to enable lightweight public research.",
                 status="skill_unavailable",
                 skill="w3m_browser_skill",
-                verification_target="online_research_setup",
+                verification_target=verification_target,
                 warning="mn_w3m_browser_skill import failed",
             )
         )
@@ -838,7 +910,7 @@ def _append_w3m_research(
                 snippet=str(exc),
                 status="failed",
                 skill="w3m_browser_skill",
-                verification_target="search_results",
+                verification_target=verification_target,
                 warning=str(exc),
             )
         )
@@ -853,7 +925,7 @@ def _append_w3m_research(
                 snippet=str(source.get("snippet") or source.get("text") or ""),
                 status=str(source.get("status") or "ok"),
                 skill="w3m_browser_skill",
-                verification_target="search_result_or_public_source",
+                verification_target=verification_target,
             )
         )
     for warning in result.get("warnings") or []:
@@ -866,7 +938,7 @@ def _append_w3m_research(
                 snippet=str(warning),
                 status="warning",
                 skill="w3m_browser_skill",
-                verification_target="search_results",
+                verification_target=verification_target,
                 warning=str(warning),
             )
         )
@@ -998,12 +1070,77 @@ def research_company(company: str, config: dict[str, Any], run_dir: Path | None 
     return sources
 
 
+def _research_stage_plan_record(company: str, stage: str, query: str, plan: dict[str, Any]) -> dict[str, Any]:
+    return _source_record(
+        company=company,
+        query=query,
+        url="research_plan",
+        title=f"{stage.replace('_', ' ').title()} Query",
+        snippet=f"Verification fields: {', '.join(plan['verification_fields'])}",
+        status="planned",
+        skill="research_planner",
+        verification_target=stage,
+    )
+
+
+def _stage_default_source_record(company: str, stage: str, query: str, url: str) -> dict[str, Any]:
+    return _source_record(
+        company=company,
+        query=query,
+        url=url,
+        title=url.split("//", 1)[-1].split("/", 1)[0],
+        snippet="Configured public reference for this research stage; live browser runs can replace or supplement this source.",
+        status="configured_reference",
+        skill="w3m_browser_skill",
+        verification_target=stage,
+    )
+
+
+def _research_one_stage(company: str, stage: str, query: str, plan: dict[str, Any], internet: dict[str, Any], run_dir: Path | None) -> tuple[str, list[dict[str, Any]]]:
+    sources = [_research_stage_plan_record(company, stage, query, plan)]
+    stage_plan = dict(plan)
+    stage_plan["queries"] = [query]
+
+    if stage == "company_identity_researcher":
+        identity_internet = dict(internet)
+        identity_internet["source_url_templates"] = [
+            "https://www.crunchbase.com/organization/{company_slug}",
+            "https://www.linkedin.com/company/{company_slug}",
+        ]
+        identity_plan = dict(stage_plan)
+        identity_plan["target_urls"] = [
+            template.format(company=company, company_slug=plan["company_slug"])
+            for template in identity_internet["source_url_templates"]
+        ]
+        _append_w3m_research(sources, company=company, plan=identity_plan, internet=identity_internet, run_dir=run_dir, verification_target=stage)
+        _append_target_url_research(sources, company=company, plan=identity_plan, internet=identity_internet, run_dir=run_dir)
+    elif stage in {"funding_researcher", "market_comp_researcher", "traction_verifier"}:
+        _append_w3m_research(sources, company=company, plan=stage_plan, internet=internet, run_dir=run_dir, verification_target=stage)
+        for url in list(internet.get("default_source_urls") or DEFAULT_RESEARCH_SOURCE_URLS):
+            sources.append(_stage_default_source_record(company, stage, query, url))
+    elif stage == "rendered_page_researcher":
+        _append_rendered_browser_research(sources, company=company, plan=stage_plan, internet=internet)
+        if len(sources) == 1:
+            sources.append(
+                _source_record(
+                    company=company,
+                    query=query,
+                    url="web_browser_skill",
+                    title="Rendered browser fallback disabled",
+                    snippet="Set internet_research.rendered_browser.enabled=true to inspect JavaScript-rendered public profiles when needed.",
+                    status="disabled",
+                    skill="web_browser_skill",
+                    verification_target=stage,
+                )
+            )
+    return stage, sources
+
+
 def research_company_by_stage(company: str, config: dict[str, Any], run_dir: Path | None = None) -> dict[str, list[dict[str, Any]]]:
     internet = config.get("internet_research") if isinstance(config.get("internet_research"), dict) else {}
     if internet.get("enabled") is False:
         return {stage: [] for stage in RESEARCH_STAGE_IDS}
     plan = _configured_research(company, internet)
-    base_query = plan["queries"][0]
     staged_queries = {
         "company_identity_researcher": f"{company} company website Crunchbase LinkedIn founders",
         "funding_researcher": f"{company} startup funding investors accelerator press",
@@ -1011,64 +1148,21 @@ def research_company_by_stage(company: str, config: dict[str, Any], run_dir: Pat
         "traction_verifier": f"{company} customers pilots revenue partnerships product launch",
         "rendered_page_researcher": f"{company} Crunchbase organization profile rendered page",
     }
-    ledger: dict[str, list[dict[str, Any]]] = {}
-    for stage, query in staged_queries.items():
-        ledger[stage] = [
-            _source_record(
-                company=company,
-                query=query,
-                url="research_plan",
-                title=f"{stage.replace('_', ' ').title()} Query",
-                snippet=f"Verification fields: {', '.join(plan['verification_fields'])}",
-                status="planned",
-                skill="research_planner",
-                verification_target=stage,
-            )
+    worker_count = bounded_int(internet.get("max_stage_workers"), default=min(5, len(staged_queries)), maximum=len(staged_queries))
+    if worker_count <= 1:
+        results = [
+            _research_one_stage(company, stage, query, plan, internet, run_dir)
+            for stage, query in staged_queries.items()
         ]
-
-    identity_internet = dict(internet)
-    identity_internet["source_url_templates"] = [
-        "https://www.crunchbase.com/organization/{company_slug}",
-        "https://www.linkedin.com/company/{company_slug}",
-    ]
-    identity_plan = dict(plan)
-    identity_plan["queries"] = [staged_queries["company_identity_researcher"]]
-    _append_w3m_research(ledger["company_identity_researcher"], company=company, plan=identity_plan, internet=identity_internet, run_dir=run_dir)
-    _append_target_url_research(ledger["company_identity_researcher"], company=company, plan=identity_plan, internet=identity_internet, run_dir=run_dir)
-
-    for stage in ("funding_researcher", "market_comp_researcher", "traction_verifier"):
-        stage_query = staged_queries[stage]
-        for url in list(internet.get("default_source_urls") or DEFAULT_RESEARCH_SOURCE_URLS):
-            ledger[stage].append(
-                _source_record(
-                    company=company,
-                    query=stage_query,
-                    url=url,
-                    title=url.split("//", 1)[-1].split("/", 1)[0],
-                    snippet="Configured public reference for this research stage; live browser runs can replace or supplement this source.",
-                    status="configured_reference",
-                    skill="w3m_browser_skill",
-                    verification_target=stage,
-                )
-            )
-
-    rendered_plan = dict(plan)
-    rendered_plan["queries"] = [staged_queries["rendered_page_researcher"]]
-    _append_rendered_browser_research(ledger["rendered_page_researcher"], company=company, plan=rendered_plan, internet=internet)
-    if len(ledger["rendered_page_researcher"]) == 1:
-        ledger["rendered_page_researcher"].append(
-            _source_record(
-                company=company,
-                query=base_query,
-                url="web_browser_skill",
-                title="Rendered browser fallback disabled",
-                snippet="Set internet_research.rendered_browser.enabled=true to inspect JavaScript-rendered public profiles when needed.",
-                status="disabled",
-                skill="web_browser_skill",
-                verification_target="rendered_page_researcher",
-            )
-        )
-    return ledger
+    else:
+        with ThreadPoolExecutor(max_workers=worker_count, thread_name_prefix="vc-research") as executor:
+            futures = {
+                executor.submit(_research_one_stage, company, stage, query, plan, internet, run_dir): stage
+                for stage, query in staged_queries.items()
+            }
+            results = [future.result() for future in as_completed(futures)]
+    by_stage = {stage: sources for stage, sources in results}
+    return {stage: by_stage.get(stage, []) for stage in RESEARCH_STAGE_IDS}
 
 
 def reconcile_research(records: list[dict[str, Any]], research_ledger: dict[str, list[dict[str, Any]]]) -> dict[str, Any]:
@@ -1157,13 +1251,16 @@ def build_method_coverage(analyses: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def render_run_summary(analyses: list[dict[str, Any]], queue: list[dict[str, Any]], research_coverage: dict[str, Any], method_coverage: dict[str, Any]) -> str:
+    skipped_count = sum(1 for item in queue if item["status"] == "unchanged_skipped")
+    processed_count = len(queue) - skipped_count
     lines = [
         "# VC Assistant Run Summary",
         "",
         "Report-only run. The user decides what to review next.",
         "",
-        f"Companies processed: {len(analyses)}",
-        f"Unchanged companies skipped: {sum(1 for item in queue if item['status'] == 'unchanged_skipped')}",
+        f"Companies in index: {len(analyses)}",
+        f"Companies processed this cycle: {processed_count}",
+        f"Unchanged companies skipped: {skipped_count}",
         "",
         "## Company Scores",
     ]
@@ -1243,6 +1340,60 @@ def write_company_outputs(
     return output_files
 
 
+def scoring_worker_count(config: dict[str, Any]) -> int:
+    scoring = config.get("scoring") if isinstance(config.get("scoring"), dict) else {}
+    return bounded_int(scoring.get("max_workers"), default=7, maximum=len(METHOD_IDS))
+
+
+def company_worker_count(config: dict[str, Any], company_count: int) -> int:
+    execution = config.get("execution") if isinstance(config.get("execution"), dict) else {}
+    return bounded_int(execution.get("max_company_workers"), default=min(4, max(1, company_count)), maximum=max(1, company_count))
+
+
+def process_company_packet(
+    *,
+    company: str,
+    records: list[dict[str, Any]],
+    queue_item: dict[str, Any],
+    output_folder: Path,
+    resolved_config: dict[str, Any],
+    run_dir: Path,
+) -> dict[str, Any]:
+    if queue_item["status"] == "unchanged_skipped":
+        cached_analysis = load_cached_company_analysis(output_folder, company)
+        cached_ledger = load_cached_research_ledger(output_folder, company)
+        if cached_analysis and cached_ledger is not None:
+            reconciliation = cached_analysis.get("research_reconciliation") or reconcile_research(records, cached_ledger)
+            cached_analysis["processing_status"] = "unchanged_skipped"
+            cached_analysis["cached_from_previous_run"] = True
+            cached_analysis["research_reconciliation"] = reconciliation
+            return {
+                "company_name": company,
+                "analysis": cached_analysis,
+                "research_ledger": cached_ledger,
+                "reconciliation": reconciliation,
+                "processed": False,
+                "skipped": True,
+            }
+        queue_item["status"] = "new_or_changed"
+        queue_item["cache_status"] = "missing_cached_report_reprocessed"
+
+    research_ledger = research_company_by_stage(company, resolved_config, run_dir)
+    reconciliation = reconcile_research(records, research_ledger)
+    analysis = build_company_analysis(company, records, research_ledger, scoring_workers=scoring_worker_count(resolved_config))
+    analysis["processing_status"] = "new_or_changed"
+    analysis["cached_from_previous_run"] = False
+    analysis["research_reconciliation"] = reconciliation
+    return {
+        "company_name": company,
+        "analysis": analysis,
+        "research_ledger": research_ledger,
+        "reconciliation": reconciliation,
+        "processed": True,
+        "skipped": False,
+    }
+
+
 def run_blueprint(
     inputs: dict[str, Any] | None = None,
     config: dict[str, Any] | None = None,
@@ -1281,26 +1432,62 @@ def run_blueprint(
     company_work_queue = build_company_work_queue(company_records, previous_state)
     write_json(output_folder / "company_work_queue.json", company_work_queue)
     write_json(run_dir / "company_work_queue.json", company_work_queue)
-    research_ledgers = {company: research_company_by_stage(company, resolved_config, run_dir) for company in company_records}
-    reconciliations = {company: reconcile_research(company_records[company], research_ledgers[company]) for company in company_records}
-    analyses = []
-    for company, records in sorted(company_records.items()):
-        analysis = build_company_analysis(company, records, research_ledgers[company])
-        analysis["research_reconciliation"] = reconciliations[company]
-        analyses.append(analysis)
+    queue_by_company = {item["company_name"]: item for item in company_work_queue}
+    sorted_company_items = sorted(company_records.items(), key=lambda item: slugify(item[0]))
+    max_company_workers = company_worker_count(resolved_config, len(sorted_company_items))
+    if max_company_workers <= 1 or len(sorted_company_items) <= 1:
+        company_results = [
+            process_company_packet(
+                company=company,
+                records=records,
+                queue_item=queue_by_company[company],
+                output_folder=output_folder,
+                resolved_config=resolved_config,
+                run_dir=run_dir,
+            )
+            for company, records in sorted_company_items
+        ]
+    else:
+        with ThreadPoolExecutor(max_workers=max_company_workers, thread_name_prefix="vc-company") as executor:
+            futures = {
+                executor.submit(
+                    process_company_packet,
+                    company=company,
+                    records=records,
+                    queue_item=queue_by_company[company],
+                    output_folder=output_folder,
+                    resolved_config=resolved_config,
+                    run_dir=run_dir,
+                ): company
+                for company, records in sorted_company_items
+            }
+            company_results = [future.result() for future in as_completed(futures)]
+    company_results = sorted(company_results, key=lambda item: item["analysis"]["company_slug"])
+    analyses = [item["analysis"] for item in company_results]
+    research_ledgers = {item["company_name"]: item["research_ledger"] for item in company_results}
+    reconciliations = {item["company_name"]: item["reconciliation"] for item in company_results}
+    processed_company_names = [item["company_name"] for item in company_results if item["processed"]]
+    skipped_company_names = [item["company_name"] for item in company_results if item["skipped"]]
     output_files = write_company_outputs(output_folder, analyses, company_records, research_ledgers, company_work_queue)
     watch_state = update_watch_state(output_folder, run_dir, company_work_queue)
     append_event(run_dir, "startup_folder_watcher_completed", {"company_count": len(company_records)})
     append_event(run_dir, "company_packet_grouper_completed", {"company_count": len(company_work_queue)})
-    append_event(run_dir, "document_evidence_extractor_completed", {"document_count": sum(len(records) for records in company_records.values())})
-    append_event(run_dir, "claim_normalizer_completed", {"company_count": len(analyses)})
-    append_event(run_dir, "research_planner_completed", {"company_count": len(research_ledgers)})
+    append_event(
+        run_dir,
+        "document_evidence_extractor_completed",
+        {
+            "document_count": sum(len(company_records[company]) for company in processed_company_names),
+            "skipped_company_count": len(skipped_company_names),
+        },
+    )
+    append_event(run_dir, "claim_normalizer_completed", {"company_count": len(processed_company_names), "skipped_company_count": len(skipped_company_names)})
+    append_event(run_dir, "research_planner_completed", {"company_count": len(processed_company_names), "skipped_company_count": len(skipped_company_names)})
     for stage in RESEARCH_STAGE_IDS:
-        append_event(run_dir, f"{stage}_completed", {"company_count": len(research_ledgers)})
-    append_event(run_dir, "research_reconciler_completed", {"company_count": len(reconciliations)})
+        append_event(run_dir, f"{stage}_completed", {"company_count": len(processed_company_names), "skipped_company_count": len(skipped_company_names)})
+    append_event(run_dir, "research_reconciler_completed", {"company_count": len(processed_company_names), "skipped_company_count": len(skipped_company_names)})
     for scorer_id in SCORER_STAGE_BY_METHOD.values():
-        append_event(run_dir, f"{scorer_id}_completed", {"company_count": len(analyses)})
-    append_event(run_dir, "score_consistency_auditor_completed", {"company_count": len(analyses)})
+        append_event(run_dir, f"{scorer_id}_completed", {"company_count": len(processed_company_names), "skipped_company_count": len(skipped_company_names)})
+    append_event(run_dir, "score_consistency_auditor_completed", {"company_count": len(processed_company_names), "skipped_company_count": len(skipped_company_names)})
     append_event(run_dir, "company_report_writer_completed", {"output_folder": str(output_folder)})
     append_event(run_dir, "batch_index_writer_completed", {"output_folder": str(output_folder)})
     append_event(run_dir, "watch_cycle_completed", {"cycle": 1, "companies": len(company_records)})
@@ -1309,7 +1496,7 @@ def run_blueprint(
 
     final_artifact = {
         "type": OUTPUT_TYPE,
-        "executive_summary": f"{BLUEPRINT_NAME} prepared score-only VC heuristic reports for {len(analyses)} startup companies.",
+        "executive_summary": f"{BLUEPRINT_NAME} prepared score-only VC heuristic reports for {len(analyses)} startup companies; {len(skipped_company_names)} unchanged companies used cached reports.",
         "recommended_action": RECOMMENDED_ACTION,
         "confidence": 0.74 if any(item["composite_score"] is not None for item in analyses) else 0.35,
         "evidence": [record for records in company_records.values() for record in records[:5]],
@@ -1321,6 +1508,8 @@ def run_blueprint(
         "source_refs": ["inputs.json", "events.jsonl", "result.json", "company_index.json"],
         "research_summary": {
             "company_count": len(research_ledgers),
+            "processed_company_count": len(processed_company_names),
+            "skipped_company_count": len(skipped_company_names),
             "privacy_policy": "no confidential excerpts in public research queries",
             "stage_ids": RESEARCH_STAGE_IDS,
             "coverage": research_coverage,
@@ -1333,7 +1522,20 @@ def run_blueprint(
         "workflow_step_ids": WORKFLOW_STEP_IDS,
         "company_work_queue": company_work_queue,
         "method_coverage": method_coverage,
-        "monitor_state": {"mode": "folder_monitoring", "cycles_completed": 1, "max_cycles": max_cycles, "watch_state": watch_state},
+        "parallel_execution": {
+            "max_company_workers": max_company_workers,
+            "max_stage_workers": bounded_int((resolved_config.get("internet_research") or {}).get("max_stage_workers"), default=len(RESEARCH_STAGE_IDS), maximum=len(RESEARCH_STAGE_IDS)),
+            "max_scoring_workers": scoring_worker_count(resolved_config),
+            "company_processing_order": [analysis["company_slug"] for analysis in analyses],
+        },
+        "monitor_state": {
+            "mode": "folder_monitoring",
+            "cycles_completed": 1,
+            "max_cycles": max_cycles,
+            "processed_company_count": len(processed_company_names),
+            "skipped_company_count": len(skipped_company_names),
+            "watch_state": watch_state,
+        },
         "output_files": output_files,
         "llm_usage": {"provider": "none", "model": "deterministic_heuristics", "calls": 0, "fallback_calls": 0},
     }

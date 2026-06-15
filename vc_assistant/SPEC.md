@@ -2,7 +2,7 @@
 
 ## What We Want To Achieve
 
-Build a reviewable VC analysis workflow that monitors a folder containing one or more startup document packets, groups those documents by company, performs privacy-safe public research, and writes organized score-only reports.
+Build a reviewable VC analysis workflow that monitors a folder containing one or more startup document packets, groups those documents by company, performs privacy-safe public research at multiple stages, runs deterministic numerical analysis for each valuation heuristic, audits the results, and writes organized score-only reports.
 
 ## Customer Problem
 
@@ -10,17 +10,19 @@ Early-stage startup review is noisy. Pitch decks, notes, founder bios, traction 
 
 ## Design Details
 
-The blueprint is a service-style OtterDesk workflow with five actors:
+The blueprint is a service-style OtterDesk workflow with specialist actors for each major job:
 
-- `startup_folder_watcher`
-- `startup_document_reader`
-- `public_market_researcher`
-- `vc_heuristic_scorer`
-- `vc_report_writer`
+- Intake: `startup_folder_watcher`, `company_packet_grouper`.
+- Evidence: `document_evidence_extractor`, `claim_normalizer`.
+- Research: `research_planner`, `company_identity_researcher`, `funding_researcher`, `market_comp_researcher`, `traction_verifier`, `rendered_page_researcher`, `research_reconciler`.
+- Numerical analysis: `berkus_scorer`, `scorecard_bill_payne_scorer`, `risk_factor_summation_scorer`, `venture_capital_method_scorer`, `first_chicago_scorer`, `comparables_market_multiple_scorer`, `cost_to_duplicate_scorer`.
+- Quality and output: `score_consistency_auditor`, `company_report_writer`, `batch_index_writer`.
 
 The workflow groups first-level input subfolders as companies. Loose files are grouped by inferred company names from filenames or document text. Public research is constrained to privacy-safe queries based on company names, product categories, domains, and public claims.
 
-The online research layer uses `w3m_browser_skill` first for lightweight public source collection and can use `web_browser_skill` as an optional rendered-browser fallback for JavaScript-heavy public sources such as Crunchbase. The workflow records source status, snippets, warnings, and blocked/login/robots outcomes rather than bypassing access controls.
+The online research layer uses `w3m_browser_skill` first for lightweight public source collection and can use `web_browser_skill` as an optional rendered-browser fallback for JavaScript-heavy public sources such as Crunchbase. The workflow records source status, snippets, warnings, and blocked/login/robots outcomes rather than bypassing access controls. Changed company packets, per-company research stages, and numerical method scoring run with bounded parallel workers while outputs remain ordered by stable company slug.
+
+Numerical scoring is deterministic. LLMs may help extract and summarize evidence in fuller deployments, but formulas, weights, scenario math, missing-evidence status, and audit checks are owned by deterministic workers. Non-substantive records such as research plans, configured references, disabled browser fallback notices, unavailable skills, blocked pages, and failed requests do not create comparable evidence by themselves.
 
 ## Input
 
@@ -40,6 +42,8 @@ Each company gets a dedicated output folder with structured JSON, Markdown, sour
 
 If evidence is missing for a method, the method status is `insufficient_evidence`.
 
+Internal artifacts include `company_work_queue.json`, company fact tables, research ledgers, method-score files, audit findings, research coverage, method coverage, and a run summary.
+
 ## Evaluation Criteria
 
 - Company grouping is explainable and stable.
@@ -48,6 +52,10 @@ If evidence is missing for a method, the method status is `insufficient_evidence
 - Missing evidence is explicit and not hallucinated.
 - Public research avoids confidential local excerpts.
 - Public research attempts company website, Crunchbase/profile, founder public profile, funding mention, press, competitor, and market-context verification where configured.
+- Changed company packets are processed concurrently when `execution.max_company_workers` permits, without changing output ordering.
+- Each numerical method emits `status`, `score`, `inputs_used`, `formula_or_weighting`, `assumptions`, `source_refs`, and `warnings`.
+- The score consistency auditor flags missing method outputs, invalid scored/null states, unsupported assumptions, and formula coverage gaps.
+- Scorecard and Comparables remain `insufficient_evidence` when only default filler values or non-substantive source records exist.
 - Outputs are organized into one subfolder per company.
 - No investment decision label is emitted.
 
