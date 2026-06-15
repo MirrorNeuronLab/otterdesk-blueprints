@@ -149,12 +149,6 @@
     "name": "Personal Income Tax Expert"
   },
   "input_skills": {
-    "pdf_extract": {
-      "connector": "local_filesystem",
-      "package": "mirrorneuron-pdf-extract-skill",
-      "purpose": "fallback PDF text extraction",
-      "skill": "pdf_extract_skill"
-    },
     "llm_ocr": {
       "backend": "auto",
       "connector": "docker_model_runner",

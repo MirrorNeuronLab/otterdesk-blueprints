@@ -1,0 +1,1598 @@
+{
+  "apiVersion": "mn.workflow/v1",
+  "kind": "Workflow",
+  "id": "vc_assistant",
+  "name": "VC Assistant",
+  "version": "1.0.0",
+  "manifest_version": "1.0",
+  "description": "Monitors startup document folders, researches public context, applies seven early VC heuristic scoring methods, and writes score-only reports.",
+  "job_name": "vc-assistant",
+  "type": "service",
+  "contract": {
+    "events": {
+      "stream": "events.jsonl",
+      "human_stream": "human.jsonl",
+      "types": [
+        "blueprint_status",
+        "blueprint_phase_started",
+        "blueprint_phase_completed",
+        "blueprint_phase_failed",
+        "artifact_written",
+        "human_notice",
+        "human_input_requested",
+        "human_input_received",
+        "human_input_timeout",
+        "human_decision_applied",
+        "output_skill_started",
+        "output_skill_completed",
+        "output_skill_failed",
+        "startup_folder_watcher_completed",
+        "startup_document_reader_completed",
+        "public_market_researcher_completed",
+        "vc_heuristic_scorer_completed",
+        "vc_report_writer_completed",
+        "watch_cycle_started",
+        "watch_cycle_completed"
+      ]
+    },
+    "input_adapters": {
+      "default": "mock",
+      "resolved_artifact": "inputs.json",
+      "supported": [
+        "mock",
+        "json",
+        "file",
+        "env_json"
+      ]
+    },
+    "inputs": {
+      "document_folder": {
+        "type": "domain_value",
+        "description": "Local folder monitored for startup documents; first-level folders are treated as companies.",
+        "privacy": "confidential",
+        "required": true,
+        "example": "/Users/me/Documents/vc_inbox"
+      },
+      "output_folder": {
+        "type": "domain_value",
+        "description": "Local folder where per-company reports and the company index should be written.",
+        "privacy": "confidential",
+        "required": true,
+        "example": "/Users/homer/Download/vc_assistant"
+      },
+      "field_profile": {
+        "type": "domain_value",
+        "description": "Startup evidence fields captured by the analyzer.",
+        "privacy": "internal",
+        "required": false,
+        "example": [
+          "company_name",
+          "founder_team",
+          "market",
+          "product",
+          "traction",
+          "strategic_relationships",
+          "risks"
+        ]
+      },
+      "monitoring": {
+        "type": "domain_value",
+        "description": "Folder monitoring configuration for one-shot or continuous polling runs.",
+        "privacy": "internal",
+        "required": false,
+        "example": {
+          "enabled": true,
+          "poll_interval_seconds": 60,
+          "max_cycles": 1
+        }
+      }
+    },
+    "outputs": {
+      "profile": "standard_run_store",
+      "artifacts": [
+        {
+          "artifact_id": "run_metadata",
+          "type": "run_summary",
+          "path": "run.json",
+          "producer": "local_run_store",
+          "mime_type": "application/json",
+          "schema_version": "mn.artifact.run_summary.v1",
+          "source_refs": []
+        },
+        {
+          "artifact_id": "resolved_config",
+          "type": "config",
+          "path": "config.json",
+          "producer": "local_run_store",
+          "mime_type": "application/json",
+          "schema_version": "mn.blueprint.config.v1",
+          "source_refs": []
+        },
+        {
+          "artifact_id": "resolved_inputs",
+          "type": "inputs",
+          "path": "inputs.json",
+          "producer": "local_run_store",
+          "mime_type": "application/json",
+          "schema_version": "mn.blueprint.inputs.v1",
+          "source_refs": []
+        },
+        {
+          "artifact_id": "event_stream",
+          "type": "events",
+          "path": "events.jsonl",
+          "producer": "local_run_store",
+          "mime_type": "application/x-jsonlines",
+          "schema_version": "mn.blueprint.events.v1",
+          "source_refs": []
+        },
+        {
+          "artifact_id": "result",
+          "type": "result",
+          "path": "result.json",
+          "producer": "local_run_store",
+          "mime_type": "application/json",
+          "schema_version": "mn.blueprint.response.v1",
+          "source_refs": [
+            "inputs.json",
+            "events.jsonl"
+          ]
+        },
+        {
+          "artifact_id": "final_artifact",
+          "type": "final_artifact",
+          "path": "final_artifact.json",
+          "producer": "workflow",
+          "mime_type": "application/json",
+          "schema_version": "mn.blueprint.final_artifact.v1",
+          "source_refs": [
+            "inputs.json",
+            "events.jsonl",
+            "result.json"
+          ]
+        },
+        {
+          "artifact_id": "logs",
+          "type": "logs",
+          "path": "logs.jsonl",
+          "producer": "local_run_store",
+          "mime_type": "application/x-jsonlines",
+          "schema_version": "mn.blueprint.logs.v1",
+          "source_refs": [
+            "events.jsonl"
+          ]
+        },
+        {
+          "artifact_id": "resources",
+          "type": "resource_samples",
+          "path": "resources.jsonl",
+          "producer": "local_run_store",
+          "mime_type": "application/x-jsonlines",
+          "schema_version": "mn.blueprint.resources.v1",
+          "source_refs": [
+            "run.json"
+          ]
+        },
+        {
+          "artifact_id": "web_ui",
+          "type": "web_ui",
+          "path": "web_ui.json",
+          "producer": "web_ui",
+          "mime_type": "application/json",
+          "schema_version": "mn.blueprint.web_ui.v1",
+          "source_refs": [
+            "run.json"
+          ]
+        },
+        {
+          "artifact_id": "human_events",
+          "type": "human_events",
+          "path": "human.jsonl",
+          "producer": "human_control",
+          "mime_type": "application/x-jsonlines",
+          "schema_version": "mn.blueprint.human_events.v1",
+          "source_refs": [
+            "events.jsonl"
+          ]
+        },
+        {
+          "artifact_id": "company_index",
+          "type": "generated_report",
+          "path": "<outputs.folder_path>/company_index.json",
+          "producer": "workflow",
+          "mime_type": "application/json",
+          "schema_version": "mn.blueprint.generated_report.v1",
+          "source_refs": [
+            "final_artifact.json"
+          ]
+        }
+      ],
+      "primary": {
+        "id": "final_artifact",
+        "path": "final_artifact.json",
+        "type": "final_artifact",
+        "schema_version": "mn.blueprint.final_artifact_contract.v1",
+        "required_fields": [
+          "type",
+          "executive_summary",
+          "recommended_action",
+          "confidence",
+          "evidence",
+          "next_steps",
+          "source_refs",
+          "research_summary",
+          "research_sources",
+          "research_warnings"
+        ]
+      }
+    },
+    "status": {
+      "heartbeat": true
+    }
+  },
+  "input_validation": {
+    "rules": []
+  },
+  "workflow": {
+    "schema": "mn.workflow.problem_graph/v1",
+    "workflow_id": "vc_assistant_v1",
+    "mode": "static_dag",
+    "entrypoint": "startup_folder_watcher",
+    "source": "startup_folder_watcher",
+    "sink": "vc_report_writer",
+    "execution": {
+      "strategy": "serial"
+    },
+    "dynamic": {
+      "enabled": false,
+      "apply_at": "between_steps",
+      "patch_events": []
+    },
+    "state": {
+      "document_folder": {
+        "from": "$inputs.document_folder"
+      },
+      "output_folder": {
+        "from": "$inputs.output_folder"
+      },
+      "workflow": {},
+      "final_report": {}
+    },
+    "steps": [
+      {
+        "id": "startup_folder_watcher",
+        "kind": "source",
+        "label": "Startup Folder Watcher",
+        "goal": "Detect startup document bundles, changed files, company groupings, and monitoring settings.",
+        "action": "startup_folder_watcher",
+        "run": "startup_folder_watcher",
+        "emits": "startup_folder_watcher_completed",
+        "on": {
+          "startup_folder_watcher_completed": "startup_document_reader"
+        },
+        "control": {
+          "required": true,
+          "retry": {
+            "max_attempts": 2,
+            "backoff_seconds": 1,
+            "backoff_multiplier": 2,
+            "jitter": 0
+          },
+          "failure_policy": "fail_workflow",
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0,
+            "on_low_confidence": "continue_with_warning"
+          }
+        },
+        "in": {
+          "document_folder": "$state.document_folder",
+          "monitoring": "$inputs.monitoring"
+        },
+        "out": {
+          "startup_folder_watcher": "$state.workflow.startup_folder_watcher"
+        },
+        "provides": [
+          "vc_assistant.startup_folder_watcher.ready"
+        ],
+        "requires": []
+      },
+      {
+        "id": "startup_document_reader",
+        "kind": "stage",
+        "label": "Startup Document Reader",
+        "goal": "Extract local startup evidence and mark unreadable files without sending confidential excerpts to public research.",
+        "action": "startup_document_reader",
+        "run": "startup_document_reader",
+        "emits": "startup_document_reader_completed",
+        "on": {
+          "startup_document_reader_completed": "public_market_researcher"
+        },
+        "control": {
+          "required": true,
+          "retry": {
+            "max_attempts": 2,
+            "backoff_seconds": 1,
+            "backoff_multiplier": 2,
+            "jitter": 0
+          },
+          "failure_policy": "fail_workflow",
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.7,
+            "on_low_confidence": "human_review"
+          }
+        },
+        "in": {
+          "previous": "$state.workflow"
+        },
+        "out": {
+          "startup_document_reader": "$state.workflow.startup_document_reader"
+        },
+        "provides": [
+          "vc_assistant.startup_document_reader.ready"
+        ],
+        "requires": [
+          "vc_assistant.startup_folder_watcher.ready"
+        ]
+      },
+      {
+        "id": "public_market_researcher",
+        "kind": "stage",
+        "label": "Public Market Researcher",
+        "goal": "Gather privacy-safe public company, category, and comparable context.",
+        "action": "public_market_researcher",
+        "run": "public_market_researcher",
+        "emits": "public_market_researcher_completed",
+        "on": {
+          "public_market_researcher_completed": "vc_heuristic_scorer"
+        },
+        "control": {
+          "required": true,
+          "retry": {
+            "max_attempts": 2,
+            "backoff_seconds": 1,
+            "backoff_multiplier": 2,
+            "jitter": 0
+          },
+          "failure_policy": "fail_workflow",
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.7,
+            "on_low_confidence": "human_review"
+          }
+        },
+        "in": {
+          "previous": "$state.workflow"
+        },
+        "out": {
+          "public_market_researcher": "$state.workflow.public_market_researcher"
+        },
+        "provides": [
+          "vc_assistant.public_market_researcher.ready"
+        ],
+        "requires": [
+          "vc_assistant.startup_document_reader.ready"
+        ]
+      },
+      {
+        "id": "vc_heuristic_scorer",
+        "kind": "stage",
+        "label": "VC Heuristic Scorer",
+        "goal": "Apply all seven requested VC heuristic methods and mark missing evidence explicitly.",
+        "action": "vc_heuristic_scorer",
+        "run": "vc_heuristic_scorer",
+        "emits": "vc_heuristic_scorer_completed",
+        "on": {
+          "vc_heuristic_scorer_completed": "vc_report_writer"
+        },
+        "control": {
+          "required": true,
+          "retry": {
+            "max_attempts": 2,
+            "backoff_seconds": 1,
+            "backoff_multiplier": 2,
+            "jitter": 0
+          },
+          "failure_policy": "fail_workflow",
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.7,
+            "on_low_confidence": "human_review"
+          }
+        },
+        "in": {
+          "previous": "$state.workflow"
+        },
+        "out": {
+          "vc_heuristic_scorer": "$state.workflow.vc_heuristic_scorer"
+        },
+        "provides": [
+          "vc_assistant.vc_heuristic_scorer.ready"
+        ],
+        "requires": [
+          "vc_assistant.public_market_researcher.ready"
+        ]
+      },
+      {
+        "id": "vc_report_writer",
+        "kind": "sink",
+        "label": "VC Report Writer",
+        "goal": "Write score-only per-company reports and a root company index.",
+        "action": "vc_report_writer",
+        "run": "vc_report_writer",
+        "emits": "vc_report_writer_completed",
+        "on": {
+          "vc_report_writer_completed": "completed"
+        },
+        "control": {
+          "required": true,
+          "retry": {
+            "max_attempts": 2,
+            "backoff_seconds": 1,
+            "backoff_multiplier": 2,
+            "jitter": 0
+          },
+          "failure_policy": "fail_workflow",
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0,
+            "on_low_confidence": "continue_with_warning"
+          }
+        },
+        "in": {
+          "previous": "$state.workflow"
+        },
+        "out": {
+          "vc_report_writer": "$state.workflow.vc_report_writer"
+        },
+        "provides": [
+          "vc_assistant.vc_report_writer.ready"
+        ],
+        "requires": [
+          "vc_assistant.vc_heuristic_scorer.ready"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "id": "startup_folder_watcher_to_startup_document_reader",
+        "from": "startup_folder_watcher",
+        "to": "startup_document_reader",
+        "event": "startup_folder_watcher_completed",
+        "required": true,
+        "accepts": [
+          "done"
+        ]
+      },
+      {
+        "id": "startup_document_reader_to_public_market_researcher",
+        "from": "startup_document_reader",
+        "to": "public_market_researcher",
+        "event": "startup_document_reader_completed",
+        "required": true,
+        "accepts": [
+          "done"
+        ]
+      },
+      {
+        "id": "public_market_researcher_to_vc_heuristic_scorer",
+        "from": "public_market_researcher",
+        "to": "vc_heuristic_scorer",
+        "event": "public_market_researcher_completed",
+        "required": true,
+        "accepts": [
+          "done"
+        ]
+      },
+      {
+        "id": "vc_heuristic_scorer_to_vc_report_writer",
+        "from": "vc_heuristic_scorer",
+        "to": "vc_report_writer",
+        "event": "vc_heuristic_scorer_completed",
+        "required": true,
+        "accepts": [
+          "done"
+        ]
+      }
+    ],
+    "policy": {
+      "failure": {
+        "default": "fail_closed"
+      },
+      "human": {
+        "allowed_decisions": [
+          "approve",
+          "revise",
+          "reject"
+        ],
+        "blocked_actions": [
+          "make_investment_decision",
+          "send_investment_recommendation",
+          "share_confidential_documents",
+          "submit_term_sheet",
+          "contact_founder_without_review",
+          "mark_scores_as_final_valuation"
+        ],
+        "decision_event": "human_decision_applied",
+        "default_action": "reject",
+        "enabled": true,
+        "events": [
+          "human_notice",
+          "human_input_requested",
+          "human_input_received",
+          "human_input_timeout",
+          "human_decision_applied"
+        ],
+        "mode": "approval_required",
+        "reason": "Human approval is required before any external sharing, investment action, founder contact, valuation use, or downstream decision.",
+        "request_event": "human_input_requested",
+        "response_event": "human_input_received",
+        "timeout_event": "human_input_timeout",
+        "timeout_seconds": 3600
+      }
+    }
+  },
+  "agents": {
+    "schema": "mn.agents.communication_graph/v1",
+    "entrypoints": [
+      "startup_folder_watcher"
+    ],
+    "nodes": [
+      {
+        "node_id": "startup_folder_watcher",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "upload_path": "document_workflow",
+          "upload_as": "document_workflow",
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000,
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "workdir": "/sandbox/job/document_workflow",
+          "command": [
+            "python3.11",
+            "scripts/run_blueprint.py"
+          ],
+          "environment": {
+            "MN_WORKFLOW_STEP_ID": "startup_folder_watcher"
+          },
+          "output_message_type": "startup_folder_watcher_completed",
+          "idempotent": true,
+          "side_effect": "read",
+          "safe_to_retry": true
+        }
+      },
+      {
+        "node_id": "startup_document_reader",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "upload_path": "document_workflow",
+          "upload_as": "document_workflow",
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000,
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "workdir": "/sandbox/job/document_workflow",
+          "command": [
+            "python3.11",
+            "scripts/run_blueprint.py"
+          ],
+          "environment": {
+            "MN_WORKFLOW_STEP_ID": "startup_document_reader"
+          },
+          "output_message_type": "startup_document_reader_completed",
+          "idempotent": true,
+          "side_effect": "read",
+          "safe_to_retry": true
+        }
+      },
+      {
+        "node_id": "public_market_researcher",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "upload_path": "document_workflow",
+          "upload_as": "document_workflow",
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000,
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "workdir": "/sandbox/job/document_workflow",
+          "command": [
+            "python3.11",
+            "scripts/run_blueprint.py"
+          ],
+          "environment": {
+            "MN_WORKFLOW_STEP_ID": "public_market_researcher",
+            "W3M_BROWSER_TIMEOUT_SECONDS": "12",
+            "W3M_BROWSER_MAX_CHARS": "6000",
+            "WEB_BROWSER_TIMEOUT_SECONDS": "20",
+            "WEB_BROWSER_MAX_CHARS": "12000",
+            "WEB_BROWSER_RESPECT_ROBOTS": "true"
+          },
+          "output_message_type": "public_market_researcher_completed",
+          "idempotent": true,
+          "side_effect": "network_read",
+          "safe_to_retry": true
+        }
+      },
+      {
+        "node_id": "vc_heuristic_scorer",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "upload_path": "document_workflow",
+          "upload_as": "document_workflow",
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000,
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "workdir": "/sandbox/job/document_workflow",
+          "command": [
+            "python3.11",
+            "scripts/run_blueprint.py"
+          ],
+          "environment": {
+            "MN_WORKFLOW_STEP_ID": "vc_heuristic_scorer"
+          },
+          "output_message_type": "vc_heuristic_scorer_completed",
+          "idempotent": true,
+          "side_effect": "read",
+          "safe_to_retry": true
+        }
+      },
+      {
+        "node_id": "vc_report_writer",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "upload_path": "document_workflow",
+          "upload_as": "document_workflow",
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000,
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "workdir": "/sandbox/job/document_workflow",
+          "command": [
+            "python3.11",
+            "scripts/run_blueprint.py"
+          ],
+          "environment": {
+            "MN_WORKFLOW_STEP_ID": "vc_report_writer"
+          },
+          "output_message_type": "vc_report_writer_completed",
+          "idempotent": true,
+          "side_effect": "internal_write",
+          "safe_to_retry": true
+        }
+      }
+    ],
+    "edges": [
+      {
+        "edge_id": "startup_folder_watcher_to_startup_document_reader",
+        "from_node": "startup_folder_watcher",
+        "to_node": "startup_document_reader",
+        "message_type": "startup_folder_watcher_completed"
+      },
+      {
+        "edge_id": "startup_document_reader_to_public_market_researcher",
+        "from_node": "startup_document_reader",
+        "to_node": "public_market_researcher",
+        "message_type": "startup_document_reader_completed"
+      },
+      {
+        "edge_id": "public_market_researcher_to_vc_heuristic_scorer",
+        "from_node": "public_market_researcher",
+        "to_node": "vc_heuristic_scorer",
+        "message_type": "public_market_researcher_completed"
+      },
+      {
+        "edge_id": "vc_heuristic_scorer_to_vc_report_writer",
+        "from_node": "vc_heuristic_scorer",
+        "to_node": "vc_report_writer",
+        "message_type": "vc_heuristic_scorer_completed"
+      }
+    ]
+  },
+  "runtime": {
+    "bindings": {
+      "startup_folder_watcher": {
+        "type": "worker",
+        "strategy": "single",
+        "side_effect": "read",
+        "risk": "low",
+        "workers": [
+          {
+            "id": "startup_folder_watcher",
+            "alias": "startup_folder_watcher",
+            "kind": "worker",
+            "role": "Startup folder watcher",
+            "model": "default",
+            "tokens": 12000,
+            "tools": 4,
+            "required": true
+          }
+        ]
+      },
+      "startup_document_reader": {
+        "type": "worker",
+        "strategy": "single",
+        "side_effect": "read",
+        "risk": "low",
+        "workers": [
+          {
+            "id": "startup_document_reader",
+            "alias": "startup_document_reader",
+            "kind": "worker",
+            "role": "Startup document reader",
+            "model": "default",
+            "tokens": 12000,
+            "tools": 4,
+            "required": true
+          }
+        ]
+      },
+      "public_market_researcher": {
+        "type": "worker",
+        "strategy": "single",
+        "side_effect": "network_read",
+        "risk": "low",
+        "workers": [
+          {
+            "id": "public_market_researcher",
+            "alias": "public_market_researcher",
+            "kind": "worker",
+            "role": "Public market researcher",
+            "model": "default",
+            "tokens": 12000,
+            "tools": 6,
+            "skills": [
+              "w3m_browser_skill",
+              "web_browser_skill"
+            ],
+            "required": true
+          }
+        ]
+      },
+      "vc_heuristic_scorer": {
+        "type": "worker",
+        "strategy": "single",
+        "side_effect": "read",
+        "risk": "low",
+        "workers": [
+          {
+            "id": "vc_heuristic_scorer",
+            "alias": "vc_heuristic_scorer",
+            "kind": "worker",
+            "role": "VC heuristic scorer",
+            "model": "default",
+            "tokens": 12000,
+            "tools": 4,
+            "required": true
+          }
+        ]
+      },
+      "vc_report_writer": {
+        "type": "worker",
+        "strategy": "single",
+        "side_effect": "internal_write",
+        "risk": "medium",
+        "workers": [
+          {
+            "id": "vc_report_writer",
+            "alias": "vc_report_writer",
+            "kind": "worker",
+            "role": "VC report writer",
+            "model": "default",
+            "tokens": 12000,
+            "tools": 4,
+            "required": true
+          }
+        ]
+      }
+    },
+    "memory": {
+      "collection": "mn_memory",
+      "containers": "optional_sidecar",
+      "context_addr_env": "MN_CONTEXT_ADDR",
+      "conversation": {
+        "agent_role": "otterdesk_chat",
+        "include_human_events": true,
+        "include_runtime_events": true,
+        "include_runtime_logs": true,
+        "target_tokens": 2400,
+        "token_budget": 6000,
+        "use_model_compression": true
+      },
+      "conversation_enabled": true,
+      "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
+      "default_context_addr": "localhost:50052",
+      "enabled": true,
+      "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
+      "namespace": "vc_assistant_context",
+      "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
+      "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
+      "sdk_distribution": "mirrorneuron-membrane-python-sdk",
+      "sdk_import_package": "mn_context_engine_sdk"
+    },
+    "observability": {
+      "schema_version": "mn.blueprint.observability_dashboard.v1",
+      "source": "local_run_store",
+      "reads": [
+        "events.jsonl",
+        "human.jsonl",
+        "logs.jsonl",
+        "resources.jsonl",
+        "result.json",
+        "final_artifact.json",
+        "web_ui.json"
+      ],
+      "panels": [
+        "current_status",
+        "recent_events",
+        "pending_human_requests",
+        "output_artifacts",
+        "resource_usage",
+        "errors",
+        "llm_calls",
+        "token_budget",
+        "llm_retries"
+      ]
+    },
+    "resources": {
+      "cpu": {
+        "min_cores": 1
+      },
+      "memory": {
+        "min_gb": 2
+      },
+      "disk": {
+        "min_gb": 1
+      },
+      "gpu": {
+        "min_count": 0
+      }
+    },
+    "store": {
+      "type": "local_run_store",
+      "path": "./runs/${run_id}",
+      "artifacts": [
+        "run.json",
+        "config.json",
+        "inputs.json",
+        "events.jsonl",
+        "human.jsonl",
+        "logs.jsonl",
+        "resources.jsonl",
+        "result.json",
+        "final_artifact.json"
+      ]
+    },
+    "worker_defaults": {
+      "runner": "MirrorNeuron.Runner.HostLocal",
+      "uses": "mn-agents.data_python_executor@1.0.0",
+      "model": "default",
+      "pool": "default",
+      "pool_slots": 1,
+      "workdir": "/sandbox/job/document_workflow"
+    },
+    "workflow_control": {
+      "schema_version": "mn.workflow.runtime_control.v1",
+      "enabled": true,
+      "source_of_truth": "workflow.steps",
+      "state_ledger": {
+        "enabled": true,
+        "persisted_field": "workflow_state",
+        "step_statuses": [
+          "pending",
+          "ready",
+          "queued",
+          "running",
+          "retry_wait",
+          "blocked",
+          "completed",
+          "partial",
+          "skipped",
+          "failed"
+        ],
+        "message_ledger": true,
+        "delivery_semantics": "at_least_once_with_idempotency"
+      },
+      "attempts": {
+        "dispatch_metadata": [
+          "workflow_run_id",
+          "step_id",
+          "attempt_id",
+          "attempt",
+          "deadline_at",
+          "heartbeat_deadline_at",
+          "idempotency_key"
+        ],
+        "stale_attempt_outputs": "ignore",
+        "retry_policy_source": "workflow.steps[].control.retry",
+        "timeout_source": "workflow.steps[].control.timeout_seconds"
+      },
+      "liveness": {
+        "event": "agent_beacon",
+        "interval_ms": 15000,
+        "timeout_ms": 45000,
+        "required": true,
+        "missed_action": "fail_attempt"
+      },
+      "reconciliation": {
+        "interval_ms": 2000,
+        "on_timeout": "fail_attempt_then_retry",
+        "on_missed_beacon": "fail_attempt_then_retry",
+        "on_retry_exhausted": "apply_step_failure_policy"
+      },
+      "pause_cancel": {
+        "pause_mode": "stop_active_attempts",
+        "resume_mode": "reconcile_from_workflow_state",
+        "cancel_mode": "terminate_active_attempts"
+      },
+      "events": [
+        "workflow_step_attempt_started",
+        "workflow_step_beacon",
+        "workflow_step_attempt_completed",
+        "workflow_step_attempt_timed_out",
+        "workflow_step_attempt_retry_scheduled",
+        "workflow_step_blocked",
+        "workflow_step_completed",
+        "workflow_step_failed",
+        "workflow_message_dead_lettered"
+      ]
+    },
+    "models": {
+      "primary": {
+        "model": "default"
+      }
+    }
+  },
+  "requirements": {
+    "cpu": {
+      "min_cores": 1
+    },
+    "memory": {
+      "min_gb": 2
+    },
+    "disk": {
+      "min_gb": 1
+    },
+    "gpu": {
+      "min_count": 0
+    }
+  },
+  "metadata": {
+    "blueprint_id": "vc_assistant",
+    "name": "VC Assistant",
+    "category": "finance",
+    "description": "Monitors startup document folders, researches public context, applies seven early VC heuristic scoring methods, and writes score-only reports.",
+    "agent_role": "Actor-style VC analysis coworker that prepares source-grounded score reports without issuing investment decisions.",
+    "target_users": "VC analysts, angel investors, accelerator reviewers, startup scouts, and founder-led investment teams.",
+    "customizable_for": "Pre-seed screening, accelerator batches, angel deal flow, founder note review, and early diligence packet triage.",
+    "problem": "Early startup packets are noisy and inconsistent; analysts need quick heuristic reports with evidence, assumptions, and missing-information flags while retaining the final decision.",
+    "standard": {
+      "workflow_model": "contract -> workflow -> agents/runtime"
+    },
+    "runtime_features": [
+      "continuous local folder monitoring service",
+      "folder-first startup company grouping",
+      "privacy-safe public web research",
+      "w3m_browser_skill lightweight source research",
+      "web_browser_skill optional rendered-page verification",
+      "Crunchbase and public profile verification planning",
+      "Berkus Method scoring",
+      "Scorecard Bill Payne Method scoring",
+      "Risk Factor Summation Method scoring",
+      "Venture Capital Method scoring",
+      "First Chicago Method scoring",
+      "Comparables Market Multiple Method scoring",
+      "Cost-to-Duplicate Method scoring",
+      "per-company Markdown and JSON reports",
+      "human approval policy",
+      "artifact records",
+      "run-store observability dashboard",
+      "Membrane context memory optimization"
+    ],
+    "configuration_contract": {
+      "required_files": [
+        "manifest.json",
+        "README.md",
+        "SPEC.md",
+        "config/default.json",
+        "payloads/",
+        "LICENSE.md",
+        "TERM.md"
+      ],
+      "optional_files": [
+        "config/overwrite.json",
+        "inputs/public_dataset.json",
+        "examples/sample_inputs/",
+        "knowledge/startup_research_playbook.md"
+      ]
+    },
+    "agent_templates": {
+      "library": "../mn-agents/index.json",
+      "nodes": [
+        {
+          "node_id": "startup_folder_watcher",
+          "uses": "mn-agents.data_python_executor@1.0.0",
+          "with": {
+            "environment": {
+              "MN_WORKFLOW_STEP_ID": "startup_folder_watcher"
+            },
+            "script": "scripts/run_blueprint.py",
+            "upload_path": "document_workflow",
+            "output_message_type": "startup_folder_watcher_completed",
+            "runner_module": "MirrorNeuron.Runner.HostLocal",
+            "idempotent": true,
+            "side_effect": "read",
+            "safe_to_retry": true
+          }
+        },
+        {
+          "node_id": "startup_document_reader",
+          "uses": "mn-agents.data_python_executor@1.0.0",
+          "with": {
+            "environment": {
+              "MN_WORKFLOW_STEP_ID": "startup_document_reader"
+            },
+            "script": "scripts/run_blueprint.py",
+            "upload_path": "document_workflow",
+            "output_message_type": "startup_document_reader_completed",
+            "runner_module": "MirrorNeuron.Runner.HostLocal",
+            "idempotent": true,
+            "side_effect": "read",
+            "safe_to_retry": true
+          }
+        },
+        {
+          "node_id": "public_market_researcher",
+          "uses": "mn-agents.data_python_executor@1.0.0",
+          "with": {
+            "environment": {
+              "MN_WORKFLOW_STEP_ID": "public_market_researcher",
+              "W3M_BROWSER_TIMEOUT_SECONDS": "12",
+              "W3M_BROWSER_MAX_CHARS": "6000",
+              "WEB_BROWSER_TIMEOUT_SECONDS": "20",
+              "WEB_BROWSER_MAX_CHARS": "12000",
+              "WEB_BROWSER_RESPECT_ROBOTS": "true"
+            },
+            "script": "scripts/run_blueprint.py",
+            "upload_path": "document_workflow",
+            "output_message_type": "public_market_researcher_completed",
+            "runner_module": "MirrorNeuron.Runner.HostLocal",
+            "idempotent": true,
+            "side_effect": "network_read",
+            "safe_to_retry": true
+          }
+        },
+        {
+          "node_id": "vc_heuristic_scorer",
+          "uses": "mn-agents.data_python_executor@1.0.0",
+          "with": {
+            "environment": {
+              "MN_WORKFLOW_STEP_ID": "vc_heuristic_scorer"
+            },
+            "script": "scripts/run_blueprint.py",
+            "upload_path": "document_workflow",
+            "output_message_type": "vc_heuristic_scorer_completed",
+            "runner_module": "MirrorNeuron.Runner.HostLocal",
+            "idempotent": true,
+            "side_effect": "read",
+            "safe_to_retry": true
+          }
+        },
+        {
+          "node_id": "vc_report_writer",
+          "uses": "mn-agents.data_python_executor@1.0.0",
+          "with": {
+            "environment": {
+              "MN_WORKFLOW_STEP_ID": "vc_report_writer"
+            },
+            "script": "scripts/run_blueprint.py",
+            "upload_path": "document_workflow",
+            "output_message_type": "vc_report_writer_completed",
+            "runner_module": "MirrorNeuron.Runner.HostLocal",
+            "idempotent": true,
+            "side_effect": "internal_write",
+            "safe_to_retry": true
+          }
+        }
+      ],
+      "renderer": "mn_blueprint_support.render_manifest_agent_templates",
+      "render_tool": "../mn-agents/tools/render_agent_templates.py",
+      "rendered_output": "manifest.rendered.json or runtime metadata"
+    },
+    "llm": {
+      "enabled": true,
+      "mode": "live",
+      "model": "default",
+      "agents": {
+        "startup_folder_watcher": {
+          "role": "Startup folder watcher",
+          "model": "default"
+        },
+        "startup_document_reader": {
+          "role": "Startup document reader",
+          "model": "default"
+        },
+        "public_market_researcher": {
+          "role": "Public market researcher",
+          "model": "default"
+        },
+        "vc_heuristic_scorer": {
+          "role": "VC heuristic scorer",
+          "model": "default"
+        },
+        "vc_report_writer": {
+          "role": "VC report writer",
+          "model": "default"
+        }
+      }
+    },
+    "memory_layer": {
+      "collection": "mn_memory",
+      "containers": "optional_sidecar",
+      "context_addr_env": "MN_CONTEXT_ADDR",
+      "conversation": {
+        "agent_role": "otterdesk_chat",
+        "include_human_events": true,
+        "include_runtime_events": true,
+        "include_runtime_logs": true,
+        "target_tokens": 2400,
+        "token_budget": 6000,
+        "use_model_compression": true
+      },
+      "conversation_enabled": true,
+      "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
+      "default_context_addr": "localhost:50052",
+      "enabled": true,
+      "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
+      "namespace": "vc_assistant_context",
+      "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
+      "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
+      "sdk_distribution": "mirrorneuron-membrane-python-sdk",
+      "sdk_import_package": "mn_context_engine_sdk"
+    },
+    "input_contract": {
+      "schema_version": "mn.blueprint.input_contract.v1",
+      "description": "Folder-monitoring startup document analysis for early VC heuristic reports.",
+      "privacy_classification": "confidential",
+      "resolved_artifact": "inputs.json",
+      "supported_adapters": [
+        "mock",
+        "json",
+        "file",
+        "env_json"
+      ],
+      "required_inputs": [
+        {
+          "name": "document_folder",
+          "type": "domain_value",
+          "description": "Local folder containing startup documents grouped by first-level company folders.",
+          "example": "/Users/me/Documents/vc_inbox"
+        },
+        {
+          "name": "output_folder",
+          "type": "domain_value",
+          "description": "Local folder where per-company reports should be written.",
+          "example": "/Users/homer/Download/vc_assistant"
+        }
+      ],
+      "optional_inputs": [
+        {
+          "name": "monitoring",
+          "type": "domain_value",
+          "description": "Enable folder polling and set interval/max cycles.",
+          "example": {
+            "enabled": true,
+            "poll_interval_seconds": 60,
+            "max_cycles": 1
+          }
+        },
+        {
+          "name": "field_profile",
+          "type": "domain_value",
+          "description": "Startup evidence fields to extract and review.",
+          "example": [
+            "team",
+            "market",
+            "product",
+            "traction"
+          ]
+        },
+        {
+          "name": "internet_research",
+          "type": "domain_value",
+          "description": "Public research configuration for w3m and optional rendered-browser verification of company websites, Crunchbase, public profiles, funding mentions, competitors, and market context.",
+          "example": {
+            "enabled": true,
+            "browser_skill": "w3m_browser_skill",
+            "rendered_browser_skill": "web_browser_skill",
+            "rendered_browser": {
+              "enabled": false,
+              "respect_robots": true
+            }
+          }
+        }
+      ],
+      "profiles": {
+        "mock": {
+          "adapter": "mock",
+          "description": "Uses bundled synthetic startup packets.",
+          "payload": {
+            "document_folder": "",
+            "monitoring": {
+              "enabled": true,
+              "max_cycles": 1
+            }
+          }
+        },
+        "json": {
+          "adapter": "json",
+          "description": "Inline JSON object supplied through config or runtime overrides."
+        },
+        "file": {
+          "adapter": "file",
+          "description": "JSON object loaded from a local file path."
+        },
+        "env_json": {
+          "adapter": "env_json",
+          "description": "JSON object loaded from MN_BLUEPRINT_INPUT_JSON."
+        }
+      }
+    },
+    "human_control": {
+      "allowed_decisions": [
+        "approve",
+        "revise",
+        "reject"
+      ],
+      "blocked_actions": [
+        "make_investment_decision",
+        "send_investment_recommendation",
+        "share_confidential_documents",
+        "submit_term_sheet",
+        "contact_founder_without_review",
+        "mark_scores_as_final_valuation"
+      ],
+      "decision_event": "human_decision_applied",
+      "default_action": "reject",
+      "enabled": true,
+      "events": [
+        "human_notice",
+        "human_input_requested",
+        "human_input_received",
+        "human_input_timeout",
+        "human_decision_applied"
+      ],
+      "mode": "approval_required",
+      "reason": "Human approval is required before any external sharing, investment action, founder contact, valuation use, or downstream decision.",
+      "request_event": "human_input_requested",
+      "response_event": "human_input_received",
+      "timeout_event": "human_input_timeout",
+      "timeout_seconds": 3600
+    },
+    "status_contract": {
+      "schema_version": "mn.blueprint.status_contract.v1",
+      "source": "run_store",
+      "status_event": "blueprint_status",
+      "heartbeat_event": "agent_beacon",
+      "heartbeat_required": true,
+      "phases": [
+        {
+          "phase": "loading_inputs",
+          "required": true,
+          "start_event": "blueprint_phase_started",
+          "progress_event": "blueprint_status",
+          "completion_event": "blueprint_phase_completed",
+          "failure_event": "blueprint_phase_failed"
+        },
+        {
+          "phase": "running_worker",
+          "required": true,
+          "start_event": "blueprint_phase_started",
+          "progress_event": "blueprint_status",
+          "completion_event": "blueprint_phase_completed",
+          "failure_event": "blueprint_phase_failed"
+        },
+        {
+          "phase": "waiting_for_human",
+          "required": true,
+          "start_event": "blueprint_phase_started",
+          "progress_event": "blueprint_status",
+          "completion_event": "blueprint_phase_completed",
+          "failure_event": "blueprint_phase_failed"
+        },
+        {
+          "phase": "writing_artifacts",
+          "required": true,
+          "start_event": "blueprint_phase_started",
+          "progress_event": "blueprint_status",
+          "completion_event": "blueprint_phase_completed",
+          "failure_event": "blueprint_phase_failed"
+        },
+        {
+          "phase": "completed",
+          "required": true,
+          "start_event": "blueprint_phase_started",
+          "progress_event": "blueprint_status",
+          "completion_event": "blueprint_phase_completed",
+          "failure_event": "blueprint_phase_failed"
+        }
+      ],
+      "beacon_event": "agent_beacon",
+      "beacon_interval_ms": 15000,
+      "beacon_timeout_ms": 45000,
+      "beacon_missed_action": "fail_attempt",
+      "runtime_state_source": "workflow_state",
+      "attempt_event": "workflow_step_attempt_started",
+      "retry_event": "workflow_step_attempt_retry_scheduled",
+      "blocked_event": "workflow_step_blocked",
+      "terminal_step_events": [
+        "workflow_step_completed",
+        "workflow_step_partial",
+        "workflow_step_skipped",
+        "workflow_step_failed"
+      ],
+      "events": []
+    },
+    "output_contract": {
+      "final_artifact": {
+        "schema_version": "mn.blueprint.final_artifact_contract.v1",
+        "required_fields": [
+          "type",
+          "executive_summary",
+          "recommended_action",
+          "confidence",
+          "evidence",
+          "next_steps",
+          "source_refs"
+        ],
+        "description": "Score-only VC heuristic report packet with company reports, evidence, public sources, confidence, and next steps.",
+        "type": "vc_early_heuristic_analysis_reports"
+      },
+      "artifacts": [
+        {
+          "artifact_id": "run_metadata",
+          "type": "run_summary",
+          "path": "run.json",
+          "producer": "local_run_store",
+          "mime_type": "application/json",
+          "schema_version": "mn.artifact.run_summary.v1",
+          "source_refs": []
+        },
+        {
+          "artifact_id": "resolved_config",
+          "type": "config",
+          "path": "config.json",
+          "producer": "local_run_store",
+          "mime_type": "application/json",
+          "schema_version": "mn.blueprint.config.v1",
+          "source_refs": []
+        },
+        {
+          "artifact_id": "resolved_inputs",
+          "type": "inputs",
+          "path": "inputs.json",
+          "producer": "local_run_store",
+          "mime_type": "application/json",
+          "schema_version": "mn.blueprint.inputs.v1",
+          "source_refs": []
+        },
+        {
+          "artifact_id": "event_stream",
+          "type": "events",
+          "path": "events.jsonl",
+          "producer": "local_run_store",
+          "mime_type": "application/x-jsonlines",
+          "schema_version": "mn.blueprint.events.v1",
+          "source_refs": []
+        },
+        {
+          "artifact_id": "result",
+          "type": "result",
+          "path": "result.json",
+          "producer": "local_run_store",
+          "mime_type": "application/json",
+          "schema_version": "mn.blueprint.response.v1",
+          "source_refs": [
+            "inputs.json",
+            "events.jsonl"
+          ]
+        },
+        {
+          "artifact_id": "final_artifact",
+          "type": "final_artifact",
+          "path": "final_artifact.json",
+          "producer": "workflow",
+          "mime_type": "application/json",
+          "schema_version": "mn.blueprint.final_artifact.v1",
+          "source_refs": [
+            "inputs.json",
+            "events.jsonl",
+            "result.json"
+          ]
+        },
+        {
+          "artifact_id": "logs",
+          "type": "logs",
+          "path": "logs.jsonl",
+          "producer": "local_run_store",
+          "mime_type": "application/x-jsonlines",
+          "schema_version": "mn.blueprint.logs.v1",
+          "source_refs": [
+            "events.jsonl"
+          ]
+        },
+        {
+          "artifact_id": "resources",
+          "type": "resource_samples",
+          "path": "resources.jsonl",
+          "producer": "local_run_store",
+          "mime_type": "application/x-jsonlines",
+          "schema_version": "mn.blueprint.resources.v1",
+          "source_refs": [
+            "run.json"
+          ]
+        },
+        {
+          "artifact_id": "web_ui",
+          "type": "web_ui",
+          "path": "web_ui.json",
+          "producer": "web_ui",
+          "mime_type": "application/json",
+          "schema_version": "mn.blueprint.web_ui.v1",
+          "source_refs": [
+            "run.json"
+          ]
+        },
+        {
+          "artifact_id": "human_events",
+          "type": "human_events",
+          "path": "human.jsonl",
+          "producer": "human_control",
+          "mime_type": "application/x-jsonlines",
+          "schema_version": "mn.blueprint.human_events.v1",
+          "source_refs": [
+            "events.jsonl"
+          ]
+        },
+        {
+          "artifact_id": "company_index",
+          "type": "generated_report",
+          "path": "<outputs.folder_path>/company_index.json",
+          "producer": "workflow",
+          "mime_type": "application/json",
+          "schema_version": "mn.blueprint.generated_report.v1",
+          "source_refs": [
+            "final_artifact.json"
+          ]
+        }
+      ],
+      "stdout": "JSON object with result, final_artifact, artifact paths, and run metadata when the runner is executed directly.",
+      "result_json": "result.json",
+      "final_artifact_json": "final_artifact.json",
+      "events_jsonl": "events.jsonl"
+    },
+    "observability_dashboard": {
+      "schema_version": "mn.blueprint.observability_dashboard.v1",
+      "source": "local_run_store",
+      "reads": [
+        "events.jsonl",
+        "human.jsonl",
+        "logs.jsonl",
+        "resources.jsonl",
+        "result.json",
+        "final_artifact.json",
+        "web_ui.json"
+      ],
+      "panels": [
+        "current_status",
+        "recent_events",
+        "pending_human_requests",
+        "output_artifacts",
+        "resource_usage",
+        "errors",
+        "llm_calls",
+        "token_budget",
+        "llm_retries"
+      ]
+    },
+    "init_config_review": {
+      "required": true,
+      "instruction": "Ask the user to select a startup document folder, confirm the output folder, and make clear that launch starts a score-only monitoring service.",
+      "fields": [
+        {
+          "path": "document_sources.folder_path",
+          "label": "Startup document folder",
+          "default": "",
+          "description": "Choose a local folder containing startup packets, preferably grouped by first-level company folders."
+        },
+        {
+          "path": "outputs.folder_path",
+          "label": "Output folder",
+          "default": "/Users/homer/Download/vc_assistant",
+          "description": "Choose where company report folders should be written."
+        },
+        {
+          "path": "internet_research.enabled",
+          "label": "Public research",
+          "default": true,
+          "description": "Use privacy-safe public research queries that avoid confidential document excerpts."
+        }
+      ]
+    },
+    "interfaces": {
+      "config": [
+        "human_control"
+      ]
+    },
+    "local_on_prem_rationale": "Startup packets can contain confidential deal flow; local intake and review-only outputs preserve user control.",
+    "features": [
+      "folder monitoring",
+      "public research",
+      "seven VC heuristic scoring methods",
+      "per-company report folders"
+    ]
+  }
+}

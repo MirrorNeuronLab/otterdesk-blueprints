@@ -1,0 +1,11 @@
+{
+  "dataset": "Synthetic startup packet samples",
+  "companies": [
+    "Aurora AI",
+    "Boreal Robotics"
+  ],
+  "files": [
+    "aurora_ai/pitch_summary.txt",
+    "boreal_robotics/company_brief.txt"
+  ]
+}

@@ -1,0 +1,751 @@
+{
+  "standard_version": "mn.blueprint.config.v1",
+  "identity": {
+    "blueprint_id": "vc_assistant",
+    "name": "VC Assistant"
+  },
+  "mode": "service",
+  "metadata": {
+    "category": "Finance",
+    "description": "Monitors startup document folders, researches public context, applies seven early VC heuristic scoring methods, and writes score-only reports."
+  },
+  "inputs": {
+    "adapter": "mock",
+    "description": "Default demo inputs use bundled synthetic startup packets with one first-level folder per company.",
+    "payload": {
+      "document_folder": "",
+      "output_folder": "/Users/homer/Download/vc_assistant",
+      "field_profile": [
+        "company_name",
+        "founder_team",
+        "market",
+        "product",
+        "traction",
+        "strategic_relationships",
+        "risks",
+        "comparables",
+        "cost_to_duplicate"
+      ],
+      "grouping": {
+        "mode": "folder_first",
+        "infer_loose_files": true
+      },
+      "monitoring": {
+        "enabled": true,
+        "poll_interval_seconds": 60,
+        "max_cycles": 1
+      },
+      "public_dataset": {
+        "name": "Synthetic startup packet samples",
+        "provider": "OtterDesk blueprint fixtures",
+        "license": "Synthetic demo data",
+        "availability_note": "Bundled sample startup documents are synthetic and intended only for local blueprint validation.",
+        "expected_files": [
+          "*.pdf",
+          "*.txt",
+          "*.md",
+          "*.json",
+          "*.csv"
+        ]
+      }
+    }
+  },
+  "document_sources": {
+    "folder_path": "",
+    "expected_files": [
+      "*.pdf",
+      "*.txt",
+      "*.md",
+      "*.json",
+      "*.csv"
+    ],
+    "grouping": "first_level_folder_then_infer_company_name"
+  },
+  "dataset_input": {
+    "name": "Synthetic startup packet samples",
+    "provider": "OtterDesk blueprint fixtures",
+    "license": "Synthetic demo data",
+    "availability_note": "Bundled sample startup documents are synthetic and intended only for local blueprint validation.",
+    "expected_files": [
+      "*.pdf",
+      "*.txt",
+      "*.md",
+      "*.json",
+      "*.csv"
+    ]
+  },
+  "document_automation": {
+    "fields": [
+      "company_name",
+      "founder_team",
+      "market",
+      "product",
+      "traction",
+      "strategic_relationships",
+      "risks",
+      "comparables",
+      "cost_to_duplicate"
+    ],
+    "output_type": "vc_early_heuristic_analysis_reports",
+    "review_required": true,
+    "recommended_action": "review_scores_sources_and_assumptions_before_making_any_investment_decision"
+  },
+  "llm": {
+    "enabled": true,
+    "mode": "live",
+    "mock_mode": "fake",
+    "model": "default",
+    "default_config": "primary",
+    "quick_test_uses_fake": true,
+    "strict_json": false,
+    "prefer_shared_skill": true,
+    "configs": {
+      "primary": {
+        "provider": "docker_model_runner",
+        "model": "default",
+        "api_base": "http://localhost:12434/engines/v1",
+        "timeout_seconds": 60,
+        "max_tokens": 1200,
+        "num_retries": 1,
+        "mock_mode": "fake",
+        "mode": "live"
+      }
+    },
+    "agents": {
+      "startup_folder_watcher": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Startup folder watcher",
+        "responsibilities": [
+          "Detect startup document bundles and changed files.",
+          "Preserve folder-first company grouping.",
+          "Flag missing or unreadable source packets."
+        ]
+      },
+      "startup_document_reader": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Startup document reader",
+        "responsibilities": [
+          "Extract source-grounded startup evidence.",
+          "Redact sensitive identifiers before reporting.",
+          "Separate claims from assumptions."
+        ]
+      },
+      "public_market_researcher": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Public market researcher",
+        "responsibilities": [
+          "Plan privacy-safe public searches.",
+          "Use company names, categories, domains, and public claims only.",
+          "Summarize source refs without exposing confidential excerpts."
+        ]
+      },
+      "vc_heuristic_scorer": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "VC heuristic scorer",
+        "responsibilities": [
+          "Apply Berkus, Scorecard, Risk Factor, VC, First Chicago, Comparables, and Cost-to-Duplicate methods.",
+          "Mark missing evidence as insufficient_evidence.",
+          "Avoid investment decision labels."
+        ]
+      },
+      "vc_report_writer": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "VC report writer",
+        "responsibilities": [
+          "Write per-company JSON and Markdown reports.",
+          "Preserve scores, assumptions, sources, and evidence.",
+          "Keep outputs report-only for user decision making."
+        ]
+      }
+    },
+    "responsibilities": [
+      "Keep startup analysis report-only and source-grounded.",
+      "Use all seven requested VC heuristic tools.",
+      "Avoid automated investment decisions or confidential-data web disclosure."
+    ]
+  },
+  "outputs": {
+    "folder_path": "/Users/homer/Download/vc_assistant",
+    "write_run_store": true,
+    "write_markdown_report": true,
+    "per_company_subfolders": true
+  },
+  "logging": {
+    "level": "info",
+    "events_jsonl": true,
+    "logs_jsonl": true,
+    "resources_jsonl": true,
+    "stderr_jsonl": true,
+    "redact_env_secrets": true,
+    "redact_fields": [
+      "api_key",
+      "token",
+      "authorization",
+      "cookie",
+      "password",
+      "private_key",
+      "customer_name",
+      "email",
+      "phone"
+    ],
+    "events": [
+      "blueprint_status",
+      "blueprint_phase_started",
+      "blueprint_phase_completed",
+      "blueprint_phase_failed",
+      "artifact_written",
+      "human_notice",
+      "human_input_requested",
+      "human_input_received",
+      "human_input_timeout",
+      "human_decision_applied",
+      "output_skill_started",
+      "output_skill_completed",
+      "output_skill_failed",
+      "startup_folder_watcher_completed",
+      "startup_document_reader_completed",
+      "public_market_researcher_completed",
+      "vc_heuristic_scorer_completed",
+      "vc_report_writer_completed",
+      "watch_cycle_started",
+      "watch_cycle_completed"
+    ]
+  },
+  "resources": {
+    "cpu": {
+      "min_cores": 1
+    },
+    "memory": {
+      "min_gb": 2
+    },
+    "disk": {
+      "min_gb": 1
+    },
+    "gpu": {
+      "min_count": 0
+    }
+  },
+  "human_control": {
+    "allowed_decisions": [
+      "approve",
+      "revise",
+      "reject"
+    ],
+    "blocked_actions": [
+      "make_investment_decision",
+      "send_investment_recommendation",
+      "share_confidential_documents",
+      "submit_term_sheet",
+      "contact_founder_without_review",
+      "mark_scores_as_final_valuation"
+    ],
+    "decision_event": "human_decision_applied",
+    "default_action": "reject",
+    "enabled": true,
+    "events": [
+      "human_notice",
+      "human_input_requested",
+      "human_input_received",
+      "human_input_timeout",
+      "human_decision_applied"
+    ],
+    "mode": "approval_required",
+    "reason": "Human approval is required before any external sharing, investment action, founder contact, valuation use, or downstream decision.",
+    "request_event": "human_input_requested",
+    "response_event": "human_input_received",
+    "timeout_event": "human_input_timeout",
+    "timeout_seconds": 3600
+  },
+  "privacy": {
+    "default_classification": "confidential",
+    "rules": {
+      "confidential": {
+        "log": "redacted",
+        "send_to_llm": "allowed_configs_only",
+        "send_to_output_skills": "approved_destinations_only"
+      },
+      "internal": {
+        "log": "metadata_only",
+        "send_to_llm": true,
+        "send_to_output_skills": true
+      },
+      "public": {
+        "log": true,
+        "send_to_llm": true,
+        "send_to_output_skills": true
+      },
+      "regulated": {
+        "log": "redacted",
+        "send_to_llm": "allowed_configs_only",
+        "send_to_output_skills": "approved_destinations_only"
+      }
+    }
+  },
+  "memory_layer": {
+    "collection": "mn_memory",
+    "containers": "optional_sidecar",
+    "context_addr_env": "MN_CONTEXT_ADDR",
+    "conversation": {
+      "agent_role": "otterdesk_chat",
+      "include_human_events": true,
+      "include_runtime_events": true,
+      "include_runtime_logs": true,
+      "target_tokens": 2400,
+      "token_budget": 6000,
+      "use_model_compression": true
+    },
+    "conversation_enabled": true,
+    "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
+    "default_context_addr": "localhost:50052",
+    "enabled": true,
+    "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
+    "namespace": "vc_assistant_context",
+    "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
+    "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
+    "sdk_distribution": "mirrorneuron-membrane-python-sdk",
+    "sdk_import_package": "mn_context_engine_sdk"
+  },
+  "state": {
+    "document_folder": "",
+    "output_folder": "/Users/homer/Download/vc_assistant",
+    "monitor_state": {},
+    "final_report": {}
+  },
+  "triggers": {
+    "type": "folder_watch",
+    "sources": [
+      "vc_startup_document_folder"
+    ],
+    "schedule": null
+  },
+  "real_adapters": {
+    "filesystem": {
+      "enabled": true,
+      "read": true,
+      "write": true
+    }
+  },
+  "streams": {
+    "enabled": false
+  },
+  "simulation": {
+    "enabled": false
+  },
+  "monitoring": {
+    "enabled": true,
+    "poll_interval_seconds": 60,
+    "max_cycles": 1,
+    "processed_state_file": "watch_state.json"
+  },
+  "internet_research": {
+    "enabled": true,
+    "browser_skill": "w3m_browser_skill",
+    "rendered_browser_skill": "web_browser_skill",
+    "privacy": "derive queries from company names, public categories, domains, and public claims only",
+    "research_targets": [
+      "company_website",
+      "crunchbase_profile",
+      "founder_public_profiles",
+      "funding_and_investor_mentions",
+      "news_and_press",
+      "market_size_sources",
+      "competitors_and_comparables",
+      "SEC_or_public_company_context_when_relevant"
+    ],
+    "verification_fields": [
+      "company_profile",
+      "founders",
+      "funding",
+      "category",
+      "competitors",
+      "traction_claims",
+      "source_conflicts"
+    ],
+    "verification_domains": [
+      "crunchbase.com",
+      "linkedin.com/company",
+      "sec.gov",
+      "company_website",
+      "news_and_press"
+    ],
+    "source_url_templates": [
+      "https://www.crunchbase.com/organization/{company_slug}",
+      "https://www.linkedin.com/company/{company_slug}",
+      "https://www.sec.gov/edgar/search/"
+    ],
+    "default_source_urls": [
+      "https://www.sba.gov/business-guide/plan-your-business/market-research-competitive-analysis",
+      "https://www.sec.gov/education/smallbusiness",
+      "https://www.bls.gov/"
+    ],
+    "blocked_inputs": [
+      "raw_document_text",
+      "confidential_pitch_deck_excerpts",
+      "customer_names",
+      "private_financials",
+      "founder_contact_details"
+    ],
+    "max_queries": 3,
+    "max_sources_per_company": 3,
+    "max_target_urls_per_company": 2,
+    "timeout_seconds": 12,
+    "max_chars": 6000,
+    "use_model_compression": true,
+    "rendered_browser": {
+      "enabled": false,
+      "purpose": "Optional Playwright fallback for JavaScript-rendered public pages such as Crunchbase profiles when w3m cannot extract useful text.",
+      "respect_robots": true,
+      "stop_on_blocked": true,
+      "no_proxy_rotation": true,
+      "no_captcha_solving": true,
+      "timeout_seconds": 20,
+      "max_chars": 12000,
+      "max_pages_per_company": 1,
+      "per_host_delay_seconds": 1.0
+    }
+  },
+  "input_skills": {
+    "w3m_browser": {
+      "skill": "w3m_browser_skill",
+      "package": "mirrorneuron-w3m-browser-skill",
+      "import": "mn_w3m_browser_skill",
+      "runner": "w3m",
+      "purpose": "primary lightweight text-browser research for startup verification, Crunchbase search snippets, competitors, and public market context",
+      "enabled": true,
+      "required": false,
+      "install_policy": "docker_worker_image",
+      "timeout_seconds": 12,
+      "max_chars": 6000,
+      "max_queries": 3,
+      "max_sources_per_company": 3,
+      "use_model_compression": true
+    },
+    "web_browser": {
+      "skill": "web_browser_skill",
+      "package": "mirrorneuron-web-browser-skill",
+      "import": "mn_web_browser_skill",
+      "runner": "playwright",
+      "purpose": "optional rendered-page fallback for JavaScript-heavy public sources such as Crunchbase pages; records blocked/login/robots states instead of bypassing them",
+      "enabled": true,
+      "required": false,
+      "install_policy": "optional_worker_dependency",
+      "activation": "set internet_research.rendered_browser.enabled=true for rendered public-page verification",
+      "respect_robots": true,
+      "stop_on_blocked": true,
+      "no_proxy_rotation": true,
+      "no_captcha_solving": true,
+      "timeout_seconds": 20,
+      "max_chars": 12000,
+      "max_pages_per_company": 1,
+      "per_host_delay_seconds": 1.0
+    }
+  },
+  "output_skills": {},
+  "error_handling": {
+    "default": "fail_closed",
+    "missing_evidence": "mark_insufficient_evidence",
+    "external_research_failure": "continue_with_warning"
+  },
+  "backpressure": {
+    "max_documents_per_cycle": 100,
+    "max_companies_per_cycle": 25
+  },
+  "determinism": {
+    "seed": 7,
+    "stable_company_slug": true
+  },
+  "capabilities": [
+    "folder_monitoring",
+    "document_evidence_extraction",
+    "privacy_safe_public_research",
+    "vc_heuristic_scoring",
+    "per_company_report_generation"
+  ],
+  "budgets": {
+    "max_runtime_seconds": 900,
+    "max_public_queries": 75
+  },
+  "agent_handoffs": [
+    "startup_folder_watcher_to_startup_document_reader",
+    "startup_document_reader_to_public_market_researcher",
+    "public_market_researcher_to_vc_heuristic_scorer",
+    "vc_heuristic_scorer_to_vc_report_writer"
+  ],
+  "web_ui": {
+    "enabled": true,
+    "input": {
+      "adapter": "none",
+      "fields": [],
+      "host": "127.0.0.1",
+      "port": null,
+      "share": false,
+      "title": null,
+      "instructions": null,
+      "custom_url": null
+    },
+    "output": {
+      "adapter": "gradio",
+      "auto_generate": true,
+      "refresh_seconds": 2,
+      "title": "VC Assistant",
+      "custom_url": null
+    },
+    "dashboard": {
+      "data_source": "local_run_store",
+      "reads": [
+        "events.jsonl",
+        "human.jsonl",
+        "logs.jsonl",
+        "resources.jsonl",
+        "result.json",
+        "final_artifact.json",
+        "web_ui.json"
+      ],
+      "panels": [
+        "current_status",
+        "recent_events",
+        "pending_human_requests",
+        "output_artifacts",
+        "resource_usage",
+        "errors",
+        "llm_calls",
+        "token_budget",
+        "llm_retries"
+      ],
+      "standard_panels": [
+        "current_status",
+        "recent_events",
+        "pending_human_requests",
+        "output_artifacts",
+        "resource_usage",
+        "errors",
+        "llm_calls",
+        "token_budget",
+        "llm_retries"
+      ]
+    }
+  },
+  "schemas": {
+    "artifact_record": "mn.artifact.record.v1",
+    "config": "mn.blueprint.config.v1",
+    "events": "mn.blueprint.events.v1",
+    "final_artifact": "mn.blueprint.final_artifact.v1",
+    "human_control": "mn.blueprint.human_control.v1",
+    "input_skills": "mn.blueprint.input_skills.v1",
+    "inputs": "mn.blueprint.inputs.v1",
+    "logs": "mn.blueprint.logs.v1",
+    "output_skills": "mn.blueprint.output_skills.v1",
+    "resources": "mn.blueprint.resources.v1",
+    "status_contract": "mn.blueprint.status_contract.v1",
+    "web_ui": "mn.blueprint.web_ui.v1"
+  },
+  "interfaces": {
+    "channels": {
+      "artifacts": {
+        "description": "Stable run-store files plus per-company startup analysis outputs.",
+        "artifacts": [
+          "run.json",
+          "config.json",
+          "inputs.json",
+          "events.jsonl",
+          "result.json",
+          "final_artifact.json"
+        ],
+        "optional_artifacts": [
+          "job.json",
+          "web_ui.json",
+          "ui.json",
+          "web/index.html",
+          "logs.jsonl",
+          "human.jsonl",
+          "resources.jsonl",
+          "company_index.md",
+          "*/analysis.md"
+        ]
+      },
+      "events": {
+        "artifact": "events.jsonl",
+        "description": "Append-only workflow events."
+      },
+      "human": {
+        "artifact": "human.jsonl",
+        "description": "Human notices, approval requests, responses, timeouts, and applied decisions."
+      },
+      "input_skills": {
+        "description": "Local filesystem startup packet intake plus optional public browser research."
+      },
+      "inputs": {
+        "artifact": "inputs.json",
+        "description": "Resolved startup document folder, monitoring settings, and field profile."
+      },
+      "logs": {
+        "artifact": "logs.jsonl",
+        "description": "Runtime stdout/stderr and redacted startup-analysis logs.",
+        "stream": "stdout/stderr"
+      },
+      "outputs": {
+        "artifacts": [
+          "result.json",
+          "final_artifact.json",
+          "company_index.json",
+          "company_index.md",
+          "*/analysis.json",
+          "*/analysis.md"
+        ],
+        "description": "Score-only VC heuristic reports and structured company index."
+      },
+      "resources": {
+        "artifact": "resources.jsonl",
+        "description": "Resource samples such as token, runtime, connector, and disk usage."
+      },
+      "web_ui": {
+        "artifacts": [
+          "web_ui.json",
+          "ui.json",
+          "web/index.html"
+        ],
+        "description": "Optional review dashboard for artifact inspection."
+      }
+    },
+    "config": [
+      "standard_version",
+      "identity",
+      "mode",
+      "metadata",
+      "inputs",
+      "simulation",
+      "llm",
+      "outputs",
+      "logging",
+      "resources",
+      "human_control",
+      "real_adapters",
+      "streams",
+      "input_skills",
+      "output_skills",
+      "error_handling",
+      "state",
+      "capabilities",
+      "privacy",
+      "triggers",
+      "backpressure",
+      "determinism",
+      "schemas",
+      "budgets",
+      "agent_handoffs",
+      "web_ui",
+      "interfaces",
+      "execution_model",
+      "memory_layer",
+      "dataset_input",
+      "document_automation"
+    ],
+    "config_sections": [
+      "standard_version",
+      "identity",
+      "mode",
+      "metadata",
+      "inputs",
+      "simulation",
+      "llm",
+      "outputs",
+      "logging",
+      "resources",
+      "human_control",
+      "real_adapters",
+      "streams",
+      "input_skills",
+      "output_skills",
+      "error_handling",
+      "state",
+      "capabilities",
+      "privacy",
+      "triggers",
+      "backpressure",
+      "determinism",
+      "schemas",
+      "budgets",
+      "agent_handoffs",
+      "web_ui",
+      "interfaces",
+      "execution_model",
+      "memory_layer",
+      "dataset_input",
+      "document_automation"
+    ],
+    "identity": [
+      "blueprint_id",
+      "name",
+      "run_id"
+    ],
+    "identity_fields": [
+      "blueprint_id",
+      "name",
+      "run_id"
+    ],
+    "input_adapters": [
+      "mock",
+      "json",
+      "file",
+      "env_json"
+    ],
+    "output_adapters": [
+      "local_run_store"
+    ],
+    "outputs": [
+      "run.json",
+      "config.json",
+      "inputs.json",
+      "events.jsonl",
+      "result.json",
+      "final_artifact.json"
+    ],
+    "run_artifacts": [
+      "run.json",
+      "config.json",
+      "inputs.json",
+      "events.jsonl",
+      "result.json",
+      "final_artifact.json"
+    ],
+    "optional_outputs": [
+      "job.json",
+      "web_ui.json",
+      "ui.json",
+      "web/index.html",
+      "logs.jsonl",
+      "human.jsonl",
+      "resources.jsonl",
+      "company_index.md",
+      "*/analysis.md"
+    ],
+    "optional_run_artifacts": [
+      "job.json",
+      "web_ui.json",
+      "ui.json",
+      "web/index.html",
+      "logs.jsonl",
+      "human.jsonl",
+      "resources.jsonl",
+      "company_index.md",
+      "*/analysis.md"
+    ],
+    "response_schema": "mn.blueprint.response.v1",
+    "web_ui_adapters": [
+      "none",
+      "static_html",
+      "gradio",
+      "custom"
+    ]
+  },
+  "execution_model": {
+    "type": "service_static_dag",
+    "entrypoint": "startup_folder_watcher",
+    "sink": "vc_report_writer"
+  }
+}

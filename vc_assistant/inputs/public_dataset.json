@@ -1,0 +1,13 @@
+{
+  "name": "Synthetic startup packet samples",
+  "provider": "OtterDesk blueprint fixtures",
+  "license": "Synthetic demo data",
+  "availability_note": "Bundled sample startup documents are synthetic and intended only for local blueprint validation.",
+  "expected_files": [
+    "*.pdf",
+    "*.txt",
+    "*.md",
+    "*.json",
+    "*.csv"
+  ]
+}
