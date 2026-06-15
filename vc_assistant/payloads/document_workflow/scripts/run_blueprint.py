@@ -35,6 +35,45 @@ METHOD_IDS = [
     "comparables_market_multiple_method",
     "cost_to_duplicate_method",
 ]
+WORKFLOW_STEP_IDS = [
+    "startup_folder_watcher",
+    "company_packet_grouper",
+    "document_evidence_extractor",
+    "claim_normalizer",
+    "research_planner",
+    "company_identity_researcher",
+    "funding_researcher",
+    "market_comp_researcher",
+    "traction_verifier",
+    "rendered_page_researcher",
+    "research_reconciler",
+    "berkus_scorer",
+    "scorecard_bill_payne_scorer",
+    "risk_factor_summation_scorer",
+    "venture_capital_method_scorer",
+    "first_chicago_scorer",
+    "comparables_market_multiple_scorer",
+    "cost_to_duplicate_scorer",
+    "score_consistency_auditor",
+    "company_report_writer",
+    "batch_index_writer",
+]
+RESEARCH_STAGE_IDS = [
+    "company_identity_researcher",
+    "funding_researcher",
+    "market_comp_researcher",
+    "traction_verifier",
+    "rendered_page_researcher",
+]
+SCORER_STAGE_BY_METHOD = {
+    "berkus_method": "berkus_scorer",
+    "scorecard_bill_payne_method": "scorecard_bill_payne_scorer",
+    "risk_factor_summation_method": "risk_factor_summation_scorer",
+    "venture_capital_method": "venture_capital_method_scorer",
+    "first_chicago_method": "first_chicago_scorer",
+    "comparables_market_multiple_method": "comparables_market_multiple_scorer",
+    "cost_to_duplicate_method": "cost_to_duplicate_scorer",
+}
 DEFAULT_RESEARCH_SOURCE_URLS = [
     "https://www.sba.gov/business-guide/plan-your-business/market-research-competitive-analysis",
     "https://www.sec.gov/education/smallbusiness",
@@ -224,6 +263,60 @@ def scan_documents(folder: Path) -> dict[str, list[dict[str, Any]]]:
     return records_by_company
 
 
+def company_fingerprint(records: list[dict[str, Any]]) -> str:
+    joined = "\n".join(sorted(str(record.get("sha256") or "") for record in records))
+    return hashlib.sha256(joined.encode("utf-8")).hexdigest()
+
+
+def load_watch_state(output_folder: Path) -> dict[str, Any]:
+    state = read_json(output_folder / "watch_state.json")
+    companies = state.get("companies")
+    if not isinstance(companies, dict):
+        state["companies"] = {}
+    return state
+
+
+def build_company_work_queue(company_records: dict[str, list[dict[str, Any]]], previous_state: dict[str, Any]) -> list[dict[str, Any]]:
+    previous_companies = previous_state.get("companies") if isinstance(previous_state.get("companies"), dict) else {}
+    queue = []
+    for company, records in sorted(company_records.items()):
+        slug = slugify(company)
+        fingerprint = company_fingerprint(records)
+        previous = previous_companies.get(slug) if isinstance(previous_companies.get(slug), dict) else {}
+        unchanged = previous.get("fingerprint") == fingerprint
+        queue.append(
+            {
+                "company_id": slug,
+                "company_name": company,
+                "company_slug": slug,
+                "fingerprint": fingerprint,
+                "document_count": len(records),
+                "status": "unchanged_skipped" if unchanged else "new_or_changed",
+                "previous_fingerprint": previous.get("fingerprint"),
+                "source_refs": [record.get("path") for record in records],
+            }
+        )
+    return queue
+
+
+def update_watch_state(output_folder: Path, run_dir: Path, queue: list[dict[str, Any]]) -> dict[str, Any]:
+    state = {
+        "updated_at": utc_now_iso(),
+        "companies": {
+            item["company_slug"]: {
+                "company_name": item["company_name"],
+                "fingerprint": item["fingerprint"],
+                "status": item["status"],
+                "document_count": item["document_count"],
+            }
+            for item in queue
+        },
+    }
+    write_json(output_folder / "watch_state.json", state)
+    write_json(run_dir / "watch_state.json", state)
+    return state
+
+
 def keyword_score(text: str, keywords: list[str], maximum: int = 100) -> int:
     haystack = text.lower()
     hits = sum(1 for keyword in keywords if keyword in haystack)
@@ -247,25 +340,157 @@ def money_values(text: str) -> list[float]:
     return values[:20]
 
 
-def score_company(company: str, records: list[dict[str, Any]], sources: list[dict[str, Any]]) -> dict[str, Any]:
-    text = "\n".join(str(record.get("text_preview") or "") for record in records)
-    values = money_values(text)
-    traction_score = keyword_score(text, ["revenue", "customer", "pilot", "contract", "growth", "retention", "sales"])
-    team_score = keyword_score(text, ["founder", "team", "advisor", "operator", "engineer", "domain expert"])
-    market_score = keyword_score(text, ["tam", "sam", "market", "industry", "competition", "segment", "buyer"])
-    product_score = keyword_score(text, ["prototype", "mvp", "product", "platform", "demo", "patent", "technology"])
-    relationship_score = keyword_score(text, ["partner", "channel", "strategic", "distribution", "enterprise", "supplier"])
-    risk_score = keyword_score(text, ["risk", "regulatory", "churn", "burn", "competition", "dependency", "lawsuit"])
-    cost_score = keyword_score(text, ["built", "patent", "r&d", "dataset", "hardware", "model", "infrastructure"])
+def source_refs_from_records(records: list[dict[str, Any]]) -> list[str]:
+    refs = []
+    for record in records:
+        value = str(record.get("filename") or record.get("path") or "")
+        if value and value not in refs:
+            refs.append(value)
+    return refs
 
-    berkus_buckets = {
-        "sound_idea": market_score,
-        "prototype": product_score,
-        "quality_management_team": team_score,
-        "strategic_relationships": relationship_score,
-        "product_rollout_or_sales": traction_score,
+
+def source_refs_from_sources(sources: list[dict[str, Any]]) -> list[str]:
+    refs = []
+    for source in sources:
+        value = str(source.get("url") or "")
+        if value and value not in refs:
+            refs.append(value)
+    return refs
+
+
+def extract_domains(text: str) -> list[str]:
+    domains = []
+    for match in re.finditer(r"\b(?:https?://)?([a-z0-9-]+\.[a-z0-9.-]+)\b", text, flags=re.I):
+        domain = match.group(1).lower().strip(".")
+        if domain and domain not in domains and not domain.endswith(".txt"):
+            domains.append(domain)
+    return domains[:10]
+
+
+def build_fact_table(company: str, records: list[dict[str, Any]], sources: list[dict[str, Any]]) -> dict[str, Any]:
+    text = "\n".join(str(record.get("text_preview") or "") for record in records)
+    source_text = "\n".join(str(source.get("snippet") or "") for source in sources)
+    values = money_values(text)
+    source_values = money_values(source_text)
+    keywords = {
+        "team": ["founder", "team", "advisor", "operator", "engineer", "domain expert"],
+        "market": ["tam", "sam", "market", "industry", "competition", "segment", "buyer"],
+        "traction": ["revenue", "customer", "pilot", "contract", "growth", "retention", "sales"],
+        "product": ["prototype", "mvp", "product", "platform", "demo", "patent", "technology"],
+        "strategic": ["partner", "channel", "strategic", "distribution", "enterprise", "supplier"],
+        "risk": ["risk", "regulatory", "churn", "burn", "competition", "dependency", "lawsuit"],
+        "asset": ["built", "patent", "r&d", "dataset", "hardware", "model", "infrastructure"],
     }
-    scorecard_weights = {
+    scores = {name: keyword_score(text, terms) for name, terms in keywords.items()}
+    source_scores = {name: keyword_score(source_text, terms) for name, terms in keywords.items()}
+    return {
+        "company_name": company,
+        "company_slug": slugify(company),
+        "generated_at": utc_now_iso(),
+        "team_facts": {
+            "score": scores["team"],
+            "keywords": keywords["team"],
+            "evidence_refs": source_refs_from_records(records),
+        },
+        "market_facts": {
+            "score": max(scores["market"], source_scores["market"]),
+            "keywords": keywords["market"],
+            "public_source_refs": source_refs_from_sources(sources),
+        },
+        "traction_facts": {
+            "score": scores["traction"],
+            "keywords": keywords["traction"],
+            "monetary_values": values,
+        },
+        "financial_facts": {
+            "local_monetary_values": values,
+            "public_monetary_values": source_values,
+            "largest_local_value": max(values) if values else None,
+        },
+        "risk_facts": {
+            "score": scores["risk"],
+            "keywords": keywords["risk"],
+            "warning_terms": [term for term in keywords["risk"] if term in text.lower()],
+        },
+        "ip_asset_facts": {
+            "score": scores["asset"],
+            "keywords": keywords["asset"],
+        },
+        "product_facts": {
+            "score": scores["product"],
+            "keywords": keywords["product"],
+        },
+        "relationship_facts": {
+            "score": scores["strategic"],
+            "keywords": keywords["strategic"],
+        },
+        "comparable_candidates": {
+            "source_count": len(sources),
+            "domains": extract_domains(text) + [str(source.get("url") or "").split("//", 1)[-1].split("/", 1)[0] for source in sources[:8]],
+            "public_source_refs": source_refs_from_sources(sources),
+        },
+        "raw_counts": {
+            "document_count": len(records),
+            "research_source_count": len(sources),
+            "character_count": sum(int(record.get("character_count") or 0) for record in records),
+        },
+    }
+
+
+def method_result(
+    *,
+    method_id: str,
+    scorer_id: str,
+    memory_hook: str,
+    status: str,
+    score: float | int | None,
+    inputs_used: list[str],
+    formula_or_weighting: Any,
+    assumptions: list[str],
+    source_refs: list[str],
+    warnings: list[str] | None = None,
+    details: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    return {
+        "method_id": method_id,
+        "scorer_id": scorer_id,
+        "memory_hook": memory_hook,
+        "status": status,
+        "score": round(score, 2) if isinstance(score, (int, float)) else None,
+        "inputs_used": inputs_used,
+        "formula_or_weighting": formula_or_weighting,
+        "assumptions": assumptions,
+        "source_refs": source_refs,
+        "warnings": warnings or [],
+        "details": details or {},
+    }
+
+
+def score_berkus(facts: dict[str, Any]) -> dict[str, Any]:
+    buckets = {
+        "sound_idea": facts["market_facts"]["score"],
+        "prototype": facts["product_facts"]["score"],
+        "quality_management_team": facts["team_facts"]["score"],
+        "strategic_relationships": facts["relationship_facts"]["score"],
+        "product_rollout_or_sales": facts["traction_facts"]["score"],
+    }
+    status = "scored" if any(buckets.values()) else "insufficient_evidence"
+    return method_result(
+        method_id="berkus_method",
+        scorer_id="berkus_scorer",
+        memory_hook="5 buckets",
+        status=status,
+        score=sum(buckets.values()) / len(buckets) if status == "scored" else None,
+        inputs_used=list(buckets),
+        formula_or_weighting="average(sound_idea, prototype, team, strategic_relationships, rollout_or_sales)",
+        assumptions=["Bucket scores are 0-100 evidence-strength indicators, not a valuation."],
+        source_refs=facts["team_facts"]["evidence_refs"] + facts["market_facts"]["public_source_refs"][:5],
+        details={"buckets": buckets},
+    )
+
+
+def score_scorecard(facts: dict[str, Any]) -> dict[str, Any]:
+    weights = {
         "team": 0.30,
         "market": 0.25,
         "product": 0.15,
@@ -273,81 +498,192 @@ def score_company(company: str, records: list[dict[str, Any]], sources: list[dic
         "competition": 0.10,
         "financing_need": 0.05,
     }
-    scorecard_factors = {
-        "team": team_score,
-        "market": market_score,
-        "product": product_score,
-        "traction": traction_score,
-        "competition": max(0, 100 - risk_score),
-        "financing_need": 60 if values else 25,
+    factors = {
+        "team": facts["team_facts"]["score"],
+        "market": facts["market_facts"]["score"],
+        "product": facts["product_facts"]["score"],
+        "traction": facts["traction_facts"]["score"],
+        "competition": max(0, 100 - facts["risk_facts"]["score"]),
+        "financing_need": 60 if facts["financial_facts"]["local_monetary_values"] else 25,
     }
+    status = "scored" if any(factors.values()) else "insufficient_evidence"
+    return method_result(
+        method_id="scorecard_bill_payne_method",
+        scorer_id="scorecard_bill_payne_scorer",
+        memory_hook="Compare to the average startup",
+        status=status,
+        score=sum(factors[key] * weight for key, weight in weights.items()) if status == "scored" else None,
+        inputs_used=list(factors),
+        formula_or_weighting=weights,
+        assumptions=["Weights are default early-stage screening weights and should be calibrated by fund strategy."],
+        source_refs=facts["team_facts"]["evidence_refs"] + facts["market_facts"]["public_source_refs"][:5],
+        details={"factors": factors},
+    )
+
+
+def score_risk_factor_summation(facts: dict[str, Any]) -> dict[str, Any]:
     risk_factors = [
-        "management", "stage", "legislation", "manufacturing", "sales", "funding",
-        "competition", "technology", "litigation", "international", "reputation", "exit",
+        "management",
+        "stage",
+        "legislation",
+        "manufacturing",
+        "sales",
+        "funding",
+        "competition",
+        "technology",
+        "litigation",
+        "international",
+        "reputation",
+        "exit",
     ]
-    risk_adjustments = {
-        factor: {"adjustment": round((keyword_score(text, [factor]) - 50) / 25, 2), "status": "scored" if factor in text.lower() else "insufficient_evidence"}
+    text_terms = set(facts["risk_facts"]["warning_terms"])
+    adjustments = {
+        factor: {
+            "adjustment": -1 if factor in text_terms else 0,
+            "status": "scored" if factor in text_terms else "insufficient_evidence",
+        }
         for factor in risk_factors
     }
-    assumed_exit_value = max(values) * 8 if values else None
-    vc_method_status = "scored" if assumed_exit_value else "insufficient_evidence"
-    first_chicago_status = "scored" if traction_score >= 15 and values else "insufficient_evidence"
-    comparable_status = "scored" if sources else "insufficient_evidence"
-    cost_status = evidence_status(cost_score)
+    status = "scored" if facts["risk_facts"]["score"] else "insufficient_evidence"
+    return method_result(
+        method_id="risk_factor_summation_method",
+        scorer_id="risk_factor_summation_scorer",
+        memory_hook="12-risk checklist",
+        status=status,
+        score=max(0, 100 - facts["risk_facts"]["score"]) if status == "scored" else None,
+        inputs_used=risk_factors,
+        formula_or_weighting="100 - keyword_risk_score; adjustment table records observed risk factors",
+        assumptions=["Risk adjustments are directional diligence prompts, not price adjustments."],
+        source_refs=facts["team_facts"]["evidence_refs"],
+        warnings=["Several risk checklist factors lack explicit evidence."] if status == "scored" else ["No explicit risk evidence found."],
+        details={"risk_adjustments": adjustments},
+    )
 
-    methods = {
-        "berkus_method": {
-            "memory_hook": "5 buckets",
-            "status": "scored" if any(berkus_buckets.values()) else "insufficient_evidence",
-            "score": round(sum(berkus_buckets.values()) / len(berkus_buckets), 2),
-            "buckets": berkus_buckets,
-            "assumptions": ["Scores are heuristic 0-100 evidence-strength indicators, not valuation advice."],
-        },
-        "scorecard_bill_payne_method": {
-            "memory_hook": "Compare to the average startup",
-            "status": "scored" if any(scorecard_factors.values()) else "insufficient_evidence",
-            "score": round(sum(scorecard_factors[key] * weight for key, weight in scorecard_weights.items()), 2),
-            "weights": scorecard_weights,
-            "factors": scorecard_factors,
-        },
-        "risk_factor_summation_method": {
-            "memory_hook": "12-risk checklist",
-            "status": "scored" if risk_score else "insufficient_evidence",
-            "score": round(max(0, 100 - risk_score), 2),
-            "risk_adjustments": risk_adjustments,
-        },
-        "venture_capital_method": {
-            "memory_hook": "Work backward from exit",
-            "status": vc_method_status,
-            "score": round(min(100, traction_score * 0.6 + market_score * 0.4), 2) if assumed_exit_value else None,
-            "assumed_exit_value": assumed_exit_value,
-            "required_return_multiple": 10,
-            "notes": "Uses the largest extracted monetary figure as a rough proxy only when available.",
-        },
-        "first_chicago_method": {
-            "memory_hook": "Bear/base/bull cases",
-            "status": first_chicago_status,
-            "score": round((traction_score + market_score + product_score) / 3, 2) if first_chicago_status == "scored" else None,
-            "cases": {
-                "bear": {"probability": 0.35, "score": max(0, traction_score - 25)},
-                "base": {"probability": 0.45, "score": round((traction_score + market_score) / 2, 2)},
-                "bull": {"probability": 0.20, "score": min(100, max(traction_score, market_score) + 20)},
-            },
-        },
-        "comparables_market_multiple_method": {
-            "memory_hook": "What are similar companies worth?",
-            "status": comparable_status,
-            "score": round((market_score + traction_score) / 2, 2) if sources else None,
-            "source_count": len(sources),
-            "notes": "Comparable evidence is limited to public research snippets captured during the run.",
-        },
-        "cost_to_duplicate_method": {
-            "memory_hook": "What would it cost to rebuild?",
-            "status": cost_status,
-            "score": cost_score if cost_status == "scored" else None,
-            "evidence_terms": ["built", "patent", "r&d", "dataset", "hardware", "model", "infrastructure"],
-        },
+
+def score_venture_capital_method(facts: dict[str, Any]) -> dict[str, Any]:
+    largest_value = facts["financial_facts"]["largest_local_value"]
+    assumed_exit_value = largest_value * 8 if largest_value else None
+    status = "scored" if assumed_exit_value else "insufficient_evidence"
+    score = min(100, facts["traction_facts"]["score"] * 0.6 + facts["market_facts"]["score"] * 0.4) if status == "scored" else None
+    return method_result(
+        method_id="venture_capital_method",
+        scorer_id="venture_capital_method_scorer",
+        memory_hook="Work backward from exit",
+        status=status,
+        score=score,
+        inputs_used=["largest_local_monetary_value", "traction_score", "market_score"],
+        formula_or_weighting={"assumed_exit_value": "largest_local_value * 8", "score": "0.6 * traction + 0.4 * market"},
+        assumptions=["Uses the largest extracted monetary figure as a rough proxy only when available.", "Required return multiple defaults to 10x."],
+        source_refs=facts["team_facts"]["evidence_refs"],
+        warnings=[] if status == "scored" else ["No monetary value found for exit-back math."],
+        details={"assumed_exit_value": assumed_exit_value, "required_return_multiple": 10},
+    )
+
+
+def score_first_chicago(facts: dict[str, Any]) -> dict[str, Any]:
+    has_values = bool(facts["financial_facts"]["local_monetary_values"])
+    status = "scored" if has_values and facts["traction_facts"]["score"] >= 15 else "insufficient_evidence"
+    cases = {
+        "bear": {"probability": 0.35, "score": max(0, facts["traction_facts"]["score"] - 25)},
+        "base": {"probability": 0.45, "score": round((facts["traction_facts"]["score"] + facts["market_facts"]["score"]) / 2, 2)},
+        "bull": {"probability": 0.20, "score": min(100, max(facts["traction_facts"]["score"], facts["market_facts"]["score"]) + 20)},
     }
+    weighted = sum(case["probability"] * case["score"] for case in cases.values()) if status == "scored" else None
+    return method_result(
+        method_id="first_chicago_method",
+        scorer_id="first_chicago_scorer",
+        memory_hook="Bear/base/bull cases",
+        status=status,
+        score=weighted,
+        inputs_used=["traction_score", "market_score", "local_monetary_values"],
+        formula_or_weighting="0.35 * bear + 0.45 * base + 0.20 * bull",
+        assumptions=["Scenario probabilities are defaults and should be adjusted by investment committee policy."],
+        source_refs=facts["team_facts"]["evidence_refs"] + facts["market_facts"]["public_source_refs"][:5],
+        warnings=[] if status == "scored" else ["Scenario math needs both traction and monetary evidence."],
+        details={"cases": cases},
+    )
+
+
+def score_comparables(facts: dict[str, Any]) -> dict[str, Any]:
+    source_count = facts["comparable_candidates"]["source_count"]
+    status = "scored" if source_count else "insufficient_evidence"
+    return method_result(
+        method_id="comparables_market_multiple_method",
+        scorer_id="comparables_market_multiple_scorer",
+        memory_hook="What are similar companies worth?",
+        status=status,
+        score=(facts["market_facts"]["score"] + facts["traction_facts"]["score"]) / 2 if status == "scored" else None,
+        inputs_used=["market_score", "traction_score", "public_source_count", "comparable_domains"],
+        formula_or_weighting="average(market_score, traction_score) when public comparable evidence exists",
+        assumptions=["Public comparable snippets are screening evidence; no private transaction database is assumed."],
+        source_refs=facts["comparable_candidates"]["public_source_refs"],
+        warnings=[] if status == "scored" else ["No public comparable evidence found."],
+        details={"source_count": source_count, "domains": facts["comparable_candidates"]["domains"][:12]},
+    )
+
+
+def score_cost_to_duplicate(facts: dict[str, Any]) -> dict[str, Any]:
+    status = evidence_status(facts["ip_asset_facts"]["score"])
+    return method_result(
+        method_id="cost_to_duplicate_method",
+        scorer_id="cost_to_duplicate_scorer",
+        memory_hook="What would it cost to rebuild?",
+        status=status,
+        score=facts["ip_asset_facts"]["score"] if status == "scored" else None,
+        inputs_used=["ip_asset_score", "product_score", "asset_keywords"],
+        formula_or_weighting="asset keyword evidence score across built, patent, R&D, dataset, hardware, model, and infrastructure terms",
+        assumptions=["Cost-to-duplicate is a floor proxy and misses upside."],
+        source_refs=facts["team_facts"]["evidence_refs"],
+        warnings=[] if status == "scored" else ["No rebuild-cost asset evidence found."],
+        details={"evidence_terms": facts["ip_asset_facts"]["keywords"]},
+    )
+
+
+def score_company_methods(facts: dict[str, Any]) -> dict[str, Any]:
+    scorers = [
+        score_berkus,
+        score_scorecard,
+        score_risk_factor_summation,
+        score_venture_capital_method,
+        score_first_chicago,
+        score_comparables,
+        score_cost_to_duplicate,
+    ]
+    return {result["method_id"]: result for result in (scorer(facts) for scorer in scorers)}
+
+
+def audit_method_scores(methods: dict[str, dict[str, Any]], facts: dict[str, Any]) -> dict[str, Any]:
+    findings = []
+    for method_id in METHOD_IDS:
+        method = methods.get(method_id)
+        if not method:
+            findings.append({"severity": "error", "method_id": method_id, "message": "Method score missing."})
+            continue
+        if method["status"] == "scored" and method["score"] is None:
+            findings.append({"severity": "error", "method_id": method_id, "message": "Scored method has no numeric score."})
+        if method["status"] == "insufficient_evidence" and method["score"] is not None:
+            findings.append({"severity": "warning", "method_id": method_id, "message": "Insufficient-evidence method should not carry a numeric score."})
+        for field in ("inputs_used", "formula_or_weighting", "assumptions", "source_refs", "warnings"):
+            if field not in method:
+                findings.append({"severity": "error", "method_id": method_id, "message": f"Missing {field}."})
+    unsupported = []
+    if facts["financial_facts"]["largest_local_value"] and not facts["traction_facts"]["score"]:
+        unsupported.append("Financial value found without traction terms; review whether value is relevant.")
+    return {
+        "company_name": facts["company_name"],
+        "company_slug": facts["company_slug"],
+        "status": "passed_with_warnings" if findings or unsupported else "passed",
+        "findings": findings,
+        "unsupported_assumption_warnings": unsupported,
+        "checked_at": utc_now_iso(),
+    }
+
+
+def build_company_analysis(company: str, records: list[dict[str, Any]], research_ledger: dict[str, list[dict[str, Any]]]) -> dict[str, Any]:
+    sources = [source for stage_sources in research_ledger.values() for source in stage_sources]
+    facts = build_fact_table(company, records, sources)
+    methods = score_company_methods(facts)
+    audit = audit_method_scores(methods, facts)
     scored = [item["score"] for item in methods.values() if isinstance(item.get("score"), (int, float))]
     return {
         "company_name": company,
@@ -355,6 +691,8 @@ def score_company(company: str, records: list[dict[str, Any]], sources: list[dic
         "composite_score": round(sum(scored) / len(scored), 2) if scored else None,
         "method_count": len(methods),
         "methods": methods,
+        "fact_table": facts,
+        "audit": audit,
         "evidence_summary": {
             "document_count": len(records),
             "source_count": len(sources),
@@ -362,6 +700,32 @@ def score_company(company: str, records: list[dict[str, Any]], sources: list[dic
         },
         "decision_policy": "report_only_user_decides",
     }
+
+
+def score_company(company: str, records: list[dict[str, Any]], sources: list[dict[str, Any]]) -> dict[str, Any]:
+    return build_company_analysis(company, records, {"legacy_research": sources})
+
+
+def flattened_sources(research_ledger: dict[str, list[dict[str, Any]]]) -> list[dict[str, Any]]:
+    return [source for stage_sources in research_ledger.values() for source in stage_sources]
+
+
+def warnings_for_company(analysis: dict[str, Any], sources: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    warnings = []
+    for source in sources:
+        if source.get("warning") or source.get("status") in {"failed", "blocked", "skill_unavailable", "warning"}:
+            warnings.append({
+                "kind": "research",
+                "status": source.get("status"),
+                "source": source.get("url"),
+                "message": source.get("warning") or source.get("snippet"),
+            })
+    for method in analysis["methods"].values():
+        for warning in method.get("warnings") or []:
+            warnings.append({"kind": "method", "method_id": method["method_id"], "message": warning})
+    for finding in analysis["audit"].get("findings") or []:
+        warnings.append({"kind": "audit", **finding})
+    return warnings
 
 
 def _research_observer(run_dir: Path | None):
@@ -634,6 +998,110 @@ def research_company(company: str, config: dict[str, Any], run_dir: Path | None 
     return sources
 
 
+def research_company_by_stage(company: str, config: dict[str, Any], run_dir: Path | None = None) -> dict[str, list[dict[str, Any]]]:
+    internet = config.get("internet_research") if isinstance(config.get("internet_research"), dict) else {}
+    if internet.get("enabled") is False:
+        return {stage: [] for stage in RESEARCH_STAGE_IDS}
+    plan = _configured_research(company, internet)
+    base_query = plan["queries"][0]
+    staged_queries = {
+        "company_identity_researcher": f"{company} company website Crunchbase LinkedIn founders",
+        "funding_researcher": f"{company} startup funding investors accelerator press",
+        "market_comp_researcher": f"{company} competitors market size comparable companies",
+        "traction_verifier": f"{company} customers pilots revenue partnerships product launch",
+        "rendered_page_researcher": f"{company} Crunchbase organization profile rendered page",
+    }
+    ledger: dict[str, list[dict[str, Any]]] = {}
+    for stage, query in staged_queries.items():
+        ledger[stage] = [
+            _source_record(
+                company=company,
+                query=query,
+                url="research_plan",
+                title=f"{stage.replace('_', ' ').title()} Query",
+                snippet=f"Verification fields: {', '.join(plan['verification_fields'])}",
+                status="planned",
+                skill="research_planner",
+                verification_target=stage,
+            )
+        ]
+
+    identity_internet = dict(internet)
+    identity_internet["source_url_templates"] = [
+        "https://www.crunchbase.com/organization/{company_slug}",
+        "https://www.linkedin.com/company/{company_slug}",
+    ]
+    identity_plan = dict(plan)
+    identity_plan["queries"] = [staged_queries["company_identity_researcher"]]
+    _append_w3m_research(ledger["company_identity_researcher"], company=company, plan=identity_plan, internet=identity_internet, run_dir=run_dir)
+    _append_target_url_research(ledger["company_identity_researcher"], company=company, plan=identity_plan, internet=identity_internet, run_dir=run_dir)
+
+    for stage in ("funding_researcher", "market_comp_researcher", "traction_verifier"):
+        stage_query = staged_queries[stage]
+        for url in list(internet.get("default_source_urls") or DEFAULT_RESEARCH_SOURCE_URLS):
+            ledger[stage].append(
+                _source_record(
+                    company=company,
+                    query=stage_query,
+                    url=url,
+                    title=url.split("//", 1)[-1].split("/", 1)[0],
+                    snippet="Configured public reference for this research stage; live browser runs can replace or supplement this source.",
+                    status="configured_reference",
+                    skill="w3m_browser_skill",
+                    verification_target=stage,
+                )
+            )
+
+    rendered_plan = dict(plan)
+    rendered_plan["queries"] = [staged_queries["rendered_page_researcher"]]
+    _append_rendered_browser_research(ledger["rendered_page_researcher"], company=company, plan=rendered_plan, internet=internet)
+    if len(ledger["rendered_page_researcher"]) == 1:
+        ledger["rendered_page_researcher"].append(
+            _source_record(
+                company=company,
+                query=base_query,
+                url="web_browser_skill",
+                title="Rendered browser fallback disabled",
+                snippet="Set internet_research.rendered_browser.enabled=true to inspect JavaScript-rendered public profiles when needed.",
+                status="disabled",
+                skill="web_browser_skill",
+                verification_target="rendered_page_researcher",
+            )
+        )
+    return ledger
+
+
+def reconcile_research(records: list[dict[str, Any]], research_ledger: dict[str, list[dict[str, Any]]]) -> dict[str, Any]:
+    local_text = "\n".join(str(record.get("text_preview") or "") for record in records).lower()
+    all_sources = flattened_sources(research_ledger)
+    confirmations = []
+    conflicts = []
+    missing = []
+    for topic, terms in {
+        "team": ["founder", "team"],
+        "traction": ["customer", "revenue", "pilot"],
+        "product": ["product", "prototype", "mvp"],
+        "market": ["market", "competitor"],
+    }.items():
+        local_has = any(term in local_text for term in terms)
+        public_has = any(any(term in str(source.get("snippet") or "").lower() for term in terms) for source in all_sources)
+        if local_has and public_has:
+            confirmations.append(topic)
+        elif local_has and not public_has:
+            missing.append({"topic": topic, "message": "Local claim was not confirmed by public research snippets."})
+    for source in all_sources:
+        status = str(source.get("status") or "")
+        if status in {"blocked", "failed", "skill_unavailable"}:
+            conflicts.append({"source": source.get("url"), "status": status, "message": source.get("warning") or source.get("snippet")})
+    return {
+        "confirmations": confirmations,
+        "conflicts": conflicts,
+        "missing_public_evidence": missing,
+        "source_count": len(all_sources),
+        "reconciled_at": utc_now_iso(),
+    }
+
+
 def render_markdown(analysis: dict[str, Any], sources: list[dict[str, Any]], evidence: list[dict[str, Any]]) -> str:
     lines = [
         f"# {analysis['company_name']} VC Heuristic Report",
@@ -662,20 +1130,83 @@ def render_markdown(analysis: dict[str, Any], sources: list[dict[str, Any]], evi
     return "\n".join(lines) + "\n"
 
 
-def write_company_outputs(output_folder: Path, analyses: list[dict[str, Any]], company_records: dict[str, list[dict[str, Any]]], company_sources: dict[str, list[dict[str, Any]]]) -> list[dict[str, Any]]:
+def build_research_coverage(research_ledgers: dict[str, dict[str, list[dict[str, Any]]]]) -> dict[str, Any]:
+    companies = []
+    for company, ledger in sorted(research_ledgers.items()):
+        stage_counts = {stage: len(sources) for stage, sources in ledger.items()}
+        statuses = sorted({str(source.get("status") or "") for sources in ledger.values() for source in sources if source.get("status")})
+        companies.append({
+            "company_name": company,
+            "company_slug": slugify(company),
+            "stage_counts": stage_counts,
+            "statuses": statuses,
+        })
+    return {"generated_at": utc_now_iso(), "companies": companies}
+
+
+def build_method_coverage(analyses: list[dict[str, Any]]) -> dict[str, Any]:
+    companies = []
+    for analysis in analyses:
+        companies.append({
+            "company_name": analysis["company_name"],
+            "company_slug": analysis["company_slug"],
+            "method_statuses": {method_id: method["status"] for method_id, method in analysis["methods"].items()},
+            "missing_methods": analysis["evidence_summary"]["missing_methods"],
+        })
+    return {"generated_at": utc_now_iso(), "method_ids": METHOD_IDS, "companies": companies}
+
+
+def render_run_summary(analyses: list[dict[str, Any]], queue: list[dict[str, Any]], research_coverage: dict[str, Any], method_coverage: dict[str, Any]) -> str:
+    lines = [
+        "# VC Assistant Run Summary",
+        "",
+        "Report-only run. The user decides what to review next.",
+        "",
+        f"Companies processed: {len(analyses)}",
+        f"Unchanged companies skipped: {sum(1 for item in queue if item['status'] == 'unchanged_skipped')}",
+        "",
+        "## Company Scores",
+    ]
+    for analysis in analyses:
+        lines.append(f"- {analysis['company_name']}: composite score {analysis['composite_score']}")
+    lines += ["", "## Research Coverage"]
+    for item in research_coverage["companies"]:
+        lines.append(f"- {item['company_name']}: {item['stage_counts']}")
+    lines += ["", "## Method Coverage"]
+    for item in method_coverage["companies"]:
+        lines.append(f"- {item['company_name']}: {item['method_statuses']}")
+    return "\n".join(lines) + "\n"
+
+
+def write_company_outputs(
+    output_folder: Path,
+    analyses: list[dict[str, Any]],
+    company_records: dict[str, list[dict[str, Any]]],
+    research_ledgers: dict[str, dict[str, list[dict[str, Any]]]],
+    queue: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
     output_files = []
     for analysis in analyses:
         slug = analysis["company_slug"]
         company_dir = output_folder / slug
         evidence = company_records[analysis["company_name"]]
-        sources = company_sources[analysis["company_name"]]
+        research_ledger = research_ledgers[analysis["company_name"]]
+        sources = flattened_sources(research_ledger)
+        warnings = warnings_for_company(analysis, sources)
         write_json(company_dir / "analysis.json", analysis)
+        write_json(company_dir / "method_scores.json", analysis["methods"])
+        write_json(company_dir / "research_sources.json", sources)
         write_json(company_dir / "sources.json", sources)
         write_json(company_dir / "evidence.json", evidence)
+        write_json(company_dir / "warnings.json", warnings)
         markdown = render_markdown(analysis, sources, evidence)
         (company_dir / "analysis.md").write_text(markdown, encoding="utf-8")
-        for name in ("analysis.json", "analysis.md", "sources.json", "evidence.json"):
+        for name in ("analysis.json", "analysis.md", "method_scores.json", "research_sources.json", "sources.json", "evidence.json", "warnings.json"):
             output_files.append({"kind": name.rsplit(".", 1)[0], "path": str(company_dir / name), "company": analysis["company_name"]})
+        write_json(output_folder / "company_fact_tables" / f"{slug}.json", analysis["fact_table"])
+        write_json(output_folder / "research_ledgers" / f"{slug}.json", research_ledger)
+        write_json(output_folder / "method_scores" / f"{slug}.json", analysis["methods"])
+        write_json(output_folder / "audit_findings" / f"{slug}.json", analysis["audit"])
     index = {
         "blueprint_id": BLUEPRINT_ID,
         "generated_at": utc_now_iso(),
@@ -690,14 +1221,24 @@ def write_company_outputs(output_folder: Path, analyses: list[dict[str, Any]], c
             for analysis in analyses
         ],
     }
+    research_coverage = build_research_coverage(research_ledgers)
+    method_coverage = build_method_coverage(analyses)
     write_json(output_folder / "company_index.json", index)
+    write_json(output_folder / "company_work_queue.json", queue)
+    write_json(output_folder / "research_coverage.json", research_coverage)
+    write_json(output_folder / "method_coverage.json", method_coverage)
     index_lines = ["# VC Heuristic Company Index", "", "Report-only score summaries. The user decides what to do next.", ""]
     for item in index["companies"]:
         index_lines.append(f"- {item['company_name']}: composite score {item['composite_score']}")
     (output_folder / "company_index.md").write_text("\n".join(index_lines) + "\n", encoding="utf-8")
+    (output_folder / "run_summary.md").write_text(render_run_summary(analyses, queue, research_coverage, method_coverage), encoding="utf-8")
     output_files.extend([
         {"kind": "company_index_json", "path": str(output_folder / "company_index.json")},
         {"kind": "company_index_markdown", "path": str(output_folder / "company_index.md")},
+        {"kind": "company_work_queue", "path": str(output_folder / "company_work_queue.json")},
+        {"kind": "research_coverage", "path": str(output_folder / "research_coverage.json")},
+        {"kind": "method_coverage", "path": str(output_folder / "method_coverage.json")},
+        {"kind": "run_summary_markdown", "path": str(output_folder / "run_summary.md")},
     ])
     return output_files
 
@@ -736,15 +1277,35 @@ def run_blueprint(
     company_records = scan_documents(document_folder)
     if not company_records:
         company_records = {"Sample Startup": []}
-    company_sources = {company: research_company(company, resolved_config, run_dir) for company in company_records}
-    analyses = [score_company(company, records, company_sources[company]) for company, records in sorted(company_records.items())]
-    output_files = write_company_outputs(output_folder, analyses, company_records, company_sources)
+    previous_state = load_watch_state(output_folder)
+    company_work_queue = build_company_work_queue(company_records, previous_state)
+    write_json(output_folder / "company_work_queue.json", company_work_queue)
+    write_json(run_dir / "company_work_queue.json", company_work_queue)
+    research_ledgers = {company: research_company_by_stage(company, resolved_config, run_dir) for company in company_records}
+    reconciliations = {company: reconcile_research(company_records[company], research_ledgers[company]) for company in company_records}
+    analyses = []
+    for company, records in sorted(company_records.items()):
+        analysis = build_company_analysis(company, records, research_ledgers[company])
+        analysis["research_reconciliation"] = reconciliations[company]
+        analyses.append(analysis)
+    output_files = write_company_outputs(output_folder, analyses, company_records, research_ledgers, company_work_queue)
+    watch_state = update_watch_state(output_folder, run_dir, company_work_queue)
     append_event(run_dir, "startup_folder_watcher_completed", {"company_count": len(company_records)})
-    append_event(run_dir, "startup_document_reader_completed", {"document_count": sum(len(records) for records in company_records.values())})
-    append_event(run_dir, "public_market_researcher_completed", {"company_count": len(company_sources)})
-    append_event(run_dir, "vc_heuristic_scorer_completed", {"method_count": len(METHOD_IDS)})
-    append_event(run_dir, "vc_report_writer_completed", {"output_folder": str(output_folder)})
+    append_event(run_dir, "company_packet_grouper_completed", {"company_count": len(company_work_queue)})
+    append_event(run_dir, "document_evidence_extractor_completed", {"document_count": sum(len(records) for records in company_records.values())})
+    append_event(run_dir, "claim_normalizer_completed", {"company_count": len(analyses)})
+    append_event(run_dir, "research_planner_completed", {"company_count": len(research_ledgers)})
+    for stage in RESEARCH_STAGE_IDS:
+        append_event(run_dir, f"{stage}_completed", {"company_count": len(research_ledgers)})
+    append_event(run_dir, "research_reconciler_completed", {"company_count": len(reconciliations)})
+    for scorer_id in SCORER_STAGE_BY_METHOD.values():
+        append_event(run_dir, f"{scorer_id}_completed", {"company_count": len(analyses)})
+    append_event(run_dir, "score_consistency_auditor_completed", {"company_count": len(analyses)})
+    append_event(run_dir, "company_report_writer_completed", {"output_folder": str(output_folder)})
+    append_event(run_dir, "batch_index_writer_completed", {"output_folder": str(output_folder)})
     append_event(run_dir, "watch_cycle_completed", {"cycle": 1, "companies": len(company_records)})
+    research_coverage = build_research_coverage(research_ledgers)
+    method_coverage = build_method_coverage(analyses)
 
     final_artifact = {
         "type": OUTPUT_TYPE,
@@ -758,13 +1319,21 @@ def run_blueprint(
             "Use public source refs only as context; verify material claims independently.",
         ],
         "source_refs": ["inputs.json", "events.jsonl", "result.json", "company_index.json"],
-        "research_summary": {"company_count": len(company_sources), "privacy_policy": "no confidential excerpts in public research queries"},
-        "research_sources": [source for sources in company_sources.values() for source in sources],
+        "research_summary": {
+            "company_count": len(research_ledgers),
+            "privacy_policy": "no confidential excerpts in public research queries",
+            "stage_ids": RESEARCH_STAGE_IDS,
+            "coverage": research_coverage,
+        },
+        "research_sources": [source for ledger in research_ledgers.values() for source in flattened_sources(ledger)],
         "research_warnings": [],
         "report_only": True,
         "company_reports": analyses,
         "method_ids": METHOD_IDS,
-        "monitor_state": {"mode": "folder_monitoring", "cycles_completed": 1, "max_cycles": max_cycles},
+        "workflow_step_ids": WORKFLOW_STEP_IDS,
+        "company_work_queue": company_work_queue,
+        "method_coverage": method_coverage,
+        "monitor_state": {"mode": "folder_monitoring", "cycles_completed": 1, "max_cycles": max_cycles, "watch_state": watch_state},
         "output_files": output_files,
         "llm_usage": {"provider": "none", "model": "deterministic_heuristics", "calls": 0, "fallback_calls": 0},
     }
@@ -775,7 +1344,6 @@ def run_blueprint(
     append_event(run_dir, "blueprint_phase_started", {"phase": "writing_artifacts", "component": BLUEPRINT_ID})
     write_json(run_dir / "result.json", result)
     write_json(run_dir / "final_artifact.json", final_artifact)
-    write_json(run_dir / "watch_state.json", final_artifact["monitor_state"])
     append_event(run_dir, "artifact_written", {"path": "result.json"})
     append_event(run_dir, "artifact_written", {"path": "final_artifact.json"})
     append_event(run_dir, "blueprint_phase_completed", {"phase": "writing_artifacts", "component": BLUEPRINT_ID})

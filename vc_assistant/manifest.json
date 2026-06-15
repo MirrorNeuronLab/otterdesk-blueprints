@@ -26,11 +26,30 @@
         "output_skill_started",
         "output_skill_completed",
         "output_skill_failed",
+        "tool_call_started",
+        "tool_call_completed",
+        "tool_call_failed",
         "startup_folder_watcher_completed",
-        "startup_document_reader_completed",
-        "public_market_researcher_completed",
-        "vc_heuristic_scorer_completed",
-        "vc_report_writer_completed",
+        "company_packet_grouper_completed",
+        "document_evidence_extractor_completed",
+        "claim_normalizer_completed",
+        "research_planner_completed",
+        "company_identity_researcher_completed",
+        "funding_researcher_completed",
+        "market_comp_researcher_completed",
+        "traction_verifier_completed",
+        "rendered_page_researcher_completed",
+        "research_reconciler_completed",
+        "berkus_scorer_completed",
+        "scorecard_bill_payne_scorer_completed",
+        "risk_factor_summation_scorer_completed",
+        "venture_capital_method_scorer_completed",
+        "first_chicago_scorer_completed",
+        "comparables_market_multiple_scorer_completed",
+        "cost_to_duplicate_scorer_completed",
+        "score_consistency_auditor_completed",
+        "company_report_writer_completed",
+        "batch_index_writer_completed",
         "watch_cycle_started",
         "watch_cycle_completed"
       ]
@@ -239,9 +258,9 @@
     "mode": "static_dag",
     "entrypoint": "startup_folder_watcher",
     "source": "startup_folder_watcher",
-    "sink": "vc_report_writer",
+    "sink": "batch_index_writer",
     "execution": {
-      "strategy": "serial"
+      "strategy": "parallel"
     },
     "dynamic": {
       "enabled": false,
@@ -263,12 +282,12 @@
         "id": "startup_folder_watcher",
         "kind": "source",
         "label": "Startup Folder Watcher",
-        "goal": "Detect startup document bundles, changed files, company groupings, and monitoring settings.",
+        "goal": "Detect changed files, create company work queue, fingerprint packets, and mark unchanged packets.",
         "action": "startup_folder_watcher",
         "run": "startup_folder_watcher",
         "emits": "startup_folder_watcher_completed",
         "on": {
-          "startup_folder_watcher_completed": "startup_document_reader"
+          "startup_folder_watcher_completed": "company_packet_grouper"
         },
         "control": {
           "required": true,
@@ -298,15 +317,15 @@
         "requires": []
       },
       {
-        "id": "startup_document_reader",
+        "id": "company_packet_grouper",
         "kind": "stage",
-        "label": "Startup Document Reader",
-        "goal": "Extract local startup evidence and mark unreadable files without sending confidential excerpts to public research.",
-        "action": "startup_document_reader",
-        "run": "startup_document_reader",
-        "emits": "startup_document_reader_completed",
+        "label": "Company Packet Grouper",
+        "goal": "Group startup documents by company, resolve aliases, and create stable company ids and slugs.",
+        "action": "company_packet_grouper",
+        "run": "company_packet_grouper",
+        "emits": "company_packet_grouper_completed",
         "on": {
-          "startup_document_reader_completed": "public_market_researcher"
+          "company_packet_grouper_completed": "document_evidence_extractor"
         },
         "control": {
           "required": true,
@@ -327,25 +346,25 @@
           "previous": "$state.workflow"
         },
         "out": {
-          "startup_document_reader": "$state.workflow.startup_document_reader"
+          "company_packet_grouper": "$state.workflow.company_packet_grouper"
         },
         "provides": [
-          "vc_assistant.startup_document_reader.ready"
+          "vc_assistant.company_packet_grouper.ready"
         ],
         "requires": [
           "vc_assistant.startup_folder_watcher.ready"
         ]
       },
       {
-        "id": "public_market_researcher",
+        "id": "document_evidence_extractor",
         "kind": "stage",
-        "label": "Public Market Researcher",
-        "goal": "Gather privacy-safe public company, category, and comparable context.",
-        "action": "public_market_researcher",
-        "run": "public_market_researcher",
-        "emits": "public_market_researcher_completed",
+        "label": "Document Evidence Extractor",
+        "goal": "Extract local text, structured claims, tables, dates, amounts, founder names, traction claims, product/IP claims, and source refs.",
+        "action": "document_evidence_extractor",
+        "run": "document_evidence_extractor",
+        "emits": "document_evidence_extractor_completed",
         "on": {
-          "public_market_researcher_completed": "vc_heuristic_scorer"
+          "document_evidence_extractor_completed": "claim_normalizer"
         },
         "control": {
           "required": true,
@@ -366,25 +385,25 @@
           "previous": "$state.workflow"
         },
         "out": {
-          "public_market_researcher": "$state.workflow.public_market_researcher"
+          "document_evidence_extractor": "$state.workflow.document_evidence_extractor"
         },
         "provides": [
-          "vc_assistant.public_market_researcher.ready"
+          "vc_assistant.document_evidence_extractor.ready"
         ],
         "requires": [
-          "vc_assistant.startup_document_reader.ready"
+          "vc_assistant.company_packet_grouper.ready"
         ]
       },
       {
-        "id": "vc_heuristic_scorer",
+        "id": "claim_normalizer",
         "kind": "stage",
-        "label": "VC Heuristic Scorer",
-        "goal": "Apply all seven requested VC heuristic methods and mark missing evidence explicitly.",
-        "action": "vc_heuristic_scorer",
-        "run": "vc_heuristic_scorer",
-        "emits": "vc_heuristic_scorer_completed",
+        "label": "Claim Normalizer",
+        "goal": "Build deterministic team, market, traction, financial, risk, IP asset, and comparable-candidate fact tables.",
+        "action": "claim_normalizer",
+        "run": "claim_normalizer",
+        "emits": "claim_normalizer_completed",
         "on": {
-          "vc_heuristic_scorer_completed": "vc_report_writer"
+          "claim_normalizer_completed": "research_planner"
         },
         "control": {
           "required": true,
@@ -405,25 +424,679 @@
           "previous": "$state.workflow"
         },
         "out": {
-          "vc_heuristic_scorer": "$state.workflow.vc_heuristic_scorer"
+          "claim_normalizer": "$state.workflow.claim_normalizer"
         },
         "provides": [
-          "vc_assistant.vc_heuristic_scorer.ready"
+          "vc_assistant.claim_normalizer.ready"
         ],
         "requires": [
-          "vc_assistant.public_market_researcher.ready"
+          "vc_assistant.document_evidence_extractor.ready"
         ]
       },
       {
-        "id": "vc_report_writer",
+        "id": "research_planner",
+        "kind": "stage",
+        "label": "Research Planner",
+        "goal": "Create privacy-safe public research queries from company name, domain, category, and non-confidential claims.",
+        "action": "research_planner",
+        "run": "research_planner",
+        "emits": "research_planner_completed",
+        "on": {
+          "research_planner_completed": [
+            "company_identity_researcher",
+            "funding_researcher",
+            "market_comp_researcher",
+            "traction_verifier",
+            "rendered_page_researcher"
+          ]
+        },
+        "control": {
+          "required": true,
+          "retry": {
+            "max_attempts": 2,
+            "backoff_seconds": 1,
+            "backoff_multiplier": 2,
+            "jitter": 0
+          },
+          "failure_policy": "fail_workflow",
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.7,
+            "on_low_confidence": "human_review"
+          }
+        },
+        "in": {
+          "previous": "$state.workflow"
+        },
+        "out": {
+          "research_planner": "$state.workflow.research_planner"
+        },
+        "provides": [
+          "vc_assistant.research_planner.ready"
+        ],
+        "requires": [
+          "vc_assistant.claim_normalizer.ready"
+        ]
+      },
+      {
+        "id": "company_identity_researcher",
+        "kind": "stage",
+        "label": "Company Identity Researcher",
+        "goal": "Research company website, Crunchbase/profile pages, LinkedIn/company pages, and identity signals.",
+        "action": "company_identity_researcher",
+        "run": "company_identity_researcher",
+        "emits": "company_identity_researcher_completed",
+        "on": {
+          "company_identity_researcher_completed": "research_reconciler"
+        },
+        "control": {
+          "required": true,
+          "retry": {
+            "max_attempts": 2,
+            "backoff_seconds": 1,
+            "backoff_multiplier": 2,
+            "jitter": 0
+          },
+          "failure_policy": "fail_workflow",
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.7,
+            "on_low_confidence": "human_review"
+          }
+        },
+        "in": {
+          "previous": "$state.workflow"
+        },
+        "out": {
+          "company_identity_researcher": "$state.workflow.company_identity_researcher"
+        },
+        "provides": [
+          "vc_assistant.company_identity_researcher.ready"
+        ],
+        "requires": [
+          "vc_assistant.research_planner.ready"
+        ]
+      },
+      {
+        "id": "funding_researcher",
+        "kind": "stage",
+        "label": "Funding Researcher",
+        "goal": "Research funding rounds, investors, accelerator mentions, and press.",
+        "action": "funding_researcher",
+        "run": "funding_researcher",
+        "emits": "funding_researcher_completed",
+        "on": {
+          "funding_researcher_completed": "research_reconciler"
+        },
+        "control": {
+          "required": true,
+          "retry": {
+            "max_attempts": 2,
+            "backoff_seconds": 1,
+            "backoff_multiplier": 2,
+            "jitter": 0
+          },
+          "failure_policy": "fail_workflow",
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.7,
+            "on_low_confidence": "human_review"
+          }
+        },
+        "in": {
+          "previous": "$state.workflow"
+        },
+        "out": {
+          "funding_researcher": "$state.workflow.funding_researcher"
+        },
+        "provides": [
+          "vc_assistant.funding_researcher.ready"
+        ],
+        "requires": [
+          "vc_assistant.research_planner.ready"
+        ]
+      },
+      {
+        "id": "market_comp_researcher",
+        "kind": "stage",
+        "label": "Market And Comparable Researcher",
+        "goal": "Research market size, competitors, and public comparable companies.",
+        "action": "market_comp_researcher",
+        "run": "market_comp_researcher",
+        "emits": "market_comp_researcher_completed",
+        "on": {
+          "market_comp_researcher_completed": "research_reconciler"
+        },
+        "control": {
+          "required": true,
+          "retry": {
+            "max_attempts": 2,
+            "backoff_seconds": 1,
+            "backoff_multiplier": 2,
+            "jitter": 0
+          },
+          "failure_policy": "fail_workflow",
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.7,
+            "on_low_confidence": "human_review"
+          }
+        },
+        "in": {
+          "previous": "$state.workflow"
+        },
+        "out": {
+          "market_comp_researcher": "$state.workflow.market_comp_researcher"
+        },
+        "provides": [
+          "vc_assistant.market_comp_researcher.ready"
+        ],
+        "requires": [
+          "vc_assistant.research_planner.ready"
+        ]
+      },
+      {
+        "id": "traction_verifier",
+        "kind": "stage",
+        "label": "Traction Verifier",
+        "goal": "Verify public customer, partnership, revenue, product launch, and traction claims.",
+        "action": "traction_verifier",
+        "run": "traction_verifier",
+        "emits": "traction_verifier_completed",
+        "on": {
+          "traction_verifier_completed": "research_reconciler"
+        },
+        "control": {
+          "required": true,
+          "retry": {
+            "max_attempts": 2,
+            "backoff_seconds": 1,
+            "backoff_multiplier": 2,
+            "jitter": 0
+          },
+          "failure_policy": "fail_workflow",
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.7,
+            "on_low_confidence": "human_review"
+          }
+        },
+        "in": {
+          "previous": "$state.workflow"
+        },
+        "out": {
+          "traction_verifier": "$state.workflow.traction_verifier"
+        },
+        "provides": [
+          "vc_assistant.traction_verifier.ready"
+        ],
+        "requires": [
+          "vc_assistant.research_planner.ready"
+        ]
+      },
+      {
+        "id": "rendered_page_researcher",
+        "kind": "stage",
+        "label": "Rendered Page Researcher",
+        "goal": "Optionally use rendered browser verification for JavaScript-heavy public pages and record blocked outcomes.",
+        "action": "rendered_page_researcher",
+        "run": "rendered_page_researcher",
+        "emits": "rendered_page_researcher_completed",
+        "on": {
+          "rendered_page_researcher_completed": "research_reconciler"
+        },
+        "control": {
+          "required": true,
+          "retry": {
+            "max_attempts": 2,
+            "backoff_seconds": 1,
+            "backoff_multiplier": 2,
+            "jitter": 0
+          },
+          "failure_policy": "fail_workflow",
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.7,
+            "on_low_confidence": "human_review"
+          }
+        },
+        "in": {
+          "previous": "$state.workflow"
+        },
+        "out": {
+          "rendered_page_researcher": "$state.workflow.rendered_page_researcher"
+        },
+        "provides": [
+          "vc_assistant.rendered_page_researcher.ready"
+        ],
+        "requires": [
+          "vc_assistant.research_planner.ready"
+        ]
+      },
+      {
+        "id": "research_reconciler",
+        "kind": "stage",
+        "label": "Research Reconciler",
+        "goal": "Merge public findings with local claims and flag confirmations, contradictions, missing evidence, and source-quality warnings.",
+        "action": "research_reconciler",
+        "run": "research_reconciler",
+        "emits": "research_reconciler_completed",
+        "on": {
+          "research_reconciler_completed": [
+            "berkus_scorer",
+            "scorecard_bill_payne_scorer",
+            "risk_factor_summation_scorer",
+            "venture_capital_method_scorer",
+            "first_chicago_scorer",
+            "comparables_market_multiple_scorer",
+            "cost_to_duplicate_scorer"
+          ]
+        },
+        "control": {
+          "required": true,
+          "retry": {
+            "max_attempts": 2,
+            "backoff_seconds": 1,
+            "backoff_multiplier": 2,
+            "jitter": 0
+          },
+          "failure_policy": "fail_workflow",
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.7,
+            "on_low_confidence": "human_review"
+          }
+        },
+        "in": {
+          "previous": "$state.workflow"
+        },
+        "out": {
+          "research_reconciler": "$state.workflow.research_reconciler"
+        },
+        "provides": [
+          "vc_assistant.research_reconciler.ready"
+        ],
+        "requires": [
+          "vc_assistant.company_identity_researcher.ready",
+          "vc_assistant.funding_researcher.ready",
+          "vc_assistant.market_comp_researcher.ready",
+          "vc_assistant.traction_verifier.ready",
+          "vc_assistant.rendered_page_researcher.ready"
+        ],
+        "join": {
+          "mode": "all"
+        }
+      },
+      {
+        "id": "berkus_scorer",
+        "kind": "stage",
+        "label": "Berkus Scorer",
+        "goal": "Apply Berkus Method 5 bucket scoring with deterministic calculations.",
+        "action": "berkus_scorer",
+        "run": "berkus_scorer",
+        "emits": "berkus_scorer_completed",
+        "on": {
+          "berkus_scorer_completed": "score_consistency_auditor"
+        },
+        "control": {
+          "required": true,
+          "retry": {
+            "max_attempts": 2,
+            "backoff_seconds": 1,
+            "backoff_multiplier": 2,
+            "jitter": 0
+          },
+          "failure_policy": "fail_workflow",
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.7,
+            "on_low_confidence": "human_review"
+          }
+        },
+        "in": {
+          "previous": "$state.workflow"
+        },
+        "out": {
+          "berkus_scorer": "$state.workflow.berkus_scorer"
+        },
+        "provides": [
+          "vc_assistant.berkus_scorer.ready"
+        ],
+        "requires": [
+          "vc_assistant.research_reconciler.ready"
+        ]
+      },
+      {
+        "id": "scorecard_bill_payne_scorer",
+        "kind": "stage",
+        "label": "Scorecard Bill Payne Scorer",
+        "goal": "Apply weighted Scorecard / Bill Payne factor scoring.",
+        "action": "scorecard_bill_payne_scorer",
+        "run": "scorecard_bill_payne_scorer",
+        "emits": "scorecard_bill_payne_scorer_completed",
+        "on": {
+          "scorecard_bill_payne_scorer_completed": "score_consistency_auditor"
+        },
+        "control": {
+          "required": true,
+          "retry": {
+            "max_attempts": 2,
+            "backoff_seconds": 1,
+            "backoff_multiplier": 2,
+            "jitter": 0
+          },
+          "failure_policy": "fail_workflow",
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.7,
+            "on_low_confidence": "human_review"
+          }
+        },
+        "in": {
+          "previous": "$state.workflow"
+        },
+        "out": {
+          "scorecard_bill_payne_scorer": "$state.workflow.scorecard_bill_payne_scorer"
+        },
+        "provides": [
+          "vc_assistant.scorecard_bill_payne_scorer.ready"
+        ],
+        "requires": [
+          "vc_assistant.research_reconciler.ready"
+        ]
+      },
+      {
+        "id": "risk_factor_summation_scorer",
+        "kind": "stage",
+        "label": "Risk Factor Summation Scorer",
+        "goal": "Apply 12-risk checklist scoring and adjustments.",
+        "action": "risk_factor_summation_scorer",
+        "run": "risk_factor_summation_scorer",
+        "emits": "risk_factor_summation_scorer_completed",
+        "on": {
+          "risk_factor_summation_scorer_completed": "score_consistency_auditor"
+        },
+        "control": {
+          "required": true,
+          "retry": {
+            "max_attempts": 2,
+            "backoff_seconds": 1,
+            "backoff_multiplier": 2,
+            "jitter": 0
+          },
+          "failure_policy": "fail_workflow",
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.7,
+            "on_low_confidence": "human_review"
+          }
+        },
+        "in": {
+          "previous": "$state.workflow"
+        },
+        "out": {
+          "risk_factor_summation_scorer": "$state.workflow.risk_factor_summation_scorer"
+        },
+        "provides": [
+          "vc_assistant.risk_factor_summation_scorer.ready"
+        ],
+        "requires": [
+          "vc_assistant.research_reconciler.ready"
+        ]
+      },
+      {
+        "id": "venture_capital_method_scorer",
+        "kind": "stage",
+        "label": "Venture Capital Method Scorer",
+        "goal": "Apply exit-back valuation assumptions and VC return math scoring.",
+        "action": "venture_capital_method_scorer",
+        "run": "venture_capital_method_scorer",
+        "emits": "venture_capital_method_scorer_completed",
+        "on": {
+          "venture_capital_method_scorer_completed": "score_consistency_auditor"
+        },
+        "control": {
+          "required": true,
+          "retry": {
+            "max_attempts": 2,
+            "backoff_seconds": 1,
+            "backoff_multiplier": 2,
+            "jitter": 0
+          },
+          "failure_policy": "fail_workflow",
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.7,
+            "on_low_confidence": "human_review"
+          }
+        },
+        "in": {
+          "previous": "$state.workflow"
+        },
+        "out": {
+          "venture_capital_method_scorer": "$state.workflow.venture_capital_method_scorer"
+        },
+        "provides": [
+          "vc_assistant.venture_capital_method_scorer.ready"
+        ],
+        "requires": [
+          "vc_assistant.research_reconciler.ready"
+        ]
+      },
+      {
+        "id": "first_chicago_scorer",
+        "kind": "stage",
+        "label": "First Chicago Scorer",
+        "goal": "Apply bear/base/bull case scoring with probability weighting.",
+        "action": "first_chicago_scorer",
+        "run": "first_chicago_scorer",
+        "emits": "first_chicago_scorer_completed",
+        "on": {
+          "first_chicago_scorer_completed": "score_consistency_auditor"
+        },
+        "control": {
+          "required": true,
+          "retry": {
+            "max_attempts": 2,
+            "backoff_seconds": 1,
+            "backoff_multiplier": 2,
+            "jitter": 0
+          },
+          "failure_policy": "fail_workflow",
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.7,
+            "on_low_confidence": "human_review"
+          }
+        },
+        "in": {
+          "previous": "$state.workflow"
+        },
+        "out": {
+          "first_chicago_scorer": "$state.workflow.first_chicago_scorer"
+        },
+        "provides": [
+          "vc_assistant.first_chicago_scorer.ready"
+        ],
+        "requires": [
+          "vc_assistant.research_reconciler.ready"
+        ]
+      },
+      {
+        "id": "comparables_market_multiple_scorer",
+        "kind": "stage",
+        "label": "Comparables Market Multiple Scorer",
+        "goal": "Apply public comparable and market multiple evidence scoring when available.",
+        "action": "comparables_market_multiple_scorer",
+        "run": "comparables_market_multiple_scorer",
+        "emits": "comparables_market_multiple_scorer_completed",
+        "on": {
+          "comparables_market_multiple_scorer_completed": "score_consistency_auditor"
+        },
+        "control": {
+          "required": true,
+          "retry": {
+            "max_attempts": 2,
+            "backoff_seconds": 1,
+            "backoff_multiplier": 2,
+            "jitter": 0
+          },
+          "failure_policy": "fail_workflow",
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.7,
+            "on_low_confidence": "human_review"
+          }
+        },
+        "in": {
+          "previous": "$state.workflow"
+        },
+        "out": {
+          "comparables_market_multiple_scorer": "$state.workflow.comparables_market_multiple_scorer"
+        },
+        "provides": [
+          "vc_assistant.comparables_market_multiple_scorer.ready"
+        ],
+        "requires": [
+          "vc_assistant.research_reconciler.ready"
+        ]
+      },
+      {
+        "id": "cost_to_duplicate_scorer",
+        "kind": "stage",
+        "label": "Cost To Duplicate Scorer",
+        "goal": "Estimate rebuild-cost floor from team, R&D, IP, hardware, data, and infrastructure evidence.",
+        "action": "cost_to_duplicate_scorer",
+        "run": "cost_to_duplicate_scorer",
+        "emits": "cost_to_duplicate_scorer_completed",
+        "on": {
+          "cost_to_duplicate_scorer_completed": "score_consistency_auditor"
+        },
+        "control": {
+          "required": true,
+          "retry": {
+            "max_attempts": 2,
+            "backoff_seconds": 1,
+            "backoff_multiplier": 2,
+            "jitter": 0
+          },
+          "failure_policy": "fail_workflow",
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.7,
+            "on_low_confidence": "human_review"
+          }
+        },
+        "in": {
+          "previous": "$state.workflow"
+        },
+        "out": {
+          "cost_to_duplicate_scorer": "$state.workflow.cost_to_duplicate_scorer"
+        },
+        "provides": [
+          "vc_assistant.cost_to_duplicate_scorer.ready"
+        ],
+        "requires": [
+          "vc_assistant.research_reconciler.ready"
+        ]
+      },
+      {
+        "id": "score_consistency_auditor",
+        "kind": "stage",
+        "label": "Score Consistency Auditor",
+        "goal": "Check math, missing evidence handling, contradictory assumptions, unsupported valuation claims, and formula completeness.",
+        "action": "score_consistency_auditor",
+        "run": "score_consistency_auditor",
+        "emits": "score_consistency_auditor_completed",
+        "on": {
+          "score_consistency_auditor_completed": "company_report_writer"
+        },
+        "control": {
+          "required": true,
+          "retry": {
+            "max_attempts": 2,
+            "backoff_seconds": 1,
+            "backoff_multiplier": 2,
+            "jitter": 0
+          },
+          "failure_policy": "fail_workflow",
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.7,
+            "on_low_confidence": "human_review"
+          }
+        },
+        "in": {
+          "previous": "$state.workflow"
+        },
+        "out": {
+          "score_consistency_auditor": "$state.workflow.score_consistency_auditor"
+        },
+        "provides": [
+          "vc_assistant.score_consistency_auditor.ready"
+        ],
+        "requires": [
+          "vc_assistant.berkus_scorer.ready",
+          "vc_assistant.scorecard_bill_payne_scorer.ready",
+          "vc_assistant.risk_factor_summation_scorer.ready",
+          "vc_assistant.venture_capital_method_scorer.ready",
+          "vc_assistant.first_chicago_scorer.ready",
+          "vc_assistant.comparables_market_multiple_scorer.ready",
+          "vc_assistant.cost_to_duplicate_scorer.ready"
+        ],
+        "join": {
+          "mode": "all"
+        }
+      },
+      {
+        "id": "company_report_writer",
+        "kind": "stage",
+        "label": "Company Report Writer",
+        "goal": "Write per-company reports: analysis, method scores, research sources, evidence, and warnings.",
+        "action": "company_report_writer",
+        "run": "company_report_writer",
+        "emits": "company_report_writer_completed",
+        "on": {
+          "company_report_writer_completed": "batch_index_writer"
+        },
+        "control": {
+          "required": true,
+          "retry": {
+            "max_attempts": 2,
+            "backoff_seconds": 1,
+            "backoff_multiplier": 2,
+            "jitter": 0
+          },
+          "failure_policy": "fail_workflow",
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.7,
+            "on_low_confidence": "human_review"
+          }
+        },
+        "in": {
+          "previous": "$state.workflow"
+        },
+        "out": {
+          "company_report_writer": "$state.workflow.company_report_writer"
+        },
+        "provides": [
+          "vc_assistant.company_report_writer.ready"
+        ],
+        "requires": [
+          "vc_assistant.score_consistency_auditor.ready"
+        ]
+      },
+      {
+        "id": "batch_index_writer",
         "kind": "sink",
-        "label": "VC Report Writer",
-        "goal": "Write score-only per-company reports and a root company index.",
-        "action": "vc_report_writer",
-        "run": "vc_report_writer",
-        "emits": "vc_report_writer_completed",
+        "label": "Batch Index Writer",
+        "goal": "Write root-level company index, research coverage, method coverage, queue, and run summary artifacts.",
+        "action": "batch_index_writer",
+        "run": "batch_index_writer",
+        "emits": "batch_index_writer_completed",
         "on": {
-          "vc_report_writer_completed": "completed"
+          "batch_index_writer_completed": "completed"
         },
         "control": {
           "required": true,
@@ -444,21 +1117,21 @@
           "previous": "$state.workflow"
         },
         "out": {
-          "vc_report_writer": "$state.workflow.vc_report_writer"
+          "batch_index_writer": "$state.workflow.batch_index_writer"
         },
         "provides": [
-          "vc_assistant.vc_report_writer.ready"
+          "vc_assistant.batch_index_writer.ready"
         ],
         "requires": [
-          "vc_assistant.vc_heuristic_scorer.ready"
+          "vc_assistant.company_report_writer.ready"
         ]
       }
     ],
     "edges": [
       {
-        "id": "startup_folder_watcher_to_startup_document_reader",
+        "id": "startup_folder_watcher_to_company_packet_grouper",
         "from": "startup_folder_watcher",
-        "to": "startup_document_reader",
+        "to": "company_packet_grouper",
         "event": "startup_folder_watcher_completed",
         "required": true,
         "accepts": [
@@ -466,30 +1139,290 @@
         ]
       },
       {
-        "id": "startup_document_reader_to_public_market_researcher",
-        "from": "startup_document_reader",
-        "to": "public_market_researcher",
-        "event": "startup_document_reader_completed",
+        "id": "company_packet_grouper_to_document_evidence_extractor",
+        "from": "company_packet_grouper",
+        "to": "document_evidence_extractor",
+        "event": "company_packet_grouper_completed",
         "required": true,
         "accepts": [
           "done"
         ]
       },
       {
-        "id": "public_market_researcher_to_vc_heuristic_scorer",
-        "from": "public_market_researcher",
-        "to": "vc_heuristic_scorer",
-        "event": "public_market_researcher_completed",
+        "id": "document_evidence_extractor_to_claim_normalizer",
+        "from": "document_evidence_extractor",
+        "to": "claim_normalizer",
+        "event": "document_evidence_extractor_completed",
         "required": true,
         "accepts": [
           "done"
         ]
       },
       {
-        "id": "vc_heuristic_scorer_to_vc_report_writer",
-        "from": "vc_heuristic_scorer",
-        "to": "vc_report_writer",
-        "event": "vc_heuristic_scorer_completed",
+        "id": "claim_normalizer_to_research_planner",
+        "from": "claim_normalizer",
+        "to": "research_planner",
+        "event": "claim_normalizer_completed",
+        "required": true,
+        "accepts": [
+          "done"
+        ]
+      },
+      {
+        "id": "research_planner_to_company_identity_researcher",
+        "from": "research_planner",
+        "to": "company_identity_researcher",
+        "event": "research_planner_completed",
+        "required": true,
+        "accepts": [
+          "done"
+        ]
+      },
+      {
+        "id": "company_identity_researcher_to_research_reconciler",
+        "from": "company_identity_researcher",
+        "to": "research_reconciler",
+        "event": "company_identity_researcher_completed",
+        "required": true,
+        "accepts": [
+          "done"
+        ]
+      },
+      {
+        "id": "research_planner_to_funding_researcher",
+        "from": "research_planner",
+        "to": "funding_researcher",
+        "event": "research_planner_completed",
+        "required": true,
+        "accepts": [
+          "done"
+        ]
+      },
+      {
+        "id": "funding_researcher_to_research_reconciler",
+        "from": "funding_researcher",
+        "to": "research_reconciler",
+        "event": "funding_researcher_completed",
+        "required": true,
+        "accepts": [
+          "done"
+        ]
+      },
+      {
+        "id": "research_planner_to_market_comp_researcher",
+        "from": "research_planner",
+        "to": "market_comp_researcher",
+        "event": "research_planner_completed",
+        "required": true,
+        "accepts": [
+          "done"
+        ]
+      },
+      {
+        "id": "market_comp_researcher_to_research_reconciler",
+        "from": "market_comp_researcher",
+        "to": "research_reconciler",
+        "event": "market_comp_researcher_completed",
+        "required": true,
+        "accepts": [
+          "done"
+        ]
+      },
+      {
+        "id": "research_planner_to_traction_verifier",
+        "from": "research_planner",
+        "to": "traction_verifier",
+        "event": "research_planner_completed",
+        "required": true,
+        "accepts": [
+          "done"
+        ]
+      },
+      {
+        "id": "traction_verifier_to_research_reconciler",
+        "from": "traction_verifier",
+        "to": "research_reconciler",
+        "event": "traction_verifier_completed",
+        "required": true,
+        "accepts": [
+          "done"
+        ]
+      },
+      {
+        "id": "research_planner_to_rendered_page_researcher",
+        "from": "research_planner",
+        "to": "rendered_page_researcher",
+        "event": "research_planner_completed",
+        "required": true,
+        "accepts": [
+          "done"
+        ]
+      },
+      {
+        "id": "rendered_page_researcher_to_research_reconciler",
+        "from": "rendered_page_researcher",
+        "to": "research_reconciler",
+        "event": "rendered_page_researcher_completed",
+        "required": true,
+        "accepts": [
+          "done"
+        ]
+      },
+      {
+        "id": "research_reconciler_to_berkus_scorer",
+        "from": "research_reconciler",
+        "to": "berkus_scorer",
+        "event": "research_reconciler_completed",
+        "required": true,
+        "accepts": [
+          "done"
+        ]
+      },
+      {
+        "id": "berkus_scorer_to_score_consistency_auditor",
+        "from": "berkus_scorer",
+        "to": "score_consistency_auditor",
+        "event": "berkus_scorer_completed",
+        "required": true,
+        "accepts": [
+          "done"
+        ]
+      },
+      {
+        "id": "research_reconciler_to_scorecard_bill_payne_scorer",
+        "from": "research_reconciler",
+        "to": "scorecard_bill_payne_scorer",
+        "event": "research_reconciler_completed",
+        "required": true,
+        "accepts": [
+          "done"
+        ]
+      },
+      {
+        "id": "scorecard_bill_payne_scorer_to_score_consistency_auditor",
+        "from": "scorecard_bill_payne_scorer",
+        "to": "score_consistency_auditor",
+        "event": "scorecard_bill_payne_scorer_completed",
+        "required": true,
+        "accepts": [
+          "done"
+        ]
+      },
+      {
+        "id": "research_reconciler_to_risk_factor_summation_scorer",
+        "from": "research_reconciler",
+        "to": "risk_factor_summation_scorer",
+        "event": "research_reconciler_completed",
+        "required": true,
+        "accepts": [
+          "done"
+        ]
+      },
+      {
+        "id": "risk_factor_summation_scorer_to_score_consistency_auditor",
+        "from": "risk_factor_summation_scorer",
+        "to": "score_consistency_auditor",
+        "event": "risk_factor_summation_scorer_completed",
+        "required": true,
+        "accepts": [
+          "done"
+        ]
+      },
+      {
+        "id": "research_reconciler_to_venture_capital_method_scorer",
+        "from": "research_reconciler",
+        "to": "venture_capital_method_scorer",
+        "event": "research_reconciler_completed",
+        "required": true,
+        "accepts": [
+          "done"
+        ]
+      },
+      {
+        "id": "venture_capital_method_scorer_to_score_consistency_auditor",
+        "from": "venture_capital_method_scorer",
+        "to": "score_consistency_auditor",
+        "event": "venture_capital_method_scorer_completed",
+        "required": true,
+        "accepts": [
+          "done"
+        ]
+      },
+      {
+        "id": "research_reconciler_to_first_chicago_scorer",
+        "from": "research_reconciler",
+        "to": "first_chicago_scorer",
+        "event": "research_reconciler_completed",
+        "required": true,
+        "accepts": [
+          "done"
+        ]
+      },
+      {
+        "id": "first_chicago_scorer_to_score_consistency_auditor",
+        "from": "first_chicago_scorer",
+        "to": "score_consistency_auditor",
+        "event": "first_chicago_scorer_completed",
+        "required": true,
+        "accepts": [
+          "done"
+        ]
+      },
+      {
+        "id": "research_reconciler_to_comparables_market_multiple_scorer",
+        "from": "research_reconciler",
+        "to": "comparables_market_multiple_scorer",
+        "event": "research_reconciler_completed",
+        "required": true,
+        "accepts": [
+          "done"
+        ]
+      },
+      {
+        "id": "comparables_market_multiple_scorer_to_score_consistency_auditor",
+        "from": "comparables_market_multiple_scorer",
+        "to": "score_consistency_auditor",
+        "event": "comparables_market_multiple_scorer_completed",
+        "required": true,
+        "accepts": [
+          "done"
+        ]
+      },
+      {
+        "id": "research_reconciler_to_cost_to_duplicate_scorer",
+        "from": "research_reconciler",
+        "to": "cost_to_duplicate_scorer",
+        "event": "research_reconciler_completed",
+        "required": true,
+        "accepts": [
+          "done"
+        ]
+      },
+      {
+        "id": "cost_to_duplicate_scorer_to_score_consistency_auditor",
+        "from": "cost_to_duplicate_scorer",
+        "to": "score_consistency_auditor",
+        "event": "cost_to_duplicate_scorer_completed",
+        "required": true,
+        "accepts": [
+          "done"
+        ]
+      },
+      {
+        "id": "score_consistency_auditor_to_company_report_writer",
+        "from": "score_consistency_auditor",
+        "to": "company_report_writer",
+        "event": "score_consistency_auditor_completed",
+        "required": true,
+        "accepts": [
+          "done"
+        ]
+      },
+      {
+        "id": "company_report_writer_to_batch_index_writer",
+        "from": "company_report_writer",
+        "to": "batch_index_writer",
+        "event": "company_report_writer_completed",
         "required": true,
         "accepts": [
           "done"
@@ -576,7 +1509,7 @@
         }
       },
       {
-        "node_id": "startup_document_reader",
+        "node_id": "company_packet_grouper",
         "type": "generic",
         "agent_type": "executor",
         "config": {
@@ -603,16 +1536,16 @@
             "scripts/run_blueprint.py"
           ],
           "environment": {
-            "MN_WORKFLOW_STEP_ID": "startup_document_reader"
+            "MN_WORKFLOW_STEP_ID": "company_packet_grouper"
           },
-          "output_message_type": "startup_document_reader_completed",
+          "output_message_type": "company_packet_grouper_completed",
           "idempotent": true,
           "side_effect": "read",
           "safe_to_retry": true
         }
       },
       {
-        "node_id": "public_market_researcher",
+        "node_id": "document_evidence_extractor",
         "type": "generic",
         "agent_type": "executor",
         "config": {
@@ -639,21 +1572,129 @@
             "scripts/run_blueprint.py"
           ],
           "environment": {
-            "MN_WORKFLOW_STEP_ID": "public_market_researcher",
+            "MN_WORKFLOW_STEP_ID": "document_evidence_extractor"
+          },
+          "output_message_type": "document_evidence_extractor_completed",
+          "idempotent": true,
+          "side_effect": "read",
+          "safe_to_retry": true
+        }
+      },
+      {
+        "node_id": "claim_normalizer",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "upload_path": "document_workflow",
+          "upload_as": "document_workflow",
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000,
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "workdir": "/sandbox/job/document_workflow",
+          "command": [
+            "python3.11",
+            "scripts/run_blueprint.py"
+          ],
+          "environment": {
+            "MN_WORKFLOW_STEP_ID": "claim_normalizer"
+          },
+          "output_message_type": "claim_normalizer_completed",
+          "idempotent": true,
+          "side_effect": "read",
+          "safe_to_retry": true
+        }
+      },
+      {
+        "node_id": "research_planner",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "upload_path": "document_workflow",
+          "upload_as": "document_workflow",
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000,
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "workdir": "/sandbox/job/document_workflow",
+          "command": [
+            "python3.11",
+            "scripts/run_blueprint.py"
+          ],
+          "environment": {
+            "MN_WORKFLOW_STEP_ID": "research_planner"
+          },
+          "output_message_type": "research_planner_completed",
+          "idempotent": true,
+          "side_effect": "read",
+          "safe_to_retry": true
+        }
+      },
+      {
+        "node_id": "company_identity_researcher",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "upload_path": "document_workflow",
+          "upload_as": "document_workflow",
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000,
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "workdir": "/sandbox/job/document_workflow",
+          "command": [
+            "python3.11",
+            "scripts/run_blueprint.py"
+          ],
+          "environment": {
+            "MN_WORKFLOW_STEP_ID": "company_identity_researcher",
             "W3M_BROWSER_TIMEOUT_SECONDS": "12",
             "W3M_BROWSER_MAX_CHARS": "6000",
             "WEB_BROWSER_TIMEOUT_SECONDS": "20",
             "WEB_BROWSER_MAX_CHARS": "12000",
             "WEB_BROWSER_RESPECT_ROBOTS": "true"
           },
-          "output_message_type": "public_market_researcher_completed",
+          "output_message_type": "company_identity_researcher_completed",
           "idempotent": true,
           "side_effect": "network_read",
           "safe_to_retry": true
         }
       },
       {
-        "node_id": "vc_heuristic_scorer",
+        "node_id": "funding_researcher",
         "type": "generic",
         "agent_type": "executor",
         "config": {
@@ -680,16 +1721,180 @@
             "scripts/run_blueprint.py"
           ],
           "environment": {
-            "MN_WORKFLOW_STEP_ID": "vc_heuristic_scorer"
+            "MN_WORKFLOW_STEP_ID": "funding_researcher",
+            "W3M_BROWSER_TIMEOUT_SECONDS": "12",
+            "W3M_BROWSER_MAX_CHARS": "6000",
+            "WEB_BROWSER_TIMEOUT_SECONDS": "20",
+            "WEB_BROWSER_MAX_CHARS": "12000",
+            "WEB_BROWSER_RESPECT_ROBOTS": "true"
           },
-          "output_message_type": "vc_heuristic_scorer_completed",
+          "output_message_type": "funding_researcher_completed",
+          "idempotent": true,
+          "side_effect": "network_read",
+          "safe_to_retry": true
+        }
+      },
+      {
+        "node_id": "market_comp_researcher",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "upload_path": "document_workflow",
+          "upload_as": "document_workflow",
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000,
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "workdir": "/sandbox/job/document_workflow",
+          "command": [
+            "python3.11",
+            "scripts/run_blueprint.py"
+          ],
+          "environment": {
+            "MN_WORKFLOW_STEP_ID": "market_comp_researcher",
+            "W3M_BROWSER_TIMEOUT_SECONDS": "12",
+            "W3M_BROWSER_MAX_CHARS": "6000",
+            "WEB_BROWSER_TIMEOUT_SECONDS": "20",
+            "WEB_BROWSER_MAX_CHARS": "12000",
+            "WEB_BROWSER_RESPECT_ROBOTS": "true"
+          },
+          "output_message_type": "market_comp_researcher_completed",
+          "idempotent": true,
+          "side_effect": "network_read",
+          "safe_to_retry": true
+        }
+      },
+      {
+        "node_id": "traction_verifier",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "upload_path": "document_workflow",
+          "upload_as": "document_workflow",
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000,
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "workdir": "/sandbox/job/document_workflow",
+          "command": [
+            "python3.11",
+            "scripts/run_blueprint.py"
+          ],
+          "environment": {
+            "MN_WORKFLOW_STEP_ID": "traction_verifier",
+            "W3M_BROWSER_TIMEOUT_SECONDS": "12",
+            "W3M_BROWSER_MAX_CHARS": "6000",
+            "WEB_BROWSER_TIMEOUT_SECONDS": "20",
+            "WEB_BROWSER_MAX_CHARS": "12000",
+            "WEB_BROWSER_RESPECT_ROBOTS": "true"
+          },
+          "output_message_type": "traction_verifier_completed",
+          "idempotent": true,
+          "side_effect": "network_read",
+          "safe_to_retry": true
+        }
+      },
+      {
+        "node_id": "rendered_page_researcher",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "upload_path": "document_workflow",
+          "upload_as": "document_workflow",
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000,
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "workdir": "/sandbox/job/document_workflow",
+          "command": [
+            "python3.11",
+            "scripts/run_blueprint.py"
+          ],
+          "environment": {
+            "MN_WORKFLOW_STEP_ID": "rendered_page_researcher",
+            "W3M_BROWSER_TIMEOUT_SECONDS": "12",
+            "W3M_BROWSER_MAX_CHARS": "6000",
+            "WEB_BROWSER_TIMEOUT_SECONDS": "20",
+            "WEB_BROWSER_MAX_CHARS": "12000",
+            "WEB_BROWSER_RESPECT_ROBOTS": "true"
+          },
+          "output_message_type": "rendered_page_researcher_completed",
+          "idempotent": true,
+          "side_effect": "network_read",
+          "safe_to_retry": true
+        }
+      },
+      {
+        "node_id": "research_reconciler",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "upload_path": "document_workflow",
+          "upload_as": "document_workflow",
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000,
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "workdir": "/sandbox/job/document_workflow",
+          "command": [
+            "python3.11",
+            "scripts/run_blueprint.py"
+          ],
+          "environment": {
+            "MN_WORKFLOW_STEP_ID": "research_reconciler"
+          },
+          "output_message_type": "research_reconciler_completed",
           "idempotent": true,
           "side_effect": "read",
           "safe_to_retry": true
         }
       },
       {
-        "node_id": "vc_report_writer",
+        "node_id": "berkus_scorer",
         "type": "generic",
         "agent_type": "executor",
         "config": {
@@ -716,9 +1921,333 @@
             "scripts/run_blueprint.py"
           ],
           "environment": {
-            "MN_WORKFLOW_STEP_ID": "vc_report_writer"
+            "MN_WORKFLOW_STEP_ID": "berkus_scorer"
           },
-          "output_message_type": "vc_report_writer_completed",
+          "output_message_type": "berkus_scorer_completed",
+          "idempotent": true,
+          "side_effect": "read",
+          "safe_to_retry": true
+        }
+      },
+      {
+        "node_id": "scorecard_bill_payne_scorer",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "upload_path": "document_workflow",
+          "upload_as": "document_workflow",
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000,
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "workdir": "/sandbox/job/document_workflow",
+          "command": [
+            "python3.11",
+            "scripts/run_blueprint.py"
+          ],
+          "environment": {
+            "MN_WORKFLOW_STEP_ID": "scorecard_bill_payne_scorer"
+          },
+          "output_message_type": "scorecard_bill_payne_scorer_completed",
+          "idempotent": true,
+          "side_effect": "read",
+          "safe_to_retry": true
+        }
+      },
+      {
+        "node_id": "risk_factor_summation_scorer",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "upload_path": "document_workflow",
+          "upload_as": "document_workflow",
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000,
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "workdir": "/sandbox/job/document_workflow",
+          "command": [
+            "python3.11",
+            "scripts/run_blueprint.py"
+          ],
+          "environment": {
+            "MN_WORKFLOW_STEP_ID": "risk_factor_summation_scorer"
+          },
+          "output_message_type": "risk_factor_summation_scorer_completed",
+          "idempotent": true,
+          "side_effect": "read",
+          "safe_to_retry": true
+        }
+      },
+      {
+        "node_id": "venture_capital_method_scorer",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "upload_path": "document_workflow",
+          "upload_as": "document_workflow",
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000,
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "workdir": "/sandbox/job/document_workflow",
+          "command": [
+            "python3.11",
+            "scripts/run_blueprint.py"
+          ],
+          "environment": {
+            "MN_WORKFLOW_STEP_ID": "venture_capital_method_scorer"
+          },
+          "output_message_type": "venture_capital_method_scorer_completed",
+          "idempotent": true,
+          "side_effect": "read",
+          "safe_to_retry": true
+        }
+      },
+      {
+        "node_id": "first_chicago_scorer",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "upload_path": "document_workflow",
+          "upload_as": "document_workflow",
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000,
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "workdir": "/sandbox/job/document_workflow",
+          "command": [
+            "python3.11",
+            "scripts/run_blueprint.py"
+          ],
+          "environment": {
+            "MN_WORKFLOW_STEP_ID": "first_chicago_scorer"
+          },
+          "output_message_type": "first_chicago_scorer_completed",
+          "idempotent": true,
+          "side_effect": "read",
+          "safe_to_retry": true
+        }
+      },
+      {
+        "node_id": "comparables_market_multiple_scorer",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "upload_path": "document_workflow",
+          "upload_as": "document_workflow",
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000,
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "workdir": "/sandbox/job/document_workflow",
+          "command": [
+            "python3.11",
+            "scripts/run_blueprint.py"
+          ],
+          "environment": {
+            "MN_WORKFLOW_STEP_ID": "comparables_market_multiple_scorer"
+          },
+          "output_message_type": "comparables_market_multiple_scorer_completed",
+          "idempotent": true,
+          "side_effect": "read",
+          "safe_to_retry": true
+        }
+      },
+      {
+        "node_id": "cost_to_duplicate_scorer",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "upload_path": "document_workflow",
+          "upload_as": "document_workflow",
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000,
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "workdir": "/sandbox/job/document_workflow",
+          "command": [
+            "python3.11",
+            "scripts/run_blueprint.py"
+          ],
+          "environment": {
+            "MN_WORKFLOW_STEP_ID": "cost_to_duplicate_scorer"
+          },
+          "output_message_type": "cost_to_duplicate_scorer_completed",
+          "idempotent": true,
+          "side_effect": "read",
+          "safe_to_retry": true
+        }
+      },
+      {
+        "node_id": "score_consistency_auditor",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "upload_path": "document_workflow",
+          "upload_as": "document_workflow",
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000,
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "workdir": "/sandbox/job/document_workflow",
+          "command": [
+            "python3.11",
+            "scripts/run_blueprint.py"
+          ],
+          "environment": {
+            "MN_WORKFLOW_STEP_ID": "score_consistency_auditor"
+          },
+          "output_message_type": "score_consistency_auditor_completed",
+          "idempotent": true,
+          "side_effect": "read",
+          "safe_to_retry": true
+        }
+      },
+      {
+        "node_id": "company_report_writer",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "upload_path": "document_workflow",
+          "upload_as": "document_workflow",
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000,
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "workdir": "/sandbox/job/document_workflow",
+          "command": [
+            "python3.11",
+            "scripts/run_blueprint.py"
+          ],
+          "environment": {
+            "MN_WORKFLOW_STEP_ID": "company_report_writer"
+          },
+          "output_message_type": "company_report_writer_completed",
+          "idempotent": true,
+          "side_effect": "internal_write",
+          "safe_to_retry": true
+        }
+      },
+      {
+        "node_id": "batch_index_writer",
+        "type": "generic",
+        "agent_type": "executor",
+        "config": {
+          "upload_path": "document_workflow",
+          "upload_as": "document_workflow",
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "pool": "default",
+          "pool_slots": 1,
+          "tty": false,
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_timeout_ms": 45000,
+          "beacon_missed_action": "fail_attempt",
+          "agent_beacon_required": true,
+          "timeout_seconds": 300,
+          "max_attempts": 2,
+          "retry_backoff_ms": 1000,
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "workdir": "/sandbox/job/document_workflow",
+          "command": [
+            "python3.11",
+            "scripts/run_blueprint.py"
+          ],
+          "environment": {
+            "MN_WORKFLOW_STEP_ID": "batch_index_writer"
+          },
+          "output_message_type": "batch_index_writer_completed",
           "idempotent": true,
           "side_effect": "internal_write",
           "safe_to_retry": true
@@ -727,28 +2256,184 @@
     ],
     "edges": [
       {
-        "edge_id": "startup_folder_watcher_to_startup_document_reader",
+        "edge_id": "startup_folder_watcher_to_company_packet_grouper",
         "from_node": "startup_folder_watcher",
-        "to_node": "startup_document_reader",
+        "to_node": "company_packet_grouper",
         "message_type": "startup_folder_watcher_completed"
       },
       {
-        "edge_id": "startup_document_reader_to_public_market_researcher",
-        "from_node": "startup_document_reader",
-        "to_node": "public_market_researcher",
-        "message_type": "startup_document_reader_completed"
+        "edge_id": "company_packet_grouper_to_document_evidence_extractor",
+        "from_node": "company_packet_grouper",
+        "to_node": "document_evidence_extractor",
+        "message_type": "company_packet_grouper_completed"
       },
       {
-        "edge_id": "public_market_researcher_to_vc_heuristic_scorer",
-        "from_node": "public_market_researcher",
-        "to_node": "vc_heuristic_scorer",
-        "message_type": "public_market_researcher_completed"
+        "edge_id": "document_evidence_extractor_to_claim_normalizer",
+        "from_node": "document_evidence_extractor",
+        "to_node": "claim_normalizer",
+        "message_type": "document_evidence_extractor_completed"
       },
       {
-        "edge_id": "vc_heuristic_scorer_to_vc_report_writer",
-        "from_node": "vc_heuristic_scorer",
-        "to_node": "vc_report_writer",
-        "message_type": "vc_heuristic_scorer_completed"
+        "edge_id": "claim_normalizer_to_research_planner",
+        "from_node": "claim_normalizer",
+        "to_node": "research_planner",
+        "message_type": "claim_normalizer_completed"
+      },
+      {
+        "edge_id": "research_planner_to_company_identity_researcher",
+        "from_node": "research_planner",
+        "to_node": "company_identity_researcher",
+        "message_type": "research_planner_completed"
+      },
+      {
+        "edge_id": "company_identity_researcher_to_research_reconciler",
+        "from_node": "company_identity_researcher",
+        "to_node": "research_reconciler",
+        "message_type": "company_identity_researcher_completed"
+      },
+      {
+        "edge_id": "research_planner_to_funding_researcher",
+        "from_node": "research_planner",
+        "to_node": "funding_researcher",
+        "message_type": "research_planner_completed"
+      },
+      {
+        "edge_id": "funding_researcher_to_research_reconciler",
+        "from_node": "funding_researcher",
+        "to_node": "research_reconciler",
+        "message_type": "funding_researcher_completed"
+      },
+      {
+        "edge_id": "research_planner_to_market_comp_researcher",
+        "from_node": "research_planner",
+        "to_node": "market_comp_researcher",
+        "message_type": "research_planner_completed"
+      },
+      {
+        "edge_id": "market_comp_researcher_to_research_reconciler",
+        "from_node": "market_comp_researcher",
+        "to_node": "research_reconciler",
+        "message_type": "market_comp_researcher_completed"
+      },
+      {
+        "edge_id": "research_planner_to_traction_verifier",
+        "from_node": "research_planner",
+        "to_node": "traction_verifier",
+        "message_type": "research_planner_completed"
+      },
+      {
+        "edge_id": "traction_verifier_to_research_reconciler",
+        "from_node": "traction_verifier",
+        "to_node": "research_reconciler",
+        "message_type": "traction_verifier_completed"
+      },
+      {
+        "edge_id": "research_planner_to_rendered_page_researcher",
+        "from_node": "research_planner",
+        "to_node": "rendered_page_researcher",
+        "message_type": "research_planner_completed"
+      },
+      {
+        "edge_id": "rendered_page_researcher_to_research_reconciler",
+        "from_node": "rendered_page_researcher",
+        "to_node": "research_reconciler",
+        "message_type": "rendered_page_researcher_completed"
+      },
+      {
+        "edge_id": "research_reconciler_to_berkus_scorer",
+        "from_node": "research_reconciler",
+        "to_node": "berkus_scorer",
+        "message_type": "research_reconciler_completed"
+      },
+      {
+        "edge_id": "berkus_scorer_to_score_consistency_auditor",
+        "from_node": "berkus_scorer",
+        "to_node": "score_consistency_auditor",
+        "message_type": "berkus_scorer_completed"
+      },
+      {
+        "edge_id": "research_reconciler_to_scorecard_bill_payne_scorer",
+        "from_node": "research_reconciler",
+        "to_node": "scorecard_bill_payne_scorer",
+        "message_type": "research_reconciler_completed"
+      },
+      {
+        "edge_id": "scorecard_bill_payne_scorer_to_score_consistency_auditor",
+        "from_node": "scorecard_bill_payne_scorer",
+        "to_node": "score_consistency_auditor",
+        "message_type": "scorecard_bill_payne_scorer_completed"
+      },
+      {
+        "edge_id": "research_reconciler_to_risk_factor_summation_scorer",
+        "from_node": "research_reconciler",
+        "to_node": "risk_factor_summation_scorer",
+        "message_type": "research_reconciler_completed"
+      },
+      {
+        "edge_id": "risk_factor_summation_scorer_to_score_consistency_auditor",
+        "from_node": "risk_factor_summation_scorer",
+        "to_node": "score_consistency_auditor",
+        "message_type": "risk_factor_summation_scorer_completed"
+      },
+      {
+        "edge_id": "research_reconciler_to_venture_capital_method_scorer",
+        "from_node": "research_reconciler",
+        "to_node": "venture_capital_method_scorer",
+        "message_type": "research_reconciler_completed"
+      },
+      {
+        "edge_id": "venture_capital_method_scorer_to_score_consistency_auditor",
+        "from_node": "venture_capital_method_scorer",
+        "to_node": "score_consistency_auditor",
+        "message_type": "venture_capital_method_scorer_completed"
+      },
+      {
+        "edge_id": "research_reconciler_to_first_chicago_scorer",
+        "from_node": "research_reconciler",
+        "to_node": "first_chicago_scorer",
+        "message_type": "research_reconciler_completed"
+      },
+      {
+        "edge_id": "first_chicago_scorer_to_score_consistency_auditor",
+        "from_node": "first_chicago_scorer",
+        "to_node": "score_consistency_auditor",
+        "message_type": "first_chicago_scorer_completed"
+      },
+      {
+        "edge_id": "research_reconciler_to_comparables_market_multiple_scorer",
+        "from_node": "research_reconciler",
+        "to_node": "comparables_market_multiple_scorer",
+        "message_type": "research_reconciler_completed"
+      },
+      {
+        "edge_id": "comparables_market_multiple_scorer_to_score_consistency_auditor",
+        "from_node": "comparables_market_multiple_scorer",
+        "to_node": "score_consistency_auditor",
+        "message_type": "comparables_market_multiple_scorer_completed"
+      },
+      {
+        "edge_id": "research_reconciler_to_cost_to_duplicate_scorer",
+        "from_node": "research_reconciler",
+        "to_node": "cost_to_duplicate_scorer",
+        "message_type": "research_reconciler_completed"
+      },
+      {
+        "edge_id": "cost_to_duplicate_scorer_to_score_consistency_auditor",
+        "from_node": "cost_to_duplicate_scorer",
+        "to_node": "score_consistency_auditor",
+        "message_type": "cost_to_duplicate_scorer_completed"
+      },
+      {
+        "edge_id": "score_consistency_auditor_to_company_report_writer",
+        "from_node": "score_consistency_auditor",
+        "to_node": "company_report_writer",
+        "message_type": "score_consistency_auditor_completed"
+      },
+      {
+        "edge_id": "company_report_writer_to_batch_index_writer",
+        "from_node": "company_report_writer",
+        "to_node": "batch_index_writer",
+        "message_type": "company_report_writer_completed"
       }
     ]
   },
@@ -764,7 +2449,7 @@
             "id": "startup_folder_watcher",
             "alias": "startup_folder_watcher",
             "kind": "worker",
-            "role": "Startup folder watcher",
+            "role": "Startup Folder Watcher",
             "model": "default",
             "tokens": 12000,
             "tools": 4,
@@ -772,17 +2457,17 @@
           }
         ]
       },
-      "startup_document_reader": {
+      "company_packet_grouper": {
         "type": "worker",
         "strategy": "single",
         "side_effect": "read",
         "risk": "low",
         "workers": [
           {
-            "id": "startup_document_reader",
-            "alias": "startup_document_reader",
+            "id": "company_packet_grouper",
+            "alias": "company_packet_grouper",
             "kind": "worker",
-            "role": "Startup document reader",
+            "role": "Company Packet Grouper",
             "model": "default",
             "tokens": 12000,
             "tools": 4,
@@ -790,39 +2475,181 @@
           }
         ]
       },
-      "public_market_researcher": {
+      "document_evidence_extractor": {
+        "type": "worker",
+        "strategy": "single",
+        "side_effect": "read",
+        "risk": "low",
+        "workers": [
+          {
+            "id": "document_evidence_extractor",
+            "alias": "document_evidence_extractor",
+            "kind": "worker",
+            "role": "Document Evidence Extractor",
+            "model": "default",
+            "tokens": 12000,
+            "tools": 4,
+            "required": true
+          }
+        ]
+      },
+      "claim_normalizer": {
+        "type": "worker",
+        "strategy": "single",
+        "side_effect": "read",
+        "risk": "low",
+        "workers": [
+          {
+            "id": "claim_normalizer",
+            "alias": "claim_normalizer",
+            "kind": "worker",
+            "role": "Claim Normalizer",
+            "model": "default",
+            "tokens": 12000,
+            "tools": 4,
+            "required": true
+          }
+        ]
+      },
+      "research_planner": {
+        "type": "worker",
+        "strategy": "single",
+        "side_effect": "read",
+        "risk": "low",
+        "workers": [
+          {
+            "id": "research_planner",
+            "alias": "research_planner",
+            "kind": "worker",
+            "role": "Research Planner",
+            "model": "default",
+            "tokens": 12000,
+            "tools": 4,
+            "required": true
+          }
+        ]
+      },
+      "company_identity_researcher": {
         "type": "worker",
         "strategy": "single",
         "side_effect": "network_read",
         "risk": "low",
         "workers": [
           {
-            "id": "public_market_researcher",
-            "alias": "public_market_researcher",
+            "id": "company_identity_researcher",
+            "alias": "company_identity_researcher",
             "kind": "worker",
-            "role": "Public market researcher",
+            "role": "Company Identity Researcher",
             "model": "default",
             "tokens": 12000,
             "tools": 6,
+            "required": true,
             "skills": [
               "w3m_browser_skill",
               "web_browser_skill"
-            ],
-            "required": true
+            ]
           }
         ]
       },
-      "vc_heuristic_scorer": {
+      "funding_researcher": {
+        "type": "worker",
+        "strategy": "single",
+        "side_effect": "network_read",
+        "risk": "low",
+        "workers": [
+          {
+            "id": "funding_researcher",
+            "alias": "funding_researcher",
+            "kind": "worker",
+            "role": "Funding Researcher",
+            "model": "default",
+            "tokens": 12000,
+            "tools": 6,
+            "required": true,
+            "skills": [
+              "w3m_browser_skill",
+              "web_browser_skill"
+            ]
+          }
+        ]
+      },
+      "market_comp_researcher": {
+        "type": "worker",
+        "strategy": "single",
+        "side_effect": "network_read",
+        "risk": "low",
+        "workers": [
+          {
+            "id": "market_comp_researcher",
+            "alias": "market_comp_researcher",
+            "kind": "worker",
+            "role": "Market And Comparable Researcher",
+            "model": "default",
+            "tokens": 12000,
+            "tools": 6,
+            "required": true,
+            "skills": [
+              "w3m_browser_skill",
+              "web_browser_skill"
+            ]
+          }
+        ]
+      },
+      "traction_verifier": {
+        "type": "worker",
+        "strategy": "single",
+        "side_effect": "network_read",
+        "risk": "low",
+        "workers": [
+          {
+            "id": "traction_verifier",
+            "alias": "traction_verifier",
+            "kind": "worker",
+            "role": "Traction Verifier",
+            "model": "default",
+            "tokens": 12000,
+            "tools": 6,
+            "required": true,
+            "skills": [
+              "w3m_browser_skill",
+              "web_browser_skill"
+            ]
+          }
+        ]
+      },
+      "rendered_page_researcher": {
+        "type": "worker",
+        "strategy": "single",
+        "side_effect": "network_read",
+        "risk": "low",
+        "workers": [
+          {
+            "id": "rendered_page_researcher",
+            "alias": "rendered_page_researcher",
+            "kind": "worker",
+            "role": "Rendered Page Researcher",
+            "model": "default",
+            "tokens": 12000,
+            "tools": 6,
+            "required": true,
+            "skills": [
+              "w3m_browser_skill",
+              "web_browser_skill"
+            ]
+          }
+        ]
+      },
+      "research_reconciler": {
         "type": "worker",
         "strategy": "single",
         "side_effect": "read",
         "risk": "low",
         "workers": [
           {
-            "id": "vc_heuristic_scorer",
-            "alias": "vc_heuristic_scorer",
+            "id": "research_reconciler",
+            "alias": "research_reconciler",
             "kind": "worker",
-            "role": "VC heuristic scorer",
+            "role": "Research Reconciler",
             "model": "default",
             "tokens": 12000,
             "tools": 4,
@@ -830,17 +2657,179 @@
           }
         ]
       },
-      "vc_report_writer": {
+      "berkus_scorer": {
+        "type": "worker",
+        "strategy": "single",
+        "side_effect": "read",
+        "risk": "low",
+        "workers": [
+          {
+            "id": "berkus_scorer",
+            "alias": "berkus_scorer",
+            "kind": "worker",
+            "role": "Berkus Scorer",
+            "model": "default",
+            "tokens": 12000,
+            "tools": 4,
+            "required": true
+          }
+        ]
+      },
+      "scorecard_bill_payne_scorer": {
+        "type": "worker",
+        "strategy": "single",
+        "side_effect": "read",
+        "risk": "low",
+        "workers": [
+          {
+            "id": "scorecard_bill_payne_scorer",
+            "alias": "scorecard_bill_payne_scorer",
+            "kind": "worker",
+            "role": "Scorecard Bill Payne Scorer",
+            "model": "default",
+            "tokens": 12000,
+            "tools": 4,
+            "required": true
+          }
+        ]
+      },
+      "risk_factor_summation_scorer": {
+        "type": "worker",
+        "strategy": "single",
+        "side_effect": "read",
+        "risk": "low",
+        "workers": [
+          {
+            "id": "risk_factor_summation_scorer",
+            "alias": "risk_factor_summation_scorer",
+            "kind": "worker",
+            "role": "Risk Factor Summation Scorer",
+            "model": "default",
+            "tokens": 12000,
+            "tools": 4,
+            "required": true
+          }
+        ]
+      },
+      "venture_capital_method_scorer": {
+        "type": "worker",
+        "strategy": "single",
+        "side_effect": "read",
+        "risk": "low",
+        "workers": [
+          {
+            "id": "venture_capital_method_scorer",
+            "alias": "venture_capital_method_scorer",
+            "kind": "worker",
+            "role": "Venture Capital Method Scorer",
+            "model": "default",
+            "tokens": 12000,
+            "tools": 4,
+            "required": true
+          }
+        ]
+      },
+      "first_chicago_scorer": {
+        "type": "worker",
+        "strategy": "single",
+        "side_effect": "read",
+        "risk": "low",
+        "workers": [
+          {
+            "id": "first_chicago_scorer",
+            "alias": "first_chicago_scorer",
+            "kind": "worker",
+            "role": "First Chicago Scorer",
+            "model": "default",
+            "tokens": 12000,
+            "tools": 4,
+            "required": true
+          }
+        ]
+      },
+      "comparables_market_multiple_scorer": {
+        "type": "worker",
+        "strategy": "single",
+        "side_effect": "read",
+        "risk": "low",
+        "workers": [
+          {
+            "id": "comparables_market_multiple_scorer",
+            "alias": "comparables_market_multiple_scorer",
+            "kind": "worker",
+            "role": "Comparables Market Multiple Scorer",
+            "model": "default",
+            "tokens": 12000,
+            "tools": 4,
+            "required": true
+          }
+        ]
+      },
+      "cost_to_duplicate_scorer": {
+        "type": "worker",
+        "strategy": "single",
+        "side_effect": "read",
+        "risk": "low",
+        "workers": [
+          {
+            "id": "cost_to_duplicate_scorer",
+            "alias": "cost_to_duplicate_scorer",
+            "kind": "worker",
+            "role": "Cost To Duplicate Scorer",
+            "model": "default",
+            "tokens": 12000,
+            "tools": 4,
+            "required": true
+          }
+        ]
+      },
+      "score_consistency_auditor": {
+        "type": "worker",
+        "strategy": "single",
+        "side_effect": "read",
+        "risk": "low",
+        "workers": [
+          {
+            "id": "score_consistency_auditor",
+            "alias": "score_consistency_auditor",
+            "kind": "worker",
+            "role": "Score Consistency Auditor",
+            "model": "default",
+            "tokens": 12000,
+            "tools": 4,
+            "required": true
+          }
+        ]
+      },
+      "company_report_writer": {
         "type": "worker",
         "strategy": "single",
         "side_effect": "internal_write",
         "risk": "medium",
         "workers": [
           {
-            "id": "vc_report_writer",
-            "alias": "vc_report_writer",
+            "id": "company_report_writer",
+            "alias": "company_report_writer",
             "kind": "worker",
-            "role": "VC report writer",
+            "role": "Company Report Writer",
+            "model": "default",
+            "tokens": 12000,
+            "tools": 4,
+            "required": true
+          }
+        ]
+      },
+      "batch_index_writer": {
+        "type": "worker",
+        "strategy": "single",
+        "side_effect": "internal_write",
+        "risk": "medium",
+        "workers": [
+          {
+            "id": "batch_index_writer",
+            "alias": "batch_index_writer",
+            "kind": "worker",
+            "role": "Batch Index Writer",
             "model": "default",
             "tokens": 12000,
             "tools": 4,
@@ -1050,7 +3039,14 @@
       "human approval policy",
       "artifact records",
       "run-store observability dashboard",
-      "Membrane context memory optimization"
+      "Membrane context memory optimization",
+      "company work queue generation",
+      "deterministic fact table normalization",
+      "parallel specialist web research",
+      "parallel numerical method scoring",
+      "score consistency auditing",
+      "research coverage reports",
+      "method coverage reports"
     ],
     "configuration_contract": {
       "required_files": [
@@ -1089,15 +3085,15 @@
           }
         },
         {
-          "node_id": "startup_document_reader",
+          "node_id": "company_packet_grouper",
           "uses": "mn-agents.data_python_executor@1.0.0",
           "with": {
             "environment": {
-              "MN_WORKFLOW_STEP_ID": "startup_document_reader"
+              "MN_WORKFLOW_STEP_ID": "company_packet_grouper"
             },
             "script": "scripts/run_blueprint.py",
             "upload_path": "document_workflow",
-            "output_message_type": "startup_document_reader_completed",
+            "output_message_type": "company_packet_grouper_completed",
             "runner_module": "MirrorNeuron.Runner.HostLocal",
             "idempotent": true,
             "side_effect": "read",
@@ -1105,11 +3101,59 @@
           }
         },
         {
-          "node_id": "public_market_researcher",
+          "node_id": "document_evidence_extractor",
           "uses": "mn-agents.data_python_executor@1.0.0",
           "with": {
             "environment": {
-              "MN_WORKFLOW_STEP_ID": "public_market_researcher",
+              "MN_WORKFLOW_STEP_ID": "document_evidence_extractor"
+            },
+            "script": "scripts/run_blueprint.py",
+            "upload_path": "document_workflow",
+            "output_message_type": "document_evidence_extractor_completed",
+            "runner_module": "MirrorNeuron.Runner.HostLocal",
+            "idempotent": true,
+            "side_effect": "read",
+            "safe_to_retry": true
+          }
+        },
+        {
+          "node_id": "claim_normalizer",
+          "uses": "mn-agents.data_python_executor@1.0.0",
+          "with": {
+            "environment": {
+              "MN_WORKFLOW_STEP_ID": "claim_normalizer"
+            },
+            "script": "scripts/run_blueprint.py",
+            "upload_path": "document_workflow",
+            "output_message_type": "claim_normalizer_completed",
+            "runner_module": "MirrorNeuron.Runner.HostLocal",
+            "idempotent": true,
+            "side_effect": "read",
+            "safe_to_retry": true
+          }
+        },
+        {
+          "node_id": "research_planner",
+          "uses": "mn-agents.data_python_executor@1.0.0",
+          "with": {
+            "environment": {
+              "MN_WORKFLOW_STEP_ID": "research_planner"
+            },
+            "script": "scripts/run_blueprint.py",
+            "upload_path": "document_workflow",
+            "output_message_type": "research_planner_completed",
+            "runner_module": "MirrorNeuron.Runner.HostLocal",
+            "idempotent": true,
+            "side_effect": "read",
+            "safe_to_retry": true
+          }
+        },
+        {
+          "node_id": "company_identity_researcher",
+          "uses": "mn-agents.data_python_executor@1.0.0",
+          "with": {
+            "environment": {
+              "MN_WORKFLOW_STEP_ID": "company_identity_researcher",
               "W3M_BROWSER_TIMEOUT_SECONDS": "12",
               "W3M_BROWSER_MAX_CHARS": "6000",
               "WEB_BROWSER_TIMEOUT_SECONDS": "20",
@@ -1118,7 +3162,7 @@
             },
             "script": "scripts/run_blueprint.py",
             "upload_path": "document_workflow",
-            "output_message_type": "public_market_researcher_completed",
+            "output_message_type": "company_identity_researcher_completed",
             "runner_module": "MirrorNeuron.Runner.HostLocal",
             "idempotent": true,
             "side_effect": "network_read",
@@ -1126,15 +3170,99 @@
           }
         },
         {
-          "node_id": "vc_heuristic_scorer",
+          "node_id": "funding_researcher",
           "uses": "mn-agents.data_python_executor@1.0.0",
           "with": {
             "environment": {
-              "MN_WORKFLOW_STEP_ID": "vc_heuristic_scorer"
+              "MN_WORKFLOW_STEP_ID": "funding_researcher",
+              "W3M_BROWSER_TIMEOUT_SECONDS": "12",
+              "W3M_BROWSER_MAX_CHARS": "6000",
+              "WEB_BROWSER_TIMEOUT_SECONDS": "20",
+              "WEB_BROWSER_MAX_CHARS": "12000",
+              "WEB_BROWSER_RESPECT_ROBOTS": "true"
             },
             "script": "scripts/run_blueprint.py",
             "upload_path": "document_workflow",
-            "output_message_type": "vc_heuristic_scorer_completed",
+            "output_message_type": "funding_researcher_completed",
+            "runner_module": "MirrorNeuron.Runner.HostLocal",
+            "idempotent": true,
+            "side_effect": "network_read",
+            "safe_to_retry": true
+          }
+        },
+        {
+          "node_id": "market_comp_researcher",
+          "uses": "mn-agents.data_python_executor@1.0.0",
+          "with": {
+            "environment": {
+              "MN_WORKFLOW_STEP_ID": "market_comp_researcher",
+              "W3M_BROWSER_TIMEOUT_SECONDS": "12",
+              "W3M_BROWSER_MAX_CHARS": "6000",
+              "WEB_BROWSER_TIMEOUT_SECONDS": "20",
+              "WEB_BROWSER_MAX_CHARS": "12000",
+              "WEB_BROWSER_RESPECT_ROBOTS": "true"
+            },
+            "script": "scripts/run_blueprint.py",
+            "upload_path": "document_workflow",
+            "output_message_type": "market_comp_researcher_completed",
+            "runner_module": "MirrorNeuron.Runner.HostLocal",
+            "idempotent": true,
+            "side_effect": "network_read",
+            "safe_to_retry": true
+          }
+        },
+        {
+          "node_id": "traction_verifier",
+          "uses": "mn-agents.data_python_executor@1.0.0",
+          "with": {
+            "environment": {
+              "MN_WORKFLOW_STEP_ID": "traction_verifier",
+              "W3M_BROWSER_TIMEOUT_SECONDS": "12",
+              "W3M_BROWSER_MAX_CHARS": "6000",
+              "WEB_BROWSER_TIMEOUT_SECONDS": "20",
+              "WEB_BROWSER_MAX_CHARS": "12000",
+              "WEB_BROWSER_RESPECT_ROBOTS": "true"
+            },
+            "script": "scripts/run_blueprint.py",
+            "upload_path": "document_workflow",
+            "output_message_type": "traction_verifier_completed",
+            "runner_module": "MirrorNeuron.Runner.HostLocal",
+            "idempotent": true,
+            "side_effect": "network_read",
+            "safe_to_retry": true
+          }
+        },
+        {
+          "node_id": "rendered_page_researcher",
+          "uses": "mn-agents.data_python_executor@1.0.0",
+          "with": {
+            "environment": {
+              "MN_WORKFLOW_STEP_ID": "rendered_page_researcher",
+              "W3M_BROWSER_TIMEOUT_SECONDS": "12",
+              "W3M_BROWSER_MAX_CHARS": "6000",
+              "WEB_BROWSER_TIMEOUT_SECONDS": "20",
+              "WEB_BROWSER_MAX_CHARS": "12000",
+              "WEB_BROWSER_RESPECT_ROBOTS": "true"
+            },
+            "script": "scripts/run_blueprint.py",
+            "upload_path": "document_workflow",
+            "output_message_type": "rendered_page_researcher_completed",
+            "runner_module": "MirrorNeuron.Runner.HostLocal",
+            "idempotent": true,
+            "side_effect": "network_read",
+            "safe_to_retry": true
+          }
+        },
+        {
+          "node_id": "research_reconciler",
+          "uses": "mn-agents.data_python_executor@1.0.0",
+          "with": {
+            "environment": {
+              "MN_WORKFLOW_STEP_ID": "research_reconciler"
+            },
+            "script": "scripts/run_blueprint.py",
+            "upload_path": "document_workflow",
+            "output_message_type": "research_reconciler_completed",
             "runner_module": "MirrorNeuron.Runner.HostLocal",
             "idempotent": true,
             "side_effect": "read",
@@ -1142,15 +3270,159 @@
           }
         },
         {
-          "node_id": "vc_report_writer",
+          "node_id": "berkus_scorer",
           "uses": "mn-agents.data_python_executor@1.0.0",
           "with": {
             "environment": {
-              "MN_WORKFLOW_STEP_ID": "vc_report_writer"
+              "MN_WORKFLOW_STEP_ID": "berkus_scorer"
             },
             "script": "scripts/run_blueprint.py",
             "upload_path": "document_workflow",
-            "output_message_type": "vc_report_writer_completed",
+            "output_message_type": "berkus_scorer_completed",
+            "runner_module": "MirrorNeuron.Runner.HostLocal",
+            "idempotent": true,
+            "side_effect": "read",
+            "safe_to_retry": true
+          }
+        },
+        {
+          "node_id": "scorecard_bill_payne_scorer",
+          "uses": "mn-agents.data_python_executor@1.0.0",
+          "with": {
+            "environment": {
+              "MN_WORKFLOW_STEP_ID": "scorecard_bill_payne_scorer"
+            },
+            "script": "scripts/run_blueprint.py",
+            "upload_path": "document_workflow",
+            "output_message_type": "scorecard_bill_payne_scorer_completed",
+            "runner_module": "MirrorNeuron.Runner.HostLocal",
+            "idempotent": true,
+            "side_effect": "read",
+            "safe_to_retry": true
+          }
+        },
+        {
+          "node_id": "risk_factor_summation_scorer",
+          "uses": "mn-agents.data_python_executor@1.0.0",
+          "with": {
+            "environment": {
+              "MN_WORKFLOW_STEP_ID": "risk_factor_summation_scorer"
+            },
+            "script": "scripts/run_blueprint.py",
+            "upload_path": "document_workflow",
+            "output_message_type": "risk_factor_summation_scorer_completed",
+            "runner_module": "MirrorNeuron.Runner.HostLocal",
+            "idempotent": true,
+            "side_effect": "read",
+            "safe_to_retry": true
+          }
+        },
+        {
+          "node_id": "venture_capital_method_scorer",
+          "uses": "mn-agents.data_python_executor@1.0.0",
+          "with": {
+            "environment": {
+              "MN_WORKFLOW_STEP_ID": "venture_capital_method_scorer"
+            },
+            "script": "scripts/run_blueprint.py",
+            "upload_path": "document_workflow",
+            "output_message_type": "venture_capital_method_scorer_completed",
+            "runner_module": "MirrorNeuron.Runner.HostLocal",
+            "idempotent": true,
+            "side_effect": "read",
+            "safe_to_retry": true
+          }
+        },
+        {
+          "node_id": "first_chicago_scorer",
+          "uses": "mn-agents.data_python_executor@1.0.0",
+          "with": {
+            "environment": {
+              "MN_WORKFLOW_STEP_ID": "first_chicago_scorer"
+            },
+            "script": "scripts/run_blueprint.py",
+            "upload_path": "document_workflow",
+            "output_message_type": "first_chicago_scorer_completed",
+            "runner_module": "MirrorNeuron.Runner.HostLocal",
+            "idempotent": true,
+            "side_effect": "read",
+            "safe_to_retry": true
+          }
+        },
+        {
+          "node_id": "comparables_market_multiple_scorer",
+          "uses": "mn-agents.data_python_executor@1.0.0",
+          "with": {
+            "environment": {
+              "MN_WORKFLOW_STEP_ID": "comparables_market_multiple_scorer"
+            },
+            "script": "scripts/run_blueprint.py",
+            "upload_path": "document_workflow",
+            "output_message_type": "comparables_market_multiple_scorer_completed",
+            "runner_module": "MirrorNeuron.Runner.HostLocal",
+            "idempotent": true,
+            "side_effect": "read",
+            "safe_to_retry": true
+          }
+        },
+        {
+          "node_id": "cost_to_duplicate_scorer",
+          "uses": "mn-agents.data_python_executor@1.0.0",
+          "with": {
+            "environment": {
+              "MN_WORKFLOW_STEP_ID": "cost_to_duplicate_scorer"
+            },
+            "script": "scripts/run_blueprint.py",
+            "upload_path": "document_workflow",
+            "output_message_type": "cost_to_duplicate_scorer_completed",
+            "runner_module": "MirrorNeuron.Runner.HostLocal",
+            "idempotent": true,
+            "side_effect": "read",
+            "safe_to_retry": true
+          }
+        },
+        {
+          "node_id": "score_consistency_auditor",
+          "uses": "mn-agents.data_python_executor@1.0.0",
+          "with": {
+            "environment": {
+              "MN_WORKFLOW_STEP_ID": "score_consistency_auditor"
+            },
+            "script": "scripts/run_blueprint.py",
+            "upload_path": "document_workflow",
+            "output_message_type": "score_consistency_auditor_completed",
+            "runner_module": "MirrorNeuron.Runner.HostLocal",
+            "idempotent": true,
+            "side_effect": "read",
+            "safe_to_retry": true
+          }
+        },
+        {
+          "node_id": "company_report_writer",
+          "uses": "mn-agents.data_python_executor@1.0.0",
+          "with": {
+            "environment": {
+              "MN_WORKFLOW_STEP_ID": "company_report_writer"
+            },
+            "script": "scripts/run_blueprint.py",
+            "upload_path": "document_workflow",
+            "output_message_type": "company_report_writer_completed",
+            "runner_module": "MirrorNeuron.Runner.HostLocal",
+            "idempotent": true,
+            "side_effect": "internal_write",
+            "safe_to_retry": true
+          }
+        },
+        {
+          "node_id": "batch_index_writer",
+          "uses": "mn-agents.data_python_executor@1.0.0",
+          "with": {
+            "environment": {
+              "MN_WORKFLOW_STEP_ID": "batch_index_writer"
+            },
+            "script": "scripts/run_blueprint.py",
+            "upload_path": "document_workflow",
+            "output_message_type": "batch_index_writer_completed",
             "runner_module": "MirrorNeuron.Runner.HostLocal",
             "idempotent": true,
             "side_effect": "internal_write",
@@ -1168,23 +3440,87 @@
       "model": "default",
       "agents": {
         "startup_folder_watcher": {
-          "role": "Startup folder watcher",
+          "role": "Startup Folder Watcher",
           "model": "default"
         },
-        "startup_document_reader": {
-          "role": "Startup document reader",
+        "company_packet_grouper": {
+          "role": "Company Packet Grouper",
           "model": "default"
         },
-        "public_market_researcher": {
-          "role": "Public market researcher",
+        "document_evidence_extractor": {
+          "role": "Document Evidence Extractor",
           "model": "default"
         },
-        "vc_heuristic_scorer": {
-          "role": "VC heuristic scorer",
+        "claim_normalizer": {
+          "role": "Claim Normalizer",
           "model": "default"
         },
-        "vc_report_writer": {
-          "role": "VC report writer",
+        "research_planner": {
+          "role": "Research Planner",
+          "model": "default"
+        },
+        "company_identity_researcher": {
+          "role": "Company Identity Researcher",
+          "model": "default"
+        },
+        "funding_researcher": {
+          "role": "Funding Researcher",
+          "model": "default"
+        },
+        "market_comp_researcher": {
+          "role": "Market And Comparable Researcher",
+          "model": "default"
+        },
+        "traction_verifier": {
+          "role": "Traction Verifier",
+          "model": "default"
+        },
+        "rendered_page_researcher": {
+          "role": "Rendered Page Researcher",
+          "model": "default"
+        },
+        "research_reconciler": {
+          "role": "Research Reconciler",
+          "model": "default"
+        },
+        "berkus_scorer": {
+          "role": "Berkus Scorer",
+          "model": "default"
+        },
+        "scorecard_bill_payne_scorer": {
+          "role": "Scorecard Bill Payne Scorer",
+          "model": "default"
+        },
+        "risk_factor_summation_scorer": {
+          "role": "Risk Factor Summation Scorer",
+          "model": "default"
+        },
+        "venture_capital_method_scorer": {
+          "role": "Venture Capital Method Scorer",
+          "model": "default"
+        },
+        "first_chicago_scorer": {
+          "role": "First Chicago Scorer",
+          "model": "default"
+        },
+        "comparables_market_multiple_scorer": {
+          "role": "Comparables Market Multiple Scorer",
+          "model": "default"
+        },
+        "cost_to_duplicate_scorer": {
+          "role": "Cost To Duplicate Scorer",
+          "model": "default"
+        },
+        "score_consistency_auditor": {
+          "role": "Score Consistency Auditor",
+          "model": "default"
+        },
+        "company_report_writer": {
+          "role": "Company Report Writer",
+          "model": "default"
+        },
+        "batch_index_writer": {
+          "role": "Batch Index Writer",
           "model": "default"
         }
       }

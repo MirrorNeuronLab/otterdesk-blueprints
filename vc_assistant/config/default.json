@@ -115,57 +115,217 @@
       "startup_folder_watcher": {
         "llm_config": "primary",
         "model": "default",
-        "role": "Startup folder watcher",
+        "role": "Startup Folder Watcher",
         "responsibilities": [
-          "Detect startup document bundles and changed files.",
-          "Preserve folder-first company grouping.",
-          "Flag missing or unreadable source packets."
+          "Detect changed files.",
+          "Build company fingerprints.",
+          "Identify unchanged company packets."
         ]
       },
-      "startup_document_reader": {
+      "company_packet_grouper": {
         "llm_config": "primary",
         "model": "default",
-        "role": "Startup document reader",
+        "role": "Company Packet Grouper",
         "responsibilities": [
-          "Extract source-grounded startup evidence.",
-          "Redact sensitive identifiers before reporting.",
-          "Separate claims from assumptions."
+          "Group files by company.",
+          "Resolve stable company ids.",
+          "Preserve source refs."
         ]
       },
-      "public_market_researcher": {
+      "document_evidence_extractor": {
         "llm_config": "primary",
         "model": "default",
-        "role": "Public market researcher",
+        "role": "Document Evidence Extractor",
         "responsibilities": [
-          "Plan privacy-safe public searches.",
-          "Use company names, categories, domains, and public claims only.",
-          "Summarize source refs without exposing confidential excerpts."
+          "Extract local evidence.",
+          "Capture structured claims.",
+          "Mark unreadable files."
         ]
       },
-      "vc_heuristic_scorer": {
+      "claim_normalizer": {
         "llm_config": "primary",
         "model": "default",
-        "role": "VC heuristic scorer",
+        "role": "Claim Normalizer",
         "responsibilities": [
-          "Apply Berkus, Scorecard, Risk Factor, VC, First Chicago, Comparables, and Cost-to-Duplicate methods.",
-          "Mark missing evidence as insufficient_evidence.",
-          "Avoid investment decision labels."
+          "Build fact tables.",
+          "Normalize numeric evidence.",
+          "Separate local and public facts."
         ]
       },
-      "vc_report_writer": {
+      "research_planner": {
         "llm_config": "primary",
         "model": "default",
-        "role": "VC report writer",
+        "role": "Research Planner",
         "responsibilities": [
-          "Write per-company JSON and Markdown reports.",
-          "Preserve scores, assumptions, sources, and evidence.",
-          "Keep outputs report-only for user decision making."
+          "Create safe queries.",
+          "Avoid confidential excerpts.",
+          "Plan profile and market lookups."
+        ]
+      },
+      "company_identity_researcher": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Company Identity Researcher",
+        "responsibilities": [
+          "Research company identity.",
+          "Check Crunchbase/profile targets.",
+          "Record blocked outcomes."
+        ]
+      },
+      "funding_researcher": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Funding Researcher",
+        "responsibilities": [
+          "Research funding mentions.",
+          "Check investor and accelerator signals.",
+          "Record source quality."
+        ]
+      },
+      "market_comp_researcher": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Market And Comparable Researcher",
+        "responsibilities": [
+          "Research market context.",
+          "Find comparable candidates.",
+          "Capture source references."
+        ]
+      },
+      "traction_verifier": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Traction Verifier",
+        "responsibilities": [
+          "Verify customer and launch claims.",
+          "Check public traction signals.",
+          "Flag missing evidence."
+        ]
+      },
+      "rendered_page_researcher": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Rendered Page Researcher",
+        "responsibilities": [
+          "Use rendered browser when enabled.",
+          "Respect robots and blocked pages.",
+          "Record JS-heavy page status."
+        ]
+      },
+      "research_reconciler": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Research Reconciler",
+        "responsibilities": [
+          "Merge local and public evidence.",
+          "Flag confirmations.",
+          "Flag conflicts and missing evidence."
+        ]
+      },
+      "berkus_scorer": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Berkus Scorer",
+        "responsibilities": [
+          "Score five Berkus buckets.",
+          "Use deterministic formulas.",
+          "Record assumptions."
+        ]
+      },
+      "scorecard_bill_payne_scorer": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Scorecard Bill Payne Scorer",
+        "responsibilities": [
+          "Apply weighted factors.",
+          "Record inputs used.",
+          "Keep scores report-only."
+        ]
+      },
+      "risk_factor_summation_scorer": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Risk Factor Summation Scorer",
+        "responsibilities": [
+          "Run 12-risk checklist.",
+          "Record adjustments.",
+          "Mark missing risk evidence."
+        ]
+      },
+      "venture_capital_method_scorer": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Venture Capital Method Scorer",
+        "responsibilities": [
+          "Run exit-back math.",
+          "Record assumptions.",
+          "Avoid valuation recommendations."
+        ]
+      },
+      "first_chicago_scorer": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "First Chicago Scorer",
+        "responsibilities": [
+          "Build bear/base/bull cases.",
+          "Apply probabilities.",
+          "Record scenario warnings."
+        ]
+      },
+      "comparables_market_multiple_scorer": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Comparables Market Multiple Scorer",
+        "responsibilities": [
+          "Use comparable evidence.",
+          "Record market multiple assumptions.",
+          "Mark insufficient evidence."
+        ]
+      },
+      "cost_to_duplicate_scorer": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Cost To Duplicate Scorer",
+        "responsibilities": [
+          "Estimate rebuild-cost floor.",
+          "Use asset evidence.",
+          "Flag missing asset details."
+        ]
+      },
+      "score_consistency_auditor": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Score Consistency Auditor",
+        "responsibilities": [
+          "Check score math.",
+          "Check missing-evidence handling.",
+          "Flag unsupported assumptions."
+        ]
+      },
+      "company_report_writer": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Company Report Writer",
+        "responsibilities": [
+          "Write per-company folders.",
+          "Preserve method sections.",
+          "Write warnings and evidence files."
+        ]
+      },
+      "batch_index_writer": {
+        "llm_config": "primary",
+        "model": "default",
+        "role": "Batch Index Writer",
+        "responsibilities": [
+          "Write batch indexes.",
+          "Write coverage summaries.",
+          "Keep output report-only."
         ]
       }
     },
     "responsibilities": [
-      "Keep startup analysis report-only and source-grounded.",
-      "Use all seven requested VC heuristic tools.",
+      "Keep VC outputs report-only and source-grounded.",
+      "Use specialist agents for research, scoring, audit, and report writing.",
       "Avoid automated investment decisions or confidential-data web disclosure."
     ]
   },
@@ -207,11 +367,30 @@
       "output_skill_started",
       "output_skill_completed",
       "output_skill_failed",
+      "tool_call_started",
+      "tool_call_completed",
+      "tool_call_failed",
       "startup_folder_watcher_completed",
-      "startup_document_reader_completed",
-      "public_market_researcher_completed",
-      "vc_heuristic_scorer_completed",
-      "vc_report_writer_completed",
+      "company_packet_grouper_completed",
+      "document_evidence_extractor_completed",
+      "claim_normalizer_completed",
+      "research_planner_completed",
+      "company_identity_researcher_completed",
+      "funding_researcher_completed",
+      "market_comp_researcher_completed",
+      "traction_verifier_completed",
+      "rendered_page_researcher_completed",
+      "research_reconciler_completed",
+      "berkus_scorer_completed",
+      "scorecard_bill_payne_scorer_completed",
+      "risk_factor_summation_scorer_completed",
+      "venture_capital_method_scorer_completed",
+      "first_chicago_scorer_completed",
+      "comparables_market_multiple_scorer_completed",
+      "cost_to_duplicate_scorer_completed",
+      "score_consistency_auditor_completed",
+      "company_report_writer_completed",
+      "batch_index_writer_completed",
       "watch_cycle_started",
       "watch_cycle_completed"
     ]
@@ -464,17 +643,49 @@
     "document_evidence_extraction",
     "privacy_safe_public_research",
     "vc_heuristic_scoring",
-    "per_company_report_generation"
+    "per_company_report_generation",
+    "company_work_queue",
+    "fact_table_normalization",
+    "parallel_web_research",
+    "parallel_numerical_scoring",
+    "score_consistency_audit",
+    "batch_report_factory"
   ],
   "budgets": {
     "max_runtime_seconds": 900,
     "max_public_queries": 75
   },
   "agent_handoffs": [
-    "startup_folder_watcher_to_startup_document_reader",
-    "startup_document_reader_to_public_market_researcher",
-    "public_market_researcher_to_vc_heuristic_scorer",
-    "vc_heuristic_scorer_to_vc_report_writer"
+    "startup_folder_watcher_to_company_packet_grouper",
+    "company_packet_grouper_to_document_evidence_extractor",
+    "document_evidence_extractor_to_claim_normalizer",
+    "claim_normalizer_to_research_planner",
+    "research_planner_to_company_identity_researcher",
+    "company_identity_researcher_to_research_reconciler",
+    "research_planner_to_funding_researcher",
+    "funding_researcher_to_research_reconciler",
+    "research_planner_to_market_comp_researcher",
+    "market_comp_researcher_to_research_reconciler",
+    "research_planner_to_traction_verifier",
+    "traction_verifier_to_research_reconciler",
+    "research_planner_to_rendered_page_researcher",
+    "rendered_page_researcher_to_research_reconciler",
+    "research_reconciler_to_berkus_scorer",
+    "berkus_scorer_to_score_consistency_auditor",
+    "research_reconciler_to_scorecard_bill_payne_scorer",
+    "scorecard_bill_payne_scorer_to_score_consistency_auditor",
+    "research_reconciler_to_risk_factor_summation_scorer",
+    "risk_factor_summation_scorer_to_score_consistency_auditor",
+    "research_reconciler_to_venture_capital_method_scorer",
+    "venture_capital_method_scorer_to_score_consistency_auditor",
+    "research_reconciler_to_first_chicago_scorer",
+    "first_chicago_scorer_to_score_consistency_auditor",
+    "research_reconciler_to_comparables_market_multiple_scorer",
+    "comparables_market_multiple_scorer_to_score_consistency_auditor",
+    "research_reconciler_to_cost_to_duplicate_scorer",
+    "cost_to_duplicate_scorer_to_score_consistency_auditor",
+    "score_consistency_auditor_to_company_report_writer",
+    "company_report_writer_to_batch_index_writer"
   ],
   "web_ui": {
     "enabled": true,
@@ -744,8 +955,9 @@
     ]
   },
   "execution_model": {
-    "type": "service_static_dag",
+    "type": "service_parallel_dag",
     "entrypoint": "startup_folder_watcher",
-    "sink": "vc_report_writer"
+    "sink": "batch_index_writer",
+    "step_count": 21
   }
 }
