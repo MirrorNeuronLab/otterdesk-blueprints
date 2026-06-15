@@ -2450,7 +2450,7 @@
             "alias": "startup_folder_watcher",
             "kind": "worker",
             "role": "Startup Folder Watcher",
-            "model": "default",
+            "model": "docker.io/gemma4:E2B",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -2468,7 +2468,7 @@
             "alias": "company_packet_grouper",
             "kind": "worker",
             "role": "Company Packet Grouper",
-            "model": "default",
+            "model": "docker.io/gemma4:E2B",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -2486,7 +2486,7 @@
             "alias": "document_evidence_extractor",
             "kind": "worker",
             "role": "Document Evidence Extractor",
-            "model": "default",
+            "model": "docker.io/gemma4:E2B",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -2504,7 +2504,7 @@
             "alias": "claim_normalizer",
             "kind": "worker",
             "role": "Claim Normalizer",
-            "model": "default",
+            "model": "docker.io/gemma4:E2B",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -2522,7 +2522,7 @@
             "alias": "research_planner",
             "kind": "worker",
             "role": "Research Planner",
-            "model": "default",
+            "model": "docker.io/gemma4:E2B",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -2540,7 +2540,7 @@
             "alias": "company_identity_researcher",
             "kind": "worker",
             "role": "Company Identity Researcher",
-            "model": "default",
+            "model": "docker.io/gemma4:E2B",
             "tokens": 12000,
             "tools": 6,
             "required": true,
@@ -2562,7 +2562,7 @@
             "alias": "funding_researcher",
             "kind": "worker",
             "role": "Funding Researcher",
-            "model": "default",
+            "model": "docker.io/gemma4:E2B",
             "tokens": 12000,
             "tools": 6,
             "required": true,
@@ -2584,7 +2584,7 @@
             "alias": "market_comp_researcher",
             "kind": "worker",
             "role": "Market And Comparable Researcher",
-            "model": "default",
+            "model": "docker.io/gemma4:E2B",
             "tokens": 12000,
             "tools": 6,
             "required": true,
@@ -2606,7 +2606,7 @@
             "alias": "traction_verifier",
             "kind": "worker",
             "role": "Traction Verifier",
-            "model": "default",
+            "model": "docker.io/gemma4:E2B",
             "tokens": 12000,
             "tools": 6,
             "required": true,
@@ -2628,7 +2628,7 @@
             "alias": "rendered_page_researcher",
             "kind": "worker",
             "role": "Rendered Page Researcher",
-            "model": "default",
+            "model": "docker.io/gemma4:E2B",
             "tokens": 12000,
             "tools": 6,
             "required": true,
@@ -2650,7 +2650,7 @@
             "alias": "research_reconciler",
             "kind": "worker",
             "role": "Research Reconciler",
-            "model": "default",
+            "model": "docker.io/gemma4:E2B",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -2668,7 +2668,7 @@
             "alias": "berkus_scorer",
             "kind": "worker",
             "role": "Berkus Scorer",
-            "model": "default",
+            "model": "docker.io/gemma4:E2B",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -2686,7 +2686,7 @@
             "alias": "scorecard_bill_payne_scorer",
             "kind": "worker",
             "role": "Scorecard Bill Payne Scorer",
-            "model": "default",
+            "model": "docker.io/gemma4:E2B",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -2704,7 +2704,7 @@
             "alias": "risk_factor_summation_scorer",
             "kind": "worker",
             "role": "Risk Factor Summation Scorer",
-            "model": "default",
+            "model": "docker.io/gemma4:E2B",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -2722,7 +2722,7 @@
             "alias": "venture_capital_method_scorer",
             "kind": "worker",
             "role": "Venture Capital Method Scorer",
-            "model": "default",
+            "model": "docker.io/gemma4:E2B",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -2740,7 +2740,7 @@
             "alias": "first_chicago_scorer",
             "kind": "worker",
             "role": "First Chicago Scorer",
-            "model": "default",
+            "model": "docker.io/gemma4:E2B",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -2758,7 +2758,7 @@
             "alias": "comparables_market_multiple_scorer",
             "kind": "worker",
             "role": "Comparables Market Multiple Scorer",
-            "model": "default",
+            "model": "docker.io/gemma4:E2B",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -2776,7 +2776,7 @@
             "alias": "cost_to_duplicate_scorer",
             "kind": "worker",
             "role": "Cost To Duplicate Scorer",
-            "model": "default",
+            "model": "docker.io/gemma4:E2B",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -2794,7 +2794,7 @@
             "alias": "score_consistency_auditor",
             "kind": "worker",
             "role": "Score Consistency Auditor",
-            "model": "default",
+            "model": "docker.io/gemma4:E2B",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -2812,7 +2812,7 @@
             "alias": "company_report_writer",
             "kind": "worker",
             "role": "Company Report Writer",
-            "model": "default",
+            "model": "docker.io/gemma4:E2B",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -2830,7 +2830,7 @@
             "alias": "batch_index_writer",
             "kind": "worker",
             "role": "Batch Index Writer",
-            "model": "default",
+            "model": "docker.io/gemma4:E2B",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -2918,7 +2918,7 @@
     "worker_defaults": {
       "runner": "MirrorNeuron.Runner.HostLocal",
       "uses": "mn-agents.data_python_executor@1.0.0",
-      "model": "default",
+      "model": "docker.io/gemma4:E2B",
       "pool": "default",
       "pool_slots": 1,
       "workdir": "/sandbox/job/document_workflow"
@@ -2991,7 +2991,7 @@
     },
     "models": {
       "primary": {
-        "model": "default"
+        "model": "docker.io/gemma4:E2B"
       }
     }
   },
@@ -3437,91 +3437,91 @@
     "llm": {
       "enabled": true,
       "mode": "live",
-      "model": "default",
+      "model": "docker.io/gemma4:E2B",
       "agents": {
         "startup_folder_watcher": {
           "role": "Startup Folder Watcher",
-          "model": "default"
+          "model": "docker.io/gemma4:E2B"
         },
         "company_packet_grouper": {
           "role": "Company Packet Grouper",
-          "model": "default"
+          "model": "docker.io/gemma4:E2B"
         },
         "document_evidence_extractor": {
           "role": "Document Evidence Extractor",
-          "model": "default"
+          "model": "docker.io/gemma4:E2B"
         },
         "claim_normalizer": {
           "role": "Claim Normalizer",
-          "model": "default"
+          "model": "docker.io/gemma4:E2B"
         },
         "research_planner": {
           "role": "Research Planner",
-          "model": "default"
+          "model": "docker.io/gemma4:E2B"
         },
         "company_identity_researcher": {
           "role": "Company Identity Researcher",
-          "model": "default"
+          "model": "docker.io/gemma4:E2B"
         },
         "funding_researcher": {
           "role": "Funding Researcher",
-          "model": "default"
+          "model": "docker.io/gemma4:E2B"
         },
         "market_comp_researcher": {
           "role": "Market And Comparable Researcher",
-          "model": "default"
+          "model": "docker.io/gemma4:E2B"
         },
         "traction_verifier": {
           "role": "Traction Verifier",
-          "model": "default"
+          "model": "docker.io/gemma4:E2B"
         },
         "rendered_page_researcher": {
           "role": "Rendered Page Researcher",
-          "model": "default"
+          "model": "docker.io/gemma4:E2B"
         },
         "research_reconciler": {
           "role": "Research Reconciler",
-          "model": "default"
+          "model": "docker.io/gemma4:E2B"
         },
         "berkus_scorer": {
           "role": "Berkus Scorer",
-          "model": "default"
+          "model": "docker.io/gemma4:E2B"
         },
         "scorecard_bill_payne_scorer": {
           "role": "Scorecard Bill Payne Scorer",
-          "model": "default"
+          "model": "docker.io/gemma4:E2B"
         },
         "risk_factor_summation_scorer": {
           "role": "Risk Factor Summation Scorer",
-          "model": "default"
+          "model": "docker.io/gemma4:E2B"
         },
         "venture_capital_method_scorer": {
           "role": "Venture Capital Method Scorer",
-          "model": "default"
+          "model": "docker.io/gemma4:E2B"
         },
         "first_chicago_scorer": {
           "role": "First Chicago Scorer",
-          "model": "default"
+          "model": "docker.io/gemma4:E2B"
         },
         "comparables_market_multiple_scorer": {
           "role": "Comparables Market Multiple Scorer",
-          "model": "default"
+          "model": "docker.io/gemma4:E2B"
         },
         "cost_to_duplicate_scorer": {
           "role": "Cost To Duplicate Scorer",
-          "model": "default"
+          "model": "docker.io/gemma4:E2B"
         },
         "score_consistency_auditor": {
           "role": "Score Consistency Auditor",
-          "model": "default"
+          "model": "docker.io/gemma4:E2B"
         },
         "company_report_writer": {
           "role": "Company Report Writer",
-          "model": "default"
+          "model": "docker.io/gemma4:E2B"
         },
         "batch_index_writer": {
           "role": "Batch Index Writer",
-          "model": "default"
+          "model": "docker.io/gemma4:E2B"
         }
       }
     },

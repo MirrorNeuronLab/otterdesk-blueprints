@@ -27,6 +27,25 @@ METHOD_IDS = {
 }
 
 
+class FakeVCLLM:
+    provider = "fake"
+    model = "fake-vc-actor"
+
+    def __init__(self) -> None:
+        self.calls = 0
+        self.fallback_calls = 0
+        self.prompts: list[dict[str, str]] = []
+
+    def generate_json(self, *, system_prompt: str, user_prompt: str, fallback: dict):
+        self.calls += 1
+        self.prompts.append({"system": system_prompt, "user": user_prompt})
+        response = dict(fallback)
+        response["summary"] = response.get("summary") or "VC actor reviewed the report packet."
+        response["provider"] = self.provider
+        response["model"] = self.model
+        return response
+
+
 def _load_runner():
     spec = importlib.util.spec_from_file_location("vc_early_runner", RUNNER_PATH)
     module = importlib.util.module_from_spec(spec)
@@ -71,6 +90,7 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path
     docs = tmp_path / "startup-docs"
     outputs = tmp_path / "reports"
     _write_startup_packets(docs)
+    fake_llm = FakeVCLLM()
 
     result = runner.run_blueprint(
         inputs={
@@ -78,8 +98,10 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path
             "output_folder": str(outputs),
             "monitoring": {"enabled": True, "poll_interval_seconds": 1, "max_cycles": 1},
         },
+        config={"llm": {"mode": "fake"}},
         runs_root=tmp_path,
         run_id="vc-unit",
+        llm_client=fake_llm,
     )
 
     artifact = result["final_artifact"]
@@ -144,6 +166,11 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path
     assert run_artifact["method_ids"] == list(runner.METHOD_IDS)
     assert set(run_artifact["workflow_step_ids"]) == set(runner.WORKFLOW_STEP_IDS)
     assert {item["status"] for item in run_artifact["company_work_queue"]} == {"new_or_changed"}
+    assert set(run_artifact["actor_findings"]) == set(runner.WORKFLOW_STEP_IDS)
+    assert run_artifact["llm_usage"]["provider"] == "fake"
+    assert run_artifact["llm_usage"]["model"] == "fake-vc-actor"
+    assert run_artifact["llm_usage"]["calls"] == len(runner.WORKFLOW_STEP_IDS)
+    assert fake_llm.calls == len(runner.WORKFLOW_STEP_IDS)
 
     repeat = runner.run_blueprint(
         inputs={
@@ -151,8 +178,10 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path
             "output_folder": str(outputs),
             "monitoring": {"enabled": True, "poll_interval_seconds": 1, "max_cycles": 1},
         },
+        config={"llm": {"mode": "fake"}},
         runs_root=tmp_path,
         run_id="vc-repeat",
+        llm_client=FakeVCLLM(),
     )
     assert {item["status"] for item in repeat["final_artifact"]["company_work_queue"]} == {"unchanged_skipped"}
     assert repeat["final_artifact"]["monitor_state"]["processed_company_count"] == 0
@@ -204,9 +233,10 @@ def test_changed_company_packets_process_in_parallel_with_stable_output_order(tm
                 "output_folder": str(outputs),
                 "monitoring": {"enabled": True, "poll_interval_seconds": 1, "max_cycles": 1},
             },
-            config={"execution": {"max_company_workers": 2}, "scoring": {"max_workers": 7}},
+            config={"llm": {"mode": "fake"}, "execution": {"max_company_workers": 2}, "scoring": {"max_workers": 7}},
             runs_root=tmp_path,
             run_id="vc-parallel",
+            llm_client=FakeVCLLM(),
         )
     finally:
         runner.research_company_by_stage = original_research

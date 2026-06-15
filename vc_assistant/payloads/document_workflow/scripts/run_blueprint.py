@@ -120,13 +120,92 @@ def _add_repo_paths() -> None:
     workspace = _workspace_root()
     if not workspace:
         return
-    for skill_name in ("w3m_browser_skill", "web_browser_skill"):
+    for skill_name in ("blueprint_support_skill", "w3m_browser_skill", "web_browser_skill"):
         candidate = workspace / "mn-skills" / skill_name / "src"
         if candidate.exists() and str(candidate) not in sys.path:
             sys.path.insert(0, str(candidate))
 
 
 _add_repo_paths()
+
+try:
+    from mn_blueprint_support import get_actor_llm_client
+    from mn_blueprint_support import llm_usage
+    from mn_blueprint_support import resolve_actor_specs
+    from mn_blueprint_support import run_actor_reviews
+    from mn_blueprint_support import start_agent_beacon_thread as imported_start_agent_beacon_thread
+
+    start_agent_beacon_thread = imported_start_agent_beacon_thread
+except Exception:  # pragma: no cover - optional runtime support
+    class _FallbackActorLLM:
+        provider = "fallback"
+
+        def __init__(self, model: str = "unknown") -> None:
+            self.model = model
+            self.calls = 0
+            self.fallback_calls = 0
+
+        def generate_json(self, *, system_prompt: str, user_prompt: str, fallback: dict[str, Any]) -> dict[str, Any]:
+            del system_prompt, user_prompt
+            self.calls += 1
+            self.fallback_calls += 1
+            response = dict(fallback)
+            response.setdefault("provider", self.provider)
+            response.setdefault("model", self.model)
+            return response
+
+    def resolve_actor_specs(
+        config: dict[str, Any] | None,
+        *,
+        actor_ids: list[str] | tuple[str, ...] | set[str] | None = None,
+        include_default: bool = False,
+    ) -> dict[str, dict[str, Any]]:
+        llm_config = (config or {}).get("llm") if isinstance((config or {}).get("llm"), dict) else {}
+        agents = llm_config.get("agents") if isinstance(llm_config.get("agents"), dict) else {}
+        selected = list(actor_ids or [key for key in agents if include_default or key != "default"])
+        return {str(actor_id): dict(agents.get(str(actor_id)) or {}) for actor_id in selected}
+
+    def get_actor_llm_client(config: dict[str, Any] | None, llm_client: Any | None = None) -> Any:
+        if llm_client is not None:
+            return llm_client
+        llm_config = (config or {}).get("llm") if isinstance((config or {}).get("llm"), dict) else {}
+        return _FallbackActorLLM(str(llm_config.get("model") or "unknown"))
+
+    def llm_usage(llm: Any) -> dict[str, Any]:
+        return {
+            "provider": getattr(llm, "provider", "unknown"),
+            "model": getattr(llm, "model", "unknown"),
+            "calls": int(getattr(llm, "calls", 0) or 0),
+            "fallback_calls": int(getattr(llm, "fallback_calls", 0) or 0),
+        }
+
+    def run_actor_reviews(
+        *,
+        config: dict[str, Any],
+        llm: Any,
+        actor_ids: list[str] | tuple[str, ...] | set[str],
+        state: dict[str, Any],
+        task: str,
+        context: dict[str, Any],
+        event_sink: Any | None = None,
+    ) -> dict[str, Any]:
+        findings = state.setdefault("actor_findings", {})
+        for actor_id in actor_ids:
+            fallback = {
+                "actor_id": actor_id,
+                "summary": "Actor review unavailable; deterministic VC report artifacts were preserved.",
+                "findings": [],
+                "risks": [],
+                "confidence": 0.35,
+            }
+            try:
+                finding = llm.generate_json(system_prompt=str(actor_id), user_prompt=json.dumps({"task": task, "context": context}, default=str), fallback=fallback)
+            except Exception:
+                finding = fallback
+            findings[str(actor_id)] = finding
+            if event_sink is not None:
+                append_event(Path(event_sink), "actor_activity", {"agent_id": str(actor_id), "status": "completed", "summary": finding.get("summary")})
+        return findings
 
 
 def _load_w3m_browser_skill() -> None:
@@ -219,6 +298,41 @@ def load_resolved_config(default_path: Path, overlay: dict[str, Any] | None = No
     if overlay:
         resolved = deep_merge(resolved, overlay)
     return resolved
+
+
+def _configured_llm_env(config: dict[str, Any]) -> dict[str, str]:
+    llm_config = config.get("llm") if isinstance(config.get("llm"), dict) else {}
+    config_name = str(llm_config.get("default_config") or "primary")
+    configs = llm_config.get("configs") if isinstance(llm_config.get("configs"), dict) else {}
+    primary = configs.get(config_name) if isinstance(configs.get(config_name), dict) else {}
+    values = {
+        "MN_BLUEPRINT_LLM_MODE": llm_config.get("mode"),
+        "MN_LLM_PROVIDER": llm_config.get("provider") or primary.get("provider"),
+        "MN_LLM_MODEL": llm_config.get("model") or primary.get("model"),
+        "MN_LLM_API_BASE": llm_config.get("api_base") or primary.get("api_base"),
+        "MN_LLM_TIMEOUT_SECONDS": llm_config.get("timeout_seconds") or primary.get("timeout_seconds"),
+        "MN_LLM_MAX_TOKENS": llm_config.get("max_tokens") or primary.get("max_tokens"),
+        "MN_LLM_NUM_RETRIES": llm_config.get("num_retries") or primary.get("num_retries"),
+        "MN_LLM_RETRY_BACKOFF_SECONDS": llm_config.get("retry_backoff_seconds") or primary.get("retry_backoff_seconds"),
+    }
+    return {key: str(value) for key, value in values.items() if value not in (None, "")}
+
+
+def _get_configured_actor_llm(config: dict[str, Any], llm_client: Any | None) -> Any:
+    if llm_client is not None:
+        return get_actor_llm_client(config, llm_client)
+    llm_env = _configured_llm_env(config)
+    previous = {key: os.environ.get(key) for key in llm_env}
+    try:
+        for key, value in llm_env.items():
+            os.environ[key] = value
+        return get_actor_llm_client(config, None)
+    finally:
+        for key, value in previous.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
 
 
 def slugify(value: str) -> str:
@@ -1250,6 +1364,64 @@ def build_method_coverage(analyses: list[dict[str, Any]]) -> dict[str, Any]:
     return {"generated_at": utc_now_iso(), "method_ids": METHOD_IDS, "companies": companies}
 
 
+def build_actor_review_context(
+    *,
+    analyses: list[dict[str, Any]],
+    company_work_queue: list[dict[str, Any]],
+    research_coverage: dict[str, Any],
+    method_coverage: dict[str, Any],
+    processed_company_names: list[str],
+    skipped_company_names: list[str],
+    output_files: list[dict[str, Any]],
+) -> dict[str, Any]:
+    company_summaries = []
+    for analysis in analyses:
+        company_summaries.append({
+            "company_name": analysis["company_name"],
+            "company_slug": analysis["company_slug"],
+            "processing_status": analysis.get("processing_status"),
+            "composite_score": analysis.get("composite_score"),
+            "method_statuses": {method_id: method.get("status") for method_id, method in analysis.get("methods", {}).items()},
+            "method_scores": {method_id: method.get("score") for method_id, method in analysis.get("methods", {}).items()},
+            "missing_methods": (analysis.get("evidence_summary") or {}).get("missing_methods", []),
+            "audit_warning_count": len((analysis.get("audit") or {}).get("warnings") or []),
+            "research_reconciliation": {
+                "confirmation_count": len((analysis.get("research_reconciliation") or {}).get("confirmations") or []),
+                "contradiction_count": len((analysis.get("research_reconciliation") or {}).get("contradictions") or []),
+                "missing_public_evidence_count": len((analysis.get("research_reconciliation") or {}).get("missing_public_evidence") or []),
+            },
+        })
+    return {
+        "blueprint_id": BLUEPRINT_ID,
+        "output_type": OUTPUT_TYPE,
+        "report_only": True,
+        "decision_boundary": "reports include scores, assumptions, evidence, and warnings only; users make all investment decisions",
+        "company_count": len(analyses),
+        "processed_company_names": processed_company_names,
+        "skipped_company_names": skipped_company_names,
+        "company_work_queue": [
+            {
+                "company_name": item.get("company_name"),
+                "company_slug": item.get("company_slug"),
+                "status": item.get("status"),
+                "document_count": item.get("document_count"),
+            }
+            for item in company_work_queue
+        ],
+        "company_summaries": company_summaries,
+        "research_coverage": research_coverage,
+        "method_coverage": method_coverage,
+        "output_files": [
+            {"kind": item.get("kind"), "path": item.get("path"), "company_slug": item.get("company_slug")}
+            for item in output_files[:50]
+        ],
+        "privacy_controls": {
+            "public_research_queries": "company names, domains, categories, and non-confidential public claims only",
+            "local_document_text": "not included in actor-review context",
+        },
+    }
+
+
 def render_run_summary(analyses: list[dict[str, Any]], queue: list[dict[str, Any]], research_coverage: dict[str, Any], method_coverage: dict[str, Any]) -> str:
     skipped_count = sum(1 for item in queue if item["status"] == "unchanged_skipped")
     processed_count = len(queue) - skipped_count
@@ -1401,7 +1573,6 @@ def run_blueprint(
     run_id: str | None = None,
     llm_client: Any | None = None,
 ) -> dict[str, Any]:
-    del llm_client
     start_agent_beacon_thread(f"{BLUEPRINT_NAME} is running")
     blueprint_dir = Path(__file__).resolve().parents[3]
     resolved_config = load_resolved_config(blueprint_dir / "config" / "default.json", config)
@@ -1493,6 +1664,32 @@ def run_blueprint(
     append_event(run_dir, "watch_cycle_completed", {"cycle": 1, "companies": len(company_records)})
     research_coverage = build_research_coverage(research_ledgers)
     method_coverage = build_method_coverage(analyses)
+    actor_context = build_actor_review_context(
+        analyses=analyses,
+        company_work_queue=company_work_queue,
+        research_coverage=research_coverage,
+        method_coverage=method_coverage,
+        processed_company_names=processed_company_names,
+        skipped_company_names=skipped_company_names,
+        output_files=output_files,
+    )
+    actor_specs = resolve_actor_specs(resolved_config)
+    actor_ids = [actor_id for actor_id in WORKFLOW_STEP_IDS if actor_id in actor_specs]
+    llm = _get_configured_actor_llm(resolved_config, llm_client)
+    actor_state: dict[str, Any] = {}
+    actor_findings = run_actor_reviews(
+        config=resolved_config,
+        llm=llm,
+        actor_ids=actor_ids,
+        state=actor_state,
+        task=(
+            "Review this VC Assistant run as your specialist actor. "
+            "Flag evidence gaps, math/research concerns, or report-quality issues. "
+            "Do not issue pass, watch, reject, buy, sell, invest, or recommendation labels."
+        ),
+        context=actor_context,
+        event_sink=run_dir,
+    )
 
     final_artifact = {
         "type": OUTPUT_TYPE,
@@ -1537,7 +1734,8 @@ def run_blueprint(
             "watch_state": watch_state,
         },
         "output_files": output_files,
-        "llm_usage": {"provider": "none", "model": "deterministic_heuristics", "calls": 0, "fallback_calls": 0},
+        "actor_findings": actor_findings,
+        "llm_usage": llm_usage(llm),
     }
     result = {"run_id": run_id, "blueprint_id": BLUEPRINT_ID, "status": "completed", "final_artifact": final_artifact}
 

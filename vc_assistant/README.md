@@ -11,6 +11,8 @@ This blueprint is a report-only early diligence assistant. It helps a reviewer i
 
 It does not decide whether to invest, pass, watch, or reject. It writes scores, evidence, assumptions, missing-evidence flags, and source references so the user can decide.
 
+All actor-style LLM analysis is configured to use the local OtterDesk system model `docker.io/gemma4:E2B` through Docker Model Runner. Numerical formulas and missing-evidence gates remain deterministic.
+
 ## Online Research Skills
 
 The research phase is configured to use:
