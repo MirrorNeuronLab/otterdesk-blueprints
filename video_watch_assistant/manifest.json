@@ -5,7 +5,7 @@
   "name": "Video Watch Assistant",
   "version": "1.0.0",
   "manifest_version": "1.0",
-  "description": "Watches a mapped local video stream, detects configured visual targets, and reports count, label, category, color, position, activity, and alert status for review.",
+  "description": "A video-watch co-worker for monitoring an approved local or mapped video stream. Give it the stream source, visual targets, alert policy, and optional input folder assets; it detects configured objects or activities and writes reviewable observations, counts, positions, confidence, and alert status artifacts to the output folder.",
   "job_name": "video-watch-assistant",
   "type": "service",
   "contract": {
@@ -92,6 +92,22 @@
         "privacy": "internal",
         "required": true,
         "type": "domain_value"
+      },
+      "input_folder": {
+        "type": "local_path",
+        "path_kind": "directory",
+        "description": "Default local input folder for sample files or user-provided files.",
+        "privacy": "internal",
+        "required": false,
+        "example": "video_watch_assistant/examples/sample_inputs"
+      },
+      "output_folder": {
+        "type": "local_path",
+        "path_kind": "directory",
+        "description": "Default local output folder for generated artifacts and reports.",
+        "privacy": "internal",
+        "required": false,
+        "example": "~/Download/video_watch_assistant"
       }
     },
     "outputs": {
@@ -1202,7 +1218,7 @@
       ]
     },
     "customizable_for": "Video monitoring, configurable visual detection, facility operations, and site safety workflows.",
-    "description": "Watches a mapped local video stream, detects configured visual targets, and reports count, label, category, color, position, activity, and alert status for review.",
+    "description": "A video-watch co-worker for monitoring an approved local or mapped video stream. Give it the stream source, visual targets, alert policy, and optional input folder assets; it detects configured objects or activities and writes reviewable observations, counts, positions, confidence, and alert status artifacts to the output folder.",
     "human_control": {
       "enabled": true,
       "events": [
@@ -1224,6 +1240,30 @@
           "description": "Leave the default mapped endpoint unless using an approved RTSP stream.",
           "label": "Video input",
           "path": "video_source.uri"
+        },
+        {
+          "path": "inputs.payload.input_folder",
+          "label": "Input folder",
+          "default": "video_watch_assistant/examples/sample_inputs",
+          "description": "Default local input folder for sample files or user-provided files.",
+          "type": "local_path",
+          "path_kind": "directory"
+        },
+        {
+          "path": "inputs.payload.output_folder",
+          "label": "Output folder",
+          "default": "~/Download/video_watch_assistant",
+          "description": "Default local output folder for generated artifacts and reports.",
+          "type": "local_path",
+          "path_kind": "directory"
+        },
+        {
+          "path": "outputs.folder_path",
+          "label": "Output folder",
+          "default": "~/Download/video_watch_assistant",
+          "description": "Default local output folder for generated artifacts and reports.",
+          "type": "local_path",
+          "path_kind": "directory"
         }
       ],
       "instruction": "When running in OtterDesk, show these overwriteable fields during init config and ask the user to change them or keep the defaults before launch.",
@@ -1243,6 +1283,24 @@
           "example": "MN_SLACK_WEBHOOK_URL",
           "name": "slack_destination",
           "type": "domain_value"
+        },
+        {
+          "name": "input_folder",
+          "type": "local_path",
+          "path_kind": "directory",
+          "description": "Default local input folder for sample files or user-provided files.",
+          "example": "video_watch_assistant/examples/sample_inputs",
+          "privacy": "internal",
+          "required": false
+        },
+        {
+          "name": "output_folder",
+          "type": "local_path",
+          "path_kind": "directory",
+          "description": "Default local output folder for generated artifacts and reports.",
+          "example": "~/Download/video_watch_assistant",
+          "privacy": "internal",
+          "required": false
         }
       ],
       "privacy_classification": "internal",

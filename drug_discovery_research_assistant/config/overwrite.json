@@ -1,7 +1,9 @@
 {
   "inputs": {
     "payload": {
-      "disease": "Alzheimer"
+      "disease": "Alzheimer",
+      "input_folder": "drug_discovery_research_assistant/examples/sample_inputs",
+      "output_folder": "~/Download/drug_discovery_research_assistant"
     }
   },
   "budgets": {

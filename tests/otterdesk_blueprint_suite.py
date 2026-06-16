@@ -21,6 +21,23 @@ AGENTS_ROOT = WORKSPACE / "mn-agents"
 if str(SUPPORT_SRC) not in sys.path:
     sys.path.insert(0, str(SUPPORT_SRC))
 
+FOLDER_INPUT_FIELDS = {
+    "drug_discovery_research_assistant": {"input_folder", "output_folder"},
+    "generic_customer_service_voice_coworker": {"input_folder", "output_folder"},
+    "gtm_ai_workflow": {"crm_csv_folder", "input_folder", "output_folder"},
+    "invoice_bill_extraction_assistant": {"document_folder", "output_folder"},
+    "legal_contract_clause_review_assistant": {"document_folder", "output_folder"},
+    "medical_deid_record_intake_assistant": {"document_folder", "output_folder"},
+    "personal_financial_advisor": {"document_folder", "output_folder"},
+    "personal_income_tax_expert": {"tax_document_folder", "output_folder"},
+    "portfolio_risk_review_assistant": {"input_folder", "output_folder"},
+    "property_deal_research_assistant": {"input_folder", "output_folder"},
+    "safety_video_analyser": {"input_folder", "output_folder"},
+    "tax_form_ocr_capture_assistant": {"document_folder", "output_folder"},
+    "vc_assistant": {"document_folder", "output_folder"},
+    "video_watch_assistant": {"input_folder", "output_folder"},
+}
+
 from mn_blueprint_support import render_manifest_agent_templates
 from mn_blueprint_support.experience import (
     FINAL_ARTIFACT_REQUIRED_FIELDS,
@@ -80,6 +97,19 @@ def _json_strings(value, path: tuple[str, ...] = ()):
             yield from _json_strings(item, (*path, str(index)))
     elif isinstance(value, str):
         yield path, value
+
+
+def _assert_directory_path_metadata(spec: dict, context: object) -> None:
+    assert spec.get("type") == "local_path", context
+    assert spec.get("path_kind") == "directory", context
+
+
+def _default_input_folder(blueprint_id: str) -> str:
+    return f"{blueprint_id}/examples/sample_inputs"
+
+
+def _default_output_folder(blueprint_id: str) -> str:
+    return f"~/Download/{blueprint_id}"
 
 
 def _flow_nodes(manifest: dict) -> list[dict]:
@@ -906,6 +936,88 @@ def test_otterdesk_blueprints_declare_product_experience_contracts():
         assert review["fields"], blueprint_id
         for field in review["fields"]:
             assert {"path", "label", "default", "description"} <= set(field), (blueprint_id, field)
+
+
+def test_otterdesk_folder_path_inputs_declare_directory_path_metadata():
+    for manifest_path in _manifest_paths():
+        manifest = json.loads(manifest_path.read_text())
+        metadata = manifest.get("metadata", {})
+        blueprint_id = metadata.get("blueprint_id") or manifest_path.parent.name
+        expected_folder_inputs = FOLDER_INPUT_FIELDS.get(blueprint_id, set())
+        contract_inputs = manifest.get("contract", {}).get("inputs", {})
+
+        for name, spec in contract_inputs.items():
+            if name in expected_folder_inputs or name.endswith("_folder") or name == "output_folder":
+                _assert_directory_path_metadata(spec, (blueprint_id, "contract.inputs", name))
+
+        input_contract = metadata.get("input_contract", {})
+        input_items = input_contract.get("required_inputs", []) + input_contract.get("optional_inputs", [])
+        by_name = {item.get("name"): item for item in input_items if isinstance(item, dict)}
+        for name in expected_folder_inputs:
+            assert name in by_name, (blueprint_id, name)
+            _assert_directory_path_metadata(by_name[name], (blueprint_id, "metadata.input_contract", name))
+        for name, item in by_name.items():
+            if isinstance(name, str) and (name.endswith("_folder") or name == "output_folder"):
+                _assert_directory_path_metadata(item, (blueprint_id, "metadata.input_contract", name))
+
+        review = metadata.get("init_config_review", {})
+        for field in review.get("fields", []):
+            if not isinstance(field, dict):
+                continue
+            path = str(field.get("path") or "")
+            name = str(field.get("name") or "")
+            if path.endswith(".folder_path") or name == "output_folder":
+                _assert_directory_path_metadata(field, (blueprint_id, "metadata.init_config_review", path or name))
+
+
+def test_otterdesk_blueprints_declare_standard_default_input_and_output_folders():
+    for manifest_path in _manifest_paths():
+        blueprint_dir = manifest_path.parent
+        blueprint_id = blueprint_dir.name
+        manifest = json.loads(manifest_path.read_text())
+        config = json.loads((blueprint_dir / "config" / "default.json").read_text())
+        expected_input = _default_input_folder(blueprint_id)
+        expected_output = _default_output_folder(blueprint_id)
+
+        assert (blueprint_dir / "examples" / "sample_inputs").is_dir(), blueprint_id
+
+        contract_inputs = manifest["contract"]["inputs"]
+        assert contract_inputs["input_folder"]["example"] == expected_input, blueprint_id
+        assert contract_inputs["output_folder"]["example"] == expected_output, blueprint_id
+        _assert_directory_path_metadata(contract_inputs["input_folder"], (blueprint_id, "contract.input_folder"))
+        _assert_directory_path_metadata(contract_inputs["output_folder"], (blueprint_id, "contract.output_folder"))
+
+        payload = config["inputs"]["payload"]
+        assert payload["input_folder"] == expected_input, blueprint_id
+        assert payload["output_folder"] == expected_output, blueprint_id
+        assert config["outputs"]["folder_path"] == expected_output, blueprint_id
+
+        review_fields = {
+            field["path"]: field
+            for field in manifest["metadata"]["init_config_review"]["fields"]
+            if isinstance(field, dict) and "path" in field
+        }
+        assert review_fields["inputs.payload.input_folder"]["default"] == expected_input, blueprint_id
+        assert review_fields["inputs.payload.output_folder"]["default"] == expected_output, blueprint_id
+        assert review_fields["outputs.folder_path"]["default"] == expected_output, blueprint_id
+
+
+def test_otterdesk_blueprint_descriptions_are_customer_facing_and_synchronized():
+    index_by_id = {entry["id"]: entry for entry in json.loads((ROOT / "index.json").read_text())}
+    for manifest_path in _manifest_paths():
+        blueprint_dir = manifest_path.parent
+        blueprint_id = blueprint_dir.name
+        manifest = json.loads(manifest_path.read_text())
+        config = json.loads((blueprint_dir / "config" / "default.json").read_text())
+        description = manifest.get("description")
+
+        assert isinstance(description, str) and len(description) >= 160, blueprint_id
+        assert description == manifest["metadata"]["description"], blueprint_id
+        assert description == config["metadata"]["description"], blueprint_id
+        assert description == index_by_id[blueprint_id]["description"], blueprint_id
+        assert any(marker in description for marker in ("Give it", "Put ")), blueprint_id
+        assert "input folder" in description, blueprint_id
+        assert "output folder" in description, blueprint_id
 
 
 def test_index_entries_point_to_loadable_blueprint_folders():

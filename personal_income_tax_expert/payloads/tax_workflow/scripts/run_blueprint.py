@@ -3526,10 +3526,10 @@ def _refresh_output_final_artifact_json(final_artifact: dict[str, Any]) -> None:
 def _output_folder_value(config: dict[str, Any], runtime_inputs: dict[str, Any]) -> str:
     outputs = config.get("outputs") if isinstance(config.get("outputs"), dict) else {}
     return str(
-        runtime_inputs.get("output_folder")
-        or runtime_inputs.get("output_folder_path")
+        runtime_inputs.get("output_folder_path")
         or outputs.get("folder_path")
         or outputs.get("output_folder")
+        or runtime_inputs.get("output_folder")
         or ""
     ).strip()
 

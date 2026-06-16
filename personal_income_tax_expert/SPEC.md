@@ -19,7 +19,7 @@ Optional input:
 - `tax_profile.tax_year`
 - `tax_profile.filing_status`
 - `outputs.folder_path`: output folder for prepared packet files; defaults to
-  `~/Downloads`.
+  `outputs/personal_income_tax_expert`.
 - `inputs.payload.document_folder`
 - `inputs.payload.tax_year`
 - `inputs.payload.filing_status`

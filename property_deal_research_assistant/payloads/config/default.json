@@ -229,7 +229,7 @@
     "target_users": "Real-estate investors, acquisition analysts, property-tech teams, and diligence operators.",
     "blueprint_id": "property_deal_research_assistant",
     "name": "Property Deal Research Assistant",
-    "description": "Reviews ZIP-code history, broker notes, financing constraints, and deal memory to rank property opportunities and explain which ones deserve attention.",
+    "description": "A property deal research co-worker for comparing real-estate opportunities. Give it a target ZIP code, price ceiling, deal history, memory policy, optional broker notes, financing constraints, and an input folder for supporting files; it researches and scores opportunities, explains tradeoffs, and writes ranked review artifacts to the output folder.",
     "llm_agent_role": "AI assistant for researching property deals and drafting opportunity rankings.",
     "agent_role": "AI assistant for researching property deals and drafting opportunity rankings.",
     "target_user": "Real-estate investors, acquisition analysts, property-tech teams, and diligence operators.",

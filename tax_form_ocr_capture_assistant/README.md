@@ -3,7 +3,7 @@
 `Blueprint ID:` `tax_form_ocr_capture_assistant`
 `Category:` `Finance`
 
-Classifies tax forms, locates fields, captures structured taxpayer and line-item values, validates totals, and writes a review-only tax intake packet.
+A tax-form OCR co-worker for structured intake review. Put tax form images, PDFs, answer files, or field-context tables in the input folder; it classifies forms, locates fields, captures taxpayer and line-item values, validates totals, and writes a review-only tax capture packet to the output folder.
 
 ## Public Sample Input
 
@@ -43,7 +43,7 @@ python3.11 payloads/document_workflow/scripts/run_blueprint.py --runs-root /tmp/
 - `inputs/public_dataset.json`: public downloadable dataset reference selected for sample inputs.
 - `payloads/document_workflow/scripts/run_blueprint.py`: lightweight local runner demonstrating the OCR-backed extraction contract.
 
-Default outputs are configured for `/Users/homer/Download/tax_form_ocr_capture_assistant`.
+Default outputs are configured for `outputs/tax_form_ocr_capture_assistant`.
 
 ## Safety Checklist
 

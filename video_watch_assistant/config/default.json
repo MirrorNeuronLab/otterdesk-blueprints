@@ -97,7 +97,10 @@
   "inputs": {
     "adapter": "mock",
     "description": "Default synthetic inputs bundled with the blueprint.",
-    "payload": {}
+    "payload": {
+      "input_folder": "video_watch_assistant/examples/sample_inputs",
+      "output_folder": "~/Download/video_watch_assistant"
+    }
   },
   "interfaces": {
     "channels": {
@@ -482,7 +485,7 @@
     "blueprint_revision": "v1",
     "category": "business",
     "customizable_for": "Video monitoring, configurable visual detection, facility operations, and site safety workflows.",
-    "description": "Watches a mapped local video stream, detects configured visual targets, and reports count, label, category, color, position, activity, and alert status for review.",
+    "description": "A video-watch co-worker for monitoring an approved local or mapped video stream. Give it the stream source, visual targets, alert policy, and optional input folder assets; it detects configured objects or activities and writes reviewable observations, counts, positions, confidence, and alert status artifacts to the output folder.",
     "llm_agent_role": "AI assistant for reviewing video stream activity and preparing visual detection alerts.",
     "name": "Video Watch Assistant",
     "problem_solved": "User RTSP sources can be unstable or unavailable inside OpenShell, so this blueprint maps any validated upstream video or demo file into one stable local stream endpoint.",
@@ -591,7 +594,8 @@
       "enabled": false,
       "ports": []
     },
-    "write_run_store": true
+    "write_run_store": true,
+    "folder_path": "~/Download/video_watch_assistant"
   },
   "privacy": {
     "default_classification": "internal",
@@ -685,7 +689,9 @@
       "source_ref",
       "event_id"
     ],
-    "resume_mode": "checkpoint"
+    "resume_mode": "checkpoint",
+    "input_folder": "video_watch_assistant/examples/sample_inputs",
+    "output_folder": "~/Download/video_watch_assistant"
   },
   "streams": {
     "video_watch_stream": {

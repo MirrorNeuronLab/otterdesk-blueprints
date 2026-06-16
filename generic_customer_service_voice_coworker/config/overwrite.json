@@ -1,5 +1,8 @@
 {
   "inputs": {
-    "payload": {}
+    "payload": {
+      "input_folder": "generic_customer_service_voice_coworker/examples/sample_inputs",
+      "output_folder": "~/Download/generic_customer_service_voice_coworker"
+    }
   }
 }

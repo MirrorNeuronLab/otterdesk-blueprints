@@ -4,11 +4,13 @@
     "name": "Safety Video Analyser"
   },
   "video_inputs": {
-    "folder_path": "~/Downloads/videos"
+    "folder_path": "safety_video_analyser/examples/sample_inputs"
   },
   "inputs": {
     "payload": {
-      "video_folder": "~/Downloads/videos"
+      "video_folder": "safety_video_analyser/examples/sample_inputs",
+      "input_folder": "safety_video_analyser/examples/sample_inputs",
+      "output_folder": "~/Download/safety_video_analyser"
     }
   },
   "node_allocation": {
@@ -99,5 +101,15 @@
       "config_path": "node_allocation.report_generator_preferred_node",
       "manifest_path": "agents.nodes.report_generator.policies.scheduler.preferred_node"
     }
-  ]
+  ],
+  "outputs": {
+    "folder_path": "~/Download/safety_video_analyser"
+  },
+  "state": {
+    "input_folder": "safety_video_analyser/examples/sample_inputs",
+    "output_folder": "~/Download/safety_video_analyser"
+  },
+  "metadata": {
+    "description": "A safety-video analysis co-worker for reviewing local workplace footage. Put video files in the input folder; it stages them for the visual analysis node, identifies safety-relevant observations, and writes a structured safety report and supporting artifacts to the output folder."
+  }
 }

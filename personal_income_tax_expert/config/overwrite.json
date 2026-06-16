@@ -1,12 +1,12 @@
 {
   "tax_documents": {
-    "folder_path": "/Users/homer/Downloads/tax2025"
+    "folder_path": "personal_income_tax_expert/examples/sample_inputs"
   },
   "tax_profile": {
     "filing_status": "single",
     "tax_year": "2025"
   },
   "outputs": {
-    "folder_path": "~/Downloads"
+    "folder_path": "~/Download/personal_income_tax_expert"
   }
 }

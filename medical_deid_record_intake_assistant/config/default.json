@@ -7,14 +7,14 @@
   "mode": "document_automation_review",
   "metadata": {
     "category": "Healthcare",
-    "description": "Detects and redacts PHI or PII from clinical-style PDFs, extracts patient-record intake fields, and writes a review-gated de-identification packet."
+    "description": "A medical de-identification co-worker for privacy review. Put clinical-style PDFs, labels, or bounding-box files in the input folder; it detects PHI/PII, extracts record fields, notes redaction risks, and writes a review-gated de-identification packet with evidence and warnings to the output folder."
   },
   "inputs": {
     "adapter": "mock",
     "description": "Default demo inputs use the public dataset reference; for real use select a local downloaded dataset folder.",
     "payload": {
-      "document_folder": "",
-      "output_folder": "/Users/homer/Download/medical_deid_record_intake_assistant",
+      "document_folder": "medical_deid_record_intake_assistant/examples/sample_inputs",
+      "output_folder": "~/Download/medical_deid_record_intake_assistant",
       "field_profile": [
         "patient_name",
         "date_of_birth",
@@ -39,11 +39,12 @@
           "bboxes.jsonl"
         ],
         "download_hint": "Use the Hugging Face dataset files or clone with git-lfs/huggingface_hub when available."
-      }
+      },
+      "input_folder": "medical_deid_record_intake_assistant/examples/sample_inputs"
     }
   },
   "document_sources": {
-    "folder_path": "",
+    "folder_path": "medical_deid_record_intake_assistant/examples/sample_inputs",
     "expected_files": [
       "*.pdf",
       "ground_truth.csv",
@@ -182,7 +183,7 @@
     }
   },
   "outputs": {
-    "folder_path": "/Users/homer/Download/medical_deid_record_intake_assistant",
+    "folder_path": "~/Download/medical_deid_record_intake_assistant",
     "write_run_store": true,
     "write_markdown_report": true
   },
@@ -675,10 +676,11 @@
     "sdk_import_package": "mn_context_engine_sdk"
   },
   "state": {
-    "document_folder": "",
-    "output_folder": "/Users/homer/Download/medical_deid_record_intake_assistant",
+    "document_folder": "medical_deid_record_intake_assistant/examples/sample_inputs",
+    "output_folder": "~/Download/medical_deid_record_intake_assistant",
     "review": {},
-    "final_report": {}
+    "final_report": {},
+    "input_folder": "medical_deid_record_intake_assistant/examples/sample_inputs"
   },
   "triggers": {
     "manual": true,

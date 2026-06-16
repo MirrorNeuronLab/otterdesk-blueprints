@@ -106,7 +106,9 @@
       "voice": "aria",
       "voice_https_port": 7863,
       "voice_public_url": "https://localhost:7863/customer-service",
-      "voice_local_proxy_port": 7863
+      "voice_local_proxy_port": 7863,
+      "input_folder": "generic_customer_service_voice_coworker/examples/sample_inputs",
+      "output_folder": "~/Download/generic_customer_service_voice_coworker"
     }
   },
   "interfaces": {
@@ -456,7 +458,7 @@
   },
   "metadata": {
     "category": "Business",
-    "description": "Runs a localhost-proxied Spark HTTPS/WebRTC pizza-ordering voice co-worker backed by NVIDIA ASR, Nemotron vLLM, Magpie TTS, and editable plain-text menu RAG knowledge.",
+    "description": "A voice customer-service co-worker for a small business demo. Give it the business name, service scope, opening message, escalation rules, editable knowledge text, and optional sample/input folder; it starts a local WebRTC voice experience and writes service status, conversation logs, knowledge snapshots, and handoff-ready run artifacts to the output folder.",
     "execution_profile": "customer-service-voice-nvidia",
     "voice_url": "https://localhost:7863/customer-service",
     "required_cluster_capabilities": [
@@ -511,7 +513,8 @@
       "enabled": false,
       "ports": []
     },
-    "write_run_store": true
+    "write_run_store": true,
+    "folder_path": "~/Download/generic_customer_service_voice_coworker"
   },
   "privacy": {
     "default_classification": "internal",
@@ -595,7 +598,9 @@
       "source_ref",
       "event_id"
     ],
-    "resume_mode": "checkpoint"
+    "resume_mode": "checkpoint",
+    "input_folder": "generic_customer_service_voice_coworker/examples/sample_inputs",
+    "output_folder": "~/Download/generic_customer_service_voice_coworker"
   },
   "streams": {
     "customer_service_voice_stream": {

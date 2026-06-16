@@ -1952,7 +1952,7 @@ def run_runtime_step(
     output_folder = Path(
         payload.get("output_folder")
         or (resolved_config.get("outputs") or {}).get("folder_path")
-        or f"~/Download/{BLUEPRINT_ID}"
+        or f"outputs/{BLUEPRINT_ID}"
     ).expanduser()
     runs_root_path = Path(runs_root).expanduser() if runs_root else output_folder / "runs"
     run_dir = runs_root_path / run_id
@@ -2189,7 +2189,7 @@ def run_blueprint(
     output_folder = Path(
         payload.get("output_folder")
         or (resolved_config.get("outputs") or {}).get("folder_path")
-        or f"~/Download/{BLUEPRINT_ID}"
+        or f"outputs/{BLUEPRINT_ID}"
     ).expanduser()
     runs_root_path = Path(runs_root).expanduser() if runs_root else output_folder / "runs"
     run_dir = runs_root_path / run_id

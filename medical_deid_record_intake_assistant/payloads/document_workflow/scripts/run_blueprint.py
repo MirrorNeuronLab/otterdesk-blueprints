@@ -194,7 +194,7 @@ def run_blueprint(
     if inputs:
         payload.update(inputs)
     run_id = run_id or payload.get("run_id") or f"{BLUEPRINT_ID}-{uuid.uuid4().hex[:8]}"
-    output_folder = Path(payload.get("output_folder") or (resolved_config.get("outputs") or {}).get("folder_path") or f"~/Download/{BLUEPRINT_ID}").expanduser()
+    output_folder = Path(payload.get("output_folder") or (resolved_config.get("outputs") or {}).get("folder_path") or f"outputs/{BLUEPRINT_ID}").expanduser()
     runs_root_path = Path(runs_root).expanduser() if runs_root else output_folder / "runs"
     run_dir = runs_root_path / run_id
     run_dir.mkdir(parents=True, exist_ok=True)

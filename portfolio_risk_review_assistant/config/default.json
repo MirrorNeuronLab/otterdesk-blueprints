@@ -201,7 +201,9 @@
         "min_cash_pct": 5
       },
       "seed": 42,
-      "simulation_horizon_days": 20
+      "simulation_horizon_days": 20,
+      "input_folder": "portfolio_risk_review_assistant/examples/sample_inputs",
+      "output_folder": "~/Download/portfolio_risk_review_assistant"
     }
   },
   "interfaces": {
@@ -602,7 +604,7 @@
     "blueprint_revision": "v1",
     "category": "finance",
     "customizable_for": "Wealth management, treasury review, family offices, robo-advisory risk workflows, portfolio monitoring, and review-only advisor workbenches.",
-    "description": "Real-time, review-only portfolio risk advisor that uses public market data, financial engineering simulation, decision benchmarking, and LLM-written review reports.",
+    "description": "A portfolio risk co-worker for review-only market and scenario analysis. Give it holdings, benchmark weights, risk limits, decision constraints, optional market notes, and an input folder for supporting files; it pulls public market context, runs risk and simulation math, benchmarks possible actions, and writes risk summaries and review reports to the output folder.",
     "llm_agent_role": "LLM report writer that summarizes supplied market signals and structured simulation evidence; deterministic finance workers propose, simulate, evaluate, and benchmark decisions.",
     "name": "Portfolio Risk Review Assistant",
     "problem_solved": "Portfolio teams need reviewable real-time risk advice that separates deterministic financial engineering from LLM narrative generation.",
@@ -631,7 +633,8 @@
       "enabled": false,
       "ports": []
     },
-    "write_run_store": true
+    "write_run_store": true,
+    "folder_path": "~/Download/portfolio_risk_review_assistant"
   },
   "privacy": {
     "default_classification": "confidential",
@@ -740,7 +743,9 @@
       "source_ref",
       "event_id"
     ],
-    "resume_mode": "none"
+    "resume_mode": "none",
+    "input_folder": "portfolio_risk_review_assistant/examples/sample_inputs",
+    "output_folder": "~/Download/portfolio_risk_review_assistant"
   },
   "streams": {},
   "triggers": {

@@ -85,6 +85,20 @@ def _write_startup_packets(path: Path) -> None:
     )
 
 
+def test_manifest_runtime_nodes_carry_default_config_for_service_sandbox():
+    manifest = json.loads((ROOT / "vc_assistant" / "manifest.json").read_text(encoding="utf-8"))
+    nodes = manifest["agents"]["nodes"]
+    assert len(nodes) == 21
+    for node in nodes:
+        environment = node["config"]["environment"]
+        assert environment["MN_WORKFLOW_STEP_ID"] == node["node_id"]
+        embedded_config = json.loads(environment["MN_BLUEPRINT_CONFIG_JSON"])
+        assert embedded_config["inputs"]["payload"]["input_folder"] == "vc_assistant/examples/sample_inputs"
+        assert embedded_config["inputs"]["payload"]["output_folder"] == "~/Download/vc_assistant"
+        assert embedded_config["outputs"]["folder_path"] == "~/Download/vc_assistant"
+        assert embedded_config["llm"]["model"] == "gemma4:e2b"
+
+
 def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path):
     runner = _load_runner()
     docs = tmp_path / "startup-docs"
@@ -187,6 +201,47 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path
     assert repeat["final_artifact"]["monitor_state"]["processed_company_count"] == 0
     assert repeat["final_artifact"]["monitor_state"]["skipped_company_count"] == 2
     assert {report["processing_status"] for report in repeat["final_artifact"]["company_reports"]} == {"unchanged_skipped"}
+
+
+def test_runtime_step_entrypoint_runs_report_factory_once(tmp_path):
+    runner = _load_runner()
+    docs = tmp_path / "startup-docs"
+    outputs = tmp_path / "reports"
+    _write_startup_packets(docs)
+
+    entry_result = runner.run_runtime_step(
+        "startup_folder_watcher",
+        inputs={
+            "document_folder": str(docs),
+            "output_folder": str(outputs),
+            "monitoring": {"enabled": True, "poll_interval_seconds": 1, "max_cycles": 1},
+        },
+        config={"llm": {"mode": "fake"}},
+        runs_root=tmp_path,
+        run_id="vc-runtime-entry",
+        llm_client=FakeVCLLM(),
+    )
+
+    assert entry_result["runtime_step_mode"] == "report_factory_entrypoint"
+    assert (outputs / "company_index.json").exists()
+    assert (outputs / "alpha-ai" / "analysis.json").exists()
+    assert (outputs / "sparse-labs" / "analysis.json").exists()
+
+    ack_result = runner.run_runtime_step(
+        "company_packet_grouper",
+        inputs={
+            "document_folder": str(docs),
+            "output_folder": str(outputs),
+        },
+        config={"llm": {"mode": "fake"}},
+        runs_root=tmp_path,
+        run_id="vc-runtime-ack",
+        llm_client=FakeVCLLM(),
+    )
+
+    assert ack_result["runtime_step_mode"] == "acknowledged_after_report_factory_entrypoint"
+    assert "final_artifact" not in ack_result
+    assert (tmp_path / "vc-runtime-ack" / "company_packet_grouper_result.json").exists()
 
 
 def test_changed_company_packets_process_in_parallel_with_stable_output_order(tmp_path):

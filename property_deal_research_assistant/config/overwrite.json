@@ -4,7 +4,9 @@
       "target_zip": "02139",
       "max_price": "950000",
       "memory_mode": "compare",
-      "steps": "6"
+      "steps": "6",
+      "input_folder": "property_deal_research_assistant/examples/sample_inputs",
+      "output_folder": "~/Download/property_deal_research_assistant"
     }
   }
 }

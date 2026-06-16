@@ -3,7 +3,7 @@
 `Blueprint ID:` `invoice_bill_extraction_assistant`
 `Category:` `Finance`
 
-Extracts invoice, bill, supplier, tax, total, line item, consumption, and approval-routing fields from local invoice PDFs with shared LLM OCR fallback.
+An invoice and bill extraction co-worker for accounts-payable review. Put invoice, bill, or utility PDF/JSON files in the input folder; it OCRs and extracts supplier, customer, invoice ID, tax, due date, total, line item, billing period, and consumption fields, then writes a review-only extraction packet and source-grounded report to the output folder.
 
 ## Public Sample Input
 
@@ -43,7 +43,7 @@ python3.11 payloads/document_workflow/scripts/run_blueprint.py --runs-root /tmp/
 - `inputs/public_dataset.json`: public downloadable dataset reference selected for sample inputs.
 - `payloads/document_workflow/scripts/run_blueprint.py`: lightweight local runner demonstrating the OCR-backed extraction contract.
 
-Default outputs are configured for `/Users/homer/Download/invoice_bill_extraction_assistant`.
+Default outputs are configured for `outputs/invoice_bill_extraction_assistant`.
 
 ## Safety Checklist
 

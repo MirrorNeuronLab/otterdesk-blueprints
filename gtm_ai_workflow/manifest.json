@@ -5,10 +5,10 @@
   "name": "GTM AI Workflow",
   "version": "1.0.0",
   "manifest_version": "1.0",
-  "description": "Long-running GTM AI service that finds and researches target accounts, drafts personalized outreach, tracks replies, updates a local CSV CRM, recommends next actions, and feeds market insight back to product and marketing.",
+  "description": "A go-to-market co-worker that helps research accounts and prepare outreach. Give it a CRM/input folder, optional initial customer list, and test email settings; it maintains local CRM and market-insight CSVs, drafts personalized outreach, tracks responses, recommends follow-up steps, and writes run artifacts to the output folder.",
   "job_name": "gtm-ai-workflow",
   "contract": {
-    "summary": "Long-running GTM AI service that finds and researches target accounts, drafts personalized outreach, tracks replies, updates a local CSV CRM, recommends next actions, and feeds market insight back to product and marketing.",
+    "summary": "A go-to-market co-worker that helps research accounts and prepare outreach. Give it a CRM/input folder, optional initial customer list, and test email settings; it maintains local CRM and market-insight CSVs, drafts personalized outreach, tracks responses, recommends follow-up steps, and writes run artifacts to the output folder.",
     "users": [
       "Growth, sales, RevOps, product marketing, and founder-led GTM teams."
     ],
@@ -32,8 +32,9 @@
         "type": "local_path",
         "required": true,
         "description": "Local folder where crm.csv and market_insights.csv are written and updated during the workflow.",
-        "example": "/tmp/mn_gtm_ai_workflow_crm",
-        "privacy": "internal"
+        "example": "gtm_ai_workflow/examples/sample_inputs",
+        "privacy": "internal",
+        "path_kind": "directory"
       },
       "test_mode_email": {
         "type": "email",
@@ -41,6 +42,22 @@
         "description": "Optional internal test recipient. When set, outbound email is sent only to this address while the CRM records the real target account separately.",
         "example": "gtm-test@example.com",
         "privacy": "confidential"
+      },
+      "input_folder": {
+        "type": "local_path",
+        "path_kind": "directory",
+        "description": "Default local input folder for sample files or user-provided files.",
+        "privacy": "confidential",
+        "required": false,
+        "example": "gtm_ai_workflow/examples/sample_inputs"
+      },
+      "output_folder": {
+        "type": "local_path",
+        "path_kind": "directory",
+        "description": "Default local output folder for generated artifacts and reports.",
+        "privacy": "confidential",
+        "required": false,
+        "example": "~/Download/gtm_ai_workflow"
       }
     },
     "input_adapters": {
@@ -3843,7 +3860,7 @@
       ]
     },
     "customizable_for": "Account-based outbound, founder-led sales, RevOps CRM hygiene, product marketing feedback loops, and sales-assist workflows.",
-    "description": "Long-running GTM AI service that finds and researches target accounts, drafts personalized outreach, tracks replies, updates a local CSV CRM, recommends next actions, and feeds market insight back to product and marketing.",
+    "description": "A go-to-market co-worker that helps research accounts and prepare outreach. Give it a CRM/input folder, optional initial customer list, and test email settings; it maintains local CRM and market-insight CSVs, drafts personalized outreach, tracks responses, recommends follow-up steps, and writes run artifacts to the output folder.",
     "documentation": {
       "catalog": "../README.md",
       "config": "config/default.json",
@@ -3921,16 +3938,43 @@
           "description": "LLM model used by LLM-backed agents.",
           "label": "LLM model",
           "path": "llm.configs.primary.model"
+        },
+        {
+          "path": "inputs.payload.input_folder",
+          "label": "Input folder",
+          "default": "gtm_ai_workflow/examples/sample_inputs",
+          "description": "Default local input folder for sample files or user-provided files.",
+          "type": "local_path",
+          "path_kind": "directory"
+        },
+        {
+          "path": "inputs.payload.output_folder",
+          "label": "Output folder",
+          "default": "~/Download/gtm_ai_workflow",
+          "description": "Default local output folder for generated artifacts and reports.",
+          "type": "local_path",
+          "path_kind": "directory"
+        },
+        {
+          "path": "outputs.folder_path",
+          "label": "Output folder",
+          "default": "~/Download/gtm_ai_workflow",
+          "description": "Default local output folder for generated artifacts and reports.",
+          "type": "local_path",
+          "path_kind": "directory"
         }
       ],
       "required": true
     },
     "input_contract": {
-      "description": "Long-running GTM AI service that finds and researches target accounts, drafts personalized outreach, tracks replies, updates a local CSV CRM, recommends next actions, and feeds market insight back to product and marketing.",
+      "description": "A go-to-market co-worker that helps research accounts and prepare outreach. Give it a CRM/input folder, optional initial customer list, and test email settings; it maintains local CRM and market-insight CSVs, drafts personalized outreach, tracks responses, recommends follow-up steps, and writes run artifacts to the output folder.",
       "required_inputs": [
         {
           "name": "crm_csv_folder",
-          "description": "Local folder where crm.csv and market_insights.csv are written."
+          "description": "Local folder where crm.csv and market_insights.csv are written.",
+          "type": "local_path",
+          "path_kind": "directory",
+          "example": "gtm_ai_workflow/examples/sample_inputs"
         }
       ],
       "optional_inputs": [
@@ -3941,6 +3985,24 @@
         {
           "name": "test_mode_email",
           "description": "Optional internal recipient for safe test sends."
+        },
+        {
+          "name": "input_folder",
+          "type": "local_path",
+          "path_kind": "directory",
+          "description": "Default local input folder for sample files or user-provided files.",
+          "example": "gtm_ai_workflow/examples/sample_inputs",
+          "privacy": "confidential",
+          "required": false
+        },
+        {
+          "name": "output_folder",
+          "type": "local_path",
+          "path_kind": "directory",
+          "description": "Default local output folder for generated artifacts and reports.",
+          "example": "~/Download/gtm_ai_workflow",
+          "privacy": "confidential",
+          "required": false
         }
       ]
     },

@@ -3,7 +3,7 @@
 `Blueprint ID:` `personal_income_tax_expert`
 `Category:` `Finance`
 
-Runs an LLM-assisted tax preparation team over local tax documents, builds draft Form 1040 workpapers, audits the packet, and writes JSON, Markdown, and PDF review outputs.
+A personal tax preparation co-worker for draft review packets. Put W-2s, 1099s, brokerage statements, receipts, and other tax documents in the input folder; it extracts tax evidence, prepares draft Form 1040 workpapers, runs specialist and manager reviews, and writes JSON, Markdown, and PDF review outputs to the output folder for human review before filing.
 
 ## What It Does
 

@@ -5,7 +5,7 @@
   "name": "Property Deal Research Assistant",
   "version": "1.0.0",
   "manifest_version": "1.0",
-  "description": "Reviews ZIP-code history, broker notes, financing constraints, and deal memory to rank property opportunities and explain which ones deserve attention.",
+  "description": "A property deal research co-worker for comparing real-estate opportunities. Give it a target ZIP code, price ceiling, deal history, memory policy, optional broker notes, financing constraints, and an input folder for supporting files; it researches and scores opportunities, explains tradeoffs, and writes ranked review artifacts to the output folder.",
   "job_name": "property-deal-research-assistant",
   "contract": {
     "events": {
@@ -94,6 +94,22 @@
         "privacy": "confidential",
         "required": true,
         "type": "domain_value"
+      },
+      "input_folder": {
+        "type": "local_path",
+        "path_kind": "directory",
+        "description": "Default local input folder for sample files or user-provided files.",
+        "privacy": "confidential",
+        "required": false,
+        "example": "property_deal_research_assistant/examples/sample_inputs"
+      },
+      "output_folder": {
+        "type": "local_path",
+        "path_kind": "directory",
+        "description": "Default local output folder for generated artifacts and reports.",
+        "privacy": "confidential",
+        "required": false,
+        "example": "~/Download/property_deal_research_assistant"
       }
     },
     "outputs": {
@@ -1218,7 +1234,7 @@
       ]
     },
     "customizable_for": "Rental acquisitions, flipping pipelines, multifamily sourcing, market expansion, diligence review, and capital-allocation meetings.",
-    "description": "Reviews ZIP-code history, broker notes, financing constraints, and deal memory to rank property opportunities and explain which ones deserve attention.",
+    "description": "A property deal research co-worker for comparing real-estate opportunities. Give it a target ZIP code, price ceiling, deal history, memory policy, optional broker notes, financing constraints, and an input folder for supporting files; it researches and scores opportunities, explains tradeoffs, and writes ranked review artifacts to the output folder.",
     "human_control": {
       "allowed_decisions": [
         "approve",
@@ -1283,6 +1299,30 @@
           "description": "Number of decision-loop steps to run.",
           "label": "Simulation steps",
           "path": "inputs.payload.steps"
+        },
+        {
+          "path": "inputs.payload.input_folder",
+          "label": "Input folder",
+          "default": "property_deal_research_assistant/examples/sample_inputs",
+          "description": "Default local input folder for sample files or user-provided files.",
+          "type": "local_path",
+          "path_kind": "directory"
+        },
+        {
+          "path": "inputs.payload.output_folder",
+          "label": "Output folder",
+          "default": "~/Download/property_deal_research_assistant",
+          "description": "Default local output folder for generated artifacts and reports.",
+          "type": "local_path",
+          "path_kind": "directory"
+        },
+        {
+          "path": "outputs.folder_path",
+          "label": "Output folder",
+          "default": "~/Download/property_deal_research_assistant",
+          "description": "Default local output folder for generated artifacts and reports.",
+          "type": "local_path",
+          "path_kind": "directory"
         }
       ],
       "instruction": "When running in OtterDesk, show these overwriteable fields during init config and ask the user to change them or keep the defaults before launch.",
@@ -1304,6 +1344,24 @@
           "example": "seller motivated, inspection clean",
           "name": "broker_notes",
           "type": "domain_value"
+        },
+        {
+          "name": "input_folder",
+          "type": "local_path",
+          "path_kind": "directory",
+          "description": "Default local input folder for sample files or user-provided files.",
+          "example": "property_deal_research_assistant/examples/sample_inputs",
+          "privacy": "confidential",
+          "required": false
+        },
+        {
+          "name": "output_folder",
+          "type": "local_path",
+          "path_kind": "directory",
+          "description": "Default local output folder for generated artifacts and reports.",
+          "example": "~/Download/property_deal_research_assistant",
+          "privacy": "confidential",
+          "required": false
         }
       ],
       "privacy_classification": "confidential",

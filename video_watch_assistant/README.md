@@ -3,7 +3,7 @@
 `Blueprint ID:` `video_watch_assistant`
 `Category:` `Security`
 
-Watches an approved video stream, detects configured visual targets, and reports count, label, category, color, position, activity, and alert status for review.
+A video-watch co-worker for monitoring an approved local or mapped video stream. Give it the stream source, visual targets, alert policy, and optional input folder assets; it detects configured objects or activities and writes reviewable observations, counts, positions, confidence, and alert status artifacts to the output folder.
 
 ## What It Does
 

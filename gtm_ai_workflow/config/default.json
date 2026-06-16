@@ -95,7 +95,9 @@
     "payload": {
       "crm_csv_folder": "/tmp/mn_gtm_ai_workflow_crm",
       "initial_customer_list": [],
-      "test_mode_email": ""
+      "test_mode_email": "",
+      "input_folder": "gtm_ai_workflow/examples/sample_inputs",
+      "output_folder": "~/Download/gtm_ai_workflow"
     }
   },
   "interfaces": {
@@ -492,7 +494,8 @@
     "name": "GTM AI Workflow",
     "problem_solved": "GTM teams need a learning loop from target-account signal to outreach, response, CRM state, product insight, and sharper positioning.",
     "standard_version": "1.0",
-    "target_users": "Growth, sales, RevOps, product marketing, and founder-led GTM teams."
+    "target_users": "Growth, sales, RevOps, product marketing, and founder-led GTM teams.",
+    "description": "A go-to-market co-worker that helps research accounts and prepare outreach. Give it a CRM/input folder, optional initial customer list, and test email settings; it maintains local CRM and market-insight CSVs, drafts personalized outreach, tracks responses, recommends follow-up steps, and writes run artifacts to the output folder."
   },
   "mode": "mock",
   "output_skills": {},
@@ -505,7 +508,8 @@
       "enabled": false,
       "ports": []
     },
-    "write_run_store": true
+    "write_run_store": true,
+    "folder_path": "~/Download/gtm_ai_workflow"
   },
   "privacy": {
     "default_classification": "internal",
@@ -584,7 +588,9 @@
       "source_ref",
       "event_id"
     ],
-    "resume_mode": "none"
+    "resume_mode": "none",
+    "input_folder": "gtm_ai_workflow/examples/sample_inputs",
+    "output_folder": "~/Download/gtm_ai_workflow"
   },
   "streams": {},
   "triggers": {

@@ -125,6 +125,22 @@
         "privacy": "confidential",
         "required": true,
         "type": "object"
+      },
+      "input_folder": {
+        "type": "local_path",
+        "path_kind": "directory",
+        "description": "Default local input folder for sample files or user-provided files.",
+        "privacy": "confidential",
+        "required": false,
+        "example": "portfolio_risk_review_assistant/examples/sample_inputs"
+      },
+      "output_folder": {
+        "type": "local_path",
+        "path_kind": "directory",
+        "description": "Default local output folder for generated artifacts and reports.",
+        "privacy": "confidential",
+        "required": false,
+        "example": "~/Download/portfolio_risk_review_assistant"
       }
     },
     "outputs": {
@@ -334,7 +350,7 @@
       "Investors, advisors, portfolio managers, treasury teams, and fintech operators."
     ]
   },
-  "description": "Real-time, review-only portfolio risk advisor that uses public market data, financial engineering simulation, decision benchmarking, and LLM-written review reports.",
+  "description": "A portfolio risk co-worker for review-only market and scenario analysis. Give it holdings, benchmark weights, risk limits, decision constraints, optional market notes, and an input folder for supporting files; it pulls public market context, runs risk and simulation math, benchmarks possible actions, and writes risk summaries and review reports to the output folder.",
   "workflow": {
     "schema": "mn.workflow.problem_graph/v1",
     "workflow_id": "portfolio_risk_review_assistant_v1",
@@ -1082,7 +1098,7 @@
       ]
     },
     "customizable_for": "Wealth management, treasury review, family offices, robo-advisory risk workflows, portfolio monitoring, and review-only advisor workbenches.",
-    "description": "Real-time, review-only portfolio risk advisor that uses public market data, financial engineering simulation, decision benchmarking, and LLM-written review reports.",
+    "description": "A portfolio risk co-worker for review-only market and scenario analysis. Give it holdings, benchmark weights, risk limits, decision constraints, optional market notes, and an input folder for supporting files; it pulls public market context, runs risk and simulation math, benchmarks possible actions, and writes risk summaries and review reports to the output folder.",
     "human_control": {
       "allowed_decisions": [
         "approve",
@@ -1160,6 +1176,30 @@
           "description": "Number of simulation paths per candidate decision.",
           "label": "Monte Carlo paths",
           "path": "monte_carlo.paths"
+        },
+        {
+          "path": "inputs.payload.input_folder",
+          "label": "Input folder",
+          "default": "portfolio_risk_review_assistant/examples/sample_inputs",
+          "description": "Default local input folder for sample files or user-provided files.",
+          "type": "local_path",
+          "path_kind": "directory"
+        },
+        {
+          "path": "inputs.payload.output_folder",
+          "label": "Output folder",
+          "default": "~/Download/portfolio_risk_review_assistant",
+          "description": "Default local output folder for generated artifacts and reports.",
+          "type": "local_path",
+          "path_kind": "directory"
+        },
+        {
+          "path": "outputs.folder_path",
+          "label": "Output folder",
+          "default": "~/Download/portfolio_risk_review_assistant",
+          "description": "Default local output folder for generated artifacts and reports.",
+          "type": "local_path",
+          "path_kind": "directory"
         }
       ],
       "instruction": "When running in OtterDesk, show these overwriteable fields during init config and ask the user to change them or keep the defaults before launch.",
@@ -1191,6 +1231,24 @@
           "example": 1000,
           "name": "monte_carlo_paths",
           "type": "integer"
+        },
+        {
+          "name": "input_folder",
+          "type": "local_path",
+          "path_kind": "directory",
+          "description": "Default local input folder for sample files or user-provided files.",
+          "example": "portfolio_risk_review_assistant/examples/sample_inputs",
+          "privacy": "confidential",
+          "required": false
+        },
+        {
+          "name": "output_folder",
+          "type": "local_path",
+          "path_kind": "directory",
+          "description": "Default local output folder for generated artifacts and reports.",
+          "example": "~/Download/portfolio_risk_review_assistant",
+          "privacy": "confidential",
+          "required": false
         }
       ],
       "privacy_classification": "confidential",

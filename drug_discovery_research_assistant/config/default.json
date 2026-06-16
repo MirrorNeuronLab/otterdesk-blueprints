@@ -110,7 +110,10 @@
   "inputs": {
     "adapter": "mock",
     "description": "Default synthetic inputs bundled with the blueprint.",
-    "payload": {}
+    "payload": {
+      "input_folder": "drug_discovery_research_assistant/examples/sample_inputs",
+      "output_folder": "~/Download/drug_discovery_research_assistant"
+    }
   },
   "interfaces": {
     "channels": {
@@ -460,7 +463,7 @@
     "blueprint_revision": "v1",
     "category": "science",
     "customizable_for": "Drug discovery, material search, assay planning, scientific literature review, and research pipeline support.",
-    "description": "Helps run a reviewable discovery workflow that proposes, filters, and evaluates drug candidates across repeated research stages.",
+    "description": "A research co-worker for early drug-discovery triage. Give it a disease or target profile, screening criteria, optional candidate seeds, literature notes, and an input folder for supporting files; it stages an evidence-backed discovery workflow and writes review-ready candidate summaries, scores, assumptions, risks, and source notes to the output folder.",
     "llm_agent_role": "AI assistant for organizing drug discovery candidate generation, filtering, and evidence review.",
     "name": "Drug Discovery Research Assistant",
     "problem_solved": "Discovery work is iterative and evidence-heavy; researchers need an assistant that keeps candidate generation, scoring, extraction, and review moving in order.",
@@ -480,7 +483,8 @@
       "enabled": false,
       "ports": []
     },
-    "write_run_store": true
+    "write_run_store": true,
+    "folder_path": "~/Download/drug_discovery_research_assistant"
   },
   "privacy": {
     "default_classification": "confidential",
@@ -559,7 +563,9 @@
       "source_ref",
       "event_id"
     ],
-    "resume_mode": "none"
+    "resume_mode": "none",
+    "input_folder": "drug_discovery_research_assistant/examples/sample_inputs",
+    "output_folder": "~/Download/drug_discovery_research_assistant"
   },
   "streams": {},
   "triggers": {

@@ -134,7 +134,9 @@
       "noise_events_per_month": 10,
       "seed": 77,
       "steps": 6,
-      "target_zip": "02139"
+      "target_zip": "02139",
+      "input_folder": "property_deal_research_assistant/examples/sample_inputs",
+      "output_folder": "~/Download/property_deal_research_assistant"
     }
   },
   "interfaces": {
@@ -531,7 +533,7 @@
     "blueprint_revision": "v1",
     "category": "finance",
     "customizable_for": "Rental acquisitions, flipping pipelines, multifamily sourcing, market expansion, diligence review, and capital-allocation meetings.",
-    "description": "Reviews ZIP-code history, broker notes, financing constraints, and deal memory to rank property opportunities and explain which ones deserve attention.",
+    "description": "A property deal research co-worker for comparing real-estate opportunities. Give it a target ZIP code, price ceiling, deal history, memory policy, optional broker notes, financing constraints, and an input folder for supporting files; it researches and scores opportunities, explains tradeoffs, and writes ranked review artifacts to the output folder.",
     "llm_agent_role": "AI assistant for researching property deals and drafting opportunity rankings.",
     "name": "Property Deal Research Assistant",
     "problem_solved": "Property deal review depends on older broker, lender, rent, insurance, and diligence details that are easy to lose in noisy pipelines.",
@@ -551,7 +553,8 @@
       "enabled": false,
       "ports": []
     },
-    "write_run_store": true
+    "write_run_store": true,
+    "folder_path": "~/Download/property_deal_research_assistant"
   },
   "privacy": {
     "default_classification": "confidential",
@@ -646,7 +649,9 @@
       "source_ref",
       "event_id"
     ],
-    "resume_mode": "none"
+    "resume_mode": "none",
+    "input_folder": "property_deal_research_assistant/examples/sample_inputs",
+    "output_folder": "~/Download/property_deal_research_assistant"
   },
   "streams": {},
   "triggers": {

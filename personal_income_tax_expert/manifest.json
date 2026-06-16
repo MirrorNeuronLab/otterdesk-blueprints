@@ -5,7 +5,7 @@
   "name": "Personal Income Tax Expert",
   "version": "1.0.0",
   "manifest_version": "1.0",
-  "description": "Runs an LLM-assisted tax preparation team over local tax documents, builds draft Form 1040 workpapers, audits the packet, and writes JSON, Markdown, and PDF review outputs.",
+  "description": "A personal tax preparation co-worker for draft review packets. Put W-2s, 1099s, brokerage statements, receipts, and other tax documents in the input folder; it extracts tax evidence, prepares draft Form 1040 workpapers, runs specialist and manager reviews, and writes JSON, Markdown, and PDF review outputs to the output folder for human review before filing.",
   "job_name": "personal-income-tax-expert",
   "contract": {
     "events": {
@@ -55,10 +55,11 @@
       },
       "output_folder": {
         "description": "Local folder where JSON, Markdown, and PDF review files should be written.",
-        "example": "~/Downloads",
+        "example": "~/Download/personal_income_tax_expert",
         "privacy": "regulated",
         "required": true,
-        "type": "domain_value"
+        "type": "local_path",
+        "path_kind": "directory"
       },
       "recommended_forms": {
         "description": "Expected source forms for completeness checks.",
@@ -73,10 +74,11 @@
       },
       "tax_document_folder": {
         "description": "Local folder of tax documents to review.",
-        "example": "/Users/me/Documents/2025-tax-docs",
+        "example": "personal_income_tax_expert/examples/sample_inputs",
         "privacy": "regulated",
         "required": true,
-        "type": "domain_value"
+        "type": "local_path",
+        "path_kind": "directory"
       },
       "tax_year": {
         "default": 2025,
@@ -85,6 +87,14 @@
         "privacy": "regulated",
         "required": true,
         "type": "domain_value"
+      },
+      "input_folder": {
+        "type": "local_path",
+        "path_kind": "directory",
+        "description": "Default local input folder for sample files or user-provided files.",
+        "privacy": "regulated",
+        "required": false,
+        "example": "personal_income_tax_expert/examples/sample_inputs"
       }
     },
     "outputs": {
@@ -1895,7 +1905,7 @@
       ]
     },
     "customizable_for": "Personal federal tax preparation, 401(k) and retirement distribution review, interest income intake, brokerage statements, mortgage interest review, and tax document checklists.",
-    "description": "Runs an LLM-assisted tax preparation team over local tax documents, builds draft Form 1040 workpapers, audits the packet, and writes JSON, Markdown, and PDF review outputs.",
+    "description": "A personal tax preparation co-worker for draft review packets. Put W-2s, 1099s, brokerage statements, receipts, and other tax documents in the input folder; it extracts tax evidence, prepares draft Form 1040 workpapers, runs specialist and manager reviews, and writes JSON, Markdown, and PDF review outputs to the output folder for human review before filing.",
     "human_control": {
       "allowed_decisions": [
         "approve",
@@ -1928,10 +1938,12 @@
     "init_config_review": {
       "fields": [
         {
-          "default": "",
+          "default": "personal_income_tax_expert/examples/sample_inputs",
           "description": "Choose a local folder containing W-2, 1099, 1098, brokerage, or related tax documents.",
           "label": "Tax document folder",
-          "path": "tax_documents.folder_path"
+          "path": "tax_documents.folder_path",
+          "type": "local_path",
+          "path_kind": "directory"
         },
         {
           "default": "single",
@@ -1946,10 +1958,28 @@
           "path": "tax_profile.tax_year"
         },
         {
-          "default": "~/Downloads",
+          "default": "~/Download/personal_income_tax_expert",
           "description": "Choose where JSON, Markdown, and PDF review files should be written.",
           "label": "Output folder",
-          "path": "outputs.folder_path"
+          "path": "outputs.folder_path",
+          "type": "local_path",
+          "path_kind": "directory"
+        },
+        {
+          "path": "inputs.payload.input_folder",
+          "label": "Input folder",
+          "default": "personal_income_tax_expert/examples/sample_inputs",
+          "description": "Default local input folder for sample files or user-provided files.",
+          "type": "local_path",
+          "path_kind": "directory"
+        },
+        {
+          "path": "inputs.payload.output_folder",
+          "label": "Output folder",
+          "default": "~/Download/personal_income_tax_expert",
+          "description": "Default local output folder for generated artifacts and reports.",
+          "type": "local_path",
+          "path_kind": "directory"
         }
       ],
       "instruction": "Ask the user to select the local tax document folder, confirm filing status, and choose the output folder before launch. If they skip the document folder, run the demo sample packet and explain that it is not filing-ready.",
@@ -1973,6 +2003,15 @@
           "example": "warm, direct, evidence-grounded",
           "name": "advisor_voice",
           "type": "domain_value"
+        },
+        {
+          "name": "input_folder",
+          "type": "local_path",
+          "path_kind": "directory",
+          "description": "Default local input folder for sample files or user-provided files.",
+          "example": "personal_income_tax_expert/examples/sample_inputs",
+          "privacy": "regulated",
+          "required": false
         }
       ],
       "privacy_classification": "regulated",
@@ -2012,9 +2051,10 @@
       "required_inputs": [
         {
           "description": "Local folder of tax documents to review.",
-          "example": "/Users/me/Documents/2025-tax-docs",
+          "example": "personal_income_tax_expert/examples/sample_inputs",
           "name": "tax_document_folder",
-          "type": "domain_value"
+          "type": "local_path",
+          "path_kind": "directory"
         },
         {
           "description": "Federal tax year for the draft packet.",
@@ -2030,9 +2070,10 @@
         },
         {
           "description": "Local folder where JSON, Markdown, and PDF review files should be written.",
-          "example": "~/Downloads",
+          "example": "~/Download/personal_income_tax_expert",
           "name": "output_folder",
-          "type": "domain_value"
+          "type": "local_path",
+          "path_kind": "directory"
         }
       ],
       "resolved_artifact": "inputs.json",

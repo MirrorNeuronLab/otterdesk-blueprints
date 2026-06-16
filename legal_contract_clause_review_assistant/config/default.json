@@ -7,14 +7,14 @@
   "mode": "document_automation_review",
   "metadata": {
     "category": "Legal",
-    "description": "Reviews local contract PDFs, extracts important clauses, compares them with a playbook, and writes a source-grounded legal review packet."
+    "description": "A contract review co-worker for clause intake and attorney review. Put contracts, text exports, playbook notes, or clause annotations in the input folder; it extracts key clauses, maps them to the configured taxonomy, compares them with the playbook, flags issues and evidence gaps, and writes a source-grounded review packet to the output folder."
   },
   "inputs": {
     "adapter": "mock",
     "description": "Default demo inputs use the public dataset reference; for real use select a local downloaded dataset folder.",
     "payload": {
-      "document_folder": "",
-      "output_folder": "/Users/homer/Download/legal_contract_clause_review_assistant",
+      "document_folder": "legal_contract_clause_review_assistant/examples/sample_inputs",
+      "output_folder": "~/Download/legal_contract_clause_review_assistant",
       "field_profile": [
         "governing_law",
         "change_of_control",
@@ -40,11 +40,12 @@
           "*.json"
         ],
         "download_hint": "Download CUAD_v1.zip from Zenodo or use the Hugging Face dataset for text-oriented experiments."
-      }
+      },
+      "input_folder": "legal_contract_clause_review_assistant/examples/sample_inputs"
     }
   },
   "document_sources": {
-    "folder_path": "",
+    "folder_path": "legal_contract_clause_review_assistant/examples/sample_inputs",
     "expected_files": [
       "full_contracts_pdf/*.pdf",
       "full_contracts_txt/*.txt",
@@ -184,7 +185,7 @@
     }
   },
   "outputs": {
-    "folder_path": "/Users/homer/Download/legal_contract_clause_review_assistant",
+    "folder_path": "~/Download/legal_contract_clause_review_assistant",
     "write_run_store": true,
     "write_markdown_report": true
   },
@@ -677,10 +678,11 @@
     "sdk_import_package": "mn_context_engine_sdk"
   },
   "state": {
-    "document_folder": "",
-    "output_folder": "/Users/homer/Download/legal_contract_clause_review_assistant",
+    "document_folder": "legal_contract_clause_review_assistant/examples/sample_inputs",
+    "output_folder": "~/Download/legal_contract_clause_review_assistant",
     "review": {},
-    "final_report": {}
+    "final_report": {},
+    "input_folder": "legal_contract_clause_review_assistant/examples/sample_inputs"
   },
   "triggers": {
     "manual": true,

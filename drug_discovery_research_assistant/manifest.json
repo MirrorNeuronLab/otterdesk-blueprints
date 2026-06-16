@@ -5,7 +5,7 @@
   "name": "Drug Discovery Research Assistant",
   "version": "1.0.0",
   "manifest_version": "1.0",
-  "description": "Helps run a reviewable discovery workflow that proposes, filters, and evaluates drug candidates across repeated research stages.",
+  "description": "A research co-worker for early drug-discovery triage. Give it a disease or target profile, screening criteria, optional candidate seeds, literature notes, and an input folder for supporting files; it stages an evidence-backed discovery workflow and writes review-ready candidate summaries, scores, assumptions, risks, and source notes to the output folder.",
   "job_name": "drug-discovery-research-assistant",
   "contract": {
     "events": {
@@ -86,6 +86,22 @@
         "privacy": "confidential",
         "required": true,
         "type": "domain_value"
+      },
+      "input_folder": {
+        "type": "local_path",
+        "path_kind": "directory",
+        "description": "Default local input folder for sample files or user-provided files.",
+        "privacy": "confidential",
+        "required": false,
+        "example": "drug_discovery_research_assistant/examples/sample_inputs"
+      },
+      "output_folder": {
+        "type": "local_path",
+        "path_kind": "directory",
+        "description": "Default local output folder for generated artifacts and reports.",
+        "privacy": "confidential",
+        "required": false,
+        "example": "~/Download/drug_discovery_research_assistant"
       }
     },
     "outputs": {
@@ -1623,7 +1639,7 @@
       ]
     },
     "customizable_for": "Drug discovery, material search, assay planning, scientific literature review, and research pipeline support.",
-    "description": "Helps run a reviewable discovery workflow that proposes, filters, and evaluates drug candidates across repeated research stages.",
+    "description": "A research co-worker for early drug-discovery triage. Give it a disease or target profile, screening criteria, optional candidate seeds, literature notes, and an input folder for supporting files; it stages an evidence-backed discovery workflow and writes review-ready candidate summaries, scores, assumptions, risks, and source notes to the output folder.",
     "human_control": {
       "allowed_decisions": [
         "approve",
@@ -1676,6 +1692,30 @@
           "description": "Maximum runtime for the staged discovery loop.",
           "label": "Runtime limit",
           "path": "budgets.max_runtime_seconds"
+        },
+        {
+          "path": "inputs.payload.input_folder",
+          "label": "Input folder",
+          "default": "drug_discovery_research_assistant/examples/sample_inputs",
+          "description": "Default local input folder for sample files or user-provided files.",
+          "type": "local_path",
+          "path_kind": "directory"
+        },
+        {
+          "path": "inputs.payload.output_folder",
+          "label": "Output folder",
+          "default": "~/Download/drug_discovery_research_assistant",
+          "description": "Default local output folder for generated artifacts and reports.",
+          "type": "local_path",
+          "path_kind": "directory"
+        },
+        {
+          "path": "outputs.folder_path",
+          "label": "Output folder",
+          "default": "~/Download/drug_discovery_research_assistant",
+          "description": "Default local output folder for generated artifacts and reports.",
+          "type": "local_path",
+          "path_kind": "directory"
         }
       ],
       "instruction": "When running in OtterDesk, show these overwriteable fields during init config and ask the user to change them or keep the defaults before launch.",
@@ -1698,6 +1738,24 @@
           },
           "name": "assay_constraints",
           "type": "domain_value"
+        },
+        {
+          "name": "input_folder",
+          "type": "local_path",
+          "path_kind": "directory",
+          "description": "Default local input folder for sample files or user-provided files.",
+          "example": "drug_discovery_research_assistant/examples/sample_inputs",
+          "privacy": "confidential",
+          "required": false
+        },
+        {
+          "name": "output_folder",
+          "type": "local_path",
+          "path_kind": "directory",
+          "description": "Default local output folder for generated artifacts and reports.",
+          "example": "~/Download/drug_discovery_research_assistant",
+          "privacy": "confidential",
+          "required": false
         }
       ],
       "privacy_classification": "confidential",

@@ -7,14 +7,14 @@
   "mode": "service",
   "metadata": {
     "category": "Finance",
-    "description": "Continuously monitors a local personal finance folder, OCRs statements, income documents, receipts, bills, and related records, then writes review-only household finance status, advice, risk reminders, and source-grounded reports."
+    "description": "A personal finance co-worker that monitors a local document folder. Put statements, receipts, bills, income records, images, text, JSON, or CSV files in the input folder; it OCRs and organizes the evidence, performs privacy-safe public research where useful, and writes review-only household finance summaries, risks, reminders, and source-grounded reports to the output folder."
   },
   "inputs": {
     "adapter": "mock",
     "description": "Default demo inputs start the continuous folder-monitoring service; set monitoring.max_cycles for bounded smoke tests.",
     "payload": {
-      "document_folder": "",
-      "output_folder": "/Users/homer/Download/personal_financial_advisor",
+      "document_folder": "personal_financial_advisor/examples/sample_inputs",
+      "output_folder": "~/Download/personal_financial_advisor",
       "field_profile": [
         "document_kind",
         "institution_or_merchant",
@@ -53,11 +53,12 @@
           "*.csv"
         ],
         "download_hint": "Use the bundled sample files or fetch a small public sample before trying a larger local folder."
-      }
+      },
+      "input_folder": "personal_financial_advisor/examples/sample_inputs"
     }
   },
   "document_sources": {
-    "folder_path": "",
+    "folder_path": "personal_financial_advisor/examples/sample_inputs",
     "expected_files": [
       "*.pdf",
       "*.png",
@@ -242,7 +243,7 @@
     ]
   },
   "outputs": {
-    "folder_path": "/Users/homer/Download/personal_financial_advisor",
+    "folder_path": "~/Download/personal_financial_advisor",
     "write_run_store": true,
     "write_markdown_report": true
   },
@@ -771,10 +772,11 @@
     "sdk_import_package": "mn_context_engine_sdk"
   },
   "state": {
-    "document_folder": "",
-    "output_folder": "/Users/homer/Download/personal_financial_advisor",
+    "document_folder": "personal_financial_advisor/examples/sample_inputs",
+    "output_folder": "~/Download/personal_financial_advisor",
     "watch_state": {},
-    "final_report": {}
+    "final_report": {},
+    "input_folder": "personal_financial_advisor/examples/sample_inputs"
   },
   "triggers": {
     "type": "folder_watch",

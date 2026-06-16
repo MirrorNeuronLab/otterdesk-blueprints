@@ -3,9 +3,11 @@
 `Blueprint ID:` `portfolio_risk_review_assistant`
 `Category:` `Finance`
 
-Real-time, review-only portfolio risk advisor that uses public market data,
-financial engineering simulation, decision benchmarking, and LLM-written review
-reports.
+A portfolio risk co-worker for review-only market and scenario analysis. Give it
+holdings, benchmark weights, risk limits, decision constraints, optional market
+notes, and an input folder for supporting files; it pulls public market context,
+runs risk and simulation math, benchmarks possible actions, and writes risk
+summaries and review reports to the output folder.
 
 ## What It Does
 

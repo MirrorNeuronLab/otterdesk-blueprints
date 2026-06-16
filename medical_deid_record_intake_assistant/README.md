@@ -3,7 +3,7 @@
 `Blueprint ID:` `medical_deid_record_intake_assistant`
 `Category:` `Healthcare`
 
-Detects and redacts PHI or PII from clinical-style PDFs, extracts patient-record intake fields, and writes a review-gated de-identification packet.
+A medical de-identification co-worker for privacy review. Put clinical-style PDFs, labels, or bounding-box files in the input folder; it detects PHI/PII, extracts record fields, notes redaction risks, and writes a review-gated de-identification packet with evidence and warnings to the output folder.
 
 ## Public Sample Input
 
@@ -43,7 +43,7 @@ python3.11 payloads/document_workflow/scripts/run_blueprint.py --runs-root /tmp/
 - `inputs/public_dataset.json`: public downloadable dataset reference selected for sample inputs.
 - `payloads/document_workflow/scripts/run_blueprint.py`: lightweight local runner demonstrating the OCR-backed extraction contract.
 
-Default outputs are configured for `/Users/homer/Download/medical_deid_record_intake_assistant`.
+Default outputs are configured for `outputs/medical_deid_record_intake_assistant`.
 
 ## Safety Checklist
 

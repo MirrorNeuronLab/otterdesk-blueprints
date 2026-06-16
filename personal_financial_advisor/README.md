@@ -64,7 +64,7 @@ The market researcher only sends generic public queries derived from risk catego
 
 Membrane model compression is requested for research context packets with `use_model_compression=true`. The Membrane service must also run with `MN_CONTEXT_MODEL_COMPRESSION_ENABLED=true` and Docker Model Runner model `hf.co/homerquan/mn-context-engine-model-v-Q4_K_M`.
 
-Default outputs are configured for `/Users/homer/Download/personal_financial_advisor`.
+Default outputs are configured for `outputs/personal_financial_advisor`.
 
 ## Safety Checklist
 

@@ -26,7 +26,7 @@
     "blueprint_id": "safety_video_analyser",
     "name": "Safety Video Analyser",
     "category": "Security",
-    "description": "Analyses local work-safety videos on a powerful VLM node, then asks a report generator on a preferred weaker node to summarize findings.",
+    "description": "A safety-video analysis co-worker for reviewing local workplace footage. Put video files in the input folder; it stages them for the visual analysis node, identifies safety-relevant observations, and writes a structured safety report and supporting artifacts to the output folder.",
     "init_config_review": {
       "required": true,
       "instruction": "Review the local video folder and optional report-generator node preference before launch.",
@@ -34,14 +34,63 @@
         {
           "label": "Video folder",
           "path": "video_inputs.folder_path",
-          "default": "~/Downloads/videos",
-          "description": "Host-local folder containing sample safety videos. Files are staged through BlobRef sharing."
+          "default": "safety_video_analyser/examples/sample_inputs",
+          "description": "Host-local folder containing sample safety videos. Files are staged through BlobRef sharing.",
+          "type": "local_path",
+          "path_kind": "directory"
         },
         {
           "label": "Report node",
           "path": "node_allocation.report_generator_preferred_node",
           "default": "mirror_neuron@192.168.4.173",
           "description": "Suggestive node preference for the report generator. Scheduler falls back automatically if unavailable."
+        },
+        {
+          "path": "inputs.payload.input_folder",
+          "label": "Input folder",
+          "default": "safety_video_analyser/examples/sample_inputs",
+          "description": "Default local input folder for sample files or user-provided files.",
+          "type": "local_path",
+          "path_kind": "directory"
+        },
+        {
+          "path": "inputs.payload.output_folder",
+          "label": "Output folder",
+          "default": "~/Download/safety_video_analyser",
+          "description": "Default local output folder for generated artifacts and reports.",
+          "type": "local_path",
+          "path_kind": "directory"
+        },
+        {
+          "path": "outputs.folder_path",
+          "label": "Output folder",
+          "default": "~/Download/safety_video_analyser",
+          "description": "Default local output folder for generated artifacts and reports.",
+          "type": "local_path",
+          "path_kind": "directory"
+        }
+      ]
+    },
+    "input_contract": {
+      "required_inputs": [],
+      "optional_inputs": [
+        {
+          "name": "input_folder",
+          "type": "local_path",
+          "path_kind": "directory",
+          "description": "Default local input folder for sample files or user-provided files.",
+          "example": "safety_video_analyser/examples/sample_inputs",
+          "privacy": "internal",
+          "required": false
+        },
+        {
+          "name": "output_folder",
+          "type": "local_path",
+          "path_kind": "directory",
+          "description": "Default local output folder for generated artifacts and reports.",
+          "example": "~/Download/safety_video_analyser",
+          "privacy": "internal",
+          "required": false
         }
       ]
     }
@@ -211,5 +260,26 @@
         "source": "local_video_folder"
       }
     ]
-  }
+  },
+  "contract": {
+    "inputs": {
+      "input_folder": {
+        "type": "local_path",
+        "path_kind": "directory",
+        "description": "Default local input folder for sample files or user-provided files.",
+        "privacy": "internal",
+        "required": false,
+        "example": "safety_video_analyser/examples/sample_inputs"
+      },
+      "output_folder": {
+        "type": "local_path",
+        "path_kind": "directory",
+        "description": "Default local output folder for generated artifacts and reports.",
+        "privacy": "internal",
+        "required": false,
+        "example": "~/Download/safety_video_analyser"
+      }
+    }
+  },
+  "description": "A safety-video analysis co-worker for reviewing local workplace footage. Put video files in the input folder; it stages them for the visual analysis node, identifies safety-relevant observations, and writes a structured safety report and supporting artifacts to the output folder."
 }

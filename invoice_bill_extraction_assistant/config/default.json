@@ -7,14 +7,14 @@
   "mode": "document_automation_review",
   "metadata": {
     "category": "Finance",
-    "description": "Extracts invoice, bill, supplier, tax, total, line item, consumption, and approval-routing fields from local invoice PDFs with shared LLM OCR fallback."
+    "description": "An invoice and bill extraction co-worker for accounts-payable review. Put invoice, bill, or utility PDF/JSON files in the input folder; it OCRs and extracts supplier, customer, invoice ID, tax, due date, total, line item, billing period, and consumption fields, then writes a review-only extraction packet and source-grounded report to the output folder."
   },
   "inputs": {
     "adapter": "mock",
     "description": "Default demo inputs use the public dataset reference; for real use select a local downloaded dataset folder.",
     "payload": {
-      "document_folder": "",
-      "output_folder": "/Users/homer/Download/invoice_bill_extraction_assistant",
+      "document_folder": "invoice_bill_extraction_assistant/examples/sample_inputs",
+      "output_folder": "~/Download/invoice_bill_extraction_assistant",
       "field_profile": [
         "supplier_name",
         "customer_name",
@@ -37,11 +37,12 @@
           "*.json"
         ],
         "download_hint": "Use the reduced preview first; the full idsem.zip is large."
-      }
+      },
+      "input_folder": "invoice_bill_extraction_assistant/examples/sample_inputs"
     }
   },
   "document_sources": {
-    "folder_path": "",
+    "folder_path": "invoice_bill_extraction_assistant/examples/sample_inputs",
     "expected_files": [
       "*.pdf",
       "*.json"
@@ -176,7 +177,7 @@
     }
   },
   "outputs": {
-    "folder_path": "/Users/homer/Download/invoice_bill_extraction_assistant",
+    "folder_path": "~/Download/invoice_bill_extraction_assistant",
     "write_run_store": true,
     "write_markdown_report": true
   },
@@ -669,10 +670,11 @@
     "sdk_import_package": "mn_context_engine_sdk"
   },
   "state": {
-    "document_folder": "",
-    "output_folder": "/Users/homer/Download/invoice_bill_extraction_assistant",
+    "document_folder": "invoice_bill_extraction_assistant/examples/sample_inputs",
+    "output_folder": "~/Download/invoice_bill_extraction_assistant",
     "review": {},
-    "final_report": {}
+    "final_report": {},
+    "input_folder": "invoice_bill_extraction_assistant/examples/sample_inputs"
   },
   "triggers": {
     "manual": true,

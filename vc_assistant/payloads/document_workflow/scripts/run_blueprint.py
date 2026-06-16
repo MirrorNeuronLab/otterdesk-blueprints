@@ -1580,7 +1580,7 @@ def run_blueprint(
     if inputs:
         payload.update(inputs)
     run_id = run_id or payload.get("run_id") or f"{BLUEPRINT_ID}-{uuid.uuid4().hex[:8]}"
-    output_folder = Path(payload.get("output_folder") or (resolved_config.get("outputs") or {}).get("folder_path") or f"~/Download/{BLUEPRINT_ID}").expanduser()
+    output_folder = Path(payload.get("output_folder") or (resolved_config.get("outputs") or {}).get("folder_path") or f"outputs/{BLUEPRINT_ID}").expanduser()
     runs_root_path = Path(runs_root).expanduser() if runs_root else output_folder / "runs"
     run_dir = runs_root_path / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -1752,6 +1752,44 @@ def run_blueprint(
     return result
 
 
+def run_runtime_step(
+    step_id: str,
+    inputs: dict[str, Any] | None = None,
+    config: dict[str, Any] | None = None,
+    runs_root: str | Path | None = None,
+    run_id: str | None = None,
+    llm_client: Any | None = None,
+) -> dict[str, Any]:
+    if step_id == "startup_folder_watcher":
+        result = run_blueprint(inputs=inputs, config=config, runs_root=runs_root, run_id=run_id, llm_client=llm_client)
+        result["workflow_step_id"] = step_id
+        result["runtime_step_mode"] = "report_factory_entrypoint"
+        return result
+
+    runtime_run_id = run_id or f"{BLUEPRINT_ID}-{uuid.uuid4().hex[:8]}"
+    runs_root_path = Path(runs_root).expanduser() if runs_root else Path("/tmp") / runtime_run_id
+    run_dir = runs_root_path / runtime_run_id if runs_root else runs_root_path
+    run_dir.mkdir(parents=True, exist_ok=True)
+    append_event(
+        run_dir,
+        f"{step_id}_completed",
+        {
+            "step_id": step_id,
+            "runtime_step_mode": "acknowledged_after_report_factory_entrypoint",
+            "note": "The startup_folder_watcher service step runs the complete VC report factory once; this DAG node is represented for workflow observability.",
+        },
+    )
+    result = {
+        "run_id": runtime_run_id,
+        "blueprint_id": BLUEPRINT_ID,
+        "status": "completed",
+        "workflow_step_id": step_id,
+        "runtime_step_mode": "acknowledged_after_report_factory_entrypoint",
+    }
+    write_json(run_dir / f"{step_id}_result.json", result)
+    return result
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=BLUEPRINT_NAME)
     parser.add_argument("--input-folder", default="")
@@ -1764,8 +1802,19 @@ def main() -> None:
         inputs["document_folder"] = args.input_folder
     if args.output_folder:
         inputs["output_folder"] = args.output_folder
-    result = run_blueprint(inputs=inputs, runs_root=args.runs_root or None, run_id=args.run_id or None)
-    print(json.dumps({"run_id": result["run_id"], "status": result["status"], "final_artifact": result["final_artifact"]}, indent=2))
+    step_id = os.environ.get("MN_WORKFLOW_STEP_ID", "").strip()
+    if step_id:
+        result = run_runtime_step(step_id, inputs=inputs, runs_root=args.runs_root or None, run_id=args.run_id or None)
+    else:
+        result = run_blueprint(inputs=inputs, runs_root=args.runs_root or None, run_id=args.run_id or None)
+    printable = {"run_id": result["run_id"], "status": result["status"]}
+    if "workflow_step_id" in result:
+        printable["workflow_step_id"] = result["workflow_step_id"]
+    if "runtime_step_mode" in result:
+        printable["runtime_step_mode"] = result["runtime_step_mode"]
+    if "final_artifact" in result:
+        printable["final_artifact"] = result["final_artifact"]
+    print(json.dumps(printable, indent=2))
 
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
 [
   {
     "category": "Security",
-    "description": "Runs a safety-video understanding agent on a powerful NVIDIA VLM node, then generates a Gemma-backed report on a preferred weaker node while staging videos through BlobRef sharing.",
+    "description": "A safety-video analysis co-worker for reviewing local workplace footage. Put video files in the input folder; it stages them for the visual analysis node, identifies safety-relevant observations, and writes a structured safety report and supporting artifacts to the output folder.",
     "id": "safety_video_analyser",
     "job_name": "safety-video-analyser",
     "name": "Safety Video Analyser",
@@ -29,7 +29,7 @@
   },
   {
     "category": "Security",
-    "description": "Watches an approved video stream, detects configured visual targets, and reports count, label, category, color, position, activity, and alert status for review.",
+    "description": "A video-watch co-worker for monitoring an approved local or mapped video stream. Give it the stream source, visual targets, alert policy, and optional input folder assets; it detects configured objects or activities and writes reviewable observations, counts, positions, confidence, and alert status artifacts to the output folder.",
     "id": "video_watch_assistant",
     "job_name": "video-watch-assistant",
     "name": "Video Watch Assistant",
@@ -61,7 +61,7 @@
   },
   {
     "category": "Business",
-    "description": "Runs a localhost-proxied Spark HTTPS/WebRTC pizza-ordering voice co-worker backed by NVIDIA ASR, Nemotron vLLM, Magpie TTS, and editable plain-text menu knowledge.",
+    "description": "A voice customer-service co-worker for a small business demo. Give it the business name, service scope, opening message, escalation rules, editable knowledge text, and optional sample/input folder; it starts a local WebRTC voice experience and writes service status, conversation logs, knowledge snapshots, and handoff-ready run artifacts to the output folder.",
     "id": "generic_customer_service_voice_coworker",
     "job_name": "generic-customer-service-voice-coworker",
     "name": "Pizza Order Voice AI Co-worker",
@@ -101,7 +101,7 @@
   },
   {
     "category": "Business",
-    "description": "Long-running GTM AI service that finds and researches target accounts, drafts personalized outreach, tracks replies, updates a local CSV CRM, recommends next actions, and feeds market insight back to product and marketing.",
+    "description": "A go-to-market co-worker that helps research accounts and prepare outreach. Give it a CRM/input folder, optional initial customer list, and test email settings; it maintains local CRM and market-insight CSVs, drafts personalized outreach, tracks responses, recommends follow-up steps, and writes run artifacts to the output folder.",
     "id": "gtm_ai_workflow",
     "job_name": "gtm-ai-workflow",
     "name": "GTM AI Workflow",
@@ -136,7 +136,7 @@
   },
   {
     "category": "Finance",
-    "description": "Real-time, review-only portfolio risk advisor that uses public market data, financial engineering simulation, decision benchmarking, and LLM-written review reports.",
+    "description": "A portfolio risk co-worker for review-only market and scenario analysis. Give it holdings, benchmark weights, risk limits, decision constraints, optional market notes, and an input folder for supporting files; it pulls public market context, runs risk and simulation math, benchmarks possible actions, and writes risk summaries and review reports to the output folder.",
     "id": "portfolio_risk_review_assistant",
     "job_name": "portfolio-risk-review-assistant",
     "name": "Portfolio Risk Review Assistant",
@@ -175,7 +175,7 @@
   },
   {
     "category": "Finance",
-    "description": "Reviews ZIP-code history, broker notes, financing constraints, and deal memory to rank property opportunities and explain which ones deserve attention.",
+    "description": "A property deal research co-worker for comparing real-estate opportunities. Give it a target ZIP code, price ceiling, deal history, memory policy, optional broker notes, financing constraints, and an input folder for supporting files; it researches and scores opportunities, explains tradeoffs, and writes ranked review artifacts to the output folder.",
     "id": "property_deal_research_assistant",
     "job_name": "property-deal-research-assistant",
     "name": "Property Deal Research Assistant",
@@ -207,7 +207,7 @@
   },
   {
     "category": "Finance",
-    "description": "Monitors startup document folders, runs specialist web-research and deterministic numerical-analysis agents, audits seven VC heuristic methods, and writes score-only report batches.",
+    "description": "A VC analysis co-worker for early startup screening reports. Put pitch decks, memos, financial snippets, company folders, or other startup documents in the input folder; it groups documents by company, performs privacy-safe public research, applies seven VC heuristic scoring methods, audits the math and evidence, and writes score-only per-company reports and batch indexes to the output folder.",
     "id": "vc_assistant",
     "job_name": "vc-assistant",
     "name": "VC Assistant",
@@ -257,7 +257,7 @@
   },
   {
     "category": "Finance",
-    "description": "Runs an LLM-assisted tax preparation team over local tax documents, builds draft Form 1040 workpapers, audits the packet, and writes JSON, Markdown, and PDF review outputs.",
+    "description": "A personal tax preparation co-worker for draft review packets. Put W-2s, 1099s, brokerage statements, receipts, and other tax documents in the input folder; it extracts tax evidence, prepares draft Form 1040 workpapers, runs specialist and manager reviews, and writes JSON, Markdown, and PDF review outputs to the output folder for human review before filing.",
     "id": "personal_income_tax_expert",
     "job_name": "personal-income-tax-expert",
     "name": "Personal Income Tax Expert",
@@ -292,7 +292,7 @@
   },
   {
     "category": "Science",
-    "description": "Helps run a reviewable discovery workflow that proposes, filters, and evaluates drug candidates across repeated research stages.",
+    "description": "A research co-worker for early drug-discovery triage. Give it a disease or target profile, screening criteria, optional candidate seeds, literature notes, and an input folder for supporting files; it stages an evidence-backed discovery workflow and writes review-ready candidate summaries, scores, assumptions, risks, and source notes to the output folder.",
     "id": "drug_discovery_research_assistant",
     "job_name": "drug-discovery-research-assistant",
     "name": "Drug Discovery Research Assistant",
@@ -324,7 +324,7 @@
   },
   {
     "category": "Finance",
-    "description": "Extracts invoice, bill, supplier, tax, total, line item, consumption, and approval-routing fields from local invoice PDFs with shared LLM OCR fallback.",
+    "description": "An invoice and bill extraction co-worker for accounts-payable review. Put invoice, bill, or utility PDF/JSON files in the input folder; it OCRs and extracts supplier, customer, invoice ID, tax, due date, total, line item, billing period, and consumption fields, then writes a review-only extraction packet and source-grounded report to the output folder.",
     "id": "invoice_bill_extraction_assistant",
     "job_name": "invoice-bill-extraction-assistant",
     "name": "Invoice Bill Extraction Assistant",
@@ -356,7 +356,7 @@
   },
   {
     "category": "Legal",
-    "description": "Reviews local contract PDFs, extracts important clauses, compares them with a playbook, and writes a source-grounded legal review packet.",
+    "description": "A contract review co-worker for clause intake and attorney review. Put contracts, text exports, playbook notes, or clause annotations in the input folder; it extracts key clauses, maps them to the configured taxonomy, compares them with the playbook, flags issues and evidence gaps, and writes a source-grounded review packet to the output folder.",
     "id": "legal_contract_clause_review_assistant",
     "job_name": "legal-contract-clause-review-assistant",
     "name": "Legal Contract Clause Review Assistant",
@@ -388,7 +388,7 @@
   },
   {
     "category": "Healthcare",
-    "description": "Detects and redacts PHI or PII from clinical-style PDFs, extracts patient-record intake fields, and writes a review-gated de-identification packet.",
+    "description": "A medical de-identification co-worker for privacy review. Put clinical-style PDFs, labels, or bounding-box files in the input folder; it detects PHI/PII, extracts record fields, notes redaction risks, and writes a review-gated de-identification packet with evidence and warnings to the output folder.",
     "id": "medical_deid_record_intake_assistant",
     "job_name": "medical-deid-record-intake-assistant",
     "name": "Medical De-Identification Record Intake Assistant",
@@ -420,7 +420,7 @@
   },
   {
     "category": "Finance",
-    "description": "Classifies tax forms, locates fields, captures structured taxpayer and line-item values, validates totals, and writes a review-only tax intake packet.",
+    "description": "A tax-form OCR co-worker for structured intake review. Put tax form images, PDFs, answer files, or field-context tables in the input folder; it classifies forms, locates fields, captures taxpayer and line-item values, validates totals, and writes a review-only tax capture packet to the output folder.",
     "id": "tax_form_ocr_capture_assistant",
     "job_name": "tax-form-ocr-capture-assistant",
     "name": "Tax Form OCR Capture Assistant",
@@ -452,7 +452,7 @@
   },
   {
     "category": "Finance",
-    "description": "Continuously monitors a local personal finance folder with default-LLM finance actors, OCRs statements and receipts, researches public context with a DockerWorker-only w3m market researcher, then writes review-only household finance reports.",
+    "description": "A personal finance co-worker that monitors a local document folder. Put statements, receipts, bills, income records, images, text, JSON, or CSV files in the input folder; it OCRs and organizes the evidence, performs privacy-safe public research where useful, and writes review-only household finance summaries, risks, reminders, and source-grounded reports to the output folder.",
     "id": "personal_financial_advisor",
     "job_name": "personal-financial-advisor",
     "name": "Personal Financial Advisor",

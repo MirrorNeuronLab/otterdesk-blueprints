@@ -7,14 +7,14 @@
   "mode": "document_automation_review",
   "metadata": {
     "category": "Finance",
-    "description": "Classifies tax forms, locates fields, captures structured taxpayer and line-item values, validates totals, and writes a review-only tax intake packet."
+    "description": "A tax-form OCR co-worker for structured intake review. Put tax form images, PDFs, answer files, or field-context tables in the input folder; it classifies forms, locates fields, captures taxpayer and line-item values, validates totals, and writes a review-only tax capture packet to the output folder."
   },
   "inputs": {
     "adapter": "mock",
     "description": "Default demo inputs use the public dataset reference; for real use select a local downloaded dataset folder.",
     "payload": {
-      "document_folder": "",
-      "output_folder": "/Users/homer/Download/tax_form_ocr_capture_assistant",
+      "document_folder": "tax_form_ocr_capture_assistant/examples/sample_inputs",
+      "output_folder": "~/Download/tax_form_ocr_capture_assistant",
       "field_profile": [
         "form_type",
         "taxpayer_name",
@@ -39,11 +39,12 @@
           "field context tables"
         ],
         "download_hint": "Download the Special Database 2 or 6 ZIP from NIST, then point document_sources.folder_path at an extracted submission folder."
-      }
+      },
+      "input_folder": "tax_form_ocr_capture_assistant/examples/sample_inputs"
     }
   },
   "document_sources": {
-    "folder_path": "",
+    "folder_path": "tax_form_ocr_capture_assistant/examples/sample_inputs",
     "expected_files": [
       "*.png",
       "*.fmt",
@@ -181,7 +182,7 @@
     }
   },
   "outputs": {
-    "folder_path": "/Users/homer/Download/tax_form_ocr_capture_assistant",
+    "folder_path": "~/Download/tax_form_ocr_capture_assistant",
     "write_run_store": true,
     "write_markdown_report": true
   },
@@ -674,10 +675,11 @@
     "sdk_import_package": "mn_context_engine_sdk"
   },
   "state": {
-    "document_folder": "",
-    "output_folder": "/Users/homer/Download/tax_form_ocr_capture_assistant",
+    "document_folder": "tax_form_ocr_capture_assistant/examples/sample_inputs",
+    "output_folder": "~/Download/tax_form_ocr_capture_assistant",
     "review": {},
-    "final_report": {}
+    "final_report": {},
+    "input_folder": "tax_form_ocr_capture_assistant/examples/sample_inputs"
   },
   "triggers": {
     "manual": true,

@@ -173,9 +173,11 @@
     "adapter": "mock",
     "description": "Default demo inputs use bundled sample text records. For real use, select a local folder containing tax PDFs.",
     "payload": {
-      "document_folder": "",
+      "document_folder": "personal_income_tax_expert/examples/sample_inputs",
       "filing_status": "single",
-      "tax_year": 2025
+      "tax_year": 2025,
+      "input_folder": "personal_income_tax_expert/examples/sample_inputs",
+      "output_folder": "~/Download/personal_income_tax_expert"
     }
   },
   "interfaces": {
@@ -752,7 +754,7 @@
     "blueprint_revision": "2026-05-23",
     "category": "finance",
     "customizable_for": null,
-    "description": "Runs an LLM-assisted tax preparation team over a local folder of tax documents, builds source-grounded draft Form 1040 workpapers, audits the packet, and writes JSON, Markdown, and PDF review outputs.",
+    "description": "A personal tax preparation co-worker for draft review packets. Put W-2s, 1099s, brokerage statements, receipts, and other tax documents in the input folder; it extracts tax evidence, prepares draft Form 1040 workpapers, runs specialist and manager reviews, and writes JSON, Markdown, and PDF review outputs to the output folder for human review before filing.",
     "problem_solved": null,
     "runtime_features": [
       "local tax PDF intake",
@@ -776,7 +778,7 @@
   "outputs": {
     "adapter": "local_run_store",
     "artifact_contract": "Prepared draft Form 1040 review packet with source evidence, specialist workpapers, audit and manager review, advisor-style next steps, Markdown, and PDF outputs.",
-    "folder_path": "~/Downloads",
+    "folder_path": "~/Download/personal_income_tax_expert",
     "run_root": "~/.mn/runs",
     "skills": {},
     "tcp": {
@@ -867,7 +869,9 @@
       "source_ref",
       "event_id"
     ],
-    "resume_mode": "none"
+    "resume_mode": "none",
+    "input_folder": "personal_income_tax_expert/examples/sample_inputs",
+    "output_folder": "~/Download/personal_income_tax_expert"
   },
   "streams": {},
   "tax_documents": {
@@ -883,7 +887,7 @@
       "5498",
       "brokerage_statement"
     ],
-    "folder_path": "",
+    "folder_path": "personal_income_tax_expert/examples/sample_inputs",
     "recommended_forms": [
       "W-2",
       "1099-INT",

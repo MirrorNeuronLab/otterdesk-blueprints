@@ -3,7 +3,7 @@
 `Blueprint ID:` `property_deal_research_assistant`
 `Category:` `Finance`
 
-Reviews ZIP-code history, broker notes, financing constraints, and deal memory to rank property opportunities and explain which ones deserve attention.
+A property deal research co-worker for comparing real-estate opportunities. Give it a target ZIP code, price ceiling, deal history, memory policy, optional broker notes, financing constraints, and an input folder for supporting files; it researches and scores opportunities, explains tradeoffs, and writes ranked review artifacts to the output folder.
 
 ## What It Does
 

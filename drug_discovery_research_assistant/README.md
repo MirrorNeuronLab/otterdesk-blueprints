@@ -3,7 +3,7 @@
 `Blueprint ID:` `drug_discovery_research_assistant`
 `Category:` `Science`
 
-Helps run a reviewable discovery workflow that proposes, filters, and evaluates drug candidates across repeated research stages.
+A research co-worker for early drug-discovery triage. Give it a disease or target profile, screening criteria, optional candidate seeds, literature notes, and an input folder for supporting files; it stages an evidence-backed discovery workflow and writes review-ready candidate summaries, scores, assumptions, risks, and source notes to the output folder.
 
 ## What It Does
 

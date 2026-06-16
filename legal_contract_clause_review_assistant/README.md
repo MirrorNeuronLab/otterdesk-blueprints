@@ -3,7 +3,7 @@
 `Blueprint ID:` `legal_contract_clause_review_assistant`
 `Category:` `Legal`
 
-Reviews local contract PDFs, extracts important clauses, compares them with a playbook, and writes a source-grounded legal review packet.
+A contract review co-worker for clause intake and attorney review. Put contracts, text exports, playbook notes, or clause annotations in the input folder; it extracts key clauses, maps them to the configured taxonomy, compares them with the playbook, flags issues and evidence gaps, and writes a source-grounded review packet to the output folder.
 
 ## Public Sample Input
 
@@ -43,7 +43,7 @@ python3.11 payloads/document_workflow/scripts/run_blueprint.py --runs-root /tmp/
 - `inputs/public_dataset.json`: public downloadable dataset reference selected for sample inputs.
 - `payloads/document_workflow/scripts/run_blueprint.py`: lightweight local runner demonstrating the OCR-backed extraction contract.
 
-Default outputs are configured for `/Users/homer/Download/legal_contract_clause_review_assistant`.
+Default outputs are configured for `outputs/legal_contract_clause_review_assistant`.
 
 ## Safety Checklist
 

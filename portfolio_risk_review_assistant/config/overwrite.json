@@ -2,7 +2,9 @@
   "inputs": {
     "payload": {
       "scenario": "stagflation shock",
-      "steps": "5"
+      "steps": "5",
+      "input_folder": "portfolio_risk_review_assistant/examples/sample_inputs",
+      "output_folder": "~/Download/portfolio_risk_review_assistant"
     }
   }
 }

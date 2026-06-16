@@ -5,7 +5,7 @@
   "name": "Personal Financial Advisor",
   "version": "1.0.0",
   "manifest_version": "1.0",
-  "description": "Continuously monitors a local personal finance folder, OCRs statements, income documents, receipts, bills, and related records, then writes review-only household finance status, advice, risk reminders, and source-grounded reports.",
+  "description": "A personal finance co-worker that monitors a local document folder. Put statements, receipts, bills, income records, images, text, JSON, or CSV files in the input folder; it OCRs and organizes the evidence, performs privacy-safe public research where useful, and writes review-only household finance summaries, risks, reminders, and source-grounded reports to the output folder.",
   "job_name": "personal-financial-advisor",
   "contract": {
     "events": {
@@ -47,18 +47,20 @@
     },
     "inputs": {
       "document_folder": {
-        "type": "domain_value",
+        "type": "local_path",
         "description": "Local folder monitored for personal finance documents, statements, receipts, bills, income records, and images.",
         "privacy": "regulated",
         "required": true,
-        "example": "/Users/me/Documents/personal_financial_advisor/inbox"
+        "example": "personal_financial_advisor/examples/sample_inputs",
+        "path_kind": "directory"
       },
       "output_folder": {
-        "type": "domain_value",
+        "type": "local_path",
         "description": "Local folder where JSON and Markdown advisor reports should be written.",
         "privacy": "regulated",
         "required": true,
-        "example": "/Users/homer/Download/personal_financial_advisor"
+        "example": "~/Download/personal_financial_advisor",
+        "path_kind": "directory"
       },
       "field_profile": {
         "type": "domain_value",
@@ -116,6 +118,14 @@
           "poll_interval_seconds": 60,
           "max_cycles": 1
         }
+      },
+      "input_folder": {
+        "type": "local_path",
+        "path_kind": "directory",
+        "description": "Default local input folder for sample files or user-provided files.",
+        "privacy": "regulated",
+        "required": false,
+        "example": "personal_financial_advisor/examples/sample_inputs"
       }
     },
     "outputs": {
@@ -1296,7 +1306,7 @@
     "blueprint_id": "personal_financial_advisor",
     "name": "Personal Financial Advisor",
     "category": "finance",
-    "description": "Continuously monitors a local personal finance folder, OCRs statements, income documents, receipts, bills, and related records, researches public context through a DockerWorker browser research phase, then writes review-only household finance status, advice, risk reminders, and source-grounded reports.",
+    "description": "A personal finance co-worker that monitors a local document folder. Put statements, receipts, bills, income records, images, text, JSON, or CSV files in the input folder; it OCRs and organizes the evidence, performs privacy-safe public research where useful, and writes review-only household finance summaries, risks, reminders, and source-grounded reports to the output folder.",
     "agent_role": "Actor-style continuous personal finance coworker with default-LLM specialists and a DockerWorker financial market researcher.",
     "target_users": "Individuals, households, freelancers, financial coaches, and operations teams reviewing personal finance documents.",
     "customizable_for": "Household budgeting, income and expense review, receipt tracking, bill reminders, cash-flow checks, and financial document intake.",
@@ -1857,15 +1867,17 @@
       "required_inputs": [
         {
           "name": "document_folder",
-          "type": "domain_value",
+          "type": "local_path",
           "description": "Local folder monitored for personal finance documents, statements, receipts, bills, income records, and images.",
-          "example": "/Users/me/Documents/personal_financial_advisor/inbox"
+          "example": "personal_financial_advisor/examples/sample_inputs",
+          "path_kind": "directory"
         },
         {
           "name": "output_folder",
-          "type": "domain_value",
+          "type": "local_path",
           "description": "Local folder where JSON and Markdown advisor reports should be written.",
-          "example": "/Users/homer/Download/personal_financial_advisor"
+          "example": "~/Download/personal_financial_advisor",
+          "path_kind": "directory"
         },
         {
           "name": "field_profile",
@@ -1904,6 +1916,15 @@
             "poll_interval_seconds": 60,
             "max_cycles": 1
           }
+        },
+        {
+          "name": "input_folder",
+          "type": "local_path",
+          "path_kind": "directory",
+          "description": "Default local input folder for sample files or user-provided files.",
+          "example": "personal_financial_advisor/examples/sample_inputs",
+          "privacy": "regulated",
+          "required": false
         }
       ],
       "profiles": {
@@ -2430,20 +2451,40 @@
         {
           "path": "document_sources.folder_path",
           "label": "Bank statement folder",
-          "default": "",
-          "description": "Choose a local folder containing Synthetic scanned bank statement PDFs with structured JSON metadata."
+          "default": "personal_financial_advisor/examples/sample_inputs",
+          "description": "Choose a local folder containing Synthetic scanned bank statement PDFs with structured JSON metadata.",
+          "type": "local_path",
+          "path_kind": "directory"
         },
         {
           "path": "outputs.folder_path",
           "label": "Output folder",
-          "default": "/Users/homer/Download/personal_financial_advisor",
-          "description": "Choose where review files should be written."
+          "default": "~/Download/personal_financial_advisor",
+          "description": "Choose where review files should be written.",
+          "type": "local_path",
+          "path_kind": "directory"
         },
         {
           "path": "input_skills.llm_ocr.enabled",
           "label": "LLM OCR",
           "default": true,
           "description": "Use the shared local LightOnOCR Docker Model Runner path for scanned or low-text documents."
+        },
+        {
+          "path": "inputs.payload.input_folder",
+          "label": "Input folder",
+          "default": "personal_financial_advisor/examples/sample_inputs",
+          "description": "Default local input folder for sample files or user-provided files.",
+          "type": "local_path",
+          "path_kind": "directory"
+        },
+        {
+          "path": "inputs.payload.output_folder",
+          "label": "Output folder",
+          "default": "~/Download/personal_financial_advisor",
+          "description": "Default local output folder for generated artifacts and reports.",
+          "type": "local_path",
+          "path_kind": "directory"
         }
       ]
     },

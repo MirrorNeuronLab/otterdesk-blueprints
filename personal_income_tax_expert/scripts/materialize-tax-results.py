@@ -194,7 +194,7 @@ def _output_folder(runner_result: dict[str, Any], final_artifact: dict[str, Any]
         for item in _as_list(final_artifact.get("output_files")):
             if isinstance(item, dict) and item.get("path"):
                 return Path(str(item["path"])).expanduser().parent
-        folder = "~/Downloads"
+        folder = "outputs/personal_income_tax_expert"
     return Path(str(folder)).expanduser()
 
 

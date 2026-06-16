@@ -113,6 +113,22 @@
         "privacy": "internal",
         "required": false,
         "type": "number"
+      },
+      "input_folder": {
+        "type": "local_path",
+        "path_kind": "directory",
+        "description": "Default local input folder for sample files or user-provided files.",
+        "privacy": "internal",
+        "required": false,
+        "example": "generic_customer_service_voice_coworker/examples/sample_inputs"
+      },
+      "output_folder": {
+        "type": "local_path",
+        "path_kind": "directory",
+        "description": "Default local output folder for generated artifacts and reports.",
+        "privacy": "internal",
+        "required": false,
+        "example": "~/Download/generic_customer_service_voice_coworker"
       }
     },
     "outputs": {
@@ -325,12 +341,12 @@
         "completed"
       ]
     },
-    "summary": "Runs a localhost-proxied Spark HTTPS/WebRTC pizza-ordering voice co-worker backed by NVIDIA ASR, Nemotron vLLM, Magpie TTS, and editable plain-text menu RAG knowledge.",
+    "summary": "A voice customer-service co-worker for a small business demo. Give it the business name, service scope, opening message, escalation rules, editable knowledge text, and optional sample/input folder; it starts a local WebRTC voice experience and writes service status, conversation logs, knowledge snapshots, and handoff-ready run artifacts to the output folder.",
     "users": [
       "Restaurant operators, pizza shops, customer operations leads, small businesses, and AI operations teams."
     ]
   },
-  "description": "Runs a localhost-proxied Spark HTTPS/WebRTC pizza-ordering voice co-worker backed by NVIDIA ASR, Nemotron vLLM, Magpie TTS, and editable plain-text menu RAG knowledge.",
+  "description": "A voice customer-service co-worker for a small business demo. Give it the business name, service scope, opening message, escalation rules, editable knowledge text, and optional sample/input folder; it starts a local WebRTC voice experience and writes service status, conversation logs, knowledge snapshots, and handoff-ready run artifacts to the output folder.",
   "workflow": {
     "schema": "mn.workflow.problem_graph/v1",
     "workflow_id": "generic_customer_service_voice_coworker_v1",
@@ -953,7 +969,7 @@
       ]
     },
     "customizable_for": "Pizza shops, takeout counters, small restaurants, delivery intake, and friendly food-ordering demos.",
-    "description": "Runs a localhost-proxied Spark HTTPS/WebRTC pizza-ordering voice co-worker backed by NVIDIA ASR, Nemotron vLLM, Magpie TTS, and editable plain-text menu RAG knowledge.",
+    "description": "A voice customer-service co-worker for a small business demo. Give it the business name, service scope, opening message, escalation rules, editable knowledge text, and optional sample/input folder; it starts a local WebRTC voice experience and writes service status, conversation logs, knowledge snapshots, and handoff-ready run artifacts to the output folder.",
     "human_control": {
       "enabled": true,
       "events": [
@@ -999,13 +1015,37 @@
           "description": "HTTPS/WebRTC voice page port on Spark.",
           "label": "Spark HTTPS port",
           "path": "inputs.payload.voice_https_port"
+        },
+        {
+          "path": "inputs.payload.input_folder",
+          "label": "Input folder",
+          "default": "generic_customer_service_voice_coworker/examples/sample_inputs",
+          "description": "Default local input folder for sample files or user-provided files.",
+          "type": "local_path",
+          "path_kind": "directory"
+        },
+        {
+          "path": "inputs.payload.output_folder",
+          "label": "Output folder",
+          "default": "~/Download/generic_customer_service_voice_coworker",
+          "description": "Default local output folder for generated artifacts and reports.",
+          "type": "local_path",
+          "path_kind": "directory"
+        },
+        {
+          "path": "outputs.folder_path",
+          "label": "Output folder",
+          "default": "~/Download/generic_customer_service_voice_coworker",
+          "description": "Default local output folder for generated artifacts and reports.",
+          "type": "local_path",
+          "path_kind": "directory"
         }
       ],
       "instruction": "When running in OtterDesk, show these overwriteable fields during init config and ask the user to confirm or edit them before launch.",
       "required": true
     },
     "input_contract": {
-      "description": "Runs a localhost-proxied Spark HTTPS/WebRTC pizza-ordering voice co-worker backed by NVIDIA ASR, Nemotron vLLM, Magpie TTS, and editable plain-text menu RAG knowledge.",
+      "description": "A voice customer-service co-worker for a small business demo. Give it the business name, service scope, opening message, escalation rules, editable knowledge text, and optional sample/input folder; it starts a local WebRTC voice experience and writes service status, conversation logs, knowledge snapshots, and handoff-ready run artifacts to the output folder.",
       "optional_inputs": [
         {
           "description": "TTS voice name or preset used by the Magpie service.",
@@ -1030,6 +1070,24 @@
           "example": 7863,
           "name": "voice_local_proxy_port",
           "type": "number"
+        },
+        {
+          "name": "input_folder",
+          "type": "local_path",
+          "path_kind": "directory",
+          "description": "Default local input folder for sample files or user-provided files.",
+          "example": "generic_customer_service_voice_coworker/examples/sample_inputs",
+          "privacy": "internal",
+          "required": false
+        },
+        {
+          "name": "output_folder",
+          "type": "local_path",
+          "path_kind": "directory",
+          "description": "Default local output folder for generated artifacts and reports.",
+          "example": "~/Download/generic_customer_service_voice_coworker",
+          "privacy": "internal",
+          "required": false
         }
       ],
       "privacy_classification": "internal",
