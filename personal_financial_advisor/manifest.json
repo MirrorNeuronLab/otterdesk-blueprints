@@ -2469,22 +2469,6 @@
           "label": "LLM OCR",
           "default": true,
           "description": "Use the shared local LightOnOCR Docker Model Runner path for scanned or low-text documents."
-        },
-        {
-          "path": "inputs.payload.input_folder",
-          "label": "Input folder",
-          "default": "personal_financial_advisor/examples/sample_inputs",
-          "description": "Default local input folder for sample files or user-provided files.",
-          "type": "local_path",
-          "path_kind": "directory"
-        },
-        {
-          "path": "inputs.payload.output_folder",
-          "label": "Output folder",
-          "default": "~/Download/personal_financial_advisor",
-          "description": "Default local output folder for generated artifacts and reports.",
-          "type": "local_path",
-          "path_kind": "directory"
         }
       ]
     },

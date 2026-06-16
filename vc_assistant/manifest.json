@@ -734,7 +734,7 @@
           "vc_assistant.rendered_page_researcher.ready"
         ],
         "join": {
-          "mode": "all"
+          "mode": "all_required"
         }
       },
       {
@@ -1055,7 +1055,7 @@
           "vc_assistant.cost_to_duplicate_scorer.ready"
         ],
         "join": {
-          "mode": "all"
+          "mode": "all_required"
         }
       },
       {
@@ -3982,22 +3982,6 @@
           "label": "Public research",
           "default": true,
           "description": "Use privacy-safe public research queries that avoid confidential document excerpts."
-        },
-        {
-          "path": "inputs.payload.input_folder",
-          "label": "Input folder",
-          "default": "vc_assistant/examples/sample_inputs",
-          "description": "Default local input folder for sample files or user-provided files.",
-          "type": "local_path",
-          "path_kind": "directory"
-        },
-        {
-          "path": "inputs.payload.output_folder",
-          "label": "Output folder",
-          "default": "~/Download/vc_assistant",
-          "description": "Default local output folder for generated artifacts and reports.",
-          "type": "local_path",
-          "path_kind": "directory"
         }
       ]
     },

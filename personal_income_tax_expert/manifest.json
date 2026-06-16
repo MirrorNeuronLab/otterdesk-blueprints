@@ -1964,22 +1964,6 @@
           "path": "outputs.folder_path",
           "type": "local_path",
           "path_kind": "directory"
-        },
-        {
-          "path": "inputs.payload.input_folder",
-          "label": "Input folder",
-          "default": "personal_income_tax_expert/examples/sample_inputs",
-          "description": "Default local input folder for sample files or user-provided files.",
-          "type": "local_path",
-          "path_kind": "directory"
-        },
-        {
-          "path": "inputs.payload.output_folder",
-          "label": "Output folder",
-          "default": "~/Download/personal_income_tax_expert",
-          "description": "Default local output folder for generated artifacts and reports.",
-          "type": "local_path",
-          "path_kind": "directory"
         }
       ],
       "instruction": "Ask the user to select the local tax document folder, confirm filing status, and choose the output folder before launch. If they skip the document folder, run the demo sample packet and explain that it is not filing-ready.",

@@ -3948,14 +3948,6 @@
           "path_kind": "directory"
         },
         {
-          "path": "inputs.payload.output_folder",
-          "label": "Output folder",
-          "default": "~/Download/gtm_ai_workflow",
-          "description": "Default local output folder for generated artifacts and reports.",
-          "type": "local_path",
-          "path_kind": "directory"
-        },
-        {
           "path": "outputs.folder_path",
           "label": "Output folder",
           "default": "~/Download/gtm_ai_workflow",

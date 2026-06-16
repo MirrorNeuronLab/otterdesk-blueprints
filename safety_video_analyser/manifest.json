@@ -46,22 +46,6 @@
           "description": "Suggestive node preference for the report generator. Scheduler falls back automatically if unavailable."
         },
         {
-          "path": "inputs.payload.input_folder",
-          "label": "Input folder",
-          "default": "safety_video_analyser/examples/sample_inputs",
-          "description": "Default local input folder for sample files or user-provided files.",
-          "type": "local_path",
-          "path_kind": "directory"
-        },
-        {
-          "path": "inputs.payload.output_folder",
-          "label": "Output folder",
-          "default": "~/Download/safety_video_analyser",
-          "description": "Default local output folder for generated artifacts and reports.",
-          "type": "local_path",
-          "path_kind": "directory"
-        },
-        {
           "path": "outputs.folder_path",
           "label": "Output folder",
           "default": "~/Download/safety_video_analyser",

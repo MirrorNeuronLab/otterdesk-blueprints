@@ -315,6 +315,20 @@ def test_otterdesk_blueprints_are_workflow_driven_manifests():
                 assert {"id", "role"} <= set(worker), (blueprint_id, step["run"], worker)
 
 
+def test_otterdesk_workflow_join_modes_use_runtime_contract_values():
+    allowed_modes = {"all_required", "min_success"}
+    for manifest_path in _manifest_paths():
+        manifest = json.loads(manifest_path.read_text())
+        if not _is_workflow_manifest(manifest):
+            continue
+        blueprint_id = manifest["metadata"]["blueprint_id"]
+        for index, step in enumerate(manifest["workflow"]["steps"]):
+            join = step.get("join")
+            if not isinstance(join, dict):
+                continue
+            assert join.get("mode") in allowed_modes, (blueprint_id, index, step.get("id"), join)
+
+
 def test_otterdesk_json_uses_python311_for_host_python_commands():
     bare_python3 = re.compile(r"(?<![\w.])python3(?!\.\d)")
 
@@ -997,9 +1011,35 @@ def test_otterdesk_blueprints_declare_standard_default_input_and_output_folders(
             for field in manifest["metadata"]["init_config_review"]["fields"]
             if isinstance(field, dict) and "path" in field
         }
-        assert review_fields["inputs.payload.input_folder"]["default"] == expected_input, blueprint_id
-        assert review_fields["inputs.payload.output_folder"]["default"] == expected_output, blueprint_id
+        visible_input_folder_paths = [
+            path
+            for path in review_fields
+            if path == "inputs.payload.input_folder" or (path.endswith(".folder_path") and path != "outputs.folder_path")
+        ]
+        assert len(visible_input_folder_paths) == 1, blueprint_id
+        assert review_fields[visible_input_folder_paths[0]]["default"] == expected_input, blueprint_id
+        assert "inputs.payload.output_folder" not in review_fields, blueprint_id
         assert review_fields["outputs.folder_path"]["default"] == expected_output, blueprint_id
+
+
+def test_otterdesk_init_config_review_does_not_duplicate_folder_controls():
+    for manifest_path in _manifest_paths():
+        blueprint_id = manifest_path.parent.name
+        manifest = json.loads(manifest_path.read_text())
+        fields = manifest["metadata"]["init_config_review"]["fields"]
+        paths = [field.get("path") for field in fields if isinstance(field, dict)]
+        visible_input_folder_paths = [
+            path
+            for path in paths
+            if isinstance(path, str)
+            and (path == "inputs.payload.input_folder" or (path.endswith(".folder_path") and path != "outputs.folder_path"))
+        ]
+        visible_output_folder_paths = [path for path in paths if path in {"inputs.payload.output_folder", "outputs.folder_path"}]
+
+        assert len(visible_input_folder_paths) == 1, (blueprint_id, visible_input_folder_paths)
+        assert visible_output_folder_paths == ["outputs.folder_path"], (blueprint_id, visible_output_folder_paths)
+        if any(path.endswith(".folder_path") and path != "outputs.folder_path" for path in visible_input_folder_paths):
+            assert "inputs.payload.input_folder" not in paths, blueprint_id
 
 
 def test_otterdesk_blueprint_descriptions_are_customer_facing_and_synchronized():
