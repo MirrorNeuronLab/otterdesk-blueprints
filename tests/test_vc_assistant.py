@@ -97,6 +97,37 @@ def test_manifest_runtime_nodes_carry_default_config_for_service_sandbox():
         assert embedded_config["inputs"]["payload"]["output_folder"] == "~/Download/vc_assistant"
         assert embedded_config["outputs"]["folder_path"] == "~/Download/vc_assistant"
         assert embedded_config["llm"]["model"] == "gemma4:e2b"
+        assert embedded_config["research_budget"]["default_actions"] == 100
+
+
+def test_vc_agents_are_llm_backed_and_selected_for_actor_reviews():
+    runner = _load_runner()
+    config = json.loads((ROOT / "vc_assistant" / "config" / "default.json").read_text(encoding="utf-8"))
+    agents = config["llm"]["agents"]
+
+    assert len(agents) == 21
+    assert set(agents) == set(runner.WORKFLOW_STEP_IDS)
+    for actor_id in runner.WORKFLOW_STEP_IDS:
+        assert agents[actor_id]["llm_config"] == "primary"
+        assert agents[actor_id]["model"] == "gemma4:e2b"
+
+    actor_specs = runner.resolve_actor_specs(config)
+    actor_ids = [actor_id for actor_id in runner.WORKFLOW_STEP_IDS if actor_id in actor_specs]
+    assert actor_ids == runner.WORKFLOW_STEP_IDS
+
+
+def test_vc_knowledge_excludes_stale_non_vc_domain_terms():
+    runner = _load_runner()
+    playbook = (ROOT / "vc_assistant" / "knowledge" / "startup_research_playbook.md").read_text(encoding="utf-8")
+    knowledge = runner.load_vc_knowledge(ROOT / "vc_assistant")
+    serialized = json.dumps(knowledge).lower()
+
+    assert "Berkus Method" in playbook
+    assert "Scorecard / Bill Payne Method" in playbook
+    assert "VC Method" in playbook
+    for stale_term in ("camera", "video", "surveillance", "footage"):
+        assert stale_term not in playbook.lower()
+        assert stale_term not in serialized
 
 
 def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path):
@@ -147,11 +178,18 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path
         assert set(analysis["methods"]) == METHOD_IDS
         assert set(method_scores) == METHOD_IDS
         assert analysis["method_count"] == 7
+        assert analysis["evidence_summary"]["composite_score_evidence"]["status"] in {"scored", "insufficient_evidence"}
+        assert "result_evidence" in analysis
         for method in analysis["methods"].values():
-            assert {"score", "inputs_used", "formula_or_weighting", "assumptions", "source_refs", "warnings"} <= set(method)
+            assert {"score", "inputs_used", "formula_or_weighting", "assumptions", "source_refs", "evidence_refs", "evidence_summary", "missing_evidence", "warnings"} <= set(method)
             assert method["status"] in {"scored", "insufficient_evidence"}
+            assert method["evidence_refs"] or method["missing_evidence"] or method["status"] == "scored"
         markdown = (company_dir / "analysis.md").read_text(encoding="utf-8")
         assert "score-only early screening report" in markdown
+        assert "Result Evidence" in markdown
+        assert "- Why:" in markdown
+        assert "pre-revenue value proxy based on risk reduction" in markdown
+        assert "Assumptions:" in markdown
 
     sparse = json.loads((outputs / "sparse-labs" / "analysis.json").read_text(encoding="utf-8"))
     assert "insufficient_evidence" in {
@@ -184,7 +222,31 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path
     assert run_artifact["llm_usage"]["provider"] == "fake"
     assert run_artifact["llm_usage"]["model"] == "fake-vc-actor"
     assert run_artifact["llm_usage"]["calls"] == len(runner.WORKFLOW_STEP_IDS)
+    assert run_artifact["action_ledger"]["budget"] == 100
+    assert run_artifact["action_ledger"]["used"] >= len(runner.WORKFLOW_STEP_IDS)
+    assert any(action["action_type"] == "financial_tool" for action in run_artifact["action_ledger"]["actions"])
+    assert run_artifact["active_knowledge"]["path"] == "knowledge/startup_research_playbook.md"
+    assert run_artifact["active_knowledge"]["sha256"]
+    assert set(run_artifact["active_knowledge"]["method_memory_hooks"]) == METHOD_IDS
     assert fake_llm.calls == len(runner.WORKFLOW_STEP_IDS)
+    prompt_payload = fake_llm.prompts[0]["user"]
+    assert "VC Startup Research And Method Playbook" in prompt_payload
+    for expected in (
+        "Berkus Method",
+        "Scorecard / Bill Payne Method",
+        "Risk Factor Summation Method",
+        "VC Method",
+        "First Chicago Method",
+        "Comparable Transactions / Market Multiples",
+        "Cost-to-Duplicate Method",
+        "method_correctness",
+        "evidence_grounding",
+        "financial_reasoning_quality",
+    ):
+        assert expected in prompt_payload
+    for stale_term in ("camera", "video", "surveillance", "footage"):
+        assert stale_term not in prompt_payload.lower()
+    assert (tmp_path / "vc-unit" / "action_ledger.json").exists()
 
     repeat = runner.run_blueprint(
         inputs={
@@ -422,3 +484,94 @@ def test_scorecard_and_comparables_ignore_non_substantive_defaults():
     assert analysis["methods"]["comparables_market_multiple_method"]["status"] == "insufficient_evidence"
     assert analysis["methods"]["comparables_market_multiple_method"]["score"] is None
     assert analysis["fact_table"]["raw_counts"]["substantive_research_source_count"] == 0
+
+
+def test_action_budget_charges_browser_rendered_financial_tool_and_llm(monkeypatch, tmp_path):
+    runner = _load_runner()
+    budget = runner.ActionBudget(10)
+
+    class DummyConfig:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    monkeypatch.setattr(runner, "_load_w3m_browser_skill", lambda: None)
+    monkeypatch.setattr(runner, "W3mBrowserConfig", DummyConfig)
+    monkeypatch.setattr(
+        runner,
+        "research_topic",
+        lambda query, browser_config, max_sources, observer=None: {
+            "sources": [{"url": "https://example.com/source", "title": "Source", "snippet": "market revenue comparable"}],
+            "warnings": [],
+        },
+    )
+    monkeypatch.setattr(
+        runner,
+        "browse_url",
+        lambda url, browser_config, observer=None: {"status": "ok", "url": url, "title": "Profile", "snippet": "funding customer traction"},
+    )
+    monkeypatch.setattr(runner, "_load_web_browser_skill", lambda: None)
+    monkeypatch.setattr(runner, "WebBrowserConfig", DummyConfig)
+    monkeypatch.setattr(
+        runner,
+        "scrape_page",
+        lambda url, browser_config: {"status": "ok", "final_url": url, "title": "Rendered", "text": "rendered startup profile", "warnings": []},
+    )
+
+    sources = []
+    plan = {"queries": ["Example AI funding"], "target_urls": ["https://example.com/profile"], "company_slug": "example-ai"}
+    runner._append_w3m_research(sources, company="Example AI", plan=plan, internet={"max_sources_per_company": 1}, run_dir=tmp_path, action_budget=budget)
+    runner._append_target_url_research(sources, company="Example AI", plan=plan, internet={"max_target_urls_per_company": 1}, run_dir=tmp_path, action_budget=budget)
+    runner._append_rendered_browser_research(
+        sources,
+        company="Example AI",
+        plan=plan,
+        internet={"rendered_browser": {"enabled": True, "max_pages_per_company": 1}},
+        action_budget=budget,
+    )
+    runner.append_financial_tool_research(
+        "Example AI",
+        [{"path": "pitch.txt", "filename": "pitch.txt", "text_preview": "Revenue $100k. Example.com comparable.", "character_count": 35}],
+        {"market_comp_researcher": sources},
+        action_budget=budget,
+    )
+    llm = runner.BudgetedLLM(FakeVCLLM(), budget)
+    llm.generate_json(system_prompt="actor", user_prompt="{}", fallback={"actor_id": "actor", "summary": "", "findings": [], "risks": []})
+
+    ledger = budget.summary()
+    assert ledger["used"] == 5
+    assert [action["action_type"] for action in ledger["actions"]] == [
+        "browser_search",
+        "browser_page",
+        "rendered_browser_page",
+        "financial_tool",
+        "llm_call",
+    ]
+
+
+def test_budget_exhaustion_finishes_with_warnings_and_no_extra_llm_calls(tmp_path):
+    runner = _load_runner()
+    docs = tmp_path / "startup-docs"
+    outputs = tmp_path / "reports"
+    _write_startup_packets(docs)
+    fake_llm = FakeVCLLM()
+
+    result = runner.run_blueprint(
+        inputs={
+            "document_folder": str(docs),
+            "output_folder": str(outputs),
+            "monitoring": {"enabled": True, "poll_interval_seconds": 1, "max_cycles": 1},
+        },
+        config={"llm": {"mode": "fake"}, "research_budget": {"default_actions": 1}},
+        runs_root=tmp_path,
+        run_id="vc-budget-exhausted",
+        llm_client=fake_llm,
+    )
+
+    artifact = result["final_artifact"]
+    assert result["status"] == "completed"
+    assert artifact["action_ledger"]["budget"] == 1
+    assert artifact["action_ledger"]["used"] == 1
+    assert artifact["action_ledger"]["exhausted"] is True
+    assert any(action["status"] == "budget_exhausted" for action in artifact["action_ledger"]["actions"])
+    assert any(warning["status"] == "budget_exhausted" for warning in artifact["research_warnings"])
+    assert fake_llm.calls == 0

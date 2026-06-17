@@ -527,6 +527,17 @@
     "max_company_workers": 4,
     "deterministic_output_order": "company_slug"
   },
+  "research_budget": {
+    "default_actions": 100,
+    "chargeable_actions": [
+      "llm_call",
+      "browser_search",
+      "browser_page",
+      "rendered_browser_page",
+      "financial_tool"
+    ],
+    "exhaustion_mode": "finish_with_budget_exhausted_warnings"
+  },
   "internet_research": {
     "enabled": true,
     "browser_skill": "w3m_browser_skill",
@@ -575,25 +586,33 @@
       "private_financials",
       "founder_contact_details"
     ],
-    "max_queries": 3,
-    "max_sources_per_company": 3,
-    "max_target_urls_per_company": 2,
+    "max_queries": 8,
+    "max_sources_per_company": 8,
+    "max_target_urls_per_company": 4,
     "max_stage_workers": 5,
-    "timeout_seconds": 12,
-    "max_chars": 6000,
+    "timeout_seconds": 20,
+    "max_chars": 12000,
     "use_model_compression": true,
     "rendered_browser": {
-      "enabled": false,
+      "enabled": true,
       "purpose": "Optional Playwright fallback for JavaScript-rendered public pages such as Crunchbase profiles when w3m cannot extract useful text.",
       "respect_robots": true,
       "stop_on_blocked": true,
       "no_proxy_rotation": true,
       "no_captcha_solving": true,
-      "timeout_seconds": 20,
+      "timeout_seconds": 30,
       "max_chars": 12000,
-      "max_pages_per_company": 1,
+      "max_pages_per_company": 2,
       "per_host_delay_seconds": 1.0
     }
+  },
+  "financial_tools": {
+    "enabled": true,
+    "adapters": [
+      "local_public_comparable_and_exit_math"
+    ],
+    "paid_provider_connectors": false,
+    "missing_provider_data_policy": "record_missing_evidence"
   },
   "scoring": {
     "max_workers": 7,
@@ -609,10 +628,10 @@
       "enabled": true,
       "required": false,
       "install_policy": "docker_worker_image",
-      "timeout_seconds": 12,
-      "max_chars": 6000,
-      "max_queries": 3,
-      "max_sources_per_company": 3,
+      "timeout_seconds": 20,
+      "max_chars": 12000,
+      "max_queries": 8,
+      "max_sources_per_company": 8,
       "use_model_compression": true
     },
     "web_browser": {
@@ -629,9 +648,9 @@
       "stop_on_blocked": true,
       "no_proxy_rotation": true,
       "no_captcha_solving": true,
-      "timeout_seconds": 20,
+      "timeout_seconds": 30,
       "max_chars": 12000,
-      "max_pages_per_company": 1,
+      "max_pages_per_company": 2,
       "per_host_delay_seconds": 1.0
     }
   },
@@ -660,11 +679,15 @@
     "parallel_web_research",
     "parallel_numerical_scoring",
     "score_consistency_audit",
-    "batch_report_factory"
+    "batch_report_factory",
+    "action_budgeted_deep_research",
+    "deterministic_financial_tools",
+    "evidence_backed_method_results"
   ],
   "budgets": {
     "max_runtime_seconds": 900,
-    "max_public_queries": 75
+    "max_public_queries": 100,
+    "default_action_budget": 100
   },
   "agent_handoffs": [
     "startup_folder_watcher_to_company_packet_grouper",
@@ -776,7 +799,8 @@
           "inputs.json",
           "events.jsonl",
           "result.json",
-          "final_artifact.json"
+          "final_artifact.json",
+          "action_ledger.json"
         ],
         "optional_artifacts": [
           "job.json",
@@ -814,6 +838,7 @@
         "artifacts": [
           "result.json",
           "final_artifact.json",
+          "action_ledger.json",
           "company_index.json",
           "company_index.md",
           "*/analysis.json",
@@ -856,6 +881,8 @@
       "privacy",
       "triggers",
       "execution",
+      "research_budget",
+      "financial_tools",
       "backpressure",
       "scoring",
       "determinism",
@@ -891,6 +918,8 @@
       "privacy",
       "triggers",
       "execution",
+      "research_budget",
+      "financial_tools",
       "backpressure",
       "scoring",
       "determinism",
@@ -929,7 +958,8 @@
       "inputs.json",
       "events.jsonl",
       "result.json",
-      "final_artifact.json"
+      "final_artifact.json",
+      "action_ledger.json"
     ],
     "run_artifacts": [
       "run.json",
@@ -937,7 +967,8 @@
       "inputs.json",
       "events.jsonl",
       "result.json",
-      "final_artifact.json"
+      "final_artifact.json",
+      "action_ledger.json"
     ],
     "optional_outputs": [
       "job.json",
