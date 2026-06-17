@@ -24,6 +24,18 @@
       "simulation_type": "Two-agent cross-node video analysis placement smoke test.",
       "target_users": "OtterDesk operators, cluster runtime developers, and safety operations teams."
     },
+    "requirements": {
+      "gpu": {
+        "min_count": 1,
+        "vendor": "nvidia",
+        "driver": "cuda",
+        "min_api_version": "12.0",
+        "api_version_operator": ">",
+        "min_memory_mb": 49152,
+        "memory_operator": ">",
+        "enforcement": "hard"
+      }
+    },
     "type": "batch",
     "workflow_id": "safety_video_analyser_v1"
   },
@@ -55,6 +67,18 @@
       ],
       "simulation_type": "Video stream sampling with visual detection review state.",
       "target_users": "Video operators, security reviewers, safety operations teams, and site-access coordinators."
+    },
+    "requirements": {
+      "gpu": {
+        "min_count": 1,
+        "vendor": "nvidia",
+        "driver": "cuda",
+        "min_api_version": "12.0",
+        "api_version_operator": ">",
+        "min_memory_mb": 49152,
+        "memory_operator": ">",
+        "enforcement": "hard"
+      }
     },
     "type": "service",
     "workflow_id": "video_watch_assistant_v1"
@@ -95,6 +119,21 @@
       ],
       "simulation_type": "Spark-hosted real-time WebRTC pizza-ordering conversation exposed through localhost with editable text RAG.",
       "target_users": "Restaurant operators, pizza shops, customer operations leads, small businesses, and AI operations teams."
+    },
+    "requirements": {
+      "gpu": {
+        "min_count": 1,
+        "vendor": "nvidia",
+        "required_capabilities": [
+          "nvidia-dgx-spark",
+          "nvidia-gh200",
+          "nvidia-h100",
+          "nvidia-h200",
+          "nvidia-b200",
+          "nvidia-gb200",
+          "nvidia-gb10"
+        ]
+      }
     },
     "type": "service",
     "workflow_id": "generic_customer_service_voice_coworker_v1"
