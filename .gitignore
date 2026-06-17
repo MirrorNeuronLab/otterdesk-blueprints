@@ -73,6 +73,7 @@ web_ui.json
 ui.json
 crm.csv
 market_insights.csv
+.mn-rag-state.json
 
 # Generated SDK/client output
 generated/

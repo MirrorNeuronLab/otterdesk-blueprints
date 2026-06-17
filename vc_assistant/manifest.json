@@ -1403,6 +1403,10 @@
             {
               "source": "examples/sample_inputs",
               "target": "vc_assistant/examples/sample_inputs"
+            },
+            {
+              "source": "knowledge",
+              "target": "knowledge"
             }
           ]
         }
@@ -1453,6 +1457,10 @@
             {
               "source": "examples/sample_inputs",
               "target": "vc_assistant/examples/sample_inputs"
+            },
+            {
+              "source": "knowledge",
+              "target": "knowledge"
             }
           ]
         }
@@ -1503,6 +1511,10 @@
             {
               "source": "examples/sample_inputs",
               "target": "vc_assistant/examples/sample_inputs"
+            },
+            {
+              "source": "knowledge",
+              "target": "knowledge"
             }
           ]
         }
@@ -1553,6 +1565,10 @@
             {
               "source": "examples/sample_inputs",
               "target": "vc_assistant/examples/sample_inputs"
+            },
+            {
+              "source": "knowledge",
+              "target": "knowledge"
             }
           ]
         }
@@ -1603,6 +1619,10 @@
             {
               "source": "examples/sample_inputs",
               "target": "vc_assistant/examples/sample_inputs"
+            },
+            {
+              "source": "knowledge",
+              "target": "knowledge"
             }
           ]
         }
@@ -1658,6 +1678,10 @@
             {
               "source": "examples/sample_inputs",
               "target": "vc_assistant/examples/sample_inputs"
+            },
+            {
+              "source": "knowledge",
+              "target": "knowledge"
             }
           ]
         }
@@ -1713,6 +1737,10 @@
             {
               "source": "examples/sample_inputs",
               "target": "vc_assistant/examples/sample_inputs"
+            },
+            {
+              "source": "knowledge",
+              "target": "knowledge"
             }
           ]
         }
@@ -1768,6 +1796,10 @@
             {
               "source": "examples/sample_inputs",
               "target": "vc_assistant/examples/sample_inputs"
+            },
+            {
+              "source": "knowledge",
+              "target": "knowledge"
             }
           ]
         }
@@ -1823,6 +1855,10 @@
             {
               "source": "examples/sample_inputs",
               "target": "vc_assistant/examples/sample_inputs"
+            },
+            {
+              "source": "knowledge",
+              "target": "knowledge"
             }
           ]
         }
@@ -1878,6 +1914,10 @@
             {
               "source": "examples/sample_inputs",
               "target": "vc_assistant/examples/sample_inputs"
+            },
+            {
+              "source": "knowledge",
+              "target": "knowledge"
             }
           ]
         }
@@ -1928,6 +1968,10 @@
             {
               "source": "examples/sample_inputs",
               "target": "vc_assistant/examples/sample_inputs"
+            },
+            {
+              "source": "knowledge",
+              "target": "knowledge"
             }
           ]
         }
@@ -1978,6 +2022,10 @@
             {
               "source": "examples/sample_inputs",
               "target": "vc_assistant/examples/sample_inputs"
+            },
+            {
+              "source": "knowledge",
+              "target": "knowledge"
             }
           ]
         }
@@ -2028,6 +2076,10 @@
             {
               "source": "examples/sample_inputs",
               "target": "vc_assistant/examples/sample_inputs"
+            },
+            {
+              "source": "knowledge",
+              "target": "knowledge"
             }
           ]
         }
@@ -2078,6 +2130,10 @@
             {
               "source": "examples/sample_inputs",
               "target": "vc_assistant/examples/sample_inputs"
+            },
+            {
+              "source": "knowledge",
+              "target": "knowledge"
             }
           ]
         }
@@ -2128,6 +2184,10 @@
             {
               "source": "examples/sample_inputs",
               "target": "vc_assistant/examples/sample_inputs"
+            },
+            {
+              "source": "knowledge",
+              "target": "knowledge"
             }
           ]
         }
@@ -2178,6 +2238,10 @@
             {
               "source": "examples/sample_inputs",
               "target": "vc_assistant/examples/sample_inputs"
+            },
+            {
+              "source": "knowledge",
+              "target": "knowledge"
             }
           ]
         }
@@ -2228,6 +2292,10 @@
             {
               "source": "examples/sample_inputs",
               "target": "vc_assistant/examples/sample_inputs"
+            },
+            {
+              "source": "knowledge",
+              "target": "knowledge"
             }
           ]
         }
@@ -2278,6 +2346,10 @@
             {
               "source": "examples/sample_inputs",
               "target": "vc_assistant/examples/sample_inputs"
+            },
+            {
+              "source": "knowledge",
+              "target": "knowledge"
             }
           ]
         }
@@ -2328,6 +2400,10 @@
             {
               "source": "examples/sample_inputs",
               "target": "vc_assistant/examples/sample_inputs"
+            },
+            {
+              "source": "knowledge",
+              "target": "knowledge"
             }
           ]
         }
@@ -2378,6 +2454,10 @@
             {
               "source": "examples/sample_inputs",
               "target": "vc_assistant/examples/sample_inputs"
+            },
+            {
+              "source": "knowledge",
+              "target": "knowledge"
             }
           ]
         }
@@ -2428,6 +2508,10 @@
             {
               "source": "examples/sample_inputs",
               "target": "vc_assistant/examples/sample_inputs"
+            },
+            {
+              "source": "knowledge",
+              "target": "knowledge"
             }
           ]
         }
@@ -3238,6 +3322,10 @@
               {
                 "source": "examples/sample_inputs",
                 "target": "vc_assistant/examples/sample_inputs"
+              },
+              {
+                "source": "knowledge",
+                "target": "knowledge"
               }
             ]
           }
@@ -3268,6 +3356,10 @@
               {
                 "source": "examples/sample_inputs",
                 "target": "vc_assistant/examples/sample_inputs"
+              },
+              {
+                "source": "knowledge",
+                "target": "knowledge"
               }
             ]
           }
@@ -3298,6 +3390,10 @@
               {
                 "source": "examples/sample_inputs",
                 "target": "vc_assistant/examples/sample_inputs"
+              },
+              {
+                "source": "knowledge",
+                "target": "knowledge"
               }
             ]
           }
@@ -3328,6 +3424,10 @@
               {
                 "source": "examples/sample_inputs",
                 "target": "vc_assistant/examples/sample_inputs"
+              },
+              {
+                "source": "knowledge",
+                "target": "knowledge"
               }
             ]
           }
@@ -3358,6 +3458,10 @@
               {
                 "source": "examples/sample_inputs",
                 "target": "vc_assistant/examples/sample_inputs"
+              },
+              {
+                "source": "knowledge",
+                "target": "knowledge"
               }
             ]
           }
@@ -3393,6 +3497,10 @@
               {
                 "source": "examples/sample_inputs",
                 "target": "vc_assistant/examples/sample_inputs"
+              },
+              {
+                "source": "knowledge",
+                "target": "knowledge"
               }
             ]
           }
@@ -3428,6 +3536,10 @@
               {
                 "source": "examples/sample_inputs",
                 "target": "vc_assistant/examples/sample_inputs"
+              },
+              {
+                "source": "knowledge",
+                "target": "knowledge"
               }
             ]
           }
@@ -3463,6 +3575,10 @@
               {
                 "source": "examples/sample_inputs",
                 "target": "vc_assistant/examples/sample_inputs"
+              },
+              {
+                "source": "knowledge",
+                "target": "knowledge"
               }
             ]
           }
@@ -3498,6 +3614,10 @@
               {
                 "source": "examples/sample_inputs",
                 "target": "vc_assistant/examples/sample_inputs"
+              },
+              {
+                "source": "knowledge",
+                "target": "knowledge"
               }
             ]
           }
@@ -3533,6 +3653,10 @@
               {
                 "source": "examples/sample_inputs",
                 "target": "vc_assistant/examples/sample_inputs"
+              },
+              {
+                "source": "knowledge",
+                "target": "knowledge"
               }
             ]
           }
@@ -3563,6 +3687,10 @@
               {
                 "source": "examples/sample_inputs",
                 "target": "vc_assistant/examples/sample_inputs"
+              },
+              {
+                "source": "knowledge",
+                "target": "knowledge"
               }
             ]
           }
@@ -3593,6 +3721,10 @@
               {
                 "source": "examples/sample_inputs",
                 "target": "vc_assistant/examples/sample_inputs"
+              },
+              {
+                "source": "knowledge",
+                "target": "knowledge"
               }
             ]
           }
@@ -3623,6 +3755,10 @@
               {
                 "source": "examples/sample_inputs",
                 "target": "vc_assistant/examples/sample_inputs"
+              },
+              {
+                "source": "knowledge",
+                "target": "knowledge"
               }
             ]
           }
@@ -3653,6 +3789,10 @@
               {
                 "source": "examples/sample_inputs",
                 "target": "vc_assistant/examples/sample_inputs"
+              },
+              {
+                "source": "knowledge",
+                "target": "knowledge"
               }
             ]
           }
@@ -3683,6 +3823,10 @@
               {
                 "source": "examples/sample_inputs",
                 "target": "vc_assistant/examples/sample_inputs"
+              },
+              {
+                "source": "knowledge",
+                "target": "knowledge"
               }
             ]
           }
@@ -3713,6 +3857,10 @@
               {
                 "source": "examples/sample_inputs",
                 "target": "vc_assistant/examples/sample_inputs"
+              },
+              {
+                "source": "knowledge",
+                "target": "knowledge"
               }
             ]
           }
@@ -3743,6 +3891,10 @@
               {
                 "source": "examples/sample_inputs",
                 "target": "vc_assistant/examples/sample_inputs"
+              },
+              {
+                "source": "knowledge",
+                "target": "knowledge"
               }
             ]
           }
@@ -3773,6 +3925,10 @@
               {
                 "source": "examples/sample_inputs",
                 "target": "vc_assistant/examples/sample_inputs"
+              },
+              {
+                "source": "knowledge",
+                "target": "knowledge"
               }
             ]
           }
@@ -3803,6 +3959,10 @@
               {
                 "source": "examples/sample_inputs",
                 "target": "vc_assistant/examples/sample_inputs"
+              },
+              {
+                "source": "knowledge",
+                "target": "knowledge"
               }
             ]
           }
@@ -3833,6 +3993,10 @@
               {
                 "source": "examples/sample_inputs",
                 "target": "vc_assistant/examples/sample_inputs"
+              },
+              {
+                "source": "knowledge",
+                "target": "knowledge"
               }
             ]
           }
@@ -3863,6 +4027,10 @@
               {
                 "source": "examples/sample_inputs",
                 "target": "vc_assistant/examples/sample_inputs"
+              },
+              {
+                "source": "knowledge",
+                "target": "knowledge"
               }
             ]
           }

@@ -115,6 +115,7 @@ def test_manifest_runtime_nodes_carry_default_config_for_service_sandbox():
     upload_paths = [
         {"source": "document_workflow", "target": "document_workflow"},
         {"source": "examples/sample_inputs", "target": "vc_assistant/examples/sample_inputs"},
+        {"source": "knowledge", "target": "knowledge"},
     ]
     assert len(nodes) == 21
     assert report_sink["config"] == {"complete_on_message": True, "terminal_sink": True, "complete_run": True}
