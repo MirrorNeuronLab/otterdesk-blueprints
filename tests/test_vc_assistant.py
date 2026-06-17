@@ -106,7 +106,7 @@ def _write_startup_packets(path: Path) -> None:
     )
 
 
-def test_manifest_runtime_nodes_carry_default_config_for_service_sandbox():
+def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
     manifest = json.loads((ROOT / "vc_assistant" / "manifest.json").read_text(encoding="utf-8"))
     config = json.loads((ROOT / "vc_assistant" / "config" / "default.json").read_text(encoding="utf-8"))
     nodes = [node for node in manifest["agents"]["nodes"] if node["node_id"] != "report_sink"]
@@ -170,6 +170,7 @@ def test_manifest_runtime_nodes_carry_default_config_for_service_sandbox():
         assert embedded_config["agentic_research"]["allowed_tools"] == ["browser_search", "browser_page", "rendered_browser_page", "finish"]
         assert embedded_config["knowledge_rag"] == config["knowledge_rag"]
         assert embedded_config["python_dependencies"] == config["python_dependencies"]
+        assert embedded_config["suggested_schedule"] == config["suggested_schedule"]
     for template in manifest["metadata"]["agent_templates"]["nodes"]:
         if template["node_id"] == "report_sink":
             assert template["uses"] == "mn-agents.control_join@1.0.0"
@@ -178,6 +179,27 @@ def test_manifest_runtime_nodes_carry_default_config_for_service_sandbox():
         assert template["with"]["upload_paths"] == upload_paths
         template_config = json.loads(template["with"]["environment"]["MN_BLUEPRINT_CONFIG_JSON"])
         assert template_config["knowledge_rag"] == config["knowledge_rag"]
+        assert template_config["suggested_schedule"] == config["suggested_schedule"]
+
+
+def test_vc_assistant_is_daily_batch_folder_scan():
+    index = json.loads((ROOT / "index.json").read_text(encoding="utf-8"))
+    entry = next(item for item in index if item["id"] == "vc_assistant")
+    manifest = json.loads((ROOT / "vc_assistant" / "manifest.json").read_text(encoding="utf-8"))
+    config = json.loads((ROOT / "vc_assistant" / "config" / "default.json").read_text(encoding="utf-8"))
+
+    assert entry["type"] == "batch"
+    assert "service" not in entry["product"]["runtime_features"][0]
+    assert entry["product"]["runtime_features"][0] == "daily scheduled folder scan"
+    assert manifest["metadata"]["runtime_features"][0] == "daily scheduled folder scan"
+    assert config["monitoring"]["max_cycles"] == 1
+    assert config["triggers"]["schedule"] is None
+    assert config["suggested_schedule"] == {
+        "cron": "0 7 * * *",
+        "cadence": "daily",
+        "advisory_only": True,
+        "note": "Suggested cadence only; runtime decides the actual schedule.",
+    }
 
 
 def test_vc_assistant_runtime_requirements_install_skills_with_pip():

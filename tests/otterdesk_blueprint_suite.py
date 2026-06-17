@@ -1062,6 +1062,70 @@ def test_otterdesk_blueprint_descriptions_are_customer_facing_and_synchronized()
         assert "output folder" in description, blueprint_id
 
 
+EXPECTED_BATCH_SUGGESTED_SCHEDULES = {
+    "drug_discovery_research_assistant": {"cron": "0 8 * * 1", "cadence": "weekly"},
+    "invoice_bill_extraction_assistant": {"cron": "0 * * * *", "cadence": "hourly"},
+    "legal_contract_clause_review_assistant": {"cron": "0 7 * * 1-5", "cadence": "weekday_daily"},
+    "medical_deid_record_intake_assistant": {"cron": "0 * * * *", "cadence": "hourly"},
+    "personal_income_tax_expert": {"cron": "0 8 * * *", "cadence": "daily"},
+    "portfolio_risk_review_assistant": {"cron": "0 * * * 1-5", "cadence": "weekday_hourly"},
+    "property_deal_research_assistant": {"cron": "0 8 * * 1", "cadence": "weekly"},
+    "safety_video_analyser": {"cron": "0 2 * * *", "cadence": "daily"},
+    "tax_form_ocr_capture_assistant": {"cron": "0 6 * * *", "cadence": "daily"},
+    "vc_assistant": {"cron": "0 7 * * *", "cadence": "daily"},
+}
+
+CONTINUOUS_BLUEPRINTS_WITHOUT_SUGGESTED_SCHEDULES = {
+    "generic_customer_service_voice_coworker",
+    "gtm_ai_workflow",
+    "personal_financial_advisor",
+    "video_watch_assistant",
+}
+
+
+def _expected_schedule(blueprint_id: str) -> dict:
+    expected = dict(EXPECTED_BATCH_SUGGESTED_SCHEDULES[blueprint_id])
+    expected["advisory_only"] = True
+    expected["note"] = "Suggested cadence only; runtime decides the actual schedule."
+    return expected
+
+
+def _embedded_manifest_configs(manifest: dict):
+    for node in manifest.get("agents", {}).get("nodes", []):
+        env = (node.get("config") or {}).get("environment") or {}
+        if env.get("MN_BLUEPRINT_CONFIG_JSON"):
+            yield json.loads(env["MN_BLUEPRINT_CONFIG_JSON"])
+    for template in manifest.get("metadata", {}).get("agent_templates", {}).get("nodes", []):
+        env = (template.get("with") or {}).get("environment") or {}
+        if env.get("MN_BLUEPRINT_CONFIG_JSON"):
+            yield json.loads(env["MN_BLUEPRINT_CONFIG_JSON"])
+
+
+def test_batch_blueprints_declare_advisory_schedules():
+    index_by_id = {entry["id"]: entry for entry in json.loads((ROOT / "index.json").read_text())}
+
+    for blueprint_id in sorted(EXPECTED_BATCH_SUGGESTED_SCHEDULES):
+        blueprint_dir = ROOT / blueprint_id
+        config = json.loads((blueprint_dir / "config" / "default.json").read_text())
+        manifest = json.loads((blueprint_dir / "manifest.json").read_text())
+        schedule = config.get("suggested_schedule")
+
+        assert schedule == _expected_schedule(blueprint_id)
+        assert re.fullmatch(r"(\S+\s+){4}\S+", schedule["cron"])
+        assert schedule["advisory_only"] is True
+        triggers = config.get("triggers") or {}
+        if "schedule" in triggers:
+            assert triggers["schedule"] in (None, False), blueprint_id
+        for embedded_config in _embedded_manifest_configs(manifest):
+            assert embedded_config.get("suggested_schedule") == schedule, blueprint_id
+
+    assert index_by_id["safety_video_analyser"]["type"] == "batch"
+    assert index_by_id["vc_assistant"]["type"] == "batch"
+    for blueprint_id in CONTINUOUS_BLUEPRINTS_WITHOUT_SUGGESTED_SCHEDULES:
+        config = json.loads((ROOT / blueprint_id / "config" / "default.json").read_text())
+        assert "suggested_schedule" not in config, blueprint_id
+
+
 def test_index_entries_point_to_loadable_blueprint_folders():
     index = json.loads((ROOT / "index.json").read_text())
     assert index

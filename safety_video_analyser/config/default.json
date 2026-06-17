@@ -111,5 +111,11 @@
   },
   "metadata": {
     "description": "A safety-video analysis co-worker for reviewing local workplace footage. Put video files in the input folder; it stages them for the visual analysis node, identifies safety-relevant observations, and writes a structured safety report and supporting artifacts to the output folder."
+  },
+  "suggested_schedule": {
+    "cron": "0 2 * * *",
+    "cadence": "daily",
+    "advisory_only": true,
+    "note": "Suggested cadence only; runtime decides the actual schedule."
   }
 }

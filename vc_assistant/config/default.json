@@ -913,7 +913,8 @@
       "dataset_input",
       "document_automation",
       "agentic_research",
-      "knowledge_rag"
+      "knowledge_rag",
+      "suggested_schedule"
     ],
     "config_sections": [
       "standard_version",
@@ -953,7 +954,8 @@
       "dataset_input",
       "document_automation",
       "agentic_research",
-      "knowledge_rag"
+      "knowledge_rag",
+      "suggested_schedule"
     ],
     "identity": [
       "blueprint_id",
@@ -1064,5 +1066,11 @@
     "chunk_size": 220,
     "chunk_overlap": 40,
     "required": true
+  },
+  "suggested_schedule": {
+    "cron": "0 7 * * *",
+    "cadence": "daily",
+    "advisory_only": true,
+    "note": "Suggested cadence only; runtime decides the actual schedule."
   }
 }

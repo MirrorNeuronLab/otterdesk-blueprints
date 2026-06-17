@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from otterdesk_blueprint_suite import (
     test_all_blueprints_declare_actor_style_llm_config,
+    test_batch_blueprints_declare_advisory_schedules,
     test_index_entries_point_to_loadable_blueprint_folders,
     test_otterdesk_blueprints_are_workflow_driven_manifests,
     test_otterdesk_blueprints_declare_membrane_context_memory_layer,

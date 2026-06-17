@@ -255,12 +255,12 @@
       "agent_role": "VC analysis coworker that prepares source-grounded score reports without issuing investment decisions.",
       "benefit": "Turns mixed startup document packets into organized per-company heuristic reports, method-score files, research ledgers, and batch coverage summaries so the user can decide what deserves deeper diligence.",
       "customizable_for": "Pre-seed screening, accelerator batches, angel deal flow, founder note review, and early diligence packet triage.",
-      "how_it_works": "Monitors a local folder, groups documents by company, extracts source evidence, normalizes deterministic fact tables, runs staged browser research, applies seven specialist numerical scorers in parallel, audits score consistency, and writes per-company and batch-level reports.",
+      "how_it_works": "On each scheduled batch run, checks a local folder, groups documents by company, extracts source evidence, normalizes deterministic fact tables, runs staged browser research, applies seven specialist numerical scorers in parallel, audits score consistency, and writes per-company and batch-level reports.",
       "input": "Local folder with one or more startup document packets, preferably grouped by first-level company folders.",
       "output": "Per-company analysis folders with scores, evidence, assumptions, public source refs, and missing-evidence flags.",
       "problem": "Early startup review is noisy; analysts need a quick score-only report across common VC heuristics without fake precision or automated decisions.",
       "runtime_features": [
-        "continuous local folder monitoring service",
+        "daily scheduled folder scan",
         "folder-first startup company grouping",
         "company work queue generation",
         "deterministic fact table normalization",
@@ -288,10 +288,10 @@
         "run-store observability dashboard",
         "Membrane context memory optimization"
       ],
-      "simulation_type": "Folder-monitoring startup packet review with score-only VC heuristic reports.",
+      "simulation_type": "Scheduled batch startup packet review with score-only VC heuristic reports.",
       "target_users": "VC analysts, angel investors, accelerator reviewers, startup scouts, and founder-led investment teams."
     },
-    "type": "service",
+    "type": "batch",
     "workflow_id": "vc_assistant_v1"
   },
   {

@@ -786,6 +786,14 @@ def validate_llm_rag_refs(decision: dict[str, Any], *, knowledge_rag: dict[str, 
         raise RuntimeError(f"Required RAG citation refs missing from LLM output for {label}.")
 
 
+def citation_ref_values(rag_context: dict[str, Any] | None, *, limit: int = 3) -> list[Any]:
+    refs = []
+    for citation in (rag_context or {}).get("citations") or []:
+        if isinstance(citation, dict) and citation.get("ref") not in (None, ""):
+            refs.append(citation.get("ref"))
+    return refs[:limit]
+
+
 def active_knowledge_reference(active_knowledge: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": active_knowledge.get("id"),
@@ -2455,6 +2463,13 @@ def run_agentic_research_stage(
             trace_record["iterations"].append({"iteration": iteration, "status": "invalid_response", "response_type": type(decision).__name__})
             trace_record["stop_reason"] = "agent_invalid_tool_call"
             break
+        if knowledge_rag_is_required(knowledge_rag) and not rag_ref_values(decision):
+            refs = citation_ref_values(rag_context)
+            if refs:
+                decision["rag_refs"] = refs
+                decision.setdefault("evidence_gaps", [])
+                if isinstance(decision["evidence_gaps"], list):
+                    decision["evidence_gaps"].append("Agent omitted explicit RAG refs; refs were attached from retrieved stage context.")
         try:
             validate_llm_rag_refs(decision, knowledge_rag=knowledge_rag, stage=stage, company=company)
         except Exception as exc:
@@ -3246,6 +3261,7 @@ def build_actor_review_prompt(
     knowledge_rag: dict[str, Any] | None,
 ) -> tuple[str, dict[str, Any]]:
     prompt_spec = actor_prompt_spec(actor_id)
+    available_rag_refs = (context.get("rag_context") or {}).get("citations") if isinstance(context.get("rag_context"), dict) else []
     system_prompt = (
         f"You are {actor_id}, a VC Assistant specialist reviewer. "
         f"Mission: {prompt_spec['mission']} Return strict JSON only. "
@@ -3258,6 +3274,7 @@ def build_actor_review_prompt(
         "configured_responsibilities": actor_spec.get("responsibilities") or [],
         "focus": prompt_spec.get("focus") or [],
         "rag_refs_required": knowledge_rag_is_required(knowledge_rag),
+        "available_rag_refs": available_rag_refs,
         "context": context,
         "required_schema": {
             "summary": "short role-specific review summary",
@@ -3277,6 +3294,11 @@ def build_actor_review_prompt(
             "recommended_next_step": "one bounded next workflow action, no investment recommendation",
         },
     }
+
+
+def default_actor_rag_refs(context: dict[str, Any]) -> list[Any]:
+    rag_context = context.get("rag_context") if isinstance(context.get("rag_context"), dict) else {}
+    return citation_ref_values(rag_context)
 
 
 def run_vc_actor_reviews(
@@ -3313,6 +3335,13 @@ def run_vc_actor_reviews(
         finding = llm.generate_json(system_prompt=system_prompt, user_prompt=json.dumps(prompt, default=str), fallback=fallback)
         if not isinstance(finding, dict):
             raise RuntimeError(f"Actor {actor_id} returned non-object JSON.")
+        if knowledge_rag_is_required(knowledge_rag) and not rag_ref_values(finding):
+            refs = default_actor_rag_refs(context)
+            if refs:
+                finding["rag_refs"] = refs
+                finding.setdefault("evidence_gaps", [])
+                if isinstance(finding["evidence_gaps"], list):
+                    finding["evidence_gaps"].append("Actor review omitted explicit RAG refs; refs were attached from the shared review context.")
         validate_llm_rag_refs(finding, knowledge_rag=knowledge_rag, stage=actor_id)
         finding.setdefault("actor_id", actor_id)
         finding.setdefault("role", actor_spec.get("role") or actor_id)

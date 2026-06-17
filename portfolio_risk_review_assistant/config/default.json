@@ -332,7 +332,8 @@
       "decision_policy",
       "benchmark",
       "interfaces",
-      "execution_model"
+      "execution_model",
+      "suggested_schedule"
     ],
     "identity_fields": [
       "blueprint_id",
@@ -806,5 +807,11 @@
       "refresh_seconds": 2,
       "title": null
     }
+  },
+  "suggested_schedule": {
+    "cron": "0 * * * 1-5",
+    "cadence": "weekday_hourly",
+    "advisory_only": true,
+    "note": "Suggested cadence only; runtime decides the actual schedule."
   }
 }

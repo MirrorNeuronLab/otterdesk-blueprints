@@ -2186,7 +2186,8 @@
         "tax_profile",
         "tax_documents",
         "tax_knowledge",
-        "knowledge"
+        "knowledge",
+        "suggested_schedule"
       ],
       "identity": [
         "blueprint_id",

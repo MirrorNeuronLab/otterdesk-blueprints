@@ -540,7 +540,8 @@
       "execution_model",
       "memory_layer",
       "dataset_input",
-      "document_automation"
+      "document_automation",
+      "suggested_schedule"
     ],
     "config_sections": [
       "standard_version",
@@ -573,7 +574,8 @@
       "execution_model",
       "memory_layer",
       "dataset_input",
-      "document_automation"
+      "document_automation",
+      "suggested_schedule"
     ],
     "identity": [
       "blueprint_id",
@@ -698,5 +700,11 @@
   },
   "simulation": {
     "enabled": false
+  },
+  "suggested_schedule": {
+    "cron": "0 * * * *",
+    "cadence": "hourly",
+    "advisory_only": true,
+    "note": "Suggested cadence only; runtime decides the actual schedule."
   }
 }

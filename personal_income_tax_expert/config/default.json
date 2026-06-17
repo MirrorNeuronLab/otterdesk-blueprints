@@ -308,7 +308,8 @@
       "tax_profile",
       "tax_documents",
       "tax_knowledge",
-      "knowledge"
+      "knowledge",
+      "suggested_schedule"
     ],
     "identity_fields": [
       "blueprint_id",
@@ -1008,5 +1009,11 @@
       "refresh_seconds": 2,
       "title": "Personal Income Tax Expert"
     }
+  },
+  "suggested_schedule": {
+    "cron": "0 8 * * *",
+    "cadence": "daily",
+    "advisory_only": true,
+    "note": "Suggested cadence only; runtime decides the actual schedule."
   }
 }

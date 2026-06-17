@@ -1546,7 +1546,8 @@
         "agent_handoffs",
         "web_ui",
         "interfaces",
-        "execution_model"
+        "execution_model",
+        "suggested_schedule"
       ],
       "identity": [
         "blueprint_id",
