@@ -309,6 +309,117 @@ def write_json(path: Path, value: Any) -> None:
     path.write_text(json.dumps(value, indent=2, sort_keys=False) + "\n", encoding="utf-8")
 
 
+def _looks_like_sandbox_home(path: Path) -> bool:
+    raw = str(path)
+    return raw in {"/root", "/tmp", "/var/root"} or raw.startswith(
+        ("/root/", "/tmp/", "/private/tmp/", "/var/root/", "/var/folders/", "/private/var/folders/")
+    )
+
+
+def _home_from_mirror_neuron_path(value: str | Path | None) -> Path | None:
+    if not value:
+        return None
+    path = Path(value).expanduser()
+    parts = path.parts
+    if ".mn" not in parts:
+        return None
+    marker_index = parts.index(".mn")
+    if marker_index <= 0:
+        return None
+    home = Path(*parts[:marker_index])
+    return home if str(home) and not _looks_like_sandbox_home(home) else None
+
+
+def _home_from_macos_users_dir() -> Path | None:
+    users_dir = Path("/Users")
+    if not users_dir.exists():
+        return None
+    names = [
+        os.environ.get("SUDO_USER"),
+        os.environ.get("LOGNAME"),
+        os.environ.get("USER"),
+    ]
+    for name in names:
+        if not name or name in {"root", "daemon", "nobody"}:
+            continue
+        candidate = users_dir / name
+        if candidate.exists() and not _looks_like_sandbox_home(candidate):
+            return candidate
+    candidates = [
+        path
+        for path in users_dir.iterdir()
+        if path.is_dir()
+        and path.name not in {"Shared", "Guest", "Deleted Users"}
+        and not path.name.startswith(".")
+        and ((path / "Downloads").exists() or (path / ".mn").exists())
+    ]
+    if len(candidates) == 1 and not _looks_like_sandbox_home(candidates[0]):
+        return candidates[0]
+    return None
+
+
+def runtime_user_home() -> Path:
+    for env_name in ("MN_OUTPUT_HOME", "MN_USER_HOME", "OTTERDESK_USER_HOME"):
+        value = os.environ.get(env_name)
+        if value:
+            return Path(value).expanduser()
+    for env_name in ("MN_RUN_DIR", "MN_RUNS_ROOT", "MN_HOME", "OTTERDESK_RUN_DIR", "OTTERDESK_RUNS_ROOT"):
+        home = _home_from_mirror_neuron_path(os.environ.get(env_name))
+        if home:
+            return home
+    expanded = Path("~").expanduser()
+    if not _looks_like_sandbox_home(expanded):
+        return expanded
+    try:
+        import pwd
+
+        account_home = Path(pwd.getpwuid(os.getuid()).pw_dir)
+        if account_home and not _looks_like_sandbox_home(account_home):
+            return account_home
+    except Exception:
+        pass
+    macos_home = _home_from_macos_users_dir()
+    if macos_home:
+        return macos_home
+    return expanded
+
+
+def expand_runtime_path(value: str | Path) -> Path:
+    raw = str(value)
+    if raw == "~":
+        return runtime_user_home()
+    if raw.startswith("~/") or raw.startswith("~\\"):
+        return runtime_user_home() / raw[2:]
+    return Path(raw).expanduser()
+
+
+def resolve_existing_path(value: str | Path, search_roots: list[Path]) -> Path:
+    candidate = expand_runtime_path(value)
+    if candidate.is_absolute() or candidate.exists():
+        return candidate
+    candidates = [candidate]
+    raw_parts = candidate.parts
+    if raw_parts and raw_parts[0] == BLUEPRINT_ID:
+        stripped = Path(*raw_parts[1:]) if len(raw_parts) > 1 else Path("")
+        candidates.extend(root / stripped for root in search_roots)
+    candidates.extend(root / candidate for root in search_roots)
+    for possible in candidates:
+        if possible.exists():
+            return possible
+    return candidate
+
+
+def resolve_run_dir(output_folder: Path, run_id: str, runs_root: str | Path | None = None) -> Path:
+    if not runs_root:
+        env_run_dir = os.environ.get("MN_RUN_DIR")
+        if env_run_dir:
+            return expand_runtime_path(env_run_dir)
+    resolved_runs_root = runs_root or os.environ.get("MN_RUNS_ROOT")
+    if resolved_runs_root:
+        return expand_runtime_path(resolved_runs_root) / run_id
+    return output_folder / "runs" / run_id
+
+
 def vc_knowledge_search_roots(blueprint_dir: Path) -> list[Path]:
     roots = [blueprint_dir]
     bundle_dir = os.environ.get("MN_BLUEPRINT_BUNDLE_DIR")
@@ -489,9 +600,17 @@ class BudgetedLLM:
             return response
         try:
             response = self._llm.generate_json(system_prompt=system_prompt, user_prompt=user_prompt, fallback=fallback)
-        except Exception:
-            self._action_budget.complete(action, "failed")
-            raise
+        except Exception as exc:
+            self._action_budget.complete(action, "failed", {"error": str(exc)})
+            response = dict(fallback)
+            response["summary"] = response.get("summary") or "Actor review unavailable; deterministic VC report artifacts were preserved."
+            response.setdefault("findings", [])
+            response.setdefault("risks", [])
+            response["provider"] = "actor_review_unavailable"
+            response["model"] = getattr(self._llm, "model", "unknown")
+            response["error"] = str(exc)
+            response["budget_status"] = "llm_call_failed"
+            return response
         self._action_budget.complete(action, "completed")
         return response
 
@@ -2141,12 +2260,15 @@ def run_blueprint(
     payload = dict((resolved_config.get("inputs") or {}).get("payload") or {})
     if inputs:
         payload.update(inputs)
-    run_id = run_id or payload.get("run_id") or f"{BLUEPRINT_ID}-{uuid.uuid4().hex[:8]}"
-    output_folder = Path(payload.get("output_folder") or (resolved_config.get("outputs") or {}).get("folder_path") or f"outputs/{BLUEPRINT_ID}").expanduser()
-    runs_root_path = Path(runs_root).expanduser() if runs_root else output_folder / "runs"
-    run_dir = runs_root_path / run_id
+    run_id = run_id or payload.get("run_id") or os.environ.get("MN_RUN_ID") or f"{BLUEPRINT_ID}-{uuid.uuid4().hex[:8]}"
+    output_folder = expand_runtime_path(payload.get("output_folder") or (resolved_config.get("outputs") or {}).get("folder_path") or f"outputs/{BLUEPRINT_ID}")
+    run_dir = resolve_run_dir(output_folder, run_id, runs_root)
     run_dir.mkdir(parents=True, exist_ok=True)
-    document_folder = Path(payload.get("document_folder") or "").expanduser() if payload.get("document_folder") else blueprint_dir / "examples" / "sample_inputs"
+    document_folder = (
+        resolve_existing_path(payload["document_folder"], [blueprint_dir, blueprint_dir.parent])
+        if payload.get("document_folder")
+        else blueprint_dir / "examples" / "sample_inputs"
+    )
     monitoring = dict(payload.get("monitoring") or {})
     max_cycles = int(monitoring.get("max_cycles") or 1)
 
@@ -2270,6 +2392,21 @@ def run_blueprint(
             }
         )
         append_event(run_dir, "tool_call_failed", {"tool": "actor_llm", "status": "actor_review_unavailable", "error": str(exc)})
+    unavailable_actor_errors = [
+        str(finding.get("error") or "")
+        for finding in actor_findings.values()
+        if isinstance(finding, dict) and finding.get("provider") == "actor_review_unavailable"
+    ]
+    if unavailable_actor_errors and not actor_review_warnings:
+        actor_review_warnings.append(
+            {
+                "kind": "actor_review",
+                "status": "actor_review_unavailable",
+                "message": "One or more LLM actor reviews failed after deterministic reports were generated; report artifacts were preserved.",
+                "error": unavailable_actor_errors[0],
+                "affected_actor_count": len(unavailable_actor_errors),
+            }
+        )
     action_ledger = action_budget.summary(include_actions=True)
     budget_warnings = []
     if action_ledger["exhausted"]:
@@ -2330,14 +2467,23 @@ def run_blueprint(
         "llm_usage": llm_usage(llm),
         "action_ledger": action_ledger,
     }
+    root_output_files = [
+        {"kind": "final_artifact_json", "path": str(output_folder / "final_artifact.json")},
+        {"kind": "action_ledger_json", "path": str(output_folder / "action_ledger.json")},
+    ]
+    final_artifact["output_files"] = [*output_files, *root_output_files]
     result = {"run_id": run_id, "blueprint_id": BLUEPRINT_ID, "status": "completed", "final_artifact": final_artifact}
 
     append_event(run_dir, "blueprint_phase_completed", {"phase": "running_worker", "component": BLUEPRINT_ID})
     append_event(run_dir, "human_input_requested", {"mode": "approval_required", "reason": "Reports contain heuristic investment-analysis scores for human review only."})
     append_event(run_dir, "blueprint_phase_started", {"phase": "writing_artifacts", "component": BLUEPRINT_ID})
+    write_json(output_folder / "final_artifact.json", final_artifact)
+    write_json(output_folder / "action_ledger.json", action_ledger)
     write_json(run_dir / "result.json", result)
     write_json(run_dir / "final_artifact.json", final_artifact)
     write_json(run_dir / "action_ledger.json", action_ledger)
+    append_event(run_dir, "artifact_written", {"path": str(output_folder / "final_artifact.json")})
+    append_event(run_dir, "artifact_written", {"path": str(output_folder / "action_ledger.json")})
     append_event(run_dir, "artifact_written", {"path": "result.json"})
     append_event(run_dir, "artifact_written", {"path": "final_artifact.json"})
     append_event(run_dir, "artifact_written", {"path": "action_ledger.json"})
@@ -2361,9 +2507,8 @@ def run_runtime_step(
         result["runtime_step_mode"] = "report_factory_entrypoint"
         return result
 
-    runtime_run_id = run_id or f"{BLUEPRINT_ID}-{uuid.uuid4().hex[:8]}"
-    runs_root_path = Path(runs_root).expanduser() if runs_root else Path("/tmp") / runtime_run_id
-    run_dir = runs_root_path / runtime_run_id if runs_root else runs_root_path
+    runtime_run_id = run_id or os.environ.get("MN_RUN_ID") or f"{BLUEPRINT_ID}-{uuid.uuid4().hex[:8]}"
+    run_dir = resolve_run_dir(Path("/tmp") / runtime_run_id, runtime_run_id, runs_root)
     run_dir.mkdir(parents=True, exist_ok=True)
     append_event(
         run_dir,

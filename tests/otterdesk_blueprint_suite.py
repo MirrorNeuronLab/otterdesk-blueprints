@@ -109,6 +109,8 @@ def _default_input_folder(blueprint_id: str) -> str:
 
 
 def _default_output_folder(blueprint_id: str) -> str:
+    if blueprint_id == "vc_assistant":
+        return f"~/Downloads/{blueprint_id}"
     return f"~/Download/{blueprint_id}"
 
 

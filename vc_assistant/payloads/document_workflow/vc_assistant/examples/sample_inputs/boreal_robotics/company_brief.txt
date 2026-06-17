@@ -1,0 +1,6 @@
+Company: Boreal Robotics
+Founder team has robotics and hardware experience.
+Product: field inspection robot with prototype hardware and proprietary sensor dataset.
+Market: industrial inspection and energy infrastructure buyers.
+The team has built R&D infrastructure, a patent filing, and early supplier relationships.
+Risks include manufacturing cost, regulatory procurement, and funding needs.

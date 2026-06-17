@@ -4,7 +4,7 @@
     "blueprint_id": "vc_assistant",
     "name": "VC Assistant"
   },
-  "mode": "service",
+  "mode": "document_automation_review",
   "metadata": {
     "category": "Finance",
     "description": "A VC analysis co-worker for early startup screening reports. Put pitch decks, memos, financial snippets, company folders, or other startup documents in the input folder; it groups documents by company, performs privacy-safe public research, applies seven VC heuristic scoring methods, audits the math and evidence, and writes score-only per-company reports and batch indexes to the output folder."
@@ -627,12 +627,13 @@
       "purpose": "primary lightweight text-browser research for startup verification, Crunchbase search snippets, competitors, and public market context",
       "enabled": true,
       "required": false,
-      "install_policy": "docker_worker_image",
+      "install_policy": "python_environment_pip",
       "timeout_seconds": 20,
       "max_chars": 12000,
       "max_queries": 8,
       "max_sources_per_company": 8,
-      "use_model_compression": true
+      "use_model_compression": true,
+      "python_environment": "document_workflow/requirements.txt"
     },
     "web_browser": {
       "skill": "web_browser_skill",
@@ -642,7 +643,7 @@
       "purpose": "optional rendered-page fallback for JavaScript-heavy public sources such as Crunchbase pages; records blocked/login/robots states instead of bypassing them",
       "enabled": true,
       "required": false,
-      "install_policy": "optional_worker_dependency",
+      "install_policy": "python_environment_pip",
       "activation": "set internet_research.rendered_browser.enabled=true for rendered public-page verification",
       "respect_robots": true,
       "stop_on_blocked": true,
@@ -651,7 +652,8 @@
       "timeout_seconds": 30,
       "max_chars": 12000,
       "max_pages_per_company": 2,
-      "per_host_delay_seconds": 1.0
+      "per_host_delay_seconds": 1.0,
+      "python_environment": "document_workflow/requirements.txt"
     }
   },
   "output_skills": {},
@@ -695,28 +697,18 @@
     "document_evidence_extractor_to_claim_normalizer",
     "claim_normalizer_to_research_planner",
     "research_planner_to_company_identity_researcher",
-    "company_identity_researcher_to_research_reconciler",
-    "research_planner_to_funding_researcher",
-    "funding_researcher_to_research_reconciler",
-    "research_planner_to_market_comp_researcher",
-    "market_comp_researcher_to_research_reconciler",
-    "research_planner_to_traction_verifier",
-    "traction_verifier_to_research_reconciler",
-    "research_planner_to_rendered_page_researcher",
+    "company_identity_researcher_to_funding_researcher",
+    "funding_researcher_to_market_comp_researcher",
+    "market_comp_researcher_to_traction_verifier",
+    "traction_verifier_to_rendered_page_researcher",
     "rendered_page_researcher_to_research_reconciler",
     "research_reconciler_to_berkus_scorer",
-    "berkus_scorer_to_score_consistency_auditor",
-    "research_reconciler_to_scorecard_bill_payne_scorer",
-    "scorecard_bill_payne_scorer_to_score_consistency_auditor",
-    "research_reconciler_to_risk_factor_summation_scorer",
-    "risk_factor_summation_scorer_to_score_consistency_auditor",
-    "research_reconciler_to_venture_capital_method_scorer",
-    "venture_capital_method_scorer_to_score_consistency_auditor",
-    "research_reconciler_to_first_chicago_scorer",
-    "first_chicago_scorer_to_score_consistency_auditor",
-    "research_reconciler_to_comparables_market_multiple_scorer",
-    "comparables_market_multiple_scorer_to_score_consistency_auditor",
-    "research_reconciler_to_cost_to_duplicate_scorer",
+    "berkus_scorer_to_scorecard_bill_payne_scorer",
+    "scorecard_bill_payne_scorer_to_risk_factor_summation_scorer",
+    "risk_factor_summation_scorer_to_venture_capital_method_scorer",
+    "venture_capital_method_scorer_to_first_chicago_scorer",
+    "first_chicago_scorer_to_comparables_market_multiple_scorer",
+    "comparables_market_multiple_scorer_to_cost_to_duplicate_scorer",
     "cost_to_duplicate_scorer_to_score_consistency_auditor",
     "score_consistency_auditor_to_company_report_writer",
     "company_report_writer_to_batch_index_writer"
@@ -873,6 +865,7 @@
       "human_control",
       "real_adapters",
       "streams",
+      "python_dependencies",
       "input_skills",
       "output_skills",
       "error_handling",
@@ -910,6 +903,7 @@
       "human_control",
       "real_adapters",
       "streams",
+      "python_dependencies",
       "input_skills",
       "output_skills",
       "error_handling",
@@ -1001,9 +995,22 @@
     ]
   },
   "execution_model": {
-    "type": "service_parallel_dag",
+    "type": "finite_linear_report_factory",
     "entrypoint": "startup_folder_watcher",
-    "sink": "batch_index_writer",
-    "step_count": 21
+    "worker_sink": "batch_index_writer",
+    "terminal_sink": "report_sink",
+    "step_count": 21,
+    "runtime_note": "The entrypoint runs the full VC report factory once; later worker nodes are linear observability acknowledgements, and report_sink completes the finite run."
+  },
+  "python_dependencies": {
+    "installer": "pip",
+    "requirements": "document_workflow/requirements.txt",
+    "index_url": "https://us-central1-python.pkg.dev/mirrorneuron-public-packages/agent-skills/simple/",
+    "extra_index_url": "https://pypi.org/simple",
+    "packages": [
+      "mirrorneuron-blueprint-support-skill",
+      "mirrorneuron-w3m-browser-skill",
+      "mirrorneuron-web-browser-skill"
+    ]
   }
 }

@@ -94,9 +94,33 @@ def _write_startup_packets(path: Path) -> None:
 
 def test_manifest_runtime_nodes_carry_default_config_for_service_sandbox():
     manifest = json.loads((ROOT / "vc_assistant" / "manifest.json").read_text(encoding="utf-8"))
-    nodes = manifest["agents"]["nodes"]
+    config = json.loads((ROOT / "vc_assistant" / "config" / "default.json").read_text(encoding="utf-8"))
+    nodes = [node for node in manifest["agents"]["nodes"] if node["node_id"] != "report_sink"]
+    report_sink = next(node for node in manifest["agents"]["nodes"] if node["node_id"] == "report_sink")
+    requirements_path = "document_workflow/requirements.txt"
+    upload_paths = [
+        {"source": "document_workflow", "target": "document_workflow"},
+        {"source": "examples/sample_inputs", "target": "vc_assistant/examples/sample_inputs"},
+    ]
     assert len(nodes) == 21
+    assert report_sink["config"] == {"complete_on_message": True, "terminal_sink": True, "complete_run": True}
+    assert config["python_dependencies"]["installer"] == "pip"
+    assert config["python_dependencies"]["requirements"] == requirements_path
+    assert config["python_dependencies"]["index_url"] == "https://us-central1-python.pkg.dev/mirrorneuron-public-packages/agent-skills/simple/"
+    assert config["python_dependencies"]["extra_index_url"] == "https://pypi.org/simple"
+    assert config["python_dependencies"]["packages"] == [
+        "mirrorneuron-blueprint-support-skill",
+        "mirrorneuron-w3m-browser-skill",
+        "mirrorneuron-web-browser-skill",
+    ]
+    assert "examples/sample_inputs/" in manifest["metadata"]["configuration_contract"]["required_files"]
+    assert (
+        "payloads/document_workflow/vc_assistant/examples/sample_inputs/"
+        in manifest["metadata"]["configuration_contract"]["required_files"]
+    )
     for node in nodes:
+        assert node["config"]["python_environment"] == {"requirements": requirements_path}
+        assert node["config"]["upload_paths"] == upload_paths
         environment = node["config"]["environment"]
         assert environment["MN_WORKFLOW_STEP_ID"] == node["node_id"]
         embedded_config = json.loads(environment["MN_BLUEPRINT_CONFIG_JSON"])
@@ -105,6 +129,77 @@ def test_manifest_runtime_nodes_carry_default_config_for_service_sandbox():
         assert embedded_config["outputs"]["folder_path"] == "~/Downloads/vc_assistant"
         assert embedded_config["llm"]["model"] == "gemma4:e2b"
         assert embedded_config["research_budget"]["default_actions"] == 100
+        assert embedded_config["python_dependencies"] == config["python_dependencies"]
+    for template in manifest["metadata"]["agent_templates"]["nodes"]:
+        if template["node_id"] == "report_sink":
+            assert template["uses"] == "mn-agents.control_join@1.0.0"
+            continue
+        assert template["with"]["python_environment"] == {"requirements": requirements_path}
+        assert template["with"]["upload_paths"] == upload_paths
+
+
+def test_vc_assistant_runtime_requirements_install_skills_with_pip():
+    requirements = (
+        ROOT / "vc_assistant" / "payloads" / "document_workflow" / "requirements.txt"
+    ).read_text(encoding="utf-8").splitlines()
+
+    assert requirements == [
+        "--index-url https://us-central1-python.pkg.dev/mirrorneuron-public-packages/agent-skills/simple/",
+        "--extra-index-url https://pypi.org/simple",
+        "mirrorneuron-blueprint-support-skill",
+        "mirrorneuron-w3m-browser-skill",
+        "mirrorneuron-web-browser-skill",
+    ]
+
+
+def test_vc_assistant_runtime_upload_bundle_contains_sample_inputs():
+    bundled_sample_root = (
+        ROOT
+        / "vc_assistant"
+        / "payloads"
+        / "document_workflow"
+        / "vc_assistant"
+        / "examples"
+        / "sample_inputs"
+    )
+
+    assert sorted(path.name for path in bundled_sample_root.iterdir()) == [
+        "aurora_ai",
+        "boreal_robotics",
+        "otterdesk",
+    ]
+    assert (bundled_sample_root / "aurora_ai" / "pitch_summary.txt").exists()
+    assert (bundled_sample_root / "boreal_robotics" / "company_brief.txt").exists()
+    assert (bundled_sample_root / "otterdesk" / "pitch_summary.txt").exists()
+
+
+def test_vc_assistant_runtime_graph_is_linear_and_has_terminal_sink():
+    runner = _load_runner()
+    manifest = json.loads((ROOT / "vc_assistant" / "manifest.json").read_text(encoding="utf-8"))
+    config = json.loads((ROOT / "vc_assistant" / "config" / "default.json").read_text(encoding="utf-8"))
+    step_ids = runner.WORKFLOW_STEP_IDS
+    handoffs = [f"{source}_to_{target}" for source, target in zip(step_ids, step_ids[1:])]
+
+    assert "type" not in manifest
+    assert config["execution_model"]["type"] == "finite_linear_report_factory"
+    assert config["execution_model"]["step_count"] == len(step_ids)
+    assert config["execution_model"]["terminal_sink"] == "report_sink"
+    assert config["agent_handoffs"] == handoffs
+    assert manifest["agents"]["edges"] == [
+        {"edge_id": edge_id, "from_node": source, "to_node": target, "message_type": f"{source}_completed"}
+        for edge_id, source, target in zip(handoffs, step_ids, step_ids[1:])
+    ] + [{"edge_id": "batch_index_writer_to_report_sink", "from_node": "batch_index_writer", "to_node": "report_sink", "message_type": "batch_index_writer_completed"}]
+    assert manifest["workflow"]["edges"] == [
+        {"id": edge_id, "from": source, "to": target, "event": f"{source}_completed", "required": True, "accepts": ["done"]}
+        for edge_id, source, target in zip(handoffs, step_ids, step_ids[1:])
+    ]
+    incoming = {step_id: 0 for step_id in step_ids + ["report_sink"]}
+    outgoing = {step_id: 0 for step_id in step_ids + ["report_sink"]}
+    for edge in manifest["agents"]["edges"]:
+        outgoing[edge["from_node"]] += 1
+        incoming[edge["to_node"]] += 1
+    assert all(count <= 1 for count in incoming.values())
+    assert all(count <= 1 for count in outgoing.values())
 
 
 def test_vc_agents_are_llm_backed_and_selected_for_actor_reviews():
@@ -211,6 +306,8 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path
     assert (outputs / "research_coverage.json").exists()
     assert (outputs / "method_coverage.json").exists()
     assert (outputs / "run_summary.md").exists()
+    assert (outputs / "final_artifact.json").exists()
+    assert (outputs / "action_ledger.json").exists()
     assert sorted(path.name for path in (outputs / "company_fact_tables").iterdir()) == ["alpha-ai.json", "sparse-labs.json"]
     assert sorted(path.name for path in (outputs / "research_ledgers").iterdir()) == ["alpha-ai.json", "sparse-labs.json"]
     assert sorted(path.name for path in (outputs / "method_scores").iterdir()) == ["alpha-ai.json", "sparse-labs.json"]
@@ -234,6 +331,9 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path
     assert run_artifact["action_ledger"]["budget"] == 100
     assert run_artifact["action_ledger"]["used"] >= len(runner.WORKFLOW_STEP_IDS)
     assert any(action["action_type"] == "financial_tool" for action in run_artifact["action_ledger"]["actions"])
+    assert json.loads((outputs / "final_artifact.json").read_text(encoding="utf-8"))["action_ledger"]["budget"] == 100
+    assert json.loads((outputs / "action_ledger.json").read_text(encoding="utf-8"))["budget"] == 100
+    assert any(item["kind"] == "final_artifact_json" for item in run_artifact["output_files"])
     assert run_artifact["active_knowledge"]["path"] == "knowledge/startup_research_playbook.md"
     assert run_artifact["active_knowledge"]["sha256"]
     assert set(run_artifact["active_knowledge"]["method_memory_hooks"]) == METHOD_IDS
@@ -298,8 +398,9 @@ def test_actor_review_failure_does_not_fail_report_outputs(tmp_path):
     assert (outputs / "alpha-ai" / "analysis.md").exists()
     assert (outputs / "company_index.json").exists()
     assert artifact["actor_review_warnings"][0]["status"] == "actor_review_unavailable"
+    assert artifact["actor_review_warnings"][0]["affected_actor_count"] == len(runner.WORKFLOW_STEP_IDS)
     assert set(artifact["actor_findings"]) == set(runner.WORKFLOW_STEP_IDS)
-    assert failing_llm.calls == 1
+    assert failing_llm.calls == len(runner.WORKFLOW_STEP_IDS)
 
 
 def test_runtime_step_entrypoint_runs_report_factory_once(tmp_path):
@@ -341,6 +442,61 @@ def test_runtime_step_entrypoint_runs_report_factory_once(tmp_path):
     assert ack_result["runtime_step_mode"] == "acknowledged_after_report_factory_entrypoint"
     assert "final_artifact" not in ack_result
     assert (tmp_path / "vc-runtime-ack" / "company_packet_grouper_result.json").exists()
+
+
+def test_runtime_step_entrypoint_honors_mirror_neuron_run_environment(tmp_path, monkeypatch):
+    runner = _load_runner()
+    docs = tmp_path / "startup-docs"
+    outputs = tmp_path / "reports"
+    runtime_runs = tmp_path / "mn-runs"
+    _write_startup_packets(docs)
+    monkeypatch.setenv("MN_RUN_ID", "vc-runtime-env")
+    monkeypatch.setenv("MN_RUNS_ROOT", str(runtime_runs))
+
+    result = runner.run_runtime_step(
+        "startup_folder_watcher",
+        inputs={
+            "document_folder": str(docs),
+            "output_folder": str(outputs),
+            "monitoring": {"enabled": True, "poll_interval_seconds": 1, "max_cycles": 1},
+        },
+        config={"llm": {"mode": "fake"}},
+        llm_client=FakeVCLLM(),
+    )
+
+    run_dir = runtime_runs / "vc-runtime-env"
+    assert result["run_id"] == "vc-runtime-env"
+    assert (run_dir / "result.json").exists()
+    assert (run_dir / "final_artifact.json").exists()
+    assert (run_dir / "action_ledger.json").exists()
+
+
+def test_tilde_output_folder_can_use_runtime_output_home(tmp_path, monkeypatch):
+    runner = _load_runner()
+    output_home = tmp_path / "host-home"
+    monkeypatch.setenv("MN_OUTPUT_HOME", str(output_home))
+
+    assert runner.expand_runtime_path("~/Downloads/vc_assistant") == output_home / "Downloads" / "vc_assistant"
+
+
+def test_tilde_output_folder_derives_user_home_from_mirror_neuron_runs_root(monkeypatch):
+    runner = _load_runner()
+    user_home = Path("/Users/vc-test-user")
+    for env_name in (
+        "MN_OUTPUT_HOME",
+        "MN_USER_HOME",
+        "OTTERDESK_USER_HOME",
+        "MN_RUN_DIR",
+        "MN_RUNS_ROOT",
+        "MN_HOME",
+        "OTTERDESK_RUN_DIR",
+        "OTTERDESK_RUNS_ROOT",
+    ):
+        monkeypatch.delenv(env_name, raising=False)
+    monkeypatch.setenv("HOME", "/root")
+    monkeypatch.setenv("MN_RUNS_ROOT", str(user_home / ".mn" / "runs"))
+
+    assert runner.expand_runtime_path("~/Downloads/vc_assistant") == user_home / "Downloads" / "vc_assistant"
 
 
 def test_changed_company_packets_process_in_parallel_with_stable_output_order(tmp_path):

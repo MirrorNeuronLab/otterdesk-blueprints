@@ -1,0 +1,6 @@
+Company: Otterdesk
+Product: an operations desktop for coordinating AI co-workers and local automation.
+Market: technical teams that need auditable AI workflows across research, documents, and runtime jobs.
+Traction: synthetic sample packet for blueprint validation; no live customer or revenue claim is provided.
+Strategic relationships: none evidenced in this sample.
+Risks: missing public traction evidence, early product packaging, and dependency on local runtime installation.
