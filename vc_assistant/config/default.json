@@ -528,7 +528,7 @@
     "deterministic_output_order": "company_slug"
   },
   "research_budget": {
-    "default_actions": 100,
+    "default_actions": 1000,
     "chargeable_actions": [
       "llm_call",
       "browser_search",
@@ -586,9 +586,9 @@
       "private_financials",
       "founder_contact_details"
     ],
-    "max_queries": 8,
-    "max_sources_per_company": 8,
-    "max_target_urls_per_company": 4,
+    "max_queries": 20,
+    "max_sources_per_company": 20,
+    "max_target_urls_per_company": 10,
     "max_stage_workers": 5,
     "timeout_seconds": 20,
     "max_chars": 12000,
@@ -602,9 +602,27 @@
       "no_captcha_solving": true,
       "timeout_seconds": 30,
       "max_chars": 12000,
-      "max_pages_per_company": 2,
+      "max_pages_per_company": 5,
       "per_host_delay_seconds": 1.0
     }
+  },
+  "agentic_research": {
+    "enabled": true,
+    "agent_ids": [
+      "research_planner",
+      "company_identity_researcher",
+      "market_comp_researcher",
+      "traction_verifier",
+      "rendered_page_researcher"
+    ],
+    "max_iterations_per_agent": 20,
+    "max_tool_calls_per_agent": 50,
+    "allowed_tools": [
+      "browser_search",
+      "browser_page",
+      "rendered_browser_page",
+      "finish"
+    ]
   },
   "financial_tools": {
     "enabled": true,
@@ -630,8 +648,8 @@
       "install_policy": "python_environment_pip",
       "timeout_seconds": 20,
       "max_chars": 12000,
-      "max_queries": 8,
-      "max_sources_per_company": 8,
+      "max_queries": 20,
+      "max_sources_per_company": 20,
       "use_model_compression": true,
       "python_environment": "document_workflow/requirements.txt"
     },
@@ -651,7 +669,7 @@
       "no_captcha_solving": true,
       "timeout_seconds": 30,
       "max_chars": 12000,
-      "max_pages_per_company": 2,
+      "max_pages_per_company": 5,
       "per_host_delay_seconds": 1.0,
       "python_environment": "document_workflow/requirements.txt"
     }
@@ -688,8 +706,8 @@
   ],
   "budgets": {
     "max_runtime_seconds": 900,
-    "max_public_queries": 100,
-    "default_action_budget": 100
+    "max_public_queries": 1000,
+    "default_action_budget": 1000
   },
   "agent_handoffs": [
     "startup_folder_watcher_to_company_packet_grouper",
@@ -803,7 +821,9 @@
           "human.jsonl",
           "resources.jsonl",
           "company_index.md",
-          "*/analysis.md"
+          "*/analysis.md",
+          "*/research_plan.json",
+          "*/agent_tool_trace.json"
         ]
       },
       "events": {
@@ -834,7 +854,9 @@
           "company_index.json",
           "company_index.md",
           "*/analysis.json",
-          "*/analysis.md"
+          "*/analysis.md",
+          "*/research_plan.json",
+          "*/agent_tool_trace.json"
         ],
         "description": "Score-only VC heuristic reports and structured company index."
       },
@@ -887,7 +909,9 @@
       "execution_model",
       "memory_layer",
       "dataset_input",
-      "document_automation"
+      "document_automation",
+      "agentic_research",
+      "knowledge_rag"
     ],
     "config_sections": [
       "standard_version",
@@ -925,7 +949,9 @@
       "execution_model",
       "memory_layer",
       "dataset_input",
-      "document_automation"
+      "document_automation",
+      "agentic_research",
+      "knowledge_rag"
     ],
     "identity": [
       "blueprint_id",
@@ -973,7 +999,9 @@
       "human.jsonl",
       "resources.jsonl",
       "company_index.md",
-      "*/analysis.md"
+      "*/analysis.md",
+      "*/research_plan.json",
+      "*/agent_tool_trace.json"
     ],
     "optional_run_artifacts": [
       "job.json",
@@ -984,7 +1012,9 @@
       "human.jsonl",
       "resources.jsonl",
       "company_index.md",
-      "*/analysis.md"
+      "*/analysis.md",
+      "*/research_plan.json",
+      "*/agent_tool_trace.json"
     ],
     "response_schema": "mn.blueprint.response.v1",
     "web_ui_adapters": [
@@ -1009,8 +1039,27 @@
     "extra_index_url": "https://pypi.org/simple",
     "packages": [
       "mirrorneuron-blueprint-support-skill",
+      "mirrorneuron-rag-skill",
       "mirrorneuron-w3m-browser-skill",
       "mirrorneuron-web-browser-skill"
     ]
+  },
+  "knowledge_rag": {
+    "enabled": true,
+    "redis_url": "",
+    "namespace": "",
+    "embedding_provider": "docker_model_runner",
+    "embedding_model": "hf.co/jinaai/jina-embeddings-v5-text-small-retrieval:Q4_K_M",
+    "embedding_api_base": "http://localhost:12434/engines/v1",
+    "embedding_query_prefix": "Query: ",
+    "embedding_document_prefix": "Document: ",
+    "embedding_start_command": "docker model run -d hf.co/jinaai/jina-embeddings-v5-text-small-retrieval:Q4_K_M",
+    "embedding_healthcheck_enabled": true,
+    "vector_dim": 1024,
+    "index_on_startup": true,
+    "top_k": 5,
+    "max_context_chars": 6000,
+    "chunk_size": 220,
+    "chunk_overlap": 40
   }
 }

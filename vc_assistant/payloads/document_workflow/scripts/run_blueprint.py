@@ -102,12 +102,39 @@ build_search_url = None
 research_topic = None
 WebBrowserConfig = None
 scrape_page = None
+RagConfig = None
+skill_knowledge_rag_config = None
+skill_prepare_blueprint_knowledge_rag = None
+skill_public_rag_state = None
+skill_resolve_blueprint_knowledge_dir = None
+skill_retrieve_knowledge_rag_context = None
 EVENT_LOCK = threading.Lock()
 SKILL_LOAD_LOCK = threading.Lock()
 NON_SUBSTANTIVE_SOURCE_STATUSES = {"planned", "configured_reference", "disabled", "skill_unavailable", "failed", "blocked", "warning", "error", "budget_exhausted"}
 WARNING_SOURCE_STATUSES = {"failed", "blocked", "skill_unavailable", "warning", "budget_exhausted"}
-DEFAULT_ACTION_BUDGET = 100
+DEFAULT_ACTION_BUDGET = 1000
 KNOWLEDGE_PLAYBOOK_RELATIVE_PATH = "knowledge/startup_research_playbook.md"
+DEFAULT_AGENTIC_RESEARCH_AGENT_IDS = [
+    "research_planner",
+    "company_identity_researcher",
+    "market_comp_researcher",
+    "traction_verifier",
+    "rendered_page_researcher",
+]
+DEFAULT_AGENTIC_RESEARCH_TOOLS = ["browser_search", "browser_page", "rendered_browser_page", "finish"]
+PROFILE_DOMAINS = ("linkedin.com", "crunchbase.com", "x.com", "twitter.com", "angellist.com", "wellfound.com")
+APP_STORE_DOMAINS = ("apps.apple.com", "play.google.com", "chromewebstore.google.com")
+PACKAGE_DOMAINS = ("npmjs.com", "pypi.org", "rubygems.org", "crates.io", "packagist.org")
+JS_HEAVY_DOMAINS = ("crunchbase.com", "linkedin.com", "x.com", "twitter.com")
+SOURCE_QUALITY_LABELS = {
+    "local_claim",
+    "public_confirmation",
+    "public_conflict",
+    "blocked",
+    "thin_signal",
+    "technical_signal",
+    "market_context",
+}
 VC_METHOD_GUIDANCE = {
     "berkus_method": {
         "label": "Berkus Method",
@@ -169,7 +196,7 @@ def _add_repo_paths() -> None:
     workspace = _workspace_root()
     if not workspace:
         return
-    for skill_name in ("blueprint_support_skill", "w3m_browser_skill", "web_browser_skill"):
+    for skill_name in ("blueprint_support_skill", "w3m_browser_skill", "web_browser_skill", "rag_skill"):
         candidate = workspace / "mn-skills" / skill_name / "src"
         if candidate.exists() and str(candidate) not in sys.path:
             sys.path.insert(0, str(candidate))
@@ -459,6 +486,170 @@ def load_vc_knowledge(blueprint_dir: Path) -> dict[str, Any]:
         "judge_rubric": JUDGE_RUBRIC,
         "domain_guard": "Use VC analysis knowledge only; ignore unrelated non-VC domain knowledge.",
     }
+
+
+def _load_rag_skill() -> None:
+    global RagConfig, skill_knowledge_rag_config, skill_prepare_blueprint_knowledge_rag
+    global skill_public_rag_state, skill_resolve_blueprint_knowledge_dir, skill_retrieve_knowledge_rag_context
+    if (
+        RagConfig is not None
+        and skill_knowledge_rag_config is not None
+        and skill_prepare_blueprint_knowledge_rag is not None
+        and skill_public_rag_state is not None
+        and skill_resolve_blueprint_knowledge_dir is not None
+        and skill_retrieve_knowledge_rag_context is not None
+    ):
+        return
+    with SKILL_LOAD_LOCK:
+        if (
+            RagConfig is not None
+            and skill_knowledge_rag_config is not None
+            and skill_prepare_blueprint_knowledge_rag is not None
+            and skill_public_rag_state is not None
+            and skill_resolve_blueprint_knowledge_dir is not None
+            and skill_retrieve_knowledge_rag_context is not None
+        ):
+            return
+        try:
+            from mn_rag_skill import RagConfig as imported_RagConfig
+            from mn_rag_skill import knowledge_rag_config as imported_knowledge_rag_config
+            from mn_rag_skill import prepare_blueprint_knowledge_rag as imported_prepare_blueprint_knowledge_rag
+            from mn_rag_skill import public_rag_state as imported_public_rag_state
+            from mn_rag_skill import resolve_blueprint_knowledge_dir as imported_resolve_blueprint_knowledge_dir
+            from mn_rag_skill import retrieve_knowledge_rag_context as imported_retrieve_knowledge_rag_context
+        except Exception as exc:
+            raise RuntimeError(f"mn_rag_skill unavailable: {exc}") from exc
+        RagConfig = imported_RagConfig
+        skill_knowledge_rag_config = imported_knowledge_rag_config
+        skill_prepare_blueprint_knowledge_rag = imported_prepare_blueprint_knowledge_rag
+        skill_public_rag_state = imported_public_rag_state
+        skill_resolve_blueprint_knowledge_dir = imported_resolve_blueprint_knowledge_dir
+        skill_retrieve_knowledge_rag_context = imported_retrieve_knowledge_rag_context
+
+
+def knowledge_rag_config(config: dict[str, Any]) -> dict[str, Any]:
+    _load_rag_skill()
+    return skill_knowledge_rag_config(config)
+
+
+def resolve_knowledge_dir(blueprint_dir: Path, active_knowledge: dict[str, Any]) -> Path:
+    _load_rag_skill()
+    return skill_resolve_blueprint_knowledge_dir(blueprint_dir, active_knowledge=active_knowledge)
+
+
+def prepare_knowledge_rag(
+    *,
+    blueprint_dir: Path,
+    resolved_config: dict[str, Any],
+    active_knowledge: dict[str, Any],
+    run_dir: Path | None = None,
+) -> dict[str, Any]:
+    raw = resolved_config.get("knowledge_rag") if isinstance(resolved_config.get("knowledge_rag"), dict) else {}
+    if not bool(raw.get("enabled", True)):
+        return {
+            "enabled": False,
+            "status": "disabled",
+            "warnings": [],
+            "config": {
+                "namespace": raw.get("namespace", ""),
+                "embedding_provider": raw.get("embedding_provider", ""),
+                "embedding_model": raw.get("embedding_model", ""),
+                "top_k": raw.get("top_k", 5),
+                "max_context_chars": raw.get("max_context_chars", 6000),
+                "index_on_startup": raw.get("index_on_startup", True),
+            },
+        }
+    try:
+        _load_rag_skill()
+    except Exception as exc:
+        warning = {
+            "kind": "knowledge_rag",
+            "status": "knowledge_rag_failed",
+            "message": "Knowledge RAG was enabled but Redis/vector indexing could not complete; no static playbook fallback was injected.",
+            "error": str(exc),
+        }
+        state = {
+            "enabled": bool(raw.get("enabled", True)),
+            "status": "knowledge_rag_failed",
+            "warnings": [warning],
+            "config": {
+                "namespace": raw.get("namespace", ""),
+                "embedding_provider": raw.get("embedding_provider", ""),
+                "embedding_model": raw.get("embedding_model", ""),
+                "top_k": raw.get("top_k", 5),
+                "max_context_chars": raw.get("max_context_chars", 6000),
+                "index_on_startup": raw.get("index_on_startup", True),
+            },
+        }
+        append_event(run_dir, "tool_call_failed", {"tool": "knowledge_rag.index", "status": "knowledge_rag_failed", "error": str(exc)}) if run_dir else None
+        return state
+
+    def event_callback(event_type: str, payload: dict[str, Any]) -> None:
+        if run_dir:
+            append_event(run_dir, event_type, payload)
+
+    return skill_prepare_blueprint_knowledge_rag(
+        blueprint_id=BLUEPRINT_ID,
+        blueprint_dir=blueprint_dir,
+        config=resolved_config,
+        active_knowledge=active_knowledge,
+        event_callback=event_callback,
+    )
+
+
+def public_knowledge_rag_state(state: dict[str, Any] | None) -> dict[str, Any]:
+    try:
+        _load_rag_skill()
+        return skill_public_rag_state(state)
+    except Exception:
+        if not state:
+            return {"enabled": False, "status": "disabled"}
+        return {key: value for key, value in state.items() if not key.startswith("_")}
+
+
+def active_knowledge_for_prompt(active_knowledge: dict[str, Any], knowledge_rag: dict[str, Any] | None) -> dict[str, Any]:
+    if (knowledge_rag or {}).get("enabled"):
+        ref = active_knowledge_reference(active_knowledge)
+        ref["domain_guard"] = active_knowledge.get("domain_guard")
+        ref["content_retrieval"] = "redis_rag"
+        return ref
+    return active_knowledge
+
+
+def retrieve_knowledge_rag_context(
+    *,
+    knowledge_rag: dict[str, Any] | None,
+    query: str,
+    stage: str = "",
+    company: str = "",
+) -> dict[str, Any]:
+    try:
+        _load_rag_skill()
+        return skill_retrieve_knowledge_rag_context(
+            knowledge_rag=knowledge_rag,
+            query=query,
+            stage=stage,
+            company=company,
+        )
+    except Exception as exc:
+        return {
+            "enabled": bool((knowledge_rag or {}).get("enabled")),
+            "status": "knowledge_rag_failed",
+            "query": query,
+            "context": "",
+            "citations": [],
+            "chunks": [],
+            "warnings": [
+                {
+                    "kind": "knowledge_rag",
+                    "status": "knowledge_rag_failed",
+                    "message": f"Knowledge RAG retrieval failed for {stage or 'prompt'}; prompt continued without retrieved knowledge context.",
+                    "error": str(exc),
+                }
+            ],
+            "stage": stage,
+            "company": company,
+        }
 
 
 def active_knowledge_reference(active_knowledge: dict[str, Any]) -> dict[str, Any]:
@@ -898,6 +1089,243 @@ def extract_domains(text: str) -> list[str]:
         if domain and domain not in domains and not domain.endswith(".txt"):
             domains.append(domain)
     return domains[:10]
+
+
+def dedupe_list(items: list[str], limit: int = 20) -> list[str]:
+    seen = []
+    for item in items:
+        normalized = str(item or "").strip()
+        if normalized and normalized not in seen:
+            seen.append(normalized)
+        if len(seen) >= limit:
+            break
+    return seen
+
+
+def _records_text(records: list[dict[str, Any]]) -> str:
+    return "\n".join(str(record.get("text_preview") or "") for record in records)
+
+
+def _extract_public_urls(text: str) -> list[str]:
+    urls = []
+    for match in re.finditer(r"https?://[^\s<>)\"']+", text, flags=re.I):
+        url = match.group(0).rstrip(".,;:]}")
+        if url not in urls:
+            urls.append(url)
+    return urls[:40]
+
+
+def _url_domain(url: str) -> str:
+    return str(url or "").split("//", 1)[-1].split("/", 1)[0].lower()
+
+
+def _public_terms_from_text(text: str, terms: list[str], limit: int = 8) -> list[str]:
+    haystack = text.lower()
+    matches = []
+    for term in terms:
+        pattern = r"\b" + re.escape(term.lower()) + r"\b"
+        if re.search(pattern, haystack):
+            matches.append(term)
+        if len(matches) >= limit:
+            break
+    return matches
+
+
+def extract_public_research_signals(records: list[dict[str, Any]]) -> dict[str, Any]:
+    text = _records_text(records)
+    urls = _extract_public_urls(text)
+    domains = extract_domains(text)
+    github_urls = [url for url in urls if "github.com/" in url.lower()]
+    docs_urls = [
+        url for url in urls
+        if any(marker in url.lower() for marker in ("docs.", "/docs", "readme", "developer.", "api."))
+    ]
+    app_store_urls = [url for url in urls if any(domain in _url_domain(url) for domain in APP_STORE_DOMAINS)]
+    package_urls = [url for url in urls if any(domain in _url_domain(url) for domain in PACKAGE_DOMAINS)]
+    profile_urls = [url for url in urls if any(domain in _url_domain(url) for domain in PROFILE_DOMAINS)]
+    public_domains = [
+        domain for domain in domains
+        if not any(domain.endswith(suffix) for suffix in (".txt", ".pdf", ".csv", ".json"))
+    ]
+    return {
+        "urls": dedupe_list(urls, 40),
+        "domains": dedupe_list(public_domains, 20),
+        "github_urls": dedupe_list(github_urls, 12),
+        "docs_urls": dedupe_list(docs_urls, 12),
+        "app_store_urls": dedupe_list(app_store_urls, 8),
+        "package_urls": dedupe_list(package_urls, 8),
+        "profile_urls": dedupe_list(profile_urls, 12),
+        "technical_terms": _public_terms_from_text(text, ["api", "sdk", "github", "open source", "repository", "docs", "developer", "model", "agent", "platform", "infrastructure", "patent", "dataset"]),
+        "traction_terms": _public_terms_from_text(text, ["revenue", "arr", "customer", "pilot", "contract", "partnership", "retention", "growth", "launch"]),
+        "funding_terms": _public_terms_from_text(text, ["funding", "seed", "pre-seed", "series a", "investor", "accelerator", "venture", "round"]),
+        "market_terms": _public_terms_from_text(text, ["market", "tam", "sam", "competitor", "industry", "vertical", "category", "segment"]),
+        "pricing_terms": _public_terms_from_text(text, ["pricing", "subscription", "seat", "usage", "gross margin", "payback", "ltv", "cac"]),
+        "regulatory_terms": _public_terms_from_text(text, ["hipaa", "soc 2", "soc2", "gdpr", "compliance", "regulatory", "security", "privacy"]),
+        "ip_terms": _public_terms_from_text(text, ["patent", "proprietary", "dataset", "model", "ip", "trade secret", "copyright"]),
+    }
+
+
+def _lane(lane_id: str, reason: str, tools: list[str], queries: list[str], target_urls: list[str] | None = None) -> dict[str, Any]:
+    return {
+        "lane_id": lane_id,
+        "reason": reason,
+        "tools": tools,
+        "queries": dedupe_list(queries, 8),
+        "target_urls": dedupe_list(target_urls or [], 20),
+    }
+
+
+def build_adaptive_research_plan(company: str, records: list[dict[str, Any]], internet: dict[str, Any]) -> dict[str, Any]:
+    base = _configured_research(company, internet)
+    signals = extract_public_research_signals(records)
+    company_slug = base["company_slug"]
+    target_urls = list(base["target_urls"])
+    target_urls.extend(signals["urls"])
+    target_urls.extend(f"https://{domain}" for domain in signals["domains"] if domain not in {"crunchbase.com", "linkedin.com"})
+    target_urls = dedupe_list(target_urls, int(internet.get("max_target_urls_per_company") or 10) * 3)
+    lanes = [
+        _lane(
+            "company_identity_research",
+            "Always verify company identity, website, founder/profile pages, and basic public footprint.",
+            ["w3m_browser_skill", "web_browser_skill_when_profile_page_is_empty"],
+            [f"{company} company website Crunchbase LinkedIn founders", f"{company} founder background company profile"],
+            [url for url in target_urls if any(domain in _url_domain(url) for domain in PROFILE_DOMAINS)] or base["target_urls"][:2],
+        ),
+        _lane(
+            "funding_research",
+            "Always check funding, investor, accelerator, and press mentions.",
+            ["w3m_browser_skill"],
+            [f"{company} startup funding investors accelerator press", f"{company} seed round venture capital investors"],
+        ),
+        _lane(
+            "market_map_research",
+            "Map category, market context, competitors, and comparable public companies.",
+            ["w3m_browser_skill"],
+            [f"{company} competitors market size comparable companies", f"{company} industry report public company comparables market multiple"],
+        ),
+        _lane(
+            "traction_research",
+            "Verify public customer, revenue, partnership, launch, and product traction claims.",
+            ["w3m_browser_skill"],
+            [f"{company} customers pilots revenue partnerships product launch", f"{company} customer case study ARR retention growth"],
+        ),
+    ]
+    if signals["github_urls"] or "github" in signals["technical_terms"] or "open source" in signals["technical_terms"]:
+        lanes.append(
+            _lane(
+                "github_research",
+                "GitHub or open-source signal was present in the packet; inspect public repo/org activity and technical credibility.",
+                ["w3m_browser_skill.direct_page", "web_browser_skill_when_page_is_empty"],
+                [f"{company} GitHub repository open source stars forks issues releases"],
+                signals["github_urls"],
+            )
+        )
+    if signals["docs_urls"] or signals["package_urls"] or signals["app_store_urls"] or signals["technical_terms"]:
+        lanes.append(
+            _lane(
+                "technical_product_research",
+                "Technical/product signals were present; inspect docs, package/app footprint, developer surface, and product maturity.",
+                ["w3m_browser_skill.direct_page", "w3m_browser_skill.search"],
+                [f"{company} API docs SDK developer documentation product", f"{company} app store package release changelog"],
+                signals["docs_urls"] + signals["package_urls"] + signals["app_store_urls"],
+            )
+        )
+    if signals["profile_urls"]:
+        lanes.append(
+            _lane(
+                "founder_research",
+                "Public profile links were present; inspect founder/company profile pages without using contact details.",
+                ["w3m_browser_skill.direct_page", "web_browser_skill_when_profile_page_is_empty"],
+                [f"{company} founder background public profile"],
+                signals["profile_urls"],
+            )
+        )
+    if signals["pricing_terms"]:
+        lanes.append(
+            _lane(
+                "pricing_business_model_research",
+                "Pricing or business-model terms were present; look for public pricing, packaging, and monetization evidence.",
+                ["w3m_browser_skill.search"],
+                [f"{company} pricing subscription business model revenue model"],
+            )
+        )
+    if signals["regulatory_terms"]:
+        lanes.append(
+            _lane(
+                "regulatory_risk_research",
+                "Regulatory or security claims were present; inspect public compliance and risk context.",
+                ["w3m_browser_skill.search"],
+                [f"{company} security compliance regulatory privacy SOC 2 GDPR"],
+            )
+        )
+    if signals["ip_terms"]:
+        lanes.append(
+            _lane(
+                "data_ip_defensibility_research",
+                "Data, IP, model, or patent terms were present; inspect defensibility and asset evidence.",
+                ["w3m_browser_skill.search"],
+                [f"{company} patent proprietary dataset model defensibility"],
+            )
+        )
+
+    stage_queries = {
+        "company_identity_researcher": [],
+        "funding_researcher": [],
+        "market_comp_researcher": [],
+        "traction_verifier": [],
+        "rendered_page_researcher": [],
+    }
+    stage_target_urls = {
+        "company_identity_researcher": [],
+        "funding_researcher": [],
+        "market_comp_researcher": [],
+        "traction_verifier": [],
+        "rendered_page_researcher": [],
+    }
+    lane_stage = {
+        "company_identity_research": "company_identity_researcher",
+        "founder_research": "company_identity_researcher",
+        "funding_research": "funding_researcher",
+        "market_map_research": "market_comp_researcher",
+        "competitor_research": "market_comp_researcher",
+        "github_research": "market_comp_researcher",
+        "technical_product_research": "market_comp_researcher",
+        "pricing_business_model_research": "market_comp_researcher",
+        "data_ip_defensibility_research": "market_comp_researcher",
+        "traction_research": "traction_verifier",
+        "regulatory_risk_research": "traction_verifier",
+    }
+    for lane in lanes:
+        stage = lane_stage.get(lane["lane_id"])
+        if stage:
+            stage_queries[stage].extend(lane["queries"])
+            stage_target_urls[stage].extend(lane["target_urls"])
+    rendered_urls = [
+        url for url in target_urls
+        if any(domain in _url_domain(url) for domain in JS_HEAVY_DOMAINS)
+    ]
+    if rendered_urls:
+        stage_queries["rendered_page_researcher"].append(f"{company} rendered public profile pages")
+    else:
+        stage_queries["rendered_page_researcher"].append(f"{company} Crunchbase organization profile rendered page")
+    max_queries = int(internet.get("max_queries") or 20)
+    for stage, queries in list(stage_queries.items()):
+        stage_queries[stage] = dedupe_list(queries or base["queries"], max_queries)
+        stage_target_urls[stage] = dedupe_list(stage_target_urls[stage], int(internet.get("max_target_urls_per_company") or 10) * 2)
+
+    return {
+        **base,
+        "adaptive": True,
+        "signals": signals,
+        "lanes": lanes,
+        "stage_queries": stage_queries,
+        "stage_target_urls": stage_target_urls,
+        "target_urls": target_urls,
+        "known_public_urls": target_urls,
+        "rendered_target_urls": dedupe_list(rendered_urls or base["target_urls"], int((internet.get("rendered_browser") or {}).get("max_pages_per_company") or 5) * 2),
+        "github_urls": signals["github_urls"],
+        "privacy_policy": "Queries use company names, public URLs/domains, public categories, and non-confidential public claims only; confidential excerpts, private financials, customer names, and founder contact details are blocked.",
+    }
 
 
 def parse_financial_tool_outputs(sources: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -1405,6 +1833,23 @@ def warnings_for_company(analysis: dict[str, Any], sources: list[dict[str, Any]]
     return warnings
 
 
+def research_gap_followups(analysis: dict[str, Any], sources: list[dict[str, Any]]) -> list[str]:
+    followups = []
+    plan = analysis.get("research_plan") or {}
+    for lane in plan.get("lanes") or []:
+        followups.append(f"Review {lane.get('lane_id')}: {lane.get('reason')}")
+    reconciliation = analysis.get("research_reconciliation") or {}
+    for missing in reconciliation.get("missing_public_evidence") or []:
+        topic = missing.get("topic") or "public evidence"
+        followups.append(f"Find public confirmation for local {topic} claims.")
+    for method_id in analysis.get("evidence_summary", {}).get("missing_methods", []):
+        followups.append(f"Add stronger evidence for {method_id.replace('_', ' ')} before relying on its score.")
+    for source in sources:
+        if source.get("status") in WARNING_SOURCE_STATUSES:
+            followups.append(f"Revisit {source.get('verification_target')}: {source.get('warning') or source.get('snippet')}")
+    return dedupe_list(followups, 12)
+
+
 def _research_observer(run_dir: Path | None):
     def observe(event_type: str, payload: dict[str, Any]) -> None:
         if run_dir is None:
@@ -1450,6 +1895,27 @@ def _configured_research(company: str, internet: dict[str, Any]) -> dict[str, An
     }
 
 
+def infer_source_quality_label(status: str, skill: str, verification_target: str, url: str, snippet: str) -> str:
+    lowered_status = str(status or "").lower()
+    lowered_skill = str(skill or "").lower()
+    lowered_target = str(verification_target or "").lower()
+    lowered_url = str(url or "").lower()
+    lowered_snippet = str(snippet or "").lower()
+    if lowered_status in {"blocked", "failed", "skill_unavailable", "budget_exhausted", "disabled"}:
+        return "blocked"
+    if lowered_status in {"planned", "configured_reference", "warning"}:
+        return "thin_signal"
+    if "financial_public_data_tool" in lowered_skill or any(domain in lowered_url for domain in ("sec.gov", "bls.gov", "sba.gov")):
+        return "market_context"
+    if "github.com" in lowered_url or any(term in lowered_target for term in ("github", "technical", "product")):
+        return "technical_signal"
+    if any(term in lowered_snippet for term in ("conflict", "contradict", "unconfirmed")):
+        return "public_conflict"
+    if lowered_url.startswith(("http://", "https://")) and lowered_status in {"ok", "completed"}:
+        return "public_confirmation"
+    return "thin_signal"
+
+
 def _source_record(
     *,
     company: str,
@@ -1461,8 +1927,10 @@ def _source_record(
     skill: str,
     verification_target: str,
     warning: str = "",
+    source_quality_label: str | None = None,
 ) -> dict[str, Any]:
     snippet_limit = 10000 if skill == "financial_public_data_tool" else 1000
+    quality = source_quality_label or infer_source_quality_label(status, skill, verification_target, url, snippet)
     return {
         "company": company,
         "query": query,
@@ -1472,6 +1940,7 @@ def _source_record(
         "status": status,
         "skill": skill,
         "verification_target": verification_target,
+        "source_quality_label": quality if quality in SOURCE_QUALITY_LABELS else "thin_signal",
         "warning": warning,
         "retrieved_at": utc_now_iso(),
     }
@@ -1489,6 +1958,335 @@ def _budget_exhausted_source(company: str, query: str, skill: str, verification_
         verification_target=verification_target,
         warning="Action budget exhausted before this evidence source could be collected.",
     )
+
+
+def agentic_research_config(config: dict[str, Any]) -> dict[str, Any]:
+    raw = config.get("agentic_research") if isinstance(config.get("agentic_research"), dict) else {}
+    return {
+        "enabled": bool(raw.get("enabled", True)),
+        "agent_ids": [str(item) for item in (raw.get("agent_ids") or DEFAULT_AGENTIC_RESEARCH_AGENT_IDS)],
+        "max_iterations_per_agent": bounded_int(raw.get("max_iterations_per_agent"), default=20, minimum=1, maximum=100),
+        "max_tool_calls_per_agent": bounded_int(raw.get("max_tool_calls_per_agent"), default=50, minimum=0, maximum=500),
+        "allowed_tools": [str(item) for item in (raw.get("allowed_tools") or DEFAULT_AGENTIC_RESEARCH_TOOLS)],
+    }
+
+
+def _agent_stage_enabled(agentic: dict[str, Any], stage: str) -> bool:
+    return bool(agentic.get("enabled")) and stage in set(agentic.get("agent_ids") or [])
+
+
+def _agent_tool_source(
+    *,
+    company: str,
+    agent_id: str,
+    query: str,
+    status: str,
+    message: str,
+    tool_call_id: str = "",
+) -> dict[str, Any]:
+    record = _source_record(
+        company=company,
+        query=query,
+        url="agent_tool_loop",
+        title=f"{agent_id} tool loop",
+        snippet=message,
+        status=status,
+        skill="llm_tool_agent",
+        verification_target=agent_id,
+        warning=message if status in {"agent_tool_loop_failed", "agent_invalid_tool_call", "blocked"} else "",
+        source_quality_label="blocked" if status in {"agent_tool_loop_failed", "agent_invalid_tool_call", "blocked"} else "thin_signal",
+    )
+    record["agent_id"] = agent_id
+    record["tool_call_id"] = tool_call_id
+    record["tool_decision_source"] = "llm_agent"
+    return record
+
+
+def _annotate_agent_sources(sources: list[dict[str, Any]], start_index: int, *, agent_id: str, tool_call_id: str) -> None:
+    for source in sources[start_index:]:
+        source["agent_id"] = agent_id
+        source["tool_call_id"] = tool_call_id
+        source["tool_decision_source"] = "llm_agent"
+
+
+def _blocked_tool_text(value: str, internet: dict[str, Any]) -> str:
+    lowered = value.lower()
+    blocked = [
+        "raw document text",
+        "confidential",
+        "private financial",
+        "customer names",
+        "founder contact",
+        "phone",
+        "email",
+    ]
+    blocked.extend(str(item).replace("_", " ").lower() for item in (internet.get("blocked_inputs") or []))
+    for marker in blocked:
+        if marker and marker in lowered:
+            return marker
+    return ""
+
+
+def _validate_agent_tool_call(tool_call: dict[str, Any], *, allowed_tools: set[str], internet: dict[str, Any]) -> str:
+    tool = str(tool_call.get("tool") or "")
+    if tool not in allowed_tools:
+        return f"Tool '{tool}' is not allowed for this agent."
+    if tool == "finish":
+        return ""
+    query = str(tool_call.get("query") or "")
+    url = str(tool_call.get("url") or "")
+    if tool == "browser_search" and not query.strip():
+        return "browser_search requires a query."
+    if tool in {"browser_page", "rendered_browser_page"} and not url.startswith(("http://", "https://")):
+        return f"{tool} requires an http(s) url."
+    blocked = _blocked_tool_text(f"{query} {url}", internet)
+    if blocked:
+        return f"Tool call includes blocked private/confidential input marker: {blocked}."
+    return ""
+
+
+def _agent_observation_from_sources(sources: list[dict[str, Any]], start_index: int) -> dict[str, Any]:
+    added = sources[start_index:]
+    return {
+        "source_count": len(added),
+        "statuses": sorted({str(source.get("status") or "") for source in added if source.get("status")}),
+        "urls": [str(source.get("url") or "") for source in added[:5]],
+        "snippets": [str(source.get("snippet") or "")[:240] for source in added[:3]],
+    }
+
+
+def _execute_agent_tool_call(
+    *,
+    sources: list[dict[str, Any]],
+    company: str,
+    stage: str,
+    plan: dict[str, Any],
+    internet: dict[str, Any],
+    run_dir: Path | None,
+    action_budget: ActionBudget | None,
+    tool_call: dict[str, Any],
+    tool_call_id: str,
+) -> dict[str, Any]:
+    tool = str(tool_call.get("tool") or "")
+    if tool == "finish":
+        return {"status": "finished", "source_count": 0, "stop_reason": str(tool_call.get("reason") or "finish")}
+    start_index = len(sources)
+    tool_plan = dict(plan)
+    query = str(tool_call.get("query") or (plan.get("queries") or [""])[0])
+    url = str(tool_call.get("url") or "")
+    tool_plan["queries"] = [query]
+    if url:
+        tool_plan["target_urls"] = [url]
+    if tool == "browser_search":
+        call_with_supported_kwargs(_append_w3m_research, sources=sources, company=company, plan=tool_plan, internet=internet, run_dir=run_dir, verification_target=stage, action_budget=action_budget)
+    elif tool == "browser_page":
+        call_with_supported_kwargs(_append_target_url_research, sources=sources, company=company, plan=tool_plan, internet=internet, run_dir=run_dir, action_budget=action_budget)
+    elif tool == "rendered_browser_page":
+        rendered_internet = dict(internet)
+        rendered = dict(rendered_internet.get("rendered_browser") or {})
+        rendered["enabled"] = True
+        rendered_internet["rendered_browser"] = rendered
+        call_with_supported_kwargs(_append_rendered_browser_research, sources=sources, company=company, plan=tool_plan, internet=rendered_internet, action_budget=action_budget)
+    _annotate_agent_sources(sources, start_index, agent_id=stage, tool_call_id=tool_call_id)
+    return {"status": "executed", **_agent_observation_from_sources(sources, start_index)}
+
+
+def _default_agent_tool_response(stage: str, plan: dict[str, Any], observations: list[dict[str, Any]]) -> dict[str, Any]:
+    if observations:
+        return {
+            "thought_summary": "Existing observations are sufficient for this bounded pass.",
+            "tool_calls": [{"tool": "finish", "reason": "observations_collected"}],
+            "stop_reason": "observations_collected",
+            "evidence_gaps": [],
+        }
+    query = (plan.get("stage_queries") or {}).get(stage, []) or plan.get("queries") or []
+    urls = (plan.get("stage_target_urls") or {}).get(stage, []) or []
+    if stage == "rendered_page_researcher":
+        urls = plan.get("rendered_target_urls") or urls
+    if urls and stage in {"company_identity_researcher", "market_comp_researcher", "traction_verifier"}:
+        return {
+            "thought_summary": "Inspect a known public URL selected by the adaptive plan.",
+            "tool_calls": [{"tool": "browser_page", "url": urls[0], "query": query[0] if query else ""}],
+            "stop_reason": "",
+            "evidence_gaps": [],
+        }
+    if urls and stage == "rendered_page_researcher":
+        return {
+            "thought_summary": "Inspect a rendered public profile URL selected by the adaptive plan.",
+            "tool_calls": [{"tool": "rendered_browser_page", "url": urls[0], "query": query[0] if query else ""}],
+            "stop_reason": "",
+            "evidence_gaps": [],
+        }
+    return {
+        "thought_summary": "Run one broad public search selected by the adaptive plan.",
+        "tool_calls": [{"tool": "browser_search", "query": query[0] if query else f"{plan.get('company', '')} startup public evidence"}],
+        "stop_reason": "",
+        "evidence_gaps": [],
+    }
+
+
+def run_agentic_research_stage(
+    *,
+    company: str,
+    stage: str,
+    plan: dict[str, Any],
+    internet: dict[str, Any],
+    run_dir: Path | None,
+    action_budget: ActionBudget | None,
+    llm: Any,
+    agentic: dict[str, Any],
+    trace: list[dict[str, Any]] | None,
+    knowledge_rag: dict[str, Any] | None = None,
+) -> tuple[str, list[dict[str, Any]]]:
+    queries = (plan.get("stage_queries") or {}).get(stage, []) or plan.get("queries") or []
+    sources = [_research_stage_plan_record(company, stage, item, plan) for item in queries]
+    allowed_tools = set(agentic.get("allowed_tools") or DEFAULT_AGENTIC_RESEARCH_TOOLS)
+    max_iterations = int(agentic.get("max_iterations_per_agent") or 20)
+    max_tool_calls = int(agentic.get("max_tool_calls_per_agent") or 50)
+    rag_query = " ".join(
+        item
+        for item in [
+            company,
+            stage,
+            " ".join(queries[:3]),
+            " ".join(str(lane.get("lane_id") or "") for lane in plan.get("lanes", [])[:8] if isinstance(lane, dict)),
+        ]
+        if item
+    )
+    rag_context = retrieve_knowledge_rag_context(knowledge_rag=knowledge_rag, query=rag_query, stage=stage, company=company)
+    observations: list[dict[str, Any]] = []
+    executed_tool_calls = 0
+    trace_record = {
+        "agent_id": stage,
+        "company": company,
+        "enabled": True,
+        "max_iterations": max_iterations,
+        "max_tool_calls": max_tool_calls,
+        "allowed_tools": sorted(allowed_tools),
+        "iterations": [],
+        "validation_failures": [],
+        "stop_reason": "",
+        "budget_start": action_budget.summary(include_actions=False) if action_budget else {},
+        "budget_end": {},
+        "rag_context": {
+            "enabled": rag_context.get("enabled"),
+            "status": rag_context.get("status"),
+            "query": rag_context.get("query"),
+            "citation_count": len(rag_context.get("citations") or []),
+            "context_chars": len(str(rag_context.get("context") or "")),
+        },
+        "knowledge_refs": rag_context.get("citations") or [],
+    }
+    for iteration in range(1, max_iterations + 1):
+        if executed_tool_calls >= max_tool_calls:
+            trace_record["stop_reason"] = "max_tool_calls_reached"
+            break
+        fallback = _default_agent_tool_response(stage, plan, observations)
+        prompt = {
+            "task": "Choose public research tools for this VC diligence stage. Return JSON only.",
+            "company": company,
+            "agent_id": stage,
+            "privacy_policy": plan.get("privacy_policy"),
+            "allowed_tools": sorted(allowed_tools),
+            "remaining_tool_calls": max_tool_calls - executed_tool_calls,
+            "knowledge_rag": {
+                "status": rag_context.get("status"),
+                "context": rag_context.get("context"),
+                "citations": rag_context.get("citations"),
+            },
+            "adaptive_plan": {
+                "lanes": plan.get("lanes", []),
+                "stage_queries": (plan.get("stage_queries") or {}).get(stage, []),
+                "stage_target_urls": (plan.get("stage_target_urls") or {}).get(stage, []),
+                "rendered_target_urls": plan.get("rendered_target_urls", []),
+                "signals": plan.get("signals", {}),
+            },
+            "observations": observations[-8:],
+            "required_schema": {
+                "thought_summary": "short non-sensitive rationale",
+                "tool_calls": [{"tool": "browser_search|browser_page|rendered_browser_page|finish", "query": "optional", "url": "optional", "reason": "optional"}],
+                "stop_reason": "optional",
+                "evidence_gaps": ["optional strings"],
+            },
+        }
+        try:
+            decision = llm.generate_json(system_prompt=stage, user_prompt=json.dumps(prompt, default=str), fallback=fallback)
+        except Exception as exc:
+            message = f"Agent tool loop failed: {exc}"
+            sources.append(_agent_tool_source(company=company, agent_id=stage, query=queries[0] if queries else "", status="agent_tool_loop_failed", message=message))
+            trace_record["iterations"].append({"iteration": iteration, "status": "failed", "error": str(exc)})
+            trace_record["stop_reason"] = "agent_tool_loop_failed"
+            break
+        if isinstance(decision, dict) and decision.get("provider") == "budget_exhausted":
+            message = "Agent tool loop stopped because the action budget was exhausted before the LLM could choose tools."
+            sources.append(_agent_tool_source(company=company, agent_id=stage, query=queries[0] if queries else "", status="budget_exhausted", message=message))
+            trace_record["iterations"].append({"iteration": iteration, "status": "budget_exhausted"})
+            trace_record["stop_reason"] = "budget_exhausted"
+            break
+        if not isinstance(decision, dict):
+            message = "Agent returned non-object JSON for tool decision."
+            sources.append(_agent_tool_source(company=company, agent_id=stage, query=queries[0] if queries else "", status="agent_invalid_tool_call", message=message))
+            trace_record["iterations"].append({"iteration": iteration, "status": "invalid_response", "response_type": type(decision).__name__})
+            trace_record["stop_reason"] = "agent_invalid_tool_call"
+            break
+        tool_calls = decision.get("tool_calls") if isinstance(decision.get("tool_calls"), list) else []
+        iteration_record = {
+            "iteration": iteration,
+            "thought_summary": str(decision.get("thought_summary") or "")[:500],
+            "requested_tool_calls": tool_calls,
+            "executed_tool_calls": [],
+            "observations": [],
+            "stop_reason": str(decision.get("stop_reason") or ""),
+            "evidence_gaps": list(decision.get("evidence_gaps") or [])[:10] if isinstance(decision.get("evidence_gaps"), list) else [],
+        }
+        if not tool_calls:
+            message = "Agent returned no tool calls."
+            sources.append(_agent_tool_source(company=company, agent_id=stage, query=queries[0] if queries else "", status="agent_invalid_tool_call", message=message))
+            trace_record["validation_failures"].append({"iteration": iteration, "message": message})
+            iteration_record["stop_reason"] = "agent_invalid_tool_call"
+            trace_record["iterations"].append(iteration_record)
+            trace_record["stop_reason"] = "agent_invalid_tool_call"
+            break
+        finished = False
+        for raw_call in tool_calls:
+            if executed_tool_calls >= max_tool_calls:
+                trace_record["stop_reason"] = "max_tool_calls_reached"
+                break
+            tool_call = raw_call if isinstance(raw_call, dict) else {"tool": ""}
+            tool_call_id = f"{stage}-{iteration}-{len(iteration_record['executed_tool_calls']) + 1}"
+            validation_error = _validate_agent_tool_call(tool_call, allowed_tools=allowed_tools, internet=internet)
+            if validation_error:
+                sources.append(_agent_tool_source(company=company, agent_id=stage, query=str(tool_call.get("query") or ""), status="agent_invalid_tool_call", message=validation_error, tool_call_id=tool_call_id))
+                append_event(run_dir, "tool_call_failed", {"tool": tool_call.get("tool"), "agent_id": stage, "tool_call_id": tool_call_id, "company": company, "error": validation_error}) if run_dir else None
+                trace_record["validation_failures"].append({"iteration": iteration, "tool_call_id": tool_call_id, "message": validation_error, "tool_call": tool_call})
+                iteration_record["executed_tool_calls"].append({"tool_call_id": tool_call_id, "status": "invalid", "message": validation_error})
+                continue
+            if str(tool_call.get("tool") or "") == "finish":
+                finished = True
+                iteration_record["executed_tool_calls"].append({"tool_call_id": tool_call_id, "tool": "finish", "status": "finished", "reason": str(tool_call.get("reason") or decision.get("stop_reason") or "finish")})
+                continue
+            append_event(run_dir, "tool_call_started", {"tool": tool_call.get("tool"), "agent_id": stage, "tool_call_id": tool_call_id, "company": company}) if run_dir else None
+            result = _execute_agent_tool_call(sources=sources, company=company, stage=stage, plan=plan, internet=internet, run_dir=run_dir, action_budget=action_budget, tool_call=tool_call, tool_call_id=tool_call_id)
+            executed_tool_calls += 1
+            observation = {"tool_call_id": tool_call_id, "tool": tool_call.get("tool"), "result": result}
+            observations.append(observation)
+            iteration_record["executed_tool_calls"].append({"tool_call_id": tool_call_id, "tool": tool_call.get("tool"), "status": result.get("status")})
+            iteration_record["observations"].append(observation)
+            event_type = "tool_call_completed" if result.get("status") in {"executed", "finished"} else "tool_call_failed"
+            append_event(run_dir, event_type, {"tool": tool_call.get("tool"), "agent_id": stage, "tool_call_id": tool_call_id, "company": company, "result": result}) if run_dir else None
+        trace_record["iterations"].append(iteration_record)
+        if trace_record.get("stop_reason") == "max_tool_calls_reached":
+            break
+        if finished:
+            trace_record["stop_reason"] = str(decision.get("stop_reason") or "finish")
+            break
+    if not trace_record["stop_reason"]:
+        trace_record["stop_reason"] = "max_iterations_reached"
+    trace_record["tool_call_count"] = executed_tool_calls
+    trace_record["budget_end"] = action_budget.summary(include_actions=False) if action_budget else {}
+    if trace is not None:
+        trace.append(trace_record)
+    return stage, sources
 
 
 def _append_w3m_research(
@@ -1596,6 +2394,20 @@ def _append_target_url_research(
 ) -> None:
     _load_w3m_browser_skill()
     if W3mBrowserConfig is None or browse_url is None:
+        for url in plan["target_urls"][: int(internet.get("max_target_urls_per_company") or 2)]:
+            sources.append(
+                _source_record(
+                    company=company,
+                    query=plan["queries"][0],
+                    url=url or "w3m_browser_skill",
+                    title="w3m direct page skill unavailable",
+                    snippet="Install mirrorneuron-w3m-browser-skill and w3m in the worker image to enable direct public page research.",
+                    status="skill_unavailable",
+                    skill="w3m_browser_skill",
+                    verification_target="public_profile",
+                    warning="mn_w3m_browser_skill direct page import failed",
+                )
+            )
         return
     browser_config = W3mBrowserConfig(
         timeout_seconds=int(internet.get("timeout_seconds") or 12),
@@ -1706,11 +2518,11 @@ def _append_rendered_browser_research(
         )
 
 
-def research_company(company: str, config: dict[str, Any], run_dir: Path | None = None, action_budget: ActionBudget | None = None) -> list[dict[str, Any]]:
+def research_company(company: str, config: dict[str, Any], run_dir: Path | None = None, action_budget: ActionBudget | None = None, records: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
     internet = config.get("internet_research") if isinstance(config.get("internet_research"), dict) else {}
     if internet.get("enabled") is False:
         return []
-    plan = _configured_research(company, internet)
+    plan = build_adaptive_research_plan(company, records or [], internet)
     sources: list[dict[str, Any]] = [
         _source_record(
             company=company,
@@ -1744,15 +2556,21 @@ def research_company(company: str, config: dict[str, Any], run_dir: Path | None 
 
 
 def _research_stage_plan_record(company: str, stage: str, query: str, plan: dict[str, Any]) -> dict[str, Any]:
+    selected_lanes = [
+        lane["lane_id"]
+        for lane in plan.get("lanes", [])
+        if query in (lane.get("queries") or [])
+    ]
     return _source_record(
         company=company,
         query=query,
         url="research_plan",
         title=f"{stage.replace('_', ' ').title()} Query",
-        snippet=f"Verification fields: {', '.join(plan['verification_fields'])}",
+        snippet=f"Verification fields: {', '.join(plan['verification_fields'])}; selected lanes: {', '.join(selected_lanes) if selected_lanes else 'baseline'}",
         status="planned",
         skill="research_planner",
         verification_target=stage,
+        source_quality_label="thin_signal",
     )
 
 
@@ -1769,11 +2587,20 @@ def _stage_default_source_record(company: str, stage: str, query: str, url: str)
     )
 
 
+def _stage_plan_with_targets(plan: dict[str, Any], stage: str, queries: list[str]) -> dict[str, Any]:
+    stage_plan = dict(plan)
+    stage_plan["queries"] = [queries[0]]
+    stage_urls = (plan.get("stage_target_urls") or {}).get(stage) or []
+    if stage == "rendered_page_researcher":
+        stage_urls = plan.get("rendered_target_urls") or stage_urls or plan.get("target_urls") or []
+    stage_plan["target_urls"] = dedupe_list(stage_urls or plan.get("target_urls") or [], 30)
+    return stage_plan
+
+
 def _research_one_stage(company: str, stage: str, query: str | list[str], plan: dict[str, Any], internet: dict[str, Any], run_dir: Path | None, action_budget: ActionBudget | None = None) -> tuple[str, list[dict[str, Any]]]:
     queries = query if isinstance(query, list) else [query]
     sources = [_research_stage_plan_record(company, stage, item, plan) for item in queries]
-    stage_plan = dict(plan)
-    stage_plan["queries"] = [queries[0]]
+    stage_plan = _stage_plan_with_targets(plan, stage, queries)
 
     if stage == "company_identity_researcher":
         identity_internet = dict(internet)
@@ -1781,11 +2608,11 @@ def _research_one_stage(company: str, stage: str, query: str | list[str], plan: 
             "https://www.crunchbase.com/organization/{company_slug}",
             "https://www.linkedin.com/company/{company_slug}",
         ]
-        identity_plan = dict(stage_plan)
-        identity_plan["target_urls"] = [
+        identity_plan = _stage_plan_with_targets(plan, stage, queries)
+        identity_plan["target_urls"] = dedupe_list(identity_plan.get("target_urls", []) + [
             template.format(company=company, company_slug=plan["company_slug"])
             for template in identity_internet["source_url_templates"]
-        ]
+        ], 30)
         for item in queries:
             identity_plan["queries"] = [item]
             call_with_supported_kwargs(_append_w3m_research, sources=sources, company=company, plan=identity_plan, internet=identity_internet, run_dir=run_dir, verification_target=stage, action_budget=action_budget)
@@ -1794,6 +2621,8 @@ def _research_one_stage(company: str, stage: str, query: str | list[str], plan: 
         for item in queries:
             stage_plan["queries"] = [item]
             call_with_supported_kwargs(_append_w3m_research, sources=sources, company=company, plan=stage_plan, internet=internet, run_dir=run_dir, verification_target=stage, action_budget=action_budget)
+        if stage_plan.get("target_urls"):
+            call_with_supported_kwargs(_append_target_url_research, sources=sources, company=company, plan=stage_plan, internet=internet, run_dir=run_dir, action_budget=action_budget)
         for url in list(internet.get("default_source_urls") or DEFAULT_RESEARCH_SOURCE_URLS):
             sources.append(_stage_default_source_record(company, stage, queries[0], url))
     elif stage == "rendered_page_researcher":
@@ -1814,44 +2643,83 @@ def _research_one_stage(company: str, stage: str, query: str | list[str], plan: 
     return stage, sources
 
 
-def research_company_by_stage(company: str, config: dict[str, Any], run_dir: Path | None = None, action_budget: ActionBudget | None = None) -> dict[str, list[dict[str, Any]]]:
+def research_company_by_stage(
+    company: str,
+    config: dict[str, Any],
+    run_dir: Path | None = None,
+    action_budget: ActionBudget | None = None,
+    records: list[dict[str, Any]] | None = None,
+    llm: Any | None = None,
+    agent_tool_trace: list[dict[str, Any]] | None = None,
+    knowledge_rag: dict[str, Any] | None = None,
+) -> dict[str, list[dict[str, Any]]]:
     internet = config.get("internet_research") if isinstance(config.get("internet_research"), dict) else {}
     if internet.get("enabled") is False:
         return {stage: [] for stage in RESEARCH_STAGE_IDS}
-    plan = _configured_research(company, internet)
-    staged_queries = {
-        "company_identity_researcher": [
-            f"{company} company website Crunchbase LinkedIn founders",
-            f"{company} founder background company profile",
-        ],
-        "funding_researcher": [
-            f"{company} startup funding investors accelerator press",
-            f"{company} seed round venture capital investors",
-        ],
-        "market_comp_researcher": [
-            f"{company} competitors market size comparable companies",
-            f"{company} industry report public company comparables market multiple",
-        ],
-        "traction_verifier": [
-            f"{company} customers pilots revenue partnerships product launch",
-            f"{company} customer case study ARR retention growth",
-        ],
-        "rendered_page_researcher": [f"{company} Crunchbase organization profile rendered page"],
-    }
+    plan = build_adaptive_research_plan(company, records or [], internet)
+    agentic = agentic_research_config(config)
+    staged_queries = plan["stage_queries"]
+    planner_sources: list[dict[str, Any]] = []
+    if llm is not None and _agent_stage_enabled(agentic, "research_planner"):
+        _, planner_sources = run_agentic_research_stage(
+            company=company,
+            stage="research_planner",
+            plan=plan,
+            internet=internet,
+            run_dir=run_dir,
+            action_budget=action_budget,
+            llm=llm,
+            agentic=agentic,
+            trace=agent_tool_trace,
+            knowledge_rag=knowledge_rag,
+        )
     worker_count = bounded_int(internet.get("max_stage_workers"), default=min(5, len(staged_queries)), maximum=len(staged_queries))
     if worker_count <= 1:
         results = [
-            _research_one_stage(company, stage, query, plan, internet, run_dir, action_budget)
+            (
+                run_agentic_research_stage(
+                    company=company,
+                    stage=stage,
+                    plan=plan,
+                    internet=internet,
+                    run_dir=run_dir,
+                    action_budget=action_budget,
+                    llm=llm,
+                    agentic=agentic,
+                    trace=agent_tool_trace,
+                    knowledge_rag=knowledge_rag,
+                )
+                if llm is not None and _agent_stage_enabled(agentic, stage)
+                else _research_one_stage(company, stage, query, plan, internet, run_dir, action_budget)
+            )
             for stage, query in staged_queries.items()
         ]
     else:
         with ThreadPoolExecutor(max_workers=worker_count, thread_name_prefix="vc-research") as executor:
             futures = {
-                executor.submit(_research_one_stage, company, stage, query, plan, internet, run_dir, action_budget): stage
+                (
+                    executor.submit(
+                        run_agentic_research_stage,
+                        company=company,
+                        stage=stage,
+                        plan=plan,
+                        internet=internet,
+                        run_dir=run_dir,
+                        action_budget=action_budget,
+                        llm=llm,
+                        agentic=agentic,
+                        trace=agent_tool_trace,
+                        knowledge_rag=knowledge_rag,
+                    )
+                    if llm is not None and _agent_stage_enabled(agentic, stage)
+                    else executor.submit(_research_one_stage, company, stage, query, plan, internet, run_dir, action_budget)
+                ): stage
                 for stage, query in staged_queries.items()
             }
             results = [future.result() for future in as_completed(futures)]
     by_stage = {stage: sources for stage, sources in results}
+    if planner_sources:
+        by_stage["company_identity_researcher"] = planner_sources + by_stage.get("company_identity_researcher", [])
     return {stage: by_stage.get(stage, []) for stage in RESEARCH_STAGE_IDS}
 
 
@@ -1995,7 +2863,10 @@ def render_markdown(analysis: dict[str, Any], sources: list[dict[str, Any]], evi
         lines.append(f"- {item['filename']}: {item.get('extraction_method')} ({item.get('sha256', '')[:12]})")
     lines += ["", "## Public Sources"]
     for source in sources:
-        lines.append(f"- {source['title']}: {source['url']}")
+        lines.append(f"- {source['title']}: {source['url']} ({source.get('source_quality_label', 'thin_signal')})")
+    lines += ["", "## Research Gaps And Follow-Ups"]
+    for item in research_gap_followups(analysis, sources):
+        lines.append(f"- {item}")
     lines += ["", "## User Decision Boundary", "Use the scores, assumptions, and source refs to decide what to review next."]
     return "\n".join(lines) + "\n"
 
@@ -2036,6 +2907,8 @@ def build_actor_review_context(
     skipped_company_names: list[str],
     output_files: list[dict[str, Any]],
     active_knowledge: dict[str, Any] | None = None,
+    knowledge_rag: dict[str, Any] | None = None,
+    actor_rag_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     company_summaries = []
     for analysis in analyses:
@@ -2064,12 +2937,24 @@ def build_actor_review_context(
                 "contradiction_count": len((analysis.get("research_reconciliation") or {}).get("contradictions") or []),
                 "missing_public_evidence_count": len((analysis.get("research_reconciliation") or {}).get("missing_public_evidence") or []),
             },
+            "adaptive_research_plan": {
+                "lane_ids": [lane.get("lane_id") for lane in (analysis.get("research_plan") or {}).get("lanes", [])],
+                "github_url_count": len((analysis.get("research_plan") or {}).get("github_urls") or []),
+                "known_public_url_count": len((analysis.get("research_plan") or {}).get("known_public_urls") or []),
+                "signal_keys": sorted(
+                    key
+                    for key, value in ((analysis.get("research_plan") or {}).get("signals") or {}).items()
+                    if value
+                ),
+            },
         })
     return {
         "blueprint_id": BLUEPRINT_ID,
         "output_type": OUTPUT_TYPE,
         "report_only": True,
         "active_knowledge": active_knowledge or {},
+        "knowledge_rag": public_knowledge_rag_state(knowledge_rag),
+        "rag_context": actor_rag_context or {},
         "judge_rubric": list((active_knowledge or {}).get("judge_rubric") or JUDGE_RUBRIC),
         "decision_boundary": "reports include scores, assumptions, evidence, and warnings only; users make all investment decisions",
         "company_count": len(analyses),
@@ -2095,6 +2980,11 @@ def build_actor_review_context(
             "public_research_queries": "company names, domains, categories, and non-confidential public claims only",
             "local_document_text": "not included in actor-review context",
         },
+        "actor_review_focus": [
+            "judge whether adaptive research lanes matched company-specific evidence",
+            "flag missing GitHub, docs, profile, pricing, traction, or market follow-ups when signals were present",
+            "verify source quality labels separate confirmation, conflict, blocked, thin, technical, and market-context signals",
+        ],
     }
 
 
@@ -2140,13 +3030,15 @@ def write_company_outputs(
         warnings = warnings_for_company(analysis, sources)
         write_json(company_dir / "analysis.json", analysis)
         write_json(company_dir / "method_scores.json", analysis["methods"])
+        write_json(company_dir / "research_plan.json", analysis.get("research_plan") or {})
+        write_json(company_dir / "agent_tool_trace.json", analysis.get("agent_tool_trace") or [])
         write_json(company_dir / "research_sources.json", sources)
         write_json(company_dir / "sources.json", sources)
         write_json(company_dir / "evidence.json", evidence)
         write_json(company_dir / "warnings.json", warnings)
         markdown = render_markdown(analysis, sources, evidence)
         (company_dir / "analysis.md").write_text(markdown, encoding="utf-8")
-        for name in ("analysis.json", "analysis.md", "method_scores.json", "research_sources.json", "sources.json", "evidence.json", "warnings.json"):
+        for name in ("analysis.json", "analysis.md", "method_scores.json", "research_plan.json", "agent_tool_trace.json", "research_sources.json", "sources.json", "evidence.json", "warnings.json"):
             output_files.append({"kind": name.rsplit(".", 1)[0], "path": str(company_dir / name), "company": analysis["company_name"]})
         write_json(output_folder / "company_fact_tables" / f"{slug}.json", analysis["fact_table"])
         write_json(output_folder / "research_ledgers" / f"{slug}.json", research_ledger)
@@ -2207,6 +3099,8 @@ def process_company_packet(
     resolved_config: dict[str, Any],
     run_dir: Path,
     action_budget: ActionBudget | None = None,
+    llm: Any | None = None,
+    knowledge_rag: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if queue_item["status"] == "unchanged_skipped":
         cached_analysis = load_cached_company_analysis(output_folder, company)
@@ -2216,6 +3110,11 @@ def process_company_packet(
             cached_analysis["processing_status"] = "unchanged_skipped"
             cached_analysis["cached_from_previous_run"] = True
             cached_analysis["research_reconciliation"] = reconciliation
+            if "research_plan" not in cached_analysis:
+                internet = resolved_config.get("internet_research") if isinstance(resolved_config.get("internet_research"), dict) else {}
+                cached_analysis["research_plan"] = build_adaptive_research_plan(company, records, internet)
+            cached_analysis.setdefault("agent_tool_trace", [])
+            cached_analysis.setdefault("research_plan", {}).setdefault("knowledge_rag", public_knowledge_rag_state(knowledge_rag))
             return {
                 "company_name": company,
                 "analysis": cached_analysis,
@@ -2227,13 +3126,44 @@ def process_company_packet(
         queue_item["status"] = "new_or_changed"
         queue_item["cache_status"] = "missing_cached_report_reprocessed"
 
-    research_ledger = call_with_supported_kwargs(research_company_by_stage, company=company, config=resolved_config, run_dir=run_dir, action_budget=action_budget)
+    internet = resolved_config.get("internet_research") if isinstance(resolved_config.get("internet_research"), dict) else {}
+    research_plan = build_adaptive_research_plan(company, records, internet)
+    agent_tool_trace: list[dict[str, Any]] = []
+    research_ledger = call_with_supported_kwargs(
+        research_company_by_stage,
+        company=company,
+        config=resolved_config,
+        run_dir=run_dir,
+        action_budget=action_budget,
+        records=records,
+        llm=llm,
+        agent_tool_trace=agent_tool_trace,
+        knowledge_rag=knowledge_rag,
+    )
     append_financial_tool_research(company, records, research_ledger, action_budget=action_budget)
     reconciliation = reconcile_research(records, research_ledger)
     analysis = build_company_analysis(company, records, research_ledger, scoring_workers=scoring_worker_count(resolved_config))
     analysis["processing_status"] = "new_or_changed"
     analysis["cached_from_previous_run"] = False
     analysis["research_reconciliation"] = reconciliation
+    analysis["research_plan"] = research_plan
+    analysis["agent_tool_trace"] = agent_tool_trace
+    analysis["research_plan"]["knowledge_rag"] = {
+        **public_knowledge_rag_state(knowledge_rag),
+        "agent_knowledge_refs": {
+            item.get("agent_id"): item.get("knowledge_refs") or []
+            for item in agent_tool_trace
+            if item.get("knowledge_refs")
+        },
+    }
+    analysis["research_plan"]["agentic_research"] = {
+        "enabled": bool(agentic_research_config(resolved_config).get("enabled")),
+        "agent_ids": agentic_research_config(resolved_config).get("agent_ids"),
+        "allowed_tools": agentic_research_config(resolved_config).get("allowed_tools"),
+        "max_iterations_per_agent": agentic_research_config(resolved_config).get("max_iterations_per_agent"),
+        "max_tool_calls_per_agent": agentic_research_config(resolved_config).get("max_tool_calls_per_agent"),
+        "stop_reasons": {item.get("agent_id"): item.get("stop_reason") for item in agent_tool_trace},
+    }
     return {
         "company_name": company,
         "analysis": analysis,
@@ -2257,6 +3187,7 @@ def run_blueprint(
     active_knowledge = load_vc_knowledge(blueprint_dir)
     active_knowledge_ref = active_knowledge_reference(active_knowledge)
     action_budget = build_action_budget(resolved_config)
+    llm = BudgetedLLM(_get_configured_actor_llm(resolved_config, llm_client), action_budget)
     payload = dict((resolved_config.get("inputs") or {}).get("payload") or {})
     if inputs:
         payload.update(inputs)
@@ -2264,6 +3195,12 @@ def run_blueprint(
     output_folder = expand_runtime_path(payload.get("output_folder") or (resolved_config.get("outputs") or {}).get("folder_path") or f"outputs/{BLUEPRINT_ID}")
     run_dir = resolve_run_dir(output_folder, run_id, runs_root)
     run_dir.mkdir(parents=True, exist_ok=True)
+    knowledge_rag = prepare_knowledge_rag(
+        blueprint_dir=blueprint_dir,
+        resolved_config=resolved_config,
+        active_knowledge=active_knowledge,
+        run_dir=run_dir,
+    )
     document_folder = (
         resolve_existing_path(payload["document_folder"], [blueprint_dir, blueprint_dir.parent])
         if payload.get("document_folder")
@@ -2300,6 +3237,8 @@ def run_blueprint(
                 resolved_config=resolved_config,
                 run_dir=run_dir,
                 action_budget=action_budget,
+                llm=llm,
+                knowledge_rag=knowledge_rag,
             )
             for company, records in sorted_company_items
         ]
@@ -2315,6 +3254,8 @@ def run_blueprint(
                     resolved_config=resolved_config,
                     run_dir=run_dir,
                     action_budget=action_budget,
+                    llm=llm,
+                    knowledge_rag=knowledge_rag,
                 ): company
                 for company, records in sorted_company_items
             }
@@ -2350,6 +3291,14 @@ def run_blueprint(
     append_event(run_dir, "watch_cycle_completed", {"cycle": 1, "companies": len(company_records)})
     research_coverage = build_research_coverage(research_ledgers)
     method_coverage = build_method_coverage(analyses)
+    actor_rag_context = retrieve_knowledge_rag_context(
+        knowledge_rag=knowledge_rag,
+        query=(
+            "VC method correctness evidence grounding assumption clarity missing evidence honesty "
+            "financial reasoning quality adaptive research plan quality source quality labels"
+        ),
+        stage="actor_review",
+    )
     actor_context = build_actor_review_context(
         analyses=analyses,
         company_work_queue=company_work_queue,
@@ -2358,16 +3307,18 @@ def run_blueprint(
         processed_company_names=processed_company_names,
         skipped_company_names=skipped_company_names,
         output_files=output_files,
-        active_knowledge=active_knowledge,
+        active_knowledge=active_knowledge_for_prompt(active_knowledge, knowledge_rag),
+        knowledge_rag=knowledge_rag,
+        actor_rag_context=actor_rag_context,
     )
     actor_specs = resolve_actor_specs(resolved_config)
     actor_ids = [actor_id for actor_id in WORKFLOW_STEP_IDS if actor_id in actor_specs]
-    llm = BudgetedLLM(_get_configured_actor_llm(resolved_config, llm_client), action_budget)
     actor_state: dict[str, Any] = {}
     actor_review_warnings = []
     actor_task = (
-        "Review this VC Assistant run as your specialist actor using the attached VC method playbook as the canonical knowledge source. "
+        "Review this VC Assistant run as your specialist actor using the attached VC method playbook RAG context and active knowledge references as the canonical knowledge source. "
         "Judge quality against method correctness, evidence grounding, assumption clarity, missing-evidence honesty, financial reasoning quality, and report usefulness. "
+        "Also judge whether adaptive research lanes and tool choices matched each company's public-safe signals, such as GitHub, docs, profile, pricing, traction, market, regulatory, or IP evidence. "
         "Flag evidence gaps, math/research concerns, prompt or knowledge gaps, and report-quality issues with company and method ids when possible. "
         "Do not issue pass, watch, reject, buy, sell, invest, or recommendation labels."
     )
@@ -2417,6 +3368,7 @@ def run_blueprint(
                 "message": "The VC Assistant action budget was exhausted; later research, financial-tool, or actor-review calls may be partial.",
             }
         )
+    knowledge_rag_warnings = list(knowledge_rag.get("warnings") or [])
 
     final_artifact = {
         "type": OUTPUT_TYPE,
@@ -2431,6 +3383,7 @@ def run_blueprint(
         ],
         "source_refs": ["inputs.json", "events.jsonl", "result.json", "final_artifact.json", "action_ledger.json", "company_index.json", KNOWLEDGE_PLAYBOOK_RELATIVE_PATH],
         "active_knowledge": active_knowledge_ref,
+        "knowledge_rag": public_knowledge_rag_state(knowledge_rag),
         "research_summary": {
             "company_count": len(research_ledgers),
             "processed_company_count": len(processed_company_names),
@@ -2438,9 +3391,10 @@ def run_blueprint(
             "privacy_policy": "no confidential excerpts in public research queries",
             "stage_ids": RESEARCH_STAGE_IDS,
             "coverage": research_coverage,
+            "knowledge_rag": public_knowledge_rag_state(knowledge_rag),
         },
         "research_sources": [source for ledger in research_ledgers.values() for source in flattened_sources(ledger)],
-        "research_warnings": budget_warnings,
+        "research_warnings": [*budget_warnings, *knowledge_rag_warnings],
         "actor_review_warnings": actor_review_warnings,
         "report_only": True,
         "company_reports": analyses,

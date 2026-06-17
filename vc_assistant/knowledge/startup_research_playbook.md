@@ -18,6 +18,84 @@ Use this playbook as the canonical knowledge source for VC Assistant actor revie
 - Keep `respect_robots` enabled for rendered browsing.
 - Treat blocked, login-required, CAPTCHA, rate-limit, and robots responses as source facts to record. Do not bypass them.
 
+## Adaptive Research Playbooks
+
+Use the company packet to choose research lanes. Start with identity, funding, market, and traction for every company, then add focused lanes when public-safe signals appear.
+
+### GitHub And Open Source
+
+- Trigger: a GitHub URL, open-source claim, repository name, package link, SDK, API, or developer-docs signal.
+- Inspect: public organization/repository pages, README content, release/package hints, language mix, recent activity wording, issues/discussions wording, stars/forks if visible, and links to docs or packages.
+- Good evidence: maintained repositories, public releases, meaningful technical docs, clear product relationship, active ecosystem use, or credible open-source adoption.
+- Weak evidence: empty repos, unrelated personal projects, stale README-only projects, fork-only activity, or pages that require login.
+- Tool choice: fetch known GitHub URLs directly with `w3m_browser_skill`; use rendered browser only if the public page is empty or blocked in lightweight browsing.
+
+### Technical Product Depth
+
+- Trigger: docs, API, SDK, developer, package, app-store, prototype, infrastructure, model, data, hardware, or platform signals.
+- Inspect: public docs, changelog/release pages, package registries, app-store listings, product pages, status pages, security pages, and technical blog posts.
+- Good evidence: working docs, versioned packages, product screenshots, demos, integrations, active releases, supported SDKs, and clear user workflow.
+- Weak evidence: generic claims without docs, demo-only landing pages, private beta pages, or unrelated package names.
+
+### Founder And Company Background
+
+- Trigger: founder names, public profile links, company profile links, accelerator mentions, hiring pages, or team claims.
+- Inspect: public company pages, founder bios, LinkedIn/company pages, Crunchbase, accelerator pages, press bylines, and public talks.
+- Good evidence: relevant operating history, prior exits, domain expertise, credible advisors, and stable public company identity.
+- Weak evidence: only contact details, private social links, unverifiable bios, or profile pages hidden behind login.
+- Privacy rule: never use founder contact details in queries or reports.
+
+### Customer And Traction Proof
+
+- Trigger: revenue, ARR, customer, pilot, partnership, retention, growth, launch, case-study, or logo claims.
+- Inspect: customer pages, public case studies, press releases, integration pages, app reviews, marketplace listings, public usage examples, and partner directories.
+- Good evidence: named public case studies, credible press/partner proof, app/package adoption signals, repeatable pricing, and clear launch history.
+- Weak evidence: confidential customer names, unverified logos, vague “enterprise traction,” or local-only revenue claims.
+- Privacy rule: do not search private customer names unless they are clearly public in the source material.
+
+### Pricing And Business Model
+
+- Trigger: pricing, subscription, usage, seat, transaction fee, gross margin, CAC, LTV, payback, sales motion, or revenue model signals.
+- Inspect: public pricing pages, packaging pages, terms pages, marketplaces, plan limits, integration pricing, and buyer-segment messaging.
+- Good evidence: clear buyer, packaging, monetization path, public pricing, usage metrics, and sales motion fit.
+- Weak evidence: no buyer, no packaging, unsupported margin assumptions, or monetization entirely deferred.
+
+### Market Mapping And Competitors
+
+- Trigger: market, TAM, SAM, vertical, category, industry, competitor, comparable, public-company, or exit signals.
+- Inspect: competitor pages, public-company pages, SEC/EDGAR context where relevant, SBA/BLS/industry sources, marketplaces, and category reports.
+- Good evidence: named competitor set, category boundaries, market growth support, buyer alternatives, and comparable public/private signals.
+- Weak evidence: generic large-market claims, unrelated public companies, or configured references with no company-specific source.
+
+### Fundraising And Investor Signals
+
+- Trigger: seed, pre-seed, Series A, investor, accelerator, grant, venture, round, SAFE, valuation, or runway signals.
+- Inspect: Crunchbase/search snippets, investor portfolio pages, accelerator cohorts, press releases, founder announcements, and public grant/award pages.
+- Good evidence: named round, investor, accelerator cohort, grant, or milestone with public source.
+- Weak evidence: pitch-only fundraise targets, unverified investor logos, stale rumors, or paid-provider-only data not available to the run.
+
+### Regulatory And Security Risk
+
+- Trigger: HIPAA, SOC 2, GDPR, compliance, privacy, security, healthcare, fintech, legal, education, government, insurance, or regulated-data claims.
+- Inspect: security pages, trust centers, privacy policies, terms, compliance attestations, public regulatory guidance, and industry risk context.
+- Good evidence: clear compliance scope, public policy pages, certifications or attestations, and credible data-handling claims.
+- Weak evidence: compliance buzzwords without public artifacts, missing privacy policy, or ambiguous regulated-data use.
+
+### Data, IP, And Defensibility
+
+- Trigger: patent, proprietary data, dataset, model, algorithm, workflow lock-in, integration network, hardware design, or trade-secret claims.
+- Inspect: public patent search pages when available, docs, research posts, technical blogs, product architecture claims, integrations, and data-source descriptions.
+- Good evidence: defensible dataset access, technical moat, protected IP, integration depth, hard-to-replicate workflows, or public patent/application signals.
+- Weak evidence: generic AI/model claims, unproven proprietary data, unsupported patent claims, or commodity wrapper functionality.
+
+## Tool Selection Rules
+
+- Use lightweight browser search for broad discovery and query expansion.
+- Use direct page fetch when the packet contains a public URL, domain, GitHub repo, docs page, package page, app-store page, profile page, or pricing page.
+- Use rendered browser only for JavaScript-heavy public profile pages, known rendered pages, or lightweight-browser results that are empty, blocked, or login-shaped.
+- Record the reason a lane was selected and preserve blocked/empty outcomes as evidence.
+- Label source quality as one of: `local_claim`, `public_confirmation`, `public_conflict`, `blocked`, `thin_signal`, `technical_signal`, or `market_context`.
+
 ## Privacy Rules
 
 - Public queries may include company name, public domain, product category, and non-confidential public claims.

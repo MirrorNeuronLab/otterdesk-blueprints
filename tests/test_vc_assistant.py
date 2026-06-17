@@ -53,6 +53,20 @@ class FailingVCLLM(FakeVCLLM):
         raise RuntimeError("llm endpoint unavailable")
 
 
+class ToolCallingVCLLM(FakeVCLLM):
+    def __init__(self, decisions: dict[str, list[dict]]) -> None:
+        super().__init__()
+        self.decisions = {key: list(value) for key, value in decisions.items()}
+
+    def generate_json(self, *, system_prompt: str, user_prompt: str, fallback: dict):
+        self.calls += 1
+        self.prompts.append({"system": system_prompt, "user": user_prompt})
+        queue = self.decisions.get(system_prompt) or []
+        if queue:
+            return queue.pop(0)
+        return {"thought_summary": "done", "tool_calls": [{"tool": "finish", "reason": "done"}], "stop_reason": "done", "evidence_gaps": []}
+
+
 def _load_runner():
     spec = importlib.util.spec_from_file_location("vc_early_runner", RUNNER_PATH)
     module = importlib.util.module_from_spec(spec)
@@ -110,9 +124,22 @@ def test_manifest_runtime_nodes_carry_default_config_for_service_sandbox():
     assert config["python_dependencies"]["extra_index_url"] == "https://pypi.org/simple"
     assert config["python_dependencies"]["packages"] == [
         "mirrorneuron-blueprint-support-skill",
+        "mirrorneuron-rag-skill",
         "mirrorneuron-w3m-browser-skill",
         "mirrorneuron-web-browser-skill",
     ]
+    assert config["knowledge_rag"]["enabled"] is True
+    assert config["knowledge_rag"]["redis_url"] == ""
+    assert config["knowledge_rag"]["namespace"] == ""
+    assert config["knowledge_rag"]["embedding_provider"] == "docker_model_runner"
+    assert config["knowledge_rag"]["embedding_model"] == "hf.co/jinaai/jina-embeddings-v5-text-small-retrieval:Q4_K_M"
+    assert config["knowledge_rag"]["embedding_api_base"] == "http://localhost:12434/engines/v1"
+    assert config["knowledge_rag"]["embedding_query_prefix"] == "Query: "
+    assert config["knowledge_rag"]["embedding_document_prefix"] == "Document: "
+    assert config["knowledge_rag"]["embedding_start_command"] == "docker model run -d hf.co/jinaai/jina-embeddings-v5-text-small-retrieval:Q4_K_M"
+    assert config["knowledge_rag"]["embedding_healthcheck_enabled"] is True
+    assert config["knowledge_rag"]["vector_dim"] == 1024
+    assert config["knowledge_rag"]["index_on_startup"] is True
     assert "examples/sample_inputs/" in manifest["metadata"]["configuration_contract"]["required_files"]
     assert (
         "payloads/document_workflow/vc_assistant/examples/sample_inputs/"
@@ -128,7 +155,19 @@ def test_manifest_runtime_nodes_carry_default_config_for_service_sandbox():
         assert embedded_config["inputs"]["payload"]["output_folder"] == "~/Downloads/vc_assistant"
         assert embedded_config["outputs"]["folder_path"] == "~/Downloads/vc_assistant"
         assert embedded_config["llm"]["model"] == "gemma4:e2b"
-        assert embedded_config["research_budget"]["default_actions"] == 100
+        assert embedded_config["research_budget"]["default_actions"] == 1000
+        assert embedded_config["agentic_research"]["enabled"] is True
+        assert embedded_config["agentic_research"]["agent_ids"] == [
+            "research_planner",
+            "company_identity_researcher",
+            "market_comp_researcher",
+            "traction_verifier",
+            "rendered_page_researcher",
+        ]
+        assert embedded_config["agentic_research"]["max_iterations_per_agent"] == 20
+        assert embedded_config["agentic_research"]["max_tool_calls_per_agent"] == 50
+        assert embedded_config["agentic_research"]["allowed_tools"] == ["browser_search", "browser_page", "rendered_browser_page", "finish"]
+        assert embedded_config["knowledge_rag"] == config["knowledge_rag"]
         assert embedded_config["python_dependencies"] == config["python_dependencies"]
     for template in manifest["metadata"]["agent_templates"]["nodes"]:
         if template["node_id"] == "report_sink":
@@ -136,6 +175,8 @@ def test_manifest_runtime_nodes_carry_default_config_for_service_sandbox():
             continue
         assert template["with"]["python_environment"] == {"requirements": requirements_path}
         assert template["with"]["upload_paths"] == upload_paths
+        template_config = json.loads(template["with"]["environment"]["MN_BLUEPRINT_CONFIG_JSON"])
+        assert template_config["knowledge_rag"] == config["knowledge_rag"]
 
 
 def test_vc_assistant_runtime_requirements_install_skills_with_pip():
@@ -147,6 +188,7 @@ def test_vc_assistant_runtime_requirements_install_skills_with_pip():
         "--index-url https://us-central1-python.pkg.dev/mirrorneuron-public-packages/agent-skills/simple/",
         "--extra-index-url https://pypi.org/simple",
         "mirrorneuron-blueprint-support-skill",
+        "mirrorneuron-rag-skill",
         "mirrorneuron-w3m-browser-skill",
         "mirrorneuron-web-browser-skill",
     ]
@@ -234,12 +276,321 @@ def test_vc_knowledge_excludes_stale_non_vc_domain_terms():
         assert stale_term not in serialized
 
 
-def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path):
+def test_adaptive_research_plan_extracts_public_safe_signals():
+    runner = _load_runner()
+    records = [
+        {
+            "filename": "packet.md",
+            "text_preview": "\n".join(
+                [
+                    "Company: Example AI",
+                    "Website: https://example.ai",
+                    "GitHub: https://github.com/example/example-ai",
+                    "Docs: https://docs.example.ai/api",
+                    "Founder profile: https://www.linkedin.com/company/example-ai",
+                    "Pricing is subscription usage based. SOC 2 compliance planned.",
+                    "Open source SDK with customer pilots and ARR traction.",
+                ]
+            ),
+        }
+    ]
+
+    signals = runner.extract_public_research_signals(records)
+    assert signals["github_urls"] == ["https://github.com/example/example-ai"]
+    assert "https://docs.example.ai/api" in signals["docs_urls"]
+    assert "https://www.linkedin.com/company/example-ai" in signals["profile_urls"]
+    assert "pricing" in signals["pricing_terms"]
+    assert "soc 2" in signals["regulatory_terms"]
+
+    plan = runner.build_adaptive_research_plan("Example AI", records, {"max_queries": 20, "max_target_urls_per_company": 10, "rendered_browser": {"max_pages_per_company": 5}})
+    lane_ids = {lane["lane_id"] for lane in plan["lanes"]}
+    assert {"github_research", "technical_product_research", "founder_research", "pricing_business_model_research", "regulatory_risk_research"} <= lane_ids
+    assert "https://github.com/example/example-ai" in plan["stage_target_urls"]["market_comp_researcher"]
+    assert any("GitHub" in query for query in plan["stage_queries"]["market_comp_researcher"])
+    assert "https://www.linkedin.com/company/example-ai" in plan["rendered_target_urls"]
+    assert "confidential excerpts" in plan["privacy_policy"]
+
+
+def test_adaptive_research_routes_known_urls_to_direct_fetches(monkeypatch, tmp_path):
+    runner = _load_runner()
+    records = [
+        {
+            "filename": "packet.md",
+            "text_preview": "GitHub https://github.com/example/example-ai Docs https://docs.example.ai/api LinkedIn https://www.linkedin.com/company/example-ai",
+        }
+    ]
+    direct_urls = []
+    rendered_urls = []
+
+    def fake_w3m(sources, *, company, plan, internet, run_dir, verification_target="search_result_or_public_source"):
+        sources.append(runner._source_record(
+            company=company,
+            query=plan["queries"][0],
+            url=f"https://example.com/{verification_target}",
+            title=verification_target,
+            snippet="public evidence",
+            status="ok",
+            skill="w3m_browser_skill",
+            verification_target=verification_target,
+        ))
+
+    def fake_target(sources, *, company, plan, internet, run_dir):
+        direct_urls.extend(plan.get("target_urls") or [])
+        for url in plan.get("target_urls") or []:
+            sources.append(runner._source_record(
+                company=company,
+                query=plan["queries"][0],
+                url=url,
+                title=url,
+                snippet="direct public page",
+                status="ok",
+                skill="w3m_browser_skill",
+                verification_target="public_profile",
+            ))
+
+    def fake_rendered(sources, *, company, plan, internet, action_budget=None):
+        rendered_urls.extend(plan.get("target_urls") or [])
+        for url in plan.get("target_urls") or []:
+            sources.append(runner._source_record(
+                company=company,
+                query=plan["queries"][0],
+                url=url,
+                title="Rendered",
+                snippet="rendered profile",
+                status="ok",
+                skill="web_browser_skill",
+                verification_target="rendered_public_profile",
+            ))
+
+    monkeypatch.setattr(runner, "_append_w3m_research", fake_w3m)
+    monkeypatch.setattr(runner, "_append_target_url_research", fake_target)
+    monkeypatch.setattr(runner, "_append_rendered_browser_research", fake_rendered)
+
+    ledger = runner.research_company_by_stage(
+        "Example AI",
+        {"internet_research": {"enabled": True, "max_stage_workers": 1, "rendered_browser": {"enabled": True, "max_pages_per_company": 5}}},
+        run_dir=tmp_path,
+        records=records,
+    )
+
+    assert set(ledger) == set(runner.RESEARCH_STAGE_IDS)
+    assert "https://github.com/example/example-ai" in direct_urls
+    assert "https://docs.example.ai/api" in direct_urls
+    assert "https://www.linkedin.com/company/example-ai" in direct_urls
+    assert "https://www.linkedin.com/company/example-ai" in rendered_urls
+    assert any(source["source_quality_label"] == "technical_signal" for source in ledger["market_comp_researcher"])
+
+
+def test_agentic_research_executes_llm_selected_tools(monkeypatch, tmp_path):
+    runner = _load_runner()
+
+    class DummyConfig:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    monkeypatch.setattr(runner, "_load_w3m_browser_skill", lambda: None)
+    monkeypatch.setattr(runner, "W3mBrowserConfig", DummyConfig)
+    monkeypatch.setattr(runner, "research_topic", lambda query, browser_config, max_sources, observer=None: {"sources": [{"url": "https://example.com/search", "title": "Search", "snippet": query}], "warnings": []})
+    monkeypatch.setattr(runner, "browse_url", lambda url, browser_config, observer=None: {"status": "ok", "url": url, "title": "Direct", "snippet": "direct page"})
+    monkeypatch.setattr(runner, "_load_web_browser_skill", lambda: None)
+    monkeypatch.setattr(runner, "WebBrowserConfig", DummyConfig)
+    monkeypatch.setattr(runner, "scrape_page", lambda url, browser_config: {"status": "ok", "final_url": url, "title": "Rendered", "text": "rendered page", "warnings": []})
+
+    decisions = {
+        "research_planner": [{"thought_summary": "planner done", "tool_calls": [{"tool": "finish", "reason": "planned"}], "stop_reason": "planned", "evidence_gaps": []}],
+        "company_identity_researcher": [{"thought_summary": "search identity", "tool_calls": [{"tool": "browser_search", "query": "Example AI company website"}], "stop_reason": "", "evidence_gaps": []}],
+        "market_comp_researcher": [{"thought_summary": "inspect github", "tool_calls": [{"tool": "browser_page", "url": "https://github.com/example/example-ai", "query": "Example AI GitHub"}], "stop_reason": "", "evidence_gaps": []}],
+        "traction_verifier": [{"thought_summary": "done", "tool_calls": [{"tool": "finish", "reason": "no public traction url"}], "stop_reason": "done", "evidence_gaps": ["public traction proof"]}],
+        "rendered_page_researcher": [{"thought_summary": "render profile", "tool_calls": [{"tool": "rendered_browser_page", "url": "https://www.linkedin.com/company/example-ai", "query": "Example AI rendered profile"}], "stop_reason": "", "evidence_gaps": []}],
+    }
+    llm = runner.BudgetedLLM(ToolCallingVCLLM(decisions), runner.ActionBudget(100))
+    records = [{"filename": "packet.md", "text_preview": "GitHub https://github.com/example/example-ai LinkedIn https://www.linkedin.com/company/example-ai"}]
+    trace = []
+
+    ledger = runner.research_company_by_stage(
+        "Example AI",
+        {
+            "internet_research": {"enabled": True, "max_stage_workers": 1, "rendered_browser": {"enabled": True, "max_pages_per_company": 5}},
+            "agentic_research": {
+                "enabled": True,
+                "agent_ids": ["research_planner", "company_identity_researcher", "market_comp_researcher", "traction_verifier", "rendered_page_researcher"],
+                "max_iterations_per_agent": 20,
+                "max_tool_calls_per_agent": 50,
+                "allowed_tools": ["browser_search", "browser_page", "rendered_browser_page", "finish"],
+            },
+        },
+        run_dir=tmp_path,
+        action_budget=llm._action_budget,
+        records=records,
+        llm=llm,
+        agent_tool_trace=trace,
+    )
+
+    assert {item["agent_id"] for item in trace} == {"research_planner", "company_identity_researcher", "market_comp_researcher", "traction_verifier", "rendered_page_researcher"}
+    assert "funding_researcher" not in {item["agent_id"] for item in trace}
+    assert any(source.get("tool_decision_source") == "llm_agent" and source.get("agent_id") == "market_comp_researcher" for source in ledger["market_comp_researcher"])
+    assert any(source.get("skill") == "web_browser_skill" and source.get("agent_id") == "rendered_page_researcher" for source in ledger["rendered_page_researcher"])
+    assert all(item["max_iterations"] == 20 for item in trace)
+    assert all(item["max_tool_calls"] == 50 for item in trace)
+
+
+def test_agentic_research_blocks_confidential_tool_queries(tmp_path):
+    runner = _load_runner()
+    decisions = {
+        "market_comp_researcher": [
+            {
+                "thought_summary": "bad query",
+                "tool_calls": [{"tool": "browser_search", "query": "confidential raw document text customer_names private financials"}],
+                "stop_reason": "",
+                "evidence_gaps": [],
+            }
+        ]
+    }
+    llm = runner.BudgetedLLM(ToolCallingVCLLM(decisions), runner.ActionBudget(20))
+    plan = runner.build_adaptive_research_plan("Example AI", [], {"max_queries": 20, "rendered_browser": {"max_pages_per_company": 5}})
+    trace = []
+
+    stage, sources = runner.run_agentic_research_stage(
+        company="Example AI",
+        stage="market_comp_researcher",
+        plan=plan,
+        internet={"blocked_inputs": ["raw_document_text", "customer_names", "private_financials"]},
+        run_dir=tmp_path,
+        action_budget=llm._action_budget,
+        llm=llm,
+        agentic={"enabled": True, "agent_ids": ["market_comp_researcher"], "max_iterations_per_agent": 20, "max_tool_calls_per_agent": 50, "allowed_tools": ["browser_search", "browser_page", "rendered_browser_page", "finish"]},
+        trace=trace,
+    )
+
+    assert stage == "market_comp_researcher"
+    assert any(source["status"] == "agent_invalid_tool_call" for source in sources)
+    assert trace[0]["validation_failures"]
+    assert trace[0]["tool_call_count"] == 0
+
+
+def test_agentic_research_prompt_includes_knowledge_rag_context(monkeypatch, tmp_path):
+    runner = _load_runner()
+    llm_client = ToolCallingVCLLM(
+        {
+            "market_comp_researcher": [
+                {
+                    "thought_summary": "enough knowledge",
+                    "tool_calls": [{"tool": "finish", "reason": "rag guidance reviewed"}],
+                    "stop_reason": "rag_guidance_reviewed",
+                    "evidence_gaps": [],
+                }
+            ]
+        }
+    )
+    llm = runner.BudgetedLLM(llm_client, runner.ActionBudget(20))
+    plan = runner.build_adaptive_research_plan(
+        "Example AI",
+        [{"filename": "packet.md", "text_preview": "GitHub https://github.com/example/example-ai"}],
+        {"max_queries": 20, "rendered_browser": {"max_pages_per_company": 5}},
+    )
+    monkeypatch.setattr(runner, "_load_rag_skill", lambda: None)
+    monkeypatch.setattr(
+        runner,
+        "skill_retrieve_knowledge_rag_context",
+        lambda *, knowledge_rag, query, stage="", company="", **_: {
+            "enabled": True,
+            "status": "ready",
+            "query": query,
+            "context": "GitHub playbook context: inspect stars, issues, releases, README, and package hints.",
+            "citations": [{"ref": 1, "chunk_id": "chunk-github", "path": "startup_research_playbook.md", "heading": "GitHub Evidence", "score": 0.91}],
+            "chunks": [{"chunk_id": "chunk-github"}],
+            "stage": stage,
+            "company": company,
+        },
+    )
+    trace = []
+
+    stage, _sources = runner.run_agentic_research_stage(
+        company="Example AI",
+        stage="market_comp_researcher",
+        plan=plan,
+        internet={"blocked_inputs": []},
+        run_dir=tmp_path,
+        action_budget=llm._action_budget,
+        llm=llm,
+        agentic={"enabled": True, "agent_ids": ["market_comp_researcher"], "max_iterations_per_agent": 20, "max_tool_calls_per_agent": 50, "allowed_tools": ["browser_search", "browser_page", "rendered_browser_page", "finish"]},
+        trace=trace,
+        knowledge_rag={"enabled": True, "status": "ready", "_rag_config": object(), "config": {"max_context_chars": 6000}, "warnings": []},
+    )
+
+    assert stage == "market_comp_researcher"
+    prompt_payload = llm_client.prompts[0]["user"]
+    assert "GitHub playbook context" in prompt_payload
+    assert trace[0]["rag_context"]["status"] == "ready"
+    assert trace[0]["knowledge_refs"][0]["chunk_id"] == "chunk-github"
+
+
+def test_knowledge_rag_failure_records_explicit_warning(monkeypatch, tmp_path):
+    runner = _load_runner()
+    monkeypatch.setattr(runner, "_load_rag_skill", lambda: (_ for _ in ()).throw(RuntimeError("redis unavailable")))
+
+    state = runner.prepare_knowledge_rag(
+        blueprint_dir=ROOT / "vc_assistant",
+        resolved_config={"knowledge_rag": {"enabled": True}},
+        active_knowledge=runner.load_vc_knowledge(ROOT / "vc_assistant"),
+        run_dir=tmp_path,
+    )
+
+    assert state["status"] == "knowledge_rag_failed"
+    assert state["warnings"][0]["status"] == "knowledge_rag_failed"
+    assert "no static playbook fallback" in state["warnings"][0]["message"]
+
+
+def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path, monkeypatch):
     runner = _load_runner()
     docs = tmp_path / "startup-docs"
     outputs = tmp_path / "reports"
     _write_startup_packets(docs)
     fake_llm = FakeVCLLM()
+
+    def fake_public_rag_state(state):
+        return {key: value for key, value in state.items() if not key.startswith("_")}
+
+    def fake_prepare_rag(**kwargs):
+        return {
+            "enabled": True,
+            "status": "ready",
+            "_rag_config": object(),
+            "knowledge_dir": str(ROOT / "vc_assistant" / "knowledge"),
+            "config": {
+                "namespace": "test_namespace",
+                "index_name": "idx:test_namespace:rag:vc_assistant",
+                "key_prefix": "test_namespace:rag:vc_assistant",
+                "embedding_provider": "docker_model_runner",
+                "embedding_model": "fake-embedding-model",
+                "top_k": 5,
+                "max_context_chars": 6000,
+            },
+            "index_summary": {"indexed_count": 3, "deleted_count": 0, "index_name": "idx:test_namespace:rag:vc_assistant"},
+            "warnings": [],
+        }
+
+    def fake_rag_context(*, knowledge_rag, query, stage="", company="", **kwargs):
+        return {
+            "enabled": True,
+            "status": "ready",
+            "query": query,
+            "context": (
+                "VC Startup Research And Method Playbook. Berkus Method. Scorecard / Bill Payne Method. "
+                "Risk Factor Summation Method. VC Method. First Chicago Method. "
+                "Comparable Transactions / Market Multiples. Cost-to-Duplicate Method. "
+                "Use method_correctness, evidence_grounding, and financial_reasoning_quality."
+            ),
+            "citations": [{"ref": 1, "chunk_id": "vc-methods", "path": "startup_research_playbook.md", "heading": "VC Methods", "score": 0.95}],
+            "chunks": [{"chunk_id": "vc-methods", "path": "startup_research_playbook.md"}],
+            "stage": stage,
+            "company": company,
+        }
+
+    monkeypatch.setattr(runner, "_load_rag_skill", lambda: None)
+    monkeypatch.setattr(runner, "skill_prepare_blueprint_knowledge_rag", fake_prepare_rag)
+    monkeypatch.setattr(runner, "skill_public_rag_state", fake_public_rag_state)
+    monkeypatch.setattr(runner, "skill_retrieve_knowledge_rag_context", fake_rag_context)
 
     result = runner.run_blueprint(
         inputs={
@@ -268,6 +619,8 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path
             "analysis.json",
             "analysis.md",
             "method_scores.json",
+            "research_plan.json",
+            "agent_tool_trace.json",
             "research_sources.json",
             "sources.json",
             "evidence.json",
@@ -291,9 +644,27 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path
         markdown = (company_dir / "analysis.md").read_text(encoding="utf-8")
         assert "score-only early screening report" in markdown
         assert "Result Evidence" in markdown
+        assert "Research Gaps And Follow-Ups" in markdown
         assert "- Why:" in markdown
         assert "pre-revenue value proxy based on risk reduction" in markdown
         assert "Assumptions:" in markdown
+        research_plan = json.loads((company_dir / "research_plan.json").read_text(encoding="utf-8"))
+        assert research_plan["adaptive"] is True
+        assert research_plan["lanes"]
+        assert research_plan["knowledge_rag"]["status"] == "ready"
+        assert research_plan["agentic_research"]["enabled"] is True
+        assert research_plan["agentic_research"]["max_iterations_per_agent"] == 20
+        assert research_plan["agentic_research"]["max_tool_calls_per_agent"] == 50
+        agent_trace = json.loads((company_dir / "agent_tool_trace.json").read_text(encoding="utf-8"))
+        assert {item["agent_id"] for item in agent_trace} == {
+            "research_planner",
+            "company_identity_researcher",
+            "market_comp_researcher",
+            "traction_verifier",
+            "rendered_page_researcher",
+        }
+        assert all(item["rag_context"]["status"] == "ready" for item in agent_trace)
+        assert all(item["knowledge_refs"] for item in agent_trace)
 
     sparse = json.loads((outputs / "sparse-labs" / "analysis.json").read_text(encoding="utf-8"))
     assert "insufficient_evidence" in {
@@ -327,18 +698,20 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path
     assert set(run_artifact["actor_findings"]) == set(runner.WORKFLOW_STEP_IDS)
     assert run_artifact["llm_usage"]["provider"] == "fake"
     assert run_artifact["llm_usage"]["model"] == "fake-vc-actor"
-    assert run_artifact["llm_usage"]["calls"] == len(runner.WORKFLOW_STEP_IDS)
-    assert run_artifact["action_ledger"]["budget"] == 100
+    assert run_artifact["llm_usage"]["calls"] >= len(runner.WORKFLOW_STEP_IDS)
+    assert run_artifact["action_ledger"]["budget"] == 1000
     assert run_artifact["action_ledger"]["used"] >= len(runner.WORKFLOW_STEP_IDS)
     assert any(action["action_type"] == "financial_tool" for action in run_artifact["action_ledger"]["actions"])
-    assert json.loads((outputs / "final_artifact.json").read_text(encoding="utf-8"))["action_ledger"]["budget"] == 100
-    assert json.loads((outputs / "action_ledger.json").read_text(encoding="utf-8"))["budget"] == 100
+    assert json.loads((outputs / "final_artifact.json").read_text(encoding="utf-8"))["action_ledger"]["budget"] == 1000
+    assert json.loads((outputs / "action_ledger.json").read_text(encoding="utf-8"))["budget"] == 1000
     assert any(item["kind"] == "final_artifact_json" for item in run_artifact["output_files"])
     assert run_artifact["active_knowledge"]["path"] == "knowledge/startup_research_playbook.md"
     assert run_artifact["active_knowledge"]["sha256"]
     assert set(run_artifact["active_knowledge"]["method_memory_hooks"]) == METHOD_IDS
-    assert fake_llm.calls == len(runner.WORKFLOW_STEP_IDS)
-    prompt_payload = fake_llm.prompts[0]["user"]
+    assert run_artifact["knowledge_rag"]["status"] == "ready"
+    assert run_artifact["knowledge_rag"]["index_summary"]["indexed_count"] == 3
+    assert fake_llm.calls >= len(runner.WORKFLOW_STEP_IDS)
+    prompt_payload = next(prompt["user"] for prompt in fake_llm.prompts if "VC Startup Research And Method Playbook" in prompt["user"])
     assert "VC Startup Research And Method Playbook" in prompt_payload
     for expected in (
         "Berkus Method",
@@ -400,7 +773,7 @@ def test_actor_review_failure_does_not_fail_report_outputs(tmp_path):
     assert artifact["actor_review_warnings"][0]["status"] == "actor_review_unavailable"
     assert artifact["actor_review_warnings"][0]["affected_actor_count"] == len(runner.WORKFLOW_STEP_IDS)
     assert set(artifact["actor_findings"]) == set(runner.WORKFLOW_STEP_IDS)
-    assert failing_llm.calls == len(runner.WORKFLOW_STEP_IDS)
+    assert failing_llm.calls >= len(runner.WORKFLOW_STEP_IDS)
 
 
 def test_runtime_step_entrypoint_runs_report_factory_once(tmp_path):
@@ -767,4 +1140,4 @@ def test_budget_exhaustion_finishes_with_warnings_and_no_extra_llm_calls(tmp_pat
     assert artifact["action_ledger"]["exhausted"] is True
     assert any(action["status"] == "budget_exhausted" for action in artifact["action_ledger"]["actions"])
     assert any(warning["status"] == "budget_exhausted" for warning in artifact["research_warnings"])
-    assert fake_llm.calls == 0
+    assert fake_llm.calls <= 1
