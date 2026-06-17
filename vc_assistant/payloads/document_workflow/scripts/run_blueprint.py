@@ -309,8 +309,29 @@ def write_json(path: Path, value: Any) -> None:
     path.write_text(json.dumps(value, indent=2, sort_keys=False) + "\n", encoding="utf-8")
 
 
+def vc_knowledge_search_roots(blueprint_dir: Path) -> list[Path]:
+    roots = [blueprint_dir]
+    bundle_dir = os.environ.get("MN_BLUEPRINT_BUNDLE_DIR")
+    if bundle_dir:
+        roots.append(Path(bundle_dir).expanduser())
+    script_path = Path(__file__).resolve()
+    roots.extend([script_path.parents[1], script_path.parents[2], script_path.parents[3]])
+    unique_roots = []
+    for root in roots:
+        if root not in unique_roots:
+            unique_roots.append(root)
+    return unique_roots
+
+
 def load_vc_knowledge(blueprint_dir: Path) -> dict[str, Any]:
-    playbook_path = blueprint_dir / KNOWLEDGE_PLAYBOOK_RELATIVE_PATH
+    playbook_path = next(
+        (
+            root / KNOWLEDGE_PLAYBOOK_RELATIVE_PATH
+            for root in vc_knowledge_search_roots(blueprint_dir)
+            if (root / KNOWLEDGE_PLAYBOOK_RELATIVE_PATH).exists()
+        ),
+        blueprint_dir / KNOWLEDGE_PLAYBOOK_RELATIVE_PATH,
+    )
     try:
         content = playbook_path.read_text(encoding="utf-8")
     except FileNotFoundError:
@@ -320,6 +341,7 @@ def load_vc_knowledge(blueprint_dir: Path) -> dict[str, Any]:
         "id": "vc_startup_research_playbook",
         "title": "VC Startup Research And Method Playbook",
         "path": KNOWLEDGE_PLAYBOOK_RELATIVE_PATH,
+        "resolved_path": str(playbook_path),
         "sha256": digest,
         "content": content[:16000],
         "method_guidance": VC_METHOD_GUIDANCE,
@@ -340,6 +362,28 @@ def active_knowledge_reference(active_knowledge: dict[str, Any]) -> dict[str, An
             if isinstance(guidance, dict) and guidance.get("memory_hook")
         },
         "judge_rubric": list(active_knowledge.get("judge_rubric") or []),
+    }
+
+
+def actor_review_unavailable_findings(actor_ids: list[str], error: Exception | str) -> dict[str, Any]:
+    message = str(error) or "Actor review unavailable."
+    return {
+        actor_id: {
+            "actor_id": actor_id,
+            "summary": "Actor review unavailable; deterministic VC report artifacts were preserved.",
+            "findings": [
+                {
+                    "severity": "warning",
+                    "message": "LLM actor review failed after deterministic reports were generated.",
+                    "detail": message,
+                }
+            ],
+            "risks": [],
+            "confidence": 0.35,
+            "provider": "actor_review_unavailable",
+            "budget_status": "not_applicable",
+        }
+        for actor_id in actor_ids
     }
 
 
@@ -2198,20 +2242,34 @@ def run_blueprint(
     actor_ids = [actor_id for actor_id in WORKFLOW_STEP_IDS if actor_id in actor_specs]
     llm = BudgetedLLM(_get_configured_actor_llm(resolved_config, llm_client), action_budget)
     actor_state: dict[str, Any] = {}
-    actor_findings = run_actor_reviews(
-        config=resolved_config,
-        llm=llm,
-        actor_ids=actor_ids,
-        state=actor_state,
-        task=(
-            "Review this VC Assistant run as your specialist actor using the attached VC method playbook as the canonical knowledge source. "
-            "Judge quality against method correctness, evidence grounding, assumption clarity, missing-evidence honesty, financial reasoning quality, and report usefulness. "
-            "Flag evidence gaps, math/research concerns, prompt or knowledge gaps, and report-quality issues with company and method ids when possible. "
-            "Do not issue pass, watch, reject, buy, sell, invest, or recommendation labels."
-        ),
-        context=actor_context,
-        event_sink=run_dir,
+    actor_review_warnings = []
+    actor_task = (
+        "Review this VC Assistant run as your specialist actor using the attached VC method playbook as the canonical knowledge source. "
+        "Judge quality against method correctness, evidence grounding, assumption clarity, missing-evidence honesty, financial reasoning quality, and report usefulness. "
+        "Flag evidence gaps, math/research concerns, prompt or knowledge gaps, and report-quality issues with company and method ids when possible. "
+        "Do not issue pass, watch, reject, buy, sell, invest, or recommendation labels."
     )
+    try:
+        actor_findings = run_actor_reviews(
+            config=resolved_config,
+            llm=llm,
+            actor_ids=actor_ids,
+            state=actor_state,
+            task=actor_task,
+            context=actor_context,
+            event_sink=run_dir,
+        )
+    except Exception as exc:
+        actor_findings = actor_review_unavailable_findings(actor_ids, exc)
+        actor_review_warnings.append(
+            {
+                "kind": "actor_review",
+                "status": "actor_review_unavailable",
+                "message": "LLM actor review failed after deterministic reports were generated; report artifacts were preserved.",
+                "error": str(exc),
+            }
+        )
+        append_event(run_dir, "tool_call_failed", {"tool": "actor_llm", "status": "actor_review_unavailable", "error": str(exc)})
     action_ledger = action_budget.summary(include_actions=True)
     budget_warnings = []
     if action_ledger["exhausted"]:
@@ -2246,6 +2304,7 @@ def run_blueprint(
         },
         "research_sources": [source for ledger in research_ledgers.values() for source in flattened_sources(ledger)],
         "research_warnings": budget_warnings,
+        "actor_review_warnings": actor_review_warnings,
         "report_only": True,
         "company_reports": analyses,
         "method_ids": METHOD_IDS,

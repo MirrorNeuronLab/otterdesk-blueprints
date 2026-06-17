@@ -46,6 +46,13 @@ class FakeVCLLM:
         return response
 
 
+class FailingVCLLM(FakeVCLLM):
+    def generate_json(self, *, system_prompt: str, user_prompt: str, fallback: dict):
+        self.calls += 1
+        self.prompts.append({"system": system_prompt, "user": user_prompt})
+        raise RuntimeError("llm endpoint unavailable")
+
+
 def _load_runner():
     spec = importlib.util.spec_from_file_location("vc_early_runner", RUNNER_PATH)
     module = importlib.util.module_from_spec(spec)
@@ -94,8 +101,8 @@ def test_manifest_runtime_nodes_carry_default_config_for_service_sandbox():
         assert environment["MN_WORKFLOW_STEP_ID"] == node["node_id"]
         embedded_config = json.loads(environment["MN_BLUEPRINT_CONFIG_JSON"])
         assert embedded_config["inputs"]["payload"]["input_folder"] == "vc_assistant/examples/sample_inputs"
-        assert embedded_config["inputs"]["payload"]["output_folder"] == "~/Download/vc_assistant"
-        assert embedded_config["outputs"]["folder_path"] == "~/Download/vc_assistant"
+        assert embedded_config["inputs"]["payload"]["output_folder"] == "~/Downloads/vc_assistant"
+        assert embedded_config["outputs"]["folder_path"] == "~/Downloads/vc_assistant"
         assert embedded_config["llm"]["model"] == "gemma4:e2b"
         assert embedded_config["research_budget"]["default_actions"] == 100
 
@@ -119,9 +126,11 @@ def test_vc_agents_are_llm_backed_and_selected_for_actor_reviews():
 def test_vc_knowledge_excludes_stale_non_vc_domain_terms():
     runner = _load_runner()
     playbook = (ROOT / "vc_assistant" / "knowledge" / "startup_research_playbook.md").read_text(encoding="utf-8")
+    payload_playbook = (ROOT / "vc_assistant" / "payloads" / "document_workflow" / "knowledge" / "startup_research_playbook.md").read_text(encoding="utf-8")
     knowledge = runner.load_vc_knowledge(ROOT / "vc_assistant")
     serialized = json.dumps(knowledge).lower()
 
+    assert payload_playbook == playbook
     assert "Berkus Method" in playbook
     assert "Scorecard / Bill Payne Method" in playbook
     assert "VC Method" in playbook
@@ -263,6 +272,34 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path
     assert repeat["final_artifact"]["monitor_state"]["processed_company_count"] == 0
     assert repeat["final_artifact"]["monitor_state"]["skipped_company_count"] == 2
     assert {report["processing_status"] for report in repeat["final_artifact"]["company_reports"]} == {"unchanged_skipped"}
+
+
+def test_actor_review_failure_does_not_fail_report_outputs(tmp_path):
+    runner = _load_runner()
+    docs = tmp_path / "startup-docs"
+    outputs = tmp_path / "reports"
+    _write_startup_packets(docs)
+    failing_llm = FailingVCLLM()
+
+    result = runner.run_blueprint(
+        inputs={
+            "document_folder": str(docs),
+            "output_folder": str(outputs),
+            "monitoring": {"enabled": True, "poll_interval_seconds": 1, "max_cycles": 1},
+        },
+        config={"llm": {"mode": "fake"}},
+        runs_root=tmp_path,
+        run_id="vc-llm-fails",
+        llm_client=failing_llm,
+    )
+
+    artifact = result["final_artifact"]
+    assert result["status"] == "completed"
+    assert (outputs / "alpha-ai" / "analysis.md").exists()
+    assert (outputs / "company_index.json").exists()
+    assert artifact["actor_review_warnings"][0]["status"] == "actor_review_unavailable"
+    assert set(artifact["actor_findings"]) == set(runner.WORKFLOW_STEP_IDS)
+    assert failing_llm.calls == 1
 
 
 def test_runtime_step_entrypoint_runs_report_factory_once(tmp_path):

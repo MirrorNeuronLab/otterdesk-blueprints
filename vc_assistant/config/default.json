@@ -14,7 +14,7 @@
     "description": "Default demo inputs use bundled synthetic startup packets with one first-level folder per company.",
     "payload": {
       "document_folder": "vc_assistant/examples/sample_inputs",
-      "output_folder": "~/Download/vc_assistant",
+      "output_folder": "~/Downloads/vc_assistant",
       "field_profile": [
         "company_name",
         "founder_team",
@@ -331,7 +331,7 @@
     ]
   },
   "outputs": {
-    "folder_path": "~/Download/vc_assistant",
+    "folder_path": "~/Downloads/vc_assistant",
     "write_run_store": true,
     "write_markdown_report": true,
     "per_company_subfolders": true
@@ -492,7 +492,7 @@
   },
   "state": {
     "document_folder": "vc_assistant/examples/sample_inputs",
-    "output_folder": "~/Download/vc_assistant",
+    "output_folder": "~/Downloads/vc_assistant",
     "monitor_state": {},
     "final_report": {},
     "input_folder": "vc_assistant/examples/sample_inputs"
