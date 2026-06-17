@@ -22,7 +22,7 @@ The workflow groups first-level input subfolders as companies. Loose files are g
 
 The online research layer uses `w3m_browser_skill` first for lightweight public source collection and can use `web_browser_skill` as an optional rendered-browser fallback for JavaScript-heavy public sources such as Crunchbase. The workflow records source status, snippets, warnings, and blocked/login/robots outcomes rather than bypassing access controls. Changed company packets, per-company research stages, and numerical method scoring run with bounded parallel workers while outputs remain ordered by stable company slug.
 
-Actor-style LLM analysis uses the local OtterDesk system model `gemma4:e2b` through Docker Model Runner. Numerical scoring remains deterministic: formulas, weights, scenario math, missing-evidence status, and audit checks are owned by deterministic workers. Non-substantive records such as research plans, configured references, disabled browser fallback notices, unavailable skills, blocked pages, and failed requests do not create comparable evidence by themselves.
+Actor-style LLM analysis uses the local OtterDesk system model `ai/gemma4:E2B` through Docker Model Runner. Numerical scoring remains deterministic: formulas, weights, scenario math, missing-evidence status, and audit checks are owned by deterministic workers. Non-substantive records such as research plans, configured references, disabled browser fallback notices, unavailable skills, blocked pages, and failed requests do not create comparable evidence by themselves.
 
 ## Input
 

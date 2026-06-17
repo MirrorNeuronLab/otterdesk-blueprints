@@ -11,6 +11,14 @@ Use this playbook as the canonical knowledge source for VC Assistant actor revie
 5. Market-size, public-company, SEC, BLS, SBA, and industry context.
 6. Competitor and comparable-company pages.
 
+## Prompt Output Contract
+
+- Research agents must return JSON with `thought_summary`, `tool_calls`, `evidence_gaps`, `rag_refs`, and `stop_reason`.
+- Review actors must return JSON with `summary`, `findings`, `risks`, `evidence_gaps`, `rag_refs`, and `recommended_next_step`.
+- When Redis knowledge RAG is required, every LLM output must cite at least one RAG `ref` from the supplied citations.
+- Use each agent's specialist mission. Do not reuse a generic all-agent prompt when the job is identity, funding, market/comps, traction, rendered-page review, reconciliation, scoring review, audit, report writing, or batch indexing.
+- No agent may issue pass, watch, reject, buy, sell, invest, or investment recommendation labels. The output is diligence support only.
+
 ## Browser Skills
 
 - `w3m_browser_skill` is the primary lightweight browser for search result pages and text-readable public pages.

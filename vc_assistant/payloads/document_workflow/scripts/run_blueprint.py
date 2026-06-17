@@ -108,6 +108,7 @@ skill_prepare_blueprint_knowledge_rag = None
 skill_public_rag_state = None
 skill_resolve_blueprint_knowledge_dir = None
 skill_retrieve_knowledge_rag_context = None
+skill_require_ready_knowledge_rag = None
 EVENT_LOCK = threading.Lock()
 SKILL_LOAD_LOCK = threading.Lock()
 NON_SUBSTANTIVE_SOURCE_STATUSES = {"planned", "configured_reference", "disabled", "skill_unavailable", "failed", "blocked", "warning", "error", "budget_exhausted"}
@@ -117,6 +118,7 @@ KNOWLEDGE_PLAYBOOK_RELATIVE_PATH = "knowledge/startup_research_playbook.md"
 DEFAULT_AGENTIC_RESEARCH_AGENT_IDS = [
     "research_planner",
     "company_identity_researcher",
+    "funding_researcher",
     "market_comp_researcher",
     "traction_verifier",
     "rendered_page_researcher",
@@ -180,6 +182,82 @@ JUDGE_RUBRIC = [
     "financial_reasoning_quality",
     "report_usefulness_without_investment_advice",
 ]
+
+RESEARCH_AGENT_PROMPT_SPECS = {
+    "research_planner": {
+        "mission": "Choose public-safe diligence lanes, target public URLs, and query families before stage research begins.",
+        "allowed_evidence": ["local claim summaries", "RAG playbook refs", "public source metadata", "company name only"],
+        "forbidden_inputs": ["raw confidential packet text", "private financial models", "personal contact details"],
+        "rag_query_terms": ["VC diligence lane planning", "public-safe startup research", "source quality labels", "evidence gaps"],
+        "tool_policy": "Prefer search queries that expose official sites, profiles, docs, pricing, funding, and traction; never search private packet text.",
+        "failure_conditions": ["No RAG refs when RAG is required", "Queries include private/confidential input", "Plan does not explain why each lane matters"],
+    },
+    "company_identity_researcher": {
+        "mission": "Verify company identity, official website, public profile pages, founder/company public profiles, and naming conflicts.",
+        "allowed_evidence": ["official website", "LinkedIn or Crunchbase company profile", "public founder/company profile", "public docs or repository"],
+        "forbidden_inputs": ["private founder contact info", "unpublished customer lists", "raw deck text"],
+        "rag_query_terms": ["company identity verification", "official website", "founder profile", "public profile conflict"],
+        "tool_policy": "Prioritize official site/profile pages, then public search for conflicts or aliases.",
+        "failure_conditions": ["No official/public identity source attempted", "Profile conflict not recorded", "No RAG refs when RAG is required"],
+    },
+    "funding_researcher": {
+        "mission": "Find public funding, accelerator, investor, grant, milestone, and financing confirmation evidence without trusting pitch claims as confirmation.",
+        "allowed_evidence": ["public funding announcements", "accelerator pages", "grant pages", "investor portfolio pages", "SEC/public filings when relevant"],
+        "forbidden_inputs": ["unpublished term sheets", "private investor emails", "raw cap table details"],
+        "rag_query_terms": ["startup funding evidence", "accelerator investor grant milestone", "public confirmation vs pitch claim"],
+        "tool_policy": "Search public funding and accelerator sources; distinguish unconfirmed local claims from public confirmations.",
+        "failure_conditions": ["Pitch claim treated as public confirmation", "No public funding/accelerator search attempted", "No RAG refs when RAG is required"],
+    },
+    "market_comp_researcher": {
+        "mission": "Gather category, competitors, market context, public-company comparables, and evidence quality for comparable analysis.",
+        "allowed_evidence": ["market category sources", "competitor sites", "public company context", "industry reports or government statistics"],
+        "forbidden_inputs": ["private competitor lists copied from packet text", "investment recommendation labels"],
+        "rag_query_terms": ["market category comparables", "competitor evidence quality", "VC comparables method"],
+        "tool_policy": "Search category and competitor context; prefer public/government/company sources over generic blogs.",
+        "failure_conditions": ["No comparable/category evidence attempted", "Comparable quality not labeled", "No RAG refs when RAG is required"],
+    },
+    "traction_verifier": {
+        "mission": "Verify customers, partnerships, launch, pricing, usage, app/package adoption, repositories, and other public traction signals.",
+        "allowed_evidence": ["customer/partner pages", "pricing pages", "release notes", "app/package stats", "GitHub or docs activity", "press pages"],
+        "forbidden_inputs": ["private customer names from packets", "nonpublic revenue data", "recommendation labels"],
+        "rag_query_terms": ["startup traction verification", "pricing launch adoption public evidence", "GitHub package adoption"],
+        "tool_policy": "Use public signals only; mark thin, blocked, or missing traction honestly.",
+        "failure_conditions": ["Private traction claim exposed in query", "No traction signal attempted", "No RAG refs when RAG is required"],
+    },
+    "rendered_page_researcher": {
+        "mission": "Inspect JS-heavy or blocked public rendered pages only when lightweight fetch is insufficient; record blocked/login/robots states without bypassing.",
+        "allowed_evidence": ["public rendered pages", "blocked/login status", "visible profile metadata"],
+        "forbidden_inputs": ["login bypass", "robots circumvention", "credentialed pages", "private packet text"],
+        "rag_query_terms": ["rendered page review", "JS-heavy public startup profiles", "blocked page handling"],
+        "tool_policy": "Use rendered browser only for public pages selected by previous stages; never bypass access controls.",
+        "failure_conditions": ["Rendered browser used for private or credentialed content", "Blocked state omitted", "No RAG refs when RAG is required"],
+    },
+}
+
+REVIEW_AGENT_PROMPT_SPECS = {
+    "research_reconciler": {
+        "mission": "Compare local claims against public sources and produce confirmations, conflicts, and missing-public-evidence items.",
+        "focus": ["research_reconciliation", "source quality labels", "missing public evidence"],
+    },
+    "score_consistency_auditor": {
+        "mission": "Check cross-method consistency, invalid scored/null states, unsupported assumptions, and missing method outputs.",
+        "focus": ["method_coverage", "audit", "composite score consistency"],
+    },
+    "company_report_writer": {
+        "mission": "Review per-company report usefulness, evidence traceability, and no-investment-advice boundaries.",
+        "focus": ["analysis.md usefulness", "evidence traceability", "report-only language"],
+    },
+    "batch_index_writer": {
+        "mission": "Review batch index coverage, skipped companies, run summary clarity, and navigation artifacts.",
+        "focus": ["company_index", "run_summary", "skipped companies", "output files"],
+    },
+}
+
+for _method_id, _scorer_id in SCORER_STAGE_BY_METHOD.items():
+    REVIEW_AGENT_PROMPT_SPECS[_scorer_id] = {
+        "mission": f"Review only the deterministic {_method_id} output against its method playbook, evidence refs, assumptions, and missing evidence.",
+        "focus": [_method_id, "method_correctness", "evidence_grounding", "assumption_clarity"],
+    }
 
 
 def _workspace_root() -> Path | None:
@@ -491,6 +569,7 @@ def load_vc_knowledge(blueprint_dir: Path) -> dict[str, Any]:
 def _load_rag_skill() -> None:
     global RagConfig, skill_knowledge_rag_config, skill_prepare_blueprint_knowledge_rag
     global skill_public_rag_state, skill_resolve_blueprint_knowledge_dir, skill_retrieve_knowledge_rag_context
+    global skill_require_ready_knowledge_rag
     if (
         RagConfig is not None
         and skill_knowledge_rag_config is not None
@@ -498,6 +577,7 @@ def _load_rag_skill() -> None:
         and skill_public_rag_state is not None
         and skill_resolve_blueprint_knowledge_dir is not None
         and skill_retrieve_knowledge_rag_context is not None
+        and skill_require_ready_knowledge_rag is not None
     ):
         return
     with SKILL_LOAD_LOCK:
@@ -508,6 +588,7 @@ def _load_rag_skill() -> None:
             and skill_public_rag_state is not None
             and skill_resolve_blueprint_knowledge_dir is not None
             and skill_retrieve_knowledge_rag_context is not None
+            and skill_require_ready_knowledge_rag is not None
         ):
             return
         try:
@@ -515,6 +596,7 @@ def _load_rag_skill() -> None:
             from mn_rag_skill import knowledge_rag_config as imported_knowledge_rag_config
             from mn_rag_skill import prepare_blueprint_knowledge_rag as imported_prepare_blueprint_knowledge_rag
             from mn_rag_skill import public_rag_state as imported_public_rag_state
+            from mn_rag_skill import require_ready_knowledge_rag as imported_require_ready_knowledge_rag
             from mn_rag_skill import resolve_blueprint_knowledge_dir as imported_resolve_blueprint_knowledge_dir
             from mn_rag_skill import retrieve_knowledge_rag_context as imported_retrieve_knowledge_rag_context
         except Exception as exc:
@@ -525,6 +607,7 @@ def _load_rag_skill() -> None:
         skill_public_rag_state = imported_public_rag_state
         skill_resolve_blueprint_knowledge_dir = imported_resolve_blueprint_knowledge_dir
         skill_retrieve_knowledge_rag_context = imported_retrieve_knowledge_rag_context
+        skill_require_ready_knowledge_rag = imported_require_ready_knowledge_rag
 
 
 def knowledge_rag_config(config: dict[str, Any]) -> dict[str, Any]:
@@ -607,6 +690,34 @@ def public_knowledge_rag_state(state: dict[str, Any] | None) -> dict[str, Any]:
         return {key: value for key, value in state.items() if not key.startswith("_")}
 
 
+def knowledge_rag_is_required(state: dict[str, Any] | None) -> bool:
+    if not state or not state.get("enabled"):
+        return False
+    config = state.get("config") if isinstance(state.get("config"), dict) else {}
+    value = state.get("required", config.get("required"))
+    return bool(value) if isinstance(value, bool) else str(value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def require_ready_rag(
+    knowledge_rag: dict[str, Any] | None,
+    *,
+    stage: str = "",
+    company: str = "",
+    context: dict[str, Any] | None = None,
+    min_citations: int = 0,
+) -> dict[str, Any] | None:
+    if not knowledge_rag_is_required(knowledge_rag):
+        return context if context is not None else knowledge_rag
+    _load_rag_skill()
+    return skill_require_ready_knowledge_rag(
+        knowledge_rag,
+        stage=stage,
+        company=company,
+        context=context,
+        min_citations=min_citations,
+    )
+
+
 def active_knowledge_for_prompt(active_knowledge: dict[str, Any], knowledge_rag: dict[str, Any] | None) -> dict[str, Any]:
     if (knowledge_rag or {}).get("enabled"):
         ref = active_knowledge_reference(active_knowledge)
@@ -650,6 +761,29 @@ def retrieve_knowledge_rag_context(
             "stage": stage,
             "company": company,
         }
+
+
+def rag_ref_values(value: Any) -> list[Any]:
+    refs: list[Any] = []
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if key in {"rag_refs", "rag_ref", "citation_refs", "citations"}:
+                if isinstance(item, list):
+                    refs.extend(item)
+                elif item not in (None, ""):
+                    refs.append(item)
+            else:
+                refs.extend(rag_ref_values(item))
+    elif isinstance(value, list):
+        for item in value:
+            refs.extend(rag_ref_values(item))
+    return refs
+
+
+def validate_llm_rag_refs(decision: dict[str, Any], *, knowledge_rag: dict[str, Any] | None, stage: str, company: str = "") -> None:
+    if knowledge_rag_is_required(knowledge_rag) and not rag_ref_values(decision):
+        label = f"{stage}{f' / {company}' if company else ''}"
+        raise RuntimeError(f"Required RAG citation refs missing from LLM output for {label}.")
 
 
 def active_knowledge_reference(active_knowledge: dict[str, Any]) -> dict[str, Any]:
@@ -765,9 +899,10 @@ class ActionBudget:
 
 
 class BudgetedLLM:
-    def __init__(self, llm: Any, action_budget: ActionBudget) -> None:
+    def __init__(self, llm: Any, action_budget: ActionBudget, *, require_live: bool = False) -> None:
         self._llm = llm
         self._action_budget = action_budget
+        self._require_live = require_live
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._llm, name)
@@ -781,6 +916,8 @@ class BudgetedLLM:
             metadata={"model": getattr(self._llm, "model", "unknown"), "provider": getattr(self._llm, "provider", "unknown")},
         )
         if action is None:
+            if self._require_live:
+                raise RuntimeError("Required live LLM call could not run because the VC Assistant action budget was exhausted.")
             response = dict(fallback)
             response["summary"] = response.get("summary") or "Actor review skipped because the VC Assistant action budget was exhausted."
             response.setdefault("findings", [])
@@ -793,6 +930,8 @@ class BudgetedLLM:
             response = self._llm.generate_json(system_prompt=system_prompt, user_prompt=user_prompt, fallback=fallback)
         except Exception as exc:
             self._action_budget.complete(action, "failed", {"error": str(exc)})
+            if self._require_live:
+                raise RuntimeError(f"Required live LLM call failed for {actor_id}: {exc}") from exc
             response = dict(fallback)
             response["summary"] = response.get("summary") or "Actor review unavailable; deterministic VC report artifacts were preserved."
             response.setdefault("findings", [])
@@ -802,6 +941,11 @@ class BudgetedLLM:
             response["error"] = str(exc)
             response["budget_status"] = "llm_call_failed"
             return response
+        provider = str(response.get("provider") or getattr(self._llm, "provider", "unknown")) if isinstance(response, dict) else ""
+        budget_status = str(response.get("budget_status") or "") if isinstance(response, dict) else ""
+        if self._require_live and (not provider_is_live(provider) or budget_status in {"budget_exhausted", "llm_call_failed"}):
+            self._action_budget.complete(action, "failed", {"provider": provider, "budget_status": budget_status})
+            raise RuntimeError(f"Required live LLM call for {actor_id} returned non-live provider '{provider or 'unknown'}'.")
         self._action_budget.complete(action, "completed")
         return response
 
@@ -892,6 +1036,36 @@ def _get_configured_actor_llm(config: dict[str, Any], llm_client: Any | None) ->
                 os.environ.pop(key, None)
             else:
                 os.environ[key] = value
+
+
+def quick_test_mode_enabled(config: dict[str, Any]) -> bool:
+    payload = (config.get("inputs") or {}).get("payload") if isinstance(config.get("inputs"), dict) else {}
+    execution = config.get("execution") if isinstance(config.get("execution"), dict) else {}
+    env_value = os.environ.get("MN_QUICK_TEST") or os.environ.get("MN_BLUEPRINT_QUICK_TEST")
+    if env_value is not None:
+        return str(env_value).strip().lower() in {"1", "true", "yes", "on"}
+    return bool((payload or {}).get("quick_test") or execution.get("quick_test"))
+
+
+def llm_requires_live(config: dict[str, Any]) -> bool:
+    llm_config = config.get("llm") if isinstance(config.get("llm"), dict) else {}
+    if quick_test_mode_enabled(config):
+        return False
+    value = llm_config.get("require_live", False)
+    return bool(value) if isinstance(value, bool) else str(value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def provider_is_live(provider: str) -> bool:
+    return str(provider or "").strip().lower() not in {
+        "",
+        "fallback",
+        "fake",
+        "mock",
+        "actor_review_unavailable",
+        "budget_exhausted",
+        "unavailable",
+        "disabled",
+    }
 
 
 def slugify(value: str) -> str:
@@ -2125,6 +2299,73 @@ def _default_agent_tool_response(stage: str, plan: dict[str, Any], observations:
     }
 
 
+def research_prompt_spec(agent_id: str) -> dict[str, Any]:
+    return dict(RESEARCH_AGENT_PROMPT_SPECS.get(agent_id) or RESEARCH_AGENT_PROMPT_SPECS["research_planner"])
+
+
+def build_research_agent_prompt(
+    *,
+    company: str,
+    stage: str,
+    plan: dict[str, Any],
+    internet: dict[str, Any],
+    allowed_tools: set[str],
+    remaining_tool_calls: int,
+    rag_context: dict[str, Any],
+    knowledge_rag: dict[str, Any] | None,
+    observations: list[dict[str, Any]],
+) -> tuple[str, dict[str, Any]]:
+    spec = research_prompt_spec(stage)
+    system_prompt = (
+        f"You are {stage}, a specialist VC diligence research actor. "
+        f"Mission: {spec['mission']} Return strict JSON only. "
+        "Use RAG refs when supplied. Never issue pass/watch/reject/buy/sell/invest recommendations."
+    )
+    return system_prompt, {
+        "task": "Choose the next bounded public research tool call for this specialist VC diligence stage.",
+        "company": company,
+        "agent_id": stage,
+        "mission": spec["mission"],
+        "allowed_evidence": spec["allowed_evidence"],
+        "forbidden_inputs": spec["forbidden_inputs"],
+        "rag_query_terms": spec["rag_query_terms"],
+        "tool_policy": spec["tool_policy"],
+        "failure_conditions": spec["failure_conditions"],
+        "privacy_policy": plan.get("privacy_policy"),
+        "allowed_tools": sorted(allowed_tools),
+        "remaining_tool_calls": remaining_tool_calls,
+        "rag_refs_required": knowledge_rag_is_required(knowledge_rag),
+        "knowledge_rag": {
+            "status": rag_context.get("status"),
+            "context": rag_context.get("context"),
+            "citations": rag_context.get("citations"),
+        },
+        "adaptive_plan": {
+            "lanes": plan.get("lanes", []),
+            "stage_queries": (plan.get("stage_queries") or {}).get(stage, []),
+            "stage_target_urls": (plan.get("stage_target_urls") or {}).get(stage, []),
+            "rendered_target_urls": plan.get("rendered_target_urls", []),
+            "signals": plan.get("signals", {}),
+        },
+        "observations": observations[-8:],
+        "required_schema": {
+            "thought_summary": "short non-sensitive rationale",
+            "tool_calls": [
+                {
+                    "tool": "browser_search|browser_page|rendered_browser_page|finish",
+                    "query": "optional public-safe query",
+                    "url": "optional public URL",
+                    "reason": "optional reason tied to mission",
+                    "rag_refs": ["citation ref numbers used to choose this action"],
+                }
+            ],
+            "evidence_gaps": ["specialist evidence gaps"],
+            "rag_refs": ["top-level citation ref numbers used"],
+            "stop_reason": "optional",
+        },
+    }
+
+
 def run_agentic_research_stage(
     *,
     company: str,
@@ -2154,6 +2395,7 @@ def run_agentic_research_stage(
         if item
     )
     rag_context = retrieve_knowledge_rag_context(knowledge_rag=knowledge_rag, query=rag_query, stage=stage, company=company)
+    require_ready_rag(knowledge_rag, stage=stage, company=company, context=rag_context, min_citations=1)
     observations: list[dict[str, Any]] = []
     executed_tool_calls = 0
     trace_record = {
@@ -2182,35 +2424,19 @@ def run_agentic_research_stage(
             trace_record["stop_reason"] = "max_tool_calls_reached"
             break
         fallback = _default_agent_tool_response(stage, plan, observations)
-        prompt = {
-            "task": "Choose public research tools for this VC diligence stage. Return JSON only.",
-            "company": company,
-            "agent_id": stage,
-            "privacy_policy": plan.get("privacy_policy"),
-            "allowed_tools": sorted(allowed_tools),
-            "remaining_tool_calls": max_tool_calls - executed_tool_calls,
-            "knowledge_rag": {
-                "status": rag_context.get("status"),
-                "context": rag_context.get("context"),
-                "citations": rag_context.get("citations"),
-            },
-            "adaptive_plan": {
-                "lanes": plan.get("lanes", []),
-                "stage_queries": (plan.get("stage_queries") or {}).get(stage, []),
-                "stage_target_urls": (plan.get("stage_target_urls") or {}).get(stage, []),
-                "rendered_target_urls": plan.get("rendered_target_urls", []),
-                "signals": plan.get("signals", {}),
-            },
-            "observations": observations[-8:],
-            "required_schema": {
-                "thought_summary": "short non-sensitive rationale",
-                "tool_calls": [{"tool": "browser_search|browser_page|rendered_browser_page|finish", "query": "optional", "url": "optional", "reason": "optional"}],
-                "stop_reason": "optional",
-                "evidence_gaps": ["optional strings"],
-            },
-        }
+        system_prompt, prompt = build_research_agent_prompt(
+            company=company,
+            stage=stage,
+            plan=plan,
+            internet=internet,
+            allowed_tools=allowed_tools,
+            remaining_tool_calls=max_tool_calls - executed_tool_calls,
+            rag_context=rag_context,
+            knowledge_rag=knowledge_rag,
+            observations=observations,
+        )
         try:
-            decision = llm.generate_json(system_prompt=stage, user_prompt=json.dumps(prompt, default=str), fallback=fallback)
+            decision = llm.generate_json(system_prompt=system_prompt, user_prompt=json.dumps(prompt, default=str), fallback=fallback)
         except Exception as exc:
             message = f"Agent tool loop failed: {exc}"
             sources.append(_agent_tool_source(company=company, agent_id=stage, query=queries[0] if queries else "", status="agent_tool_loop_failed", message=message))
@@ -2229,6 +2455,16 @@ def run_agentic_research_stage(
             trace_record["iterations"].append({"iteration": iteration, "status": "invalid_response", "response_type": type(decision).__name__})
             trace_record["stop_reason"] = "agent_invalid_tool_call"
             break
+        try:
+            validate_llm_rag_refs(decision, knowledge_rag=knowledge_rag, stage=stage, company=company)
+        except Exception as exc:
+            sources.append(_agent_tool_source(company=company, agent_id=stage, query=queries[0] if queries else "", status="agent_invalid_tool_call", message=str(exc)))
+            trace_record["iterations"].append({"iteration": iteration, "status": "invalid_rag_refs", "error": str(exc)})
+            trace_record["stop_reason"] = "required_rag_refs_missing"
+            trace_record["budget_end"] = action_budget.summary(include_actions=False) if action_budget else {}
+            if trace is not None:
+                trace.append(trace_record)
+            raise
         tool_calls = decision.get("tool_calls") if isinstance(decision.get("tool_calls"), list) else []
         iteration_record = {
             "iteration": iteration,
@@ -2566,7 +2802,7 @@ def _research_stage_plan_record(company: str, stage: str, query: str, plan: dict
         query=query,
         url="research_plan",
         title=f"{stage.replace('_', ' ').title()} Query",
-        snippet=f"Verification fields: {', '.join(plan['verification_fields'])}; selected lanes: {', '.join(selected_lanes) if selected_lanes else 'baseline'}",
+        snippet=f"Verification fields: {', '.join(plan.get('verification_fields') or [])}; selected lanes: {', '.join(selected_lanes) if selected_lanes else 'baseline'}",
         status="planned",
         skill="research_planner",
         verification_target=stage,
@@ -2988,6 +3224,106 @@ def build_actor_review_context(
     }
 
 
+def actor_prompt_spec(actor_id: str) -> dict[str, Any]:
+    if actor_id in REVIEW_AGENT_PROMPT_SPECS:
+        return dict(REVIEW_AGENT_PROMPT_SPECS[actor_id])
+    if actor_id in RESEARCH_AGENT_PROMPT_SPECS:
+        return {
+            "mission": f"Review whether {actor_id} followed its specialist research mission and produced grounded, public-safe evidence.",
+            "focus": [actor_id, "tool trace", "evidence gaps", "RAG refs"],
+        }
+    return {
+        "mission": f"Review the {actor_id} workflow step for role-specific quality, evidence grounding, and clear gaps.",
+        "focus": [actor_id, "workflow quality", "evidence grounding"],
+    }
+
+
+def build_actor_review_prompt(
+    *,
+    actor_id: str,
+    actor_spec: dict[str, Any],
+    context: dict[str, Any],
+    knowledge_rag: dict[str, Any] | None,
+) -> tuple[str, dict[str, Any]]:
+    prompt_spec = actor_prompt_spec(actor_id)
+    system_prompt = (
+        f"You are {actor_id}, a VC Assistant specialist reviewer. "
+        f"Mission: {prompt_spec['mission']} Return strict JSON only. "
+        "Use RAG citation refs when supplied. Do not issue pass/watch/reject/buy/sell/invest recommendations."
+    )
+    return system_prompt, {
+        "task": prompt_spec["mission"],
+        "actor_id": actor_id,
+        "configured_role": actor_spec.get("role") or actor_id,
+        "configured_responsibilities": actor_spec.get("responsibilities") or [],
+        "focus": prompt_spec.get("focus") or [],
+        "rag_refs_required": knowledge_rag_is_required(knowledge_rag),
+        "context": context,
+        "required_schema": {
+            "summary": "short role-specific review summary",
+            "findings": [
+                {
+                    "severity": "info|warning|error",
+                    "message": "specific finding",
+                    "company": "optional",
+                    "method_id": "optional",
+                    "evidence_ref": "optional",
+                    "rag_refs": ["citation ref numbers used"],
+                }
+            ],
+            "risks": ["role-specific residual risks"],
+            "evidence_gaps": ["missing evidence or missing outputs"],
+            "rag_refs": ["top-level citation ref numbers used"],
+            "recommended_next_step": "one bounded next workflow action, no investment recommendation",
+        },
+    }
+
+
+def run_vc_actor_reviews(
+    *,
+    config: dict[str, Any],
+    llm: Any,
+    actor_ids: list[str] | tuple[str, ...] | set[str],
+    state: dict[str, Any],
+    context: dict[str, Any],
+    knowledge_rag: dict[str, Any] | None,
+    event_sink: Path | None = None,
+) -> dict[str, Any]:
+    actor_specs = resolve_actor_specs(config, actor_ids=list(actor_ids))
+    findings = state.setdefault("actor_findings", {})
+    for actor_id in actor_ids:
+        actor_id = str(actor_id)
+        actor_spec = dict(actor_specs.get(actor_id) or {})
+        system_prompt, prompt = build_actor_review_prompt(
+            actor_id=actor_id,
+            actor_spec=actor_spec,
+            context=context,
+            knowledge_rag=knowledge_rag,
+        )
+        fallback = {
+            "actor_id": actor_id,
+            "summary": "Actor review unavailable; deterministic VC report artifacts were preserved.",
+            "findings": [],
+            "risks": [],
+            "evidence_gaps": [],
+            "rag_refs": [],
+            "recommended_next_step": "Review deterministic outputs manually.",
+            "confidence": 0.35,
+        }
+        finding = llm.generate_json(system_prompt=system_prompt, user_prompt=json.dumps(prompt, default=str), fallback=fallback)
+        if not isinstance(finding, dict):
+            raise RuntimeError(f"Actor {actor_id} returned non-object JSON.")
+        validate_llm_rag_refs(finding, knowledge_rag=knowledge_rag, stage=actor_id)
+        finding.setdefault("actor_id", actor_id)
+        finding.setdefault("role", actor_spec.get("role") or actor_id)
+        finding.setdefault("responsibilities", actor_spec.get("responsibilities") or [])
+        finding.setdefault("generated_at", utc_now_iso())
+        findings[actor_id] = finding
+        if event_sink is not None:
+            append_event(event_sink, "actor_activity", {"agent_id": actor_id, "status": "completed", "summary": finding.get("summary")})
+    return findings
+
+
 def render_run_summary(analyses: list[dict[str, Any]], queue: list[dict[str, Any]], research_coverage: dict[str, Any], method_coverage: dict[str, Any]) -> str:
     skipped_count = sum(1 for item in queue if item["status"] == "unchanged_skipped")
     processed_count = len(queue) - skipped_count
@@ -3187,7 +3523,8 @@ def run_blueprint(
     active_knowledge = load_vc_knowledge(blueprint_dir)
     active_knowledge_ref = active_knowledge_reference(active_knowledge)
     action_budget = build_action_budget(resolved_config)
-    llm = BudgetedLLM(_get_configured_actor_llm(resolved_config, llm_client), action_budget)
+    require_live_llm = llm_requires_live(resolved_config)
+    llm = BudgetedLLM(_get_configured_actor_llm(resolved_config, llm_client), action_budget, require_live=require_live_llm)
     payload = dict((resolved_config.get("inputs") or {}).get("payload") or {})
     if inputs:
         payload.update(inputs)
@@ -3195,12 +3532,19 @@ def run_blueprint(
     output_folder = expand_runtime_path(payload.get("output_folder") or (resolved_config.get("outputs") or {}).get("folder_path") or f"outputs/{BLUEPRINT_ID}")
     run_dir = resolve_run_dir(output_folder, run_id, runs_root)
     run_dir.mkdir(parents=True, exist_ok=True)
+    write_json(run_dir / "run.json", {"run_id": run_id, "blueprint_id": BLUEPRINT_ID, "status": "running", "started_at": utc_now_iso()})
     knowledge_rag = prepare_knowledge_rag(
         blueprint_dir=blueprint_dir,
         resolved_config=resolved_config,
         active_knowledge=active_knowledge,
         run_dir=run_dir,
     )
+    try:
+        require_ready_rag(knowledge_rag, stage="batch_indexing")
+    except Exception as exc:
+        append_event(run_dir, "tool_call_failed", {"tool": "knowledge_rag.index", "status": "required_rag_failed", "error": str(exc)})
+        write_json(run_dir / "run.json", {"run_id": run_id, "blueprint_id": BLUEPRINT_ID, "status": "failed", "error": str(exc), "finished_at": utc_now_iso()})
+        raise
     document_folder = (
         resolve_existing_path(payload["document_folder"], [blueprint_dir, blueprint_dir.parent])
         if payload.get("document_folder")
@@ -3299,6 +3643,7 @@ def run_blueprint(
         ),
         stage="actor_review",
     )
+    require_ready_rag(knowledge_rag, stage="actor_review", context=actor_rag_context, min_citations=1)
     actor_context = build_actor_review_context(
         analyses=analyses,
         company_work_queue=company_work_queue,
@@ -3315,24 +3660,21 @@ def run_blueprint(
     actor_ids = [actor_id for actor_id in WORKFLOW_STEP_IDS if actor_id in actor_specs]
     actor_state: dict[str, Any] = {}
     actor_review_warnings = []
-    actor_task = (
-        "Review this VC Assistant run as your specialist actor using the attached VC method playbook RAG context and active knowledge references as the canonical knowledge source. "
-        "Judge quality against method correctness, evidence grounding, assumption clarity, missing-evidence honesty, financial reasoning quality, and report usefulness. "
-        "Also judge whether adaptive research lanes and tool choices matched each company's public-safe signals, such as GitHub, docs, profile, pricing, traction, market, regulatory, or IP evidence. "
-        "Flag evidence gaps, math/research concerns, prompt or knowledge gaps, and report-quality issues with company and method ids when possible. "
-        "Do not issue pass, watch, reject, buy, sell, invest, or recommendation labels."
-    )
     try:
-        actor_findings = run_actor_reviews(
+        actor_findings = run_vc_actor_reviews(
             config=resolved_config,
             llm=llm,
             actor_ids=actor_ids,
             state=actor_state,
-            task=actor_task,
             context=actor_context,
+            knowledge_rag=knowledge_rag,
             event_sink=run_dir,
         )
     except Exception as exc:
+        if require_live_llm or knowledge_rag_is_required(knowledge_rag):
+            append_event(run_dir, "tool_call_failed", {"tool": "actor_llm", "status": "required_actor_review_failed", "error": str(exc)})
+            write_json(run_dir / "run.json", {"run_id": run_id, "blueprint_id": BLUEPRINT_ID, "status": "failed", "error": str(exc), "finished_at": utc_now_iso()})
+            raise
         actor_findings = actor_review_unavailable_findings(actor_ids, exc)
         actor_review_warnings.append(
             {
