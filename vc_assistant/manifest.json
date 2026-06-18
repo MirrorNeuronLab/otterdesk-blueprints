@@ -6601,7 +6601,7 @@
       },
       "verify_commands": [
         "command -v w3m",
-        "python3 -c 'import mn_w3m_browser_skill'"
+        "/usr/bin/python3 -c 'import mn_w3m_browser_skill'"
       ],
       "runtime_skills": [
         {

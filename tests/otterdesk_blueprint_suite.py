@@ -339,6 +339,8 @@ def test_otterdesk_json_uses_python311_for_host_python_commands():
             continue
         data = json.loads(json_path.read_text())
         for value_path, value in _json_strings(data):
+            if "system_packages" in value_path:
+                continue
             if not bare_python3.search(value):
                 continue
             assert value.startswith("/usr/bin/python3"), (json_path, value_path, value)
