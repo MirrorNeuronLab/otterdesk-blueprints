@@ -6,6 +6,8 @@ import threading
 import time
 from pathlib import Path
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parents[1]
 RUNNER_PATH = (
@@ -61,7 +63,18 @@ class ToolCallingVCLLM(FakeVCLLM):
     def generate_json(self, *, system_prompt: str, user_prompt: str, fallback: dict):
         self.calls += 1
         self.prompts.append({"system": system_prompt, "user": user_prompt})
-        queue = self.decisions.get(system_prompt) or []
+        keys = [system_prompt, str(fallback.get("actor_id") or "")]
+        try:
+            prompt = json.loads(user_prompt)
+        except json.JSONDecodeError:
+            prompt = {}
+        if isinstance(prompt, dict):
+            keys.append(str(prompt.get("agent_id") or ""))
+        queue = []
+        for key in keys:
+            queue = self.decisions.get(key) or []
+            if queue:
+                break
         if queue:
             return queue.pop(0)
         return {"thought_summary": "done", "tool_calls": [{"tool": "finish", "reason": "done"}], "stop_reason": "done", "evidence_gaps": []}
@@ -125,19 +138,39 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
     assert config["python_dependencies"]["extra_index_url"] == "https://pypi.org/simple"
     assert config["python_dependencies"]["packages"] == [
         "mirrorneuron-blueprint-support-skill",
+        "mirrorneuron-llm-ocr-skill",
         "mirrorneuron-rag-skill",
         "mirrorneuron-w3m-browser-skill",
         "mirrorneuron-web-browser-skill",
     ]
+    assert config["input_skills"]["llm_ocr"] == {
+        "skill": "llm_ocr_skill",
+        "package": "mirrorneuron-llm-ocr-skill",
+        "connector": "docker_model_runner",
+        "purpose": "shared local LightOnOCR-2-1B OCR for scanned or low-text PDF startup packets",
+        "enabled": True,
+        "required": True,
+        "backend": "auto",
+        "endpoint": "http://host.docker.internal:12434",
+        "model": None,
+        "quantization": None,
+        "min_text_chars": 40,
+        "max_pages": None,
+        "preload": False,
+        "install_policy": "on_first_required_document",
+        "remove_policy": "manual",
+        "require_hardware_acceleration": True,
+        "timeout_seconds": 180,
+    }
     assert config["knowledge_rag"]["enabled"] is True
     assert config["knowledge_rag"]["redis_url"] == ""
     assert config["knowledge_rag"]["namespace"] == ""
     assert config["knowledge_rag"]["embedding_provider"] == "docker_model_runner"
     assert config["knowledge_rag"]["embedding_model"] == "hf.co/jinaai/jina-embeddings-v5-text-small-retrieval:Q4_K_M"
-    assert config["knowledge_rag"]["embedding_api_base"] == "http://localhost:12434/engines/v1"
+    assert config["knowledge_rag"]["embedding_api_base"] == "http://host.docker.internal:12434/engines/v1"
     assert config["knowledge_rag"]["embedding_query_prefix"] == "Query: "
     assert config["knowledge_rag"]["embedding_document_prefix"] == "Document: "
-    assert config["knowledge_rag"]["embedding_start_command"] == "docker model run -d hf.co/jinaai/jina-embeddings-v5-text-small-retrieval:Q4_K_M"
+    assert config["knowledge_rag"]["embedding_start_command"] == ""
     assert config["knowledge_rag"]["embedding_healthcheck_enabled"] is True
     assert config["knowledge_rag"]["vector_dim"] == 1024
     assert config["knowledge_rag"]["index_on_startup"] is True
@@ -155,12 +188,15 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         assert embedded_config["inputs"]["payload"]["input_folder"] == "vc_assistant/examples/sample_inputs"
         assert embedded_config["inputs"]["payload"]["output_folder"] == "~/Downloads/vc_assistant"
         assert embedded_config["outputs"]["folder_path"] == "~/Downloads/vc_assistant"
-        assert embedded_config["llm"]["model"] == "gemma4:e2b"
+        assert embedded_config["llm"]["model"] == "default"
+        assert embedded_config["llm"]["quick_test_uses_fake"] is False
+        assert embedded_config["execution"]["quick_test"] is False
         assert embedded_config["research_budget"]["default_actions"] == 1000
         assert embedded_config["agentic_research"]["enabled"] is True
         assert embedded_config["agentic_research"]["agent_ids"] == [
             "research_planner",
             "company_identity_researcher",
+            "funding_researcher",
             "market_comp_researcher",
             "traction_verifier",
             "rendered_page_researcher",
@@ -170,6 +206,7 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         assert embedded_config["agentic_research"]["allowed_tools"] == ["browser_search", "browser_page", "rendered_browser_page", "finish"]
         assert embedded_config["knowledge_rag"] == config["knowledge_rag"]
         assert embedded_config["python_dependencies"] == config["python_dependencies"]
+        assert embedded_config["input_skills"]["llm_ocr"] == config["input_skills"]["llm_ocr"]
         assert embedded_config["suggested_schedule"] == config["suggested_schedule"]
     for template in manifest["metadata"]["agent_templates"]["nodes"]:
         if template["node_id"] == "report_sink":
@@ -179,6 +216,7 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         assert template["with"]["upload_paths"] == upload_paths
         template_config = json.loads(template["with"]["environment"]["MN_BLUEPRINT_CONFIG_JSON"])
         assert template_config["knowledge_rag"] == config["knowledge_rag"]
+        assert template_config["input_skills"]["llm_ocr"] == config["input_skills"]["llm_ocr"]
         assert template_config["suggested_schedule"] == config["suggested_schedule"]
 
 
@@ -211,6 +249,7 @@ def test_vc_assistant_runtime_requirements_install_skills_with_pip():
         "--index-url https://us-central1-python.pkg.dev/mirrorneuron-public-packages/agent-skills/simple/",
         "--extra-index-url https://pypi.org/simple",
         "mirrorneuron-blueprint-support-skill",
+        "mirrorneuron-llm-ocr-skill",
         "mirrorneuron-rag-skill",
         "mirrorneuron-w3m-browser-skill",
         "mirrorneuron-web-browser-skill",
@@ -236,6 +275,109 @@ def test_vc_assistant_runtime_upload_bundle_contains_sample_inputs():
     assert (bundled_sample_root / "aurora_ai" / "pitch_summary.txt").exists()
     assert (bundled_sample_root / "boreal_robotics" / "company_brief.txt").exists()
     assert (bundled_sample_root / "otterdesk" / "pitch_summary.txt").exists()
+
+
+def test_vc_pdf_packets_use_llm_ocr_skill_for_evidence(monkeypatch, tmp_path):
+    runner = _load_runner()
+    docs = tmp_path / "startup-docs"
+    company_dir = docs / "optical_ventures"
+    company_dir.mkdir(parents=True)
+    pdf_path = company_dir / "pitch.pdf"
+    pdf_path.write_bytes(b"%PDF-1.4 synthetic startup packet")
+    (company_dir / "memo.txt").write_text("Company: Optical Ventures\nMarket: oncology workflow software.", encoding="utf-8")
+    factory_configs = []
+
+    def fake_factory(config):
+        factory_configs.append(config)
+        return lambda: object()
+
+    def fake_extract_document_folder(folder, **kwargs):
+        assert Path(folder) == company_dir
+        assert kwargs["min_text_chars"] == 40
+        assert kwargs["llm_ocr_client_factory"] is not None
+        return [
+            {
+                "path": str(pdf_path),
+                "filename": "pitch.pdf",
+                "document_type": "startup_packet",
+                "text": "Company: Optical Ventures\nTraction: $900k ARR from seven enterprise pilots.",
+                "ocr_required": False,
+                "extraction_method": "llm_ocr",
+                "warnings": ["low contrast page reviewed"],
+                "metadata": {"ocr_model": "LightOnOCR-2-1B"},
+            }
+        ]
+
+    monkeypatch.setattr(runner, "docker_ocr_client_factory_from_config", fake_factory)
+    monkeypatch.setattr(runner, "extract_document_folder", fake_extract_document_folder)
+
+    records = runner.scan_documents(
+        docs,
+        {"input_skills": {"llm_ocr": {"enabled": True, "required": True, "min_text_chars": 40}}},
+    )
+
+    assert sorted(records) == ["Optical Ventures"]
+    pdf_record = next(record for record in records["Optical Ventures"] if record["filename"] == "pitch.pdf")
+    txt_record = next(record for record in records["Optical Ventures"] if record["filename"] == "memo.txt")
+    assert pdf_record["text_preview"].startswith("Company: Optical Ventures")
+    assert pdf_record["character_count"] > 40
+    assert pdf_record["extraction_method"] == "llm_ocr"
+    assert pdf_record["ocr_required"] is False
+    assert pdf_record["warnings"] == ["low contrast page reviewed"]
+    assert len(pdf_record["sha256"]) == 64
+    assert txt_record["extraction_method"] == "embedded_text"
+    assert txt_record["ocr_required"] is False
+    assert factory_configs == [{"input_skills": {"llm_ocr": {"enabled": True, "required": True, "min_text_chars": 40}}}]
+
+
+def test_vc_pdf_packets_fail_closed_when_ocr_unavailable(monkeypatch, tmp_path):
+    runner = _load_runner()
+    docs = tmp_path / "startup-docs"
+    docs.mkdir()
+    (docs / "pitch.pdf").write_bytes(b"%PDF-1.4 image-only packet")
+    monkeypatch.setattr(runner, "extract_document_folder", None)
+
+    with pytest.raises(runner.OcrRequiredError, match="OCR extractor is unavailable"):
+        runner.scan_documents(docs, {"input_skills": {"llm_ocr": {"enabled": True, "required": True}}})
+
+
+def test_vc_ocr_failure_marks_run_failed(monkeypatch, tmp_path):
+    runner = _load_runner()
+    docs = tmp_path / "startup-docs"
+    docs.mkdir()
+    (docs / "pitch.pdf").write_bytes(b"%PDF-1.4 image-only packet")
+    outputs = tmp_path / "reports"
+
+    monkeypatch.setattr(runner, "prepare_knowledge_rag", lambda **kwargs: {"enabled": False, "status": "disabled"})
+    monkeypatch.setattr(runner, "require_ready_rag", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        runner,
+        "scan_documents",
+        lambda folder, config=None: (_ for _ in ()).throw(runner.OcrRequiredError("PDF OCR did not produce usable text")),
+    )
+
+    with pytest.raises(runner.OcrRequiredError, match="PDF OCR did not produce usable text"):
+        runner.run_blueprint(
+            inputs={"document_folder": str(docs), "output_folder": str(outputs)},
+            config={"llm": {"mode": "fake", "require_live": False}, "knowledge_rag": {"enabled": False, "required": False}},
+            runs_root=tmp_path,
+            run_id="vc-ocr-failed",
+            llm_client=FakeVCLLM(),
+        )
+
+    run_json = json.loads((tmp_path / "vc-ocr-failed" / "run.json").read_text(encoding="utf-8"))
+    events = [
+        json.loads(line)
+        for line in (tmp_path / "vc-ocr-failed" / "events.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    assert run_json["status"] == "failed"
+    assert run_json["error"] == "PDF OCR did not produce usable text"
+    assert any(
+        event["type"] == "tool_call_failed"
+        and event["payload"]["tool"] == "llm_ocr.extract_document_folder"
+        and event["payload"]["status"] == "required_ocr_failed"
+        for event in events
+    )
 
 
 def test_vc_assistant_runtime_graph_is_linear_and_has_terminal_sink():
@@ -276,7 +418,7 @@ def test_vc_agents_are_llm_backed_and_selected_for_actor_reviews():
     assert set(agents) == set(runner.WORKFLOW_STEP_IDS)
     for actor_id in runner.WORKFLOW_STEP_IDS:
         assert agents[actor_id]["llm_config"] == "primary"
-        assert agents[actor_id]["model"] == "gemma4:e2b"
+        assert agents[actor_id]["model"] == "default"
 
     actor_specs = runner.resolve_actor_specs(config)
     actor_ids = [actor_id for actor_id in runner.WORKFLOW_STEP_IDS if actor_id in actor_specs]
@@ -621,7 +763,7 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path
             "output_folder": str(outputs),
             "monitoring": {"enabled": True, "poll_interval_seconds": 1, "max_cycles": 1},
         },
-        config={"llm": {"mode": "fake"}},
+        config={"llm": {"mode": "fake", "require_live": False}},
         runs_root=tmp_path,
         run_id="vc-unit",
         llm_client=fake_llm,
@@ -682,6 +824,7 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path
         assert {item["agent_id"] for item in agent_trace} == {
             "research_planner",
             "company_identity_researcher",
+            "funding_researcher",
             "market_comp_researcher",
             "traction_verifier",
             "rendered_page_researcher",
@@ -759,7 +902,7 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path
             "output_folder": str(outputs),
             "monitoring": {"enabled": True, "poll_interval_seconds": 1, "max_cycles": 1},
         },
-        config={"llm": {"mode": "fake"}},
+        config={"llm": {"mode": "fake", "require_live": False}},
         runs_root=tmp_path,
         run_id="vc-repeat",
         llm_client=FakeVCLLM(),
@@ -783,7 +926,7 @@ def test_actor_review_failure_does_not_fail_report_outputs(tmp_path):
             "output_folder": str(outputs),
             "monitoring": {"enabled": True, "poll_interval_seconds": 1, "max_cycles": 1},
         },
-        config={"llm": {"mode": "fake"}},
+        config={"llm": {"mode": "fake", "require_live": False}, "knowledge_rag": {"enabled": False, "required": False}},
         runs_root=tmp_path,
         run_id="vc-llm-fails",
         llm_client=failing_llm,
@@ -812,7 +955,7 @@ def test_runtime_step_entrypoint_runs_report_factory_once(tmp_path):
             "output_folder": str(outputs),
             "monitoring": {"enabled": True, "poll_interval_seconds": 1, "max_cycles": 1},
         },
-        config={"llm": {"mode": "fake"}},
+        config={"llm": {"mode": "fake", "require_live": False}, "knowledge_rag": {"enabled": False, "required": False}},
         runs_root=tmp_path,
         run_id="vc-runtime-entry",
         llm_client=FakeVCLLM(),
@@ -829,7 +972,7 @@ def test_runtime_step_entrypoint_runs_report_factory_once(tmp_path):
             "document_folder": str(docs),
             "output_folder": str(outputs),
         },
-        config={"llm": {"mode": "fake"}},
+        config={"llm": {"mode": "fake", "require_live": False}, "knowledge_rag": {"enabled": False, "required": False}},
         runs_root=tmp_path,
         run_id="vc-runtime-ack",
         llm_client=FakeVCLLM(),
@@ -856,7 +999,7 @@ def test_runtime_step_entrypoint_honors_mirror_neuron_run_environment(tmp_path, 
             "output_folder": str(outputs),
             "monitoring": {"enabled": True, "poll_interval_seconds": 1, "max_cycles": 1},
         },
-        config={"llm": {"mode": "fake"}},
+        config={"llm": {"mode": "fake", "require_live": False}, "knowledge_rag": {"enabled": False, "required": False}},
         llm_client=FakeVCLLM(),
     )
 
@@ -905,7 +1048,7 @@ def test_changed_company_packets_process_in_parallel_with_stable_output_order(tm
     two_started = threading.Event()
     original_research = runner.research_company_by_stage
 
-    def fake_research(company, config, run_dir=None):
+    def fake_research(company, config, run_dir=None, **kwargs):
         with lock:
             started.add(company)
             if len(started) >= 2:
@@ -939,7 +1082,12 @@ def test_changed_company_packets_process_in_parallel_with_stable_output_order(tm
                 "output_folder": str(outputs),
                 "monitoring": {"enabled": True, "poll_interval_seconds": 1, "max_cycles": 1},
             },
-            config={"llm": {"mode": "fake"}, "execution": {"max_company_workers": 2}, "scoring": {"max_workers": 7}},
+            config={
+                "llm": {"mode": "fake", "require_live": False},
+                "knowledge_rag": {"enabled": False, "required": False},
+                "execution": {"max_company_workers": 2},
+                "scoring": {"max_workers": 7},
+            },
             runs_root=tmp_path,
             run_id="vc-parallel",
             llm_client=FakeVCLLM(),
@@ -1150,7 +1298,11 @@ def test_budget_exhaustion_finishes_with_warnings_and_no_extra_llm_calls(tmp_pat
             "output_folder": str(outputs),
             "monitoring": {"enabled": True, "poll_interval_seconds": 1, "max_cycles": 1},
         },
-        config={"llm": {"mode": "fake"}, "research_budget": {"default_actions": 1}},
+        config={
+            "llm": {"mode": "fake", "require_live": False},
+            "knowledge_rag": {"enabled": False, "required": False},
+            "research_budget": {"default_actions": 1},
+        },
         runs_root=tmp_path,
         run_id="vc-budget-exhausted",
         llm_client=fake_llm,

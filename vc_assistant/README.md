@@ -3,7 +3,7 @@
 `Blueprint ID:` `vc_assistant`
 `Category:` `Finance`
 
-Monitors a local folder of startup documents, builds a company work queue, runs specialist research and deterministic numerical-analysis agents, and writes organized score-only VC reports for human review.
+Checks a local folder of startup documents on each scheduled batch run, builds a company work queue, runs specialist research and deterministic numerical-analysis agents, and writes organized score-only VC reports for human review.
 
 ## What It Does
 
@@ -11,7 +11,9 @@ This blueprint is a report-only early diligence assistant. It helps a reviewer i
 
 It does not decide whether to invest, pass, watch, or reject. It writes scores, evidence, assumptions, missing-evidence flags, and source references so the user can decide.
 
-All actor-style LLM analysis is configured to use the local OtterDesk system model `ai/gemma4:E2B` through Docker Model Runner. Numerical formulas and missing-evidence gates remain deterministic.
+All actor-style LLM analysis is configured to use the MirrorNeuron default local model `gemma4:e2b` through Docker Model Runner. Numerical formulas and missing-evidence gates remain deterministic.
+
+PDF startup packets are extracted through the shared `llm_ocr_skill` LightOnOCR path. TXT, Markdown, JSON, and CSV files are read directly; PDF files must produce embedded or OCR text for the batch run to continue.
 
 ## Online Research Skills
 
@@ -24,7 +26,7 @@ The workflow plans privacy-safe searches for company websites, Crunchbase, found
 
 ## Workflow Shape
 
-The service uses a static DAG with fanout/fan-in stages:
+The batch workflow uses a static DAG with fanout/fan-in stages:
 
 - Intake and grouping: `startup_folder_watcher`, `company_packet_grouper`.
 - Evidence normalization: `document_evidence_extractor`, `claim_normalizer`.
@@ -57,7 +59,8 @@ mn blueprint monitor --follow
 
 - `document_folder`: folder containing startup documents. Each first-level subfolder is treated as one company; loose files are grouped by inferred company name.
 - `output_folder`: folder where per-company analysis folders and root index files are written.
-- `monitoring`: folder polling controls, including bounded `max_cycles` for tests and demos.
+- `monitoring`: bounded single-run scan controls; the runtime scheduler decides when to launch the batch.
+- `input_skills.llm_ocr`: shared local LightOnOCR OCR settings for PDF startup packets.
 - `execution.max_company_workers`: maximum changed-company packets processed concurrently.
 - `internet_research`: public verification targets, browser-skill settings, Crunchbase/profile URL templates, and rendered-browser fallback controls.
 - `internet_research.max_stage_workers`: maximum parallel research stages per changed company.

@@ -102,6 +102,8 @@ build_search_url = None
 research_topic = None
 WebBrowserConfig = None
 scrape_page = None
+docker_ocr_client_factory_from_config = None
+extract_document_folder = None
 RagConfig = None
 skill_knowledge_rag_config = None
 skill_prepare_blueprint_knowledge_rag = None
@@ -271,10 +273,17 @@ def _workspace_root() -> Path | None:
 
 
 def _add_repo_paths() -> None:
+    bundle_root = Path(__file__).resolve().parents[1]
+    bundled_skills = bundle_root / "skills"
+    if bundled_skills.exists():
+        for skill_name in ("rag_skill",):
+            candidate = bundled_skills / skill_name / "src"
+            if candidate.exists() and str(candidate) not in sys.path:
+                sys.path.insert(0, str(candidate))
     workspace = _workspace_root()
     if not workspace:
         return
-    for skill_name in ("blueprint_support_skill", "w3m_browser_skill", "web_browser_skill", "rag_skill"):
+    for skill_name in ("blueprint_support_skill", "llm_ocr_skill", "w3m_browser_skill", "web_browser_skill", "rag_skill"):
         candidate = workspace / "mn-skills" / skill_name / "src"
         if candidate.exists() and str(candidate) not in sys.path:
             sys.path.insert(0, str(candidate))
@@ -360,6 +369,13 @@ except Exception:  # pragma: no cover - optional runtime support
             if event_sink is not None:
                 append_event(Path(event_sink), "actor_activity", {"agent_id": str(actor_id), "status": "completed", "summary": finding.get("summary")})
         return findings
+
+
+try:
+    from mn_llm_ocr_skill import docker_ocr_client_factory_from_config, extract_document_folder
+except Exception:  # pragma: no cover - optional runtime support
+    docker_ocr_client_factory_from_config = None
+    extract_document_folder = None
 
 
 def _load_w3m_browser_skill() -> None:
@@ -1016,6 +1032,12 @@ def _configured_llm_env(config: dict[str, Any]) -> dict[str, str]:
     config_name = str(llm_config.get("default_config") or "primary")
     configs = llm_config.get("configs") if isinstance(llm_config.get("configs"), dict) else {}
     primary = configs.get(config_name) if isinstance(configs.get(config_name), dict) else {}
+    if quick_test_mode_enabled(config) and bool(llm_config.get("quick_test_uses_fake", True)):
+        return {
+            "MN_BLUEPRINT_LLM_MODE": "fake",
+            "MN_LLM_PROVIDER": "fake",
+            "MN_LLM_MODEL": str(llm_config.get("mock_model") or "fake-vc-actor"),
+        }
     values = {
         "MN_BLUEPRINT_LLM_MODE": llm_config.get("mode"),
         "MN_LLM_PROVIDER": llm_config.get("provider") or primary.get("provider"),
@@ -1090,11 +1112,82 @@ def redactor(text: str) -> str:
 
 def safe_read_text(path: Path) -> tuple[str, list[str]]:
     if path.suffix.lower() not in TEXT_SUFFIXES:
-        return "", ["Non-text file recorded as evidence metadata only; OCR may be required."]
+        return "", ["Non-text file requires OCR extraction."]
     try:
         return path.read_text(encoding="utf-8", errors="ignore"), []
     except Exception as exc:
         return "", [str(exc)]
+
+
+class OcrRequiredError(RuntimeError):
+    pass
+
+
+def startup_packet_classifier(text: str, filename: str) -> str:
+    del text, filename
+    return "startup_packet"
+
+
+def _document_paths(folder: Path) -> list[Path]:
+    if not folder.exists():
+        return []
+    return sorted(
+        path
+        for path in folder.rglob("*")
+        if path.is_file() and path.suffix.lower() in SUPPORTED_SUFFIXES
+    )
+
+
+def _path_key(path: Path) -> str:
+    return str(path.expanduser().resolve())
+
+
+def _llm_ocr_records_for_pdfs(folder: Path, pdf_paths: list[Path], config: dict[str, Any] | None) -> dict[str, dict[str, Any]]:
+    if not pdf_paths:
+        return {}
+    if extract_document_folder is None:
+        raise OcrRequiredError("PDF startup packets require llm_ocr_skill, but the OCR extractor is unavailable.")
+
+    resolved_pdf_keys = {_path_key(path) for path in pdf_paths}
+    skill_config = {"input_skills": (config or {}).get("input_skills", {})}
+    ocr_config = ((config or {}).get("input_skills") or {}).get("llm_ocr") or {}
+    min_text_chars = int(ocr_config.get("min_text_chars") or 40)
+    factory = docker_ocr_client_factory_from_config(skill_config) if docker_ocr_client_factory_from_config else None
+    records_by_path: dict[str, dict[str, Any]] = {}
+
+    for parent in sorted({path.parent for path in pdf_paths}):
+        try:
+            extracted_records = extract_document_folder(
+                parent,
+                classifier=startup_packet_classifier,
+                redactor=redactor,
+                llm_ocr_client_factory=factory,
+                min_text_chars=min_text_chars,
+            )
+        except Exception as exc:
+            raise OcrRequiredError(f"PDF OCR failed for {parent}: {exc}") from exc
+
+        for record in extracted_records:
+            raw_path = record.get("path")
+            if not raw_path:
+                continue
+            key = _path_key(Path(str(raw_path)))
+            if key in resolved_pdf_keys:
+                records_by_path[key] = dict(record)
+
+    missing = [str(path) for path in pdf_paths if _path_key(path) not in records_by_path]
+    if missing:
+        raise OcrRequiredError(f"PDF OCR returned no evidence for required input(s): {', '.join(missing)}")
+
+    for path in pdf_paths:
+        record = records_by_path[_path_key(path)]
+        text = str(record.get("text") or "")
+        warnings = record.get("warnings") if isinstance(record.get("warnings"), list) else []
+        if bool(record.get("ocr_required")) or len(text.strip()) < min_text_chars:
+            detail = "; ".join(str(warning) for warning in warnings if warning) or "OCR returned too little text."
+            raise OcrRequiredError(f"PDF OCR did not produce usable text for {path}: {detail}")
+
+    return records_by_path
 
 
 def infer_company_name(path: Path, text: str, root: Path) -> str:
@@ -1111,14 +1204,26 @@ def infer_company_name(path: Path, text: str, root: Path) -> str:
     return path.stem.replace("_", " ").replace("-", " ").title()
 
 
-def scan_documents(folder: Path) -> dict[str, list[dict[str, Any]]]:
+def scan_documents(folder: Path, config: dict[str, Any] | None = None) -> dict[str, list[dict[str, Any]]]:
     records_by_company: dict[str, list[dict[str, Any]]] = {}
-    if not folder.exists():
+    paths = _document_paths(folder)
+    if not paths:
         return records_by_company
-    for path in sorted(folder.rglob("*")):
-        if path.is_dir() or path.suffix.lower() not in SUPPORTED_SUFFIXES:
-            continue
-        text, warnings = safe_read_text(path)
+    pdf_paths = [path for path in paths if path.suffix.lower() == ".pdf"]
+    ocr_records_by_path = _llm_ocr_records_for_pdfs(folder, pdf_paths, config)
+    for path in paths:
+        suffix = path.suffix.lower()
+        if suffix in TEXT_SUFFIXES:
+            text, warnings = safe_read_text(path)
+            extraction_method = "embedded_text"
+            ocr_required = False
+        else:
+            ocr_record = ocr_records_by_path[_path_key(path)]
+            text = str(ocr_record.get("text") or "")
+            raw_warnings = ocr_record.get("warnings")
+            warnings = [str(warning) for warning in raw_warnings] if isinstance(raw_warnings, list) else []
+            extraction_method = str(ocr_record.get("extraction_method") or "llm_ocr")
+            ocr_required = bool(ocr_record.get("ocr_required"))
         redacted = redactor(text)
         company = infer_company_name(path, redacted, folder)
         digest = hashlib.sha256(path.read_bytes()).hexdigest()
@@ -1127,11 +1232,11 @@ def scan_documents(folder: Path) -> dict[str, list[dict[str, Any]]]:
             "filename": path.name,
             "company_name": company,
             "sha256": digest,
-            "suffix": path.suffix.lower(),
+            "suffix": suffix,
             "text_preview": redacted[:1200],
             "character_count": len(redacted),
-            "extraction_method": "embedded_text" if path.suffix.lower() in TEXT_SUFFIXES else "metadata_only",
-            "ocr_required": path.suffix.lower() not in TEXT_SUFFIXES,
+            "extraction_method": extraction_method,
+            "ocr_required": ocr_required,
             "warnings": warnings,
         }
         records_by_company.setdefault(company, []).append(record)
@@ -2144,6 +2249,14 @@ def _budget_exhausted_source(company: str, query: str, skill: str, verification_
 
 def agentic_research_config(config: dict[str, Any]) -> dict[str, Any]:
     raw = config.get("agentic_research") if isinstance(config.get("agentic_research"), dict) else {}
+    if quick_test_mode_enabled(config):
+        return {
+            "enabled": False,
+            "agent_ids": [str(item) for item in (raw.get("agent_ids") or DEFAULT_AGENTIC_RESEARCH_AGENT_IDS)],
+            "max_iterations_per_agent": 1,
+            "max_tool_calls_per_agent": 0,
+            "allowed_tools": [str(item) for item in (raw.get("allowed_tools") or DEFAULT_AGENTIC_RESEARCH_TOOLS)],
+        }
     return {
         "enabled": bool(raw.get("enabled", True)),
         "agent_ids": [str(item) for item in (raw.get("agent_ids") or DEFAULT_AGENTIC_RESEARCH_AGENT_IDS)],
@@ -3590,7 +3703,12 @@ def run_blueprint(
     append_event(run_dir, "watch_cycle_started", {"cycle": 1, "max_cycles": max_cycles})
     append_event(run_dir, "blueprint_phase_started", {"phase": "running_worker", "component": BLUEPRINT_ID})
 
-    company_records = scan_documents(document_folder)
+    try:
+        company_records = scan_documents(document_folder, resolved_config)
+    except OcrRequiredError as exc:
+        append_event(run_dir, "tool_call_failed", {"tool": "llm_ocr.extract_document_folder", "status": "required_ocr_failed", "error": str(exc)})
+        write_json(run_dir / "run.json", {"run_id": run_id, "blueprint_id": BLUEPRINT_ID, "status": "failed", "error": str(exc), "finished_at": utc_now_iso()})
+        raise
     if not company_records:
         company_records = {"Sample Startup": []}
     previous_state = load_watch_state(output_folder)

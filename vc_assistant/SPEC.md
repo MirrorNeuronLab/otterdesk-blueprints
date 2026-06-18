@@ -10,7 +10,7 @@ Early-stage startup review is noisy. Pitch decks, notes, founder bios, traction 
 
 ## Design Details
 
-The blueprint is a service-style OtterDesk workflow with specialist actors for each major job:
+The blueprint is a scheduled batch-style OtterDesk workflow with specialist actors for each major job:
 
 - Intake: `startup_folder_watcher`, `company_packet_grouper`.
 - Evidence: `document_evidence_extractor`, `claim_normalizer`.
@@ -22,11 +22,11 @@ The workflow groups first-level input subfolders as companies. Loose files are g
 
 The online research layer uses `w3m_browser_skill` first for lightweight public source collection and can use `web_browser_skill` as an optional rendered-browser fallback for JavaScript-heavy public sources such as Crunchbase. The workflow records source status, snippets, warnings, and blocked/login/robots outcomes rather than bypassing access controls. Changed company packets, per-company research stages, and numerical method scoring run with bounded parallel workers while outputs remain ordered by stable company slug.
 
-Actor-style LLM analysis uses the local OtterDesk system model `ai/gemma4:E2B` through Docker Model Runner. Numerical scoring remains deterministic: formulas, weights, scenario math, missing-evidence status, and audit checks are owned by deterministic workers. Non-substantive records such as research plans, configured references, disabled browser fallback notices, unavailable skills, blocked pages, and failed requests do not create comparable evidence by themselves.
+Actor-style LLM analysis uses the MirrorNeuron default local model `gemma4:e2b` through Docker Model Runner. Numerical scoring remains deterministic: formulas, weights, scenario math, missing-evidence status, and audit checks are owned by deterministic workers. Non-substantive records such as research plans, configured references, disabled browser fallback notices, unavailable skills, blocked pages, and failed requests do not create comparable evidence by themselves.
 
 ## Input
 
-The prototype accepts local startup documents in PDF, TXT, Markdown, JSON, and CSV formats. Text-like files are read directly. PDF files are recorded as evidence metadata and may require OCR support in fuller deployments.
+The prototype accepts local startup documents in PDF, TXT, Markdown, JSON, and CSV formats. Text-like files are read directly. PDF files use the shared `llm_ocr_skill` LightOnOCR path for embedded or OCR text extraction. If a PDF startup packet cannot produce usable text, the batch run fails closed instead of creating metadata-only evidence.
 
 ## Output: Expected Customer Outcome
 
@@ -65,4 +65,4 @@ This is an early heuristic report assistant. Scores are not valuations, investme
 
 ## Upgrade Path To Real Customer Use
 
-Add robust PDF/OCR extraction, richer source citation capture, customer-specific scoring weights, authenticated market-data and funding-data connectors, analyst review annotations, historical calibration against partner decisions, and governance controls for confidential data handling.
+Add richer source citation capture, customer-specific scoring weights, authenticated market-data and funding-data connectors, analyst review annotations, historical calibration against partner decisions, and governance controls for confidential data handling.

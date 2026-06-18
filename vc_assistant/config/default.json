@@ -95,16 +95,16 @@
     "enabled": true,
     "mode": "live",
     "mock_mode": "fake",
-    "model": "ai/gemma4:E2B",
+    "model": "default",
     "default_config": "primary",
-    "quick_test_uses_fake": true,
+    "quick_test_uses_fake": false,
     "strict_json": true,
     "prefer_shared_skill": true,
     "configs": {
       "primary": {
         "provider": "docker_model_runner",
-        "model": "ai/gemma4:E2B",
-        "api_base": "http://localhost:12434/engines/v1",
+        "model": "default",
+        "api_base": "http://host.docker.internal:12434/engines/v1",
         "timeout_seconds": 60,
         "max_tokens": 1200,
         "num_retries": 1,
@@ -115,7 +115,7 @@
     "agents": {
       "startup_folder_watcher": {
         "llm_config": "primary",
-        "model": "ai/gemma4:E2B",
+        "model": "default",
         "role": "Startup Folder Watcher",
         "responsibilities": [
           "Detect changed files.",
@@ -125,7 +125,7 @@
       },
       "company_packet_grouper": {
         "llm_config": "primary",
-        "model": "ai/gemma4:E2B",
+        "model": "default",
         "role": "Company Packet Grouper",
         "responsibilities": [
           "Group files by company.",
@@ -135,7 +135,7 @@
       },
       "document_evidence_extractor": {
         "llm_config": "primary",
-        "model": "ai/gemma4:E2B",
+        "model": "default",
         "role": "Document Evidence Extractor",
         "responsibilities": [
           "Extract local evidence.",
@@ -145,7 +145,7 @@
       },
       "claim_normalizer": {
         "llm_config": "primary",
-        "model": "ai/gemma4:E2B",
+        "model": "default",
         "role": "Claim Normalizer",
         "responsibilities": [
           "Build fact tables.",
@@ -155,7 +155,7 @@
       },
       "research_planner": {
         "llm_config": "primary",
-        "model": "ai/gemma4:E2B",
+        "model": "default",
         "role": "Research Planner",
         "responsibilities": [
           "Create safe queries.",
@@ -165,7 +165,7 @@
       },
       "company_identity_researcher": {
         "llm_config": "primary",
-        "model": "ai/gemma4:E2B",
+        "model": "default",
         "role": "Company Identity Researcher",
         "responsibilities": [
           "Research company identity.",
@@ -175,7 +175,7 @@
       },
       "funding_researcher": {
         "llm_config": "primary",
-        "model": "ai/gemma4:E2B",
+        "model": "default",
         "role": "Funding Researcher",
         "responsibilities": [
           "Research funding mentions.",
@@ -185,7 +185,7 @@
       },
       "market_comp_researcher": {
         "llm_config": "primary",
-        "model": "ai/gemma4:E2B",
+        "model": "default",
         "role": "Market And Comparable Researcher",
         "responsibilities": [
           "Research market context.",
@@ -195,7 +195,7 @@
       },
       "traction_verifier": {
         "llm_config": "primary",
-        "model": "ai/gemma4:E2B",
+        "model": "default",
         "role": "Traction Verifier",
         "responsibilities": [
           "Verify customer and launch claims.",
@@ -205,7 +205,7 @@
       },
       "rendered_page_researcher": {
         "llm_config": "primary",
-        "model": "ai/gemma4:E2B",
+        "model": "default",
         "role": "Rendered Page Researcher",
         "responsibilities": [
           "Use rendered browser when enabled.",
@@ -215,7 +215,7 @@
       },
       "research_reconciler": {
         "llm_config": "primary",
-        "model": "ai/gemma4:E2B",
+        "model": "default",
         "role": "Research Reconciler",
         "responsibilities": [
           "Merge local and public evidence.",
@@ -225,7 +225,7 @@
       },
       "berkus_scorer": {
         "llm_config": "primary",
-        "model": "ai/gemma4:E2B",
+        "model": "default",
         "role": "Berkus Scorer",
         "responsibilities": [
           "Score five Berkus buckets.",
@@ -235,7 +235,7 @@
       },
       "scorecard_bill_payne_scorer": {
         "llm_config": "primary",
-        "model": "ai/gemma4:E2B",
+        "model": "default",
         "role": "Scorecard Bill Payne Scorer",
         "responsibilities": [
           "Apply weighted factors.",
@@ -245,7 +245,7 @@
       },
       "risk_factor_summation_scorer": {
         "llm_config": "primary",
-        "model": "ai/gemma4:E2B",
+        "model": "default",
         "role": "Risk Factor Summation Scorer",
         "responsibilities": [
           "Run 12-risk checklist.",
@@ -255,7 +255,7 @@
       },
       "venture_capital_method_scorer": {
         "llm_config": "primary",
-        "model": "ai/gemma4:E2B",
+        "model": "default",
         "role": "Venture Capital Method Scorer",
         "responsibilities": [
           "Run exit-back math.",
@@ -265,7 +265,7 @@
       },
       "first_chicago_scorer": {
         "llm_config": "primary",
-        "model": "ai/gemma4:E2B",
+        "model": "default",
         "role": "First Chicago Scorer",
         "responsibilities": [
           "Build bear/base/bull cases.",
@@ -275,7 +275,7 @@
       },
       "comparables_market_multiple_scorer": {
         "llm_config": "primary",
-        "model": "ai/gemma4:E2B",
+        "model": "default",
         "role": "Comparables Market Multiple Scorer",
         "responsibilities": [
           "Use comparable evidence.",
@@ -285,7 +285,7 @@
       },
       "cost_to_duplicate_scorer": {
         "llm_config": "primary",
-        "model": "ai/gemma4:E2B",
+        "model": "default",
         "role": "Cost To Duplicate Scorer",
         "responsibilities": [
           "Estimate rebuild-cost floor.",
@@ -295,7 +295,7 @@
       },
       "score_consistency_auditor": {
         "llm_config": "primary",
-        "model": "ai/gemma4:E2B",
+        "model": "default",
         "role": "Score Consistency Auditor",
         "responsibilities": [
           "Check score math.",
@@ -305,7 +305,7 @@
       },
       "company_report_writer": {
         "llm_config": "primary",
-        "model": "ai/gemma4:E2B",
+        "model": "default",
         "role": "Company Report Writer",
         "responsibilities": [
           "Write per-company folders.",
@@ -315,7 +315,7 @@
       },
       "batch_index_writer": {
         "llm_config": "primary",
-        "model": "ai/gemma4:E2B",
+        "model": "default",
         "role": "Batch Index Writer",
         "responsibilities": [
           "Write batch indexes.",
@@ -526,7 +526,8 @@
   },
   "execution": {
     "max_company_workers": 4,
-    "deterministic_output_order": "company_slug"
+    "deterministic_output_order": "company_slug",
+    "quick_test": false
   },
   "research_budget": {
     "default_actions": 1000,
@@ -604,7 +605,7 @@
       "timeout_seconds": 30,
       "max_chars": 12000,
       "max_pages_per_company": 5,
-      "per_host_delay_seconds": 1.0
+      "per_host_delay_seconds": 1
     }
   },
   "agentic_research": {
@@ -624,7 +625,8 @@
       "browser_page",
       "rendered_browser_page",
       "finish"
-    ]
+    ],
+    "quick_test_behavior": "disabled_for_default_smoke_run"
   },
   "financial_tools": {
     "enabled": true,
@@ -639,6 +641,25 @@
     "deterministic_method_order": true
   },
   "input_skills": {
+    "llm_ocr": {
+      "skill": "llm_ocr_skill",
+      "package": "mirrorneuron-llm-ocr-skill",
+      "connector": "docker_model_runner",
+      "purpose": "shared local LightOnOCR-2-1B OCR for scanned or low-text PDF startup packets",
+      "enabled": true,
+      "required": true,
+      "backend": "auto",
+      "endpoint": "http://host.docker.internal:12434",
+      "model": null,
+      "quantization": null,
+      "min_text_chars": 40,
+      "max_pages": null,
+      "preload": false,
+      "install_policy": "on_first_required_document",
+      "remove_policy": "manual",
+      "require_hardware_acceleration": true,
+      "timeout_seconds": 180
+    },
     "w3m_browser": {
       "skill": "w3m_browser_skill",
       "package": "mirrorneuron-w3m-browser-skill",
@@ -672,7 +693,7 @@
       "timeout_seconds": 30,
       "max_chars": 12000,
       "max_pages_per_company": 5,
-      "per_host_delay_seconds": 1.0,
+      "per_host_delay_seconds": 1,
       "python_environment": "document_workflow/requirements.txt"
     }
   },
@@ -693,6 +714,8 @@
   "capabilities": [
     "folder_monitoring",
     "document_evidence_extraction",
+    "llm.ocr",
+    "pdf.render",
     "privacy_safe_public_research",
     "vc_heuristic_scoring",
     "per_company_report_generation",
@@ -837,7 +860,7 @@
         "description": "Human notices, approval requests, responses, timeouts, and applied decisions."
       },
       "input_skills": {
-        "description": "Local filesystem startup packet intake plus optional public browser research."
+        "description": "Local filesystem startup packet intake, required shared llm_ocr_skill PDF OCR, and optional public browser research."
       },
       "inputs": {
         "artifact": "inputs.json",
@@ -1043,6 +1066,7 @@
     "extra_index_url": "https://pypi.org/simple",
     "packages": [
       "mirrorneuron-blueprint-support-skill",
+      "mirrorneuron-llm-ocr-skill",
       "mirrorneuron-rag-skill",
       "mirrorneuron-w3m-browser-skill",
       "mirrorneuron-web-browser-skill"
@@ -1054,7 +1078,7 @@
     "namespace": "",
     "embedding_provider": "docker_model_runner",
     "embedding_model": "hf.co/jinaai/jina-embeddings-v5-text-small-retrieval:Q4_K_M",
-    "embedding_api_base": "http://localhost:12434/engines/v1",
+    "embedding_api_base": "http://host.docker.internal:12434/engines/v1",
     "embedding_query_prefix": "Query: ",
     "embedding_document_prefix": "Document: ",
     "embedding_start_command": "",
