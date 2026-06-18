@@ -181,6 +181,21 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
     assert config["knowledge_rag"]["embedding_healthcheck_enabled"] is True
     assert config["knowledge_rag"]["vector_dim"] == 1024
     assert config["knowledge_rag"]["index_on_startup"] is True
+    assert config["knowledge_rag"]["chunk_size"] == 800
+    assert config["knowledge_rag"]["chunk_overlap"] == 80
+    assert config["research_budget"]["default_actions"] == 80
+    assert config["internet_research"]["max_queries"] == 8
+    assert config["internet_research"]["max_sources_per_company"] == 8
+    assert config["internet_research"]["max_target_urls_per_company"] == 4
+    assert config["internet_research"]["rendered_browser"]["max_pages_per_company"] == 2
+    assert config["agentic_research"]["max_iterations_per_agent"] == 1
+    assert config["agentic_research"]["max_tool_calls_per_agent"] == 2
+    assert config["actor_review"] == {
+        "llm_actor_ids": ["research_reconciler", "score_consistency_auditor", "company_report_writer", "batch_index_writer"],
+        "max_context_chars": 12000,
+    }
+    assert "llm_rag_trace.jsonl" in config["interfaces"]["optional_run_artifacts"]
+    assert "llm_rag_trace.jsonl" in config["interfaces"]["channels"]["artifacts"]["optional_artifacts"]
     assert "examples/sample_inputs/" in manifest["metadata"]["configuration_contract"]["required_files"]
     assert (
         "payloads/document_workflow/vc_assistant/examples/sample_inputs/"
@@ -196,9 +211,9 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         assert embedded_config["inputs"]["payload"]["output_folder"] == "~/Downloads/vc_assistant"
         assert embedded_config["outputs"]["folder_path"] == "~/Downloads/vc_assistant"
         assert embedded_config["llm"]["model"] == "default"
-        assert embedded_config["llm"]["quick_test_uses_fake"] is False
+        assert embedded_config["llm"]["quick_test_uses_fake"] is True
         assert embedded_config["execution"]["quick_test"] is False
-        assert embedded_config["research_budget"]["default_actions"] == 1000
+        assert embedded_config["research_budget"]["default_actions"] == 80
         assert embedded_config["agentic_research"]["enabled"] is True
         assert embedded_config["agentic_research"]["agent_ids"] == [
             "research_planner",
@@ -208,9 +223,10 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
             "traction_verifier",
             "rendered_page_researcher",
         ]
-        assert embedded_config["agentic_research"]["max_iterations_per_agent"] == 3
-        assert embedded_config["agentic_research"]["max_tool_calls_per_agent"] == 4
+        assert embedded_config["agentic_research"]["max_iterations_per_agent"] == 1
+        assert embedded_config["agentic_research"]["max_tool_calls_per_agent"] == 2
         assert embedded_config["agentic_research"]["allowed_tools"] == ["browser_search", "browser_page", "rendered_browser_page", "finish"]
+        assert embedded_config["actor_review"] == config["actor_review"]
         assert embedded_config["backpressure"] == config["backpressure"]
         assert embedded_config["knowledge_rag"] == config["knowledge_rag"]
         assert embedded_config["python_dependencies"] == config["python_dependencies"]
@@ -225,8 +241,73 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         template_config = json.loads(template["with"]["environment"]["MN_BLUEPRINT_CONFIG_JSON"])
         assert template_config["backpressure"] == config["backpressure"]
         assert template_config["knowledge_rag"] == config["knowledge_rag"]
+        assert template_config["actor_review"] == config["actor_review"]
         assert template_config["input_skills"]["llm_ocr"] == config["input_skills"]["llm_ocr"]
         assert template_config["suggested_schedule"] == config["suggested_schedule"]
+
+
+def test_explicit_fake_llm_mode_overrides_live_vc_runtime(monkeypatch, tmp_path):
+    runner = _load_runner()
+    config = json.loads((ROOT / "vc_assistant" / "config" / "default.json").read_text(encoding="utf-8"))
+
+    monkeypatch.setenv("MN_BLUEPRINT_FAKE_LLM", "true")
+
+    assert runner.fake_llm_mode_enabled(config) is True
+    assert runner.llm_requires_live(config) is False
+    assert runner._configured_llm_env(config) == {
+        "MN_BLUEPRINT_LLM_MODE": "fake",
+        "MN_LLM_PROVIDER": "fake",
+        "MN_LLM_MODEL": "fake-vc-actor",
+    }
+
+    limiter = runner.build_llm_call_limiter(config)
+    assert limiter.config_summary()["min_interval_seconds"] == 0.0
+
+    knowledge = runner.load_vc_knowledge(ROOT / "vc_assistant")
+    rag = runner.prepare_knowledge_rag(
+        blueprint_dir=ROOT / "vc_assistant",
+        resolved_config=config,
+        active_knowledge=knowledge,
+        run_dir=tmp_path,
+    )
+    assert rag["enabled"] is False
+    assert rag["status"] == "disabled_for_fake_llm"
+    assert runner.knowledge_rag_is_required(rag) is False
+
+
+def test_actor_llm_init_failure_writes_failed_run(tmp_path, monkeypatch):
+    runner = _load_runner()
+    docs = tmp_path / "startup-docs"
+    outputs = tmp_path / "reports"
+    _write_startup_packets(docs)
+
+    def fail_init(config, llm_client):
+        raise RuntimeError("actor client init timed out")
+
+    monkeypatch.setattr(runner, "_get_configured_actor_llm", fail_init)
+
+    with pytest.raises(RuntimeError, match="actor client init timed out"):
+        runner.run_blueprint(
+            inputs={
+                "document_folder": str(docs),
+                "output_folder": str(outputs),
+                "monitoring": {"enabled": True, "poll_interval_seconds": 1, "max_cycles": 1},
+            },
+            config={
+                "knowledge_rag": {"enabled": False, "required": False},
+                "backpressure": {"llm": {"max_concurrent_calls": 1, "min_interval_seconds": 0}},
+            },
+            runs_root=tmp_path,
+            run_id="vc-llm-init-failed",
+        )
+
+    run_dir = tmp_path / "vc-llm-init-failed"
+    run_json = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
+    assert run_json["status"] == "failed"
+    assert "actor client init timed out" in run_json["error"]
+    events = (run_dir / "events.jsonl").read_text(encoding="utf-8")
+    assert "actor_llm.init" in events
+    assert "required_actor_llm_init_failed" in events
 
 
 def test_vc_assistant_is_daily_batch_folder_scan():
@@ -331,6 +412,87 @@ def test_budgeted_llm_serializes_concurrent_model_calls():
 
     assert len(results) == 5
     assert max_active_calls == 1
+
+
+def test_budgeted_llm_writes_metadata_only_trace(tmp_path):
+    runner = _load_runner()
+    llm = runner.BudgetedLLM(
+        FakeVCLLM(),
+        runner.ActionBudget(10),
+        limiter=runner.LlmCallLimiter(max_concurrent_calls=1, min_interval_seconds=0),
+        run_dir=tmp_path,
+        heartbeat_seconds=0,
+    )
+
+    llm.generate_json(
+        system_prompt="secret system prompt",
+        user_prompt='{"raw_document_text":"Confidential Startup ARR $250k"}',
+        fallback={"actor_id": "research_reconciler", "summary": ""},
+    )
+
+    trace_text = (tmp_path / "llm_rag_trace.jsonl").read_text(encoding="utf-8")
+    assert "secret system prompt" not in trace_text
+    assert "Confidential Startup ARR" not in trace_text
+    records = [json.loads(line) for line in trace_text.splitlines()]
+    completed = [record for record in records if record["type"] == "observability_operation_completed"]
+    assert completed
+    payload = completed[-1]["payload"]
+    assert payload["phase"] == "llm_call"
+    assert payload["agent_id"] == "research_reconciler"
+    assert payload["prompt_hash"]
+    assert payload["user_prompt_chars"] > 0
+    assert payload["response_chars"] > 0
+    assert payload["provider"] == "fake"
+    assert "elapsed_ms" in payload
+
+
+def test_observed_operation_emits_heartbeat(tmp_path):
+    runner = _load_runner()
+
+    with runner.observed_operation(tmp_path, phase="knowledge_rag", operation="prepare", heartbeat_seconds=0.01):
+        time.sleep(0.03)
+
+    records = [json.loads(line) for line in (tmp_path / "llm_rag_trace.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert any(record["type"] == "observability_operation_started" for record in records)
+    assert any(record["type"] == "observability_operation_heartbeat" for record in records)
+    assert any(record["type"] == "observability_operation_completed" for record in records)
+
+
+def test_rag_retrieval_observation_is_metadata_only(monkeypatch, tmp_path):
+    runner = _load_runner()
+    monkeypatch.setattr(runner, "_load_rag_skill", lambda: None)
+
+    def fake_retrieve(**kwargs):
+        return {
+            "enabled": True,
+            "status": "ready",
+            "query": kwargs["query"],
+            "context": "Sensitive RAG context should not be written to trace.",
+            "citations": [{"ref": 1, "chunk_id": "chunk-1"}],
+            "chunks": [],
+        }
+
+    monkeypatch.setattr(runner, "skill_retrieve_knowledge_rag_context", fake_retrieve)
+    context = runner.retrieve_knowledge_rag_context(
+        knowledge_rag={"enabled": True, "status": "ready"},
+        query="Confidential company query",
+        stage="research_planner",
+        company="SecretCo",
+        run_dir=tmp_path,
+    )
+
+    assert context["status"] == "ready"
+    trace_text = (tmp_path / "llm_rag_trace.jsonl").read_text(encoding="utf-8")
+    assert "Confidential company query" not in trace_text
+    assert "Sensitive RAG context" not in trace_text
+    completed = [json.loads(line) for line in trace_text.splitlines() if "observability_operation_completed" in line][-1]
+    payload = completed["payload"]
+    assert payload["phase"] == "knowledge_rag"
+    assert payload["operation"] == "retrieve"
+    assert payload["query_hash"]
+    assert payload["query_chars"] == len("Confidential company query")
+    assert payload["citation_count"] == 1
+    assert payload["context_chars"] == len("Sensitive RAG context should not be written to trace.")
 
 
 def test_vc_pdf_packets_use_llm_ocr_skill_for_evidence(monkeypatch, tmp_path):
@@ -762,6 +924,59 @@ def test_knowledge_rag_failure_records_explicit_warning(monkeypatch, tmp_path):
     assert "no static playbook fallback" in state["warnings"][0]["message"]
 
 
+def test_actor_review_context_is_compacted_and_bounded():
+    runner = _load_runner()
+    analyses = []
+    for index in range(3):
+        methods = {
+            method_id: {
+                "status": "scored",
+                "score": index + 1,
+                "memory_hook": "hook",
+                "evidence_summary": {"status_reason": "x" * 1000},
+                "evidence_refs": [f"doc-{index}"],
+                "missing_evidence": ["missing"] * 10,
+                "assumptions": ["assumption"] * 10,
+                "warnings": ["warning"] * 10,
+            }
+            for method_id in runner.METHOD_IDS
+        }
+        analyses.append(
+            {
+                "company_name": f"Company {index}",
+                "company_slug": f"company-{index}",
+                "processing_status": "new_or_changed",
+                "composite_score": 7,
+                "methods": methods,
+                "evidence_summary": {"missing_methods": []},
+                "audit": {"warnings": ["warn"] * 5},
+                "research_reconciliation": {"confirmations": [1], "contradictions": [], "missing_public_evidence": [1]},
+                "research_plan": {"lanes": [{"lane_id": "market"}], "github_urls": [], "known_public_urls": ["https://example.com"], "signals": {"market_terms": True}},
+            }
+        )
+
+    context = runner.build_actor_review_context(
+        analyses=analyses,
+        company_work_queue=[],
+        research_coverage={"companies": []},
+        method_coverage={"companies": []},
+        processed_company_names=["Company 0"],
+        skipped_company_names=[],
+        output_files=[{"kind": "analysis", "path": f"/tmp/{index}.json"} for index in range(50)],
+        active_knowledge={"id": "knowledge", "content": "very long content", "method_guidance": {}, "judge_rubric": runner.JUDGE_RUBRIC},
+        knowledge_rag={"enabled": True, "status": "ready", "config": {"required": True}},
+        actor_rag_context={"enabled": True, "status": "ready", "context": "rag context", "citations": [{"ref": 1}]},
+        max_context_chars=12000,
+    )
+
+    serialized = json.dumps(context, default=str)
+    assert context["truncated_for_actor_review"] is True
+    assert len(serialized) < 13000
+    assert "very long content" not in serialized
+    assert context["company_summaries"][0]["method_statuses"]
+    assert context["rag_context"]["citation_count"] == 1
+
+
 def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path, monkeypatch):
     runner = _load_runner()
     docs = tmp_path / "startup-docs"
@@ -820,7 +1035,7 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path
             "monitoring": {"enabled": True, "poll_interval_seconds": 1, "max_cycles": 1},
         },
         config={
-            "llm": {"mode": "fake", "require_live": False},
+            "llm": {"mode": "live", "require_live": False},
             "backpressure": {"llm": {"max_concurrent_calls": 1, "min_interval_seconds": 0}},
         },
         runs_root=tmp_path,
@@ -877,8 +1092,8 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path
         assert research_plan["lanes"]
         assert research_plan["knowledge_rag"]["status"] == "ready"
         assert research_plan["agentic_research"]["enabled"] is True
-        assert research_plan["agentic_research"]["max_iterations_per_agent"] == 3
-        assert research_plan["agentic_research"]["max_tool_calls_per_agent"] == 4
+        assert research_plan["agentic_research"]["max_iterations_per_agent"] == 1
+        assert research_plan["agentic_research"]["max_tool_calls_per_agent"] == 2
         agent_trace = json.loads((company_dir / "agent_tool_trace.json").read_text(encoding="utf-8"))
         assert {item["agent_id"] for item in agent_trace} == {
             "research_planner",
@@ -923,19 +1138,30 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path
     assert set(run_artifact["actor_findings"]) == set(runner.WORKFLOW_STEP_IDS)
     assert run_artifact["llm_usage"]["provider"] == "fake"
     assert run_artifact["llm_usage"]["model"] == "fake-vc-actor"
-    assert run_artifact["llm_usage"]["calls"] >= len(runner.WORKFLOW_STEP_IDS)
-    assert run_artifact["action_ledger"]["budget"] == 1000
-    assert run_artifact["action_ledger"]["used"] >= len(runner.WORKFLOW_STEP_IDS)
+    assert run_artifact["llm_usage"]["calls"] >= len(run_artifact["actor_review"]["llm_actor_ids"])
+    assert run_artifact["action_ledger"]["budget"] == 80
+    assert run_artifact["action_ledger"]["used"] >= len(run_artifact["actor_review"]["llm_actor_ids"])
     assert any(action["action_type"] == "financial_tool" for action in run_artifact["action_ledger"]["actions"])
-    assert json.loads((outputs / "final_artifact.json").read_text(encoding="utf-8"))["action_ledger"]["budget"] == 1000
-    assert json.loads((outputs / "action_ledger.json").read_text(encoding="utf-8"))["budget"] == 1000
+    assert json.loads((outputs / "final_artifact.json").read_text(encoding="utf-8"))["action_ledger"]["budget"] == 80
+    assert json.loads((outputs / "action_ledger.json").read_text(encoding="utf-8"))["budget"] == 80
     assert any(item["kind"] == "final_artifact_json" for item in run_artifact["output_files"])
     assert run_artifact["active_knowledge"]["path"] == "knowledge/startup_research_playbook.md"
     assert run_artifact["active_knowledge"]["sha256"]
     assert set(run_artifact["active_knowledge"]["method_memory_hooks"]) == METHOD_IDS
     assert run_artifact["knowledge_rag"]["status"] == "ready"
     assert run_artifact["knowledge_rag"]["index_summary"]["indexed_count"] == 3
-    assert fake_llm.calls >= len(runner.WORKFLOW_STEP_IDS)
+    assert fake_llm.calls >= len(run_artifact["actor_review"]["llm_actor_ids"])
+    assert {
+        actor_id
+        for actor_id, finding in run_artifact["actor_findings"].items()
+        if finding.get("status") == "not_llm_reviewed"
+    } == set(runner.WORKFLOW_STEP_IDS) - set(run_artifact["actor_review"]["llm_actor_ids"])
+    trace_path = tmp_path / "vc-unit" / "llm_rag_trace.jsonl"
+    assert trace_path.exists()
+    trace_text = trace_path.read_text(encoding="utf-8")
+    assert "VC Startup Research And Method Playbook" not in trace_text
+    assert "observability_operation_started" in trace_text
+    assert "observability_operation_completed" in trace_text
     prompt_payload = next(prompt["user"] for prompt in fake_llm.prompts if "VC Startup Research And Method Playbook" in prompt["user"])
     assert "VC Startup Research And Method Playbook" in prompt_payload
     for expected in (
@@ -1003,9 +1229,10 @@ def test_actor_review_failure_does_not_fail_report_outputs(tmp_path):
     assert (outputs / "alpha-ai" / "analysis.md").exists()
     assert (outputs / "company_index.json").exists()
     assert artifact["actor_review_warnings"][0]["status"] == "actor_review_unavailable"
-    assert artifact["actor_review_warnings"][0]["affected_actor_count"] == len(runner.WORKFLOW_STEP_IDS)
+    assert artifact["actor_review_warnings"][0]["affected_actor_count"] == len(artifact["actor_review"]["llm_actor_ids"])
     assert set(artifact["actor_findings"]) == set(runner.WORKFLOW_STEP_IDS)
-    assert failing_llm.calls >= len(runner.WORKFLOW_STEP_IDS)
+    assert failing_llm.calls == len(artifact["actor_review"]["llm_actor_ids"])
+    assert any(finding.get("status") == "not_llm_reviewed" for finding in artifact["actor_findings"].values())
 
 
 def test_runtime_step_entrypoint_runs_report_factory_once(tmp_path):

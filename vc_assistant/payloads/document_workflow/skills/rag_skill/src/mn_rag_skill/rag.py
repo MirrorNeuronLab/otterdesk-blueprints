@@ -29,6 +29,102 @@ DEFAULT_SENTENCE_TRANSFORMER_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 DEFAULT_VECTOR_DIM = 1024
 SUPPORTED_KNOWLEDGE_SUFFIXES = {".md", ".txt", ".json", ".yaml", ".yml"}
 RAG_STATE_FILENAME = ".mn-rag-state.json"
+GENERATED_RAG_DIR_NAMES = {
+    "__pycache__",
+    ".cache",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".git",
+    ".venv",
+    "artifacts",
+    "cache",
+    "checkpoints",
+    "context_engine",
+    "events",
+    "log",
+    "logs",
+    "memory",
+    "metrics",
+    "monitoring",
+    "observability",
+    "output",
+    "outputs",
+    "run",
+    "run_store",
+    "runs",
+    "state",
+    "states",
+    "temp",
+    "tmp",
+    "trace",
+    "traces",
+}
+GENERATED_RAG_FILE_NAMES = {
+    RAG_STATE_FILENAME,
+    "default.json",
+    "events.json",
+    "events.jsonl",
+    "llm_rag_trace.json",
+    "llm_rag_trace.jsonl",
+    "logs.json",
+    "logs.jsonl",
+    "manifest.json",
+    "monitor_state.json",
+    "observability.json",
+    "observability.jsonl",
+    "overwrite.json",
+    "resources.json",
+    "resources.jsonl",
+    "run_manifest.json",
+    "run_state.json",
+    "scenario.json",
+    "stderr.json",
+    "stderr.jsonl",
+    "stdout.json",
+    "stdout.jsonl",
+    "trace.json",
+    "trace.jsonl",
+    "watch_state.json",
+}
+GENERATED_RAG_SUFFIXES = {
+    ".db",
+    ".db-shm",
+    ".db-wal",
+    ".jsonl",
+    ".lock",
+    ".log",
+    ".pyc",
+    ".pyo",
+    ".sqlite",
+    ".sqlite3",
+    ".tmp",
+}
+GENERATED_RAG_FILE_PREFIXES = (
+    "events.",
+    "logs.",
+    "metrics.",
+    "observability.",
+    "resources.",
+    "runtime.",
+    "stderr.",
+    "stdout.",
+    "trace.",
+)
+GENERATED_RAG_FILE_SUFFIXES = (
+    "-events.json",
+    "-logs.json",
+    "-state.json",
+    "-trace.json",
+    ".events.json",
+    ".logs.json",
+    ".state.json",
+    ".trace.json",
+    "_events.json",
+    "_logs.json",
+    "_state.json",
+    "_trace.json",
+)
 
 
 class RagError(RuntimeError):
@@ -438,13 +534,41 @@ def _section_id(heading: str) -> str:
     return _safe_token(heading.lower().replace(" ", "_"))[:80]
 
 
+def _is_generated_or_runtime_path(rel_path: Path) -> bool:
+    parts = rel_path.parts
+    if not parts:
+        return True
+    lowered_parts = [part.lower() for part in parts]
+    if any(part.startswith(".") for part in parts):
+        return True
+    if any(part in GENERATED_RAG_DIR_NAMES for part in lowered_parts[:-1]):
+        return True
+    name = lowered_parts[-1]
+    if name in GENERATED_RAG_FILE_NAMES:
+        return True
+    if Path(name).suffix.lower() in GENERATED_RAG_SUFFIXES:
+        return True
+    if any(name.startswith(prefix) for prefix in GENERATED_RAG_FILE_PREFIXES):
+        return True
+    return any(name.endswith(suffix) for suffix in GENERATED_RAG_FILE_SUFFIXES)
+
+
+def _is_rag_knowledge_file(root: Path, path: Path, *, supported_only: bool) -> bool:
+    if not path.is_file():
+        return False
+    rel_path = path.relative_to(root)
+    if _is_generated_or_runtime_path(rel_path):
+        return False
+    return not supported_only or path.suffix.lower() in SUPPORTED_KNOWLEDGE_SUFFIXES
+
+
 def _iter_knowledge_files(knowledge_dir: Path) -> Iterable[Path]:
     if not knowledge_dir.exists():
         return []
     return (
         path
         for path in sorted(knowledge_dir.rglob("*"))
-        if path.is_file() and path.name != RAG_STATE_FILENAME and path.suffix.lower() in SUPPORTED_KNOWLEDGE_SUFFIXES
+        if _is_rag_knowledge_file(knowledge_dir, path, supported_only=True)
     )
 
 
@@ -454,7 +578,7 @@ def _iter_all_knowledge_files(knowledge_dir: Path) -> Iterable[Path]:
     return (
         path
         for path in sorted(knowledge_dir.rglob("*"))
-        if path.is_file() and path.name != RAG_STATE_FILENAME and not any(part.startswith(".") for part in path.relative_to(knowledge_dir).parts)
+        if _is_rag_knowledge_file(knowledge_dir, path, supported_only=False)
     )
 
 

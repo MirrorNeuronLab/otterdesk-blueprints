@@ -15,6 +15,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 try:
     from mn_blueprint_support import start_agent_beacon_thread
@@ -112,10 +113,18 @@ skill_resolve_blueprint_knowledge_dir = None
 skill_retrieve_knowledge_rag_context = None
 skill_require_ready_knowledge_rag = None
 EVENT_LOCK = threading.Lock()
+TRACE_LOCK = threading.Lock()
 SKILL_LOAD_LOCK = threading.Lock()
 NON_SUBSTANTIVE_SOURCE_STATUSES = {"planned", "configured_reference", "disabled", "skill_unavailable", "failed", "blocked", "warning", "error", "budget_exhausted"}
 WARNING_SOURCE_STATUSES = {"failed", "blocked", "skill_unavailable", "warning", "budget_exhausted"}
 DEFAULT_ACTION_BUDGET = 1000
+DEFAULT_OBSERVABILITY_HEARTBEAT_SECONDS = 10.0
+DEFAULT_ACTOR_REVIEW_LLM_ACTOR_IDS = [
+    "research_reconciler",
+    "score_consistency_auditor",
+    "company_report_writer",
+    "batch_index_writer",
+]
 KNOWLEDGE_PLAYBOOK_RELATIVE_PATH = "knowledge/startup_research_playbook.md"
 DEFAULT_AGENTIC_RESEARCH_AGENT_IDS = [
     "research_planner",
@@ -644,6 +653,28 @@ def prepare_knowledge_rag(
     run_dir: Path | None = None,
 ) -> dict[str, Any]:
     raw = resolved_config.get("knowledge_rag") if isinstance(resolved_config.get("knowledge_rag"), dict) else {}
+    if fake_llm_mode_enabled(resolved_config):
+        return {
+            "enabled": False,
+            "status": "disabled_for_fake_llm",
+            "required": False,
+            "warnings": [
+                {
+                    "kind": "knowledge_rag",
+                    "status": "disabled_for_fake_llm",
+                    "message": "Knowledge RAG embedding calls are disabled during explicit fake-LLM smoke runs.",
+                }
+            ],
+            "config": {
+                "namespace": raw.get("namespace", ""),
+                "embedding_provider": raw.get("embedding_provider", ""),
+                "embedding_model": raw.get("embedding_model", ""),
+                "top_k": raw.get("top_k", 5),
+                "max_context_chars": raw.get("max_context_chars", 6000),
+                "index_on_startup": raw.get("index_on_startup", True),
+                "required": False,
+            },
+        }
     if not bool(raw.get("enabled", True)):
         return {
             "enabled": False,
@@ -721,17 +752,28 @@ def require_ready_rag(
     company: str = "",
     context: dict[str, Any] | None = None,
     min_citations: int = 0,
+    run_dir: Path | None = None,
 ) -> dict[str, Any] | None:
     if not knowledge_rag_is_required(knowledge_rag):
         return context if context is not None else knowledge_rag
     _load_rag_skill()
-    return skill_require_ready_knowledge_rag(
-        knowledge_rag,
+    with observed_operation(
+        run_dir,
+        phase="knowledge_rag",
+        operation="require_ready",
         stage=stage,
         company=company,
-        context=context,
         min_citations=min_citations,
-    )
+        citation_count=len((context or {}).get("citations") or []) if isinstance(context, dict) else None,
+        context_chars=len(str((context or {}).get("context") or "")) if isinstance(context, dict) else None,
+    ):
+        return skill_require_ready_knowledge_rag(
+            knowledge_rag,
+            stage=stage,
+            company=company,
+            context=context,
+            min_citations=min_citations,
+        )
 
 
 def active_knowledge_for_prompt(active_knowledge: dict[str, Any], knowledge_rag: dict[str, Any] | None) -> dict[str, Any]:
@@ -749,16 +791,44 @@ def retrieve_knowledge_rag_context(
     query: str,
     stage: str = "",
     company: str = "",
+    run_dir: Path | None = None,
 ) -> dict[str, Any]:
+    metadata = {
+        "stage": stage,
+        "company": company,
+        "query_hash": stable_text_hash(query),
+        "query_chars": len(query or ""),
+    }
     try:
         _load_rag_skill()
-        return skill_retrieve_knowledge_rag_context(
-            knowledge_rag=knowledge_rag,
-            query=query,
-            stage=stage,
-            company=company,
-        )
+        with observed_operation(run_dir, phase="knowledge_rag", operation="retrieve", **metadata) as op:
+            context = skill_retrieve_knowledge_rag_context(
+                knowledge_rag=knowledge_rag,
+                query=query,
+                stage=stage,
+                company=company,
+            )
+            if isinstance(context, dict):
+                op.close(
+                    "completed",
+                    rag_status=context.get("status"),
+                    citation_count=len(context.get("citations") or []),
+                    context_chars=len(str(context.get("context") or "")),
+                )
+            return context
     except Exception as exc:
+        append_observation_record(
+            run_dir,
+            "observability_operation_failed",
+            {
+                "phase": "knowledge_rag",
+                "operation": "retrieve",
+                "status": "failed",
+                "error": str(exc),
+                "error_type": type(exc).__name__,
+                **metadata,
+            },
+        )
         return {
             "enabled": bool((knowledge_rag or {}).get("enabled")),
             "status": "knowledge_rag_failed",
@@ -930,16 +1000,17 @@ class LlmCallLimiter:
         self._interval_lock = threading.Lock()
         self._next_allowed_at = 0.0
 
-    def acquire(self) -> None:
+    def acquire(self) -> float:
         self._semaphore.acquire()
         if self.min_interval_seconds <= 0:
-            return
+            return 0.0
         with self._interval_lock:
             now = time.monotonic()
             wait_seconds = max(0.0, self._next_allowed_at - now)
             self._next_allowed_at = max(now, self._next_allowed_at) + self.min_interval_seconds
         if wait_seconds > 0:
             time.sleep(wait_seconds)
+        return wait_seconds
 
     def release(self) -> None:
         self._semaphore.release()
@@ -954,10 +1025,136 @@ class LlmCallLimiter:
 def build_llm_call_limiter(config: dict[str, Any]) -> LlmCallLimiter:
     backpressure = config.get("backpressure") if isinstance(config.get("backpressure"), dict) else {}
     llm_config = backpressure.get("llm") if isinstance(backpressure.get("llm"), dict) else {}
+    if fake_llm_mode_enabled(config):
+        return LlmCallLimiter(
+            max_concurrent_calls=bounded_int(llm_config.get("max_concurrent_calls"), default=8, minimum=1, maximum=8),
+            min_interval_seconds=0.0,
+        )
     return LlmCallLimiter(
         max_concurrent_calls=bounded_int(llm_config.get("max_concurrent_calls"), default=1, minimum=1, maximum=8),
         min_interval_seconds=float(llm_config.get("min_interval_seconds") or 0.0),
     )
+
+
+def append_event(run_dir: Path, event_type: str, payload: dict[str, Any]) -> None:
+    record = {"type": event_type, "timestamp": utc_now_iso(), "payload": payload}
+    with EVENT_LOCK:
+        with (run_dir / "events.jsonl").open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(record, sort_keys=True) + "\n")
+
+
+def stable_text_hash(value: Any) -> str:
+    return hashlib.sha256(str(value or "").encode("utf-8")).hexdigest()[:16]
+
+
+def _safe_observation_value(value: Any, *, depth: int = 0) -> Any:
+    if depth > 4:
+        return "[truncated]"
+    if isinstance(value, dict):
+        cleaned = {}
+        for key, item in value.items():
+            key_text = str(key)
+            if key_text in {"prompt", "system_prompt", "user_prompt", "response", "context", "raw_text", "document_text", "text", "content"}:
+                cleaned[f"{key_text}_redacted"] = True
+                continue
+            cleaned[key_text] = _safe_observation_value(item, depth=depth + 1)
+        return cleaned
+    if isinstance(value, list):
+        return [_safe_observation_value(item, depth=depth + 1) for item in value[:20]]
+    if isinstance(value, str):
+        return value if len(value) <= 1000 else value[:1000] + "...[truncated]"
+    return value
+
+
+def observation_payload(**metadata: Any) -> dict[str, Any]:
+    return _safe_observation_value({key: value for key, value in metadata.items() if value is not None})
+
+
+def append_observation_record(run_dir: Path | None, event_type: str, payload: dict[str, Any]) -> None:
+    if run_dir is None:
+        return
+    record = {"type": event_type, "timestamp": utc_now_iso(), "payload": observation_payload(**payload)}
+    with TRACE_LOCK:
+        with (run_dir / "llm_rag_trace.jsonl").open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(record, sort_keys=True) + "\n")
+    append_event(run_dir, event_type, record["payload"])
+
+
+class ObservedOperation:
+    def __init__(
+        self,
+        run_dir: Path | None,
+        *,
+        phase: str,
+        operation: str,
+        heartbeat_seconds: float = DEFAULT_OBSERVABILITY_HEARTBEAT_SECONDS,
+        metadata: dict[str, Any] | None = None,
+    ) -> None:
+        self.run_dir = run_dir
+        self.phase = phase
+        self.operation = operation
+        self.heartbeat_seconds = max(float(heartbeat_seconds or 0), 0.0)
+        self.operation_id = f"{slugify(phase)}-{slugify(operation)}-{uuid.uuid4().hex[:8]}"
+        self.metadata = dict(metadata or {})
+        self.started_at_monotonic = 0.0
+        self._stop_event = threading.Event()
+        self._heartbeat_thread: threading.Thread | None = None
+        self._closed = False
+
+    def __enter__(self) -> "ObservedOperation":
+        self.started_at_monotonic = time.monotonic()
+        append_observation_record(self.run_dir, "observability_operation_started", self._payload(status="started"))
+        if self.run_dir is not None and self.heartbeat_seconds > 0:
+            self._heartbeat_thread = threading.Thread(target=self._heartbeat_loop, name=f"vc-observe-{self.operation_id}", daemon=True)
+            self._heartbeat_thread.start()
+        return self
+
+    def _heartbeat_loop(self) -> None:
+        while not self._stop_event.wait(self.heartbeat_seconds):
+            append_observation_record(self.run_dir, "observability_operation_heartbeat", self._payload(status="running"))
+
+    def _payload(self, *, status: str, **metadata: Any) -> dict[str, Any]:
+        elapsed_ms = round(max(time.monotonic() - self.started_at_monotonic, 0.0) * 1000, 2) if self.started_at_monotonic else 0.0
+        return {
+            "operation_id": self.operation_id,
+            "phase": self.phase,
+            "operation": self.operation,
+            "status": status,
+            "elapsed_ms": elapsed_ms,
+            **self.metadata,
+            **metadata,
+        }
+
+    def heartbeat(self, **metadata: Any) -> None:
+        append_observation_record(self.run_dir, "observability_operation_heartbeat", self._payload(status="running", **metadata))
+
+    def close(self, status: str = "completed", **metadata: Any) -> None:
+        if self._closed:
+            return
+        self._closed = True
+        self._stop_event.set()
+        if self._heartbeat_thread is not None:
+            self._heartbeat_thread.join(timeout=0.2)
+        event_type = "observability_operation_completed" if status == "completed" else "observability_operation_failed"
+        append_observation_record(self.run_dir, event_type, self._payload(status=status, **metadata))
+
+    def __exit__(self, exc_type: Any, exc: BaseException | None, traceback: Any) -> bool:
+        if exc is not None:
+            self.close("failed", error=str(exc), error_type=type(exc).__name__)
+        else:
+            self.close("completed")
+        return False
+
+
+def observed_operation(
+    run_dir: Path | None,
+    *,
+    phase: str,
+    operation: str,
+    heartbeat_seconds: float = DEFAULT_OBSERVABILITY_HEARTBEAT_SECONDS,
+    **metadata: Any,
+) -> ObservedOperation:
+    return ObservedOperation(run_dir, phase=phase, operation=operation, heartbeat_seconds=heartbeat_seconds, metadata=metadata)
 
 
 class BudgetedLLM:
@@ -968,69 +1165,110 @@ class BudgetedLLM:
         *,
         require_live: bool = False,
         limiter: LlmCallLimiter | None = None,
+        run_dir: Path | None = None,
+        heartbeat_seconds: float = DEFAULT_OBSERVABILITY_HEARTBEAT_SECONDS,
     ) -> None:
         self._llm = llm
         self._action_budget = action_budget
         self._require_live = require_live
         self._limiter = limiter or LlmCallLimiter()
+        self._run_dir = run_dir
+        self._heartbeat_seconds = heartbeat_seconds
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._llm, name)
 
     def generate_json(self, *, system_prompt: str, user_prompt: str, fallback: dict[str, Any]) -> dict[str, Any]:
         actor_id = str(fallback.get("actor_id") or system_prompt or "actor_review")
-        action = self._action_budget.start(
-            action_type="llm_call",
-            stage=actor_id,
-            tool="actor_llm",
-            metadata={"model": getattr(self._llm, "model", "unknown"), "provider": getattr(self._llm, "provider", "unknown")},
-        )
-        if action is None:
-            if self._require_live:
-                raise RuntimeError("Required live LLM call could not run because the VC Assistant action budget was exhausted.")
-            response = dict(fallback)
-            response["summary"] = response.get("summary") or "Actor review skipped because the VC Assistant action budget was exhausted."
-            response.setdefault("findings", [])
-            response.setdefault("risks", [])
-            response["provider"] = "budget_exhausted"
-            response["model"] = getattr(self._llm, "model", "unknown")
-            response["budget_status"] = "budget_exhausted"
+        provider_name = getattr(self._llm, "provider", "unknown")
+        model_name = getattr(self._llm, "model", "unknown")
+        prompt_metadata = {
+            "agent_id": actor_id,
+            "provider": provider_name,
+            "model": model_name,
+            "system_prompt_chars": len(system_prompt or ""),
+            "user_prompt_chars": len(user_prompt or ""),
+            "prompt_hash": stable_text_hash(f"{system_prompt}\n{user_prompt}"),
+            "budget_before": self._action_budget.summary(include_actions=False),
+        }
+        with observed_operation(
+            self._run_dir,
+            phase="llm_call",
+            operation="actor_llm.generate_json",
+            heartbeat_seconds=self._heartbeat_seconds,
+            **prompt_metadata,
+        ) as op:
+            action = self._action_budget.start(
+                action_type="llm_call",
+                stage=actor_id,
+                tool="actor_llm",
+                metadata={**prompt_metadata, "budget_before": None},
+            )
+            if action is None:
+                op.close("failed", budget_status="budget_exhausted", budget_after=self._action_budget.summary(include_actions=False))
+                if self._require_live:
+                    raise RuntimeError("Required live LLM call could not run because the VC Assistant action budget was exhausted.")
+                response = dict(fallback)
+                response["summary"] = response.get("summary") or "Actor review skipped because the VC Assistant action budget was exhausted."
+                response.setdefault("findings", [])
+                response.setdefault("risks", [])
+                response["provider"] = "budget_exhausted"
+                response["model"] = model_name
+                response["budget_status"] = "budget_exhausted"
+                return response
+            acquired = False
+            limiter_wait_seconds = 0.0
+            try:
+                limiter_wait_seconds = self._limiter.acquire()
+                acquired = True
+                op.heartbeat(limiter_wait_seconds=round(limiter_wait_seconds, 3), status_detail="calling_model")
+                response = self._llm.generate_json(system_prompt=system_prompt, user_prompt=user_prompt, fallback=fallback)
+            except Exception as exc:
+                self._action_budget.complete(action, "failed", {"error": str(exc), "limiter_wait_seconds": round(limiter_wait_seconds, 3)})
+                op.close(
+                    "failed",
+                    error=str(exc),
+                    error_type=type(exc).__name__,
+                    limiter_wait_seconds=round(limiter_wait_seconds, 3),
+                    budget_after=self._action_budget.summary(include_actions=False),
+                )
+                if self._require_live:
+                    raise RuntimeError(f"Required live LLM call failed for {actor_id}: {exc}") from exc
+                response = dict(fallback)
+                response["summary"] = response.get("summary") or "Actor review unavailable; deterministic VC report artifacts were preserved."
+                response.setdefault("findings", [])
+                response.setdefault("risks", [])
+                response["provider"] = "actor_review_unavailable"
+                response["model"] = model_name
+                response["error"] = str(exc)
+                response["budget_status"] = "llm_call_failed"
+                return response
+            finally:
+                if acquired:
+                    self._limiter.release()
+            provider = str(response.get("provider") or provider_name) if isinstance(response, dict) else ""
+            budget_status = str(response.get("budget_status") or "") if isinstance(response, dict) else ""
+            response_chars = len(json.dumps(response, default=str)) if isinstance(response, dict) else len(str(response))
+            if self._require_live and (not provider_is_live(provider) or budget_status in {"budget_exhausted", "llm_call_failed"}):
+                self._action_budget.complete(action, "failed", {"provider": provider, "budget_status": budget_status, "limiter_wait_seconds": round(limiter_wait_seconds, 3)})
+                op.close(
+                    "failed",
+                    provider=provider,
+                    budget_status=budget_status or "non_live_provider",
+                    response_chars=response_chars,
+                    limiter_wait_seconds=round(limiter_wait_seconds, 3),
+                    budget_after=self._action_budget.summary(include_actions=False),
+                )
+                raise RuntimeError(f"Required live LLM call for {actor_id} returned non-live provider '{provider or 'unknown'}'.")
+            self._action_budget.complete(action, "completed", {"provider": provider, "response_chars": response_chars, "limiter_wait_seconds": round(limiter_wait_seconds, 3)})
+            op.close(
+                "completed",
+                provider=provider,
+                response_chars=response_chars,
+                limiter_wait_seconds=round(limiter_wait_seconds, 3),
+                budget_after=self._action_budget.summary(include_actions=False),
+            )
             return response
-        acquired = False
-        try:
-            self._limiter.acquire()
-            acquired = True
-            response = self._llm.generate_json(system_prompt=system_prompt, user_prompt=user_prompt, fallback=fallback)
-        except Exception as exc:
-            self._action_budget.complete(action, "failed", {"error": str(exc)})
-            if self._require_live:
-                raise RuntimeError(f"Required live LLM call failed for {actor_id}: {exc}") from exc
-            response = dict(fallback)
-            response["summary"] = response.get("summary") or "Actor review unavailable; deterministic VC report artifacts were preserved."
-            response.setdefault("findings", [])
-            response.setdefault("risks", [])
-            response["provider"] = "actor_review_unavailable"
-            response["model"] = getattr(self._llm, "model", "unknown")
-            response["error"] = str(exc)
-            response["budget_status"] = "llm_call_failed"
-            return response
-        finally:
-            if acquired:
-                self._limiter.release()
-        provider = str(response.get("provider") or getattr(self._llm, "provider", "unknown")) if isinstance(response, dict) else ""
-        budget_status = str(response.get("budget_status") or "") if isinstance(response, dict) else ""
-        if self._require_live and (not provider_is_live(provider) or budget_status in {"budget_exhausted", "llm_call_failed"}):
-            self._action_budget.complete(action, "failed", {"provider": provider, "budget_status": budget_status})
-            raise RuntimeError(f"Required live LLM call for {actor_id} returned non-live provider '{provider or 'unknown'}'.")
-        self._action_budget.complete(action, "completed")
-        return response
-
-
-def append_event(run_dir: Path, event_type: str, payload: dict[str, Any]) -> None:
-    record = {"type": event_type, "timestamp": utc_now_iso(), "payload": payload}
-    with EVENT_LOCK:
-        with (run_dir / "events.jsonl").open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(record, sort_keys=True) + "\n")
 
 
 def bounded_int(value: Any, *, default: int, minimum: int = 1, maximum: int = 32) -> int:
@@ -1044,6 +1282,36 @@ def bounded_int(value: Any, *, default: int, minimum: int = 1, maximum: int = 32
 def build_action_budget(config: dict[str, Any]) -> ActionBudget:
     research_budget = config.get("research_budget") if isinstance(config.get("research_budget"), dict) else {}
     return ActionBudget(default_actions=bounded_int(research_budget.get("default_actions"), default=DEFAULT_ACTION_BUDGET, minimum=0, maximum=100000))
+
+
+def env_flag_enabled(name: str) -> bool:
+    value = os.environ.get(name)
+    return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def value_is_fake_llm(value: Any) -> bool:
+    return str(value or "").strip().lower() in {"fake", "mock", "stub"}
+
+
+def explicit_fake_llm_mode_enabled() -> bool:
+    if any(env_flag_enabled(name) for name in ("MN_FAKE_LLM", "MN_BLUEPRINT_FAKE_LLM", "OTTERDESK_FAKE_LLM", "MN_USE_FAKE_LLM")):
+        return True
+    return any(
+        value_is_fake_llm(os.environ.get(name))
+        for name in ("MN_BLUEPRINT_LLM_MODE", "MN_LLM_MODE", "MN_LLM_PROVIDER", "MN_BLUEPRINT_LLM_PROVIDER")
+    )
+
+
+def fake_llm_mode_enabled(config: dict[str, Any]) -> bool:
+    if explicit_fake_llm_mode_enabled():
+        return True
+    llm_config = config.get("llm") if isinstance(config.get("llm"), dict) else {}
+    config_name = str(llm_config.get("default_config") or "primary")
+    configs = llm_config.get("configs") if isinstance(llm_config.get("configs"), dict) else {}
+    primary = configs.get(config_name) if isinstance(configs.get(config_name), dict) else {}
+    if any(value_is_fake_llm(value) for value in (llm_config.get("mode"), llm_config.get("provider"), primary.get("mode"), primary.get("provider"))):
+        return True
+    return quick_test_mode_enabled(config) and bool(llm_config.get("quick_test_uses_fake", True))
 
 
 def call_with_supported_kwargs(func: Any, **kwargs: Any) -> Any:
@@ -1084,7 +1352,7 @@ def _configured_llm_env(config: dict[str, Any]) -> dict[str, str]:
     config_name = str(llm_config.get("default_config") or "primary")
     configs = llm_config.get("configs") if isinstance(llm_config.get("configs"), dict) else {}
     primary = configs.get(config_name) if isinstance(configs.get(config_name), dict) else {}
-    if quick_test_mode_enabled(config) and bool(llm_config.get("quick_test_uses_fake", True)):
+    if fake_llm_mode_enabled(config):
         return {
             "MN_BLUEPRINT_LLM_MODE": "fake",
             "MN_LLM_PROVIDER": "fake",
@@ -1131,7 +1399,7 @@ def quick_test_mode_enabled(config: dict[str, Any]) -> bool:
 
 def llm_requires_live(config: dict[str, Any]) -> bool:
     llm_config = config.get("llm") if isinstance(config.get("llm"), dict) else {}
-    if quick_test_mode_enabled(config):
+    if fake_llm_mode_enabled(config) or quick_test_mode_enabled(config):
         return False
     value = llm_config.get("require_live", False)
     return bool(value) if isinstance(value, bool) else str(value or "").strip().lower() in {"1", "true", "yes", "on"}
@@ -1153,6 +1421,13 @@ def provider_is_live(provider: str) -> bool:
 def slugify(value: str) -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
     return slug or "unknown-company"
+
+
+def host_from_url(value: str) -> str:
+    try:
+        return urlparse(value).netloc[:200]
+    except Exception:
+        return ""
 
 
 def redactor(text: str) -> str:
@@ -2312,9 +2587,18 @@ def agentic_research_config(config: dict[str, Any]) -> dict[str, Any]:
     return {
         "enabled": bool(raw.get("enabled", True)),
         "agent_ids": [str(item) for item in (raw.get("agent_ids") or DEFAULT_AGENTIC_RESEARCH_AGENT_IDS)],
-        "max_iterations_per_agent": bounded_int(raw.get("max_iterations_per_agent"), default=20, minimum=1, maximum=100),
-        "max_tool_calls_per_agent": bounded_int(raw.get("max_tool_calls_per_agent"), default=50, minimum=0, maximum=500),
+        "max_iterations_per_agent": bounded_int(raw.get("max_iterations_per_agent"), default=1, minimum=1, maximum=100),
+        "max_tool_calls_per_agent": bounded_int(raw.get("max_tool_calls_per_agent"), default=2, minimum=0, maximum=500),
         "allowed_tools": [str(item) for item in (raw.get("allowed_tools") or DEFAULT_AGENTIC_RESEARCH_TOOLS)],
+    }
+
+
+def actor_review_config(config: dict[str, Any]) -> dict[str, Any]:
+    raw = config.get("actor_review") if isinstance(config.get("actor_review"), dict) else {}
+    selected = raw.get("llm_actor_ids") if isinstance(raw.get("llm_actor_ids"), list) else DEFAULT_ACTOR_REVIEW_LLM_ACTOR_IDS
+    return {
+        "llm_actor_ids": [str(item) for item in selected],
+        "max_context_chars": bounded_int(raw.get("max_context_chars"), default=12000, minimum=2000, maximum=50000),
     }
 
 
@@ -2557,6 +2841,22 @@ def run_agentic_research_stage(
     allowed_tools = set(agentic.get("allowed_tools") or DEFAULT_AGENTIC_RESEARCH_TOOLS)
     max_iterations = int(agentic.get("max_iterations_per_agent") or 20)
     max_tool_calls = int(agentic.get("max_tool_calls_per_agent") or 50)
+    stage_operation_id = f"agentic-research-{slugify(stage)}-{uuid.uuid4().hex[:8]}"
+    stage_started = time.monotonic()
+    append_observation_record(
+        run_dir,
+        "observability_operation_started",
+        {
+            "operation_id": stage_operation_id,
+            "phase": "agentic_research",
+            "operation": stage,
+            "status": "started",
+            "company": company,
+            "agent_id": stage,
+            "max_iterations": max_iterations,
+            "max_tool_calls": max_tool_calls,
+        },
+    )
     rag_query = " ".join(
         item
         for item in [
@@ -2567,8 +2867,8 @@ def run_agentic_research_stage(
         ]
         if item
     )
-    rag_context = retrieve_knowledge_rag_context(knowledge_rag=knowledge_rag, query=rag_query, stage=stage, company=company)
-    require_ready_rag(knowledge_rag, stage=stage, company=company, context=rag_context, min_citations=1)
+    rag_context = retrieve_knowledge_rag_context(knowledge_rag=knowledge_rag, query=rag_query, stage=stage, company=company, run_dir=run_dir)
+    require_ready_rag(knowledge_rag, stage=stage, company=company, context=rag_context, min_citations=1, run_dir=run_dir)
     observations: list[dict[str, Any]] = []
     executed_tool_calls = 0
     trace_record = {
@@ -2644,6 +2944,20 @@ def run_agentic_research_stage(
             trace_record["budget_end"] = action_budget.summary(include_actions=False) if action_budget else {}
             if trace is not None:
                 trace.append(trace_record)
+            append_observation_record(
+                run_dir,
+                "observability_operation_failed",
+                {
+                    "operation_id": stage_operation_id,
+                    "phase": "agentic_research",
+                    "operation": stage,
+                    "status": "failed",
+                    "company": company,
+                    "agent_id": stage,
+                    "error": str(exc),
+                    "elapsed_ms": round((time.monotonic() - stage_started) * 1000, 2),
+                },
+            )
             raise
         tool_calls = decision.get("tool_calls") if isinstance(decision.get("tool_calls"), list) else []
         iteration_record = {
@@ -2682,7 +2996,19 @@ def run_agentic_research_stage(
                 iteration_record["executed_tool_calls"].append({"tool_call_id": tool_call_id, "tool": "finish", "status": "finished", "reason": str(tool_call.get("reason") or decision.get("stop_reason") or "finish")})
                 continue
             append_event(run_dir, "tool_call_started", {"tool": tool_call.get("tool"), "agent_id": stage, "tool_call_id": tool_call_id, "company": company}) if run_dir else None
-            result = _execute_agent_tool_call(sources=sources, company=company, stage=stage, plan=plan, internet=internet, run_dir=run_dir, action_budget=action_budget, tool_call=tool_call, tool_call_id=tool_call_id)
+            with observed_operation(
+                run_dir,
+                phase="public_tool_call",
+                operation=str(tool_call.get("tool") or "unknown_tool"),
+                company=company,
+                agent_id=stage,
+                tool_call_id=tool_call_id,
+                query_hash=stable_text_hash(tool_call.get("query") or ""),
+                query_chars=len(str(tool_call.get("query") or "")),
+                url_host=host_from_url(str(tool_call.get("url") or "")) if tool_call.get("url") else "",
+            ) as op:
+                result = _execute_agent_tool_call(sources=sources, company=company, stage=stage, plan=plan, internet=internet, run_dir=run_dir, action_budget=action_budget, tool_call=tool_call, tool_call_id=tool_call_id)
+                op.close("completed" if result.get("status") in {"executed", "finished"} else "failed", tool_status=result.get("status"), source_count=result.get("source_count"))
             executed_tool_calls += 1
             observation = {"tool_call_id": tool_call_id, "tool": tool_call.get("tool"), "result": result}
             observations.append(observation)
@@ -2702,6 +3028,22 @@ def run_agentic_research_stage(
     trace_record["budget_end"] = action_budget.summary(include_actions=False) if action_budget else {}
     if trace is not None:
         trace.append(trace_record)
+    append_observation_record(
+        run_dir,
+        "observability_operation_completed",
+        {
+            "operation_id": stage_operation_id,
+            "phase": "agentic_research",
+            "operation": stage,
+            "status": "completed",
+            "company": company,
+            "agent_id": stage,
+            "stop_reason": trace_record["stop_reason"],
+            "tool_call_count": executed_tool_calls,
+            "elapsed_ms": round((time.monotonic() - stage_started) * 1000, 2),
+            "budget_end": trace_record["budget_end"],
+        },
+    )
     return stage, sources
 
 
@@ -3325,6 +3667,7 @@ def build_actor_review_context(
     active_knowledge: dict[str, Any] | None = None,
     knowledge_rag: dict[str, Any] | None = None,
     actor_rag_context: dict[str, Any] | None = None,
+    max_context_chars: int = 12000,
 ) -> dict[str, Any]:
     company_summaries = []
     for analysis in analyses:
@@ -3364,7 +3707,7 @@ def build_actor_review_context(
                 ),
             },
         })
-    return {
+    context = {
         "blueprint_id": BLUEPRINT_ID,
         "output_type": OUTPUT_TYPE,
         "report_only": True,
@@ -3402,6 +3745,59 @@ def build_actor_review_context(
             "verify source quality labels separate confirmation, conflict, blocked, thin, technical, and market-context signals",
         ],
     }
+    if len(json.dumps(context, default=str)) <= max_context_chars:
+        context["context_json_chars"] = len(json.dumps(context, default=str))
+        return context
+    compact_company_summaries = []
+    for item in company_summaries:
+        compact_company_summaries.append({
+            "company_name": item.get("company_name"),
+            "company_slug": item.get("company_slug"),
+            "processing_status": item.get("processing_status"),
+            "composite_score": item.get("composite_score"),
+            "method_statuses": item.get("method_statuses"),
+            "method_scores": item.get("method_scores"),
+            "missing_methods": item.get("missing_methods"),
+            "audit_warning_count": item.get("audit_warning_count"),
+            "research_reconciliation": item.get("research_reconciliation"),
+            "adaptive_research_plan": item.get("adaptive_research_plan"),
+        })
+    rag_citations = (actor_rag_context or {}).get("citations") if isinstance(actor_rag_context, dict) else []
+    compact_context = {
+        "blueprint_id": BLUEPRINT_ID,
+        "output_type": OUTPUT_TYPE,
+        "report_only": True,
+        "active_knowledge": active_knowledge_reference(active_knowledge or {}) if (active_knowledge or {}).get("content") else (active_knowledge or {}),
+        "knowledge_rag": public_knowledge_rag_state(knowledge_rag),
+        "rag_context": {
+            "enabled": (actor_rag_context or {}).get("enabled") if isinstance(actor_rag_context, dict) else False,
+            "status": (actor_rag_context or {}).get("status") if isinstance(actor_rag_context, dict) else "",
+            "citation_count": len(rag_citations or []),
+            "citations": rag_citations[:5] if isinstance(rag_citations, list) else [],
+        },
+        "judge_rubric": list((active_knowledge or {}).get("judge_rubric") or JUDGE_RUBRIC),
+        "decision_boundary": "reports include scores, assumptions, evidence, and warnings only; users make all investment decisions",
+        "company_count": len(analyses),
+        "processed_company_names": processed_company_names,
+        "skipped_company_names": skipped_company_names,
+        "company_work_queue": context["company_work_queue"],
+        "company_summaries": compact_company_summaries,
+        "research_coverage": {
+            "companies": (research_coverage or {}).get("companies", []),
+            "generated_at": (research_coverage or {}).get("generated_at"),
+        },
+        "method_coverage": method_coverage,
+        "output_files": context["output_files"][:30],
+        "privacy_controls": context["privacy_controls"],
+        "actor_review_focus": context["actor_review_focus"],
+        "truncated_for_actor_review": True,
+    }
+    encoded = json.dumps(compact_context, default=str)
+    if len(encoded) > max_context_chars:
+        compact_context["output_files"] = compact_context["output_files"][:10]
+        compact_context["actor_review_focus"] = compact_context["actor_review_focus"][:1]
+    compact_context["context_json_chars"] = len(json.dumps(compact_context, default=str))
+    return compact_context
 
 
 def actor_prompt_spec(actor_id: str) -> dict[str, Any]:
@@ -3466,6 +3862,24 @@ def default_actor_rag_refs(context: dict[str, Any]) -> list[Any]:
     return citation_ref_values(rag_context)
 
 
+def not_llm_reviewed_actor_finding(actor_id: str, actor_spec: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "actor_id": actor_id,
+        "role": actor_spec.get("role") or actor_id,
+        "responsibilities": actor_spec.get("responsibilities") or [],
+        "summary": "Deterministic workflow artifact was preserved; this actor was not selected for live LLM review in the current throughput profile.",
+        "findings": [],
+        "risks": [],
+        "evidence_gaps": [],
+        "rag_refs": [],
+        "recommended_next_step": "Review deterministic outputs and selected live actor reviews.",
+        "provider": "not_llm_reviewed",
+        "model": "not_llm_reviewed",
+        "status": "not_llm_reviewed",
+        "generated_at": utc_now_iso(),
+    }
+
+
 def run_vc_actor_reviews(
     *,
     config: dict[str, Any],
@@ -3478,9 +3892,16 @@ def run_vc_actor_reviews(
 ) -> dict[str, Any]:
     actor_specs = resolve_actor_specs(config, actor_ids=list(actor_ids))
     findings = state.setdefault("actor_findings", {})
+    review_config = actor_review_config(config)
+    selected_actor_ids = {actor_id for actor_id in review_config["llm_actor_ids"] if actor_id in set(actor_ids)}
     for actor_id in actor_ids:
         actor_id = str(actor_id)
         actor_spec = dict(actor_specs.get(actor_id) or {})
+        if actor_id not in selected_actor_ids:
+            findings[actor_id] = not_llm_reviewed_actor_finding(actor_id, actor_spec)
+            if event_sink is not None:
+                append_event(event_sink, "actor_activity", {"agent_id": actor_id, "status": "not_llm_reviewed", "summary": findings[actor_id]["summary"]})
+            continue
         system_prompt, prompt = build_actor_review_prompt(
             actor_id=actor_id,
             actor_spec=actor_spec,
@@ -3497,7 +3918,16 @@ def run_vc_actor_reviews(
             "recommended_next_step": "Review deterministic outputs manually.",
             "confidence": 0.35,
         }
-        finding = llm.generate_json(system_prompt=system_prompt, user_prompt=json.dumps(prompt, default=str), fallback=fallback)
+        with observed_operation(
+            event_sink,
+            phase="actor_review",
+            operation=actor_id,
+            agent_id=actor_id,
+            prompt_hash=stable_text_hash(json.dumps(prompt, default=str)),
+            prompt_chars=len(json.dumps(prompt, default=str)),
+        ) as op:
+            finding = llm.generate_json(system_prompt=system_prompt, user_prompt=json.dumps(prompt, default=str), fallback=fallback)
+            op.close("completed", provider=finding.get("provider") if isinstance(finding, dict) else "", response_chars=len(json.dumps(finding, default=str)) if isinstance(finding, dict) else len(str(finding)))
         if not isinstance(finding, dict):
             raise RuntimeError(f"Actor {actor_id} returned non-object JSON.")
         if knowledge_rag_is_required(knowledge_rag) and not rag_ref_values(finding):
@@ -3719,12 +4149,6 @@ def run_blueprint(
     action_budget = build_action_budget(resolved_config)
     llm_limiter = build_llm_call_limiter(resolved_config)
     require_live_llm = llm_requires_live(resolved_config)
-    llm = BudgetedLLM(
-        _get_configured_actor_llm(resolved_config, llm_client),
-        action_budget,
-        require_live=require_live_llm,
-        limiter=llm_limiter,
-    )
     payload = dict((resolved_config.get("inputs") or {}).get("payload") or {})
     if inputs:
         payload.update(inputs)
@@ -3732,19 +4156,6 @@ def run_blueprint(
     output_folder = expand_runtime_path(payload.get("output_folder") or (resolved_config.get("outputs") or {}).get("folder_path") or f"outputs/{BLUEPRINT_ID}")
     run_dir = resolve_run_dir(output_folder, run_id, runs_root)
     run_dir.mkdir(parents=True, exist_ok=True)
-    write_json(run_dir / "run.json", {"run_id": run_id, "blueprint_id": BLUEPRINT_ID, "status": "running", "started_at": utc_now_iso()})
-    knowledge_rag = prepare_knowledge_rag(
-        blueprint_dir=blueprint_dir,
-        resolved_config=resolved_config,
-        active_knowledge=active_knowledge,
-        run_dir=run_dir,
-    )
-    try:
-        require_ready_rag(knowledge_rag, stage="batch_indexing")
-    except Exception as exc:
-        append_event(run_dir, "tool_call_failed", {"tool": "knowledge_rag.index", "status": "required_rag_failed", "error": str(exc)})
-        write_json(run_dir / "run.json", {"run_id": run_id, "blueprint_id": BLUEPRINT_ID, "status": "failed", "error": str(exc), "finished_at": utc_now_iso()})
-        raise
     document_folder = (
         resolve_existing_path(payload["document_folder"], [blueprint_dir, blueprint_dir.parent])
         if payload.get("document_folder")
@@ -3756,13 +4167,52 @@ def run_blueprint(
     write_json(run_dir / "config.json", resolved_config)
     write_json(run_dir / "inputs.json", {"payload": payload, "document_folder": str(document_folder)})
     write_json(run_dir / "run.json", {"run_id": run_id, "blueprint_id": BLUEPRINT_ID, "status": "running", "started_at": utc_now_iso()})
+    try:
+        with observed_operation(run_dir, phase="llm_init", operation="actor_llm.init"):
+            llm = BudgetedLLM(
+                _get_configured_actor_llm(resolved_config, llm_client),
+                action_budget,
+                require_live=require_live_llm,
+                limiter=llm_limiter,
+                run_dir=run_dir,
+            )
+    except Exception as exc:
+        append_event(run_dir, "tool_call_failed", {"tool": "actor_llm.init", "status": "required_actor_llm_init_failed", "error": str(exc)})
+        write_json(run_dir / "run.json", {"run_id": run_id, "blueprint_id": BLUEPRINT_ID, "status": "failed", "error": str(exc), "finished_at": utc_now_iso()})
+        raise
+    with observed_operation(
+        run_dir,
+        phase="knowledge_rag",
+        operation="prepare",
+        embedding_provider=((resolved_config.get("knowledge_rag") or {}).get("embedding_provider") if isinstance(resolved_config.get("knowledge_rag"), dict) else ""),
+        embedding_model=((resolved_config.get("knowledge_rag") or {}).get("embedding_model") if isinstance(resolved_config.get("knowledge_rag"), dict) else ""),
+    ) as op:
+        knowledge_rag = prepare_knowledge_rag(
+            blueprint_dir=blueprint_dir,
+            resolved_config=resolved_config,
+            active_knowledge=active_knowledge,
+            run_dir=run_dir,
+        )
+        op.close(
+            "completed",
+            rag_status=knowledge_rag.get("status"),
+            indexed_count=(knowledge_rag.get("index_summary") or {}).get("indexed_count") if isinstance(knowledge_rag.get("index_summary"), dict) else None,
+        )
+    try:
+        require_ready_rag(knowledge_rag, stage="batch_indexing", run_dir=run_dir)
+    except Exception as exc:
+        append_event(run_dir, "tool_call_failed", {"tool": "knowledge_rag.index", "status": "required_rag_failed", "error": str(exc)})
+        write_json(run_dir / "run.json", {"run_id": run_id, "blueprint_id": BLUEPRINT_ID, "status": "failed", "error": str(exc), "finished_at": utc_now_iso()})
+        raise
     append_event(run_dir, "blueprint_phase_started", {"phase": "loading_inputs", "component": BLUEPRINT_ID})
     append_event(run_dir, "blueprint_phase_completed", {"phase": "loading_inputs", "component": BLUEPRINT_ID})
     append_event(run_dir, "watch_cycle_started", {"cycle": 1, "max_cycles": max_cycles})
     append_event(run_dir, "blueprint_phase_started", {"phase": "running_worker", "component": BLUEPRINT_ID})
 
     try:
-        company_records = scan_documents(document_folder, resolved_config)
+        with observed_operation(run_dir, phase="document_intake", operation="scan_documents", path_hash=stable_text_hash(document_folder), supported_suffixes=sorted(SUPPORTED_SUFFIXES)) as op:
+            company_records = scan_documents(document_folder, resolved_config)
+            op.close("completed", company_count=len(company_records), document_count=sum(len(records) for records in company_records.values()))
     except OcrRequiredError as exc:
         append_event(run_dir, "tool_call_failed", {"tool": "llm_ocr.extract_document_folder", "status": "required_ocr_failed", "error": str(exc)})
         write_json(run_dir / "run.json", {"run_id": run_id, "blueprint_id": BLUEPRINT_ID, "status": "failed", "error": str(exc), "finished_at": utc_now_iso()})
@@ -3777,20 +4227,22 @@ def run_blueprint(
     sorted_company_items = sorted(company_records.items(), key=lambda item: slugify(item[0]))
     max_company_workers = company_worker_count(resolved_config, len(sorted_company_items))
     if max_company_workers <= 1 or len(sorted_company_items) <= 1:
-        company_results = [
-            process_company_packet(
-                company=company,
-                records=records,
-                queue_item=queue_by_company[company],
-                output_folder=output_folder,
-                resolved_config=resolved_config,
-                run_dir=run_dir,
-                action_budget=action_budget,
-                llm=llm,
-                knowledge_rag=knowledge_rag,
-            )
-            for company, records in sorted_company_items
-        ]
+        company_results = []
+        for company, records in sorted_company_items:
+            with observed_operation(run_dir, phase="company_processing", operation="process_company_packet", company=company, document_count=len(records)) as op:
+                result = process_company_packet(
+                    company=company,
+                    records=records,
+                    queue_item=queue_by_company[company],
+                    output_folder=output_folder,
+                    resolved_config=resolved_config,
+                    run_dir=run_dir,
+                    action_budget=action_budget,
+                    llm=llm,
+                    knowledge_rag=knowledge_rag,
+                )
+                op.close("completed", processed=result.get("processed"), skipped=result.get("skipped"))
+                company_results.append(result)
     else:
         with ThreadPoolExecutor(max_workers=max_company_workers, thread_name_prefix="vc-company") as executor:
             futures = {
@@ -3847,8 +4299,10 @@ def run_blueprint(
             "financial reasoning quality adaptive research plan quality source quality labels"
         ),
         stage="actor_review",
+        run_dir=run_dir,
     )
-    require_ready_rag(knowledge_rag, stage="actor_review", context=actor_rag_context, min_citations=1)
+    require_ready_rag(knowledge_rag, stage="actor_review", context=actor_rag_context, min_citations=1, run_dir=run_dir)
+    actor_review_settings = actor_review_config(resolved_config)
     actor_context = build_actor_review_context(
         analyses=analyses,
         company_work_queue=company_work_queue,
@@ -3860,6 +4314,7 @@ def run_blueprint(
         active_knowledge=active_knowledge_for_prompt(active_knowledge, knowledge_rag),
         knowledge_rag=knowledge_rag,
         actor_rag_context=actor_rag_context,
+        max_context_chars=actor_review_settings["max_context_chars"],
     )
     actor_specs = resolve_actor_specs(resolved_config)
     actor_ids = [actor_id for actor_id in WORKFLOW_STEP_IDS if actor_id in actor_specs]
@@ -3928,7 +4383,7 @@ def run_blueprint(
             "Check insufficient_evidence method sections and add source documents where needed.",
             "Use public source refs only as context; verify material claims independently.",
         ],
-        "source_refs": ["inputs.json", "events.jsonl", "result.json", "final_artifact.json", "action_ledger.json", "company_index.json", KNOWLEDGE_PLAYBOOK_RELATIVE_PATH],
+        "source_refs": ["inputs.json", "events.jsonl", "llm_rag_trace.jsonl", "result.json", "final_artifact.json", "action_ledger.json", "company_index.json", KNOWLEDGE_PLAYBOOK_RELATIVE_PATH],
         "active_knowledge": active_knowledge_ref,
         "knowledge_rag": public_knowledge_rag_state(knowledge_rag),
         "research_summary": {
@@ -3956,6 +4411,11 @@ def run_blueprint(
             "llm_backpressure": llm_limiter.config_summary(),
             "company_processing_order": [analysis["company_slug"] for analysis in analyses],
         },
+        "actor_review": {
+            "llm_actor_ids": actor_review_settings["llm_actor_ids"],
+            "max_context_chars": actor_review_settings["max_context_chars"],
+            "context_json_chars": actor_context.get("context_json_chars"),
+        },
         "monitor_state": {
             "mode": "folder_monitoring",
             "cycles_completed": 1,
@@ -3979,16 +4439,19 @@ def run_blueprint(
     append_event(run_dir, "blueprint_phase_completed", {"phase": "running_worker", "component": BLUEPRINT_ID})
     append_event(run_dir, "human_input_requested", {"mode": "approval_required", "reason": "Reports contain heuristic investment-analysis scores for human review only."})
     append_event(run_dir, "blueprint_phase_started", {"phase": "writing_artifacts", "component": BLUEPRINT_ID})
-    write_json(output_folder / "final_artifact.json", final_artifact)
-    write_json(output_folder / "action_ledger.json", action_ledger)
-    write_json(run_dir / "result.json", result)
-    write_json(run_dir / "final_artifact.json", final_artifact)
-    write_json(run_dir / "action_ledger.json", action_ledger)
+    with observed_operation(run_dir, phase="writing_artifacts", operation="write_final_outputs", output_file_count=len(final_artifact["output_files"])):
+        write_json(output_folder / "final_artifact.json", final_artifact)
+        write_json(output_folder / "action_ledger.json", action_ledger)
+        write_json(run_dir / "result.json", result)
+        write_json(run_dir / "final_artifact.json", final_artifact)
+        write_json(run_dir / "action_ledger.json", action_ledger)
     append_event(run_dir, "artifact_written", {"path": str(output_folder / "final_artifact.json")})
     append_event(run_dir, "artifact_written", {"path": str(output_folder / "action_ledger.json")})
     append_event(run_dir, "artifact_written", {"path": "result.json"})
     append_event(run_dir, "artifact_written", {"path": "final_artifact.json"})
     append_event(run_dir, "artifact_written", {"path": "action_ledger.json"})
+    if (run_dir / "llm_rag_trace.jsonl").exists():
+        append_event(run_dir, "artifact_written", {"path": "llm_rag_trace.jsonl"})
     append_event(run_dir, "blueprint_phase_completed", {"phase": "writing_artifacts", "component": BLUEPRINT_ID})
     append_event(run_dir, "blueprint_phase_completed", {"phase": "completed", "component": BLUEPRINT_ID})
     write_json(run_dir / "run.json", {"run_id": run_id, "blueprint_id": BLUEPRINT_ID, "status": "completed", "completed_at": utc_now_iso()})
