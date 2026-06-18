@@ -388,8 +388,10 @@
     "queue_size": 1000,
     "max_events_per_second": 10,
     "llm": {
-      "max_concurrent_calls": 2,
-      "max_calls_per_minute": 30
+      "max_concurrent_calls": 1,
+      "max_calls_per_minute": 30,
+      "min_interval_seconds": 2.0,
+      "rationale": "Protect local Docker Model Runner from concurrent blueprint actor calls."
     },
     "drop_policy": "skip_with_error"
   },

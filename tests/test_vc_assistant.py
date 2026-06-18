@@ -162,6 +162,13 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         "require_hardware_acceleration": True,
         "timeout_seconds": 180,
     }
+    assert config["execution"]["max_company_workers"] == 1
+    assert config["internet_research"]["max_stage_workers"] == 1
+    assert config["backpressure"]["llm"] == {
+        "max_concurrent_calls": 1,
+        "min_interval_seconds": 2.0,
+        "rationale": "Protect local Docker Model Runner from concurrent VC agent calls.",
+    }
     assert config["knowledge_rag"]["enabled"] is True
     assert config["knowledge_rag"]["redis_url"] == ""
     assert config["knowledge_rag"]["namespace"] == ""
@@ -201,9 +208,10 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
             "traction_verifier",
             "rendered_page_researcher",
         ]
-        assert embedded_config["agentic_research"]["max_iterations_per_agent"] == 20
-        assert embedded_config["agentic_research"]["max_tool_calls_per_agent"] == 50
+        assert embedded_config["agentic_research"]["max_iterations_per_agent"] == 3
+        assert embedded_config["agentic_research"]["max_tool_calls_per_agent"] == 4
         assert embedded_config["agentic_research"]["allowed_tools"] == ["browser_search", "browser_page", "rendered_browser_page", "finish"]
+        assert embedded_config["backpressure"] == config["backpressure"]
         assert embedded_config["knowledge_rag"] == config["knowledge_rag"]
         assert embedded_config["python_dependencies"] == config["python_dependencies"]
         assert embedded_config["input_skills"]["llm_ocr"] == config["input_skills"]["llm_ocr"]
@@ -215,6 +223,7 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         assert template["with"]["python_environment"] == {"requirements": requirements_path}
         assert template["with"]["upload_paths"] == upload_paths
         template_config = json.loads(template["with"]["environment"]["MN_BLUEPRINT_CONFIG_JSON"])
+        assert template_config["backpressure"] == config["backpressure"]
         assert template_config["knowledge_rag"] == config["knowledge_rag"]
         assert template_config["input_skills"]["llm_ocr"] == config["input_skills"]["llm_ocr"]
         assert template_config["suggested_schedule"] == config["suggested_schedule"]
@@ -275,6 +284,53 @@ def test_vc_assistant_runtime_upload_bundle_contains_sample_inputs():
     assert (bundled_sample_root / "aurora_ai" / "pitch_summary.txt").exists()
     assert (bundled_sample_root / "boreal_robotics" / "company_brief.txt").exists()
     assert (bundled_sample_root / "otterdesk" / "pitch_summary.txt").exists()
+
+
+def test_budgeted_llm_serializes_concurrent_model_calls():
+    runner = _load_runner()
+    active_calls = 0
+    max_active_calls = 0
+    lock = threading.Lock()
+
+    class SlowVCLLM(FakeVCLLM):
+        provider = "docker_model_runner"
+
+        def generate_json(self, *, system_prompt: str, user_prompt: str, fallback: dict):
+            nonlocal active_calls, max_active_calls
+            with lock:
+                active_calls += 1
+                max_active_calls = max(max_active_calls, active_calls)
+            time.sleep(0.02)
+            try:
+                return super().generate_json(system_prompt=system_prompt, user_prompt=user_prompt, fallback=fallback)
+            finally:
+                with lock:
+                    active_calls -= 1
+
+    llm = runner.BudgetedLLM(
+        SlowVCLLM(),
+        runner.ActionBudget(10),
+        limiter=runner.LlmCallLimiter(max_concurrent_calls=1, min_interval_seconds=0),
+    )
+    results: list[dict] = []
+
+    def call_llm(index: int) -> None:
+        results.append(
+            llm.generate_json(
+                system_prompt=f"actor-{index}",
+                user_prompt="{}",
+                fallback={"actor_id": f"actor-{index}", "summary": ""},
+            )
+        )
+
+    threads = [threading.Thread(target=call_llm, args=(index,)) for index in range(5)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert len(results) == 5
+    assert max_active_calls == 1
 
 
 def test_vc_pdf_packets_use_llm_ocr_skill_for_evidence(monkeypatch, tmp_path):
@@ -763,7 +819,10 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path
             "output_folder": str(outputs),
             "monitoring": {"enabled": True, "poll_interval_seconds": 1, "max_cycles": 1},
         },
-        config={"llm": {"mode": "fake", "require_live": False}},
+        config={
+            "llm": {"mode": "fake", "require_live": False},
+            "backpressure": {"llm": {"max_concurrent_calls": 1, "min_interval_seconds": 0}},
+        },
         runs_root=tmp_path,
         run_id="vc-unit",
         llm_client=fake_llm,
@@ -818,8 +877,8 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path
         assert research_plan["lanes"]
         assert research_plan["knowledge_rag"]["status"] == "ready"
         assert research_plan["agentic_research"]["enabled"] is True
-        assert research_plan["agentic_research"]["max_iterations_per_agent"] == 20
-        assert research_plan["agentic_research"]["max_tool_calls_per_agent"] == 50
+        assert research_plan["agentic_research"]["max_iterations_per_agent"] == 3
+        assert research_plan["agentic_research"]["max_tool_calls_per_agent"] == 4
         agent_trace = json.loads((company_dir / "agent_tool_trace.json").read_text(encoding="utf-8"))
         assert {item["agent_id"] for item in agent_trace} == {
             "research_planner",
@@ -902,7 +961,10 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path
             "output_folder": str(outputs),
             "monitoring": {"enabled": True, "poll_interval_seconds": 1, "max_cycles": 1},
         },
-        config={"llm": {"mode": "fake", "require_live": False}},
+        config={
+            "llm": {"mode": "fake", "require_live": False},
+            "backpressure": {"llm": {"max_concurrent_calls": 1, "min_interval_seconds": 0}},
+        },
         runs_root=tmp_path,
         run_id="vc-repeat",
         llm_client=FakeVCLLM(),
@@ -926,7 +988,11 @@ def test_actor_review_failure_does_not_fail_report_outputs(tmp_path):
             "output_folder": str(outputs),
             "monitoring": {"enabled": True, "poll_interval_seconds": 1, "max_cycles": 1},
         },
-        config={"llm": {"mode": "fake", "require_live": False}, "knowledge_rag": {"enabled": False, "required": False}},
+        config={
+            "llm": {"mode": "fake", "require_live": False},
+            "knowledge_rag": {"enabled": False, "required": False},
+            "backpressure": {"llm": {"max_concurrent_calls": 1, "min_interval_seconds": 0}},
+        },
         runs_root=tmp_path,
         run_id="vc-llm-fails",
         llm_client=failing_llm,
@@ -955,7 +1021,11 @@ def test_runtime_step_entrypoint_runs_report_factory_once(tmp_path):
             "output_folder": str(outputs),
             "monitoring": {"enabled": True, "poll_interval_seconds": 1, "max_cycles": 1},
         },
-        config={"llm": {"mode": "fake", "require_live": False}, "knowledge_rag": {"enabled": False, "required": False}},
+        config={
+            "llm": {"mode": "fake", "require_live": False},
+            "knowledge_rag": {"enabled": False, "required": False},
+            "backpressure": {"llm": {"max_concurrent_calls": 1, "min_interval_seconds": 0}},
+        },
         runs_root=tmp_path,
         run_id="vc-runtime-entry",
         llm_client=FakeVCLLM(),
@@ -972,7 +1042,11 @@ def test_runtime_step_entrypoint_runs_report_factory_once(tmp_path):
             "document_folder": str(docs),
             "output_folder": str(outputs),
         },
-        config={"llm": {"mode": "fake", "require_live": False}, "knowledge_rag": {"enabled": False, "required": False}},
+        config={
+            "llm": {"mode": "fake", "require_live": False},
+            "knowledge_rag": {"enabled": False, "required": False},
+            "backpressure": {"llm": {"max_concurrent_calls": 1, "min_interval_seconds": 0}},
+        },
         runs_root=tmp_path,
         run_id="vc-runtime-ack",
         llm_client=FakeVCLLM(),
@@ -999,7 +1073,11 @@ def test_runtime_step_entrypoint_honors_mirror_neuron_run_environment(tmp_path, 
             "output_folder": str(outputs),
             "monitoring": {"enabled": True, "poll_interval_seconds": 1, "max_cycles": 1},
         },
-        config={"llm": {"mode": "fake", "require_live": False}, "knowledge_rag": {"enabled": False, "required": False}},
+        config={
+            "llm": {"mode": "fake", "require_live": False},
+            "knowledge_rag": {"enabled": False, "required": False},
+            "backpressure": {"llm": {"max_concurrent_calls": 1, "min_interval_seconds": 0}},
+        },
         llm_client=FakeVCLLM(),
     )
 
@@ -1085,6 +1163,7 @@ def test_changed_company_packets_process_in_parallel_with_stable_output_order(tm
             config={
                 "llm": {"mode": "fake", "require_live": False},
                 "knowledge_rag": {"enabled": False, "required": False},
+                "backpressure": {"llm": {"max_concurrent_calls": 1, "min_interval_seconds": 0}},
                 "execution": {"max_company_workers": 2},
                 "scoring": {"max_workers": 7},
             },
@@ -1301,6 +1380,7 @@ def test_budget_exhaustion_finishes_with_warnings_and_no_extra_llm_calls(tmp_pat
         config={
             "llm": {"mode": "fake", "require_live": False},
             "knowledge_rag": {"enabled": False, "required": False},
+            "backpressure": {"llm": {"max_concurrent_calls": 1, "min_interval_seconds": 0}},
             "research_budget": {"default_actions": 1},
         },
         runs_root=tmp_path,

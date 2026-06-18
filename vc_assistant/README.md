@@ -61,7 +61,8 @@ mn blueprint monitor --follow
 - `output_folder`: folder where per-company analysis folders and root index files are written.
 - `monitoring`: bounded single-run scan controls; the runtime scheduler decides when to launch the batch.
 - `input_skills.llm_ocr`: shared local LightOnOCR OCR settings for PDF startup packets.
-- `execution.max_company_workers`: maximum changed-company packets processed concurrently.
+- `execution.max_company_workers`: maximum changed-company packets processed concurrently; defaults to one for local Docker Model Runner stability.
+- `backpressure.llm`: serializes and spaces local LLM calls so agentic research does not overwhelm Docker Model Runner.
 - `internet_research`: public verification targets, browser-skill settings, Crunchbase/profile URL templates, and rendered-browser fallback controls.
 - `internet_research.max_stage_workers`: maximum parallel research stages per changed company.
 - `scoring.max_workers`: maximum parallel method scorers per changed company.

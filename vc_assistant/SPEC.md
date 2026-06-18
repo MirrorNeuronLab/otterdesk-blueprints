@@ -24,6 +24,8 @@ The online research layer uses `w3m_browser_skill` first for lightweight public 
 
 Actor-style LLM analysis uses the MirrorNeuron default local model `gemma4:e2b` through Docker Model Runner. Numerical scoring remains deterministic: formulas, weights, scenario math, missing-evidence status, and audit checks are owned by deterministic workers. Non-substantive records such as research plans, configured references, disabled browser fallback notices, unavailable skills, blocked pages, and failed requests do not create comparable evidence by themselves.
 
+Local LLM calls are deliberately backpressured. The default run serializes Docker Model Runner calls, spaces them slightly, keeps company and research-stage defaults serial, and caps agentic research loops so a scheduled batch does not burst many model calls at once.
+
 ## Input
 
 The prototype accepts local startup documents in PDF, TXT, Markdown, JSON, and CSV formats. Text-like files are read directly. PDF files use the shared `llm_ocr_skill` LightOnOCR path for embedded or OCR text extraction. If a PDF startup packet cannot produce usable text, the batch run fails closed instead of creating metadata-only evidence.
