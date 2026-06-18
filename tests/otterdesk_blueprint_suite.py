@@ -160,9 +160,9 @@ GPU_HARD_REQUIREMENT = {
     "vendor": "nvidia",
     "driver": "cuda",
     "min_api_version": "12.0",
-    "api_version_operator": ">",
+    "api_version_operator": ">=",
     "min_memory_mb": 49152,
-    "memory_operator": ">",
+    "memory_operator": ">=",
     "enforcement": "hard",
 }
 
@@ -171,9 +171,9 @@ GPU_WORKER_DEVICE_REQUIREMENT = {
     "vendor": "nvidia",
     "driver": "cuda",
     "min_api_version": "12.0",
-    "api_version_operator": ">",
+    "api_version_operator": ">=",
     "min_memory_mb": 49152,
-    "memory_operator": ">",
+    "memory_operator": ">=",
 }
 
 

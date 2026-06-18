@@ -599,30 +599,7 @@
               "count": 1
             }
           ]
-        },
-        "requires_services": [
-          {
-            "name": "docker-model-runner",
-            "tags": [
-              "nvidia",
-              "cuda"
-            ]
-          },
-          {
-            "name": "nvidia-asr",
-            "tags": [
-              "nvidia",
-              "speech-to-text"
-            ]
-          },
-          {
-            "name": "nvidia-tts",
-            "tags": [
-              "nvidia",
-              "text-to-speech"
-            ]
-          }
-        ]
+        }
       }
     ],
     "edges": [
@@ -802,30 +779,7 @@
                   "target": "voice_service"
                 }
               ]
-            },
-            "requires_services": [
-              {
-                "name": "docker-model-runner",
-                "tags": [
-                  "nvidia",
-                  "cuda"
-                ]
-              },
-              {
-                "name": "nvidia-asr",
-                "tags": [
-                  "nvidia",
-                  "speech-to-text"
-                ]
-              },
-              {
-                "name": "nvidia-tts",
-                "tags": [
-                  "nvidia",
-                  "text-to-speech"
-                ]
-              }
-            ]
+            }
           },
           "rendered_node": {
             "node_id": "voice_service",
@@ -921,30 +875,7 @@
                   "count": 1
                 }
               ]
-            },
-            "requires_services": [
-              {
-                "name": "docker-model-runner",
-                "tags": [
-                  "nvidia",
-                  "cuda"
-                ]
-              },
-              {
-                "name": "nvidia-asr",
-                "tags": [
-                  "nvidia",
-                  "speech-to-text"
-                ]
-              },
-              {
-                "name": "nvidia-tts",
-                "tags": [
-                  "nvidia",
-                  "text-to-speech"
-                ]
-              }
-            ]
+            }
           }
         }
       ]
@@ -1997,6 +1928,7 @@
         "model": "otterdesk-voice-llm:default",
         "runtime_model": "otterdesk-voice-llm:default",
         "backend": "llama.cpp",
+        "install_mode": "cluster_provided",
         "required": true
       },
       "asr": {
@@ -2159,32 +2091,6 @@
   "term": "TERM.md",
   "type": "service",
   "version": "0.1.0",
-  "required_services": [
-    {
-      "name": "docker-model-runner",
-      "tags": [
-        "nvidia",
-        "cuda"
-      ],
-      "required": true
-    },
-    {
-      "name": "nvidia-asr",
-      "tags": [
-        "nvidia",
-        "speech-to-text"
-      ],
-      "required": true
-    },
-    {
-      "name": "nvidia-tts",
-      "tags": [
-        "nvidia",
-        "text-to-speech"
-      ],
-      "required": true
-    }
-  ],
   "knowledge_rag": {
     "enabled": true,
     "backend": "lexical_plain_text",

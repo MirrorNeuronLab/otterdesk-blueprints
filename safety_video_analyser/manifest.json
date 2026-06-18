@@ -1,6 +1,10 @@
 {
+  "apiVersion": "mn.workflow/v1",
+  "kind": "Workflow",
+  "id": "safety_video_analyser",
+  "name": "Safety Video Analyser",
+  "version": "1.0.0",
   "manifest_version": "1.0",
-  "workflow_id": "safety_video_analyser_v1",
   "job_name": "safety-video-analyser",
   "type": "batch",
   "policies": {
@@ -16,9 +20,9 @@
       "vendor": "nvidia",
       "driver": "cuda",
       "min_api_version": "12.0",
-      "api_version_operator": ">",
+      "api_version_operator": ">=",
       "min_memory_mb": 49152,
-      "memory_operator": ">",
+      "memory_operator": ">=",
       "enforcement": "hard"
     }
   },
@@ -27,6 +31,45 @@
     "name": "Safety Video Analyser",
     "category": "Security",
     "description": "A safety-video analysis co-worker for reviewing local workplace footage. Put video files in the input folder; it stages them for the visual analysis node, identifies safety-relevant observations, and writes a structured safety report and supporting artifacts to the output folder.",
+    "standard": {
+      "workflow_model": "contract -> workflow -> agents/runtime"
+    },
+    "memory_layer": {
+      "collection": "mn_memory",
+      "containers": "optional_sidecar",
+      "context_addr_env": "MN_CONTEXT_ADDR",
+      "conversation": {
+        "agent_role": "otterdesk_chat",
+        "include_human_events": true,
+        "include_runtime_events": true,
+        "include_runtime_logs": true,
+        "target_tokens": 2400,
+        "token_budget": 6000,
+        "use_model_compression": false
+      },
+      "conversation_enabled": true,
+      "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
+      "default_context_addr": "localhost:50052",
+      "enabled": true,
+      "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
+      "namespace": "safety_video_analyser_context",
+      "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
+      "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
+      "sdk_distribution": "mirrorneuron-membrane-python-sdk",
+      "sdk_import_package": "mn_context_engine_sdk"
+    },
+    "status_contract": {
+      "runtime_state_source": "workflow_state",
+      "attempt_event": "workflow_step_attempt_started",
+      "retry_event": "workflow_step_attempt_retry_scheduled",
+      "blocked_event": "workflow_step_blocked",
+      "terminal_step_events": [
+        "workflow_step_completed",
+        "workflow_step_partial",
+        "workflow_step_skipped",
+        "workflow_step_failed"
+      ]
+    },
     "init_config_review": {
       "required": true,
       "instruction": "Review the local video folder and optional report-generator node preference before launch.",
@@ -41,7 +84,7 @@
         },
         {
           "label": "Report node",
-          "path": "node_allocation.report_generator_preferred_node",
+          "path": "node_allocation.write_safety_report_preferred_node",
           "default": "mirror_neuron@192.168.4.173",
           "description": "Suggestive node preference for the report generator. Scheduler falls back automatically if unavailable."
         },
@@ -112,7 +155,7 @@
       "enabled": true,
       "agent_ids": [
         "video_understanding_agent",
-        "report_generator"
+        "write_safety_report"
       ],
       "max_iterations_per_agent": 1,
       "max_tool_calls_per_agent": 2,
@@ -133,7 +176,8 @@
     ],
     "runtime_features": [
       "optional knowledge_rag guidance",
-      "actor-style LLM specialists use retrieved policy context when available"
+      "actor-style LLM specialists use retrieved policy context when available",
+      "Membrane context memory optimization"
     ],
     "configuration_contract": {
       "optional_files": [
@@ -178,6 +222,123 @@
         }
       }
     }
+  },
+  "workflow": {
+    "schema": "mn.workflow.problem_graph/v1",
+    "workflow_id": "safety_video_analyser_v1",
+    "mode": "static_dag",
+    "entrypoint": "analyse_safety_videos",
+    "source": "analyse_safety_videos",
+    "sink": "write_safety_report",
+    "execution": {
+      "strategy": "serial"
+    },
+    "dynamic": {
+      "enabled": false,
+      "apply_at": "between_steps",
+      "patch_events": []
+    },
+    "state": {
+      "input_folder": {
+        "from": "$inputs.input_folder"
+      },
+      "output_folder": {
+        "from": "$inputs.output_folder"
+      },
+      "workflow": {},
+      "final_report": {}
+    },
+    "steps": [
+      {
+        "id": "analyse_safety_videos",
+        "kind": "source",
+        "label": "Analyse Safety Videos",
+        "goal": "Stage local safety-video inputs and produce visual safety observations.",
+        "action": "analyse_safety_videos",
+        "run": "analyse_safety_videos",
+        "emits": "safety_video_understood",
+        "on": {
+          "safety_video_understood": "write_safety_report"
+        },
+        "control": {
+          "required": true,
+          "retry": {
+            "max_attempts": 1,
+            "backoff_seconds": 1,
+            "backoff_multiplier": 2,
+            "jitter": 0
+          },
+          "failure_policy": "fail_workflow",
+          "timeout_seconds": 600,
+          "uncertainty": {
+            "min_confidence": 0,
+            "on_low_confidence": "continue_with_warning"
+          }
+        },
+        "in": {
+          "input_folder": "$state.input_folder"
+        },
+        "out": {
+          "safety_video_understanding": "$state.workflow.safety_video_understanding"
+        },
+        "provides": [
+          "safety_video_analyser.analyse_safety_videos.ready"
+        ],
+        "requires": []
+      },
+      {
+        "id": "write_safety_report",
+        "kind": "sink",
+        "label": "Write Safety Report",
+        "goal": "Write a structured safety report from the visual observations.",
+        "action": "write_safety_report",
+        "run": "write_safety_report",
+        "emits": "safety_report_ready",
+        "on": {
+          "safety_report_ready": "completed"
+        },
+        "control": {
+          "required": true,
+          "retry": {
+            "max_attempts": 1,
+            "backoff_seconds": 1,
+            "backoff_multiplier": 2,
+            "jitter": 0
+          },
+          "failure_policy": "fail_workflow",
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0,
+            "on_low_confidence": "continue_with_warning"
+          }
+        },
+        "in": {
+          "previous": "$state.workflow",
+          "output_folder": "$state.output_folder"
+        },
+        "out": {
+          "final_report": "$state.final_report"
+        },
+        "provides": [
+          "safety_video_analyser.write_safety_report.ready"
+        ],
+        "requires": [
+          "safety_video_analyser.analyse_safety_videos.ready"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "id": "analyse_safety_videos_to_write_safety_report",
+        "from": "analyse_safety_videos",
+        "to": "write_safety_report",
+        "event": "safety_video_understood",
+        "required": true,
+        "accepts": [
+          "done"
+        ]
+      }
+    ]
   },
   "agents": {
     "schema": "mn.agents.communication_graph/v1",
@@ -244,15 +405,15 @@
               "driver": "cuda",
               "count": 1,
               "min_api_version": "12.0",
-              "api_version_operator": ">",
+              "api_version_operator": ">=",
               "min_memory_mb": 49152,
-              "memory_operator": ">"
+              "memory_operator": ">="
             }
           ]
         }
       },
       {
-        "node_id": "report_generator",
+        "node_id": "write_safety_report",
         "type": "generic",
         "agent_type": "executor",
         "config": {
@@ -271,10 +432,8 @@
           "pool_slots": 1,
           "tty": false,
           "output_message_type": "safety_report_ready",
-          "terminal_sink": true,
-          "complete_run": true,
           "environment": {
-            "MN_WORKFLOW_STEP_ID": "report_generator"
+            "MN_WORKFLOW_STEP_ID": "write_safety_report"
           },
           "beacon_enabled": true,
           "beacon_interval_ms": 15000,
@@ -293,6 +452,17 @@
           "cpu_cores": 1,
           "memory_mb": 1024
         }
+      },
+      {
+        "node_id": "report_sink",
+        "type": "reduce",
+        "agent_type": "aggregator",
+        "config": {
+          "complete_on_message": true,
+          "terminal_sink": true,
+          "complete_run": true
+        },
+        "role": "result_sink"
       }
     ],
     "edges": [
@@ -300,11 +470,121 @@
         "edge_id": "video_to_report",
         "from_node": "video_understanding_agent",
         "message_type": "safety_video_understood",
-        "to_node": "report_generator"
+        "to_node": "write_safety_report"
+      },
+      {
+        "edge_id": "report_to_sink",
+        "from_node": "write_safety_report",
+        "message_type": "safety_report_ready",
+        "to_node": "report_sink"
       }
     ]
   },
   "runtime": {
+    "bindings": {
+      "analyse_safety_videos": {
+        "type": "worker",
+        "strategy": "single",
+        "side_effect": "read",
+        "risk": "medium",
+        "workers": [
+          {
+            "id": "video_understanding_agent",
+            "alias": "video_understanding_agent",
+            "kind": "worker",
+            "role": "Safety video understanding analyst",
+            "model": "video_understanding",
+            "tokens": 14000,
+            "tools": 4,
+            "required": true
+          }
+        ]
+      },
+      "write_safety_report": {
+        "type": "worker",
+        "strategy": "single",
+        "side_effect": "write",
+        "risk": "low",
+        "workers": [
+          {
+            "id": "write_safety_report",
+            "alias": "write_safety_report",
+            "kind": "worker",
+            "role": "Safety report generator",
+            "model": "default",
+            "tokens": 8000,
+            "tools": 3,
+            "required": true
+          }
+        ]
+      }
+    },
+    "workflow_control": {
+      "schema_version": "mn.workflow.runtime_control.v1",
+      "enabled": true,
+      "source_of_truth": "workflow.steps",
+      "state_ledger": {
+        "enabled": true,
+        "persisted_field": "workflow_state",
+        "step_statuses": [
+          "pending",
+          "ready",
+          "queued",
+          "running",
+          "retry_wait",
+          "blocked",
+          "completed",
+          "partial",
+          "skipped",
+          "failed"
+        ],
+        "message_ledger": true,
+        "delivery_semantics": "at_least_once_with_idempotency"
+      },
+      "attempts": {
+        "dispatch_metadata": [
+          "workflow_run_id",
+          "step_id",
+          "attempt_id",
+          "attempt",
+          "deadline_at",
+          "heartbeat_deadline_at",
+          "idempotency_key"
+        ],
+        "stale_attempt_outputs": "ignore",
+        "retry_policy_source": "workflow.steps[].control.retry",
+        "timeout_source": "workflow.steps[].control.timeout_seconds"
+      },
+      "liveness": {
+        "event": "agent_beacon",
+        "interval_ms": 15000,
+        "timeout_ms": 45000,
+        "required": true,
+        "missed_action": "fail_attempt"
+      },
+      "reconciliation": {
+        "interval_ms": 2000,
+        "on_timeout": "fail_attempt_then_retry",
+        "on_missed_beacon": "fail_attempt_then_retry",
+        "on_retry_exhausted": "apply_step_failure_policy"
+      },
+      "pause_cancel": {
+        "pause_mode": "stop_active_attempts",
+        "resume_mode": "reconcile_from_workflow_state",
+        "cancel_mode": "terminate_active_attempts"
+      },
+      "events": [
+        "workflow_step_attempt_started",
+        "workflow_step_beacon",
+        "workflow_step_attempt_completed",
+        "workflow_step_attempt_timed_out",
+        "workflow_step_attempt_retry_scheduled",
+        "workflow_step_blocked",
+        "workflow_step_completed",
+        "workflow_step_failed",
+        "workflow_message_dead_lettered"
+      ]
+    },
     "models": {
       "default": {
         "type": "llm",
@@ -330,9 +610,9 @@
         "vendor": "nvidia",
         "driver": "cuda",
         "min_api_version": "12.0",
-        "api_version_operator": ">",
+        "api_version_operator": ">=",
         "min_memory_mb": 49152,
-        "memory_operator": ">",
+        "memory_operator": ">=",
         "enforcement": "hard"
       }
     }
@@ -363,6 +643,16 @@
         "required": false,
         "example": "~/Download/safety_video_analyser"
       }
+    },
+    "outputs": {
+      "primary": {
+        "path": "final_artifact.json",
+        "type": "safety_video_report",
+        "description": "Structured safety-video report and supporting artifact pointers."
+      }
+    },
+    "status": {
+      "heartbeat": true
     }
   },
   "description": "A safety-video analysis co-worker for reviewing local workplace footage. Put video files in the input folder; it stages them for the visual analysis node, identifies safety-relevant observations, and writes a structured safety report and supporting artifacts to the output folder.",
@@ -400,7 +690,7 @@
     "enabled": true,
     "agent_ids": [
       "video_understanding_agent",
-      "report_generator"
+      "write_safety_report"
     ],
     "max_iterations_per_agent": 1,
     "max_tool_calls_per_agent": 2,

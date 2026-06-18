@@ -354,6 +354,7 @@
     "provider": "docker_model_runner",
     "runtime_model": "otterdesk-voice-llm:default",
     "backend": "llama.cpp",
+    "install_mode": "cluster_provided",
     "agent_role": "Customer-service voice co-worker that answers from the customer knowledge base, asks clarifying questions when needed, and recommends escalation when it is unsure or outside scope.",
     "system_prompt": "prompts/chat-system.md",
     "enabled": true,
@@ -372,6 +373,7 @@
       "primary": {
         "provider": "docker_model_runner",
         "model": "otterdesk-voice-llm:default",
+        "install_mode": "cluster_provided",
         "api_base": "http://localhost:12434/engines/v1",
         "timeout_seconds": 60,
         "max_tokens": 900,

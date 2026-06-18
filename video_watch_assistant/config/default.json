@@ -422,6 +422,7 @@
       "primary": {
         "provider": "docker_model_runner",
         "model": "otterdesk-video-watch:default",
+        "install_mode": "cluster_provided",
         "api_base": "http://localhost:12434/engines/v1",
         "timeout_seconds": 60,
         "max_tokens": 900,
@@ -750,9 +751,9 @@
       "vendor": "nvidia",
       "driver": "cuda",
       "min_api_version": "12.0",
-      "api_version_operator": ">",
+      "api_version_operator": ">=",
       "min_memory_mb": 49152,
-      "memory_operator": ">",
+      "memory_operator": ">=",
       "enforcement": "hard"
     },
     "required_capabilities": [

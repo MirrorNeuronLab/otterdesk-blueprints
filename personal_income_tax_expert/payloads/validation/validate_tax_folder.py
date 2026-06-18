@@ -70,6 +70,11 @@ def resolve_tax_folder(config: dict, folder: str) -> Path:
     if path.exists():
         return path
 
+    if not path.is_absolute() and path.parts and path.parts[0] == Path.cwd().name:
+        candidate = Path(*path.parts[1:])
+        if candidate.exists():
+            return candidate
+
     for spec in ((config.get("local_inputs") or {}).get("folders") or []):
         if not isinstance(spec, dict):
             continue

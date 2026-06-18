@@ -14,7 +14,7 @@
     }
   },
   "node_allocation": {
-    "report_generator_preferred_node": "mirror_neuron@192.168.4.173"
+    "write_safety_report_preferred_node": "mirror_neuron@192.168.4.173"
   },
   "llm": {
     "enabled": true,
@@ -58,7 +58,7 @@
           "Flag missing videos, model, or media-quality blockers."
         ]
       },
-      "report_generator": {
+      "write_safety_report": {
         "llm_config": "primary",
         "model": "gemma4:e2b",
         "role": "Safety report generator actor",
@@ -98,8 +98,8 @@
   },
   "manifest_config_bindings": [
     {
-      "config_path": "node_allocation.report_generator_preferred_node",
-      "manifest_path": "agents.nodes.report_generator.policies.scheduler.preferred_node"
+      "config_path": "node_allocation.write_safety_report_preferred_node",
+      "manifest_path": "agents.nodes.write_safety_report.policies.scheduler.preferred_node"
     }
   ],
   "outputs": {
@@ -152,7 +152,7 @@
     "enabled": true,
     "agent_ids": [
       "video_understanding_agent",
-      "report_generator"
+      "write_safety_report"
     ],
     "max_iterations_per_agent": 1,
     "max_tool_calls_per_agent": 2,
@@ -167,6 +167,30 @@
     "default_mode": "bounded_llm_guided_safety_video_review",
     "note": "Safety video actors ground reports in staged media and model outputs, leaving safety decisions to humans."
   },
+  "memory_layer": {
+    "collection": "mn_memory",
+    "containers": "optional_sidecar",
+    "context_addr_env": "MN_CONTEXT_ADDR",
+    "conversation": {
+      "agent_role": "otterdesk_chat",
+      "include_human_events": true,
+      "include_runtime_events": true,
+      "include_runtime_logs": true,
+      "target_tokens": 2400,
+      "token_budget": 6000,
+      "use_model_compression": false
+    },
+    "conversation_enabled": true,
+    "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
+    "default_context_addr": "localhost:50052",
+    "enabled": true,
+    "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
+    "namespace": "safety_video_analyser_context",
+    "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
+    "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
+    "sdk_distribution": "mirrorneuron-membrane-python-sdk",
+    "sdk_import_package": "mn_context_engine_sdk"
+  },
   "interfaces": {
     "config": [
       "identity",
@@ -178,6 +202,7 @@
       "interfaces",
       "agentic_research",
       "knowledge_rag",
+      "memory_layer",
       "suggested_schedule"
     ],
     "config_sections": [
@@ -190,6 +215,7 @@
       "interfaces",
       "agentic_research",
       "knowledge_rag",
+      "memory_layer",
       "suggested_schedule"
     ],
     "channels": {
