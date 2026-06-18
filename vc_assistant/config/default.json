@@ -696,13 +696,21 @@
       "purpose": "primary lightweight text-browser research for startup verification, Crunchbase search snippets, competitors, and public market context",
       "enabled": true,
       "required": false,
-      "install_policy": "python_environment_pip",
+      "install_policy": "docker_worker_image",
+      "runtime": {
+        "driver": "docker_worker",
+        "install_scope": "shared_job_container",
+        "docker_worker_image": "document_workflow/docker_worker",
+        "image": "mirror-neuron/vc-assistant:local",
+        "network": "mirror-neuron-runtime",
+        "node_scope": "vc_python_executor_nodes"
+      },
       "timeout_seconds": 20,
       "max_chars": 12000,
       "max_queries": 8,
       "max_sources_per_company": 8,
       "use_model_compression": true,
-      "python_environment": "document_workflow/requirements.txt"
+      "docker_worker_requirements": "document_workflow/requirements.txt"
     },
     "web_browser": {
       "skill": "web_browser_skill",
@@ -955,6 +963,7 @@
       "real_adapters",
       "streams",
       "python_dependencies",
+      "skill_runtime",
       "input_skills",
       "output_skills",
       "error_handling",
@@ -998,6 +1007,7 @@
       "real_adapters",
       "streams",
       "python_dependencies",
+      "skill_runtime",
       "input_skills",
       "output_skills",
       "error_handling",
@@ -1124,6 +1134,16 @@
       "mirrorneuron-w3m-browser-skill",
       "mirrorneuron-web-browser-skill"
     ]
+  },
+  "skill_runtime": {
+    "enabled": true,
+    "auto_patch": false,
+    "driver": "docker_worker",
+    "install_scope": "shared_job_container",
+    "docker_worker_image": "document_workflow/docker_worker",
+    "image": "mirror-neuron/vc-assistant:local",
+    "network": "mirror-neuron-runtime",
+    "node_scope": "vc_python_executor_nodes"
   },
   "knowledge_rag": {
     "enabled": true,

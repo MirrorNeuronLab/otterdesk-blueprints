@@ -39,7 +39,9 @@
     "optional": [
       "llm.call",
       "network.egress",
-      "stream.subscribe"
+      "stream.subscribe",
+      "knowledge.rag",
+      "llm.tool_plan"
     ],
     "required": [
       "filesystem.write"
@@ -232,6 +234,16 @@
           "web/index.html"
         ],
         "description": "Optional web input/output handles."
+      },
+      "knowledge_rag": {
+        "description": "Optional local blueprint knowledge retrieval used to ground actor prompts and tool planning.",
+        "config": "knowledge_rag",
+        "artifact": "knowledge/",
+        "privacy": "blueprint knowledge only by default"
+      },
+      "agentic_research": {
+        "description": "Bounded LLM-selected or actor-guided tool contract for domain work.",
+        "config": "agentic_research"
       }
     },
     "config_sections": [
@@ -263,7 +275,9 @@
       "web_ui",
       "interfaces",
       "execution_model",
-      "suggested_schedule"
+      "suggested_schedule",
+      "knowledge_rag",
+      "agentic_research"
     ],
     "identity_fields": [
       "blueprint_id",
@@ -325,6 +339,39 @@
       "static_html",
       "gradio",
       "custom"
+    ],
+    "config": [
+      "standard_version",
+      "identity",
+      "mode",
+      "metadata",
+      "inputs",
+      "simulation",
+      "llm",
+      "outputs",
+      "logging",
+      "resources",
+      "human_control",
+      "real_adapters",
+      "streams",
+      "input_skills",
+      "output_skills",
+      "error_handling",
+      "state",
+      "capabilities",
+      "privacy",
+      "triggers",
+      "backpressure",
+      "determinism",
+      "schemas",
+      "budgets",
+      "agent_handoffs",
+      "web_ui",
+      "interfaces",
+      "execution_model",
+      "suggested_schedule",
+      "knowledge_rag",
+      "agentic_research"
     ]
   },
   "llm": {
@@ -529,6 +576,58 @@
     "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
     "sdk_distribution": "mirrorneuron-membrane-python-sdk",
     "sdk_import_package": "mn_context_engine_sdk"
+  },
+  "agentic_research": {
+    "enabled": true,
+    "agent_ids": [
+      "property:memory_retriever",
+      "property:zip_market",
+      "property:financing",
+      "property:ranker",
+      "property:memo_writer"
+    ],
+    "max_iterations_per_agent": 1,
+    "max_tool_calls_per_agent": 2,
+    "allowed_tools": [
+      "working_memory_retrieve",
+      "property_rank",
+      "benchmark_decision",
+      "knowledge_retrieve",
+      "finish"
+    ],
+    "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run",
+    "default_mode": "bounded_llm_guided_property_memory_research",
+    "note": "Property actors combine working memory and local playbook guidance while preserving source refs and uncertainty."
+  },
+  "knowledge_rag": {
+    "enabled": true,
+    "backend": "working_memory_plus_rag",
+    "required": false,
+    "knowledge_dir": "knowledge",
+    "purpose": "Retrieve property-deal playbook guidance for ZIP context, broker-note evidence, financing constraints, and working-memory ranking checks.",
+    "retrieval_targets": [
+      "ZIP-level context",
+      "property-specific facts",
+      "financing constraints",
+      "ranking evidence gaps"
+    ],
+    "grounding_policy": "Use retrieved local blueprint knowledge to improve actor review prompts; do not invent facts when retrieval is unavailable.",
+    "redis_url": "",
+    "namespace": "",
+    "embedding_provider": "docker_model_runner",
+    "embedding_model": "hf.co/jinaai/jina-embeddings-v5-text-small-retrieval:Q4_K_M",
+    "embedding_api_base": "http://localhost:12434/engines/v1",
+    "embedding_query_prefix": "Query: ",
+    "embedding_document_prefix": "Document: ",
+    "embedding_start_command": "",
+    "embedding_healthcheck_enabled": true,
+    "vector_dim": 1024,
+    "index_on_startup": false,
+    "top_k": 4,
+    "max_context_chars": 4000,
+    "chunk_size": 700,
+    "chunk_overlap": 70,
+    "privacy": "index local blueprint knowledge only; do not index private run documents unless a future runtime explicitly opts in"
   },
   "metadata": {
     "agent_role": "AI assistant for researching property deals and drafting opportunity rankings.",

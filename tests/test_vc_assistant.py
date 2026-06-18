@@ -130,6 +130,33 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         {"source": "examples/sample_inputs", "target": "vc_assistant/examples/sample_inputs"},
         {"source": "knowledge", "target": "knowledge"},
     ]
+    build_context_upload_paths = [
+        {
+            "base": "skills_root",
+            "source": "blueprint_support_skill",
+            "target": "document_workflow/docker_worker/build_context/blueprint_support_skill",
+        },
+        {
+            "base": "skills_root",
+            "source": "llm_ocr_skill",
+            "target": "document_workflow/docker_worker/build_context/llm_ocr_skill",
+        },
+        {
+            "base": "skills_root",
+            "source": "rag_skill",
+            "target": "document_workflow/docker_worker/build_context/rag_skill",
+        },
+        {
+            "base": "skills_root",
+            "source": "w3m_browser_skill",
+            "target": "document_workflow/docker_worker/build_context/w3m_browser_skill",
+        },
+        {
+            "base": "skills_root",
+            "source": "web_browser_skill",
+            "target": "document_workflow/docker_worker/build_context/web_browser_skill",
+        },
+    ]
     assert len(nodes) == 21
     assert report_sink["config"] == {"complete_on_message": True, "terminal_sink": True, "complete_run": True}
     assert config["python_dependencies"]["installer"] == "pip"
@@ -163,11 +190,30 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         "require_hardware_acceleration": True,
         "timeout_seconds": 180,
     }
+    assert config["input_skills"]["w3m_browser"]["install_policy"] == "docker_worker_image"
+    assert config["input_skills"]["w3m_browser"]["runtime"] == {
+        "driver": "docker_worker",
+        "install_scope": "shared_job_container",
+        "docker_worker_image": "document_workflow/docker_worker",
+        "image": "mirror-neuron/vc-assistant:local",
+        "network": "mirror-neuron-runtime",
+        "node_scope": "vc_python_executor_nodes",
+    }
+    assert config["skill_runtime"] == {
+        "enabled": True,
+        "auto_patch": False,
+        "driver": "docker_worker",
+        "install_scope": "shared_job_container",
+        "docker_worker_image": "document_workflow/docker_worker",
+        "image": "mirror-neuron/vc-assistant:local",
+        "network": "mirror-neuron-runtime",
+        "node_scope": "vc_python_executor_nodes",
+    }
     assert config["execution"]["max_company_workers"] == 1
     assert config["internet_research"]["max_stage_workers"] == 1
     assert config["backpressure"]["llm"] == {
         "max_concurrent_calls": 1,
-        "min_interval_seconds": 2.0,
+        "min_interval_seconds": 1.0,
         "rationale": "Protect local Docker Model Runner from concurrent VC agent calls.",
     }
     assert config["knowledge_rag"]["enabled"] is True
@@ -184,25 +230,38 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
     assert config["knowledge_rag"]["index_on_startup"] is True
     assert config["knowledge_rag"]["chunk_size"] == 800
     assert config["knowledge_rag"]["chunk_overlap"] == 80
-    assert config["research_budget"]["default_actions"] == 80
-    assert config["internet_research"]["max_queries"] == 8
-    assert config["internet_research"]["max_sources_per_company"] == 8
-    assert config["internet_research"]["max_target_urls_per_company"] == 4
-    assert config["internet_research"]["rendered_browser"]["max_pages_per_company"] == 2
+    assert config["research_budget"]["default_actions"] == 160
+    assert config["internet_research"]["max_queries"] == 10
+    assert config["internet_research"]["max_sources_per_company"] == 10
+    assert config["internet_research"]["max_target_urls_per_company"] == 6
+    assert config["internet_research"]["rendered_browser"]["max_pages_per_company"] == 3
     assert config["cache_policy"]["enabled"] is True
     assert config["cache_policy"]["force_reprocess"] is False
     assert "force_reprocess" in config["cache_policy"]["force_reprocess_inputs"]
-    assert config["agentic_research"]["enabled"] is False
-    assert config["agentic_research"]["default_mode"] == "deterministic_public_tool_research"
+    assert config["agentic_research"]["enabled"] is True
+    assert config["agentic_research"]["default_mode"] == "bounded_llm_guided_public_tool_research"
     assert config["agentic_research"]["max_iterations_per_agent"] == 1
     assert config["agentic_research"]["max_tool_calls_per_agent"] == 2
     assert config["actor_review"] == {
-        "llm_actor_ids": ["research_reconciler", "score_consistency_auditor", "company_report_writer", "batch_index_writer"],
-        "max_context_chars": 6000,
+        "llm_actor_ids": [
+            "research_planner",
+            "company_identity_researcher",
+            "funding_researcher",
+            "market_comp_researcher",
+            "traction_verifier",
+            "research_reconciler",
+            "berkus_scorer",
+            "venture_capital_method_scorer",
+            "comparables_market_multiple_scorer",
+            "score_consistency_auditor",
+            "company_report_writer",
+            "batch_index_writer",
+        ],
+        "max_context_chars": 9000,
         "use_context_engine": True,
         "working_memory_persist_to_redis": False,
-        "context_token_budget": 3000,
-        "context_target_tokens": 1200,
+        "context_token_budget": 5000,
+        "context_target_tokens": 1800,
     }
     assert "llm_rag_trace.jsonl" in config["interfaces"]["optional_run_artifacts"]
     assert "llm_rag_trace.jsonl" in config["interfaces"]["channels"]["artifacts"]["optional_artifacts"]
@@ -212,14 +271,48 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
     assert "run_health.json" in config["interfaces"]["outputs"]
     assert "run_health.json" in config["interfaces"]["run_artifacts"]
     assert "run_health.json" in config["interfaces"]["channels"]["artifacts"]["artifacts"]
+    assert "skill_runtime" in config["interfaces"]["config"]
+    assert manifest["metadata"]["mn_skill_runtime"]["generated"] is False
+    assert manifest["metadata"]["mn_skill_runtime"]["build_context"] == "document_workflow/docker_worker"
+    assert manifest["metadata"]["mn_skill_runtime"]["patched_nodes"] == [node["node_id"] for node in nodes]
+    dockerfile = (ROOT / "vc_assistant" / "payloads" / "document_workflow" / "docker_worker" / "Dockerfile").read_text(
+        encoding="utf-8"
+    )
+    wrapper = (
+        ROOT
+        / "vc_assistant"
+        / "payloads"
+        / "document_workflow"
+        / "scripts"
+        / "run_blueprint_in_docker_worker.sh"
+    ).read_text(encoding="utf-8")
+    assert "w3m" in dockerfile
+    assert "w3m_browser_skill" in dockerfile
+    assert "requirements.txt" in dockerfile
+    assert "mn_context_engine_sdk" in dockerfile
+    assert "mirrorneuron-membrane-python-sdk" in (
+        ROOT / "vc_assistant" / "payloads" / "document_workflow" / "docker_worker" / "requirements.txt"
+    ).read_text(encoding="utf-8")
+    assert "command -v w3m" in wrapper
+    assert "import mn_w3m_browser_skill" in wrapper
+    assert "from mn_context_engine_sdk import MemoryItem, WorkingMemory" in wrapper
     assert "examples/sample_inputs/" in manifest["metadata"]["configuration_contract"]["required_files"]
     assert (
         "payloads/document_workflow/vc_assistant/examples/sample_inputs/"
         in manifest["metadata"]["configuration_contract"]["required_files"]
     )
     for node in nodes:
-        assert node["config"]["python_environment"] == {"requirements": requirements_path}
+        assert "python_environment" not in node["config"]
+        assert node["config"]["runner_module"] == "MirrorNeuron.Runner.DockerWorker"
+        assert node["config"]["workdir"] == "/mn/job/document_workflow"
+        assert node["config"]["command"] == ["bash", "scripts/run_blueprint_in_docker_worker.sh"]
+        assert node["config"]["docker_worker_image"] == "document_workflow/docker_worker"
+        assert node["config"]["image"] == "mirror-neuron/vc-assistant:local"
+        assert node["config"]["network"] == "mirror-neuron-runtime"
+        assert node["config"]["shared_container"] is True
+        assert node["config"]["reuse_shared_container"] is True
         assert node["config"]["upload_paths"] == upload_paths
+        assert node["config"]["build_context_upload_paths"] == build_context_upload_paths
         environment = node["config"]["environment"]
         assert environment["MN_WORKFLOW_STEP_ID"] == node["node_id"]
         embedded_config = json.loads(environment["MN_BLUEPRINT_CONFIG_JSON"])
@@ -229,9 +322,9 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         assert embedded_config["llm"]["model"] == "default"
         assert embedded_config["llm"]["quick_test_uses_fake"] is True
         assert embedded_config["execution"]["quick_test"] is False
-        assert embedded_config["research_budget"]["default_actions"] == 80
-        assert embedded_config["agentic_research"]["enabled"] is False
-        assert embedded_config["agentic_research"]["default_mode"] == "deterministic_public_tool_research"
+        assert embedded_config["research_budget"]["default_actions"] == 160
+        assert embedded_config["agentic_research"]["enabled"] is True
+        assert embedded_config["agentic_research"]["default_mode"] == "bounded_llm_guided_public_tool_research"
         assert embedded_config["agentic_research"]["agent_ids"] == [
             "research_planner",
             "company_identity_researcher",
@@ -248,18 +341,31 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         assert embedded_config["knowledge_rag"] == config["knowledge_rag"]
         assert embedded_config["python_dependencies"] == config["python_dependencies"]
         assert embedded_config["input_skills"]["llm_ocr"] == config["input_skills"]["llm_ocr"]
+        assert embedded_config["input_skills"]["w3m_browser"] == config["input_skills"]["w3m_browser"]
+        assert embedded_config["skill_runtime"] == config["skill_runtime"]
         assert embedded_config["suggested_schedule"] == config["suggested_schedule"]
     for template in manifest["metadata"]["agent_templates"]["nodes"]:
         if template["node_id"] == "report_sink":
             assert template["uses"] == "mn-agents.control_join@1.0.0"
             continue
-        assert template["with"]["python_environment"] == {"requirements": requirements_path}
+        assert "python_environment" not in template["with"]
+        assert template["with"]["runner_module"] == "MirrorNeuron.Runner.DockerWorker"
+        assert template["with"]["workdir"] == "/mn/job/document_workflow"
+        assert template["with"]["command"] == ["bash", "scripts/run_blueprint_in_docker_worker.sh"]
+        assert template["with"]["docker_worker_image"] == "document_workflow/docker_worker"
+        assert template["with"]["image"] == "mirror-neuron/vc-assistant:local"
+        assert template["with"]["network"] == "mirror-neuron-runtime"
+        assert template["with"]["shared_container"] is True
+        assert template["with"]["reuse_shared_container"] is True
         assert template["with"]["upload_paths"] == upload_paths
+        assert template["with"]["build_context_upload_paths"] == build_context_upload_paths
         template_config = json.loads(template["with"]["environment"]["MN_BLUEPRINT_CONFIG_JSON"])
         assert template_config["backpressure"] == config["backpressure"]
         assert template_config["knowledge_rag"] == config["knowledge_rag"]
         assert template_config["actor_review"] == config["actor_review"]
         assert template_config["input_skills"]["llm_ocr"] == config["input_skills"]["llm_ocr"]
+        assert template_config["input_skills"]["w3m_browser"] == config["input_skills"]["w3m_browser"]
+        assert template_config["skill_runtime"] == config["skill_runtime"]
         assert template_config["suggested_schedule"] == config["suggested_schedule"]
 
 
@@ -1244,11 +1350,11 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path
         assert research_plan["adaptive"] is True
         assert research_plan["lanes"]
         assert research_plan["knowledge_rag"]["status"] == "ready"
-        assert research_plan["agentic_research"]["enabled"] is False
+        assert research_plan["agentic_research"]["enabled"] is True
         assert research_plan["agentic_research"]["max_iterations_per_agent"] == 1
         assert research_plan["agentic_research"]["max_tool_calls_per_agent"] == 2
         agent_trace = json.loads((company_dir / "agent_tool_trace.json").read_text(encoding="utf-8"))
-        assert agent_trace == []
+        assert isinstance(agent_trace, list)
         assert all(item["rag_context"]["status"] == "ready" for item in agent_trace)
         assert all(item["knowledge_refs"] for item in agent_trace)
 
@@ -1287,7 +1393,7 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path
     assert run_artifact["llm_usage"]["provider"] == "fake"
     assert run_artifact["llm_usage"]["model"] == "fake-vc-actor"
     assert run_artifact["llm_usage"]["calls"] >= len(run_artifact["actor_review"]["llm_actor_ids"])
-    assert run_artifact["action_ledger"]["budget"] == 80
+    assert run_artifact["action_ledger"]["budget"] == 160
     assert run_artifact["action_ledger"]["used"] >= len(run_artifact["actor_review"]["llm_actor_ids"])
     assert any(action["action_type"] == "financial_tool" for action in run_artifact["action_ledger"]["actions"])
     assert run_artifact["cache_policy"]["fresh_run"] is True
@@ -1308,8 +1414,8 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path
     artifact_quality_text = json.dumps(run_artifact["artifact_quality"])
     assert "VC Startup Research And Method Playbook" not in artifact_quality_text
     assert "raw_document_text" not in artifact_quality_text
-    assert json.loads((outputs / "final_artifact.json").read_text(encoding="utf-8"))["action_ledger"]["budget"] == 80
-    assert json.loads((outputs / "action_ledger.json").read_text(encoding="utf-8"))["budget"] == 80
+    assert json.loads((outputs / "final_artifact.json").read_text(encoding="utf-8"))["action_ledger"]["budget"] == 160
+    assert json.loads((outputs / "action_ledger.json").read_text(encoding="utf-8"))["budget"] == 160
     assert json.loads((outputs / "artifact_quality.json").read_text(encoding="utf-8")) == run_artifact["artifact_quality"]
     run_health = json.loads((outputs / "run_health.json").read_text(encoding="utf-8"))
     assert run_health["status"] in {"healthy", "warning"}
@@ -1577,6 +1683,27 @@ def test_tilde_output_folder_derives_user_home_from_mirror_neuron_runs_root(monk
     monkeypatch.setenv("MN_RUNS_ROOT", str(user_home / ".mn" / "runs"))
 
     assert runner.expand_runtime_path("~/Downloads/vc_assistant") == user_home / "Downloads" / "vc_assistant"
+
+
+def test_runtime_managed_output_folder_wins_over_default_payload(monkeypatch, tmp_path):
+    runner = _load_runner()
+    runtime_output = tmp_path / "shared" / "outputs" / "user"
+    payload = {"output_folder": "~/Downloads/vc_assistant"}
+    resolved_config = {"outputs": {"folder_path": str(runtime_output)}}
+    monkeypatch.setenv("MN_JOB_OUTPUT_DIR", str(runtime_output))
+
+    assert runner.resolve_output_folder(payload, resolved_config, inputs={}) == runtime_output
+
+
+def test_explicit_output_folder_wins_over_runtime_managed_output(monkeypatch, tmp_path):
+    runner = _load_runner()
+    runtime_output = tmp_path / "shared" / "outputs" / "user"
+    explicit_output = tmp_path / "explicit"
+    payload = {"output_folder": "~/Downloads/vc_assistant"}
+    resolved_config = {"outputs": {"folder_path": str(runtime_output)}}
+    monkeypatch.setenv("MN_JOB_OUTPUT_DIR", str(runtime_output))
+
+    assert runner.resolve_output_folder(payload, resolved_config, inputs={"output_folder": str(explicit_output)}) == explicit_output
 
 
 def test_changed_company_packets_process_in_parallel_with_stable_output_order(tmp_path):

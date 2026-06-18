@@ -19,7 +19,7 @@ PDF startup packets are extracted through the shared `llm_ocr_skill` LightOnOCR 
 
 The research phase is configured to use:
 
-- `w3m_browser_skill` for lightweight text-browser research over public sources.
+- `w3m_browser_skill` for lightweight text-browser research over public sources, installed with the `w3m` binary inside the shared DockerWorker image.
 - `web_browser_skill` as an optional Playwright fallback for JavaScript-rendered public pages such as Crunchbase profiles.
 
 The workflow plans privacy-safe searches for company websites, Crunchbase, founder public profiles, funding mentions, competitors, press, and market context. Blocked, login-required, CAPTCHA, robots, or rate-limit responses are recorded in `sources.json`; the blueprint does not bypass them.
@@ -61,6 +61,8 @@ mn blueprint monitor --follow
 - `output_folder`: folder where per-company analysis folders and root index files are written.
 - `monitoring`: bounded single-run scan controls; the runtime scheduler decides when to launch the batch.
 - `input_skills.llm_ocr`: shared local LightOnOCR OCR settings for PDF startup packets.
+- `input_skills.w3m_browser`: public text-browser research provided by the `document_workflow/docker_worker` image.
+- `skill_runtime`: shared DockerWorker image settings for skills that need system binaries.
 - `execution.max_company_workers`: maximum changed-company packets processed concurrently; defaults to one for local Docker Model Runner stability.
 - `backpressure.llm`: serializes and spaces local LLM calls so agentic research does not overwhelm Docker Model Runner.
 - `internet_research`: public verification targets, browser-skill settings, Crunchbase/profile URL templates, and rendered-browser fallback controls.

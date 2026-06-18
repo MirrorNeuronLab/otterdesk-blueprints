@@ -2151,6 +2151,16 @@
             "web/index.html"
           ],
           "description": "Optional review dashboard for final artifact inspection."
+        },
+        "knowledge_rag": {
+          "description": "Optional local blueprint knowledge retrieval used to ground actor prompts and tool planning.",
+          "config": "knowledge_rag",
+          "artifact": "knowledge/",
+          "privacy": "blueprint knowledge only by default"
+        },
+        "agentic_research": {
+          "description": "Bounded LLM-selected or actor-guided tool contract for domain work.",
+          "config": "agentic_research"
         }
       },
       "config": [
@@ -2187,7 +2197,9 @@
         "tax_documents",
         "tax_knowledge",
         "knowledge",
-        "suggested_schedule"
+        "suggested_schedule",
+        "knowledge_rag",
+        "agentic_research"
       ],
       "identity": [
         "blueprint_id",
@@ -2231,6 +2243,44 @@
         "none",
         "static_html",
         "gradio"
+      ],
+      "config_sections": [
+        "standard_version",
+        "identity",
+        "mode",
+        "metadata",
+        "inputs",
+        "simulation",
+        "llm",
+        "outputs",
+        "logging",
+        "resources",
+        "human_control",
+        "real_adapters",
+        "streams",
+        "input_skills",
+        "output_skills",
+        "error_handling",
+        "state",
+        "capabilities",
+        "privacy",
+        "triggers",
+        "backpressure",
+        "determinism",
+        "schemas",
+        "budgets",
+        "agent_handoffs",
+        "web_ui",
+        "interfaces",
+        "execution_model",
+        "memory_layer",
+        "tax_profile",
+        "tax_documents",
+        "tax_knowledge",
+        "knowledge",
+        "suggested_schedule",
+        "knowledge_rag",
+        "agentic_research"
       ]
     },
     "llm_agent_role": "Personal tax preparation team that prepares a source-grounded draft Form 1040 review packet while asking careful review questions.",
@@ -2485,7 +2535,9 @@
       "artifact records",
       "run-store observability dashboard",
       "workflow-driven problem graph",
-      "step-scoped worker teams"
+      "step-scoped worker teams",
+      "optional knowledge_rag guidance",
+      "actor-style LLM specialists use retrieved policy context when available"
     ],
     "search_terms": [
       "tax preparation",
@@ -2624,6 +2676,139 @@
         "token_budget",
         "llm_retries"
       ]
-    }
+    },
+    "knowledge_rag": {
+      "enabled": true,
+      "backend": "redis_vector_rag",
+      "required": false,
+      "knowledge_dir": "knowledge",
+      "purpose": "Retrieve local tax routing, IRS source-map, and advisor-style guidance for draft Form 1040 workpapers and review packets.",
+      "retrieval_targets": [
+        "tax document routing",
+        "IRS source anchors",
+        "deduction and credit review",
+        "manager review blockers"
+      ],
+      "grounding_policy": "Use retrieved local blueprint knowledge to improve actor review prompts; do not invent facts when retrieval is unavailable.",
+      "redis_url": "",
+      "namespace": "",
+      "embedding_provider": "docker_model_runner",
+      "embedding_model": "hf.co/jinaai/jina-embeddings-v5-text-small-retrieval:Q4_K_M",
+      "embedding_api_base": "http://localhost:12434/engines/v1",
+      "embedding_query_prefix": "Query: ",
+      "embedding_document_prefix": "Document: ",
+      "embedding_start_command": "",
+      "embedding_healthcheck_enabled": true,
+      "vector_dim": 1024,
+      "index_on_startup": false,
+      "top_k": 4,
+      "max_context_chars": 4000,
+      "chunk_size": 700,
+      "chunk_overlap": 70,
+      "privacy": "index local blueprint knowledge only; do not index private run documents unless a future runtime explicitly opts in"
+    },
+    "agentic_research": {
+      "enabled": true,
+      "agent_ids": [
+        "document_understanding_agent",
+        "source_field_extractor",
+        "income_preparer",
+        "deductions_credits_preparer",
+        "tax_auditor",
+        "manager_reviewer",
+        "advisor_report_writer"
+      ],
+      "max_iterations_per_agent": 1,
+      "max_tool_calls_per_agent": 2,
+      "allowed_tools": [
+        "llm_ocr_extract",
+        "tax_knowledge_retrieve",
+        "workpaper_prepare",
+        "validation_check",
+        "finish"
+      ],
+      "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run",
+      "default_mode": "bounded_llm_guided_tax_workpaper_review",
+      "note": "Tax actors use local source maps and workpaper tools to prepare draft review packets, not filing-ready returns."
+    },
+    "input_skills": {
+      "llm_ocr": {
+        "backend": "auto",
+        "connector": "docker_model_runner",
+        "enabled": true,
+        "endpoint": "http://localhost:12434",
+        "install_policy": "on_first_required_document",
+        "max_pages": null,
+        "min_text_chars": 40,
+        "model": null,
+        "package": "mirrorneuron-llm-ocr-skill",
+        "preload": false,
+        "purpose": "shared local LightOnOCR-2-1B OCR for scanned PDFs, images, and forms",
+        "quantization": null,
+        "remove_policy": "manual",
+        "require_hardware_acceleration": true,
+        "required": false,
+        "skill": "llm_ocr_skill",
+        "timeout_seconds": 180
+      }
+    },
+    "features": [
+      "optional local knowledge RAG grounding",
+      "bounded LLM tool-plan contract"
+    ]
+  },
+  "knowledge_rag": {
+    "enabled": true,
+    "backend": "redis_vector_rag",
+    "required": false,
+    "knowledge_dir": "knowledge",
+    "purpose": "Retrieve local tax routing, IRS source-map, and advisor-style guidance for draft Form 1040 workpapers and review packets.",
+    "retrieval_targets": [
+      "tax document routing",
+      "IRS source anchors",
+      "deduction and credit review",
+      "manager review blockers"
+    ],
+    "grounding_policy": "Use retrieved local blueprint knowledge to improve actor review prompts; do not invent facts when retrieval is unavailable.",
+    "redis_url": "",
+    "namespace": "",
+    "embedding_provider": "docker_model_runner",
+    "embedding_model": "hf.co/jinaai/jina-embeddings-v5-text-small-retrieval:Q4_K_M",
+    "embedding_api_base": "http://localhost:12434/engines/v1",
+    "embedding_query_prefix": "Query: ",
+    "embedding_document_prefix": "Document: ",
+    "embedding_start_command": "",
+    "embedding_healthcheck_enabled": true,
+    "vector_dim": 1024,
+    "index_on_startup": false,
+    "top_k": 4,
+    "max_context_chars": 4000,
+    "chunk_size": 700,
+    "chunk_overlap": 70,
+    "privacy": "index local blueprint knowledge only; do not index private run documents unless a future runtime explicitly opts in"
+  },
+  "agentic_research": {
+    "enabled": true,
+    "agent_ids": [
+      "document_understanding_agent",
+      "source_field_extractor",
+      "income_preparer",
+      "deductions_credits_preparer",
+      "tax_auditor",
+      "manager_reviewer",
+      "advisor_report_writer"
+    ],
+    "max_iterations_per_agent": 1,
+    "max_tool_calls_per_agent": 2,
+    "allowed_tools": [
+      "llm_ocr_extract",
+      "tax_knowledge_retrieve",
+      "workpaper_prepare",
+      "validation_check",
+      "finish"
+    ],
+    "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run",
+    "default_mode": "bounded_llm_guided_tax_workpaper_review",
+    "note": "Tax actors use local source maps and workpaper tools to prepare draft review packets, not filing-ready returns."
   }
 }

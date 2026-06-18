@@ -566,6 +566,18 @@ def resolve_run_dir(output_folder: Path, run_id: str, runs_root: str | Path | No
     return output_folder / "runs" / run_id
 
 
+def resolve_output_folder(payload: dict[str, Any], resolved_config: dict[str, Any], inputs: dict[str, Any] | None = None) -> Path:
+    explicit_output_folder = (inputs or {}).get("output_folder")
+    if explicit_output_folder:
+        return expand_runtime_path(explicit_output_folder)
+    runtime_output_folder = os.environ.get("MN_JOB_OUTPUT_DIR")
+    if runtime_output_folder:
+        return expand_runtime_path(runtime_output_folder)
+    outputs_config = resolved_config.get("outputs") if isinstance(resolved_config.get("outputs"), dict) else {}
+    configured_output_folder = outputs_config.get("output_folder") or outputs_config.get("folder_path")
+    return expand_runtime_path(payload.get("output_folder") or configured_output_folder or f"outputs/{BLUEPRINT_ID}")
+
+
 def vc_knowledge_search_roots(blueprint_dir: Path) -> list[Path]:
     roots = [blueprint_dir]
     bundle_dir = os.environ.get("MN_BLUEPRINT_BUNDLE_DIR")
@@ -5527,7 +5539,8 @@ def run_blueprint(
     if inputs:
         payload.update(inputs)
     run_id = run_id or payload.get("run_id") or os.environ.get("MN_RUN_ID") or f"{BLUEPRINT_ID}-{uuid.uuid4().hex[:8]}"
-    output_folder = expand_runtime_path(payload.get("output_folder") or (resolved_config.get("outputs") or {}).get("folder_path") or f"outputs/{BLUEPRINT_ID}")
+    output_folder = resolve_output_folder(payload, resolved_config, inputs)
+    payload["output_folder"] = str(output_folder)
     run_dir = resolve_run_dir(output_folder, run_id, runs_root)
     run_dir.mkdir(parents=True, exist_ok=True)
     document_folder = (

@@ -368,7 +368,9 @@
       "document.ocr",
       "llm.ocr",
       "llm.call",
-      "pdf.render"
+      "pdf.render",
+      "knowledge.rag",
+      "llm.tool_plan"
     ]
   },
   "determinism": {
@@ -509,6 +511,16 @@
           "web/index.html"
         ],
         "description": "Optional review dashboard for artifact inspection."
+      },
+      "knowledge_rag": {
+        "description": "Optional local blueprint knowledge retrieval used to ground actor prompts and tool planning.",
+        "config": "knowledge_rag",
+        "artifact": "knowledge/",
+        "privacy": "blueprint knowledge only by default"
+      },
+      "agentic_research": {
+        "description": "Bounded LLM-selected or actor-guided tool contract for domain work.",
+        "config": "agentic_research"
       }
     },
     "config": [
@@ -543,7 +555,9 @@
       "memory_layer",
       "dataset_input",
       "document_automation",
-      "suggested_schedule"
+      "suggested_schedule",
+      "knowledge_rag",
+      "agentic_research"
     ],
     "config_sections": [
       "standard_version",
@@ -577,7 +591,9 @@
       "memory_layer",
       "dataset_input",
       "document_automation",
-      "suggested_schedule"
+      "suggested_schedule",
+      "knowledge_rag",
+      "agentic_research"
     ],
     "identity": [
       "blueprint_id",
@@ -678,6 +694,58 @@
     "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
     "sdk_distribution": "mirrorneuron-membrane-python-sdk",
     "sdk_import_package": "mn_context_engine_sdk"
+  },
+  "agentic_research": {
+    "enabled": true,
+    "agent_ids": [
+      "medical_ocr_extractor",
+      "phi_detector",
+      "clinical_field_extractor",
+      "medical_redaction_validator",
+      "privacy_report_writer"
+    ],
+    "max_iterations_per_agent": 1,
+    "max_tool_calls_per_agent": 2,
+    "allowed_tools": [
+      "llm_ocr_extract",
+      "phi_detect",
+      "redaction_validate",
+      "knowledge_retrieve",
+      "finish"
+    ],
+    "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run",
+    "default_mode": "bounded_llm_guided_deidentification_review",
+    "note": "Medical actors use OCR and privacy guidance while keeping ambiguous PHI review-required."
+  },
+  "knowledge_rag": {
+    "enabled": true,
+    "backend": "redis_vector_rag",
+    "required": false,
+    "knowledge_dir": "knowledge",
+    "purpose": "Retrieve de-identification guidance for PHI/PII detection, OCR uncertainty, bounding-box review, and privacy signoff boundaries.",
+    "retrieval_targets": [
+      "PHI categories",
+      "redaction risks",
+      "OCR uncertainty",
+      "privacy review blockers"
+    ],
+    "grounding_policy": "Use retrieved local blueprint knowledge to improve actor review prompts; do not invent facts when retrieval is unavailable.",
+    "redis_url": "",
+    "namespace": "",
+    "embedding_provider": "docker_model_runner",
+    "embedding_model": "hf.co/jinaai/jina-embeddings-v5-text-small-retrieval:Q4_K_M",
+    "embedding_api_base": "http://localhost:12434/engines/v1",
+    "embedding_query_prefix": "Query: ",
+    "embedding_document_prefix": "Document: ",
+    "embedding_start_command": "",
+    "embedding_healthcheck_enabled": true,
+    "vector_dim": 1024,
+    "index_on_startup": false,
+    "top_k": 4,
+    "max_context_chars": 4000,
+    "chunk_size": 700,
+    "chunk_overlap": 70,
+    "privacy": "index local blueprint knowledge only; do not index private run documents unless a future runtime explicitly opts in"
   },
   "state": {
     "document_folder": "medical_deid_record_intake_assistant/examples/sample_inputs",

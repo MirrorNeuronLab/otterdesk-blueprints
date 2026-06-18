@@ -26,7 +26,9 @@
       "llm.call",
       "network.egress",
       "stream.publish",
-      "stream.subscribe"
+      "stream.subscribe",
+      "knowledge.rag",
+      "llm.tool_plan"
     ],
     "required": [
       "filesystem.write",
@@ -204,6 +206,16 @@
           "web/index.html"
         ],
         "description": "Optional web input/output handles."
+      },
+      "knowledge_rag": {
+        "description": "Optional local blueprint knowledge retrieval used to ground actor prompts and tool planning.",
+        "config": "knowledge_rag",
+        "artifact": "knowledge/",
+        "privacy": "blueprint knowledge only by default"
+      },
+      "agentic_research": {
+        "description": "Bounded LLM-selected or actor-guided tool contract for domain work.",
+        "config": "agentic_research"
       }
     },
     "config_sections": [
@@ -235,7 +247,9 @@
       "web_ui",
       "interfaces",
       "execution_model",
-      "openshell_network"
+      "openshell_network",
+      "knowledge_rag",
+      "agentic_research"
     ],
     "identity_fields": [
       "blueprint_id",
@@ -300,6 +314,39 @@
       "static_html",
       "gradio",
       "custom"
+    ],
+    "config": [
+      "standard_version",
+      "identity",
+      "mode",
+      "metadata",
+      "inputs",
+      "simulation",
+      "llm",
+      "outputs",
+      "logging",
+      "resources",
+      "human_control",
+      "real_adapters",
+      "streams",
+      "input_skills",
+      "output_skills",
+      "error_handling",
+      "state",
+      "capabilities",
+      "privacy",
+      "triggers",
+      "backpressure",
+      "determinism",
+      "schemas",
+      "budgets",
+      "agent_handoffs",
+      "web_ui",
+      "interfaces",
+      "execution_model",
+      "openshell_network",
+      "knowledge_rag",
+      "agentic_research"
     ]
   },
   "llm": {
@@ -457,6 +504,54 @@
     "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
     "sdk_distribution": "mirrorneuron-membrane-python-sdk",
     "sdk_import_package": "mn_context_engine_sdk"
+  },
+  "agentic_research": {
+    "enabled": true,
+    "agent_ids": [
+      "spark_voice_preparer",
+      "customer_service_voice_host"
+    ],
+    "max_iterations_per_agent": 1,
+    "max_tool_calls_per_agent": 2,
+    "allowed_tools": [
+      "knowledge_retrieve",
+      "conversation_state_update",
+      "handoff_recommendation",
+      "finish"
+    ],
+    "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run",
+    "default_mode": "bounded_llm_guided_voice_knowledge_response",
+    "note": "Voice responses must stay grounded in editable knowledge and recommend handoff when retrieval is thin or outside scope."
+  },
+  "knowledge_rag": {
+    "enabled": true,
+    "backend": "lexical_plain_text",
+    "required": false,
+    "knowledge_dir": "knowledge",
+    "purpose": "Retrieve editable run knowledge and menu/service-policy snippets for grounded customer-service voice responses.",
+    "retrieval_targets": [
+      "menu answers",
+      "ordering policy",
+      "handoff rules",
+      "service scope"
+    ],
+    "grounding_policy": "Use retrieved local blueprint knowledge to improve actor review prompts; do not invent facts when retrieval is unavailable.",
+    "redis_url": "",
+    "namespace": "",
+    "embedding_provider": "docker_model_runner",
+    "embedding_model": "hf.co/jinaai/jina-embeddings-v5-text-small-retrieval:Q4_K_M",
+    "embedding_api_base": "http://localhost:12434/engines/v1",
+    "embedding_query_prefix": "Query: ",
+    "embedding_document_prefix": "Document: ",
+    "embedding_start_command": "",
+    "embedding_healthcheck_enabled": true,
+    "vector_dim": 1024,
+    "index_on_startup": true,
+    "top_k": 4,
+    "max_context_chars": 4000,
+    "chunk_size": 700,
+    "chunk_overlap": 70,
+    "privacy": "index local blueprint knowledge only; do not index private run documents unless a future runtime explicitly opts in"
   },
   "metadata": {
     "category": "Business",

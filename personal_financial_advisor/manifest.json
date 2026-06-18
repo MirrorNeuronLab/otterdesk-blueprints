@@ -1327,7 +1327,10 @@
       "DockerWorker-only browser research phase",
       "w3m_browser_skill public research",
       "actor-style default LLM specialists",
-      "LLM-guided DockerWorker market research"
+      "LLM-guided DockerWorker market research",
+      "optional knowledge_rag guidance",
+      "actor-style LLM specialists use retrieved policy context when available",
+      "w3m_browser_skill public consumer-finance research"
     ],
     "configuration_contract": {
       "required_files": [
@@ -1342,7 +1345,8 @@
       "optional_files": [
         "config/overwrite.json",
         "inputs/public_dataset.json",
-        "examples/sample_inputs/"
+        "examples/sample_inputs/",
+        "knowledge/"
       ]
     },
     "agent_templates": {
@@ -2289,6 +2293,16 @@
             "web/index.html"
           ],
           "description": "Optional review dashboard for artifact inspection."
+        },
+        "knowledge_rag": {
+          "description": "Optional local blueprint knowledge retrieval used to ground actor prompts and tool planning.",
+          "config": "knowledge_rag",
+          "artifact": "knowledge/",
+          "privacy": "blueprint knowledge only by default"
+        },
+        "agentic_research": {
+          "description": "Bounded LLM-selected or actor-guided tool contract for domain work.",
+          "config": "agentic_research"
         }
       },
       "config": [
@@ -2322,7 +2336,9 @@
         "execution_model",
         "memory_layer",
         "dataset_input",
-        "document_automation"
+        "document_automation",
+        "knowledge_rag",
+        "agentic_research"
       ],
       "config_sections": [
         "standard_version",
@@ -2355,7 +2371,9 @@
         "execution_model",
         "memory_layer",
         "dataset_input",
-        "document_automation"
+        "document_automation",
+        "knowledge_rag",
+        "agentic_research"
       ],
       "identity": [
         "blueprint_id",
@@ -2498,7 +2516,9 @@
       "Membrane model context compression",
       "DockerWorker-only browser research phase",
       "actor-style default LLM specialists",
-      "LLM-guided w3m public research"
+      "LLM-guided w3m public research",
+      "optional local knowledge RAG grounding",
+      "bounded LLM tool-plan contract"
     ],
     "llm": {
       "enabled": true,
@@ -2587,7 +2607,146 @@
         "ground every recommendation in local evidence or cited public sources",
         "keep outputs review-only and require human approval before action"
       ]
+    },
+    "knowledge_rag": {
+      "enabled": true,
+      "backend": "redis_vector_rag",
+      "required": false,
+      "knowledge_dir": "knowledge",
+      "purpose": "Retrieve local consumer-finance review guidance before LLM advice drafting and privacy-safe public research planning.",
+      "retrieval_targets": [
+        "cash-flow review",
+        "fee and debt risks",
+        "consumer guidance source quality",
+        "human approval boundaries"
+      ],
+      "grounding_policy": "Use retrieved local blueprint knowledge to improve actor review prompts; do not invent facts when retrieval is unavailable.",
+      "redis_url": "",
+      "namespace": "",
+      "embedding_provider": "docker_model_runner",
+      "embedding_model": "hf.co/jinaai/jina-embeddings-v5-text-small-retrieval:Q4_K_M",
+      "embedding_api_base": "http://localhost:12434/engines/v1",
+      "embedding_query_prefix": "Query: ",
+      "embedding_document_prefix": "Document: ",
+      "embedding_start_command": "",
+      "embedding_healthcheck_enabled": true,
+      "vector_dim": 1024,
+      "index_on_startup": false,
+      "top_k": 4,
+      "max_context_chars": 4000,
+      "chunk_size": 700,
+      "chunk_overlap": 70,
+      "privacy": "index local blueprint knowledge only; do not index private run documents unless a future runtime explicitly opts in"
+    },
+    "agentic_research": {
+      "enabled": true,
+      "agent_ids": [
+        "financial_market_researcher",
+        "financial_advice_reporter"
+      ],
+      "max_iterations_per_agent": 1,
+      "max_tool_calls_per_agent": 2,
+      "allowed_tools": [
+        "knowledge_retrieve",
+        "browser_search",
+        "browser_page",
+        "llm_ocr_extract",
+        "finish"
+      ],
+      "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run",
+      "default_mode": "bounded_llm_guided_public_finance_research",
+      "note": "Financial advice actors derive public queries from generic risk categories and official consumer guidance only."
+    },
+    "input_skills": {
+      "llm_ocr": {
+        "skill": "llm_ocr_skill",
+        "package": "mirrorneuron-llm-ocr-skill",
+        "connector": "docker_model_runner",
+        "purpose": "shared local LightOnOCR-2-1B OCR for scanned PDFs, images, forms, statements, and bills",
+        "enabled": true,
+        "required": false,
+        "backend": "auto",
+        "endpoint": "http://localhost:12434",
+        "model": null,
+        "quantization": null,
+        "min_text_chars": 40,
+        "max_pages": null,
+        "preload": false,
+        "install_policy": "on_first_required_document",
+        "remove_policy": "manual",
+        "require_hardware_acceleration": true,
+        "timeout_seconds": 180
+      },
+      "w3m_browser": {
+        "skill": "w3m_browser_skill",
+        "package": "mirrorneuron-w3m-browser-skill",
+        "runner": "w3m",
+        "purpose": "privacy-safe public web research for source-grounded personal finance advice",
+        "enabled": true,
+        "required": false,
+        "install_policy": "docker_worker_image",
+        "timeout_seconds": 12,
+        "max_chars": 6000,
+        "max_queries": 3,
+        "max_sources_per_query": 2,
+        "source_urls": [
+          "https://consumer.gov/managing-your-money",
+          "https://www.consumerfinance.gov/consumer-tools/bank-accounts/",
+          "https://www.consumerfinance.gov/consumer-tools/credit-cards/",
+          "https://www.consumerfinance.gov/consumer-tools/debt-collection/"
+        ],
+        "use_model_compression": true
+      }
     }
   },
-  "type": "service"
+  "type": "service",
+  "knowledge_rag": {
+    "enabled": true,
+    "backend": "redis_vector_rag",
+    "required": false,
+    "knowledge_dir": "knowledge",
+    "purpose": "Retrieve local consumer-finance review guidance before LLM advice drafting and privacy-safe public research planning.",
+    "retrieval_targets": [
+      "cash-flow review",
+      "fee and debt risks",
+      "consumer guidance source quality",
+      "human approval boundaries"
+    ],
+    "grounding_policy": "Use retrieved local blueprint knowledge to improve actor review prompts; do not invent facts when retrieval is unavailable.",
+    "redis_url": "",
+    "namespace": "",
+    "embedding_provider": "docker_model_runner",
+    "embedding_model": "hf.co/jinaai/jina-embeddings-v5-text-small-retrieval:Q4_K_M",
+    "embedding_api_base": "http://localhost:12434/engines/v1",
+    "embedding_query_prefix": "Query: ",
+    "embedding_document_prefix": "Document: ",
+    "embedding_start_command": "",
+    "embedding_healthcheck_enabled": true,
+    "vector_dim": 1024,
+    "index_on_startup": false,
+    "top_k": 4,
+    "max_context_chars": 4000,
+    "chunk_size": 700,
+    "chunk_overlap": 70,
+    "privacy": "index local blueprint knowledge only; do not index private run documents unless a future runtime explicitly opts in"
+  },
+  "agentic_research": {
+    "enabled": true,
+    "agent_ids": [
+      "financial_market_researcher",
+      "financial_advice_reporter"
+    ],
+    "max_iterations_per_agent": 1,
+    "max_tool_calls_per_agent": 2,
+    "allowed_tools": [
+      "knowledge_retrieve",
+      "browser_search",
+      "browser_page",
+      "llm_ocr_extract",
+      "finish"
+    ],
+    "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run",
+    "default_mode": "bounded_llm_guided_public_finance_research",
+    "note": "Financial advice actors derive public queries from generic risk categories and official consumer guidance only."
+  }
 }
