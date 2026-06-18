@@ -730,7 +730,7 @@ def test_vc_assistant_runtime_graph_is_linear_and_has_terminal_sink():
     handoffs = [f"{source}_to_{target}" for source, target in zip(step_ids, step_ids[1:])]
 
     assert "type" not in manifest
-    assert config["execution_model"]["type"] == "finite_linear_report_factory"
+    assert config["execution_model"]["type"] == "static_dag_step_handlers"
     assert config["execution_model"]["step_count"] == len(step_ids)
     assert config["execution_model"]["terminal_sink"] == "report_sink"
     assert config["agent_handoffs"] == handoffs
@@ -1268,7 +1268,7 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path
 
     def fake_research_topic(query, browser_config, max_sources=3, observer=None):
         if observer is not None:
-            observer({"event": "tool_call_completed", "tool": "w3m", "status": "completed", "target": query})
+            observer("tool_call_completed", {"tool": "w3m", "status": "completed", "target": query})
         return {
             "sources": [
                 {
@@ -1286,6 +1286,10 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path
     monkeypatch.setattr(runner, "W3mBrowserConfig", FakeW3mBrowserConfig)
     monkeypatch.setattr(runner, "research_topic", fake_research_topic)
     monkeypatch.setattr(runner, "browse_url", lambda *args, **kwargs: {"status": "ok"})
+    monkeypatch.setattr(runner, "_fetch_public_http", lambda url, *, internet: {"status": "ok", "url": url, "title": "HTTP fallback", "text": "deterministic public fallback", "html": "", "error": "", "http_status": 200})
+    monkeypatch.setattr(runner, "_load_web_browser_skill", lambda: None)
+    monkeypatch.setattr(runner, "WebBrowserConfig", FakeW3mBrowserConfig)
+    monkeypatch.setattr(runner, "scrape_page", lambda url, browser_config: {"status": "ok", "final_url": url, "title": "Rendered", "text": "rendered page", "warnings": []})
 
     result = runner.run_blueprint(
         inputs={
@@ -1571,7 +1575,7 @@ def test_actor_review_failure_does_not_fail_report_outputs(tmp_path):
     assert any(finding.get("status") == "not_llm_reviewed" for finding in artifact["actor_findings"].values())
 
 
-def test_runtime_step_entrypoint_runs_report_factory_once(tmp_path):
+def test_runtime_steps_use_distributed_step_handlers(tmp_path):
     runner = _load_runner()
     docs = tmp_path / "startup-docs"
     outputs = tmp_path / "reports"
@@ -1596,12 +1600,14 @@ def test_runtime_step_entrypoint_runs_report_factory_once(tmp_path):
         llm_client=FakeVCLLM(),
     )
 
-    assert entry_result["runtime_step_mode"] == "report_factory_entrypoint"
-    assert (outputs / "company_index.json").exists()
-    assert (outputs / "alpha-ai" / "analysis.json").exists()
-    assert (outputs / "sparse-labs" / "analysis.json").exists()
+    run_dir = tmp_path / "vc-runtime-entry"
+    assert entry_result["runtime_step_mode"] == "workflow_step_handler"
+    assert entry_result["workflow_step_id"] == "startup_folder_watcher"
+    assert (run_dir / "workflow_state" / "document_files.json").exists()
+    assert not (outputs / "company_index.json").exists()
+    assert not (outputs / "alpha-ai" / "analysis.json").exists()
 
-    ack_result = runner.run_runtime_step(
+    grouped_result = runner.run_runtime_step(
         "company_packet_grouper",
         inputs={
             "document_folder": str(docs),
@@ -1615,13 +1621,15 @@ def test_runtime_step_entrypoint_runs_report_factory_once(tmp_path):
             "backpressure": {"llm": {"max_concurrent_calls": 1, "min_interval_seconds": 0}},
         },
         runs_root=tmp_path,
-        run_id="vc-runtime-ack",
+        run_id="vc-runtime-entry",
         llm_client=FakeVCLLM(),
     )
 
-    assert ack_result["runtime_step_mode"] == "acknowledged_after_report_factory_entrypoint"
-    assert "final_artifact" not in ack_result
-    assert (tmp_path / "vc-runtime-ack" / "company_packet_grouper_result.json").exists()
+    assert grouped_result["runtime_step_mode"] == "workflow_step_handler"
+    assert grouped_result["workflow_step_id"] == "company_packet_grouper"
+    assert "final_artifact" not in grouped_result
+    assert (run_dir / "workflow_state" / "company_packet_groups.json").exists()
+    assert (run_dir / "company_packet_grouper_result.json").exists()
 
 
 def test_runtime_step_entrypoint_honors_mirror_neuron_run_environment(tmp_path, monkeypatch):
@@ -1652,9 +1660,11 @@ def test_runtime_step_entrypoint_honors_mirror_neuron_run_environment(tmp_path, 
 
     run_dir = runtime_runs / "vc-runtime-env"
     assert result["run_id"] == "vc-runtime-env"
-    assert (run_dir / "result.json").exists()
-    assert (run_dir / "final_artifact.json").exists()
-    assert (run_dir / "action_ledger.json").exists()
+    assert result["runtime_step_mode"] == "workflow_step_handler"
+    assert result["workflow_step_id"] == "startup_folder_watcher"
+    assert (run_dir / "run.json").exists()
+    assert (run_dir / "workflow_state" / "document_files.json").exists()
+    assert not (run_dir / "final_artifact.json").exists()
 
 
 def test_tilde_output_folder_can_use_runtime_output_home(tmp_path, monkeypatch):
@@ -1685,7 +1695,7 @@ def test_tilde_output_folder_derives_user_home_from_mirror_neuron_runs_root(monk
     assert runner.expand_runtime_path("~/Downloads/vc_assistant") == user_home / "Downloads" / "vc_assistant"
 
 
-def test_runtime_managed_output_folder_wins_over_default_payload(monkeypatch, tmp_path):
+def test_runtime_managed_output_folder_wins_over_configured_downloads(monkeypatch, tmp_path):
     runner = _load_runner()
     runtime_output = tmp_path / "shared" / "outputs" / "user"
     payload = {"output_folder": "~/Downloads/vc_assistant"}
@@ -1695,54 +1705,55 @@ def test_runtime_managed_output_folder_wins_over_default_payload(monkeypatch, tm
     assert runner.resolve_output_folder(payload, resolved_config, inputs={}) == runtime_output
 
 
-def test_explicit_output_folder_wins_over_runtime_managed_output(monkeypatch, tmp_path):
+def test_explicit_output_folder_wins_for_local_direct_runs(monkeypatch, tmp_path):
     runner = _load_runner()
     runtime_output = tmp_path / "shared" / "outputs" / "user"
     explicit_output = tmp_path / "explicit"
     payload = {"output_folder": "~/Downloads/vc_assistant"}
     resolved_config = {"outputs": {"folder_path": str(runtime_output)}}
-    monkeypatch.setenv("MN_JOB_OUTPUT_DIR", str(runtime_output))
+    monkeypatch.delenv("MN_JOB_OUTPUT_DIR", raising=False)
 
     assert runner.resolve_output_folder(payload, resolved_config, inputs={"output_folder": str(explicit_output)}) == explicit_output
 
 
-def test_changed_company_packets_process_in_parallel_with_stable_output_order(tmp_path):
+def test_changed_company_packets_use_stage_handlers_with_stable_output_order(tmp_path):
     runner = _load_runner()
     docs = tmp_path / "startup-docs"
     outputs = tmp_path / "reports"
     _write_startup_packets(docs)
-    started: set[str] = set()
-    lock = threading.Lock()
-    two_started = threading.Event()
-    original_research = runner.research_company_by_stage
+    research_calls: list[tuple[str, str]] = []
+    scorer_calls: list[str] = []
+    original_research_one_stage = runner._research_one_stage
+    original_scorers = dict(runner.METHOD_SCORER_FUNCTIONS)
 
-    def fake_research(company, config, run_dir=None, **kwargs):
-        with lock:
-            started.add(company)
-            if len(started) >= 2:
-                two_started.set()
-        assert two_started.wait(1.0), "changed company packets did not overlap"
-        time.sleep(0.02)
+    def fake_research_one_stage(company, stage, query, plan, internet, run_dir, action_budget):
+        research_calls.append((company, stage))
         slug = runner.slugify(company)
-        return {
-            stage: [
-                {
-                    "company": company,
-                    "query": f"{company} {stage}",
-                    "url": f"https://example.com/{slug}/{stage}",
-                    "title": stage,
-                    "snippet": "founder market customer revenue product prototype competitor patent funding investor",
-                    "status": "ok",
-                    "skill": "w3m_browser_skill",
-                    "verification_target": stage,
-                    "warning": "",
-                    "retrieved_at": runner.utc_now_iso(),
-                }
-            ]
-            for stage in runner.RESEARCH_STAGE_IDS
-        }
+        return stage, [
+            {
+                "company": company,
+                "query": f"{company} {stage}",
+                "url": f"https://example.com/{slug}/{stage}",
+                "title": stage,
+                "snippet": "founder market customer revenue product prototype competitor patent funding investor",
+                "status": "ok",
+                "skill": "w3m_browser_skill",
+                "verification_target": stage,
+                "warning": "",
+                "retrieved_at": runner.utc_now_iso(),
+            }
+        ]
 
-    runner.research_company_by_stage = fake_research
+    def wrapped_scorer(method_id):
+        def score(facts):
+            scorer_calls.append(method_id)
+            return original_scorers[method_id](facts)
+
+        return score
+
+    runner._research_one_stage = fake_research_one_stage
+    for method_id in runner.METHOD_IDS:
+        runner.METHOD_SCORER_FUNCTIONS[method_id] = wrapped_scorer(method_id)
     try:
         result = runner.run_blueprint(
             inputs={
@@ -1753,6 +1764,7 @@ def test_changed_company_packets_process_in_parallel_with_stable_output_order(tm
             config={
                 "llm": {"mode": "fake", "require_live": False},
                 "knowledge_rag": {"enabled": False, "required": False},
+                "agentic_research": {"enabled": False},
                 "backpressure": {"llm": {"max_concurrent_calls": 1, "min_interval_seconds": 0}},
                 "execution": {"max_company_workers": 2},
                 "scoring": {"max_workers": 7},
@@ -1762,10 +1774,17 @@ def test_changed_company_packets_process_in_parallel_with_stable_output_order(tm
             llm_client=FakeVCLLM(),
         )
     finally:
-        runner.research_company_by_stage = original_research
+        runner._research_one_stage = original_research_one_stage
+        runner.METHOD_SCORER_FUNCTIONS.clear()
+        runner.METHOD_SCORER_FUNCTIONS.update(original_scorers)
 
     artifact = result["final_artifact"]
-    assert len(started) == 2
+    assert set(research_calls) == {
+        (company, stage)
+        for company in {"Alpha Ai", "Sparse Labs"}
+        for stage in runner.RESEARCH_STAGE_IDS
+    }
+    assert set(scorer_calls) == set(runner.METHOD_IDS)
     assert artifact["parallel_execution"]["max_company_workers"] == 2
     assert artifact["parallel_execution"]["max_scoring_workers"] == 7
     assert artifact["parallel_execution"]["company_processing_order"] == ["alpha-ai", "sparse-labs"]

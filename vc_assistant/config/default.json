@@ -1114,12 +1114,12 @@
     ]
   },
   "execution_model": {
-    "type": "finite_linear_report_factory",
+    "type": "static_dag_step_handlers",
     "entrypoint": "startup_folder_watcher",
     "worker_sink": "batch_index_writer",
     "terminal_sink": "report_sink",
     "step_count": 21,
-    "runtime_note": "The entrypoint runs the full VC report factory once; later worker nodes are linear observability acknowledgements, and report_sink completes the finite run."
+    "runtime_note": "Each workflow node executes a bounded step handler and exchanges JSON workflow-state artifacts through the shared run directory; report_sink completes the finite run."
   },
   "python_dependencies": {
     "installer": "pip",

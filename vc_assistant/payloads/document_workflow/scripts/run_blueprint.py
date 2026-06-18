@@ -450,6 +450,15 @@ def read_json(path: Path) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
 
+def read_json_value(path: Path, default: Any = None) -> Any:
+    if not path.exists():
+        return default
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return default
+
+
 def write_json(path: Path, value: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(value, indent=2, sort_keys=False) + "\n", encoding="utf-8")
@@ -567,15 +576,18 @@ def resolve_run_dir(output_folder: Path, run_id: str, runs_root: str | Path | No
 
 
 def resolve_output_folder(payload: dict[str, Any], resolved_config: dict[str, Any], inputs: dict[str, Any] | None = None) -> Path:
-    explicit_output_folder = (inputs or {}).get("output_folder")
-    if explicit_output_folder:
-        return expand_runtime_path(explicit_output_folder)
     runtime_output_folder = os.environ.get("MN_JOB_OUTPUT_DIR")
     if runtime_output_folder:
         return expand_runtime_path(runtime_output_folder)
+    explicit_output_folder = (inputs or {}).get("output_folder")
+    if explicit_output_folder:
+        return expand_runtime_path(explicit_output_folder)
     outputs_config = resolved_config.get("outputs") if isinstance(resolved_config.get("outputs"), dict) else {}
     configured_output_folder = outputs_config.get("output_folder") or outputs_config.get("folder_path")
-    return expand_runtime_path(payload.get("output_folder") or configured_output_folder or f"outputs/{BLUEPRINT_ID}")
+    configured_target = payload.get("output_folder") or configured_output_folder
+    if configured_target:
+        return expand_runtime_path(configured_target)
+    return expand_runtime_path(f"outputs/{BLUEPRINT_ID}")
 
 
 def vc_knowledge_search_roots(blueprint_dir: Path) -> list[Path]:
@@ -5518,68 +5530,291 @@ def process_company_packet(
     }
 
 
-def run_blueprint(
+WORKFLOW_STATE_DIRNAME = "workflow_state"
+SCORER_METHOD_BY_STAGE = {stage_id: method_id for method_id, stage_id in SCORER_STAGE_BY_METHOD.items()}
+METHOD_SCORER_FUNCTIONS = {
+    "berkus_method": score_berkus,
+    "scorecard_bill_payne_method": score_scorecard,
+    "risk_factor_summation_method": score_risk_factor_summation,
+    "venture_capital_method": score_venture_capital_method,
+    "first_chicago_method": score_first_chicago,
+    "comparables_market_multiple_method": score_comparables,
+    "cost_to_duplicate_method": score_cost_to_duplicate,
+}
+
+
+def workflow_state_dir(run_dir: Path) -> Path:
+    return run_dir / WORKFLOW_STATE_DIRNAME
+
+
+def workflow_state_file(run_dir: Path, name: str) -> Path:
+    return workflow_state_dir(run_dir) / name
+
+
+def workflow_state_subdir(run_dir: Path, name: str) -> Path:
+    return workflow_state_dir(run_dir) / name
+
+
+def read_workflow_state(run_dir: Path, name: str, default: Any = None) -> Any:
+    return read_json_value(workflow_state_file(run_dir, name), default)
+
+
+def write_workflow_state(run_dir: Path, name: str, value: Any) -> None:
+    write_json(workflow_state_file(run_dir, name), value)
+
+
+def company_state_path(run_dir: Path, folder: str, company_or_slug: str) -> Path:
+    return workflow_state_subdir(run_dir, folder) / f"{slugify(company_or_slug)}.json"
+
+
+def normalized_research_ledger(value: Any) -> dict[str, list[dict[str, Any]]]:
+    ledger = value if isinstance(value, dict) else {}
+    return {
+        stage: list(ledger.get(stage) or []) if isinstance(ledger.get(stage), list) else []
+        for stage in RESEARCH_STAGE_IDS
+    }
+
+
+def read_company_research_ledger(run_dir: Path, company: str) -> dict[str, list[dict[str, Any]]]:
+    return normalized_research_ledger(read_json_value(company_state_path(run_dir, "research_ledgers", company), {}))
+
+
+def write_company_research_ledger(run_dir: Path, company: str, ledger: dict[str, list[dict[str, Any]]]) -> None:
+    write_json(company_state_path(run_dir, "research_ledgers", company), normalized_research_ledger(ledger))
+
+
+def read_company_records_state(run_dir: Path) -> dict[str, list[dict[str, Any]]]:
+    value = read_workflow_state(run_dir, "company_records.json", {})
+    if not isinstance(value, dict):
+        return {}
+    return {
+        str(company): list(records) if isinstance(records, list) else []
+        for company, records in value.items()
+    }
+
+
+def read_company_work_queue_state(run_dir: Path) -> list[dict[str, Any]]:
+    value = read_workflow_state(run_dir, "company_work_queue.json", [])
+    return [item for item in value if isinstance(item, dict)] if isinstance(value, list) else []
+
+
+def write_company_analysis_state(run_dir: Path, analysis: dict[str, Any]) -> None:
+    write_json(company_state_path(run_dir, "analyses", str(analysis["company_slug"])), analysis)
+
+
+def read_company_analysis_state(run_dir: Path, company_or_slug: str) -> dict[str, Any]:
+    return read_json(company_state_path(run_dir, "analyses", company_or_slug))
+
+
+def read_all_company_analyses(run_dir: Path) -> list[dict[str, Any]]:
+    analyses_dir = workflow_state_subdir(run_dir, "analyses")
+    if not analyses_dir.exists():
+        return []
+    analyses = [
+        value
+        for path in sorted(analyses_dir.glob("*.json"))
+        for value in [read_json(path)]
+        if value
+    ]
+    return sorted(analyses, key=lambda item: item.get("company_slug") or slugify(item.get("company_name", "")))
+
+
+def read_all_research_ledgers(run_dir: Path, company_names: list[str]) -> dict[str, dict[str, list[dict[str, Any]]]]:
+    return {company: read_company_research_ledger(run_dir, company) for company in company_names}
+
+
+def write_company_method_scores_state(run_dir: Path, company: str, methods: dict[str, dict[str, Any]]) -> None:
+    write_json(company_state_path(run_dir, "method_scores", company), methods)
+
+
+def read_company_method_scores_state(run_dir: Path, company: str) -> dict[str, dict[str, Any]]:
+    value = read_json(company_state_path(run_dir, "method_scores", company))
+    return {method_id: value[method_id] for method_id in METHOD_IDS if isinstance(value.get(method_id), dict)}
+
+
+def write_company_reconciliation_state(run_dir: Path, company: str, reconciliation: dict[str, Any]) -> None:
+    write_json(company_state_path(run_dir, "reconciliations", company), reconciliation)
+
+
+def read_company_reconciliation_state(run_dir: Path, company: str) -> dict[str, Any]:
+    return read_json(company_state_path(run_dir, "reconciliations", company))
+
+
+def write_company_research_plan_state(run_dir: Path, company: str, plan: dict[str, Any]) -> None:
+    write_json(company_state_path(run_dir, "research_plans", company), plan)
+
+
+def read_company_research_plan_state(run_dir: Path, company: str) -> dict[str, Any]:
+    return read_json(company_state_path(run_dir, "research_plans", company))
+
+
+def write_company_agent_trace_state(run_dir: Path, company: str, trace: list[dict[str, Any]]) -> None:
+    write_json(company_state_path(run_dir, "agent_tool_traces", company), trace)
+
+
+def read_company_agent_trace_state(run_dir: Path, company: str) -> list[dict[str, Any]]:
+    value = read_json_value(company_state_path(run_dir, "agent_tool_traces", company), [])
+    return [item for item in value if isinstance(item, dict)] if isinstance(value, list) else []
+
+
+def runtime_context_for_step(
+    *,
     inputs: dict[str, Any] | None = None,
     config: dict[str, Any] | None = None,
     runs_root: str | Path | None = None,
     run_id: str | None = None,
-    llm_client: Any | None = None,
 ) -> dict[str, Any]:
-    run_started_monotonic = time.monotonic()
-    run_started_at = utc_now_iso()
-    start_agent_beacon_thread(f"{BLUEPRINT_NAME} is running")
     blueprint_dir = Path(__file__).resolve().parents[3]
     resolved_config = load_resolved_config(blueprint_dir / "config" / "default.json", config)
-    active_knowledge = load_vc_knowledge(blueprint_dir)
-    active_knowledge_ref = active_knowledge_reference(active_knowledge)
-    action_budget = build_action_budget(resolved_config)
-    llm_limiter = build_llm_call_limiter(resolved_config)
-    require_live_llm = llm_requires_live(resolved_config)
     payload = dict((resolved_config.get("inputs") or {}).get("payload") or {})
     if inputs:
         payload.update(inputs)
-    run_id = run_id or payload.get("run_id") or os.environ.get("MN_RUN_ID") or f"{BLUEPRINT_ID}-{uuid.uuid4().hex[:8]}"
+    runtime_run_id = run_id or payload.get("run_id") or os.environ.get("MN_RUN_ID") or f"{BLUEPRINT_ID}-{uuid.uuid4().hex[:8]}"
     output_folder = resolve_output_folder(payload, resolved_config, inputs)
     payload["output_folder"] = str(output_folder)
-    run_dir = resolve_run_dir(output_folder, run_id, runs_root)
-    run_dir.mkdir(parents=True, exist_ok=True)
-    document_folder = (
-        resolve_existing_path(payload["document_folder"], [blueprint_dir, blueprint_dir.parent])
-        if payload.get("document_folder")
-        else blueprint_dir / "examples" / "sample_inputs"
-    )
-    monitoring = dict(payload.get("monitoring") or {})
-    max_cycles = int(monitoring.get("max_cycles") or 1)
-    force_reprocess = force_reprocess_enabled(payload, resolved_config)
+    run_dir = resolve_run_dir(output_folder, runtime_run_id, runs_root)
+    persisted = read_json(workflow_state_file(run_dir, "runtime_context.json"))
+    if persisted:
+        output_folder = expand_runtime_path(persisted.get("output_folder") or output_folder)
+        run_dir = expand_runtime_path(persisted.get("run_dir") or run_dir)
+        document_folder = expand_runtime_path(persisted.get("document_folder") or payload.get("document_folder") or "")
+        started_at = str(persisted.get("started_at") or utc_now_iso())
+        force_reprocess = bool(persisted.get("force_reprocess"))
+        max_cycles = int(persisted.get("max_cycles") or 1)
+        payload.update(persisted.get("payload") if isinstance(persisted.get("payload"), dict) else {})
+    else:
+        document_folder = (
+            resolve_existing_path(payload["document_folder"], [blueprint_dir, blueprint_dir.parent])
+            if payload.get("document_folder")
+            else blueprint_dir / "examples" / "sample_inputs"
+        )
+        monitoring = dict(payload.get("monitoring") or {})
+        max_cycles = int(monitoring.get("max_cycles") or 1)
+        force_reprocess = force_reprocess_enabled(payload, resolved_config)
+        started_at = utc_now_iso()
+    return {
+        "blueprint_dir": blueprint_dir,
+        "config": resolved_config,
+        "payload": payload,
+        "run_id": str(runtime_run_id),
+        "output_folder": Path(output_folder),
+        "run_dir": Path(run_dir),
+        "document_folder": Path(document_folder),
+        "max_cycles": max_cycles,
+        "force_reprocess": force_reprocess,
+        "started_at": started_at,
+    }
 
-    write_json(run_dir / "config.json", resolved_config)
-    write_json(run_dir / "inputs.json", {"payload": payload, "document_folder": str(document_folder), "force_reprocess": force_reprocess})
-    write_json(run_dir / "run.json", {"run_id": run_id, "blueprint_id": BLUEPRINT_ID, "status": "running", "started_at": run_started_at})
+
+def persist_runtime_context(ctx: dict[str, Any]) -> None:
+    write_workflow_state(
+        ctx["run_dir"],
+        "runtime_context.json",
+        {
+            "blueprint_id": BLUEPRINT_ID,
+            "run_id": ctx["run_id"],
+            "started_at": ctx["started_at"],
+            "output_folder": str(ctx["output_folder"]),
+            "run_dir": str(ctx["run_dir"]),
+            "document_folder": str(ctx["document_folder"]),
+            "max_cycles": ctx["max_cycles"],
+            "force_reprocess": bool(ctx["force_reprocess"]),
+            "payload": ctx["payload"],
+        },
+    )
+
+
+def elapsed_ms_from_started_at(started_at: str) -> float:
     try:
-        with observed_operation(run_dir, phase="llm_init", operation="actor_llm.init"):
+        parsed = datetime.fromisoformat(started_at)
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return max(0.0, (datetime.now(timezone.utc) - parsed).total_seconds() * 1000)
+    except Exception:
+        return 0.0
+
+
+def write_failed_run(ctx: dict[str, Any], error: Exception | str) -> None:
+    write_json(
+        ctx["run_dir"] / "run.json",
+        {
+            "run_id": ctx["run_id"],
+            "blueprint_id": BLUEPRINT_ID,
+            "status": "failed",
+            "error": str(error),
+            "finished_at": utc_now_iso(),
+        },
+    )
+
+
+def step_result(ctx: dict[str, Any], step_id: str, **metadata: Any) -> dict[str, Any]:
+    result = {
+        "run_id": ctx["run_id"],
+        "blueprint_id": BLUEPRINT_ID,
+        "status": "completed",
+        "workflow_step_id": step_id,
+        "runtime_step_mode": "workflow_step_handler",
+        **metadata,
+    }
+    write_json(ctx["run_dir"] / f"{step_id}_result.json", result)
+    write_json(workflow_state_file(ctx["run_dir"], f"{step_id}_result.json"), result)
+    return result
+
+
+def complete_runtime_step(ctx: dict[str, Any], step_id: str, payload: dict[str, Any]) -> None:
+    append_event(ctx["run_dir"], f"{step_id}_completed", {"step_id": step_id, "runtime_step_mode": "workflow_step_handler", **payload})
+
+
+def load_action_budget_state(ctx: dict[str, Any]) -> ActionBudget:
+    budget = build_action_budget(ctx["config"])
+    state = read_workflow_state(ctx["run_dir"], "action_ledger.json", {})
+    if isinstance(state, dict) and "budget" in state:
+        budget.budget = int(state.get("budget") or budget.budget)
+        budget.used = int(state.get("used") or 0)
+        actions = state.get("actions")
+        budget.actions = [dict(item) for item in actions if isinstance(item, dict)] if isinstance(actions, list) else []
+    return budget
+
+
+def persist_action_budget_state(ctx: dict[str, Any], action_budget: ActionBudget) -> dict[str, Any]:
+    summary = action_budget.summary(include_actions=True)
+    write_workflow_state(ctx["run_dir"], "action_ledger.json", summary)
+    return summary
+
+
+def init_runtime_llm(ctx: dict[str, Any], action_budget: ActionBudget, llm_client: Any | None = None) -> tuple[Any, LlmCallLimiter]:
+    limiter = build_llm_call_limiter(ctx["config"])
+    require_live = llm_requires_live(ctx["config"])
+    try:
+        with observed_operation(ctx["run_dir"], phase="llm_init", operation="actor_llm.init"):
             llm = BudgetedLLM(
-                _get_configured_actor_llm(resolved_config, llm_client),
+                _get_configured_actor_llm(ctx["config"], llm_client),
                 action_budget,
-                require_live=require_live_llm,
-                limiter=llm_limiter,
-                run_dir=run_dir,
+                require_live=require_live,
+                limiter=limiter,
+                run_dir=ctx["run_dir"],
             )
+            return llm, limiter
     except Exception as exc:
-        append_event(run_dir, "tool_call_failed", {"tool": "actor_llm.init", "status": "required_actor_llm_init_failed", "error": str(exc)})
-        write_json(run_dir / "run.json", {"run_id": run_id, "blueprint_id": BLUEPRINT_ID, "status": "failed", "error": str(exc), "finished_at": utc_now_iso()})
+        append_event(ctx["run_dir"], "tool_call_failed", {"tool": "actor_llm.init", "status": "required_actor_llm_init_failed", "error": str(exc)})
+        write_failed_run(ctx, exc)
         raise
+
+
+def prepare_runtime_knowledge_rag(ctx: dict[str, Any], *, stage: str) -> tuple[dict[str, Any], dict[str, Any]]:
+    active_knowledge = load_vc_knowledge(ctx["blueprint_dir"])
     with observed_operation(
-        run_dir,
+        ctx["run_dir"],
         phase="knowledge_rag",
         operation="prepare",
-        embedding_provider=((resolved_config.get("knowledge_rag") or {}).get("embedding_provider") if isinstance(resolved_config.get("knowledge_rag"), dict) else ""),
-        embedding_model=((resolved_config.get("knowledge_rag") or {}).get("embedding_model") if isinstance(resolved_config.get("knowledge_rag"), dict) else ""),
+        embedding_provider=((ctx["config"].get("knowledge_rag") or {}).get("embedding_provider") if isinstance(ctx["config"].get("knowledge_rag"), dict) else ""),
+        embedding_model=((ctx["config"].get("knowledge_rag") or {}).get("embedding_model") if isinstance(ctx["config"].get("knowledge_rag"), dict) else ""),
     ) as op:
         knowledge_rag = prepare_knowledge_rag(
-            blueprint_dir=blueprint_dir,
-            resolved_config=resolved_config,
+            blueprint_dir=ctx["blueprint_dir"],
+            resolved_config=ctx["config"],
             active_knowledge=active_knowledge,
-            run_dir=run_dir,
+            run_dir=ctx["run_dir"],
         )
         op.close(
             "completed",
@@ -5587,97 +5822,651 @@ def run_blueprint(
             indexed_count=(knowledge_rag.get("index_summary") or {}).get("indexed_count") if isinstance(knowledge_rag.get("index_summary"), dict) else None,
         )
     try:
-        require_ready_rag(knowledge_rag, stage="batch_indexing", run_dir=run_dir)
+        require_ready_rag(knowledge_rag, stage=stage, run_dir=ctx["run_dir"])
     except Exception as exc:
-        append_event(run_dir, "tool_call_failed", {"tool": "knowledge_rag.index", "status": "required_rag_failed", "error": str(exc)})
-        write_json(run_dir / "run.json", {"run_id": run_id, "blueprint_id": BLUEPRINT_ID, "status": "failed", "error": str(exc), "finished_at": utc_now_iso()})
+        append_event(ctx["run_dir"], "tool_call_failed", {"tool": "knowledge_rag.index", "status": "required_rag_failed", "error": str(exc)})
+        write_failed_run(ctx, exc)
         raise
-    append_event(run_dir, "blueprint_phase_started", {"phase": "loading_inputs", "component": BLUEPRINT_ID})
-    append_event(run_dir, "blueprint_phase_completed", {"phase": "loading_inputs", "component": BLUEPRINT_ID})
-    append_event(run_dir, "watch_cycle_started", {"cycle": 1, "max_cycles": max_cycles})
-    append_event(run_dir, "blueprint_phase_started", {"phase": "running_worker", "component": BLUEPRINT_ID})
+    return active_knowledge, knowledge_rag
 
+
+def build_runtime_services(
+    ctx: dict[str, Any],
+    *,
+    llm_client: Any | None = None,
+    need_llm: bool = False,
+    rag_stage: str = "",
+) -> dict[str, Any]:
+    action_budget = load_action_budget_state(ctx)
+    active_knowledge: dict[str, Any] = {}
+    knowledge_rag: dict[str, Any] = {}
+    if rag_stage:
+        active_knowledge, knowledge_rag = prepare_runtime_knowledge_rag(ctx, stage=rag_stage)
+    llm = None
+    limiter = build_llm_call_limiter(ctx["config"])
+    if need_llm:
+        llm, limiter = init_runtime_llm(ctx, action_budget, llm_client)
+    return {
+        "action_budget": action_budget,
+        "active_knowledge": active_knowledge,
+        "knowledge_rag": knowledge_rag,
+        "llm": llm,
+        "llm_limiter": limiter,
+    }
+
+
+def step_actor_review_selected(ctx: dict[str, Any], step_id: str) -> bool:
+    return step_id in set(actor_review_config(ctx["config"]).get("llm_actor_ids") or [])
+
+
+def workflow_state_summary(ctx: dict[str, Any]) -> dict[str, Any]:
+    company_records = read_company_records_state(ctx["run_dir"])
+    queue = read_company_work_queue_state(ctx["run_dir"])
+    analyses = read_all_company_analyses(ctx["run_dir"])
+    return {
+        "document_file_count": len(read_workflow_state(ctx["run_dir"], "document_files.json", []) or []),
+        "company_record_count": len(company_records),
+        "queued_company_count": len(queue),
+        "analysis_count": len(analyses),
+        "queued_statuses": sorted({str(item.get("status") or "") for item in queue}),
+        "companies": sorted(company_records),
+    }
+
+
+def load_actor_findings_state(ctx: dict[str, Any]) -> dict[str, Any]:
+    return read_workflow_state(ctx["run_dir"], "actor_findings.json", {}) or {}
+
+
+def write_actor_findings_state(ctx: dict[str, Any], actor_findings: dict[str, Any]) -> None:
+    write_workflow_state(ctx["run_dir"], "actor_findings.json", actor_findings)
+
+
+def load_actor_review_warnings_state(ctx: dict[str, Any]) -> list[dict[str, Any]]:
+    value = read_workflow_state(ctx["run_dir"], "actor_review_warnings.json", [])
+    return [item for item in value if isinstance(item, dict)] if isinstance(value, list) else []
+
+
+def write_actor_review_warnings_state(ctx: dict[str, Any], warnings: list[dict[str, Any]]) -> None:
+    write_workflow_state(ctx["run_dir"], "actor_review_warnings.json", warnings)
+
+
+def run_step_actor_review(
+    ctx: dict[str, Any],
+    step_id: str,
+    services: dict[str, Any],
+    *,
+    llm_client: Any | None = None,
+) -> None:
+    if not step_actor_review_selected(ctx, step_id):
+        return
+    action_budget = services.get("action_budget") or load_action_budget_state(ctx)
+    active_knowledge = services.get("active_knowledge") or {}
+    knowledge_rag = services.get("knowledge_rag") or {}
+    if not knowledge_rag:
+        active_knowledge, knowledge_rag = prepare_runtime_knowledge_rag(ctx, stage=step_id)
+    llm = services.get("llm")
+    if llm is None:
+        llm, limiter = init_runtime_llm(ctx, action_budget, llm_client)
+        services["llm"] = llm
+        services["llm_limiter"] = limiter
+    actor_findings = load_actor_findings_state(ctx)
+    actor_review_warnings = load_actor_review_warnings_state(ctx)
+    actor_rag_context = retrieve_knowledge_rag_context(
+        knowledge_rag=knowledge_rag,
+        query=f"{step_id} VC workflow quality evidence grounding scoring research report-only boundary",
+        stage=step_id,
+        run_dir=ctx["run_dir"],
+    )
+    require_ready_rag(knowledge_rag, stage=step_id, context=actor_rag_context, min_citations=1, run_dir=ctx["run_dir"])
+    prompt_rag_context = {
+        key: value
+        for key, value in dict(actor_rag_context).items()
+        if key not in {"context", "chunks"}
+    }
+    prompt_rag_context["citation_count"] = len(prompt_rag_context.get("citations") or [])
+    active_knowledge_prompt_ref = active_knowledge_reference(active_knowledge)
+    active_knowledge_prompt_ref.pop("title", None)
+    review_context = {
+        "blueprint_id": BLUEPRINT_ID,
+        "workflow_step_id": step_id,
+        "output_type": OUTPUT_TYPE,
+        "report_only": True,
+        "decision_boundary": "reports include scores, assumptions, evidence, and warnings only; users make all investment decisions",
+        "state_summary": workflow_state_summary(ctx),
+        "active_knowledge": active_knowledge_prompt_ref,
+        "knowledge_rag": public_knowledge_rag_state(knowledge_rag),
+        "rag_context": prompt_rag_context,
+        "privacy_controls": {
+            "public_research_queries": "company names, domains, categories, and non-confidential public claims only",
+            "local_document_text": "not included in actor-review context",
+        },
+        "memory_boundary": {
+            "rag_knowledge": "persistent Redis-backed knowledge index",
+            "working_memory": "transient local prompt context; not written to Redis",
+        },
+    }
     try:
-        with observed_operation(run_dir, phase="document_intake", operation="scan_documents", path_hash=stable_text_hash(document_folder), supported_suffixes=sorted(SUPPORTED_SUFFIXES)) as op:
-            company_records = scan_documents(document_folder, resolved_config)
+        actor_findings = run_vc_actor_reviews(
+            config=ctx["config"],
+            llm=llm,
+            actor_ids=[step_id],
+            state={"actor_findings": actor_findings},
+            context=review_context,
+            knowledge_rag=knowledge_rag,
+            event_sink=ctx["run_dir"],
+        )
+    except Exception as exc:
+        if llm_requires_live(ctx["config"]) or knowledge_rag_is_required(knowledge_rag):
+            append_event(ctx["run_dir"], "tool_call_failed", {"tool": "actor_llm", "status": "required_actor_review_failed", "agent_id": step_id, "error": str(exc)})
+            write_failed_run(ctx, exc)
+            raise
+        fallback = actor_review_unavailable_findings([step_id], exc)
+        actor_findings.update(fallback)
+        actor_review_warnings.append(
+            {
+                "kind": "actor_review",
+                "status": "actor_review_unavailable",
+                "message": "One or more LLM actor reviews failed after deterministic reports were generated; report artifacts were preserved.",
+                "error": str(exc),
+                "affected_actor_count": 1,
+            }
+        )
+        append_event(ctx["run_dir"], "tool_call_failed", {"tool": "actor_llm", "status": "actor_review_unavailable", "agent_id": step_id, "error": str(exc)})
+    write_actor_findings_state(ctx, actor_findings)
+    write_actor_review_warnings_state(ctx, actor_review_warnings)
+    persist_action_budget_state(ctx, action_budget)
+
+
+def ensure_all_actor_findings(ctx: dict[str, Any]) -> dict[str, Any]:
+    actor_specs = resolve_actor_specs(ctx["config"])
+    actor_findings = load_actor_findings_state(ctx)
+    for actor_id in WORKFLOW_STEP_IDS:
+        if actor_id not in actor_findings:
+            actor_findings[actor_id] = not_llm_reviewed_actor_finding(actor_id, dict(actor_specs.get(actor_id) or {}))
+    write_actor_findings_state(ctx, actor_findings)
+    return actor_findings
+
+
+def normalized_actor_review_warnings(ctx: dict[str, Any], actor_findings: dict[str, Any]) -> list[dict[str, Any]]:
+    unavailable = [
+        str(finding.get("error") or "")
+        for finding in actor_findings.values()
+        if isinstance(finding, dict) and finding.get("provider") == "actor_review_unavailable"
+    ]
+    if unavailable:
+        return [
+            {
+                "kind": "actor_review",
+                "status": "actor_review_unavailable",
+                "message": "One or more LLM actor reviews failed after deterministic reports were generated; report artifacts were preserved.",
+                "error": unavailable[0],
+                "affected_actor_count": len(unavailable),
+            }
+        ]
+    return load_actor_review_warnings_state(ctx)
+
+
+def group_document_file_records(document_folder: Path, files: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for item in files:
+        path = Path(str(item.get("path") or ""))
+        try:
+            relative = path.relative_to(document_folder)
+        except ValueError:
+            relative = path
+        if len(relative.parts) > 1:
+            company = relative.parts[0].replace("_", " ").replace("-", " ").title()
+        else:
+            company = path.stem.replace("_", " ").replace("-", " ").title()
+        grouped.setdefault(company, []).append(item)
+    return dict(sorted(grouped.items(), key=lambda entry: slugify(entry[0])))
+
+
+def build_company_analysis_from_method_scores(
+    company: str,
+    records: list[dict[str, Any]],
+    research_ledger: dict[str, list[dict[str, Any]]],
+    methods: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    sources = [source for stage_sources in research_ledger.values() for source in stage_sources]
+    facts = build_fact_table(company, records, sources)
+    ordered_methods = {method_id: methods[method_id] for method_id in METHOD_IDS}
+    audit = audit_method_scores(ordered_methods, facts)
+    scored = [item["score"] for item in ordered_methods.values() if isinstance(item.get("score"), (int, float))]
+    missing_methods = [method_id for method_id, method in ordered_methods.items() if method["status"] == "insufficient_evidence"]
+    substantive_sources = [source for source in sources if is_substantive_public_source(source)]
+    composite_score = round(sum(scored) / len(scored), 2) if scored else None
+    return {
+        "company_name": company,
+        "company_slug": slugify(company),
+        "composite_score": composite_score,
+        "method_count": len(ordered_methods),
+        "methods": ordered_methods,
+        "fact_table": facts,
+        "audit": audit,
+        "evidence_summary": {
+            "document_count": len(records),
+            "source_count": len(sources),
+            "substantive_source_count": len(substantive_sources),
+            "financial_tool_source_count": len([source for source in sources if source.get("skill") == "financial_public_data_tool"]),
+            "missing_methods": missing_methods,
+            "composite_score_evidence": {
+                "status": "scored" if scored else "insufficient_evidence",
+                "scored_method_count": len(scored),
+                "method_ids": [method_id for method_id, method in ordered_methods.items() if isinstance(method.get("score"), (int, float))],
+                "reason": "Composite is the average of scored method outputs." if scored else "No method had enough evidence for a numeric score.",
+            },
+        },
+        "result_evidence": {
+            "composite_score": {
+                "value": composite_score,
+                "why": "Average of method scores with sufficient evidence." if scored else "No scored methods were available.",
+                "evidence_refs": sorted({ref for method in ordered_methods.values() for ref in method.get("evidence_refs", []) if ref})[:20],
+                "missing_evidence": missing_methods,
+            },
+            "research": {
+                "source_count": len(sources),
+                "substantive_source_count": len(substantive_sources),
+                "budget_or_source_warnings": [source.get("warning") for source in sources if source.get("warning")],
+            },
+        },
+        "decision_policy": "report_only_user_decides",
+    }
+
+
+def hydrate_cached_company_state(
+    ctx: dict[str, Any],
+    company_records: dict[str, list[dict[str, Any]]],
+    company_work_queue: list[dict[str, Any]],
+    knowledge_rag: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
+    for item in company_work_queue:
+        if item.get("status") != "unchanged_skipped":
+            continue
+        company = str(item["company_name"])
+        cached_analysis = load_cached_company_analysis(ctx["output_folder"], company)
+        cached_ledger = load_cached_research_ledger(ctx["output_folder"], company)
+        if not cached_analysis or cached_ledger is None:
+            item["status"] = "new_or_changed"
+            item["cache_status"] = "missing_cached_report_reprocessed"
+            item.setdefault("cache_policy", {})["freshness"] = "fresh_or_changed"
+            item.setdefault("cache_policy", {})["decision"] = "process_company_packet"
+            item.setdefault("cache_policy", {})["cache_source"] = ""
+            continue
+        records = company_records.get(company, [])
+        reconciliation = cached_analysis.get("research_reconciliation") or reconcile_research(records, cached_ledger)
+        cached_analysis["processing_status"] = "unchanged_skipped"
+        cached_analysis["cached_from_previous_run"] = True
+        cached_analysis["research_reconciliation"] = reconciliation
+        cached_analysis["cache_policy"] = {
+            **(item.get("cache_policy") or {}),
+            "cache_source": "watch_state_and_company_artifacts",
+            "freshness": "unchanged_cached",
+            "decision": "reuse_cached_outputs",
+        }
+        if "research_plan" not in cached_analysis:
+            internet = ctx["config"].get("internet_research") if isinstance(ctx["config"].get("internet_research"), dict) else {}
+            cached_analysis["research_plan"] = build_adaptive_research_plan(company, records, internet)
+        cached_analysis.setdefault("agent_tool_trace", [])
+        cached_analysis.setdefault("research_plan", {}).setdefault("knowledge_rag", public_knowledge_rag_state(knowledge_rag))
+        write_company_analysis_state(ctx["run_dir"], cached_analysis)
+        write_company_research_ledger(ctx["run_dir"], company, cached_ledger)
+        write_company_reconciliation_state(ctx["run_dir"], company, reconciliation)
+        write_company_method_scores_state(ctx["run_dir"], company, cached_analysis.get("methods") or {})
+        write_company_research_plan_state(ctx["run_dir"], company, cached_analysis.get("research_plan") or {})
+        write_company_agent_trace_state(ctx["run_dir"], company, cached_analysis.get("agent_tool_trace") or [])
+    return company_work_queue
+
+
+def processed_and_skipped_company_names(company_work_queue: list[dict[str, Any]]) -> tuple[list[str], list[str]]:
+    processed = [str(item["company_name"]) for item in company_work_queue if item.get("status") != "unchanged_skipped"]
+    skipped = [str(item["company_name"]) for item in company_work_queue if item.get("status") == "unchanged_skipped"]
+    return processed, skipped
+
+
+def run_startup_folder_watcher_step(ctx: dict[str, Any], *, llm_client: Any | None = None) -> dict[str, Any]:
+    start_agent_beacon_thread(f"{BLUEPRINT_NAME} is running")
+    ctx["run_dir"].mkdir(parents=True, exist_ok=True)
+    ctx["output_folder"].mkdir(parents=True, exist_ok=True)
+    persist_runtime_context(ctx)
+    write_json(ctx["run_dir"] / "config.json", ctx["config"])
+    write_json(
+        ctx["run_dir"] / "inputs.json",
+        {"payload": ctx["payload"], "document_folder": str(ctx["document_folder"]), "force_reprocess": ctx["force_reprocess"]},
+    )
+    write_json(ctx["run_dir"] / "run.json", {"run_id": ctx["run_id"], "blueprint_id": BLUEPRINT_ID, "status": "running", "started_at": ctx["started_at"]})
+    append_event(ctx["run_dir"], "blueprint_phase_started", {"phase": "loading_inputs", "component": BLUEPRINT_ID})
+    append_event(ctx["run_dir"], "blueprint_phase_completed", {"phase": "loading_inputs", "component": BLUEPRINT_ID})
+    append_event(ctx["run_dir"], "watch_cycle_started", {"cycle": 1, "max_cycles": ctx["max_cycles"]})
+    append_event(ctx["run_dir"], "blueprint_phase_started", {"phase": "running_worker", "component": BLUEPRINT_ID})
+    with observed_operation(ctx["run_dir"], phase="startup_folder_watcher", operation="discover_document_files", path_hash=stable_text_hash(ctx["document_folder"]), supported_suffixes=sorted(SUPPORTED_SUFFIXES)) as op:
+        files = [
+            {
+                "path": str(path),
+                "relative_path": str(path.relative_to(ctx["document_folder"])) if path.is_relative_to(ctx["document_folder"]) else path.name,
+                "suffix": path.suffix.lower(),
+                "size_bytes": path.stat().st_size,
+                "mtime": path.stat().st_mtime,
+            }
+            for path in _document_paths(ctx["document_folder"])
+        ]
+        write_workflow_state(ctx["run_dir"], "document_files.json", files)
+        op.close("completed", document_file_count=len(files))
+    complete_runtime_step(ctx, "startup_folder_watcher", {"document_file_count": len(files), "document_folder": str(ctx["document_folder"])})
+    return step_result(ctx, "startup_folder_watcher", document_file_count=len(files))
+
+
+def run_company_packet_grouper_step(ctx: dict[str, Any], *, llm_client: Any | None = None) -> dict[str, Any]:
+    files = read_workflow_state(ctx["run_dir"], "document_files.json", [])
+    files = [item for item in files if isinstance(item, dict)] if isinstance(files, list) else []
+    groups = group_document_file_records(ctx["document_folder"], files)
+    packets = [
+        {
+            "company_name": company,
+            "company_slug": slugify(company),
+            "document_count": len(items),
+            "source_refs": [item.get("path") for item in items],
+        }
+        for company, items in groups.items()
+    ]
+    write_workflow_state(ctx["run_dir"], "company_packet_groups.json", packets)
+    complete_runtime_step(ctx, "company_packet_grouper", {"company_count": len(packets), "document_file_count": len(files)})
+    return step_result(ctx, "company_packet_grouper", company_count=len(packets))
+
+
+def run_document_evidence_extractor_step(ctx: dict[str, Any], *, llm_client: Any | None = None) -> dict[str, Any]:
+    try:
+        with observed_operation(ctx["run_dir"], phase="document_evidence_extractor", operation="scan_documents", path_hash=stable_text_hash(ctx["document_folder"]), supported_suffixes=sorted(SUPPORTED_SUFFIXES)) as op:
+            company_records = scan_documents(ctx["document_folder"], ctx["config"])
+            if not company_records:
+                company_records = {"Sample Startup": []}
             op.close("completed", company_count=len(company_records), document_count=sum(len(records) for records in company_records.values()))
     except OcrRequiredError as exc:
-        append_event(run_dir, "tool_call_failed", {"tool": "llm_ocr.extract_document_folder", "status": "required_ocr_failed", "error": str(exc)})
-        write_json(run_dir / "run.json", {"run_id": run_id, "blueprint_id": BLUEPRINT_ID, "status": "failed", "error": str(exc), "finished_at": utc_now_iso()})
+        append_event(ctx["run_dir"], "tool_call_failed", {"tool": "llm_ocr.extract_document_folder", "status": "required_ocr_failed", "error": str(exc)})
+        write_failed_run(ctx, exc)
         raise
-    if not company_records:
-        company_records = {"Sample Startup": []}
-    previous_state = load_watch_state(output_folder)
-    company_work_queue = build_company_work_queue(company_records, previous_state, force_reprocess=force_reprocess)
-    write_json(output_folder / "company_work_queue.json", company_work_queue)
-    write_json(run_dir / "company_work_queue.json", company_work_queue)
-    queue_by_company = {item["company_name"]: item for item in company_work_queue}
-    sorted_company_items = sorted(company_records.items(), key=lambda item: slugify(item[0]))
-    max_company_workers = company_worker_count(resolved_config, len(sorted_company_items))
-    if max_company_workers <= 1 or len(sorted_company_items) <= 1:
-        company_results = []
-        for company, records in sorted_company_items:
-            with observed_operation(run_dir, phase="company_processing", operation="process_company_packet", company=company, document_count=len(records)) as op:
-                result = process_company_packet(
-                    company=company,
-                    records=records,
-                    queue_item=queue_by_company[company],
-                    output_folder=output_folder,
-                    resolved_config=resolved_config,
-                    run_dir=run_dir,
-                    action_budget=action_budget,
-                    llm=llm,
-                    knowledge_rag=knowledge_rag,
-                )
-                op.close("completed", processed=result.get("processed"), skipped=result.get("skipped"))
-                company_results.append(result)
-    else:
-        with ThreadPoolExecutor(max_workers=max_company_workers, thread_name_prefix="vc-company") as executor:
-            futures = {
-                executor.submit(
-                    process_company_packet,
-                    company=company,
-                    records=records,
-                    queue_item=queue_by_company[company],
-                    output_folder=output_folder,
-                    resolved_config=resolved_config,
-                    run_dir=run_dir,
-                    action_budget=action_budget,
-                    llm=llm,
-                    knowledge_rag=knowledge_rag,
-                ): company
-                for company, records in sorted_company_items
-            }
-            company_results = [future.result() for future in as_completed(futures)]
-    company_results = sorted(company_results, key=lambda item: item["analysis"]["company_slug"])
-    analyses = [item["analysis"] for item in company_results]
-    research_ledgers = {item["company_name"]: item["research_ledger"] for item in company_results}
-    reconciliations = {item["company_name"]: item["reconciliation"] for item in company_results}
-    processed_company_names = [item["company_name"] for item in company_results if item["processed"]]
-    skipped_company_names = [item["company_name"] for item in company_results if item["skipped"]]
-    output_files = write_company_outputs(output_folder, analyses, company_records, research_ledgers, company_work_queue)
-    watch_state = update_watch_state(output_folder, run_dir, company_work_queue, run_id=run_id)
-    append_event(run_dir, "startup_folder_watcher_completed", {"company_count": len(company_records)})
-    append_event(run_dir, "company_packet_grouper_completed", {"company_count": len(company_work_queue)})
-    append_event(
-        run_dir,
-        "document_evidence_extractor_completed",
-        {
-            "document_count": sum(len(company_records[company]) for company in processed_company_names),
-            "skipped_company_count": len(skipped_company_names),
-        },
+    write_workflow_state(ctx["run_dir"], "company_records.json", company_records)
+    complete_runtime_step(
+        ctx,
+        "document_evidence_extractor",
+        {"company_count": len(company_records), "document_count": sum(len(records) for records in company_records.values())},
     )
-    append_event(run_dir, "claim_normalizer_completed", {"company_count": len(processed_company_names), "skipped_company_count": len(skipped_company_names)})
-    append_event(run_dir, "research_planner_completed", {"company_count": len(processed_company_names), "skipped_company_count": len(skipped_company_names)})
-    for stage in RESEARCH_STAGE_IDS:
-        append_event(run_dir, f"{stage}_completed", {"company_count": len(processed_company_names), "skipped_company_count": len(skipped_company_names)})
-    append_event(run_dir, "research_reconciler_completed", {"company_count": len(processed_company_names), "skipped_company_count": len(skipped_company_names)})
-    for scorer_id in SCORER_STAGE_BY_METHOD.values():
-        append_event(run_dir, f"{scorer_id}_completed", {"company_count": len(processed_company_names), "skipped_company_count": len(skipped_company_names)})
-    append_event(run_dir, "score_consistency_auditor_completed", {"company_count": len(processed_company_names), "skipped_company_count": len(skipped_company_names)})
-    append_event(run_dir, "company_report_writer_completed", {"output_folder": str(output_folder)})
-    append_event(run_dir, "batch_index_writer_completed", {"output_folder": str(output_folder)})
-    append_event(run_dir, "watch_cycle_completed", {"cycle": 1, "companies": len(company_records)})
+    return step_result(ctx, "document_evidence_extractor", company_count=len(company_records))
+
+
+def run_claim_normalizer_step(ctx: dict[str, Any], *, llm_client: Any | None = None) -> dict[str, Any]:
+    company_records = read_company_records_state(ctx["run_dir"])
+    previous_state = load_watch_state(ctx["output_folder"])
+    company_work_queue = build_company_work_queue(company_records, previous_state, force_reprocess=ctx["force_reprocess"])
+    company_work_queue = hydrate_cached_company_state(ctx, company_records, company_work_queue)
+    write_json(ctx["output_folder"] / "company_work_queue.json", company_work_queue)
+    write_json(ctx["run_dir"] / "company_work_queue.json", company_work_queue)
+    write_workflow_state(ctx["run_dir"], "company_work_queue.json", company_work_queue)
+    processed, skipped = processed_and_skipped_company_names(company_work_queue)
+    complete_runtime_step(ctx, "claim_normalizer", {"company_count": len(processed), "skipped_company_count": len(skipped)})
+    return step_result(ctx, "claim_normalizer", processed_company_count=len(processed), skipped_company_count=len(skipped))
+
+
+def run_research_planner_step(ctx: dict[str, Any], *, llm_client: Any | None = None) -> dict[str, Any]:
+    company_records = read_company_records_state(ctx["run_dir"])
+    company_work_queue = read_company_work_queue_state(ctx["run_dir"])
+    internet = ctx["config"].get("internet_research") if isinstance(ctx["config"].get("internet_research"), dict) else {}
+    agentic = agentic_research_config(ctx["config"])
+    need_agentic_planner = bool(agentic.get("enabled")) and _agent_stage_enabled(agentic, "research_planner")
+    need_llm = need_agentic_planner or step_actor_review_selected(ctx, "research_planner")
+    services = build_runtime_services(ctx, llm_client=llm_client, need_llm=need_llm, rag_stage="research_planner" if need_llm else "")
+    knowledge_rag = services.get("knowledge_rag") or {}
+    llm = services.get("llm")
+    action_budget = services["action_budget"]
+    planned_count = 0
+    for item in company_work_queue:
+        company = str(item["company_name"])
+        records = company_records.get(company, [])
+        plan = build_adaptive_research_plan(company, records, internet)
+        write_company_research_plan_state(ctx["run_dir"], company, plan)
+        planned_count += 1
+        if item.get("status") == "unchanged_skipped":
+            analysis = read_company_analysis_state(ctx["run_dir"], company)
+            if analysis:
+                analysis["research_plan"] = plan
+                write_company_analysis_state(ctx["run_dir"], analysis)
+            continue
+        if need_agentic_planner and llm is not None:
+            trace = read_company_agent_trace_state(ctx["run_dir"], company)
+            _, planner_sources = run_agentic_research_stage(
+                company=company,
+                stage="research_planner",
+                plan=plan,
+                internet=internet,
+                run_dir=ctx["run_dir"],
+                action_budget=action_budget,
+                llm=llm,
+                agentic=agentic,
+                trace=trace,
+                knowledge_rag=knowledge_rag,
+            )
+            ledger = read_company_research_ledger(ctx["run_dir"], company)
+            ledger["company_identity_researcher"] = planner_sources + ledger.get("company_identity_researcher", [])
+            write_company_research_ledger(ctx["run_dir"], company, ledger)
+            write_company_agent_trace_state(ctx["run_dir"], company, trace)
+    run_step_actor_review(ctx, "research_planner", services, llm_client=llm_client)
+    persist_action_budget_state(ctx, action_budget)
+    complete_runtime_step(ctx, "research_planner", {"company_count": planned_count})
+    return step_result(ctx, "research_planner", company_count=planned_count)
+
+
+def run_research_stage_step(ctx: dict[str, Any], step_id: str, *, llm_client: Any | None = None) -> dict[str, Any]:
+    company_records = read_company_records_state(ctx["run_dir"])
+    company_work_queue = read_company_work_queue_state(ctx["run_dir"])
+    internet = ctx["config"].get("internet_research") if isinstance(ctx["config"].get("internet_research"), dict) else {}
+    internet_disabled = internet.get("enabled") is False
+    agentic = agentic_research_config(ctx["config"])
+    need_agentic = bool(agentic.get("enabled")) and _agent_stage_enabled(agentic, step_id)
+    need_llm = need_agentic or step_actor_review_selected(ctx, step_id)
+    services = build_runtime_services(ctx, llm_client=llm_client, need_llm=need_llm, rag_stage=step_id if need_llm else "")
+    llm = services.get("llm")
+    knowledge_rag = services.get("knowledge_rag") or {}
+    action_budget = services["action_budget"]
+    processed_count = 0
+    skipped_count = 0
+    for item in company_work_queue:
+        company = str(item["company_name"])
+        if item.get("status") == "unchanged_skipped":
+            skipped_count += 1
+            continue
+        if internet_disabled:
+            ledger = read_company_research_ledger(ctx["run_dir"], company)
+            ledger.setdefault(step_id, [])
+            write_company_research_ledger(ctx["run_dir"], company, ledger)
+            processed_count += 1
+            continue
+        records = company_records.get(company, [])
+        plan = read_company_research_plan_state(ctx["run_dir"], company) or build_adaptive_research_plan(company, records, internet)
+        staged_queries = plan.get("stage_queries") if isinstance(plan.get("stage_queries"), dict) else {}
+        query = staged_queries.get(step_id) or plan.get("queries") or [company]
+        trace = read_company_agent_trace_state(ctx["run_dir"], company)
+        if need_agentic and llm is not None:
+            stage, sources = run_agentic_research_stage(
+                company=company,
+                stage=step_id,
+                plan=plan,
+                internet=internet,
+                run_dir=ctx["run_dir"],
+                action_budget=action_budget,
+                llm=llm,
+                agentic=agentic,
+                trace=trace,
+                knowledge_rag=knowledge_rag,
+            )
+            stage, sources = _with_agentic_gap_fill(
+                company=company,
+                stage=stage,
+                sources=sources,
+                query=query,
+                plan=plan,
+                internet=internet,
+                run_dir=ctx["run_dir"],
+                action_budget=action_budget,
+            )
+        else:
+            stage, sources = _research_one_stage(company, step_id, query, plan, internet, ctx["run_dir"], action_budget)
+        ledger = read_company_research_ledger(ctx["run_dir"], company)
+        ledger[stage] = ledger.get(stage, []) + sources
+        write_company_research_ledger(ctx["run_dir"], company, ledger)
+        write_company_agent_trace_state(ctx["run_dir"], company, trace)
+        processed_count += 1
+    run_step_actor_review(ctx, step_id, services, llm_client=llm_client)
+    persist_action_budget_state(ctx, action_budget)
+    complete_runtime_step(ctx, step_id, {"company_count": processed_count, "skipped_company_count": skipped_count})
+    return step_result(ctx, step_id, processed_company_count=processed_count, skipped_company_count=skipped_count)
+
+
+def run_research_reconciler_step(ctx: dict[str, Any], *, llm_client: Any | None = None) -> dict[str, Any]:
+    company_records = read_company_records_state(ctx["run_dir"])
+    company_work_queue = read_company_work_queue_state(ctx["run_dir"])
+    need_llm = step_actor_review_selected(ctx, "research_reconciler")
+    services = build_runtime_services(ctx, llm_client=llm_client, need_llm=need_llm, rag_stage="research_reconciler" if need_llm else "")
+    action_budget = services["action_budget"]
+    processed_count = 0
+    skipped_count = 0
+    for item in company_work_queue:
+        company = str(item["company_name"])
+        if item.get("status") == "unchanged_skipped":
+            skipped_count += 1
+            continue
+        records = company_records.get(company, [])
+        ledger = read_company_research_ledger(ctx["run_dir"], company)
+        append_financial_tool_research(company, records, ledger, action_budget=action_budget, run_dir=ctx["run_dir"])
+        reconciliation = reconcile_research(records, ledger)
+        write_company_research_ledger(ctx["run_dir"], company, ledger)
+        write_company_reconciliation_state(ctx["run_dir"], company, reconciliation)
+        processed_count += 1
+    run_step_actor_review(ctx, "research_reconciler", services, llm_client=llm_client)
+    persist_action_budget_state(ctx, action_budget)
+    complete_runtime_step(ctx, "research_reconciler", {"company_count": processed_count, "skipped_company_count": skipped_count})
+    return step_result(ctx, "research_reconciler", processed_company_count=processed_count, skipped_company_count=skipped_count)
+
+
+def run_scorer_step(ctx: dict[str, Any], step_id: str, *, llm_client: Any | None = None) -> dict[str, Any]:
+    method_id = SCORER_METHOD_BY_STAGE[step_id]
+    scorer = METHOD_SCORER_FUNCTIONS[method_id]
+    company_records = read_company_records_state(ctx["run_dir"])
+    company_work_queue = read_company_work_queue_state(ctx["run_dir"])
+    need_llm = step_actor_review_selected(ctx, step_id)
+    services = build_runtime_services(ctx, llm_client=llm_client, need_llm=need_llm, rag_stage=step_id if need_llm else "")
+    processed_count = 0
+    skipped_count = 0
+    for item in company_work_queue:
+        company = str(item["company_name"])
+        if item.get("status") == "unchanged_skipped":
+            skipped_count += 1
+            continue
+        records = company_records.get(company, [])
+        ledger = read_company_research_ledger(ctx["run_dir"], company)
+        facts = build_fact_table(company, records, flattened_sources(ledger))
+        methods = read_company_method_scores_state(ctx["run_dir"], company)
+        methods[method_id] = scorer(facts)
+        write_company_method_scores_state(ctx["run_dir"], company, methods)
+        write_json(company_state_path(ctx["run_dir"], "company_fact_tables", company), facts)
+        processed_count += 1
+    run_step_actor_review(ctx, step_id, services, llm_client=llm_client)
+    persist_action_budget_state(ctx, services["action_budget"])
+    complete_runtime_step(ctx, step_id, {"method_id": method_id, "company_count": processed_count, "skipped_company_count": skipped_count})
+    return step_result(ctx, step_id, method_id=method_id, processed_company_count=processed_count, skipped_company_count=skipped_count)
+
+
+def run_score_consistency_auditor_step(ctx: dict[str, Any], *, llm_client: Any | None = None) -> dict[str, Any]:
+    company_records = read_company_records_state(ctx["run_dir"])
+    company_work_queue = read_company_work_queue_state(ctx["run_dir"])
+    need_llm = step_actor_review_selected(ctx, "score_consistency_auditor")
+    services = build_runtime_services(ctx, llm_client=llm_client, need_llm=need_llm, rag_stage="score_consistency_auditor" if need_llm else "")
+    processed_count = 0
+    skipped_count = 0
+    for item in company_work_queue:
+        company = str(item["company_name"])
+        if item.get("status") == "unchanged_skipped":
+            skipped_count += 1
+            continue
+        records = company_records.get(company, [])
+        ledger = read_company_research_ledger(ctx["run_dir"], company)
+        methods = read_company_method_scores_state(ctx["run_dir"], company)
+        missing_methods = [method_id for method_id in METHOD_IDS if method_id not in methods]
+        if missing_methods:
+            raise RuntimeError(f"Missing method scores for {company}: {', '.join(missing_methods)}")
+        analysis = build_company_analysis_from_method_scores(company, records, ledger, methods)
+        analysis["processing_status"] = "new_or_changed"
+        analysis["cached_from_previous_run"] = False
+        analysis["cache_policy"] = {
+            **(item.get("cache_policy") or {}),
+            "cache_source": "",
+            "decision": "process_company_packet",
+        }
+        analysis["research_reconciliation"] = read_company_reconciliation_state(ctx["run_dir"], company) or reconcile_research(records, ledger)
+        analysis["research_plan"] = read_company_research_plan_state(ctx["run_dir"], company)
+        analysis["agent_tool_trace"] = read_company_agent_trace_state(ctx["run_dir"], company)
+        analysis.setdefault("research_plan", {})["knowledge_rag"] = public_knowledge_rag_state(services.get("knowledge_rag") or {})
+        analysis["research_plan"]["agentic_research"] = {
+            "enabled": bool(agentic_research_config(ctx["config"]).get("enabled")),
+            "agent_ids": agentic_research_config(ctx["config"]).get("agent_ids"),
+            "allowed_tools": agentic_research_config(ctx["config"]).get("allowed_tools"),
+            "max_iterations_per_agent": agentic_research_config(ctx["config"]).get("max_iterations_per_agent"),
+            "max_tool_calls_per_agent": agentic_research_config(ctx["config"]).get("max_tool_calls_per_agent"),
+            "stop_reasons": {trace.get("agent_id"): trace.get("stop_reason") for trace in analysis["agent_tool_trace"]},
+        }
+        write_company_analysis_state(ctx["run_dir"], analysis)
+        write_json(company_state_path(ctx["run_dir"], "audit_findings", company), analysis["audit"])
+        processed_count += 1
+    run_step_actor_review(ctx, "score_consistency_auditor", services, llm_client=llm_client)
+    persist_action_budget_state(ctx, services["action_budget"])
+    complete_runtime_step(ctx, "score_consistency_auditor", {"company_count": processed_count, "skipped_company_count": skipped_count})
+    return step_result(ctx, "score_consistency_auditor", processed_company_count=processed_count, skipped_company_count=skipped_count)
+
+
+def run_company_report_writer_step(ctx: dict[str, Any], *, llm_client: Any | None = None) -> dict[str, Any]:
+    company_records = read_company_records_state(ctx["run_dir"])
+    company_work_queue = read_company_work_queue_state(ctx["run_dir"])
+    analyses = read_all_company_analyses(ctx["run_dir"])
+    research_ledgers = read_all_research_ledgers(ctx["run_dir"], [analysis["company_name"] for analysis in analyses])
+    output_files = write_company_outputs(ctx["output_folder"], analyses, company_records, research_ledgers, company_work_queue)
+    watch_state = update_watch_state(ctx["output_folder"], ctx["run_dir"], company_work_queue, run_id=ctx["run_id"])
+    for analysis in analyses:
+        write_company_analysis_state(ctx["run_dir"], analysis)
+    write_workflow_state(ctx["run_dir"], "output_files.json", output_files)
+    write_workflow_state(ctx["run_dir"], "watch_state.json", watch_state)
+    services = build_runtime_services(
+        ctx,
+        llm_client=llm_client,
+        need_llm=step_actor_review_selected(ctx, "company_report_writer"),
+        rag_stage="company_report_writer" if step_actor_review_selected(ctx, "company_report_writer") else "",
+    )
+    run_step_actor_review(ctx, "company_report_writer", services, llm_client=llm_client)
+    persist_action_budget_state(ctx, services["action_budget"])
+    complete_runtime_step(ctx, "company_report_writer", {"output_folder": str(ctx["output_folder"]), "output_file_count": len(output_files)})
+    append_event(ctx["run_dir"], "watch_cycle_completed", {"cycle": 1, "companies": len(company_records)})
+    return step_result(ctx, "company_report_writer", output_file_count=len(output_files))
+
+
+def run_batch_index_writer_step(ctx: dict[str, Any], *, llm_client: Any | None = None) -> dict[str, Any]:
+    company_records = read_company_records_state(ctx["run_dir"])
+    company_work_queue = read_company_work_queue_state(ctx["run_dir"])
+    analyses = read_all_company_analyses(ctx["run_dir"])
+    research_ledgers = read_all_research_ledgers(ctx["run_dir"], [analysis["company_name"] for analysis in analyses])
+    output_files = read_workflow_state(ctx["run_dir"], "output_files.json", []) or []
+    output_files = [item for item in output_files if isinstance(item, dict)]
+    services = build_runtime_services(
+        ctx,
+        llm_client=llm_client,
+        need_llm=step_actor_review_selected(ctx, "batch_index_writer"),
+        rag_stage="batch_indexing",
+    )
+    active_knowledge = services.get("active_knowledge") or load_vc_knowledge(ctx["blueprint_dir"])
+    knowledge_rag = services.get("knowledge_rag") or {}
+    run_step_actor_review(ctx, "batch_index_writer", services, llm_client=llm_client)
+    action_ledger = persist_action_budget_state(ctx, services["action_budget"])
+    actor_findings = ensure_all_actor_findings(ctx)
+    actor_review_warnings = normalized_actor_review_warnings(ctx, actor_findings)
+    write_actor_review_warnings_state(ctx, actor_review_warnings)
+    processed_company_names, skipped_company_names = processed_and_skipped_company_names(company_work_queue)
     research_coverage = build_research_coverage(research_ledgers)
     method_coverage = build_method_coverage(analyses)
     cache_policy_summary = build_cache_policy_summary(
@@ -5685,81 +6474,6 @@ def run_blueprint(
         processed_company_names=processed_company_names,
         skipped_company_names=skipped_company_names,
     )
-    actor_rag_context = retrieve_knowledge_rag_context(
-        knowledge_rag=knowledge_rag,
-        query=(
-            "VC method correctness evidence grounding assumption clarity missing evidence honesty "
-            "financial reasoning quality adaptive research plan quality source quality labels"
-        ),
-        stage="actor_review",
-        run_dir=run_dir,
-    )
-    require_ready_rag(knowledge_rag, stage="actor_review", context=actor_rag_context, min_citations=1, run_dir=run_dir)
-    actor_review_settings = actor_review_config(resolved_config)
-    actor_context = build_actor_review_context(
-        analyses=analyses,
-        company_work_queue=company_work_queue,
-        research_coverage=research_coverage,
-        method_coverage=method_coverage,
-        processed_company_names=processed_company_names,
-        skipped_company_names=skipped_company_names,
-        output_files=output_files,
-        active_knowledge=active_knowledge_for_prompt(active_knowledge, knowledge_rag),
-        knowledge_rag=knowledge_rag,
-        actor_rag_context=actor_rag_context,
-        max_context_chars=actor_review_settings["max_context_chars"],
-    )
-    actor_prompt_context = prepare_actor_review_prompt_context(
-        run_id=run_id,
-        context=actor_context,
-        config=resolved_config,
-        run_dir=run_dir,
-    )
-    actor_specs = resolve_actor_specs(resolved_config)
-    actor_ids = [actor_id for actor_id in WORKFLOW_STEP_IDS if actor_id in actor_specs]
-    actor_state: dict[str, Any] = {}
-    actor_review_warnings = []
-    try:
-        actor_findings = run_vc_actor_reviews(
-            config=resolved_config,
-            llm=llm,
-            actor_ids=actor_ids,
-            state=actor_state,
-            context=actor_prompt_context,
-            knowledge_rag=knowledge_rag,
-            event_sink=run_dir,
-        )
-    except Exception as exc:
-        if require_live_llm or knowledge_rag_is_required(knowledge_rag):
-            append_event(run_dir, "tool_call_failed", {"tool": "actor_llm", "status": "required_actor_review_failed", "error": str(exc)})
-            write_json(run_dir / "run.json", {"run_id": run_id, "blueprint_id": BLUEPRINT_ID, "status": "failed", "error": str(exc), "finished_at": utc_now_iso()})
-            raise
-        actor_findings = actor_review_unavailable_findings(actor_ids, exc)
-        actor_review_warnings.append(
-            {
-                "kind": "actor_review",
-                "status": "actor_review_unavailable",
-                "message": "LLM actor review failed after deterministic reports were generated; report artifacts were preserved.",
-                "error": str(exc),
-            }
-        )
-        append_event(run_dir, "tool_call_failed", {"tool": "actor_llm", "status": "actor_review_unavailable", "error": str(exc)})
-    unavailable_actor_errors = [
-        str(finding.get("error") or "")
-        for finding in actor_findings.values()
-        if isinstance(finding, dict) and finding.get("provider") == "actor_review_unavailable"
-    ]
-    if unavailable_actor_errors and not actor_review_warnings:
-        actor_review_warnings.append(
-            {
-                "kind": "actor_review",
-                "status": "actor_review_unavailable",
-                "message": "One or more LLM actor reviews failed after deterministic reports were generated; report artifacts were preserved.",
-                "error": unavailable_actor_errors[0],
-                "affected_actor_count": len(unavailable_actor_errors),
-            }
-        )
-    action_ledger = action_budget.summary(include_actions=True)
     artifact_quality = build_artifact_quality_report(
         analyses=analyses,
         company_records=company_records,
@@ -5767,13 +6481,13 @@ def run_blueprint(
         output_files=output_files,
         knowledge_rag=knowledge_rag,
         actor_findings=actor_findings,
-        actor_review_settings=actor_review_settings,
+        actor_review_settings=actor_review_config(ctx["config"]),
     )
-    observation_summary = observation_trace_summary(run_dir)
+    observation_summary = observation_trace_summary(ctx["run_dir"])
     run_health = build_run_health_report(
-        run_id=run_id,
-        started_at=run_started_at,
-        elapsed_ms=(time.monotonic() - run_started_monotonic) * 1000,
+        run_id=ctx["run_id"],
+        started_at=ctx["started_at"],
+        elapsed_ms=elapsed_ms_from_started_at(ctx["started_at"]),
         artifact_quality=artifact_quality,
         observation_summary=observation_summary,
         action_ledger=action_ledger,
@@ -5781,8 +6495,8 @@ def run_blueprint(
         research_ledgers=research_ledgers,
         cache_policy_summary=cache_policy_summary,
         actor_review_warnings=actor_review_warnings,
-        actor_review_settings=actor_review_settings,
-        llm_limiter=llm_limiter,
+        actor_review_settings=actor_review_config(ctx["config"]),
+        llm_limiter=services["llm_limiter"],
     )
     budget_warnings = []
     if action_ledger["exhausted"]:
@@ -5795,7 +6509,6 @@ def run_blueprint(
         )
     knowledge_rag_warnings = list(knowledge_rag.get("warnings") or [])
     company_evidence_summaries = build_company_evidence_summaries(analyses, company_records, research_ledgers)
-
     final_artifact = {
         "type": OUTPUT_TYPE,
         "executive_summary": f"{BLUEPRINT_NAME} prepared score-only VC heuristic reports for {len(analyses)} startup companies; {len(skipped_company_names)} unchanged companies used cached reports.",
@@ -5808,7 +6521,7 @@ def run_blueprint(
             "Use public source refs only as context; verify material claims independently.",
         ],
         "source_refs": ["inputs.json", "events.jsonl", "llm_rag_trace.jsonl", "result.json", "final_artifact.json", "action_ledger.json", "artifact_quality.json", "run_health.json", "company_index.json", KNOWLEDGE_PLAYBOOK_RELATIVE_PATH],
-        "active_knowledge": active_knowledge_ref,
+        "active_knowledge": active_knowledge_reference(active_knowledge),
         "knowledge_rag": public_knowledge_rag_state(knowledge_rag),
         "research_summary": {
             "company_count": len(research_ledgers),
@@ -5839,18 +6552,18 @@ def run_blueprint(
             "artifact": "run_health.json",
         },
         "parallel_execution": {
-            "max_company_workers": max_company_workers,
-            "max_stage_workers": bounded_int((resolved_config.get("internet_research") or {}).get("max_stage_workers"), default=len(RESEARCH_STAGE_IDS), maximum=len(RESEARCH_STAGE_IDS)),
-            "max_scoring_workers": scoring_worker_count(resolved_config),
-            "llm_backpressure": llm_limiter.config_summary(),
+            "max_company_workers": company_worker_count(ctx["config"], len(company_records)),
+            "max_stage_workers": bounded_int((ctx["config"].get("internet_research") or {}).get("max_stage_workers"), default=len(RESEARCH_STAGE_IDS), maximum=len(RESEARCH_STAGE_IDS)),
+            "max_scoring_workers": scoring_worker_count(ctx["config"]),
+            "llm_backpressure": services["llm_limiter"].config_summary(),
             "company_processing_order": [analysis["company_slug"] for analysis in analyses],
         },
         "actor_review": {
-            "llm_actor_ids": actor_review_settings["llm_actor_ids"],
-            "max_context_chars": actor_review_settings["max_context_chars"],
-            "context_json_chars": actor_context.get("context_json_chars"),
-            "prompt_context_json_chars": actor_prompt_context.get("context_json_chars"),
-            "context_compression": actor_prompt_context.get("context_compression"),
+            "llm_actor_ids": actor_review_config(ctx["config"])["llm_actor_ids"],
+            "max_context_chars": actor_review_config(ctx["config"])["max_context_chars"],
+            "context_json_chars": None,
+            "prompt_context_json_chars": None,
+            "context_compression": {"distributed_by_workflow_step": True},
         },
         "observability": observation_summary,
         "memory_boundary": {
@@ -5868,59 +6581,110 @@ def run_blueprint(
         "monitor_state": {
             "mode": "folder_monitoring",
             "cycles_completed": 1,
-            "max_cycles": max_cycles,
+            "max_cycles": ctx["max_cycles"],
             "processed_company_count": len(processed_company_names),
             "skipped_company_count": len(skipped_company_names),
-            "watch_state": watch_state,
+            "watch_state": read_workflow_state(ctx["run_dir"], "watch_state.json", {}),
         },
         "output_files": output_files,
         "actor_findings": actor_findings,
-        "llm_usage": llm_usage(llm),
+        "llm_usage": llm_usage(services.get("llm")) if services.get("llm") is not None else {"provider": "none", "model": "none", "calls": 0},
         "action_ledger": action_ledger,
     }
     root_output_files = [
-        {"kind": "final_artifact_json", "path": str(output_folder / "final_artifact.json")},
-        {"kind": "action_ledger_json", "path": str(output_folder / "action_ledger.json")},
-        {"kind": "artifact_quality_json", "path": str(output_folder / "artifact_quality.json")},
-        {"kind": "run_health_json", "path": str(output_folder / "run_health.json")},
+        {"kind": "final_artifact_json", "path": str(ctx["output_folder"] / "final_artifact.json")},
+        {"kind": "action_ledger_json", "path": str(ctx["output_folder"] / "action_ledger.json")},
+        {"kind": "artifact_quality_json", "path": str(ctx["output_folder"] / "artifact_quality.json")},
+        {"kind": "run_health_json", "path": str(ctx["output_folder"] / "run_health.json")},
     ]
-    trace_path = run_dir / "llm_rag_trace.jsonl"
-    trace_output_path = output_folder / "llm_rag_trace.jsonl"
+    trace_path = ctx["run_dir"] / "llm_rag_trace.jsonl"
+    trace_output_path = ctx["output_folder"] / "llm_rag_trace.jsonl"
     if trace_path.exists():
         root_output_files.append({"kind": "llm_rag_trace_jsonl", "path": str(trace_output_path)})
     final_artifact["output_files"] = [*output_files, *root_output_files]
-    result = {"run_id": run_id, "blueprint_id": BLUEPRINT_ID, "status": "completed", "final_artifact": final_artifact}
+    result = {"run_id": ctx["run_id"], "blueprint_id": BLUEPRINT_ID, "status": "completed", "final_artifact": final_artifact}
 
-    append_event(run_dir, "blueprint_phase_completed", {"phase": "running_worker", "component": BLUEPRINT_ID})
-    append_event(run_dir, "human_input_requested", {"mode": "approval_required", "reason": "Reports contain heuristic investment-analysis scores for human review only."})
-    append_event(run_dir, "blueprint_phase_started", {"phase": "writing_artifacts", "component": BLUEPRINT_ID})
-    with observed_operation(run_dir, phase="writing_artifacts", operation="write_final_outputs", output_file_count=len(final_artifact["output_files"])):
-        write_json(output_folder / "final_artifact.json", final_artifact)
-        write_json(output_folder / "action_ledger.json", action_ledger)
-        write_json(output_folder / "artifact_quality.json", artifact_quality)
-        write_json(output_folder / "run_health.json", run_health)
-        write_json(run_dir / "result.json", result)
-        write_json(run_dir / "final_artifact.json", final_artifact)
-        write_json(run_dir / "action_ledger.json", action_ledger)
-        write_json(run_dir / "artifact_quality.json", artifact_quality)
-        write_json(run_dir / "run_health.json", run_health)
-    append_event(run_dir, "artifact_written", {"path": str(output_folder / "final_artifact.json")})
-    append_event(run_dir, "artifact_written", {"path": str(output_folder / "action_ledger.json")})
-    append_event(run_dir, "artifact_written", {"path": str(output_folder / "artifact_quality.json")})
-    append_event(run_dir, "artifact_written", {"path": str(output_folder / "run_health.json")})
-    append_event(run_dir, "artifact_written", {"path": "result.json"})
-    append_event(run_dir, "artifact_written", {"path": "final_artifact.json"})
-    append_event(run_dir, "artifact_written", {"path": "action_ledger.json"})
-    append_event(run_dir, "artifact_written", {"path": "artifact_quality.json"})
-    append_event(run_dir, "artifact_written", {"path": "run_health.json"})
+    append_event(ctx["run_dir"], "blueprint_phase_completed", {"phase": "running_worker", "component": BLUEPRINT_ID})
+    append_event(ctx["run_dir"], "human_input_requested", {"mode": "approval_required", "reason": "Reports contain heuristic investment-analysis scores for human review only."})
+    append_event(ctx["run_dir"], "blueprint_phase_started", {"phase": "writing_artifacts", "component": BLUEPRINT_ID})
+    with observed_operation(ctx["run_dir"], phase="writing_artifacts", operation="write_final_outputs", output_file_count=len(final_artifact["output_files"])):
+        write_json(ctx["output_folder"] / "final_artifact.json", final_artifact)
+        write_json(ctx["output_folder"] / "action_ledger.json", action_ledger)
+        write_json(ctx["output_folder"] / "artifact_quality.json", artifact_quality)
+        write_json(ctx["output_folder"] / "run_health.json", run_health)
+        write_json(ctx["run_dir"] / "result.json", result)
+        write_json(ctx["run_dir"] / "final_artifact.json", final_artifact)
+        write_json(ctx["run_dir"] / "action_ledger.json", action_ledger)
+        write_json(ctx["run_dir"] / "artifact_quality.json", artifact_quality)
+        write_json(ctx["run_dir"] / "run_health.json", run_health)
+    for path in ("final_artifact.json", "action_ledger.json", "artifact_quality.json", "run_health.json"):
+        append_event(ctx["run_dir"], "artifact_written", {"path": str(ctx["output_folder"] / path)})
+    append_event(ctx["run_dir"], "artifact_written", {"path": "result.json"})
+    append_event(ctx["run_dir"], "artifact_written", {"path": "final_artifact.json"})
+    append_event(ctx["run_dir"], "artifact_written", {"path": "action_ledger.json"})
+    append_event(ctx["run_dir"], "artifact_written", {"path": "artifact_quality.json"})
+    append_event(ctx["run_dir"], "artifact_written", {"path": "run_health.json"})
     if trace_path.exists():
         shutil.copyfile(trace_path, trace_output_path)
-        append_event(run_dir, "artifact_written", {"path": str(trace_output_path)})
-        append_event(run_dir, "artifact_written", {"path": "llm_rag_trace.jsonl"})
-    append_event(run_dir, "blueprint_phase_completed", {"phase": "writing_artifacts", "component": BLUEPRINT_ID})
-    append_event(run_dir, "blueprint_phase_completed", {"phase": "completed", "component": BLUEPRINT_ID})
-    write_json(run_dir / "run.json", {"run_id": run_id, "blueprint_id": BLUEPRINT_ID, "status": "completed", "completed_at": utc_now_iso()})
-    return result
+        append_event(ctx["run_dir"], "artifact_written", {"path": str(trace_output_path)})
+        append_event(ctx["run_dir"], "artifact_written", {"path": "llm_rag_trace.jsonl"})
+    complete_runtime_step(ctx, "batch_index_writer", {"output_folder": str(ctx["output_folder"]), "output_file_count": len(final_artifact["output_files"])})
+    append_event(ctx["run_dir"], "blueprint_phase_completed", {"phase": "writing_artifacts", "component": BLUEPRINT_ID})
+    append_event(ctx["run_dir"], "blueprint_phase_completed", {"phase": "completed", "component": BLUEPRINT_ID})
+    write_json(ctx["run_dir"] / "run.json", {"run_id": ctx["run_id"], "blueprint_id": BLUEPRINT_ID, "status": "completed", "completed_at": utc_now_iso()})
+    return step_result(ctx, "batch_index_writer", final_artifact=final_artifact)
+
+
+def build_step_handlers() -> dict[str, Any]:
+    handlers = {
+        "startup_folder_watcher": run_startup_folder_watcher_step,
+        "company_packet_grouper": run_company_packet_grouper_step,
+        "document_evidence_extractor": run_document_evidence_extractor_step,
+        "claim_normalizer": run_claim_normalizer_step,
+        "research_planner": run_research_planner_step,
+        "research_reconciler": run_research_reconciler_step,
+        "score_consistency_auditor": run_score_consistency_auditor_step,
+        "company_report_writer": run_company_report_writer_step,
+        "batch_index_writer": run_batch_index_writer_step,
+    }
+    for stage in RESEARCH_STAGE_IDS:
+        handlers[stage] = lambda ctx, *, llm_client=None, _stage=stage: run_research_stage_step(ctx, _stage, llm_client=llm_client)
+    for scorer_stage in SCORER_METHOD_BY_STAGE:
+        handlers[scorer_stage] = lambda ctx, *, llm_client=None, _stage=scorer_stage: run_scorer_step(ctx, _stage, llm_client=llm_client)
+    return handlers
+
+
+STEP_HANDLERS = build_step_handlers()
+
+
+
+def run_blueprint(
+    inputs: dict[str, Any] | None = None,
+    config: dict[str, Any] | None = None,
+    runs_root: str | Path | None = None,
+    run_id: str | None = None,
+    llm_client: Any | None = None,
+) -> dict[str, Any]:
+    current_run_id = run_id
+    final_result: dict[str, Any] | None = None
+    for step_id in WORKFLOW_STEP_IDS:
+        final_result = run_runtime_step(
+            step_id,
+            inputs=inputs,
+            config=config,
+            runs_root=runs_root,
+            run_id=current_run_id,
+            llm_client=llm_client,
+        )
+        current_run_id = final_result["run_id"]
+    if not final_result or "final_artifact" not in final_result:
+        raise RuntimeError("VC Assistant workflow completed without a final artifact.")
+    return {
+        "run_id": final_result["run_id"],
+        "blueprint_id": BLUEPRINT_ID,
+        "status": final_result["status"],
+        "final_artifact": final_result["final_artifact"],
+    }
 
 
 def run_runtime_step(
@@ -5931,34 +6695,21 @@ def run_runtime_step(
     run_id: str | None = None,
     llm_client: Any | None = None,
 ) -> dict[str, Any]:
-    if step_id == "startup_folder_watcher":
-        result = run_blueprint(inputs=inputs, config=config, runs_root=runs_root, run_id=run_id, llm_client=llm_client)
-        result["workflow_step_id"] = step_id
-        result["runtime_step_mode"] = "report_factory_entrypoint"
-        return result
-
-    runtime_run_id = run_id or os.environ.get("MN_RUN_ID") or f"{BLUEPRINT_ID}-{uuid.uuid4().hex[:8]}"
-    run_dir = resolve_run_dir(Path("/tmp") / runtime_run_id, runtime_run_id, runs_root)
-    run_dir.mkdir(parents=True, exist_ok=True)
-    append_event(
-        run_dir,
-        f"{step_id}_completed",
-        {
-            "step_id": step_id,
-            "runtime_step_mode": "acknowledged_after_report_factory_entrypoint",
-            "note": "The startup_folder_watcher service step runs the complete VC report factory once; this DAG node is represented for workflow observability.",
-        },
-    )
-    result = {
-        "run_id": runtime_run_id,
-        "blueprint_id": BLUEPRINT_ID,
-        "status": "completed",
-        "workflow_step_id": step_id,
-        "runtime_step_mode": "acknowledged_after_report_factory_entrypoint",
-    }
-    write_json(run_dir / f"{step_id}_result.json", result)
-    return result
-
+    step_id = str(step_id or "").strip()
+    if step_id not in STEP_HANDLERS:
+        raise ValueError(f"Unknown VC Assistant workflow step: {step_id}")
+    ctx = runtime_context_for_step(inputs=inputs, config=config, runs_root=runs_root, run_id=run_id)
+    try:
+        return STEP_HANDLERS[step_id](ctx, llm_client=llm_client)
+    except Exception as exc:
+        ctx["run_dir"].mkdir(parents=True, exist_ok=True)
+        append_event(
+            ctx["run_dir"],
+            "workflow_step_failed",
+            {"step_id": step_id, "runtime_step_mode": "workflow_step_handler", "error": str(exc)},
+        )
+        write_failed_run(ctx, exc)
+        raise
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=BLUEPRINT_NAME)
