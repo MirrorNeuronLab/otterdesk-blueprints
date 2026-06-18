@@ -1,0 +1,20 @@
+{
+  "schema": "otterdesk.customer_service_voice.sample_intents.v1",
+  "intents": [
+    {
+      "caller_utterance": "Can I order a large mushroom pizza for pickup?",
+      "expected_action": "draft_order",
+      "human_handoff_required": false
+    },
+    {
+      "caller_utterance": "I have a severe peanut allergy. Can you guarantee there is no cross-contact?",
+      "expected_action": "handoff",
+      "human_handoff_required": true
+    },
+    {
+      "caller_utterance": "I need a refund for yesterday's order.",
+      "expected_action": "handoff",
+      "human_handoff_required": true
+    }
+  ]
+}

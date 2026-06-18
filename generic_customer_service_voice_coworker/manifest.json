@@ -1559,7 +1559,11 @@
           "connector": "websocket",
           "content": "events",
           "destination": "MN_BLUEPRINT_EVENTS_WS_URL",
+          "enabled": false,
           "failure_policy": "skip",
+          "integration_status": "optional_mock_disabled_by_default",
+          "activation": "Set MN_BLUEPRINT_EVENTS_WS_URL and enable this output skill via config override to stream events.",
+          "mock": true,
           "name": "websocket_events",
           "required": false,
           "skill": "websocket_stream"

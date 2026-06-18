@@ -1,0 +1,30 @@
+{
+  "schema": "otterdesk.customer_service_voice.sample_profile.v1",
+  "business_name": "Otter Slice Demo Pizza",
+  "service_mode": "voice_demo",
+  "menu_items": [
+    {
+      "name": "Margherita Pizza",
+      "sizes": {
+        "small": 12.0,
+        "large": 18.0
+      }
+    },
+    {
+      "name": "Mushroom Pizza",
+      "sizes": {
+        "small": 13.0,
+        "large": 20.0
+      }
+    },
+    {
+      "name": "Sparkling Water",
+      "price": 3.0
+    }
+  ],
+  "handoff_policy": {
+    "payment": "human_required",
+    "allergy": "human_required",
+    "refund": "human_required"
+  }
+}

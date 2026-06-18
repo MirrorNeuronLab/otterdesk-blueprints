@@ -84,11 +84,21 @@
     "recommended_action": "privacy_officer_review_required_before_release"
   },
   "llm": {
-    "model": "default",
     "enabled": true,
+    "provider": "docker_model_runner",
+    "model": "gemma4:e2b",
+    "runtime_model": "gemma4:e2b",
+    "backend": "llama.cpp",
     "mode": "live",
     "mock_mode": "fake",
     "default_config": "primary",
+    "live_model_profile": {
+      "provider": "docker_model_runner",
+      "runtime_model": "gemma4:e2b",
+      "api_base": "http://localhost:12434/engines/v1",
+      "backend": "llama.cpp",
+      "mock_fallback": "fake_for_quick_test_only"
+    },
     "quick_test_uses_fake": true,
     "strict_json": false,
     "prefer_shared_skill": true,
@@ -100,7 +110,9 @@
     "configs": {
       "primary": {
         "provider": "docker_model_runner",
-        "model": "default",
+        "model": "gemma4:e2b",
+        "runtime_model": "gemma4:e2b",
+        "backend": "llama.cpp",
         "api_base": "http://localhost:12434/engines/v1",
         "timeout_seconds": 60,
         "max_tokens": 900,

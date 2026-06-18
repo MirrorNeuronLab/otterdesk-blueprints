@@ -1223,6 +1223,32 @@
           "path_kind": "directory"
         },
         {
+          "path": "inputs.payload.visual_targets",
+          "label": "Visual targets",
+          "default": [
+            "person",
+            "unattended package",
+            "restricted-area entry"
+          ],
+          "description": "Subjects, objects, or activities to detect in the approved stream.",
+          "type": "domain_value"
+        },
+        {
+          "path": "inputs.payload.alert_policy",
+          "label": "Alert policy",
+          "default": {
+            "cooldown_seconds": 120,
+            "min_confidence": 0.55,
+            "notify_on": [
+              "person",
+              "unattended package",
+              "restricted-area entry"
+            ]
+          },
+          "description": "Confidence, cooldown, and notification policy for reviewer notices.",
+          "type": "domain_value"
+        },
+        {
           "path": "outputs.folder_path",
           "label": "Output folder",
           "default": "~/Download/video_watch_assistant",
@@ -1785,7 +1811,11 @@
           "connector": "websocket",
           "content": "events",
           "destination": "MN_BLUEPRINT_EVENTS_WS_URL",
+          "enabled": false,
           "failure_policy": "skip",
+          "integration_status": "optional_mock_disabled_by_default",
+          "activation": "Set MN_BLUEPRINT_EVENTS_WS_URL and enable this output skill via config override to stream events.",
+          "mock": true,
           "name": "websocket_events",
           "required": false,
           "skill": "websocket_stream"

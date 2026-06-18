@@ -1,0 +1,36 @@
+{
+  "schema": "otterdesk.drug_discovery.target_profile.sample.v1",
+  "program": "MNK-042 demo program",
+  "therapeutic_area": "inflammatory bowel disease",
+  "target": {
+    "name": "JAK1-biased cytokine signaling",
+    "modality_interest": [
+      "small molecule",
+      "gut-restricted oral therapy"
+    ],
+    "desired_profile": "Reduce inflammatory cytokine signaling with low systemic exposure."
+  },
+  "assay_plan": [
+    {
+      "name": "cellular cytokine inhibition",
+      "readout": "IL-6 and IFN-gamma signaling reduction",
+      "decision_threshold": "IC50 below 100 nM with selectivity over JAK2"
+    },
+    {
+      "name": "permeability screen",
+      "readout": "low systemic permeability",
+      "decision_threshold": "Caco-2 apparent permeability below program cutoff"
+    }
+  ],
+  "safety_filters": [
+    "avoid broad JAK2 inhibition",
+    "flag hERG risk",
+    "flag CYP3A4 strong inhibition",
+    "require non-clinical evidence before ranking"
+  ],
+  "research_questions": [
+    "Which candidates best match a gut-restricted JAK1-biased profile?",
+    "Which claims need literature or assay evidence before proceeding?",
+    "What is the next experiment for each high-priority candidate?"
+  ]
+}

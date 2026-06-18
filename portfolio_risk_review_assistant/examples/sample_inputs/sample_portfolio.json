@@ -1,0 +1,69 @@
+{
+  "schema": "otterdesk.portfolio_risk_review.sample.v1",
+  "as_of": "2026-06-15",
+  "base_currency": "USD",
+  "portfolio": [
+    {
+      "ticker": "NVDA",
+      "asset_class": "equity",
+      "sector": "semiconductors",
+      "market_value": 182000,
+      "weight": 0.28,
+      "cost_basis": 97000
+    },
+    {
+      "ticker": "MSFT",
+      "asset_class": "equity",
+      "sector": "software",
+      "market_value": 111000,
+      "weight": 0.17,
+      "cost_basis": 73000
+    },
+    {
+      "ticker": "VTI",
+      "asset_class": "equity_etf",
+      "sector": "broad_market",
+      "market_value": 151000,
+      "weight": 0.23,
+      "cost_basis": 140000
+    },
+    {
+      "ticker": "BND",
+      "asset_class": "bond_etf",
+      "sector": "core_bonds",
+      "market_value": 93000,
+      "weight": 0.14,
+      "cost_basis": 94000
+    },
+    {
+      "ticker": "SGOV",
+      "asset_class": "treasury_etf",
+      "sector": "cash_equivalent",
+      "market_value": 117000,
+      "weight": 0.18,
+      "cost_basis": 116500
+    }
+  ],
+  "benchmark_portfolio": {
+    "equity": 0.65,
+    "fixed_income": 0.25,
+    "cash": 0.1
+  },
+  "risk_policy": {
+    "max_single_name_weight": 0.2,
+    "max_sector_weight": 0.35,
+    "min_cash_months": 6,
+    "target_drawdown_at_risk": 0.18
+  },
+  "decision_constraints": {
+    "avoid_taxable_sales": true,
+    "rebalance_with_new_cash_first": true,
+    "time_horizon_years": 7,
+    "notes": "Client can tolerate moderate volatility but wants concentration risk called out plainly."
+  },
+  "market_signals": {
+    "rates_commentary": "Short-duration Treasury yields remain attractive relative to core bond duration risk.",
+    "equity_commentary": "Mega-cap AI exposure has outperformed and now dominates active risk.",
+    "volatility_regime": "medium"
+  }
+}

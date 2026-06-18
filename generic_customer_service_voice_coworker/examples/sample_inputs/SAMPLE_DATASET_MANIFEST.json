@@ -1,0 +1,25 @@
+{
+  "schema": "otterdesk.sample_dataset.v1",
+  "blueprint_id": "generic_customer_service_voice_coworker",
+  "description": "Synthetic pizza-shop menu and caller intents for local voice-service demos.",
+  "files": [
+    {
+      "path": "pizza_shop_profile.json",
+      "type": "application/json",
+      "contains_pii": false,
+      "intended_use": "demo business profile"
+    },
+    {
+      "path": "sample_call_intents.json",
+      "type": "application/json",
+      "contains_pii": false,
+      "intended_use": "voice intent and handoff validation"
+    }
+  ],
+  "expected_outputs": [
+    "events.jsonl",
+    "final_artifact.json",
+    "human.jsonl",
+    "web_ui.json"
+  ]
+}

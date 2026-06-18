@@ -1,0 +1,23 @@
+{
+  "schema": "otterdesk.video_watch.sample_policy.v1",
+  "video_source": "rtsp://127.0.0.1:8554/video-watch",
+  "visual_targets": [
+    "person",
+    "unattended package",
+    "restricted-area entry"
+  ],
+  "alert_policy": {
+    "cooldown_seconds": 120,
+    "min_confidence": 0.55,
+    "notify_on": [
+      "person",
+      "unattended package",
+      "restricted-area entry"
+    ],
+    "mode": "human_notice_only"
+  },
+  "review_notes": [
+    "Local run-store artifacts are authoritative by default.",
+    "Optional websocket event fan-out is disabled until a destination URL is configured."
+  ]
+}

@@ -102,8 +102,23 @@
     "adapter": "mock",
     "description": "Default synthetic inputs bundled with the blueprint.",
     "payload": {
+      "alert_policy": {
+        "cooldown_seconds": 120,
+        "min_confidence": 0.55,
+        "notify_on": [
+          "person",
+          "unattended package",
+          "restricted-area entry"
+        ]
+      },
       "input_folder": "video_watch_assistant/examples/sample_inputs",
-      "output_folder": "~/Download/video_watch_assistant"
+      "output_folder": "~/Download/video_watch_assistant",
+      "video_source": "rtsp://127.0.0.1:8554/video-watch",
+      "visual_targets": [
+        "person",
+        "unattended package",
+        "restricted-area entry"
+      ]
     }
   },
   "interfaces": {
@@ -669,6 +684,8 @@
       "direction": "output",
       "enabled": false,
       "failure_policy": "skip",
+      "integration_status": "optional_mock_disabled_by_default",
+      "activation": "Set MN_BLUEPRINT_EVENTS_WS_URL and enable this output skill via config override to stream events.",
       "mock": true,
       "required": false,
       "skill": "websocket_stream",
@@ -686,6 +703,8 @@
         "content": "events",
         "direction": "output",
         "enabled": false,
+        "integration_status": "optional_mock_disabled_by_default",
+        "activation": "Set MN_BLUEPRINT_EVENTS_WS_URL and enable this output skill via config override to stream events.",
         "mock": true,
         "required": false,
         "skill": "websocket_stream",

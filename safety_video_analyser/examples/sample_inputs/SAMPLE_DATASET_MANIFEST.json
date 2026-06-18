@@ -1,0 +1,21 @@
+{
+  "schema": "otterdesk.sample_dataset.v1",
+  "blueprint_id": "safety_video_analyser",
+  "description": "Tiny generated workplace-safety demo clip used to prove the video input contract and artifact pathing.",
+  "files": [
+    {
+      "path": "worksite_safety_walkthrough.mp4",
+      "type": "video/mp4",
+      "duration_seconds": 4,
+      "contains_pii": false,
+      "intended_use": "launch validation and local demo",
+      "notes": "Synthetic color-bar style clip; replace with real approved footage for meaningful visual analysis."
+    }
+  ],
+  "expected_outputs": [
+    "video_analysis.json",
+    "safety_video_report.json",
+    "safety_video_report.md",
+    "final_artifact.json"
+  ]
+}

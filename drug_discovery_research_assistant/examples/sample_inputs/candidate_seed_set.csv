@@ -1,0 +1,4 @@
+candidate_id,mechanism,modality,claimed_potency_nm,selectivity_notes,known_risks,next_assay
+MNK-042-A,JAK1-biased inhibitor,small molecule,72,Reported selectivity over JAK2 in synthetic demo data,hERG and CYP panel not yet run,cellular cytokine inhibition
+MNK-042-B,PDE4 modulator,small molecule,180,Alternative anti-inflammatory mechanism,GI tolerability concern,dose-response counterscreen
+MNK-042-C,TLR4 pathway modulator,small molecule,240,Innate immune pathway hypothesis,limited target-validation evidence,macrophage cytokine assay

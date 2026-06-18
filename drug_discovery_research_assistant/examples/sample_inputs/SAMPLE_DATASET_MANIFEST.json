@@ -1,0 +1,24 @@
+{
+  "schema": "otterdesk.sample_dataset.v1",
+  "blueprint_id": "drug_discovery_research_assistant",
+  "description": "Synthetic early-stage target profile and candidate seed set for workflow validation.",
+  "files": [
+    {
+      "path": "target_profile.json",
+      "type": "application/json",
+      "contains_pii": false,
+      "intended_use": "drug-discovery research launch validation and demos"
+    },
+    {
+      "path": "candidate_seed_set.csv",
+      "type": "text/csv",
+      "contains_pii": false,
+      "intended_use": "candidate comparison input"
+    }
+  ],
+  "expected_outputs": [
+    "final_artifact.json",
+    "result.json",
+    "events.jsonl"
+  ]
+}
