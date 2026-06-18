@@ -525,7 +525,7 @@
     "processed_state_file": "watch_state.json"
   },
   "execution": {
-    "max_company_workers": 4,
+    "max_company_workers": 1,
     "deterministic_output_order": "company_slug",
     "quick_test": false
   },
@@ -591,7 +591,7 @@
     "max_queries": 20,
     "max_sources_per_company": 20,
     "max_target_urls_per_company": 10,
-    "max_stage_workers": 5,
+    "max_stage_workers": 1,
     "timeout_seconds": 20,
     "max_chars": 12000,
     "use_model_compression": true,
@@ -618,8 +618,8 @@
       "traction_verifier",
       "rendered_page_researcher"
     ],
-    "max_iterations_per_agent": 20,
-    "max_tool_calls_per_agent": 50,
+    "max_iterations_per_agent": 3,
+    "max_tool_calls_per_agent": 4,
     "allowed_tools": [
       "browser_search",
       "browser_page",
@@ -705,7 +705,12 @@
   },
   "backpressure": {
     "max_documents_per_cycle": 100,
-    "max_companies_per_cycle": 25
+    "max_companies_per_cycle": 25,
+    "llm": {
+      "max_concurrent_calls": 1,
+      "min_interval_seconds": 2.0,
+      "rationale": "Protect local Docker Model Runner from concurrent VC agent calls."
+    }
   },
   "determinism": {
     "seed": 7,

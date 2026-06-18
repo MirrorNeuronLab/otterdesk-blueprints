@@ -922,11 +922,57 @@ class ActionBudget:
             return summary
 
 
+class LlmCallLimiter:
+    def __init__(self, *, max_concurrent_calls: int = 1, min_interval_seconds: float = 0.0) -> None:
+        self.max_concurrent_calls = max(1, int(max_concurrent_calls or 1))
+        self.min_interval_seconds = max(0.0, float(min_interval_seconds or 0.0))
+        self._semaphore = threading.BoundedSemaphore(self.max_concurrent_calls)
+        self._interval_lock = threading.Lock()
+        self._next_allowed_at = 0.0
+
+    def acquire(self) -> None:
+        self._semaphore.acquire()
+        if self.min_interval_seconds <= 0:
+            return
+        with self._interval_lock:
+            now = time.monotonic()
+            wait_seconds = max(0.0, self._next_allowed_at - now)
+            self._next_allowed_at = max(now, self._next_allowed_at) + self.min_interval_seconds
+        if wait_seconds > 0:
+            time.sleep(wait_seconds)
+
+    def release(self) -> None:
+        self._semaphore.release()
+
+    def config_summary(self) -> dict[str, Any]:
+        return {
+            "max_concurrent_calls": self.max_concurrent_calls,
+            "min_interval_seconds": self.min_interval_seconds,
+        }
+
+
+def build_llm_call_limiter(config: dict[str, Any]) -> LlmCallLimiter:
+    backpressure = config.get("backpressure") if isinstance(config.get("backpressure"), dict) else {}
+    llm_config = backpressure.get("llm") if isinstance(backpressure.get("llm"), dict) else {}
+    return LlmCallLimiter(
+        max_concurrent_calls=bounded_int(llm_config.get("max_concurrent_calls"), default=1, minimum=1, maximum=8),
+        min_interval_seconds=float(llm_config.get("min_interval_seconds") or 0.0),
+    )
+
+
 class BudgetedLLM:
-    def __init__(self, llm: Any, action_budget: ActionBudget, *, require_live: bool = False) -> None:
+    def __init__(
+        self,
+        llm: Any,
+        action_budget: ActionBudget,
+        *,
+        require_live: bool = False,
+        limiter: LlmCallLimiter | None = None,
+    ) -> None:
         self._llm = llm
         self._action_budget = action_budget
         self._require_live = require_live
+        self._limiter = limiter or LlmCallLimiter()
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._llm, name)
@@ -950,7 +996,10 @@ class BudgetedLLM:
             response["model"] = getattr(self._llm, "model", "unknown")
             response["budget_status"] = "budget_exhausted"
             return response
+        acquired = False
         try:
+            self._limiter.acquire()
+            acquired = True
             response = self._llm.generate_json(system_prompt=system_prompt, user_prompt=user_prompt, fallback=fallback)
         except Exception as exc:
             self._action_budget.complete(action, "failed", {"error": str(exc)})
@@ -965,6 +1014,9 @@ class BudgetedLLM:
             response["error"] = str(exc)
             response["budget_status"] = "llm_call_failed"
             return response
+        finally:
+            if acquired:
+                self._limiter.release()
         provider = str(response.get("provider") or getattr(self._llm, "provider", "unknown")) if isinstance(response, dict) else ""
         budget_status = str(response.get("budget_status") or "") if isinstance(response, dict) else ""
         if self._require_live and (not provider_is_live(provider) or budget_status in {"budget_exhausted", "llm_call_failed"}):
@@ -3665,8 +3717,14 @@ def run_blueprint(
     active_knowledge = load_vc_knowledge(blueprint_dir)
     active_knowledge_ref = active_knowledge_reference(active_knowledge)
     action_budget = build_action_budget(resolved_config)
+    llm_limiter = build_llm_call_limiter(resolved_config)
     require_live_llm = llm_requires_live(resolved_config)
-    llm = BudgetedLLM(_get_configured_actor_llm(resolved_config, llm_client), action_budget, require_live=require_live_llm)
+    llm = BudgetedLLM(
+        _get_configured_actor_llm(resolved_config, llm_client),
+        action_budget,
+        require_live=require_live_llm,
+        limiter=llm_limiter,
+    )
     payload = dict((resolved_config.get("inputs") or {}).get("payload") or {})
     if inputs:
         payload.update(inputs)
@@ -3895,6 +3953,7 @@ def run_blueprint(
             "max_company_workers": max_company_workers,
             "max_stage_workers": bounded_int((resolved_config.get("internet_research") or {}).get("max_stage_workers"), default=len(RESEARCH_STAGE_IDS), maximum=len(RESEARCH_STAGE_IDS)),
             "max_scoring_workers": scoring_worker_count(resolved_config),
+            "llm_backpressure": llm_limiter.config_summary(),
             "company_processing_order": [analysis["company_slug"] for analysis in analyses],
         },
         "monitor_state": {
