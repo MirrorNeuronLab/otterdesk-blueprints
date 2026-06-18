@@ -616,9 +616,9 @@
     "python_http_fallback": {
       "enabled": true,
       "purpose": "Bounded stdlib HTTP fallback for public search/result pages when the optional w3m binary is unavailable in the worker image.",
-      "timeout_seconds": 10,
-      "max_chars": 8000,
-      "max_search_results": 3,
+      "timeout_seconds": 5,
+      "max_chars": 6000,
+      "max_search_results": 2,
       "user_agent": "MirrorNeuron-VC-Assistant/1.0 (+public research fallback)"
     },
     "rendered_browser": {
@@ -644,8 +644,8 @@
       "traction_verifier",
       "rendered_page_researcher"
     ],
-    "max_iterations_per_agent": 2,
-    "max_tool_calls_per_agent": 3,
+    "max_iterations_per_agent": 1,
+    "max_tool_calls_per_agent": 2,
     "allowed_tools": [
       "browser_search",
       "browser_page",

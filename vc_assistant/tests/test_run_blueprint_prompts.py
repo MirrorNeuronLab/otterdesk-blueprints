@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import importlib.util
 from pathlib import Path
 
@@ -7,6 +8,7 @@ import pytest
 
 
 SCRIPT_PATH = Path(__file__).resolve().parents[1] / "payloads" / "document_workflow" / "scripts" / "run_blueprint.py"
+BLUEPRINT_DIR = Path(__file__).resolve().parents[1]
 
 
 def load_module():
@@ -15,6 +17,31 @@ def load_module():
     assert spec and spec.loader
     spec.loader.exec_module(module)
     return module
+
+
+def test_manifest_embedded_runtime_config_matches_default_deep_analysis_settings():
+    default_config = json.loads((BLUEPRINT_DIR / "config" / "default.json").read_text())
+    manifest = json.loads((BLUEPRINT_DIR / "manifest.json").read_text())
+    synced_sections = [
+        "agentic_research",
+        "actor_review",
+        "internet_research",
+        "research_budget",
+        "backpressure",
+        "budgets",
+    ]
+
+    entrypoint = next(node for node in manifest["agents"]["nodes"] if node["node_id"] == "startup_folder_watcher")
+    assert entrypoint["config"]["timeout_seconds"] == default_config["budgets"]["max_runtime_seconds"]
+
+    for node in manifest["agents"]["nodes"]:
+        env = node.get("config", {}).get("environment", {})
+        raw_config = env.get("MN_BLUEPRINT_CONFIG_JSON")
+        if not raw_config:
+            continue
+        embedded_config = json.loads(raw_config)
+        for section in synced_sections:
+            assert embedded_config[section] == default_config[section]
 
 
 def test_research_prompt_specs_are_distinct_for_all_agent_ids():
