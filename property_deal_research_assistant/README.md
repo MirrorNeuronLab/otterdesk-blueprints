@@ -7,9 +7,9 @@ A property deal research co-worker for comparing real-estate opportunities. Give
 
 ## What It Does
 
-This folder is a self-contained MirrorNeuron blueprint. It defines the runtime
-manifest, default configuration, payload code, local documentation, and any
-fixtures needed to review or run the workflow from this checkout.
+This blueprint compares acquisition opportunities against buyer criteria, deal history, financing assumptions, and diligence questions. It preserves source-grounded reasoning for rent upside, renovation risk, debt-service sensitivity, seller/broker claims, and document gaps before writing a review-only acquisition memo.
+
+The default sample pack includes a synthetic small-multifamily watchlist in `examples/sample_inputs/sample_deal_watchlist.json`. Use it for local demos, then replace it with customer-approved deal sheets, broker notes, rent rolls, lender terms, inspections, and public-record exports.
 
 ## Quick Start
 
@@ -34,15 +34,18 @@ mn blueprint monitor --follow
 ## Inputs And Configuration
 
 - `manifest.json`: graph shape, entrypoints, runtime metadata, runners, services, and environment access.
-- `config/default.json`: default launch configuration and mock/sample input settings.
+- `config/default.json`: default launch configuration, live Docker Model Runner profile, and mock/sample input settings.
 - `config/overwrite.json`: optional local overrides layered on defaults.
 - `payloads/`: worker scripts, policies, fixtures, prompts, and support files used by this blueprint.
+- `knowledge/product_readiness_retrieval.md`: RAG guidance for ranking evidence, diligence blockers, and review-only outputs.
 
 ## Outputs
 
 Most runs write artifacts under `~/.mn/runs/<run_id>/`. Common files include
 `events.jsonl`, `result.json`, `final_artifact.json`, worker logs, and generated
 reports when the blueprint produces them.
+
+The final artifact should rank opportunities, list assumptions, name source gaps, and recommend diligence actions rather than executable acquisition decisions.
 
 ## Safety Checklist
 

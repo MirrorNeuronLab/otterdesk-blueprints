@@ -7,9 +7,9 @@ A research co-worker for early drug-discovery triage. Give it a disease or targe
 
 ## What It Does
 
-This folder is a self-contained MirrorNeuron blueprint. It defines the runtime
-manifest, default configuration, payload code, local documentation, and any
-fixtures needed to review or run the workflow from this checkout.
+This blueprint organizes early discovery hypotheses, target profiles, candidate seed sets, assay plans, and safety filters into a review-only ranking packet. It helps researchers compare evidence quality and next experiments without implying clinical, regulatory, or wet-lab validation.
+
+The default sample pack includes `target_profile.json` and `candidate_seed_set.csv` under `examples/sample_inputs`. They are synthetic inputs for workflow validation; replace them with approved program data before real scientific review.
 
 ## Quick Start
 
@@ -34,15 +34,18 @@ mn blueprint monitor --follow
 ## Inputs And Configuration
 
 - `manifest.json`: graph shape, entrypoints, runtime metadata, runners, services, and environment access.
-- `config/default.json`: default launch configuration and mock/sample input settings.
+- `config/default.json`: default launch configuration, live Docker Model Runner profile, and mock/sample input settings.
 - `config/overwrite.json`: optional local overrides layered on defaults.
 - `payloads/`: worker scripts, policies, fixtures, prompts, and support files used by this blueprint.
+- `knowledge/product_readiness_retrieval.md`: RAG guidance for target fit, candidate ranking, safety filters, evidence gaps, and report boundaries.
 
 ## Outputs
 
 Most runs write artifacts under `~/.mn/runs/<run_id>/`. Common files include
 `events.jsonl`, `result.json`, `final_artifact.json`, worker logs, and generated
 reports when the blueprint produces them.
+
+The final artifact should rank candidates, show evidence and uncertainty, list blockers, and recommend the next non-clinical experiment for human scientific review.
 
 ## Safety Checklist
 

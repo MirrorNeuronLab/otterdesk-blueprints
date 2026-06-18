@@ -80,6 +80,18 @@ def _manifest_paths() -> list[Path]:
     return sorted(path / "manifest.json" for path in ROOT.iterdir() if (path / "manifest.json").exists())
 
 
+def _indexed_blueprints() -> list[dict]:
+    return json.loads((ROOT / "index.json").read_text())
+
+
+def _indexed_non_vc_blueprints() -> list[dict]:
+    return [
+        entry
+        for entry in _indexed_blueprints()
+        if entry["id"] not in {"vc_assistant", "gtm_ai_workflow"}
+    ]
+
+
 def _contains_key(value, target: str) -> bool:
     if isinstance(value, dict):
         return any(key == target or _contains_key(item, target) for key, item in value.items())
@@ -1024,6 +1036,91 @@ def test_otterdesk_blueprints_declare_standard_default_input_and_output_folders(
         assert review_fields[visible_input_folder_paths[0]]["default"] == expected_input, blueprint_id
         assert "inputs.payload.output_folder" not in review_fields, blueprint_id
         assert review_fields["outputs.folder_path"]["default"] == expected_output, blueprint_id
+
+
+def test_indexed_non_vc_blueprints_ship_non_placeholder_sample_inputs():
+    for entry in _indexed_non_vc_blueprints():
+        blueprint_id = entry["id"]
+        sample_dir = ROOT / entry["path"] / "examples" / "sample_inputs"
+        assert sample_dir.is_dir(), blueprint_id
+
+        real_files = [
+            path
+            for path in sample_dir.iterdir()
+            if path.is_file() and path.name != ".gitkeep"
+        ]
+        assert real_files, blueprint_id
+
+        dataset_manifest_path = sample_dir / "SAMPLE_DATASET_MANIFEST.json"
+        assert dataset_manifest_path.is_file(), blueprint_id
+        dataset_manifest = json.loads(dataset_manifest_path.read_text())
+        schema = dataset_manifest.get("schema") or dataset_manifest.get("schema_version")
+        if schema is not None:
+            assert schema == "otterdesk.sample_dataset.v1", blueprint_id
+        assert dataset_manifest["blueprint_id"] == blueprint_id, blueprint_id
+        assert dataset_manifest.get("description") or dataset_manifest.get("demo_source"), blueprint_id
+
+        listed_files = dataset_manifest.get("files")
+        assert isinstance(listed_files, list) and listed_files, blueprint_id
+        for item in listed_files:
+            if isinstance(item, str):
+                assert (sample_dir / item).is_file(), (blueprint_id, item)
+                continue
+            assert {"path", "type", "contains_pii", "intended_use"} <= set(item), (blueprint_id, item)
+            assert (sample_dir / item["path"]).is_file(), (blueprint_id, item["path"])
+
+
+def test_indexed_non_vc_blueprints_have_non_trivial_rag_knowledge():
+    for entry in _indexed_non_vc_blueprints():
+        blueprint_id = entry["id"]
+        blueprint_dir = ROOT / entry["path"]
+        manifest = json.loads((blueprint_dir / "manifest.json").read_text())
+        rag = manifest.get("knowledge_rag") or manifest.get("metadata", {}).get("knowledge_rag", {})
+        if not rag.get("enabled"):
+            continue
+
+        knowledge_dir = blueprint_dir / rag.get("knowledge_dir", "knowledge")
+        assert knowledge_dir.is_dir(), blueprint_id
+        knowledge_files = [
+            path
+            for path in knowledge_dir.rglob("*")
+            if path.is_file() and path.suffix.lower() in {".md", ".txt"}
+        ]
+        assert knowledge_files, blueprint_id
+
+        combined = "\n".join(path.read_text(encoding="utf-8") for path in knowledge_files)
+        assert len(combined) >= 1800, blueprint_id
+        lowered = combined.lower()
+        assert "evidence" in lowered, blueprint_id
+        assert "review" in lowered, blueprint_id
+
+
+def test_product_ready_llm_configs_use_explicit_live_docker_model_runner_profile():
+    targets = {
+        "drug_discovery_research_assistant",
+        "invoice_bill_extraction_assistant",
+        "legal_contract_clause_review_assistant",
+        "medical_deid_record_intake_assistant",
+        "personal_financial_advisor",
+        "personal_income_tax_expert",
+        "portfolio_risk_review_assistant",
+        "property_deal_research_assistant",
+        "tax_form_ocr_capture_assistant",
+    }
+    for blueprint_id in sorted(targets):
+        config = json.loads((ROOT / blueprint_id / "config" / "default.json").read_text())
+        llm = config["llm"]
+        primary = llm["configs"]["primary"]
+
+        assert llm["provider"] == "docker_model_runner", blueprint_id
+        assert llm["model"] == "gemma4:e2b", blueprint_id
+        assert llm["runtime_model"] == "gemma4:e2b", blueprint_id
+        assert llm["backend"] == "llama.cpp", blueprint_id
+        assert primary["provider"] == "docker_model_runner", blueprint_id
+        assert primary["model"] == "gemma4:e2b", blueprint_id
+        assert primary["runtime_model"] == "gemma4:e2b", blueprint_id
+        assert primary["backend"] == "llama.cpp", blueprint_id
+        assert llm["live_model_profile"]["runtime_model"] == "gemma4:e2b", blueprint_id
 
 
 def test_otterdesk_init_config_review_does_not_duplicate_folder_controls():

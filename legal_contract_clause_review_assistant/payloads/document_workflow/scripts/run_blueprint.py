@@ -162,8 +162,9 @@ def summarize_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
         text = str(record.get("text") or "")
         evidence.append({
             "source": record.get("filename"),
-            "document_type": record.get("document_type"),
+            "document_type": display_document_type(record),
             "text_preview": text[:500],
+            "structured_values": structured_values_from_text(text),
             "ocr_required": bool(record.get("ocr_required")),
             "extraction_method": record.get("extraction_method"),
             "warnings": record.get("warnings") or [],
@@ -178,6 +179,267 @@ def summarize_records(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
             "warnings": ["No local document folder was provided; download the public sample input and rerun."],
         })
     return evidence
+
+
+def display_document_type(record: dict[str, Any]) -> str:
+    filename = str(record.get("filename") or "").lower()
+    suffix = Path(filename).suffix.lower()
+    if filename == "sample_dataset_manifest.json":
+        return "sample_dataset_manifest"
+    if filename.endswith("_labels.json") or "ground_truth" in filename or "answer" in filename:
+        return "label_or_answer_file"
+    if suffix == ".pdf":
+        return "source_pdf"
+    if suffix in {".png", ".jpg", ".jpeg", ".tif", ".tiff", ".webp"}:
+        return "source_image"
+    if suffix == ".json":
+        return "structured_json"
+    if suffix in {".txt", ".md"}:
+        return "source_text"
+    return str(record.get("document_type") or "document")
+
+
+def structured_values_from_text(text: str, *, limit: int = 12) -> list[dict[str, str]]:
+    if not text or not text.lstrip().startswith(("{", "[")):
+        return []
+    try:
+        decoded = json.loads(text)
+    except Exception:
+        return []
+    values: list[dict[str, str]] = []
+
+    def add(prefix: str, value: Any) -> None:
+        if len(values) >= limit:
+            return
+        if isinstance(value, dict):
+            for key, item in value.items():
+                add(f"{prefix}.{key}" if prefix else str(key), item)
+        elif isinstance(value, list):
+            if value and all(not isinstance(item, (dict, list)) for item in value[:5]):
+                joined = ", ".join(str(item) for item in value[:5])
+                values.append({"field": prefix, "value": joined[:180]})
+            else:
+                for index, item in enumerate(value[:3]):
+                    add(f"{prefix}[{index}]", item)
+        elif value not in (None, ""):
+            values.append({"field": prefix, "value": str(value)[:180]})
+
+    add("", decoded)
+    return values[:limit]
+
+
+def record_warnings(records: list[dict[str, Any]]) -> list[str]:
+    warnings: list[str] = []
+    for record in records:
+        for warning in record.get("warnings") or []:
+            text = str(warning)
+            if text and text not in warnings:
+                warnings.append(text)
+    return warnings
+
+
+def render_final_markdown(final_artifact: dict[str, Any]) -> str:
+    lines = [
+        f"# {final_artifact.get('title') or BLUEPRINT_NAME}",
+        "",
+        f"**Status:** {final_artifact.get('status', 'review_ready')}",
+        f"**Recommended action:** {final_artifact.get('recommended_action')}",
+        f"**Confidence:** {final_artifact.get('confidence')}",
+        "",
+        "## Executive Summary",
+        str(final_artifact.get("executive_summary") or ""),
+        "",
+        "## Document Summary",
+    ]
+    summary = final_artifact.get("document_summary") if isinstance(final_artifact.get("document_summary"), dict) else {}
+    for key in ("document_count", "ocr_required_count", "warning_count"):
+        lines.append(f"- {key.replace('_', ' ').title()}: {summary.get(key, 0)}")
+    lines.extend(["", "## Evidence Highlights"])
+    for item in (final_artifact.get("evidence") or [])[:10]:
+        if not isinstance(item, dict):
+            continue
+        preview = str(item.get("text_preview") or "").replace("\n", " ").strip()
+        if len(preview) > 240:
+            preview = preview[:237] + "..."
+        lines.append(f"- **{item.get('source')}** ({item.get('document_type')}): {preview or 'No text preview available.'}")
+        for value in item.get("structured_values") or []:
+            lines.append(f"  - `{value.get('field')}`: {value.get('value')}")
+        for warning in item.get("warnings") or []:
+            lines.append(f"  - Warning: {warning}")
+    lines.extend(["", "## Next Steps"])
+    for step in final_artifact.get("next_steps") or []:
+        lines.append(f"- {step}")
+    lines.extend(["", "## Review Boundary"])
+    boundary = final_artifact.get("review_boundary") if isinstance(final_artifact.get("review_boundary"), dict) else {}
+    for item in boundary.get("blocked_actions") or []:
+        lines.append(f"- {item}")
+    lines.extend(["", "## Source References"])
+    for ref in final_artifact.get("source_refs") or []:
+        lines.append(f"- `{ref}`")
+    return "\n".join(lines) + "\n"
+
+
+def build_output_bundle(
+    final_artifact: dict[str, Any],
+    *,
+    output_folder: Path,
+    run_dir: Path,
+    run_id: str,
+    records: list[dict[str, Any]],
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], list[dict[str, Any]]]:
+    warnings = record_warnings(records)
+    ocr_required_count = len([record for record in records if record.get("ocr_required")])
+    checks = [
+        {"name": "has_executive_summary", "ok": bool(final_artifact.get("executive_summary"))},
+        {"name": "has_evidence", "ok": bool(final_artifact.get("evidence"))},
+        {"name": "has_next_steps", "ok": bool(final_artifact.get("next_steps"))},
+        {"name": "has_source_refs", "ok": bool(final_artifact.get("source_refs"))},
+        {"name": "writes_user_download_folder", "ok": True},
+    ]
+    quality_status = "usable_with_ocr_warnings" if ocr_required_count or warnings else (
+        "usable_with_review" if all(check["ok"] for check in checks[:4]) else "needs_attention"
+    )
+    artifact_quality = {
+        "schema_version": "mn.blueprint.artifact_quality.v1",
+        "blueprint_id": BLUEPRINT_ID,
+        "run_id": run_id,
+        "status": quality_status,
+        "checks": checks,
+        "evidence_count": len(final_artifact.get("evidence") or []),
+        "document_count": len(records),
+        "total_documents": len(records),
+        "ocr_required_count": ocr_required_count,
+        "warning_count": len(warnings),
+        "warnings": warnings[:20],
+        "highest_priority_issue": (
+            "Resolve OCR/PDF rendering warnings before trusting image-only source values."
+            if ocr_required_count or warnings
+            else "Human review is required before downstream use."
+        ),
+    }
+    run_health = {
+        "schema_version": "mn.blueprint.run_health.v1",
+        "blueprint_id": BLUEPRINT_ID,
+        "run_id": run_id,
+        "status": "completed_with_ocr_warnings" if ocr_required_count or warnings else "completed",
+        "warning_count": len(warnings),
+        "failure_count": 0,
+        "document_count": len(records),
+        "ocr_required_count": ocr_required_count,
+        "output_folder": str(output_folder),
+        "run_store": str(run_dir),
+        "generated_at": utc_now_iso(),
+    }
+    action_ledger = {
+        "schema_version": "mn.blueprint.action_ledger.v1",
+        "blueprint_id": BLUEPRINT_ID,
+        "run_id": run_id,
+        "review_only": True,
+        "actions": [
+            {"step": "load_inputs", "status": "completed", "source_refs": ["inputs.json"]},
+            {"step": "extract_documents", "status": "completed", "record_count": len(records)},
+            {"step": "actor_review", "status": "completed", "actor_count": len(final_artifact.get("actor_findings") or {})},
+            {"step": "write_final_outputs", "status": "completed", "output_folder": str(output_folder)},
+        ],
+        "blocked_actions": domain_blocked_actions(),
+    }
+    output_files = [
+        {"kind": "final_artifact_json", "path": str(output_folder / "final_artifact.json")},
+        {"kind": "report_markdown", "path": str(output_folder / "final_report.md")},
+        {"kind": "action_ledger_json", "path": str(output_folder / "action_ledger.json")},
+        {"kind": "artifact_quality_json", "path": str(output_folder / "artifact_quality.json")},
+        {"kind": "run_health_json", "path": str(output_folder / "run_health.json")},
+    ]
+    return action_ledger, artifact_quality, run_health, output_files
+
+
+def write_user_outputs(
+    final_artifact: dict[str, Any],
+    *,
+    output_folder: Path,
+    run_dir: Path,
+    run_id: str,
+    records: list[dict[str, Any]],
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], list[dict[str, Any]]]:
+    output_folder.mkdir(parents=True, exist_ok=True)
+    action_ledger, artifact_quality, run_health, output_files = build_output_bundle(
+        final_artifact,
+        output_folder=output_folder,
+        run_dir=run_dir,
+        run_id=run_id,
+        records=records,
+    )
+    final_artifact["artifact_quality"] = {
+        "status": artifact_quality["status"],
+        "warning_count": artifact_quality["warning_count"],
+        "ocr_required_count": artifact_quality["ocr_required_count"],
+        "highest_priority_issue": artifact_quality["highest_priority_issue"],
+        "artifact": "artifact_quality.json",
+    }
+    final_artifact["run_health"] = {
+        "status": run_health["status"],
+        "warning_count": run_health["warning_count"],
+        "failure_count": run_health["failure_count"],
+        "artifact": "run_health.json",
+    }
+    final_artifact["action_ledger"] = {
+        "review_only": True,
+        "artifact": "action_ledger.json",
+        "blocked_actions": action_ledger["blocked_actions"],
+    }
+    final_artifact["output_files"] = output_files
+    write_json(output_folder / "final_artifact.json", final_artifact)
+    (output_folder / "final_report.md").write_text(render_final_markdown(final_artifact), encoding="utf-8")
+    write_json(output_folder / "action_ledger.json", action_ledger)
+    write_json(output_folder / "artifact_quality.json", artifact_quality)
+    write_json(output_folder / "run_health.json", run_health)
+    write_json(run_dir / "action_ledger.json", action_ledger)
+    write_json(run_dir / "artifact_quality.json", artifact_quality)
+    write_json(run_dir / "run_health.json", run_health)
+    return action_ledger, artifact_quality, run_health, output_files
+
+
+def domain_next_steps(records: list[dict[str, Any]]) -> list[str]:
+    if BLUEPRINT_ID == "invoice_bill_extraction_assistant":
+        return [
+            "Verify supplier, customer, invoice number, dates, totals, and payment terms against the source invoice image/PDF.",
+            "Resolve OCR warnings for scanned PDFs before posting anything to ERP or payment workflows.",
+            "Approve, revise, or reject the payable packet with an AP reviewer.",
+        ]
+    if BLUEPRINT_ID == "legal_contract_clause_review_assistant":
+        return [
+            "Review extracted clause text against the source agreement before relying on any clause category.",
+            "Ask counsel to confirm missing, ambiguous, or high-risk terms such as assignment, liability, termination, and governing law.",
+            "Use the packet as attorney-review support only, not legal advice.",
+        ]
+    if BLUEPRINT_ID == "medical_deid_record_intake_assistant":
+        return [
+            "Review every detected identifier and redaction warning with a privacy officer before release.",
+            "Resolve OCR warnings for scanned pages because unreadable pages can hide PHI.",
+            "Confirm that clinical meaning remains intact after de-identification.",
+        ]
+    if BLUEPRINT_ID == "tax_form_ocr_capture_assistant":
+        return [
+            "Verify each captured tax field against the source image and expected answer file.",
+            "Resolve any low-confidence OCR or classification mismatch before using values in tax preparation.",
+            "Keep the packet review-only until checked by a tax preparer.",
+        ]
+    return [
+        "Review OCR warnings and extracted fields against source pages.",
+        "Approve, revise, or reject before any downstream use.",
+    ]
+
+
+def domain_blocked_actions() -> list[str]:
+    if BLUEPRINT_ID == "invoice_bill_extraction_assistant":
+        return ["post_to_erp_without_review", "submit_payment_without_review", "treat_extraction_as_final_record"]
+    if BLUEPRINT_ID == "legal_contract_clause_review_assistant":
+        return ["treat_as_legal_advice", "redline_or_sign_contract_without_attorney_review", "notify_counterparty_without_review"]
+    if BLUEPRINT_ID == "medical_deid_record_intake_assistant":
+        return ["release_records_without_privacy_review", "claim_hipaa_safe_harbor_without_authorized_review", "share_identifiers_downstream"]
+    if BLUEPRINT_ID == "tax_form_ocr_capture_assistant":
+        return ["use_values_for_filing_without_review", "submit_tax_return_without_preparer_review", "store_unredacted_identifiers_outside_approved_paths"]
+    return ["treat_extraction_as_final_record"]
 
 
 def run_blueprint(
@@ -209,22 +471,40 @@ def run_blueprint(
 
     records = extract_records(document_folder, resolved_config)
     evidence = summarize_records(records)
-    confidence = 0.72 if records else 0.35
+    warnings = record_warnings(records)
+    ocr_required_count = len([record for record in records if record.get("ocr_required")])
+    confidence = 0.35 if not records else (0.58 if ocr_required_count or warnings else 0.78)
+    packet_status = "needs_input" if not records else ("review_ready_with_ocr_warnings" if ocr_required_count or warnings else "review_ready")
     final_artifact = {
         "type": OUTPUT_TYPE,
+        "title": f"{BLUEPRINT_NAME} Review Packet",
+        "status": packet_status,
         "executive_summary": f"{BLUEPRINT_NAME} processed {len(records)} local document records and prepared a review-only extraction packet.",
         "recommended_action": RECOMMENDED_ACTION,
         "confidence": confidence,
         "evidence": evidence,
-        "next_steps": [
-            "Download or select the public sample input folder if no documents were processed.",
-            "Review OCR warnings and extracted fields against source pages.",
-            "Approve, revise, or reject before any downstream use.",
-        ],
+        "next_steps": domain_next_steps(records),
         "source_refs": ["inputs.json", "events.jsonl", "result.json", "inputs/public_dataset.json"],
         "dataset_input": DATASET_INPUT,
         "field_profile": FIELD_PROFILE,
         "document_count": len(records),
+        "document_summary": {
+            "document_count": len(records),
+            "total_documents": len(records),
+            "ocr_required_count": ocr_required_count,
+            "warning_count": len(warnings),
+            "document_types": sorted({display_document_type(record) for record in records}),
+        },
+        "quality_summary": {
+            "real_values_present": bool(records),
+            "evidence_preview_count": len(evidence),
+            "warnings": warnings[:10],
+        },
+        "review_boundary": {
+            "review_only": True,
+            "blocked_actions": domain_blocked_actions(),
+        },
+        "generated_at": utc_now_iso(),
     }
     llm = get_actor_llm_client(resolved_config, llm_client)
     actor_state: dict[str, Any] = {}
@@ -247,7 +527,24 @@ def run_blueprint(
     )
     final_artifact["actor_findings"] = actor_findings
     final_artifact["llm_usage"] = llm_usage(llm)
-    result = {"run_id": run_id, "blueprint_id": BLUEPRINT_ID, "status": "completed", "records": records, "final_artifact": final_artifact}
+    action_ledger, artifact_quality, run_health, output_files = write_user_outputs(
+        final_artifact,
+        output_folder=output_folder,
+        run_dir=run_dir,
+        run_id=run_id,
+        records=records,
+    )
+    result = {
+        "run_id": run_id,
+        "blueprint_id": BLUEPRINT_ID,
+        "status": "completed",
+        "records": records,
+        "final_artifact": final_artifact,
+        "action_ledger": action_ledger,
+        "artifact_quality": artifact_quality,
+        "run_health": run_health,
+        "output_files": output_files,
+    }
 
     append_event(run_dir, "blueprint_phase_completed", {"phase": "running_worker", "component": BLUEPRINT_ID})
     append_event(run_dir, "human_input_requested", {"mode": "approval_required", "reason": "Review extracted values before downstream use."})
@@ -256,6 +553,10 @@ def run_blueprint(
     write_json(run_dir / "final_artifact.json", final_artifact)
     append_event(run_dir, "artifact_written", {"path": "result.json"})
     append_event(run_dir, "artifact_written", {"path": "final_artifact.json"})
+    for name in ("action_ledger.json", "artifact_quality.json", "run_health.json"):
+        append_event(run_dir, "artifact_written", {"path": name})
+    for item in output_files:
+        append_event(run_dir, "artifact_written", {"path": item["path"]})
     append_event(run_dir, "blueprint_phase_completed", {"phase": "writing_artifacts", "component": BLUEPRINT_ID})
     append_event(run_dir, "blueprint_phase_completed", {"phase": "completed", "component": BLUEPRINT_ID})
     write_json(run_dir / "run.json", {"run_id": run_id, "blueprint_id": BLUEPRINT_ID, "status": "completed", "completed_at": utc_now_iso()})

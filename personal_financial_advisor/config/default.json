@@ -11,7 +11,7 @@
   },
   "inputs": {
     "adapter": "mock",
-    "description": "Default demo inputs start the continuous folder-monitoring service; set monitoring.max_cycles for bounded smoke tests.",
+    "description": "Default demo inputs start a bounded folder-monitoring service; set monitoring.max_cycles to null only when intentionally running continuously.",
     "payload": {
       "document_folder": "personal_financial_advisor/examples/sample_inputs",
       "output_folder": "~/Download/personal_financial_advisor",
@@ -32,7 +32,7 @@
       "monitoring": {
         "enabled": true,
         "poll_interval_seconds": 60,
-        "max_cycles": null
+        "max_cycles": 1
       },
       "public_dataset": {
         "name": "AgamiAI Indian Bank Statement Synthetic Dataset",
@@ -864,7 +864,7 @@
   "monitoring": {
     "enabled": true,
     "poll_interval_seconds": 60,
-    "max_cycles": null,
+    "max_cycles": 1,
     "processed_state_file": "watch_state.json"
   },
   "internet_research": {

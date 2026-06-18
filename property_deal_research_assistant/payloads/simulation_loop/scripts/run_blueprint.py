@@ -381,6 +381,7 @@ def run_blueprint(
         )
         final["actor_findings"] = actor_findings
         final["llm_usage"] = llm_usage(llm)
+        ended_at = utc_now_iso()
         result = {
             "identity": {
                 "blueprint_id": context.blueprint_id,
@@ -395,7 +396,7 @@ def run_blueprint(
                 "run_id": context.run_id,
                 "run_dir": str(context.run_dir) if context.run_dir else None,
                 "started_at": started_at,
-                "ended_at": utc_now_iso(),
+                "ended_at": ended_at,
                 "status": "completed",
             },
             "architecture": architecture_contract(resolved_config, input_source),
@@ -447,6 +448,11 @@ def run_blueprint(
             ],
             "llm": llm_usage(llm),
         }
+        output_files = write_user_outputs(result, final, resolved_config, runtime_inputs)
+        if output_files:
+            result["output_files"] = output_files
+            result["artifacts"].extend(output_artifact_records(output_files))
+            context.event("user_output_bundle_written", {"output_files": output_files})
         web_ui = maybe_write_static_output(context.run_store, result, resolved_config)
         if web_ui:
             result["web_ui"] = web_ui.to_dict()
@@ -1042,6 +1048,8 @@ def final_artifact(
     )
     return {
         "type": "ranked property acquisition opportunities with memory benchmark",
+        "title": "Property Deal Research Packet",
+        "status": "review_ready" if decision.get("action") else "needs_review",
         "executive_summary": (
             "Optimized working memory matched or improved full-history context sharing while using a much "
             "smaller source-grounded packet."
@@ -1069,6 +1077,17 @@ def final_artifact(
             "Keep Ivy Duplex on avoid/watchlist until flood insurance and roof-envelope risks are repriced.",
             "Use the optimized memory packet for agent handoffs instead of replaying the entire deal-flow history.",
         ],
+        "human_review_required": True,
+        "review_only": True,
+        "review_boundary": {
+            "human_review_required": True,
+            "blocked_actions": [
+                "submit_offer_without_investment_committee_review",
+                "contact_seller_or_broker_without_approval",
+                "wire_earnest_money_without_legal_and_financing_review",
+                "treat_simulation_as_appraisal_or_legal_advice",
+            ],
+        },
     }
 
 
@@ -1159,6 +1178,238 @@ def clamp(value: float, low: float, high: float) -> float:
 
 def mean(values: list[float]) -> float:
     return sum(values) / max(1, len(values))
+
+
+def output_artifact_records(output_files: list[dict[str, str]]) -> list[dict[str, Any]]:
+    records = []
+    for item in output_files:
+        path = str(item.get("path") or "")
+        kind = str(item.get("kind") or "output")
+        records.append(
+            {
+                "artifact_id": kind,
+                "type": kind,
+                "path": path,
+                "producer": "workflow",
+                "mime_type": "application/json" if path.endswith(".json") else "text/markdown",
+                "schema_version": "mn.blueprint.user_output.v1",
+                "source_refs": ["inputs.json", "events.jsonl", "result.json"],
+            }
+        )
+    return records
+
+
+def write_user_outputs(
+    result: dict[str, Any],
+    final_artifact: dict[str, Any],
+    config: dict[str, Any],
+    inputs: dict[str, Any],
+) -> list[dict[str, str]]:
+    output_dir = resolve_output_folder(config, inputs)
+    if output_dir is None:
+        return []
+    output_dir.mkdir(parents=True, exist_ok=True)
+    artifact_quality = build_artifact_quality(final_artifact, result)
+    run_health = build_run_health(result, final_artifact)
+    action_ledger = build_action_ledger(final_artifact, result)
+    final_artifact["artifact_quality"] = artifact_quality
+    final_artifact["run_health"] = run_health
+    final_artifact["action_ledger"] = action_ledger
+
+    paths = {
+        "final_artifact_json": output_dir / "final_artifact.json",
+        "report_markdown": output_dir / "final_report.md",
+        "action_ledger_json": output_dir / "action_ledger.json",
+        "artifact_quality_json": output_dir / "artifact_quality.json",
+        "run_health_json": output_dir / "run_health.json",
+    }
+    output_files = [{"kind": kind, "path": str(path)} for kind, path in paths.items()]
+    final_artifact["output_files"] = output_files
+    paths["final_artifact_json"].write_text(json.dumps(final_artifact, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    paths["report_markdown"].write_text(render_final_markdown(final_artifact, result), encoding="utf-8")
+    paths["action_ledger_json"].write_text(json.dumps(action_ledger, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    paths["artifact_quality_json"].write_text(json.dumps(artifact_quality, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    paths["run_health_json"].write_text(json.dumps(run_health, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return output_files
+
+
+def resolve_output_folder(config: dict[str, Any], inputs: dict[str, Any]) -> Path | None:
+    outputs = config.get("outputs") if isinstance(config.get("outputs"), dict) else {}
+    value = str(
+        inputs.get("output_folder")
+        or inputs.get("output_folder_path")
+        or outputs.get("folder_path")
+        or outputs.get("output_folder")
+        or ""
+    ).strip()
+    if not value:
+        return None
+    return expand_output_folder(value, config)
+
+
+def expand_output_folder(value: str, config: dict[str, Any]) -> Path:
+    if value == "~" or value.startswith("~/"):
+        home = host_home_from_config(config) or Path.home()
+        suffix = value[2:] if value.startswith("~/") else ""
+        return home / suffix
+    return Path(value).expanduser()
+
+
+def host_home_from_config(config: dict[str, Any]) -> Path | None:
+    run_root = str((config.get("outputs") or {}).get("run_root") or "").strip()
+    if run_root.startswith("/Users/"):
+        parts = Path(run_root).parts
+        if len(parts) >= 3:
+            return Path(parts[0]) / parts[1] / parts[2]
+    return None
+
+
+def build_artifact_quality(final_artifact: dict[str, Any], result: dict[str, Any]) -> dict[str, Any]:
+    benchmark = final_artifact.get("benchmark") if isinstance(final_artifact.get("benchmark"), dict) else {}
+    quality_gate = benchmark.get("quality_gate") if isinstance(benchmark.get("quality_gate"), dict) else {}
+    selected = final_artifact.get("recommended_property_id")
+    warnings = []
+    if not quality_gate.get("passed", False):
+        warnings.append("Memory benchmark quality gate did not pass; review per-step benchmark before acting.")
+    if not selected:
+        warnings.append("No recommended property id was produced.")
+    return {
+        "schema_version": "mn.blueprint.artifact_quality.v1",
+        "status": "usable_with_review_warnings" if warnings else "usable_with_review",
+        "confidence": final_artifact.get("confidence"),
+        "review_required": True,
+        "warnings": warnings,
+        "quality_checks": [
+            {"name": "recommended_property_present", "passed": bool(selected)},
+            {"name": "memory_benchmark_present", "passed": bool(benchmark)},
+            {"name": "critical_source_refs_present", "passed": bool(final_artifact.get("source_refs"))},
+            {"name": "human_review_boundary_present", "passed": bool(final_artifact.get("review_boundary"))},
+        ],
+        "highest_priority_issue": warnings[0] if warnings else "Investment committee approval is still required before deal action.",
+    }
+
+
+def build_run_health(result: dict[str, Any], final_artifact: dict[str, Any]) -> dict[str, Any]:
+    warnings = list((final_artifact.get("artifact_quality") or {}).get("warnings") or [])
+    return {
+        "schema_version": "mn.blueprint.run_health.v1",
+        "status": "completed_with_warnings" if warnings else "completed",
+        "run": result.get("run", {}),
+        "steps": len(result.get("timeline") or []),
+        "benchmark_quality_gate": ((final_artifact.get("benchmark") or {}).get("quality_gate") or {}),
+        "warning_count": len(warnings),
+        "llm": result.get("llm", {}),
+    }
+
+
+def build_action_ledger(final_artifact: dict[str, Any], result: dict[str, Any]) -> list[dict[str, Any]]:
+    last = (result.get("timeline") or [{}])[-1] if result.get("timeline") else {}
+    return [
+        {
+            "step": "memory_context_compiled",
+            "status": "completed",
+            "details": last.get("memory_packet", {}),
+        },
+        {
+            "step": "property_options_ranked",
+            "status": "completed",
+            "details": {"top_options": final_artifact.get("ranked_options", [])},
+        },
+        {
+            "step": "deal_decision_recommended",
+            "status": "completed",
+            "details": {
+                "recommended_action": final_artifact.get("recommended_action"),
+                "recommended_property_id": final_artifact.get("recommended_property_id"),
+                "confidence": final_artifact.get("confidence"),
+            },
+        },
+        {
+            "step": "human_review_gate",
+            "status": "blocked_pending_review",
+            "details": final_artifact.get("review_boundary", {}),
+        },
+    ]
+
+
+def render_final_markdown(final_artifact: dict[str, Any], result: dict[str, Any]) -> str:
+    benchmark = final_artifact.get("benchmark") if isinstance(final_artifact.get("benchmark"), dict) else {}
+    lift = benchmark.get("lift") if isinstance(benchmark.get("lift"), dict) else {}
+    quality_gate = benchmark.get("quality_gate") if isinstance(benchmark.get("quality_gate"), dict) else {}
+    lines = [
+        "# Property Deal Research Packet",
+        "",
+        f"**Status:** {final_artifact.get('status', 'review_ready')}",
+        f"**Recommended action:** {final_artifact.get('recommended_action')}",
+        f"**Recommended property:** {final_artifact.get('recommended_property_id')}",
+        f"**Confidence:** {final_artifact.get('confidence')}",
+        "",
+        "## Executive Summary",
+        str(final_artifact.get("executive_summary") or ""),
+        "",
+        "## Current Market State",
+        "",
+    ]
+    lines.extend(markdown_table(["Metric", "Value"], [[key, value] for key, value in (final_artifact.get("key_metrics") or {}).items()]))
+    lines.extend(["", "## Ranked Options", ""])
+    lines.extend(
+        markdown_table(
+            ["Property", "Price", "Units", "Cap Rate %", "Risk Score", "Snapshot Score"],
+            [
+                [
+                    item.get("name"),
+                    item.get("price"),
+                    item.get("units"),
+                    item.get("cap_rate_pct"),
+                    item.get("current_risk_score"),
+                    item.get("snapshot_score"),
+                ]
+                for item in final_artifact.get("ranked_options", [])
+                if isinstance(item, dict)
+            ],
+        )
+    )
+    lines.extend(["", "## Memory Benchmark", ""])
+    lines.extend(
+        markdown_table(
+            ["Measure", "Value"],
+            [
+                ["Quality score delta", lift.get("quality_score_delta")],
+                ["Action accuracy delta", lift.get("action_accuracy_delta")],
+                ["Estimated token reduction ratio", lift.get("estimated_token_reduction_ratio")],
+                ["Quality gate passed", quality_gate.get("passed")],
+            ],
+        )
+    )
+    lines.extend(["", "## Key Source References", ""])
+    lines.extend(f"- `{ref}`" for ref in final_artifact.get("source_refs", [])[:16])
+    warnings = ((final_artifact.get("artifact_quality") or {}).get("warnings") or [])
+    if warnings:
+        lines.extend(["", "## Warnings", ""])
+        lines.extend(f"- {warning}" for warning in warnings)
+    lines.extend(["", "## Next Steps", ""])
+    lines.extend(f"- {item}" for item in final_artifact.get("next_steps", []))
+    lines.extend(["", "## Review Boundary", ""])
+    lines.extend(f"- {item}" for item in (final_artifact.get("review_boundary") or {}).get("blocked_actions", []))
+    lines.append("")
+    return "\n".join(lines)
+
+
+def markdown_table(headers: list[str], rows: list[list[Any]]) -> list[str]:
+    if not rows:
+        rows = [["None" for _ in headers]]
+    lines = [
+        "| " + " | ".join(markdown_cell(header) for header in headers) + " |",
+        "| " + " | ".join("---" for _ in headers) + " |",
+    ]
+    for row in rows:
+        padded = [*row, *[""] * (len(headers) - len(row))]
+        lines.append("| " + " | ".join(markdown_cell(cell) for cell in padded[: len(headers)]) + " |")
+    return lines
+
+
+def markdown_cell(value: Any) -> str:
+    return str(value if value is not None else "").replace("|", "\\|").replace("\n", "<br>")
 
 
 def main(argv: list[str] | None = None) -> None:

@@ -3460,6 +3460,12 @@ def _write_output_folder_artifacts(
     json_path = output_dir / f"{stem}-final-artifact.json"
     markdown_path = output_dir / f"{stem}-report.md"
     pdf_path = output_dir / f"{stem}-tax-review-packet.pdf"
+    stable_json_path = output_dir / "final_artifact.json"
+    stable_markdown_path = output_dir / "final_report.md"
+    stable_pdf_path = output_dir / "tax_review_packet.pdf"
+    action_ledger_path = output_dir / "action_ledger.json"
+    artifact_quality_path = output_dir / "artifact_quality.json"
+    run_health_path = output_dir / "run_health.json"
 
     try:
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -3472,6 +3478,11 @@ def _write_output_folder_artifacts(
     output_files = [
         {"kind": "final_artifact_json", "path": str(json_path)},
         {"kind": "report_markdown", "path": str(markdown_path)},
+        {"kind": "latest_final_artifact_json", "path": str(stable_json_path)},
+        {"kind": "latest_report_markdown", "path": str(stable_markdown_path)},
+        {"kind": "action_ledger_json", "path": str(action_ledger_path)},
+        {"kind": "artifact_quality_json", "path": str(artifact_quality_path)},
+        {"kind": "run_health_json", "path": str(run_health_path)},
     ]
     try:
         _write_final_artifact_pdf(final_artifact, pdf_path)
@@ -3497,10 +3508,30 @@ def _write_output_folder_artifacts(
             final_artifact.setdefault("output_warnings", []).append(
                 f"Could not render PDF review packet: {error}; built-in renderer also failed: {fallback_error}"
             )
+    if pdf_path.exists():
+        try:
+            stable_pdf_path.write_bytes(pdf_path.read_bytes())
+            output_files.append({"kind": "latest_tax_review_packet_pdf", "path": str(stable_pdf_path)})
+        except OSError as error:
+            final_artifact.setdefault("output_warnings", []).append(
+                f"Could not write stable PDF review packet to {stable_pdf_path}: {error}"
+            )
+    artifact_quality = _build_output_artifact_quality(final_artifact)
+    run_health = _build_output_run_health(final_artifact, config, artifact_quality)
+    action_ledger = _build_output_action_ledger(final_artifact)
     final_artifact["output_files"] = output_files
+    final_artifact["artifact_quality"] = artifact_quality
+    final_artifact["run_health"] = run_health
+    final_artifact["action_ledger"] = action_ledger
     try:
+        markdown = _render_final_artifact_markdown(final_artifact)
         json_path.write_text(json.dumps(final_artifact, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-        markdown_path.write_text(_render_final_artifact_markdown(final_artifact), encoding="utf-8")
+        markdown_path.write_text(markdown, encoding="utf-8")
+        stable_json_path.write_text(json.dumps(final_artifact, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        stable_markdown_path.write_text(markdown, encoding="utf-8")
+        action_ledger_path.write_text(json.dumps(action_ledger, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        artifact_quality_path.write_text(json.dumps(artifact_quality, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        run_health_path.write_text(json.dumps(run_health, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     except OSError as error:
         final_artifact.setdefault("output_warnings", []).append(
             f"Could not write output folder artifacts to {output_dir}: {error}"
@@ -3509,10 +3540,89 @@ def _write_output_folder_artifacts(
     return output_files
 
 
+def _build_output_artifact_quality(final_artifact: dict[str, Any]) -> dict[str, Any]:
+    manager_review = final_artifact.get("manager_review") if isinstance(final_artifact.get("manager_review"), dict) else {}
+    document_dossier = final_artifact.get("document_dossier") if isinstance(final_artifact.get("document_dossier"), dict) else {}
+    prepared_form = final_artifact.get("prepared_form_1040") if isinstance(final_artifact.get("prepared_form_1040"), dict) else {}
+    blockers = _as_list(manager_review.get("blockers"))
+    warnings = list(final_artifact.get("output_warnings") or [])
+    warnings.extend(str(item) for item in blockers[:8])
+    return {
+        "schema_version": "mn.blueprint.artifact_quality.v1",
+        "status": "usable_with_review_warnings" if warnings else "usable_with_review",
+        "confidence": final_artifact.get("confidence") or manager_review.get("confidence"),
+        "review_required": True,
+        "warnings": warnings,
+        "quality_checks": [
+            {"name": "source_documents_dossier_present", "passed": bool(document_dossier)},
+            {"name": "draft_form_1040_present", "passed": bool(prepared_form)},
+            {"name": "manager_review_present", "passed": bool(manager_review)},
+            {"name": "filing_authorization_blocked", "passed": final_artifact.get("review_only") is True},
+        ],
+        "highest_priority_issue": warnings[0] if warnings else "Taxpayer and preparer review are required before filing authorization.",
+    }
+
+
+def _build_output_run_health(
+    final_artifact: dict[str, Any],
+    config: dict[str, Any],
+    artifact_quality: dict[str, Any],
+) -> dict[str, Any]:
+    warnings = list(artifact_quality.get("warnings") or [])
+    return {
+        "schema_version": "mn.blueprint.run_health.v1",
+        "status": "completed_with_warnings" if warnings else "completed",
+        "run_id": str((config.get("identity") or {}).get("run_id") or "tax-run"),
+        "generated_at": final_artifact.get("generated_at") or utc_now_iso(),
+        "warning_count": len(warnings),
+        "tax_year": final_artifact.get("tax_year"),
+        "llm": final_artifact.get("llm_usage", {}),
+    }
+
+
+def _build_output_action_ledger(final_artifact: dict[str, Any]) -> list[dict[str, Any]]:
+    manager_review = final_artifact.get("manager_review") if isinstance(final_artifact.get("manager_review"), dict) else {}
+    prepared_form = final_artifact.get("prepared_form_1040") if isinstance(final_artifact.get("prepared_form_1040"), dict) else {}
+    review = final_artifact.get("review") if isinstance(final_artifact.get("review"), dict) else {}
+    return [
+        {
+            "step": "source_documents_intake",
+            "status": "completed",
+            "details": final_artifact.get("document_summary", {}),
+        },
+        {
+            "step": "draft_form_1040_assembled",
+            "status": "completed",
+            "details": {
+                "filing_status": prepared_form.get("filing_status"),
+                "line_count": len((prepared_form.get("line_map") or {}) if isinstance(prepared_form.get("line_map"), dict) else {}),
+            },
+        },
+        {
+            "step": "tax_audit_review",
+            "status": "completed",
+            "details": review,
+        },
+        {
+            "step": "manager_review_gate",
+            "status": "blocked_pending_review",
+            "details": {
+                "manager_signoff": manager_review.get("manager_signoff", "not_approved_for_filing"),
+                "blockers": _as_list(manager_review.get("blockers")),
+                "blocked_actions": [
+                    "file_return_without_taxpayer_authorization",
+                    "transmit_efile_without_form_8879",
+                    "treat_draft_packet_as_tax_advice_without_preparer_review",
+                ],
+            },
+        },
+    ]
+
+
 def _refresh_output_final_artifact_json(final_artifact: dict[str, Any]) -> None:
     output_files = final_artifact.get("output_files") if isinstance(final_artifact.get("output_files"), list) else []
     for item in output_files:
-        if not isinstance(item, dict) or item.get("kind") != "final_artifact_json":
+        if not isinstance(item, dict) or item.get("kind") not in {"final_artifact_json", "latest_final_artifact_json"}:
             continue
         path = Path(str(item.get("path") or ""))
         if not path:

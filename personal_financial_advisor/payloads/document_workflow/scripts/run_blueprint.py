@@ -1452,14 +1452,114 @@ def write_output_folder_artifacts(
     stem = _safe_filename(f"{run_id}-cycle-{cycle}-{timestamp}")
     json_path = output_folder / f"{stem}-final-artifact.json"
     markdown_path = output_folder / f"{stem}-report.md"
+    stable_json_path = output_folder / "final_artifact.json"
+    stable_markdown_path = output_folder / "final_report.md"
+    action_ledger_path = output_folder / "action_ledger.json"
+    artifact_quality_path = output_folder / "artifact_quality.json"
+    run_health_path = output_folder / "run_health.json"
+    artifact_quality = build_output_artifact_quality(final_artifact)
+    run_health = build_output_run_health(final_artifact, run_id, cycle, artifact_quality)
+    action_ledger = build_output_action_ledger(final_artifact)
     output_files = [
         {"kind": "final_artifact_json", "path": str(json_path)},
         {"kind": "report_markdown", "path": str(markdown_path)},
+        {"kind": "latest_final_artifact_json", "path": str(stable_json_path)},
+        {"kind": "latest_report_markdown", "path": str(stable_markdown_path)},
+        {"kind": "action_ledger_json", "path": str(action_ledger_path)},
+        {"kind": "artifact_quality_json", "path": str(artifact_quality_path)},
+        {"kind": "run_health_json", "path": str(run_health_path)},
     ]
     final_artifact["output_files"] = output_files
+    final_artifact["artifact_quality"] = artifact_quality
+    final_artifact["run_health"] = run_health
+    final_artifact["action_ledger"] = action_ledger
     write_json(json_path, final_artifact)
-    markdown_path.write_text(render_markdown_report(final_artifact), encoding="utf-8")
+    report_markdown = render_markdown_report(final_artifact)
+    markdown_path.write_text(report_markdown, encoding="utf-8")
+    write_json(stable_json_path, final_artifact)
+    stable_markdown_path.write_text(report_markdown, encoding="utf-8")
+    write_json(action_ledger_path, action_ledger)
+    write_json(artifact_quality_path, artifact_quality)
+    write_json(run_health_path, run_health)
     return output_files
+
+
+def build_output_artifact_quality(final_artifact: dict[str, Any]) -> dict[str, Any]:
+    doc_summary = final_artifact.get("document_summary") if isinstance(final_artifact.get("document_summary"), dict) else {}
+    risks = [risk for risk in final_artifact.get("risk_register", []) if isinstance(risk, dict)]
+    blockers = [risk for risk in risks if risk.get("blocker")]
+    warnings = []
+    if not doc_summary.get("document_count"):
+        warnings.append("No supported finance documents were processed.")
+    if doc_summary.get("ocr_required"):
+        warnings.append("Some documents require OCR/source review before financial values are trusted.")
+    if blockers:
+        warnings.append(f"{len(blockers)} blocker risk(s) require human review before action.")
+    return {
+        "schema_version": "mn.blueprint.artifact_quality.v1",
+        "status": "usable_with_review_warnings" if warnings else "usable_with_review",
+        "confidence": final_artifact.get("confidence"),
+        "review_required": True,
+        "warnings": warnings,
+        "quality_checks": [
+            {"name": "documents_processed", "passed": bool(doc_summary.get("document_count"))},
+            {"name": "cash_flow_snapshot_present", "passed": bool(final_artifact.get("financial_snapshot"))},
+            {"name": "risk_register_present", "passed": bool(final_artifact.get("risk_register"))},
+            {"name": "human_review_boundary_present", "passed": bool(final_artifact.get("safety_boundary"))},
+        ],
+        "highest_priority_issue": warnings[0] if warnings else "Review-only financial packet is ready for household review.",
+    }
+
+
+def build_output_run_health(
+    final_artifact: dict[str, Any],
+    run_id: str,
+    cycle: int,
+    artifact_quality: dict[str, Any],
+) -> dict[str, Any]:
+    warnings = list(artifact_quality.get("warnings") or [])
+    research_sources = final_artifact.get("research_sources") if isinstance(final_artifact.get("research_sources"), list) else []
+    return {
+        "schema_version": "mn.blueprint.run_health.v1",
+        "status": "completed_with_warnings" if warnings else "completed",
+        "run_id": run_id,
+        "cycle": cycle,
+        "generated_at": final_artifact.get("generated_at") or utc_now_iso(),
+        "warning_count": len(warnings),
+        "research_source_count": len(research_sources),
+        "llm": final_artifact.get("llm_usage", {}),
+    }
+
+
+def build_output_action_ledger(final_artifact: dict[str, Any]) -> list[dict[str, Any]]:
+    return [
+        {
+            "step": "documents_read",
+            "status": "completed",
+            "details": final_artifact.get("document_summary", {}),
+        },
+        {
+            "step": "cash_flow_snapshot_built",
+            "status": "completed",
+            "details": final_artifact.get("financial_snapshot", {}),
+        },
+        {
+            "step": "risk_register_and_reminders_prepared",
+            "status": "completed",
+            "details": {
+                "risk_count": len(final_artifact.get("risk_register") or []),
+                "reminder_count": len(final_artifact.get("reminders") or []),
+            },
+        },
+        {
+            "step": "human_review_gate",
+            "status": "blocked_pending_review",
+            "details": {
+                "human_review_required": True,
+                "blocked_actions": final_artifact.get("safety_boundary", []),
+            },
+        },
+    ]
 
 
 def render_markdown_report(final_artifact: dict[str, Any]) -> str:

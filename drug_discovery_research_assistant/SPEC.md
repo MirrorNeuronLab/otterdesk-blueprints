@@ -20,6 +20,8 @@ A representative scenario is: A pipeline based on BioTarget runs staged workers 
 
 The prototype accepts configuration for scenario identity, run controls, and domain inputs. Current adapters include `mock`, `json`, `file`, and `env_json`, so evaluators can start locally and later replace sample data with production data while preserving the same blueprint identity and output shape.
 
+The committed sample input pack contains `examples/sample_inputs/target_profile.json` and `examples/sample_inputs/candidate_seed_set.csv`. These files define a synthetic target product profile, assay plan, safety filters, and candidate seed set so the workflow can produce a concrete review packet without claiming real experimental validation.
+
 Important state inputs include the configured state metrics. Where the blueprint uses an action loop, the current action space includes the configured domain actions. For production use, the same contract should be fed by customer system-of-record data, business rules, approval policies, thresholds, and any regulated or safety-critical constraints needed for the operating environment.
 
 ## Output: Expected Customer Outcome
@@ -47,6 +49,8 @@ When using the local run store, inspect `run.json`, `config.json`, `inputs.json`
 ## Prototype Limits
 
 The current blueprint is a product-facing template and may include mock data, deterministic simulation, simplified policies, placeholder integrations, or partial worker coverage. It is designed to show the customer problem, target workflow, and expected artifact even where production implementation still needs hardening.
+
+The live LLM profile is explicitly configured for Docker Model Runner `gemma4:e2b`. RAG knowledge includes target-fit evidence rules, safety-filter handling, next-experiment guidance, and preclinical-only output boundaries.
 
 Outputs are decision-support artifacts. They should not be treated as final financial advice, medical guidance, safety certification, compliance approval, or executable operating instruction without customer validation and human approval.
 

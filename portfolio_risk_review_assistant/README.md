@@ -48,12 +48,15 @@ mn blueprint monitor --follow
 - `decision_constraints`: permitted review-only actions and restricted symbols.
 - `market_signals`: optional macro notes or analyst comments for the LLM.
 - `benchmark_portfolio`: optional benchmark weights by symbol.
+- `examples/sample_inputs/sample_portfolio.json`: synthetic holdings, benchmark, risk policy, constraints, and market-signal pack for demos.
 
 The default configuration uses `public_yahoo_chart` for public market data and
 fails closed if required symbols cannot be loaded or are stale. The standard
 `mock`, `json`, `file`, and `env_json` adapters are still declared for
 blueprint compatibility, but production use should provide real portfolio
 inputs through `json`, `file`, or `env_json`.
+
+The live LLM profile is explicit in `config/default.json` as Docker Model Runner `gemma4:e2b`. RAG knowledge now includes a product retrieval playbook for portfolio policy, evidence, and report boundaries.
 
 ## Outputs
 

@@ -20,6 +20,8 @@ A representative scenario is: A noisy current snapshot favors Ivy Duplex, but wo
 
 The prototype accepts configuration for scenario identity, run controls, and domain inputs. Current adapters include `mock`, `json`, `file`, and `env_json`, so evaluators can start locally and later replace sample data with production data while preserving the same blueprint identity and output shape.
 
+The committed sample input is `examples/sample_inputs/sample_deal_watchlist.json`. It includes buyer criteria, target markets, candidate properties, financing assumptions, and diligence questions so the workflow can produce a concrete ranking memo without live MLS or county-record access.
+
 Important state inputs include `median_price_index`, `demand_index`, `cap_rate_pct`, `risk_score`, `liquidity_score`, and `rent_growth_signal`. Where the blueprint uses an action loop, the current action space includes `submit_bid`, `negotiate_discount`, and `watchlist_only`. For production use, the same contract should be fed by customer system-of-record data, business rules, approval policies, thresholds, and any regulated or safety-critical constraints needed for the operating environment.
 
 ## Output: Expected Customer Outcome
@@ -47,6 +49,8 @@ When using the local run store, inspect `run.json`, `config.json`, `inputs.json`
 ## Prototype Limits
 
 The current blueprint is a product-facing template and may include mock data, deterministic simulation, simplified policies, placeholder integrations, or partial worker coverage. It is designed to show the customer problem, target workflow, and expected artifact even where production implementation still needs hardening.
+
+The live LLM profile is explicitly configured for Docker Model Runner `gemma4:e2b`. RAG knowledge includes deal-ranking evidence rules, missing-source handling, and review-only output boundaries.
 
 Outputs are decision-support artifacts. They should not be treated as final financial advice, medical guidance, safety certification, compliance approval, or executable operating instruction without customer validation and human approval.
 

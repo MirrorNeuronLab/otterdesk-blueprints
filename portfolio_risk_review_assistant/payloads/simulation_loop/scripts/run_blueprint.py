@@ -233,6 +233,7 @@ def run_blueprint(
         final = final_artifact(runtime_inputs, risk_state, simulations, benchmark, report_packet, market_data)
         final["actor_findings"] = actor_findings
         final["llm_usage"] = llm_usage(llm)
+        ended_at = utc_now_iso()
         result = {
             "identity": {
                 "blueprint_id": context.blueprint_id,
@@ -247,7 +248,7 @@ def run_blueprint(
                 "run_id": context.run_id,
                 "run_dir": str(context.run_dir) if context.run_dir else None,
                 "started_at": started_at,
-                "ended_at": utc_now_iso(),
+                "ended_at": ended_at,
                 "status": "completed",
             },
             "architecture": architecture_contract(resolved_config, input_source),
@@ -272,6 +273,11 @@ def run_blueprint(
             "artifacts": artifact_records(),
             "llm": llm_usage(llm),
         }
+        output_files = write_user_outputs(result, final, resolved_config, runtime_inputs)
+        if output_files:
+            result["output_files"] = output_files
+            result["artifacts"].extend(output_artifact_records(output_files))
+            context.event("user_output_bundle_written", {"output_files": output_files})
         web_ui = maybe_write_static_output(context.run_store, result, resolved_config)
         if web_ui:
             result["web_ui"] = web_ui.to_dict()
@@ -382,6 +388,7 @@ def load_market_data(
     timeout = float(config.get("timeout_seconds") or 8.0)
     stale_seconds = float(config.get("stale_after_seconds") or 259200)
     retry = config.get("retry") or {}
+    fail_closed = bool(config.get("fail_closed", True))
     max_attempts = max(1, int(retry.get("max_attempts") or 1))
     backoff_seconds = max(0.0, float(retry.get("backoff_seconds") or 0.0))
     loaded = {}
@@ -402,8 +409,58 @@ def load_market_data(
         else:
             errors[symbol] = str(last_error)
     if errors:
+        if not fail_closed:
+            fallback_provider = str(config.get("fallback_provider") or "deterministic_demo_market_data")
+            for symbol, error in errors.items():
+                loaded[symbol] = deterministic_market_series(
+                    symbol,
+                    now=now,
+                    provider=fallback_provider,
+                    reason=error,
+                    days=int(config.get("fallback_days") or 252),
+                )
+            return loaded
         raise RuntimeError(f"required market data failed closed: {errors}")
     return loaded
+
+
+def deterministic_market_series(
+    symbol: str,
+    *,
+    now: float,
+    provider: str,
+    reason: str,
+    days: int,
+) -> dict[str, Any]:
+    symbol = symbol.upper()
+    base_prices = {"SPY": 621.4, "AGG": 98.2, "GLD": 307.8}
+    base = float(base_prices.get(symbol, 100.0 + (sum(ord(ch) for ch in symbol) % 80)))
+    rng = random.Random(f"{symbol}:{days}:portfolio-risk-demo")
+    prices = []
+    price = base
+    start_ts = int(now) - max(60, days) * 86400
+    daily_drift = {"SPY": 0.00038, "AGG": 0.00008, "GLD": 0.00031}.get(symbol, 0.0002)
+    daily_vol = {"SPY": 0.0105, "AGG": 0.0036, "GLD": 0.0128}.get(symbol, 0.008)
+    for index in range(max(60, days)):
+        price = max(1.0, price * (1.0 + daily_drift + rng.gauss(0.0, daily_vol)))
+        prices.append({"timestamp": start_ts + index * 86400, "close": round(price, 4)})
+    last_ts = prices[-1]["timestamp"]
+    return {
+        "symbol": symbol,
+        "provider": provider,
+        "prices": prices,
+        "last_price": prices[-1]["close"],
+        "last_timestamp": datetime.fromtimestamp(last_ts, tz=timezone.utc).isoformat(),
+        "returns": percent_returns([item["close"] for item in prices]),
+        "source_ref": f"market:{symbol}:deterministic_demo:{last_ts}",
+        "freshness": {
+            "age_seconds": round(max(0.0, now - float(last_ts)), 3),
+            "stale_after_seconds": 259200,
+            "fallback_reason": reason,
+            "review_note": "Deterministic demo market data used because live public data was unavailable and fail_closed=false.",
+        },
+        "warnings": [f"Live market data unavailable for {symbol}: {reason}"],
+    }
 
 
 def parse_yahoo_chart(symbol: str, raw: dict[str, Any], *, now: float, stale_after_seconds: float) -> dict[str, Any]:
@@ -792,8 +849,18 @@ def final_artifact(
     market_data: dict[str, dict[str, Any]],
 ) -> dict[str, Any]:
     selected = benchmark["selected"]
+    warnings = sorted(
+        {
+            warning
+            for data in market_data.values()
+            for warning in data.get("warnings", [])
+        }
+    )
+    status = "review_ready_with_warnings" if warnings or risk_state["policy_violations"] else "review_ready"
     return {
         "type": "real-time portfolio risk review",
+        "title": "Portfolio Risk Review Packet",
+        "status": status,
         "executive_summary": report["executive_summary"],
         "recommended_action": selected["action"],
         "confidence": report["confidence"],
@@ -812,8 +879,18 @@ def final_artifact(
         "benchmark_comparison": benchmark,
         "policy_violations": risk_state["policy_violations"],
         "market_data_freshness": {symbol: data["freshness"] for symbol, data in market_data.items()},
+        "warnings": warnings,
         "human_review_required": True,
         "review_only": bool((inputs.get("decision_constraints") or {}).get("review_only", True)),
+        "review_boundary": {
+            "human_review_required": True,
+            "blocked_actions": [
+                "place_trades_without_review",
+                "rebalance_portfolio_without_approval",
+                "treat_simulation_as_investment_advice",
+                "ignore_tax_mandate_or_liquidity_constraints",
+            ],
+        },
     }
 
 
@@ -875,6 +952,251 @@ def artifact_records() -> list[dict[str, Any]]:
             "source_refs": ["events.jsonl"],
         },
     ]
+
+
+def output_artifact_records(output_files: list[dict[str, str]]) -> list[dict[str, Any]]:
+    records = []
+    for item in output_files:
+        path = str(item.get("path") or "")
+        kind = str(item.get("kind") or "output")
+        records.append(
+            {
+                "artifact_id": kind,
+                "type": kind,
+                "path": path,
+                "producer": "workflow",
+                "mime_type": "application/json" if path.endswith(".json") else "text/markdown",
+                "schema_version": "mn.blueprint.user_output.v1",
+                "source_refs": ["inputs.json", "events.jsonl", "result.json"],
+            }
+        )
+    return records
+
+
+def write_user_outputs(
+    result: dict[str, Any],
+    final_artifact: dict[str, Any],
+    config: dict[str, Any],
+    inputs: dict[str, Any],
+) -> list[dict[str, str]]:
+    output_dir = resolve_output_folder(config, inputs)
+    if output_dir is None:
+        return []
+    output_dir.mkdir(parents=True, exist_ok=True)
+    artifact_quality = build_artifact_quality(final_artifact, result)
+    run_health = build_run_health(result, final_artifact)
+    action_ledger = build_action_ledger(final_artifact, result)
+    final_artifact["artifact_quality"] = artifact_quality
+    final_artifact["run_health"] = run_health
+    final_artifact["action_ledger"] = action_ledger
+
+    paths = {
+        "final_artifact_json": output_dir / "final_artifact.json",
+        "report_markdown": output_dir / "final_report.md",
+        "action_ledger_json": output_dir / "action_ledger.json",
+        "artifact_quality_json": output_dir / "artifact_quality.json",
+        "run_health_json": output_dir / "run_health.json",
+    }
+    output_files = [{"kind": kind, "path": str(path)} for kind, path in paths.items()]
+    final_artifact["output_files"] = output_files
+    paths["final_artifact_json"].write_text(json.dumps(final_artifact, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    paths["report_markdown"].write_text(render_final_markdown(final_artifact, result), encoding="utf-8")
+    paths["action_ledger_json"].write_text(json.dumps(action_ledger, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    paths["artifact_quality_json"].write_text(json.dumps(artifact_quality, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    paths["run_health_json"].write_text(json.dumps(run_health, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return output_files
+
+
+def resolve_output_folder(config: dict[str, Any], inputs: dict[str, Any]) -> Path | None:
+    outputs = config.get("outputs") if isinstance(config.get("outputs"), dict) else {}
+    value = str(
+        inputs.get("output_folder")
+        or inputs.get("output_folder_path")
+        or outputs.get("folder_path")
+        or outputs.get("output_folder")
+        or ""
+    ).strip()
+    if not value:
+        return None
+    return expand_output_folder(value, config)
+
+
+def expand_output_folder(value: str, config: dict[str, Any]) -> Path:
+    if value == "~" or value.startswith("~/"):
+        home = host_home_from_config(config) or Path.home()
+        suffix = value[2:] if value.startswith("~/") else ""
+        return home / suffix
+    return Path(value).expanduser()
+
+
+def host_home_from_config(config: dict[str, Any]) -> Path | None:
+    run_root = str((config.get("outputs") or {}).get("run_root") or "").strip()
+    if run_root.startswith("/Users/"):
+        parts = Path(run_root).parts
+        if len(parts) >= 3:
+            return Path(parts[0]) / parts[1] / parts[2]
+    return None
+
+
+def build_artifact_quality(final_artifact: dict[str, Any], result: dict[str, Any]) -> dict[str, Any]:
+    warnings = list(final_artifact.get("warnings") or [])
+    policy_violations = list(final_artifact.get("policy_violations") or [])
+    ranked = list(final_artifact.get("ranked_decisions") or [])
+    return {
+        "schema_version": "mn.blueprint.artifact_quality.v1",
+        "status": "usable_with_review_warnings" if warnings or policy_violations else "usable_with_review",
+        "confidence": final_artifact.get("confidence"),
+        "review_required": True,
+        "warnings": warnings,
+        "quality_checks": [
+            {"name": "market_data_loaded", "passed": bool(result.get("market_data"))},
+            {"name": "risk_metrics_computed", "passed": bool((result.get("risk_state") or {}).get("metrics"))},
+            {"name": "candidate_decisions_ranked", "passed": bool(ranked)},
+            {"name": "human_review_boundary_present", "passed": bool(final_artifact.get("review_boundary"))},
+        ],
+        "highest_priority_issue": (
+            warnings[0]
+            if warnings
+            else (policy_violations[0] if policy_violations else "Human approval is still required before any portfolio action.")
+        ),
+    }
+
+
+def build_run_health(result: dict[str, Any], final_artifact: dict[str, Any]) -> dict[str, Any]:
+    warnings = list(final_artifact.get("warnings") or [])
+    return {
+        "schema_version": "mn.blueprint.run_health.v1",
+        "status": "completed_with_warnings" if warnings else "completed",
+        "run": result.get("run", {}),
+        "data_providers": sorted({item.get("provider", "unknown") for item in (result.get("market_data") or {}).values()}),
+        "warning_count": len(warnings),
+        "llm": result.get("llm", {}),
+    }
+
+
+def build_action_ledger(final_artifact: dict[str, Any], result: dict[str, Any]) -> list[dict[str, Any]]:
+    selected = (final_artifact.get("benchmark_comparison") or {}).get("selected") or {}
+    return [
+        {
+            "step": "market_data_loaded",
+            "status": "completed",
+            "details": result.get("market_data", {}),
+        },
+        {
+            "step": "risk_metrics_computed",
+            "status": "completed",
+            "details": (result.get("risk_state") or {}).get("metrics", {}),
+        },
+        {
+            "step": "candidate_decisions_ranked",
+            "status": "completed",
+            "details": {"selected": selected, "candidate_count": len(final_artifact.get("ranked_decisions") or [])},
+        },
+        {
+            "step": "human_review_gate",
+            "status": "blocked_pending_review",
+            "details": final_artifact.get("review_boundary", {}),
+        },
+    ]
+
+
+def render_final_markdown(final_artifact: dict[str, Any], result: dict[str, Any]) -> str:
+    metrics = ((result.get("risk_state") or {}).get("metrics") or {})
+    holdings = ((result.get("risk_state") or {}).get("holdings") or [])
+    market_data = result.get("market_data") or {}
+    lines = [
+        "# Portfolio Risk Review Packet",
+        "",
+        f"**Status:** {final_artifact.get('status', 'review_ready')}",
+        f"**Recommended action:** {final_artifact.get('recommended_action')}",
+        f"**Confidence:** {final_artifact.get('confidence')}",
+        "",
+        "## Executive Summary",
+        str(final_artifact.get("executive_summary") or ""),
+        "",
+        "## Portfolio Snapshot",
+        "",
+    ]
+    lines.extend(markdown_table(["Metric", "Value"], [[key, value] for key, value in metrics.items()]))
+    lines.extend(["", "## Holdings", ""])
+    lines.extend(
+        markdown_table(
+            ["Symbol", "Asset Class", "Quantity", "Last Price", "Market Value"],
+            [
+                [
+                    item.get("symbol"),
+                    item.get("asset_class"),
+                    item.get("quantity"),
+                    item.get("last_price"),
+                    item.get("market_value"),
+                ]
+                for item in holdings
+                if isinstance(item, dict)
+            ],
+        )
+    )
+    lines.extend(["", "## Ranked Decisions", ""])
+    lines.extend(
+        markdown_table(
+            ["Rank", "Action", "Score", "VaR %", "CVaR %", "Worst Drawdown %", "Violations"],
+            [
+                [
+                    index + 1,
+                    item.get("action"),
+                    item.get("quality_score"),
+                    item.get("var_pct"),
+                    item.get("cvar_pct"),
+                    item.get("worst_drawdown_pct"),
+                    "; ".join(item.get("policy_violations") or []) or "None",
+                ]
+                for index, item in enumerate(final_artifact.get("ranked_decisions") or [])
+                if isinstance(item, dict)
+            ],
+        )
+    )
+    lines.extend(["", "## Market Data", ""])
+    lines.extend(
+        markdown_table(
+            ["Symbol", "Provider", "Last Price", "Last Timestamp", "Source Ref"],
+            [
+                [
+                    symbol,
+                    item.get("provider"),
+                    item.get("last_price"),
+                    item.get("last_timestamp"),
+                    item.get("source_ref"),
+                ]
+                for symbol, item in market_data.items()
+                if isinstance(item, dict)
+            ],
+        )
+    )
+    if final_artifact.get("warnings"):
+        lines.extend(["", "## Warnings", ""])
+        lines.extend(f"- {warning}" for warning in final_artifact.get("warnings", []))
+    lines.extend(["", "## Next Steps", ""])
+    lines.extend(f"- {item}" for item in final_artifact.get("next_steps", []))
+    lines.extend(["", "## Review Boundary", ""])
+    lines.extend(f"- {item}" for item in (final_artifact.get("review_boundary") or {}).get("blocked_actions", []))
+    lines.append("")
+    return "\n".join(lines)
+
+
+def markdown_table(headers: list[str], rows: list[list[Any]]) -> list[str]:
+    if not rows:
+        rows = [["None" for _ in headers]]
+    lines = [
+        "| " + " | ".join(markdown_cell(header) for header in headers) + " |",
+        "| " + " | ".join("---" for _ in headers) + " |",
+    ]
+    for row in rows:
+        padded = [*row, *[""] * (len(headers) - len(row))]
+        lines.append("| " + " | ".join(markdown_cell(cell) for cell in padded[: len(headers)]) + " |")
+    return lines
+
+
+def markdown_cell(value: Any) -> str:
+    return str(value if value is not None else "").replace("|", "\\|").replace("\n", "<br>")
 
 
 def main(argv: list[str] | None = None) -> None:

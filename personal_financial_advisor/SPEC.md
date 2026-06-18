@@ -89,7 +89,7 @@ The final artifact contains the standard OtterDesk fields plus personal finance 
 
 ## Monitoring
 
-Continuous folder polling is the default service behavior. Polling uses `monitoring.poll_interval_seconds`, records processed file fingerprints, and supports `monitoring.max_cycles` for bounded tests or smoke runs. A one-shot scan is available only through an explicit override such as CLI `--once` or `monitoring.enabled=false`.
+Folder polling is the service behavior, but the committed default is bounded for demos with `monitoring.max_cycles=1`. Polling uses `monitoring.poll_interval_seconds`, records processed file fingerprints, and can be made continuous only through an explicit override such as `monitoring.max_cycles=null`. A one-shot scan is available only through an explicit override such as CLI `--once` or `monitoring.enabled=false`.
 
 ## Mixed Runtime
 
