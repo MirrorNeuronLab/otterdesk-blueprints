@@ -548,7 +548,7 @@
     "quick_test": false
   },
   "research_budget": {
-    "default_actions": 80,
+    "default_actions": 160,
     "chargeable_actions": [
       "llm_call",
       "browser_search",
@@ -606,13 +606,21 @@
       "private_financials",
       "founder_contact_details"
     ],
-    "max_queries": 8,
-    "max_sources_per_company": 8,
-    "max_target_urls_per_company": 4,
+    "max_queries": 10,
+    "max_sources_per_company": 10,
+    "max_target_urls_per_company": 6,
     "max_stage_workers": 1,
     "timeout_seconds": 20,
     "max_chars": 12000,
     "use_model_compression": true,
+    "python_http_fallback": {
+      "enabled": true,
+      "purpose": "Bounded stdlib HTTP fallback for public search/result pages when the optional w3m binary is unavailable in the worker image.",
+      "timeout_seconds": 10,
+      "max_chars": 8000,
+      "max_search_results": 3,
+      "user_agent": "MirrorNeuron-VC-Assistant/1.0 (+public research fallback)"
+    },
     "rendered_browser": {
       "enabled": true,
       "purpose": "Optional Playwright fallback for JavaScript-rendered public pages such as Crunchbase profiles when w3m cannot extract useful text.",
@@ -622,12 +630,12 @@
       "no_captcha_solving": true,
       "timeout_seconds": 30,
       "max_chars": 12000,
-      "max_pages_per_company": 2,
+      "max_pages_per_company": 3,
       "per_host_delay_seconds": 1
     }
   },
   "agentic_research": {
-    "enabled": false,
+    "enabled": true,
     "agent_ids": [
       "research_planner",
       "company_identity_researcher",
@@ -636,8 +644,8 @@
       "traction_verifier",
       "rendered_page_researcher"
     ],
-    "max_iterations_per_agent": 1,
-    "max_tool_calls_per_agent": 2,
+    "max_iterations_per_agent": 2,
+    "max_tool_calls_per_agent": 3,
     "allowed_tools": [
       "browser_search",
       "browser_page",
@@ -645,8 +653,8 @@
       "finish"
     ],
     "quick_test_behavior": "disabled_for_default_smoke_run",
-    "default_mode": "deterministic_public_tool_research",
-    "note": "Live LLM tool-decision loops are opt-in; default batch research uses bounded deterministic public tool calls so browser failures remain warnings."
+    "default_mode": "bounded_llm_guided_public_tool_research",
+    "note": "Default batch research uses bounded LLM tool-decision loops for public-safe evidence collection; browser failures remain warnings and are recorded."
   },
   "financial_tools": {
     "enabled": true,
@@ -728,7 +736,7 @@
     "max_companies_per_cycle": 25,
     "llm": {
       "max_concurrent_calls": 1,
-      "min_interval_seconds": 2.0,
+      "min_interval_seconds": 1.0,
       "rationale": "Protect local Docker Model Runner from concurrent VC agent calls."
     }
   },
@@ -1144,15 +1152,23 @@
   },
   "actor_review": {
     "llm_actor_ids": [
+      "research_planner",
+      "company_identity_researcher",
+      "funding_researcher",
+      "market_comp_researcher",
+      "traction_verifier",
       "research_reconciler",
+      "berkus_scorer",
+      "venture_capital_method_scorer",
+      "comparables_market_multiple_scorer",
       "score_consistency_auditor",
       "company_report_writer",
       "batch_index_writer"
     ],
-    "max_context_chars": 6000,
+    "max_context_chars": 9000,
     "use_context_engine": true,
     "working_memory_persist_to_redis": false,
-    "context_token_budget": 3000,
-    "context_target_tokens": 1200
+    "context_token_budget": 5000,
+    "context_target_tokens": 1800
   }
 }

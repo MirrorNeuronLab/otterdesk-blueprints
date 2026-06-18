@@ -143,6 +143,150 @@ def test_funding_researcher_uses_agentic_path(monkeypatch):
     assert called == ["funding_researcher"]
 
 
+def test_agentic_stage_gap_fill_runs_deterministic_research(monkeypatch):
+    rb = load_module()
+    deterministic_calls: list[str] = []
+
+    def fake_agentic(**kwargs):
+        return kwargs["stage"], [
+            rb._source_record(
+                company=kwargs["company"],
+                query="Acme funding",
+                url="research_plan",
+                title="planned",
+                snippet="planned",
+                status="planned",
+                skill="research_planner",
+                verification_target=kwargs["stage"],
+            )
+        ]
+
+    def fake_one_stage(company, stage, query, plan, internet, run_dir, action_budget):
+        deterministic_calls.append(stage)
+        return stage, [
+            rb._source_record(
+                company=company,
+                query="Acme funding",
+                url="https://acme.example/funding",
+                title="Acme funding",
+                snippet="Public funding confirmation.",
+                status="ok",
+                skill="python_http_fallback",
+                verification_target=stage,
+            )
+        ]
+
+    monkeypatch.setattr(rb, "run_agentic_research_stage", fake_agentic)
+    monkeypatch.setattr(rb, "_research_one_stage", fake_one_stage)
+
+    by_stage = rb.research_company_by_stage(
+        "Acme",
+        {
+            "internet_research": {"enabled": True, "max_stage_workers": 1},
+            "agentic_research": {"enabled": True, "agent_ids": ["funding_researcher"]},
+        },
+        llm=object(),
+    )
+
+    assert deterministic_calls.count("funding_researcher") == 1
+    assert any(source.get("fallback_after_agentic") is True for source in by_stage["funding_researcher"])
+    assert any(rb.is_substantive_public_source(source) for source in by_stage["funding_researcher"])
+
+
+def test_company_evidence_summaries_include_counts_and_source_quality():
+    rb = load_module()
+    summaries = rb.build_company_evidence_summaries(
+        analyses=[
+            {
+                "company_name": "Acme",
+                "company_slug": "acme",
+                "evidence_summary": {"missing_methods": ["cost_to_duplicate_method"]},
+            }
+        ],
+        company_records={
+            "Acme": [
+                {
+                    "filename": "pitch.txt",
+                    "suffix": ".txt",
+                    "sha256": "abcdef1234567890",
+                    "character_count": 500,
+                    "extraction_method": "embedded_text",
+                    "warnings": [],
+                }
+            ]
+        },
+        research_ledgers={
+            "Acme": {
+                "company_identity_researcher": [
+                    {
+                        "url": "https://acme.example",
+                        "title": "Acme",
+                        "snippet": "Official product page",
+                        "status": "ok",
+                        "source_quality_label": "public_confirmation",
+                        "verification_target": "company_identity_researcher",
+                    }
+                ]
+            }
+        },
+    )
+
+    assert summaries[0]["local_evidence"]["record_count"] == 1
+    assert summaries[0]["research_sources"]["substantive_source_count"] == 1
+    assert summaries[0]["research_sources"]["source_quality_counts"]["public_confirmation"] == 1
+    assert summaries[0]["missing_methods"] == ["cost_to_duplicate_method"]
+
+
+def test_transport_keeps_compact_company_evidence_but_omits_top_level_raw_fields():
+    rb = load_module()
+    artifact = {
+        "evidence": [{"text_preview": "top level raw"}],
+        "research_sources": [{"snippet": "top level raw"}],
+        "action_ledger": {"used": 1, "actions": [{"tool": "x"}]},
+        "company_reports": [
+            {
+                "company_name": "Acme",
+                "company_slug": "acme",
+                "evidence": [
+                    {
+                        "filename": "pitch.txt",
+                        "suffix": ".txt",
+                        "sha256": "abcdef1234567890",
+                        "character_count": 1200,
+                        "extraction_method": "embedded_text",
+                        "warnings": ["ok"],
+                        "text_preview": "local business evidence " * 100,
+                    }
+                ],
+                "research_sources": [
+                    {
+                        "company": "Acme",
+                        "query": "Acme funding",
+                        "url": "https://acme.example/funding",
+                        "title": "Acme funding",
+                        "snippet": "public evidence " * 200,
+                        "status": "ok",
+                        "skill": "python_http_fallback",
+                        "verification_target": "funding_researcher",
+                        "source_quality_label": "public_confirmation",
+                    }
+                ],
+            }
+        ],
+    }
+
+    transport = rb.final_artifact_for_transport(artifact)
+
+    assert "evidence" not in transport
+    assert "research_sources" not in transport
+    assert "actions" not in transport["action_ledger"]
+    report = transport["company_reports"][0]
+    assert report["evidence"][0]["filename"] == "pitch.txt"
+    assert len(report["evidence"][0]["text_preview"]) <= rb.MAX_TRANSPORT_TEXT_PREVIEW_CHARS + 20
+    assert report["research_sources"][0]["url"] == "https://acme.example/funding"
+    assert len(report["research_sources"][0]["snippet"]) <= rb.MAX_TRANSPORT_SNIPPET_CHARS + 20
+
+
 def test_require_live_llm_rejects_fallback_provider():
     rb = load_module()
 
@@ -152,6 +296,9 @@ def test_require_live_llm_rejects_fallback_provider():
 
         def complete(self, action, status, metadata=None):
             action["status"] = status
+
+        def summary(self, *, include_actions=True):
+            return {"budget": 1, "used": 0, "remaining": 1, "exhausted": False}
 
     class FakeLLM:
         provider = "fallback"

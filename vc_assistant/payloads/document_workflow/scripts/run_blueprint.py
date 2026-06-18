@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import html as html_lib
 import hashlib
 import inspect
 import json
@@ -11,12 +12,14 @@ import shutil
 import sys
 import threading
 import time
+import urllib.error
+import urllib.request
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, quote_plus, unquote, urljoin, urlparse
 
 try:
     from mn_blueprint_support import start_agent_beacon_thread
@@ -134,6 +137,10 @@ DEFAULT_ACTOR_REVIEW_LLM_ACTOR_IDS = [
 ]
 DEFAULT_ACTOR_REVIEW_CONTEXT_TARGET_TOKENS = 1200
 DEFAULT_ACTOR_REVIEW_CONTEXT_TOKEN_BUDGET = 3000
+MAX_TRANSPORT_EVIDENCE_PER_COMPANY = 20
+MAX_TRANSPORT_SOURCES_PER_COMPANY = 80
+MAX_TRANSPORT_SNIPPET_CHARS = 1200
+MAX_TRANSPORT_TEXT_PREVIEW_CHARS = 600
 KNOWLEDGE_PLAYBOOK_RELATIVE_PATH = "knowledge/startup_research_playbook.md"
 DEFAULT_AGENTIC_RESEARCH_AGENT_IDS = [
     "research_planner",
@@ -1185,12 +1192,18 @@ def final_artifact_for_transport(final_artifact: dict[str, Any]) -> dict[str, An
     compact = dict(final_artifact)
     compact.pop("research_sources", None)
     compact.pop("evidence", None)
+    reports = compact.get("company_reports")
+    if isinstance(reports, list):
+        compact["company_reports"] = [
+            compact_company_report_for_transport(report) if isinstance(report, dict) else report
+            for report in reports
+        ]
     ledger = compact.get("action_ledger")
     if isinstance(ledger, dict):
         compact["action_ledger"] = {key: value for key, value in ledger.items() if key != "actions"}
     compact["transport"] = {
         "compacted": True,
-        "omitted_fields": ["research_sources", "evidence", "action_ledger.actions"],
+        "omitted_fields": ["top_level.research_sources", "top_level.evidence", "action_ledger.actions"],
         "reason": "Prevent repeated workflow handoff payloads from growing Redis job state; detailed per-company artifacts remain in output files.",
     }
     return compact
@@ -2635,6 +2648,83 @@ def research_gap_followups(analysis: dict[str, Any], sources: list[dict[str, Any
     return dedupe_list(followups, 12)
 
 
+def summarize_local_evidence(records: list[dict[str, Any]], *, limit: int = 8) -> dict[str, Any]:
+    readable_records = [
+        record
+        for record in records
+        if int(record.get("character_count") or 0) > 0 and not record.get("ocr_required")
+    ]
+    return {
+        "record_count": len(records),
+        "readable_record_count": len(readable_records),
+        "total_character_count": sum(int(record.get("character_count") or 0) for record in records),
+        "files": [
+            {
+                "filename": record.get("filename"),
+                "suffix": record.get("suffix"),
+                "sha256_prefix": str(record.get("sha256") or "")[:12],
+                "character_count": record.get("character_count"),
+                "extraction_method": record.get("extraction_method"),
+                "warning_count": len(record.get("warnings") or []),
+            }
+            for record in records[:limit]
+        ],
+    }
+
+
+def summarize_research_sources(sources: list[dict[str, Any]], *, limit: int = 12) -> dict[str, Any]:
+    status_counts: dict[str, int] = {}
+    quality_counts: dict[str, int] = {}
+    target_counts: dict[str, int] = {}
+    for source in sources:
+        status = str(source.get("status") or "unknown")
+        quality = str(source.get("source_quality_label") or "thin_signal")
+        target = str(source.get("verification_target") or "unknown")
+        status_counts[status] = status_counts.get(status, 0) + 1
+        quality_counts[quality] = quality_counts.get(quality, 0) + 1
+        target_counts[target] = target_counts.get(target, 0) + 1
+    substantive = [source for source in sources if is_substantive_public_source(source)]
+    return {
+        "source_count": len(sources),
+        "substantive_source_count": len(substantive),
+        "status_counts": status_counts,
+        "source_quality_counts": quality_counts,
+        "verification_target_counts": target_counts,
+        "sample_sources": [
+            {
+                "title": source.get("title"),
+                "url": source.get("url"),
+                "status": source.get("status"),
+                "source_quality_label": source.get("source_quality_label"),
+                "verification_target": source.get("verification_target"),
+                "warning": source.get("warning"),
+            }
+            for source in sources[:limit]
+        ],
+    }
+
+
+def build_company_evidence_summaries(
+    analyses: list[dict[str, Any]],
+    company_records: dict[str, list[dict[str, Any]]],
+    research_ledgers: dict[str, dict[str, list[dict[str, Any]]]],
+) -> list[dict[str, Any]]:
+    summaries = []
+    for analysis in analyses:
+        company = analysis["company_name"]
+        sources = flattened_sources(research_ledgers.get(company, {}))
+        summaries.append(
+            {
+                "company_name": company,
+                "company_slug": analysis["company_slug"],
+                "local_evidence": summarize_local_evidence(company_records.get(company, []), limit=5),
+                "research_sources": summarize_research_sources(sources, limit=8),
+                "missing_methods": (analysis.get("evidence_summary") or {}).get("missing_methods", []),
+            }
+        )
+    return summaries
+
+
 def _research_observer(run_dir: Path | None):
     def observe(event_type: str, payload: dict[str, Any]) -> None:
         if run_dir is None:
@@ -2743,6 +2833,323 @@ def _budget_exhausted_source(company: str, query: str, skill: str, verification_
         verification_target=verification_target,
         warning="Action budget exhausted before this evidence source could be collected.",
     )
+
+
+def _compact_text(value: Any, *, limit: int) -> str:
+    text = redactor(str(value or "")).strip()
+    return text if len(text) <= limit else text[:limit].rstrip() + "...[truncated]"
+
+
+def compact_local_evidence_for_transport(
+    records: list[dict[str, Any]],
+    *,
+    limit: int = MAX_TRANSPORT_EVIDENCE_PER_COMPANY,
+) -> list[dict[str, Any]]:
+    compact_records = []
+    for record in records[:limit]:
+        compact_records.append(
+            {
+                "kind": "local_document_evidence",
+                "filename": record.get("filename"),
+                "suffix": record.get("suffix"),
+                "sha256_prefix": str(record.get("sha256") or "")[:16],
+                "character_count": record.get("character_count"),
+                "extraction_method": record.get("extraction_method"),
+                "ocr_required": bool(record.get("ocr_required")),
+                "warnings": [_compact_text(item, limit=240) for item in (record.get("warnings") or [])[:5]],
+                "text_preview": _compact_text(record.get("text_preview") or record.get("summary") or "", limit=MAX_TRANSPORT_TEXT_PREVIEW_CHARS),
+            }
+        )
+    return compact_records
+
+
+def compact_research_sources_for_transport(
+    sources: list[dict[str, Any]],
+    *,
+    limit: int = MAX_TRANSPORT_SOURCES_PER_COMPANY,
+) -> list[dict[str, Any]]:
+    compact_sources = []
+    for source in sources[:limit]:
+        item = {
+            "company": source.get("company"),
+            "query": _compact_text(source.get("query"), limit=360),
+            "url": _compact_text(source.get("url"), limit=1000),
+            "title": _compact_text(source.get("title"), limit=300),
+            "snippet": _compact_text(source.get("snippet"), limit=MAX_TRANSPORT_SNIPPET_CHARS),
+            "status": source.get("status"),
+            "skill": source.get("skill"),
+            "verification_target": source.get("verification_target"),
+            "source_quality_label": source.get("source_quality_label"),
+            "warning": _compact_text(source.get("warning"), limit=500),
+            "retrieved_at": source.get("retrieved_at"),
+        }
+        for key in ("agent_id", "tool_call_id", "tool_decision_source", "fallback_after_agentic"):
+            if source.get(key) is not None:
+                item[key] = source.get(key)
+        compact_sources.append(item)
+    return compact_sources
+
+
+def compact_company_report_for_transport(report: dict[str, Any]) -> dict[str, Any]:
+    compact = dict(report)
+    evidence = report.get("evidence")
+    if isinstance(evidence, list):
+        compact["evidence"] = compact_local_evidence_for_transport(evidence)
+    sources = report.get("research_sources")
+    if isinstance(sources, list):
+        compact["research_sources"] = compact_research_sources_for_transport(sources)
+    return compact
+
+
+def python_http_fallback_config(internet: dict[str, Any]) -> dict[str, Any]:
+    raw = internet.get("python_http_fallback") if isinstance(internet.get("python_http_fallback"), dict) else {}
+    return {
+        "enabled": bool(raw.get("enabled", True)),
+        "timeout_seconds": bounded_int(raw.get("timeout_seconds") or internet.get("timeout_seconds"), default=10, minimum=2, maximum=30),
+        "max_chars": bounded_int(raw.get("max_chars") or internet.get("max_chars"), default=8000, minimum=1000, maximum=20000),
+        "max_search_results": bounded_int(raw.get("max_search_results"), default=3, minimum=1, maximum=8),
+        "user_agent": str(raw.get("user_agent") or "MirrorNeuron-VC-Assistant/1.0 (+public research fallback)"),
+    }
+
+
+def _html_to_text(html_text: str, *, limit: int) -> str:
+    value = re.sub(r"(?is)<(script|style|noscript).*?</\1>", " ", html_text or "")
+    value = re.sub(r"(?is)<!--.*?-->", " ", value)
+    value = re.sub(r"(?is)<br\s*/?>", "\n", value)
+    value = re.sub(r"(?is)</p\s*>", "\n", value)
+    value = re.sub(r"(?is)<[^>]+>", " ", value)
+    value = html_lib.unescape(value)
+    value = re.sub(r"\s+", " ", value).strip()
+    return value[:limit]
+
+
+def _html_title(html_text: str, fallback: str) -> str:
+    match = re.search(r"(?is)<title[^>]*>(.*?)</title>", html_text or "")
+    if match:
+        title = _html_to_text(match.group(1), limit=300)
+        if title:
+            return title
+    return fallback
+
+
+def _fetch_public_http(url: str, *, internet: dict[str, Any]) -> dict[str, Any]:
+    fallback = python_http_fallback_config(internet)
+    if not fallback["enabled"]:
+        return {"status": "disabled", "url": url, "title": url, "text": "", "error": "python_http_fallback disabled"}
+    if not str(url or "").startswith(("http://", "https://")):
+        return {"status": "failed", "url": url, "title": url, "text": "", "error": "public HTTP fallback requires an http(s) URL"}
+    request = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": fallback["user_agent"],
+            "Accept": "text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.1",
+        },
+    )
+    raw = b""
+    final_url = url
+    content_type = ""
+    status_code = 0
+    try:
+        with urllib.request.urlopen(request, timeout=float(fallback["timeout_seconds"])) as response:
+            final_url = response.geturl() or url
+            status_code = int(getattr(response, "status", 200) or 200)
+            content_type = str(response.headers.get("content-type") or "")
+            raw = response.read(int(fallback["max_chars"]) * 4)
+            charset = response.headers.get_content_charset() or "utf-8"
+    except urllib.error.HTTPError as exc:
+        final_url = exc.geturl() or url
+        status_code = int(getattr(exc, "code", 0) or 0)
+        content_type = str(exc.headers.get("content-type") or "") if exc.headers else ""
+        raw = exc.read(min(int(fallback["max_chars"]) * 2, 12000))
+        charset = exc.headers.get_content_charset() if exc.headers else None
+        charset = charset or "utf-8"
+    except Exception as exc:
+        return {"status": "failed", "url": final_url, "title": host_from_url(final_url) or final_url, "text": "", "html": "", "error": str(exc), "http_status": status_code}
+    decoded = raw.decode(charset or "utf-8", errors="replace")
+    is_html = "html" in content_type.lower() or "<html" in decoded[:500].lower()
+    text = _html_to_text(decoded, limit=int(fallback["max_chars"])) if is_html else decoded[: int(fallback["max_chars"])]
+    title = _html_title(decoded, host_from_url(final_url) or final_url) if is_html else (host_from_url(final_url) or final_url)
+    return {
+        "status": "ok" if 200 <= status_code < 400 and text.strip() else "failed",
+        "url": final_url,
+        "title": title,
+        "text": text,
+        "html": decoded[: int(fallback["max_chars"]) * 2] if is_html else "",
+        "error": "" if 200 <= status_code < 400 else f"HTTP {status_code}",
+        "http_status": status_code,
+    }
+
+
+def _search_url_for_query(query: str, internet: dict[str, Any]) -> str:
+    template = str(internet.get("search_url_template") or "https://duckduckgo.com/html/?q={query}")
+    return template.format(query=quote_plus(query))
+
+
+def _extract_public_search_links(html_text: str, *, base_url: str, limit: int) -> list[dict[str, str]]:
+    links: list[dict[str, str]] = []
+    seen: set[str] = set()
+    search_hosts = ("duckduckgo.com", "google.com", "bing.com", "search.yahoo.com")
+    for match in re.finditer(r"(?is)<a\b[^>]*href=[\"']([^\"']+)[\"'][^>]*>(.*?)</a>", html_text or ""):
+        href = html_lib.unescape(match.group(1)).strip()
+        label = _html_to_text(match.group(2), limit=240)
+        if not href or href.startswith(("#", "javascript:", "mailto:")):
+            continue
+        parsed_href = urlparse(urljoin(base_url, href))
+        query = parse_qs(parsed_href.query)
+        if "uddg" in query and query["uddg"]:
+            href = unquote(query["uddg"][0])
+        elif href.startswith("//"):
+            href = "https:" + href
+        else:
+            href = urljoin(base_url, href)
+        if not href.startswith(("http://", "https://")):
+            continue
+        host = host_from_url(href).lower()
+        if any(host == search_host or host.endswith("." + search_host) for search_host in search_hosts):
+            continue
+        if href in seen:
+            continue
+        seen.add(href)
+        links.append({"url": href, "title": label or host})
+        if len(links) >= limit:
+            break
+    return links
+
+
+def _append_python_http_search(
+    sources: list[dict[str, Any]],
+    *,
+    company: str,
+    plan: dict[str, Any],
+    internet: dict[str, Any],
+    verification_target: str,
+    action_budget: ActionBudget | None = None,
+) -> None:
+    fallback = python_http_fallback_config(internet)
+    if not fallback["enabled"]:
+        return
+    query = str((plan.get("queries") or [""])[0])
+    search_url = _search_url_for_query(query, internet)
+    action = action_budget.start(
+        action_type="browser_search",
+        stage=verification_target,
+        company=company,
+        tool="python_http_fallback.search",
+        metadata={"query": query},
+    ) if action_budget else None
+    if action_budget and action is None:
+        sources.append(_budget_exhausted_source(company, query, "python_http_fallback", verification_target, "browser_search"))
+        return
+    search_result = _fetch_public_http(search_url, internet=internet)
+    if action_budget:
+        action_budget.complete(action, str(search_result.get("status") or "failed"), {"url": search_result.get("url"), "http_status": search_result.get("http_status")})
+    if search_result.get("status") != "ok":
+        sources.append(
+            _source_record(
+                company=company,
+                query=query,
+                url=search_url,
+                title="Python HTTP search fallback failed",
+                snippet=str(search_result.get("text") or search_result.get("error") or ""),
+                status="failed",
+                skill="python_http_fallback",
+                verification_target=verification_target,
+                warning=str(search_result.get("error") or "search fetch failed"),
+            )
+        )
+        return
+    links = _extract_public_search_links(
+        str(search_result.get("html") or ""),
+        base_url=str(search_result.get("url") or search_url),
+        limit=int(fallback["max_search_results"]),
+    )
+    if not links:
+        sources.append(
+            _source_record(
+                company=company,
+                query=query,
+                url=str(search_result.get("url") or search_url),
+                title=str(search_result.get("title") or "Search results"),
+                snippet=str(search_result.get("text") or ""),
+                status="ok",
+                skill="python_http_fallback",
+                verification_target=verification_target,
+                source_quality_label="thin_signal",
+                warning="Search page fetched but no public result links were extracted.",
+            )
+        )
+        return
+    for link in links:
+        page_action = action_budget.start(
+            action_type="browser_page",
+            stage=verification_target,
+            company=company,
+            tool="python_http_fallback.fetch_result",
+            metadata={"url": link["url"]},
+        ) if action_budget else None
+        if action_budget and page_action is None:
+            sources.append(_budget_exhausted_source(company, query, "python_http_fallback", verification_target, "browser_page"))
+            continue
+        page = _fetch_public_http(link["url"], internet=internet)
+        if action_budget:
+            action_budget.complete(page_action, str(page.get("status") or "failed"), {"url": page.get("url"), "http_status": page.get("http_status")})
+        sources.append(
+            _source_record(
+                company=company,
+                query=query,
+                url=str(page.get("url") or link["url"]),
+                title=str(page.get("title") or link.get("title") or ""),
+                snippet=str(page.get("text") or page.get("error") or ""),
+                status=str(page.get("status") or "failed"),
+                skill="python_http_fallback",
+                verification_target=verification_target,
+                warning=str(page.get("error") or ""),
+            )
+        )
+
+
+def _append_python_http_target_research(
+    sources: list[dict[str, Any]],
+    *,
+    company: str,
+    plan: dict[str, Any],
+    internet: dict[str, Any],
+    action_budget: ActionBudget | None = None,
+) -> None:
+    fallback = python_http_fallback_config(internet)
+    if not fallback["enabled"]:
+        return
+    query = str((plan.get("queries") or [""])[0])
+    for url in (plan.get("target_urls") or [])[: int(internet.get("max_target_urls_per_company") or 2)]:
+        if not str(url).startswith(("http://", "https://")):
+            continue
+        target = "crunchbase" if "crunchbase.com" in str(url) else "public_profile"
+        action = action_budget.start(
+            action_type="browser_page",
+            stage=target,
+            company=company,
+            tool="python_http_fallback.fetch_url",
+            metadata={"url": url},
+        ) if action_budget else None
+        if action_budget and action is None:
+            sources.append(_budget_exhausted_source(company, query, "python_http_fallback", target, "browser_page"))
+            continue
+        result = _fetch_public_http(str(url), internet=internet)
+        if action_budget:
+            action_budget.complete(action, str(result.get("status") or "failed"), {"url": result.get("url"), "http_status": result.get("http_status")})
+        sources.append(
+            _source_record(
+                company=company,
+                query=query,
+                url=str(result.get("url") or url),
+                title=str(result.get("title") or ""),
+                snippet=str(result.get("text") or result.get("error") or ""),
+                status=str(result.get("status") or "failed"),
+                skill="python_http_fallback",
+                verification_target=target,
+                warning=str(result.get("error") or ""),
+            )
+        )
 
 
 def agentic_research_config(config: dict[str, Any]) -> dict[str, Any]:
@@ -3303,19 +3710,28 @@ def _append_w3m_research_unobserved(
     query = plan["queries"][0]
     max_sources = int(internet.get("max_sources_per_company") or 3)
     if W3mBrowserConfig is None or research_topic is None or browse_url is None:
-        sources.append(
-            _source_record(
-                company=company,
-                query=query,
-                url="w3m_browser_skill",
-                title="w3m browser skill unavailable",
-                snippet="Install mirrorneuron-w3m-browser-skill and w3m in the worker image to enable lightweight public research.",
-                status="skill_unavailable",
-                skill="w3m_browser_skill",
-                verification_target=verification_target,
-                warning="mn_w3m_browser_skill import failed",
-            )
+        _append_python_http_search(
+            sources,
+            company=company,
+            plan=plan,
+            internet=internet,
+            verification_target=verification_target,
+            action_budget=action_budget,
         )
+        if not any(source.get("skill") == "python_http_fallback" for source in sources):
+            sources.append(
+                _source_record(
+                    company=company,
+                    query=query,
+                    url="w3m_browser_skill",
+                    title="w3m browser skill unavailable",
+                    snippet="Install mirrorneuron-w3m-browser-skill and w3m in the worker image to enable lightweight public research.",
+                    status="skill_unavailable",
+                    skill="w3m_browser_skill",
+                    verification_target=verification_target,
+                    warning="mn_w3m_browser_skill import failed",
+                )
+            )
         return
     browser_config = W3mBrowserConfig(
         timeout_seconds=int(internet.get("timeout_seconds") or 12),
@@ -3350,6 +3766,14 @@ def _append_w3m_research_unobserved(
                 verification_target=verification_target,
                 warning=str(exc),
             )
+        )
+        _append_python_http_search(
+            sources,
+            company=company,
+            plan=plan,
+            internet=internet,
+            verification_target=verification_target,
+            action_budget=action_budget,
         )
         return
     if action_budget:
@@ -3444,20 +3868,29 @@ def _append_target_url_research_unobserved(
 ) -> None:
     _load_w3m_browser_skill()
     if W3mBrowserConfig is None or browse_url is None:
-        for url in plan["target_urls"][: int(internet.get("max_target_urls_per_company") or 2)]:
-            sources.append(
-                _source_record(
-                    company=company,
-                    query=plan["queries"][0],
-                    url=url or "w3m_browser_skill",
-                    title="w3m direct page skill unavailable",
-                    snippet="Install mirrorneuron-w3m-browser-skill and w3m in the worker image to enable direct public page research.",
-                    status="skill_unavailable",
-                    skill="w3m_browser_skill",
-                    verification_target="public_profile",
-                    warning="mn_w3m_browser_skill direct page import failed",
+        before_fallback = len(sources)
+        _append_python_http_target_research(
+            sources,
+            company=company,
+            plan=plan,
+            internet=internet,
+            action_budget=action_budget,
+        )
+        if len(sources) == before_fallback:
+            for url in plan["target_urls"][: int(internet.get("max_target_urls_per_company") or 2)]:
+                sources.append(
+                    _source_record(
+                        company=company,
+                        query=plan["queries"][0],
+                        url=url or "w3m_browser_skill",
+                        title="w3m direct page skill unavailable",
+                        snippet="Install mirrorneuron-w3m-browser-skill and w3m in the worker image to enable direct public page research.",
+                        status="skill_unavailable",
+                        skill="w3m_browser_skill",
+                        verification_target="public_profile",
+                        warning="mn_w3m_browser_skill direct page import failed",
+                    )
                 )
-            )
         return
     browser_config = W3mBrowserConfig(
         timeout_seconds=int(internet.get("timeout_seconds") or 12),
@@ -3482,6 +3915,35 @@ def _append_target_url_research_unobserved(
             result = {"status": "failed", "url": url, "title": "", "snippet": "", "error": str(exc)}
             if action_budget:
                 action_budget.complete(action, "failed", {"url": url, "error": str(exc)})
+            fallback_action = action_budget.start(
+                action_type="browser_page",
+                stage=target,
+                company=company,
+                tool="python_http_fallback.fetch_url",
+                metadata={"url": url, "fallback_reason": str(exc)[:240]},
+            ) if action_budget else None
+            if not action_budget or fallback_action is not None:
+                fallback_result = _fetch_public_http(str(url), internet=internet)
+                if action_budget:
+                    action_budget.complete(
+                        fallback_action,
+                        str(fallback_result.get("status") or "failed"),
+                        {"url": fallback_result.get("url"), "http_status": fallback_result.get("http_status")},
+                    )
+                sources.append(
+                    _source_record(
+                        company=company,
+                        query=plan["queries"][0],
+                        url=str(fallback_result.get("url") or url),
+                        title=str(fallback_result.get("title") or ""),
+                        snippet=str(fallback_result.get("text") or fallback_result.get("error") or ""),
+                        status=str(fallback_result.get("status") or "failed"),
+                        skill="python_http_fallback",
+                        verification_target=target,
+                        warning=str(fallback_result.get("error") or ""),
+                    )
+                )
+                continue
         else:
             if action_budget:
                 action_budget.complete(action, str(result.get("status") or "completed"), {"url": str(result.get("url") or url)})
@@ -3742,6 +4204,31 @@ def _research_one_stage(company: str, stage: str, query: str | list[str], plan: 
     return stage, sources
 
 
+def _stage_needs_deterministic_gap_fill(sources: list[dict[str, Any]]) -> bool:
+    if any(is_substantive_public_source(source) for source in sources):
+        return False
+    return any(str(source.get("status") or "") in {"planned", "warning", "failed", "blocked", "skill_unavailable", "agent_tool_loop_failed", "agent_invalid_tool_call"} for source in sources)
+
+
+def _with_agentic_gap_fill(
+    *,
+    company: str,
+    stage: str,
+    sources: list[dict[str, Any]],
+    query: str | list[str],
+    plan: dict[str, Any],
+    internet: dict[str, Any],
+    run_dir: Path | None,
+    action_budget: ActionBudget | None,
+) -> tuple[str, list[dict[str, Any]]]:
+    if not _stage_needs_deterministic_gap_fill(sources):
+        return stage, sources
+    _, fallback_sources = _research_one_stage(company, stage, query, plan, internet, run_dir, action_budget)
+    for source in fallback_sources:
+        source["fallback_after_agentic"] = True
+    return stage, [*sources, *fallback_sources]
+
+
 def research_company_by_stage(
     company: str,
     config: dict[str, Any],
@@ -3816,6 +4303,24 @@ def research_company_by_stage(
                 for stage, query in staged_queries.items()
             }
             results = [future.result() for future in as_completed(futures)]
+    normalized_results = []
+    for stage, stage_sources in results:
+        if llm is not None and _agent_stage_enabled(agentic, stage):
+            normalized_results.append(
+                _with_agentic_gap_fill(
+                    company=company,
+                    stage=stage,
+                    sources=stage_sources,
+                    query=staged_queries.get(stage, []),
+                    plan=plan,
+                    internet=internet,
+                    run_dir=run_dir,
+                    action_budget=action_budget,
+                )
+            )
+        else:
+            normalized_results.append((stage, stage_sources))
+    results = normalized_results
     by_stage = {stage: sources for stage, sources in results}
     if planner_sources:
         by_stage["company_identity_researcher"] = planner_sources + by_stage.get("company_identity_researcher", [])
@@ -4822,6 +5327,16 @@ def write_company_outputs(
         research_ledger = research_ledgers[analysis["company_name"]]
         sources = flattened_sources(research_ledger)
         warnings = warnings_for_company(analysis, sources)
+        analysis["local_evidence_summary"] = summarize_local_evidence(evidence)
+        analysis["research_source_summary"] = summarize_research_sources(sources)
+        analysis["evidence_artifacts"] = {
+            "local_evidence_path": str(company_dir / "evidence.json"),
+            "research_sources_path": str(company_dir / "research_sources.json"),
+            "research_ledger_path": str(output_folder / "research_ledgers" / f"{slug}.json"),
+        }
+        analysis["evidence"] = compact_local_evidence_for_transport(evidence)
+        analysis["research_sources"] = compact_research_sources_for_transport(sources)
+        analysis["warnings"] = warnings
         write_json(company_dir / "analysis.json", analysis)
         write_json(company_dir / "method_scores.json", analysis["methods"])
         write_json(company_dir / "research_plan.json", analysis.get("research_plan") or {})
@@ -5266,6 +5781,7 @@ def run_blueprint(
             }
         )
     knowledge_rag_warnings = list(knowledge_rag.get("warnings") or [])
+    company_evidence_summaries = build_company_evidence_summaries(analyses, company_records, research_ledgers)
 
     final_artifact = {
         "type": OUTPUT_TYPE,
@@ -5291,6 +5807,7 @@ def run_blueprint(
             "knowledge_rag": public_knowledge_rag_state(knowledge_rag),
         },
         "research_sources": [source for ledger in research_ledgers.values() for source in flattened_sources(ledger)],
+        "company_evidence_summaries": company_evidence_summaries,
         "research_warnings": [*budget_warnings, *knowledge_rag_warnings],
         "actor_review_warnings": actor_review_warnings,
         "report_only": True,
