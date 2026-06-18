@@ -138,6 +138,7 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
     assert config["python_dependencies"]["extra_index_url"] == "https://pypi.org/simple"
     assert config["python_dependencies"]["packages"] == [
         "mirrorneuron-blueprint-support-skill",
+        "mirrorneuron-membrane-python-sdk",
         "mirrorneuron-llm-ocr-skill",
         "mirrorneuron-rag-skill",
         "mirrorneuron-w3m-browser-skill",
@@ -188,14 +189,29 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
     assert config["internet_research"]["max_sources_per_company"] == 8
     assert config["internet_research"]["max_target_urls_per_company"] == 4
     assert config["internet_research"]["rendered_browser"]["max_pages_per_company"] == 2
+    assert config["cache_policy"]["enabled"] is True
+    assert config["cache_policy"]["force_reprocess"] is False
+    assert "force_reprocess" in config["cache_policy"]["force_reprocess_inputs"]
+    assert config["agentic_research"]["enabled"] is False
+    assert config["agentic_research"]["default_mode"] == "deterministic_public_tool_research"
     assert config["agentic_research"]["max_iterations_per_agent"] == 1
     assert config["agentic_research"]["max_tool_calls_per_agent"] == 2
     assert config["actor_review"] == {
         "llm_actor_ids": ["research_reconciler", "score_consistency_auditor", "company_report_writer", "batch_index_writer"],
-        "max_context_chars": 12000,
+        "max_context_chars": 6000,
+        "use_context_engine": True,
+        "working_memory_persist_to_redis": False,
+        "context_token_budget": 3000,
+        "context_target_tokens": 1200,
     }
     assert "llm_rag_trace.jsonl" in config["interfaces"]["optional_run_artifacts"]
     assert "llm_rag_trace.jsonl" in config["interfaces"]["channels"]["artifacts"]["optional_artifacts"]
+    assert "artifact_quality.json" in config["interfaces"]["outputs"]
+    assert "artifact_quality.json" in config["interfaces"]["run_artifacts"]
+    assert "artifact_quality.json" in config["interfaces"]["channels"]["artifacts"]["artifacts"]
+    assert "run_health.json" in config["interfaces"]["outputs"]
+    assert "run_health.json" in config["interfaces"]["run_artifacts"]
+    assert "run_health.json" in config["interfaces"]["channels"]["artifacts"]["artifacts"]
     assert "examples/sample_inputs/" in manifest["metadata"]["configuration_contract"]["required_files"]
     assert (
         "payloads/document_workflow/vc_assistant/examples/sample_inputs/"
@@ -214,7 +230,8 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         assert embedded_config["llm"]["quick_test_uses_fake"] is True
         assert embedded_config["execution"]["quick_test"] is False
         assert embedded_config["research_budget"]["default_actions"] == 80
-        assert embedded_config["agentic_research"]["enabled"] is True
+        assert embedded_config["agentic_research"]["enabled"] is False
+        assert embedded_config["agentic_research"]["default_mode"] == "deterministic_public_tool_research"
         assert embedded_config["agentic_research"]["agent_ids"] == [
             "research_planner",
             "company_identity_researcher",
@@ -339,6 +356,7 @@ def test_vc_assistant_runtime_requirements_install_skills_with_pip():
         "--index-url https://us-central1-python.pkg.dev/mirrorneuron-public-packages/agent-skills/simple/",
         "--extra-index-url https://pypi.org/simple",
         "mirrorneuron-blueprint-support-skill",
+        "mirrorneuron-membrane-python-sdk",
         "mirrorneuron-llm-ocr-skill",
         "mirrorneuron-rag-skill",
         "mirrorneuron-w3m-browser-skill",
@@ -851,6 +869,47 @@ def test_agentic_research_blocks_confidential_tool_queries(tmp_path):
     assert trace[0]["tool_call_count"] == 0
 
 
+def test_agentic_research_tool_exceptions_continue_as_failed_sources(monkeypatch, tmp_path):
+    runner = _load_runner()
+    llm = runner.BudgetedLLM(
+        ToolCallingVCLLM(
+            {
+                "market_comp_researcher": [
+                    {
+                        "thought_summary": "try public search",
+                        "tool_calls": [{"tool": "browser_search", "query": "Example AI market competitors"}],
+                        "stop_reason": "",
+                        "evidence_gaps": [],
+                    }
+                ]
+            }
+        ),
+        runner.ActionBudget(20),
+    )
+    plan = runner.build_adaptive_research_plan("Example AI", [], {"max_queries": 20, "rendered_browser": {"max_pages_per_company": 5}})
+    trace = []
+    monkeypatch.setattr(runner, "_execute_agent_tool_call", lambda **_: (_ for _ in ()).throw(RuntimeError("browser timeout")))
+
+    stage, sources = runner.run_agentic_research_stage(
+        company="Example AI",
+        stage="market_comp_researcher",
+        plan=plan,
+        internet={"blocked_inputs": []},
+        run_dir=tmp_path,
+        action_budget=llm._action_budget,
+        llm=llm,
+        agentic={"enabled": True, "agent_ids": ["market_comp_researcher"], "max_iterations_per_agent": 1, "max_tool_calls_per_agent": 2, "allowed_tools": ["browser_search", "browser_page", "rendered_browser_page", "finish"]},
+        trace=trace,
+    )
+
+    assert stage == "market_comp_researcher"
+    assert any(source["status"] == "agent_tool_call_failed" and "browser timeout" in source["warning"] for source in sources)
+    assert trace[0]["tool_call_count"] == 1
+    trace_text = (tmp_path / "llm_rag_trace.jsonl").read_text(encoding="utf-8")
+    assert "browser timeout" in trace_text
+    assert "observability_operation_failed" in trace_text
+
+
 def test_agentic_research_prompt_includes_knowledge_rag_context(monkeypatch, tmp_path):
     runner = _load_runner()
     llm_client = ToolCallingVCLLM(
@@ -966,15 +1025,84 @@ def test_actor_review_context_is_compacted_and_bounded():
         active_knowledge={"id": "knowledge", "content": "very long content", "method_guidance": {}, "judge_rubric": runner.JUDGE_RUBRIC},
         knowledge_rag={"enabled": True, "status": "ready", "config": {"required": True}},
         actor_rag_context={"enabled": True, "status": "ready", "context": "rag context", "citations": [{"ref": 1}]},
-        max_context_chars=12000,
+        max_context_chars=6000,
     )
 
     serialized = json.dumps(context, default=str)
     assert context["truncated_for_actor_review"] is True
-    assert len(serialized) < 13000
+    assert len(serialized) < 7000
     assert "very long content" not in serialized
     assert context["company_summaries"][0]["method_statuses"]
     assert context["rag_context"]["citation_count"] == 1
+
+
+def test_actor_review_prompt_context_uses_local_context_engine_without_redis_persistence(monkeypatch, tmp_path):
+    runner = _load_runner()
+    calls = {}
+
+    class FakeMemoryItem:
+        def __init__(self, **kwargs):
+            calls["memory_item"] = kwargs
+            self.kwargs = kwargs
+
+    class FakeWorkingMemory:
+        def __init__(self):
+            self.items = []
+
+        def add(self, item):
+            self.items.append(item)
+            calls["added_item_count"] = len(self.items)
+
+        def to_dict(self):
+            return {"items": [item.kwargs for item in self.items]}
+
+    monkeypatch.setattr(runner, "MemoryItem", FakeMemoryItem)
+    monkeypatch.setattr(runner, "WorkingMemory", FakeWorkingMemory)
+
+    context = {
+        "blueprint_id": "vc_assistant",
+        "output_type": "vc_early_heuristic_analysis_reports",
+        "report_only": True,
+        "decision_boundary": "reports only",
+        "company_count": 1,
+        "processed_company_names": ["Alpha AI"],
+        "skipped_company_names": [],
+        "company_summaries": [{"company_name": "Alpha AI", "method_evidence": "very long content" * 1000}],
+        "method_coverage": {"companies": [{"company": "Alpha AI", "details": "very long content" * 1000}]},
+        "rag_context": {"enabled": True, "status": "ready", "citations": [{"ref": 1}]},
+        "output_files": [{"path": "/tmp/alpha/analysis.json", "kind": "analysis"}],
+        "privacy_controls": {"local_document_text": "not included"},
+        "actor_review_focus": ["review method coverage", "check warnings"],
+    }
+
+    prompt_context = runner.prepare_actor_review_prompt_context(
+        run_id="vc-compress",
+        context=context,
+        config={
+            "actor_review": {
+                "use_context_engine": True,
+                "working_memory_persist_to_redis": False,
+                "max_context_chars": 6000,
+                "context_token_budget": 3000,
+                "context_target_tokens": 1200,
+            }
+        },
+        run_dir=tmp_path,
+    )
+
+    serialized = json.dumps(prompt_context, default=str)
+    assert calls["added_item_count"] == 1
+    assert calls["memory_item"]["content"]["validation"]["persistent_storage"] is False
+    assert prompt_context["context_compression"]["enabled"] is True
+    assert prompt_context["context_compression"]["persisted"] is False
+    assert prompt_context["context_compression"]["working_memory_persist_to_redis"] is False
+    assert prompt_context["memory_boundary"]["rag_knowledge"] == "persistent Redis-backed knowledge index"
+    assert "mn_context_engine_sdk.WorkingMemory" in serialized
+    assert len(serialized) < 7000
+    trace_text = (tmp_path / "llm_rag_trace.jsonl").read_text(encoding="utf-8")
+    assert "compile_actor_review_context" in trace_text
+    assert '"persisted": false' in trace_text
+    assert "very long content" not in trace_text
 
 
 def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path, monkeypatch):
@@ -1027,6 +1155,31 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path
     monkeypatch.setattr(runner, "skill_prepare_blueprint_knowledge_rag", fake_prepare_rag)
     monkeypatch.setattr(runner, "skill_public_rag_state", fake_public_rag_state)
     monkeypatch.setattr(runner, "skill_retrieve_knowledge_rag_context", fake_rag_context)
+
+    class FakeW3mBrowserConfig:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    def fake_research_topic(query, browser_config, max_sources=3, observer=None):
+        if observer is not None:
+            observer({"event": "tool_call_completed", "tool": "w3m", "status": "completed", "target": query})
+        return {
+            "sources": [
+                {
+                    "url": f"https://www.crunchbase.com/organization/{runner.slugify(query.split()[0])}",
+                    "title": f"Crunchbase profile for {query}",
+                    "snippet": "Deterministic public research fixture for VC assistant tests.",
+                    "status": "ok",
+                }
+            ][:max_sources],
+            "warnings": [],
+            "search_url": f"https://duckduckgo.test/?q={query}",
+        }
+
+    monkeypatch.setattr(runner, "_load_w3m_browser_skill", lambda: None)
+    monkeypatch.setattr(runner, "W3mBrowserConfig", FakeW3mBrowserConfig)
+    monkeypatch.setattr(runner, "research_topic", fake_research_topic)
+    monkeypatch.setattr(runner, "browse_url", lambda *args, **kwargs: {"status": "ok"})
 
     result = runner.run_blueprint(
         inputs={
@@ -1091,18 +1244,11 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path
         assert research_plan["adaptive"] is True
         assert research_plan["lanes"]
         assert research_plan["knowledge_rag"]["status"] == "ready"
-        assert research_plan["agentic_research"]["enabled"] is True
+        assert research_plan["agentic_research"]["enabled"] is False
         assert research_plan["agentic_research"]["max_iterations_per_agent"] == 1
         assert research_plan["agentic_research"]["max_tool_calls_per_agent"] == 2
         agent_trace = json.loads((company_dir / "agent_tool_trace.json").read_text(encoding="utf-8"))
-        assert {item["agent_id"] for item in agent_trace} == {
-            "research_planner",
-            "company_identity_researcher",
-            "funding_researcher",
-            "market_comp_researcher",
-            "traction_verifier",
-            "rendered_page_researcher",
-        }
+        assert agent_trace == []
         assert all(item["rag_context"]["status"] == "ready" for item in agent_trace)
         assert all(item["knowledge_refs"] for item in agent_trace)
 
@@ -1119,6 +1265,8 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path
     assert (outputs / "run_summary.md").exists()
     assert (outputs / "final_artifact.json").exists()
     assert (outputs / "action_ledger.json").exists()
+    assert (outputs / "artifact_quality.json").exists()
+    assert (outputs / "run_health.json").exists()
     assert sorted(path.name for path in (outputs / "company_fact_tables").iterdir()) == ["alpha-ai.json", "sparse-labs.json"]
     assert sorted(path.name for path in (outputs / "research_ledgers").iterdir()) == ["alpha-ai.json", "sparse-labs.json"]
     assert sorted(path.name for path in (outputs / "method_scores").iterdir()) == ["alpha-ai.json", "sparse-labs.json"]
@@ -1142,8 +1290,45 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path
     assert run_artifact["action_ledger"]["budget"] == 80
     assert run_artifact["action_ledger"]["used"] >= len(run_artifact["actor_review"]["llm_actor_ids"])
     assert any(action["action_type"] == "financial_tool" for action in run_artifact["action_ledger"]["actions"])
+    assert run_artifact["cache_policy"]["fresh_run"] is True
+    assert run_artifact["cache_policy"]["force_reprocess"] is False
+    assert {item["freshness"] for item in run_artifact["cache_policy"]["companies"]} == {"fresh_or_changed"}
+    assert all(report["cache_policy"]["decision"] == "process_company_packet" for report in run_artifact["company_reports"])
+    assert run_artifact["artifact_quality"]["passes_required_gate"] is True
+    assert run_artifact["artifact_quality"]["status"] in {"passed", "warning"}
+    assert run_artifact["artifact_quality"]["company_count"] == 2
+    assert {
+        company["checks"]["output_files"]["status"]
+        for company in run_artifact["artifact_quality"]["companies"]
+    } == {"passed"}
+    assert all(
+        company["checks"]["financial_tool"]["source_count"] >= 1
+        for company in run_artifact["artifact_quality"]["companies"]
+    )
+    artifact_quality_text = json.dumps(run_artifact["artifact_quality"])
+    assert "VC Startup Research And Method Playbook" not in artifact_quality_text
+    assert "raw_document_text" not in artifact_quality_text
     assert json.loads((outputs / "final_artifact.json").read_text(encoding="utf-8"))["action_ledger"]["budget"] == 80
     assert json.loads((outputs / "action_ledger.json").read_text(encoding="utf-8"))["budget"] == 80
+    assert json.loads((outputs / "artifact_quality.json").read_text(encoding="utf-8")) == run_artifact["artifact_quality"]
+    run_health = json.loads((outputs / "run_health.json").read_text(encoding="utf-8"))
+    assert run_health["status"] in {"healthy", "warning"}
+    assert run_health["components"]["artifact_quality"]["passes_required_gate"] is True
+    assert run_health["components"]["context_engine"]["actor_review_uses_context_engine"] is True
+    assert run_health["components"]["context_engine"]["working_memory_persist_to_redis"] is False
+    assert run_health["components"]["public_tools"]["tool_operation_count"] >= 1
+    assert run_health["components"]["knowledge_rag"]["status"] == "ready"
+    assert run_health["privacy"] == "metadata_only_no_prompts_no_raw_rag_context_no_document_text_no_raw_public_pages"
+    run_health_text = json.dumps(run_health)
+    assert "VC Startup Research And Method Playbook" not in run_health_text
+    assert run_artifact["run_health"]["artifact"] == "run_health.json"
+    assert run_artifact["run_health"]["status"] == run_health["status"]
+    company_index = json.loads((outputs / "company_index.json").read_text(encoding="utf-8"))
+    assert company_index["cache_policy"]["fresh_run"] is True
+    assert all(item["cache_policy"]["freshness"] == "fresh_or_changed" for item in company_index["companies"])
+    run_summary = (outputs / "run_summary.md").read_text(encoding="utf-8")
+    assert "## Cache Policy" in run_summary
+    assert "fresh_or_changed" in run_summary
     assert any(item["kind"] == "final_artifact_json" for item in run_artifact["output_files"])
     assert run_artifact["active_knowledge"]["path"] == "knowledge/startup_research_playbook.md"
     assert run_artifact["active_knowledge"]["sha256"]
@@ -1158,25 +1343,38 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path
     } == set(runner.WORKFLOW_STEP_IDS) - set(run_artifact["actor_review"]["llm_actor_ids"])
     trace_path = tmp_path / "vc-unit" / "llm_rag_trace.jsonl"
     assert trace_path.exists()
+    assert (outputs / "llm_rag_trace.jsonl").exists()
     trace_text = trace_path.read_text(encoding="utf-8")
+    assert (outputs / "llm_rag_trace.jsonl").read_text(encoding="utf-8") == trace_text
     assert "VC Startup Research And Method Playbook" not in trace_text
     assert "observability_operation_started" in trace_text
     assert "observability_operation_completed" in trace_text
-    prompt_payload = next(prompt["user"] for prompt in fake_llm.prompts if "VC Startup Research And Method Playbook" in prompt["user"])
-    assert "VC Startup Research And Method Playbook" in prompt_payload
-    for expected in (
-        "Berkus Method",
-        "Scorecard / Bill Payne Method",
-        "Risk Factor Summation Method",
-        "VC Method",
-        "First Chicago Method",
-        "Comparable Transactions / Market Multiples",
-        "Cost-to-Duplicate Method",
-        "method_correctness",
-        "evidence_grounding",
-        "financial_reasoning_quality",
-    ):
-        assert expected in prompt_payload
+    assert any(item["kind"] == "llm_rag_trace_jsonl" for item in run_artifact["output_files"])
+    assert any(item["kind"] == "artifact_quality_json" for item in run_artifact["output_files"])
+    assert any(item["kind"] == "run_health_json" for item in run_artifact["output_files"])
+    observability = run_artifact["observability"]
+    assert observability["trace_available"] is True
+    assert observability["trace_artifact"] == "llm_rag_trace.jsonl"
+    assert observability["record_count"] >= 1
+    assert observability["llm_call_count"] >= len(run_artifact["actor_review"]["llm_actor_ids"])
+    assert observability["tool_operation_count"] >= 1
+    assert observability["privacy"] == "metadata_only_no_prompts_no_raw_rag_context_no_document_text"
+    observability_text = json.dumps(observability)
+    assert "VC Startup Research And Method Playbook" not in observability_text
+    assert "raw_document_text" not in observability_text
+    transport_artifact = runner.final_artifact_for_transport(run_artifact)
+    assert transport_artifact["transport"]["compacted"] is True
+    assert "research_sources" not in transport_artifact
+    assert "evidence" not in transport_artifact
+    assert "actions" not in transport_artifact["action_ledger"]
+    assert transport_artifact["company_reports"]
+    assert transport_artifact["observability"]["trace_available"] is True
+    prompt_payload = next(prompt["user"] for prompt in fake_llm.prompts if "memory_boundary" in prompt["user"])
+    assert "rag_context" in prompt_payload
+    assert "citation_count" in prompt_payload
+    assert "persistent Redis-backed knowledge index" in prompt_payload
+    assert "transient local prompt context" in prompt_payload
+    assert "VC Startup Research And Method Playbook" not in prompt_payload
     for stale_term in ("camera", "video", "surveillance", "footage"):
         assert stale_term not in prompt_payload.lower()
     assert (tmp_path / "vc-unit" / "action_ledger.json").exists()
@@ -1189,6 +1387,8 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path
         },
         config={
             "llm": {"mode": "fake", "require_live": False},
+            "internet_research": {"enabled": False},
+            "agentic_research": {"enabled": False},
             "backpressure": {"llm": {"max_concurrent_calls": 1, "min_interval_seconds": 0}},
         },
         runs_root=tmp_path,
@@ -1199,6 +1399,34 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path
     assert repeat["final_artifact"]["monitor_state"]["processed_company_count"] == 0
     assert repeat["final_artifact"]["monitor_state"]["skipped_company_count"] == 2
     assert {report["processing_status"] for report in repeat["final_artifact"]["company_reports"]} == {"unchanged_skipped"}
+    assert repeat["final_artifact"]["cache_policy"]["fresh_run"] is False
+    assert {item["freshness"] for item in repeat["final_artifact"]["cache_policy"]["companies"]} == {"unchanged_cached"}
+    assert all(report["cache_policy"]["cache_source"] == "watch_state_and_company_artifacts" for report in repeat["final_artifact"]["company_reports"])
+
+    forced = runner.run_blueprint(
+        inputs={
+            "document_folder": str(docs),
+            "output_folder": str(outputs),
+            "force_reprocess": True,
+            "monitoring": {"enabled": True, "poll_interval_seconds": 1, "max_cycles": 1},
+        },
+        config={
+            "llm": {"mode": "fake", "require_live": False},
+            "knowledge_rag": {"enabled": False, "required": False},
+            "internet_research": {"enabled": False},
+            "agentic_research": {"enabled": False},
+            "backpressure": {"llm": {"max_concurrent_calls": 1, "min_interval_seconds": 0}},
+        },
+        runs_root=tmp_path,
+        run_id="vc-force",
+        llm_client=FakeVCLLM(),
+    )
+    assert {item["status"] for item in forced["final_artifact"]["company_work_queue"]} == {"new_or_changed"}
+    assert forced["final_artifact"]["cache_policy"]["force_reprocess"] is True
+    assert forced["final_artifact"]["cache_policy"]["fresh_run"] is True
+    assert {item["freshness"] for item in forced["final_artifact"]["cache_policy"]["companies"]} == {"forced_reprocess"}
+    assert {report["processing_status"] for report in forced["final_artifact"]["company_reports"]} == {"new_or_changed"}
+    assert {report["cached_from_previous_run"] for report in forced["final_artifact"]["company_reports"]} == {False}
 
 
 def test_actor_review_failure_does_not_fail_report_outputs(tmp_path):
@@ -1217,6 +1445,8 @@ def test_actor_review_failure_does_not_fail_report_outputs(tmp_path):
         config={
             "llm": {"mode": "fake", "require_live": False},
             "knowledge_rag": {"enabled": False, "required": False},
+            "agentic_research": {"enabled": False},
+            "internet_research": {"enabled": False},
             "backpressure": {"llm": {"max_concurrent_calls": 1, "min_interval_seconds": 0}},
         },
         runs_root=tmp_path,
@@ -1251,6 +1481,8 @@ def test_runtime_step_entrypoint_runs_report_factory_once(tmp_path):
         config={
             "llm": {"mode": "fake", "require_live": False},
             "knowledge_rag": {"enabled": False, "required": False},
+            "internet_research": {"enabled": False},
+            "agentic_research": {"enabled": False},
             "backpressure": {"llm": {"max_concurrent_calls": 1, "min_interval_seconds": 0}},
         },
         runs_root=tmp_path,
@@ -1272,6 +1504,8 @@ def test_runtime_step_entrypoint_runs_report_factory_once(tmp_path):
         config={
             "llm": {"mode": "fake", "require_live": False},
             "knowledge_rag": {"enabled": False, "required": False},
+            "internet_research": {"enabled": False},
+            "agentic_research": {"enabled": False},
             "backpressure": {"llm": {"max_concurrent_calls": 1, "min_interval_seconds": 0}},
         },
         runs_root=tmp_path,
@@ -1303,6 +1537,8 @@ def test_runtime_step_entrypoint_honors_mirror_neuron_run_environment(tmp_path, 
         config={
             "llm": {"mode": "fake", "require_live": False},
             "knowledge_rag": {"enabled": False, "required": False},
+            "internet_research": {"enabled": False},
+            "agentic_research": {"enabled": False},
             "backpressure": {"llm": {"max_concurrent_calls": 1, "min_interval_seconds": 0}},
         },
         llm_client=FakeVCLLM(),

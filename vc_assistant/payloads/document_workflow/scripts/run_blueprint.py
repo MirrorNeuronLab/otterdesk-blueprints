@@ -7,6 +7,7 @@ import inspect
 import json
 import os
 import re
+import shutil
 import sys
 import threading
 import time
@@ -22,6 +23,12 @@ try:
 except Exception:  # pragma: no cover - optional runtime support
     def start_agent_beacon_thread(message: str | None = None) -> None:
         return None
+
+try:
+    from mn_context_engine_sdk import MemoryItem, WorkingMemory
+except Exception:  # pragma: no cover - optional runtime support
+    MemoryItem = None
+    WorkingMemory = None
 
 
 BLUEPRINT_ID = "vc_assistant"
@@ -117,7 +124,7 @@ TRACE_LOCK = threading.Lock()
 SKILL_LOAD_LOCK = threading.Lock()
 NON_SUBSTANTIVE_SOURCE_STATUSES = {"planned", "configured_reference", "disabled", "skill_unavailable", "failed", "blocked", "warning", "error", "budget_exhausted"}
 WARNING_SOURCE_STATUSES = {"failed", "blocked", "skill_unavailable", "warning", "budget_exhausted"}
-DEFAULT_ACTION_BUDGET = 1000
+DEFAULT_ACTION_BUDGET = 80
 DEFAULT_OBSERVABILITY_HEARTBEAT_SECONDS = 10.0
 DEFAULT_ACTOR_REVIEW_LLM_ACTOR_IDS = [
     "research_reconciler",
@@ -125,6 +132,8 @@ DEFAULT_ACTOR_REVIEW_LLM_ACTOR_IDS = [
     "company_report_writer",
     "batch_index_writer",
 ]
+DEFAULT_ACTOR_REVIEW_CONTEXT_TARGET_TOKENS = 1200
+DEFAULT_ACTOR_REVIEW_CONTEXT_TOKEN_BUDGET = 3000
 KNOWLEDGE_PLAYBOOK_RELATIVE_PATH = "knowledge/startup_research_playbook.md"
 DEFAULT_AGENTIC_RESEARCH_AGENT_IDS = [
     "research_planner",
@@ -1080,6 +1089,113 @@ def append_observation_record(run_dir: Path | None, event_type: str, payload: di
     append_event(run_dir, event_type, record["payload"])
 
 
+def observation_trace_summary(run_dir: Path | None, *, tail_limit: int = 20) -> dict[str, Any]:
+    trace_path = run_dir / "llm_rag_trace.jsonl" if run_dir is not None else None
+    if trace_path is None or not trace_path.exists():
+        return {
+            "trace_artifact": "llm_rag_trace.jsonl",
+            "trace_available": False,
+            "record_count": 0,
+            "event_type_counts": {},
+            "status_counts": {},
+            "operation_counts": {},
+            "llm_call_count": 0,
+            "rag_operation_count": 0,
+            "tool_operation_count": 0,
+            "failed_operation_count": 0,
+            "tail": [],
+        }
+    event_type_counts: dict[str, int] = {}
+    status_counts: dict[str, int] = {}
+    operation_counts: dict[str, int] = {}
+    tail: list[dict[str, Any]] = []
+    record_count = 0
+    llm_call_count = 0
+    rag_operation_count = 0
+    tool_operation_count = 0
+    failed_operation_count = 0
+    for line in trace_path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        try:
+            record = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        record_count += 1
+        event_type = str(record.get("type") or "unknown")
+        payload = record.get("payload") if isinstance(record.get("payload"), dict) else {}
+        status = str(payload.get("status") or "")
+        operation = str(payload.get("operation") or "")
+        phase = str(payload.get("phase") or "")
+        event_type_counts[event_type] = event_type_counts.get(event_type, 0) + 1
+        if status:
+            status_counts[status] = status_counts.get(status, 0) + 1
+        if operation:
+            operation_counts[operation] = operation_counts.get(operation, 0) + 1
+        if "llm" in event_type or "llm" in operation or payload.get("agent_id"):
+            llm_call_count += 1
+        if "rag" in phase or "rag" in operation or payload.get("citation_count") is not None:
+            rag_operation_count += 1
+        if payload.get("tool") or "tool" in event_type or "browser" in operation:
+            tool_operation_count += 1
+        if event_type.endswith("_failed") or status in {"failed", "error"}:
+            failed_operation_count += 1
+        tail_record = {
+            "type": event_type,
+            "timestamp": record.get("timestamp"),
+            "phase": phase,
+            "operation": operation,
+            "status": status,
+            "agent_id": payload.get("agent_id"),
+            "company": payload.get("company"),
+            "provider": payload.get("provider"),
+            "model": payload.get("model"),
+            "prompt_chars": payload.get("prompt_chars") or payload.get("user_prompt_chars"),
+            "response_chars": payload.get("response_chars"),
+            "prompt_hash": payload.get("prompt_hash"),
+            "query_hash": payload.get("query_hash"),
+            "query_length": payload.get("query_length"),
+            "citation_count": payload.get("citation_count"),
+            "tool": payload.get("tool"),
+            "http_status": payload.get("http_status"),
+            "error_type": payload.get("error_type"),
+            "elapsed_ms": payload.get("elapsed_ms"),
+        }
+        tail.append(observation_payload(**tail_record))
+        if len(tail) > tail_limit:
+            tail = tail[-tail_limit:]
+    return {
+        "trace_artifact": "llm_rag_trace.jsonl",
+        "trace_available": True,
+        "record_count": record_count,
+        "event_type_counts": event_type_counts,
+        "status_counts": status_counts,
+        "operation_counts": operation_counts,
+        "llm_call_count": llm_call_count,
+        "rag_operation_count": rag_operation_count,
+        "tool_operation_count": tool_operation_count,
+        "failed_operation_count": failed_operation_count,
+        "tail": tail,
+        "privacy": "metadata_only_no_prompts_no_raw_rag_context_no_document_text",
+    }
+
+
+def final_artifact_for_transport(final_artifact: dict[str, Any]) -> dict[str, Any]:
+    """Return the bounded artifact shape printed to the runtime workflow chain."""
+    compact = dict(final_artifact)
+    compact.pop("research_sources", None)
+    compact.pop("evidence", None)
+    ledger = compact.get("action_ledger")
+    if isinstance(ledger, dict):
+        compact["action_ledger"] = {key: value for key, value in ledger.items() if key != "actions"}
+    compact["transport"] = {
+        "compacted": True,
+        "omitted_fields": ["research_sources", "evidence", "action_ledger.actions"],
+        "reason": "Prevent repeated workflow handoff payloads from growing Redis job state; detailed per-company artifacts remain in output files.",
+    }
+    return compact
+
+
 class ObservedOperation:
     def __init__(
         self,
@@ -1583,7 +1699,21 @@ def load_watch_state(output_folder: Path) -> dict[str, Any]:
     return state
 
 
-def build_company_work_queue(company_records: dict[str, list[dict[str, Any]]], previous_state: dict[str, Any]) -> list[dict[str, Any]]:
+def force_reprocess_enabled(payload: dict[str, Any], config: dict[str, Any]) -> bool:
+    cache_config = config.get("cache_policy") if isinstance(config.get("cache_policy"), dict) else {}
+    payload_policy = payload.get("cache_policy") if isinstance(payload.get("cache_policy"), dict) else {}
+    candidates = [
+        payload.get("force_reprocess"),
+        payload.get("force_refresh"),
+        payload_policy.get("force_reprocess"),
+        cache_config.get("force_reprocess"),
+    ]
+    if any(str(value).strip().lower() in {"1", "true", "yes", "on"} for value in candidates if value is not None):
+        return True
+    return any(env_flag_enabled(name) for name in ("VC_ASSISTANT_FORCE_REPROCESS", "MN_BLUEPRINT_FORCE_REPROCESS", "MN_FORCE_REPROCESS"))
+
+
+def build_company_work_queue(company_records: dict[str, list[dict[str, Any]]], previous_state: dict[str, Any], *, force_reprocess: bool = False) -> list[dict[str, Any]]:
     previous_companies = previous_state.get("companies") if isinstance(previous_state.get("companies"), dict) else {}
     queue = []
     for company, records in sorted(company_records.items(), key=lambda item: slugify(item[0])):
@@ -1591,6 +1721,18 @@ def build_company_work_queue(company_records: dict[str, list[dict[str, Any]]], p
         fingerprint = company_fingerprint(records)
         previous = previous_companies.get(slug) if isinstance(previous_companies.get(slug), dict) else {}
         unchanged = previous.get("fingerprint") == fingerprint
+        use_cached = unchanged and not force_reprocess
+        previous_run_id = previous.get("last_run_id") or previous_state.get("run_id")
+        cache_policy = {
+            "company_slug": slug,
+            "fingerprint": fingerprint,
+            "previous_fingerprint": previous.get("fingerprint"),
+            "previous_run_id": previous_run_id,
+            "cache_source": "watch_state_and_company_artifacts" if use_cached else "",
+            "freshness": "unchanged_cached" if use_cached else ("forced_reprocess" if force_reprocess and unchanged else "fresh_or_changed"),
+            "force_reprocess": bool(force_reprocess),
+            "decision": "reuse_cached_outputs" if use_cached else "process_company_packet",
+        }
         queue.append(
             {
                 "company_id": slug,
@@ -1598,16 +1740,19 @@ def build_company_work_queue(company_records: dict[str, list[dict[str, Any]]], p
                 "company_slug": slug,
                 "fingerprint": fingerprint,
                 "document_count": len(records),
-                "status": "unchanged_skipped" if unchanged else "new_or_changed",
+                "status": "unchanged_skipped" if use_cached else "new_or_changed",
                 "previous_fingerprint": previous.get("fingerprint"),
+                "previous_run_id": previous_run_id,
+                "cache_policy": cache_policy,
                 "source_refs": [record.get("path") for record in records],
             }
         )
     return queue
 
 
-def update_watch_state(output_folder: Path, run_dir: Path, queue: list[dict[str, Any]]) -> dict[str, Any]:
+def update_watch_state(output_folder: Path, run_dir: Path, queue: list[dict[str, Any]], *, run_id: str) -> dict[str, Any]:
     state = {
+        "run_id": run_id,
         "updated_at": utc_now_iso(),
         "companies": {
             item["company_slug"]: {
@@ -1615,6 +1760,7 @@ def update_watch_state(output_folder: Path, run_dir: Path, queue: list[dict[str,
                 "fingerprint": item["fingerprint"],
                 "status": item["status"],
                 "document_count": item["document_count"],
+                "last_run_id": run_id,
             }
             for item in queue
         },
@@ -1642,6 +1788,31 @@ def load_cached_research_ledger(output_folder: Path, company: str) -> dict[str, 
         values = ledger.get(stage)
         normalized[stage] = values if isinstance(values, list) else []
     return normalized
+
+
+def build_cache_policy_summary(queue: list[dict[str, Any]], *, processed_company_names: list[str], skipped_company_names: list[str]) -> dict[str, Any]:
+    force_reprocess = any(bool((item.get("cache_policy") or {}).get("force_reprocess")) for item in queue)
+    return {
+        "enabled": True,
+        "force_reprocess": force_reprocess,
+        "processed_company_count": len(processed_company_names),
+        "skipped_company_count": len(skipped_company_names),
+        "fresh_run": len(skipped_company_names) == 0,
+        "companies": [
+            {
+                "company_name": item.get("company_name"),
+                "company_slug": item.get("company_slug"),
+                "status": item.get("status"),
+                "fingerprint": item.get("fingerprint"),
+                "previous_fingerprint": item.get("previous_fingerprint"),
+                "previous_run_id": item.get("previous_run_id"),
+                "cache_source": (item.get("cache_policy") or {}).get("cache_source"),
+                "freshness": (item.get("cache_policy") or {}).get("freshness"),
+                "decision": (item.get("cache_policy") or {}).get("decision"),
+            }
+            for item in queue
+        ],
+    }
 
 
 def keyword_score(text: str, keywords: list[str], maximum: int = 100) -> int:
@@ -2585,7 +2756,7 @@ def agentic_research_config(config: dict[str, Any]) -> dict[str, Any]:
             "allowed_tools": [str(item) for item in (raw.get("allowed_tools") or DEFAULT_AGENTIC_RESEARCH_TOOLS)],
         }
     return {
-        "enabled": bool(raw.get("enabled", True)),
+        "enabled": bool(raw.get("enabled", False)),
         "agent_ids": [str(item) for item in (raw.get("agent_ids") or DEFAULT_AGENTIC_RESEARCH_AGENT_IDS)],
         "max_iterations_per_agent": bounded_int(raw.get("max_iterations_per_agent"), default=1, minimum=1, maximum=100),
         "max_tool_calls_per_agent": bounded_int(raw.get("max_tool_calls_per_agent"), default=2, minimum=0, maximum=500),
@@ -2595,10 +2766,16 @@ def agentic_research_config(config: dict[str, Any]) -> dict[str, Any]:
 
 def actor_review_config(config: dict[str, Any]) -> dict[str, Any]:
     raw = config.get("actor_review") if isinstance(config.get("actor_review"), dict) else {}
+    memory = config.get("memory_layer") if isinstance(config.get("memory_layer"), dict) else {}
+    conversation = memory.get("conversation") if isinstance(memory.get("conversation"), dict) else {}
     selected = raw.get("llm_actor_ids") if isinstance(raw.get("llm_actor_ids"), list) else DEFAULT_ACTOR_REVIEW_LLM_ACTOR_IDS
     return {
         "llm_actor_ids": [str(item) for item in selected],
-        "max_context_chars": bounded_int(raw.get("max_context_chars"), default=12000, minimum=2000, maximum=50000),
+        "max_context_chars": bounded_int(raw.get("max_context_chars"), default=6000, minimum=2000, maximum=50000),
+        "use_context_engine": bool(raw.get("use_context_engine", raw.get("use_model_compression", conversation.get("use_model_compression", True)))),
+        "working_memory_persist_to_redis": bool(raw.get("working_memory_persist_to_redis", False)),
+        "context_token_budget": bounded_int(raw.get("context_token_budget"), default=conversation.get("token_budget") or DEFAULT_ACTOR_REVIEW_CONTEXT_TOKEN_BUDGET, minimum=500, maximum=20000),
+        "context_target_tokens": bounded_int(raw.get("context_target_tokens"), default=conversation.get("target_tokens") or DEFAULT_ACTOR_REVIEW_CONTEXT_TARGET_TOKENS, minimum=200, maximum=8000),
     }
 
 
@@ -2624,8 +2801,8 @@ def _agent_tool_source(
         status=status,
         skill="llm_tool_agent",
         verification_target=agent_id,
-        warning=message if status in {"agent_tool_loop_failed", "agent_invalid_tool_call", "blocked"} else "",
-        source_quality_label="blocked" if status in {"agent_tool_loop_failed", "agent_invalid_tool_call", "blocked"} else "thin_signal",
+        warning=message if status in {"agent_tool_loop_failed", "agent_invalid_tool_call", "agent_tool_call_failed", "blocked"} else "",
+        source_quality_label="blocked" if status in {"agent_tool_loop_failed", "agent_invalid_tool_call", "agent_tool_call_failed", "blocked"} else "thin_signal",
     )
     record["agent_id"] = agent_id
     record["tool_call_id"] = tool_call_id
@@ -3007,8 +3184,21 @@ def run_agentic_research_stage(
                 query_chars=len(str(tool_call.get("query") or "")),
                 url_host=host_from_url(str(tool_call.get("url") or "")) if tool_call.get("url") else "",
             ) as op:
-                result = _execute_agent_tool_call(sources=sources, company=company, stage=stage, plan=plan, internet=internet, run_dir=run_dir, action_budget=action_budget, tool_call=tool_call, tool_call_id=tool_call_id)
-                op.close("completed" if result.get("status") in {"executed", "finished"} else "failed", tool_status=result.get("status"), source_count=result.get("source_count"))
+                try:
+                    result = _execute_agent_tool_call(sources=sources, company=company, stage=stage, plan=plan, internet=internet, run_dir=run_dir, action_budget=action_budget, tool_call=tool_call, tool_call_id=tool_call_id)
+                except Exception as exc:
+                    result = {"status": "failed", "source_count": 0, "error": str(exc)}
+                    sources.append(
+                        _agent_tool_source(
+                            company=company,
+                            agent_id=stage,
+                            query=str(tool_call.get("query") or ""),
+                            status="agent_tool_call_failed",
+                            message=str(exc),
+                            tool_call_id=tool_call_id,
+                        )
+                    )
+                op.close("completed" if result.get("status") in {"executed", "finished"} else "failed", tool_status=result.get("status"), source_count=result.get("source_count"), error=result.get("error"))
             executed_tool_calls += 1
             observation = {"tool_call_id": tool_call_id, "tool": tool_call.get("tool"), "result": result}
             observations.append(observation)
@@ -3048,6 +3238,58 @@ def run_agentic_research_stage(
 
 
 def _append_w3m_research(
+    sources: list[dict[str, Any]],
+    *,
+    company: str,
+    plan: dict[str, Any],
+    internet: dict[str, Any],
+    run_dir: Path | None,
+    verification_target: str = "search_result_or_public_source",
+    action_budget: ActionBudget | None = None,
+) -> None:
+    source_count_start = len(sources)
+    tool_status = "completed"
+    tool_error = ""
+    op = observed_operation(
+        run_dir,
+        phase="public_tool_call",
+        operation="w3m_browser_skill.research_topic",
+        tool="w3m_browser_skill.research_topic",
+        company=company,
+        verification_target=verification_target,
+        query_hash=stable_text_hash((plan.get("queries") or [""])[0]),
+        query_chars=len(str((plan.get("queries") or [""])[0])),
+    ).__enter__()
+    try:
+        _append_w3m_research_unobserved(
+            sources,
+            company=company,
+            plan=plan,
+            internet=internet,
+            run_dir=run_dir,
+            verification_target=verification_target,
+            action_budget=action_budget,
+        )
+        new_sources = sources[source_count_start:]
+        failed_statuses = {str(source.get("status") or "") for source in new_sources if str(source.get("status") or "") in WARNING_SOURCE_STATUSES}
+        if failed_statuses:
+            tool_status = sorted(failed_statuses)[0]
+        if new_sources:
+            tool_error = "; ".join(str(source.get("warning") or "") for source in new_sources if source.get("warning"))[:500]
+    except Exception as exc:
+        tool_status = "failed"
+        tool_error = str(exc)
+        raise
+    finally:
+        op.close(
+            "completed" if tool_status in {"completed", "ok", ""} else "failed",
+            tool_status=tool_status,
+            source_count=len(sources) - source_count_start,
+            error=tool_error,
+        )
+
+
+def _append_w3m_research_unobserved(
     sources: list[dict[str, Any]],
     *,
     company: str,
@@ -3150,6 +3392,56 @@ def _append_target_url_research(
     run_dir: Path | None,
     action_budget: ActionBudget | None = None,
 ) -> None:
+    source_count_start = len(sources)
+    tool_status = "completed"
+    tool_error = ""
+    target_urls = plan.get("target_urls") or []
+    op = observed_operation(
+        run_dir,
+        phase="public_tool_call",
+        operation="w3m_browser_skill.browse_url",
+        tool="w3m_browser_skill.browse_url",
+        company=company,
+        url_count=len(target_urls),
+        url_hash=stable_text_hash("\n".join(str(url) for url in target_urls[:10])),
+    ).__enter__()
+    try:
+        _append_target_url_research_unobserved(
+            sources,
+            company=company,
+            plan=plan,
+            internet=internet,
+            run_dir=run_dir,
+            action_budget=action_budget,
+        )
+        new_sources = sources[source_count_start:]
+        failed_statuses = {str(source.get("status") or "") for source in new_sources if str(source.get("status") or "") in WARNING_SOURCE_STATUSES}
+        if failed_statuses:
+            tool_status = sorted(failed_statuses)[0]
+        if new_sources:
+            tool_error = "; ".join(str(source.get("warning") or "") for source in new_sources if source.get("warning"))[:500]
+    except Exception as exc:
+        tool_status = "failed"
+        tool_error = str(exc)
+        raise
+    finally:
+        op.close(
+            "completed" if tool_status in {"completed", "ok", ""} else "failed",
+            tool_status=tool_status,
+            source_count=len(sources) - source_count_start,
+            error=tool_error,
+        )
+
+
+def _append_target_url_research_unobserved(
+    sources: list[dict[str, Any]],
+    *,
+    company: str,
+    plan: dict[str, Any],
+    internet: dict[str, Any],
+    run_dir: Path | None,
+    action_budget: ActionBudget | None = None,
+) -> None:
     _load_w3m_browser_skill()
     if W3mBrowserConfig is None or browse_url is None:
         for url in plan["target_urls"][: int(internet.get("max_target_urls_per_company") or 2)]:
@@ -3209,6 +3501,55 @@ def _append_target_url_research(
 
 
 def _append_rendered_browser_research(
+    sources: list[dict[str, Any]],
+    *,
+    company: str,
+    plan: dict[str, Any],
+    internet: dict[str, Any],
+    run_dir: Path | None = None,
+    action_budget: ActionBudget | None = None,
+) -> None:
+    source_count_start = len(sources)
+    tool_status = "completed"
+    tool_error = ""
+    target_urls = plan.get("target_urls") or []
+    op = observed_operation(
+        run_dir,
+        phase="public_tool_call",
+        operation="web_browser_skill.scrape_page",
+        tool="web_browser_skill.scrape_page",
+        company=company,
+        url_count=len(target_urls),
+        url_hash=stable_text_hash("\n".join(str(url) for url in target_urls[:10])),
+    ).__enter__()
+    try:
+        _append_rendered_browser_research_unobserved(
+            sources,
+            company=company,
+            plan=plan,
+            internet=internet,
+            action_budget=action_budget,
+        )
+        new_sources = sources[source_count_start:]
+        failed_statuses = {str(source.get("status") or "") for source in new_sources if str(source.get("status") or "") in WARNING_SOURCE_STATUSES}
+        if failed_statuses:
+            tool_status = sorted(failed_statuses)[0]
+        if new_sources:
+            tool_error = "; ".join(str(source.get("warning") or "") for source in new_sources if source.get("warning"))[:500]
+    except Exception as exc:
+        tool_status = "failed"
+        tool_error = str(exc)
+        raise
+    finally:
+        op.close(
+            "completed" if tool_status in {"completed", "ok", ""} else "failed",
+            tool_status=tool_status,
+            source_count=len(sources) - source_count_start,
+            error=tool_error,
+        )
+
+
+def _append_rendered_browser_research_unobserved(
     sources: list[dict[str, Any]],
     *,
     company: str,
@@ -3296,7 +3637,7 @@ def research_company(company: str, config: dict[str, Any], run_dir: Path | None 
     ]
     call_with_supported_kwargs(_append_w3m_research, sources=sources, company=company, plan=plan, internet=internet, run_dir=run_dir, action_budget=action_budget)
     call_with_supported_kwargs(_append_target_url_research, sources=sources, company=company, plan=plan, internet=internet, run_dir=run_dir, action_budget=action_budget)
-    call_with_supported_kwargs(_append_rendered_browser_research, sources=sources, company=company, plan=plan, internet=internet, action_budget=action_budget)
+    call_with_supported_kwargs(_append_rendered_browser_research, sources=sources, company=company, plan=plan, internet=internet, run_dir=run_dir, action_budget=action_budget)
     for url in list(internet.get("default_source_urls") or DEFAULT_RESEARCH_SOURCE_URLS):
         sources.append(
             _source_record(
@@ -3384,7 +3725,7 @@ def _research_one_stage(company: str, stage: str, query: str | list[str], plan: 
         for url in list(internet.get("default_source_urls") or DEFAULT_RESEARCH_SOURCE_URLS):
             sources.append(_stage_default_source_record(company, stage, queries[0], url))
     elif stage == "rendered_page_researcher":
-        call_with_supported_kwargs(_append_rendered_browser_research, sources=sources, company=company, plan=stage_plan, internet=internet, action_budget=action_budget)
+        call_with_supported_kwargs(_append_rendered_browser_research, sources=sources, company=company, plan=stage_plan, internet=internet, run_dir=run_dir, action_budget=action_budget)
         if len(sources) == 1:
             sources.append(
                 _source_record(
@@ -3482,6 +3823,44 @@ def research_company_by_stage(
 
 
 def append_financial_tool_research(
+    company: str,
+    records: list[dict[str, Any]],
+    research_ledger: dict[str, list[dict[str, Any]]],
+    action_budget: ActionBudget | None = None,
+    run_dir: Path | None = None,
+) -> None:
+    source_count_start = sum(len(items) for items in research_ledger.values())
+    tool_status = "completed"
+    tool_error = ""
+    op = observed_operation(
+        run_dir,
+        phase="public_tool_call",
+        operation="local_public_financial_tool",
+        tool="local_public_financial_tool",
+        company=company,
+    ).__enter__()
+    try:
+        append_financial_tool_research_unobserved(company, records, research_ledger, action_budget=action_budget)
+        new_sources = flattened_sources(research_ledger)[source_count_start:]
+        if new_sources:
+            statuses = {str(source.get("status") or "") for source in new_sources if source.get("status")}
+            if "warning" in statuses:
+                tool_status = "warning"
+            tool_error = "; ".join(str(source.get("warning") or "") for source in new_sources if source.get("warning"))[:500]
+    except Exception as exc:
+        tool_status = "failed"
+        tool_error = str(exc)
+        raise
+    finally:
+        op.close(
+            "completed" if tool_status in {"completed", "ok", ""} else "failed",
+            tool_status=tool_status,
+            source_count=sum(len(items) for items in research_ledger.values()) - source_count_start,
+            error=tool_error,
+        )
+
+
+def append_financial_tool_research_unobserved(
     company: str,
     records: list[dict[str, Any]],
     research_ledger: dict[str, list[dict[str, Any]]],
@@ -3655,6 +4034,238 @@ def build_method_coverage(analyses: list[dict[str, Any]]) -> dict[str, Any]:
     return {"generated_at": utc_now_iso(), "method_ids": METHOD_IDS, "companies": companies}
 
 
+def quality_check(status: str, message: str, **metadata: Any) -> dict[str, Any]:
+    return observation_payload(status=status, message=message, **metadata)
+
+
+def build_artifact_quality_report(
+    *,
+    analyses: list[dict[str, Any]],
+    company_records: dict[str, list[dict[str, Any]]],
+    research_ledgers: dict[str, dict[str, list[dict[str, Any]]]],
+    output_files: list[dict[str, Any]],
+    knowledge_rag: dict[str, Any] | None,
+    actor_findings: dict[str, Any],
+    actor_review_settings: dict[str, Any],
+) -> dict[str, Any]:
+    """Summarize whether every generated report has auditable evidence and source attempts."""
+    files_by_company: dict[str, set[str]] = {}
+    for item in output_files:
+        company = str(item.get("company") or "")
+        path = Path(str(item.get("path") or ""))
+        if company and path.name:
+            files_by_company.setdefault(company, set()).add(path.name)
+    required_files = {"analysis.json", "analysis.md", "method_scores.json", "research_plan.json", "research_sources.json", "evidence.json", "warnings.json"}
+    selected_actor_ids = set(actor_review_settings.get("llm_actor_ids") or [])
+    actor_reviewed = {
+        actor_id
+        for actor_id in selected_actor_ids
+        if isinstance(actor_findings.get(actor_id), dict) and actor_findings[actor_id].get("status") != "not_llm_reviewed"
+    }
+    rag_required = knowledge_rag_is_required(knowledge_rag or {})
+    rag_ready = public_knowledge_rag_state(knowledge_rag or {}).get("status") in {"ready", "disabled"}
+    companies: list[dict[str, Any]] = []
+    total_warning_count = 0
+    total_failed_count = 0
+    for analysis in analyses:
+        company = analysis["company_name"]
+        records = company_records.get(company, [])
+        ledger = research_ledgers.get(company, {})
+        sources = flattened_sources(ledger)
+        substantive_sources = [source for source in sources if is_substantive_public_source(source)]
+        public_tool_attempts = [
+            source
+            for source in sources
+            if source.get("skill") in {"w3m_browser_skill", "web_browser_skill", "financial_public_data_tool"}
+            or str(source.get("url") or "").startswith("financial_tool://")
+        ]
+        failed_tool_attempts = [source for source in public_tool_attempts if source.get("status") in WARNING_SOURCE_STATUSES]
+        financial_sources = [
+            source
+            for source in sources
+            if source.get("skill") == "financial_public_data_tool" or str(source.get("url") or "").startswith("financial_tool://")
+        ]
+        missing_files = sorted(required_files - files_by_company.get(company, set()))
+        method_missing_count = len(analysis.get("evidence_summary", {}).get("missing_methods") or [])
+        checks = {
+            "local_evidence": quality_check(
+                "passed" if records else "warning",
+                "Local startup packet evidence was captured." if records else "No local startup packet evidence was available for this company.",
+                record_count=len(records),
+            ),
+            "public_research": quality_check(
+                "passed" if substantive_sources else ("warning" if public_tool_attempts else "warning"),
+                "Substantive public research sources were captured." if substantive_sources else "Public research has only failed, configured, planned, or thin-source records.",
+                source_count=len(sources),
+                substantive_source_count=len(substantive_sources),
+                public_tool_attempt_count=len(public_tool_attempts),
+                failed_tool_attempt_count=len(failed_tool_attempts),
+            ),
+            "financial_tool": quality_check(
+                "passed" if financial_sources else "warning",
+                "Deterministic financial comparable tool output is present." if financial_sources else "Deterministic financial comparable tool output is missing.",
+                source_count=len(financial_sources),
+            ),
+            "method_evidence": quality_check(
+                "passed" if method_missing_count == 0 else "warning",
+                "All VC methods had enough evidence to score." if method_missing_count == 0 else "One or more VC methods are marked insufficient evidence.",
+                missing_method_count=method_missing_count,
+                missing_methods=analysis.get("evidence_summary", {}).get("missing_methods") or [],
+            ),
+            "rag_knowledge": quality_check(
+                "passed" if rag_ready else ("failed" if rag_required else "warning"),
+                "Required RAG knowledge was ready or disabled by config." if rag_ready else "RAG knowledge was not ready.",
+                required=rag_required,
+                rag_status=public_knowledge_rag_state(knowledge_rag or {}).get("status"),
+            ),
+            "actor_review": quality_check(
+                "passed" if selected_actor_ids <= actor_reviewed else "warning",
+                "Selected LLM actor reviewers produced findings." if selected_actor_ids <= actor_reviewed else "Some selected LLM actor reviewers did not produce live findings.",
+                selected_actor_ids=sorted(selected_actor_ids),
+                reviewed_actor_ids=sorted(actor_reviewed),
+            ),
+            "output_files": quality_check(
+                "passed" if not missing_files else "failed",
+                "Required per-company report files were written." if not missing_files else "Required per-company report files are missing.",
+                missing_files=missing_files,
+            ),
+        }
+        status_values = [item["status"] for item in checks.values()]
+        company_status = "failed" if "failed" in status_values else ("warning" if "warning" in status_values else "passed")
+        total_warning_count += status_values.count("warning")
+        total_failed_count += status_values.count("failed")
+        companies.append({
+            "company_name": company,
+            "company_slug": analysis["company_slug"],
+            "status": company_status,
+            "checks": checks,
+            "summary": {
+                "local_evidence_count": len(records),
+                "research_source_count": len(sources),
+                "substantive_source_count": len(substantive_sources),
+                "public_tool_attempt_count": len(public_tool_attempts),
+                "failed_tool_attempt_count": len(failed_tool_attempts),
+                "financial_tool_source_count": len(financial_sources),
+                "missing_method_count": method_missing_count,
+            },
+        })
+    statuses = [company["status"] for company in companies]
+    overall_status = "failed" if "failed" in statuses else ("warning" if "warning" in statuses else "passed")
+    return {
+        "generated_at": utc_now_iso(),
+        "status": overall_status,
+        "passes_required_gate": overall_status != "failed",
+        "privacy": "metadata_only_no_raw_prompts_no_raw_public_pages_no_document_text",
+        "company_count": len(companies),
+        "warning_check_count": total_warning_count,
+        "failed_check_count": total_failed_count,
+        "companies": companies,
+    }
+
+
+def research_source_status_counts(research_ledgers: dict[str, dict[str, list[dict[str, Any]]]]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for ledger in research_ledgers.values():
+        for source in flattened_sources(ledger):
+            status = str(source.get("status") or "unknown")
+            counts[status] = counts.get(status, 0) + 1
+    return counts
+
+
+def build_run_health_report(
+    *,
+    run_id: str,
+    started_at: str,
+    elapsed_ms: float,
+    artifact_quality: dict[str, Any],
+    observation_summary: dict[str, Any],
+    action_ledger: dict[str, Any],
+    knowledge_rag: dict[str, Any] | None,
+    research_ledgers: dict[str, dict[str, list[dict[str, Any]]]],
+    cache_policy_summary: dict[str, Any],
+    actor_review_warnings: list[dict[str, Any]],
+    actor_review_settings: dict[str, Any],
+    llm_limiter: LlmCallLimiter,
+) -> dict[str, Any]:
+    source_status_counts = research_source_status_counts(research_ledgers)
+    warning_source_count = sum(count for status, count in source_status_counts.items() if status in WARNING_SOURCE_STATUSES)
+    failed_operation_count = int(observation_summary.get("failed_operation_count") or 0)
+    warnings: list[dict[str, Any]] = []
+    failures: list[dict[str, Any]] = []
+    if not artifact_quality.get("passes_required_gate"):
+        failures.append({"kind": "artifact_quality", "message": "Artifact quality gate failed."})
+    elif artifact_quality.get("status") == "warning":
+        warnings.append({"kind": "artifact_quality", "message": "Artifact quality completed with warnings."})
+    if action_ledger.get("exhausted"):
+        warnings.append({"kind": "action_budget", "message": "Action budget was exhausted before all optional calls could run."})
+    if warning_source_count:
+        warnings.append({"kind": "public_tools", "message": "One or more public tool/source attempts returned warning or failed statuses.", "count": warning_source_count})
+    if failed_operation_count:
+        warnings.append({"kind": "observability", "message": "Observed operations include failed metadata records.", "count": failed_operation_count})
+    if actor_review_warnings:
+        warnings.append({"kind": "actor_review", "message": "Actor review completed with warnings.", "count": len(actor_review_warnings)})
+    rag_state = public_knowledge_rag_state(knowledge_rag or {})
+    if knowledge_rag_is_required(knowledge_rag or {}) and rag_state.get("status") not in {"ready"}:
+        failures.append({"kind": "knowledge_rag", "message": "Required RAG knowledge is not ready.", "status": rag_state.get("status")})
+    status = "failed" if failures else ("warning" if warnings else "healthy")
+    return {
+        "run_id": run_id,
+        "generated_at": utc_now_iso(),
+        "started_at": started_at,
+        "elapsed_ms": round(elapsed_ms, 2),
+        "status": status,
+        "warnings": warnings,
+        "failures": failures,
+        "components": {
+            "artifact_quality": {
+                "status": artifact_quality.get("status"),
+                "passes_required_gate": artifact_quality.get("passes_required_gate"),
+                "warning_check_count": artifact_quality.get("warning_check_count"),
+                "failed_check_count": artifact_quality.get("failed_check_count"),
+            },
+            "action_budget": {
+                "budget": action_ledger.get("budget"),
+                "used": action_ledger.get("used"),
+                "remaining": action_ledger.get("remaining"),
+                "exhausted": action_ledger.get("exhausted"),
+            },
+            "knowledge_rag": {
+                "status": rag_state.get("status"),
+                "required": knowledge_rag_is_required(knowledge_rag or {}),
+                "indexed_count": (rag_state.get("index_summary") or {}).get("indexed_count") if isinstance(rag_state.get("index_summary"), dict) else None,
+            },
+            "public_tools": {
+                "source_status_counts": source_status_counts,
+                "warning_source_count": warning_source_count,
+                "tool_operation_count": observation_summary.get("tool_operation_count"),
+                "failed_operation_count": failed_operation_count,
+            },
+            "llm": {
+                "llm_call_count": observation_summary.get("llm_call_count"),
+                "limiter": llm_limiter.config_summary(),
+            },
+            "context_engine": {
+                "actor_review_uses_context_engine": bool(actor_review_settings.get("use_context_engine")),
+                "working_memory_persist_to_redis": bool(actor_review_settings.get("working_memory_persist_to_redis")),
+                "boundary": "RAG knowledge may use Redis; working memory stays in local artifacts and compact prompt context.",
+            },
+            "cache_policy": {
+                "force_reprocess": cache_policy_summary.get("force_reprocess"),
+                "processed_company_count": cache_policy_summary.get("processed_company_count"),
+                "skipped_company_count": cache_policy_summary.get("skipped_company_count"),
+                "fresh_run": cache_policy_summary.get("fresh_run"),
+            },
+            "observability": {
+                "trace_available": observation_summary.get("trace_available"),
+                "record_count": observation_summary.get("record_count"),
+                "failed_operation_count": failed_operation_count,
+                "operation_counts": observation_summary.get("operation_counts"),
+            },
+        },
+        "privacy": "metadata_only_no_prompts_no_raw_rag_context_no_document_text_no_raw_public_pages",
+    }
+
+
 def build_actor_review_context(
     *,
     analyses: list[dict[str, Any]],
@@ -3667,7 +4278,7 @@ def build_actor_review_context(
     active_knowledge: dict[str, Any] | None = None,
     knowledge_rag: dict[str, Any] | None = None,
     actor_rag_context: dict[str, Any] | None = None,
-    max_context_chars: int = 12000,
+    max_context_chars: int = 6000,
 ) -> dict[str, Any]:
     company_summaries = []
     for analysis in analyses:
@@ -3798,6 +4409,216 @@ def build_actor_review_context(
         compact_context["actor_review_focus"] = compact_context["actor_review_focus"][:1]
     compact_context["context_json_chars"] = len(json.dumps(compact_context, default=str))
     return compact_context
+
+
+def _truncate_for_prompt(value: Any, max_chars: int) -> Any:
+    encoded = json.dumps(value, default=str, ensure_ascii=False)
+    if len(encoded) <= max_chars:
+        return value
+    if isinstance(value, dict):
+        truncated: dict[str, Any] = {}
+        per_value_budget = max(200, max_chars // max(len(value), 1))
+        for key, item in value.items():
+            if len(json.dumps(truncated, default=str, ensure_ascii=False)) >= max_chars:
+                break
+            truncated[str(key)] = _truncate_for_prompt(item, per_value_budget)
+        truncated["truncated_for_prompt"] = True
+        return truncated
+    if isinstance(value, list):
+        truncated_items = []
+        per_item_budget = max(200, max_chars // max(min(len(value), 10), 1))
+        for item in value[:10]:
+            truncated_items.append(_truncate_for_prompt(item, per_item_budget))
+            if len(json.dumps(truncated_items, default=str, ensure_ascii=False)) >= max_chars:
+                break
+        return truncated_items
+    text = str(value)
+    return text[: max(0, max_chars - 20)] + " [truncated]"
+
+
+def _context_engine_summary(state: dict[str, Any], max_chars: int) -> dict[str, Any]:
+    summary_keys = {
+        "summary",
+        "compiled",
+        "compiled_context",
+        "context",
+        "compressed",
+        "compressed_context",
+        "messages",
+        "items",
+        "facts",
+    }
+    if not isinstance(state, dict):
+        return {"compiled_context": _truncate_for_prompt(state, max_chars)}
+    selected = {key: value for key, value in state.items() if key in summary_keys}
+    if not selected:
+        selected = dict(state)
+    return _truncate_for_prompt(selected, max_chars)
+
+
+def _local_context_engine_state(context: dict[str, Any], *, run_id: str, max_context_chars: int) -> dict[str, Any]:
+    if WorkingMemory is None or MemoryItem is None:
+        raise RuntimeError("mn_context_engine_sdk local WorkingMemory helpers are unavailable")
+    focus_id = f"{run_id}_vc_actor_review"
+    payload = {
+        "decision_boundary": context.get("decision_boundary"),
+        "company_count": context.get("company_count"),
+        "processed_company_names": context.get("processed_company_names", []),
+        "skipped_company_names": context.get("skipped_company_names", []),
+        "company_summaries": context.get("company_summaries", []),
+        "method_coverage": context.get("method_coverage", {}),
+        "rag_context": {
+            "enabled": (context.get("rag_context") or {}).get("enabled") if isinstance(context.get("rag_context"), dict) else None,
+            "status": (context.get("rag_context") or {}).get("status") if isinstance(context.get("rag_context"), dict) else None,
+            "citation_count": len((context.get("rag_context") or {}).get("citations") or []) if isinstance(context.get("rag_context"), dict) else 0,
+            "citations": ((context.get("rag_context") or {}).get("citations") or [])[:5] if isinstance(context.get("rag_context"), dict) else [],
+        },
+        "output_files": (context.get("output_files") or [])[:10],
+        "privacy_controls": context.get("privacy_controls", {}),
+        "actor_review_focus": context.get("actor_review_focus", [])[:2],
+    }
+    payload = _truncate_for_prompt(payload, max_context_chars)
+    memory = WorkingMemory()
+    item = MemoryItem(
+        type="Fact",
+        status="validated",
+        source=BLUEPRINT_ID,
+        confidence=0.82,
+        content={
+            "goal_id": focus_id,
+            "artifact_type": "vc_actor_review_context",
+            "payload": payload,
+            "source_refs": [
+                item.get("path")
+                for item in context.get("output_files", [])
+                if isinstance(item, dict) and item.get("path")
+            ],
+            "validation": {
+                "review_only": True,
+                "private_document_text_included": False,
+                "persistent_storage": False,
+            },
+        },
+    )
+    memory.add(item)
+    return {
+        "backend": "mn_context_engine_sdk.WorkingMemory",
+        "storage": "in_process_only",
+        "persisted": False,
+        "item_count": len(memory.to_dict().get("items") or []),
+        "compiled_context": _truncate_for_prompt(payload, max_context_chars),
+    }
+
+
+def _bounded_actor_prompt_context(context: dict[str, Any], *, compression: dict[str, Any], max_context_chars: int) -> dict[str, Any]:
+    rag_context = context.get("rag_context") if isinstance(context.get("rag_context"), dict) else {}
+    compressed_state = compression.get("state") if isinstance(compression.get("state"), dict) else {}
+    prompt_context = {
+        "blueprint_id": BLUEPRINT_ID,
+        "output_type": OUTPUT_TYPE,
+        "report_only": True,
+        "decision_boundary": context.get("decision_boundary"),
+        "company_count": context.get("company_count"),
+        "processed_company_names": context.get("processed_company_names", []),
+        "skipped_company_names": context.get("skipped_company_names", []),
+        "company_summaries": context.get("company_summaries", []),
+        "method_coverage": context.get("method_coverage", {}),
+        "rag_context": {
+            "enabled": rag_context.get("enabled"),
+            "status": rag_context.get("status"),
+            "citation_count": len(rag_context.get("citations") or []),
+            "citations": (rag_context.get("citations") or [])[:5],
+        },
+        "output_files": (context.get("output_files") or [])[:10],
+        "privacy_controls": context.get("privacy_controls", {}),
+        "actor_review_focus": context.get("actor_review_focus", [])[:2],
+        "context_compression": {
+            key: value
+            for key, value in compression.items()
+            if key not in {"state"}
+        },
+        "memory_boundary": {
+            "rag_knowledge": "persistent Redis-backed knowledge index",
+            "working_memory": "transient local prompt context; not written to Redis",
+        },
+    }
+    if compressed_state:
+        prompt_context["context_engine_summary"] = _context_engine_summary(compressed_state, max(1000, max_context_chars // 2))
+        prompt_context["company_summaries"] = (prompt_context["company_summaries"] or [])[:5]
+        prompt_context["method_coverage"] = _truncate_for_prompt(prompt_context["method_coverage"], max(800, max_context_chars // 6))
+    encoded = json.dumps(prompt_context, default=str, ensure_ascii=False)
+    if len(encoded) > max_context_chars:
+        prompt_context["company_summaries"] = [
+            {
+                "company_name": item.get("company_name"),
+                "company_slug": item.get("company_slug"),
+                "processing_status": item.get("processing_status"),
+                "composite_score": item.get("composite_score"),
+                "missing_methods": item.get("missing_methods"),
+                "audit_warning_count": item.get("audit_warning_count"),
+            }
+            for item in (prompt_context.get("company_summaries") or [])[:5]
+            if isinstance(item, dict)
+        ]
+        prompt_context["method_coverage"] = _truncate_for_prompt(prompt_context.get("method_coverage", {}), 500)
+        prompt_context["output_files"] = (prompt_context.get("output_files") or [])[:5]
+        prompt_context["actor_review_focus"] = (prompt_context.get("actor_review_focus") or [])[:1]
+    encoded = json.dumps(prompt_context, default=str, ensure_ascii=False)
+    if len(encoded) > max_context_chars:
+        prompt_context["context_engine_summary"] = _truncate_for_prompt(prompt_context.get("context_engine_summary", {}), max(600, max_context_chars // 3))
+    prompt_context["context_json_chars"] = len(json.dumps(prompt_context, default=str, ensure_ascii=False))
+    return prompt_context
+
+
+def prepare_actor_review_prompt_context(
+    *,
+    run_id: str,
+    context: dict[str, Any],
+    config: dict[str, Any],
+    run_dir: Path | None = None,
+) -> dict[str, Any]:
+    settings = actor_review_config(config)
+    max_context_chars = int(settings["max_context_chars"])
+    input_chars = len(json.dumps(context, default=str, ensure_ascii=False))
+    compression: dict[str, Any] = {
+        "enabled": False,
+        "use_context_engine": bool(settings["use_context_engine"]),
+        "working_memory_persist_to_redis": bool(settings["working_memory_persist_to_redis"]),
+        "working_memory_storage": "local_prompt_only",
+        "input_context_chars": input_chars,
+        "token_budget": settings["context_token_budget"],
+        "target_tokens": settings["context_target_tokens"],
+    }
+    if settings["working_memory_persist_to_redis"]:
+        compression["warning"] = "working_memory_persist_to_redis=true is not supported for VC Assistant; using transient local working memory."
+    if not settings["use_context_engine"]:
+        compression["reason"] = "disabled"
+        return _bounded_actor_prompt_context(context, compression=compression, max_context_chars=max_context_chars)
+    with observed_operation(
+        run_dir,
+        phase="context_engine",
+        operation="compile_actor_review_context",
+        input_context_chars=input_chars,
+        token_budget=settings["context_token_budget"],
+        target_tokens=settings["context_target_tokens"],
+    ) as op:
+        try:
+            state = _local_context_engine_state(context, run_id=run_id, max_context_chars=max_context_chars)
+            compression.update({
+                "enabled": True,
+                "state": state if isinstance(state, dict) else {"compiled_context": state},
+                "backend": "mn_context_engine_sdk.WorkingMemory",
+                "persisted": False,
+                "working_memory_storage": "in_process_only",
+            })
+            prompt_context = _bounded_actor_prompt_context(context, compression=compression, max_context_chars=max_context_chars)
+            op.close("completed", enabled=True, persisted=False, output_context_chars=prompt_context["context_json_chars"])
+            return prompt_context
+        except Exception as exc:  # pragma: no cover - depends on optional runtime service
+            compression["warning"] = str(exc)
+            prompt_context = _bounded_actor_prompt_context(context, compression=compression, max_context_chars=max_context_chars)
+            op.close("completed", enabled=False, warning=str(exc), output_context_chars=prompt_context["context_json_chars"])
+            return prompt_context
 
 
 def actor_prompt_spec(actor_id: str) -> dict[str, Any]:
@@ -3951,6 +4772,7 @@ def run_vc_actor_reviews(
 def render_run_summary(analyses: list[dict[str, Any]], queue: list[dict[str, Any]], research_coverage: dict[str, Any], method_coverage: dict[str, Any]) -> str:
     skipped_count = sum(1 for item in queue if item["status"] == "unchanged_skipped")
     processed_count = len(queue) - skipped_count
+    force_reprocess = any(bool((item.get("cache_policy") or {}).get("force_reprocess")) for item in queue)
     lines = [
         "# VC Assistant Run Summary",
         "",
@@ -3959,6 +4781,17 @@ def render_run_summary(analyses: list[dict[str, Any]], queue: list[dict[str, Any
         f"Companies in index: {len(analyses)}",
         f"Companies processed this cycle: {processed_count}",
         f"Unchanged companies skipped: {skipped_count}",
+        f"Force reprocess: {force_reprocess}",
+        "",
+        "## Cache Policy",
+    ]
+    for item in queue:
+        policy = item.get("cache_policy") if isinstance(item.get("cache_policy"), dict) else {}
+        lines.append(
+            f"- {item['company_name']}: {policy.get('freshness') or item['status']} "
+            f"({policy.get('decision') or item['status']}; previous_run_id: {policy.get('previous_run_id') or 'none'})"
+        )
+    lines += [
         "",
         "## Company Scores",
     ]
@@ -3981,6 +4814,7 @@ def write_company_outputs(
     queue: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
     output_files = []
+    queue_by_slug = {item["company_slug"]: item for item in queue}
     for analysis in analyses:
         slug = analysis["company_slug"]
         company_dir = output_folder / slug
@@ -4008,12 +4842,20 @@ def write_company_outputs(
         "blueprint_id": BLUEPRINT_ID,
         "generated_at": utc_now_iso(),
         "report_only": True,
+        "cache_policy": build_cache_policy_summary(
+            queue,
+            processed_company_names=[item["company_name"] for item in queue if item["status"] != "unchanged_skipped"],
+            skipped_company_names=[item["company_name"] for item in queue if item["status"] == "unchanged_skipped"],
+        ),
         "companies": [
             {
                 "company_name": analysis["company_name"],
                 "company_slug": analysis["company_slug"],
                 "composite_score": analysis["composite_score"],
                 "missing_methods": analysis["evidence_summary"]["missing_methods"],
+                "processing_status": analysis.get("processing_status"),
+                "cached_from_previous_run": bool(analysis.get("cached_from_previous_run")),
+                "cache_policy": analysis.get("cache_policy") or (queue_by_slug.get(analysis["company_slug"]) or {}).get("cache_policy"),
             }
             for analysis in analyses
         ],
@@ -4026,7 +4868,11 @@ def write_company_outputs(
     write_json(output_folder / "method_coverage.json", method_coverage)
     index_lines = ["# VC Heuristic Company Index", "", "Report-only score summaries. The user decides what to do next.", ""]
     for item in index["companies"]:
-        index_lines.append(f"- {item['company_name']}: composite score {item['composite_score']}")
+        policy = item.get("cache_policy") if isinstance(item.get("cache_policy"), dict) else {}
+        index_lines.append(
+            f"- {item['company_name']}: composite score {item['composite_score']} "
+            f"({policy.get('freshness') or item.get('processing_status')})"
+        )
     (output_folder / "company_index.md").write_text("\n".join(index_lines) + "\n", encoding="utf-8")
     (output_folder / "run_summary.md").write_text(render_run_summary(analyses, queue, research_coverage, method_coverage), encoding="utf-8")
     output_files.extend([
@@ -4070,6 +4916,12 @@ def process_company_packet(
             cached_analysis["processing_status"] = "unchanged_skipped"
             cached_analysis["cached_from_previous_run"] = True
             cached_analysis["research_reconciliation"] = reconciliation
+            cached_analysis["cache_policy"] = {
+                **(queue_item.get("cache_policy") or {}),
+                "cache_source": "watch_state_and_company_artifacts",
+                "freshness": "unchanged_cached",
+                "decision": "reuse_cached_outputs",
+            }
             if "research_plan" not in cached_analysis:
                 internet = resolved_config.get("internet_research") if isinstance(resolved_config.get("internet_research"), dict) else {}
                 cached_analysis["research_plan"] = build_adaptive_research_plan(company, records, internet)
@@ -4100,11 +4952,16 @@ def process_company_packet(
         agent_tool_trace=agent_tool_trace,
         knowledge_rag=knowledge_rag,
     )
-    append_financial_tool_research(company, records, research_ledger, action_budget=action_budget)
+    append_financial_tool_research(company, records, research_ledger, action_budget=action_budget, run_dir=run_dir)
     reconciliation = reconcile_research(records, research_ledger)
     analysis = build_company_analysis(company, records, research_ledger, scoring_workers=scoring_worker_count(resolved_config))
     analysis["processing_status"] = "new_or_changed"
     analysis["cached_from_previous_run"] = False
+    analysis["cache_policy"] = {
+        **(queue_item.get("cache_policy") or {}),
+        "cache_source": "",
+        "decision": "process_company_packet",
+    }
     analysis["research_reconciliation"] = reconciliation
     analysis["research_plan"] = research_plan
     analysis["agent_tool_trace"] = agent_tool_trace
@@ -4141,6 +4998,8 @@ def run_blueprint(
     run_id: str | None = None,
     llm_client: Any | None = None,
 ) -> dict[str, Any]:
+    run_started_monotonic = time.monotonic()
+    run_started_at = utc_now_iso()
     start_agent_beacon_thread(f"{BLUEPRINT_NAME} is running")
     blueprint_dir = Path(__file__).resolve().parents[3]
     resolved_config = load_resolved_config(blueprint_dir / "config" / "default.json", config)
@@ -4163,10 +5022,11 @@ def run_blueprint(
     )
     monitoring = dict(payload.get("monitoring") or {})
     max_cycles = int(monitoring.get("max_cycles") or 1)
+    force_reprocess = force_reprocess_enabled(payload, resolved_config)
 
     write_json(run_dir / "config.json", resolved_config)
-    write_json(run_dir / "inputs.json", {"payload": payload, "document_folder": str(document_folder)})
-    write_json(run_dir / "run.json", {"run_id": run_id, "blueprint_id": BLUEPRINT_ID, "status": "running", "started_at": utc_now_iso()})
+    write_json(run_dir / "inputs.json", {"payload": payload, "document_folder": str(document_folder), "force_reprocess": force_reprocess})
+    write_json(run_dir / "run.json", {"run_id": run_id, "blueprint_id": BLUEPRINT_ID, "status": "running", "started_at": run_started_at})
     try:
         with observed_operation(run_dir, phase="llm_init", operation="actor_llm.init"):
             llm = BudgetedLLM(
@@ -4220,7 +5080,7 @@ def run_blueprint(
     if not company_records:
         company_records = {"Sample Startup": []}
     previous_state = load_watch_state(output_folder)
-    company_work_queue = build_company_work_queue(company_records, previous_state)
+    company_work_queue = build_company_work_queue(company_records, previous_state, force_reprocess=force_reprocess)
     write_json(output_folder / "company_work_queue.json", company_work_queue)
     write_json(run_dir / "company_work_queue.json", company_work_queue)
     queue_by_company = {item["company_name"]: item for item in company_work_queue}
@@ -4268,7 +5128,7 @@ def run_blueprint(
     processed_company_names = [item["company_name"] for item in company_results if item["processed"]]
     skipped_company_names = [item["company_name"] for item in company_results if item["skipped"]]
     output_files = write_company_outputs(output_folder, analyses, company_records, research_ledgers, company_work_queue)
-    watch_state = update_watch_state(output_folder, run_dir, company_work_queue)
+    watch_state = update_watch_state(output_folder, run_dir, company_work_queue, run_id=run_id)
     append_event(run_dir, "startup_folder_watcher_completed", {"company_count": len(company_records)})
     append_event(run_dir, "company_packet_grouper_completed", {"company_count": len(company_work_queue)})
     append_event(
@@ -4292,6 +5152,11 @@ def run_blueprint(
     append_event(run_dir, "watch_cycle_completed", {"cycle": 1, "companies": len(company_records)})
     research_coverage = build_research_coverage(research_ledgers)
     method_coverage = build_method_coverage(analyses)
+    cache_policy_summary = build_cache_policy_summary(
+        company_work_queue,
+        processed_company_names=processed_company_names,
+        skipped_company_names=skipped_company_names,
+    )
     actor_rag_context = retrieve_knowledge_rag_context(
         knowledge_rag=knowledge_rag,
         query=(
@@ -4316,6 +5181,12 @@ def run_blueprint(
         actor_rag_context=actor_rag_context,
         max_context_chars=actor_review_settings["max_context_chars"],
     )
+    actor_prompt_context = prepare_actor_review_prompt_context(
+        run_id=run_id,
+        context=actor_context,
+        config=resolved_config,
+        run_dir=run_dir,
+    )
     actor_specs = resolve_actor_specs(resolved_config)
     actor_ids = [actor_id for actor_id in WORKFLOW_STEP_IDS if actor_id in actor_specs]
     actor_state: dict[str, Any] = {}
@@ -4326,7 +5197,7 @@ def run_blueprint(
             llm=llm,
             actor_ids=actor_ids,
             state=actor_state,
-            context=actor_context,
+            context=actor_prompt_context,
             knowledge_rag=knowledge_rag,
             event_sink=run_dir,
         )
@@ -4361,6 +5232,30 @@ def run_blueprint(
             }
         )
     action_ledger = action_budget.summary(include_actions=True)
+    artifact_quality = build_artifact_quality_report(
+        analyses=analyses,
+        company_records=company_records,
+        research_ledgers=research_ledgers,
+        output_files=output_files,
+        knowledge_rag=knowledge_rag,
+        actor_findings=actor_findings,
+        actor_review_settings=actor_review_settings,
+    )
+    observation_summary = observation_trace_summary(run_dir)
+    run_health = build_run_health_report(
+        run_id=run_id,
+        started_at=run_started_at,
+        elapsed_ms=(time.monotonic() - run_started_monotonic) * 1000,
+        artifact_quality=artifact_quality,
+        observation_summary=observation_summary,
+        action_ledger=action_ledger,
+        knowledge_rag=knowledge_rag,
+        research_ledgers=research_ledgers,
+        cache_policy_summary=cache_policy_summary,
+        actor_review_warnings=actor_review_warnings,
+        actor_review_settings=actor_review_settings,
+        llm_limiter=llm_limiter,
+    )
     budget_warnings = []
     if action_ledger["exhausted"]:
         budget_warnings.append(
@@ -4383,7 +5278,7 @@ def run_blueprint(
             "Check insufficient_evidence method sections and add source documents where needed.",
             "Use public source refs only as context; verify material claims independently.",
         ],
-        "source_refs": ["inputs.json", "events.jsonl", "llm_rag_trace.jsonl", "result.json", "final_artifact.json", "action_ledger.json", "company_index.json", KNOWLEDGE_PLAYBOOK_RELATIVE_PATH],
+        "source_refs": ["inputs.json", "events.jsonl", "llm_rag_trace.jsonl", "result.json", "final_artifact.json", "action_ledger.json", "artifact_quality.json", "run_health.json", "company_index.json", KNOWLEDGE_PLAYBOOK_RELATIVE_PATH],
         "active_knowledge": active_knowledge_ref,
         "knowledge_rag": public_knowledge_rag_state(knowledge_rag),
         "research_summary": {
@@ -4403,7 +5298,16 @@ def run_blueprint(
         "method_ids": METHOD_IDS,
         "workflow_step_ids": WORKFLOW_STEP_IDS,
         "company_work_queue": company_work_queue,
+        "cache_policy": cache_policy_summary,
         "method_coverage": method_coverage,
+        "artifact_quality": artifact_quality,
+        "run_health": {
+            "status": run_health["status"],
+            "warning_count": len(run_health["warnings"]),
+            "failure_count": len(run_health["failures"]),
+            "elapsed_ms": run_health["elapsed_ms"],
+            "artifact": "run_health.json",
+        },
         "parallel_execution": {
             "max_company_workers": max_company_workers,
             "max_stage_workers": bounded_int((resolved_config.get("internet_research") or {}).get("max_stage_workers"), default=len(RESEARCH_STAGE_IDS), maximum=len(RESEARCH_STAGE_IDS)),
@@ -4415,6 +5319,21 @@ def run_blueprint(
             "llm_actor_ids": actor_review_settings["llm_actor_ids"],
             "max_context_chars": actor_review_settings["max_context_chars"],
             "context_json_chars": actor_context.get("context_json_chars"),
+            "prompt_context_json_chars": actor_prompt_context.get("context_json_chars"),
+            "context_compression": actor_prompt_context.get("context_compression"),
+        },
+        "observability": observation_summary,
+        "memory_boundary": {
+            "rag_knowledge": {
+                "storage": "redis_vector_index",
+                "purpose": "durable playbook and method knowledge used to do the VC job",
+                "namespace": (knowledge_rag.get("config") or {}).get("namespace") if isinstance(knowledge_rag.get("config"), dict) else "",
+            },
+            "working_memory": {
+                "storage": "local_artifacts_and_prompt_context",
+                "persist_to_redis": False,
+                "purpose": "transient browser/tool observations and actor-review context",
+            },
         },
         "monitor_state": {
             "mode": "folder_monitoring",
@@ -4432,7 +5351,13 @@ def run_blueprint(
     root_output_files = [
         {"kind": "final_artifact_json", "path": str(output_folder / "final_artifact.json")},
         {"kind": "action_ledger_json", "path": str(output_folder / "action_ledger.json")},
+        {"kind": "artifact_quality_json", "path": str(output_folder / "artifact_quality.json")},
+        {"kind": "run_health_json", "path": str(output_folder / "run_health.json")},
     ]
+    trace_path = run_dir / "llm_rag_trace.jsonl"
+    trace_output_path = output_folder / "llm_rag_trace.jsonl"
+    if trace_path.exists():
+        root_output_files.append({"kind": "llm_rag_trace_jsonl", "path": str(trace_output_path)})
     final_artifact["output_files"] = [*output_files, *root_output_files]
     result = {"run_id": run_id, "blueprint_id": BLUEPRINT_ID, "status": "completed", "final_artifact": final_artifact}
 
@@ -4442,15 +5367,25 @@ def run_blueprint(
     with observed_operation(run_dir, phase="writing_artifacts", operation="write_final_outputs", output_file_count=len(final_artifact["output_files"])):
         write_json(output_folder / "final_artifact.json", final_artifact)
         write_json(output_folder / "action_ledger.json", action_ledger)
+        write_json(output_folder / "artifact_quality.json", artifact_quality)
+        write_json(output_folder / "run_health.json", run_health)
         write_json(run_dir / "result.json", result)
         write_json(run_dir / "final_artifact.json", final_artifact)
         write_json(run_dir / "action_ledger.json", action_ledger)
+        write_json(run_dir / "artifact_quality.json", artifact_quality)
+        write_json(run_dir / "run_health.json", run_health)
     append_event(run_dir, "artifact_written", {"path": str(output_folder / "final_artifact.json")})
     append_event(run_dir, "artifact_written", {"path": str(output_folder / "action_ledger.json")})
+    append_event(run_dir, "artifact_written", {"path": str(output_folder / "artifact_quality.json")})
+    append_event(run_dir, "artifact_written", {"path": str(output_folder / "run_health.json")})
     append_event(run_dir, "artifact_written", {"path": "result.json"})
     append_event(run_dir, "artifact_written", {"path": "final_artifact.json"})
     append_event(run_dir, "artifact_written", {"path": "action_ledger.json"})
-    if (run_dir / "llm_rag_trace.jsonl").exists():
+    append_event(run_dir, "artifact_written", {"path": "artifact_quality.json"})
+    append_event(run_dir, "artifact_written", {"path": "run_health.json"})
+    if trace_path.exists():
+        shutil.copyfile(trace_path, trace_output_path)
+        append_event(run_dir, "artifact_written", {"path": str(trace_output_path)})
         append_event(run_dir, "artifact_written", {"path": "llm_rag_trace.jsonl"})
     append_event(run_dir, "blueprint_phase_completed", {"phase": "writing_artifacts", "component": BLUEPRINT_ID})
     append_event(run_dir, "blueprint_phase_completed", {"phase": "completed", "component": BLUEPRINT_ID})
@@ -4501,12 +5436,15 @@ def main() -> None:
     parser.add_argument("--output-folder", default="")
     parser.add_argument("--runs-root", default="")
     parser.add_argument("--run-id", default="")
+    parser.add_argument("--force-reprocess", action="store_true")
     args = parser.parse_args()
     inputs: dict[str, Any] = {}
     if args.input_folder:
         inputs["document_folder"] = args.input_folder
     if args.output_folder:
         inputs["output_folder"] = args.output_folder
+    if args.force_reprocess:
+        inputs["force_reprocess"] = True
     step_id = os.environ.get("MN_WORKFLOW_STEP_ID", "").strip()
     if step_id:
         result = run_runtime_step(step_id, inputs=inputs, runs_root=args.runs_root or None, run_id=args.run_id or None)
@@ -4518,7 +5456,7 @@ def main() -> None:
     if "runtime_step_mode" in result:
         printable["runtime_step_mode"] = result["runtime_step_mode"]
     if "final_artifact" in result:
-        printable["final_artifact"] = result["final_artifact"]
+        printable["final_artifact"] = final_artifact_for_transport(result["final_artifact"]) if step_id else result["final_artifact"]
     print(json.dumps(printable, indent=2))
 
 

@@ -524,6 +524,24 @@
     "max_cycles": 1,
     "processed_state_file": "watch_state.json"
   },
+  "cache_policy": {
+    "enabled": true,
+    "force_reprocess": false,
+    "freshness_fields": [
+      "fingerprint",
+      "previous_fingerprint",
+      "previous_run_id",
+      "cache_source",
+      "freshness",
+      "decision"
+    ],
+    "force_reprocess_inputs": [
+      "force_reprocess",
+      "cache_policy.force_reprocess",
+      "VC_ASSISTANT_FORCE_REPROCESS",
+      "MN_BLUEPRINT_FORCE_REPROCESS"
+    ]
+  },
   "execution": {
     "max_company_workers": 1,
     "deterministic_output_order": "company_slug",
@@ -609,7 +627,7 @@
     }
   },
   "agentic_research": {
-    "enabled": true,
+    "enabled": false,
     "agent_ids": [
       "research_planner",
       "company_identity_researcher",
@@ -626,7 +644,9 @@
       "rendered_browser_page",
       "finish"
     ],
-    "quick_test_behavior": "disabled_for_default_smoke_run"
+    "quick_test_behavior": "disabled_for_default_smoke_run",
+    "default_mode": "deterministic_public_tool_research",
+    "note": "Live LLM tool-decision loops are opt-in; default batch research uses bounded deterministic public tool calls so browser failures remain warnings."
   },
   "financial_tools": {
     "enabled": true,
@@ -737,7 +757,7 @@
   "budgets": {
     "max_runtime_seconds": 900,
     "max_public_queries": 1000,
-    "default_action_budget": 1000
+    "default_action_budget": 80
   },
   "agent_handoffs": [
     "startup_folder_watcher_to_company_packet_grouper",
@@ -840,7 +860,9 @@
           "events.jsonl",
           "result.json",
           "final_artifact.json",
-          "action_ledger.json"
+          "action_ledger.json",
+          "artifact_quality.json",
+          "run_health.json"
         ],
         "optional_artifacts": [
           "job.json",
@@ -882,6 +904,8 @@
           "result.json",
           "final_artifact.json",
           "action_ledger.json",
+          "artifact_quality.json",
+          "run_health.json",
           "company_index.json",
           "company_index.md",
           "*/analysis.json",
@@ -930,6 +954,7 @@
       "capabilities",
       "privacy",
       "triggers",
+      "cache_policy",
       "execution",
       "research_budget",
       "financial_tools",
@@ -972,6 +997,7 @@
       "capabilities",
       "privacy",
       "triggers",
+      "cache_policy",
       "execution",
       "research_budget",
       "financial_tools",
@@ -1018,7 +1044,9 @@
       "events.jsonl",
       "result.json",
       "final_artifact.json",
-      "action_ledger.json"
+      "action_ledger.json",
+      "artifact_quality.json",
+      "run_health.json"
     ],
     "run_artifacts": [
       "run.json",
@@ -1027,7 +1055,9 @@
       "events.jsonl",
       "result.json",
       "final_artifact.json",
-      "action_ledger.json"
+      "action_ledger.json",
+      "artifact_quality.json",
+      "run_health.json"
     ],
     "optional_outputs": [
       "job.json",
@@ -1080,6 +1110,7 @@
     "extra_index_url": "https://pypi.org/simple",
     "packages": [
       "mirrorneuron-blueprint-support-skill",
+      "mirrorneuron-membrane-python-sdk",
       "mirrorneuron-llm-ocr-skill",
       "mirrorneuron-rag-skill",
       "mirrorneuron-w3m-browser-skill",
@@ -1118,6 +1149,10 @@
       "company_report_writer",
       "batch_index_writer"
     ],
-    "max_context_chars": 12000
+    "max_context_chars": 6000,
+    "use_context_engine": true,
+    "working_memory_persist_to_redis": false,
+    "context_token_budget": 3000,
+    "context_target_tokens": 1200
   }
 }
