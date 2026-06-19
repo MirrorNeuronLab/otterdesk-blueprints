@@ -715,6 +715,28 @@ def prepare_knowledge_rag(
                 "required": False,
             },
         }
+    if quick_test_mode_enabled(resolved_config):
+        return {
+            "enabled": False,
+            "status": "disabled",
+            "required": False,
+            "warnings": [
+                {
+                    "kind": "knowledge_rag",
+                    "status": "disabled_for_quick_test",
+                    "message": "Knowledge RAG embedding calls are disabled during quick-test runs; bundled static VC knowledge was used instead.",
+                }
+            ],
+            "config": {
+                "namespace": raw.get("namespace", ""),
+                "embedding_provider": raw.get("embedding_provider", ""),
+                "embedding_model": raw.get("embedding_model", ""),
+                "top_k": raw.get("top_k", 5),
+                "max_context_chars": raw.get("max_context_chars", 6000),
+                "index_on_startup": raw.get("index_on_startup", True),
+                "required": False,
+            },
+        }
     if not bool(raw.get("enabled", True)):
         return {
             "enabled": False,

@@ -15,7 +15,7 @@ COPY build_context/w3m_browser_skill /tmp/mn-skills/w3m_browser_skill
 COPY build_context/web_browser_skill /tmp/mn-skills/web_browser_skill
 COPY requirements.txt /tmp/mn-skill-runtime/requirements.txt
 
-RUN python3 -m pip install --break-system-packages --no-cache-dir \
+RUN python3 -m pip install -q --break-system-packages --no-cache-dir \
     /tmp/mn-skills/blueprint_support_skill \
     /tmp/mn-skills/llm_ocr_skill \
     /tmp/mn-skills/rag_skill \
@@ -23,7 +23,7 @@ RUN python3 -m pip install --break-system-packages --no-cache-dir \
     /tmp/mn-skills/web_browser_skill
 
 RUN if [ -s /tmp/mn-skill-runtime/requirements.txt ]; then \
-      python3 -m pip install --break-system-packages --no-cache-dir -r /tmp/mn-skill-runtime/requirements.txt; \
+      python3 -m pip install -q --break-system-packages --no-cache-dir -r /tmp/mn-skill-runtime/requirements.txt; \
     fi
 
 RUN python3 -c 'from mn_context_engine_sdk import MemoryItem, WorkingMemory'
