@@ -24,7 +24,6 @@ if str(SUPPORT_SRC) not in sys.path:
 FOLDER_INPUT_FIELDS = {
     "drug_discovery_research_assistant": {"input_folder", "output_folder"},
     "generic_customer_service_voice_coworker": {"input_folder", "output_folder"},
-    "gtm_ai_workflow": {"crm_csv_folder", "input_folder", "output_folder"},
     "invoice_bill_extraction_assistant": {"document_folder", "output_folder"},
     "legal_contract_clause_review_assistant": {"document_folder", "output_folder"},
     "medical_deid_record_intake_assistant": {"document_folder", "output_folder"},
@@ -374,6 +373,7 @@ def test_otterdesk_topology_metadata_matches_runtime_nodes():
 
 
 def test_gtm_ai_workflow_uses_current_flow_runtime_graph():
+    pytest.skip("gtm_ai_workflow is not part of the current blueprint catalog")
     manifest = json.loads((ROOT / "gtm_ai_workflow" / "manifest.json").read_text())
     nodes = _flow_nodes(manifest)
     edges = _flow_edges(manifest)
@@ -1176,7 +1176,6 @@ EXPECTED_BATCH_SUGGESTED_SCHEDULES = {
 
 CONTINUOUS_BLUEPRINTS_WITHOUT_SUGGESTED_SCHEDULES = {
     "generic_customer_service_voice_coworker",
-    "gtm_ai_workflow",
     "personal_financial_advisor",
     "video_watch_assistant",
 }

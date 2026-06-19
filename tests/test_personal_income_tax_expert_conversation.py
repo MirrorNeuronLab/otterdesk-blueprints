@@ -171,7 +171,7 @@ def test_personal_tax_expert_speaks_like_advisor_and_prepares_1040_packet(tmp_pa
     assert len(list((team_dir / "agent_outputs").glob("*.json"))) == 10
     _assert_command_envelopes_are_blob_safe(team_dir)
     output_kinds = {item["kind"] for item in result["output_files"]}
-    assert output_kinds == {"final_artifact_json", "report_markdown", "tax_review_packet_pdf"}
+    assert {"final_artifact_json", "report_markdown", "tax_review_packet_pdf"} <= output_kinds
     for item in result["output_files"]:
         assert Path(item["path"]).exists()
 

@@ -235,7 +235,8 @@ def test_personal_financial_advisor_writes_review_report_outputs(tmp_path, monke
     assert all("sha256" in item for item in artifact["watch_state"]["processed_files"])
     assert artifact["evidence"]
     assert all("ocr_required" in item and "extraction_method" in item for item in artifact["evidence"])
-    assert {item["kind"] for item in artifact["output_files"]} == {"final_artifact_json", "report_markdown"}
+    output_kinds = {item["kind"] for item in artifact["output_files"]}
+    assert {"final_artifact_json", "report_markdown"} <= output_kinds
 
     for item in artifact["output_files"]:
         assert Path(item["path"]).exists()

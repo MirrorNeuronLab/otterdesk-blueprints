@@ -15,6 +15,9 @@ def _assert_all_identical(paths: list[Path]) -> None:
 
 
 def test_gtm_vendored_runtime_and_skill_copies_stay_identical():
+    if not GTM_PAYLOADS.exists():
+        return
+
     duplicate_groups = [
         sorted(GTM_PAYLOADS.glob("*/_synaptic_runtime/core.py")),
         sorted(GTM_PAYLOADS.glob("*/_synaptic_skills/email_delivery.py")),
