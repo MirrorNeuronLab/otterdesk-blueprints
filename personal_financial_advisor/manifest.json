@@ -10,19 +10,19 @@
       "type": "pip",
       "source": "gar",
       "name": "mirrorneuron-blueprint-support-skill",
-      "version": "1.2.6"
+      "version": "1.2.7"
     },
     {
       "type": "pip",
       "source": "gar",
       "name": "mirrorneuron-llm-ocr-skill",
-      "version": "1.2.6"
+      "version": "1.2.7"
     },
     {
       "type": "pip",
       "source": "gar",
       "name": "mirrorneuron-w3m-browser-skill",
-      "version": "1.2.6"
+      "version": "1.2.7"
     }
   ],
   "description": "A personal finance co-worker that monitors a local document folder. Put statements, receipts, bills, income records, images, text, JSON, or CSV files in the input folder; it OCRs and organizes the evidence, performs privacy-safe public research where useful, and writes review-only household finance summaries, risks, reminders, and source-grounded reports to the output folder.",

@@ -461,12 +461,12 @@ def test_vc_assistant_runtime_requirements_install_skills_with_pip():
     assert requirements == [
         "--index-url https://us-central1-python.pkg.dev/mirrorneuron-public-packages/agent-skills/simple/",
         "--extra-index-url https://pypi.org/simple",
-        "mirrorneuron-blueprint-support-skill",
+        "mirrorneuron-blueprint-support-skill==1.2.7",
         "mirrorneuron-membrane-python-sdk",
-        "mirrorneuron-llm-ocr-skill",
-        "mirrorneuron-rag-skill",
-        "mirrorneuron-w3m-browser-skill",
-        "mirrorneuron-web-browser-skill",
+        "mirrorneuron-llm-ocr-skill==1.2.7",
+        "mirrorneuron-rag-skill==1.2.7",
+        "mirrorneuron-w3m-browser-skill==1.2.7",
+        "mirrorneuron-web-browser-skill==1.2.7",
     ]
 
 

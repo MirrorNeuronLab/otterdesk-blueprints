@@ -10,31 +10,31 @@
       "type": "pip",
       "source": "gar",
       "name": "mirrorneuron-blueprint-support-skill",
-      "version": "1.2.6"
+      "version": "1.2.7"
     },
     {
       "type": "pip",
       "source": "gar",
       "name": "mirrorneuron-llm-ocr-skill",
-      "version": "1.2.6"
+      "version": "1.2.7"
     },
     {
       "type": "pip",
       "source": "gar",
       "name": "mirrorneuron-rag-skill",
-      "version": "1.2.6"
+      "version": "1.2.7"
     },
     {
       "type": "pip",
       "source": "gar",
       "name": "mirrorneuron-w3m-browser-skill",
-      "version": "1.2.6"
+      "version": "1.2.7"
     },
     {
       "type": "pip",
       "source": "gar",
       "name": "mirrorneuron-web-browser-skill",
-      "version": "1.2.6"
+      "version": "1.2.7"
     }
   ],
   "description": "A VC analysis co-worker for early startup screening reports. Put pitch decks, memos, financial snippets, company folders, or other startup documents in the input folder; it groups documents by company, performs privacy-safe public research, applies seven VC heuristic scoring methods, audits the math and evidence, and writes score-only per-company reports and batch indexes to the output folder.",

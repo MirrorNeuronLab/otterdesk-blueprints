@@ -10,7 +10,7 @@
       "type": "pip",
       "source": "gar",
       "name": "mirrorneuron-blueprint-support-skill",
-      "version": "1.2.6"
+      "version": "1.2.7"
     }
   ],
   "description": "A property deal research co-worker for comparing real-estate opportunities. Give it a target ZIP code, price ceiling, deal history, memory policy, optional broker notes, financing constraints, and an input folder for supporting files; it researches and scores opportunities, explains tradeoffs, and writes ranked review artifacts to the output folder.",

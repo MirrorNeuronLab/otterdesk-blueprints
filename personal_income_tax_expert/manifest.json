@@ -10,13 +10,13 @@
       "type": "pip",
       "source": "gar",
       "name": "mirrorneuron-blueprint-support-skill",
-      "version": "1.2.6"
+      "version": "1.2.7"
     },
     {
       "type": "pip",
       "source": "gar",
       "name": "mirrorneuron-llm-ocr-skill",
-      "version": "1.2.6"
+      "version": "1.2.7"
     }
   ],
   "description": "A personal tax preparation co-worker for draft review packets. Put W-2s, 1099s, brokerage statements, receipts, and other tax documents in the input folder; it extracts tax evidence, prepares draft Form 1040 workpapers, runs specialist and manager reviews, and writes JSON, Markdown, and PDF review outputs to the output folder for human review before filing.",

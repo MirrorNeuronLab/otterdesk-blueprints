@@ -10,13 +10,13 @@
       "type": "pip",
       "source": "gar",
       "name": "mirrorneuron-blueprint-support-skill",
-      "version": "1.2.6"
+      "version": "1.2.7"
     },
     {
       "type": "pip",
       "source": "gar",
       "name": "mirrorneuron-llm-ocr-skill",
-      "version": "1.2.6"
+      "version": "1.2.7"
     }
   ],
   "description": "A medical de-identification co-worker for privacy review. Put clinical-style PDFs, labels, or bounding-box files in the input folder; it detects PHI/PII, extracts record fields, notes redaction risks, and writes a review-gated de-identification packet with evidence and warnings to the output folder.",

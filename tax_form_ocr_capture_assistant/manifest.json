@@ -10,13 +10,13 @@
       "type": "pip",
       "source": "gar",
       "name": "mirrorneuron-blueprint-support-skill",
-      "version": "1.2.6"
+      "version": "1.2.7"
     },
     {
       "type": "pip",
       "source": "gar",
       "name": "mirrorneuron-llm-ocr-skill",
-      "version": "1.2.6"
+      "version": "1.2.7"
     }
   ],
   "description": "A tax-form OCR co-worker for structured intake review. Put tax form images, PDFs, answer files, or field-context tables in the input folder; it classifies forms, locates fields, captures taxpayer and line-item values, validates totals, and writes a review-only tax capture packet to the output folder.",

@@ -624,7 +624,7 @@
       "type": "pip",
       "source": "gar",
       "name": "mirrorneuron-websocket-stream-skill",
-      "version": "1.2.6"
+      "version": "1.2.7"
     }
   ],
   "metadata": {

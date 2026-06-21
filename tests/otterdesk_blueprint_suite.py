@@ -188,7 +188,7 @@ GPU_WORKER_DEVICE_REQUIREMENT = {
 }
 
 
-SKILL_DEPENDENCY_VERSION = "1.2.6"
+SKILL_DEPENDENCY_VERSION = "1.2.7"
 IMPORT_MARKER_PACKAGES = {
     "mn_blueprint_support": "mirrorneuron-blueprint-support-skill",
     "mn_llm_ocr_skill": "mirrorneuron-llm-ocr-skill",
