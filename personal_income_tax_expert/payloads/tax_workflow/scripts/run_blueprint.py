@@ -27,6 +27,8 @@ def _workspace_root() -> Path | None:
 
 
 def _add_repo_paths() -> None:
+    if os.environ.get("MN_USE_LOCAL_SKILLS", "").strip().lower() not in {"1", "true", "yes"}:
+        return
     skill_roots = []
     if os.environ.get("MN_SKILLS_ROOT"):
         skill_roots.append(Path(os.environ["MN_SKILLS_ROOT"]).expanduser())

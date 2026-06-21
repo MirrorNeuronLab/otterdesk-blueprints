@@ -5,6 +5,20 @@
   "name": "Tax Form OCR Capture Assistant",
   "version": "1.0.0",
   "manifest_version": "1.0",
+  "skill_dependencies": [
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mirrorneuron-blueprint-support-skill",
+      "version": "1.2.6"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mirrorneuron-llm-ocr-skill",
+      "version": "1.2.6"
+    }
+  ],
   "description": "A tax-form OCR co-worker for structured intake review. Put tax form images, PDFs, answer files, or field-context tables in the input folder; it classifies forms, locates fields, captures taxpayer and line-item values, validates totals, and writes a review-only tax capture packet to the output folder.",
   "job_name": "tax-form-ocr-capture-assistant",
   "contract": {

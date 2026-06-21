@@ -810,6 +810,14 @@
   "kind": "Workflow",
   "license": "LICENSE.md",
   "manifest_version": "1.0",
+  "skill_dependencies": [
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mirrorneuron-blueprint-support-skill",
+      "version": "1.2.6"
+    }
+  ],
   "metadata": {
     "agent_role": "LLM report writer that summarizes supplied market signals and structured simulation evidence; deterministic finance workers propose, simulate, evaluate, and benchmark decisions.",
     "agent_templates": {

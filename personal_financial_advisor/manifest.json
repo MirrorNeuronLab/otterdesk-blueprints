@@ -5,6 +5,26 @@
   "name": "Personal Financial Advisor",
   "version": "1.0.0",
   "manifest_version": "1.0",
+  "skill_dependencies": [
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mirrorneuron-blueprint-support-skill",
+      "version": "1.2.6"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mirrorneuron-llm-ocr-skill",
+      "version": "1.2.6"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mirrorneuron-w3m-browser-skill",
+      "version": "1.2.6"
+    }
+  ],
   "description": "A personal finance co-worker that monitors a local document folder. Put statements, receipts, bills, income records, images, text, JSON, or CSV files in the input folder; it OCRs and organizes the evidence, performs privacy-safe public research where useful, and writes review-only household finance summaries, risks, reminders, and source-grounded reports to the output folder.",
   "job_name": "personal-financial-advisor",
   "contract": {
@@ -907,24 +927,7 @@
           "output_message_type": "financial_market_researcher_completed",
           "idempotent": true,
           "side_effect": "network_read",
-          "safe_to_retry": true,
-          "build_context_upload_paths": [
-            {
-              "base": "skills_root",
-              "source": "blueprint_support_skill",
-              "target": "document_workflow/docker_worker/build_context/blueprint_support_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "llm_ocr_skill",
-              "target": "document_workflow/docker_worker/build_context/llm_ocr_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "w3m_browser_skill",
-              "target": "document_workflow/docker_worker/build_context/w3m_browser_skill"
-            }
-          ]
+          "safe_to_retry": true
         }
       },
       {
@@ -1430,24 +1433,7 @@
             "docker_worker_image": "document_workflow/docker_worker",
             "idempotent": true,
             "side_effect": "network_read",
-            "safe_to_retry": true,
-            "build_context_upload_paths": [
-              {
-                "base": "skills_root",
-                "source": "blueprint_support_skill",
-                "target": "document_workflow/docker_worker/build_context/blueprint_support_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "llm_ocr_skill",
-                "target": "document_workflow/docker_worker/build_context/llm_ocr_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "w3m_browser_skill",
-                "target": "document_workflow/docker_worker/build_context/w3m_browser_skill"
-              }
-            ]
+            "safe_to_retry": true
           }
         },
         {
@@ -1715,24 +1701,7 @@
               "docker_worker_image": "document_workflow/docker_worker",
               "idempotent": true,
               "side_effect": "network_read",
-              "safe_to_retry": true,
-              "build_context_upload_paths": [
-                {
-                  "base": "skills_root",
-                  "source": "blueprint_support_skill",
-                  "target": "document_workflow/docker_worker/build_context/blueprint_support_skill"
-                },
-                {
-                  "base": "skills_root",
-                  "source": "llm_ocr_skill",
-                  "target": "document_workflow/docker_worker/build_context/llm_ocr_skill"
-                },
-                {
-                  "base": "skills_root",
-                  "source": "w3m_browser_skill",
-                  "target": "document_workflow/docker_worker/build_context/w3m_browser_skill"
-                }
-              ]
+              "safe_to_retry": true
             }
           },
           "rendered_node": {
@@ -1781,24 +1750,7 @@
               "output_message_type": "financial_market_researcher_completed",
               "idempotent": true,
               "side_effect": "network_read",
-              "safe_to_retry": true,
-              "build_context_upload_paths": [
-                {
-                  "base": "skills_root",
-                  "source": "blueprint_support_skill",
-                  "target": "document_workflow/docker_worker/build_context/blueprint_support_skill"
-                },
-                {
-                  "base": "skills_root",
-                  "source": "llm_ocr_skill",
-                  "target": "document_workflow/docker_worker/build_context/llm_ocr_skill"
-                },
-                {
-                  "base": "skills_root",
-                  "source": "w3m_browser_skill",
-                  "target": "document_workflow/docker_worker/build_context/w3m_browser_skill"
-                }
-              ]
+              "safe_to_retry": true
             }
           }
         },

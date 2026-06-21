@@ -7,6 +7,7 @@ from otterdesk_blueprint_suite import (
     test_otterdesk_blueprints_are_workflow_driven_manifests,
     test_otterdesk_blueprints_declare_membrane_context_memory_layer,
     test_otterdesk_blueprints_declare_product_experience_contracts,
+    test_otterdesk_manifests_pin_gar_skill_dependencies,
     test_otterdesk_completion_contract_is_explicit_and_terminal_sinks_are_reachable,
     test_otterdesk_json_uses_python311_for_host_python_commands,
     test_otterdesk_manifests_require_runtime_workflow_control_contract,

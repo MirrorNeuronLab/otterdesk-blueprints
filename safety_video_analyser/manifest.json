@@ -5,6 +5,7 @@
   "name": "Safety Video Analyser",
   "version": "1.0.0",
   "manifest_version": "1.0",
+  "skill_dependencies": [],
   "job_name": "safety-video-analyser",
   "type": "batch",
   "policies": {

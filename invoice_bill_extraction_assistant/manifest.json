@@ -5,6 +5,20 @@
   "name": "Invoice Bill Extraction Assistant",
   "version": "1.0.0",
   "manifest_version": "1.0",
+  "skill_dependencies": [
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mirrorneuron-blueprint-support-skill",
+      "version": "1.2.6"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mirrorneuron-llm-ocr-skill",
+      "version": "1.2.6"
+    }
+  ],
   "description": "An invoice and bill extraction co-worker for accounts-payable review. Put invoice, bill, or utility PDF/JSON files in the input folder; it OCRs and extracts supplier, customer, invoice ID, tax, due date, total, line item, billing period, and consumption fields, then writes a review-only extraction packet and source-grounded report to the output folder.",
   "job_name": "invoice-bill-extraction-assistant",
   "contract": {

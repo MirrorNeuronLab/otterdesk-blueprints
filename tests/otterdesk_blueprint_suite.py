@@ -188,12 +188,88 @@ GPU_WORKER_DEVICE_REQUIREMENT = {
 }
 
 
+SKILL_DEPENDENCY_VERSION = "1.2.6"
+IMPORT_MARKER_PACKAGES = {
+    "mn_blueprint_support": "mirrorneuron-blueprint-support-skill",
+    "mn_llm_ocr_skill": "mirrorneuron-llm-ocr-skill",
+    "mn_w3m_browser_skill": "mirrorneuron-w3m-browser-skill",
+    "mn_web_browser_skill": "mirrorneuron-web-browser-skill",
+    "mn_rag_skill": "mirrorneuron-rag-skill",
+    "mn_websocket_stream_skill": "mirrorneuron-websocket-stream-skill",
+}
+SKILL_NAME_PACKAGES = {
+    "llm_ocr_skill": "mirrorneuron-llm-ocr-skill",
+    "rag_skill": "mirrorneuron-rag-skill",
+    "w3m_browser_skill": "mirrorneuron-w3m-browser-skill",
+    "web_browser_skill": "mirrorneuron-web-browser-skill",
+    "websocket_stream": "mirrorneuron-websocket-stream-skill",
+}
+
+
 def _completion_threshold(value) -> bool:
     if isinstance(value, int):
         return value > 0
     if isinstance(value, str):
         return value.isdigit() and int(value) > 0
     return False
+
+
+def _expected_skill_dependency_packages(blueprint_dir: Path) -> set[str]:
+    packages: set[str] = set()
+    payloads = blueprint_dir / "payloads"
+    if payloads.is_dir():
+        for path in payloads.rglob("*.py"):
+            text = path.read_text(encoding="utf-8", errors="ignore")
+            for marker, package in IMPORT_MARKER_PACKAGES.items():
+                if marker in text:
+                    packages.add(package)
+
+    config_path = blueprint_dir / "config" / "default.json"
+    if config_path.is_file():
+        config = json.loads(config_path.read_text())
+        for section_name in ("input_skills", "output_skills"):
+            section = config.get(section_name)
+            if not isinstance(section, dict):
+                continue
+            for entry in section.values():
+                if not isinstance(entry, dict):
+                    continue
+                package = entry.get("package")
+                if isinstance(package, str) and package.startswith("mirrorneuron-") and "-skill" in package:
+                    packages.add(package)
+                skill = entry.get("skill")
+                if isinstance(skill, str) and skill in SKILL_NAME_PACKAGES:
+                    packages.add(SKILL_NAME_PACKAGES[skill])
+
+    manifest = json.loads((blueprint_dir / "manifest.json").read_text())
+    registration = (
+        manifest.get("metadata", {})
+        .get("web_ui", {})
+        .get("registration", {})
+    )
+    package = registration.get("package") if isinstance(registration, dict) else None
+    if isinstance(package, str) and package.startswith("mirrorneuron-blueprint-support-skill"):
+        packages.add("mirrorneuron-blueprint-support-skill")
+    return packages
+
+
+def test_otterdesk_manifests_pin_gar_skill_dependencies():
+    for manifest_path in _manifest_paths():
+        blueprint_id = manifest_path.parent.name
+        manifest = json.loads(manifest_path.read_text())
+        dependencies = manifest.get("skill_dependencies")
+        assert isinstance(dependencies, list), blueprint_id
+        by_name = {dependency.get("name"): dependency for dependency in dependencies if isinstance(dependency, dict)}
+
+        assert set(by_name) == _expected_skill_dependency_packages(manifest_path.parent), blueprint_id
+        assert "mn-skills" not in by_name
+        for name, dependency in by_name.items():
+            assert dependency == {
+                "type": "pip",
+                "source": "gar",
+                "name": name,
+                "version": SKILL_DEPENDENCY_VERSION,
+            }, (blueprint_id, name)
 
 
 def test_video_gpu_blueprints_declare_hard_nvidia_cuda_requirements_consistently():

@@ -298,6 +298,8 @@ def _workspace_root() -> Path | None:
 
 
 def _add_repo_paths() -> None:
+    if os.environ.get("MN_USE_LOCAL_SKILLS", "").strip().lower() not in {"1", "true", "yes"}:
+        return
     bundle_root = Path(__file__).resolve().parents[1]
     bundled_skills = bundle_root / "skills"
     if bundled_skills.exists():

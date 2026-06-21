@@ -8,16 +8,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     w3m \
     && rm -rf /var/lib/apt/lists/*
 
-COPY build_context/blueprint_support_skill /tmp/mn-skills/blueprint_support_skill
-COPY build_context/llm_ocr_skill /tmp/mn-skills/llm_ocr_skill
-COPY build_context/w3m_browser_skill /tmp/mn-skills/w3m_browser_skill
-COPY build_context/mn-python-sdk /tmp/mn-packages/mn-python-sdk
+COPY requirements.txt /tmp/mn-skill-runtime/requirements.txt
 
 RUN python3 -m pip install --break-system-packages --no-cache-dir \
-    /tmp/mn-packages/mn-python-sdk \
-    /tmp/mn-skills/blueprint_support_skill \
-    /tmp/mn-skills/llm_ocr_skill \
-    /tmp/mn-skills/w3m_browser_skill
+    -r /tmp/mn-skill-runtime/requirements.txt
 
 WORKDIR /mn/job/document_workflow
 ENTRYPOINT []

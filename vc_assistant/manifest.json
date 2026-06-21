@@ -5,6 +5,38 @@
   "name": "VC Assistant",
   "version": "1.0.0",
   "manifest_version": "1.0",
+  "skill_dependencies": [
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mirrorneuron-blueprint-support-skill",
+      "version": "1.2.6"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mirrorneuron-llm-ocr-skill",
+      "version": "1.2.6"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mirrorneuron-rag-skill",
+      "version": "1.2.6"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mirrorneuron-w3m-browser-skill",
+      "version": "1.2.6"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mirrorneuron-web-browser-skill",
+      "version": "1.2.6"
+    }
+  ],
   "description": "A VC analysis co-worker for early startup screening reports. Put pitch decks, memos, financial snippets, company folders, or other startup documents in the input folder; it groups documents by company, performs privacy-safe public research, applies seven VC heuristic scoring methods, audits the math and evidence, and writes score-only per-company reports and batch indexes to the output folder.",
   "job_name": "vc-assistant",
   "contract": {
@@ -1446,33 +1478,6 @@
           "reuse_shared_container": true,
           "shared_container": true,
           "cleanup_remote_dir": true,
-          "build_context_upload_paths": [
-            {
-              "base": "skills_root",
-              "source": "blueprint_support_skill",
-              "target": "document_workflow/docker_worker/build_context/blueprint_support_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "llm_ocr_skill",
-              "target": "document_workflow/docker_worker/build_context/llm_ocr_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "rag_skill",
-              "target": "document_workflow/docker_worker/build_context/rag_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "w3m_browser_skill",
-              "target": "document_workflow/docker_worker/build_context/w3m_browser_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "web_browser_skill",
-              "target": "document_workflow/docker_worker/build_context/web_browser_skill"
-            }
-          ],
           "network": "mirror-neuron-runtime"
         }
       },
@@ -1530,33 +1535,6 @@
           "reuse_shared_container": true,
           "shared_container": true,
           "cleanup_remote_dir": true,
-          "build_context_upload_paths": [
-            {
-              "base": "skills_root",
-              "source": "blueprint_support_skill",
-              "target": "document_workflow/docker_worker/build_context/blueprint_support_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "llm_ocr_skill",
-              "target": "document_workflow/docker_worker/build_context/llm_ocr_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "rag_skill",
-              "target": "document_workflow/docker_worker/build_context/rag_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "w3m_browser_skill",
-              "target": "document_workflow/docker_worker/build_context/w3m_browser_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "web_browser_skill",
-              "target": "document_workflow/docker_worker/build_context/web_browser_skill"
-            }
-          ],
           "network": "mirror-neuron-runtime"
         }
       },
@@ -1614,33 +1592,6 @@
           "reuse_shared_container": true,
           "shared_container": true,
           "cleanup_remote_dir": true,
-          "build_context_upload_paths": [
-            {
-              "base": "skills_root",
-              "source": "blueprint_support_skill",
-              "target": "document_workflow/docker_worker/build_context/blueprint_support_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "llm_ocr_skill",
-              "target": "document_workflow/docker_worker/build_context/llm_ocr_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "rag_skill",
-              "target": "document_workflow/docker_worker/build_context/rag_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "w3m_browser_skill",
-              "target": "document_workflow/docker_worker/build_context/w3m_browser_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "web_browser_skill",
-              "target": "document_workflow/docker_worker/build_context/web_browser_skill"
-            }
-          ],
           "network": "mirror-neuron-runtime"
         }
       },
@@ -1698,33 +1649,6 @@
           "reuse_shared_container": true,
           "shared_container": true,
           "cleanup_remote_dir": true,
-          "build_context_upload_paths": [
-            {
-              "base": "skills_root",
-              "source": "blueprint_support_skill",
-              "target": "document_workflow/docker_worker/build_context/blueprint_support_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "llm_ocr_skill",
-              "target": "document_workflow/docker_worker/build_context/llm_ocr_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "rag_skill",
-              "target": "document_workflow/docker_worker/build_context/rag_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "w3m_browser_skill",
-              "target": "document_workflow/docker_worker/build_context/w3m_browser_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "web_browser_skill",
-              "target": "document_workflow/docker_worker/build_context/web_browser_skill"
-            }
-          ],
           "network": "mirror-neuron-runtime"
         }
       },
@@ -1782,33 +1706,6 @@
           "reuse_shared_container": true,
           "shared_container": true,
           "cleanup_remote_dir": true,
-          "build_context_upload_paths": [
-            {
-              "base": "skills_root",
-              "source": "blueprint_support_skill",
-              "target": "document_workflow/docker_worker/build_context/blueprint_support_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "llm_ocr_skill",
-              "target": "document_workflow/docker_worker/build_context/llm_ocr_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "rag_skill",
-              "target": "document_workflow/docker_worker/build_context/rag_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "w3m_browser_skill",
-              "target": "document_workflow/docker_worker/build_context/w3m_browser_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "web_browser_skill",
-              "target": "document_workflow/docker_worker/build_context/web_browser_skill"
-            }
-          ],
           "network": "mirror-neuron-runtime"
         }
       },
@@ -1871,33 +1768,6 @@
           "reuse_shared_container": true,
           "shared_container": true,
           "cleanup_remote_dir": true,
-          "build_context_upload_paths": [
-            {
-              "base": "skills_root",
-              "source": "blueprint_support_skill",
-              "target": "document_workflow/docker_worker/build_context/blueprint_support_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "llm_ocr_skill",
-              "target": "document_workflow/docker_worker/build_context/llm_ocr_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "rag_skill",
-              "target": "document_workflow/docker_worker/build_context/rag_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "w3m_browser_skill",
-              "target": "document_workflow/docker_worker/build_context/w3m_browser_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "web_browser_skill",
-              "target": "document_workflow/docker_worker/build_context/web_browser_skill"
-            }
-          ],
           "network": "mirror-neuron-runtime"
         }
       },
@@ -1960,33 +1830,6 @@
           "reuse_shared_container": true,
           "shared_container": true,
           "cleanup_remote_dir": true,
-          "build_context_upload_paths": [
-            {
-              "base": "skills_root",
-              "source": "blueprint_support_skill",
-              "target": "document_workflow/docker_worker/build_context/blueprint_support_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "llm_ocr_skill",
-              "target": "document_workflow/docker_worker/build_context/llm_ocr_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "rag_skill",
-              "target": "document_workflow/docker_worker/build_context/rag_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "w3m_browser_skill",
-              "target": "document_workflow/docker_worker/build_context/w3m_browser_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "web_browser_skill",
-              "target": "document_workflow/docker_worker/build_context/web_browser_skill"
-            }
-          ],
           "network": "mirror-neuron-runtime"
         }
       },
@@ -2049,33 +1892,6 @@
           "reuse_shared_container": true,
           "shared_container": true,
           "cleanup_remote_dir": true,
-          "build_context_upload_paths": [
-            {
-              "base": "skills_root",
-              "source": "blueprint_support_skill",
-              "target": "document_workflow/docker_worker/build_context/blueprint_support_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "llm_ocr_skill",
-              "target": "document_workflow/docker_worker/build_context/llm_ocr_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "rag_skill",
-              "target": "document_workflow/docker_worker/build_context/rag_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "w3m_browser_skill",
-              "target": "document_workflow/docker_worker/build_context/w3m_browser_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "web_browser_skill",
-              "target": "document_workflow/docker_worker/build_context/web_browser_skill"
-            }
-          ],
           "network": "mirror-neuron-runtime"
         }
       },
@@ -2138,33 +1954,6 @@
           "reuse_shared_container": true,
           "shared_container": true,
           "cleanup_remote_dir": true,
-          "build_context_upload_paths": [
-            {
-              "base": "skills_root",
-              "source": "blueprint_support_skill",
-              "target": "document_workflow/docker_worker/build_context/blueprint_support_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "llm_ocr_skill",
-              "target": "document_workflow/docker_worker/build_context/llm_ocr_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "rag_skill",
-              "target": "document_workflow/docker_worker/build_context/rag_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "w3m_browser_skill",
-              "target": "document_workflow/docker_worker/build_context/w3m_browser_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "web_browser_skill",
-              "target": "document_workflow/docker_worker/build_context/web_browser_skill"
-            }
-          ],
           "network": "mirror-neuron-runtime"
         }
       },
@@ -2227,33 +2016,6 @@
           "reuse_shared_container": true,
           "shared_container": true,
           "cleanup_remote_dir": true,
-          "build_context_upload_paths": [
-            {
-              "base": "skills_root",
-              "source": "blueprint_support_skill",
-              "target": "document_workflow/docker_worker/build_context/blueprint_support_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "llm_ocr_skill",
-              "target": "document_workflow/docker_worker/build_context/llm_ocr_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "rag_skill",
-              "target": "document_workflow/docker_worker/build_context/rag_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "w3m_browser_skill",
-              "target": "document_workflow/docker_worker/build_context/w3m_browser_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "web_browser_skill",
-              "target": "document_workflow/docker_worker/build_context/web_browser_skill"
-            }
-          ],
           "network": "mirror-neuron-runtime"
         }
       },
@@ -2311,33 +2073,6 @@
           "reuse_shared_container": true,
           "shared_container": true,
           "cleanup_remote_dir": true,
-          "build_context_upload_paths": [
-            {
-              "base": "skills_root",
-              "source": "blueprint_support_skill",
-              "target": "document_workflow/docker_worker/build_context/blueprint_support_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "llm_ocr_skill",
-              "target": "document_workflow/docker_worker/build_context/llm_ocr_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "rag_skill",
-              "target": "document_workflow/docker_worker/build_context/rag_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "w3m_browser_skill",
-              "target": "document_workflow/docker_worker/build_context/w3m_browser_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "web_browser_skill",
-              "target": "document_workflow/docker_worker/build_context/web_browser_skill"
-            }
-          ],
           "network": "mirror-neuron-runtime"
         }
       },
@@ -2395,33 +2130,6 @@
           "reuse_shared_container": true,
           "shared_container": true,
           "cleanup_remote_dir": true,
-          "build_context_upload_paths": [
-            {
-              "base": "skills_root",
-              "source": "blueprint_support_skill",
-              "target": "document_workflow/docker_worker/build_context/blueprint_support_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "llm_ocr_skill",
-              "target": "document_workflow/docker_worker/build_context/llm_ocr_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "rag_skill",
-              "target": "document_workflow/docker_worker/build_context/rag_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "w3m_browser_skill",
-              "target": "document_workflow/docker_worker/build_context/w3m_browser_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "web_browser_skill",
-              "target": "document_workflow/docker_worker/build_context/web_browser_skill"
-            }
-          ],
           "network": "mirror-neuron-runtime"
         }
       },
@@ -2479,33 +2187,6 @@
           "reuse_shared_container": true,
           "shared_container": true,
           "cleanup_remote_dir": true,
-          "build_context_upload_paths": [
-            {
-              "base": "skills_root",
-              "source": "blueprint_support_skill",
-              "target": "document_workflow/docker_worker/build_context/blueprint_support_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "llm_ocr_skill",
-              "target": "document_workflow/docker_worker/build_context/llm_ocr_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "rag_skill",
-              "target": "document_workflow/docker_worker/build_context/rag_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "w3m_browser_skill",
-              "target": "document_workflow/docker_worker/build_context/w3m_browser_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "web_browser_skill",
-              "target": "document_workflow/docker_worker/build_context/web_browser_skill"
-            }
-          ],
           "network": "mirror-neuron-runtime"
         }
       },
@@ -2563,33 +2244,6 @@
           "reuse_shared_container": true,
           "shared_container": true,
           "cleanup_remote_dir": true,
-          "build_context_upload_paths": [
-            {
-              "base": "skills_root",
-              "source": "blueprint_support_skill",
-              "target": "document_workflow/docker_worker/build_context/blueprint_support_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "llm_ocr_skill",
-              "target": "document_workflow/docker_worker/build_context/llm_ocr_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "rag_skill",
-              "target": "document_workflow/docker_worker/build_context/rag_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "w3m_browser_skill",
-              "target": "document_workflow/docker_worker/build_context/w3m_browser_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "web_browser_skill",
-              "target": "document_workflow/docker_worker/build_context/web_browser_skill"
-            }
-          ],
           "network": "mirror-neuron-runtime"
         }
       },
@@ -2647,33 +2301,6 @@
           "reuse_shared_container": true,
           "shared_container": true,
           "cleanup_remote_dir": true,
-          "build_context_upload_paths": [
-            {
-              "base": "skills_root",
-              "source": "blueprint_support_skill",
-              "target": "document_workflow/docker_worker/build_context/blueprint_support_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "llm_ocr_skill",
-              "target": "document_workflow/docker_worker/build_context/llm_ocr_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "rag_skill",
-              "target": "document_workflow/docker_worker/build_context/rag_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "w3m_browser_skill",
-              "target": "document_workflow/docker_worker/build_context/w3m_browser_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "web_browser_skill",
-              "target": "document_workflow/docker_worker/build_context/web_browser_skill"
-            }
-          ],
           "network": "mirror-neuron-runtime"
         }
       },
@@ -2731,33 +2358,6 @@
           "reuse_shared_container": true,
           "shared_container": true,
           "cleanup_remote_dir": true,
-          "build_context_upload_paths": [
-            {
-              "base": "skills_root",
-              "source": "blueprint_support_skill",
-              "target": "document_workflow/docker_worker/build_context/blueprint_support_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "llm_ocr_skill",
-              "target": "document_workflow/docker_worker/build_context/llm_ocr_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "rag_skill",
-              "target": "document_workflow/docker_worker/build_context/rag_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "w3m_browser_skill",
-              "target": "document_workflow/docker_worker/build_context/w3m_browser_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "web_browser_skill",
-              "target": "document_workflow/docker_worker/build_context/web_browser_skill"
-            }
-          ],
           "network": "mirror-neuron-runtime"
         }
       },
@@ -2815,33 +2415,6 @@
           "reuse_shared_container": true,
           "shared_container": true,
           "cleanup_remote_dir": true,
-          "build_context_upload_paths": [
-            {
-              "base": "skills_root",
-              "source": "blueprint_support_skill",
-              "target": "document_workflow/docker_worker/build_context/blueprint_support_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "llm_ocr_skill",
-              "target": "document_workflow/docker_worker/build_context/llm_ocr_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "rag_skill",
-              "target": "document_workflow/docker_worker/build_context/rag_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "w3m_browser_skill",
-              "target": "document_workflow/docker_worker/build_context/w3m_browser_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "web_browser_skill",
-              "target": "document_workflow/docker_worker/build_context/web_browser_skill"
-            }
-          ],
           "network": "mirror-neuron-runtime"
         }
       },
@@ -2899,33 +2472,6 @@
           "reuse_shared_container": true,
           "shared_container": true,
           "cleanup_remote_dir": true,
-          "build_context_upload_paths": [
-            {
-              "base": "skills_root",
-              "source": "blueprint_support_skill",
-              "target": "document_workflow/docker_worker/build_context/blueprint_support_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "llm_ocr_skill",
-              "target": "document_workflow/docker_worker/build_context/llm_ocr_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "rag_skill",
-              "target": "document_workflow/docker_worker/build_context/rag_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "w3m_browser_skill",
-              "target": "document_workflow/docker_worker/build_context/w3m_browser_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "web_browser_skill",
-              "target": "document_workflow/docker_worker/build_context/web_browser_skill"
-            }
-          ],
           "network": "mirror-neuron-runtime"
         }
       },
@@ -2983,33 +2529,6 @@
           "reuse_shared_container": true,
           "shared_container": true,
           "cleanup_remote_dir": true,
-          "build_context_upload_paths": [
-            {
-              "base": "skills_root",
-              "source": "blueprint_support_skill",
-              "target": "document_workflow/docker_worker/build_context/blueprint_support_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "llm_ocr_skill",
-              "target": "document_workflow/docker_worker/build_context/llm_ocr_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "rag_skill",
-              "target": "document_workflow/docker_worker/build_context/rag_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "w3m_browser_skill",
-              "target": "document_workflow/docker_worker/build_context/w3m_browser_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "web_browser_skill",
-              "target": "document_workflow/docker_worker/build_context/web_browser_skill"
-            }
-          ],
           "network": "mirror-neuron-runtime"
         }
       },
@@ -3067,33 +2586,6 @@
           "reuse_shared_container": true,
           "shared_container": true,
           "cleanup_remote_dir": true,
-          "build_context_upload_paths": [
-            {
-              "base": "skills_root",
-              "source": "blueprint_support_skill",
-              "target": "document_workflow/docker_worker/build_context/blueprint_support_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "llm_ocr_skill",
-              "target": "document_workflow/docker_worker/build_context/llm_ocr_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "rag_skill",
-              "target": "document_workflow/docker_worker/build_context/rag_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "w3m_browser_skill",
-              "target": "document_workflow/docker_worker/build_context/w3m_browser_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "web_browser_skill",
-              "target": "document_workflow/docker_worker/build_context/web_browser_skill"
-            }
-          ],
           "network": "mirror-neuron-runtime"
         }
       },
@@ -3151,33 +2643,6 @@
           "reuse_shared_container": true,
           "shared_container": true,
           "cleanup_remote_dir": true,
-          "build_context_upload_paths": [
-            {
-              "base": "skills_root",
-              "source": "blueprint_support_skill",
-              "target": "document_workflow/docker_worker/build_context/blueprint_support_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "llm_ocr_skill",
-              "target": "document_workflow/docker_worker/build_context/llm_ocr_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "rag_skill",
-              "target": "document_workflow/docker_worker/build_context/rag_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "w3m_browser_skill",
-              "target": "document_workflow/docker_worker/build_context/w3m_browser_skill"
-            },
-            {
-              "base": "skills_root",
-              "source": "web_browser_skill",
-              "target": "document_workflow/docker_worker/build_context/web_browser_skill"
-            }
-          ],
           "network": "mirror-neuron-runtime"
         }
       },
@@ -4000,33 +3465,6 @@
             "reuse_shared_container": true,
             "shared_container": true,
             "cleanup_remote_dir": true,
-            "build_context_upload_paths": [
-              {
-                "base": "skills_root",
-                "source": "blueprint_support_skill",
-                "target": "document_workflow/docker_worker/build_context/blueprint_support_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "llm_ocr_skill",
-                "target": "document_workflow/docker_worker/build_context/llm_ocr_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "rag_skill",
-                "target": "document_workflow/docker_worker/build_context/rag_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "w3m_browser_skill",
-                "target": "document_workflow/docker_worker/build_context/w3m_browser_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "web_browser_skill",
-                "target": "document_workflow/docker_worker/build_context/web_browser_skill"
-              }
-            ],
             "network": "mirror-neuron-runtime"
           }
         },
@@ -4069,33 +3507,6 @@
             "reuse_shared_container": true,
             "shared_container": true,
             "cleanup_remote_dir": true,
-            "build_context_upload_paths": [
-              {
-                "base": "skills_root",
-                "source": "blueprint_support_skill",
-                "target": "document_workflow/docker_worker/build_context/blueprint_support_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "llm_ocr_skill",
-                "target": "document_workflow/docker_worker/build_context/llm_ocr_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "rag_skill",
-                "target": "document_workflow/docker_worker/build_context/rag_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "w3m_browser_skill",
-                "target": "document_workflow/docker_worker/build_context/w3m_browser_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "web_browser_skill",
-                "target": "document_workflow/docker_worker/build_context/web_browser_skill"
-              }
-            ],
             "network": "mirror-neuron-runtime"
           }
         },
@@ -4138,33 +3549,6 @@
             "reuse_shared_container": true,
             "shared_container": true,
             "cleanup_remote_dir": true,
-            "build_context_upload_paths": [
-              {
-                "base": "skills_root",
-                "source": "blueprint_support_skill",
-                "target": "document_workflow/docker_worker/build_context/blueprint_support_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "llm_ocr_skill",
-                "target": "document_workflow/docker_worker/build_context/llm_ocr_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "rag_skill",
-                "target": "document_workflow/docker_worker/build_context/rag_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "w3m_browser_skill",
-                "target": "document_workflow/docker_worker/build_context/w3m_browser_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "web_browser_skill",
-                "target": "document_workflow/docker_worker/build_context/web_browser_skill"
-              }
-            ],
             "network": "mirror-neuron-runtime"
           }
         },
@@ -4207,33 +3591,6 @@
             "reuse_shared_container": true,
             "shared_container": true,
             "cleanup_remote_dir": true,
-            "build_context_upload_paths": [
-              {
-                "base": "skills_root",
-                "source": "blueprint_support_skill",
-                "target": "document_workflow/docker_worker/build_context/blueprint_support_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "llm_ocr_skill",
-                "target": "document_workflow/docker_worker/build_context/llm_ocr_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "rag_skill",
-                "target": "document_workflow/docker_worker/build_context/rag_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "w3m_browser_skill",
-                "target": "document_workflow/docker_worker/build_context/w3m_browser_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "web_browser_skill",
-                "target": "document_workflow/docker_worker/build_context/web_browser_skill"
-              }
-            ],
             "network": "mirror-neuron-runtime"
           }
         },
@@ -4276,33 +3633,6 @@
             "reuse_shared_container": true,
             "shared_container": true,
             "cleanup_remote_dir": true,
-            "build_context_upload_paths": [
-              {
-                "base": "skills_root",
-                "source": "blueprint_support_skill",
-                "target": "document_workflow/docker_worker/build_context/blueprint_support_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "llm_ocr_skill",
-                "target": "document_workflow/docker_worker/build_context/llm_ocr_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "rag_skill",
-                "target": "document_workflow/docker_worker/build_context/rag_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "w3m_browser_skill",
-                "target": "document_workflow/docker_worker/build_context/w3m_browser_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "web_browser_skill",
-                "target": "document_workflow/docker_worker/build_context/web_browser_skill"
-              }
-            ],
             "network": "mirror-neuron-runtime"
           }
         },
@@ -4350,33 +3680,6 @@
             "reuse_shared_container": true,
             "shared_container": true,
             "cleanup_remote_dir": true,
-            "build_context_upload_paths": [
-              {
-                "base": "skills_root",
-                "source": "blueprint_support_skill",
-                "target": "document_workflow/docker_worker/build_context/blueprint_support_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "llm_ocr_skill",
-                "target": "document_workflow/docker_worker/build_context/llm_ocr_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "rag_skill",
-                "target": "document_workflow/docker_worker/build_context/rag_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "w3m_browser_skill",
-                "target": "document_workflow/docker_worker/build_context/w3m_browser_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "web_browser_skill",
-                "target": "document_workflow/docker_worker/build_context/web_browser_skill"
-              }
-            ],
             "network": "mirror-neuron-runtime"
           }
         },
@@ -4424,33 +3727,6 @@
             "reuse_shared_container": true,
             "shared_container": true,
             "cleanup_remote_dir": true,
-            "build_context_upload_paths": [
-              {
-                "base": "skills_root",
-                "source": "blueprint_support_skill",
-                "target": "document_workflow/docker_worker/build_context/blueprint_support_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "llm_ocr_skill",
-                "target": "document_workflow/docker_worker/build_context/llm_ocr_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "rag_skill",
-                "target": "document_workflow/docker_worker/build_context/rag_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "w3m_browser_skill",
-                "target": "document_workflow/docker_worker/build_context/w3m_browser_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "web_browser_skill",
-                "target": "document_workflow/docker_worker/build_context/web_browser_skill"
-              }
-            ],
             "network": "mirror-neuron-runtime"
           }
         },
@@ -4498,33 +3774,6 @@
             "reuse_shared_container": true,
             "shared_container": true,
             "cleanup_remote_dir": true,
-            "build_context_upload_paths": [
-              {
-                "base": "skills_root",
-                "source": "blueprint_support_skill",
-                "target": "document_workflow/docker_worker/build_context/blueprint_support_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "llm_ocr_skill",
-                "target": "document_workflow/docker_worker/build_context/llm_ocr_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "rag_skill",
-                "target": "document_workflow/docker_worker/build_context/rag_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "w3m_browser_skill",
-                "target": "document_workflow/docker_worker/build_context/w3m_browser_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "web_browser_skill",
-                "target": "document_workflow/docker_worker/build_context/web_browser_skill"
-              }
-            ],
             "network": "mirror-neuron-runtime"
           }
         },
@@ -4572,33 +3821,6 @@
             "reuse_shared_container": true,
             "shared_container": true,
             "cleanup_remote_dir": true,
-            "build_context_upload_paths": [
-              {
-                "base": "skills_root",
-                "source": "blueprint_support_skill",
-                "target": "document_workflow/docker_worker/build_context/blueprint_support_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "llm_ocr_skill",
-                "target": "document_workflow/docker_worker/build_context/llm_ocr_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "rag_skill",
-                "target": "document_workflow/docker_worker/build_context/rag_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "w3m_browser_skill",
-                "target": "document_workflow/docker_worker/build_context/w3m_browser_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "web_browser_skill",
-                "target": "document_workflow/docker_worker/build_context/web_browser_skill"
-              }
-            ],
             "network": "mirror-neuron-runtime"
           }
         },
@@ -4646,33 +3868,6 @@
             "reuse_shared_container": true,
             "shared_container": true,
             "cleanup_remote_dir": true,
-            "build_context_upload_paths": [
-              {
-                "base": "skills_root",
-                "source": "blueprint_support_skill",
-                "target": "document_workflow/docker_worker/build_context/blueprint_support_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "llm_ocr_skill",
-                "target": "document_workflow/docker_worker/build_context/llm_ocr_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "rag_skill",
-                "target": "document_workflow/docker_worker/build_context/rag_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "w3m_browser_skill",
-                "target": "document_workflow/docker_worker/build_context/w3m_browser_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "web_browser_skill",
-                "target": "document_workflow/docker_worker/build_context/web_browser_skill"
-              }
-            ],
             "network": "mirror-neuron-runtime"
           }
         },
@@ -4715,33 +3910,6 @@
             "reuse_shared_container": true,
             "shared_container": true,
             "cleanup_remote_dir": true,
-            "build_context_upload_paths": [
-              {
-                "base": "skills_root",
-                "source": "blueprint_support_skill",
-                "target": "document_workflow/docker_worker/build_context/blueprint_support_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "llm_ocr_skill",
-                "target": "document_workflow/docker_worker/build_context/llm_ocr_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "rag_skill",
-                "target": "document_workflow/docker_worker/build_context/rag_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "w3m_browser_skill",
-                "target": "document_workflow/docker_worker/build_context/w3m_browser_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "web_browser_skill",
-                "target": "document_workflow/docker_worker/build_context/web_browser_skill"
-              }
-            ],
             "network": "mirror-neuron-runtime"
           }
         },
@@ -4784,33 +3952,6 @@
             "reuse_shared_container": true,
             "shared_container": true,
             "cleanup_remote_dir": true,
-            "build_context_upload_paths": [
-              {
-                "base": "skills_root",
-                "source": "blueprint_support_skill",
-                "target": "document_workflow/docker_worker/build_context/blueprint_support_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "llm_ocr_skill",
-                "target": "document_workflow/docker_worker/build_context/llm_ocr_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "rag_skill",
-                "target": "document_workflow/docker_worker/build_context/rag_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "w3m_browser_skill",
-                "target": "document_workflow/docker_worker/build_context/w3m_browser_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "web_browser_skill",
-                "target": "document_workflow/docker_worker/build_context/web_browser_skill"
-              }
-            ],
             "network": "mirror-neuron-runtime"
           }
         },
@@ -4853,33 +3994,6 @@
             "reuse_shared_container": true,
             "shared_container": true,
             "cleanup_remote_dir": true,
-            "build_context_upload_paths": [
-              {
-                "base": "skills_root",
-                "source": "blueprint_support_skill",
-                "target": "document_workflow/docker_worker/build_context/blueprint_support_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "llm_ocr_skill",
-                "target": "document_workflow/docker_worker/build_context/llm_ocr_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "rag_skill",
-                "target": "document_workflow/docker_worker/build_context/rag_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "w3m_browser_skill",
-                "target": "document_workflow/docker_worker/build_context/w3m_browser_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "web_browser_skill",
-                "target": "document_workflow/docker_worker/build_context/web_browser_skill"
-              }
-            ],
             "network": "mirror-neuron-runtime"
           }
         },
@@ -4922,33 +4036,6 @@
             "reuse_shared_container": true,
             "shared_container": true,
             "cleanup_remote_dir": true,
-            "build_context_upload_paths": [
-              {
-                "base": "skills_root",
-                "source": "blueprint_support_skill",
-                "target": "document_workflow/docker_worker/build_context/blueprint_support_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "llm_ocr_skill",
-                "target": "document_workflow/docker_worker/build_context/llm_ocr_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "rag_skill",
-                "target": "document_workflow/docker_worker/build_context/rag_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "w3m_browser_skill",
-                "target": "document_workflow/docker_worker/build_context/w3m_browser_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "web_browser_skill",
-                "target": "document_workflow/docker_worker/build_context/web_browser_skill"
-              }
-            ],
             "network": "mirror-neuron-runtime"
           }
         },
@@ -4991,33 +4078,6 @@
             "reuse_shared_container": true,
             "shared_container": true,
             "cleanup_remote_dir": true,
-            "build_context_upload_paths": [
-              {
-                "base": "skills_root",
-                "source": "blueprint_support_skill",
-                "target": "document_workflow/docker_worker/build_context/blueprint_support_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "llm_ocr_skill",
-                "target": "document_workflow/docker_worker/build_context/llm_ocr_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "rag_skill",
-                "target": "document_workflow/docker_worker/build_context/rag_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "w3m_browser_skill",
-                "target": "document_workflow/docker_worker/build_context/w3m_browser_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "web_browser_skill",
-                "target": "document_workflow/docker_worker/build_context/web_browser_skill"
-              }
-            ],
             "network": "mirror-neuron-runtime"
           }
         },
@@ -5060,33 +4120,6 @@
             "reuse_shared_container": true,
             "shared_container": true,
             "cleanup_remote_dir": true,
-            "build_context_upload_paths": [
-              {
-                "base": "skills_root",
-                "source": "blueprint_support_skill",
-                "target": "document_workflow/docker_worker/build_context/blueprint_support_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "llm_ocr_skill",
-                "target": "document_workflow/docker_worker/build_context/llm_ocr_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "rag_skill",
-                "target": "document_workflow/docker_worker/build_context/rag_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "w3m_browser_skill",
-                "target": "document_workflow/docker_worker/build_context/w3m_browser_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "web_browser_skill",
-                "target": "document_workflow/docker_worker/build_context/web_browser_skill"
-              }
-            ],
             "network": "mirror-neuron-runtime"
           }
         },
@@ -5129,33 +4162,6 @@
             "reuse_shared_container": true,
             "shared_container": true,
             "cleanup_remote_dir": true,
-            "build_context_upload_paths": [
-              {
-                "base": "skills_root",
-                "source": "blueprint_support_skill",
-                "target": "document_workflow/docker_worker/build_context/blueprint_support_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "llm_ocr_skill",
-                "target": "document_workflow/docker_worker/build_context/llm_ocr_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "rag_skill",
-                "target": "document_workflow/docker_worker/build_context/rag_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "w3m_browser_skill",
-                "target": "document_workflow/docker_worker/build_context/w3m_browser_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "web_browser_skill",
-                "target": "document_workflow/docker_worker/build_context/web_browser_skill"
-              }
-            ],
             "network": "mirror-neuron-runtime"
           }
         },
@@ -5198,33 +4204,6 @@
             "reuse_shared_container": true,
             "shared_container": true,
             "cleanup_remote_dir": true,
-            "build_context_upload_paths": [
-              {
-                "base": "skills_root",
-                "source": "blueprint_support_skill",
-                "target": "document_workflow/docker_worker/build_context/blueprint_support_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "llm_ocr_skill",
-                "target": "document_workflow/docker_worker/build_context/llm_ocr_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "rag_skill",
-                "target": "document_workflow/docker_worker/build_context/rag_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "w3m_browser_skill",
-                "target": "document_workflow/docker_worker/build_context/w3m_browser_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "web_browser_skill",
-                "target": "document_workflow/docker_worker/build_context/web_browser_skill"
-              }
-            ],
             "network": "mirror-neuron-runtime"
           }
         },
@@ -5267,33 +4246,6 @@
             "reuse_shared_container": true,
             "shared_container": true,
             "cleanup_remote_dir": true,
-            "build_context_upload_paths": [
-              {
-                "base": "skills_root",
-                "source": "blueprint_support_skill",
-                "target": "document_workflow/docker_worker/build_context/blueprint_support_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "llm_ocr_skill",
-                "target": "document_workflow/docker_worker/build_context/llm_ocr_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "rag_skill",
-                "target": "document_workflow/docker_worker/build_context/rag_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "w3m_browser_skill",
-                "target": "document_workflow/docker_worker/build_context/w3m_browser_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "web_browser_skill",
-                "target": "document_workflow/docker_worker/build_context/web_browser_skill"
-              }
-            ],
             "network": "mirror-neuron-runtime"
           }
         },
@@ -5336,33 +4288,6 @@
             "reuse_shared_container": true,
             "shared_container": true,
             "cleanup_remote_dir": true,
-            "build_context_upload_paths": [
-              {
-                "base": "skills_root",
-                "source": "blueprint_support_skill",
-                "target": "document_workflow/docker_worker/build_context/blueprint_support_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "llm_ocr_skill",
-                "target": "document_workflow/docker_worker/build_context/llm_ocr_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "rag_skill",
-                "target": "document_workflow/docker_worker/build_context/rag_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "w3m_browser_skill",
-                "target": "document_workflow/docker_worker/build_context/w3m_browser_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "web_browser_skill",
-                "target": "document_workflow/docker_worker/build_context/web_browser_skill"
-              }
-            ],
             "network": "mirror-neuron-runtime"
           }
         },
@@ -5405,33 +4330,6 @@
             "reuse_shared_container": true,
             "shared_container": true,
             "cleanup_remote_dir": true,
-            "build_context_upload_paths": [
-              {
-                "base": "skills_root",
-                "source": "blueprint_support_skill",
-                "target": "document_workflow/docker_worker/build_context/blueprint_support_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "llm_ocr_skill",
-                "target": "document_workflow/docker_worker/build_context/llm_ocr_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "rag_skill",
-                "target": "document_workflow/docker_worker/build_context/rag_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "w3m_browser_skill",
-                "target": "document_workflow/docker_worker/build_context/w3m_browser_skill"
-              },
-              {
-                "base": "skills_root",
-                "source": "web_browser_skill",
-                "target": "document_workflow/docker_worker/build_context/web_browser_skill"
-              }
-            ],
             "network": "mirror-neuron-runtime"
           }
         },
@@ -6659,86 +5557,6 @@
       "max_runtime_seconds": 900,
       "max_public_queries": 1000,
       "default_action_budget": 80
-    },
-    "mn_skill_runtime": {
-      "enabled": true,
-      "driver": "docker_worker",
-      "install_scope": "shared_job_container",
-      "base_image": "debian:bookworm-slim",
-      "build_context": "document_workflow/docker_worker",
-      "generated": false,
-      "image": "mirror-neuron/vc-assistant:local",
-      "system_packages": {
-        "apt": [
-          "ca-certificates",
-          "python3",
-          "python3-pip",
-          "python3-venv",
-          "w3m"
-        ]
-      },
-      "verify_commands": [
-        "command -v w3m",
-        "/usr/bin/python3 -c 'import mn_w3m_browser_skill'"
-      ],
-      "runtime_skills": [
-        {
-          "skill": "w3m_browser_skill",
-          "package": "mirrorneuron-w3m-browser-skill",
-          "source": "w3m_browser_skill"
-        }
-      ],
-      "local_packages": [
-        {
-          "package": "mirrorneuron-blueprint-support-skill",
-          "skill": "blueprint_support_skill",
-          "source": "blueprint_support_skill"
-        },
-        {
-          "package": "mirrorneuron-llm-ocr-skill",
-          "skill": "llm_ocr_skill",
-          "source": "llm_ocr_skill"
-        },
-        {
-          "package": "mirrorneuron-rag-skill",
-          "skill": "rag_skill",
-          "source": "rag_skill"
-        },
-        {
-          "package": "mirrorneuron-w3m-browser-skill",
-          "skill": "w3m_browser_skill",
-          "source": "w3m_browser_skill"
-        },
-        {
-          "package": "mirrorneuron-web-browser-skill",
-          "skill": "web_browser_skill",
-          "source": "web_browser_skill"
-        }
-      ],
-      "patched_nodes": [
-        "startup_folder_watcher",
-        "company_packet_grouper",
-        "document_evidence_extractor",
-        "claim_normalizer",
-        "research_planner",
-        "company_identity_researcher",
-        "funding_researcher",
-        "market_comp_researcher",
-        "traction_verifier",
-        "rendered_page_researcher",
-        "research_reconciler",
-        "berkus_scorer",
-        "scorecard_bill_payne_scorer",
-        "risk_factor_summation_scorer",
-        "venture_capital_method_scorer",
-        "first_chicago_scorer",
-        "comparables_market_multiple_scorer",
-        "cost_to_duplicate_scorer",
-        "score_consistency_auditor",
-        "company_report_writer",
-        "batch_index_writer"
-      ],
-      "network": "mirror-neuron-runtime"
     }
   },
   "agentic_research": {

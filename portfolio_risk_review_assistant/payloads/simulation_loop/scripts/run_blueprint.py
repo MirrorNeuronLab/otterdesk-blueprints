@@ -4,6 +4,7 @@ from __future__ import annotations
 import copy
 import json
 import math
+import os
 import random
 import statistics
 import sys
@@ -30,11 +31,12 @@ try:
     )
     from mn_blueprint_support.web_ui import maybe_write_static_output
 except ModuleNotFoundError:
-    for parent in Path(__file__).resolve().parents:
-        candidate = parent / "mn-skills" / "blueprint_support_skill" / "src"
-        if candidate.exists():
-            sys.path.insert(0, str(candidate))
-            break
+    if os.environ.get("MN_USE_LOCAL_SKILLS", "").strip().lower() in {"1", "true", "yes"}:
+        for parent in Path(__file__).resolve().parents:
+            candidate = parent / "mn-skills" / "blueprint_support_skill" / "src"
+            if candidate.exists():
+                sys.path.insert(0, str(candidate))
+                break
     from mn_blueprint_support import (
             architecture_contract,
             create_runtime_context,
