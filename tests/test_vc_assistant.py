@@ -464,7 +464,7 @@ def test_vc_assistant_runtime_requirements_install_skills_with_pip():
         "mirrorneuron-blueprint-support-skill==1.2.7",
         "mirrorneuron-membrane-python-sdk",
         "mirrorneuron-llm-ocr-skill==1.2.7",
-        "mirrorneuron-rag-skill==1.2.7",
+        "mirrorneuron-rag-skill==1.2.14",
         "mirrorneuron-w3m-browser-skill==1.2.7",
         "mirrorneuron-web-browser-skill==1.2.7",
     ]

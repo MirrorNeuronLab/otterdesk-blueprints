@@ -10,6 +10,7 @@ import os
 import re
 import shlex
 import subprocess
+import time
 from pathlib import Path
 from typing import Any, Iterable
 from urllib import error as urlerror
@@ -322,9 +323,20 @@ class SentenceTransformerEmbedder:
 
 
 class DockerModelRunnerEmbedder:
-    def __init__(self, config: RagConfig, urlopen: Any | None = None) -> None:
+    def __init__(
+        self,
+        config: RagConfig,
+        urlopen: Any | None = None,
+        *,
+        retry_attempts: int = 3,
+        retry_delay_seconds: float = 2.0,
+        sleep: Any | None = None,
+    ) -> None:
         self.config = config
         self._urlopen = urlopen or urlrequest.urlopen
+        self.retry_attempts = max(1, int(retry_attempts or 1))
+        self.retry_delay_seconds = max(0.0, float(retry_delay_seconds or 0.0))
+        self._sleep = sleep or time.sleep
 
     def _prefix(self, input_type: str) -> str:
         if input_type == "query":
@@ -343,14 +355,26 @@ class DockerModelRunnerEmbedder:
             headers={"Content-Type": "application/json"},
             method="POST",
         )
-        try:
-            with self._urlopen(request, timeout=120) as response:
-                body = json.loads(response.read().decode("utf-8"))
-        except urlerror.HTTPError as exc:  # pragma: no cover - depends on live endpoint
-            detail = exc.read().decode("utf-8", errors="replace")
-            raise RagError(f"Docker Model Runner embeddings request failed: HTTP {exc.code} {detail}") from exc
-        except Exception as exc:  # pragma: no cover - depends on live endpoint
-            raise RagError(f"Docker Model Runner embeddings request failed at {endpoint}: {exc}") from exc
+        body = None
+        last_error: RagError | None = None
+        for attempt in range(1, self.retry_attempts + 1):
+            try:
+                with self._urlopen(request, timeout=120) as response:
+                    body = json.loads(response.read().decode("utf-8"))
+                break
+            except urlerror.HTTPError as exc:  # pragma: no cover - depends on live endpoint
+                detail = exc.read().decode("utf-8", errors="replace")
+                last_error = RagError(f"Docker Model Runner embeddings request failed: HTTP {exc.code} {detail}")
+                if exc.code not in {500, 502, 503, 504} or attempt >= self.retry_attempts:
+                    raise last_error from exc
+            except Exception as exc:  # pragma: no cover - depends on live endpoint
+                last_error = RagError(f"Docker Model Runner embeddings request failed at {endpoint}: {exc}")
+                if attempt >= self.retry_attempts:
+                    raise last_error from exc
+            if self.retry_delay_seconds:
+                self._sleep(self.retry_delay_seconds * (2 ** (attempt - 1)))
+        if body is None:
+            raise last_error or RagError(f"Docker Model Runner embeddings request failed at {endpoint}.")
         data = body.get("data") if isinstance(body, dict) else None
         if not isinstance(data, list):
             raise RagError("Docker Model Runner embeddings response did not include a data list.")
