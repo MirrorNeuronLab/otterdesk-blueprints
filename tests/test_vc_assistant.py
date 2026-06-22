@@ -130,33 +130,6 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         {"source": "examples/sample_inputs", "target": "vc_assistant/examples/sample_inputs"},
         {"source": "knowledge", "target": "knowledge"},
     ]
-    build_context_upload_paths = [
-        {
-            "base": "skills_root",
-            "source": "blueprint_support_skill",
-            "target": "document_workflow/docker_worker/build_context/blueprint_support_skill",
-        },
-        {
-            "base": "skills_root",
-            "source": "llm_ocr_skill",
-            "target": "document_workflow/docker_worker/build_context/llm_ocr_skill",
-        },
-        {
-            "base": "skills_root",
-            "source": "rag_skill",
-            "target": "document_workflow/docker_worker/build_context/rag_skill",
-        },
-        {
-            "base": "skills_root",
-            "source": "w3m_browser_skill",
-            "target": "document_workflow/docker_worker/build_context/w3m_browser_skill",
-        },
-        {
-            "base": "skills_root",
-            "source": "web_browser_skill",
-            "target": "document_workflow/docker_worker/build_context/web_browser_skill",
-        },
-    ]
     assert len(nodes) == 21
     assert report_sink["config"] == {"complete_on_message": True, "terminal_sink": True, "complete_run": True}
     assert config["python_dependencies"]["installer"] == "pip"
@@ -278,6 +251,9 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
     dockerfile = (ROOT / "vc_assistant" / "payloads" / "document_workflow" / "docker_worker" / "Dockerfile").read_text(
         encoding="utf-8"
     )
+    docker_worker_requirements = (
+        ROOT / "vc_assistant" / "payloads" / "document_workflow" / "docker_worker" / "requirements.txt"
+    ).read_text(encoding="utf-8")
     wrapper = (
         ROOT
         / "vc_assistant"
@@ -287,7 +263,7 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         / "run_blueprint_in_docker_worker.sh"
     ).read_text(encoding="utf-8")
     assert "w3m" in dockerfile
-    assert "w3m_browser_skill" in dockerfile
+    assert "mirrorneuron-w3m-browser-skill" in docker_worker_requirements
     assert "requirements.txt" in dockerfile
     assert "mn_context_engine_sdk" in dockerfile
     assert "mirrorneuron-membrane-python-sdk" in (
@@ -312,7 +288,7 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         assert node["config"]["shared_container"] is True
         assert node["config"]["reuse_shared_container"] is True
         assert node["config"]["upload_paths"] == upload_paths
-        assert node["config"]["build_context_upload_paths"] == build_context_upload_paths
+        assert "build_context_upload_paths" not in node["config"]
         environment = node["config"]["environment"]
         assert environment["MN_WORKFLOW_STEP_ID"] == node["node_id"]
         embedded_config = json.loads(environment["MN_BLUEPRINT_CONFIG_JSON"])
@@ -358,7 +334,7 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         assert template["with"]["shared_container"] is True
         assert template["with"]["reuse_shared_container"] is True
         assert template["with"]["upload_paths"] == upload_paths
-        assert template["with"]["build_context_upload_paths"] == build_context_upload_paths
+        assert "build_context_upload_paths" not in template["with"]
         template_config = json.loads(template["with"]["environment"]["MN_BLUEPRINT_CONFIG_JSON"])
         assert template_config["backpressure"] == config["backpressure"]
         assert template_config["knowledge_rag"] == config["knowledge_rag"]

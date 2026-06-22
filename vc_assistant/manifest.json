@@ -22,7 +22,7 @@
       "type": "pip",
       "source": "gar",
       "name": "mirrorneuron-rag-skill",
-      "version": "1.2.7"
+      "version": "1.2.14"
     },
     {
       "type": "pip",
@@ -3370,6 +3370,33 @@
     "problem": "Early startup packets are noisy and inconsistent; analysts need quick heuristic reports with evidence, assumptions, and missing-information flags while retaining the final decision.",
     "standard": {
       "workflow_model": "contract -> workflow -> agents/runtime"
+    },
+    "mn_skill_runtime": {
+      "generated": false,
+      "build_context": "document_workflow/docker_worker",
+      "patched_nodes": [
+        "startup_folder_watcher",
+        "company_packet_grouper",
+        "document_evidence_extractor",
+        "claim_normalizer",
+        "research_planner",
+        "company_identity_researcher",
+        "funding_researcher",
+        "market_comp_researcher",
+        "traction_verifier",
+        "rendered_page_researcher",
+        "research_reconciler",
+        "berkus_scorer",
+        "scorecard_bill_payne_scorer",
+        "risk_factor_summation_scorer",
+        "venture_capital_method_scorer",
+        "first_chicago_scorer",
+        "comparables_market_multiple_scorer",
+        "cost_to_duplicate_scorer",
+        "score_consistency_auditor",
+        "company_report_writer",
+        "batch_index_writer"
+      ]
     },
     "runtime_features": [
       "daily scheduled folder scan",

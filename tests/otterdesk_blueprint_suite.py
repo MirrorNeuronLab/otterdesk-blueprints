@@ -189,6 +189,9 @@ GPU_WORKER_DEVICE_REQUIREMENT = {
 
 
 SKILL_DEPENDENCY_VERSION = "1.2.7"
+SKILL_DEPENDENCY_VERSION_OVERRIDES = {
+    "mirrorneuron-rag-skill": "1.2.14",
+}
 IMPORT_MARKER_PACKAGES = {
     "mn_blueprint_support": "mirrorneuron-blueprint-support-skill",
     "mn_llm_ocr_skill": "mirrorneuron-llm-ocr-skill",
@@ -264,11 +267,12 @@ def test_otterdesk_manifests_pin_gar_skill_dependencies():
         assert set(by_name) == _expected_skill_dependency_packages(manifest_path.parent), blueprint_id
         assert "mn-skills" not in by_name
         for name, dependency in by_name.items():
+            expected_version = SKILL_DEPENDENCY_VERSION_OVERRIDES.get(name, SKILL_DEPENDENCY_VERSION)
             assert dependency == {
                 "type": "pip",
                 "source": "gar",
                 "name": name,
-                "version": SKILL_DEPENDENCY_VERSION,
+                "version": expected_version,
             }, (blueprint_id, name)
 
 
