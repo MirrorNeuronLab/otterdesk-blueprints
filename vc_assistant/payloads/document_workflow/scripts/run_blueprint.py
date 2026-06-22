@@ -3455,6 +3455,26 @@ def build_research_agent_prompt(
     }
 
 
+def build_research_stage_rag_query(*, stage: str, plan: dict[str, Any]) -> str:
+    spec = research_prompt_spec(stage)
+    stage_queries = (plan.get("stage_queries") or {}).get(stage, []) if isinstance(plan.get("stage_queries"), dict) else []
+    if not stage_queries:
+        stage_queries = plan.get("queries") or []
+    lane_ids = [
+        str(lane.get("lane_id") or "")
+        for lane in plan.get("lanes", [])[:8]
+        if isinstance(lane, dict) and lane.get("lane_id")
+    ]
+    parts = [
+        stage,
+        spec["mission"],
+        " ".join(spec["rag_query_terms"]),
+        " ".join(lane_ids),
+        " ".join(str(query) for query in stage_queries[:3]),
+    ]
+    return " ".join(part for part in parts if part).strip()
+
+
 def run_agentic_research_stage(
     *,
     company: str,
@@ -3489,16 +3509,7 @@ def run_agentic_research_stage(
             "max_tool_calls": max_tool_calls,
         },
     )
-    rag_query = " ".join(
-        item
-        for item in [
-            company,
-            stage,
-            " ".join(queries[:3]),
-            " ".join(str(lane.get("lane_id") or "") for lane in plan.get("lanes", [])[:8] if isinstance(lane, dict)),
-        ]
-        if item
-    )
+    rag_query = build_research_stage_rag_query(stage=stage, plan=plan)
     rag_context = retrieve_knowledge_rag_context(knowledge_rag=knowledge_rag, query=rag_query, stage=stage, company=company, run_dir=run_dir)
     require_ready_rag(knowledge_rag, stage=stage, company=company, context=rag_context, min_citations=1, run_dir=run_dir)
     observations: list[dict[str, Any]] = []

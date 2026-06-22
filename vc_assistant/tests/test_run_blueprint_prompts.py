@@ -147,6 +147,57 @@ def test_required_rag_zero_citations_fails_before_llm(monkeypatch):
     assert calls["llm"] == 0
 
 
+def test_agentic_rag_query_prioritizes_stage_playbook_terms(monkeypatch):
+    rb = load_module()
+    captured: dict[str, str] = {}
+
+    def fake_load_rag_skill():
+        return None
+
+    def fake_require_ready(state, *, stage="", company="", context=None, min_citations=0):
+        return context if context is not None else state
+
+    def fake_retrieve(**kwargs):
+        captured["query"] = kwargs["query"]
+        return {
+            "enabled": True,
+            "status": "ready",
+            "context": "Research planner playbook context.",
+            "citations": [{"ref": 1, "chunk_id": "planner"}],
+            "chunks": [{"chunk_id": "planner"}],
+        }
+
+    class FinishLLM:
+        def generate_json(self, **kwargs):
+            return {"tool_calls": [{"tool": "finish", "reason": "stage guidance reviewed"}], "rag_refs": [1]}
+
+    monkeypatch.setattr(rb, "_load_rag_skill", fake_load_rag_skill)
+    monkeypatch.setattr(rb, "skill_require_ready_knowledge_rag", fake_require_ready)
+    monkeypatch.setattr(rb, "retrieve_knowledge_rag_context", fake_retrieve)
+
+    rb.run_agentic_research_stage(
+        company="Aurora Ai",
+        stage="research_planner",
+        plan={
+            "stage_queries": {"research_planner": ["Aurora Ai company website Crunchbase public profile"]},
+            "queries": ["Aurora Ai startup public evidence"],
+            "lanes": [{"lane_id": "fundraising"}],
+        },
+        internet={},
+        run_dir=None,
+        action_budget=None,
+        llm=FinishLLM(),
+        agentic={"allowed_tools": ["finish"], "max_iterations_per_agent": 1, "max_tool_calls_per_agent": 1},
+        trace=[],
+        knowledge_rag={"enabled": True, "status": "ready", "config": {"required": True}},
+    )
+
+    assert "VC diligence lane planning" in captured["query"]
+    assert "public-safe startup research" in captured["query"]
+    assert "fundraising" in captured["query"]
+    assert not captured["query"].startswith("Aurora Ai")
+
+
 def test_funding_researcher_uses_agentic_path(monkeypatch):
     rb = load_module()
     called: list[str] = []
