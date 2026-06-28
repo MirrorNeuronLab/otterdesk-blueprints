@@ -3,7 +3,7 @@
   "kind": "Workflow",
   "id": "vc_assistant",
   "name": "VC Assistant",
-  "version": "1.0.0",
+  "version": 1,
   "manifest_version": "1.0",
   "skill_dependencies": [
     {
@@ -3267,7 +3267,7 @@
     },
     "worker_defaults": {
       "runner": "MirrorNeuron.Runner.HostLocal",
-      "uses": "mn-agents.data_python_executor@1.0.0",
+      "uses": "mn-agents.data_python_executor@1",
       "model": "default",
       "pool": "default",
       "pool_slots": 1,
@@ -3455,7 +3455,7 @@
       "nodes": [
         {
           "node_id": "startup_folder_watcher",
-          "uses": "mn-agents.data_python_executor@1.0.0",
+          "uses": "mn-agents.data_python_executor@1",
           "with": {
             "environment": {
               "MN_WORKFLOW_STEP_ID": "startup_folder_watcher",
@@ -3497,7 +3497,7 @@
         },
         {
           "node_id": "company_packet_grouper",
-          "uses": "mn-agents.data_python_executor@1.0.0",
+          "uses": "mn-agents.data_python_executor@1",
           "with": {
             "environment": {
               "MN_WORKFLOW_STEP_ID": "company_packet_grouper",
@@ -3539,7 +3539,7 @@
         },
         {
           "node_id": "document_evidence_extractor",
-          "uses": "mn-agents.data_python_executor@1.0.0",
+          "uses": "mn-agents.data_python_executor@1",
           "with": {
             "environment": {
               "MN_WORKFLOW_STEP_ID": "document_evidence_extractor",
@@ -3581,7 +3581,7 @@
         },
         {
           "node_id": "claim_normalizer",
-          "uses": "mn-agents.data_python_executor@1.0.0",
+          "uses": "mn-agents.data_python_executor@1",
           "with": {
             "environment": {
               "MN_WORKFLOW_STEP_ID": "claim_normalizer",
@@ -3623,7 +3623,7 @@
         },
         {
           "node_id": "research_planner",
-          "uses": "mn-agents.data_python_executor@1.0.0",
+          "uses": "mn-agents.data_python_executor@1",
           "with": {
             "environment": {
               "MN_WORKFLOW_STEP_ID": "research_planner",
@@ -3665,7 +3665,7 @@
         },
         {
           "node_id": "company_identity_researcher",
-          "uses": "mn-agents.data_python_executor@1.0.0",
+          "uses": "mn-agents.data_python_executor@1",
           "with": {
             "environment": {
               "MN_WORKFLOW_STEP_ID": "company_identity_researcher",
@@ -3712,7 +3712,7 @@
         },
         {
           "node_id": "funding_researcher",
-          "uses": "mn-agents.data_python_executor@1.0.0",
+          "uses": "mn-agents.data_python_executor@1",
           "with": {
             "environment": {
               "MN_WORKFLOW_STEP_ID": "funding_researcher",
@@ -3759,7 +3759,7 @@
         },
         {
           "node_id": "market_comp_researcher",
-          "uses": "mn-agents.data_python_executor@1.0.0",
+          "uses": "mn-agents.data_python_executor@1",
           "with": {
             "environment": {
               "MN_WORKFLOW_STEP_ID": "market_comp_researcher",
@@ -3806,7 +3806,7 @@
         },
         {
           "node_id": "traction_verifier",
-          "uses": "mn-agents.data_python_executor@1.0.0",
+          "uses": "mn-agents.data_python_executor@1",
           "with": {
             "environment": {
               "MN_WORKFLOW_STEP_ID": "traction_verifier",
@@ -3853,7 +3853,7 @@
         },
         {
           "node_id": "rendered_page_researcher",
-          "uses": "mn-agents.data_python_executor@1.0.0",
+          "uses": "mn-agents.data_python_executor@1",
           "with": {
             "environment": {
               "MN_WORKFLOW_STEP_ID": "rendered_page_researcher",
@@ -3900,7 +3900,7 @@
         },
         {
           "node_id": "research_reconciler",
-          "uses": "mn-agents.data_python_executor@1.0.0",
+          "uses": "mn-agents.data_python_executor@1",
           "with": {
             "environment": {
               "MN_WORKFLOW_STEP_ID": "research_reconciler",
@@ -3942,7 +3942,7 @@
         },
         {
           "node_id": "berkus_scorer",
-          "uses": "mn-agents.data_python_executor@1.0.0",
+          "uses": "mn-agents.data_python_executor@1",
           "with": {
             "environment": {
               "MN_WORKFLOW_STEP_ID": "berkus_scorer",
@@ -3984,7 +3984,7 @@
         },
         {
           "node_id": "scorecard_bill_payne_scorer",
-          "uses": "mn-agents.data_python_executor@1.0.0",
+          "uses": "mn-agents.data_python_executor@1",
           "with": {
             "environment": {
               "MN_WORKFLOW_STEP_ID": "scorecard_bill_payne_scorer",
@@ -4026,7 +4026,7 @@
         },
         {
           "node_id": "risk_factor_summation_scorer",
-          "uses": "mn-agents.data_python_executor@1.0.0",
+          "uses": "mn-agents.data_python_executor@1",
           "with": {
             "environment": {
               "MN_WORKFLOW_STEP_ID": "risk_factor_summation_scorer",
@@ -4068,7 +4068,7 @@
         },
         {
           "node_id": "venture_capital_method_scorer",
-          "uses": "mn-agents.data_python_executor@1.0.0",
+          "uses": "mn-agents.data_python_executor@1",
           "with": {
             "environment": {
               "MN_WORKFLOW_STEP_ID": "venture_capital_method_scorer",
@@ -4110,7 +4110,7 @@
         },
         {
           "node_id": "first_chicago_scorer",
-          "uses": "mn-agents.data_python_executor@1.0.0",
+          "uses": "mn-agents.data_python_executor@1",
           "with": {
             "environment": {
               "MN_WORKFLOW_STEP_ID": "first_chicago_scorer",
@@ -4152,7 +4152,7 @@
         },
         {
           "node_id": "comparables_market_multiple_scorer",
-          "uses": "mn-agents.data_python_executor@1.0.0",
+          "uses": "mn-agents.data_python_executor@1",
           "with": {
             "environment": {
               "MN_WORKFLOW_STEP_ID": "comparables_market_multiple_scorer",
@@ -4194,7 +4194,7 @@
         },
         {
           "node_id": "cost_to_duplicate_scorer",
-          "uses": "mn-agents.data_python_executor@1.0.0",
+          "uses": "mn-agents.data_python_executor@1",
           "with": {
             "environment": {
               "MN_WORKFLOW_STEP_ID": "cost_to_duplicate_scorer",
@@ -4236,7 +4236,7 @@
         },
         {
           "node_id": "score_consistency_auditor",
-          "uses": "mn-agents.data_python_executor@1.0.0",
+          "uses": "mn-agents.data_python_executor@1",
           "with": {
             "environment": {
               "MN_WORKFLOW_STEP_ID": "score_consistency_auditor",
@@ -4278,7 +4278,7 @@
         },
         {
           "node_id": "company_report_writer",
-          "uses": "mn-agents.data_python_executor@1.0.0",
+          "uses": "mn-agents.data_python_executor@1",
           "with": {
             "environment": {
               "MN_WORKFLOW_STEP_ID": "company_report_writer",
@@ -4320,7 +4320,7 @@
         },
         {
           "node_id": "batch_index_writer",
-          "uses": "mn-agents.data_python_executor@1.0.0",
+          "uses": "mn-agents.data_python_executor@1",
           "with": {
             "environment": {
               "MN_WORKFLOW_STEP_ID": "batch_index_writer",
@@ -4362,7 +4362,7 @@
         },
         {
           "node_id": "report_sink",
-          "uses": "mn-agents.control_join@1.0.0"
+          "uses": "mn-agents.control_join@1"
         }
       ],
       "renderer": "mn_blueprint_support.render_manifest_agent_templates",

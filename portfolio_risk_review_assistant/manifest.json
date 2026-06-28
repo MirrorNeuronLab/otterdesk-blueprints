@@ -825,27 +825,27 @@
       "nodes": [
         {
           "node_id": "load_portfolio_context",
-          "uses": "mn-agents.data_python_executor@1.0.0"
+          "uses": "mn-agents.data_python_executor@1"
         },
         {
           "node_id": "load_public_market_data",
-          "uses": "mn-agents.data_python_executor@1.0.0"
+          "uses": "mn-agents.data_python_executor@1"
         },
         {
           "node_id": "compute_risk_state",
-          "uses": "mn-agents.data_python_executor@1.0.0"
+          "uses": "mn-agents.data_python_executor@1"
         },
         {
           "node_id": "simulate_decision_candidates",
-          "uses": "mn-agents.data_python_executor@1.0.0"
+          "uses": "mn-agents.data_python_executor@1"
         },
         {
           "node_id": "evaluate_and_write_report",
-          "uses": "mn-agents.data_llm_decision@1.0.0"
+          "uses": "mn-agents.data_llm_decision@1"
         },
         {
           "node_id": "report_sink",
-          "uses": "mn-agents.control_join@1.0.0"
+          "uses": "mn-agents.control_join@1"
         }
       ],
       "render_tool": "../mn-agents/tools/render_agent_templates.py",
@@ -855,10 +855,10 @@
         {
           "node_id": "load_portfolio_context",
           "template_id": "mn-agents.data_python_executor",
-          "version": "1.0.0",
+          "version": 1,
           "original_node": {
             "node_id": "load_portfolio_context",
-            "uses": "mn-agents.data_python_executor@1.0.0",
+            "uses": "mn-agents.data_python_executor@1",
             "with": {
               "output_message_type": "portfolio_context_ready",
               "script": "scripts/run_blueprint.py",
@@ -899,10 +899,10 @@
         {
           "node_id": "load_public_market_data",
           "template_id": "mn-agents.data_python_executor",
-          "version": "1.0.0",
+          "version": 1,
           "original_node": {
             "node_id": "load_public_market_data",
-            "uses": "mn-agents.data_python_executor@1.0.0",
+            "uses": "mn-agents.data_python_executor@1",
             "with": {
               "output_message_type": "market_data_ready",
               "script": "scripts/run_blueprint.py",
@@ -943,10 +943,10 @@
         {
           "node_id": "compute_risk_state",
           "template_id": "mn-agents.data_python_executor",
-          "version": "1.0.0",
+          "version": 1,
           "original_node": {
             "node_id": "compute_risk_state",
-            "uses": "mn-agents.data_python_executor@1.0.0",
+            "uses": "mn-agents.data_python_executor@1",
             "with": {
               "output_message_type": "risk_state_ready",
               "script": "scripts/run_blueprint.py",
@@ -987,10 +987,10 @@
         {
           "node_id": "simulate_decision_candidates",
           "template_id": "mn-agents.data_python_executor",
-          "version": "1.0.0",
+          "version": 1,
           "original_node": {
             "node_id": "simulate_decision_candidates",
-            "uses": "mn-agents.data_python_executor@1.0.0",
+            "uses": "mn-agents.data_python_executor@1",
             "with": {
               "output_message_type": "decision_simulations_ready",
               "script": "scripts/run_blueprint.py",
@@ -1031,10 +1031,10 @@
         {
           "node_id": "evaluate_and_write_report",
           "template_id": "mn-agents.data_llm_decision",
-          "version": "1.0.0",
+          "version": 1,
           "original_node": {
             "node_id": "evaluate_and_write_report",
-            "uses": "mn-agents.data_llm_decision@1.0.0",
+            "uses": "mn-agents.data_llm_decision@1",
             "with": {
               "llm_config": "primary",
               "output_message_type": "llm_report_written",
@@ -1063,10 +1063,10 @@
         {
           "node_id": "report_sink",
           "template_id": "mn-agents.control_join",
-          "version": "1.0.0",
+          "version": 1,
           "original_node": {
             "node_id": "report_sink",
-            "uses": "mn-agents.control_join@1.0.0",
+            "uses": "mn-agents.control_join@1",
             "with": {
               "complete_on_message": true,
               "terminal_sink": true,
@@ -2286,7 +2286,7 @@
       "pool": "default",
       "pool_slots": 1,
       "runner": "MirrorNeuron.Runner.HostLocal",
-      "uses": "mn-agents.data_python_executor@1.0.0",
+      "uses": "mn-agents.data_python_executor@1",
       "workdir": "/sandbox/job/workflow"
     },
     "workflow_control": {
@@ -2362,7 +2362,7 @@
     }
   },
   "term": "TERM.md",
-  "version": "1.0.0",
+  "version": 1,
   "knowledge_rag": {
     "enabled": true,
     "backend": "redis_vector_rag",

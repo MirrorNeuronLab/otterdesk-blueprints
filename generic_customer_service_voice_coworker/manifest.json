@@ -636,13 +636,13 @@
           "alias": "customer_service_voice_router",
           "display_name": "Pizza Order Voice Router",
           "node_id": "ingress",
-          "uses": "mn-agents.control_router@1.0.0"
+          "uses": "mn-agents.control_router@1"
         },
         {
           "alias": "customer_service_voice_host",
           "display_name": "Pizza Order Voice Host",
           "node_id": "voice_service",
-          "uses": "mn-agents.data_python_executor@1.0.0",
+          "uses": "mn-agents.data_python_executor@1",
           "with": {
             "command": [
               "bash",
@@ -683,12 +683,12 @@
         {
           "node_id": "ingress",
           "template_id": "mn-agents.control_router",
-          "version": "1.0.0",
+          "version": 1,
           "original_node": {
             "alias": "customer_service_voice_router",
             "display_name": "Pizza Order Voice Router",
             "node_id": "ingress",
-            "uses": "mn-agents.control_router@1.0.0",
+            "uses": "mn-agents.control_router@1",
             "with": {}
           },
           "rendered_node": {
@@ -703,7 +703,7 @@
         {
           "node_id": "voice_service",
           "template_id": "mn-agents.data_python_executor",
-          "version": "1.0.0",
+          "version": 1,
           "original_node": {
             "alias": "customer_service_voice_host",
             "constraints": [
@@ -756,7 +756,7 @@
                 }
               ]
             },
-            "uses": "mn-agents.data_python_executor@1.0.0",
+            "uses": "mn-agents.data_python_executor@1",
             "with": {
               "command": [
                 "bash",
@@ -2030,7 +2030,7 @@
       "pool": "nvidia-accelerated",
       "pool_slots": 1,
       "runner": "MirrorNeuron.Runner.HostLocal",
-      "uses": "mn-agents.data_python_executor@1.0.0",
+      "uses": "mn-agents.data_python_executor@1",
       "workdir": "/sandbox/job/workflow"
     },
     "workflow_control": {
@@ -2102,7 +2102,7 @@
   },
   "term": "TERM.md",
   "type": "service",
-  "version": "0.1.0",
+  "version": 1,
   "knowledge_rag": {
     "enabled": true,
     "backend": "lexical_plain_text",

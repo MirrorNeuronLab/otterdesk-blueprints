@@ -3,7 +3,7 @@
   "kind": "Workflow",
   "id": "video_watch_assistant",
   "name": "Video Watch Assistant",
-  "version": "1.0.0",
+  "version": 1,
   "manifest_version": "1.0",
   "skill_dependencies": [
     {
@@ -840,7 +840,7 @@
       "pool": "default",
       "pool_slots": 1,
       "runner": "MirrorNeuron.Runner.HostLocal",
-      "uses": "mn-agents.data_python_executor@1.0.0",
+      "uses": "mn-agents.data_python_executor@1",
       "workdir": "/sandbox/job/workflow"
     },
     "workflow_control": {
@@ -967,13 +967,13 @@
           "node_id": "ingress",
           "alias": "video_monitor",
           "display_name": "Video Monitor",
-          "uses": "mn-agents.control_router@1.0.0"
+          "uses": "mn-agents.control_router@1"
         },
         {
           "node_id": "video_frame_tick_source",
           "alias": "frame_sampler",
           "display_name": "Frame Sampler",
-          "uses": "mn-agents.data_module@1.0.0",
+          "uses": "mn-agents.data_module@1",
           "with": {
             "module": "MirrorNeuron.Examples.VideoWatchAssistant.VideoFrameTickSource",
             "module_source": "payloads/beam_modules/video_frame_tick_source.ex",
@@ -984,7 +984,7 @@
           "node_id": "visual_detector",
           "alias": "quality_controller",
           "display_name": "Quality Controller",
-          "uses": "mn-agents.data_python_executor@1.0.0",
+          "uses": "mn-agents.data_python_executor@1",
           "with": {
             "script": "scripts/analyze_video_frame.py",
             "runner_module": "MirrorNeuron.Runner.DockerWorker",
@@ -1015,10 +1015,10 @@
         {
           "node_id": "ingress",
           "template_id": "mn-agents.control_router",
-          "version": "1.0.0",
+          "version": 1,
           "original_node": {
             "node_id": "ingress",
-            "uses": "mn-agents.control_router@1.0.0",
+            "uses": "mn-agents.control_router@1",
             "with": {},
             "alias": "video_monitor",
             "display_name": "Video Monitor"
@@ -1035,10 +1035,10 @@
         {
           "node_id": "video_frame_tick_source",
           "template_id": "mn-agents.data_module",
-          "version": "1.0.0",
+          "version": 1,
           "original_node": {
             "node_id": "video_frame_tick_source",
-            "uses": "mn-agents.data_module@1.0.0",
+            "uses": "mn-agents.data_module@1",
             "with": {
               "module": "MirrorNeuron.Examples.VideoWatchAssistant.VideoFrameTickSource",
               "module_source": "payloads/beam_modules/video_frame_tick_source.ex",
@@ -1063,10 +1063,10 @@
         {
           "node_id": "visual_detector",
           "template_id": "mn-agents.data_python_executor",
-          "version": "1.0.0",
+          "version": 1,
           "original_node": {
             "node_id": "visual_detector",
-            "uses": "mn-agents.data_python_executor@1.0.0",
+            "uses": "mn-agents.data_python_executor@1",
             "with": {
               "script": "scripts/analyze_video_frame.py",
               "runner_module": "MirrorNeuron.Runner.DockerWorker",

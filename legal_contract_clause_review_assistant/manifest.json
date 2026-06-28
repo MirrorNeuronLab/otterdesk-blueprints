@@ -3,7 +3,7 @@
   "kind": "Workflow",
   "id": "legal_contract_clause_review_assistant",
   "name": "Legal Contract Clause Review Assistant",
-  "version": "1.0.0",
+  "version": 1,
   "manifest_version": "1.0",
   "skill_dependencies": [
     {
@@ -1045,7 +1045,7 @@
     },
     "worker_defaults": {
       "runner": "MirrorNeuron.Runner.HostLocal",
-      "uses": "mn-agents.data_python_executor@1.0.0",
+      "uses": "mn-agents.data_python_executor@1",
       "model": "default",
       "pool": "default",
       "pool_slots": 1,
@@ -1188,27 +1188,27 @@
       "nodes": [
         {
           "node_id": "stage_contract_inputs",
-          "uses": "mn-agents.data_python_executor@1.0.0"
+          "uses": "mn-agents.data_python_executor@1"
         },
         {
           "node_id": "extract_contract_text",
-          "uses": "mn-agents.data_python_executor@1.0.0"
+          "uses": "mn-agents.data_python_executor@1"
         },
         {
           "node_id": "extract_clause_matrix",
-          "uses": "mn-agents.data_python_executor@1.0.0"
+          "uses": "mn-agents.data_python_executor@1"
         },
         {
           "node_id": "compare_contract_playbook",
-          "uses": "mn-agents.data_python_executor@1.0.0"
+          "uses": "mn-agents.data_python_executor@1"
         },
         {
           "node_id": "write_clause_review_packet",
-          "uses": "mn-agents.data_python_executor@1.0.0"
+          "uses": "mn-agents.data_python_executor@1"
         },
         {
           "node_id": "report_sink",
-          "uses": "mn-agents.control_join@1.0.0"
+          "uses": "mn-agents.control_join@1"
         }
       ],
       "renderer": "mn_blueprint_support.render_manifest_agent_templates",
@@ -1218,10 +1218,10 @@
         {
           "node_id": "stage_contract_inputs",
           "template_id": "mn-agents.data_python_executor",
-          "version": "1.0.0",
+          "version": 1,
           "original_node": {
             "node_id": "stage_contract_inputs",
-            "uses": "mn-agents.data_python_executor@1.0.0",
+            "uses": "mn-agents.data_python_executor@1",
             "with": {
               "script": "scripts/run_blueprint.py",
               "upload_path": "document_workflow",
@@ -1262,10 +1262,10 @@
         {
           "node_id": "extract_contract_text",
           "template_id": "mn-agents.data_python_executor",
-          "version": "1.0.0",
+          "version": 1,
           "original_node": {
             "node_id": "extract_contract_text",
-            "uses": "mn-agents.data_python_executor@1.0.0",
+            "uses": "mn-agents.data_python_executor@1",
             "with": {
               "script": "scripts/run_blueprint.py",
               "upload_path": "document_workflow",
@@ -1306,10 +1306,10 @@
         {
           "node_id": "extract_clause_matrix",
           "template_id": "mn-agents.data_python_executor",
-          "version": "1.0.0",
+          "version": 1,
           "original_node": {
             "node_id": "extract_clause_matrix",
-            "uses": "mn-agents.data_python_executor@1.0.0",
+            "uses": "mn-agents.data_python_executor@1",
             "with": {
               "script": "scripts/run_blueprint.py",
               "upload_path": "document_workflow",
@@ -1350,10 +1350,10 @@
         {
           "node_id": "compare_contract_playbook",
           "template_id": "mn-agents.data_python_executor",
-          "version": "1.0.0",
+          "version": 1,
           "original_node": {
             "node_id": "compare_contract_playbook",
-            "uses": "mn-agents.data_python_executor@1.0.0",
+            "uses": "mn-agents.data_python_executor@1",
             "with": {
               "script": "scripts/run_blueprint.py",
               "upload_path": "document_workflow",
@@ -1394,10 +1394,10 @@
         {
           "node_id": "write_clause_review_packet",
           "template_id": "mn-agents.data_python_executor",
-          "version": "1.0.0",
+          "version": 1,
           "original_node": {
             "node_id": "write_clause_review_packet",
-            "uses": "mn-agents.data_python_executor@1.0.0",
+            "uses": "mn-agents.data_python_executor@1",
             "with": {
               "script": "scripts/run_blueprint.py",
               "upload_path": "document_workflow",
@@ -1438,10 +1438,10 @@
         {
           "node_id": "report_sink",
           "template_id": "mn-agents.control_join",
-          "version": "1.0.0",
+          "version": 1,
           "original_node": {
             "node_id": "report_sink",
-            "uses": "mn-agents.control_join@1.0.0",
+            "uses": "mn-agents.control_join@1",
             "with": {
               "complete_on_message": true,
               "terminal_sink": true,

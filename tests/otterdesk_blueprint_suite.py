@@ -481,7 +481,7 @@ def test_gtm_ai_workflow_uses_current_flow_runtime_graph():
     ingress_template = next(
         node for node in _template_nodes(manifest) if node["node_id"] == "ingress"
     )
-    assert ingress_template["uses"] == "mn-agents.control_router@1.0.0"
+    assert ingress_template["uses"] == "mn-agents.control_router@1"
     assert "node_type" not in ingress_template.get("with", {})
 
     monitor_config = _node_config(next(node for node in nodes if node["node_id"] == "monitor_scheduler_agent"))

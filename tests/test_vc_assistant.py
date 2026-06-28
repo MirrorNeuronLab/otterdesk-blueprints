@@ -322,7 +322,7 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         assert embedded_config["suggested_schedule"] == config["suggested_schedule"]
     for template in manifest["metadata"]["agent_templates"]["nodes"]:
         if template["node_id"] == "report_sink":
-            assert template["uses"] == "mn-agents.control_join@1.0.0"
+            assert template["uses"] == "mn-agents.control_join@1"
             continue
         assert "python_environment" not in template["with"]
         assert template["with"]["runner_module"] == "MirrorNeuron.Runner.DockerWorker"

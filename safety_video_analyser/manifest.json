@@ -3,7 +3,7 @@
   "kind": "Workflow",
   "id": "safety_video_analyser",
   "name": "Safety Video Analyser",
-  "version": "1.0.0",
+  "version": 1,
   "manifest_version": "1.0",
   "skill_dependencies": [],
   "job_name": "safety-video-analyser",

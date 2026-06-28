@@ -3,7 +3,7 @@
   "kind": "Workflow",
   "id": "personal_financial_advisor",
   "name": "Personal Financial Advisor",
-  "version": "1.0.0",
+  "version": 1,
   "manifest_version": "1.0",
   "skill_dependencies": [
     {
@@ -1208,7 +1208,7 @@
     },
     "worker_defaults": {
       "runner": "MirrorNeuron.Runner.HostLocal",
-      "uses": "mn-agents.data_python_executor@1.0.0",
+      "uses": "mn-agents.data_python_executor@1",
       "model": "default",
       "pool": "default",
       "pool_slots": 1,
@@ -1357,7 +1357,7 @@
       "nodes": [
         {
           "node_id": "financial_folder_watcher",
-          "uses": "mn-agents.data_python_executor@1.0.0",
+          "uses": "mn-agents.data_python_executor@1",
           "with": {
             "environment": {
               "MN_WORKFLOW_STEP_ID": "financial_folder_watcher"
@@ -1373,7 +1373,7 @@
         },
         {
           "node_id": "financial_document_reader",
-          "uses": "mn-agents.data_python_executor@1.0.0",
+          "uses": "mn-agents.data_python_executor@1",
           "with": {
             "environment": {
               "MN_WORKFLOW_STEP_ID": "financial_document_reader"
@@ -1389,7 +1389,7 @@
         },
         {
           "node_id": "financial_activity_classifier",
-          "uses": "mn-agents.data_python_executor@1.0.0",
+          "uses": "mn-agents.data_python_executor@1",
           "with": {
             "environment": {
               "MN_WORKFLOW_STEP_ID": "financial_activity_classifier"
@@ -1405,7 +1405,7 @@
         },
         {
           "node_id": "financial_health_assessor",
-          "uses": "mn-agents.data_python_executor@1.0.0",
+          "uses": "mn-agents.data_python_executor@1",
           "with": {
             "environment": {
               "MN_WORKFLOW_STEP_ID": "financial_health_assessor"
@@ -1421,7 +1421,7 @@
         },
         {
           "node_id": "financial_market_researcher",
-          "uses": "mn-agents.data_python_executor@1.0.0",
+          "uses": "mn-agents.data_python_executor@1",
           "with": {
             "environment": {
               "MN_WORKFLOW_STEP_ID": "financial_market_researcher"
@@ -1438,7 +1438,7 @@
         },
         {
           "node_id": "financial_advice_reporter",
-          "uses": "mn-agents.data_python_executor@1.0.0",
+          "uses": "mn-agents.data_python_executor@1",
           "with": {
             "environment": {
               "MN_WORKFLOW_STEP_ID": "financial_advice_reporter"
@@ -1458,10 +1458,10 @@
         {
           "node_id": "financial_folder_watcher",
           "template_id": "mn-agents.data_python_executor",
-          "version": "1.0.0",
+          "version": 1,
           "original_node": {
             "node_id": "financial_folder_watcher",
-            "uses": "mn-agents.data_python_executor@1.0.0",
+            "uses": "mn-agents.data_python_executor@1",
             "with": {
               "environment": {
                 "MN_WORKFLOW_STEP_ID": "financial_folder_watcher"
@@ -1515,10 +1515,10 @@
         {
           "node_id": "financial_document_reader",
           "template_id": "mn-agents.data_python_executor",
-          "version": "1.0.0",
+          "version": 1,
           "original_node": {
             "node_id": "financial_document_reader",
-            "uses": "mn-agents.data_python_executor@1.0.0",
+            "uses": "mn-agents.data_python_executor@1",
             "with": {
               "environment": {
                 "MN_WORKFLOW_STEP_ID": "financial_document_reader"
@@ -1572,10 +1572,10 @@
         {
           "node_id": "financial_activity_classifier",
           "template_id": "mn-agents.data_python_executor",
-          "version": "1.0.0",
+          "version": 1,
           "original_node": {
             "node_id": "financial_activity_classifier",
-            "uses": "mn-agents.data_python_executor@1.0.0",
+            "uses": "mn-agents.data_python_executor@1",
             "with": {
               "environment": {
                 "MN_WORKFLOW_STEP_ID": "financial_activity_classifier"
@@ -1629,10 +1629,10 @@
         {
           "node_id": "financial_health_assessor",
           "template_id": "mn-agents.data_python_executor",
-          "version": "1.0.0",
+          "version": 1,
           "original_node": {
             "node_id": "financial_health_assessor",
-            "uses": "mn-agents.data_python_executor@1.0.0",
+            "uses": "mn-agents.data_python_executor@1",
             "with": {
               "environment": {
                 "MN_WORKFLOW_STEP_ID": "financial_health_assessor"
@@ -1686,10 +1686,10 @@
         {
           "node_id": "financial_market_researcher",
           "template_id": "mn-agents.data_python_executor",
-          "version": "1.0.0",
+          "version": 1,
           "original_node": {
             "node_id": "financial_market_researcher",
-            "uses": "mn-agents.data_python_executor@1.0.0",
+            "uses": "mn-agents.data_python_executor@1",
             "with": {
               "environment": {
                 "MN_WORKFLOW_STEP_ID": "financial_market_researcher"
@@ -1757,10 +1757,10 @@
         {
           "node_id": "financial_advice_reporter",
           "template_id": "mn-agents.data_python_executor",
-          "version": "1.0.0",
+          "version": 1,
           "original_node": {
             "node_id": "financial_advice_reporter",
-            "uses": "mn-agents.data_python_executor@1.0.0",
+            "uses": "mn-agents.data_python_executor@1",
             "with": {
               "environment": {
                 "MN_WORKFLOW_STEP_ID": "financial_advice_reporter"

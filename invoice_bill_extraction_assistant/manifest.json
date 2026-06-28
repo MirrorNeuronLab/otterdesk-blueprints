@@ -3,7 +3,7 @@
   "kind": "Workflow",
   "id": "invoice_bill_extraction_assistant",
   "name": "Invoice Bill Extraction Assistant",
-  "version": "1.0.0",
+  "version": 1,
   "manifest_version": "1.0",
   "skill_dependencies": [
     {
@@ -1039,7 +1039,7 @@
     },
     "worker_defaults": {
       "runner": "MirrorNeuron.Runner.HostLocal",
-      "uses": "mn-agents.data_python_executor@1.0.0",
+      "uses": "mn-agents.data_python_executor@1",
       "model": "default",
       "pool": "default",
       "pool_slots": 1,
@@ -1182,27 +1182,27 @@
       "nodes": [
         {
           "node_id": "stage_invoice_inputs",
-          "uses": "mn-agents.data_python_executor@1.0.0"
+          "uses": "mn-agents.data_python_executor@1"
         },
         {
           "node_id": "extract_invoice_text",
-          "uses": "mn-agents.data_python_executor@1.0.0"
+          "uses": "mn-agents.data_python_executor@1"
         },
         {
           "node_id": "extract_payable_fields",
-          "uses": "mn-agents.data_python_executor@1.0.0"
+          "uses": "mn-agents.data_python_executor@1"
         },
         {
           "node_id": "validate_invoice_packet",
-          "uses": "mn-agents.data_python_executor@1.0.0"
+          "uses": "mn-agents.data_python_executor@1"
         },
         {
           "node_id": "write_invoice_packet",
-          "uses": "mn-agents.data_python_executor@1.0.0"
+          "uses": "mn-agents.data_python_executor@1"
         },
         {
           "node_id": "report_sink",
-          "uses": "mn-agents.control_join@1.0.0"
+          "uses": "mn-agents.control_join@1"
         }
       ],
       "renderer": "mn_blueprint_support.render_manifest_agent_templates",
@@ -1212,10 +1212,10 @@
         {
           "node_id": "stage_invoice_inputs",
           "template_id": "mn-agents.data_python_executor",
-          "version": "1.0.0",
+          "version": 1,
           "original_node": {
             "node_id": "stage_invoice_inputs",
-            "uses": "mn-agents.data_python_executor@1.0.0",
+            "uses": "mn-agents.data_python_executor@1",
             "with": {
               "script": "scripts/run_blueprint.py",
               "upload_path": "document_workflow",
@@ -1256,10 +1256,10 @@
         {
           "node_id": "extract_invoice_text",
           "template_id": "mn-agents.data_python_executor",
-          "version": "1.0.0",
+          "version": 1,
           "original_node": {
             "node_id": "extract_invoice_text",
-            "uses": "mn-agents.data_python_executor@1.0.0",
+            "uses": "mn-agents.data_python_executor@1",
             "with": {
               "script": "scripts/run_blueprint.py",
               "upload_path": "document_workflow",
@@ -1300,10 +1300,10 @@
         {
           "node_id": "extract_payable_fields",
           "template_id": "mn-agents.data_python_executor",
-          "version": "1.0.0",
+          "version": 1,
           "original_node": {
             "node_id": "extract_payable_fields",
-            "uses": "mn-agents.data_python_executor@1.0.0",
+            "uses": "mn-agents.data_python_executor@1",
             "with": {
               "script": "scripts/run_blueprint.py",
               "upload_path": "document_workflow",
@@ -1344,10 +1344,10 @@
         {
           "node_id": "validate_invoice_packet",
           "template_id": "mn-agents.data_python_executor",
-          "version": "1.0.0",
+          "version": 1,
           "original_node": {
             "node_id": "validate_invoice_packet",
-            "uses": "mn-agents.data_python_executor@1.0.0",
+            "uses": "mn-agents.data_python_executor@1",
             "with": {
               "script": "scripts/run_blueprint.py",
               "upload_path": "document_workflow",
@@ -1388,10 +1388,10 @@
         {
           "node_id": "write_invoice_packet",
           "template_id": "mn-agents.data_python_executor",
-          "version": "1.0.0",
+          "version": 1,
           "original_node": {
             "node_id": "write_invoice_packet",
-            "uses": "mn-agents.data_python_executor@1.0.0",
+            "uses": "mn-agents.data_python_executor@1",
             "with": {
               "script": "scripts/run_blueprint.py",
               "upload_path": "document_workflow",
@@ -1432,10 +1432,10 @@
         {
           "node_id": "report_sink",
           "template_id": "mn-agents.control_join",
-          "version": "1.0.0",
+          "version": 1,
           "original_node": {
             "node_id": "report_sink",
-            "uses": "mn-agents.control_join@1.0.0",
+            "uses": "mn-agents.control_join@1",
             "with": {
               "complete_on_message": true,
               "terminal_sink": true,

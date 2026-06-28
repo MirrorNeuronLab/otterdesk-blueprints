@@ -3,7 +3,7 @@
   "kind": "Workflow",
   "id": "personal_income_tax_expert",
   "name": "Personal Income Tax Expert",
-  "version": "1.0.0",
+  "version": 1,
   "manifest_version": "1.0",
   "skill_dependencies": [
     {
@@ -1346,7 +1346,7 @@
       "pool": "default",
       "pool_slots": 1,
       "runner": "MirrorNeuron.Runner.HostLocal",
-      "uses": "mn-agents.data_python_executor@1.0.0",
+      "uses": "mn-agents.data_python_executor@1",
       "workdir": "/sandbox/job/workflow"
     },
     "workflow_control": {
@@ -1452,35 +1452,35 @@
       "nodes": [
         {
           "node_id": "intake_documents",
-          "uses": "mn-agents.data_python_executor@1.0.0"
+          "uses": "mn-agents.data_python_executor@1"
         },
         {
           "node_id": "prepare_income_workpapers",
-          "uses": "mn-agents.data_python_executor@1.0.0"
+          "uses": "mn-agents.data_python_executor@1"
         },
         {
           "node_id": "prepare_property_workpapers",
-          "uses": "mn-agents.data_python_executor@1.0.0"
+          "uses": "mn-agents.data_python_executor@1"
         },
         {
           "node_id": "prepare_investment_workpapers",
-          "uses": "mn-agents.data_python_executor@1.0.0"
+          "uses": "mn-agents.data_python_executor@1"
         },
         {
           "node_id": "merge_tax_workpapers",
-          "uses": "mn-agents.data_python_executor@1.0.0"
+          "uses": "mn-agents.data_python_executor@1"
         },
         {
           "node_id": "audit_and_manager_review",
-          "uses": "mn-agents.data_python_executor@1.0.0"
+          "uses": "mn-agents.data_python_executor@1"
         },
         {
           "node_id": "write_review_packet",
-          "uses": "mn-agents.data_python_executor@1.0.0"
+          "uses": "mn-agents.data_python_executor@1"
         },
         {
           "node_id": "report_sink",
-          "uses": "mn-agents.control_join@1.0.0"
+          "uses": "mn-agents.control_join@1"
         }
       ],
       "render_tool": "../mn-agents/tools/render_agent_templates.py",
@@ -1490,10 +1490,10 @@
         {
           "node_id": "intake_documents",
           "template_id": "mn-agents.data_python_executor",
-          "version": "1.0.0",
+          "version": 1,
           "original_node": {
             "node_id": "intake_documents",
-            "uses": "mn-agents.data_python_executor@1.0.0",
+            "uses": "mn-agents.data_python_executor@1",
             "with": {
               "environment": {
                 "MN_WORKFLOW_STEP_ID": "intake_documents"
@@ -1546,10 +1546,10 @@
         {
           "node_id": "prepare_income_workpapers",
           "template_id": "mn-agents.data_python_executor",
-          "version": "1.0.0",
+          "version": 1,
           "original_node": {
             "node_id": "prepare_income_workpapers",
-            "uses": "mn-agents.data_python_executor@1.0.0",
+            "uses": "mn-agents.data_python_executor@1",
             "with": {
               "environment": {
                 "MN_WORKFLOW_STEP_ID": "prepare_income_workpapers"
@@ -1602,10 +1602,10 @@
         {
           "node_id": "prepare_property_workpapers",
           "template_id": "mn-agents.data_python_executor",
-          "version": "1.0.0",
+          "version": 1,
           "original_node": {
             "node_id": "prepare_property_workpapers",
-            "uses": "mn-agents.data_python_executor@1.0.0",
+            "uses": "mn-agents.data_python_executor@1",
             "with": {
               "environment": {
                 "MN_WORKFLOW_STEP_ID": "prepare_property_workpapers"
@@ -1658,10 +1658,10 @@
         {
           "node_id": "prepare_investment_workpapers",
           "template_id": "mn-agents.data_python_executor",
-          "version": "1.0.0",
+          "version": 1,
           "original_node": {
             "node_id": "prepare_investment_workpapers",
-            "uses": "mn-agents.data_python_executor@1.0.0",
+            "uses": "mn-agents.data_python_executor@1",
             "with": {
               "environment": {
                 "MN_WORKFLOW_STEP_ID": "prepare_investment_workpapers"
@@ -1714,10 +1714,10 @@
         {
           "node_id": "merge_tax_workpapers",
           "template_id": "mn-agents.data_python_executor",
-          "version": "1.0.0",
+          "version": 1,
           "original_node": {
             "node_id": "merge_tax_workpapers",
-            "uses": "mn-agents.data_python_executor@1.0.0",
+            "uses": "mn-agents.data_python_executor@1",
             "with": {
               "environment": {
                 "MN_WORKFLOW_STEP_ID": "merge_tax_workpapers"
@@ -1770,10 +1770,10 @@
         {
           "node_id": "audit_and_manager_review",
           "template_id": "mn-agents.data_python_executor",
-          "version": "1.0.0",
+          "version": 1,
           "original_node": {
             "node_id": "audit_and_manager_review",
-            "uses": "mn-agents.data_python_executor@1.0.0",
+            "uses": "mn-agents.data_python_executor@1",
             "with": {
               "environment": {
                 "MN_WORKFLOW_STEP_ID": "audit_and_manager_review"
@@ -1826,10 +1826,10 @@
         {
           "node_id": "write_review_packet",
           "template_id": "mn-agents.data_python_executor",
-          "version": "1.0.0",
+          "version": 1,
           "original_node": {
             "node_id": "write_review_packet",
-            "uses": "mn-agents.data_python_executor@1.0.0",
+            "uses": "mn-agents.data_python_executor@1",
             "with": {
               "environment": {
                 "MN_WORKFLOW_STEP_ID": "write_review_packet"
@@ -1876,10 +1876,10 @@
         {
           "node_id": "report_sink",
           "template_id": "mn-agents.control_join",
-          "version": "1.0.0",
+          "version": 1,
           "original_node": {
             "node_id": "report_sink",
-            "uses": "mn-agents.control_join@1.0.0",
+            "uses": "mn-agents.control_join@1",
             "with": {
               "complete_on_message": true,
               "terminal_sink": true,

@@ -3,7 +3,7 @@
   "kind": "Workflow",
   "id": "drug_discovery_research_assistant",
   "name": "Drug Discovery Research Assistant",
-  "version": "1.0.0",
+  "version": 1,
   "manifest_version": "1.0",
   "skill_dependencies": [
     {
@@ -836,7 +836,7 @@
         "side_effect": "internal_write",
         "strategy": "single",
         "type": "worker",
-        "uses": "mn-agents.data_python_executor@1.0.0",
+        "uses": "mn-agents.data_python_executor@1",
         "worker": {
           "id": "binding_evaluation",
           "model": "Ollama/Nemotron3 33B",
@@ -844,7 +844,7 @@
           "script": "scripts/stage_d.py",
           "tokens": 18000,
           "tools": 4,
-          "uses": "mn-agents.data_python_executor@1.0.0",
+          "uses": "mn-agents.data_python_executor@1",
           "with": {
             "command": [
               "python3.11",
@@ -869,7 +869,7 @@
             "script": "scripts/stage_d.py",
             "tokens": 18000,
             "tools": 4,
-            "uses": "mn-agents.data_python_executor@1.0.0",
+            "uses": "mn-agents.data_python_executor@1",
             "with": {
               "command": [
                 "python3.11",
@@ -894,7 +894,7 @@
         "side_effect": "internal_write",
         "strategy": "single",
         "type": "worker",
-        "uses": "mn-agents.data_python_executor@1.0.0",
+        "uses": "mn-agents.data_python_executor@1",
         "worker": {
           "id": "candidate_generation",
           "model": "Ollama/Nemotron3 33B",
@@ -902,7 +902,7 @@
           "script": "scripts/stage_c.py",
           "tokens": 18000,
           "tools": 4,
-          "uses": "mn-agents.data_python_executor@1.0.0",
+          "uses": "mn-agents.data_python_executor@1",
           "with": {
             "command": [
               "python3.11",
@@ -927,7 +927,7 @@
             "script": "scripts/stage_c.py",
             "tokens": 18000,
             "tools": 4,
-            "uses": "mn-agents.data_python_executor@1.0.0",
+            "uses": "mn-agents.data_python_executor@1",
             "with": {
               "command": [
                 "python3.11",
@@ -952,7 +952,7 @@
         "side_effect": "internal_write",
         "strategy": "single",
         "type": "worker",
-        "uses": "mn-agents.data_python_executor@1.0.0",
+        "uses": "mn-agents.data_python_executor@1",
         "worker": {
           "id": "ranking_reporting",
           "model": "Ollama/Nemotron3 33B",
@@ -960,7 +960,7 @@
           "script": "scripts/stage_e.py",
           "tokens": 18000,
           "tools": 4,
-          "uses": "mn-agents.data_python_executor@1.0.0",
+          "uses": "mn-agents.data_python_executor@1",
           "with": {
             "command": [
               "python3.11",
@@ -985,7 +985,7 @@
             "script": "scripts/stage_e.py",
             "tokens": 18000,
             "tools": 4,
-            "uses": "mn-agents.data_python_executor@1.0.0",
+            "uses": "mn-agents.data_python_executor@1",
             "with": {
               "command": [
                 "python3.11",
@@ -1010,7 +1010,7 @@
         "side_effect": "internal_write",
         "strategy": "single",
         "type": "worker",
-        "uses": "mn-agents.data_python_executor@1.0.0",
+        "uses": "mn-agents.data_python_executor@1",
         "worker": {
           "id": "structure_generation",
           "model": "Ollama/Nemotron3 33B",
@@ -1018,7 +1018,7 @@
           "script": "scripts/stage_b.py",
           "tokens": 18000,
           "tools": 4,
-          "uses": "mn-agents.data_python_executor@1.0.0",
+          "uses": "mn-agents.data_python_executor@1",
           "with": {
             "command": [
               "python3.11",
@@ -1043,7 +1043,7 @@
             "script": "scripts/stage_b.py",
             "tokens": 18000,
             "tools": 4,
-            "uses": "mn-agents.data_python_executor@1.0.0",
+            "uses": "mn-agents.data_python_executor@1",
             "with": {
               "command": [
                 "python3.11",
@@ -1068,7 +1068,7 @@
         "side_effect": "internal_write",
         "strategy": "single",
         "type": "worker",
-        "uses": "mn-agents.data_python_executor@1.0.0",
+        "uses": "mn-agents.data_python_executor@1",
         "worker": {
           "id": "target_discovery",
           "model": "Ollama/Nemotron3 33B",
@@ -1076,7 +1076,7 @@
           "script": "scripts/stage_a.py",
           "tokens": 18000,
           "tools": 4,
-          "uses": "mn-agents.data_python_executor@1.0.0",
+          "uses": "mn-agents.data_python_executor@1",
           "with": {
             "command": [
               "python3.11",
@@ -1101,7 +1101,7 @@
             "script": "scripts/stage_a.py",
             "tokens": 18000,
             "tools": 4,
-            "uses": "mn-agents.data_python_executor@1.0.0",
+            "uses": "mn-agents.data_python_executor@1",
             "with": {
               "command": [
                 "python3.11",
@@ -1204,7 +1204,7 @@
       "pool": "default",
       "pool_slots": 1,
       "runner": "MirrorNeuron.Runner.HostLocal",
-      "uses": "mn-agents.data_python_executor@1.0.0",
+      "uses": "mn-agents.data_python_executor@1",
       "workdir": "/sandbox/job/workflow"
     },
     "workflow_control": {
@@ -1309,31 +1309,31 @@
       "nodes": [
         {
           "node_id": "target_discovery",
-          "uses": "mn-agents.data_python_executor@1.0.0"
+          "uses": "mn-agents.data_python_executor@1"
         },
         {
           "node_id": "structure_generation",
-          "uses": "mn-agents.data_python_executor@1.0.0"
+          "uses": "mn-agents.data_python_executor@1"
         },
         {
           "node_id": "candidate_generation",
-          "uses": "mn-agents.data_python_executor@1.0.0"
+          "uses": "mn-agents.data_python_executor@1"
         },
         {
           "node_id": "binding_evaluation",
-          "uses": "mn-agents.data_python_executor@1.0.0"
+          "uses": "mn-agents.data_python_executor@1"
         },
         {
           "node_id": "ranking_reporting",
-          "uses": "mn-agents.data_python_executor@1.0.0"
+          "uses": "mn-agents.data_python_executor@1"
         },
         {
           "node_id": "manager_monitor",
-          "uses": "mn-agents.data_python_executor@1.0.0"
+          "uses": "mn-agents.data_python_executor@1"
         },
         {
           "node_id": "report_sink",
-          "uses": "mn-agents.control_join@1.0.0"
+          "uses": "mn-agents.control_join@1"
         }
       ],
       "render_tool": "../mn-agents/tools/render_agent_templates.py",
@@ -1343,10 +1343,10 @@
         {
           "node_id": "target_discovery",
           "template_id": "mn-agents.data_python_executor",
-          "version": "1.0.0",
+          "version": 1,
           "original_node": {
             "node_id": "target_discovery",
-            "uses": "mn-agents.data_python_executor@1.0.0",
+            "uses": "mn-agents.data_python_executor@1",
             "with": {
               "script": "scripts/manager.py",
               "upload_path": "worker",
@@ -1387,10 +1387,10 @@
         {
           "node_id": "structure_generation",
           "template_id": "mn-agents.data_python_executor",
-          "version": "1.0.0",
+          "version": 1,
           "original_node": {
             "node_id": "structure_generation",
-            "uses": "mn-agents.data_python_executor@1.0.0",
+            "uses": "mn-agents.data_python_executor@1",
             "with": {
               "script": "scripts/manager.py",
               "upload_path": "worker",
@@ -1431,10 +1431,10 @@
         {
           "node_id": "candidate_generation",
           "template_id": "mn-agents.data_python_executor",
-          "version": "1.0.0",
+          "version": 1,
           "original_node": {
             "node_id": "candidate_generation",
-            "uses": "mn-agents.data_python_executor@1.0.0",
+            "uses": "mn-agents.data_python_executor@1",
             "with": {
               "script": "scripts/manager.py",
               "upload_path": "worker",
@@ -1475,10 +1475,10 @@
         {
           "node_id": "binding_evaluation",
           "template_id": "mn-agents.data_python_executor",
-          "version": "1.0.0",
+          "version": 1,
           "original_node": {
             "node_id": "binding_evaluation",
-            "uses": "mn-agents.data_python_executor@1.0.0",
+            "uses": "mn-agents.data_python_executor@1",
             "with": {
               "script": "scripts/manager.py",
               "upload_path": "worker",
@@ -1519,10 +1519,10 @@
         {
           "node_id": "ranking_reporting",
           "template_id": "mn-agents.data_python_executor",
-          "version": "1.0.0",
+          "version": 1,
           "original_node": {
             "node_id": "ranking_reporting",
-            "uses": "mn-agents.data_python_executor@1.0.0",
+            "uses": "mn-agents.data_python_executor@1",
             "with": {
               "script": "scripts/manager.py",
               "upload_path": "worker",
@@ -1563,10 +1563,10 @@
         {
           "node_id": "manager_monitor",
           "template_id": "mn-agents.data_python_executor",
-          "version": "1.0.0",
+          "version": 1,
           "original_node": {
             "node_id": "manager_monitor",
-            "uses": "mn-agents.data_python_executor@1.0.0",
+            "uses": "mn-agents.data_python_executor@1",
             "with": {
               "script": "scripts/manager.py",
               "upload_path": "worker",
@@ -1604,10 +1604,10 @@
         {
           "node_id": "report_sink",
           "template_id": "mn-agents.control_join",
-          "version": "1.0.0",
+          "version": 1,
           "original_node": {
             "node_id": "report_sink",
-            "uses": "mn-agents.control_join@1.0.0",
+            "uses": "mn-agents.control_join@1",
             "with": {
               "complete_on_message": true,
               "terminal_sink": true,

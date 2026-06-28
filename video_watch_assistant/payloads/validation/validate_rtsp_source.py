@@ -149,7 +149,8 @@ def fail(
     if debug:
         issue["debug"] = {key: redact_url(str(value)) for key, value in debug.items()}
     print(json.dumps({
-        "version": "validation.report/v1",
+        "version": 1,
+        "schema_version": "validation.report/v1",
         "ok": False,
         "status": "failed",
         "error_count": 1,
