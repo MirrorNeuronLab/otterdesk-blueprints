@@ -4,11 +4,26 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+import sys
 
 
 RESULT_START = "__MN_RESULT_START__"
 RESULT_END = "__MN_RESULT_END__"
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".mkv", ".avi", ".webm"}
+
+
+def _load_repo_env() -> None:
+    for parent in Path(__file__).resolve().parents:
+        if (parent / "otterdesk_blueprint_env.py").exists():
+            if str(parent) not in sys.path:
+                sys.path.insert(0, str(parent))
+            from otterdesk_blueprint_env import load_blueprint_env
+
+            load_blueprint_env(__file__)
+            return
+
+
+_load_repo_env()
 
 
 def load_config() -> dict:

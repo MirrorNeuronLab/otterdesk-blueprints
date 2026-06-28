@@ -16,6 +16,25 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Protocol
 
+
+def _load_repo_env() -> None:
+    for parent in Path(__file__).resolve().parents:
+        if (parent / "otterdesk_blueprint_env.py").exists():
+            if str(parent) not in sys.path:
+                sys.path.insert(0, str(parent))
+            from otterdesk_blueprint_env import load_blueprint_env
+
+            load_blueprint_env(__file__)
+            return
+
+
+_load_repo_env()
+
+
+def _local_development_enabled() -> bool:
+    return os.environ.get("MN_ENV", "").strip().lower() in {"dev", "development", "local"} and os.environ.get("MN_USE_LOCAL_SKILLS", "").strip().lower() not in {"0", "false", "no"}
+
+
 try:
     from mn_blueprint_support import (
         architecture_contract,
@@ -31,7 +50,7 @@ try:
     )
     from mn_blueprint_support.web_ui import maybe_write_static_output
 except ModuleNotFoundError:
-    if os.environ.get("MN_USE_LOCAL_SKILLS", "").strip().lower() in {"1", "true", "yes"}:
+    if _local_development_enabled():
         for parent in Path(__file__).resolve().parents:
             candidate = parent / "mn-skills" / "blueprint_support_skill" / "src"
             if candidate.exists():

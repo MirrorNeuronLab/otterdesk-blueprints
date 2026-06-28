@@ -1,7 +1,7 @@
 #!/usr/bin/env python3.11
-from __future__ import annotations
 
 import argparse
+from dataclasses import asdict, dataclass
 import html as html_lib
 import hashlib
 import inspect
@@ -21,6 +21,73 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, quote_plus, unquote, urljoin, urlparse
 
+
+LOCAL_SKILL_NAMES = (
+    "blueprint_support_skill",
+    "llm_ocr_skill",
+    "rag_skill",
+    "w3m_browser_skill",
+    "web_browser_skill",
+    "evidence_engine_skill",
+    "actor_review_skill",
+    "client_report_skill",
+    "document_reading_skill",
+    "public_research_orchestrator_skill",
+    "scoring_framework_skill",
+)
+
+
+def _load_repo_env() -> None:
+    for parent in Path(__file__).resolve().parents:
+        if (parent / "otterdesk_blueprint_env.py").exists():
+            if str(parent) not in sys.path:
+                sys.path.insert(0, str(parent))
+            from otterdesk_blueprint_env import load_blueprint_env
+
+            load_blueprint_env(__file__)
+            return
+
+
+_load_repo_env()
+
+
+def _workspace_root() -> Path | None:
+    value = os.environ.get("MN_WORKSPACE_ROOT")
+    if value:
+        return Path(value).expanduser()
+    for parent in Path(__file__).resolve().parents:
+        if (parent / "mn-skills").exists():
+            return parent
+    return None
+
+
+def _dev_local_skills_enabled() -> bool:
+    env = os.environ.get("MN_ENV", "").strip().lower()
+    flag = os.environ.get("MN_USE_LOCAL_SKILLS", "").strip().lower()
+    return env in {"dev", "development", "local"} and flag not in {"0", "false", "no"}
+
+
+def _add_repo_paths() -> None:
+    if not _dev_local_skills_enabled():
+        return
+    bundle_root = Path(__file__).resolve().parents[1]
+    bundled_skills = bundle_root / "skills"
+    if bundled_skills.exists():
+        for skill_name in ("rag_skill",):
+            candidate = bundled_skills / skill_name / "src"
+            if candidate.exists() and str(candidate) not in sys.path:
+                sys.path.insert(0, str(candidate))
+    workspace = _workspace_root()
+    if not workspace:
+        return
+    for skill_name in LOCAL_SKILL_NAMES:
+        candidate = workspace / "mn-skills" / skill_name / "src"
+        if candidate.exists() and str(candidate) not in sys.path:
+            sys.path.insert(0, str(candidate))
+
+
+_add_repo_paths()
+
 try:
     from mn_blueprint_support import start_agent_beacon_thread
 except Exception:  # pragma: no cover - optional runtime support
@@ -32,6 +99,58 @@ try:
 except Exception:  # pragma: no cover - optional runtime support
     MemoryItem = None
     WorkingMemory = None
+
+from mn_evidence_engine_skill import (
+    SourceRecord,
+    aggregate_claim_records,
+    build_evidence_graph,
+    build_evidence_items_from_texts,
+    clamp_score,
+    confidence_band,
+    dimension_score_from_claims,
+    score_evidence_quality,
+    stable_short_id,
+    to_dict,
+)
+from mn_actor_review_skill import (
+    actor_review_unavailable_findings,
+    default_actor_rag_refs as shared_default_actor_rag_refs,
+    normalize_actor_review_warnings as shared_normalize_actor_review_warnings,
+    truncate_for_prompt as _truncate_for_prompt,
+)
+from mn_client_report_skill import (
+    build_research_coverage as shared_build_research_coverage,
+    markdown_cell,
+    quality_check as shared_quality_check,
+)
+from mn_document_reading_skill import (
+    document_paths as shared_document_paths,
+    records_fingerprint,
+    safe_read_text,
+)
+from mn_public_research_orchestrator_skill import (
+    annotate_agent_sources as shared_annotate_agent_sources,
+    budget_exhausted_source as shared_budget_exhausted_source,
+    compact_company_report_for_transport as shared_compact_company_report_for_transport,
+    compact_local_evidence_for_transport as shared_compact_local_evidence_for_transport,
+    compact_research_sources_for_transport as shared_compact_research_sources_for_transport,
+    compact_text as shared_compact_text,
+    dedupe_list,
+    extract_domains,
+    host_from_url,
+    lane as shared_lane,
+    observation_from_sources as shared_observation_from_sources,
+    source_record as shared_source_record,
+    validate_agent_tool_call as shared_validate_agent_tool_call,
+)
+from mn_scoring_framework_skill import (
+    evidence_status,
+    keyword_score,
+    money_values,
+    run_scorers,
+    source_refs_from_records,
+    source_refs_from_sources,
+)
 
 
 BLUEPRINT_ID = "vc_assistant"
@@ -164,6 +283,58 @@ SOURCE_QUALITY_LABELS = {
     "technical_signal",
     "market_context",
 }
+CLAIM_TYPES = [
+    "team.founder_background",
+    "team.domain_expertise",
+    "product.prototype",
+    "product.technical_depth",
+    "market.buyer_segment",
+    "market.size",
+    "traction.pilots",
+    "traction.paid_customers",
+    "traction.revenue.arr",
+    "traction.retention",
+    "traction.pipeline",
+    "moat.ip",
+    "moat.data",
+    "moat.distribution",
+    "finance.round_terms",
+    "finance.burn",
+    "finance.runway",
+    "risk.competition",
+    "risk.sales_cycle",
+    "risk.manufacturing",
+    "risk.regulatory",
+]
+FUND_PROFILE_WEIGHTS = {
+    "seed_saas": {
+        "team": 0.20,
+        "market": 0.15,
+        "product": 0.15,
+        "traction": 0.25,
+        "moat": 0.10,
+        "financial": 0.05,
+        "risk": 0.10,
+    },
+    "deeptech": {
+        "team": 0.20,
+        "market": 0.15,
+        "product": 0.20,
+        "traction": 0.15,
+        "moat": 0.15,
+        "financial": 0.05,
+        "risk": 0.10,
+    },
+    "generalist": {
+        "team": 0.20,
+        "market": 0.15,
+        "product": 0.15,
+        "traction": 0.25,
+        "moat": 0.10,
+        "financial": 0.05,
+        "risk": 0.10,
+    },
+}
 VC_METHOD_GUIDANCE = {
     "berkus_method": {
         "label": "Berkus Method",
@@ -286,37 +457,6 @@ for _method_id, _scorer_id in SCORER_STAGE_BY_METHOD.items():
         "focus": [_method_id, "method_correctness", "evidence_grounding", "assumption_clarity"],
     }
 
-
-def _workspace_root() -> Path | None:
-    value = os.environ.get("MN_WORKSPACE_ROOT")
-    if value:
-        return Path(value).expanduser()
-    for parent in Path(__file__).resolve().parents:
-        if (parent / "mn-skills").exists():
-            return parent
-    return None
-
-
-def _add_repo_paths() -> None:
-    if os.environ.get("MN_USE_LOCAL_SKILLS", "").strip().lower() not in {"1", "true", "yes"}:
-        return
-    bundle_root = Path(__file__).resolve().parents[1]
-    bundled_skills = bundle_root / "skills"
-    if bundled_skills.exists():
-        for skill_name in ("rag_skill",):
-            candidate = bundled_skills / skill_name / "src"
-            if candidate.exists() and str(candidate) not in sys.path:
-                sys.path.insert(0, str(candidate))
-    workspace = _workspace_root()
-    if not workspace:
-        return
-    for skill_name in ("blueprint_support_skill", "llm_ocr_skill", "w3m_browser_skill", "web_browser_skill", "rag_skill"):
-        candidate = workspace / "mn-skills" / skill_name / "src"
-        if candidate.exists() and str(candidate) not in sys.path:
-            sys.path.insert(0, str(candidate))
-
-
-_add_repo_paths()
 
 try:
     from mn_blueprint_support import get_actor_llm_client
@@ -959,28 +1099,6 @@ def active_knowledge_reference(active_knowledge: dict[str, Any]) -> dict[str, An
     }
 
 
-def actor_review_unavailable_findings(actor_ids: list[str], error: Exception | str) -> dict[str, Any]:
-    message = str(error) or "Actor review unavailable."
-    return {
-        actor_id: {
-            "actor_id": actor_id,
-            "summary": "Actor review unavailable; deterministic VC report artifacts were preserved.",
-            "findings": [
-                {
-                    "severity": "warning",
-                    "message": "LLM actor review failed after deterministic reports were generated.",
-                    "detail": message,
-                }
-            ],
-            "risks": [],
-            "confidence": 0.35,
-            "provider": "actor_review_unavailable",
-            "budget_status": "not_applicable",
-        }
-        for actor_id in actor_ids
-    }
-
-
 class ActionBudget:
     def __init__(self, default_actions: int = DEFAULT_ACTION_BUDGET) -> None:
         self.budget = max(0, int(default_actions or 0))
@@ -1600,27 +1718,11 @@ def slugify(value: str) -> str:
     return slug or "unknown-company"
 
 
-def host_from_url(value: str) -> str:
-    try:
-        return urlparse(value).netloc[:200]
-    except Exception:
-        return ""
-
-
 def redactor(text: str) -> str:
     value = re.sub(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", "[REDACTED-EMAIL]", text or "")
     value = re.sub(r"\b\d{3}[- ]?\d{2}[- ]?\d{4}\b", "[REDACTED-SSN]", value)
     value = re.sub(r"\b(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b", "[REDACTED-PHONE]", value)
     return value
-
-
-def safe_read_text(path: Path) -> tuple[str, list[str]]:
-    if path.suffix.lower() not in TEXT_SUFFIXES:
-        return "", ["Non-text file requires OCR extraction."]
-    try:
-        return path.read_text(encoding="utf-8", errors="ignore"), []
-    except Exception as exc:
-        return "", [str(exc)]
 
 
 class OcrRequiredError(RuntimeError):
@@ -1635,11 +1737,7 @@ def startup_packet_classifier(text: str, filename: str) -> str:
 def _document_paths(folder: Path) -> list[Path]:
     if not folder.exists():
         return []
-    return sorted(
-        path
-        for path in folder.rglob("*")
-        if path.is_file() and path.suffix.lower() in SUPPORTED_SUFFIXES
-    )
+    return shared_document_paths(folder, supported_suffixes=SUPPORTED_SUFFIXES)
 
 
 def _path_key(path: Path) -> str:
@@ -1748,8 +1846,7 @@ def scan_documents(folder: Path, config: dict[str, Any] | None = None) -> dict[s
 
 
 def company_fingerprint(records: list[dict[str, Any]]) -> str:
-    joined = "\n".join(sorted(str(record.get("sha256") or "") for record in records))
-    return hashlib.sha256(joined.encode("utf-8")).hexdigest()
+    return records_fingerprint(records)
 
 
 def load_watch_state(output_folder: Path) -> dict[str, Any]:
@@ -1876,47 +1973,6 @@ def build_cache_policy_summary(queue: list[dict[str, Any]], *, processed_company
     }
 
 
-def keyword_score(text: str, keywords: list[str], maximum: int = 100) -> int:
-    haystack = text.lower()
-    hits = sum(1 for keyword in keywords if keyword in haystack)
-    return min(maximum, round((hits / max(1, len(keywords))) * maximum))
-
-
-def evidence_status(score: int, minimum: int = 15) -> str:
-    return "scored" if score >= minimum else "insufficient_evidence"
-
-
-def money_values(text: str) -> list[float]:
-    values = []
-    for match in re.finditer(r"\$?\s?(\d+(?:\.\d+)?)\s?(m|million|k|thousand)?", text, flags=re.I):
-        raw = float(match.group(1))
-        suffix = (match.group(2) or "").lower()
-        if suffix in {"m", "million"}:
-            raw *= 1_000_000
-        elif suffix in {"k", "thousand"}:
-            raw *= 1_000
-        values.append(raw)
-    return values[:20]
-
-
-def source_refs_from_records(records: list[dict[str, Any]]) -> list[str]:
-    refs = []
-    for record in records:
-        value = str(record.get("filename") or record.get("path") or "")
-        if value and value not in refs:
-            refs.append(value)
-    return refs
-
-
-def source_refs_from_sources(sources: list[dict[str, Any]]) -> list[str]:
-    refs = []
-    for source in sources:
-        value = str(source.get("url") or "")
-        if value and value not in refs:
-            refs.append(value)
-    return refs
-
-
 def is_substantive_public_source(source: dict[str, Any]) -> bool:
     status = str(source.get("status") or "").lower()
     url = str(source.get("url") or "")
@@ -1928,24 +1984,548 @@ def is_substantive_public_source(source: dict[str, Any]) -> bool:
     return bool(snippet.strip())
 
 
-def extract_domains(text: str) -> list[str]:
-    domains = []
-    for match in re.finditer(r"\b(?:https?://)?([a-z0-9-]+\.[a-z0-9.-]+)\b", text, flags=re.I):
-        domain = match.group(1).lower().strip(".")
-        if domain and domain not in domains and not domain.endswith(".txt"):
-            domains.append(domain)
-    return domains[:10]
+@dataclass
+class CompanyEvidenceSummary:
+    company_slug: str
+    investment_score: int | None
+    evidence_quality_score: int
+    confidence_band: str
+    recommendation: str
+    dimension_scores: dict[str, int]
+    score_caps: list[dict[str, Any]]
+    claim_count: int
+    evidence_count: int
 
 
-def dedupe_list(items: list[str], limit: int = 20) -> list[str]:
-    seen = []
-    for item in items:
-        normalized = str(item or "").strip()
-        if normalized and normalized not in seen:
-            seen.append(normalized)
-        if len(seen) >= limit:
+def source_record_type_from_local(record: dict[str, Any]) -> str:
+    filename = str(record.get("filename") or "").lower()
+    if any(term in filename for term in ("contract", "invoice", "bank", "customer")):
+        return "data_room_document"
+    return "founder_provided_document"
+
+
+def public_source_type(source: dict[str, Any]) -> str:
+    status = str(source.get("status") or "").lower()
+    url = str(source.get("url") or "").lower()
+    title = str(source.get("title") or "").lower()
+    skill = str(source.get("skill") or "").lower()
+    if status in {"blocked", "failed", "skill_unavailable", "budget_exhausted", "disabled", "error"}:
+        return "blocked_page" if status == "blocked" else "failed_fetch"
+    if url.startswith("financial_tool://"):
+        return "deterministic_financial_tool"
+    if "duckduckgo.com" in url or "google.com/search" in url or "bing.com/search" in url or "search results" in title:
+        return "search_result_page"
+    if any(domain in url for domain in ("sec.gov", "uspto.gov", "patents.google.com", "bls.gov", "sba.gov")):
+        return "government_registry"
+    if "crunchbase.com" in url or "linkedin.com" in url:
+        return "public_profile"
+    if "case stud" in title or "customer" in title:
+        return "customer_case_study"
+    if "browser_search" in skill and not url.startswith(("http://", "https://")):
+        return "search_result_page"
+    return "public_web_page"
+
+
+def source_quality_score_for_type(source_type: str, source: dict[str, Any] | None = None) -> int:
+    status = str((source or {}).get("status") or "").lower()
+    if source_type in {"blocked_page", "failed_fetch"} or status in {"blocked", "failed", "skill_unavailable", "budget_exhausted", "disabled", "error"}:
+        return 0
+    if source_type == "data_room_document":
+        return 95
+    if source_type == "government_registry":
+        return 90
+    if source_type == "customer_case_study":
+        return 85
+    if source_type == "public_article":
+        return 70
+    if source_type == "company_website":
+        return 60
+    if source_type == "public_profile":
+        return 55
+    if source_type == "founder_provided_document":
+        return 50
+    if source_type == "search_result_page":
+        return 5
+    if source_type == "deterministic_financial_tool":
+        return 45
+    return 55
+
+
+def extraction_quality_score_for_source(source_type: str, status: str, text: str, extraction_method: str = "") -> int:
+    lowered_status = str(status or "").lower()
+    if source_type in {"blocked_page", "failed_fetch"} or lowered_status in {"blocked", "failed", "skill_unavailable", "budget_exhausted", "disabled", "error"}:
+        return 0
+    if source_type == "search_result_page":
+        return 10
+    if not str(text or "").strip():
+        return 0
+    if "ocr" in str(extraction_method or "").lower():
+        return 65
+    if source_type == "founder_provided_document":
+        return 95
+    if len(str(text or "")) < 160:
+        return 35
+    return 75
+
+
+def build_source_records(company: str, records: list[dict[str, Any]], sources: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]]]:
+    company_slug = slugify(company)
+    source_records: list[dict[str, Any]] = []
+    by_id: dict[str, dict[str, Any]] = {}
+    for record in records:
+        source_type = source_record_type_from_local(record)
+        source_id = stable_short_id("src", company_slug, record.get("path"), record.get("sha256"))
+        item = SourceRecord(
+            source_id=source_id,
+            company_slug=company_slug,
+            source_type=source_type,
+            title=str(record.get("filename") or record.get("path") or "local document"),
+            source_url=None,
+            filename=str(record.get("filename") or ""),
+            status="ok" if int(record.get("character_count") or 0) > 0 else "failed",
+            source_quality_score=source_quality_score_for_type(source_type, record),
+            extraction_quality_score=extraction_quality_score_for_source(
+                source_type,
+                "ok" if int(record.get("character_count") or 0) > 0 else "failed",
+                str(record.get("text_preview") or ""),
+                str(record.get("extraction_method") or ""),
+            ),
+            retrieved_at=utc_now_iso(),
+            source_quality_label="local_claim",
+        )
+        value = to_dict(item)
+        source_records.append(value)
+        by_id[source_id] = value
+    for source in sources:
+        source_type = public_source_type(source)
+        source_id = stable_short_id("src", company_slug, source.get("url"), source.get("title"), source.get("retrieved_at"))
+        status = str(source.get("status") or "unknown")
+        item = SourceRecord(
+            source_id=source_id,
+            company_slug=company_slug,
+            source_type=source_type,
+            title=str(source.get("title") or source.get("url") or "public source"),
+            source_url=str(source.get("url") or "") or None,
+            filename=None,
+            status=status,
+            source_quality_score=source_quality_score_for_type(source_type, source),
+            extraction_quality_score=extraction_quality_score_for_source(source_type, status, str(source.get("snippet") or "")),
+            retrieved_at=str(source.get("retrieved_at") or utc_now_iso()),
+            source_quality_label=str(source.get("source_quality_label") or infer_source_quality_label(status, str(source.get("skill") or ""), str(source.get("verification_target") or ""), str(source.get("url") or ""), str(source.get("snippet") or ""))),
+        )
+        value = to_dict(item)
+        source_records.append(value)
+        by_id[source_id] = value
+    return source_records, by_id
+
+
+CLAIM_EXTRACTION_SPECS = [
+    {
+        "claim_type": "team.founder_background",
+        "terms": ["founder", "cofounder", "team", "advisor", "operator"],
+        "importance": 80,
+        "motion": 0.55,
+        "required": ["founder resume", "public founder profile", "reference call"],
+    },
+    {
+        "claim_type": "team.domain_expertise",
+        "terms": ["domain expert", "industry experience", "ex-", "operator", "engineer"],
+        "importance": 75,
+        "motion": 0.60,
+        "required": ["public work history", "domain references", "prior outcomes"],
+    },
+    {
+        "claim_type": "product.prototype",
+        "terms": ["prototype", "mvp", "working", "demo", "launched", "product"],
+        "importance": 85,
+        "motion": 0.65,
+        "required": ["demo", "usage logs", "technical review"],
+    },
+    {
+        "claim_type": "product.technical_depth",
+        "terms": ["api", "sdk", "model", "infrastructure", "hardware", "platform", "technology"],
+        "importance": 70,
+        "motion": 0.50,
+        "required": ["architecture review", "repository or docs", "technical diligence"],
+    },
+    {
+        "claim_type": "market.buyer_segment",
+        "terms": ["buyer", "customer segment", "enterprise", "smb", "vertical", "market"],
+        "importance": 70,
+        "motion": 0.40,
+        "required": ["ICP notes", "customer discovery calls", "pipeline segmentation"],
+    },
+    {
+        "claim_type": "market.size",
+        "terms": ["tam", "sam", "market size", "large market", "industry"],
+        "importance": 70,
+        "motion": 0.35,
+        "required": ["market model", "credible industry source", "bottom-up TAM"],
+    },
+    {
+        "claim_type": "traction.pilots",
+        "terms": ["pilot", "pilots", "trial", "poc"],
+        "importance": 85,
+        "motion": 0.70,
+        "required": ["pilot agreement", "active pilot status", "conversion plan"],
+    },
+    {
+        "claim_type": "traction.paid_customers",
+        "terms": ["paid customer", "paying customer", "customer", "contract"],
+        "importance": 95,
+        "motion": 0.80,
+        "required": ["customer contract", "invoice", "customer reference"],
+    },
+    {
+        "claim_type": "traction.revenue.arr",
+        "terms": ["arr", "revenue", "mrr", "sales"],
+        "importance": 95,
+        "motion": 0.85,
+        "required": ["customer contract", "invoice", "bank deposit", "ARR spreadsheet", "customer reference"],
+    },
+    {
+        "claim_type": "traction.retention",
+        "terms": ["retention", "renewal", "churn", "usage"],
+        "importance": 85,
+        "motion": 0.65,
+        "required": ["cohort data", "renewal records", "usage export"],
+    },
+    {
+        "claim_type": "traction.pipeline",
+        "terms": ["pipeline", "qualified lead", "sales cycle", "opportunity"],
+        "importance": 75,
+        "motion": 0.45,
+        "required": ["CRM export", "stage definitions", "conversion history"],
+    },
+    {
+        "claim_type": "moat.ip",
+        "terms": ["patent", "ip", "proprietary", "trade secret"],
+        "importance": 70,
+        "motion": 0.45,
+        "required": ["patent filing", "IP assignment", "technical novelty review"],
+    },
+    {
+        "claim_type": "moat.data",
+        "terms": ["dataset", "data moat", "proprietary data", "exclusive data"],
+        "importance": 65,
+        "motion": 0.45,
+        "required": ["data rights", "data provenance", "customer data permissions"],
+    },
+    {
+        "claim_type": "moat.distribution",
+        "terms": ["partner", "partnership", "distribution", "channel"],
+        "importance": 75,
+        "motion": 0.55,
+        "required": ["partner agreement", "channel metrics", "co-sell evidence"],
+    },
+    {
+        "claim_type": "finance.round_terms",
+        "terms": ["round", "seed", "pre-seed", "valuation", "raise", "funding"],
+        "importance": 65,
+        "motion": 0.20,
+        "required": ["term sheet", "cap table", "financing docs"],
+    },
+    {
+        "claim_type": "finance.burn",
+        "terms": ["burn", "monthly spend", "opex"],
+        "importance": 70,
+        "motion": -0.35,
+        "required": ["bank statements", "budget", "payroll export"],
+    },
+    {
+        "claim_type": "finance.runway",
+        "terms": ["runway", "cash runway", "cash balance"],
+        "importance": 70,
+        "motion": 0.30,
+        "required": ["cash balance", "forecast", "bank statements"],
+    },
+    {
+        "claim_type": "risk.competition",
+        "terms": ["competition", "competitor", "crowded", "incumbent"],
+        "importance": 80,
+        "motion": -0.50,
+        "required": ["competitor map", "win/loss notes", "differentiation proof"],
+    },
+    {
+        "claim_type": "risk.sales_cycle",
+        "terms": ["sales cycle", "long sales", "procurement", "enterprise sales"],
+        "importance": 75,
+        "motion": -0.55,
+        "required": ["sales cycle history", "pipeline aging", "procurement plan"],
+    },
+    {
+        "claim_type": "risk.manufacturing",
+        "terms": ["manufacturing", "supply chain", "hardware cost", "bom"],
+        "importance": 75,
+        "motion": -0.60,
+        "required": ["BOM", "supplier quote", "manufacturing plan"],
+    },
+    {
+        "claim_type": "risk.regulatory",
+        "terms": ["regulatory", "compliance", "hipaa", "gdpr", "soc 2", "security"],
+        "importance": 75,
+        "motion": -0.50,
+        "required": ["compliance scope", "attestation", "security review"],
+    },
+]
+
+
+def negative_claim_polarity(sentence: str) -> bool:
+    lowered = sentence.lower()
+    return bool(re.search(r"\b(no|not|none|without|missing|lacks?|unverified|unconfirmed|failed|blocked)\b", lowered))
+
+
+def extract_claim_value(sentence: str, claim_type: str) -> tuple[float | int | None, str | None]:
+    if claim_type == "traction.revenue.arr":
+        match = re.search(r"\$?\s?(\d+(?:\.\d+)?)\s?(k|m|thousand|million)?\s*(arr|mrr|revenue)?", sentence, flags=re.I)
+        if match:
+            value = float(match.group(1))
+            suffix = (match.group(2) or "").lower()
+            if suffix in {"m", "million"}:
+                value *= 1_000_000
+            elif suffix in {"k", "thousand"}:
+                value *= 1_000
+            unit = "USD_ARR" if "arr" in sentence.lower() else "USD_REVENUE"
+            return int(value), unit
+    if claim_type in {"traction.paid_customers", "traction.pilots"}:
+        match = re.search(r"\b(\d+)\b", sentence)
+        if match:
+            return int(match.group(1)), "count"
+    return None, None
+
+
+def directness_for_claim(sentence: str, claim_type: str) -> int:
+    lowered = sentence.lower()
+    if claim_type == "traction.revenue.arr" and ("$" in sentence or "arr" in lowered):
+        return 90
+    if claim_type in {"traction.paid_customers", "traction.pilots"} and re.search(r"\b\d+\b", sentence):
+        return 85
+    if any(term in lowered for term in ("claims", "says", "reports", "plans", "targets")):
+        return 70
+    return 60
+
+
+def specificity_for_claim(sentence: str, claim_type: str) -> int:
+    if "$" in sentence or re.search(r"\b\d+\b", sentence):
+        return 90
+    if claim_type.startswith(("traction.", "finance.")):
+        return 70
+    if len(sentence.split()) >= 8:
+        return 60
+    return 45
+
+
+def verification_status_for_evidence(source_type: str, claim_type: str, penalties: dict[str, int]) -> str:
+    if source_type in {"blocked_page", "failed_fetch"}:
+        return "unusable_source"
+    if "self_reported" in penalties and claim_type.startswith(("traction.", "finance.")):
+        return "self_reported_unverified"
+    if source_type in {"government_registry", "customer_case_study", "data_room_document"}:
+        return "externally_supported"
+    if source_type in {"public_profile", "public_web_page", "company_website"}:
+        return "public_context_unverified"
+    return "usable_but_unverified"
+
+
+def evidence_penalties_for_claim(source_record: dict[str, Any], claim_type: str, _sentence: str) -> dict[str, int]:
+    source_type = str(source_record.get("source_type") or "")
+    penalties: dict[str, int] = {}
+    if source_type == "founder_provided_document":
+        penalties["self_reported"] = 10
+    if claim_type in {"traction.revenue.arr", "finance.round_terms", "finance.burn", "finance.runway"} and source_type not in {"data_room_document", "government_registry"}:
+        penalties["unverified_financial_claim"] = 15
+    if source_type == "search_result_page":
+        penalties["search_result_only"] = 20
+    return penalties
+
+
+def polarity_for_claim_sentence(sentence: str) -> str:
+    return "contradicts" if negative_claim_polarity(sentence) else "supports"
+
+
+def build_evidence_items(company: str, records: list[dict[str, Any]], sources: list[dict[str, Any]], source_records_by_id: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+    company_slug = slugify(company)
+    source_texts: list[dict[str, Any]] = []
+
+    local_source_lookup = {
+        stable_short_id("src", company_slug, record.get("path"), record.get("sha256")): record
+        for record in records
+    }
+    for source_id, record in local_source_lookup.items():
+        if source_id in source_records_by_id:
+            source_texts.append({
+                "source_id": source_id,
+                "text": str(record.get("text_preview") or ""),
+                "filename": str(record.get("filename") or ""),
+                "source_url": None,
+                "retrieved_at": utc_now_iso(),
+                "recency_score": 50,
+            })
+    public_source_lookup = {
+        stable_short_id("src", company_slug, source.get("url"), source.get("title"), source.get("retrieved_at")): source
+        for source in sources
+    }
+    for source_id, source in public_source_lookup.items():
+        if source_id in source_records_by_id:
+            source_texts.append({
+                "source_id": source_id,
+                "text": str(source.get("snippet") or ""),
+                "filename": None,
+                "source_url": str(source.get("url") or "") or None,
+                "retrieved_at": str(source.get("retrieved_at") or utc_now_iso()),
+                "recency_score": 50,
+            })
+
+    return build_evidence_items_from_texts(
+        company_slug=company_slug,
+        source_texts=source_texts,
+        source_records_by_id=source_records_by_id,
+        claim_specs=CLAIM_EXTRACTION_SPECS,
+        directness_resolver=directness_for_claim,
+        specificity_resolver=specificity_for_claim,
+        polarity_resolver=polarity_for_claim_sentence,
+        penalties_resolver=evidence_penalties_for_claim,
+        verification_status_resolver=verification_status_for_evidence,
+    )
+
+
+def required_next_evidence_for_claim(claim_type: str) -> list[str]:
+    for spec in CLAIM_EXTRACTION_SPECS:
+        if spec["claim_type"] == claim_type:
+            return list(spec["required"])
+    return ["independent supporting source", "primary document", "reference check"]
+
+
+def motion_for_claim(claim_type: str, polarity: str) -> tuple[str, float]:
+    strength = 0.0
+    for spec in CLAIM_EXTRACTION_SPECS:
+        if spec["claim_type"] == claim_type:
+            strength = float(spec["motion"])
             break
-    return seen
+    if polarity == "contradicts":
+        strength = -strength
+    if strength > 0.05:
+        return "positive", round(strength, 2)
+    if strength < -0.05:
+        return "negative", round(strength, 2)
+    return "neutral", 0.0
+
+
+def canonical_claim_key(ev: dict[str, Any]) -> str:
+    claim_type = str(ev.get("claim_type") or "")
+    value, unit = extract_claim_value(str(ev.get("claim_text") or ""), claim_type)
+    if value is not None:
+        return f"{claim_type}:{unit}:{value}"
+    text = re.sub(r"\W+", " ", str(ev.get("claim_text") or "").lower()).strip()
+    return f"{claim_type}:{text[:80]}"
+
+
+def claim_dimension(claim_type: str) -> str:
+    root = str(claim_type or "").split(".", 1)[0]
+    return "financial" if root == "finance" else root
+
+
+def fund_profile_weights(fund_profile: str | None) -> dict[str, float]:
+    key = str(fund_profile or "generalist").strip().lower().replace("-", "_")
+    return FUND_PROFILE_WEIGHTS.get(key) or FUND_PROFILE_WEIGHTS["generalist"]
+
+
+def apply_company_score_caps(raw_score: int | None, claims: list[dict[str, Any]], evidence_quality: int, fund_profile: str) -> tuple[int | None, list[dict[str, Any]]]:
+    if raw_score is None:
+        return None, []
+    caps: list[dict[str, Any]] = []
+    score = int(raw_score)
+
+    def apply_cap(condition: bool, cap: int, reason: str) -> None:
+        nonlocal score
+        if condition and score > cap:
+            score = cap
+            caps.append({"cap": cap, "reason": reason})
+
+    has_team = any(str(claim.get("claim_type") or "").startswith("team.") and int(claim.get("net_confidence") or 0) > 20 for claim in claims)
+    has_traction = any(str(claim.get("claim_type") or "").startswith("traction.") and int(claim.get("net_confidence") or 0) > 20 for claim in claims)
+    has_product = any(str(claim.get("claim_type") or "").startswith("product.") and int(claim.get("net_confidence") or 0) > 20 for claim in claims)
+    apply_cap(not has_team, 65, "No founder or team evidence was found.")
+    apply_cap(not has_traction and fund_profile != "deeptech", 55, "No customer or traction evidence was found.")
+    apply_cap(not has_product, 50, "No product or prototype evidence was found.")
+    apply_cap(evidence_quality < 30, 45, "Evidence quality is below 30, so the score is not reliable.")
+    return score, caps
+
+
+def recommendation_for_company(score: int | None, evidence_quality: int, caps: list[dict[str, Any]]) -> str:
+    if score is None or evidence_quality < 20:
+        return "too_early_to_score_confidently"
+    if caps:
+        return "diligence_first_verify_key_claims"
+    if score >= 70 and evidence_quality >= 60:
+        return "prioritize_for_diligence"
+    if score >= 55:
+        return "watchlist_with_targeted_diligence"
+    return "needs_material_evidence_before_prioritizing"
+
+
+def build_company_evidence_layer(
+    company: str,
+    records: list[dict[str, Any]],
+    sources: list[dict[str, Any]],
+    *,
+    fund_profile: str | None = None,
+) -> dict[str, Any]:
+    profile = str(fund_profile or "generalist").strip().lower().replace("-", "_")
+    if profile not in FUND_PROFILE_WEIGHTS:
+        profile = "generalist"
+    source_records, source_records_by_id = build_source_records(company, records, sources)
+    evidence_items = build_evidence_items(company, records, sources, source_records_by_id)
+    pre_claim_ids = {key: stable_short_id("claim", slugify(company), key) for key in {canonical_claim_key(ev) for ev in evidence_items}}
+    graph = build_evidence_graph(
+        entity_id=slugify(company),
+        entity_label=company,
+        source_records=source_records,
+        evidence_items=evidence_items,
+        claim_ids_by_key=pre_claim_ids,
+        canonical_claim_key_resolver=canonical_claim_key,
+        strengthening_edges=[
+            ("traction.paid_customers", "traction.revenue.arr", 0.4),
+            ("traction.pilots", "traction.pipeline", 0.4),
+        ],
+    )
+    claim_records = aggregate_claim_records(
+        entity_id=slugify(company),
+        evidence_items=evidence_items,
+        graph=graph,
+        canonical_claim_key_resolver=canonical_claim_key,
+        value_extractor=extract_claim_value,
+        required_next_evidence_resolver=required_next_evidence_for_claim,
+        motion_resolver=motion_for_claim,
+        self_reported_confidence_caps={"traction.": 60},
+    )
+    dimension_scores = {
+        dimension: dimension_score_from_claims(claim_records, dimension, dimension_resolver=claim_dimension)
+        for dimension in ("team", "market", "product", "traction", "moat", "financial", "risk")
+    }
+    dimension_scores["evidence_quality"] = score_evidence_quality(evidence_items, source_records)
+    weights = fund_profile_weights(profile)
+    raw_score = clamp_score(sum(dimension_scores[dimension] * weight for dimension, weight in weights.items())) if claim_records else None
+    investment_score, score_caps = apply_company_score_caps(raw_score, claim_records, dimension_scores["evidence_quality"], profile)
+    summary = CompanyEvidenceSummary(
+        company_slug=slugify(company),
+        investment_score=investment_score,
+        evidence_quality_score=dimension_scores["evidence_quality"],
+        confidence_band=confidence_band(dimension_scores["evidence_quality"]),
+        recommendation=recommendation_for_company(investment_score, dimension_scores["evidence_quality"], score_caps),
+        dimension_scores=dimension_scores,
+        score_caps=score_caps,
+        claim_count=len(claim_records),
+        evidence_count=len(evidence_items),
+    )
+    return {
+        "fund_profile": profile,
+        "source_records": source_records,
+        "evidence_items": evidence_items,
+        "claim_records": claim_records,
+        "evidence_graph": graph,
+        "company_evidence_summary": asdict(summary),
+    }
 
 
 def _records_text(records: list[dict[str, Any]]) -> str:
@@ -2012,13 +2592,9 @@ def extract_public_research_signals(records: list[dict[str, Any]]) -> dict[str, 
 
 
 def _lane(lane_id: str, reason: str, tools: list[str], queries: list[str], target_urls: list[str] | None = None) -> dict[str, Any]:
-    return {
-        "lane_id": lane_id,
-        "reason": reason,
-        "tools": tools,
-        "queries": dedupe_list(queries, 8),
-        "target_urls": dedupe_list(target_urls or [], 20),
-    }
+    lane = shared_lane(lane_id, reason, tools, queries, target_urls)
+    lane["queries"] = dedupe_list(lane["queries"], 8)
+    return lane
 
 
 def build_adaptive_research_plan(company: str, records: list[dict[str, Any]], internet: dict[str, Any]) -> dict[str, Any]:
@@ -2567,12 +3143,7 @@ def score_company_methods(facts: dict[str, Any], max_workers: int = 1) -> dict[s
         score_cost_to_duplicate,
     ]
     worker_count = bounded_int(max_workers, default=min(7, len(scorers)), maximum=len(scorers))
-    if worker_count <= 1:
-        results = [scorer(facts) for scorer in scorers]
-    else:
-        with ThreadPoolExecutor(max_workers=worker_count, thread_name_prefix="vc-scorer") as executor:
-            futures = {executor.submit(scorer, facts): scorer.__name__ for scorer in scorers}
-            results = [future.result() for future in as_completed(futures)]
+    results = run_scorers(scorers, facts, max_workers=worker_count)
     by_method = {result["method_id"]: result for result in results}
     return {method_id: by_method[method_id] for method_id in METHOD_IDS}
 
@@ -2606,7 +3177,13 @@ def audit_method_scores(methods: dict[str, dict[str, Any]], facts: dict[str, Any
     }
 
 
-def build_company_analysis(company: str, records: list[dict[str, Any]], research_ledger: dict[str, list[dict[str, Any]]], scoring_workers: int = 1) -> dict[str, Any]:
+def build_company_analysis(
+    company: str,
+    records: list[dict[str, Any]],
+    research_ledger: dict[str, list[dict[str, Any]]],
+    scoring_workers: int = 1,
+    fund_profile: str | None = None,
+) -> dict[str, Any]:
     sources = [source for stage_sources in research_ledger.values() for source in stage_sources]
     facts = build_fact_table(company, records, sources)
     methods = score_company_methods(facts, max_workers=scoring_workers)
@@ -2614,13 +3191,30 @@ def build_company_analysis(company: str, records: list[dict[str, Any]], research
     scored = [item["score"] for item in methods.values() if isinstance(item.get("score"), (int, float))]
     missing_methods = [method_id for method_id, method in methods.items() if method["status"] == "insufficient_evidence"]
     substantive_sources = [source for source in sources if is_substantive_public_source(source)]
-    composite_score = round(sum(scored) / len(scored), 2) if scored else None
+    evidence_layer = build_company_evidence_layer(company, records, sources, fund_profile=fund_profile)
+    evidence_summary_layer = evidence_layer["company_evidence_summary"]
+    composite_score = evidence_summary_layer["investment_score"]
+    method_average_score = round(sum(scored) / len(scored), 2) if scored else None
     return {
         "company_name": company,
         "company_slug": slugify(company),
         "composite_score": composite_score,
+        "investment_score": composite_score,
+        "method_average_score": method_average_score,
+        "evidence_quality_score": evidence_summary_layer["evidence_quality_score"],
+        "confidence_band": evidence_summary_layer["confidence_band"],
+        "recommendation": evidence_summary_layer["recommendation"],
+        "dimension_scores": evidence_summary_layer["dimension_scores"],
+        "score_caps": evidence_summary_layer["score_caps"],
+        "fund_profile": evidence_layer["fund_profile"],
         "method_count": len(methods),
         "methods": methods,
+        "method_score_appendix": methods,
+        "source_records": evidence_layer["source_records"],
+        "evidence_items": evidence_layer["evidence_items"],
+        "claim_records": evidence_layer["claim_records"],
+        "evidence_graph": evidence_layer["evidence_graph"],
+        "company_evidence_summary": evidence_summary_layer,
         "fact_table": facts,
         "audit": audit,
         "evidence_summary": {
@@ -2630,18 +3224,31 @@ def build_company_analysis(company: str, records: list[dict[str, Any]], research
             "financial_tool_source_count": len([source for source in sources if source.get("skill") == "financial_public_data_tool"]),
             "missing_methods": missing_methods,
             "composite_score_evidence": {
-                "status": "scored" if scored else "insufficient_evidence",
+                "status": "scored" if composite_score is not None else "insufficient_evidence",
                 "scored_method_count": len(scored),
                 "method_ids": [method_id for method_id, method in methods.items() if isinstance(method.get("score"), (int, float))],
-                "reason": "Composite is the average of scored method outputs." if scored else "No method had enough evidence for a numeric score.",
+                "reason": "Composite is the confidence-weighted investment score from normalized claims; method scores are retained as an appendix." if composite_score is not None else "No normalized claim evidence was available for a numeric score.",
+                "method_average_score": method_average_score,
+                "evidence_quality_score": evidence_summary_layer["evidence_quality_score"],
+                "confidence_band": evidence_summary_layer["confidence_band"],
+                "fund_profile": evidence_layer["fund_profile"],
             },
         },
         "result_evidence": {
             "composite_score": {
                 "value": composite_score,
-                "why": "Average of method scores with sufficient evidence." if scored else "No scored methods were available.",
-                "evidence_refs": sorted({ref for method in methods.values() for ref in method.get("evidence_refs", []) if ref})[:20],
-                "missing_evidence": missing_methods,
+                "why": "Confidence-weighted normalized claims by fund profile, with hard caps for missing team, traction, product, or evidence quality." if composite_score is not None else "No scored normalized claims were available.",
+                "evidence_refs": sorted({ev.get("evidence_id") for ev in evidence_layer["evidence_items"] if ev.get("evidence_id")})[:20],
+                "missing_evidence": dedupe_list(
+                    [
+                        missing
+                        for claim in evidence_layer["claim_records"]
+                        for missing in (claim.get("required_next_evidence") or [])[:2]
+                        if int(claim.get("net_confidence") or 0) < 70
+                    ],
+                    20,
+                ),
+                "score_caps": evidence_summary_layer["score_caps"],
             },
             "research": {
                 "source_count": len(sources),
@@ -2765,6 +3372,12 @@ def build_company_evidence_summaries(
             {
                 "company_name": company,
                 "company_slug": analysis["company_slug"],
+                "investment_score": analysis.get("investment_score"),
+                "evidence_quality_score": analysis.get("evidence_quality_score"),
+                "confidence_band": analysis.get("confidence_band"),
+                "recommendation": analysis.get("recommendation"),
+                "claim_count": len(analysis.get("claim_records") or []),
+                "normalized_evidence_count": len(analysis.get("evidence_items") or []),
                 "local_evidence": summarize_local_evidence(company_records.get(company, []), limit=5),
                 "research_sources": summarize_research_sources(sources, limit=8),
                 "missing_methods": (analysis.get("evidence_summary") or {}).get("missing_methods", []),
@@ -2854,38 +3467,38 @@ def _source_record(
 ) -> dict[str, Any]:
     snippet_limit = 10000 if skill == "financial_public_data_tool" else 1000
     quality = source_quality_label or infer_source_quality_label(status, skill, verification_target, url, snippet)
-    return {
-        "company": company,
-        "query": query,
-        "url": url,
-        "title": title or url.split("//", 1)[-1].split("/", 1)[0],
-        "snippet": snippet[:snippet_limit],
-        "status": status,
-        "skill": skill,
-        "verification_target": verification_target,
-        "source_quality_label": quality if quality in SOURCE_QUALITY_LABELS else "thin_signal",
-        "warning": warning,
-        "retrieved_at": utc_now_iso(),
-    }
+    return shared_source_record(
+        entity=company,
+        query=query,
+        url=url,
+        title=title or url.split("//", 1)[-1].split("/", 1)[0],
+        snippet=snippet[:snippet_limit],
+        status=status,
+        skill=skill,
+        verification_target=verification_target,
+        warning=warning,
+        retrieved_at=utc_now_iso(),
+        source_quality_label=quality if quality in SOURCE_QUALITY_LABELS else "thin_signal",
+    )
 
 
 def _budget_exhausted_source(company: str, query: str, skill: str, verification_target: str, action_type: str) -> dict[str, Any]:
-    return _source_record(
-        company=company,
-        query=query,
-        url="action_budget",
-        title="Action budget exhausted",
-        snippet=f"Skipped {action_type} because the VC Assistant action budget was exhausted.",
-        status="budget_exhausted",
-        skill=skill,
-        verification_target=verification_target,
-        warning="Action budget exhausted before this evidence source could be collected.",
+    source = shared_budget_exhausted_source(company, query, skill, verification_target, action_type)
+    source.update(
+        {
+            "url": "action_budget",
+            "title": "Action budget exhausted",
+            "snippet": f"Skipped {action_type} because the VC Assistant action budget was exhausted.",
+            "warning": "Action budget exhausted before this evidence source could be collected.",
+        }
     )
+    return source
 
 
 def _compact_text(value: Any, *, limit: int) -> str:
     text = redactor(str(value or "")).strip()
-    return text if len(text) <= limit else text[:limit].rstrip() + "...[truncated]"
+    compact = shared_compact_text(text, limit=limit)
+    return compact if len(text) <= limit else compact.rstrip() + "...[truncated]"
 
 
 def compact_local_evidence_for_transport(
@@ -2893,19 +3506,20 @@ def compact_local_evidence_for_transport(
     *,
     limit: int = MAX_TRANSPORT_EVIDENCE_PER_COMPANY,
 ) -> list[dict[str, Any]]:
-    compact_records = []
-    for record in records[:limit]:
-        compact_records.append(
+    compact_records = shared_compact_local_evidence_for_transport(
+        records,
+        limit=limit,
+        text_limit=MAX_TRANSPORT_TEXT_PREVIEW_CHARS,
+    )
+    for item, record in zip(compact_records, records[:limit]):
+        item.update(
             {
                 "kind": "local_document_evidence",
-                "filename": record.get("filename"),
                 "suffix": record.get("suffix"),
                 "sha256_prefix": str(record.get("sha256") or "")[:16],
-                "character_count": record.get("character_count"),
                 "extraction_method": record.get("extraction_method"),
                 "ocr_required": bool(record.get("ocr_required")),
-                "warnings": [_compact_text(item, limit=240) for item in (record.get("warnings") or [])[:5]],
-                "text_preview": _compact_text(record.get("text_preview") or record.get("summary") or "", limit=MAX_TRANSPORT_TEXT_PREVIEW_CHARS),
+                "warnings": [_compact_text(warning, limit=240) for warning in (record.get("warnings") or [])[:5]],
             }
         )
     return compact_records
@@ -2916,30 +3530,30 @@ def compact_research_sources_for_transport(
     *,
     limit: int = MAX_TRANSPORT_SOURCES_PER_COMPANY,
 ) -> list[dict[str, Any]]:
-    compact_sources = []
-    for source in sources[:limit]:
-        item = {
-            "company": source.get("company"),
-            "query": _compact_text(source.get("query"), limit=360),
-            "url": _compact_text(source.get("url"), limit=1000),
-            "title": _compact_text(source.get("title"), limit=300),
-            "snippet": _compact_text(source.get("snippet"), limit=MAX_TRANSPORT_SNIPPET_CHARS),
-            "status": source.get("status"),
-            "skill": source.get("skill"),
-            "verification_target": source.get("verification_target"),
-            "source_quality_label": source.get("source_quality_label"),
-            "warning": _compact_text(source.get("warning"), limit=500),
-            "retrieved_at": source.get("retrieved_at"),
-        }
+    compact_sources = shared_compact_research_sources_for_transport(
+        sources,
+        limit=limit,
+        snippet_limit=MAX_TRANSPORT_SNIPPET_CHARS,
+    )
+    for item, source in zip(compact_sources, sources[:limit]):
+        item.update(
+            {
+                "company": source.get("company"),
+                "query": _compact_text(source.get("query"), limit=360),
+                "url": _compact_text(source.get("url"), limit=1000),
+                "title": _compact_text(source.get("title"), limit=300),
+                "warning": _compact_text(source.get("warning"), limit=500),
+                "retrieved_at": source.get("retrieved_at"),
+            }
+        )
         for key in ("agent_id", "tool_call_id", "tool_decision_source", "fallback_after_agentic"):
             if source.get(key) is not None:
                 item[key] = source.get(key)
-        compact_sources.append(item)
     return compact_sources
 
 
 def compact_company_report_for_transport(report: dict[str, Any]) -> dict[str, Any]:
-    compact = dict(report)
+    compact = {**shared_compact_company_report_for_transport(report), **dict(report)}
     evidence = report.get("evidence")
     if isinstance(evidence, list):
         compact["evidence"] = compact_local_evidence_for_transport(evidence)
@@ -3266,9 +3880,8 @@ def _agent_tool_source(
 
 
 def _annotate_agent_sources(sources: list[dict[str, Any]], start_index: int, *, agent_id: str, tool_call_id: str) -> None:
+    shared_annotate_agent_sources(sources, start_index, agent_id=agent_id, tool_call_id=tool_call_id)
     for source in sources[start_index:]:
-        source["agent_id"] = agent_id
-        source["tool_call_id"] = tool_call_id
         source["tool_decision_source"] = "llm_agent"
 
 
@@ -3291,6 +3904,9 @@ def _blocked_tool_text(value: str, internet: dict[str, Any]) -> str:
 
 
 def _validate_agent_tool_call(tool_call: dict[str, Any], *, allowed_tools: set[str], internet: dict[str, Any]) -> str:
+    shared_error = shared_validate_agent_tool_call(tool_call, allowed_tools=allowed_tools, internet=internet)
+    if shared_error:
+        return shared_error
     tool = str(tool_call.get("tool") or "")
     if tool not in allowed_tools:
         return f"Tool '{tool}' is not allowed for this agent."
@@ -3309,13 +3925,12 @@ def _validate_agent_tool_call(tool_call: dict[str, Any], *, allowed_tools: set[s
 
 
 def _agent_observation_from_sources(sources: list[dict[str, Any]], start_index: int) -> dict[str, Any]:
+    observation = shared_observation_from_sources(sources, start_index)
     added = sources[start_index:]
-    return {
-        "source_count": len(added),
-        "statuses": sorted({str(source.get("status") or "") for source in added if source.get("status")}),
-        "urls": [str(source.get("url") or "") for source in added[:5]],
-        "snippets": [str(source.get("snippet") or "")[:240] for source in added[:3]],
-    }
+    observation["statuses"] = sorted({str(source.get("status") or "") for source in added if source.get("status")})
+    observation["urls"] = [str(source.get("url") or "") for source in added[:5]]
+    observation["snippets"] = [str(source.get("snippet") or "")[:240] for source in added[:3]]
+    return observation
 
 
 def _execute_agent_tool_call(
@@ -4528,14 +5143,102 @@ def reconcile_research(records: list[dict[str, Any]], research_ledger: dict[str,
 
 
 def render_markdown(analysis: dict[str, Any], sources: list[dict[str, Any]], evidence: list[dict[str, Any]]) -> str:
+    claims = list(analysis.get("claim_records") or [])
+    evidence_items = {str(item.get("evidence_id")): item for item in (analysis.get("evidence_items") or [])}
+    positive_claims = sorted(
+        [claim for claim in claims if float(claim.get("motion_strength") or 0) > 0],
+        key=lambda item: (float(item.get("weighted_motion") or 0), int(item.get("importance") or 0)),
+        reverse=True,
+    )[:5]
+    negative_claims = sorted(
+        [claim for claim in claims if float(claim.get("motion_strength") or 0) < 0],
+        key=lambda item: (abs(float(item.get("weighted_motion") or 0)), int(item.get("importance") or 0)),
+        reverse=True,
+    )[:5]
+    evidence_rows = sorted(
+        claims,
+        key=lambda item: (int(item.get("importance") or 0), int(item.get("net_confidence") or 0)),
+        reverse=True,
+    )[:8]
+    cap_reasons = [str(item.get("reason") or "") for item in (analysis.get("score_caps") or []) if item.get("reason")]
+    missing_evidence = dedupe_list(
+        [
+            missing
+            for claim in claims
+            for missing in (claim.get("required_next_evidence") or [])[:3]
+            if int(claim.get("net_confidence") or 0) < 70
+        ],
+        10,
+    )
     lines = [
         f"# {analysis['company_name']} VC Heuristic Report",
         "",
-        "This is a score-only early screening report. It does not issue an investment decision.",
+        "This is a score-only early screening report with evidence-grounded claims. It separates investment attractiveness, evidence confidence, and diligence priority; it does not issue an investment decision.",
         "",
-        f"Composite score: {analysis['composite_score']}",
+        f"Verdict: {str(analysis.get('recommendation') or 'needs_review').replace('_', ' ')}",
+        f"Investment score: {analysis.get('investment_score') if analysis.get('investment_score') is not None else 'insufficient evidence'} / 100",
+        f"Evidence quality: {analysis.get('evidence_quality_score', 0)} / 100",
+        f"Confidence: {str(analysis.get('confidence_band') or 'not_reliable').replace('_', ' ')}",
+        f"Fund profile: {analysis.get('fund_profile', 'generalist')}",
         "",
-        "## Method Scores",
+        "## Why This Is Interesting",
+    ]
+    if positive_claims:
+        for claim in positive_claims:
+            lines.append(f"- {claim.get('canonical_claim')} (confidence {claim.get('net_confidence')}%, importance {claim.get('importance')})")
+    else:
+        lines.append("- No positive investor-relevant claim was supported strongly enough to summarize.")
+    lines += ["", "## Main Concerns"]
+    if negative_claims:
+        for claim in negative_claims:
+            lines.append(f"- {claim.get('canonical_claim')} (confidence {claim.get('net_confidence')}%, importance {claim.get('importance')})")
+    else:
+        lines.append("- No explicit negative claim was found; this does not remove the need for diligence.")
+    if cap_reasons:
+        lines += ["", "## Score Caps"]
+        for reason in cap_reasons:
+            lines.append(f"- {reason}")
+    lines += ["", "## Dimension Scores"]
+    for dimension, score in (analysis.get("dimension_scores") or {}).items():
+        lines.append(f"- {dimension}: {score}")
+    lines += [
+        "",
+        "## Most Important Claims",
+        "| Claim | Direction | Confidence | Importance | Evidence |",
+        "|---|---:|---:|---:|---|",
+    ]
+    if evidence_rows:
+        for claim in evidence_rows:
+            refs = []
+            for evidence_id in claim.get("evidence_ids") or []:
+                item = evidence_items.get(str(evidence_id)) or {}
+                refs.append(str(item.get("filename") or item.get("source_url") or evidence_id))
+            lines.append(
+                "| "
+                + " | ".join(
+                    [
+                        markdown_cell(claim.get("canonical_claim")),
+                        markdown_cell(claim.get("motion_direction")),
+                        markdown_cell(claim.get("net_confidence")),
+                        markdown_cell(claim.get("importance")),
+                        markdown_cell(", ".join(dedupe_list(refs, 3))),
+                    ]
+                )
+                + " |"
+            )
+    else:
+        lines.append("| No normalized claims found | neutral | 0 | 0 | none |")
+    lines += ["", "## Required Diligence"]
+    if missing_evidence:
+        for idx, item in enumerate(missing_evidence, start=1):
+            lines.append(f"{idx}. {item}")
+    else:
+        lines.append("1. Review primary evidence and customer references before making any investment decision.")
+    lines += [
+        "",
+        "## Method Score Appendix",
+        f"- Method average score: {analysis.get('method_average_score') if analysis.get('method_average_score') is not None else 'insufficient_evidence'}",
+        "",
     ]
     for method_id in METHOD_IDS:
         method = analysis["methods"][method_id]
@@ -4555,11 +5258,17 @@ def render_markdown(analysis: dict[str, Any], sources: list[dict[str, Any]], evi
     lines += [
         "",
         "## Result Evidence",
-        f"- Composite score basis: {composite_evidence.get('why', 'not recorded')}",
+        f"- Investment score basis: {composite_evidence.get('why', 'not recorded')}",
         f"- Scored methods: {analysis.get('evidence_summary', {}).get('composite_score_evidence', {}).get('scored_method_count', 0)}",
         f"- Missing method evidence: {', '.join(analysis.get('evidence_summary', {}).get('missing_methods', [])) or 'none'}",
+        "",
+        "## Evidence",
+        f"- Local documents: {len(evidence)}",
+        f"- Public sources: {len(sources)}",
+        f"- Normalized evidence items: {len(analysis.get('evidence_items') or [])}",
+        f"- Normalized claims: {len(claims)}",
+        "",
     ]
-    lines += ["", "## Evidence", f"- Local documents: {len(evidence)}", f"- Public sources: {len(sources)}", ""]
     for item in evidence[:8]:
         lines.append(f"- {item['filename']}: {item.get('extraction_method')} ({item.get('sha256', '')[:12]})")
     lines += ["", "## Public Sources"]
@@ -4568,22 +5277,20 @@ def render_markdown(analysis: dict[str, Any], sources: list[dict[str, Any]], evi
     lines += ["", "## Research Gaps And Follow-Ups"]
     for item in research_gap_followups(analysis, sources):
         lines.append(f"- {item}")
-    lines += ["", "## User Decision Boundary", "Use the scores, assumptions, and source refs to decide what to review next."]
+    lines += ["", "## User Decision Boundary", "Use the claims, confidence scores, assumptions, and source refs to decide what to review next."]
     return "\n".join(lines) + "\n"
 
 
 def build_research_coverage(research_ledgers: dict[str, dict[str, list[dict[str, Any]]]]) -> dict[str, Any]:
-    companies = []
-    for company, ledger in sorted(research_ledgers.items()):
-        stage_counts = {stage: len(sources) for stage, sources in ledger.items()}
-        statuses = sorted({str(source.get("status") or "") for sources in ledger.values() for source in sources if source.get("status")})
-        companies.append({
-            "company_name": company,
-            "company_slug": slugify(company),
-            "stage_counts": stage_counts,
-            "statuses": statuses,
-        })
-    return {"generated_at": utc_now_iso(), "companies": companies}
+    coverage = shared_build_research_coverage(research_ledgers)
+    for company in coverage.get("companies", []):
+        name = str(company.get("company_name") or "")
+        ledger = research_ledgers.get(name) if isinstance(research_ledgers.get(name), dict) else {}
+        company["company_slug"] = slugify(name)
+        company["stage_counts"] = {stage: len(sources) for stage, sources in ledger.items()}
+        company["statuses"] = sorted({str(source.get("status") or "") for sources in ledger.values() for source in sources if source.get("status")})
+    coverage["generated_at"] = utc_now_iso()
+    return coverage
 
 
 def build_method_coverage(analyses: list[dict[str, Any]]) -> dict[str, Any]:
@@ -4599,7 +5306,7 @@ def build_method_coverage(analyses: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def quality_check(status: str, message: str, **metadata: Any) -> dict[str, Any]:
-    return observation_payload(status=status, message=message, **metadata)
+    return shared_quality_check(status=status, message=message, **metadata)
 
 
 def build_artifact_quality_report(
@@ -4975,31 +5682,6 @@ def build_actor_review_context(
     return compact_context
 
 
-def _truncate_for_prompt(value: Any, max_chars: int) -> Any:
-    encoded = json.dumps(value, default=str, ensure_ascii=False)
-    if len(encoded) <= max_chars:
-        return value
-    if isinstance(value, dict):
-        truncated: dict[str, Any] = {}
-        per_value_budget = max(200, max_chars // max(len(value), 1))
-        for key, item in value.items():
-            if len(json.dumps(truncated, default=str, ensure_ascii=False)) >= max_chars:
-                break
-            truncated[str(key)] = _truncate_for_prompt(item, per_value_budget)
-        truncated["truncated_for_prompt"] = True
-        return truncated
-    if isinstance(value, list):
-        truncated_items = []
-        per_item_budget = max(200, max_chars // max(min(len(value), 10), 1))
-        for item in value[:10]:
-            truncated_items.append(_truncate_for_prompt(item, per_item_budget))
-            if len(json.dumps(truncated_items, default=str, ensure_ascii=False)) >= max_chars:
-                break
-        return truncated_items
-    text = str(value)
-    return text[: max(0, max_chars - 20)] + " [truncated]"
-
-
 def _context_engine_summary(state: dict[str, Any], max_chars: int) -> dict[str, Any]:
     summary_keys = {
         "summary",
@@ -5244,7 +5926,7 @@ def build_actor_review_prompt(
 
 def default_actor_rag_refs(context: dict[str, Any]) -> list[Any]:
     rag_context = context.get("rag_context") if isinstance(context.get("rag_context"), dict) else {}
-    return citation_ref_values(rag_context)
+    return shared_default_actor_rag_refs({"rag_context": rag_context, "citations": citation_ref_values(rag_context)})
 
 
 def not_llm_reviewed_actor_finding(actor_id: str, actor_spec: dict[str, Any]) -> dict[str, Any]:
@@ -5360,7 +6042,10 @@ def render_run_summary(analyses: list[dict[str, Any]], queue: list[dict[str, Any
         "## Company Scores",
     ]
     for analysis in analyses:
-        lines.append(f"- {analysis['company_name']}: composite score {analysis['composite_score']}")
+        lines.append(
+            f"- {analysis['company_name']}: investment score {analysis.get('investment_score')} "
+            f"(evidence quality {analysis.get('evidence_quality_score')}, {str(analysis.get('confidence_band') or 'not_reliable').replace('_', ' ')})"
+        )
     lines += ["", "## Research Coverage"]
     for item in research_coverage["companies"]:
         lines.append(f"- {item['company_name']}: {item['stage_counts']}")
@@ -5392,6 +6077,10 @@ def write_company_outputs(
             "local_evidence_path": str(company_dir / "evidence.json"),
             "research_sources_path": str(company_dir / "research_sources.json"),
             "research_ledger_path": str(output_folder / "research_ledgers" / f"{slug}.json"),
+            "source_records_path": str(company_dir / "source_records.json"),
+            "evidence_items_path": str(company_dir / "evidence_items.json"),
+            "claim_records_path": str(company_dir / "claims.json"),
+            "evidence_graph_path": str(company_dir / "evidence_graph.json"),
         }
         analysis["evidence"] = compact_local_evidence_for_transport(evidence)
         analysis["research_sources"] = compact_research_sources_for_transport(sources)
@@ -5403,15 +6092,21 @@ def write_company_outputs(
         write_json(company_dir / "research_sources.json", sources)
         write_json(company_dir / "sources.json", sources)
         write_json(company_dir / "evidence.json", evidence)
+        write_json(company_dir / "source_records.json", analysis.get("source_records") or [])
+        write_json(company_dir / "evidence_items.json", analysis.get("evidence_items") or [])
+        write_json(company_dir / "claims.json", analysis.get("claim_records") or [])
+        write_json(company_dir / "evidence_graph.json", analysis.get("evidence_graph") or {})
         write_json(company_dir / "warnings.json", warnings)
         markdown = render_markdown(analysis, sources, evidence)
         (company_dir / "analysis.md").write_text(markdown, encoding="utf-8")
-        for name in ("analysis.json", "analysis.md", "method_scores.json", "research_plan.json", "agent_tool_trace.json", "research_sources.json", "sources.json", "evidence.json", "warnings.json"):
+        for name in ("analysis.json", "analysis.md", "method_scores.json", "research_plan.json", "agent_tool_trace.json", "research_sources.json", "sources.json", "evidence.json", "source_records.json", "evidence_items.json", "claims.json", "evidence_graph.json", "warnings.json"):
             output_files.append({"kind": name.rsplit(".", 1)[0], "path": str(company_dir / name), "company": analysis["company_name"]})
         write_json(output_folder / "company_fact_tables" / f"{slug}.json", analysis["fact_table"])
         write_json(output_folder / "research_ledgers" / f"{slug}.json", research_ledger)
         write_json(output_folder / "method_scores" / f"{slug}.json", analysis["methods"])
         write_json(output_folder / "audit_findings" / f"{slug}.json", analysis["audit"])
+        write_json(output_folder / "evidence_items" / f"{slug}.json", analysis.get("evidence_items") or [])
+        write_json(output_folder / "claim_records" / f"{slug}.json", analysis.get("claim_records") or [])
     index = {
         "blueprint_id": BLUEPRINT_ID,
         "generated_at": utc_now_iso(),
@@ -5426,6 +6121,10 @@ def write_company_outputs(
                 "company_name": analysis["company_name"],
                 "company_slug": analysis["company_slug"],
                 "composite_score": analysis["composite_score"],
+                "investment_score": analysis.get("investment_score"),
+                "evidence_quality_score": analysis.get("evidence_quality_score"),
+                "confidence_band": analysis.get("confidence_band"),
+                "recommendation": analysis.get("recommendation"),
                 "missing_methods": analysis["evidence_summary"]["missing_methods"],
                 "processing_status": analysis.get("processing_status"),
                 "cached_from_previous_run": bool(analysis.get("cached_from_previous_run")),
@@ -5444,7 +6143,8 @@ def write_company_outputs(
     for item in index["companies"]:
         policy = item.get("cache_policy") if isinstance(item.get("cache_policy"), dict) else {}
         index_lines.append(
-            f"- {item['company_name']}: composite score {item['composite_score']} "
+            f"- {item['company_name']}: investment score {item.get('investment_score')} "
+            f"(evidence quality {item.get('evidence_quality_score')}, {str(item.get('confidence_band') or 'not_reliable').replace('_', ' ')}) "
             f"({policy.get('freshness') or item.get('processing_status')})"
         )
     (output_folder / "company_index.md").write_text("\n".join(index_lines) + "\n", encoding="utf-8")
@@ -5463,6 +6163,12 @@ def write_company_outputs(
 def scoring_worker_count(config: dict[str, Any]) -> int:
     scoring = config.get("scoring") if isinstance(config.get("scoring"), dict) else {}
     return bounded_int(scoring.get("max_workers"), default=7, maximum=len(METHOD_IDS))
+
+
+def scoring_fund_profile(config: dict[str, Any]) -> str:
+    scoring = config.get("scoring") if isinstance(config.get("scoring"), dict) else {}
+    raw = str(scoring.get("fund_profile") or config.get("fund_profile") or "generalist").strip().lower().replace("-", "_")
+    return raw if raw in FUND_PROFILE_WEIGHTS else "generalist"
 
 
 def company_worker_count(config: dict[str, Any], company_count: int) -> int:
@@ -5528,7 +6234,13 @@ def process_company_packet(
     )
     append_financial_tool_research(company, records, research_ledger, action_budget=action_budget, run_dir=run_dir)
     reconciliation = reconcile_research(records, research_ledger)
-    analysis = build_company_analysis(company, records, research_ledger, scoring_workers=scoring_worker_count(resolved_config))
+    analysis = build_company_analysis(
+        company,
+        records,
+        research_ledger,
+        scoring_workers=scoring_worker_count(resolved_config),
+        fund_profile=scoring_fund_profile(resolved_config),
+    )
     analysis["processing_status"] = "new_or_changed"
     analysis["cached_from_previous_run"] = False
     analysis["cache_policy"] = {
@@ -6038,7 +6750,8 @@ def normalized_actor_review_warnings(ctx: dict[str, Any], actor_findings: dict[s
                 "affected_actor_count": len(unavailable),
             }
         ]
-    return load_actor_review_warnings_state(ctx)
+    shared_warnings = shared_normalize_actor_review_warnings(actor_findings)
+    return shared_warnings or load_actor_review_warnings_state(ctx)
 
 
 def group_document_file_records(document_folder: Path, files: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
@@ -6062,6 +6775,7 @@ def build_company_analysis_from_method_scores(
     records: list[dict[str, Any]],
     research_ledger: dict[str, list[dict[str, Any]]],
     methods: dict[str, dict[str, Any]],
+    fund_profile: str | None = None,
 ) -> dict[str, Any]:
     sources = [source for stage_sources in research_ledger.values() for source in stage_sources]
     facts = build_fact_table(company, records, sources)
@@ -6070,13 +6784,30 @@ def build_company_analysis_from_method_scores(
     scored = [item["score"] for item in ordered_methods.values() if isinstance(item.get("score"), (int, float))]
     missing_methods = [method_id for method_id, method in ordered_methods.items() if method["status"] == "insufficient_evidence"]
     substantive_sources = [source for source in sources if is_substantive_public_source(source)]
-    composite_score = round(sum(scored) / len(scored), 2) if scored else None
+    evidence_layer = build_company_evidence_layer(company, records, sources, fund_profile=fund_profile)
+    evidence_summary_layer = evidence_layer["company_evidence_summary"]
+    composite_score = evidence_summary_layer["investment_score"]
+    method_average_score = round(sum(scored) / len(scored), 2) if scored else None
     return {
         "company_name": company,
         "company_slug": slugify(company),
         "composite_score": composite_score,
+        "investment_score": composite_score,
+        "method_average_score": method_average_score,
+        "evidence_quality_score": evidence_summary_layer["evidence_quality_score"],
+        "confidence_band": evidence_summary_layer["confidence_band"],
+        "recommendation": evidence_summary_layer["recommendation"],
+        "dimension_scores": evidence_summary_layer["dimension_scores"],
+        "score_caps": evidence_summary_layer["score_caps"],
+        "fund_profile": evidence_layer["fund_profile"],
         "method_count": len(ordered_methods),
         "methods": ordered_methods,
+        "method_score_appendix": ordered_methods,
+        "source_records": evidence_layer["source_records"],
+        "evidence_items": evidence_layer["evidence_items"],
+        "claim_records": evidence_layer["claim_records"],
+        "evidence_graph": evidence_layer["evidence_graph"],
+        "company_evidence_summary": evidence_summary_layer,
         "fact_table": facts,
         "audit": audit,
         "evidence_summary": {
@@ -6086,18 +6817,31 @@ def build_company_analysis_from_method_scores(
             "financial_tool_source_count": len([source for source in sources if source.get("skill") == "financial_public_data_tool"]),
             "missing_methods": missing_methods,
             "composite_score_evidence": {
-                "status": "scored" if scored else "insufficient_evidence",
+                "status": "scored" if composite_score is not None else "insufficient_evidence",
                 "scored_method_count": len(scored),
                 "method_ids": [method_id for method_id, method in ordered_methods.items() if isinstance(method.get("score"), (int, float))],
-                "reason": "Composite is the average of scored method outputs." if scored else "No method had enough evidence for a numeric score.",
+                "reason": "Composite is the confidence-weighted investment score from normalized claims; method scores are retained as an appendix." if composite_score is not None else "No normalized claim evidence was available for a numeric score.",
+                "method_average_score": method_average_score,
+                "evidence_quality_score": evidence_summary_layer["evidence_quality_score"],
+                "confidence_band": evidence_summary_layer["confidence_band"],
+                "fund_profile": evidence_layer["fund_profile"],
             },
         },
         "result_evidence": {
             "composite_score": {
                 "value": composite_score,
-                "why": "Average of method scores with sufficient evidence." if scored else "No scored methods were available.",
-                "evidence_refs": sorted({ref for method in ordered_methods.values() for ref in method.get("evidence_refs", []) if ref})[:20],
-                "missing_evidence": missing_methods,
+                "why": "Confidence-weighted normalized claims by fund profile, with hard caps for missing team, traction, product, or evidence quality." if composite_score is not None else "No scored normalized claims were available.",
+                "evidence_refs": sorted({ev.get("evidence_id") for ev in evidence_layer["evidence_items"] if ev.get("evidence_id")})[:20],
+                "missing_evidence": dedupe_list(
+                    [
+                        missing
+                        for claim in evidence_layer["claim_records"]
+                        for missing in (claim.get("required_next_evidence") or [])[:2]
+                        if int(claim.get("net_confidence") or 0) < 70
+                    ],
+                    20,
+                ),
+                "score_caps": evidence_summary_layer["score_caps"],
             },
             "research": {
                 "source_count": len(sources),
@@ -6428,7 +7172,13 @@ def run_score_consistency_auditor_step(ctx: dict[str, Any], *, llm_client: Any |
         missing_methods = [method_id for method_id in METHOD_IDS if method_id not in methods]
         if missing_methods:
             raise RuntimeError(f"Missing method scores for {company}: {', '.join(missing_methods)}")
-        analysis = build_company_analysis_from_method_scores(company, records, ledger, methods)
+        analysis = build_company_analysis_from_method_scores(
+            company,
+            records,
+            ledger,
+            methods,
+            fund_profile=scoring_fund_profile(ctx["config"]),
+        )
         analysis["processing_status"] = "new_or_changed"
         analysis["cached_from_previous_run"] = False
         analysis["cache_policy"] = {

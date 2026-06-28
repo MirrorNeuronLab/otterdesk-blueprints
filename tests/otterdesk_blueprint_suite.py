@@ -199,6 +199,12 @@ IMPORT_MARKER_PACKAGES = {
     "mn_web_browser_skill": "mirrorneuron-web-browser-skill",
     "mn_rag_skill": "mirrorneuron-rag-skill",
     "mn_websocket_stream_skill": "mirrorneuron-websocket-stream-skill",
+    "mn_evidence_engine_skill": "mirrorneuron-evidence-engine-skill",
+    "mn_actor_review_skill": "mirrorneuron-actor-review-skill",
+    "mn_client_report_skill": "mirrorneuron-client-report-skill",
+    "mn_document_reading_skill": "mirrorneuron-document-reading-skill",
+    "mn_public_research_orchestrator_skill": "mirrorneuron-public-research-orchestrator-skill",
+    "mn_scoring_framework_skill": "mirrorneuron-scoring-framework-skill",
 }
 SKILL_NAME_PACKAGES = {
     "llm_ocr_skill": "mirrorneuron-llm-ocr-skill",

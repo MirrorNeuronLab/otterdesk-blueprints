@@ -25,6 +25,24 @@ FIELD_PROFILE = ['form_type', 'taxpayer_name', 'taxpayer_id', 'wages', 'deductio
 DATASET_INPUT = {'name': 'NIST Special Database 2 and NIST Special Database 6', 'provider': 'National Institute of Standards and Technology', 'url': 'https://www.nist.gov/srd/nist-special-database-2', 'alternate_url': 'https://www.nist.gov/srd/nist-special-database-6', 'license': 'NIST free reference data; review source terms before production use.', 'availability_note': 'Public NIST structured-form reference sets with simulated tax submissions, form images, and answer files.', 'expected_files': ['*.png', '*.fmt', 'field context tables'], 'download_hint': 'Download the Special Database 2 or 6 ZIP from NIST, then point document_sources.folder_path at an extracted submission folder.'}
 
 
+def _load_repo_env() -> None:
+    for parent in Path(__file__).resolve().parents:
+        if (parent / "otterdesk_blueprint_env.py").exists():
+            if str(parent) not in sys.path:
+                sys.path.insert(0, str(parent))
+            from otterdesk_blueprint_env import load_blueprint_env
+
+            load_blueprint_env(__file__)
+            return
+
+
+_load_repo_env()
+
+
+def _local_development_enabled() -> bool:
+    return os.environ.get("MN_ENV", "").strip().lower() in {"dev", "development", "local"} and os.environ.get("MN_USE_LOCAL_SKILLS", "").strip().lower() not in {"0", "false", "no"}
+
+
 def _workspace_root() -> Path | None:
     value = os.environ.get("MN_WORKSPACE_ROOT")
     if value:
@@ -36,7 +54,7 @@ def _workspace_root() -> Path | None:
 
 
 def _add_repo_paths() -> None:
-    if os.environ.get("MN_USE_LOCAL_SKILLS", "").strip().lower() not in {"1", "true", "yes"}:
+    if not _local_development_enabled():
         return
     roots = []
     if os.environ.get("MN_SKILLS_ROOT"):

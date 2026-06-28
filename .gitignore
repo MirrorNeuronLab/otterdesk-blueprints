@@ -34,6 +34,8 @@ ENV/
 .env.*
 !.env.example
 !.env.sample
+!.env.development
+!.env.production
 
 # Node and frontend build output
 node_modules/

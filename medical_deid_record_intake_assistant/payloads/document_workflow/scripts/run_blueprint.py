@@ -25,6 +25,24 @@ FIELD_PROFILE = ['patient_name', 'date_of_birth', 'medical_record_number', 'doct
 DATASET_INPUT = {'name': 'RootCauseAnalytics Healthcare Library Sample', 'provider': 'RootCauseAnalytics on Hugging Face', 'url': 'https://huggingface.co/datasets/RootCauseAnalytics/Healthcare-Library-Sample', 'license': 'CC BY-NC 4.0 according to the public dataset/forum descriptions; review source terms before production use.', 'availability_note': 'Public synthetic healthcare document sample listed on Hugging Face with OCR-oriented PDFs and labels.', 'expected_files': ['*.pdf', 'ground_truth.csv', 'ground_truth.jsonl', 'bboxes.jsonl'], 'download_hint': 'Use the Hugging Face dataset files or clone with git-lfs/huggingface_hub when available.'}
 
 
+def _load_repo_env() -> None:
+    for parent in Path(__file__).resolve().parents:
+        if (parent / "otterdesk_blueprint_env.py").exists():
+            if str(parent) not in sys.path:
+                sys.path.insert(0, str(parent))
+            from otterdesk_blueprint_env import load_blueprint_env
+
+            load_blueprint_env(__file__)
+            return
+
+
+_load_repo_env()
+
+
+def _local_development_enabled() -> bool:
+    return os.environ.get("MN_ENV", "").strip().lower() in {"dev", "development", "local"} and os.environ.get("MN_USE_LOCAL_SKILLS", "").strip().lower() not in {"0", "false", "no"}
+
+
 def _workspace_root() -> Path | None:
     value = os.environ.get("MN_WORKSPACE_ROOT")
     if value:
@@ -36,7 +54,7 @@ def _workspace_root() -> Path | None:
 
 
 def _add_repo_paths() -> None:
-    if os.environ.get("MN_USE_LOCAL_SKILLS", "").strip().lower() not in {"1", "true", "yes"}:
+    if not _local_development_enabled():
         return
     roots = []
     if os.environ.get("MN_SKILLS_ROOT"):

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import importlib.util
+import sys
 from pathlib import Path
 
 import pytest
@@ -9,6 +10,17 @@ import pytest
 
 SCRIPT_PATH = Path(__file__).resolve().parents[1] / "payloads" / "document_workflow" / "scripts" / "run_blueprint.py"
 BLUEPRINT_DIR = Path(__file__).resolve().parents[1]
+for skill_name in (
+    "evidence_engine_skill",
+    "actor_review_skill",
+    "client_report_skill",
+    "document_reading_skill",
+    "public_research_orchestrator_skill",
+    "scoring_framework_skill",
+):
+    skill_src = BLUEPRINT_DIR.parents[1] / "mn-skills" / skill_name / "src"
+    if skill_src.exists():
+        sys.path.insert(0, str(skill_src))
 
 
 def load_module():

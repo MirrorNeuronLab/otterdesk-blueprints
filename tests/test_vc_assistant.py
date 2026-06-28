@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import sys
 import threading
 import time
 from pathlib import Path
@@ -10,6 +11,17 @@ import pytest
 
 
 ROOT = Path(__file__).resolve().parents[1]
+for skill_name in (
+    "evidence_engine_skill",
+    "actor_review_skill",
+    "client_report_skill",
+    "document_reading_skill",
+    "public_research_orchestrator_skill",
+    "scoring_framework_skill",
+):
+    skill_src = ROOT.parent / "mn-skills" / skill_name / "src"
+    if skill_src.exists():
+        sys.path.insert(0, str(skill_src))
 RUNNER_PATH = (
     ROOT
     / "vc_assistant"
@@ -139,6 +151,12 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
     assert config["python_dependencies"]["packages"] == [
         "mirrorneuron-blueprint-support-skill",
         "mirrorneuron-membrane-python-sdk",
+        "mirrorneuron-evidence-engine-skill",
+        "mirrorneuron-actor-review-skill",
+        "mirrorneuron-client-report-skill",
+        "mirrorneuron-document-reading-skill",
+        "mirrorneuron-public-research-orchestrator-skill",
+        "mirrorneuron-scoring-framework-skill",
         "mirrorneuron-llm-ocr-skill",
         "mirrorneuron-rag-skill",
         "mirrorneuron-w3m-browser-skill",
@@ -439,6 +457,12 @@ def test_vc_assistant_runtime_requirements_install_skills_with_pip():
         "--extra-index-url https://pypi.org/simple",
         "mirrorneuron-blueprint-support-skill==1.2.7",
         "mirrorneuron-membrane-python-sdk",
+        "mirrorneuron-evidence-engine-skill",
+        "mirrorneuron-actor-review-skill",
+        "mirrorneuron-client-report-skill",
+        "mirrorneuron-document-reading-skill",
+        "mirrorneuron-public-research-orchestrator-skill",
+        "mirrorneuron-scoring-framework-skill",
         "mirrorneuron-llm-ocr-skill==1.2.7",
         "mirrorneuron-rag-skill==1.2.14",
         "mirrorneuron-w3m-browser-skill==1.2.7",
@@ -1885,6 +1909,99 @@ def test_scorecard_and_comparables_ignore_non_substantive_defaults():
     assert analysis["methods"]["comparables_market_multiple_method"]["status"] == "insufficient_evidence"
     assert analysis["methods"]["comparables_market_multiple_method"]["score"] is None
     assert analysis["fact_table"]["raw_counts"]["substantive_research_source_count"] == 0
+
+
+def test_vc_claim_layer_caps_self_reported_revenue_confidence():
+    runner = _load_runner()
+    records = [
+        {
+            "path": "aurora/pitch_summary.txt",
+            "filename": "pitch_summary.txt",
+            "company_name": "Aurora AI",
+            "sha256": "aurora",
+            "suffix": ".txt",
+            "text_preview": "\n".join(
+                [
+                    "Company: Aurora AI",
+                    "Founder team includes domain experts and engineers.",
+                    "Product: working MVP and enterprise demo.",
+                    "Traction: five pilots, two paid customers, and $120k ARR.",
+                ]
+            ),
+            "character_count": 180,
+            "extraction_method": "embedded_text",
+            "ocr_required": False,
+            "warnings": [],
+        }
+    ]
+
+    analysis = runner.build_company_analysis("Aurora AI", records, {stage: [] for stage in runner.RESEARCH_STAGE_IDS}, fund_profile="seed_saas")
+    revenue_evidence = [item for item in analysis["evidence_items"] if item["claim_type"] == "traction.revenue.arr"]
+    revenue_claims = [item for item in analysis["claim_records"] if item["claim_type"] == "traction.revenue.arr"]
+
+    assert analysis["investment_score"] == analysis["composite_score"]
+    assert analysis["method_average_score"] is not None
+    assert "confidence-weighted investment score" in analysis["evidence_summary"]["composite_score_evidence"]["reason"]
+    assert revenue_evidence
+    assert revenue_claims
+    assert revenue_evidence[0]["source_type"] == "founder_provided_document"
+    assert revenue_evidence[0]["penalties"]["self_reported"] == 10
+    assert revenue_evidence[0]["penalties"]["unverified_financial_claim"] == 15
+    assert revenue_claims[0]["net_confidence"] <= 60
+    assert revenue_claims[0]["verification_status"] == "self_reported_unverified"
+
+
+def test_search_result_pages_cannot_support_serious_claim_confidence():
+    runner = _load_runner()
+    sources = [
+        {
+            "company": "SearchCo",
+            "query": "SearchCo revenue",
+            "url": "https://duckduckgo.com/html/?q=SearchCo+revenue",
+            "title": "Search results",
+            "snippet": "SearchCo reports $1M ARR and paying customers.",
+            "status": "ok",
+            "skill": "browser_search",
+            "verification_target": "traction_verifier",
+            "warning": "",
+            "retrieved_at": runner.utc_now_iso(),
+        }
+    ]
+
+    analysis = runner.build_company_analysis("SearchCo", [], {"traction_verifier": sources}, fund_profile="generalist")
+    search_evidence = [item for item in analysis["evidence_items"] if item["source_type"] == "search_result_page"]
+    claims = [item for item in analysis["claim_records"] if item["claim_type"] == "traction.revenue.arr"]
+
+    assert search_evidence
+    assert all(item["source_quality_score"] <= 5 for item in search_evidence)
+    assert all(item["confidence_score"] <= 15 for item in search_evidence)
+    assert claims
+    assert claims[0]["net_confidence"] <= 15
+
+
+def test_failed_public_sources_do_not_create_positive_evidence():
+    runner = _load_runner()
+    sources = [
+        {
+            "company": "BlockedCo",
+            "query": "BlockedCo customers",
+            "url": "https://www.linkedin.com/company/blockedco",
+            "title": "Blocked profile",
+            "snippet": "BlockedCo has customer traction.",
+            "status": "blocked",
+            "skill": "rendered_browser_page",
+            "verification_target": "company_identity_researcher",
+            "warning": "login wall",
+            "retrieved_at": runner.utc_now_iso(),
+        }
+    ]
+
+    layer = runner.build_company_evidence_layer("BlockedCo", [], sources)
+
+    assert layer["source_records"][0]["source_quality_score"] == 0
+    assert layer["source_records"][0]["extraction_quality_score"] == 0
+    assert layer["evidence_items"] == []
+    assert layer["company_evidence_summary"]["investment_score"] is None
 
 
 def test_action_budget_charges_browser_rendered_financial_tool_and_llm(monkeypatch, tmp_path):

@@ -7,6 +7,20 @@ import sys
 from pathlib import Path
 
 
+def _load_repo_env() -> None:
+    for parent in Path(__file__).resolve().parents:
+        if (parent / "otterdesk_blueprint_env.py").exists():
+            if str(parent) not in sys.path:
+                sys.path.insert(0, str(parent))
+            from otterdesk_blueprint_env import load_blueprint_env
+
+            load_blueprint_env(__file__)
+            return
+
+
+_load_repo_env()
+
+
 def main() -> int:
     config = json.loads(os.getenv("MN_BLUEPRINT_CONFIG_JSON", "{}") or "{}")
     folder = (

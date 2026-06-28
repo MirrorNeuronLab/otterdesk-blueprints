@@ -25,6 +25,24 @@ FIELD_PROFILE = ['governing_law', 'change_of_control', 'assignment', 'indemnity'
 DATASET_INPUT = {'name': 'Contract Understanding Atticus Dataset (CUAD) v1', 'provider': 'The Atticus Project on Zenodo and Hugging Face', 'url': 'https://zenodo.org/records/4595826', 'alternate_url': 'https://huggingface.co/datasets/theatticusproject/cuad', 'license': 'CC BY 4.0', 'availability_note': 'Public dataset with 510 commercial contracts and 13,000+ labels across 41 clause types.', 'expected_files': ['full_contracts_pdf/*.pdf', 'full_contracts_txt/*.txt', '*.csv', '*.json'], 'download_hint': 'Download CUAD_v1.zip from Zenodo or use the Hugging Face dataset for text-oriented experiments.'}
 
 
+def _load_repo_env() -> None:
+    for parent in Path(__file__).resolve().parents:
+        if (parent / "otterdesk_blueprint_env.py").exists():
+            if str(parent) not in sys.path:
+                sys.path.insert(0, str(parent))
+            from otterdesk_blueprint_env import load_blueprint_env
+
+            load_blueprint_env(__file__)
+            return
+
+
+_load_repo_env()
+
+
+def _local_development_enabled() -> bool:
+    return os.environ.get("MN_ENV", "").strip().lower() in {"dev", "development", "local"} and os.environ.get("MN_USE_LOCAL_SKILLS", "").strip().lower() not in {"0", "false", "no"}
+
+
 def _workspace_root() -> Path | None:
     value = os.environ.get("MN_WORKSPACE_ROOT")
     if value:
@@ -36,7 +54,7 @@ def _workspace_root() -> Path | None:
 
 
 def _add_repo_paths() -> None:
-    if os.environ.get("MN_USE_LOCAL_SKILLS", "").strip().lower() not in {"1", "true", "yes"}:
+    if not _local_development_enabled():
         return
     roots = []
     if os.environ.get("MN_SKILLS_ROOT"):

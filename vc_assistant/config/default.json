@@ -1129,6 +1129,12 @@
     "packages": [
       "mirrorneuron-blueprint-support-skill",
       "mirrorneuron-membrane-python-sdk",
+      "mirrorneuron-evidence-engine-skill",
+      "mirrorneuron-actor-review-skill",
+      "mirrorneuron-client-report-skill",
+      "mirrorneuron-document-reading-skill",
+      "mirrorneuron-public-research-orchestrator-skill",
+      "mirrorneuron-scoring-framework-skill",
       "mirrorneuron-llm-ocr-skill",
       "mirrorneuron-rag-skill",
       "mirrorneuron-w3m-browser-skill",
