@@ -101,13 +101,21 @@ except Exception:  # pragma: no cover - optional runtime support
     WorkingMemory = None
 
 from mn_evidence_engine_skill import (
+    ClaimRecord,
+    EvidenceItem,
     SourceRecord,
     aggregate_claim_records,
+    apply_evidence_score_caps,
     build_evidence_graph,
     build_evidence_items_from_texts,
+    build_source_reliability_records,
+    claim_type_prior,
     clamp_score,
+    combine_claim_truth_probability,
     confidence_band,
+    crowdkit_true_probability,
     dimension_score_from_claims,
+    run_dawid_skene_truth_discovery,
     score_evidence_quality,
     stable_short_id,
     to_dict,
@@ -334,6 +342,34 @@ FUND_PROFILE_WEIGHTS = {
         "financial": 0.05,
         "risk": 0.10,
     },
+}
+VC_SOURCE_TYPE_BETA_PRIORS = {
+    "data_room_document": {"alpha": 16, "beta": 3},
+    "founder_document": {"alpha": 7, "beta": 6},
+    "founder_provided_document": {"alpha": 7, "beta": 6},
+    "deterministic_financial_tool": {"alpha": 7, "beta": 8},
+    "government_registry": {"alpha": 18, "beta": 3},
+    "public_article": {"alpha": 7, "beta": 5},
+    "public_profile": {"alpha": 6, "beta": 6},
+    "public_web_page": {"alpha": 6, "beta": 6},
+}
+VC_CLAIM_TYPE_PRIORS = {
+    "product.prototype": 0.65,
+    "product.demo_available": 0.60,
+    "traction.pilots": 0.45,
+    "traction.paid_customers": 0.35,
+    "traction.revenue.arr": 0.30,
+    "traction.enterprise_contracts": 0.25,
+    "traction.retention": 0.25,
+    "traction.pipeline": 0.35,
+    "moat.patent_filing": 0.45,
+    "moat.granted_patent": 0.35,
+    "moat.proprietary_dataset": 0.40,
+    "team.founder_background": 0.50,
+    "team.domain_expertise": 0.45,
+    "finance.round_terms": 0.35,
+    "finance.burn": 0.40,
+    "finance.runway": 0.40,
 }
 VC_METHOD_GUIDANCE = {
     "berkus_method": {
@@ -2317,13 +2353,13 @@ def specificity_for_claim(sentence: str, claim_type: str) -> int:
 
 def verification_status_for_evidence(source_type: str, claim_type: str, penalties: dict[str, int]) -> str:
     if source_type in {"blocked_page", "failed_fetch"}:
-        return "unusable_source"
+        return "insufficient_evidence"
     if "self_reported" in penalties and claim_type.startswith(("traction.", "finance.")):
         return "self_reported_unverified"
     if source_type in {"government_registry", "customer_case_study", "data_room_document"}:
         return "externally_supported"
     if source_type in {"public_profile", "public_web_page", "company_website"}:
-        return "public_context_unverified"
+        return "unverified"
     return "usable_but_unverified"
 
 
@@ -2433,23 +2469,146 @@ def fund_profile_weights(fund_profile: str | None) -> dict[str, float]:
 def apply_company_score_caps(raw_score: int | None, claims: list[dict[str, Any]], evidence_quality: int, fund_profile: str) -> tuple[int | None, list[dict[str, Any]]]:
     if raw_score is None:
         return None, []
-    caps: list[dict[str, Any]] = []
-    score = int(raw_score)
-
-    def apply_cap(condition: bool, cap: int, reason: str) -> None:
-        nonlocal score
-        if condition and score > cap:
-            score = cap
-            caps.append({"cap": cap, "reason": reason})
-
-    has_team = any(str(claim.get("claim_type") or "").startswith("team.") and int(claim.get("net_confidence") or 0) > 20 for claim in claims)
-    has_traction = any(str(claim.get("claim_type") or "").startswith("traction.") and int(claim.get("net_confidence") or 0) > 20 for claim in claims)
-    has_product = any(str(claim.get("claim_type") or "").startswith("product.") and int(claim.get("net_confidence") or 0) > 20 for claim in claims)
-    apply_cap(not has_team, 65, "No founder or team evidence was found.")
-    apply_cap(not has_traction and fund_profile != "deeptech", 55, "No customer or traction evidence was found.")
-    apply_cap(not has_product, 50, "No product or prototype evidence was found.")
-    apply_cap(evidence_quality < 30, 45, "Evidence quality is below 30, so the score is not reliable.")
+    score, cap_codes = apply_evidence_score_caps(int(raw_score), claims, evidence_quality, fund_profile)
+    cap_messages = {
+        "no_founder_info_cap_65": (65, "No founder or team evidence was found."),
+        "no_customer_or_traction_cap_55": (55, "No customer or traction evidence was found."),
+        "no_product_or_prototype_cap_50": (50, "No product or prototype evidence was found."),
+        "low_evidence_quality_cap_45": (45, "Evidence quality is below 30, so the score is not reliable."),
+    }
+    caps = [
+        {"cap": cap_messages.get(code, (score, code))[0], "reason": cap_messages.get(code, (score, code))[1], "code": code}
+        for code in cap_codes
+    ]
     return score, caps
+
+
+def source_prior_adjusted_claim_probability(
+    claim: dict[str, Any],
+    evidence_by_id: dict[str, EvidenceItem],
+    source_reliability_by_id: dict[str, float],
+) -> float:
+    support = 0.0
+    contradiction = 0.0
+    for evidence_id in claim.get("evidence_ids") or []:
+        evidence = evidence_by_id.get(str(evidence_id))
+        if evidence is None:
+            continue
+        reliability = source_reliability_by_id.get(evidence.source_id, 0.5)
+        weight = reliability * ((evidence.confidence_score or 0) / 100)
+        polarity = str(getattr(evidence.polarity, "value", evidence.polarity) or "")
+        if polarity == "supports":
+            support += weight
+        elif polarity == "contradicts":
+            contradiction += weight
+    total = support + contradiction
+    if total > 0:
+        return max(0.0, min(1.0, support / total))
+    return max(0.0, min(1.0, int(claim.get("net_confidence") or 0) / 100))
+
+
+def build_truth_discovery_layer(
+    company_slug: str,
+    evidence_items: list[dict[str, Any]],
+    claim_records: list[dict[str, Any]],
+    source_records: list[dict[str, Any]],
+) -> dict[str, Any]:
+    warnings: list[str] = []
+    typed_evidence: list[EvidenceItem] = []
+    for item in evidence_items:
+        data = dict(item)
+        data["claim_id"] = str(data.get("claim_id") or stable_short_id("claim", company_slug, canonical_claim_key(item)))
+        try:
+            typed_evidence.append(EvidenceItem(**data))
+        except Exception as exc:
+            warnings.append(f"could_not_parse_evidence:{data.get('evidence_id') or 'unknown'}:{type(exc).__name__}")
+    try:
+        truth_result = run_dawid_skene_truth_discovery(typed_evidence)
+    except Exception as exc:
+        return {
+            "eligible_claim_ids": [],
+            "predicted_labels": {},
+            "claim_probabilities": {},
+            "source_reliability": [],
+            "claim_truth_scores": [],
+            "warnings": warnings + [f"truth_discovery_failed:{type(exc).__name__}"],
+            "notes": ["Truth discovery could not run; use phase-one evidence confidence only."],
+        }
+
+    typed_sources: list[SourceRecord] = []
+    for source in source_records:
+        try:
+            typed_sources.append(SourceRecord(**dict(source)))
+        except Exception as exc:
+            warnings.append(f"could_not_parse_source:{source.get('source_id') or 'unknown'}:{type(exc).__name__}")
+    reliability_records = build_source_reliability_records(
+        typed_sources,
+        truth_result.source_reliability_scores,
+        source_type_beta_priors=VC_SOURCE_TYPE_BETA_PRIORS,
+    )
+    reliability_by_source = {
+        record.source_id: float(record.combined_reliability if record.combined_reliability is not None else record.prior_reliability)
+        for record in reliability_records
+    }
+    evidence_by_id = {evidence.evidence_id: evidence for evidence in typed_evidence}
+
+    claim_truth_scores: list[dict[str, Any]] = []
+    for claim in claim_records:
+        claim_id = str(claim.get("claim_id") or "")
+        posterior = int(claim.get("net_confidence") or 0) / 100
+        source_prior_prob = source_prior_adjusted_claim_probability(claim, evidence_by_id, reliability_by_source)
+        try:
+            claim_model = ClaimRecord(
+                **{
+                    **dict(claim),
+                    "prior_probability": claim_type_prior(
+                        str(claim.get("claim_type") or ""),
+                        claim_type_priors=VC_CLAIM_TYPE_PRIORS,
+                    ),
+                    "posterior_probability": posterior,
+                }
+            )
+            final_probability = combine_claim_truth_probability(
+                claim_model,
+                source_prior_adjusted_prob=source_prior_prob,
+                claim_probabilities=truth_result.claim_probabilities,
+            )
+        except Exception as exc:
+            warnings.append(f"could_not_combine_claim_truth:{claim_id or 'unknown'}:{type(exc).__name__}")
+            final_probability = posterior
+        crowdkit_prob = crowdkit_true_probability(claim_id, truth_result.claim_probabilities)
+        if claim_id in truth_result.eligible_claim_ids:
+            note = "Crowd-Kit truth discovery used."
+        else:
+            note = "Skipped: not enough independent eligible sources."
+        claim_truth_scores.append(
+            {
+                "claim_id": claim_id,
+                "claim": claim.get("canonical_claim"),
+                "log_odds_probability": round(posterior, 3),
+                "crowdkit_probability": None if crowdkit_prob is None else round(crowdkit_prob, 3),
+                "source_prior_adjusted_probability": round(source_prior_prob, 3),
+                "final_truth_probability": round(final_probability, 3),
+                "note": note,
+            }
+        )
+
+    notes = []
+    if truth_result.eligible_claim_ids:
+        notes.append(f"Truth discovery used for {len(truth_result.eligible_claim_ids)} claim(s) with enough independent sources.")
+    else:
+        notes.append("Crowd-Kit was skipped because no claims had enough independent eligible sources.")
+    if any("self_reported" in (item.get("penalties") or {}) for item in evidence_items):
+        notes.append("Founder-provided claims remain self-reported until externally verified.")
+    return {
+        "eligible_claim_ids": truth_result.eligible_claim_ids,
+        "predicted_labels": truth_result.predicted_labels,
+        "claim_probabilities": truth_result.claim_probabilities,
+        "source_reliability": [to_dict(record) for record in reliability_records],
+        "claim_truth_scores": claim_truth_scores,
+        "warnings": warnings + truth_result.warnings,
+        "notes": notes,
+    }
 
 
 def recommendation_for_company(score: int | None, evidence_quality: int, caps: list[dict[str, Any]]) -> str:
@@ -2474,11 +2633,12 @@ def build_company_evidence_layer(
     profile = str(fund_profile or "generalist").strip().lower().replace("-", "_")
     if profile not in FUND_PROFILE_WEIGHTS:
         profile = "generalist"
+    company_slug = slugify(company)
     source_records, source_records_by_id = build_source_records(company, records, sources)
     evidence_items = build_evidence_items(company, records, sources, source_records_by_id)
-    pre_claim_ids = {key: stable_short_id("claim", slugify(company), key) for key in {canonical_claim_key(ev) for ev in evidence_items}}
+    pre_claim_ids = {key: stable_short_id("claim", company_slug, key) for key in {canonical_claim_key(ev) for ev in evidence_items}}
     graph = build_evidence_graph(
-        entity_id=slugify(company),
+        entity_id=company_slug,
         entity_label=company,
         source_records=source_records,
         evidence_items=evidence_items,
@@ -2490,7 +2650,7 @@ def build_company_evidence_layer(
         ],
     )
     claim_records = aggregate_claim_records(
-        entity_id=slugify(company),
+        entity_id=company_slug,
         evidence_items=evidence_items,
         graph=graph,
         canonical_claim_key_resolver=canonical_claim_key,
@@ -2507,8 +2667,9 @@ def build_company_evidence_layer(
     weights = fund_profile_weights(profile)
     raw_score = clamp_score(sum(dimension_scores[dimension] * weight for dimension, weight in weights.items())) if claim_records else None
     investment_score, score_caps = apply_company_score_caps(raw_score, claim_records, dimension_scores["evidence_quality"], profile)
+    truth_discovery = build_truth_discovery_layer(company_slug, evidence_items, claim_records, source_records)
     summary = CompanyEvidenceSummary(
-        company_slug=slugify(company),
+        company_slug=company_slug,
         investment_score=investment_score,
         evidence_quality_score=dimension_scores["evidence_quality"],
         confidence_band=confidence_band(dimension_scores["evidence_quality"]),
@@ -2525,6 +2686,7 @@ def build_company_evidence_layer(
         "claim_records": claim_records,
         "evidence_graph": graph,
         "company_evidence_summary": asdict(summary),
+        "truth_discovery": truth_discovery,
     }
 
 
@@ -3215,6 +3377,7 @@ def build_company_analysis(
         "claim_records": evidence_layer["claim_records"],
         "evidence_graph": evidence_layer["evidence_graph"],
         "company_evidence_summary": evidence_summary_layer,
+        "truth_discovery": evidence_layer.get("truth_discovery", {}),
         "fact_table": facts,
         "audit": audit,
         "evidence_summary": {
@@ -3232,6 +3395,7 @@ def build_company_analysis(
                 "evidence_quality_score": evidence_summary_layer["evidence_quality_score"],
                 "confidence_band": evidence_summary_layer["confidence_band"],
                 "fund_profile": evidence_layer["fund_profile"],
+                "truth_discovery_eligible_claim_count": len((evidence_layer.get("truth_discovery") or {}).get("eligible_claim_ids") or []),
             },
         },
         "result_evidence": {
@@ -5228,6 +5392,56 @@ def render_markdown(analysis: dict[str, Any], sources: list[dict[str, Any]], evi
             )
     else:
         lines.append("| No normalized claims found | neutral | 0 | 0 | none |")
+    truth_discovery = analysis.get("truth_discovery") or {}
+    truth_rows = list(truth_discovery.get("claim_truth_scores") or [])[:8]
+    reliability_rows = sorted(
+        list(truth_discovery.get("source_reliability") or []),
+        key=lambda item: float(item.get("combined_reliability") or item.get("prior_reliability") or 0),
+        reverse=True,
+    )[:8]
+    lines += ["", "## Truth Discovery"]
+    for note in truth_discovery.get("notes") or ["Truth discovery was not available for this run."]:
+        lines.append(f"- {note}")
+    if truth_rows:
+        lines += [
+            "",
+            "| Claim | Log-Odds Probability | Crowd-Kit Probability | Final Truth Probability | Notes |",
+            "|---|---:|---:|---:|---|",
+        ]
+        for row in truth_rows:
+            lines.append(
+                "| "
+                + " | ".join(
+                    [
+                        markdown_cell(row.get("claim")),
+                        markdown_cell(row.get("log_odds_probability")),
+                        markdown_cell(row.get("crowdkit_probability") if row.get("crowdkit_probability") is not None else "n/a"),
+                        markdown_cell(row.get("final_truth_probability")),
+                        markdown_cell(row.get("note")),
+                    ]
+                )
+                + " |"
+            )
+    if reliability_rows:
+        lines += [
+            "",
+            "| Source | Source Type | Prior Reliability | Truth-Discovery Reliability | Combined Reliability |",
+            "|---|---|---:|---:|---:|",
+        ]
+        for row in reliability_rows:
+            lines.append(
+                "| "
+                + " | ".join(
+                    [
+                        markdown_cell(row.get("source_id")),
+                        markdown_cell(row.get("source_type")),
+                        markdown_cell(round(float(row.get("prior_reliability") or 0), 3)),
+                        markdown_cell(round(float(row.get("truth_discovery_reliability")), 3) if row.get("truth_discovery_reliability") is not None else "n/a"),
+                        markdown_cell(round(float(row.get("combined_reliability") or 0), 3)),
+                    ]
+                )
+                + " |"
+            )
     lines += ["", "## Required Diligence"]
     if missing_evidence:
         for idx, item in enumerate(missing_evidence, start=1):
@@ -6808,6 +7022,7 @@ def build_company_analysis_from_method_scores(
         "claim_records": evidence_layer["claim_records"],
         "evidence_graph": evidence_layer["evidence_graph"],
         "company_evidence_summary": evidence_summary_layer,
+        "truth_discovery": evidence_layer.get("truth_discovery", {}),
         "fact_table": facts,
         "audit": audit,
         "evidence_summary": {
@@ -6825,6 +7040,7 @@ def build_company_analysis_from_method_scores(
                 "evidence_quality_score": evidence_summary_layer["evidence_quality_score"],
                 "confidence_band": evidence_summary_layer["confidence_band"],
                 "fund_profile": evidence_layer["fund_profile"],
+                "truth_discovery_eligible_claim_count": len((evidence_layer.get("truth_discovery") or {}).get("eligible_claim_ids") or []),
             },
         },
         "result_evidence": {
