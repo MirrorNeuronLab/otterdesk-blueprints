@@ -156,6 +156,24 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         "mirrorneuron-w3m-browser-skill",
         "mirrorneuron-web-browser-skill",
     ]
+    assert config["local_inputs"] == {
+        "folders": [
+            {
+                "config_path": "document_sources.folder_path",
+                "default_config_value": "vc_assistant/examples/sample_inputs",
+                "source_path": "examples/sample_inputs",
+                "payload_path": "document_workflow/mn_local_inputs/vc_documents",
+                "runtime_path": "mn_local_inputs/vc_documents",
+                "allowed_extensions": [".pdf", ".txt", ".md", ".json", ".csv"],
+                "linked_config_paths": [
+                    "inputs.payload.document_folder",
+                    "inputs.payload.input_folder",
+                    "state.document_folder",
+                    "state.input_folder",
+                ],
+            }
+        ]
+    }
     assert config["input_skills"]["llm_ocr"] == {
         "skill": "llm_ocr_skill",
         "package": "mirrorneuron-llm-ocr-skill",
@@ -339,6 +357,7 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         embedded_config = json.loads(environment["MN_BLUEPRINT_CONFIG_JSON"])
         assert embedded_config["inputs"]["payload"]["input_folder"] == "vc_assistant/examples/sample_inputs"
         assert embedded_config["inputs"]["payload"]["output_folder"] == "~/Downloads/vc_assistant"
+        assert embedded_config["local_inputs"] == config["local_inputs"]
         assert embedded_config["outputs"]["folder_path"] == "~/Downloads/vc_assistant"
         assert embedded_config["llm"]["model"] == "nemotron3:latest"
         assert embedded_config["llm"]["runtime_model"] == "nemotron3:latest"

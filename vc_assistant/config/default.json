@@ -62,6 +62,30 @@
     ],
     "grouping": "first_level_folder_then_infer_company_name"
   },
+  "local_inputs": {
+    "folders": [
+      {
+        "config_path": "document_sources.folder_path",
+        "default_config_value": "vc_assistant/examples/sample_inputs",
+        "source_path": "examples/sample_inputs",
+        "payload_path": "document_workflow/mn_local_inputs/vc_documents",
+        "runtime_path": "mn_local_inputs/vc_documents",
+        "allowed_extensions": [
+          ".pdf",
+          ".txt",
+          ".md",
+          ".json",
+          ".csv"
+        ],
+        "linked_config_paths": [
+          "inputs.payload.document_folder",
+          "inputs.payload.input_folder",
+          "state.document_folder",
+          "state.input_folder"
+        ]
+      }
+    ]
+  },
   "dataset_input": {
     "name": "Synthetic startup packet samples",
     "provider": "OtterDesk blueprint fixtures",
