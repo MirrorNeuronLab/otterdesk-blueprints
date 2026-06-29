@@ -106,6 +106,7 @@ from mn_evidence_engine_skill import (
     SourceRecord,
     aggregate_claim_records,
     apply_evidence_score_caps,
+    build_bayesian_claim_explanations,
     build_evidence_graph,
     build_evidence_items_from_texts,
     build_source_reliability_records,
@@ -370,6 +371,17 @@ VC_CLAIM_TYPE_PRIORS = {
     "finance.round_terms": 0.35,
     "finance.burn": 0.40,
     "finance.runway": 0.40,
+}
+VC_BAYESIAN_CRITICAL_CLAIM_TYPES = {
+    "traction.revenue.arr",
+    "traction.paid_customers",
+    "traction.enterprise_contracts",
+    "traction.retention",
+    "traction.pilots",
+    "product.prototype",
+    "product.demo_available",
+    "moat.proprietary_dataset",
+    "finance.round_terms",
 }
 VC_METHOD_GUIDANCE = {
     "berkus_method": {
@@ -2611,6 +2623,40 @@ def build_truth_discovery_layer(
     }
 
 
+def build_bayesian_explainability_layer(
+    company_name: str,
+    evidence_items: list[dict[str, Any]],
+    claim_records: list[dict[str, Any]],
+    source_records: list[dict[str, Any]],
+    truth_discovery: dict[str, Any],
+) -> list[dict[str, Any]]:
+    source_reliability_by_id = {
+        str(record.get("source_id")): float(record.get("combined_reliability") or record.get("prior_reliability") or 0.50)
+        for record in truth_discovery.get("source_reliability") or []
+        if record.get("source_id")
+    }
+    try:
+        return build_bayesian_claim_explanations(
+            company_name=company_name,
+            claims=claim_records,
+            evidence_items=evidence_items,
+            sources=source_records,
+            source_reliability_by_id=source_reliability_by_id,
+            claim_type_priors=VC_CLAIM_TYPE_PRIORS,
+            critical_claim_types=VC_BAYESIAN_CRITICAL_CLAIM_TYPES,
+            min_importance=80,
+            max_claims=4,
+        )
+    except Exception as exc:
+        return [
+            {
+                "status": "failed",
+                "warning": f"bayesian_explainability_failed:{type(exc).__name__}",
+                "message": "Bayesian claim explainability could not run; use the evidence table and truth-discovery section instead.",
+            }
+        ]
+
+
 def recommendation_for_company(score: int | None, evidence_quality: int, caps: list[dict[str, Any]]) -> str:
     if score is None or evidence_quality < 20:
         return "too_early_to_score_confidently"
@@ -2668,6 +2714,7 @@ def build_company_evidence_layer(
     raw_score = clamp_score(sum(dimension_scores[dimension] * weight for dimension, weight in weights.items())) if claim_records else None
     investment_score, score_caps = apply_company_score_caps(raw_score, claim_records, dimension_scores["evidence_quality"], profile)
     truth_discovery = build_truth_discovery_layer(company_slug, evidence_items, claim_records, source_records)
+    bayesian_explanations = build_bayesian_explainability_layer(company, evidence_items, claim_records, source_records, truth_discovery)
     summary = CompanyEvidenceSummary(
         company_slug=company_slug,
         investment_score=investment_score,
@@ -2687,6 +2734,7 @@ def build_company_evidence_layer(
         "evidence_graph": graph,
         "company_evidence_summary": asdict(summary),
         "truth_discovery": truth_discovery,
+        "bayesian_claim_explanations": bayesian_explanations,
     }
 
 
@@ -3378,6 +3426,7 @@ def build_company_analysis(
         "evidence_graph": evidence_layer["evidence_graph"],
         "company_evidence_summary": evidence_summary_layer,
         "truth_discovery": evidence_layer.get("truth_discovery", {}),
+        "bayesian_claim_explanations": evidence_layer.get("bayesian_claim_explanations", []),
         "fact_table": facts,
         "audit": audit,
         "evidence_summary": {
@@ -3396,6 +3445,7 @@ def build_company_analysis(
                 "confidence_band": evidence_summary_layer["confidence_band"],
                 "fund_profile": evidence_layer["fund_profile"],
                 "truth_discovery_eligible_claim_count": len((evidence_layer.get("truth_discovery") or {}).get("eligible_claim_ids") or []),
+                "bayesian_claim_explanation_count": len(evidence_layer.get("bayesian_claim_explanations") or []),
             },
         },
         "result_evidence": {
@@ -5442,6 +5492,24 @@ def render_markdown(analysis: dict[str, Any], sources: list[dict[str, Any]], evi
                 )
                 + " |"
             )
+    bayesian_explanations = list(analysis.get("bayesian_claim_explanations") or [])
+    if bayesian_explanations:
+        lines += ["", "## Bayesian Claim Explanation"]
+        for explanation in bayesian_explanations:
+            if explanation.get("status") == "failed":
+                lines.append(f"- {markdown_cell(explanation.get('message') or explanation.get('warning'))}")
+                continue
+            markdown = str(explanation.get("markdown") or "").strip()
+            if markdown:
+                lines.append(markdown)
+            else:
+                lines += [
+                    f"### {markdown_cell(explanation.get('canonical_claim') or explanation.get('claim_type'))}",
+                    f"- Prior probability: {round(float(explanation.get('prior_probability') or 0) * 100)}%",
+                    f"- Posterior probability: {round(float(explanation.get('posterior_probability') or 0) * 100)}%",
+                    f"- Main confidence limiter: {markdown_cell(explanation.get('main_confidence_limiter') or 'none')}",
+                    f"- Investor interpretation: {markdown_cell(explanation.get('investor_interpretation') or 'Structured belief update only.')}",
+                ]
     lines += ["", "## Required Diligence"]
     if missing_evidence:
         for idx, item in enumerate(missing_evidence, start=1):
@@ -6295,6 +6363,7 @@ def write_company_outputs(
             "evidence_items_path": str(company_dir / "evidence_items.json"),
             "claim_records_path": str(company_dir / "claims.json"),
             "evidence_graph_path": str(company_dir / "evidence_graph.json"),
+            "bayesian_claim_explanations_path": str(company_dir / "bayesian_claim_explanations.json"),
         }
         analysis["evidence"] = compact_local_evidence_for_transport(evidence)
         analysis["research_sources"] = compact_research_sources_for_transport(sources)
@@ -6310,10 +6379,11 @@ def write_company_outputs(
         write_json(company_dir / "evidence_items.json", analysis.get("evidence_items") or [])
         write_json(company_dir / "claims.json", analysis.get("claim_records") or [])
         write_json(company_dir / "evidence_graph.json", analysis.get("evidence_graph") or {})
+        write_json(company_dir / "bayesian_claim_explanations.json", analysis.get("bayesian_claim_explanations") or [])
         write_json(company_dir / "warnings.json", warnings)
         markdown = render_markdown(analysis, sources, evidence)
         (company_dir / "analysis.md").write_text(markdown, encoding="utf-8")
-        for name in ("analysis.json", "analysis.md", "method_scores.json", "research_plan.json", "agent_tool_trace.json", "research_sources.json", "sources.json", "evidence.json", "source_records.json", "evidence_items.json", "claims.json", "evidence_graph.json", "warnings.json"):
+        for name in ("analysis.json", "analysis.md", "method_scores.json", "research_plan.json", "agent_tool_trace.json", "research_sources.json", "sources.json", "evidence.json", "source_records.json", "evidence_items.json", "claims.json", "evidence_graph.json", "bayesian_claim_explanations.json", "warnings.json"):
             output_files.append({"kind": name.rsplit(".", 1)[0], "path": str(company_dir / name), "company": analysis["company_name"]})
         write_json(output_folder / "company_fact_tables" / f"{slug}.json", analysis["fact_table"])
         write_json(output_folder / "research_ledgers" / f"{slug}.json", research_ledger)
@@ -7023,6 +7093,7 @@ def build_company_analysis_from_method_scores(
         "evidence_graph": evidence_layer["evidence_graph"],
         "company_evidence_summary": evidence_summary_layer,
         "truth_discovery": evidence_layer.get("truth_discovery", {}),
+        "bayesian_claim_explanations": evidence_layer.get("bayesian_claim_explanations", []),
         "fact_table": facts,
         "audit": audit,
         "evidence_summary": {
@@ -7041,6 +7112,7 @@ def build_company_analysis_from_method_scores(
                 "confidence_band": evidence_summary_layer["confidence_band"],
                 "fund_profile": evidence_layer["fund_profile"],
                 "truth_discovery_eligible_claim_count": len((evidence_layer.get("truth_discovery") or {}).get("eligible_claim_ids") or []),
+                "bayesian_claim_explanation_count": len(evidence_layer.get("bayesian_claim_explanations") or []),
             },
         },
         "result_evidence": {

@@ -1937,6 +1937,15 @@ def test_vc_claim_layer_caps_self_reported_revenue_confidence():
     assert revenue_evidence[0]["penalties"]["unverified_financial_claim"] == 15
     assert revenue_claims[0]["net_confidence"] <= 60
     assert revenue_claims[0]["verification_status"] == "self_reported_unverified"
+    explanations = analysis["bayesian_claim_explanations"]
+    assert explanations
+    revenue_explanation = next(item for item in explanations if item["template_id"] == "revenue_claim")
+    assert revenue_explanation["posterior_probability"] > revenue_explanation["prior_probability"]
+    assert "no independent verification evidence" in revenue_explanation["main_confidence_limiter"]
+    markdown = runner.render_markdown(analysis, [], records)
+    assert "## Bayesian Claim Explanation" in markdown
+    assert "Prior probability:" in markdown
+    assert "Posterior probability:" in markdown
 
 
 def test_search_result_pages_cannot_support_serious_claim_confidence():
