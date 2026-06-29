@@ -317,14 +317,6 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
     docker_worker_requirements = (
         ROOT / "vc_assistant" / "payloads" / "document_workflow" / "docker_worker" / "requirements.txt"
     ).read_text(encoding="utf-8")
-    wrapper = (
-        ROOT
-        / "vc_assistant"
-        / "payloads"
-        / "document_workflow"
-        / "scripts"
-        / "run_blueprint_in_docker_worker.sh"
-    ).read_text(encoding="utf-8")
     assert "w3m" in dockerfile
     assert "mirrorneuron-w3m-browser-skill" in docker_worker_requirements
     assert "requirements.txt" in dockerfile
@@ -332,9 +324,6 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
     assert "mirrorneuron-membrane-python-sdk" in (
         ROOT / "vc_assistant" / "payloads" / "document_workflow" / "docker_worker" / "requirements.txt"
     ).read_text(encoding="utf-8")
-    assert "command -v w3m" in wrapper
-    assert "import mn_w3m_browser_skill" in wrapper
-    assert "from mn_context_engine_sdk import MemoryItem, WorkingMemory" in wrapper
     assert "examples/sample_inputs/" in manifest["metadata"]["configuration_contract"]["required_files"]
     assert (
         "payloads/document_workflow/vc_assistant/examples/sample_inputs/"
@@ -344,7 +333,7 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         assert "python_environment" not in node["config"]
         assert node["config"]["runner_module"] == "MirrorNeuron.Runner.DockerWorker"
         assert node["config"]["workdir"] == "/mn/job/document_workflow"
-        assert node["config"]["command"] == ["bash", "scripts/run_blueprint_in_docker_worker.sh"]
+        assert node["config"]["command"] == ["python3", "scripts/run_blueprint.py"]
         assert node["config"]["docker_worker_image"] == "document_workflow/docker_worker"
         assert node["config"]["image"] == "mirror-neuron/vc-assistant:local"
         assert node["config"]["network"] == "mirror-neuron-runtime"
@@ -393,7 +382,7 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         assert "python_environment" not in template["with"]
         assert template["with"]["runner_module"] == "MirrorNeuron.Runner.DockerWorker"
         assert template["with"]["workdir"] == "/mn/job/document_workflow"
-        assert template["with"]["command"] == ["bash", "scripts/run_blueprint_in_docker_worker.sh"]
+        assert template["with"]["command"] == ["python3", "scripts/run_blueprint.py"]
         assert template["with"]["docker_worker_image"] == "document_workflow/docker_worker"
         assert template["with"]["image"] == "mirror-neuron/vc-assistant:local"
         assert template["with"]["network"] == "mirror-neuron-runtime"
