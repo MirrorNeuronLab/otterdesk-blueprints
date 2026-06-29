@@ -238,7 +238,7 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
     assert config["knowledge_rag"]["redis_url"] == ""
     assert config["knowledge_rag"]["namespace"] == ""
     assert config["knowledge_rag"]["embedding_provider"] == "docker_model_runner"
-    assert config["knowledge_rag"]["embedding_model"] == "hf.co/jinaai/jina-embeddings-v5-text-small-retrieval:Q4_K_M"
+    assert config["knowledge_rag"]["embedding_model"] == "huggingface.co/jinaai/jina-embeddings-v5-text-small-retrieval:Q4_K_M"
     assert config["knowledge_rag"]["embedding_api_base"] == "http://host.docker.internal:12434/engines/v1"
     assert config["knowledge_rag"]["embedding_query_prefix"] == "Query: "
     assert config["knowledge_rag"]["embedding_document_prefix"] == "Document: "
