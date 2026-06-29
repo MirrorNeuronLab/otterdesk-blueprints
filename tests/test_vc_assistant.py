@@ -194,6 +194,39 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         "network": "mirror-neuron-runtime",
         "node_scope": "vc_python_executor_nodes",
     }
+    assert config["llm"]["provider"] == "docker_model_runner"
+    assert config["llm"]["model"] == "nemotron3:latest"
+    assert config["llm"]["runtime_model"] == "nemotron3:latest"
+    assert config["llm"]["backend"] == "llama.cpp"
+    assert config["llm"]["context_size"] == 8192
+    assert config["llm"]["quantization"] == "MOSTLY_Q4_K_M"
+    assert config["llm"]["parameter_count_b"] == 31.58
+    assert config["llm"]["live_model_profile"]["hardware"]["gpu"] == {
+        "min_count": 1,
+        "min_memory_mb": 49152,
+        "memory_operator": ">=",
+    }
+    assert config["resources"]["gpu"] == {
+        "min_count": 1,
+        "min_memory_mb": 49152,
+        "memory_operator": ">=",
+        "enforcement": "hard",
+    }
+    assert config["llm"]["configs"]["primary"] == {
+        "provider": "docker_model_runner",
+        "model": "nemotron3:latest",
+        "api_base": "auto",
+        "timeout_seconds": 60,
+        "max_tokens": 1200,
+        "num_retries": 1,
+        "mock_mode": "fake",
+        "mode": "live",
+        "runtime_model": "nemotron3:latest",
+        "backend": "llama.cpp",
+        "context_size": 8192,
+        "quantization": "MOSTLY_Q4_K_M",
+        "parameter_count_b": 31.58,
+    }
     assert config["execution"]["max_company_workers"] == 1
     assert config["internet_research"]["max_stage_workers"] == 1
     assert config["backpressure"]["llm"] == {
@@ -307,7 +340,9 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         assert embedded_config["inputs"]["payload"]["input_folder"] == "vc_assistant/examples/sample_inputs"
         assert embedded_config["inputs"]["payload"]["output_folder"] == "~/Downloads/vc_assistant"
         assert embedded_config["outputs"]["folder_path"] == "~/Downloads/vc_assistant"
-        assert embedded_config["llm"]["model"] == "default"
+        assert embedded_config["llm"]["model"] == "nemotron3:latest"
+        assert embedded_config["llm"]["runtime_model"] == "nemotron3:latest"
+        assert embedded_config["llm"]["configs"]["primary"]["api_base"] == "auto"
         assert embedded_config["llm"]["quick_test_uses_fake"] is True
         assert embedded_config["execution"]["quick_test"] is False
         assert embedded_config["research_budget"]["default_actions"] == 160
@@ -748,7 +783,7 @@ def test_vc_agents_are_llm_backed_and_selected_for_actor_reviews():
     assert set(agents) == set(runner.WORKFLOW_STEP_IDS)
     for actor_id in runner.WORKFLOW_STEP_IDS:
         assert agents[actor_id]["llm_config"] == "primary"
-        assert agents[actor_id]["model"] == "default"
+        assert "model" not in agents[actor_id]
 
     actor_specs = runner.resolve_actor_specs(config)
     actor_ids = [actor_id for actor_id in runner.WORKFLOW_STEP_IDS if actor_id in actor_specs]

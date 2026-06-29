@@ -337,7 +337,8 @@ def test_all_blueprints_declare_actor_style_llm_config():
         assert set(agents) <= valid_actor_ids, blueprint_id
         for actor_id, spec in agents.items():
             assert spec.get("llm_config") == llm["default_config"], (blueprint_id, actor_id)
-            assert spec.get("model"), (blueprint_id, actor_id)
+            if "model" in spec:
+                assert spec["model"], (blueprint_id, actor_id)
             assert str(spec.get("role") or "").strip(), (blueprint_id, actor_id)
             responsibilities = spec.get("responsibilities")
             assert isinstance(responsibilities, list) and len(responsibilities) >= 3, (blueprint_id, actor_id)
