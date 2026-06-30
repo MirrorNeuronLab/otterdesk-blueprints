@@ -194,6 +194,7 @@ SKILL_DEPENDENCY_VERSION_OVERRIDES = {
 }
 IMPORT_MARKER_PACKAGES = {
     "mn_blueprint_support": "mirrorneuron-blueprint-support-skill",
+    "mn_litellm_communicate_skill": "mirrorneuron-litellm-communicate-skill",
     "mn_llm_ocr_skill": "mirrorneuron-llm-ocr-skill",
     "mn_w3m_browser_skill": "mirrorneuron-w3m-browser-skill",
     "mn_web_browser_skill": "mirrorneuron-web-browser-skill",
@@ -213,6 +214,9 @@ SKILL_NAME_PACKAGES = {
     "web_browser_skill": "mirrorneuron-web-browser-skill",
     "websocket_stream": "mirrorneuron-websocket-stream-skill",
 }
+BLUEPRINT_TRANSITIVE_SKILL_PACKAGES = {
+    "vc_assistant": {"mirrorneuron-litellm-communicate-skill"},
+}
 
 
 def _completion_threshold(value) -> bool:
@@ -225,6 +229,7 @@ def _completion_threshold(value) -> bool:
 
 def _expected_skill_dependency_packages(blueprint_dir: Path) -> set[str]:
     packages: set[str] = set()
+    packages.update(BLUEPRINT_TRANSITIVE_SKILL_PACKAGES.get(blueprint_dir.name, set()))
     payloads = blueprint_dir / "payloads"
     if payloads.is_dir():
         for path in payloads.rglob("*.py"):

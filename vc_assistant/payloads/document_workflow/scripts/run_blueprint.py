@@ -866,11 +866,27 @@ def _load_rag_skill() -> None:
 
 
 def knowledge_rag_config(config: dict[str, Any]) -> dict[str, Any]:
+    if fake_skills_mode_enabled(config):
+        raw = config.get("knowledge_rag") if isinstance(config.get("knowledge_rag"), dict) else {}
+        return {
+            "enabled": True,
+            "status": "mock_ready",
+            "required": False,
+            "mocked": True,
+            "config": {
+                "namespace": raw.get("namespace", "vc_assistant_context"),
+                "top_k": raw.get("top_k", 3),
+                "max_context_chars": raw.get("max_context_chars", 3000),
+                "required": False,
+            },
+        }
     _load_rag_skill()
     return skill_knowledge_rag_config(config)
 
 
 def resolve_knowledge_dir(blueprint_dir: Path, active_knowledge: dict[str, Any]) -> Path:
+    if fake_skills_mode_enabled():
+        return blueprint_dir / "knowledge"
     _load_rag_skill()
     return skill_resolve_blueprint_knowledge_dir(blueprint_dir, active_knowledge=active_knowledge)
 
@@ -883,6 +899,35 @@ def prepare_knowledge_rag(
     run_dir: Path | None = None,
 ) -> dict[str, Any]:
     raw = resolved_config.get("knowledge_rag") if isinstance(resolved_config.get("knowledge_rag"), dict) else {}
+    if fake_skills_mode_enabled(resolved_config):
+        state = {
+            "enabled": True,
+            "status": "mock_ready",
+            "required": False,
+            "mocked": True,
+            "warnings": [],
+            "config": {
+                "namespace": raw.get("namespace", "vc_assistant_context"),
+                "embedding_provider": "mock",
+                "embedding_model": "mock-deterministic-rag",
+                "top_k": raw.get("top_k", 3),
+                "max_context_chars": raw.get("max_context_chars", 3000),
+                "index_on_startup": False,
+                "required": False,
+            },
+        }
+        append_observation_record(
+            run_dir,
+            "skill_mock_used",
+            {
+                "phase": "knowledge_rag",
+                "operation": "prepare",
+                "tool": "rag_skill",
+                "status": "mocked",
+                "mocked": True,
+            },
+        )
+        return state
     if fake_llm_mode_enabled(resolved_config):
         return {
             "enabled": False,
@@ -980,6 +1025,8 @@ def prepare_knowledge_rag(
 
 
 def public_knowledge_rag_state(state: dict[str, Any] | None) -> dict[str, Any]:
+    if isinstance(state, dict) and state.get("mocked"):
+        return {key: value for key, value in state.items() if not key.startswith("_")}
     try:
         _load_rag_skill()
         return skill_public_rag_state(state)
@@ -1006,6 +1053,8 @@ def require_ready_rag(
     min_citations: int = 0,
     run_dir: Path | None = None,
 ) -> dict[str, Any] | None:
+    if isinstance(knowledge_rag, dict) and knowledge_rag.get("mocked"):
+        return context if context is not None else knowledge_rag
     if not knowledge_rag_is_required(knowledge_rag):
         return context if context is not None else knowledge_rag
     _load_rag_skill()
@@ -1051,6 +1100,26 @@ def retrieve_knowledge_rag_context(
         "query_hash": stable_text_hash(query),
         "query_chars": len(query or ""),
     }
+    if fake_skills_mode_enabled() or (isinstance(knowledge_rag, dict) and knowledge_rag.get("mocked")):
+        with observed_operation(run_dir, phase="knowledge_rag", operation="retrieve", mocked=True, **metadata) as op:
+            ref = f"mock-rag:{slugify(stage or 'stage')}:{stable_text_hash(company or query)[:8]}"
+            context = {
+                "enabled": True,
+                "status": "mock_ready",
+                "mocked": True,
+                "query": query,
+                "context": f"Mock VC knowledge context for {company or stage}: use evidence-backed scoring, note assumptions, and keep recommendations review-only.",
+                "citations": [
+                    {
+                        "ref": ref,
+                        "title": "Mock VC assistant knowledge",
+                        "source": "fake_skills",
+                        "score": 1.0,
+                    }
+                ],
+            }
+            op.close("completed", mocked=True, rag_status=context["status"], citation_count=1, context_chars=len(context["context"]))
+            return context
     try:
         _load_rag_skill()
         with observed_operation(run_dir, phase="knowledge_rag", operation="retrieve", **metadata) as op:
@@ -1310,6 +1379,22 @@ def append_observation_record(run_dir: Path | None, event_type: str, payload: di
     append_event(run_dir, event_type, record["payload"])
 
 
+def append_debug_record(run_dir: Path | None, event_type: str, payload: dict[str, Any]) -> None:
+    if run_dir is None:
+        return
+    run_dir.mkdir(parents=True, exist_ok=True)
+    record = {"type": event_type, "timestamp": utc_now_iso(), "payload": observation_payload(**payload)}
+    with TRACE_LOCK:
+        with (run_dir / "debug_trace.jsonl").open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(record, sort_keys=True) + "\n")
+    append_event(run_dir, event_type, record["payload"])
+
+
+def append_debug_record_if_enabled(ctx: dict[str, Any], event_type: str, payload: dict[str, Any]) -> None:
+    if debug_mode_enabled(ctx.get("config") if isinstance(ctx, dict) else None):
+        append_debug_record(ctx.get("run_dir"), event_type, payload)
+
+
 def observation_trace_summary(run_dir: Path | None, *, tail_limit: int = 20) -> dict[str, Any]:
     trace_path = run_dir / "llm_rag_trace.jsonl" if run_dir is not None else None
     if trace_path is None or not trace_path.exists():
@@ -1399,6 +1484,144 @@ def observation_trace_summary(run_dir: Path | None, *, tail_limit: int = 20) -> 
         "tail": tail,
         "privacy": "metadata_only_no_prompts_no_raw_rag_context_no_document_text",
     }
+
+
+def _read_jsonl(path: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        return []
+    records: list[dict[str, Any]] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        try:
+            value = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(value, dict):
+            records.append(value)
+    return records
+
+
+def _iso_to_datetime(value: Any) -> datetime | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    try:
+        return datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _elapsed_ms(started_at: Any, ended_at: Any) -> float | None:
+    start = _iso_to_datetime(started_at)
+    end = _iso_to_datetime(ended_at)
+    if start is None or end is None:
+        return None
+    return round(max((end - start).total_seconds(), 0.0) * 1000, 2)
+
+
+def _benchmark_step_records(run_dir: Path) -> list[dict[str, Any]]:
+    starts: dict[str, dict[str, Any]] = {}
+    completed: list[dict[str, Any]] = []
+    for record in _read_jsonl(run_dir / "events.jsonl"):
+        event_type = str(record.get("type") or "")
+        payload = record.get("payload") if isinstance(record.get("payload"), dict) else {}
+        step_id = str(payload.get("step_id") or "")
+        if not step_id:
+            continue
+        if event_type == "benchmark_step_started":
+            starts[step_id] = record
+        elif event_type in {"benchmark_step_completed", "benchmark_step_failed"}:
+            started = starts.get(step_id, {})
+            started_at = started.get("timestamp") or payload.get("started_at")
+            ended_at = record.get("timestamp") or payload.get("ended_at")
+            completed.append(
+                {
+                    "step_id": step_id,
+                    "status": "failed" if event_type.endswith("_failed") else str(payload.get("status") or "completed"),
+                    "started_at": started_at,
+                    "ended_at": ended_at,
+                    "elapsed_ms": payload.get("elapsed_ms") or _elapsed_ms(started_at, ended_at),
+                }
+            )
+    return completed
+
+
+def _benchmark_skill_records(run_dir: Path) -> list[dict[str, Any]]:
+    skills: list[dict[str, Any]] = []
+    for record in _read_jsonl(run_dir / "llm_rag_trace.jsonl"):
+        event_type = str(record.get("type") or "")
+        if event_type not in {"observability_operation_completed", "observability_operation_failed"}:
+            continue
+        payload = record.get("payload") if isinstance(record.get("payload"), dict) else {}
+        phase = str(payload.get("phase") or "")
+        operation = str(payload.get("operation") or "")
+        if not phase and not operation:
+            continue
+        skills.append(
+            {
+                "phase": phase,
+                "operation": operation,
+                "tool": payload.get("tool"),
+                "agent_id": payload.get("agent_id"),
+                "company": payload.get("company"),
+                "status": "failed" if event_type.endswith("_failed") else str(payload.get("status") or "completed"),
+                "elapsed_ms": payload.get("elapsed_ms"),
+                "mocked": bool(payload.get("mocked")),
+            }
+        )
+    return skills
+
+
+def write_benchmark_artifacts(run_dir: Path, *, run_id: str, status: str = "running") -> dict[str, Any]:
+    steps = _benchmark_step_records(run_dir)
+    skills = _benchmark_skill_records(run_dir)
+    slowest_steps = sorted(steps, key=lambda item: float(item.get("elapsed_ms") or 0), reverse=True)[:5]
+    slowest_skills = sorted(skills, key=lambda item: float(item.get("elapsed_ms") or 0), reverse=True)[:10]
+    benchmark = {
+        "schema": "mn.blueprint.benchmark.v1",
+        "run_id": run_id,
+        "blueprint_id": BLUEPRINT_ID,
+        "started_at": steps[0].get("started_at") if steps else "",
+        "generated_at": utc_now_iso(),
+        "status": status,
+        "steps": steps,
+        "skills": skills,
+        "totals": {
+            "step_count": len(steps),
+            "skill_call_count": len(skills),
+            "total_step_elapsed_ms": round(sum(float(item.get("elapsed_ms") or 0) for item in steps), 2),
+            "mocked_skill_call_count": sum(1 for item in skills if item.get("mocked")),
+            "slowest_step": slowest_steps[0] if slowest_steps else None,
+            "slowest_skill_operations": slowest_skills,
+        },
+    }
+    write_json(run_dir / "benchmark.json", benchmark)
+    write_benchmark_markdown(run_dir / "benchmark.md", benchmark)
+    return benchmark
+
+
+def write_benchmark_markdown(path: Path, benchmark: dict[str, Any]) -> None:
+    lines = [
+        f"# VC Assistant Benchmark",
+        "",
+        f"- Run ID: `{benchmark.get('run_id')}`",
+        f"- Status: `{benchmark.get('status')}`",
+        f"- Generated: `{benchmark.get('generated_at')}`",
+        "",
+        "## Steps",
+        "",
+        "| Step | Status | Elapsed ms |",
+        "| --- | --- | ---: |",
+    ]
+    for step in benchmark.get("steps") or []:
+        lines.append(f"| {step.get('step_id', '')} | {step.get('status', '')} | {step.get('elapsed_ms', '')} |")
+    lines.extend(["", "## Skills", "", "| Phase | Operation | Status | Mocked | Elapsed ms |", "| --- | --- | --- | --- | ---: |"])
+    for skill in benchmark.get("skills") or []:
+        lines.append(
+            f"| {skill.get('phase', '')} | {skill.get('operation', '')} | {skill.get('status', '')} | {str(bool(skill.get('mocked'))).lower()} | {skill.get('elapsed_ms', '')} |"
+        )
+    path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
 
 
 def final_artifact_for_transport(final_artifact: dict[str, Any]) -> dict[str, Any]:
@@ -1657,6 +1880,39 @@ def fake_llm_mode_enabled(config: dict[str, Any]) -> bool:
     return quick_test_mode_enabled(config) and bool(llm_config.get("quick_test_uses_fake", True))
 
 
+def fake_skills_mode_enabled(config: dict[str, Any] | None = None) -> bool:
+    if any(env_flag_enabled(name) for name in ("MN_FAKE_SKILLS", "MN_BLUEPRINT_FAKE_SKILLS", "OTTERDESK_FAKE_SKILLS")):
+        return True
+    execution = (config or {}).get("execution") if isinstance((config or {}).get("execution"), dict) else {}
+    testing = (config or {}).get("testing") if isinstance((config or {}).get("testing"), dict) else {}
+    return any(
+        str(value or "").strip().lower() in {"1", "true", "yes", "on", "fake", "mock", "stub"}
+        for value in (execution.get("fake_skills"), testing.get("fake_skills"))
+    )
+
+
+def benchmark_mode_enabled(config: dict[str, Any] | None = None) -> bool:
+    if env_flag_enabled("MN_BLUEPRINT_BENCHMARK"):
+        return True
+    execution = (config or {}).get("execution") if isinstance((config or {}).get("execution"), dict) else {}
+    testing = (config or {}).get("testing") if isinstance((config or {}).get("testing"), dict) else {}
+    return any(
+        str(value or "").strip().lower() in {"1", "true", "yes", "on"}
+        for value in (execution.get("benchmark"), testing.get("benchmark"))
+    )
+
+
+def debug_mode_enabled(config: dict[str, Any] | None = None) -> bool:
+    if any(env_flag_enabled(name) for name in ("MN_BLUEPRINT_DEBUG", "MN_DEBUG", "OTTERDESK_DEBUG")):
+        return True
+    execution = (config or {}).get("execution") if isinstance((config or {}).get("execution"), dict) else {}
+    testing = (config or {}).get("testing") if isinstance((config or {}).get("testing"), dict) else {}
+    return any(
+        str(value or "").strip().lower() in {"1", "true", "yes", "on", "debug", "verbose"}
+        for value in (execution.get("debug"), testing.get("debug"))
+    )
+
+
 def call_with_supported_kwargs(func: Any, **kwargs: Any) -> Any:
     signature = inspect.signature(func)
     if any(param.kind == inspect.Parameter.VAR_KEYWORD for param in signature.parameters.values()):
@@ -1798,6 +2054,26 @@ def _path_key(path: Path) -> str:
 def _llm_ocr_records_for_pdfs(folder: Path, pdf_paths: list[Path], config: dict[str, Any] | None) -> dict[str, dict[str, Any]]:
     if not pdf_paths:
         return {}
+    if fake_skills_mode_enabled(config):
+        records_by_path: dict[str, dict[str, Any]] = {}
+        for path in pdf_paths:
+            company = infer_company_name(path, path.stem, folder)
+            records_by_path[_path_key(path)] = {
+                "path": str(path),
+                "text": (
+                    f"Company: {company}\n"
+                    "Mock OCR text generated by --fake-skills for blueprint logic testing.\n"
+                    "Product: AI workflow automation platform.\n"
+                    "Market: enterprise productivity and startup operations.\n"
+                    "Traction: pilot customers, early revenue signals, and active founder-led sales.\n"
+                    "Risks: mock source data must be replaced with real document extraction before investment decisions.\n"
+                ),
+                "warnings": ["fake_skills mock OCR record"],
+                "extraction_method": "fake_llm_ocr_skill",
+                "ocr_required": False,
+                "mocked": True,
+            }
+        return records_by_path
     if extract_document_folder is None:
         raise OcrRequiredError("PDF startup packets require llm_ocr_skill, but the OCR extractor is unavailable.")
 
@@ -3699,6 +3975,34 @@ def _source_record(
     )
 
 
+def _mock_public_source(
+    *,
+    company: str,
+    query: str,
+    skill: str,
+    verification_target: str,
+    url: str = "",
+    title: str = "",
+) -> dict[str, Any]:
+    source = _source_record(
+        company=company,
+        query=query,
+        url=url or f"https://mock.local/{slugify(company)}/{slugify(verification_target)}",
+        title=title or f"Mock {verification_target.replace('_', ' ')} source for {company}",
+        snippet=(
+            f"Mock source generated by --fake-skills for {company}. "
+            "It simulates public evidence so the VC Assistant workflow can exercise downstream scoring and reporting quickly."
+        ),
+        status="mocked",
+        skill=skill,
+        verification_target=verification_target,
+        warning="fake_skills mock source; do not use for investment decisions",
+        source_quality_label="thin_signal",
+    )
+    source["mocked"] = True
+    return source
+
+
 def _budget_exhausted_source(company: str, query: str, skill: str, verification_target: str, action_type: str) -> dict[str, Any]:
     source = shared_budget_exhausted_source(company, query, skill, verification_target, action_type)
     source.update(
@@ -4183,7 +4487,11 @@ def _execute_agent_tool_call(
         rendered_internet["rendered_browser"] = rendered
         call_with_supported_kwargs(_append_rendered_browser_research, sources=sources, company=company, plan=tool_plan, internet=rendered_internet, action_budget=action_budget)
     _annotate_agent_sources(sources, start_index, agent_id=stage, tool_call_id=tool_call_id)
-    return {"status": "executed", **_agent_observation_from_sources(sources, start_index)}
+    return {
+        "status": "executed",
+        **_agent_observation_from_sources(sources, start_index),
+        "mocked": any(source.get("mocked") for source in sources[start_index:]),
+    }
 
 
 def _default_agent_tool_response(stage: str, plan: dict[str, Any], observations: list[dict[str, Any]]) -> dict[str, Any]:
@@ -4496,7 +4804,13 @@ def run_agentic_research_stage(
                             tool_call_id=tool_call_id,
                         )
                     )
-                op.close("completed" if result.get("status") in {"executed", "finished"} else "failed", tool_status=result.get("status"), source_count=result.get("source_count"), error=result.get("error"))
+                op.close(
+                    "completed" if result.get("status") in {"executed", "finished"} else "failed",
+                    tool_status=result.get("status"),
+                    source_count=result.get("source_count"),
+                    error=result.get("error"),
+                    mocked=bool(result.get("mocked")),
+                )
             executed_tool_calls += 1
             observation = {"tool_call_id": tool_call_id, "tool": tool_call.get("tool"), "result": result}
             observations.append(observation)
@@ -4569,6 +4883,8 @@ def _append_w3m_research(
             action_budget=action_budget,
         )
         new_sources = sources[source_count_start:]
+        if any(source.get("mocked") for source in new_sources):
+            tool_status = "mocked"
         failed_statuses = {str(source.get("status") or "") for source in new_sources if str(source.get("status") or "") in WARNING_SOURCE_STATUSES}
         if failed_statuses:
             tool_status = sorted(failed_statuses)[0]
@@ -4580,10 +4896,11 @@ def _append_w3m_research(
         raise
     finally:
         op.close(
-            "completed" if tool_status in {"completed", "ok", ""} else "failed",
+            "completed" if tool_status in {"completed", "ok", "", "mocked"} else "failed",
             tool_status=tool_status,
             source_count=len(sources) - source_count_start,
             error=tool_error,
+            mocked=tool_status == "mocked",
         )
 
 
@@ -4597,6 +4914,30 @@ def _append_w3m_research_unobserved(
     verification_target: str = "search_result_or_public_source",
     action_budget: ActionBudget | None = None,
 ) -> None:
+    if fake_skills_mode_enabled():
+        query = str((plan.get("queries") or [company])[0])
+        sources.append(
+            _mock_public_source(
+                company=company,
+                query=query,
+                skill="w3m_browser_skill.research_topic",
+                verification_target=verification_target,
+            )
+        )
+        append_observation_record(
+            run_dir,
+            "skill_mock_used",
+            {
+                "phase": "public_tool_call",
+                "operation": "w3m_browser_skill.research_topic",
+                "tool": "w3m_browser_skill.research_topic",
+                "status": "mocked",
+                "company": company,
+                "mocked": True,
+                "source_count": 1,
+            },
+        )
+        return
     _load_w3m_browser_skill()
     query = plan["queries"][0]
     max_sources = int(internet.get("max_sources_per_company") or 3)
@@ -4730,6 +5071,8 @@ def _append_target_url_research(
             action_budget=action_budget,
         )
         new_sources = sources[source_count_start:]
+        if any(source.get("mocked") for source in new_sources):
+            tool_status = "mocked"
         failed_statuses = {str(source.get("status") or "") for source in new_sources if str(source.get("status") or "") in WARNING_SOURCE_STATUSES}
         if failed_statuses:
             tool_status = sorted(failed_statuses)[0]
@@ -4741,10 +5084,11 @@ def _append_target_url_research(
         raise
     finally:
         op.close(
-            "completed" if tool_status in {"completed", "ok", ""} else "failed",
+            "completed" if tool_status in {"completed", "ok", "", "mocked"} else "failed",
             tool_status=tool_status,
             source_count=len(sources) - source_count_start,
             error=tool_error,
+            mocked=tool_status == "mocked",
         )
 
 
@@ -4757,6 +5101,33 @@ def _append_target_url_research_unobserved(
     run_dir: Path | None,
     action_budget: ActionBudget | None = None,
 ) -> None:
+    if fake_skills_mode_enabled():
+        query = str((plan.get("queries") or [company])[0])
+        urls = plan.get("target_urls") or [""]
+        for url in urls[: int(internet.get("max_target_urls_per_company") or 2)]:
+            sources.append(
+                _mock_public_source(
+                    company=company,
+                    query=query,
+                    url=str(url or ""),
+                    skill="w3m_browser_skill.browse_url",
+                    verification_target="public_profile",
+                )
+            )
+        append_observation_record(
+            run_dir,
+            "skill_mock_used",
+            {
+                "phase": "public_tool_call",
+                "operation": "w3m_browser_skill.browse_url",
+                "tool": "w3m_browser_skill.browse_url",
+                "status": "mocked",
+                "company": company,
+                "mocked": True,
+                "source_count": len(urls[: int(internet.get("max_target_urls_per_company") or 2)]),
+            },
+        )
+        return
     _load_w3m_browser_skill()
     if W3mBrowserConfig is None or browse_url is None:
         before_fallback = len(sources)
@@ -4884,6 +5255,8 @@ def _append_rendered_browser_research(
             action_budget=action_budget,
         )
         new_sources = sources[source_count_start:]
+        if any(source.get("mocked") for source in new_sources):
+            tool_status = "mocked"
         failed_statuses = {str(source.get("status") or "") for source in new_sources if str(source.get("status") or "") in WARNING_SOURCE_STATUSES}
         if failed_statuses:
             tool_status = sorted(failed_statuses)[0]
@@ -4895,10 +5268,11 @@ def _append_rendered_browser_research(
         raise
     finally:
         op.close(
-            "completed" if tool_status in {"completed", "ok", ""} else "failed",
+            "completed" if tool_status in {"completed", "ok", "", "mocked"} else "failed",
             tool_status=tool_status,
             source_count=len(sources) - source_count_start,
             error=tool_error,
+            mocked=tool_status == "mocked",
         )
 
 
@@ -4912,6 +5286,19 @@ def _append_rendered_browser_research_unobserved(
 ) -> None:
     rendered = internet.get("rendered_browser") if isinstance(internet.get("rendered_browser"), dict) else {}
     if rendered.get("enabled") is not True:
+        return
+    if fake_skills_mode_enabled():
+        query = str((plan.get("queries") or [company])[0])
+        for url in (plan.get("target_urls") or [""])[: int(rendered.get("max_pages_per_company") or 1)]:
+            sources.append(
+                _mock_public_source(
+                    company=company,
+                    query=query,
+                    url=str(url or ""),
+                    skill="web_browser_skill.scrape_page",
+                    verification_target="rendered_public_profile",
+                )
+            )
         return
     _load_web_browser_skill()
     if WebBrowserConfig is None or scrape_page is None:
@@ -7333,6 +7720,21 @@ def run_research_stage_step(ctx: dict[str, Any], step_id: str, *, llm_client: An
     agentic = agentic_research_config(ctx["config"])
     need_agentic = bool(agentic.get("enabled")) and _agent_stage_enabled(agentic, step_id)
     need_llm = need_agentic or step_actor_review_selected(ctx, step_id)
+    append_debug_record_if_enabled(
+        ctx,
+        "debug_research_stage_started",
+        {
+            "step_id": step_id,
+            "company_queue_count": len(company_work_queue),
+            "company_record_count": len(company_records),
+            "internet_disabled": internet_disabled,
+            "need_agentic": need_agentic,
+            "need_llm": need_llm,
+            "agentic_enabled": bool(agentic.get("enabled")),
+            "fake_llm": fake_llm_mode_enabled(ctx["config"]),
+            "fake_skills": fake_skills_mode_enabled(ctx["config"]),
+        },
+    )
     services = build_runtime_services(ctx, llm_client=llm_client, need_llm=need_llm, rag_stage=step_id if need_llm else "")
     llm = services.get("llm")
     knowledge_rag = services.get("knowledge_rag") or {}
@@ -7343,18 +7745,46 @@ def run_research_stage_step(ctx: dict[str, Any], step_id: str, *, llm_client: An
         company = str(item["company_name"])
         if item.get("status") == "unchanged_skipped":
             skipped_count += 1
+            append_debug_record_if_enabled(
+                ctx,
+                "debug_research_company_skipped",
+                {"step_id": step_id, "company": company, "status": item.get("status")},
+            )
             continue
         if internet_disabled:
             ledger = read_company_research_ledger(ctx["run_dir"], company)
             ledger.setdefault(step_id, [])
             write_company_research_ledger(ctx["run_dir"], company, ledger)
             processed_count += 1
+            append_debug_record_if_enabled(
+                ctx,
+                "debug_research_company_completed",
+                {
+                    "step_id": step_id,
+                    "company": company,
+                    "internet_disabled": True,
+                    "source_count": 0,
+                    "ledger_stage_count": len(ledger.get(step_id, [])),
+                },
+            )
             continue
         records = company_records.get(company, [])
         plan = read_company_research_plan_state(ctx["run_dir"], company) or build_adaptive_research_plan(company, records, internet)
         staged_queries = plan.get("stage_queries") if isinstance(plan.get("stage_queries"), dict) else {}
         query = staged_queries.get(step_id) or plan.get("queries") or [company]
         trace = read_company_agent_trace_state(ctx["run_dir"], company)
+        append_debug_record_if_enabled(
+            ctx,
+            "debug_research_company_started",
+            {
+                "step_id": step_id,
+                "company": company,
+                "record_count": len(records),
+                "query_count": len(query) if isinstance(query, list) else 1,
+                "existing_trace_count": len(trace),
+                "agentic": need_agentic and llm is not None,
+            },
+        )
         if need_agentic and llm is not None:
             stage, sources = run_agentic_research_stage(
                 company=company,
@@ -7385,9 +7815,31 @@ def run_research_stage_step(ctx: dict[str, Any], step_id: str, *, llm_client: An
         write_company_research_ledger(ctx["run_dir"], company, ledger)
         write_company_agent_trace_state(ctx["run_dir"], company, trace)
         processed_count += 1
+        append_debug_record_if_enabled(
+            ctx,
+            "debug_research_company_completed",
+            {
+                "step_id": step_id,
+                "company": company,
+                "stage": stage,
+                "source_count": len(sources),
+                "ledger_stage_count": len(ledger.get(stage, [])),
+                "trace_count": len(trace),
+                "action_budget_class": action_budget.__class__.__name__,
+            },
+        )
     run_step_actor_review(ctx, step_id, services, llm_client=llm_client)
     persist_action_budget_state(ctx, action_budget)
     complete_runtime_step(ctx, step_id, {"company_count": processed_count, "skipped_company_count": skipped_count})
+    append_debug_record_if_enabled(
+        ctx,
+        "debug_research_stage_completed",
+        {
+            "step_id": step_id,
+            "processed_company_count": processed_count,
+            "skipped_company_count": skipped_count,
+        },
+    )
     return step_result(ctx, step_id, processed_company_count=processed_count, skipped_company_count=skipped_count)
 
 
@@ -7775,10 +8227,91 @@ def run_runtime_step(
     if step_id not in STEP_HANDLERS:
         raise ValueError(f"Unknown VC Assistant workflow step: {step_id}")
     ctx = runtime_context_for_step(inputs=inputs, config=config, runs_root=runs_root, run_id=run_id)
+    benchmark_enabled = benchmark_mode_enabled(ctx["config"])
+    debug_enabled = debug_mode_enabled(ctx["config"])
+    step_started = time.monotonic()
+    if debug_enabled:
+        ctx["run_dir"].mkdir(parents=True, exist_ok=True)
+        append_debug_record(
+            ctx["run_dir"],
+            "debug_workflow_step_started",
+            {
+                "step_id": step_id,
+                "run_id": ctx["run_id"],
+                "runtime_step_mode": "workflow_step_handler",
+                "input_keys": sorted((inputs or {}).keys()),
+                "fake_llm": fake_llm_mode_enabled(ctx["config"]),
+                "fake_skills": fake_skills_mode_enabled(ctx["config"]),
+                "benchmark": benchmark_enabled,
+                "debug": True,
+            },
+        )
+    if benchmark_enabled:
+        ctx["run_dir"].mkdir(parents=True, exist_ok=True)
+        append_event(
+            ctx["run_dir"],
+            "benchmark_step_started",
+            {"step_id": step_id, "runtime_step_mode": "workflow_step_handler"},
+        )
     try:
-        return STEP_HANDLERS[step_id](ctx, llm_client=llm_client)
+        result = STEP_HANDLERS[step_id](ctx, llm_client=llm_client)
+        if debug_enabled:
+            append_debug_record(
+                ctx["run_dir"],
+                "debug_workflow_step_completed",
+                {
+                    "step_id": step_id,
+                    "run_id": ctx["run_id"],
+                    "runtime_step_mode": "workflow_step_handler",
+                    "elapsed_ms": round((time.monotonic() - step_started) * 1000, 2),
+                    "result_keys": sorted(result.keys()) if isinstance(result, dict) else [],
+                    "status": "completed",
+                },
+            )
+        if benchmark_enabled:
+            append_event(
+                ctx["run_dir"],
+                "benchmark_step_completed",
+                {
+                    "step_id": step_id,
+                    "status": "completed",
+                    "runtime_step_mode": "workflow_step_handler",
+                    "elapsed_ms": round((time.monotonic() - step_started) * 1000, 2),
+                },
+            )
+            write_benchmark_artifacts(
+                ctx["run_dir"],
+                run_id=ctx["run_id"],
+                status="completed" if "final_artifact" in result else "running",
+            )
+        return result
     except Exception as exc:
         ctx["run_dir"].mkdir(parents=True, exist_ok=True)
+        if debug_enabled:
+            append_debug_record(
+                ctx["run_dir"],
+                "debug_workflow_step_failed",
+                {
+                    "step_id": step_id,
+                    "run_id": ctx["run_id"],
+                    "runtime_step_mode": "workflow_step_handler",
+                    "elapsed_ms": round((time.monotonic() - step_started) * 1000, 2),
+                    "error": str(exc),
+                },
+            )
+        if benchmark_enabled:
+            append_event(
+                ctx["run_dir"],
+                "benchmark_step_failed",
+                {
+                    "step_id": step_id,
+                    "status": "failed",
+                    "runtime_step_mode": "workflow_step_handler",
+                    "elapsed_ms": round((time.monotonic() - step_started) * 1000, 2),
+                    "error": str(exc),
+                },
+            )
+            write_benchmark_artifacts(ctx["run_dir"], run_id=ctx["run_id"], status="failed")
         append_event(
             ctx["run_dir"],
             "workflow_step_failed",

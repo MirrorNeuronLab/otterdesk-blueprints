@@ -5022,6 +5022,12 @@
             "version": "1.2.7"
         },
         {
+            "name": "mirrorneuron-litellm-communicate-skill",
+            "source": "gar",
+            "type": "pip",
+            "version": "1.2.7"
+        },
+        {
             "name": "mirrorneuron-evidence-engine-skill",
             "source": "gar",
             "type": "pip",
