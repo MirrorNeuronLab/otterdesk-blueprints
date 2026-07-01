@@ -159,6 +159,31 @@ def test_required_rag_zero_citations_fails_before_llm(monkeypatch):
     assert calls["llm"] == 0
 
 
+def test_blank_knowledge_rag_redis_url_uses_runtime_env(monkeypatch):
+    rb = load_module()
+    runtime_url = "redis://:secret@192.168.4.51:56379/0"
+    config = {"knowledge_rag": {"enabled": True, "redis_url": "", "namespace": "vc"}}
+
+    monkeypatch.setenv("MN_REDIS_URL", runtime_url)
+
+    patched = rb.with_runtime_knowledge_rag_defaults(config)
+
+    assert patched["knowledge_rag"]["redis_url"] == runtime_url
+    assert patched["knowledge_rag"]["namespace"] == "vc"
+    assert config["knowledge_rag"]["redis_url"] == ""
+
+
+def test_explicit_knowledge_rag_redis_url_is_preserved(monkeypatch):
+    rb = load_module()
+    explicit_url = "redis://custom-redis:6379/0"
+    config = {"knowledge_rag": {"enabled": True, "redis_url": explicit_url}}
+
+    monkeypatch.setenv("MN_REDIS_URL", "redis://:secret@192.168.4.51:56379/0")
+
+    assert rb.with_runtime_knowledge_rag_defaults(config) is config
+    assert config["knowledge_rag"]["redis_url"] == explicit_url
+
+
 def test_agentic_rag_query_prioritizes_stage_playbook_terms(monkeypatch):
     rb = load_module()
     captured: dict[str, str] = {}

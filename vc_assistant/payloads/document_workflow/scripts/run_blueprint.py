@@ -866,6 +866,7 @@ def _load_rag_skill() -> None:
 
 
 def knowledge_rag_config(config: dict[str, Any]) -> dict[str, Any]:
+    config = with_runtime_knowledge_rag_defaults(config)
     if fake_skills_mode_enabled(config):
         raw = config.get("knowledge_rag") if isinstance(config.get("knowledge_rag"), dict) else {}
         return {
@@ -884,6 +885,22 @@ def knowledge_rag_config(config: dict[str, Any]) -> dict[str, Any]:
     return skill_knowledge_rag_config(config)
 
 
+def with_runtime_knowledge_rag_defaults(config: dict[str, Any]) -> dict[str, Any]:
+    runtime_redis_url = os.environ.get("MN_KNOWLEDGE_RAG_REDIS_URL") or os.environ.get("MN_REDIS_URL") or ""
+    runtime_redis_url = runtime_redis_url.strip()
+    if not runtime_redis_url or not isinstance(config, dict):
+        return config
+
+    raw = config.get("knowledge_rag") if isinstance(config.get("knowledge_rag"), dict) else {}
+    configured = str(raw.get("redis_url") or "").strip()
+    if configured:
+        return config
+
+    patched = dict(config)
+    patched["knowledge_rag"] = {**raw, "redis_url": runtime_redis_url}
+    return patched
+
+
 def resolve_knowledge_dir(blueprint_dir: Path, active_knowledge: dict[str, Any]) -> Path:
     if fake_skills_mode_enabled():
         return blueprint_dir / "knowledge"
@@ -898,6 +915,7 @@ def prepare_knowledge_rag(
     active_knowledge: dict[str, Any],
     run_dir: Path | None = None,
 ) -> dict[str, Any]:
+    resolved_config = with_runtime_knowledge_rag_defaults(resolved_config)
     raw = resolved_config.get("knowledge_rag") if isinstance(resolved_config.get("knowledge_rag"), dict) else {}
     if fake_skills_mode_enabled(resolved_config):
         state = {
