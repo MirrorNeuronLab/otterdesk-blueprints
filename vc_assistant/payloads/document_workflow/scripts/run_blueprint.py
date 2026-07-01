@@ -555,6 +555,11 @@ except Exception:  # pragma: no cover - optional runtime support
             "model": getattr(llm, "model", "unknown"),
             "calls": int(getattr(llm, "calls", 0) or 0),
             "fallback_calls": int(getattr(llm, "fallback_calls", 0) or 0),
+            "input_tokens": int(getattr(llm, "input_tokens", 0) or 0),
+            "output_tokens": int(getattr(llm, "output_tokens", 0) or 0),
+            "total_tokens": int(getattr(llm, "total_tokens", 0) or 0),
+            "estimated_tokens": int(getattr(llm, "estimated_tokens", 0) or 0),
+            "last_usage": getattr(llm, "last_usage", {}) or {},
         }
 
     def run_actor_reviews(
@@ -1360,6 +1365,15 @@ def append_event(run_dir: Path, event_type: str, payload: dict[str, Any]) -> Non
             handle.write(json.dumps(record, sort_keys=True) + "\n")
 
 
+def append_resource_record(run_dir: Path | None, event_type: str, payload: dict[str, Any]) -> None:
+    if run_dir is None:
+        return
+    record = {"type": event_type, "timestamp": utc_now_iso(), "payload": observation_payload(**payload)}
+    with TRACE_LOCK:
+        with (run_dir / "resources.jsonl").open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(record, sort_keys=True) + "\n")
+
+
 def stable_text_hash(value: Any) -> str:
     return hashlib.sha256(str(value or "").encode("utf-8")).hexdigest()[:16]
 
@@ -1741,6 +1755,36 @@ def observed_operation(
     return ObservedOperation(run_dir, phase=phase, operation=operation, heartbeat_seconds=heartbeat_seconds, metadata=metadata)
 
 
+def _api_base_kind(api_base: Any) -> str:
+    value = str(api_base or "").strip()
+    if not value:
+        return "unknown"
+    parsed = urlparse(value)
+    host = parsed.hostname or value
+    if "12434" in value or "/engines/" in value:
+        return "docker_model_runner"
+    if "11434" in value:
+        return "ollama"
+    if host in {"localhost", "127.0.0.1", "::1"}:
+        return "local_openai_compatible"
+    return "remote_openai_compatible"
+
+
+def _llm_usage_event_fields(llm: Any) -> dict[str, Any]:
+    usage = getattr(llm, "last_usage", {}) or {}
+    if not isinstance(usage, dict):
+        usage = {}
+    return {
+        "input_tokens": int(usage.get("input_tokens") or 0),
+        "output_tokens": int(usage.get("output_tokens") or 0),
+        "total_tokens": int(usage.get("total_tokens") or 0),
+        "usage_estimated": bool(usage.get("estimated")),
+        "usage_source": str(usage.get("source") or "unknown"),
+        "usage_provider": str(usage.get("provider") or getattr(llm, "provider", "unknown")),
+        "usage_model": str(usage.get("model") or getattr(llm, "model", "unknown")),
+    }
+
+
 class BudgetedLLM:
     def __init__(
         self,
@@ -1758,6 +1802,8 @@ class BudgetedLLM:
         self._limiter = limiter or LlmCallLimiter()
         self._run_dir = run_dir
         self._heartbeat_seconds = heartbeat_seconds
+        if self._require_live and hasattr(self._llm, "strict"):
+            setattr(self._llm, "strict", True)
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._llm, name)
@@ -1766,10 +1812,13 @@ class BudgetedLLM:
         actor_id = str(fallback.get("actor_id") or system_prompt or "actor_review")
         provider_name = getattr(self._llm, "provider", "unknown")
         model_name = getattr(self._llm, "model", "unknown")
+        api_base = getattr(self._llm, "api_base", "")
         prompt_metadata = {
             "agent_id": actor_id,
             "provider": provider_name,
             "model": model_name,
+            "api_base_kind": _api_base_kind(api_base),
+            "request_status": "scheduled",
             "system_prompt_chars": len(system_prompt or ""),
             "user_prompt_chars": len(user_prompt or ""),
             "prompt_hash": stable_text_hash(f"{system_prompt}\n{user_prompt}"),
@@ -1833,23 +1882,34 @@ class BudgetedLLM:
             provider = str(response.get("provider") or provider_name) if isinstance(response, dict) else ""
             budget_status = str(response.get("budget_status") or "") if isinstance(response, dict) else ""
             response_chars = len(json.dumps(response, default=str)) if isinstance(response, dict) else len(str(response))
+            usage_fields = _llm_usage_event_fields(self._llm)
+            completion_metadata = {
+                "provider": provider,
+                "model": model_name,
+                "api_base_kind": _api_base_kind(api_base),
+                "request_status": "completed",
+                "response_chars": response_chars,
+                "limiter_wait_seconds": round(limiter_wait_seconds, 3),
+                **usage_fields,
+            }
             if self._require_live and (not provider_is_live(provider) or budget_status in {"budget_exhausted", "llm_call_failed"}):
-                self._action_budget.complete(action, "failed", {"provider": provider, "budget_status": budget_status, "limiter_wait_seconds": round(limiter_wait_seconds, 3)})
+                self._action_budget.complete(action, "failed", {**completion_metadata, "budget_status": budget_status})
                 op.close(
                     "failed",
-                    provider=provider,
+                    **completion_metadata,
                     budget_status=budget_status or "non_live_provider",
-                    response_chars=response_chars,
-                    limiter_wait_seconds=round(limiter_wait_seconds, 3),
                     budget_after=self._action_budget.summary(include_actions=False),
                 )
                 raise RuntimeError(f"Required live LLM call for {actor_id} returned non-live provider '{provider or 'unknown'}'.")
-            self._action_budget.complete(action, "completed", {"provider": provider, "response_chars": response_chars, "limiter_wait_seconds": round(limiter_wait_seconds, 3)})
+            self._action_budget.complete(action, "completed", completion_metadata)
+            append_resource_record(
+                self._run_dir,
+                "llm_usage",
+                {"agent_id": actor_id, "operation": "actor_llm.generate_json", **completion_metadata},
+            )
             op.close(
                 "completed",
-                provider=provider,
-                response_chars=response_chars,
-                limiter_wait_seconds=round(limiter_wait_seconds, 3),
+                **completion_metadata,
                 budget_after=self._action_budget.summary(include_actions=False),
             )
             return response

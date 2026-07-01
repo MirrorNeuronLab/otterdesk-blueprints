@@ -446,6 +446,17 @@ def test_otterdesk_json_uses_python311_for_host_python_commands():
                 continue
             if not bare_python3.search(value):
                 continue
+            if (
+                value == "python3"
+                and json_path.name == "manifest.json"
+                and len(value_path) >= 2
+                and value_path[-2:] == ("command", "0")
+            ):
+                command_owner = data
+                for part in value_path[:-2]:
+                    command_owner = command_owner[int(part)] if isinstance(command_owner, list) else command_owner[part]
+                if command_owner.get("runner_module") == "MirrorNeuron.Runner.DockerWorker":
+                    continue
             assert value.startswith("/usr/bin/python3"), (json_path, value_path, value)
 
 
@@ -714,7 +725,10 @@ def test_document_ocr_blueprints_emit_actor_findings_and_usage(tmp_path):
         fake_llm = FakeBlueprintActorLLM()
 
         result = module.run_blueprint(
-            inputs={"document_folder": str(docs)},
+            inputs={
+                "document_folder": str(docs),
+                "output_folder": str(tmp_path / blueprint_id / "outputs"),
+            },
             config={"llm": {"mode": "fake"}},
             runs_root=tmp_path,
             run_id=f"{blueprint_id}-actors",

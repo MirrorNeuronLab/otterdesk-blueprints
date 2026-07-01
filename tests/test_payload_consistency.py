@@ -26,6 +26,8 @@ def test_gtm_vendored_runtime_and_skill_copies_stay_identical():
         sorted(GTM_PAYLOADS.glob("*/mn_skills/mn_email_receive_agentmail_skill/agentmail.py")),
     ]
     for paths in duplicate_groups:
+        if len(paths) < 2:
+            continue
         _assert_all_identical(paths)
 
 

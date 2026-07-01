@@ -101,6 +101,7 @@ def test_runner_uses_fake_market_data_and_writes_ranked_review_artifact(tmp_path
     llm = FakeLLM()
 
     result = runner.run_blueprint(
+        inputs={"output_folder": str(tmp_path / "outputs")},
         llm_client=llm,
         market_data_client=FakeMarketDataClient(),
         runs_root=tmp_path,
