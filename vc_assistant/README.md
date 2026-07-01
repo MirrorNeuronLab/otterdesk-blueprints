@@ -11,7 +11,7 @@ This blueprint is a report-only early diligence assistant. It helps a reviewer i
 
 It does not decide whether to invest, pass, watch, or reject. It writes scores, evidence, assumptions, missing-evidence flags, and source references so the user can decide.
 
-All actor-style LLM analysis is configured to use `nemotron3:latest` through Docker Model Runner on a 48GB-or-above runtime node with GPU or integrated-GPU memory, including NVIDIA, Apple, AMD, and DGX Spark / GB10 unified-memory nodes reported by `mn status`. Numerical formulas and missing-evidence gates remain deterministic.
+All actor-style LLM analysis is configured to use `nemotron3` through Docker Model Runner on a 48GB-or-above runtime node with GPU or integrated-GPU memory, including NVIDIA, Apple, AMD, and DGX Spark / GB10 unified-memory nodes reported by `mn status`. Numerical formulas and missing-evidence gates remain deterministic.
 
 PDF startup packets are extracted through the shared `llm_ocr_skill` LightOnOCR path. TXT, Markdown, JSON, and CSV files are read directly; PDF files must produce embedded or OCR text for the batch run to continue.
 
