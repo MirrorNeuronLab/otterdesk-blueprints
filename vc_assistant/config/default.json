@@ -123,7 +123,7 @@
     "fallback_model": "gemma4:e2b",
     "default_config": "primary",
     "quick_test_uses_fake": true,
-    "strict_json": true,
+    "strict_json": false,
     "prefer_shared_skill": true,
     "configs": {
       "primary": {
@@ -134,8 +134,9 @@
         "backend": "llama.cpp",
         "api_base": "auto",
         "timeout_seconds": 60,
-        "max_tokens": 1200,
-        "num_retries": 1,
+        "max_tokens": 1800,
+        "num_retries": 2,
+        "retry_backoff_seconds": 1.0,
         "mock_mode": "fake",
         "mode": "live"
       }
@@ -336,17 +337,37 @@
       "Use specialist agents for research, scoring, audit, and report writing.",
       "Avoid automated investment decisions or confidential-data web disclosure."
     ],
-    "require_live": true,
+    "require_live": false,
     "provider": "docker_model_runner",
     "runtime_model": "gemma4:e2b",
     "backend": "llama.cpp",
+    "small_model_profile": {
+      "provider": "docker_model_runner",
+      "model": "gemma4:e2b",
+      "runtime_model": "gemma4:e2b",
+      "fallback_model": "gemma4:e2b",
+      "backend": "llama.cpp",
+      "api_base": "auto",
+      "timeout_seconds": 60,
+      "max_tokens": 1800,
+      "num_retries": 2,
+      "retry_backoff_seconds": 1.0,
+      "strict_json": false,
+      "require_live": false
+    },
     "live_model_profile": {
       "provider": "docker_model_runner",
       "model": "gemma4:e2b",
       "runtime_model": "gemma4:e2b",
       "fallback_model": "gemma4:e2b",
       "backend": "llama.cpp",
-      "api_base": "auto"
+      "api_base": "auto",
+      "timeout_seconds": 60,
+      "max_tokens": 1800,
+      "num_retries": 2,
+      "retry_backoff_seconds": 1.0,
+      "strict_json": false,
+      "require_live": false
     },
     "preferred_model": "nemotron3",
     "large_model_profile": {
@@ -354,6 +375,12 @@
       "model": "nemotron3",
       "runtime_model": "nemotron3",
       "backend": "llama.cpp",
+      "timeout_seconds": 60,
+      "max_tokens": 1800,
+      "num_retries": 1,
+      "retry_backoff_seconds": 1.0,
+      "strict_json": true,
+      "require_live": true,
       "context_size": 8192,
       "quantization": "MOSTLY_Q4_K_M",
       "parameter_count_b": 31.58,
