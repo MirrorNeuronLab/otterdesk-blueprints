@@ -786,7 +786,7 @@ def resolve_output_folder(payload: dict[str, Any], resolved_config: dict[str, An
 
 
 def vc_knowledge_search_roots(blueprint_dir: Path) -> list[Path]:
-    roots = [blueprint_dir]
+    roots = [blueprint_dir, blueprint_dir / "payloads"]
     bundle_dir = os.environ.get("MN_BLUEPRINT_BUNDLE_DIR")
     if bundle_dir:
         roots.append(Path(bundle_dir).expanduser())
@@ -891,7 +891,7 @@ def knowledge_rag_config(config: dict[str, Any]) -> dict[str, Any]:
 
 
 def with_runtime_knowledge_rag_defaults(config: dict[str, Any]) -> dict[str, Any]:
-    runtime_redis_url = os.environ.get("MN_KNOWLEDGE_RAG_REDIS_URL") or os.environ.get("MN_REDIS_URL") or ""
+    runtime_redis_url = os.environ.get("MN_REDIS_URL") or ""
     runtime_redis_url = runtime_redis_url.strip()
     if not runtime_redis_url or not isinstance(config, dict):
         return config
@@ -7183,9 +7183,9 @@ def runtime_context_for_step(
         payload.update(persisted.get("payload") if isinstance(persisted.get("payload"), dict) else {})
     else:
         document_folder = (
-            resolve_existing_path(payload["document_folder"], [blueprint_dir, blueprint_dir.parent])
+            resolve_existing_path(payload["document_folder"], [blueprint_dir / "payloads", blueprint_dir, blueprint_dir.parent])
             if payload.get("document_folder")
-            else blueprint_dir / "examples" / "sample_inputs"
+            else blueprint_dir / "payloads" / "examples" / "sample_inputs"
         )
         monitoring = dict(payload.get("monitoring") or {})
         max_cycles = int(monitoring.get("max_cycles") or 1)

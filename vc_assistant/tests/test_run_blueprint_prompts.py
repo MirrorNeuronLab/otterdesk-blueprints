@@ -176,9 +176,9 @@ def test_required_rag_zero_citations_fails_before_llm(monkeypatch):
     assert calls["llm"] == 0
 
 
-def test_blank_knowledge_rag_redis_url_uses_runtime_env(monkeypatch):
+def test_blank_knowledge_rag_redis_url_uses_runtime_redis_env(monkeypatch):
     rb = load_module()
-    runtime_url = "redis://:secret@192.168.4.51:56379/0"
+    runtime_url = "redis://:secret@redis:6379/0"
     config = {"knowledge_rag": {"enabled": True, "redis_url": "", "namespace": "vc"}}
 
     monkeypatch.setenv("MN_REDIS_URL", runtime_url)

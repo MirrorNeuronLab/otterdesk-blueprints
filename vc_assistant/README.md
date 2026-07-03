@@ -98,7 +98,7 @@ The output root also contains `company_index.json`, `company_index.md`, `company
 - [License](LICENSE.md)
 - [Manifest](manifest.json)
 - [Default config](config/default.json)
-- [Startup research playbook](knowledge/startup_research_playbook.md)
+- [Startup research playbook](payloads/knowledge/startup_research_playbook.md)
 
 ## Validation
 

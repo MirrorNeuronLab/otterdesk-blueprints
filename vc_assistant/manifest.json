@@ -1942,6 +1942,7 @@
         "embedding_start_command": "",
         "enabled": true,
         "index_on_startup": true,
+        "knowledge_dir": "payloads/knowledge",
         "max_context_chars": 6000,
         "namespace": "",
         "redis_url": "",
@@ -3173,9 +3174,7 @@
         "configuration_contract": {
             "optional_files": [
                 "config/overwrite.json",
-                "inputs/public_dataset.json",
-                "examples/sample_inputs/",
-                "knowledge/startup_research_playbook.md"
+                "payloads/knowledge/startup_research_playbook.md"
             ],
             "required_files": [
                 "manifest.json",
@@ -3186,8 +3185,7 @@
                 "LICENSE.md",
                 "TERM.md",
                 "payloads/document_workflow/requirements.txt",
-                "examples/sample_inputs/",
-                "payloads/document_workflow/vc_assistant/examples/sample_inputs/"
+                "payloads/examples/sample_inputs/"
             ]
         },
         "customizable_for": "Pre-seed screening, accelerator batches, angel deal flow, founder note review, and early diligence packet triage.",
@@ -3749,6 +3747,7 @@
             "embedding_start_command": "",
             "enabled": true,
             "index_on_startup": true,
+            "knowledge_dir": "payloads/knowledge",
             "max_context_chars": 6000,
             "namespace": "",
             "redis_url": "",

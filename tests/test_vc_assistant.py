@@ -225,12 +225,24 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         "fallback_model": "gemma4:e2b",
         "backend": "llama.cpp",
         "api_base": "auto",
+        "timeout_seconds": 60,
+        "max_tokens": 1800,
+        "num_retries": 2,
+        "retry_backoff_seconds": 1.0,
+        "strict_json": False,
+        "require_live": False,
     }
     assert config["llm"]["large_model_profile"] == {
         "provider": "docker_model_runner",
         "model": "nemotron3",
         "runtime_model": "nemotron3",
         "backend": "llama.cpp",
+        "timeout_seconds": 60,
+        "max_tokens": 1800,
+        "num_retries": 1,
+        "retry_backoff_seconds": 1.0,
+        "strict_json": True,
+        "require_live": True,
         "context_size": 8192,
         "quantization": "MOSTLY_Q4_K_M",
         "parameter_count_b": 31.58,
@@ -268,8 +280,9 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         "backend": "llama.cpp",
         "api_base": "auto",
         "timeout_seconds": 60,
-        "max_tokens": 1200,
-        "num_retries": 1,
+        "max_tokens": 1800,
+        "num_retries": 2,
+        "retry_backoff_seconds": 1.0,
         "mock_mode": "fake",
         "mode": "live",
     }
@@ -354,11 +367,12 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
     assert "mirrorneuron-membrane-python-sdk" in (
         ROOT / "vc_assistant" / "payloads" / "document_workflow" / "docker_worker" / "requirements.txt"
     ).read_text(encoding="utf-8")
-    assert "examples/sample_inputs/" in manifest["metadata"]["configuration_contract"]["required_files"]
-    assert (
-        "payloads/document_workflow/vc_assistant/examples/sample_inputs/"
-        in manifest["metadata"]["configuration_contract"]["required_files"]
-    )
+    required_files = manifest["metadata"]["configuration_contract"]["required_files"]
+    optional_files = manifest["metadata"]["configuration_contract"]["optional_files"]
+    assert "payloads/examples/sample_inputs/" in required_files
+    assert "examples/sample_inputs/" not in required_files
+    assert "payloads/knowledge/startup_research_playbook.md" in optional_files
+    assert "knowledge/startup_research_playbook.md" not in optional_files
     for node in nodes:
         assert "python_environment" not in node["config"]
         assert node["config"]["runner_module"] == "MirrorNeuron.Runner.DockerWorker"
@@ -680,20 +694,18 @@ def test_vc_assistant_runtime_upload_bundle_contains_sample_inputs():
         ROOT
         / "vc_assistant"
         / "payloads"
-        / "document_workflow"
-        / "vc_assistant"
         / "examples"
         / "sample_inputs"
     )
 
-    assert sorted(path.name for path in bundled_sample_root.iterdir()) == [
+    assert sorted(path.name for path in bundled_sample_root.iterdir() if path.is_dir()) == [
         "aurora_ai",
         "boreal_robotics",
         "otterdesk",
     ]
     assert (bundled_sample_root / "aurora_ai" / "pitch_summary.txt").exists()
     assert (bundled_sample_root / "boreal_robotics" / "company_brief.txt").exists()
-    assert (bundled_sample_root / "otterdesk" / "pitch_summary.txt").exists()
+    assert (bundled_sample_root / "otterdesk" / "otterdesk pitch v0.pdf").exists()
 
 
 def test_budgeted_llm_serializes_concurrent_model_calls():
@@ -974,12 +986,12 @@ def test_vc_agents_are_llm_backed_and_selected_for_actor_reviews():
 
 def test_vc_knowledge_excludes_stale_non_vc_domain_terms():
     runner = _load_runner()
-    playbook = (ROOT / "vc_assistant" / "knowledge" / "startup_research_playbook.md").read_text(encoding="utf-8")
-    payload_playbook = (ROOT / "vc_assistant" / "payloads" / "document_workflow" / "knowledge" / "startup_research_playbook.md").read_text(encoding="utf-8")
+    playbook = (ROOT / "vc_assistant" / "payloads" / "knowledge" / "startup_research_playbook.md").read_text(encoding="utf-8")
     knowledge = runner.load_vc_knowledge(ROOT / "vc_assistant")
     serialized = json.dumps(knowledge).lower()
 
-    assert payload_playbook == playbook
+    assert knowledge["path"] == "knowledge/startup_research_playbook.md"
+    assert knowledge["resolved_path"].endswith("vc_assistant/payloads/knowledge/startup_research_playbook.md")
     assert "Berkus Method" in playbook
     assert "Scorecard / Bill Payne Method" in playbook
     assert "VC Method" in playbook
@@ -1431,7 +1443,7 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path
             "enabled": True,
             "status": "ready",
             "_rag_config": object(),
-            "knowledge_dir": str(ROOT / "vc_assistant" / "knowledge"),
+            "knowledge_dir": str(ROOT / "vc_assistant" / "payloads" / "knowledge"),
             "config": {
                 "namespace": "test_namespace",
                 "index_name": "idx:test_namespace:rag:vc_assistant",
