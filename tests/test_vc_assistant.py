@@ -213,39 +213,65 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         "node_scope": "vc_python_executor_nodes",
     }
     assert config["llm"]["provider"] == "docker_model_runner"
-    assert config["llm"]["model"] == "nemotron3"
-    assert config["llm"]["runtime_model"] == "nemotron3"
+    assert config["llm"]["model"] == "gemma4:e2b"
+    assert config["llm"]["runtime_model"] == "gemma4:e2b"
     assert config["llm"]["fallback_model"] == "gemma4:e2b"
+    assert config["llm"]["preferred_model"] == "nemotron3"
     assert config["llm"]["backend"] == "llama.cpp"
-    assert config["llm"]["context_size"] == 8192
-    assert config["llm"]["quantization"] == "MOSTLY_Q4_K_M"
-    assert config["llm"]["parameter_count_b"] == 31.58
-    assert config["llm"]["live_model_profile"]["hardware"]["gpu"] == {
-        "min_count": 1,
-        "min_memory_mb": 49152,
-        "memory_operator": ">=",
+    assert config["llm"]["live_model_profile"] == {
+        "provider": "docker_model_runner",
+        "model": "gemma4:e2b",
+        "runtime_model": "gemma4:e2b",
+        "fallback_model": "gemma4:e2b",
+        "backend": "llama.cpp",
+        "api_base": "auto",
     }
-    assert config["resources"]["gpu"] == {
-        "min_count": 1,
-        "min_memory_mb": 49152,
-        "memory_operator": ">=",
-        "enforcement": "hard",
-    }
-    assert config["llm"]["configs"]["primary"] == {
+    assert config["llm"]["large_model_profile"] == {
         "provider": "docker_model_runner",
         "model": "nemotron3",
+        "runtime_model": "nemotron3",
+        "backend": "llama.cpp",
+        "context_size": 8192,
+        "quantization": "MOSTLY_Q4_K_M",
+        "parameter_count_b": 31.58,
+        "hardware": {
+            "gpu": {
+                "min_count": 1,
+                "min_memory_mb": 49152,
+                "memory_operator": ">=",
+            }
+        },
+    }
+    assert config["resources"]["gpu"] == {"min_count": 0}
+    assert manifest["requirements"]["gpu"] == {"min_count": 0}
+    assert manifest["runtime"]["resources"]["gpu"] == {"min_count": 0}
+    assert manifest["runtime"]["models"]["primary"]["model"] == "gemma4:e2b"
+    assert manifest["runtime"]["models"]["primary"]["runtime_model"] == "gemma4:e2b"
+    assert manifest["runtime"]["models"]["large"]["hardware"]["gpu"] == {
+        "min_count": 1,
+        "min_memory_mb": 49152,
+        "memory_operator": ">=",
+    }
+    assert manifest["runtime"]["models"]["large"]["model"] == "nemotron3"
+    assert manifest["runtime"]["models"]["large"]["required"] is False
+    assert manifest["runtime"]["worker_defaults"]["model"] == "gemma4:e2b"
+    assert {
+        worker["model"]
+        for binding in manifest["runtime"]["bindings"].values()
+        for worker in binding["workers"]
+    } == {"gemma4:e2b"}
+    assert config["llm"]["configs"]["primary"] == {
+        "provider": "docker_model_runner",
+        "model": "gemma4:e2b",
+        "runtime_model": "gemma4:e2b",
+        "fallback_model": "gemma4:e2b",
+        "backend": "llama.cpp",
         "api_base": "auto",
         "timeout_seconds": 60,
         "max_tokens": 1200,
         "num_retries": 1,
         "mock_mode": "fake",
         "mode": "live",
-        "runtime_model": "nemotron3",
-        "fallback_model": "gemma4:e2b",
-        "backend": "llama.cpp",
-        "context_size": 8192,
-        "quantization": "MOSTLY_Q4_K_M",
-        "parameter_count_b": 31.58,
     }
     assert config["execution"]["max_company_workers"] == 1
     assert config["internet_research"]["max_stage_workers"] == 1
@@ -352,10 +378,13 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         assert embedded_config["inputs"]["payload"]["output_folder"] == "~/Downloads/vc_assistant"
         assert embedded_config["local_inputs"] == config["local_inputs"]
         assert embedded_config["outputs"]["folder_path"] == "~/Downloads/vc_assistant"
-        assert embedded_config["llm"]["model"] == "nemotron3"
-        assert embedded_config["llm"]["runtime_model"] == "nemotron3"
+        assert embedded_config["llm"]["model"] == "gemma4:e2b"
+        assert embedded_config["llm"]["runtime_model"] == "gemma4:e2b"
         assert embedded_config["llm"]["fallback_model"] == "gemma4:e2b"
+        assert embedded_config["llm"]["preferred_model"] == "nemotron3"
         assert embedded_config["llm"]["configs"]["primary"]["fallback_model"] == "gemma4:e2b"
+        assert embedded_config["llm"]["configs"]["primary"]["model"] == "gemma4:e2b"
+        assert embedded_config["resources"]["gpu"] == {"min_count": 0}
         assert embedded_config["llm"]["configs"]["primary"]["api_base"] == "auto"
         assert embedded_config["llm"]["quick_test_uses_fake"] is True
         assert embedded_config["execution"]["quick_test"] is False

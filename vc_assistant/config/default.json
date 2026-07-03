@@ -119,7 +119,7 @@
     "enabled": true,
     "mode": "live",
     "mock_mode": "fake",
-    "model": "nemotron3",
+    "model": "gemma4:e2b",
     "fallback_model": "gemma4:e2b",
     "default_config": "primary",
     "quick_test_uses_fake": true,
@@ -128,19 +128,16 @@
     "configs": {
       "primary": {
         "provider": "docker_model_runner",
-        "model": "nemotron3",
+        "model": "gemma4:e2b",
+        "runtime_model": "gemma4:e2b",
+        "fallback_model": "gemma4:e2b",
+        "backend": "llama.cpp",
         "api_base": "auto",
         "timeout_seconds": 60,
         "max_tokens": 1200,
         "num_retries": 1,
         "mock_mode": "fake",
-        "mode": "live",
-        "runtime_model": "nemotron3",
-        "fallback_model": "gemma4:e2b",
-        "backend": "llama.cpp",
-        "context_size": 8192,
-        "quantization": "MOSTLY_Q4_K_M",
-        "parameter_count_b": 31.58
+        "mode": "live"
       }
     },
     "agents": {
@@ -341,17 +338,21 @@
     ],
     "require_live": true,
     "provider": "docker_model_runner",
-    "runtime_model": "nemotron3",
-    "fallback_model": "gemma4:e2b",
+    "runtime_model": "gemma4:e2b",
     "backend": "llama.cpp",
-    "context_size": 8192,
-    "quantization": "MOSTLY_Q4_K_M",
-    "parameter_count_b": 31.58,
     "live_model_profile": {
+      "provider": "docker_model_runner",
+      "model": "gemma4:e2b",
+      "runtime_model": "gemma4:e2b",
+      "fallback_model": "gemma4:e2b",
+      "backend": "llama.cpp",
+      "api_base": "auto"
+    },
+    "preferred_model": "nemotron3",
+    "large_model_profile": {
       "provider": "docker_model_runner",
       "model": "nemotron3",
       "runtime_model": "nemotron3",
-      "fallback_model": "gemma4:e2b",
       "backend": "llama.cpp",
       "context_size": 8192,
       "quantization": "MOSTLY_Q4_K_M",
@@ -442,10 +443,7 @@
       "min_gb": 1
     },
     "gpu": {
-      "min_count": 1,
-      "min_memory_mb": 49152,
-      "memory_operator": ">=",
-      "enforcement": "hard"
+      "min_count": 0
     }
   },
   "human_control": {
