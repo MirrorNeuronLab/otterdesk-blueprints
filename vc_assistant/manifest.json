@@ -59,110 +59,43 @@
   "defaults": {
     "worker": {
       "with": {
-        "image": "mirror-neuron/vc-assistant:local",
-        "upload_paths": [
-          {
-            "source": "document_workflow",
-            "target": "document_workflow"
-          },
-          {
-            "source": "examples/sample_inputs",
-            "target": "vc_assistant/examples/sample_inputs"
-          },
-          {
-            "source": "knowledge",
-            "target": "knowledge"
-          }
-        ]
+        "image": "mirror-neuron/vc-assistant:local"
       }
     }
   },
   "workers": {
-    "by_step": {
-      "company_identity_researcher": {
+    "groups": [
+      {
+        "steps": [
+          "company_identity_researcher",
+          "funding_researcher",
+          "market_comp_researcher",
+          "traction_verifier",
+          "rendered_page_researcher"
+        ],
         "with": {
-          "side_effect": "network_read",
-          "environment": {
-            "W3M_BROWSER_MAX_CHARS": "6000",
-            "W3M_BROWSER_TIMEOUT_SECONDS": "12",
-            "WEB_BROWSER_MAX_CHARS": "12000",
-            "WEB_BROWSER_RESPECT_ROBOTS": "true",
-            "WEB_BROWSER_TIMEOUT_SECONDS": "20"
-          }
+          "stereotype": "public_browser_worker"
         }
       },
-      "funding_researcher": {
+      {
+        "steps": [
+          "company_report_writer",
+          "batch_index_writer"
+        ],
         "with": {
-          "side_effect": "network_read",
-          "environment": {
-            "W3M_BROWSER_MAX_CHARS": "6000",
-            "W3M_BROWSER_TIMEOUT_SECONDS": "12",
-            "WEB_BROWSER_MAX_CHARS": "12000",
-            "WEB_BROWSER_RESPECT_ROBOTS": "true",
-            "WEB_BROWSER_TIMEOUT_SECONDS": "20"
-          }
-        }
-      },
-      "market_comp_researcher": {
-        "with": {
-          "side_effect": "network_read",
-          "environment": {
-            "W3M_BROWSER_MAX_CHARS": "6000",
-            "W3M_BROWSER_TIMEOUT_SECONDS": "12",
-            "WEB_BROWSER_MAX_CHARS": "12000",
-            "WEB_BROWSER_RESPECT_ROBOTS": "true",
-            "WEB_BROWSER_TIMEOUT_SECONDS": "20"
-          }
-        }
-      },
-      "traction_verifier": {
-        "with": {
-          "side_effect": "network_read",
-          "environment": {
-            "W3M_BROWSER_MAX_CHARS": "6000",
-            "W3M_BROWSER_TIMEOUT_SECONDS": "12",
-            "WEB_BROWSER_MAX_CHARS": "12000",
-            "WEB_BROWSER_RESPECT_ROBOTS": "true",
-            "WEB_BROWSER_TIMEOUT_SECONDS": "20"
-          }
-        }
-      },
-      "rendered_page_researcher": {
-        "with": {
-          "side_effect": "network_read",
-          "environment": {
-            "W3M_BROWSER_MAX_CHARS": "6000",
-            "W3M_BROWSER_TIMEOUT_SECONDS": "12",
-            "WEB_BROWSER_MAX_CHARS": "12000",
-            "WEB_BROWSER_RESPECT_ROBOTS": "true",
-            "WEB_BROWSER_TIMEOUT_SECONDS": "20"
-          }
-        }
-      },
-      "company_report_writer": {
-        "with": {
-          "side_effect": "internal_write"
-        }
-      },
-      "batch_index_writer": {
-        "with": {
-          "side_effect": "internal_write"
+          "stereotype": "internal_write_worker"
         }
       }
-    }
+    ]
   },
   "agents": {
-    "extra_nodes": [
+    "extra_templates": [
       {
-        "agent_type": "aggregator",
-        "config": {
-          "complete_on_message": true,
-          "complete_run": true,
-          "terminal_sink": true
-        },
         "node_id": "report_sink",
-        "role": "result_sink",
-        "type": "reduce"
+        "uses": "mn-agents.control.terminal_sink@1",
+        "with": {
+          "stereotype": "terminal_report_sink"
+        }
       }
     ],
     "extra_edges": [
