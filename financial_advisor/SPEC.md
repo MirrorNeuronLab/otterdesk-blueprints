@@ -2,11 +2,11 @@
 
 ## Goal
 
-Create one financial-advisor blueprint that covers bank statement extraction, personal financial advice, personal income tax review, and portfolio risk review.
+Create one financial-advisor blueprint that covers bank statement extraction, tax-form OCR capture, personal financial advice, personal income tax review, and portfolio risk review.
 
 ## Inputs
 
-- Local document folder containing statements, receipts, bills, income records, tax forms, brokerage statements, JSON, CSV, text, or PDFs.
+- Local document folder containing statements, receipts, bills, income records, tax forms, tax-form images with answer files, brokerage statements, JSON, CSV, text, or PDFs.
 - Optional tax year, filing status, taxpayer profile, portfolio holdings, benchmark weights, risk policy, and market notes.
 
 ## Outputs
@@ -15,6 +15,7 @@ Create one financial-advisor blueprint that covers bank statement extraction, pe
 - `bank_statement_extraction.json`
 - `household_finance_summary.json`
 - `tax_review_packet.json`
+- `tax_form_ocr_capture.json`
 - `portfolio_risk_review.json`
 - `financial_advisor_report.md`
 - action ledger, artifact quality, and run health records

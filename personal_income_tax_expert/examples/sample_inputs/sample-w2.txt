@@ -1,7 +1,0 @@
-Form W-2 Wage and Tax Statement.
-Employee: Demo Taxpayer.
-Employer: Otter Desk Labs.
-Box 1 wages, tips, other compensation: 86000.00.
-Box 2 federal income tax withheld: 11200.00.
-Box 3 Social Security wages: 86000.00.
-Box 17 state income tax: 4200.00.

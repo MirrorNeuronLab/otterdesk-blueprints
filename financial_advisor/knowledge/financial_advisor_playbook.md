@@ -14,6 +14,10 @@ Cash-flow summaries are household review aids, not financial decisions. Summariz
 
 Tax outputs are draft workpapers for review before filing. Route W-2 wages and withholding, 1099 interest, retirement distributions, brokerage evidence, receipts, and missing forms into separate sections. Preserve form names, box references when available, tax year, filing-status assumptions, and source files. Do not claim that a return is ready to file. Missing forms, ambiguous taxpayer profile details, or unsupported deductions should become manager-review blockers.
 
+## Tax Form OCR Capture
+
+Tax-form image capture is an intake aid for review, not a filing decision. Classify form images, preserve companion answer-file evidence when available, surface OCR-required status, and keep field locations tied to source pages or labels. Any missing answer file, image-only page, low-confidence OCR, or unsupported form class should remain review-required.
+
 ## Portfolio Risk Review
 
 Portfolio outputs are risk-review notes, not trade instructions. Normalize holdings, cash, benchmark weights, and risk policy. Compute concentration, cash weight, simple volatility or VaR-style indicators, and policy violations using deterministic math. Candidate actions such as raising cash or reducing concentration must remain review-only and require human approval.

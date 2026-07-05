@@ -23,16 +23,12 @@ if str(SUPPORT_SRC) not in sys.path:
 
 FOLDER_INPUT_FIELDS = {
     "drug_discovery_research_assistant": {"input_folder", "output_folder"},
+    "financial_advisor": {"document_folder", "input_folder", "output_folder"},
     "generic_customer_service_voice_coworker": {"input_folder", "output_folder"},
-    "invoice_bill_extraction_assistant": {"document_folder", "output_folder"},
-    "legal_contract_clause_review_assistant": {"document_folder", "output_folder"},
     "medical_deid_record_intake_assistant": {"document_folder", "output_folder"},
-    "personal_financial_advisor": {"document_folder", "output_folder"},
-    "personal_income_tax_expert": {"tax_document_folder", "output_folder"},
-    "portfolio_risk_review_assistant": {"input_folder", "output_folder"},
+    "personal_legal_assistant": {"document_folder", "input_folder", "output_folder"},
     "property_deal_research_assistant": {"input_folder", "output_folder"},
     "safety_video_analyser": {"input_folder", "output_folder"},
-    "tax_form_ocr_capture_assistant": {"document_folder", "output_folder"},
     "vc_assistant": {"document_folder", "output_folder"},
     "video_watch_assistant": {"input_folder", "output_folder"},
 }
@@ -50,9 +46,6 @@ from mn_blueprint_support.openshell_network import (
     write_openshell_network_policy,
 )
 from mn_blueprint_support.workflow_manifest import (
-    WorkflowManifestError,
-    compile_workflow_graph,
-    run_workflow_manifest,
     run_workflow_manifest_file,
     validate_workflow_manifest,
 )
@@ -599,62 +592,6 @@ def test_otterdesk_rendered_completion_contract_is_valid():
                     config.get("terminal_sink") is True and config.get("complete_run") is True
                 ), (blueprint_id, node_id)
 
-
-def test_otterdesk_workflow_runtime_executes_manifest_steps(tmp_path):
-    manifest_path = ROOT / "personal_income_tax_expert" / "manifest.json"
-    result = run_workflow_manifest_file(
-        manifest_path,
-        run_dir=tmp_path / "tax-workflow-run",
-        run_id="tax-workflow-run",
-        auto_human="approve",
-        speed=0.01,
-        ui=False,
-    )
-
-    assert result["run"]["status"] == "completed"
-    assert result["workflow"]["steps"] == [
-        "intake_documents",
-        "prepare_income_workpapers",
-        "prepare_property_workpapers",
-        "prepare_investment_workpapers",
-        "merge_tax_workpapers",
-        "audit_and_manager_review",
-        "write_review_packet",
-    ]
-    assert result["workflow"]["graph"]["mode"] == "static_dag"
-    assert result["workflow"]["graph"]["layers"][1] == [
-        "prepare_income_workpapers",
-        "prepare_property_workpapers",
-        "prepare_investment_workpapers",
-    ]
-    run_dir = tmp_path / "tax-workflow-run"
-    assert {"run.json", "config.json", "inputs.json", "events.jsonl", "resources.jsonl", "result.json", "final_artifact.json"} <= {
-        path.name for path in run_dir.iterdir()
-    }
-    event_records = [json.loads(line) for line in (run_dir / "events.jsonl").read_text().splitlines() if line.strip()]
-    events = [record["type"] for record in event_records]
-    assert "workflow_step_started" in events
-    assert "workflow_step_attempt_completed" in events
-    assert "workflow_graph_compiled" in events
-    assert "workflow_edge_satisfied" in events
-    assert "workflow_join_waiting" in events
-    assert "human_decision_applied" in events
-    branch_ids = {"prepare_income_workpapers", "prepare_property_workpapers", "prepare_investment_workpapers"}
-    branch_start_indexes = [
-        index
-        for index, record in enumerate(event_records)
-        if record["type"] == "workflow_step_started" and record.get("payload", {}).get("step") in branch_ids
-    ]
-    branch_completion_indexes = [
-        index
-        for index, record in enumerate(event_records)
-        if record["type"] == "workflow_step_completed" and record.get("payload", {}).get("step") in branch_ids
-    ]
-    assert len(branch_start_indexes) == 3
-    assert len(branch_completion_indexes) == 3
-    assert max(branch_start_indexes) < min(branch_completion_indexes)
-
-
 def test_otterdesk_batch_workflows_complete_with_shared_runner(tmp_path):
     for manifest_path in _manifest_paths():
         manifest = json.loads(manifest_path.read_text())
@@ -711,10 +648,7 @@ def _load_script(path: Path, module_name: str):
 
 def test_document_ocr_blueprints_emit_actor_findings_and_usage(tmp_path):
     targets = [
-        "invoice_bill_extraction_assistant",
-        "legal_contract_clause_review_assistant",
         "medical_deid_record_intake_assistant",
-        "tax_form_ocr_capture_assistant",
     ]
     for blueprint_id in targets:
         runner_path = ROOT / blueprint_id / "payloads" / "document_workflow" / "scripts" / "run_blueprint.py"
@@ -787,138 +721,6 @@ def test_safety_video_scripts_emit_actor_findings(tmp_path):
     assert set(result["actor_findings"]) == {"video_understanding_agent", "report_generator"}
     assert {event["agent_id"] for event in result["actor_activity"]} == {"video_understanding_agent", "report_generator"}
 
-
-def test_tax_workflow_compiles_as_static_fork_join_graph():
-    manifest_path = ROOT / "personal_income_tax_expert" / "manifest.json"
-    manifest = json.loads(manifest_path.read_text())
-    graph = compile_workflow_graph(manifest)
-
-    assert graph.enabled is True
-    assert graph.schema == "mn.workflow.problem_graph/v1"
-    assert graph.source == "intake_documents"
-    assert graph.sink == "write_review_packet"
-    assert graph.execution == "parallel"
-    assert graph.layers[1] == [
-        "prepare_income_workpapers",
-        "prepare_property_workpapers",
-        "prepare_investment_workpapers",
-    ]
-    assert graph.parents["merge_tax_workpapers"] == [
-        "prepare_income_workpapers",
-        "prepare_property_workpapers",
-        "prepare_investment_workpapers",
-    ]
-    merge_edges = {edge.from_step: edge for edge in graph.edges_to("merge_tax_workpapers")}
-    assert merge_edges["prepare_income_workpapers"].required is True
-    assert merge_edges["prepare_property_workpapers"].required is False
-    assert "partial" in merge_edges["prepare_property_workpapers"].accepts
-    income_workers = manifest["runtime"]["bindings"]["prepare_income_workpapers"]["workers"]
-    assert [worker["id"] for worker in income_workers] == ["income_preparer", "income_validator"]
-    assert income_workers[1]["kind"] == "validator"
-    assert income_workers[1]["depends_on"] == ["income_preparer"]
-
-
-def test_static_graph_validation_rejects_cycles_and_overlapping_parallel_outputs():
-    manifest_path = ROOT / "personal_income_tax_expert" / "manifest.json"
-    manifest = json.loads(manifest_path.read_text())
-
-    cyclic = json.loads(json.dumps(manifest))
-    cyclic["workflow"]["edges"].append(
-        {
-            "id": "write_review_packet_to_intake_documents",
-            "from": "write_review_packet",
-            "to": "intake_documents",
-            "event": "tax_packet_ready",
-        }
-    )
-    with pytest.raises(WorkflowManifestError, match="source must not have incoming edges|sink must not have outgoing edges|acyclic"):
-        validate_workflow_manifest(cyclic)
-
-    overlapping = json.loads(json.dumps(manifest))
-    for step in overlapping["workflow"]["steps"]:
-        if step["id"] in {"prepare_income_workpapers", "prepare_property_workpapers"}:
-            step["out"] = {"workpapers": "$state.workpapers.branch"}
-    with pytest.raises(WorkflowManifestError, match="overlapping output paths"):
-        validate_workflow_manifest(overlapping)
-
-    duplicate_edge = json.loads(json.dumps(manifest))
-    duplicate_edge["workflow"]["edges"][1]["id"] = duplicate_edge["workflow"]["edges"][0]["id"]
-    with pytest.raises(WorkflowManifestError, match="duplicate workflow edge id"):
-        validate_workflow_manifest(duplicate_edge)
-
-    missing_source = json.loads(json.dumps(manifest))
-    del missing_source["workflow"]["source"]
-    with pytest.raises(WorkflowManifestError, match="missing required field workflow.source"):
-        validate_workflow_manifest(missing_source)
-
-    unreachable = json.loads(json.dumps(manifest))
-    unreachable["workflow"]["steps"].append(
-        {
-            **json.loads(json.dumps(unreachable["workflow"]["steps"][1])),
-            "id": "orphan_workpapers",
-            "run": "prepare_income_workpapers",
-        }
-    )
-    with pytest.raises(WorkflowManifestError, match="missing an incoming edge|unreachable from source"):
-        validate_workflow_manifest(unreachable)
-
-    invalid_retry = json.loads(json.dumps(manifest))
-    invalid_retry["workflow"]["steps"][1]["control"]["retry"]["max_attempts"] = 0
-    with pytest.raises(WorkflowManifestError, match="max_attempts must be at least 1"):
-        validate_workflow_manifest(invalid_retry)
-
-    unbounded_retry = json.loads(json.dumps(manifest))
-    unbounded_retry["workflow"]["steps"][1]["control"]["retry"]["unlimited"] = True
-    with pytest.raises(WorkflowManifestError, match="must be bounded"):
-        validate_workflow_manifest(unbounded_retry)
-
-    invalid_timeout = json.loads(json.dumps(manifest))
-    invalid_timeout["workflow"]["steps"][1]["control"]["timeout_seconds"] = -1
-    with pytest.raises(WorkflowManifestError, match="timeout_seconds must be greater than or equal to zero"):
-        validate_workflow_manifest(invalid_timeout)
-
-    invalid_join = json.loads(json.dumps(manifest))
-    invalid_join["workflow"]["steps"][4]["join"] = {"mode": "sometimes"}
-    with pytest.raises(WorkflowManifestError, match="join.mode"):
-        validate_workflow_manifest(invalid_join)
-
-
-def test_optional_tax_branch_can_finish_partial_and_still_merge(tmp_path):
-    manifest = json.loads((ROOT / "personal_income_tax_expert" / "manifest.json").read_text())
-    for step in manifest["workflow"]["steps"]:
-        if step["id"] == "prepare_property_workpapers":
-            step["control"]["timeout_seconds"] = 0
-            step["control"]["retry"]["max_attempts"] = 1
-
-    result = run_workflow_manifest(
-        manifest,
-        run_dir=tmp_path / "tax-partial-run",
-        run_id="tax-partial-run",
-        auto_human="approve",
-        speed=0.01,
-        ui=False,
-    )
-
-    assert result["run"]["status"] == "completed"
-    event_records = [
-        json.loads(line)
-        for line in (tmp_path / "tax-partial-run" / "events.jsonl").read_text().splitlines()
-        if line.strip()
-    ]
-    assert any(
-        record["type"] == "workflow_step_partial"
-        and record.get("payload", {}).get("step") == "prepare_property_workpapers"
-        for record in event_records
-    )
-    assert any(
-        record["type"] == "workflow_edge_satisfied"
-        and record.get("payload", {}).get("from") == "prepare_property_workpapers"
-        and record.get("payload", {}).get("outcome") == "partial"
-        and record.get("payload", {}).get("satisfied") is True
-        for record in event_records
-    )
-
-
 def test_otterdesk_blueprints_declare_membrane_context_memory_layer():
     for manifest_path in _manifest_paths():
         blueprint_dir = manifest_path.parent
@@ -957,16 +759,12 @@ def test_otterdesk_blueprints_declare_membrane_context_memory_layer():
 def test_otterdesk_blueprints_declare_product_experience_contracts():
     expected_modes = {
         "drug_discovery_research_assistant": "approval_required",
-        "personal_income_tax_expert": "approval_required",
-        "portfolio_risk_review_assistant": "approval_required",
+        "financial_advisor": "approval_required",
         "property_deal_research_assistant": "approval_required",
         "video_watch_assistant": "notice_only",
         "generic_customer_service_voice_coworker": "notice_only",
-        "invoice_bill_extraction_assistant": "approval_required",
-        "legal_contract_clause_review_assistant": "approval_required",
         "medical_deid_record_intake_assistant": "approval_required",
-        "tax_form_ocr_capture_assistant": "approval_required",
-        "personal_financial_advisor": "approval_required",
+        "personal_legal_assistant": "approval_required",
         "vc_assistant": "approval_required",
     }
     required_schema_keys = {
@@ -1204,14 +1002,9 @@ def test_indexed_non_vc_blueprints_have_non_trivial_rag_knowledge():
 def test_product_ready_llm_configs_use_explicit_live_docker_model_runner_profile():
     targets = {
         "drug_discovery_research_assistant",
-        "invoice_bill_extraction_assistant",
-        "legal_contract_clause_review_assistant",
         "medical_deid_record_intake_assistant",
-        "personal_financial_advisor",
-        "personal_income_tax_expert",
-        "portfolio_risk_review_assistant",
+        "personal_legal_assistant",
         "property_deal_research_assistant",
-        "tax_form_ocr_capture_assistant",
     }
     for blueprint_id in sorted(targets):
         config = json.loads((ROOT / blueprint_id / "config" / "default.json").read_text())
@@ -1269,20 +1062,16 @@ def test_otterdesk_blueprint_descriptions_are_customer_facing_and_synchronized()
 
 EXPECTED_BATCH_SUGGESTED_SCHEDULES = {
     "drug_discovery_research_assistant": {"cron": "0 8 * * 1", "cadence": "weekly"},
-    "invoice_bill_extraction_assistant": {"cron": "0 * * * *", "cadence": "hourly"},
-    "legal_contract_clause_review_assistant": {"cron": "0 7 * * 1-5", "cadence": "weekday_daily"},
+    "financial_advisor": {"cron": "0 8 * * *", "cadence": "daily"},
     "medical_deid_record_intake_assistant": {"cron": "0 * * * *", "cadence": "hourly"},
-    "personal_income_tax_expert": {"cron": "0 8 * * *", "cadence": "daily"},
-    "portfolio_risk_review_assistant": {"cron": "0 * * * 1-5", "cadence": "weekday_hourly"},
+    "personal_legal_assistant": {"cron": "0 8 * * 1-5", "cadence": "weekday_daily"},
     "property_deal_research_assistant": {"cron": "0 8 * * 1", "cadence": "weekly"},
     "safety_video_analyser": {"cron": "0 2 * * *", "cadence": "daily"},
-    "tax_form_ocr_capture_assistant": {"cron": "0 6 * * *", "cadence": "daily"},
     "vc_assistant": {"cron": "0 7 * * *", "cadence": "daily"},
 }
 
 CONTINUOUS_BLUEPRINTS_WITHOUT_SUGGESTED_SCHEDULES = {
     "generic_customer_service_voice_coworker",
-    "personal_financial_advisor",
     "video_watch_assistant",
 }
 
@@ -1696,157 +1485,6 @@ def test_otterdesk_workflow_steps_are_bounded_and_retryable():
             assert control["timeout_seconds"] > 0, (manifest_path.parent.name, step.get("id"))
             assert control["retry"]["max_attempts"] >= 1, (manifest_path.parent.name, step.get("id"))
             assert control["retry"]["backoff_seconds"] >= 0, (manifest_path.parent.name, step.get("id"))
-
-
-def test_personal_income_tax_expert_runtime_topology_mirrors_workflow_graph():
-    manifest = json.loads((ROOT / "personal_income_tax_expert" / "manifest.json").read_text())
-    flow_nodes = _flow_nodes(manifest)
-    flow_edges = _flow_edges(manifest)
-    executor_nodes = [
-        node
-        for node in flow_nodes
-        if node.get("agent_type") == "executor"
-        and node["node_id"] not in {"merge_tax_workpapers", "report_sink"}
-    ]
-    rendered_nodes = {node["node_id"]: node for node in flow_nodes}
-
-    assert _agent_entrypoints(manifest) == ["intake_documents"]
-    assert [node["node_id"] for node in executor_nodes] == [
-        "intake_documents",
-        "prepare_income_workpapers",
-        "prepare_property_workpapers",
-        "prepare_investment_workpapers",
-        "audit_and_manager_review",
-        "write_review_packet",
-    ]
-    for node in executor_nodes:
-        node_id = node["node_id"]
-        node_config = _node_config(node)
-        rendered_config = rendered_nodes[node_id]["config"]
-        assert node_config["environment"]["MN_WORKFLOW_STEP_ID"] == node_id
-        assert rendered_config["environment"]["MN_WORKFLOW_STEP_ID"] == node_id
-        if node_id == "write_review_packet":
-            assert "safe_to_retry" not in node_config
-            assert "idempotent" not in node_config
-        else:
-            assert node_config["safe_to_retry"] is True
-            assert node_config["idempotent"] is True
-            assert node_config["side_effect"] == "read"
-            assert rendered_config["safe_to_retry"] is True
-            assert rendered_config["idempotent"] is True
-            assert rendered_config["side_effect"] == "read"
-    merge_config = _node_config(next(node for node in flow_nodes if node["node_id"] == "merge_tax_workpapers"))
-    rendered_merge_config = rendered_nodes["merge_tax_workpapers"]["config"]
-    assert merge_config["output_message_type"] == "tax_workpapers_merged"
-    assert rendered_merge_config["output_message_type"] == "tax_workpapers_merged"
-    report_config = _node_config(next(node for node in flow_nodes if node["node_id"] == "report_sink"))
-    rendered_report_config = rendered_nodes["report_sink"]["config"]
-    assert report_config["terminal_sink"] is True
-    assert report_config["complete_run"] is True
-    assert rendered_report_config["terminal_sink"] is True
-    assert rendered_report_config["complete_run"] is True
-    assert [edge["from_node"] for edge in flow_edges[:3]] == ["intake_documents"] * 3
-    assert {edge["to_node"] for edge in flow_edges[:3]} == {
-        "prepare_income_workpapers",
-        "prepare_property_workpapers",
-        "prepare_investment_workpapers",
-    }
-    assert [edge["from_node"] for edge in flow_edges[3:6]] == [
-        "prepare_income_workpapers",
-        "prepare_property_workpapers",
-        "prepare_investment_workpapers",
-    ]
-    assert {edge["to_node"] for edge in flow_edges[3:6]} == {"merge_tax_workpapers"}
-    assert flow_edges[6] == {
-        "edge_id": "merge_to_audit",
-        "from_node": "merge_tax_workpapers",
-        "message_type": "tax_workpapers_merged",
-        "to_node": "audit_and_manager_review",
-    }
-    assert flow_nodes[-1]["node_id"] == "report_sink"
-    assert flow_edges[-1] == {
-        "edge_id": "packet_to_report",
-        "from_node": "write_review_packet",
-        "message_type": "blueprint_report",
-        "to_node": "report_sink",
-    }
-
-
-def test_personal_income_tax_expert_runtime_branch_step_exits_without_full_packet(tmp_path):
-    script = ROOT / "personal_income_tax_expert" / "payloads" / "tax_workflow" / "scripts" / "run_blueprint.py"
-    env = os.environ.copy()
-    env["MN_WORKFLOW_STEP_ID"] = "prepare_income_workpapers"
-    result = subprocess.run(
-        [sys.executable, str(script), "--no-run-store", "--run-id", "tax-branch-step"],
-        cwd=script.parents[1],
-        env=env,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    decoded = json.loads(result.stdout)
-
-    assert decoded["schema"] == "mn.workflow.step_result.v1"
-    assert decoded["agent_id"] == "prepare_income_workpapers"
-    assert decoded["workflow_step_id"] == "prepare_income_workpapers"
-    assert decoded["status"] == "completed"
-    assert "final_artifact" not in decoded
-
-
-def test_personal_income_tax_expert_runtime_branch_step_infers_agent_id_without_full_packet(tmp_path):
-    script = ROOT / "personal_income_tax_expert" / "payloads" / "tax_workflow" / "scripts" / "run_blueprint.py"
-    env = os.environ.copy()
-    env.pop("MN_WORKFLOW_STEP_ID", None)
-    env["MN_AGENT_ID"] = "prepare_income_workpapers"
-    result = subprocess.run(
-        [sys.executable, str(script), "--no-run-store", "--run-id", "tax-agent-id-step"],
-        cwd=script.parents[1],
-        env=env,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    decoded = json.loads(result.stdout)
-
-    assert decoded["schema"] == "mn.workflow.step_result.v1"
-    assert decoded["workflow_step_id"] == "prepare_income_workpapers"
-    assert decoded["status"] == "completed"
-    assert "final_artifact" not in decoded
-
-
-def test_personal_income_tax_expert_runtime_branch_step_infers_message_destination(tmp_path):
-    script = ROOT / "personal_income_tax_expert" / "payloads" / "tax_workflow" / "scripts" / "run_blueprint.py"
-    message_file = tmp_path / "message.json"
-    message_file.write_text(
-        json.dumps(
-            {
-                "to": "prepare_property_workpapers",
-                "type": "tax_intake_ready",
-                "payload": {"tax_year": 2025, "filing_status": "single"},
-            }
-        ),
-        encoding="utf-8",
-    )
-    env = os.environ.copy()
-    env.pop("MN_WORKFLOW_STEP_ID", None)
-    env.pop("MN_AGENT_ID", None)
-    env["MN_MESSAGE_FILE"] = str(message_file)
-    result = subprocess.run(
-        [sys.executable, str(script), "--no-run-store", "--run-id", "tax-message-step"],
-        cwd=script.parents[1],
-        env=env,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    decoded = json.loads(result.stdout)
-
-    assert decoded["schema"] == "mn.workflow.step_result.v1"
-    assert decoded["workflow_step_id"] == "prepare_property_workpapers"
-    assert decoded["inputs"]["tax_year"] == 2025
-    assert decoded["status"] == "completed"
-    assert "final_artifact" not in decoded
-
 
 def test_video_watch_openshell_policy_is_generated_by_shared_helper(tmp_path):
     blueprint_dir = ROOT / "video_watch_assistant"

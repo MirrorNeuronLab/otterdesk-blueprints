@@ -420,29 +420,11 @@ def write_user_outputs(
 
 
 def domain_next_steps(records: list[dict[str, Any]]) -> list[str]:
-    if BLUEPRINT_ID == "invoice_bill_extraction_assistant":
-        return [
-            "Verify supplier, customer, invoice number, dates, totals, and payment terms against the source invoice image/PDF.",
-            "Resolve OCR warnings for scanned PDFs before posting anything to ERP or payment workflows.",
-            "Approve, revise, or reject the payable packet with an AP reviewer.",
-        ]
-    if BLUEPRINT_ID == "legal_contract_clause_review_assistant":
-        return [
-            "Review extracted clause text against the source agreement before relying on any clause category.",
-            "Ask counsel to confirm missing, ambiguous, or high-risk terms such as assignment, liability, termination, and governing law.",
-            "Use the packet as attorney-review support only, not legal advice.",
-        ]
     if BLUEPRINT_ID == "medical_deid_record_intake_assistant":
         return [
             "Review every detected identifier and redaction warning with a privacy officer before release.",
             "Resolve OCR warnings for scanned pages because unreadable pages can hide PHI.",
             "Confirm that clinical meaning remains intact after de-identification.",
-        ]
-    if BLUEPRINT_ID == "tax_form_ocr_capture_assistant":
-        return [
-            "Verify each captured tax field against the source image and expected answer file.",
-            "Resolve any low-confidence OCR or classification mismatch before using values in tax preparation.",
-            "Keep the packet review-only until checked by a tax preparer.",
         ]
     return [
         "Review OCR warnings and extracted fields against source pages.",
@@ -451,14 +433,8 @@ def domain_next_steps(records: list[dict[str, Any]]) -> list[str]:
 
 
 def domain_blocked_actions() -> list[str]:
-    if BLUEPRINT_ID == "invoice_bill_extraction_assistant":
-        return ["post_to_erp_without_review", "submit_payment_without_review", "treat_extraction_as_final_record"]
-    if BLUEPRINT_ID == "legal_contract_clause_review_assistant":
-        return ["treat_as_legal_advice", "redline_or_sign_contract_without_attorney_review", "notify_counterparty_without_review"]
     if BLUEPRINT_ID == "medical_deid_record_intake_assistant":
         return ["release_records_without_privacy_review", "claim_hipaa_safe_harbor_without_authorized_review", "share_identifiers_downstream"]
-    if BLUEPRINT_ID == "tax_form_ocr_capture_assistant":
-        return ["use_values_for_filing_without_review", "submit_tax_return_without_preparer_review", "store_unredacted_identifiers_outside_approved_paths"]
     return ["treat_extraction_as_final_record"]
 
 

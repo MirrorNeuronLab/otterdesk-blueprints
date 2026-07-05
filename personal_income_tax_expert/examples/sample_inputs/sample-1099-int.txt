@@ -1,5 +1,0 @@
-Form 1099-INT Interest Income.
-Recipient: Demo Taxpayer.
-Payer: Example Community Bank.
-Box 1 interest income: 128.44.
-Box 4 federal income tax withheld: 0.00.

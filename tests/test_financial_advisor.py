@@ -89,6 +89,7 @@ def test_financial_advisor_manifest_uses_source_format_and_shared_blocks():
         "bank_statement_extractor",
         "cash_flow_normalizer",
         "tax_document_router",
+        "tax_form_ocr_capturer",
         "tax_workpaper_preparer",
         "portfolio_context_loader",
         "portfolio_market_data_loader",
@@ -172,9 +173,13 @@ def test_financial_advisor_smoke_run_writes_integrated_artifacts(tmp_path):
     assert artifact["bank_statement_extraction"]["totals"]["deposits"] > 0
     assert artifact["household_finance_summary"]["income_total"] > 0
     assert artifact["tax_review_packet"]["workpapers"]["draft_income_total"] > 0
+    assert artifact["tax_form_ocr_capture"]["tax_form_count"] == 2
+    assert artifact["tax_form_ocr_capture"]["answer_file_count"] == 2
+    assert artifact["tax_form_ocr_capture"]["forms"][0]["validation_status"] == "matched_companion_answer_file"
     assert artifact["portfolio_risk_review"]["total_value"] > 0
     assert artifact["model_profiles_used"]["financial_advice_reporter"]["llm_config"] == "large"
     assert (tmp_path / "runs" / "financial-advisor-test" / "final_artifact.json").exists()
     assert (output_folder / "financial_advisor_report.md").exists()
     assert (output_folder / "bank_statement_extraction.json").exists()
+    assert (output_folder / "tax_form_ocr_capture.json").exists()
     assert "review-only" in (output_folder / "financial_advisor_report.md").read_text(encoding="utf-8")

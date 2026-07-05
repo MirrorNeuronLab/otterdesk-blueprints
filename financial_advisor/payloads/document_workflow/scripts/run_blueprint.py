@@ -39,6 +39,7 @@ WORKFLOW_STEPS = [
     "bank_statement_extractor",
     "cash_flow_normalizer",
     "tax_document_router",
+    "tax_form_ocr_capturer",
     "tax_workpaper_preparer",
     "portfolio_context_loader",
     "portfolio_market_data_loader",
@@ -316,10 +317,65 @@ def read_document(path: Path) -> dict[str, Any]:
     }
 
 
+def is_tax_form_answer_data(data: Any) -> bool:
+    if not isinstance(data, dict):
+        return False
+    if data.get("source_dataset") == "hyturing/US_tax_forms_donut":
+        return True
+    if "ground_truth" in data or "gt_parse" in data:
+        return True
+    if any(key in data for key in ("form_type", "taxpayer_name", "taxpayer_id", "field_locations")):
+        return True
+    return False
+
+
+def tax_form_class_from_data(data: Any) -> str:
+    if not isinstance(data, dict):
+        return ""
+    candidates = [
+        data.get("form_type"),
+        data.get("label"),
+        data.get("class"),
+    ]
+    ground_truth = data.get("ground_truth")
+    if isinstance(ground_truth, dict):
+        gt_parse = ground_truth.get("gt_parse")
+        if isinstance(gt_parse, dict):
+            candidates.extend([gt_parse.get("class"), gt_parse.get("form_type")])
+        candidates.extend([ground_truth.get("class"), ground_truth.get("form_type")])
+    for candidate in candidates:
+        text = str(candidate or "").strip()
+        if text:
+            return text
+    return ""
+
+
+def looks_like_tax_form_filename(filename: str) -> bool:
+    lowered = filename.lower()
+    return any(
+        token in lowered
+        for token in (
+            "tax_form",
+            "tax-form",
+            "w2",
+            "w-2",
+            "1099",
+            "sch_",
+            "schedule",
+            "form_",
+            "irs",
+        )
+    )
+
+
 def classify_document(filename: str, text: str, data: Any = None) -> str:
     haystack = f"{filename}\n{text}".lower()
     if isinstance(data, dict) and ("portfolio" in data or "holdings" in data):
         return "portfolio"
+    if is_tax_form_answer_data(data):
+        return "tax_form_answer_file"
+    if Path(filename).suffix.lower() in {".png", ".jpg", ".jpeg", ".pdf"} and looks_like_tax_form_filename(filename):
+        return "tax_form_image"
     if any(token in haystack for token in ("form w-2", "wage and tax statement")):
         return "w2"
     if "1099-int" in haystack or "interest income" in haystack:
@@ -364,6 +420,32 @@ def extract_named_amount(text: str, patterns: list[str]) -> float:
             if amount is not None:
                 return amount
     return 0.0
+
+
+def structured_values_from_data(data: Any, *, limit: int = 24) -> list[dict[str, str]]:
+    values: list[dict[str, str]] = []
+
+    def add(prefix: str, value: Any) -> None:
+        if len(values) >= limit:
+            return
+        if isinstance(value, dict):
+            for key, item in value.items():
+                add(f"{prefix}.{key}" if prefix else str(key), item)
+        elif isinstance(value, list):
+            if value and all(not isinstance(item, (dict, list)) for item in value[:5]):
+                values.append({"field": prefix, "value": ", ".join(str(item) for item in value[:5])[:180]})
+            else:
+                for index, item in enumerate(value[:3]):
+                    add(f"{prefix}[{index}]", item)
+        elif value not in (None, "") and prefix:
+            values.append({"field": prefix, "value": str(value)[:180]})
+
+    add("", data)
+    return values[:limit]
+
+
+def tax_form_stem(source_ref: str) -> str:
+    return Path(str(source_ref)).stem
 
 
 def load_state(run_dir: Path) -> dict[str, Any]:
@@ -564,7 +646,11 @@ def step_cash_flow_normalizer(ctx: dict[str, Any]) -> dict[str, Any]:
 
 def step_tax_document_router(ctx: dict[str, Any]) -> dict[str, Any]:
     docs = ctx["state"]["workflow"]["financial_document_reader"]["documents"]
-    tax_docs = [doc for doc in docs if doc["kind"] in {"w2", "1099_int", "1099_r", "investment_tax_document"}]
+    tax_docs = [
+        doc
+        for doc in docs
+        if doc["kind"] in {"w2", "1099_int", "1099_r", "investment_tax_document", "tax_form_image", "tax_form_answer_file"}
+    ]
     groups: dict[str, list[dict[str, Any]]] = {}
     for doc in tax_docs:
         groups.setdefault(doc["kind"], []).append(
@@ -589,8 +675,113 @@ def step_tax_document_router(ctx: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def step_tax_form_ocr_capturer(ctx: dict[str, Any]) -> dict[str, Any]:
+    docs = ctx["state"]["workflow"]["financial_document_reader"]["documents"]
+    label_docs = {
+        tax_form_stem(doc["source_ref"]): doc
+        for doc in docs
+        if doc.get("kind") == "tax_form_answer_file" and isinstance(doc.get("data"), dict)
+    }
+    image_docs = []
+    seen_images: set[str] = set()
+    for doc in docs:
+        suffix = str(doc.get("suffix") or "").lower()
+        stem = tax_form_stem(doc["source_ref"])
+        if doc.get("kind") == "tax_form_image" or (suffix in {".png", ".jpg", ".jpeg", ".pdf"} and stem in label_docs):
+            if doc["source_ref"] not in seen_images:
+                image_docs.append(doc)
+                seen_images.add(doc["source_ref"])
+
+    forms: list[dict[str, Any]] = []
+    warnings: list[str] = []
+    matched_label_stems: set[str] = set()
+    for image in image_docs:
+        stem = tax_form_stem(image["source_ref"])
+        label_doc = label_docs.get(stem)
+        label_data = label_doc.get("data") if label_doc else {}
+        form_type = tax_form_class_from_data(label_data) or "tax_form"
+        captured_fields = structured_values_from_data(label_data, limit=24) if label_doc else []
+        if form_type and not any(item.get("field") == "form_type" for item in captured_fields):
+            captured_fields.insert(0, {"field": "form_type", "value": form_type})
+        image_warnings = list(image.get("warnings") or [])
+        if label_doc:
+            matched_label_stems.add(stem)
+            validation_status = "matched_companion_answer_file"
+            extraction_method = "image_metadata_plus_companion_answer_file"
+        else:
+            validation_status = "needs_manual_ocr_or_answer_file"
+            extraction_method = "image_metadata_only"
+            image_warnings.append("missing_companion_answer_file")
+        field_locations = [
+            {
+                "field": item.get("field"),
+                "source_ref": image["source_ref"],
+                "answer_file": label_doc["source_ref"] if label_doc else None,
+                "location": "full_page_or_companion_label",
+                "page": 1,
+            }
+            for item in captured_fields
+        ]
+        warnings.extend(image_warnings)
+        forms.append(
+            {
+                "source_ref": image["source_ref"],
+                "answer_file": label_doc["source_ref"] if label_doc else None,
+                "form_type": form_type,
+                "ocr_required": True,
+                "extraction_method": extraction_method,
+                "captured_fields": captured_fields,
+                "field_locations": field_locations,
+                "validation_status": validation_status,
+                "confidence": 0.82 if label_doc else 0.48,
+                "warnings": image_warnings,
+            }
+        )
+
+    for stem, label_doc in label_docs.items():
+        if stem in matched_label_stems:
+            continue
+        label_data = label_doc.get("data") or {}
+        form_type = tax_form_class_from_data(label_data) or "tax_form"
+        captured_fields = structured_values_from_data(label_data, limit=24)
+        if form_type and not any(item.get("field") == "form_type" for item in captured_fields):
+            captured_fields.insert(0, {"field": "form_type", "value": form_type})
+        warnings.append("answer_file_without_matching_source_image")
+        forms.append(
+            {
+                "source_ref": label_doc["source_ref"],
+                "answer_file": label_doc["source_ref"],
+                "form_type": form_type,
+                "ocr_required": False,
+                "extraction_method": "companion_answer_file_only",
+                "captured_fields": captured_fields,
+                "field_locations": [],
+                "validation_status": "needs_source_image_review",
+                "confidence": 0.62,
+                "warnings": ["answer_file_without_matching_source_image"],
+            }
+        )
+
+    review_required = [
+        form["source_ref"]
+        for form in forms
+        if form["validation_status"] != "matched_companion_answer_file" or form.get("warnings")
+    ]
+    return {
+        "tax_form_count": len(forms),
+        "answer_file_count": len(label_docs),
+        "ocr_required_count": len([form for form in forms if form.get("ocr_required")]),
+        "forms": forms,
+        "review_required_sources": review_required,
+        "warnings": sorted(set(warnings)),
+        "review_only": True,
+        "recommended_action": "review_captured_tax_form_fields_against_source_images_before_tax_use",
+    }
+
+
 def step_tax_workpaper_preparer(ctx: dict[str, Any]) -> dict[str, Any]:
     router = ctx["state"]["workflow"]["tax_document_router"]
+    tax_capture = ctx["state"]["workflow"]["tax_form_ocr_capturer"]
     docs = ctx["state"]["workflow"]["financial_document_reader"]["documents"]
     wages = 0.0
     withholding = 0.0
@@ -617,6 +808,8 @@ def step_tax_workpaper_preparer(ctx: dict[str, Any]) -> dict[str, Any]:
         {"draft_income": draft_income, "missing": router.get("missing_recommended_forms")},
     )
     blockers = list(router.get("missing_recommended_forms") or [])
+    if tax_capture.get("review_required_sources"):
+        blockers.append("Tax form OCR capture requires source-image review")
     if draft_income <= 0:
         blockers.append("No taxable-income source values detected")
     return {
@@ -633,6 +826,11 @@ def step_tax_workpaper_preparer(ctx: dict[str, Any]) -> dict[str, Any]:
             "required": True,
             "blockers": blockers,
             "review_only": True
+        },
+        "tax_form_ocr_capture": {
+            "tax_form_count": tax_capture.get("tax_form_count", 0),
+            "answer_file_count": tax_capture.get("answer_file_count", 0),
+            "review_required_sources": tax_capture.get("review_required_sources", []),
         },
         "actor_finding": findings,
         "warnings": ["draft_tax_packet_not_ready_to_file"],
@@ -781,6 +979,8 @@ def step_public_finance_researcher(ctx: dict[str, Any]) -> dict[str, Any]:
     topics = ["budget and cash-flow review", "bank account fee review"]
     if tax.get("manager_review", {}).get("blockers"):
         topics.append("tax records and missing form review")
+    if ctx["state"]["workflow"]["tax_form_ocr_capturer"].get("tax_form_count"):
+        topics.append("tax form OCR field validation review")
     if portfolio.get("policy_violations"):
         topics.append("portfolio concentration and risk tolerance review")
     sources = [
@@ -807,6 +1007,7 @@ def step_advisor_evidence_reconciler(ctx: dict[str, Any]) -> dict[str, Any]:
         "bank_statement_extractor",
         "cash_flow_normalizer",
         "tax_document_router",
+        "tax_form_ocr_capturer",
         "tax_workpaper_preparer",
         "portfolio_context_loader",
         "portfolio_market_data_loader",
@@ -836,6 +1037,14 @@ def step_advisor_evidence_reconciler(ctx: dict[str, Any]) -> dict[str, Any]:
             ],
         },
         {
+            "domain": "tax_form_ocr_capture",
+            "summary": f"{workflow['tax_form_ocr_capturer']['tax_form_count']} tax form image/answer packet(s) captured for review.",
+            "source_refs": [
+                form["source_ref"]
+                for form in workflow["tax_form_ocr_capturer"].get("forms", [])
+            ],
+        },
+        {
             "domain": "portfolio",
             "summary": f"{workflow['portfolio_context_loader']['holding_count']} holding(s) reviewed.",
             "source_refs": workflow["portfolio_market_data_loader"].get("source_refs", []),
@@ -861,6 +1070,8 @@ def step_advisor_review_auditor(ctx: dict[str, Any]) -> dict[str, Any]:
         issues.append("missing_evidence_requires_review")
     if workflow["tax_workpaper_preparer"].get("manager_review", {}).get("blockers"):
         issues.append("tax_manager_review_blockers_present")
+    if workflow["tax_form_ocr_capturer"].get("review_required_sources"):
+        issues.append("tax_form_ocr_capture_review_required")
     if workflow["portfolio_risk_engine"].get("policy_violations"):
         issues.append("portfolio_policy_violations_present")
     finding = actor_review(
@@ -884,6 +1095,7 @@ def build_final_artifact(ctx: dict[str, Any]) -> dict[str, Any]:
     workflow = ctx["state"]["workflow"]
     cash = workflow["cash_flow_normalizer"]
     tax = workflow["tax_workpaper_preparer"]
+    tax_capture = workflow["tax_form_ocr_capturer"]
     portfolio = workflow["portfolio_risk_engine"]
     reconciler = workflow["advisor_evidence_reconciler"]
     auditor = workflow["advisor_review_auditor"]
@@ -891,6 +1103,7 @@ def build_final_artifact(ctx: dict[str, Any]) -> dict[str, Any]:
     summary_parts = [
         f"Bank/cash-flow review detected net cash flow of {money(cash.get('net_cash_flow'))}.",
         f"Draft tax workpapers show review income of {money(tax.get('workpapers', {}).get('draft_income_total'))}.",
+        f"Tax form OCR capture found {tax_capture.get('tax_form_count', 0)} form image/answer packet(s) for field review.",
         f"Portfolio risk review estimated total value at {money(portfolio.get('total_value'))} with largest position weight {portfolio.get('largest_position_weight_pct')}%.",
     ]
     warnings = sorted(set(reconciler.get("warnings") or []) | set(auditor.get("warnings") or []))
@@ -923,6 +1136,7 @@ def build_final_artifact(ctx: dict[str, Any]) -> dict[str, Any]:
         "bank_statement_extraction": workflow["bank_statement_extractor"],
         "household_finance_summary": cash,
         "tax_review_packet": tax,
+        "tax_form_ocr_capture": tax_capture,
         "portfolio_risk_review": portfolio,
         "auditor_review": auditor,
         "model_profiles_used": ctx["state"].get("model_profiles_used", {}),
@@ -936,6 +1150,7 @@ def markdown_report(final_artifact: dict[str, Any]) -> str:
     bank = final_artifact["bank_statement_extraction"]
     cash = final_artifact["household_finance_summary"]
     tax = final_artifact["tax_review_packet"]
+    tax_capture = final_artifact["tax_form_ocr_capture"]
     portfolio = final_artifact["portfolio_risk_review"]
     lines = [
         "# Financial Advisor Report",
@@ -960,6 +1175,13 @@ def markdown_report(final_artifact: dict[str, Any]) -> str:
         f"- Draft income total: {money(tax.get('workpapers', {}).get('draft_income_total'))}",
         f"- Federal withholding: {money(tax.get('workpapers', {}).get('federal_withholding'))}",
         f"- Manager blockers: {', '.join(tax.get('manager_review', {}).get('blockers') or ['none'])}",
+        "",
+        "## Tax Form OCR Capture",
+        "",
+        f"- Tax form packets: {tax_capture.get('tax_form_count')}",
+        f"- Answer files: {tax_capture.get('answer_file_count')}",
+        f"- OCR-required sources: {tax_capture.get('ocr_required_count')}",
+        f"- Review-required sources: {', '.join(tax_capture.get('review_required_sources') or ['none'])}",
         "",
         "## Portfolio Risk",
         "",
@@ -994,6 +1216,7 @@ def step_financial_advice_reporter(ctx: dict[str, Any]) -> dict[str, Any]:
         "bank_statement_extraction.json": final_artifact["bank_statement_extraction"],
         "household_finance_summary.json": final_artifact["household_finance_summary"],
         "tax_review_packet.json": final_artifact["tax_review_packet"],
+        "tax_form_ocr_capture.json": final_artifact["tax_form_ocr_capture"],
         "portfolio_risk_review.json": final_artifact["portfolio_risk_review"],
         "action_ledger.json": {
             "review_only": True,
@@ -1033,6 +1256,7 @@ STEP_HANDLERS = {
     "bank_statement_extractor": step_bank_statement_extractor,
     "cash_flow_normalizer": step_cash_flow_normalizer,
     "tax_document_router": step_tax_document_router,
+    "tax_form_ocr_capturer": step_tax_form_ocr_capturer,
     "tax_workpaper_preparer": step_tax_workpaper_preparer,
     "portfolio_context_loader": step_portfolio_context_loader,
     "portfolio_market_data_loader": step_portfolio_market_data_loader,

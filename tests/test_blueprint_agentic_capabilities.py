@@ -10,16 +10,10 @@ RAG_BLUEPRINTS = {
     "drug_discovery_research_assistant",
     "financial_advisor",
     "generic_customer_service_voice_coworker",
-    "invoice_bill_extraction_assistant",
-    "legal_contract_clause_review_assistant",
     "medical_deid_record_intake_assistant",
-    "personal_financial_advisor",
     "personal_legal_assistant",
-    "personal_income_tax_expert",
-    "portfolio_risk_review_assistant",
     "property_deal_research_assistant",
     "safety_video_analyser",
-    "tax_form_ocr_capture_assistant",
     "video_watch_assistant",
 }
 

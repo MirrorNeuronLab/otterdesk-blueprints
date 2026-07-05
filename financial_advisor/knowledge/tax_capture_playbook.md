@@ -1,6 +1,6 @@
 # Tax Form OCR Capture Playbook
 
-Use this guidance as local retrieval context for structured tax-form capture review.
+Use this guidance as local retrieval context for structured tax-form capture inside the unified financial advisor workflow.
 
 ## Capture Priorities
 
@@ -11,7 +11,7 @@ Use this guidance as local retrieval context for structured tax-form capture rev
 ## Validation Checks
 
 - Compare totals, withholding, payer ids, taxpayer ids, and year fields when labels make the relationship clear.
-- Flag corrected forms, multi-page forms, partial crops, handwritten values, and classification uncertainty.
+- Flag corrected forms, multi-page forms, partial crops, handwritten values, classification uncertainty, and missing companion answer files.
 - Keep outputs review-only until a tax professional or taxpayer verifies them.
 
 ## Tool Boundaries

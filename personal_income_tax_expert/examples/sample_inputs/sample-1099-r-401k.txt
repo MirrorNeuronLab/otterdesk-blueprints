@@ -1,5 +1,0 @@
-Form 1099-R Distributions From Pensions, Annuities, Retirement or Profit-Sharing Plans, IRAs, Insurance Contracts.
-Recipient: Demo Taxpayer.
-Gross distribution: 2400.00.
-Taxable amount: 2400.00.
-Box 4 federal income tax withheld: 240.00.

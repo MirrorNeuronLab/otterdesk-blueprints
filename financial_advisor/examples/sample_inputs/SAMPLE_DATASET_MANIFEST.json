@@ -3,13 +3,26 @@
     "name": "Synthetic financial advisor sample packet",
     "provider": "OtterDesk blueprint fixtures",
     "license": "Synthetic demo data",
-    "availability_note": "Bundled sample documents are synthetic and intended only for local blueprint validation."
+    "availability_note": "Bundled sample documents are synthetic and intended only for local blueprint validation. Tax-form OCR sample image/label pairs are copied from the hyturing/US_tax_forms_donut fixture derived from NIST-SD2."
+  },
+  "tax_form_ocr_source": {
+    "name": "US Tax Forms Donut Dataset derived from NIST-SD2",
+    "url": "https://huggingface.co/datasets/hyturing/US_tax_forms_donut",
+    "license": "MIT according to the Hugging Face dataset card",
+    "official_reference_sources": [
+      "https://www.nist.gov/srd/nist-special-database-2",
+      "https://www.nist.gov/srd/nist-special-database-6"
+    ]
   },
   "files": [
     "community_bank_statement.txt",
     "sample-w2.txt",
     "sample-1099-int.txt",
     "sample-1099-r-401k.txt",
-    "sample_portfolio.json"
+    "sample_portfolio.json",
+    "us_tax_form_sample_0001_sch_e_2.json",
+    "us_tax_form_sample_0001_sch_e_2.png",
+    "us_tax_form_sample_0002_sch_e_2.json",
+    "us_tax_form_sample_0002_sch_e_2.png"
   ]
 }
