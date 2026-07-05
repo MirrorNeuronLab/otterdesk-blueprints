@@ -160,12 +160,7 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
     assert config["python_dependencies"]["index_url"] == "https://us-central1-python.pkg.dev/mirrorneuron-public-packages/agent-skills/simple/"
     assert config["python_dependencies"]["extra_index_url"] == "https://pypi.org/simple"
     assert config["python_dependencies"]["packages"] == [
-        "mirrorneuron-blueprint-support-skill",
         "mirrorneuron-membrane-python-sdk",
-        "mirrorneuron-llm-ocr-skill",
-        "mirrorneuron-rag-skill",
-        "mirrorneuron-w3m-browser-skill",
-        "mirrorneuron-web-browser-skill",
     ]
     assert config["local_inputs"] == {
         "folders": [
@@ -369,16 +364,14 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
     dockerfile = (ROOT / "vc_assistant" / "payloads" / "document_workflow" / "docker_worker" / "Dockerfile").read_text(
         encoding="utf-8"
     )
-    docker_worker_requirements = (
-        ROOT / "vc_assistant" / "payloads" / "document_workflow" / "docker_worker" / "requirements.txt"
-    ).read_text(encoding="utf-8")
     assert "w3m" in dockerfile
-    assert "mirrorneuron-w3m-browser-skill" in docker_worker_requirements
     assert "requirements.txt" in dockerfile
+    assert "mirrorneuron: skill-dependencies" in dockerfile
     assert "mn_context_engine_sdk" in dockerfile
-    assert "mirrorneuron-membrane-python-sdk" in (
+    assert "MilvusClient" in dockerfile
+    assert not (
         ROOT / "vc_assistant" / "payloads" / "document_workflow" / "docker_worker" / "requirements.txt"
-    ).read_text(encoding="utf-8")
+    ).exists()
     required_files = manifest["metadata"]["configuration_contract"]["required_files"]
     optional_files = manifest["metadata"]["configuration_contract"]["optional_files"]
     assert "payloads/examples/sample_inputs/" in required_files
@@ -692,12 +685,7 @@ def test_vc_assistant_runtime_requirements_install_skills_with_pip():
     assert requirements == [
         "--index-url https://us-central1-python.pkg.dev/mirrorneuron-public-packages/agent-skills/simple/",
         "--extra-index-url https://pypi.org/simple",
-        "mirrorneuron-blueprint-support-skill==1.2.7",
         "mirrorneuron-membrane-python-sdk",
-        "mirrorneuron-llm-ocr-skill==1.2.7",
-        "mirrorneuron-rag-skill==1.2.14",
-        "mirrorneuron-w3m-browser-skill==1.2.7",
-        "mirrorneuron-web-browser-skill==1.2.7",
     ]
 
 

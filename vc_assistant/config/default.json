@@ -1192,12 +1192,7 @@
     "index_url": "https://us-central1-python.pkg.dev/mirrorneuron-public-packages/agent-skills/simple/",
     "extra_index_url": "https://pypi.org/simple",
     "packages": [
-      "mirrorneuron-blueprint-support-skill",
-      "mirrorneuron-membrane-python-sdk",
-      "mirrorneuron-llm-ocr-skill",
-      "mirrorneuron-rag-skill",
-      "mirrorneuron-w3m-browser-skill",
-      "mirrorneuron-web-browser-skill"
+      "mirrorneuron-membrane-python-sdk"
     ]
   },
   "skill_runtime": {

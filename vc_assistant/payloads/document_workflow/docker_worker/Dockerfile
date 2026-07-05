@@ -10,13 +10,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY requirements.txt /tmp/mn-skill-runtime/requirements.txt
 
-# __mn_skill_dependencies are resolved by the MirrorNeuron DockerWorker runtime.
-# Dev runs add local mn-skills source paths; prod runs install the same skills from GAR.
+# mirrorneuron: skill-dependencies
+# DockerWorker prepare copies local dev skill sources here when needed.
+# mirrorneuron: skill-dependencies-end
 RUN if [ -s /tmp/mn-skill-runtime/requirements.txt ]; then \
       python3 -m pip install -q --break-system-packages --no-cache-dir -r /tmp/mn-skill-runtime/requirements.txt; \
     fi
 
-RUN python3 -c 'from mn_context_engine_sdk import MemoryItem, WorkingMemory'
+RUN python3 -c 'from mn_context_engine_sdk import MemoryItem, WorkingMemory' \
+    && python3 -c 'from pymilvus import MilvusClient'
 
 WORKDIR /mn/job/document_workflow
 ENTRYPOINT []
