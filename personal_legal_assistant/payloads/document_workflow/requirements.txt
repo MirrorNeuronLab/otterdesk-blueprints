@@ -1,0 +1,2 @@
+mirrorneuron-blueprint-support-skill==1.2.7
+mirrorneuron-llm-ocr-skill==1.2.7

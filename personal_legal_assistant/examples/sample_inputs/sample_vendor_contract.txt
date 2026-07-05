@@ -1,0 +1,17 @@
+Vendor Services Agreement
+
+This Vendor Services Agreement is made for sample review purposes only.
+
+Governing Law. This agreement is governed by the laws of New York, without regard to conflicts of law principles.
+
+Assignment. Neither party may assign this agreement without prior written consent, except to an affiliate or successor in connection with a merger or sale of substantially all assets.
+
+Indemnity. Vendor will indemnify the customer for third-party claims arising from vendor's gross negligence, willful misconduct, or infringement of intellectual property rights.
+
+Termination. Either party may terminate for material breach if the breach remains uncured for thirty days after written notice.
+
+Limitation of Liability. Except for confidentiality, payment obligations, indemnity, or willful misconduct, aggregate liability is limited to fees paid in the twelve months before the claim.
+
+Renewal. The agreement renews annually unless either party gives sixty days' written notice of non-renewal.
+
+Audit Rights. Customer may audit vendor records relevant to invoiced fees once per calendar year with reasonable notice.

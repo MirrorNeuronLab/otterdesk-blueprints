@@ -1,0 +1,49 @@
+{
+  "portfolio": {
+    "base_currency": "USD",
+    "cash": 50000,
+    "holdings": [
+      {
+        "symbol": "SPY",
+        "quantity": 180,
+        "asset_class": "equity",
+        "liquidity": "daily"
+      },
+      {
+        "symbol": "AGG",
+        "quantity": 300,
+        "asset_class": "rates",
+        "liquidity": "daily"
+      },
+      {
+        "symbol": "GLD",
+        "quantity": 80,
+        "asset_class": "commodity",
+        "liquidity": "daily"
+      }
+    ]
+  },
+  "benchmark_portfolio": {
+    "SPY": 0.6,
+    "AGG": 0.3,
+    "GLD": 0.1
+  },
+  "risk_policy": {
+    "max_single_name_weight_pct": 45,
+    "max_var_pct": 8,
+    "max_cvar_pct": 11,
+    "max_drawdown_pct": 15,
+    "min_cash_pct": 5,
+    "max_turnover_pct": 15
+  },
+  "decision_constraints": {
+    "allowed_actions": [
+      "no_action",
+      "raise_cash",
+      "reduce_concentration",
+      "reduce_equity_beta"
+    ],
+    "restricted_symbols": [],
+    "review_only": true
+  }
+}

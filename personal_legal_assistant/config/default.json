@@ -1,0 +1,684 @@
+{
+  "standard_version": "1.0",
+  "mode": "document_workflow",
+  "identity": {
+    "blueprint_id": "personal_legal_assistant",
+    "name": "Personal Legal Assistant"
+  },
+  "metadata": {
+    "blueprint_id": "personal_legal_assistant",
+    "blueprint_revision": "v1",
+    "category": "Legal",
+    "name": "Personal Legal Assistant",
+    "description": "A personal legal document co-worker for invoice, bill, and contract review. Put invoices, bills, contracts, clause notes, labels, or supporting files in the input folder; it extracts payable fields, maps contract clauses, compares playbook expectations, flags review issues, and writes a source-grounded review packet to the output folder.",
+    "problem_solved": "Personal and small-business legal work often mixes payable documents with contracts and obligations; users need one local review assistant that keeps invoice facts, contract clauses, evidence, and approval boundaries together.",
+    "target_users": "Individuals, founders, small-business operators, legal operations teams, in-house reviewers, and attorneys preparing first-pass document packets.",
+    "customizable_for": "Personal legal intake, small-business invoice review, vendor contract review, CLM intake, payable approval support, and attorney review preparation.",
+    "agent_role": "Local personal legal document assistant that extracts invoice and contract evidence while keeping conclusions review-only."
+  },
+  "inputs": {
+    "adapter": "mock",
+    "description": "Default sample inputs include one invoice/bill JSON fixture and one contract text fixture.",
+    "payload": {
+      "document_folder": "personal_legal_assistant/examples/sample_inputs",
+      "input_folder": "personal_legal_assistant/examples/sample_inputs",
+      "output_folder": "~/Downloads/personal_legal_assistant",
+      "field_profile": {
+        "invoice_fields": [
+          "supplier_name",
+          "customer_name",
+          "invoice_id",
+          "tax_id",
+          "due_date",
+          "total_amount",
+          "line_items",
+          "consumption_fields",
+          "billing_period"
+        ],
+        "clause_fields": [
+          "governing_law",
+          "change_of_control",
+          "assignment",
+          "indemnity",
+          "termination",
+          "audit_rights",
+          "renewal",
+          "exclusivity",
+          "liability"
+        ]
+      },
+      "matter_profile": {
+        "review_context": "personal_or_small_business_document_review",
+        "jurisdiction": "not_specified",
+        "review_only": true
+      }
+    }
+  },
+  "outputs": {
+    "adapter": "local_run_store",
+    "folder_path": "~/Downloads/personal_legal_assistant",
+    "run_root": "~/.mn/runs",
+    "write_run_store": true,
+    "write_markdown_report": true,
+    "artifact_contract": "Review-only invoice extraction, contract clause review, issue register, action ledger, quality summary, and integrated Markdown report."
+  },
+  "resources": {
+    "enabled": true,
+    "gpu_enabled": "auto",
+    "sample_interval_seconds": 10,
+    "gpu_sample_interval_seconds": 60,
+    "history_window_hours": 24,
+    "raw_retention_hours": 48,
+    "rollup_bucket_seconds": 3600
+  },
+  "human_control": {
+    "enabled": true,
+    "mode": "approval_required",
+    "default_action": "reject",
+    "allowed_decisions": [
+      "approve",
+      "revise",
+      "reject"
+    ],
+    "blocked_actions": [
+      "send_legal_advice",
+      "approve_or_sign_contract",
+      "redline_contract_as_final",
+      "post_invoice_to_erp",
+      "submit_payment_instruction",
+      "email_vendor_or_counterparty_without_review",
+      "share_privileged_or_private_documents_externally"
+    ],
+    "reason": "Human and attorney review is required before relying on legal conclusions, approving payments, signing contracts, contacting counterparties, or sharing private/privileged documents.",
+    "events": [
+      "human_notice",
+      "human_input_requested",
+      "human_input_received",
+      "human_input_timeout",
+      "human_decision_applied"
+    ],
+    "request_event": "human_input_requested",
+    "response_event": "human_input_received",
+    "timeout_event": "human_input_timeout",
+    "decision_event": "human_decision_applied",
+    "timeout_seconds": 3600
+  },
+  "privacy": {
+    "default_classification": "confidential",
+    "rules": {
+      "public": {
+        "log": true,
+        "send_to_llm": true,
+        "send_to_output_skills": true
+      },
+      "internal": {
+        "log": "metadata_only",
+        "send_to_llm": true,
+        "send_to_output_skills": true
+      },
+      "confidential": {
+        "log": "redacted",
+        "send_to_llm": "allowed_configs_only",
+        "send_to_output_skills": "approved_destinations_only"
+      },
+      "privileged": {
+        "log": "redacted",
+        "send_to_llm": false,
+        "send_to_output_skills": "approved_destinations_only"
+      },
+      "regulated": {
+        "log": "redacted",
+        "send_to_llm": false,
+        "send_to_output_skills": "approved_destinations_only"
+      }
+    }
+  },
+  "llm": {
+    "enabled": true,
+    "mode": "live",
+    "mock_mode": "fake",
+    "model": "gemma4:e2b",
+    "runtime_model": "gemma4:e2b",
+    "fallback_model": "gemma4:e2b",
+    "backend": "llama.cpp",
+    "provider": "docker_model_runner",
+    "default_config": "primary",
+    "quick_test_uses_fake": true,
+    "strict_json": false,
+    "prefer_shared_skill": true,
+    "require_live": false,
+    "preferred_model": "nemotron3",
+    "configs": {
+      "primary": {
+        "provider": "docker_model_runner",
+        "model": "gemma4:e2b",
+        "runtime_model": "gemma4:e2b",
+        "fallback_model": "gemma4:e2b",
+        "backend": "llama.cpp",
+        "api_base": "auto",
+        "timeout_seconds": 60,
+        "max_tokens": 1800,
+        "num_retries": 2,
+        "retry_backoff_seconds": 1.0,
+        "mock_mode": "fake",
+        "mode": "live",
+        "required": true
+      },
+      "large": {
+        "provider": "docker_model_runner",
+        "model": "nemotron3",
+        "runtime_model": "nemotron3",
+        "backend": "llama.cpp",
+        "timeout_seconds": 60,
+        "max_tokens": 1800,
+        "num_retries": 1,
+        "retry_backoff_seconds": 1.0,
+        "strict_json": true,
+        "require_live": true,
+        "context_size": 8192,
+        "quantization": "MOSTLY_Q4_K_M",
+        "parameter_count_b": 31.58,
+        "required": false,
+        "hardware": {
+          "gpu": {
+            "min_count": 1,
+            "min_memory_mb": 49152,
+            "memory_operator": ">="
+          }
+        }
+      }
+    },
+    "small_model_profile": {
+      "provider": "docker_model_runner",
+      "model": "gemma4:e2b",
+      "runtime_model": "gemma4:e2b",
+      "fallback_model": "gemma4:e2b",
+      "backend": "llama.cpp",
+      "api_base": "auto",
+      "timeout_seconds": 60,
+      "max_tokens": 1800,
+      "num_retries": 2,
+      "retry_backoff_seconds": 1.0,
+      "strict_json": false,
+      "require_live": false
+    },
+    "live_model_profile": {
+      "provider": "docker_model_runner",
+      "model": "gemma4:e2b",
+      "runtime_model": "gemma4:e2b",
+      "fallback_model": "gemma4:e2b",
+      "backend": "llama.cpp",
+      "api_base": "auto",
+      "timeout_seconds": 60,
+      "max_tokens": 1800,
+      "num_retries": 2,
+      "retry_backoff_seconds": 1.0,
+      "strict_json": false,
+      "require_live": false
+    },
+    "large_model_profile": {
+      "provider": "docker_model_runner",
+      "model": "nemotron3",
+      "runtime_model": "nemotron3",
+      "backend": "llama.cpp",
+      "timeout_seconds": 60,
+      "max_tokens": 1800,
+      "num_retries": 1,
+      "retry_backoff_seconds": 1.0,
+      "strict_json": true,
+      "require_live": true,
+      "context_size": 8192,
+      "quantization": "MOSTLY_Q4_K_M",
+      "parameter_count_b": 31.58,
+      "hardware": {
+        "gpu": {
+          "min_count": 1,
+          "min_memory_mb": 49152,
+          "memory_operator": ">="
+        }
+      }
+    },
+    "agents": {
+      "legal_folder_watcher": {
+        "llm_config": "primary",
+        "role": "Legal Folder Watcher",
+        "responsibilities": [
+          "Resolve the local legal document folder.",
+          "Fingerprint invoice, bill, contract, and support files.",
+          "Preserve source paths without exposing private content externally."
+        ]
+      },
+      "legal_document_reader": {
+        "llm_config": "primary",
+        "role": "Legal Document Reader",
+        "responsibilities": [
+          "Read local text and structured files.",
+          "Classify invoice, bill, contract, clause, and supporting documents.",
+          "Flag OCR-required documents for review."
+        ]
+      },
+      "invoice_bill_extractor": {
+        "llm_config": "primary",
+        "role": "Invoice And Bill Extractor",
+        "responsibilities": [
+          "Extract payable fields from invoices and bills.",
+          "Tie supplier, date, total, and line-item values to source evidence.",
+          "Flag missing or ambiguous payable fields."
+        ]
+      },
+      "payable_field_validator": {
+        "llm_config": "primary",
+        "role": "Payable Field Validator",
+        "responsibilities": [
+          "Check extracted invoice fields for completeness.",
+          "Separate review-only values from downstream payment actions.",
+          "Flag ERP and payment blockers."
+        ]
+      },
+      "contract_clause_extractor": {
+        "llm_config": "primary",
+        "role": "Contract Clause Extractor",
+        "responsibilities": [
+          "Extract candidate clauses from contract text.",
+          "Map clauses to the configured taxonomy.",
+          "Preserve snippets and source references."
+        ]
+      },
+      "contract_playbook_comparator": {
+        "llm_config": "large",
+        "role": "Contract Playbook Comparator",
+        "responsibilities": [
+          "Compare extracted clauses to playbook expectations.",
+          "Flag missing high-value clauses and deviations.",
+          "Avoid giving legal advice."
+        ]
+      },
+      "legal_evidence_reconciler": {
+        "llm_config": "primary",
+        "role": "Legal Evidence Reconciler",
+        "responsibilities": [
+          "Merge invoice and contract evidence.",
+          "Create a unified issue register.",
+          "Preserve confidence, warnings, and review owners."
+        ]
+      },
+      "legal_review_auditor": {
+        "llm_config": "large",
+        "role": "Legal Review Auditor",
+        "responsibilities": [
+          "Audit review-only boundaries.",
+          "Check blocked actions remain blocked.",
+          "Prepare attorney and human-review caveats."
+        ]
+      },
+      "personal_legal_reporter": {
+        "llm_config": "large",
+        "role": "Personal Legal Reporter",
+        "responsibilities": [
+          "Write the integrated personal legal review packet.",
+          "Summarize invoice, bill, contract, and issue-register sections.",
+          "Keep all next steps source-grounded and review-only."
+        ]
+      }
+    },
+    "responsibilities": [
+      "Keep legal and payable outputs review-only and source-grounded.",
+      "Use specialist agents for document intake, extraction, playbook comparison, audit, and report writing.",
+      "Require human and attorney approval before legal advice, payment, signature, or external sharing."
+    ]
+  },
+  "knowledge_rag": {
+    "enabled": true,
+    "backend": "redis_vector_rag",
+    "required": false,
+    "knowledge_dir": "knowledge",
+    "purpose": "Retrieve local personal legal assistant guidance for invoice extraction, contract clause mapping, playbook comparison, privilege/privacy handling, and review-only boundaries.",
+    "retrieval_targets": [
+      "invoice and bill extraction",
+      "contract clause taxonomy",
+      "playbook comparison",
+      "privilege and privacy review",
+      "payment and legal action blockers"
+    ],
+    "grounding_policy": "Use retrieved local blueprint knowledge to improve actor prompts; do not invent legal conclusions when retrieval is unavailable.",
+    "redis_url": "",
+    "namespace": "",
+    "embedding_provider": "docker_model_runner",
+    "embedding_model": "huggingface.co/jinaai/jina-embeddings-v5-text-small-retrieval:Q4_K_M",
+    "embedding_api_base": "http://host.docker.internal:12434/engines/v1",
+    "embedding_query_prefix": "Query: ",
+    "embedding_document_prefix": "Document: ",
+    "embedding_start_command": "",
+    "embedding_healthcheck_enabled": true,
+    "vector_dim": 1024,
+    "index_on_startup": false,
+    "top_k": 5,
+    "max_context_chars": 6000,
+    "chunk_size": 800,
+    "chunk_overlap": 80,
+    "privacy": "index local blueprint knowledge only; do not index private run documents unless a future runtime explicitly opts in"
+  },
+  "agentic_research": {
+    "enabled": true,
+    "agent_ids": [
+      "invoice_bill_extractor",
+      "payable_field_validator",
+      "contract_clause_extractor",
+      "contract_playbook_comparator",
+      "legal_review_auditor",
+      "personal_legal_reporter"
+    ],
+    "max_iterations_per_agent": 1,
+    "max_tool_calls_per_agent": 2,
+    "allowed_tools": [
+      "llm_ocr_extract",
+      "field_extract",
+      "schema_validate",
+      "clause_extract",
+      "taxonomy_map",
+      "knowledge_retrieve",
+      "finish"
+    ],
+    "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run",
+    "default_mode": "bounded_llm_guided_personal_legal_document_review",
+    "note": "Document actors may use OCR and local playbook guidance; uncertain legal or payable values remain review-required."
+  },
+  "input_skills": {
+    "llm_ocr": {
+      "skill": "llm_ocr_skill",
+      "package": "mirrorneuron-llm-ocr-skill",
+      "version": "1.2.7",
+      "optional": true,
+      "purpose": "Optional OCR for image-only invoices, bills, and contract PDFs."
+    }
+  },
+  "output_skills": {},
+  "skill_runtime": {
+    "docker_worker_image": "document_workflow/docker_worker",
+    "network": "mirror-neuron-runtime"
+  },
+  "document_automation": {
+    "fields": {
+      "invoice_fields": [
+        "supplier_name",
+        "customer_name",
+        "invoice_id",
+        "tax_id",
+        "due_date",
+        "total_amount",
+        "line_items",
+        "consumption_fields",
+        "billing_period"
+      ],
+      "clause_fields": [
+        "governing_law",
+        "change_of_control",
+        "assignment",
+        "indemnity",
+        "termination",
+        "audit_rights",
+        "renewal",
+        "exclusivity",
+        "liability"
+      ]
+    },
+    "output_type": "personal_legal_assistant_report",
+    "review_required": true,
+    "recommended_action": "attorney_and_human_review_required_before_legal_payment_or_contract_action"
+  },
+  "interfaces": {
+    "channels": {
+      "artifacts": {
+        "artifacts": [
+          "run.json",
+          "config.json",
+          "inputs.json",
+          "events.jsonl",
+          "result.json",
+          "final_artifact.json"
+        ],
+        "description": "Stable run-store files and domain-specific outputs.",
+        "optional_artifacts": [
+          "action_ledger.json",
+          "artifact_quality.json",
+          "run_health.json",
+          "personal_legal_report.md"
+        ]
+      },
+      "knowledge_rag": {
+        "description": "Optional local blueprint knowledge retrieval used to ground actor prompts and tool planning.",
+        "config": "knowledge_rag",
+        "artifact": "knowledge/",
+        "privacy": "blueprint knowledge only by default"
+      },
+      "agentic_research": {
+        "description": "Bounded LLM-selected or actor-guided tool contract for local legal document work.",
+        "config": "agentic_research"
+      }
+    },
+    "config": [
+      "standard_version",
+      "identity",
+      "mode",
+      "metadata",
+      "inputs",
+      "llm",
+      "outputs",
+      "logging",
+      "resources",
+      "human_control",
+      "privacy",
+      "input_skills",
+      "output_skills",
+      "error_handling",
+      "state",
+      "capabilities",
+      "backpressure",
+      "determinism",
+      "schemas",
+      "budgets",
+      "agent_handoffs",
+      "web_ui",
+      "interfaces",
+      "execution_model",
+      "memory_layer",
+      "document_automation",
+      "knowledge_rag",
+      "agentic_research"
+    ],
+    "config_sections": [
+      "standard_version",
+      "identity",
+      "mode",
+      "metadata",
+      "inputs",
+      "llm",
+      "outputs",
+      "logging",
+      "resources",
+      "human_control",
+      "privacy",
+      "input_skills",
+      "output_skills",
+      "error_handling",
+      "state",
+      "capabilities",
+      "backpressure",
+      "determinism",
+      "schemas",
+      "budgets",
+      "agent_handoffs",
+      "web_ui",
+      "interfaces",
+      "execution_model",
+      "memory_layer",
+      "document_automation",
+      "knowledge_rag",
+      "agentic_research"
+    ],
+    "input_adapters": [
+      "mock",
+      "json",
+      "file",
+      "env_json"
+    ],
+    "output_adapters": [
+      "local_run_store"
+    ]
+  },
+  "logging": {
+    "level": "INFO",
+    "events": [
+      "blueprint_status",
+      "blueprint_phase_started",
+      "blueprint_phase_completed",
+      "blueprint_phase_failed",
+      "artifact_written",
+      "human_notice",
+      "human_input_requested",
+      "human_input_received",
+      "human_input_timeout",
+      "human_decision_applied",
+      "legal_folder_watcher_completed",
+      "legal_document_reader_completed",
+      "invoice_bill_extractor_completed",
+      "payable_field_validator_completed",
+      "contract_clause_extractor_completed",
+      "contract_playbook_comparator_completed",
+      "legal_evidence_reconciler_completed",
+      "legal_review_auditor_completed",
+      "personal_legal_reporter_completed"
+    ]
+  },
+  "schemas": {
+    "artifact_record": "mn.artifact.record.v1",
+    "config": "mn.blueprint.config.v1",
+    "events": "mn.blueprint.events.v1",
+    "final_artifact": "mn.blueprint.final_artifact.v1",
+    "human_control": "mn.blueprint.human_control.v1",
+    "input_skills": "mn.blueprint.input_skills.v1",
+    "inputs": "mn.blueprint.inputs.v1",
+    "logs": "mn.blueprint.logs.v1",
+    "output_skills": "mn.blueprint.output_skills.v1",
+    "resources": "mn.blueprint.resources.v1",
+    "status_contract": "mn.blueprint.status_contract.v1",
+    "web_ui": "mn.blueprint.web_ui.v1"
+  },
+  "budgets": {
+    "max_runtime_seconds": 600,
+    "max_llm_calls": 24,
+    "max_llm_tokens": 24000,
+    "max_disk_mb": 250,
+    "max_connector_reads": 500,
+    "max_connector_writes": 10
+  },
+  "capabilities": {
+    "required": [
+      "filesystem.write"
+    ],
+    "optional": [
+      "llm.call",
+      "knowledge.rag",
+      "llm_ocr.extract"
+    ]
+  },
+  "backpressure": {
+    "max_concurrency": 4,
+    "queue_size": 1000,
+    "max_events_per_second": 10,
+    "drop_policy": "skip_with_error",
+    "llm": {
+      "max_concurrent_calls": 1,
+      "max_calls_per_minute": 30,
+      "min_interval_seconds": 2.0
+    }
+  },
+  "determinism": {
+    "enabled": true,
+    "seed_field": "seed",
+    "replay": {
+      "from_inputs": "inputs.json",
+      "from_events": "events.jsonl",
+      "llm_mode": "mock"
+    }
+  },
+  "execution_model": [
+    "load_metadata",
+    "resolve_config",
+    "load_inputs",
+    "start_run_store",
+    "extract_invoice_bill_fields",
+    "extract_contract_clauses",
+    "compare_playbook",
+    "audit_review_boundaries",
+    "write_final_artifact",
+    "emit_status_events"
+  ],
+  "error_handling": {
+    "default_mode": "stop",
+    "policies": {
+      "llm_call": {
+        "mode": "retry",
+        "max_attempts": 3,
+        "backoff_seconds": 2
+      },
+      "optional_output": {
+        "mode": "skip"
+      },
+      "required_output": {
+        "mode": "stop"
+      }
+    }
+  },
+  "state": {
+    "persist_workflow_state": true,
+    "final_artifact_path": "final_artifact.json"
+  },
+  "agent_handoffs": {},
+  "web_ui": {
+    "enabled": false,
+    "dashboard": {
+      "standard_panels": [
+        "current_status",
+        "recent_events",
+        "pending_human_requests",
+        "output_artifacts",
+        "resource_usage",
+        "errors",
+        "llm_calls",
+        "token_budget",
+        "llm_retries"
+      ]
+    }
+  },
+  "memory_layer": {
+    "enabled": true,
+    "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
+    "conversation_enabled": true,
+    "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
+    "namespace": "personal_legal_assistant_context",
+    "collection": "mn_memory",
+    "sdk_distribution": "mirrorneuron-membrane-python-sdk",
+    "sdk_import_package": "mn_context_engine_sdk",
+    "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
+    "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
+    "context_addr_env": "MN_CONTEXT_ADDR",
+    "default_context_addr": "localhost:50052",
+    "containers": "optional_sidecar",
+    "conversation": {
+      "agent_role": "otterdesk_chat",
+      "include_runtime_events": true,
+      "include_runtime_logs": true,
+      "include_human_events": true,
+      "target_tokens": 2400,
+      "token_budget": 6000,
+      "use_model_compression": false
+    }
+  },
+  "suggested_schedule": {
+    "cron": "0 8 * * 1-5",
+    "cadence": "weekday_daily",
+    "advisory_only": true,
+    "note": "Suggested cadence only; runtime decides the actual schedule."
+  }
+}

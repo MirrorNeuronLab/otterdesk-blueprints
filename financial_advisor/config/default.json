@@ -1,0 +1,894 @@
+{
+  "standard_version": "mn.blueprint.config.v1",
+  "identity": {
+    "blueprint_id": "financial_advisor",
+    "name": "Financial Advisor"
+  },
+  "mode": "review_only",
+  "metadata": {
+    "blueprint_id": "financial_advisor",
+    "name": "Financial Advisor",
+    "category": "Finance",
+    "description": "A unified personal financial advisor co-worker. Put bank statements, receipts, bills, income records, W-2s, 1099s, brokerage statements, portfolio files, and related finance documents in the input folder; it extracts document evidence, prepares review-only tax and household finance summaries, runs portfolio risk analysis, and writes integrated advisor reports to the output folder.",
+    "problem": "Personal finance work is split across statement review, tax preparation, household planning, and portfolio risk checks; users need one review-only local assistant that keeps evidence, calculations, and next steps together.",
+    "target_users": "Individuals, households, freelancers, financial coaches, tax preparers, and advisors reviewing personal finance folders."
+  },
+  "inputs": {
+    "adapter": "mock",
+    "description": "Default demo inputs use bundled synthetic finance documents, tax records, and a sample portfolio.",
+    "payload": {
+      "document_folder": "financial_advisor/examples/sample_inputs",
+      "input_folder": "financial_advisor/examples/sample_inputs",
+      "output_folder": "~/Downloads/financial_advisor",
+      "tax_year": 2025,
+      "filing_status": "single",
+      "taxpayer_profile": {
+        "residency": "US",
+        "review_only": true
+      },
+      "portfolio": {
+        "base_currency": "USD",
+        "cash": 50000,
+        "holdings": [
+          {
+            "symbol": "SPY",
+            "quantity": 180,
+            "asset_class": "equity",
+            "liquidity": "daily"
+          },
+          {
+            "symbol": "AGG",
+            "quantity": 300,
+            "asset_class": "rates",
+            "liquidity": "daily"
+          },
+          {
+            "symbol": "GLD",
+            "quantity": 80,
+            "asset_class": "commodity",
+            "liquidity": "daily"
+          }
+        ]
+      },
+      "benchmark_portfolio": {
+        "SPY": 0.6,
+        "AGG": 0.3,
+        "GLD": 0.1
+      },
+      "risk_policy": {
+        "max_single_name_weight_pct": 45,
+        "max_var_pct": 8,
+        "max_cvar_pct": 11,
+        "max_drawdown_pct": 15,
+        "min_cash_pct": 5,
+        "max_turnover_pct": 15
+      },
+      "decision_constraints": {
+        "allowed_actions": [
+          "no_action",
+          "raise_cash",
+          "reduce_concentration",
+          "reduce_equity_beta",
+          "duration_hedge",
+          "credit_risk_reduction"
+        ],
+        "restricted_symbols": [],
+        "review_only": true
+      },
+      "market_signals": [],
+      "monitoring": {
+        "enabled": true,
+        "poll_interval_seconds": 60,
+        "max_cycles": 1
+      },
+      "field_profile": [
+        "document_kind",
+        "institution_or_merchant",
+        "account_or_source",
+        "document_date",
+        "income_amounts",
+        "expense_amounts",
+        "recurring_items",
+        "balances",
+        "debt_or_credit_obligations",
+        "fees",
+        "tax_forms",
+        "portfolio_holdings",
+        "risk_flags",
+        "recommended_actions"
+      ],
+      "public_dataset": {
+        "name": "Synthetic financial advisor sample packet",
+        "provider": "OtterDesk blueprint fixtures",
+        "license": "Synthetic demo data",
+        "availability_note": "Bundled sample documents are synthetic and intended only for local blueprint validation.",
+        "expected_files": [
+          "*.pdf",
+          "*.png",
+          "*.jpg",
+          "*.jpeg",
+          "*.txt",
+          "*.json",
+          "*.csv",
+          "*.md"
+        ]
+      }
+    }
+  },
+  "document_sources": {
+    "folder_path": "financial_advisor/examples/sample_inputs",
+    "expected_files": [
+      "*.pdf",
+      "*.png",
+      "*.jpg",
+      "*.jpeg",
+      "*.txt",
+      "*.json",
+      "*.csv",
+      "*.md"
+    ],
+    "grouping": "single_household_packet"
+  },
+  "outputs": {
+    "folder_path": "~/Downloads/financial_advisor",
+    "write_run_store": true,
+    "write_markdown_report": true,
+    "domain_artifacts": [
+      "bank_statement_extraction.json",
+      "household_finance_summary.json",
+      "tax_review_packet.json",
+      "portfolio_risk_review.json",
+      "financial_advisor_report.md",
+      "action_ledger.json",
+      "artifact_quality.json",
+      "run_health.json"
+    ]
+  },
+  "resources": {
+    "cpu": {
+      "min_cores": 1
+    },
+    "memory": {
+      "min_gb": 2
+    },
+    "disk": {
+      "min_gb": 1
+    },
+    "gpu": {
+      "min_count": 0
+    }
+  },
+  "human_control": {
+    "enabled": true,
+    "mode": "approval_required",
+    "default_action": "reject",
+    "allowed_decisions": [
+      "approve",
+      "revise",
+      "reject"
+    ],
+    "blocked_actions": [
+      "file_tax_return",
+      "submit_tax_form",
+      "make_trade",
+      "move_money",
+      "pay_bill",
+      "open_or_close_account",
+      "submit_financial_recommendation_as_final",
+      "share_regulated_financial_data",
+      "contact_financial_institution_without_review"
+    ],
+    "reason": "Human approval is required before filing, trading, moving money, bill payment, external sharing, or downstream financial decisions.",
+    "events": [
+      "human_notice",
+      "human_input_requested",
+      "human_input_received",
+      "human_input_timeout",
+      "human_decision_applied"
+    ],
+    "request_event": "human_input_requested",
+    "response_event": "human_input_received",
+    "timeout_event": "human_input_timeout",
+    "decision_event": "human_decision_applied",
+    "timeout_seconds": 3600
+  },
+  "privacy": {
+    "default_classification": "regulated",
+    "rules": {
+      "regulated": {
+        "log": "redacted",
+        "send_to_llm": "allowed_configs_only",
+        "send_to_output_skills": "approved_destinations_only"
+      },
+      "confidential": {
+        "log": "redacted",
+        "send_to_llm": "allowed_configs_only",
+        "send_to_output_skills": "approved_destinations_only"
+      },
+      "internal": {
+        "log": "metadata_only",
+        "send_to_llm": true,
+        "send_to_output_skills": true
+      },
+      "public": {
+        "log": true,
+        "send_to_llm": true,
+        "send_to_output_skills": true
+      }
+    }
+  },
+  "llm": {
+    "enabled": true,
+    "mode": "live",
+    "mock_mode": "fake",
+    "model": "gemma4:e2b",
+    "runtime_model": "gemma4:e2b",
+    "fallback_model": "gemma4:e2b",
+    "backend": "llama.cpp",
+    "default_config": "primary",
+    "quick_test_uses_fake": true,
+    "strict_json": false,
+    "prefer_shared_skill": true,
+    "require_live": false,
+    "preferred_model": "nemotron3",
+    "configs": {
+      "primary": {
+        "provider": "docker_model_runner",
+        "model": "gemma4:e2b",
+        "runtime_model": "gemma4:e2b",
+        "fallback_model": "gemma4:e2b",
+        "backend": "llama.cpp",
+        "api_base": "auto",
+        "timeout_seconds": 60,
+        "max_tokens": 1800,
+        "num_retries": 2,
+        "retry_backoff_seconds": 1.0,
+        "mock_mode": "fake",
+        "mode": "live",
+        "required": true
+      },
+      "large": {
+        "provider": "docker_model_runner",
+        "model": "nemotron3",
+        "runtime_model": "nemotron3",
+        "backend": "llama.cpp",
+        "timeout_seconds": 60,
+        "max_tokens": 1800,
+        "num_retries": 1,
+        "retry_backoff_seconds": 1.0,
+        "strict_json": true,
+        "require_live": true,
+        "context_size": 8192,
+        "quantization": "MOSTLY_Q4_K_M",
+        "parameter_count_b": 31.58,
+        "required": false,
+        "hardware": {
+          "gpu": {
+            "min_count": 1,
+            "min_memory_mb": 49152,
+            "memory_operator": ">="
+          }
+        }
+      }
+    },
+    "small_model_profile": {
+      "provider": "docker_model_runner",
+      "model": "gemma4:e2b",
+      "runtime_model": "gemma4:e2b",
+      "fallback_model": "gemma4:e2b",
+      "backend": "llama.cpp",
+      "api_base": "auto",
+      "timeout_seconds": 60,
+      "max_tokens": 1800,
+      "num_retries": 2,
+      "retry_backoff_seconds": 1.0,
+      "strict_json": false,
+      "require_live": false
+    },
+    "live_model_profile": {
+      "provider": "docker_model_runner",
+      "model": "gemma4:e2b",
+      "runtime_model": "gemma4:e2b",
+      "fallback_model": "gemma4:e2b",
+      "backend": "llama.cpp",
+      "api_base": "auto",
+      "timeout_seconds": 60,
+      "max_tokens": 1800,
+      "num_retries": 2,
+      "retry_backoff_seconds": 1.0,
+      "strict_json": false,
+      "require_live": false
+    },
+    "large_model_profile": {
+      "provider": "docker_model_runner",
+      "model": "nemotron3",
+      "runtime_model": "nemotron3",
+      "backend": "llama.cpp",
+      "timeout_seconds": 60,
+      "max_tokens": 1800,
+      "num_retries": 1,
+      "retry_backoff_seconds": 1.0,
+      "strict_json": true,
+      "require_live": true,
+      "context_size": 8192,
+      "quantization": "MOSTLY_Q4_K_M",
+      "parameter_count_b": 31.58,
+      "hardware": {
+        "gpu": {
+          "min_count": 1,
+          "min_memory_mb": 49152,
+          "memory_operator": ">="
+        }
+      }
+    },
+    "agents": {
+      "financial_folder_watcher": {
+        "llm_config": "primary",
+        "role": "Financial Folder Watcher",
+        "responsibilities": [
+          "Resolve the local finance packet.",
+          "Fingerprint changed documents.",
+          "Preserve folder and output paths."
+        ]
+      },
+      "financial_document_reader": {
+        "llm_config": "primary",
+        "role": "Financial Document Reader",
+        "responsibilities": [
+          "Read local finance documents.",
+          "Classify statements, receipts, bills, tax forms, and portfolio files.",
+          "Mark unreadable files without exposing private content externally."
+        ]
+      },
+      "bank_statement_extractor": {
+        "llm_config": "primary",
+        "role": "Bank Statement Extractor",
+        "responsibilities": [
+          "Extract bank statement balances and transactions.",
+          "Separate deposits, withdrawals, fees, and balance evidence.",
+          "Preserve source references for review."
+        ]
+      },
+      "cash_flow_normalizer": {
+        "llm_config": "primary",
+        "role": "Cash Flow Normalizer",
+        "responsibilities": [
+          "Normalize household income and expense evidence.",
+          "Compute review-only cash-flow summaries.",
+          "Flag gaps and risky recurring items."
+        ]
+      },
+      "tax_document_router": {
+        "llm_config": "primary",
+        "role": "Tax Document Router",
+        "responsibilities": [
+          "Route W-2, 1099, brokerage, and receipt evidence.",
+          "Separate tax-source fields from household cash-flow fields.",
+          "Flag missing or ambiguous tax documents."
+        ]
+      },
+      "tax_workpaper_preparer": {
+        "llm_config": "large",
+        "role": "Tax Workpaper Preparer",
+        "responsibilities": [
+          "Prepare draft review-only tax workpapers.",
+          "Run manager-style completeness checks.",
+          "Avoid filing-ready conclusions or legal tax advice."
+        ]
+      },
+      "portfolio_context_loader": {
+        "llm_config": "primary",
+        "role": "Portfolio Context Loader",
+        "responsibilities": [
+          "Load portfolio holdings and risk policy.",
+          "Normalize benchmark and decision constraints.",
+          "Keep portfolio data source-grounded."
+        ]
+      },
+      "portfolio_market_data_loader": {
+        "llm_config": "primary",
+        "role": "Portfolio Market Data Loader",
+        "responsibilities": [
+          "Load bounded public or deterministic market context.",
+          "Record freshness and source references.",
+          "Avoid trade execution or account access."
+        ]
+      },
+      "portfolio_risk_engine": {
+        "llm_config": "large",
+        "role": "Portfolio Risk Engine",
+        "responsibilities": [
+          "Compute review-only portfolio risk metrics.",
+          "Interpret concentration and policy issues.",
+          "Keep rebalancing ideas as human-reviewed candidates."
+        ]
+      },
+      "public_finance_researcher": {
+        "llm_config": "primary",
+        "role": "Public Finance Researcher",
+        "responsibilities": [
+          "Use privacy-safe public guidance topics.",
+          "Cite official consumer, IRS, SEC, or investor education sources.",
+          "Never search private document text."
+        ]
+      },
+      "advisor_evidence_reconciler": {
+        "llm_config": "primary",
+        "role": "Advisor Evidence Reconciler",
+        "responsibilities": [
+          "Merge household, tax, portfolio, and public guidance evidence.",
+          "Flag contradictions and missing evidence.",
+          "Preserve domain-specific source references."
+        ]
+      },
+      "advisor_review_auditor": {
+        "llm_config": "large",
+        "role": "Advisor Review Auditor",
+        "responsibilities": [
+          "Audit calculations and review boundaries.",
+          "Confirm blocked actions remain blocked.",
+          "Prepare human-review blockers and caveats."
+        ]
+      },
+      "financial_advice_reporter": {
+        "llm_config": "large",
+        "role": "Financial Advice Reporter",
+        "responsibilities": [
+          "Write the integrated review-only advisor report.",
+          "Summarize bank, tax, cash-flow, and portfolio sections.",
+          "Keep next steps human-approved and source-grounded."
+        ]
+      }
+    },
+    "responsibilities": [
+      "Keep private financial data out of public searches.",
+      "Ground every report in local evidence, deterministic calculations, or cited public sources.",
+      "Keep outputs review-only and require human approval before filing, trading, moving money, or external sharing."
+    ]
+  },
+  "knowledge_rag": {
+    "enabled": true,
+    "backend": "redis_vector_rag",
+    "required": false,
+    "knowledge_dir": "knowledge",
+    "purpose": "Retrieve local financial-advisor guidance for bank statement extraction, household cash-flow review, tax workpaper routing, portfolio risk interpretation, and review-only safety boundaries.",
+    "retrieval_targets": [
+      "bank statement extraction",
+      "cash-flow review",
+      "tax workpaper routing",
+      "portfolio risk interpretation",
+      "human approval boundaries"
+    ],
+    "grounding_policy": "Use retrieved local blueprint knowledge to improve actor prompts; do not invent facts when retrieval is unavailable.",
+    "redis_url": "",
+    "namespace": "",
+    "embedding_provider": "docker_model_runner",
+    "embedding_model": "huggingface.co/jinaai/jina-embeddings-v5-text-small-retrieval:Q4_K_M",
+    "embedding_api_base": "http://host.docker.internal:12434/engines/v1",
+    "embedding_query_prefix": "Query: ",
+    "embedding_document_prefix": "Document: ",
+    "embedding_start_command": "",
+    "embedding_healthcheck_enabled": true,
+    "vector_dim": 1024,
+    "index_on_startup": false,
+    "top_k": 5,
+    "max_context_chars": 6000,
+    "chunk_size": 800,
+    "chunk_overlap": 80,
+    "privacy": "index local blueprint knowledge only; do not index private run documents unless a future runtime explicitly opts in"
+  },
+  "agentic_research": {
+    "enabled": true,
+    "agent_ids": [
+      "public_finance_researcher",
+      "advisor_evidence_reconciler",
+      "advisor_review_auditor",
+      "financial_advice_reporter"
+    ],
+    "max_iterations_per_agent": 1,
+    "max_tool_calls_per_agent": 2,
+    "allowed_tools": [
+      "knowledge_retrieve",
+      "browser_search",
+      "browser_page",
+      "market_data_history",
+      "risk_metric_compute",
+      "llm_ocr_extract",
+      "finish"
+    ],
+    "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run",
+    "default_mode": "bounded_llm_guided_financial_advisor_review",
+    "note": "Public research actors derive queries from generic risk and document categories only."
+  },
+  "input_skills": {
+    "llm_ocr": {
+      "skill": "llm_ocr_skill",
+      "package": "mirrorneuron-llm-ocr-skill",
+      "connector": "docker_model_runner",
+      "purpose": "shared local LightOnOCR-2-1B OCR for scanned finance PDFs, forms, statements, and images",
+      "enabled": true,
+      "required": false,
+      "backend": "auto",
+      "endpoint": "http://host.docker.internal:12434",
+      "model": null,
+      "quantization": null,
+      "min_text_chars": 40,
+      "max_pages": null,
+      "preload": false,
+      "install_policy": "on_first_required_document",
+      "remove_policy": "manual",
+      "require_hardware_acceleration": true,
+      "timeout_seconds": 180
+    },
+    "w3m_browser": {
+      "skill": "w3m_browser_skill",
+      "package": "mirrorneuron-w3m-browser-skill",
+      "import": "mn_w3m_browser_skill",
+      "runner": "w3m",
+      "purpose": "privacy-safe public web research for source-grounded finance, tax, and investor education guidance",
+      "enabled": true,
+      "required": false,
+      "install_policy": "docker_worker_image",
+      "timeout_seconds": 20,
+      "max_chars": 12000,
+      "max_queries": 6,
+      "max_sources_per_query": 3,
+      "use_model_compression": true,
+      "docker_worker_requirements": "document_workflow/requirements.txt",
+      "runtime": {
+        "driver": "docker_worker",
+        "install_scope": "shared_job_container",
+        "docker_worker_image": "document_workflow/docker_worker",
+        "image": "mirror-neuron/financial-advisor:local",
+        "network": "mirror-neuron-runtime",
+        "node_scope": "financial_advisor_python_executor_nodes"
+      }
+    },
+    "web_browser": {
+      "skill": "web_browser_skill",
+      "package": "mirrorneuron-web-browser-skill",
+      "import": "mn_web_browser_skill",
+      "runner": "playwright",
+      "purpose": "optional rendered-page fallback for JavaScript-heavy public guidance pages; records blocked states instead of bypassing them",
+      "enabled": true,
+      "required": false,
+      "install_policy": "python_environment_pip",
+      "respect_robots": true,
+      "stop_on_blocked": true,
+      "no_proxy_rotation": true,
+      "no_captcha_solving": true,
+      "timeout_seconds": 30,
+      "max_chars": 12000,
+      "max_pages_per_run": 2,
+      "python_environment": "document_workflow/requirements.txt"
+    }
+  },
+  "skill_runtime": {
+    "enabled": true,
+    "auto_patch": false,
+    "driver": "docker_worker",
+    "install_scope": "shared_job_container",
+    "docker_worker_image": "document_workflow/docker_worker",
+    "image": "mirror-neuron/financial-advisor:local",
+    "network": "mirror-neuron-runtime",
+    "node_scope": "financial_advisor_python_executor_nodes"
+  },
+  "local_inputs": {
+    "folders": [
+      {
+        "config_path": "document_sources.folder_path",
+        "default_config_value": "financial_advisor/examples/sample_inputs",
+        "source_path": "examples/sample_inputs",
+        "payload_path": "document_workflow/mn_local_inputs/financial_documents",
+        "runtime_path": "mn_local_inputs/financial_documents",
+        "allowed_extensions": [
+          ".pdf",
+          ".png",
+          ".jpg",
+          ".jpeg",
+          ".txt",
+          ".json",
+          ".csv",
+          ".md"
+        ],
+        "linked_config_paths": [
+          "inputs.payload.document_folder",
+          "inputs.payload.input_folder",
+          "state.document_folder",
+          "state.input_folder"
+        ]
+      }
+    ]
+  },
+  "document_automation": {
+    "fields": [
+      "document_kind",
+      "institution_or_merchant",
+      "account_or_source",
+      "document_date",
+      "income_amounts",
+      "expense_amounts",
+      "balances",
+      "tax_forms",
+      "portfolio_holdings",
+      "risk_flags",
+      "recommended_actions"
+    ],
+    "output_type": "financial_advisor_report",
+    "review_required": true,
+    "recommended_action": "review_integrated_financial_advisor_packet_before_any_financial_action"
+  },
+  "financial_tools": {
+    "enabled": true,
+    "adapters": [
+      "local_statement_math",
+      "draft_tax_workpaper_math",
+      "deterministic_portfolio_risk_math"
+    ],
+    "paid_provider_connectors": false,
+    "missing_provider_data_policy": "record_missing_evidence"
+  },
+  "market_data": {
+    "provider": "deterministic_public_market_fixture",
+    "history_range": "1y",
+    "interval": "1d",
+    "timeout_seconds": 8,
+    "refresh_seconds": 60,
+    "stale_after_seconds": 259200,
+    "fail_closed": false,
+    "benchmark_symbols": [
+      "SPY",
+      "AGG",
+      "GLD"
+    ]
+  },
+  "risk_engine": {
+    "annualization_factor": 252,
+    "beta_proxy_symbol": "SPY",
+    "concentration_limit_field": "max_single_name_weight_pct",
+    "covariance_method": "sample",
+    "return_horizon": "daily",
+    "var_confidence": 0.95,
+    "cvar_confidence": 0.95
+  },
+  "tax_documents": {
+    "accepted_forms": [
+      "W-2",
+      "1099-INT",
+      "1099-R",
+      "1099-DIV",
+      "1099-B",
+      "1099-NEC",
+      "1098",
+      "1095-A",
+      "5498",
+      "brokerage_statement"
+    ],
+    "folder_path": "financial_advisor/examples/sample_inputs",
+    "recommended_forms": [
+      "W-2",
+      "1099-INT",
+      "1099-R"
+    ]
+  },
+  "backpressure": {
+    "llm": {
+      "max_concurrent_calls": 1,
+      "min_interval_seconds": 1.0,
+      "rationale": "Protect local Docker Model Runner from concurrent financial advisor calls."
+    }
+  },
+  "execution": {
+    "deterministic_output_order": "source_path",
+    "quick_test": false
+  },
+  "interfaces": {
+    "channels": {
+      "inputs": {
+        "artifact": "inputs.json",
+        "description": "Resolved document folder, portfolio inputs, tax profile, and field profile."
+      },
+      "outputs": {
+        "description": "Integrated review-only finance, tax, bank-statement, and portfolio outputs.",
+        "artifacts": [
+          "result.json",
+          "final_artifact.json",
+          "bank_statement_extraction.json",
+          "household_finance_summary.json",
+          "tax_review_packet.json",
+          "portfolio_risk_review.json",
+          "financial_advisor_report.md"
+        ]
+      },
+      "events": {
+        "artifact": "events.jsonl",
+        "description": "Append-only workflow events."
+      },
+      "human": {
+        "artifact": "human.jsonl",
+        "description": "Human review and approval events."
+      },
+      "knowledge_rag": {
+        "description": "Optional local blueprint knowledge retrieval used to ground actor prompts.",
+        "config": "knowledge_rag",
+        "artifact": "knowledge/",
+        "privacy": "blueprint knowledge only by default"
+      },
+      "agentic_research": {
+        "description": "Bounded tool contract for privacy-safe public guidance and deterministic finance tools.",
+        "config": "agentic_research"
+      }
+    },
+    "config": [
+      "standard_version",
+      "identity",
+      "mode",
+      "metadata",
+      "inputs",
+      "outputs",
+      "logging",
+      "resources",
+      "human_control",
+      "input_skills",
+      "output_skills",
+      "error_handling",
+      "state",
+      "capabilities",
+      "privacy",
+      "triggers",
+      "backpressure",
+      "determinism",
+      "schemas",
+      "budgets",
+      "agent_handoffs",
+      "web_ui",
+      "interfaces",
+      "execution_model",
+      "memory_layer",
+      "dataset_input",
+      "document_automation",
+      "knowledge_rag",
+      "agentic_research"
+    ],
+    "config_sections": [
+      "standard_version",
+      "identity",
+      "mode",
+      "metadata",
+      "inputs",
+      "outputs",
+      "logging",
+      "resources",
+      "human_control",
+      "input_skills",
+      "output_skills",
+      "error_handling",
+      "state",
+      "capabilities",
+      "privacy",
+      "triggers",
+      "backpressure",
+      "determinism",
+      "schemas",
+      "budgets",
+      "agent_handoffs",
+      "web_ui",
+      "interfaces",
+      "execution_model",
+      "memory_layer",
+      "dataset_input",
+      "document_automation",
+      "knowledge_rag",
+      "agentic_research"
+    ],
+    "identity": [
+      "blueprint_id",
+      "name",
+      "run_id"
+    ],
+    "input_adapters": [
+      "mock",
+      "json",
+      "file",
+      "env_json"
+    ],
+    "output_adapters": [
+      "local_run_store"
+    ],
+    "outputs": [
+      "run.json",
+      "config.json",
+      "inputs.json",
+      "events.jsonl",
+      "result.json",
+      "final_artifact.json"
+    ],
+    "optional_outputs": [
+      "job.json",
+      "web_ui.json",
+      "ui.json",
+      "web/index.html",
+      "logs.jsonl",
+      "human.jsonl",
+      "resources.jsonl",
+      "bank_statement_extraction.json",
+      "household_finance_summary.json",
+      "tax_review_packet.json",
+      "portfolio_risk_review.json",
+      "financial_advisor_report.md"
+    ],
+    "response_schema": "mn.blueprint.response.v1"
+  },
+  "capabilities": [
+    "folder_monitoring",
+    "document_evidence_extraction",
+    "bank_statement_extraction",
+    "cash_flow_normalization",
+    "draft_tax_workpapers",
+    "portfolio_risk_review",
+    "privacy_safe_public_research",
+    "integrated_financial_report_generation",
+    "deterministic_financial_tools",
+    "source_grounded_review_outputs"
+  ],
+  "logging": {
+    "events": [
+      "blueprint_status",
+      "blueprint_phase_started",
+      "blueprint_phase_completed",
+      "blueprint_phase_failed",
+      "artifact_written",
+      "human_notice",
+      "human_input_requested",
+      "human_input_received",
+      "human_input_timeout",
+      "human_decision_applied",
+      "output_skill_started",
+      "output_skill_completed",
+      "output_skill_failed",
+      "tool_call_started",
+      "tool_call_completed",
+      "tool_call_failed"
+    ]
+  },
+  "web_ui": {
+    "dashboard": {
+      "standard_panels": [
+        "current_status",
+        "recent_events",
+        "pending_human_requests",
+        "output_artifacts",
+        "resource_usage",
+        "errors",
+        "llm_calls",
+        "token_budget",
+        "llm_retries"
+      ]
+    }
+  },
+  "schemas": {
+    "response": "mn.blueprint.response.v1",
+    "final_artifact": "mn.blueprint.final_artifact.v1",
+    "events": "mn.blueprint.events.v1"
+  },
+  "budgets": {
+    "default_action_budget": 80,
+    "max_public_queries": 200,
+    "max_runtime_seconds": 900
+  },
+  "state": {
+    "workflow": {},
+    "final_report": {}
+  },
+  "error_handling": {
+    "default": "fail_closed",
+    "external_research_failure": "continue_with_warning",
+    "missing_evidence": "mark_insufficient_evidence"
+  },
+  "suggested_schedule": {
+    "cron": "0 8 * * *",
+    "cadence": "daily",
+    "advisory_only": true,
+    "note": "Suggested cadence only; runtime decides the actual schedule."
+  }
+}

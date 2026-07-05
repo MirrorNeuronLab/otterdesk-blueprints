@@ -1,0 +1,15 @@
+{
+  "dataset": {
+    "name": "Synthetic financial advisor sample packet",
+    "provider": "OtterDesk blueprint fixtures",
+    "license": "Synthetic demo data",
+    "availability_note": "Bundled sample documents are synthetic and intended only for local blueprint validation."
+  },
+  "files": [
+    "community_bank_statement.txt",
+    "sample-w2.txt",
+    "sample-1099-int.txt",
+    "sample-1099-r-401k.txt",
+    "sample_portfolio.json"
+  ]
+}

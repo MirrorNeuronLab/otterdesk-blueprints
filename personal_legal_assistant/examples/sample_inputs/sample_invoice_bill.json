@@ -1,0 +1,25 @@
+{
+  "document_type": "invoice",
+  "supplier_name": "Northwind Utilities",
+  "customer_name": "Example Studio LLC",
+  "invoice_id": "NW-2026-0715",
+  "tax_id": "12-3456789",
+  "due_date": "2026-08-15",
+  "billing_period": "2026-06-01 to 2026-06-30",
+  "total_amount": 1842.66,
+  "line_items": [
+    {
+      "description": "Electric service",
+      "amount": 1580.12
+    },
+    {
+      "description": "Taxes and local fees",
+      "amount": 262.54
+    }
+  ],
+  "consumption_fields": {
+    "kwh": 12340,
+    "meter_id": "MTR-4451"
+  },
+  "review_notes": "Synthetic invoice for review-only extraction testing."
+}

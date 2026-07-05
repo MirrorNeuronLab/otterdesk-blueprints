@@ -140,42 +140,38 @@
   },
   {
     "category": "Finance",
-    "description": "A portfolio risk co-worker for review-only market and scenario analysis. Give it holdings, benchmark weights, risk limits, decision constraints, optional market notes, and an input folder for supporting files; it pulls public market context, runs risk and simulation math, benchmarks possible actions, and writes risk summaries and review reports to the output folder.",
-    "id": "portfolio_risk_review_assistant",
-    "job_name": "portfolio-risk-review-assistant",
-    "name": "Portfolio Risk Review Assistant",
-    "path": "portfolio_risk_review_assistant",
+    "description": "A unified personal financial advisor co-worker. Put bank statements, receipts, bills, income records, W-2s, 1099s, brokerage statements, portfolio files, and related finance documents in the input folder; it extracts document evidence, prepares review-only tax and household finance summaries, runs portfolio risk analysis, and writes integrated advisor reports to the output folder.",
+    "id": "financial_advisor",
+    "job_name": "financial-advisor",
+    "name": "Financial Advisor",
+    "path": "financial_advisor",
     "product": {
-      "agent_role": "LLM report writer that summarizes supplied market signals and structured simulation evidence; deterministic finance workers propose, simulate, evaluate, and benchmark decisions.",
-      "benefit": "Helps portfolio teams evaluate risk actions with traceable simulations before any human-approved downstream action.",
-      "customizable_for": "Wealth management, treasury review, family offices, robo-advisory risk workflows, portfolio monitoring, and review-only advisor workbenches.",
-      "how_it_works": "Fetches public market data, computes risk features, proposes review-only candidate actions, simulates and benchmarks each decision, then uses an LLM only to interpret supplied signals and write the final report.",
-      "input": "Portfolio holdings, risk policy, decision constraints, optional market signals, and optional benchmark weights.",
-      "output": "Review-only risk report with ranked simulated decisions, benchmark comparison, policy violations, and market data source references.",
-      "problem": "Portfolio teams need reviewable real-time risk advice that separates deterministic financial engineering from LLM narrative generation.",
+      "agent_role": "Integrated financial advisor team for bank statement extraction, household cash-flow review, draft tax workpapers, portfolio risk analysis, and review-only report writing.",
+      "benefit": "Turns one local finance folder into a source-grounded advisor packet that combines statement, tax, cash-flow, and portfolio evidence before any human-approved downstream action.",
+      "customizable_for": "Household finance review, bank statement extraction, tax document intake, freelancer finance organization, portfolio risk review, and advisor workbenches.",
+      "how_it_works": "Reads a local folder, extracts statement and document evidence, normalizes cash flow, routes tax documents into draft workpapers, loads portfolio context, computes deterministic risk metrics, uses privacy-safe public guidance, audits review boundaries, and writes an integrated report.",
+      "input": "Local folder with bank statements, receipts, bills, income records, W-2s, 1099s, brokerage statements, optional portfolio JSON, and related finance documents.",
+      "output": "Review-only financial_advisor_report with bank statement extraction, household finance summary, draft tax review packet, portfolio risk review, public guidance sources, and Markdown report output.",
+      "problem": "Personal finance work is fragmented across statement review, tax preparation, household advice, and portfolio risk checks; users need one local assistant that keeps evidence and review boundaries together.",
       "runtime_features": [
-        "public market data",
-        "near-real-time quote freshness checks",
-        "risk feature engineering",
-        "Monte Carlo simulation",
-        "historical stress review",
-        "decision proposal and simulation",
-        "decision benchmarking",
-        "LLM market-signal interpretation",
-        "LLM final report writing",
-        "review-only human approval policy",
-        "product input contract",
-        "transparent run status",
-        "human control policy",
+        "source-format WorkflowSource manifest",
+        "bank statement extraction",
+        "household cash-flow normalization",
+        "draft tax workpaper preparation",
+        "portfolio risk review",
+        "privacy-safe public finance research",
+        "small default model profile",
+        "optional Nemotron 3 large review profile",
+        "shared mn-agents DockerWorker stereotypes",
+        "human approval policy",
         "artifact records",
-        "run-store observability dashboard",
-        "workflow-driven flow graph",
-        "step-scoped deterministic workers"
+        "run-store observability dashboard"
       ],
-      "simulation_type": "Real-time public-market portfolio risk review with Monte Carlo decision benchmarking.",
-      "target_users": "Investors, advisors, portfolio managers, treasury teams, and fintech operators."
+      "simulation_type": "Unified local financial-advisor document workflow with deterministic finance math and review-only reporting.",
+      "target_users": "Individuals, households, freelancers, financial coaches, tax preparers, and advisors reviewing personal finance folders."
     },
-    "workflow_id": "portfolio_risk_review_assistant_v1"
+    "type": "batch",
+    "workflow_id": "financial_advisor_v1"
   },
   {
     "category": "Finance",
@@ -269,41 +265,6 @@
     }
   },
   {
-    "category": "Finance",
-    "description": "A personal tax preparation co-worker for draft review packets. Put W-2s, 1099s, brokerage statements, receipts, and other tax documents in the input folder; it extracts tax evidence, prepares draft Form 1040 workpapers, runs specialist and manager reviews, and writes JSON, Markdown, and PDF review outputs to the output folder for human review before filing.",
-    "id": "personal_income_tax_expert",
-    "job_name": "personal-income-tax-expert",
-    "name": "Personal Income Tax Expert",
-    "path": "personal_income_tax_expert",
-    "product": {
-      "agent_role": "Personal tax preparation team that prepares a source-grounded draft Form 1040 review packet while asking careful review questions.",
-      "benefit": "Turns a folder of tax forms into a clear draft packet and review checklist before the user opens filing software or talks to a preparer.",
-      "customizable_for": "Personal federal tax preparation, 401(k) and retirement distribution review, interest income intake, brokerage statements, mortgage interest review, and tax document checklists.",
-      "how_it_works": "Classifies tax PDFs, extracts embedded text or marks OCR needs, sends redacted evidence through specialist LLM preparer stages, maps supported facts to likely Form 1040 lines, audits schedule risks, and writes JSON, Markdown, and PDF review artifacts.",
-      "input": "Local folder with tax PDFs such as W-2, 1099-INT, 1099-R or 401(k), 1099-DIV, 1098, 1095-A, and brokerage statements.",
-      "output": "Prepared draft Form 1040 review packet with source evidence, specialist workpapers, audit and manager review, advisor-style next steps, Markdown, and PDF outputs.",
-      "problem": "Tax source documents arrive as scattered PDFs; users need a private workflow that turns W-2, 1099-INT, 1099-R, and related forms into a reviewable Form 1040 draft packet with preparer workpapers and manager review.",
-      "runtime_features": [
-        "local tax PDF intake",
-        "LLM document understanding",
-        "specialist tax preparer team",
-        "source field extraction workpapers",
-        "tax auditor and manager review gates",
-        "draft Form 1040 review packet",
-        "Markdown and PDF final packet",
-        "Membrane context memory optimization",
-        "product input contract",
-        "transparent run status",
-        "human control policy",
-        "artifact records",
-        "run-store observability dashboard"
-      ],
-      "simulation_type": "Document automation tax preparation workflow with a specialist LLM preparer team, auditor, and manager review.",
-      "target_users": "Individual taxpayers, household finance operators, bookkeepers, and tax preparers."
-    },
-    "workflow_id": "personal_income_tax_expert_v1"
-  },
-  {
     "category": "Science",
     "description": "A research co-worker for early drug-discovery triage. Give it a disease or target profile, screening criteria, optional candidate seeds, literature notes, and an input folder for supporting files; it stages an evidence-backed discovery workflow and writes review-ready candidate summaries, scores, assumptions, risks, and source notes to the output folder.",
     "id": "drug_discovery_research_assistant",
@@ -336,68 +297,36 @@
     "workflow_id": "drug_discovery_research_assistant_v1"
   },
   {
-    "category": "Finance",
-    "description": "An invoice and bill extraction co-worker for accounts-payable review. Put invoice, bill, or utility PDF/JSON files in the input folder; it OCRs and extracts supplier, customer, invoice ID, tax, due date, total, line item, billing period, and consumption fields, then writes a review-only extraction packet and source-grounded report to the output folder.",
-    "id": "invoice_bill_extraction_assistant",
-    "job_name": "invoice-bill-extraction-assistant",
-    "name": "Invoice Bill Extraction Assistant",
-    "path": "invoice_bill_extraction_assistant",
-    "product": {
-      "agent_role": "Local invoice OCR and field extraction team that prepares source-grounded payable review packets.",
-      "benefit": "Turns sensitive document folders into source-grounded review packets while keeping OCR and extraction local.",
-      "customizable_for": "Accounts payable, utility bill intake, ERP invoice routing, vendor onboarding, spend analytics, and BPO document queues.",
-      "how_it_works": "Stages a local document folder, extracts embedded text, uses shared local LLM OCR when needed, extracts structured fields, validates against labels when available, and writes a human-review packet.",
-      "input": "PDF electricity invoices with JSON labels",
-      "output": "Review-only invoice_bill_extraction_packet with evidence, confidence, next steps, and source references.",
-      "problem": "AP, ERP, BPO, and utility billing teams need private extraction of supplier pricing, tax identifiers, customer data, bank details, and spending patterns from high-volume invoice and bill PDFs.",
-      "runtime_features": [
-        "local document folder intake",
-        "shared llm_ocr_skill OCR fallback",
-        "structured extraction",
-        "label-aware validation",
-        "human approval policy",
-        "product input contract",
-        "transparent run status",
-        "artifact records",
-        "run-store observability dashboard",
-        "Membrane context memory optimization"
-      ],
-      "simulation_type": "Document automation workflow with local OCR and review-gated structured extraction.",
-      "target_users": "Enterprises, AP teams, BPOs, ERP vendors, and energy or utility billing processors."
-    },
-    "workflow_id": "invoice_bill_extraction_assistant_v1"
-  },
-  {
     "category": "Legal",
-    "description": "A contract review co-worker for clause intake and attorney review. Put contracts, text exports, playbook notes, or clause annotations in the input folder; it extracts key clauses, maps them to the configured taxonomy, compares them with the playbook, flags issues and evidence gaps, and writes a source-grounded review packet to the output folder.",
-    "id": "legal_contract_clause_review_assistant",
-    "job_name": "legal-contract-clause-review-assistant",
-    "name": "Legal Contract Clause Review Assistant",
-    "path": "legal_contract_clause_review_assistant",
+    "description": "A personal legal document co-worker for invoice, bill, and contract review. Put invoices, bills, contracts, clause notes, labels, or supporting files in the input folder; it extracts payable fields, maps contract clauses, compares playbook expectations, flags review issues, and writes a source-grounded review packet to the output folder.",
+    "id": "personal_legal_assistant",
+    "job_name": "personal-legal-assistant",
+    "name": "Personal Legal Assistant",
+    "path": "personal_legal_assistant",
     "product": {
-      "agent_role": "Local contract review team that extracts clause evidence and keeps legal conclusions review-only.",
-      "benefit": "Turns sensitive document folders into source-grounded review packets while keeping OCR and extraction local.",
-      "customizable_for": "M&A diligence, commercial contract review, CLM intake, renewal review, assignment and change-of-control checks, and playbook comparison.",
-      "how_it_works": "Stages a local document folder, extracts embedded text, uses shared local LLM OCR when needed, extracts structured fields, validates against labels when available, and writes a human-review packet.",
-      "input": "Commercial contract PDFs, TXT, CSV, JSON, and clause annotations",
-      "output": "Review-only contract_clause_review_packet with evidence, confidence, next steps, and source references.",
-      "problem": "Law firms, in-house legal teams, CLM vendors, and diligence teams need private extraction of privileged or deal-sensitive contract terms without uploading client agreements to external services.",
+      "agent_role": "Local personal legal document assistant that extracts invoice and contract evidence while keeping conclusions review-only.",
+      "benefit": "Combines payable extraction and contract clause review into one local, source-grounded review packet.",
+      "customizable_for": "Personal legal intake, small-business invoice review, vendor contract review, CLM intake, payable approval support, and attorney review preparation.",
+      "how_it_works": "Stages a local document folder, extracts embedded text, flags OCR-required documents, extracts invoice fields, maps contract clauses, compares playbook expectations, and writes a human-review packet.",
+      "input": "Invoices, bills, contracts, clause notes, labels, and supporting files.",
+      "output": "Review-only personal_legal_assistant_report with invoice extraction, contract clause review, issue register, action ledger, and Markdown report output.",
+      "problem": "Personal and small-business legal work often mixes payable documents with contracts and obligations; users need one local review assistant that keeps invoice facts, contract clauses, evidence, and approval boundaries together.",
       "runtime_features": [
         "local document folder intake",
         "shared llm_ocr_skill OCR fallback",
-        "structured extraction",
-        "label-aware validation",
+        "invoice and bill field extraction",
+        "contract clause extraction",
+        "playbook comparison",
         "human approval policy",
         "product input contract",
         "transparent run status",
         "artifact records",
-        "run-store observability dashboard",
-        "Membrane context memory optimization"
+        "run-store observability dashboard"
       ],
-      "simulation_type": "Document automation workflow with local OCR and review-gated structured extraction.",
-      "target_users": "Law firms, in-house legal teams, CLM vendors, M&A diligence teams, and contract operations groups."
+      "simulation_type": "Document automation workflow with local OCR and review-gated legal/payable extraction.",
+      "target_users": "Individuals, founders, small-business operators, legal operations teams, in-house reviewers, and attorneys preparing first-pass document packets."
     },
-    "workflow_id": "legal_contract_clause_review_assistant_v1"
+    "workflow_id": "personal_legal_assistant_v1"
   },
   {
     "category": "Healthcare",
@@ -462,40 +391,5 @@
       "target_users": "CPA firms, tax-prep software vendors, payroll providers, banks, government agencies, and document capture teams."
     },
     "workflow_id": "tax_form_ocr_capture_assistant_v1"
-  },
-  {
-    "category": "Finance",
-    "description": "A personal finance co-worker that monitors a local document folder. Put statements, receipts, bills, income records, images, text, JSON, or CSV files in the input folder; it OCRs and organizes the evidence, performs privacy-safe public research where useful, and writes review-only household finance summaries, risks, reminders, and source-grounded reports to the output folder.",
-    "id": "personal_financial_advisor",
-    "job_name": "personal-financial-advisor",
-    "name": "Personal Financial Advisor",
-    "path": "personal_financial_advisor",
-    "product": {
-      "agent_role": "Actor-style continuous personal finance service with default-LLM specialists and a DockerWorker financial market researcher.",
-      "benefit": "Turns a local finance inbox into source-grounded household finance reports while keeping document review local and isolating public browser research to one DockerWorker actor.",
-      "customizable_for": "Household budgeting, income and expense review, receipt tracking, bill reminders, cash-flow checks, and financial document intake.",
-      "how_it_works": "Continuously watches a local folder, extracts embedded text, uses shared local LLM OCR when needed, lets default-LLM actors classify activity and assess risks, has financial_market_researcher plan DuckDuckGo/w3m public research, then writes a human-review advisor report each scan cycle.",
-      "input": "Local folder with income records, bank statements, receipts, bills, images, text, JSON, and CSV finance files.",
-      "output": "Review-only personal_financial_advisor_report with status, advice, risks, reminders, research sources, source evidence, and Markdown report output.",
-      "problem": "Households, solo operators, and financial coaches need a private continuous service coworker that can watch incoming finance documents, summarize cash-flow status, identify missing or risky items, research public guidance, and prepare human-review advice without moving money or sharing private data.",
-      "runtime_features": [
-        "continuous local folder monitoring service",
-        "DockerWorker-only browser research phase",
-        "shared llm_ocr_skill OCR fallback",
-        "w3m_browser_skill public research",
-        "source-grounded financial document classification",
-        "household cash-flow and risk review",
-        "per-cycle Markdown advisor report output",
-        "human approval policy",
-        "artifact records",
-        "run-store observability dashboard",
-        "Membrane context memory optimization",
-        "actor-style default LLM specialists",
-        "LLM-guided w3m market research"
-      ],
-      "simulation_type": "Continuous folder-monitoring service with local OCR and review-gated personal finance advice.",
-      "target_users": "Individuals, households, freelancers, financial coaches, and operations teams reviewing personal finance documents."
-    },
-    "workflow_id": "personal_financial_advisor_v1"
   }
 ]

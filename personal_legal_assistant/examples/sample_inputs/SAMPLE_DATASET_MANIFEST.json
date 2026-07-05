@@ -1,0 +1,31 @@
+{
+  "schema": "otterdesk.sample_dataset.v1",
+  "blueprint_id": "personal_legal_assistant",
+  "description": "Synthetic sample documents combining invoice/bill extraction and contract clause review scenarios.",
+  "files": [
+    {
+      "path": "sample_invoice_bill.json",
+      "type": "invoice_bill_json",
+      "contains_pii": false,
+      "intended_use": "Smoke-test invoice and payable field extraction."
+    },
+    {
+      "path": "sample_vendor_contract.txt",
+      "type": "contract_text",
+      "contains_pii": false,
+      "intended_use": "Smoke-test contract clause extraction and playbook comparison."
+    }
+  ],
+  "source_datasets": [
+    {
+      "name": "IDSEM Dataset",
+      "url": "https://zenodo.org/records/6373179",
+      "usage_note": "The full dataset is not bundled; this sample is synthetic."
+    },
+    {
+      "name": "CUAD v1",
+      "url": "https://zenodo.org/records/4595826",
+      "usage_note": "The full dataset is not bundled; this sample is synthetic."
+    }
+  ]
+}
