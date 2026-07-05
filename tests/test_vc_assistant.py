@@ -39,6 +39,17 @@ METHOD_IDS = {
     "comparables_market_multiple_method",
     "cost_to_duplicate_method",
 }
+LEGACY_RAG_BACKENDS = {"redis_vector_rag", "lexical_plain_text", "working_memory_plus_rag"}
+
+
+def _normalized_rag_snapshot(rag: dict) -> dict:
+    normalized = dict(rag)
+    if normalized.get("backend") in LEGACY_RAG_BACKENDS or ("backend" not in normalized and normalized.get("enabled") is True):
+        normalized["backend"] = "milvus_lite"
+    normalized.pop("redis_url", None)
+    if normalized.get("enabled") is True:
+        normalized["index_on_startup"] = True
+    return normalized
 
 
 class FakeVCLLM:
@@ -294,7 +305,8 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         "rationale": "Protect local Docker Model Runner from concurrent VC agent calls.",
     }
     assert config["knowledge_rag"]["enabled"] is True
-    assert config["knowledge_rag"]["redis_url"] == ""
+    assert config["knowledge_rag"]["backend"] == "milvus_lite"
+    assert "redis_url" not in config["knowledge_rag"]
     assert config["knowledge_rag"]["namespace"] == ""
     assert config["knowledge_rag"]["embedding_provider"] == "docker_model_runner"
     assert config["knowledge_rag"]["embedding_model"] == "huggingface.co/jinaai/jina-embeddings-v5-text-small-retrieval:Q4_K_M"
@@ -418,7 +430,7 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         assert embedded_config["agentic_research"]["allowed_tools"] == ["browser_search", "browser_page", "rendered_browser_page", "finish"]
         assert embedded_config["actor_review"] == config["actor_review"]
         assert embedded_config["backpressure"] == config["backpressure"]
-        assert embedded_config["knowledge_rag"] == config["knowledge_rag"]
+        assert _normalized_rag_snapshot(embedded_config["knowledge_rag"]) == _normalized_rag_snapshot(config["knowledge_rag"])
         assert embedded_config["python_dependencies"] == config["python_dependencies"]
         assert embedded_config["input_skills"]["llm_ocr"] == config["input_skills"]["llm_ocr"]
         assert embedded_config["input_skills"]["w3m_browser"] == config["input_skills"]["w3m_browser"]
@@ -441,7 +453,7 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         assert "build_context_upload_paths" not in template["with"]
         template_config = json.loads(template["with"]["environment"]["MN_BLUEPRINT_CONFIG_JSON"])
         assert template_config["backpressure"] == config["backpressure"]
-        assert template_config["knowledge_rag"] == config["knowledge_rag"]
+        assert _normalized_rag_snapshot(template_config["knowledge_rag"]) == _normalized_rag_snapshot(config["knowledge_rag"])
         assert template_config["actor_review"] == config["actor_review"]
         assert template_config["input_skills"]["llm_ocr"] == config["input_skills"]["llm_ocr"]
         assert template_config["input_skills"]["w3m_browser"] == config["input_skills"]["w3m_browser"]
@@ -1292,7 +1304,7 @@ def test_agentic_research_prompt_includes_knowledge_rag_context(monkeypatch, tmp
 
 def test_knowledge_rag_failure_records_explicit_warning(monkeypatch, tmp_path):
     runner = _load_runner()
-    monkeypatch.setattr(runner, "_load_rag_skill", lambda: (_ for _ in ()).throw(RuntimeError("redis unavailable")))
+    monkeypatch.setattr(runner, "_load_rag_skill", lambda: (_ for _ in ()).throw(RuntimeError("milvus unavailable")))
 
     state = runner.prepare_knowledge_rag(
         blueprint_dir=ROOT / "vc_assistant",

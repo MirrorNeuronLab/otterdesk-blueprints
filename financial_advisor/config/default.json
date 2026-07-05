@@ -469,7 +469,7 @@
   },
   "knowledge_rag": {
     "enabled": true,
-    "backend": "redis_vector_rag",
+    "backend": "milvus_lite",
     "required": false,
     "knowledge_dir": "knowledge",
     "purpose": "Retrieve local financial-advisor guidance for bank statement extraction, household cash-flow review, tax-form OCR capture, tax workpaper routing, portfolio risk interpretation, and review-only safety boundaries.",
@@ -483,7 +483,6 @@
       "human approval boundaries"
     ],
     "grounding_policy": "Use retrieved local blueprint knowledge to improve actor prompts; do not invent facts when retrieval is unavailable.",
-    "redis_url": "",
     "namespace": "",
     "embedding_provider": "docker_model_runner",
     "embedding_model": "huggingface.co/jinaai/jina-embeddings-v5-text-small-retrieval:Q4_K_M",
@@ -493,7 +492,7 @@
     "embedding_start_command": "",
     "embedding_healthcheck_enabled": true,
     "vector_dim": 1024,
-    "index_on_startup": false,
+    "index_on_startup": true,
     "top_k": 5,
     "max_context_chars": 6000,
     "chunk_size": 800,

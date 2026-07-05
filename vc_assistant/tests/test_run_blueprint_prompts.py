@@ -176,29 +176,41 @@ def test_required_rag_zero_citations_fails_before_llm(monkeypatch):
     assert calls["llm"] == 0
 
 
-def test_blank_knowledge_rag_redis_url_uses_runtime_redis_env(monkeypatch):
+def test_blank_knowledge_rag_db_root_uses_runtime_rag_env(monkeypatch):
     rb = load_module()
-    runtime_url = "redis://:secret@redis:6379/0"
-    config = {"knowledge_rag": {"enabled": True, "redis_url": "", "namespace": "vc"}}
+    db_root = "/tmp/mn-rag"
+    config = {"knowledge_rag": {"enabled": True, "db_root": "", "namespace": "vc"}}
 
-    monkeypatch.setenv("MN_REDIS_URL", runtime_url)
+    monkeypatch.setenv("MN_RAG_DB_ROOT", db_root)
+    monkeypatch.setenv("MN_REDIS_URL", "redis://:secret@redis:6379/0")
 
     patched = rb.with_runtime_knowledge_rag_defaults(config)
 
-    assert patched["knowledge_rag"]["redis_url"] == runtime_url
+    assert patched["knowledge_rag"]["backend"] == "milvus_lite"
+    assert patched["knowledge_rag"]["db_root"] == db_root
     assert patched["knowledge_rag"]["namespace"] == "vc"
-    assert config["knowledge_rag"]["redis_url"] == ""
+    assert "redis_url" not in patched["knowledge_rag"]
+    assert config["knowledge_rag"]["db_root"] == ""
 
 
-def test_explicit_knowledge_rag_redis_url_is_preserved(monkeypatch):
+def test_explicit_knowledge_rag_db_path_is_preserved(monkeypatch):
     rb = load_module()
-    explicit_url = "redis://custom-redis:6379/0"
-    config = {"knowledge_rag": {"enabled": True, "redis_url": explicit_url}}
+    config = {
+        "knowledge_rag": {
+            "enabled": True,
+            "backend": "milvus_lite",
+            "db_root": "/explicit/root",
+            "db_path": "/explicit/root/vc.db",
+        }
+    }
 
+    monkeypatch.setenv("MN_RAG_DB_ROOT", "/runtime/root")
     monkeypatch.setenv("MN_REDIS_URL", "redis://:secret@192.168.4.51:56379/0")
 
     assert rb.with_runtime_knowledge_rag_defaults(config) is config
-    assert config["knowledge_rag"]["redis_url"] == explicit_url
+    assert config["knowledge_rag"]["db_root"] == "/explicit/root"
+    assert config["knowledge_rag"]["db_path"] == "/explicit/root/vc.db"
+    assert "redis_url" not in config["knowledge_rag"]
 
 
 def test_agentic_rag_query_prioritizes_stage_playbook_terms(monkeypatch):

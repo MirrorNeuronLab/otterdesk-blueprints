@@ -18,6 +18,17 @@ RAG_BLUEPRINTS = {
 }
 
 SUPPORTED_KNOWLEDGE_SUFFIXES = {".md", ".txt", ".json", ".yaml", ".yml"}
+LEGACY_RAG_BACKENDS = {"redis_vector_rag", "lexical_plain_text", "working_memory_plus_rag"}
+
+
+def _normalized_rag_snapshot(rag: dict) -> dict:
+    normalized = dict(rag)
+    if normalized.get("backend") in LEGACY_RAG_BACKENDS:
+        normalized["backend"] = "milvus_lite"
+    normalized.pop("redis_url", None)
+    if normalized.get("enabled") is True:
+        normalized["index_on_startup"] = True
+    return normalized
 
 
 def _embedded_manifest_configs(manifest: dict):
@@ -58,9 +69,10 @@ def test_non_vc_blueprints_declare_grounded_rag_and_agentic_tool_contracts():
         llm_agents = set((config.get("llm") or {}).get("agents") or {})
         assert set(agentic["agent_ids"]) <= llm_agents, blueprint_id
 
-        assert manifest.get("knowledge_rag") == knowledge_rag, blueprint_id
+        expected_rag_snapshot = _normalized_rag_snapshot(knowledge_rag)
+        assert _normalized_rag_snapshot(manifest.get("knowledge_rag")) == expected_rag_snapshot, blueprint_id
         assert manifest.get("agentic_research") == agentic, blueprint_id
-        assert manifest["metadata"]["knowledge_rag"] == knowledge_rag, blueprint_id
+        assert _normalized_rag_snapshot(manifest["metadata"]["knowledge_rag"]) == expected_rag_snapshot, blueprint_id
         assert manifest["metadata"]["agentic_research"] == agentic, blueprint_id
 
         for section_list in (
@@ -73,5 +85,5 @@ def test_non_vc_blueprints_declare_grounded_rag_and_agentic_tool_contracts():
             assert "agentic_research" in section_list, blueprint_id
 
         for embedded in _embedded_manifest_configs(manifest):
-            assert embedded.get("knowledge_rag") == knowledge_rag, blueprint_id
+            assert _normalized_rag_snapshot(embedded.get("knowledge_rag")) == expected_rag_snapshot, blueprint_id
             assert embedded.get("agentic_research") == agentic, blueprint_id

@@ -1212,7 +1212,7 @@
   },
   "knowledge_rag": {
     "enabled": true,
-    "redis_url": "",
+    "backend": "milvus_lite",
     "namespace": "",
     "embedding_provider": "docker_model_runner",
     "embedding_model": "huggingface.co/jinaai/jina-embeddings-v5-text-small-retrieval:Q4_K_M",

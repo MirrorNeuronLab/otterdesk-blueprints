@@ -527,7 +527,7 @@
   },
   "knowledge_rag": {
     "enabled": true,
-    "backend": "lexical_plain_text",
+    "backend": "milvus_lite",
     "required": false,
     "knowledge_dir": "knowledge",
     "purpose": "Retrieve editable run knowledge and menu/service-policy snippets for grounded customer-service voice responses.",
@@ -538,7 +538,6 @@
       "service scope"
     ],
     "grounding_policy": "Use retrieved local blueprint knowledge to improve actor review prompts; do not invent facts when retrieval is unavailable.",
-    "redis_url": "",
     "namespace": "",
     "embedding_provider": "docker_model_runner",
     "embedding_model": "huggingface.co/jinaai/jina-embeddings-v5-text-small-retrieval:Q4_K_M",

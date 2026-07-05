@@ -891,18 +891,23 @@ def knowledge_rag_config(config: dict[str, Any]) -> dict[str, Any]:
 
 
 def with_runtime_knowledge_rag_defaults(config: dict[str, Any]) -> dict[str, Any]:
-    runtime_redis_url = os.environ.get("MN_REDIS_URL") or ""
-    runtime_redis_url = runtime_redis_url.strip()
-    if not runtime_redis_url or not isinstance(config, dict):
+    if not isinstance(config, dict):
         return config
 
     raw = config.get("knowledge_rag") if isinstance(config.get("knowledge_rag"), dict) else {}
-    configured = str(raw.get("redis_url") or "").strip()
-    if configured:
+    updates: dict[str, Any] = {}
+    if raw.get("enabled", True) and not str(raw.get("backend") or "").strip():
+        updates["backend"] = "milvus_lite"
+
+    runtime_db_root = (os.environ.get("MN_RAG_DB_ROOT") or "").strip()
+    if runtime_db_root and not str(raw.get("db_root") or "").strip():
+        updates["db_root"] = runtime_db_root
+
+    if not updates:
         return config
 
     patched = dict(config)
-    patched["knowledge_rag"] = {**raw, "redis_url": runtime_redis_url}
+    patched["knowledge_rag"] = {**raw, **updates}
     return patched
 
 
@@ -1015,7 +1020,7 @@ def prepare_knowledge_rag(
         warning = {
             "kind": "knowledge_rag",
             "status": "knowledge_rag_failed",
-            "message": "Knowledge RAG was enabled but Redis/vector indexing could not complete; no static playbook fallback was injected.",
+            "message": "Knowledge RAG was enabled but Milvus Lite indexing could not complete; no static playbook fallback was injected.",
             "error": str(exc),
         }
         state = {
