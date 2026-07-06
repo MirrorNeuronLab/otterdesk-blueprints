@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import re
+import sys
 from pathlib import Path
 from typing import Iterable
 
@@ -43,8 +44,35 @@ def load_blueprint_env(start: str | Path | None = None) -> dict[str, str]:
     return {"loaded": os.pathsep.join(loaded), "env": env_name}
 
 
+def bootstrap_blueprint_runtime(
+    start: str | Path | None = None,
+    *,
+    packages: Iterable[str] = (),
+) -> dict[str, object]:
+    """Load repo env and activate local skill sources only for dev runs."""
+
+    env_info = load_blueprint_env(start)
+    package_names = [str(package).strip() for package in packages if str(package).strip()]
+    if not package_names or not local_skill_sources_enabled():
+        return {"env": env_info, "mode": "installed_packages", "modules": []}
+
+    ensure_local_sdk_importable(start)
+    from mn_sdk.runtime_modules import ensure_registered_runtime_modules
+
+    result = ensure_registered_runtime_modules(
+        [{"package": package, "reasons": ["blueprint_runtime"]} for package in package_names],
+        workspace_root=workspace_root(start),
+        auto_install=False,
+    )
+    return {"env": env_info, "mode": "local_skill_sources", **result}
+
+
 def local_development_enabled() -> bool:
     return normalized_env(os.environ.get("MN_ENV")) == "development"
+
+
+def local_skill_sources_enabled() -> bool:
+    return local_development_enabled() and os.environ.get("MN_USE_LOCAL_SKILLS", "").strip().lower() not in {"0", "false", "no"}
 
 
 def normalized_env(value: str | None) -> str:
@@ -54,15 +82,39 @@ def normalized_env(value: str | None) -> str:
 def find_repo_root(start: str | Path | None = None) -> Path | None:
     candidates: Iterable[Path]
     if start is None:
-        candidates = [Path.cwd()]
+        candidates = [Path.cwd().resolve()]
     else:
-        path = Path(start).expanduser()
+        path = Path(start).expanduser().resolve()
         candidates = [path if path.is_dir() else path.parent]
     for candidate in candidates:
         for parent in (candidate, *candidate.parents):
             if (parent / "otterdesk_blueprint_env.py").exists() and (parent / "AGENTS.md").exists():
                 return parent
     return None
+
+
+def workspace_root(start: str | Path | None = None) -> Path | None:
+    root = find_repo_root(start)
+    return root.parent if root is not None else None
+
+
+def ensure_local_sdk_importable(start: str | Path | None = None) -> None:
+    try:
+        import mn_sdk.runtime_modules  # noqa: F401
+        return
+    except ModuleNotFoundError:
+        pass
+
+    candidates: list[Path] = []
+    if os.environ.get("MN_PYTHON_SDK_ROOT"):
+        candidates.append(Path(os.environ["MN_PYTHON_SDK_ROOT"]).expanduser())
+    workspace = workspace_root(start)
+    if workspace is not None:
+        candidates.append(workspace / "mn-python-sdk")
+    for candidate in candidates:
+        if (candidate / "mn_sdk").is_dir() and str(candidate) not in sys.path:
+            sys.path.insert(0, str(candidate))
+            return
 
 
 def load_env_file(path: Path, *, protected: set[str]) -> bool:

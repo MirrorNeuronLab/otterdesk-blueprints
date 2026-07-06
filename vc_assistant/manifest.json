@@ -1145,7 +1145,7 @@
       "name": "mirrorneuron-blueprint-support-skill",
       "source": "gar",
       "type": "pip",
-      "version": "1.2.7"
+      "version": "1.2.8"
     },
     {
       "name": "mirrorneuron-litellm-communicate-skill",

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import base64
+import importlib.util
 import json
 import mimetypes
 import os
@@ -17,9 +18,26 @@ from pathlib import Path
 from typing import Any
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-PROMPT_DIR = Path(__file__).resolve().parents[2] / "prompts"
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
+
+RUNTIME_SKILL_PACKAGES = ("mirrorneuron-blueprint-support-skill",)
+
+
+def _bootstrap_runtime() -> None:
+    for parent in Path(__file__).resolve().parents:
+        helper = parent / "otterdesk_blueprint_env.py"
+        if helper.exists():
+            spec = importlib.util.spec_from_file_location("otterdesk_blueprint_env", helper)
+            if spec is None or spec.loader is None:
+                return
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            module.bootstrap_blueprint_runtime(__file__, packages=RUNTIME_SKILL_PACKAGES)
+            return
+
+
+_bootstrap_runtime()
 
 from video_json_utils import (
     first_balanced_json_object,
@@ -31,11 +49,10 @@ from video_json_utils import (
     strip_json_code_fence,
 )
 
-try:
-    from mn_blueprint_support import start_agent_beacon_thread
-except Exception:  # pragma: no cover - optional runtime support
-    def start_agent_beacon_thread(message: str | None = None) -> None:
-        return None
+from mn_blueprint_support import PromptLibrary, start_agent_beacon_thread
+
+
+PROMPTS = PromptLibrary.from_script(__file__, parents_up=2)
 
 IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
 DEFAULT_VIDEO_SOURCE_URI = "rtsp://127.0.0.1:8554/video-watch"
@@ -43,11 +60,11 @@ LIVE_STREAM_SCHEMES = ("rtsp://", "rtsps://", "rtmp://", "rtmps://")
 
 
 def load_prompt(name: str) -> str:
-    return (PROMPT_DIR / name).read_text(encoding="utf-8").strip()
+    return PROMPTS.load(name)
 
 
 def render_prompt(name: str, **values: str) -> str:
-    return load_prompt(name).format(**values)
+    return PROMPTS.render(name, **values)
 
 
 def load_json_env(name: str) -> dict[str, Any]:

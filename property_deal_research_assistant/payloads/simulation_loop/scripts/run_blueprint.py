@@ -2,68 +2,49 @@
 from __future__ import annotations
 
 import copy
+import importlib.util
 import json
 import math
 import os
 import random
-import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 
-def _load_repo_env() -> None:
-    for parent in Path(__file__).resolve().parents:
-        if (parent / "otterdesk_blueprint_env.py").exists():
-            if str(parent) not in sys.path:
-                sys.path.insert(0, str(parent))
-            from otterdesk_blueprint_env import load_blueprint_env
+RUNTIME_SKILL_PACKAGES = ("mirrorneuron-blueprint-support-skill",)
 
-            load_blueprint_env(__file__)
+
+def _bootstrap_runtime() -> None:
+    for parent in Path(__file__).resolve().parents:
+        helper = parent / "otterdesk_blueprint_env.py"
+        if helper.exists():
+            spec = importlib.util.spec_from_file_location("otterdesk_blueprint_env", helper)
+            if spec is None or spec.loader is None:
+                return
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            module.bootstrap_blueprint_runtime(__file__, packages=RUNTIME_SKILL_PACKAGES)
             return
 
 
-_load_repo_env()
+_bootstrap_runtime()
 
 
-def _local_development_enabled() -> bool:
-    return os.environ.get("MN_ENV", "").strip().lower() in {"dev", "development", "local"} and os.environ.get("MN_USE_LOCAL_SKILLS", "").strip().lower() not in {"0", "false", "no"}
-
-
-try:
-    from mn_blueprint_support import (
-        architecture_contract,
-        create_runtime_context,
-        get_llm_client,
-        llm_usage,
-        load_config,
-        resolve_input_overrides,
-        resolve_actor_specs,
-        run_actor_reviews,
-        run_blueprint_cli,
-        utc_now_iso,
-    )
-    from mn_blueprint_support.web_ui import maybe_write_static_output
-except ModuleNotFoundError:
-    if _local_development_enabled():
-        for parent in Path(__file__).resolve().parents:
-            candidate = parent / "mn-skills" / "blueprint_support_skill" / "src"
-            if candidate.exists():
-                sys.path.insert(0, str(candidate))
-                break
-    from mn_blueprint_support import (
-            architecture_contract,
-            create_runtime_context,
-            get_llm_client,
-            llm_usage,
-            load_config,
-            resolve_input_overrides,
-            resolve_actor_specs,
-            run_actor_reviews,
-            run_blueprint_cli,
-            utc_now_iso,
-        )
-    from mn_blueprint_support.web_ui import maybe_write_static_output
+from mn_blueprint_support import (
+    PromptLibrary,
+    architecture_contract,
+    create_runtime_context,
+    get_llm_client,
+    llm_usage,
+    load_config,
+    resolve_actor_specs,
+    resolve_input_overrides,
+    run_actor_reviews,
+    run_blueprint_cli,
+    utc_now_iso,
+)
+from mn_blueprint_support.web_ui import maybe_write_static_output
 
 
 BLUEPRINT_ID = "property_deal_research_assistant"
@@ -86,11 +67,11 @@ CRITICAL_SOURCE_REFS = (
     "mem:ivy-duplex-flood-insurance",
     "mem:ivy-duplex-roof-deferred",
 )
-PROMPT_DIR = Path(__file__).resolve().parents[2] / "prompts"
+PROMPTS = PromptLibrary.from_script(__file__, parents_up=2)
 
 
 def load_prompt(name: str) -> str:
-    return (PROMPT_DIR / name).read_text(encoding="utf-8").strip()
+    return PROMPTS.load(name)
 
 
 @dataclass(frozen=True)

@@ -2,20 +2,47 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
 import re
-import sys
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-try:
-    from mn_blueprint_support import start_agent_beacon_thread
-except Exception:  # pragma: no cover - optional runtime support
-    def start_agent_beacon_thread(message: str | None = None) -> None:
-        return None
+
+RUNTIME_SKILL_PACKAGES = (
+    "mirrorneuron-blueprint-support-skill",
+    "mirrorneuron-llm-ocr-skill",
+)
+
+
+def _bootstrap_runtime() -> None:
+    for parent in Path(__file__).resolve().parents:
+        helper = parent / "otterdesk_blueprint_env.py"
+        if helper.exists():
+            spec = importlib.util.spec_from_file_location("otterdesk_blueprint_env", helper)
+            if spec is None or spec.loader is None:
+                return
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            module.bootstrap_blueprint_runtime(__file__, packages=RUNTIME_SKILL_PACKAGES)
+            return
+
+
+_bootstrap_runtime()
+
+from mn_blueprint_support import (
+    PromptLibrary,
+    append_event_jsonl,
+    get_actor_llm_client,
+    llm_usage,
+    load_resolved_config as load_shared_resolved_config,
+    resolve_actor_specs,
+    run_actor_reviews,
+    start_agent_beacon_thread,
+)
 
 BLUEPRINT_ID = 'medical_deid_record_intake_assistant'
 BLUEPRINT_NAME = 'Medical De-Identification Record Intake Assistant'
@@ -23,64 +50,12 @@ OUTPUT_TYPE = 'medical_deidentification_review_packet'
 RECOMMENDED_ACTION = 'privacy_officer_review_required_before_release'
 FIELD_PROFILE = ['patient_name', 'date_of_birth', 'medical_record_number', 'doctor', 'medications', 'diagnoses', 'test_tables', 'visit_dates', 'redaction_spans']
 DATASET_INPUT = {'name': 'RootCauseAnalytics Healthcare Library Sample', 'provider': 'RootCauseAnalytics on Hugging Face', 'url': 'https://huggingface.co/datasets/RootCauseAnalytics/Healthcare-Library-Sample', 'license': 'CC BY-NC 4.0 according to the public dataset/forum descriptions; review source terms before production use.', 'availability_note': 'Public synthetic healthcare document sample listed on Hugging Face with OCR-oriented PDFs and labels.', 'expected_files': ['*.pdf', 'ground_truth.csv', 'ground_truth.jsonl', 'bboxes.jsonl'], 'download_hint': 'Use the Hugging Face dataset files or clone with git-lfs/huggingface_hub when available.'}
-PROMPT_DIR = Path(__file__).resolve().parents[2] / "prompts"
+
+PROMPTS = PromptLibrary.from_script(__file__, parents_up=2)
 
 
 def load_prompt(name: str) -> str:
-    return (PROMPT_DIR / name).read_text(encoding="utf-8").strip()
-
-
-def _load_repo_env() -> None:
-    for parent in Path(__file__).resolve().parents:
-        if (parent / "otterdesk_blueprint_env.py").exists():
-            if str(parent) not in sys.path:
-                sys.path.insert(0, str(parent))
-            from otterdesk_blueprint_env import load_blueprint_env
-
-            load_blueprint_env(__file__)
-            return
-
-
-_load_repo_env()
-
-
-def _local_development_enabled() -> bool:
-    return os.environ.get("MN_ENV", "").strip().lower() in {"dev", "development", "local"} and os.environ.get("MN_USE_LOCAL_SKILLS", "").strip().lower() not in {"0", "false", "no"}
-
-
-def _workspace_root() -> Path | None:
-    value = os.environ.get("MN_WORKSPACE_ROOT")
-    if value:
-        return Path(value).expanduser()
-    for parent in Path(__file__).resolve().parents:
-        if (parent / "mn-skills").exists():
-            return parent
-    return None
-
-
-def _add_repo_paths() -> None:
-    if not _local_development_enabled():
-        return
-    roots = []
-    if os.environ.get("MN_SKILLS_ROOT"):
-        roots.append(Path(os.environ["MN_SKILLS_ROOT"]).expanduser())
-    workspace = _workspace_root()
-    if workspace:
-        roots.append(workspace / "mn-skills")
-    for parent in Path(__file__).resolve().parents:
-        roots.append(parent / "mn-skills")
-    for root in roots:
-        support = root / "blueprint_support_skill" / "src"
-        if support.exists() and str(support) not in sys.path:
-            sys.path.insert(0, str(support))
-        candidate = root / "llm_ocr_skill" / "src"
-        if candidate.exists() and str(candidate) not in sys.path:
-            sys.path.insert(0, str(candidate))
-
-
-_add_repo_paths()
-
-from mn_blueprint_support import get_actor_llm_client, llm_usage, resolve_actor_specs, run_actor_reviews
+    return PROMPTS.load(name)
 
 try:
     from mn_llm_ocr_skill import docker_ocr_client_factory_from_config, extract_document_folder
@@ -93,36 +68,8 @@ def utc_now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
-def read_json(path: Path) -> dict[str, Any]:
-    if not path.exists():
-        return {}
-    value = json.loads(path.read_text(encoding="utf-8"))
-    return value if isinstance(value, dict) else {}
-
-
-def deep_merge(base: dict[str, Any], overlay: dict[str, Any]) -> dict[str, Any]:
-    merged = dict(base)
-    for key, value in overlay.items():
-        if isinstance(value, dict) and isinstance(merged.get(key), dict):
-            merged[key] = deep_merge(merged[key], value)
-        else:
-            merged[key] = value
-    return merged
-
-
 def load_resolved_config(default_path: Path, overlay: dict[str, Any] | None = None) -> dict[str, Any]:
-    resolved = read_json(default_path)
-    env_path = os.environ.get("MN_BLUEPRINT_CONFIG_PATH")
-    if env_path:
-        resolved = deep_merge(resolved, read_json(Path(env_path)))
-    env_json = os.environ.get("MN_BLUEPRINT_CONFIG_JSON")
-    if env_json:
-        decoded = json.loads(env_json)
-        if isinstance(decoded, dict):
-            resolved = deep_merge(resolved, decoded)
-    if overlay:
-        resolved = deep_merge(resolved, overlay)
-    return resolved
+    return load_shared_resolved_config(default_path, overlay=overlay)
 
 
 def write_json(path: Path, value: Any) -> None:
@@ -131,9 +78,7 @@ def write_json(path: Path, value: Any) -> None:
 
 
 def append_event(run_dir: Path, event_type: str, payload: dict[str, Any]) -> None:
-    record = {"type": event_type, "timestamp": utc_now_iso(), "payload": payload}
-    with (run_dir / "events.jsonl").open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(record, sort_keys=True) + "\n")
+    append_event_jsonl(run_dir, event_type, payload)
 
 
 def redactor(text: str) -> str:

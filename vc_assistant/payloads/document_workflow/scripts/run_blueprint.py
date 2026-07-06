@@ -4,12 +4,12 @@ import argparse
 from dataclasses import asdict, dataclass
 import html as html_lib
 import hashlib
+import importlib.util
 import inspect
 import json
 import os
 import re
 import shutil
-import sys
 import threading
 import time
 import urllib.error
@@ -22,77 +22,46 @@ from typing import Any
 from urllib.parse import parse_qs, quote_plus, unquote, urljoin, urlparse
 
 
-LOCAL_SKILL_NAMES = (
-    "blueprint_support_skill",
-    "llm_ocr_skill",
-    "rag_skill",
-    "w3m_browser_skill",
-    "web_browser_skill",
-    "evidence_engine_skill",
-    "actor_review_skill",
-    "client_report_skill",
-    "document_reading_skill",
-    "public_research_orchestrator_skill",
-    "scoring_framework_skill",
+RUNTIME_SKILL_PACKAGES = (
+    "mirrorneuron-blueprint-support-skill",
+    "mirrorneuron-llm-ocr-skill",
+    "mirrorneuron-rag-skill",
+    "mirrorneuron-w3m-browser-skill",
+    "mirrorneuron-web-browser-skill",
+    "mirrorneuron-evidence-engine-skill",
+    "mirrorneuron-actor-review-skill",
+    "mirrorneuron-client-report-skill",
+    "mirrorneuron-document-reading-skill",
+    "mirrorneuron-public-research-orchestrator-skill",
+    "mirrorneuron-scoring-framework-skill",
 )
 
 
-def _load_repo_env() -> None:
+def _bootstrap_runtime() -> None:
     for parent in Path(__file__).resolve().parents:
-        if (parent / "otterdesk_blueprint_env.py").exists():
-            if str(parent) not in sys.path:
-                sys.path.insert(0, str(parent))
-            from otterdesk_blueprint_env import load_blueprint_env
-
-            load_blueprint_env(__file__)
+        helper = parent / "otterdesk_blueprint_env.py"
+        if helper.exists():
+            spec = importlib.util.spec_from_file_location("otterdesk_blueprint_env", helper)
+            if spec is None or spec.loader is None:
+                return
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            module.bootstrap_blueprint_runtime(__file__, packages=RUNTIME_SKILL_PACKAGES)
             return
 
 
-_load_repo_env()
+_bootstrap_runtime()
 
-
-def _workspace_root() -> Path | None:
-    value = os.environ.get("MN_WORKSPACE_ROOT")
-    if value:
-        return Path(value).expanduser()
-    for parent in Path(__file__).resolve().parents:
-        if (parent / "mn-skills").exists():
-            return parent
-    return None
-
-
-def _dev_local_skills_enabled() -> bool:
-    env = os.environ.get("MN_ENV", "").strip().lower()
-    flag = os.environ.get("MN_USE_LOCAL_SKILLS", "").strip().lower()
-    return env in {"dev", "development", "local"} and flag not in {"0", "false", "no"}
-
-
-def _add_repo_paths() -> None:
-    if not _dev_local_skills_enabled():
-        return
-    bundle_root = Path(__file__).resolve().parents[1]
-    bundled_skills = bundle_root / "skills"
-    if bundled_skills.exists():
-        for skill_name in ("rag_skill",):
-            candidate = bundled_skills / skill_name / "src"
-            if candidate.exists() and str(candidate) not in sys.path:
-                sys.path.insert(0, str(candidate))
-    workspace = _workspace_root()
-    if not workspace:
-        return
-    for skill_name in LOCAL_SKILL_NAMES:
-        candidate = workspace / "mn-skills" / skill_name / "src"
-        if candidate.exists() and str(candidate) not in sys.path:
-            sys.path.insert(0, str(candidate))
-
-
-_add_repo_paths()
-
-try:
-    from mn_blueprint_support import start_agent_beacon_thread
-except Exception:  # pragma: no cover - optional runtime support
-    def start_agent_beacon_thread(message: str | None = None) -> None:
-        return None
+from mn_blueprint_support import (
+    PromptLibrary,
+    append_event_jsonl,
+    get_actor_llm_client,
+    llm_usage,
+    load_resolved_config as load_shared_resolved_config,
+    resolve_actor_specs,
+    run_actor_reviews,
+    start_agent_beacon_thread,
+)
 
 try:
     from mn_context_engine_sdk import MemoryItem, WorkingMemory
@@ -429,7 +398,7 @@ JUDGE_RUBRIC = [
     "report_usefulness_without_investment_advice",
 ]
 
-PROMPT_DIR = Path(__file__).resolve().parents[2] / "prompts"
+PROMPTS = PromptLibrary.from_script(__file__, parents_up=2)
 RESEARCH_AGENT_PROMPT_FILES = {
     "research_planner": "research-planner.md",
     "company_identity_researcher": "company-identity-researcher.md",
@@ -444,148 +413,14 @@ REVIEW_AGENT_PROMPT_FILES = {
     "company_report_writer": "company-report-writer.md",
     "batch_index_writer": "batch-index-writer.md",
 }
-PROMPT_CACHE: dict[tuple[str, tuple[tuple[str, str], ...]], str] = {}
 
 
 def load_prompt(name: str, **values: Any) -> str:
-    key = (name, tuple(sorted((str(k), str(v)) for k, v in values.items())))
-    if key not in PROMPT_CACHE:
-        text = (PROMPT_DIR / name).read_text(encoding="utf-8").strip()
-        PROMPT_CACHE[key] = text.format(**values) if values else text
-    return PROMPT_CACHE[key]
-
-
-def prompt_sections(text: str) -> dict[str, str]:
-    sections: dict[str, list[str]] = {}
-    current = ""
-    for line in text.splitlines():
-        if line.startswith("## "):
-            current = line[3:].strip().lower()
-            sections.setdefault(current, [])
-            continue
-        if current:
-            sections[current].append(line)
-    return {key: "\n".join(value).strip() for key, value in sections.items()}
-
-
-def prompt_section_text(sections: dict[str, str], key: str) -> str:
-    return " ".join(line.strip() for line in sections.get(key.lower(), "").splitlines() if line.strip() and not line.strip().startswith("- ")).strip()
-
-
-def prompt_section_list(sections: dict[str, str], key: str) -> list[str]:
-    items: list[str] = []
-    for line in sections.get(key.lower(), "").splitlines():
-        stripped = line.strip()
-        if not stripped:
-            continue
-        items.append(stripped[2:].strip() if stripped.startswith("- ") else stripped)
-    return items
+    return PROMPTS.load(name, **values)
 
 
 def prompt_spec_from_markdown(name: str, **values: Any) -> dict[str, Any]:
-    sections = prompt_sections(load_prompt(name, **values))
-    spec: dict[str, Any] = {
-        "mission": prompt_section_text(sections, "Goal"),
-    }
-    for key, section in (
-        ("allowed_evidence", "Allowed Evidence"),
-        ("forbidden_inputs", "Restrictions"),
-        ("rag_query_terms", "RAG Query Terms"),
-        ("failure_conditions", "Failure Conditions"),
-        ("focus", "Focus"),
-    ):
-        values_from_section = prompt_section_list(sections, section)
-        if values_from_section:
-            spec[key] = values_from_section
-    tool_policy = prompt_section_text(sections, "Tool Policy")
-    if tool_policy:
-        spec["tool_policy"] = tool_policy
-    return spec
-
-
-try:
-    from mn_blueprint_support import get_actor_llm_client
-    from mn_blueprint_support import llm_usage
-    from mn_blueprint_support import resolve_actor_specs
-    from mn_blueprint_support import run_actor_reviews
-    from mn_blueprint_support import start_agent_beacon_thread as imported_start_agent_beacon_thread
-
-    start_agent_beacon_thread = imported_start_agent_beacon_thread
-except Exception:  # pragma: no cover - optional runtime support
-    class _FallbackActorLLM:
-        provider = "fallback"
-
-        def __init__(self, model: str = "unknown") -> None:
-            self.model = model
-            self.calls = 0
-            self.fallback_calls = 0
-
-        def generate_json(self, *, system_prompt: str, user_prompt: str, fallback: dict[str, Any]) -> dict[str, Any]:
-            del system_prompt, user_prompt
-            self.calls += 1
-            self.fallback_calls += 1
-            response = dict(fallback)
-            response.setdefault("provider", self.provider)
-            response.setdefault("model", self.model)
-            return response
-
-    def resolve_actor_specs(
-        config: dict[str, Any] | None,
-        *,
-        actor_ids: list[str] | tuple[str, ...] | set[str] | None = None,
-        include_default: bool = False,
-    ) -> dict[str, dict[str, Any]]:
-        llm_config = (config or {}).get("llm") if isinstance((config or {}).get("llm"), dict) else {}
-        agents = llm_config.get("agents") if isinstance(llm_config.get("agents"), dict) else {}
-        selected = list(actor_ids or [key for key in agents if include_default or key != "default"])
-        return {str(actor_id): dict(agents.get(str(actor_id)) or {}) for actor_id in selected}
-
-    def get_actor_llm_client(config: dict[str, Any] | None, llm_client: Any | None = None) -> Any:
-        if llm_client is not None:
-            return llm_client
-        llm_config = (config or {}).get("llm") if isinstance((config or {}).get("llm"), dict) else {}
-        return _FallbackActorLLM(str(llm_config.get("model") or "unknown"))
-
-    def llm_usage(llm: Any) -> dict[str, Any]:
-        return {
-            "provider": getattr(llm, "provider", "unknown"),
-            "model": getattr(llm, "model", "unknown"),
-            "calls": int(getattr(llm, "calls", 0) or 0),
-            "fallback_calls": int(getattr(llm, "fallback_calls", 0) or 0),
-            "input_tokens": int(getattr(llm, "input_tokens", 0) or 0),
-            "output_tokens": int(getattr(llm, "output_tokens", 0) or 0),
-            "total_tokens": int(getattr(llm, "total_tokens", 0) or 0),
-            "estimated_tokens": int(getattr(llm, "estimated_tokens", 0) or 0),
-            "last_usage": getattr(llm, "last_usage", {}) or {},
-        }
-
-    def run_actor_reviews(
-        *,
-        config: dict[str, Any],
-        llm: Any,
-        actor_ids: list[str] | tuple[str, ...] | set[str],
-        state: dict[str, Any],
-        task: str,
-        context: dict[str, Any],
-        event_sink: Any | None = None,
-    ) -> dict[str, Any]:
-        findings = state.setdefault("actor_findings", {})
-        for actor_id in actor_ids:
-            fallback = {
-                "actor_id": actor_id,
-                "summary": "Actor review unavailable; deterministic VC report artifacts were preserved.",
-                "findings": [],
-                "risks": [],
-                "confidence": 0.35,
-            }
-            try:
-                finding = llm.generate_json(system_prompt=str(actor_id), user_prompt=json.dumps({"task": task, "context": context}, default=str), fallback=fallback)
-            except Exception:
-                finding = fallback
-            findings[str(actor_id)] = finding
-            if event_sink is not None:
-                append_event(Path(event_sink), "actor_activity", {"agent_id": str(actor_id), "status": "completed", "summary": finding.get("summary")})
-        return findings
+    return PROMPTS.spec_from_markdown(name, **values)
 
 
 try:
@@ -1361,10 +1196,7 @@ def build_llm_call_limiter(config: dict[str, Any]) -> LlmCallLimiter:
 
 
 def append_event(run_dir: Path, event_type: str, payload: dict[str, Any]) -> None:
-    record = {"type": event_type, "timestamp": utc_now_iso(), "payload": payload}
-    with EVENT_LOCK:
-        with (run_dir / "events.jsonl").open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(record, sort_keys=True) + "\n")
+    append_event_jsonl(run_dir, event_type, payload, lock=EVENT_LOCK)
 
 
 def append_resource_record(run_dir: Path | None, event_type: str, payload: dict[str, Any]) -> None:
@@ -2001,29 +1833,8 @@ def call_with_supported_kwargs(func: Any, **kwargs: Any) -> Any:
     return func(**supported)
 
 
-def deep_merge(base: dict[str, Any], overlay: dict[str, Any]) -> dict[str, Any]:
-    merged = dict(base)
-    for key, value in overlay.items():
-        if isinstance(value, dict) and isinstance(merged.get(key), dict):
-            merged[key] = deep_merge(merged[key], value)
-        else:
-            merged[key] = value
-    return merged
-
-
 def load_resolved_config(default_path: Path, overlay: dict[str, Any] | None = None) -> dict[str, Any]:
-    resolved = read_json(default_path)
-    env_path = os.environ.get("MN_BLUEPRINT_CONFIG_PATH")
-    if env_path:
-        resolved = deep_merge(resolved, read_json(Path(env_path)))
-    env_json = os.environ.get("MN_BLUEPRINT_CONFIG_JSON")
-    if env_json:
-        decoded = json.loads(env_json)
-        if isinstance(decoded, dict):
-            resolved = deep_merge(resolved, decoded)
-    if overlay:
-        resolved = deep_merge(resolved, overlay)
-    return resolved
+    return load_shared_resolved_config(default_path, overlay=overlay)
 
 
 def _configured_llm_env(config: dict[str, Any]) -> dict[str, str]:

@@ -1375,7 +1375,7 @@
       "type": "pip",
       "source": "gar",
       "name": "mirrorneuron-blueprint-support-skill",
-      "version": "1.2.7"
+      "version": "1.2.8"
     },
     {
       "type": "pip",

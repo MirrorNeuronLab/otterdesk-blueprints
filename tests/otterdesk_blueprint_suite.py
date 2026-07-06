@@ -16,8 +16,11 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKSPACE = ROOT.parent
+SDK_SRC = WORKSPACE / "mn-python-sdk"
 SUPPORT_SRC = WORKSPACE / "mn-skills" / "blueprint_support_skill" / "src"
 AGENTS_ROOT = WORKSPACE / "mn-agents"
+if str(SDK_SRC) not in sys.path:
+    sys.path.insert(0, str(SDK_SRC))
 if str(SUPPORT_SRC) not in sys.path:
     sys.path.insert(0, str(SUPPORT_SRC))
 

@@ -3,20 +3,41 @@ from __future__ import annotations
 
 import argparse
 import copy
+import importlib.util
 import json
 import os
 import re
-import sys
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-try:
-    from mn_blueprint_support import start_agent_beacon_thread
-except Exception:  # pragma: no cover - optional runtime support
-    def start_agent_beacon_thread(message: str | None = None) -> None:
-        return None
+
+RUNTIME_SKILL_PACKAGES = ("mirrorneuron-blueprint-support-skill",)
+
+
+def _bootstrap_runtime() -> None:
+    for parent in Path(__file__).resolve().parents:
+        helper = parent / "otterdesk_blueprint_env.py"
+        if helper.exists():
+            spec = importlib.util.spec_from_file_location("otterdesk_blueprint_env", helper)
+            if spec is None or spec.loader is None:
+                return
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            module.bootstrap_blueprint_runtime(__file__, packages=RUNTIME_SKILL_PACKAGES)
+            return
+
+
+_bootstrap_runtime()
+
+from mn_blueprint_support import (
+    DeterministicFallbackLLM,
+    PromptLibrary,
+    append_event_jsonl,
+    load_resolved_config as load_shared_resolved_config,
+    start_agent_beacon_thread,
+)
 
 
 BLUEPRINT_ID = "personal_legal_assistant"
@@ -79,36 +100,24 @@ DATASET_INPUTS = {
         "note": "Public commercial contract corpus and clause labels. Bundled samples are small local fixtures for smoke runs.",
     },
 }
-PROMPT_DIR = Path(__file__).resolve().parents[2] / "prompts"
+PROMPTS = PromptLibrary.from_script(__file__, parents_up=2)
 
 
 def load_prompt(name: str) -> str:
-    return (PROMPT_DIR / name).read_text(encoding="utf-8").strip()
+    return PROMPTS.load(name)
 
 
 def render_prompt(name: str, **values: str) -> str:
-    return load_prompt(name).format(**values)
+    return PROMPTS.render(name, **values)
 
 
-class DeterministicLLM:
-    provider = "fake"
-    model = "deterministic-personal-legal-assistant"
-
+class DeterministicLLM(DeterministicFallbackLLM):
     def __init__(self) -> None:
-        self.calls = 0
-        self.fallback_calls = 0
-        self.prompts: list[dict[str, str]] = []
-
-    def generate_json(self, *, system_prompt: str, user_prompt: str, fallback: dict[str, Any]) -> dict[str, Any]:
-        self.calls += 1
-        self.fallback_calls += 1
-        self.prompts.append({"system": system_prompt, "user": user_prompt})
-        response = copy.deepcopy(fallback)
-        response.setdefault("provider", self.provider)
-        response.setdefault("model", self.model)
-        response.setdefault("summary", "Deterministic personal legal review completed from local evidence.")
-        response.setdefault("confidence", 0.72)
-        return response
+        super().__init__(
+            "deterministic-personal-legal-assistant",
+            default_summary="Deterministic personal legal review completed from local evidence.",
+            confidence=0.72,
+        )
 
 
 def utc_now_iso() -> str:
@@ -133,9 +142,7 @@ def write_text(path: Path, value: str) -> None:
 
 
 def append_event(run_dir: Path, event_type: str, payload: dict[str, Any]) -> None:
-    record = {"type": event_type, "timestamp": utc_now_iso(), "payload": redact_value(payload)}
-    with (run_dir / "events.jsonl").open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(record, sort_keys=True, default=str) + "\n")
+    append_event_jsonl(run_dir, event_type, redact_value(payload))
 
 
 def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
@@ -171,18 +178,11 @@ def default_config_path() -> Path:
 
 
 def load_resolved_config(config: dict[str, Any] | None = None, config_json: str | None = None) -> dict[str, Any]:
-    resolved = read_json(default_config_path())
-    env_path = os.environ.get("MN_BLUEPRINT_CONFIG_PATH")
-    if env_path:
-        resolved = deep_merge(resolved, read_json(Path(env_path).expanduser()))
-    env_json = config_json or os.environ.get("MN_BLUEPRINT_CONFIG_JSON")
-    if env_json:
-        decoded = json.loads(env_json)
-        if isinstance(decoded, dict):
-            resolved = deep_merge(resolved, decoded)
-    if config:
-        resolved = deep_merge(resolved, config)
-    return resolved
+    return load_shared_resolved_config(
+        default_config_path(),
+        overlay=config,
+        config_json=config_json,
+    )
 
 
 def runtime_message_payload() -> dict[str, Any]:

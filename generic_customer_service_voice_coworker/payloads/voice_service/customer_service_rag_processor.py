@@ -2,11 +2,31 @@
 
 from __future__ import annotations
 
+import importlib.util
 import os
 from pathlib import Path
 
 from loguru import logger
 
+RUNTIME_SKILL_PACKAGES = ("mirrorneuron-blueprint-support-skill",)
+
+
+def _bootstrap_runtime() -> None:
+    for parent in Path(__file__).resolve().parents:
+        helper = parent / "otterdesk_blueprint_env.py"
+        if helper.exists():
+            spec = importlib.util.spec_from_file_location("otterdesk_blueprint_env", helper)
+            if spec is None or spec.loader is None:
+                return
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            module.bootstrap_blueprint_runtime(__file__, packages=RUNTIME_SKILL_PACKAGES)
+            return
+
+
+_bootstrap_runtime()
+
+from mn_blueprint_support import PromptLibrary
 from knowledge_store import read_knowledge
 from rag import build_rag_context
 from conversation_events import append_conversation, emit_event
@@ -15,15 +35,15 @@ from pipecat.frames.frames import Frame, TranscriptionFrame
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 
 
-PROMPT_DIR = Path(__file__).resolve().parents[1] / "prompts"
+PROMPTS = PromptLibrary.from_script(__file__, parents_up=1)
 
 
 def load_prompt(name: str) -> str:
-    return (PROMPT_DIR / name).read_text(encoding="utf-8").strip()
+    return PROMPTS.load(name)
 
 
 def render_prompt(name: str, **values: str) -> str:
-    return load_prompt(name).format(**values)
+    return PROMPTS.render(name, **values)
 
 
 class CustomerServiceRAGInjector(FrameProcessor):

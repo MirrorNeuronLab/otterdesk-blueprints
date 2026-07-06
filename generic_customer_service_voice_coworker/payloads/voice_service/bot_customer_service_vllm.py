@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import os
+import importlib.util
 import sys
 from pathlib import Path
 
@@ -12,11 +13,29 @@ from loguru import logger
 
 
 ROOT = Path(__file__).resolve().parent
-PROMPT_DIR = ROOT.parent / "prompts"
 NEMOTRON_ROOT = Path(os.getenv("NEMOTRON_ROOT", "/home/homer/Sandbox/nemotron-january-2026"))
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(NEMOTRON_ROOT / "pipecat_bots"))
 
+RUNTIME_SKILL_PACKAGES = ("mirrorneuron-blueprint-support-skill",)
+
+
+def _bootstrap_runtime() -> None:
+    for parent in Path(__file__).resolve().parents:
+        helper = parent / "otterdesk_blueprint_env.py"
+        if helper.exists():
+            spec = importlib.util.spec_from_file_location("otterdesk_blueprint_env", helper)
+            if spec is None or spec.loader is None:
+                return
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            module.bootstrap_blueprint_runtime(__file__, packages=RUNTIME_SKILL_PACKAGES)
+            return
+
+
+_bootstrap_runtime()
+
+from mn_blueprint_support import PromptLibrary
 from customer_service_rag_processor import CustomerServiceRAGInjector
 from knowledge_store import ensure_knowledge_file, read_knowledge
 from conversation_events import append_conversation, emit_event
@@ -46,6 +65,8 @@ from pipecat.transports.websocket.fastapi import FastAPIWebsocketParams
 
 
 load_dotenv(override=True)
+
+PROMPTS = PromptLibrary.from_script(__file__, parents_up=1)
 
 NVIDIA_ASR_URL = os.getenv("MN_ASR_URL") or os.getenv("NVIDIA_ASR_URL", "ws://127.0.0.1:8080")
 NVIDIA_LLM_URL = (
@@ -114,11 +135,11 @@ def system_prompt() -> str:
 
 
 def load_prompt(name: str) -> str:
-    return (PROMPT_DIR / name).read_text(encoding="utf-8").strip()
+    return PROMPTS.load(name)
 
 
 def render_prompt(name: str, **values: str) -> str:
-    return load_prompt(name).format(**values)
+    return PROMPTS.render(name, **values)
 
 
 async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> None:
