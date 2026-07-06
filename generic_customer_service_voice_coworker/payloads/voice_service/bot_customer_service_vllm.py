@@ -12,6 +12,7 @@ from loguru import logger
 
 
 ROOT = Path(__file__).resolve().parent
+PROMPT_DIR = ROOT.parent / "prompts"
 NEMOTRON_ROOT = Path(os.getenv("NEMOTRON_ROOT", "/home/homer/Sandbox/nemotron-january-2026"))
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(NEMOTRON_ROOT / "pipecat_bots"))
@@ -103,28 +104,21 @@ def system_prompt() -> str:
         "CUSTOMER_SERVICE_OPENING_MESSAGE",
         f"Thanks for calling {business_name}. What delicious trouble can I help you get into today?",
     )
-    return f"""
-You are the pizza-ordering voice co-worker for {business_name}.
+    return render_prompt(
+        "chat-system.md",
+        business_name=business_name,
+        service_scope=service_scope,
+        escalation_policy=escalation_policy,
+        opening_message=opening_message,
+    )
 
-You speak naturally, briefly, kindly, and with a little warmth. Tiny pizza jokes are okay when they fit, but keep the order moving. Keep responses under two spoken sentences unless the customer asks for detail.
 
-Service scope:
-{service_scope}
+def load_prompt(name: str) -> str:
+    return (PROMPT_DIR / name).read_text(encoding="utf-8").strip()
 
-Editable knowledge rules:
-- Use only the retrieved editable pizza-shop knowledge injected into each user turn.
-- If the knowledge does not contain the answer, say you do not have that information and ask one clarifying question or recommend escalation.
-- Never invent menu items, prices, coupons, hours, delivery promises, payment methods, allergen guarantees, refunds, legal advice, medical advice, or safety instructions.
-- Ask one order question at a time: item, size, crust, sauce, toppings, quantity, pickup or delivery, name, phone, and address for delivery.
-- Do not collect card numbers or full payment details.
-- If the user mentions allergies, refunds, complaints, emergency support, or anything outside scope, recommend human handoff.
 
-Escalation policy:
-{escalation_policy}
-
-Opening message:
-{opening_message}
-""".strip()
+def render_prompt(name: str, **values: str) -> str:
+    return load_prompt(name).format(**values)
 
 
 async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> None:
@@ -170,10 +164,7 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
             {"role": "system", "content": system_prompt()},
             {
                 "role": "user",
-                "content": (
-                    "Greet the customer with the opening message below, then ask what they need. "
-                    f"Opening message: {opening_message}"
-                ),
+                "content": render_prompt("opening-turn.md", opening_message=opening_message),
             },
         ]
     )

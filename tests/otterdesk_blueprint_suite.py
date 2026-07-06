@@ -1293,9 +1293,9 @@ def test_property_deal_final_artifact_uses_product_output_fields(tmp_path):
 def test_video_watch_declares_otterdesk_chat_system_prompt():
     blueprint_dir = ROOT / "video_watch_assistant"
     manifest = json.loads((blueprint_dir / "manifest.json").read_text())
-    prompt = (blueprint_dir / "prompts" / "chat-system.md").read_text()
+    prompt = (blueprint_dir / "payloads" / "prompts" / "chat-system.md").read_text()
 
-    assert "prompts/" in manifest["metadata"]["configuration_contract"]["optional_files"]
+    assert "payloads/prompts/" in manifest["metadata"]["configuration_contract"]["optional_files"]
     assert "Video Watch Assistant" in prompt
     assert "co-worker" in prompt
     assert "human-in-the-loop" in prompt

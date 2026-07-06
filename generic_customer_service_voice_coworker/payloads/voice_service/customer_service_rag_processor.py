@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 from loguru import logger
 
@@ -12,6 +13,17 @@ from conversation_events import append_conversation, emit_event
 
 from pipecat.frames.frames import Frame, TranscriptionFrame
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
+
+
+PROMPT_DIR = Path(__file__).resolve().parents[1] / "prompts"
+
+
+def load_prompt(name: str) -> str:
+    return (PROMPT_DIR / name).read_text(encoding="utf-8").strip()
+
+
+def render_prompt(name: str, **values: str) -> str:
+    return load_prompt(name).format(**values)
 
 
 class CustomerServiceRAGInjector(FrameProcessor):
@@ -43,13 +55,10 @@ class CustomerServiceRAGInjector(FrameProcessor):
                 },
             )
             logger.info(f"Selected {len(results)} knowledge chunks for customer turn")
-            augmented = (
-                "Customer said:\n"
-                f"{original_text}\n\n"
-                "Relevant editable customer knowledge for this turn:\n"
-                f"{context_text}\n\n"
-                "Answer the customer using only the relevant knowledge above and the standing system instructions. "
-                "If the knowledge does not answer the question, ask one clarifying question or recommend escalation."
+            augmented = render_prompt(
+                "rag-turn.md",
+                customer_text=original_text,
+                context_text=context_text,
             )
             frame = TranscriptionFrame(
                 augmented,
@@ -64,4 +73,3 @@ class CustomerServiceRAGInjector(FrameProcessor):
             )
 
         await self.push_frame(frame, direction)
-

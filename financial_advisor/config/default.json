@@ -146,9 +146,12 @@
     "domain_artifacts": [
       "bank_statement_extraction.json",
       "household_finance_summary.json",
+      "cash_flow_llm_review.json",
       "tax_review_packet.json",
       "tax_form_ocr_capture.json",
+      "tax_llm_review.json",
       "portfolio_risk_review.json",
+      "portfolio_llm_review.json",
       "financial_advisor_report.md",
       "action_ledger.json",
       "artifact_quality.json",
@@ -241,7 +244,7 @@
     "quick_test_uses_fake": true,
     "strict_json": false,
     "prefer_shared_skill": true,
-    "require_live": false,
+    "require_live": true,
     "preferred_model": "nemotron3",
     "configs": {
       "primary": {
@@ -370,6 +373,15 @@
           "Flag gaps and risky recurring items."
         ]
       },
+      "cash_flow_llm_analyst": {
+        "llm_config": "primary",
+        "role": "Cash Flow LLM Analyst",
+        "responsibilities": [
+          "Review deterministic cash-flow totals for recurring-risk signals.",
+          "Identify cash-flow evidence gaps and human-check questions.",
+          "Keep income, expense, fee, and net-cash-flow totals unchanged."
+        ]
+      },
       "tax_document_router": {
         "llm_config": "primary",
         "role": "Tax Document Router",
@@ -397,6 +409,15 @@
           "Avoid filing-ready conclusions or legal tax advice."
         ]
       },
+      "tax_llm_reviewer": {
+        "llm_config": "large",
+        "role": "Tax LLM Reviewer",
+        "responsibilities": [
+          "Review draft tax workpapers and OCR capture for evidence gaps.",
+          "Raise manager-review questions for missing forms and field validation.",
+          "Keep draft tax math and filing boundaries unchanged."
+        ]
+      },
       "portfolio_context_loader": {
         "llm_config": "primary",
         "role": "Portfolio Context Loader",
@@ -422,6 +443,15 @@
           "Compute review-only portfolio risk metrics.",
           "Interpret concentration and policy issues.",
           "Keep rebalancing ideas as human-reviewed candidates."
+        ]
+      },
+      "portfolio_llm_reviewer": {
+        "llm_config": "large",
+        "role": "Portfolio LLM Reviewer",
+        "responsibilities": [
+          "Review deterministic risk metrics and source freshness.",
+          "Identify risk-policy questions and evidence gaps.",
+          "Keep portfolio values, weights, VaR-style metrics, and trade boundaries unchanged."
         ]
       },
       "public_finance_researcher": {
@@ -502,8 +532,11 @@
   "agentic_research": {
     "enabled": true,
     "agent_ids": [
+      "cash_flow_llm_analyst",
       "public_finance_researcher",
       "tax_form_ocr_capturer",
+      "tax_llm_reviewer",
+      "portfolio_llm_reviewer",
       "advisor_evidence_reconciler",
       "advisor_review_auditor",
       "financial_advice_reporter"
@@ -723,11 +756,17 @@
         "artifacts": [
           "result.json",
           "final_artifact.json",
+          "action_ledger.json",
+          "artifact_quality.json",
+          "run_health.json",
           "bank_statement_extraction.json",
           "household_finance_summary.json",
+          "cash_flow_llm_review.json",
           "tax_review_packet.json",
           "tax_form_ocr_capture.json",
+          "tax_llm_review.json",
           "portfolio_risk_review.json",
+          "portfolio_llm_review.json",
           "financial_advisor_report.md"
         ]
       },
@@ -832,7 +871,10 @@
       "inputs.json",
       "events.jsonl",
       "result.json",
-      "final_artifact.json"
+      "final_artifact.json",
+      "action_ledger.json",
+      "artifact_quality.json",
+      "run_health.json"
     ],
     "optional_outputs": [
       "job.json",
@@ -844,22 +886,36 @@
       "resources.jsonl",
       "bank_statement_extraction.json",
       "household_finance_summary.json",
+      "cash_flow_llm_review.json",
       "tax_review_packet.json",
       "tax_form_ocr_capture.json",
+      "tax_llm_review.json",
       "portfolio_risk_review.json",
+      "portfolio_llm_review.json",
       "financial_advisor_report.md"
     ],
     "response_schema": "mn.blueprint.response.v1"
+  },
+  "execution_model": {
+    "type": "static_dag_step_handlers",
+    "entrypoint": "financial_folder_watcher",
+    "worker_sink": "financial_advice_reporter",
+    "terminal_sink": "report_sink",
+    "step_count": 17,
+    "runtime_note": "Each workflow node executes a bounded step handler and exchanges JSON workflow-state artifacts through the shared run directory; report_sink completes the finite run."
   },
   "capabilities": [
     "folder_monitoring",
     "document_evidence_extraction",
     "bank_statement_extraction",
     "cash_flow_normalization",
+    "cash_flow_llm_review",
     "tax_form_ocr_capture",
     "tax_form_answer_file_validation",
     "draft_tax_workpapers",
+    "tax_llm_review",
     "portfolio_risk_review",
+    "portfolio_llm_review",
     "privacy_safe_public_research",
     "integrated_financial_report_generation",
     "deterministic_financial_tools",

@@ -5,12 +5,16 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parents[1]
 RUNNER_PATH = ROOT / "financial_advisor" / "payloads" / "document_workflow" / "scripts" / "run_blueprint.py"
 HEAVY_STEPS = {
     "tax_workpaper_preparer",
+    "tax_llm_reviewer",
     "portfolio_risk_engine",
+    "portfolio_llm_reviewer",
     "advisor_review_auditor",
     "financial_advice_reporter",
 }
@@ -88,12 +92,15 @@ def test_financial_advisor_manifest_uses_source_format_and_shared_blocks():
         "financial_document_reader",
         "bank_statement_extractor",
         "cash_flow_normalizer",
+        "cash_flow_llm_analyst",
         "tax_document_router",
         "tax_form_ocr_capturer",
         "tax_workpaper_preparer",
+        "tax_llm_reviewer",
         "portfolio_context_loader",
         "portfolio_market_data_loader",
         "portfolio_risk_engine",
+        "portfolio_llm_reviewer",
         "public_finance_researcher",
         "advisor_evidence_reconciler",
         "advisor_review_auditor",
@@ -132,6 +139,14 @@ def test_financial_advisor_model_profiles_assign_large_to_heavy_nodes():
     by_step = manifest["workers"]["by_step"]
     assert set(by_step) == HEAVY_STEPS
     assert all(item["with"]["llm_config"] == "large" for item in by_step.values())
+    assert config["execution_model"] == {
+        "type": "static_dag_step_handlers",
+        "entrypoint": "financial_folder_watcher",
+        "worker_sink": "financial_advice_reporter",
+        "terminal_sink": "report_sink",
+        "step_count": len(manifest["workflow"]["steps"]),
+        "runtime_note": "Each workflow node executes a bounded step handler and exchanges JSON workflow-state artifacts through the shared run directory; report_sink completes the finite run.",
+    }
 
 
 def test_financial_advisor_source_manifest_expands_with_terminal_sink():
@@ -149,6 +164,56 @@ def test_financial_advisor_source_manifest_expands_with_terminal_sink():
     assert rendered_reporter["config"]["llm_config"] == "large"
     assert rendered_reporter["config"]["environment"]["MN_LLM_CONFIG"] == "large"
     assert expanded["runtime"]["resources"]["gpu"] == {"min_count": 0}
+
+
+def test_financial_advisor_runtime_step_handler_writes_step_state(tmp_path):
+    runner = _load_runner()
+    output_folder = tmp_path / "out"
+    result = runner.run_runtime_step(
+        "financial_folder_watcher",
+        inputs={
+            "document_folder": str(ROOT / "financial_advisor" / "examples" / "sample_inputs"),
+            "input_folder": str(ROOT / "financial_advisor" / "examples" / "sample_inputs"),
+            "output_folder": str(output_folder),
+        },
+        runs_root=tmp_path / "runs",
+        run_id="financial-advisor-step",
+        llm_client=FakeFinancialLLM(),
+    )
+
+    run_dir = tmp_path / "runs" / "financial-advisor-step"
+    assert result["run_id"] == "financial-advisor-step"
+    assert result["workflow_step_id"] == "financial_folder_watcher"
+    assert result["runtime_step_mode"] == "workflow_step_handler"
+    assert result["outputs"]["output_folder"] == str(output_folder.resolve())
+    assert (run_dir / "financial_folder_watcher_result.json").exists()
+    assert (run_dir / "workflow_state" / "financial_folder_watcher_result.json").exists()
+    assert (run_dir / "workflow_state" / "runtime_context.json").exists()
+    assert (run_dir / "workflow_state" / "state.json").exists()
+    assert not (output_folder / "final_artifact.json").exists()
+
+
+def test_financial_advisor_runtime_prefers_shared_output_mount(tmp_path, monkeypatch):
+    runner = _load_runner()
+    runtime_output = tmp_path / "runtime" / "outputs" / "user"
+    runtime_runs = tmp_path / "runtime" / "outputs" / "runs"
+    monkeypatch.setenv("MN_JOB_OUTPUT_DIR", str(runtime_output))
+    monkeypatch.setenv("MN_RUNS_ROOT", str(runtime_runs))
+
+    result = runner.run_runtime_step(
+        "financial_folder_watcher",
+        inputs={
+            "document_folder": str(ROOT / "financial_advisor" / "examples" / "sample_inputs"),
+            "input_folder": str(ROOT / "financial_advisor" / "examples" / "sample_inputs"),
+        },
+        run_id="financial-advisor-runtime-mount",
+        llm_client=FakeFinancialLLM(),
+    )
+
+    run_dir = runtime_runs / "financial-advisor-runtime-mount"
+    assert result["outputs"]["output_folder"] == str(runtime_output.resolve())
+    assert run_dir.exists()
+    assert (run_dir / "workflow_state" / "runtime_context.json").exists()
 
 
 def test_financial_advisor_smoke_run_writes_integrated_artifacts(tmp_path):
@@ -177,9 +242,80 @@ def test_financial_advisor_smoke_run_writes_integrated_artifacts(tmp_path):
     assert artifact["tax_form_ocr_capture"]["answer_file_count"] == 2
     assert artifact["tax_form_ocr_capture"]["forms"][0]["validation_status"] == "matched_companion_answer_file"
     assert artifact["portfolio_risk_review"]["total_value"] > 0
+    assert set(artifact["llm_analysis"]) >= {"cash_flow", "tax", "portfolio", "review_only"}
+    assert artifact["llm_analysis"]["cash_flow"]["review_only"] is True
+    assert artifact["llm_analysis"]["tax"]["review_only"] is True
+    assert artifact["llm_analysis"]["portfolio"]["review_only"] is True
+    assert artifact["llm_usage"]["calls"] >= 7
+    assert llm.calls >= 7
+    assert artifact["model_profiles_used"]["cash_flow_llm_analyst"]["llm_config"] == "primary"
+    assert artifact["model_profiles_used"]["tax_llm_reviewer"]["llm_config"] == "large"
+    assert artifact["model_profiles_used"]["portfolio_llm_reviewer"]["llm_config"] == "large"
     assert artifact["model_profiles_used"]["financial_advice_reporter"]["llm_config"] == "large"
     assert (tmp_path / "runs" / "financial-advisor-test" / "final_artifact.json").exists()
+    assert (tmp_path / "runs" / "financial-advisor-test" / "action_ledger.json").exists()
+    assert (tmp_path / "runs" / "financial-advisor-test" / "artifact_quality.json").exists()
+    assert (tmp_path / "runs" / "financial-advisor-test" / "run_health.json").exists()
+    assert (output_folder / "result.json").exists()
+    assert (output_folder / "final_artifact.json").exists()
     assert (output_folder / "financial_advisor_report.md").exists()
     assert (output_folder / "bank_statement_extraction.json").exists()
+    assert (output_folder / "cash_flow_llm_review.json").exists()
     assert (output_folder / "tax_form_ocr_capture.json").exists()
-    assert "review-only" in (output_folder / "financial_advisor_report.md").read_text(encoding="utf-8")
+    assert (output_folder / "tax_llm_review.json").exists()
+    assert (output_folder / "portfolio_llm_review.json").exists()
+    markdown = (output_folder / "financial_advisor_report.md").read_text(encoding="utf-8")
+    assert "review-only" in markdown
+    assert "## LLM Cash-Flow Review" in markdown
+    assert "## LLM Tax Review" in markdown
+    assert "## LLM Portfolio Review" in markdown
+
+
+def test_financial_advisor_explicit_quick_test_can_use_deterministic_llm(tmp_path):
+    runner = _load_runner()
+    output_folder = tmp_path / "out"
+
+    result = runner.run_blueprint(
+        inputs={
+            "document_folder": str(ROOT / "financial_advisor" / "examples" / "sample_inputs"),
+            "input_folder": str(ROOT / "financial_advisor" / "examples" / "sample_inputs"),
+            "output_folder": str(output_folder),
+        },
+        config={"execution": {"quick_test": True}},
+        runs_root=tmp_path / "runs",
+        run_id="financial-advisor-quick-test",
+    )
+
+    artifact = result["final_artifact"]
+    assert artifact["llm_usage"]["provider"] == "fake"
+    assert artifact["llm_usage"]["calls"] >= 7
+    assert artifact["llm_usage"]["fallback_calls"] >= 7
+    assert artifact["llm_analysis"]["review_only"] is True
+    assert (output_folder / "cash_flow_llm_review.json").exists()
+    assert (output_folder / "tax_llm_review.json").exists()
+    assert (output_folder / "portfolio_llm_review.json").exists()
+
+
+def test_financial_advisor_live_config_does_not_silently_instantiate_deterministic_llm(tmp_path, monkeypatch):
+    runner = _load_runner()
+    monkeypatch.setattr(runner, "get_actor_llm_client", None)
+    monkeypatch.delenv("MN_BLUEPRINT_QUICK_TEST", raising=False)
+    monkeypatch.delenv("MN_QUICK_TEST", raising=False)
+    monkeypatch.delenv("MN_LLM_MODE", raising=False)
+    monkeypatch.delenv("MN_LLM_PROVIDER", raising=False)
+    monkeypatch.delenv("LITELLM_MODE", raising=False)
+    monkeypatch.delenv("LITELLM_PROVIDER", raising=False)
+
+    with pytest.raises(RuntimeError, match="shared live LLM client"):
+        runner.build_context(
+            inputs={
+                "document_folder": str(ROOT / "financial_advisor" / "examples" / "sample_inputs"),
+                "input_folder": str(ROOT / "financial_advisor" / "examples" / "sample_inputs"),
+                "output_folder": str(tmp_path / "out"),
+            },
+            config={"llm": {"mode": "live"}, "execution": {"quick_test": False}},
+            config_json=None,
+            runs_root=tmp_path / "runs",
+            run_id="financial-advisor-live-config",
+            llm_client=None,
+        )

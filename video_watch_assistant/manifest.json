@@ -1191,7 +1191,7 @@
       "optional_files": [
         "scenario.json",
         "config/overwrite.json",
-        "prompts/",
+        "payloads/prompts/",
         "knowledge/"
       ],
       "required_files": [

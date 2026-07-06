@@ -429,81 +429,78 @@ JUDGE_RUBRIC = [
     "report_usefulness_without_investment_advice",
 ]
 
-RESEARCH_AGENT_PROMPT_SPECS = {
-    "research_planner": {
-        "mission": "Choose public-safe diligence lanes, target public URLs, and query families before stage research begins.",
-        "allowed_evidence": ["local claim summaries", "RAG playbook refs", "public source metadata", "company name only"],
-        "forbidden_inputs": ["raw confidential packet text", "private financial models", "personal contact details"],
-        "rag_query_terms": ["VC diligence lane planning", "public-safe startup research", "source quality labels", "evidence gaps"],
-        "tool_policy": "Prefer search queries that expose official sites, profiles, docs, pricing, funding, and traction; never search private packet text.",
-        "failure_conditions": ["No RAG refs when RAG is required", "Queries include private/confidential input", "Plan does not explain why each lane matters"],
-    },
-    "company_identity_researcher": {
-        "mission": "Verify company identity, official website, public profile pages, founder/company public profiles, and naming conflicts.",
-        "allowed_evidence": ["official website", "LinkedIn or Crunchbase company profile", "public founder/company profile", "public docs or repository"],
-        "forbidden_inputs": ["private founder contact info", "unpublished customer lists", "raw deck text"],
-        "rag_query_terms": ["company identity verification", "official website", "founder profile", "public profile conflict"],
-        "tool_policy": "Prioritize official site/profile pages, then public search for conflicts or aliases.",
-        "failure_conditions": ["No official/public identity source attempted", "Profile conflict not recorded", "No RAG refs when RAG is required"],
-    },
-    "funding_researcher": {
-        "mission": "Find public funding, accelerator, investor, grant, milestone, and financing confirmation evidence without trusting pitch claims as confirmation.",
-        "allowed_evidence": ["public funding announcements", "accelerator pages", "grant pages", "investor portfolio pages", "SEC/public filings when relevant"],
-        "forbidden_inputs": ["unpublished term sheets", "private investor emails", "raw cap table details"],
-        "rag_query_terms": ["startup funding evidence", "accelerator investor grant milestone", "public confirmation vs pitch claim"],
-        "tool_policy": "Search public funding and accelerator sources; distinguish unconfirmed local claims from public confirmations.",
-        "failure_conditions": ["Pitch claim treated as public confirmation", "No public funding/accelerator search attempted", "No RAG refs when RAG is required"],
-    },
-    "market_comp_researcher": {
-        "mission": "Gather category, competitors, market context, public-company comparables, and evidence quality for comparable analysis.",
-        "allowed_evidence": ["market category sources", "competitor sites", "public company context", "industry reports or government statistics"],
-        "forbidden_inputs": ["private competitor lists copied from packet text", "investment recommendation labels"],
-        "rag_query_terms": ["market category comparables", "competitor evidence quality", "VC comparables method"],
-        "tool_policy": "Search category and competitor context; prefer public/government/company sources over generic blogs.",
-        "failure_conditions": ["No comparable/category evidence attempted", "Comparable quality not labeled", "No RAG refs when RAG is required"],
-    },
-    "traction_verifier": {
-        "mission": "Verify customers, partnerships, launch, pricing, usage, app/package adoption, repositories, and other public traction signals.",
-        "allowed_evidence": ["customer/partner pages", "pricing pages", "release notes", "app/package stats", "GitHub or docs activity", "press pages"],
-        "forbidden_inputs": ["private customer names from packets", "nonpublic revenue data", "recommendation labels"],
-        "rag_query_terms": ["startup traction verification", "pricing launch adoption public evidence", "GitHub package adoption"],
-        "tool_policy": "Use public signals only; mark thin, blocked, or missing traction honestly.",
-        "failure_conditions": ["Private traction claim exposed in query", "No traction signal attempted", "No RAG refs when RAG is required"],
-    },
-    "rendered_page_researcher": {
-        "mission": "Inspect JS-heavy or blocked public rendered pages only when lightweight fetch is insufficient; record blocked/login/robots states without bypassing.",
-        "allowed_evidence": ["public rendered pages", "blocked/login status", "visible profile metadata"],
-        "forbidden_inputs": ["login bypass", "robots circumvention", "credentialed pages", "private packet text"],
-        "rag_query_terms": ["rendered page review", "JS-heavy public startup profiles", "blocked page handling"],
-        "tool_policy": "Use rendered browser only for public pages selected by previous stages; never bypass access controls.",
-        "failure_conditions": ["Rendered browser used for private or credentialed content", "Blocked state omitted", "No RAG refs when RAG is required"],
-    },
+PROMPT_DIR = Path(__file__).resolve().parents[2] / "prompts"
+RESEARCH_AGENT_PROMPT_FILES = {
+    "research_planner": "research-planner.md",
+    "company_identity_researcher": "company-identity-researcher.md",
+    "funding_researcher": "funding-researcher.md",
+    "market_comp_researcher": "market-comp-researcher.md",
+    "traction_verifier": "traction-verifier.md",
+    "rendered_page_researcher": "rendered-page-researcher.md",
 }
-
-REVIEW_AGENT_PROMPT_SPECS = {
-    "research_reconciler": {
-        "mission": "Compare local claims against public sources and produce confirmations, conflicts, and missing-public-evidence items.",
-        "focus": ["research_reconciliation", "source quality labels", "missing public evidence"],
-    },
-    "score_consistency_auditor": {
-        "mission": "Check cross-method consistency, invalid scored/null states, unsupported assumptions, and missing method outputs.",
-        "focus": ["method_coverage", "audit", "composite score consistency"],
-    },
-    "company_report_writer": {
-        "mission": "Review per-company report usefulness, evidence traceability, and no-investment-advice boundaries.",
-        "focus": ["analysis.md usefulness", "evidence traceability", "report-only language"],
-    },
-    "batch_index_writer": {
-        "mission": "Review batch index coverage, skipped companies, run summary clarity, and navigation artifacts.",
-        "focus": ["company_index", "run_summary", "skipped companies", "output files"],
-    },
+REVIEW_AGENT_PROMPT_FILES = {
+    "research_reconciler": "research-reconciler.md",
+    "score_consistency_auditor": "score-consistency-auditor.md",
+    "company_report_writer": "company-report-writer.md",
+    "batch_index_writer": "batch-index-writer.md",
 }
+PROMPT_CACHE: dict[tuple[str, tuple[tuple[str, str], ...]], str] = {}
 
-for _method_id, _scorer_id in SCORER_STAGE_BY_METHOD.items():
-    REVIEW_AGENT_PROMPT_SPECS[_scorer_id] = {
-        "mission": f"Review only the deterministic {_method_id} output against its method playbook, evidence refs, assumptions, and missing evidence.",
-        "focus": [_method_id, "method_correctness", "evidence_grounding", "assumption_clarity"],
+
+def load_prompt(name: str, **values: Any) -> str:
+    key = (name, tuple(sorted((str(k), str(v)) for k, v in values.items())))
+    if key not in PROMPT_CACHE:
+        text = (PROMPT_DIR / name).read_text(encoding="utf-8").strip()
+        PROMPT_CACHE[key] = text.format(**values) if values else text
+    return PROMPT_CACHE[key]
+
+
+def prompt_sections(text: str) -> dict[str, str]:
+    sections: dict[str, list[str]] = {}
+    current = ""
+    for line in text.splitlines():
+        if line.startswith("## "):
+            current = line[3:].strip().lower()
+            sections.setdefault(current, [])
+            continue
+        if current:
+            sections[current].append(line)
+    return {key: "\n".join(value).strip() for key, value in sections.items()}
+
+
+def prompt_section_text(sections: dict[str, str], key: str) -> str:
+    return " ".join(line.strip() for line in sections.get(key.lower(), "").splitlines() if line.strip() and not line.strip().startswith("- ")).strip()
+
+
+def prompt_section_list(sections: dict[str, str], key: str) -> list[str]:
+    items: list[str] = []
+    for line in sections.get(key.lower(), "").splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        items.append(stripped[2:].strip() if stripped.startswith("- ") else stripped)
+    return items
+
+
+def prompt_spec_from_markdown(name: str, **values: Any) -> dict[str, Any]:
+    sections = prompt_sections(load_prompt(name, **values))
+    spec: dict[str, Any] = {
+        "mission": prompt_section_text(sections, "Goal"),
     }
+    for key, section in (
+        ("allowed_evidence", "Allowed Evidence"),
+        ("forbidden_inputs", "Restrictions"),
+        ("rag_query_terms", "RAG Query Terms"),
+        ("failure_conditions", "Failure Conditions"),
+        ("focus", "Focus"),
+    ):
+        values_from_section = prompt_section_list(sections, section)
+        if values_from_section:
+            spec[key] = values_from_section
+    tool_policy = prompt_section_text(sections, "Tool Policy")
+    if tool_policy:
+        spec["tool_policy"] = tool_policy
+    return spec
 
 
 try:
@@ -4612,7 +4609,7 @@ def _default_agent_tool_response(stage: str, plan: dict[str, Any], observations:
 
 
 def research_prompt_spec(agent_id: str) -> dict[str, Any]:
-    return dict(RESEARCH_AGENT_PROMPT_SPECS.get(agent_id) or RESEARCH_AGENT_PROMPT_SPECS["research_planner"])
+    return prompt_spec_from_markdown(RESEARCH_AGENT_PROMPT_FILES.get(agent_id, RESEARCH_AGENT_PROMPT_FILES["research_planner"]))
 
 
 def build_research_agent_prompt(
@@ -4628,13 +4625,13 @@ def build_research_agent_prompt(
     observations: list[dict[str, Any]],
 ) -> tuple[str, dict[str, Any]]:
     spec = research_prompt_spec(stage)
-    system_prompt = (
-        f"You are {stage}, a specialist VC diligence research actor. "
-        f"Mission: {spec['mission']} Return strict JSON only. "
-        "Use RAG refs when supplied. Never issue pass/watch/reject/buy/sell/invest recommendations."
+    system_prompt = load_prompt(
+        "research-agent-system.md",
+        agent_id=stage,
+        mission=spec["mission"],
     )
     return system_prompt, {
-        "task": "Choose the next bounded public research tool call for this specialist VC diligence stage.",
+        "task": load_prompt("research-agent-task.md"),
         "company": company,
         "agent_id": stage,
         "mission": spec["mission"],
@@ -6623,17 +6620,14 @@ def prepare_actor_review_prompt_context(
 
 
 def actor_prompt_spec(actor_id: str) -> dict[str, Any]:
-    if actor_id in REVIEW_AGENT_PROMPT_SPECS:
-        return dict(REVIEW_AGENT_PROMPT_SPECS[actor_id])
-    if actor_id in RESEARCH_AGENT_PROMPT_SPECS:
-        return {
-            "mission": f"Review whether {actor_id} followed its specialist research mission and produced grounded, public-safe evidence.",
-            "focus": [actor_id, "tool trace", "evidence gaps", "RAG refs"],
-        }
-    return {
-        "mission": f"Review the {actor_id} workflow step for role-specific quality, evidence grounding, and clear gaps.",
-        "focus": [actor_id, "workflow quality", "evidence grounding"],
-    }
+    if actor_id in REVIEW_AGENT_PROMPT_FILES:
+        return prompt_spec_from_markdown(REVIEW_AGENT_PROMPT_FILES[actor_id])
+    for method_id, scorer_id in SCORER_STAGE_BY_METHOD.items():
+        if actor_id == scorer_id:
+            return prompt_spec_from_markdown("method-scorer-review.md", method_id=method_id)
+    if actor_id in RESEARCH_AGENT_PROMPT_FILES:
+        return prompt_spec_from_markdown("research-agent-review.md", actor_id=actor_id)
+    return prompt_spec_from_markdown("generic-actor-review.md", actor_id=actor_id)
 
 
 def build_actor_review_prompt(
@@ -6645,10 +6639,10 @@ def build_actor_review_prompt(
 ) -> tuple[str, dict[str, Any]]:
     prompt_spec = actor_prompt_spec(actor_id)
     available_rag_refs = (context.get("rag_context") or {}).get("citations") if isinstance(context.get("rag_context"), dict) else []
-    system_prompt = (
-        f"You are {actor_id}, a VC Assistant specialist reviewer. "
-        f"Mission: {prompt_spec['mission']} Return strict JSON only. "
-        "Use RAG citation refs when supplied. Do not issue pass/watch/reject/buy/sell/invest recommendations."
+    system_prompt = load_prompt(
+        "actor-review-system.md",
+        actor_id=actor_id,
+        mission=prompt_spec["mission"],
     )
     return system_prompt, {
         "task": prompt_spec["mission"],

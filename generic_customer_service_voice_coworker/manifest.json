@@ -894,7 +894,7 @@
     "configuration_contract": {
       "optional_files": [
         "config/overwrite.json",
-        "prompts/",
+        "payloads/prompts/",
         "knowledge/"
       ],
       "required_files": [

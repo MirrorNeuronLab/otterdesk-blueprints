@@ -356,7 +356,7 @@
     "backend": "llama.cpp",
     "install_mode": "cluster_provided",
     "agent_role": "Customer-service voice co-worker that answers from the customer knowledge base, asks clarifying questions when needed, and recommends escalation when it is unsure or outside scope.",
-    "system_prompt": "prompts/chat-system.md",
+    "system_prompt": "payloads/prompts/chat-system.md",
     "enabled": true,
     "mode": "live",
     "mock_mode": "fake",

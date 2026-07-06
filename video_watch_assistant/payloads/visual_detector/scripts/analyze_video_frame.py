@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 SCRIPT_DIR = Path(__file__).resolve().parent
+PROMPT_DIR = Path(__file__).resolve().parents[2] / "prompts"
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
@@ -39,6 +40,14 @@ except Exception:  # pragma: no cover - optional runtime support
 IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
 DEFAULT_VIDEO_SOURCE_URI = "rtsp://127.0.0.1:8554/video-watch"
 LIVE_STREAM_SCHEMES = ("rtsp://", "rtsps://", "rtmp://", "rtmps://")
+
+
+def load_prompt(name: str) -> str:
+    return (PROMPT_DIR / name).read_text(encoding="utf-8").strip()
+
+
+def render_prompt(name: str, **values: str) -> str:
+    return load_prompt(name).format(**values)
 
 
 def load_json_env(name: str) -> dict[str, Any]:
@@ -838,26 +847,16 @@ def detection_prompt(camera_id: str, attention_instruction: str | None = None) -
         "notable people, equipment, objects, hazards, access activity, workflow activity, or other user-defined subjects",
     )
     attention_text = normalize_attention_instruction(attention_instruction)
-    attention_clause = (
-        f" The operator also asked you to pay particular attention to: {attention_text}."
+    attention_instruction_text = (
+        f"Operator attention request: {attention_text}"
         if attention_text
-        else ""
+        else "Operator attention request: none."
     )
-    return os.environ.get(
-        "VISUAL_DETECTION_PROMPT",
-        (
-            "You are monitoring a 24/7 video camera. Inspect the image and decide whether any configured "
-            f"visual targets are present or active. Targets to watch for: {target_description}. Count only real "
-            "visible subjects or activity; ignore shadows, reflections, signage text, static background clutter, "
-            f"and uncertain guesses unless they are directly relevant to the configured targets.{attention_clause} "
-            "For every detection, "
-            "report the observable label, category, visible color if useful, position in the scene, and activity. "
-            "Return only JSON with keys: detected boolean, detected_target boolean, detection_count integer, "
-            "detections array of objects with label, category, color, position, activity, and confidence, confidence "
-            "number from 0 to 1, summary short string, detection_report string, activity_description string, "
-            "detected_types array of strings, detected_colors array of strings, appearance_notes array of strings, "
-            f"risk_level one of low/medium/high, and visible_subjects array. Camera id: {camera_id}."
-        ),
+    return render_prompt(
+        "visual-detection.md",
+        target_description=target_description,
+        attention_instruction=attention_instruction_text,
+        camera_id=camera_id,
     )
 
 

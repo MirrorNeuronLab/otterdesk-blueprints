@@ -86,6 +86,11 @@ CRITICAL_SOURCE_REFS = (
     "mem:ivy-duplex-flood-insurance",
     "mem:ivy-duplex-roof-deferred",
 )
+PROMPT_DIR = Path(__file__).resolve().parents[2] / "prompts"
+
+
+def load_prompt(name: str) -> str:
+    return (PROMPT_DIR / name).read_text(encoding="utf-8").strip()
 
 
 @dataclass(frozen=True)
@@ -390,7 +395,7 @@ def run_blueprint(
             llm=llm,
             actor_ids=list(resolve_actor_specs(resolved_config).keys()),
             state=actor_state,
-            task="Review the property deal ranking packet and prepare actor findings for human approval.",
+            task=load_prompt("actor-review-task.md"),
             context={
                 "target_zip": runtime_inputs["target_zip"],
                 "state_changes": state_changes,
@@ -897,10 +902,7 @@ def ask_llm_for_memory_decision(
     packet: MemoryPacket,
     fallback: dict[str, Any],
 ) -> dict[str, Any]:
-    system_prompt = (
-        "You are a real estate investment analyst. Return JSON with action, confidence, rationale, "
-        "property_id, and parameters. Prefer source-grounded decisions."
-    )
+    system_prompt = load_prompt("memory-decision-system.md")
     user_prompt = json.dumps(
         {
             "current_snapshot": snapshot,

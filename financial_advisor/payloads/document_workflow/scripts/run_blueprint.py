@@ -15,8 +15,10 @@ from pathlib import Path
 from typing import Any
 
 try:
-    from mn_blueprint_support import start_agent_beacon_thread
+    from mn_blueprint_support import get_actor_llm_client, start_agent_beacon_thread
 except Exception:  # pragma: no cover - optional runtime support
+    get_actor_llm_client = None
+
     def start_agent_beacon_thread(message: str | None = None) -> None:
         return None
 
@@ -29,7 +31,9 @@ SUPPORTED_SUFFIXES = {".pdf", ".png", ".jpg", ".jpeg", ".txt", ".json", ".csv", 
 TEXT_SUFFIXES = {".txt", ".json", ".csv", ".md"}
 HEAVY_MODEL_STEPS = {
     "tax_workpaper_preparer",
+    "tax_llm_reviewer",
     "portfolio_risk_engine",
+    "portfolio_llm_reviewer",
     "advisor_review_auditor",
     "financial_advice_reporter",
 }
@@ -38,17 +42,21 @@ WORKFLOW_STEPS = [
     "financial_document_reader",
     "bank_statement_extractor",
     "cash_flow_normalizer",
+    "cash_flow_llm_analyst",
     "tax_document_router",
     "tax_form_ocr_capturer",
     "tax_workpaper_preparer",
+    "tax_llm_reviewer",
     "portfolio_context_loader",
     "portfolio_market_data_loader",
     "portfolio_risk_engine",
+    "portfolio_llm_reviewer",
     "public_finance_researcher",
     "advisor_evidence_reconciler",
     "advisor_review_auditor",
     "financial_advice_reporter",
 ]
+WORKFLOW_STEP_IDS = WORKFLOW_STEPS
 OUTPUT_MESSAGE_BY_STEP = {step: f"{step}_completed" for step in WORKFLOW_STEPS}
 DEFAULT_MARKET_PRICES = {
     "SPY": 500.0,
@@ -90,6 +98,15 @@ PUBLIC_GUIDANCE_SOURCES = [
         "topic": "portfolio risk education",
     },
 ]
+PROMPT_DIR = Path(__file__).resolve().parents[2] / "prompts"
+
+
+def load_prompt(name: str) -> str:
+    return (PROMPT_DIR / name).read_text(encoding="utf-8").strip()
+
+
+def render_prompt(name: str, **values: str) -> str:
+    return load_prompt(name).format(**values)
 
 
 class DeterministicLLM:
@@ -456,6 +473,38 @@ def save_state(run_dir: Path, state: dict[str, Any]) -> None:
     write_json(run_dir / "workflow_state" / "state.json", state)
 
 
+def runtime_context_path(run_dir: Path) -> Path:
+    return run_dir / "workflow_state" / "runtime_context.json"
+
+
+def persist_runtime_context(ctx: dict[str, Any]) -> None:
+    write_json(
+        runtime_context_path(ctx["run_dir"]),
+        {
+            "blueprint_id": BLUEPRINT_ID,
+            "run_id": ctx["run_id"],
+            "started_at": ctx["started_at"],
+            "output_folder": str(ctx["output_folder"]),
+            "run_dir": str(ctx["run_dir"]),
+            "document_folder": str(ctx["document_folder"]),
+            "payload": ctx["payload"],
+        },
+    )
+
+
+def write_failed_run(ctx: dict[str, Any], error: Exception | str) -> None:
+    write_json(
+        ctx["run_dir"] / "run.json",
+        {
+            "run_id": ctx["run_id"],
+            "blueprint_id": BLUEPRINT_ID,
+            "status": "failed",
+            "error": str(error),
+            "finished_at": utc_now_iso(),
+        },
+    )
+
+
 def step_model_profile(config: dict[str, Any], step_id: str) -> dict[str, Any]:
     llm = config.get("llm") if isinstance(config.get("llm"), dict) else {}
     agents = llm.get("agents") if isinstance(llm.get("agents"), dict) else {}
@@ -479,9 +528,99 @@ def step_model_profile(config: dict[str, Any], step_id: str) -> dict[str, Any]:
     }
 
 
-def actor_review(config: dict[str, Any], llm: Any, step_id: str, summary: str, context: dict[str, Any]) -> dict[str, Any]:
+def listify(value: Any) -> list[Any]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    if isinstance(value, tuple) or isinstance(value, set):
+        return list(value)
+    if isinstance(value, str):
+        return [value] if value.strip() else []
+    return [value]
+
+
+def normalize_review_response(response: dict[str, Any], fallback: dict[str, Any], source_refs: list[str]) -> dict[str, Any]:
+    normalized = copy.deepcopy(fallback)
+    if isinstance(response, dict):
+        normalized.update(response)
+    normalized["summary"] = str(normalized.get("summary") or fallback.get("summary") or "LLM review completed.")
+    normalized["key_findings"] = listify(normalized.get("key_findings") or normalized.get("findings"))
+    normalized["review_questions"] = listify(normalized.get("review_questions"))
+    normalized["evidence_gaps"] = listify(normalized.get("evidence_gaps"))
+    normalized["risk_flags"] = listify(normalized.get("risk_flags") or normalized.get("risks"))
+    normalized["next_steps"] = listify(normalized.get("next_steps"))
+    normalized["review_only"] = True
+    normalized["source_refs"] = sorted({str(item) for item in listify(normalized.get("source_refs")) + source_refs if str(item)})
+    try:
+        confidence = float(normalized.get("confidence", fallback.get("confidence", 0.62)))
+    except (TypeError, ValueError):
+        confidence = float(fallback.get("confidence", 0.62))
+    normalized["confidence"] = round(min(1.0, max(0.0, confidence)), 2)
+    return normalized
+
+
+def live_llm_requested(config: dict[str, Any], payload: dict[str, Any] | None = None) -> bool:
+    llm = config.get("llm") if isinstance(config.get("llm"), dict) else {}
+    if not bool(llm.get("enabled", True)):
+        return False
+    return not fake_llm_requested(config, payload)
+
+
+def env_truthy(*names: str) -> bool:
+    return any(str(os.environ.get(name, "")).strip().lower() in {"1", "true", "yes", "on"} for name in names)
+
+
+def fake_llm_requested(config: dict[str, Any], payload: dict[str, Any] | None = None) -> bool:
+    llm = config.get("llm") if isinstance(config.get("llm"), dict) else {}
+    execution = config.get("execution") if isinstance(config.get("execution"), dict) else {}
+    payload = payload or {}
+    fake_values = {"fake", "mock", "deterministic", "test"}
+    env_mode = str(os.environ.get("MN_LLM_MODE") or os.environ.get("LITELLM_MODE") or "").strip().lower()
+    env_provider = str(os.environ.get("MN_LLM_PROVIDER") or os.environ.get("LITELLM_PROVIDER") or "").strip().lower()
+    if env_mode in fake_values or env_provider in fake_values:
+        return True
+    if env_truthy("MN_BLUEPRINT_QUICK_TEST", "MN_QUICK_TEST") and bool(llm.get("quick_test_uses_fake", False)):
+        return True
+    if bool(execution.get("quick_test")) or bool(payload.get("quick_test")):
+        return bool(llm.get("quick_test_uses_fake", True))
+    mode = str(llm.get("mode") or "").strip().lower()
+    return mode in fake_values
+
+
+def build_llm_client(config: dict[str, Any], payload: dict[str, Any], llm_client: Any | None) -> Any:
+    if llm_client is not None:
+        return llm_client
+    if fake_llm_requested(config, payload):
+        return DeterministicLLM()
+    if not live_llm_requested(config, payload):
+        return None
+    if get_actor_llm_client is None:
+        raise RuntimeError(
+            "Financial Advisor requires the shared live LLM client for normal runs. "
+            "Install/enable mn_blueprint_support or run with explicit fake/quick-test mode."
+        )
+    try:
+        client = get_actor_llm_client(config, None)
+    except Exception as exc:
+        raise RuntimeError(f"Unable to initialize shared live LLM client: {exc}") from exc
+    if client is None or isinstance(client, DeterministicLLM):
+        raise RuntimeError("Shared live LLM client was unavailable for a normal Financial Advisor run.")
+    return client
+
+
+def actor_review(
+    config: dict[str, Any],
+    llm: Any,
+    step_id: str,
+    summary: str,
+    context: dict[str, Any],
+    *,
+    fallback: dict[str, Any] | None = None,
+    prompt_details: str = "",
+) -> dict[str, Any]:
     profile = step_model_profile(config, step_id)
-    fallback = {
+    default_fallback = {
         "actor_id": step_id,
         "summary": summary,
         "findings": [],
@@ -492,19 +631,20 @@ def actor_review(config: dict[str, Any], llm: Any, step_id: str, summary: str, c
         "model": profile["model"],
         "runtime_model": profile["runtime_model"],
     }
+    if fallback:
+        default_fallback.update(copy.deepcopy(fallback))
+    fallback = default_fallback
     if llm is None:
         response = fallback
     else:
         try:
             response = llm.generate_json(
-                system_prompt=(
-                    "Return compact JSON for a review-only financial advisor actor. "
-                    "Do not recommend filing, trading, moving money, paying bills, or external sharing."
-                ),
+                system_prompt=render_prompt("actor-review-system.md", prompt_details=prompt_details),
                 user_prompt=json.dumps(
                     {
                         "actor_id": step_id,
                         "model_profile": profile,
+                        "task": summary,
                         "context": redact_value(context),
                         "fallback_shape": fallback,
                     },
@@ -514,6 +654,8 @@ def actor_review(config: dict[str, Any], llm: Any, step_id: str, summary: str, c
                 fallback=fallback,
             )
         except Exception as exc:
+            if live_llm_requested(config):
+                raise RuntimeError(f"Live LLM review failed for {step_id}: {exc}") from exc
             response = copy.deepcopy(fallback)
             response["llm_error"] = str(exc)
     if not isinstance(response, dict):
@@ -532,7 +674,100 @@ def llm_usage(llm: Any) -> dict[str, Any]:
         "model": str(getattr(llm, "model", "none")),
         "calls": int(getattr(llm, "calls", 0) or 0),
         "fallback_calls": int(getattr(llm, "fallback_calls", 0) or 0),
+        "input_tokens": int(getattr(llm, "input_tokens", 0) or 0),
+        "output_tokens": int(getattr(llm, "output_tokens", 0) or 0),
+        "total_tokens": int(getattr(llm, "total_tokens", 0) or 0),
+        "estimated_tokens": int(getattr(llm, "estimated_tokens", 0) or 0),
     }
+
+
+def usage_delta(before: dict[str, Any], after: dict[str, Any]) -> dict[str, Any]:
+    delta = {"provider": after.get("provider", "none"), "model": after.get("model", "none")}
+    for key in ("calls", "fallback_calls", "input_tokens", "output_tokens", "total_tokens", "estimated_tokens"):
+        delta[key] = max(0, int(after.get(key, 0) or 0) - int(before.get(key, 0) or 0))
+    return delta
+
+
+def accumulate_llm_usage(ctx: dict[str, Any], delta: dict[str, Any]) -> dict[str, Any]:
+    usage = ctx["state"].setdefault(
+        "llm_usage",
+        {
+            "provider": delta.get("provider", "none"),
+            "model": delta.get("model", "none"),
+            "calls": 0,
+            "fallback_calls": 0,
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "total_tokens": 0,
+            "estimated_tokens": 0,
+        },
+    )
+    usage["provider"] = delta.get("provider") or usage.get("provider", "none")
+    usage["model"] = delta.get("model") or usage.get("model", "none")
+    for key in ("calls", "fallback_calls", "input_tokens", "output_tokens", "total_tokens", "estimated_tokens"):
+        usage[key] = int(usage.get(key, 0) or 0) + int(delta.get(key, 0) or 0)
+    return usage
+
+
+def effective_llm_usage(ctx: dict[str, Any]) -> dict[str, Any]:
+    usage = copy.deepcopy(
+        ctx["state"].get(
+            "llm_usage",
+            {
+                "provider": str(getattr(ctx["llm"], "provider", "none")),
+                "model": str(getattr(ctx["llm"], "model", "none")),
+                "calls": 0,
+                "fallback_calls": 0,
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "total_tokens": 0,
+                "estimated_tokens": 0,
+            },
+        )
+    )
+    current_delta = usage_delta(ctx.get("step_llm_usage_before") or llm_usage(ctx["llm"]), llm_usage(ctx["llm"]))
+    usage["provider"] = current_delta.get("provider") or usage.get("provider", "none")
+    usage["model"] = current_delta.get("model") or usage.get("model", "none")
+    for key in ("calls", "fallback_calls", "input_tokens", "output_tokens", "total_tokens", "estimated_tokens"):
+        usage[key] = int(usage.get(key, 0) or 0) + int(current_delta.get(key, 0) or 0)
+    return usage
+
+
+def review_artifact(
+    ctx: dict[str, Any],
+    *,
+    step_id: str,
+    summary: str,
+    context: dict[str, Any],
+    source_refs: list[str],
+    key_findings: list[str],
+    review_questions: list[str],
+    evidence_gaps: list[str],
+    risk_flags: list[str],
+    next_steps: list[str],
+) -> dict[str, Any]:
+    fallback = {
+        "actor_id": step_id,
+        "summary": summary,
+        "key_findings": key_findings,
+        "review_questions": review_questions,
+        "evidence_gaps": evidence_gaps,
+        "risk_flags": risk_flags,
+        "next_steps": next_steps,
+        "confidence": 0.68,
+        "review_only": True,
+        "source_refs": source_refs,
+    }
+    response = actor_review(
+        ctx["config"],
+        ctx["llm"],
+        step_id,
+        summary,
+        context,
+        fallback=fallback,
+        prompt_details=load_prompt("review-artifact-fields.md"),
+    )
+    return normalize_review_response(response, fallback, source_refs)
 
 
 def step_financial_folder_watcher(ctx: dict[str, Any]) -> dict[str, Any]:
@@ -642,6 +877,70 @@ def step_cash_flow_normalizer(ctx: dict[str, Any]) -> dict[str, Any]:
         "risk_flags": warnings,
         "summary": f"Detected {money(income)} income-like deposits and {money(expenses)} expenses/fees.",
     }
+
+
+def step_cash_flow_llm_analyst(ctx: dict[str, Any]) -> dict[str, Any]:
+    workflow = ctx["state"]["workflow"]
+    cash_flow = workflow["cash_flow_normalizer"]
+    bank = workflow["bank_statement_extractor"]
+    docs = workflow["financial_document_reader"]
+    source_refs = sorted(
+        {
+            str(item.get("source_ref"))
+            for statement in bank.get("statements", [])
+            for item in statement.get("transactions", [])
+            if item.get("source_ref")
+        }
+        | {str(item) for item in docs.get("source_refs", []) if item}
+    )
+    risk_flags = list(cash_flow.get("risk_flags") or [])
+    evidence_gaps = []
+    if not bank.get("statement_count"):
+        evidence_gaps.append("No bank statements were available for cash-flow validation.")
+    if cash_flow.get("income_total", 0) <= 0:
+        evidence_gaps.append("No income-like deposits were detected in statement evidence.")
+    if cash_flow.get("income_document_count", 0) and cash_flow.get("income_total", 0) <= 0:
+        evidence_gaps.append("Income documents exist but did not reconcile to detected deposits.")
+    return review_artifact(
+        ctx,
+        step_id="cash_flow_llm_analyst",
+        summary="Cash-flow LLM analyst reviewed deterministic cash-flow totals for gaps, recurring-risk signals, and human questions.",
+        context={
+            "cash_flow_normalizer": cash_flow,
+            "bank_statement_extractor": {
+                "statement_count": bank.get("statement_count"),
+                "totals": bank.get("totals"),
+                "opening_balance": bank.get("opening_balance"),
+                "closing_balance": bank.get("closing_balance"),
+                "net_cash_flow": bank.get("net_cash_flow"),
+                "transaction_count": sum(len(statement.get("transactions", [])) for statement in bank.get("statements", [])),
+            },
+            "document_reader": {
+                "document_count": docs.get("document_count"),
+                "kind_counts": docs.get("kind_counts"),
+                "warnings": docs.get("warnings"),
+            },
+            "review_constraints": [
+                "Do not alter deterministic income, expense, fee, or net cash-flow totals.",
+                "Only identify review gaps, risks, and human follow-up questions.",
+            ],
+        },
+        source_refs=source_refs,
+        key_findings=[
+            f"Detected {money(cash_flow.get('income_total'))} income-like deposits and {money(cash_flow.get('expense_total'))} expenses/fees.",
+            f"Net cash flow is {money(cash_flow.get('net_cash_flow'))} based on deterministic statement parsing.",
+        ],
+        review_questions=[
+            "Do statement totals match the source bank statement pages?",
+            "Are any recurring withdrawals, fees, bills, or transfers missing from the parsed evidence?",
+        ],
+        evidence_gaps=evidence_gaps,
+        risk_flags=risk_flags,
+        next_steps=[
+            "Compare parsed deposits, withdrawals, and fees against source statements.",
+            "Confirm whether flagged cash-flow items require human budgeting or records review.",
+        ],
+    )
 
 
 def step_tax_document_router(ctx: dict[str, Any]) -> dict[str, Any]:
@@ -805,7 +1104,23 @@ def step_tax_workpaper_preparer(ctx: dict[str, Any]) -> dict[str, Any]:
         ctx["llm"],
         "tax_workpaper_preparer",
         "Draft tax workpapers prepared for human review.",
-        {"draft_income": draft_income, "missing": router.get("missing_recommended_forms")},
+        {
+            "deterministic_workpaper_totals": {
+                "wages": wages,
+                "interest_income": interest,
+                "retirement_distributions": retirement_distribution,
+                "draft_income_total": draft_income,
+                "federal_withholding": withholding,
+            },
+            "routed_tax_documents": router,
+            "tax_form_ocr_capture": tax_capture,
+            "review_constraints": [
+                "Do not change draft tax totals.",
+                "Do not mark anything filing-ready.",
+                "Only identify completeness issues, source-review needs, and manager-review questions.",
+            ],
+        },
+        prompt_details=load_prompt("tax-llm-review.md"),
     )
     blockers = list(router.get("missing_recommended_forms") or [])
     if tax_capture.get("review_required_sources"):
@@ -835,6 +1150,63 @@ def step_tax_workpaper_preparer(ctx: dict[str, Any]) -> dict[str, Any]:
         "actor_finding": findings,
         "warnings": ["draft_tax_packet_not_ready_to_file"],
     }
+
+
+def step_tax_llm_reviewer(ctx: dict[str, Any]) -> dict[str, Any]:
+    workflow = ctx["state"]["workflow"]
+    router = workflow["tax_document_router"]
+    tax_capture = workflow["tax_form_ocr_capturer"]
+    workpaper = workflow["tax_workpaper_preparer"]
+    source_refs = sorted(
+        {
+            str(item.get("source_ref"))
+            for docs in router.get("groups", {}).values()
+            for item in docs
+            if item.get("source_ref")
+        }
+        | {
+            str(form.get("source_ref"))
+            for form in tax_capture.get("forms", [])
+            if form.get("source_ref")
+        }
+    )
+    blockers = list(workpaper.get("manager_review", {}).get("blockers") or [])
+    evidence_gaps = [f"Missing recommended tax evidence: {item}" for item in router.get("missing_recommended_forms", [])]
+    if tax_capture.get("review_required_sources"):
+        evidence_gaps.append("One or more OCR/answer-file packets require source-image review.")
+    if workpaper.get("workpapers", {}).get("draft_income_total", 0) <= 0:
+        evidence_gaps.append("Draft income total is zero or unavailable in deterministic tax workpapers.")
+    return review_artifact(
+        ctx,
+        step_id="tax_llm_reviewer",
+        summary="Tax LLM reviewer checked draft workpapers, OCR capture, missing-form blockers, and filing-boundary constraints.",
+        context={
+            "tax_document_router": router,
+            "tax_form_ocr_capturer": tax_capture,
+            "tax_workpaper_preparer": workpaper,
+            "review_constraints": [
+                "Do not change wages, interest, distributions, withholding, or draft-income totals.",
+                "Do not give legal/tax filing advice.",
+                "Do not mark OCR capture as filing-ready.",
+            ],
+        },
+        source_refs=source_refs,
+        key_findings=[
+            f"Draft tax income total is {money(workpaper.get('workpapers', {}).get('draft_income_total'))}.",
+            f"{tax_capture.get('tax_form_count', 0)} tax-form image/answer packet(s) were captured for review.",
+        ],
+        review_questions=[
+            "Are the routed tax documents complete for the taxpayer's situation?",
+            "Have OCR captured fields been checked against source images and companion answer files?",
+            "Should any manager blockers remain before tax-preparation downstream use?",
+        ],
+        evidence_gaps=evidence_gaps,
+        risk_flags=blockers + list(tax_capture.get("warnings") or []),
+        next_steps=[
+            "Review missing-form and OCR blockers with a qualified human reviewer.",
+            "Reconcile draft tax totals to source forms before any tax filing workflow.",
+        ],
+    )
 
 
 def load_portfolio_from_documents(ctx: dict[str, Any]) -> dict[str, Any]:
@@ -952,7 +1324,26 @@ def step_portfolio_risk_engine(ctx: dict[str, Any]) -> dict[str, Any]:
         ctx["llm"],
         "portfolio_risk_engine",
         "Portfolio risk reviewed with deterministic fixture market data.",
-        {"violations": violations, "var_pct": var_pct, "cash_weight_pct": cash_weight},
+        {
+            "deterministic_risk_metrics": {
+                "total_value": total_value,
+                "cash_weight_pct": cash_weight,
+                "largest_position_weight_pct": largest,
+                "annualized_volatility_pct": annual_vol,
+                "var_pct": var_pct,
+                "cvar_pct": cvar_pct,
+                "policy_violations": violations,
+            },
+            "holdings": marked_holdings,
+            "risk_policy": policy,
+            "market_source_refs": market.get("source_refs", []),
+            "review_constraints": [
+                "Do not change deterministic portfolio metrics.",
+                "Do not recommend trades or money movement.",
+                "Keep candidate actions review-only and human-approved.",
+            ],
+        },
+        prompt_details=load_prompt("portfolio-llm-review.md"),
     )
     return {
         "base_currency": portfolio.get("base_currency", "USD"),
@@ -972,17 +1363,81 @@ def step_portfolio_risk_engine(ctx: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def step_portfolio_llm_reviewer(ctx: dict[str, Any]) -> dict[str, Any]:
+    workflow = ctx["state"]["workflow"]
+    context = workflow["portfolio_context_loader"]
+    market = workflow["portfolio_market_data_loader"]
+    risk = workflow["portfolio_risk_engine"]
+    source_refs = sorted(
+        {str(item) for item in market.get("source_refs", []) if item}
+        | {
+            str(item.get("symbol"))
+            for item in risk.get("holdings", [])
+            if item.get("symbol")
+        }
+    )
+    evidence_gaps = []
+    if not context.get("holding_count"):
+        evidence_gaps.append("No portfolio holdings were available for risk review.")
+    if market.get("provider") == "deterministic_public_market_fixture":
+        evidence_gaps.append("Market prices are deterministic fixtures and need live/source verification for production use.")
+    if not context.get("risk_policy"):
+        evidence_gaps.append("No explicit risk policy was provided for threshold review.")
+    risk_flags = list(risk.get("policy_violations") or []) + list(risk.get("warnings") or [])
+    return review_artifact(
+        ctx,
+        step_id="portfolio_llm_reviewer",
+        summary="Portfolio LLM reviewer interpreted deterministic risk metrics, policy violations, source gaps, and human review questions.",
+        context={
+            "portfolio_context_loader": context,
+            "portfolio_market_data_loader": market,
+            "portfolio_risk_engine": risk,
+            "review_constraints": [
+                "Do not change portfolio values, weights, volatility, VaR, CVaR, or policy-violation math.",
+                "Do not recommend executing trades, reallocations, or money movement.",
+                "Only identify review questions, evidence gaps, and risk interpretation notes.",
+            ],
+        },
+        source_refs=source_refs,
+        key_findings=[
+            f"Portfolio total value is {money(risk.get('total_value'))}.",
+            f"Largest position weight is {risk.get('largest_position_weight_pct')}% with cash weight {risk.get('cash_weight_pct')}%.",
+        ],
+        review_questions=[
+            "Does the risk policy reflect the user's current investment objective and constraints?",
+            "Do fixture market prices need replacement with verified live market evidence before decision use?",
+            "Are any policy violations intentional exceptions that should be documented by a human reviewer?",
+        ],
+        evidence_gaps=evidence_gaps,
+        risk_flags=risk_flags,
+        next_steps=[
+            "Verify portfolio holdings, cash, and market prices against source account evidence.",
+            "Have a human reviewer evaluate policy violations before any trade or allocation decision.",
+        ],
+    )
+
+
 def step_public_finance_researcher(ctx: dict[str, Any]) -> dict[str, Any]:
-    cash_flow = ctx["state"]["workflow"]["cash_flow_normalizer"]
-    tax = ctx["state"]["workflow"]["tax_workpaper_preparer"]
-    portfolio = ctx["state"]["workflow"]["portfolio_risk_engine"]
+    workflow = ctx["state"]["workflow"]
+    cash_flow = workflow["cash_flow_normalizer"]
+    cash_llm = workflow.get("cash_flow_llm_analyst", {})
+    tax = workflow["tax_workpaper_preparer"]
+    tax_llm = workflow.get("tax_llm_reviewer", {})
+    portfolio = workflow["portfolio_risk_engine"]
+    portfolio_llm = workflow.get("portfolio_llm_reviewer", {})
     topics = ["budget and cash-flow review", "bank account fee review"]
+    if cash_llm.get("risk_flags") or cash_llm.get("review_questions"):
+        topics.append("cash-flow evidence gaps and review questions")
     if tax.get("manager_review", {}).get("blockers"):
         topics.append("tax records and missing form review")
-    if ctx["state"]["workflow"]["tax_form_ocr_capturer"].get("tax_form_count"):
+    if tax_llm.get("evidence_gaps"):
+        topics.append("tax evidence gap review")
+    if workflow["tax_form_ocr_capturer"].get("tax_form_count"):
         topics.append("tax form OCR field validation review")
     if portfolio.get("policy_violations"):
         topics.append("portfolio concentration and risk tolerance review")
+    if portfolio_llm.get("evidence_gaps"):
+        topics.append("portfolio market evidence verification")
     sources = [
         source for source in PUBLIC_GUIDANCE_SOURCES
         if any(token in source["topic"] for token in ("budget", "bank", "tax", "portfolio", "risk"))
@@ -996,6 +1451,14 @@ def step_public_finance_researcher(ctx: dict[str, Any]) -> dict[str, Any]:
             "source_summaries_are_for_review_context_not_personalized_action"
         ],
         "cash_flow_flags": cash_flow.get("risk_flags") or [],
+        "llm_review_flags": sorted(
+            {
+                str(item)
+                for review in (cash_llm, tax_llm, portfolio_llm)
+                for item in listify(review.get("risk_flags")) + listify(review.get("evidence_gaps"))
+                if str(item)
+            }
+        ),
     }
 
 
@@ -1006,16 +1469,21 @@ def step_advisor_evidence_reconciler(ctx: dict[str, Any]) -> dict[str, Any]:
         "financial_document_reader",
         "bank_statement_extractor",
         "cash_flow_normalizer",
+        "cash_flow_llm_analyst",
         "tax_document_router",
         "tax_form_ocr_capturer",
         "tax_workpaper_preparer",
+        "tax_llm_reviewer",
         "portfolio_context_loader",
         "portfolio_market_data_loader",
         "portfolio_risk_engine",
+        "portfolio_llm_reviewer",
         "public_finance_researcher",
     ):
         value = workflow.get(key) or {}
         warnings.extend(value.get("warnings") or [])
+        warnings.extend(value.get("risk_flags") or [])
+        warnings.extend(value.get("evidence_gaps") or [])
     evidence = [
         {
             "domain": "bank_statement",
@@ -1026,6 +1494,11 @@ def step_advisor_evidence_reconciler(ctx: dict[str, Any]) -> dict[str, Any]:
             "domain": "cash_flow",
             "summary": workflow["cash_flow_normalizer"].get("summary"),
             "source_refs": workflow["financial_document_reader"].get("source_refs", []),
+        },
+        {
+            "domain": "cash_flow_llm_review",
+            "summary": workflow["cash_flow_llm_analyst"].get("summary"),
+            "source_refs": workflow["cash_flow_llm_analyst"].get("source_refs", []),
         },
         {
             "domain": "tax",
@@ -1045,9 +1518,19 @@ def step_advisor_evidence_reconciler(ctx: dict[str, Any]) -> dict[str, Any]:
             ],
         },
         {
+            "domain": "tax_llm_review",
+            "summary": workflow["tax_llm_reviewer"].get("summary"),
+            "source_refs": workflow["tax_llm_reviewer"].get("source_refs", []),
+        },
+        {
             "domain": "portfolio",
             "summary": f"{workflow['portfolio_context_loader']['holding_count']} holding(s) reviewed.",
             "source_refs": workflow["portfolio_market_data_loader"].get("source_refs", []),
+        },
+        {
+            "domain": "portfolio_llm_review",
+            "summary": workflow["portfolio_llm_reviewer"].get("summary"),
+            "source_refs": workflow["portfolio_llm_reviewer"].get("source_refs", []),
         },
     ]
     return {
@@ -1074,12 +1557,33 @@ def step_advisor_review_auditor(ctx: dict[str, Any]) -> dict[str, Any]:
         issues.append("tax_form_ocr_capture_review_required")
     if workflow["portfolio_risk_engine"].get("policy_violations"):
         issues.append("portfolio_policy_violations_present")
+    llm_reviews = {
+        "cash_flow": workflow["cash_flow_llm_analyst"],
+        "tax": workflow["tax_llm_reviewer"],
+        "portfolio": workflow["portfolio_llm_reviewer"],
+    }
+    if any(review.get("evidence_gaps") for review in llm_reviews.values()):
+        issues.append("llm_review_evidence_gaps_present")
+    if any(review.get("risk_flags") for review in llm_reviews.values()):
+        issues.append("llm_review_risk_flags_present")
     finding = actor_review(
         ctx["config"],
         ctx["llm"],
         "advisor_review_auditor",
         "Advisor packet audited for evidence, math, and blocked action boundaries.",
-        {"issues": issues, "blocked_actions": blocked_actions},
+        {
+            "issues": issues,
+            "blocked_actions": blocked_actions,
+            "llm_reviews": llm_reviews,
+            "reconciled_evidence": reconciler.get("evidence", []),
+            "missing_evidence": reconciler.get("missing_evidence", []),
+            "review_constraints": [
+                "Confirm LLM reviews did not alter deterministic math.",
+                "Confirm blocked actions remain blocked.",
+                "Only add human-review blockers and caveats.",
+            ],
+        },
+        prompt_details=load_prompt("advisor-review-auditor.md"),
     )
     return {
         "issues": issues,
@@ -1094,9 +1598,12 @@ def step_advisor_review_auditor(ctx: dict[str, Any]) -> dict[str, Any]:
 def build_final_artifact(ctx: dict[str, Any]) -> dict[str, Any]:
     workflow = ctx["state"]["workflow"]
     cash = workflow["cash_flow_normalizer"]
+    cash_llm = workflow["cash_flow_llm_analyst"]
     tax = workflow["tax_workpaper_preparer"]
     tax_capture = workflow["tax_form_ocr_capturer"]
+    tax_llm = workflow["tax_llm_reviewer"]
     portfolio = workflow["portfolio_risk_engine"]
+    portfolio_llm = workflow["portfolio_llm_reviewer"]
     reconciler = workflow["advisor_evidence_reconciler"]
     auditor = workflow["advisor_review_auditor"]
     confidence = round(min(0.86, max(0.45, auditor.get("quality_score", 0.75))), 2)
@@ -1126,6 +1633,9 @@ def build_final_artifact(ctx: dict[str, Any]) -> dict[str, Any]:
             set(workflow["financial_document_reader"].get("source_refs", []))
             | set(workflow["portfolio_market_data_loader"].get("source_refs", []))
             | set(workflow["public_finance_researcher"].get("source_refs", []))
+            | set(cash_llm.get("source_refs") or [])
+            | set(tax_llm.get("source_refs") or [])
+            | set(portfolio_llm.get("source_refs") or [])
         ),
         "research_summary": {
             "topics": workflow["public_finance_researcher"].get("topics", []),
@@ -1135,20 +1645,46 @@ def build_final_artifact(ctx: dict[str, Any]) -> dict[str, Any]:
         "research_warnings": warnings,
         "bank_statement_extraction": workflow["bank_statement_extractor"],
         "household_finance_summary": cash,
+        "llm_analysis": {
+            "cash_flow": cash_llm,
+            "tax": tax_llm,
+            "portfolio": portfolio_llm,
+            "review_only": True,
+        },
         "tax_review_packet": tax,
         "tax_form_ocr_capture": tax_capture,
         "portfolio_risk_review": portfolio,
         "auditor_review": auditor,
         "model_profiles_used": ctx["state"].get("model_profiles_used", {}),
-        "llm_usage": llm_usage(ctx["llm"]),
+        "llm_usage": effective_llm_usage(ctx),
         "review_only": True,
         "blocked_actions": (ctx["config"].get("human_control") or {}).get("blocked_actions") or [],
     }
 
 
+def markdown_review_section(title: str, review: dict[str, Any]) -> list[str]:
+    findings = [str(item) for item in listify(review.get("key_findings"))] or ["No additional LLM findings returned."]
+    questions = [str(item) for item in listify(review.get("review_questions"))] or ["No additional review questions returned."]
+    gaps = [str(item) for item in listify(review.get("evidence_gaps"))] or ["none"]
+    risks = [str(item) for item in listify(review.get("risk_flags"))] or ["none"]
+    return [
+        f"## {title}",
+        "",
+        str(review.get("summary") or "LLM review completed."),
+        "",
+        f"- Key findings: {'; '.join(findings)}",
+        f"- Review questions: {'; '.join(questions)}",
+        f"- Evidence gaps: {'; '.join(gaps)}",
+        f"- Risk flags: {'; '.join(risks)}",
+        f"- Confidence: {review.get('confidence')}",
+        "",
+    ]
+
+
 def markdown_report(final_artifact: dict[str, Any]) -> str:
     bank = final_artifact["bank_statement_extraction"]
     cash = final_artifact["household_finance_summary"]
+    llm_analysis = final_artifact.get("llm_analysis") or {}
     tax = final_artifact["tax_review_packet"]
     tax_capture = final_artifact["tax_form_ocr_capture"]
     portfolio = final_artifact["portfolio_risk_review"]
@@ -1190,6 +1726,9 @@ def markdown_report(final_artifact: dict[str, Any]) -> str:
         f"- Largest position: {portfolio.get('largest_position_weight_pct')}%",
         f"- Policy violations: {', '.join(portfolio.get('policy_violations') or ['none'])}",
         "",
+        *markdown_review_section("LLM Cash-Flow Review", llm_analysis.get("cash_flow") or {}),
+        *markdown_review_section("LLM Tax Review", llm_analysis.get("tax") or {}),
+        *markdown_review_section("LLM Portfolio Review", llm_analysis.get("portfolio") or {}),
         "## Review Boundary",
         "",
         "This packet is review-only. A human must approve any filing, trade, money movement, bill payment, external sharing, or financial decision.",
@@ -1207,7 +1746,21 @@ def step_financial_advice_reporter(ctx: dict[str, Any]) -> dict[str, Any]:
         ctx["llm"],
         "financial_advice_reporter",
         "Integrated financial advisor report written for human review.",
-        {"workflow_keys": sorted(ctx["state"]["workflow"])},
+        {
+            "workflow_keys": sorted(ctx["state"]["workflow"]),
+            "llm_reviews": {
+                "cash_flow": ctx["state"]["workflow"].get("cash_flow_llm_analyst"),
+                "tax": ctx["state"]["workflow"].get("tax_llm_reviewer"),
+                "portfolio": ctx["state"]["workflow"].get("portfolio_llm_reviewer"),
+            },
+            "auditor_review": ctx["state"]["workflow"].get("advisor_review_auditor"),
+            "review_constraints": [
+                "Do not change deterministic extraction or calculation fields.",
+                "Include LLM analysis as review notes only.",
+                "Keep filing, trading, money movement, bill payment, and external sharing blocked until human approval.",
+            ],
+        },
+        prompt_details=load_prompt("financial-advice-reporter.md"),
     )
     ctx["state"].setdefault("actor_findings", {})["financial_advice_reporter"] = finding
     final_artifact = build_final_artifact(ctx)
@@ -1215,9 +1768,12 @@ def step_financial_advice_reporter(ctx: dict[str, Any]) -> dict[str, Any]:
     artifacts = {
         "bank_statement_extraction.json": final_artifact["bank_statement_extraction"],
         "household_finance_summary.json": final_artifact["household_finance_summary"],
+        "cash_flow_llm_review.json": final_artifact["llm_analysis"]["cash_flow"],
         "tax_review_packet.json": final_artifact["tax_review_packet"],
         "tax_form_ocr_capture.json": final_artifact["tax_form_ocr_capture"],
+        "tax_llm_review.json": final_artifact["llm_analysis"]["tax"],
         "portfolio_risk_review.json": final_artifact["portfolio_risk_review"],
+        "portfolio_llm_review.json": final_artifact["llm_analysis"]["portfolio"],
         "action_ledger.json": {
             "review_only": True,
             "blocked_actions": final_artifact["blocked_actions"],
@@ -1226,11 +1782,14 @@ def step_financial_advice_reporter(ctx: dict[str, Any]) -> dict[str, Any]:
         "artifact_quality.json": {
             "confidence": final_artifact["confidence"],
             "warnings": final_artifact["research_warnings"],
-            "required_fields_present": all(final_artifact.get(key) for key in ("type", "executive_summary", "recommended_action", "evidence", "next_steps")),
+            "required_fields_present": all(final_artifact.get(key) for key in ("type", "executive_summary", "recommended_action", "evidence", "next_steps", "llm_analysis")),
         },
         "run_health.json": {
             "status": "completed",
             "warnings_count": len(final_artifact["research_warnings"]),
+            "llm_provider": final_artifact["llm_usage"].get("provider"),
+            "llm_model": final_artifact["llm_usage"].get("model"),
+            "llm_calls": final_artifact["llm_usage"].get("calls"),
             "llm_usage": final_artifact["llm_usage"],
         },
     }
@@ -1255,12 +1814,15 @@ STEP_HANDLERS = {
     "financial_document_reader": step_financial_document_reader,
     "bank_statement_extractor": step_bank_statement_extractor,
     "cash_flow_normalizer": step_cash_flow_normalizer,
+    "cash_flow_llm_analyst": step_cash_flow_llm_analyst,
     "tax_document_router": step_tax_document_router,
     "tax_form_ocr_capturer": step_tax_form_ocr_capturer,
     "tax_workpaper_preparer": step_tax_workpaper_preparer,
+    "tax_llm_reviewer": step_tax_llm_reviewer,
     "portfolio_context_loader": step_portfolio_context_loader,
     "portfolio_market_data_loader": step_portfolio_market_data_loader,
     "portfolio_risk_engine": step_portfolio_risk_engine,
+    "portfolio_llm_reviewer": step_portfolio_llm_reviewer,
     "public_finance_researcher": step_public_finance_researcher,
     "advisor_evidence_reconciler": step_advisor_evidence_reconciler,
     "advisor_review_auditor": step_advisor_review_auditor,
@@ -1278,7 +1840,14 @@ def run_step(ctx: dict[str, Any], step_id: str) -> dict[str, Any]:
     }
     handler = STEP_HANDLERS[step_id]
     started = time.monotonic()
+    usage_before = llm_usage(ctx["llm"])
+    ctx["step_llm_usage_before"] = usage_before
     result = handler(ctx)
+    usage_after = llm_usage(ctx["llm"])
+    llm_delta = usage_delta(usage_before, usage_after)
+    if llm_delta.get("fallback_calls") and live_llm_requested(ctx["config"], ctx.get("payload")):
+        raise RuntimeError(f"Live LLM fallback was used during {step_id}; failing normal run instead of silently degrading.")
+    cumulative_llm_usage = accumulate_llm_usage(ctx, llm_delta)
     elapsed_ms = int((time.monotonic() - started) * 1000)
     ctx["state"].setdefault("workflow", {})[step_id] = result
     append_event(
@@ -1286,9 +1855,12 @@ def run_step(ctx: dict[str, Any], step_id: str) -> dict[str, Any]:
         OUTPUT_MESSAGE_BY_STEP[step_id],
         {
             "step_id": step_id,
+            "runtime_step_mode": "workflow_step_handler",
             "duration_ms": elapsed_ms,
             "llm_config": profile["llm_config"],
             "model": profile["model"],
+            "llm_usage_delta": llm_delta,
+            "llm_usage": cumulative_llm_usage,
         },
     )
     append_event(ctx["run_dir"], "blueprint_phase_completed", {"phase": step_id, "duration_ms": elapsed_ms})
@@ -1296,11 +1868,14 @@ def run_step(ctx: dict[str, Any], step_id: str) -> dict[str, Any]:
     return result
 
 
-def step_result(ctx: dict[str, Any], step_id: str, output: dict[str, Any]) -> dict[str, Any]:
-    return {
+def step_result(ctx: dict[str, Any], step_id: str, output: dict[str, Any], **metadata: Any) -> dict[str, Any]:
+    result = {
         "schema": "mn.workflow.step_result.v1",
+        "run_id": ctx["run_id"],
+        "blueprint_id": BLUEPRINT_ID,
         "agent_id": step_id,
         "workflow_step_id": step_id,
+        "runtime_step_mode": "workflow_step_handler",
         "blueprint": BLUEPRINT_ID,
         "status": "completed",
         "message_type": OUTPUT_MESSAGE_BY_STEP[step_id],
@@ -1311,7 +1886,87 @@ def step_result(ctx: dict[str, Any], step_id: str, output: dict[str, Any]) -> di
             "ended_at": utc_now_iso(),
         },
         "outputs": output,
+        **metadata,
     }
+    write_json(ctx["run_dir"] / f"{step_id}_result.json", result)
+    write_json(ctx["run_dir"] / "workflow_state" / f"{step_id}_result.json", result)
+    return result
+
+
+def ensure_run_started(ctx: dict[str, Any]) -> None:
+    run_path = ctx["run_dir"] / "run.json"
+    if not run_path.exists():
+        write_json(ctx["run_dir"] / "config.json", ctx["config"])
+        write_json(
+            ctx["run_dir"] / "inputs.json",
+            {
+                "payload": ctx["payload"],
+                "document_folder": str(ctx["document_folder"]),
+                "output_folder": str(ctx["output_folder"]),
+            },
+        )
+        write_json(
+            run_path,
+            {
+                "run_id": ctx["run_id"],
+                "blueprint_id": BLUEPRINT_ID,
+                "status": "running",
+                "started_at": ctx["started_at"],
+            },
+        )
+        append_event(ctx["run_dir"], "blueprint_status", {"status": "running", "component": BLUEPRINT_ID})
+    persist_runtime_context(ctx)
+
+
+def finish_completed_run(ctx: dict[str, Any], final_output: dict[str, Any]) -> dict[str, Any]:
+    final_artifact = final_output["final_artifact"]
+    output_files = list(final_output.get("output_files") or [])
+
+    for name in ("action_ledger.json", "artifact_quality.json", "run_health.json"):
+        source_path = ctx["output_folder"] / name
+        if source_path.exists():
+            write_json(ctx["run_dir"] / name, read_json(source_path))
+
+    final_artifact_path = ctx["output_folder"] / "final_artifact.json"
+    result_path = ctx["output_folder"] / "result.json"
+    for path in (final_artifact_path, result_path):
+        path_text = str(path)
+        if path_text not in output_files:
+            output_files.append(path_text)
+    final_artifact["output_files"] = output_files
+
+    result = {
+        "run_id": ctx["run_id"],
+        "blueprint_id": BLUEPRINT_ID,
+        "status": "completed",
+        "final_artifact": final_artifact,
+        "output_files": output_files,
+    }
+    write_json(final_artifact_path, final_artifact)
+    write_json(result_path, result)
+    write_json(ctx["run_dir"] / "result.json", result)
+    write_json(ctx["run_dir"] / "final_artifact.json", final_artifact)
+    write_json(
+        ctx["run_dir"] / "run.json",
+        {
+            "run_id": ctx["run_id"],
+            "blueprint_id": BLUEPRINT_ID,
+            "status": "completed",
+            "completed_at": utc_now_iso(),
+        },
+    )
+    for name in ("result.json", "final_artifact.json", "action_ledger.json", "artifact_quality.json", "run_health.json"):
+        append_event(ctx["run_dir"], "artifact_written", {"path": str(ctx["output_folder"] / name)})
+    append_event(
+        ctx["run_dir"],
+        "human_input_requested",
+        {
+            "mode": "approval_required",
+            "reason": "Review financial advisor packet before filing, trading, money movement, bill payment, or external sharing.",
+        },
+    )
+    append_event(ctx["run_dir"], "blueprint_status", {"status": "completed", "component": BLUEPRINT_ID})
+    return result
 
 
 def build_context(
@@ -1329,15 +1984,44 @@ def build_context(
     document_folder = expand_path(payload.get("document_folder") or payload.get("input_folder"), root=root.parent if str(payload.get("document_folder", "")).startswith(BLUEPRINT_ID) else root)
     if not document_folder.exists():
         document_folder = expand_path(payload.get("document_folder") or payload.get("input_folder"), root=Path.cwd())
+    outputs_config = resolved_config.get("outputs") if isinstance(resolved_config.get("outputs"), dict) else {}
+    explicit_output_folder = (inputs or {}).get("output_folder")
+    runtime_output_folder = os.environ.get("MN_JOB_OUTPUT_DIR")
+    configured_output_folder = outputs_config.get("output_folder") or outputs_config.get("folder_path")
     output_folder = expand_path(
-        payload.get("output_folder") or (resolved_config.get("outputs") or {}).get("folder_path") or f"~/Downloads/{BLUEPRINT_ID}"
+        explicit_output_folder
+        or runtime_output_folder
+        or configured_output_folder
+        or payload.get("output_folder")
+        or f"~/Downloads/{BLUEPRINT_ID}"
     )
     output_folder.mkdir(parents=True, exist_ok=True)
     run_id_value = run_id or payload.get("run_id") or os.environ.get("MN_RUN_ID") or f"{BLUEPRINT_ID}-{uuid.uuid4().hex[:8]}"
-    runs_root_path = Path(runs_root).expanduser().resolve() if runs_root else output_folder / "runs"
-    run_dir = runs_root_path / run_id_value
+    env_run_dir = os.environ.get("MN_RUN_DIR")
+    if not runs_root and env_run_dir:
+        run_dir = expand_path(env_run_dir)
+        runs_root_path = run_dir.parent
+    else:
+        runs_root_path = expand_path(runs_root or os.environ.get("MN_RUNS_ROOT") or output_folder / "runs")
+        run_dir = runs_root_path / run_id_value
     run_dir.mkdir(parents=True, exist_ok=True)
-    llm = llm_client if llm_client is not None else DeterministicLLM()
+    persisted = read_json(runtime_context_path(run_dir))
+    started_at = utc_now_iso()
+    if persisted:
+        persisted_payload = persisted.get("payload") if isinstance(persisted.get("payload"), dict) else {}
+        payload = deep_merge(payload, persisted_payload)
+        document_folder = expand_path(persisted.get("document_folder") or document_folder)
+        output_folder = expand_path(persisted.get("output_folder") or output_folder)
+        persisted_run_dir = str(persisted.get("run_dir") or "").strip()
+        if persisted_run_dir:
+            run_dir = expand_path(persisted_run_dir)
+            runs_root_path = run_dir.parent
+            run_dir.mkdir(parents=True, exist_ok=True)
+        started_at = str(persisted.get("started_at") or started_at)
+    payload["document_folder"] = str(document_folder)
+    payload["input_folder"] = str(document_folder)
+    payload["output_folder"] = str(output_folder)
+    llm = build_llm_client(resolved_config, payload, llm_client)
     state = load_state(run_dir) or {"workflow": {}, "actor_findings": {}, "model_profiles_used": {}}
     return {
         "config": resolved_config,
@@ -1348,6 +2032,7 @@ def build_context(
         "runs_root": runs_root_path,
         "run_dir": run_dir,
         "run_id": run_id_value,
+        "started_at": started_at,
         "llm": llm,
         "state": state,
     }
@@ -1362,6 +2047,42 @@ def run_blueprint(
     config_json: str | None = None,
 ) -> dict[str, Any]:
     start_agent_beacon_thread(f"{BLUEPRINT_NAME} is running")
+    current_run_id = run_id
+    final_result: dict[str, Any] | None = None
+    for step_id in WORKFLOW_STEPS:
+        final_result = run_runtime_step(
+            step_id,
+            inputs=inputs,
+            config=config,
+            runs_root=runs_root,
+            run_id=current_run_id,
+            llm_client=llm_client,
+            config_json=config_json,
+        )
+        current_run_id = final_result["run_id"]
+    if not final_result or "final_artifact" not in final_result:
+        raise RuntimeError("Financial Advisor workflow completed without a final artifact.")
+    return {
+        "run_id": final_result["run_id"],
+        "blueprint_id": BLUEPRINT_ID,
+        "status": final_result["status"],
+        "final_artifact": final_result["final_artifact"],
+        "output_files": final_result.get("output_files", []),
+    }
+
+
+def run_runtime_step(
+    step_id: str,
+    inputs: dict[str, Any] | None = None,
+    config: dict[str, Any] | None = None,
+    runs_root: str | Path | None = None,
+    run_id: str | None = None,
+    llm_client: Any | None = None,
+    config_json: str | None = None,
+) -> dict[str, Any]:
+    step_id = str(step_id or "").strip()
+    if step_id not in STEP_HANDLERS:
+        raise ValueError(f"Unknown Financial Advisor workflow step: {step_id}")
     ctx = build_context(
         inputs=inputs,
         config=config,
@@ -1370,86 +2091,117 @@ def run_blueprint(
         run_id=run_id,
         llm_client=llm_client,
     )
-    write_json(ctx["run_dir"] / "config.json", ctx["config"])
-    write_json(
-        ctx["run_dir"] / "inputs.json",
-        {
-            "payload": ctx["payload"],
-            "document_folder": str(ctx["document_folder"]),
-            "output_folder": str(ctx["output_folder"]),
-        },
-    )
-    write_json(
-        ctx["run_dir"] / "run.json",
-        {
-            "run_id": ctx["run_id"],
-            "blueprint_id": BLUEPRINT_ID,
-            "status": "running",
-            "started_at": utc_now_iso(),
-        },
-    )
-    append_event(ctx["run_dir"], "blueprint_status", {"status": "running", "component": BLUEPRINT_ID})
-
-    requested_step = runtime_step_id()
-    steps_to_run = WORKFLOW_STEPS
-    if requested_step:
-        steps_to_run = WORKFLOW_STEPS[: WORKFLOW_STEPS.index(requested_step) + 1]
-
-    output: dict[str, Any] = {}
-    for step_id in steps_to_run:
-        if step_id in ctx["state"].get("workflow", {}) and requested_step and step_id != requested_step:
-            continue
+    step_started = time.monotonic()
+    ensure_run_started(ctx)
+    try:
         output = run_step(ctx, step_id)
+        final_result: dict[str, Any] | None = None
+        if step_id == WORKFLOW_STEPS[-1]:
+            final_result = finish_completed_run(ctx, output)
+        metadata: dict[str, Any] = {
+            "elapsed_ms": round((time.monotonic() - step_started) * 1000, 2),
+            "output_files": final_result.get("output_files", []) if final_result else output.get("output_files", []),
+        }
+        if final_result:
+            metadata["final_artifact"] = final_result["final_artifact"]
+        return step_result(ctx, step_id, output, **metadata)
+    except Exception as exc:
+        append_event(
+            ctx["run_dir"],
+            "workflow_step_failed",
+            {
+                "step_id": step_id,
+                "runtime_step_mode": "workflow_step_handler",
+                "elapsed_ms": round((time.monotonic() - step_started) * 1000, 2),
+                "error": str(exc),
+            },
+        )
+        append_event(ctx["run_dir"], "blueprint_phase_failed", {"phase": step_id, "error": str(exc)})
+        write_failed_run(ctx, exc)
+        raise
 
-    if requested_step:
-        return step_result(ctx, requested_step, output)
 
-    final_output = ctx["state"]["workflow"]["financial_advice_reporter"]
-    final_artifact = final_output["final_artifact"]
-    result = {
-        "run_id": ctx["run_id"],
-        "blueprint_id": BLUEPRINT_ID,
-        "status": "completed",
-        "final_artifact": final_artifact,
-        "output_files": final_output["output_files"],
+def final_artifact_for_transport(final_artifact: dict[str, Any]) -> dict[str, Any]:
+    compact = {
+        key: final_artifact.get(key)
+        for key in (
+            "type",
+            "blueprint_id",
+            "run_id",
+            "executive_summary",
+            "recommended_action",
+            "confidence",
+            "review_only",
+        )
+        if key in final_artifact
     }
-    write_json(ctx["run_dir"] / "result.json", result)
-    write_json(ctx["run_dir"] / "final_artifact.json", final_artifact)
-    write_json(
-        ctx["run_dir"] / "run.json",
-        {
-            "run_id": ctx["run_id"],
-            "blueprint_id": BLUEPRINT_ID,
-            "status": "completed",
-            "completed_at": utc_now_iso(),
-        },
-    )
-    append_event(
-        ctx["run_dir"],
-        "human_input_requested",
-        {
-            "mode": "approval_required",
-            "reason": "Review financial advisor packet before filing, trading, money movement, bill payment, or external sharing.",
-        },
-    )
-    append_event(ctx["run_dir"], "blueprint_status", {"status": "completed", "component": BLUEPRINT_ID})
-    return result
+    compact["artifact_summary"] = {
+        "bank_statement_count": (final_artifact.get("bank_statement_extraction") or {}).get("statement_count"),
+        "tax_form_count": (final_artifact.get("tax_form_ocr_capture") or {}).get("tax_form_count"),
+        "portfolio_total_value": (final_artifact.get("portfolio_risk_review") or {}).get("total_value"),
+        "llm_review_count": len([key for key in ("cash_flow", "tax", "portfolio") if (final_artifact.get("llm_analysis") or {}).get(key)]),
+        "output_file_count": len(final_artifact.get("output_files") or []),
+        "warning_count": len(final_artifact.get("research_warnings") or []),
+    }
+    compact["transport"] = {
+        "compacted": True,
+        "omitted_fields": [
+            "evidence",
+            "research_sources",
+            "bank_statement_extraction",
+            "household_finance_summary",
+            "tax_review_packet",
+            "tax_form_ocr_capture",
+            "portfolio_risk_review",
+            "llm_analysis",
+            "output_files",
+        ],
+        "reason": "Keep workflow step transport small; full review artifacts remain in the output folder.",
+    }
+    return compact
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run the unified financial advisor blueprint.")
     parser.add_argument("--input-file", type=Path)
+    parser.add_argument("--input-folder", default="")
+    parser.add_argument("--output-folder", default="")
     parser.add_argument("--runs-root", type=Path)
     parser.add_argument("--run-id")
     parser.add_argument("--config-json")
     args = parser.parse_args(argv)
 
-    inputs = None
+    inputs: dict[str, Any] = {}
     if args.input_file:
         loaded = json.loads(args.input_file.read_text(encoding="utf-8"))
-        inputs = loaded if isinstance(loaded, dict) else {}
-    result = run_blueprint(inputs=inputs, runs_root=args.runs_root, run_id=args.run_id, config_json=args.config_json)
-    print(json.dumps(result, indent=2, sort_keys=True, default=str))
+        inputs.update(loaded if isinstance(loaded, dict) else {})
+    if args.input_folder:
+        inputs["document_folder"] = args.input_folder
+        inputs["input_folder"] = args.input_folder
+    if args.output_folder:
+        inputs["output_folder"] = args.output_folder
+
+    step_id = os.environ.get("MN_WORKFLOW_STEP_ID", "").strip()
+    if step_id:
+        result = run_runtime_step(
+            step_id,
+            inputs=inputs,
+            runs_root=args.runs_root,
+            run_id=args.run_id,
+            config_json=args.config_json,
+        )
+    else:
+        result = run_blueprint(inputs=inputs, runs_root=args.runs_root, run_id=args.run_id, config_json=args.config_json)
+    printable = {"run_id": result["run_id"], "status": result["status"]}
+    if "workflow_step_id" in result:
+        printable["workflow_step_id"] = result["workflow_step_id"]
+    if "runtime_step_mode" in result:
+        printable["runtime_step_mode"] = result["runtime_step_mode"]
+    if "final_artifact" in result:
+        printable["final_artifact"] = final_artifact_for_transport(result["final_artifact"]) if step_id else result["final_artifact"]
+    if result.get("output_files") and not step_id:
+        printable["output_files"] = result["output_files"]
+    print(json.dumps(printable, indent=2, sort_keys=True, default=str))
     return 0
 
 

@@ -23,6 +23,11 @@ OUTPUT_TYPE = 'medical_deidentification_review_packet'
 RECOMMENDED_ACTION = 'privacy_officer_review_required_before_release'
 FIELD_PROFILE = ['patient_name', 'date_of_birth', 'medical_record_number', 'doctor', 'medications', 'diagnoses', 'test_tables', 'visit_dates', 'redaction_spans']
 DATASET_INPUT = {'name': 'RootCauseAnalytics Healthcare Library Sample', 'provider': 'RootCauseAnalytics on Hugging Face', 'url': 'https://huggingface.co/datasets/RootCauseAnalytics/Healthcare-Library-Sample', 'license': 'CC BY-NC 4.0 according to the public dataset/forum descriptions; review source terms before production use.', 'availability_note': 'Public synthetic healthcare document sample listed on Hugging Face with OCR-oriented PDFs and labels.', 'expected_files': ['*.pdf', 'ground_truth.csv', 'ground_truth.jsonl', 'bboxes.jsonl'], 'download_hint': 'Use the Hugging Face dataset files or clone with git-lfs/huggingface_hub when available.'}
+PROMPT_DIR = Path(__file__).resolve().parents[2] / "prompts"
+
+
+def load_prompt(name: str) -> str:
+    return (PROMPT_DIR / name).read_text(encoding="utf-8").strip()
 
 
 def _load_repo_env() -> None:
@@ -510,7 +515,7 @@ def run_blueprint(
         llm=llm,
         actor_ids=actor_ids,
         state=actor_state,
-        task="Review the extraction packet and prepare actor findings for human approval.",
+        task=load_prompt("actor-review-task.md"),
         context={
             "blueprint_id": BLUEPRINT_ID,
             "document_count": len(records),

@@ -79,6 +79,15 @@ DATASET_INPUTS = {
         "note": "Public commercial contract corpus and clause labels. Bundled samples are small local fixtures for smoke runs.",
     },
 }
+PROMPT_DIR = Path(__file__).resolve().parents[2] / "prompts"
+
+
+def load_prompt(name: str) -> str:
+    return (PROMPT_DIR / name).read_text(encoding="utf-8").strip()
+
+
+def render_prompt(name: str, **values: str) -> str:
+    return load_prompt(name).format(**values)
 
 
 class DeterministicLLM:
@@ -564,7 +573,7 @@ def llm_generate(llm: Any, *, actor_id: str, fallback: dict[str, Any], context: 
         llm = DeterministicLLM()
     if hasattr(llm, "generate_json"):
         return llm.generate_json(
-            system_prompt=f"You are {actor_id} in a review-only personal legal assistant.",
+            system_prompt=render_prompt("actor-review-system.md", actor_id=actor_id),
             user_prompt=json.dumps(redact_value(context), sort_keys=True, default=str)[:6000],
             fallback=fallback,
         )

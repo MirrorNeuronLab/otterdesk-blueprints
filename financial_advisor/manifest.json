@@ -195,8 +195,11 @@
     "agentic_research": {
       "enabled": true,
       "agent_ids": [
+        "cash_flow_llm_analyst",
         "public_finance_researcher",
         "tax_form_ocr_capturer",
+        "tax_llm_reviewer",
+        "portfolio_llm_reviewer",
         "advisor_evidence_reconciler",
         "advisor_review_auditor",
         "financial_advice_reporter"
@@ -260,7 +263,23 @@
           }
         }
       },
+      "tax_llm_reviewer": {
+        "with": {
+          "llm_config": "large",
+          "environment": {
+            "MN_LLM_CONFIG": "large"
+          }
+        }
+      },
       "portfolio_risk_engine": {
+        "with": {
+          "llm_config": "large",
+          "environment": {
+            "MN_LLM_CONFIG": "large"
+          }
+        }
+      },
+      "portfolio_llm_reviewer": {
         "with": {
           "llm_config": "large",
           "environment": {
@@ -501,12 +520,45 @@
         }
       },
       {
+        "id": "cash_flow_llm_analyst",
+        "kind": "stage",
+        "label": "Cash Flow LLM Analyst",
+        "goal": "Review deterministic cash-flow totals for evidence gaps, recurring-risk signals, and human-check questions without changing cash-flow math.",
+        "requires": [
+          "financial_advisor.cash_flow_normalizer.ready"
+        ],
+        "provides": [
+          "financial_advisor.cash_flow_llm_analyst.ready"
+        ],
+        "control": {
+          "required": true,
+          "failure_policy": "fail_workflow",
+          "retry": {
+            "max_attempts": 2,
+            "backoff_seconds": 1,
+            "backoff_multiplier": 2,
+            "jitter": 0
+          },
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.7,
+            "on_low_confidence": "human_review"
+          }
+        },
+        "in": {
+          "previous": "$state.workflow"
+        },
+        "out": {
+          "cash_flow_llm_analyst": "$state.workflow.cash_flow_llm_analyst"
+        }
+      },
+      {
         "id": "tax_document_router",
         "kind": "stage",
         "label": "Tax Document Router",
         "goal": "Route W-2, 1099, brokerage, receipt, and tax-relevant source evidence into draft workpaper groups.",
         "requires": [
-          "financial_advisor.cash_flow_normalizer.ready"
+          "financial_advisor.cash_flow_llm_analyst.ready"
         ],
         "provides": [
           "financial_advisor.tax_document_router.ready"
@@ -600,12 +652,45 @@
         }
       },
       {
+        "id": "tax_llm_reviewer",
+        "kind": "stage",
+        "label": "Tax LLM Reviewer",
+        "goal": "Review draft tax workpapers, OCR capture, missing-form blockers, and filing-boundary constraints without changing draft tax math.",
+        "requires": [
+          "financial_advisor.tax_workpaper_preparer.ready"
+        ],
+        "provides": [
+          "financial_advisor.tax_llm_reviewer.ready"
+        ],
+        "control": {
+          "required": true,
+          "failure_policy": "fail_workflow",
+          "retry": {
+            "max_attempts": 2,
+            "backoff_seconds": 1,
+            "backoff_multiplier": 2,
+            "jitter": 0
+          },
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.7,
+            "on_low_confidence": "human_review"
+          }
+        },
+        "in": {
+          "previous": "$state.workflow"
+        },
+        "out": {
+          "tax_llm_reviewer": "$state.workflow.tax_llm_reviewer"
+        }
+      },
+      {
         "id": "portfolio_context_loader",
         "kind": "stage",
         "label": "Portfolio Context Loader",
         "goal": "Load portfolio holdings, benchmark weights, market notes, risk policy, and review-only decision constraints.",
         "requires": [
-          "financial_advisor.tax_workpaper_preparer.ready"
+          "financial_advisor.tax_llm_reviewer.ready"
         ],
         "provides": [
           "financial_advisor.portfolio_context_loader.ready"
@@ -699,12 +784,45 @@
         }
       },
       {
+        "id": "portfolio_llm_reviewer",
+        "kind": "stage",
+        "label": "Portfolio LLM Reviewer",
+        "goal": "Review deterministic portfolio risk metrics, policy violations, source gaps, and human review questions without recommending trades.",
+        "requires": [
+          "financial_advisor.portfolio_risk_engine.ready"
+        ],
+        "provides": [
+          "financial_advisor.portfolio_llm_reviewer.ready"
+        ],
+        "control": {
+          "required": true,
+          "failure_policy": "fail_workflow",
+          "retry": {
+            "max_attempts": 2,
+            "backoff_seconds": 1,
+            "backoff_multiplier": 2,
+            "jitter": 0
+          },
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.7,
+            "on_low_confidence": "human_review"
+          }
+        },
+        "in": {
+          "previous": "$state.workflow"
+        },
+        "out": {
+          "portfolio_llm_reviewer": "$state.workflow.portfolio_llm_reviewer"
+        }
+      },
+      {
         "id": "public_finance_researcher",
         "kind": "stage",
         "label": "Public Finance Researcher",
         "goal": "Gather privacy-safe public guidance from generic risk categories and official source targets.",
         "requires": [
-          "financial_advisor.portfolio_risk_engine.ready"
+          "financial_advisor.portfolio_llm_reviewer.ready"
         ],
         "provides": [
           "financial_advisor.public_finance_researcher.ready"
@@ -857,12 +975,15 @@
         "financial_document_reader_completed",
         "bank_statement_extractor_completed",
         "cash_flow_normalizer_completed",
+        "cash_flow_llm_analyst_completed",
         "tax_document_router_completed",
         "tax_form_ocr_capturer_completed",
         "tax_workpaper_preparer_completed",
+        "tax_llm_reviewer_completed",
         "portfolio_context_loader_completed",
         "portfolio_market_data_loader_completed",
         "portfolio_risk_engine_completed",
+        "portfolio_llm_reviewer_completed",
         "public_finance_researcher_completed",
         "advisor_evidence_reconciler_completed",
         "advisor_review_auditor_completed",
@@ -1075,6 +1196,18 @@
           ]
         },
         {
+          "artifact_id": "cash_flow_llm_review",
+          "type": "llm_review",
+          "path": "<outputs.folder_path>/cash_flow_llm_review.json",
+          "producer": "workflow",
+          "mime_type": "application/json",
+          "schema_version": "mn.blueprint.financial_advisor.llm_review.v1",
+          "source_refs": [
+            "household_finance_summary.json",
+            "final_artifact.json"
+          ]
+        },
+        {
           "artifact_id": "tax_form_ocr_capture",
           "type": "tax_form_capture",
           "path": "<outputs.folder_path>/tax_form_ocr_capture.json",
@@ -1082,6 +1215,31 @@
           "mime_type": "application/json",
           "schema_version": "mn.blueprint.tax_form_capture.v1",
           "source_refs": [
+            "final_artifact.json"
+          ]
+        },
+        {
+          "artifact_id": "tax_llm_review",
+          "type": "llm_review",
+          "path": "<outputs.folder_path>/tax_llm_review.json",
+          "producer": "workflow",
+          "mime_type": "application/json",
+          "schema_version": "mn.blueprint.financial_advisor.llm_review.v1",
+          "source_refs": [
+            "tax_review_packet.json",
+            "tax_form_ocr_capture.json",
+            "final_artifact.json"
+          ]
+        },
+        {
+          "artifact_id": "portfolio_llm_review",
+          "type": "llm_review",
+          "path": "<outputs.folder_path>/portfolio_llm_review.json",
+          "producer": "workflow",
+          "mime_type": "application/json",
+          "schema_version": "mn.blueprint.financial_advisor.llm_review.v1",
+          "source_refs": [
+            "portfolio_risk_review.json",
             "final_artifact.json"
           ]
         }
@@ -1101,7 +1259,8 @@
           "source_refs",
           "research_summary",
           "research_sources",
-          "research_warnings"
+          "research_warnings",
+          "llm_analysis"
         ]
       }
     },
@@ -1184,8 +1343,11 @@
   "agentic_research": {
     "enabled": true,
     "agent_ids": [
+      "cash_flow_llm_analyst",
       "public_finance_researcher",
       "tax_form_ocr_capturer",
+      "tax_llm_reviewer",
+      "portfolio_llm_reviewer",
       "advisor_evidence_reconciler",
       "advisor_review_auditor",
       "financial_advice_reporter"
