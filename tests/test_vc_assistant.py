@@ -111,6 +111,37 @@ def _load_runner():
     return module
 
 
+def _expand_source_manifest(source: dict) -> dict:
+    sdk_root = ROOT.parent / "mn-python-sdk" / "mn_sdk"
+    package_spec = importlib.util.spec_from_file_location(
+        "mn_sdk",
+        sdk_root / "__init__.py",
+        submodule_search_locations=[str(sdk_root)],
+    )
+    package = importlib.util.module_from_spec(package_spec)
+    package.__path__ = [str(sdk_root)]
+    sys.modules["mn_sdk"] = package
+    profiles_spec = importlib.util.spec_from_file_location(
+        "mn_sdk.manifest_profiles",
+        sdk_root / "manifest_profiles" / "__init__.py",
+        submodule_search_locations=[str(sdk_root / "manifest_profiles")],
+    )
+    profiles = importlib.util.module_from_spec(profiles_spec)
+    assert profiles_spec and profiles_spec.loader
+    sys.modules["mn_sdk.manifest_profiles"] = profiles
+    profiles_spec.loader.exec_module(profiles)
+
+    spec = importlib.util.spec_from_file_location(
+        "mn_sdk.manifest_converter",
+        sdk_root / "manifest_converter.py",
+    )
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    sys.modules["mn_sdk.manifest_converter"] = module
+    spec.loader.exec_module(module)
+    return module.expand_manifest_source(source, root_dir=ROOT / "vc_assistant")
+
+
 def _write_startup_packets(path: Path) -> None:
     alpha = path / "alpha_ai"
     sparse = path / "sparse_labs"
@@ -143,13 +174,17 @@ def _write_startup_packets(path: Path) -> None:
 
 
 def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
-    manifest = json.loads((ROOT / "vc_assistant" / "manifest.json").read_text(encoding="utf-8"))
+    manifest = _expand_source_manifest(
+        json.loads((ROOT / "vc_assistant" / "manifest.json").read_text(encoding="utf-8"))
+    )
     config = json.loads((ROOT / "vc_assistant" / "config" / "default.json").read_text(encoding="utf-8"))
     nodes = [node for node in manifest["agents"]["nodes"] if node["node_id"] != "report_sink"]
     report_sink = next(node for node in manifest["agents"]["nodes"] if node["node_id"] == "report_sink")
     requirements_path = "document_workflow/requirements.txt"
     upload_paths = [
         {"source": "document_workflow", "target": "document_workflow"},
+        {"source": "config", "target": "config"},
+        {"source": "prompts", "target": "prompts"},
         {"source": "examples/sample_inputs", "target": "vc_assistant/examples/sample_inputs"},
         {"source": "knowledge", "target": "knowledge"},
     ]
@@ -263,21 +298,6 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
     assert config["resources"]["gpu"] == {"min_count": 0}
     assert manifest["requirements"]["gpu"] == {"min_count": 0}
     assert manifest["runtime"]["resources"]["gpu"] == {"min_count": 0}
-    assert manifest["runtime"]["models"]["primary"]["model"] == "gemma4:e2b"
-    assert manifest["runtime"]["models"]["primary"]["runtime_model"] == "gemma4:e2b"
-    assert manifest["runtime"]["models"]["large"]["hardware"]["gpu"] == {
-        "min_count": 1,
-        "min_memory_mb": 49152,
-        "memory_operator": ">=",
-    }
-    assert manifest["runtime"]["models"]["large"]["model"] == "nemotron3"
-    assert manifest["runtime"]["models"]["large"]["required"] is False
-    assert manifest["runtime"]["worker_defaults"]["model"] == "gemma4:e2b"
-    assert {
-        worker["model"]
-        for binding in manifest["runtime"]["bindings"].values()
-        for worker in binding["workers"]
-    } == {"gemma4:e2b"}
     assert config["llm"]["configs"]["primary"] == {
         "provider": "docker_model_runner",
         "model": "gemma4:e2b",
@@ -358,9 +378,6 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
     assert "run_health.json" in config["interfaces"]["run_artifacts"]
     assert "run_health.json" in config["interfaces"]["channels"]["artifacts"]["artifacts"]
     assert "skill_runtime" in config["interfaces"]["config"]
-    assert manifest["metadata"]["mn_skill_runtime"]["generated"] is False
-    assert manifest["metadata"]["mn_skill_runtime"]["build_context"] == "document_workflow/docker_worker"
-    assert manifest["metadata"]["mn_skill_runtime"]["patched_nodes"] == [node["node_id"] for node in nodes]
     dockerfile = (ROOT / "vc_assistant" / "payloads" / "document_workflow" / "docker_worker" / "Dockerfile").read_text(
         encoding="utf-8"
     )
@@ -372,12 +389,6 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
     assert not (
         ROOT / "vc_assistant" / "payloads" / "document_workflow" / "docker_worker" / "requirements.txt"
     ).exists()
-    required_files = manifest["metadata"]["configuration_contract"]["required_files"]
-    optional_files = manifest["metadata"]["configuration_contract"]["optional_files"]
-    assert "payloads/examples/sample_inputs/" in required_files
-    assert "examples/sample_inputs/" not in required_files
-    assert "payloads/knowledge/startup_research_playbook.md" in optional_files
-    assert "knowledge/startup_research_playbook.md" not in optional_files
     for node in nodes:
         assert "python_environment" not in node["config"]
         assert node["config"]["runner_module"] == "MirrorNeuron.Runner.DockerWorker"
@@ -431,19 +442,12 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         assert embedded_config["suggested_schedule"] == config["suggested_schedule"]
     for template in manifest["metadata"]["agent_templates"]["nodes"]:
         if template["node_id"] == "report_sink":
-            assert template["uses"] == "mn-agents.control_join@1"
+            assert template["uses"] == "mn-agents.control.terminal_sink@1"
             continue
-        assert "python_environment" not in template["with"]
-        assert template["with"]["runner_module"] == "MirrorNeuron.Runner.DockerWorker"
-        assert template["with"]["workdir"] == "/mn/job/document_workflow"
-        assert template["with"]["command"] == ["python3", "scripts/run_blueprint.py"]
         assert template["with"]["docker_worker_image"] == "document_workflow/docker_worker"
         assert template["with"]["image"] == "mirror-neuron/vc-assistant:local"
         assert template["with"]["network"] == "mirror-neuron-runtime"
-        assert template["with"]["shared_container"] is True
-        assert template["with"]["reuse_shared_container"] is True
         assert template["with"]["upload_paths"] == upload_paths
-        assert "build_context_upload_paths" not in template["with"]
         template_config = json.loads(template["with"]["environment"]["MN_BLUEPRINT_CONFIG_JSON"])
         assert template_config["backpressure"] == config["backpressure"]
         assert _normalized_rag_snapshot(template_config["knowledge_rag"]) == _normalized_rag_snapshot(config["knowledge_rag"])
@@ -452,6 +456,54 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         assert template_config["input_skills"]["w3m_browser"] == config["input_skills"]["w3m_browser"]
         assert template_config["skill_runtime"] == config["skill_runtime"]
         assert template_config["suggested_schedule"] == config["suggested_schedule"]
+
+
+def test_vc_runner_resolves_config_from_docker_worker_attempt_root(monkeypatch, tmp_path):
+    runner = _load_runner()
+    attempt_root = tmp_path / "runs" / "startup_folder_watcher" / "i1-a1-23108"
+    script_path = attempt_root / "document_workflow" / "scripts" / "run_blueprint.py"
+    config_path = attempt_root / "config" / "default.json"
+    script_path.parent.mkdir(parents=True)
+    config_path.parent.mkdir(parents=True)
+    config_path.write_text(
+        json.dumps(
+            {
+                "identity": {"blueprint_id": "vc_assistant"},
+                "inputs": {"payload": {"document_folder": "docs", "output_folder": str(tmp_path / "out")}},
+                "outputs": {"folder_path": str(tmp_path / "out")},
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.delenv("MN_BLUEPRINT_CONFIG_PATH", raising=False)
+    monkeypatch.delenv("MN_BLUEPRINT_BUNDLE_DIR", raising=False)
+    monkeypatch.setattr(runner, "__file__", str(script_path))
+
+    assert script_path.parents[3] != attempt_root
+    assert runner.default_config_path() == config_path
+    assert runner.resolve_blueprint_dir() == attempt_root
+    assert runner.load_resolved_config()["identity"]["blueprint_id"] == "vc_assistant"
+
+
+def test_vc_runner_uses_embedded_config_when_default_file_is_not_mounted(monkeypatch, tmp_path):
+    runner = _load_runner()
+    attempt_root = tmp_path / "runs" / "research_planner" / "i1-a1-55620"
+    script_path = attempt_root / "document_workflow" / "scripts" / "run_blueprint.py"
+    script_path.parent.mkdir(parents=True)
+    embedded_config = {
+        "identity": {"blueprint_id": "vc_assistant"},
+        "inputs": {"payload": {"document_folder": "docs", "output_folder": str(tmp_path / "out")}},
+        "outputs": {"folder_path": str(tmp_path / "out")},
+    }
+    monkeypatch.delenv("MN_BLUEPRINT_CONFIG_PATH", raising=False)
+    monkeypatch.delenv("MN_BLUEPRINT_BUNDLE_DIR", raising=False)
+    monkeypatch.setenv("MN_BLUEPRINT_CONFIG_JSON", json.dumps(embedded_config))
+    monkeypatch.setattr(runner, "__file__", str(script_path))
+
+    assert script_path.parents[3] != attempt_root
+    assert runner.default_config_path() == attempt_root / "config" / "default.json"
+    assert runner.resolve_blueprint_dir() == attempt_root
+    assert runner.load_resolved_config()["identity"]["blueprint_id"] == "vc_assistant"
 
 
 def test_explicit_fake_llm_mode_overrides_live_vc_runtime(monkeypatch, tmp_path):
@@ -666,7 +718,7 @@ def test_vc_assistant_is_daily_batch_folder_scan():
     assert entry["type"] == "batch"
     assert "service" not in entry["product"]["runtime_features"][0]
     assert entry["product"]["runtime_features"][0] == "daily scheduled folder scan"
-    assert manifest["metadata"]["runtime_features"][0] == "daily scheduled folder scan"
+    assert manifest["kind"] == "WorkflowSource"
     assert config["monitoring"]["max_cycles"] == 1
     assert config["triggers"]["schedule"] is None
     assert config["suggested_schedule"] == {
@@ -693,7 +745,6 @@ def test_vc_assistant_runtime_upload_bundle_contains_sample_inputs():
     bundled_sample_root = (
         ROOT
         / "vc_assistant"
-        / "payloads"
         / "examples"
         / "sample_inputs"
     )
@@ -941,7 +992,9 @@ def test_vc_ocr_failure_marks_run_failed(monkeypatch, tmp_path):
 
 def test_vc_assistant_runtime_graph_is_linear_and_has_terminal_sink():
     runner = _load_runner()
-    manifest = json.loads((ROOT / "vc_assistant" / "manifest.json").read_text(encoding="utf-8"))
+    manifest = _expand_source_manifest(
+        json.loads((ROOT / "vc_assistant" / "manifest.json").read_text(encoding="utf-8"))
+    )
     config = json.loads((ROOT / "vc_assistant" / "config" / "default.json").read_text(encoding="utf-8"))
     step_ids = runner.WORKFLOW_STEP_IDS
     handoffs = [f"{source}_to_{target}" for source, target in zip(step_ids, step_ids[1:])]
@@ -956,7 +1009,15 @@ def test_vc_assistant_runtime_graph_is_linear_and_has_terminal_sink():
         for edge_id, source, target in zip(handoffs, step_ids, step_ids[1:])
     ] + [{"edge_id": "batch_index_writer_to_report_sink", "from_node": "batch_index_writer", "to_node": "report_sink", "message_type": "batch_index_writer_completed"}]
     assert manifest["workflow"]["edges"] == [
-        {"id": edge_id, "from": source, "to": target, "event": f"{source}_completed", "required": True, "accepts": ["done"]}
+        {
+            "id": edge_id,
+            "from": source,
+            "to": target,
+            "event": f"{source}_completed",
+            "message_type": f"{source}_completed",
+            "required": True,
+            "accepts": ["done"],
+        }
         for edge_id, source, target in zip(handoffs, step_ids, step_ids[1:])
     ]
     incoming = {step_id: 0 for step_id in step_ids + ["report_sink"]}

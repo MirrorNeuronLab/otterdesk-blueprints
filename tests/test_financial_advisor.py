@@ -166,6 +166,34 @@ def test_financial_advisor_source_manifest_expands_with_terminal_sink():
     assert expanded["runtime"]["resources"]["gpu"] == {"min_count": 0}
 
 
+def test_financial_advisor_runner_resolves_config_from_docker_worker_attempt_root(monkeypatch, tmp_path):
+    runner = _load_runner()
+    attempt_root = tmp_path / "runs" / "financial_folder_watcher" / "i1-a1-23108"
+    script_path = attempt_root / "document_workflow" / "scripts" / "run_blueprint.py"
+    config_path = attempt_root / "config" / "default.json"
+    script_path.parent.mkdir(parents=True)
+    config_path.parent.mkdir(parents=True)
+    config_path.write_text(
+        json.dumps(
+            {
+                "identity": {"blueprint_id": "financial_advisor"},
+                "inputs": {"payload": {"document_folder": "docs", "output_folder": str(tmp_path / "out")}},
+                "outputs": {"folder_path": str(tmp_path / "out")},
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.delenv("MN_BLUEPRINT_CONFIG_PATH", raising=False)
+    monkeypatch.delenv("MN_BLUEPRINT_BUNDLE_DIR", raising=False)
+    monkeypatch.delenv("MN_BLUEPRINT_CONFIG_JSON", raising=False)
+    monkeypatch.setattr(runner, "__file__", str(script_path))
+
+    assert script_path.parents[3] != attempt_root
+    assert runner.default_config_path() == config_path
+    assert runner.blueprint_dir() == attempt_root
+    assert runner.load_resolved_config()["identity"]["blueprint_id"] == "financial_advisor"
+
+
 def test_financial_advisor_runtime_step_handler_writes_step_state(tmp_path):
     runner = _load_runner()
     output_folder = tmp_path / "out"

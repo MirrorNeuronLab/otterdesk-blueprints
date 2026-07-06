@@ -68,8 +68,63 @@ def utc_now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
-def load_resolved_config(default_path: Path, overlay: dict[str, Any] | None = None) -> dict[str, Any]:
-    return load_shared_resolved_config(default_path, overlay=overlay)
+def _script_blueprint_root() -> Path:
+    script_path = Path(__file__).resolve()
+    if len(script_path.parents) > 3 and script_path.parents[2].name == "payloads":
+        return script_path.parents[3]
+    if len(script_path.parents) > 2:
+        return script_path.parents[2]
+    return script_path.parent
+
+
+def default_config_path() -> Path:
+    configured_path = os.environ.get("MN_BLUEPRINT_CONFIG_PATH")
+    if configured_path:
+        candidate = Path(configured_path).expanduser()
+        if candidate.exists():
+            return candidate
+
+    bundle_dir = os.environ.get("MN_BLUEPRINT_BUNDLE_DIR")
+    if bundle_dir:
+        candidate = Path(bundle_dir).expanduser() / "config" / "default.json"
+        if candidate.exists():
+            return candidate
+
+    script_path = Path(__file__).resolve()
+    for parent in script_path.parents:
+        candidate = parent / "config" / "default.json"
+        if candidate.exists():
+            return candidate
+    return _script_blueprint_root() / "config" / "default.json"
+
+
+def resolve_blueprint_dir() -> Path:
+    return default_config_path().parents[1]
+
+
+def _merge_config(base: dict[str, Any], overlay: dict[str, Any] | None) -> dict[str, Any]:
+    if not overlay:
+        return base
+    merged = json.loads(json.dumps(base))
+    for key, value in overlay.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = _merge_config(merged[key], value)
+        else:
+            merged[key] = value
+    return merged
+
+
+def load_resolved_config(default_path: Path | None = None, overlay: dict[str, Any] | None = None) -> dict[str, Any]:
+    resolved_default_path = default_path or default_config_path()
+    if resolved_default_path.exists():
+        return load_shared_resolved_config(resolved_default_path, overlay=overlay)
+
+    embedded_config = os.environ.get("MN_BLUEPRINT_CONFIG_JSON")
+    if embedded_config:
+        decoded = json.loads(embedded_config)
+        if isinstance(decoded, dict):
+            return _merge_config(decoded, overlay)
+    return load_shared_resolved_config(resolved_default_path, overlay=overlay)
 
 
 def write_json(path: Path, value: Any) -> None:
@@ -396,7 +451,7 @@ def run_blueprint(
     llm_client: Any | None = None,
 ) -> dict[str, Any]:
     start_agent_beacon_thread(f"{BLUEPRINT_NAME} is running")
-    blueprint_dir = Path(__file__).resolve().parents[3]
+    blueprint_dir = resolve_blueprint_dir()
     resolved_config = load_resolved_config(blueprint_dir / "config" / "default.json", config)
     payload = dict((resolved_config.get("inputs") or {}).get("payload") or {})
     if inputs:

@@ -74,6 +74,36 @@ def load_prompt(name: str) -> str:
     return PROMPTS.load(name)
 
 
+def _script_blueprint_root() -> Path:
+    script_path = Path(__file__).resolve()
+    if len(script_path.parents) > 3 and script_path.parents[2].name == "payloads":
+        return script_path.parents[3]
+    if len(script_path.parents) > 2:
+        return script_path.parents[2]
+    return script_path.parent
+
+
+def default_config_path() -> Path:
+    configured_path = os.environ.get("MN_BLUEPRINT_CONFIG_PATH")
+    if configured_path:
+        candidate = Path(configured_path).expanduser()
+        if candidate.exists():
+            return candidate
+
+    bundle_dir = os.environ.get("MN_BLUEPRINT_BUNDLE_DIR")
+    if bundle_dir:
+        candidate = Path(bundle_dir).expanduser() / "config" / "default.json"
+        if candidate.exists():
+            return candidate
+
+    script_path = Path(__file__).resolve()
+    for parent in script_path.parents:
+        candidate = parent / "config" / "default.json"
+        if candidate.exists():
+            return candidate
+    return _script_blueprint_root() / "config" / "default.json"
+
+
 @dataclass(frozen=True)
 class MemoryFact:
     id: str
@@ -218,17 +248,10 @@ def run_blueprint(
         raise ValueError(f"this runner handles {BLUEPRINT_ID!r}, got {blueprint_id!r}")
 
     started_at = utc_now_iso()
-    default_config_path = next(
-        (
-            parent / "config" / "default.json"
-            for parent in Path(__file__).resolve().parents
-            if (parent / "config" / "default.json").exists()
-        ),
-        Path(__file__).resolve().parents[3] / "config" / "default.json",
-    )
+    resolved_default_config_path = default_config_path()
     resolved_config = load_config(
         BLUEPRINT_ID,
-        default_config_path=default_config_path,
+        default_config_path=resolved_default_config_path if resolved_default_config_path.exists() else None,
         config=config,
         config_path=config_path,
         config_json=config_json,

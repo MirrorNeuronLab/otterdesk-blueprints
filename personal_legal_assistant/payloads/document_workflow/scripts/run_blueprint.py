@@ -169,17 +169,50 @@ def redact_value(value: Any) -> Any:
     return value
 
 
-def blueprint_dir() -> Path:
-    return Path(__file__).resolve().parents[3]
+def _script_blueprint_root() -> Path:
+    script_path = Path(__file__).resolve()
+    if len(script_path.parents) > 3 and script_path.parents[2].name == "payloads":
+        return script_path.parents[3]
+    if len(script_path.parents) > 2:
+        return script_path.parents[2]
+    return script_path.parent
 
 
 def default_config_path() -> Path:
-    return blueprint_dir() / "config" / "default.json"
+    configured_path = os.environ.get("MN_BLUEPRINT_CONFIG_PATH")
+    if configured_path:
+        candidate = Path(configured_path).expanduser()
+        if candidate.exists():
+            return candidate
+
+    bundle_dir = os.environ.get("MN_BLUEPRINT_BUNDLE_DIR")
+    if bundle_dir:
+        candidate = Path(bundle_dir).expanduser() / "config" / "default.json"
+        if candidate.exists():
+            return candidate
+
+    script_path = Path(__file__).resolve()
+    for parent in script_path.parents:
+        candidate = parent / "config" / "default.json"
+        if candidate.exists():
+            return candidate
+    return _script_blueprint_root() / "config" / "default.json"
+
+
+def blueprint_dir() -> Path:
+    return default_config_path().parents[1]
 
 
 def load_resolved_config(config: dict[str, Any] | None = None, config_json: str | None = None) -> dict[str, Any]:
+    resolved_default_path = default_config_path()
+    if not resolved_default_path.exists():
+        embedded_config = config_json or os.environ.get("MN_BLUEPRINT_CONFIG_JSON")
+        if embedded_config:
+            decoded = json.loads(embedded_config)
+            if isinstance(decoded, dict):
+                return deep_merge(decoded, config or {})
     return load_shared_resolved_config(
-        default_config_path(),
+        resolved_default_path,
         overlay=config,
         config_json=config_json,
     )
