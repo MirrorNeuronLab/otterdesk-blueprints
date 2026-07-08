@@ -1772,7 +1772,7 @@ def value_is_fake_llm(value: Any) -> bool:
 
 
 def explicit_fake_llm_mode_enabled() -> bool:
-    if any(env_flag_enabled(name) for name in ("MN_FAKE_LLM", "MN_BLUEPRINT_FAKE_LLM", "OTTERDESK_FAKE_LLM", "MN_USE_FAKE_LLM")):
+    if any(env_flag_enabled(name) for name in ("MN_BLUEPRINT_FAKE_LLM", "OTTERDESK_FAKE_LLM", "MN_USE_FAKE_LLM")):
         return True
     return any(
         value_is_fake_llm(os.environ.get(name))
@@ -1793,7 +1793,7 @@ def fake_llm_mode_enabled(config: dict[str, Any]) -> bool:
 
 
 def fake_skills_mode_enabled(config: dict[str, Any] | None = None) -> bool:
-    if any(env_flag_enabled(name) for name in ("MN_FAKE_SKILLS", "MN_BLUEPRINT_FAKE_SKILLS", "OTTERDESK_FAKE_SKILLS")):
+    if any(env_flag_enabled(name) for name in ("MN_BLUEPRINT_FAKE_SKILLS", "OTTERDESK_FAKE_SKILLS")):
         return True
     execution = (config or {}).get("execution") if isinstance((config or {}).get("execution"), dict) else {}
     testing = (config or {}).get("testing") if isinstance((config or {}).get("testing"), dict) else {}

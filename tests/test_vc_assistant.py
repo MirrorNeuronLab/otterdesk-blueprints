@@ -582,7 +582,7 @@ def test_fake_skills_returns_mock_rag_context(tmp_path):
 
 def test_fake_skills_mocks_browser_sources(tmp_path, monkeypatch):
     runner = _load_runner()
-    monkeypatch.setenv("MN_FAKE_SKILLS", "1")
+    monkeypatch.setenv("MN_BLUEPRINT_FAKE_SKILLS", "1")
     sources: list[dict] = []
 
     runner._append_w3m_research(
