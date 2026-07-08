@@ -14,7 +14,7 @@ COPY requirements.txt /tmp/mn-skill-runtime/requirements.txt
 # DockerWorker prepare copies local dev skill sources here when needed.
 # mirrorneuron: skill-dependencies-end
 RUN if [ -s /tmp/mn-skill-runtime/requirements.txt ]; then \
-      python3 -m pip install -q --break-system-packages --no-cache-dir -r /tmp/mn-skill-runtime/requirements.txt; \
+      python3 -m pip install -q --timeout 120 --retries 10 --break-system-packages --no-cache-dir -r /tmp/mn-skill-runtime/requirements.txt; \
     fi
 
 RUN python3 -c 'from mn_context_engine_sdk import MemoryItem, WorkingMemory' \

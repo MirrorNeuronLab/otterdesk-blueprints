@@ -395,6 +395,7 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         assert node["config"]["workdir"] == "/mn/job/document_workflow"
         assert node["config"]["command"] == ["python3", "scripts/run_blueprint.py"]
         assert node["config"]["docker_worker_image"] == "document_workflow/docker_worker"
+        assert node["config"]["force_build"] is True
         assert node["config"]["image"] == "mirror-neuron/vc-assistant:local"
         assert node["config"]["network"] == "mirror-neuron-runtime"
         assert node["config"]["shared_container"] is True
@@ -445,6 +446,7 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
             assert template["uses"] == "mn-agents.control.terminal_sink@1"
             continue
         assert template["with"]["docker_worker_image"] == "document_workflow/docker_worker"
+        assert template["with"]["force_build"] is True
         assert template["with"]["image"] == "mirror-neuron/vc-assistant:local"
         assert template["with"]["network"] == "mirror-neuron-runtime"
         assert template["with"]["upload_paths"] == upload_paths
@@ -738,6 +740,7 @@ def test_vc_assistant_runtime_requirements_install_skills_with_pip():
         "--index-url https://us-central1-python.pkg.dev/mirrorneuron-public-packages/agent-skills/simple/",
         "--extra-index-url https://pypi.org/simple",
         "mirrorneuron-membrane-python-sdk",
+        "pymilvus[milvus-lite]>=2.4",
     ]
 
 

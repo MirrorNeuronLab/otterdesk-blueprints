@@ -59,6 +59,7 @@
   "defaults": {
     "worker": {
       "with": {
+        "force_build": true,
         "image": "mirror-neuron/vc-assistant:local"
       }
     }
