@@ -383,11 +383,12 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
     )
     assert "w3m" in dockerfile
     assert "requirements.txt" in dockerfile
+    assert "local-requirements.txt" in dockerfile
     assert "mirrorneuron: skill-dependencies" in dockerfile
     assert "mn_context_engine_sdk" in dockerfile
     assert "MilvusClient" in dockerfile
-    assert not (
-        ROOT / "vc_assistant" / "payloads" / "document_workflow" / "docker_worker" / "requirements.txt"
+    assert (
+        ROOT / "vc_assistant" / "payloads" / "document_workflow" / "docker_worker" / "local-requirements.txt"
     ).exists()
     for node in nodes:
         assert "python_environment" not in node["config"]
@@ -395,7 +396,7 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         assert node["config"]["workdir"] == "/mn/job/document_workflow"
         assert node["config"]["command"] == ["python3", "scripts/run_blueprint.py"]
         assert node["config"]["docker_worker_image"] == "document_workflow/docker_worker"
-        assert node["config"]["force_build"] is True
+        assert "force_build" not in node["config"]
         assert node["config"]["image"] == "mirror-neuron/vc-assistant:local"
         assert node["config"]["network"] == "mirror-neuron-runtime"
         assert node["config"]["shared_container"] is True
@@ -446,7 +447,7 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
             assert template["uses"] == "mn-agents.control.terminal_sink@1"
             continue
         assert template["with"]["docker_worker_image"] == "document_workflow/docker_worker"
-        assert template["with"]["force_build"] is True
+        assert "force_build" not in template["with"]
         assert template["with"]["image"] == "mirror-neuron/vc-assistant:local"
         assert template["with"]["network"] == "mirror-neuron-runtime"
         assert template["with"]["upload_paths"] == upload_paths
