@@ -380,7 +380,7 @@
     "agents": {
       "property:zip_market": {
         "llm_config": "primary",
-        "model": "default",
+        "model": "small",
         "role": "ZIP-market researcher",
         "responsibilities": [
           "Review target ZIP demand and pricing signals.",
@@ -390,7 +390,7 @@
       },
       "property:broker_notes": {
         "llm_config": "primary",
-        "model": "default",
+        "model": "small",
         "role": "Broker-note analyst",
         "responsibilities": [
           "Extract broker motivation and diligence signals.",
@@ -400,7 +400,7 @@
       },
       "property:financing": {
         "llm_config": "primary",
-        "model": "default",
+        "model": "small",
         "role": "Property financing reviewer",
         "responsibilities": [
           "Review lender notes and DSCR constraints.",
@@ -410,7 +410,7 @@
       },
       "property:memory_retriever": {
         "llm_config": "primary",
-        "model": "default",
+        "model": "small",
         "role": "Property memory curator",
         "responsibilities": [
           "Retrieve important historical facts from working memory.",
@@ -420,7 +420,7 @@
       },
       "property:signal_comparer": {
         "llm_config": "primary",
-        "model": "default",
+        "model": "small",
         "role": "Property signal comparer",
         "responsibilities": [
           "Connect rent, risk, financing, and seller signals.",
@@ -430,7 +430,7 @@
       },
       "property:ranker": {
         "llm_config": "primary",
-        "model": "default",
+        "model": "small",
         "role": "Acquisition opportunity ranker",
         "responsibilities": [
           "Rank candidate properties from source-grounded signals.",
@@ -440,7 +440,7 @@
       },
       "property:risk_reviewer": {
         "llm_config": "primary",
-        "model": "default",
+        "model": "small",
         "role": "Property risk reviewer",
         "responsibilities": [
           "Review flood, roof, insurance, and inspection risks.",
@@ -450,7 +450,7 @@
       },
       "property:memo_writer": {
         "llm_config": "primary",
-        "model": "default",
+        "model": "small",
         "role": "Property deal memo writer",
         "responsibilities": [
           "Prepare the review-only acquisition memo.",

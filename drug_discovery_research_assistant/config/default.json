@@ -356,7 +356,7 @@
     "agents": {
       "binding_evaluation": {
         "llm_config": "primary",
-        "model": "default",
+        "model": "small",
         "role": "Binding evaluation analyst",
         "responsibilities": [
           "Review docking or binding-score outputs.",
@@ -366,7 +366,7 @@
       },
       "candidate_generation": {
         "llm_config": "primary",
-        "model": "default",
+        "model": "small",
         "role": "Candidate generation strategist",
         "responsibilities": [
           "Compare generated compounds against project constraints.",
@@ -376,7 +376,7 @@
       },
       "ranking_reporting": {
         "llm_config": "primary",
-        "model": "default",
+        "model": "small",
         "role": "Discovery report lead",
         "responsibilities": [
           "Assemble candidate ranking evidence.",
@@ -386,7 +386,7 @@
       },
       "structure_generation": {
         "llm_config": "primary",
-        "model": "default",
+        "model": "small",
         "role": "Molecular design chemist",
         "responsibilities": [
           "Generate candidate structure rationale from deterministic outputs.",
@@ -396,7 +396,7 @@
       },
       "target_discovery": {
         "llm_config": "primary",
-        "model": "default",
+        "model": "small",
         "role": "Target discovery scientist",
         "responsibilities": [
           "Identify disease-target hypotheses from configured inputs.",

@@ -43,9 +43,9 @@ export MN_LLM_API_BASE="${MN_LLM_API_BASE:-http://localhost:12434/engines/v1}"
 export MN_LLM_MODEL="${MN_LLM_MODEL:-medium}"
 export NVIDIA_ASR_URL="${MN_ASR_URL:-${NVIDIA_ASR_URL:-ws://${NVIDIA_SERVICE_HOST}:8080}}"
 export NVIDIA_TTS_URL="${MN_TTS_URL:-${NVIDIA_TTS_URL:-http://${NVIDIA_SERVICE_HOST}:8001}}"
-export NEMOTRON_ROOT="${NEMOTRON_ROOT:-/home/homer/Sandbox/nemotron-january-2026}"
-if [[ -x "${NEMOTRON_ROOT}/.venv/bin/python" ]]; then
-  export CUSTOMER_SERVICE_PYTHON="${CUSTOMER_SERVICE_PYTHON:-${NEMOTRON_ROOT}/.venv/bin/python}"
+export VOICE_SERVICE_ROOT="${VOICE_SERVICE_ROOT:-/home/homer/Sandbox/voice-service-runtime}"
+if [[ -x "${VOICE_SERVICE_ROOT}/.venv/bin/python" ]]; then
+  export CUSTOMER_SERVICE_PYTHON="${CUSTOMER_SERVICE_PYTHON:-${VOICE_SERVICE_ROOT}/.venv/bin/python}"
 else
   export CUSTOMER_SERVICE_PYTHON="${CUSTOMER_SERVICE_PYTHON:-python3.11}"
 fi

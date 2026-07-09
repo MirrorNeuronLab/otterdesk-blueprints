@@ -523,7 +523,7 @@
           "environment": {
             "CUSTOMER_SERVICE_PUBLIC_URL": "https://localhost:7863/customer-service",
             "CUSTOMER_SERVICE_RUN_ID": "${MN_RUN_ID}",
-            "NEMOTRON_ROOT": "/home/homer/Sandbox/nemotron-january-2026",
+            "VOICE_SERVICE_ROOT": "/home/homer/Sandbox/voice-service-runtime",
             "VOICE_HTTPS_PORT": "7863"
           },
           "agent_beacon_required": false,
@@ -657,7 +657,7 @@
             "environment": {
               "CUSTOMER_SERVICE_PUBLIC_URL": "https://localhost:7863/customer-service",
               "CUSTOMER_SERVICE_RUN_ID": "${MN_RUN_ID}",
-              "NEMOTRON_ROOT": "/home/homer/Sandbox/nemotron-january-2026",
+              "VOICE_SERVICE_ROOT": "/home/homer/Sandbox/voice-service-runtime",
               "VOICE_HTTPS_PORT": "7863"
             },
             "agent_beacon_required": false,
@@ -771,7 +771,7 @@
               "environment": {
                 "CUSTOMER_SERVICE_PUBLIC_URL": "https://localhost:7863/customer-service",
                 "CUSTOMER_SERVICE_RUN_ID": "${MN_RUN_ID}",
-                "NEMOTRON_ROOT": "/home/homer/Sandbox/nemotron-january-2026",
+                "VOICE_SERVICE_ROOT": "/home/homer/Sandbox/voice-service-runtime",
                 "VOICE_HTTPS_PORT": "7863"
               },
               "agent_beacon_required": false,
@@ -813,7 +813,7 @@
               "environment": {
                 "CUSTOMER_SERVICE_PUBLIC_URL": "https://localhost:7863/customer-service",
                 "CUSTOMER_SERVICE_RUN_ID": "${MN_RUN_ID}",
-                "NEMOTRON_ROOT": "/home/homer/Sandbox/nemotron-january-2026",
+                "VOICE_SERVICE_ROOT": "/home/homer/Sandbox/voice-service-runtime",
                 "VOICE_HTTPS_PORT": "7863"
               },
               "agent_beacon_required": false,

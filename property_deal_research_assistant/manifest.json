@@ -729,21 +729,21 @@
         "workers": [
           {
             "id": "property:zip_market",
-            "model": "default",
+            "model": "small",
             "role": "Review ZIP history",
             "tokens": 14000,
             "tools": 4
           },
           {
             "id": "property:broker_notes",
-            "model": "default",
+            "model": "small",
             "role": "Parse broker notes",
             "tokens": 14000,
             "tools": 4
           },
           {
             "id": "property:financing",
-            "model": "default",
+            "model": "small",
             "role": "Read financing constraints",
             "tokens": 14000,
             "tools": 4
@@ -758,14 +758,14 @@
         "workers": [
           {
             "id": "property:memory_retriever",
-            "model": "default",
+            "model": "small",
             "role": "Retrieve comparable memory",
             "tokens": 14000,
             "tools": 4
           },
           {
             "id": "property:signal_comparer",
-            "model": "default",
+            "model": "small",
             "role": "Compare historical deal signals",
             "tokens": 14000,
             "tools": 4
@@ -780,14 +780,14 @@
         "workers": [
           {
             "id": "property:ranker",
-            "model": "default",
+            "model": "small",
             "role": "Rank property opportunities",
             "tokens": 14000,
             "tools": 4
           },
           {
             "id": "property:risk_reviewer",
-            "model": "default",
+            "model": "small",
             "role": "Review downside risks",
             "tokens": 14000,
             "tools": 4
@@ -802,7 +802,7 @@
         "workers": [
           {
             "id": "property:memo_writer",
-            "model": "default",
+            "model": "small",
             "role": "Write final deal memo",
             "tokens": 14000,
             "tools": 4
@@ -888,7 +888,7 @@
       "type": "local_run_store"
     },
     "worker_defaults": {
-      "model": "default",
+      "model": "small",
       "pool": "default",
       "pool_slots": 1,
       "runner": "MirrorNeuron.Runner.HostLocal",
@@ -963,7 +963,7 @@
     },
     "models": {
       "primary": {
-        "model": "default"
+        "model": "small"
       }
     }
   },

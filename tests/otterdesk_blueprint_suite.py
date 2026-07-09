@@ -1202,7 +1202,7 @@ def test_generic_customer_service_voice_blueprint_contract():
     assert "voice_proxy.pid" not in cleanup
     assert "voice_service.pid" in cleanup
     assert "serve_customer_service_https.py" in cleanup
-    assert "scripts/nemotron.sh stop" not in cleanup
+    assert "scripts/model_service.sh stop" not in cleanup
 
 
 def test_generic_customer_service_rag_chunking_and_retrieval():

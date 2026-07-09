@@ -864,7 +864,7 @@
             "alias": "medical_dataset_intake",
             "kind": "worker",
             "role": "Medical dataset intake analyst",
-            "model": "default",
+            "model": "small",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -882,7 +882,7 @@
             "alias": "medical_ocr_extractor",
             "kind": "worker",
             "role": "Medical OCR extractor",
-            "model": "default",
+            "model": "small",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -892,7 +892,7 @@
             "alias": "clinical_text_normalizer",
             "kind": "worker",
             "role": "Clinical text normalizer",
-            "model": "default",
+            "model": "small",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -910,7 +910,7 @@
             "alias": "phi_detector",
             "kind": "worker",
             "role": "PHI entity detector",
-            "model": "default",
+            "model": "small",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -920,7 +920,7 @@
             "alias": "clinical_field_extractor",
             "kind": "worker",
             "role": "Clinical field extractor",
-            "model": "default",
+            "model": "small",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -938,7 +938,7 @@
             "alias": "medical_redaction_validator",
             "kind": "worker",
             "role": "Medical redaction validator",
-            "model": "default",
+            "model": "small",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -956,7 +956,7 @@
             "alias": "privacy_report_writer",
             "kind": "worker",
             "role": "Privacy review packet writer",
-            "model": "default",
+            "model": "small",
             "tokens": 12000,
             "tools": 4,
             "required": true
@@ -1044,7 +1044,7 @@
     "worker_defaults": {
       "runner": "MirrorNeuron.Runner.HostLocal",
       "uses": "mn-agents.data_python_executor@1",
-      "model": "default",
+      "model": "small",
       "pool": "default",
       "pool_slots": 1,
       "workdir": "/sandbox/job/workflow"
@@ -1117,7 +1117,7 @@
     },
     "models": {
       "primary": {
-        "model": "default"
+        "model": "small"
       }
     }
   },

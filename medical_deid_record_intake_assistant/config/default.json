@@ -124,7 +124,7 @@
     "agents": {
       "medical_dataset_intake": {
         "llm_config": "primary",
-        "model": "default",
+        "model": "small",
         "role": "Medical intake coordinator",
         "responsibilities": [
           "Stage clinical records and dataset notes.",
@@ -134,7 +134,7 @@
       },
       "medical_ocr_extractor": {
         "llm_config": "primary",
-        "model": "default",
+        "model": "small",
         "role": "Clinical OCR reader",
         "responsibilities": [
           "Review OCR quality for clinical records.",
@@ -144,7 +144,7 @@
       },
       "clinical_text_normalizer": {
         "llm_config": "primary",
-        "model": "default",
+        "model": "small",
         "role": "Clinical text normalizer",
         "responsibilities": [
           "Normalize clinical snippets for review.",
@@ -154,7 +154,7 @@
       },
       "phi_detector": {
         "llm_config": "primary",
-        "model": "default",
+        "model": "small",
         "role": "PHI detection specialist",
         "responsibilities": [
           "Identify patient identifiers and sensitive spans.",
@@ -164,7 +164,7 @@
       },
       "clinical_field_extractor": {
         "llm_config": "primary",
-        "model": "default",
+        "model": "small",
         "role": "Clinical field reviewer",
         "responsibilities": [
           "Review medications, diagnoses, visit dates, and tables.",
@@ -174,7 +174,7 @@
       },
       "medical_redaction_validator": {
         "llm_config": "primary",
-        "model": "default",
+        "model": "small",
         "role": "Medical redaction validator",
         "responsibilities": [
           "Check de-identification completeness.",
@@ -184,7 +184,7 @@
       },
       "privacy_report_writer": {
         "llm_config": "primary",
-        "model": "default",
+        "model": "small",
         "role": "Privacy review report writer",
         "responsibilities": [
           "Prepare the de-identification packet.",

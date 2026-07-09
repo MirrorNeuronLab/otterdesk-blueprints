@@ -494,7 +494,7 @@
             "alias": "video_understanding_agent",
             "kind": "worker",
             "role": "Safety video understanding analyst",
-            "model": "video_understanding",
+            "model": "medium",
             "tokens": 14000,
             "tools": 4,
             "required": true
@@ -512,7 +512,7 @@
             "alias": "write_safety_report",
             "kind": "worker",
             "role": "Safety report generator",
-            "model": "default",
+            "model": "small",
             "tokens": 8000,
             "tools": 3,
             "required": true

@@ -646,7 +646,7 @@
   "real_adapters": {
     "asr": "nvidia_parakeet",
     "enabled": true,
-    "llm": "nemotron_vllm_openai_compatible",
+    "llm": "voice_llm_openai_compatible",
     "tts": "magpie_tts",
     "voice_service": "spark_https_webrtc"
   },

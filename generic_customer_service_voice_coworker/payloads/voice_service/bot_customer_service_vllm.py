@@ -1,5 +1,5 @@
 #!/usr/bin/env python3.11
-"""Customer-service voice bot using NVIDIA ASR, Nemotron vLLM, and Magpie TTS."""
+"""Customer-service voice bot using NVIDIA ASR, an OpenAI-compatible LLM, and Magpie TTS."""
 
 from __future__ import annotations
 
@@ -13,9 +13,9 @@ from loguru import logger
 
 
 ROOT = Path(__file__).resolve().parent
-NEMOTRON_ROOT = Path(os.getenv("NEMOTRON_ROOT", "/home/homer/Sandbox/nemotron-january-2026"))
+VOICE_SERVICE_ROOT = Path(os.getenv("VOICE_SERVICE_ROOT", "/home/homer/Sandbox/voice-service-runtime"))
 sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(NEMOTRON_ROOT / "pipecat_bots"))
+sys.path.insert(0, str(VOICE_SERVICE_ROOT / "pipecat_bots"))
 
 RUNTIME_SKILL_PACKAGES = ("mirrorneuron-blueprint-support-skill",)
 

@@ -91,7 +91,7 @@
           "path": "llm.default_config",
           "label": "Default model profile",
           "default": "primary",
-          "description": "Use small for normal nodes; heavy audit and reporting nodes can use the large medium profile."
+          "description": "Use small for normal nodes; heavy audit and reporting nodes can use the medium profile."
         }
       ]
     },
