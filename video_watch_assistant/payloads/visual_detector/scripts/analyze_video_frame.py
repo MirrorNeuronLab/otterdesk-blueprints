@@ -516,7 +516,7 @@ def call_ollama(frame: bytes, prompt: str) -> dict[str, Any]:
         or os.environ.get("MN_LLM_MODEL")
         or os.environ.get("VL_MODEL_NAME")
         or os.environ.get("OLLAMA_MODEL")
-        or "otterdesk-video-watch:default"
+        or "medium"
     )
     timeout = float(os.environ.get("MN_VLM_TIMEOUT_SECONDS") or os.environ.get("MN_LLM_TIMEOUT_SECONDS") or os.environ.get("OLLAMA_TIMEOUT_SECONDS", "90"))
     if _uses_openai_compatible_runtime(provider, base_url):
@@ -588,10 +588,10 @@ def call_ollama(frame: bytes, prompt: str) -> dict[str, Any]:
 
 def _normalize_vlm_model(model: str) -> str:
     value = str(model or "").strip()
-    if value.lower() in {"", "default", "otterdesk-video-watch:default", "video-watch:default"}:
-        return os.environ.get("MN_LLM_RUNTIME_MODEL") or "hf.co/nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-BF16"
-    if value.lower() in {"gemma4", "gemme4", "gemma4:e2b", "gemme4:e2b"}:
-        return "ai/gemma4:E2B"
+    if value.lower() in {"", "default", "medium", "medium"}:
+        return os.environ.get("MN_LLM_RUNTIME_MODEL") or "medium"
+    if value.lower() in {"small", "small", "small", "small"}:
+        return "small"
     return value
 
 

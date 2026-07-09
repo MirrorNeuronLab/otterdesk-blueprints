@@ -28,7 +28,7 @@ The service is NVIDIA-bound:
 - Execution profile: `nvidia-accelerated-voice`
 - Required GPU: `gpu_count: 1`
 - Required node capability: DGX Spark, GH200, H100, H200, B200, or GB200 class NVIDIA hardware
-- LLM model alias: `otterdesk-voice-llm:default`
+- LLM model alias: `medium`
 - ASR/TTS service aliases: `otterdesk-voice-asr:default`, `otterdesk-voice-tts:default`
 - Default voice page: `https://localhost:7863/customer-service`
 

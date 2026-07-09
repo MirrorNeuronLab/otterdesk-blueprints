@@ -19,7 +19,7 @@
   "llm": {
     "enabled": true,
     "provider": "docker_model_runner",
-    "model": "gemma4:e2b",
+    "model": "small",
     "backend": "llama.cpp",
     "context_size": 4096,
     "max_tokens": 800,
@@ -38,7 +38,7 @@
     "configs": {
       "primary": {
         "provider": "docker_model_runner",
-        "model": "gemma4:e2b",
+        "model": "small",
         "api_base": "http://localhost:12434/engines/v1",
         "timeout_seconds": 60,
         "max_tokens": 900,
@@ -50,7 +50,7 @@
     "agents": {
       "video_understanding_agent": {
         "llm_config": "primary",
-        "model": "gemma4:e2b",
+        "model": "small",
         "role": "Safety video understanding actor",
         "responsibilities": [
           "Inspect staged video metadata and model outputs.",
@@ -60,7 +60,7 @@
       },
       "write_safety_report": {
         "llm_config": "primary",
-        "model": "gemma4:e2b",
+        "model": "small",
         "role": "Safety report generator actor",
         "responsibilities": [
           "Write a concise safety review report.",
@@ -72,8 +72,8 @@
   },
   "vl_model": {
     "provider": "docker_model_runner",
-    "model": "otterdesk-video-watch:default",
-    "runtime_model": "hf.co/nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-BF16",
+    "model": "medium",
+    "runtime_model": "medium",
     "install_mode": "cluster_provided",
     "timeout_seconds": 300
   },
@@ -133,7 +133,7 @@
     "grounding_policy": "Use retrieved local blueprint knowledge to improve actor review prompts; do not invent facts when retrieval is unavailable.",
     "namespace": "",
     "embedding_provider": "docker_model_runner",
-    "embedding_model": "huggingface.co/jinaai/jina-embeddings-v5-text-small-retrieval:Q4_K_M",
+    "embedding_model": "rag-embedding",
     "embedding_api_base": "http://localhost:12434/engines/v1",
     "embedding_query_prefix": "Query: ",
     "embedding_document_prefix": "Document: ",

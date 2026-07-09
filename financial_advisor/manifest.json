@@ -91,7 +91,7 @@
           "path": "llm.default_config",
           "label": "Default model profile",
           "default": "primary",
-          "description": "Use gemma4:e2b for normal nodes; heavy audit and reporting nodes can use the large nemotron3 profile."
+          "description": "Use small for normal nodes; heavy audit and reporting nodes can use the large medium profile."
         }
       ]
     },
@@ -178,7 +178,7 @@
       "redis_url": "",
       "namespace": "",
       "embedding_provider": "docker_model_runner",
-      "embedding_model": "huggingface.co/jinaai/jina-embeddings-v5-text-small-retrieval:Q4_K_M",
+      "embedding_model": "rag-embedding",
       "embedding_api_base": "http://host.docker.internal:12434/engines/v1",
       "embedding_query_prefix": "Query: ",
       "embedding_document_prefix": "Document: ",
@@ -1286,15 +1286,15 @@
     "models": {
       "primary": {
         "provider": "docker_model_runner",
-        "model": "gemma4:e2b",
-        "runtime_model": "gemma4:e2b",
+        "model": "small",
+        "runtime_model": "small",
         "backend": "llama.cpp",
         "required": true
       },
       "large": {
         "provider": "docker_model_runner",
-        "model": "nemotron3",
-        "runtime_model": "nemotron3",
+        "model": "medium",
+        "runtime_model": "medium",
         "backend": "llama.cpp",
         "required": false,
         "hardware": {
@@ -1326,7 +1326,7 @@
     "redis_url": "",
     "namespace": "",
     "embedding_provider": "docker_model_runner",
-    "embedding_model": "huggingface.co/jinaai/jina-embeddings-v5-text-small-retrieval:Q4_K_M",
+    "embedding_model": "rag-embedding",
     "embedding_api_base": "http://host.docker.internal:12434/engines/v1",
     "embedding_query_prefix": "Query: ",
     "embedding_document_prefix": "Document: ",

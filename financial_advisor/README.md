@@ -23,4 +23,4 @@ Outputs are review-only. The blueprint does not file tax returns, make trades, m
 
 ## Model Profiles
 
-The small default profile uses `gemma4:e2b`. Heavy review/reporting nodes can use the `large` profile backed by `nemotron3`, following the `vc_assistant` pattern.
+The small default profile uses `small`. Heavy review/reporting nodes can use the `large` profile backed by `medium`, following the `vc_assistant` pattern.

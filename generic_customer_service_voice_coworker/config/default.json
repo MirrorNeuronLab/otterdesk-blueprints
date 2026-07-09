@@ -350,9 +350,9 @@
     ]
   },
   "llm": {
-    "model": "otterdesk-voice-llm:default",
+    "model": "medium",
     "provider": "docker_model_runner",
-    "runtime_model": "otterdesk-voice-llm:default",
+    "runtime_model": "medium",
     "backend": "llama.cpp",
     "install_mode": "cluster_provided",
     "agent_role": "Customer-service voice co-worker that answers from the customer knowledge base, asks clarifying questions when needed, and recommends escalation when it is unsure or outside scope.",
@@ -372,7 +372,7 @@
     "configs": {
       "primary": {
         "provider": "docker_model_runner",
-        "model": "otterdesk-voice-llm:default",
+        "model": "medium",
         "install_mode": "cluster_provided",
         "api_base": "http://localhost:12434/engines/v1",
         "timeout_seconds": 60,
@@ -385,7 +385,7 @@
     "agents": {
       "spark_voice_preparer": {
         "llm_config": "primary",
-        "model": "otterdesk-voice-llm:default",
+        "model": "medium",
         "role": "Spark voice runtime preparer",
         "responsibilities": [
           "Prepare voice runtime prerequisites and knowledge files.",
@@ -395,7 +395,7 @@
       },
       "customer_service_voice_host": {
         "llm_config": "primary",
-        "model": "otterdesk-voice-llm:default",
+        "model": "medium",
         "role": "Customer-service voice co-worker",
         "responsibilities": [
           "Answer customer questions from the knowledge base.",
@@ -540,7 +540,7 @@
     "grounding_policy": "Use retrieved local blueprint knowledge to improve actor review prompts; do not invent facts when retrieval is unavailable.",
     "namespace": "",
     "embedding_provider": "docker_model_runner",
-    "embedding_model": "huggingface.co/jinaai/jina-embeddings-v5-text-small-retrieval:Q4_K_M",
+    "embedding_model": "rag-embedding",
     "embedding_api_base": "http://localhost:12434/engines/v1",
     "embedding_query_prefix": "Query: ",
     "embedding_document_prefix": "Document: ",

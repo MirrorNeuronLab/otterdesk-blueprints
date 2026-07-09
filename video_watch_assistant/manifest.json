@@ -659,7 +659,7 @@
             "id": "visual_target_detector",
             "alias": "visual_target_detector",
             "display_name": "Visual Target Detector",
-            "model": "otterdesk-video-watch:default",
+            "model": "medium",
             "role": "Run visual detection",
             "tokens": 14000,
             "tools": 4
@@ -668,7 +668,7 @@
             "id": "quality_controller",
             "alias": "quality_controller",
             "display_name": "Quality Controller",
-            "model": "otterdesk-video-watch:default",
+            "model": "medium",
             "role": "Review alert quality",
             "tokens": 14000,
             "tools": 4
@@ -685,7 +685,7 @@
             "id": "frame_sampler",
             "alias": "frame_sampler",
             "display_name": "Frame Sampler",
-            "model": "otterdesk-video-watch:default",
+            "model": "medium",
             "role": "Sample video frames",
             "tokens": 14000,
             "tools": 4
@@ -702,7 +702,7 @@
             "id": "video_source_validator",
             "alias": "video_source_validator",
             "display_name": "Video Source Validator",
-            "model": "otterdesk-video-watch:default",
+            "model": "medium",
             "role": "Validate video source",
             "tokens": 14000,
             "tools": 4
@@ -711,7 +711,7 @@
             "id": "video_monitor",
             "alias": "video_monitor",
             "display_name": "Video Monitor",
-            "model": "otterdesk-video-watch:default",
+            "model": "medium",
             "role": "Coordinate video monitoring",
             "tokens": 14000,
             "tools": 4
@@ -728,7 +728,7 @@
             "id": "watch_summary_writer",
             "alias": "watch_summary_writer",
             "display_name": "Watch Summary Writer",
-            "model": "otterdesk-video-watch:default",
+            "model": "medium",
             "role": "Write watch summary",
             "tokens": 14000,
             "tools": 4
@@ -764,8 +764,8 @@
       "primary": {
         "type": "llm",
         "provider": "docker_model_runner",
-        "model": "otterdesk-video-watch:default",
-        "runtime_model": "otterdesk-video-watch:default",
+        "model": "medium",
+        "runtime_model": "medium",
         "backend": "llama.cpp",
         "install_mode": "cluster_provided",
         "required": true
@@ -836,7 +836,7 @@
       "type": "local_run_store"
     },
     "worker_defaults": {
-      "model": "otterdesk-video-watch:default",
+      "model": "medium",
       "pool": "default",
       "pool_slots": 1,
       "runner": "MirrorNeuron.Runner.HostLocal",
@@ -2099,7 +2099,7 @@
       "redis_url": "",
       "namespace": "",
       "embedding_provider": "docker_model_runner",
-      "embedding_model": "huggingface.co/jinaai/jina-embeddings-v5-text-small-retrieval:Q4_K_M",
+      "embedding_model": "rag-embedding",
       "embedding_api_base": "http://localhost:12434/engines/v1",
       "embedding_query_prefix": "Query: ",
       "embedding_document_prefix": "Document: ",
@@ -2157,7 +2157,7 @@
     "redis_url": "",
     "namespace": "",
     "embedding_provider": "docker_model_runner",
-    "embedding_model": "huggingface.co/jinaai/jina-embeddings-v5-text-small-retrieval:Q4_K_M",
+    "embedding_model": "rag-embedding",
     "embedding_api_base": "http://localhost:12434/engines/v1",
     "embedding_query_prefix": "Query: ",
     "embedding_document_prefix": "Document: ",

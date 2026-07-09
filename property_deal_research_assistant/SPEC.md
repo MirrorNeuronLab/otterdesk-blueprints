@@ -50,7 +50,7 @@ When using the local run store, inspect `run.json`, `config.json`, `inputs.json`
 
 The current blueprint is a product-facing template and may include mock data, deterministic simulation, simplified policies, placeholder integrations, or partial worker coverage. It is designed to show the customer problem, target workflow, and expected artifact even where production implementation still needs hardening.
 
-The live LLM profile is explicitly configured for Docker Model Runner `gemma4:e2b`. RAG knowledge includes deal-ranking evidence rules, missing-source handling, and review-only output boundaries.
+The live LLM profile is explicitly configured for Docker Model Runner `small`. RAG knowledge includes deal-ranking evidence rules, missing-source handling, and review-only output boundaries.
 
 Outputs are decision-support artifacts. They should not be treated as final financial advice, medical guidance, safety certification, compliance approval, or executable operating instruction without customer validation and human approval.
 

@@ -106,11 +106,11 @@ def test_personal_legal_model_profiles_assign_large_to_heavy_nodes():
     config = json.loads((BLUEPRINT_DIR / "config" / "default.json").read_text(encoding="utf-8"))
     manifest = json.loads((BLUEPRINT_DIR / "manifest.json").read_text(encoding="utf-8"))
 
-    assert config["llm"]["model"] == "gemma4:e2b"
-    assert config["llm"]["runtime_model"] == "gemma4:e2b"
-    assert config["llm"]["preferred_model"] == "nemotron3"
-    assert config["llm"]["configs"]["primary"]["model"] == "gemma4:e2b"
-    assert config["llm"]["configs"]["large"]["model"] == "nemotron3"
+    assert config["llm"]["model"] == "small"
+    assert config["llm"]["runtime_model"] == "small"
+    assert config["llm"]["preferred_model"] == "medium"
+    assert config["llm"]["configs"]["primary"]["model"] == "small"
+    assert config["llm"]["configs"]["large"]["model"] == "medium"
     assert config["llm"]["large_model_profile"]["hardware"]["gpu"] == {
         "min_count": 1,
         "min_memory_mb": 49152,

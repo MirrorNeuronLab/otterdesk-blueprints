@@ -1811,7 +1811,7 @@
       "redis_url": "",
       "namespace": "",
       "embedding_provider": "docker_model_runner",
-      "embedding_model": "huggingface.co/jinaai/jina-embeddings-v5-text-small-retrieval:Q4_K_M",
+      "embedding_model": "rag-embedding",
       "embedding_api_base": "http://localhost:12434/engines/v1",
       "embedding_query_prefix": "Query: ",
       "embedding_document_prefix": "Document: ",
@@ -1890,7 +1890,7 @@
             "alias": "spark_voice_preparer",
             "display_name": "Spark Voice Preparer",
             "id": "spark_voice_preparer",
-            "model": "otterdesk-voice-llm:default",
+            "model": "medium",
             "role": "Prepare Spark voice runtime and knowledge store",
             "tokens": 8000,
             "tools": 4
@@ -1907,7 +1907,7 @@
             "alias": "customer_service_voice_host",
             "display_name": "Pizza Order Voice Host",
             "id": "customer_service_voice_host",
-            "model": "otterdesk-voice-llm:default",
+            "model": "medium",
             "role": "Host WebRTC voice conversation service on Spark",
             "tokens": 8000,
             "tools": 4
@@ -1943,8 +1943,8 @@
       "primary": {
         "type": "llm",
         "provider": "docker_model_runner",
-        "model": "otterdesk-voice-llm:default",
-        "runtime_model": "otterdesk-voice-llm:default",
+        "model": "medium",
+        "runtime_model": "medium",
         "backend": "llama.cpp",
         "install_mode": "cluster_provided",
         "required": true
@@ -2032,7 +2032,7 @@
       "type": "local_run_store"
     },
     "worker_defaults": {
-      "model": "otterdesk-voice-llm:default",
+      "model": "medium",
       "pool": "nvidia-accelerated",
       "pool_slots": 1,
       "runner": "MirrorNeuron.Runner.HostLocal",
@@ -2125,7 +2125,7 @@
     "redis_url": "",
     "namespace": "",
     "embedding_provider": "docker_model_runner",
-    "embedding_model": "huggingface.co/jinaai/jina-embeddings-v5-text-small-retrieval:Q4_K_M",
+    "embedding_model": "rag-embedding",
     "embedding_api_base": "http://localhost:12434/engines/v1",
     "embedding_query_prefix": "Query: ",
     "embedding_document_prefix": "Document: ",

@@ -465,15 +465,15 @@
       "Keep acquisition decisions review-only and source-referenced."
     ],
     "provider": "docker_model_runner",
-    "model": "gemma4:e2b",
-    "runtime_model": "gemma4:e2b",
+    "model": "small",
+    "runtime_model": "small",
     "backend": "llama.cpp",
     "mode": "live",
     "mock_mode": "fake",
     "default_config": "primary",
     "live_model_profile": {
       "provider": "docker_model_runner",
-      "runtime_model": "gemma4:e2b",
+      "runtime_model": "small",
       "api_base": "http://localhost:12434/engines/v1",
       "backend": "llama.cpp",
       "mock_fallback": "fake_for_quick_test_only"
@@ -484,8 +484,8 @@
     "configs": {
       "primary": {
         "provider": "docker_model_runner",
-        "model": "gemma4:e2b",
-        "runtime_model": "gemma4:e2b",
+        "model": "small",
+        "runtime_model": "small",
         "backend": "llama.cpp",
         "api_base": "http://localhost:12434/engines/v1",
         "timeout_seconds": 60,
@@ -626,7 +626,7 @@
     "grounding_policy": "Use retrieved local blueprint knowledge to improve actor review prompts; do not invent facts when retrieval is unavailable.",
     "namespace": "",
     "embedding_provider": "docker_model_runner",
-    "embedding_model": "huggingface.co/jinaai/jina-embeddings-v5-text-small-retrieval:Q4_K_M",
+    "embedding_model": "rag-embedding",
     "embedding_api_base": "http://localhost:12434/engines/v1",
     "embedding_query_prefix": "Query: ",
     "embedding_document_prefix": "Document: ",

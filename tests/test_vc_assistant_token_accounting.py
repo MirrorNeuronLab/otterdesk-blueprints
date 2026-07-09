@@ -29,7 +29,7 @@ def test_budgeted_llm_records_token_usage_and_dmr_metadata(tmp_path):
 
     class LiveDMRLLM:
         provider = "docker_model_runner"
-        model = "ai/nemotron3:latest"
+        model = "medium"
         api_base = "http://spark:12434/engines/v1"
         strict = False
         calls = 0

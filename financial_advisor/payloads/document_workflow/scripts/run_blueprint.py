@@ -547,7 +547,7 @@ def step_model_profile(config: dict[str, Any], step_id: str) -> dict[str, Any]:
         profile = copy.deepcopy(llm.get("large_model_profile") or {})
     if not profile:
         profile = copy.deepcopy(configs.get("primary") or llm.get("small_model_profile") or {})
-    profile.setdefault("model", llm.get("model") or "gemma4:e2b")
+    profile.setdefault("model", llm.get("model") or "small")
     profile.setdefault("runtime_model", profile.get("model"))
     return {
         "agent_id": step_id,

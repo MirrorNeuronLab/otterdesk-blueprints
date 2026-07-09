@@ -292,7 +292,7 @@ def test_video_gpu_blueprints_declare_hard_nvidia_cuda_requirements_consistently
         manifest = json.loads((ROOT / blueprint_id / "manifest.json").read_text())
         assert manifest["requirements"]["gpu"] == GPU_HARD_REQUIREMENT
         assert manifest["runtime"]["resources"]["gpu"] == GPU_HARD_REQUIREMENT
-        assert manifest["runtime"]["models"][runtime_model_key]["model"] == "otterdesk-video-watch:default"
+        assert manifest["runtime"]["models"][runtime_model_key]["model"] == "medium"
         assert manifest["runtime"]["models"][runtime_model_key]["install_mode"] == "cluster_provided"
 
         worker = next(node for node in _flow_nodes(manifest) if node["node_id"] == worker_id)
@@ -305,13 +305,13 @@ def test_video_gpu_blueprints_declare_hard_nvidia_cuda_requirements_consistently
                     _assert_hard_gpu_worker_requirements(rendered)
 
     config = json.loads((ROOT / "video_watch_assistant" / "config" / "default.json").read_text())
-    assert config["llm"]["model"] == "otterdesk-video-watch:default"
+    assert config["llm"]["model"] == "medium"
     assert config["llm"]["install_mode"] == "cluster_provided"
     assert config["resources"]["gpu"] == GPU_HARD_REQUIREMENT
     assert config["resources"]["required_capabilities"] == ["nvidia", "cuda"]
 
     safety_config = json.loads((ROOT / "safety_video_analyser" / "config" / "default.json").read_text())
-    assert safety_config["vl_model"]["model"] == "otterdesk-video-watch:default"
+    assert safety_config["vl_model"]["model"] == "medium"
     assert safety_config["vl_model"]["install_mode"] == "cluster_provided"
 
 
@@ -1015,14 +1015,14 @@ def test_product_ready_llm_configs_use_explicit_live_docker_model_runner_profile
         primary = llm["configs"]["primary"]
 
         assert llm["provider"] == "docker_model_runner", blueprint_id
-        assert llm["model"] == "gemma4:e2b", blueprint_id
-        assert llm["runtime_model"] == "gemma4:e2b", blueprint_id
+        assert llm["model"] == "small", blueprint_id
+        assert llm["runtime_model"] == "small", blueprint_id
         assert llm["backend"] == "llama.cpp", blueprint_id
         assert primary["provider"] == "docker_model_runner", blueprint_id
-        assert primary["model"] == "gemma4:e2b", blueprint_id
-        assert primary["runtime_model"] == "gemma4:e2b", blueprint_id
+        assert primary["model"] == "small", blueprint_id
+        assert primary["runtime_model"] == "small", blueprint_id
         assert primary["backend"] == "llama.cpp", blueprint_id
-        assert llm["live_model_profile"]["runtime_model"] == "gemma4:e2b", blueprint_id
+        assert llm["live_model_profile"]["runtime_model"] == "small", blueprint_id
 
 
 def test_otterdesk_init_config_review_does_not_duplicate_folder_controls():
@@ -1157,7 +1157,7 @@ def test_generic_customer_service_voice_blueprint_contract():
     assert "voice_service" in _agent_entrypoints(manifest)
     assert manifest["runtime"]["resources"]["gpu"]["min_count"] == 1
     assert manifest["runtime"]["worker_defaults"]["pool"] == "nvidia-accelerated"
-    assert manifest["runtime"]["models"]["primary"]["model"] == "otterdesk-voice-llm:default"
+    assert manifest["runtime"]["models"]["primary"]["model"] == "medium"
     assert manifest["runtime"]["models"]["asr"]["model"] == "otterdesk-voice-asr:default"
     assert manifest["runtime"]["models"]["tts"]["model"] == "otterdesk-voice-tts:default"
     voice_node = next(node for node in _flow_nodes(manifest) if node["node_id"] == "voice_service")

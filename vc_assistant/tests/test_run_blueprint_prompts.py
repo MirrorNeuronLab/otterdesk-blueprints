@@ -61,13 +61,13 @@ def test_model_profiles_keep_small_forgiving_and_large_strict():
     llm = default_config["llm"]
 
     small = llm["small_model_profile"]
-    assert small["model"] == "gemma4:e2b"
+    assert small["model"] == "small"
     assert small["strict_json"] is False
     assert small["require_live"] is False
     assert small["num_retries"] >= 2
 
     large = llm["large_model_profile"]
-    assert large["model"] == "nemotron3"
+    assert large["model"] == "medium"
     assert large["strict_json"] is True
     assert large["require_live"] is True
     assert large["hardware"]["gpu"]["min_memory_mb"] >= 49152

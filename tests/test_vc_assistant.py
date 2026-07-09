@@ -254,16 +254,16 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         "node_scope": "vc_python_executor_nodes",
     }
     assert config["llm"]["provider"] == "docker_model_runner"
-    assert config["llm"]["model"] == "gemma4:e2b"
-    assert config["llm"]["runtime_model"] == "gemma4:e2b"
-    assert config["llm"]["fallback_model"] == "gemma4:e2b"
-    assert config["llm"]["preferred_model"] == "nemotron3"
+    assert config["llm"]["model"] == "small"
+    assert config["llm"]["runtime_model"] == "small"
+    assert config["llm"]["fallback_model"] == "small"
+    assert config["llm"]["preferred_model"] == "medium"
     assert config["llm"]["backend"] == "llama.cpp"
     assert config["llm"]["live_model_profile"] == {
         "provider": "docker_model_runner",
-        "model": "gemma4:e2b",
-        "runtime_model": "gemma4:e2b",
-        "fallback_model": "gemma4:e2b",
+        "model": "small",
+        "runtime_model": "small",
+        "fallback_model": "small",
         "backend": "llama.cpp",
         "api_base": "auto",
         "timeout_seconds": 60,
@@ -275,8 +275,8 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
     }
     assert config["llm"]["large_model_profile"] == {
         "provider": "docker_model_runner",
-        "model": "nemotron3",
-        "runtime_model": "nemotron3",
+        "model": "medium",
+        "runtime_model": "medium",
         "backend": "llama.cpp",
         "timeout_seconds": 60,
         "max_tokens": 1800,
@@ -300,9 +300,9 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
     assert manifest["runtime"]["resources"]["gpu"] == {"min_count": 0}
     assert config["llm"]["configs"]["primary"] == {
         "provider": "docker_model_runner",
-        "model": "gemma4:e2b",
-        "runtime_model": "gemma4:e2b",
-        "fallback_model": "gemma4:e2b",
+        "model": "small",
+        "runtime_model": "small",
+        "fallback_model": "small",
         "backend": "llama.cpp",
         "api_base": "auto",
         "timeout_seconds": 60,
@@ -324,7 +324,7 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
     assert "redis_url" not in config["knowledge_rag"]
     assert config["knowledge_rag"]["namespace"] == ""
     assert config["knowledge_rag"]["embedding_provider"] == "docker_model_runner"
-    assert config["knowledge_rag"]["embedding_model"] == "huggingface.co/jinaai/jina-embeddings-v5-text-small-retrieval:Q4_K_M"
+    assert config["knowledge_rag"]["embedding_model"] == "rag-embedding"
     assert config["knowledge_rag"]["embedding_api_base"] == "http://host.docker.internal:12434/engines/v1"
     assert config["knowledge_rag"]["embedding_query_prefix"] == "Query: "
     assert config["knowledge_rag"]["embedding_document_prefix"] == "Document: "
@@ -410,12 +410,12 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         assert embedded_config["inputs"]["payload"]["output_folder"] == "~/Downloads/vc_assistant"
         assert embedded_config["local_inputs"] == config["local_inputs"]
         assert embedded_config["outputs"]["folder_path"] == "~/Downloads/vc_assistant"
-        assert embedded_config["llm"]["model"] == "gemma4:e2b"
-        assert embedded_config["llm"]["runtime_model"] == "gemma4:e2b"
-        assert embedded_config["llm"]["fallback_model"] == "gemma4:e2b"
-        assert embedded_config["llm"]["preferred_model"] == "nemotron3"
-        assert embedded_config["llm"]["configs"]["primary"]["fallback_model"] == "gemma4:e2b"
-        assert embedded_config["llm"]["configs"]["primary"]["model"] == "gemma4:e2b"
+        assert embedded_config["llm"]["model"] == "small"
+        assert embedded_config["llm"]["runtime_model"] == "small"
+        assert embedded_config["llm"]["fallback_model"] == "small"
+        assert embedded_config["llm"]["preferred_model"] == "medium"
+        assert embedded_config["llm"]["configs"]["primary"]["fallback_model"] == "small"
+        assert embedded_config["llm"]["configs"]["primary"]["model"] == "small"
         assert embedded_config["resources"]["gpu"] == {"min_count": 0}
         assert embedded_config["llm"]["configs"]["primary"]["api_base"] == "auto"
         assert embedded_config["llm"]["quick_test_uses_fake"] is True

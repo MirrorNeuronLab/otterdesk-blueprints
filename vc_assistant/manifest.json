@@ -1047,27 +1047,27 @@
         "api_base": "auto",
         "backend": "llama.cpp",
         "context_size": 8192,
-        "fallback_model": "gemma4:e2b",
+        "fallback_model": "small",
         "max_tokens": 1200,
         "mock_mode": "fake",
         "mode": "live",
-        "model": "nemotron3",
+        "model": "medium",
         "num_retries": 1,
         "parameter_count_b": 31.58,
         "provider": "docker_model_runner",
         "quantization": "MOSTLY_Q4_K_M",
-        "runtime_model": "nemotron3",
+        "runtime_model": "medium",
         "timeout_seconds": 60
       }
     },
     "context_size": 8192,
     "default_config": "primary",
     "enabled": true,
-    "fallback_model": "gemma4:e2b",
+    "fallback_model": "small",
     "live_model_profile": {
       "backend": "llama.cpp",
       "context_size": 8192,
-      "fallback_model": "gemma4:e2b",
+      "fallback_model": "small",
       "hardware": {
         "gpu": {
           "memory_operator": ">=",
@@ -1075,15 +1075,15 @@
           "min_memory_mb": 49152
         }
       },
-      "model": "nemotron3",
+      "model": "medium",
       "parameter_count_b": 31.58,
       "provider": "docker_model_runner",
       "quantization": "MOSTLY_Q4_K_M",
-      "runtime_model": "nemotron3"
+      "runtime_model": "medium"
     },
     "mock_mode": "fake",
     "mode": "live",
-    "model": "nemotron3",
+    "model": "medium",
     "parameter_count_b": 31.58,
     "prefer_shared_skill": true,
     "provider": "docker_model_runner",
@@ -1095,7 +1095,7 @@
       "Use specialist agents for research, scoring, audit, and report writing.",
       "Avoid automated investment decisions or confidential-data web disclosure."
     ],
-    "runtime_model": "nemotron3",
+    "runtime_model": "medium",
     "strict_json": true
   },
   "knowledge_rag": {
@@ -1104,7 +1104,7 @@
     "embedding_api_base": "http://host.docker.internal:12434/engines/v1",
     "embedding_document_prefix": "Document: ",
     "embedding_healthcheck_enabled": true,
-    "embedding_model": "huggingface.co/jinaai/jina-embeddings-v5-text-small-retrieval:Q4_K_M",
+    "embedding_model": "rag-embedding",
     "embedding_provider": "docker_model_runner",
     "embedding_query_prefix": "Query: ",
     "embedding_start_command": "",

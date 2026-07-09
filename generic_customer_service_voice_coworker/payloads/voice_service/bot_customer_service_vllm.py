@@ -77,11 +77,11 @@ NVIDIA_LLM_URL = (
 NVIDIA_LLM_MODEL = (
     os.getenv("MN_LLM_MODEL")
     or os.getenv("NVIDIA_LLM_MODEL")
-    or "otterdesk-voice-llm:default"
+    or "medium"
 )
 NVIDIA_LLM_MODEL = (
-    "hf.co/nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16"
-    if NVIDIA_LLM_MODEL in {"otterdesk-voice-llm:default", "voice-customer-service:default", "nemotron3-voice"}
+    "medium"
+    if NVIDIA_LLM_MODEL in {"medium", "medium", "medium-voice"}
     else NVIDIA_LLM_MODEL
 )
 NVIDIA_LLM_API_KEY = os.getenv("NVIDIA_LLM_API_KEY", "not-needed")

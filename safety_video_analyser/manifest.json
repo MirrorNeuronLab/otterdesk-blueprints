@@ -138,7 +138,7 @@
       "redis_url": "",
       "namespace": "",
       "embedding_provider": "docker_model_runner",
-      "embedding_model": "huggingface.co/jinaai/jina-embeddings-v5-text-small-retrieval:Q4_K_M",
+      "embedding_model": "rag-embedding",
       "embedding_api_base": "http://localhost:12434/engines/v1",
       "embedding_query_prefix": "Query: ",
       "embedding_document_prefix": "Document: ",
@@ -367,14 +367,14 @@
           "pool": "default",
           "pool_slots": 1,
           "tty": false,
-          "model": "otterdesk-video-watch:default",
+          "model": "medium",
           "output_message_type": "safety_video_understood",
           "environment": {
             "MN_WORKFLOW_STEP_ID": "video_understanding_agent",
             "MN_VLM_PROVIDER": "docker_model_runner",
-            "MN_VLM_MODEL": "hf.co/nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-BF16",
-            "MN_LLM_MODEL": "hf.co/nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-BF16",
-            "MN_LLM_RUNTIME_MODEL": "hf.co/nvidia/Nemotron-3-Nano-Omni-30B-A3B-Reasoning-BF16"
+            "MN_VLM_MODEL": "medium",
+            "MN_LLM_MODEL": "medium",
+            "MN_LLM_RUNTIME_MODEL": "medium"
           },
           "beacon_enabled": true,
           "beacon_interval_ms": 15000,
@@ -590,16 +590,16 @@
       "default": {
         "type": "llm",
         "provider": "docker_model_runner",
-        "model": "gemma4:e2b",
-        "runtime_model": "gemma4:e2b",
+        "model": "small",
+        "runtime_model": "small",
         "backend": "llama.cpp",
         "required": true
       },
       "video_understanding": {
         "type": "vlm",
         "provider": "docker_model_runner",
-        "model": "otterdesk-video-watch:default",
-        "runtime_model": "otterdesk-video-watch:default",
+        "model": "medium",
+        "runtime_model": "medium",
         "backend": "llama.cpp",
         "install_mode": "cluster_provided",
         "required": true
@@ -826,7 +826,7 @@
     "redis_url": "",
     "namespace": "",
     "embedding_provider": "docker_model_runner",
-    "embedding_model": "huggingface.co/jinaai/jina-embeddings-v5-text-small-retrieval:Q4_K_M",
+    "embedding_model": "rag-embedding",
     "embedding_api_base": "http://localhost:12434/engines/v1",
     "embedding_query_prefix": "Query: ",
     "embedding_document_prefix": "Document: ",

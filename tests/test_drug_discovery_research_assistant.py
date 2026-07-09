@@ -76,12 +76,12 @@ def test_drug_discovery_manifest_uses_source_format_and_shared_blocks():
 def test_drug_discovery_model_profiles_match_vc_style_defaults():
     config = json.loads((BLUEPRINT_DIR / "config" / "default.json").read_text(encoding="utf-8"))
 
-    assert config["llm"]["model"] == "gemma4:e2b"
-    assert config["llm"]["runtime_model"] == "gemma4:e2b"
-    assert config["llm"]["preferred_model"] == "nemotron3"
-    assert config["llm"]["configs"]["primary"]["model"] == "gemma4:e2b"
-    assert config["llm"]["configs"]["large"]["model"] == "nemotron3"
-    assert config["llm"]["small_model_profile"]["runtime_model"] == "gemma4:e2b"
+    assert config["llm"]["model"] == "small"
+    assert config["llm"]["runtime_model"] == "small"
+    assert config["llm"]["preferred_model"] == "medium"
+    assert config["llm"]["configs"]["primary"]["model"] == "small"
+    assert config["llm"]["configs"]["large"]["model"] == "medium"
+    assert config["llm"]["small_model_profile"]["runtime_model"] == "small"
     assert config["llm"]["large_model_profile"]["hardware"]["gpu"] == {
         "min_count": 1,
         "min_memory_mb": 49152,
