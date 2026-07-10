@@ -1,17 +1,17 @@
 {
-  "standard_version": "1.0",
-  "mode": "document_workflow",
+  "standard_version": "mn.blueprint.config.v1",
+  "mode": "review_only",
   "identity": {
-    "blueprint_id": "personal_legal_assistant",
-    "name": "Personal Legal Assistant"
+    "blueprint_id": "legal_assistant",
+    "name": "Legal Assistant"
   },
   "metadata": {
-    "blueprint_id": "personal_legal_assistant",
+    "blueprint_id": "legal_assistant",
     "blueprint_revision": "v1",
     "category": "Legal",
-    "name": "Personal Legal Assistant",
+    "name": "Legal Assistant",
     "description": "A personal legal document co-worker for invoice, bill, and contract review. Put invoices, bills, contracts, clause notes, labels, or supporting files in the input folder; it extracts payable fields, maps contract clauses, compares playbook expectations, flags review issues, and writes a source-grounded review packet to the output folder.",
-    "problem_solved": "Personal and small-business legal work often mixes payable documents with contracts and obligations; users need one local review assistant that keeps invoice facts, contract clauses, evidence, and approval boundaries together.",
+    "problem": "Personal and small-business legal work often mixes payable documents with contracts and obligations; users need one local review assistant that keeps invoice facts, contract clauses, evidence, and approval boundaries together.",
     "target_users": "Individuals, founders, small-business operators, legal operations teams, in-house reviewers, and attorneys preparing first-pass document packets.",
     "customizable_for": "Personal legal intake, small-business invoice review, vendor contract review, CLM intake, payable approval support, and attorney review preparation.",
     "agent_role": "Local personal legal document assistant that extracts invoice and contract evidence while keeping conclusions review-only."
@@ -20,9 +20,9 @@
     "adapter": "mock",
     "description": "Default sample inputs include one invoice/bill JSON fixture and one contract text fixture.",
     "payload": {
-      "document_folder": "personal_legal_assistant/examples/sample_inputs",
-      "input_folder": "personal_legal_assistant/examples/sample_inputs",
-      "output_folder": "~/Downloads/personal_legal_assistant",
+      "document_folder": "legal_assistant/examples/sample_inputs",
+      "input_folder": "legal_assistant/examples/sample_inputs",
+      "output_folder": "~/Downloads/legal_assistant",
       "field_profile": {
         "invoice_fields": [
           "supplier_name",
@@ -56,7 +56,7 @@
   },
   "outputs": {
     "adapter": "local_run_store",
-    "folder_path": "~/Downloads/personal_legal_assistant",
+    "folder_path": "~/Downloads/legal_assistant",
     "run_root": "~/.mn/runs",
     "write_run_store": true,
     "write_markdown_report": true,
@@ -338,9 +338,12 @@
       "contract clause taxonomy",
       "playbook comparison",
       "privilege and privacy review",
-      "payment and legal action blockers"
+      "payment and legal action blockers",
+      "evidence hierarchy and source traceability",
+      "calculation invariance and assumption clarity",
+      "cross-domain reconciliation and report quality"
     ],
-    "grounding_policy": "Use retrieved local blueprint knowledge to improve actor prompts; do not invent legal conclusions when retrieval is unavailable.",
+    "grounding_policy": "Use retrieved or bundled local blueprint knowledge to improve actor prompts; preserve deterministic outputs, cite supplied evidence, and label unknowns when retrieval is unavailable.",
     "namespace": "",
     "embedding_provider": "docker_model_runner",
     "embedding_model": "rag-embedding",
@@ -379,22 +382,40 @@
       "finish"
     ],
     "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run",
-    "default_mode": "bounded_llm_guided_personal_legal_document_review",
+    "default_mode": "bounded_llm_guided_legal_document_review",
     "note": "Document actors may use OCR and local playbook guidance; uncertain legal or payable values remain review-required."
   },
   "input_skills": {
     "llm_ocr": {
       "skill": "llm_ocr_skill",
       "package": "mirrorneuron-llm-ocr-skill",
-      "version": "1.2.7",
-      "optional": true,
-      "purpose": "Optional OCR for image-only invoices, bills, and contract PDFs."
+      "connector": "docker_model_runner",
+      "purpose": "Shared local LightOnOCR-2-1B OCR for scanned invoices, bills, contracts, and legal-support documents.",
+      "enabled": true,
+      "required": false,
+      "backend": "llama.cpp",
+      "endpoint": "http://host.docker.internal:12434",
+      "model": "hf.co/noctrex/LightOnOCR-2-1B-GGUF:Q4_K_M",
+      "quantization": "Q4_K_M",
+      "min_text_chars": 40,
+      "max_pages": null,
+      "preload": true,
+      "install_policy": "runtime",
+      "remove_policy": "manual",
+      "require_hardware_acceleration": true,
+      "timeout_seconds": 180
     }
   },
   "output_skills": {},
   "skill_runtime": {
+    "enabled": true,
+    "auto_patch": false,
+    "driver": "docker_worker",
+    "install_scope": "shared_job_container",
     "docker_worker_image": "document_workflow/docker_worker",
-    "network": "mirror-neuron-runtime"
+    "image": "mirror-neuron/legal-assistant:local",
+    "network": "mirror-neuron-runtime",
+    "node_scope": "legal_assistant_python_executor_nodes"
   },
   "document_automation": {
     "fields": {
@@ -421,7 +442,7 @@
         "liability"
       ]
     },
-    "output_type": "personal_legal_assistant_report",
+    "output_type": "legal_assistant_report",
     "review_required": true,
     "recommended_action": "attorney_and_human_review_required_before_legal_payment_or_contract_action"
   },
@@ -655,7 +676,7 @@
     "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
     "conversation_enabled": true,
     "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
-    "namespace": "personal_legal_assistant_context",
+    "namespace": "legal_assistant_context",
     "collection": "mn_memory",
     "sdk_distribution": "mirrorneuron-membrane-python-sdk",
     "sdk_import_package": "mn_context_engine_sdk",
