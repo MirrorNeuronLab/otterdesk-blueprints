@@ -1294,6 +1294,15 @@
         "backend": "llama.cpp",
         "required": true
       },
+      "ocr": {
+        "provider": "docker_model_runner",
+        "model": "hf.co/noctrex/LightOnOCR-2-1B-GGUF:Q4_K_M",
+        "runtime_model": "hf.co/noctrex/LightOnOCR-2-1B-GGUF:Q4_K_M",
+        "backend": "llama.cpp",
+        "context_size": 4096,
+        "required": true,
+        "purpose": "document_ocr"
+      },
       "large": {
         "provider": "docker_model_runner",
         "model": "medium",

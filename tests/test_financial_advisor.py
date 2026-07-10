@@ -116,6 +116,18 @@ def test_financial_advisor_manifest_uses_source_format_and_shared_blocks():
     groups = manifest["workers"]["groups"]
     assert any(group["with"]["stereotype"] == "public_browser_worker" for group in groups)
     assert any(group["with"]["stereotype"] == "internal_write_worker" for group in groups)
+    assert manifest["runtime"]["models"]["ocr"] == {
+        "provider": "docker_model_runner",
+        "model": "hf.co/noctrex/LightOnOCR-2-1B-GGUF:Q4_K_M",
+        "runtime_model": "hf.co/noctrex/LightOnOCR-2-1B-GGUF:Q4_K_M",
+        "backend": "llama.cpp",
+        "context_size": 4096,
+        "required": True,
+        "purpose": "document_ocr",
+    }
+    ocr_config = json.loads((ROOT / "financial_advisor" / "config" / "default.json").read_text(encoding="utf-8"))["input_skills"]["llm_ocr"]
+    assert ocr_config["install_policy"] == "runtime"
+    assert ocr_config["model"] == "hf.co/noctrex/LightOnOCR-2-1B-GGUF:Q4_K_M"
 
 
 def test_financial_advisor_model_profiles_assign_large_to_heavy_nodes():
@@ -331,7 +343,7 @@ def test_financial_advisor_reader_routes_pdf_and_images_through_ocr_skill(monkey
     assert document["metadata"]["ocr_model"] == "LightOnOCR-2-1B"
 
 
-def test_financial_advisor_ocr_runtime_is_lazy_and_uses_skill_factory(monkeypatch):
+def test_financial_advisor_ocr_runtime_uses_runtime_managed_skill_factory(monkeypatch):
     runner = _load_runner()
 
     class FakeOcrClient:
@@ -347,7 +359,7 @@ def test_financial_advisor_ocr_runtime_is_lazy_and_uses_skill_factory(monkeypatc
     monkeypatch.setattr(runner, "docker_ocr_client_factory_from_config", factory)
     monkeypatch.setattr(runner, "extract_document", object())
     ctx = {
-        "config": {"input_skills": {"llm_ocr": {"enabled": True}}},
+        "config": {"input_skills": {"llm_ocr": {"enabled": True, "install_policy": "runtime"}}},
         "payload": {},
         "llm": type("LiveLLM", (), {"provider": "docker_model_runner"})(),
     }
@@ -356,7 +368,7 @@ def test_financial_advisor_ocr_runtime_is_lazy_and_uses_skill_factory(monkeypatc
 
     assert factory_calls == 1
     assert isinstance(client, FakeOcrClient)
-    assert status["status"] == "ready_for_lazy_first_use"
+    assert status["status"] == "ready_for_runtime_managed_first_use"
     assert status["runtime_model"].endswith("Q4_K_M")
 
 

@@ -483,12 +483,19 @@ def _ocr_disabled_for_fake_run(ctx: dict[str, Any]) -> bool:
 def build_ocr_runtime(ctx: dict[str, Any]) -> tuple[Any | None, dict[str, Any]]:
     section = (ctx["config"].get("input_skills") or {}).get("llm_ocr")
     section = section if isinstance(section, dict) else {}
+    install_policy = str(section.get("install_policy") or "on_first_required_document")
+    runtime_managed = install_policy.strip().lower().replace("-", "_") in {
+        "runtime",
+        "runtime_managed",
+        "preinstalled",
+        "pre_installed",
+    }
     status: dict[str, Any] = {
         "enabled": section.get("enabled", True) is not False,
         "skill_available": extract_document is not None and docker_ocr_client_factory_from_config is not None,
         "configured": False,
         "status": "not_needed",
-        "install_policy": section.get("install_policy", "on_first_required_document"),
+        "install_policy": install_policy,
         "trigger": "PDF/image with less than 40 embedded characters",
         "source_model": "lightonai/LightOnOCR-2-1B",
         "warnings": [],
@@ -516,7 +523,7 @@ def build_ocr_runtime(ctx: dict[str, Any]) -> tuple[Any | None, dict[str, Any]]:
         status.update(
             {
                 "configured": True,
-                "status": "ready_for_lazy_first_use",
+                "status": "ready_for_runtime_managed_first_use" if runtime_managed else "ready_for_lazy_first_use",
                 "runtime_model": getattr(model_config, "model", None),
                 "backend": getattr(model_config, "backend", None),
                 "expected_accelerator": getattr(model_config, "expected_accelerator", None),
