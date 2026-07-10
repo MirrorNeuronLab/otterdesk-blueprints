@@ -9,6 +9,10 @@ Create one financial-advisor blueprint that covers bank statement extraction, ta
 - Local document folder containing statements, receipts, bills, income records, tax forms, tax-form images with answer files, brokerage statements, JSON, CSV, text, or PDFs.
 - Optional tax year, filing status, taxpayer profile, portfolio holdings, benchmark weights, risk policy, and market notes.
 
+## OCR
+
+PDFs and document images use `mirrorneuron-llm-ocr-skill`. Embedded PDF text is preferred when it is substantial; image-only or low-text documents are sent to the shared LightOnOCR-2-1B Docker Model Runner service. The OCR skill lazily pulls and starts the compatible model on first required use, and the workflow preserves OCR-required status, extraction method, model metadata, page metadata, and warnings for human review.
+
 ## Outputs
 
 - `final_artifact.json`

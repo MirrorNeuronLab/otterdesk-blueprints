@@ -297,6 +297,94 @@ def test_financial_advisor_smoke_run_writes_integrated_artifacts(tmp_path):
     assert "## LLM Cash-Flow Review" in markdown
     assert "## LLM Tax Review" in markdown
     assert "## LLM Portfolio Review" in markdown
+    assert "## Document Ingestion and OCR" in markdown
+    assert artifact["document_ingestion"]["ocr_required_count"] >= 0
+
+
+def test_financial_advisor_reader_routes_pdf_and_images_through_ocr_skill(monkeypatch, tmp_path):
+    runner = _load_runner()
+    image = tmp_path / "statement.png"
+    image.write_bytes(b"synthetic-image")
+    calls: list[dict[str, object]] = []
+
+    def fake_extract(path, **kwargs):
+        calls.append({"path": path, **kwargs})
+        return {
+            "document_type": "bank_statement",
+            "text": "Bank statement\nDeposit 100.00",
+            "ocr_required": False,
+            "extraction_method": "llm_ocr",
+            "warnings": [],
+            "pages": [{"page_number": 1, "text": "Bank statement"}],
+            "metadata": {"ocr_model": "LightOnOCR-2-1B"},
+        }
+
+    monkeypatch.setattr(runner, "extract_document", fake_extract)
+    document = runner.read_document(image, ocr_client=object())
+
+    assert len(calls) == 1
+    assert calls[0]["path"] == image
+    assert calls[0]["min_text_chars"] == 40
+    assert document["kind"] == "bank_statement"
+    assert document["extraction_method"] == "llm_ocr"
+    assert document["ocr_required"] is False
+    assert document["metadata"]["ocr_model"] == "LightOnOCR-2-1B"
+
+
+def test_financial_advisor_ocr_runtime_is_lazy_and_uses_skill_factory(monkeypatch):
+    runner = _load_runner()
+
+    class FakeOcrClient:
+        config = type("Config", (), {"model": "hf.co/noctrex/LightOnOCR-2-1B-GGUF:Q4_K_M", "backend": "llama.cpp", "expected_accelerator": "metal"})()
+
+    factory_calls = 0
+
+    def factory(config):
+        nonlocal factory_calls
+        factory_calls += 1
+        return lambda: FakeOcrClient()
+
+    monkeypatch.setattr(runner, "docker_ocr_client_factory_from_config", factory)
+    monkeypatch.setattr(runner, "extract_document", object())
+    ctx = {
+        "config": {"input_skills": {"llm_ocr": {"enabled": True}}},
+        "payload": {},
+        "llm": type("LiveLLM", (), {"provider": "docker_model_runner"})(),
+    }
+
+    client, status = runner.build_ocr_runtime(ctx)
+
+    assert factory_calls == 1
+    assert isinstance(client, FakeOcrClient)
+    assert status["status"] == "ready_for_lazy_first_use"
+    assert status["runtime_model"].endswith("Q4_K_M")
+
+
+def test_financial_advisor_actor_prompt_includes_role_contract_and_playbook_context():
+    runner = _load_runner()
+    llm = FakeFinancialLLM()
+    config = json.loads((ROOT / "financial_advisor" / "config" / "default.json").read_text(encoding="utf-8"))
+
+    runner.actor_review(
+        config,
+        llm,
+        "tax_llm_reviewer",
+        "Review the draft tax packet.",
+        {"tax_year": 2025, "source_refs": ["sample-w2.txt"]},
+        fallback={"summary": "fallback"},
+        prompt_details=runner.load_prompt("tax-llm-review.md"),
+        active_knowledge=runner.load_financial_knowledge(ROOT / "financial_advisor"),
+    )
+
+    assert len(llm.prompts) == 1
+    system_prompt = llm.prompts[0]["system"]
+    user_payload = json.loads(llm.prompts[0]["user"])
+    assert "Tax LLM Reviewer" in system_prompt
+    assert "Deterministic workflow outputs are authoritative" in system_prompt
+    assert user_payload["role"] == "Tax LLM Reviewer"
+    assert user_payload["knowledge_context"]["playbook"]["id"] == "financial_advisor_playbook"
+    assert any(section["title"] == "Tax Workpapers" for section in user_payload["knowledge_context"]["sections"])
+    assert "evidence_gaps" in user_payload["output_contract"]["required_fields"]
 
 
 def test_financial_advisor_explicit_quick_test_can_use_deterministic_llm(tmp_path):

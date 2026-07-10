@@ -211,6 +211,7 @@ SKILL_NAME_PACKAGES = {
     "websocket_stream": "mirrorneuron-websocket-stream-skill",
 }
 BLUEPRINT_TRANSITIVE_SKILL_PACKAGES = {
+    "financial_advisor": {"mirrorneuron-litellm-communicate-skill"},
     "vc_assistant": {"mirrorneuron-litellm-communicate-skill"},
 }
 

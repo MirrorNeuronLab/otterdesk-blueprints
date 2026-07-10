@@ -15,7 +15,11 @@ from pathlib import Path
 from typing import Any
 
 
-RUNTIME_SKILL_PACKAGES = ("mirrorneuron-blueprint-support-skill",)
+RUNTIME_SKILL_PACKAGES = (
+    "mirrorneuron-blueprint-support-skill",
+    "mirrorneuron-litellm-communicate-skill",
+    "mirrorneuron-llm-ocr-skill",
+)
 
 
 def _bootstrap_runtime() -> None:
@@ -42,13 +46,21 @@ from mn_blueprint_support import (
     start_agent_beacon_thread,
 )
 
+try:
+    from mn_llm_ocr_skill import docker_ocr_client_factory_from_config, extract_document
+except Exception:  # pragma: no cover - optional runtime dependency
+    docker_ocr_client_factory_from_config = None
+    extract_document = None
+
 
 BLUEPRINT_ID = "financial_advisor"
 BLUEPRINT_NAME = "Financial Advisor"
 OUTPUT_TYPE = "financial_advisor_report"
 RECOMMENDED_ACTION = "review_integrated_financial_advisor_packet_before_any_financial_action"
-SUPPORTED_SUFFIXES = {".pdf", ".png", ".jpg", ".jpeg", ".txt", ".json", ".csv", ".md"}
+OCR_SUFFIXES = {".pdf", ".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".webp"}
+SUPPORTED_SUFFIXES = OCR_SUFFIXES | {".txt", ".json", ".csv", ".md"}
 TEXT_SUFFIXES = {".txt", ".json", ".csv", ".md"}
+OCR_MIN_TEXT_CHARS = 40
 HEAVY_MODEL_STEPS = {
     "tax_workpaper_preparer",
     "tax_llm_reviewer",
@@ -118,6 +130,31 @@ PUBLIC_GUIDANCE_SOURCES = [
         "topic": "portfolio risk education",
     },
 ]
+KNOWLEDGE_PLAYBOOK_RELATIVE_PATH = "knowledge/financial_advisor_playbook.md"
+FINANCIAL_JUDGE_RUBRIC = [
+    "method_correctness",
+    "evidence_traceability",
+    "calculation_invariance",
+    "assumption_clarity",
+    "missing_evidence_honesty",
+    "risk_interpretation_quality",
+    "review_only_language",
+    "actionability_without_unauthorized_action",
+]
+KNOWLEDGE_SECTIONS_BY_STEP = {
+    "cash_flow_llm_analyst": ("bank statement", "cash-flow", "evidence hierarchy", "report quality"),
+    "tax_workpaper_preparer": ("tax", "tax form", "evidence hierarchy", "report quality"),
+    "tax_llm_reviewer": ("tax", "tax form", "evidence hierarchy", "report quality"),
+    "portfolio_risk_engine": ("portfolio", "risk", "evidence hierarchy", "report quality"),
+    "portfolio_llm_reviewer": ("portfolio", "risk", "evidence hierarchy", "report quality"),
+    "advisor_review_auditor": ("reconciliation", "audit", "evidence hierarchy", "report quality"),
+    "financial_advice_reporter": ("report quality", "reconciliation", "review boundary", "evidence hierarchy"),
+}
+REVIEW_PROMPT_FILES = {
+    "cash_flow_llm_analyst": "cash-flow-llm-review.md",
+    "tax_llm_reviewer": "tax-llm-review.md",
+    "portfolio_llm_reviewer": "portfolio-llm-review.md",
+}
 PROMPTS = PromptLibrary.from_script(__file__, parents_up=2)
 
 
@@ -127,6 +164,104 @@ def load_prompt(name: str) -> str:
 
 def render_prompt(name: str, **values: str) -> str:
     return PROMPTS.render(name, **values)
+
+
+def financial_knowledge_search_roots(blueprint_dir: Path) -> list[Path]:
+    roots = [blueprint_dir, blueprint_dir / "payloads"]
+    bundle_dir = os.environ.get("MN_BLUEPRINT_BUNDLE_DIR")
+    if bundle_dir:
+        roots.append(Path(bundle_dir).expanduser())
+    script_path = Path(__file__).resolve()
+    roots.extend([script_path.parents[1], script_path.parents[2], script_path.parents[3]])
+    unique_roots: list[Path] = []
+    for root in roots:
+        if root not in unique_roots:
+            unique_roots.append(root)
+    return unique_roots
+
+
+def load_financial_knowledge(blueprint_dir: Path) -> dict[str, Any]:
+    playbook_path = next(
+        (
+            root / KNOWLEDGE_PLAYBOOK_RELATIVE_PATH
+            for root in financial_knowledge_search_roots(blueprint_dir)
+            if (root / KNOWLEDGE_PLAYBOOK_RELATIVE_PATH).exists()
+        ),
+        blueprint_dir / KNOWLEDGE_PLAYBOOK_RELATIVE_PATH,
+    )
+    try:
+        content = playbook_path.read_text(encoding="utf-8")
+    except OSError:
+        content = ""
+    return {
+        "id": "financial_advisor_playbook",
+        "title": "Financial Advisor Evidence And Review Playbook",
+        "path": KNOWLEDGE_PLAYBOOK_RELATIVE_PATH,
+        "resolved_path": str(playbook_path),
+        "sha256": hashlib.sha256(content.encode("utf-8")).hexdigest() if content else "",
+        "content": content[:24000],
+        "judge_rubric": list(FINANCIAL_JUDGE_RUBRIC),
+        "domain_guard": "Use financial-advisor knowledge for review-only household finance, tax intake, and portfolio risk analysis; do not turn it into personalized execution advice.",
+    }
+
+
+def financial_knowledge_reference(active_knowledge: dict[str, Any] | None) -> dict[str, Any]:
+    knowledge = active_knowledge or {}
+    return {
+        "id": knowledge.get("id"),
+        "title": knowledge.get("title"),
+        "path": knowledge.get("path"),
+        "sha256": knowledge.get("sha256"),
+        "judge_rubric": list(knowledge.get("judge_rubric") or FINANCIAL_JUDGE_RUBRIC),
+        "domain_guard": knowledge.get("domain_guard"),
+    }
+
+
+def _knowledge_sections(content: str) -> list[dict[str, str]]:
+    sections: list[dict[str, str]] = []
+    current_title = "Overview"
+    current_lines: list[str] = []
+    for line in content.splitlines():
+        if line.startswith("## "):
+            if current_lines:
+                sections.append({"title": current_title, "content": "\n".join(current_lines).strip()})
+            current_title = line[3:].strip()
+            current_lines = []
+            continue
+        if not line.startswith("# "):
+            current_lines.append(line)
+    if current_lines:
+        sections.append({"title": current_title, "content": "\n".join(current_lines).strip()})
+    return [section for section in sections if section["content"]]
+
+
+def knowledge_context_for_step(active_knowledge: dict[str, Any] | None, step_id: str, *, max_chars: int = 9000) -> dict[str, Any]:
+    knowledge = active_knowledge or {}
+    content = str(knowledge.get("content") or "")
+    terms = tuple(term.lower() for term in KNOWLEDGE_SECTIONS_BY_STEP.get(step_id, ("evidence hierarchy", "review boundary", "report quality")))
+    matched = [
+        section
+        for section in _knowledge_sections(content)
+        if any(term in section["title"].lower() for term in terms)
+    ]
+    if not matched:
+        matched = _knowledge_sections(content)[:2]
+    selected: list[dict[str, str]] = []
+    used_chars = 0
+    for section in matched:
+        remaining = max_chars - used_chars
+        if remaining <= 80:
+            break
+        section_content = section["content"][:remaining]
+        selected.append({"title": section["title"], "content": section_content})
+        used_chars += len(section_content)
+    return {
+        "playbook": financial_knowledge_reference(knowledge),
+        "sections": selected,
+        "judge_rubric": list(knowledge.get("judge_rubric") or FINANCIAL_JUDGE_RUBRIC),
+        "retrieval_status": "static_blueprint_playbook" if selected else "unavailable",
+        "instruction": "Treat this as domain guidance. Apply only when supported by the supplied artifacts; label unknowns and assumptions instead of filling gaps.",
+    }
 
 
 class DeterministicLLM(DeterministicFallbackLLM):
@@ -335,8 +470,110 @@ def iter_input_files(document_folder: Path) -> list[Path]:
     )
 
 
-def read_document(path: Path) -> dict[str, Any]:
+def _ocr_skill_config(config: dict[str, Any]) -> dict[str, Any]:
+    input_skills = config.get("input_skills") if isinstance(config.get("input_skills"), dict) else {}
+    return {"input_skills": input_skills}
+
+
+def _ocr_disabled_for_fake_run(ctx: dict[str, Any]) -> bool:
+    provider = str(getattr(ctx.get("llm"), "provider", "") or "").strip().lower()
+    return provider in {"fake", "mock", "deterministic", "test"} or fake_llm_requested(ctx["config"], ctx.get("payload"))
+
+
+def build_ocr_runtime(ctx: dict[str, Any]) -> tuple[Any | None, dict[str, Any]]:
+    section = (ctx["config"].get("input_skills") or {}).get("llm_ocr")
+    section = section if isinstance(section, dict) else {}
+    status: dict[str, Any] = {
+        "enabled": section.get("enabled", True) is not False,
+        "skill_available": extract_document is not None and docker_ocr_client_factory_from_config is not None,
+        "configured": False,
+        "status": "not_needed",
+        "install_policy": section.get("install_policy", "on_first_required_document"),
+        "trigger": "PDF/image with less than 40 embedded characters",
+        "source_model": "lightonai/LightOnOCR-2-1B",
+        "warnings": [],
+    }
+    if not status["enabled"]:
+        status["status"] = "disabled"
+        status["warnings"].append("llm_ocr_disabled_in_config")
+        return None, status
+    if _ocr_disabled_for_fake_run(ctx):
+        status["status"] = "disabled_for_fake_or_quick_test"
+        status["warnings"].append("llm_ocr_skipped_for_explicit_fake_or_quick_test")
+        return None, status
+    if not status["skill_available"]:
+        status["status"] = "skill_unavailable"
+        status["warnings"].append("mirrorneuron_llm_ocr_skill_unavailable")
+        return None, status
+    try:
+        factory = docker_ocr_client_factory_from_config(_ocr_skill_config(ctx["config"]))
+        if factory is None:
+            status["status"] = "disabled_by_skill_config"
+            status["warnings"].append("llm_ocr_factory_disabled")
+            return None, status
+        client = factory()
+        model_config = getattr(client, "config", None)
+        status.update(
+            {
+                "configured": True,
+                "status": "ready_for_lazy_first_use",
+                "runtime_model": getattr(model_config, "model", None),
+                "backend": getattr(model_config, "backend", None),
+                "expected_accelerator": getattr(model_config, "expected_accelerator", None),
+            }
+        )
+        return client, status
+    except Exception as exc:  # pragma: no cover - depends on local OCR runtime
+        status["status"] = "configuration_failed"
+        status["warnings"].append(f"llm_ocr_configuration_failed:{exc}")
+        return None, status
+
+
+def _read_ocr_document(path: Path, ocr_client: Any | None) -> dict[str, Any]:
+    record = extract_document(
+        path,
+        classifier=lambda text, filename: classify_document(filename, text),
+        llm_ocr_client=ocr_client,
+        min_text_chars=OCR_MIN_TEXT_CHARS,
+    )
+    payload = record.to_dict() if hasattr(record, "to_dict") else dict(record)
+    text = str(payload.get("text") or "")
+    return {
+        "source_ref": path.name,
+        "path": str(path),
+        "suffix": path.suffix.lower(),
+        "kind": str(payload.get("document_type") or classify_document(path.name, text)),
+        "text": text[:12000],
+        "data": None,
+        "warnings": [str(item) for item in (payload.get("warnings") or [])],
+        "fingerprint": fingerprint_file(path),
+        "ocr_required": bool(payload.get("ocr_required")),
+        "extraction_method": str(payload.get("extraction_method") or "image"),
+        "pages": payload.get("pages") or [],
+        "metadata": payload.get("metadata") or {},
+    }
+
+
+def read_document(path: Path, *, ocr_client: Any | None = None) -> dict[str, Any]:
     suffix = path.suffix.lower()
+    if suffix in OCR_SUFFIXES and extract_document is not None:
+        try:
+            return _read_ocr_document(path, ocr_client)
+        except Exception as exc:
+            return {
+                "source_ref": path.name,
+                "path": str(path),
+                "suffix": suffix,
+                "kind": classify_document(path.name, ""),
+                "text": "",
+                "data": None,
+                "warnings": [f"ocr_document_read_error:{exc}", "image_or_pdf_requires_ocr_review"],
+                "fingerprint": fingerprint_file(path),
+                "ocr_required": True,
+                "extraction_method": "ocr_error",
+                "pages": [],
+                "metadata": {},
+            }
     text = ""
     data: Any = None
     warnings: list[str] = []
@@ -347,6 +584,7 @@ def read_document(path: Path) -> dict[str, Any]:
             warnings.append(f"read_error:{exc}")
     else:
         warnings.append("binary_or_scanned_document_requires_ocr_for_text")
+        warnings.append("mirrorneuron_llm_ocr_skill_unavailable")
     if suffix == ".json" and text:
         try:
             data = json.loads(text)
@@ -362,6 +600,10 @@ def read_document(path: Path) -> dict[str, Any]:
         "data": data,
         "warnings": warnings,
         "fingerprint": fingerprint_file(path),
+        "ocr_required": suffix in OCR_SUFFIXES,
+        "extraction_method": "embedded_text" if text else "unreadable_or_binary",
+        "pages": [],
+        "metadata": {},
     }
 
 
@@ -649,8 +891,14 @@ def actor_review(
     *,
     fallback: dict[str, Any] | None = None,
     prompt_details: str = "",
+    active_knowledge: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     profile = step_model_profile(config, step_id)
+    llm_config = config.get("llm") if isinstance(config.get("llm"), dict) else {}
+    agents = llm_config.get("agents") if isinstance(llm_config.get("agents"), dict) else {}
+    actor_spec = agents.get(step_id) if isinstance(agents.get(step_id), dict) else {}
+    role = str(actor_spec.get("role") or step_id.replace("_", " ").title())
+    responsibilities = [str(item) for item in actor_spec.get("responsibilities", []) if str(item)]
     default_fallback = {
         "actor_id": step_id,
         "summary": summary,
@@ -670,13 +918,37 @@ def actor_review(
     else:
         try:
             response = llm.generate_json(
-                system_prompt=render_prompt("actor-review-system.md", prompt_details=prompt_details),
+                system_prompt=render_prompt(
+                    "actor-review-system.md",
+                    actor_id=step_id,
+                    role=role,
+                    responsibilities="\n".join(f"- {item}" for item in responsibilities) or "- Preserve source-grounded, review-only output.",
+                    prompt_details=prompt_details,
+                ),
                 user_prompt=json.dumps(
                     {
                         "actor_id": step_id,
+                        "role": role,
+                        "responsibilities": responsibilities,
                         "model_profile": profile,
                         "task": summary,
                         "context": redact_value(context),
+                        "knowledge_context": knowledge_context_for_step(active_knowledge, step_id),
+                        "output_contract": {
+                            "required_fields": [
+                                "summary",
+                                "key_findings",
+                                "review_questions",
+                                "evidence_gaps",
+                                "risk_flags",
+                                "next_steps",
+                                "confidence",
+                                "review_only",
+                                "source_refs",
+                            ],
+                            "source_ref_rule": "Use only supplied local source_refs or explicitly supplied public source URLs.",
+                            "unknown_rule": "If evidence is absent, say unknown or review-required; never infer a financial fact.",
+                        },
                         "fallback_shape": fallback,
                     },
                     sort_keys=True,
@@ -796,7 +1068,8 @@ def review_artifact(
         summary,
         context,
         fallback=fallback,
-        prompt_details=load_prompt("review-artifact-fields.md"),
+        prompt_details=load_prompt(REVIEW_PROMPT_FILES.get(step_id, "review-artifact-fields.md")),
+        active_knowledge=ctx.get("active_knowledge"),
     )
     return normalize_review_response(response, fallback, source_refs)
 
@@ -815,7 +1088,8 @@ def step_financial_folder_watcher(ctx: dict[str, Any]) -> dict[str, Any]:
 
 
 def step_financial_document_reader(ctx: dict[str, Any]) -> dict[str, Any]:
-    docs = [read_document(path) for path in iter_input_files(ctx["document_folder"])]
+    ocr_client, ocr_status = build_ocr_runtime(ctx)
+    docs = [read_document(path, ocr_client=ocr_client) for path in iter_input_files(ctx["document_folder"])]
     counts: dict[str, int] = {}
     for doc in docs:
         counts[doc["kind"]] = counts.get(doc["kind"], 0) + 1
@@ -824,7 +1098,10 @@ def step_financial_document_reader(ctx: dict[str, Any]) -> dict[str, Any]:
         "document_count": len(docs),
         "kind_counts": counts,
         "source_refs": [doc["source_ref"] for doc in docs],
-        "warnings": [warning for doc in docs for warning in doc.get("warnings", [])],
+        "warnings": list(ocr_status.get("warnings") or []) + [warning for doc in docs for warning in doc.get("warnings", [])],
+        "ocr": ocr_status,
+        "ocr_required_sources": [doc["source_ref"] for doc in docs if doc.get("ocr_required")],
+        "ocr_required_count": len([doc for doc in docs if doc.get("ocr_required")]),
     }
 
 
@@ -1152,6 +1429,7 @@ def step_tax_workpaper_preparer(ctx: dict[str, Any]) -> dict[str, Any]:
             ],
         },
         prompt_details=load_prompt("tax-llm-review.md"),
+        active_knowledge=ctx.get("active_knowledge"),
     )
     blockers = list(router.get("missing_recommended_forms") or [])
     if tax_capture.get("review_required_sources"):
@@ -1375,6 +1653,7 @@ def step_portfolio_risk_engine(ctx: dict[str, Any]) -> dict[str, Any]:
             ],
         },
         prompt_details=load_prompt("portfolio-llm-review.md"),
+        active_knowledge=ctx.get("active_knowledge"),
     )
     return {
         "base_currency": portfolio.get("base_currency", "USD"),
@@ -1615,6 +1894,7 @@ def step_advisor_review_auditor(ctx: dict[str, Any]) -> dict[str, Any]:
             ],
         },
         prompt_details=load_prompt("advisor-review-auditor.md"),
+        active_knowledge=ctx.get("active_knowledge"),
     )
     return {
         "issues": issues,
@@ -1674,6 +1954,14 @@ def build_final_artifact(ctx: dict[str, Any]) -> dict[str, Any]:
         },
         "research_sources": workflow["public_finance_researcher"].get("sources", []),
         "research_warnings": warnings,
+        "knowledge_grounding": financial_knowledge_reference(ctx.get("active_knowledge")),
+        "document_ingestion": {
+            "document_count": workflow["financial_document_reader"].get("document_count", 0),
+            "kind_counts": workflow["financial_document_reader"].get("kind_counts", {}),
+            "ocr": workflow["financial_document_reader"].get("ocr", {}),
+            "ocr_required_count": workflow["financial_document_reader"].get("ocr_required_count", 0),
+            "ocr_required_sources": workflow["financial_document_reader"].get("ocr_required_sources", []),
+        },
         "bank_statement_extraction": workflow["bank_statement_extractor"],
         "household_finance_summary": cash,
         "llm_analysis": {
@@ -1713,6 +2001,7 @@ def markdown_review_section(title: str, review: dict[str, Any]) -> list[str]:
 
 
 def markdown_report(final_artifact: dict[str, Any]) -> str:
+    document_ingestion = final_artifact.get("document_ingestion") or {}
     bank = final_artifact["bank_statement_extraction"]
     cash = final_artifact["household_finance_summary"]
     llm_analysis = final_artifact.get("llm_analysis") or {}
@@ -1723,6 +2012,14 @@ def markdown_report(final_artifact: dict[str, Any]) -> str:
         "# Financial Advisor Report",
         "",
         final_artifact["executive_summary"],
+        "",
+        "## Document Ingestion and OCR",
+        "",
+        f"- Documents: {document_ingestion.get('document_count', 0)}",
+        f"- OCR status: {(document_ingestion.get('ocr') or {}).get('status', 'not reported')}",
+        f"- OCR runtime model: {(document_ingestion.get('ocr') or {}).get('runtime_model') or 'selected automatically by the OCR skill'}",
+        f"- OCR-required sources: {', '.join(document_ingestion.get('ocr_required_sources') or ['none'])}",
+        "- OCR note: image-only or low-text sources remain review-required until extracted text is verified against the source document.",
         "",
         "## Bank Statement Extraction",
         "",
@@ -1792,6 +2089,7 @@ def step_financial_advice_reporter(ctx: dict[str, Any]) -> dict[str, Any]:
             ],
         },
         prompt_details=load_prompt("financial-advice-reporter.md"),
+        active_knowledge=ctx.get("active_knowledge"),
     )
     ctx["state"].setdefault("actor_findings", {})["financial_advice_reporter"] = finding
     final_artifact = build_final_artifact(ctx)
@@ -2066,6 +2364,7 @@ def build_context(
         "started_at": started_at,
         "llm": llm,
         "state": state,
+        "active_knowledge": load_financial_knowledge(root),
     }
 
 

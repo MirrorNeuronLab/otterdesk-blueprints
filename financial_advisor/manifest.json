@@ -172,9 +172,12 @@
         "field location validation",
         "tax workpaper routing",
         "portfolio risk interpretation",
-        "human approval boundaries"
+        "human approval boundaries",
+        "evidence hierarchy and source traceability",
+        "calculation invariance and assumption clarity",
+        "cross-domain reconciliation and report quality"
       ],
-      "grounding_policy": "Use retrieved local blueprint knowledge to improve actor prompts; do not invent facts when retrieval is unavailable.",
+      "grounding_policy": "Use retrieved or bundled local blueprint knowledge to improve actor prompts; preserve deterministic outputs, cite supplied evidence, and label unknowns when retrieval is unavailable.",
       "redis_url": "",
       "namespace": "",
       "embedding_provider": "docker_model_runner",
@@ -424,7 +427,7 @@
         "id": "financial_document_reader",
         "kind": "stage",
         "label": "Financial Document Reader",
-        "goal": "Read local text, JSON, CSV, PDF/image metadata, and classify finance, tax, bank statement, and portfolio evidence.",
+        "goal": "Read local text, JSON, CSV, and PDF/image evidence; use shared LightOnOCR for low-text or image-only documents; classify finance, tax, bank statement, and portfolio evidence.",
         "requires": [
           "financial_advisor.financial_folder_watcher.ready"
         ],
@@ -1320,9 +1323,12 @@
       "field location validation",
       "tax workpaper routing",
       "portfolio risk interpretation",
-      "human approval boundaries"
+      "human approval boundaries",
+      "evidence hierarchy and source traceability",
+      "calculation invariance and assumption clarity",
+      "cross-domain reconciliation and report quality"
     ],
-    "grounding_policy": "Use retrieved local blueprint knowledge to improve actor prompts; do not invent facts when retrieval is unavailable.",
+    "grounding_policy": "Use retrieved or bundled local blueprint knowledge to improve actor prompts; preserve deterministic outputs, cite supplied evidence, and label unknowns when retrieval is unavailable.",
     "redis_url": "",
     "namespace": "",
     "embedding_provider": "docker_model_runner",
@@ -1376,6 +1382,12 @@
       "source": "gar",
       "name": "mirrorneuron-blueprint-support-skill",
       "version": "1.2.8"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mirrorneuron-litellm-communicate-skill",
+      "version": "1.2.7"
     },
     {
       "type": "pip",
