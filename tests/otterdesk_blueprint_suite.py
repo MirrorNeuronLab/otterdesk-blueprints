@@ -29,7 +29,7 @@ FOLDER_INPUT_FIELDS = {
     "financial_advisor": {"document_folder", "input_folder", "output_folder"},
     "generic_customer_service_voice_coworker": {"input_folder", "output_folder"},
     "medical_deid_record_intake_assistant": {"document_folder", "output_folder"},
-    "personal_legal_assistant": {"document_folder", "input_folder", "output_folder"},
+    "legal_assistant": {"document_folder", "input_folder", "output_folder"},
     "property_deal_research_assistant": {"input_folder", "output_folder"},
     "safety_video_analyser": {"input_folder", "output_folder"},
     "vc_assistant": {"document_folder", "output_folder"},
@@ -768,7 +768,7 @@ def test_otterdesk_blueprints_declare_product_experience_contracts():
         "video_watch_assistant": "notice_only",
         "generic_customer_service_voice_coworker": "notice_only",
         "medical_deid_record_intake_assistant": "approval_required",
-        "personal_legal_assistant": "approval_required",
+        "legal_assistant": "approval_required",
         "vc_assistant": "approval_required",
     }
     required_schema_keys = {
@@ -1007,7 +1007,7 @@ def test_product_ready_llm_configs_use_explicit_live_docker_model_runner_profile
     targets = {
         "drug_discovery_research_assistant",
         "medical_deid_record_intake_assistant",
-        "personal_legal_assistant",
+        "legal_assistant",
         "property_deal_research_assistant",
     }
     for blueprint_id in sorted(targets):
@@ -1068,7 +1068,7 @@ EXPECTED_BATCH_SUGGESTED_SCHEDULES = {
     "drug_discovery_research_assistant": {"cron": "0 8 * * 1", "cadence": "weekly"},
     "financial_advisor": {"cron": "0 8 * * *", "cadence": "daily"},
     "medical_deid_record_intake_assistant": {"cron": "0 * * * *", "cadence": "hourly"},
-    "personal_legal_assistant": {"cron": "0 8 * * 1-5", "cadence": "weekday_daily"},
+    "legal_assistant": {"cron": "0 8 * * 1-5", "cadence": "weekday_daily"},
     "property_deal_research_assistant": {"cron": "0 8 * * 1", "cadence": "weekly"},
     "safety_video_analyser": {"cron": "0 2 * * *", "cadence": "daily"},
     "vc_assistant": {"cron": "0 7 * * *", "cadence": "daily"},

@@ -11,7 +11,7 @@ RAG_BLUEPRINTS = {
     "financial_advisor",
     "generic_customer_service_voice_coworker",
     "medical_deid_record_intake_assistant",
-    "personal_legal_assistant",
+    "legal_assistant",
     "property_deal_research_assistant",
     "safety_video_analyser",
     "video_watch_assistant",

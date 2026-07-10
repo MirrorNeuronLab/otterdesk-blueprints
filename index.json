@@ -299,18 +299,18 @@
   },
   {
     "category": "Legal",
-    "description": "A personal legal document co-worker for invoice, bill, and contract review. Put invoices, bills, contracts, clause notes, labels, or supporting files in the input folder; it extracts payable fields, maps contract clauses, compares playbook expectations, flags review issues, and writes a source-grounded review packet to the output folder.",
-    "id": "personal_legal_assistant",
-    "job_name": "personal-legal-assistant",
-    "name": "Personal Legal Assistant",
-    "path": "personal_legal_assistant",
+    "description": "A legal document co-worker for invoice, bill, and contract review. Put invoices, bills, contracts, clause notes, labels, or supporting files in the input folder; it extracts payable fields, maps contract clauses, compares playbook expectations, flags review issues, and writes a source-grounded review packet to the output folder.",
+    "id": "legal_assistant",
+    "job_name": "legal-assistant",
+    "name": "Legal Assistant",
+    "path": "legal_assistant",
     "product": {
-      "agent_role": "Local personal legal document assistant that extracts invoice and contract evidence while keeping conclusions review-only.",
+      "agent_role": "Local legal document assistant that extracts invoice and contract evidence while keeping conclusions review-only.",
       "benefit": "Combines payable extraction and contract clause review into one local, source-grounded review packet.",
-      "customizable_for": "Personal legal intake, small-business invoice review, vendor contract review, CLM intake, payable approval support, and attorney review preparation.",
+      "customizable_for": "Individual legal intake, small-business invoice review, vendor contract review, CLM intake, payable approval support, and attorney review preparation.",
       "how_it_works": "Stages a local document folder, extracts embedded text, flags OCR-required documents, extracts invoice fields, maps contract clauses, compares playbook expectations, and writes a human-review packet.",
       "input": "Invoices, bills, contracts, clause notes, labels, and supporting files.",
-      "output": "Review-only personal_legal_assistant_report with invoice extraction, contract clause review, issue register, action ledger, and Markdown report output.",
+      "output": "Review-only legal_assistant_report with invoice extraction, contract clause review, issue register, action ledger, and Markdown report output.",
       "problem": "Personal and small-business legal work often mixes payable documents with contracts and obligations; users need one local review assistant that keeps invoice facts, contract clauses, evidence, and approval boundaries together.",
       "runtime_features": [
         "local document folder intake",
@@ -327,7 +327,7 @@
       "simulation_type": "Document automation workflow with local OCR and review-gated legal/payable extraction.",
       "target_users": "Individuals, founders, small-business operators, legal operations teams, in-house reviewers, and attorneys preparing first-pass document packets."
     },
-    "workflow_id": "personal_legal_assistant_v1"
+    "workflow_id": "legal_assistant_v1"
   },
   {
     "category": "Healthcare",

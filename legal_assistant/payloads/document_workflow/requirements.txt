@@ -1,2 +1,4 @@
 mirrorneuron-blueprint-support-skill==1.2.8
+mirrorneuron-litellm-communicate-skill==1.2.7
 mirrorneuron-llm-ocr-skill==1.2.7
+mirrorneuron-rag-skill==1.2.15

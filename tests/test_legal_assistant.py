@@ -7,12 +7,12 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-BLUEPRINT_DIR = ROOT / "personal_legal_assistant"
+BLUEPRINT_DIR = ROOT / "legal_assistant"
 RUNNER_PATH = BLUEPRINT_DIR / "payloads" / "document_workflow" / "scripts" / "run_blueprint.py"
 HEAVY_STEPS = {
     "contract_playbook_comparator",
     "legal_review_auditor",
-    "personal_legal_reporter",
+    "legal_reporter",
 }
 WORKFLOW_STEPS = [
     "legal_folder_watcher",
@@ -23,12 +23,12 @@ WORKFLOW_STEPS = [
     "contract_playbook_comparator",
     "legal_evidence_reconciler",
     "legal_review_auditor",
-    "personal_legal_reporter",
+    "legal_reporter",
 ]
 
 
 def _load_runner():
-    spec = importlib.util.spec_from_file_location("personal_legal_assistant_runner", RUNNER_PATH)
+    spec = importlib.util.spec_from_file_location("legal_assistant_runner", RUNNER_PATH)
     module = importlib.util.module_from_spec(spec)
     assert spec and spec.loader
     spec.loader.exec_module(module)
@@ -67,7 +67,7 @@ def _expand_source_manifest(source: dict) -> dict:
 
 class FakeLegalLLM:
     provider = "fake"
-    model = "fake-personal-legal"
+    model = "fake-legal"
 
     def __init__(self) -> None:
         self.calls = 0
@@ -82,12 +82,12 @@ class FakeLegalLLM:
         return response
 
 
-def test_personal_legal_manifest_uses_source_format_and_shared_blocks():
+def test_legal_manifest_uses_source_format_and_shared_blocks():
     manifest = json.loads((BLUEPRINT_DIR / "manifest.json").read_text(encoding="utf-8"))
 
     assert manifest["apiVersion"] == "mn.workflow.source/v1"
     assert manifest["kind"] == "WorkflowSource"
-    assert manifest["identity"]["id"] == "personal_legal_assistant"
+    assert manifest["identity"]["id"] == "legal_assistant"
     assert "nodes" not in manifest.get("agents", {})
     assert "edges" not in manifest.get("agents", {})
     assert [step["id"] for step in manifest["workflow"]["steps"]] == WORKFLOW_STEPS
@@ -102,7 +102,7 @@ def test_personal_legal_manifest_uses_source_format_and_shared_blocks():
     assert any(group["with"]["stereotype"] == "internal_write_worker" for group in groups)
 
 
-def test_personal_legal_model_profiles_assign_large_to_heavy_nodes():
+def test_legal_model_profiles_assign_large_to_heavy_nodes():
     config = json.loads((BLUEPRINT_DIR / "config" / "default.json").read_text(encoding="utf-8"))
     manifest = json.loads((BLUEPRINT_DIR / "manifest.json").read_text(encoding="utf-8"))
 
@@ -124,24 +124,24 @@ def test_personal_legal_model_profiles_assign_large_to_heavy_nodes():
     assert all(item["with"]["llm_config"] == "large" for item in manifest["workers"]["by_step"].values())
 
 
-def test_personal_legal_source_manifest_expands_with_terminal_sink():
+def test_legal_source_manifest_expands_with_terminal_sink():
     source = json.loads((BLUEPRINT_DIR / "manifest.json").read_text(encoding="utf-8"))
     expanded = _expand_source_manifest(source)
 
     node_ids = {node["node_id"] for node in expanded["agents"]["nodes"]}
     assert "report_sink" in node_ids
-    assert "personal_legal_reporter" in node_ids
+    assert "legal_reporter" in node_ids
     assert any(
-        edge["from_node"] == "personal_legal_reporter" and edge["to_node"] == "report_sink"
+        edge["from_node"] == "legal_reporter" and edge["to_node"] == "report_sink"
         for edge in expanded["agents"]["edges"]
     )
-    rendered_reporter = next(node for node in expanded["agents"]["nodes"] if node["node_id"] == "personal_legal_reporter")
+    rendered_reporter = next(node for node in expanded["agents"]["nodes"] if node["node_id"] == "legal_reporter")
     assert rendered_reporter["config"]["llm_config"] == "large"
     assert rendered_reporter["config"]["environment"]["MN_LLM_CONFIG"] == "large"
     assert expanded["runtime"]["resources"]["gpu"] == {"min_count": 0}
 
 
-def test_personal_legal_runner_resolves_config_from_docker_worker_attempt_root(monkeypatch, tmp_path):
+def test_legal_runner_resolves_config_from_docker_worker_attempt_root(monkeypatch, tmp_path):
     runner = _load_runner()
     attempt_root = tmp_path / "runs" / "legal_folder_watcher" / "i1-a1-23108"
     script_path = attempt_root / "document_workflow" / "scripts" / "run_blueprint.py"
@@ -151,7 +151,7 @@ def test_personal_legal_runner_resolves_config_from_docker_worker_attempt_root(m
     config_path.write_text(
         json.dumps(
             {
-                "identity": {"blueprint_id": "personal_legal_assistant"},
+                "identity": {"blueprint_id": "legal_assistant"},
                 "inputs": {"payload": {"document_folder": "docs", "output_folder": str(tmp_path / "out")}},
                 "outputs": {"folder_path": str(tmp_path / "out")},
             }
@@ -166,10 +166,10 @@ def test_personal_legal_runner_resolves_config_from_docker_worker_attempt_root(m
     assert script_path.parents[3] != attempt_root
     assert runner.default_config_path() == config_path
     assert runner.blueprint_dir() == attempt_root
-    assert runner.load_resolved_config()["identity"]["blueprint_id"] == "personal_legal_assistant"
+    assert runner.load_resolved_config()["identity"]["blueprint_id"] == "legal_assistant"
 
 
-def test_personal_legal_smoke_run_writes_merged_artifacts(tmp_path):
+def test_legal_smoke_run_writes_merged_artifacts(tmp_path):
     runner = _load_runner()
     llm = FakeLegalLLM()
     output_folder = tmp_path / "out"
@@ -180,19 +180,29 @@ def test_personal_legal_smoke_run_writes_merged_artifacts(tmp_path):
             "output_folder": str(output_folder),
         },
         runs_root=tmp_path / "runs",
-        run_id="personal-legal-test",
+        run_id="legal-test",
         llm_client=llm,
     )
 
-    assert result["blueprint_id"] == "personal_legal_assistant"
+    assert result["blueprint_id"] == "legal_assistant"
     artifact = result["final_artifact"]
-    assert artifact["type"] == "personal_legal_assistant_report"
+    assert artifact["type"] == "legal_assistant_report"
     assert artifact["invoice_bill_extraction"]["invoice_count"] == 1
     assert artifact["invoice_bill_extraction"]["totals"]["total_amount"] == 1842.66
-    assert artifact["contract_clause_review"]["contract_count"] == 1
+    assert artifact["contract_clause_review"]["contract_count"] >= 1
     assert artifact["contract_clause_review"]["clause_count"] >= 5
-    assert artifact["model_profiles_used"]["personal_legal_reporter"]["llm_config"] == "large"
-    assert (tmp_path / "runs" / "personal-legal-test" / "final_artifact.json").exists()
-    assert (output_folder / "personal_legal_report.md").exists()
+    assert artifact["model_profiles_used"]["legal_reporter"]["llm_config"] == "large"
+    assert (tmp_path / "runs" / "legal-test" / "final_artifact.json").exists()
+    assert (output_folder / "legal_assistant_report.md").exists()
+    assert (output_folder / "legal_deep_review.json").exists()
     assert (output_folder / "invoice_bill_extraction.json").exists()
     assert (output_folder / "contract_clause_review.json").exists()
+
+
+def test_legal_sample_packet_includes_real_public_contract_fixture():
+    sample_dir = BLUEPRINT_DIR / "examples" / "sample_inputs"
+    sample_manifest = json.loads((sample_dir / "SAMPLE_DATASET_MANIFEST.json").read_text(encoding="utf-8"))
+
+    real_fixture = next(item for item in sample_manifest["files"] if item["type"] == "real_public_contract_terms_pdf")
+    assert (sample_dir / real_fixture["path"]).exists()
+    assert real_fixture["source_url"].startswith("https://www.acquisition.gov/")

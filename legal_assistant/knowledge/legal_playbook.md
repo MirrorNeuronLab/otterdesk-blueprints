@@ -1,4 +1,4 @@
-# Personal Legal Assistant Playbook
+# Legal Assistant Playbook
 
 This blueprint merges invoice and bill extraction with contract clause review. It is a review assistant, not a lawyer, accounting system, payment system, or signature workflow.
 
@@ -14,7 +14,7 @@ Do not approve invoices for payment, post to ERP, create vendor records, send re
 
 For contract files, focus on governing law, assignment, change of control, indemnity, termination, audit rights, renewal, exclusivity, and limitation of liability. Store source snippets with each clause classification. Missing or ambiguous clause language should be raised as an attorney-review item rather than filled in from assumptions.
 
-Playbook comparison should identify required clause types that are absent, clauses that require negotiation review, and terms that are especially sensitive for small businesses or personal legal matters. Examples include assignment restrictions, liability caps, indemnity scope, renewal traps, audit rights, and termination cure periods.
+Playbook comparison should identify required clause types that are absent, clauses that require negotiation review, and terms that are especially sensitive for individuals or small businesses. Examples include assignment restrictions, liability caps, indemnity scope, renewal traps, audit rights, and termination cure periods.
 
 Do not provide legal advice, decide whether a contract should be signed, redline final language, contact a counterparty, waive rights, or submit a contract for signature. Every clause finding is source-grounded attorney-review support.
 

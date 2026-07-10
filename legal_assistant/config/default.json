@@ -10,11 +10,11 @@
     "blueprint_revision": "v1",
     "category": "Legal",
     "name": "Legal Assistant",
-    "description": "A personal legal document co-worker for invoice, bill, and contract review. Put invoices, bills, contracts, clause notes, labels, or supporting files in the input folder; it extracts payable fields, maps contract clauses, compares playbook expectations, flags review issues, and writes a source-grounded review packet to the output folder.",
+    "description": "A legal document co-worker for invoice, bill, and contract review. Put invoices, bills, contracts, clause notes, labels, or supporting files in the input folder; it extracts payable fields, maps contract clauses, compares playbook expectations, flags review issues, and writes a source-grounded review packet to the output folder.",
     "problem": "Personal and small-business legal work often mixes payable documents with contracts and obligations; users need one local review assistant that keeps invoice facts, contract clauses, evidence, and approval boundaries together.",
     "target_users": "Individuals, founders, small-business operators, legal operations teams, in-house reviewers, and attorneys preparing first-pass document packets.",
-    "customizable_for": "Personal legal intake, small-business invoice review, vendor contract review, CLM intake, payable approval support, and attorney review preparation.",
-    "agent_role": "Local personal legal document assistant that extracts invoice and contract evidence while keeping conclusions review-only."
+    "customizable_for": "Individual legal intake, small-business invoice review, vendor contract review, CLM intake, payable approval support, and attorney review preparation.",
+    "agent_role": "Local legal document assistant that extracts invoice and contract evidence while keeping conclusions review-only."
   },
   "inputs": {
     "adapter": "mock",
@@ -51,8 +51,45 @@
         "review_context": "personal_or_small_business_document_review",
         "jurisdiction": "not_specified",
         "review_only": true
+      },
+      "review_policy": {
+        "objective": "contract_intake_risk_triage",
+        "audience": "small_business_operator_and_attorney",
+        "focus_areas": [
+          "clause_presence_and_source_traceability",
+          "invoice_and_payment_controls",
+          "termination_and_continuity_risk",
+          "indemnity_and_liability_exposure",
+          "assignment_and_change_of_control_effects",
+          "privacy_privilege_and_missing_evidence"
+        ],
+        "jurisdiction_note": "Use the supplied document's governing framework only; do not generalize federal-contract terms to another matter."
+      },
+      "public_dataset": {
+        "name": "FAR 52.212-4 Contract Terms and Conditions—Commercial Products and Commercial Services",
+        "provider": "U.S. General Services Administration, Acquisition.gov",
+        "url": "https://www.acquisition.gov/far/52.212-4",
+        "download_url": "https://www.acquisition.gov/node/31867/printable/pdf",
+        "license_note": "U.S. government regulatory text; verify current version and source terms before production use.",
+        "availability_note": "Bundled public-domain sample PDF is for local blueprint validation and is not legal advice.",
+        "expected_files": [
+          "*.pdf",
+          "*.txt",
+          "*.json",
+          "*.md"
+        ]
       }
     }
+  },
+  "document_sources": {
+    "folder_path": "legal_assistant/examples/sample_inputs",
+    "expected_files": [
+      "*.pdf",
+      "*.txt",
+      "*.json",
+      "*.md"
+    ],
+    "grouping": "single_legal_review_packet"
   },
   "outputs": {
     "adapter": "local_run_store",
@@ -60,7 +97,17 @@
     "run_root": "~/.mn/runs",
     "write_run_store": true,
     "write_markdown_report": true,
-    "artifact_contract": "Review-only invoice extraction, contract clause review, issue register, action ledger, quality summary, and integrated Markdown report."
+  "domain_artifacts": [
+    "invoice_bill_extraction.json",
+    "contract_clause_review.json",
+    "legal_issue_register.json",
+    "legal_deep_review.json",
+    "legal_assistant_report.md",
+    "action_ledger.json",
+    "artifact_quality.json",
+    "run_health.json"
+  ],
+  "artifact_contract": "Review-only invoice extraction, OCR-aware contract clause review, RAG-grounded deep LLM review, issue register, action ledger, quality summary, and integrated Markdown report."
   },
   "resources": {
     "enabled": true,
@@ -146,7 +193,7 @@
     "quick_test_uses_fake": true,
     "strict_json": false,
     "prefer_shared_skill": true,
-    "require_live": false,
+    "require_live": true,
     "preferred_model": "medium",
     "configs": {
       "primary": {
@@ -157,7 +204,7 @@
         "backend": "llama.cpp",
         "api_base": "auto",
         "timeout_seconds": 60,
-        "max_tokens": 1800,
+        "max_tokens": 2400,
         "num_retries": 2,
         "retry_backoff_seconds": 1.0,
         "mock_mode": "fake",
@@ -170,12 +217,12 @@
         "runtime_model": "medium",
         "backend": "llama.cpp",
         "timeout_seconds": 60,
-        "max_tokens": 1800,
+        "max_tokens": 3600,
         "num_retries": 1,
         "retry_backoff_seconds": 1.0,
         "strict_json": true,
         "require_live": true,
-        "context_size": 8192,
+        "context_size": 16384,
         "quantization": "MOSTLY_Q4_K_M",
         "parameter_count_b": 31.58,
         "required": false,
@@ -196,7 +243,7 @@
       "backend": "llama.cpp",
       "api_base": "auto",
       "timeout_seconds": 60,
-      "max_tokens": 1800,
+      "max_tokens": 2400,
       "num_retries": 2,
       "retry_backoff_seconds": 1.0,
       "strict_json": false,
@@ -210,7 +257,7 @@
       "backend": "llama.cpp",
       "api_base": "auto",
       "timeout_seconds": 60,
-      "max_tokens": 1800,
+      "max_tokens": 2400,
       "num_retries": 2,
       "retry_backoff_seconds": 1.0,
       "strict_json": false,
@@ -222,12 +269,12 @@
       "runtime_model": "medium",
       "backend": "llama.cpp",
       "timeout_seconds": 60,
-      "max_tokens": 1800,
+      "max_tokens": 3600,
       "num_retries": 1,
       "retry_backoff_seconds": 1.0,
       "strict_json": true,
       "require_live": true,
-      "context_size": 8192,
+      "context_size": 16384,
       "quantization": "MOSTLY_Q4_K_M",
       "parameter_count_b": 31.58,
       "hardware": {
@@ -311,11 +358,11 @@
           "Prepare attorney and human-review caveats."
         ]
       },
-      "personal_legal_reporter": {
+      "legal_reporter": {
         "llm_config": "large",
-        "role": "Personal Legal Reporter",
+        "role": "Legal Reporter",
         "responsibilities": [
-          "Write the integrated personal legal review packet.",
+          "Write the integrated legal review packet.",
           "Summarize invoice, bill, contract, and issue-register sections.",
           "Keep all next steps source-grounded and review-only."
         ]
@@ -332,7 +379,7 @@
     "backend": "milvus_lite",
     "required": false,
     "knowledge_dir": "knowledge",
-    "purpose": "Retrieve local personal legal assistant guidance for invoice extraction, contract clause mapping, playbook comparison, privilege/privacy handling, and review-only boundaries.",
+    "purpose": "Retrieve local legal assistant guidance for invoice extraction, contract clause mapping, playbook comparison, privilege/privacy handling, and review-only boundaries.",
     "retrieval_targets": [
       "invoice and bill extraction",
       "contract clause taxonomy",
@@ -368,7 +415,7 @@
       "contract_clause_extractor",
       "contract_playbook_comparator",
       "legal_review_auditor",
-      "personal_legal_reporter"
+      "legal_reporter"
     ],
     "max_iterations_per_agent": 1,
     "max_tool_calls_per_agent": 2,
@@ -462,7 +509,8 @@
           "action_ledger.json",
           "artifact_quality.json",
           "run_health.json",
-          "personal_legal_report.md"
+          "legal_deep_review.json",
+          "legal_assistant_report.md"
         ]
       },
       "knowledge_rag": {
@@ -567,7 +615,7 @@
       "contract_playbook_comparator_completed",
       "legal_evidence_reconciler_completed",
       "legal_review_auditor_completed",
-      "personal_legal_reporter_completed"
+      "legal_reporter_completed"
     ]
   },
   "schemas": {

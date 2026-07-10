@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+import hashlib
 import importlib.util
 import json
 import os
@@ -13,7 +14,12 @@ from pathlib import Path
 from typing import Any
 
 
-RUNTIME_SKILL_PACKAGES = ("mirrorneuron-blueprint-support-skill",)
+RUNTIME_SKILL_PACKAGES = (
+    "mirrorneuron-blueprint-support-skill",
+    "mirrorneuron-litellm-communicate-skill",
+    "mirrorneuron-llm-ocr-skill",
+    "mirrorneuron-rag-skill",
+)
 
 
 def _bootstrap_runtime() -> None:
@@ -35,17 +41,32 @@ from mn_blueprint_support import (
     DeterministicFallbackLLM,
     PromptLibrary,
     append_event_jsonl,
+    get_actor_llm_client,
     load_resolved_config as load_shared_resolved_config,
     start_agent_beacon_thread,
 )
 
+try:
+    from mn_llm_ocr_skill import docker_ocr_client_factory_from_config, extract_document
+except Exception:  # pragma: no cover - optional runtime dependency
+    docker_ocr_client_factory_from_config = None
+    extract_document = None
 
-BLUEPRINT_ID = "personal_legal_assistant"
-BLUEPRINT_NAME = "Personal Legal Assistant"
-OUTPUT_TYPE = "personal_legal_assistant_report"
+try:
+    from mn_rag_skill import build_rag_context, prepare_blueprint_knowledge_rag
+except Exception:  # pragma: no cover - optional runtime dependency
+    build_rag_context = None
+    prepare_blueprint_knowledge_rag = None
+
+
+BLUEPRINT_ID = "legal_assistant"
+BLUEPRINT_NAME = "Legal Assistant"
+OUTPUT_TYPE = "legal_assistant_report"
 RECOMMENDED_ACTION = "attorney_and_human_review_required_before_legal_payment_or_contract_action"
-SUPPORTED_SUFFIXES = {".pdf", ".png", ".jpg", ".jpeg", ".txt", ".json", ".csv", ".md"}
+OCR_SUFFIXES = {".pdf", ".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".webp"}
+SUPPORTED_SUFFIXES = OCR_SUFFIXES | {".txt", ".json", ".csv", ".md"}
 TEXT_SUFFIXES = {".txt", ".json", ".csv", ".md"}
+OCR_MIN_TEXT_CHARS = 40
 INVOICE_FIELDS = [
     "supplier_name",
     "customer_name",
@@ -77,12 +98,12 @@ WORKFLOW_STEPS = [
     "contract_playbook_comparator",
     "legal_evidence_reconciler",
     "legal_review_auditor",
-    "personal_legal_reporter",
+    "legal_reporter",
 ]
 HEAVY_MODEL_STEPS = {
     "contract_playbook_comparator",
     "legal_review_auditor",
-    "personal_legal_reporter",
+    "legal_reporter",
 }
 DATASET_INPUTS = {
     "invoice_bill_extraction": {
@@ -99,8 +120,27 @@ DATASET_INPUTS = {
         "license": "CC BY 4.0",
         "note": "Public commercial contract corpus and clause labels. Bundled samples are small local fixtures for smoke runs.",
     },
+    "real_public_contract_terms": {
+        "name": "FAR 52.212-4 Contract Terms and Conditions—Commercial Products and Commercial Services",
+        "provider": "U.S. General Services Administration, Acquisition.gov",
+        "url": "https://www.acquisition.gov/far/52.212-4",
+        "download_url": "https://www.acquisition.gov/node/31867/printable/pdf",
+        "source_version": "FAC 2026-01; effective 2026-03-13",
+        "license_note": "U.S. government regulatory text; verify current version before production use.",
+    },
 }
 PROMPTS = PromptLibrary.from_script(__file__, parents_up=2)
+REVIEW_PROMPT_FILES = {
+    "legal_folder_watcher": "document-intake-review.md",
+    "legal_document_reader": "document-intake-review.md",
+    "invoice_bill_extractor": "invoice-bill-review.md",
+    "payable_field_validator": "invoice-bill-review.md",
+    "contract_clause_extractor": "contract-clause-review.md",
+    "contract_playbook_comparator": "contract-clause-review.md",
+    "legal_evidence_reconciler": "legal-evidence-reconciler.md",
+    "legal_review_auditor": "legal-review-auditor.md",
+    "legal_reporter": "legal-report-reporter.md",
+}
 
 
 def load_prompt(name: str) -> str:
@@ -111,11 +151,117 @@ def render_prompt(name: str, **values: str) -> str:
     return PROMPTS.render(name, **values)
 
 
+def load_legal_knowledge(blueprint_root: Path) -> dict[str, Any]:
+    playbook_path = blueprint_root / "knowledge" / "legal_playbook.md"
+    content = playbook_path.read_text(encoding="utf-8") if playbook_path.exists() else ""
+    return {
+        "id": "legal_assistant_playbook",
+        "title": "Legal Assistant Evidence And Review Playbook",
+        "path": str(playbook_path),
+        "sha256": hashlib.sha256(content.encode("utf-8")).hexdigest() if content else "",
+        "content": content[:12000],
+        "judge_rubric": [
+            "clause_or_field_accuracy",
+            "evidence_traceability",
+            "deterministic_output_invariance",
+            "assumption_clarity",
+            "missing_evidence_honesty",
+            "privacy_and_privilege_handling",
+            "review_only_language",
+            "actionability_without_unauthorized_action",
+        ],
+        "grounding_rule": "Use the playbook as a review taxonomy and safety boundary, never as governing law or a substitute for qualified counsel.",
+    }
+
+
+LEGAL_RAG_QUERIES = {
+    "legal_folder_watcher": "legal document intake source traceability privacy and supported evidence",
+    "legal_document_reader": "OCR status document classification and source quality for legal review",
+    "invoice_bill_extractor": "invoice fields payment terms totals source references and payable blockers",
+    "payable_field_validator": "invoice validation missing fields arithmetic consistency and payment controls",
+    "contract_clause_extractor": "contract clause taxonomy source snippets defined terms and cross references",
+    "contract_playbook_comparator": "contract playbook comparison missing clauses indemnity termination liability assignment and review questions",
+    "legal_evidence_reconciler": "legal evidence reconciliation contradictions source hierarchy issue ownership and confidence",
+    "legal_review_auditor": "legal review audit privacy privilege deterministic invariance and blocked actions",
+    "legal_reporter": "legal report quality evidence traceability bounded next steps and review-only language",
+}
+
+
+def prepare_legal_rag(config: dict[str, Any], blueprint_root: Path, knowledge: dict[str, Any]) -> dict[str, Any]:
+    knowledge_config = config.get("knowledge_rag") if isinstance(config.get("knowledge_rag"), dict) else {}
+    if prepare_blueprint_knowledge_rag is None:
+        return {
+            "enabled": bool(knowledge_config.get("enabled")),
+            "status": "skill_unavailable",
+            "warnings": ["mirrorneuron-rag-skill is unavailable; bundled playbook context remains available."],
+            "config": knowledge_config,
+        }
+    try:
+        return prepare_blueprint_knowledge_rag(
+            blueprint_id=BLUEPRINT_ID,
+            blueprint_dir=blueprint_root,
+            config={"knowledge_rag": knowledge_config},
+            active_knowledge=knowledge,
+        )
+    except Exception as exc:  # pragma: no cover - depends on local embedding runtime
+        return {
+            "enabled": bool(knowledge_config.get("enabled")),
+            "status": "knowledge_rag_failed",
+            "warnings": [{"kind": "knowledge_rag", "message": "RAG preparation failed; bundled playbook context remains available.", "error": str(exc)}],
+            "config": knowledge_config,
+        }
+
+
+def legal_knowledge_context_for_actor(
+    knowledge: dict[str, Any],
+    rag_state: dict[str, Any],
+    actor_id: str,
+) -> dict[str, Any]:
+    query = LEGAL_RAG_QUERIES.get(actor_id, "legal contract review evidence and human approval boundaries")
+    base = {
+        "id": knowledge.get("id"),
+        "title": knowledge.get("title"),
+        "path": knowledge.get("path"),
+        "sha256": knowledge.get("sha256"),
+        "judge_rubric": list(knowledge.get("judge_rubric") or []),
+        "grounding_rule": knowledge.get("grounding_rule"),
+        "rag_status": rag_state.get("status") or "not_started",
+        "rag_warnings": list(rag_state.get("warnings") or []),
+        "query": query,
+        "context": "",
+        "citations": [],
+        "chunks": [],
+    }
+    rag_config = rag_state.get("_rag_config") if isinstance(rag_state, dict) else None
+    if build_rag_context is not None and rag_state.get("status") == "ready" and rag_config is not None:
+        try:
+            retrieved = build_rag_context(
+                query,
+                rag_config,
+                max_chars=int((rag_state.get("config") or {}).get("max_context_chars") or 6000),
+            )
+            base.update(
+                {
+                    "context": retrieved.get("context") or "",
+                    "citations": retrieved.get("citations") or [],
+                    "chunks": retrieved.get("chunks") or [],
+                    "backend": retrieved.get("backend"),
+                    "embedding_model": retrieved.get("embedding_model"),
+                }
+            )
+            return base
+        except Exception as exc:  # pragma: no cover - depends on local embedding runtime
+            base["rag_status"] = "knowledge_rag_failed"
+            base.setdefault("rag_warnings", []).append({"kind": "knowledge_rag", "message": "Actor retrieval failed; bundled playbook context remains available.", "error": str(exc)})
+    base["context"] = knowledge.get("content") or ""
+    return base
+
+
 class DeterministicLLM(DeterministicFallbackLLM):
     def __init__(self) -> None:
         super().__init__(
-            "deterministic-personal-legal-assistant",
-            default_summary="Deterministic personal legal review completed from local evidence.",
+            "deterministic-legal-assistant",
+            default_summary="Deterministic legal review completed from local evidence.",
             confidence=0.72,
         )
 
@@ -284,18 +430,164 @@ def classify_document(text: str, filename: str) -> str:
     return "supporting_document"
 
 
-def read_document_text(path: Path) -> tuple[str, bool, list[str]]:
-    if path.suffix.lower() in TEXT_SUFFIXES:
+def env_truthy(*names: str) -> bool:
+    return any(str(os.environ.get(name, "")).strip().lower() in {"1", "true", "yes", "on"} for name in names)
+
+
+def fake_llm_requested(config: dict[str, Any], payload: dict[str, Any] | None = None) -> bool:
+    llm = config.get("llm") if isinstance(config.get("llm"), dict) else {}
+    execution = config.get("execution") if isinstance(config.get("execution"), dict) else {}
+    payload = payload or {}
+    fake_values = {"fake", "mock", "deterministic", "test"}
+    env_mode = str(os.environ.get("MN_LLM_MODE") or os.environ.get("LITELLM_MODE") or "").strip().lower()
+    env_provider = str(os.environ.get("MN_LLM_PROVIDER") or os.environ.get("LITELLM_PROVIDER") or "").strip().lower()
+    if env_mode in fake_values or env_provider in fake_values:
+        return True
+    if env_truthy("MN_BLUEPRINT_QUICK_TEST", "MN_QUICK_TEST") and bool(llm.get("quick_test_uses_fake", False)):
+        return True
+    if bool(execution.get("quick_test")) or bool(payload.get("quick_test")):
+        return bool(llm.get("quick_test_uses_fake", True))
+    return str(llm.get("mode") or "").strip().lower() in fake_values
+
+
+def _ocr_skill_config(config: dict[str, Any]) -> dict[str, Any]:
+    input_skills = config.get("input_skills") if isinstance(config.get("input_skills"), dict) else {}
+    return {"input_skills": input_skills}
+
+
+def build_ocr_runtime(ctx: dict[str, Any]) -> tuple[Any | None, dict[str, Any]]:
+    section = (ctx["config"].get("input_skills") or {}).get("llm_ocr")
+    section = section if isinstance(section, dict) else {}
+    install_policy = str(section.get("install_policy") or "on_first_required_document")
+    status: dict[str, Any] = {
+        "enabled": section.get("enabled", True) is not False,
+        "skill_available": extract_document is not None and docker_ocr_client_factory_from_config is not None,
+        "configured": False,
+        "status": "not_needed",
+        "install_policy": install_policy,
+        "trigger": f"PDF/image with less than {OCR_MIN_TEXT_CHARS} embedded characters",
+        "source_model": "lightonai/LightOnOCR-2-1B",
+        "warnings": [],
+    }
+    if not status["enabled"]:
+        status["status"] = "disabled"
+        status["warnings"].append("llm_ocr_disabled_in_config")
+        return None, status
+    if fake_llm_requested(ctx["config"], ctx.get("payload")):
+        status["status"] = "disabled_for_fake_or_quick_test"
+        status["warnings"].append("llm_ocr_skipped_for_explicit_fake_or_quick_test")
+        return None, status
+    if not status["skill_available"]:
+        status["status"] = "skill_unavailable"
+        status["warnings"].append("mirrorneuron_llm_ocr_skill_unavailable")
+        return None, status
+    try:
+        factory = docker_ocr_client_factory_from_config(_ocr_skill_config(ctx["config"]))
+        if factory is None:
+            status["status"] = "disabled_by_skill_config"
+            status["warnings"].append("llm_ocr_factory_disabled")
+            return None, status
+        client = factory()
+        model_config = getattr(client, "config", None)
+        status.update(
+            {
+                "configured": True,
+                "status": "ready_for_runtime_managed_first_use" if install_policy == "runtime" else "ready_for_lazy_first_use",
+                "runtime_model": getattr(model_config, "model", None),
+                "backend": getattr(model_config, "backend", None),
+                "expected_accelerator": getattr(model_config, "expected_accelerator", None),
+            }
+        )
+        return client, status
+    except Exception as exc:  # pragma: no cover - depends on local OCR runtime
+        status["status"] = "configuration_failed"
+        status["warnings"].append(f"llm_ocr_configuration_failed:{exc}")
+        return None, status
+
+
+def _read_ocr_document(path: Path, ocr_client: Any | None) -> dict[str, Any]:
+    record = extract_document(
+        path,
+        classifier=lambda text, filename: classify_document(text, filename),
+        llm_ocr_client=ocr_client,
+        min_text_chars=OCR_MIN_TEXT_CHARS,
+    )
+    payload = record.to_dict() if hasattr(record, "to_dict") else dict(record)
+    text = str(payload.get("text") or "")
+    return {
+        "path": str(path),
+        "filename": path.name,
+        "document_type": str(payload.get("document_type") or classify_document(text, path.name)),
+        "text": redact_value(text),
+        "ocr_required": bool(payload.get("ocr_required")),
+        "extraction_method": str(payload.get("extraction_method") or "ocr_skill"),
+        "warnings": [str(item) for item in (payload.get("warnings") or [])],
+        "metadata": {"size_bytes": path.stat().st_size, **(payload.get("metadata") or {})},
+        "pages": payload.get("pages") or [],
+    }
+
+
+def read_document(path: Path, *, ocr_client: Any | None = None) -> dict[str, Any]:
+    suffix = path.suffix.lower()
+    if suffix in OCR_SUFFIXES and extract_document is not None:
         try:
-            return path.read_text(encoding="utf-8", errors="ignore"), False, []
+            return _read_ocr_document(path, ocr_client)
         except Exception as exc:
-            return "", False, [f"Could not read text: {exc}"]
-    if path.suffix.lower() in SUPPORTED_SUFFIXES:
-        return "", True, ["OCR or PDF text extraction is required before trusting this source."]
-    return "", False, ["Unsupported file type skipped."]
+            return {
+                "path": str(path),
+                "filename": path.name,
+                "document_type": classify_document("", path.name),
+                "text": "",
+                "ocr_required": True,
+                "extraction_method": "ocr_error",
+                "warnings": [f"ocr_document_read_error:{exc}", "image_or_pdf_requires_ocr_review"],
+                "metadata": {"size_bytes": path.stat().st_size},
+                "pages": [],
+            }
+    if suffix in TEXT_SUFFIXES:
+        try:
+            text = path.read_text(encoding="utf-8", errors="ignore")
+            return {
+                "path": str(path),
+                "filename": path.name,
+                "document_type": classify_document(text, path.name),
+                "text": redact_value(text),
+                "ocr_required": False,
+                "extraction_method": "embedded_text",
+                "warnings": [],
+                "metadata": {"size_bytes": path.stat().st_size},
+                "pages": [],
+            }
+        except Exception as exc:
+            return {
+                "path": str(path),
+                "filename": path.name,
+                "document_type": "supporting_document",
+                "text": "",
+                "ocr_required": False,
+                "extraction_method": "read_error",
+                "warnings": [f"Could not read text: {exc}"],
+                "metadata": {"size_bytes": path.stat().st_size},
+                "pages": [],
+            }
+    return {
+        "path": str(path),
+        "filename": path.name,
+        "document_type": classify_document("", path.name),
+        "text": "",
+        "ocr_required": suffix in OCR_SUFFIXES,
+        "extraction_method": "unreadable_or_binary" if suffix in OCR_SUFFIXES else "unsupported",
+        "warnings": (
+            ["binary_or_scanned_document_requires_ocr_for_text", "mirrorneuron_llm_ocr_skill_unavailable"]
+            if suffix in OCR_SUFFIXES
+            else ["Unsupported file type skipped."]
+        ),
+        "metadata": {"size_bytes": path.stat().st_size},
+        "pages": [],
+    }
 
 
-def load_documents(folder: Path) -> list[dict[str, Any]]:
+def load_documents(folder: Path, *, ocr_client: Any | None = None) -> list[dict[str, Any]]:
     records: list[dict[str, Any]] = []
     if not folder.exists():
         return records
@@ -304,20 +596,7 @@ def load_documents(folder: Path) -> list[dict[str, Any]]:
             continue
         if path.suffix.lower() not in SUPPORTED_SUFFIXES:
             continue
-        text, ocr_required, warnings = read_document_text(path)
-        document_type = classify_document(text, path.name)
-        records.append(
-            {
-                "path": str(path),
-                "filename": path.name,
-                "document_type": document_type,
-                "text": redact_value(text),
-                "ocr_required": ocr_required,
-                "extraction_method": "embedded_text" if text else "ocr_required_placeholder",
-                "warnings": warnings,
-                "metadata": {"size_bytes": path.stat().st_size},
-            }
-        )
+        records.append(read_document(path, ocr_client=ocr_client))
     return records
 
 
@@ -430,7 +709,7 @@ def extract_invoice_bill_packet(records: list[dict[str, Any]]) -> dict[str, Any]
         }
         invoices.append(invoice)
     return {
-        "schema_version": "mn.blueprint.personal_legal.invoice_bill_extraction.v1",
+        "schema_version": "mn.blueprint.legal_assistant.invoice_bill_extraction.v1",
         "invoice_count": len(invoices),
         "invoices": invoices,
         "totals": {"total_amount": round(total_amount, 2)},
@@ -481,7 +760,7 @@ def extract_contract_clause_packet(records: list[dict[str, Any]]) -> dict[str, A
                 )
     clause_types = sorted({clause["clause_type"] for clause in clauses})
     return {
-        "schema_version": "mn.blueprint.personal_legal.contract_clause_review.v1",
+        "schema_version": "mn.blueprint.legal_assistant.contract_clause_review.v1",
         "contract_count": len(contract_records(records)),
         "clause_count": len(clauses),
         "clause_types": clause_types,
@@ -601,19 +880,119 @@ def model_profiles_used(config: dict[str, Any]) -> dict[str, dict[str, str]]:
     return result
 
 
-def llm_generate(llm: Any, *, actor_id: str, fallback: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
+def build_llm_client(config: dict[str, Any], payload: dict[str, Any], llm_client: Any | None) -> Any:
+    if llm_client is not None:
+        return llm_client
+    if fake_llm_requested(config, payload):
+        return DeterministicLLM()
+    if get_actor_llm_client is None:
+        raise RuntimeError(
+            "Legal Assistant requires the shared live LLM client for normal runs. "
+            "Install/enable mirrorneuron-litellm-communicate-skill or run with explicit fake/quick-test mode."
+        )
+    try:
+        client = get_actor_llm_client(config, None)
+    except Exception as exc:
+        raise RuntimeError(f"Unable to initialize shared live LLM client: {exc}") from exc
+    if client is None or str(getattr(client, "provider", "")).lower() in {"fake", "mock", "deterministic", "test"}:
+        raise RuntimeError("Shared live LLM client was unavailable for a normal Legal Assistant run.")
+    return client
+
+
+def llm_generate(
+    config: dict[str, Any],
+    llm: Any,
+    *,
+    actor_id: str,
+    actor_spec: dict[str, Any],
+    fallback: dict[str, Any],
+    context: dict[str, Any],
+    knowledge_context: dict[str, Any],
+) -> dict[str, Any]:
     if llm is None:
         llm = DeterministicLLM()
+    profile = model_profiles_used(config).get(actor_id) or {}
+    role = str(actor_spec.get("role") or actor_id.replace("_", " ").title())
+    responsibilities = [str(item) for item in actor_spec.get("responsibilities") or [] if str(item)]
+    prompt_details = load_prompt(REVIEW_PROMPT_FILES.get(actor_id, "review-artifact-fields.md"))
+    output_contract = {
+        "required_fields": [
+            "summary",
+            "key_findings",
+            "review_questions",
+            "evidence_gaps",
+            "risk_flags",
+            "next_steps",
+            "confidence",
+            "review_only",
+            "source_refs",
+        ],
+        "optional_analysis_fields": [
+            "clause_findings",
+            "issue_findings",
+            "deterministic_checks",
+            "analysis_scope",
+        ],
+        "field_shapes": {
+            "clause_findings": [
+                "clause_type",
+                "status",
+                "source_ref",
+                "locator",
+                "observed_language",
+                "affected_party",
+                "bounded_implication",
+                "uncertainty",
+                "attorney_question",
+            ],
+            "issue_findings": [
+                "area",
+                "severity",
+                "source_refs",
+                "issue",
+                "owner",
+                "evidence_needed",
+            ],
+        },
+        "source_ref_rule": "Use only supplied local source refs or the bundled legal playbook reference.",
+        "unknown_rule": "If evidence is absent, say unknown, not found, ambiguous, or review required; never infer a legal or payable fact.",
+    }
     if hasattr(llm, "generate_json"):
-        return llm.generate_json(
-            system_prompt=render_prompt("actor-review-system.md", actor_id=actor_id),
-            user_prompt=json.dumps(redact_value(context), sort_keys=True, default=str)[:6000],
+        response = llm.generate_json(
+            system_prompt=render_prompt(
+                "actor-review-system.md",
+                actor_id=actor_id,
+                role=role,
+                responsibilities="\n".join(f"- {item}" for item in responsibilities) or "- Preserve source-grounded, review-only output.",
+                prompt_details=prompt_details,
+            ),
+            user_prompt=json.dumps(
+                {
+                    "actor_id": actor_id,
+                    "role": role,
+                    "responsibilities": responsibilities,
+                    "model_profile": profile,
+                    "context": redact_value(context),
+                    "knowledge_context": knowledge_context,
+                    "output_contract": output_contract,
+                    "fallback_shape": fallback,
+                },
+                sort_keys=True,
+                default=str,
+            )[:9000],
             fallback=fallback,
         )
+        return response if isinstance(response, dict) else fallback
     return fallback
 
 
-def run_actor_reviews(config: dict[str, Any], llm_client: Any | None, context: dict[str, Any]) -> dict[str, Any]:
+def run_actor_reviews(
+    config: dict[str, Any],
+    llm_client: Any | None,
+    context: dict[str, Any],
+    knowledge_context: dict[str, Any],
+    rag_state: dict[str, Any],
+) -> dict[str, Any]:
     llm = llm_client or DeterministicLLM()
     actor_findings: dict[str, Any] = {}
     for actor_id, spec in ((config.get("llm") or {}).get("agents") or {}).items():
@@ -622,23 +1001,58 @@ def run_actor_reviews(config: dict[str, Any], llm_client: Any | None, context: d
             "role": spec.get("role") or actor_id,
             "llm_config": spec.get("llm_config") or "primary",
             "summary": f"{spec.get('role') or actor_id} reviewed the local evidence packet.",
+            "key_findings": [],
+            "review_questions": [],
+            "evidence_gaps": [],
+            "risk_flags": [],
+            "next_steps": ["Review supplied source evidence before downstream use."],
             "confidence": 0.72,
+            "review_only": True,
+            "source_refs": [],
+            "analysis_scope": ["source-grounded review only"],
+            "clause_findings": [],
+            "issue_findings": [],
+            "deterministic_checks": [],
             "findings": [
                 "Keep the packet review-only.",
                 "Preserve source references for every extracted value.",
                 "Escalate legal, payment, signature, or external-sharing actions for human approval.",
             ],
         }
-        actor_findings[actor_id] = llm_generate(llm, actor_id=actor_id, fallback=fallback, context=context)
+        actor_knowledge = legal_knowledge_context_for_actor(knowledge_context, rag_state, actor_id)
+        finding = llm_generate(
+            config,
+            llm,
+            actor_id=actor_id,
+            actor_spec=spec,
+            fallback=fallback,
+            context=context,
+            knowledge_context=actor_knowledge,
+        )
+        finding.setdefault(
+            "knowledge_context",
+            {
+                "status": actor_knowledge.get("rag_status"),
+                "query": actor_knowledge.get("query"),
+                "citations": actor_knowledge.get("citations") or [],
+                "path": actor_knowledge.get("path"),
+                "sha256": actor_knowledge.get("sha256"),
+            },
+        )
+        actor_findings[actor_id] = finding
     return actor_findings
 
 
 def llm_usage(llm_client: Any | None, actor_findings: dict[str, Any]) -> dict[str, Any]:
     return {
         "provider": getattr(llm_client, "provider", "fake"),
-        "model": getattr(llm_client, "model", "deterministic-personal-legal-assistant"),
+        "model": getattr(llm_client, "model", "deterministic-legal-assistant"),
         "calls": int(getattr(llm_client, "calls", len(actor_findings))),
         "fallback_calls": int(getattr(llm_client, "fallback_calls", 0)),
+        "input_tokens": int(getattr(llm_client, "input_tokens", 0) or 0),
+        "output_tokens": int(getattr(llm_client, "output_tokens", 0) or 0),
+        "total_tokens": int(getattr(llm_client, "total_tokens", 0) or 0),
+        "estimated_tokens": int(getattr(llm_client, "estimated_tokens", 0) or 0),
     }
 
 
@@ -667,7 +1081,7 @@ def blocked_actions() -> list[str]:
 
 def build_markdown(final_artifact: dict[str, Any]) -> str:
     lines = [
-        "# Personal Legal Assistant Report",
+        "# Legal Assistant Report",
         "",
         f"**Status:** {final_artifact.get('status')}",
         f"**Recommended action:** {final_artifact.get('recommended_action')}",
@@ -692,6 +1106,36 @@ def build_markdown(final_artifact: dict[str, Any]) -> str:
     lines.extend(["", "## Issue Register"])
     for issue in final_artifact.get("legal_issue_register") or []:
         lines.append(f"- [{issue.get('severity')}] {issue.get('area')}: {issue.get('issue')}")
+    ingestion = final_artifact.get("document_ingestion") or {}
+    rag = (final_artifact.get("knowledge_reference") or {}).get("rag") or {}
+    lines.extend(
+        [
+            "",
+            "## OCR And RAG",
+            f"- OCR status: {(ingestion.get('ocr') or {}).get('status', 'not reported')}",
+            f"- OCR runtime model: {(ingestion.get('ocr') or {}).get('runtime_model') or 'selected automatically by the OCR skill'}",
+            f"- OCR-required sources: {', '.join(ingestion.get('ocr_required_sources') or ['none'])}",
+            f"- Knowledge RAG status: {rag.get('status', 'not reported')}",
+            f"- Knowledge RAG warnings: {len(rag.get('warnings') or [])}",
+        ]
+    )
+    lines.extend(["", "## Deep LLM Review"])
+    for actor_id, finding in (final_artifact.get("actor_findings") or {}).items():
+        if not isinstance(finding, dict):
+            continue
+        lines.extend(
+            [
+                f"### {finding.get('role') or actor_id}",
+                str(finding.get("summary") or "No LLM summary returned."),
+                f"- Findings: {'; '.join(str(item) for item in (finding.get('key_findings') or finding.get('findings') or [])[:5]) or 'none'}",
+                f"- Review questions: {'; '.join(str(item) for item in (finding.get('review_questions') or [])[:5]) or 'none'}",
+                f"- Evidence gaps: {'; '.join(str(item) for item in (finding.get('evidence_gaps') or [])[:5]) or 'none'}",
+                f"- Risk flags: {'; '.join(str(item) for item in (finding.get('risk_flags') or [])[:5]) or 'none'}",
+                f"- Confidence: {finding.get('confidence')}",
+                f"- Source refs: {', '.join(str(item) for item in (finding.get('source_refs') or [])[:8]) or 'none'}",
+                "",
+            ]
+        )
     lines.extend(["", "## Evidence Highlights"])
     for item in (final_artifact.get("evidence") or [])[:10]:
         preview = str(item.get("text_preview") or "").replace("\n", " ").strip()
@@ -738,6 +1182,7 @@ def write_outputs(
             {"name": "has_evidence", "ok": bool(final_artifact.get("evidence"))},
             {"name": "has_invoice_or_contract_artifact", "ok": bool(final_artifact.get("invoice_bill_extraction") or final_artifact.get("contract_clause_review"))},
             {"name": "review_boundary_present", "ok": True},
+            {"name": "deep_llm_review_present", "ok": bool(final_artifact.get("legal_deep_review", {}).get("actors"))},
             {"name": "writes_user_download_folder", "ok": True},
         ],
         "warning_count": len(warnings),
@@ -753,22 +1198,29 @@ def write_outputs(
         "failure_count": 0,
         "output_folder": str(output_folder),
         "run_store": str(run_dir),
+        "llm_provider": (final_artifact.get("llm_usage") or {}).get("provider"),
+        "llm_model": (final_artifact.get("llm_usage") or {}).get("model"),
+        "llm_calls": (final_artifact.get("llm_usage") or {}).get("calls"),
+        "ocr_status": ((final_artifact.get("document_ingestion") or {}).get("ocr") or {}).get("status"),
+        "rag_status": ((final_artifact.get("knowledge_reference") or {}).get("rag") or {}).get("status"),
         "generated_at": utc_now_iso(),
     }
     write_json(output_folder / "final_artifact.json", final_artifact)
     write_json(output_folder / "invoice_bill_extraction.json", final_artifact["invoice_bill_extraction"])
     write_json(output_folder / "contract_clause_review.json", final_artifact["contract_clause_review"])
     write_json(output_folder / "legal_issue_register.json", final_artifact["legal_issue_register"])
+    write_json(output_folder / "legal_deep_review.json", final_artifact["legal_deep_review"])
     write_json(output_folder / "action_ledger.json", action_ledger)
     write_json(output_folder / "artifact_quality.json", artifact_quality)
     write_json(output_folder / "run_health.json", run_health)
-    write_text(output_folder / "personal_legal_report.md", build_markdown(final_artifact))
+    write_text(output_folder / "legal_assistant_report.md", build_markdown(final_artifact))
     for name, value in (
         ("action_ledger.json", action_ledger),
         ("artifact_quality.json", artifact_quality),
         ("run_health.json", run_health),
     ):
         write_json(run_dir / name, value)
+    write_json(run_dir / "legal_deep_review.json", final_artifact["legal_deep_review"])
     return action_ledger, artifact_quality, run_health
 
 
@@ -785,9 +1237,15 @@ def run_blueprint(
     payload = resolve_inputs(resolved_config, inputs)
     run_id = run_id or str(payload.get("run_id") or f"{BLUEPRINT_ID}-{uuid.uuid4().hex[:8]}")
     document_folder = expand_path(payload.get("document_folder") or payload.get("input_folder") or "examples/sample_inputs", root=root)
-    output_folder = expand_path(payload.get("output_folder") or (resolved_config.get("outputs") or {}).get("folder_path") or "~/Downloads/personal_legal_assistant")
+    output_folder = expand_path(payload.get("output_folder") or (resolved_config.get("outputs") or {}).get("folder_path") or "~/Downloads/legal_assistant")
     run_dir = (Path(runs_root).expanduser() if runs_root else output_folder / "runs") / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
+
+    llm = build_llm_client(resolved_config, payload, llm_client)
+    runtime_context = {"config": resolved_config, "payload": payload, "llm": llm}
+    ocr_client, ocr_status = build_ocr_runtime(runtime_context)
+    knowledge_context = load_legal_knowledge(root)
+    rag_state = prepare_legal_rag(resolved_config, root, knowledge_context)
 
     write_json(run_dir / "run.json", {"run_id": run_id, "blueprint_id": BLUEPRINT_ID, "status": "running", "started_at": utc_now_iso()})
     write_json(run_dir / "config.json", resolved_config)
@@ -796,7 +1254,7 @@ def run_blueprint(
     append_event(run_dir, "blueprint_phase_completed", {"phase": "loading_inputs", "component": BLUEPRINT_ID})
     append_event(run_dir, "blueprint_phase_started", {"phase": "running_worker", "component": BLUEPRINT_ID})
 
-    records = load_documents(document_folder)
+    records = load_documents(document_folder, ocr_client=ocr_client)
     evidence = summarize_records(records)
     invoice_packet = extract_invoice_bill_packet(records)
     clause_packet = extract_contract_clause_packet(records)
@@ -810,8 +1268,21 @@ def run_blueprint(
         "clause_packet": clause_packet,
         "issue_count": len(issues),
         "evidence": evidence[:8],
+        "review_policy": payload.get("review_policy") or {},
+        "document_ingestion": {
+            "ocr": ocr_status,
+            "ocr_required_sources": [record.get("filename") for record in records if record.get("ocr_required")],
+            "source_refs": [record.get("filename") for record in records],
+        },
+        "knowledge_rag": {
+            "status": rag_state.get("status"),
+            "warnings": rag_state.get("warnings") or [],
+        },
     }
-    actor_findings = run_actor_reviews(resolved_config, llm_client, actor_context)
+    actor_findings = run_actor_reviews(resolved_config, llm, actor_context, knowledge_context, rag_state)
+    rag_public = {key: value for key, value in rag_state.items() if not str(key).startswith("_")}
+    source_refs = ["inputs.json", "events.jsonl", "result.json", "invoice_bill_extraction.json", "contract_clause_review.json"]
+    source_refs.extend(sorted({str(record.get("filename")) for record in records if record.get("filename")}))
     final_artifact = {
         "type": OUTPUT_TYPE,
         "title": f"{BLUEPRINT_NAME} Review Packet",
@@ -825,8 +1296,14 @@ def run_blueprint(
         "confidence": confidence,
         "evidence": evidence,
         "next_steps": next_steps(len(issues)),
-        "source_refs": ["inputs.json", "events.jsonl", "result.json", "invoice_bill_extraction.json", "contract_clause_review.json"],
+        "source_refs": source_refs,
         "dataset_inputs": DATASET_INPUTS,
+        "knowledge_reference": {
+            "id": knowledge_context.get("id"),
+            "path": knowledge_context.get("path"),
+            "sha256": knowledge_context.get("sha256"),
+            "rag": rag_public,
+        },
         "field_profile": {"invoice_fields": INVOICE_FIELDS, "clause_fields": CLAUSE_FIELDS},
         "document_count": len(records),
         "document_summary": {
@@ -836,6 +1313,11 @@ def run_blueprint(
             "ocr_required_count": len([record for record in records if record.get("ocr_required")]),
             "warning_count": len(warnings),
             "document_types": sorted({str(record.get("document_type")) for record in records}),
+        },
+        "document_ingestion": {
+            "ocr": ocr_status,
+            "ocr_required_count": len([record for record in records if record.get("ocr_required")]),
+            "ocr_required_sources": [record.get("filename") for record in records if record.get("ocr_required")],
         },
         "invoice_bill_extraction": invoice_packet,
         "contract_clause_review": clause_packet,
@@ -848,8 +1330,13 @@ def run_blueprint(
         },
         "review_boundary": {"review_only": True, "blocked_actions": blocked_actions()},
         "model_profiles_used": model_profiles_used(resolved_config),
+        "legal_deep_review": {
+            "actors": actor_findings,
+            "review_only": True,
+            "rag_status": rag_public,
+        },
         "actor_findings": actor_findings,
-        "llm_usage": llm_usage(llm_client, actor_findings),
+        "llm_usage": llm_usage(llm, actor_findings),
         "generated_at": utc_now_iso(),
     }
     action_ledger, artifact_quality, run_health = write_outputs(
@@ -873,7 +1360,7 @@ def run_blueprint(
     append_event(run_dir, "blueprint_phase_started", {"phase": "writing_artifacts", "component": BLUEPRINT_ID})
     write_json(run_dir / "result.json", result)
     write_json(run_dir / "final_artifact.json", final_artifact)
-    for name in ("result.json", "final_artifact.json", "action_ledger.json", "artifact_quality.json", "run_health.json"):
+    for name in ("result.json", "final_artifact.json", "action_ledger.json", "artifact_quality.json", "run_health.json", "legal_deep_review.json"):
         append_event(run_dir, "artifact_written", {"path": name})
     append_event(run_dir, "blueprint_phase_completed", {"phase": "writing_artifacts", "component": BLUEPRINT_ID})
     append_event(run_dir, "blueprint_phase_completed", {"phase": "completed", "component": BLUEPRINT_ID})

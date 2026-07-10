@@ -1,7 +1,7 @@
 {
   "apiVersion": "mn.workflow.source/v1",
   "kind": "WorkflowSource",
-  "description": "A personal legal document co-worker for invoice, bill, and contract review. Put invoices, bills, contracts, clause notes, labels, or supporting files in the input folder; it extracts payable fields, maps contract clauses, compares playbook expectations, flags review issues, and writes a source-grounded review packet to the output folder.",
+  "description": "A legal document co-worker for invoice, bill, and contract review. Put invoices, bills, contracts, clause notes, labels, or supporting files in the input folder; it extracts payable fields, maps contract clauses, compares playbook expectations, flags review issues, and writes a source-grounded review packet to the output folder.",
   "standard": {
     "profile": "document_workflow",
     "profile_version": 1,
@@ -11,17 +11,17 @@
   },
   "identity": {
     "category": "legal",
-    "id": "personal_legal_assistant",
-    "job_name": "personal-legal-assistant",
+    "id": "legal_assistant",
+    "job_name": "legal-assistant",
     "manifest_version": "1.0",
-    "name": "Personal Legal Assistant",
+    "name": "Legal Assistant",
     "version": 1
   },
   "intent": {
-    "description": "A personal legal document co-worker for invoice, bill, and contract review. Put invoices, bills, contracts, clause notes, labels, or supporting files in the input folder; it extracts payable fields, maps contract clauses, compares playbook expectations, flags review issues, and writes a source-grounded review packet to the output folder.",
+    "description": "A legal document co-worker for invoice, bill, and contract review. Put invoices, bills, contracts, clause notes, labels, or supporting files in the input folder; it extracts payable fields, maps contract clauses, compares playbook expectations, flags review issues, and writes a source-grounded review packet to the output folder.",
     "problem": "Personal and small-business legal work often mixes payable documents with contracts and obligations; users need one local review assistant that keeps invoice facts, contract clauses, evidence, and approval boundaries together.",
     "target_users": "Individuals, founders, small-business operators, legal operations teams, in-house reviewers, and attorneys preparing first-pass document packets.",
-    "customizable_for": "Personal legal intake, small-business invoice review, vendor contract review, CLM intake, payable approval support, and attorney review preparation.",
+    "customizable_for": "Individual legal intake, small-business invoice review, vendor contract review, CLM intake, payable approval support, and attorney review preparation.",
     "safety": {
       "enabled": true,
       "mode": "approval_required",
@@ -56,14 +56,14 @@
     }
   },
   "metadata": {
-    "blueprint_id": "personal_legal_assistant",
-    "name": "Personal Legal Assistant",
+    "blueprint_id": "legal_assistant",
+    "name": "Legal Assistant",
     "category": "Legal",
-    "description": "A personal legal document co-worker for invoice, bill, and contract review. Put invoices, bills, contracts, clause notes, labels, or supporting files in the input folder; it extracts payable fields, maps contract clauses, compares playbook expectations, flags review issues, and writes a source-grounded review packet to the output folder.",
+    "description": "A legal document co-worker for invoice, bill, and contract review. Put invoices, bills, contracts, clause notes, labels, or supporting files in the input folder; it extracts payable fields, maps contract clauses, compares playbook expectations, flags review issues, and writes a source-grounded review packet to the output folder.",
     "problem": "Personal and small-business legal work often mixes payable documents with contracts and obligations; users need one local review assistant that keeps invoice facts, contract clauses, evidence, and approval boundaries together.",
     "target_users": "Individuals, founders, small-business operators, legal operations teams, in-house reviewers, and attorneys preparing first-pass document packets.",
-    "customizable_for": "Personal legal intake, small-business invoice review, vendor contract review, CLM intake, payable approval support, and attorney review preparation.",
-    "agent_role": "Local personal legal document assistant that extracts invoice and contract evidence while keeping conclusions review-only.",
+    "customizable_for": "Individual legal intake, small-business invoice review, vendor contract review, CLM intake, payable approval support, and attorney review preparation.",
+    "agent_role": "Local legal document assistant that extracts invoice and contract evidence while keeping conclusions review-only.",
     "standard": {
       "workflow_model": "contract -> workflow -> agents/runtime"
     },
@@ -74,7 +74,7 @@
         {
           "path": "inputs.payload.document_folder",
           "label": "Legal document folder",
-          "default": "personal_legal_assistant/examples/sample_inputs",
+          "default": "legal_assistant/examples/sample_inputs",
           "description": "Choose a local folder containing invoices, bills, contracts, clause notes, labels, and support files.",
           "type": "local_path",
           "path_kind": "directory"
@@ -82,7 +82,7 @@
         {
           "path": "outputs.folder_path",
           "label": "Output folder",
-          "default": "~/Downloads/personal_legal_assistant",
+          "default": "~/Downloads/legal_assistant",
           "description": "Choose where integrated review files should be written.",
           "type": "local_path",
           "path_kind": "directory"
@@ -159,18 +159,21 @@
     },
     "knowledge_rag": {
       "enabled": true,
-      "backend": "redis_vector_rag",
+      "backend": "milvus_lite",
       "required": false,
       "knowledge_dir": "knowledge",
-      "purpose": "Retrieve local personal legal assistant guidance for invoice extraction, contract clause mapping, playbook comparison, privilege/privacy handling, and review-only boundaries.",
+      "purpose": "Retrieve local legal assistant guidance for invoice extraction, contract clause mapping, playbook comparison, privilege/privacy handling, and review-only boundaries.",
       "retrieval_targets": [
         "invoice and bill extraction",
         "contract clause taxonomy",
         "playbook comparison",
         "privilege and privacy review",
-        "payment and legal action blockers"
+        "payment and legal action blockers",
+        "evidence hierarchy and source traceability",
+        "calculation invariance and assumption clarity",
+        "cross-domain reconciliation and report quality"
       ],
-      "grounding_policy": "Use retrieved local blueprint knowledge to improve actor prompts; do not invent legal conclusions when retrieval is unavailable.",
+      "grounding_policy": "Use retrieved or bundled local blueprint knowledge to improve actor prompts; preserve deterministic outputs, cite supplied evidence, and label unknowns when retrieval is unavailable.",
       "redis_url": "",
       "namespace": "",
       "embedding_provider": "docker_model_runner",
@@ -181,7 +184,7 @@
       "embedding_start_command": "",
       "embedding_healthcheck_enabled": true,
       "vector_dim": 1024,
-      "index_on_startup": false,
+      "index_on_startup": true,
       "top_k": 5,
       "max_context_chars": 6000,
       "chunk_size": 800,
@@ -196,7 +199,7 @@
         "contract_clause_extractor",
         "contract_playbook_comparator",
         "legal_review_auditor",
-        "personal_legal_reporter"
+        "legal_reporter"
       ],
       "max_iterations_per_agent": 1,
       "max_tool_calls_per_agent": 2,
@@ -210,7 +213,7 @@
         "finish"
       ],
       "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run",
-      "default_mode": "bounded_llm_guided_personal_legal_document_review",
+      "default_mode": "bounded_llm_guided_legal_document_review",
       "note": "Document actors may use OCR and local playbook guidance; uncertain legal or payable values remain review-required."
     }
   },
@@ -221,7 +224,7 @@
   "defaults": {
     "worker": {
       "with": {
-        "image": "mirror-neuron/personal-legal-assistant:local"
+        "image": "mirror-neuron/legal-assistant:local"
       }
     }
   },
@@ -229,7 +232,7 @@
     "groups": [
       {
         "steps": [
-          "personal_legal_reporter"
+          "legal_reporter"
         ],
         "with": {
           "stereotype": "internal_write_worker"
@@ -253,7 +256,7 @@
           }
         }
       },
-      "personal_legal_reporter": {
+      "legal_reporter": {
         "with": {
           "llm_config": "large",
           "environment": {
@@ -275,15 +278,15 @@
     ],
     "extra_edges": [
       {
-        "edge_id": "personal_legal_reporter_to_report_sink",
-        "from_node": "personal_legal_reporter",
-        "message_type": "personal_legal_reporter_completed",
+        "edge_id": "legal_reporter_to_report_sink",
+        "from_node": "legal_reporter",
+        "message_type": "legal_reporter_completed",
         "to_node": "report_sink"
       }
     ]
   },
   "workflow": {
-    "workflow_id": "personal_legal_assistant_v1",
+    "workflow_id": "legal_assistant_v1",
     "execution": {
       "strategy": "parallel"
     },
@@ -340,7 +343,7 @@
         "goal": "Detect changed invoice, bill, contract, clause-note, label, and support files.",
         "requires": [],
         "provides": [
-          "personal_legal_assistant.legal_folder_watcher.ready"
+          "legal_assistant.legal_folder_watcher.ready"
         ],
         "in": {
           "document_folder": "$state.document_folder"
@@ -355,10 +358,10 @@
         "label": "Legal Document Reader",
         "goal": "Read local text and structured files, classify invoices, bills, contracts, clauses, and OCR-required sources.",
         "requires": [
-          "personal_legal_assistant.legal_folder_watcher.ready"
+          "legal_assistant.legal_folder_watcher.ready"
         ],
         "provides": [
-          "personal_legal_assistant.legal_document_reader.ready"
+          "legal_assistant.legal_document_reader.ready"
         ],
         "in": {
           "previous": "$state.workflow"
@@ -373,10 +376,10 @@
         "label": "Invoice Bill Extractor",
         "goal": "Extract supplier, customer, invoice id, tax id, due date, total, line items, consumption fields, and billing period values.",
         "requires": [
-          "personal_legal_assistant.legal_document_reader.ready"
+          "legal_assistant.legal_document_reader.ready"
         ],
         "provides": [
-          "personal_legal_assistant.invoice_bill_extractor.ready"
+          "legal_assistant.invoice_bill_extractor.ready"
         ],
         "in": {
           "previous": "$state.workflow"
@@ -391,10 +394,10 @@
         "label": "Payable Field Validator",
         "goal": "Validate payable fields, missing values, OCR warnings, and payment/ERP blockers.",
         "requires": [
-          "personal_legal_assistant.invoice_bill_extractor.ready"
+          "legal_assistant.invoice_bill_extractor.ready"
         ],
         "provides": [
-          "personal_legal_assistant.payable_field_validator.ready"
+          "legal_assistant.payable_field_validator.ready"
         ],
         "in": {
           "previous": "$state.workflow"
@@ -409,10 +412,10 @@
         "label": "Contract Clause Extractor",
         "goal": "Extract candidate contract clauses and source snippets for governing law, assignment, indemnity, termination, liability, renewal, exclusivity, audit rights, and change of control.",
         "requires": [
-          "personal_legal_assistant.payable_field_validator.ready"
+          "legal_assistant.payable_field_validator.ready"
         ],
         "provides": [
-          "personal_legal_assistant.contract_clause_extractor.ready"
+          "legal_assistant.contract_clause_extractor.ready"
         ],
         "in": {
           "previous": "$state.workflow"
@@ -427,10 +430,10 @@
         "label": "Contract Playbook Comparator",
         "goal": "Compare extracted clauses to playbook expectations and flag deviations, missing high-value terms, and attorney review blockers.",
         "requires": [
-          "personal_legal_assistant.contract_clause_extractor.ready"
+          "legal_assistant.contract_clause_extractor.ready"
         ],
         "provides": [
-          "personal_legal_assistant.contract_playbook_comparator.ready"
+          "legal_assistant.contract_playbook_comparator.ready"
         ],
         "in": {
           "previous": "$state.workflow"
@@ -445,10 +448,10 @@
         "label": "Legal Evidence Reconciler",
         "goal": "Merge invoice, bill, contract, clause, issue-register, and warning evidence into one review packet.",
         "requires": [
-          "personal_legal_assistant.contract_playbook_comparator.ready"
+          "legal_assistant.contract_playbook_comparator.ready"
         ],
         "provides": [
-          "personal_legal_assistant.legal_evidence_reconciler.ready"
+          "legal_assistant.legal_evidence_reconciler.ready"
         ],
         "in": {
           "previous": "$state.workflow"
@@ -463,10 +466,10 @@
         "label": "Legal Review Auditor",
         "goal": "Audit source references, review-only boundaries, blocked actions, and human/attorney approval requirements.",
         "requires": [
-          "personal_legal_assistant.legal_evidence_reconciler.ready"
+          "legal_assistant.legal_evidence_reconciler.ready"
         ],
         "provides": [
-          "personal_legal_assistant.legal_review_auditor.ready"
+          "legal_assistant.legal_review_auditor.ready"
         ],
         "in": {
           "previous": "$state.workflow"
@@ -479,21 +482,21 @@
         }
       },
       {
-        "id": "personal_legal_reporter",
+        "id": "legal_reporter",
         "kind": "sink",
-        "label": "Personal Legal Reporter",
+        "label": "Legal Reporter",
         "goal": "Write the integrated review-only report, domain artifacts, action ledger, quality summary, and run health files.",
         "requires": [
-          "personal_legal_assistant.legal_review_auditor.ready"
+          "legal_assistant.legal_review_auditor.ready"
         ],
         "provides": [
-          "personal_legal_assistant.personal_legal_reporter.ready"
+          "legal_assistant.legal_reporter.ready"
         ],
         "in": {
           "previous": "$state.workflow"
         },
         "out": {
-          "personal_legal_reporter": "$state.workflow.personal_legal_reporter"
+          "legal_reporter": "$state.workflow.legal_reporter"
         }
       }
     ]
@@ -521,7 +524,7 @@
         "contract_playbook_comparator_completed",
         "legal_evidence_reconciler_completed",
         "legal_review_auditor_completed",
-        "personal_legal_reporter_completed"
+        "legal_reporter_completed"
       ]
     },
     "input_adapters": {
@@ -541,7 +544,7 @@
         "description": "Local folder containing invoices, bills, contracts, clause notes, labels, and support files.",
         "privacy": "confidential",
         "required": true,
-        "example": "personal_legal_assistant/examples/sample_inputs"
+        "example": "legal_assistant/examples/sample_inputs"
       },
       "input_folder": {
         "type": "local_path",
@@ -549,7 +552,7 @@
         "description": "Alias for document_folder.",
         "privacy": "confidential",
         "required": false,
-        "example": "personal_legal_assistant/examples/sample_inputs"
+        "example": "legal_assistant/examples/sample_inputs"
       },
       "output_folder": {
         "type": "local_path",
@@ -557,7 +560,7 @@
         "description": "Local folder where integrated legal review packets should be written.",
         "privacy": "confidential",
         "required": true,
-        "example": "~/Downloads/personal_legal_assistant"
+        "example": "~/Downloads/legal_assistant"
       },
       "field_profile": {
         "type": "domain_value",
@@ -587,6 +590,22 @@
         "example": {
           "review_context": "small_business_vendor_contract",
           "jurisdiction": "not_specified"
+        }
+      },
+      "review_policy": {
+        "type": "domain_value",
+        "description": "Optional review objective, audience, focus areas, and jurisdiction note for bounded contract triage.",
+        "privacy": "confidential",
+        "required": false,
+        "example": {
+          "objective": "contract_intake_risk_triage",
+          "audience": "small_business_operator_and_attorney",
+          "focus_areas": [
+            "termination_and_continuity_risk",
+            "indemnity_and_liability_exposure",
+            "assignment_and_change_of_control_effects"
+          ],
+          "jurisdiction_note": "Do not generalize the supplied document's governing framework."
         }
       }
     },
@@ -675,7 +694,7 @@
           "path": "invoice_bill_extraction.json",
           "producer": "workflow",
           "mime_type": "application/json",
-          "schema_version": "mn.blueprint.personal_legal.invoice_bill_extraction.v1",
+          "schema_version": "mn.blueprint.legal_assistant.invoice_bill_extraction.v1",
           "source_refs": [
             "final_artifact.json"
           ]
@@ -686,7 +705,7 @@
           "path": "contract_clause_review.json",
           "producer": "workflow",
           "mime_type": "application/json",
-          "schema_version": "mn.blueprint.personal_legal.contract_clause_review.v1",
+          "schema_version": "mn.blueprint.legal_assistant.contract_clause_review.v1",
           "source_refs": [
             "final_artifact.json"
           ]
@@ -697,15 +716,27 @@
           "path": "legal_issue_register.json",
           "producer": "workflow",
           "mime_type": "application/json",
-          "schema_version": "mn.blueprint.personal_legal.issue_register.v1",
+          "schema_version": "mn.blueprint.legal_assistant.issue_register.v1",
           "source_refs": [
             "final_artifact.json"
           ]
         },
         {
+          "artifact_id": "legal_deep_review",
+          "type": "llm_review",
+          "path": "legal_deep_review.json",
+          "producer": "workflow",
+          "mime_type": "application/json",
+          "schema_version": "mn.blueprint.legal_assistant.deep_review.v1",
+          "source_refs": [
+            "final_artifact.json",
+            "knowledge/"
+          ]
+        },
+        {
           "artifact_id": "review_packet_markdown",
           "type": "generated_report",
-          "path": "<outputs.folder_path>/personal_legal_report.md",
+          "path": "<outputs.folder_path>/legal_assistant_report.md",
           "producer": "workflow",
           "mime_type": "text/markdown",
           "schema_version": "mn.blueprint.generated_report.v1",
@@ -763,18 +794,21 @@
   },
   "knowledge_rag": {
     "enabled": true,
-    "backend": "redis_vector_rag",
+    "backend": "milvus_lite",
     "required": false,
     "knowledge_dir": "knowledge",
-    "purpose": "Retrieve local personal legal assistant guidance for invoice extraction, contract clause mapping, playbook comparison, privilege/privacy handling, and review-only boundaries.",
+    "purpose": "Retrieve local legal assistant guidance for invoice extraction, contract clause mapping, playbook comparison, privilege/privacy handling, and review-only boundaries.",
     "retrieval_targets": [
       "invoice and bill extraction",
       "contract clause taxonomy",
       "playbook comparison",
       "privilege and privacy review",
-      "payment and legal action blockers"
+      "payment and legal action blockers",
+      "evidence hierarchy and source traceability",
+      "calculation invariance and assumption clarity",
+      "cross-domain reconciliation and report quality"
     ],
-    "grounding_policy": "Use retrieved local blueprint knowledge to improve actor prompts; do not invent legal conclusions when retrieval is unavailable.",
+    "grounding_policy": "Use retrieved or bundled local blueprint knowledge to improve actor prompts; preserve deterministic outputs, cite supplied evidence, and label unknowns when retrieval is unavailable.",
     "redis_url": "",
     "namespace": "",
     "embedding_provider": "docker_model_runner",
@@ -785,7 +819,7 @@
     "embedding_start_command": "",
     "embedding_healthcheck_enabled": true,
     "vector_dim": 1024,
-    "index_on_startup": false,
+    "index_on_startup": true,
     "top_k": 5,
     "max_context_chars": 6000,
     "chunk_size": 800,
@@ -800,7 +834,7 @@
       "contract_clause_extractor",
       "contract_playbook_comparator",
       "legal_review_auditor",
-      "personal_legal_reporter"
+      "legal_reporter"
     ],
     "max_iterations_per_agent": 1,
     "max_tool_calls_per_agent": 2,
@@ -814,7 +848,7 @@
       "finish"
     ],
     "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run",
-    "default_mode": "bounded_llm_guided_personal_legal_document_review",
+    "default_mode": "bounded_llm_guided_legal_document_review",
     "note": "Document actors may use OCR and local playbook guidance; uncertain legal or payable values remain review-required."
   },
   "skill_dependencies": [
@@ -829,6 +863,19 @@
       "source": "gar",
       "name": "mirrorneuron-llm-ocr-skill",
       "version": "1.2.7"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mirrorneuron-litellm-communicate-skill",
+      "version": "1.2.7"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mirrorneuron-rag-skill",
+      "version": "1.2.15"
     }
   ]
 }
+

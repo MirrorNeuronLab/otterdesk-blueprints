@@ -1,0 +1,47 @@
+{
+  "schema": "otterdesk.sample_dataset.v1",
+  "blueprint_id": "legal_assistant",
+  "description": "Mixed legal review packet combining synthetic payable evidence with a real public federal contract-terms PDF for OCR-aware clause triage.",
+  "files": [
+    {
+      "path": "sample_invoice_bill.json",
+      "type": "invoice_bill_json",
+      "contains_pii": false,
+      "intended_use": "Smoke-test invoice and payable field extraction."
+    },
+    {
+      "path": "sample_vendor_contract.txt",
+      "type": "contract_text",
+      "contains_pii": false,
+      "intended_use": "Smoke-test contract clause extraction and playbook comparison."
+    },
+    {
+      "path": "far_52_212_4_contract_terms.pdf",
+      "type": "real_public_contract_terms_pdf",
+      "contains_pii": false,
+      "public_domain": true,
+      "source_url": "https://www.acquisition.gov/far/52.212-4",
+      "download_url": "https://www.acquisition.gov/node/31867/printable/pdf",
+      "source_version": "FAC 2026-01; effective 2026-03-13",
+      "intended_use": "Exercise OCR/embedded-text ingestion and deep review of assignment, invoice, indemnity, termination, warranty, liability, and order-of-precedence clauses."
+    }
+  ],
+  "source_datasets": [
+    {
+      "name": "IDSEM Dataset",
+      "url": "https://zenodo.org/records/6373179",
+      "usage_note": "The full dataset is not bundled; this sample is synthetic."
+    },
+    {
+      "name": "CUAD v1",
+      "url": "https://zenodo.org/records/4595826",
+      "usage_note": "The full dataset is not bundled; this sample is synthetic."
+    },
+    {
+      "name": "FAR 52.212-4 Contract Terms and Conditions—Commercial Products and Commercial Services",
+      "url": "https://www.acquisition.gov/far/52.212-4",
+      "download_url": "https://www.acquisition.gov/node/31867/printable/pdf",
+      "usage_note": "Official U.S. federal acquisition clause bundled as a public-domain sample; verify the current official version before production use."
+    }
+  ]
+}
