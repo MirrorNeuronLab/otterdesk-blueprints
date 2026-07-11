@@ -14,6 +14,8 @@ Do not approve invoices for payment, post to ERP, create vendor records, send re
 
 For contract files, focus on governing law, assignment, change of control, indemnity, termination, audit rights, renewal, exclusivity, and limitation of liability. Store source snippets with each clause classification. Missing or ambiguous clause language should be raised as an attorney-review item rather than filled in from assumptions.
 
+For contract-intake triage, treat governing law, assignment, indemnity, termination, and limitation of liability as the minimum high-value coverage set. Their presence is not a quality or enforceability conclusion: compare the actual language, definitions, carve-outs, caps, cure periods, payment consequences, survival, and cross-references, then ask counsel the bounded question raised by the text.
+
 Playbook comparison should identify required clause types that are absent, clauses that require negotiation review, and terms that are especially sensitive for individuals or small businesses. Examples include assignment restrictions, liability caps, indemnity scope, renewal traps, audit rights, and termination cure periods.
 
 Do not provide legal advice, decide whether a contract should be signed, redline final language, contact a counterparty, waive rights, or submit a contract for signature. Every clause finding is source-grounded attorney-review support.

@@ -737,6 +737,20 @@ def snippet_around(text: str, keyword: str, width: int = 220) -> str:
     return " ".join(text[start:end].split())
 
 
+def clause_locator(record: dict[str, Any], keyword: str) -> str:
+    pages = record.get("pages") if isinstance(record.get("pages"), list) else []
+    for index, page in enumerate(pages, start=1):
+        if isinstance(page, dict):
+            page_text = str(page.get("text") or page.get("content") or "")
+            page_number = page.get("page_number") or page.get("page") or index
+        else:
+            page_text = str(page or "")
+            page_number = index
+        if keyword.lower() in page_text.lower():
+            return f"page {page_number}"
+    return f"document-level keyword match: {keyword}"
+
+
 def extract_contract_clause_packet(records: list[dict[str, Any]]) -> dict[str, Any]:
     clauses = []
     for record in contract_records(records):
@@ -752,8 +766,12 @@ def extract_contract_clause_packet(records: list[dict[str, Any]]) -> dict[str, A
                 clauses.append(
                     {
                         "source": record.get("filename"),
+                        "source_ref": record.get("filename"),
                         "clause_type": field,
+                        "status": "present",
+                        "locator": clause_locator(record, keyword),
                         "text": snippet,
+                        "observed_language": snippet,
                         "confidence": 0.78,
                         "review_notes": ["Attorney review required before relying on this classification."],
                     }
@@ -771,7 +789,7 @@ def extract_contract_clause_packet(records: list[dict[str, Any]]) -> dict[str, A
 
 
 def compare_to_playbook(clause_types: list[str]) -> dict[str, Any]:
-    required = {"governing_law", "assignment", "termination", "liability"}
+    required = {"governing_law", "assignment", "indemnity", "termination", "liability"}
     present = set(clause_types)
     missing = sorted(required - present)
     deviations = []
@@ -779,6 +797,10 @@ def compare_to_playbook(clause_types: list[str]) -> dict[str, Any]:
         deviations.append("Confirm liability cap, exclusions, and indirect damages language with counsel.")
     if "assignment" in present:
         deviations.append("Check whether assignment restrictions affect transfers, affiliates, or change-of-control events.")
+    if "indemnity" in present:
+        deviations.append("Confirm indemnity scope, covered claims, defense control, exclusions, and survival with counsel.")
+    if "termination" in present:
+        deviations.append("Check termination triggers, cure periods, payment consequences, and post-termination obligations.")
     return {
         "required_clause_types": sorted(required),
         "present_required_clause_types": sorted(required & present),
@@ -896,6 +918,21 @@ def build_llm_client(config: dict[str, Any], payload: dict[str, Any], llm_client
         raise RuntimeError(f"Unable to initialize shared live LLM client: {exc}") from exc
     if client is None or str(getattr(client, "provider", "")).lower() in {"fake", "mock", "deterministic", "test"}:
         raise RuntimeError("Shared live LLM client was unavailable for a normal Legal Assistant run.")
+    llm_config = config.get("llm") if isinstance(config.get("llm"), dict) else {}
+    profile_name = str(os.environ.get("MN_LLM_CONFIG") or llm_config.get("default_config") or "primary")
+    profiles = llm_config.get("configs") if isinstance(llm_config.get("configs"), dict) else {}
+    profile = profiles.get(profile_name) if isinstance(profiles.get(profile_name), dict) else profiles.get("primary")
+    if isinstance(profile, dict):
+        for attribute, key in (
+            ("timeout_seconds", "timeout_seconds"),
+            ("max_tokens", "max_tokens"),
+            ("num_retries", "num_retries"),
+            ("retry_backoff_seconds", "retry_backoff_seconds"),
+        ):
+            if key in profile and hasattr(client, attribute):
+                setattr(client, attribute, profile[key])
+        if hasattr(client, "strict"):
+            setattr(client, "strict", bool(profile.get("strict_json", False)))
     return client
 
 
