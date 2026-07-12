@@ -101,22 +101,61 @@ def design_prompt(request: dict[str, Any]) -> str:
     return f"A potent small molecule inhibitor for {target_names or 'the configured therapeutic target'} treatment."
 
 
+def molecule_graph(smiles: str) -> Any:
+    """Use DrugClip's current PyG graph API, not BioTarget's stale dict adapter."""
+    from drugclip.utils.chemistry import smiles_to_schnet_data
+
+    graph = smiles_to_schnet_data(smiles)
+    if graph is None:
+        raise RuntimeError(f"DrugClip could not build a 3D molecular graph for {smiles!r}.")
+    return graph
+
+
+def score_graphs(model: Any, device: Any, graphs: list[Any], prompt: str) -> Any:
+    import torch
+    from torch_geometric.data import Batch
+
+    with torch.no_grad():
+        text_embedding = model.text_encoder([prompt])
+        text_embedding = torch.nn.functional.normalize(text_embedding, p=2, dim=1)
+        batch = Batch.from_data_list(graphs).to(device)
+        graph_embedding = model.graph_encoder(batch.z, batch.pos, batch.batch)
+        graph_embedding = torch.nn.functional.normalize(graph_embedding, p=2, dim=1)
+        return torch.matmul(text_embedding, graph_embedding.T).squeeze(0)
+
+
 def candidate_generation(request: dict[str, Any], work_dir: Path) -> dict[str, Any]:
     biotarget_source(request)
-    from biotarget.stages.stage_c_generative import stage_c_generative_ai
+    from biotarget.core.utils import get_seed_smiles
 
     model, device = load_drugclip(request)
     service = request.get("service") if isinstance(request.get("service"), dict) else {}
     candidate_count = int(service.get("candidate_count") or service.get("simulation_top_k", 16) * 10)
-    smiles, _graphs = stage_c_generative_ai(design_prompt(request), model, device, candidate_count)
+    pool = get_seed_smiles(max(3000, candidate_count * 5))
+    valid_smiles: list[str] = []
+    graphs: list[Any] = []
+    for smiles in pool:
+        try:
+            graphs.append(molecule_graph(str(smiles)))
+            valid_smiles.append(str(smiles))
+        except RuntimeError:
+            continue
+    if not graphs:
+        raise RuntimeError("BioTarget candidate pool produced no valid DrugClip molecular graphs.")
+    scores = score_graphs(model, device, graphs, design_prompt(request))
+    selected = sorted(
+        ((float(scores[index].item()), smiles) for index, smiles in enumerate(valid_smiles)),
+        key=lambda item: (-item[0], item[1]),
+    )[:candidate_count]
     return {
         "candidates": [
             {
                 "candidate_id": f"drugclip-{request.get('cycle_id', 0)}-{index}",
-                "smiles": value,
-                "provenance": "BioTarget Stage C; homerquan/DrugClip text-molecular-graph alignment",
+                "smiles": smiles,
+                "drugclip_score": score,
+                "provenance": "BioTarget Stage C candidate pool; homerquan/DrugClip text-molecular-graph alignment",
             }
-            for index, value in enumerate(smiles)
+            for index, (score, smiles) in enumerate(selected)
         ],
         "model_ref": drugclip_config(request).get("model_ref", "hf.co/homerquan/DrugClip"),
     }
@@ -142,28 +181,14 @@ def folding(request: dict[str, Any], work_dir: Path) -> dict[str, Any]:
 
 def graph_text_score(request: dict[str, Any], _work_dir: Path) -> dict[str, Any]:
     biotarget_source(request)
-    import torch
-    from torch_geometric.data import Batch, Data
-    from biotarget.core.utils import process_single_molecule
 
     candidate = request.get("candidate") if isinstance(request.get("candidate"), dict) else {}
     structure = request.get("structure") if isinstance(request.get("structure"), dict) else {}
     smiles = str(candidate.get("smiles") or "")
     if not smiles:
         raise RuntimeError("DrugClip scoring request requires candidate.smiles.")
-    processed = process_single_molecule(smiles)
-    if processed is None:
-        raise RuntimeError(f"BioTarget could not build a 3D molecular graph for {smiles!r}.")
-    _, graph = processed
     model, device = load_drugclip(request)
-    data = Data(z=torch.tensor(graph["z"], dtype=torch.long), pos=torch.tensor(graph["pos"], dtype=torch.float32))
-    with torch.no_grad():
-        text_embedding = model.text_encoder([design_prompt(request)])
-        text_embedding = torch.nn.functional.normalize(text_embedding, p=2, dim=1)
-        batch = Batch.from_data_list([data]).to(device)
-        graph_embedding = model.graph_encoder(batch.z, batch.pos, batch.batch)
-        graph_embedding = torch.nn.functional.normalize(graph_embedding, p=2, dim=1)
-        score = float(torch.matmul(text_embedding, graph_embedding.T).squeeze().item())
+    score = float(score_graphs(model, device, [molecule_graph(smiles)], design_prompt(request))[0].item())
     return {
         "candidate": candidate,
         "structure": structure,
@@ -175,10 +200,7 @@ def graph_text_score(request: dict[str, Any], _work_dir: Path) -> dict[str, Any]
 
 def simulation(request: dict[str, Any], work_dir: Path) -> dict[str, Any]:
     biotarget_source(request)
-    import torch
-    from biotarget.core.utils import process_single_molecule
     from biotarget.stages.stage_d_evaluation import stage_d_evaluate_binding_and_tox
-    from torch_geometric.data import Data
 
     screen = request.get("screen") if isinstance(request.get("screen"), dict) else {}
     candidate = screen.get("candidate") if isinstance(screen.get("candidate"), dict) else {}
@@ -186,15 +208,8 @@ def simulation(request: dict[str, Any], work_dir: Path) -> dict[str, Any]:
     smiles = str(candidate.get("smiles") or "")
     if not smiles or not structure.get("path"):
         raise RuntimeError("BioTarget simulation requires screen.candidate.smiles and screen.structure.path.")
-    processed = process_single_molecule(smiles)
-    if processed is None:
-        raise RuntimeError(f"BioTarget could not build a 3D molecular graph for {smiles!r}.")
-    _, graph = processed
     model, device = load_drugclip(request)
-    molecular_graph = Data(
-        z=torch.tensor(graph["z"], dtype=torch.long),
-        pos=torch.tensor(graph["pos"], dtype=torch.float32),
-    )
+    molecular_graph = molecule_graph(smiles)
     with working_directory(work_dir):
         evaluations = stage_d_evaluate_binding_and_tox([smiles], [molecular_graph], [structure], model, device)
     if not evaluations:

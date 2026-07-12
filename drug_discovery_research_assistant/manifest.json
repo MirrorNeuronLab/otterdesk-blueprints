@@ -909,11 +909,19 @@
         "upload_path": "service",
         "upload_as": "service",
         "workdir": "/sandbox/job/service",
-        "pool": "science-control",
+        "pool": "default",
         "upload_paths": [
           {
             "source": "service",
             "target": "service"
+          },
+          {
+            "source": "worker/scripts",
+            "target": "service/scripts"
+          },
+          {
+            "source": "config",
+            "target": "config"
           },
           {
             "source": "examples/sample_inputs",
@@ -944,12 +952,12 @@
     "execution_backend": "native_dispatch_contract",
     "fallback": "fail_closed",
     "worker_pools": {
-      "control": "science-control",
+      "control": "default",
       "generation": "science-generation",
       "folding": "science-folding",
       "drugclip": "science-drugclip",
       "simulation": "science-simulation",
-      "aggregation": "science-control"
+      "aggregation": "default"
     },
     "collaboration": {
       "mode": "cross_box_fanout_fanin",
@@ -1007,7 +1015,7 @@
           "upload_path": "service",
           "upload_as": "service",
           "workdir": "/sandbox/job/service",
-          "pool": "science-control",
+          "pool": "default",
           "service": true,
           "service_kind": "continuous_drug_discovery",
           "cleanup_remote_dir": false,

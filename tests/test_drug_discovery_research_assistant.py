@@ -62,6 +62,11 @@ def test_drug_discovery_manifest_uses_source_format_and_shared_blocks():
     assert manifest["defaults"]["worker"]["uses"] == "mn-agents.worker.python_host@1"
     assert manifest["defaults"]["worker"]["with"]["runner_module"] == "MirrorNeuron.Runner.HostLocal"
     assert manifest["defaults"]["worker"]["with"]["upload_path"] == "service"
+    assert {entry["source"] for entry in manifest["defaults"]["worker"]["with"]["upload_paths"]} >= {
+        "service",
+        "worker/scripts",
+        "config",
+    }
     assert manifest["service"]["run_until"] == "manual_stop"
     assert manifest["cluster_distribution"]["collaboration"]["mode"] == "cross_box_fanout_fanin"
     custom_model = manifest["runtime"]["models"]["drugclip"]

@@ -29,7 +29,7 @@ The service coordinator and BioTarget adapter jobs use `MirrorNeuron.Runner.Host
 - `science-folding`: fan-out folding by target
 - `science-drugclip`: fan-out DrugCLIP target–candidate screening
 - `science-simulation`: fan-out simulation of DrugCLIP-selected candidates
-- `science-control`: aggregation, state, and review reports
+- `default`: native control, aggregation, state, and review reports
 
 The dispatcher must accept the job JSON on stdin and return a JSON result or write the declared output file. If it is absent, live runs fail closed rather than running a misleading local fallback. BioTarget Stage D currently uses its own GNINA containerized runner for docking; this is isolated to the scientific evaluation adapter, while the service control plane remains native.
 

@@ -708,12 +708,12 @@
     "fallback": "fail_closed",
     "contract": "The configured native dispatcher receives a JSON job specification on stdin and returns JSON with either result or a written output_path.",
     "worker_pools": {
-      "control": "science-control",
+      "control": "default",
       "generation": "science-generation",
       "folding": "science-folding",
       "drugclip": "science-drugclip",
       "simulation": "science-simulation",
-      "aggregation": "science-control"
+      "aggregation": "default"
     },
     "collaboration": {
       "mode": "cross_box_fanout_fanin",
@@ -771,21 +771,6 @@
     ],
     "timeout_seconds": 1800,
     "contract": "Use BioTarget's DrugClip graph-text alignment path. Read a molecular candidate and therapeutic intent from {input_path}; write drugclip_score to {output_path}."
-  },
-  "simulation": {
-    "required": true,
-    "command": [
-      "/usr/bin/python3.11",
-      "scripts/biotarget_adapter.py",
-      "--adapter",
-      "simulation",
-      "--input",
-      "{input_path}",
-      "--output",
-      "{output_path}"
-    ],
-    "timeout_seconds": 3600,
-    "contract": "Run BioTarget Stage D evaluation for a DrugClip-selected candidate. Read JSON from {input_path}; write docking and toxicity metrics to {output_path}."
   },
   "biotarget": {
     "enabled": true,
@@ -877,7 +862,20 @@
     "deterministic": true,
     "enabled": true,
     "seed_field": "seed",
-    "type": "Configured parallel molecular simulation after DrugCLIP screening."
+    "type": "Configured parallel molecular simulation after DrugClip graph-text screening.",
+    "required": true,
+    "command": [
+      "/usr/bin/python3.11",
+      "scripts/biotarget_adapter.py",
+      "--adapter",
+      "simulation",
+      "--input",
+      "{input_path}",
+      "--output",
+      "{output_path}"
+    ],
+    "timeout_seconds": 3600,
+    "contract": "Run BioTarget Stage D evaluation for a DrugClip-selected candidate. Read JSON from {input_path}; write docking and toxicity metrics to {output_path}."
   },
   "standard_version": "1.0",
   "state": {
