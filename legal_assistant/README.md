@@ -19,6 +19,8 @@ Put invoices, bills, contracts, clause notes, labels, or supporting files in the
 
 The bundled sample packet includes FAR 52.212-4, a real public federal contract-terms PDF. A normal run sends each specialist a bounded task prompt, uses the OCR skill for PDF/image ingestion when embedded text is insufficient, retrieves relevant sections of the checked-in legal playbook with Milvus Lite RAG, and calls the configured live LLM. The deep review artifact records clause-level findings, evidence gaps, risk flags, review questions, source refs, RAG citations, and confidence.
 
+Model placement follows the cluster: the medium/Nemotron profile is preferred when MirrorNeuron advertises a usable `nemotron3` endpoint; otherwise the model catalog fallback selects the installed small/Gemma runtime. The effective choice is recorded in `llm_usage.runtime_selection`.
+
 The sample review objective is contract-intake risk triage for a small-business operator and attorney. It asks the workflow to inspect payment controls, termination and continuity, indemnity and liability exposure, assignment/change-of-control effects, and privacy/privilege blockers without making a legal decision.
 
 ## Safety

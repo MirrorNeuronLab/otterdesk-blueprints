@@ -111,11 +111,8 @@ def test_legal_model_profiles_assign_large_to_heavy_nodes():
     assert config["llm"]["preferred_model"] == "medium"
     assert config["llm"]["configs"]["primary"]["model"] == "small"
     assert config["llm"]["configs"]["large"]["model"] == "medium"
-    assert config["llm"]["large_model_profile"]["hardware"]["gpu"] == {
-        "min_count": 1,
-        "min_memory_mb": 49152,
-        "memory_operator": ">=",
-    }
+    assert config["llm"]["configs"]["large"]["max_tokens"] > config["llm"]["configs"]["primary"]["max_tokens"]
+    assert config["llm"]["configs"]["large"]["hardware"]["gpu"]["min_memory_mb"] == 49152
     for step, spec in config["llm"]["agents"].items():
         expected = "large" if step in HEAVY_STEPS else "primary"
         assert spec["llm_config"] == expected, step
@@ -169,6 +166,46 @@ def test_legal_runner_resolves_config_from_docker_worker_attempt_root(monkeypatc
     assert runner.load_resolved_config()["identity"]["blueprint_id"] == "legal_assistant"
 
 
+def test_legal_runner_selects_cluster_medium_or_small_fallback(monkeypatch):
+    runner = _load_runner()
+    config = json.loads((BLUEPRINT_DIR / "config" / "default.json").read_text(encoding="utf-8"))
+
+    monkeypatch.setenv(
+        "MN_MODEL_ENDPOINTS_JSON",
+        json.dumps(
+            {
+                "nemotron3": {
+                    "model": "docker.io/ai/nemotron3:latest",
+                    "runtime_model": "docker.io/ai/nemotron3:latest",
+                    "api_base": "http://mn-litellm-proxy:4000/v1",
+                    "provider": "docker_model_runner",
+                    "node": "mirror_neuron@gpu-node",
+                }
+            }
+        ),
+    )
+    medium = runner.select_runtime_llm_model(config)
+    assert medium["selected_model"] == "medium"
+    assert medium["runtime_model"] == "docker.io/ai/nemotron3:latest"
+    assert medium["node"] == "mirror_neuron@gpu-node"
+
+    monkeypatch.setenv(
+        "MN_MODEL_ENDPOINTS_JSON",
+        json.dumps(
+            {
+                "small": {
+                    "model": "docker.io/ai/gemma4:E2B",
+                    "runtime_model": "docker.io/ai/gemma4:E2B",
+                    "provider": "docker_model_runner",
+                }
+            }
+        ),
+    )
+    small = runner.select_runtime_llm_model(config)
+    assert small["selected_model"] == "small"
+    assert small["model"] == "docker.io/ai/gemma4:E2B"
+
+
 def test_legal_smoke_run_writes_merged_artifacts(tmp_path):
     runner = _load_runner()
     llm = FakeLegalLLM()
@@ -192,6 +229,15 @@ def test_legal_smoke_run_writes_merged_artifacts(tmp_path):
     assert artifact["contract_clause_review"]["contract_count"] >= 1
     assert artifact["contract_clause_review"]["clause_count"] >= 5
     assert artifact["model_profiles_used"]["legal_reporter"]["llm_config"] == "large"
+    assert set(artifact["actor_findings"]) == {
+        "invoice_bill_extractor",
+        "payable_field_validator",
+        "contract_clause_extractor",
+        "contract_playbook_comparator",
+        "legal_evidence_reconciler",
+        "legal_review_auditor",
+        "legal_reporter",
+    }
     assert (tmp_path / "runs" / "legal-test" / "final_artifact.json").exists()
     assert (output_folder / "legal_assistant_report.md").exists()
     assert (output_folder / "legal_deep_review.json").exists()

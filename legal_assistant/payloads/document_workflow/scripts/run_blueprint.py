@@ -105,6 +105,15 @@ HEAVY_MODEL_STEPS = {
     "legal_review_auditor",
     "legal_reporter",
 }
+DEFAULT_LLM_REVIEW_AGENTS = (
+    "invoice_bill_extractor",
+    "payable_field_validator",
+    "contract_clause_extractor",
+    "contract_playbook_comparator",
+    "legal_evidence_reconciler",
+    "legal_review_auditor",
+    "legal_reporter",
+)
 DATASET_INPUTS = {
     "invoice_bill_extraction": {
         "name": "IDSEM Dataset",
@@ -185,6 +194,10 @@ LEGAL_RAG_QUERIES = {
     "legal_review_auditor": "legal review audit privacy privilege deterministic invariance and blocked actions",
     "legal_reporter": "legal report quality evidence traceability bounded next steps and review-only language",
 }
+LEGAL_RAG_RUN_QUERY = (
+    "legal invoice and contract review evidence hierarchy, clause taxonomy, playbook comparison, "
+    "privacy and privilege, reconciliation, and human approval boundaries"
+)
 
 
 def prepare_legal_rag(config: dict[str, Any], blueprint_root: Path, knowledge: dict[str, Any]) -> dict[str, Any]:
@@ -235,11 +248,16 @@ def legal_knowledge_context_for_actor(
     rag_config = rag_state.get("_rag_config") if isinstance(rag_state, dict) else None
     if build_rag_context is not None and rag_state.get("status") == "ready" and rag_config is not None:
         try:
-            retrieved = build_rag_context(
-                query,
-                rag_config,
-                max_chars=int((rag_state.get("config") or {}).get("max_context_chars") or 6000),
-            )
+            retrieved = rag_state.get("_shared_retrieval")
+            if not isinstance(retrieved, dict):
+                retrieved = build_rag_context(
+                    LEGAL_RAG_RUN_QUERY,
+                    rag_config,
+                    max_chars=int((rag_state.get("config") or {}).get("max_context_chars") or 4500),
+                )
+                rag_state["_shared_retrieval"] = retrieved
+            if retrieved.get("error"):
+                raise RuntimeError(str(retrieved["error"]))
             base.update(
                 {
                     "context": retrieved.get("context") or "",
@@ -251,6 +269,7 @@ def legal_knowledge_context_for_actor(
             )
             return base
         except Exception as exc:  # pragma: no cover - depends on local embedding runtime
+            rag_state["_shared_retrieval"] = {"error": str(exc)}
             base["rag_status"] = "knowledge_rag_failed"
             base.setdefault("rag_warnings", []).append({"kind": "knowledge_rag", "message": "Actor retrieval failed; bundled playbook context remains available.", "error": str(exc)})
     base["context"] = knowledge.get("content") or ""
@@ -902,6 +921,127 @@ def model_profiles_used(config: dict[str, Any]) -> dict[str, dict[str, str]]:
     return result
 
 
+def llm_profile_config(config: dict[str, Any], actor_id: str) -> dict[str, Any]:
+    llm = config.get("llm") if isinstance(config.get("llm"), dict) else {}
+    agents = llm.get("agents") if isinstance(llm.get("agents"), dict) else {}
+    agent = agents.get(actor_id) if isinstance(agents.get(actor_id), dict) else {}
+    profile_name = str(agent.get("llm_config") or llm.get("default_config") or "primary")
+    profiles = llm.get("configs") if isinstance(llm.get("configs"), dict) else {}
+    profile = profiles.get(profile_name)
+    return profile if isinstance(profile, dict) else {}
+
+
+def configured_llm_review_agents(config: dict[str, Any]) -> list[str]:
+    """Return only actors that need live reasoning after deterministic intake.
+
+    Folder watching and document reading are deterministic stages in this
+    blueprint. Calling the LLM again for those stages duplicated work and
+    made a normal run exceed the declared runtime and token budgets.
+    """
+    llm = config.get("llm") if isinstance(config.get("llm"), dict) else {}
+    configured = llm.get("review_agents")
+    if isinstance(configured, list) and configured:
+        candidates = [str(item) for item in configured if str(item)]
+    else:
+        candidates = list(DEFAULT_LLM_REVIEW_AGENTS)
+    agents = llm.get("agents") if isinstance(llm.get("agents"), dict) else {}
+    return [actor_id for actor_id in candidates if actor_id in agents]
+
+
+def _runtime_model_endpoints() -> dict[str, dict[str, Any]]:
+    raw = str(os.environ.get("MN_MODEL_ENDPOINTS_JSON") or "").strip()
+    if not raw:
+        return {}
+    try:
+        decoded = json.loads(raw)
+    except json.JSONDecodeError:
+        return {}
+    if not isinstance(decoded, dict):
+        return {}
+    return {
+        str(key).strip().lower(): value
+        for key, value in decoded.items()
+        if str(key).strip() and isinstance(value, dict)
+    }
+
+
+def _endpoint_contains_model(endpoint_key: str, endpoint: dict[str, Any], needle: str) -> bool:
+    values = [endpoint_key]
+    values.extend(str(endpoint.get(field) or "") for field in ("model", "runtime_model", "api_model"))
+    return needle in " ".join(values).lower()
+
+
+def select_runtime_llm_model(config: dict[str, Any]) -> dict[str, Any]:
+    """Select the live model from runtime-advertised cluster endpoints.
+
+    MirrorNeuron exposes only usable model endpoints in
+    ``MN_MODEL_ENDPOINTS_JSON``. A Nemotron endpoint means a capable cluster
+    node is available; otherwise the model catalog's Gemma fallback is used.
+    ``MN_PREPARED_RUNTIME_MODELS_JSON`` is deliberately not treated as proof
+    of capability because it also records a requested model that resolved to a
+    fallback during preparation.
+    """
+    llm = config.get("llm") if isinstance(config.get("llm"), dict) else {}
+    configs = llm.get("configs") if isinstance(llm.get("configs"), dict) else {}
+    primary = configs.get("primary") if isinstance(configs.get("primary"), dict) else {}
+    endpoints = _runtime_model_endpoints()
+
+    medium_endpoint = next(
+        (
+            endpoint
+            for key, endpoint in endpoints.items()
+            if _endpoint_contains_model(key, endpoint, "nemotron3")
+        ),
+        None,
+    )
+    if medium_endpoint is not None:
+        model = str(
+            medium_endpoint.get("api_model")
+            or medium_endpoint.get("model")
+            or medium_endpoint.get("runtime_model")
+            or "docker.io/ai/nemotron3:latest"
+        )
+        return {
+            "requested_model": str(llm.get("preferred_model") or "medium"),
+            "selected_model": "medium",
+            "runtime_model": str(medium_endpoint.get("runtime_model") or model),
+            "model": model,
+            "provider": str(medium_endpoint.get("provider") or "docker_model_runner"),
+            "api_base": str(medium_endpoint.get("api_base") or ""),
+            "node": str(medium_endpoint.get("node") or ""),
+            "reason": "cluster_advertised_nemotron3_endpoint",
+            "source": "MN_MODEL_ENDPOINTS_JSON",
+        }
+
+    small_endpoint = next(
+        (
+            endpoint
+            for key, endpoint in endpoints.items()
+            if _endpoint_contains_model(key, endpoint, "gemma4")
+            or _endpoint_contains_model(key, endpoint, "small")
+        ),
+        None,
+    )
+    model = str(
+        (small_endpoint or {}).get("api_model")
+        or (small_endpoint or {}).get("model")
+        or os.environ.get("MN_LLM_MODEL")
+        or primary.get("model")
+        or "small"
+    )
+    return {
+        "requested_model": str(llm.get("preferred_model") or "medium"),
+        "selected_model": "small",
+        "runtime_model": str((small_endpoint or {}).get("runtime_model") or model),
+        "model": model,
+        "provider": str((small_endpoint or {}).get("provider") or primary.get("provider") or "docker_model_runner"),
+        "api_base": str((small_endpoint or {}).get("api_base") or os.environ.get("MN_LLM_API_BASE") or ""),
+        "node": str((small_endpoint or {}).get("node") or ""),
+        "reason": "no_cluster_advertised_nemotron3_endpoint",
+        "source": "MN_MODEL_ENDPOINTS_JSON" if endpoints else "blueprint_small_fallback",
+    }
+
+
 def build_llm_client(config: dict[str, Any], payload: dict[str, Any], llm_client: Any | None) -> Any:
     if llm_client is not None:
         return llm_client
@@ -912,12 +1052,31 @@ def build_llm_client(config: dict[str, Any], payload: dict[str, Any], llm_client
             "Legal Assistant requires the shared live LLM client for normal runs. "
             "Install/enable mirrorneuron-litellm-communicate-skill or run with explicit fake/quick-test mode."
         )
+    selection = select_runtime_llm_model(config)
+    selection_env = {
+        "MN_LLM_MODEL": selection.get("model"),
+        "MN_LLM_RUNTIME_MODEL": selection.get("runtime_model"),
+        "MN_LLM_PROVIDER": selection.get("provider"),
+    }
+    if selection.get("api_base"):
+        selection_env["MN_LLM_API_BASE"] = selection["api_base"]
+    previous_env = {key: os.environ.get(key) for key in selection_env}
     try:
+        for key, value in selection_env.items():
+            if value:
+                os.environ[key] = str(value)
         client = get_actor_llm_client(config, None)
     except Exception as exc:
         raise RuntimeError(f"Unable to initialize shared live LLM client: {exc}") from exc
+    finally:
+        for key, value in previous_env.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
     if client is None or str(getattr(client, "provider", "")).lower() in {"fake", "mock", "deterministic", "test"}:
         raise RuntimeError("Shared live LLM client was unavailable for a normal Legal Assistant run.")
+    setattr(client, "runtime_selection", selection)
     llm_config = config.get("llm") if isinstance(config.get("llm"), dict) else {}
     profile_name = str(os.environ.get("MN_LLM_CONFIG") or llm_config.get("default_config") or "primary")
     profiles = llm_config.get("configs") if isinstance(llm_config.get("configs"), dict) else {}
@@ -995,31 +1154,49 @@ def llm_generate(
         "unknown_rule": "If evidence is absent, say unknown, not found, ambiguous, or review required; never infer a legal or payable fact.",
     }
     if hasattr(llm, "generate_json"):
-        response = llm.generate_json(
-            system_prompt=render_prompt(
-                "actor-review-system.md",
-                actor_id=actor_id,
-                role=role,
-                responsibilities="\n".join(f"- {item}" for item in responsibilities) or "- Preserve source-grounded, review-only output.",
-                prompt_details=prompt_details,
-            ),
-            user_prompt=json.dumps(
-                {
-                    "actor_id": actor_id,
-                    "role": role,
-                    "responsibilities": responsibilities,
-                    "model_profile": profile,
-                    "context": redact_value(context),
-                    "knowledge_context": knowledge_context,
-                    "output_contract": output_contract,
-                    "fallback_shape": fallback,
-                },
-                sort_keys=True,
-                default=str,
-            )[:9000],
-            fallback=fallback,
-        )
-        return response if isinstance(response, dict) else fallback
+        profile_config = llm_profile_config(config, actor_id)
+        previous_values: dict[str, Any] = {}
+        for attribute, key in (
+            ("timeout_seconds", "timeout_seconds"),
+            ("max_tokens", "max_tokens"),
+            ("num_retries", "num_retries"),
+            ("retry_backoff_seconds", "retry_backoff_seconds"),
+        ):
+            if key in profile_config and hasattr(llm, attribute):
+                previous_values[attribute] = getattr(llm, attribute)
+                setattr(llm, attribute, profile_config[key])
+        if hasattr(llm, "strict") and "strict_json" in profile_config:
+            previous_values["strict"] = getattr(llm, "strict")
+            setattr(llm, "strict", bool(profile_config["strict_json"]))
+        try:
+            response = llm.generate_json(
+                system_prompt=render_prompt(
+                    "actor-review-system.md",
+                    actor_id=actor_id,
+                    role=role,
+                    responsibilities="\n".join(f"- {item}" for item in responsibilities) or "- Preserve source-grounded, review-only output.",
+                    prompt_details=prompt_details,
+                ),
+                user_prompt=json.dumps(
+                    {
+                        "actor_id": actor_id,
+                        "role": role,
+                        "responsibilities": responsibilities,
+                        "model_profile": profile,
+                        "context": redact_value(context),
+                        "knowledge_context": knowledge_context,
+                        "output_contract": output_contract,
+                        "fallback_shape": fallback,
+                    },
+                    sort_keys=True,
+                    default=str,
+                )[:9000],
+                fallback=fallback,
+            )
+            return response if isinstance(response, dict) else fallback
+        finally:
+            for attribute, value in previous_values.items():
+                setattr(llm, attribute, value)
     return fallback
 
 
@@ -1032,7 +1209,9 @@ def run_actor_reviews(
 ) -> dict[str, Any]:
     llm = llm_client or DeterministicLLM()
     actor_findings: dict[str, Any] = {}
-    for actor_id, spec in ((config.get("llm") or {}).get("agents") or {}).items():
+    agents = (config.get("llm") or {}).get("agents") or {}
+    for actor_id in configured_llm_review_agents(config):
+        spec = agents[actor_id]
         fallback = {
             "actor_id": actor_id,
             "role": spec.get("role") or actor_id,
@@ -1090,6 +1269,7 @@ def llm_usage(llm_client: Any | None, actor_findings: dict[str, Any]) -> dict[st
         "output_tokens": int(getattr(llm_client, "output_tokens", 0) or 0),
         "total_tokens": int(getattr(llm_client, "total_tokens", 0) or 0),
         "estimated_tokens": int(getattr(llm_client, "estimated_tokens", 0) or 0),
+        "runtime_selection": getattr(llm_client, "runtime_selection", {}),
     }
 
 

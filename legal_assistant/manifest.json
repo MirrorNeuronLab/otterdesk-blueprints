@@ -91,7 +91,7 @@
           "path": "llm.default_config",
           "label": "Default model profile",
           "default": "primary",
-          "description": "Use small for intake and extraction; heavy playbook audit and reporting nodes can use the medium profile."
+          "description": "Use the primary profile for intake and extraction; bounded deep analysis uses the same installed runtime model with a larger output budget."
         }
       ]
     },
@@ -182,13 +182,13 @@
       "embedding_query_prefix": "Query: ",
       "embedding_document_prefix": "Document: ",
       "embedding_start_command": "",
-      "embedding_healthcheck_enabled": true,
+      "embedding_healthcheck_enabled": false,
       "vector_dim": 1024,
       "index_on_startup": true,
       "top_k": 5,
-      "max_context_chars": 6000,
-      "chunk_size": 800,
-      "chunk_overlap": 80,
+      "max_context_chars": 4500,
+      "chunk_size": 2500,
+      "chunk_overlap": 150,
       "privacy": "index local blueprint knowledge only; do not index private run documents unless a future runtime explicitly opts in"
     },
     "agentic_research": {
@@ -198,6 +198,7 @@
         "payable_field_validator",
         "contract_clause_extractor",
         "contract_playbook_comparator",
+        "legal_evidence_reconciler",
         "legal_review_auditor",
         "legal_reporter"
       ],
@@ -817,13 +818,13 @@
     "embedding_query_prefix": "Query: ",
     "embedding_document_prefix": "Document: ",
     "embedding_start_command": "",
-    "embedding_healthcheck_enabled": true,
+    "embedding_healthcheck_enabled": false,
     "vector_dim": 1024,
     "index_on_startup": true,
     "top_k": 5,
-    "max_context_chars": 6000,
-    "chunk_size": 800,
-    "chunk_overlap": 80,
+    "max_context_chars": 4500,
+    "chunk_size": 2500,
+    "chunk_overlap": 150,
     "privacy": "index local blueprint knowledge only; do not index private run documents unless a future runtime explicitly opts in"
   },
   "agentic_research": {
@@ -833,6 +834,7 @@
       "payable_field_validator",
       "contract_clause_extractor",
       "contract_playbook_comparator",
+      "legal_evidence_reconciler",
       "legal_review_auditor",
       "legal_reporter"
     ],
@@ -878,4 +880,3 @@
     }
   ]
 }
-
