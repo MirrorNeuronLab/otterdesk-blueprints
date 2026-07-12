@@ -48,6 +48,15 @@ def load_message():
     return json.loads(Path(os.environ["MN_MESSAGE_FILE"]).read_text())
 
 
+def fake_mode() -> bool:
+    if os.environ.get("MN_SCIENCE_FAKE_MODE") == "1":
+        return True
+    try:
+        return str(json.loads(os.environ.get("MN_BLUEPRINT_CONFIG_JSON", "{}")).get("mode") or "").lower() in {"fake", "mock"}
+    except json.JSONDecodeError:
+        return False
+
+
 def main():
     message = load_message()
     payload = extract_payload(message)
@@ -56,12 +65,16 @@ def main():
 
     logger.info("Stage B: generating structures for %d targets", len(targets))
     if stage_b_structure_generation is None:
+        if not fake_mode():
+            raise RuntimeError("Live folding is owned by the continuous service and requires the configured folding adapter; synthetic structures are fake-mode only.")
         structures = fallback_structure_generation(targets)
     else:
         try:
             structures = stage_b_structure_generation(targets, engine="openfold3")
         except Exception as exc:
-            logger.warning("BioTarget Stage B failed; using fallback structures: %s", exc)
+            if not fake_mode():
+                raise RuntimeError(f"Live preflight folding failed: {exc}") from exc
+            logger.warning("BioTarget Stage B failed in fake mode; using synthetic structures: %s", exc)
             structures = fallback_structure_generation(targets)
 
     shared_dir = "/tmp/biotarget_shared"

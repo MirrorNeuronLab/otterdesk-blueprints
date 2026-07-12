@@ -11,7 +11,7 @@ BLUEPRINT_DIR = ROOT / "drug_discovery_research_assistant"
 STEP_SCRIPTS = {
     "target_discovery": "scripts/stage_a.py",
     "structure_generation": "scripts/stage_b.py",
-    "candidate_generation": "scripts/stage_c.py",
+    "candidate_generation": "scripts/run_continuous_service.py",
     "binding_evaluation": "scripts/stage_d.py",
     "ranking_reporting": "scripts/stage_e.py",
 }
@@ -53,19 +53,27 @@ def test_drug_discovery_manifest_uses_source_format_and_shared_blocks():
 
     assert manifest["apiVersion"] == "mn.workflow.source/v1"
     assert manifest["kind"] == "WorkflowSource"
+    assert manifest["type"] == "service"
     assert manifest["identity"]["id"] == "drug_discovery_research_assistant"
     assert "nodes" not in manifest.get("agents", {})
     assert "edges" not in manifest.get("agents", {})
     assert [step["id"] for step in manifest["workflow"]["steps"]] == list(STEP_SCRIPTS)
-    assert manifest["agents"]["extra_templates"] == [
-        {
-            "node_id": "report_sink",
-            "uses": "mn-agents.control.terminal_sink@1",
-            "with": {"stereotype": "terminal_report_sink"},
-        }
-    ]
-    assert manifest["defaults"]["worker"]["with"]["docker_worker_image"] == "worker/docker_worker"
-    assert manifest["defaults"]["worker"]["with"]["upload_path"] == "worker"
+    assert manifest["agents"]["extra_templates"] == []
+    assert manifest["defaults"]["worker"]["uses"] == "mn-agents.worker.python_host@1"
+    assert manifest["defaults"]["worker"]["with"]["runner_module"] == "MirrorNeuron.Runner.HostLocal"
+    assert manifest["defaults"]["worker"]["with"]["upload_path"] == "service"
+    assert manifest["service"]["run_until"] == "manual_stop"
+    assert manifest["cluster_distribution"]["collaboration"]["mode"] == "cross_box_fanout_fanin"
+    custom_model = manifest["runtime"]["models"]["drugclip"]
+    assert custom_model == {
+        "provider": "docker_model_runner",
+        "model": "hf.co/homerquan/DrugClip",
+        "runtime_model": "hf.co/homerquan/DrugClip",
+        "backend": "auto",
+        "context_size": 4096,
+        "required": True,
+        "customize_mode": True,
+    }
 
     by_step = manifest["workers"]["by_step"]
     assert set(by_step) == set(STEP_SCRIPTS)
@@ -88,26 +96,105 @@ def test_drug_discovery_model_profiles_match_vc_style_defaults():
         "memory_operator": ">=",
     }
     assert {spec["llm_config"] for spec in config["llm"]["agents"].values()} == {"primary"}
+    assert "customize_mode" not in config["drugclip"]
+    assert config["drugclip"]["model_ref"] == "hf.co/homerquan/DrugClip"
+    assert config["drugclip"]["source_repository"] == "/Users/homer/Sandbox/BioTarget"
+    for adapter_name in ("candidate_generator", "folding", "drugclip", "simulation"):
+        assert config[adapter_name]["command"][1] == "scripts/biotarget_adapter.py"
 
 
-def test_drug_discovery_source_manifest_expands_with_stage_scripts_and_terminal_sink():
+def test_drug_discovery_source_manifest_expands_with_native_service_script():
     source = json.loads((BLUEPRINT_DIR / "manifest.json").read_text(encoding="utf-8"))
     expanded = _expand_source_manifest(source)
 
+    assert expanded["type"] == "service"
+    assert expanded["job_name"] == "drug-discovery-research-assistant"
     node_by_id = {node["node_id"]: node for node in expanded["agents"]["nodes"]}
-    assert set(node_by_id) == {*STEP_SCRIPTS, "report_sink"}
-    assert any(
-        edge["from_node"] == "ranking_reporting"
-        and edge["to_node"] == "report_sink"
-        and edge["message_type"] == "pipeline_complete"
-        for edge in expanded["agents"]["edges"]
-    )
+    assert set(node_by_id) == set(STEP_SCRIPTS)
     for step, script in STEP_SCRIPTS.items():
         config = node_by_id[step]["config"]
         assert config["command"] == ["/usr/bin/python3.11", script]
         assert config["output_message_type"] == source["workers"]["by_step"][step]["with"]["output_message_type"]
-        assert config["docker_worker_image"] == "worker/docker_worker"
-        assert config["upload_path"] == "worker"
+        assert config["runner_module"] == "MirrorNeuron.Runner.HostLocal"
+    service_config = node_by_id["candidate_generation"]["config"]
+    assert service_config["service"] is True
+    assert service_config["service_kind"] == "continuous_drug_discovery"
+    assert service_config["upload_path"] == "service"
+    assert service_config["cleanup_remote_dir"] is False
     assert node_by_id["ranking_reporting"]["config"]["side_effect"] == "internal_write"
-    assert node_by_id["report_sink"]["config"]["terminal_sink"] is True
     assert expanded["runtime"]["resources"]["gpu"] == {"min_count": 0}
+
+
+def test_continuous_service_fake_mode_writes_parallel_cycle_artifacts(tmp_path):
+    service_path = BLUEPRINT_DIR / "payloads" / "service" / "scripts" / "continuous_service.py"
+    spec = importlib.util.spec_from_file_location("drug_discovery_continuous_service_test", service_path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+
+    config = {
+        "mode": "mock",
+        "execution": {"fake_science_adapters": True},
+        "service": {"max_cycles": 1, "cycle_interval_seconds": 0.1, "simulation_top_k": 2, "parallelism": {"folding_workers": 2, "drugclip_workers": 2, "simulation_workers": 2}},
+        "cluster_distribution": {"enabled": False, "worker_pools": {}},
+        "inputs": {"payload": {"targets": [{"protein_id": "P56817", "gene": "BACE1"}]}},
+    }
+    result = module.run_service(config, tmp_path)
+
+    assert result["status"] == "stopped"
+    assert result["completed_cycles"] == 1
+    cycle = tmp_path / "cycles" / "cycle-000000"
+    for name in ("generated_candidates.json", "folding_results.json", "drugclip_screening.json", "simulation_results.json", "cycle_report.json"):
+        assert (cycle / name).exists(), name
+    report = json.loads((cycle / "cycle_report.json").read_text(encoding="utf-8"))
+    assert report["mode"] == "fake_smoke_test"
+    assert report["simulation_count"] > 0
+
+
+def test_continuous_service_uses_unique_work_directories_for_parallel_jobs(tmp_path):
+    service_path = BLUEPRINT_DIR / "payloads" / "service" / "scripts" / "continuous_service.py"
+    spec = importlib.util.spec_from_file_location("drug_discovery_continuous_service_paths_test", service_path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+
+    first = module.job_artifact_dir(tmp_path, "drugclip", "P12345", "candidate-1")
+    second = module.job_artifact_dir(tmp_path, "drugclip", "P67890", "candidate-1")
+    assert first != second
+    assert first.parent == second.parent == tmp_path / "drugclip"
+
+
+def test_continuous_service_live_mode_requires_native_adapter_contracts(tmp_path):
+    service_path = BLUEPRINT_DIR / "payloads" / "service" / "scripts" / "continuous_service.py"
+    spec = importlib.util.spec_from_file_location("drug_discovery_continuous_service_live_test", service_path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+
+    try:
+        module.run_service({"mode": "live", "service": {"max_cycles": 1}, "cluster_distribution": {"enabled": True}}, tmp_path)
+    except RuntimeError as error:
+        assert "candidate_generator" in str(error)
+    else:  # pragma: no cover - protects the no-fallback contract
+        raise AssertionError("live service accepted missing scientific adapters")
+
+
+def test_continuous_service_requires_a_native_dispatcher_for_cross_box_runs(tmp_path):
+    service_path = BLUEPRINT_DIR / "payloads" / "service" / "scripts" / "continuous_service.py"
+    spec = importlib.util.spec_from_file_location("drug_discovery_continuous_service_dispatch_test", service_path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+
+    configured_adapters = {name: {"command": [sys.executable, "-c", "print('{}')"]} for name in module.REQUIRED_ADAPTERS}
+    config = {"mode": "live", **configured_adapters, "service": {"max_cycles": 1}, "cluster_distribution": {"enabled": True}}
+    try:
+        module.run_service(config, tmp_path)
+    except RuntimeError as error:
+        assert "dispatch_command" in str(error)
+    else:  # pragma: no cover - protects the cross-box fail-closed contract
+        raise AssertionError("cross-box service accepted a missing native dispatcher")

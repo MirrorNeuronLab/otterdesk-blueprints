@@ -7,6 +7,17 @@
     }
   },
   "budgets": {
-    "max_runtime_seconds": "600"
+    "max_runtime_seconds": 0
+  },
+  "execution": {
+    "fake_science_adapters": true,
+    "mode": "native_local_smoke_test"
+  },
+  "service": {
+    "max_cycles": 1,
+    "cycle_interval_seconds": 0.1
+  },
+  "cluster_distribution": {
+    "enabled": false
   }
 }

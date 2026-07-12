@@ -29,6 +29,15 @@ def load_message():
     return json.loads(Path(os.environ["MN_MESSAGE_FILE"]).read_text())
 
 
+def fake_mode() -> bool:
+    if os.environ.get("MN_SCIENCE_FAKE_MODE") == "1":
+        return True
+    try:
+        return str(json.loads(os.environ.get("MN_BLUEPRINT_CONFIG_JSON", "{}")).get("mode") or "").lower() in {"fake", "mock"}
+    except json.JSONDecodeError:
+        return False
+
+
 def main():
     message = load_message()
     payload = extract_payload(message)
@@ -36,12 +45,16 @@ def main():
 
     logger.info("Stage A: discovering targets for %s", disease)
     if stage_a_target_discovery is None:
+        if not fake_mode():
+            raise RuntimeError("Live target discovery requires the configured BioTarget target-discovery adapter; synthetic target fallback is fake-mode only.")
         targets = fallback_targets()
     else:
         try:
             targets = stage_a_target_discovery(disease)
         except Exception as exc:
-            logger.warning("BioTarget Stage A failed; using fallback targets: %s", exc)
+            if not fake_mode():
+                raise RuntimeError(f"Live target discovery failed: {exc}") from exc
+            logger.warning("BioTarget Stage A failed in fake mode; using synthetic targets: %s", exc)
             targets = fallback_targets()
 
     top_targets = targets[:3]

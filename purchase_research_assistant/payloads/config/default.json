@@ -12,13 +12,27 @@
     "max_events_per_second": 10,
     "queue_size": 1000
   },
+  "benchmark": {
+    "baseline": "all_context",
+    "enabled": true,
+    "quality_metrics": [
+      "action_accuracy",
+      "purchase_type_fit",
+      "critical_fact_recall",
+      "risk_awareness",
+      "quality_score_delta",
+      "estimated_token_reduction_ratio",
+      "budget_violation_rate"
+    ],
+    "schema_version": "mn.finance.purchase_research.v1"
+  },
   "budgets": {
     "max_connector_reads": 500,
     "max_connector_writes": 20,
     "max_disk_mb": 250,
     "max_llm_calls": 20,
     "max_llm_tokens": 20000,
-    "max_runtime_seconds": 0,
+    "max_runtime_seconds": 600,
     "max_stream_duration_seconds": 3600
   },
   "capabilities": {
@@ -64,13 +78,12 @@
     "resolve_config",
     "load_inputs",
     "start_run_store",
-    "start_continuous_service",
-    "dispatch_cross_box_scientific_jobs",
-    "generate_candidates",
-    "fold_targets_in_parallel",
-    "screen_with_drugclip",
-    "run_parallel_simulations",
-    "aggregate_cycle_results",
+    "observe_simulation_state",
+    "call_llm_agent",
+    "evaluate_workflow_state",
+    "route_by_context",
+    "request_human_input",
+    "apply_decision_to_simulation",
     "emit_events",
     "write_final_artifact",
     "fan_out_output_skills",
@@ -85,10 +98,10 @@
       "reject"
     ],
     "blocked_actions": [
-      "advance_to_lab_experiment",
-      "make_clinical_claim",
-      "submit_regulatory_material",
-      "send_candidate_to_external_system_without_review"
+      "buy_or_book",
+      "pay_or_transfer_funds",
+      "submit_application_or_offer",
+      "contact_seller_provider_or_broker"
     ],
     "decision_event": "human_decision_applied",
     "default_action": "reject",
@@ -101,30 +114,35 @@
       "human_decision_applied"
     ],
     "mode": "approval_required",
-    "reason": "Human approval is required before high-impact downstream actions such as advance_to_lab_experiment, make_clinical_claim, submit_regulatory_material.",
+    "reason": "Human approval is required before any purchase, booking, payment, application, offer, or seller/provider contact action.",
     "request_event": "human_input_requested",
     "response_event": "human_input_received",
     "timeout_event": "human_input_timeout",
     "timeout_seconds": 3600
   },
   "identity": {
-    "blueprint_id": "drug_discovery_research_assistant",
-    "name": "Drug Discovery Research Assistant"
+    "blueprint_id": "purchase_research_assistant",
+    "name": "Purchase Research Assistant"
   },
-  "input_skills": {},
+  "input_skills": {
+    "llm_ocr": {"skill": "llm_ocr_skill", "package": "mirrorneuron-llm-ocr-skill", "enabled": true, "required": false, "min_text_chars": 40},
+    "w3m_browser": {"skill": "w3m_browser_skill", "package": "mirrorneuron-w3m-browser-skill", "enabled": true, "required": false, "purpose": "Primary public text-browser research."},
+    "web_browser": {"skill": "web_browser_skill", "package": "mirrorneuron-web-browser-skill", "enabled": true, "required": false, "purpose": "Optional rendered-browser fallback."}
+  },
   "inputs": {
     "adapter": "mock",
-    "description": "Default synthetic inputs bundled with the blueprint.",
+    "description": "Default synthetic large-context inputs bundled with the blueprint.",
     "payload": {
-      "disease_or_target_profile": "Alzheimer disease BACE1 modulation",
-      "targets": [
-        {
-          "protein_id": "P56817",
-          "gene": "BACE1"
-        }
-      ],
-      "input_folder": "drug_discovery_research_assistant/examples/sample_inputs",
-      "output_folder": "~/Download/drug_discovery_research_assistant"
+      "purchase_type": "custom",
+      "item_description": "Compare the bundled purchase research sample",
+      "budget": 1000,
+      "location": "",
+      "route": "",
+      "travel_dates": "",
+      "priorities": ["total cost", "quality", "policy clarity"],
+      "constraints": {},
+      "input_folder": "purchase_research_assistant/examples/sample_inputs",
+      "output_folder": "~/Download/purchase_research_assistant"
     }
   },
   "interfaces": {
@@ -234,13 +252,6 @@
       "standard_version",
       "identity",
       "mode",
-      "service",
-      "execution",
-      "cluster_distribution",
-      "candidate_generator",
-      "folding",
-      "drugclip",
-      "simulation",
       "metadata",
       "inputs",
       "simulation",
@@ -335,13 +346,6 @@
       "standard_version",
       "identity",
       "mode",
-      "service",
-      "execution",
-      "cluster_distribution",
-      "candidate_generator",
-      "folding",
-      "drugclip",
-      "simulation",
       "metadata",
       "inputs",
       "simulation",
@@ -374,59 +378,94 @@
   },
   "llm": {
     "enabled": true,
-    "agent_role": "AI service coordinator for distributed candidate generation, DrugCLIP virtual screening, folding, simulation, and evidence review.",
+    "agent_role": "AI assistant for researching purchases and drafting source-grounded comparisons.",
     "agents": {
-      "binding_evaluation": {
+      "purchase:intake": {
         "llm_config": "primary",
         "model": "small",
-        "role": "Binding evaluation analyst",
+        "role": "Purchase intake and category reviewer",
         "responsibilities": [
-          "Review docking or binding-score outputs.",
-          "Explain affinity ranking caveats.",
-          "Flag candidates needing wet-lab validation."
+          "Classify the purchase type and normalize the user request.",
+          "Separate user-provided facts from assumptions.",
+          "Flag missing scope, budget, location, route, or date details."
         ]
       },
-      "candidate_generation": {
+      "purchase:price_research": {
         "llm_config": "primary",
         "model": "small",
-        "role": "Candidate generation strategist",
+        "role": "Price and availability researcher",
         "responsibilities": [
-          "Compare generated compounds against project constraints.",
-          "Summarize candidate families and tradeoffs.",
-          "Flag manufacturability or novelty review needs."
+          "Collect public price and availability evidence.",
+          "Tie volatile facts to URLs and retrieval timestamps.",
+          "Flag stale, blocked, or unsupported pricing claims."
         ]
       },
-      "ranking_reporting": {
+      "purchase:total_cost": {
         "llm_config": "primary",
         "model": "small",
-        "role": "Discovery report lead",
+        "role": "Total-cost and fee analyst",
         "responsibilities": [
-          "Assemble candidate ranking evidence.",
-          "Summarize go/no-go review points.",
-          "Keep conclusions preclinical and hypothesis-only."
+          "Identify taxes, fees, ownership costs, and recurring charges.",
+          "Keep calculations deterministic and source-referenced.",
+          "Mark unknown fees instead of inventing estimates."
         ]
       },
-      "structure_generation": {
+      "purchase:policy_risk": {
         "llm_config": "primary",
         "model": "small",
-        "role": "Molecular design chemist",
+        "role": "Policy, warranty, and risk reviewer",
         "responsibilities": [
-          "Generate candidate structure rationale from deterministic outputs.",
-          "Explain scaffold diversity and chemistry caveats.",
-          "Keep generated structures review-only."
+          "Review return, cancellation, warranty, insurance, and condition evidence.",
+          "Flag access, safety, fraud, and policy risks.",
+          "Preserve critical source references and unknowns."
         ]
       },
-      "target_discovery": {
+      "purchase:alternatives": {
         "llm_config": "primary",
         "model": "small",
-        "role": "Target discovery scientist",
+        "role": "Alternatives comparer",
         "responsibilities": [
-          "Identify disease-target hypotheses from configured inputs.",
-          "Summarize target evidence and uncertainty.",
-          "Flag missing assay or literature support."
+          "Compare options on the user’s stated priorities.",
+          "Separate observed facts from subjective preferences.",
+          "Flag when alternatives are not directly comparable."
+        ]
+      },
+      "purchase:recommender": {
+        "llm_config": "primary",
+        "model": "small",
+        "role": "Purchase recommendation reviewer",
+        "responsibilities": [
+          "Choose only buy, consider, wait, avoid, or insufficient_evidence.",
+          "Explain the recommendation from cited evidence.",
+          "Never initiate a purchase, booking, payment, or contact."
+        ]
+      },
+      "purchase:auditor": {
+        "llm_config": "primary",
+        "model": "small",
+        "role": "Evidence and review-boundary auditor",
+        "responsibilities": [
+          "Check source traceability and deterministic-field invariance.",
+          "Flag missing evidence and public-source conflicts.",
+          "Confirm transactional actions remain blocked."
+        ]
+      },
+      "purchase:report_writer": {
+        "llm_config": "primary",
+        "model": "small",
+        "role": "Purchase research report writer",
+        "responsibilities": [
+          "Prepare the review-only purchase research report.",
+          "Summarize options, evidence, risks, and open questions.",
+          "Require human approval before any purchase-related action."
         ]
       }
     },
+    "responsibilities": [
+      "Keep deterministic extraction and source records authoritative.",
+      "Use actors to connect local documents, RAG context, and public research.",
+      "Keep purchase recommendations review-only and source-referenced."
+    ],
     "provider": "docker_model_runner",
     "model": "small",
     "runtime_model": "small",
@@ -436,26 +475,14 @@
     "default_config": "primary",
     "live_model_profile": {
       "provider": "docker_model_runner",
-      "model": "small",
       "runtime_model": "small",
-      "fallback_model": "small",
-      "backend": "llama.cpp",
       "api_base": "http://localhost:12434/engines/v1",
-      "timeout_seconds": 60,
-      "max_tokens": 900,
-      "num_retries": 1,
-      "retry_backoff_seconds": 1.0,
-      "strict_json": false,
-      "require_live": false
+      "backend": "llama.cpp",
+      "mock_fallback": "fake_for_quick_test_only"
     },
     "quick_test_uses_fake": true,
     "strict_json": false,
     "prefer_shared_skill": true,
-    "responsibilities": [
-      "Keep cheminformatics scoring and simulation outputs as the source of truth.",
-      "Use LLM actors to explain hypotheses, evidence gaps, and review packets.",
-      "Avoid claiming experimental validation or clinical readiness."
-    ],
     "configs": {
       "primary": {
         "provider": "docker_model_runner",
@@ -467,72 +494,7 @@
         "max_tokens": 900,
         "num_retries": 1,
         "mock_mode": "fake",
-        "mode": "live",
-        "fallback_model": "small",
-        "retry_backoff_seconds": 1.0,
-        "required": true
-      },
-      "large": {
-        "provider": "docker_model_runner",
-        "model": "medium",
-        "runtime_model": "medium",
-        "backend": "llama.cpp",
-        "timeout_seconds": 60,
-        "max_tokens": 1800,
-        "num_retries": 1,
-        "retry_backoff_seconds": 1.0,
-        "strict_json": true,
-        "require_live": true,
-        "context_size": 8192,
-        "quantization": "MOSTLY_Q4_K_M",
-        "parameter_count_b": 31.58,
-        "required": false,
-        "hardware": {
-          "gpu": {
-            "min_count": 1,
-            "min_memory_mb": 49152,
-            "memory_operator": ">="
-          }
-        }
-      }
-    },
-    "fallback_model": "small",
-    "require_live": false,
-    "preferred_model": "medium",
-    "small_model_profile": {
-      "provider": "docker_model_runner",
-      "model": "small",
-      "runtime_model": "small",
-      "fallback_model": "small",
-      "backend": "llama.cpp",
-      "api_base": "http://localhost:12434/engines/v1",
-      "timeout_seconds": 60,
-      "max_tokens": 900,
-      "num_retries": 1,
-      "retry_backoff_seconds": 1.0,
-      "strict_json": false,
-      "require_live": false
-    },
-    "large_model_profile": {
-      "provider": "docker_model_runner",
-      "model": "medium",
-      "runtime_model": "medium",
-      "backend": "llama.cpp",
-      "timeout_seconds": 60,
-      "max_tokens": 1800,
-      "num_retries": 1,
-      "retry_backoff_seconds": 1.0,
-      "strict_json": true,
-      "require_live": true,
-      "context_size": 8192,
-      "quantization": "MOSTLY_Q4_K_M",
-      "parameter_count_b": 31.58,
-      "hardware": {
-        "gpu": {
-          "min_count": 1,
-          "min_memory_mb": 49152,
-          "memory_operator": ">="
-        }
+        "mode": "live"
       }
     }
   },
@@ -540,8 +502,11 @@
     "events": [
       "run_started",
       "inputs_loaded",
+      "large_context_seeded",
       "simulation_step_started",
+      "memory_context_compiled",
       "llm_decision",
+      "benchmark_step_scored",
       "simulation_state_updated",
       "run_completed",
       "blueprint_status",
@@ -589,6 +554,19 @@
       "shutdown_flush_timeout_seconds": 2
     }
   },
+  "memory": {
+    "compression_goal": "replace full-history agent handoffs with a compact source-grounded decision packet while preserving older critical facts",
+    "enabled": true,
+    "mode": "compare",
+    "retrieval_tags": [
+      "critical",
+      "demand_tailwind",
+      "rent_growth",
+      "risk_flag",
+      "financing"
+    ],
+    "selection_limit": 36
+  },
   "memory_layer": {
     "collection": "mn_memory",
     "containers": "optional_sidecar",
@@ -607,7 +585,7 @@
     "default_context_addr": "localhost:50052",
     "enabled": true,
     "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
-    "namespace": "drug_discovery_research_assistant_context",
+    "namespace": "purchase_research_assistant_context",
     "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
     "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
     "sdk_distribution": "mirrorneuron-membrane-python-sdk",
@@ -616,39 +594,42 @@
   "agentic_research": {
     "enabled": true,
     "agent_ids": [
-      "target_discovery",
-      "structure_generation",
-      "candidate_generation",
-      "binding_evaluation",
-      "ranking_reporting"
+      "purchase:intake",
+      "purchase:price_research",
+      "purchase:total_cost",
+      "purchase:policy_risk",
+      "purchase:alternatives",
+      "purchase:recommender",
+      "purchase:auditor",
+      "purchase:report_writer"
     ],
     "max_iterations_per_agent": 1,
     "max_tool_calls_per_agent": 2,
     "allowed_tools": [
-      "target_database_lookup",
-      "structure_generation",
-      "candidate_generation",
-      "docking_score",
-      "toxicity_filter",
+      "document_extract",
+      "browser_search",
+      "browser_page",
+      "knowledge_retrieve",
       "finish"
     ],
     "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run",
-    "default_mode": "bounded_llm_guided_scientific_tool_review",
-    "note": "Scientific workers may use bounded tool outputs and local RAG guidance; failed or thin evidence remains explicit in the review packet."
+    "default_mode": "bounded_llm_guided_purchase_research",
+    "note": "Purchase actors combine user documents, local RAG, public sources, and deterministic checks while preserving source refs and uncertainty."
   },
   "knowledge_rag": {
     "enabled": true,
     "backend": "milvus_lite",
     "required": false,
     "knowledge_dir": "knowledge",
-    "purpose": "Retrieve local discovery-triage guidance for target evidence, generated candidate review, docking caveats, and report-only scientific risk checks.",
+    "purpose": "Retrieve purchase guidance and approved local evidence for price, total cost, policy, risk, and comparison checks.",
     "retrieval_targets": [
-      "target evidence",
-      "candidate scoring caveats",
-      "docking and toxicity limitations",
-      "scientific review blockers"
+      "purchase-type evidence checklists",
+      "price and availability facts",
+      "total cost and recurring fees",
+      "policy, warranty, cancellation, and risk gaps",
+      "alternative comparison criteria"
     ],
-    "grounding_policy": "Use retrieved local blueprint knowledge to improve actor review prompts; do not invent facts when retrieval is unavailable.",
+    "grounding_policy": "Use retrieved guidance as a checklist; facts must come from user documents or cited public sources.",
     "namespace": "",
     "embedding_provider": "docker_model_runner",
     "embedding_model": "rag-embedding",
@@ -663,147 +644,28 @@
     "max_context_chars": 4000,
     "chunk_size": 700,
     "chunk_overlap": 70,
-    "privacy": "index local blueprint knowledge only; do not index private run documents unless a future runtime explicitly opts in"
+    "privacy": "index checked-in guidance and approved local input files in an isolated per-run namespace; do not send private files to public research."
   },
   "metadata": {
-    "agent_role": "AI assistant for organizing drug discovery candidate generation, filtering, and evidence review.",
-    "blueprint_id": "drug_discovery_research_assistant",
+    "agent_role": "AI assistant for researching purchases and drafting source-grounded comparisons.",
+    "blueprint_id": "purchase_research_assistant",
     "blueprint_revision": "v1",
-    "category": "science",
-    "customizable_for": "Drug discovery, target-focused virtual screening, molecular-generation pipelines, folding, simulation, and scientific research operations.",
-    "description": "A continuous drug-discovery research service. Give it a disease or target profile, screening criteria, optional candidate seeds, literature notes, and an input folder; it continuously generates candidate hypotheses, screens them with DrugCLIP, folds targets, runs configured simulations across cluster workers, and writes review-only cycle reports until manually stopped.",
-    "llm_agent_role": "AI service coordinator for distributed candidate generation, DrugCLIP virtual screening, folding, simulation, and evidence review.",
-    "name": "Drug Discovery Research Assistant",
-    "problem_solved": "Discovery work needs continuous, traceable candidate generation and scientific screening without collapsing cluster-scale folding and simulation into a single serial worker.",
-    "simulation_type": "Continuous distributed computational discovery service with DrugCLIP virtual screening.",
+    "category": "finance",
+    "customizable_for": "Property, rental property, car, airline ticket, travel, equipment, and custom purchase research.",
+    "description": "A purchase research co-worker for studying property, rental property, car, airline ticket, and custom purchases. Give it the purchase type, item or trip details, budget, priorities, constraints, and an input folder; it uses local knowledge, user evidence, and bounded public research to explain tradeoffs and write a review-ready recommendation to the output folder.",
+    "llm_agent_role": "AI assistant for researching purchases and drafting source-grounded comparisons.",
+    "name": "Purchase Research Assistant",
+    "problem_solved": "Purchase decisions depend on scattered prices, fees, policies, condition, availability, and source quality that are easy to miss across documents and public pages.",
+    "simulation_type": "General purchase research with local RAG and public-source comparison.",
     "standard_version": "1.0",
-    "target_user": "Computational biology researchers, scientific AI platform teams, and research operations groups.",
-    "target_users": "Computational biology researchers, scientific AI platform teams, and research operations groups."
+    "target_user": "Real-estate investors, acquisition analysts, property-tech teams, and diligence operators.",
+    "target_users": "Real-estate investors, acquisition analysts, property-tech teams, and diligence operators."
   },
   "mode": "mock",
-  "service": {
-    "enabled": true,
-    "run_until": "manual_stop",
-    "stop_file": "${MN_RUN_DIR}/STOP",
-    "cycle_interval_seconds": 15,
-    "max_cycles": null,
-    "simulation_top_k": 16,
-    "parallelism": {
-      "folding_workers": 2,
-      "drugclip_workers": 4,
-      "simulation_workers": 4
-    },
-    "shutdown_grace_seconds": 30,
-    "status_artifact": "service_state.json"
-  },
-  "execution": {
-    "fake_science_adapters": false,
-    "native_worker_required": true,
-    "mode": "cluster_dispatch"
-  },
-  "cluster_distribution": {
-    "enabled": true,
-    "dispatch_command": [],
-    "dispatch_timeout_seconds": 1800,
-    "fallback": "fail_closed",
-    "contract": "The configured native dispatcher receives a JSON job specification on stdin and returns JSON with either result or a written output_path.",
-    "worker_pools": {
-      "control": "science-control",
-      "generation": "science-generation",
-      "folding": "science-folding",
-      "drugclip": "science-drugclip",
-      "simulation": "science-simulation",
-      "aggregation": "science-control"
-    },
-    "collaboration": {
-      "mode": "cross_box_fanout_fanin",
-      "shared_artifact_contract": "cycle request/result JSON files in the run store",
-      "idempotency_key": "run_id:cycle_id:adapter:target_or_candidate"
-    }
-  },
-  "candidate_generator": {
-    "required": true,
-    "command": [
-      "/usr/bin/python3.11",
-      "scripts/biotarget_adapter.py",
-      "--adapter",
-      "candidate_generator",
-      "--input",
-      "{input_path}",
-      "--output",
-      "{output_path}"
-    ],
-    "timeout_seconds": 1800,
-    "contract": "Run BioTarget Stage C using the DrugClip graph-text model. Read JSON request from {input_path}; write JSON containing candidates to {output_path}."
-  },
-  "folding": {
-    "required": true,
-    "command": [
-      "/usr/bin/python3.11",
-      "scripts/biotarget_adapter.py",
-      "--adapter",
-      "folding",
-      "--input",
-      "{input_path}",
-      "--output",
-      "{output_path}"
-    ],
-    "timeout_seconds": 3600,
-    "contract": "Run BioTarget Stage B. Read a target request from {input_path}; write a structure result with a local path to {output_path}."
-  },
-  "drugclip": {
-    "required": true,
-    "mode": "text_molecular_graph_alignment",
-    "model_ref": "hf.co/homerquan/DrugClip",
-    "runtime_model_key": "drugclip",
-    "checkpoint_repo": "homerquan/DrugClip",
-    "checkpoint_filename": "best.ckpt",
-    "source_repository": "/Users/homer/Sandbox/BioTarget",
-    "command": [
-      "/usr/bin/python3.11",
-      "scripts/biotarget_adapter.py",
-      "--adapter",
-      "drugclip",
-      "--input",
-      "{input_path}",
-      "--output",
-      "{output_path}"
-    ],
-    "timeout_seconds": 1800,
-    "contract": "Use BioTarget's DrugClip graph-text alignment path. Read a molecular candidate and therapeutic intent from {input_path}; write drugclip_score to {output_path}."
-  },
-  "simulation": {
-    "required": true,
-    "command": [
-      "/usr/bin/python3.11",
-      "scripts/biotarget_adapter.py",
-      "--adapter",
-      "simulation",
-      "--input",
-      "{input_path}",
-      "--output",
-      "{output_path}"
-    ],
-    "timeout_seconds": 3600,
-    "contract": "Run BioTarget Stage D evaluation for a DrugClip-selected candidate. Read JSON from {input_path}; write docking and toxicity metrics to {output_path}."
-  },
-  "biotarget": {
-    "enabled": true,
-    "source_dir": "/Users/homer/Sandbox/BioTarget",
-    "native_python_required": true,
-    "stages": {
-      "target_discovery": "biotarget.stages.stage_a_discovery",
-      "folding": "biotarget.stages.stage_b_structure",
-      "candidate_generation": "biotarget.stages.stage_c_generative",
-      "evaluation": "biotarget.stages.stage_d_evaluation"
-    },
-    "simulation_engine": "gnina",
-    "simulation_runtime_note": "BioTarget Stage D currently invokes GNINA through its own containerized runner; the continuous control plane and adapter processes remain native HostLocal workers."
-  },
   "output_skills": {},
   "outputs": {
     "adapter": "local_run_store",
-    "artifact_contract": "Continuous-cycle candidate, folding, DrugCLIP, simulation, state, and review-only scientific evidence artifacts.",
+    "artifact_contract": "Source-grounded purchase comparison, risk flags, evidence gaps, and review-only recommendation.",
     "run_root": "~/.mn/runs",
     "skills": {},
     "tcp": {
@@ -811,7 +673,7 @@
       "ports": []
     },
     "write_run_store": true,
-    "folder_path": "~/Download/drug_discovery_research_assistant"
+    "folder_path": "~/Download/purchase_research_assistant"
   },
   "privacy": {
     "default_classification": "confidential",
@@ -851,7 +713,7 @@
     }
   },
   "resources": {
-    "enabled": false,
+    "enabled": true,
     "gpu_enabled": "auto",
     "gpu_sample_interval_seconds": 60,
     "history_window_hours": 24,
@@ -874,10 +736,9 @@
     "web_ui": "mn.blueprint.web_ui.v1"
   },
   "simulation": {
+    "enabled": false,
     "deterministic": true,
-    "enabled": true,
-    "seed_field": "seed",
-    "type": "Configured parallel molecular simulation after DrugCLIP screening."
+    "type": "General purchase research with local RAG and public-source comparison."
   },
   "standard_version": "1.0",
   "state": {
@@ -891,14 +752,14 @@
       "event_id"
     ],
     "resume_mode": "none",
-    "input_folder": "drug_discovery_research_assistant/examples/sample_inputs",
-    "output_folder": "~/Download/drug_discovery_research_assistant"
+    "input_folder": "purchase_research_assistant/examples/sample_inputs",
+    "output_folder": "~/Download/purchase_research_assistant"
   },
   "streams": {},
   "triggers": {
     "schedule": null,
     "sources": [],
-    "type": "manual_service"
+    "type": "manual"
   },
   "web_ui": {
     "dashboard": {

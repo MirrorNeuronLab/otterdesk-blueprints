@@ -1,0 +1,14 @@
+{
+  "inputs": {
+    "payload": {
+      "purchase_type": "car",
+      "item_description": "Used hybrid SUV for commuting and weekend travel",
+      "budget": 30000,
+      "location": "Boston, MA",
+      "priorities": ["total cost", "reliability", "warranty"],
+      "constraints": {"must_have": ["clean title", "no open recall"]},
+      "input_folder": "purchase_research_assistant/examples/sample_inputs",
+      "output_folder": "~/Download/purchase_research_assistant"
+    }
+  }
+}

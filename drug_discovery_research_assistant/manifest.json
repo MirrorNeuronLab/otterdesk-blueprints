@@ -1,13 +1,18 @@
 {
   "apiVersion": "mn.workflow.source/v1",
   "kind": "WorkflowSource",
-  "description": "A research co-worker for early drug-discovery triage. Give it a disease or target profile, screening criteria, optional candidate seeds, literature notes, and an input folder for supporting files; it stages an evidence-backed discovery workflow and writes review-ready candidate summaries, scores, assumptions, risks, and source notes to the output folder.",
+  "type": "service",
+  "job_name": "drug-discovery-research-assistant",
+  "description": "A continuous drug-discovery research service. Give it a disease or target profile, screening criteria, optional candidate seeds, literature notes, and an input folder; it continuously generates candidate hypotheses, screens them with DrugCLIP, folds targets, runs configured simulations across cluster workers, and writes review-only cycle reports until manually stopped.",
   "standard": {
     "profile": "document_workflow",
     "profile_version": 1,
     "source_schema": "mn.workflow.source/v1",
     "target_schema": "mn.workflow/v1",
     "migration_policy": "sdk_managed"
+  },
+  "manifest": {
+    "type": "service"
   },
   "identity": {
     "category": "science",
@@ -18,8 +23,8 @@
     "version": 1
   },
   "intent": {
-    "description": "A research co-worker for early drug-discovery triage. Give it a disease or target profile, screening criteria, optional candidate seeds, literature notes, and an input folder for supporting files; it stages an evidence-backed discovery workflow and writes review-ready candidate summaries, scores, assumptions, risks, and source notes to the output folder.",
-    "problem": "Discovery work is iterative and evidence-heavy; researchers need an assistant that keeps candidate generation, scoring, extraction, and review moving in order.",
+    "description": "A continuous drug-discovery research service. Give it a disease or target profile, screening criteria, optional candidate seeds, literature notes, and an input folder; it continuously generates candidate hypotheses, screens them with DrugCLIP, folds targets, runs configured simulations across cluster workers, and writes review-only cycle reports until manually stopped.",
+    "problem": "Discovery work needs continuous, traceable candidate generation and scientific screening without collapsing cluster-scale folding and simulation into a single serial worker.",
     "target_users": "Computational biology researchers, scientific AI platform teams, and research operations groups.",
     "customizable_for": "Drug discovery, material search, assay planning, scientific literature review, and research pipeline support.",
     "safety": {
@@ -53,7 +58,7 @@
     }
   },
   "metadata": {
-    "agent_role": "AI assistant for organizing drug discovery candidate generation, filtering, and evidence review.",
+    "agent_role": "AI service coordinator for distributed candidate generation, DrugCLIP virtual screening, folding, simulation, and evidence review.",
     "blueprint_id": "drug_discovery_research_assistant",
     "category": "science",
     "configuration_contract": {
@@ -73,7 +78,7 @@
       ]
     },
     "customizable_for": "Drug discovery, material search, assay planning, scientific literature review, and research pipeline support.",
-    "description": "A research co-worker for early drug-discovery triage. Give it a disease or target profile, screening criteria, optional candidate seeds, literature notes, and an input folder for supporting files; it stages an evidence-backed discovery workflow and writes review-ready candidate summaries, scores, assumptions, risks, and source notes to the output folder.",
+    "description": "A continuous drug-discovery research service. Give it a disease or target profile, screening criteria, optional candidate seeds, literature notes, and an input folder; it continuously generates candidate hypotheses, screens them with DrugCLIP, folds targets, runs configured simulations across cluster workers, and writes review-only cycle reports until manually stopped.",
     "human_control": {
       "allowed_decisions": [
         "approve",
@@ -681,18 +686,19 @@
       "status": "JSON lines on stderr",
       "stdout": "single JSON object, event envelope, or bundle path"
     },
-    "problem_solved": "Discovery work is iterative and evidence-heavy; researchers need an assistant that keeps candidate generation, scoring, extraction, and review moving in order.",
+    "problem_solved": "Discovery work needs continuous, traceable candidate generation and scientific screening without collapsing cluster-scale folding and simulation into a single serial worker.",
     "quick_test": {
       "description": "Use generated quick-test bundles when available; fixed blueprints use local dry-run/mock provider environment variables and deterministic sample inputs.",
       "enabled": false,
       "env": "MN_BLUEPRINT_QUICK_TEST=1"
     },
     "runtime_features": [
-      "long-running loop",
-      "multi-stage pipeline",
-      "scientific worker tasks",
-      "artifact extraction",
-      "research summaries",
+      "manual-stop continuous service",
+      "native host service worker",
+      "cross-box folding fanout",
+      "DrugCLIP target-candidate screening",
+      "parallel simulation fanout",
+      "cycle artifact aggregation",
       "Membrane context memory optimization",
       "product input contract",
       "transparent run status",
@@ -704,22 +710,24 @@
       "optional knowledge_rag guidance",
       "actor-style LLM specialists use retrieved policy context when available"
     ],
-    "simulation_type": "Iterative scientific research workflow with staged candidate review.",
+    "simulation_type": "Continuous distributed computational discovery service with DrugCLIP virtual screening.",
     "standard": {
       "config_path": "config/default.json",
       "default_input_adapter": "mock",
-      "execution_model": "load_metadata -> resolve_config -> load_inputs -> start_run_store -> observe_simulation_state -> call_llm_agent -> evaluate_workflow_state -> route_by_context -> request_human_input -> apply_decision_to_simulation -> emit_events -> write_final_artifact -> fan_out_output_skills",
+      "execution_model": "load_metadata -> resolve_config -> start_native_service -> dispatch_cross_box_jobs -> generate_candidates -> fold_targets -> screen_with_drugclip -> simulate_selected_candidates -> aggregate_cycle_artifacts -> stop_on_manual_signal",
       "execution_steps": [
         "load_metadata",
         "resolve_config",
         "load_inputs",
         "start_run_store",
-        "observe_simulation_state",
-        "call_llm_agent",
-        "evaluate_workflow_state",
-        "route_by_context",
-        "request_human_input",
-        "apply_decision_to_simulation",
+        "start_native_service",
+        "dispatch_cross_box_jobs",
+        "generate_candidates",
+        "fold_targets",
+        "screen_with_drugclip",
+        "simulate_selected_candidates",
+        "aggregate_cycle_artifacts",
+        "stop_on_manual_signal",
         "emit_events",
         "write_final_artifact",
         "fan_out_output_skills"
@@ -892,16 +900,20 @@
   },
   "defaults": {
     "worker": {
+      "uses": "mn-agents.worker.python_host@1",
       "with": {
-        "image": "mirror-neuron/drug-discovery-research-assistant:local",
-        "docker_worker_image": "worker/docker_worker",
-        "upload_path": "worker",
-        "upload_as": "worker",
-        "workdir": "/mn/job/worker",
+        "stereotype": [
+          "document_workflow_host_worker"
+        ],
+        "runner_module": "MirrorNeuron.Runner.HostLocal",
+        "upload_path": "service",
+        "upload_as": "service",
+        "workdir": "/sandbox/job/service",
+        "pool": "science-control",
         "upload_paths": [
           {
-            "source": "worker",
-            "target": "worker"
+            "source": "service",
+            "target": "service"
           },
           {
             "source": "examples/sample_inputs",
@@ -913,10 +925,41 @@
           }
         ],
         "environment": {
-          "MN_BLUEPRINT_ID": "drug_discovery_research_assistant"
+          "MN_BLUEPRINT_ID": "drug_discovery_research_assistant",
+          "MN_SERVICE_MODE": "continuous"
         }
       }
     }
+  },
+  "service": {
+    "enabled": true,
+    "run_until": "manual_stop",
+    "stop_file": "${MN_RUN_DIR}/STOP",
+    "manual_close": "send SIGTERM or create the configured STOP file",
+    "state_artifact": "service_state.json",
+    "cycle_artifact_root": "cycles/"
+  },
+  "cluster_distribution": {
+    "enabled": true,
+    "execution_backend": "native_dispatch_contract",
+    "fallback": "fail_closed",
+    "worker_pools": {
+      "control": "science-control",
+      "generation": "science-generation",
+      "folding": "science-folding",
+      "drugclip": "science-drugclip",
+      "simulation": "science-simulation",
+      "aggregation": "science-control"
+    },
+    "collaboration": {
+      "mode": "cross_box_fanout_fanin",
+      "folding": "fan out by target",
+      "drugclip": "fan out by target-candidate pair",
+      "simulation": "fan out over DrugCLIP-selected candidates",
+      "aggregation": "fan in cycle artifacts into review-only reports"
+    },
+    "native_worker": "MirrorNeuron.Runner.HostLocal",
+    "dispatch_contract": "A configured dispatcher receives JSON jobs on stdin and returns JSON results or writes the declared output_path."
   },
   "workers": {
     "groups": [
@@ -954,12 +997,21 @@
       },
       "candidate_generation": {
         "with": {
-          "script": "scripts/stage_c.py",
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "script": "scripts/run_continuous_service.py",
           "command": [
             "/usr/bin/python3.11",
-            "scripts/stage_c.py"
+            "scripts/run_continuous_service.py"
           ],
-          "output_message_type": "candidates_ready"
+          "output_message_type": "continuous_service_stopped",
+          "upload_path": "service",
+          "upload_as": "service",
+          "workdir": "/sandbox/job/service",
+          "pool": "science-control",
+          "service": true,
+          "service_kind": "continuous_drug_discovery",
+          "cleanup_remote_dir": false,
+          "timeout_seconds": 0
         }
       },
       "binding_evaluation": {
@@ -985,23 +1037,8 @@
     }
   },
   "agents": {
-    "extra_templates": [
-      {
-        "node_id": "report_sink",
-        "uses": "mn-agents.control.terminal_sink@1",
-        "with": {
-          "stereotype": "terminal_report_sink"
-        }
-      }
-    ],
-    "extra_edges": [
-      {
-        "edge_id": "ranking_reporting_to_report_sink",
-        "from_node": "ranking_reporting",
-        "message_type": "pipeline_complete",
-        "to_node": "report_sink"
-      }
-    ]
+    "extra_templates": [],
+    "extra_edges": []
   },
   "workflow": {
     "workflow_id": "drug_discovery_research_assistant_v1",
@@ -1104,15 +1141,15 @@
       {
         "id": "candidate_generation",
         "kind": "stage",
-        "label": "Candidate Generation",
-        "goal": "Generate candidate molecules and filter against screening criteria.",
+        "label": "Continuous Discovery Service",
+        "goal": "Continuously generate candidates, dispatch parallel folding, DrugCLIP screening, and simulation jobs until manually stopped.",
         "requires": [
           "drug_discovery_research_assistant.structure_generation.ready"
         ],
         "provides": [
           "drug_discovery_research_assistant.candidate_generation.ready"
         ],
-        "emits": "candidates_ready",
+        "emits": "continuous_service_stopped",
         "in": {
           "seed_set": "$state.candidate_seed_set",
           "structures": "$state.structures"
@@ -1124,8 +1161,8 @@
       {
         "id": "binding_evaluation",
         "kind": "stage",
-        "label": "Binding Evaluation",
-        "goal": "Evaluate candidate binding, risk, and evidence quality.",
+        "label": "Cycle Results Review",
+        "goal": "Read the final continuous-service cycle summaries and preserve review-only scientific evidence.",
         "requires": [
           "drug_discovery_research_assistant.candidate_generation.ready"
         ],
@@ -1444,7 +1481,7 @@
         "completed"
       ]
     },
-    "summary": "Discovery work is iterative and evidence-heavy; researchers need an assistant that keeps candidate generation, scoring, extraction, and review moving in order.",
+    "summary": "A manually stopped native discovery service that continuously fans candidate, folding, DrugCLIP, and simulation work across configured cluster pools.",
     "users": [
       "Computational biology researchers, scientific AI platform teams, and research operations groups."
     ]
@@ -1485,6 +1522,15 @@
             "memory_operator": ">="
           }
         }
+      },
+      "drugclip": {
+        "provider": "docker_model_runner",
+        "model": "hf.co/homerquan/DrugClip",
+        "runtime_model": "hf.co/homerquan/DrugClip",
+        "backend": "auto",
+        "context_size": 4096,
+        "required": true,
+        "customize_mode": true
       }
     }
   },
@@ -1541,12 +1587,5 @@
     "default_mode": "bounded_llm_guided_scientific_tool_review",
     "note": "Scientific workers may use bounded tool outputs and local RAG guidance; failed or thin evidence remains explicit in the review packet."
   },
-  "skill_dependencies": [
-    {
-      "type": "pip",
-      "source": "gar",
-      "name": "mirrorneuron-blueprint-support-skill",
-      "version": "1.2.7"
-    }
-  ]
+  "skill_dependencies": []
 }

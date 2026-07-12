@@ -1,63 +1,27 @@
-# Drug Discovery Research Assistant SPEC
+# Drug Discovery Research Assistant Service SPEC
 
-## What We Want To Achieve
+## Purpose
 
-Build a reviewable scientific planning workflow that helps Computational biology researchers and scientific AI platform evaluators move from raw signals to an explainable recommendation. Run a long-lived multi-stage drug-discovery loop that keeps generating and evaluating candidates. The target customer should understand what changed, why the system drafted an option, and what evidence a human should review before acting.
+Operate a continuously running, human-review-only computational discovery service. It uses the local BioTarget pipeline and `homerquan/DrugClip` text↔molecular-graph model to produce and prioritize candidate hypotheses, runs folding and simulation adapters, and retains cycle-level evidence until an operator manually stops the service.
 
-## Customer Problem
+## Scientific pipeline
 
-Discovery workflows are iterative: candidate generation, scoring, extraction, and review need to repeat as new evidence arrives. In a real customer environment, the pain is not only producing an answer; it is preserving context across changing inputs, exposing tradeoffs, and creating an audit trail that business, technical, or governance stakeholders can trust.
+1. BioTarget Stage C builds a molecular candidate pool and uses DrugClip graph-text alignment to select candidate hypotheses for the configured therapeutic text.
+2. Folding fans out by target across the `science-folding` pool.
+3. DrugCLIP fans out target–candidate screening across the `science-drugclip` pool.
+4. Simulations fan out over the best DrugCLIP-ranked candidates across the `science-simulation` pool.
+5. The native control worker fans results in, writes a cycle report, and starts the next cycle.
 
-## Design Details
+DrugClip is the custom Hugging Face model `hf.co/homerquan/DrugClip`, authorized by the source manifest's `runtime.models.drugclip.customize_mode: true`. Its 3D graph and text encoders provide the BioTarget Stage C selection and Stage D toxicity-alignment path; it is not a generic chat model.
 
-The blueprint is organized as a MirrorNeuron workflow with stable identity, configurable inputs, structured events, and a final artifact. The main agent role is Drug Discovery Research Assistant. The workflow uses long-running scientific pipeline loop and demonstrates long-running loop, multi-stage pipeline, scientific workers, and artifact extraction.
+## Native cross-box contract
 
-The design is intentionally adapter-friendly. The prototype can run with bundled, mock, or synthetic data even when the current code has not implemented every production integration. The customer-facing contract stays centered on the same concepts: load inputs, observe current state, choose or score an action, emit traceable events, and write an artifact a reviewer can inspect.
+The service controller is a `MirrorNeuron.Runner.HostLocal` worker. Live cluster mode requires a native dispatcher command. The controller sends it a JSON job containing adapter name, target pool, expanded command, request path, output path, and request payload. The payload carries the BioTarget source and DrugClip checkpoint configuration. The dispatcher returns a JSON `result` or writes the output path. Missing dispatcher, BioTarget source, checkpoint, or adapter configuration is a live-run error.
 
-A representative scenario is: A pipeline based on BioTarget runs staged workers that manage candidate discovery and result extraction in a continuing loop.
+## Service lifecycle
 
-## Input
+The service has no automatic completion time. It stops on a process termination signal or when the configured `STOP` file is created. Each cycle updates `service_state.json`; artifacts are written under `cycles/cycle-<id>/`.
 
-The prototype accepts configuration for scenario identity, run controls, and domain inputs. Current adapters include `mock`, `json`, `file`, and `env_json`, so evaluators can start locally and later replace sample data with production data while preserving the same blueprint identity and output shape.
+## Safety and non-goals
 
-The committed sample input pack contains `examples/sample_inputs/target_profile.json` and `examples/sample_inputs/candidate_seed_set.csv`. These files define a synthetic target product profile, assay plan, safety filters, and candidate seed set so the workflow can produce a concrete review packet without claiming real experimental validation.
-
-Important state inputs include the configured state metrics. Where the blueprint uses an action loop, the current action space includes the configured domain actions. For production use, the same contract should be fed by customer system-of-record data, business rules, approval policies, thresholds, and any regulated or safety-critical constraints needed for the operating environment.
-
-## Output: Expected Customer Outcome
-
-The expected customer outcome is candidate artifacts, stage logs, and discovery summaries. A useful run should show the starting context, the observations made during the workflow, the action or recommendation rationale, and the final artifact that a domain owner can review.
-
-The customer should be able to answer: what happened, which inputs mattered, what the system recommended, what changed over time, what risks or exceptions remain, and what a human team should do next.
-
-## Evaluation Criteria
-
-- Decision quality: confirm the recommendation is plausible for the observed state, customer constraints, and available actions.
-- Scenario sensitivity: verify that outputs change appropriately when inputs, thresholds, seed values, or operating assumptions change.
-- State trajectory: inspect whether the configured state metrics move coherently across the workflow rather than appearing as disconnected summaries.
-- Traceability: confirm every recommendation can be tied back to inputs, events, intermediate decisions, and final artifact fields.
-- Human review fit: check whether the artifact matches the language, evidence, and next-step format the target team already uses.
-- Operational readiness: validate latency, reliability, adapter behavior, permissions, privacy, and approval gates before using real customer data.
-- Outcome measurement: compare recommendations against historical cases, expert review, known policies, or measured business outcomes.
-
-## Result Artifacts To Inspect
-
-Inspect the event stream for observations, decisions, errors, and handoffs. Inspect the result payload and final artifact for the recommended action, ranked options or findings, supporting rationale, state changes, and next steps.
-
-When using the local run store, inspect `run.json`, `config.json`, `inputs.json`, `events.jsonl`, `result.json`, and `final_artifact.json`. These artifacts are the review surface for debugging the workflow, comparing scenarios, and deciding whether the blueprint is ready for a real adapter.
-
-## Prototype Limits
-
-The current blueprint is a product-facing template and may include mock data, deterministic simulation, simplified policies, placeholder integrations, or partial worker coverage. It is designed to show the customer problem, target workflow, and expected artifact even where production implementation still needs hardening.
-
-The live LLM profile is explicitly configured for Docker Model Runner `small`. RAG knowledge includes target-fit evidence rules, safety-filter handling, next-experiment guidance, and preclinical-only output boundaries.
-
-Outputs are decision-support artifacts. They should not be treated as final financial advice, medical guidance, safety certification, compliance approval, or executable operating instruction without customer validation and human approval.
-
-## Upgrade Path To Real Customer Use
-
-Swap target data, scoring functions, candidate generators, stage policies, and stopping criteria. Add customer-specific policies, review gates, exception handling, retention rules, and monitoring dashboards. Calibrate the workflow against historical data and expert judgment, then track acceptance rate, correction rate, latency, incident reduction, cost impact, and other outcome metrics that prove whether the workflow is helping.
-
-## Product Narrative
-
-Scientific discovery is a high-value vertical where closed-loop agent workflows can reduce cycle time if connected to validated models and labs.
+All results are computational hypotheses. The blueprint does not synthesize compounds, run assays, make clinical claims, submit regulatory material, or send candidates to external systems. Fake adapters are limited to explicit mock/smoke-test configuration and are labeled synthetic in every artifact. BioTarget Stage D's current GNINA invocation is containerized; the control service and cross-box adapters are native workers.

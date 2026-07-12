@@ -30,7 +30,7 @@ FOLDER_INPUT_FIELDS = {
     "generic_customer_service_voice_coworker": {"input_folder", "output_folder"},
     "medical_deid_record_intake_assistant": {"document_folder", "output_folder"},
     "legal_assistant": {"document_folder", "input_folder", "output_folder"},
-    "property_deal_research_assistant": {"input_folder", "output_folder"},
+    "purchase_research_assistant": {"input_folder", "output_folder"},
     "safety_video_analyser": {"input_folder", "output_folder"},
     "vc_assistant": {"document_folder", "output_folder"},
     "video_watch_assistant": {"input_folder", "output_folder"},
@@ -330,7 +330,14 @@ def test_all_blueprints_declare_actor_style_llm_config():
         assert isinstance(llm["responsibilities"], list) and len(llm["responsibilities"]) >= 3, blueprint_id
 
         workers = _runtime_worker_ids(manifest)
-        graph_nodes = [node["node_id"] for node in _flow_nodes(manifest)]
+        if manifest.get("kind") == "WorkflowSource":
+            graph_nodes = [
+                step["id"]
+                for step in manifest.get("workflow", {}).get("steps", [])
+                if isinstance(step, dict) and step.get("id")
+            ]
+        else:
+            graph_nodes = [node["node_id"] for node in _flow_nodes(manifest)]
         required_actor_ids = workers or graph_nodes
         valid_actor_ids = set(workers) | set(graph_nodes)
         agents = llm["agents"]
@@ -764,7 +771,7 @@ def test_otterdesk_blueprints_declare_product_experience_contracts():
     expected_modes = {
         "drug_discovery_research_assistant": "approval_required",
         "financial_advisor": "approval_required",
-        "property_deal_research_assistant": "approval_required",
+        "purchase_research_assistant": "approval_required",
         "video_watch_assistant": "notice_only",
         "generic_customer_service_voice_coworker": "notice_only",
         "medical_deid_record_intake_assistant": "approval_required",
@@ -1008,7 +1015,7 @@ def test_product_ready_llm_configs_use_explicit_live_docker_model_runner_profile
         "drug_discovery_research_assistant",
         "medical_deid_record_intake_assistant",
         "legal_assistant",
-        "property_deal_research_assistant",
+        "purchase_research_assistant",
     }
     for blueprint_id in sorted(targets):
         config = json.loads((ROOT / blueprint_id / "config" / "default.json").read_text())
@@ -1069,7 +1076,7 @@ EXPECTED_BATCH_SUGGESTED_SCHEDULES = {
     "financial_advisor": {"cron": "0 8 * * *", "cadence": "daily"},
     "medical_deid_record_intake_assistant": {"cron": "0 * * * *", "cadence": "hourly"},
     "legal_assistant": {"cron": "0 8 * * 1-5", "cadence": "weekday_daily"},
-    "property_deal_research_assistant": {"cron": "0 8 * * 1", "cadence": "weekly"},
+    "purchase_research_assistant": {"cron": "0 8 * * 1", "cadence": "weekly"},
     "safety_video_analyser": {"cron": "0 2 * * *", "cadence": "daily"},
     "vc_assistant": {"cron": "0 7 * * *", "cadence": "daily"},
 }
@@ -1262,32 +1269,32 @@ def test_generic_customer_service_knowledge_persistence(tmp_path, monkeypatch):
     assert (knowledge_path.parent / "customer_service_knowledge.meta.json").exists()
 
 
-def test_property_deal_final_artifact_uses_product_output_fields(tmp_path):
-    runner_path = ROOT / "property_deal_research_assistant" / "payloads" / "simulation_loop" / "scripts" / "run_blueprint.py"
-    spec = importlib.util.spec_from_file_location("otterdesk_property_runner_product_test", runner_path)
+def test_purchase_research_final_artifact_uses_product_output_fields(tmp_path):
+    runner_path = ROOT / "purchase_research_assistant" / "payloads" / "document_workflow" / "scripts" / "run_blueprint.py"
+    spec = importlib.util.spec_from_file_location("otterdesk_purchase_runner_product_test", runner_path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
 
     result = module.run_blueprint(
-        inputs={"steps": 1, "seed": 77},
+        inputs={"purchase_type": "car", "item_description": "used hybrid SUV", "budget": 30000},
         config={"llm": {"mode": "fake"}},
         runs_root=tmp_path,
-        run_id="property-product-contract",
+        run_id="purchase-product-contract",
     )
     artifact = result["final_artifact"]
 
     assert set(FINAL_ARTIFACT_REQUIRED_FIELDS) <= set(artifact)
     assert artifact["evidence"]
     assert {"inputs.json", "events.jsonl", "result.json"} <= set(artifact["source_refs"])
-    expected_actor_ids = set(json.loads((ROOT / "property_deal_research_assistant" / "config" / "default.json").read_text())["llm"]["agents"])
+    expected_actor_ids = set(json.loads((ROOT / "purchase_research_assistant" / "config" / "default.json").read_text())["llm"]["agents"])
     assert set(artifact["actor_findings"]) == expected_actor_ids
     assert artifact["llm_usage"]["calls"] >= len(expected_actor_ids)
 
     events = [
         json.loads(line)
-        for line in (tmp_path / "property-product-contract" / "events.jsonl").read_text().splitlines()
+    for line in (tmp_path / "purchase-product-contract" / "events.jsonl").read_text().splitlines()
         if line.strip()
     ]
     event_types = {event["type"] for event in events}
@@ -1483,8 +1490,19 @@ def test_otterdesk_manifests_require_runtime_workflow_control_contract():
 def test_otterdesk_workflow_steps_are_bounded_and_retryable():
     for manifest_path in _manifest_paths():
         manifest = json.loads(manifest_path.read_text())
+        manual_stop_service = (
+            manifest.get("type") == "service"
+            and isinstance(manifest.get("service"), dict)
+            and manifest["service"].get("run_until") == "manual_stop"
+        )
         for step in manifest.get("workflow", {}).get("steps", []):
             control = step.get("control", {})
+            if manual_stop_service:
+                # The service must remain alive until a user sends SIGTERM or
+                # creates STOP; imposing a per-step deadline would turn it back
+                # into a finite batch workflow. Runtime cancellation controls
+                # remain the termination boundary for this manifest type.
+                continue
             assert isinstance(control.get("timeout_seconds"), int), (manifest_path.parent.name, step.get("id"))
             assert control["timeout_seconds"] > 0, (manifest_path.parent.name, step.get("id"))
             assert control["retry"]["max_attempts"] >= 1, (manifest_path.parent.name, step.get("id"))

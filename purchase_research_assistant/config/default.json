@@ -17,14 +17,14 @@
     "enabled": true,
     "quality_metrics": [
       "action_accuracy",
-      "property_match",
+      "purchase_type_fit",
       "critical_fact_recall",
       "risk_awareness",
       "quality_score_delta",
       "estimated_token_reduction_ratio",
       "budget_violation_rate"
     ],
-    "schema_version": "mn.finance.property_alpha.memory_benchmark.v2"
+    "schema_version": "mn.finance.purchase_research.v1"
   },
   "budgets": {
     "max_connector_reads": 500,
@@ -98,10 +98,10 @@
       "reject"
     ],
     "blocked_actions": [
-      "submit_bid",
-      "send_loi",
-      "negotiate_discount",
-      "notify_broker_without_review"
+      "buy_or_book",
+      "pay_or_transfer_funds",
+      "submit_application_or_offer",
+      "contact_seller_provider_or_broker"
     ],
     "decision_event": "human_decision_applied",
     "default_action": "reject",
@@ -114,33 +114,35 @@
       "human_decision_applied"
     ],
     "mode": "approval_required",
-    "reason": "Human approval is required before high-impact downstream actions such as submit_bid, send_loi, negotiate_discount.",
+    "reason": "Human approval is required before any purchase, booking, payment, application, offer, or seller/provider contact action.",
     "request_event": "human_input_requested",
     "response_event": "human_input_received",
     "timeout_event": "human_input_timeout",
     "timeout_seconds": 3600
   },
   "identity": {
-    "blueprint_id": "property_deal_research_assistant",
-    "name": "Property Deal Research Assistant"
+    "blueprint_id": "purchase_research_assistant",
+    "name": "Purchase Research Assistant"
   },
-  "input_skills": {},
+  "input_skills": {
+    "llm_ocr": {"skill": "llm_ocr_skill", "package": "mirrorneuron-llm-ocr-skill", "enabled": true, "required": false, "min_text_chars": 40},
+    "w3m_browser": {"skill": "w3m_browser_skill", "package": "mirrorneuron-w3m-browser-skill", "enabled": true, "required": false, "purpose": "Primary public text-browser research."},
+    "web_browser": {"skill": "web_browser_skill", "package": "mirrorneuron-web-browser-skill", "enabled": true, "required": false, "purpose": "Optional rendered-browser fallback."}
+  },
   "inputs": {
     "adapter": "mock",
     "description": "Default synthetic large-context inputs bundled with the blueprint.",
     "payload": {
-      "all_context_attention_limit": 36,
-      "all_context_token_budget": 8000,
-      "history_months": 24,
-      "max_price": 950000,
-      "memory_limit": 36,
-      "memory_mode": "compare",
-      "noise_events_per_month": 10,
-      "seed": 77,
-      "steps": 6,
-      "target_zip": "02139",
-      "input_folder": "property_deal_research_assistant/examples/sample_inputs",
-      "output_folder": "~/Download/property_deal_research_assistant"
+      "purchase_type": "custom",
+      "item_description": "Compare the bundled purchase research sample",
+      "budget": 1000,
+      "location": "",
+      "route": "",
+      "travel_dates": "",
+      "priorities": ["total cost", "quality", "policy clarity"],
+      "constraints": {},
+      "input_folder": "purchase_research_assistant/examples/sample_inputs",
+      "output_folder": "~/Download/purchase_research_assistant"
     }
   },
   "interfaces": {
@@ -376,93 +378,93 @@
   },
   "llm": {
     "enabled": true,
-    "agent_role": "AI assistant for researching property deals and drafting opportunity rankings.",
+    "agent_role": "AI assistant for researching purchases and drafting source-grounded comparisons.",
     "agents": {
-      "property:zip_market": {
+      "purchase:intake": {
         "llm_config": "primary",
         "model": "small",
-        "role": "ZIP-market researcher",
+        "role": "Purchase intake and category reviewer",
         "responsibilities": [
-          "Review target ZIP demand and pricing signals.",
-          "Separate target and distractor market evidence.",
-          "Flag stale or noisy market facts."
+          "Classify the purchase type and normalize the user request.",
+          "Separate user-provided facts from assumptions.",
+          "Flag missing scope, budget, location, route, or date details."
         ]
       },
-      "property:broker_notes": {
+      "purchase:price_research": {
         "llm_config": "primary",
         "model": "small",
-        "role": "Broker-note analyst",
+        "role": "Price and availability researcher",
         "responsibilities": [
-          "Extract broker motivation and diligence signals.",
-          "Tie broker claims to source references.",
-          "Flag unsupported seller claims."
+          "Collect public price and availability evidence.",
+          "Tie volatile facts to URLs and retrieval timestamps.",
+          "Flag stale, blocked, or unsupported pricing claims."
         ]
       },
-      "property:financing": {
+      "purchase:total_cost": {
         "llm_config": "primary",
         "model": "small",
-        "role": "Property financing reviewer",
+        "role": "Total-cost and fee analyst",
         "responsibilities": [
-          "Review lender notes and DSCR constraints.",
-          "Flag financing exceptions and liquidity blockers.",
-          "Keep underwriting assumptions review-only."
+          "Identify taxes, fees, ownership costs, and recurring charges.",
+          "Keep calculations deterministic and source-referenced.",
+          "Mark unknown fees instead of inventing estimates."
         ]
       },
-      "property:memory_retriever": {
+      "purchase:policy_risk": {
         "llm_config": "primary",
         "model": "small",
-        "role": "Property memory curator",
+        "role": "Policy, warranty, and risk reviewer",
         "responsibilities": [
-          "Retrieve important historical facts from working memory.",
-          "Drop noisy or irrelevant facts under budget.",
-          "Preserve critical source references."
+          "Review return, cancellation, warranty, insurance, and condition evidence.",
+          "Flag access, safety, fraud, and policy risks.",
+          "Preserve critical source references and unknowns."
         ]
       },
-      "property:signal_comparer": {
+      "purchase:alternatives": {
         "llm_config": "primary",
         "model": "small",
-        "role": "Property signal comparer",
+        "role": "Alternatives comparer",
         "responsibilities": [
-          "Connect rent, risk, financing, and seller signals.",
-          "Compare optimized memory with full context.",
-          "Flag decision quality gaps."
+          "Compare options on the user’s stated priorities.",
+          "Separate observed facts from subjective preferences.",
+          "Flag when alternatives are not directly comparable."
         ]
       },
-      "property:ranker": {
+      "purchase:recommender": {
         "llm_config": "primary",
         "model": "small",
-        "role": "Acquisition opportunity ranker",
+        "role": "Purchase recommendation reviewer",
         "responsibilities": [
-          "Rank candidate properties from source-grounded signals.",
-          "Explain bid, discount, or watchlist logic.",
-          "Avoid final investment advice."
+          "Choose only buy, consider, wait, avoid, or insufficient_evidence.",
+          "Explain the recommendation from cited evidence.",
+          "Never initiate a purchase, booking, payment, or contact."
         ]
       },
-      "property:risk_reviewer": {
+      "purchase:auditor": {
         "llm_config": "primary",
         "model": "small",
-        "role": "Property risk reviewer",
+        "role": "Evidence and review-boundary auditor",
         "responsibilities": [
-          "Review flood, roof, insurance, and inspection risks.",
-          "Flag blockers needing diligence.",
-          "Keep risk calls tied to evidence."
+          "Check source traceability and deterministic-field invariance.",
+          "Flag missing evidence and public-source conflicts.",
+          "Confirm transactional actions remain blocked."
         ]
       },
-      "property:memo_writer": {
+      "purchase:report_writer": {
         "llm_config": "primary",
         "model": "small",
-        "role": "Property deal memo writer",
+        "role": "Purchase research report writer",
         "responsibilities": [
-          "Prepare the review-only acquisition memo.",
-          "Summarize ranking, evidence, and open questions.",
-          "Require human approval before action."
+          "Prepare the review-only purchase research report.",
+          "Summarize options, evidence, risks, and open questions.",
+          "Require human approval before any purchase-related action."
         ]
       }
     },
     "responsibilities": [
-      "Keep working-memory retrieval and scoring outputs as the source of truth.",
-      "Use actors to connect property, lender, broker, rent, and diligence signals.",
-      "Keep acquisition decisions review-only and source-referenced."
+      "Keep deterministic extraction and source records authoritative.",
+      "Use actors to connect local documents, RAG context, and public research.",
+      "Keep purchase recommendations review-only and source-referenced."
     ],
     "provider": "docker_model_runner",
     "model": "small",
@@ -583,7 +585,7 @@
     "default_context_addr": "localhost:50052",
     "enabled": true,
     "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
-    "namespace": "property_deal_research_assistant_context",
+    "namespace": "purchase_research_assistant_context",
     "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
     "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
     "sdk_distribution": "mirrorneuron-membrane-python-sdk",
@@ -592,38 +594,42 @@
   "agentic_research": {
     "enabled": true,
     "agent_ids": [
-      "property:memory_retriever",
-      "property:zip_market",
-      "property:financing",
-      "property:ranker",
-      "property:memo_writer"
+      "purchase:intake",
+      "purchase:price_research",
+      "purchase:total_cost",
+      "purchase:policy_risk",
+      "purchase:alternatives",
+      "purchase:recommender",
+      "purchase:auditor",
+      "purchase:report_writer"
     ],
     "max_iterations_per_agent": 1,
     "max_tool_calls_per_agent": 2,
     "allowed_tools": [
-      "working_memory_retrieve",
-      "property_rank",
-      "benchmark_decision",
+      "document_extract",
+      "browser_search",
+      "browser_page",
       "knowledge_retrieve",
       "finish"
     ],
     "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run",
-    "default_mode": "bounded_llm_guided_property_memory_research",
-    "note": "Property actors combine working memory and local playbook guidance while preserving source refs and uncertainty."
+    "default_mode": "bounded_llm_guided_purchase_research",
+    "note": "Purchase actors combine user documents, local RAG, public sources, and deterministic checks while preserving source refs and uncertainty."
   },
   "knowledge_rag": {
     "enabled": true,
     "backend": "milvus_lite",
     "required": false,
     "knowledge_dir": "knowledge",
-    "purpose": "Retrieve property-deal playbook guidance for ZIP context, broker-note evidence, financing constraints, and working-memory ranking checks.",
+    "purpose": "Retrieve purchase guidance and approved local evidence for price, total cost, policy, risk, and comparison checks.",
     "retrieval_targets": [
-      "ZIP-level context",
-      "property-specific facts",
-      "financing constraints",
-      "ranking evidence gaps"
+      "purchase-type evidence checklists",
+      "price and availability facts",
+      "total cost and recurring fees",
+      "policy, warranty, cancellation, and risk gaps",
+      "alternative comparison criteria"
     ],
-    "grounding_policy": "Use retrieved local blueprint knowledge to improve actor review prompts; do not invent facts when retrieval is unavailable.",
+    "grounding_policy": "Use retrieved guidance as a checklist; facts must come from user documents or cited public sources.",
     "namespace": "",
     "embedding_provider": "docker_model_runner",
     "embedding_model": "rag-embedding",
@@ -638,19 +644,19 @@
     "max_context_chars": 4000,
     "chunk_size": 700,
     "chunk_overlap": 70,
-    "privacy": "index local blueprint knowledge only; do not index private run documents unless a future runtime explicitly opts in"
+    "privacy": "index checked-in guidance and approved local input files in an isolated per-run namespace; do not send private files to public research."
   },
   "metadata": {
-    "agent_role": "AI assistant for researching property deals and drafting opportunity rankings.",
-    "blueprint_id": "property_deal_research_assistant",
+    "agent_role": "AI assistant for researching purchases and drafting source-grounded comparisons.",
+    "blueprint_id": "purchase_research_assistant",
     "blueprint_revision": "v1",
     "category": "finance",
-    "customizable_for": "Rental acquisitions, flipping pipelines, multifamily sourcing, market expansion, diligence review, and capital-allocation meetings.",
-    "description": "A property deal research co-worker for comparing real-estate opportunities. Give it a target ZIP code, price ceiling, deal history, memory policy, optional broker notes, financing constraints, and an input folder for supporting files; it researches and scores opportunities, explains tradeoffs, and writes ranked review artifacts to the output folder.",
-    "llm_agent_role": "AI assistant for researching property deals and drafting opportunity rankings.",
-    "name": "Property Deal Research Assistant",
-    "problem_solved": "Property deal review depends on older broker, lender, rent, insurance, and diligence details that are easy to lose in noisy pipelines.",
-    "simulation_type": "Property opportunity research with deal-memory retrieval.",
+    "customizable_for": "Property, rental property, car, airline ticket, travel, equipment, and custom purchase research.",
+    "description": "A purchase research co-worker for studying property, rental property, car, airline ticket, and custom purchases. Give it the purchase type, item or trip details, budget, priorities, constraints, and an input folder; it uses local knowledge, user evidence, and bounded public research to explain tradeoffs and write a review-ready recommendation to the output folder.",
+    "llm_agent_role": "AI assistant for researching purchases and drafting source-grounded comparisons.",
+    "name": "Purchase Research Assistant",
+    "problem_solved": "Purchase decisions depend on scattered prices, fees, policies, condition, availability, and source quality that are easy to miss across documents and public pages.",
+    "simulation_type": "General purchase research with local RAG and public-source comparison.",
     "standard_version": "1.0",
     "target_user": "Real-estate investors, acquisition analysts, property-tech teams, and diligence operators.",
     "target_users": "Real-estate investors, acquisition analysts, property-tech teams, and diligence operators."
@@ -659,7 +665,7 @@
   "output_skills": {},
   "outputs": {
     "adapter": "local_run_store",
-    "artifact_contract": "Ranked property opportunities, source-grounded notes, and watchlist or bid recommendations for review.",
+    "artifact_contract": "Source-grounded purchase comparison, risk flags, evidence gaps, and review-only recommendation.",
     "run_root": "~/.mn/runs",
     "skills": {},
     "tcp": {
@@ -667,7 +673,7 @@
       "ports": []
     },
     "write_run_store": true,
-    "folder_path": "~/Download/property_deal_research_assistant"
+    "folder_path": "~/Download/purchase_research_assistant"
   },
   "privacy": {
     "default_classification": "confidential",
@@ -730,26 +736,9 @@
     "web_ui": "mn.blueprint.web_ui.v1"
   },
   "simulation": {
-    "actions": [
-      "submit_bid",
-      "negotiate_discount",
-      "watchlist_only"
-    ],
+    "enabled": false,
     "deterministic": true,
-    "enabled": true,
-    "metrics": [
-      "median_price_index",
-      "demand_index",
-      "cap_rate_pct",
-      "risk_score",
-      "liquidity_score",
-      "rent_growth_signal"
-    ],
-    "objective": "maximize",
-    "primary_metric": "cap_rate_pct",
-    "risk_metric": "risk_score",
-    "seed_field": "seed",
-    "type": "Property opportunity research with deal-memory retrieval."
+    "type": "General purchase research with local RAG and public-source comparison."
   },
   "standard_version": "1.0",
   "state": {
@@ -763,8 +752,8 @@
       "event_id"
     ],
     "resume_mode": "none",
-    "input_folder": "property_deal_research_assistant/examples/sample_inputs",
-    "output_folder": "~/Download/property_deal_research_assistant"
+    "input_folder": "purchase_research_assistant/examples/sample_inputs",
+    "output_folder": "~/Download/purchase_research_assistant"
   },
   "streams": {},
   "triggers": {

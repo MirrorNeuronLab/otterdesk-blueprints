@@ -12,7 +12,7 @@ RAG_BLUEPRINTS = {
     "generic_customer_service_voice_coworker",
     "medical_deid_record_intake_assistant",
     "legal_assistant",
-    "property_deal_research_assistant",
+    "purchase_research_assistant",
     "safety_video_analyser",
     "video_watch_assistant",
 }

@@ -1,0 +1,57 @@
+{
+  "blueprint_id": "purchase_research_assistant",
+  "name": "Purchase Research Assistant",
+  "category": "finance",
+  "description": "A general purchase research co-worker for property, rental property, car, airline ticket, and custom purchase comparisons.",
+  "llm_role": "AI assistant for researching purchases and drafting source-grounded comparisons.",
+  "agent_responsibilities": [
+    "classify the purchase and normalize the request",
+    "retrieve local guidance and approved user evidence",
+    "research public prices, policies, fees, and risks",
+    "compare alternatives and explain tradeoffs",
+    "write a review-only recommendation with source references"
+  ],
+  "features": ["local_document_evidence", "knowledge_rag", "privacy_safe_public_research", "total_cost_review", "bounded_specialist_agents", "review_only_recommendation"],
+  "metrics": [
+    {"name": "evidence_completeness", "initial": 40, "drift": 0, "volatility": 5, "minimum": 0, "maximum": 100, "label": "Evidence completeness"},
+    {"name": "total_cost_confidence", "initial": 30, "drift": 0, "volatility": 5, "minimum": 0, "maximum": 100, "label": "Total-cost confidence"},
+    {"name": "source_quality", "initial": 50, "drift": 0, "volatility": 5, "minimum": 0, "maximum": 100, "label": "Source quality"},
+    {"name": "recommendation_confidence", "initial": 25, "drift": 0, "volatility": 5, "minimum": 0, "maximum": 100, "label": "Recommendation confidence"}
+  ],
+  "actions": [
+    {"name": "buy", "description": "Prepare a buy recommendation for human review.", "effects": {"recommendation_confidence": 5, "evidence_completeness": 2}},
+    {"name": "consider", "description": "Prepare a consider recommendation for human review.", "effects": {"recommendation_confidence": 3, "evidence_completeness": 1}},
+    {"name": "wait", "description": "Recommend waiting for better timing or evidence.", "effects": {"recommendation_confidence": 1, "source_quality": 2}},
+    {"name": "avoid", "description": "Flag a material blocker or conflict for human review.", "effects": {"recommendation_confidence": 2, "source_quality": 1}},
+    {"name": "insufficient_evidence", "description": "Decline to recommend because evidence is insufficient.", "effects": {"evidence_completeness": 1}}
+  ],
+  "primary_metric": "recommendation_confidence",
+  "objective": "maximize",
+  "risk_metric": "source_quality",
+  "artifact_type": "source-grounded purchase comparison",
+  "entity_label": "purchase_option",
+  "entity_names": ["Candidate A", "Candidate B", "Candidate C"],
+  "purchase_types": ["property", "rental_property", "car", "airline_ticket", "custom"],
+  "default_inputs": {
+    "purchase_type": "car",
+    "item_description": "Compare a used hybrid SUV against similar options",
+    "budget": 30000,
+    "location": "Boston, MA",
+    "priorities": ["total cost", "reliability", "warranty"],
+    "constraints": {"must_have": ["clean title", "no open recall"]},
+    "input_folder": "purchase_research_assistant/examples/sample_inputs",
+    "output_folder": "~/Download/purchase_research_assistant"
+  },
+  "workflow_stages": [
+    "purchase_intake",
+    "local_document_evidence",
+    "knowledge_rag_retrieval",
+    "public_price_and_availability_research",
+    "total_cost_and_policy_review",
+    "alternatives_comparison",
+    "recommendation_audit",
+    "review_report"
+  ],
+  "recommendation_labels": ["buy", "consider", "wait", "avoid", "insufficient_evidence"],
+  "blocked_actions": ["buy_or_book", "pay_or_transfer_funds", "submit_application_or_offer", "contact_seller_provider_or_broker"]
+}

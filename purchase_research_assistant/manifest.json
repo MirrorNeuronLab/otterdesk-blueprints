@@ -1,8 +1,8 @@
 {
   "apiVersion": "mn.workflow/v1",
   "kind": "Workflow",
-  "id": "property_deal_research_assistant",
-  "name": "Property Deal Research Assistant",
+  "id": "purchase_research_assistant",
+  "name": "Purchase Research Assistant",
   "version": 1,
   "manifest_version": "1.0",
   "skill_dependencies": [
@@ -10,11 +10,35 @@
       "type": "pip",
       "source": "gar",
       "name": "mirrorneuron-blueprint-support-skill",
-      "version": "1.2.8"
+      "version": "1.2.7"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mirrorneuron-llm-ocr-skill",
+      "version": "1.2.7"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mirrorneuron-rag-skill",
+      "version": "1.2.14"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mirrorneuron-w3m-browser-skill",
+      "version": "1.2.7"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mirrorneuron-web-browser-skill",
+      "version": "1.2.7"
     }
   ],
-  "description": "A property deal research co-worker for comparing real-estate opportunities. Give it a target ZIP code, price ceiling, deal history, memory policy, optional broker notes, financing constraints, and an input folder for supporting files; it researches and scores opportunities, explains tradeoffs, and writes ranked review artifacts to the output folder.",
-  "job_name": "property-deal-research-assistant",
+  "description": "A purchase research co-worker for studying property, rental property, car, airline ticket, and custom purchases. Give it the purchase type, item or trip details, budget, priorities, constraints, and an input folder; it uses local knowledge, user evidence, and bounded public research to explain tradeoffs and write a review-ready recommendation to the output folder.",
+  "job_name": "purchase-research-assistant",
   "contract": {
     "events": {
       "human_stream": "human.jsonl",
@@ -55,61 +79,21 @@
       ]
     },
     "inputs": {
-      "broker_notes": {
-        "description": "Current opportunity notes or watchlist changes.",
-        "example": "seller motivated, inspection clean",
-        "privacy": "confidential",
-        "required": false,
-        "type": "domain_value"
-      },
-      "deal_history": {
-        "description": "Broker notes, lender constraints, comps, rent, insurance, and diligence history.",
-        "example": "scenario.json",
-        "privacy": "confidential",
-        "required": true,
-        "type": "domain_value"
-      },
-      "financing_constraints": {
-        "description": "DSCR, leverage, rate, insurance, and lender assumptions.",
-        "example": {
-          "dscr_min": 1.25
-        },
-        "privacy": "confidential",
-        "required": false,
-        "type": "domain_value"
-      },
-      "memory_policy": {
-        "description": "Memory mode and fact limit used to compare full context with optimized memory.",
-        "example": {
-          "memory_limit": 36,
-          "memory_mode": "compare"
-        },
-        "privacy": "confidential",
-        "required": true,
-        "type": "domain_value"
-      },
-      "price_ceiling": {
-        "description": "Maximum acquisition price or underwriting limit.",
-        "example": 950000,
-        "privacy": "confidential",
-        "required": true,
-        "type": "domain_value"
-      },
-      "target_zip": {
-        "default": "02139",
-        "description": "ZIP code or market area to research.",
-        "example": "02139",
-        "privacy": "confidential",
-        "required": true,
-        "type": "domain_value"
-      },
+      "purchase_type": {"description": "Purchase category: property, rental_property, car, airline_ticket, or custom.", "example": "car", "privacy": "confidential", "required": true, "type": "domain_value"},
+      "item_description": {"description": "The item, listing, vehicle, route, or trip to study.", "example": "2022 hybrid SUV with 40,000 miles", "privacy": "confidential", "required": true, "type": "domain_value"},
+      "budget": {"description": "Optional budget or price ceiling for comparison.", "example": 30000, "privacy": "confidential", "required": false, "type": "domain_value"},
+      "location": {"description": "Optional market, pickup, destination, or service location.", "example": "Boston, MA", "privacy": "confidential", "required": false, "type": "domain_value"},
+      "route": {"description": "Optional origin and destination for airline or travel research.", "example": "Boston to Lisbon", "privacy": "confidential", "required": false, "type": "domain_value"},
+      "travel_dates": {"description": "Optional travel dates or purchase timing.", "example": "2026-09-10 to 2026-09-18", "privacy": "confidential", "required": false, "type": "domain_value"},
+      "priorities": {"description": "Optional ranking priorities such as total cost, quality, speed, or flexibility.", "example": ["total cost", "reliability"], "privacy": "confidential", "required": false, "type": "domain_value"},
+      "constraints": {"description": "Optional purchase constraints and must-have requirements.", "example": {"must_have": ["refundable"]}, "privacy": "confidential", "required": false, "type": "domain_value"},
       "input_folder": {
         "type": "local_path",
         "path_kind": "directory",
         "description": "Default local input folder for sample files or user-provided files.",
         "privacy": "confidential",
         "required": false,
-        "example": "property_deal_research_assistant/examples/sample_inputs"
+        "example": "purchase_research_assistant/examples/sample_inputs"
       },
       "output_folder": {
         "type": "local_path",
@@ -117,7 +101,7 @@
         "description": "Default local output folder for generated artifacts and reports.",
         "privacy": "confidential",
         "required": false,
-        "example": "~/Download/property_deal_research_assistant"
+        "example": "~/Download/purchase_research_assistant"
       }
     },
     "outputs": {
@@ -228,7 +212,7 @@
           "type": "human_events"
         },
         {
-          "artifact_id": "property_research_report",
+          "artifact_id": "purchase_research_report",
           "mime_type": "application/json",
           "path": "final_artifact.json",
           "producer": "workflow",
@@ -239,6 +223,60 @@
             "result.json"
           ],
           "type": "generated_report"
+        },
+        {
+          "artifact_id": "purchase_research_bundle",
+          "mime_type": "application/json",
+          "path": "purchase_research.json",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.purchase_research.v1",
+          "source_refs": ["inputs.json", "events.jsonl", "result.json"],
+          "type": "purchase_research"
+        },
+        {
+          "artifact_id": "research_sources",
+          "mime_type": "application/json",
+          "path": "research_sources.json",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.research_sources.v1",
+          "source_refs": ["inputs.json", "events.jsonl"],
+          "type": "research_sources"
+        },
+        {
+          "artifact_id": "knowledge_rag",
+          "mime_type": "application/json",
+          "path": "knowledge_rag.json",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.knowledge_rag.v1",
+          "source_refs": ["inputs.json", "events.jsonl"],
+          "type": "knowledge_rag"
+        },
+        {
+          "artifact_id": "evidence",
+          "mime_type": "application/json",
+          "path": "evidence.json",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.evidence.v1",
+          "source_refs": ["inputs.json", "events.jsonl"],
+          "type": "evidence"
+        },
+        {
+          "artifact_id": "artifact_quality",
+          "mime_type": "application/json",
+          "path": "artifact_quality.json",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.artifact_quality.v1",
+          "source_refs": ["purchase_research.json"],
+          "type": "artifact_quality"
+        },
+        {
+          "artifact_id": "run_health",
+          "mime_type": "application/json",
+          "path": "run_health.json",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.run_health.v1",
+          "source_refs": ["purchase_research.json"],
+          "type": "run_health"
         },
         {
           "artifact_id": "memory_benchmark",
@@ -305,18 +343,18 @@
         "completed"
       ]
     },
-    "summary": "Property deal review depends on older broker, lender, rent, insurance, and diligence details that are easy to lose in noisy pipelines.",
+    "summary": "Purchase review depends on older broker, lender, rent, insurance, and diligence details that are easy to lose in noisy pipelines.",
     "users": [
-      "Real-estate investors, acquisition analysts, property-tech teams, and diligence operators."
+      "Consumers, travelers, vehicle buyers, property buyers, renters, and purchase analysts."
     ]
   },
   "workflow": {
     "schema": "mn.workflow.problem_graph/v1",
-    "workflow_id": "property_deal_research_assistant_v1",
+    "workflow_id": "purchase_research_assistant_v1",
     "mode": "static_dag",
-    "entrypoint": "collect_deal_context",
-    "source": "collect_deal_context",
-    "sink": "write_deal_memo",
+    "entrypoint": "collect_purchase_context",
+    "source": "collect_purchase_context",
+    "sink": "write_purchase_report",
     "execution": {
       "strategy": "parallel"
     },
@@ -326,26 +364,26 @@
       "patch_events": []
     },
     "state": {
-      "deal_context": {},
-      "deal_history": {
-        "from": "$inputs.deal_history"
+      "purchase_context": {},
+      "local_evidence": {
+        "from": "$inputs.local_evidence"
       },
       "final_report": {},
-      "memory_policy": {
-        "from": "$inputs.memory_policy"
+      "research_policy": {
+        "from": "$inputs.research_policy"
       },
-      "memory_signals": {},
-      "price_ceiling": {
-        "from": "$inputs.price_ceiling"
+      "retrieved_knowledge": {},
+      "budget": {
+        "from": "$inputs.budget"
       },
-      "ranked_opportunities": {},
-      "target_zip": {
-        "from": "$inputs.target_zip"
+      "purchase_comparison": {},
+      "purchase_request": {
+        "from": "$inputs.purchase_request"
       }
     },
     "steps": [
       {
-        "action": "collect_deal_context",
+        "action": "collect_purchase_context",
         "control": {
           "failure_policy": "fail_workflow",
           "required": true,
@@ -361,25 +399,25 @@
             "on_low_confidence": "continue_with_warning"
           }
         },
-        "emits": "deal_context_ready",
-        "goal": "Collect ZIP-code history, broker notes, financing constraints, and market assumptions.",
-        "id": "collect_deal_context",
+        "emits": "purchase_context_ready",
+        "goal": "Collect purchase type, item details, budget, constraints, and local evidence.",
+        "id": "collect_purchase_context",
         "in": {
-          "ceiling": "$state.price_ceiling",
-          "zip": "$state.target_zip"
+          "ceiling": "$state.budget",
+          "zip": "$state.purchase_request"
         },
         "kind": "stage",
-        "label": "Collect Deal Context",
+        "label": "Collect Purchase Context",
         "on": {
-          "deal_context_ready": "compare_memory_signals"
+          "purchase_context_ready": "retrieve_purchase_knowledge"
         },
         "out": {
-          "deal_context": "$state.deal_context"
+          "purchase_context": "$state.purchase_context"
         },
-        "run": "collect_deal_context"
+        "run": "collect_purchase_context"
       },
       {
-        "action": "compare_memory_signals",
+        "action": "retrieve_purchase_knowledge",
         "control": {
           "failure_policy": "fail_workflow",
           "required": true,
@@ -395,26 +433,26 @@
             "on_low_confidence": "continue_with_warning"
           }
         },
-        "emits": "memory_signals_ready",
-        "goal": "Retrieve and compare prior deal memory under the declared memory policy.",
-        "id": "compare_memory_signals",
+        "emits": "retrieved_knowledge_ready",
+        "goal": "Retrieve local guidance and approved user evidence under the declared research policy.",
+        "id": "retrieve_purchase_knowledge",
         "in": {
-          "deal_context": "$state.deal_context",
-          "history": "$state.deal_history",
-          "policy": "$state.memory_policy"
+          "purchase_context": "$state.purchase_context",
+          "history": "$state.local_evidence",
+          "policy": "$state.research_policy"
         },
         "kind": "stage",
-        "label": "Compare Memory Signals",
+        "label": "Retrieve Purchase Knowledge",
         "on": {
-          "memory_signals_ready": "score_opportunities"
+          "retrieved_knowledge_ready": "research_purchase_options"
         },
         "out": {
-          "memory_signals": "$state.memory_signals"
+          "retrieved_knowledge": "$state.retrieved_knowledge"
         },
-        "run": "compare_memory_signals"
+        "run": "retrieve_purchase_knowledge"
       },
       {
-        "action": "score_property_opportunities",
+        "action": "compare_purchase_options",
         "control": {
           "failure_policy": "fail_workflow",
           "required": true,
@@ -430,25 +468,25 @@
             "on_low_confidence": "continue_with_warning"
           }
         },
-        "emits": "opportunities_scored",
-        "goal": "Rank candidate opportunities and explain financing and risk tradeoffs.",
-        "id": "score_opportunities",
+        "emits": "purchase_options_ready",
+        "goal": "Research price, availability, total cost, policy, and risk tradeoffs.",
+        "id": "research_purchase_options",
         "in": {
-          "deal_context": "$state.deal_context",
-          "signals": "$state.memory_signals"
+          "purchase_context": "$state.purchase_context",
+          "signals": "$state.retrieved_knowledge"
         },
         "kind": "stage",
-        "label": "Score Opportunities",
+        "label": "Research Purchase Options",
         "on": {
-          "opportunities_scored": "write_deal_memo"
+          "purchase_options_ready": "write_purchase_report"
         },
         "out": {
-          "ranked_opportunities": "$state.ranked_opportunities"
+          "purchase_comparison": "$state.purchase_comparison"
         },
-        "run": "score_opportunities"
+        "run": "research_purchase_options"
       },
       {
-        "action": "write_deal_memo_packet",
+        "action": "write_purchase_report_packet",
         "control": {
           "failure_policy": "fail_workflow",
           "required": true,
@@ -464,21 +502,21 @@
             "on_low_confidence": "continue_with_warning"
           }
         },
-        "emits": "deal_memo_ready",
-        "goal": "Write the deal memo with evidence, caveats, and reviewable next steps.",
-        "id": "write_deal_memo",
+        "emits": "purchase_report_ready",
+        "goal": "Write the purchase report with evidence, caveats, sources, and reviewable next steps.",
+        "id": "write_purchase_report",
         "in": {
-          "opportunities": "$state.ranked_opportunities"
+          "opportunities": "$state.purchase_comparison"
         },
         "kind": "stage",
-        "label": "Write Deal Memo",
+        "label": "Write Purchase Report",
         "on": {
-          "deal_memo_ready": "completed"
+          "purchase_report_ready": "completed"
         },
         "out": {
           "final_report": "$state.final_report"
         },
-        "run": "write_deal_memo"
+        "run": "write_purchase_report"
       }
     ],
     "edges": [
@@ -486,31 +524,31 @@
         "accepts": [
           "done"
         ],
-        "event": "deal_context_ready",
-        "from": "collect_deal_context",
-        "id": "collect_deal_context_to_compare_memory_signals",
+        "event": "purchase_context_ready",
+        "from": "collect_purchase_context",
+        "id": "collect_purchase_context_to_retrieve_purchase_knowledge",
         "required": true,
-        "to": "compare_memory_signals"
+        "to": "retrieve_purchase_knowledge"
       },
       {
         "accepts": [
           "done"
         ],
-        "event": "memory_signals_ready",
-        "from": "compare_memory_signals",
-        "id": "compare_memory_signals_to_score_opportunities",
+        "event": "retrieved_knowledge_ready",
+        "from": "retrieve_purchase_knowledge",
+        "id": "retrieve_purchase_knowledge_to_research_purchase_options",
         "required": true,
-        "to": "score_opportunities"
+        "to": "research_purchase_options"
       },
       {
         "accepts": [
           "done"
         ],
-        "event": "opportunities_scored",
-        "from": "score_opportunities",
-        "id": "score_opportunities_to_write_deal_memo",
+        "event": "purchase_options_ready",
+        "from": "research_purchase_options",
+        "id": "research_purchase_options_to_write_purchase_report",
         "required": true,
-        "to": "write_deal_memo"
+        "to": "write_purchase_report"
       }
     ],
     "policy": {
@@ -536,18 +574,18 @@
       },
       "safety": {
         "blocked_actions": [
-          "submit_bid",
-          "send_loi",
-          "negotiate_discount",
-          "notify_broker_without_review"
+          "buy_or_book",
+          "pay_or_transfer_funds",
+          "submit_application_or_offer",
+          "contact_seller_provider_or_broker"
         ],
         "default": "allow",
         "rules": [
           {
             "effect": "require_human_approval",
-            "id": "write_deal_memo_requires_human_approval",
+            "id": "write_purchase_report_requires_human_approval",
             "message": "Human approval is required before this workflow writes or releases high-impact recommendations.",
-            "when": "step == 'write_deal_memo'"
+            "when": "step == 'write_purchase_report'"
           }
         ]
       }
@@ -557,18 +595,18 @@
   "agents": {
     "schema": "mn.agents.communication_graph/v1",
     "entrypoints": [
-      "collect_deal_context"
+      "collect_purchase_context"
     ],
     "nodes": [
       {
-        "node_id": "collect_deal_context",
+        "node_id": "collect_purchase_context",
         "type": "generic",
         "agent_type": "executor",
         "config": {
           "runner_module": "MirrorNeuron.Runner.HostLocal",
-          "upload_path": "simulation_loop",
-          "upload_as": "simulation_loop",
-          "workdir": "/sandbox/job/simulation_loop",
+          "upload_path": "document_workflow",
+          "upload_as": "document_workflow",
+          "workdir": "/sandbox/job/document_workflow",
           "command": [
             "python3.11",
             "scripts/run_blueprint.py"
@@ -579,7 +617,7 @@
           "pool": "default",
           "pool_slots": 1,
           "tty": false,
-          "output_message_type": "deal_context_ready",
+          "output_message_type": "purchase_context_ready",
           "beacon_enabled": true,
           "beacon_interval_ms": 15000,
           "beacon_timeout_ms": 45000,
@@ -591,14 +629,14 @@
         }
       },
       {
-        "node_id": "compare_memory_signals",
+        "node_id": "retrieve_purchase_knowledge",
         "type": "generic",
         "agent_type": "executor",
         "config": {
           "runner_module": "MirrorNeuron.Runner.HostLocal",
-          "upload_path": "simulation_loop",
-          "upload_as": "simulation_loop",
-          "workdir": "/sandbox/job/simulation_loop",
+          "upload_path": "document_workflow",
+          "upload_as": "document_workflow",
+          "workdir": "/sandbox/job/document_workflow",
           "command": [
             "python3.11",
             "scripts/run_blueprint.py"
@@ -609,7 +647,7 @@
           "pool": "default",
           "pool_slots": 1,
           "tty": false,
-          "output_message_type": "memory_signals_ready",
+          "output_message_type": "retrieved_knowledge_ready",
           "beacon_enabled": true,
           "beacon_interval_ms": 15000,
           "beacon_timeout_ms": 45000,
@@ -621,14 +659,14 @@
         }
       },
       {
-        "node_id": "score_opportunities",
+        "node_id": "research_purchase_options",
         "type": "generic",
         "agent_type": "executor",
         "config": {
           "runner_module": "MirrorNeuron.Runner.HostLocal",
-          "upload_path": "simulation_loop",
-          "upload_as": "simulation_loop",
-          "workdir": "/sandbox/job/simulation_loop",
+          "upload_path": "document_workflow",
+          "upload_as": "document_workflow",
+          "workdir": "/sandbox/job/document_workflow",
           "command": [
             "python3.11",
             "scripts/run_blueprint.py"
@@ -639,7 +677,7 @@
           "pool": "default",
           "pool_slots": 1,
           "tty": false,
-          "output_message_type": "opportunities_scored",
+          "output_message_type": "purchase_options_ready",
           "beacon_enabled": true,
           "beacon_interval_ms": 15000,
           "beacon_timeout_ms": 45000,
@@ -651,14 +689,14 @@
         }
       },
       {
-        "node_id": "write_deal_memo",
+        "node_id": "write_purchase_report",
         "type": "generic",
         "agent_type": "executor",
         "config": {
           "runner_module": "MirrorNeuron.Runner.HostLocal",
-          "upload_path": "simulation_loop",
-          "upload_as": "simulation_loop",
-          "workdir": "/sandbox/job/simulation_loop",
+          "upload_path": "document_workflow",
+          "upload_as": "document_workflow",
+          "workdir": "/sandbox/job/document_workflow",
           "command": [
             "python3.11",
             "scripts/run_blueprint.py"
@@ -669,7 +707,7 @@
           "pool": "default",
           "pool_slots": 1,
           "tty": false,
-          "output_message_type": "deal_memo_ready",
+          "output_message_type": "purchase_report_ready",
           "beacon_enabled": true,
           "beacon_interval_ms": 15000,
           "beacon_timeout_ms": 45000,
@@ -694,55 +732,55 @@
     ],
     "edges": [
       {
-        "edge_id": "collect_deal_context_to_compare_memory_signals",
-        "from_node": "collect_deal_context",
-        "message_type": "deal_context_ready",
-        "to_node": "compare_memory_signals"
+        "edge_id": "collect_purchase_context_to_retrieve_purchase_knowledge",
+        "from_node": "collect_purchase_context",
+        "message_type": "purchase_context_ready",
+        "to_node": "retrieve_purchase_knowledge"
       },
       {
-        "edge_id": "compare_memory_signals_to_score_opportunities",
-        "from_node": "compare_memory_signals",
-        "message_type": "memory_signals_ready",
-        "to_node": "score_opportunities"
+        "edge_id": "retrieve_purchase_knowledge_to_research_purchase_options",
+        "from_node": "retrieve_purchase_knowledge",
+        "message_type": "retrieved_knowledge_ready",
+        "to_node": "research_purchase_options"
       },
       {
-        "edge_id": "score_opportunities_to_write_deal_memo",
-        "from_node": "score_opportunities",
-        "message_type": "opportunities_scored",
-        "to_node": "write_deal_memo"
+        "edge_id": "research_purchase_options_to_write_purchase_report",
+        "from_node": "research_purchase_options",
+        "message_type": "purchase_options_ready",
+        "to_node": "write_purchase_report"
       },
       {
         "edge_id": "memo_to_report",
-        "from_node": "write_deal_memo",
-        "message_type": "deal_memo_ready",
+        "from_node": "write_purchase_report",
+        "message_type": "purchase_report_ready",
         "to_node": "report_sink"
       }
     ]
   },
   "runtime": {
     "bindings": {
-      "collect_deal_context": {
+      "collect_purchase_context": {
         "risk": "low",
         "side_effect": "read",
         "strategy": "fanout_reduce",
         "type": "team",
         "workers": [
           {
-            "id": "property:zip_market",
+            "id": "purchase:intake",
             "model": "small",
             "role": "Review ZIP history",
             "tokens": 14000,
             "tools": 4
           },
           {
-            "id": "property:broker_notes",
+            "id": "purchase:price_research",
             "model": "small",
             "role": "Parse broker notes",
             "tokens": 14000,
             "tools": 4
           },
           {
-            "id": "property:financing",
+            "id": "purchase:total_cost",
             "model": "small",
             "role": "Read financing constraints",
             "tokens": 14000,
@@ -750,21 +788,21 @@
           }
         ]
       },
-      "compare_memory_signals": {
+      "retrieve_purchase_knowledge": {
         "risk": "low",
         "side_effect": "read",
         "strategy": "fanout_reduce",
         "type": "team",
         "workers": [
           {
-            "id": "property:memory_retriever",
+            "id": "purchase:policy_risk",
             "model": "small",
             "role": "Retrieve comparable memory",
             "tokens": 14000,
             "tools": 4
           },
           {
-            "id": "property:signal_comparer",
+            "id": "purchase:alternatives",
             "model": "small",
             "role": "Compare historical deal signals",
             "tokens": 14000,
@@ -772,21 +810,21 @@
           }
         ]
       },
-      "score_opportunities": {
+      "research_purchase_options": {
         "risk": "low",
         "side_effect": "read",
         "strategy": "fanout_reduce",
         "type": "team",
         "workers": [
           {
-            "id": "property:ranker",
+            "id": "purchase:recommender",
             "model": "small",
-            "role": "Rank property opportunities",
+            "role": "Compare purchase options",
             "tokens": 14000,
             "tools": 4
           },
           {
-            "id": "property:risk_reviewer",
+            "id": "purchase:auditor",
             "model": "small",
             "role": "Review downside risks",
             "tokens": 14000,
@@ -794,14 +832,14 @@
           }
         ]
       },
-      "write_deal_memo": {
+      "write_purchase_report": {
         "risk": "medium",
         "side_effect": "internal_write",
         "strategy": "single",
         "type": "worker",
         "workers": [
           {
-            "id": "property:memo_writer",
+            "id": "purchase:report_writer",
             "model": "small",
             "role": "Write final deal memo",
             "tokens": 14000,
@@ -828,7 +866,7 @@
       "default_context_addr": "localhost:50052",
       "enabled": true,
       "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
-      "namespace": "property_deal_research_assistant_context",
+      "namespace": "purchase_research_assistant_context",
       "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
       "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
       "sdk_distribution": "mirrorneuron-membrane-python-sdk",
@@ -991,24 +1029,24 @@
   "license": "LICENSE.md",
   "term": "TERM.md",
   "metadata": {
-    "agent_role": "AI assistant for researching property deals and drafting opportunity rankings.",
+    "agent_role": "AI assistant for researching purchases and drafting source-grounded comparisons.",
     "agent_templates": {
       "library": "../mn-agents/index.json",
       "nodes": [
         {
-          "node_id": "collect_deal_context",
+          "node_id": "collect_purchase_context",
           "uses": "mn-agents.data_python_executor@1"
         },
         {
-          "node_id": "compare_memory_signals",
+          "node_id": "retrieve_purchase_knowledge",
           "uses": "mn-agents.data_python_executor@1"
         },
         {
-          "node_id": "score_opportunities",
+          "node_id": "research_purchase_options",
           "uses": "mn-agents.data_python_executor@1"
         },
         {
-          "node_id": "write_deal_memo",
+          "node_id": "write_purchase_report",
           "uses": "mn-agents.data_python_executor@1"
         },
         {
@@ -1021,27 +1059,27 @@
       "renderer": "mn_blueprint_support.render_manifest_agent_templates",
       "rendered": [
         {
-          "node_id": "collect_deal_context",
+          "node_id": "collect_purchase_context",
           "template_id": "mn-agents.data_python_executor",
           "version": 1,
           "original_node": {
-            "node_id": "collect_deal_context",
+            "node_id": "collect_purchase_context",
             "uses": "mn-agents.data_python_executor@1",
             "with": {
               "script": "scripts/run_blueprint.py",
-              "upload_path": "simulation_loop",
-              "output_message_type": "deal_context_ready"
+              "upload_path": "document_workflow",
+              "output_message_type": "purchase_context_ready"
             }
           },
           "rendered_node": {
-            "node_id": "collect_deal_context",
+            "node_id": "collect_purchase_context",
             "type": "generic",
             "agent_type": "executor",
             "config": {
               "runner_module": "MirrorNeuron.Runner.HostLocal",
-              "upload_path": "simulation_loop",
-              "upload_as": "simulation_loop",
-              "workdir": "/sandbox/job/simulation_loop",
+              "upload_path": "document_workflow",
+              "upload_as": "document_workflow",
+              "workdir": "/sandbox/job/document_workflow",
               "command": [
                 "python3.11",
                 "scripts/run_blueprint.py"
@@ -1052,7 +1090,7 @@
               "pool": "default",
               "pool_slots": 1,
               "tty": false,
-              "output_message_type": "deal_context_ready",
+              "output_message_type": "purchase_context_ready",
               "beacon_enabled": true,
               "beacon_interval_ms": 15000,
               "beacon_timeout_ms": 45000,
@@ -1065,27 +1103,27 @@
           }
         },
         {
-          "node_id": "compare_memory_signals",
+          "node_id": "retrieve_purchase_knowledge",
           "template_id": "mn-agents.data_python_executor",
           "version": 1,
           "original_node": {
-            "node_id": "compare_memory_signals",
+            "node_id": "retrieve_purchase_knowledge",
             "uses": "mn-agents.data_python_executor@1",
             "with": {
               "script": "scripts/run_blueprint.py",
-              "upload_path": "simulation_loop",
-              "output_message_type": "memory_signals_ready"
+              "upload_path": "document_workflow",
+              "output_message_type": "retrieved_knowledge_ready"
             }
           },
           "rendered_node": {
-            "node_id": "compare_memory_signals",
+            "node_id": "retrieve_purchase_knowledge",
             "type": "generic",
             "agent_type": "executor",
             "config": {
               "runner_module": "MirrorNeuron.Runner.HostLocal",
-              "upload_path": "simulation_loop",
-              "upload_as": "simulation_loop",
-              "workdir": "/sandbox/job/simulation_loop",
+              "upload_path": "document_workflow",
+              "upload_as": "document_workflow",
+              "workdir": "/sandbox/job/document_workflow",
               "command": [
                 "python3.11",
                 "scripts/run_blueprint.py"
@@ -1096,7 +1134,7 @@
               "pool": "default",
               "pool_slots": 1,
               "tty": false,
-              "output_message_type": "memory_signals_ready",
+              "output_message_type": "retrieved_knowledge_ready",
               "beacon_enabled": true,
               "beacon_interval_ms": 15000,
               "beacon_timeout_ms": 45000,
@@ -1109,27 +1147,27 @@
           }
         },
         {
-          "node_id": "score_opportunities",
+          "node_id": "research_purchase_options",
           "template_id": "mn-agents.data_python_executor",
           "version": 1,
           "original_node": {
-            "node_id": "score_opportunities",
+            "node_id": "research_purchase_options",
             "uses": "mn-agents.data_python_executor@1",
             "with": {
               "script": "scripts/run_blueprint.py",
-              "upload_path": "simulation_loop",
-              "output_message_type": "opportunities_scored"
+              "upload_path": "document_workflow",
+              "output_message_type": "purchase_options_ready"
             }
           },
           "rendered_node": {
-            "node_id": "score_opportunities",
+            "node_id": "research_purchase_options",
             "type": "generic",
             "agent_type": "executor",
             "config": {
               "runner_module": "MirrorNeuron.Runner.HostLocal",
-              "upload_path": "simulation_loop",
-              "upload_as": "simulation_loop",
-              "workdir": "/sandbox/job/simulation_loop",
+              "upload_path": "document_workflow",
+              "upload_as": "document_workflow",
+              "workdir": "/sandbox/job/document_workflow",
               "command": [
                 "python3.11",
                 "scripts/run_blueprint.py"
@@ -1140,7 +1178,7 @@
               "pool": "default",
               "pool_slots": 1,
               "tty": false,
-              "output_message_type": "opportunities_scored",
+              "output_message_type": "purchase_options_ready",
               "beacon_enabled": true,
               "beacon_interval_ms": 15000,
               "beacon_timeout_ms": 45000,
@@ -1153,27 +1191,27 @@
           }
         },
         {
-          "node_id": "write_deal_memo",
+          "node_id": "write_purchase_report",
           "template_id": "mn-agents.data_python_executor",
           "version": 1,
           "original_node": {
-            "node_id": "write_deal_memo",
+            "node_id": "write_purchase_report",
             "uses": "mn-agents.data_python_executor@1",
             "with": {
               "script": "scripts/run_blueprint.py",
-              "upload_path": "simulation_loop",
-              "output_message_type": "deal_memo_ready"
+              "upload_path": "document_workflow",
+              "output_message_type": "purchase_report_ready"
             }
           },
           "rendered_node": {
-            "node_id": "write_deal_memo",
+            "node_id": "write_purchase_report",
             "type": "generic",
             "agent_type": "executor",
             "config": {
               "runner_module": "MirrorNeuron.Runner.HostLocal",
-              "upload_path": "simulation_loop",
-              "upload_as": "simulation_loop",
-              "workdir": "/sandbox/job/simulation_loop",
+              "upload_path": "document_workflow",
+              "upload_as": "document_workflow",
+              "workdir": "/sandbox/job/document_workflow",
               "command": [
                 "python3.11",
                 "scripts/run_blueprint.py"
@@ -1184,7 +1222,7 @@
               "pool": "default",
               "pool_slots": 1,
               "tty": false,
-              "output_message_type": "deal_memo_ready",
+              "output_message_type": "purchase_report_ready",
               "beacon_enabled": true,
               "beacon_interval_ms": 15000,
               "beacon_timeout_ms": 45000,
@@ -1223,7 +1261,7 @@
         }
       ]
     },
-    "blueprint_id": "property_deal_research_assistant",
+    "blueprint_id": "purchase_research_assistant",
     "category": "finance",
     "configuration_contract": {
       "optional_files": [
@@ -1242,7 +1280,7 @@
       ]
     },
     "customizable_for": "Rental acquisitions, flipping pipelines, multifamily sourcing, market expansion, diligence review, and capital-allocation meetings.",
-    "description": "A property deal research co-worker for comparing real-estate opportunities. Give it a target ZIP code, price ceiling, deal history, memory policy, optional broker notes, financing constraints, and an input folder for supporting files; it researches and scores opportunities, explains tradeoffs, and writes ranked review artifacts to the output folder.",
+    "description": "A purchase research co-worker for studying property, rental property, car, airline ticket, and custom purchases. Give it the purchase type, item or trip details, budget, priorities, constraints, and an input folder; it uses local knowledge, user evidence, and bounded public research to explain tradeoffs and write a review-ready recommendation to the output folder.",
     "human_control": {
       "allowed_decisions": [
         "approve",
@@ -1250,10 +1288,10 @@
         "reject"
       ],
       "blocked_actions": [
-        "submit_bid",
-        "send_loi",
-        "negotiate_discount",
-        "notify_broker_without_review"
+        "buy_or_book",
+        "pay_or_transfer_funds",
+        "submit_application_or_offer",
+        "contact_seller_provider_or_broker"
       ],
       "decision_event": "human_decision_applied",
       "default_action": "reject",
@@ -1266,7 +1304,7 @@
         "human_decision_applied"
       ],
       "mode": "approval_required",
-      "reason": "Human approval is required before high-impact downstream actions such as submit_bid, send_loi, negotiate_discount.",
+      "reason": "Human approval is required before any purchase, booking, payment, application, offer, or seller/provider contact action.",
       "request_event": "human_input_requested",
       "response_event": "human_input_received",
       "timeout_event": "human_input_timeout",
@@ -1285,33 +1323,27 @@
       ],
       "fields": [
         {
-          "default": "02139",
-          "description": "Confirm the market area to evaluate.",
-          "label": "Target ZIP",
-          "path": "inputs.payload.target_zip"
+          "default": "custom",
+          "description": "Choose property, rental_property, car, airline_ticket, or custom.",
+          "label": "Purchase type",
+          "path": "inputs.payload.purchase_type"
         },
         {
-          "default": 950000,
-          "description": "Confirm the acquisition price ceiling.",
-          "label": "Max price",
-          "path": "inputs.payload.max_price"
+          "default": "Compare the bundled purchase research sample",
+          "description": "Describe the item, listing, vehicle, route, or trip to study.",
+          "label": "Item or trip",
+          "path": "inputs.payload.item_description"
         },
         {
-          "default": "compare",
-          "description": "Choose compare, on, or off for working-memory evaluation.",
-          "label": "Memory mode",
-          "path": "inputs.payload.memory_mode"
-        },
-        {
-          "default": 6,
-          "description": "Number of decision-loop steps to run.",
-          "label": "Simulation steps",
-          "path": "inputs.payload.steps"
+          "default": 1000,
+          "description": "Optional budget or price ceiling.",
+          "label": "Budget",
+          "path": "inputs.payload.budget"
         },
         {
           "path": "inputs.payload.input_folder",
           "label": "Input folder",
-          "default": "property_deal_research_assistant/examples/sample_inputs",
+          "default": "purchase_research_assistant/examples/sample_inputs",
           "description": "Default local input folder for sample files or user-provided files.",
           "type": "local_path",
           "path_kind": "directory"
@@ -1319,7 +1351,7 @@
         {
           "path": "outputs.folder_path",
           "label": "Output folder",
-          "default": "~/Download/property_deal_research_assistant",
+          "default": "~/Download/purchase_research_assistant",
           "description": "Default local output folder for generated artifacts and reports.",
           "type": "local_path",
           "path_kind": "directory"
@@ -1329,28 +1361,18 @@
       "required": true
     },
     "input_contract": {
-      "description": "Property deal review depends on older broker, lender, rent, insurance, and diligence details that are easy to lose in noisy pipelines.",
+      "description": "Purchase decisions depend on scattered prices, fees, policies, condition, availability, and source quality across local documents and public pages.",
       "optional_inputs": [
-        {
-          "description": "DSCR, leverage, rate, insurance, and lender assumptions.",
-          "example": {
-            "dscr_min": 1.25
-          },
-          "name": "financing_constraints",
-          "type": "domain_value"
-        },
-        {
-          "description": "Current opportunity notes or watchlist changes.",
-          "example": "seller motivated, inspection clean",
-          "name": "broker_notes",
-          "type": "domain_value"
-        },
+        {"description": "Optional market, pickup, destination, or service location.", "example": "Boston, MA", "name": "location", "type": "domain_value"},
+        {"description": "Optional origin and destination for airline or travel research.", "example": "Boston to Lisbon", "name": "route", "type": "domain_value"},
+        {"description": "Optional travel dates or purchase timing.", "example": "2026-09-10 to 2026-09-18", "name": "travel_dates", "type": "domain_value"},
+        {"description": "Optional ranking priorities and must-have constraints.", "example": {"priorities": ["total cost"], "constraints": {"must_have": ["refundable"]}}, "name": "priorities_and_constraints", "type": "domain_value"},
         {
           "name": "input_folder",
           "type": "local_path",
           "path_kind": "directory",
           "description": "Default local input folder for sample files or user-provided files.",
-          "example": "property_deal_research_assistant/examples/sample_inputs",
+          "example": "purchase_research_assistant/examples/sample_inputs",
           "privacy": "confidential",
           "required": false
         },
@@ -1359,7 +1381,7 @@
           "type": "local_path",
           "path_kind": "directory",
           "description": "Default local output folder for generated artifacts and reports.",
-          "example": "~/Download/property_deal_research_assistant",
+          "example": "~/Download/purchase_research_assistant",
           "privacy": "confidential",
           "required": false
         }
@@ -1368,7 +1390,7 @@
       "profiles": {
         "connector": {
           "adapter": "json",
-          "description": "MLS, CRM, lender, insurance, and diligence notes supplied by approved connectors."
+          "description": "Purchase details and local evidence supplied by approved connectors."
         },
         "env_json": {
           "adapter": "env_json",
@@ -1384,45 +1406,30 @@
         },
         "mock": {
           "adapter": "mock",
-          "description": "Bundled Cambridge ZIP-code memory benchmark scenario.",
+          "description": "Bundled multi-category purchase research sample.",
           "payload": {
-            "max_price": 950000,
-            "memory_mode": "compare",
-            "target_zip": "02139"
+            "purchase_type": "custom",
+            "item_description": "Compare the bundled purchase research sample",
+            "budget": 1000
           }
         },
         "sample_file": {
           "adapter": "file",
-          "description": "JSON deal history and scenario loaded from disk.",
+          "description": "Purchase details and evidence loaded from disk.",
           "path": "scenario.json"
         }
       },
       "required_inputs": [
         {
-          "description": "ZIP code or market area to research.",
-          "example": "02139",
-          "name": "target_zip",
+          "description": "Purchase category: property, rental_property, car, airline_ticket, or custom.",
+          "example": "car",
+          "name": "purchase_type",
           "type": "domain_value"
         },
         {
-          "description": "Maximum acquisition price or underwriting limit.",
-          "example": 950000,
-          "name": "price_ceiling",
-          "type": "domain_value"
-        },
-        {
-          "description": "Broker notes, lender constraints, comps, rent, insurance, and diligence history.",
-          "example": "scenario.json",
-          "name": "deal_history",
-          "type": "domain_value"
-        },
-        {
-          "description": "Memory mode and fact limit used to compare full context with optimized memory.",
-          "example": {
-            "memory_limit": 36,
-            "memory_mode": "compare"
-          },
-          "name": "memory_policy",
+          "description": "The item, listing, vehicle, route, or trip to study.",
+          "example": "2022 hybrid SUV with 40,000 miles",
+          "name": "item_description",
           "type": "domain_value"
         }
       ],
@@ -1661,7 +1668,7 @@
         "agentic_research"
       ]
     },
-    "llm_agent_role": "AI assistant for researching property deals and drafting opportunity rankings.",
+    "llm_agent_role": "AI assistant for researching purchases and drafting source-grounded comparisons.",
     "memory_layer": {
       "collection": "mn_memory",
       "containers": "optional_sidecar",
@@ -1680,13 +1687,13 @@
       "default_context_addr": "localhost:50052",
       "enabled": true,
       "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
-      "namespace": "property_deal_research_assistant_context",
+      "namespace": "purchase_research_assistant_context",
       "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
       "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
       "sdk_distribution": "mirrorneuron-membrane-python-sdk",
       "sdk_import_package": "mn_context_engine_sdk"
     },
-    "name": "Property Deal Research Assistant",
+    "name": "Purchase Research Assistant",
     "observability_dashboard": {
       "panels": [
         "current_status",
@@ -1711,7 +1718,7 @@
       "schema_version": "mn.blueprint.observability_dashboard.v1",
       "source": "local_run_store"
     },
-    "output": "Ranked property opportunities, source-grounded notes, and watchlist or bid recommendations for review.",
+    "output": "Source-grounded purchase comparison, risk flags, evidence gaps, and review-only recommendation.",
     "output_contract": {
       "artifacts": [
         {
@@ -1820,7 +1827,7 @@
           "type": "human_events"
         },
         {
-          "artifact_id": "property_research_report",
+          "artifact_id": "purchase_research_report",
           "mime_type": "application/json",
           "path": "final_artifact.json",
           "producer": "workflow",
@@ -1831,6 +1838,60 @@
             "result.json"
           ],
           "type": "generated_report"
+        },
+        {
+          "artifact_id": "purchase_research_bundle",
+          "mime_type": "application/json",
+          "path": "purchase_research.json",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.purchase_research.v1",
+          "source_refs": ["inputs.json", "events.jsonl", "result.json"],
+          "type": "purchase_research"
+        },
+        {
+          "artifact_id": "research_sources",
+          "mime_type": "application/json",
+          "path": "research_sources.json",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.research_sources.v1",
+          "source_refs": ["inputs.json", "events.jsonl"],
+          "type": "research_sources"
+        },
+        {
+          "artifact_id": "knowledge_rag",
+          "mime_type": "application/json",
+          "path": "knowledge_rag.json",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.knowledge_rag.v1",
+          "source_refs": ["inputs.json", "events.jsonl"],
+          "type": "knowledge_rag"
+        },
+        {
+          "artifact_id": "evidence",
+          "mime_type": "application/json",
+          "path": "evidence.json",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.evidence.v1",
+          "source_refs": ["inputs.json", "events.jsonl"],
+          "type": "evidence"
+        },
+        {
+          "artifact_id": "artifact_quality",
+          "mime_type": "application/json",
+          "path": "artifact_quality.json",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.artifact_quality.v1",
+          "source_refs": ["purchase_research.json"],
+          "type": "artifact_quality"
+        },
+        {
+          "artifact_id": "run_health",
+          "mime_type": "application/json",
+          "path": "run_health.json",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.run_health.v1",
+          "source_refs": ["purchase_research.json"],
+          "type": "run_health"
         },
         {
           "artifact_id": "memory_benchmark",
@@ -1867,9 +1928,9 @@
       "result_json": "result.json",
       "stdout": "JSON object with timeline, all-context summaries, memory packets, state_changes, benchmark, final_artifact, and llm metadata"
     },
-    "problem_solved": "Property deal review depends on older broker, lender, rent, insurance, and diligence details that are easy to lose in noisy pipelines.",
+    "problem_solved": "Purchase review depends on older broker, lender, rent, insurance, and diligence details that are easy to lose in noisy pipelines.",
     "quick_test": {
-      "command": "python3.11 payloads/simulation_loop/scripts/run_blueprint.py --mock-llm --steps 2",
+      "command": "python3.11 payloads/document_workflow/scripts/run_blueprint.py --mock-llm --steps 2",
       "enabled": true
     },
     "runtime_features": [
@@ -1891,11 +1952,11 @@
     ],
     "simulation": {
       "actions": [
-        "submit_bid",
-        "negotiate_discount",
-        "watchlist_only"
+        "buy_or_book",
+        "pay_or_transfer_funds",
+        "insufficient_evidence"
       ],
-      "agent_role": "Property deal research assistant",
+      "agent_role": "Purchase research assistant",
       "dynamic_metrics": [
         "median_price_index",
         "demand_index",
@@ -1905,7 +1966,7 @@
         "rent_growth_signal"
       ]
     },
-    "simulation_type": "Property opportunity research with deal-memory retrieval.",
+    "simulation_type": "General purchase research with deal-memory retrieval.",
     "standard": {
       "config_path": "config/default.json",
       "default_input_adapter": "mock",
@@ -1999,8 +2060,8 @@
         "workflow_step_failed"
       ]
     },
-    "target_user": "Real-estate investors, acquisition analysts, property-tech teams, and diligence operators.",
-    "target_users": "Real-estate investors, acquisition analysts, property-tech teams, and diligence operators.",
+    "target_user": "Consumers, travelers, vehicle buyers, property buyers, renters, and purchase analysts.",
+    "target_users": "Consumers, travelers, vehicle buyers, property buyers, renters, and purchase analysts.",
     "web_ui": {
       "data_source": "local_run_store",
       "reads": [
@@ -2026,18 +2087,18 @@
     },
     "knowledge_rag": {
       "enabled": true,
-      "backend": "working_memory_plus_rag",
+      "backend": "milvus_lite",
       "required": false,
       "knowledge_dir": "knowledge",
-      "purpose": "Retrieve property-deal playbook guidance for ZIP context, broker-note evidence, financing constraints, and working-memory ranking checks.",
+      "purpose": "Retrieve purchase guidance and approved local evidence for price, total cost, policy, risk, and comparison checks.",
       "retrieval_targets": [
-        "ZIP-level context",
-        "property-specific facts",
-        "financing constraints",
-        "ranking evidence gaps"
+        "purchase-type evidence checklists",
+        "price and availability facts",
+        "total cost and recurring fees",
+        "policy, warranty, cancellation, and risk gaps",
+        "alternative comparison criteria"
       ],
-      "grounding_policy": "Use retrieved local blueprint knowledge to improve actor review prompts; do not invent facts when retrieval is unavailable.",
-      "redis_url": "",
+      "grounding_policy": "Use retrieved guidance as a checklist; facts must come from user documents or cited public sources.",
       "namespace": "",
       "embedding_provider": "docker_model_runner",
       "embedding_model": "rag-embedding",
@@ -2047,34 +2108,37 @@
       "embedding_start_command": "",
       "embedding_healthcheck_enabled": true,
       "vector_dim": 1024,
-      "index_on_startup": false,
+      "index_on_startup": true,
       "top_k": 4,
       "max_context_chars": 4000,
       "chunk_size": 700,
       "chunk_overlap": 70,
-      "privacy": "index local blueprint knowledge only; do not index private run documents unless a future runtime explicitly opts in"
+      "privacy": "index checked-in guidance and approved local input files in an isolated per-run namespace; do not send private files to public research."
     },
     "agentic_research": {
       "enabled": true,
       "agent_ids": [
-        "property:memory_retriever",
-        "property:zip_market",
-        "property:financing",
-        "property:ranker",
-        "property:memo_writer"
+        "purchase:intake",
+        "purchase:price_research",
+        "purchase:total_cost",
+        "purchase:policy_risk",
+        "purchase:alternatives",
+        "purchase:recommender",
+        "purchase:auditor",
+        "purchase:report_writer"
       ],
       "max_iterations_per_agent": 1,
       "max_tool_calls_per_agent": 2,
       "allowed_tools": [
-        "working_memory_retrieve",
-        "property_rank",
-        "benchmark_decision",
+        "document_extract",
+        "browser_search",
+        "browser_page",
         "knowledge_retrieve",
         "finish"
       ],
       "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run",
-      "default_mode": "bounded_llm_guided_property_memory_research",
-      "note": "Property actors combine working memory and local playbook guidance while preserving source refs and uncertainty."
+      "default_mode": "bounded_llm_guided_purchase_research",
+      "note": "Purchase actors combine user documents, local RAG, public sources, and deterministic checks while preserving source refs and uncertainty."
     },
     "features": [
       "optional local knowledge RAG grounding",
@@ -2083,18 +2147,18 @@
   },
   "knowledge_rag": {
     "enabled": true,
-    "backend": "working_memory_plus_rag",
+    "backend": "milvus_lite",
     "required": false,
     "knowledge_dir": "knowledge",
-    "purpose": "Retrieve property-deal playbook guidance for ZIP context, broker-note evidence, financing constraints, and working-memory ranking checks.",
+    "purpose": "Retrieve purchase guidance and approved local evidence for price, total cost, policy, risk, and comparison checks.",
     "retrieval_targets": [
-      "ZIP-level context",
-      "property-specific facts",
-      "financing constraints",
-      "ranking evidence gaps"
+      "purchase-type evidence checklists",
+      "price and availability facts",
+      "total cost and recurring fees",
+      "policy, warranty, cancellation, and risk gaps",
+      "alternative comparison criteria"
     ],
-    "grounding_policy": "Use retrieved local blueprint knowledge to improve actor review prompts; do not invent facts when retrieval is unavailable.",
-    "redis_url": "",
+    "grounding_policy": "Use retrieved guidance as a checklist; facts must come from user documents or cited public sources.",
     "namespace": "",
     "embedding_provider": "docker_model_runner",
     "embedding_model": "rag-embedding",
@@ -2104,33 +2168,36 @@
     "embedding_start_command": "",
     "embedding_healthcheck_enabled": true,
     "vector_dim": 1024,
-    "index_on_startup": false,
+    "index_on_startup": true,
     "top_k": 4,
     "max_context_chars": 4000,
     "chunk_size": 700,
     "chunk_overlap": 70,
-    "privacy": "index local blueprint knowledge only; do not index private run documents unless a future runtime explicitly opts in"
+    "privacy": "index checked-in guidance and approved local input files in an isolated per-run namespace; do not send private files to public research."
   },
   "agentic_research": {
     "enabled": true,
     "agent_ids": [
-      "property:memory_retriever",
-      "property:zip_market",
-      "property:financing",
-      "property:ranker",
-      "property:memo_writer"
+      "purchase:intake",
+      "purchase:price_research",
+      "purchase:total_cost",
+      "purchase:policy_risk",
+      "purchase:alternatives",
+      "purchase:recommender",
+      "purchase:auditor",
+      "purchase:report_writer"
     ],
     "max_iterations_per_agent": 1,
     "max_tool_calls_per_agent": 2,
     "allowed_tools": [
-      "working_memory_retrieve",
-      "property_rank",
-      "benchmark_decision",
+      "document_extract",
+      "browser_search",
+      "browser_page",
       "knowledge_retrieve",
       "finish"
     ],
     "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run",
-    "default_mode": "bounded_llm_guided_property_memory_research",
-    "note": "Property actors combine working memory and local playbook guidance while preserving source refs and uncertainty."
+    "default_mode": "bounded_llm_guided_purchase_research",
+    "note": "Purchase actors combine user documents, local RAG, public sources, and deterministic checks while preserving source refs and uncertainty."
   }
 }
