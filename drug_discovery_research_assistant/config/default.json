@@ -124,7 +124,7 @@
         }
       ],
       "input_folder": "drug_discovery_research_assistant/examples/sample_inputs",
-      "output_folder": "~/Download/drug_discovery_research_assistant"
+      "output_folder": "~/Downloads/drug_discovery_research_assistant"
     }
   },
   "interfaces": {
@@ -796,7 +796,7 @@
       "ports": []
     },
     "write_run_store": true,
-    "folder_path": "~/Download/drug_discovery_research_assistant"
+    "folder_path": "~/Downloads/drug_discovery_research_assistant"
   },
   "privacy": {
     "default_classification": "confidential",
@@ -890,7 +890,7 @@
     ],
     "resume_mode": "none",
     "input_folder": "drug_discovery_research_assistant/examples/sample_inputs",
-    "output_folder": "~/Download/drug_discovery_research_assistant"
+    "output_folder": "~/Downloads/drug_discovery_research_assistant"
   },
   "streams": {},
   "triggers": {

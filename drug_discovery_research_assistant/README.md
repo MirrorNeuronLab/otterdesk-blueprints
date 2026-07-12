@@ -19,7 +19,7 @@ mn run drug_discovery_research_assistant
 
 The service continues until the runtime sends `SIGTERM`/`SIGINT` or the configured `STOP` file is created under the run directory. It writes `service_state.json` and per-cycle artifacts under `cycles/` while it runs.
 
-The committed `config/overwrite.json` is a one-cycle, fake-science smoke-test profile. Live use must set `mode` to `live`, disable `execution.fake_science_adapters`, configure the native adapter commands, and configure the cross-box dispatcher.
+The committed `config/overwrite.json` keeps the service in explicit fake-science mode for a continuous local smoke run. To make a bounded test, provide `service.max_cycles` through the runtime override. Live use must set `mode` to `live`, disable `execution.fake_science_adapters`, configure the native adapter commands, and configure the cross-box dispatcher.
 
 ## Distributed native execution
 
@@ -35,7 +35,7 @@ The dispatcher must accept the job JSON on stdin and return a JSON result or wri
 
 ## Output and safety
 
-The default user-facing output folder is `~/Download/drug_discovery_research_assistant`. Service reports are computational hypotheses only. The blueprint does not authorize wet-lab work, clinical claims, regulatory submissions, or external candidate publication without human approval.
+The default user-facing output folder is `~/Downloads/drug_discovery_research_assistant`. Service reports are computational hypotheses only. The blueprint does not authorize wet-lab work, clinical claims, regulatory submissions, or external candidate publication without human approval.
 
 ## Validation
 

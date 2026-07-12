@@ -89,6 +89,9 @@ def test_drug_discovery_manifest_uses_source_format_and_shared_blocks():
 def test_drug_discovery_model_profiles_match_vc_style_defaults():
     config = json.loads((BLUEPRINT_DIR / "config" / "default.json").read_text(encoding="utf-8"))
 
+    assert config["service"]["run_until"] == "manual_stop"
+    assert config["service"]["max_cycles"] is None
+    assert config["outputs"]["folder_path"] == "~/Downloads/drug_discovery_research_assistant"
     assert config["llm"]["model"] == "small"
     assert config["llm"]["runtime_model"] == "small"
     assert config["llm"]["preferred_model"] == "medium"
@@ -155,6 +158,38 @@ def test_continuous_service_fake_mode_writes_parallel_cycle_artifacts(tmp_path):
     report = json.loads((cycle / "cycle_report.json").read_text(encoding="utf-8"))
     assert report["mode"] == "fake_smoke_test"
     assert report["simulation_count"] > 0
+
+
+def test_continuous_service_repeats_generation_and_simulation_until_stop_file(tmp_path):
+    service_path = BLUEPRINT_DIR / "payloads" / "service" / "scripts" / "continuous_service.py"
+    spec = importlib.util.spec_from_file_location("drug_discovery_continuous_service_loop_test", service_path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+
+    calls = []
+
+    def fake_cycle(config, run_dir, cycle_id):
+        calls.append(cycle_id)
+        report = {"cycle_id": cycle_id, "top_candidates": [{"candidate": {"smiles": "C"}}]}
+        if len(calls) == 2:
+            (run_dir / "STOP").touch()
+        return report
+
+    module.run_cycle = fake_cycle
+    result = module.run_service(
+        {
+            "mode": "mock",
+            "service": {"max_cycles": None, "cycle_interval_seconds": 0.1, "stop_file": "${MN_RUN_DIR}/STOP"},
+            "cluster_distribution": {"enabled": False},
+        },
+        tmp_path,
+    )
+
+    assert calls == [0, 1]
+    assert result["completed_cycles"] == 2
+    assert result["stop_reason"] == "stop_file"
 
 
 def test_continuous_service_uses_unique_work_directories_for_parallel_jobs(tmp_path):

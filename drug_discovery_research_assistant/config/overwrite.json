@@ -3,7 +3,7 @@
     "payload": {
       "disease": "Alzheimer",
       "input_folder": "drug_discovery_research_assistant/examples/sample_inputs",
-      "output_folder": "~/Download/drug_discovery_research_assistant"
+      "output_folder": "~/Downloads/drug_discovery_research_assistant"
     }
   },
   "budgets": {
@@ -14,7 +14,6 @@
     "mode": "native_local_smoke_test"
   },
   "service": {
-    "max_cycles": 1,
     "cycle_interval_seconds": 0.1
   },
   "cluster_distribution": {

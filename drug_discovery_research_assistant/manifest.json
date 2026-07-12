@@ -143,7 +143,7 @@
         {
           "path": "outputs.folder_path",
           "label": "Output folder",
-          "default": "~/Download/drug_discovery_research_assistant",
+          "default": "~/Downloads/drug_discovery_research_assistant",
           "description": "Default local output folder for generated artifacts and reports.",
           "type": "local_path",
           "path_kind": "directory"
@@ -184,7 +184,7 @@
           "type": "local_path",
           "path_kind": "directory",
           "description": "Default local output folder for generated artifacts and reports.",
-          "example": "~/Download/drug_discovery_research_assistant",
+          "example": "~/Downloads/drug_discovery_research_assistant",
           "privacy": "confidential",
           "required": false
         }
@@ -1302,7 +1302,7 @@
         "description": "Default local output folder for generated artifacts and reports.",
         "privacy": "confidential",
         "required": false,
-        "example": "~/Download/drug_discovery_research_assistant"
+          "example": "~/Downloads/drug_discovery_research_assistant"
       }
     },
     "outputs": {
