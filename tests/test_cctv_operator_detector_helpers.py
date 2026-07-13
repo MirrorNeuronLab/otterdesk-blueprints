@@ -134,6 +134,7 @@ def test_openai_vlm_disables_thinking_and_normalizes_model_variants(monkeypatch)
 
     def fake_urlopen(request, timeout):
         captured.update(json.loads(request.data.decode()))
+        captured["url"] = request.full_url
         captured["timeout"] = timeout
         return FakeResponse()
 
@@ -151,5 +152,38 @@ def test_openai_vlm_disables_thinking_and_normalizes_model_variants(monkeypatch)
 
     assert captured["chat_template_kwargs"] == {"enable_thinking": False}
     assert captured["max_tokens"] == 600
+    assert captured["url"] == "http://model.example/engines/v1/chat/completions"
     assert result["detected_target"] is True
     assert result["confidence"] == 0.91
+
+
+def test_litellm_vlm_preserves_v1_openai_endpoint(monkeypatch):
+    detector = _load_detector()
+    captured = {}
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read(self):
+            return json.dumps(
+                {"choices": [{"message": {"content": '{"detected": false}'}}]}
+            ).encode()
+
+    def fake_urlopen(request, timeout):
+        captured["url"] = request.full_url
+        captured["timeout"] = timeout
+        return FakeResponse()
+
+    monkeypatch.setenv("MN_VLM_PROVIDER", "litellm")
+    monkeypatch.setenv("MN_VLM_API_BASE", "http://mn-litellm-proxy:4000/v1")
+    monkeypatch.setenv("MN_VLM_MODEL", "docker.io/ai/gemma4:E2B")
+    monkeypatch.setattr(detector.urllib.request, "urlopen", fake_urlopen)
+
+    result = detector.call_ollama(b"jpeg", "inspect the frame")
+
+    assert captured["url"] == "http://mn-litellm-proxy:4000/v1/chat/completions"
+    assert result["detected"] is False

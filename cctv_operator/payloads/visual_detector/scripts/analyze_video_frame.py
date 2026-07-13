@@ -642,14 +642,20 @@ def _normalize_model_api_base(api_base: str, *, provider: str) -> str:
         if value.endswith("/chat/completions"):
             value = value[: -len("/chat/completions")]
         return value.rstrip("/")
-    for suffix in ("/v1/chat/completions", "/chat/completions", "/v1"):
+    for suffix in ("/chat/completions",):
         if value.endswith(suffix):
             value = value[: -len(suffix)]
     return value.rstrip("/")
 
 
 def _uses_openai_compatible_runtime(provider: str, api_base: str) -> bool:
-    return provider in {"docker_model_runner", "dmr", "openai", "openai_compatible"} or "/engines/" in api_base
+    return provider in {
+        "docker_model_runner",
+        "dmr",
+        "litellm",
+        "openai",
+        "openai_compatible",
+    } or "/engines/" in api_base
 
 
 def fallback_detection_from_model_text(_text: str, _reason: str) -> dict[str, Any]:

@@ -1504,6 +1504,7 @@ def test_cctv_operator_uses_dockerworker_nvidia_media_worker():
     assert visual_node["config"]["runner_module"] == "MirrorNeuron.Runner.DockerWorker"
     assert visual_node["config"]["docker_worker_image"] == "visual_detector/docker_worker"
     assert visual_node["config"]["image"] == "mirror-neuron/cctv-operator:local"
+    assert visual_node["config"]["network"] == "mirror-neuron-runtime"
     assert visual_node["config"]["gpus"] == "all"
     assert visual_node["config"]["workdir"] == "/mn/job/visual_detector"
     assert visual_node["config"]["command"] == ["bash", "scripts/run_detector_on_nvidia.sh"]
