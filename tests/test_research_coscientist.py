@@ -102,9 +102,9 @@ def test_manifest_uses_exactly_one_current_openshell_worker():
 
     assert [node["node_id"] for node in openshell] == ["autonomous_research"]
     config = openshell[0]["config"]
-    assert config["reuse_shared_sandbox"] is False
-    assert config["persistent_workspace"] is False
-    assert config["cleanup_remote_dir"] is True
+    assert config["reuse_shared_sandbox"] is True
+    assert config["persistent_workspace"] is True
+    assert config["cleanup_remote_dir"] is False
     assert config["custom_openshell_image"] == "document_workflow/openshell_worker"
     assert config["policy"] == "document_workflow/openshell-policy.yaml"
     assert manifest["workflow"]["steps"][0]["label"].startswith("Deterministically")
