@@ -19,7 +19,7 @@ def _load_runner():
 
 def test_vc_manifest_workers_do_not_expose_legacy_token_budget():
     manifest = json.loads((ROOT / "vc_assistant" / "manifest.json").read_text(encoding="utf-8"))
-    for binding in manifest["runtime"]["bindings"].values():
+    for binding in manifest.get("runtime", {}).get("bindings", {}).values():
         for worker in binding.get("workers") or []:
             assert "tokens" not in worker
 

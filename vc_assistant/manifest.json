@@ -1076,7 +1076,7 @@
   "knowledge_rag": {
     "chunk_overlap": 80,
     "chunk_size": 800,
-    "embedding_api_base": "http://host.docker.internal:12434/engines/v1",
+    "embedding_api_base": "auto",
     "embedding_document_prefix": "Document: ",
     "embedding_healthcheck_enabled": true,
     "embedding_model": "rag-embedding",

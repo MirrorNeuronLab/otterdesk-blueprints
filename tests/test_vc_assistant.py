@@ -223,9 +223,10 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         "enabled": True,
         "required": True,
         "backend": "auto",
-        "endpoint": "http://host.docker.internal:12434",
-        "model": None,
-        "quantization": None,
+        "endpoint": "auto",
+        "model": "hf.co/noctrex/LightOnOCR-2-1B-GGUF:Q4_K_M",
+        "api_model": "lightonocr-2-1b",
+        "quantization": "Q4_K_M",
         "min_text_chars": 40,
         "max_pages": None,
         "preload": False,
@@ -288,7 +289,7 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
     assert config["knowledge_rag"]["namespace"] == ""
     assert config["knowledge_rag"]["embedding_provider"] == "docker_model_runner"
     assert config["knowledge_rag"]["embedding_model"] == "rag-embedding"
-    assert config["knowledge_rag"]["embedding_api_base"] == "http://host.docker.internal:12434/engines/v1"
+    assert config["knowledge_rag"]["embedding_api_base"] == "auto"
     assert config["knowledge_rag"]["embedding_query_prefix"] == "Query: "
     assert config["knowledge_rag"]["embedding_document_prefix"] == "Document: "
     assert config["knowledge_rag"]["embedding_start_command"] == ""
