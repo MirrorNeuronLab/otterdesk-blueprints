@@ -1087,27 +1087,10 @@ def build_llm_client(config: dict[str, Any], payload: dict[str, Any], llm_client
             "Install/enable mirrorneuron-litellm-communicate-skill or run with explicit fake/quick-test mode."
         )
     selection = select_default_model(config)
-    selection_env = {
-        "MN_LLM_MODEL": selection.get("model"),
-        "MN_LLM_RUNTIME_MODEL": selection.get("runtime_model"),
-        "MN_LLM_PROVIDER": selection.get("provider"),
-    }
-    if selection.get("api_base"):
-        selection_env["MN_LLM_API_BASE"] = selection["api_base"]
-    previous_env = {key: os.environ.get(key) for key in selection_env}
     try:
-        for key, value in selection_env.items():
-            if value:
-                os.environ[key] = str(value)
         client = get_actor_llm_client(config, None)
     except Exception as exc:
         raise RuntimeError(f"Unable to initialize shared live LLM client: {exc}") from exc
-    finally:
-        for key, value in previous_env.items():
-            if value is None:
-                os.environ.pop(key, None)
-            else:
-                os.environ[key] = value
     if client is None or str(getattr(client, "provider", "")).lower() in {"fake", "mock", "deterministic", "test"}:
         raise RuntimeError("Shared live LLM client was unavailable for a normal Legal Assistant run.")
     setattr(client, "runtime_selection", selection)
