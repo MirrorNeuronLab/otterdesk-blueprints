@@ -1216,7 +1216,10 @@ def _runtime_workflow_payload() -> dict[str, Any]:
             payload = value.get("workflow_payload")
             if isinstance(payload, dict):
                 return payload
-            for key in ("stdout", "body", "payload", "input", "data", "message", "content", "sandbox"):
+            # Runner envelopes carry the current command output in ``sandbox.stdout``
+            # and the prior workflow message in ``input``. Prefer the current result;
+            # otherwise a multi-stage workflow can accidentally unwrap stale input.
+            for key in ("stdout", "sandbox", "body", "payload", "data", "message", "content", "input"):
                 found = find(value.get(key))
                 if found:
                     return found

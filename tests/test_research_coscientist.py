@@ -111,6 +111,33 @@ def test_manifest_uses_exactly_one_current_openshell_worker():
     assert manifest["workflow"]["steps"][-1]["label"].startswith("Deterministically")
 
 
+def test_runtime_payload_prefers_current_sandbox_output_over_stale_input(tmp_path, monkeypatch):
+    runner = _runner()
+    current = {
+        "workflow_payload": {
+            "evidence": {"source_refs": ["current"]},
+            "recommendation": {"recommended_action": "review_research_packet"},
+            "autonomous": {"isolation_required": True},
+        }
+    }
+    stale = {"workflow_payload": {"goal": {"goal_id": "stale"}}}
+    message = {
+        "body": {
+            "input": {"sandbox": {"stdout": json.dumps(stale)}},
+            "sandbox": {"stdout": json.dumps(current)},
+        }
+    }
+    message_path = tmp_path / "mirror_neuron_message.json"
+    message_path.write_text(json.dumps(message), encoding="utf-8")
+    monkeypatch.setenv("MN_MESSAGE_FILE", str(message_path))
+
+    payload = runner._runtime_workflow_payload()
+
+    assert payload["evidence"]["source_refs"] == ["current"]
+    assert payload["autonomous"]["isolation_required"] is True
+    assert "goal" not in payload
+
+
 def test_autonomous_worker_can_request_skill_and_execute_generated_python(tmp_path):
     runner = _runner()
 
