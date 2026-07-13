@@ -1115,18 +1115,7 @@
     "required": [
       "research_goal"
     ],
-    "rules": [
-      {
-        "field": "research_goal",
-        "rule": "non_empty",
-        "message": "Provide a research goal."
-      },
-      {
-        "field": "input_folder",
-        "rule": "local_directory_if_supplied",
-        "message": "Input folder must be a local directory when supplied."
-      }
-    ]
+    "rules": []
   },
   "requirements": {
     "cpu": {
