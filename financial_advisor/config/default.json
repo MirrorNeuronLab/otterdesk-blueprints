@@ -26,6 +26,7 @@
         "residency": "US",
         "review_only": true
       },
+      "customer_profile": {},
       "portfolio": {
         "base_currency": "USD",
         "cash": 50000,
@@ -63,6 +64,12 @@
         "min_cash_pct": 5,
         "max_turnover_pct": 15
       },
+      "risk_policy_metadata": {
+        "source": "Default portfolio screening policy",
+        "version": "default-2026.2",
+        "effective_date": "2026-01-01",
+        "customer_specific": false
+      },
       "decision_constraints": {
         "allowed_actions": [
           "no_action",
@@ -98,6 +105,12 @@
         "taxpayer_id",
         "field_locations",
         "portfolio_holdings",
+        "customer_profile",
+        "investment_objective",
+        "time_horizon",
+        "risk_tolerance",
+        "liquidity_needs",
+        "tax_objective",
         "risk_flags",
         "recommended_actions"
       ],
@@ -160,6 +173,7 @@
       "tax_llm_review.json",
       "portfolio_risk_review.json",
       "portfolio_llm_review.json",
+      "customer_report.json",
       "financial_advisor_report.md",
       "action_ledger.json",
       "artifact_quality.json",
@@ -782,6 +796,7 @@
           "tax_llm_review.json",
           "portfolio_risk_review.json",
           "portfolio_llm_review.json",
+          "customer_report.json",
           "financial_advisor_report.md"
         ]
       },
@@ -907,6 +922,7 @@
       "tax_llm_review.json",
       "portfolio_risk_review.json",
       "portfolio_llm_review.json",
+      "customer_report.json",
       "financial_advisor_report.md"
     ],
     "response_schema": "mn.blueprint.response.v1"

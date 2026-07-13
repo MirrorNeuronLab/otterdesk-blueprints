@@ -7,7 +7,7 @@
 
 This blueprint runs a review-only discovery service until it is closed manually. Each cycle uses the local BioTarget Stage C path to generate a molecular candidate pool and rank it against therapeutic text with DrugClip, folds targets, runs BioTarget evaluation, and writes traceable cycle artifacts for human scientific review.
 
-`hf.co/homerquan/DrugClip` is declared under `runtime.models.drugclip` with `customize_mode: true`. It is your dual-encoder text↔3D-molecular-graph model: BioTarget generates the candidate pool, then DrugClip aligns each molecular graph with therapeutic intent and toxicity text. Live workers load the model through the BioTarget Python package and the `best.ckpt` checkpoint from the Hugging Face repository.
+DrugClip is a native scientific dependency, not a Docker Model Runner chat model. The adapter loads `best.ckpt` through the BioTarget Python package and uses its dual-encoder text↔3D-molecular-graph model to align each molecular graph with therapeutic intent and toxicity text. Docker Model Runner is used only for the blueprint's LLM and retrieval models.
 
 ## Running and stopping
 

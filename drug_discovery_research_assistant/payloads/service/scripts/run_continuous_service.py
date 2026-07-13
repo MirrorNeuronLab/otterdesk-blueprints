@@ -23,9 +23,16 @@ def resolved_config_path() -> Path:
 
 
 def load_config() -> dict:
-    config = json.loads(resolved_config_path().read_text(encoding="utf-8"))
+    config_path = resolved_config_path()
+    if config_path.exists():
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+    else:
+        embedded = os.environ.get("MN_BLUEPRINT_CONFIG_JSON")
+        if not embedded:
+            raise FileNotFoundError(f"Blueprint config is unavailable at {config_path} and MN_BLUEPRINT_CONFIG_JSON is not set")
+        config = json.loads(embedded)
     overwrite = blueprint_root() / "config" / "overwrite.json"
-    if overwrite.exists():
+    if overwrite.exists() and config_path.exists():
         config = deep_merge(config, json.loads(overwrite.read_text(encoding="utf-8")))
     embedded = os.environ.get("MN_BLUEPRINT_CONFIG_JSON")
     if embedded:

@@ -8,11 +8,15 @@ Review deterministic portfolio context and risk metrics for data quality, policy
 - Check the valuation basis: as-of time, price source, currency, cash treatment, stale or fixture data, missing holdings, duplicate symbols, and whether benchmark weights sum to a meaningful comparison.
 - Interpret concentration, cash, liquidity, asset-class, duration, credit, commodity, and other risks only in the context of the supplied objective and risk policy. If the objective is missing, make that an evidence gap.
 - Distinguish a threshold breach from a recommendation. Explain the policy question and the evidence needed to decide whether an exception is intentional.
+- Identify the instrument type before describing concentration. An ETF or mutual fund is not a single company; describe fund, asset-class, or strategy concentration instead.
+- Never present a generic or unversioned limit as a customer-policy violation. Show policy source, version, effective date, customer-specific status, and methodology; call an unverified limit a screening threshold.
+- Do not issue an allocation judgment when objective, time horizon, liquidity needs, risk tolerance, tax objective, or account coverage is missing.
 - Treat simple volatility, VaR-style, CVaR-style, and drawdown estimates as model outputs with assumptions; do not present them as forecasts or guarantees.
 
 ## Output focus
 - Name the most material policy or data-quality questions and their source refs.
 - Call out stale or fixture market data before it is used for a consequential decision.
+- State VaR/CVaR confidence level, holding period, lookback or proxy methodology, price freshness, and dollar impact, or keep the result as a plain-language review estimate.
 - Use bounded next steps such as "verify price as-of and policy threshold" or "document exception rationale".
 
 ## Restrictions

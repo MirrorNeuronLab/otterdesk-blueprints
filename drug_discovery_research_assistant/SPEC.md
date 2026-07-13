@@ -12,7 +12,7 @@ Operate a continuously running, human-review-only computational discovery servic
 4. Simulations fan out over the best DrugCLIP-ranked candidates across the `science-simulation` pool.
 5. The native control worker fans results in, writes a cycle report, and starts the next cycle.
 
-DrugClip is the custom Hugging Face model `hf.co/homerquan/DrugClip`, authorized by the source manifest's `runtime.models.drugclip.customize_mode: true`. Its 3D graph and text encoders provide the BioTarget Stage C selection and Stage D toxicity-alignment path; it is not a generic chat model.
+DrugClip is the native scientific checkpoint `homerquan/DrugClip`, loaded by the BioTarget adapter as `best.ckpt`. Its 3D graph and text encoders provide the BioTarget Stage C selection and Stage D toxicity-alignment path; it is not a Docker Model Runner chat model. Docker Model Runner is limited to the blueprint's LLM and retrieval models.
 
 ## Native cross-box contract
 

@@ -916,10 +916,6 @@
             "target": "service"
           },
           {
-            "source": "worker/scripts",
-            "target": "service/scripts"
-          },
-          {
             "source": "config",
             "target": "config"
           },
@@ -1530,15 +1526,6 @@
             "memory_operator": ">="
           }
         }
-      },
-      "drugclip": {
-        "provider": "docker_model_runner",
-        "model": "hf.co/homerquan/DrugClip",
-        "runtime_model": "hf.co/homerquan/DrugClip",
-        "backend": "auto",
-        "context_size": 4096,
-        "required": true,
-        "customize_mode": true
       }
     }
   },

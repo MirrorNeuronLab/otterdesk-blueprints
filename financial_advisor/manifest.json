@@ -1199,6 +1199,17 @@
           ]
         },
         {
+          "artifact_id": "customer_report",
+          "type": "customer_report",
+          "path": "<outputs.folder_path>/customer_report.json",
+          "producer": "workflow",
+          "mime_type": "application/json",
+          "schema_version": "mn.blueprint.financial_advisor.customer_report.v1",
+          "source_refs": [
+            "final_artifact.json"
+          ]
+        },
+        {
           "artifact_id": "cash_flow_llm_review",
           "type": "llm_review",
           "path": "<outputs.folder_path>/cash_flow_llm_review.json",

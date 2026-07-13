@@ -36,6 +36,12 @@
     "min_cash_pct": 5,
     "max_turnover_pct": 15
   },
+  "risk_policy_metadata": {
+    "source": "Sample portfolio screening policy",
+    "version": "fixture-2026.2",
+    "effective_date": "2026-01-01",
+    "customer_specific": false
+  },
   "decision_constraints": {
     "allowed_actions": [
       "no_action",

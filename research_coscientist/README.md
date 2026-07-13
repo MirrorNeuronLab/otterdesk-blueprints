@@ -1,19 +1,21 @@
-# Multi-Agent Research Co-Scientist
+# Research Co-Scientist
 
-`Blueprint ID:` `multi_agent_research_coscientist`  
+`Blueprint ID:` `research_coscientist`  
 `Category:` `Science`
 
-Multi-Agent Research Co-Scientist turns a research goal and an approved evidence folder into a review-ready research packet. It frames the question, retrieves and evaluates evidence, generates competing hypotheses, has skeptical and novelty-review roles challenge them, plans experiments and benchmarks, and drafts a source-grounded brief.
+Research Co-Scientist turns a research goal and an approved evidence folder into a review-ready research packet. Deterministic host stages normalize inputs, build the evidence ledger, and verify the final packet. A single shared OpenShell worker owns every autonomous phase: it may refine the goal, create phase prompts, call allowlisted `mn-skills` tools on demand, generate and execute bounded analysis code, challenge hypotheses, and draft the candidate packet.
 
 It is inspired by the role separation in Google's AI co-scientist—not a reproduction of Google's system. The workflow uses an explicit evidence ledger and bounded review roles so that generated hypotheses remain hypotheses until a qualified person evaluates them.
 
 ## Quick Start
 
 ```bash
-mn run multi_agent_research_coscientist
+mn run research_coscientist
 ```
 
-The default output folder is `~/Download/multi_agent_research_coscientist`. Run-store artifacts are also written under `~/.mn/runs/<run_id>/`.
+The default output folder is `~/Download/research_coscientist`. Run-store artifacts are also written under `~/.mn/runs/<run_id>/`.
+
+The workflow deliberately mixes execution modes. `prepare_research_context` and `verify_and_publish_packet` are deterministic HostLocal stages. `autonomous_research` is the only OpenShell node and uses the runtime's job-scoped shared sandbox (`reuse_shared_sandbox: true`) for all autonomous subphases. Generated code never runs in either deterministic stage.
 
 ## Inputs
 

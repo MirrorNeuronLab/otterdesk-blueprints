@@ -23,7 +23,7 @@
       "uncertainty_calibration",
       "token_reduction_ratio"
     ],
-    "schema_version": "mn.science.multi_agent_research.v1"
+    "schema_version": "mn.science.research_coscientist.v2"
   },
   "budgets": {
     "max_connector_reads": 500,
@@ -121,8 +121,8 @@
     "timeout_seconds": 3600
   },
   "identity": {
-    "blueprint_id": "multi_agent_research_coscientist",
-    "name": "Multi-Agent Research Co-Scientist"
+    "blueprint_id": "research_coscientist",
+    "name": "Research Co-Scientist"
   },
   "input_skills": {
     "llm_ocr": {
@@ -167,8 +167,8 @@
         "max_hypotheses": 3
       },
       "seed_hypotheses": [],
-      "input_folder": "multi_agent_research_coscientist/examples/sample_inputs",
-      "output_folder": "~/Download/multi_agent_research_coscientist"
+      "input_folder": "research_coscientist/examples/sample_inputs",
+      "output_folder": "~/Download/research_coscientist"
     }
   },
   "interfaces": {
@@ -542,7 +542,7 @@
     "live_model_profile": {
       "provider": "docker_model_runner",
       "runtime_model": "small",
-      "api_base": "http://localhost:12434/engines/v1",
+      "api_base": "auto",
       "backend": "llama.cpp",
       "mock_fallback": "fake_for_quick_test_only"
     },
@@ -555,7 +555,7 @@
         "model": "small",
         "runtime_model": "small",
         "backend": "llama.cpp",
-        "api_base": "http://localhost:12434/engines/v1",
+        "api_base": "auto",
         "timeout_seconds": 60,
         "max_tokens": 900,
         "num_retries": 1,
@@ -651,7 +651,7 @@
     "default_context_addr": "localhost:50052",
     "enabled": true,
     "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
-    "namespace": "multi_agent_research_coscientist_context",
+    "namespace": "research_coscientist_context",
     "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
     "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
     "sdk_distribution": "mirrorneuron-membrane-python-sdk",
@@ -659,6 +659,12 @@
   },
   "agentic_research": {
     "enabled": true,
+    "isolation": {
+      "runner": "openshell",
+      "single_job_instance": true,
+      "reuse_shared_sandbox": true,
+      "autonomous_node": "autonomous_research"
+    },
     "agent_ids": [
       "research:benchmark_runner",
       "research:code_implementer",
@@ -673,19 +679,31 @@
       "research:skeptic",
       "research:topic_finder"
     ],
-    "max_iterations_per_agent": 1,
-    "max_tool_calls_per_agent": 2,
+    "max_iterations_per_agent": 3,
+    "max_tool_calls_per_agent": 4,
+    "max_total_tool_calls": 12,
+    "allow_goal_refinement": true,
+    "allow_prompt_creation": true,
+    "allow_generated_code": true,
+    "generated_code": {
+      "language": "python",
+      "timeout_seconds": 15,
+      "max_output_chars": 20000,
+      "max_memory_mb": 256,
+      "workspace": "generated_research"
+    },
     "allowed_tools": [
       "document_extract",
       "browser_search",
       "browser_page",
       "knowledge_retrieve",
       "hypothesis_rank",
+      "generated_python",
       "finish"
     ],
     "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run",
-    "default_mode": "bounded_multi_agent_research",
-    "note": "Specialists frame, retrieve, generate, reflect, rank, design, and draft; every research claim remains traceable to sources or marked as a hypothesis."
+    "default_mode": "isolated_autonomous_research",
+    "note": "One job-scoped OpenShell worker owns every autonomous subphase. It may refine goals, create prompts, request allowlisted mn-skills tools, and execute bounded generated Python; deterministic stages prepare evidence and verify all outputs."
   },
   "knowledge_rag": {
     "enabled": true,
@@ -704,7 +722,7 @@
     "namespace": "",
     "embedding_provider": "docker_model_runner",
     "embedding_model": "rag-embedding",
-    "embedding_api_base": "http://localhost:12434/engines/v1",
+    "embedding_api_base": "auto",
     "embedding_query_prefix": "Query: ",
     "embedding_document_prefix": "Document: ",
     "embedding_start_command": "",
@@ -718,14 +736,14 @@
     "privacy": "Index checked-in guidance and approved local input files in an isolated per-run namespace; never send private records, credentials, or participant data to public research."
   },
   "metadata": {
-    "agent_role": "Multi-agent research team that finds, evaluates, critiques, and drafts evidence-grounded research directions.",
-    "blueprint_id": "multi_agent_research_coscientist",
-    "blueprint_revision": "v1",
+    "agent_role": "Research co-scientist with deterministic evidence gates and an isolated autonomous exploration worker.",
+    "blueprint_id": "research_coscientist",
+    "blueprint_revision": "v2",
     "category": "science",
     "customizable_for": "Scientific research, engineering investigations, product discovery, policy analysis, literature synthesis, and experiment planning.",
-    "description": "A multi-agent research co-scientist for finding, evaluating, and drafting research directions. Give it a research goal, domain, constraints, seed ideas, and an input folder; it retrieves local evidence, performs bounded public research, generates and critiques hypotheses, and writes a review-ready research packet to the output folder.",
-    "llm_agent_role": "Multi-agent research team that finds, evaluates, critiques, and drafts evidence-grounded research directions.",
-    "name": "Multi-Agent Research Co-Scientist",
+    "description": "A research co-scientist combining deterministic evidence and verification with one isolated OpenShell worker for autonomous, tool-driven exploration and bounded generated-code experiments.",
+    "llm_agent_role": "Isolated autonomous research worker operating between deterministic preparation and verification stages.",
+    "name": "Research Co-Scientist",
     "problem_solved": "Research teams need to explore many possible explanations while preserving evidence, exposing counterarguments, and keeping experiments and claims under human control.",
     "simulation_type": "Multi-agent research workflow with literature review, hypothesis generation, adversarial critique, experiment design, and drafting.",
     "standard_version": "1.0",
@@ -744,7 +762,7 @@
       "ports": []
     },
     "write_run_store": true,
-    "folder_path": "~/Download/multi_agent_research_coscientist"
+    "folder_path": "~/Download/research_coscientist"
   },
   "privacy": {
     "default_classification": "confidential",
@@ -809,7 +827,7 @@
   "simulation": {
     "enabled": false,
     "deterministic": true,
-    "type": "General multi-agent research with local RAG and public-source comparison."
+    "type": "Mixed deterministic and isolated autonomous research with local RAG and public-source comparison."
   },
   "standard_version": "1.0",
   "state": {
@@ -823,8 +841,8 @@
       "event_id"
     ],
     "resume_mode": "none",
-    "input_folder": "multi_agent_research_coscientist/examples/sample_inputs",
-    "output_folder": "~/Download/multi_agent_research_coscientist"
+    "input_folder": "research_coscientist/examples/sample_inputs",
+    "output_folder": "~/Download/research_coscientist"
   },
   "streams": {},
   "triggers": {

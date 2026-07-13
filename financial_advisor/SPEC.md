@@ -22,7 +22,13 @@ PDFs and document images use `mirrorneuron-llm-ocr-skill`. Embedded PDF text is 
 - `tax_form_ocr_capture.json`
 - `portfolio_risk_review.json`
 - `financial_advisor_report.md`
+- `customer_report.json`
 - action ledger, artifact quality, and run health records
+
+The JSON workflow bundle remains the audit layer. `customer_report.json` and
+`financial_advisor_report.md` are the customer-facing layer: they use
+evidence-based statuses, expose missing context, and provide a prioritized
+review queue without model/runtime internals.
 
 ## Non-Goals
 

@@ -1,8 +1,8 @@
 {
   "apiVersion": "mn.workflow/v1",
   "kind": "Workflow",
-  "id": "multi_agent_research_coscientist",
-  "name": "Multi-Agent Research Co-Scientist",
+  "id": "research_coscientist",
+  "name": "Research Co-Scientist",
   "version": 1,
   "manifest_version": "1.0",
   "skill_dependencies": [
@@ -35,10 +35,16 @@
       "source": "gar",
       "name": "mirrorneuron-web-browser-skill",
       "version": "1.2.7"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mirrorneuron-autonomous-research-skill",
+      "version": "1.2.7"
     }
   ],
-  "description": "A multi-agent research co-scientist for finding, evaluating, and drafting research directions. Give it a research goal, domain, constraints, seed ideas, and an input folder; it retrieves local evidence, performs bounded public research, generates and critiques hypotheses, and writes a review-ready research packet to the output folder.",
-  "job_name": "multi-agent-research-coscientist",
+  "description": "A research co-scientist combining deterministic evidence and verification stages with one isolated OpenShell worker for autonomous, tool-driven exploration and bounded generated-code experiments.",
+  "job_name": "research-coscientist",
   "contract": {
     "events": {
       "human_stream": "human.jsonl",
@@ -141,7 +147,7 @@
         "required": false,
         "privacy": "confidential",
         "description": "Local papers, notes, datasets, and evidence approved for this run.",
-        "example": "multi_agent_research_coscientist/examples/sample_inputs"
+        "example": "research_coscientist/examples/sample_inputs"
       },
       "output_folder": {
         "type": "local_path",
@@ -149,7 +155,7 @@
         "required": false,
         "privacy": "confidential",
         "description": "Folder for the research packet and supporting ledgers.",
-        "example": "~/Download/multi_agent_research_coscientist"
+        "example": "~/Download/research_coscientist"
       }
     },
     "outputs": {
@@ -265,7 +271,7 @@
           "path": "research_packet.json",
           "producer": "workflow",
           "mime_type": "application/json",
-          "schema_version": "mn.blueprint.multi_agent_research.v1",
+          "schema_version": "mn.blueprint.research_coscientist.v2",
           "source_refs": [
             "inputs.json",
             "events.jsonl",
@@ -278,7 +284,7 @@
           "path": "research_brief.md",
           "producer": "workflow",
           "mime_type": "text/markdown",
-          "schema_version": "mn.blueprint.multi_agent_research_brief.v1",
+          "schema_version": "mn.blueprint.research_coscientist_brief.v2",
           "source_refs": [
             "research_packet.json"
           ]
@@ -400,11 +406,11 @@
   },
   "workflow": {
     "schema": "mn.workflow.problem_graph/v1",
-    "workflow_id": "multi_agent_research_coscientist_v1",
+    "workflow_id": "research_coscientist_v2",
     "mode": "static_dag",
     "entrypoint": "frame_research_goal",
     "source": "frame_research_goal",
-    "sink": "draft_research_packet",
+    "sink": "verify_and_publish_packet",
     "execution": {
       "strategy": "parallel"
     },
@@ -420,6 +426,7 @@
       "research_context": {},
       "retrieved_evidence": {},
       "hypothesis_ledger": {},
+      "autonomous_session": {},
       "research_packet": {},
       "research_policy": {
         "from": "$inputs.constraints"
@@ -429,8 +436,8 @@
       {
         "id": "frame_research_goal",
         "kind": "stage",
-        "label": "Frame Research Goal",
-        "goal": "Define answerable questions, scope, success criteria, and unknowns.",
+        "label": "Deterministically Frame Research Goal",
+        "goal": "Deterministically normalize the question, scope, success criteria, constraints, and unknowns.",
         "action": "frame_research_goal",
         "run": "frame_research_goal",
         "emits": "research_goal_framed",
@@ -462,8 +469,8 @@
       {
         "id": "retrieve_and_evaluate_evidence",
         "kind": "stage",
-        "label": "Retrieve and Evaluate Evidence",
-        "goal": "Retrieve approved local material and bounded public evidence, preserving source status and gaps.",
+        "label": "Deterministically Prepare Evidence",
+        "goal": "Deterministically retrieve approved local material and build source and gap ledgers before autonomous exploration.",
         "action": "retrieve_and_evaluate_evidence",
         "run": "retrieve_and_evaluate_evidence",
         "emits": "evidence_evaluated",
@@ -474,7 +481,7 @@
           "retrieved_evidence": "$state.retrieved_evidence"
         },
         "on": {
-          "evidence_evaluated": "generate_and_critique_hypotheses"
+          "evidence_evaluated": "autonomous_research"
         },
         "control": {
           "required": true,
@@ -493,21 +500,22 @@
         }
       },
       {
-        "id": "generate_and_critique_hypotheses",
+        "id": "autonomous_research",
         "kind": "stage",
-        "label": "Generate and Critique Hypotheses",
-        "goal": "Generate falsifiable candidate hypotheses, rank them, and record adversarial objections.",
-        "action": "generate_and_critique_hypotheses",
-        "run": "generate_and_critique_hypotheses",
-        "emits": "hypotheses_reviewed",
+        "label": "Autonomous Research in OpenShell",
+        "goal": "Refine goals, create prompts, request allowlisted mn-skills tools, run bounded generated code, and adversarially explore falsifiable hypotheses inside the job's single OpenShell worker.",
+        "action": "autonomous_research",
+        "run": "autonomous_research",
+        "emits": "autonomous_research_completed",
         "in": {
           "evidence": "$state.retrieved_evidence"
         },
         "out": {
-          "hypothesis_ledger": "$state.hypothesis_ledger"
+          "hypothesis_ledger": "$state.hypothesis_ledger",
+          "autonomous_session": "$state.autonomous_session"
         },
         "on": {
-          "hypotheses_reviewed": "draft_research_packet"
+          "autonomous_research_completed": "verify_and_publish_packet"
         },
         "control": {
           "required": true,
@@ -522,16 +530,16 @@
             "min_confidence": 0,
             "on_low_confidence": "continue_with_warning"
           },
-          "timeout_seconds": 300
+          "timeout_seconds": 600
         }
       },
       {
-        "id": "draft_research_packet",
+        "id": "verify_and_publish_packet",
         "kind": "stage",
-        "label": "Design and Draft Research Packet",
-        "goal": "Draft experiment, code, benchmark, and result-analysis plans with an evidence-grounded research brief.",
-        "action": "draft_research_packet",
-        "run": "draft_research_packet",
+        "label": "Deterministically Verify and Publish Packet",
+        "goal": "Verify source traceability, autonomous tool and code ledgers, review boundaries, and artifact schemas before publishing the research packet.",
+        "action": "verify_and_publish_packet",
+        "run": "verify_and_publish_packet",
         "emits": "research_packet_ready",
         "in": {
           "hypotheses": "$state.hypothesis_ledger"
@@ -571,9 +579,9 @@
         "required": true
       },
       {
-        "id": "evidence_to_hypotheses",
+        "id": "evidence_to_autonomous",
         "from": "retrieve_and_evaluate_evidence",
-        "to": "generate_and_critique_hypotheses",
+        "to": "autonomous_research",
         "event": "evidence_evaluated",
         "accepts": [
           "done"
@@ -581,10 +589,10 @@
         "required": true
       },
       {
-        "id": "hypotheses_to_packet",
-        "from": "generate_and_critique_hypotheses",
-        "to": "draft_research_packet",
-        "event": "hypotheses_reviewed",
+        "id": "autonomous_to_verification",
+        "from": "autonomous_research",
+        "to": "verify_and_publish_packet",
+        "event": "autonomous_research_completed",
         "accepts": [
           "done"
         ],
@@ -624,7 +632,7 @@
         "rules": [
           {
             "id": "research_packet_requires_human_review",
-            "when": "step == 'draft_research_packet'",
+            "when": "step == 'verify_and_publish_packet'",
             "effect": "require_human_approval",
             "message": "Human approval is required before experiments, public claims, manuscripts, or consequential research action."
           }
@@ -652,6 +660,9 @@
             "python3.11",
             "scripts/run_blueprint.py"
           ],
+          "environment": {
+            "MN_WORKFLOW_STEP_ID": "frame_research_goal"
+          },
           "from": "base",
           "no_auto_providers": true,
           "no_keep": true,
@@ -682,6 +693,9 @@
             "python3.11",
             "scripts/run_blueprint.py"
           ],
+          "environment": {
+            "MN_WORKFLOW_STEP_ID": "retrieve_and_evaluate_evidence"
+          },
           "from": "base",
           "no_auto_providers": true,
           "no_keep": true,
@@ -700,11 +714,11 @@
         }
       },
       {
-        "node_id": "generate_and_critique_hypotheses",
+        "node_id": "autonomous_research",
         "type": "generic",
         "agent_type": "executor",
         "config": {
-          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "runner_module": "MirrorNeuron.Sandbox.OpenShell",
           "upload_path": "document_workflow",
           "upload_as": "document_workflow",
           "workdir": "/sandbox/job/document_workflow",
@@ -712,25 +726,32 @@
             "python3.11",
             "scripts/run_blueprint.py"
           ],
-          "from": "base",
+          "environment": {
+            "MN_WORKFLOW_STEP_ID": "autonomous_research"
+          },
+          "custom_openshell_image": "document_workflow/openshell_worker",
+          "policy": "document_workflow/openshell-policy.yaml",
+          "reuse_shared_sandbox": true,
+          "persistent_workspace": true,
+          "cleanup_remote_dir": false,
           "no_auto_providers": true,
           "no_keep": true,
           "pool": "default",
           "pool_slots": 1,
           "tty": false,
-          "output_message_type": "hypotheses_reviewed",
+          "output_message_type": "autonomous_research_completed",
           "beacon_enabled": true,
           "beacon_interval_ms": 15000,
           "beacon_timeout_ms": 45000,
           "beacon_missed_action": "fail_attempt",
           "agent_beacon_required": true,
-          "timeout_seconds": 300,
+          "timeout_seconds": 600,
           "max_attempts": 2,
           "retry_backoff_ms": 1000
         }
       },
       {
-        "node_id": "draft_research_packet",
+        "node_id": "verify_and_publish_packet",
         "type": "generic",
         "agent_type": "executor",
         "config": {
@@ -742,6 +763,9 @@
             "python3.11",
             "scripts/run_blueprint.py"
           ],
+          "environment": {
+            "MN_WORKFLOW_STEP_ID": "verify_and_publish_packet"
+          },
           "from": "base",
           "no_auto_providers": true,
           "no_keep": true,
@@ -779,20 +803,20 @@
         "message_type": "research_goal_framed"
       },
       {
-        "edge_id": "evidence_to_hypotheses",
+        "edge_id": "evidence_to_autonomous",
         "from_node": "retrieve_and_evaluate_evidence",
-        "to_node": "generate_and_critique_hypotheses",
+        "to_node": "autonomous_research",
         "message_type": "evidence_evaluated"
       },
       {
-        "edge_id": "hypotheses_to_packet",
-        "from_node": "generate_and_critique_hypotheses",
-        "to_node": "draft_research_packet",
-        "message_type": "hypotheses_reviewed"
+        "edge_id": "autonomous_to_verification",
+        "from_node": "autonomous_research",
+        "to_node": "verify_and_publish_packet",
+        "message_type": "autonomous_research_completed"
       },
       {
         "edge_id": "packet_to_report",
-        "from_node": "draft_research_packet",
+        "from_node": "verify_and_publish_packet",
         "to_node": "report_sink",
         "message_type": "research_packet_ready"
       }
@@ -844,7 +868,7 @@
           }
         ]
       },
-      "generate_and_critique_hypotheses": {
+      "autonomous_research": {
         "risk": "low",
         "side_effect": "read",
         "strategy": "fanout_reduce",
@@ -873,7 +897,7 @@
           }
         ]
       },
-      "draft_research_packet": {
+      "verify_and_publish_packet": {
         "risk": "medium",
         "side_effect": "internal_write",
         "strategy": "fanout_reduce",
@@ -942,7 +966,7 @@
       "default_context_addr": "localhost:50052",
       "enabled": true,
       "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
-      "namespace": "multi_agent_research_coscientist_context",
+      "namespace": "research_coscientist_context",
       "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
       "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
       "sdk_distribution": "mirrorneuron-membrane-python-sdk",
@@ -1119,7 +1143,7 @@
   "license": "LICENSE.md",
   "term": "TERM.md",
   "metadata": {
-    "agent_role": "Multi-agent research team that finds, evaluates, critiques, and drafts evidence-grounded research directions.",
+    "agent_role": "Research co-scientist with deterministic evidence gates and one isolated autonomous OpenShell worker.",
     "agent_templates": {
       "library": "../mn-agents/index.json",
       "nodes": [
@@ -1142,16 +1166,16 @@
           }
         },
         {
-          "node_id": "generate_and_critique_hypotheses",
+          "node_id": "autonomous_research",
           "uses": "mn-agents.data_python_executor@1",
           "with": {
             "script": "scripts/run_blueprint.py",
             "upload_path": "document_workflow",
-            "output_message_type": "hypotheses_reviewed"
+            "output_message_type": "autonomous_research_completed"
           }
         },
         {
-          "node_id": "draft_research_packet",
+          "node_id": "verify_and_publish_packet",
           "uses": "mn-agents.data_python_executor@1",
           "with": {
             "script": "scripts/run_blueprint.py",
@@ -1174,7 +1198,7 @@
       "renderer": "mn_blueprint_support.render_manifest_agent_templates",
       "rendered": []
     },
-    "blueprint_id": "multi_agent_research_coscientist",
+    "blueprint_id": "research_coscientist",
     "category": "Science",
     "configuration_contract": {
       "optional_files": [
@@ -1194,7 +1218,7 @@
       ]
     },
     "customizable_for": "Scientific research, engineering investigations, product discovery, policy analysis, literature synthesis, and experiment planning.",
-    "description": "A multi-agent research co-scientist for finding, evaluating, and drafting research directions. Give it a research goal, domain, constraints, seed ideas, and an input folder; it retrieves local evidence, performs bounded public research, generates and critiques hypotheses, and writes a review-ready research packet to the output folder.",
+    "description": "A research co-scientist combining deterministic evidence and verification stages with one isolated OpenShell worker for autonomous, tool-driven exploration and bounded generated-code experiments.",
     "human_control": {
       "allowed_decisions": [
         "approve",
@@ -1259,7 +1283,7 @@
         {
           "path": "inputs.payload.input_folder",
           "label": "Input folder",
-          "default": "multi_agent_research_coscientist/examples/sample_inputs",
+          "default": "research_coscientist/examples/sample_inputs",
           "description": "Approved local evidence folder.",
           "type": "local_path",
           "path_kind": "directory"
@@ -1267,7 +1291,7 @@
         {
           "path": "outputs.folder_path",
           "label": "Output folder",
-          "default": "~/Download/multi_agent_research_coscientist",
+          "default": "~/Download/research_coscientist",
           "description": "Generated-artifact folder.",
           "type": "local_path",
           "path_kind": "directory"
@@ -1306,8 +1330,8 @@
               "max_hypotheses": 3
             },
             "seed_hypotheses": [],
-            "input_folder": "multi_agent_research_coscientist/examples/sample_inputs",
-            "output_folder": "~/Download/multi_agent_research_coscientist"
+            "input_folder": "research_coscientist/examples/sample_inputs",
+            "output_folder": "~/Download/research_coscientist"
           }
         },
         "json": {
@@ -1384,7 +1408,7 @@
           "type": "local_path",
           "path_kind": "directory",
           "description": "Approved local evidence folder.",
-          "example": "multi_agent_research_coscientist/examples/sample_inputs",
+          "example": "research_coscientist/examples/sample_inputs",
           "privacy": "confidential",
           "required": false
         },
@@ -1393,7 +1417,7 @@
           "type": "local_path",
           "path_kind": "directory",
           "description": "Generated-artifact folder.",
-          "example": "~/Download/multi_agent_research_coscientist",
+          "example": "~/Download/research_coscientist",
           "privacy": "confidential",
           "required": false
         }
@@ -1644,13 +1668,13 @@
       "default_context_addr": "localhost:50052",
       "enabled": true,
       "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
-      "namespace": "multi_agent_research_coscientist_context",
+      "namespace": "research_coscientist_context",
       "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
       "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
       "sdk_distribution": "mirrorneuron-membrane-python-sdk",
       "sdk_import_package": "mn_context_engine_sdk"
     },
-    "name": "Multi-Agent Research Co-Scientist",
+    "name": "Research Co-Scientist",
     "observability_dashboard": {
       "panels": [
         "current_status",
@@ -1789,7 +1813,7 @@
           "path": "research_packet.json",
           "producer": "workflow",
           "mime_type": "application/json",
-          "schema_version": "mn.blueprint.multi_agent_research.v1",
+          "schema_version": "mn.blueprint.research_coscientist.v2",
           "source_refs": [
             "inputs.json",
             "events.jsonl",
@@ -1802,7 +1826,7 @@
           "path": "research_brief.md",
           "producer": "workflow",
           "mime_type": "text/markdown",
-          "schema_version": "mn.blueprint.multi_agent_research_brief.v1",
+          "schema_version": "mn.blueprint.research_coscientist_brief.v2",
           "source_refs": [
             "research_packet.json"
           ]
@@ -2059,7 +2083,7 @@
       "namespace": "",
       "embedding_provider": "docker_model_runner",
       "embedding_model": "rag-embedding",
-      "embedding_api_base": "http://localhost:12434/engines/v1",
+      "embedding_api_base": "auto",
       "embedding_query_prefix": "Query: ",
       "embedding_document_prefix": "Document: ",
       "embedding_start_command": "",
@@ -2074,6 +2098,12 @@
     },
     "agentic_research": {
       "enabled": true,
+      "isolation": {
+        "runner": "openshell",
+        "single_job_instance": true,
+        "reuse_shared_sandbox": true,
+        "autonomous_node": "autonomous_research"
+      },
       "agent_ids": [
         "research:benchmark_runner",
         "research:code_implementer",
@@ -2088,19 +2118,31 @@
         "research:skeptic",
         "research:topic_finder"
       ],
-      "max_iterations_per_agent": 1,
-      "max_tool_calls_per_agent": 2,
+      "max_iterations_per_agent": 3,
+      "max_tool_calls_per_agent": 4,
+      "max_total_tool_calls": 12,
+      "allow_goal_refinement": true,
+      "allow_prompt_creation": true,
+      "allow_generated_code": true,
+      "generated_code": {
+        "language": "python",
+        "timeout_seconds": 15,
+        "max_output_chars": 20000,
+        "max_memory_mb": 256,
+        "workspace": "generated_research"
+      },
       "allowed_tools": [
         "document_extract",
         "browser_search",
         "browser_page",
         "knowledge_retrieve",
         "hypothesis_rank",
+        "generated_python",
         "finish"
       ],
       "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run",
-      "default_mode": "bounded_multi_agent_research",
-      "note": "Specialists frame, retrieve, generate, reflect, rank, design, and draft; every research claim remains traceable to sources or marked as a hypothesis."
+      "default_mode": "isolated_autonomous_research",
+      "note": "One job-scoped OpenShell worker owns all autonomous subphases; deterministic stages prepare evidence and verify its goal, prompt, tool, generated-code, and claim traces."
     },
     "features": [
       "optional local knowledge RAG grounding",
@@ -2124,7 +2166,7 @@
     "namespace": "",
     "embedding_provider": "docker_model_runner",
     "embedding_model": "rag-embedding",
-    "embedding_api_base": "http://localhost:12434/engines/v1",
+    "embedding_api_base": "auto",
     "embedding_query_prefix": "Query: ",
     "embedding_document_prefix": "Document: ",
     "embedding_start_command": "",
@@ -2139,6 +2181,12 @@
   },
   "agentic_research": {
     "enabled": true,
+    "isolation": {
+      "runner": "openshell",
+      "single_job_instance": true,
+      "reuse_shared_sandbox": true,
+      "autonomous_node": "autonomous_research"
+    },
     "agent_ids": [
       "research:benchmark_runner",
       "research:code_implementer",
@@ -2153,18 +2201,30 @@
       "research:skeptic",
       "research:topic_finder"
     ],
-    "max_iterations_per_agent": 1,
-    "max_tool_calls_per_agent": 2,
+    "max_iterations_per_agent": 3,
+    "max_tool_calls_per_agent": 4,
+    "max_total_tool_calls": 12,
+    "allow_goal_refinement": true,
+    "allow_prompt_creation": true,
+    "allow_generated_code": true,
+    "generated_code": {
+      "language": "python",
+      "timeout_seconds": 15,
+      "max_output_chars": 20000,
+      "max_memory_mb": 256,
+      "workspace": "generated_research"
+    },
     "allowed_tools": [
       "document_extract",
       "browser_search",
       "browser_page",
       "knowledge_retrieve",
       "hypothesis_rank",
+      "generated_python",
       "finish"
     ],
     "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run",
-    "default_mode": "bounded_multi_agent_research",
-    "note": "Specialists frame, retrieve, generate, reflect, rank, design, and draft; every research claim remains traceable to sources or marked as a hypothesis."
+    "default_mode": "isolated_autonomous_research",
+    "note": "One job-scoped OpenShell worker owns all autonomous subphases; deterministic stages prepare evidence and verify its goal, prompt, tool, generated-code, and claim traces."
   }
 }

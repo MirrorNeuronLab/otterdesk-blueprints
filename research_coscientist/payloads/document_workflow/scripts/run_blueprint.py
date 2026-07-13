@@ -1,9 +1,11 @@
 #!/usr/bin/env python3.11
-"""Run the bounded multi-agent research co-scientist workflow.
+"""Run the mixed deterministic/autonomous Research Co-Scientist workflow.
 
-Python owns source records, evidence gaps, and review boundaries. Models may
-draft and critique hypotheses, but cannot turn a hypothesis into a fact or
-authorize an experiment, public claim, or consequential decision.
+Deterministic stages own source records, evidence gaps, and review boundaries.
+One job-scoped OpenShell worker owns every autonomous phase. Models may set or
+refine goals, create prompts, call allowlisted skills, generate bounded code,
+and critique hypotheses, but cannot turn a hypothesis into a fact or authorize
+an experiment, public claim, or consequential decision.
 """
 from __future__ import annotations
 
@@ -26,6 +28,7 @@ RUNTIME_SKILL_PACKAGES = (
     "mirrorneuron-rag-skill",
     "mirrorneuron-w3m-browser-skill",
     "mirrorneuron-web-browser-skill",
+    "mirrorneuron-autonomous-research-skill",
 )
 
 
@@ -58,6 +61,12 @@ from mn_blueprint_support import (  # noqa: E402
     utc_now_iso,
 )
 from mn_blueprint_support.web_ui import maybe_write_static_output  # noqa: E402
+from mn_autonomous_research_skill import (  # noqa: E402
+    AutonomousResearchSession,
+    GeneratedCodePolicy,
+    ToolRegistry,
+    create_research_goal,
+)
 
 try:  # Optional in local fake/quick-test environments.
     from mn_rag_skill import build_rag_context, prepare_blueprint_knowledge_rag
@@ -71,11 +80,11 @@ except Exception:  # pragma: no cover - depends on the runtime skill image
     extract_document = None
 
 
-BLUEPRINT_ID = "multi_agent_research_coscientist"
-BLUEPRINT_NAME = "Multi-Agent Research Co-Scientist"
+BLUEPRINT_ID = "research_coscientist"
+BLUEPRINT_NAME = "Research Co-Scientist"
 CATEGORY = "Science"
-OUTPUT_TYPE = "multi_agent_research_packet"
-DEFAULT_OUTPUT_FOLDER = "~/Download/multi_agent_research_coscientist"
+OUTPUT_TYPE = "research_coscientist_packet"
+DEFAULT_OUTPUT_FOLDER = "~/Download/research_coscientist"
 SUPPORTED_SUFFIXES = {".pdf", ".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".webp", ".txt", ".md", ".json", ".csv"}
 TEXT_SUFFIXES = {".txt", ".md", ".json", ".csv"}
 RESEARCH_ACTIONS = {"review_research_packet", "gather_more_evidence"}
@@ -311,8 +320,8 @@ def load_research_knowledge(root: Path) -> dict[str, Any]:
             combined.append(f"\n## {path.name}\n{text}")
     content = "".join(combined)
     return {
-        "id": "multi_agent_research_playbook",
-        "title": "Multi-Agent Research Evidence And Review Playbook",
+        "id": "research_coscientist_playbook",
+        "title": "Research Co-Scientist Evidence And Review Playbook",
         "files": files,
         "content": content[:40000],
         "sha256": _sha256(content),
@@ -326,7 +335,7 @@ def prepare_research_rag(config: dict[str, Any], root: Path, knowledge: dict[str
         "enabled": bool(raw.get("enabled", True)),
         "status": "disabled" if raw.get("enabled") is False else "local_ready",
         "config": raw,
-        "namespace": f"{raw.get('namespace') or 'multi_agent_research'}:{run_id or 'local'}",
+        "namespace": f"{raw.get('namespace') or 'research_coscientist'}:{run_id or 'local'}",
         "knowledge_files": knowledge.get("files", []),
         "user_documents_indexed": [item.get("source_ref") for item in documents if item.get("text")],
         "warnings": [],
@@ -655,6 +664,8 @@ def ask_llm_for_research_packet(
     fallback = {
         **posture,
         "candidate_hypotheses": _fallback_hypotheses(inputs, evidence),
+        "tool_requests": [],
+        "generated_python": "",
     }
     user = json.dumps(
         {
@@ -687,7 +698,183 @@ def ask_llm_for_research_packet(
         "confidence": confidence,
         "rationale": str(response.get("rationale") or posture["rationale"])[:2000],
         "candidate_hypotheses": _normalize_hypotheses(response.get("candidate_hypotheses"), inputs, evidence),
+        "tool_requests": response.get("tool_requests") if isinstance(response.get("tool_requests"), list) else [],
+        "generated_python": str(response.get("generated_python") or "")[:40000],
     }
+
+
+def _document_tool(documents: list[dict[str, Any]], arguments: dict[str, Any]) -> dict[str, Any]:
+    query = str(arguments.get("query") or arguments.get("source_ref") or "").strip().lower()
+    matches = []
+    for document in documents:
+        haystack = f"{document.get('source_ref', '')} {document.get('name', '')} {document.get('text', '')}".lower()
+        if not query or query in haystack:
+            matches.append(
+                {
+                    "source_ref": document.get("source_ref"),
+                    "name": document.get("name"),
+                    "text": str(document.get("text") or "")[:4000],
+                    "status": document.get("status"),
+                }
+            )
+    return {"query": query, "matches": matches[:5]}
+
+
+def _rank_hypotheses_tool(arguments: dict[str, Any]) -> dict[str, Any]:
+    candidates = arguments.get("candidates") if isinstance(arguments.get("candidates"), list) else []
+    ranked = []
+    for index, candidate in enumerate(candidates[:20]):
+        item = candidate if isinstance(candidate, dict) else {"statement": str(candidate)}
+        support = item.get("evidence_support") if isinstance(item.get("evidence_support"), list) else []
+        ranked.append(
+            {
+                "index": index,
+                "statement": str(item.get("statement") or item.get("hypothesis") or "")[:800],
+                "traceable_support_count": len([ref for ref in support if str(ref).strip()]),
+            }
+        )
+    ranked.sort(key=lambda item: (-item["traceable_support_count"], item["index"]))
+    return {"ranking_rule": "traceable_support_count_then_input_order", "ranked": ranked}
+
+
+def run_autonomous_research(
+    llm: Any,
+    inputs: dict[str, Any],
+    evidence: dict[str, Any],
+    rag: dict[str, Any],
+    posture: dict[str, Any],
+    config: dict[str, Any],
+    documents: list[dict[str, Any]],
+    sources: list[dict[str, Any]],
+    *,
+    workspace: Path,
+) -> tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]]:
+    """Run every autonomous subphase through one auditable session.
+
+    The workflow manifest places this function in its only OpenShell node.
+    Direct fake-mode calls exercise the same contract for local tests.
+    """
+
+    autonomous_config = config.get("agentic_research") if isinstance(config.get("agentic_research"), dict) else {}
+    allowed_tools = {
+        str(item)
+        for item in autonomous_config.get("allowed_tools") or []
+        if str(item) in {"document_extract", "browser_search", "browser_page", "knowledge_retrieve", "hypothesis_rank", "finish"}
+    }
+    registry = ToolRegistry(allowed_tools)
+    warnings: list[dict[str, Any]] = []
+    if "document_extract" in allowed_tools:
+        registry.register("document_extract", lambda arguments: _document_tool(documents, arguments))
+    if "knowledge_retrieve" in allowed_tools:
+        registry.register(
+            "knowledge_retrieve",
+            lambda arguments: {
+                "query": str(arguments.get("query") or inputs.get("research_question") or inputs.get("research_goal"))[:1000],
+                "context": str(rag.get("context") or "")[:6000],
+                "citations": list(rag.get("citations") or [])[:20],
+            },
+        )
+    if "hypothesis_rank" in allowed_tools:
+        registry.register("hypothesis_rank", _rank_hypotheses_tool)
+    if "finish" in allowed_tools:
+        registry.register("finish", lambda arguments: {"status": "finished", "summary": str(arguments.get("summary") or "")[:2000]})
+
+    quick_test = str((config.get("llm") or {}).get("mode") or "").lower() in {"fake", "mock"} or bool(
+        (config.get("execution") or {}).get("quick_test")
+    )
+
+    def public_search(arguments: dict[str, Any]) -> dict[str, Any]:
+        query = sanitize_public_text(arguments.get("query") or arguments.get("url") or "")
+        if not query:
+            raise ValueError("public research tool requires a privacy-safe query")
+        observed, tool_warnings = research_public_sources([query], config, quick_test=quick_test)
+        sources.extend(observed)
+        warnings.extend(tool_warnings)
+        return {"query": query, "sources": observed, "warnings": tool_warnings}
+
+    for tool_name in ("browser_search", "browser_page"):
+        if tool_name in allowed_tools:
+            registry.register(tool_name, public_search)
+
+    generated = autonomous_config.get("generated_code") if isinstance(autonomous_config.get("generated_code"), dict) else {}
+    goal = create_research_goal(
+        inputs.get("research_goal") or "Investigate the supplied research question",
+        question=inputs.get("research_question") or "",
+        success_criteria=list(inputs.get("success_criteria") or []),
+        constraints=inputs.get("constraints") or {},
+    )
+    session = AutonomousResearchSession(
+        goal,
+        registry,
+        workspace / str(generated.get("workspace") or "generated_research"),
+        max_tool_calls=max(0, int(autonomous_config.get("max_total_tool_calls", 12))),
+        code_policy=GeneratedCodePolicy(
+            timeout_seconds=max(1, int(generated.get("timeout_seconds", 15))),
+            max_output_chars=max(1000, int(generated.get("max_output_chars", 20000))),
+            max_memory_mb=max(64, int(generated.get("max_memory_mb", 256))),
+        ),
+    )
+    context_refs = list(dict.fromkeys([*(evidence.get("source_refs") or []), *(rag.get("citations") or [])]))[:30]
+    session.create_prompt(
+        phase="goal_expansion",
+        instructions=["Refine the goal into falsifiable questions without widening the supplied constraints.", "Keep facts, assumptions, and unknowns separate."],
+        context_refs=context_refs,
+        allowed_tools=[],
+    )
+    session.create_prompt(
+        phase="exploration_and_adversarial_generation",
+        instructions=["Explore competing mechanisms, not variations of one idea.", "Request allowlisted skills only when they can resolve a named gap.", "Attach source references or label the result as a hypothesis."],
+        context_refs=context_refs,
+        allowed_tools=sorted(allowed_tools - {"finish"}),
+    )
+    session.create_prompt(
+        phase="computational_probe_and_synthesis",
+        instructions=["Use generated Python only for bounded ranking, sensitivity, or consistency analysis.", "Treat code output as an internal probe, never as empirical validation.", "Produce at most three falsifiable candidates for deterministic verification."],
+        context_refs=context_refs,
+        allowed_tools=["hypothesis_rank"] if "hypothesis_rank" in allowed_tools else [],
+    )
+
+    recommendation = ask_llm_for_research_packet(llm, inputs, evidence, rag, posture)
+    observations: list[dict[str, Any]] = []
+    for index, request in enumerate(recommendation.pop("tool_requests", [])[: session.max_tool_calls], start=1):
+        if not isinstance(request, dict):
+            continue
+        tool = str(request.get("tool") or "")
+        arguments = request.get("arguments") if isinstance(request.get("arguments"), dict) else {}
+        try:
+            observation = session.use_tool(tool, arguments)
+            observations.append({"request_index": index, "tool": tool, "status": "completed", "observation": _json_safe(observation)})
+        except Exception as exc:
+            observations.append({"request_index": index, "tool": tool, "status": "failed", "error": str(exc)[:1000]})
+            warnings.append({"status": "autonomous_tool_failed", "tool": tool, "message": str(exc)[:1000]})
+
+    generated_python = recommendation.pop("generated_python", "")
+    code_result: dict[str, Any] | None = None
+    if generated_python and autonomous_config.get("allow_generated_code", True):
+        try:
+            code_result = session.execute_python(
+                generated_python,
+                input_payload={
+                    "evidence": evidence,
+                    "candidate_hypotheses": recommendation.get("candidate_hypotheses") or [],
+                    "tool_observations": observations,
+                },
+            )
+            if code_result.get("status") != "completed":
+                warnings.append({"status": "generated_code_failed", "message": str(code_result.get("stderr") or code_result.get("status"))[:1000]})
+        except Exception as exc:
+            warnings.append({"status": "generated_code_rejected", "message": str(exc)[:1000]})
+
+    autonomous = {
+        "schema_version": "mn.blueprint.autonomous_research.v1",
+        "isolation_required": True,
+        "runner": "openshell",
+        "single_job_instance": True,
+        "session": session.snapshot(),
+        "tool_observations": observations,
+        "generated_code_result": code_result,
+    }
+    return recommendation, autonomous, warnings
 
 
 def _experiment_concepts(hypotheses: list[dict[str, Any]], inputs: dict[str, Any]) -> list[dict[str, Any]]:
@@ -717,6 +904,7 @@ def build_research_packet(
     warnings: list[dict[str, Any]],
     documents: list[dict[str, Any]],
     actor_findings: dict[str, Any],
+    autonomous: dict[str, Any],
     run_id: str,
 ) -> dict[str, Any]:
     hypotheses = recommendation["candidate_hypotheses"]
@@ -733,7 +921,7 @@ def build_research_packet(
     )
     return {
         "type": OUTPUT_TYPE,
-        "schema_version": "mn.blueprint.multi_agent_research.v1",
+        "schema_version": "mn.blueprint.research_coscientist.v2",
         "blueprint_id": BLUEPRINT_ID,
         "run_id": run_id,
         "status": "review_ready",
@@ -755,6 +943,7 @@ def build_research_packet(
             "required_for_each_hypothesis": ["counterargument", "disconfirming_observation"],
             "actor_findings": actor_findings,
         },
+        "autonomous_research": autonomous,
         "experiment_concepts": _experiment_concepts(hypotheses, inputs),
         "knowledge_rag": {key: value for key, value in rag.items() if key not in {"_rag_config", "context"}},
         "evidence_gaps": evidence.get("evidence_gaps") or [],
@@ -779,6 +968,8 @@ def research_artifact_quality(packet: dict[str, Any]) -> dict[str, Any]:
         {"name": "source_refs_present", "passed": bool(packet.get("source_refs"))},
         {"name": "hypotheses_labeled", "passed": all(item.get("status") == "hypothesis_for_review" for item in packet.get("hypothesis_ledger") or [])},
         {"name": "review_boundary_present", "passed": bool(packet.get("review_boundary"))},
+        {"name": "autonomous_isolation_declared", "passed": (packet.get("autonomous_research") or {}).get("isolation_required") is True},
+        {"name": "autonomous_trace_present", "passed": bool(((packet.get("autonomous_research") or {}).get("session") or {}).get("trace"))},
     ]
     return {
         "schema_version": "mn.blueprint.artifact_quality.v1",
@@ -792,7 +983,7 @@ def research_artifact_quality(packet: dict[str, Any]) -> dict[str, Any]:
 def render_research_markdown(packet: dict[str, Any]) -> str:
     deterministic = (packet.get("evidence") or {}).get("deterministic") or {}
     lines = [
-        "# Multi-Agent Research Brief",
+        "# Research Co-Scientist Brief",
         "",
         f"**Research goal:** {packet.get('research_goal') or 'Not specified'}",
         f"**Domain:** {packet.get('research_domain') or 'General'}",
@@ -925,7 +1116,33 @@ def run_blueprint(
         context.event("public_research_completed", {"source_count": len(sources), "warning_count": len(web_warnings)})
         evidence = research_evidence(runtime_inputs, documents, sources)
         deterministic = deterministic_research_posture(evidence)
-        recommendation = ask_llm_for_research_packet(llm, runtime_inputs, evidence, rag, deterministic)
+        context.event(
+            "autonomous_research_started",
+            {
+                "runner": "openshell",
+                "single_job_instance": True,
+                "allowed_tools": (resolved_config.get("agentic_research") or {}).get("allowed_tools", []),
+            },
+        )
+        recommendation, autonomous, autonomous_warnings = run_autonomous_research(
+            llm,
+            runtime_inputs,
+            evidence,
+            rag,
+            deterministic,
+            resolved_config,
+            documents,
+            sources,
+            workspace=Path(os.environ.get("MN_WORKDIR") or context.run_dir or "/tmp/research-coscientist"),
+        )
+        context.event(
+            "autonomous_research_completed",
+            {
+                "tool_calls": autonomous["session"]["tool_calls_used"],
+                "generated_code_runs": autonomous["session"]["generated_code_runs"],
+                "warning_count": len(autonomous_warnings),
+            },
+        )
         actor_state: dict[str, Any] = {}
         actor_findings = run_actor_reviews(
             config=resolved_config,
@@ -936,24 +1153,36 @@ def run_blueprint(
             context={"inputs": runtime_inputs, "evidence": evidence, "recommendation": recommendation, "rag": rag, "sources": sources},
             event_sink=context,
         )
-        warnings = [*document_warnings, *rag.get("warnings", []), *web_warnings]
-        final = build_research_packet(runtime_inputs, evidence, recommendation, rag, sources, warnings, documents, actor_findings, context.run_id)
+        warnings = [*document_warnings, *rag.get("warnings", []), *web_warnings, *autonomous_warnings]
+        final = build_research_packet(
+            runtime_inputs,
+            evidence,
+            recommendation,
+            rag,
+            sources,
+            warnings,
+            documents,
+            actor_findings,
+            autonomous,
+            context.run_id,
+        )
         result = {
             "identity": {"blueprint_id": BLUEPRINT_ID, "name": BLUEPRINT_NAME, "run_id": context.run_id},
             "blueprint": BLUEPRINT_ID,
             "name": BLUEPRINT_NAME,
             "category": CATEGORY,
-            "description": "A source-grounded multi-agent research co-scientist for evidence evaluation, hypothesis critique, experiment planning, and review-only drafting.",
+            "description": "A research co-scientist with deterministic evidence and verification stages around one isolated autonomous OpenShell worker.",
             "run": {"run_id": context.run_id, "run_dir": str(context.run_dir) if context.run_dir else None, "status": "completed"},
             "architecture": architecture_contract(resolved_config, input_source),
             "config": resolved_config,
             "inputs": runtime_inputs,
             "input_source": input_source,
-            "runtime_features": ["local and user-document RAG", "privacy-safe public web research", "specialized research roles", "adversarial hypothesis review", "deterministic evidence checks", "human review gate"],
+            "runtime_features": ["deterministic evidence preparation", "single job-scoped OpenShell autonomous worker", "on-demand mn-skills tools", "bounded generated Python", "adversarial hypothesis review", "deterministic artifact verification", "human review gate"],
             "knowledge_rag": rag,
             "research_sources": sources,
             "evidence": evidence,
             "research_posture": recommendation,
+            "autonomous_research": autonomous,
             "final_artifact": final,
             "artifacts": [{"artifact_id": "final_artifact", "type": "final_artifact", "path": "final_artifact.json", "schema_version": "mn.blueprint.final_artifact.v1", "source_refs": ["inputs.json", "events.jsonl", "result.json"]}],
             "llm": llm_usage(llm),
@@ -974,7 +1203,7 @@ def run_blueprint(
 
 
 def main(argv: list[str] | None = None) -> None:
-    run_blueprint_cli(run_blueprint, argv, description="Run the Multi-Agent Research Co-Scientist.", default_blueprint_id=BLUEPRINT_ID)
+    run_blueprint_cli(run_blueprint, argv, description="Run the Research Co-Scientist.", default_blueprint_id=BLUEPRINT_ID)
 
 
 if __name__ == "__main__":

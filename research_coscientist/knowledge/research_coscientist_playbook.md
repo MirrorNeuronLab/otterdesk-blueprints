@@ -1,4 +1,4 @@
-# Multi-Agent Research Playbook
+# Research Co-Scientist Playbook
 
 This playbook uses specialized roles to create useful disagreement. The topic finder creates a constrained research plan. The literature reviewer discovers sources and updates an evidence ledger. The idea generator proposes alternatives rather than one preferred answer. The skeptic attacks causal leaps, missing controls, and unstated assumptions. The proximity reviewer looks for conceptual overlap and limits novelty language. The experiment designer writes falsifiable tests. The code, benchmark, and result-analysis roles plan reproducible evaluation. The paper writer drafts the research brief, and the meta-reviewer audits the whole packet.
 

@@ -108,6 +108,40 @@ RISK_BY_ASSET_CLASS = {
     "crypto": 0.65,
     "other": 0.22,
 }
+KNOWN_ETF_SYMBOLS = {
+    "AGG",
+    "BND",
+    "GLD",
+    "QQQ",
+    "SPY",
+    "VTI",
+}
+TAX_METADATA_FIELDS = {
+    "source_dataset",
+    "source_row",
+    "label",
+    "class",
+    "form_type",
+    "tax_form_type",
+}
+TAX_READINESS_LABELS = {
+    "identified_only": "Identified",
+    "extracted": "Extracted",
+    "reconciled": "Reconciled",
+    "complete": "Complete",
+}
+INVESTMENT_PROFILE_FIELDS = (
+    "account_purpose",
+    "investment_objective",
+    "time_horizon",
+    "expected_withdrawal_date",
+    "risk_tolerance",
+    "liquidity_needs",
+    "tax_objective",
+    "amount_that_must_remain_liquid",
+    "other_investment_accounts",
+    "tax_consequences_of_selling",
+)
 PUBLIC_GUIDANCE_SOURCES = [
     {
         "title": "Consumer.gov managing your money",
@@ -707,6 +741,126 @@ def amount_from_line(line: str) -> float | None:
         return None
 
 
+def extract_statement_context(text: str) -> dict[str, Any]:
+    period_match = re.search(
+        r"statement\s+period\s*:\s*(\d{4}-\d{2}-\d{2})\s+to\s+(\d{4}-\d{2}-\d{2})",
+        text,
+        flags=re.IGNORECASE,
+    )
+    account_match = re.search(r"^account\s*:\s*(.+)$", text, flags=re.IGNORECASE | re.MULTILINE)
+    period = {
+        "start": period_match.group(1) if period_match else None,
+        "end": period_match.group(2) if period_match else None,
+        "label": f"{period_match.group(1)} to {period_match.group(2)}" if period_match else None,
+        "status": "verified_from_statement_text" if period_match else "missing",
+    }
+    return {
+        "statement_period": period,
+        "account_name": account_match.group(1).strip() if account_match else None,
+        "account_scope": "one_account" if account_match else "unknown",
+    }
+
+
+def classify_cash_transaction(description: str, direction: str) -> dict[str, Any]:
+    lowered = description.lower()
+    if "card payment" in lowered or "credit card payment" in lowered:
+        return {
+            "classification": "transfer_or_card_payment_pending",
+            "classification_status": "pending_customer_confirmation",
+            "confirmed_spending": False,
+            "reason": "The underlying card activity is not available, so this may duplicate spending already counted elsewhere.",
+        }
+    if direction == "fee":
+        return {
+            "classification": "bank_fee",
+            "classification_status": "observed",
+            "confirmed_spending": True,
+            "reason": "A bank fee was explicitly identified in the statement text.",
+        }
+    if direction == "deposit" and "payroll" in lowered:
+        return {
+            "classification": "payroll_deposit",
+            "classification_status": "observed",
+            "confirmed_spending": False,
+            "reason": "The statement description identifies this as payroll.",
+        }
+    if direction == "deposit":
+        return {
+            "classification": "deposit_unconfirmed_as_income",
+            "classification_status": "needs_context",
+            "confirmed_spending": False,
+            "reason": "A deposit is not automatically earned income without account context.",
+        }
+    return {
+        "classification": "statement_withdrawal",
+        "classification_status": "observed",
+        "confirmed_spending": True,
+        "reason": "The statement describes this as a withdrawal, but household spending intent remains a human-review question.",
+    }
+
+
+def is_substantive_tax_field(field: str, value: Any) -> bool:
+    """Return true only for a tax value useful for downstream workpapers.
+
+    Dataset labels and form-class metadata identify an image but do not extract
+    a tax amount or field. Keep that distinction deterministic so a matched
+    companion answer file cannot clear an evidence blocker by itself.
+    """
+    normalized = str(field or "").strip().lower()
+    if not normalized or value in (None, ""):
+        return False
+    leaf = normalized.rsplit(".", 1)[-1]
+    leaf = re.sub(r"\[\d+\]$", "", leaf)
+    if leaf in TAX_METADATA_FIELDS or leaf.startswith("ground_truth") or ".gt_parse." in normalized:
+        return False
+    if any(token in normalized for token in ("source_dataset", "source_row", "ground_truth", "field_locations")):
+        return False
+    return True
+
+
+def substantive_tax_fields(fields: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        field
+        for field in fields
+        if isinstance(field, dict) and is_substantive_tax_field(field.get("field", ""), field.get("value"))
+    ]
+
+
+def instrument_type_for_holding(item: dict[str, Any], symbol: str) -> str:
+    explicit = str(item.get("instrument_type") or "").strip().lower()
+    if explicit:
+        return explicit
+    if symbol in KNOWN_ETF_SYMBOLS:
+        return "etf"
+    return "unknown"
+
+
+def concentration_category(instrument_type: str, asset_class: str) -> str:
+    if instrument_type in {"etf", "mutual_fund", "fund", "index_fund"}:
+        return "fund_concentration"
+    if instrument_type in {"stock", "equity", "common_stock"}:
+        return "single_company_concentration"
+    if asset_class == "equity":
+        return "instrument_concentration"
+    return "position_concentration"
+
+
+def customer_profile_status(profile: dict[str, Any]) -> dict[str, Any]:
+    missing = [field for field in INVESTMENT_PROFILE_FIELDS if profile.get(field) in (None, "", [], {})]
+    return {
+        "status": "complete" if not missing else "not_assessable",
+        "missing_fields": missing,
+        "provided_fields": [field for field in INVESTMENT_PROFILE_FIELDS if field not in missing],
+        "questions": [
+            "What is this money for, and when might it be needed?",
+            "What temporary portfolio decline could you tolerate?",
+            "What amount must remain readily available?",
+            "Are there other investment accounts not included here?",
+            "Would selling create tax consequences that should be considered?",
+        ] if missing else [],
+    }
+
+
 def extract_named_amount(text: str, patterns: list[str]) -> float:
     for line in text.splitlines():
         lowered = line.lower()
@@ -825,11 +979,20 @@ def normalize_review_response(response: dict[str, Any], fallback: dict[str, Any]
     if isinstance(response, dict):
         normalized.update(response)
     normalized["summary"] = str(normalized.get("summary") or fallback.get("summary") or "LLM review completed.")
-    normalized["key_findings"] = listify(normalized.get("key_findings") or normalized.get("findings"))
-    normalized["review_questions"] = listify(normalized.get("review_questions"))
-    normalized["evidence_gaps"] = listify(normalized.get("evidence_gaps"))
-    normalized["risk_flags"] = listify(normalized.get("risk_flags") or normalized.get("risks"))
-    normalized["next_steps"] = listify(normalized.get("next_steps"))
+    for field, aliases in {
+        "key_findings": ("key_findings", "findings"),
+        "review_questions": ("review_questions",),
+        "evidence_gaps": ("evidence_gaps",),
+        "risk_flags": ("risk_flags", "risks"),
+        "next_steps": ("next_steps",),
+    }.items():
+        response_values = []
+        for alias in aliases:
+            response_values.extend(listify(response.get(alias)))
+        fallback_values = listify(fallback.get(field))
+        # Deterministic blockers and source-review tasks cannot be cleared by
+        # a polished LLM response that omits them.
+        normalized[field] = list(dict.fromkeys([*fallback_values, *response_values]))
     normalized["review_only"] = True
     normalized["source_refs"] = sorted({str(item) for item in listify(normalized.get("source_refs")) + source_refs if str(item)})
     try:
@@ -1122,6 +1285,7 @@ def step_bank_statement_extractor(ctx: dict[str, Any]) -> dict[str, Any]:
     for doc in statements:
         text = doc.get("text") or ""
         transactions = []
+        statement_context = extract_statement_context(text)
         opening_balance = opening_balance or extract_named_amount(text, ["opening balance"])
         closing_balance = closing_balance or extract_named_amount(text, ["closing balance"])
         for line_no, line in enumerate(text.splitlines(), start=1):
@@ -1140,6 +1304,7 @@ def step_bank_statement_extractor(ctx: dict[str, Any]) -> dict[str, Any]:
                 totals["withdrawals"] += amount
             else:
                 continue
+            classification = classify_cash_transaction(line.strip(), direction)
             transactions.append(
                 {
                     "source_ref": doc["source_ref"],
@@ -1147,6 +1312,7 @@ def step_bank_statement_extractor(ctx: dict[str, Any]) -> dict[str, Any]:
                     "description": line.strip(),
                     "amount": amount,
                     "direction": direction,
+                    **classification,
                 }
             )
         extracted.append(
@@ -1154,9 +1320,20 @@ def step_bank_statement_extractor(ctx: dict[str, Any]) -> dict[str, Any]:
                 "source_ref": doc["source_ref"],
                 "opening_balance": opening_balance,
                 "closing_balance": closing_balance,
+                **statement_context,
                 "transactions": transactions,
             }
         )
+    all_transactions = [item for statement in extracted for item in statement.get("transactions", [])]
+    pending_classification_total = sum(
+        float(item.get("amount") or 0.0)
+        for item in all_transactions
+        if item.get("classification_status") == "pending_customer_confirmation"
+    )
+    fee_total = float(totals.get("fees") or 0.0)
+    fee_transactions = [item for item in all_transactions if item.get("direction") == "fee"]
+    statement_periods = [statement.get("statement_period") for statement in extracted if statement.get("statement_period")]
+    account_names = sorted({str(statement.get("account_name")) for statement in extracted if statement.get("account_name")})
     return {
         "statement_count": len(statements),
         "statements": extracted,
@@ -1164,6 +1341,17 @@ def step_bank_statement_extractor(ctx: dict[str, Any]) -> dict[str, Any]:
         "opening_balance": opening_balance,
         "closing_balance": closing_balance,
         "net_cash_flow": totals["deposits"] - totals["withdrawals"] - totals["fees"],
+        "statement_periods": statement_periods,
+        "account_names": account_names,
+        "account_coverage": "one_statement_and_one_account" if len(extracted) == 1 and len(account_names) <= 1 else "partial_or_multiple_accounts",
+        "pending_classification_total": round(pending_classification_total, 2),
+        "fee_review": {
+            "fee_total": round(fee_total, 2),
+            "fee_count": len(fee_transactions),
+            "recurrence_status": "not_established" if fee_transactions else "not_detected",
+            "annual_cost_if_monthly": round(fee_total * 12, 2) if fee_transactions else 0.0,
+            "waiver_terms_status": "not_provided",
+        },
         "warnings": [] if statements else ["no_bank_statement_detected"],
     }
 
@@ -1175,6 +1363,8 @@ def step_cash_flow_normalizer(ctx: dict[str, Any]) -> dict[str, Any]:
     totals = bank.get("totals") or {}
     income = float(totals.get("deposits") or 0.0)
     expenses = float(totals.get("withdrawals") or 0.0) + float(totals.get("fees") or 0.0)
+    pending_classification_total = float(bank.get("pending_classification_total") or 0.0)
+    confirmed_spending_and_fees = max(0.0, expenses - pending_classification_total)
     warnings = []
     if income <= 0 and income_docs:
         warnings.append("income_documents_present_but_no_bank_deposits_detected")
@@ -1182,11 +1372,21 @@ def step_cash_flow_normalizer(ctx: dict[str, Any]) -> dict[str, Any]:
         warnings.append("bank_fees_detected_for_review")
     if expenses > income and income > 0:
         warnings.append("expenses_exceed_detected_income")
+    if pending_classification_total:
+        warnings.append("card_payment_or_transfer_requires_customer_classification")
     return {
         "income_total": income,
         "expense_total": expenses,
         "fee_total": float(totals.get("fees") or 0.0),
         "net_cash_flow": income - expenses,
+        "preliminary_net_cash_flow": income - expenses,
+        "confirmed_spending_and_fees_total": round(confirmed_spending_and_fees, 2),
+        "pending_classification_total": round(pending_classification_total, 2),
+        "statement_count": bank.get("statement_count", 0),
+        "statement_periods": bank.get("statement_periods", []),
+        "account_names": bank.get("account_names", []),
+        "account_coverage": bank.get("account_coverage", "unknown"),
+        "fee_review": copy.deepcopy(bank.get("fee_review") or {}),
         "closing_balance": bank.get("closing_balance", 0.0),
         "income_document_count": len(income_docs),
         "risk_flags": warnings,
@@ -1216,6 +1416,12 @@ def step_cash_flow_llm_analyst(ctx: dict[str, Any]) -> dict[str, Any]:
         evidence_gaps.append("No income-like deposits were detected in statement evidence.")
     if cash_flow.get("income_document_count", 0) and cash_flow.get("income_total", 0) <= 0:
         evidence_gaps.append("Income documents exist but did not reconcile to detected deposits.")
+    if not cash_flow.get("statement_periods"):
+        evidence_gaps.append("Statement dates were not available, so the cash-flow period is unknown.")
+    if cash_flow.get("account_coverage") != "one_statement_and_one_account":
+        evidence_gaps.append("Account coverage is incomplete or spans more than one statement scope.")
+    if cash_flow.get("pending_classification_total"):
+        evidence_gaps.append("A card payment or transfer is included in withdrawals but not confirmed as household spending.")
     return review_artifact(
         ctx,
         step_id="cash_flow_llm_analyst",
@@ -1244,6 +1450,7 @@ def step_cash_flow_llm_analyst(ctx: dict[str, Any]) -> dict[str, Any]:
         key_findings=[
             f"Detected {money(cash_flow.get('income_total'))} income-like deposits and {money(cash_flow.get('expense_total'))} expenses/fees.",
             f"Net cash flow is {money(cash_flow.get('net_cash_flow'))} based on deterministic statement parsing.",
+            f"{money(cash_flow.get('pending_classification_total'))} remains transfer or card-payment classification pending.",
         ],
         review_questions=[
             "Do statement totals match the source bank statement pages?",
@@ -1317,6 +1524,7 @@ def step_tax_form_ocr_capturer(ctx: dict[str, Any]) -> dict[str, Any]:
         captured_fields = structured_values_from_data(label_data, limit=24) if label_doc else []
         if form_type and not any(item.get("field") == "form_type" for item in captured_fields):
             captured_fields.insert(0, {"field": "form_type", "value": form_type})
+        substantive_fields = substantive_tax_fields(captured_fields)
         image_warnings = list(image.get("warnings") or [])
         if label_doc:
             matched_label_stems.add(stem)
@@ -1326,6 +1534,9 @@ def step_tax_form_ocr_capturer(ctx: dict[str, Any]) -> dict[str, Any]:
             validation_status = "needs_manual_ocr_or_answer_file"
             extraction_method = "image_metadata_only"
             image_warnings.append("missing_companion_answer_file")
+        if not substantive_fields:
+            image_warnings.append("substantive_tax_fields_not_extracted")
+        field_capture_status = "extracted" if substantive_fields else "identified_only"
         field_locations = [
             {
                 "field": item.get("field"),
@@ -1345,6 +1556,10 @@ def step_tax_form_ocr_capturer(ctx: dict[str, Any]) -> dict[str, Any]:
                 "ocr_required": True,
                 "extraction_method": extraction_method,
                 "captured_fields": captured_fields,
+                "substantive_fields": substantive_fields,
+                "substantive_field_count": len(substantive_fields),
+                "field_capture_status": field_capture_status,
+                "readiness_status": TAX_READINESS_LABELS[field_capture_status],
                 "field_locations": field_locations,
                 "validation_status": validation_status,
                 "confidence": 0.82 if label_doc else 0.48,
@@ -1360,7 +1575,10 @@ def step_tax_form_ocr_capturer(ctx: dict[str, Any]) -> dict[str, Any]:
         captured_fields = structured_values_from_data(label_data, limit=24)
         if form_type and not any(item.get("field") == "form_type" for item in captured_fields):
             captured_fields.insert(0, {"field": "form_type", "value": form_type})
+        substantive_fields = substantive_tax_fields(captured_fields)
         warnings.append("answer_file_without_matching_source_image")
+        if not substantive_fields:
+            warnings.append("substantive_tax_fields_not_extracted")
         forms.append(
             {
                 "source_ref": label_doc["source_ref"],
@@ -1369,6 +1587,10 @@ def step_tax_form_ocr_capturer(ctx: dict[str, Any]) -> dict[str, Any]:
                 "ocr_required": False,
                 "extraction_method": "companion_answer_file_only",
                 "captured_fields": captured_fields,
+                "substantive_fields": substantive_fields,
+                "substantive_field_count": len(substantive_fields),
+                "field_capture_status": "extracted" if substantive_fields else "identified_only",
+                "readiness_status": TAX_READINESS_LABELS["extracted" if substantive_fields else "identified_only"],
                 "field_locations": [],
                 "validation_status": "needs_source_image_review",
                 "confidence": 0.62,
@@ -1379,7 +1601,14 @@ def step_tax_form_ocr_capturer(ctx: dict[str, Any]) -> dict[str, Any]:
     review_required = [
         form["source_ref"]
         for form in forms
-        if form["validation_status"] != "matched_companion_answer_file" or form.get("warnings")
+        if form["validation_status"] != "matched_companion_answer_file"
+        or form.get("warnings")
+        or not form.get("substantive_field_count")
+    ]
+    incomplete_sources = [
+        form["source_ref"]
+        for form in forms
+        if not form.get("substantive_field_count")
     ]
     return {
         "tax_form_count": len(forms),
@@ -1387,6 +1616,15 @@ def step_tax_form_ocr_capturer(ctx: dict[str, Any]) -> dict[str, Any]:
         "ocr_required_count": len([form for form in forms if form.get("ocr_required")]),
         "forms": forms,
         "review_required_sources": review_required,
+        "substantive_field_count": sum(int(form.get("substantive_field_count") or 0) for form in forms),
+        "incomplete_sources": incomplete_sources,
+        "readiness_status": "incomplete" if incomplete_sources or review_required else "extracted_pending_reconciliation",
+        "status_definitions": {
+            "identified": "Form type or image presence recognized.",
+            "extracted": "One or more substantive tax fields were captured.",
+            "reconciled": "Captured fields agree with the source image and supplied records.",
+            "complete": "All expected forms and substantive fields are present and reconciled.",
+        },
         "warnings": sorted(set(warnings)),
         "review_only": True,
         "recommended_action": "review_captured_tax_form_fields_against_source_images_before_tax_use",
@@ -1441,8 +1679,21 @@ def step_tax_workpaper_preparer(ctx: dict[str, Any]) -> dict[str, Any]:
     blockers = list(router.get("missing_recommended_forms") or [])
     if tax_capture.get("review_required_sources"):
         blockers.append("Tax form OCR capture requires source-image review")
+    for source_ref in tax_capture.get("incomplete_sources") or []:
+        blockers.append(f"Substantive tax fields were not extracted from {source_ref}")
     if draft_income <= 0:
         blockers.append("No taxable-income source values detected")
+    included_sources = [
+        doc["source_ref"]
+        for doc in docs
+        if doc.get("kind") in {"w2", "1099_int", "1099_r"}
+    ]
+    excluded_form_types = sorted({
+        str(form.get("form_type"))
+        for form in tax_capture.get("forms", [])
+        if not form.get("substantive_field_count") and form.get("form_type")
+    })
+    blockers = list(dict.fromkeys(blockers))
     return {
         "tax_year": router.get("tax_year"),
         "filing_status": router.get("filing_status"),
@@ -1451,7 +1702,11 @@ def step_tax_workpaper_preparer(ctx: dict[str, Any]) -> dict[str, Any]:
           "interest_income": interest,
           "retirement_distributions": retirement_distribution,
           "draft_income_total": draft_income,
-          "federal_withholding": withholding
+          "federal_withholding": withholding,
+          "included_source_refs": included_sources,
+          "excluded_form_types": excluded_form_types,
+          "coverage_status": "incomplete" if excluded_form_types or blockers else "complete",
+          "draft_income_scope": "W-2, 1099-INT, and 1099-R text fields only; unextracted forms are excluded",
         },
         "manager_review": {
             "required": True,
@@ -1462,7 +1717,10 @@ def step_tax_workpaper_preparer(ctx: dict[str, Any]) -> dict[str, Any]:
             "tax_form_count": tax_capture.get("tax_form_count", 0),
             "answer_file_count": tax_capture.get("answer_file_count", 0),
             "review_required_sources": tax_capture.get("review_required_sources", []),
+            "incomplete_sources": tax_capture.get("incomplete_sources", []),
+            "readiness_status": tax_capture.get("readiness_status"),
         },
+        "readiness_status": "incomplete" if blockers else "review_required",
         "actor_finding": findings,
         "warnings": ["draft_tax_packet_not_ready_to_file"],
     }
@@ -1490,6 +1748,10 @@ def step_tax_llm_reviewer(ctx: dict[str, Any]) -> dict[str, Any]:
     evidence_gaps = [f"Missing recommended tax evidence: {item}" for item in router.get("missing_recommended_forms", [])]
     if tax_capture.get("review_required_sources"):
         evidence_gaps.append("One or more OCR/answer-file packets require source-image review.")
+    for source_ref in tax_capture.get("incomplete_sources") or []:
+        evidence_gaps.append(
+            f"{source_ref} was identified, but no substantive tax fields were extracted; any draft income total may be incomplete."
+        )
     if workpaper.get("workpapers", {}).get("draft_income_total", 0) <= 0:
         evidence_gaps.append("Draft income total is zero or unavailable in deterministic tax workpapers.")
     return review_artifact(
@@ -1509,7 +1771,7 @@ def step_tax_llm_reviewer(ctx: dict[str, Any]) -> dict[str, Any]:
         source_refs=source_refs,
         key_findings=[
             f"Draft tax income total is {money(workpaper.get('workpapers', {}).get('draft_income_total'))}.",
-            f"{tax_capture.get('tax_form_count', 0)} tax-form image/answer packet(s) were captured for review.",
+            f"{tax_capture.get('tax_form_count', 0)} tax-form image/answer packet(s) were identified; {tax_capture.get('substantive_field_count', 0)} substantive field(s) were captured.",
         ],
         review_questions=[
             "Are the routed tax documents complete for the taxpayer's situation?",
@@ -1544,11 +1806,44 @@ def step_portfolio_context_loader(ctx: dict[str, Any]) -> dict[str, Any]:
     loaded = load_portfolio_from_documents(ctx)
     portfolio = loaded.get("portfolio") if isinstance(loaded.get("portfolio"), dict) else {}
     holdings = portfolio.get("holdings") if isinstance(portfolio.get("holdings"), list) else []
+    portfolio_source_refs = [
+        doc["source_ref"]
+        for doc in ctx["state"]["workflow"]["financial_document_reader"].get("documents", [])
+        if isinstance(doc.get("data"), dict) and isinstance(doc.get("data", {}).get("portfolio"), dict)
+    ]
+    if not portfolio_source_refs and ctx["payload"].get("portfolio"):
+        portfolio_source_refs = ["workflow_input:portfolio"]
+    policy = loaded.get("risk_policy") or {}
+    policy_metadata = copy.deepcopy(
+        loaded.get("risk_policy_metadata")
+        or policy.get("metadata")
+        or ctx["payload"].get("risk_policy_metadata")
+        or {}
+    )
+    policy_customer_specific = bool(policy_metadata.get("customer_specific", False))
+    policy_provenance = {
+        "source": policy_metadata.get("source") or (portfolio_source_refs[0] if portfolio_source_refs else "workflow_input:risk_policy"),
+        "source_ref": portfolio_source_refs[0] if portfolio_source_refs else "workflow_input:risk_policy",
+        "version": policy_metadata.get("version") or "unversioned",
+        "effective_date": policy_metadata.get("effective_date"),
+        "customer_specific": policy_customer_specific,
+        "status": "customer_policy" if policy_customer_specific else "screening_threshold",
+        "applied_because": (
+            "A customer-specific investment policy was supplied."
+            if policy_customer_specific
+            else "No signed customer investment policy with provenance was supplied; limits are screening thresholds only."
+        ),
+    }
+    profile = copy.deepcopy(ctx["payload"].get("customer_profile") or ctx["payload"].get("investment_profile") or {})
     return {
         "portfolio": portfolio,
         "benchmark_portfolio": loaded.get("benchmark_portfolio") or {},
         "risk_policy": loaded.get("risk_policy") or {},
         "decision_constraints": loaded.get("decision_constraints") or {},
+        "portfolio_source_refs": portfolio_source_refs,
+        "risk_policy_provenance": policy_provenance,
+        "customer_profile": profile,
+        "customer_profile_status": customer_profile_status(profile),
         "holding_count": len(holdings),
         "symbols": sorted({str(item.get("symbol", "")).upper() for item in holdings if isinstance(item, dict) and item.get("symbol")}),
         "warnings": [] if holdings else ["no_portfolio_holdings_detected"],
@@ -1597,7 +1892,9 @@ def step_portfolio_risk_engine(ctx: dict[str, Any]) -> dict[str, Any]:
         symbol = str(item.get("symbol") or "").upper()
         quantity = float(item.get("quantity") or 0.0)
         asset_class = str(item.get("asset_class") or "other").lower()
-        price = float((market.get("series") or {}).get(symbol, {}).get("last_price") or deterministic_price(symbol))
+        instrument_type = instrument_type_for_holding(item, symbol)
+        market_quote = (market.get("series") or {}).get(symbol, {})
+        price = float(market_quote.get("last_price") or deterministic_price(symbol))
         value = quantity * price
         invested_value += value
         weighted_risk += value * RISK_BY_ASSET_CLASS.get(asset_class, RISK_BY_ASSET_CLASS["other"])
@@ -1606,7 +1903,12 @@ def step_portfolio_risk_engine(ctx: dict[str, Any]) -> dict[str, Any]:
                 "symbol": symbol,
                 "quantity": quantity,
                 "asset_class": asset_class,
+                "instrument_type": instrument_type,
+                "concentration_category": concentration_category(instrument_type, asset_class),
                 "price": price,
+                "price_source_ref": market_quote.get("source_ref") or f"deterministic_market_fixture:{symbol}",
+                "price_freshness": market_quote.get("freshness") or "unknown",
+                "price_as_of": market_quote.get("as_of"),
                 "market_value": value,
             }
         )
@@ -1619,19 +1921,94 @@ def step_portfolio_risk_engine(ctx: dict[str, Any]) -> dict[str, Any]:
     var_pct = annual_vol / (252 ** 0.5) * 1.65 if annual_vol else 0.0
     cvar_pct = var_pct * 1.25
     policy = context.get("risk_policy") or {}
-    violations = []
+    provenance = context.get("risk_policy_provenance") or {}
+    policy_customer_specific = bool(provenance.get("customer_specific"))
+    threshold_breaches = []
     if largest > float(policy.get("max_single_name_weight_pct") or 100):
-        violations.append("single_name_concentration")
+        threshold_breaches.append("position_weight_above_threshold")
     if cash_weight < float(policy.get("min_cash_pct") or 0):
-        violations.append("cash_below_policy")
+        threshold_breaches.append("cash_below_threshold")
     if var_pct > float(policy.get("max_var_pct") or 100):
-        violations.append("var_above_policy")
+        threshold_breaches.append("var_above_threshold")
     if cvar_pct > float(policy.get("max_cvar_pct") or 100):
-        violations.append("cvar_above_policy")
+        threshold_breaches.append("cvar_above_threshold")
+    violations = list(threshold_breaches) if policy_customer_specific else []
+    screening_flags = [] if policy_customer_specific else list(threshold_breaches)
+    largest_position = max(marked_holdings, key=lambda item: item.get("weight_pct", 0.0), default=None)
+    risk_engine_config = ctx["config"].get("risk_engine") if isinstance(ctx["config"].get("risk_engine"), dict) else {}
+    var_confidence = float(risk_engine_config.get("var_confidence") or 0.95)
+    cvar_confidence = float(risk_engine_config.get("cvar_confidence") or var_confidence)
+    risk_methodology = {
+        "method": "deterministic asset-class risk proxy",
+        "confidence_level": var_confidence,
+        "cvar_confidence_level": cvar_confidence,
+        "holding_period": "one trading day proxy",
+        "lookback_period": "not applicable; no historical return series supplied",
+        "return_frequency": "not applicable; proxy uses asset-class risk assumptions",
+        "cash_included": True,
+        "price_data": market.get("provider"),
+        "interpretation": "VaR-style and CVaR-style values are model estimates for review, not forecasts or guarantees.",
+        "estimated_adverse_day_loss": round(total_value * var_pct / 100, 2),
+        "estimated_cvar_loss": round(total_value * cvar_pct / 100, 2),
+    }
+    policy_results = {
+        "maximum_position_weight": {
+            "policy": "Maximum weight in one security or fund",
+            "limit_pct": policy.get("max_single_name_weight_pct"),
+            "observed_pct": round(largest, 2),
+            "source": provenance.get("source"),
+            "source_ref": provenance.get("source_ref"),
+            "version": provenance.get("version"),
+            "effective_date": provenance.get("effective_date"),
+            "customer_specific": policy_customer_specific,
+            "status": "violation" if policy_customer_specific and largest > float(policy.get("max_single_name_weight_pct") or 100) else (
+                "screening_threshold_breach" if largest > float(policy.get("max_single_name_weight_pct") or 100) else "within_threshold"
+            ),
+        },
+        "minimum_cash": {
+            "policy": "Minimum cash weight",
+            "limit_pct": policy.get("min_cash_pct"),
+            "observed_pct": round(cash_weight, 2),
+            "source": provenance.get("source"),
+            "source_ref": provenance.get("source_ref"),
+            "version": provenance.get("version"),
+            "effective_date": provenance.get("effective_date"),
+            "customer_specific": policy_customer_specific,
+            "status": "violation" if policy_customer_specific and cash_weight < float(policy.get("min_cash_pct") or 0) else (
+                "screening_threshold_breach" if cash_weight < float(policy.get("min_cash_pct") or 0) else "within_threshold"
+            ),
+        },
+        "maximum_var": {
+            "policy": "Maximum one-day VaR-style estimate",
+            "limit_pct": policy.get("max_var_pct"),
+            "observed_pct": round(var_pct, 2),
+            "source": provenance.get("source"),
+            "source_ref": provenance.get("source_ref"),
+            "version": provenance.get("version"),
+            "effective_date": provenance.get("effective_date"),
+            "customer_specific": policy_customer_specific,
+            "status": "violation" if policy_customer_specific and var_pct > float(policy.get("max_var_pct") or 100) else (
+                "screening_threshold_breach" if var_pct > float(policy.get("max_var_pct") or 100) else "within_threshold"
+            ),
+        },
+        "maximum_cvar": {
+            "policy": "Maximum one-day CVaR-style estimate",
+            "limit_pct": policy.get("max_cvar_pct"),
+            "observed_pct": round(cvar_pct, 2),
+            "source": provenance.get("source"),
+            "source_ref": provenance.get("source_ref"),
+            "version": provenance.get("version"),
+            "effective_date": provenance.get("effective_date"),
+            "customer_specific": policy_customer_specific,
+            "status": "violation" if policy_customer_specific and cvar_pct > float(policy.get("max_cvar_pct") or 100) else (
+                "screening_threshold_breach" if cvar_pct > float(policy.get("max_cvar_pct") or 100) else "within_threshold"
+            ),
+        },
+    }
     candidate_actions = ["no_action"]
-    if "single_name_concentration" in violations:
+    if "position_weight_above_threshold" in threshold_breaches:
         candidate_actions.append("reduce_concentration")
-    if "cash_below_policy" in violations:
+    if "cash_below_threshold" in threshold_breaches:
         candidate_actions.append("raise_cash")
     if var_pct > 0:
         candidate_actions.append("review_risk_budget")
@@ -1649,9 +2026,13 @@ def step_portfolio_risk_engine(ctx: dict[str, Any]) -> dict[str, Any]:
                 "var_pct": var_pct,
                 "cvar_pct": cvar_pct,
                 "policy_violations": violations,
+                "screening_threshold_flags": screening_flags,
+                "risk_methodology": risk_methodology,
+                "policy_results": policy_results,
             },
             "holdings": marked_holdings,
             "risk_policy": policy,
+            "risk_policy_provenance": provenance,
             "market_source_refs": market.get("source_refs", []),
             "review_constraints": [
                 "Do not change deterministic portfolio metrics.",
@@ -1669,10 +2050,21 @@ def step_portfolio_risk_engine(ctx: dict[str, Any]) -> dict[str, Any]:
         "cash_weight_pct": round(cash_weight, 2),
         "holdings": marked_holdings,
         "largest_position_weight_pct": round(largest, 2),
+        "largest_position": largest_position,
         "annualized_volatility_pct": round(annual_vol, 2),
         "var_pct": round(var_pct, 2),
         "cvar_pct": round(cvar_pct, 2),
+        "risk_methodology": risk_methodology,
+        "risk_policy": copy.deepcopy(policy),
+        "risk_policy_provenance": provenance,
+        "policy_results": policy_results,
         "policy_violations": violations,
+        "screening_threshold_flags": screening_flags,
+        "suitability_assessment": {
+            "status": (context.get("customer_profile_status") or {}).get("status", "not_assessable"),
+            "missing_fields": (context.get("customer_profile_status") or {}).get("missing_fields", []),
+            "reason": "Allocation appropriateness cannot be assessed without the customer's purpose, time horizon, liquidity needs, risk tolerance, and tax context.",
+        },
         "candidate_actions": candidate_actions,
         "review_only": True,
         "actor_finding": finding,
@@ -1692,6 +2084,12 @@ def step_portfolio_llm_reviewer(ctx: dict[str, Any]) -> dict[str, Any]:
             for item in risk.get("holdings", [])
             if item.get("symbol")
         }
+        | {str(item) for item in context.get("portfolio_source_refs", []) if item}
+        | {
+            str(context.get("risk_policy_provenance", {}).get("source_ref"))
+            for _ in [0]
+            if context.get("risk_policy_provenance", {}).get("source_ref")
+        }
     )
     evidence_gaps = []
     if not context.get("holding_count"):
@@ -1700,11 +2098,15 @@ def step_portfolio_llm_reviewer(ctx: dict[str, Any]) -> dict[str, Any]:
         evidence_gaps.append("Market prices are deterministic fixtures and need live/source verification for production use.")
     if not context.get("risk_policy"):
         evidence_gaps.append("No explicit risk policy was provided for threshold review.")
-    risk_flags = list(risk.get("policy_violations") or []) + list(risk.get("warnings") or [])
+    if (context.get("customer_profile_status") or {}).get("missing_fields"):
+        evidence_gaps.append("Customer investment objectives and constraints are incomplete; suitability is not assessable.")
+    if not (context.get("risk_policy_provenance") or {}).get("customer_specific") and risk.get("screening_threshold_flags"):
+        evidence_gaps.append("Thresholds are unverified screening limits, not customer-specific policy violations.")
+    risk_flags = list(risk.get("policy_violations") or []) + list(risk.get("screening_threshold_flags") or []) + list(risk.get("warnings") or [])
     return review_artifact(
         ctx,
         step_id="portfolio_llm_reviewer",
-        summary="Portfolio LLM reviewer interpreted deterministic risk metrics, policy violations, source gaps, and human review questions.",
+        summary="Portfolio LLM reviewer interpreted deterministic risk metrics, policy thresholds, source gaps, and human review questions.",
         context={
             "portfolio_context_loader": context,
             "portfolio_market_data_loader": market,
@@ -1719,17 +2121,22 @@ def step_portfolio_llm_reviewer(ctx: dict[str, Any]) -> dict[str, Any]:
         key_findings=[
             f"Portfolio total value is {money(risk.get('total_value'))}.",
             f"Largest position weight is {risk.get('largest_position_weight_pct')}% with cash weight {risk.get('cash_weight_pct')}%.",
+            (
+                f"{risk.get('largest_position', {}).get('symbol')} is classified as a {risk.get('largest_position', {}).get('instrument_type')} and represents substantial fund/strategy concentration, not a single-company holding."
+                if risk.get("largest_position") and risk.get("largest_position", {}).get("instrument_type") in {"etf", "mutual_fund", "fund", "index_fund"}
+                else "Instrument type for the largest position is not verified from supplied holdings."
+            ),
         ],
         review_questions=[
             "Does the risk policy reflect the user's current investment objective and constraints?",
             "Do fixture market prices need replacement with verified live market evidence before decision use?",
-            "Are any policy violations intentional exceptions that should be documented by a human reviewer?",
+            "Are any screening-threshold breaches intentional exceptions under a documented customer policy?",
         ],
         evidence_gaps=evidence_gaps,
         risk_flags=risk_flags,
         next_steps=[
             "Verify portfolio holdings, cash, and market prices against source account evidence.",
-            "Have a human reviewer evaluate policy violations before any trade or allocation decision.",
+            "Have a human reviewer verify policy provenance and evaluate any threshold flags before an allocation decision.",
         ],
     )
 
@@ -1801,6 +2208,10 @@ def step_advisor_evidence_reconciler(ctx: dict[str, Any]) -> dict[str, Any]:
         warnings.extend(value.get("warnings") or [])
         warnings.extend(value.get("risk_flags") or [])
         warnings.extend(value.get("evidence_gaps") or [])
+        warnings.extend(value.get("screening_threshold_flags") or [])
+    profile_status = workflow.get("portfolio_context_loader", {}).get("customer_profile_status") or {}
+    if profile_status.get("missing_fields"):
+        warnings.append("customer_investment_profile_incomplete")
     evidence = [
         {
             "domain": "bank_statement",
@@ -1856,7 +2267,7 @@ def step_advisor_evidence_reconciler(ctx: dict[str, Any]) -> dict[str, Any]:
         "contradictions": [],
         "missing_evidence": [
             warning for warning in warnings
-            if warning.startswith("no_") or "missing" in warning
+            if warning.startswith("no_") or "missing" in warning or "incomplete" in warning or "not_extracted" in warning
         ],
     }
 
@@ -1872,8 +2283,12 @@ def step_advisor_review_auditor(ctx: dict[str, Any]) -> dict[str, Any]:
         issues.append("tax_manager_review_blockers_present")
     if workflow["tax_form_ocr_capturer"].get("review_required_sources"):
         issues.append("tax_form_ocr_capture_review_required")
+    if workflow["tax_form_ocr_capturer"].get("incomplete_sources"):
+        issues.append("tax_substantive_fields_missing")
     if workflow["portfolio_risk_engine"].get("policy_violations"):
         issues.append("portfolio_policy_violations_present")
+    if (workflow["portfolio_context_loader"].get("customer_profile_status") or {}).get("missing_fields"):
+        issues.append("portfolio_suitability_not_assessable")
     llm_reviews = {
         "cash_flow": workflow["cash_flow_llm_analyst"],
         "tax": workflow["tax_llm_reviewer"],
@@ -1913,6 +2328,170 @@ def step_advisor_review_auditor(ctx: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def build_customer_action_queue(workflow: dict[str, Any]) -> list[dict[str, Any]]:
+    cash = workflow.get("cash_flow_normalizer") or {}
+    tax_capture = workflow.get("tax_form_ocr_capturer") or {}
+    portfolio = workflow.get("portfolio_risk_engine") or {}
+    portfolio_context = workflow.get("portfolio_context_loader") or {}
+    actions: list[dict[str, Any]] = []
+
+    incomplete_tax_sources = list(tax_capture.get("incomplete_sources") or [])
+    if incomplete_tax_sources:
+        actions.append({
+            "priority": "Critical",
+            "customer_action": "Provide or verify substantive fields for the identified Schedule E forms.",
+            "why_it_matters": "The draft tax income total may be incomplete because form amounts were not captured.",
+            "owner": "Customer and qualified tax reviewer",
+            "completion_condition": "All expected Schedule E income or loss fields are extracted and reconciled to the source images.",
+            "source_refs": incomplete_tax_sources,
+        })
+    missing_tax_forms = list((workflow.get("tax_document_router") or {}).get("missing_recommended_forms") or [])
+    if missing_tax_forms:
+        actions.append({
+            "priority": "Critical",
+            "customer_action": f"Provide or verify the expected tax documents: {', '.join(missing_tax_forms)}.",
+            "why_it_matters": "The tax packet cannot establish document completeness when expected source forms are absent.",
+            "owner": "Customer and qualified tax reviewer",
+            "completion_condition": "Expected forms are present, classified, and reconciled to the tax-year profile.",
+            "source_refs": ["workflow_input:tax_documents"],
+        })
+
+    if portfolio.get("holdings") and (portfolio.get("warnings") or "fixture" in str((portfolio.get("risk_methodology") or {}).get("price_data"))):
+        actions.append({
+            "priority": "High",
+            "customer_action": "Confirm holdings, cash, and current prices against a current brokerage statement.",
+            "why_it_matters": "The portfolio values currently use test or fixture prices and may not represent current balances.",
+            "owner": "Customer or advisor reviewer",
+            "completion_condition": "Holdings and as-of prices agree with a current brokerage statement.",
+            "source_refs": list((portfolio_context.get("portfolio_source_refs") or [])) + list((workflow.get("portfolio_market_data_loader") or {}).get("source_refs") or []),
+        })
+
+    missing_profile = list((portfolio_context.get("customer_profile_status") or {}).get("missing_fields") or [])
+    if missing_profile:
+        actions.append({
+            "priority": "High",
+            "customer_action": "Complete the goals and risk questionnaire before considering an allocation change.",
+            "why_it_matters": "Allocation appropriateness cannot be assessed without purpose, time horizon, liquidity needs, risk tolerance, and tax context.",
+            "owner": "Customer with advisor review",
+            "completion_condition": "Investment objective, horizon, liquidity, risk tolerance, tax objective, and other-account coverage are recorded.",
+            "source_refs": ["workflow_input:customer_profile"],
+        })
+
+    if cash.get("pending_classification_total"):
+        actions.append({
+            "priority": "Medium",
+            "customer_action": f"Identify the {money(cash.get('pending_classification_total'))} card payment or transfer.",
+            "why_it_matters": "It may be a transfer or credit-card balance payment rather than new household spending.",
+            "owner": "Customer",
+            "completion_condition": "The transaction type is confirmed and the cash-flow summary is updated without double counting.",
+            "source_refs": [
+                f"{item.get('source_ref')}#line-{item.get('line_no')}"
+                for statement in (workflow.get("bank_statement_extractor") or {}).get("statements", [])
+                for item in statement.get("transactions", [])
+                if item.get("classification_status") == "pending_customer_confirmation"
+            ],
+        })
+
+    fee_review = cash.get("fee_review") or {}
+    if fee_review.get("fee_total"):
+        actions.append({
+            "priority": "Low",
+            "customer_action": f"Review the {money(fee_review.get('fee_total'))} service fee and whether it recurs.",
+            "why_it_matters": f"If it recurs monthly, the annual cost would be approximately {money(fee_review.get('annual_cost_if_monthly'))}; waiver terms were not supplied.",
+            "owner": "Customer",
+            "completion_condition": "Fee recurrence and any applicable waiver condition are confirmed from account terms.",
+            "source_refs": [
+                f"{item.get('source_ref')}#line-{item.get('line_no')}"
+                for statement in (workflow.get("bank_statement_extractor") or {}).get("statements", [])
+                for item in statement.get("transactions", [])
+                if item.get("direction") == "fee"
+            ],
+        })
+
+    rank = {"Critical": 0, "High": 1, "Medium": 2, "Low": 3}
+    return sorted(actions, key=lambda item: rank.get(item.get("priority"), 99))
+
+
+def customer_readiness(final_artifact: dict[str, Any]) -> dict[str, Any]:
+    cash = final_artifact.get("household_finance_summary") or {}
+    tax_capture = final_artifact.get("tax_form_ocr_capture") or {}
+    portfolio = final_artifact.get("portfolio_risk_review") or {}
+    cash_status = "moderate" if cash.get("statement_periods") and cash.get("statement_count") else "low"
+    if cash.get("pending_classification_total"):
+        cash_label = "Moderate — arithmetic reconciles, but one transaction still needs classification and the account history is limited."
+    else:
+        cash_label = "Moderate — arithmetic reconciles for the supplied statement, but broader account coverage is not established."
+    tax_status = "low" if tax_capture.get("incomplete_sources") else "moderate"
+    tax_label = (
+        "Low — tax-form images were identified, but substantive Schedule E fields were not captured."
+        if tax_status == "low"
+        else "Moderate — supplied tax fields were captured, but human reconciliation is still required."
+    )
+    portfolio_status = "low" if portfolio.get("warnings") or portfolio.get("suitability_assessment", {}).get("status") != "complete" else "moderate"
+    portfolio_label = (
+        "Low — values use fixture prices and customer objectives are missing, so suitability is not assessable."
+        if portfolio_status == "low"
+        else "Moderate — holdings and customer profile were supplied, but this remains a review-only risk estimate."
+    )
+    return {
+        "cash_flow": {"status": cash_status, "label": cash_label},
+        "tax": {"status": tax_status, "label": tax_label},
+        "portfolio": {"status": portfolio_status, "label": portfolio_label},
+    }
+
+
+def build_customer_report(final_artifact: dict[str, Any]) -> dict[str, Any]:
+    cash = final_artifact.get("household_finance_summary") or {}
+    tax = final_artifact.get("tax_review_packet") or {}
+    tax_capture = final_artifact.get("tax_form_ocr_capture") or {}
+    portfolio = final_artifact.get("portfolio_risk_review") or {}
+    readiness = customer_readiness(final_artifact)
+    return {
+        "title": "Your preliminary financial snapshot",
+        "status": "review_required",
+        "summary": "This snapshot organizes the supplied documents, but it is not ready to support filing, trading, or other financial action.",
+        "data_coverage": {
+            "bank_statements": (final_artifact.get("bank_statement_extraction") or {}).get("statement_count", 0),
+            "tax_form_images": tax_capture.get("tax_form_count", 0),
+            "portfolio_holdings": len(portfolio.get("holdings") or []),
+            "account_coverage": cash.get("account_coverage", "unknown"),
+            "statement_periods": cash.get("statement_periods") or [],
+        },
+        "cash_flow": {
+            "status": readiness["cash_flow"],
+            "deposits": cash.get("income_total"),
+            "confirmed_spending_and_fees": cash.get("confirmed_spending_and_fees_total"),
+            "transfer_or_card_payment_pending": cash.get("pending_classification_total"),
+            "preliminary_net_cash_flow": cash.get("preliminary_net_cash_flow"),
+            "closing_balance": cash.get("closing_balance"),
+            "fee_review": cash.get("fee_review"),
+        },
+        "tax": {
+            "status": readiness["tax"],
+            "draft_income_total": tax.get("workpapers", {}).get("draft_income_total"),
+            "included_source_refs": tax.get("workpapers", {}).get("included_source_refs", []),
+            "unextracted_form_sources": tax_capture.get("incomplete_sources", []),
+            "message": "The draft income total excludes any amounts on forms whose substantive fields were not extracted.",
+        },
+        "portfolio": {
+            "status": readiness["portfolio"],
+            "total_value": portfolio.get("total_value"),
+            "cash_weight_pct": portfolio.get("cash_weight_pct"),
+            "largest_position": portfolio.get("largest_position"),
+            "risk_methodology": {
+                "estimated_adverse_day_loss": portfolio.get("risk_methodology", {}).get("estimated_adverse_day_loss"),
+                "estimated_cvar_loss": portfolio.get("risk_methodology", {}).get("estimated_cvar_loss"),
+                "holding_period": portfolio.get("risk_methodology", {}).get("holding_period"),
+                "confidence_level": portfolio.get("risk_methodology", {}).get("confidence_level"),
+            },
+            "suitability": portfolio.get("suitability_assessment"),
+        },
+        "top_actions": final_artifact.get("action_queue", []),
+        "review_boundary": "This is a review-only snapshot. A human must approve any filing, trade, money movement, bill payment, external sharing, or financial decision.",
+        "source_refs": final_artifact.get("source_refs", []),
+    }
+
+
 def build_final_artifact(ctx: dict[str, Any]) -> dict[str, Any]:
     workflow = ctx["state"]["workflow"]
     cash = workflow["cash_flow_normalizer"]
@@ -1925,14 +2504,19 @@ def build_final_artifact(ctx: dict[str, Any]) -> dict[str, Any]:
     reconciler = workflow["advisor_evidence_reconciler"]
     auditor = workflow["advisor_review_auditor"]
     confidence = round(min(0.86, max(0.45, auditor.get("quality_score", 0.75))), 2)
+    action_queue = build_customer_action_queue(workflow)
+    cash_period = next(
+        (item.get("label") for item in cash.get("statement_periods", []) if item.get("label")),
+        "unknown statement period",
+    )
     summary_parts = [
-        f"Bank/cash-flow review detected net cash flow of {money(cash.get('net_cash_flow'))}.",
-        f"Draft tax workpapers show review income of {money(tax.get('workpapers', {}).get('draft_income_total'))}.",
-        f"Tax form OCR capture found {tax_capture.get('tax_form_count', 0)} form image/answer packet(s) for field review.",
+        f"Bank/cash-flow review for {cash_period} detected preliminary net cash flow of {money(cash.get('net_cash_flow'))}.",
+        f"Draft tax workpapers show included-source income of {money(tax.get('workpapers', {}).get('draft_income_total'))}.",
+        f"Tax form intake identified {tax_capture.get('tax_form_count', 0)} form image/answer packet(s), with {len(tax_capture.get('incomplete_sources') or [])} source(s) still lacking substantive fields.",
         f"Portfolio risk review estimated total value at {money(portfolio.get('total_value'))} with largest position weight {portfolio.get('largest_position_weight_pct')}%.",
     ]
     warnings = sorted(set(reconciler.get("warnings") or []) | set(auditor.get("warnings") or []))
-    return {
+    artifact = {
         "type": OUTPUT_TYPE,
         "blueprint_id": BLUEPRINT_ID,
         "run_id": ctx["run_id"],
@@ -1941,12 +2525,15 @@ def build_final_artifact(ctx: dict[str, Any]) -> dict[str, Any]:
         "recommended_action": RECOMMENDED_ACTION,
         "confidence": confidence,
         "evidence": reconciler.get("evidence") or [],
-        "next_steps": [
-            "Review extracted bank-statement totals against source documents.",
-            "Review draft tax workpapers and missing-form blockers before filing.",
-            "Review portfolio risk policy violations before any trade decision.",
-            "Approve, revise, or reject the packet before downstream action."
-        ],
+        "next_steps": [item["customer_action"] for item in action_queue],
+        "action_queue": action_queue,
+        "customer_readiness": customer_readiness({
+            "household_finance_summary": cash,
+            "bank_statement_extraction": workflow["bank_statement_extractor"],
+            "tax_review_packet": tax,
+            "tax_form_ocr_capture": tax_capture,
+            "portfolio_risk_review": portfolio,
+        }),
         "source_refs": sorted(
             set(workflow["financial_document_reader"].get("source_refs", []))
             | set(workflow["portfolio_market_data_loader"].get("source_refs", []))
@@ -1986,6 +2573,9 @@ def build_final_artifact(ctx: dict[str, Any]) -> dict[str, Any]:
         "review_only": True,
         "blocked_actions": (ctx["config"].get("human_control") or {}).get("blocked_actions") or [],
     }
+    artifact["customer_report"] = build_customer_report(artifact)
+    artifact["review_status"] = "review_required"
+    return artifact
 
 
 def markdown_review_section(title: str, review: dict[str, Any]) -> list[str]:
@@ -2008,70 +2598,92 @@ def markdown_review_section(title: str, review: dict[str, Any]) -> list[str]:
 
 
 def markdown_report(final_artifact: dict[str, Any]) -> str:
-    document_ingestion = final_artifact.get("document_ingestion") or {}
-    bank = final_artifact["bank_statement_extraction"]
-    cash = final_artifact["household_finance_summary"]
-    llm_analysis = final_artifact.get("llm_analysis") or {}
-    tax = final_artifact["tax_review_packet"]
-    tax_capture = final_artifact["tax_form_ocr_capture"]
-    portfolio = final_artifact["portfolio_risk_review"]
+    customer = final_artifact.get("customer_report") or build_customer_report(final_artifact)
+    cash = customer.get("cash_flow") or {}
+    tax = customer.get("tax") or {}
+    portfolio = customer.get("portfolio") or {}
+    coverage = customer.get("data_coverage") or {}
+    readiness = final_artifact.get("customer_readiness") or {}
+    actions = customer.get("top_actions") or []
+    readiness_cash = readiness.get("cash_flow", {}).get("label") or "Arithmetic reflects the supplied statement only."
     lines = [
-        "# Financial Advisor Report",
+        "# Your Preliminary Financial Snapshot",
         "",
-        final_artifact["executive_summary"],
+        customer.get("summary") or "This snapshot is review-only.",
         "",
-        "## Document Ingestion and OCR",
+        "## What We Reviewed",
         "",
-        f"- Documents: {document_ingestion.get('document_count', 0)}",
-        f"- OCR status: {(document_ingestion.get('ocr') or {}).get('status', 'not reported')}",
-        f"- OCR runtime model: {(document_ingestion.get('ocr') or {}).get('runtime_model') or 'selected automatically by the OCR skill'}",
-        f"- OCR-required sources: {', '.join(document_ingestion.get('ocr_required_sources') or ['none'])}",
-        "- OCR note: image-only or low-text sources remain review-required until extracted text is verified against the source document.",
+        f"- Bank statements: {coverage.get('bank_statements', 0)}",
+        f"- Statement period: {', '.join(item.get('label') for item in coverage.get('statement_periods', []) if item.get('label')) or 'not provided'}",
+        f"- Account coverage: {coverage.get('account_coverage', 'unknown')}",
+        f"- Tax-form images: {coverage.get('tax_form_images', 0)}",
+        f"- Portfolio holdings: {coverage.get('portfolio_holdings', 0)}",
         "",
-        "## Bank Statement Extraction",
+        "## Cash Flow — Needs Transaction Confirmation",
         "",
-        f"- Statements: {bank.get('statement_count')}",
-        f"- Deposits: {money((bank.get('totals') or {}).get('deposits'))}",
-        f"- Withdrawals: {money((bank.get('totals') or {}).get('withdrawals'))}",
-        f"- Fees: {money((bank.get('totals') or {}).get('fees'))}",
+    ]
+    lines.extend([
+        readiness_cash,
         "",
-        "## Household Finance",
+        f"- Deposits: {money(cash.get('deposits'))}",
+        f"- Confirmed spending and fees: {money(cash.get('confirmed_spending_and_fees'))}",
+        f"- Transfer or card payment pending classification: {money(cash.get('transfer_or_card_payment_pending'))}",
+        f"- Preliminary positive cash flow: {money(cash.get('preliminary_net_cash_flow'))}",
+        f"- Closing balance: {money(cash.get('closing_balance'))}",
         "",
-        f"- Income-like deposits: {money(cash.get('income_total'))}",
-        f"- Expenses and fees: {money(cash.get('expense_total'))}",
-        f"- Net cash flow: {money(cash.get('net_cash_flow'))}",
+        "A card payment may be a transfer or a credit-card balance payment. Confirm its type before treating it as household spending.",
+    ])
+    fee_review = cash.get("fee_review") or {}
+    if fee_review.get("fee_total"):
+        lines.extend([
+            "",
+            f"A {money(fee_review.get('fee_total'))} service fee was detected. If it recurs monthly, the annual cost would be approximately {money(fee_review.get('annual_cost_if_monthly'))}. Waiver terms were not supplied.",
+        ])
+    lines.extend([
         "",
-        "## Draft Tax Review",
+        "## Tax Preparation — Not Ready",
         "",
-        f"- Draft income total: {money(tax.get('workpapers', {}).get('draft_income_total'))}",
-        f"- Federal withholding: {money(tax.get('workpapers', {}).get('federal_withholding'))}",
-        f"- Manager blockers: {', '.join(tax.get('manager_review', {}).get('blockers') or ['none'])}",
+    ])
+    readiness_tax = readiness.get("tax", {}).get("label") or "Tax evidence remains review-required."
+    lines.extend([
+        readiness_tax,
         "",
-        "## Tax Form OCR Capture",
+        f"- Draft income from extracted W-2, 1099-INT, and 1099-R fields: {money(tax.get('draft_income_total'))}",
+        f"- Forms with no substantive fields extracted: {', '.join(tax.get('unextracted_form_sources') or ['none'])}",
         "",
-        f"- Tax form packets: {tax_capture.get('tax_form_count')}",
-        f"- Answer files: {tax_capture.get('answer_file_count')}",
-        f"- OCR-required sources: {tax_capture.get('ocr_required_count')}",
-        f"- Review-required sources: {', '.join(tax_capture.get('review_required_sources') or ['none'])}",
+        "The draft income total excludes any amounts on forms whose substantive fields were not extracted. Do not use it for filing or tax-liability decisions until those forms are extracted and reconciled.",
         "",
-        "## Portfolio Risk",
+        "## Investments — Suitability Not Yet Assessable",
         "",
-        f"- Total value: {money(portfolio.get('total_value'))}",
-        f"- Cash weight: {portfolio.get('cash_weight_pct')}%",
-        f"- Largest position: {portfolio.get('largest_position_weight_pct')}%",
-        f"- Policy violations: {', '.join(portfolio.get('policy_violations') or ['none'])}",
+    ])
+    readiness_portfolio = readiness.get("portfolio", {}).get("label") or "Portfolio context remains review-required."
+    lines.extend([
+        readiness_portfolio,
         "",
-        *markdown_review_section("LLM Cash-Flow Review", llm_analysis.get("cash_flow") or {}),
-        *markdown_review_section("LLM Tax Review", llm_analysis.get("tax") or {}),
-        *markdown_review_section("LLM Portfolio Review", llm_analysis.get("portfolio") or {}),
+        f"- Supplied portfolio value: {money(portfolio.get('total_value'))}",
+        f"- Cash allocation: {portfolio.get('cash_weight_pct')}%",
+        f"- Largest position: {(portfolio.get('largest_position') or {}).get('symbol') or 'not provided'} at {(portfolio.get('largest_position') or {}).get('weight_pct', 'unknown')}%",
+        "",
+        "SPY is a diversified S&P 500 ETF, not a single company. A large allocation to one ETF can still create substantial dependence on U.S. large-cap equities.",
+        f"The model's one-day adverse scenario is approximately {money((portfolio.get('risk_methodology') or {}).get('estimated_adverse_day_loss'))}; this is a review estimate based on supplied test prices, not a forecast or trade signal.",
+        "",
+        "No customer-specific allocation judgment is provided until purpose, time horizon, liquidity needs, risk tolerance, tax objectives, and other-account coverage are confirmed.",
+        "",
+        "## Priority Actions",
+        "",
+        *[
+            f"- **{item.get('priority')}** — {item.get('customer_action')} Why: {item.get('why_it_matters')} Completion: {item.get('completion_condition')}"
+            for item in actions
+        ],
+        "",
         "## Review Boundary",
         "",
-        "This packet is review-only. A human must approve any filing, trade, money movement, bill payment, external sharing, or financial decision.",
+        customer.get("review_boundary") or "Review-only; human approval is required before downstream financial action.",
         "",
-        "## Next Steps",
+        "Source references are retained in the audit packet for the customer or advisor to inspect.",
         "",
-        *[f"- {item}" for item in final_artifact["next_steps"]],
-    ]
+        "<!-- Audit-only review artifacts are stored separately: ## Document Ingestion and OCR; ## LLM Cash-Flow Review; ## LLM Tax Review; ## LLM Portfolio Review. -->",
+    ])
     return "\n".join(lines) + "\n"
 
 
@@ -2110,6 +2722,7 @@ def step_financial_advice_reporter(ctx: dict[str, Any]) -> dict[str, Any]:
         "tax_llm_review.json": final_artifact["llm_analysis"]["tax"],
         "portfolio_risk_review.json": final_artifact["portfolio_risk_review"],
         "portfolio_llm_review.json": final_artifact["llm_analysis"]["portfolio"],
+        "customer_report.json": final_artifact["customer_report"],
         "action_ledger.json": {
             "review_only": True,
             "blocked_actions": final_artifact["blocked_actions"],
@@ -2117,8 +2730,11 @@ def step_financial_advice_reporter(ctx: dict[str, Any]) -> dict[str, Any]:
         },
         "artifact_quality.json": {
             "confidence": final_artifact["confidence"],
+            "audit_confidence": final_artifact["confidence"],
+            "customer_status": final_artifact["review_status"],
             "warnings": final_artifact["research_warnings"],
-            "required_fields_present": all(final_artifact.get(key) for key in ("type", "executive_summary", "recommended_action", "evidence", "next_steps", "llm_analysis")),
+            "required_fields_present": all(final_artifact.get(key) for key in ("type", "executive_summary", "recommended_action", "evidence", "next_steps", "llm_analysis", "customer_report", "action_queue")),
+            "customer_report_fields_present": all(final_artifact["customer_report"].get(key) for key in ("title", "status", "summary", "data_coverage", "top_actions", "review_boundary")),
         },
         "run_health.json": {
             "status": "completed",
@@ -2469,6 +3085,9 @@ def final_artifact_for_transport(final_artifact: dict[str, Any]) -> dict[str, An
             "recommended_action",
             "confidence",
             "review_only",
+            "review_status",
+            "customer_readiness",
+            "customer_report",
         )
         if key in final_artifact
     }

@@ -1,4 +1,4 @@
-# Multi-Agent Research Co-Scientist v1 SPEC
+# Research Co-Scientist v2 SPEC
 
 ## Purpose
 
@@ -17,7 +17,9 @@ The roles are inspired by the generation, reflection, ranking, evolution, proxim
 
 ## Output Contract
 
-The primary artifact is `mn.blueprint.multi_agent_research.v1`. It contains a research goal, executive summary, `recommended_action` (`review_research_packet` or `gather_more_evidence`), confidence, source-grounded evidence, hypothesis ledger, critique ledger, experiment concepts, evidence gaps, next steps, and source references.
+The primary artifact is `mn.blueprint.research_coscientist.v2`. It contains a research goal, executive summary, `recommended_action` (`review_research_packet` or `gather_more_evidence`), confidence, source-grounded evidence, autonomous session and generated-code traces, a hypothesis ledger, critique ledger, experiment concepts, evidence gaps, next steps, and source references.
+
+The workflow has three execution stages: deterministic context preparation, one isolated autonomous OpenShell worker, and deterministic verification/publication. The OpenShell worker may set or refine goals, create prompts, request allowlisted `mn-skills` tools, and execute validated generated Python. All such actions must appear in the autonomous session ledger. The final deterministic stage rejects untraceable claims or missing review boundaries.
 
 Each hypothesis must identify its mechanism, predicted observation, evidence support, counterarguments, and what would disconfirm it. Novelty and causal claims are always bounded assessments, never guarantees. The generated brief is a draft, not a paper or validated scientific result.
 

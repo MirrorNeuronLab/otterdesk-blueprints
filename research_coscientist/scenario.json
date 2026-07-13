@@ -1,8 +1,8 @@
 {
-  "blueprint_id": "multi_agent_research_coscientist",
-  "name": "Multi-Agent Research Co-Scientist",
+  "blueprint_id": "research_coscientist",
+  "name": "Research Co-Scientist",
   "category": "science",
-  "description": "A multi-agent research co-scientist for finding, evaluating, and drafting research directions with explicit evidence and human-review boundaries.",
+  "description": "A mixed deterministic and autonomous research co-scientist with one isolated OpenShell worker and explicit evidence and human-review boundaries.",
   "llm_role": "Multi-agent research team for topic framing, evidence evaluation, hypothesis critique, experiment planning, and drafting.",
   "agent_responsibilities": [
     "frame a research goal and expose assumptions",
@@ -42,8 +42,8 @@
     "research_question": "Which controllable cooling-loop interventions are most plausible to test first, and what evidence would distinguish them?",
     "scope": "Desk research and experiment planning only; no live system changes.",
     "constraints": {"no_live_system_changes": true, "require_human_review": true, "max_hypotheses": 3},
-    "input_folder": "multi_agent_research_coscientist/examples/sample_inputs",
-    "output_folder": "~/Download/multi_agent_research_coscientist"
+    "input_folder": "research_coscientist/examples/sample_inputs",
+    "output_folder": "~/Download/research_coscientist"
   },
   "workflow_stages": [
     "research_goal_framing",

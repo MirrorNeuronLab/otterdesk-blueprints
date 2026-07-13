@@ -8,6 +8,9 @@ Review deterministic bank-statement extraction and household cash-flow normaliza
 - Check coverage: statement period, account scope, opening/closing balances, transaction count, income documents, and missing pages or files.
 - Distinguish income-like deposits, ordinary spending, fees, transfers, refunds, reimbursements, debt service, and unclassified activity. A deposit is not automatically income and a withdrawal is not automatically discretionary spending.
 - Look for evidence-backed signals such as negative net cash flow, overdraft or low-balance risk, repeated fees, unusually large transactions, recurring obligations, and income-to-deposit mismatches.
+- Always state the statement dates, account scope, and coverage limits. A single statement is not evidence of a stable savings pattern.
+- Keep credit-card payments and account transfers separate from confirmed household spending until the underlying card or destination account evidence is available.
+- Explain a detected fee in dollars, including annual cost if it recurred monthly, but do not assert a waiver condition unless account terms support it.
 - State what would confirm a classification or recurring pattern. Do not infer a household budget, debt terms, emergency reserve, or affordability conclusion from one partial statement.
 
 ## Output focus

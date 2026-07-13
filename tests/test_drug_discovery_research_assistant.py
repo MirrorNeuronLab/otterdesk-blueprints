@@ -62,23 +62,17 @@ def test_drug_discovery_manifest_uses_source_format_and_shared_blocks():
     assert manifest["defaults"]["worker"]["uses"] == "mn-agents.worker.python_host@1"
     assert manifest["defaults"]["worker"]["with"]["runner_module"] == "MirrorNeuron.Runner.HostLocal"
     assert manifest["defaults"]["worker"]["with"]["upload_path"] == "service"
-    assert {entry["source"] for entry in manifest["defaults"]["worker"]["with"]["upload_paths"]} >= {
+    assert {entry["source"] for entry in manifest["defaults"]["worker"]["with"]["upload_paths"]} == {
         "service",
-        "worker/scripts",
         "config",
+        "examples/sample_inputs",
+        "knowledge",
     }
+    for script in STEP_SCRIPTS.values():
+        assert (BLUEPRINT_DIR / "payloads" / "service" / script).is_file(), script
     assert manifest["service"]["run_until"] == "manual_stop"
     assert manifest["cluster_distribution"]["collaboration"]["mode"] == "cross_box_fanout_fanin"
-    custom_model = manifest["runtime"]["models"]["drugclip"]
-    assert custom_model == {
-        "provider": "docker_model_runner",
-        "model": "hf.co/homerquan/DrugClip",
-        "runtime_model": "hf.co/homerquan/DrugClip",
-        "backend": "auto",
-        "context_size": 4096,
-        "required": True,
-        "customize_mode": True,
-    }
+    assert set(manifest["runtime"]["models"]) == {"primary", "large"}
 
     by_step = manifest["workers"]["by_step"]
     assert set(by_step) == set(STEP_SCRIPTS)
@@ -104,8 +98,9 @@ def test_drug_discovery_model_profiles_match_vc_style_defaults():
         "memory_operator": ">=",
     }
     assert {spec["llm_config"] for spec in config["llm"]["agents"].values()} == {"primary"}
-    assert "customize_mode" not in config["drugclip"]
+    assert "runtime_model_key" not in config["drugclip"]
     assert config["drugclip"]["model_ref"] == "hf.co/homerquan/DrugClip"
+    assert config["drugclip"]["checkpoint_filename"] == "best.ckpt"
     assert config["drugclip"]["source_repository"] == "/Users/homer/Sandbox/BioTarget"
     for adapter_name in ("candidate_generator", "folding", "drugclip", "simulation"):
         assert config[adapter_name]["command"][1] == "scripts/biotarget_adapter.py"
@@ -238,3 +233,18 @@ def test_continuous_service_requires_a_native_dispatcher_for_cross_box_runs(tmp_
         assert "dispatch_command" in str(error)
     else:  # pragma: no cover - protects the cross-box fail-closed contract
         raise AssertionError("cross-box service accepted a missing native dispatcher")
+
+
+def test_continuous_service_uses_embedded_config_when_bundle_config_is_not_mounted(tmp_path, monkeypatch):
+    service_path = BLUEPRINT_DIR / "payloads" / "service" / "scripts" / "run_continuous_service.py"
+    monkeypatch.syspath_prepend(str(service_path.parent))
+    spec = importlib.util.spec_from_file_location("drug_discovery_runner_config_test", service_path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+
+    monkeypatch.setattr(module, "blueprint_root", lambda: tmp_path)
+    monkeypatch.setenv("MN_BLUEPRINT_CONFIG_JSON", json.dumps({"mode": "mock", "service": {"max_cycles": 1}}))
+
+    assert module.load_config() == {"mode": "mock", "service": {"max_cycles": 1}}

@@ -755,7 +755,6 @@
     "required": true,
     "mode": "text_molecular_graph_alignment",
     "model_ref": "hf.co/homerquan/DrugClip",
-    "runtime_model_key": "drugclip",
     "checkpoint_repo": "homerquan/DrugClip",
     "checkpoint_filename": "best.ckpt",
     "source_repository": "/Users/homer/Sandbox/BioTarget",

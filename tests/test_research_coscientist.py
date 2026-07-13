@@ -15,7 +15,7 @@ for path in (SDK_SRC, SUPPORT_SRC):
 
 
 def _runner():
-    path = ROOT / "multi_agent_research_coscientist" / "payloads" / "document_workflow" / "scripts" / "run_blueprint.py"
+    path = ROOT / "research_coscientist" / "payloads" / "document_workflow" / "scripts" / "run_blueprint.py"
     spec = importlib.util.spec_from_file_location("research_coscientist_runner_tests", path)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
@@ -49,10 +49,10 @@ def test_research_input_normalization_and_query_privacy():
 def test_research_prompts_and_fake_run_write_review_only_packet(tmp_path):
     runner = _runner()
     assert runner.PROMPTS.prompt_dir == (
-        ROOT / "multi_agent_research_coscientist" / "payloads" / "document_workflow" / "prompts"
+        ROOT / "research_coscientist" / "payloads" / "document_workflow" / "prompts"
     )
     assert "Research Packet System Prompt" in runner.load_prompt("research-packet-system.md")
-    assert "Multi-Agent Research Review Task" in runner.load_prompt("research-review-task.md")
+    assert "Research Co-Scientist Autonomous Review Task" in runner.load_prompt("research-review-task.md")
 
     output = tmp_path / "outputs"
     result = runner.run_blueprint(
@@ -61,7 +61,7 @@ def test_research_prompts_and_fake_run_write_review_only_packet(tmp_path):
             "research_domain": "engineering",
             "research_question": "What measurement distinguishes the hypothesis from ambient variation?",
             "scope": "Desk research only.",
-            "input_folder": str(ROOT / "multi_agent_research_coscientist" / "examples" / "sample_inputs"),
+            "input_folder": str(ROOT / "research_coscientist" / "examples" / "sample_inputs"),
             "output_folder": str(output),
         },
         config={"llm": {"mode": "fake"}},
@@ -70,6 +70,9 @@ def test_research_prompts_and_fake_run_write_review_only_packet(tmp_path):
     )
 
     packet = result["final_artifact"]
+    assert result["autonomous_research"]["isolation_required"] is True
+    assert result["autonomous_research"]["session"]["goal"]["goal_id"].startswith("goal_")
+    assert result["autonomous_research"]["session"]["prompts"]
     assert packet["recommended_action"] in runner.RESEARCH_ACTIONS
     assert packet["hypothesis_ledger"]
     assert set(runner.BLOCKED_ACTIONS) <= set(packet["review_boundary"]["blocked_actions"])

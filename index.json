@@ -364,11 +364,11 @@
   },
   {
     "category": "Science",
-    "description": "A multi-agent research co-scientist for finding, evaluating, and drafting research directions. Give it a research goal, domain, constraints, seed ideas, and an input folder; it retrieves local evidence, performs bounded public research, generates and critiques hypotheses, and writes a review-ready research packet to the output folder.",
-    "id": "multi_agent_research_coscientist",
-    "job_name": "multi-agent-research-coscientist",
-    "name": "Multi-Agent Research Co-Scientist",
-    "path": "multi_agent_research_coscientist",
+    "description": "A research co-scientist that combines deterministic evidence and verification stages with one isolated OpenShell worker for autonomous, tool-driven exploration and bounded generated-code experiments.",
+    "id": "research_coscientist",
+    "job_name": "research-coscientist",
+    "name": "Research Co-Scientist",
+    "path": "research_coscientist",
     "product": {
       "agent_role": "Multi-agent research team that finds, evaluates, critiques, and drafts evidence-grounded research directions.",
       "benefit": "Turns a research goal and approved evidence into a traceable, adversarially reviewed research packet before any experiment or claim is made.",
@@ -390,6 +390,6 @@
       "target_users": "Researchers, scientists, engineers, analysts, and research leads."
     },
     "type": "batch",
-    "workflow_id": "multi_agent_research_coscientist_v1"
+    "workflow_id": "research_coscientist_v2"
   }
 ]

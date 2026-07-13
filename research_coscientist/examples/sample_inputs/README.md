@@ -1,4 +1,4 @@
-# Multi-Agent Research Sample Inputs
+# Research Co-Scientist Sample Inputs
 
 This synthetic packet demonstrates evidence-based engineering research. It contains no operational controls, facility data, personal data, or instructions to change a live system.
 

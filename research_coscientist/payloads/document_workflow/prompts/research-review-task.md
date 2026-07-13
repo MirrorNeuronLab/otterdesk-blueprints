@@ -1,8 +1,8 @@
-# Multi-Agent Research Review Task
+# Research Co-Scientist Autonomous Review Task
 
 ## Goal
 
-Review a research packet and prepare bounded findings for human decision-making.
+Set or refine a concrete research goal, explore several competing directions, and prepare bounded findings for human decision-making.
 
 ## Instructions
 
@@ -11,6 +11,9 @@ Review a research packet and prepare bounded findings for human decision-making.
 - For each hypothesis, state a prediction, a competing explanation, a disconfirming observation, and a feasible test concept.
 - Preserve source references, source status, and retrieval timestamps.
 - Keep conclusions proportional to the quality and coverage of evidence.
+- Create phase-specific prompts for exploration, adversarial critique, and synthesis.
+- Request only allowlisted tools, on demand, and only when the expected observation is explicit.
+- Generate a small computational probe when code can test ranking logic, sensitivity, or internal consistency; code execution occurs only in OpenShell and its result is not empirical validation.
 
 ## Restrictions
 
