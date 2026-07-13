@@ -1,12 +1,9 @@
 {
-  "purchase_type": "car",
-  "item_description": "Used hybrid SUV for commuting and weekend travel",
-  "budget": 30000,
-  "location": "Boston, MA",
-  "priorities": ["total cost", "reliability", "warranty"],
-  "constraints": {"must_have": ["clean title", "no open recall"]},
-  "candidates": [
-    {"name": "Candidate A", "asking_price": 27900, "mileage": 42000, "source": "dealer_listing_a"},
-    {"name": "Candidate B", "asking_price": 29200, "mileage": 35000, "source": "dealer_listing_b"}
-  ]
+  "purchase_type": "property",
+  "item_description": "Find one single-family house with at least 3 bedrooms in ZIP code 03755.",
+  "budget": null,
+  "location": "03755",
+  "priorities": ["single-family house", "at least 3 bedrooms", "03755", "total cost", "condition", "inspection risk"],
+  "constraints": {"property_type": "single-family house", "min_bedrooms": 3, "zip_code": "03755"},
+  "candidates": []
 }

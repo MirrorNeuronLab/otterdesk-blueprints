@@ -33,12 +33,12 @@
   "entity_names": ["Candidate A", "Candidate B", "Candidate C"],
   "purchase_types": ["property", "rental_property", "car", "airline_ticket", "custom"],
   "default_inputs": {
-    "purchase_type": "car",
-    "item_description": "Compare a used hybrid SUV against similar options",
-    "budget": 30000,
-    "location": "Boston, MA",
-    "priorities": ["total cost", "reliability", "warranty"],
-    "constraints": {"must_have": ["clean title", "no open recall"]},
+    "purchase_type": "property",
+    "item_description": "Find one single-family house with at least 3 bedrooms in ZIP code 03755.",
+    "budget": null,
+    "location": "03755",
+    "priorities": ["single-family house", "at least 3 bedrooms", "03755", "total cost", "condition", "inspection risk"],
+    "constraints": {"property_type": "single-family house", "min_bedrooms": 3, "zip_code": "03755"},
     "input_folder": "purchase_research_assistant/examples/sample_inputs",
     "output_folder": "~/Download/purchase_research_assistant"
   },

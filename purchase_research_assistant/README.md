@@ -5,6 +5,8 @@
 
 Purchase Research Assistant studies property, rental property, cars, airline tickets, and custom purchases. Give it a purchase type, item or trip description, budget, priorities, constraints, and an input folder. It retrieves local guidance and approved user evidence, performs bounded public research, explains tradeoffs, and writes a review-only recommendation.
 
+The bundled sample goal is to find one single-family house with at least 3 bedrooms in ZIP code 03755. No budget is assumed; the assistant should return one source-grounded candidate or `insufficient_evidence` when public listing evidence cannot be verified.
+
 ## Quick Start
 
 ```bash

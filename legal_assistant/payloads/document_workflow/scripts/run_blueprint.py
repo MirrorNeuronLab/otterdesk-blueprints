@@ -422,9 +422,123 @@ def resolve_inputs(config: dict[str, Any], inputs: dict[str, Any] | None = None)
     return payload
 
 
+def _looks_like_sandbox_home(path: Path) -> bool:
+    raw = str(path)
+    return raw in {"/root", "/tmp", "/var/root"} or raw.startswith(
+        ("/root/", "/tmp/", "/private/tmp/", "/var/root/", "/var/folders/", "/private/var/folders/")
+    )
+
+
+def _home_from_mirror_neuron_path(value: str | Path | None) -> Path | None:
+    if not value:
+        return None
+    path = Path(value).expanduser()
+    parts = path.parts
+    if ".mn" not in parts:
+        return None
+    marker_index = parts.index(".mn")
+    if marker_index <= 0:
+        return None
+    home = Path(*parts[:marker_index])
+    return home if str(home) and not _looks_like_sandbox_home(home) else None
+
+
+def _home_from_macos_users_dir() -> Path | None:
+    users_dir = Path("/Users")
+    if not users_dir.exists():
+        return None
+    names = [
+        os.environ.get("SUDO_USER"),
+        os.environ.get("LOGNAME"),
+        os.environ.get("USER"),
+    ]
+    for name in names:
+        if not name or name in {"root", "daemon", "nobody"}:
+            continue
+        candidate = users_dir / name
+        if candidate.exists() and not _looks_like_sandbox_home(candidate):
+            return candidate
+    candidates = [
+        path
+        for path in users_dir.iterdir()
+        if path.is_dir()
+        and path.name not in {"Shared", "Guest", "Deleted Users"}
+        and not path.name.startswith(".")
+        and ((path / "Downloads").exists() or (path / ".mn").exists())
+    ]
+    if len(candidates) == 1 and not _looks_like_sandbox_home(candidates[0]):
+        return candidates[0]
+    return None
+
+
+def runtime_user_home() -> Path:
+    for env_name in ("MN_OUTPUT_HOME", "MN_USER_HOME", "OTTERDESK_USER_HOME"):
+        value = os.environ.get(env_name)
+        if value:
+            return Path(value).expanduser()
+    for env_name in ("MN_RUN_DIR", "MN_RUNS_ROOT", "MN_HOME", "OTTERDESK_RUN_DIR", "OTTERDESK_RUNS_ROOT"):
+        home = _home_from_mirror_neuron_path(os.environ.get(env_name))
+        if home:
+            return home
+    expanded = Path("~").expanduser()
+    if not _looks_like_sandbox_home(expanded):
+        return expanded
+    try:
+        import pwd
+
+        account_home = Path(pwd.getpwuid(os.getuid()).pw_dir)
+        if account_home and not _looks_like_sandbox_home(account_home):
+            return account_home
+    except Exception:
+        pass
+    macos_home = _home_from_macos_users_dir()
+    if macos_home:
+        return macos_home
+    return expanded
+
+
+def expand_runtime_path(value: str | Path) -> Path:
+    raw = str(value)
+    if raw == "~":
+        return runtime_user_home()
+    if raw.startswith("~/") or raw.startswith("~\\"):
+        return runtime_user_home() / raw[2:]
+    return Path(raw).expanduser()
+
+
+def resolve_output_folder(
+    payload: dict[str, Any],
+    resolved_config: dict[str, Any],
+    inputs: dict[str, Any] | None = None,
+) -> Path:
+    runtime_output_folder = os.environ.get("MN_JOB_OUTPUT_DIR")
+    if runtime_output_folder:
+        return expand_runtime_path(runtime_output_folder)
+    explicit_output_folder = (inputs or {}).get("output_folder")
+    if explicit_output_folder:
+        return expand_runtime_path(explicit_output_folder)
+    outputs_config = resolved_config.get("outputs") if isinstance(resolved_config.get("outputs"), dict) else {}
+    configured_output_folder = outputs_config.get("output_folder") or outputs_config.get("folder_path")
+    configured_target = payload.get("output_folder") or configured_output_folder
+    if configured_target:
+        return expand_runtime_path(configured_target)
+    return expand_runtime_path(f"outputs/{BLUEPRINT_ID}")
+
+
+def resolve_run_dir(output_folder: Path, run_id: str, runs_root: str | Path | None = None) -> Path:
+    if not runs_root:
+        env_run_dir = os.environ.get("MN_RUN_DIR")
+        if env_run_dir:
+            return expand_runtime_path(env_run_dir)
+    resolved_runs_root = runs_root or os.environ.get("MN_RUNS_ROOT")
+    if resolved_runs_root:
+        return expand_runtime_path(resolved_runs_root) / run_id
+    return output_folder / "runs" / run_id
+
+
 def expand_path(raw: Any, *, root: Path | None = None) -> Path:
     value = str(raw or "").strip() or "."
-    path = Path(value).expanduser()
+    path = expand_runtime_path(value)
     if not path.is_absolute() and root is not None:
         if path.parts and path.parts[0] == root.name:
             path = root.parent / path
@@ -1479,8 +1593,8 @@ def run_blueprint(
     payload = resolve_inputs(resolved_config, inputs)
     run_id = run_id or str(payload.get("run_id") or f"{BLUEPRINT_ID}-{uuid.uuid4().hex[:8]}")
     document_folder = expand_path(payload.get("document_folder") or payload.get("input_folder") or "examples/sample_inputs", root=root)
-    output_folder = expand_path(payload.get("output_folder") or (resolved_config.get("outputs") or {}).get("folder_path") or "~/Downloads/legal_assistant")
-    run_dir = (Path(runs_root).expanduser() if runs_root else output_folder / "runs") / run_id
+    output_folder = resolve_output_folder(payload, resolved_config, inputs)
+    run_dir = resolve_run_dir(output_folder, run_id, runs_root)
     run_dir.mkdir(parents=True, exist_ok=True)
 
     llm = build_llm_client(resolved_config, payload, llm_client)

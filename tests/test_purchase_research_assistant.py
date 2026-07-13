@@ -56,6 +56,43 @@ def test_public_source_block_is_recorded():
     assert source["retrieved_at"]
 
 
+def test_purchase_prompts_are_inside_the_uploaded_worker_bundle():
+    runner = _runner()
+
+    assert runner.PROMPTS.prompt_dir == (
+        ROOT / "purchase_research_assistant" / "payloads" / "document_workflow" / "prompts"
+    )
+    assert "Purchase Research Review Task" in runner.load_prompt("purchase-review-task.md")
+    assert "bounded purchase-research specialist" in runner.load_prompt("recommendation-system.md")
+
+
+def test_purchase_default_sample_targets_03755_property_search():
+    config = json.loads(
+        (ROOT / "purchase_research_assistant" / "config" / "default.json").read_text(encoding="utf-8")
+    )
+    payload = config["inputs"]["payload"]
+
+    assert payload["purchase_type"] == "property"
+    assert payload["location"] == "03755"
+    assert payload["constraints"] == {
+        "property_type": "single-family house",
+        "min_bedrooms": 3,
+        "zip_code": "03755",
+    }
+    assert payload["input_folder"] == "purchase_research_assistant/examples/sample_inputs"
+
+
+def test_purchase_job_output_dir_overrides_worker_local_downloads(monkeypatch, tmp_path):
+    runner = _runner()
+    runtime_output = tmp_path / "shared" / "outputs" / "purchase"
+    monkeypatch.setenv("MN_JOB_OUTPUT_DIR", str(runtime_output))
+
+    assert runner.resolve_output_folder(
+        {"output_folder": "~/Download/purchase_research_assistant"},
+        {"outputs": {"folder_path": str(tmp_path / "configured")}},
+    ) == runtime_output
+
+
 def test_fake_run_writes_review_only_purchase_bundle(tmp_path):
     runner = _runner()
     output = tmp_path / "outputs"

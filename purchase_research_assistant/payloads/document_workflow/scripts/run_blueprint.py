@@ -86,7 +86,7 @@ BLOCKED_ACTIONS = [
     "submit_application_or_offer",
     "contact_seller_provider_or_broker",
 ]
-PROMPTS = PromptLibrary.from_script(__file__, parents_up=2)
+PROMPTS = PromptLibrary.from_script(__file__, parents_up=1)
 
 
 def load_prompt(name: str) -> str:
@@ -173,10 +173,90 @@ def resolve_input_folder(config: dict[str, Any], inputs: dict[str, Any], root: P
     value = inputs.get("input_folder") or (config.get("inputs") or {}).get("payload", {}).get("input_folder")
     if not value:
         return None
-    path = Path(str(value)).expanduser()
+    path = expand_runtime_path(value)
     if not path.is_absolute():
         path = root.parent / path
     return path
+
+
+def _looks_like_sandbox_home(path: Path) -> bool:
+    raw = str(path)
+    return raw in {"/root", "/tmp", "/var/root"} or raw.startswith(
+        ("/root/", "/tmp/", "/private/tmp/", "/var/root/", "/var/folders/", "/private/var/folders/")
+    )
+
+
+def _home_from_mirror_neuron_path(value: str | Path | None) -> Path | None:
+    if not value:
+        return None
+    path = Path(value).expanduser()
+    parts = path.parts
+    if ".mn" not in parts:
+        return None
+    marker_index = parts.index(".mn")
+    if marker_index <= 0:
+        return None
+    home = Path(*parts[:marker_index])
+    return home if str(home) and not _looks_like_sandbox_home(home) else None
+
+
+def _home_from_macos_users_dir() -> Path | None:
+    users_dir = Path("/Users")
+    if not users_dir.exists():
+        return None
+    names = [os.environ.get("SUDO_USER"), os.environ.get("LOGNAME"), os.environ.get("USER")]
+    for name in names:
+        if not name or name in {"root", "daemon", "nobody"}:
+            continue
+        candidate = users_dir / name
+        if candidate.exists() and not _looks_like_sandbox_home(candidate):
+            return candidate
+    candidates = [
+        path
+        for path in users_dir.iterdir()
+        if path.is_dir()
+        and path.name not in {"Shared", "Guest", "Deleted Users"}
+        and not path.name.startswith(".")
+        and ((path / "Downloads").exists() or (path / ".mn").exists())
+    ]
+    if len(candidates) == 1 and not _looks_like_sandbox_home(candidates[0]):
+        return candidates[0]
+    return None
+
+
+def runtime_user_home() -> Path:
+    for env_name in ("MN_OUTPUT_HOME", "MN_USER_HOME", "OTTERDESK_USER_HOME"):
+        value = os.environ.get(env_name)
+        if value:
+            return Path(value).expanduser()
+    for env_name in ("MN_RUN_DIR", "MN_RUNS_ROOT", "MN_HOME", "OTTERDESK_RUN_DIR", "OTTERDESK_RUNS_ROOT"):
+        home = _home_from_mirror_neuron_path(os.environ.get(env_name))
+        if home:
+            return home
+    expanded = Path("~").expanduser()
+    if not _looks_like_sandbox_home(expanded):
+        return expanded
+    try:
+        import pwd
+
+        account_home = Path(pwd.getpwuid(os.getuid()).pw_dir)
+        if account_home and not _looks_like_sandbox_home(account_home):
+            return account_home
+    except Exception:
+        pass
+    macos_home = _home_from_macos_users_dir()
+    if macos_home:
+        return macos_home
+    return expanded
+
+
+def expand_runtime_path(value: str | Path) -> Path:
+    raw = str(value)
+    if raw == "~":
+        return runtime_user_home()
+    if raw.startswith("~/") or raw.startswith("~\\"):
+        return runtime_user_home() / raw[2:]
+    return Path(raw).expanduser()
 
 
 def load_input_documents(folder: Path | None, config: dict[str, Any]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
@@ -612,11 +692,14 @@ def write_user_outputs(final_artifact: dict[str, Any], result: dict[str, Any], c
 
 
 def resolve_output_folder(config: dict[str, Any], inputs: dict[str, Any]) -> Path | None:
+    runtime_output_folder = os.environ.get("MN_JOB_OUTPUT_DIR")
+    if runtime_output_folder:
+        return expand_runtime_path(runtime_output_folder)
     value = inputs.get("output_folder") or (config.get("outputs") or {}).get("folder_path") or DEFAULT_OUTPUT_FOLDER
     value = str(value).strip()
     if not value:
         return None
-    return Path(value).expanduser()
+    return expand_runtime_path(value)
 
 
 def build_artifact_quality(final_artifact: dict[str, Any]) -> dict[str, Any]:

@@ -221,15 +221,37 @@ def test_legal_runner_uses_effective_profile_for_advertised_runtime():
     assert runner.llm_profile_config(config, "contract_playbook_comparator", medium_selection)["strict_json"] is True
 
 
-def test_legal_smoke_run_writes_merged_artifacts(tmp_path):
+def test_legal_runner_resolves_job_output_dir_for_containerized_runs(monkeypatch, tmp_path):
+    runner = _load_runner()
+    output_folder = tmp_path / "shared" / "outputs" / "legal"
+    monkeypatch.setenv("MN_JOB_OUTPUT_DIR", str(output_folder))
+
+    payload = {"output_folder": "~/Downloads/legal_assistant"}
+    resolved_config = {"outputs": {"folder_path": str(tmp_path / "configured")}}
+
+    assert runner.resolve_output_folder(payload, resolved_config, inputs={}) == output_folder
+
+
+def test_legal_runner_keeps_explicit_output_dir_for_local_runs(monkeypatch, tmp_path):
+    runner = _load_runner()
+    explicit_output = tmp_path / "explicit"
+    monkeypatch.delenv("MN_JOB_OUTPUT_DIR", raising=False)
+
+    payload = {"output_folder": "~/Downloads/legal_assistant"}
+    resolved_config = {"outputs": {"folder_path": str(tmp_path / "configured")}}
+
+    assert runner.resolve_output_folder(payload, resolved_config, inputs={"output_folder": str(explicit_output)}) == explicit_output
+
+
+def test_legal_smoke_run_writes_merged_artifacts(tmp_path, monkeypatch):
     runner = _load_runner()
     llm = FakeLegalLLM()
     output_folder = tmp_path / "out"
+    monkeypatch.setenv("MN_JOB_OUTPUT_DIR", str(output_folder))
     result = runner.run_blueprint(
         inputs={
             "document_folder": str(BLUEPRINT_DIR / "examples" / "sample_inputs"),
             "input_folder": str(BLUEPRINT_DIR / "examples" / "sample_inputs"),
-            "output_folder": str(output_folder),
         },
         runs_root=tmp_path / "runs",
         run_id="legal-test",

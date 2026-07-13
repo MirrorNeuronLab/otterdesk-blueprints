@@ -1,9 +1,9 @@
 {
   "schema": "otterdesk.sample_dataset.v1",
   "blueprint_id": "purchase_research_assistant",
-  "description": "Synthetic local purchase request for testing category intake, evidence extraction, RAG, and review-only recommendations.",
+  "description": "Synthetic local property-search request for testing ZIP-constrained purchase intake, evidence extraction, RAG, and review-only recommendations.",
   "files": [
-    {"path": "sample_purchase_request.json", "type": "purchase_request", "contains_pii": false, "intended_use": "offline purchase research smoke test"},
-    {"path": "sample_purchase_notes.md", "type": "purchase_notes", "contains_pii": false, "intended_use": "local evidence and RAG retrieval smoke test"}
+    {"path": "sample_purchase_request.json", "type": "purchase_request", "contains_pii": false, "intended_use": "offline 03755 property research smoke test"},
+    {"path": "sample_purchase_notes.md", "type": "purchase_notes", "contains_pii": false, "intended_use": "local 03755 property evidence and RAG retrieval smoke test"}
   ]
 }

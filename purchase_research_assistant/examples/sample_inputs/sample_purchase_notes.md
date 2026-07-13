@@ -1,7 +1,7 @@
 # Synthetic purchase notes
 
-Candidate A has a clean-title statement and a dealer warranty summary, but the listing does not show registration fees or battery coverage details.
+The bundled goal is to find one single-family house with at least 3 bedrooms in ZIP code 03755.
 
-Candidate B has lower mileage, but the cancellation/return policy and open-recall status are not present in the supplied packet.
+No property listing is supplied in the local packet. Public research must verify the ZIP code, property type, bedroom count, asking price, taxes, insurance, listing freshness, and material inspection or condition risks before presenting one candidate.
 
-The notes are intentionally incomplete so the assistant emits evidence gaps and keeps the recommendation review-only.
+The notes are intentionally incomplete so the assistant preserves evidence gaps and keeps the recommendation review-only.

@@ -1275,6 +1275,7 @@
         "SPEC.md",
         "config/default.json",
         "payloads/",
+        "payloads/document_workflow/prompts/",
         "LICENSE.md",
         "TERM.md"
       ]
@@ -1323,20 +1324,20 @@
       ],
       "fields": [
         {
-          "default": "custom",
+          "default": "property",
           "description": "Choose property, rental_property, car, airline_ticket, or custom.",
           "label": "Purchase type",
           "path": "inputs.payload.purchase_type"
         },
         {
-          "default": "Compare the bundled purchase research sample",
+          "default": "Find one single-family house with at least 3 bedrooms in ZIP code 03755.",
           "description": "Describe the item, listing, vehicle, route, or trip to study.",
           "label": "Item or trip",
           "path": "inputs.payload.item_description"
         },
         {
-          "default": 1000,
-          "description": "Optional budget or price ceiling.",
+          "default": null,
+          "description": "Optional budget or price ceiling; none is set for the bundled sample goal.",
           "label": "Budget",
           "path": "inputs.payload.budget"
         },
@@ -1406,11 +1407,14 @@
         },
         "mock": {
           "adapter": "mock",
-          "description": "Bundled multi-category purchase research sample.",
+          "description": "Bundled ZIP-constrained property research sample.",
           "payload": {
-            "purchase_type": "custom",
-            "item_description": "Compare the bundled purchase research sample",
-            "budget": 1000
+            "purchase_type": "property",
+            "item_description": "Find one single-family house with at least 3 bedrooms in ZIP code 03755.",
+            "budget": null,
+            "location": "03755",
+            "priorities": ["single-family house", "at least 3 bedrooms", "03755", "total cost", "condition", "inspection risk"],
+            "constraints": {"property_type": "single-family house", "min_bedrooms": 3, "zip_code": "03755"}
           }
         },
         "sample_file": {
