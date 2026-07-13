@@ -218,6 +218,7 @@
         "retry_backoff_seconds": 1.0,
         "mock_mode": "fake",
         "mode": "live",
+        "strict_json": false,
         "required": true
       },
       "large": {

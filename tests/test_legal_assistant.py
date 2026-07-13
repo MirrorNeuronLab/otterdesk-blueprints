@@ -206,6 +206,21 @@ def test_legal_runner_selects_cluster_medium_or_small_fallback(monkeypatch):
     assert small["model"] == "docker.io/ai/gemma4:E2B"
 
 
+def test_legal_runner_uses_effective_profile_for_advertised_runtime():
+    runner = _load_runner()
+    config = json.loads((BLUEPRINT_DIR / "config" / "default.json").read_text(encoding="utf-8"))
+
+    small_selection = {"selected_model": "small", "model": "docker.io/ai/gemma4:E2B"}
+    small_profiles = runner.model_profiles_used(config, small_selection)
+    assert small_profiles["contract_playbook_comparator"] == {"llm_config": "primary", "model": "small"}
+    assert runner.llm_profile_config(config, "contract_playbook_comparator", small_selection)["strict_json"] is False
+
+    medium_selection = {"selected_model": "medium", "model": "docker.io/ai/nemotron3:latest"}
+    medium_profiles = runner.model_profiles_used(config, medium_selection)
+    assert medium_profiles["contract_playbook_comparator"] == {"llm_config": "large", "model": "medium"}
+    assert runner.llm_profile_config(config, "contract_playbook_comparator", medium_selection)["strict_json"] is True
+
+
 def test_legal_smoke_run_writes_merged_artifacts(tmp_path):
     runner = _load_runner()
     llm = FakeLegalLLM()

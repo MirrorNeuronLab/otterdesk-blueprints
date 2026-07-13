@@ -910,22 +910,46 @@ def issue_register(
     return issues
 
 
-def model_profiles_used(config: dict[str, Any]) -> dict[str, dict[str, str]]:
+def effective_llm_config_name(
+    config: dict[str, Any],
+    actor_id: str,
+    runtime_selection: dict[str, Any] | None = None,
+) -> str:
+    llm = config.get("llm") if isinstance(config.get("llm"), dict) else {}
+    agents = llm.get("agents") if isinstance(llm.get("agents"), dict) else {}
+    agent = agents.get(actor_id) if isinstance(agents.get(actor_id), dict) else {}
+    profile_name = str(agent.get("llm_config") or llm.get("default_config") or "primary")
+
+    # Heavy actors are authored with the medium/Nemotron profile, but a local
+    # Mac may only advertise the small Gemma runtime. In that case the heavy
+    # profile's strict JSON contract is not compatible with the selected model;
+    # use the existing small-model contract instead of forcing strict parsing.
+    if profile_name == "large" and str((runtime_selection or {}).get("selected_model") or "").lower() == "small":
+        return "primary"
+    return profile_name
+
+
+def model_profiles_used(
+    config: dict[str, Any],
+    runtime_selection: dict[str, Any] | None = None,
+) -> dict[str, dict[str, str]]:
     agents = (config.get("llm") or {}).get("agents") or {}
     configs = (config.get("llm") or {}).get("configs") or {}
     result = {}
     for step in WORKFLOW_STEPS:
-        llm_config = str((agents.get(step) or {}).get("llm_config") or "primary")
+        llm_config = effective_llm_config_name(config, step, runtime_selection)
         model = str((configs.get(llm_config) or {}).get("model") or (config.get("llm") or {}).get("model") or "unknown")
         result[step] = {"llm_config": llm_config, "model": model}
     return result
 
 
-def llm_profile_config(config: dict[str, Any], actor_id: str) -> dict[str, Any]:
+def llm_profile_config(
+    config: dict[str, Any],
+    actor_id: str,
+    runtime_selection: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     llm = config.get("llm") if isinstance(config.get("llm"), dict) else {}
-    agents = llm.get("agents") if isinstance(llm.get("agents"), dict) else {}
-    agent = agents.get(actor_id) if isinstance(agents.get(actor_id), dict) else {}
-    profile_name = str(agent.get("llm_config") or llm.get("default_config") or "primary")
+    profile_name = effective_llm_config_name(config, actor_id, runtime_selection)
     profiles = llm.get("configs") if isinstance(llm.get("configs"), dict) else {}
     profile = profiles.get(profile_name)
     return profile if isinstance(profile, dict) else {}
@@ -1107,7 +1131,8 @@ def llm_generate(
 ) -> dict[str, Any]:
     if llm is None:
         llm = DeterministicLLM()
-    profile = model_profiles_used(config).get(actor_id) or {}
+    runtime_selection = getattr(llm, "runtime_selection", {})
+    profile = model_profiles_used(config, runtime_selection).get(actor_id) or {}
     role = str(actor_spec.get("role") or actor_id.replace("_", " ").title())
     responsibilities = [str(item) for item in actor_spec.get("responsibilities") or [] if str(item)]
     prompt_details = load_prompt(REVIEW_PROMPT_FILES.get(actor_id, "review-artifact-fields.md"))
@@ -1154,7 +1179,7 @@ def llm_generate(
         "unknown_rule": "If evidence is absent, say unknown, not found, ambiguous, or review required; never infer a legal or payable fact.",
     }
     if hasattr(llm, "generate_json"):
-        profile_config = llm_profile_config(config, actor_id)
+        profile_config = llm_profile_config(config, actor_id, runtime_selection)
         previous_values: dict[str, Any] = {}
         for attribute, key in (
             ("timeout_seconds", "timeout_seconds"),
@@ -1546,7 +1571,7 @@ def run_blueprint(
             "issue_count": len(issues),
         },
         "review_boundary": {"review_only": True, "blocked_actions": blocked_actions()},
-        "model_profiles_used": model_profiles_used(resolved_config),
+        "model_profiles_used": model_profiles_used(resolved_config, getattr(llm, "runtime_selection", {})),
         "legal_deep_review": {
             "actors": actor_findings,
             "review_only": True,
