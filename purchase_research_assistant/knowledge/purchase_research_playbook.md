@@ -14,7 +14,7 @@ Use this playbook as a retrieval-grounded checklist for researching any purchase
 
 Every packet should identify the purchase type, item or trip, location or route, timing, budget, priorities, must-have constraints, and decision horizon. Separate the asking price from taxes, fees, financing, insurance, maintenance, subscriptions, deposits, baggage, cancellation, exchange-rate, delivery, or ownership costs. State which cost components are observed and which are missing.
 
-Compare options only on fields that are actually comparable. Keep deterministic facts—prices, dates, distances, quantities, document hashes, fee totals, and source statuses—authoritative. LLM output may explain tradeoffs but must not overwrite those fields or invent a missing number.
+For any purchase, start with need-fit and decision horizon, then build a decision frame covering must-haves, deal-breakers, alternatives, one-time cost, recurring and contingent cost, lifecycle or exit cost, quality, durability, reliability, safety, compatibility, accessibility, privacy, security, policy, warranty, returns, support, seller/provider risk, timing, logistics, eligibility, and regulatory obligations. Skip only dimensions that are genuinely not applicable and say why. Compare options only on fields that are actually comparable. Keep deterministic facts—prices, dates, distances, quantities, document hashes, fee totals, and source statuses—authoritative. LLM output may explain tradeoffs but must not overwrite those fields or invent a missing number.
 
 ## Property and rental property
 

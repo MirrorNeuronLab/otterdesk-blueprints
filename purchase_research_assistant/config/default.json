@@ -125,9 +125,27 @@
     "name": "Purchase Research Assistant"
   },
   "input_skills": {
-    "llm_ocr": {"skill": "llm_ocr_skill", "package": "mirrorneuron-llm-ocr-skill", "enabled": true, "required": false, "min_text_chars": 40},
-    "w3m_browser": {"skill": "w3m_browser_skill", "package": "mirrorneuron-w3m-browser-skill", "enabled": true, "required": false, "purpose": "Primary public text-browser research."},
-    "web_browser": {"skill": "web_browser_skill", "package": "mirrorneuron-web-browser-skill", "enabled": true, "required": false, "purpose": "Optional rendered-browser fallback."}
+    "llm_ocr": {
+      "skill": "llm_ocr_skill",
+      "package": "mirrorneuron-llm-ocr-skill",
+      "enabled": true,
+      "required": false,
+      "min_text_chars": 40
+    },
+    "w3m_browser": {
+      "skill": "w3m_browser_skill",
+      "package": "mirrorneuron-w3m-browser-skill",
+      "enabled": true,
+      "required": false,
+      "purpose": "Primary public text-browser research."
+    },
+    "web_browser": {
+      "skill": "web_browser_skill",
+      "package": "mirrorneuron-web-browser-skill",
+      "enabled": true,
+      "required": false,
+      "purpose": "Optional rendered-browser fallback."
+    }
   },
   "inputs": {
     "adapter": "mock",
@@ -139,8 +157,19 @@
       "location": "03755",
       "route": "",
       "travel_dates": "",
-      "priorities": ["single-family house", "at least 3 bedrooms", "03755", "total cost", "condition", "inspection risk"],
-      "constraints": {"property_type": "single-family house", "min_bedrooms": 3, "zip_code": "03755"},
+      "priorities": [
+        "single-family house",
+        "at least 3 bedrooms",
+        "03755",
+        "total cost",
+        "condition",
+        "inspection risk"
+      ],
+      "constraints": {
+        "property_type": "single-family house",
+        "min_bedrooms": 3,
+        "zip_code": "03755"
+      },
       "input_folder": "purchase_research_assistant/examples/sample_inputs",
       "output_folder": "~/Download/purchase_research_assistant"
     }
@@ -382,7 +411,6 @@
     "agents": {
       "purchase:intake": {
         "llm_config": "primary",
-        "model": "small",
         "role": "Purchase intake and category reviewer",
         "responsibilities": [
           "Classify the purchase type and normalize the user request.",
@@ -392,7 +420,6 @@
       },
       "purchase:price_research": {
         "llm_config": "primary",
-        "model": "small",
         "role": "Price and availability researcher",
         "responsibilities": [
           "Collect public price and availability evidence.",
@@ -402,7 +429,6 @@
       },
       "purchase:total_cost": {
         "llm_config": "primary",
-        "model": "small",
         "role": "Total-cost and fee analyst",
         "responsibilities": [
           "Identify taxes, fees, ownership costs, and recurring charges.",
@@ -412,7 +438,6 @@
       },
       "purchase:policy_risk": {
         "llm_config": "primary",
-        "model": "small",
         "role": "Policy, warranty, and risk reviewer",
         "responsibilities": [
           "Review return, cancellation, warranty, insurance, and condition evidence.",
@@ -422,7 +447,6 @@
       },
       "purchase:alternatives": {
         "llm_config": "primary",
-        "model": "small",
         "role": "Alternatives comparer",
         "responsibilities": [
           "Compare options on the user’s stated priorities.",
@@ -432,7 +456,6 @@
       },
       "purchase:recommender": {
         "llm_config": "primary",
-        "model": "small",
         "role": "Purchase recommendation reviewer",
         "responsibilities": [
           "Choose only buy, consider, wait, avoid, or insufficient_evidence.",
@@ -442,7 +465,6 @@
       },
       "purchase:auditor": {
         "llm_config": "primary",
-        "model": "small",
         "role": "Evidence and review-boundary auditor",
         "responsibilities": [
           "Check source traceability and deterministic-field invariance.",
@@ -452,7 +474,6 @@
       },
       "purchase:report_writer": {
         "llm_config": "primary",
-        "model": "small",
         "role": "Purchase research report writer",
         "responsibilities": [
           "Prepare the review-only purchase research report.",
@@ -467,31 +488,21 @@
       "Keep purchase recommendations review-only and source-referenced."
     ],
     "provider": "docker_model_runner",
-    "model": "small",
-    "runtime_model": "small",
+    "model": "default",
     "backend": "llama.cpp",
     "mode": "live",
     "mock_mode": "fake",
     "default_config": "primary",
-    "live_model_profile": {
-      "provider": "docker_model_runner",
-      "runtime_model": "small",
-      "api_base": "http://localhost:12434/engines/v1",
-      "backend": "llama.cpp",
-      "mock_fallback": "fake_for_quick_test_only"
-    },
     "quick_test_uses_fake": true,
     "strict_json": false,
     "prefer_shared_skill": true,
     "configs": {
       "primary": {
         "provider": "docker_model_runner",
-        "model": "small",
-        "runtime_model": "small",
         "backend": "llama.cpp",
-        "api_base": "http://localhost:12434/engines/v1",
+        "api_base": "auto",
         "timeout_seconds": 60,
-        "max_tokens": 900,
+        "max_tokens": 1200,
         "num_retries": 1,
         "mock_mode": "fake",
         "mode": "live"
@@ -651,8 +662,8 @@
     "blueprint_id": "purchase_research_assistant",
     "blueprint_revision": "v1",
     "category": "finance",
-    "customizable_for": "Property, rental property, car, airline ticket, travel, equipment, and custom purchase research.",
-    "description": "A purchase research co-worker for studying property, rental property, car, airline ticket, and custom purchases. Give it the purchase type, item or trip details, budget, priorities, constraints, and an input folder; it uses local knowledge, user evidence, and bounded public research to explain tradeoffs and write a review-ready recommendation to the output folder.",
+    "customizable_for": "Any purchase, including property, rental property, cars, travel, equipment, services, subscriptions, software, and custom goods.",
+    "description": "A general purchase research co-worker using the deeper DMR profile for early intake and planning. It studies property, rental property, cars, travel, equipment, services, subscriptions, software, and custom purchases with local knowledge, user evidence, and bounded public research.",
     "llm_agent_role": "AI assistant for researching purchases and drafting source-grounded comparisons.",
     "name": "Purchase Research Assistant",
     "problem_solved": "Purchase decisions depend on scattered prices, fees, policies, condition, availability, and source quality that are easy to miss across documents and public pages.",

@@ -2,14 +2,14 @@
 
 ## Purpose
 
-Provide a source-grounded purchase study workflow for consumers, travelers, vehicle buyers, renters, property buyers, and analysts. The workflow turns a purchase request plus local evidence into a comparison, risk review, evidence-gap list, and review-only recommendation.
+Provide a source-grounded purchase study workflow for any consumer or business purchase. The workflow turns a purchase request plus local evidence into a comparison, risk review, evidence-gap list, and review-only recommendation.
 
 ## Workflow
 
 1. Normalize the purchase category and user request.
 2. Read approved local evidence using direct text extraction or the shared OCR skill.
 3. Retrieve relevant checked-in guidance and user-document evidence through isolated per-run RAG.
-4. Plan privacy-safe public queries and collect public price, availability, fee, policy, and risk evidence.
+4. Use the deeper DMR research profile for early intake and research planning, then collect privacy-safe public price, availability, fee, policy, and risk evidence.
 5. Run bounded specialists for price, total cost, policies, risks, alternatives, recommendation, audit, and reporting.
 6. Preserve deterministic fields, source references, retrieval timestamps, warnings, and human review boundaries.
 
@@ -18,7 +18,7 @@ Provide a source-grounded purchase study workflow for consumers, travelers, vehi
 - Property and rental property: ownership or lease terms, taxes, insurance, inspections, utilities, deposits, maintenance, and occupancy evidence.
 - Cars: identity, title, mileage, recalls, inspection, warranty, financing, insurance, taxes, registration, and maintenance.
 - Airline tickets: fare rules, taxes, baggage, seats, changes, cancellation, refunds, schedule, connections, and entry requirements.
-- Custom purchases: quoted price, delivery, subscription, warranty, return, compatibility, seller identity, and service terms.
+- Any other purchase: identify the category-specific fit, quality, compatibility, lifecycle, policy, provider, safety, privacy, regulatory, logistics, and exit questions before comparing options.
 
 ## Research Boundaries
 

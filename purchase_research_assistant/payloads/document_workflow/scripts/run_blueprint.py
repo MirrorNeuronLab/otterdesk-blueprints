@@ -48,7 +48,7 @@ from mn_blueprint_support import (  # noqa: E402
     PromptLibrary,
     architecture_contract,
     create_runtime_context,
-    get_llm_client,
+    get_actor_llm_client,
     llm_usage,
     load_config,
     resolve_actor_specs,
@@ -397,7 +397,16 @@ def _chunks(text: str, size: int) -> list[str]:
     return [" ".join(words[index : index + size]) for index in range(0, len(words), size)] or [""]
 
 
-def build_public_queries(inputs: dict[str, Any]) -> list[str]:
+def build_public_queries(inputs: dict[str, Any], intake_plan: dict[str, Any] | None = None) -> list[str]:
+    intake_plan = intake_plan if isinstance(intake_plan, dict) else {}
+    constraint_parts = []
+    for key, value in (inputs.get("constraints") or {}).items():
+        safe_value = sanitize_public_text(value)
+        safe_key = sanitize_public_text(key)
+        if safe_key and safe_value:
+            constraint_parts.append(f"{safe_key} {safe_value}")
+    priority_parts = [sanitize_public_text(item) for item in inputs.get("priorities") or []]
+    plan_topics = [sanitize_public_text(item) for item in intake_plan.get("public_query_topics") or []]
     base = " ".join(
         part for part in [
             inputs.get("purchase_type"),
@@ -405,23 +414,46 @@ def build_public_queries(inputs: dict[str, Any]) -> list[str]:
             sanitize_public_text(inputs.get("location", "")),
             sanitize_public_text(inputs.get("route", "")),
             sanitize_public_text(inputs.get("travel_dates", "")),
+            *priority_parts,
+            *constraint_parts,
         ] if part
     ).strip()
     if not base:
         return []
+    generic_topics = [
+        "current price availability and comparable alternatives",
+        "full total cost taxes fees recurring usage maintenance delivery and exit costs",
+        "quality reliability safety compatibility warranty returns and support",
+        "seller provider reputation policy eligibility privacy security and regulatory risks",
+        "timing logistics constraints and what to verify before purchase",
+    ]
     topics = {
         "property": ["market price taxes insurance inspection risks", "comparable listings fees ownership costs"],
         "rental_property": ["rent yield operating costs insurance tenant risks", "lease terms deposits maintenance fees"],
         "car": ["market price reliability ownership cost warranty recalls", "taxes registration insurance maintenance fees"],
         "airline_ticket": ["fare rules baggage seat fees cancellation change policy", "airport taxes schedule reliability alternatives"],
-        "custom": ["price total cost warranty return policy risks", "alternatives reviews availability fees"],
+        "custom": ["category-specific price availability and alternatives", "category-specific quality policy compatibility and risks"],
     }
-    return [f"{base} {topic}" for topic in topics.get(inputs.get("purchase_type"), topics["custom"])]
+    selected_topics = list(dict.fromkeys([*plan_topics, *generic_topics, *topics.get(inputs.get("purchase_type"), topics["custom"])]))
+    return [f"{base} {topic}" for topic in selected_topics if topic][:8]
 
 
 def sanitize_public_text(value: Any) -> str:
     text = str(value or "")
-    blocked = ("raw_document_text", "private_financial", "account number", "password", "ssn", "confidential", "contact details")
+    blocked = (
+        "raw_document_text",
+        "private_financial",
+        "private financial",
+        "account number",
+        "account_number",
+        "password",
+        "ssn",
+        "confidential",
+        "contact details",
+        "customer name",
+        "email",
+        "phone",
+    )
     lowered = text.lower()
     if any(marker in lowered for marker in blocked):
         return ""
@@ -596,6 +628,72 @@ def deterministic_recommendation(evidence: dict[str, Any], sources: list[dict[st
     }
 
 
+def _normalize_intake_plan(response: Any, inputs: dict[str, Any]) -> dict[str, Any]:
+    fallback = {
+        "normalized_goal": str(inputs.get("item_description") or "Study the requested purchase."),
+        "category": str(inputs.get("purchase_type") or "custom"),
+        "must_haves": list(inputs.get("priorities") or []),
+        "deal_breakers": [],
+        "decision_criteria": [
+            "fit to the stated need",
+            "total cost over the decision horizon",
+            "quality, reliability, and safety",
+            "terms, policy, and provider risk",
+            "credible alternatives",
+        ],
+        "research_questions": [
+            "What facts could materially change the decision?",
+            "What is the total cost beyond the advertised price?",
+            "What evidence is needed to verify quality, terms, and risk?",
+        ],
+        "public_query_topics": [],
+        "unknowns": [],
+    }
+    if not isinstance(response, dict):
+        return fallback
+    normalized = dict(fallback)
+    for key in ("normalized_goal", "category"):
+        value = str(response.get(key) or "").strip()
+        if value:
+            normalized[key] = value[:500]
+    for key in ("must_haves", "deal_breakers", "decision_criteria", "research_questions", "public_query_topics", "unknowns"):
+        values = response.get(key)
+        if isinstance(values, str):
+            values = [values]
+        if isinstance(values, (list, tuple, set)):
+            cleaned = [str(item).strip()[:400] for item in values if str(item).strip()]
+            normalized[key] = list(dict.fromkeys(cleaned))[:12]
+    return normalized
+
+
+def ask_llm_for_intake(llm: Any, inputs: dict[str, Any], documents: list[dict[str, Any]], knowledge: dict[str, Any]) -> dict[str, Any]:
+    """Use the research model before retrieval so early workflow stages are model-guided."""
+    fallback = _normalize_intake_plan({}, inputs)
+    local_evidence = [
+        {"source_ref": item.get("source_ref"), "name": item.get("name"), "text": _compact(item.get("text") or "", 2500)}
+        for item in documents[:8]
+    ]
+    user = json.dumps(
+        {
+            "inputs": inputs,
+            "local_evidence": local_evidence,
+            "available_guidance": [item.get("name") for item in knowledge.get("files") or []],
+            "output_contract": list(fallback.keys()),
+        },
+        sort_keys=True,
+        default=str,
+    )
+    try:
+        response = llm.generate_json(
+            system_prompt=load_prompt("purchase-intake-task.md"),
+            user_prompt=user,
+            fallback=fallback,
+        )
+    except Exception:
+        response = fallback
+    return _normalize_intake_plan(response, inputs)
+
+
 def _status_counts(records: list[dict[str, Any]]) -> dict[str, int]:
     counts: dict[str, int] = {}
     for item in records:
@@ -624,7 +722,7 @@ def ask_llm_for_recommendation(llm: Any, inputs: dict[str, Any], evidence: dict[
     return {"label": label, "confidence": confidence, "rationale": str(response.get("rationale") or fallback["rationale"])[:2000]}
 
 
-def build_final_artifact(inputs: dict[str, Any], evidence: dict[str, Any], recommendation: dict[str, Any], rag: dict[str, Any], sources: list[dict[str, Any]], warnings: list[dict[str, Any]], documents: list[dict[str, Any]], actor_findings: dict[str, Any], run_id: str) -> dict[str, Any]:
+def build_final_artifact(inputs: dict[str, Any], evidence: dict[str, Any], recommendation: dict[str, Any], rag: dict[str, Any], sources: list[dict[str, Any]], warnings: list[dict[str, Any]], documents: list[dict[str, Any]], actor_findings: dict[str, Any], run_id: str, intake_plan: dict[str, Any] | None = None) -> dict[str, Any]:
     source_refs = list(dict.fromkeys(["inputs.json", "events.jsonl", "result.json", *(evidence.get("source_refs") or []), *(rag.get("citations") or []), *(item.get("source_ref") for item in sources if item.get("source_ref"))]))
     return {
         "type": OUTPUT_TYPE,
@@ -638,6 +736,7 @@ def build_final_artifact(inputs: dict[str, Any], evidence: dict[str, Any], recom
         "recommended_action": recommendation.get("label"),
         "confidence": recommendation.get("confidence"),
         "recommendation_rationale": recommendation.get("rationale"),
+        "intake_plan": intake_plan or {},
         "evidence": {"deterministic": evidence, "documents": [{key: value for key, value in item.items() if key != "text"} for item in documents], "public_sources": sources},
         "risk_flags": recommendation.get("risk_flags") or [],
         "evidence_gaps": recommendation.get("evidence_gaps") or [],
@@ -715,6 +814,7 @@ def build_artifact_quality(final_artifact: dict[str, Any]) -> dict[str, Any]:
 
 def render_markdown(artifact: dict[str, Any]) -> str:
     evidence = artifact.get("evidence") or {}
+    intake_plan = artifact.get("intake_plan") or {}
     lines = [
         "# Purchase Research Report",
         "",
@@ -728,6 +828,11 @@ def render_markdown(artifact: dict[str, Any]) -> str:
         "",
         "## Rationale",
         str(artifact.get("recommendation_rationale") or ""),
+        "",
+        "## Purchase Decision Frame",
+        f"- Goal: {intake_plan.get('normalized_goal') or 'Not specified'}",
+        f"- Criteria: {', '.join(intake_plan.get('decision_criteria') or []) or 'Not specified'}",
+        f"- Unknowns: {', '.join(intake_plan.get('unknowns') or []) or 'None recorded.'}",
         "",
         "## Deterministic Evidence",
         f"- Documents reviewed: {evidence.get('deterministic', {}).get('document_count', 0)}",
@@ -782,16 +887,28 @@ def run_blueprint(
     adapter_inputs, input_source = resolve_input_overrides(resolved_config)
     runtime_inputs = normalize_inputs({**((resolved_config.get("inputs") or {}).get("payload") or {}), **adapter_inputs, **(inputs or {})})
     root = _script_blueprint_root()
-    llm_mode = str((resolved_config.get("llm") or {}).get("mode") or "ollama")
-    llm = llm_client or get_llm_client("fake" if llm_mode in {"fake", "mock"} else None)
+    llm_config = resolved_config.get("llm") if isinstance(resolved_config.get("llm"), dict) else {}
+    llm_mode = str(llm_config.get("mode") or "live").lower()
+    llm = get_actor_llm_client(resolved_config, llm_client)
     context = create_runtime_context(BLUEPRINT_ID, resolved_config, runtime_inputs, input_source)
     context.start()
     try:
         folder = resolve_input_folder(resolved_config, runtime_inputs, root)
         documents, document_warnings = load_input_documents(folder, resolved_config)
         knowledge = load_purchase_knowledge(root)
+        intake_plan = ask_llm_for_intake(llm, runtime_inputs, documents, knowledge)
+        context.event(
+            "purchase_intake_completed",
+            {
+                "category": intake_plan.get("category"),
+                "criteria_count": len(intake_plan.get("decision_criteria") or []),
+                "research_question_count": len(intake_plan.get("research_questions") or []),
+                "unknown_count": len(intake_plan.get("unknowns") or []),
+            },
+        )
         rag = prepare_purchase_rag(resolved_config, root, knowledge, documents, context.run_id)
-        rag_query = " ".join(build_public_queries(runtime_inputs))
+        research_queries = build_public_queries(runtime_inputs, intake_plan)
+        rag_query = " ".join(research_queries)
         local_retrieval = retrieve_purchase_rag_context(rag_query, rag, knowledge, documents, max_chars=int((resolved_config.get("knowledge_rag") or {}).get("max_context_chars", 6000)))
         rag["context"] = local_retrieval["context"]
         rag["citations"] = local_retrieval["citations"]
@@ -801,7 +918,7 @@ def run_blueprint(
         rag.pop("_rag_config", None)
         context.event("inputs_loaded", {"purchase_type": runtime_inputs["purchase_type"], "document_count": len(documents), "input_folder": str(folder) if folder else None})
         context.event("knowledge_rag_prepared", {"status": rag.get("status"), "citations": rag.get("citations", []), "user_documents_indexed": len(rag.get("user_documents_indexed") or [])})
-        sources, web_warnings = research_public_sources(build_public_queries(runtime_inputs), resolved_config, quick_test=llm_mode in {"fake", "mock"} or bool((resolved_config.get("execution") or {}).get("quick_test")))
+        sources, web_warnings = research_public_sources(research_queries, resolved_config, quick_test=llm_mode in {"fake", "mock"} or bool((resolved_config.get("execution") or {}).get("quick_test")))
         context.event("public_research_completed", {"source_count": len(sources), "warning_count": len(web_warnings)})
         evidence = deterministic_evidence(runtime_inputs, documents, sources)
         deterministic = deterministic_recommendation(evidence, sources)
@@ -813,11 +930,11 @@ def run_blueprint(
             actor_ids=list(resolve_actor_specs(resolved_config).keys()),
             state=actor_state,
             task=load_prompt("purchase-review-task.md"),
-            context={"inputs": runtime_inputs, "evidence": evidence, "recommendation": recommendation, "rag": rag, "sources": sources},
+            context={"inputs": runtime_inputs, "intake_plan": intake_plan, "evidence": evidence, "recommendation": recommendation, "rag": rag, "sources": sources},
             event_sink=context,
         )
         warnings = [*document_warnings, *rag.get("warnings", []), *web_warnings]
-        final = build_final_artifact(runtime_inputs, evidence, recommendation, rag, sources, warnings, documents, actor_findings, context.run_id)
+        final = build_final_artifact(runtime_inputs, evidence, recommendation, rag, sources, warnings, documents, actor_findings, context.run_id, intake_plan=intake_plan)
         result = {
             "identity": {"blueprint_id": BLUEPRINT_ID, "name": BLUEPRINT_NAME, "run_id": context.run_id},
             "blueprint": BLUEPRINT_ID,
@@ -828,6 +945,7 @@ def run_blueprint(
             "architecture": architecture_contract(resolved_config, input_source),
             "config": resolved_config,
             "inputs": runtime_inputs,
+            "intake_plan": intake_plan,
             "input_source": input_source,
             "runtime_features": ["local and user-document RAG", "privacy-safe public web research", "bounded specialist reviews", "deterministic evidence checks", "human review gate"],
             "knowledge_rag": rag,

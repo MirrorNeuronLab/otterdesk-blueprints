@@ -2,7 +2,7 @@
   "blueprint_id": "purchase_research_assistant",
   "name": "Purchase Research Assistant",
   "category": "finance",
-  "description": "A general purchase research co-worker for property, rental property, car, airline ticket, and custom purchase comparisons.",
+  "description": "A general purchase research co-worker for any good, service, property, vehicle, trip, subscription, equipment, or custom purchase comparison.",
   "llm_role": "AI assistant for researching purchases and drafting source-grounded comparisons.",
   "agent_responsibilities": [
     "classify the purchase and normalize the request",

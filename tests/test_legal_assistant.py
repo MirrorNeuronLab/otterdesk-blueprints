@@ -106,19 +106,16 @@ def test_legal_model_profiles_assign_large_to_heavy_nodes():
     config = json.loads((BLUEPRINT_DIR / "config" / "default.json").read_text(encoding="utf-8"))
     manifest = json.loads((BLUEPRINT_DIR / "manifest.json").read_text(encoding="utf-8"))
 
-    assert config["llm"]["model"] == "small"
-    assert config["llm"]["runtime_model"] == "small"
-    assert config["llm"]["preferred_model"] == "medium"
-    assert config["llm"]["configs"]["primary"]["model"] == "small"
-    assert config["llm"]["configs"]["large"]["model"] == "medium"
-    assert config["llm"]["configs"]["large"]["max_tokens"] > config["llm"]["configs"]["primary"]["max_tokens"]
-    assert config["llm"]["configs"]["large"]["hardware"]["gpu"]["min_memory_mb"] == 49152
+    assert config["llm"]["model"] == "default"
+    assert "runtime_model" not in config["llm"]
+    assert "preferred_model" not in config["llm"]
+    assert "model" not in config["llm"]["configs"]["primary"]
+    assert set(config["llm"]["configs"]) == {"primary"}
     for step, spec in config["llm"]["agents"].items():
-        expected = "large" if step in HEAVY_STEPS else "primary"
-        assert spec["llm_config"] == expected, step
+        assert spec["llm_config"] == "primary", step
 
     assert set(manifest["workers"]["by_step"]) == HEAVY_STEPS
-    assert all(item["with"]["llm_config"] == "large" for item in manifest["workers"]["by_step"].values())
+    assert all(item["with"]["llm_config"] == "primary" for item in manifest["workers"]["by_step"].values())
 
 
 def test_legal_source_manifest_expands_with_terminal_sink():
@@ -133,8 +130,8 @@ def test_legal_source_manifest_expands_with_terminal_sink():
         for edge in expanded["agents"]["edges"]
     )
     rendered_reporter = next(node for node in expanded["agents"]["nodes"] if node["node_id"] == "legal_reporter")
-    assert rendered_reporter["config"]["llm_config"] == "large"
-    assert rendered_reporter["config"]["environment"]["MN_LLM_CONFIG"] == "large"
+    assert rendered_reporter["config"]["llm_config"] == "primary"
+    assert rendered_reporter["config"]["environment"]["MN_LLM_CONFIG"] == "primary"
     assert expanded["runtime"]["resources"]["gpu"] == {"min_count": 0}
 
 
@@ -184,7 +181,7 @@ def test_legal_runner_selects_cluster_medium_or_small_fallback(monkeypatch):
             }
         ),
     )
-    medium = runner.select_runtime_llm_model(config)
+    medium = runner.select_default_model(config)
     assert medium["selected_model"] == "medium"
     assert medium["runtime_model"] == "docker.io/ai/nemotron3:latest"
     assert medium["node"] == "mirror_neuron@gpu-node"
@@ -201,7 +198,7 @@ def test_legal_runner_selects_cluster_medium_or_small_fallback(monkeypatch):
             }
         ),
     )
-    small = runner.select_runtime_llm_model(config)
+    small = runner.select_default_model(config)
     assert small["selected_model"] == "small"
     assert small["model"] == "docker.io/ai/gemma4:E2B"
 
@@ -212,13 +209,13 @@ def test_legal_runner_uses_effective_profile_for_advertised_runtime():
 
     small_selection = {"selected_model": "small", "model": "docker.io/ai/gemma4:E2B"}
     small_profiles = runner.model_profiles_used(config, small_selection)
-    assert small_profiles["contract_playbook_comparator"] == {"llm_config": "primary", "model": "small"}
+    assert small_profiles["contract_playbook_comparator"] == {"llm_config": "primary", "model": "default"}
     assert runner.llm_profile_config(config, "contract_playbook_comparator", small_selection)["strict_json"] is False
 
     medium_selection = {"selected_model": "medium", "model": "docker.io/ai/nemotron3:latest"}
     medium_profiles = runner.model_profiles_used(config, medium_selection)
-    assert medium_profiles["contract_playbook_comparator"] == {"llm_config": "large", "model": "medium"}
-    assert runner.llm_profile_config(config, "contract_playbook_comparator", medium_selection)["strict_json"] is True
+    assert medium_profiles["contract_playbook_comparator"] == {"llm_config": "primary", "model": "default"}
+    assert runner.llm_profile_config(config, "contract_playbook_comparator", medium_selection)["strict_json"] is False
 
 
 def test_legal_runner_resolves_job_output_dir_for_containerized_runs(monkeypatch, tmp_path):

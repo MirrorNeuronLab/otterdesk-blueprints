@@ -41,8 +41,10 @@ from mn_blueprint_support import (
     DeterministicFallbackLLM,
     PromptLibrary,
     append_event_jsonl,
+    fake_llm_mode_enabled,
     get_actor_llm_client,
     load_resolved_config as load_shared_resolved_config,
+    select_default_model,
     start_agent_beacon_thread,
 )
 
@@ -563,24 +565,12 @@ def classify_document(text: str, filename: str) -> str:
     return "supporting_document"
 
 
-def env_truthy(*names: str) -> bool:
-    return any(str(os.environ.get(name, "")).strip().lower() in {"1", "true", "yes", "on"} for name in names)
-
-
 def fake_llm_requested(config: dict[str, Any], payload: dict[str, Any] | None = None) -> bool:
-    llm = config.get("llm") if isinstance(config.get("llm"), dict) else {}
-    execution = config.get("execution") if isinstance(config.get("execution"), dict) else {}
-    payload = payload or {}
-    fake_values = {"fake", "mock", "deterministic", "test"}
-    env_mode = str(os.environ.get("MN_LLM_MODE") or os.environ.get("LITELLM_MODE") or "").strip().lower()
-    env_provider = str(os.environ.get("MN_LLM_PROVIDER") or os.environ.get("LITELLM_PROVIDER") or "").strip().lower()
-    if env_mode in fake_values or env_provider in fake_values:
-        return True
-    if env_truthy("MN_BLUEPRINT_QUICK_TEST", "MN_QUICK_TEST") and bool(llm.get("quick_test_uses_fake", False)):
-        return True
-    if bool(execution.get("quick_test")) or bool(payload.get("quick_test")):
-        return bool(llm.get("quick_test_uses_fake", True))
-    return str(llm.get("mode") or "").strip().lower() in fake_values
+    if not payload or not payload.get("quick_test"):
+        return fake_llm_mode_enabled(config)
+    merged = copy.deepcopy(config)
+    merged.setdefault("execution", {})["quick_test"] = True
+    return fake_llm_mode_enabled(merged)
 
 
 def _ocr_skill_config(config: dict[str, Any]) -> dict[str, Any]:
@@ -1086,100 +1076,6 @@ def configured_llm_review_agents(config: dict[str, Any]) -> list[str]:
     return [actor_id for actor_id in candidates if actor_id in agents]
 
 
-def _runtime_model_endpoints() -> dict[str, dict[str, Any]]:
-    raw = str(os.environ.get("MN_MODEL_ENDPOINTS_JSON") or "").strip()
-    if not raw:
-        return {}
-    try:
-        decoded = json.loads(raw)
-    except json.JSONDecodeError:
-        return {}
-    if not isinstance(decoded, dict):
-        return {}
-    return {
-        str(key).strip().lower(): value
-        for key, value in decoded.items()
-        if str(key).strip() and isinstance(value, dict)
-    }
-
-
-def _endpoint_contains_model(endpoint_key: str, endpoint: dict[str, Any], needle: str) -> bool:
-    values = [endpoint_key]
-    values.extend(str(endpoint.get(field) or "") for field in ("model", "runtime_model", "api_model"))
-    return needle in " ".join(values).lower()
-
-
-def select_runtime_llm_model(config: dict[str, Any]) -> dict[str, Any]:
-    """Select the live model from runtime-advertised cluster endpoints.
-
-    MirrorNeuron exposes only usable model endpoints in
-    ``MN_MODEL_ENDPOINTS_JSON``. A Nemotron endpoint means a capable cluster
-    node is available; otherwise the model catalog's Gemma fallback is used.
-    ``MN_PREPARED_RUNTIME_MODELS_JSON`` is deliberately not treated as proof
-    of capability because it also records a requested model that resolved to a
-    fallback during preparation.
-    """
-    llm = config.get("llm") if isinstance(config.get("llm"), dict) else {}
-    configs = llm.get("configs") if isinstance(llm.get("configs"), dict) else {}
-    primary = configs.get("primary") if isinstance(configs.get("primary"), dict) else {}
-    endpoints = _runtime_model_endpoints()
-
-    medium_endpoint = next(
-        (
-            endpoint
-            for key, endpoint in endpoints.items()
-            if _endpoint_contains_model(key, endpoint, "nemotron3")
-        ),
-        None,
-    )
-    if medium_endpoint is not None:
-        model = str(
-            medium_endpoint.get("api_model")
-            or medium_endpoint.get("model")
-            or medium_endpoint.get("runtime_model")
-            or "docker.io/ai/nemotron3:latest"
-        )
-        return {
-            "requested_model": str(llm.get("preferred_model") or "medium"),
-            "selected_model": "medium",
-            "runtime_model": str(medium_endpoint.get("runtime_model") or model),
-            "model": model,
-            "provider": str(medium_endpoint.get("provider") or "docker_model_runner"),
-            "api_base": str(medium_endpoint.get("api_base") or ""),
-            "node": str(medium_endpoint.get("node") or ""),
-            "reason": "cluster_advertised_nemotron3_endpoint",
-            "source": "MN_MODEL_ENDPOINTS_JSON",
-        }
-
-    small_endpoint = next(
-        (
-            endpoint
-            for key, endpoint in endpoints.items()
-            if _endpoint_contains_model(key, endpoint, "gemma4")
-            or _endpoint_contains_model(key, endpoint, "small")
-        ),
-        None,
-    )
-    model = str(
-        (small_endpoint or {}).get("api_model")
-        or (small_endpoint or {}).get("model")
-        or os.environ.get("MN_LLM_MODEL")
-        or primary.get("model")
-        or "small"
-    )
-    return {
-        "requested_model": str(llm.get("preferred_model") or "medium"),
-        "selected_model": "small",
-        "runtime_model": str((small_endpoint or {}).get("runtime_model") or model),
-        "model": model,
-        "provider": str((small_endpoint or {}).get("provider") or primary.get("provider") or "docker_model_runner"),
-        "api_base": str((small_endpoint or {}).get("api_base") or os.environ.get("MN_LLM_API_BASE") or ""),
-        "node": str((small_endpoint or {}).get("node") or ""),
-        "reason": "no_cluster_advertised_nemotron3_endpoint",
-        "source": "MN_MODEL_ENDPOINTS_JSON" if endpoints else "blueprint_small_fallback",
-    }
-
-
 def build_llm_client(config: dict[str, Any], payload: dict[str, Any], llm_client: Any | None) -> Any:
     if llm_client is not None:
         return llm_client
@@ -1190,7 +1086,7 @@ def build_llm_client(config: dict[str, Any], payload: dict[str, Any], llm_client
             "Legal Assistant requires the shared live LLM client for normal runs. "
             "Install/enable mirrorneuron-litellm-communicate-skill or run with explicit fake/quick-test mode."
         )
-    selection = select_runtime_llm_model(config)
+    selection = select_default_model(config)
     selection_env = {
         "MN_LLM_MODEL": selection.get("model"),
         "MN_LLM_RUNTIME_MODEL": selection.get("runtime_model"),

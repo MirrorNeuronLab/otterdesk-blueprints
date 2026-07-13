@@ -408,7 +408,6 @@
     "agents": {
       "research:topic_finder": {
         "llm_config": "primary",
-        "model": "small",
         "role": "Research goal framer",
         "responsibilities": [
           "Turn the goal into answerable questions and definitions.",
@@ -418,7 +417,6 @@
       },
       "research:literature_reviewer": {
         "llm_config": "primary",
-        "model": "small",
         "role": "Literature reviewer",
         "responsibilities": [
           "Find relevant evidence in approved local and public sources.",
@@ -428,7 +426,6 @@
       },
       "research:idea_generator": {
         "llm_config": "primary",
-        "model": "small",
         "role": "Hypothesis generator",
         "responsibilities": [
           "Propose distinct, falsifiable hypotheses grounded in the evidence ledger.",
@@ -438,7 +435,6 @@
       },
       "research:skeptic": {
         "llm_config": "primary",
-        "model": "small",
         "role": "Skeptic and reflection reviewer",
         "responsibilities": [
           "Challenge causal leaps, confounders, novelty claims, and missing controls.",
@@ -448,7 +444,6 @@
       },
       "research:proximity_reviewer": {
         "llm_config": "primary",
-        "model": "small",
         "role": "Proximity and novelty reviewer",
         "responsibilities": [
           "Compare candidates for conceptual overlap with retrieved evidence.",
@@ -458,7 +453,6 @@
       },
       "research:experiment_designer": {
         "llm_config": "primary",
-        "model": "small",
         "role": "Experiment designer",
         "responsibilities": [
           "Translate high-value hypotheses into falsifiable study plans.",
@@ -468,7 +462,6 @@
       },
       "research:code_implementer": {
         "llm_config": "primary",
-        "model": "small",
         "role": "Code implementation planner",
         "responsibilities": [
           "Outline reproducible analysis or simulation work needed for a test.",
@@ -478,7 +471,6 @@
       },
       "research:benchmark_runner": {
         "llm_config": "primary",
-        "model": "small",
         "role": "Benchmark planning reviewer",
         "responsibilities": [
           "Define baseline comparisons and evaluation metrics.",
@@ -488,7 +480,6 @@
       },
       "research:result_analyst": {
         "llm_config": "primary",
-        "model": "small",
         "role": "Result analysis planner",
         "responsibilities": [
           "Specify how results would be interpreted under uncertainty.",
@@ -498,7 +489,6 @@
       },
       "research:paper_writer": {
         "llm_config": "primary",
-        "model": "small",
         "role": "Research brief writer",
         "responsibilities": [
           "Draft an evidence-grounded research brief.",
@@ -508,7 +498,6 @@
       },
       "research:meta_reviewer": {
         "llm_config": "primary",
-        "model": "small",
         "role": "Meta-reviewer and ranking auditor",
         "responsibilities": [
           "Rank candidates using traceable criteria.",
@@ -518,7 +507,6 @@
       },
       "research:evidence_ranker": {
         "llm_config": "primary",
-        "model": "small",
         "role": "Evidence ranking reviewer",
         "responsibilities": [
           "Rate source traceability, relevance, and methodological strength.",
@@ -533,27 +521,17 @@
       "Keep experiments, conclusions, and external actions review-only until a person approves them."
     ],
     "provider": "docker_model_runner",
-    "model": "small",
-    "runtime_model": "small",
+    "model": "default",
     "backend": "llama.cpp",
     "mode": "live",
     "mock_mode": "fake",
     "default_config": "primary",
-    "live_model_profile": {
-      "provider": "docker_model_runner",
-      "runtime_model": "small",
-      "api_base": "auto",
-      "backend": "llama.cpp",
-      "mock_fallback": "fake_for_quick_test_only"
-    },
     "quick_test_uses_fake": true,
     "strict_json": false,
     "prefer_shared_skill": true,
     "configs": {
       "primary": {
         "provider": "docker_model_runner",
-        "model": "small",
-        "runtime_model": "small",
         "backend": "llama.cpp",
         "api_base": "auto",
         "timeout_seconds": 60,

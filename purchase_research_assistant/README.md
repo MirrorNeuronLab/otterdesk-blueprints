@@ -3,7 +3,7 @@
 `Blueprint ID:` `purchase_research_assistant`  
 `Category:` `Finance`
 
-Purchase Research Assistant studies property, rental property, cars, airline tickets, and custom purchases. Give it a purchase type, item or trip description, budget, priorities, constraints, and an input folder. It retrieves local guidance and approved user evidence, performs bounded public research, explains tradeoffs, and writes a review-only recommendation.
+Purchase Research Assistant studies any purchase—from property, rentals, cars, and airline tickets to equipment, services, subscriptions, software, and other custom goods. Give it a purchase type, item or trip description, budget, priorities, constraints, and an input folder. It uses the deeper DMR research profile for early intake and planning, retrieves local guidance and approved user evidence, performs bounded public research, explains tradeoffs, and writes a review-only recommendation.
 
 The bundled sample goal is to find one single-family house with at least 3 bedrooms in ZIP code 03755. No budget is assumed; the assistant should return one source-grounded candidate or `insufficient_evidence` when public listing evidence cannot be verified.
 
@@ -17,7 +17,7 @@ The default user-facing output folder is `~/Download/purchase_research_assistant
 
 ## Inputs
 
-- `purchase_type`: `property`, `rental_property`, `car`, `airline_ticket`, or `custom`.
+- `purchase_type`: `property`, `rental_property`, `car`, `airline_ticket`, or `custom` for any other good, service, subscription, or commitment.
 - `item_description`: item, listing, vehicle, route, or trip being studied.
 - `budget`: optional budget or price ceiling.
 - `location`, `route`, and `travel_dates`: optional public context.

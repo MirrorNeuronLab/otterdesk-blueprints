@@ -1046,44 +1046,20 @@
       "primary": {
         "api_base": "auto",
         "backend": "llama.cpp",
-        "context_size": 8192,
-        "fallback_model": "small",
         "max_tokens": 1200,
         "mock_mode": "fake",
         "mode": "live",
-        "model": "medium",
         "num_retries": 1,
-        "parameter_count_b": 31.58,
         "provider": "docker_model_runner",
-        "quantization": "MOSTLY_Q4_K_M",
-        "runtime_model": "medium",
         "timeout_seconds": 60
       }
     },
     "context_size": 8192,
     "default_config": "primary",
     "enabled": true,
-    "fallback_model": "small",
-    "live_model_profile": {
-      "backend": "llama.cpp",
-      "context_size": 8192,
-      "fallback_model": "small",
-      "hardware": {
-        "gpu": {
-          "memory_operator": ">=",
-          "min_count": 1,
-          "min_memory_mb": 49152
-        }
-      },
-      "model": "medium",
-      "parameter_count_b": 31.58,
-      "provider": "docker_model_runner",
-      "quantization": "MOSTLY_Q4_K_M",
-      "runtime_model": "medium"
-    },
     "mock_mode": "fake",
     "mode": "live",
-    "model": "medium",
+    "model": "default",
     "parameter_count_b": 31.58,
     "prefer_shared_skill": true,
     "provider": "docker_model_runner",
@@ -1095,7 +1071,6 @@
       "Use specialist agents for research, scoring, audit, and report writing.",
       "Avoid automated investment decisions or confidential-data web disclosure."
     ],
-    "runtime_model": "medium",
     "strict_json": true
   },
   "knowledge_rag": {

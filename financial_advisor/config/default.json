@@ -258,22 +258,16 @@
     "enabled": true,
     "mode": "live",
     "mock_mode": "fake",
-    "model": "small",
-    "runtime_model": "small",
-    "fallback_model": "small",
+    "model": "default",
     "backend": "llama.cpp",
     "default_config": "primary",
     "quick_test_uses_fake": true,
     "strict_json": false,
     "prefer_shared_skill": true,
     "require_live": true,
-    "preferred_model": "medium",
     "configs": {
       "primary": {
         "provider": "docker_model_runner",
-        "model": "small",
-        "runtime_model": "small",
-        "fallback_model": "small",
         "backend": "llama.cpp",
         "api_base": "auto",
         "timeout_seconds": 60,
@@ -283,79 +277,6 @@
         "mock_mode": "fake",
         "mode": "live",
         "required": true
-      },
-      "large": {
-        "provider": "docker_model_runner",
-        "model": "medium",
-        "runtime_model": "medium",
-        "backend": "llama.cpp",
-        "timeout_seconds": 60,
-        "max_tokens": 1800,
-        "num_retries": 1,
-        "retry_backoff_seconds": 1.0,
-        "strict_json": true,
-        "require_live": true,
-        "context_size": 8192,
-        "quantization": "MOSTLY_Q4_K_M",
-        "parameter_count_b": 31.58,
-        "required": false,
-        "hardware": {
-          "gpu": {
-            "min_count": 1,
-            "min_memory_mb": 49152,
-            "memory_operator": ">="
-          }
-        }
-      }
-    },
-    "small_model_profile": {
-      "provider": "docker_model_runner",
-      "model": "small",
-      "runtime_model": "small",
-      "fallback_model": "small",
-      "backend": "llama.cpp",
-      "api_base": "auto",
-      "timeout_seconds": 60,
-      "max_tokens": 1800,
-      "num_retries": 2,
-      "retry_backoff_seconds": 1.0,
-      "strict_json": false,
-      "require_live": false
-    },
-    "live_model_profile": {
-      "provider": "docker_model_runner",
-      "model": "small",
-      "runtime_model": "small",
-      "fallback_model": "small",
-      "backend": "llama.cpp",
-      "api_base": "auto",
-      "timeout_seconds": 60,
-      "max_tokens": 1800,
-      "num_retries": 2,
-      "retry_backoff_seconds": 1.0,
-      "strict_json": false,
-      "require_live": false
-    },
-    "large_model_profile": {
-      "provider": "docker_model_runner",
-      "model": "medium",
-      "runtime_model": "medium",
-      "backend": "llama.cpp",
-      "timeout_seconds": 60,
-      "max_tokens": 1800,
-      "num_retries": 1,
-      "retry_backoff_seconds": 1.0,
-      "strict_json": true,
-      "require_live": true,
-      "context_size": 8192,
-      "quantization": "MOSTLY_Q4_K_M",
-      "parameter_count_b": 31.58,
-      "hardware": {
-        "gpu": {
-          "min_count": 1,
-          "min_memory_mb": 49152,
-          "memory_operator": ">="
-        }
       }
     },
     "agents": {
@@ -423,7 +344,7 @@
         ]
       },
       "tax_workpaper_preparer": {
-        "llm_config": "large",
+        "llm_config": "primary",
         "role": "Tax Workpaper Preparer",
         "responsibilities": [
           "Prepare draft review-only tax workpapers.",
@@ -432,7 +353,7 @@
         ]
       },
       "tax_llm_reviewer": {
-        "llm_config": "large",
+        "llm_config": "primary",
         "role": "Tax LLM Reviewer",
         "responsibilities": [
           "Review draft tax workpapers and OCR capture for evidence gaps.",
@@ -459,7 +380,7 @@
         ]
       },
       "portfolio_risk_engine": {
-        "llm_config": "large",
+        "llm_config": "primary",
         "role": "Portfolio Risk Engine",
         "responsibilities": [
           "Compute review-only portfolio risk metrics.",
@@ -468,7 +389,7 @@
         ]
       },
       "portfolio_llm_reviewer": {
-        "llm_config": "large",
+        "llm_config": "primary",
         "role": "Portfolio LLM Reviewer",
         "responsibilities": [
           "Review deterministic risk metrics and source freshness.",
@@ -495,7 +416,7 @@
         ]
       },
       "advisor_review_auditor": {
-        "llm_config": "large",
+        "llm_config": "primary",
         "role": "Advisor Review Auditor",
         "responsibilities": [
           "Audit calculations and review boundaries.",
@@ -504,7 +425,7 @@
         ]
       },
       "financial_advice_reporter": {
-        "llm_config": "large",
+        "llm_config": "primary",
         "role": "Financial Advice Reporter",
         "responsibilities": [
           "Write the integrated review-only advisor report.",

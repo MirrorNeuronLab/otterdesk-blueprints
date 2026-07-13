@@ -55,6 +55,9 @@ _bootstrap_runtime()
 from mn_blueprint_support import (
     PromptLibrary,
     append_event_jsonl,
+    env_flag_enabled,
+    fake_llm_mode_enabled,
+    fake_skills_mode_enabled,
     get_actor_llm_client,
     llm_usage,
     load_resolved_config as load_shared_resolved_config,
@@ -1762,47 +1765,6 @@ def build_action_budget(config: dict[str, Any]) -> ActionBudget:
     return ActionBudget(default_actions=bounded_int(research_budget.get("default_actions"), default=DEFAULT_ACTION_BUDGET, minimum=0, maximum=100000))
 
 
-def env_flag_enabled(name: str) -> bool:
-    value = os.environ.get(name)
-    return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
-
-
-def value_is_fake_llm(value: Any) -> bool:
-    return str(value or "").strip().lower() in {"fake", "mock", "stub"}
-
-
-def explicit_fake_llm_mode_enabled() -> bool:
-    if any(env_flag_enabled(name) for name in ("MN_BLUEPRINT_FAKE_LLM", "OTTERDESK_FAKE_LLM", "MN_USE_FAKE_LLM")):
-        return True
-    return any(
-        value_is_fake_llm(os.environ.get(name))
-        for name in ("MN_BLUEPRINT_LLM_MODE", "MN_LLM_MODE", "MN_LLM_PROVIDER", "MN_BLUEPRINT_LLM_PROVIDER")
-    )
-
-
-def fake_llm_mode_enabled(config: dict[str, Any]) -> bool:
-    if explicit_fake_llm_mode_enabled():
-        return True
-    llm_config = config.get("llm") if isinstance(config.get("llm"), dict) else {}
-    config_name = str(llm_config.get("default_config") or "primary")
-    configs = llm_config.get("configs") if isinstance(llm_config.get("configs"), dict) else {}
-    primary = configs.get(config_name) if isinstance(configs.get(config_name), dict) else {}
-    if any(value_is_fake_llm(value) for value in (llm_config.get("mode"), llm_config.get("provider"), primary.get("mode"), primary.get("provider"))):
-        return True
-    return quick_test_mode_enabled(config) and bool(llm_config.get("quick_test_uses_fake", True))
-
-
-def fake_skills_mode_enabled(config: dict[str, Any] | None = None) -> bool:
-    if any(env_flag_enabled(name) for name in ("MN_BLUEPRINT_FAKE_SKILLS", "OTTERDESK_FAKE_SKILLS")):
-        return True
-    execution = (config or {}).get("execution") if isinstance((config or {}).get("execution"), dict) else {}
-    testing = (config or {}).get("testing") if isinstance((config or {}).get("testing"), dict) else {}
-    return any(
-        str(value or "").strip().lower() in {"1", "true", "yes", "on", "fake", "mock", "stub"}
-        for value in (execution.get("fake_skills"), testing.get("fake_skills"))
-    )
-
-
 def benchmark_mode_enabled(config: dict[str, Any] | None = None) -> bool:
     if env_flag_enabled("MN_BLUEPRINT_BENCHMARK"):
         return True
@@ -1890,50 +1852,6 @@ def load_resolved_config(default_path: Path | None = None, overlay: dict[str, An
         if isinstance(decoded, dict):
             return _merge_config(decoded, overlay)
     return load_shared_resolved_config(resolved_default_path, overlay=overlay)
-
-
-def _configured_llm_env(config: dict[str, Any]) -> dict[str, str]:
-    llm_config = config.get("llm") if isinstance(config.get("llm"), dict) else {}
-    config_name = str(llm_config.get("default_config") or "primary")
-    configs = llm_config.get("configs") if isinstance(llm_config.get("configs"), dict) else {}
-    primary = configs.get(config_name) if isinstance(configs.get(config_name), dict) else {}
-    if fake_llm_mode_enabled(config):
-        return {
-            "MN_BLUEPRINT_LLM_MODE": "fake",
-            "MN_LLM_PROVIDER": "fake",
-            "MN_LLM_MODEL": str(llm_config.get("mock_model") or "fake-vc-actor"),
-        }
-    values = {
-        "MN_BLUEPRINT_LLM_MODE": llm_config.get("mode"),
-        "MN_LLM_PROVIDER": llm_config.get("provider") or primary.get("provider"),
-        "MN_LLM_MODEL": llm_config.get("model") or primary.get("model"),
-        "MN_LLM_RUNTIME_MODEL": llm_config.get("runtime_model") or primary.get("runtime_model"),
-        "MN_LLM_API_BASE": llm_config.get("api_base") or primary.get("api_base"),
-        "MN_LLM_BACKEND": llm_config.get("backend") or primary.get("backend"),
-        "MN_LLM_CONTEXT_SIZE": llm_config.get("context_size") or primary.get("context_size"),
-        "MN_LLM_TIMEOUT_SECONDS": llm_config.get("timeout_seconds") or primary.get("timeout_seconds"),
-        "MN_LLM_MAX_TOKENS": llm_config.get("max_tokens") or primary.get("max_tokens"),
-        "MN_LLM_NUM_RETRIES": llm_config.get("num_retries") or primary.get("num_retries"),
-        "MN_LLM_RETRY_BACKOFF_SECONDS": llm_config.get("retry_backoff_seconds") or primary.get("retry_backoff_seconds"),
-    }
-    return {key: str(value) for key, value in values.items() if value not in (None, "")}
-
-
-def _get_configured_actor_llm(config: dict[str, Any], llm_client: Any | None) -> Any:
-    if llm_client is not None:
-        return get_actor_llm_client(config, llm_client)
-    llm_env = _configured_llm_env(config)
-    previous = {key: os.environ.get(key) for key in llm_env}
-    try:
-        for key, value in llm_env.items():
-            os.environ[key] = value
-        return get_actor_llm_client(config, None)
-    finally:
-        for key, value in previous.items():
-            if value is None:
-                os.environ.pop(key, None)
-            else:
-                os.environ[key] = value
 
 
 def quick_test_mode_enabled(config: dict[str, Any]) -> bool:
@@ -7152,7 +7070,7 @@ def init_runtime_llm(ctx: dict[str, Any], action_budget: ActionBudget, llm_clien
     try:
         with observed_operation(ctx["run_dir"], phase="llm_init", operation="actor_llm.init"):
             llm = BudgetedLLM(
-                _get_configured_actor_llm(ctx["config"], llm_client),
+                get_actor_llm_client(ctx["config"], llm_client),
                 action_budget,
                 require_live=require_live,
                 limiter=limiter,

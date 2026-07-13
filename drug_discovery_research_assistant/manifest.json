@@ -1298,7 +1298,7 @@
         "description": "Default local output folder for generated artifacts and reports.",
         "privacy": "confidential",
         "required": false,
-          "example": "~/Downloads/drug_discovery_research_assistant"
+        "example": "~/Downloads/drug_discovery_research_assistant"
       }
     },
     "outputs": {
@@ -1508,24 +1508,9 @@
     "models": {
       "primary": {
         "provider": "docker_model_runner",
-        "model": "small",
-        "runtime_model": "small",
+        "model": "default",
         "backend": "llama.cpp",
         "required": true
-      },
-      "large": {
-        "provider": "docker_model_runner",
-        "model": "medium",
-        "runtime_model": "medium",
-        "backend": "llama.cpp",
-        "required": false,
-        "hardware": {
-          "gpu": {
-            "min_count": 1,
-            "min_memory_mb": 49152,
-            "memory_operator": ">="
-          }
-        }
       }
     }
   },

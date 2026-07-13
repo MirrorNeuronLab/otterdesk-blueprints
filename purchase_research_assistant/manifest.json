@@ -37,7 +37,7 @@
       "version": "1.2.7"
     }
   ],
-  "description": "A purchase research co-worker for studying property, rental property, car, airline ticket, and custom purchases. Give it the purchase type, item or trip details, budget, priorities, constraints, and an input folder; it uses local knowledge, user evidence, and bounded public research to explain tradeoffs and write a review-ready recommendation to the output folder.",
+  "description": "A general purchase research co-worker for studying property, rental property, cars, airline tickets, services, subscriptions, equipment, software, and other custom purchases. It uses the deeper DMR research profile for early intake and planning, local knowledge, user evidence, and bounded public research to explain total-cost tradeoffs and write a review-ready recommendation.",
   "job_name": "purchase-research-assistant",
   "contract": {
     "events": {
@@ -79,14 +79,69 @@
       ]
     },
     "inputs": {
-      "purchase_type": {"description": "Purchase category: property, rental_property, car, airline_ticket, or custom.", "example": "car", "privacy": "confidential", "required": true, "type": "domain_value"},
-      "item_description": {"description": "The item, listing, vehicle, route, or trip to study.", "example": "2022 hybrid SUV with 40,000 miles", "privacy": "confidential", "required": true, "type": "domain_value"},
-      "budget": {"description": "Optional budget or price ceiling for comparison.", "example": 30000, "privacy": "confidential", "required": false, "type": "domain_value"},
-      "location": {"description": "Optional market, pickup, destination, or service location.", "example": "Boston, MA", "privacy": "confidential", "required": false, "type": "domain_value"},
-      "route": {"description": "Optional origin and destination for airline or travel research.", "example": "Boston to Lisbon", "privacy": "confidential", "required": false, "type": "domain_value"},
-      "travel_dates": {"description": "Optional travel dates or purchase timing.", "example": "2026-09-10 to 2026-09-18", "privacy": "confidential", "required": false, "type": "domain_value"},
-      "priorities": {"description": "Optional ranking priorities such as total cost, quality, speed, or flexibility.", "example": ["total cost", "reliability"], "privacy": "confidential", "required": false, "type": "domain_value"},
-      "constraints": {"description": "Optional purchase constraints and must-have requirements.", "example": {"must_have": ["refundable"]}, "privacy": "confidential", "required": false, "type": "domain_value"},
+      "purchase_type": {
+        "description": "Broad purchase category; use property, rental_property, car, airline_ticket, or custom for any other good, service, subscription, or commitment.",
+        "example": "car",
+        "privacy": "confidential",
+        "required": true,
+        "type": "domain_value"
+      },
+      "item_description": {
+        "description": "The item, listing, vehicle, route, or trip to study.",
+        "example": "2022 hybrid SUV with 40,000 miles",
+        "privacy": "confidential",
+        "required": true,
+        "type": "domain_value"
+      },
+      "budget": {
+        "description": "Optional budget or price ceiling for comparison.",
+        "example": 30000,
+        "privacy": "confidential",
+        "required": false,
+        "type": "domain_value"
+      },
+      "location": {
+        "description": "Optional market, pickup, destination, or service location.",
+        "example": "Boston, MA",
+        "privacy": "confidential",
+        "required": false,
+        "type": "domain_value"
+      },
+      "route": {
+        "description": "Optional origin and destination for airline or travel research.",
+        "example": "Boston to Lisbon",
+        "privacy": "confidential",
+        "required": false,
+        "type": "domain_value"
+      },
+      "travel_dates": {
+        "description": "Optional travel dates or purchase timing.",
+        "example": "2026-09-10 to 2026-09-18",
+        "privacy": "confidential",
+        "required": false,
+        "type": "domain_value"
+      },
+      "priorities": {
+        "description": "Optional ranking priorities such as total cost, quality, speed, or flexibility.",
+        "example": [
+          "total cost",
+          "reliability"
+        ],
+        "privacy": "confidential",
+        "required": false,
+        "type": "domain_value"
+      },
+      "constraints": {
+        "description": "Optional purchase constraints and must-have requirements.",
+        "example": {
+          "must_have": [
+            "refundable"
+          ]
+        },
+        "privacy": "confidential",
+        "required": false,
+        "type": "domain_value"
+      },
       "input_folder": {
         "type": "local_path",
         "path_kind": "directory",
@@ -230,7 +285,11 @@
           "path": "purchase_research.json",
           "producer": "workflow",
           "schema_version": "mn.blueprint.purchase_research.v1",
-          "source_refs": ["inputs.json", "events.jsonl", "result.json"],
+          "source_refs": [
+            "inputs.json",
+            "events.jsonl",
+            "result.json"
+          ],
           "type": "purchase_research"
         },
         {
@@ -239,7 +298,10 @@
           "path": "research_sources.json",
           "producer": "workflow",
           "schema_version": "mn.blueprint.research_sources.v1",
-          "source_refs": ["inputs.json", "events.jsonl"],
+          "source_refs": [
+            "inputs.json",
+            "events.jsonl"
+          ],
           "type": "research_sources"
         },
         {
@@ -248,7 +310,10 @@
           "path": "knowledge_rag.json",
           "producer": "workflow",
           "schema_version": "mn.blueprint.knowledge_rag.v1",
-          "source_refs": ["inputs.json", "events.jsonl"],
+          "source_refs": [
+            "inputs.json",
+            "events.jsonl"
+          ],
           "type": "knowledge_rag"
         },
         {
@@ -257,7 +322,10 @@
           "path": "evidence.json",
           "producer": "workflow",
           "schema_version": "mn.blueprint.evidence.v1",
-          "source_refs": ["inputs.json", "events.jsonl"],
+          "source_refs": [
+            "inputs.json",
+            "events.jsonl"
+          ],
           "type": "evidence"
         },
         {
@@ -266,7 +334,9 @@
           "path": "artifact_quality.json",
           "producer": "workflow",
           "schema_version": "mn.blueprint.artifact_quality.v1",
-          "source_refs": ["purchase_research.json"],
+          "source_refs": [
+            "purchase_research.json"
+          ],
           "type": "artifact_quality"
         },
         {
@@ -275,7 +345,9 @@
           "path": "run_health.json",
           "producer": "workflow",
           "schema_version": "mn.blueprint.run_health.v1",
-          "source_refs": ["purchase_research.json"],
+          "source_refs": [
+            "purchase_research.json"
+          ],
           "type": "run_health"
         },
         {
@@ -767,22 +839,22 @@
         "workers": [
           {
             "id": "purchase:intake",
-            "model": "small",
-            "role": "Review ZIP history",
+            "model": "default",
+            "role": "Frame the purchase goal and decision criteria",
             "tokens": 14000,
             "tools": 4
           },
           {
             "id": "purchase:price_research",
-            "model": "small",
-            "role": "Parse broker notes",
+            "model": "default",
+            "role": "Research current price and availability",
             "tokens": 14000,
             "tools": 4
           },
           {
             "id": "purchase:total_cost",
-            "model": "small",
-            "role": "Read financing constraints",
+            "model": "default",
+            "role": "Analyze total cost and recurring obligations",
             "tokens": 14000,
             "tools": 4
           }
@@ -796,15 +868,15 @@
         "workers": [
           {
             "id": "purchase:policy_risk",
-            "model": "small",
-            "role": "Retrieve comparable memory",
+            "model": "default",
+            "role": "Review policy, quality, and risk evidence",
             "tokens": 14000,
             "tools": 4
           },
           {
             "id": "purchase:alternatives",
-            "model": "small",
-            "role": "Compare historical deal signals",
+            "model": "default",
+            "role": "Compare credible alternatives",
             "tokens": 14000,
             "tools": 4
           }
@@ -818,15 +890,15 @@
         "workers": [
           {
             "id": "purchase:recommender",
-            "model": "small",
-            "role": "Compare purchase options",
+            "model": "default",
+            "role": "Synthesize options and tradeoffs",
             "tokens": 14000,
             "tools": 4
           },
           {
             "id": "purchase:auditor",
-            "model": "small",
-            "role": "Review downside risks",
+            "model": "default",
+            "role": "Audit downside risks and evidence gaps",
             "tokens": 14000,
             "tools": 4
           }
@@ -840,8 +912,8 @@
         "workers": [
           {
             "id": "purchase:report_writer",
-            "model": "small",
-            "role": "Write final deal memo",
+            "model": "default",
+            "role": "Write the review-only purchase report",
             "tokens": 14000,
             "tools": 4
           }
@@ -926,7 +998,7 @@
       "type": "local_run_store"
     },
     "worker_defaults": {
-      "model": "small",
+      "model": "default",
       "pool": "default",
       "pool_slots": 1,
       "runner": "MirrorNeuron.Runner.HostLocal",
@@ -1001,7 +1073,7 @@
     },
     "models": {
       "primary": {
-        "model": "small"
+        "model": "default"
       }
     }
   },
@@ -1280,8 +1352,8 @@
         "TERM.md"
       ]
     },
-    "customizable_for": "Rental acquisitions, flipping pipelines, multifamily sourcing, market expansion, diligence review, and capital-allocation meetings.",
-    "description": "A purchase research co-worker for studying property, rental property, car, airline ticket, and custom purchases. Give it the purchase type, item or trip details, budget, priorities, constraints, and an input folder; it uses local knowledge, user evidence, and bounded public research to explain tradeoffs and write a review-ready recommendation to the output folder.",
+    "customizable_for": "Any consumer or business purchase, including rental acquisitions, property, vehicles, travel, equipment, services, subscriptions, software, and custom goods.",
+    "description": "A general purchase research co-worker using the deeper DMR profile for early intake and planning. It studies property, rental property, cars, travel, equipment, services, subscriptions, software, and custom purchases with local knowledge, user evidence, and bounded public research.",
     "human_control": {
       "allowed_decisions": [
         "approve",
@@ -1325,7 +1397,7 @@
       "fields": [
         {
           "default": "property",
-          "description": "Choose property, rental_property, car, airline_ticket, or custom.",
+          "description": "Choose a known purchase category or custom for any other good, service, subscription, or commitment.",
           "label": "Purchase type",
           "path": "inputs.payload.purchase_type"
         },
@@ -1364,10 +1436,39 @@
     "input_contract": {
       "description": "Purchase decisions depend on scattered prices, fees, policies, condition, availability, and source quality across local documents and public pages.",
       "optional_inputs": [
-        {"description": "Optional market, pickup, destination, or service location.", "example": "Boston, MA", "name": "location", "type": "domain_value"},
-        {"description": "Optional origin and destination for airline or travel research.", "example": "Boston to Lisbon", "name": "route", "type": "domain_value"},
-        {"description": "Optional travel dates or purchase timing.", "example": "2026-09-10 to 2026-09-18", "name": "travel_dates", "type": "domain_value"},
-        {"description": "Optional ranking priorities and must-have constraints.", "example": {"priorities": ["total cost"], "constraints": {"must_have": ["refundable"]}}, "name": "priorities_and_constraints", "type": "domain_value"},
+        {
+          "description": "Optional market, pickup, destination, or service location.",
+          "example": "Boston, MA",
+          "name": "location",
+          "type": "domain_value"
+        },
+        {
+          "description": "Optional origin and destination for airline or travel research.",
+          "example": "Boston to Lisbon",
+          "name": "route",
+          "type": "domain_value"
+        },
+        {
+          "description": "Optional travel dates or purchase timing.",
+          "example": "2026-09-10 to 2026-09-18",
+          "name": "travel_dates",
+          "type": "domain_value"
+        },
+        {
+          "description": "Optional ranking priorities and must-have constraints.",
+          "example": {
+            "priorities": [
+              "total cost"
+            ],
+            "constraints": {
+              "must_have": [
+                "refundable"
+              ]
+            }
+          },
+          "name": "priorities_and_constraints",
+          "type": "domain_value"
+        },
         {
           "name": "input_folder",
           "type": "local_path",
@@ -1413,8 +1514,19 @@
             "item_description": "Find one single-family house with at least 3 bedrooms in ZIP code 03755.",
             "budget": null,
             "location": "03755",
-            "priorities": ["single-family house", "at least 3 bedrooms", "03755", "total cost", "condition", "inspection risk"],
-            "constraints": {"property_type": "single-family house", "min_bedrooms": 3, "zip_code": "03755"}
+            "priorities": [
+              "single-family house",
+              "at least 3 bedrooms",
+              "03755",
+              "total cost",
+              "condition",
+              "inspection risk"
+            ],
+            "constraints": {
+              "property_type": "single-family house",
+              "min_bedrooms": 3,
+              "zip_code": "03755"
+            }
           }
         },
         "sample_file": {
@@ -1425,7 +1537,7 @@
       },
       "required_inputs": [
         {
-          "description": "Purchase category: property, rental_property, car, airline_ticket, or custom.",
+          "description": "Broad purchase category; use custom for any other good, service, subscription, or commitment.",
           "example": "car",
           "name": "purchase_type",
           "type": "domain_value"
@@ -1849,7 +1961,11 @@
           "path": "purchase_research.json",
           "producer": "workflow",
           "schema_version": "mn.blueprint.purchase_research.v1",
-          "source_refs": ["inputs.json", "events.jsonl", "result.json"],
+          "source_refs": [
+            "inputs.json",
+            "events.jsonl",
+            "result.json"
+          ],
           "type": "purchase_research"
         },
         {
@@ -1858,7 +1974,10 @@
           "path": "research_sources.json",
           "producer": "workflow",
           "schema_version": "mn.blueprint.research_sources.v1",
-          "source_refs": ["inputs.json", "events.jsonl"],
+          "source_refs": [
+            "inputs.json",
+            "events.jsonl"
+          ],
           "type": "research_sources"
         },
         {
@@ -1867,7 +1986,10 @@
           "path": "knowledge_rag.json",
           "producer": "workflow",
           "schema_version": "mn.blueprint.knowledge_rag.v1",
-          "source_refs": ["inputs.json", "events.jsonl"],
+          "source_refs": [
+            "inputs.json",
+            "events.jsonl"
+          ],
           "type": "knowledge_rag"
         },
         {
@@ -1876,7 +1998,10 @@
           "path": "evidence.json",
           "producer": "workflow",
           "schema_version": "mn.blueprint.evidence.v1",
-          "source_refs": ["inputs.json", "events.jsonl"],
+          "source_refs": [
+            "inputs.json",
+            "events.jsonl"
+          ],
           "type": "evidence"
         },
         {
@@ -1885,7 +2010,9 @@
           "path": "artifact_quality.json",
           "producer": "workflow",
           "schema_version": "mn.blueprint.artifact_quality.v1",
-          "source_refs": ["purchase_research.json"],
+          "source_refs": [
+            "purchase_research.json"
+          ],
           "type": "artifact_quality"
         },
         {
@@ -1894,7 +2021,9 @@
           "path": "run_health.json",
           "producer": "workflow",
           "schema_version": "mn.blueprint.run_health.v1",
-          "source_refs": ["purchase_research.json"],
+          "source_refs": [
+            "purchase_research.json"
+          ],
           "type": "run_health"
         },
         {

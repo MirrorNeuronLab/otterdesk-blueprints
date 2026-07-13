@@ -378,7 +378,6 @@
     "agents": {
       "binding_evaluation": {
         "llm_config": "primary",
-        "model": "small",
         "role": "Binding evaluation analyst",
         "responsibilities": [
           "Review docking or binding-score outputs.",
@@ -388,7 +387,6 @@
       },
       "candidate_generation": {
         "llm_config": "primary",
-        "model": "small",
         "role": "Candidate generation strategist",
         "responsibilities": [
           "Compare generated compounds against project constraints.",
@@ -398,7 +396,6 @@
       },
       "ranking_reporting": {
         "llm_config": "primary",
-        "model": "small",
         "role": "Discovery report lead",
         "responsibilities": [
           "Assemble candidate ranking evidence.",
@@ -408,7 +405,6 @@
       },
       "structure_generation": {
         "llm_config": "primary",
-        "model": "small",
         "role": "Molecular design chemist",
         "responsibilities": [
           "Generate candidate structure rationale from deterministic outputs.",
@@ -418,7 +414,6 @@
       },
       "target_discovery": {
         "llm_config": "primary",
-        "model": "small",
         "role": "Target discovery scientist",
         "responsibilities": [
           "Identify disease-target hypotheses from configured inputs.",
@@ -428,26 +423,11 @@
       }
     },
     "provider": "docker_model_runner",
-    "model": "small",
-    "runtime_model": "small",
+    "model": "default",
     "backend": "llama.cpp",
     "mode": "live",
     "mock_mode": "fake",
     "default_config": "primary",
-    "live_model_profile": {
-      "provider": "docker_model_runner",
-      "model": "small",
-      "runtime_model": "small",
-      "fallback_model": "small",
-      "backend": "llama.cpp",
-      "api_base": "http://localhost:12434/engines/v1",
-      "timeout_seconds": 60,
-      "max_tokens": 900,
-      "num_retries": 1,
-      "retry_backoff_seconds": 1.0,
-      "strict_json": false,
-      "require_live": false
-    },
     "quick_test_uses_fake": true,
     "strict_json": false,
     "prefer_shared_skill": true,
@@ -459,8 +439,6 @@
     "configs": {
       "primary": {
         "provider": "docker_model_runner",
-        "model": "small",
-        "runtime_model": "small",
         "backend": "llama.cpp",
         "api_base": "http://localhost:12434/engines/v1",
         "timeout_seconds": 60,
@@ -468,73 +446,11 @@
         "num_retries": 1,
         "mock_mode": "fake",
         "mode": "live",
-        "fallback_model": "small",
         "retry_backoff_seconds": 1.0,
         "required": true
-      },
-      "large": {
-        "provider": "docker_model_runner",
-        "model": "medium",
-        "runtime_model": "medium",
-        "backend": "llama.cpp",
-        "timeout_seconds": 60,
-        "max_tokens": 1800,
-        "num_retries": 1,
-        "retry_backoff_seconds": 1.0,
-        "strict_json": true,
-        "require_live": true,
-        "context_size": 8192,
-        "quantization": "MOSTLY_Q4_K_M",
-        "parameter_count_b": 31.58,
-        "required": false,
-        "hardware": {
-          "gpu": {
-            "min_count": 1,
-            "min_memory_mb": 49152,
-            "memory_operator": ">="
-          }
-        }
       }
     },
-    "fallback_model": "small",
-    "require_live": false,
-    "preferred_model": "medium",
-    "small_model_profile": {
-      "provider": "docker_model_runner",
-      "model": "small",
-      "runtime_model": "small",
-      "fallback_model": "small",
-      "backend": "llama.cpp",
-      "api_base": "http://localhost:12434/engines/v1",
-      "timeout_seconds": 60,
-      "max_tokens": 900,
-      "num_retries": 1,
-      "retry_backoff_seconds": 1.0,
-      "strict_json": false,
-      "require_live": false
-    },
-    "large_model_profile": {
-      "provider": "docker_model_runner",
-      "model": "medium",
-      "runtime_model": "medium",
-      "backend": "llama.cpp",
-      "timeout_seconds": 60,
-      "max_tokens": 1800,
-      "num_retries": 1,
-      "retry_backoff_seconds": 1.0,
-      "strict_json": true,
-      "require_live": true,
-      "context_size": 8192,
-      "quantization": "MOSTLY_Q4_K_M",
-      "parameter_count_b": 31.58,
-      "hardware": {
-        "gpu": {
-          "min_count": 1,
-          "min_memory_mb": 49152,
-          "memory_operator": ">="
-        }
-      }
-    }
+    "require_live": false
   },
   "logging": {
     "events": [

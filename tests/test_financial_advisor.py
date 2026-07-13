@@ -134,23 +134,18 @@ def test_financial_advisor_model_profiles_assign_large_to_heavy_nodes():
     config = json.loads((ROOT / "financial_advisor" / "config" / "default.json").read_text(encoding="utf-8"))
     manifest = json.loads((ROOT / "financial_advisor" / "manifest.json").read_text(encoding="utf-8"))
 
-    assert config["llm"]["model"] == "small"
-    assert config["llm"]["runtime_model"] == "small"
-    assert config["llm"]["preferred_model"] == "medium"
-    assert config["llm"]["configs"]["primary"]["model"] == "small"
-    assert config["llm"]["configs"]["large"]["model"] == "medium"
-    assert config["llm"]["large_model_profile"]["hardware"]["gpu"] == {
-        "min_count": 1,
-        "min_memory_mb": 49152,
-        "memory_operator": ">=",
-    }
+    assert config["llm"]["model"] == "default"
+    assert "runtime_model" not in config["llm"]
+    assert "preferred_model" not in config["llm"]
+    assert "model" not in config["llm"]["configs"]["primary"]
+    assert set(config["llm"]["configs"]) == {"primary"}
+    assert "large_model_profile" not in config["llm"]
     for step, spec in config["llm"]["agents"].items():
-        expected = "large" if step in HEAVY_STEPS else "primary"
-        assert spec["llm_config"] == expected, step
+        assert spec["llm_config"] == "primary", step
 
     by_step = manifest["workers"]["by_step"]
     assert set(by_step) == HEAVY_STEPS
-    assert all(item["with"]["llm_config"] == "large" for item in by_step.values())
+    assert all(item["with"]["llm_config"] == "primary" for item in by_step.values())
     assert config["execution_model"] == {
         "type": "static_dag_step_handlers",
         "entrypoint": "financial_folder_watcher",
@@ -173,8 +168,8 @@ def test_financial_advisor_source_manifest_expands_with_terminal_sink():
         for edge in expanded["agents"]["edges"]
     )
     rendered_reporter = next(node for node in expanded["agents"]["nodes"] if node["node_id"] == "financial_advice_reporter")
-    assert rendered_reporter["config"]["llm_config"] == "large"
-    assert rendered_reporter["config"]["environment"]["MN_LLM_CONFIG"] == "large"
+    assert rendered_reporter["config"]["llm_config"] == "primary"
+    assert rendered_reporter["config"]["environment"]["MN_LLM_CONFIG"] == "primary"
     assert expanded["runtime"]["resources"]["gpu"] == {"min_count": 0}
 
 

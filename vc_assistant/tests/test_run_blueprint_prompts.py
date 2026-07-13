@@ -31,46 +31,22 @@ def load_module():
     return module
 
 
-def test_manifest_embedded_runtime_config_matches_default_deep_analysis_settings():
+def test_source_manifest_keeps_the_default_runtime_declarative():
     default_config = json.loads((BLUEPRINT_DIR / "config" / "default.json").read_text())
     manifest = json.loads((BLUEPRINT_DIR / "manifest.json").read_text())
-    synced_sections = [
-        "agentic_research",
-        "actor_review",
-        "internet_research",
-        "research_budget",
-        "backpressure",
-        "budgets",
-    ]
-
-    entrypoint = next(node for node in manifest["agents"]["nodes"] if node["node_id"] == "startup_folder_watcher")
-    assert entrypoint["config"]["timeout_seconds"] == default_config["budgets"]["max_runtime_seconds"]
-
-    for node in manifest["agents"]["nodes"]:
-        env = node.get("config", {}).get("environment", {})
-        raw_config = env.get("MN_BLUEPRINT_CONFIG_JSON")
-        if not raw_config:
-            continue
-        embedded_config = json.loads(raw_config)
-        for section in synced_sections:
-            assert embedded_config[section] == default_config[section]
+    assert manifest["apiVersion"] == "mn.workflow.source/v1"
+    assert manifest["agents"] == {"extra_templates": manifest["agents"]["extra_templates"], "extra_edges": manifest["agents"]["extra_edges"]}
+    assert manifest["workflow"]["steps"][0]["id"] == "startup_folder_watcher"
+    assert default_config["llm"]["model"] == "default"
 
 
-def test_model_profiles_keep_small_forgiving_and_large_strict():
+def test_model_contract_uses_the_shared_adaptive_default():
     default_config = json.loads((BLUEPRINT_DIR / "config" / "default.json").read_text())
     llm = default_config["llm"]
 
-    small = llm["small_model_profile"]
-    assert small["model"] == "small"
-    assert small["strict_json"] is False
-    assert small["require_live"] is False
-    assert small["num_retries"] >= 2
-
-    large = llm["large_model_profile"]
-    assert large["model"] == "medium"
-    assert large["strict_json"] is True
-    assert large["require_live"] is True
-    assert large["hardware"]["gpu"]["min_memory_mb"] >= 49152
+    assert llm["model"] == "default"
+    assert "small_model_profile" not in llm
+    assert "large_model_profile" not in llm
 
 
 def test_research_prompt_specs_are_distinct_for_all_agent_ids():

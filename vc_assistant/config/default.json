@@ -119,8 +119,7 @@
     "enabled": true,
     "mode": "live",
     "mock_mode": "fake",
-    "model": "small",
-    "fallback_model": "small",
+    "model": "default",
     "default_config": "primary",
     "quick_test_uses_fake": true,
     "strict_json": false,
@@ -128,9 +127,6 @@
     "configs": {
       "primary": {
         "provider": "docker_model_runner",
-        "model": "small",
-        "runtime_model": "small",
-        "fallback_model": "small",
         "backend": "llama.cpp",
         "api_base": "auto",
         "timeout_seconds": 60,
@@ -339,59 +335,7 @@
     ],
     "require_live": false,
     "provider": "docker_model_runner",
-    "runtime_model": "small",
-    "backend": "llama.cpp",
-    "small_model_profile": {
-      "provider": "docker_model_runner",
-      "model": "small",
-      "runtime_model": "small",
-      "fallback_model": "small",
-      "backend": "llama.cpp",
-      "api_base": "auto",
-      "timeout_seconds": 60,
-      "max_tokens": 1800,
-      "num_retries": 2,
-      "retry_backoff_seconds": 1.0,
-      "strict_json": false,
-      "require_live": false
-    },
-    "live_model_profile": {
-      "provider": "docker_model_runner",
-      "model": "small",
-      "runtime_model": "small",
-      "fallback_model": "small",
-      "backend": "llama.cpp",
-      "api_base": "auto",
-      "timeout_seconds": 60,
-      "max_tokens": 1800,
-      "num_retries": 2,
-      "retry_backoff_seconds": 1.0,
-      "strict_json": false,
-      "require_live": false
-    },
-    "preferred_model": "medium",
-    "large_model_profile": {
-      "provider": "docker_model_runner",
-      "model": "medium",
-      "runtime_model": "medium",
-      "backend": "llama.cpp",
-      "timeout_seconds": 60,
-      "max_tokens": 1800,
-      "num_retries": 1,
-      "retry_backoff_seconds": 1.0,
-      "strict_json": true,
-      "require_live": true,
-      "context_size": 8192,
-      "quantization": "MOSTLY_Q4_K_M",
-      "parameter_count_b": 31.58,
-      "hardware": {
-        "gpu": {
-          "min_count": 1,
-          "min_memory_mb": 49152,
-          "memory_operator": ">="
-        }
-      }
-    }
+    "backend": "llama.cpp"
   },
   "outputs": {
     "folder_path": "~/Downloads/vc_assistant",

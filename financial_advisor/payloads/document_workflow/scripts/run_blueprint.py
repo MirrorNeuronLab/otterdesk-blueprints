@@ -41,6 +41,7 @@ from mn_blueprint_support import (
     DeterministicFallbackLLM,
     PromptLibrary,
     append_event_jsonl,
+    fake_llm_mode_enabled,
     get_actor_llm_client,
     load_resolved_config as load_shared_resolved_config,
     start_agent_beacon_thread,
@@ -1010,25 +1011,12 @@ def live_llm_requested(config: dict[str, Any], payload: dict[str, Any] | None = 
     return not fake_llm_requested(config, payload)
 
 
-def env_truthy(*names: str) -> bool:
-    return any(str(os.environ.get(name, "")).strip().lower() in {"1", "true", "yes", "on"} for name in names)
-
-
 def fake_llm_requested(config: dict[str, Any], payload: dict[str, Any] | None = None) -> bool:
-    llm = config.get("llm") if isinstance(config.get("llm"), dict) else {}
-    execution = config.get("execution") if isinstance(config.get("execution"), dict) else {}
-    payload = payload or {}
-    fake_values = {"fake", "mock", "deterministic", "test"}
-    env_mode = str(os.environ.get("MN_LLM_MODE") or os.environ.get("LITELLM_MODE") or "").strip().lower()
-    env_provider = str(os.environ.get("MN_LLM_PROVIDER") or os.environ.get("LITELLM_PROVIDER") or "").strip().lower()
-    if env_mode in fake_values or env_provider in fake_values:
-        return True
-    if env_truthy("MN_BLUEPRINT_QUICK_TEST", "MN_QUICK_TEST") and bool(llm.get("quick_test_uses_fake", False)):
-        return True
-    if bool(execution.get("quick_test")) or bool(payload.get("quick_test")):
-        return bool(llm.get("quick_test_uses_fake", True))
-    mode = str(llm.get("mode") or "").strip().lower()
-    return mode in fake_values
+    if not payload or not payload.get("quick_test"):
+        return fake_llm_mode_enabled(config)
+    merged = copy.deepcopy(config)
+    merged.setdefault("execution", {})["quick_test"] = True
+    return fake_llm_mode_enabled(merged)
 
 
 def build_llm_client(config: dict[str, Any], payload: dict[str, Any], llm_client: Any | None) -> Any:

@@ -838,14 +838,14 @@
         "workers": [
           {
             "id": "research:topic_finder",
-            "model": "small",
+            "model": "default",
             "role": "Frame the goal and define research questions",
             "tokens": 14000,
             "tools": 6
           },
           {
             "id": "research:literature_reviewer",
-            "model": "small",
+            "model": "default",
             "role": "Plan evidence discovery and source evaluation",
             "tokens": 14000,
             "tools": 6
@@ -860,14 +860,14 @@
         "workers": [
           {
             "id": "research:literature_reviewer",
-            "model": "small",
+            "model": "default",
             "role": "Retrieve and qualify evidence",
             "tokens": 14000,
             "tools": 6
           },
           {
             "id": "research:evidence_ranker",
-            "model": "small",
+            "model": "default",
             "role": "Rank evidence strength and coverage",
             "tokens": 14000,
             "tools": 6
@@ -882,21 +882,21 @@
         "workers": [
           {
             "id": "research:idea_generator",
-            "model": "small",
+            "model": "default",
             "role": "Generate falsifiable candidate hypotheses",
             "tokens": 14000,
             "tools": 6
           },
           {
             "id": "research:skeptic",
-            "model": "small",
+            "model": "default",
             "role": "Adversarially critique causal claims",
             "tokens": 14000,
             "tools": 6
           },
           {
             "id": "research:proximity_reviewer",
-            "model": "small",
+            "model": "default",
             "role": "Review overlap and bounded novelty",
             "tokens": 14000,
             "tools": 6
@@ -911,42 +911,42 @@
         "workers": [
           {
             "id": "research:experiment_designer",
-            "model": "small",
+            "model": "default",
             "role": "Design experiments and controls",
             "tokens": 14000,
             "tools": 6
           },
           {
             "id": "research:code_implementer",
-            "model": "small",
+            "model": "default",
             "role": "Plan reproducible implementation",
             "tokens": 14000,
             "tools": 6
           },
           {
             "id": "research:benchmark_runner",
-            "model": "small",
+            "model": "default",
             "role": "Specify benchmark comparisons",
             "tokens": 14000,
             "tools": 6
           },
           {
             "id": "research:result_analyst",
-            "model": "small",
+            "model": "default",
             "role": "Plan interpretation and sensitivity checks",
             "tokens": 14000,
             "tools": 6
           },
           {
             "id": "research:paper_writer",
-            "model": "small",
+            "model": "default",
             "role": "Draft the research brief",
             "tokens": 14000,
             "tools": 6
           },
           {
             "id": "research:meta_reviewer",
-            "model": "small",
+            "model": "default",
             "role": "Audit ranking, evidence, and review boundaries",
             "tokens": 14000,
             "tools": 6
@@ -1032,7 +1032,7 @@
       "type": "local_run_store"
     },
     "worker_defaults": {
-      "model": "small",
+      "model": "default",
       "pool": "default",
       "pool_slots": 1,
       "runner": "MirrorNeuron.Runner.HostLocal",
@@ -1107,7 +1107,7 @@
     },
     "models": {
       "primary": {
-        "model": "small"
+        "model": "default"
       }
     }
   },

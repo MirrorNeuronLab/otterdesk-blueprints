@@ -243,7 +243,7 @@
     "by_step": {
       "contract_playbook_comparator": {
         "with": {
-          "llm_config": "large",
+          "llm_config": "primary",
           "environment": {
             "MN_LLM_CONFIG": "large"
           }
@@ -251,7 +251,7 @@
       },
       "legal_review_auditor": {
         "with": {
-          "llm_config": "large",
+          "llm_config": "primary",
           "environment": {
             "MN_LLM_CONFIG": "large"
           }
@@ -259,7 +259,7 @@
       },
       "legal_reporter": {
         "with": {
-          "llm_config": "large",
+          "llm_config": "primary",
           "environment": {
             "MN_LLM_CONFIG": "large"
           }
@@ -772,24 +772,9 @@
     "models": {
       "primary": {
         "provider": "docker_model_runner",
-        "model": "small",
-        "runtime_model": "small",
+        "model": "default",
         "backend": "llama.cpp",
         "required": true
-      },
-      "large": {
-        "provider": "docker_model_runner",
-        "model": "medium",
-        "runtime_model": "medium",
-        "backend": "llama.cpp",
-        "required": false,
-        "hardware": {
-          "gpu": {
-            "min_count": 1,
-            "min_memory_mb": 49152,
-            "memory_operator": ">="
-          }
-        }
       }
     }
   },

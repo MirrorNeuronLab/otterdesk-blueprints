@@ -72,7 +72,9 @@ def test_drug_discovery_manifest_uses_source_format_and_shared_blocks():
         assert (BLUEPRINT_DIR / "payloads" / "service" / script).is_file(), script
     assert manifest["service"]["run_until"] == "manual_stop"
     assert manifest["cluster_distribution"]["collaboration"]["mode"] == "cross_box_fanout_fanin"
-    assert set(manifest["runtime"]["models"]) == {"primary", "large"}
+    assert manifest["runtime"]["models"] == {
+        "primary": {"provider": "docker_model_runner", "model": "default", "backend": "llama.cpp", "required": True}
+    }
 
     by_step = manifest["workers"]["by_step"]
     assert set(by_step) == set(STEP_SCRIPTS)
@@ -86,17 +88,13 @@ def test_drug_discovery_model_profiles_match_vc_style_defaults():
     assert config["service"]["run_until"] == "manual_stop"
     assert config["service"]["max_cycles"] is None
     assert config["outputs"]["folder_path"] == "~/Downloads/drug_discovery_research_assistant"
-    assert config["llm"]["model"] == "small"
-    assert config["llm"]["runtime_model"] == "small"
-    assert config["llm"]["preferred_model"] == "medium"
-    assert config["llm"]["configs"]["primary"]["model"] == "small"
-    assert config["llm"]["configs"]["large"]["model"] == "medium"
-    assert config["llm"]["small_model_profile"]["runtime_model"] == "small"
-    assert config["llm"]["large_model_profile"]["hardware"]["gpu"] == {
-        "min_count": 1,
-        "min_memory_mb": 49152,
-        "memory_operator": ">=",
-    }
+    assert config["llm"]["model"] == "default"
+    assert "runtime_model" not in config["llm"]
+    assert "preferred_model" not in config["llm"]
+    assert "model" not in config["llm"]["configs"]["primary"]
+    assert "model" not in config["llm"]["configs"]["large"]
+    assert "small_model_profile" not in config["llm"]
+    assert "large_model_profile" not in config["llm"]
     assert {spec["llm_config"] for spec in config["llm"]["agents"].values()} == {"primary"}
     assert "runtime_model_key" not in config["drugclip"]
     assert config["drugclip"]["model_ref"] == "hf.co/homerquan/DrugClip"

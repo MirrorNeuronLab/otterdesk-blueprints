@@ -254,55 +254,18 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         "node_scope": "vc_python_executor_nodes",
     }
     assert config["llm"]["provider"] == "docker_model_runner"
-    assert config["llm"]["model"] == "small"
-    assert config["llm"]["runtime_model"] == "small"
-    assert config["llm"]["fallback_model"] == "small"
-    assert config["llm"]["preferred_model"] == "medium"
+    assert config["llm"]["model"] == "default"
     assert config["llm"]["backend"] == "llama.cpp"
-    assert config["llm"]["live_model_profile"] == {
-        "provider": "docker_model_runner",
-        "model": "small",
-        "runtime_model": "small",
-        "fallback_model": "small",
-        "backend": "llama.cpp",
-        "api_base": "auto",
-        "timeout_seconds": 60,
-        "max_tokens": 1800,
-        "num_retries": 2,
-        "retry_backoff_seconds": 1.0,
-        "strict_json": False,
-        "require_live": False,
-    }
-    assert config["llm"]["large_model_profile"] == {
-        "provider": "docker_model_runner",
-        "model": "medium",
-        "runtime_model": "medium",
-        "backend": "llama.cpp",
-        "timeout_seconds": 60,
-        "max_tokens": 1800,
-        "num_retries": 1,
-        "retry_backoff_seconds": 1.0,
-        "strict_json": True,
-        "require_live": True,
-        "context_size": 8192,
-        "quantization": "MOSTLY_Q4_K_M",
-        "parameter_count_b": 31.58,
-        "hardware": {
-            "gpu": {
-                "min_count": 1,
-                "min_memory_mb": 49152,
-                "memory_operator": ">=",
-            }
-        },
-    }
+    assert "runtime_model" not in config["llm"]
+    assert "fallback_model" not in config["llm"]
+    assert "preferred_model" not in config["llm"]
+    assert "live_model_profile" not in config["llm"]
+    assert "large_model_profile" not in config["llm"]
     assert config["resources"]["gpu"] == {"min_count": 0}
     assert manifest["requirements"]["gpu"] == {"min_count": 0}
     assert manifest["runtime"]["resources"]["gpu"] == {"min_count": 0}
     assert config["llm"]["configs"]["primary"] == {
         "provider": "docker_model_runner",
-        "model": "small",
-        "runtime_model": "small",
-        "fallback_model": "small",
         "backend": "llama.cpp",
         "api_base": "auto",
         "timeout_seconds": 60,
@@ -399,8 +362,6 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         assert "force_build" not in node["config"]
         assert node["config"]["image"] == "mirror-neuron/vc-assistant:local"
         assert node["config"]["network"] == "mirror-neuron-runtime"
-        assert node["config"]["shared_container"] is True
-        assert node["config"]["reuse_shared_container"] is True
         assert node["config"]["upload_paths"] == upload_paths
         assert "build_context_upload_paths" not in node["config"]
         environment = node["config"]["environment"]
@@ -410,12 +371,12 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         assert embedded_config["inputs"]["payload"]["output_folder"] == "~/Downloads/vc_assistant"
         assert embedded_config["local_inputs"] == config["local_inputs"]
         assert embedded_config["outputs"]["folder_path"] == "~/Downloads/vc_assistant"
-        assert embedded_config["llm"]["model"] == "small"
-        assert embedded_config["llm"]["runtime_model"] == "small"
-        assert embedded_config["llm"]["fallback_model"] == "small"
-        assert embedded_config["llm"]["preferred_model"] == "medium"
-        assert embedded_config["llm"]["configs"]["primary"]["fallback_model"] == "small"
-        assert embedded_config["llm"]["configs"]["primary"]["model"] == "small"
+        assert embedded_config["llm"]["model"] == "default"
+        assert "runtime_model" not in embedded_config["llm"]
+        assert "fallback_model" not in embedded_config["llm"]
+        assert "preferred_model" not in embedded_config["llm"]
+        assert "fallback_model" not in embedded_config["llm"]["configs"]["primary"]
+        assert "model" not in embedded_config["llm"]["configs"]["primary"]
         assert embedded_config["resources"]["gpu"] == {"min_count": 0}
         assert embedded_config["llm"]["configs"]["primary"]["api_base"] == "auto"
         assert embedded_config["llm"]["quick_test_uses_fake"] is True
@@ -517,11 +478,6 @@ def test_explicit_fake_llm_mode_overrides_live_vc_runtime(monkeypatch, tmp_path)
 
     assert runner.fake_llm_mode_enabled(config) is True
     assert runner.llm_requires_live(config) is False
-    assert runner._configured_llm_env(config) == {
-        "MN_BLUEPRINT_LLM_MODE": "fake",
-        "MN_LLM_PROVIDER": "fake",
-        "MN_LLM_MODEL": "fake-vc-actor",
-    }
 
     limiter = runner.build_llm_call_limiter(config)
     assert limiter.config_summary()["min_interval_seconds"] == 0.0
@@ -686,7 +642,7 @@ def test_actor_llm_init_failure_writes_failed_run(tmp_path, monkeypatch):
     def fail_init(config, llm_client):
         raise RuntimeError("actor client init timed out")
 
-    monkeypatch.setattr(runner, "_get_configured_actor_llm", fail_init)
+    monkeypatch.setattr(runner, "get_actor_llm_client", fail_init)
 
     with pytest.raises(RuntimeError, match="actor client init timed out"):
         runner.run_blueprint(
