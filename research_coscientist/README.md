@@ -15,7 +15,7 @@ mn run research_coscientist
 
 The default output folder is `~/Download/research_coscientist`. Run-store artifacts are also written under `~/.mn/runs/<run_id>/`.
 
-The workflow deliberately mixes execution modes. `prepare_research_context` and `verify_and_publish_packet` are deterministic HostLocal stages. `autonomous_research` is the only OpenShell node and uses the runtime's job-scoped shared sandbox (`reuse_shared_sandbox: true`) for all autonomous subphases. Generated code never runs in either deterministic stage.
+The workflow deliberately mixes execution modes. `frame_research_goal`, `retrieve_and_evaluate_evidence`, and `verify_and_publish_packet` are deterministic HostLocal stages. `autonomous_research` is the only OpenShell node and uses the runtime's job-scoped shared sandbox (`reuse_shared_sandbox: true`) for all autonomous subphases. Generated code never runs in a deterministic stage.
 
 ## Inputs
 

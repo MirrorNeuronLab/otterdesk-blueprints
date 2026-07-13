@@ -248,3 +248,47 @@ def test_continuous_service_uses_embedded_config_when_bundle_config_is_not_mount
     monkeypatch.setenv("MN_BLUEPRINT_CONFIG_JSON", json.dumps({"mode": "mock", "service": {"max_cycles": 1}}))
 
     assert module.load_config() == {"mode": "mock", "service": {"max_cycles": 1}}
+
+
+def test_continuous_service_runner_starts_required_agent_beacon(tmp_path, monkeypatch):
+    service_path = BLUEPRINT_DIR / "payloads" / "service" / "scripts" / "run_continuous_service.py"
+    monkeypatch.syspath_prepend(str(service_path.parent))
+    spec = importlib.util.spec_from_file_location("drug_discovery_runner_beacon_test", service_path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+
+    started = []
+    captured = {}
+    monkeypatch.setattr(module, "start_agent_beacon_thread", lambda message: started.append(message))
+    monkeypatch.setattr(module, "run_dir", lambda: tmp_path)
+    monkeypatch.setattr(module, "load_config", lambda: {"mode": "mock", "service": {"max_cycles": 1}})
+    monkeypatch.setattr(module, "service_main", lambda args: captured.setdefault("args", args))
+
+    module.main()
+
+    assert started == ["Continuous drug discovery service is running"]
+    assert captured["args"] == ["--config", str(tmp_path / "resolved_service_config.json"), "--run-dir", str(tmp_path)]
+
+
+def test_continuous_service_beacon_uses_runtime_stdout_contract(monkeypatch, capsys):
+    service_path = BLUEPRINT_DIR / "payloads" / "service" / "scripts" / "run_continuous_service.py"
+    monkeypatch.syspath_prepend(str(service_path.parent))
+    spec = importlib.util.spec_from_file_location("drug_discovery_runner_beacon_payload_test", service_path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+
+    monkeypatch.setenv("MN_AGENT_BEACON_STDOUT_PREFIX", "__MN_AGENT_BEACON__")
+    monkeypatch.setenv("MN_AGENT_BEACON_INTERVAL_MS", "not-a-number")
+    module.start_agent_beacon_thread("service heartbeat")
+
+    line = capsys.readouterr().out.strip()
+    assert line.startswith("__MN_AGENT_BEACON__")
+    payload = json.loads(line.removeprefix("__MN_AGENT_BEACON__"))
+    assert payload["schema"] == "mn.agent.beacon.v1"
+    assert payload["source"] == "agent"
+    assert payload["status"] == "started"
+    assert payload["message"] == "service heartbeat"

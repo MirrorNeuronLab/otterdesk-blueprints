@@ -202,6 +202,7 @@ IMPORT_MARKER_PACKAGES = {
     "mn_document_reading_skill": "mirrorneuron-document-reading-skill",
     "mn_public_research_orchestrator_skill": "mirrorneuron-public-research-orchestrator-skill",
     "mn_scoring_framework_skill": "mirrorneuron-scoring-framework-skill",
+    "mn_autonomous_research_skill": "mirrorneuron-autonomous-research-skill",
 }
 SKILL_NAME_PACKAGES = {
     "llm_ocr_skill": "mirrorneuron-llm-ocr-skill",

@@ -8,8 +8,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SUPPORT_SRC = ROOT.parent / "mn-skills" / "blueprint_support_skill" / "src"
+AUTONOMOUS_RESEARCH_SRC = ROOT.parent / "mn-skills" / "autonomous_research_skill" / "src"
 SDK_SRC = ROOT.parent / "mn-python-sdk"
-for path in (SDK_SRC, SUPPORT_SRC):
+for path in (SDK_SRC, SUPPORT_SRC, AUTONOMOUS_RESEARCH_SRC):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
@@ -87,3 +88,71 @@ def test_research_prompts_and_fake_run_write_review_only_packet(tmp_path):
     ):
         assert (output / name).exists(), name
     json.loads((output / "research_packet.json").read_text(encoding="utf-8"))
+
+
+def test_manifest_uses_exactly_one_shared_openshell_worker():
+    manifest = json.loads((ROOT / "research_coscientist" / "manifest.json").read_text(encoding="utf-8"))
+    nodes = manifest["agents"]["nodes"]
+    openshell = [node for node in nodes if str((node.get("config") or {}).get("runner_module", "")).endswith("OpenShell")]
+
+    assert [node["node_id"] for node in openshell] == ["autonomous_research"]
+    config = openshell[0]["config"]
+    assert config["reuse_shared_sandbox"] is True
+    assert config["persistent_workspace"] is True
+    assert config["custom_openshell_image"] == "document_workflow/openshell_worker"
+    assert config["policy"] == "document_workflow/openshell-policy.yaml"
+    assert manifest["workflow"]["steps"][0]["label"].startswith("Deterministically")
+    assert manifest["workflow"]["steps"][-1]["label"].startswith("Deterministically")
+
+
+def test_autonomous_worker_can_request_skill_and_execute_generated_python(tmp_path):
+    runner = _runner()
+
+    class PlanningLlm:
+        def generate_json(self, **_kwargs):
+            return {
+                "recommended_action": "review_research_packet",
+                "confidence": "medium",
+                "rationale": "Probe the candidate ledger before review.",
+                "candidate_hypotheses": [
+                    {
+                        "statement": "Candidate A is distinguishable from baseline.",
+                        "prediction": "The pre-specified measure changes.",
+                        "evidence_support": ["local:note.md"],
+                        "counterargument": "Ambient variation could explain it.",
+                        "disconfirming_observation": "No controlled difference is observed.",
+                    }
+                ],
+                "tool_requests": [{"tool": "knowledge_retrieve", "arguments": {"query": "controls"}}],
+                "generated_python": "import json\npayload = json.loads(input())\nprint(json.dumps({'candidate_count': len(payload['candidate_hypotheses'])}))\n",
+            }
+
+    config = {
+        "llm": {"mode": "live"},
+        "agentic_research": {
+            "allowed_tools": ["knowledge_retrieve", "hypothesis_rank", "generated_python", "finish"],
+            "max_total_tool_calls": 3,
+            "allow_generated_code": True,
+            "generated_code": {"workspace": "generated", "timeout_seconds": 5},
+        },
+    }
+    inputs = runner.normalize_inputs({"research_goal": "Compare candidates", "research_question": "Which survives controls?"})
+    evidence = {"source_refs": ["local:note.md"], "evidence_gaps": [], "document_count": 1, "public_source_count": 0}
+    posture = {"recommended_action": "review_research_packet", "confidence": "medium", "rationale": "Reviewable."}
+    recommendation, autonomous, warnings = runner.run_autonomous_research(
+        PlanningLlm(),
+        inputs,
+        evidence,
+        {"context": "Use matched controls.", "citations": ["local:note.md"]},
+        posture,
+        config,
+        [],
+        [],
+        workspace=tmp_path,
+    )
+
+    assert recommendation["candidate_hypotheses"]
+    assert autonomous["session"]["tool_calls_used"] == 1
+    assert autonomous["session"]["generated_code_runs"] == 1
+    assert autonomous["generated_code_result"]["status"] == "completed"
+    assert warnings == []

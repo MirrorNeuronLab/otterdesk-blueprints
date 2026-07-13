@@ -390,6 +390,6 @@
       "target_users": "Researchers, scientists, engineers, analysts, and research leads."
     },
     "type": "batch",
-    "workflow_id": "research_coscientist_v2"
+    "workflow_id": "research_coscientist_v1"
   }
 ]

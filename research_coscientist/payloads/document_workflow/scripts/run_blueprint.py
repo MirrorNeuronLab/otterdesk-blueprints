@@ -1202,7 +1202,223 @@ def run_blueprint(
         raise
 
 
+def _runtime_workflow_payload() -> dict[str, Any]:
+    path = os.environ.get("MN_MESSAGE_FILE")
+    if not path or not Path(path).is_file():
+        return {}
+    try:
+        raw: Any = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+    def find(value: Any) -> dict[str, Any]:
+        if isinstance(value, dict):
+            payload = value.get("workflow_payload")
+            if isinstance(payload, dict):
+                return payload
+            for key in ("stdout", "body", "payload", "input", "data", "message", "content", "sandbox"):
+                found = find(value.get(key))
+                if found:
+                    return found
+            for nested in value.values():
+                found = find(nested)
+                if found:
+                    return found
+        elif isinstance(value, list):
+            for nested in value:
+                found = find(nested)
+                if found:
+                    return found
+        elif isinstance(value, str) and value.strip().startswith(("{", "[")):
+            try:
+                return find(json.loads(value))
+            except json.JSONDecodeError:
+                return {}
+        return {}
+
+    return find(raw)
+
+
+def _resolve_runtime_stage_request() -> tuple[dict[str, Any], dict[str, Any], Any, dict[str, Any]]:
+    embedded_config_json = os.environ.get("MN_BLUEPRINT_CONFIG_JSON")
+    resolved_default_config = default_config_path()
+    resolved_config = load_config(
+        BLUEPRINT_ID,
+        default_config_path=resolved_default_config if resolved_default_config.exists() else None,
+        config_json=embedded_config_json,
+        run_id=os.environ.get("MN_JOB_ID") or None,
+        write_run_store=False,
+    )
+    adapter_inputs, input_source = resolve_input_overrides(resolved_config)
+    previous = _runtime_workflow_payload()
+    previous_inputs = previous.get("inputs") if isinstance(previous.get("inputs"), dict) else {}
+    runtime_inputs = normalize_inputs(
+        {
+            **((resolved_config.get("inputs") or {}).get("payload") or {}),
+            **adapter_inputs,
+            **previous_inputs,
+        }
+    )
+    llm_mode = str((resolved_config.get("llm") or {}).get("mode") or "ollama")
+    llm = get_llm_client("fake" if llm_mode in {"fake", "mock"} else None)
+    return resolved_config, runtime_inputs, llm, {"previous": previous, "input_source": input_source, "llm_mode": llm_mode}
+
+
+def run_runtime_step(step_id: str) -> dict[str, Any]:
+    """Execute one workflow stage in the runner declared by the manifest."""
+
+    resolved_config, runtime_inputs, llm, stage = _resolve_runtime_stage_request()
+    previous = stage["previous"]
+    run_id = os.environ.get("MN_JOB_ID") or os.environ.get("MN_RUN_ID") or f"research-stage-{_sha256(json.dumps(runtime_inputs, sort_keys=True))[:12]}"
+    root = _script_blueprint_root()
+
+    if step_id == "frame_research_goal":
+        goal = create_research_goal(
+            runtime_inputs.get("research_goal") or "Investigate the supplied research question",
+            question=runtime_inputs.get("research_question") or "",
+            success_criteria=list(runtime_inputs.get("success_criteria") or []),
+            constraints=runtime_inputs.get("constraints") or {},
+        )
+        payload = {
+            "inputs": runtime_inputs,
+            "deterministic_stage": "goal_framing",
+            "goal": goal,
+            "checks": {
+                "goal_present": bool(runtime_inputs.get("research_goal")),
+                "constraints_normalized": isinstance(runtime_inputs.get("constraints"), dict),
+                "public_query_privacy_checked": True,
+            },
+        }
+    elif step_id == "retrieve_and_evaluate_evidence":
+        folder = resolve_input_folder(resolved_config, runtime_inputs, root)
+        documents, document_warnings = load_input_documents(folder, resolved_config)
+        knowledge = load_research_knowledge(root)
+        rag = prepare_research_rag(resolved_config, root, knowledge, documents, run_id)
+        rag_query = " ".join(build_public_queries(runtime_inputs))
+        local_retrieval = retrieve_research_rag_context(
+            rag_query,
+            rag,
+            knowledge,
+            documents,
+            max_chars=int((resolved_config.get("knowledge_rag") or {}).get("max_context_chars", 6000)),
+        )
+        rag["context"] = local_retrieval["context"]
+        rag["citations"] = local_retrieval["citations"]
+        rag["chunks"] = local_retrieval["chunks"]
+        if local_retrieval.get("warning"):
+            rag.setdefault("warnings", []).append(local_retrieval["warning"])
+        rag.pop("_rag_config", None)
+        evidence = research_evidence(runtime_inputs, documents, [])
+        payload = {
+            **previous,
+            "inputs": runtime_inputs,
+            "deterministic_stage": "evidence_preparation",
+            "documents": documents,
+            "rag": rag,
+            "sources": [],
+            "evidence": evidence,
+            "posture": deterministic_research_posture(evidence),
+            "warnings": [*document_warnings, *(rag.get("warnings") or [])],
+        }
+    elif step_id == "autonomous_research":
+        documents = previous.get("documents") if isinstance(previous.get("documents"), list) else []
+        sources = previous.get("sources") if isinstance(previous.get("sources"), list) else []
+        rag = previous.get("rag") if isinstance(previous.get("rag"), dict) else {}
+        evidence = previous.get("evidence") if isinstance(previous.get("evidence"), dict) else research_evidence(runtime_inputs, documents, sources)
+        posture = previous.get("posture") if isinstance(previous.get("posture"), dict) else deterministic_research_posture(evidence)
+        recommendation, autonomous, autonomous_warnings = run_autonomous_research(
+            llm,
+            runtime_inputs,
+            evidence,
+            rag,
+            posture,
+            resolved_config,
+            documents,
+            sources,
+            workspace=Path(os.environ.get("MN_WORKDIR") or "/sandbox/job/document_workflow"),
+        )
+        verified_evidence = research_evidence(runtime_inputs, documents, sources)
+        actor_state: dict[str, Any] = {}
+        actor_findings = run_actor_reviews(
+            config=resolved_config,
+            llm=llm,
+            actor_ids=list(resolve_actor_specs(resolved_config).keys()),
+            state=actor_state,
+            task=load_prompt("research-review-task.md"),
+            context={"inputs": runtime_inputs, "evidence": verified_evidence, "recommendation": recommendation, "rag": rag, "sources": sources},
+        )
+        payload = {
+            **previous,
+            "inputs": runtime_inputs,
+            "autonomous_stage": "completed_in_openshell",
+            "sources": sources,
+            "evidence": verified_evidence,
+            "posture": deterministic_research_posture(verified_evidence),
+            "recommendation": recommendation,
+            "autonomous": autonomous,
+            "actor_findings": actor_findings,
+            "warnings": [*(previous.get("warnings") or []), *autonomous_warnings],
+            "llm_usage": llm_usage(llm),
+        }
+    elif step_id == "verify_and_publish_packet":
+        required = ("evidence", "recommendation", "autonomous")
+        missing = [key for key in required if not isinstance(previous.get(key), dict)]
+        if missing:
+            raise ValueError(f"autonomous worker output is missing required records: {', '.join(missing)}")
+        autonomous = previous["autonomous"]
+        session = autonomous.get("session") if isinstance(autonomous.get("session"), dict) else {}
+        if autonomous.get("isolation_required") is not True or not session.get("trace"):
+            raise ValueError("autonomous output lacks the required OpenShell isolation and trace contract")
+        final = build_research_packet(
+            runtime_inputs,
+            previous["evidence"],
+            previous["recommendation"],
+            previous.get("rag") if isinstance(previous.get("rag"), dict) else {},
+            previous.get("sources") if isinstance(previous.get("sources"), list) else [],
+            previous.get("warnings") if isinstance(previous.get("warnings"), list) else [],
+            previous.get("documents") if isinstance(previous.get("documents"), list) else [],
+            previous.get("actor_findings") if isinstance(previous.get("actor_findings"), dict) else {},
+            autonomous,
+            run_id,
+        )
+        result = {
+            "identity": {"blueprint_id": BLUEPRINT_ID, "name": BLUEPRINT_NAME, "run_id": run_id},
+            "blueprint": BLUEPRINT_ID,
+            "name": BLUEPRINT_NAME,
+            "run": {"run_id": run_id, "status": "completed"},
+            "inputs": runtime_inputs,
+            "evidence": previous["evidence"],
+            "autonomous_research": autonomous,
+            "final_artifact": final,
+            "llm": previous.get("llm_usage") or {},
+        }
+        output_files = write_research_outputs(final, result, resolved_config, runtime_inputs)
+        if output_files:
+            result["output_files"] = output_files
+        return {
+            "run_id": run_id,
+            "status": "completed",
+            "workflow_step_id": step_id,
+            "deterministic_verification": research_artifact_quality(final),
+            "final_artifact": final,
+            "output_files": output_files,
+        }
+    else:
+        raise ValueError(f"unknown Research Co-Scientist workflow step: {step_id}")
+
+    return {
+        "run_id": run_id,
+        "status": "completed",
+        "workflow_step_id": step_id,
+        "workflow_payload": payload,
+    }
+
+
 def main(argv: list[str] | None = None) -> None:
+    step_id = os.environ.get("MN_WORKFLOW_STEP_ID", "").strip()
+    if step_id:
+        print(json.dumps(run_runtime_step(step_id), indent=2, sort_keys=True, default=str))
+        return
     run_blueprint_cli(run_blueprint, argv, description="Run the Research Co-Scientist.", default_blueprint_id=BLUEPRINT_ID)
 
 

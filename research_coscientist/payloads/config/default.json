@@ -587,7 +587,13 @@
       "human_decision_applied",
       "output_skill_started",
       "output_skill_completed",
-      "output_skill_failed"
+      "output_skill_failed",
+      "autonomous_research_started",
+      "autonomous_research_completed",
+      "autonomous_prompt_created",
+      "autonomous_tool_called",
+      "generated_code_executed",
+      "deterministic_verification_completed"
     ],
     "events_jsonl": true,
     "level": "INFO",

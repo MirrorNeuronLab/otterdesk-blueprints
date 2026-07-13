@@ -71,7 +71,13 @@
         "human_decision_applied",
         "output_skill_started",
         "output_skill_completed",
-        "output_skill_failed"
+        "output_skill_failed",
+        "autonomous_research_started",
+        "autonomous_research_completed",
+        "autonomous_prompt_created",
+        "autonomous_tool_called",
+        "generated_code_executed",
+        "deterministic_verification_completed"
       ]
     },
     "input_adapters": {
@@ -406,7 +412,7 @@
   },
   "workflow": {
     "schema": "mn.workflow.problem_graph/v1",
-    "workflow_id": "research_coscientist_v2",
+    "workflow_id": "research_coscientist_v1",
     "mode": "static_dag",
     "entrypoint": "frame_research_goal",
     "source": "frame_research_goal",
@@ -1153,7 +1159,10 @@
           "with": {
             "script": "scripts/run_blueprint.py",
             "upload_path": "document_workflow",
-            "output_message_type": "research_goal_framed"
+            "output_message_type": "research_goal_framed",
+            "environment": {
+              "MN_WORKFLOW_STEP_ID": "frame_research_goal"
+            }
           }
         },
         {
@@ -1162,7 +1171,10 @@
           "with": {
             "script": "scripts/run_blueprint.py",
             "upload_path": "document_workflow",
-            "output_message_type": "evidence_evaluated"
+            "output_message_type": "evidence_evaluated",
+            "environment": {
+              "MN_WORKFLOW_STEP_ID": "retrieve_and_evaluate_evidence"
+            }
           }
         },
         {
@@ -1171,7 +1183,12 @@
           "with": {
             "script": "scripts/run_blueprint.py",
             "upload_path": "document_workflow",
-            "output_message_type": "autonomous_research_completed"
+            "output_message_type": "autonomous_research_completed",
+            "runner_module": "MirrorNeuron.Sandbox.OpenShell",
+            "custom_openshell_image": "document_workflow/openshell_worker",
+            "environment": {
+              "MN_WORKFLOW_STEP_ID": "autonomous_research"
+            }
           }
         },
         {
@@ -1180,7 +1197,10 @@
           "with": {
             "script": "scripts/run_blueprint.py",
             "upload_path": "document_workflow",
-            "output_message_type": "research_packet_ready"
+            "output_message_type": "research_packet_ready",
+            "environment": {
+              "MN_WORKFLOW_STEP_ID": "verify_and_publish_packet"
+            }
           }
         },
         {
@@ -2142,7 +2162,7 @@
       ],
       "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run",
       "default_mode": "isolated_autonomous_research",
-      "note": "One job-scoped OpenShell worker owns all autonomous subphases; deterministic stages prepare evidence and verify its goal, prompt, tool, generated-code, and claim traces."
+      "note": "One job-scoped OpenShell worker owns every autonomous subphase. It may refine goals, create prompts, request allowlisted mn-skills tools, and execute bounded generated Python; deterministic stages prepare evidence and verify all outputs."
     },
     "features": [
       "optional local knowledge RAG grounding",
@@ -2225,6 +2245,6 @@
     ],
     "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run",
     "default_mode": "isolated_autonomous_research",
-    "note": "One job-scoped OpenShell worker owns all autonomous subphases; deterministic stages prepare evidence and verify its goal, prompt, tool, generated-code, and claim traces."
+    "note": "One job-scoped OpenShell worker owns every autonomous subphase. It may refine goals, create prompts, request allowlisted mn-skills tools, and execute bounded generated Python; deterministic stages prepare evidence and verify all outputs."
   }
 }

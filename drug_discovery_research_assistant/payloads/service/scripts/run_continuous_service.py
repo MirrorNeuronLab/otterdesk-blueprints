@@ -3,9 +3,63 @@ from __future__ import annotations
 
 import json
 import os
+import sys
+import threading
+import time
 from pathlib import Path
 
 from continuous_service import deep_merge, main as service_main
+
+_BEACON_LOCK = threading.Lock()
+_BEACON_SEQUENCE = 0
+
+
+def start_agent_beacon_thread(message: str | None = None) -> threading.Thread | None:
+    """Keep the HostLocal liveness contract alive for the long-running service."""
+    prefix = os.environ.get("MN_AGENT_BEACON_STDOUT_PREFIX")
+    if not prefix:
+        return None
+
+    def emit(status: str) -> None:
+        global _BEACON_SEQUENCE
+        with _BEACON_LOCK:
+            sequence = _BEACON_SEQUENCE
+            _BEACON_SEQUENCE += 1
+        payload = {
+            "schema": "mn.agent.beacon.v1",
+            "source": "agent",
+            "status": status,
+            "sequence": sequence,
+            "pid": os.getpid(),
+            "python": sys.executable,
+            "message": message or "Continuous drug discovery service is running",
+        }
+        for env_name, field in (
+            ("MN_AGENT_BEACON_JOB_ID", "job_id"),
+            ("MN_AGENT_BEACON_AGENT_ID", "agent_id"),
+            ("MN_AGENT_BEACON_STEP", "step"),
+            ("MN_AGENT_BEACON_ATTEMPT", "attempt"),
+        ):
+            value = os.environ.get(env_name)
+            if value:
+                payload[field] = int(value) if field == "attempt" and value.isdigit() else value
+        print(f"{prefix}{json.dumps(payload, separators=(',', ':'), sort_keys=True)}", flush=True)
+
+    try:
+        interval_milliseconds = int(os.environ.get("MN_AGENT_BEACON_INTERVAL_MS", "15000"))
+    except (TypeError, ValueError):
+        interval_milliseconds = 15000
+    interval_seconds = max(interval_milliseconds / 1000.0, 0.1)
+
+    def loop() -> None:
+        while True:
+            time.sleep(interval_seconds)
+            emit("working")
+
+    thread = threading.Thread(target=loop, name="mn-agent-beacon", daemon=True)
+    thread.start()
+    emit("started")
+    return thread
 
 
 def blueprint_root() -> Path:
@@ -50,8 +104,13 @@ def run_dir() -> Path:
     return Path.cwd() / "runs" / "continuous_drug_discovery_service"
 
 
-if __name__ == "__main__":
+def main() -> None:
+    start_agent_beacon_thread("Continuous drug discovery service is running")
     config_path = run_dir() / "resolved_service_config.json"
     config_path.parent.mkdir(parents=True, exist_ok=True)
     config_path.write_text(json.dumps(load_config(), indent=2, sort_keys=True) + "\n", encoding="utf-8")
     service_main(["--config", str(config_path), "--run-dir", str(run_dir())])
+
+
+if __name__ == "__main__":
+    main()
