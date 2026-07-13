@@ -1507,7 +1507,10 @@ def test_cctv_operator_uses_dockerworker_nvidia_media_worker():
     assert visual_node["config"]["gpus"] == "all"
     assert visual_node["config"]["workdir"] == "/mn/job/visual_detector"
     assert visual_node["config"]["command"] == ["bash", "scripts/run_detector_on_nvidia.sh"]
-    assert visual_node["config"]["upload_paths"] == [{"source": "visual_detector", "target": "visual_detector"}]
+    assert visual_node["config"]["upload_paths"] == [
+        {"source": "visual_detector", "target": "visual_detector"},
+        {"source": "prompts", "target": "visual_detector/prompts"},
+    ]
     assert "policy" not in visual_node["config"]
     _assert_hard_gpu_worker_requirements(visual_node)
 

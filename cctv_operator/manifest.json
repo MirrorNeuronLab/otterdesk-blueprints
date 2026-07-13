@@ -633,6 +633,10 @@
             {
               "source": "visual_detector",
               "target": "visual_detector"
+            },
+            {
+              "source": "prompts",
+              "target": "visual_detector/prompts"
             }
           ],
           "output_message_type": "cctv_operator_detection",
@@ -1092,6 +1096,10 @@
               {
                 "source": "visual_detector",
                 "target": "visual_detector"
+              },
+              {
+                "source": "prompts",
+                "target": "visual_detector/prompts"
               }
             ],
             "output_message_type": "cctv_operator_detection",
@@ -1202,6 +1210,10 @@
                 {
                   "source": "visual_detector",
                   "target": "visual_detector"
+                },
+                {
+                  "source": "prompts",
+                  "target": "visual_detector/prompts"
                 }
               ],
               "output_message_type": "cctv_operator_detection",
@@ -1258,6 +1270,10 @@
                 {
                   "source": "visual_detector",
                   "target": "visual_detector"
+                },
+                {
+                  "source": "prompts",
+                  "target": "visual_detector/prompts"
                 }
               ],
               "output_message_type": "cctv_operator_detection",
