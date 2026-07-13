@@ -634,7 +634,7 @@
             },
             {
               "source": "prompts",
-              "target": "visual_detector/prompts"
+              "target": "prompts"
             }
           ],
           "output_message_type": "cctv_operator_detection",
@@ -1096,7 +1096,7 @@
               },
               {
                 "source": "prompts",
-                "target": "visual_detector/prompts"
+                "target": "prompts"
               }
             ],
             "output_message_type": "cctv_operator_detection",
@@ -1209,7 +1209,7 @@
                 },
                 {
                   "source": "prompts",
-                  "target": "visual_detector/prompts"
+                  "target": "prompts"
                 }
               ],
               "output_message_type": "cctv_operator_detection",
@@ -1267,7 +1267,7 @@
                 },
                 {
                   "source": "prompts",
-                  "target": "visual_detector/prompts"
+                  "target": "prompts"
                 }
               ],
               "output_message_type": "cctv_operator_detection",
