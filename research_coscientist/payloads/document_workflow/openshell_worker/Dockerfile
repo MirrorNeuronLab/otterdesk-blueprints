@@ -5,8 +5,9 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 RUN groupadd -g 1000660000 sandbox \
-    && useradd -m -u 1000660000 -g sandbox sandbox \
-    && install -d -o sandbox -g sandbox /sandbox
+    && useradd -M -d /sandbox -u 1000660000 -g sandbox sandbox \
+    && install -d -o sandbox -g sandbox /sandbox \
+    && ln -s /usr/local/bin/python3 /usr/bin/python3
 
 WORKDIR /sandbox
 
