@@ -92,7 +92,7 @@ def test_drug_discovery_model_profiles_match_vc_style_defaults():
     assert "runtime_model" not in config["llm"]
     assert "preferred_model" not in config["llm"]
     assert "model" not in config["llm"]["configs"]["primary"]
-    assert "model" not in config["llm"]["configs"]["large"]
+    assert set(config["llm"]["configs"]) == {"primary"}
     assert "small_model_profile" not in config["llm"]
     assert "large_model_profile" not in config["llm"]
     assert {spec["llm_config"] for spec in config["llm"]["agents"].values()} == {"primary"}

@@ -262,7 +262,7 @@ def test_legal_smoke_run_writes_merged_artifacts(tmp_path, monkeypatch):
     assert artifact["invoice_bill_extraction"]["totals"]["total_amount"] == 1842.66
     assert artifact["contract_clause_review"]["contract_count"] >= 1
     assert artifact["contract_clause_review"]["clause_count"] >= 5
-    assert artifact["model_profiles_used"]["legal_reporter"]["llm_config"] == "large"
+    assert artifact["model_profiles_used"]["legal_reporter"]["llm_config"] == "primary"
     assert set(artifact["actor_findings"]) == {
         "invoice_bill_extractor",
         "payable_field_validator",

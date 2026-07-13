@@ -284,9 +284,9 @@ def test_financial_advisor_smoke_run_writes_integrated_artifacts(tmp_path):
     assert artifact["llm_usage"]["calls"] >= 7
     assert llm.calls >= 7
     assert artifact["model_profiles_used"]["cash_flow_llm_analyst"]["llm_config"] == "primary"
-    assert artifact["model_profiles_used"]["tax_llm_reviewer"]["llm_config"] == "large"
-    assert artifact["model_profiles_used"]["portfolio_llm_reviewer"]["llm_config"] == "large"
-    assert artifact["model_profiles_used"]["financial_advice_reporter"]["llm_config"] == "large"
+    assert artifact["model_profiles_used"]["tax_llm_reviewer"]["llm_config"] == "primary"
+    assert artifact["model_profiles_used"]["portfolio_llm_reviewer"]["llm_config"] == "primary"
+    assert artifact["model_profiles_used"]["financial_advice_reporter"]["llm_config"] == "primary"
     assert (tmp_path / "runs" / "financial-advisor-test" / "final_artifact.json").exists()
     assert (tmp_path / "runs" / "financial-advisor-test" / "action_ledger.json").exists()
     assert (tmp_path / "runs" / "financial-advisor-test" / "artifact_quality.json").exists()

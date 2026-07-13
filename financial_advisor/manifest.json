@@ -262,7 +262,7 @@
         "with": {
           "llm_config": "primary",
           "environment": {
-            "MN_LLM_CONFIG": "large"
+            "MN_LLM_CONFIG": "primary"
           }
         }
       },
@@ -270,7 +270,7 @@
         "with": {
           "llm_config": "primary",
           "environment": {
-            "MN_LLM_CONFIG": "large"
+            "MN_LLM_CONFIG": "primary"
           }
         }
       },
@@ -278,7 +278,7 @@
         "with": {
           "llm_config": "primary",
           "environment": {
-            "MN_LLM_CONFIG": "large"
+            "MN_LLM_CONFIG": "primary"
           }
         }
       },
@@ -286,7 +286,7 @@
         "with": {
           "llm_config": "primary",
           "environment": {
-            "MN_LLM_CONFIG": "large"
+            "MN_LLM_CONFIG": "primary"
           }
         }
       },
@@ -294,7 +294,7 @@
         "with": {
           "llm_config": "primary",
           "environment": {
-            "MN_LLM_CONFIG": "large"
+            "MN_LLM_CONFIG": "primary"
           }
         }
       },
@@ -302,7 +302,7 @@
         "with": {
           "llm_config": "primary",
           "environment": {
-            "MN_LLM_CONFIG": "large"
+            "MN_LLM_CONFIG": "primary"
           }
         }
       }
