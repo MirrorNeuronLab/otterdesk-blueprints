@@ -724,7 +724,7 @@
         "type": "generic",
         "agent_type": "executor",
         "config": {
-          "runner_module": "MirrorNeuron.Sandbox.OpenShell",
+          "runner_module": "MirrorNeuron.Runner.OpenShell",
           "upload_path": "document_workflow",
           "upload_as": "document_workflow",
           "workdir": "/sandbox/job/document_workflow",
@@ -1173,7 +1173,7 @@
             "script": "scripts/run_blueprint.py",
             "upload_path": "document_workflow",
             "output_message_type": "autonomous_research_completed",
-            "runner_module": "MirrorNeuron.Sandbox.OpenShell",
+            "runner_module": "MirrorNeuron.Runner.OpenShell",
             "custom_openshell_image": "document_workflow/openshell_worker",
             "environment": {
               "MN_WORKFLOW_STEP_ID": "autonomous_research"
