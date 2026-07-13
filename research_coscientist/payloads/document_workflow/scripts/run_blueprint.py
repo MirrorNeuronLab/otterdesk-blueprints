@@ -84,7 +84,7 @@ BLUEPRINT_ID = "research_coscientist"
 BLUEPRINT_NAME = "Research Co-Scientist"
 CATEGORY = "Science"
 OUTPUT_TYPE = "research_coscientist_packet"
-DEFAULT_OUTPUT_FOLDER = "~/Download/research_coscientist"
+DEFAULT_OUTPUT_FOLDER = "~/Downloads/research_coscientist"
 SUPPORTED_SUFFIXES = {".pdf", ".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".webp", ".txt", ".md", ".json", ".csv"}
 TEXT_SUFFIXES = {".txt", ".md", ".json", ".csv"}
 RESEARCH_ACTIONS = {"review_research_packet", "gather_more_evidence"}
@@ -108,6 +108,11 @@ def _script_blueprint_root() -> Path:
         if (parent / "manifest.json").exists():
             return parent
     return script.parents[3]
+
+
+def runtime_asset_root() -> Path:
+    """Return the self-contained directory uploaded to every workflow worker."""
+    return Path(__file__).resolve().parents[1]
 
 
 def default_config_path() -> Path:
@@ -181,6 +186,9 @@ def resolve_input_folder(config: dict[str, Any], inputs: dict[str, Any], root: P
         return None
     path = expand_runtime_path(value)
     if not path.is_absolute():
+        bundled_path = runtime_asset_root() / path
+        if bundled_path.exists():
+            return bundled_path
         path = root.parent / path
     return path
 
@@ -398,6 +406,58 @@ def retrieve_research_rag_context(query: str, rag_state: dict[str, Any], knowled
     return lexical
 
 
+def prepare_evidence_context(
+    config: dict[str, Any],
+    inputs: dict[str, Any],
+    root: Path,
+    run_id: str,
+    *,
+    quick_test: bool,
+) -> dict[str, Any]:
+    """Build the same evidence state for direct and staged workflow execution."""
+    folder = resolve_input_folder(config, inputs, root)
+    documents, document_warnings = load_input_documents(folder, config)
+    knowledge = load_research_knowledge(runtime_asset_root())
+    rag = prepare_research_rag(config, runtime_asset_root(), knowledge, documents, run_id)
+    rag_query = " ".join(build_public_queries(inputs))
+    retrieval = retrieve_research_rag_context(
+        rag_query,
+        rag,
+        knowledge,
+        documents,
+        max_chars=int((config.get("knowledge_rag") or {}).get("max_context_chars", 6000)),
+    )
+    rag["context"] = retrieval["context"]
+    rag["citations"] = retrieval["citations"]
+    rag["chunks"] = retrieval["chunks"]
+    rag["retrieval_backend"] = retrieval["backend"]
+    if retrieval.get("warning"):
+        rag.setdefault("warnings", []).append(retrieval["warning"])
+    if rag.get("status") == "knowledge_rag_failed" and retrieval.get("context"):
+        rag["embedding_status"] = "knowledge_rag_failed"
+        rag["status"] = "local_lexical_fallback"
+        rag["fallback_active"] = True
+        for warning in rag.get("warnings") or []:
+            if warning.get("status") == "knowledge_rag_failed":
+                warning["message"] = "Embedding RAG failed; bundled local lexical retrieval supplied the research-method guidance."
+    else:
+        rag["fallback_active"] = False
+    rag.pop("_rag_config", None)
+    queries = build_public_queries(inputs)
+    sources, web_warnings = research_public_sources(queries, config, quick_test=quick_test)
+    evidence = research_evidence(inputs, documents, sources)
+    return {
+        "folder": folder,
+        "documents": documents,
+        "knowledge": knowledge,
+        "rag": rag,
+        "sources": sources,
+        "evidence": evidence,
+        "warnings": [*document_warnings, *(rag.get("warnings") or []), *web_warnings],
+        "public_research_warnings": web_warnings,
+    }
+
+
 def _chunks(text: str, size: int) -> list[str]:
     words = text.split()
     return [" ".join(words[index : index + size]) for index in range(0, len(words), size)] or [""]
@@ -555,14 +615,23 @@ def research_evidence(
     inputs: dict[str, Any], documents: list[dict[str, Any]], sources: list[dict[str, Any]]
 ) -> dict[str, Any]:
     """Build deterministic evidence coverage without inferring scientific results."""
-    local_text = "\n".join(str(item.get("text") or "") for item in documents)
+    usable_documents = [
+        item
+        for item in documents
+        if item.get("status") == "extracted" and str(item.get("text") or "").strip()
+    ]
+    observed_sources = [
+        item
+        for item in sources
+        if item.get("status") == "observed" and (str(item.get("url") or "").strip() or str(item.get("snippet") or "").strip())
+    ]
+    local_text = "\n".join(str(item.get("text") or "") for item in usable_documents)
     lowered = local_text.lower()
-    source_refs = [item.get("source_ref") for item in documents + sources if item.get("source_ref")]
-    observed_sources = [item for item in sources if item.get("status") == "observed"]
+    source_refs = [item.get("source_ref") for item in [*usable_documents, *observed_sources] if item.get("source_ref")]
     checks = {
         "research_goal_defined": bool(inputs.get("research_goal")),
         "question_or_scope_defined": bool(inputs.get("research_question") or inputs.get("scope")),
-        "local_evidence_present": any(item.get("text") for item in documents),
+        "local_evidence_present": bool(usable_documents),
         "public_evidence_present": bool(observed_sources),
         "method_or_measurement_discussed": any(
             marker in lowered
@@ -577,6 +646,8 @@ def research_evidence(
     ]
     if not observed_sources:
         evidence_gaps.append("verified public evidence")
+    if not source_refs:
+        evidence_gaps.append("usable research evidence")
     if any(item.get("status") == "blocked" for item in sources):
         evidence_gaps.append("access-limited public sources")
     return {
@@ -585,6 +656,9 @@ def research_evidence(
         "deterministic_checks": checks,
         "document_count": len(documents),
         "public_source_count": len(observed_sources),
+        "usable_local_document_count": len(usable_documents),
+        "usable_public_source_count": len(observed_sources),
+        "usable_evidence_present": bool(source_refs),
         "public_source_status_counts": _status_counts(sources),
         "evidence_gaps": list(dict.fromkeys(evidence_gaps)),
         "source_refs": list(dict.fromkeys(source_refs)),
@@ -594,7 +668,7 @@ def research_evidence(
 
 def deterministic_research_posture(evidence: dict[str, Any]) -> dict[str, Any]:
     gaps = len(evidence.get("evidence_gaps") or [])
-    if not evidence.get("document_count") and not evidence.get("public_source_count"):
+    if not evidence.get("usable_evidence_present"):
         action, confidence = "gather_more_evidence", "low"
     elif gaps >= 3:
         action, confidence = "gather_more_evidence", "low"
@@ -908,31 +982,42 @@ def build_research_packet(
     run_id: str,
 ) -> dict[str, Any]:
     hypotheses = recommendation["candidate_hypotheses"]
-    source_refs = list(
-        dict.fromkeys(
-            [
-                "inputs.json",
-                "events.jsonl",
-                "result.json",
-                *(evidence.get("source_refs") or []),
-                *(rag.get("citations") or []),
-            ]
-        )
+    usable_evidence = bool(evidence.get("usable_evidence_present"))
+    status = "review_ready" if usable_evidence else "needs_evidence"
+    recommended_action = recommendation["recommended_action"] if usable_evidence else "gather_more_evidence"
+    confidence = recommendation["confidence"] if usable_evidence else "low"
+    recommendation_rationale = (
+        recommendation["rationale"]
+        if usable_evidence
+        else "No extracted local document or observed public source is available for review."
     )
+    source_refs = list(dict.fromkeys(evidence.get("source_refs") or []))
+    next_steps = [
+        "Review the evidence ledger and resolve the highest-impact gaps.",
+        "Ask a qualified reviewer to validate the ranked hypotheses and experiment concepts.",
+        "Obtain required safety, ethics, operational, or institutional approvals before any real-world action.",
+    ]
+    if not usable_evidence:
+        next_steps = []
+        if not evidence.get("usable_local_document_count"):
+            next_steps.append("Provide an approved local paper, note, dataset, or measurement with usable text.")
+        if not evidence.get("usable_public_source_count"):
+            next_steps.append("Retry public retrieval or provide approved local evidence; no observed public source is available.")
+        next_steps.append("Do not use the candidate hypotheses as an evidence-based recommendation until usable evidence is available.")
     return {
         "type": OUTPUT_TYPE,
         "schema_version": "mn.blueprint.research_coscientist.v2",
         "blueprint_id": BLUEPRINT_ID,
         "run_id": run_id,
-        "status": "review_ready",
+        "status": status,
         "research_goal": inputs.get("research_goal"),
         "research_domain": inputs.get("research_domain"),
         "research_question": inputs.get("research_question"),
         "scope": inputs.get("scope"),
-        "executive_summary": f"Research packet for: {inputs.get('research_goal') or 'unspecified research goal'}. Posture: {recommendation['recommended_action']} with {recommendation['confidence']} confidence.",
-        "recommended_action": recommendation["recommended_action"],
-        "confidence": recommendation["confidence"],
-        "recommendation_rationale": recommendation["rationale"],
+        "executive_summary": f"Research packet for: {inputs.get('research_goal') or 'unspecified research goal'}. Status: {status}. Posture: {recommended_action} with {confidence} confidence.",
+        "recommended_action": recommended_action,
+        "confidence": confidence,
+        "recommendation_rationale": recommendation_rationale,
         "evidence": {
             "deterministic": evidence,
             "documents": [{key: value for key, value in item.items() if key != "text"} for item in documents],
@@ -948,12 +1033,9 @@ def build_research_packet(
         "knowledge_rag": {key: value for key, value in rag.items() if key not in {"_rag_config", "context"}},
         "evidence_gaps": evidence.get("evidence_gaps") or [],
         "warnings": warnings,
-        "next_steps": [
-            "Review the evidence ledger and resolve the highest-impact gaps.",
-            "Ask a qualified reviewer to validate the ranked hypotheses and experiment concepts.",
-            "Obtain required safety, ethics, operational, or institutional approvals before any real-world action.",
-        ],
+        "next_steps": next_steps,
         "source_refs": source_refs,
+        "provenance_refs": ["inputs.json", "events.jsonl", "result.json"],
         "review_boundary": {
             "review_required": True,
             "blocked_actions": BLOCKED_ACTIONS,
@@ -963,9 +1045,13 @@ def build_research_packet(
 
 
 def research_artifact_quality(packet: dict[str, Any]) -> dict[str, Any]:
+    deterministic = (packet.get("evidence") or {}).get("deterministic") or {}
+    usable_evidence = bool(deterministic.get("usable_evidence_present"))
+    expected_status = "review_ready" if usable_evidence else "needs_evidence"
     checks = [
         {"name": "research_action_valid", "passed": packet.get("recommended_action") in RESEARCH_ACTIONS},
-        {"name": "source_refs_present", "passed": bool(packet.get("source_refs"))},
+        {"name": "usable_evidence_present", "passed": usable_evidence},
+        {"name": "packet_status_matches_evidence", "passed": packet.get("status") == expected_status},
         {"name": "hypotheses_labeled", "passed": all(item.get("status") == "hypothesis_for_review" for item in packet.get("hypothesis_ledger") or [])},
         {"name": "review_boundary_present", "passed": bool(packet.get("review_boundary"))},
         {"name": "autonomous_isolation_declared", "passed": (packet.get("autonomous_research") or {}).get("isolation_required") is True},
@@ -973,7 +1059,7 @@ def research_artifact_quality(packet: dict[str, Any]) -> dict[str, Any]:
     ]
     return {
         "schema_version": "mn.blueprint.artifact_quality.v1",
-        "status": "usable_with_review" if all(item["passed"] for item in checks) else "usable_with_review_warnings",
+        "status": "needs_evidence" if not usable_evidence else ("usable_with_review" if all(item["passed"] for item in checks) else "usable_with_review_warnings"),
         "review_required": True,
         "quality_checks": checks,
         "warnings": packet.get("warnings") or [],
@@ -987,6 +1073,7 @@ def render_research_markdown(packet: dict[str, Any]) -> str:
         "",
         f"**Research goal:** {packet.get('research_goal') or 'Not specified'}",
         f"**Domain:** {packet.get('research_domain') or 'General'}",
+        f"**Status:** {packet.get('status')}",
         f"**Review posture:** {packet.get('recommended_action')}",
         f"**Confidence:** {packet.get('confidence')}",
         "",
@@ -996,6 +1083,7 @@ def render_research_markdown(packet: dict[str, Any]) -> str:
         "## Evidence Coverage",
         f"- Local documents reviewed: {deterministic.get('document_count', 0)}",
         f"- Public sources observed: {deterministic.get('public_source_count', 0)}",
+        f"- Usable evidence present: {'Yes' if deterministic.get('usable_evidence_present') else 'No'}",
         "",
         "## Candidate Hypotheses",
     ]
@@ -1098,23 +1186,21 @@ def run_blueprint(
     context = create_runtime_context(BLUEPRINT_ID, resolved_config, runtime_inputs, input_source)
     context.start()
     try:
-        folder = resolve_input_folder(resolved_config, runtime_inputs, root)
-        documents, document_warnings = load_input_documents(folder, resolved_config)
-        knowledge = load_research_knowledge(root)
-        rag = prepare_research_rag(resolved_config, root, knowledge, documents, context.run_id)
-        rag_query = " ".join(build_public_queries(runtime_inputs))
-        local_retrieval = retrieve_research_rag_context(rag_query, rag, knowledge, documents, max_chars=int((resolved_config.get("knowledge_rag") or {}).get("max_context_chars", 6000)))
-        rag["context"] = local_retrieval["context"]
-        rag["citations"] = local_retrieval["citations"]
-        rag["chunks"] = local_retrieval["chunks"]
-        if local_retrieval.get("warning"):
-            rag.setdefault("warnings", []).append(local_retrieval["warning"])
-        rag.pop("_rag_config", None)
+        prepared = prepare_evidence_context(
+            resolved_config,
+            runtime_inputs,
+            root,
+            context.run_id,
+            quick_test=llm_mode in {"fake", "mock"} or bool((resolved_config.get("execution") or {}).get("quick_test")),
+        )
+        folder = prepared["folder"]
+        documents = prepared["documents"]
+        rag = prepared["rag"]
+        sources = prepared["sources"]
+        evidence = prepared["evidence"]
         context.event("inputs_loaded", {"research_goal": runtime_inputs["research_goal"], "research_domain": runtime_inputs["research_domain"], "document_count": len(documents), "input_folder": str(folder) if folder else None})
         context.event("knowledge_rag_prepared", {"status": rag.get("status"), "citations": rag.get("citations", []), "user_documents_indexed": len(rag.get("user_documents_indexed") or [])})
-        sources, web_warnings = research_public_sources(build_public_queries(runtime_inputs), resolved_config, quick_test=llm_mode in {"fake", "mock"} or bool((resolved_config.get("execution") or {}).get("quick_test")))
-        context.event("public_research_completed", {"source_count": len(sources), "warning_count": len(web_warnings)})
-        evidence = research_evidence(runtime_inputs, documents, sources)
+        context.event("public_research_completed", {"source_count": len(sources), "warning_count": len(prepared["public_research_warnings"])})
         deterministic = deterministic_research_posture(evidence)
         context.event(
             "autonomous_research_started",
@@ -1153,7 +1239,7 @@ def run_blueprint(
             context={"inputs": runtime_inputs, "evidence": evidence, "recommendation": recommendation, "rag": rag, "sources": sources},
             event_sink=context,
         )
-        warnings = [*document_warnings, *rag.get("warnings", []), *web_warnings, *autonomous_warnings]
+        warnings = [*prepared["warnings"], *autonomous_warnings]
         final = build_research_packet(
             runtime_inputs,
             evidence,
@@ -1293,35 +1379,23 @@ def run_runtime_step(step_id: str) -> dict[str, Any]:
             },
         }
     elif step_id == "retrieve_and_evaluate_evidence":
-        folder = resolve_input_folder(resolved_config, runtime_inputs, root)
-        documents, document_warnings = load_input_documents(folder, resolved_config)
-        knowledge = load_research_knowledge(root)
-        rag = prepare_research_rag(resolved_config, root, knowledge, documents, run_id)
-        rag_query = " ".join(build_public_queries(runtime_inputs))
-        local_retrieval = retrieve_research_rag_context(
-            rag_query,
-            rag,
-            knowledge,
-            documents,
-            max_chars=int((resolved_config.get("knowledge_rag") or {}).get("max_context_chars", 6000)),
+        prepared = prepare_evidence_context(
+            resolved_config,
+            runtime_inputs,
+            root,
+            run_id,
+            quick_test=stage["llm_mode"] in {"fake", "mock"} or bool((resolved_config.get("execution") or {}).get("quick_test")),
         )
-        rag["context"] = local_retrieval["context"]
-        rag["citations"] = local_retrieval["citations"]
-        rag["chunks"] = local_retrieval["chunks"]
-        if local_retrieval.get("warning"):
-            rag.setdefault("warnings", []).append(local_retrieval["warning"])
-        rag.pop("_rag_config", None)
-        evidence = research_evidence(runtime_inputs, documents, [])
         payload = {
             **previous,
             "inputs": runtime_inputs,
             "deterministic_stage": "evidence_preparation",
-            "documents": documents,
-            "rag": rag,
-            "sources": [],
-            "evidence": evidence,
-            "posture": deterministic_research_posture(evidence),
-            "warnings": [*document_warnings, *(rag.get("warnings") or [])],
+            "documents": prepared["documents"],
+            "rag": prepared["rag"],
+            "sources": prepared["sources"],
+            "evidence": prepared["evidence"],
+            "posture": deterministic_research_posture(prepared["evidence"]),
+            "warnings": prepared["warnings"],
         }
     elif step_id == "autonomous_research":
         documents = previous.get("documents") if isinstance(previous.get("documents"), list) else []

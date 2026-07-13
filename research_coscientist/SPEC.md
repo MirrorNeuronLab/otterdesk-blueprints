@@ -17,7 +17,7 @@ The roles are inspired by the generation, reflection, ranking, evolution, proxim
 
 ## Output Contract
 
-The primary artifact is `mn.blueprint.research_coscientist.v2`. It contains a research goal, executive summary, `recommended_action` (`review_research_packet` or `gather_more_evidence`), confidence, source-grounded evidence, autonomous session and generated-code traces, a hypothesis ledger, critique ledger, experiment concepts, evidence gaps, next steps, and source references.
+The primary artifact is `mn.blueprint.research_coscientist.v2`. It contains a research goal, executive summary, `recommended_action` (`review_research_packet` or `gather_more_evidence`), confidence, source-grounded evidence, autonomous session and generated-code traces, a hypothesis ledger, critique ledger, experiment concepts, evidence gaps, next steps, and source references. Its `status` is `review_ready` only when at least one extracted local document or observed public source is present; otherwise it is `needs_evidence` and preserves diagnostics without presenting the packet as review-ready.
 
 The workflow has three execution stages: deterministic context preparation, one isolated autonomous OpenShell worker, and deterministic verification/publication. The OpenShell worker may set or refine goals, create prompts, request allowlisted `mn-skills` tools, and execute validated generated Python. All such actions must appear in the autonomous session ledger. The final deterministic stage rejects untraceable claims or missing review boundaries.
 
@@ -31,7 +31,7 @@ For medical, biological, safety-critical, or regulated topics, users must supply
 
 ## Evaluation
 
-- Source records preserve origin, retrieval time, access status, and warnings.
+- Source records preserve origin, retrieval time, access status, and warnings; run metadata is provenance, not evidence.
 - Facts, inferences, hypotheses, and unknowns remain distinct.
 - Candidate hypotheses are falsifiable and include a counterargument or disconfirming observation.
 - Experiment and benchmark concepts name controls, measurements, decision rules, and approval dependencies.

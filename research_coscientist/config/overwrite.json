@@ -8,8 +8,8 @@
       "success_criteria": ["testable hypotheses", "traceable evidence", "falsifiable experiment plan", "explicit uncertainty"],
       "constraints": {"no_live_system_changes": true, "require_human_review": true, "max_hypotheses": 3},
       "seed_hypotheses": [],
-      "input_folder": "research_coscientist/examples/sample_inputs",
-      "output_folder": "~/Download/research_coscientist"
+      "input_folder": "examples/sample_inputs",
+      "output_folder": "~/Downloads/research_coscientist"
     }
   }
 }

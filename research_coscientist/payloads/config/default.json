@@ -167,8 +167,8 @@
         "max_hypotheses": 3
       },
       "seed_hypotheses": [],
-      "input_folder": "research_coscientist/examples/sample_inputs",
-      "output_folder": "~/Download/research_coscientist"
+      "input_folder": "examples/sample_inputs",
+      "output_folder": "~/Downloads/research_coscientist"
     }
   },
   "interfaces": {
@@ -746,7 +746,7 @@
       "ports": []
     },
     "write_run_store": true,
-    "folder_path": "~/Download/research_coscientist"
+    "folder_path": "~/Downloads/research_coscientist"
   },
   "privacy": {
     "default_classification": "confidential",
@@ -825,8 +825,8 @@
       "event_id"
     ],
     "resume_mode": "none",
-    "input_folder": "research_coscientist/examples/sample_inputs",
-    "output_folder": "~/Download/research_coscientist"
+    "input_folder": "examples/sample_inputs",
+    "output_folder": "~/Downloads/research_coscientist"
   },
   "streams": {},
   "triggers": {

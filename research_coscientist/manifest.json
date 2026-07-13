@@ -153,7 +153,7 @@
         "required": false,
         "privacy": "confidential",
         "description": "Local papers, notes, datasets, and evidence approved for this run.",
-        "example": "research_coscientist/examples/sample_inputs"
+        "example": "examples/sample_inputs"
       },
       "output_folder": {
         "type": "local_path",
@@ -161,7 +161,7 @@
         "required": false,
         "privacy": "confidential",
         "description": "Folder for the research packet and supporting ledgers.",
-        "example": "~/Download/research_coscientist"
+        "example": "~/Downloads/research_coscientist"
       }
     },
     "outputs": {
@@ -357,12 +357,14 @@
         "path": "final_artifact.json",
         "required_fields": [
           "type",
+          "status",
           "executive_summary",
           "recommended_action",
           "confidence",
           "evidence",
           "next_steps",
-          "source_refs"
+          "source_refs",
+          "provenance_refs"
         ],
         "schema_version": "mn.blueprint.final_artifact_contract.v1",
         "type": "final_artifact"
@@ -1292,7 +1294,7 @@
         {
           "path": "inputs.payload.input_folder",
           "label": "Input folder",
-          "default": "research_coscientist/examples/sample_inputs",
+          "default": "examples/sample_inputs",
           "description": "Approved local evidence folder.",
           "type": "local_path",
           "path_kind": "directory"
@@ -1300,7 +1302,7 @@
         {
           "path": "outputs.folder_path",
           "label": "Output folder",
-          "default": "~/Download/research_coscientist",
+          "default": "~/Downloads/research_coscientist",
           "description": "Generated-artifact folder.",
           "type": "local_path",
           "path_kind": "directory"
@@ -1339,8 +1341,8 @@
               "max_hypotheses": 3
             },
             "seed_hypotheses": [],
-            "input_folder": "research_coscientist/examples/sample_inputs",
-            "output_folder": "~/Download/research_coscientist"
+            "input_folder": "examples/sample_inputs",
+            "output_folder": "~/Downloads/research_coscientist"
           }
         },
         "json": {
@@ -1417,7 +1419,7 @@
           "type": "local_path",
           "path_kind": "directory",
           "description": "Approved local evidence folder.",
-          "example": "research_coscientist/examples/sample_inputs",
+          "example": "examples/sample_inputs",
           "privacy": "confidential",
           "required": false
         },
@@ -1426,7 +1428,7 @@
           "type": "local_path",
           "path_kind": "directory",
           "description": "Generated-artifact folder.",
-          "example": "~/Download/research_coscientist",
+          "example": "~/Downloads/research_coscientist",
           "privacy": "confidential",
           "required": false
         }
@@ -1903,12 +1905,14 @@
         "description": "The durable final artifact summarizes the research goal, review posture, confidence, evidence, hypotheses, experiment plan, next steps, and source references.",
         "required_fields": [
           "type",
+          "status",
           "executive_summary",
           "recommended_action",
           "confidence",
           "evidence",
           "next_steps",
-          "source_refs"
+          "source_refs",
+          "provenance_refs"
         ],
         "schema_version": "mn.blueprint.final_artifact_contract.v1"
       },

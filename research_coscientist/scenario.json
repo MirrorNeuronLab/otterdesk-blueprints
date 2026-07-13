@@ -42,8 +42,8 @@
     "research_question": "Which controllable cooling-loop interventions are most plausible to test first, and what evidence would distinguish them?",
     "scope": "Desk research and experiment planning only; no live system changes.",
     "constraints": {"no_live_system_changes": true, "require_human_review": true, "max_hypotheses": 3},
-    "input_folder": "research_coscientist/examples/sample_inputs",
-    "output_folder": "~/Download/research_coscientist"
+    "input_folder": "examples/sample_inputs",
+    "output_folder": "~/Downloads/research_coscientist"
   },
   "workflow_stages": [
     "research_goal_framing",
