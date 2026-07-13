@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
 
 
@@ -85,3 +86,57 @@ def test_extract_frame_uses_cuda_decode_and_scale(monkeypatch):
         command.index("-hwaccel_output_format") : command.index("-hwaccel_output_format") + 2
     ]
     assert "scale_cuda=896" in command[command.index("-vf") + 1]
+
+
+def test_openai_vlm_disables_thinking_and_normalizes_model_variants(monkeypatch):
+    detector = _load_detector()
+    captured = {}
+    model_content = {
+        "detected": True,
+        "detected_target": "equipment",
+        "detection_count": 1,
+        "detections": [
+            {
+                "label": "machine",
+                "category": "equipment",
+                "color": "blue",
+                "position": "center",
+                "activity": "stationary",
+                "confidence": 0.91,
+            }
+        ],
+        "summary": "One machine is visible.",
+        "risk_level": "low",
+    }
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read(self):
+            return json.dumps({"choices": [{"message": {"content": json.dumps(model_content)}}]}).encode()
+
+    def fake_urlopen(request, timeout):
+        captured.update(json.loads(request.data.decode()))
+        captured["timeout"] = timeout
+        return FakeResponse()
+
+    monkeypatch.setenv("MN_VLM_PROVIDER", "docker_model_runner")
+    monkeypatch.setenv("MN_VLM_API_BASE", "http://model.example/engines/v1")
+    monkeypatch.setenv("MN_VLM_MODEL", "vision-model")
+    monkeypatch.delenv("MN_VLM_MAX_TOKENS", raising=False)
+    monkeypatch.delenv("MN_LLM_MAX_TOKENS", raising=False)
+    monkeypatch.delenv("OLLAMA_NUM_PREDICT", raising=False)
+    monkeypatch.delenv("MN_VLM_THINK", raising=False)
+    monkeypatch.delenv("OLLAMA_THINK", raising=False)
+    monkeypatch.setattr(detector.urllib.request, "urlopen", fake_urlopen)
+
+    result = detector.call_ollama(b"jpeg", "inspect the frame")
+
+    assert captured["chat_template_kwargs"] == {"enable_thinking": False}
+    assert captured["max_tokens"] == 600
+    assert result["detected_target"] is True
+    assert result["confidence"] == 0.91

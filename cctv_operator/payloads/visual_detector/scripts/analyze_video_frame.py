@@ -540,6 +540,9 @@ def call_ollama(frame: bytes, prompt: str) -> dict[str, Any]:
     timeout = float(os.environ.get("MN_VLM_TIMEOUT_SECONDS") or os.environ.get("MN_LLM_TIMEOUT_SECONDS") or os.environ.get("OLLAMA_TIMEOUT_SECONDS", "90"))
     if _uses_openai_compatible_runtime(provider, base_url):
         encoded = base64.b64encode(frame).decode("ascii")
+        thinking_enabled = (
+            os.environ.get("MN_VLM_THINK") or os.environ.get("OLLAMA_THINK", "false")
+        ).strip().lower() in {"1", "true", "yes", "on"}
         payload = {
             "model": model,
             "messages": [
@@ -551,8 +554,9 @@ def call_ollama(frame: bytes, prompt: str) -> dict[str, Any]:
                     ],
                 }
             ],
-            "max_tokens": int(os.environ.get("MN_VLM_MAX_TOKENS") or os.environ.get("MN_LLM_MAX_TOKENS") or os.environ.get("OLLAMA_NUM_PREDICT", "300")),
+            "max_tokens": int(os.environ.get("MN_VLM_MAX_TOKENS") or os.environ.get("MN_LLM_MAX_TOKENS") or os.environ.get("OLLAMA_NUM_PREDICT", "600")),
             "temperature": float(os.environ.get("MN_VLM_TEMPERATURE") or os.environ.get("OLLAMA_TEMPERATURE", "0.0")),
+            "chat_template_kwargs": {"enable_thinking": thinking_enabled},
             "response_format": {"type": "json_object"},
         }
         request = urllib.request.Request(
@@ -653,15 +657,23 @@ def fallback_detection_from_model_text(_text: str, _reason: str) -> dict[str, An
 
 
 def normalize_detection(result: dict[str, Any]) -> dict[str, Any]:
-    confidence = result.get("confidence", 0.0)
+    raw_confidence = result.get("confidence")
+    has_top_level_confidence = raw_confidence is not None
     try:
-        confidence = float(confidence)
+        confidence = float(raw_confidence)
     except (TypeError, ValueError):
         confidence = 0.0
+        has_top_level_confidence = False
 
     detected = result.get("detected_target", result.get("detected", False))
     if isinstance(detected, str):
-        detected = detected.strip().lower() in {"true", "yes", "1", "detected", "visible", "present", "active"}
+        normalized_detected = detected.strip().lower()
+        if normalized_detected in {"true", "yes", "1", "detected", "visible", "present", "active"}:
+            detected = True
+        elif normalized_detected in {"false", "no", "0", "none", "absent", "not_detected"}:
+            detected = False
+        else:
+            detected = result.get("detected", False)
 
     detections = result.get("detections", result.get("observed_items", []))
     if isinstance(detections, dict):
@@ -694,6 +706,9 @@ def normalize_detection(result: dict[str, Any]) -> dict[str, Any]:
                     "confidence": safe_confidence(confidence),
                 }
             )
+
+    if normalized_detections and not has_top_level_confidence:
+        confidence = max(item["confidence"] for item in normalized_detections)
 
     detection_count = result.get("detection_count", len(normalized_detections) if detected else 0)
     try:
