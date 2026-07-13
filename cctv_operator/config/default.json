@@ -744,8 +744,6 @@
       "min_count": 1,
       "vendor": "nvidia",
       "driver": "cuda",
-      "min_api_version": "12.0",
-      "api_version_operator": ">=",
       "min_memory_mb": 49152,
       "memory_operator": ">=",
       "enforcement": "hard"

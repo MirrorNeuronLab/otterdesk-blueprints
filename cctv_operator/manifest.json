@@ -662,8 +662,6 @@
               "vendor": "nvidia",
               "driver": "cuda",
               "count": 1,
-              "min_api_version": "12.0",
-              "api_version_operator": ">=",
               "min_memory_mb": 49152,
               "memory_operator": ">="
             }
@@ -893,8 +891,6 @@
         "min_count": 1,
         "vendor": "nvidia",
         "driver": "cuda",
-        "min_api_version": "12.0",
-        "api_version_operator": ">=",
         "min_memory_mb": 49152,
         "memory_operator": ">=",
         "enforcement": "hard"
@@ -1019,8 +1015,6 @@
       "min_count": 1,
       "vendor": "nvidia",
       "driver": "cuda",
-      "min_api_version": "12.0",
-      "api_version_operator": ">=",
       "min_memory_mb": 49152,
       "memory_operator": ">=",
       "enforcement": "hard"
@@ -1205,8 +1199,6 @@
                   "vendor": "nvidia",
                   "driver": "cuda",
                   "count": 1,
-                  "min_api_version": "12.0",
-                  "api_version_operator": ">=",
                   "min_memory_mb": 49152,
                   "memory_operator": ">="
                 }
@@ -1267,8 +1259,6 @@
                   "vendor": "nvidia",
                   "driver": "cuda",
                   "count": 1,
-                  "min_api_version": "12.0",
-                  "api_version_operator": ">=",
                   "min_memory_mb": 49152,
                   "memory_operator": ">="
                 }

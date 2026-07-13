@@ -30,7 +30,7 @@ Folder exhaustion emits `cctv_operator_folder_completed`. Significant detections
 
 ## NVIDIA requirement and media path
 
-The manifest hard-requires `nvidia`, `cuda`, one NVIDIA GPU, CUDA API 12.0 or newer, and 49,152 MB or more of GPU/unified IGP memory. `mn-python-sdk` owns cluster resource validation, including DGX Spark unified-memory accounting. The blueprint only declares the requirement and does not implement another hardware probe.
+The manifest hard-requires `nvidia`, `cuda`, one NVIDIA GPU, and 49,152 MB or more of GPU/unified IGP memory. `mn-python-sdk` owns cluster resource validation, including DGX Spark unified-memory accounting. The blueprint only declares the requirement and does not implement another hardware probe.
 
 The detector runs HostLocal on the selected NVIDIA node. Its launch script verifies that `nvidia-smi`, FFmpeg, and FFmpeg CUDA acceleration are available. Frame extraction requests CUDA hardware decode, performs scaling with `scale_cuda`, and downloads only the resized frame needed by the vision model. No CPU media fallback or Mac-only path exists.
 
