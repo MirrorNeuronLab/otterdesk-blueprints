@@ -777,6 +777,16 @@
         "side_effect": "read",
         "strategy": "fanout_reduce",
         "type": "team",
+        "seed_inputs": {
+          "ingress": [
+            {
+              "type": "cctv_operator_start",
+              "payload": {
+                "stream_id": "cctv_operator"
+              }
+            }
+          ]
+        },
         "workers": [
           {
             "id": "video_source_validator",

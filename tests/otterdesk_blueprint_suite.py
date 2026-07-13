@@ -1526,6 +1526,21 @@ def test_cctv_operator_uses_hostlocal_nvidia_media_worker():
     } in config["manifest_config_bindings"]
 
 
+def test_cctv_operator_seeds_live_monitor_start_message():
+    manifest = json.loads((ROOT / "cctv_operator" / "manifest.json").read_text())
+
+    seed = manifest["runtime"]["bindings"]["start_video_monitor"]["seed_inputs"]
+
+    assert seed == {
+        "ingress": [
+            {
+                "type": "cctv_operator_start",
+                "payload": {"stream_id": "cctv_operator"},
+            }
+        ]
+    }
+
+
 def test_cctv_operator_detector_script_compiles_with_shared_helper_import():
     py_compile.compile(
         str(ROOT / "cctv_operator" / "payloads" / "visual_detector" / "scripts" / "analyze_video_frame.py"),

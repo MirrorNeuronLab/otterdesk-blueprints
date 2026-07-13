@@ -7,6 +7,7 @@ from otterdesk_blueprint_suite import (
     test_cctv_operator_default_folder_validates_from_blueprint_root,
     test_cctv_operator_folder_validator_accepts_supported_recordings,
     test_cctv_operator_folder_validator_rejects_empty_folder,
+    test_cctv_operator_seeds_live_monitor_start_message,
     test_cctv_operator_stream_validator_probes_rtsp_and_rtmp,
     test_cctv_operator_stream_validator_rejects_non_stream_uri,
     test_cctv_operator_uses_hostlocal_nvidia_media_worker,
