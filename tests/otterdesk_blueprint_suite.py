@@ -1550,8 +1550,13 @@ def test_cctv_operator_detector_script_compiles_with_shared_helper_import():
 
 def test_cctv_operator_uses_shared_runtime_web_ui_without_compose_or_media_bridge():
     blueprint_dir = ROOT / "cctv_operator"
-    config = json.loads((blueprint_dir / "config" / "default.json").read_text())
     manifest = json.loads((blueprint_dir / "manifest.json").read_text())
+    config = json.loads((blueprint_dir / "config" / "default.json").read_text())
+
+    assert {dependency["name"]: dependency["version"] for dependency in manifest["skill_dependencies"]} == {
+        "mirrorneuron-blueprint-support-skill": "1.2.22",
+        "mirrorneuron-websocket-stream-skill": "1.2.22",
+    }
     assert not (blueprint_dir / "docker-compose.yml").exists()
     assert not (blueprint_dir / "compose.yaml").exists()
     assert not (blueprint_dir / "scripts" / "pre-launch.sh").exists()
