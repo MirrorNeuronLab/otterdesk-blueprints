@@ -1,63 +1,55 @@
-# CCTV Operator SPEC
+# CCTV Operator specification
 
-## What We Want To Achieve
+## Objective
 
-Build a reviewable video monitoring workflow that reduces manual video watching while giving operations teams enough evidence to trust each visual-detection escalation. The customer should be able to see what was observed, how many targets were detected, what label/category/color each item appeared to be, why an alert was or was not sent, and how to tune the workflow for the site.
+Provide one reviewable video-analysis workflow for both historical recordings and live CCTV sources. The customer should be able to identify what was observed, where and when it appeared, the model confidence, why an alert was sent or suppressed, and which original source a reviewer should inspect.
 
-## Customer Problem
+## Consolidated behavior
 
-Video operators and critical-infrastructure security teams need to watch continuous video without turning every frame into manual review. The real gap is not just seeing something once; it is deciding when configured subjects or activities matter, avoiding duplicate alerts, and leaving enough evidence for reviewers to trust what happened.
+The blueprint supersedes two narrower designs:
 
-## Design Details
+- The former safety analyser accepted a local video folder and produced an after-the-fact report.
+- The former watch assistant sampled an RTSP feed and produced live observations, notices, and a dashboard.
 
-The blueprint is organized as a streaming visual-detection loop. `ingress` starts the monitor, `video_frame_tick_source` emits frame ticks, and `visual_detector` samples the configured video source, runs visual detection, reports count/label/category/color/position/activity details, applies confidence and cooldown policy, and emits structured events when configured targets appear in the monitored scene. It also maintains conversation context so OtterDesk local AI can answer what happened from live observations, accepts operator attention requests, and emits chat-facing `human_notice` events when a significant change should be surfaced promptly.
+`cctv_operator` preserves both input patterns and uses one event vocabulary, report format, alert policy, conversation context, and web UI.
 
-The OtterDesk local chat model uses `payloads/prompts/chat-system.md` as this blueprint's co-worker system prompt. The prompt makes the model speak as CCTV Operator, answer job-related questions from runtime observations and human-in-the-loop events, explain detection or alert decisions, and say clearly when evidence is missing or operator input is needed.
+## Source contract
 
-The prototype supports live VL model detection through Docker Model Runner on an NVIDIA-accelerated runtime node and deterministic mock detection for tests. The model is asked to count only real visible subjects or activity relevant to the configured targets, and to ignore shadows, reflections, signage text, static background clutter, and uncertain guesses. Alert delivery is optional, with Slack-style payloads used as the reference integration.
+`video_source.mode` is mandatory and accepts:
 
-## Input
+- `folder`: stage `video_source.folder_path`, discover supported files recursively, sort them deterministically, and advance through each recording as its duration is exhausted.
+- `stream`: validate and sample one RTSP, RTSPS, RTMP, or RTMPS URI from `video_source.uri`.
 
-The prototype accepts a mapped local RTSP source through a host-side mapper started by the standard `scripts/pre-launch.sh` hook and cleaned by `scripts/post-launch.sh`. By default, the mapper loops `data/sample.mp4` into `rtsp://127.0.0.1:8554/cctv`; if that port is busy, it selects another local port and reports the resolved URI back to the runner before validation and submission. On stop, cancel, failed launch, terminal completion, or stale run cleanup, the post-launch hook stops the recorded ffmpeg/MediaMTX mapper and matching MediaMTX listeners on the selected preview ports. The key runtime controls are the mapped source URI, transport, codec, frame sampling interval, maximum frame width, detection confidence threshold, alert cooldown window, target prompt, and site-specific escalation policy.
+Folder mode supports MP4, MOV, MKV, AVI, WebM, M4V, TS, and MTS. Stream credentials must be redacted from logs and event payloads. A missing/empty folder, unsupported source mode, invalid URI scheme, unreachable stream, decode failure, or model failure is explicit; there is no automatic switch to a demo source or CPU decoder.
 
-Notification inputs include Slack enablement, destination channel, message prefix, and any downstream alert routing that a deployment wants to replace Slack with later. Model selection is built into the blueprint as `medium`; users do not set a model URL or model name. Live runs require a DGX Spark, GH200, H100, H200, B200, or GB200 class NVIDIA node with Docker Model Runner acceleration.
+## Runtime graph
 
-Third-party apps may edit or replace `config/overwrite.json` before launch to override the video source section. Runtime should resolve `config/default.json` first, then deep-merge `config/overwrite.json` when present, leaving `default.json` as the canonical full baseline config.
+`ingress` starts `video_frame_tick_source`. Each tick invokes `visual_detector`, which selects the active recording or stream, extracts one JPEG frame with NVIDIA-accelerated FFmpeg, calls the configured vision-language model, applies confidence/cooldown policy, and emits source-grounded events. `report_writer` merges each result into `cctv_report.json`, renders `cctv_report.md`, and updates `final_artifact.json`.
 
-For production use, the same contract should be fed by real video stream streams, site metadata, monitored-zone definitions, operating hours, incident categories, and customer-specific escalation rules.
+Folder exhaustion emits `cctv_operator_folder_completed`. Significant detections can emit `human_notice` and optional alert-delivery events. The workflow never performs physical security actions.
 
-## Output: Expected Customer Outcome
+## NVIDIA requirement and media path
 
-The expected customer outcome is reduced manual monitoring burden while meaningful visual observations are escalated with enough context to review. A useful run produces explainable frame observations, detection events, count/label/category/color/position/activity details, chat-facing human notices for major changes, alert or no-alert decisions, cooldown-aware notification payloads, and operational evidence showing why the system did or did not escalate.
+The manifest hard-requires `nvidia`, `cuda`, one NVIDIA GPU, CUDA API 12.0 or newer, and 49,152 MB or more of GPU/unified IGP memory. `mn-python-sdk` owns cluster resource validation, including DGX Spark unified-memory accounting. The blueprint only declares the requirement and does not implement another hardware probe.
 
-The result should help a safety or security team answer: what configured targets were seen, how many were detected, what visible labels/categories/colors were observed, where and when they were seen, how confident the system was, whether the co-worker notified the user in chat, whether an alert was sent, whether an alert was suppressed by policy or cooldown, and what a reviewer should inspect next.
+The detector runs HostLocal on the selected NVIDIA node. Its launch script verifies that `nvidia-smi`, FFmpeg, and FFmpeg CUDA acceleration are available. Frame extraction requests CUDA hardware decode, performs scaling with `scale_cuda`, and downloads only the resized frame needed by the vision model. No CPU media fallback or Mac-only path exists.
 
-The live review surface is declared as Grafana-style dashboard JSON under `web_ui.dashboard.grafana` and rendered by the shared blueprint support Gradio service. The video-specific behavior lives in panel declarations and event targets, not in custom dashboard HTML.
+This direct path is the preferred single-DGX-Spark design: it uses the node's NVIDIA media stack without adding a large DeepStream service image. DeepStream remains a future option for deployments that need batched multi-camera pipelines, tracker plugins, or high camera density.
 
-## Evaluation Criteria
+## Web UI deployment decision
 
-- Detection quality: measure precision, recall, false-alert rate, and missed-detection rate against labeled clips or sampled frames.
-- Detail quality: verify that alerts include useful count, label, category, color, position, and activity details.
-- Alert latency: measure time from sampled frame to emitted notification and compare with customer response expectations.
-- Cooldown correctness: confirm repeated detections do not create alert noise during the configured cooldown window.
-- Policy fit: check whether alerts match site rules such as restricted access, after-hours activity, monitored-area movement, or other configured targets.
-- Auditability: confirm every alert can be traced to detection metadata, sampled frame timing, model result, and notification payload.
-- Production readiness: evaluate real-camera reliability, model fallback behavior, retention policy, and integration with the customer's incident workflow.
+The shared `mirrorneuron-blueprint-support-skill[webui]` Gradio dashboard is used. `mn-python-sdk` injects the dashboard as a HostLocal runtime node for service manifests, so it runs outside Docker Compose and outside the domain communication graph. A blueprint-specific Compose service would duplicate lifecycle and run-store wiring.
 
-## Result Artifacts To Inspect
+The dashboard reads `events.jsonl`, human/log/resource streams, `cctv_report.json`, `cctv_report.md`, `final_artifact.json`, and `web_ui.json`. Browser preview is optional and disabled by default; analysis does not depend on browser republishing or MediaMTX.
 
-Inspect runtime events and worker logs for frame sampling, detection decisions, errors, and notification attempts. Review the final artifact or result payload for visual detection events, alert decisions, cooldown state, and notification details.
+## Outputs and review boundary
 
-When run through the standard local run store, inspect `run.json`, `config.json`, `inputs.json`, `events.jsonl`, `result.json`, and `final_artifact.json`. For bundle-style review, also inspect the generated bundle summary and any specialized payload outputs.
+Every report preserves source mode, source name, recording index, sampled position or stream observation time, detections, confidence, alert records, errors, and completed recording names. The durable outputs are:
 
-## Prototype Limits
+- `events.jsonl`
+- `cctv_report.json`
+- `cctv_report.md`
+- `final_artifact.json`
+- `web_ui.json`
 
-The current blueprint is an early prototype with RTSP or synthetic test inputs, simplified alert policy, and optional mock detection for repeatable local runs. It is decision support for evaluation, not a certified safety or security system.
-
-Real deployment still needs camera adapter hardening, privacy review, retention policy, customer-specific thresholds, incident-response integration, and validation against representative video footage.
-
-## Upgrade Path To Real Customer Use
-
-Calibrate thresholds and prompts using labeled customer clips. Add customer policy rules for site layout, operating hours, restricted zones, entry direction, and incident severity.
-
-Connect alerts to the customer's existing security, ticketing, or incident-response system. Track detection quality, alert noise, latency, reviewer acceptance, and missed-event analysis over time so the system improves against real operating outcomes.
+Evaluation should measure decode reliability, frame-to-observation latency, detection precision/recall, false alerts, missed detections, cooldown correctness, source provenance, and reviewer usefulness. This is decision support, not a certified safety or security system. Human review, privacy/retention policy, camera authorization, incident-response integration, and validation on representative footage remain deployment responsibilities.

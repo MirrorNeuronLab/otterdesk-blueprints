@@ -131,7 +131,9 @@
           "inputs.json",
           "events.jsonl",
           "result.json",
-          "final_artifact.json"
+          "final_artifact.json",
+          "cctv_report.json",
+          "cctv_report.md"
         ],
         "description": "Stable run-store files and domain-specific outputs.",
         "optional_artifacts": [
@@ -172,7 +174,9 @@
       "outputs": {
         "artifacts": [
           "result.json",
-          "final_artifact.json"
+          "final_artifact.json",
+          "cctv_report.json",
+          "cctv_report.md"
         ],
         "description": "Primary result and final user-facing artifact."
       },
@@ -291,7 +295,9 @@
       "inputs.json",
       "events.jsonl",
       "result.json",
-      "final_artifact.json"
+      "final_artifact.json",
+      "cctv_report.json",
+      "cctv_report.md"
     ],
     "stream_kinds": [
       "audio",
@@ -531,6 +537,8 @@
         "config_path": "video_source.folder_path",
         "payload_path": "cctv_operator/mn_local_inputs/videos",
         "runtime_path": "mn_local_inputs/videos",
+        "default_config_value": "cctv_operator/examples/sample_inputs",
+        "source_path": "examples/sample_inputs",
         "allowed_extensions": [
           ".mp4",
           ".mov",
@@ -624,83 +632,24 @@
     "privacy": "index local blueprint knowledge only; do not index private run documents unless a future runtime explicitly opts in"
   },
   "metadata": {
-    "agent_role": "AI assistant for reviewing video stream activity and preparing visual detection alerts.",
+    "agent_role": "AI assistant for reviewing recorded or live video activity and preparing visual detection reports and alerts.",
     "blueprint_id": "cctv_operator",
     "blueprint_revision": "v1",
     "category": "business",
     "customizable_for": "Video monitoring, configurable visual detection, facility operations, and site safety workflows.",
-    "description": "A cctv co-worker for monitoring an approved local or mapped video stream. Give it the stream source, visual targets, alert policy, and optional input folder assets; it detects configured objects or activities and writes reviewable observations, counts, positions, confidence, and alert status artifacts to the output folder.",
-    "llm_agent_role": "AI assistant for reviewing video stream activity and preparing visual detection alerts.",
+    "description": "An NVIDIA-only CCTV co-worker. Give it a local input folder of recordings or one approved RTSP/RTMP stream, visual targets, alert policy, and output folder; it prepares sampled frames with CUDA-enabled FFmpeg and writes source-grounded JSON and Markdown review reports.",
+    "llm_agent_role": "AI assistant for reviewing recorded or live video activity and preparing visual detection reports and alerts.",
     "name": "CCTV Operator",
-    "problem_solved": "User RTSP sources can be unstable or unavailable inside OpenShell, so this blueprint maps any validated upstream video or demo file into one stable local stream endpoint.",
-    "simulation_type": "Video stream sampling with visual detection review state.",
+    "problem_solved": "One NVIDIA-only workflow handles both staged recording folders and approved RTSP/RTMP streams while preserving source provenance in cumulative review reports.",
+    "simulation_type": "Recording-folder or live-stream sampling with visual detection review state.",
     "standard_version": "1.0",
     "target_user": "Video operators, security reviewers, safety operations teams, and site-access coordinators.",
     "target_users": "Video operators, security reviewers, safety operations teams, and site-access coordinators."
   },
   "mode": "mock",
   "openshell_network": {
-    "endpoints": [
-      {
-        "allowed_ips": [
-          "127.0.0.1/32"
-        ],
-        "binaries": [
-          "/usr/bin/ffmpeg",
-          "/usr/bin/python3"
-        ],
-        "name": "mapped-local-rtsp-stream-loopback",
-        "uri": "rtsp://127.0.0.1:8554/cctv"
-      },
-      {
-        "allowed_ips": [
-          "127.0.0.1/32"
-        ],
-        "binaries": [
-          "/usr/bin/ffmpeg",
-          "/usr/bin/python3"
-        ],
-        "name": "mapped-local-rtsp-stream-localhost",
-        "uri": "rtsp://localhost:8554/cctv"
-      },
-      {
-        "allowed_ips": [
-          "127.0.0.1/32",
-          "192.168.65.254/32"
-        ],
-        "binaries": [
-          "/usr/bin/ffmpeg",
-          "/usr/bin/python3"
-        ],
-        "name": "mapped-local-rtsp-stream-openshell-host",
-        "uri": "rtsp://host.openshell.internal:8554/cctv"
-      },
-      {
-        "allowed_ips": [
-          "192.168.65.254/32",
-          "127.0.0.1/32"
-        ],
-        "binaries": [
-          "/usr/bin/ffmpeg",
-          "/usr/bin/python3"
-        ],
-        "name": "mapped-local-rtsp-stream-docker-host",
-        "uri": "rtsp://host.docker.internal:8554/cctv"
-      },
-      {
-        "allowed_ips": [
-          "192.168.65.254/32"
-        ],
-        "binaries": [
-          "/usr/bin/ffmpeg",
-          "/usr/bin/python3"
-        ],
-        "name": "mapped-local-rtsp-stream-gateway",
-        "uri": "rtsp://192.168.65.254:8554/cctv"
-      }
-    ],
-    "include_dns": false,
-    "policy_path": "visual_detector/policies/video-egress.yaml"
+    "endpoints": [],
+    "include_dns": false
   },
   "output_skills": {
     "websocket_events": {
@@ -892,9 +841,10 @@
           "video_frame_tick_generated": "A frame was queued for real model analysis. The dashboard can show this as an in-progress state until a result event arrives.",
           "cctv_operator_attention_updated": "The operator asked the video co-worker to pay attention to a specific visual detail.",
           "cctv_operator_detection": "The visual detector saw configured target activity and recorded observable details for review.",
-          "cctv_operator_frame_analysis_failed": "A sampled frame could not be read or analyzed. Check the stream, model endpoint, or sandbox network policy.",
+          "cctv_operator_frame_analysis_failed": "A sampled frame could not be read or analyzed. Check the selected NVIDIA node, source, and model service.",
           "cctv_operator_frame_observed": "A sampled frame was analyzed and summarized for co-worker chat and audit review.",
           "cctv_operator_folder_completed": "Every supported recording in the selected input folder was sampled.",
+          "cctv_operator_report_ready": "The cumulative JSON, Markdown, and final review artifacts were updated.",
           "cctv_operator_slack_alert_error": "The workflow tried to send a Slack alert but the delivery call failed.",
           "cctv_operator_slack_alert_sent": "A visual detection alert was sent to the configured review channel.",
           "cctv_operator_slack_alert_skipped": "The workflow detected activity but skipped notification because alerting is disabled or the cooldown policy suppressed it."
@@ -926,7 +876,8 @@
         "cctv_operator_slack_alert_sent",
         "cctv_operator_slack_alert_skipped",
         "cctv_operator_slack_alert_error",
-        "cctv_operator_frame_analysis_failed"
+        "cctv_operator_frame_analysis_failed",
+        "cctv_operator_report_ready"
       ],
       "grafana": {
         "editable": false,
@@ -1019,7 +970,8 @@
                   "cctv_operator_slack_alert_sent",
                   "cctv_operator_slack_alert_skipped",
                   "cctv_operator_slack_alert_error",
-                  "cctv_operator_frame_analysis_failed"
+                  "cctv_operator_frame_analysis_failed",
+                  "cctv_operator_report_ready"
                 ],
                 "queryType": "latest_event_type",
                 "refId": "A"
@@ -1105,7 +1057,8 @@
                   "cctv_operator_slack_alert_sent",
                   "cctv_operator_slack_alert_skipped",
                   "cctv_operator_slack_alert_error",
-                  "cctv_operator_frame_analysis_failed"
+                  "cctv_operator_frame_analysis_failed",
+                  "cctv_operator_report_ready"
                 ],
                 "limit": 12,
                 "queryType": "events",
@@ -1138,7 +1091,8 @@
                   "cctv_operator_slack_alert_sent",
                   "cctv_operator_slack_alert_skipped",
                   "cctv_operator_slack_alert_error",
-                  "cctv_operator_frame_analysis_failed"
+                  "cctv_operator_frame_analysis_failed",
+                  "cctv_operator_report_ready"
                 ],
                 "queryType": "event_timeseries",
                 "refId": "A"
@@ -1166,7 +1120,8 @@
                   "cctv_operator_slack_alert_sent",
                   "cctv_operator_slack_alert_skipped",
                   "cctv_operator_slack_alert_error",
-                  "cctv_operator_frame_analysis_failed"
+                  "cctv_operator_frame_analysis_failed",
+                  "cctv_operator_report_ready"
                 ],
                 "queryType": "latest_event",
                 "refId": "A"

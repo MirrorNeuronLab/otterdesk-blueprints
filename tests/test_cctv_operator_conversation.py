@@ -32,7 +32,11 @@ def _run_detector(module, monkeypatch, tmp_path, capsys, *, payload, detection, 
     monkeypatch.setenv("MN_INPUT_FILE", str(input_file))
     monkeypatch.setenv("MN_MESSAGE_FILE", str(message_file))
     monkeypatch.setenv("MN_CONTEXT_FILE", str(context_file))
-    monkeypatch.setenv("VIDEO_SOURCE_URI", "file:///unit-test-frame.jpg")
+    monkeypatch.setenv(
+        "MN_BLUEPRINT_CONFIG_JSON",
+        json.dumps({"video_source": {"mode": "stream", "uri": "rtsp://camera.example/unit-test"}}),
+    )
+    monkeypatch.delenv("VIDEO_SOURCE_URI", raising=False)
     monkeypatch.setenv("SLACK_ALERT_ENABLED", "false")
     monkeypatch.delenv("MOCK_VLM_DETECTION", raising=False)
     monkeypatch.delenv("VISUAL_DETECTION_PROMPT", raising=False)

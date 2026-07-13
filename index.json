@@ -1,61 +1,22 @@
 [
   {
     "category": "Security",
-    "description": "A safety-video analysis co-worker for reviewing local workplace footage. Put video files in the input folder; it stages them for the visual analysis node, identifies safety-relevant observations, and writes a structured safety report and supporting artifacts to the output folder.",
-    "id": "safety_video_analyser",
-    "job_name": "safety-video-analyser",
-    "name": "Safety Video Analyser",
-    "path": "safety_video_analyser",
-    "product": {
-      "agent_role": "Video understanding and safety report team that validates smart node allocation across a desktop cluster.",
-      "benefit": "Confirms large local videos can move by BlobRef to the model node while report generation can prefer a lighter local node.",
-      "customizable_for": "Workplace safety review, video QA, facility operations, and cluster placement validation.",
-      "how_it_works": "Stages local videos from the selected folder, schedules the VLM worker on a high-end NVIDIA node, routes structured video metadata to a report worker, and records a Markdown report.",
-      "input": "Local folder of safety videos.",
-      "output": "Safety video metadata and Markdown report with placement/model routing evidence.",
-      "problem": "Large video inputs should not travel through gRPC, and model-heavy agents should run near the right hardware while lighter agents can prefer weaker nodes.",
-      "runtime_features": [
-        "BlobRef video staging",
-        "smart node allocation",
-        "suggestive preferred node",
-        "Docker Model Runner VLM",
-        "default Gemma report generation"
-      ],
-      "simulation_type": "Two-agent cross-node video analysis placement smoke test.",
-      "target_users": "OtterDesk operators, cluster runtime developers, and safety operations teams."
-    },
-    "requirements": {
-      "gpu": {
-        "min_count": 1,
-        "vendor": "nvidia",
-        "driver": "cuda",
-        "min_api_version": "12.0",
-        "api_version_operator": ">=",
-        "min_memory_mb": 49152,
-        "memory_operator": ">=",
-        "enforcement": "hard"
-      }
-    },
-    "type": "batch",
-    "workflow_id": "safety_video_analyser_v1"
-  },
-  {
-    "category": "Security",
-    "description": "A cctv co-worker for monitoring an approved local or mapped video stream. Give it the stream source, visual targets, alert policy, and optional input folder assets; it detects configured objects or activities and writes reviewable observations, counts, positions, confidence, and alert status artifacts to the output folder.",
+    "description": "An NVIDIA-only CCTV co-worker. Give it a local input folder of recordings or one approved RTSP/RTMP stream, visual targets, alert policy, and output folder; it prepares sampled frames with CUDA-enabled FFmpeg and writes source-grounded JSON and Markdown review reports.",
     "id": "cctv_operator",
     "job_name": "cctv-operator",
     "name": "CCTV Operator",
     "path": "cctv_operator",
     "product": {
-      "agent_role": "AI assistant for reviewing video stream activity and preparing visual detection alerts.",
-      "benefit": "Helps reviewers notice configured visual targets faster while keeping the final access or safety decision with people.",
+      "agent_role": "AI assistant for reviewing recorded or live video activity and preparing visual detection reports and alerts.",
+      "benefit": "Uses one source-grounded workflow for historical recordings and live CCTV while keeping safety and security decisions with people.",
       "customizable_for": "Video monitoring, configurable visual detection, facility operations, and site safety workflows.",
-      "how_it_works": "Samples the approved video stream, asks a vision model whether configured targets are visible, records observable detection details, applies cooldown policy, and prepares reviewable alerts.",
-      "input": "Approved video stream, target prompt, alert thresholds, and notification settings.",
-      "output": "Visual detection observations with count, label, category, color, position, activity, confidence, and alert status.",
-      "problem": "Continuous video is hard to review manually; teams need a helpful assistant that flags likely configured visual targets with plain-language details.",
+      "how_it_works": "Stages and walks every supported recording in folder mode or samples one approved RTSP/RTMP source in stream mode, prepares frames on NVIDIA CUDA, applies visual detection and cooldown policy, and writes cumulative JSON and Markdown reports.",
+      "input": "Local video folder or approved RTSP/RTMP stream, target prompt, alert thresholds, and notification settings.",
+      "output": "Cumulative source-grounded visual observations and reports with count, label, category, color, position, activity, confidence, and alert status.",
+      "problem": "Teams need one review surface for both recorded footage and continuous streams without losing source provenance or requiring manual watching of every frame.",
       "runtime_features": [
-        "video sampling",
+        "folder and stream video sampling",
+        "NVIDIA CUDA media preparation",
         "visual detection",
         "cooldown state",
         "Slack alerting",
@@ -65,7 +26,7 @@
         "artifact records",
         "run-store observability dashboard"
       ],
-      "simulation_type": "Video stream sampling with visual detection review state.",
+      "simulation_type": "Recording-folder or live-stream sampling with visual detection review state.",
       "target_users": "Video operators, security reviewers, safety operations teams, and site-access coordinators."
     },
     "requirements": {

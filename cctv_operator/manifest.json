@@ -19,7 +19,7 @@
       "version": "1.2.7"
     }
   ],
-  "description": "An NVIDIA-only CCTV co-worker that analyzes every supported recording in a local folder or samples one approved RTSP/RTMP stream. It prepares frames with CUDA-enabled FFmpeg, detects configured objects or activities, and writes reviewable JSON and Markdown reports.",
+  "description": "An NVIDIA-only CCTV co-worker. Give it a local input folder of recordings or one approved RTSP/RTMP stream, visual targets, alert policy, and output folder; it prepares sampled frames with CUDA-enabled FFmpeg and writes source-grounded JSON and Markdown review reports.",
   "job_name": "cctv-operator",
   "type": "service",
   "contract": {
@@ -1139,7 +1139,7 @@
             "node_id": "video_frame_tick_source",
             "uses": "mn-agents.data_module@1",
             "with": {
-              "module": "MirrorNeuron.Examples.VideoWatchAssistant.VideoFrameTickSource",
+              "module": "MirrorNeuron.Examples.CctvOperator.VideoFrameTickSource",
               "module_source": "payloads/beam_modules/video_frame_tick_source.ex",
               "emit_type": "video_frame_tick_generated"
             },
@@ -1151,7 +1151,7 @@
             "type": "generic",
             "agent_type": "module",
             "config": {
-              "module": "MirrorNeuron.Examples.VideoWatchAssistant.VideoFrameTickSource",
+              "module": "MirrorNeuron.Examples.CctvOperator.VideoFrameTickSource",
               "module_source": "payloads/beam_modules/video_frame_tick_source.ex",
               "emit_type": "video_frame_tick_generated"
             },
@@ -1168,13 +1168,11 @@
             "uses": "mn-agents.data_python_executor@1",
             "with": {
               "script": "scripts/analyze_video_frame.py",
-              "runner_module": "MirrorNeuron.Runner.DockerWorker",
-              "docker_worker_image": "visual_detector/docker_worker",
-              "image": "mirror-neuron/cctv-detector:local",
-              "workdir": "/mn/job/visual_detector",
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "workdir": "/sandbox/job/visual_detector",
               "command": [
                 "bash",
-                "scripts/run_detector_in_docker_worker.sh"
+                "scripts/run_detector_on_nvidia.sh"
               ],
               "upload_path": "visual_detector",
               "upload_paths": [
@@ -1184,7 +1182,6 @@
                 }
               ],
               "output_message_type": "cctv_operator_detection",
-              "policy": "visual_detector/policies/video-egress.yaml",
               "environment": {}
             },
             "alias": "quality_controller",
@@ -1221,18 +1218,16 @@
             "type": "generic",
             "agent_type": "executor",
             "config": {
-              "runner_module": "MirrorNeuron.Runner.DockerWorker",
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
               "upload_path": "visual_detector",
               "upload_as": "visual_detector",
-              "workdir": "/mn/job/visual_detector",
+              "workdir": "/sandbox/job/visual_detector",
               "from": "base",
               "no_auto_providers": true,
               "no_keep": true,
               "pool": "default",
               "pool_slots": 1,
               "tty": false,
-              "docker_worker_image": "visual_detector/docker_worker",
-              "image": "mirror-neuron/cctv-detector:local",
               "upload_paths": [
                 {
                   "source": "visual_detector",
@@ -1240,11 +1235,10 @@
                 }
               ],
               "output_message_type": "cctv_operator_detection",
-              "policy": "visual_detector/policies/video-egress.yaml",
               "environment": {},
               "command": [
                 "bash",
-                "scripts/run_detector_in_docker_worker.sh"
+                "scripts/run_detector_on_nvidia.sh"
               ],
               "beacon_enabled": true,
               "beacon_interval_ms": 15000,
@@ -1284,26 +1278,67 @@
         },
         {
           "node_id": "report_writer",
-          "alias": "report_writer",
-          "display_name": "CCTV Report Writer",
-          "uses": "mn-agents.data_python_executor@1",
-          "with": {
-            "script": "scripts/write_cctv_report.py",
-            "runner_module": "MirrorNeuron.Runner.HostLocal",
-            "workdir": "/sandbox/job/report_writer",
-            "command": [
-              "python3.11",
-              "scripts/write_cctv_report.py"
-            ],
-            "upload_path": "report_writer",
-            "upload_paths": [
-              {
-                "source": "report_writer",
-                "target": "report_writer"
-              }
-            ],
-            "output_message_type": "cctv_operator_report_ready",
-            "environment": {}
+          "template_id": "mn-agents.data_python_executor",
+          "version": 1,
+          "original_node": {
+            "node_id": "report_writer",
+            "alias": "report_writer",
+            "display_name": "CCTV Report Writer",
+            "uses": "mn-agents.data_python_executor@1",
+            "with": {
+              "script": "scripts/write_cctv_report.py",
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "workdir": "/sandbox/job/report_writer",
+              "command": [
+                "python3.11",
+                "scripts/write_cctv_report.py"
+              ],
+              "upload_path": "report_writer",
+              "upload_paths": [
+                {
+                  "source": "report_writer",
+                  "target": "report_writer"
+                }
+              ],
+              "output_message_type": "cctv_operator_report_ready",
+              "environment": {}
+            }
+          },
+          "rendered_node": {
+            "node_id": "report_writer",
+            "type": "generic",
+            "agent_type": "executor",
+            "config": {
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "upload_path": "report_writer",
+              "upload_as": "report_writer",
+              "workdir": "/sandbox/job/report_writer",
+              "from": "base",
+              "no_auto_providers": true,
+              "no_keep": true,
+              "pool": "default",
+              "pool_slots": 1,
+              "tty": false,
+              "upload_paths": [
+                {
+                  "source": "report_writer",
+                  "target": "report_writer"
+                }
+              ],
+              "output_message_type": "cctv_operator_report_ready",
+              "environment": {},
+              "command": [
+                "python3.11",
+                "scripts/write_cctv_report.py"
+              ],
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_timeout_ms": 45000,
+              "beacon_missed_action": "fail_attempt",
+              "agent_beacon_required": true
+            },
+            "alias": "report_writer",
+            "display_name": "CCTV Report Writer"
           }
         }
       ]
@@ -1328,7 +1363,7 @@
       ]
     },
     "customizable_for": "Video monitoring, configurable visual detection, facility operations, and site safety workflows.",
-    "description": "An NVIDIA-only CCTV co-worker. Give it an input folder or approved RTSP/RTMP stream, visual targets, alert policy, and output folder; it prepares frames with CUDA-enabled FFmpeg and writes reviewable observations and reports.",
+    "description": "An NVIDIA-only CCTV co-worker. Give it a local input folder of recordings or one approved RTSP/RTMP stream, visual targets, alert policy, and output folder; it prepares sampled frames with CUDA-enabled FFmpeg and writes source-grounded JSON and Markdown review reports.",
     "human_control": {
       "enabled": true,
       "events": [
@@ -2259,10 +2294,10 @@
       "backend": "redis_vector_rag",
       "required": false,
       "knowledge_dir": "knowledge",
-      "purpose": "Retrieve approved CCTV policy for target detections, source handling, cooldown behavior, and review-only alert boundaries.",
+      "purpose": "Retrieve approved CCTV policy for target detections, source provenance, cooldown behavior, and review-only alert boundaries.",
       "retrieval_targets": [
         "visual target evidence",
-        "recording and stream source handling",
+        "folder or stream source provenance",
         "alert cooldowns",
         "human review boundaries"
       ],
@@ -2305,7 +2340,7 @@
       ],
       "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run",
       "default_mode": "bounded_llm_guided_cctv_operator_review",
-      "note": "CCTV actors ground detections in sampled frames, source provenance, configured targets, and alert policy."
+      "note": "CCTV actors ground detections in staged files or the configured stream, frame evidence, and alert policy."
     },
     "features": [
       "optional local knowledge RAG grounding",
@@ -2317,10 +2352,10 @@
     "backend": "redis_vector_rag",
     "required": false,
     "knowledge_dir": "knowledge",
-    "purpose": "Retrieve approved CCTV policy for target detections, source handling, cooldown behavior, and review-only alert boundaries.",
+    "purpose": "Retrieve approved CCTV policy for target detections, source provenance, cooldown behavior, and review-only alert boundaries.",
     "retrieval_targets": [
       "visual target evidence",
-      "recording and stream source handling",
+      "folder or stream source provenance",
       "alert cooldowns",
       "human review boundaries"
     ],
@@ -2363,6 +2398,6 @@
     ],
     "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run",
     "default_mode": "bounded_llm_guided_cctv_operator_review",
-    "note": "CCTV actors ground detections in sampled frames, source provenance, configured targets, and alert policy."
+    "note": "CCTV actors ground detections in staged files or the configured stream, frame evidence, and alert policy."
   }
 }

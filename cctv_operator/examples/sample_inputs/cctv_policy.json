@@ -1,6 +1,7 @@
 {
   "schema": "otterdesk.cctv_operator.sample_policy.v1",
-  "video_source": "rtsp://127.0.0.1:8554/cctv",
+  "source_mode": "folder",
+  "input_folder": "cctv_operator/examples/sample_inputs",
   "visual_targets": [
     "person",
     "unattended package",
@@ -18,6 +19,7 @@
   },
   "review_notes": [
     "Local run-store artifacts are authoritative by default.",
-    "Optional websocket event fan-out is disabled until a destination URL is configured."
+    "Optional websocket event fan-out is disabled until a destination URL is configured.",
+    "Human review is required before safety or security action."
   ]
 }

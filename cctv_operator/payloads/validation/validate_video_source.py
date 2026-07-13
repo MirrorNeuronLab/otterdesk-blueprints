@@ -73,9 +73,7 @@ def validate_video_folder(config: dict, video_source: dict) -> int:
         or config.get("inputs", {}).get("payload", {}).get("input_folder")
         or "cctv_operator/examples/sample_inputs"
     ).strip()
-    folder = Path(raw_folder).expanduser()
-    if not folder.is_absolute():
-        folder = Path.cwd() / folder
+    folder = resolve_folder_path(raw_folder)
     if not folder.is_dir():
         return fail(
             "video_folder.missing",
@@ -97,6 +95,21 @@ def validate_video_folder(config: dict, video_source: dict) -> int:
         )
     print(f"Video folder validated: {folder} ({len(videos)} supported file(s))")
     return 0
+
+
+def resolve_folder_path(raw_folder: str) -> Path:
+    raw = Path(raw_folder).expanduser()
+    if raw.is_absolute():
+        return raw
+
+    blueprint_root = Path(__file__).resolve().parents[2]
+    candidates = [Path.cwd() / raw, blueprint_root / raw, blueprint_root.parent / raw]
+    if raw.parts and raw.parts[0] == blueprint_root.name and len(raw.parts) > 1:
+        candidates.insert(1, blueprint_root.joinpath(*raw.parts[1:]))
+    for candidate in candidates:
+        if candidate.is_dir():
+            return candidate.resolve()
+    return candidates[0].resolve()
 
 
 def validate_stream(ffprobe: str, uri: str) -> int:
@@ -194,5 +207,7 @@ def blueprint_config() -> dict:
 def video_source_uri(video_source: dict) -> str:
     uri = video_source.get("uri") if isinstance(video_source, dict) else None
     return str(uri or os.environ.get("VIDEO_SOURCE_URI") or "").strip()
+
+
 if __name__ == "__main__":
     raise SystemExit(main())

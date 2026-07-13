@@ -1,5 +1,5 @@
-# CCTV Operator Demo Inputs
+# CCTV Operator sample inputs
 
-`watch_policy.json` mirrors the default init config for local demos: a mapped demo stream, visual targets, and a conservative alert policy.
+`sample.mp4` is the bundled folder-mode recording. `cctv_policy.json` mirrors the default visual targets and conservative review policy.
 
-The service still reads its live source from runtime config. This sample exists so onboarding, validation, and review docs have concrete target/policy data to show before launch.
+Select this directory for a quick folder-mode run. For stream mode, set an approved RTSP/RTMP URI during init review; the sample does not start or map a local stream.

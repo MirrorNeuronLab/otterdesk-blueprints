@@ -14,4 +14,4 @@ For each notable event, preserve the source stream, target label, confidence, ap
 
 ## Output Guidance
 
-The watch summary should be audit-friendly: detected targets, counts, confidence, alert decision, policy thresholds, next review step, and source references. Do not imply physical security action. If Slack or websocket fan-out is disabled, say local run-store artifacts are authoritative and optional fan-out was not active.
+The CCTV report should be audit-friendly: source mode/name, recording position or observation time, detected targets, counts, confidence, alert decision, policy thresholds, next review step, and source references. Do not imply physical security action. If Slack or websocket fan-out is disabled, say local run-store artifacts are authoritative and optional fan-out was not active.

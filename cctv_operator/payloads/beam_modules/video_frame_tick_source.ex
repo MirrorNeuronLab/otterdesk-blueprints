@@ -1,4 +1,4 @@
-defmodule MirrorNeuron.Examples.VideoWatchAssistant.VideoFrameTickSource do
+defmodule MirrorNeuron.Examples.CctvOperator.VideoFrameTickSource do
   use MirrorNeuron.AgentTemplate
 
   alias MirrorNeuron.Message
@@ -18,7 +18,7 @@ defmodule MirrorNeuron.Examples.VideoWatchAssistant.VideoFrameTickSource do
   @impl true
   def handle_message(message, state, context) do
     case type(message) do
-      "video_monitor_start" ->
+      "cctv_operator_start" ->
         payload = payload(message) || %{}
         stream_id = payload["stream_id"] || default_stream_id(context)
         {:ok, schedule_next(%{state | stream_id: stream_id}, context, 0), []}
@@ -61,7 +61,7 @@ defmodule MirrorNeuron.Examples.VideoWatchAssistant.VideoFrameTickSource do
       payload = %{
         "camera_id" => camera_id,
         "tick_seq" => next_tick,
-        "source_kind" => "video_stream",
+        "source_kind" => "video",
         "sample_requested_at" => DateTime.utc_now() |> DateTime.to_iso8601()
       }
 

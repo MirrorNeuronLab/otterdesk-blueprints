@@ -101,6 +101,7 @@ def initial_state() -> dict[str, Any]:
         "source_mode": None,
         "active_source": None,
         "completed_sources": [],
+        "folder_completed_emitted": False,
         "last_alert_wall_ts": 0.0,
         "last_human_notice_wall_ts": 0.0,
         "last_human_notice_signature": None,
@@ -1262,17 +1263,19 @@ def main() -> None:
     except FolderSourceExhausted as exc:
         state["active_source"] = None
         state["last_error"] = None
-        events.append(
-            {
-                "type": "cctv_operator_folder_completed",
-                "payload": {
-                    "camera_id": camera_id,
-                    "source_mode": "folder",
-                    "completed_sources": list(state.get("completed_sources") or []),
-                    "summary": str(exc),
-                },
-            }
-        )
+        if not state.get("folder_completed_emitted"):
+            state["folder_completed_emitted"] = True
+            events.append(
+                {
+                    "type": "cctv_operator_folder_completed",
+                    "payload": {
+                        "camera_id": camera_id,
+                        "source_mode": "folder",
+                        "completed_sources": list(state.get("completed_sources") or []),
+                        "summary": str(exc),
+                    },
+                }
+            )
     except Exception as exc:
         message_text = str(exc)[:800]
         state["last_error"] = message_text

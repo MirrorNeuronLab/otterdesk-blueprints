@@ -7,8 +7,6 @@ import py_compile
 import re
 import subprocess
 import sys
-import tempfile
-import time
 from pathlib import Path
 
 import pytest
@@ -31,44 +29,22 @@ FOLDER_INPUT_FIELDS = {
     "medical_deid_record_intake_assistant": {"document_folder", "output_folder"},
     "legal_assistant": {"document_folder", "input_folder", "output_folder"},
     "purchase_research_assistant": {"input_folder", "output_folder"},
-    "safety_video_analyser": {"input_folder", "output_folder"},
     "vc_assistant": {"document_folder", "output_folder"},
     "cctv_operator": {"input_folder", "output_folder"},
 }
 
 from mn_blueprint_support import render_manifest_agent_templates
+from mn_sdk import run_input_validation
 from mn_blueprint_support.experience import (
     FINAL_ARTIFACT_REQUIRED_FIELDS,
     HUMAN_CONTROL_MODES,
     STANDARD_OBSERVABILITY_PANELS,
     STATUS_PHASES,
 )
-from mn_blueprint_support.openshell_network import (
-    build_openshell_network_policy,
-    endpoint_from_uri,
-    write_openshell_network_policy,
-)
 from mn_blueprint_support.workflow_manifest import (
     run_workflow_manifest_file,
     validate_workflow_manifest,
 )
-
-
-def _pid_exists(pid: int) -> bool:
-    try:
-        os.kill(pid, 0)
-        return True
-    except OSError:
-        return False
-
-
-def _wait_until(predicate, timeout: float = 5.0) -> bool:
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
-        if predicate():
-            return True
-        time.sleep(0.1)
-    return predicate()
 
 
 def _manifest_paths() -> list[Path]:
@@ -287,7 +263,6 @@ def test_otterdesk_manifests_pin_gar_skill_dependencies():
 
 def test_video_gpu_blueprints_declare_hard_nvidia_cuda_requirements_consistently():
     targets = {
-        "safety_video_analyser": ("video_understanding_agent", "video_understanding"),
         "cctv_operator": ("visual_detector", "primary"),
     }
     for blueprint_id, (worker_id, runtime_model_key) in targets.items():
@@ -311,11 +286,6 @@ def test_video_gpu_blueprints_declare_hard_nvidia_cuda_requirements_consistently
     assert config["llm"]["install_mode"] == "cluster_provided"
     assert config["resources"]["gpu"] == GPU_HARD_REQUIREMENT
     assert config["resources"]["required_capabilities"] == ["nvidia", "cuda"]
-
-    safety_config = json.loads((ROOT / "safety_video_analyser" / "config" / "default.json").read_text())
-    assert safety_config["vl_model"]["model"] == "medium"
-    assert safety_config["vl_model"]["install_mode"] == "cluster_provided"
-
 
 def test_all_blueprints_declare_actor_style_llm_config():
     required_llm_keys = {"enabled", "mode", "mock_mode", "model", "default_config", "configs", "agents", "responsibilities"}
@@ -696,42 +666,55 @@ def test_document_ocr_blueprints_emit_actor_findings_and_usage(tmp_path):
         assert {event["payload"]["agent_id"] for event in actor_events} == expected_actor_ids, blueprint_id
 
 
-def test_safety_video_scripts_emit_actor_findings(tmp_path):
-    video_dir = tmp_path / "videos"
-    video_dir.mkdir()
-    (video_dir / "workplace_safety.mp4").write_bytes(b"fake-video")
+def test_cctv_operator_report_writer_emits_cumulative_reports(tmp_path):
+    detector_payload = {
+        "events": [
+            {
+                "type": "cctv_operator_frame_observed",
+                "payload": {
+                    "frame_seq": 1,
+                    "source_name": "sample.mp4",
+                    "confidence": 0.8,
+                    "summary": "One configured target was observed.",
+                },
+            },
+            {
+                "type": "cctv_operator_detection",
+                "payload": {"source_name": "sample.mp4", "confidence": 0.8},
+            },
+        ],
+        "next_state": {
+            "source_mode": "folder",
+            "frames_seen": 1,
+            "detections": 1,
+            "completed_sources": ["sample.mp4"],
+        },
+    }
+    input_file = tmp_path / "report_input.json"
+    input_file.write_text(json.dumps(detector_payload), encoding="utf-8")
     env = dict(os.environ)
-    env["MN_BLUEPRINT_CONFIG_JSON"] = json.dumps({"video_inputs": {"folder_path": str(video_dir)}})
+    env.update({"MN_INPUT_FILE": str(input_file), "MN_RUN_DIR": str(tmp_path)})
 
-    understanding = subprocess.run(
-        [sys.executable, str(ROOT / "safety_video_analyser" / "payloads" / "safety_video_analyser" / "scripts" / "run_video_understanding.py")],
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "cctv_operator" / "payloads" / "report_writer" / "scripts" / "write_cctv_report.py"),
+        ],
         cwd=tmp_path,
         env=env,
         text=True,
         capture_output=True,
         check=False,
     )
-    assert understanding.returncode == 0, understanding.stderr
-    analysis = json.loads((tmp_path / "video_analysis.json").read_text())
-    assert set(analysis["actor_findings"]) == {"video_understanding_agent"}
-    assert analysis["actor_activity"][0]["agent_id"] == "video_understanding_agent"
 
-    input_file = tmp_path / "report_input.json"
-    input_file.write_text(json.dumps({"analysis": analysis}), encoding="utf-8")
-    report_env = dict(os.environ)
-    report_env["MN_INPUT_FILE"] = str(input_file)
-    report = subprocess.run(
-        [sys.executable, str(ROOT / "safety_video_analyser" / "payloads" / "safety_video_analyser" / "scripts" / "run_report_generator.py")],
-        cwd=tmp_path,
-        env=report_env,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
-    assert report.returncode == 0, report.stderr
-    result = json.loads((tmp_path / "safety_video_report.json").read_text())
-    assert set(result["actor_findings"]) == {"video_understanding_agent", "report_generator"}
-    assert {event["agent_id"] for event in result["actor_activity"]} == {"video_understanding_agent", "report_generator"}
+    assert result.returncode == 0, result.stderr
+    report = json.loads((tmp_path / "cctv_report.json").read_text())
+    assert report["source_mode"] == "folder"
+    assert report["frames_analyzed"] == 1
+    assert report["detection_count"] == 1
+    assert report["completed_sources"] == ["sample.mp4"]
+    assert "sample.mp4" in (tmp_path / "cctv_report.md").read_text()
+    assert json.loads((tmp_path / "final_artifact.json").read_text())["type"] == "cctv_operator_review"
 
 def test_otterdesk_blueprints_declare_membrane_context_memory_layer():
     for manifest_path in _manifest_paths():
@@ -1078,7 +1061,6 @@ EXPECTED_BATCH_SUGGESTED_SCHEDULES = {
     "medical_deid_record_intake_assistant": {"cron": "0 * * * *", "cadence": "hourly"},
     "legal_assistant": {"cron": "0 8 * * 1-5", "cadence": "weekday_daily"},
     "purchase_research_assistant": {"cron": "0 8 * * 1", "cadence": "weekly"},
-    "safety_video_analyser": {"cron": "0 2 * * *", "cadence": "daily"},
     "vc_assistant": {"cron": "0 7 * * *", "cadence": "daily"},
 }
 
@@ -1124,8 +1106,10 @@ def test_batch_blueprints_declare_advisory_schedules():
         for embedded_config in _embedded_manifest_configs(manifest):
             assert embedded_config.get("suggested_schedule") == schedule, blueprint_id
 
-    assert index_by_id["safety_video_analyser"]["type"] == "batch"
     assert index_by_id["vc_assistant"]["type"] == "batch"
+    assert index_by_id["cctv_operator"]["type"] == "service"
+    assert "safety_video_analyser" not in index_by_id
+    assert "video_watch_assistant" not in index_by_id
     for blueprint_id in CONTINUOUS_BLUEPRINTS_WITHOUT_SUGGESTED_SCHEDULES:
         config = json.loads((ROOT / blueprint_id / "config" / "default.json").read_text())
         assert "suggested_schedule" not in config, blueprint_id
@@ -1324,6 +1308,7 @@ def test_cctv_operator_declares_domain_agent_aliases():
         "ingress": "video_monitor",
         "video_frame_tick_source": "frame_sampler",
         "visual_detector": "quality_controller",
+        "report_writer": "report_writer",
     }
 
     worker_ids = [
@@ -1337,7 +1322,7 @@ def test_cctv_operator_declares_domain_agent_aliases():
         "frame_sampler",
         "video_source_validator",
         "video_monitor",
-        "watch_summary_writer",
+        "report_writer",
     ]
     assert all(
         worker.get("alias") == worker["id"]
@@ -1348,7 +1333,7 @@ def test_cctv_operator_declares_domain_agent_aliases():
         "Start Video Monitor",
         "Sample Video Frames",
         "Detect Visual Targets",
-        "Write Watch Summary",
+        "Write CCTV Report",
     ]
 
 
@@ -1509,38 +1494,27 @@ def test_otterdesk_workflow_steps_are_bounded_and_retryable():
             assert control["retry"]["max_attempts"] >= 1, (manifest_path.parent.name, step.get("id"))
             assert control["retry"]["backoff_seconds"] >= 0, (manifest_path.parent.name, step.get("id"))
 
-def test_cctv_operator_openshell_policy_is_generated_by_shared_helper(tmp_path):
+def test_cctv_operator_uses_hostlocal_nvidia_media_worker():
     blueprint_dir = ROOT / "cctv_operator"
-    config = json.loads((blueprint_dir / "config" / "default.json").read_text())
     manifest = json.loads((blueprint_dir / "manifest.json").read_text())
-    network = config["openshell_network"]
-
-    endpoints = [
-        endpoint_from_uri(
-            item["name"],
-            item["uri"],
-            item["binaries"],
-            allowed_ips=item.get("allowed_ips"),
-            allow_any_ip=bool(item.get("allow_any_ip")),
-        )
-        for item in network["endpoints"]
-    ]
-    generated_policy = build_openshell_network_policy(endpoints, include_dns=network.get("include_dns", True))
-    generated_path = write_openshell_network_policy(generated_policy, tmp_path / "video-egress.yaml")
-    committed_path = blueprint_dir / "payloads" / network["policy_path"]
-
-    assert generated_path.read_text() == committed_path.read_text()
-    assert "0.0.0.0/0" not in committed_path.read_text()
 
     rendered = render_manifest_agent_templates(manifest, AGENTS_ROOT)
     visual_node = next(node for node in _flow_nodes(rendered) if node["node_id"] == "visual_detector")
-    assert visual_node["config"]["runner_module"] == "MirrorNeuron.Runner.DockerWorker"
-    assert visual_node["config"]["docker_worker_image"] == "visual_detector/docker_worker"
-    assert visual_node["config"]["workdir"] == "/mn/job/visual_detector"
-    assert visual_node["config"]["command"] == ["bash", "scripts/run_detector_in_docker_worker.sh"]
-    assert visual_node["config"]["policy"] == network["policy_path"]
+    assert visual_node["config"]["runner_module"] == "MirrorNeuron.Runner.HostLocal"
+    assert visual_node["config"]["workdir"] == "/sandbox/job/visual_detector"
+    assert visual_node["config"]["command"] == ["bash", "scripts/run_detector_on_nvidia.sh"]
     assert visual_node["config"]["upload_paths"] == [{"source": "visual_detector", "target": "visual_detector"}]
-    assert "PYTHONPATH" not in visual_node["config"]["environment"]
+    assert "docker_worker_image" not in visual_node["config"]
+    assert "policy" not in visual_node["config"]
+    _assert_hard_gpu_worker_requirements(visual_node)
+
+    launch_script = (
+        blueprint_dir / "payloads" / "visual_detector" / "scripts" / "run_detector_on_nvidia.sh"
+    ).read_text()
+    assert "nvidia-smi" in launch_script
+    assert "ffmpeg -hide_banner -hwaccels" in launch_script
+    assert "CCTV_MEDIA_ACCELERATOR" in launch_script
+    assert "nvidia_cuda" in launch_script
 
 
 def test_cctv_operator_detector_script_compiles_with_shared_helper_import():
@@ -1550,28 +1524,14 @@ def test_cctv_operator_detector_script_compiles_with_shared_helper_import():
     )
 
 
-def test_cctv_operator_pre_launch_owns_mediamtx_preview_config():
+def test_cctv_operator_uses_shared_runtime_web_ui_without_compose_or_media_bridge():
     blueprint_dir = ROOT / "cctv_operator"
     config = json.loads((blueprint_dir / "config" / "default.json").read_text())
     manifest = json.loads((blueprint_dir / "manifest.json").read_text())
-    script = (blueprint_dir / "scripts" / "pre-launch.sh").read_text()
-    cleanup_script = (blueprint_dir / "scripts" / "post-launch.sh").read_text()
-
-    assert "webrtc: true" in script
-    assert "choose_available_webrtc_ports" in script
-    assert "BROWSER_PREVIEW_URI" in script
-    assert "MN_POST_LAUNCH_STATE_FILE" in script
-    assert "post_launch_state.json" in script
-    assert "pre_launch_preflight" in script
-    assert '"browser_video_source": "${BROWSER_PREVIEW_URI}"' in script
-    assert '"browser_publish_source": "disabled"' in script
-    assert '"cleanup_script": "scripts/post-launch.sh"' in script
-    assert "terminate_mediamtx_on_port" in cleanup_script
-    assert "MN_PRE_LAUNCH_PROCESS_FILE" in cleanup_script
-    assert "PRE_LAUNCH_PROCESS_GROUP_ID" in cleanup_script
-    assert "terminate_process_group" in cleanup_script
-    assert "RTSP_PORT" in cleanup_script
-    assert "WEBRTC_PORT" in cleanup_script
+    assert not (blueprint_dir / "docker-compose.yml").exists()
+    assert not (blueprint_dir / "compose.yaml").exists()
+    assert not (blueprint_dir / "scripts" / "pre-launch.sh").exists()
+    assert not (blueprint_dir / "scripts" / "post-launch.sh").exists()
 
     dashboard = config["web_ui"]["dashboard"]
     assert dashboard["browser_video_source"] == "disabled"
@@ -1585,9 +1545,13 @@ def test_cctv_operator_pre_launch_owns_mediamtx_preview_config():
     assert video_panel["options"]["browserPublishSource"] == "${browser_publish_source}"
     assert dashboard["video_preview_bridge"]["enabled"] is False
     assert dashboard["video_preview_bridge"]["auto_start"] is False
-    assert dashboard["video_preview_bridge"]["cleanup_script"] == "scripts/post-launch.sh"
+    assert set(dashboard["video_preview_bridge"]) == {"enabled", "auto_start"}
+    assert {"cctv_report.json", "cctv_report.md"} <= set(dashboard["reads"])
 
     manifest_web_ui = manifest["metadata"]["web_ui"]
+    assert manifest_web_ui["adapter"] == "gradio"
+    assert manifest_web_ui["server"] == "blueprint_support"
+    assert manifest_web_ui["registration"]["module"] == "mn_blueprint_support.gradio_dashboard"
     assert manifest_web_ui["browser_video_source"] == "disabled"
     assert manifest_web_ui["browser_publish_source"] == "disabled"
     assert manifest_web_ui["rendering"]["layout"]["column_regions"] == [
@@ -1596,100 +1560,68 @@ def test_cctv_operator_pre_launch_owns_mediamtx_preview_config():
     ]
     assert manifest_web_ui["video_preview_bridge"]["enabled"] is False
     assert manifest_web_ui["video_preview_bridge"]["auto_start"] is False
-    assert manifest_web_ui["video_preview_bridge"]["cleanup_script"] == "scripts/post-launch.sh"
-
-
-def test_cctv_operator_post_launch_collects_pre_launch_process_group():
-    blueprint_dir = ROOT / "cctv_operator"
-    child_pid: int | None = None
-    process_group_id: int | None = None
-    proc: subprocess.Popen | None = None
-    with tempfile.TemporaryDirectory() as tmpdir:
-        root = Path(tmpdir)
-        run_dir = root / "run"
-        run_dir.mkdir()
-        marker = root / "spawned.json"
-        spawner = root / "spawn_child.py"
-        spawner.write_text(
-            "import json\n"
-            "import os\n"
-            "import subprocess\n"
-            "import sys\n"
-            "from pathlib import Path\n"
-            "child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(120)'])\n"
-            "Path(sys.argv[1]).write_text(json.dumps({\n"
-            "    'parent_pid': os.getpid(),\n"
-            "    'process_group_id': os.getpgrp(),\n"
-            "    'child_pid': child.pid,\n"
-            "}))\n"
-        )
-        try:
-            proc = subprocess.Popen([sys.executable, str(spawner), str(marker)], start_new_session=True)
-            assert _wait_until(marker.exists)
-            process_info = json.loads(marker.read_text())
-            child_pid = int(process_info["child_pid"])
-            process_group_id = int(process_info["process_group_id"])
-            proc.wait(timeout=5)
-            assert _pid_exists(child_pid)
-
-            process_file = run_dir / "pre_launch_process.json"
-            process_file.write_text(json.dumps({
-                "pid": int(process_info["parent_pid"]),
-                "process_group_id": process_group_id,
-            }))
-            env = os.environ.copy()
-            env.update({
-                "MN_RUN_DIR": str(run_dir),
-                "MN_PRE_LAUNCH_PROCESS_FILE": str(process_file),
-                "MN_POST_LAUNCH_REASON": "test",
-            })
-
-            subprocess.run(
-                ["bash", str(blueprint_dir / "scripts" / "post-launch.sh")],
-                cwd=blueprint_dir,
-                env=env,
-                check=True,
-                timeout=12,
-            )
-
-            assert _wait_until(lambda: not _pid_exists(child_pid), timeout=8)
-        finally:
-            if process_group_id is not None:
-                try:
-                    os.killpg(process_group_id, 9)
-                except OSError:
-                    pass
-            if child_pid is not None and _pid_exists(child_pid):
-                try:
-                    os.kill(child_pid, 9)
-                except OSError:
-                    pass
-            if proc is not None and proc.poll() is None:
-                proc.kill()
-                proc.wait(timeout=5)
+    assert set(manifest_web_ui["video_preview_bridge"]) == {"enabled", "auto_start"}
+    assert {"cctv_report.json", "cctv_report.md"} <= set(manifest_web_ui["reads"])
 
 
 def _load_cctv_operator_validator():
-    path = ROOT / "cctv_operator" / "payloads" / "validation" / "validate_rtsp_source.py"
-    spec = importlib.util.spec_from_file_location("cctv_operator_validate_rtsp_source", path)
+    path = ROOT / "cctv_operator" / "payloads" / "validation" / "validate_video_source.py"
+    spec = importlib.util.spec_from_file_location("cctv_operator_validate_video_source", path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
 
 
-def test_cctv_operator_default_validator_checks_demo_video(monkeypatch, tmp_path):
+def test_cctv_operator_folder_validator_accepts_supported_recordings(monkeypatch, tmp_path):
     validator = _load_cctv_operator_validator()
-    demo = tmp_path / "sample.mp4"
-    demo.write_bytes(b"fake-video")
+    video_folder = tmp_path / "recordings"
+    video_folder.mkdir()
+    (video_folder / "camera-a.mp4").write_bytes(b"fake-video")
+    (video_folder / "notes.txt").write_text("ignored")
     monkeypatch.setenv(
         "MN_BLUEPRINT_CONFIG_JSON",
-        json.dumps({
-            "video_source": {
-                "uri": "rtsp://127.0.0.1:8554/cctv",
-                "demo_video": str(demo),
-            }
-        }),
+        json.dumps({"video_source": {"mode": "folder", "folder_path": str(video_folder)}}),
+    )
+    monkeypatch.setattr(validator.subprocess, "run", lambda *_args, **_kwargs: pytest.fail("folder validation must not probe a stream"))
+
+    assert validator.main() == 0
+
+
+def test_cctv_operator_default_folder_validates_from_blueprint_root(monkeypatch):
+    blueprint_dir = ROOT / "cctv_operator"
+    manifest = json.loads((blueprint_dir / "manifest.json").read_text())
+    config = json.loads((blueprint_dir / "config" / "default.json").read_text())
+    monkeypatch.chdir(blueprint_dir)
+
+    report = run_input_validation(blueprint_dir, manifest, config=config)
+
+    assert report["ok"] is True, report
+
+
+def test_cctv_operator_folder_validator_rejects_empty_folder(monkeypatch, tmp_path, capsys):
+    validator = _load_cctv_operator_validator()
+    video_folder = tmp_path / "empty"
+    video_folder.mkdir()
+    monkeypatch.setenv(
+        "MN_BLUEPRINT_CONFIG_JSON",
+        json.dumps({"video_source": {"mode": "folder", "folder_path": str(video_folder)}}),
+    )
+
+    assert validator.main() == 1
+    report = json.loads(capsys.readouterr().out)
+    assert report["issues"][0]["code"] == "video_folder.empty"
+
+
+@pytest.mark.parametrize(
+    ("uri", "expects_rtsp_transport"),
+    [("rtsp://camera.example/live", True), ("rtmp://camera.example/live", False)],
+)
+def test_cctv_operator_stream_validator_probes_rtsp_and_rtmp(monkeypatch, uri, expects_rtsp_transport):
+    validator = _load_cctv_operator_validator()
+    monkeypatch.setenv(
+        "MN_BLUEPRINT_CONFIG_JSON",
+        json.dumps({"video_source": {"mode": "stream", "uri": uri}}),
     )
     monkeypatch.setattr(validator.shutil, "which", lambda _name: "/usr/bin/ffprobe")
     calls = []
@@ -1701,68 +1633,17 @@ def test_cctv_operator_default_validator_checks_demo_video(monkeypatch, tmp_path
     monkeypatch.setattr(validator.subprocess, "run", fake_run)
 
     assert validator.main() == 0
-    assert str(demo) in calls[0]
-    assert "-rtsp_transport" not in calls[0]
+    assert uri in calls[0]
+    assert ("-rtsp_transport" in calls[0]) is expects_rtsp_transport
 
 
-def test_cctv_operator_dynamic_mapped_validator_skips_ffprobe_when_missing(monkeypatch, tmp_path):
-    validator = _load_cctv_operator_validator()
-    demo = tmp_path / "sample.mp4"
-    demo.write_bytes(b"fake-video")
-    monkeypatch.setenv(
-        "MN_BLUEPRINT_CONFIG_JSON",
-        json.dumps({
-            "video_source": {
-                "uri": "rtsp://127.0.0.1:8567/cctv",
-                "demo_video": str(demo),
-            }
-        }),
-    )
-    monkeypatch.setattr(validator.shutil, "which", lambda _name: None)
-
-    def fail_run(*_args, **_kwargs):
-        raise AssertionError("demo mapped endpoint should not require ffprobe")
-
-    monkeypatch.setattr(validator.subprocess, "run", fail_run)
-
-    assert validator.main() == 0
-
-
-def test_cctv_operator_runtime_bundle_allows_host_validated_demo_video(monkeypatch, tmp_path):
-    validator = _load_cctv_operator_validator()
-    runtime_bundle = tmp_path / "bundle_123"
-    runtime_bundle.mkdir()
-    monkeypatch.chdir(runtime_bundle)
-    monkeypatch.setenv(
-        "MN_BLUEPRINT_CONFIG_JSON",
-        json.dumps({
-            "video_source": {
-                "uri": "rtsp://127.0.0.1:8567/cctv",
-                "demo_video": "data/sample.mp4",
-            }
-        }),
-    )
-    monkeypatch.setattr(validator.shutil, "which", lambda _name: None)
-    monkeypatch.setattr(validator.Path, "cwd", lambda: Path("/tmp/bundle_123"))
-
-    assert validator.main() == 0
-
-
-def test_cctv_operator_external_rtsp_validator_probes_stream(monkeypatch):
+def test_cctv_operator_stream_validator_rejects_non_stream_uri(monkeypatch, capsys):
     validator = _load_cctv_operator_validator()
     monkeypatch.setenv(
         "MN_BLUEPRINT_CONFIG_JSON",
-        json.dumps({"video_source": {"uri": "rtsp://camera.example/live"}}),
+        json.dumps({"video_source": {"mode": "stream", "uri": "https://camera.example/video.mp4"}}),
     )
-    monkeypatch.setattr(validator.shutil, "which", lambda _name: "/usr/bin/ffprobe")
-    calls = []
 
-    def fake_run(command, **_kwargs):
-        calls.append(command)
-        return subprocess.CompletedProcess(command, 0, stdout="video\n", stderr="")
-
-    monkeypatch.setattr(validator.subprocess, "run", fake_run)
-
-    assert validator.main() == 0
-    assert "rtsp://camera.example/live" in calls[0]
-    assert "-rtsp_transport" in calls[0]
+    assert validator.main() == 2
+    report = json.loads(capsys.readouterr().out)
+    assert report["issues"][0]["code"] == "config.invalid_scheme"

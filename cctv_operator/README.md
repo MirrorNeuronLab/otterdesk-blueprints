@@ -1,76 +1,64 @@
 # CCTV Operator
 
 `Blueprint ID:` `cctv_operator`
+
 `Category:` `Security`
 
-A cctv co-worker for monitoring an approved local or mapped video stream. Give it the stream source, visual targets, alert policy, and optional input folder assets; it detects configured objects or activities and writes reviewable observations, counts, positions, confidence, and alert status artifacts to the output folder.
+`Runtime:` `NVIDIA-only service`
 
-## What It Does
+CCTV Operator replaces the former folder-oriented `safety_video_analyser` and stream-oriented `video_watch_assistant` blueprints. Give it either a local folder of recordings or one approved RTSP/RTMP stream. It samples frames with CUDA-enabled FFmpeg, performs the same review-oriented visual analysis, and writes cumulative JSON and Markdown reports.
 
-This folder is a self-contained MirrorNeuron blueprint. It defines the runtime
-manifest, default configuration, payload code, local documentation, and any
-fixtures needed to review or run the workflow from this checkout.
+## Source modes
 
-## Quick Start
+- `folder`: stages a selected local folder and processes every supported `.mp4`, `.mov`, `.mkv`, `.avi`, `.webm`, `.m4v`, `.ts`, and `.mts` file in sorted order.
+- `stream`: samples one reachable `rtsp://`, `rtsps://`, `rtmp://`, or `rtmps://` URI.
 
-Run from the catalog:
+The default is folder mode with `examples/sample_inputs`. Set `video_source.mode`, `video_source.folder_path`, or `video_source.uri` during init review. Visual targets, alert policy, and output folder remain configurable.
+
+## Runtime requirements
+
+The manifest declares a hard NVIDIA CUDA requirement with one GPU and at least 49,152 MB of GPU or unified IGP memory. Eligibility, including DGX Spark unified-memory accounting, is enforced by `mn-python-sdk`; the blueprint does not duplicate that detection logic. There is no CPU or Mac-only execution path.
+
+Frame preparation runs directly on the selected NVIDIA node through `MirrorNeuron.Runner.HostLocal`. The worker requires `nvidia-smi` plus an FFmpeg build exposing CUDA acceleration. This keeps a single DGX Spark deployment lightweight and avoids a separate media container.
+
+## Web UI
+
+The blueprint uses the shared blueprint-support Gradio dashboard. The runtime injects that HostLocal dashboard service outside the blueprint communication graph, so no blueprint-specific Docker Compose service or MediaMTX bridge is required. The dashboard reads live run-store events and the generated reports; browser video preview is optional and separate from analysis.
+
+## Run and inspect
+
+From the catalog:
 
 ```bash
 mn run cctv_operator
 ```
 
-Run directly from this folder:
+From this folder:
 
 ```bash
 mn run --folder .
 ```
 
-Inspect recent run state:
+Inspect recent state:
 
 ```bash
 mn blueprint monitor --follow
 ```
 
-## Inputs And Configuration
+Primary run artifacts under `~/.mn/runs/<run_id>/` are:
 
-- `manifest.json`: graph shape, entrypoints, runtime metadata, runners, services, and environment access.
-- `config/default.json`: default launch configuration, visual targets, alert policy, mapped RTSP demo source, and mock/sample input settings.
-- `config/overwrite.json`: optional local overrides layered on defaults.
-- `payloads/`: worker scripts, policies, fixtures, prompts, and support files used by this blueprint.
-- `examples/sample_inputs/watch_policy.json`: concrete target and alert-policy sample shown during onboarding and validation.
+- `events.jsonl`
+- `cctv_report.json`
+- `cctv_report.md`
+- `final_artifact.json`
+- `web_ui.json`
 
-Key init fields are `video_source.uri`, `inputs.payload.visual_targets`, `inputs.payload.alert_policy`, input folder, and output folder. The default optional websocket fan-out is deliberately disabled and marked as a mock integration until `MN_BLUEPRINT_EVENTS_WS_URL` is configured and the output skill is enabled through launch overrides.
+The output is decision support. A human must confirm any safety, security, access, or disciplinary response against the original recording or live stream.
 
-## Outputs
-
-Most runs write artifacts under `~/.mn/runs/<run_id>/`. Common files include
-`events.jsonl`, `result.json`, `final_artifact.json`, worker logs, and generated
-reports when the blueprint produces them.
-
-For cctv runs, inspect `events.jsonl`, `final_artifact.json`, and `web_ui.json` for target detections, confidence, cooldown decisions, human notices, and optional alert routing status.
-
-## Safety Checklist
-
-- Review `manifest.json` and `payloads/` before running with real data.
-- Check `pass_env`, provider credentials, Slack/email/web adapters, and any shell or OpenShell runners.
-- Start with mock, dry-run, or quick-test configuration before live external integrations.
-- Keep local customer overrides out of committed defaults.
-
-## Local Documentation
-
-- [SPEC](SPEC.md)
-- [TERM](TERM.md)
-- [License](LICENSE.md)
-
-- [Manifest](manifest.json)
-- [Default config](config/default.json)
-
-## Validation
-
-Run repository-level tests from `otterdesk-blueprints` after changing catalog metadata,
-manifest structure, payload behavior, or shared fixtures:
+## Repository validation
 
 ```bash
-cd ..
 .venv/bin/python -m pytest -q
 ```
+
+See [SPEC.md](SPEC.md) for the complete design contract.

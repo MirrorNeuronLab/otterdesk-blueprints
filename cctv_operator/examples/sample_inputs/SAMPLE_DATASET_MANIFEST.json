@@ -1,10 +1,16 @@
 {
   "schema": "otterdesk.sample_dataset.v1",
   "blueprint_id": "cctv_operator",
-  "description": "Concrete target and alert-policy sample for the default mapped demo stream.",
+  "description": "Bundled recording plus target and alert-policy sample for folder-mode evaluation.",
   "files": [
     {
-      "path": "watch_policy.json",
+      "path": "sample.mp4",
+      "type": "video/mp4",
+      "contains_pii": false,
+      "intended_use": "CUDA frame-extraction and CCTV workflow smoke testing"
+    },
+    {
+      "path": "cctv_policy.json",
       "type": "application/json",
       "contains_pii": false,
       "intended_use": "cctv onboarding, launch validation, and local demos"
@@ -12,6 +18,8 @@
   ],
   "expected_outputs": [
     "events.jsonl",
+    "cctv_report.json",
+    "cctv_report.md",
     "final_artifact.json",
     "web_ui.json"
   ]

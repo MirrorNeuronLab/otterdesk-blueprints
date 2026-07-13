@@ -13,7 +13,6 @@ RAG_BLUEPRINTS = {
     "medical_deid_record_intake_assistant",
     "legal_assistant",
     "purchase_research_assistant",
-    "safety_video_analyser",
     "cctv_operator",
 }
 
