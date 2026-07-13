@@ -19,11 +19,11 @@ The default is folder mode with `examples/sample_inputs`. Set `video_source.mode
 
 The manifest declares a hard NVIDIA CUDA requirement with one GPU and at least 49,152 MB of GPU or unified IGP memory. Eligibility, including DGX Spark unified-memory accounting, is enforced by `mn-python-sdk`; the blueprint does not duplicate that detection logic. There is no CPU or Mac-only execution path.
 
-Frame preparation runs directly on the SDK-selected NVIDIA node through `MirrorNeuron.Runner.HostLocal`. The worker requires an FFmpeg build exposing CUDA acceleration; NVIDIA node and memory eligibility remain SDK-owned. The default Gemma 4 E2B vision model and 20-second sampling interval avoid inference backlog on one DGX Spark while remaining configurable. This keeps deployment lightweight and avoids a separate media container.
+Frame preparation runs in an SDK-managed `MirrorNeuron.Runner.DockerWorker` on the selected NVIDIA node. Its small CUDA worker image contains FFmpeg and receives the GPU through the runtime's generated Compose service; NVIDIA node and memory eligibility remain SDK-owned. The default Gemma 4 E2B vision model and 20-second sampling interval avoid inference backlog on one DGX Spark while remaining configurable.
 
 ## Web UI
 
-The blueprint uses the shared blueprint-support Gradio dashboard. The runtime injects that HostLocal dashboard service outside the blueprint communication graph, so no blueprint-specific Docker Compose service or MediaMTX bridge is required. The dashboard reads live run-store events and the generated reports; browser video preview is optional and separate from analysis.
+The blueprint uses the shared blueprint-support Gradio dashboard. The runtime injects that HostLocal dashboard outside Compose and outside the blueprint communication graph. Only NVIDIA analysis belongs in the SDK-managed DockerWorker Compose service; the UI does not, and no MediaMTX bridge is required. The dashboard reads live run-store events and the generated reports; browser video preview is optional and separate from analysis.
 
 ## Run and inspect
 

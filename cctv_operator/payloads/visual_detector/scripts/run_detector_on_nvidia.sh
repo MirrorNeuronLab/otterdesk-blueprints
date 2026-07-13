@@ -2,7 +2,7 @@
 set -euo pipefail
 
 if ! command -v ffmpeg >/dev/null 2>&1; then
-  echo "cctv_operator requires FFmpeg with CUDA/NVDEC support on the NVIDIA node" >&2
+  echo "cctv_operator requires FFmpeg with CUDA/NVDEC support in its NVIDIA DockerWorker" >&2
   exit 2
 fi
 
@@ -15,4 +15,4 @@ export FFMPEG_BINARY="${FFMPEG_BINARY:-$(command -v ffmpeg)}"
 export FFPROBE_BINARY="${FFPROBE_BINARY:-$(command -v ffprobe)}"
 export CCTV_MEDIA_ACCELERATOR="nvidia_cuda"
 
-exec python3.11 scripts/analyze_video_frame.py
+exec python3 scripts/analyze_video_frame.py

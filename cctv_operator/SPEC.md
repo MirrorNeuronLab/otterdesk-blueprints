@@ -32,13 +32,13 @@ Folder exhaustion emits `cctv_operator_folder_completed`. Significant detections
 
 The manifest hard-requires `nvidia`, `cuda`, one NVIDIA GPU, and 49,152 MB or more of GPU/unified IGP memory. `mn-python-sdk` owns cluster resource validation, including DGX Spark unified-memory accounting. The blueprint only declares the requirement and does not implement another hardware probe.
 
-The detector runs HostLocal on the SDK-selected NVIDIA node. Its launch script verifies FFmpeg and FFmpeg CUDA acceleration; vendor, memory, and scheduling eligibility remain SDK-owned. Frame extraction requests CUDA hardware decode, performs scaling with `scale_cuda`, and downloads only the resized frame needed by the Gemma 4 E2B vision model. No CPU media fallback or Mac-only path exists. The default 20-second cadence is longer than the measured single-frame inference time on one DGX Spark, preventing a growing worker queue; operators can tune it for their workload.
+The detector runs in an SDK-managed DockerWorker on the selected NVIDIA node. The worker image supplies FFmpeg, while the SDK-generated Compose service attaches the GPU; vendor, memory, and scheduling eligibility remain SDK-owned. Its launch script verifies FFmpeg CUDA acceleration. Frame extraction requests CUDA hardware decode, performs scaling with `scale_cuda`, and downloads only the resized frame needed by the Gemma 4 E2B vision model. No CPU media fallback or Mac-only path exists. The default 20-second cadence is longer than the measured single-frame inference time on one DGX Spark, preventing a growing worker queue; operators can tune it for their workload.
 
-This direct path is the preferred single-DGX-Spark design: it uses the node's NVIDIA media stack without adding a large DeepStream service image. DeepStream remains a future option for deployments that need batched multi-camera pipelines, tracker plugins, or high camera density.
+This small FFmpeg CUDA worker is the preferred single-DGX-Spark design. It avoids a large DeepStream service image; DeepStream remains a future option for deployments that need batched multi-camera pipelines, tracker plugins, or high camera density.
 
 ## Web UI deployment decision
 
-The shared `mirrorneuron-blueprint-support-skill[webui]` Gradio dashboard is used. `mn-python-sdk` injects the dashboard as a HostLocal runtime node for service manifests, so it runs outside Docker Compose and outside the domain communication graph. A blueprint-specific Compose service would duplicate lifecycle and run-store wiring.
+The shared `mirrorneuron-blueprint-support-skill[webui]` Gradio dashboard is used. `mn-python-sdk` injects the dashboard as a HostLocal runtime node, so it runs outside Docker Compose and outside the domain communication graph. GPU analysis is the only component placed in the SDK-managed DockerWorker Compose service; putting the dashboard there would duplicate lifecycle and run-store wiring.
 
 The dashboard reads `events.jsonl`, human/log/resource streams, `cctv_report.json`, `cctv_report.md`, `final_artifact.json`, and `web_ui.json`. Browser preview is optional and disabled by default; analysis does not depend on browser republishing or MediaMTX.
 

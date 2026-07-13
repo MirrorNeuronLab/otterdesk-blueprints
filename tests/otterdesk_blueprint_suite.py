@@ -1491,7 +1491,7 @@ def test_otterdesk_workflow_steps_are_bounded_and_retryable():
             assert control["retry"]["max_attempts"] >= 1, (manifest_path.parent.name, step.get("id"))
             assert control["retry"]["backoff_seconds"] >= 0, (manifest_path.parent.name, step.get("id"))
 
-def test_cctv_operator_uses_hostlocal_nvidia_media_worker():
+def test_cctv_operator_uses_dockerworker_nvidia_media_worker():
     blueprint_dir = ROOT / "cctv_operator"
     manifest = json.loads((blueprint_dir / "manifest.json").read_text())
     config = json.loads((blueprint_dir / "config" / "default.json").read_text())
@@ -1501,13 +1501,22 @@ def test_cctv_operator_uses_hostlocal_nvidia_media_worker():
     visual_node = next(node for node in _flow_nodes(rendered) if node["node_id"] == "visual_detector")
     assert tick_node["config"]["module_source"] == "beam_modules/video_frame_tick_source.ex"
     assert tick_node["config"]["interval_seconds"] == 20
-    assert visual_node["config"]["runner_module"] == "MirrorNeuron.Runner.HostLocal"
-    assert visual_node["config"]["workdir"] == "/sandbox/job/visual_detector"
+    assert visual_node["config"]["runner_module"] == "MirrorNeuron.Runner.DockerWorker"
+    assert visual_node["config"]["docker_worker_image"] == "visual_detector/docker_worker"
+    assert visual_node["config"]["image"] == "mirror-neuron/cctv-operator:local"
+    assert visual_node["config"]["gpus"] == "all"
+    assert visual_node["config"]["workdir"] == "/mn/job/visual_detector"
     assert visual_node["config"]["command"] == ["bash", "scripts/run_detector_on_nvidia.sh"]
     assert visual_node["config"]["upload_paths"] == [{"source": "visual_detector", "target": "visual_detector"}]
-    assert "docker_worker_image" not in visual_node["config"]
     assert "policy" not in visual_node["config"]
     _assert_hard_gpu_worker_requirements(visual_node)
+
+    dockerfile = (
+        blueprint_dir / "payloads" / "visual_detector" / "docker_worker" / "Dockerfile"
+    ).read_text()
+    assert "FROM nvidia/cuda:13.0.0-base-ubuntu24.04" in dockerfile
+    assert "ffmpeg" in dockerfile
+    assert "python3" in dockerfile
 
     launch_script = (
         blueprint_dir / "payloads" / "visual_detector" / "scripts" / "run_detector_on_nvidia.sh"

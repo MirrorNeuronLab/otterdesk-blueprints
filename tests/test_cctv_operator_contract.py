@@ -10,6 +10,6 @@ from otterdesk_blueprint_suite import (
     test_cctv_operator_seeds_live_monitor_start_message,
     test_cctv_operator_stream_validator_probes_rtsp_and_rtmp,
     test_cctv_operator_stream_validator_rejects_non_stream_uri,
-    test_cctv_operator_uses_hostlocal_nvidia_media_worker,
+    test_cctv_operator_uses_dockerworker_nvidia_media_worker,
     test_cctv_operator_uses_shared_runtime_web_ui_without_compose_or_media_bridge,
 )
