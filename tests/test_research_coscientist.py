@@ -93,7 +93,12 @@ def test_research_prompts_and_fake_run_write_review_only_packet(tmp_path):
 def test_manifest_uses_exactly_one_shared_openshell_worker():
     manifest = json.loads((ROOT / "research_coscientist" / "manifest.json").read_text(encoding="utf-8"))
     nodes = manifest["agents"]["nodes"]
-    openshell = [node for node in nodes if str((node.get("config") or {}).get("runner_module", "")).endswith("OpenShell")]
+    openshell = [
+        node
+        for node in nodes
+        if (node.get("config") or {}).get("runner_module")
+        == "MirrorNeuron.Sandbox.OpenShell"
+    ]
 
     assert [node["node_id"] for node in openshell] == ["autonomous_research"]
     config = openshell[0]["config"]
