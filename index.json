@@ -331,38 +331,6 @@
     "workflow_id": "legal_assistant_v1"
   },
   {
-    "category": "Healthcare",
-    "description": "A medical de-identification co-worker for privacy review. Put clinical-style PDFs, labels, or bounding-box files in the input folder; it detects PHI/PII, extracts record fields, notes redaction risks, and writes a review-gated de-identification packet with evidence and warnings to the output folder.",
-    "id": "medical_deid_record_intake_assistant",
-    "job_name": "medical-deid-record-intake-assistant",
-    "name": "Medical De-Identification Record Intake Assistant",
-    "path": "medical_deid_record_intake_assistant",
-    "product": {
-      "agent_role": "Local medical document OCR and de-identification team that prepares redaction evidence for human privacy review.",
-      "benefit": "Turns sensitive document folders into source-grounded review packets while keeping OCR and extraction local.",
-      "customizable_for": "Patient-record intake, clinical PDF redaction, medical BPO queues, research chart abstraction, and HIPAA-constrained document preprocessing.",
-      "how_it_works": "Stages a local document folder, extracts embedded text, uses shared local LLM OCR when needed, extracts structured fields, validates against labels when available, and writes a human-review packet.",
-      "input": "Synthetic medical PDFs with ground truth and bounding boxes",
-      "output": "Review-only medical_deidentification_review_packet with evidence, confidence, next steps, and source references.",
-      "problem": "Hospitals, clinics, health-tech vendors, clinical research teams, and medical BPOs need local OCR and de-identification of PHI-bearing records before downstream use.",
-      "runtime_features": [
-        "local document folder intake",
-        "shared llm_ocr_skill OCR fallback",
-        "structured extraction",
-        "label-aware validation",
-        "human approval policy",
-        "product input contract",
-        "transparent run status",
-        "artifact records",
-        "run-store observability dashboard",
-        "Membrane context memory optimization"
-      ],
-      "simulation_type": "Document automation workflow with local OCR and review-gated structured extraction.",
-      "target_users": "Hospitals, clinics, health-tech vendors, clinical research teams, and medical document operations teams."
-    },
-    "workflow_id": "medical_deid_record_intake_assistant_v1"
-  },
-  {
     "category": "Science",
     "description": "A research co-scientist that combines deterministic evidence and verification stages with one isolated OpenShell worker for autonomous, tool-driven exploration and bounded generated-code experiments.",
     "id": "research_coscientist",
