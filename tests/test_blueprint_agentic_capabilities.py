@@ -14,7 +14,7 @@ RAG_BLUEPRINTS = {
     "legal_assistant",
     "purchase_research_assistant",
     "safety_video_analyser",
-    "video_watch_assistant",
+    "cctv_operator",
 }
 
 SUPPORTED_KNOWLEDGE_SUFFIXES = {".md", ".txt", ".json", ".yaml", ".yml"}

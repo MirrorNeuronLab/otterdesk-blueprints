@@ -33,7 +33,7 @@ FOLDER_INPUT_FIELDS = {
     "purchase_research_assistant": {"input_folder", "output_folder"},
     "safety_video_analyser": {"input_folder", "output_folder"},
     "vc_assistant": {"document_folder", "output_folder"},
-    "video_watch_assistant": {"input_folder", "output_folder"},
+    "cctv_operator": {"input_folder", "output_folder"},
 }
 
 from mn_blueprint_support import render_manifest_agent_templates
@@ -288,7 +288,7 @@ def test_otterdesk_manifests_pin_gar_skill_dependencies():
 def test_video_gpu_blueprints_declare_hard_nvidia_cuda_requirements_consistently():
     targets = {
         "safety_video_analyser": ("video_understanding_agent", "video_understanding"),
-        "video_watch_assistant": ("visual_detector", "primary"),
+        "cctv_operator": ("visual_detector", "primary"),
     }
     for blueprint_id, (worker_id, runtime_model_key) in targets.items():
         manifest = json.loads((ROOT / blueprint_id / "manifest.json").read_text())
@@ -306,7 +306,7 @@ def test_video_gpu_blueprints_declare_hard_nvidia_cuda_requirements_consistently
                 if isinstance(rendered, dict) and rendered.get("node_id") == worker_id:
                     _assert_hard_gpu_worker_requirements(rendered)
 
-    config = json.loads((ROOT / "video_watch_assistant" / "config" / "default.json").read_text())
+    config = json.loads((ROOT / "cctv_operator" / "config" / "default.json").read_text())
     assert config["llm"]["model"] == "medium"
     assert config["llm"]["install_mode"] == "cluster_provided"
     assert config["resources"]["gpu"] == GPU_HARD_REQUIREMENT
@@ -773,7 +773,7 @@ def test_otterdesk_blueprints_declare_product_experience_contracts():
         "drug_discovery_research_assistant": "approval_required",
         "financial_advisor": "approval_required",
         "purchase_research_assistant": "approval_required",
-        "video_watch_assistant": "notice_only",
+        "cctv_operator": "notice_only",
         "generic_customer_service_voice_coworker": "notice_only",
         "medical_deid_record_intake_assistant": "approval_required",
         "legal_assistant": "approval_required",
@@ -1084,7 +1084,7 @@ EXPECTED_BATCH_SUGGESTED_SCHEDULES = {
 
 CONTINUOUS_BLUEPRINTS_WITHOUT_SUGGESTED_SCHEDULES = {
     "generic_customer_service_voice_coworker",
-    "video_watch_assistant",
+    "cctv_operator",
 }
 
 
@@ -1302,19 +1302,19 @@ def test_purchase_research_final_artifact_uses_product_output_fields(tmp_path):
     assert {"blueprint_status", "blueprint_phase_started", "blueprint_phase_completed", "artifact_written"} <= event_types
 
 
-def test_video_watch_declares_otterdesk_chat_system_prompt():
-    blueprint_dir = ROOT / "video_watch_assistant"
+def test_cctv_operator_declares_otterdesk_chat_system_prompt():
+    blueprint_dir = ROOT / "cctv_operator"
     manifest = json.loads((blueprint_dir / "manifest.json").read_text())
     prompt = (blueprint_dir / "payloads" / "prompts" / "chat-system.md").read_text()
 
     assert "payloads/prompts/" in manifest["metadata"]["configuration_contract"]["optional_files"]
-    assert "Video Watch Assistant" in prompt
+    assert "CCTV Operator" in prompt
     assert "co-worker" in prompt
     assert "human-in-the-loop" in prompt
 
 
-def test_video_watch_declares_domain_agent_aliases():
-    manifest = json.loads((ROOT / "video_watch_assistant" / "manifest.json").read_text())
+def test_cctv_operator_declares_domain_agent_aliases():
+    manifest = json.loads((ROOT / "cctv_operator" / "manifest.json").read_text())
 
     template_aliases = {
         node["node_id"]: node["alias"]
@@ -1509,8 +1509,8 @@ def test_otterdesk_workflow_steps_are_bounded_and_retryable():
             assert control["retry"]["max_attempts"] >= 1, (manifest_path.parent.name, step.get("id"))
             assert control["retry"]["backoff_seconds"] >= 0, (manifest_path.parent.name, step.get("id"))
 
-def test_video_watch_openshell_policy_is_generated_by_shared_helper(tmp_path):
-    blueprint_dir = ROOT / "video_watch_assistant"
+def test_cctv_operator_openshell_policy_is_generated_by_shared_helper(tmp_path):
+    blueprint_dir = ROOT / "cctv_operator"
     config = json.loads((blueprint_dir / "config" / "default.json").read_text())
     manifest = json.loads((blueprint_dir / "manifest.json").read_text())
     network = config["openshell_network"]
@@ -1543,15 +1543,15 @@ def test_video_watch_openshell_policy_is_generated_by_shared_helper(tmp_path):
     assert "PYTHONPATH" not in visual_node["config"]["environment"]
 
 
-def test_video_watch_detector_script_compiles_with_shared_helper_import():
+def test_cctv_operator_detector_script_compiles_with_shared_helper_import():
     py_compile.compile(
-        str(ROOT / "video_watch_assistant" / "payloads" / "visual_detector" / "scripts" / "analyze_video_frame.py"),
+        str(ROOT / "cctv_operator" / "payloads" / "visual_detector" / "scripts" / "analyze_video_frame.py"),
         doraise=True,
     )
 
 
-def test_video_watch_pre_launch_owns_mediamtx_preview_config():
-    blueprint_dir = ROOT / "video_watch_assistant"
+def test_cctv_operator_pre_launch_owns_mediamtx_preview_config():
+    blueprint_dir = ROOT / "cctv_operator"
     config = json.loads((blueprint_dir / "config" / "default.json").read_text())
     manifest = json.loads((blueprint_dir / "manifest.json").read_text())
     script = (blueprint_dir / "scripts" / "pre-launch.sh").read_text()
@@ -1599,8 +1599,8 @@ def test_video_watch_pre_launch_owns_mediamtx_preview_config():
     assert manifest_web_ui["video_preview_bridge"]["cleanup_script"] == "scripts/post-launch.sh"
 
 
-def test_video_watch_post_launch_collects_pre_launch_process_group():
-    blueprint_dir = ROOT / "video_watch_assistant"
+def test_cctv_operator_post_launch_collects_pre_launch_process_group():
+    blueprint_dir = ROOT / "cctv_operator"
     child_pid: int | None = None
     process_group_id: int | None = None
     proc: subprocess.Popen | None = None
@@ -1669,24 +1669,24 @@ def test_video_watch_post_launch_collects_pre_launch_process_group():
                 proc.wait(timeout=5)
 
 
-def _load_video_watch_validator():
-    path = ROOT / "video_watch_assistant" / "payloads" / "validation" / "validate_rtsp_source.py"
-    spec = importlib.util.spec_from_file_location("video_watch_validate_rtsp_source", path)
+def _load_cctv_operator_validator():
+    path = ROOT / "cctv_operator" / "payloads" / "validation" / "validate_rtsp_source.py"
+    spec = importlib.util.spec_from_file_location("cctv_operator_validate_rtsp_source", path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
 
 
-def test_video_watch_default_validator_checks_demo_video(monkeypatch, tmp_path):
-    validator = _load_video_watch_validator()
+def test_cctv_operator_default_validator_checks_demo_video(monkeypatch, tmp_path):
+    validator = _load_cctv_operator_validator()
     demo = tmp_path / "sample.mp4"
     demo.write_bytes(b"fake-video")
     monkeypatch.setenv(
         "MN_BLUEPRINT_CONFIG_JSON",
         json.dumps({
             "video_source": {
-                "uri": "rtsp://127.0.0.1:8554/video-watch",
+                "uri": "rtsp://127.0.0.1:8554/cctv",
                 "demo_video": str(demo),
             }
         }),
@@ -1705,15 +1705,15 @@ def test_video_watch_default_validator_checks_demo_video(monkeypatch, tmp_path):
     assert "-rtsp_transport" not in calls[0]
 
 
-def test_video_watch_dynamic_mapped_validator_skips_ffprobe_when_missing(monkeypatch, tmp_path):
-    validator = _load_video_watch_validator()
+def test_cctv_operator_dynamic_mapped_validator_skips_ffprobe_when_missing(monkeypatch, tmp_path):
+    validator = _load_cctv_operator_validator()
     demo = tmp_path / "sample.mp4"
     demo.write_bytes(b"fake-video")
     monkeypatch.setenv(
         "MN_BLUEPRINT_CONFIG_JSON",
         json.dumps({
             "video_source": {
-                "uri": "rtsp://127.0.0.1:8567/video-watch",
+                "uri": "rtsp://127.0.0.1:8567/cctv",
                 "demo_video": str(demo),
             }
         }),
@@ -1728,8 +1728,8 @@ def test_video_watch_dynamic_mapped_validator_skips_ffprobe_when_missing(monkeyp
     assert validator.main() == 0
 
 
-def test_video_watch_runtime_bundle_allows_host_validated_demo_video(monkeypatch, tmp_path):
-    validator = _load_video_watch_validator()
+def test_cctv_operator_runtime_bundle_allows_host_validated_demo_video(monkeypatch, tmp_path):
+    validator = _load_cctv_operator_validator()
     runtime_bundle = tmp_path / "bundle_123"
     runtime_bundle.mkdir()
     monkeypatch.chdir(runtime_bundle)
@@ -1737,7 +1737,7 @@ def test_video_watch_runtime_bundle_allows_host_validated_demo_video(monkeypatch
         "MN_BLUEPRINT_CONFIG_JSON",
         json.dumps({
             "video_source": {
-                "uri": "rtsp://127.0.0.1:8567/video-watch",
+                "uri": "rtsp://127.0.0.1:8567/cctv",
                 "demo_video": "data/sample.mp4",
             }
         }),
@@ -1748,8 +1748,8 @@ def test_video_watch_runtime_bundle_allows_host_validated_demo_video(monkeypatch
     assert validator.main() == 0
 
 
-def test_video_watch_external_rtsp_validator_probes_stream(monkeypatch):
-    validator = _load_video_watch_validator()
+def test_cctv_operator_external_rtsp_validator_probes_stream(monkeypatch):
+    validator = _load_cctv_operator_validator()
     monkeypatch.setenv(
         "MN_BLUEPRINT_CONFIG_JSON",
         json.dumps({"video_source": {"uri": "rtsp://camera.example/live"}}),

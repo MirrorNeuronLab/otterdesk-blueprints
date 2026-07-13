@@ -7,11 +7,11 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DETECTOR_PATH = ROOT / "video_watch_assistant" / "payloads" / "visual_detector" / "scripts" / "analyze_video_frame.py"
+DETECTOR_PATH = ROOT / "cctv_operator" / "payloads" / "visual_detector" / "scripts" / "analyze_video_frame.py"
 
 
 def _load_detector():
-    spec = importlib.util.spec_from_file_location("video_watch_analyze_video_frame", DETECTOR_PATH)
+    spec = importlib.util.spec_from_file_location("cctv_operator_analyze_video_frame", DETECTOR_PATH)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -49,7 +49,7 @@ def _run_detector(module, monkeypatch, tmp_path, capsys, *, payload, detection, 
     return output, prompts
 
 
-def test_video_watch_chat_context_answers_what_happened(monkeypatch, tmp_path, capsys):
+def test_cctv_operator_chat_context_answers_what_happened(monkeypatch, tmp_path, capsys):
     detector = _load_detector()
     output, _prompts = _run_detector(
         detector,
@@ -91,10 +91,10 @@ def test_video_watch_chat_context_answers_what_happened(monkeypatch, tmp_path, c
     context = output["next_state"]["conversation_context"]
     assert "frame 9" in context["what_happened"].lower()
     assert "two people appeared near the loading dock entrance" in context["what_happened"].lower()
-    assert any(event["type"] == "video_watch_frame_observed" for event in output["events"])
+    assert any(event["type"] == "cctv_operator_frame_observed" for event in output["events"])
 
 
-def test_video_watch_big_change_emits_chat_human_notice(monkeypatch, tmp_path, capsys):
+def test_cctv_operator_big_change_emits_chat_human_notice(monkeypatch, tmp_path, capsys):
     detector = _load_detector()
     previous_state = detector.initial_state()
     previous_state["last_observation"] = {
@@ -153,7 +153,7 @@ def test_video_watch_big_change_emits_chat_human_notice(monkeypatch, tmp_path, c
     assert "front door" in notice["payload"]["message"].lower()
 
 
-def test_video_watch_user_attention_request_changes_prompt_and_state(monkeypatch, tmp_path, capsys):
+def test_cctv_operator_user_attention_request_changes_prompt_and_state(monkeypatch, tmp_path, capsys):
     detector = _load_detector()
     output, prompts = _run_detector(
         detector,
@@ -182,5 +182,5 @@ def test_video_watch_user_attention_request_changes_prompt_and_state(monkeypatch
     assert output["next_state"]["conversation_context"]["attention_instruction"] == (
         "Pay attention to the red backpack near the left doorway."
     )
-    attention_event = next(event for event in output["events"] if event["type"] == "video_watch_attention_updated")
+    attention_event = next(event for event in output["events"] if event["type"] == "cctv_operator_attention_updated")
     assert "red backpack" in attention_event["payload"]["summary"]

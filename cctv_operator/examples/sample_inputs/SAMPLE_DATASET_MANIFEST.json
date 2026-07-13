@@ -1,13 +1,13 @@
 {
   "schema": "otterdesk.sample_dataset.v1",
-  "blueprint_id": "video_watch_assistant",
+  "blueprint_id": "cctv_operator",
   "description": "Concrete target and alert-policy sample for the default mapped demo stream.",
   "files": [
     {
       "path": "watch_policy.json",
       "type": "application/json",
       "contains_pii": false,
-      "intended_use": "video-watch onboarding, launch validation, and local demos"
+      "intended_use": "cctv onboarding, launch validation, and local demos"
     }
   ],
   "expected_outputs": [

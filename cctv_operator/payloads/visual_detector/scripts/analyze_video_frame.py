@@ -55,8 +55,13 @@ from mn_blueprint_support import PromptLibrary, start_agent_beacon_thread
 PROMPTS = PromptLibrary.from_script(__file__, parents_up=2)
 
 IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
-DEFAULT_VIDEO_SOURCE_URI = "rtsp://127.0.0.1:8554/video-watch"
+VIDEO_SUFFIXES = {".mp4", ".mov", ".mkv", ".avi", ".webm", ".m4v", ".ts", ".mts"}
+DEFAULT_VIDEO_INPUT_FOLDER = "mn_local_inputs/videos"
 LIVE_STREAM_SCHEMES = ("rtsp://", "rtsps://", "rtmp://", "rtmps://")
+
+
+class FolderSourceExhausted(RuntimeError):
+    pass
 
 
 def load_prompt(name: str) -> str:
@@ -77,10 +82,25 @@ def load_json_env(name: str) -> dict[str, Any]:
     return json.loads(file_path.read_text())
 
 
+def load_blueprint_config() -> dict[str, Any]:
+    raw = os.environ.get("MN_BLUEPRINT_CONFIG_JSON", "")
+    if not raw:
+        return {}
+    try:
+        decoded = json.loads(raw)
+    except json.JSONDecodeError:
+        return {}
+    return decoded if isinstance(decoded, dict) else {}
+
+
 def initial_state() -> dict[str, Any]:
     return {
         "frames_seen": 0,
-        "video_position_seconds": 0.0,
+        "source_index": 0,
+        "source_position_seconds": 0.0,
+        "source_mode": None,
+        "active_source": None,
+        "completed_sources": [],
         "last_alert_wall_ts": 0.0,
         "last_human_notice_wall_ts": 0.0,
         "last_human_notice_signature": None,
@@ -114,75 +134,144 @@ def resolve_source_uri(source_uri: str) -> str:
     return source_uri
 
 
-def source_uri_with_host(source_uri: str, host: str) -> str:
-    parsed = urllib.parse.urlsplit(source_uri)
-    replacement_host = host
-    if ":" in replacement_host and not replacement_host.startswith("["):
-        replacement_host = f"[{replacement_host}]"
-
-    userinfo = ""
-    if "@" in parsed.netloc:
-        userinfo = parsed.netloc.rsplit("@", 1)[0] + "@"
-
-    try:
-        port = parsed.port
-    except ValueError:
-        return source_uri
-    if port is not None:
-        replacement_host = f"{replacement_host}:{port}"
-    return urllib.parse.urlunsplit((parsed.scheme, f"{userinfo}{replacement_host}", parsed.path, parsed.query, parsed.fragment))
+def configured_source_mode(config: dict[str, Any]) -> str:
+    video_source = config.get("video_source") if isinstance(config.get("video_source"), dict) else {}
+    inputs = config.get("inputs") if isinstance(config.get("inputs"), dict) else {}
+    payload = inputs.get("payload") if isinstance(inputs.get("payload"), dict) else {}
+    mode = str(
+        os.environ.get("CCTV_SOURCE_MODE")
+        or video_source.get("mode")
+        or payload.get("source_mode")
+        or "folder"
+    ).strip().lower()
+    if mode not in {"folder", "stream"}:
+        raise ValueError("video_source.mode must be either 'folder' or 'stream'")
+    return mode
 
 
-def stream_fallback_sources(source_uri: str, fallback_hosts: list[str] | tuple[str, ...] | None = None) -> list[str]:
-    parsed = urllib.parse.urlsplit(source_uri)
-    scheme = parsed.scheme.lower()
-    host = parsed.hostname
-    if scheme not in {"rtsp", "rtsps", "rtmp", "rtmps"} or not host:
-        return []
+def configured_stream_uri(config: dict[str, Any]) -> str:
+    video_source = config.get("video_source") if isinstance(config.get("video_source"), dict) else {}
+    inputs = config.get("inputs") if isinstance(config.get("inputs"), dict) else {}
+    payload = inputs.get("payload") if isinstance(inputs.get("payload"), dict) else {}
+    uri = str(
+        os.environ.get("VIDEO_SOURCE_URI")
+        or video_source.get("uri")
+        or payload.get("video_source")
+        or ""
+    ).strip()
+    if not uri.lower().startswith(LIVE_STREAM_SCHEMES):
+        raise ValueError("stream mode requires an rtsp://, rtsps://, rtmp://, or rtmps:// video_source.uri")
+    return uri
 
-    if host not in {"127.0.0.1", "localhost", "::1"}:
-        return []
 
-    raw_hosts = fallback_hosts
-    if raw_hosts is None:
-        raw_hosts = [
-            item.strip()
-            for item in os.environ.get(
-                "MN_HOST_STREAM_FALLBACK_HOSTS",
-                "host.docker.internal,host.openshell.internal,192.168.65.254",
-            ).split(",")
-            if item.strip()
-        ]
-
-    candidates: list[str] = []
-    for fallback_host in raw_hosts:
-        candidate = source_uri_with_host(source_uri, fallback_host)
-        if candidate != source_uri and candidate not in candidates:
-            candidates.append(candidate)
+def configured_folder_candidates(config: dict[str, Any]) -> list[Path]:
+    video_source = config.get("video_source") if isinstance(config.get("video_source"), dict) else {}
+    inputs = config.get("inputs") if isinstance(config.get("inputs"), dict) else {}
+    payload = inputs.get("payload") if isinstance(inputs.get("payload"), dict) else {}
+    local_inputs = config.get("local_inputs") if isinstance(config.get("local_inputs"), dict) else {}
+    folders = local_inputs.get("folders") if isinstance(local_inputs.get("folders"), list) else []
+    runtime_path = next(
+        (
+            item.get("runtime_path")
+            for item in folders
+            if isinstance(item, dict) and item.get("runtime_path")
+        ),
+        DEFAULT_VIDEO_INPUT_FOLDER,
+    )
+    raw_values = [
+        os.environ.get("CCTV_VIDEO_INPUT_FOLDER"),
+        runtime_path,
+        video_source.get("folder_path"),
+        payload.get("input_folder"),
+    ]
+    candidates: list[Path] = []
+    for value in raw_values:
+        if not value:
+            continue
+        path = Path(str(value)).expanduser()
+        if path.is_absolute():
+            resolved = path
+        else:
+            resolved = Path(os.environ.get("MN_WORKDIR", Path.cwd())) / path
+        if resolved not in candidates:
+            candidates.append(resolved)
     return candidates
 
 
-def local_demo_fallback_sources(source_uri: str) -> list[str]:
-    parsed = urllib.parse.urlsplit(source_uri)
-    if parsed.scheme.lower() not in {"rtsp", "rtsps"}:
-        return []
-    if parsed.path.rstrip("/") != "/video-watch":
-        return []
-
-    candidates = [
-        os.environ.get("LOCAL_DEMO_VIDEO_FILE", "").strip(),
-        "data/sample.mp4",
-        "/sandbox/job/visual_detector/data/sample.mp4",
-    ]
-    result: list[str] = []
-    for candidate in candidates:
-        if candidate and candidate not in result and Path(candidate).is_file():
-            result.append(candidate)
-    return result
+def configured_video_files(config: dict[str, Any]) -> tuple[Path, list[Path]]:
+    checked: list[str] = []
+    for folder in configured_folder_candidates(config):
+        checked.append(str(folder))
+        if not folder.is_dir():
+            continue
+        videos = sorted(
+            path
+            for path in folder.rglob("*")
+            if path.is_file() and path.suffix.lower() in VIDEO_SUFFIXES
+        )
+        if videos:
+            return folder, videos
+    raise FileNotFoundError(f"folder mode found no supported videos in: {', '.join(checked)}")
 
 
-def is_local_demo_fallback(candidate_source: str) -> bool:
-    return candidate_source in local_demo_fallback_sources("rtsp://127.0.0.1:8554/video-watch")
+def select_media_source(config: dict[str, Any], state: dict[str, Any]) -> dict[str, Any]:
+    mode = configured_source_mode(config)
+    state["source_mode"] = mode
+    if mode == "stream":
+        uri = configured_stream_uri(config)
+        state["active_source"] = uri
+        return {
+            "mode": mode,
+            "uri": uri,
+            "logical_name": redact_source_uri(uri),
+            "position_seconds": 0.0,
+            "duration_seconds": None,
+            "index": 0,
+            "count": 1,
+        }
+
+    folder, videos = configured_video_files(config)
+    index = int(state.get("source_index") or 0)
+    if index >= len(videos):
+        raise FolderSourceExhausted(f"processed all {len(videos)} video file(s) from {folder}")
+    path = videos[index]
+    position = max(0.0, float(state.get("source_position_seconds") or 0.0))
+    duration = probe_video_duration(path)
+    state["active_source"] = path.name
+    return {
+        "mode": mode,
+        "uri": str(path),
+        "logical_name": path.relative_to(folder).as_posix(),
+        "position_seconds": position,
+        "duration_seconds": duration,
+        "index": index,
+        "count": len(videos),
+    }
+
+
+def advance_media_source(state: dict[str, Any], source: dict[str, Any], sample_seconds: float) -> None:
+    if source["mode"] == "stream":
+        return
+    next_position = float(source["position_seconds"]) + sample_seconds
+    duration = source.get("duration_seconds")
+    if duration is not None and next_position >= max(float(duration), sample_seconds):
+        completed = state.setdefault("completed_sources", [])
+        if source["logical_name"] not in completed:
+            completed.append(source["logical_name"])
+        state["source_index"] = int(source["index"]) + 1
+        state["source_position_seconds"] = 0.0
+    else:
+        state["source_position_seconds"] = next_position
+
+
+def redact_source_uri(uri: str) -> str:
+    parsed = urllib.parse.urlsplit(uri)
+    if not parsed.netloc:
+        return uri
+    host = parsed.hostname or ""
+    if parsed.port:
+        host = f"{host}:{parsed.port}"
+    return urllib.parse.urlunsplit((parsed.scheme, host, parsed.path, "", ""))
 
 
 def source_path_from_uri(source_uri: str) -> Path | None:
@@ -237,7 +326,7 @@ def remapped_payload_candidates(source_path: Path, detector_root: Path, blueprin
         candidates.append(detector_root / payload_suffix)
         candidates.append(blueprint_root / "payloads" / "visual_detector" / payload_suffix)
 
-    blueprint_suffix = suffix_after(parts, ("video_watch_assistant",))
+    blueprint_suffix = suffix_after(parts, ("cctv_operator",))
     if blueprint_suffix is not None:
         candidates.append(blueprint_root / blueprint_suffix)
         nested_suffix = suffix_after(blueprint_suffix.parts, ("payloads", "visual_detector"))
@@ -261,41 +350,6 @@ def is_live_stream_source(source_uri: str) -> bool:
     return source_uri.strip().lower().startswith(LIVE_STREAM_SCHEMES)
 
 
-
-def should_retry_with_docker_host_fallback(source_uri: str, error: str) -> bool:
-    normalized = error.lower()
-    return bool(stream_fallback_sources(source_uri)) and any(
-        phrase in normalized
-        for phrase in (
-            "connection refused",
-            "connection timed out",
-            "connection to tcp",
-            "failed to resolve",
-            "resolve",
-            "network is unreachable",
-            "no route to host",
-            "error opening input",
-        )
-    )
-
-
-def should_rewind_file_source(source_uri: str, position_seconds: float, error: str) -> bool:
-    if is_live_stream_source(source_uri) or position_seconds <= 0:
-        return False
-    normalized = error.lower()
-    return any(
-        phrase in normalized
-        for phrase in (
-            "ffmpeg failed",
-            "empty frame",
-            "produced no frame",
-            "no frame",
-            "end of file",
-            "eof",
-        )
-    )
-
-
 def ffmpeg_rtsp_transport() -> str:
     transport = os.environ.get("FFMPEG_RTSP_TRANSPORT", "tcp").strip().lower()
     if transport not in {"tcp", "udp"}:
@@ -310,18 +364,43 @@ def ffmpeg_binary() -> str:
     discovered = shutil.which("ffmpeg")
     if discovered:
         return discovered
-    try:
-        import imageio_ffmpeg
-
-        packaged = imageio_ffmpeg.get_ffmpeg_exe()
-        if packaged:
-            return packaged
-    except Exception:
-        pass
     for candidate in ("/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg", "/usr/bin/ffmpeg"):
         if Path(candidate).is_file():
             return candidate
     return "ffmpeg"
+
+
+def ffprobe_binary() -> str:
+    configured = os.environ.get("FFPROBE_BINARY", "").strip()
+    if configured:
+        return configured
+    return shutil.which("ffprobe") or "ffprobe"
+
+
+def probe_video_duration(path: Path) -> float | None:
+    command = [
+        ffprobe_binary(),
+        "-v",
+        "error",
+        "-show_entries",
+        "format=duration",
+        "-of",
+        "default=noprint_wrappers=1:nokey=1",
+        str(path),
+    ]
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, timeout=10, check=True)
+        duration = float(result.stdout.strip())
+    except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired, ValueError):
+        return None
+    return duration if duration > 0 else None
+
+
+def media_accelerator() -> str:
+    accelerator = os.environ.get("CCTV_MEDIA_ACCELERATOR", "nvidia_cuda").strip().lower()
+    if accelerator != "nvidia_cuda":
+        raise RuntimeError("CCTV_MEDIA_ACCELERATOR must be nvidia_cuda; this blueprint has no CPU media path")
+    return accelerator
 
 
 def ffmpeg_frame_timeout_seconds() -> float:
@@ -340,127 +419,66 @@ def extract_frame(source_uri: str, position_seconds: float, max_width: int) -> t
     with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as temp_file:
         temp_path = Path(temp_file.name)
 
-    vf = f"scale='min({max_width},iw)':-2"
+    media_accelerator()
+    vf = (
+        f"scale_cuda={max_width}:-2:force_original_aspect_ratio=decrease,"
+        "hwdownload,format=nv12,format=yuvj420p"
+    )
     try:
-        last_error: str | None = None
-        fallback_sources = [*stream_fallback_sources(resolved), *local_demo_fallback_sources(resolved)]
-        sources = [resolved, *fallback_sources]
-
-        for index, candidate_source in enumerate(sources):
-            candidate_path = source_path_from_uri(candidate_source)
-            if candidate_path is not None and candidate_path.suffix.lower() in IMAGE_SUFFIXES and candidate_path.exists():
-                content_type = "image/jpeg" if candidate_path.suffix.lower() in {".jpg", ".jpeg"} else mimetypes.guess_type(str(candidate_path))[0] or "image/png"
-                data = candidate_path.read_bytes()
-                if data:
-                    return data, content_type
-
-            command = [
-                ffmpeg_binary(),
-                "-hide_banner",
-                "-loglevel",
-                "error",
-                "-nostdin",
+        command = [
+            ffmpeg_binary(),
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-nostdin",
+        ]
+        if is_live_stream_source(resolved):
+            if resolved.lower().startswith(("rtsp://", "rtsps://")):
+                command.extend(["-rtsp_transport", ffmpeg_rtsp_transport()])
+        else:
+            command.extend(["-ss", f"{position_seconds:.3f}"])
+        command.extend(
+            [
+                "-hwaccel",
+                "cuda",
+                "-hwaccel_output_format",
+                "cuda",
+                "-i",
+                resolved,
+                "-frames:v",
+                "1",
+                "-vf",
+                vf,
+                "-q:v",
+                "4",
+                "-y",
+                str(temp_path),
             ]
-            if is_live_stream_source(candidate_source):
-                if candidate_source.lower().startswith(("rtsp://", "rtsps://")):
-                    command.extend(["-rtsp_transport", ffmpeg_rtsp_transport()])
-            elif is_local_demo_fallback(candidate_source):
-                pass
-            else:
-                command.extend(["-ss", f"{position_seconds:.3f}"])
-
-            command.extend(
-                [
-                    "-i",
-                    candidate_source,
-                    "-frames:v",
-                    "1",
-                    "-vf",
-                    vf,
-                    "-q:v",
-                    "4",
-                    "-y",
-                    str(temp_path),
-                ]
+        )
+        try:
+            subprocess.run(
+                command,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=ffmpeg_frame_timeout_seconds(),
             )
-
-            try:
-                subprocess.run(
-                    command,
-                    check=True,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    timeout=ffmpeg_frame_timeout_seconds(),
-                )
-                data = temp_path.read_bytes()
-                if not data:
-                    last_error = f"ffmpeg produced an empty frame from {candidate_source}"
-                    if index < len(sources) - 1:
-                        continue
-                    raise RuntimeError(last_error)
-                return data, "image/jpeg"
-            except subprocess.CalledProcessError as exc:
-                last_error = exc.stderr.decode("utf-8", errors="replace").strip()
-                if index < len(sources) - 1:
-                    continue
-                raise RuntimeError(f"ffmpeg failed to extract frame: {last_error}") from exc
-            except subprocess.TimeoutExpired as exc:
-                last_error = f"ffmpeg timed out extracting frame from {candidate_source}"
-                if index < len(sources) - 1:
-                    continue
-                raise RuntimeError(last_error) from exc
-
-        raise RuntimeError(f"ffmpeg failed to extract frame: {last_error or 'unknown error'}")
+        except subprocess.CalledProcessError as exc:
+            detail = exc.stderr.decode("utf-8", errors="replace").strip()
+            raise RuntimeError(f"NVIDIA FFmpeg frame extraction failed: {detail}") from exc
+        except subprocess.TimeoutExpired as exc:
+            raise RuntimeError(f"NVIDIA FFmpeg timed out extracting a frame from {redact_source_uri(resolved)}") from exc
+        data = temp_path.read_bytes()
+        if not data:
+            raise RuntimeError(f"NVIDIA FFmpeg produced no frame from {redact_source_uri(resolved)}")
+        return data, "image/jpeg"
     except FileNotFoundError as exc:
-        return extract_frame_with_cv2(resolved, position_seconds, max_width, exc)
+        raise RuntimeError("ffmpeg with CUDA support is required on the selected NVIDIA node") from exc
     finally:
         try:
             temp_path.unlink()
         except FileNotFoundError:
             pass
-
-
-def extract_frame_with_cv2(
-    source_uri: str,
-    position_seconds: float,
-    max_width: int,
-    ffmpeg_error: Exception | None = None,
-) -> tuple[bytes, str]:
-    try:
-        import cv2
-    except Exception as exc:
-        if ffmpeg_error is not None:
-            raise RuntimeError("ffmpeg or OpenCV is required to read video sources") from ffmpeg_error
-        raise RuntimeError("OpenCV is required to read video sources without ffmpeg") from exc
-
-    capture = cv2.VideoCapture(source_uri)
-    if not capture.isOpened():
-        raise RuntimeError(f"unable to open video source: {source_uri}")
-
-    try:
-        fps = float(capture.get(cv2.CAP_PROP_FPS) or 0.0)
-        if not is_live_stream_source(source_uri) and fps > 0 and position_seconds > 0:
-            capture.set(cv2.CAP_PROP_POS_MSEC, position_seconds * 1000.0)
-
-        ok, frame = capture.read()
-        if not ok or frame is None:
-            if position_seconds > 0:
-                capture.set(cv2.CAP_PROP_POS_MSEC, 0.0)
-                ok, frame = capture.read()
-            if not ok or frame is None:
-                raise RuntimeError("OpenCV produced no frame")
-
-        height, width = frame.shape[:2]
-        if width > max_width:
-            target_height = max(1, int(height * (max_width / width)))
-            frame = cv2.resize(frame, (max_width, target_height), interpolation=cv2.INTER_AREA)
-
-        ok, encoded = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 82])
-        if not ok:
-            raise RuntimeError("OpenCV failed to encode frame as JPEG")
-        return encoded.tobytes(), "image/jpeg"
-    finally:
-        capture.release()
 
 
 def mock_detection(frame_seq: int) -> dict[str, Any]:
@@ -848,7 +866,7 @@ def apply_attention_request(
         return None
 
     return {
-        "type": "video_watch_attention_updated",
+        "type": "cctv_operator_attention_updated",
         "payload": {
             "camera_id": camera_id,
             "attention_instruction": instruction,
@@ -919,7 +937,11 @@ def observation_from_detection(detection_payload: dict[str, Any]) -> dict[str, A
         "frame_seq": detection_payload.get("frame_seq"),
         "camera_id": detection_payload.get("camera_id"),
         "video_position_seconds": detection_payload.get("video_position_seconds"),
+        "source_mode": detection_payload.get("source_mode"),
         "source_uri": detection_payload.get("source_uri"),
+        "source_name": detection_payload.get("source_name"),
+        "source_index": detection_payload.get("source_index"),
+        "source_count": detection_payload.get("source_count"),
         "stream_id": detection_payload.get("stream_id"),
         "detected_target": detected,
         "detection_count": safe_int(detection_payload.get("detection_count"), 0),
@@ -986,11 +1008,16 @@ def update_conversation_context(state: dict[str, Any], detection_payload: dict[s
 
 def frame_observed_event(observation: dict[str, Any], conversation_summary: str = "") -> dict[str, Any]:
     return {
-        "type": "video_watch_frame_observed",
+        "type": "cctv_operator_frame_observed",
         "payload": {
             "camera_id": observation.get("camera_id"),
             "frame_seq": observation.get("frame_seq"),
             "video_position_seconds": observation.get("video_position_seconds"),
+            "source_mode": observation.get("source_mode"),
+            "source_uri": observation.get("source_uri"),
+            "source_name": observation.get("source_name"),
+            "source_index": observation.get("source_index"),
+            "source_count": observation.get("source_count"),
             "stream_id": observation.get("stream_id"),
             "detected_target": observation.get("detected_target"),
             "detection_count": observation.get("detection_count"),
@@ -1066,11 +1093,11 @@ def maybe_build_big_change_notice(
 
     state["last_human_notice_signature"] = signature
     state["last_human_notice_wall_ts"] = now
-    camera_id = compact_string(detection_payload.get("camera_id"), limit=80) or "video-watch"
+    camera_id = compact_string(detection_payload.get("camera_id"), limit=80) or "cctv"
     frame_seq = detection_payload.get("frame_seq")
     summary = compact_string(detection_payload.get("detection_report"), limit=600) or compact_string(detection_payload.get("summary"), limit=500)
     message = compact_string(f"{reason} {summary}", limit=900)
-    notice_id = f"video-watch-big-change-{camera_id}-{frame_seq}"
+    notice_id = f"cctv-big-change-{camera_id}-{frame_seq}"
     return {
         "type": "human_notice",
         "channel": "human",
@@ -1154,6 +1181,7 @@ def alert_text(camera_id: str, detection: dict[str, Any], frame_seq: int, source
 
 def main() -> None:
     start_agent_beacon_thread("Video detector is analyzing a frame")
+    config = load_blueprint_config()
     message = load_json_env("MN_MESSAGE_FILE")
     payload = load_json_env("MN_INPUT_FILE")
     context = load_json_env("MN_CONTEXT_FILE")
@@ -1162,20 +1190,29 @@ def main() -> None:
         state = initial_state()
 
     frame_seq = int(payload.get("tick_seq") or state.get("frames_seen", 0) + 1)
-    camera_id = payload.get("camera_id") or os.environ.get("CAMERA_ID", "video-watch")
-    source_uri = os.environ.get("VIDEO_SOURCE_URI", DEFAULT_VIDEO_SOURCE_URI)
+    video_source_config = config.get("video_source") if isinstance(config.get("video_source"), dict) else {}
+    camera_id = (
+        payload.get("camera_id")
+        or os.environ.get("VIDEO_SOURCE_CAMERA_ID")
+        or video_source_config.get("camera_id")
+        or "cctv"
+    )
     sample_seconds = float(os.environ.get("FRAME_SAMPLE_SECONDS", "10.0"))
     max_width = int(os.environ.get("FRAME_JPEG_MAX_WIDTH", "896"))
 
     events: list[dict[str, Any]] = []
     stream = message.get("stream") or {}
+    source: dict[str, Any] | None = None
 
     try:
         attention_event = apply_attention_request(state, payload, message, camera_id)
         if attention_event:
             events.append(attention_event)
         attention_instruction = normalize_attention_instruction(state.get("attention_instruction"))
-        position = float(state.get("video_position_seconds", 0.0))
+        source = select_media_source(config, state)
+        source_uri = str(source["uri"])
+        safe_source_uri = redact_source_uri(source_uri)
+        position = float(source["position_seconds"])
         if os.environ.get("MOCK_VLM_DETECTION", "false").strip().lower() in {"1", "true", "yes", "on"}:
             detection = mock_detection(frame_seq)
         else:
@@ -1187,7 +1224,13 @@ def main() -> None:
             "camera_id": camera_id,
             "frame_seq": frame_seq,
             "video_position_seconds": round(position, 3),
-            "source_uri": source_uri,
+            "source_mode": source["mode"],
+            "source_uri": safe_source_uri,
+            "source_name": source["logical_name"],
+            "source_index": source["index"],
+            "source_count": source["count"],
+            "source_duration_seconds": source["duration_seconds"],
+            "media_accelerator": "nvidia_cuda",
             "stream_id": stream.get("stream_id"),
             "attention_instruction": attention_instruction,
         }
@@ -1200,35 +1243,48 @@ def main() -> None:
             state["detections"] = int(state.get("detections", 0)) + 1
             state["last_detection"] = detection_payload
             state["last_detection_report"] = detection_payload.get("detection_report")
-            events.append({"type": "video_watch_detection", "payload": detection_payload})
+            events.append({"type": "cctv_operator_detection", "payload": detection_payload})
 
         big_change_notice = maybe_build_big_change_notice(detection_payload, state, previous_observation)
         if big_change_notice:
             events.append(big_change_notice)
 
         if should_alert(detection, state):
-            status, slack_payload = post_slack(alert_text(camera_id, detection, frame_seq, source_uri))
-            event_type = "video_watch_slack_alert_sent" if status == "sent" else f"video_watch_slack_alert_{status}"
+            status, slack_payload = post_slack(alert_text(camera_id, detection, frame_seq, safe_source_uri))
+            event_type = "cctv_operator_slack_alert_sent" if status == "sent" else f"cctv_operator_slack_alert_{status}"
             events.append({"type": event_type, "payload": {**slack_payload, "frame_seq": frame_seq, "camera_id": camera_id}})
             if status in {"sent", "skipped"}:
                 state["last_alert_wall_ts"] = time.time()
 
         state["last_error"] = None
-        state["video_position_seconds"] = position + sample_seconds
+        advance_media_source(state, source, sample_seconds)
         state["frames_seen"] = int(state.get("frames_seen", 0)) + 1
-    except Exception as exc:
-        message_text = str(exc)[:800]
-        if should_rewind_file_source(source_uri, float(state.get("video_position_seconds", 0.0)), message_text):
-            state["video_position_seconds"] = 0.0
-            message_text = f"{message_text}; rewound source for next tick"
-        state["last_error"] = message_text
+    except FolderSourceExhausted as exc:
+        state["active_source"] = None
+        state["last_error"] = None
         events.append(
             {
-                "type": "video_watch_frame_analysis_failed",
+                "type": "cctv_operator_folder_completed",
+                "payload": {
+                    "camera_id": camera_id,
+                    "source_mode": "folder",
+                    "completed_sources": list(state.get("completed_sources") or []),
+                    "summary": str(exc),
+                },
+            }
+        )
+    except Exception as exc:
+        message_text = str(exc)[:800]
+        state["last_error"] = message_text
+        source_uri = redact_source_uri(str(source["uri"])) if source else "unresolved"
+        events.append(
+            {
+                "type": "cctv_operator_frame_analysis_failed",
                 "payload": {
                     "camera_id": camera_id,
                     "frame_seq": frame_seq,
                     "source_uri": source_uri,
+                    "source_mode": state.get("source_mode"),
                     "error": message_text,
                 },
             }

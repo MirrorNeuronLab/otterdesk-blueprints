@@ -1,4 +1,4 @@
-# Video Watch Policy
+# CCTV Operator Policy
 
 Use this guidance as local retrieval context for approved local video monitoring.
 

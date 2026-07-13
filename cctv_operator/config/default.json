@@ -94,8 +94,8 @@
     "requires_ack": false
   },
   "identity": {
-    "blueprint_id": "video_watch_assistant",
-    "name": "Video Watch Assistant"
+    "blueprint_id": "cctv_operator",
+    "name": "CCTV Operator"
   },
   "input_skills": {},
   "inputs": {
@@ -111,9 +111,10 @@
           "restricted-area entry"
         ]
       },
-      "input_folder": "video_watch_assistant/examples/sample_inputs",
-      "output_folder": "~/Download/video_watch_assistant",
-      "video_source": "rtsp://127.0.0.1:8554/video-watch",
+      "input_folder": "cctv_operator/examples/sample_inputs",
+      "output_folder": "~/Download/cctv_operator",
+      "source_mode": "folder",
+      "video_source": "",
       "visual_targets": [
         "person",
         "unattended package",
@@ -138,7 +139,9 @@
           "web_ui.json",
           "ui.json",
           "web/index.html",
-          "logs.jsonl"
+          "logs.jsonl",
+          "cctv_report.json",
+          "cctv_report.md"
         ]
       },
       "events": {
@@ -411,10 +414,10 @@
           "Escalate service or stream blockers."
         ]
       },
-      "watch_summary_writer": {
+      "report_writer": {
         "llm_config": "primary",
         "model": "medium",
-        "role": "Watch summary writer",
+        "role": "CCTV report writer",
         "responsibilities": [
           "Write concise watch summaries from detection events.",
           "Preserve frame and source references.",
@@ -456,14 +459,16 @@
       "simulation_state_updated",
       "run_completed",
       "video_frame_tick_generated",
-      "video_watch_frame_observed",
-      "video_watch_attention_updated",
-      "video_watch_detection",
+      "cctv_operator_frame_observed",
+      "cctv_operator_folder_completed",
+      "cctv_operator_attention_updated",
+      "cctv_operator_detection",
       "human_notice",
-      "video_watch_slack_alert_sent",
-      "video_watch_slack_alert_skipped",
-      "video_watch_slack_alert_error",
-      "video_watch_frame_analysis_failed",
+      "cctv_operator_slack_alert_sent",
+      "cctv_operator_slack_alert_skipped",
+      "cctv_operator_slack_alert_error",
+      "cctv_operator_frame_analysis_failed",
+      "cctv_operator_report_ready",
       "blueprint_status",
       "blueprint_phase_started",
       "blueprint_phase_completed",
@@ -520,6 +525,28 @@
       "stringify": true
     }
   ],
+  "local_inputs": {
+    "folders": [
+      {
+        "config_path": "video_source.folder_path",
+        "payload_path": "cctv_operator/mn_local_inputs/videos",
+        "runtime_path": "mn_local_inputs/videos",
+        "allowed_extensions": [
+          ".mp4",
+          ".mov",
+          ".mkv",
+          ".avi",
+          ".webm",
+          ".m4v",
+          ".ts",
+          ".mts"
+        ],
+        "linked_config_paths": [
+          "inputs.payload.input_folder"
+        ]
+      }
+    ]
+  },
   "memory_layer": {
     "collection": "mn_memory",
     "containers": "optional_sidecar",
@@ -538,7 +565,7 @@
     "default_context_addr": "localhost:50052",
     "enabled": true,
     "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
-    "namespace": "video_watch_assistant_context",
+    "namespace": "cctv_operator_context",
     "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
     "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
     "sdk_distribution": "mirrorneuron-membrane-python-sdk",
@@ -551,7 +578,7 @@
       "frame_sampler",
       "visual_target_detector",
       "quality_controller",
-      "watch_summary_writer"
+      "report_writer"
     ],
     "max_iterations_per_agent": 1,
     "max_tool_calls_per_agent": 2,
@@ -564,18 +591,18 @@
       "finish"
     ],
     "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run",
-    "default_mode": "bounded_llm_guided_video_watch_review",
-    "note": "Video watch actors ground detections in frames, configured targets, source fallback state, and alert policy."
+    "default_mode": "bounded_llm_guided_cctv_operator_review",
+    "note": "CCTV actors ground detections in staged files or the configured stream, frame evidence, and alert policy."
   },
   "knowledge_rag": {
     "enabled": true,
     "backend": "milvus_lite",
     "required": false,
     "knowledge_dir": "knowledge",
-    "purpose": "Retrieve approved video-watch policy for target detections, cooldown behavior, source fallback status, and review-only alert boundaries.",
+    "purpose": "Retrieve approved CCTV policy for target detections, source provenance, cooldown behavior, and review-only alert boundaries.",
     "retrieval_targets": [
       "visual target evidence",
-      "stream fallback state",
+      "folder or stream source provenance",
       "alert cooldowns",
       "human review boundaries"
     ],
@@ -598,13 +625,13 @@
   },
   "metadata": {
     "agent_role": "AI assistant for reviewing video stream activity and preparing visual detection alerts.",
-    "blueprint_id": "video_watch_assistant",
+    "blueprint_id": "cctv_operator",
     "blueprint_revision": "v1",
     "category": "business",
     "customizable_for": "Video monitoring, configurable visual detection, facility operations, and site safety workflows.",
-    "description": "A video-watch co-worker for monitoring an approved local or mapped video stream. Give it the stream source, visual targets, alert policy, and optional input folder assets; it detects configured objects or activities and writes reviewable observations, counts, positions, confidence, and alert status artifacts to the output folder.",
+    "description": "A cctv co-worker for monitoring an approved local or mapped video stream. Give it the stream source, visual targets, alert policy, and optional input folder assets; it detects configured objects or activities and writes reviewable observations, counts, positions, confidence, and alert status artifacts to the output folder.",
     "llm_agent_role": "AI assistant for reviewing video stream activity and preparing visual detection alerts.",
-    "name": "Video Watch Assistant",
+    "name": "CCTV Operator",
     "problem_solved": "User RTSP sources can be unstable or unavailable inside OpenShell, so this blueprint maps any validated upstream video or demo file into one stable local stream endpoint.",
     "simulation_type": "Video stream sampling with visual detection review state.",
     "standard_version": "1.0",
@@ -623,7 +650,7 @@
           "/usr/bin/python3"
         ],
         "name": "mapped-local-rtsp-stream-loopback",
-        "uri": "rtsp://127.0.0.1:8554/video-watch"
+        "uri": "rtsp://127.0.0.1:8554/cctv"
       },
       {
         "allowed_ips": [
@@ -634,7 +661,7 @@
           "/usr/bin/python3"
         ],
         "name": "mapped-local-rtsp-stream-localhost",
-        "uri": "rtsp://localhost:8554/video-watch"
+        "uri": "rtsp://localhost:8554/cctv"
       },
       {
         "allowed_ips": [
@@ -646,7 +673,7 @@
           "/usr/bin/python3"
         ],
         "name": "mapped-local-rtsp-stream-openshell-host",
-        "uri": "rtsp://host.openshell.internal:8554/video-watch"
+        "uri": "rtsp://host.openshell.internal:8554/cctv"
       },
       {
         "allowed_ips": [
@@ -658,7 +685,7 @@
           "/usr/bin/python3"
         ],
         "name": "mapped-local-rtsp-stream-docker-host",
-        "uri": "rtsp://host.docker.internal:8554/video-watch"
+        "uri": "rtsp://host.docker.internal:8554/cctv"
       },
       {
         "allowed_ips": [
@@ -669,7 +696,7 @@
           "/usr/bin/python3"
         ],
         "name": "mapped-local-rtsp-stream-gateway",
-        "uri": "rtsp://192.168.65.254:8554/video-watch"
+        "uri": "rtsp://192.168.65.254:8554/cctv"
       }
     ],
     "include_dns": false,
@@ -716,7 +743,7 @@
       "ports": []
     },
     "write_run_store": true,
-    "folder_path": "~/Download/video_watch_assistant"
+    "folder_path": "~/Download/cctv_operator"
   },
   "privacy": {
     "default_classification": "internal",
@@ -811,35 +838,35 @@
       "event_id"
     ],
     "resume_mode": "checkpoint",
-    "input_folder": "video_watch_assistant/examples/sample_inputs",
-    "output_folder": "~/Download/video_watch_assistant"
+    "input_folder": "cctv_operator/examples/sample_inputs",
+    "output_folder": "~/Download/cctv_operator"
   },
   "streams": {
-    "video_watch_stream": {
+    "cctv_operator_stream": {
       "codec": "h264",
-      "enabled": true,
+      "enabled": false,
       "kind": "video",
-      "transport": "rtsp",
-      "uri": "rtsp://127.0.0.1:8554/video-watch"
+      "transport": "rtsp_or_rtmp",
+      "uri": ""
     }
   },
   "triggers": {
     "schedule": null,
     "sources": [
-      "video_watch_stream"
+      "cctv_operator_stream"
     ],
     "type": "stream"
   },
   "video_source": {
-    "camera_id": "video-watch",
-    "codec": "h264",
-    "demo_video": "data/sample.mp4",
-    "description": "Default mapped RTSP endpoint consumed by the DockerWorker detector. The host-side pre-launch hook loops the bundled demo video into the selected local RTSP port before launch.",
+    "camera_id": "cctv",
+    "mode": "folder",
+    "folder_path": "cctv_operator/examples/sample_inputs",
+    "uri": "",
+    "description": "Choose folder to process staged local recordings or stream to monitor one approved RTSP/RTMP source.",
+    "media_accelerator": "nvidia_cuda",
     "frame_jpeg_max_width": 896,
     "frame_sample_seconds": 10,
-    "transport": "rtsp",
-    "upstream_uri": "",
-    "uri": "rtsp://127.0.0.1:8554/video-watch"
+    "transport": "auto"
   },
   "web_ui": {
     "dashboard": {
@@ -863,42 +890,43 @@
         "event_glossary": {
           "human_notice": "The co-worker saw a meaningful video change that should be surfaced promptly in OtterDesk chat.",
           "video_frame_tick_generated": "A frame was queued for real model analysis. The dashboard can show this as an in-progress state until a result event arrives.",
-          "video_watch_attention_updated": "The operator asked the video co-worker to pay attention to a specific visual detail.",
-          "video_watch_detection": "The visual detector saw configured target activity and recorded observable details for review.",
-          "video_watch_frame_analysis_failed": "A sampled frame could not be read or analyzed. Check the stream, model endpoint, or sandbox network policy.",
-          "video_watch_frame_observed": "A sampled frame was analyzed and summarized for co-worker chat and audit review.",
-          "video_watch_slack_alert_error": "The workflow tried to send a Slack alert but the delivery call failed.",
-          "video_watch_slack_alert_sent": "A visual detection alert was sent to the configured review channel.",
-          "video_watch_slack_alert_skipped": "The workflow detected activity but skipped notification because alerting is disabled or the cooldown policy suppressed it."
+          "cctv_operator_attention_updated": "The operator asked the video co-worker to pay attention to a specific visual detail.",
+          "cctv_operator_detection": "The visual detector saw configured target activity and recorded observable details for review.",
+          "cctv_operator_frame_analysis_failed": "A sampled frame could not be read or analyzed. Check the stream, model endpoint, or sandbox network policy.",
+          "cctv_operator_frame_observed": "A sampled frame was analyzed and summarized for co-worker chat and audit review.",
+          "cctv_operator_folder_completed": "Every supported recording in the selected input folder was sampled.",
+          "cctv_operator_slack_alert_error": "The workflow tried to send a Slack alert but the delivery call failed.",
+          "cctv_operator_slack_alert_sent": "A visual detection alert was sent to the configured review channel.",
+          "cctv_operator_slack_alert_skipped": "The workflow detected activity but skipped notification because alerting is disabled or the cooldown policy suppressed it."
         },
         "events_help": "Each event is a durable breadcrumb from the blueprint run. Operators can scan the friendly stream first, then open raw events when they need exact payloads.",
-        "overview": "This blueprint watches one mapped local RTSP endpoint. A host-side pre-launch hook feeds the selected local port from the bundled looping demo video and exposes a browser preview through MediaMTX.",
+        "overview": "CCTV Operator analyzes either a folder of recordings or one approved RTSP/RTMP stream on an NVIDIA node, then exposes observations and reports through the shared dashboard.",
         "review_help": "The final result is not just a video preview. It is a run record: source, frame observations, alert decisions, errors, and event payloads that a human can audit after the workflow runs.",
-        "source_help": "Leave this field as the mapped RTSP endpoint. The host-side pre-launch hook loops data/sample.mp4 into the selected local port before the worker starts and patches the dashboard preview URL to the runtime-selected MediaMTX port.",
+        "source_help": "Choose folder mode for staged recordings or stream mode for an RTSP/RTMP URI reachable from the selected NVIDIA node. Browser preview is optional and separate from analysis.",
         "workflow_steps": [
-          "Start the host-side stream mapper automatically with scripts/pre-launch.sh before validation and launch.",
-          "Loop data/sample.mp4 into the mapped RTSP endpoint and expose the same stream through a runtime-selected MediaMTX browser preview port.",
-          "Sample a frame every 10 seconds through the stream tick source.",
+          "Stage every supported file when folder mode is selected, or validate the configured RTSP/RTMP URI in stream mode.",
+          "Sample frames on the NVIDIA node with CUDA/NVDEC-enabled FFmpeg.",
           "Use the configured vision-language model to describe detection count, label, category, color, position, and activity.",
-          "Keep all observations in the local run store for review, debugging, and handoff."
+          "Write cumulative JSON and Markdown reports plus all events to the local run store."
         ]
       },
       "data_source": "local_run_store",
-      "default_video_source": "rtsp://127.0.0.1:8554/video-watch",
+      "default_video_source": "examples/sample_inputs/sample.mp4",
       "event_feed": {
         "default_path": "~/.mn/runs/<run_id>/events.jsonl",
         "format": "jsonl"
       },
       "event_types": [
         "video_frame_tick_generated",
-        "video_watch_frame_observed",
-        "video_watch_attention_updated",
-        "video_watch_detection",
+        "cctv_operator_frame_observed",
+        "cctv_operator_folder_completed",
+        "cctv_operator_attention_updated",
+        "cctv_operator_detection",
         "human_notice",
-        "video_watch_slack_alert_sent",
-        "video_watch_slack_alert_skipped",
-        "video_watch_slack_alert_error",
-        "video_watch_frame_analysis_failed"
+        "cctv_operator_slack_alert_sent",
+        "cctv_operator_slack_alert_skipped",
+        "cctv_operator_slack_alert_error",
+        "cctv_operator_frame_analysis_failed"
       ],
       "grafana": {
         "editable": false,
@@ -912,7 +940,7 @@
             },
             "id": 1,
             "options": {
-              "content": "This blueprint watches one mapped local RTSP endpoint. A host-side pre-launch hook feeds the selected local port from the bundled looping demo video and exposes a browser preview through MediaMTX.",
+              "content": "Analyze staged recordings or one approved RTSP/RTMP stream with NVIDIA-accelerated frame preparation and review-only visual detection.",
               "mode": "markdown"
             },
             "title": "Overview",
@@ -929,9 +957,9 @@
             "options": {
               "browserPublishSource": "${browser_publish_source}",
               "browserSource": "${browser_video_source}",
-              "source": "rtsp://127.0.0.1:8554/video-watch"
+              "source": "examples/sample_inputs/sample.mp4"
             },
-            "title": "Mapped Stream Preview",
+            "title": "Configured Source Preview",
             "type": "video"
           },
           {
@@ -962,7 +990,7 @@
             "targets": [
               {
                 "eventTypes": [
-                  "video_watch_detection"
+                  "cctv_operator_detection"
                 ],
                 "queryType": "event_count",
                 "refId": "A"
@@ -983,14 +1011,15 @@
               {
                 "eventTypes": [
                   "video_frame_tick_generated",
-                  "video_watch_frame_observed",
-                  "video_watch_attention_updated",
-                  "video_watch_detection",
+                  "cctv_operator_frame_observed",
+                  "cctv_operator_folder_completed",
+                  "cctv_operator_attention_updated",
+                  "cctv_operator_detection",
                   "human_notice",
-                  "video_watch_slack_alert_sent",
-                  "video_watch_slack_alert_skipped",
-                  "video_watch_slack_alert_error",
-                  "video_watch_frame_analysis_failed"
+                  "cctv_operator_slack_alert_sent",
+                  "cctv_operator_slack_alert_skipped",
+                  "cctv_operator_slack_alert_error",
+                  "cctv_operator_frame_analysis_failed"
                 ],
                 "queryType": "latest_event_type",
                 "refId": "A"
@@ -1027,6 +1056,10 @@
                   "text": "Camera"
                 },
                 {
+                  "field": "source_name",
+                  "text": "Source"
+                },
+                {
                   "field": "frame_seq",
                   "text": "Frame"
                 },
@@ -1039,9 +1072,10 @@
             "targets": [
               {
                 "eventTypes": [
-                  "video_watch_frame_observed",
-                  "video_watch_detection",
-                  "video_watch_frame_analysis_failed",
+                  "cctv_operator_frame_observed",
+                  "cctv_operator_detection",
+                  "cctv_operator_folder_completed",
+                  "cctv_operator_frame_analysis_failed",
                   "human_notice"
                 ],
                 "limit": 50,
@@ -1064,14 +1098,14 @@
               {
                 "eventTypes": [
                   "video_frame_tick_generated",
-                  "video_watch_frame_observed",
-                  "video_watch_attention_updated",
-                  "video_watch_detection",
+                  "cctv_operator_frame_observed",
+                  "cctv_operator_attention_updated",
+                  "cctv_operator_detection",
                   "human_notice",
-                  "video_watch_slack_alert_sent",
-                  "video_watch_slack_alert_skipped",
-                  "video_watch_slack_alert_error",
-                  "video_watch_frame_analysis_failed"
+                  "cctv_operator_slack_alert_sent",
+                  "cctv_operator_slack_alert_skipped",
+                  "cctv_operator_slack_alert_error",
+                  "cctv_operator_frame_analysis_failed"
                 ],
                 "limit": 12,
                 "queryType": "events",
@@ -1097,14 +1131,14 @@
               {
                 "eventTypes": [
                   "video_frame_tick_generated",
-                  "video_watch_frame_observed",
-                  "video_watch_attention_updated",
-                  "video_watch_detection",
+                  "cctv_operator_frame_observed",
+                  "cctv_operator_attention_updated",
+                  "cctv_operator_detection",
                   "human_notice",
-                  "video_watch_slack_alert_sent",
-                  "video_watch_slack_alert_skipped",
-                  "video_watch_slack_alert_error",
-                  "video_watch_frame_analysis_failed"
+                  "cctv_operator_slack_alert_sent",
+                  "cctv_operator_slack_alert_skipped",
+                  "cctv_operator_slack_alert_error",
+                  "cctv_operator_frame_analysis_failed"
                 ],
                 "queryType": "event_timeseries",
                 "refId": "A"
@@ -1125,14 +1159,14 @@
               {
                 "eventTypes": [
                   "video_frame_tick_generated",
-                  "video_watch_frame_observed",
-                  "video_watch_attention_updated",
-                  "video_watch_detection",
+                  "cctv_operator_frame_observed",
+                  "cctv_operator_attention_updated",
+                  "cctv_operator_detection",
                   "human_notice",
-                  "video_watch_slack_alert_sent",
-                  "video_watch_slack_alert_skipped",
-                  "video_watch_slack_alert_error",
-                  "video_watch_frame_analysis_failed"
+                  "cctv_operator_slack_alert_sent",
+                  "cctv_operator_slack_alert_skipped",
+                  "cctv_operator_slack_alert_error",
+                  "cctv_operator_frame_analysis_failed"
                 ],
                 "queryType": "latest_event",
                 "refId": "A"
@@ -1174,7 +1208,7 @@
           "to": "now"
         },
         "timezone": "browser",
-        "title": "Video Watch Assistant"
+        "title": "CCTV Operator"
       },
       "panels": [
         "current_status",
@@ -1198,7 +1232,9 @@
         "resources.jsonl",
         "result.json",
         "final_artifact.json",
-        "web_ui.json"
+        "web_ui.json",
+        "cctv_report.json",
+        "cctv_report.md"
       ],
       "standard_panels": [
         "current_status",
@@ -1217,15 +1253,7 @@
       ],
       "video_preview_bridge": {
         "auto_start": false,
-        "cleanup_script": "scripts/post-launch.sh",
-        "enabled": false,
-        "log_path": "/tmp/video_watch_assistant_dashboard_video_bridge.log",
-        "open_browser": 0,
-        "publish_mode": "mapped",
-        "rtsp_port": 8554,
-        "script": "scripts/pre-launch.sh",
-        "stream_path": "video-watch",
-        "use_existing_rtsp_server": 1
+        "enabled": false
       }
     },
     "enabled": true,
@@ -1246,7 +1274,7 @@
       "host": "127.0.0.1",
       "refresh_seconds": 2,
       "server": "blueprint_support",
-      "title": "Video Watch Assistant"
+      "title": "CCTV Operator"
     }
   }
 }

@@ -50,7 +50,7 @@ defmodule MirrorNeuron.Examples.VideoWatchAssistant.VideoFrameTickSource do
     if Map.get(payload(message) || %{}, "token") == token do
       stream_id = state.stream_id || default_stream_id(context)
       next_tick = state.tick_seq + 1
-      camera_id = Map.get(state.config, "camera_id", "video-watch")
+      camera_id = Map.get(state.config, "camera_id", "cctv")
 
       stream = %{
         "stream_id" => stream_id,

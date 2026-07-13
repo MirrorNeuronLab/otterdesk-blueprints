@@ -1,9 +1,9 @@
-# Video Watch Assistant
+# CCTV Operator
 
-`Blueprint ID:` `video_watch_assistant`
+`Blueprint ID:` `cctv_operator`
 `Category:` `Security`
 
-A video-watch co-worker for monitoring an approved local or mapped video stream. Give it the stream source, visual targets, alert policy, and optional input folder assets; it detects configured objects or activities and writes reviewable observations, counts, positions, confidence, and alert status artifacts to the output folder.
+A cctv co-worker for monitoring an approved local or mapped video stream. Give it the stream source, visual targets, alert policy, and optional input folder assets; it detects configured objects or activities and writes reviewable observations, counts, positions, confidence, and alert status artifacts to the output folder.
 
 ## What It Does
 
@@ -16,7 +16,7 @@ fixtures needed to review or run the workflow from this checkout.
 Run from the catalog:
 
 ```bash
-mn run video_watch_assistant
+mn run cctv_operator
 ```
 
 Run directly from this folder:
@@ -47,7 +47,7 @@ Most runs write artifacts under `~/.mn/runs/<run_id>/`. Common files include
 `events.jsonl`, `result.json`, `final_artifact.json`, worker logs, and generated
 reports when the blueprint produces them.
 
-For video-watch runs, inspect `events.jsonl`, `final_artifact.json`, and `web_ui.json` for target detections, confidence, cooldown decisions, human notices, and optional alert routing status.
+For cctv runs, inspect `events.jsonl`, `final_artifact.json`, and `web_ui.json` for target detections, confidence, cooldown decisions, human notices, and optional alert routing status.
 
 ## Safety Checklist
 

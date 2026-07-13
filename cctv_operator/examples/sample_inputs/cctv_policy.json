@@ -1,6 +1,6 @@
 {
-  "schema": "otterdesk.video_watch.sample_policy.v1",
-  "video_source": "rtsp://127.0.0.1:8554/video-watch",
+  "schema": "otterdesk.cctv_operator.sample_policy.v1",
+  "video_source": "rtsp://127.0.0.1:8554/cctv",
   "visual_targets": [
     "person",
     "unattended package",

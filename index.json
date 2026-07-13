@@ -41,11 +41,11 @@
   },
   {
     "category": "Security",
-    "description": "A video-watch co-worker for monitoring an approved local or mapped video stream. Give it the stream source, visual targets, alert policy, and optional input folder assets; it detects configured objects or activities and writes reviewable observations, counts, positions, confidence, and alert status artifacts to the output folder.",
-    "id": "video_watch_assistant",
-    "job_name": "video-watch-assistant",
-    "name": "Video Watch Assistant",
-    "path": "video_watch_assistant",
+    "description": "A cctv co-worker for monitoring an approved local or mapped video stream. Give it the stream source, visual targets, alert policy, and optional input folder assets; it detects configured objects or activities and writes reviewable observations, counts, positions, confidence, and alert status artifacts to the output folder.",
+    "id": "cctv_operator",
+    "job_name": "cctv-operator",
+    "name": "CCTV Operator",
+    "path": "cctv_operator",
     "product": {
       "agent_role": "AI assistant for reviewing video stream activity and preparing visual detection alerts.",
       "benefit": "Helps reviewers notice configured visual targets faster while keeping the final access or safety decision with people.",
@@ -81,7 +81,7 @@
       }
     },
     "type": "service",
-    "workflow_id": "video_watch_assistant_v1"
+    "workflow_id": "cctv_operator_v1"
   },
   {
     "category": "Business",

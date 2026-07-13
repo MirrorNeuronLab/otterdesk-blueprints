@@ -1,4 +1,4 @@
-# Video Watch Demo Inputs
+# CCTV Operator Demo Inputs
 
 `watch_policy.json` mirrors the default init config for local demos: a mapped demo stream, visual targets, and a conservative alert policy.
 

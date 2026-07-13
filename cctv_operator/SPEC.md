@@ -1,4 +1,4 @@
-# Video Watch Assistant SPEC
+# CCTV Operator SPEC
 
 ## What We Want To Achieve
 
@@ -12,13 +12,13 @@ Video operators and critical-infrastructure security teams need to watch continu
 
 The blueprint is organized as a streaming visual-detection loop. `ingress` starts the monitor, `video_frame_tick_source` emits frame ticks, and `visual_detector` samples the configured video source, runs visual detection, reports count/label/category/color/position/activity details, applies confidence and cooldown policy, and emits structured events when configured targets appear in the monitored scene. It also maintains conversation context so OtterDesk local AI can answer what happened from live observations, accepts operator attention requests, and emits chat-facing `human_notice` events when a significant change should be surfaced promptly.
 
-The OtterDesk local chat model uses `payloads/prompts/chat-system.md` as this blueprint's co-worker system prompt. The prompt makes the model speak as Video Watch Assistant, answer job-related questions from runtime observations and human-in-the-loop events, explain detection or alert decisions, and say clearly when evidence is missing or operator input is needed.
+The OtterDesk local chat model uses `payloads/prompts/chat-system.md` as this blueprint's co-worker system prompt. The prompt makes the model speak as CCTV Operator, answer job-related questions from runtime observations and human-in-the-loop events, explain detection or alert decisions, and say clearly when evidence is missing or operator input is needed.
 
 The prototype supports live VL model detection through Docker Model Runner on an NVIDIA-accelerated runtime node and deterministic mock detection for tests. The model is asked to count only real visible subjects or activity relevant to the configured targets, and to ignore shadows, reflections, signage text, static background clutter, and uncertain guesses. Alert delivery is optional, with Slack-style payloads used as the reference integration.
 
 ## Input
 
-The prototype accepts a mapped local RTSP source through a host-side mapper started by the standard `scripts/pre-launch.sh` hook and cleaned by `scripts/post-launch.sh`. By default, the mapper loops `data/sample.mp4` into `rtsp://127.0.0.1:8554/video-watch`; if that port is busy, it selects another local port and reports the resolved URI back to the runner before validation and submission. On stop, cancel, failed launch, terminal completion, or stale run cleanup, the post-launch hook stops the recorded ffmpeg/MediaMTX mapper and matching MediaMTX listeners on the selected preview ports. The key runtime controls are the mapped source URI, transport, codec, frame sampling interval, maximum frame width, detection confidence threshold, alert cooldown window, target prompt, and site-specific escalation policy.
+The prototype accepts a mapped local RTSP source through a host-side mapper started by the standard `scripts/pre-launch.sh` hook and cleaned by `scripts/post-launch.sh`. By default, the mapper loops `data/sample.mp4` into `rtsp://127.0.0.1:8554/cctv`; if that port is busy, it selects another local port and reports the resolved URI back to the runner before validation and submission. On stop, cancel, failed launch, terminal completion, or stale run cleanup, the post-launch hook stops the recorded ffmpeg/MediaMTX mapper and matching MediaMTX listeners on the selected preview ports. The key runtime controls are the mapped source URI, transport, codec, frame sampling interval, maximum frame width, detection confidence threshold, alert cooldown window, target prompt, and site-specific escalation policy.
 
 Notification inputs include Slack enablement, destination channel, message prefix, and any downstream alert routing that a deployment wants to replace Slack with later. Model selection is built into the blueprint as `medium`; users do not set a model URL or model name. Live runs require a DGX Spark, GH200, H100, H200, B200, or GB200 class NVIDIA node with Docker Model Runner acceleration.
 
