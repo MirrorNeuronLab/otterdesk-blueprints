@@ -1588,6 +1588,10 @@ def test_cctv_operator_default_folder_validates_from_blueprint_root(monkeypatch)
     blueprint_dir = ROOT / "cctv_operator"
     manifest = json.loads((blueprint_dir / "manifest.json").read_text())
     config = json.loads((blueprint_dir / "config" / "default.json").read_text())
+    assert manifest["input_validation"]["rules"][0]["command"] == [
+        "python3",
+        "payloads/validation/validate_video_source.py",
+    ]
     monkeypatch.chdir(blueprint_dir)
 
     report = run_input_validation(blueprint_dir, manifest, config=config)
