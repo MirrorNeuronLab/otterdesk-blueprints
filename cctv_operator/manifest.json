@@ -620,8 +620,6 @@
           "gpus": "all",
           "shared_container": true,
           "reuse_shared_container": true,
-          "upload_path": "visual_detector",
-          "upload_as": "visual_detector",
           "workdir": "/mn/job/visual_detector",
           "from": "base",
           "no_auto_providers": true,
@@ -1091,7 +1089,6 @@
               "bash",
               "scripts/run_detector_on_nvidia.sh"
             ],
-            "upload_path": "visual_detector",
             "upload_paths": [
               {
                 "source": "visual_detector",
@@ -1205,7 +1202,6 @@
                 "bash",
                 "scripts/run_detector_on_nvidia.sh"
               ],
-              "upload_path": "visual_detector",
               "upload_paths": [
                 {
                   "source": "visual_detector",
@@ -1257,8 +1253,6 @@
               "gpus": "all",
               "shared_container": true,
               "reuse_shared_container": true,
-              "upload_path": "visual_detector",
-              "upload_as": "visual_detector",
               "workdir": "/mn/job/visual_detector",
               "from": "base",
               "no_auto_providers": true,

@@ -1511,6 +1511,8 @@ def test_cctv_operator_uses_dockerworker_nvidia_media_worker():
         {"source": "visual_detector", "target": "visual_detector"},
         {"source": "prompts", "target": "visual_detector/prompts"},
     ]
+    assert "upload_path" not in visual_node["config"]
+    assert "upload_as" not in visual_node["config"]
     assert "policy" not in visual_node["config"]
     _assert_hard_gpu_worker_requirements(visual_node)
 
