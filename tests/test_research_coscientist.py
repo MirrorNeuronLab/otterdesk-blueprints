@@ -90,20 +90,21 @@ def test_research_prompts_and_fake_run_write_review_only_packet(tmp_path):
     json.loads((output / "research_packet.json").read_text(encoding="utf-8"))
 
 
-def test_manifest_uses_exactly_one_shared_openshell_worker():
+def test_manifest_uses_exactly_one_current_openshell_worker():
     manifest = json.loads((ROOT / "research_coscientist" / "manifest.json").read_text(encoding="utf-8"))
     nodes = manifest["agents"]["nodes"]
     openshell = [
         node
         for node in nodes
         if (node.get("config") or {}).get("runner_module")
-        == "MirrorNeuron.Sandbox.OpenShell"
+        == "MirrorNeuron.Runner.OpenShell"
     ]
 
     assert [node["node_id"] for node in openshell] == ["autonomous_research"]
     config = openshell[0]["config"]
-    assert config["reuse_shared_sandbox"] is True
-    assert config["persistent_workspace"] is True
+    assert config["reuse_shared_sandbox"] is False
+    assert config["persistent_workspace"] is False
+    assert config["cleanup_remote_dir"] is True
     assert config["custom_openshell_image"] == "document_workflow/openshell_worker"
     assert config["policy"] == "document_workflow/openshell-policy.yaml"
     assert manifest["workflow"]["steps"][0]["label"].startswith("Deterministically")
