@@ -362,9 +362,9 @@
     ]
   },
   "llm": {
-    "model": "medium",
+    "model": "gemma4:e2b",
     "provider": "docker_model_runner",
-    "runtime_model": "medium",
+    "runtime_model": "gemma4:e2b",
     "backend": "llama.cpp",
     "install_mode": "cluster_provided",
     "enabled": true,
@@ -372,7 +372,7 @@
     "agents": {
       "visual_target_detector": {
         "llm_config": "primary",
-        "model": "medium",
+        "model": "gemma4:e2b",
         "role": "Visual target detector actor",
         "responsibilities": [
           "Detect configured visual targets from sampled frames.",
@@ -382,7 +382,7 @@
       },
       "quality_controller": {
         "llm_config": "primary",
-        "model": "medium",
+        "model": "gemma4:e2b",
         "role": "Video quality controller",
         "responsibilities": [
           "Check detection confidence and stream quality.",
@@ -392,7 +392,7 @@
       },
       "frame_sampler": {
         "llm_config": "primary",
-        "model": "medium",
+        "model": "gemma4:e2b",
         "role": "Frame sampler actor",
         "responsibilities": [
           "Sample frames from configured video sources.",
@@ -402,7 +402,7 @@
       },
       "video_source_validator": {
         "llm_config": "primary",
-        "model": "medium",
+        "model": "gemma4:e2b",
         "role": "Video source validator",
         "responsibilities": [
           "Validate video source configuration and reachability.",
@@ -412,7 +412,7 @@
       },
       "video_monitor": {
         "llm_config": "primary",
-        "model": "medium",
+        "model": "gemma4:e2b",
         "role": "Video monitor actor",
         "responsibilities": [
           "Maintain watch state and runtime lifecycle.",
@@ -422,7 +422,7 @@
       },
       "report_writer": {
         "llm_config": "primary",
-        "model": "medium",
+        "model": "gemma4:e2b",
         "role": "CCTV report writer",
         "responsibilities": [
           "Write concise watch summaries from detection events.",
@@ -445,7 +445,7 @@
     "configs": {
       "primary": {
         "provider": "docker_model_runner",
-        "model": "medium",
+        "model": "gemma4:e2b",
         "install_mode": "cluster_provided",
         "api_base": "http://localhost:12434/engines/v1",
         "timeout_seconds": 60,
@@ -529,6 +529,10 @@
       "config_path": "outputs.run_root",
       "manifest_path": "runtime.bindings.run_workflow.workers.visual_detector.with.environment.MN_RUNS_ROOT",
       "stringify": true
+    },
+    {
+      "config_path": "video_source.frame_sample_seconds",
+      "manifest_path": "agents.nodes.video_frame_tick_source.config.interval_seconds"
     }
   ],
   "local_inputs": {
@@ -812,7 +816,7 @@
     "description": "Choose folder to process staged local recordings or stream to monitor one approved RTSP/RTMP source.",
     "media_accelerator": "nvidia_cuda",
     "frame_jpeg_max_width": 896,
-    "frame_sample_seconds": 10,
+    "frame_sample_seconds": 20,
     "transport": "auto"
   },
   "web_ui": {

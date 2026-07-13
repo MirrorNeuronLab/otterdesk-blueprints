@@ -14,14 +14,14 @@ mn blueprint list
 Run a catalog blueprint:
 
 ```bash
-mn run <blueprint_id>
+mn blueprint run <blueprint_id>
 ```
 
 Run a checked-in folder directly:
 
 ```bash
 cd <blueprint_id>
-mn run --folder .
+mn blueprint run --folder .
 ```
 
 Run repository tests:

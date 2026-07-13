@@ -1,11 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if ! command -v nvidia-smi >/dev/null 2>&1; then
-  echo "cctv_operator requires an NVIDIA node; nvidia-smi is unavailable" >&2
-  exit 2
-fi
-
 if ! command -v ffmpeg >/dev/null 2>&1; then
   echo "cctv_operator requires FFmpeg with CUDA/NVDEC support on the NVIDIA node" >&2
   exit 2

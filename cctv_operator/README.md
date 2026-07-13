@@ -19,7 +19,7 @@ The default is folder mode with `examples/sample_inputs`. Set `video_source.mode
 
 The manifest declares a hard NVIDIA CUDA requirement with one GPU and at least 49,152 MB of GPU or unified IGP memory. Eligibility, including DGX Spark unified-memory accounting, is enforced by `mn-python-sdk`; the blueprint does not duplicate that detection logic. There is no CPU or Mac-only execution path.
 
-Frame preparation runs directly on the selected NVIDIA node through `MirrorNeuron.Runner.HostLocal`. The worker requires `nvidia-smi` plus an FFmpeg build exposing CUDA acceleration. This keeps a single DGX Spark deployment lightweight and avoids a separate media container.
+Frame preparation runs directly on the SDK-selected NVIDIA node through `MirrorNeuron.Runner.HostLocal`. The worker requires an FFmpeg build exposing CUDA acceleration; NVIDIA node and memory eligibility remain SDK-owned. The default Gemma 4 E2B vision model and 20-second sampling interval avoid inference backlog on one DGX Spark while remaining configurable. This keeps deployment lightweight and avoids a separate media container.
 
 ## Web UI
 
@@ -30,13 +30,13 @@ The blueprint uses the shared blueprint-support Gradio dashboard. The runtime in
 From the catalog:
 
 ```bash
-mn run cctv_operator
+mn blueprint run cctv_operator --web-ui
 ```
 
 From this folder:
 
 ```bash
-mn run --folder .
+mn blueprint run --folder . --web-ui
 ```
 
 Inspect recent state:

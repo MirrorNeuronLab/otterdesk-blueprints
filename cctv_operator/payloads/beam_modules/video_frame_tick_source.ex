@@ -132,7 +132,12 @@ defmodule MirrorNeuron.Examples.CctvOperator.VideoFrameTickSource do
 
   defp default_stream_id(context), do: "#{context.job_id}:#{context.node.node_id}:video"
 
-  defp interval_ms(config), do: max(Map.get(config, "interval_ms", 10_000), 250)
+  defp interval_ms(config) do
+    case Map.get(config, "interval_seconds") do
+      seconds when is_number(seconds) -> max(round(seconds * 1_000), 250)
+      _ -> max(Map.get(config, "interval_ms", 20_000), 250)
+    end
+  end
 
   defp target_node(config), do: Map.get(config, "target_node", "visual_detector")
 end

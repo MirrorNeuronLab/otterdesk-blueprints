@@ -88,6 +88,19 @@ def test_extract_frame_uses_cuda_decode_and_scale(monkeypatch):
     assert "scale_cuda=896" in command[command.index("-vf") + 1]
 
 
+def test_detector_uses_configured_cadence_and_vision_model_defaults(monkeypatch):
+    detector = _load_detector()
+    monkeypatch.delenv("FRAME_SAMPLE_SECONDS", raising=False)
+    monkeypatch.delenv("FRAME_JPEG_MAX_WIDTH", raising=False)
+    monkeypatch.delenv("MN_LLM_RUNTIME_MODEL", raising=False)
+
+    config = {"video_source": {"frame_sample_seconds": 23, "frame_jpeg_max_width": 768}}
+
+    assert detector.configured_frame_sample_seconds(config) == 23
+    assert detector.configured_frame_max_width(config) == 768
+    assert detector._normalize_vlm_model("medium") == "docker.io/ai/gemma4:E2B"
+
+
 def test_openai_vlm_disables_thinking_and_normalizes_model_variants(monkeypatch):
     detector = _load_detector()
     captured = {}

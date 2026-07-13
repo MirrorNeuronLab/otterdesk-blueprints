@@ -404,6 +404,24 @@ def media_accelerator() -> str:
     return accelerator
 
 
+def configured_frame_sample_seconds(config: dict[str, Any]) -> float:
+    video_source = config.get("video_source") if isinstance(config.get("video_source"), dict) else {}
+    raw = os.environ.get("FRAME_SAMPLE_SECONDS") or video_source.get("frame_sample_seconds") or 20
+    try:
+        return max(0.25, float(raw))
+    except (TypeError, ValueError):
+        return 20.0
+
+
+def configured_frame_max_width(config: dict[str, Any]) -> int:
+    video_source = config.get("video_source") if isinstance(config.get("video_source"), dict) else {}
+    raw = os.environ.get("FRAME_JPEG_MAX_WIDTH") or video_source.get("frame_jpeg_max_width") or 896
+    try:
+        return max(64, int(raw))
+    except (TypeError, ValueError):
+        return 896
+
+
 def ffmpeg_frame_timeout_seconds() -> float:
     try:
         return max(1.0, float(os.environ.get("FFMPEG_FRAME_TIMEOUT_SECONDS", "8")))
@@ -535,7 +553,7 @@ def call_ollama(frame: bytes, prompt: str) -> dict[str, Any]:
         or os.environ.get("MN_LLM_MODEL")
         or os.environ.get("VL_MODEL_NAME")
         or os.environ.get("OLLAMA_MODEL")
-        or "medium"
+        or "gemma4:e2b"
     )
     timeout = float(os.environ.get("MN_VLM_TIMEOUT_SECONDS") or os.environ.get("MN_LLM_TIMEOUT_SECONDS") or os.environ.get("OLLAMA_TIMEOUT_SECONDS", "90"))
     if _uses_openai_compatible_runtime(provider, base_url):
@@ -611,10 +629,8 @@ def call_ollama(frame: bytes, prompt: str) -> dict[str, Any]:
 
 def _normalize_vlm_model(model: str) -> str:
     value = str(model or "").strip()
-    if value.lower() in {"", "default", "medium", "medium"}:
-        return os.environ.get("MN_LLM_RUNTIME_MODEL") or "medium"
-    if value.lower() in {"small", "small", "small", "small"}:
-        return "small"
+    if value.lower() in {"", "default", "small", "medium", "gemma4", "gemma4:e2b"}:
+        return os.environ.get("MN_LLM_RUNTIME_MODEL") or "docker.io/ai/gemma4:E2B"
     return value
 
 
@@ -1213,8 +1229,8 @@ def main() -> None:
         or video_source_config.get("camera_id")
         or "cctv"
     )
-    sample_seconds = float(os.environ.get("FRAME_SAMPLE_SECONDS", "10.0"))
-    max_width = int(os.environ.get("FRAME_JPEG_MAX_WIDTH", "896"))
+    sample_seconds = configured_frame_sample_seconds(config)
+    max_width = configured_frame_max_width(config)
 
     events: list[dict[str, Any]] = []
     stream = message.get("stream") or {}

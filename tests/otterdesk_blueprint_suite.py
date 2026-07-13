@@ -265,7 +265,8 @@ def test_video_gpu_blueprints_declare_hard_nvidia_cuda_requirements_consistently
         manifest = json.loads((ROOT / blueprint_id / "manifest.json").read_text())
         assert manifest["requirements"]["gpu"] == GPU_HARD_REQUIREMENT
         assert manifest["runtime"]["resources"]["gpu"] == GPU_HARD_REQUIREMENT
-        assert manifest["runtime"]["models"][runtime_model_key]["model"] == "medium"
+        assert manifest["runtime"]["models"][runtime_model_key]["model"] == "gemma4:e2b"
+        assert manifest["runtime"]["models"][runtime_model_key]["type"] == "vlm"
         assert manifest["runtime"]["models"][runtime_model_key]["install_mode"] == "cluster_provided"
 
         worker = next(node for node in _flow_nodes(manifest) if node["node_id"] == worker_id)
@@ -278,7 +279,7 @@ def test_video_gpu_blueprints_declare_hard_nvidia_cuda_requirements_consistently
                     _assert_hard_gpu_worker_requirements(rendered)
 
     config = json.loads((ROOT / "cctv_operator" / "config" / "default.json").read_text())
-    assert config["llm"]["model"] == "medium"
+    assert config["llm"]["model"] == "gemma4:e2b"
     assert config["llm"]["install_mode"] == "cluster_provided"
     assert config["resources"]["gpu"] == GPU_HARD_REQUIREMENT
     assert config["resources"]["required_capabilities"] == ["nvidia", "cuda"]
@@ -1493,9 +1494,12 @@ def test_otterdesk_workflow_steps_are_bounded_and_retryable():
 def test_cctv_operator_uses_hostlocal_nvidia_media_worker():
     blueprint_dir = ROOT / "cctv_operator"
     manifest = json.loads((blueprint_dir / "manifest.json").read_text())
+    config = json.loads((blueprint_dir / "config" / "default.json").read_text())
 
     rendered = render_manifest_agent_templates(manifest, AGENTS_ROOT)
+    tick_node = next(node for node in _flow_nodes(rendered) if node["node_id"] == "video_frame_tick_source")
     visual_node = next(node for node in _flow_nodes(rendered) if node["node_id"] == "visual_detector")
+    assert tick_node["config"]["interval_seconds"] == 20
     assert visual_node["config"]["runner_module"] == "MirrorNeuron.Runner.HostLocal"
     assert visual_node["config"]["workdir"] == "/sandbox/job/visual_detector"
     assert visual_node["config"]["command"] == ["bash", "scripts/run_detector_on_nvidia.sh"]
@@ -1507,10 +1511,18 @@ def test_cctv_operator_uses_hostlocal_nvidia_media_worker():
     launch_script = (
         blueprint_dir / "payloads" / "visual_detector" / "scripts" / "run_detector_on_nvidia.sh"
     ).read_text()
-    assert "nvidia-smi" in launch_script
+    assert "nvidia-smi" not in launch_script
     assert "ffmpeg -hide_banner -hwaccels" in launch_script
     assert "CCTV_MEDIA_ACCELERATOR" in launch_script
     assert "nvidia_cuda" in launch_script
+    assert manifest["runtime"]["models"]["primary"]["type"] == "vlm"
+    assert manifest["runtime"]["models"]["primary"]["model"] == "gemma4:e2b"
+    assert config["llm"]["model"] == "gemma4:e2b"
+    assert config["video_source"]["frame_sample_seconds"] == 20
+    assert {
+        "config_path": "video_source.frame_sample_seconds",
+        "manifest_path": "agents.nodes.video_frame_tick_source.config.interval_seconds",
+    } in config["manifest_config_bindings"]
 
 
 def test_cctv_operator_detector_script_compiles_with_shared_helper_import():
@@ -1589,7 +1601,7 @@ def test_cctv_operator_default_folder_validates_from_blueprint_root(monkeypatch)
     manifest = json.loads((blueprint_dir / "manifest.json").read_text())
     config = json.loads((blueprint_dir / "config" / "default.json").read_text())
     assert manifest["input_validation"]["rules"][0]["command"] == [
-        "python3",
+        "/usr/bin/python3",
         "payloads/validation/validate_video_source.py",
     ]
     monkeypatch.chdir(blueprint_dir)
