@@ -1,20 +1,6 @@
 version: 1
 
 network_policies:
-  dns_resolution:
-    name: dns-resolution
-    endpoints:
-      - host: 1.1.1.1
-        port: 53
-        allowed_ips:
-          - 1.1.1.1/32
-      - host: 8.8.8.8
-        port: 53
-        allowed_ips:
-          - 8.8.8.8/32
-    binaries:
-      - path: /usr/local/bin/python3
-      - path: /usr/bin/w3m
   litellm_proxy:
     name: litellm-proxy
     endpoints:
@@ -22,27 +8,3 @@ network_policies:
         port: 4000
     binaries:
       - path: /usr/local/bin/python3
-  public_https_research:
-    name: public-https-research
-    endpoints:
-      - host: duckduckgo.com
-        port: 443
-      - host: www.google.com
-        port: 443
-      - host: scholar.google.com
-        port: 443
-      - host: api.crossref.org
-        port: 443
-      - host: api.semanticscholar.org
-        port: 443
-      - host: pubmed.ncbi.nlm.nih.gov
-        port: 443
-      - host: eutils.ncbi.nlm.nih.gov
-        port: 443
-      - host: arxiv.org
-        port: 443
-      - host: export.arxiv.org
-        port: 443
-    binaries:
-      - path: /usr/local/bin/python3
-      - path: /usr/bin/w3m
