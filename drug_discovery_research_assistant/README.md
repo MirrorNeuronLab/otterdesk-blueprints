@@ -35,7 +35,7 @@ The dispatcher must accept the job JSON on stdin and return a JSON result or wri
 
 ## Output and safety
 
-The default user-facing output folder is `~/Downloads/drug_discovery_research_assistant`. Service reports are computational hypotheses only. The blueprint does not authorize wet-lab work, clinical claims, regulatory submissions, or external candidate publication without human approval.
+The default user-facing output folder is `~/Downloads/drug_discovery_research_assistant`. While the service runs, it publishes `service_status.json`, the latest generated candidate pool in `candidates.json`, and the latest completed cycle in `latest_cycle_report.json`; detailed per-cycle artifacts remain under the run directory. Service reports are computational hypotheses only. The blueprint does not authorize wet-lab work, clinical claims, regulatory submissions, or external candidate publication without human approval.
 
 ## Validation
 

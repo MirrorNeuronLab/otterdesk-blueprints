@@ -43,6 +43,21 @@ def json_dump(path: Path, value: Any) -> None:
     path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
+def resolve_output_folder(config: dict[str, Any], run_dir: Path) -> Path:
+    """Resolve the user-facing output directory for both local and hosted runs."""
+    runtime_output = os.environ.get("MN_JOB_OUTPUT_DIR")
+    if runtime_output:
+        return Path(os.path.expandvars(runtime_output)).expanduser()
+
+    inputs = config.get("inputs") if isinstance(config.get("inputs"), dict) else {}
+    payload = inputs.get("payload") if isinstance(inputs.get("payload"), dict) else {}
+    outputs = config.get("outputs") if isinstance(config.get("outputs"), dict) else {}
+    configured_output = payload.get("output_folder") or outputs.get("folder_path") or outputs.get("output_folder")
+    if configured_output:
+        return Path(os.path.expandvars(str(configured_output))).expanduser()
+    return run_dir / "outputs"
+
+
 def load_json(path: Path) -> dict[str, Any]:
     value = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(value, dict):
@@ -241,6 +256,7 @@ def simulation_sort_key(item: dict[str, Any]) -> tuple[float, float, str]:
 def run_cycle(config: dict[str, Any], run_dir: Path, cycle_id: int) -> dict[str, Any]:
     cycle_dir = run_dir / "cycles" / f"cycle-{cycle_id:06d}"
     cycle_dir.mkdir(parents=True, exist_ok=True)
+    output_folder = resolve_output_folder(config, run_dir)
     pools = ((config.get("cluster_distribution") or {}).get("worker_pools") or {})
     parallelism = ((config.get("service") or {}).get("parallelism") or {})
     targets = targets_from_config(config)
@@ -253,6 +269,18 @@ def run_cycle(config: dict[str, Any], run_dir: Path, cycle_id: int) -> dict[str,
         if not isinstance(candidates, list) or not candidates:
             raise RuntimeError("candidate_generator returned no candidates")
     json_dump(cycle_dir / "generated_candidates.json", candidates)
+    json_dump(
+        output_folder / "candidates.json",
+        {
+            "schema_version": "mn.blueprint.staged_candidates.v1",
+            "cycle_id": cycle_id,
+            "generated_at": utc_now(),
+            "mode": "fake_smoke_test" if fake else "live",
+            "candidate_count": len(candidates),
+            "candidates": candidates,
+            "review_boundary": "Computational hypotheses only; human scientific review is required.",
+        },
+    )
 
     def fold_target(target: dict[str, Any]) -> dict[str, Any]:
         if fake:
@@ -307,12 +335,26 @@ def run_cycle(config: dict[str, Any], run_dir: Path, cycle_id: int) -> dict[str,
     }
     json_dump(cycle_dir / "simulation_results.json", simulations)
     json_dump(cycle_dir / "cycle_report.json", report)
+    json_dump(output_folder / "latest_cycle_report.json", report)
     return report
 
 
 def run_service(config: dict[str, Any], run_dir: Path) -> dict[str, Any]:
     validate_live_adapters(config)
     service = config.get("service") if isinstance(config.get("service"), dict) else {}
+    output_folder = resolve_output_folder(config, run_dir)
+    json_dump(
+        output_folder / "service_status.json",
+        {
+            "schema_version": "mn.blueprint.continuous_discovery_status.v1",
+            "status": "starting",
+            "started_at": utc_now(),
+            "run_dir": str(run_dir),
+            "output_folder": str(output_folder),
+            "artifacts": ["candidates.json", "latest_cycle_report.json", "service_status.json"],
+            "review_boundary": "Computational hypotheses only; human scientific review is required.",
+        },
+    )
     # The native worker wrapper supplies MN_RUN_DIR.  Resolve the documented
     # placeholder here as well so direct/native invocations use the supplied
     # run directory instead of accidentally creating a literal ${MN_RUN_DIR}
@@ -332,12 +374,37 @@ def run_service(config: dict[str, Any], run_dir: Path) -> dict[str, Any]:
         reports.append(report)
         state = {"schema_version": "mn.blueprint.continuous_discovery_service.v1", "status": "running", "cycle_id": cycle_id, "updated_at": utc_now(), "stop_file": str(stop_file), "last_report": report}
         json_dump(state_path, state)
+        json_dump(
+            output_folder / "service_status.json",
+            {
+                "schema_version": "mn.blueprint.continuous_discovery_status.v1",
+                "status": "running",
+                "updated_at": utc_now(),
+                "run_dir": str(run_dir),
+                "output_folder": str(output_folder),
+                "completed_cycles": cycle_id + 1,
+                "last_cycle_id": cycle_id,
+                "artifacts": ["candidates.json", "latest_cycle_report.json", "service_status.json"],
+                "review_boundary": "Computational hypotheses only; human scientific review is required.",
+            },
+        )
         cycle_id += 1
         if max_cycles is not None and cycle_id >= max_cycles:
             break
         STOP_REQUESTED.wait(cycle_interval)
     final = {"schema_version": "mn.blueprint.continuous_discovery_service.v1", "status": "stopped", "stopped_at": utc_now(), "completed_cycles": cycle_id, "stop_reason": "signal" if STOP_REQUESTED.is_set() else "stop_file" if stop_file.exists() else "max_cycles", "reports": reports[-10:]}
     json_dump(state_path, final)
+    json_dump(
+        output_folder / "service_status.json",
+        {
+            "schema_version": "mn.blueprint.continuous_discovery_status.v1",
+            **final,
+            "run_dir": str(run_dir),
+            "output_folder": str(output_folder),
+            "artifacts": ["candidates.json", "latest_cycle_report.json", "service_status.json"],
+            "review_boundary": "Computational hypotheses only; human scientific review is required.",
+        },
+    )
     return final
 
 

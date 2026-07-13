@@ -20,7 +20,7 @@ The service controller is a `MirrorNeuron.Runner.HostLocal` worker. Live cluster
 
 ## Service lifecycle
 
-The service has no automatic completion time. It stops on a process termination signal or when the configured `STOP` file is created. Each cycle updates `service_state.json`; artifacts are written under `cycles/cycle-<id>/`.
+The service has no automatic completion time. It stops on a process termination signal or when the configured `STOP` file is created. Each cycle updates `service_state.json`; detailed artifacts are written under `cycles/cycle-<id>/`, while the configured user-facing output folder is updated with `service_status.json`, `candidates.json`, and `latest_cycle_report.json` so a long-running job has observable output before it stops.
 
 ## Safety and non-goals
 

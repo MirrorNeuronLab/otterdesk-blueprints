@@ -155,6 +155,34 @@ def test_continuous_service_fake_mode_writes_parallel_cycle_artifacts(tmp_path):
     assert report["simulation_count"] > 0
 
 
+def test_continuous_service_publishes_user_facing_candidates(tmp_path):
+    service_path = BLUEPRINT_DIR / "payloads" / "service" / "scripts" / "continuous_service.py"
+    spec = importlib.util.spec_from_file_location("drug_discovery_continuous_service_output_test", service_path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+
+    output_folder = tmp_path / "Downloads" / "drug_discovery_research_assistant"
+    config = {
+        "mode": "mock",
+        "execution": {"fake_science_adapters": True},
+        "service": {"max_cycles": 1, "simulation_top_k": 1, "parallelism": {"folding_workers": 1, "drugclip_workers": 1, "simulation_workers": 1}},
+        "cluster_distribution": {"enabled": False},
+        "inputs": {"payload": {"output_folder": str(output_folder), "targets": [{"protein_id": "P56817", "gene": "BACE1"}]}},
+    }
+
+    module.run_service(config, tmp_path / "run")
+
+    candidates = json.loads((output_folder / "candidates.json").read_text(encoding="utf-8"))
+    assert candidates["schema_version"] == "mn.blueprint.staged_candidates.v1"
+    assert candidates["candidate_count"] == len(candidates["candidates"]) > 0
+    assert (output_folder / "latest_cycle_report.json").exists()
+    status = json.loads((output_folder / "service_status.json").read_text(encoding="utf-8"))
+    assert status["status"] == "stopped"
+    assert status["completed_cycles"] == 1
+
+
 def test_continuous_service_repeats_generation_and_simulation_until_stop_file(tmp_path):
     service_path = BLUEPRINT_DIR / "payloads" / "service" / "scripts" / "continuous_service.py"
     spec = importlib.util.spec_from_file_location("drug_discovery_continuous_service_loop_test", service_path)
