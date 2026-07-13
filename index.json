@@ -361,5 +361,35 @@
       "target_users": "Hospitals, clinics, health-tech vendors, clinical research teams, and medical document operations teams."
     },
     "workflow_id": "medical_deid_record_intake_assistant_v1"
+  },
+  {
+    "category": "Science",
+    "description": "A multi-agent research co-scientist for finding, evaluating, and drafting research directions. Give it a research goal, domain, constraints, seed ideas, and an input folder; it retrieves local evidence, performs bounded public research, generates and critiques hypotheses, and writes a review-ready research packet to the output folder.",
+    "id": "multi_agent_research_coscientist",
+    "job_name": "multi-agent-research-coscientist",
+    "name": "Multi-Agent Research Co-Scientist",
+    "path": "multi_agent_research_coscientist",
+    "product": {
+      "agent_role": "Multi-agent research team that finds, evaluates, critiques, and drafts evidence-grounded research directions.",
+      "benefit": "Turns a research goal and approved evidence into a traceable, adversarially reviewed research packet before any experiment or claim is made.",
+      "customizable_for": "Scientific research, engineering investigations, product discovery, policy analysis, literature synthesis, and experiment planning.",
+      "how_it_works": "Frames the goal, retrieves local and bounded public evidence, generates hypotheses, runs skeptical and novelty review, plans experiments and benchmarks, and drafts a review-only brief.",
+      "input": "Research goal, domain, question, constraints, seed hypotheses, and an approved local input folder.",
+      "output": "Research packet with evidence ledger, ranked hypotheses, critiques, experiment concepts, evidence gaps, and a Markdown brief.",
+      "problem": "Research teams need to explore competing explanations while preserving evidence and human control over experiments and public claims.",
+      "runtime_features": [
+        "local and user-document RAG",
+        "privacy-safe public research",
+        "specialized research roles",
+        "generation, reflection, ranking, evolution, proximity, and meta-review loop",
+        "adversarial hypothesis review",
+        "experiment and benchmark planning",
+        "human review gate"
+      ],
+      "simulation_type": "Bounded multi-agent research workflow with evidence evaluation and adversarial hypothesis review.",
+      "target_users": "Researchers, scientists, engineers, analysts, and research leads."
+    },
+    "type": "batch",
+    "workflow_id": "multi_agent_research_coscientist_v1"
   }
 ]

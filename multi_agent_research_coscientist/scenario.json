@@ -1,0 +1,60 @@
+{
+  "blueprint_id": "multi_agent_research_coscientist",
+  "name": "Multi-Agent Research Co-Scientist",
+  "category": "science",
+  "description": "A multi-agent research co-scientist for finding, evaluating, and drafting research directions with explicit evidence and human-review boundaries.",
+  "llm_role": "Multi-agent research team for topic framing, evidence evaluation, hypothesis critique, experiment planning, and drafting.",
+  "agent_responsibilities": [
+    "frame a research goal and expose assumptions",
+    "retrieve and evaluate local and public evidence",
+    "generate falsifiable hypotheses and competing explanations",
+    "design review-only experiment, code, benchmark, and analysis plans",
+    "draft and meta-review a source-grounded research brief"
+  ],
+  "features": [
+    "local_document_evidence",
+    "knowledge_rag",
+    "privacy_safe_public_research",
+    "adversarial_hypothesis_review",
+    "experiment_and_benchmark_planning",
+    "review_only_research_packet"
+  ],
+  "metrics": [
+    {"name": "evidence_coverage", "initial": 35, "drift": 0, "volatility": 5, "minimum": 0, "maximum": 100, "label": "Evidence coverage"},
+    {"name": "hypothesis_falsifiability", "initial": 30, "drift": 0, "volatility": 5, "minimum": 0, "maximum": 100, "label": "Hypothesis falsifiability"},
+    {"name": "counterargument_coverage", "initial": 20, "drift": 0, "volatility": 5, "minimum": 0, "maximum": 100, "label": "Counterargument coverage"},
+    {"name": "experiment_readiness", "initial": 20, "drift": 0, "volatility": 5, "minimum": 0, "maximum": 100, "label": "Experiment readiness"}
+  ],
+  "actions": [
+    {"name": "gather_more_evidence", "description": "Request targeted evidence before ranking a hypothesis.", "effects": {"evidence_coverage": 4, "counterargument_coverage": 1}},
+    {"name": "revise_hypothesis", "description": "Revise a candidate after an evidence-grounded critique.", "effects": {"hypothesis_falsifiability": 4, "counterargument_coverage": 3}},
+    {"name": "review_research_packet", "description": "Prepare the packet for qualified human review.", "effects": {"experiment_readiness": 2, "evidence_coverage": 1}}
+  ],
+  "primary_metric": "evidence_coverage",
+  "objective": "maximize",
+  "risk_metric": "counterargument_coverage",
+  "artifact_type": "source-grounded research packet",
+  "entity_label": "research_hypothesis",
+  "entity_names": ["Candidate hypothesis A", "Candidate hypothesis B", "Candidate hypothesis C"],
+  "default_inputs": {
+    "research_goal": "Identify testable, non-clinical strategies for reducing energy use in a small data-center cooling loop.",
+    "research_domain": "engineering",
+    "research_question": "Which controllable cooling-loop interventions are most plausible to test first, and what evidence would distinguish them?",
+    "scope": "Desk research and experiment planning only; no live system changes.",
+    "constraints": {"no_live_system_changes": true, "require_human_review": true, "max_hypotheses": 3},
+    "input_folder": "multi_agent_research_coscientist/examples/sample_inputs",
+    "output_folder": "~/Download/multi_agent_research_coscientist"
+  },
+  "workflow_stages": [
+    "research_goal_framing",
+    "local_document_evidence",
+    "knowledge_rag_retrieval",
+    "public_evidence_evaluation",
+    "hypothesis_generation",
+    "adversarial_review_and_ranking",
+    "experiment_benchmark_analysis_planning",
+    "research_brief_drafting"
+  ],
+  "recommended_actions": ["review_research_packet", "gather_more_evidence"],
+  "blocked_actions": ["execute_unapproved_experiment", "claim_validated_result", "publish_or_submit_manuscript", "contact_external_research_participant", "make_clinical_or_safety_decision"]
+}

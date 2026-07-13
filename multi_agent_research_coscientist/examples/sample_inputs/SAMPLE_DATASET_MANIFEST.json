@@ -1,0 +1,9 @@
+{
+  "schema": "otterdesk.sample_dataset.v1",
+  "blueprint_id": "multi_agent_research_coscientist",
+  "description": "Synthetic engineering research request and notes for testing goal framing, evidence retrieval, hypothesis critique, and review-only experiment planning.",
+  "files": [
+    {"path": "sample_research_request.json", "type": "research_request", "contains_pii": false, "intended_use": "offline research-workflow smoke test"},
+    {"path": "sample_research_notes.md", "type": "research_notes", "contains_pii": false, "intended_use": "local evidence and adversarial-review smoke test"}
+  ]
+}
