@@ -156,7 +156,7 @@
         "description": "Default local output folder for generated artifacts and reports.",
         "privacy": "confidential",
         "required": false,
-        "example": "~/Download/purchase_research_assistant"
+        "example": "~/Downloads/purchase_research_assistant"
       }
     },
     "outputs": {
@@ -1424,7 +1424,7 @@
         {
           "path": "outputs.folder_path",
           "label": "Output folder",
-          "default": "~/Download/purchase_research_assistant",
+          "default": "~/Downloads/purchase_research_assistant",
           "description": "Default local output folder for generated artifacts and reports.",
           "type": "local_path",
           "path_kind": "directory"
@@ -1483,7 +1483,7 @@
           "type": "local_path",
           "path_kind": "directory",
           "description": "Default local output folder for generated artifacts and reports.",
-          "example": "~/Download/purchase_research_assistant",
+          "example": "~/Downloads/purchase_research_assistant",
           "privacy": "confidential",
           "required": false
         }

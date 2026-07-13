@@ -13,7 +13,7 @@ The bundled sample goal is to find one single-family house with at least 3 bedro
 mn run purchase_research_assistant
 ```
 
-The default user-facing output folder is `~/Download/purchase_research_assistant`. Run artifacts also appear under `~/.mn/runs/<run_id>/`.
+The default user-facing output folder is `~/Downloads/purchase_research_assistant`. Run artifacts also appear under `~/.mn/runs/<run_id>/`.
 
 ## Inputs
 
@@ -23,7 +23,7 @@ The default user-facing output folder is `~/Download/purchase_research_assistant
 - `location`, `route`, and `travel_dates`: optional public context.
 - `priorities` and `constraints`: optional ranking preferences and must-have requirements.
 - `input_folder`: local TXT, Markdown, JSON, CSV, PDF, or image evidence.
-- `output_folder`: defaults to `~/Download/purchase_research_assistant`.
+- `output_folder`: defaults to `~/Downloads/purchase_research_assistant`.
 
 ## Research and RAG
 

@@ -171,7 +171,7 @@
         "zip_code": "03755"
       },
       "input_folder": "purchase_research_assistant/examples/sample_inputs",
-      "output_folder": "~/Download/purchase_research_assistant"
+      "output_folder": "~/Downloads/purchase_research_assistant"
     }
   },
   "interfaces": {
@@ -684,7 +684,7 @@
       "ports": []
     },
     "write_run_store": true,
-    "folder_path": "~/Download/purchase_research_assistant"
+    "folder_path": "~/Downloads/purchase_research_assistant"
   },
   "privacy": {
     "default_classification": "confidential",
@@ -764,7 +764,7 @@
     ],
     "resume_mode": "none",
     "input_folder": "purchase_research_assistant/examples/sample_inputs",
-    "output_folder": "~/Download/purchase_research_assistant"
+    "output_folder": "~/Downloads/purchase_research_assistant"
   },
   "streams": {},
   "triggers": {

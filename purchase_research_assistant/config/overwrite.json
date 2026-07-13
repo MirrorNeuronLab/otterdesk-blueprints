@@ -8,7 +8,7 @@
       "priorities": ["single-family house", "at least 3 bedrooms", "03755", "total cost", "condition", "inspection risk"],
       "constraints": {"property_type": "single-family house", "min_bedrooms": 3, "zip_code": "03755"},
       "input_folder": "purchase_research_assistant/examples/sample_inputs",
-      "output_folder": "~/Download/purchase_research_assistant"
+      "output_folder": "~/Downloads/purchase_research_assistant"
     }
   }
 }
