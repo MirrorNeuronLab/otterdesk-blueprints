@@ -602,7 +602,7 @@
         "agent_type": "module",
         "config": {
           "module": "MirrorNeuron.Examples.CctvOperator.VideoFrameTickSource",
-          "module_source": "payloads/beam_modules/video_frame_tick_source.ex",
+          "module_source": "beam_modules/video_frame_tick_source.ex",
           "emit_type": "video_frame_tick_generated",
           "interval_seconds": 20
         },
@@ -1049,7 +1049,7 @@
           "uses": "mn-agents.data_module@1",
           "with": {
             "module": "MirrorNeuron.Examples.CctvOperator.VideoFrameTickSource",
-            "module_source": "payloads/beam_modules/video_frame_tick_source.ex",
+            "module_source": "beam_modules/video_frame_tick_source.ex",
             "emit_type": "video_frame_tick_generated",
             "interval_seconds": 20
           }
@@ -1136,7 +1136,7 @@
             "uses": "mn-agents.data_module@1",
             "with": {
               "module": "MirrorNeuron.Examples.CctvOperator.VideoFrameTickSource",
-              "module_source": "payloads/beam_modules/video_frame_tick_source.ex",
+              "module_source": "beam_modules/video_frame_tick_source.ex",
               "emit_type": "video_frame_tick_generated",
               "interval_seconds": 20
             },
@@ -1149,7 +1149,7 @@
             "agent_type": "module",
             "config": {
               "module": "MirrorNeuron.Examples.CctvOperator.VideoFrameTickSource",
-              "module_source": "payloads/beam_modules/video_frame_tick_source.ex",
+              "module_source": "beam_modules/video_frame_tick_source.ex",
               "emit_type": "video_frame_tick_generated",
               "interval_seconds": 20
             },

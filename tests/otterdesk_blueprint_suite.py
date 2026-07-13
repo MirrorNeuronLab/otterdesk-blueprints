@@ -1499,6 +1499,7 @@ def test_cctv_operator_uses_hostlocal_nvidia_media_worker():
     rendered = render_manifest_agent_templates(manifest, AGENTS_ROOT)
     tick_node = next(node for node in _flow_nodes(rendered) if node["node_id"] == "video_frame_tick_source")
     visual_node = next(node for node in _flow_nodes(rendered) if node["node_id"] == "visual_detector")
+    assert tick_node["config"]["module_source"] == "beam_modules/video_frame_tick_source.ex"
     assert tick_node["config"]["interval_seconds"] == 20
     assert visual_node["config"]["runner_module"] == "MirrorNeuron.Runner.HostLocal"
     assert visual_node["config"]["workdir"] == "/sandbox/job/visual_detector"
