@@ -15,22 +15,34 @@ network_policies:
     binaries:
       - path: /usr/local/bin/python3
       - path: /usr/bin/w3m
-  public_http_research:
-    name: public-http-research
+  litellm_proxy:
+    name: litellm-proxy
     endpoints:
-      - host: "*"
-        port: 80
-      - host: "*"
+      - host: mn-litellm-proxy
+        port: 4000
+    binaries:
+      - path: /usr/local/bin/python3
+  public_https_research:
+    name: public-https-research
+    endpoints:
+      - host: duckduckgo.com
+        port: 443
+      - host: www.google.com
+        port: 443
+      - host: scholar.google.com
+        port: 443
+      - host: api.crossref.org
+        port: 443
+      - host: api.semanticscholar.org
+        port: 443
+      - host: pubmed.ncbi.nlm.nih.gov
+        port: 443
+      - host: eutils.ncbi.nlm.nih.gov
+        port: 443
+      - host: arxiv.org
+        port: 443
+      - host: export.arxiv.org
         port: 443
     binaries:
       - path: /usr/local/bin/python3
       - path: /usr/bin/w3m
-  docker_model_runner:
-    name: docker-model-runner
-    endpoints:
-      - host: model-runner.docker.internal
-        port: 80
-        allowed_ips:
-          - 192.168.65.0/24
-    binaries:
-      - path: /usr/local/bin/python3
