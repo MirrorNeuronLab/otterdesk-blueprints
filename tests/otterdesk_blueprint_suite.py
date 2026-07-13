@@ -713,6 +713,57 @@ def test_cctv_operator_report_writer_emits_cumulative_reports(tmp_path):
     assert "sample.mp4" in (tmp_path / "cctv_report.md").read_text()
     assert json.loads((tmp_path / "final_artifact.json").read_text())["type"] == "cctv_operator_review"
 
+
+def test_cctv_operator_report_writer_derives_run_dir_from_runtime_environment(tmp_path):
+    input_file = tmp_path / "report_input.json"
+    input_file.write_text(
+        json.dumps(
+            {
+                "events": [
+                    {
+                        "type": "cctv_operator_frame_observed",
+                        "payload": {
+                            "frame_seq": 1,
+                            "source_name": "sample.mp4",
+                            "confidence": 0.8,
+                            "summary": "One configured target was observed.",
+                        },
+                    }
+                ],
+                "next_state": {"source_mode": "folder", "frames_seen": 1},
+            }
+        ),
+        encoding="utf-8",
+    )
+    runs_root = tmp_path / "runs"
+    env = dict(os.environ)
+    env.pop("MN_RUN_DIR", None)
+    env.update(
+        {
+            "MN_INPUT_FILE": str(input_file),
+            "MN_RUNS_ROOT": str(runs_root),
+            "MN_RUN_ID": "runtime-run",
+        }
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "cctv_operator" / "payloads" / "report_writer" / "scripts" / "write_cctv_report.py"),
+        ],
+        cwd=tmp_path,
+        env=env,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert (runs_root / "runtime-run" / "cctv_report.json").is_file()
+    assert (runs_root / "runtime-run" / "cctv_report.md").is_file()
+    assert (runs_root / "runtime-run" / "final_artifact.json").is_file()
+
+
 def test_otterdesk_blueprints_declare_membrane_context_memory_layer():
     for manifest_path in _manifest_paths():
         blueprint_dir = manifest_path.parent

@@ -96,6 +96,7 @@ def test_cctv_operator_chat_context_answers_what_happened(monkeypatch, tmp_path,
     assert "frame 9" in context["what_happened"].lower()
     assert "two people appeared near the loading dock entrance" in context["what_happened"].lower()
     assert any(event["type"] == "cctv_operator_frame_observed" for event in output["events"])
+    assert output["events"][-1]["type"] == "cctv_operator_detection"
 
 
 def test_cctv_operator_big_change_emits_chat_human_notice(monkeypatch, tmp_path, capsys):
@@ -188,3 +189,4 @@ def test_cctv_operator_user_attention_request_changes_prompt_and_state(monkeypat
     )
     attention_event = next(event for event in output["events"] if event["type"] == "cctv_operator_attention_updated")
     assert "red backpack" in attention_event["payload"]["summary"]
+    assert output["events"][-1]["type"] == "cctv_operator_frame_observed"

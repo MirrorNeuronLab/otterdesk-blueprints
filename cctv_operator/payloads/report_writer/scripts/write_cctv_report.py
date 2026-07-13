@@ -158,8 +158,20 @@ def emit_result(payload: dict[str, Any]) -> None:
     print(f"{RESULT_START}{json.dumps(envelope, sort_keys=True)}{RESULT_END}")
 
 
+def configured_run_dir() -> Path:
+    explicit = str(os.environ.get("MN_RUN_DIR") or "").strip()
+    if explicit:
+        return Path(explicit).expanduser()
+
+    runs_root = str(os.environ.get("MN_RUNS_ROOT") or "").strip()
+    run_id = str(os.environ.get("MN_RUN_ID") or "").strip()
+    if runs_root and run_id:
+        return Path(runs_root).expanduser() / run_id
+    return Path(".")
+
+
 def main() -> int:
-    run_dir = Path(os.environ.get("MN_RUN_DIR") or ".").expanduser()
+    run_dir = configured_run_dir()
     run_dir.mkdir(parents=True, exist_ok=True)
     report_path = run_dir / "cctv_report.json"
     report = merge_report(read_json(report_path), input_payload())

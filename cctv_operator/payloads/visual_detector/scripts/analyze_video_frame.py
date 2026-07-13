@@ -1276,12 +1276,12 @@ def main() -> None:
         observation = update_conversation_context(state, detection_payload)
         conversation_context = state.get("conversation_context") if isinstance(state.get("conversation_context"), dict) else {}
         conversation_summary = conversation_context.get("what_happened", "")
-        events.append(frame_observed_event(observation, conversation_summary))
+        primary_events = [frame_observed_event(observation, conversation_summary)]
         if detection["detected_target"]:
             state["detections"] = int(state.get("detections", 0)) + 1
             state["last_detection"] = detection_payload
             state["last_detection_report"] = detection_payload.get("detection_report")
-            events.append({"type": "cctv_operator_detection", "payload": detection_payload})
+            primary_events.append({"type": "cctv_operator_detection", "payload": detection_payload})
 
         big_change_notice = maybe_build_big_change_notice(detection_payload, state, previous_observation)
         if big_change_notice:
@@ -1293,6 +1293,8 @@ def main() -> None:
             events.append({"type": event_type, "payload": {**slack_payload, "frame_seq": frame_seq, "camera_id": camera_id}})
             if status in {"sent", "skipped"}:
                 state["last_alert_wall_ts"] = time.time()
+
+        events.extend(primary_events)
 
         state["last_error"] = None
         advance_media_source(state, source, sample_seconds)
