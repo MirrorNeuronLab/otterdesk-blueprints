@@ -488,8 +488,7 @@
       "Keep purchase recommendations review-only and source-referenced."
     ],
     "provider": "docker_model_runner",
-    "model": "small",
-    "runtime_model": "small",
+    "model": "default",
     "backend": "llama.cpp",
     "mode": "live",
     "mock_mode": "fake",
@@ -500,8 +499,6 @@
     "configs": {
       "primary": {
         "provider": "docker_model_runner",
-        "model": "small",
-        "runtime_model": "small",
         "backend": "llama.cpp",
         "api_base": "auto",
         "timeout_seconds": 60,

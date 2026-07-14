@@ -45,6 +45,7 @@ def test_model_contract_uses_the_shared_adaptive_default():
     llm = default_config["llm"]
 
     assert llm["model"] == "default"
+    assert "model" not in llm["configs"]["primary"]
     assert "small_model_profile" not in llm
     assert "large_model_profile" not in llm
 

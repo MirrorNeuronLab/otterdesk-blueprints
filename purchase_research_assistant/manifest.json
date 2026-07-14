@@ -1078,8 +1078,7 @@
     "models": {
       "primary": {
         "provider": "docker_model_runner",
-        "model": "small",
-        "runtime_model": "small",
+        "model": "default",
         "backend": "llama.cpp",
         "required": true
       }

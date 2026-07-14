@@ -83,3 +83,18 @@ def test_vc_scorers_share_a_single_predecessor_and_do_not_depend_on_each_other()
     assert {(edge["from"], edge["to"]) for edge in scorer_edges} == {
         ("research_reconciler", scorer_id) for scorer_id in scorer_ids
     }
+
+
+def test_default_llm_blueprints_keep_litellm_routing_logical():
+    for blueprint_id in (
+        "vc_assistant",
+        "legal_assistant",
+        "financial_advisor",
+        "purchase_research_assistant",
+    ):
+        config = json.loads(
+            (ROOT / blueprint_id / "config" / "default.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        assert config["llm"]["model"] == "default", blueprint_id
