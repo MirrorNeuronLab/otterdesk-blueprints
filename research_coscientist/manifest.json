@@ -443,6 +443,7 @@
     "steps": [
       {
         "id": "frame_research_goal",
+        "trigger_rule": "all_success",
         "kind": "stage",
         "label": "Deterministically Frame Research Goal",
         "goal": "Deterministically normalize the question, scope, success criteria, constraints, and unknowns.",
@@ -476,6 +477,7 @@
       },
       {
         "id": "retrieve_and_evaluate_evidence",
+        "trigger_rule": "all_success",
         "kind": "stage",
         "label": "Deterministically Prepare Evidence",
         "goal": "Deterministically retrieve approved local material and build source and gap ledgers before autonomous exploration.",
@@ -509,6 +511,7 @@
       },
       {
         "id": "autonomous_research",
+        "trigger_rule": "all_success",
         "kind": "stage",
         "label": "Autonomous Research in OpenShell",
         "goal": "Refine goals, create prompts, request allowlisted mn-skills tools, run bounded generated code, and adversarially explore falsifiable hypotheses inside the job's single OpenShell worker.",
@@ -543,6 +546,7 @@
       },
       {
         "id": "verify_and_publish_packet",
+        "trigger_rule": "all_success",
         "kind": "stage",
         "label": "Deterministically Verify and Publish Packet",
         "goal": "Verify source traceability, autonomous tool and code ledgers, review boundaries, and artifact schemas before publishing the research packet.",

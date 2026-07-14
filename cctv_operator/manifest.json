@@ -404,6 +404,8 @@
         "emits": "video_monitor_start",
         "goal": "Validate the selected recording folder or RTSP/RTMP stream and start the analysis session.",
         "id": "start_video_monitor",
+        "agent_id": "ingress",
+        "trigger_rule": "all_success",
         "in": {
           "input_folder": "$state.input_folder",
           "source_mode": "$state.source_mode",
@@ -439,6 +441,8 @@
         "emits": "video_frame_tick_generated",
         "goal": "Emit frame ticks according to the configured sample interval.",
         "id": "sample_video_frames",
+        "agent_id": "video_frame_tick_source",
+        "trigger_rule": "all_success",
         "in": {
           "session": "$state.stream_session"
         },
@@ -472,6 +476,8 @@
         "emits": "cctv_operator_detection",
         "goal": "Analyze sampled frames for configured targets and alert status.",
         "id": "detect_visual_targets",
+        "agent_id": "visual_detector",
+        "trigger_rule": "all_success",
         "in": {
           "frame_ticks": "$state.frame_ticks",
           "policy": "$state.alert_policy",
@@ -507,6 +513,8 @@
         "emits": "cctv_operator_report_ready",
         "goal": "Merge the latest observation into cumulative JSON and Markdown review reports.",
         "id": "write_cctv_report",
+        "agent_id": "report_writer",
+        "trigger_rule": "all_success",
         "in": {
           "detections": "$state.detections"
         },

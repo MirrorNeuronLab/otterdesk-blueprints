@@ -49,6 +49,32 @@ def test_model_contract_uses_the_shared_adaptive_default():
     assert "large_model_profile" not in llm
 
 
+def test_method_score_state_merges_independent_scorer_outputs(tmp_path):
+    rb = load_module()
+    rb.write_company_method_scores_state(
+        tmp_path,
+        "Acme",
+        {"berkus_method": {"method_id": "berkus_method", "score": 1}},
+    )
+    rb.write_company_method_score_state(
+        tmp_path,
+        "Acme",
+        "scorecard_bill_payne_method",
+        {"method_id": "scorecard_bill_payne_method", "score": 2},
+    )
+    rb.write_company_method_score_state(
+        tmp_path,
+        "Acme",
+        "berkus_method",
+        {"method_id": "berkus_method", "score": 3},
+    )
+
+    methods = rb.read_company_method_scores_state(tmp_path, "Acme")
+
+    assert methods["berkus_method"]["score"] == 3
+    assert methods["scorecard_bill_payne_method"]["score"] == 2
+
+
 def test_research_prompt_specs_are_distinct_for_all_agent_ids():
     rb = load_module()
     agent_ids = [

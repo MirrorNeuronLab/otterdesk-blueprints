@@ -401,6 +401,8 @@
         "emits": "customer_service_voice_prepared",
         "goal": "Validate Spark, prepare run knowledge, and make the NVIDIA voice stack ready.",
         "id": "prepare_voice_service",
+        "agent_id": "ingress",
+        "trigger_rule": "all_success",
         "in": {
           "business_name": "$state.business_name",
           "knowledge_text": "$state.knowledge_text"
@@ -435,6 +437,8 @@
         "emits": "customer_service_voice_started",
         "goal": "Run the localhost-proxied WebRTC page so a caller can place a pizza order with the co-worker.",
         "id": "serve_customer_conversation",
+        "agent_id": "voice_service",
+        "trigger_rule": "all_success",
         "in": {
           "voice_service": "$state.voice_service"
         },

@@ -32,6 +32,9 @@ python3.11 -m venv .venv
 .venv/bin/python -m pytest -q
 ```
 
+See [Runtime DAG Flow Patterns](DAG_FLOW_PATTERNS.md) for the catalog's
+event-driven, fork/join, service, and linear flow contracts.
+
 The catalog contract tests also expect this repository to live beside the companion
 `mn-skills` and `mn-agents` folders because they import shared blueprint support
 helpers and render shared agent templates.

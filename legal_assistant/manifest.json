@@ -408,12 +408,12 @@
         }
       },
       {
-        "id": "contract_clause_extractor",
+      "id": "contract_clause_extractor",
         "kind": "stage",
         "label": "Contract Clause Extractor",
         "goal": "Extract candidate contract clauses and source snippets for governing law, assignment, indemnity, termination, liability, renewal, exclusivity, audit rights, and change of control.",
         "requires": [
-          "legal_assistant.payable_field_validator.ready"
+          "legal_assistant.legal_document_reader.ready"
         ],
         "provides": [
           "legal_assistant.contract_clause_extractor.ready"
@@ -444,16 +444,18 @@
         }
       },
       {
-        "id": "legal_evidence_reconciler",
+      "id": "legal_evidence_reconciler",
         "kind": "stage",
         "label": "Legal Evidence Reconciler",
         "goal": "Merge invoice, bill, contract, clause, issue-register, and warning evidence into one review packet.",
         "requires": [
+          "legal_assistant.payable_field_validator.ready",
           "legal_assistant.contract_playbook_comparator.ready"
         ],
         "provides": [
           "legal_assistant.legal_evidence_reconciler.ready"
         ],
+        "trigger_rule": "all_success",
         "in": {
           "previous": "$state.workflow"
         },

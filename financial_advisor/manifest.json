@@ -330,7 +330,8 @@
   "workflow": {
     "workflow_id": "financial_advisor_v1",
     "execution": {
-      "strategy": "serial"
+      "strategy": "parallel",
+      "max_parallel_steps": 4
     },
     "dynamic": {
       "apply_at": "between_steps",
@@ -556,12 +557,12 @@
         }
       },
       {
-        "id": "tax_document_router",
+      "id": "tax_document_router",
         "kind": "stage",
         "label": "Tax Document Router",
         "goal": "Route W-2, 1099, brokerage, receipt, and tax-relevant source evidence into draft workpaper groups.",
         "requires": [
-          "financial_advisor.cash_flow_llm_analyst.ready"
+          "financial_advisor.financial_document_reader.ready"
         ],
         "provides": [
           "financial_advisor.tax_document_router.ready"
@@ -688,12 +689,12 @@
         }
       },
       {
-        "id": "portfolio_context_loader",
+      "id": "portfolio_context_loader",
         "kind": "stage",
         "label": "Portfolio Context Loader",
         "goal": "Load portfolio holdings, benchmark weights, market notes, risk policy, and review-only decision constraints.",
         "requires": [
-          "financial_advisor.tax_llm_reviewer.ready"
+          "financial_advisor.financial_document_reader.ready"
         ],
         "provides": [
           "financial_advisor.portfolio_context_loader.ready"
@@ -820,12 +821,12 @@
         }
       },
       {
-        "id": "public_finance_researcher",
+      "id": "public_finance_researcher",
         "kind": "stage",
         "label": "Public Finance Researcher",
         "goal": "Gather privacy-safe public guidance from generic risk categories and official source targets.",
         "requires": [
-          "financial_advisor.portfolio_llm_reviewer.ready"
+          "financial_advisor.financial_document_reader.ready"
         ],
         "provides": [
           "financial_advisor.public_finance_researcher.ready"
@@ -853,16 +854,20 @@
         }
       },
       {
-        "id": "advisor_evidence_reconciler",
+      "id": "advisor_evidence_reconciler",
         "kind": "stage",
         "label": "Advisor Evidence Reconciler",
         "goal": "Merge statement, household, tax, portfolio, and public guidance findings and flag contradictions or missing evidence.",
         "requires": [
+          "financial_advisor.cash_flow_llm_analyst.ready",
+          "financial_advisor.tax_llm_reviewer.ready",
+          "financial_advisor.portfolio_llm_reviewer.ready",
           "financial_advisor.public_finance_researcher.ready"
         ],
         "provides": [
           "financial_advisor.advisor_evidence_reconciler.ready"
         ],
+        "trigger_rule": "all_success",
         "control": {
           "required": true,
           "failure_policy": "fail_workflow",

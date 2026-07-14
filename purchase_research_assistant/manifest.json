@@ -474,6 +474,7 @@
         "emits": "purchase_context_ready",
         "goal": "Collect purchase type, item details, budget, constraints, and local evidence.",
         "id": "collect_purchase_context",
+        "trigger_rule": "all_success",
         "in": {
           "ceiling": "$state.budget",
           "zip": "$state.purchase_request"
@@ -508,6 +509,7 @@
         "emits": "retrieved_knowledge_ready",
         "goal": "Retrieve local guidance and approved user evidence under the declared research policy.",
         "id": "retrieve_purchase_knowledge",
+        "trigger_rule": "all_success",
         "in": {
           "purchase_context": "$state.purchase_context",
           "history": "$state.local_evidence",
@@ -543,6 +545,7 @@
         "emits": "purchase_options_ready",
         "goal": "Research price, availability, total cost, policy, and risk tradeoffs.",
         "id": "research_purchase_options",
+        "trigger_rule": "all_success",
         "in": {
           "purchase_context": "$state.purchase_context",
           "signals": "$state.retrieved_knowledge"
@@ -577,6 +580,7 @@
         "emits": "purchase_report_ready",
         "goal": "Write the purchase report with evidence, caveats, sources, and reviewable next steps.",
         "id": "write_purchase_report",
+        "trigger_rule": "all_success",
         "in": {
           "opportunities": "$state.purchase_comparison"
         },

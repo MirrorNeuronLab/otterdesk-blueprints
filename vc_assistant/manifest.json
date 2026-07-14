@@ -388,7 +388,7 @@
         "label": "Scorecard Bill Payne Scorer",
         "goal": "Apply weighted Scorecard / Bill Payne factor scoring.",
         "requires": [
-          "vc_assistant.berkus_scorer.ready"
+          "vc_assistant.research_reconciler.ready"
         ],
         "provides": [
           "vc_assistant.scorecard_bill_payne_scorer.ready"
@@ -406,7 +406,7 @@
         "label": "Risk Factor Summation Scorer",
         "goal": "Apply 12-risk checklist scoring and adjustments.",
         "requires": [
-          "vc_assistant.scorecard_bill_payne_scorer.ready"
+          "vc_assistant.research_reconciler.ready"
         ],
         "provides": [
           "vc_assistant.risk_factor_summation_scorer.ready"
@@ -424,7 +424,7 @@
         "label": "Venture Capital Method Scorer",
         "goal": "Apply exit-back valuation assumptions and VC return math scoring.",
         "requires": [
-          "vc_assistant.risk_factor_summation_scorer.ready"
+          "vc_assistant.research_reconciler.ready"
         ],
         "provides": [
           "vc_assistant.venture_capital_method_scorer.ready"
@@ -442,7 +442,7 @@
         "label": "First Chicago Scorer",
         "goal": "Apply bear/base/bull case scoring with probability weighting.",
         "requires": [
-          "vc_assistant.venture_capital_method_scorer.ready"
+          "vc_assistant.research_reconciler.ready"
         ],
         "provides": [
           "vc_assistant.first_chicago_scorer.ready"
@@ -460,7 +460,7 @@
         "label": "Comparables Market Multiple Scorer",
         "goal": "Apply public comparable and market multiple evidence scoring when available.",
         "requires": [
-          "vc_assistant.first_chicago_scorer.ready"
+          "vc_assistant.research_reconciler.ready"
         ],
         "provides": [
           "vc_assistant.comparables_market_multiple_scorer.ready"
@@ -478,7 +478,7 @@
         "label": "Cost To Duplicate Scorer",
         "goal": "Estimate rebuild-cost floor from team, R&D, IP, hardware, data, and infrastructure evidence.",
         "requires": [
-          "vc_assistant.comparables_market_multiple_scorer.ready"
+          "vc_assistant.research_reconciler.ready"
         ],
         "provides": [
           "vc_assistant.cost_to_duplicate_scorer.ready"
@@ -496,6 +496,12 @@
         "label": "Score Consistency Auditor",
         "goal": "Check math, missing evidence handling, contradictory assumptions, unsupported valuation claims, and formula completeness.",
         "requires": [
+          "vc_assistant.berkus_scorer.ready",
+          "vc_assistant.scorecard_bill_payne_scorer.ready",
+          "vc_assistant.risk_factor_summation_scorer.ready",
+          "vc_assistant.venture_capital_method_scorer.ready",
+          "vc_assistant.first_chicago_scorer.ready",
+          "vc_assistant.comparables_market_multiple_scorer.ready",
           "vc_assistant.cost_to_duplicate_scorer.ready"
         ],
         "provides": [
@@ -509,7 +515,8 @@
         },
         "join": {
           "mode": "all_required"
-        }
+        },
+        "trigger_rule": "all_success"
       },
       {
         "id": "company_report_writer",

@@ -6909,9 +6909,24 @@ def write_company_method_scores_state(run_dir: Path, company: str, methods: dict
     write_json(company_state_path(run_dir, "method_scores", company), methods)
 
 
+def company_method_score_state_path(run_dir: Path, company: str, method_id: str) -> Path:
+    return workflow_state_subdir(run_dir, "method_scores_by_method") / method_id / f"{slugify(company)}.json"
+
+
+def write_company_method_score_state(run_dir: Path, company: str, method_id: str, score: dict[str, Any]) -> None:
+    write_json(company_method_score_state_path(run_dir, company, method_id), score)
+
+
 def read_company_method_scores_state(run_dir: Path, company: str) -> dict[str, dict[str, Any]]:
     value = read_json(company_state_path(run_dir, "method_scores", company))
-    return {method_id: value[method_id] for method_id in METHOD_IDS if isinstance(value.get(method_id), dict)}
+    methods = {method_id: value[method_id] for method_id in METHOD_IDS if isinstance(value.get(method_id), dict)}
+
+    for method_id in METHOD_IDS:
+        score = read_json(company_method_score_state_path(run_dir, company, method_id))
+        if score:
+            methods[method_id] = score
+
+    return methods
 
 
 def write_company_reconciliation_state(run_dir: Path, company: str, reconciliation: dict[str, Any]) -> None:
@@ -7747,9 +7762,7 @@ def run_scorer_step(ctx: dict[str, Any], step_id: str, *, llm_client: Any | None
         records = company_records.get(company, [])
         ledger = read_company_research_ledger(ctx["run_dir"], company)
         facts = build_fact_table(company, records, flattened_sources(ledger))
-        methods = read_company_method_scores_state(ctx["run_dir"], company)
-        methods[method_id] = scorer(facts)
-        write_company_method_scores_state(ctx["run_dir"], company, methods)
+        write_company_method_score_state(ctx["run_dir"], company, method_id, scorer(facts))
         write_json(company_state_path(ctx["run_dir"], "company_fact_tables", company), facts)
         processed_count += 1
     run_step_actor_review(ctx, step_id, services, llm_client=llm_client)
