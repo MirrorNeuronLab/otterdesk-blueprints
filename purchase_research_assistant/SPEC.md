@@ -9,7 +9,7 @@ Provide a source-grounded purchase study workflow for any consumer or business p
 1. Normalize the purchase category and user request.
 2. Read approved local evidence using direct text extraction or the shared OCR skill.
 3. Retrieve relevant checked-in guidance and user-document evidence through isolated per-run RAG.
-4. Use the deeper DMR research profile for early intake and research planning, then collect privacy-safe public price, availability, fee, policy, and risk evidence.
+4. Use the portable local DMR profile for intake and research planning, then collect privacy-safe public price, availability, fee, policy, and risk evidence.
 5. Run bounded specialists for price, total cost, policies, risks, alternatives, recommendation, audit, and reporting.
 6. Preserve deterministic fields, source references, retrieval timestamps, warnings, and human review boundaries.
 

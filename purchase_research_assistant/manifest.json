@@ -37,7 +37,7 @@
       "version": "1.2.7"
     }
   ],
-  "description": "A general purchase research co-worker for studying property, rental property, cars, airline tickets, services, subscriptions, equipment, software, and other custom purchases. It uses the deeper DMR research profile for early intake and planning, local knowledge, user evidence, and bounded public research to explain total-cost tradeoffs and write a review-ready recommendation.",
+  "description": "A general purchase research co-worker for studying property, rental property, cars, airline tickets, services, subscriptions, equipment, software, and other custom purchases. It uses a portable local DMR profile, local knowledge, user evidence, and bounded public research to explain total-cost tradeoffs and write a review-ready recommendation.",
   "job_name": "purchase-research-assistant",
   "contract": {
     "events": {
@@ -839,21 +839,21 @@
         "workers": [
           {
             "id": "purchase:intake",
-            "model": "default",
+            "model": "small",
             "role": "Frame the purchase goal and decision criteria",
             "tokens": 14000,
             "tools": 4
           },
           {
             "id": "purchase:price_research",
-            "model": "default",
+            "model": "small",
             "role": "Research current price and availability",
             "tokens": 14000,
             "tools": 4
           },
           {
             "id": "purchase:total_cost",
-            "model": "default",
+            "model": "small",
             "role": "Analyze total cost and recurring obligations",
             "tokens": 14000,
             "tools": 4
@@ -868,14 +868,14 @@
         "workers": [
           {
             "id": "purchase:policy_risk",
-            "model": "default",
+            "model": "small",
             "role": "Review policy, quality, and risk evidence",
             "tokens": 14000,
             "tools": 4
           },
           {
             "id": "purchase:alternatives",
-            "model": "default",
+            "model": "small",
             "role": "Compare credible alternatives",
             "tokens": 14000,
             "tools": 4
@@ -890,14 +890,14 @@
         "workers": [
           {
             "id": "purchase:recommender",
-            "model": "default",
+            "model": "small",
             "role": "Synthesize options and tradeoffs",
             "tokens": 14000,
             "tools": 4
           },
           {
             "id": "purchase:auditor",
-            "model": "default",
+            "model": "small",
             "role": "Audit downside risks and evidence gaps",
             "tokens": 14000,
             "tools": 4
@@ -912,7 +912,7 @@
         "workers": [
           {
             "id": "purchase:report_writer",
-            "model": "default",
+            "model": "small",
             "role": "Write the review-only purchase report",
             "tokens": 14000,
             "tools": 4
@@ -998,7 +998,7 @@
       "type": "local_run_store"
     },
     "worker_defaults": {
-      "model": "default",
+      "model": "small",
       "pool": "default",
       "pool_slots": 1,
       "runner": "MirrorNeuron.Runner.HostLocal",
@@ -1073,7 +1073,11 @@
     },
     "models": {
       "primary": {
-        "model": "default"
+        "provider": "docker_model_runner",
+        "model": "small",
+        "runtime_model": "small",
+        "backend": "llama.cpp",
+        "required": true
       }
     }
   },
@@ -1353,7 +1357,7 @@
       ]
     },
     "customizable_for": "Any consumer or business purchase, including rental acquisitions, property, vehicles, travel, equipment, services, subscriptions, software, and custom goods.",
-    "description": "A general purchase research co-worker using the deeper DMR profile for early intake and planning. It studies property, rental property, cars, travel, equipment, services, subscriptions, software, and custom purchases with local knowledge, user evidence, and bounded public research.",
+    "description": "A general purchase research co-worker using the portable local DMR profile. It studies property, rental property, cars, travel, equipment, services, subscriptions, software, and custom purchases with local knowledge, user evidence, and bounded public research.",
     "human_control": {
       "allowed_decisions": [
         "approve",

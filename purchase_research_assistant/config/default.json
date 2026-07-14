@@ -488,7 +488,8 @@
       "Keep purchase recommendations review-only and source-referenced."
     ],
     "provider": "docker_model_runner",
-    "model": "default",
+    "model": "small",
+    "runtime_model": "small",
     "backend": "llama.cpp",
     "mode": "live",
     "mock_mode": "fake",
@@ -499,6 +500,8 @@
     "configs": {
       "primary": {
         "provider": "docker_model_runner",
+        "model": "small",
+        "runtime_model": "small",
         "backend": "llama.cpp",
         "api_base": "auto",
         "timeout_seconds": 60,
@@ -663,7 +666,7 @@
     "blueprint_revision": "v1",
     "category": "finance",
     "customizable_for": "Any purchase, including property, rental property, cars, travel, equipment, services, subscriptions, software, and custom goods.",
-    "description": "A general purchase research co-worker using the deeper DMR profile for early intake and planning. It studies property, rental property, cars, travel, equipment, services, subscriptions, software, and custom purchases with local knowledge, user evidence, and bounded public research.",
+    "description": "A general purchase research co-worker using the portable local DMR profile. It studies property, rental property, cars, travel, equipment, services, subscriptions, software, and custom purchases with local knowledge, user evidence, and bounded public research.",
     "llm_agent_role": "AI assistant for researching purchases and drafting source-grounded comparisons.",
     "name": "Purchase Research Assistant",
     "problem_solved": "Purchase decisions depend on scattered prices, fees, policies, condition, availability, and source quality that are easy to miss across documents and public pages.",

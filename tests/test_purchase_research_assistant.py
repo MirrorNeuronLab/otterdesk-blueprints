@@ -67,14 +67,16 @@ def test_purchase_prompts_are_inside_the_uploaded_worker_bundle():
     assert "Purchase Intake And Research Planning Task" in runner.load_prompt("purchase-intake-task.md")
 
 
-def test_purchase_declares_the_shared_adaptive_default_model():
+def test_purchase_declares_the_portable_local_model():
     config = json.loads(
         (ROOT / "purchase_research_assistant" / "config" / "default.json").read_text(encoding="utf-8")
     )
-    assert config["llm"]["model"] == "default"
+    assert config["llm"]["model"] == "small"
+    assert config["llm"]["runtime_model"] == "small"
     assert "preferred_model" not in config["llm"]
     assert "deep_research_model_profile" not in config["llm"]
-    assert "model" not in config["llm"]["configs"]["primary"]
+    assert config["llm"]["configs"]["primary"]["model"] == "small"
+    assert config["llm"]["configs"]["primary"]["runtime_model"] == "small"
 
 
 def test_purchase_calls_llm_during_intake_before_later_reviews(tmp_path):
