@@ -782,28 +782,7 @@
     "max_public_queries": 1000,
     "default_action_budget": 80
   },
-  "agent_handoffs": [
-    "startup_folder_watcher_to_company_packet_grouper",
-    "company_packet_grouper_to_document_evidence_extractor",
-    "document_evidence_extractor_to_claim_normalizer",
-    "claim_normalizer_to_research_planner",
-    "research_planner_to_company_identity_researcher",
-    "company_identity_researcher_to_funding_researcher",
-    "funding_researcher_to_market_comp_researcher",
-    "market_comp_researcher_to_traction_verifier",
-    "traction_verifier_to_rendered_page_researcher",
-    "rendered_page_researcher_to_research_reconciler",
-    "research_reconciler_to_berkus_scorer",
-    "berkus_scorer_to_scorecard_bill_payne_scorer",
-    "scorecard_bill_payne_scorer_to_risk_factor_summation_scorer",
-    "risk_factor_summation_scorer_to_venture_capital_method_scorer",
-    "venture_capital_method_scorer_to_first_chicago_scorer",
-    "first_chicago_scorer_to_comparables_market_multiple_scorer",
-    "comparables_market_multiple_scorer_to_cost_to_duplicate_scorer",
-    "cost_to_duplicate_scorer_to_score_consistency_auditor",
-    "score_consistency_auditor_to_company_report_writer",
-    "company_report_writer_to_batch_index_writer"
-  ],
+  "agent_handoffs": {},
   "web_ui": {
     "enabled": true,
     "input": {
@@ -1124,12 +1103,8 @@
     ]
   },
   "execution_model": {
-    "type": "static_dag_step_handlers",
-    "entrypoint": "startup_folder_watcher",
-    "worker_sink": "batch_index_writer",
-    "terminal_sink": "report_sink",
-    "step_count": 21,
-    "runtime_note": "Each workflow node executes a bounded step handler and exchanges JSON workflow-state artifacts through the shared run directory; report_sink completes the finite run."
+    "type": "manifest_dag",
+    "runtime_note": "Topology, dependencies, handlers, and terminal routing are declared only in manifest.json."
   },
   "python_dependencies": {
     "installer": "pip",

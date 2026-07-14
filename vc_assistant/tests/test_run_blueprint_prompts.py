@@ -28,16 +28,38 @@ def load_module():
     module = importlib.util.module_from_spec(spec)
     assert spec and spec.loader
     spec.loader.exec_module(module)
-    return module
+    return module.runtime
 
 
 def test_source_manifest_keeps_the_default_runtime_declarative():
     default_config = json.loads((BLUEPRINT_DIR / "config" / "default.json").read_text())
     manifest = json.loads((BLUEPRINT_DIR / "manifest.json").read_text())
-    assert manifest["apiVersion"] == "mn.workflow.source/v1"
+    assert manifest["apiVersion"] == "mn.workflow.source/v2"
     assert manifest["agents"] == {"extra_templates": manifest["agents"]["extra_templates"], "extra_edges": manifest["agents"]["extra_edges"]}
     assert manifest["workflow"]["steps"][0]["id"] == "startup_folder_watcher"
     assert default_config["llm"]["model"] == "default"
+
+
+def test_manifest_steps_resolve_to_conventional_behavior_modules():
+    manifest = json.loads((BLUEPRINT_DIR / "manifest.json").read_text())
+    handlers = {step["run"]["handler"] for step in manifest["workflow"]["steps"]}
+
+    assert handlers == {
+        "vc_assistant.steps.intake",
+        "vc_assistant.steps.evidence",
+        "vc_assistant.steps.research",
+        "vc_assistant.steps.scoring",
+        "vc_assistant.steps.reporting",
+    }
+    assert all(":" not in handler for handler in handlers)
+
+
+def test_runtime_module_resolves_the_blueprint_root_after_the_entrypoint_move():
+    runner = load_module()
+
+    assert runner._script_blueprint_root() == BLUEPRINT_DIR
+    assert runner.default_config_path() == BLUEPRINT_DIR / "config" / "default.json"
+    assert runner.PROMPTS.prompt_dir == BLUEPRINT_DIR / "payloads" / "prompts"
 
 
 def test_model_contract_uses_the_shared_adaptive_default():

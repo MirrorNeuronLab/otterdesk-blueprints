@@ -850,12 +850,8 @@
     "response_schema": "mn.blueprint.response.v1"
   },
   "execution_model": {
-    "type": "static_dag_step_handlers",
-    "entrypoint": "financial_folder_watcher",
-    "worker_sink": "financial_advice_reporter",
-    "terminal_sink": "report_sink",
-    "step_count": 17,
-    "runtime_note": "Each workflow node executes a bounded step handler and exchanges JSON workflow-state artifacts through the shared run directory; report_sink completes the finite run."
+    "type": "manifest_dag",
+    "runtime_note": "Topology, dependencies, handlers, and terminal routing are declared only in manifest.json."
   },
   "capabilities": [
     "folder_monitoring",

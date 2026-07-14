@@ -62,10 +62,15 @@ Most blueprint folders contain:
 | `README.md` | Self-contained quickstart, inspection notes, and validation guidance. |
 | `SPEC.md` | User-facing problem, outcome, evaluation criteria, limits, and upgrade path. |
 | `TERM.md` | Terms, assumptions, or domain notes when present. |
-| `manifest.json` | Workflow contract, workflow steps and transitions, agent communication graph, runtime worker bindings, metadata, runners, services, and environment access. |
+| `manifest.json` | Readable `mn.workflow.source/v2` DAG: direct `needs`, module handlers or agent assignments, control policy, contracts, and runtime requirements. The SDK expands it for Core. |
 | `config/default.json` | Default launch configuration and mock/sample inputs. |
 | `config/overwrite.json` | Optional local overrides. Do not commit customer secrets. |
 | `payloads/` | Worker code, prompts, policies, fixtures, and support files. |
+
+Python handler steps use module-only references such as
+`vc_assistant.steps.research`; the generic runtime calls that module's `run()`
+function. Keep DAG topology in the manifest rather than duplicating it in
+`run_blueprint.py` or configuration handoff lists.
 
 ## Safety Checklist
 

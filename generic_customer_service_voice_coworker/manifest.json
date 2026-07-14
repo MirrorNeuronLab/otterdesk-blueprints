@@ -1,6 +1,148 @@
 {
-  "apiVersion": "mn.workflow/v1",
-  "contract": {
+  "agentic_research": {
+    "agent_ids": [
+      "spark_voice_preparer",
+      "customer_service_voice_host"
+    ],
+    "allowed_tools": [
+      "knowledge_retrieve",
+      "conversation_state_update",
+      "handoff_recommendation",
+      "finish"
+    ],
+    "default_mode": "bounded_llm_guided_voice_knowledge_response",
+    "enabled": true,
+    "max_iterations_per_agent": 1,
+    "max_tool_calls_per_agent": 2,
+    "note": "Voice responses must stay grounded in editable knowledge and recommend handoff when retrieval is thin or outside scope.",
+    "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run"
+  },
+  "agents": {
+    "entrypoints": [
+      "ingress",
+      "voice_service"
+    ],
+    "extra_edges": [
+      {
+        "edge_id": "ingress_to_voice_service",
+        "from_node": "ingress",
+        "message_type": "customer_service_voice_start_requested",
+        "to_node": "voice_service"
+      }
+    ],
+    "extra_nodes": [
+      {
+        "agent_type": "router",
+        "alias": "customer_service_voice_router",
+        "config": {},
+        "display_name": "Pizza Order Voice Router",
+        "node_id": "ingress",
+        "type": "map"
+      },
+      {
+        "agent_type": "executor",
+        "alias": "customer_service_voice_host",
+        "config": {
+          "agent_beacon_required": false,
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_missed_action": "fail_attempt",
+          "beacon_timeout_ms": 45000,
+          "cleanup_remote_dir": false,
+          "command": [
+            "bash",
+            "scripts/run_voice_service.sh"
+          ],
+          "environment": {
+            "CUSTOMER_SERVICE_PUBLIC_URL": "https://localhost:7863/customer-service",
+            "CUSTOMER_SERVICE_RUN_ID": "${MN_RUN_ID}",
+            "VOICE_HTTPS_PORT": "7863",
+            "VOICE_SERVICE_ROOT": "/home/homer/Sandbox/voice-service-runtime"
+          },
+          "execution_profile": "nvidia-accelerated-voice",
+          "from": "base",
+          "gpu_count": 1,
+          "health_url": "https://localhost:7863/health",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "output_message_type": "customer_service_voice_started",
+          "pool": "nvidia-accelerated",
+          "pool_slots": 1,
+          "public_url": "https://localhost:7863/customer-service",
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "service": true,
+          "service_kind": "https_webrtc_voice",
+          "tty": false,
+          "upload_as": "voice_service",
+          "upload_path": "voice_service",
+          "upload_paths": [
+            {
+              "source": "voice_service",
+              "target": "voice_service"
+            }
+          ],
+          "workdir": "/sandbox/job/voice_service"
+        },
+        "constraints": [
+          {
+            "attribute": "capabilities",
+            "operator": "contains_any",
+            "value": [
+              "nvidia-dgx-spark",
+              "nvidia-gh200",
+              "nvidia-h100",
+              "nvidia-h200",
+              "nvidia-b200",
+              "nvidia-gb200",
+              "nvidia-gb10"
+            ]
+          }
+        ],
+        "display_name": "Pizza Order Voice Host",
+        "node_id": "voice_service",
+        "resources": {
+          "devices": [
+            {
+              "count": 1,
+              "driver": "cuda",
+              "kind": "gpu",
+              "type": "nvidia/gpu"
+            }
+          ],
+          "gpu_count": 1,
+          "ports": [
+            {
+              "label": "voice_https",
+              "port": 7863,
+              "protocol": "tcp"
+            },
+            {
+              "label": "nvidia_asr",
+              "port": 8080,
+              "protocol": "tcp"
+            },
+            {
+              "label": "docker_model_runner",
+              "port": 12434,
+              "protocol": "tcp"
+            },
+            {
+              "label": "magpie_tts",
+              "port": 8001,
+              "protocol": "tcp"
+            }
+          ]
+        },
+        "type": "generic"
+      }
+    ]
+  },
+  "apiVersion": "mn.workflow.source/v2",
+  "config": {
+    "default": "config/default.json",
+    "embed": true
+  },
+  "contracts": {
     "events": {
       "human_stream": "human.jsonl",
       "stream": "events.jsonl",
@@ -65,6 +207,14 @@
         "required": true,
         "type": "domain_value"
       },
+      "input_folder": {
+        "description": "Default local input folder for sample files or user-provided files.",
+        "example": "generic_customer_service_voice_coworker/examples/sample_inputs",
+        "path_kind": "directory",
+        "privacy": "internal",
+        "required": false,
+        "type": "local_path"
+      },
       "knowledge_text": {
         "description": "Editable customer-service knowledge used as the initial RAG text for this run.",
         "example": "Menu, prices, hours, pickup/delivery steps, and escalation rules for Otter Slice Pizza.",
@@ -78,6 +228,14 @@
         "privacy": "internal",
         "required": true,
         "type": "domain_value"
+      },
+      "output_folder": {
+        "description": "Default local output folder for generated artifacts and reports.",
+        "example": "~/Download/generic_customer_service_voice_coworker",
+        "path_kind": "directory",
+        "privacy": "internal",
+        "required": false,
+        "type": "local_path"
       },
       "service_scope": {
         "description": "Plain-language scope of what the co-worker should help customers with.",
@@ -113,22 +271,6 @@
         "privacy": "internal",
         "required": false,
         "type": "number"
-      },
-      "input_folder": {
-        "type": "local_path",
-        "path_kind": "directory",
-        "description": "Default local input folder for sample files or user-provided files.",
-        "privacy": "internal",
-        "required": false,
-        "example": "generic_customer_service_voice_coworker/examples/sample_inputs"
-      },
-      "output_folder": {
-        "type": "local_path",
-        "path_kind": "directory",
-        "description": "Default local output folder for generated artifacts and reports.",
-        "privacy": "internal",
-        "required": false,
-        "example": "~/Download/generic_customer_service_voice_coworker"
       }
     },
     "outputs": {
@@ -346,297 +488,82 @@
       "Restaurant operators, pizza shops, customer operations leads, small businesses, and AI operations teams."
     ]
   },
-  "description": "A voice customer-service co-worker for a small business demo. Give it the business name, service scope, opening message, escalation rules, editable knowledge text, and optional sample/input folder; it starts a local WebRTC voice experience and writes service status, conversation logs, knowledge snapshots, and handoff-ready run artifacts to the output folder.",
-  "workflow": {
-    "schema": "mn.workflow.problem_graph/v1",
-    "workflow_id": "generic_customer_service_voice_coworker_v1",
-    "mode": "static_dag",
-    "entrypoint": "prepare_voice_service",
-    "source": "prepare_voice_service",
-    "sink": "serve_customer_conversation",
-    "execution": {
-      "strategy": "parallel"
-    },
-    "dynamic": {
-      "apply_at": "between_steps",
-      "enabled": false,
-      "patch_events": []
-    },
-    "state": {
-      "business_name": {
-        "from": "$inputs.business_name"
-      },
-      "escalation_policy": {
-        "from": "$inputs.escalation_policy"
-      },
-      "knowledge_text": {
-        "from": "$inputs.knowledge_text"
-      },
-      "service_scope": {
-        "from": "$inputs.service_scope"
-      },
-      "voice_service": {},
-      "voice_url": {
-        "from": "$inputs.voice_url"
-      }
-    },
-    "steps": [
-      {
-        "action": "prepare_voice_service",
-        "control": {
-          "failure_policy": "fail_workflow",
-          "required": true,
-          "retry": {
-            "backoff_multiplier": 2,
-            "backoff_seconds": 2,
-            "jitter": 0,
-            "max_attempts": 2
-          },
-          "timeout_seconds": 900,
-          "uncertainty": {
-            "min_confidence": 0,
-            "on_low_confidence": "continue_with_warning"
-          }
-        },
-        "emits": "customer_service_voice_prepared",
-        "goal": "Validate Spark, prepare run knowledge, and make the NVIDIA voice stack ready.",
-        "id": "prepare_voice_service",
-        "agent_id": "ingress",
-        "trigger_rule": "all_success",
-        "in": {
-          "business_name": "$state.business_name",
-          "knowledge_text": "$state.knowledge_text"
-        },
-        "kind": "stage",
-        "label": "Prepare Voice Service",
-        "on": {
-          "customer_service_voice_prepared": "serve_customer_conversation"
-        },
-        "out": {
-          "voice_service": "$state.voice_service"
-        },
-        "run": "prepare_voice_service"
-      },
-      {
-        "action": "serve_customer_conversation",
-        "control": {
-          "failure_policy": "fail_workflow",
-          "required": true,
-          "retry": {
-            "backoff_multiplier": 2,
-            "backoff_seconds": 2,
-            "jitter": 0,
-            "max_attempts": 2
-          },
-          "timeout_seconds": 900,
-          "uncertainty": {
-            "min_confidence": 0,
-            "on_low_confidence": "continue_with_warning"
-          }
-        },
-        "emits": "customer_service_voice_started",
-        "goal": "Run the localhost-proxied WebRTC page so a caller can place a pizza order with the co-worker.",
-        "id": "serve_customer_conversation",
-        "agent_id": "voice_service",
-        "trigger_rule": "all_success",
-        "in": {
-          "voice_service": "$state.voice_service"
-        },
-        "kind": "stage",
-        "label": "Serve Customer Conversation",
-        "on": {
-          "customer_service_voice_started": "completed"
-        },
-        "out": {
-          "voice_url": "$state.voice_url"
-        },
-        "run": "serve_customer_conversation"
-      }
-    ],
-    "edges": [
-      {
-        "accepts": [
-          "done"
-        ],
-        "event": "customer_service_voice_prepared",
-        "from": "prepare_voice_service",
-        "id": "prepare_voice_service_to_serve_customer_conversation",
-        "required": true,
-        "to": "serve_customer_conversation"
-      }
-    ],
-    "policy": {
-      "failure": {
-        "default": "fail_closed"
-      },
-      "human": {
-        "decisions": [
-          "approve",
-          "revise",
-          "reject"
-        ],
-        "default": "reject",
-        "enabled": true,
-        "events": {
-          "decision": "human_decision_applied",
-          "request": "human_input_requested",
-          "response": "human_input_received",
-          "timeout": "human_input_timeout"
-        },
-        "mode": "notice_only",
-        "timeout_seconds": null
-      },
-      "safety": {
-        "blocked_actions": [],
-        "default": "allow",
-        "rules": []
-      }
-    },
-    "observers": []
-  },
-  "agents": {
-    "schema": "mn.agents.communication_graph/v1",
-    "entrypoints": [
-      "ingress",
-      "voice_service"
-    ],
-    "nodes": [
-      {
-        "node_id": "ingress",
-        "type": "map",
-        "agent_type": "router",
-        "config": {},
-        "alias": "customer_service_voice_router",
-        "display_name": "Pizza Order Voice Router"
-      },
-      {
-        "node_id": "voice_service",
-        "type": "generic",
-        "agent_type": "executor",
-        "config": {
-          "runner_module": "MirrorNeuron.Runner.HostLocal",
-          "upload_path": "voice_service",
-          "upload_as": "voice_service",
-          "workdir": "/sandbox/job/voice_service",
-          "from": "base",
-          "no_auto_providers": true,
-          "no_keep": true,
-          "pool": "nvidia-accelerated",
-          "pool_slots": 1,
-          "tty": false,
-          "environment": {
-            "CUSTOMER_SERVICE_PUBLIC_URL": "https://localhost:7863/customer-service",
-            "CUSTOMER_SERVICE_RUN_ID": "${MN_RUN_ID}",
-            "VOICE_SERVICE_ROOT": "/home/homer/Sandbox/voice-service-runtime",
-            "VOICE_HTTPS_PORT": "7863"
-          },
-          "agent_beacon_required": false,
-          "cleanup_remote_dir": false,
-          "execution_profile": "nvidia-accelerated-voice",
-          "gpu_count": 1,
-          "health_url": "https://localhost:7863/health",
-          "output_message_type": "customer_service_voice_started",
-          "public_url": "https://localhost:7863/customer-service",
-          "service": true,
-          "service_kind": "https_webrtc_voice",
-          "upload_paths": [
-            {
-              "source": "voice_service",
-              "target": "voice_service"
-            }
-          ],
-          "command": [
-            "bash",
-            "scripts/run_voice_service.sh"
-          ],
-          "beacon_enabled": true,
-          "beacon_interval_ms": 15000,
-          "beacon_timeout_ms": 45000,
-          "beacon_missed_action": "fail_attempt"
-        },
-        "alias": "customer_service_voice_host",
-        "display_name": "Pizza Order Voice Host",
-        "constraints": [
-          {
-            "attribute": "capabilities",
-            "operator": "contains_any",
-            "value": [
-              "nvidia-dgx-spark",
-              "nvidia-gh200",
-              "nvidia-h100",
-              "nvidia-h200",
-              "nvidia-b200",
-              "nvidia-gb200",
-              "nvidia-gb10"
-            ]
-          }
-        ],
-        "resources": {
-          "gpu_count": 1,
-          "ports": [
-            {
-              "label": "voice_https",
-              "port": 7863,
-              "protocol": "tcp"
-            },
-            {
-              "label": "nvidia_asr",
-              "port": 8080,
-              "protocol": "tcp"
-            },
-            {
-              "label": "docker_model_runner",
-              "port": 12434,
-              "protocol": "tcp"
-            },
-            {
-              "label": "magpie_tts",
-              "port": 8001,
-              "protocol": "tcp"
-            }
-          ],
-          "devices": [
-            {
-              "kind": "gpu",
-              "type": "nvidia/gpu",
-              "driver": "cuda",
-              "count": 1
-            }
-          ]
-        }
-      }
-    ],
-    "edges": [
-      {
-        "edge_id": "ingress_to_voice_service",
-        "from_node": "ingress",
-        "message_type": "customer_service_voice_start_requested",
-        "to_node": "voice_service"
-      }
-    ]
-  },
-  "id": "generic_customer_service_voice_coworker",
-  "input_validation": {
-    "rules": []
-  },
-  "job_name": "generic-customer-service-voice-coworker",
-  "kind": "Workflow",
-  "license": "LICENSE.md",
-  "manifest_version": "1.0",
-  "skill_dependencies": [
-    {
-      "type": "pip",
-      "source": "gar",
-      "name": "mirrorneuron-blueprint-support-skill",
-      "version": "1.2.8"
-    },
-    {
-      "type": "pip",
-      "source": "gar",
-      "name": "mirrorneuron-websocket-stream-skill",
-      "version": "1.2.7"
+  "defaults": {
+    "worker": {
+      "enabled": false
     }
-  ],
+  },
+  "identity": {
+    "category": "business",
+    "id": "generic_customer_service_voice_coworker",
+    "job_name": "generic-customer-service-voice-coworker",
+    "manifest_version": "1.0",
+    "name": "Pizza Order Voice AI Co-worker",
+    "version": 1
+  },
+  "intent": {
+    "description": "A voice customer-service co-worker for a small business demo. Give it the business name, service scope, opening message, escalation rules, editable knowledge text, and optional sample/input folder; it starts a local WebRTC voice experience and writes service status, conversation logs, knowledge snapshots, and handoff-ready run artifacts to the output folder.",
+    "problem": "Pizza shops need a friendly voice co-worker that can help callers place basic orders from editable menu knowledge while handing sensitive or uncertain calls to people.",
+    "safety": {
+      "enabled": true,
+      "events": [
+        "human_notice",
+        "human_input_requested",
+        "human_input_received",
+        "human_input_timeout",
+        "human_decision_applied"
+      ],
+      "mode": "notice_only",
+      "notice_event": "human_notice",
+      "reason": "The co-worker can converse with customers and recommend escalation, but it does not approve refunds, account changes, or other business actions by itself.",
+      "requires_ack": false
+    },
+    "target_users": "Support teams, customer operations leads, small businesses, service desks, and AI operations teams."
+  },
+  "kind": "WorkflowSource",
+  "knowledge_rag": {
+    "backend": "lexical_plain_text",
+    "chunk_overlap": 70,
+    "chunk_size": 700,
+    "embedding_api_base": "http://localhost:12434/engines/v1",
+    "embedding_document_prefix": "Document: ",
+    "embedding_healthcheck_enabled": true,
+    "embedding_model": "rag-embedding",
+    "embedding_provider": "docker_model_runner",
+    "embedding_query_prefix": "Query: ",
+    "embedding_start_command": "",
+    "enabled": true,
+    "grounding_policy": "Use retrieved local blueprint knowledge to improve actor review prompts; do not invent facts when retrieval is unavailable.",
+    "index_on_startup": true,
+    "knowledge_dir": "knowledge",
+    "max_context_chars": 4000,
+    "namespace": "",
+    "privacy": "index local blueprint knowledge only; do not index private run documents unless a future runtime explicitly opts in",
+    "purpose": "Retrieve editable run knowledge and menu/service-policy snippets for grounded customer-service voice responses.",
+    "redis_url": "",
+    "required": false,
+    "retrieval_targets": [
+      "menu answers",
+      "ordering policy",
+      "handoff rules",
+      "service scope"
+    ],
+    "top_k": 4,
+    "vector_dim": 1024
+  },
+  "manifest": {
+    "input_validation": {
+      "rules": []
+    },
+    "license": "LICENSE.md",
+    "policies": {
+      "recovery_mode": "cluster_recover",
+      "stream_mode": "live"
+    },
+    "requiredContextEngine": false,
+    "term": "TERM.md",
+    "type": "service"
+  },
   "metadata": {
     "agent_role": "Pizza-ordering voice co-worker that answers from editable menu knowledge, helps collect an order, asks clarifying questions, and recommends human handoff when it is unsure or outside scope.",
     "agent_templates": {
@@ -654,6 +581,8 @@
           "node_id": "voice_service",
           "uses": "mn-agents.data_python_executor@1",
           "with": {
+            "agent_beacon_required": false,
+            "cleanup_remote_dir": false,
             "command": [
               "bash",
               "scripts/run_voice_service.sh"
@@ -661,11 +590,9 @@
             "environment": {
               "CUSTOMER_SERVICE_PUBLIC_URL": "https://localhost:7863/customer-service",
               "CUSTOMER_SERVICE_RUN_ID": "${MN_RUN_ID}",
-              "VOICE_SERVICE_ROOT": "/home/homer/Sandbox/voice-service-runtime",
-              "VOICE_HTTPS_PORT": "7863"
+              "VOICE_HTTPS_PORT": "7863",
+              "VOICE_SERVICE_ROOT": "/home/homer/Sandbox/voice-service-runtime"
             },
-            "agent_beacon_required": false,
-            "cleanup_remote_dir": false,
             "execution_profile": "nvidia-accelerated-voice",
             "gpu_count": 1,
             "health_url": "https://localhost:7863/health",
@@ -687,13 +614,9 @@
         }
       ],
       "render_tool": "../mn-agents/tools/render_agent_templates.py",
-      "rendered_output": "manifest.rendered.json or runtime metadata",
-      "renderer": "mn_blueprint_support.render_manifest_agent_templates",
       "rendered": [
         {
           "node_id": "ingress",
-          "template_id": "mn-agents.control_router",
-          "version": 1,
           "original_node": {
             "alias": "customer_service_voice_router",
             "display_name": "Pizza Order Voice Router",
@@ -702,18 +625,18 @@
             "with": {}
           },
           "rendered_node": {
-            "node_id": "ingress",
-            "type": "map",
             "agent_type": "router",
-            "config": {},
             "alias": "customer_service_voice_router",
-            "display_name": "Pizza Order Voice Router"
-          }
+            "config": {},
+            "display_name": "Pizza Order Voice Router",
+            "node_id": "ingress",
+            "type": "map"
+          },
+          "template_id": "mn-agents.control_router",
+          "version": 1
         },
         {
           "node_id": "voice_service",
-          "template_id": "mn-agents.data_python_executor",
-          "version": 1,
           "original_node": {
             "alias": "customer_service_voice_host",
             "constraints": [
@@ -734,6 +657,14 @@
             "display_name": "Pizza Order Voice Host",
             "node_id": "voice_service",
             "resources": {
+              "devices": [
+                {
+                  "count": 1,
+                  "driver": "cuda",
+                  "kind": "gpu",
+                  "type": "nvidia/gpu"
+                }
+              ],
               "gpu_count": 1,
               "ports": [
                 {
@@ -756,18 +687,12 @@
                   "port": 8001,
                   "protocol": "tcp"
                 }
-              ],
-              "devices": [
-                {
-                  "kind": "gpu",
-                  "type": "nvidia/gpu",
-                  "driver": "cuda",
-                  "count": 1
-                }
               ]
             },
             "uses": "mn-agents.data_python_executor@1",
             "with": {
+              "agent_beacon_required": false,
+              "cleanup_remote_dir": false,
               "command": [
                 "bash",
                 "scripts/run_voice_service.sh"
@@ -775,11 +700,9 @@
               "environment": {
                 "CUSTOMER_SERVICE_PUBLIC_URL": "https://localhost:7863/customer-service",
                 "CUSTOMER_SERVICE_RUN_ID": "${MN_RUN_ID}",
-                "VOICE_SERVICE_ROOT": "/home/homer/Sandbox/voice-service-runtime",
-                "VOICE_HTTPS_PORT": "7863"
+                "VOICE_HTTPS_PORT": "7863",
+                "VOICE_SERVICE_ROOT": "/home/homer/Sandbox/voice-service-runtime"
               },
-              "agent_beacon_required": false,
-              "cleanup_remote_dir": false,
               "execution_profile": "nvidia-accelerated-voice",
               "gpu_count": 1,
               "health_url": "https://localhost:7863/health",
@@ -800,52 +723,49 @@
             }
           },
           "rendered_node": {
-            "node_id": "voice_service",
-            "type": "generic",
             "agent_type": "executor",
+            "alias": "customer_service_voice_host",
             "config": {
-              "runner_module": "MirrorNeuron.Runner.HostLocal",
-              "upload_path": "voice_service",
-              "upload_as": "voice_service",
-              "workdir": "/sandbox/job/voice_service",
-              "from": "base",
-              "no_auto_providers": true,
-              "no_keep": true,
-              "pool": "nvidia-accelerated",
-              "pool_slots": 1,
-              "tty": false,
+              "agent_beacon_required": false,
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_missed_action": "fail_attempt",
+              "beacon_timeout_ms": 45000,
+              "cleanup_remote_dir": false,
+              "command": [
+                "bash",
+                "scripts/run_voice_service.sh"
+              ],
               "environment": {
                 "CUSTOMER_SERVICE_PUBLIC_URL": "https://localhost:7863/customer-service",
                 "CUSTOMER_SERVICE_RUN_ID": "${MN_RUN_ID}",
-                "VOICE_SERVICE_ROOT": "/home/homer/Sandbox/voice-service-runtime",
-                "VOICE_HTTPS_PORT": "7863"
+                "VOICE_HTTPS_PORT": "7863",
+                "VOICE_SERVICE_ROOT": "/home/homer/Sandbox/voice-service-runtime"
               },
-              "agent_beacon_required": false,
-              "cleanup_remote_dir": false,
               "execution_profile": "nvidia-accelerated-voice",
+              "from": "base",
               "gpu_count": 1,
               "health_url": "https://localhost:7863/health",
+              "no_auto_providers": true,
+              "no_keep": true,
               "output_message_type": "customer_service_voice_started",
+              "pool": "nvidia-accelerated",
+              "pool_slots": 1,
               "public_url": "https://localhost:7863/customer-service",
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
               "service": true,
               "service_kind": "https_webrtc_voice",
+              "tty": false,
+              "upload_as": "voice_service",
+              "upload_path": "voice_service",
               "upload_paths": [
                 {
                   "source": "voice_service",
                   "target": "voice_service"
                 }
               ],
-              "command": [
-                "bash",
-                "scripts/run_voice_service.sh"
-              ],
-              "beacon_enabled": true,
-              "beacon_interval_ms": 15000,
-              "beacon_timeout_ms": 45000,
-              "beacon_missed_action": "fail_attempt"
+              "workdir": "/sandbox/job/voice_service"
             },
-            "alias": "customer_service_voice_host",
-            "display_name": "Pizza Order Voice Host",
             "constraints": [
               {
                 "attribute": "capabilities",
@@ -861,7 +781,17 @@
                 ]
               }
             ],
+            "display_name": "Pizza Order Voice Host",
+            "node_id": "voice_service",
             "resources": {
+              "devices": [
+                {
+                  "count": 1,
+                  "driver": "cuda",
+                  "kind": "gpu",
+                  "type": "nvidia/gpu"
+                }
+              ],
               "gpu_count": 1,
               "ports": [
                 {
@@ -884,19 +814,34 @@
                   "port": 8001,
                   "protocol": "tcp"
                 }
-              ],
-              "devices": [
-                {
-                  "kind": "gpu",
-                  "type": "nvidia/gpu",
-                  "driver": "cuda",
-                  "count": 1
-                }
               ]
-            }
-          }
+            },
+            "type": "generic"
+          },
+          "template_id": "mn-agents.data_python_executor",
+          "version": 1
         }
-      ]
+      ],
+      "rendered_output": "manifest.rendered.json or runtime metadata",
+      "renderer": "mn_blueprint_support.render_manifest_agent_templates"
+    },
+    "agentic_research": {
+      "agent_ids": [
+        "spark_voice_preparer",
+        "customer_service_voice_host"
+      ],
+      "allowed_tools": [
+        "knowledge_retrieve",
+        "conversation_state_update",
+        "handoff_recommendation",
+        "finish"
+      ],
+      "default_mode": "bounded_llm_guided_voice_knowledge_response",
+      "enabled": true,
+      "max_iterations_per_agent": 1,
+      "max_tool_calls_per_agent": 2,
+      "note": "Voice responses must stay grounded in editable knowledge and recommend handoff when retrieval is thin or outside scope.",
+      "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run"
     },
     "benefit": "Lets an operator launch a local OtterDesk run, update plain-text pizza menu knowledge, and hand callers a localhost HTTPS voice link backed by the Spark NVIDIA stack.",
     "blueprint_id": "generic_customer_service_voice_coworker",
@@ -919,6 +864,10 @@
     },
     "customizable_for": "Pizza shops, takeout counters, small restaurants, delivery intake, and friendly food-ordering demos.",
     "description": "A voice customer-service co-worker for a small business demo. Give it the business name, service scope, opening message, escalation rules, editable knowledge text, and optional sample/input folder; it starts a local WebRTC voice experience and writes service status, conversation logs, knowledge snapshots, and handoff-ready run artifacts to the output folder.",
+    "features": [
+      "optional local knowledge RAG grounding",
+      "bounded LLM tool-plan contract"
+    ],
     "human_control": {
       "enabled": true,
       "events": [
@@ -966,20 +915,20 @@
           "path": "inputs.payload.voice_https_port"
         },
         {
-          "path": "inputs.payload.input_folder",
-          "label": "Input folder",
           "default": "generic_customer_service_voice_coworker/examples/sample_inputs",
           "description": "Default local input folder for sample files or user-provided files.",
-          "type": "local_path",
-          "path_kind": "directory"
+          "label": "Input folder",
+          "path": "inputs.payload.input_folder",
+          "path_kind": "directory",
+          "type": "local_path"
         },
         {
-          "path": "outputs.folder_path",
-          "label": "Output folder",
           "default": "~/Download/generic_customer_service_voice_coworker",
           "description": "Default local output folder for generated artifacts and reports.",
-          "type": "local_path",
-          "path_kind": "directory"
+          "label": "Output folder",
+          "path": "outputs.folder_path",
+          "path_kind": "directory",
+          "type": "local_path"
         }
       ],
       "instruction": "When running in OtterDesk, show these overwriteable fields during init config and ask the user to confirm or edit them before launch.",
@@ -1013,22 +962,22 @@
           "type": "number"
         },
         {
-          "name": "input_folder",
-          "type": "local_path",
-          "path_kind": "directory",
           "description": "Default local input folder for sample files or user-provided files.",
           "example": "generic_customer_service_voice_coworker/examples/sample_inputs",
+          "name": "input_folder",
+          "path_kind": "directory",
           "privacy": "internal",
-          "required": false
+          "required": false,
+          "type": "local_path"
         },
         {
-          "name": "output_folder",
-          "type": "local_path",
-          "path_kind": "directory",
           "description": "Default local output folder for generated artifacts and reports.",
           "example": "~/Download/generic_customer_service_voice_coworker",
+          "name": "output_folder",
+          "path_kind": "directory",
           "privacy": "internal",
-          "required": false
+          "required": false,
+          "type": "local_path"
         }
       ],
       "privacy_classification": "internal",
@@ -1117,6 +1066,10 @@
     },
     "interfaces": {
       "channels": {
+        "agentic_research": {
+          "config": "agentic_research",
+          "description": "Bounded LLM-selected or actor-guided tool contract for domain work."
+        },
         "artifacts": {
           "artifacts": [
             "run.json",
@@ -1149,6 +1102,12 @@
         "inputs": {
           "artifact": "inputs.json",
           "description": "Resolved runtime inputs and adapter provenance."
+        },
+        "knowledge_rag": {
+          "artifact": "knowledge/",
+          "config": "knowledge_rag",
+          "description": "Optional local blueprint knowledge retrieval used to ground actor prompts and tool planning.",
+          "privacy": "blueprint knowledge only by default"
         },
         "logs": {
           "description": "Runtime stdout/stderr and explicit log artifacts.",
@@ -1203,19 +1162,42 @@
             "web/index.html"
           ],
           "description": "Optional web input/output handles."
-        },
-        "knowledge_rag": {
-          "description": "Optional local blueprint knowledge retrieval used to ground actor prompts and tool planning.",
-          "config": "knowledge_rag",
-          "artifact": "knowledge/",
-          "privacy": "blueprint knowledge only by default"
-        },
-        "agentic_research": {
-          "description": "Bounded LLM-selected or actor-guided tool contract for domain work.",
-          "config": "agentic_research"
         }
       },
       "config": [
+        "standard_version",
+        "identity",
+        "mode",
+        "metadata",
+        "inputs",
+        "simulation",
+        "llm",
+        "outputs",
+        "logging",
+        "resources",
+        "human_control",
+        "real_adapters",
+        "streams",
+        "input_skills",
+        "output_skills",
+        "error_handling",
+        "state",
+        "capabilities",
+        "privacy",
+        "triggers",
+        "backpressure",
+        "determinism",
+        "schemas",
+        "budgets",
+        "agent_handoffs",
+        "web_ui",
+        "interfaces",
+        "execution_model",
+        "openshell_network",
+        "knowledge_rag",
+        "agentic_research"
+      ],
+      "config_sections": [
         "standard_version",
         "identity",
         "mode",
@@ -1305,40 +1287,37 @@
         "static_html",
         "gradio",
         "custom"
-      ],
-      "config_sections": [
-        "standard_version",
-        "identity",
-        "mode",
-        "metadata",
-        "inputs",
-        "simulation",
-        "llm",
-        "outputs",
-        "logging",
-        "resources",
-        "human_control",
-        "real_adapters",
-        "streams",
-        "input_skills",
-        "output_skills",
-        "error_handling",
-        "state",
-        "capabilities",
-        "privacy",
-        "triggers",
-        "backpressure",
-        "determinism",
-        "schemas",
-        "budgets",
-        "agent_handoffs",
-        "web_ui",
-        "interfaces",
-        "execution_model",
-        "openshell_network",
-        "knowledge_rag",
-        "agentic_research"
       ]
+    },
+    "knowledge_rag": {
+      "backend": "lexical_plain_text",
+      "chunk_overlap": 70,
+      "chunk_size": 700,
+      "embedding_api_base": "http://localhost:12434/engines/v1",
+      "embedding_document_prefix": "Document: ",
+      "embedding_healthcheck_enabled": true,
+      "embedding_model": "rag-embedding",
+      "embedding_provider": "docker_model_runner",
+      "embedding_query_prefix": "Query: ",
+      "embedding_start_command": "",
+      "enabled": true,
+      "grounding_policy": "Use retrieved local blueprint knowledge to improve actor review prompts; do not invent facts when retrieval is unavailable.",
+      "index_on_startup": true,
+      "knowledge_dir": "knowledge",
+      "max_context_chars": 4000,
+      "namespace": "",
+      "privacy": "index local blueprint knowledge only; do not index private run documents unless a future runtime explicitly opts in",
+      "purpose": "Retrieve editable run knowledge and menu/service-policy snippets for grounded customer-service voice responses.",
+      "redis_url": "",
+      "required": false,
+      "retrieval_targets": [
+        "menu answers",
+        "ordering policy",
+        "handoff rules",
+        "service scope"
+      ],
+      "top_k": 4,
+      "vector_dim": 1024
     },
     "llm_agent_role": "Customer-service voice co-worker that answers from the customer knowledge base, asks clarifying questions when needed, and recommends escalation when it is unsure or outside scope.",
     "memory_layer": {
@@ -1574,13 +1553,13 @@
       "logs_jsonl": "logs.jsonl",
       "output_skills": [
         {
+          "activation": "Set MN_BLUEPRINT_EVENTS_WS_URL and enable this output skill via config override to stream events.",
           "connector": "websocket",
           "content": "events",
           "destination": "MN_BLUEPRINT_EVENTS_WS_URL",
           "enabled": false,
           "failure_policy": "skip",
           "integration_status": "optional_mock_disabled_by_default",
-          "activation": "Set MN_BLUEPRINT_EVENTS_WS_URL and enable this output skill via config override to stream events.",
           "mock": true,
           "name": "websocket_events",
           "required": false,
@@ -1598,6 +1577,15 @@
       "enabled": false,
       "env": "MN_BLUEPRINT_QUICK_TEST=1"
     },
+    "required_cluster_capabilities": [
+      "nvidia-dgx-spark",
+      "nvidia-gh200",
+      "nvidia-h100",
+      "nvidia-h200",
+      "nvidia-b200",
+      "nvidia-gb200",
+      "nvidia-gb10"
+    ],
     "runtime_features": [
       "Spark NVIDIA placement",
       "customer-service-voice-nvidia execution profile",
@@ -1758,9 +1746,6 @@
       "adapter": "gradio",
       "browser_publish_source": "disabled",
       "browser_video_source": "disabled",
-      "description": "Local shared OtterDesk dashboard with localhost voice URL, service health, events, menu knowledge metadata, and conversation artifacts.",
-      "enabled": true,
-      "output_artifact": "web_ui.json",
       "constraints": [
         {
           "attribute": "node.name",
@@ -1768,6 +1753,9 @@
           "value": "mirror_neuron@192.168.4.34"
         }
       ],
+      "description": "Local shared OtterDesk dashboard with localhost voice URL, service health, events, menu knowledge metadata, and conversation artifacts.",
+      "enabled": true,
+      "output_artifact": "web_ui.json",
       "rendering": {
         "layout": {
           "column_regions": [
@@ -1789,75 +1777,8 @@
         "enabled": false
       },
       "voice_url": "https://localhost:7863/customer-service"
-    },
-    "required_cluster_capabilities": [
-      "nvidia-dgx-spark",
-      "nvidia-gh200",
-      "nvidia-h100",
-      "nvidia-h200",
-      "nvidia-b200",
-      "nvidia-gb200",
-      "nvidia-gb10"
-    ],
-    "knowledge_rag": {
-      "enabled": true,
-      "backend": "lexical_plain_text",
-      "required": false,
-      "knowledge_dir": "knowledge",
-      "purpose": "Retrieve editable run knowledge and menu/service-policy snippets for grounded customer-service voice responses.",
-      "retrieval_targets": [
-        "menu answers",
-        "ordering policy",
-        "handoff rules",
-        "service scope"
-      ],
-      "grounding_policy": "Use retrieved local blueprint knowledge to improve actor review prompts; do not invent facts when retrieval is unavailable.",
-      "redis_url": "",
-      "namespace": "",
-      "embedding_provider": "docker_model_runner",
-      "embedding_model": "rag-embedding",
-      "embedding_api_base": "http://localhost:12434/engines/v1",
-      "embedding_query_prefix": "Query: ",
-      "embedding_document_prefix": "Document: ",
-      "embedding_start_command": "",
-      "embedding_healthcheck_enabled": true,
-      "vector_dim": 1024,
-      "index_on_startup": true,
-      "top_k": 4,
-      "max_context_chars": 4000,
-      "chunk_size": 700,
-      "chunk_overlap": 70,
-      "privacy": "index local blueprint knowledge only; do not index private run documents unless a future runtime explicitly opts in"
-    },
-    "agentic_research": {
-      "enabled": true,
-      "agent_ids": [
-        "spark_voice_preparer",
-        "customer_service_voice_host"
-      ],
-      "max_iterations_per_agent": 1,
-      "max_tool_calls_per_agent": 2,
-      "allowed_tools": [
-        "knowledge_retrieve",
-        "conversation_state_update",
-        "handoff_recommendation",
-        "finish"
-      ],
-      "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run",
-      "default_mode": "bounded_llm_guided_voice_knowledge_response",
-      "note": "Voice responses must stay grounded in editable knowledge and recommend handoff when retrieval is thin or outside scope."
-    },
-    "features": [
-      "optional local knowledge RAG grounding",
-      "bounded LLM tool-plan contract"
-    ]
+    }
   },
-  "name": "Pizza Order Voice AI Co-worker",
-  "policies": {
-    "recovery_mode": "cluster_recover",
-    "stream_mode": "live"
-  },
-  "requiredContextEngine": false,
   "requirements": {
     "cpu": {
       "min_cores": 1
@@ -1867,7 +1788,6 @@
     },
     "gpu": {
       "min_count": 1,
-      "vendor": "nvidia",
       "required_capabilities": [
         "nvidia-dgx-spark",
         "nvidia-gh200",
@@ -1876,7 +1796,8 @@
         "nvidia-b200",
         "nvidia-gb200",
         "nvidia-gb10"
-      ]
+      ],
+      "vendor": "nvidia"
     },
     "memory": {
       "min_gb": 2
@@ -1944,26 +1865,26 @@
       "sdk_import_package": "mn_context_engine_sdk"
     },
     "models": {
+      "asr": {
+        "model": "otterdesk-voice-asr:default",
+        "provider": "nvidia_service",
+        "required": true,
+        "type": "speech_to_text"
+      },
       "primary": {
-        "type": "llm",
-        "provider": "docker_model_runner",
-        "model": "medium",
-        "runtime_model": "medium",
         "backend": "llama.cpp",
         "install_mode": "cluster_provided",
-        "required": true
-      },
-      "asr": {
-        "type": "speech_to_text",
-        "provider": "nvidia_service",
-        "model": "otterdesk-voice-asr:default",
-        "required": true
+        "model": "medium",
+        "provider": "docker_model_runner",
+        "required": true,
+        "runtime_model": "medium",
+        "type": "llm"
       },
       "tts": {
-        "type": "text_to_speech",
-        "provider": "nvidia_service",
         "model": "otterdesk-voice-tts:default",
-        "required": true
+        "provider": "nvidia_service",
+        "required": true,
+        "type": "text_to_speech"
       }
     },
     "observability": {
@@ -2005,7 +1926,6 @@
       },
       "gpu": {
         "min_count": 1,
-        "vendor": "nvidia",
         "required_capabilities": [
           "nvidia-dgx-spark",
           "nvidia-gh200",
@@ -2014,7 +1934,8 @@
           "nvidia-b200",
           "nvidia-gb200",
           "nvidia-gb10"
-        ]
+        ],
+        "vendor": "nvidia"
       },
       "memory": {
         "min_gb": 8
@@ -2110,55 +2031,111 @@
       }
     }
   },
-  "term": "TERM.md",
-  "type": "service",
-  "version": 1,
-  "knowledge_rag": {
-    "enabled": true,
-    "backend": "lexical_plain_text",
-    "required": false,
-    "knowledge_dir": "knowledge",
-    "purpose": "Retrieve editable run knowledge and menu/service-policy snippets for grounded customer-service voice responses.",
-    "retrieval_targets": [
-      "menu answers",
-      "ordering policy",
-      "handoff rules",
-      "service scope"
-    ],
-    "grounding_policy": "Use retrieved local blueprint knowledge to improve actor review prompts; do not invent facts when retrieval is unavailable.",
-    "redis_url": "",
-    "namespace": "",
-    "embedding_provider": "docker_model_runner",
-    "embedding_model": "rag-embedding",
-    "embedding_api_base": "http://localhost:12434/engines/v1",
-    "embedding_query_prefix": "Query: ",
-    "embedding_document_prefix": "Document: ",
-    "embedding_start_command": "",
-    "embedding_healthcheck_enabled": true,
-    "vector_dim": 1024,
-    "index_on_startup": true,
-    "top_k": 4,
-    "max_context_chars": 4000,
-    "chunk_size": 700,
-    "chunk_overlap": 70,
-    "privacy": "index local blueprint knowledge only; do not index private run documents unless a future runtime explicitly opts in"
+  "skill_dependencies": [
+    {
+      "name": "mirrorneuron-blueprint-support-skill",
+      "source": "gar",
+      "type": "pip",
+      "version": "1.2.8"
+    },
+    {
+      "name": "mirrorneuron-websocket-stream-skill",
+      "source": "gar",
+      "type": "pip",
+      "version": "1.2.7"
+    }
+  ],
+  "standard": {
+    "migration_policy": "sdk_managed",
+    "profile": "document_workflow",
+    "source_schema": "mn.workflow.source/v2",
+    "target_schema": "mn.workflow/v1"
   },
-  "agentic_research": {
-    "enabled": true,
-    "agent_ids": [
-      "spark_voice_preparer",
-      "customer_service_voice_host"
+  "workflow": {
+    "edges": [
+      {
+        "accepts": [
+          "done"
+        ],
+        "event": "customer_service_voice_prepared",
+        "from": "prepare_voice_service",
+        "id": "prepare_voice_service_to_serve_customer_conversation",
+        "required": true,
+        "to": "serve_customer_conversation"
+      }
     ],
-    "max_iterations_per_agent": 1,
-    "max_tool_calls_per_agent": 2,
-    "allowed_tools": [
-      "knowledge_retrieve",
-      "conversation_state_update",
-      "handoff_recommendation",
-      "finish"
+    "execution": {
+      "strategy": "parallel"
+    },
+    "steps": [
+      {
+        "control": {
+          "failure_policy": "fail_workflow",
+          "required": true,
+          "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 2,
+            "jitter": 0,
+            "max_attempts": 2
+          },
+          "timeout_seconds": 900,
+          "uncertainty": {
+            "min_confidence": 0,
+            "on_low_confidence": "continue_with_warning"
+          }
+        },
+        "goal": "Validate Spark, prepare run knowledge, and make the NVIDIA voice stack ready.",
+        "id": "prepare_voice_service",
+        "in": {
+          "business_name": "$state.business_name",
+          "knowledge_text": "$state.knowledge_text"
+        },
+        "kind": "stage",
+        "label": "Prepare Voice Service",
+        "needs": [],
+        "out": {
+          "voice_service": "$state.voice_service"
+        },
+        "run": {
+          "agent": "ingress",
+          "binding": "prepare_voice_service"
+        }
+      },
+      {
+        "control": {
+          "failure_policy": "fail_workflow",
+          "required": true,
+          "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 2,
+            "jitter": 0,
+            "max_attempts": 2
+          },
+          "timeout_seconds": 900,
+          "uncertainty": {
+            "min_confidence": 0,
+            "on_low_confidence": "continue_with_warning"
+          }
+        },
+        "goal": "Run the localhost-proxied WebRTC page so a caller can place a pizza order with the co-worker.",
+        "id": "serve_customer_conversation",
+        "in": {
+          "voice_service": "$state.voice_service"
+        },
+        "kind": "stage",
+        "label": "Serve Customer Conversation",
+        "needs": [
+          "prepare_voice_service"
+        ],
+        "out": {
+          "voice_url": "$state.voice_url"
+        },
+        "run": {
+          "agent": "voice_service",
+          "binding": "serve_customer_conversation"
+        }
+      }
     ],
-    "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run",
-    "default_mode": "bounded_llm_guided_voice_knowledge_response",
-    "note": "Voice responses must stay grounded in editable knowledge and recommend handoff when retrieval is thin or outside scope."
+    "workflow_id": "generic_customer_service_voice_coworker_v1"
   }
 }

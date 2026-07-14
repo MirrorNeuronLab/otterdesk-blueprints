@@ -1,28 +1,185 @@
 {
-  "apiVersion": "mn.workflow/v1",
-  "kind": "Workflow",
-  "id": "cctv_operator",
-  "name": "CCTV Operator",
-  "version": 1,
-  "manifest_version": "1.0",
-  "skill_dependencies": [
-    {
-      "type": "pip",
-      "source": "gar",
-      "name": "mirrorneuron-blueprint-support-skill",
-      "version": "1.2.22"
-    },
-    {
-      "type": "pip",
-      "source": "gar",
-      "name": "mirrorneuron-websocket-stream-skill",
-      "version": "1.2.22"
-    }
-  ],
-  "description": "An NVIDIA-only CCTV co-worker. Give it a local input folder of recordings or one approved RTSP/RTMP stream, visual targets, alert policy, and output folder; it prepares sampled frames with CUDA-enabled FFmpeg and writes source-grounded JSON and Markdown review reports.",
-  "job_name": "cctv-operator",
-  "type": "service",
-  "contract": {
+  "agentic_research": {
+    "agent_ids": [
+      "video_source_validator",
+      "frame_sampler",
+      "visual_target_detector",
+      "quality_controller",
+      "report_writer"
+    ],
+    "allowed_tools": [
+      "video_source_validate",
+      "frame_sample",
+      "visual_model_infer",
+      "alert_policy_check",
+      "knowledge_retrieve",
+      "finish"
+    ],
+    "default_mode": "bounded_llm_guided_cctv_operator_review",
+    "enabled": true,
+    "max_iterations_per_agent": 1,
+    "max_tool_calls_per_agent": 2,
+    "note": "CCTV actors ground detections in staged files or the configured stream, frame evidence, and alert policy.",
+    "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run"
+  },
+  "agents": {
+    "entrypoints": [
+      "ingress"
+    ],
+    "extra_edges": [
+      {
+        "edge_id": "ingress_to_frame_tick",
+        "from_node": "ingress",
+        "message_type": "cctv_operator_start",
+        "to_node": "video_frame_tick_source"
+      },
+      {
+        "edge_id": "frame_tick_to_visual_detector",
+        "from_node": "video_frame_tick_source",
+        "message_type": "video_frame_tick_generated",
+        "to_node": "visual_detector"
+      },
+      {
+        "edge_id": "visual_detector_to_report_writer",
+        "from_node": "visual_detector",
+        "message_type": "cctv_operator_detection",
+        "to_node": "report_writer"
+      }
+    ],
+    "extra_nodes": [
+      {
+        "agent_type": "router",
+        "alias": "video_monitor",
+        "config": {},
+        "display_name": "Video Monitor",
+        "node_id": "ingress",
+        "type": "map"
+      },
+      {
+        "agent_type": "module",
+        "alias": "frame_sampler",
+        "config": {
+          "emit_type": "video_frame_tick_generated",
+          "interval_seconds": 20,
+          "module": "MirrorNeuron.Examples.CctvOperator.VideoFrameTickSource",
+          "module_source": "beam_modules/video_frame_tick_source.ex"
+        },
+        "display_name": "Frame Sampler",
+        "node_id": "video_frame_tick_source",
+        "type": "generic"
+      },
+      {
+        "agent_type": "executor",
+        "alias": "quality_controller",
+        "config": {
+          "agent_beacon_required": true,
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_missed_action": "fail_attempt",
+          "beacon_timeout_ms": 45000,
+          "command": [
+            "bash",
+            "scripts/run_detector_on_nvidia.sh"
+          ],
+          "docker_worker_image": "visual_detector/docker_worker",
+          "environment": {},
+          "from": "base",
+          "gpus": "all",
+          "image": "mirror-neuron/cctv-operator:local",
+          "network": "mirror-neuron-runtime",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "output_message_type": "cctv_operator_detection",
+          "pool": "default",
+          "pool_slots": 1,
+          "reuse_shared_container": true,
+          "runner_module": "MirrorNeuron.Runner.DockerWorker",
+          "shared_container": true,
+          "tty": false,
+          "upload_paths": [
+            {
+              "source": "visual_detector",
+              "target": "visual_detector"
+            },
+            {
+              "source": "prompts",
+              "target": "prompts"
+            }
+          ],
+          "workdir": "/mn/job/visual_detector"
+        },
+        "constraints": [
+          {
+            "attribute": "capabilities",
+            "operator": "contains_all",
+            "value": [
+              "nvidia",
+              "cuda"
+            ]
+          }
+        ],
+        "display_name": "Quality Controller",
+        "node_id": "visual_detector",
+        "resources": {
+          "devices": [
+            {
+              "count": 1,
+              "driver": "cuda",
+              "kind": "gpu",
+              "memory_operator": ">=",
+              "min_memory_mb": 49152,
+              "type": "nvidia/gpu",
+              "vendor": "nvidia"
+            }
+          ],
+          "gpu_count": 1
+        },
+        "type": "generic"
+      },
+      {
+        "agent_type": "executor",
+        "alias": "report_writer",
+        "config": {
+          "agent_beacon_required": true,
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_missed_action": "fail_attempt",
+          "beacon_timeout_ms": 45000,
+          "command": [
+            "python3.11",
+            "scripts/write_cctv_report.py"
+          ],
+          "environment": {},
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "output_message_type": "cctv_operator_report_ready",
+          "pool": "default",
+          "pool_slots": 1,
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "tty": false,
+          "upload_as": "report_writer",
+          "upload_path": "report_writer",
+          "upload_paths": [
+            {
+              "source": "report_writer",
+              "target": "report_writer"
+            }
+          ],
+          "workdir": "/sandbox/job/report_writer"
+        },
+        "display_name": "CCTV Report Writer",
+        "node_id": "report_writer",
+        "type": "generic"
+      }
+    ]
+  },
+  "apiVersion": "mn.workflow.source/v2",
+  "config": {
+    "default": "config/default.json",
+    "embed": true
+  },
+  "contracts": {
     "events": {
       "human_stream": "human.jsonl",
       "stream": "events.jsonl",
@@ -85,6 +242,22 @@
         "required": false,
         "type": "domain_value"
       },
+      "input_folder": {
+        "description": "Default local input folder for sample files or user-provided files.",
+        "example": "cctv_operator/examples/sample_inputs",
+        "path_kind": "directory",
+        "privacy": "internal",
+        "required": false,
+        "type": "local_path"
+      },
+      "output_folder": {
+        "description": "Default local output folder for generated artifacts and reports.",
+        "example": "~/Download/cctv_operator",
+        "path_kind": "directory",
+        "privacy": "internal",
+        "required": false,
+        "type": "local_path"
+      },
       "slack_destination": {
         "description": "Optional approved Slack destination for alert delivery.",
         "example": "MN_SLACK_WEBHOOK_URL",
@@ -115,22 +288,6 @@
         "privacy": "internal",
         "required": true,
         "type": "domain_value"
-      },
-      "input_folder": {
-        "type": "local_path",
-        "path_kind": "directory",
-        "description": "Default local input folder for sample files or user-provided files.",
-        "privacy": "internal",
-        "required": false,
-        "example": "cctv_operator/examples/sample_inputs"
-      },
-      "output_folder": {
-        "type": "local_path",
-        "path_kind": "directory",
-        "description": "Default local output folder for generated artifacts and reports.",
-        "privacy": "internal",
-        "required": false,
-        "example": "~/Download/cctv_operator"
       }
     },
     "outputs": {
@@ -347,761 +504,135 @@
       "Video operators, security reviewers, safety operations teams, and site-access coordinators."
     ]
   },
-  "workflow": {
-    "schema": "mn.workflow.problem_graph/v1",
-    "workflow_id": "cctv_operator_v1",
-    "mode": "static_dag",
-    "entrypoint": "start_video_monitor",
-    "source": "start_video_monitor",
-    "sink": "write_cctv_report",
-    "execution": {
-      "strategy": "parallel"
-    },
-    "dynamic": {
-      "apply_at": "between_steps",
-      "enabled": false,
-      "patch_events": []
-    },
-    "state": {
-      "alert_policy": {
-        "from": "$inputs.alert_policy"
-      },
-      "detections": {},
-      "final_report": {},
-      "frame_ticks": {},
-      "stream_session": {},
-      "source_mode": {
-        "from": "$inputs.source_mode"
-      },
-      "input_folder": {
-        "from": "$inputs.input_folder"
-      },
-      "video_source": {
-        "from": "$inputs.video_source"
-      },
-      "visual_targets": {
-        "from": "$inputs.visual_targets"
-      }
-    },
-    "steps": [
-      {
-        "action": "start_video_monitor",
-        "control": {
-          "failure_policy": "fail_workflow",
-          "required": true,
-          "retry": {
-            "backoff_multiplier": 2,
-            "backoff_seconds": 1,
-            "jitter": 0,
-            "max_attempts": 2
-          },
-          "timeout_seconds": 300,
-          "uncertainty": {
-            "min_confidence": 0,
-            "on_low_confidence": "continue_with_warning"
-          }
-        },
-        "emits": "video_monitor_start",
-        "goal": "Validate the selected recording folder or RTSP/RTMP stream and start the analysis session.",
-        "id": "start_video_monitor",
-        "agent_id": "ingress",
-        "trigger_rule": "all_success",
-        "in": {
-          "input_folder": "$state.input_folder",
-          "source_mode": "$state.source_mode",
-          "video_source": "$state.video_source"
-        },
-        "kind": "stage",
-        "label": "Start Video Monitor",
-        "on": {
-          "video_monitor_start": "sample_video_frames"
-        },
-        "out": {
-          "stream_session": "$state.stream_session"
-        },
-        "run": "start_video_monitor"
-      },
-      {
-        "action": "sample_video_frames",
-        "control": {
-          "failure_policy": "fail_workflow",
-          "required": true,
-          "retry": {
-            "backoff_multiplier": 2,
-            "backoff_seconds": 1,
-            "jitter": 0,
-            "max_attempts": 2
-          },
-          "timeout_seconds": 300,
-          "uncertainty": {
-            "min_confidence": 0,
-            "on_low_confidence": "continue_with_warning"
-          }
-        },
-        "emits": "video_frame_tick_generated",
-        "goal": "Emit frame ticks according to the configured sample interval.",
-        "id": "sample_video_frames",
-        "agent_id": "video_frame_tick_source",
-        "trigger_rule": "all_success",
-        "in": {
-          "session": "$state.stream_session"
-        },
-        "kind": "stage",
-        "label": "Sample Video Frames",
-        "on": {
-          "video_frame_tick_generated": "detect_visual_targets"
-        },
-        "out": {
-          "frame_ticks": "$state.frame_ticks"
-        },
-        "run": "sample_video_frames"
-      },
-      {
-        "action": "detect_visual_targets",
-        "control": {
-          "failure_policy": "fail_workflow",
-          "required": true,
-          "retry": {
-            "backoff_multiplier": 2,
-            "backoff_seconds": 1,
-            "jitter": 0,
-            "max_attempts": 2
-          },
-          "timeout_seconds": 300,
-          "uncertainty": {
-            "min_confidence": 0,
-            "on_low_confidence": "continue_with_warning"
-          }
-        },
-        "emits": "cctv_operator_detection",
-        "goal": "Analyze sampled frames for configured targets and alert status.",
-        "id": "detect_visual_targets",
-        "agent_id": "visual_detector",
-        "trigger_rule": "all_success",
-        "in": {
-          "frame_ticks": "$state.frame_ticks",
-          "policy": "$state.alert_policy",
-          "targets": "$state.visual_targets"
-        },
-        "kind": "stage",
-        "label": "Detect Visual Targets",
-        "on": {
-          "cctv_operator_detection": "write_cctv_report"
-        },
-        "out": {
-          "detections": "$state.detections"
-        },
-        "run": "detect_visual_targets"
-      },
-      {
-        "action": "write_cctv_report",
-        "control": {
-          "failure_policy": "fail_workflow",
-          "required": true,
-          "retry": {
-            "backoff_multiplier": 2,
-            "backoff_seconds": 1,
-            "jitter": 0,
-            "max_attempts": 2
-          },
-          "timeout_seconds": 300,
-          "uncertainty": {
-            "min_confidence": 0,
-            "on_low_confidence": "continue_with_warning"
-          }
-        },
-        "emits": "cctv_operator_report_ready",
-        "goal": "Merge the latest observation into cumulative JSON and Markdown review reports.",
-        "id": "write_cctv_report",
-        "agent_id": "report_writer",
-        "trigger_rule": "all_success",
-        "in": {
-          "detections": "$state.detections"
-        },
-        "kind": "stage",
-        "label": "Write CCTV Report",
-        "on": {
-          "cctv_operator_report_ready": "completed"
-        },
-        "out": {
-          "final_report": "$state.final_report"
-        },
-        "run": "write_cctv_report"
-      }
-    ],
-    "edges": [
-      {
-        "accepts": [
-          "done"
-        ],
-        "event": "video_monitor_start",
-        "from": "start_video_monitor",
-        "id": "start_video_monitor_to_sample_video_frames",
-        "required": true,
-        "to": "sample_video_frames"
-      },
-      {
-        "accepts": [
-          "done"
-        ],
-        "event": "video_frame_tick_generated",
-        "from": "sample_video_frames",
-        "id": "sample_video_frames_to_detect_visual_targets",
-        "required": true,
-        "to": "detect_visual_targets"
-      },
-      {
-        "accepts": [
-          "done"
-        ],
-        "event": "cctv_operator_detection",
-        "from": "detect_visual_targets",
-        "id": "detect_visual_targets_to_write_cctv_report",
-        "required": true,
-        "to": "write_cctv_report"
-      }
-    ],
-    "policy": {
-      "failure": {
-        "default": "fail_closed"
-      },
-      "human": {
-        "decisions": [
-          "approve",
-          "revise",
-          "reject"
-        ],
-        "default": "reject",
-        "enabled": true,
-        "events": {
-          "decision": "human_decision_applied",
-          "request": "human_input_requested",
-          "response": "human_input_received",
-          "timeout": "human_input_timeout"
-        },
-        "mode": "notice_only",
-        "timeout_seconds": null
-      },
-      "safety": {
-        "blocked_actions": [],
-        "default": "allow",
-        "rules": []
-      }
-    },
-    "observers": []
+  "defaults": {
+    "worker": {
+      "enabled": false
+    }
   },
-  "agents": {
-    "schema": "mn.agents.communication_graph/v1",
-    "entrypoints": [
-      "ingress"
-    ],
-    "nodes": [
-      {
-        "node_id": "ingress",
-        "type": "map",
-        "agent_type": "router",
-        "config": {},
-        "alias": "video_monitor",
-        "display_name": "Video Monitor"
-      },
-      {
-        "node_id": "video_frame_tick_source",
-        "type": "generic",
-        "agent_type": "module",
-        "config": {
-          "module": "MirrorNeuron.Examples.CctvOperator.VideoFrameTickSource",
-          "module_source": "beam_modules/video_frame_tick_source.ex",
-          "emit_type": "video_frame_tick_generated",
-          "interval_seconds": 20
-        },
-        "alias": "frame_sampler",
-        "display_name": "Frame Sampler"
-      },
-      {
-        "node_id": "visual_detector",
-        "type": "generic",
-        "agent_type": "executor",
-        "config": {
-          "runner_module": "MirrorNeuron.Runner.DockerWorker",
-          "docker_worker_image": "visual_detector/docker_worker",
-          "image": "mirror-neuron/cctv-operator:local",
-          "network": "mirror-neuron-runtime",
-          "gpus": "all",
-          "shared_container": true,
-          "reuse_shared_container": true,
-          "workdir": "/mn/job/visual_detector",
-          "from": "base",
-          "no_auto_providers": true,
-          "no_keep": true,
-          "pool": "default",
-          "pool_slots": 1,
-          "tty": false,
-          "upload_paths": [
-            {
-              "source": "visual_detector",
-              "target": "visual_detector"
-            },
-            {
-              "source": "prompts",
-              "target": "prompts"
-            }
-          ],
-          "output_message_type": "cctv_operator_detection",
-          "environment": {},
-          "command": [
-            "bash",
-            "scripts/run_detector_on_nvidia.sh"
-          ],
-          "beacon_enabled": true,
-          "beacon_interval_ms": 15000,
-          "beacon_timeout_ms": 45000,
-          "beacon_missed_action": "fail_attempt",
-          "agent_beacon_required": true
-        },
-        "alias": "quality_controller",
-        "display_name": "Quality Controller",
-        "constraints": [
-          {
-            "attribute": "capabilities",
-            "operator": "contains_all",
-            "value": [
-              "nvidia",
-              "cuda"
-            ]
-          }
-        ],
-        "resources": {
-          "gpu_count": 1,
-          "devices": [
-            {
-              "kind": "gpu",
-              "type": "nvidia/gpu",
-              "vendor": "nvidia",
-              "driver": "cuda",
-              "count": 1,
-              "min_memory_mb": 49152,
-              "memory_operator": ">="
-            }
-          ]
-        }
-      },
-      {
-        "node_id": "report_writer",
-        "type": "generic",
-        "agent_type": "executor",
-        "config": {
-          "runner_module": "MirrorNeuron.Runner.HostLocal",
-          "upload_path": "report_writer",
-          "upload_as": "report_writer",
-          "workdir": "/sandbox/job/report_writer",
-          "from": "base",
-          "no_auto_providers": true,
-          "no_keep": true,
-          "pool": "default",
-          "pool_slots": 1,
-          "tty": false,
-          "upload_paths": [
-            {
-              "source": "report_writer",
-              "target": "report_writer"
-            }
-          ],
-          "output_message_type": "cctv_operator_report_ready",
-          "environment": {},
-          "command": [
-            "python3.11",
-            "scripts/write_cctv_report.py"
-          ],
-          "beacon_enabled": true,
-          "beacon_interval_ms": 15000,
-          "beacon_timeout_ms": 45000,
-          "beacon_missed_action": "fail_attempt",
-          "agent_beacon_required": true
-        },
-        "alias": "report_writer",
-        "display_name": "CCTV Report Writer"
-      }
-    ],
-    "edges": [
-      {
-        "edge_id": "ingress_to_frame_tick",
-        "from_node": "ingress",
-        "message_type": "cctv_operator_start",
-        "to_node": "video_frame_tick_source"
-      },
-      {
-        "edge_id": "frame_tick_to_visual_detector",
-        "from_node": "video_frame_tick_source",
-        "message_type": "video_frame_tick_generated",
-        "to_node": "visual_detector"
-      },
-      {
-        "edge_id": "visual_detector_to_report_writer",
-        "from_node": "visual_detector",
-        "message_type": "cctv_operator_detection",
-        "to_node": "report_writer"
-      }
-    ]
+  "identity": {
+    "category": "business",
+    "id": "cctv_operator",
+    "job_name": "cctv-operator",
+    "manifest_version": "1.0",
+    "name": "CCTV Operator",
+    "version": 1
   },
-  "runtime": {
-    "placement": {
-      "mode": "single_node"
-    },
-    "bindings": {
-      "detect_visual_targets": {
-        "risk": "low",
-        "side_effect": "read",
-        "strategy": "fanout_reduce",
-        "type": "team",
-        "workers": [
-          {
-            "id": "visual_target_detector",
-            "alias": "visual_target_detector",
-            "display_name": "Visual Target Detector",
-            "model": "nemotron3",
-            "role": "Run visual detection",
-            "tokens": 14000,
-            "tools": 4
-          },
-          {
-            "id": "quality_controller",
-            "alias": "quality_controller",
-            "display_name": "Quality Controller",
-            "model": "nemotron3",
-            "role": "Review alert quality",
-            "tokens": 14000,
-            "tools": 4
-          }
-        ]
-      },
-      "sample_video_frames": {
-        "risk": "low",
-        "side_effect": "read",
-        "strategy": "single",
-        "type": "worker",
-        "workers": [
-          {
-            "id": "frame_sampler",
-            "alias": "frame_sampler",
-            "display_name": "Frame Sampler",
-            "model": "nemotron3",
-            "role": "Sample video frames",
-            "tokens": 14000,
-            "tools": 4
-          }
-        ]
-      },
-      "start_video_monitor": {
-        "risk": "low",
-        "side_effect": "read",
-        "strategy": "fanout_reduce",
-        "type": "team",
-        "seed_inputs": {
-          "ingress": [
-            {
-              "type": "cctv_operator_start",
-              "payload": {
-                "stream_id": "cctv_operator"
-              }
-            }
-          ]
-        },
-        "workers": [
-          {
-            "id": "video_source_validator",
-            "alias": "video_source_validator",
-            "display_name": "Video Source Validator",
-            "model": "nemotron3",
-            "role": "Validate video source",
-            "tokens": 14000,
-            "tools": 4
-          },
-          {
-            "id": "video_monitor",
-            "alias": "video_monitor",
-            "display_name": "Video Monitor",
-            "model": "nemotron3",
-            "role": "Coordinate video monitoring",
-            "tokens": 14000,
-            "tools": 4
-          }
-        ]
-      },
-      "write_cctv_report": {
-        "risk": "low",
-        "side_effect": "read",
-        "strategy": "single",
-        "type": "worker",
-        "workers": [
-          {
-            "id": "report_writer",
-            "alias": "report_writer",
-            "display_name": "CCTV Report Writer",
-            "model": "nemotron3",
-            "role": "Write cumulative CCTV reports",
-            "tokens": 14000,
-            "tools": 4
-          }
-        ]
-      }
-    },
-    "memory": {
-      "collection": "mn_memory",
-      "containers": "optional_sidecar",
-      "context_addr_env": "MN_CONTEXT_ADDR",
-      "conversation": {
-        "agent_role": "otterdesk_chat",
-        "include_human_events": true,
-        "include_runtime_events": true,
-        "include_runtime_logs": true,
-        "target_tokens": 2400,
-        "token_budget": 6000,
-        "use_model_compression": false
-      },
-      "conversation_enabled": true,
-      "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
-      "default_context_addr": "localhost:50052",
+  "intent": {
+    "description": "An NVIDIA-only CCTV co-worker. Give it a local input folder of recordings or one approved RTSP/RTMP stream, visual targets, alert policy, and output folder; it prepares sampled frames with CUDA-enabled FFmpeg and writes source-grounded JSON and Markdown review reports.",
+    "problem": "One NVIDIA-only workflow now handles both staged recording folders and approved RTSP/RTMP streams, preserving source provenance in cumulative review reports.",
+    "safety": {
       "enabled": true,
-      "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
-      "namespace": "cctv_operator_context",
-      "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
-      "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
-      "sdk_distribution": "mirrorneuron-membrane-python-sdk",
-      "sdk_import_package": "mn_context_engine_sdk"
-    },
-    "models": {
-      "primary": {
-        "type": "vlm",
-        "provider": "docker_model_runner",
-        "model": "nemotron3",
-        "runtime_model": "nemotron3",
-        "backend": "llama.cpp",
-        "install_mode": "workflow_node",
-        "required": true
-      }
-    },
-    "observability": {
-      "panels": [
-        "current_status",
-        "recent_events",
-        "pending_human_requests",
-        "output_artifacts",
-        "resource_usage",
-        "errors",
-        "input_lag",
-        "backpressure",
-        "llm_calls",
-        "token_budget",
-        "llm_retries",
-        "output_skill_attempts",
-        "output_skill_failures"
-      ],
-      "reads": [
-        "events.jsonl",
-        "human.jsonl",
-        "logs.jsonl",
-        "resources.jsonl",
-        "result.json",
-        "final_artifact.json",
-        "cctv_report.json",
-        "cctv_report.md",
-        "web_ui.json"
-      ],
-      "schema_version": "mn.blueprint.observability_dashboard.v1",
-      "source": "local_run_store"
-    },
-    "resources": {
-      "cpu": {
-        "min_cores": 1
-      },
-      "disk": {
-        "min_gb": 1
-      },
-      "gpu": {
-        "min_count": 1,
-        "vendor": "nvidia",
-        "driver": "cuda",
-        "min_memory_mb": 49152,
-        "memory_operator": ">=",
-        "enforcement": "hard"
-      },
-      "memory": {
-        "min_gb": 2
-      }
-    },
-    "store": {
-      "artifacts": [
-        "run.json",
-        "config.json",
-        "inputs.json",
-        "events.jsonl",
-        "human.jsonl",
-        "logs.jsonl",
-        "resources.jsonl",
-        "result.json",
-        "final_artifact.json",
-        "cctv_report.json",
-        "cctv_report.md"
-      ],
-      "path": "./runs/${run_id}",
-      "type": "local_run_store"
-    },
-    "worker_defaults": {
-      "model": "nemotron3",
-      "pool": "default",
-      "pool_slots": 1,
-      "runner": "MirrorNeuron.Runner.HostLocal",
-      "uses": "mn-agents.data_python_executor@1",
-      "workdir": "/sandbox/job/workflow"
-    },
-    "workflow_control": {
-      "schema_version": "mn.workflow.runtime_control.v1",
-      "enabled": true,
-      "source_of_truth": "workflow.steps",
-      "state_ledger": {
-        "enabled": true,
-        "persisted_field": "workflow_state",
-        "step_statuses": [
-          "pending",
-          "ready",
-          "queued",
-          "running",
-          "retry_wait",
-          "blocked",
-          "completed",
-          "partial",
-          "skipped",
-          "failed"
-        ],
-        "message_ledger": true,
-        "delivery_semantics": "at_least_once_with_idempotency"
-      },
-      "attempts": {
-        "dispatch_metadata": [
-          "workflow_run_id",
-          "step_id",
-          "attempt_id",
-          "attempt",
-          "deadline_at",
-          "heartbeat_deadline_at",
-          "idempotency_key"
-        ],
-        "stale_attempt_outputs": "ignore",
-        "retry_policy_source": "workflow.steps[].control.retry",
-        "timeout_source": "workflow.steps[].control.timeout_seconds"
-      },
-      "liveness": {
-        "event": "agent_beacon",
-        "interval_ms": 15000,
-        "timeout_ms": 45000,
-        "required": true,
-        "missed_action": "fail_attempt"
-      },
-      "reconciliation": {
-        "interval_ms": 2000,
-        "on_timeout": "fail_attempt_then_retry",
-        "on_missed_beacon": "fail_attempt_then_retry",
-        "on_retry_exhausted": "apply_step_failure_policy"
-      },
-      "pause_cancel": {
-        "pause_mode": "stop_active_attempts",
-        "resume_mode": "reconcile_from_workflow_state",
-        "cancel_mode": "terminate_active_attempts"
-      },
       "events": [
-        "workflow_step_attempt_started",
-        "workflow_step_beacon",
-        "workflow_step_attempt_completed",
-        "workflow_step_attempt_timed_out",
-        "workflow_step_attempt_retry_scheduled",
-        "workflow_step_blocked",
-        "workflow_step_completed",
-        "workflow_step_failed",
-        "workflow_message_dead_lettered"
+        "human_notice",
+        "human_input_requested",
+        "human_input_received",
+        "human_input_timeout",
+        "human_decision_applied"
+      ],
+      "mode": "notice_only",
+      "notice_event": "human_notice",
+      "reason": "The workflow surfaces notable visual changes to reviewers but does not execute physical security actions by itself.",
+      "requires_ack": false
+    },
+    "target_users": "Video operators, security reviewers, safety operations teams, and site-access coordinators."
+  },
+  "kind": "WorkflowSource",
+  "knowledge_rag": {
+    "backend": "redis_vector_rag",
+    "chunk_overlap": 70,
+    "chunk_size": 700,
+    "embedding_api_base": "http://localhost:12434/engines/v1",
+    "embedding_document_prefix": "Document: ",
+    "embedding_healthcheck_enabled": true,
+    "embedding_model": "rag-embedding",
+    "embedding_provider": "docker_model_runner",
+    "embedding_query_prefix": "Query: ",
+    "embedding_start_command": "",
+    "enabled": true,
+    "grounding_policy": "Use retrieved local blueprint knowledge to improve actor review prompts; do not invent facts when retrieval is unavailable.",
+    "index_on_startup": false,
+    "knowledge_dir": "knowledge",
+    "max_context_chars": 4000,
+    "namespace": "",
+    "privacy": "index local blueprint knowledge only; do not index private run documents unless a future runtime explicitly opts in",
+    "purpose": "Retrieve approved CCTV policy for target detections, source provenance, cooldown behavior, and review-only alert boundaries.",
+    "redis_url": "",
+    "required": false,
+    "retrieval_targets": [
+      "visual target evidence",
+      "folder or stream source provenance",
+      "alert cooldowns",
+      "human review boundaries"
+    ],
+    "top_k": 4,
+    "vector_dim": 1024
+  },
+  "manifest": {
+    "input_validation": {
+      "rules": [
+        {
+          "command": [
+            "/usr/bin/python3",
+            "payloads/validation/validate_video_source.py"
+          ],
+          "name": "video_source_validate",
+          "timeout_seconds": 12,
+          "type": "command"
+        }
       ]
-    }
-  },
-  "input_validation": {
-    "rules": [
-      {
-        "command": [
-          "/usr/bin/python3",
-          "payloads/validation/validate_video_source.py"
-        ],
-        "name": "video_source_validate",
-        "timeout_seconds": 12,
-        "type": "command"
-      }
-    ]
-  },
-  "requirements": {
-    "cpu": {
-      "min_cores": 1
     },
-    "disk": {
-      "min_gb": 1
+    "license": "LICENSE.md",
+    "policies": {
+      "recovery_mode": "cluster_recover",
+      "stream_mode": "live"
     },
-    "gpu": {
-      "min_count": 1,
-      "vendor": "nvidia",
-      "driver": "cuda",
-      "min_memory_mb": 49152,
-      "memory_operator": ">=",
-      "enforcement": "hard"
-    },
-    "memory": {
-      "min_gb": 2
-    }
+    "requiredContextEngine": false,
+    "term": "TERM.md",
+    "type": "service"
   },
-  "policies": {
-    "recovery_mode": "cluster_recover",
-    "stream_mode": "live"
-  },
-  "requiredContextEngine": false,
-  "license": "LICENSE.md",
-  "term": "TERM.md",
   "metadata": {
     "agent_role": "AI assistant for reviewing recorded or live video activity and preparing visual detection reports and alerts.",
     "agent_templates": {
       "library": "../mn-agents/index.json",
       "nodes": [
         {
-          "node_id": "ingress",
           "alias": "video_monitor",
           "display_name": "Video Monitor",
+          "node_id": "ingress",
           "uses": "mn-agents.control_router@1"
         },
         {
-          "node_id": "video_frame_tick_source",
           "alias": "frame_sampler",
           "display_name": "Frame Sampler",
+          "node_id": "video_frame_tick_source",
           "uses": "mn-agents.data_module@1",
           "with": {
-            "module": "MirrorNeuron.Examples.CctvOperator.VideoFrameTickSource",
-            "module_source": "beam_modules/video_frame_tick_source.ex",
             "emit_type": "video_frame_tick_generated",
-            "interval_seconds": 20
+            "interval_seconds": 20,
+            "module": "MirrorNeuron.Examples.CctvOperator.VideoFrameTickSource",
+            "module_source": "beam_modules/video_frame_tick_source.ex"
           }
         },
         {
-          "node_id": "visual_detector",
           "alias": "quality_controller",
           "display_name": "Quality Controller",
+          "node_id": "visual_detector",
           "uses": "mn-agents.data_python_executor@1",
           "with": {
-            "script": "scripts/analyze_video_frame.py",
-            "runner_module": "MirrorNeuron.Runner.DockerWorker",
-            "docker_worker_image": "visual_detector/docker_worker",
-            "image": "mirror-neuron/cctv-operator:local",
-            "network": "mirror-neuron-runtime",
-            "gpus": "all",
-            "shared_container": true,
-            "reuse_shared_container": true,
-            "workdir": "/mn/job/visual_detector",
             "command": [
               "bash",
               "scripts/run_detector_on_nvidia.sh"
             ],
+            "docker_worker_image": "visual_detector/docker_worker",
+            "environment": {},
+            "gpus": "all",
+            "image": "mirror-neuron/cctv-operator:local",
+            "network": "mirror-neuron-runtime",
+            "output_message_type": "cctv_operator_detection",
+            "reuse_shared_container": true,
+            "runner_module": "MirrorNeuron.Runner.DockerWorker",
+            "script": "scripts/analyze_video_frame.py",
+            "shared_container": true,
             "upload_paths": [
               {
                 "source": "visual_detector",
@@ -1112,23 +643,23 @@
                 "target": "prompts"
               }
             ],
-            "output_message_type": "cctv_operator_detection",
-            "environment": {}
+            "workdir": "/mn/job/visual_detector"
           }
         },
         {
-          "node_id": "report_writer",
           "alias": "report_writer",
           "display_name": "CCTV Report Writer",
+          "node_id": "report_writer",
           "uses": "mn-agents.data_python_executor@1",
           "with": {
-            "script": "scripts/write_cctv_report.py",
-            "runner_module": "MirrorNeuron.Runner.HostLocal",
-            "workdir": "/sandbox/job/report_writer",
             "command": [
               "python3.11",
               "scripts/write_cctv_report.py"
             ],
+            "environment": {},
+            "output_message_type": "cctv_operator_report_ready",
+            "runner_module": "MirrorNeuron.Runner.HostLocal",
+            "script": "scripts/write_cctv_report.py",
             "upload_path": "report_writer",
             "upload_paths": [
               {
@@ -1136,101 +667,66 @@
                 "target": "report_writer"
               }
             ],
-            "output_message_type": "cctv_operator_report_ready",
-            "environment": {}
+            "workdir": "/sandbox/job/report_writer"
           }
         }
       ],
       "render_tool": "../mn-agents/tools/render_agent_templates.py",
-      "rendered_output": "manifest.rendered.json or runtime metadata",
-      "renderer": "mn_blueprint_support.render_manifest_agent_templates",
       "rendered": [
         {
           "node_id": "ingress",
-          "template_id": "mn-agents.control_router",
-          "version": 1,
           "original_node": {
+            "alias": "video_monitor",
+            "display_name": "Video Monitor",
             "node_id": "ingress",
             "uses": "mn-agents.control_router@1",
-            "with": {},
-            "alias": "video_monitor",
-            "display_name": "Video Monitor"
+            "with": {}
           },
           "rendered_node": {
-            "node_id": "ingress",
-            "type": "map",
             "agent_type": "router",
-            "config": {},
             "alias": "video_monitor",
-            "display_name": "Video Monitor"
-          }
+            "config": {},
+            "display_name": "Video Monitor",
+            "node_id": "ingress",
+            "type": "map"
+          },
+          "template_id": "mn-agents.control_router",
+          "version": 1
         },
         {
           "node_id": "video_frame_tick_source",
-          "template_id": "mn-agents.data_module",
-          "version": 1,
           "original_node": {
+            "alias": "frame_sampler",
+            "display_name": "Frame Sampler",
             "node_id": "video_frame_tick_source",
             "uses": "mn-agents.data_module@1",
             "with": {
-              "module": "MirrorNeuron.Examples.CctvOperator.VideoFrameTickSource",
-              "module_source": "beam_modules/video_frame_tick_source.ex",
               "emit_type": "video_frame_tick_generated",
-              "interval_seconds": 20
-            },
-            "alias": "frame_sampler",
-            "display_name": "Frame Sampler"
+              "interval_seconds": 20,
+              "module": "MirrorNeuron.Examples.CctvOperator.VideoFrameTickSource",
+              "module_source": "beam_modules/video_frame_tick_source.ex"
+            }
           },
           "rendered_node": {
-            "node_id": "video_frame_tick_source",
-            "type": "generic",
             "agent_type": "module",
-            "config": {
-              "module": "MirrorNeuron.Examples.CctvOperator.VideoFrameTickSource",
-              "module_source": "beam_modules/video_frame_tick_source.ex",
-              "emit_type": "video_frame_tick_generated",
-              "interval_seconds": 20
-            },
             "alias": "frame_sampler",
-            "display_name": "Frame Sampler"
-          }
+            "config": {
+              "emit_type": "video_frame_tick_generated",
+              "interval_seconds": 20,
+              "module": "MirrorNeuron.Examples.CctvOperator.VideoFrameTickSource",
+              "module_source": "beam_modules/video_frame_tick_source.ex"
+            },
+            "display_name": "Frame Sampler",
+            "node_id": "video_frame_tick_source",
+            "type": "generic"
+          },
+          "template_id": "mn-agents.data_module",
+          "version": 1
         },
         {
           "node_id": "visual_detector",
-          "template_id": "mn-agents.data_python_executor",
-          "version": 1,
           "original_node": {
-            "node_id": "visual_detector",
-            "uses": "mn-agents.data_python_executor@1",
-            "with": {
-              "script": "scripts/analyze_video_frame.py",
-              "runner_module": "MirrorNeuron.Runner.DockerWorker",
-              "docker_worker_image": "visual_detector/docker_worker",
-              "image": "mirror-neuron/cctv-operator:local",
-              "network": "mirror-neuron-runtime",
-              "gpus": "all",
-              "shared_container": true,
-              "reuse_shared_container": true,
-              "workdir": "/mn/job/visual_detector",
-              "command": [
-                "bash",
-                "scripts/run_detector_on_nvidia.sh"
-              ],
-              "upload_paths": [
-                {
-                  "source": "visual_detector",
-                  "target": "visual_detector"
-                },
-                {
-                  "source": "prompts",
-                  "target": "prompts"
-                }
-              ],
-              "output_message_type": "cctv_operator_detection",
-              "environment": {}
-            },
             "alias": "quality_controller",
-            "display_name": "Quality Controller",
             "constraints": [
               {
                 "attribute": "capabilities",
@@ -1241,39 +737,78 @@
                 ]
               }
             ],
+            "display_name": "Quality Controller",
+            "node_id": "visual_detector",
             "resources": {
-              "gpu_count": 1,
               "devices": [
                 {
-                  "kind": "gpu",
-                  "type": "nvidia/gpu",
-                  "vendor": "nvidia",
-                  "driver": "cuda",
                   "count": 1,
+                  "driver": "cuda",
+                  "kind": "gpu",
+                  "memory_operator": ">=",
                   "min_memory_mb": 49152,
-                  "memory_operator": ">="
+                  "type": "nvidia/gpu",
+                  "vendor": "nvidia"
                 }
-              ]
+              ],
+              "gpu_count": 1
+            },
+            "uses": "mn-agents.data_python_executor@1",
+            "with": {
+              "command": [
+                "bash",
+                "scripts/run_detector_on_nvidia.sh"
+              ],
+              "docker_worker_image": "visual_detector/docker_worker",
+              "environment": {},
+              "gpus": "all",
+              "image": "mirror-neuron/cctv-operator:local",
+              "network": "mirror-neuron-runtime",
+              "output_message_type": "cctv_operator_detection",
+              "reuse_shared_container": true,
+              "runner_module": "MirrorNeuron.Runner.DockerWorker",
+              "script": "scripts/analyze_video_frame.py",
+              "shared_container": true,
+              "upload_paths": [
+                {
+                  "source": "visual_detector",
+                  "target": "visual_detector"
+                },
+                {
+                  "source": "prompts",
+                  "target": "prompts"
+                }
+              ],
+              "workdir": "/mn/job/visual_detector"
             }
           },
           "rendered_node": {
-            "node_id": "visual_detector",
-            "type": "generic",
             "agent_type": "executor",
+            "alias": "quality_controller",
             "config": {
-              "runner_module": "MirrorNeuron.Runner.DockerWorker",
+              "agent_beacon_required": true,
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_missed_action": "fail_attempt",
+              "beacon_timeout_ms": 45000,
+              "command": [
+                "bash",
+                "scripts/run_detector_on_nvidia.sh"
+              ],
               "docker_worker_image": "visual_detector/docker_worker",
+              "environment": {},
+              "from": "base",
+              "gpus": "all",
               "image": "mirror-neuron/cctv-operator:local",
               "network": "mirror-neuron-runtime",
-              "gpus": "all",
-              "shared_container": true,
-              "reuse_shared_container": true,
-              "workdir": "/mn/job/visual_detector",
-              "from": "base",
               "no_auto_providers": true,
               "no_keep": true,
+              "output_message_type": "cctv_operator_detection",
               "pool": "default",
               "pool_slots": 1,
+              "reuse_shared_container": true,
+              "runner_module": "MirrorNeuron.Runner.DockerWorker",
+              "shared_container": true,
               "tty": false,
               "upload_paths": [
                 {
@@ -1285,20 +820,8 @@
                   "target": "prompts"
                 }
               ],
-              "output_message_type": "cctv_operator_detection",
-              "environment": {},
-              "command": [
-                "bash",
-                "scripts/run_detector_on_nvidia.sh"
-              ],
-              "beacon_enabled": true,
-              "beacon_interval_ms": 15000,
-              "beacon_timeout_ms": 45000,
-              "beacon_missed_action": "fail_attempt",
-              "agent_beacon_required": true
+              "workdir": "/mn/job/visual_detector"
             },
-            "alias": "quality_controller",
-            "display_name": "Quality Controller",
             "constraints": [
               {
                 "attribute": "capabilities",
@@ -1309,39 +832,43 @@
                 ]
               }
             ],
+            "display_name": "Quality Controller",
+            "node_id": "visual_detector",
             "resources": {
-              "gpu_count": 1,
               "devices": [
                 {
-                  "kind": "gpu",
-                  "type": "nvidia/gpu",
-                  "vendor": "nvidia",
-                  "driver": "cuda",
                   "count": 1,
+                  "driver": "cuda",
+                  "kind": "gpu",
+                  "memory_operator": ">=",
                   "min_memory_mb": 49152,
-                  "memory_operator": ">="
+                  "type": "nvidia/gpu",
+                  "vendor": "nvidia"
                 }
-              ]
-            }
-          }
+              ],
+              "gpu_count": 1
+            },
+            "type": "generic"
+          },
+          "template_id": "mn-agents.data_python_executor",
+          "version": 1
         },
         {
           "node_id": "report_writer",
-          "template_id": "mn-agents.data_python_executor",
-          "version": 1,
           "original_node": {
-            "node_id": "report_writer",
             "alias": "report_writer",
             "display_name": "CCTV Report Writer",
+            "node_id": "report_writer",
             "uses": "mn-agents.data_python_executor@1",
             "with": {
-              "script": "scripts/write_cctv_report.py",
-              "runner_module": "MirrorNeuron.Runner.HostLocal",
-              "workdir": "/sandbox/job/report_writer",
               "command": [
                 "python3.11",
                 "scripts/write_cctv_report.py"
               ],
+              "environment": {},
+              "output_message_type": "cctv_operator_report_ready",
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
+              "script": "scripts/write_cctv_report.py",
               "upload_path": "report_writer",
               "upload_paths": [
                 {
@@ -1349,48 +876,74 @@
                   "target": "report_writer"
                 }
               ],
-              "output_message_type": "cctv_operator_report_ready",
-              "environment": {}
+              "workdir": "/sandbox/job/report_writer"
             }
           },
           "rendered_node": {
-            "node_id": "report_writer",
-            "type": "generic",
             "agent_type": "executor",
+            "alias": "report_writer",
             "config": {
-              "runner_module": "MirrorNeuron.Runner.HostLocal",
-              "upload_path": "report_writer",
-              "upload_as": "report_writer",
-              "workdir": "/sandbox/job/report_writer",
+              "agent_beacon_required": true,
+              "beacon_enabled": true,
+              "beacon_interval_ms": 15000,
+              "beacon_missed_action": "fail_attempt",
+              "beacon_timeout_ms": 45000,
+              "command": [
+                "python3.11",
+                "scripts/write_cctv_report.py"
+              ],
+              "environment": {},
               "from": "base",
               "no_auto_providers": true,
               "no_keep": true,
+              "output_message_type": "cctv_operator_report_ready",
               "pool": "default",
               "pool_slots": 1,
+              "runner_module": "MirrorNeuron.Runner.HostLocal",
               "tty": false,
+              "upload_as": "report_writer",
+              "upload_path": "report_writer",
               "upload_paths": [
                 {
                   "source": "report_writer",
                   "target": "report_writer"
                 }
               ],
-              "output_message_type": "cctv_operator_report_ready",
-              "environment": {},
-              "command": [
-                "python3.11",
-                "scripts/write_cctv_report.py"
-              ],
-              "beacon_enabled": true,
-              "beacon_interval_ms": 15000,
-              "beacon_timeout_ms": 45000,
-              "beacon_missed_action": "fail_attempt",
-              "agent_beacon_required": true
+              "workdir": "/sandbox/job/report_writer"
             },
-            "alias": "report_writer",
-            "display_name": "CCTV Report Writer"
-          }
+            "display_name": "CCTV Report Writer",
+            "node_id": "report_writer",
+            "type": "generic"
+          },
+          "template_id": "mn-agents.data_python_executor",
+          "version": 1
         }
-      ]
+      ],
+      "rendered_output": "manifest.rendered.json or runtime metadata",
+      "renderer": "mn_blueprint_support.render_manifest_agent_templates"
+    },
+    "agentic_research": {
+      "agent_ids": [
+        "video_source_validator",
+        "frame_sampler",
+        "visual_target_detector",
+        "quality_controller",
+        "report_writer"
+      ],
+      "allowed_tools": [
+        "video_source_validate",
+        "frame_sample",
+        "visual_model_infer",
+        "alert_policy_check",
+        "knowledge_retrieve",
+        "finish"
+      ],
+      "default_mode": "bounded_llm_guided_cctv_operator_review",
+      "enabled": true,
+      "max_iterations_per_agent": 1,
+      "max_tool_calls_per_agent": 2,
+      "note": "CCTV actors ground detections in staged files or the configured stream, frame evidence, and alert policy.",
+      "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run"
     },
     "blueprint_id": "cctv_operator",
     "category": "business",
@@ -1413,6 +966,10 @@
     },
     "customizable_for": "Video monitoring, configurable visual detection, facility operations, and site safety workflows.",
     "description": "An NVIDIA-only CCTV co-worker. Give it a local input folder of recordings or one approved RTSP/RTMP stream, visual targets, alert policy, and output folder; it prepares sampled frames with CUDA-enabled FFmpeg and writes source-grounded JSON and Markdown review reports.",
+    "features": [
+      "optional local knowledge RAG grounding",
+      "bounded LLM tool-plan contract"
+    ],
     "human_control": {
       "enabled": true,
       "events": [
@@ -1437,12 +994,12 @@
           "type": "domain_value"
         },
         {
-          "path": "video_source.folder_path",
-          "label": "Input folder",
           "default": "cctv_operator/examples/sample_inputs",
           "description": "Folder whose supported video files are staged and analyzed in folder mode.",
-          "type": "local_path",
-          "path_kind": "directory"
+          "label": "Input folder",
+          "path": "video_source.folder_path",
+          "path_kind": "directory",
+          "type": "local_path"
         },
         {
           "default": "",
@@ -1459,19 +1016,17 @@
           "type": "domain_value"
         },
         {
-          "path": "inputs.payload.visual_targets",
-          "label": "Visual targets",
           "default": [
             "person",
             "unattended package",
             "restricted-area entry"
           ],
           "description": "Subjects, objects, or activities to detect in recordings or the approved stream.",
+          "label": "Visual targets",
+          "path": "inputs.payload.visual_targets",
           "type": "domain_value"
         },
         {
-          "path": "inputs.payload.alert_policy",
-          "label": "Alert policy",
           "default": {
             "cooldown_seconds": 120,
             "min_confidence": 0.55,
@@ -1482,15 +1037,17 @@
             ]
           },
           "description": "Confidence, cooldown, and notification policy for reviewer notices.",
+          "label": "Alert policy",
+          "path": "inputs.payload.alert_policy",
           "type": "domain_value"
         },
         {
-          "path": "outputs.folder_path",
-          "label": "Output folder",
           "default": "~/Download/cctv_operator",
           "description": "Default local output folder for generated artifacts and reports.",
-          "type": "local_path",
-          "path_kind": "directory"
+          "label": "Output folder",
+          "path": "outputs.folder_path",
+          "path_kind": "directory",
+          "type": "local_path"
         }
       ],
       "instruction": "When running in OtterDesk, show these overwriteable fields during init config and ask the user to change them or keep the defaults before launch.",
@@ -1512,22 +1069,22 @@
           "type": "domain_value"
         },
         {
-          "name": "input_folder",
-          "type": "local_path",
-          "path_kind": "directory",
           "description": "Default local input folder for sample files or user-provided files.",
           "example": "cctv_operator/examples/sample_inputs",
+          "name": "input_folder",
+          "path_kind": "directory",
           "privacy": "internal",
-          "required": false
+          "required": false,
+          "type": "local_path"
         },
         {
-          "name": "output_folder",
-          "type": "local_path",
-          "path_kind": "directory",
           "description": "Default local output folder for generated artifacts and reports.",
           "example": "~/Download/cctv_operator",
+          "name": "output_folder",
+          "path_kind": "directory",
           "privacy": "internal",
-          "required": false
+          "required": false,
+          "type": "local_path"
         }
       ],
       "privacy_classification": "internal",
@@ -1612,6 +1169,10 @@
     },
     "interfaces": {
       "channels": {
+        "agentic_research": {
+          "config": "agentic_research",
+          "description": "Bounded LLM-selected or actor-guided tool contract for domain work."
+        },
         "artifacts": {
           "artifacts": [
             "run.json",
@@ -1648,6 +1209,12 @@
         "inputs": {
           "artifact": "inputs.json",
           "description": "Resolved runtime inputs and adapter provenance."
+        },
+        "knowledge_rag": {
+          "artifact": "knowledge/",
+          "config": "knowledge_rag",
+          "description": "Optional local blueprint knowledge retrieval used to ground actor prompts and tool planning.",
+          "privacy": "blueprint knowledge only by default"
         },
         "logs": {
           "description": "Runtime stdout/stderr and explicit log artifacts.",
@@ -1704,19 +1271,42 @@
             "web/index.html"
           ],
           "description": "Optional web input/output handles."
-        },
-        "knowledge_rag": {
-          "description": "Optional local blueprint knowledge retrieval used to ground actor prompts and tool planning.",
-          "config": "knowledge_rag",
-          "artifact": "knowledge/",
-          "privacy": "blueprint knowledge only by default"
-        },
-        "agentic_research": {
-          "description": "Bounded LLM-selected or actor-guided tool contract for domain work.",
-          "config": "agentic_research"
         }
       },
       "config": [
+        "standard_version",
+        "identity",
+        "mode",
+        "metadata",
+        "inputs",
+        "simulation",
+        "llm",
+        "outputs",
+        "logging",
+        "resources",
+        "human_control",
+        "real_adapters",
+        "streams",
+        "input_skills",
+        "output_skills",
+        "error_handling",
+        "state",
+        "capabilities",
+        "privacy",
+        "triggers",
+        "backpressure",
+        "determinism",
+        "schemas",
+        "budgets",
+        "agent_handoffs",
+        "web_ui",
+        "interfaces",
+        "execution_model",
+        "openshell_network",
+        "knowledge_rag",
+        "agentic_research"
+      ],
+      "config_sections": [
         "standard_version",
         "identity",
         "mode",
@@ -1810,40 +1400,37 @@
         "static_html",
         "gradio",
         "custom"
-      ],
-      "config_sections": [
-        "standard_version",
-        "identity",
-        "mode",
-        "metadata",
-        "inputs",
-        "simulation",
-        "llm",
-        "outputs",
-        "logging",
-        "resources",
-        "human_control",
-        "real_adapters",
-        "streams",
-        "input_skills",
-        "output_skills",
-        "error_handling",
-        "state",
-        "capabilities",
-        "privacy",
-        "triggers",
-        "backpressure",
-        "determinism",
-        "schemas",
-        "budgets",
-        "agent_handoffs",
-        "web_ui",
-        "interfaces",
-        "execution_model",
-        "openshell_network",
-        "knowledge_rag",
-        "agentic_research"
       ]
+    },
+    "knowledge_rag": {
+      "backend": "redis_vector_rag",
+      "chunk_overlap": 70,
+      "chunk_size": 700,
+      "embedding_api_base": "http://localhost:12434/engines/v1",
+      "embedding_document_prefix": "Document: ",
+      "embedding_healthcheck_enabled": true,
+      "embedding_model": "rag-embedding",
+      "embedding_provider": "docker_model_runner",
+      "embedding_query_prefix": "Query: ",
+      "embedding_start_command": "",
+      "enabled": true,
+      "grounding_policy": "Use retrieved local blueprint knowledge to improve actor review prompts; do not invent facts when retrieval is unavailable.",
+      "index_on_startup": false,
+      "knowledge_dir": "knowledge",
+      "max_context_chars": 4000,
+      "namespace": "",
+      "privacy": "index local blueprint knowledge only; do not index private run documents unless a future runtime explicitly opts in",
+      "purpose": "Retrieve approved CCTV policy for target detections, source provenance, cooldown behavior, and review-only alert boundaries.",
+      "redis_url": "",
+      "required": false,
+      "retrieval_targets": [
+        "visual target evidence",
+        "folder or stream source provenance",
+        "alert cooldowns",
+        "human review boundaries"
+      ],
+      "top_k": 4,
+      "vector_dim": 1024
     },
     "llm_agent_role": "AI assistant for reviewing recorded or live video activity and preparing visual detection reports and alerts.",
     "memory_layer": {
@@ -2078,13 +1665,13 @@
       "logs_jsonl": "logs.jsonl",
       "output_skills": [
         {
+          "activation": "Set MN_BLUEPRINT_EVENTS_WS_URL and enable this output skill via config override to stream events.",
           "connector": "websocket",
           "content": "events",
           "destination": "MN_BLUEPRINT_EVENTS_WS_URL",
           "enabled": false,
           "failure_policy": "skip",
           "integration_status": "optional_mock_disabled_by_default",
-          "activation": "Set MN_BLUEPRINT_EVENTS_WS_URL and enable this output skill via config override to stream events.",
           "mock": true,
           "name": "websocket_events",
           "required": false,
@@ -2102,6 +1689,10 @@
       "enabled": false,
       "env": "MN_BLUEPRINT_QUICK_TEST=1"
     },
+    "required_cluster_capabilities": [
+      "nvidia",
+      "cuda"
+    ],
     "runtime_features": [
       "video sampling",
       "visual detection review",
@@ -2160,6 +1751,12 @@
       "workflow_model": "contract -> workflow -> agents/runtime"
     },
     "status_contract": {
+      "attempt_event": "workflow_step_attempt_started",
+      "beacon_event": "agent_beacon",
+      "beacon_interval_ms": 15000,
+      "beacon_missed_action": "fail_attempt",
+      "beacon_timeout_ms": 45000,
+      "blocked_event": "workflow_step_blocked",
       "heartbeat_event": "agent_beacon",
       "heartbeat_required": true,
       "phases": [
@@ -2204,17 +1801,11 @@
           "start_event": "blueprint_phase_started"
         }
       ],
+      "retry_event": "workflow_step_attempt_retry_scheduled",
+      "runtime_state_source": "workflow_state",
       "schema_version": "mn.blueprint.status_contract.v1",
       "source": "run_store",
       "status_event": "blueprint_status",
-      "beacon_event": "agent_beacon",
-      "beacon_interval_ms": 15000,
-      "beacon_timeout_ms": 45000,
-      "beacon_missed_action": "fail_attempt",
-      "runtime_state_source": "workflow_state",
-      "attempt_event": "workflow_step_attempt_started",
-      "retry_event": "workflow_step_attempt_retry_scheduled",
-      "blocked_event": "workflow_step_blocked",
       "terminal_step_events": [
         "workflow_step_completed",
         "workflow_step_partial",
@@ -2246,17 +1837,17 @@
     "target_user": "Video operators, security reviewers, safety operations teams, and site-access coordinators.",
     "target_users": "Video operators, security reviewers, safety operations teams, and site-access coordinators.",
     "video_source": {
-      "mode": "folder",
-      "folder_path": "cctv_operator/examples/sample_inputs",
-      "uri": "",
-      "media_accelerator": "nvidia_cuda",
       "config_env": [
         "VIDEO_SOURCE_URI",
         "CCTV_VIDEO_INPUT_FOLDER",
         "CCTV_MEDIA_ACCELERATOR"
       ],
       "description": "Folder mode processes all supported staged recordings; stream mode samples one approved RTSP/RTMP URI. CUDA-enabled FFmpeg is the only media-preparation path.",
-      "transport": "auto"
+      "folder_path": "cctv_operator/examples/sample_inputs",
+      "media_accelerator": "nvidia_cuda",
+      "mode": "folder",
+      "transport": "auto",
+      "uri": ""
     },
     "web_ui": {
       "adapter": "gradio",
@@ -2340,120 +1931,501 @@
         "auto_start": false,
         "enabled": false
       }
-    },
-    "required_cluster_capabilities": [
-      "nvidia",
-      "cuda"
-    ],
-    "knowledge_rag": {
-      "enabled": true,
-      "backend": "redis_vector_rag",
-      "required": false,
-      "knowledge_dir": "knowledge",
-      "purpose": "Retrieve approved CCTV policy for target detections, source provenance, cooldown behavior, and review-only alert boundaries.",
-      "retrieval_targets": [
-        "visual target evidence",
-        "folder or stream source provenance",
-        "alert cooldowns",
-        "human review boundaries"
-      ],
-      "grounding_policy": "Use retrieved local blueprint knowledge to improve actor review prompts; do not invent facts when retrieval is unavailable.",
-      "redis_url": "",
-      "namespace": "",
-      "embedding_provider": "docker_model_runner",
-      "embedding_model": "rag-embedding",
-      "embedding_api_base": "http://localhost:12434/engines/v1",
-      "embedding_query_prefix": "Query: ",
-      "embedding_document_prefix": "Document: ",
-      "embedding_start_command": "",
-      "embedding_healthcheck_enabled": true,
-      "vector_dim": 1024,
-      "index_on_startup": false,
-      "top_k": 4,
-      "max_context_chars": 4000,
-      "chunk_size": 700,
-      "chunk_overlap": 70,
-      "privacy": "index local blueprint knowledge only; do not index private run documents unless a future runtime explicitly opts in"
-    },
-    "agentic_research": {
-      "enabled": true,
-      "agent_ids": [
-        "video_source_validator",
-        "frame_sampler",
-        "visual_target_detector",
-        "quality_controller",
-        "report_writer"
-      ],
-      "max_iterations_per_agent": 1,
-      "max_tool_calls_per_agent": 2,
-      "allowed_tools": [
-        "video_source_validate",
-        "frame_sample",
-        "visual_model_infer",
-        "alert_policy_check",
-        "knowledge_retrieve",
-        "finish"
-      ],
-      "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run",
-      "default_mode": "bounded_llm_guided_cctv_operator_review",
-      "note": "CCTV actors ground detections in staged files or the configured stream, frame evidence, and alert policy."
-    },
-    "features": [
-      "optional local knowledge RAG grounding",
-      "bounded LLM tool-plan contract"
-    ]
+    }
   },
-  "knowledge_rag": {
-    "enabled": true,
-    "backend": "redis_vector_rag",
-    "required": false,
-    "knowledge_dir": "knowledge",
-    "purpose": "Retrieve approved CCTV policy for target detections, source provenance, cooldown behavior, and review-only alert boundaries.",
-    "retrieval_targets": [
-      "visual target evidence",
-      "folder or stream source provenance",
-      "alert cooldowns",
-      "human review boundaries"
-    ],
-    "grounding_policy": "Use retrieved local blueprint knowledge to improve actor review prompts; do not invent facts when retrieval is unavailable.",
-    "redis_url": "",
-    "namespace": "",
-    "embedding_provider": "docker_model_runner",
-    "embedding_model": "rag-embedding",
-    "embedding_api_base": "http://localhost:12434/engines/v1",
-    "embedding_query_prefix": "Query: ",
-    "embedding_document_prefix": "Document: ",
-    "embedding_start_command": "",
-    "embedding_healthcheck_enabled": true,
-    "vector_dim": 1024,
-    "index_on_startup": false,
-    "top_k": 4,
-    "max_context_chars": 4000,
-    "chunk_size": 700,
-    "chunk_overlap": 70,
-    "privacy": "index local blueprint knowledge only; do not index private run documents unless a future runtime explicitly opts in"
+  "requirements": {
+    "cpu": {
+      "min_cores": 1
+    },
+    "disk": {
+      "min_gb": 1
+    },
+    "gpu": {
+      "driver": "cuda",
+      "enforcement": "hard",
+      "memory_operator": ">=",
+      "min_count": 1,
+      "min_memory_mb": 49152,
+      "vendor": "nvidia"
+    },
+    "memory": {
+      "min_gb": 2
+    }
   },
-  "agentic_research": {
-    "enabled": true,
-    "agent_ids": [
-      "video_source_validator",
-      "frame_sampler",
-      "visual_target_detector",
-      "quality_controller",
-      "report_writer"
+  "runtime": {
+    "bindings": {
+      "detect_visual_targets": {
+        "risk": "low",
+        "side_effect": "read",
+        "strategy": "fanout_reduce",
+        "type": "team",
+        "workers": [
+          {
+            "alias": "visual_target_detector",
+            "display_name": "Visual Target Detector",
+            "id": "visual_target_detector",
+            "model": "nemotron3",
+            "role": "Run visual detection",
+            "tokens": 14000,
+            "tools": 4
+          },
+          {
+            "alias": "quality_controller",
+            "display_name": "Quality Controller",
+            "id": "quality_controller",
+            "model": "nemotron3",
+            "role": "Review alert quality",
+            "tokens": 14000,
+            "tools": 4
+          }
+        ]
+      },
+      "sample_video_frames": {
+        "risk": "low",
+        "side_effect": "read",
+        "strategy": "single",
+        "type": "worker",
+        "workers": [
+          {
+            "alias": "frame_sampler",
+            "display_name": "Frame Sampler",
+            "id": "frame_sampler",
+            "model": "nemotron3",
+            "role": "Sample video frames",
+            "tokens": 14000,
+            "tools": 4
+          }
+        ]
+      },
+      "start_video_monitor": {
+        "risk": "low",
+        "seed_inputs": {
+          "ingress": [
+            {
+              "payload": {
+                "stream_id": "cctv_operator"
+              },
+              "type": "cctv_operator_start"
+            }
+          ]
+        },
+        "side_effect": "read",
+        "strategy": "fanout_reduce",
+        "type": "team",
+        "workers": [
+          {
+            "alias": "video_source_validator",
+            "display_name": "Video Source Validator",
+            "id": "video_source_validator",
+            "model": "nemotron3",
+            "role": "Validate video source",
+            "tokens": 14000,
+            "tools": 4
+          },
+          {
+            "alias": "video_monitor",
+            "display_name": "Video Monitor",
+            "id": "video_monitor",
+            "model": "nemotron3",
+            "role": "Coordinate video monitoring",
+            "tokens": 14000,
+            "tools": 4
+          }
+        ]
+      },
+      "write_cctv_report": {
+        "risk": "low",
+        "side_effect": "read",
+        "strategy": "single",
+        "type": "worker",
+        "workers": [
+          {
+            "alias": "report_writer",
+            "display_name": "CCTV Report Writer",
+            "id": "report_writer",
+            "model": "nemotron3",
+            "role": "Write cumulative CCTV reports",
+            "tokens": 14000,
+            "tools": 4
+          }
+        ]
+      }
+    },
+    "memory": {
+      "collection": "mn_memory",
+      "containers": "optional_sidecar",
+      "context_addr_env": "MN_CONTEXT_ADDR",
+      "conversation": {
+        "agent_role": "otterdesk_chat",
+        "include_human_events": true,
+        "include_runtime_events": true,
+        "include_runtime_logs": true,
+        "target_tokens": 2400,
+        "token_budget": 6000,
+        "use_model_compression": false
+      },
+      "conversation_enabled": true,
+      "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
+      "default_context_addr": "localhost:50052",
+      "enabled": true,
+      "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
+      "namespace": "cctv_operator_context",
+      "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
+      "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
+      "sdk_distribution": "mirrorneuron-membrane-python-sdk",
+      "sdk_import_package": "mn_context_engine_sdk"
+    },
+    "models": {
+      "primary": {
+        "backend": "llama.cpp",
+        "install_mode": "workflow_node",
+        "model": "nemotron3",
+        "provider": "docker_model_runner",
+        "required": true,
+        "runtime_model": "nemotron3",
+        "type": "vlm"
+      }
+    },
+    "observability": {
+      "panels": [
+        "current_status",
+        "recent_events",
+        "pending_human_requests",
+        "output_artifacts",
+        "resource_usage",
+        "errors",
+        "input_lag",
+        "backpressure",
+        "llm_calls",
+        "token_budget",
+        "llm_retries",
+        "output_skill_attempts",
+        "output_skill_failures"
+      ],
+      "reads": [
+        "events.jsonl",
+        "human.jsonl",
+        "logs.jsonl",
+        "resources.jsonl",
+        "result.json",
+        "final_artifact.json",
+        "cctv_report.json",
+        "cctv_report.md",
+        "web_ui.json"
+      ],
+      "schema_version": "mn.blueprint.observability_dashboard.v1",
+      "source": "local_run_store"
+    },
+    "placement": {
+      "mode": "single_node"
+    },
+    "resources": {
+      "cpu": {
+        "min_cores": 1
+      },
+      "disk": {
+        "min_gb": 1
+      },
+      "gpu": {
+        "driver": "cuda",
+        "enforcement": "hard",
+        "memory_operator": ">=",
+        "min_count": 1,
+        "min_memory_mb": 49152,
+        "vendor": "nvidia"
+      },
+      "memory": {
+        "min_gb": 2
+      }
+    },
+    "store": {
+      "artifacts": [
+        "run.json",
+        "config.json",
+        "inputs.json",
+        "events.jsonl",
+        "human.jsonl",
+        "logs.jsonl",
+        "resources.jsonl",
+        "result.json",
+        "final_artifact.json",
+        "cctv_report.json",
+        "cctv_report.md"
+      ],
+      "path": "./runs/${run_id}",
+      "type": "local_run_store"
+    },
+    "worker_defaults": {
+      "model": "nemotron3",
+      "pool": "default",
+      "pool_slots": 1,
+      "runner": "MirrorNeuron.Runner.HostLocal",
+      "uses": "mn-agents.data_python_executor@1",
+      "workdir": "/sandbox/job/workflow"
+    },
+    "workflow_control": {
+      "attempts": {
+        "dispatch_metadata": [
+          "workflow_run_id",
+          "step_id",
+          "attempt_id",
+          "attempt",
+          "deadline_at",
+          "heartbeat_deadline_at",
+          "idempotency_key"
+        ],
+        "retry_policy_source": "workflow.steps[].control.retry",
+        "stale_attempt_outputs": "ignore",
+        "timeout_source": "workflow.steps[].control.timeout_seconds"
+      },
+      "enabled": true,
+      "events": [
+        "workflow_step_attempt_started",
+        "workflow_step_beacon",
+        "workflow_step_attempt_completed",
+        "workflow_step_attempt_timed_out",
+        "workflow_step_attempt_retry_scheduled",
+        "workflow_step_blocked",
+        "workflow_step_completed",
+        "workflow_step_failed",
+        "workflow_message_dead_lettered"
+      ],
+      "liveness": {
+        "event": "agent_beacon",
+        "interval_ms": 15000,
+        "missed_action": "fail_attempt",
+        "required": true,
+        "timeout_ms": 45000
+      },
+      "pause_cancel": {
+        "cancel_mode": "terminate_active_attempts",
+        "pause_mode": "stop_active_attempts",
+        "resume_mode": "reconcile_from_workflow_state"
+      },
+      "reconciliation": {
+        "interval_ms": 2000,
+        "on_missed_beacon": "fail_attempt_then_retry",
+        "on_retry_exhausted": "apply_step_failure_policy",
+        "on_timeout": "fail_attempt_then_retry"
+      },
+      "schema_version": "mn.workflow.runtime_control.v1",
+      "source_of_truth": "workflow.steps",
+      "state_ledger": {
+        "delivery_semantics": "at_least_once_with_idempotency",
+        "enabled": true,
+        "message_ledger": true,
+        "persisted_field": "workflow_state",
+        "step_statuses": [
+          "pending",
+          "ready",
+          "queued",
+          "running",
+          "retry_wait",
+          "blocked",
+          "completed",
+          "partial",
+          "skipped",
+          "failed"
+        ]
+      }
+    }
+  },
+  "skill_dependencies": [
+    {
+      "name": "mirrorneuron-blueprint-support-skill",
+      "source": "gar",
+      "type": "pip",
+      "version": "1.2.22"
+    },
+    {
+      "name": "mirrorneuron-websocket-stream-skill",
+      "source": "gar",
+      "type": "pip",
+      "version": "1.2.22"
+    }
+  ],
+  "standard": {
+    "migration_policy": "sdk_managed",
+    "profile": "document_workflow",
+    "source_schema": "mn.workflow.source/v2",
+    "target_schema": "mn.workflow/v1"
+  },
+  "workflow": {
+    "edges": [
+      {
+        "accepts": [
+          "done"
+        ],
+        "event": "video_monitor_start",
+        "from": "start_video_monitor",
+        "id": "start_video_monitor_to_sample_video_frames",
+        "required": true,
+        "to": "sample_video_frames"
+      },
+      {
+        "accepts": [
+          "done"
+        ],
+        "event": "video_frame_tick_generated",
+        "from": "sample_video_frames",
+        "id": "sample_video_frames_to_detect_visual_targets",
+        "required": true,
+        "to": "detect_visual_targets"
+      },
+      {
+        "accepts": [
+          "done"
+        ],
+        "event": "cctv_operator_detection",
+        "from": "detect_visual_targets",
+        "id": "detect_visual_targets_to_write_cctv_report",
+        "required": true,
+        "to": "write_cctv_report"
+      }
     ],
-    "max_iterations_per_agent": 1,
-    "max_tool_calls_per_agent": 2,
-    "allowed_tools": [
-      "video_source_validate",
-      "frame_sample",
-      "visual_model_infer",
-      "alert_policy_check",
-      "knowledge_retrieve",
-      "finish"
+    "execution": {
+      "strategy": "parallel"
+    },
+    "steps": [
+      {
+        "control": {
+          "failure_policy": "fail_workflow",
+          "required": true,
+          "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 1,
+            "jitter": 0,
+            "max_attempts": 2
+          },
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0,
+            "on_low_confidence": "continue_with_warning"
+          }
+        },
+        "goal": "Validate the selected recording folder or RTSP/RTMP stream and start the analysis session.",
+        "id": "start_video_monitor",
+        "in": {
+          "input_folder": "$state.input_folder",
+          "source_mode": "$state.source_mode",
+          "video_source": "$state.video_source"
+        },
+        "kind": "stage",
+        "label": "Start Video Monitor",
+        "needs": [],
+        "out": {
+          "stream_session": "$state.stream_session"
+        },
+        "run": {
+          "agent": "ingress",
+          "binding": "start_video_monitor"
+        }
+      },
+      {
+        "control": {
+          "failure_policy": "fail_workflow",
+          "required": true,
+          "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 1,
+            "jitter": 0,
+            "max_attempts": 2
+          },
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0,
+            "on_low_confidence": "continue_with_warning"
+          }
+        },
+        "goal": "Emit frame ticks according to the configured sample interval.",
+        "id": "sample_video_frames",
+        "in": {
+          "session": "$state.stream_session"
+        },
+        "kind": "stage",
+        "label": "Sample Video Frames",
+        "needs": [
+          "start_video_monitor"
+        ],
+        "out": {
+          "frame_ticks": "$state.frame_ticks"
+        },
+        "run": {
+          "agent": "video_frame_tick_source",
+          "binding": "sample_video_frames"
+        }
+      },
+      {
+        "control": {
+          "failure_policy": "fail_workflow",
+          "required": true,
+          "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 1,
+            "jitter": 0,
+            "max_attempts": 2
+          },
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0,
+            "on_low_confidence": "continue_with_warning"
+          }
+        },
+        "goal": "Analyze sampled frames for configured targets and alert status.",
+        "id": "detect_visual_targets",
+        "in": {
+          "frame_ticks": "$state.frame_ticks",
+          "policy": "$state.alert_policy",
+          "targets": "$state.visual_targets"
+        },
+        "kind": "stage",
+        "label": "Detect Visual Targets",
+        "needs": [
+          "sample_video_frames"
+        ],
+        "out": {
+          "detections": "$state.detections"
+        },
+        "run": {
+          "agent": "visual_detector",
+          "binding": "detect_visual_targets"
+        }
+      },
+      {
+        "control": {
+          "failure_policy": "fail_workflow",
+          "required": true,
+          "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 1,
+            "jitter": 0,
+            "max_attempts": 2
+          },
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0,
+            "on_low_confidence": "continue_with_warning"
+          }
+        },
+        "goal": "Merge the latest observation into cumulative JSON and Markdown review reports.",
+        "id": "write_cctv_report",
+        "in": {
+          "detections": "$state.detections"
+        },
+        "kind": "stage",
+        "label": "Write CCTV Report",
+        "needs": [
+          "detect_visual_targets"
+        ],
+        "out": {
+          "final_report": "$state.final_report"
+        },
+        "run": {
+          "agent": "report_writer",
+          "binding": "write_cctv_report"
+        }
+      }
     ],
-    "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run",
-    "default_mode": "bounded_llm_guided_cctv_operator_review",
-    "note": "CCTV actors ground detections in staged files or the configured stream, frame evidence, and alert policy."
+    "workflow_id": "cctv_operator_v1"
   }
 }

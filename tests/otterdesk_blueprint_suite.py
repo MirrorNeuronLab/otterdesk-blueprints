@@ -34,7 +34,7 @@ FOLDER_INPUT_FIELDS = {
 }
 
 from mn_blueprint_support import render_manifest_agent_templates
-from mn_sdk import run_input_validation
+from mn_sdk import expand_manifest_source, is_manifest_source, run_input_validation
 from mn_blueprint_support.experience import (
     FINAL_ARTIFACT_REQUIRED_FIELDS,
     HUMAN_CONTROL_MODES,
@@ -49,6 +49,13 @@ from mn_blueprint_support.workflow_manifest import (
 
 def _manifest_paths() -> list[Path]:
     return sorted(path / "manifest.json" for path in ROOT.iterdir() if (path / "manifest.json").exists())
+
+
+def _runtime_manifest(path: Path) -> dict:
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    if is_manifest_source(manifest):
+        return expand_manifest_source(manifest, root_dir=path.parent)
+    return manifest
 
 
 def _indexed_blueprints() -> list[dict]:
@@ -240,7 +247,7 @@ def _expected_skill_dependency_packages(blueprint_dir: Path) -> set[str]:
 def test_otterdesk_manifests_pin_gar_skill_dependencies():
     for manifest_path in _manifest_paths():
         blueprint_id = manifest_path.parent.name
-        manifest = json.loads(manifest_path.read_text())
+        manifest = _runtime_manifest(manifest_path)
         dependencies = manifest.get("skill_dependencies")
         assert isinstance(dependencies, list), blueprint_id
         by_name = {dependency.get("name"): dependency for dependency in dependencies if isinstance(dependency, dict)}
@@ -262,7 +269,7 @@ def test_video_gpu_blueprints_declare_hard_nvidia_cuda_requirements_consistently
         "cctv_operator": ("visual_detector", "primary"),
     }
     for blueprint_id, (worker_id, runtime_model_key) in targets.items():
-        manifest = json.loads((ROOT / blueprint_id / "manifest.json").read_text())
+        manifest = _runtime_manifest(ROOT / blueprint_id / "manifest.json")
         assert manifest["requirements"]["gpu"] == GPU_HARD_REQUIREMENT
         assert manifest["runtime"]["resources"]["gpu"] == GPU_HARD_REQUIREMENT
         assert manifest["runtime"]["models"][runtime_model_key]["model"] == "nemotron3"
@@ -290,7 +297,7 @@ def test_all_blueprints_declare_actor_style_llm_config():
     required_llm_keys = {"enabled", "mode", "mock_mode", "model", "default_config", "configs", "agents", "responsibilities"}
     for manifest_path in _manifest_paths():
         manifest = json.loads(manifest_path.read_text())
-        blueprint_id = manifest["metadata"]["blueprint_id"]
+        blueprint_id = str((manifest.get("identity") or {}).get("id") or (manifest.get("metadata") or {}).get("blueprint_id"))
         config = json.loads((manifest_path.parent / "config" / "default.json").read_text())
         llm = config.get("llm")
         assert isinstance(llm, dict), blueprint_id
@@ -340,7 +347,7 @@ def _assert_hard_gpu_worker_requirements(worker: dict) -> None:
 
 def test_otterdesk_blueprints_are_workflow_driven_manifests():
     for manifest_path in _manifest_paths():
-        manifest = json.loads(manifest_path.read_text())
+        manifest = _runtime_manifest(manifest_path)
         assert "graph_id" not in manifest, manifest_path.parent.name
         if not _is_workflow_manifest(manifest):
             continue
@@ -382,7 +389,11 @@ def test_otterdesk_blueprints_are_workflow_driven_manifests():
             assert edge["to_node"] in node_ids, (blueprint_id, edge)
         assert manifest["workflow"]["schema"] == "mn.workflow.problem_graph/v1"
         assert manifest["workflow"]["dynamic"]["enabled"] is False
-        assert manifest["metadata"]["standard"]["workflow_model"] == "contract -> workflow -> agents/runtime"
+        standard = manifest["metadata"].get("standard")
+        if isinstance(standard, dict):
+            assert standard["workflow_model"] == "contract -> workflow -> agents/runtime"
+        else:
+            assert manifest["metadata"]["generated_from"]["schema"] == "mn.workflow.source/v2"
         for step in steps:
             assert {"id", "kind", "label", "goal", "action", "run", "emits", "on"} <= set(step), (blueprint_id, step)
             assert {"required", "retry", "failure_policy", "uncertainty"} <= set(step["control"]), (blueprint_id, step)
@@ -1023,7 +1034,7 @@ def test_indexed_non_vc_blueprints_have_non_trivial_rag_knowledge():
     for entry in _indexed_non_vc_blueprints():
         blueprint_id = entry["id"]
         blueprint_dir = ROOT / entry["path"]
-        manifest = json.loads((blueprint_dir / "manifest.json").read_text())
+        manifest = _runtime_manifest(blueprint_dir / "manifest.json")
         rag = manifest.get("knowledge_rag") or manifest.get("metadata", {}).get("knowledge_rag", {})
         if not rag.get("enabled"):
             continue
@@ -1176,7 +1187,7 @@ def test_index_entries_point_to_loadable_blueprint_folders():
         manifest_path = blueprint_dir / "manifest.json"
         assert blueprint_dir.exists(), entry
         assert manifest_path.exists(), entry
-        manifest = json.loads(manifest_path.read_text())
+        manifest = _runtime_manifest(manifest_path)
         assert manifest["metadata"]["blueprint_id"] == entry["id"]
         assert "graph_id" not in manifest
         assert "graph_id" not in entry
@@ -1191,7 +1202,7 @@ def test_index_entries_point_to_loadable_blueprint_folders():
 
 def test_generic_customer_service_voice_blueprint_contract():
     blueprint_dir = ROOT / "generic_customer_service_voice_coworker"
-    manifest = json.loads((blueprint_dir / "manifest.json").read_text())
+    manifest = _runtime_manifest(blueprint_dir / "manifest.json")
     config = json.loads((blueprint_dir / "config" / "default.json").read_text())
     script = (blueprint_dir / "scripts" / "pre-launch.sh").read_text()
     cleanup = (blueprint_dir / "scripts" / "post-launch.sh").read_text()
@@ -1338,7 +1349,7 @@ def test_purchase_research_final_artifact_uses_product_output_fields(tmp_path):
 
 def test_cctv_operator_declares_otterdesk_chat_system_prompt():
     blueprint_dir = ROOT / "cctv_operator"
-    manifest = json.loads((blueprint_dir / "manifest.json").read_text())
+    manifest = _runtime_manifest(blueprint_dir / "manifest.json")
     prompt = (blueprint_dir / "payloads" / "prompts" / "chat-system.md").read_text()
 
     assert "payloads/prompts/" in manifest["metadata"]["configuration_contract"]["optional_files"]
@@ -1525,7 +1536,7 @@ def test_otterdesk_manifests_require_runtime_workflow_control_contract():
 
 def test_otterdesk_workflow_steps_are_bounded_and_retryable():
     for manifest_path in _manifest_paths():
-        manifest = json.loads(manifest_path.read_text())
+        manifest = _runtime_manifest(manifest_path)
         manual_stop_service = (
             manifest.get("type") == "service"
             and isinstance(manifest.get("service"), dict)
@@ -1546,12 +1557,11 @@ def test_otterdesk_workflow_steps_are_bounded_and_retryable():
 
 def test_cctv_operator_uses_dockerworker_nvidia_media_worker():
     blueprint_dir = ROOT / "cctv_operator"
-    manifest = json.loads((blueprint_dir / "manifest.json").read_text())
+    manifest = _runtime_manifest(blueprint_dir / "manifest.json")
     config = json.loads((blueprint_dir / "config" / "default.json").read_text())
 
-    rendered = render_manifest_agent_templates(manifest, AGENTS_ROOT)
-    tick_node = next(node for node in _flow_nodes(rendered) if node["node_id"] == "video_frame_tick_source")
-    visual_node = next(node for node in _flow_nodes(rendered) if node["node_id"] == "visual_detector")
+    tick_node = next(node for node in _flow_nodes(manifest) if node["node_id"] == "video_frame_tick_source")
+    visual_node = next(node for node in _flow_nodes(manifest) if node["node_id"] == "visual_detector")
     assert tick_node["config"]["module_source"] == "beam_modules/video_frame_tick_source.ex"
     assert tick_node["config"]["interval_seconds"] == 20
     assert visual_node["config"]["runner_module"] == "MirrorNeuron.Runner.DockerWorker"
@@ -1693,7 +1703,7 @@ def test_cctv_operator_folder_validator_accepts_supported_recordings(monkeypatch
 
 def test_cctv_operator_default_folder_validates_from_blueprint_root(monkeypatch):
     blueprint_dir = ROOT / "cctv_operator"
-    manifest = json.loads((blueprint_dir / "manifest.json").read_text())
+    manifest = _runtime_manifest(blueprint_dir / "manifest.json")
     config = json.loads((blueprint_dir / "config" / "default.json").read_text())
     assert manifest["input_validation"]["rules"][0]["command"] == [
         "/usr/bin/python3",

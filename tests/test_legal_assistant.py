@@ -85,7 +85,7 @@ class FakeLegalLLM:
 def test_legal_manifest_uses_source_format_and_shared_blocks():
     manifest = json.loads((BLUEPRINT_DIR / "manifest.json").read_text(encoding="utf-8"))
 
-    assert manifest["apiVersion"] == "mn.workflow.source/v1"
+    assert manifest["apiVersion"] == "mn.workflow.source/v2"
     assert manifest["kind"] == "WorkflowSource"
     assert manifest["identity"]["id"] == "legal_assistant"
     assert "nodes" not in manifest.get("agents", {})

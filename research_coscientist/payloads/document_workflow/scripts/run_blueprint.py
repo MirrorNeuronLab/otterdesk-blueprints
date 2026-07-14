@@ -1288,14 +1288,20 @@ def run_blueprint(
         raise
 
 
-def _runtime_workflow_payload() -> dict[str, Any]:
+def _runtime_message_value(message: Any | None = None) -> Any:
+    if message is not None:
+        return message
     path = os.environ.get("MN_MESSAGE_FILE")
     if not path or not Path(path).is_file():
         return {}
     try:
-        raw: Any = json.loads(Path(path).read_text(encoding="utf-8"))
+        return json.loads(Path(path).read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return {}
+
+
+def _runtime_workflow_payload(message: Any | None = None) -> dict[str, Any]:
+    raw = _runtime_message_value(message)
 
     def find(value: Any) -> dict[str, Any]:
         if isinstance(value, dict):
@@ -1328,24 +1334,68 @@ def _runtime_workflow_payload() -> dict[str, Any]:
     return find(raw)
 
 
-def _resolve_runtime_stage_request() -> tuple[dict[str, Any], dict[str, Any], Any, dict[str, Any]]:
+def _runtime_message_inputs(message: Any | None = None) -> dict[str, Any]:
+    interesting = {
+        "research_goal",
+        "goal",
+        "research_domain",
+        "domain",
+        "research_question",
+        "question",
+        "scope",
+        "constraints",
+        "input_folder",
+        "output_folder",
+    }
+
+    def find(value: Any) -> dict[str, Any]:
+        if isinstance(value, dict):
+            if interesting & set(value):
+                return dict(value)
+            for key in ("kwargs", "payload", "body", "data", "message", "content", "input"):
+                found = find(value.get(key))
+                if found:
+                    return found
+            for nested in value.values():
+                found = find(nested)
+                if found:
+                    return found
+        elif isinstance(value, list):
+            for nested in value:
+                found = find(nested)
+                if found:
+                    return found
+        elif isinstance(value, str) and value.strip().startswith(("{", "[")):
+            try:
+                return find(json.loads(value))
+            except json.JSONDecodeError:
+                return {}
+        return {}
+
+    return find(_runtime_message_value(message))
+
+
+def _resolve_runtime_stage_request(context: Any | None = None) -> tuple[dict[str, Any], dict[str, Any], Any, dict[str, Any]]:
     embedded_config_json = os.environ.get("MN_BLUEPRINT_CONFIG_JSON")
     resolved_default_config = default_config_path()
     resolved_config = load_config(
         BLUEPRINT_ID,
         default_config_path=resolved_default_config if resolved_default_config.exists() else None,
+        config=getattr(context, "config", None) or None,
         config_json=embedded_config_json,
-        run_id=os.environ.get("MN_JOB_ID") or None,
+        run_id=getattr(context, "run_id", None) or os.environ.get("MN_JOB_ID") or None,
         write_run_store=False,
     )
     adapter_inputs, input_source = resolve_input_overrides(resolved_config)
-    previous = _runtime_workflow_payload()
+    message = getattr(context, "message", None)
+    previous = _runtime_workflow_payload(message)
     previous_inputs = previous.get("inputs") if isinstance(previous.get("inputs"), dict) else {}
     runtime_inputs = normalize_inputs(
         {
             **((resolved_config.get("inputs") or {}).get("payload") or {}),
             **adapter_inputs,
             **previous_inputs,
+            **_runtime_message_inputs(message),
         }
     )
     llm_mode = str((resolved_config.get("llm") or {}).get("mode") or "ollama")
@@ -1353,12 +1403,21 @@ def _resolve_runtime_stage_request() -> tuple[dict[str, Any], dict[str, Any], An
     return resolved_config, runtime_inputs, llm, {"previous": previous, "input_source": input_source, "llm_mode": llm_mode}
 
 
-def run_runtime_step(step_id: str) -> dict[str, Any]:
+def run_runtime_step(step_id: str, *, context: Any | None = None) -> dict[str, Any]:
     """Execute one workflow stage in the runner declared by the manifest."""
 
-    resolved_config, runtime_inputs, llm, stage = _resolve_runtime_stage_request()
+    resolved_config, runtime_inputs, llm, stage = (
+        _resolve_runtime_stage_request()
+        if context is None
+        else _resolve_runtime_stage_request(context)
+    )
     previous = stage["previous"]
-    run_id = os.environ.get("MN_JOB_ID") or os.environ.get("MN_RUN_ID") or f"research-stage-{_sha256(json.dumps(runtime_inputs, sort_keys=True))[:12]}"
+    run_id = (
+        getattr(context, "run_id", None)
+        or os.environ.get("MN_JOB_ID")
+        or os.environ.get("MN_RUN_ID")
+        or f"research-stage-{_sha256(json.dumps(runtime_inputs, sort_keys=True))[:12]}"
+    )
     root = _script_blueprint_root()
 
     if step_id == "frame_research_goal":

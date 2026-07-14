@@ -8,6 +8,7 @@ import importlib.util
 import json
 import os
 import re
+import sys
 import time
 import uuid
 from datetime import datetime, timezone
@@ -70,25 +71,17 @@ HEAVY_MODEL_STEPS = {
     "advisor_review_auditor",
     "financial_advice_reporter",
 }
-WORKFLOW_STEPS = [
-    "financial_folder_watcher",
-    "financial_document_reader",
-    "bank_statement_extractor",
-    "cash_flow_normalizer",
-    "cash_flow_llm_analyst",
-    "tax_document_router",
-    "tax_form_ocr_capturer",
-    "tax_workpaper_preparer",
-    "tax_llm_reviewer",
-    "portfolio_context_loader",
-    "portfolio_market_data_loader",
-    "portfolio_risk_engine",
-    "portfolio_llm_reviewer",
-    "public_finance_researcher",
-    "advisor_evidence_reconciler",
-    "advisor_review_auditor",
-    "financial_advice_reporter",
-]
+MANIFEST_PATH = Path(__file__).resolve().parents[3] / "manifest.json"
+
+
+def _source_workflow_step_specs() -> list[dict[str, Any]]:
+    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    workflow = manifest.get("workflow") if isinstance(manifest.get("workflow"), dict) else {}
+    steps = workflow.get("steps") if isinstance(workflow.get("steps"), list) else []
+    return [step for step in steps if isinstance(step, dict)]
+
+
+WORKFLOW_STEPS = [str(step["id"]) for step in _source_workflow_step_specs()]
 WORKFLOW_STEP_IDS = WORKFLOW_STEPS
 OUTPUT_MESSAGE_BY_STEP = {step: f"{step}_completed" for step in WORKFLOW_STEPS}
 DEFAULT_MARKET_PRICES = {
@@ -2749,65 +2742,6 @@ def step_financial_advice_reporter(ctx: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-STEP_HANDLERS = {
-    "financial_folder_watcher": step_financial_folder_watcher,
-    "financial_document_reader": step_financial_document_reader,
-    "bank_statement_extractor": step_bank_statement_extractor,
-    "cash_flow_normalizer": step_cash_flow_normalizer,
-    "cash_flow_llm_analyst": step_cash_flow_llm_analyst,
-    "tax_document_router": step_tax_document_router,
-    "tax_form_ocr_capturer": step_tax_form_ocr_capturer,
-    "tax_workpaper_preparer": step_tax_workpaper_preparer,
-    "tax_llm_reviewer": step_tax_llm_reviewer,
-    "portfolio_context_loader": step_portfolio_context_loader,
-    "portfolio_market_data_loader": step_portfolio_market_data_loader,
-    "portfolio_risk_engine": step_portfolio_risk_engine,
-    "portfolio_llm_reviewer": step_portfolio_llm_reviewer,
-    "public_finance_researcher": step_public_finance_researcher,
-    "advisor_evidence_reconciler": step_advisor_evidence_reconciler,
-    "advisor_review_auditor": step_advisor_review_auditor,
-    "financial_advice_reporter": step_financial_advice_reporter,
-}
-
-
-def run_step(ctx: dict[str, Any], step_id: str) -> dict[str, Any]:
-    append_event(ctx["run_dir"], "blueprint_phase_started", {"phase": step_id})
-    profile = step_model_profile(ctx["config"], step_id)
-    ctx["state"].setdefault("model_profiles_used", {})[step_id] = {
-        "llm_config": profile["llm_config"],
-        "model": profile["model"],
-        "runtime_model": profile["runtime_model"],
-    }
-    handler = STEP_HANDLERS[step_id]
-    started = time.monotonic()
-    usage_before = llm_usage(ctx["llm"])
-    ctx["step_llm_usage_before"] = usage_before
-    result = handler(ctx)
-    usage_after = llm_usage(ctx["llm"])
-    llm_delta = usage_delta(usage_before, usage_after)
-    if llm_delta.get("fallback_calls") and live_llm_requested(ctx["config"], ctx.get("payload")):
-        raise RuntimeError(f"Live LLM fallback was used during {step_id}; failing normal run instead of silently degrading.")
-    cumulative_llm_usage = accumulate_llm_usage(ctx, llm_delta)
-    elapsed_ms = int((time.monotonic() - started) * 1000)
-    ctx["state"].setdefault("workflow", {})[step_id] = result
-    append_event(
-        ctx["run_dir"],
-        OUTPUT_MESSAGE_BY_STEP[step_id],
-        {
-            "step_id": step_id,
-            "runtime_step_mode": "workflow_step_handler",
-            "duration_ms": elapsed_ms,
-            "llm_config": profile["llm_config"],
-            "model": profile["model"],
-            "llm_usage_delta": llm_delta,
-            "llm_usage": cumulative_llm_usage,
-        },
-    )
-    append_event(ctx["run_dir"], "blueprint_phase_completed", {"phase": step_id, "duration_ms": elapsed_ms})
-    save_state(ctx["run_dir"], ctx["state"])
-    return result
-
-
 def step_result(ctx: dict[str, Any], step_id: str, output: dict[str, Any], **metadata: Any) -> dict[str, Any]:
     result = {
         "schema": "mn.workflow.step_result.v1",
@@ -3022,8 +2956,41 @@ def run_runtime_step(
     config_json: str | None = None,
 ) -> dict[str, Any]:
     step_id = str(step_id or "").strip()
-    if step_id not in STEP_HANDLERS:
+    step = next((item for item in _source_workflow_step_specs() if item.get("id") == step_id), None)
+    if step is None:
         raise ValueError(f"Unknown Financial Advisor workflow step: {step_id}")
+    run_spec = step.get("run", {})
+    from mn_sdk.step_runtime import StepContext, resolve_handler
+
+    scripts_path = str(Path(__file__).resolve().parent)
+    if scripts_path not in sys.path:
+        sys.path.insert(0, scripts_path)
+    handler = resolve_handler(str(run_spec["handler"]))
+    return handler(
+        StepContext(step_id=step_id, run_id=str(run_id or ""), config=dict(config or {})),
+        **dict(run_spec.get("with", {})),
+        inputs=inputs,
+        runs_root=runs_root,
+        llm_client=llm_client,
+        config_json=config_json,
+    )
+
+
+def execute_runtime_handler(
+    step_id: str,
+    handler: Any,
+    inputs: dict[str, Any] | None = None,
+    config: dict[str, Any] | None = None,
+    runs_root: str | Path | None = None,
+    run_id: str | None = None,
+    llm_client: Any | None = None,
+    config_json: str | None = None,
+) -> dict[str, Any]:
+    """Execute one manifest-resolved Financial Advisor handler."""
+
+    step_id = str(step_id or "").strip()
+    if not step_id:
+        raise ValueError("Financial Advisor workflow step id is required")
     ctx = build_context(
         inputs=inputs,
         config=config,
@@ -3035,7 +3002,36 @@ def run_runtime_step(
     step_started = time.monotonic()
     ensure_run_started(ctx)
     try:
-        output = run_step(ctx, step_id)
+        append_event(ctx["run_dir"], "blueprint_phase_started", {"phase": step_id})
+        profile = step_model_profile(ctx["config"], step_id)
+        ctx["state"].setdefault("model_profiles_used", {})[step_id] = {
+            "llm_config": profile["llm_config"],
+            "model": profile["model"],
+            "runtime_model": profile["runtime_model"],
+        }
+        usage_before = llm_usage(ctx["llm"])
+        ctx["step_llm_usage_before"] = usage_before
+        output = handler(ctx)
+        usage_after = llm_usage(ctx["llm"])
+        llm_delta = usage_delta(usage_before, usage_after)
+        if llm_delta.get("fallback_calls") and live_llm_requested(ctx["config"], ctx.get("payload")):
+            raise RuntimeError(f"Live LLM fallback was used during {step_id}; failing normal run instead of silently degrading.")
+        cumulative_llm_usage = accumulate_llm_usage(ctx, llm_delta)
+        ctx["state"].setdefault("workflow", {})[step_id] = output
+        append_event(
+            ctx["run_dir"],
+            f"{step_id}_completed",
+            {
+                "step_id": step_id,
+                "runtime_step_mode": "manifest_handler",
+                "llm_config": profile["llm_config"],
+                "model": profile["model"],
+                "llm_usage_delta": llm_delta,
+                "llm_usage": cumulative_llm_usage,
+            },
+        )
+        append_event(ctx["run_dir"], "blueprint_phase_completed", {"phase": step_id})
+        save_state(ctx["run_dir"], ctx["state"])
         final_result: dict[str, Any] | None = None
         if step_id == WORKFLOW_STEPS[-1]:
             final_result = finish_completed_run(ctx, output)

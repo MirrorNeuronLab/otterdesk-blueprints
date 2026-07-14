@@ -108,7 +108,7 @@ def _load_runner():
     module = importlib.util.module_from_spec(spec)
     assert spec and spec.loader
     spec.loader.exec_module(module)
-    return module
+    return module.runtime
 
 
 def _expand_source_manifest(source: dict) -> dict:
@@ -358,7 +358,7 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         assert "python_environment" not in node["config"]
         assert node["config"]["runner_module"] == "MirrorNeuron.Runner.DockerWorker"
         assert node["config"]["workdir"] == "/mn/job/document_workflow"
-        assert node["config"]["command"] == ["python3", "scripts/run_blueprint.py"]
+        assert node["config"]["command"] == ["python3", "-m", "mn_sdk.step_runtime"]
         assert node["config"]["docker_worker_image"] == "document_workflow/docker_worker"
         assert "force_build" not in node["config"]
         assert node["config"]["image"] == "mirror-neuron/vc-assistant:local"
@@ -951,43 +951,31 @@ def test_vc_ocr_failure_marks_run_failed(monkeypatch, tmp_path):
     )
 
 
-def test_vc_assistant_runtime_graph_is_linear_and_has_terminal_sink():
-    runner = _load_runner()
-    manifest = _expand_source_manifest(
-        json.loads((ROOT / "vc_assistant" / "manifest.json").read_text(encoding="utf-8"))
-    )
+def test_vc_assistant_runtime_graph_is_manifest_declared_dag_with_terminal_sink():
+    source = json.loads((ROOT / "vc_assistant" / "manifest.json").read_text(encoding="utf-8"))
+    manifest = _expand_source_manifest(source)
     config = json.loads((ROOT / "vc_assistant" / "config" / "default.json").read_text(encoding="utf-8"))
-    step_ids = runner.WORKFLOW_STEP_IDS
-    handoffs = [f"{source}_to_{target}" for source, target in zip(step_ids, step_ids[1:])]
+    expected_pairs = {
+        (dependency, step["id"])
+        for step in source["workflow"]["steps"]
+        for dependency in step["needs"]
+    }
 
     assert "type" not in manifest
-    assert config["execution_model"]["type"] == "static_dag_step_handlers"
-    assert config["execution_model"]["step_count"] == len(step_ids)
-    assert config["execution_model"]["terminal_sink"] == "report_sink"
-    assert config["agent_handoffs"] == handoffs
-    assert manifest["agents"]["edges"] == [
-        {"edge_id": edge_id, "from_node": source, "to_node": target, "message_type": f"{source}_completed"}
-        for edge_id, source, target in zip(handoffs, step_ids, step_ids[1:])
-    ] + [{"edge_id": "batch_index_writer_to_report_sink", "from_node": "batch_index_writer", "to_node": "report_sink", "message_type": "batch_index_writer_completed"}]
-    assert manifest["workflow"]["edges"] == [
-        {
-            "id": edge_id,
-            "from": source,
-            "to": target,
-            "event": f"{source}_completed",
-            "message_type": f"{source}_completed",
-            "required": True,
-            "accepts": ["done"],
-        }
-        for edge_id, source, target in zip(handoffs, step_ids, step_ids[1:])
-    ]
-    incoming = {step_id: 0 for step_id in step_ids + ["report_sink"]}
-    outgoing = {step_id: 0 for step_id in step_ids + ["report_sink"]}
-    for edge in manifest["agents"]["edges"]:
-        outgoing[edge["from_node"]] += 1
-        incoming[edge["to_node"]] += 1
-    assert all(count <= 1 for count in incoming.values())
-    assert all(count <= 1 for count in outgoing.values())
+    assert config["execution_model"] == {
+        "type": "manifest_dag",
+        "runtime_note": "Topology, dependencies, handlers, and terminal routing are declared only in manifest.json.",
+    }
+    assert config["agent_handoffs"] == {}
+    assert {(edge["from"], edge["to"]) for edge in manifest["workflow"]["edges"]} == expected_pairs
+    assert expected_pairs <= {
+        (edge["from_node"], edge["to_node"])
+        for edge in manifest["agents"]["edges"]
+    }
+    assert any(
+        edge["from_node"] == "batch_index_writer" and edge["to_node"] == "report_sink"
+        for edge in manifest["agents"]["edges"]
+    )
 
 
 def test_vc_agents_are_llm_backed_and_selected_for_actor_reviews():

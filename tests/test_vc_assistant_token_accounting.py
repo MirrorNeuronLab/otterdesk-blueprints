@@ -14,7 +14,7 @@ def _load_runner():
     module = importlib.util.module_from_spec(spec)
     assert spec and spec.loader
     spec.loader.exec_module(module)
-    return module
+    return module.runtime
 
 
 def test_vc_manifest_workers_do_not_expose_legacy_token_budget():

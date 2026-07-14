@@ -401,15 +401,28 @@ def runtime_message_payload() -> dict[str, Any]:
 
 
 def find_payload(value: Any) -> dict[str, Any]:
-    if not isinstance(value, dict):
-        return {}
-    interesting = {"document_folder", "input_folder", "output_folder", "field_profile", "matter_profile", "review_policy"}
-    if interesting & set(value):
-        return copy.deepcopy(value)
-    for key in ("payload", "input", "body", "data", "message", "content"):
-        found = find_payload(value.get(key))
-        if found:
-            return found
+    if isinstance(value, dict):
+        interesting = {"document_folder", "input_folder", "output_folder", "field_profile", "matter_profile", "review_policy"}
+        if interesting & set(value):
+            return copy.deepcopy(value)
+        for key in ("kwargs", "payload", "input", "body", "data", "message", "content"):
+            found = find_payload(value.get(key))
+            if found:
+                return found
+        for nested in value.values():
+            found = find_payload(nested)
+            if found:
+                return found
+    elif isinstance(value, list):
+        for nested in value:
+            found = find_payload(nested)
+            if found:
+                return found
+    elif isinstance(value, str) and value.strip().startswith(("{", "[")):
+        try:
+            return find_payload(json.loads(value))
+        except json.JSONDecodeError:
+            return {}
     return {}
 
 

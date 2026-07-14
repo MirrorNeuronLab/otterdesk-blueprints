@@ -14,6 +14,14 @@ for path in (SDK_SRC, SUPPORT_SRC, AUTONOMOUS_RESEARCH_SRC):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
+from mn_sdk import expand_manifest_source
+
+
+def _manifest() -> dict:
+    blueprint = ROOT / "research_coscientist"
+    source = json.loads((blueprint / "manifest.json").read_text(encoding="utf-8"))
+    return expand_manifest_source(source, root_dir=blueprint)
+
 
 def _runner():
     path = ROOT / "research_coscientist" / "payloads" / "document_workflow" / "scripts" / "run_blueprint.py"
@@ -237,7 +245,7 @@ def test_evidence_free_packet_is_diagnostic_not_review_ready(tmp_path):
 def test_research_defaults_use_downloads_and_mirrored_config():
     runner = _runner()
     blueprint = ROOT / "research_coscientist"
-    manifest = json.loads((blueprint / "manifest.json").read_text(encoding="utf-8"))
+    manifest = _manifest()
     config_path = blueprint / "config" / "default.json"
     payload_config_path = blueprint / "payloads" / "config" / "default.json"
 
@@ -259,7 +267,7 @@ def test_research_defaults_use_downloads_and_mirrored_config():
 
 
 def test_manifest_uses_exactly_one_current_openshell_worker():
-    manifest = json.loads((ROOT / "research_coscientist" / "manifest.json").read_text(encoding="utf-8"))
+    manifest = _manifest()
     nodes = manifest["agents"]["nodes"]
     openshell = [
         node

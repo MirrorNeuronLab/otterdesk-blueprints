@@ -82,7 +82,7 @@ def _expand_source_manifest(source: dict) -> dict:
 def test_financial_advisor_manifest_uses_source_format_and_shared_blocks():
     manifest = json.loads((ROOT / "financial_advisor" / "manifest.json").read_text(encoding="utf-8"))
 
-    assert manifest["apiVersion"] == "mn.workflow.source/v1"
+    assert manifest["apiVersion"] == "mn.workflow.source/v2"
     assert manifest["kind"] == "WorkflowSource"
     assert manifest["identity"]["id"] == "financial_advisor"
     assert "nodes" not in manifest.get("agents", {})
@@ -106,6 +106,9 @@ def test_financial_advisor_manifest_uses_source_format_and_shared_blocks():
         "advisor_review_auditor",
         "financial_advice_reporter",
     ]
+    assert all(isinstance(step["needs"], list) for step in manifest["workflow"]["steps"])
+    assert all("handler" in step["run"] for step in manifest["workflow"]["steps"])
+    assert all(":" not in step["run"]["handler"] for step in manifest["workflow"]["steps"])
     assert manifest["agents"]["extra_templates"] == [
         {
             "node_id": "report_sink",
@@ -147,12 +150,8 @@ def test_financial_advisor_model_profiles_assign_large_to_heavy_nodes():
     assert set(by_step) == HEAVY_STEPS
     assert all(item["with"]["llm_config"] == "primary" for item in by_step.values())
     assert config["execution_model"] == {
-        "type": "static_dag_step_handlers",
-        "entrypoint": "financial_folder_watcher",
-        "worker_sink": "financial_advice_reporter",
-        "terminal_sink": "report_sink",
-        "step_count": len(manifest["workflow"]["steps"]),
-        "runtime_note": "Each workflow node executes a bounded step handler and exchanges JSON workflow-state artifacts through the shared run directory; report_sink completes the finite run.",
+        "type": "manifest_dag",
+        "runtime_note": "Topology, dependencies, handlers, and terminal routing are declared only in manifest.json.",
     }
 
 

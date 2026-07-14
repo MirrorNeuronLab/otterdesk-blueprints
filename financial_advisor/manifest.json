@@ -1,14 +1,395 @@
 {
-  "apiVersion": "mn.workflow.source/v1",
-  "kind": "WorkflowSource",
-  "description": "A unified personal financial advisor co-worker. Put bank statements, receipts, bills, income records, W-2s, 1099s, tax-form images with answer files, brokerage statements, portfolio files, and related finance documents in the input folder; it extracts document evidence, captures tax-form OCR fields for review, prepares review-only tax and household finance summaries, runs portfolio risk analysis, and writes integrated advisor reports to the output folder.",
-  "standard": {
-    "profile": "document_workflow",
-    "profile_version": 1,
-    "source_schema": "mn.workflow.source/v1",
-    "target_schema": "mn.workflow/v1",
-    "migration_policy": "sdk_managed"
+  "agentic_research": {
+    "agent_ids": [
+      "cash_flow_llm_analyst",
+      "public_finance_researcher",
+      "tax_form_ocr_capturer",
+      "tax_llm_reviewer",
+      "portfolio_llm_reviewer",
+      "advisor_evidence_reconciler",
+      "advisor_review_auditor",
+      "financial_advice_reporter"
+    ],
+    "allowed_tools": [
+      "knowledge_retrieve",
+      "browser_search",
+      "browser_page",
+      "market_data_history",
+      "risk_metric_compute",
+      "llm_ocr_extract",
+      "form_classify",
+      "field_locate",
+      "schema_validate",
+      "finish"
+    ],
+    "default_mode": "bounded_llm_guided_financial_advisor_review",
+    "enabled": true,
+    "max_iterations_per_agent": 1,
+    "max_tool_calls_per_agent": 2,
+    "note": "Public research actors derive queries from generic risk and document categories only.",
+    "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run"
   },
+  "agents": {
+    "extra_edges": [
+      {
+        "edge_id": "financial_advice_reporter_to_report_sink",
+        "from_node": "financial_advice_reporter",
+        "message_type": "financial_advice_reporter_completed",
+        "to_node": "report_sink"
+      }
+    ],
+    "extra_templates": [
+      {
+        "node_id": "report_sink",
+        "uses": "mn-agents.control.terminal_sink@1",
+        "with": {
+          "stereotype": "terminal_report_sink"
+        }
+      }
+    ]
+  },
+  "apiVersion": "mn.workflow.source/v2",
+  "config": {
+    "default": "config/default.json",
+    "embed": true
+  },
+  "contracts": {
+    "events": {
+      "human_stream": "human.jsonl",
+      "stream": "events.jsonl",
+      "types": [
+        "blueprint_status",
+        "blueprint_phase_started",
+        "blueprint_phase_completed",
+        "blueprint_phase_failed",
+        "artifact_written",
+        "human_notice",
+        "human_input_requested",
+        "human_input_received",
+        "human_input_timeout",
+        "human_decision_applied",
+        "output_skill_started",
+        "output_skill_completed",
+        "output_skill_failed",
+        "tool_call_started",
+        "tool_call_completed",
+        "tool_call_failed",
+        "financial_folder_watcher_completed",
+        "financial_document_reader_completed",
+        "bank_statement_extractor_completed",
+        "cash_flow_normalizer_completed",
+        "cash_flow_llm_analyst_completed",
+        "tax_document_router_completed",
+        "tax_form_ocr_capturer_completed",
+        "tax_workpaper_preparer_completed",
+        "tax_llm_reviewer_completed",
+        "portfolio_context_loader_completed",
+        "portfolio_market_data_loader_completed",
+        "portfolio_risk_engine_completed",
+        "portfolio_llm_reviewer_completed",
+        "public_finance_researcher_completed",
+        "advisor_evidence_reconciler_completed",
+        "advisor_review_auditor_completed",
+        "financial_advice_reporter_completed",
+        "watch_cycle_started",
+        "watch_cycle_completed"
+      ]
+    },
+    "input_adapters": {
+      "default": "mock",
+      "resolved_artifact": "inputs.json",
+      "supported": [
+        "mock",
+        "json",
+        "file",
+        "env_json"
+      ]
+    },
+    "inputs": {
+      "document_folder": {
+        "description": "Local folder monitored for personal finance, bank statement, tax, and portfolio documents.",
+        "example": "financial_advisor/examples/sample_inputs",
+        "path_kind": "directory",
+        "privacy": "regulated",
+        "required": true,
+        "type": "local_path"
+      },
+      "field_profile": {
+        "description": "Financial fields and review areas captured by the advisor.",
+        "example": [
+          "document_kind",
+          "income_amounts",
+          "tax_forms",
+          "form_type",
+          "field_locations",
+          "portfolio_holdings",
+          "risk_flags"
+        ],
+        "privacy": "internal",
+        "required": false,
+        "type": "domain_value"
+      },
+      "filing_status": {
+        "description": "Draft filing-status label for review-only tax packet.",
+        "example": "single",
+        "privacy": "regulated",
+        "required": false,
+        "type": "domain_value"
+      },
+      "input_folder": {
+        "description": "Default local input folder for sample files or user-provided files.",
+        "example": "financial_advisor/examples/sample_inputs",
+        "path_kind": "directory",
+        "privacy": "regulated",
+        "required": false,
+        "type": "local_path"
+      },
+      "monitoring": {
+        "description": "Folder monitoring configuration for one-shot or continuous polling runs.",
+        "example": {
+          "enabled": true,
+          "max_cycles": 1,
+          "poll_interval_seconds": 60
+        },
+        "privacy": "internal",
+        "required": false,
+        "type": "domain_value"
+      },
+      "output_folder": {
+        "description": "Local folder where JSON and Markdown advisor reports should be written.",
+        "example": "~/Downloads/financial_advisor",
+        "path_kind": "directory",
+        "privacy": "regulated",
+        "required": true,
+        "type": "local_path"
+      },
+      "portfolio": {
+        "description": "Optional portfolio holdings for review-only risk analysis.",
+        "example": {
+          "base_currency": "USD",
+          "cash": 50000,
+          "holdings": [
+            {
+              "asset_class": "equity",
+              "quantity": 180,
+              "symbol": "SPY"
+            }
+          ]
+        },
+        "privacy": "regulated",
+        "required": false,
+        "type": "domain_value"
+      },
+      "tax_year": {
+        "description": "Tax year used for draft workpaper labels.",
+        "example": 2025,
+        "privacy": "internal",
+        "required": false,
+        "type": "domain_value"
+      }
+    },
+    "outputs": {
+      "artifacts": [
+        {
+          "artifact_id": "run_metadata",
+          "mime_type": "application/json",
+          "path": "run.json",
+          "producer": "local_run_store",
+          "schema_version": "mn.artifact.run_summary.v1",
+          "source_refs": [],
+          "type": "run_summary"
+        },
+        {
+          "artifact_id": "resolved_config",
+          "mime_type": "application/json",
+          "path": "config.json",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.config.v1",
+          "source_refs": [],
+          "type": "config"
+        },
+        {
+          "artifact_id": "resolved_inputs",
+          "mime_type": "application/json",
+          "path": "inputs.json",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.inputs.v1",
+          "source_refs": [],
+          "type": "inputs"
+        },
+        {
+          "artifact_id": "event_stream",
+          "mime_type": "application/x-jsonlines",
+          "path": "events.jsonl",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.events.v1",
+          "source_refs": [],
+          "type": "events"
+        },
+        {
+          "artifact_id": "result",
+          "mime_type": "application/json",
+          "path": "result.json",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.response.v1",
+          "source_refs": [
+            "inputs.json",
+            "events.jsonl"
+          ],
+          "type": "result"
+        },
+        {
+          "artifact_id": "final_artifact",
+          "mime_type": "application/json",
+          "path": "final_artifact.json",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.final_artifact.v1",
+          "source_refs": [
+            "inputs.json",
+            "events.jsonl",
+            "result.json"
+          ],
+          "type": "final_artifact"
+        },
+        {
+          "artifact_id": "action_ledger",
+          "mime_type": "application/json",
+          "path": "action_ledger.json",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.action_ledger.v1",
+          "source_refs": [
+            "final_artifact.json"
+          ],
+          "type": "action_ledger"
+        },
+        {
+          "artifact_id": "artifact_quality",
+          "mime_type": "application/json",
+          "path": "artifact_quality.json",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.artifact_quality.v1",
+          "source_refs": [
+            "final_artifact.json"
+          ],
+          "type": "artifact_quality"
+        },
+        {
+          "artifact_id": "run_health",
+          "mime_type": "application/json",
+          "path": "run_health.json",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.run_health.v1",
+          "source_refs": [
+            "final_artifact.json",
+            "action_ledger.json",
+            "artifact_quality.json"
+          ],
+          "type": "run_health"
+        },
+        {
+          "artifact_id": "review_packet_markdown",
+          "mime_type": "text/markdown",
+          "path": "<outputs.folder_path>/financial_advisor_report.md",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.generated_report.v1",
+          "source_refs": [
+            "final_artifact.json"
+          ],
+          "type": "generated_report"
+        },
+        {
+          "artifact_id": "customer_report",
+          "mime_type": "application/json",
+          "path": "<outputs.folder_path>/customer_report.json",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.financial_advisor.customer_report.v1",
+          "source_refs": [
+            "final_artifact.json"
+          ],
+          "type": "customer_report"
+        },
+        {
+          "artifact_id": "cash_flow_llm_review",
+          "mime_type": "application/json",
+          "path": "<outputs.folder_path>/cash_flow_llm_review.json",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.financial_advisor.llm_review.v1",
+          "source_refs": [
+            "household_finance_summary.json",
+            "final_artifact.json"
+          ],
+          "type": "llm_review"
+        },
+        {
+          "artifact_id": "tax_form_ocr_capture",
+          "mime_type": "application/json",
+          "path": "<outputs.folder_path>/tax_form_ocr_capture.json",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.tax_form_capture.v1",
+          "source_refs": [
+            "final_artifact.json"
+          ],
+          "type": "tax_form_capture"
+        },
+        {
+          "artifact_id": "tax_llm_review",
+          "mime_type": "application/json",
+          "path": "<outputs.folder_path>/tax_llm_review.json",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.financial_advisor.llm_review.v1",
+          "source_refs": [
+            "tax_review_packet.json",
+            "tax_form_ocr_capture.json",
+            "final_artifact.json"
+          ],
+          "type": "llm_review"
+        },
+        {
+          "artifact_id": "portfolio_llm_review",
+          "mime_type": "application/json",
+          "path": "<outputs.folder_path>/portfolio_llm_review.json",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.financial_advisor.llm_review.v1",
+          "source_refs": [
+            "portfolio_risk_review.json",
+            "final_artifact.json"
+          ],
+          "type": "llm_review"
+        }
+      ],
+      "primary": {
+        "id": "final_artifact",
+        "path": "final_artifact.json",
+        "required_fields": [
+          "type",
+          "executive_summary",
+          "recommended_action",
+          "confidence",
+          "evidence",
+          "next_steps",
+          "source_refs",
+          "research_summary",
+          "research_sources",
+          "research_warnings",
+          "llm_analysis"
+        ],
+        "schema_version": "mn.blueprint.final_artifact_contract.v1",
+        "type": "final_artifact"
+      },
+      "profile": "standard_run_store"
+    },
+    "status": {
+      "heartbeat": true
+    }
+  },
+  "defaults": {
+    "worker": {
+      "with": {
+        "image": "mirror-neuron/financial-advisor:local"
+      }
+    }
+  },
+  "description": "A unified personal financial advisor co-worker. Put bank statements, receipts, bills, income records, W-2s, 1099s, tax-form images with answer files, brokerage statements, portfolio files, and related finance documents in the input folder; it extracts document evidence, captures tax-form OCR fields for review, prepares review-only tax and household finance summaries, runs portfolio risk analysis, and writes integrated advisor reports to the output folder.",
   "identity": {
     "category": "finance",
     "id": "financial_advisor",
@@ -20,11 +401,7 @@
   "intent": {
     "description": "A unified personal financial advisor co-worker. Put bank statements, receipts, bills, income records, W-2s, 1099s, tax-form images with answer files, brokerage statements, portfolio files, and related finance documents in the input folder; it extracts document evidence, captures tax-form OCR fields for review, prepares review-only tax and household finance summaries, runs portfolio risk analysis, and writes integrated advisor reports to the output folder.",
     "problem": "Personal finance work is split across statement review, tax preparation, household planning, and portfolio risk checks; users need one review-only local assistant that keeps evidence, calculations, and next steps together.",
-    "target_users": "Individuals, households, freelancers, financial coaches, tax preparers, and advisors reviewing personal finance folders.",
     "safety": {
-      "enabled": true,
-      "mode": "approval_required",
-      "default_action": "reject",
       "allowed_decisions": [
         "approve",
         "revise",
@@ -42,7 +419,9 @@
         "share_regulated_financial_data",
         "contact_financial_institution_without_review"
       ],
-      "reason": "Human approval is required before filing, trading, moving money, bill payment, external sharing, or downstream financial decisions.",
+      "decision_event": "human_decision_applied",
+      "default_action": "reject",
+      "enabled": true,
       "events": [
         "human_notice",
         "human_input_requested",
@@ -50,50 +429,113 @@
         "human_input_timeout",
         "human_decision_applied"
       ],
+      "mode": "approval_required",
+      "reason": "Human approval is required before filing, trading, moving money, bill payment, external sharing, or downstream financial decisions.",
       "request_event": "human_input_requested",
       "response_event": "human_input_received",
       "timeout_event": "human_input_timeout",
-      "decision_event": "human_decision_applied",
       "timeout_seconds": 3600
-    }
+    },
+    "target_users": "Individuals, households, freelancers, financial coaches, tax preparers, and advisors reviewing personal finance folders."
+  },
+  "kind": "WorkflowSource",
+  "knowledge_rag": {
+    "backend": "redis_vector_rag",
+    "chunk_overlap": 80,
+    "chunk_size": 800,
+    "embedding_api_base": "auto",
+    "embedding_document_prefix": "Document: ",
+    "embedding_healthcheck_enabled": true,
+    "embedding_model": "rag-embedding",
+    "embedding_provider": "docker_model_runner",
+    "embedding_query_prefix": "Query: ",
+    "embedding_start_command": "",
+    "enabled": true,
+    "grounding_policy": "Use retrieved or bundled local blueprint knowledge to improve actor prompts; preserve deterministic outputs, cite supplied evidence, and label unknowns when retrieval is unavailable.",
+    "index_on_startup": false,
+    "knowledge_dir": "knowledge",
+    "max_context_chars": 6000,
+    "namespace": "",
+    "privacy": "index local blueprint knowledge only; do not index private run documents unless a future runtime explicitly opts in",
+    "purpose": "Retrieve local financial-advisor guidance for bank statement extraction, household cash-flow review, tax-form OCR capture, tax workpaper routing, portfolio risk interpretation, and review-only safety boundaries.",
+    "redis_url": "",
+    "required": false,
+    "retrieval_targets": [
+      "bank statement extraction",
+      "cash-flow review",
+      "tax form OCR capture",
+      "field location validation",
+      "tax workpaper routing",
+      "portfolio risk interpretation",
+      "human approval boundaries",
+      "evidence hierarchy and source traceability",
+      "calculation invariance and assumption clarity",
+      "cross-domain reconciliation and report quality"
+    ],
+    "top_k": 5,
+    "vector_dim": 1024
   },
   "metadata": {
+    "agentic_research": {
+      "agent_ids": [
+        "cash_flow_llm_analyst",
+        "public_finance_researcher",
+        "tax_form_ocr_capturer",
+        "tax_llm_reviewer",
+        "portfolio_llm_reviewer",
+        "advisor_evidence_reconciler",
+        "advisor_review_auditor",
+        "financial_advice_reporter"
+      ],
+      "allowed_tools": [
+        "knowledge_retrieve",
+        "browser_search",
+        "browser_page",
+        "market_data_history",
+        "risk_metric_compute",
+        "llm_ocr_extract",
+        "form_classify",
+        "field_locate",
+        "schema_validate",
+        "finish"
+      ],
+      "default_mode": "bounded_llm_guided_financial_advisor_review",
+      "enabled": true,
+      "max_iterations_per_agent": 1,
+      "max_tool_calls_per_agent": 2,
+      "note": "Public research actors derive queries from generic risk and document categories only.",
+      "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run"
+    },
     "blueprint_id": "financial_advisor",
-    "name": "Financial Advisor",
     "category": "Finance",
     "description": "A unified personal financial advisor co-worker. Put bank statements, receipts, bills, income records, W-2s, 1099s, tax-form images with answer files, brokerage statements, portfolio files, and related finance documents in the input folder; it extracts document evidence, captures tax-form OCR fields for review, prepares review-only tax and household finance summaries, runs portfolio risk analysis, and writes integrated advisor reports to the output folder.",
-    "problem": "Personal finance work is split across statement review, tax preparation, household planning, and portfolio risk checks; users need one review-only local assistant that keeps evidence, calculations, and next steps together.",
-    "target_users": "Individuals, households, freelancers, financial coaches, tax preparers, and advisors reviewing personal finance folders.",
-    "standard": {
-      "workflow_model": "contract -> workflow -> agents/runtime"
-    },
     "init_config_review": {
-      "required": true,
-      "instruction": "Ask the user to select a local folder containing finance, tax, bank statement, and optional portfolio documents, confirm the output folder, and make clear that launch prepares a review-only packet.",
       "fields": [
         {
-          "path": "document_sources.folder_path",
-          "label": "Finance document folder",
           "default": "financial_advisor/examples/sample_inputs",
           "description": "Choose a local folder containing bank statements, income records, tax documents, receipts, brokerage statements, and portfolio files.",
-          "type": "local_path",
-          "path_kind": "directory"
+          "label": "Finance document folder",
+          "path": "document_sources.folder_path",
+          "path_kind": "directory",
+          "type": "local_path"
         },
         {
-          "path": "outputs.folder_path",
-          "label": "Output folder",
           "default": "~/Downloads/financial_advisor",
           "description": "Choose where integrated review files should be written.",
-          "type": "local_path",
-          "path_kind": "directory"
+          "label": "Output folder",
+          "path": "outputs.folder_path",
+          "path_kind": "directory",
+          "type": "local_path"
         },
         {
-          "path": "llm.default_config",
-          "label": "Default model profile",
           "default": "primary",
-          "description": "Use small for normal nodes; heavy audit and reporting nodes can use the medium profile."
+          "description": "Use small for normal nodes; heavy audit and reporting nodes can use the medium profile.",
+          "label": "Default model profile",
+          "path": "llm.default_config"
         }
-      ]
+      ],
+      "instruction": "Ask the user to select a local folder containing finance, tax, bank statement, and optional portfolio documents, confirm the output folder, and make clear that launch prepares a review-only packet.",
+      "required": true
     },
     "interfaces": {
       "config": [
@@ -160,11 +602,26 @@
       ]
     },
     "knowledge_rag": {
-      "enabled": true,
       "backend": "redis_vector_rag",
-      "required": false,
+      "chunk_overlap": 80,
+      "chunk_size": 800,
+      "embedding_api_base": "auto",
+      "embedding_document_prefix": "Document: ",
+      "embedding_healthcheck_enabled": true,
+      "embedding_model": "rag-embedding",
+      "embedding_provider": "docker_model_runner",
+      "embedding_query_prefix": "Query: ",
+      "embedding_start_command": "",
+      "enabled": true,
+      "grounding_policy": "Use retrieved or bundled local blueprint knowledge to improve actor prompts; preserve deterministic outputs, cite supplied evidence, and label unknowns when retrieval is unavailable.",
+      "index_on_startup": false,
       "knowledge_dir": "knowledge",
+      "max_context_chars": 6000,
+      "namespace": "",
+      "privacy": "index local blueprint knowledge only; do not index private run documents unless a future runtime explicitly opts in",
       "purpose": "Retrieve local financial-advisor guidance for bank statement extraction, household cash-flow review, tax-form OCR capture, tax workpaper routing, portfolio risk interpretation, and review-only safety boundaries.",
+      "redis_url": "",
+      "required": false,
       "retrieval_targets": [
         "bank statement extraction",
         "cash-flow review",
@@ -177,67 +634,139 @@
         "calculation invariance and assumption clarity",
         "cross-domain reconciliation and report quality"
       ],
-      "grounding_policy": "Use retrieved or bundled local blueprint knowledge to improve actor prompts; preserve deterministic outputs, cite supplied evidence, and label unknowns when retrieval is unavailable.",
-      "redis_url": "",
-      "namespace": "",
-      "embedding_provider": "docker_model_runner",
-      "embedding_model": "rag-embedding",
-      "embedding_api_base": "auto",
-      "embedding_query_prefix": "Query: ",
-      "embedding_document_prefix": "Document: ",
-      "embedding_start_command": "",
-      "embedding_healthcheck_enabled": true,
-      "vector_dim": 1024,
-      "index_on_startup": false,
       "top_k": 5,
-      "max_context_chars": 6000,
-      "chunk_size": 800,
-      "chunk_overlap": 80,
-      "privacy": "index local blueprint knowledge only; do not index private run documents unless a future runtime explicitly opts in"
+      "vector_dim": 1024
     },
-    "agentic_research": {
-      "enabled": true,
-      "agent_ids": [
-        "cash_flow_llm_analyst",
-        "public_finance_researcher",
-        "tax_form_ocr_capturer",
-        "tax_llm_reviewer",
-        "portfolio_llm_reviewer",
-        "advisor_evidence_reconciler",
-        "advisor_review_auditor",
-        "financial_advice_reporter"
-      ],
-      "max_iterations_per_agent": 1,
-      "max_tool_calls_per_agent": 2,
-      "allowed_tools": [
-        "knowledge_retrieve",
-        "browser_search",
-        "browser_page",
-        "market_data_history",
-        "risk_metric_compute",
-        "llm_ocr_extract",
-        "form_classify",
-        "field_locate",
-        "schema_validate",
-        "finish"
-      ],
-      "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run",
-      "default_mode": "bounded_llm_guided_financial_advisor_review",
-      "note": "Public research actors derive queries from generic risk and document categories only."
+    "name": "Financial Advisor",
+    "problem": "Personal finance work is split across statement review, tax preparation, household planning, and portfolio risk checks; users need one review-only local assistant that keeps evidence, calculations, and next steps together.",
+    "standard": {
+      "workflow_model": "contract -> workflow -> agents/runtime"
+    },
+    "target_users": "Individuals, households, freelancers, financial coaches, tax preparers, and advisors reviewing personal finance folders."
+  },
+  "requirements": {
+    "cpu": {
+      "min_cores": 1
+    },
+    "disk": {
+      "min_gb": 1
+    },
+    "gpu": {
+      "min_count": 0
+    },
+    "memory": {
+      "min_gb": 2
     }
   },
-  "config": {
-    "default": "config/default.json",
-    "embed": true
-  },
-  "defaults": {
-    "worker": {
-      "with": {
-        "image": "mirror-neuron/financial-advisor:local"
+  "runtime": {
+    "models": {
+      "ocr": {
+        "backend": "llama.cpp",
+        "context_size": 4096,
+        "model": "hf.co/noctrex/LightOnOCR-2-1B-GGUF:Q4_K_M",
+        "provider": "docker_model_runner",
+        "purpose": "document_ocr",
+        "required": true,
+        "runtime_model": "hf.co/noctrex/LightOnOCR-2-1B-GGUF:Q4_K_M"
+      },
+      "primary": {
+        "backend": "llama.cpp",
+        "model": "default",
+        "provider": "docker_model_runner",
+        "required": true
       }
     }
   },
+  "skill_dependencies": [
+    {
+      "name": "mirrorneuron-blueprint-support-skill",
+      "source": "gar",
+      "type": "pip",
+      "version": "1.2.8"
+    },
+    {
+      "name": "mirrorneuron-litellm-communicate-skill",
+      "source": "gar",
+      "type": "pip",
+      "version": "1.2.7"
+    },
+    {
+      "name": "mirrorneuron-llm-ocr-skill",
+      "source": "gar",
+      "type": "pip",
+      "version": "1.2.7"
+    },
+    {
+      "name": "mirrorneuron-w3m-browser-skill",
+      "source": "gar",
+      "type": "pip",
+      "version": "1.2.7"
+    },
+    {
+      "name": "mirrorneuron-web-browser-skill",
+      "source": "gar",
+      "type": "pip",
+      "version": "1.2.7"
+    }
+  ],
+  "standard": {
+    "migration_policy": "sdk_managed",
+    "profile": "document_workflow",
+    "profile_version": 1,
+    "source_schema": "mn.workflow.source/v2",
+    "target_schema": "mn.workflow/v1"
+  },
   "workers": {
+    "by_step": {
+      "advisor_review_auditor": {
+        "with": {
+          "environment": {
+            "MN_LLM_CONFIG": "primary"
+          },
+          "llm_config": "primary"
+        }
+      },
+      "financial_advice_reporter": {
+        "with": {
+          "environment": {
+            "MN_LLM_CONFIG": "primary"
+          },
+          "llm_config": "primary"
+        }
+      },
+      "portfolio_llm_reviewer": {
+        "with": {
+          "environment": {
+            "MN_LLM_CONFIG": "primary"
+          },
+          "llm_config": "primary"
+        }
+      },
+      "portfolio_risk_engine": {
+        "with": {
+          "environment": {
+            "MN_LLM_CONFIG": "primary"
+          },
+          "llm_config": "primary"
+        }
+      },
+      "tax_llm_reviewer": {
+        "with": {
+          "environment": {
+            "MN_LLM_CONFIG": "primary"
+          },
+          "llm_config": "primary"
+        }
+      },
+      "tax_workpaper_preparer": {
+        "with": {
+          "environment": {
+            "MN_LLM_CONFIG": "primary"
+          },
+          "llm_config": "primary"
+        }
+      }
+    },
     "groups": [
       {
         "steps": [
@@ -256,109 +785,23 @@
           "stereotype": "internal_write_worker"
         }
       }
-    ],
-    "by_step": {
-      "tax_workpaper_preparer": {
-        "with": {
-          "llm_config": "primary",
-          "environment": {
-            "MN_LLM_CONFIG": "primary"
-          }
-        }
-      },
-      "tax_llm_reviewer": {
-        "with": {
-          "llm_config": "primary",
-          "environment": {
-            "MN_LLM_CONFIG": "primary"
-          }
-        }
-      },
-      "portfolio_risk_engine": {
-        "with": {
-          "llm_config": "primary",
-          "environment": {
-            "MN_LLM_CONFIG": "primary"
-          }
-        }
-      },
-      "portfolio_llm_reviewer": {
-        "with": {
-          "llm_config": "primary",
-          "environment": {
-            "MN_LLM_CONFIG": "primary"
-          }
-        }
-      },
-      "advisor_review_auditor": {
-        "with": {
-          "llm_config": "primary",
-          "environment": {
-            "MN_LLM_CONFIG": "primary"
-          }
-        }
-      },
-      "financial_advice_reporter": {
-        "with": {
-          "llm_config": "primary",
-          "environment": {
-            "MN_LLM_CONFIG": "primary"
-          }
-        }
-      }
-    }
-  },
-  "agents": {
-    "extra_templates": [
-      {
-        "node_id": "report_sink",
-        "uses": "mn-agents.control.terminal_sink@1",
-        "with": {
-          "stereotype": "terminal_report_sink"
-        }
-      }
-    ],
-    "extra_edges": [
-      {
-        "edge_id": "financial_advice_reporter_to_report_sink",
-        "from_node": "financial_advice_reporter",
-        "message_type": "financial_advice_reporter_completed",
-        "to_node": "report_sink"
-      }
     ]
   },
   "workflow": {
-    "workflow_id": "financial_advisor_v1",
-    "execution": {
-      "strategy": "parallel",
-      "max_parallel_steps": 4
-    },
     "dynamic": {
       "apply_at": "between_steps",
       "enabled": false,
       "patch_events": []
     },
-    "state": {
-      "document_folder": {
-        "from": "$inputs.document_folder"
-      },
-      "input_folder": {
-        "from": "$inputs.input_folder"
-      },
-      "output_folder": {
-        "from": "$inputs.output_folder"
-      },
-      "workflow": {},
-      "final_report": {}
+    "execution": {
+      "max_parallel_steps": 4,
+      "strategy": "parallel"
     },
     "policy": {
       "failure": {
         "default": "fail_closed"
       },
       "human": {
-        "enabled": true,
-        "mode": "approval_required",
-        "default_action": "reject",
         "allowed_decisions": [
           "approve",
           "revise",
@@ -376,7 +819,9 @@
           "share_regulated_financial_data",
           "contact_financial_institution_without_review"
         ],
-        "reason": "Human approval is required before filing, trading, moving money, bill payment, external sharing, or downstream financial decisions.",
+        "decision_event": "human_decision_applied",
+        "default_action": "reject",
+        "enabled": true,
         "events": [
           "human_notice",
           "human_input_requested",
@@ -384,31 +829,37 @@
           "human_input_timeout",
           "human_decision_applied"
         ],
+        "mode": "approval_required",
+        "reason": "Human approval is required before filing, trading, moving money, bill payment, external sharing, or downstream financial decisions.",
         "request_event": "human_input_requested",
         "response_event": "human_input_received",
         "timeout_event": "human_input_timeout",
-        "decision_event": "human_decision_applied",
         "timeout_seconds": 3600
       }
     },
+    "state": {
+      "document_folder": {
+        "from": "$inputs.document_folder"
+      },
+      "final_report": {},
+      "input_folder": {
+        "from": "$inputs.input_folder"
+      },
+      "output_folder": {
+        "from": "$inputs.output_folder"
+      },
+      "workflow": {}
+    },
     "steps": [
       {
-        "id": "financial_folder_watcher",
-        "kind": "source",
-        "label": "Financial Folder Watcher",
-        "goal": "Resolve the monitored finance folder, output folder, portfolio settings, tax settings, and sample input notes.",
-        "requires": [],
-        "provides": [
-          "financial_advisor.financial_folder_watcher.ready"
-        ],
         "control": {
-          "required": true,
           "failure_policy": "fail_workflow",
+          "required": true,
           "retry": {
-            "max_attempts": 2,
-            "backoff_seconds": 1,
             "backoff_multiplier": 2,
-            "jitter": 0
+            "backoff_seconds": 1,
+            "jitter": 0,
+            "max_attempts": 2
           },
           "timeout_seconds": 900,
           "uncertainty": {
@@ -416,499 +867,542 @@
             "on_low_confidence": "continue_with_warning"
           }
         },
+        "goal": "Resolve the monitored finance folder, output folder, portfolio settings, tax settings, and sample input notes.",
+        "id": "financial_folder_watcher",
         "in": {
           "document_folder": "$state.document_folder",
           "monitoring": "$inputs.monitoring"
         },
+        "kind": "source",
+        "label": "Financial Folder Watcher",
+        "needs": [],
         "out": {
           "financial_folder_watcher": "$state.workflow.financial_folder_watcher"
+        },
+        "run": {
+          "handler": "financial_advisor.steps.intake",
+          "with": {
+            "operation": "watch"
+          }
         }
       },
       {
+        "control": {
+          "failure_policy": "fail_workflow",
+          "required": true,
+          "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 1,
+            "jitter": 0,
+            "max_attempts": 2
+          },
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.7,
+            "on_low_confidence": "human_review"
+          }
+        },
+        "goal": "Read local text, JSON, CSV, and PDF/image evidence; use shared LightOnOCR for low-text or image-only documents; classify finance, tax, bank statement, and portfolio evidence.",
         "id": "financial_document_reader",
+        "in": {
+          "previous": "$state.workflow"
+        },
         "kind": "stage",
         "label": "Financial Document Reader",
-        "goal": "Read local text, JSON, CSV, and PDF/image evidence; use shared LightOnOCR for low-text or image-only documents; classify finance, tax, bank statement, and portfolio evidence.",
-        "requires": [
-          "financial_advisor.financial_folder_watcher.ready"
+        "needs": [
+          "financial_folder_watcher"
         ],
-        "provides": [
-          "financial_advisor.financial_document_reader.ready"
-        ],
-        "control": {
-          "required": true,
-          "failure_policy": "fail_workflow",
-          "retry": {
-            "max_attempts": 2,
-            "backoff_seconds": 1,
-            "backoff_multiplier": 2,
-            "jitter": 0
-          },
-          "timeout_seconds": 300,
-          "uncertainty": {
-            "min_confidence": 0.7,
-            "on_low_confidence": "human_review"
-          }
-        },
-        "in": {
-          "previous": "$state.workflow"
-        },
         "out": {
           "financial_document_reader": "$state.workflow.financial_document_reader"
+        },
+        "run": {
+          "handler": "financial_advisor.steps.intake",
+          "with": {
+            "operation": "read"
+          }
         }
       },
       {
+        "control": {
+          "failure_policy": "fail_workflow",
+          "required": true,
+          "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 1,
+            "jitter": 0,
+            "max_attempts": 2
+          },
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.7,
+            "on_low_confidence": "human_review"
+          }
+        },
+        "goal": "Extract statement balances, deposits, withdrawals, fees, account labels, and transaction evidence.",
         "id": "bank_statement_extractor",
+        "in": {
+          "previous": "$state.workflow"
+        },
         "kind": "stage",
         "label": "Bank Statement Extractor",
-        "goal": "Extract statement balances, deposits, withdrawals, fees, account labels, and transaction evidence.",
-        "requires": [
-          "financial_advisor.financial_document_reader.ready"
+        "needs": [
+          "financial_document_reader"
         ],
-        "provides": [
-          "financial_advisor.bank_statement_extractor.ready"
-        ],
-        "control": {
-          "required": true,
-          "failure_policy": "fail_workflow",
-          "retry": {
-            "max_attempts": 2,
-            "backoff_seconds": 1,
-            "backoff_multiplier": 2,
-            "jitter": 0
-          },
-          "timeout_seconds": 300,
-          "uncertainty": {
-            "min_confidence": 0.7,
-            "on_low_confidence": "human_review"
-          }
-        },
-        "in": {
-          "previous": "$state.workflow"
-        },
         "out": {
           "bank_statement_extractor": "$state.workflow.bank_statement_extractor"
+        },
+        "run": {
+          "handler": "financial_advisor.steps.cash_flow",
+          "with": {
+            "operation": "extract"
+          }
         }
       },
       {
+        "control": {
+          "failure_policy": "fail_workflow",
+          "required": true,
+          "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 1,
+            "jitter": 0,
+            "max_attempts": 2
+          },
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.7,
+            "on_low_confidence": "human_review"
+          }
+        },
+        "goal": "Normalize income, expenses, balances, debt obligations, fees, recurring items, and household finance risks.",
         "id": "cash_flow_normalizer",
+        "in": {
+          "previous": "$state.workflow"
+        },
         "kind": "stage",
         "label": "Cash Flow Normalizer",
-        "goal": "Normalize income, expenses, balances, debt obligations, fees, recurring items, and household finance risks.",
-        "requires": [
-          "financial_advisor.bank_statement_extractor.ready"
+        "needs": [
+          "bank_statement_extractor"
         ],
-        "provides": [
-          "financial_advisor.cash_flow_normalizer.ready"
-        ],
-        "control": {
-          "required": true,
-          "failure_policy": "fail_workflow",
-          "retry": {
-            "max_attempts": 2,
-            "backoff_seconds": 1,
-            "backoff_multiplier": 2,
-            "jitter": 0
-          },
-          "timeout_seconds": 300,
-          "uncertainty": {
-            "min_confidence": 0.7,
-            "on_low_confidence": "human_review"
-          }
-        },
-        "in": {
-          "previous": "$state.workflow"
-        },
         "out": {
           "cash_flow_normalizer": "$state.workflow.cash_flow_normalizer"
+        },
+        "run": {
+          "handler": "financial_advisor.steps.cash_flow",
+          "with": {
+            "operation": "normalize"
+          }
         }
       },
       {
+        "control": {
+          "failure_policy": "fail_workflow",
+          "required": true,
+          "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 1,
+            "jitter": 0,
+            "max_attempts": 2
+          },
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.7,
+            "on_low_confidence": "human_review"
+          }
+        },
+        "goal": "Review deterministic cash-flow totals for evidence gaps, recurring-risk signals, and human-check questions without changing cash-flow math.",
         "id": "cash_flow_llm_analyst",
+        "in": {
+          "previous": "$state.workflow"
+        },
         "kind": "stage",
         "label": "Cash Flow LLM Analyst",
-        "goal": "Review deterministic cash-flow totals for evidence gaps, recurring-risk signals, and human-check questions without changing cash-flow math.",
-        "requires": [
-          "financial_advisor.cash_flow_normalizer.ready"
+        "needs": [
+          "cash_flow_normalizer"
         ],
-        "provides": [
-          "financial_advisor.cash_flow_llm_analyst.ready"
-        ],
-        "control": {
-          "required": true,
-          "failure_policy": "fail_workflow",
-          "retry": {
-            "max_attempts": 2,
-            "backoff_seconds": 1,
-            "backoff_multiplier": 2,
-            "jitter": 0
-          },
-          "timeout_seconds": 300,
-          "uncertainty": {
-            "min_confidence": 0.7,
-            "on_low_confidence": "human_review"
-          }
-        },
-        "in": {
-          "previous": "$state.workflow"
-        },
         "out": {
           "cash_flow_llm_analyst": "$state.workflow.cash_flow_llm_analyst"
+        },
+        "run": {
+          "handler": "financial_advisor.steps.cash_flow",
+          "with": {
+            "operation": "analyze"
+          }
         }
       },
       {
-      "id": "tax_document_router",
+        "control": {
+          "failure_policy": "fail_workflow",
+          "required": true,
+          "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 1,
+            "jitter": 0,
+            "max_attempts": 2
+          },
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.7,
+            "on_low_confidence": "human_review"
+          }
+        },
+        "goal": "Route W-2, 1099, brokerage, receipt, and tax-relevant source evidence into draft workpaper groups.",
+        "id": "tax_document_router",
+        "in": {
+          "previous": "$state.workflow"
+        },
         "kind": "stage",
         "label": "Tax Document Router",
-        "goal": "Route W-2, 1099, brokerage, receipt, and tax-relevant source evidence into draft workpaper groups.",
-        "requires": [
-          "financial_advisor.financial_document_reader.ready"
+        "needs": [
+          "financial_document_reader"
         ],
-        "provides": [
-          "financial_advisor.tax_document_router.ready"
-        ],
-        "control": {
-          "required": true,
-          "failure_policy": "fail_workflow",
-          "retry": {
-            "max_attempts": 2,
-            "backoff_seconds": 1,
-            "backoff_multiplier": 2,
-            "jitter": 0
-          },
-          "timeout_seconds": 300,
-          "uncertainty": {
-            "min_confidence": 0.7,
-            "on_low_confidence": "human_review"
-          }
-        },
-        "in": {
-          "previous": "$state.workflow"
-        },
         "out": {
           "tax_document_router": "$state.workflow.tax_document_router"
+        },
+        "run": {
+          "handler": "financial_advisor.steps.tax",
+          "with": {
+            "operation": "route"
+          }
         }
       },
       {
+        "control": {
+          "failure_policy": "fail_workflow",
+          "required": true,
+          "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 1,
+            "jitter": 0,
+            "max_attempts": 2
+          },
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.7,
+            "on_low_confidence": "human_review"
+          }
+        },
+        "goal": "Classify tax-form images, preserve OCR-required status, capture answer-file fields, and validate field locations for review.",
         "id": "tax_form_ocr_capturer",
+        "in": {
+          "previous": "$state.workflow"
+        },
         "kind": "stage",
         "label": "Tax Form OCR Capturer",
-        "goal": "Classify tax-form images, preserve OCR-required status, capture answer-file fields, and validate field locations for review.",
-        "requires": [
-          "financial_advisor.tax_document_router.ready"
+        "needs": [
+          "tax_document_router"
         ],
-        "provides": [
-          "financial_advisor.tax_form_ocr_capturer.ready"
-        ],
-        "control": {
-          "required": true,
-          "failure_policy": "fail_workflow",
-          "retry": {
-            "max_attempts": 2,
-            "backoff_seconds": 1,
-            "backoff_multiplier": 2,
-            "jitter": 0
-          },
-          "timeout_seconds": 300,
-          "uncertainty": {
-            "min_confidence": 0.7,
-            "on_low_confidence": "human_review"
-          }
-        },
-        "in": {
-          "previous": "$state.workflow"
-        },
         "out": {
           "tax_form_ocr_capturer": "$state.workflow.tax_form_ocr_capturer"
+        },
+        "run": {
+          "handler": "financial_advisor.steps.tax",
+          "with": {
+            "operation": "ocr"
+          }
         }
       },
       {
+        "control": {
+          "failure_policy": "fail_workflow",
+          "required": true,
+          "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 1,
+            "jitter": 0,
+            "max_attempts": 2
+          },
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.7,
+            "on_low_confidence": "human_review"
+          }
+        },
+        "goal": "Prepare draft Form 1040-style review workpapers, manager checks, and missing-document flags without filing-ready conclusions.",
         "id": "tax_workpaper_preparer",
+        "in": {
+          "previous": "$state.workflow"
+        },
         "kind": "stage",
         "label": "Tax Workpaper Preparer",
-        "goal": "Prepare draft Form 1040-style review workpapers, manager checks, and missing-document flags without filing-ready conclusions.",
-        "requires": [
-          "financial_advisor.tax_form_ocr_capturer.ready"
+        "needs": [
+          "tax_form_ocr_capturer"
         ],
-        "provides": [
-          "financial_advisor.tax_workpaper_preparer.ready"
-        ],
-        "control": {
-          "required": true,
-          "failure_policy": "fail_workflow",
-          "retry": {
-            "max_attempts": 2,
-            "backoff_seconds": 1,
-            "backoff_multiplier": 2,
-            "jitter": 0
-          },
-          "timeout_seconds": 300,
-          "uncertainty": {
-            "min_confidence": 0.7,
-            "on_low_confidence": "human_review"
-          }
-        },
-        "in": {
-          "previous": "$state.workflow"
-        },
         "out": {
           "tax_workpaper_preparer": "$state.workflow.tax_workpaper_preparer"
+        },
+        "run": {
+          "handler": "financial_advisor.steps.tax",
+          "with": {
+            "operation": "prepare"
+          }
         }
       },
       {
+        "control": {
+          "failure_policy": "fail_workflow",
+          "required": true,
+          "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 1,
+            "jitter": 0,
+            "max_attempts": 2
+          },
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.7,
+            "on_low_confidence": "human_review"
+          }
+        },
+        "goal": "Review draft tax workpapers, OCR capture, missing-form blockers, and filing-boundary constraints without changing draft tax math.",
         "id": "tax_llm_reviewer",
+        "in": {
+          "previous": "$state.workflow"
+        },
         "kind": "stage",
         "label": "Tax LLM Reviewer",
-        "goal": "Review draft tax workpapers, OCR capture, missing-form blockers, and filing-boundary constraints without changing draft tax math.",
-        "requires": [
-          "financial_advisor.tax_workpaper_preparer.ready"
+        "needs": [
+          "tax_workpaper_preparer"
         ],
-        "provides": [
-          "financial_advisor.tax_llm_reviewer.ready"
-        ],
-        "control": {
-          "required": true,
-          "failure_policy": "fail_workflow",
-          "retry": {
-            "max_attempts": 2,
-            "backoff_seconds": 1,
-            "backoff_multiplier": 2,
-            "jitter": 0
-          },
-          "timeout_seconds": 300,
-          "uncertainty": {
-            "min_confidence": 0.7,
-            "on_low_confidence": "human_review"
-          }
-        },
-        "in": {
-          "previous": "$state.workflow"
-        },
         "out": {
           "tax_llm_reviewer": "$state.workflow.tax_llm_reviewer"
+        },
+        "run": {
+          "handler": "financial_advisor.steps.tax",
+          "with": {
+            "operation": "review"
+          }
         }
       },
       {
-      "id": "portfolio_context_loader",
+        "control": {
+          "failure_policy": "fail_workflow",
+          "required": true,
+          "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 1,
+            "jitter": 0,
+            "max_attempts": 2
+          },
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.7,
+            "on_low_confidence": "human_review"
+          }
+        },
+        "goal": "Load portfolio holdings, benchmark weights, market notes, risk policy, and review-only decision constraints.",
+        "id": "portfolio_context_loader",
+        "in": {
+          "previous": "$state.workflow"
+        },
         "kind": "stage",
         "label": "Portfolio Context Loader",
-        "goal": "Load portfolio holdings, benchmark weights, market notes, risk policy, and review-only decision constraints.",
-        "requires": [
-          "financial_advisor.financial_document_reader.ready"
+        "needs": [
+          "financial_document_reader"
         ],
-        "provides": [
-          "financial_advisor.portfolio_context_loader.ready"
-        ],
-        "control": {
-          "required": true,
-          "failure_policy": "fail_workflow",
-          "retry": {
-            "max_attempts": 2,
-            "backoff_seconds": 1,
-            "backoff_multiplier": 2,
-            "jitter": 0
-          },
-          "timeout_seconds": 300,
-          "uncertainty": {
-            "min_confidence": 0.7,
-            "on_low_confidence": "human_review"
-          }
-        },
-        "in": {
-          "previous": "$state.workflow"
-        },
         "out": {
           "portfolio_context_loader": "$state.workflow.portfolio_context_loader"
+        },
+        "run": {
+          "handler": "financial_advisor.steps.portfolio",
+          "with": {
+            "operation": "load_context"
+          }
         }
       },
       {
+        "control": {
+          "failure_policy": "fail_workflow",
+          "required": true,
+          "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 1,
+            "jitter": 0,
+            "max_attempts": 2
+          },
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.7,
+            "on_low_confidence": "human_review"
+          }
+        },
+        "goal": "Load bounded public or deterministic market context and record source freshness for portfolio symbols.",
         "id": "portfolio_market_data_loader",
+        "in": {
+          "previous": "$state.workflow"
+        },
         "kind": "stage",
         "label": "Portfolio Market Data Loader",
-        "goal": "Load bounded public or deterministic market context and record source freshness for portfolio symbols.",
-        "requires": [
-          "financial_advisor.portfolio_context_loader.ready"
+        "needs": [
+          "portfolio_context_loader"
         ],
-        "provides": [
-          "financial_advisor.portfolio_market_data_loader.ready"
-        ],
-        "control": {
-          "required": true,
-          "failure_policy": "fail_workflow",
-          "retry": {
-            "max_attempts": 2,
-            "backoff_seconds": 1,
-            "backoff_multiplier": 2,
-            "jitter": 0
-          },
-          "timeout_seconds": 300,
-          "uncertainty": {
-            "min_confidence": 0.7,
-            "on_low_confidence": "human_review"
-          }
-        },
-        "in": {
-          "previous": "$state.workflow"
-        },
         "out": {
           "portfolio_market_data_loader": "$state.workflow.portfolio_market_data_loader"
+        },
+        "run": {
+          "handler": "financial_advisor.steps.portfolio",
+          "with": {
+            "operation": "load_market_data"
+          }
         }
       },
       {
+        "control": {
+          "failure_policy": "fail_workflow",
+          "required": true,
+          "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 1,
+            "jitter": 0,
+            "max_attempts": 2
+          },
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.7,
+            "on_low_confidence": "human_review"
+          }
+        },
+        "goal": "Compute review-only concentration, cash, volatility, VaR-style, and policy-violation risk summaries.",
         "id": "portfolio_risk_engine",
+        "in": {
+          "previous": "$state.workflow"
+        },
         "kind": "stage",
         "label": "Portfolio Risk Engine",
-        "goal": "Compute review-only concentration, cash, volatility, VaR-style, and policy-violation risk summaries.",
-        "requires": [
-          "financial_advisor.portfolio_market_data_loader.ready"
+        "needs": [
+          "portfolio_market_data_loader"
         ],
-        "provides": [
-          "financial_advisor.portfolio_risk_engine.ready"
-        ],
-        "control": {
-          "required": true,
-          "failure_policy": "fail_workflow",
-          "retry": {
-            "max_attempts": 2,
-            "backoff_seconds": 1,
-            "backoff_multiplier": 2,
-            "jitter": 0
-          },
-          "timeout_seconds": 300,
-          "uncertainty": {
-            "min_confidence": 0.7,
-            "on_low_confidence": "human_review"
-          }
-        },
-        "in": {
-          "previous": "$state.workflow"
-        },
         "out": {
           "portfolio_risk_engine": "$state.workflow.portfolio_risk_engine"
+        },
+        "run": {
+          "handler": "financial_advisor.steps.portfolio",
+          "with": {
+            "operation": "risk"
+          }
         }
       },
       {
+        "control": {
+          "failure_policy": "fail_workflow",
+          "required": true,
+          "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 1,
+            "jitter": 0,
+            "max_attempts": 2
+          },
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.7,
+            "on_low_confidence": "human_review"
+          }
+        },
+        "goal": "Review deterministic portfolio risk metrics, policy violations, source gaps, and human review questions without recommending trades.",
         "id": "portfolio_llm_reviewer",
+        "in": {
+          "previous": "$state.workflow"
+        },
         "kind": "stage",
         "label": "Portfolio LLM Reviewer",
-        "goal": "Review deterministic portfolio risk metrics, policy violations, source gaps, and human review questions without recommending trades.",
-        "requires": [
-          "financial_advisor.portfolio_risk_engine.ready"
+        "needs": [
+          "portfolio_risk_engine"
         ],
-        "provides": [
-          "financial_advisor.portfolio_llm_reviewer.ready"
-        ],
-        "control": {
-          "required": true,
-          "failure_policy": "fail_workflow",
-          "retry": {
-            "max_attempts": 2,
-            "backoff_seconds": 1,
-            "backoff_multiplier": 2,
-            "jitter": 0
-          },
-          "timeout_seconds": 300,
-          "uncertainty": {
-            "min_confidence": 0.7,
-            "on_low_confidence": "human_review"
-          }
-        },
-        "in": {
-          "previous": "$state.workflow"
-        },
         "out": {
           "portfolio_llm_reviewer": "$state.workflow.portfolio_llm_reviewer"
+        },
+        "run": {
+          "handler": "financial_advisor.steps.portfolio",
+          "with": {
+            "operation": "review"
+          }
         }
       },
       {
-      "id": "public_finance_researcher",
+        "control": {
+          "failure_policy": "fail_workflow",
+          "required": true,
+          "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 1,
+            "jitter": 0,
+            "max_attempts": 2
+          },
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.7,
+            "on_low_confidence": "human_review"
+          }
+        },
+        "goal": "Gather privacy-safe public guidance from generic risk categories and official source targets.",
+        "id": "public_finance_researcher",
+        "in": {
+          "previous": "$state.workflow"
+        },
         "kind": "stage",
         "label": "Public Finance Researcher",
-        "goal": "Gather privacy-safe public guidance from generic risk categories and official source targets.",
-        "requires": [
-          "financial_advisor.financial_document_reader.ready"
+        "needs": [
+          "financial_document_reader"
         ],
-        "provides": [
-          "financial_advisor.public_finance_researcher.ready"
-        ],
-        "control": {
-          "required": true,
-          "failure_policy": "fail_workflow",
-          "retry": {
-            "max_attempts": 2,
-            "backoff_seconds": 1,
-            "backoff_multiplier": 2,
-            "jitter": 0
-          },
-          "timeout_seconds": 300,
-          "uncertainty": {
-            "min_confidence": 0.7,
-            "on_low_confidence": "human_review"
-          }
-        },
-        "in": {
-          "previous": "$state.workflow"
-        },
         "out": {
           "public_finance_researcher": "$state.workflow.public_finance_researcher"
+        },
+        "run": {
+          "handler": "financial_advisor.steps.research",
+          "with": {
+            "operation": "public_finance"
+          }
         }
       },
       {
-      "id": "advisor_evidence_reconciler",
+        "control": {
+          "failure_policy": "fail_workflow",
+          "required": true,
+          "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 1,
+            "jitter": 0,
+            "max_attempts": 2
+          },
+          "timeout_seconds": 300,
+          "uncertainty": {
+            "min_confidence": 0.7,
+            "on_low_confidence": "human_review"
+          }
+        },
+        "goal": "Merge statement, household, tax, portfolio, and public guidance findings and flag contradictions or missing evidence.",
+        "id": "advisor_evidence_reconciler",
+        "in": {
+          "previous": "$state.workflow"
+        },
         "kind": "stage",
         "label": "Advisor Evidence Reconciler",
-        "goal": "Merge statement, household, tax, portfolio, and public guidance findings and flag contradictions or missing evidence.",
-        "requires": [
-          "financial_advisor.cash_flow_llm_analyst.ready",
-          "financial_advisor.tax_llm_reviewer.ready",
-          "financial_advisor.portfolio_llm_reviewer.ready",
-          "financial_advisor.public_finance_researcher.ready"
+        "needs": [
+          "cash_flow_llm_analyst",
+          "tax_llm_reviewer",
+          "portfolio_llm_reviewer",
+          "public_finance_researcher"
         ],
-        "provides": [
-          "financial_advisor.advisor_evidence_reconciler.ready"
-        ],
-        "trigger_rule": "all_success",
-        "control": {
-          "required": true,
-          "failure_policy": "fail_workflow",
-          "retry": {
-            "max_attempts": 2,
-            "backoff_seconds": 1,
-            "backoff_multiplier": 2,
-            "jitter": 0
-          },
-          "timeout_seconds": 300,
-          "uncertainty": {
-            "min_confidence": 0.7,
-            "on_low_confidence": "human_review"
-          }
-        },
-        "in": {
-          "previous": "$state.workflow"
-        },
         "out": {
           "advisor_evidence_reconciler": "$state.workflow.advisor_evidence_reconciler"
-        }
+        },
+        "run": {
+          "handler": "financial_advisor.steps.research",
+          "with": {
+            "operation": "reconcile"
+          }
+        },
+        "trigger_rule": "all_success"
       },
       {
-        "id": "advisor_review_auditor",
-        "kind": "stage",
-        "label": "Advisor Review Auditor",
-        "goal": "Audit calculations, missing evidence, action boundaries, and human-review blockers.",
-        "requires": [
-          "financial_advisor.advisor_evidence_reconciler.ready"
-        ],
-        "provides": [
-          "financial_advisor.advisor_review_auditor.ready"
-        ],
         "control": {
-          "required": true,
           "failure_policy": "fail_workflow",
+          "required": true,
           "retry": {
-            "max_attempts": 2,
-            "backoff_seconds": 1,
             "backoff_multiplier": 2,
-            "jitter": 0
+            "backoff_seconds": 1,
+            "jitter": 0,
+            "max_attempts": 2
           },
           "timeout_seconds": 300,
           "uncertainty": {
@@ -916,32 +1410,35 @@
             "on_low_confidence": "human_review"
           }
         },
+        "goal": "Audit calculations, missing evidence, action boundaries, and human-review blockers.",
+        "id": "advisor_review_auditor",
         "in": {
           "previous": "$state.workflow"
         },
+        "kind": "stage",
+        "label": "Advisor Review Auditor",
+        "needs": [
+          "advisor_evidence_reconciler"
+        ],
         "out": {
           "advisor_review_auditor": "$state.workflow.advisor_review_auditor"
+        },
+        "run": {
+          "handler": "financial_advisor.steps.reporting",
+          "with": {
+            "operation": "audit"
+          }
         }
       },
       {
-        "id": "financial_advice_reporter",
-        "kind": "sink",
-        "label": "Financial Advice Reporter",
-        "goal": "Write the integrated review-only financial advisor report and domain artifacts.",
-        "requires": [
-          "financial_advisor.advisor_review_auditor.ready"
-        ],
-        "provides": [
-          "financial_advisor.financial_advice_reporter.ready"
-        ],
         "control": {
-          "required": true,
           "failure_policy": "fail_workflow",
+          "required": true,
           "retry": {
-            "max_attempts": 2,
-            "backoff_seconds": 1,
             "backoff_multiplier": 2,
-            "jitter": 0
+            "backoff_seconds": 1,
+            "jitter": 0,
+            "max_attempts": 2
           },
           "timeout_seconds": 300,
           "uncertainty": {
@@ -949,473 +1446,27 @@
             "on_low_confidence": "continue_with_warning"
           }
         },
+        "goal": "Write the integrated review-only financial advisor report and domain artifacts.",
+        "id": "financial_advice_reporter",
         "in": {
           "previous": "$state.workflow"
         },
+        "kind": "sink",
+        "label": "Financial Advice Reporter",
+        "needs": [
+          "advisor_review_auditor"
+        ],
         "out": {
           "financial_advice_reporter": "$state.workflow.financial_advice_reporter"
+        },
+        "run": {
+          "handler": "financial_advisor.steps.reporting",
+          "with": {
+            "operation": "report"
+          }
         }
       }
-    ]
-  },
-  "contracts": {
-    "events": {
-      "stream": "events.jsonl",
-      "human_stream": "human.jsonl",
-      "types": [
-        "blueprint_status",
-        "blueprint_phase_started",
-        "blueprint_phase_completed",
-        "blueprint_phase_failed",
-        "artifact_written",
-        "human_notice",
-        "human_input_requested",
-        "human_input_received",
-        "human_input_timeout",
-        "human_decision_applied",
-        "output_skill_started",
-        "output_skill_completed",
-        "output_skill_failed",
-        "tool_call_started",
-        "tool_call_completed",
-        "tool_call_failed",
-        "financial_folder_watcher_completed",
-        "financial_document_reader_completed",
-        "bank_statement_extractor_completed",
-        "cash_flow_normalizer_completed",
-        "cash_flow_llm_analyst_completed",
-        "tax_document_router_completed",
-        "tax_form_ocr_capturer_completed",
-        "tax_workpaper_preparer_completed",
-        "tax_llm_reviewer_completed",
-        "portfolio_context_loader_completed",
-        "portfolio_market_data_loader_completed",
-        "portfolio_risk_engine_completed",
-        "portfolio_llm_reviewer_completed",
-        "public_finance_researcher_completed",
-        "advisor_evidence_reconciler_completed",
-        "advisor_review_auditor_completed",
-        "financial_advice_reporter_completed",
-        "watch_cycle_started",
-        "watch_cycle_completed"
-      ]
-    },
-    "input_adapters": {
-      "default": "mock",
-      "resolved_artifact": "inputs.json",
-      "supported": [
-        "mock",
-        "json",
-        "file",
-        "env_json"
-      ]
-    },
-    "inputs": {
-      "document_folder": {
-        "type": "local_path",
-        "description": "Local folder monitored for personal finance, bank statement, tax, and portfolio documents.",
-        "privacy": "regulated",
-        "required": true,
-        "example": "financial_advisor/examples/sample_inputs",
-        "path_kind": "directory"
-      },
-      "input_folder": {
-        "type": "local_path",
-        "description": "Default local input folder for sample files or user-provided files.",
-        "privacy": "regulated",
-        "required": false,
-        "example": "financial_advisor/examples/sample_inputs",
-        "path_kind": "directory"
-      },
-      "output_folder": {
-        "type": "local_path",
-        "description": "Local folder where JSON and Markdown advisor reports should be written.",
-        "privacy": "regulated",
-        "required": true,
-        "example": "~/Downloads/financial_advisor",
-        "path_kind": "directory"
-      },
-      "tax_year": {
-        "type": "domain_value",
-        "description": "Tax year used for draft workpaper labels.",
-        "privacy": "internal",
-        "required": false,
-        "example": 2025
-      },
-      "filing_status": {
-        "type": "domain_value",
-        "description": "Draft filing-status label for review-only tax packet.",
-        "privacy": "regulated",
-        "required": false,
-        "example": "single"
-      },
-      "portfolio": {
-        "type": "domain_value",
-        "description": "Optional portfolio holdings for review-only risk analysis.",
-        "privacy": "regulated",
-        "required": false,
-        "example": {
-          "base_currency": "USD",
-          "cash": 50000,
-          "holdings": [
-            {
-              "symbol": "SPY",
-              "quantity": 180,
-              "asset_class": "equity"
-            }
-          ]
-        }
-      },
-      "monitoring": {
-        "type": "domain_value",
-        "description": "Folder monitoring configuration for one-shot or continuous polling runs.",
-        "privacy": "internal",
-        "required": false,
-        "example": {
-          "enabled": true,
-          "poll_interval_seconds": 60,
-          "max_cycles": 1
-        }
-      },
-      "field_profile": {
-        "type": "domain_value",
-        "description": "Financial fields and review areas captured by the advisor.",
-        "privacy": "internal",
-        "required": false,
-        "example": [
-          "document_kind",
-          "income_amounts",
-          "tax_forms",
-          "form_type",
-          "field_locations",
-          "portfolio_holdings",
-          "risk_flags"
-        ]
-      }
-    },
-    "outputs": {
-      "profile": "standard_run_store",
-      "artifacts": [
-        {
-          "artifact_id": "run_metadata",
-          "type": "run_summary",
-          "path": "run.json",
-          "producer": "local_run_store",
-          "mime_type": "application/json",
-          "schema_version": "mn.artifact.run_summary.v1",
-          "source_refs": []
-        },
-        {
-          "artifact_id": "resolved_config",
-          "type": "config",
-          "path": "config.json",
-          "producer": "local_run_store",
-          "mime_type": "application/json",
-          "schema_version": "mn.blueprint.config.v1",
-          "source_refs": []
-        },
-        {
-          "artifact_id": "resolved_inputs",
-          "type": "inputs",
-          "path": "inputs.json",
-          "producer": "local_run_store",
-          "mime_type": "application/json",
-          "schema_version": "mn.blueprint.inputs.v1",
-          "source_refs": []
-        },
-        {
-          "artifact_id": "event_stream",
-          "type": "events",
-          "path": "events.jsonl",
-          "producer": "local_run_store",
-          "mime_type": "application/x-jsonlines",
-          "schema_version": "mn.blueprint.events.v1",
-          "source_refs": []
-        },
-        {
-          "artifact_id": "result",
-          "type": "result",
-          "path": "result.json",
-          "producer": "local_run_store",
-          "mime_type": "application/json",
-          "schema_version": "mn.blueprint.response.v1",
-          "source_refs": [
-            "inputs.json",
-            "events.jsonl"
-          ]
-        },
-        {
-          "artifact_id": "final_artifact",
-          "type": "final_artifact",
-          "path": "final_artifact.json",
-          "producer": "workflow",
-          "mime_type": "application/json",
-          "schema_version": "mn.blueprint.final_artifact.v1",
-          "source_refs": [
-            "inputs.json",
-            "events.jsonl",
-            "result.json"
-          ]
-        },
-        {
-          "artifact_id": "action_ledger",
-          "type": "action_ledger",
-          "path": "action_ledger.json",
-          "producer": "workflow",
-          "mime_type": "application/json",
-          "schema_version": "mn.blueprint.action_ledger.v1",
-          "source_refs": [
-            "final_artifact.json"
-          ]
-        },
-        {
-          "artifact_id": "artifact_quality",
-          "type": "artifact_quality",
-          "path": "artifact_quality.json",
-          "producer": "workflow",
-          "mime_type": "application/json",
-          "schema_version": "mn.blueprint.artifact_quality.v1",
-          "source_refs": [
-            "final_artifact.json"
-          ]
-        },
-        {
-          "artifact_id": "run_health",
-          "type": "run_health",
-          "path": "run_health.json",
-          "producer": "workflow",
-          "mime_type": "application/json",
-          "schema_version": "mn.blueprint.run_health.v1",
-          "source_refs": [
-            "final_artifact.json",
-            "action_ledger.json",
-            "artifact_quality.json"
-          ]
-        },
-        {
-          "artifact_id": "review_packet_markdown",
-          "type": "generated_report",
-          "path": "<outputs.folder_path>/financial_advisor_report.md",
-          "producer": "workflow",
-          "mime_type": "text/markdown",
-          "schema_version": "mn.blueprint.generated_report.v1",
-          "source_refs": [
-            "final_artifact.json"
-          ]
-        },
-        {
-          "artifact_id": "customer_report",
-          "type": "customer_report",
-          "path": "<outputs.folder_path>/customer_report.json",
-          "producer": "workflow",
-          "mime_type": "application/json",
-          "schema_version": "mn.blueprint.financial_advisor.customer_report.v1",
-          "source_refs": [
-            "final_artifact.json"
-          ]
-        },
-        {
-          "artifact_id": "cash_flow_llm_review",
-          "type": "llm_review",
-          "path": "<outputs.folder_path>/cash_flow_llm_review.json",
-          "producer": "workflow",
-          "mime_type": "application/json",
-          "schema_version": "mn.blueprint.financial_advisor.llm_review.v1",
-          "source_refs": [
-            "household_finance_summary.json",
-            "final_artifact.json"
-          ]
-        },
-        {
-          "artifact_id": "tax_form_ocr_capture",
-          "type": "tax_form_capture",
-          "path": "<outputs.folder_path>/tax_form_ocr_capture.json",
-          "producer": "workflow",
-          "mime_type": "application/json",
-          "schema_version": "mn.blueprint.tax_form_capture.v1",
-          "source_refs": [
-            "final_artifact.json"
-          ]
-        },
-        {
-          "artifact_id": "tax_llm_review",
-          "type": "llm_review",
-          "path": "<outputs.folder_path>/tax_llm_review.json",
-          "producer": "workflow",
-          "mime_type": "application/json",
-          "schema_version": "mn.blueprint.financial_advisor.llm_review.v1",
-          "source_refs": [
-            "tax_review_packet.json",
-            "tax_form_ocr_capture.json",
-            "final_artifact.json"
-          ]
-        },
-        {
-          "artifact_id": "portfolio_llm_review",
-          "type": "llm_review",
-          "path": "<outputs.folder_path>/portfolio_llm_review.json",
-          "producer": "workflow",
-          "mime_type": "application/json",
-          "schema_version": "mn.blueprint.financial_advisor.llm_review.v1",
-          "source_refs": [
-            "portfolio_risk_review.json",
-            "final_artifact.json"
-          ]
-        }
-      ],
-      "primary": {
-        "id": "final_artifact",
-        "path": "final_artifact.json",
-        "type": "final_artifact",
-        "schema_version": "mn.blueprint.final_artifact_contract.v1",
-        "required_fields": [
-          "type",
-          "executive_summary",
-          "recommended_action",
-          "confidence",
-          "evidence",
-          "next_steps",
-          "source_refs",
-          "research_summary",
-          "research_sources",
-          "research_warnings",
-          "llm_analysis"
-        ]
-      }
-    },
-    "status": {
-      "heartbeat": true
-    }
-  },
-  "requirements": {
-    "cpu": {
-      "min_cores": 1
-    },
-    "memory": {
-      "min_gb": 2
-    },
-    "disk": {
-      "min_gb": 1
-    },
-    "gpu": {
-      "min_count": 0
-    }
-  },
-  "runtime": {
-    "models": {
-      "primary": {
-        "provider": "docker_model_runner",
-        "model": "default",
-        "backend": "llama.cpp",
-        "required": true
-      },
-      "ocr": {
-        "provider": "docker_model_runner",
-        "model": "hf.co/noctrex/LightOnOCR-2-1B-GGUF:Q4_K_M",
-        "runtime_model": "hf.co/noctrex/LightOnOCR-2-1B-GGUF:Q4_K_M",
-        "backend": "llama.cpp",
-        "context_size": 4096,
-        "required": true,
-        "purpose": "document_ocr"
-      }
-    }
-  },
-  "knowledge_rag": {
-    "enabled": true,
-    "backend": "redis_vector_rag",
-    "required": false,
-    "knowledge_dir": "knowledge",
-    "purpose": "Retrieve local financial-advisor guidance for bank statement extraction, household cash-flow review, tax-form OCR capture, tax workpaper routing, portfolio risk interpretation, and review-only safety boundaries.",
-    "retrieval_targets": [
-      "bank statement extraction",
-      "cash-flow review",
-      "tax form OCR capture",
-      "field location validation",
-      "tax workpaper routing",
-      "portfolio risk interpretation",
-      "human approval boundaries",
-      "evidence hierarchy and source traceability",
-      "calculation invariance and assumption clarity",
-      "cross-domain reconciliation and report quality"
     ],
-    "grounding_policy": "Use retrieved or bundled local blueprint knowledge to improve actor prompts; preserve deterministic outputs, cite supplied evidence, and label unknowns when retrieval is unavailable.",
-    "redis_url": "",
-    "namespace": "",
-    "embedding_provider": "docker_model_runner",
-    "embedding_model": "rag-embedding",
-    "embedding_api_base": "auto",
-    "embedding_query_prefix": "Query: ",
-    "embedding_document_prefix": "Document: ",
-    "embedding_start_command": "",
-    "embedding_healthcheck_enabled": true,
-    "vector_dim": 1024,
-    "index_on_startup": false,
-    "top_k": 5,
-    "max_context_chars": 6000,
-    "chunk_size": 800,
-    "chunk_overlap": 80,
-    "privacy": "index local blueprint knowledge only; do not index private run documents unless a future runtime explicitly opts in"
-  },
-  "agentic_research": {
-    "enabled": true,
-    "agent_ids": [
-      "cash_flow_llm_analyst",
-      "public_finance_researcher",
-      "tax_form_ocr_capturer",
-      "tax_llm_reviewer",
-      "portfolio_llm_reviewer",
-      "advisor_evidence_reconciler",
-      "advisor_review_auditor",
-      "financial_advice_reporter"
-    ],
-    "max_iterations_per_agent": 1,
-    "max_tool_calls_per_agent": 2,
-    "allowed_tools": [
-      "knowledge_retrieve",
-      "browser_search",
-      "browser_page",
-      "market_data_history",
-      "risk_metric_compute",
-      "llm_ocr_extract",
-      "form_classify",
-      "field_locate",
-      "schema_validate",
-      "finish"
-    ],
-    "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run",
-    "default_mode": "bounded_llm_guided_financial_advisor_review",
-    "note": "Public research actors derive queries from generic risk and document categories only."
-  },
-  "skill_dependencies": [
-    {
-      "type": "pip",
-      "source": "gar",
-      "name": "mirrorneuron-blueprint-support-skill",
-      "version": "1.2.8"
-    },
-    {
-      "type": "pip",
-      "source": "gar",
-      "name": "mirrorneuron-litellm-communicate-skill",
-      "version": "1.2.7"
-    },
-    {
-      "type": "pip",
-      "source": "gar",
-      "name": "mirrorneuron-llm-ocr-skill",
-      "version": "1.2.7"
-    },
-    {
-      "type": "pip",
-      "source": "gar",
-      "name": "mirrorneuron-w3m-browser-skill",
-      "version": "1.2.7"
-    },
-    {
-      "type": "pip",
-      "source": "gar",
-      "name": "mirrorneuron-web-browser-skill",
-      "version": "1.2.7"
-    }
-  ]
+    "workflow_id": "financial_advisor_v1"
+  }
 }
