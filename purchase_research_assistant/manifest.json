@@ -843,21 +843,21 @@
         "workers": [
           {
             "id": "purchase:intake",
-            "model": "small",
+            "model": "default",
             "role": "Frame the purchase goal and decision criteria",
             "tokens": 14000,
             "tools": 4
           },
           {
             "id": "purchase:price_research",
-            "model": "small",
+            "model": "default",
             "role": "Research current price and availability",
             "tokens": 14000,
             "tools": 4
           },
           {
             "id": "purchase:total_cost",
-            "model": "small",
+            "model": "default",
             "role": "Analyze total cost and recurring obligations",
             "tokens": 14000,
             "tools": 4
@@ -872,14 +872,14 @@
         "workers": [
           {
             "id": "purchase:policy_risk",
-            "model": "small",
+            "model": "default",
             "role": "Review policy, quality, and risk evidence",
             "tokens": 14000,
             "tools": 4
           },
           {
             "id": "purchase:alternatives",
-            "model": "small",
+            "model": "default",
             "role": "Compare credible alternatives",
             "tokens": 14000,
             "tools": 4
@@ -894,14 +894,14 @@
         "workers": [
           {
             "id": "purchase:recommender",
-            "model": "small",
+            "model": "default",
             "role": "Synthesize options and tradeoffs",
             "tokens": 14000,
             "tools": 4
           },
           {
             "id": "purchase:auditor",
-            "model": "small",
+            "model": "default",
             "role": "Audit downside risks and evidence gaps",
             "tokens": 14000,
             "tools": 4
@@ -916,7 +916,7 @@
         "workers": [
           {
             "id": "purchase:report_writer",
-            "model": "small",
+            "model": "default",
             "role": "Write the review-only purchase report",
             "tokens": 14000,
             "tools": 4
@@ -1002,7 +1002,7 @@
       "type": "local_run_store"
     },
     "worker_defaults": {
-      "model": "small",
+      "model": "default",
       "pool": "default",
       "pool_slots": 1,
       "runner": "MirrorNeuron.Runner.HostLocal",

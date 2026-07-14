@@ -98,3 +98,24 @@ def test_default_llm_blueprints_keep_litellm_routing_logical():
             )
         )
         assert config["llm"]["model"] == "default", blueprint_id
+
+
+def test_purchase_research_workers_use_the_logical_default_model():
+    blueprint = ROOT / "purchase_research_assistant"
+    manifest = json.loads((blueprint / "manifest.json").read_text(encoding="utf-8"))
+    payload_config = json.loads(
+        (blueprint / "payloads" / "config" / "default.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    workers = [
+        worker
+        for binding in manifest["runtime"]["bindings"].values()
+        for worker in binding.get("workers", [])
+    ]
+    assert workers
+    assert {worker["model"] for worker in workers} == {"default"}
+    assert manifest["runtime"]["worker_defaults"]["model"] == "default"
+    assert payload_config["llm"]["model"] == "default"
+    assert "runtime_model" not in payload_config["llm"]
