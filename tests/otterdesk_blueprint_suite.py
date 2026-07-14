@@ -1583,6 +1583,10 @@ def test_cctv_operator_uses_dockerworker_nvidia_media_worker():
     assert "CCTV_MEDIA_ACCELERATOR" in launch_script
     assert "nvidia_cuda" in launch_script
     assert manifest["runtime"]["models"]["primary"]["type"] == "vlm"
+    assert manifest["runtime"]["placement"]["mode"] == "single_node"
+    assert manifest["runtime"]["models"]["primary"]["install_mode"] == "workflow_node"
+    assert config["llm"]["install_mode"] == "workflow_node"
+    assert config["llm"]["configs"]["primary"]["install_mode"] == "workflow_node"
     assert manifest["runtime"]["models"]["primary"]["model"] == "gemma4:e2b"
     assert config["llm"]["model"] == "gemma4:e2b"
     assert config["video_source"]["frame_sample_seconds"] == 20

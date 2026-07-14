@@ -366,7 +366,7 @@
     "provider": "docker_model_runner",
     "runtime_model": "gemma4:e2b",
     "backend": "llama.cpp",
-    "install_mode": "cluster_provided",
+    "install_mode": "workflow_node",
     "enabled": true,
     "agent_role": "AI assistant for reviewing video stream activity and preparing visual detection alerts.",
     "agents": {
@@ -446,7 +446,7 @@
       "primary": {
         "provider": "docker_model_runner",
         "model": "gemma4:e2b",
-        "install_mode": "cluster_provided",
+        "install_mode": "workflow_node",
         "api_base": "http://localhost:12434/engines/v1",
         "timeout_seconds": 60,
         "max_tokens": 900,

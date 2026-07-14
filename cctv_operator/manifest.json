@@ -736,6 +736,9 @@
     ]
   },
   "runtime": {
+    "placement": {
+      "mode": "single_node"
+    },
     "bindings": {
       "detect_visual_targets": {
         "risk": "low",
@@ -865,7 +868,7 @@
         "model": "gemma4:e2b",
         "runtime_model": "gemma4:e2b",
         "backend": "llama.cpp",
-        "install_mode": "cluster_provided",
+        "install_mode": "workflow_node",
         "required": true
       }
     },
