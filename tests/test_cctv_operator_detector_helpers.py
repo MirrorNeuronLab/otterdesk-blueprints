@@ -98,10 +98,14 @@ def test_detector_uses_configured_cadence_and_vision_model_defaults(monkeypatch)
 
     assert detector.configured_frame_sample_seconds(config) == 23
     assert detector.configured_frame_max_width(config) == 768
-    assert detector._normalize_vlm_model("medium") == "docker.io/ai/gemma4:E2B"
+    assert detector._normalize_vlm_model("medium") == "nemotron3"
+    assert detector._normalize_vlm_model("nemotron3") == "nemotron3"
+
+    monkeypatch.setenv("MN_LLM_RUNTIME_MODEL", "docker.io/ai/nemotron3:latest")
+    assert detector._normalize_vlm_model("docker.io/ai/nemotron3:latest") == "nemotron3"
 
 
-def test_openai_vlm_disables_thinking_and_normalizes_model_variants(monkeypatch):
+def test_openai_vlm_uses_portable_openai_fields_and_normalizes_model_variants(monkeypatch):
     detector = _load_detector()
     captured = {}
     model_content = {
@@ -150,7 +154,7 @@ def test_openai_vlm_disables_thinking_and_normalizes_model_variants(monkeypatch)
 
     result = detector.call_ollama(b"jpeg", "inspect the frame")
 
-    assert captured["chat_template_kwargs"] == {"enable_thinking": False}
+    assert "chat_template_kwargs" not in captured
     assert captured["max_tokens"] == 600
     assert captured["url"] == "http://model.example/engines/v1/chat/completions"
     assert result["detected_target"] is True
@@ -180,7 +184,7 @@ def test_litellm_vlm_preserves_v1_openai_endpoint(monkeypatch):
 
     monkeypatch.setenv("MN_VLM_PROVIDER", "litellm")
     monkeypatch.setenv("MN_VLM_API_BASE", "http://mn-litellm-proxy:4000/v1")
-    monkeypatch.setenv("MN_VLM_MODEL", "docker.io/ai/gemma4:E2B")
+    monkeypatch.setenv("MN_VLM_MODEL", "docker.io/ai/nemotron3:latest")
     monkeypatch.setattr(detector.urllib.request, "urlopen", fake_urlopen)
 
     result = detector.call_ollama(b"jpeg", "inspect the frame")

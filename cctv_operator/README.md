@@ -19,7 +19,7 @@ The default is folder mode with `examples/sample_inputs`. Set `video_source.mode
 
 The manifest declares a hard NVIDIA CUDA requirement with one GPU and at least 49,152 MB of GPU or unified IGP memory. Eligibility, including DGX Spark unified-memory accounting, is enforced by `mn-python-sdk`; the blueprint does not duplicate that detection logic. There is no CPU or Mac-only execution path.
 
-Frame preparation runs in an SDK-managed `MirrorNeuron.Runner.DockerWorker` on the selected NVIDIA node. Its small CUDA worker image contains FFmpeg and receives the GPU through the runtime's generated Compose service; NVIDIA node and memory eligibility remain SDK-owned. The default Gemma 4 E2B vision model and 20-second sampling interval avoid inference backlog on one DGX Spark while remaining configurable.
+Frame preparation runs in an SDK-managed `MirrorNeuron.Runner.DockerWorker` on the selected NVIDIA node. Its small CUDA worker image contains FFmpeg and receives the GPU through the runtime's generated Compose service; NVIDIA node and memory eligibility remain SDK-owned. The default Nemotron 3 medium vision-language model requires the declared 48 GB memory floor; the 20-second sampling interval avoids inference backlog on one DGX Spark while remaining configurable.
 
 ## Web UI
 

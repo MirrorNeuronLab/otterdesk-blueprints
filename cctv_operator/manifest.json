@@ -750,7 +750,7 @@
             "id": "visual_target_detector",
             "alias": "visual_target_detector",
             "display_name": "Visual Target Detector",
-            "model": "gemma4:e2b",
+            "model": "nemotron3",
             "role": "Run visual detection",
             "tokens": 14000,
             "tools": 4
@@ -759,7 +759,7 @@
             "id": "quality_controller",
             "alias": "quality_controller",
             "display_name": "Quality Controller",
-            "model": "gemma4:e2b",
+            "model": "nemotron3",
             "role": "Review alert quality",
             "tokens": 14000,
             "tools": 4
@@ -776,7 +776,7 @@
             "id": "frame_sampler",
             "alias": "frame_sampler",
             "display_name": "Frame Sampler",
-            "model": "gemma4:e2b",
+            "model": "nemotron3",
             "role": "Sample video frames",
             "tokens": 14000,
             "tools": 4
@@ -803,7 +803,7 @@
             "id": "video_source_validator",
             "alias": "video_source_validator",
             "display_name": "Video Source Validator",
-            "model": "gemma4:e2b",
+            "model": "nemotron3",
             "role": "Validate video source",
             "tokens": 14000,
             "tools": 4
@@ -812,7 +812,7 @@
             "id": "video_monitor",
             "alias": "video_monitor",
             "display_name": "Video Monitor",
-            "model": "gemma4:e2b",
+            "model": "nemotron3",
             "role": "Coordinate video monitoring",
             "tokens": 14000,
             "tools": 4
@@ -829,7 +829,7 @@
             "id": "report_writer",
             "alias": "report_writer",
             "display_name": "CCTV Report Writer",
-            "model": "gemma4:e2b",
+            "model": "nemotron3",
             "role": "Write cumulative CCTV reports",
             "tokens": 14000,
             "tools": 4
@@ -865,8 +865,8 @@
       "primary": {
         "type": "vlm",
         "provider": "docker_model_runner",
-        "model": "gemma4:e2b",
-        "runtime_model": "gemma4:e2b",
+        "model": "nemotron3",
+        "runtime_model": "nemotron3",
         "backend": "llama.cpp",
         "install_mode": "workflow_node",
         "required": true
@@ -939,7 +939,7 @@
       "type": "local_run_store"
     },
     "worker_defaults": {
-      "model": "gemma4:e2b",
+      "model": "nemotron3",
       "pool": "default",
       "pool_slots": 1,
       "runner": "MirrorNeuron.Runner.HostLocal",

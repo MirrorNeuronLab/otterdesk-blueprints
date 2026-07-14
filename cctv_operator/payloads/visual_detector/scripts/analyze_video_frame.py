@@ -553,14 +553,11 @@ def call_ollama(frame: bytes, prompt: str) -> dict[str, Any]:
         or os.environ.get("MN_LLM_MODEL")
         or os.environ.get("VL_MODEL_NAME")
         or os.environ.get("OLLAMA_MODEL")
-        or "gemma4:e2b"
+        or "nemotron3"
     )
     timeout = float(os.environ.get("MN_VLM_TIMEOUT_SECONDS") or os.environ.get("MN_LLM_TIMEOUT_SECONDS") or os.environ.get("OLLAMA_TIMEOUT_SECONDS", "90"))
     if _uses_openai_compatible_runtime(provider, base_url):
         encoded = base64.b64encode(frame).decode("ascii")
-        thinking_enabled = (
-            os.environ.get("MN_VLM_THINK") or os.environ.get("OLLAMA_THINK", "false")
-        ).strip().lower() in {"1", "true", "yes", "on"}
         payload = {
             "model": model,
             "messages": [
@@ -574,7 +571,6 @@ def call_ollama(frame: bytes, prompt: str) -> dict[str, Any]:
             ],
             "max_tokens": int(os.environ.get("MN_VLM_MAX_TOKENS") or os.environ.get("MN_LLM_MAX_TOKENS") or os.environ.get("OLLAMA_NUM_PREDICT", "600")),
             "temperature": float(os.environ.get("MN_VLM_TEMPERATURE") or os.environ.get("OLLAMA_TEMPERATURE", "0.0")),
-            "chat_template_kwargs": {"enable_thinking": thinking_enabled},
             "response_format": {"type": "json_object"},
         }
         request = urllib.request.Request(
@@ -586,6 +582,10 @@ def call_ollama(frame: bytes, prompt: str) -> dict[str, Any]:
         try:
             with urllib.request.urlopen(request, timeout=timeout) as response:
                 raw = json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            detail = exc.read(2048).decode("utf-8", errors="replace").strip()
+            suffix = f": {detail}" if detail else ""
+            raise RuntimeError(f"model runner request failed: HTTP {exc.code}{suffix}") from exc
         except urllib.error.URLError as exc:
             raise RuntimeError(f"model runner request failed: {exc}") from exc
         choice = (raw.get("choices") or [{}])[0]
@@ -617,6 +617,10 @@ def call_ollama(frame: bytes, prompt: str) -> dict[str, Any]:
     try:
         with urllib.request.urlopen(request, timeout=timeout) as response:
             raw = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        detail = exc.read(2048).decode("utf-8", errors="replace").strip()
+        suffix = f": {detail}" if detail else ""
+        raise RuntimeError(f"legacy Ollama request failed: HTTP {exc.code}{suffix}") from exc
     except urllib.error.URLError as exc:
         raise RuntimeError(f"legacy Ollama request failed: {exc}") from exc
 
@@ -629,8 +633,18 @@ def call_ollama(frame: bytes, prompt: str) -> dict[str, Any]:
 
 def _normalize_vlm_model(model: str) -> str:
     value = str(model or "").strip()
-    if value.lower() in {"", "default", "small", "medium", "gemma4", "gemma4:e2b"}:
-        return os.environ.get("MN_LLM_RUNTIME_MODEL") or "docker.io/ai/gemma4:E2B"
+    if value.lower() in {
+        "",
+        "default",
+        "medium",
+        "nemotron3",
+        "nemotron3:latest",
+        "ai/nemotron3:latest",
+        "docker.io/ai/nemotron3:latest",
+    }:
+        # The node-local model gateway routes the catalog alias; the Docker
+        # image reference is only for provisioning the runner model.
+        return "nemotron3"
     return value
 
 

@@ -362,9 +362,9 @@
     ]
   },
   "llm": {
-    "model": "gemma4:e2b",
+    "model": "nemotron3",
     "provider": "docker_model_runner",
-    "runtime_model": "gemma4:e2b",
+    "runtime_model": "nemotron3",
     "backend": "llama.cpp",
     "install_mode": "workflow_node",
     "enabled": true,
@@ -372,7 +372,7 @@
     "agents": {
       "visual_target_detector": {
         "llm_config": "primary",
-        "model": "gemma4:e2b",
+        "model": "nemotron3",
         "role": "Visual target detector actor",
         "responsibilities": [
           "Detect configured visual targets from sampled frames.",
@@ -382,7 +382,7 @@
       },
       "quality_controller": {
         "llm_config": "primary",
-        "model": "gemma4:e2b",
+        "model": "nemotron3",
         "role": "Video quality controller",
         "responsibilities": [
           "Check detection confidence and stream quality.",
@@ -392,7 +392,7 @@
       },
       "frame_sampler": {
         "llm_config": "primary",
-        "model": "gemma4:e2b",
+        "model": "nemotron3",
         "role": "Frame sampler actor",
         "responsibilities": [
           "Sample frames from configured video sources.",
@@ -402,7 +402,7 @@
       },
       "video_source_validator": {
         "llm_config": "primary",
-        "model": "gemma4:e2b",
+        "model": "nemotron3",
         "role": "Video source validator",
         "responsibilities": [
           "Validate video source configuration and reachability.",
@@ -412,7 +412,7 @@
       },
       "video_monitor": {
         "llm_config": "primary",
-        "model": "gemma4:e2b",
+        "model": "nemotron3",
         "role": "Video monitor actor",
         "responsibilities": [
           "Maintain watch state and runtime lifecycle.",
@@ -422,7 +422,7 @@
       },
       "report_writer": {
         "llm_config": "primary",
-        "model": "gemma4:e2b",
+        "model": "nemotron3",
         "role": "CCTV report writer",
         "responsibilities": [
           "Write concise watch summaries from detection events.",
@@ -445,7 +445,7 @@
     "configs": {
       "primary": {
         "provider": "docker_model_runner",
-        "model": "gemma4:e2b",
+        "model": "nemotron3",
         "install_mode": "workflow_node",
         "api_base": "http://localhost:12434/engines/v1",
         "timeout_seconds": 60,

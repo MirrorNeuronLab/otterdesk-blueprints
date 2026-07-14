@@ -265,9 +265,10 @@ def test_video_gpu_blueprints_declare_hard_nvidia_cuda_requirements_consistently
         manifest = json.loads((ROOT / blueprint_id / "manifest.json").read_text())
         assert manifest["requirements"]["gpu"] == GPU_HARD_REQUIREMENT
         assert manifest["runtime"]["resources"]["gpu"] == GPU_HARD_REQUIREMENT
-        assert manifest["runtime"]["models"][runtime_model_key]["model"] == "gemma4:e2b"
+        assert manifest["runtime"]["models"][runtime_model_key]["model"] == "nemotron3"
+        assert manifest["runtime"]["models"][runtime_model_key]["runtime_model"] == "nemotron3"
         assert manifest["runtime"]["models"][runtime_model_key]["type"] == "vlm"
-        assert manifest["runtime"]["models"][runtime_model_key]["install_mode"] == "cluster_provided"
+        assert manifest["runtime"]["models"][runtime_model_key]["install_mode"] == "workflow_node"
 
         worker = next(node for node in _flow_nodes(manifest) if node["node_id"] == worker_id)
         _assert_hard_gpu_worker_requirements(worker)
@@ -279,8 +280,9 @@ def test_video_gpu_blueprints_declare_hard_nvidia_cuda_requirements_consistently
                     _assert_hard_gpu_worker_requirements(rendered)
 
     config = json.loads((ROOT / "cctv_operator" / "config" / "default.json").read_text())
-    assert config["llm"]["model"] == "gemma4:e2b"
-    assert config["llm"]["install_mode"] == "cluster_provided"
+    assert config["llm"]["model"] == "nemotron3"
+    assert config["llm"]["runtime_model"] == "nemotron3"
+    assert config["llm"]["install_mode"] == "workflow_node"
     assert config["resources"]["gpu"] == GPU_HARD_REQUIREMENT
     assert config["resources"]["required_capabilities"] == ["nvidia", "cuda"]
 
@@ -1587,8 +1589,10 @@ def test_cctv_operator_uses_dockerworker_nvidia_media_worker():
     assert manifest["runtime"]["models"]["primary"]["install_mode"] == "workflow_node"
     assert config["llm"]["install_mode"] == "workflow_node"
     assert config["llm"]["configs"]["primary"]["install_mode"] == "workflow_node"
-    assert manifest["runtime"]["models"]["primary"]["model"] == "gemma4:e2b"
-    assert config["llm"]["model"] == "gemma4:e2b"
+    assert manifest["runtime"]["models"]["primary"]["model"] == "nemotron3"
+    assert manifest["runtime"]["models"]["primary"]["runtime_model"] == "nemotron3"
+    assert config["llm"]["model"] == "nemotron3"
+    assert config["llm"]["runtime_model"] == "nemotron3"
     assert config["video_source"]["frame_sample_seconds"] == 20
     assert {
         "config_path": "video_source.frame_sample_seconds",
