@@ -8,11 +8,10 @@ from runtime.runtime import (
     hydrate_cached_company_state,
     load_watch_state,
     processed_and_skipped_company_names,
-    read_company_records_state,
 )
 
 def run_claim_normalizer_step(ctx: dict[str, Any], *, llm_client: Any | None = None) -> dict[str, Any]:
-    company_records = read_company_records_state(ctx["run_dir"])
+    company_records = ctx["state_store"].read_object("company_records.json")
     previous_state = load_watch_state(ctx["output_folder"])
     company_work_queue = build_company_work_queue(company_records, previous_state, force_reprocess=ctx["force_reprocess"])
     company_work_queue = hydrate_cached_company_state(ctx, company_records, company_work_queue)

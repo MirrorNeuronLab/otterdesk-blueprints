@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import importlib
 import importlib.util
 import json
@@ -18,11 +19,23 @@ for skill_name in (
     "client_report_skill",
     "document_reading_skill",
     "public_research_orchestrator_skill",
+    "rag_skill",
     "scoring_framework_skill",
 ):
     skill_src = ROOT.parent / "mn-skills" / skill_name / "src"
     if skill_src.exists():
         sys.path.insert(0, str(skill_src))
+for agent_name in (
+    "prototype_operation_router_agent",
+    "prototype_stateful_step_agent",
+    "prototype_entity_queue_agent",
+    "prototype_bounded_tool_loop_agent",
+    "prototype_actor_review_agent",
+    "prototype_artifact_finalizer_agent",
+):
+    agent_src = ROOT.parent / "mn-agents" / agent_name / "src"
+    if agent_src.exists():
+        sys.path.insert(0, str(agent_src))
 RUNNER_PATH = (
     ROOT
     / "vc_assistant"
@@ -789,6 +802,125 @@ def test_vc_assistant_runtime_upload_bundle_contains_sample_inputs():
     assert (bundled_sample_root / "otterdesk" / "otterdesk pitch v0.pdf").exists()
 
 
+def test_three_bundled_companies_match_deterministic_golden_contract(tmp_path):
+    runner = _load_runner()
+    outputs = tmp_path / "reports"
+    run_id = "vc-three-company-golden"
+    result = runner.run_blueprint(
+        inputs={
+            "document_folder": str(ROOT / "vc_assistant" / "examples" / "sample_inputs"),
+            "output_folder": str(outputs),
+            "monitoring": {"enabled": True, "poll_interval_seconds": 1, "max_cycles": 1},
+        },
+        config={
+            "llm": {"mode": "fake", "require_live": False},
+            "execution": {"fake_skills": True},
+            "knowledge_rag": {"enabled": True, "required": True},
+            "internet_research": {"enabled": True},
+            "agentic_research": {"enabled": False},
+            "backpressure": {"llm": {"max_concurrent_calls": 1, "min_interval_seconds": 0}},
+        },
+        runs_root=tmp_path,
+        run_id=run_id,
+        llm_client=FakeVCLLM(),
+    )
+
+    artifact = result["final_artifact"]
+    reports = {report["company_slug"]: report for report in artifact["company_reports"]}
+    assert list(reports) == ["aurora-ai", "boreal-robotics", "otterdesk"]
+    expected_method_outcomes = {
+        "aurora-ai": {
+            "berkus_method": ("scored", 57.6),
+            "scorecard_bill_payne_method": ("scored", 55.05),
+            "risk_factor_summation_method": ("scored", 57),
+            "venture_capital_method": ("scored", 57.0),
+            "first_chicago_method": ("scored", 52.25),
+            "comparables_market_multiple_method": ("insufficient_evidence", None),
+            "cost_to_duplicate_method": ("insufficient_evidence", None),
+        },
+        "boreal-robotics": {
+            "berkus_method": ("scored", 24.4),
+            "scorecard_bill_payne_method": ("scored", 31.95),
+            "risk_factor_summation_method": ("scored", 71),
+            "venture_capital_method": ("insufficient_evidence", None),
+            "first_chicago_method": ("insufficient_evidence", None),
+            "comparables_market_multiple_method": ("insufficient_evidence", None),
+            "cost_to_duplicate_method": ("scored", 86),
+        },
+        "otterdesk": {
+            "berkus_method": ("scored", 26.8),
+            "scorecard_bill_payne_method": ("scored", 31.35),
+            "risk_factor_summation_method": ("scored", 86),
+            "venture_capital_method": ("insufficient_evidence", None),
+            "first_chicago_method": ("insufficient_evidence", None),
+            "comparables_market_multiple_method": ("insufficient_evidence", None),
+            "cost_to_duplicate_method": ("insufficient_evidence", None),
+        },
+    }
+    for company_slug, expected in expected_method_outcomes.items():
+        assert {
+            method_id: (method["status"], method["score"])
+            for method_id, method in reports[company_slug]["methods"].items()
+        } == expected
+
+    assert {slug: len(report["research_sources"]) for slug, report in reports.items()} == {
+        "aurora-ai": 43,
+        "boreal-robotics": 47,
+        "otterdesk": 43,
+    }
+    assert {slug: len(report["warnings"]) for slug, report in reports.items()} == {
+        "aurora-ai": 28,
+        "boreal-robotics": 31,
+        "otterdesk": 30,
+    }
+    expected_verification_targets = {
+        "company_identity_researcher",
+        "crunchbase",
+        "financial_tool_comparables",
+        "funding_researcher",
+        "market_comp_researcher",
+        "public_profile",
+        "rendered_page_researcher",
+        "rendered_page_setup",
+        "traction_verifier",
+    }
+    assert all(
+        {source["verification_target"] for source in report["research_sources"]}
+        == expected_verification_targets
+        for report in reports.values()
+    )
+
+    assert {path.name for path in outputs.iterdir()} == {
+        "action_ledger.json",
+        "artifact_quality.json",
+        "audit_findings",
+        "aurora-ai",
+        "boreal-robotics",
+        "claim_records",
+        "company_fact_tables",
+        "company_index.json",
+        "company_index.md",
+        "company_work_queue.json",
+        "evidence_items",
+        "final_artifact.json",
+        "llm_rag_trace.jsonl",
+        "method_coverage.json",
+        "method_scores",
+        "otterdesk",
+        "research_coverage.json",
+        "research_ledgers",
+        "run_health.json",
+        "run_summary.md",
+        "watch_state.json",
+    }
+    events = [
+        json.loads(line)
+        for line in (tmp_path / run_id / "events.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    assert any(event["type"] == "batch_index_writer_completed" for event in events)
+    assert json.loads((outputs / "final_artifact.json").read_text(encoding="utf-8"))["company_reports"] == artifact["company_reports"]
+
+
 def test_budgeted_llm_serializes_concurrent_model_calls():
     runner = _load_runner()
     active_calls = 0
@@ -882,7 +1014,6 @@ def test_observed_operation_emits_heartbeat(tmp_path):
 
 def test_rag_retrieval_observation_is_metadata_only(monkeypatch, tmp_path):
     runner = _load_runner()
-    monkeypatch.setattr(runner, "_load_rag_skill", lambda: None)
 
     def fake_retrieve(**kwargs):
         return {
@@ -1045,6 +1176,57 @@ def test_vc_assistant_runtime_graph_is_manifest_declared_dag_with_terminal_sink(
         edge["from_node"] == "batch_index_writer" and edge["to_node"] == "report_sink"
         for edge in manifest["agents"]["edges"]
     )
+
+
+def test_vc_manifest_agent_dependencies_are_imported_and_runtime_boundaries_are_stable():
+    source = json.loads((ROOT / "vc_assistant" / "manifest.json").read_text(encoding="utf-8"))
+    payload_root = ROOT / "vc_assistant" / "payloads"
+    imported_modules: set[str] = set()
+    for path in payload_root.rglob("*.py"):
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                imported_modules.update(alias.name.split(".", 1)[0] for alias in node.names)
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                imported_modules.add(node.module.split(".", 1)[0])
+
+    declared_modules = {
+        dependency["name"].replace("-", "_")
+        for dependency in source["agent_dependencies"]
+    }
+    assert declared_modules <= imported_modules
+    for module_name in declared_modules:
+        assert importlib.import_module(module_name)
+
+    worker_stereotypes = {
+        group["with"]["stereotype"]: tuple(group["steps"])
+        for group in source["workers"]["groups"]
+    }
+    assert worker_stereotypes == {
+        "public_browser_worker": (
+            "company_identity_researcher",
+            "funding_researcher",
+            "market_comp_researcher",
+            "traction_verifier",
+            "rendered_page_researcher",
+        ),
+        "internal_write_worker": ("company_report_writer", "batch_index_writer"),
+    }
+    assert source["agents"]["extra_templates"] == [
+        {
+            "node_id": "report_sink",
+            "uses": "mn-agents.control.terminal_sink@1",
+            "with": {"stereotype": "terminal_report_sink"},
+        }
+    ]
+    assert source["agents"]["extra_edges"] == [
+        {
+            "edge_id": "batch_index_writer_to_report_sink",
+            "from_node": "batch_index_writer",
+            "message_type": "batch_index_writer_completed",
+            "to_node": "report_sink",
+        }
+    ]
 
 
 def test_vc_agents_are_llm_backed_and_selected_for_actor_reviews():
@@ -1332,7 +1514,6 @@ def test_agentic_research_prompt_includes_knowledge_rag_context(monkeypatch, tmp
         [{"filename": "packet.md", "text_preview": "GitHub https://github.com/example/example-ai"}],
         {"max_queries": 20, "rendered_browser": {"max_pages_per_company": 5}},
     )
-    monkeypatch.setattr(runner, "_load_rag_skill", lambda: None)
     monkeypatch.setattr(
         runner,
         "skill_retrieve_knowledge_rag_context",
@@ -1371,7 +1552,11 @@ def test_agentic_research_prompt_includes_knowledge_rag_context(monkeypatch, tmp
 
 def test_knowledge_rag_failure_records_explicit_warning(monkeypatch, tmp_path):
     runner = _load_runner()
-    monkeypatch.setattr(runner, "_load_rag_skill", lambda: (_ for _ in ()).throw(RuntimeError("milvus unavailable")))
+    monkeypatch.setattr(
+        runner,
+        "skill_prepare_blueprint_knowledge_rag",
+        lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("milvus unavailable")),
+    )
 
     state = runner.prepare_knowledge_rag(
         blueprint_dir=ROOT / "vc_assistant",
@@ -1553,7 +1738,6 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path
             "company": company,
         }
 
-    monkeypatch.setattr(runner, "_load_rag_skill", lambda: None)
     monkeypatch.setattr(runner, "skill_prepare_blueprint_knowledge_rag", fake_prepare_rag)
     monkeypatch.setattr(runner, "skill_public_rag_state", fake_public_rag_state)
     monkeypatch.setattr(runner, "skill_retrieve_knowledge_rag_context", fake_rag_context)

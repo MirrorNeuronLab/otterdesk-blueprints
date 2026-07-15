@@ -2,53 +2,44 @@ from __future__ import annotations
 
 from typing import Any
 
+from mn_prototype_entity_queue_agent import EntityQueueSpec, create_agent as create_entity_queue
 from mn_sdk.blueprint_support import complete_runtime_step, step_result
 from runtime.runtime import (
     _agent_stage_enabled,
     agentic_research_config,
     build_adaptive_research_plan,
-    build_runtime_services,
-    persist_action_budget_state,
-    read_company_agent_trace_state,
-    read_company_analysis_state,
-    read_company_records_state,
-    read_company_research_ledger,
-    read_company_work_queue_state,
+    company_worker_count,
+    normalized_research_ledger,
     run_agentic_research_stage,
-    run_step_actor_review,
-    step_actor_review_selected,
-    write_company_agent_trace_state,
-    write_company_analysis_state,
-    write_company_research_ledger,
-    write_company_research_plan_state,
 )
 
 def run_research_planner_step(ctx: dict[str, Any], *, llm_client: Any | None = None) -> dict[str, Any]:
-    company_records = read_company_records_state(ctx["run_dir"])
-    company_work_queue = read_company_work_queue_state(ctx["run_dir"])
+    store = ctx["state_store"]
+    company_records = store.read_object("company_records.json")
+    company_work_queue = store.read_list("company_work_queue.json")
     internet = ctx["config"].get("internet_research") if isinstance(ctx["config"].get("internet_research"), dict) else {}
     agentic = agentic_research_config(ctx["config"])
     need_agentic_planner = bool(agentic.get("enabled")) and _agent_stage_enabled(agentic, "research_planner")
-    need_llm = need_agentic_planner or step_actor_review_selected(ctx, "research_planner")
-    services = build_runtime_services(ctx, llm_client=llm_client, need_llm=need_llm, rag_stage="research_planner" if need_llm else "")
+    services = ctx["services"]
     knowledge_rag = services.get("knowledge_rag") or {}
     llm = services.get("llm")
     action_budget = services["action_budget"]
-    planned_count = 0
-    for item in company_work_queue:
+    def plan_company(_context: dict[str, Any], item: dict[str, Any]) -> dict[str, Any]:
         company = str(item["company_name"])
         records = company_records.get(company, [])
         plan = build_adaptive_research_plan(company, records, internet)
-        write_company_research_plan_state(ctx["run_dir"], company, plan)
-        planned_count += 1
+        store.write_entity("research_plans", company, plan)
         if item.get("status") == "unchanged_skipped":
-            analysis = read_company_analysis_state(ctx["run_dir"], company)
+            analysis = store.read_entity_object("analyses", company)
             if analysis:
                 analysis["research_plan"] = plan
-                write_company_analysis_state(ctx["run_dir"], analysis)
-            continue
-        if need_agentic_planner and llm is not None:
-            trace = read_company_agent_trace_state(ctx["run_dir"], company)
+                store.write_entity("analyses", str(analysis["company_slug"]), analysis)
+        elif need_agentic_planner and llm is not None:
+            trace = [
+                item
+                for item in store.read_entity_list("agent_tool_traces", company)
+                if isinstance(item, dict)
+            ]
             _, planner_sources = run_agentic_research_stage(
                 company=company,
                 stage="research_planner",
@@ -61,11 +52,22 @@ def run_research_planner_step(ctx: dict[str, Any], *, llm_client: Any | None = N
                 trace=trace,
                 knowledge_rag=knowledge_rag,
             )
-            ledger = read_company_research_ledger(ctx["run_dir"], company)
+            ledger = normalized_research_ledger(store.read_entity_object("research_ledgers", company))
             ledger["company_identity_researcher"] = planner_sources + ledger.get("company_identity_researcher", [])
-            write_company_research_ledger(ctx["run_dir"], company, ledger)
-            write_company_agent_trace_state(ctx["run_dir"], company, trace)
-    run_step_actor_review(ctx, "research_planner", services, llm_client=llm_client)
-    persist_action_budget_state(ctx, action_budget)
+            store.write_entity("research_ledgers", company, normalized_research_ledger(ledger))
+            store.write_entity("agent_tool_traces", company, trace)
+        return {"company": company, "planned": True}
+
+    queue_result = create_entity_queue(
+        EntityQueueSpec(
+            load_entities=lambda _context, **_options: company_work_queue,
+            process_entity=plan_company,
+            entity_id=lambda item: str(item["company_name"]),
+            max_workers=lambda _context, **_options: company_worker_count(
+                ctx["config"], len(company_work_queue)
+            ),
+        )
+    )(ctx)
+    planned_count = int(queue_result["processed_count"])
     complete_runtime_step(ctx, "research_planner", {"company_count": planned_count})
     return step_result(ctx, "research_planner", company_count=planned_count)

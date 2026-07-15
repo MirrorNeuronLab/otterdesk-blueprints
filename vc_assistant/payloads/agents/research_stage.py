@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from mn_prototype_entity_queue_agent import EntityQueueSpec, create_agent as create_entity_queue
+from mn_public_research_orchestrator_skill import merge_stage_sources
 from mn_sdk.blueprint_support import complete_runtime_step, step_result
 from runtime.runtime import (
     _agent_stage_enabled,
@@ -10,30 +12,24 @@ from runtime.runtime import (
     agentic_research_config,
     append_debug_record_if_enabled,
     build_adaptive_research_plan,
-    build_runtime_services,
+    company_worker_count,
     fake_llm_mode_enabled,
     fake_skills_mode_enabled,
-    persist_action_budget_state,
-    read_company_agent_trace_state,
-    read_company_records_state,
-    read_company_research_ledger,
-    read_company_research_plan_state,
-    read_company_work_queue_state,
+    normalized_research_ledger,
     run_agentic_research_stage,
-    run_step_actor_review,
-    step_actor_review_selected,
-    write_company_agent_trace_state,
-    write_company_research_ledger,
 )
 
 def run_research_stage_step(ctx: dict[str, Any], step_id: str, *, llm_client: Any | None = None) -> dict[str, Any]:
-    company_records = read_company_records_state(ctx["run_dir"])
-    company_work_queue = read_company_work_queue_state(ctx["run_dir"])
+    store = ctx["state_store"]
+    company_records = store.read_object("company_records.json")
+    company_work_queue = store.read_list("company_work_queue.json")
     internet = ctx["config"].get("internet_research") if isinstance(ctx["config"].get("internet_research"), dict) else {}
     internet_disabled = internet.get("enabled") is False
     agentic = agentic_research_config(ctx["config"])
     need_agentic = bool(agentic.get("enabled")) and _agent_stage_enabled(agentic, step_id)
-    need_llm = need_agentic or step_actor_review_selected(ctx, step_id)
+    services = ctx["services"]
+    llm = services.get("llm")
+    need_llm = llm is not None
     append_debug_record_if_enabled(
         ctx,
         "debug_research_stage_started",
@@ -49,27 +45,14 @@ def run_research_stage_step(ctx: dict[str, Any], step_id: str, *, llm_client: An
             "fake_skills": fake_skills_mode_enabled(ctx["config"]),
         },
     )
-    services = build_runtime_services(ctx, llm_client=llm_client, need_llm=need_llm, rag_stage=step_id if need_llm else "")
-    llm = services.get("llm")
     knowledge_rag = services.get("knowledge_rag") or {}
     action_budget = services["action_budget"]
-    processed_count = 0
-    skipped_count = 0
-    for item in company_work_queue:
+    def process_company(_context: dict[str, Any], item: dict[str, Any]) -> dict[str, Any]:
         company = str(item["company_name"])
-        if item.get("status") == "unchanged_skipped":
-            skipped_count += 1
-            append_debug_record_if_enabled(
-                ctx,
-                "debug_research_company_skipped",
-                {"step_id": step_id, "company": company, "status": item.get("status")},
-            )
-            continue
         if internet_disabled:
-            ledger = read_company_research_ledger(ctx["run_dir"], company)
+            ledger = normalized_research_ledger(store.read_entity_object("research_ledgers", company))
             ledger.setdefault(step_id, [])
-            write_company_research_ledger(ctx["run_dir"], company, ledger)
-            processed_count += 1
+            store.write_entity("research_ledgers", company, normalized_research_ledger(ledger))
             append_debug_record_if_enabled(
                 ctx,
                 "debug_research_company_completed",
@@ -81,12 +64,16 @@ def run_research_stage_step(ctx: dict[str, Any], step_id: str, *, llm_client: An
                     "ledger_stage_count": len(ledger.get(step_id, [])),
                 },
             )
-            continue
+            return {"company": company, "source_count": 0}
         records = company_records.get(company, [])
-        plan = read_company_research_plan_state(ctx["run_dir"], company) or build_adaptive_research_plan(company, records, internet)
+        plan = store.read_entity_object("research_plans", company) or build_adaptive_research_plan(company, records, internet)
         staged_queries = plan.get("stage_queries") if isinstance(plan.get("stage_queries"), dict) else {}
         query = staged_queries.get(step_id) or plan.get("queries") or [company]
-        trace = read_company_agent_trace_state(ctx["run_dir"], company)
+        trace = [
+            item
+            for item in store.read_entity_list("agent_tool_traces", company)
+            if isinstance(item, dict)
+        ]
         append_debug_record_if_enabled(
             ctx,
             "debug_research_company_started",
@@ -132,11 +119,10 @@ def run_research_stage_step(ctx: dict[str, Any], step_id: str, *, llm_client: An
                 ctx["run_dir"],
                 action_budget,
             )
-        ledger = read_company_research_ledger(ctx["run_dir"], company)
-        ledger[stage] = ledger.get(stage, []) + sources
-        write_company_research_ledger(ctx["run_dir"], company, ledger)
-        write_company_agent_trace_state(ctx["run_dir"], company, trace)
-        processed_count += 1
+        ledger = normalized_research_ledger(store.read_entity_object("research_ledgers", company))
+        ledger = merge_stage_sources(ledger, stage, sources, deduplicate=False)
+        store.write_entity("research_ledgers", company, normalized_research_ledger(ledger))
+        store.write_entity("agent_tool_traces", company, trace)
         append_debug_record_if_enabled(
             ctx,
             "debug_research_company_completed",
@@ -150,8 +136,31 @@ def run_research_stage_step(ctx: dict[str, Any], step_id: str, *, llm_client: An
                 "action_budget_class": action_budget.__class__.__name__,
             },
         )
-    run_step_actor_review(ctx, step_id, services, llm_client=llm_client)
-    persist_action_budget_state(ctx, action_budget)
+        return {"company": company, "source_count": len(sources), "stage": stage}
+
+    def should_skip(_context: dict[str, Any], item: dict[str, Any], **_options: Any) -> bool:
+        skipped = item.get("status") == "unchanged_skipped"
+        if skipped:
+            append_debug_record_if_enabled(
+                ctx,
+                "debug_research_company_skipped",
+                {"step_id": step_id, "company": str(item["company_name"]), "status": item.get("status")},
+            )
+        return skipped
+
+    queue_result = create_entity_queue(
+        EntityQueueSpec(
+            load_entities=lambda _context, **_options: company_work_queue,
+            process_entity=process_company,
+            entity_id=lambda item: str(item["company_name"]),
+            should_skip=should_skip,
+            max_workers=lambda _context, **_options: company_worker_count(
+                ctx["config"], len(company_work_queue)
+            ),
+        )
+    )(ctx)
+    processed_count = int(queue_result["processed_count"])
+    skipped_count = int(queue_result["skipped_count"])
     complete_runtime_step(ctx, step_id, {"company_count": processed_count, "skipped_company_count": skipped_count})
     append_debug_record_if_enabled(
         ctx,

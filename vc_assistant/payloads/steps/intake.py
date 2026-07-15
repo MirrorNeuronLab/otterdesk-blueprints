@@ -1,24 +1,21 @@
 from __future__ import annotations
 
-from typing import Any
-
-from mn_sdk.step_runtime import StepContext
+from mn_prototype_operation_router_agent import OperationRouterSpec, create_agent
 
 from agents.company_packet_grouper import run_company_packet_grouper_step
 from agents.startup_folder_watcher import run_startup_folder_watcher_step
 
-from ._shared import execute
+from ._shared import compose
 
 
-OPERATIONS = {
-    "watch": run_startup_folder_watcher_step,
-    "group": run_company_packet_grouper_step,
-}
-
-
-def run(context: StepContext, operation: str, **options: Any) -> dict[str, Any]:
-    try:
-        handler = OPERATIONS[operation]
-    except KeyError as exc:
-        raise ValueError(f"unknown VC intake operation: {operation}") from exc
-    return execute(context, handler, **options)
+run = compose(
+    create_agent(
+        OperationRouterSpec(
+            operations={
+                "watch": run_startup_folder_watcher_step,
+                "group": run_company_packet_grouper_step,
+            },
+            label="VC intake operation",
+        )
+    )
+)

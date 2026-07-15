@@ -1,13 +1,18 @@
 from __future__ import annotations
 
-import shutil
 from typing import Any
 
 from mn_blueprint_support import llm_usage
+from mn_prototype_artifact_finalizer_agent import (
+    ArtifactBundle,
+    ArtifactFinalizerSpec,
+    ArtifactWrite,
+    create_agent as create_artifact_finalizer,
+)
 from mn_sdk.blueprint_support import (
     bounded_int,
-    complete_runtime_step,
     elapsed_ms_from_started_at,
+    observation_trace_summary,
     read_workflow_state,
     step_result,
     utc_now_iso,
@@ -31,40 +36,38 @@ from runtime.runtime import (
     build_method_coverage,
     build_research_coverage,
     build_run_health_report,
-    build_runtime_services,
     company_worker_count,
     ensure_all_actor_findings,
     flattened_sources,
     load_vc_knowledge,
     normalized_actor_review_warnings,
-    observation_trace_summary,
     observed_operation,
+    normalized_research_ledger,
     persist_action_budget_state,
     processed_and_skipped_company_names,
     public_knowledge_rag_state,
-    read_all_company_analyses,
-    read_all_research_ledgers,
-    read_company_records_state,
-    read_company_work_queue_state,
     run_step_actor_review,
     scoring_worker_count,
-    step_actor_review_selected,
     write_actor_review_warnings_state,
 )
 
 def run_batch_index_writer_step(ctx: dict[str, Any], *, llm_client: Any | None = None) -> dict[str, Any]:
-    company_records = read_company_records_state(ctx["run_dir"])
-    company_work_queue = read_company_work_queue_state(ctx["run_dir"])
-    analyses = read_all_company_analyses(ctx["run_dir"])
-    research_ledgers = read_all_research_ledgers(ctx["run_dir"], [analysis["company_name"] for analysis in analyses])
+    store = ctx["state_store"]
+    company_records = store.read_object("company_records.json")
+    company_work_queue = store.read_list("company_work_queue.json")
+    analyses = sorted(
+        (analysis for analysis in store.list_entity_objects("analyses").values() if analysis),
+        key=lambda analysis: analysis.get("company_slug") or "",
+    )
+    research_ledgers = {
+        analysis["company_name"]: normalized_research_ledger(
+            store.read_entity_object("research_ledgers", analysis["company_name"])
+        )
+        for analysis in analyses
+    }
     output_files = read_workflow_state(ctx["run_dir"], "output_files.json", []) or []
     output_files = [item for item in output_files if isinstance(item, dict)]
-    services = build_runtime_services(
-        ctx,
-        llm_client=llm_client,
-        need_llm=step_actor_review_selected(ctx, "batch_index_writer"),
-        rag_stage="batch_indexing",
-    )
+    services = ctx["services"]
     active_knowledge = services.get("active_knowledge") or load_vc_knowledge(ctx["blueprint_dir"])
     knowledge_rag = services.get("knowledge_rag") or {}
     run_step_actor_review(ctx, "batch_index_writer", services, llm_client=llm_client)
@@ -213,29 +216,62 @@ def run_batch_index_writer_step(ctx: dict[str, Any], *, llm_client: Any | None =
     append_event(ctx["run_dir"], "blueprint_phase_completed", {"phase": "running_worker", "component": BLUEPRINT_ID})
     append_event(ctx["run_dir"], "human_input_requested", {"mode": "approval_required", "reason": "Reports contain heuristic investment-analysis scores for human review only."})
     append_event(ctx["run_dir"], "blueprint_phase_started", {"phase": "writing_artifacts", "component": BLUEPRINT_ID})
-    with observed_operation(ctx["run_dir"], phase="writing_artifacts", operation="write_final_outputs", output_file_count=len(final_artifact["output_files"])):
-        write_json(ctx["output_folder"] / "final_artifact.json", final_artifact)
-        write_json(ctx["output_folder"] / "action_ledger.json", action_ledger)
-        write_json(ctx["output_folder"] / "artifact_quality.json", artifact_quality)
-        write_json(ctx["output_folder"] / "run_health.json", run_health)
-        write_json(ctx["run_dir"] / "result.json", result)
-        write_json(ctx["run_dir"] / "final_artifact.json", final_artifact)
-        write_json(ctx["run_dir"] / "action_ledger.json", action_ledger)
-        write_json(ctx["run_dir"] / "artifact_quality.json", artifact_quality)
-        write_json(ctx["run_dir"] / "run_health.json", run_health)
-    for path in ("final_artifact.json", "action_ledger.json", "artifact_quality.json", "run_health.json"):
-        append_event(ctx["run_dir"], "artifact_written", {"path": str(ctx["output_folder"] / path)})
-    append_event(ctx["run_dir"], "artifact_written", {"path": "result.json"})
-    append_event(ctx["run_dir"], "artifact_written", {"path": "final_artifact.json"})
-    append_event(ctx["run_dir"], "artifact_written", {"path": "action_ledger.json"})
-    append_event(ctx["run_dir"], "artifact_written", {"path": "artifact_quality.json"})
-    append_event(ctx["run_dir"], "artifact_written", {"path": "run_health.json"})
+    writes = [
+        ArtifactWrite("final_artifact.json", final_artifact, destination="both"),
+        ArtifactWrite("action_ledger.json", action_ledger, destination="both"),
+        ArtifactWrite("artifact_quality.json", artifact_quality, destination="both"),
+        ArtifactWrite("run_health.json", run_health, destination="both"),
+        ArtifactWrite("result.json", result, destination="run"),
+    ]
+    def artifact_event_writer(run_dir, event_type, payload):
+        event_payload = dict(payload)
+        path = str(event_payload.get("path") or "")
+        if path.startswith(str(run_dir) + "/"):
+            event_payload["path"] = str(path[len(str(run_dir)) + 1 :])
+        append_event(run_dir, event_type, event_payload)
+
+    finalizer = create_artifact_finalizer(
+        ArtifactFinalizerSpec(
+            compose=lambda _context, **_options: ArtifactBundle(
+                final_artifact=final_artifact,
+                writes=tuple(writes),
+                result=result,
+            ),
+            step_id="batch_index_writer",
+            event_writer=artifact_event_writer,
+            result_builder=lambda context, _result, **_options: step_result(
+                context,
+                "batch_index_writer",
+                final_artifact=final_artifact,
+            ),
+        )
+    )
+    with observed_operation(
+        ctx["run_dir"],
+        phase="writing_artifacts",
+        operation="write_final_outputs",
+        output_file_count=len(final_artifact["output_files"]),
+    ):
+        finalized_result = finalizer(ctx)
     if trace_path.exists():
-        shutil.copyfile(trace_path, trace_output_path)
-        append_event(ctx["run_dir"], "artifact_written", {"path": str(trace_output_path)})
+        create_artifact_finalizer(
+            ArtifactFinalizerSpec(
+                compose=lambda _context, **_options: ArtifactBundle(
+                    final_artifact=final_artifact,
+                    writes=(
+                        ArtifactWrite(
+                            "llm_rag_trace.jsonl",
+                            trace_path.read_bytes(),
+                            kind="bytes",
+                            destination="output",
+                        ),
+                    ),
+                ),
+                event_writer=artifact_event_writer,
+            )
+        )(ctx)
         append_event(ctx["run_dir"], "artifact_written", {"path": "llm_rag_trace.jsonl"})
-    complete_runtime_step(ctx, "batch_index_writer", {"output_folder": str(ctx["output_folder"]), "output_file_count": len(final_artifact["output_files"])})
     append_event(ctx["run_dir"], "blueprint_phase_completed", {"phase": "writing_artifacts", "component": BLUEPRINT_ID})
     append_event(ctx["run_dir"], "blueprint_phase_completed", {"phase": "completed", "component": BLUEPRINT_ID})
     write_json(ctx["run_dir"] / "run.json", {"run_id": ctx["run_id"], "blueprint_id": BLUEPRINT_ID, "status": "completed", "completed_at": utc_now_iso()})
-    return step_result(ctx, "batch_index_writer", final_artifact=final_artifact)
+    return finalized_result
