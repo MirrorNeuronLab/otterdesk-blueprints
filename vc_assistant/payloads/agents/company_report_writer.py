@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from mn_sdk.blueprint_support import complete_runtime_step, step_result, write_workflow_state
+from mn_sdk.blueprint_support import write_workflow_state
 from runtime.runtime import (
     append_event,
     normalized_research_ledger,
@@ -10,7 +10,7 @@ from runtime.runtime import (
     write_company_outputs,
 )
 
-def run_company_report_writer_step(ctx: dict[str, Any], *, llm_client: Any | None = None) -> dict[str, Any]:
+def run_company_report_writer(ctx: dict[str, Any], *, llm_client: Any | None = None) -> dict[str, Any]:
     store = ctx["state_store"]
     company_records = store.read_object("company_records.json")
     company_work_queue = store.read_list("company_work_queue.json")
@@ -30,6 +30,5 @@ def run_company_report_writer_step(ctx: dict[str, Any], *, llm_client: Any | Non
         store.write_entity("analyses", str(analysis["company_slug"]), analysis)
     write_workflow_state(ctx["run_dir"], "output_files.json", output_files)
     write_workflow_state(ctx["run_dir"], "watch_state.json", watch_state)
-    complete_runtime_step(ctx, "company_report_writer", {"output_folder": str(ctx["output_folder"]), "output_file_count": len(output_files)})
     append_event(ctx["run_dir"], "watch_cycle_completed", {"cycle": 1, "companies": len(company_records)})
-    return step_result(ctx, "company_report_writer", output_file_count=len(output_files))
+    return {"output_folder": str(ctx["output_folder"]), "output_file_count": len(output_files)}

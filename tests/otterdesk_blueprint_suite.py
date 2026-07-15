@@ -313,10 +313,18 @@ def test_all_blueprints_declare_actor_style_llm_config():
                 for step in manifest.get("workflow", {}).get("steps", [])
                 if isinstance(step, dict) and step.get("id")
             ]
+            assigned_actor_ids = list(dict.fromkeys(
+                str(actor_id)
+                for step in manifest.get("workflow", {}).get("steps", [])
+                if isinstance(step, dict)
+                for actor_id in (((step.get("run") or {}).get("with") or {}).get("agent_ids") or [])
+                if str(actor_id)
+            ))
         else:
             graph_nodes = [node["node_id"] for node in _flow_nodes(manifest)]
-        required_actor_ids = workers or graph_nodes
-        valid_actor_ids = set(workers) | set(graph_nodes)
+            assigned_actor_ids = []
+        required_actor_ids = assigned_actor_ids or workers or graph_nodes
+        valid_actor_ids = set(assigned_actor_ids) | set(workers) | (set() if assigned_actor_ids else set(graph_nodes))
         agents = llm["agents"]
         assert isinstance(agents, dict) and agents, blueprint_id
         assert set(required_actor_ids) <= set(agents), blueprint_id

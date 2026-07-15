@@ -615,7 +615,7 @@
     "max_queries": 10,
     "max_sources_per_company": 10,
     "max_target_urls_per_company": 6,
-    "max_stage_workers": 1,
+    "max_parallel_research_agents": 1,
     "timeout_seconds": 20,
     "max_chars": 12000,
     "use_model_compression": true,

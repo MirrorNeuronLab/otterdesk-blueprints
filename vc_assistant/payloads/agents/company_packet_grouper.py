@@ -3,15 +3,13 @@ from __future__ import annotations
 from typing import Any
 
 from mn_sdk.blueprint_support import (
-    complete_runtime_step,
     read_workflow_state,
     slugify,
-    step_result,
     write_workflow_state,
 )
 from runtime.runtime import group_document_file_records
 
-def run_company_packet_grouper_step(ctx: dict[str, Any], *, llm_client: Any | None = None) -> dict[str, Any]:
+def run_company_packet_grouper(ctx: dict[str, Any], *, llm_client: Any | None = None) -> dict[str, Any]:
     files = read_workflow_state(ctx["run_dir"], "document_files.json", [])
     files = [item for item in files if isinstance(item, dict)] if isinstance(files, list) else []
     groups = group_document_file_records(ctx["document_folder"], files)
@@ -25,5 +23,4 @@ def run_company_packet_grouper_step(ctx: dict[str, Any], *, llm_client: Any | No
         for company, items in groups.items()
     ]
     write_workflow_state(ctx["run_dir"], "company_packet_groups.json", packets)
-    complete_runtime_step(ctx, "company_packet_grouper", {"company_count": len(packets), "document_file_count": len(files)})
-    return step_result(ctx, "company_packet_grouper", company_count=len(packets))
+    return {"company_count": len(packets), "document_file_count": len(files)}

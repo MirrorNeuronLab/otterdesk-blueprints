@@ -22,11 +22,17 @@
     "quick_test_behavior": "disabled_for_default_smoke_run"
   },
   "agents": {
+    "crew": {
+      "assignment_field": "workflow.steps[].run.with.agent_ids",
+      "completion_rule": "all_assigned_agents_required",
+      "registry": "llm.agents",
+      "reuse": "an agent may be assigned to multiple workflow steps"
+    },
     "extra_edges": [
       {
-        "edge_id": "batch_index_writer_to_report_sink",
-        "from_node": "batch_index_writer",
-        "message_type": "batch_index_writer_completed",
+        "edge_id": "publish_batch_summary_to_report_sink",
+        "from_node": "publish_batch_summary",
+        "message_type": "publish_batch_summary_completed",
         "to_node": "report_sink"
       }
     ],
@@ -66,27 +72,16 @@
         "tool_call_started",
         "tool_call_completed",
         "tool_call_failed",
-        "startup_folder_watcher_completed",
-        "company_packet_grouper_completed",
-        "document_evidence_extractor_completed",
-        "claim_normalizer_completed",
-        "research_planner_completed",
-        "company_identity_researcher_completed",
-        "funding_researcher_completed",
-        "market_comp_researcher_completed",
-        "traction_verifier_completed",
-        "rendered_page_researcher_completed",
-        "research_reconciler_completed",
-        "berkus_scorer_completed",
-        "scorecard_bill_payne_scorer_completed",
-        "risk_factor_summation_scorer_completed",
-        "venture_capital_method_scorer_completed",
-        "first_chicago_scorer_completed",
-        "comparables_market_multiple_scorer_completed",
-        "cost_to_duplicate_scorer_completed",
-        "score_consistency_auditor_completed",
-        "company_report_writer_completed",
-        "batch_index_writer_completed",
+        "detect_packet_changes_completed",
+        "assemble_company_packets_completed",
+        "prepare_company_evidence_completed",
+        "plan_public_research_completed",
+        "collect_public_research_completed",
+        "reconcile_research_evidence_completed",
+        "calculate_valuation_scores_completed",
+        "audit_valuation_analysis_completed",
+        "write_company_reports_completed",
+        "publish_batch_summary_completed",
         "watch_cycle_started",
         "watch_cycle_completed"
       ]
@@ -734,11 +729,7 @@
     "groups": [
       {
         "steps": [
-          "company_identity_researcher",
-          "funding_researcher",
-          "market_comp_researcher",
-          "traction_verifier",
-          "rendered_page_researcher"
+          "collect_public_research"
         ],
         "with": {
           "stereotype": "public_browser_worker"
@@ -746,8 +737,8 @@
       },
       {
         "steps": [
-          "company_report_writer",
-          "batch_index_writer"
+          "write_company_reports",
+          "publish_batch_summary"
         ],
         "with": {
           "stereotype": "internal_write_worker"
@@ -812,455 +803,252 @@
     },
     "steps": [
       {
-        "goal": "Detect changed files, create company work queue, fingerprint packets, and mark unchanged packets.",
-        "id": "startup_folder_watcher",
+        "goal": "Detect startup document changes and persist the input-file inventory for this run.",
+        "id": "detect_packet_changes",
         "in": {
           "document_folder": "$state.document_folder",
           "monitoring": "$inputs.monitoring"
         },
         "kind": "source",
-        "label": "Startup Folder Watcher",
+        "label": "Detect Packet Changes",
         "needs": [],
         "out": {
-          "startup_folder_watcher": "$state.workflow.startup_folder_watcher"
+          "packet_changes": "$state.workflow.detect_packet_changes"
         },
         "run": {
           "handler": "steps.intake",
           "with": {
-            "operation": "watch"
+            "agent_ids": [
+              "startup_folder_watcher"
+            ],
+            "operation": "detect_changes"
           }
         }
       },
       {
         "goal": "Group startup documents by company, resolve aliases, and create stable company ids and slugs.",
-        "id": "company_packet_grouper",
+        "id": "assemble_company_packets",
         "in": {
           "previous": "$state.workflow"
         },
         "kind": "stage",
-        "label": "Company Packet Grouper",
+        "label": "Assemble Company Packets",
         "needs": [
-          "startup_folder_watcher"
+          "detect_packet_changes"
         ],
         "out": {
-          "company_packet_grouper": "$state.workflow.company_packet_grouper"
+          "company_packets": "$state.workflow.assemble_company_packets"
         },
         "run": {
           "handler": "steps.intake",
           "with": {
-            "operation": "group"
+            "agent_ids": [
+              "company_packet_grouper"
+            ],
+            "operation": "assemble_packets"
           }
         }
       },
       {
-        "goal": "Extract local text, structured claims, tables, dates, amounts, founder names, traction claims, product/IP claims, and source refs.",
-        "id": "document_evidence_extractor",
+        "goal": "Extract local evidence and normalize claims into deterministic company fact inputs.",
+        "id": "prepare_company_evidence",
         "in": {
           "previous": "$state.workflow"
         },
         "kind": "stage",
-        "label": "Document Evidence Extractor",
+        "label": "Prepare Company Evidence",
         "needs": [
-          "company_packet_grouper"
+          "assemble_company_packets"
         ],
         "out": {
-          "document_evidence_extractor": "$state.workflow.document_evidence_extractor"
+          "company_evidence": "$state.workflow.prepare_company_evidence"
         },
         "run": {
           "handler": "steps.evidence",
           "with": {
-            "operation": "extract"
-          }
-        }
-      },
-      {
-        "goal": "Build deterministic team, market, traction, financial, risk, IP asset, and comparable-candidate fact tables.",
-        "id": "claim_normalizer",
-        "in": {
-          "previous": "$state.workflow"
-        },
-        "kind": "stage",
-        "label": "Claim Normalizer",
-        "needs": [
-          "document_evidence_extractor"
-        ],
-        "out": {
-          "claim_normalizer": "$state.workflow.claim_normalizer"
-        },
-        "run": {
-          "handler": "steps.evidence",
-          "with": {
-            "operation": "normalize"
+            "agent_ids": [
+              "document_evidence_extractor",
+              "claim_normalizer"
+            ],
+            "operation": "prepare"
           }
         }
       },
       {
         "goal": "Create privacy-safe public research queries from company name, domain, category, and non-confidential claims.",
-        "id": "research_planner",
+        "id": "plan_public_research",
         "in": {
           "previous": "$state.workflow"
         },
         "kind": "stage",
-        "label": "Research Planner",
+        "label": "Plan Public Research",
         "needs": [
-          "claim_normalizer"
+          "prepare_company_evidence"
         ],
         "out": {
-          "research_planner": "$state.workflow.research_planner"
+          "research_plan": "$state.workflow.plan_public_research"
         },
         "run": {
           "handler": "steps.research",
           "with": {
+            "agent_ids": [
+              "research_planner"
+            ],
             "operation": "plan"
           }
         }
       },
       {
-        "goal": "Research company website, Crunchbase/profile pages, LinkedIn/company pages, and identity signals.",
-        "id": "company_identity_researcher",
+        "goal": "Collect public identity, funding, market, comparable, traction, and rendered-page evidence with a specialist research crew.",
+        "id": "collect_public_research",
         "in": {
           "previous": "$state.workflow"
         },
         "kind": "stage",
-        "label": "Company Identity Researcher",
+        "label": "Collect Public Research",
         "needs": [
-          "research_planner"
+          "plan_public_research"
         ],
         "out": {
-          "company_identity_researcher": "$state.workflow.company_identity_researcher"
+          "public_research": "$state.workflow.collect_public_research"
         },
         "run": {
           "handler": "steps.research",
           "with": {
-            "operation": "company_identity"
-          }
-        }
-      },
-      {
-        "goal": "Research funding rounds, investors, accelerator mentions, and press.",
-        "id": "funding_researcher",
-        "in": {
-          "previous": "$state.workflow"
-        },
-        "kind": "stage",
-        "label": "Funding Researcher",
-        "needs": [
-          "company_identity_researcher"
-        ],
-        "out": {
-          "funding_researcher": "$state.workflow.funding_researcher"
-        },
-        "run": {
-          "handler": "steps.research",
-          "with": {
-            "operation": "funding"
-          }
-        }
-      },
-      {
-        "goal": "Research market size, competitors, and public comparable companies.",
-        "id": "market_comp_researcher",
-        "in": {
-          "previous": "$state.workflow"
-        },
-        "kind": "stage",
-        "label": "Market And Comparable Researcher",
-        "needs": [
-          "funding_researcher"
-        ],
-        "out": {
-          "market_comp_researcher": "$state.workflow.market_comp_researcher"
-        },
-        "run": {
-          "handler": "steps.research",
-          "with": {
-            "operation": "market_comparables"
-          }
-        }
-      },
-      {
-        "goal": "Verify public customer, partnership, revenue, product launch, and traction claims.",
-        "id": "traction_verifier",
-        "in": {
-          "previous": "$state.workflow"
-        },
-        "kind": "stage",
-        "label": "Traction Verifier",
-        "needs": [
-          "market_comp_researcher"
-        ],
-        "out": {
-          "traction_verifier": "$state.workflow.traction_verifier"
-        },
-        "run": {
-          "handler": "steps.research",
-          "with": {
-            "operation": "traction"
-          }
-        }
-      },
-      {
-        "goal": "Optionally use rendered browser verification for JavaScript-heavy public pages and record blocked outcomes.",
-        "id": "rendered_page_researcher",
-        "in": {
-          "previous": "$state.workflow"
-        },
-        "kind": "stage",
-        "label": "Rendered Page Researcher",
-        "needs": [
-          "traction_verifier"
-        ],
-        "out": {
-          "rendered_page_researcher": "$state.workflow.rendered_page_researcher"
-        },
-        "run": {
-          "handler": "steps.research",
-          "with": {
-            "operation": "rendered_pages"
+            "agent_ids": [
+              "company_identity_researcher",
+              "funding_researcher",
+              "market_comp_researcher",
+              "traction_verifier",
+              "rendered_page_researcher"
+            ],
+            "operation": "collect"
           }
         }
       },
       {
         "goal": "Merge public findings with local claims and flag confirmations, contradictions, missing evidence, and source-quality warnings.",
-        "id": "research_reconciler",
+        "id": "reconcile_research_evidence",
         "in": {
           "previous": "$state.workflow"
         },
-        "join": {
-          "mode": "all_required"
-        },
         "kind": "stage",
-        "label": "Research Reconciler",
+        "label": "Reconcile Research Evidence",
         "needs": [
-          "rendered_page_researcher"
+          "collect_public_research"
         ],
         "out": {
-          "research_reconciler": "$state.workflow.research_reconciler"
+          "reconciled_evidence": "$state.workflow.reconcile_research_evidence"
         },
         "run": {
           "handler": "steps.research",
           "with": {
+            "agent_ids": [
+              "research_reconciler"
+            ],
             "operation": "reconcile"
           }
         }
       },
       {
-        "goal": "Apply Berkus Method 5 bucket scoring with deterministic calculations.",
-        "id": "berkus_scorer",
+        "goal": "Calculate all seven deterministic valuation heuristics with a parallel specialist scoring crew.",
+        "id": "calculate_valuation_scores",
         "in": {
           "previous": "$state.workflow"
         },
         "kind": "stage",
-        "label": "Berkus Scorer",
+        "label": "Calculate Valuation Scores",
         "needs": [
-          "research_reconciler"
+          "reconcile_research_evidence"
         ],
         "out": {
-          "berkus_scorer": "$state.workflow.berkus_scorer"
+          "valuation_scores": "$state.workflow.calculate_valuation_scores"
         },
         "run": {
           "handler": "steps.scoring",
           "with": {
-            "method": "berkus_method"
-          }
-        }
-      },
-      {
-        "goal": "Apply weighted Scorecard / Bill Payne factor scoring.",
-        "id": "scorecard_bill_payne_scorer",
-        "in": {
-          "previous": "$state.workflow"
-        },
-        "kind": "stage",
-        "label": "Scorecard Bill Payne Scorer",
-        "needs": [
-          "research_reconciler"
-        ],
-        "out": {
-          "scorecard_bill_payne_scorer": "$state.workflow.scorecard_bill_payne_scorer"
-        },
-        "run": {
-          "handler": "steps.scoring",
-          "with": {
-            "method": "scorecard_bill_payne_method"
-          }
-        }
-      },
-      {
-        "goal": "Apply 12-risk checklist scoring and adjustments.",
-        "id": "risk_factor_summation_scorer",
-        "in": {
-          "previous": "$state.workflow"
-        },
-        "kind": "stage",
-        "label": "Risk Factor Summation Scorer",
-        "needs": [
-          "research_reconciler"
-        ],
-        "out": {
-          "risk_factor_summation_scorer": "$state.workflow.risk_factor_summation_scorer"
-        },
-        "run": {
-          "handler": "steps.scoring",
-          "with": {
-            "method": "risk_factor_summation_method"
-          }
-        }
-      },
-      {
-        "goal": "Apply exit-back valuation assumptions and VC return math scoring.",
-        "id": "venture_capital_method_scorer",
-        "in": {
-          "previous": "$state.workflow"
-        },
-        "kind": "stage",
-        "label": "Venture Capital Method Scorer",
-        "needs": [
-          "research_reconciler"
-        ],
-        "out": {
-          "venture_capital_method_scorer": "$state.workflow.venture_capital_method_scorer"
-        },
-        "run": {
-          "handler": "steps.scoring",
-          "with": {
-            "method": "venture_capital_method"
-          }
-        }
-      },
-      {
-        "goal": "Apply bear/base/bull case scoring with probability weighting.",
-        "id": "first_chicago_scorer",
-        "in": {
-          "previous": "$state.workflow"
-        },
-        "kind": "stage",
-        "label": "First Chicago Scorer",
-        "needs": [
-          "research_reconciler"
-        ],
-        "out": {
-          "first_chicago_scorer": "$state.workflow.first_chicago_scorer"
-        },
-        "run": {
-          "handler": "steps.scoring",
-          "with": {
-            "method": "first_chicago_method"
-          }
-        }
-      },
-      {
-        "goal": "Apply public comparable and market multiple evidence scoring when available.",
-        "id": "comparables_market_multiple_scorer",
-        "in": {
-          "previous": "$state.workflow"
-        },
-        "kind": "stage",
-        "label": "Comparables Market Multiple Scorer",
-        "needs": [
-          "research_reconciler"
-        ],
-        "out": {
-          "comparables_market_multiple_scorer": "$state.workflow.comparables_market_multiple_scorer"
-        },
-        "run": {
-          "handler": "steps.scoring",
-          "with": {
-            "method": "comparables_market_multiple_method"
-          }
-        }
-      },
-      {
-        "goal": "Estimate rebuild-cost floor from team, R&D, IP, hardware, data, and infrastructure evidence.",
-        "id": "cost_to_duplicate_scorer",
-        "in": {
-          "previous": "$state.workflow"
-        },
-        "kind": "stage",
-        "label": "Cost To Duplicate Scorer",
-        "needs": [
-          "research_reconciler"
-        ],
-        "out": {
-          "cost_to_duplicate_scorer": "$state.workflow.cost_to_duplicate_scorer"
-        },
-        "run": {
-          "handler": "steps.scoring",
-          "with": {
-            "method": "cost_to_duplicate_method"
+            "agent_ids": [
+              "berkus_scorer",
+              "scorecard_bill_payne_scorer",
+              "risk_factor_summation_scorer",
+              "venture_capital_method_scorer",
+              "first_chicago_scorer",
+              "comparables_market_multiple_scorer",
+              "cost_to_duplicate_scorer"
+            ],
+            "operation": "calculate"
           }
         }
       },
       {
         "goal": "Check math, missing evidence handling, contradictory assumptions, unsupported valuation claims, and formula completeness.",
-        "id": "score_consistency_auditor",
+        "id": "audit_valuation_analysis",
         "in": {
           "previous": "$state.workflow"
         },
-        "join": {
-          "mode": "all_required"
-        },
         "kind": "stage",
-        "label": "Score Consistency Auditor",
+        "label": "Audit Valuation Analysis",
         "needs": [
-          "berkus_scorer",
-          "scorecard_bill_payne_scorer",
-          "risk_factor_summation_scorer",
-          "venture_capital_method_scorer",
-          "first_chicago_scorer",
-          "comparables_market_multiple_scorer",
-          "cost_to_duplicate_scorer"
+          "calculate_valuation_scores"
         ],
         "out": {
-          "score_consistency_auditor": "$state.workflow.score_consistency_auditor"
+          "audited_analysis": "$state.workflow.audit_valuation_analysis"
         },
         "run": {
           "handler": "steps.scoring",
           "with": {
-            "method": "audit"
+            "agent_ids": [
+              "score_consistency_auditor"
+            ],
+            "operation": "audit"
           }
-        },
-        "trigger_rule": "all_success"
+        }
       },
       {
         "goal": "Write per-company reports: analysis, method scores, research sources, evidence, and warnings.",
-        "id": "company_report_writer",
+        "id": "write_company_reports",
         "in": {
           "previous": "$state.workflow"
         },
         "kind": "stage",
-        "label": "Company Report Writer",
+        "label": "Write Company Reports",
         "needs": [
-          "score_consistency_auditor"
+          "audit_valuation_analysis"
         ],
         "out": {
-          "company_report_writer": "$state.workflow.company_report_writer"
+          "company_reports": "$state.workflow.write_company_reports"
         },
         "run": {
           "handler": "steps.reporting",
           "with": {
-            "operation": "company"
+            "agent_ids": [
+              "company_report_writer"
+            ],
+            "operation": "write_company_reports"
           }
         }
       },
       {
         "goal": "Write root-level company index, research coverage, method coverage, queue, and run summary artifacts.",
-        "id": "batch_index_writer",
+        "id": "publish_batch_summary",
         "in": {
           "previous": "$state.workflow"
         },
         "kind": "sink",
-        "label": "Batch Index Writer",
+        "label": "Publish Batch Summary",
         "needs": [
-          "company_report_writer"
+          "write_company_reports"
         ],
         "out": {
-          "batch_index_writer": "$state.workflow.batch_index_writer"
+          "batch_summary": "$state.workflow.publish_batch_summary"
         },
         "run": {
           "handler": "steps.reporting",
           "with": {
-            "operation": "batch_index"
+            "agent_ids": [
+              "batch_index_writer"
+            ],
+            "operation": "publish_batch_summary"
           }
         }
       }

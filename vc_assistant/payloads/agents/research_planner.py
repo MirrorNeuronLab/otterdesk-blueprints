@@ -3,23 +3,22 @@ from __future__ import annotations
 from typing import Any
 
 from mn_prototype_entity_queue_agent import EntityQueueSpec, create_agent as create_entity_queue
-from mn_sdk.blueprint_support import complete_runtime_step, step_result
 from runtime.runtime import (
-    _agent_stage_enabled,
+    _research_agent_enabled,
     agentic_research_config,
     build_adaptive_research_plan,
     company_worker_count,
     normalized_research_ledger,
-    run_agentic_research_stage,
+    run_agentic_research_agent,
 )
 
-def run_research_planner_step(ctx: dict[str, Any], *, llm_client: Any | None = None) -> dict[str, Any]:
+def run_research_planner(ctx: dict[str, Any], *, llm_client: Any | None = None) -> dict[str, Any]:
     store = ctx["state_store"]
     company_records = store.read_object("company_records.json")
     company_work_queue = store.read_list("company_work_queue.json")
     internet = ctx["config"].get("internet_research") if isinstance(ctx["config"].get("internet_research"), dict) else {}
     agentic = agentic_research_config(ctx["config"])
-    need_agentic_planner = bool(agentic.get("enabled")) and _agent_stage_enabled(agentic, "research_planner")
+    need_agentic_planner = bool(agentic.get("enabled")) and _research_agent_enabled(agentic, "research_planner")
     services = ctx["services"]
     knowledge_rag = services.get("knowledge_rag") or {}
     llm = services.get("llm")
@@ -40,9 +39,9 @@ def run_research_planner_step(ctx: dict[str, Any], *, llm_client: Any | None = N
                 for item in store.read_entity_list("agent_tool_traces", company)
                 if isinstance(item, dict)
             ]
-            _, planner_sources = run_agentic_research_stage(
+            _, planner_sources = run_agentic_research_agent(
                 company=company,
-                stage="research_planner",
+                agent_id="research_planner",
                 plan=plan,
                 internet=internet,
                 run_dir=ctx["run_dir"],
@@ -69,5 +68,4 @@ def run_research_planner_step(ctx: dict[str, Any], *, llm_client: Any | None = N
         )
     )(ctx)
     planned_count = int(queue_result["processed_count"])
-    complete_runtime_step(ctx, "research_planner", {"company_count": planned_count})
-    return step_result(ctx, "research_planner", company_count=planned_count)
+    return {"company_count": planned_count}

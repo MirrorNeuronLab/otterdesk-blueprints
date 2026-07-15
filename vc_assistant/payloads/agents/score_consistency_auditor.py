@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Any
 
 from mn_prototype_entity_queue_agent import EntityQueueSpec, create_agent as create_entity_queue
-from mn_sdk.blueprint_support import complete_runtime_step, step_result
 from runtime.runtime import (
     METHOD_IDS,
     agentic_research_config,
@@ -15,7 +14,7 @@ from runtime.runtime import (
     scoring_fund_profile,
 )
 
-def run_score_consistency_auditor_step(ctx: dict[str, Any], *, llm_client: Any | None = None) -> dict[str, Any]:
+def run_score_consistency_auditor(ctx: dict[str, Any], *, llm_client: Any | None = None) -> dict[str, Any]:
     store = ctx["state_store"]
     company_records = store.read_object("company_records.json")
     company_work_queue = store.read_list("company_work_queue.json")
@@ -83,5 +82,4 @@ def run_score_consistency_auditor_step(ctx: dict[str, Any], *, llm_client: Any |
     )(ctx)
     processed_count = int(queue_result["processed_count"])
     skipped_count = int(queue_result["skipped_count"])
-    complete_runtime_step(ctx, "score_consistency_auditor", {"company_count": processed_count, "skipped_company_count": skipped_count})
-    return step_result(ctx, "score_consistency_auditor", processed_company_count=processed_count, skipped_company_count=skipped_count)
+    return {"processed_company_count": processed_count, "skipped_company_count": skipped_count}

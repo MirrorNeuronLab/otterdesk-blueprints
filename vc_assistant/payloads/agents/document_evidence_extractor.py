@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from mn_sdk.blueprint_support import complete_runtime_step, step_result, write_failed_run, write_workflow_state
+from mn_sdk.blueprint_support import write_failed_run, write_workflow_state
 from runtime.runtime import (
     OcrRequiredError,
     SUPPORTED_SUFFIXES,
@@ -12,7 +12,7 @@ from runtime.runtime import (
     stable_text_hash,
 )
 
-def run_document_evidence_extractor_step(ctx: dict[str, Any], *, llm_client: Any | None = None) -> dict[str, Any]:
+def run_document_evidence_extractor(ctx: dict[str, Any], *, llm_client: Any | None = None) -> dict[str, Any]:
     try:
         with observed_operation(ctx["run_dir"], phase="document_evidence_extractor", operation="scan_documents", path_hash=stable_text_hash(ctx["document_folder"]), supported_suffixes=sorted(SUPPORTED_SUFFIXES)) as op:
             company_records = scan_documents(ctx["document_folder"], ctx["config"])
@@ -24,9 +24,7 @@ def run_document_evidence_extractor_step(ctx: dict[str, Any], *, llm_client: Any
         write_failed_run(ctx, exc)
         raise
     write_workflow_state(ctx["run_dir"], "company_records.json", company_records)
-    complete_runtime_step(
-        ctx,
-        "document_evidence_extractor",
-        {"company_count": len(company_records), "document_count": sum(len(records) for records in company_records.values())},
-    )
-    return step_result(ctx, "document_evidence_extractor", company_count=len(company_records))
+    return {
+        "company_count": len(company_records),
+        "document_count": sum(len(records) for records in company_records.values()),
+    }

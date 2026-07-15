@@ -7,7 +7,7 @@ Checks a local folder of startup documents on each scheduled batch run, builds a
 
 ## What It Does
 
-This blueprint is a report-only early diligence assistant. It helps a reviewer inspect one or more startup document packets with specialist agents for grouping, evidence extraction, fact normalization, public research, seven deterministic scoring methods, score auditing, and batch report writing. The local runner uses bounded parallelism for changed company packets, per-company research stages, and method scoring while preserving stable company-slug output order.
+This blueprint is a report-only early diligence assistant. It helps a reviewer inspect one or more startup document packets with a specialist agent crew for grouping, evidence extraction, fact normalization, public research, seven deterministic scoring methods, score auditing, and batch report writing. The local runner uses bounded parallelism for changed company packets, research agents, and method scorers while preserving stable company-slug output order.
 
 It does not decide whether to invest, pass, watch, or reject. It writes scores, evidence, assumptions, missing-evidence flags, and source references so the user can decide.
 
@@ -24,16 +24,29 @@ The research phase is configured to use:
 
 The workflow plans privacy-safe searches for company websites, Crunchbase, founder public profiles, funding mentions, competitors, press, and market context. Blocked, login-required, CAPTCHA, robots, or rate-limit responses are recorded in `sources.json`; the blueprint does not bypass them.
 
-## Workflow Shape
+## Agents And Workflow Steps
 
-The batch workflow uses a static DAG with fanout/fan-in stages:
+Agents and steps are separate concepts:
 
-- Intake and grouping: `startup_folder_watcher`, `company_packet_grouper`.
-- Evidence normalization: `document_evidence_extractor`, `claim_normalizer`.
-- Research planning and parallel research: `research_planner`, `company_identity_researcher`, `funding_researcher`, `market_comp_researcher`, `traction_verifier`, `rendered_page_researcher`.
-- Research merge: `research_reconciler`.
-- Parallel numerical scoring: one scorer for each of the seven requested methods.
-- Quality and output: `score_consistency_auditor`, `company_report_writer`, `batch_index_writer`.
+- An **agent** is a reusable specialist worker with a role and bounded responsibility.
+- A **step** is a durable phase in the workflow DAG. It owns dependencies, lifecycle state, and completion.
+- Every step declares a non-empty `run.with.agent_ids` crew. The step completes only after all assigned agents finish.
+- A step may assign one or many agents, and the same agent may be assigned to multiple steps.
+
+| Workflow step | Required agent crew |
+| --- | --- |
+| `detect_packet_changes` | `startup_folder_watcher` |
+| `assemble_company_packets` | `company_packet_grouper` |
+| `prepare_company_evidence` | `document_evidence_extractor`, `claim_normalizer` |
+| `plan_public_research` | `research_planner` |
+| `collect_public_research` | `company_identity_researcher`, `funding_researcher`, `market_comp_researcher`, `traction_verifier`, `rendered_page_researcher` |
+| `reconcile_research_evidence` | `research_reconciler` |
+| `calculate_valuation_scores` | the seven method-specific scorer agents |
+| `audit_valuation_analysis` | `score_consistency_auditor` |
+| `write_company_reports` | `company_report_writer` |
+| `publish_batch_summary` | `batch_index_writer` |
+
+The public-research and valuation-scoring steps fan out internally across their assigned crews, then join before their single DAG step is marked complete. Agent modules perform specialist work; the step wrapper owns workflow completion and state transitions.
 
 ## Quick Start
 
@@ -66,7 +79,7 @@ mn blueprint monitor --follow
 - `execution.max_company_workers`: maximum changed-company packets processed concurrently; defaults to one for local Docker Model Runner stability.
 - `backpressure.llm`: serializes and spaces local LLM calls so agentic research does not overwhelm Docker Model Runner.
 - `internet_research`: public verification targets, browser-skill settings, Crunchbase/profile URL templates, and rendered-browser fallback controls.
-- `internet_research.max_stage_workers`: maximum parallel research stages per changed company.
+- `internet_research.max_parallel_research_agents`: maximum research agents running in parallel per changed company.
 - `scoring.max_workers`: maximum parallel method scorers per changed company.
 
 ## Outputs

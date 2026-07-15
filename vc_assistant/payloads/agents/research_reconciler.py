@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Any
 
 from mn_prototype_entity_queue_agent import EntityQueueSpec, create_agent as create_entity_queue
-from mn_sdk.blueprint_support import complete_runtime_step, step_result
 from runtime.runtime import (
     append_financial_tool_research,
     company_worker_count,
@@ -11,7 +10,7 @@ from runtime.runtime import (
     reconcile_research,
 )
 
-def run_research_reconciler_step(ctx: dict[str, Any], *, llm_client: Any | None = None) -> dict[str, Any]:
+def run_research_reconciler(ctx: dict[str, Any], *, llm_client: Any | None = None) -> dict[str, Any]:
     store = ctx["state_store"]
     company_records = store.read_object("company_records.json")
     company_work_queue = store.read_list("company_work_queue.json")
@@ -40,5 +39,4 @@ def run_research_reconciler_step(ctx: dict[str, Any], *, llm_client: Any | None 
     )(ctx)
     processed_count = int(queue_result["processed_count"])
     skipped_count = int(queue_result["skipped_count"])
-    complete_runtime_step(ctx, "research_reconciler", {"company_count": processed_count, "skipped_company_count": skipped_count})
-    return step_result(ctx, "research_reconciler", processed_company_count=processed_count, skipped_company_count=skipped_count)
+    return {"processed_company_count": processed_count, "skipped_company_count": skipped_count}

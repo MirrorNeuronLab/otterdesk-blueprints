@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from mn_blueprint_support import start_agent_beacon_thread
-from mn_sdk.blueprint_support import complete_runtime_step, step_result, write_json, write_workflow_state
+from mn_sdk.blueprint_support import write_json, write_workflow_state
 from runtime.runtime import (
     BLUEPRINT_ID,
     BLUEPRINT_NAME,
@@ -15,7 +15,7 @@ from runtime.runtime import (
     stable_text_hash,
 )
 
-def run_startup_folder_watcher_step(ctx: dict[str, Any], *, llm_client: Any | None = None) -> dict[str, Any]:
+def run_startup_folder_watcher(ctx: dict[str, Any], *, llm_client: Any | None = None) -> dict[str, Any]:
     start_agent_beacon_thread(f"{BLUEPRINT_NAME} is running")
     ctx["run_dir"].mkdir(parents=True, exist_ok=True)
     ctx["output_folder"].mkdir(parents=True, exist_ok=True)
@@ -43,5 +43,4 @@ def run_startup_folder_watcher_step(ctx: dict[str, Any], *, llm_client: Any | No
         ]
         write_workflow_state(ctx["run_dir"], "document_files.json", files)
         op.close("completed", document_file_count=len(files))
-    complete_runtime_step(ctx, "startup_folder_watcher", {"document_file_count": len(files), "document_folder": str(ctx["document_folder"])})
-    return step_result(ctx, "startup_folder_watcher", document_file_count=len(files))
+    return {"document_file_count": len(files), "document_folder": str(ctx["document_folder"])}

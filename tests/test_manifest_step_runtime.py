@@ -12,6 +12,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 SDK_ROOT = ROOT.parent / "mn-python-sdk"
 SKILL_SOURCES = sorted((ROOT.parent / "mn-skills").glob("*/src"))
+AGENT_SOURCES = sorted((ROOT.parent / "mn-agents").glob("*/src"))
 
 
 def _run_handler_workflow(
@@ -45,6 +46,7 @@ def _run_handler_workflow(
                     for value in (
                         str(SDK_ROOT),
                         *(str(path) for path in SKILL_SOURCES),
+                        *(str(path) for path in AGENT_SOURCES),
                         environment.get("PYTHONPATH", ""),
                     )
                     if value

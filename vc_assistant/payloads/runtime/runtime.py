@@ -208,15 +208,29 @@ METHOD_IDS = [
     "comparables_market_multiple_method",
     "cost_to_duplicate_method",
 ]
-WORKFLOW_STEP_IDS = [str(step["id"]) for step in source_workflow_steps(__file__)]
-RESEARCH_STAGE_IDS = [
+WORKFLOW_STEPS = source_workflow_steps(__file__)
+WORKFLOW_STEP_IDS = [str(step["id"]) for step in WORKFLOW_STEPS]
+WORKFLOW_STEP_AGENT_IDS = {
+    str(step["id"]): tuple(
+        str(agent_id)
+        for agent_id in ((step.get("run") or {}).get("with") or {}).get("agent_ids", [])
+        if str(agent_id)
+    )
+    for step in WORKFLOW_STEPS
+}
+AGENT_IDS = list(dict.fromkeys(
+    agent_id
+    for step_id in WORKFLOW_STEP_IDS
+    for agent_id in WORKFLOW_STEP_AGENT_IDS[step_id]
+))
+RESEARCH_AGENT_IDS = [
     "company_identity_researcher",
     "funding_researcher",
     "market_comp_researcher",
     "traction_verifier",
     "rendered_page_researcher",
 ]
-SCORER_STAGE_BY_METHOD = {
+SCORER_AGENT_BY_METHOD = {
     "berkus_method": "berkus_scorer",
     "scorecard_bill_payne_method": "scorecard_bill_payne_scorer",
     "risk_factor_summation_method": "risk_factor_summation_scorer",
@@ -1395,7 +1409,7 @@ def load_cached_research_ledger(output_folder: Path, company: str) -> dict[str, 
     if not ledger:
         return None
     normalized: dict[str, list[dict[str, Any]]] = {}
-    for stage in RESEARCH_STAGE_IDS:
+    for stage in RESEARCH_AGENT_IDS:
         values = ledger.get(stage)
         normalized[stage] = values if isinstance(values, list) else []
     return normalized
@@ -2304,21 +2318,21 @@ def build_adaptive_research_plan(company: str, records: list[dict[str, Any]], in
             )
         )
 
-    stage_queries = {
+    agent_queries = {
         "company_identity_researcher": [],
         "funding_researcher": [],
         "market_comp_researcher": [],
         "traction_verifier": [],
         "rendered_page_researcher": [],
     }
-    stage_target_urls = {
+    agent_target_urls = {
         "company_identity_researcher": [],
         "funding_researcher": [],
         "market_comp_researcher": [],
         "traction_verifier": [],
         "rendered_page_researcher": [],
     }
-    lane_stage = {
+    lane_agent = {
         "company_identity_research": "company_identity_researcher",
         "founder_research": "company_identity_researcher",
         "funding_research": "funding_researcher",
@@ -2332,30 +2346,30 @@ def build_adaptive_research_plan(company: str, records: list[dict[str, Any]], in
         "regulatory_risk_research": "traction_verifier",
     }
     for lane in lanes:
-        stage = lane_stage.get(lane["lane_id"])
-        if stage:
-            stage_queries[stage].extend(lane["queries"])
-            stage_target_urls[stage].extend(lane["target_urls"])
+        agent_id = lane_agent.get(lane["lane_id"])
+        if agent_id:
+            agent_queries[agent_id].extend(lane["queries"])
+            agent_target_urls[agent_id].extend(lane["target_urls"])
     rendered_urls = [
         url for url in target_urls
         if any(domain in _url_domain(url) for domain in JS_HEAVY_DOMAINS)
     ]
     if rendered_urls:
-        stage_queries["rendered_page_researcher"].append(f"{company} rendered public profile pages")
+        agent_queries["rendered_page_researcher"].append(f"{company} rendered public profile pages")
     else:
-        stage_queries["rendered_page_researcher"].append(f"{company} Crunchbase organization profile rendered page")
+        agent_queries["rendered_page_researcher"].append(f"{company} Crunchbase organization profile rendered page")
     max_queries = int(internet.get("max_queries") or 20)
-    for stage, queries in list(stage_queries.items()):
-        stage_queries[stage] = dedupe_list(queries or base["queries"], max_queries)
-        stage_target_urls[stage] = dedupe_list(stage_target_urls[stage], int(internet.get("max_target_urls_per_company") or 10) * 2)
+    for agent_id, queries in list(agent_queries.items()):
+        agent_queries[agent_id] = dedupe_list(queries or base["queries"], max_queries)
+        agent_target_urls[agent_id] = dedupe_list(agent_target_urls[agent_id], int(internet.get("max_target_urls_per_company") or 10) * 2)
 
     return {
         **base,
         "adaptive": True,
         "signals": signals,
         "lanes": lanes,
-        "stage_queries": stage_queries,
-        "stage_target_urls": stage_target_urls,
+        "agent_queries": agent_queries,
+        "agent_target_urls": agent_target_urls,
         "target_urls": target_urls,
         "known_public_urls": target_urls,
         "rendered_target_urls": dedupe_list(rendered_urls or base["target_urls"], int((internet.get("rendered_browser") or {}).get("max_pages_per_company") or 5) * 2),
@@ -3211,8 +3225,8 @@ def actor_review_config(config: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _agent_stage_enabled(agentic: dict[str, Any], stage: str) -> bool:
-    return bool(agentic.get("enabled")) and stage in set(agentic.get("agent_ids") or [])
+def _research_agent_enabled(agentic: dict[str, Any], agent_id: str) -> bool:
+    return bool(agentic.get("enabled")) and agent_id in set(agentic.get("agent_ids") or [])
 
 
 def _agent_tool_source(
@@ -3572,7 +3586,7 @@ def _execute_agent_tool_plan(
     }
 
 
-def _default_agent_tool_response(stage: str, plan: dict[str, Any], observations: list[dict[str, Any]]) -> dict[str, Any]:
+def _default_agent_tool_response(agent_id: str, plan: dict[str, Any], observations: list[dict[str, Any]]) -> dict[str, Any]:
     if observations:
         return {
             "thought_summary": "Existing observations are sufficient for this bounded pass.",
@@ -3580,18 +3594,18 @@ def _default_agent_tool_response(stage: str, plan: dict[str, Any], observations:
             "stop_reason": "observations_collected",
             "evidence_gaps": [],
         }
-    query = (plan.get("stage_queries") or {}).get(stage, []) or plan.get("queries") or []
-    urls = (plan.get("stage_target_urls") or {}).get(stage, []) or []
-    if stage == "rendered_page_researcher":
+    query = (plan.get("agent_queries") or {}).get(agent_id, []) or plan.get("queries") or []
+    urls = (plan.get("agent_target_urls") or {}).get(agent_id, []) or []
+    if agent_id == "rendered_page_researcher":
         urls = plan.get("rendered_target_urls") or urls
-    if urls and stage in {"company_identity_researcher", "market_comp_researcher", "traction_verifier"}:
+    if urls and agent_id in {"company_identity_researcher", "market_comp_researcher", "traction_verifier"}:
         return {
             "thought_summary": "Inspect a known public URL selected by the adaptive plan.",
             "tool_calls": [{"tool": "browser_page", "url": urls[0], "query": query[0] if query else ""}],
             "stop_reason": "",
             "evidence_gaps": [],
         }
-    if urls and stage == "rendered_page_researcher":
+    if urls and agent_id == "rendered_page_researcher":
         return {
             "thought_summary": "Inspect a rendered public profile URL selected by the adaptive plan.",
             "tool_calls": [{"tool": "rendered_browser_page", "url": urls[0], "query": query[0] if query else ""}],
@@ -3613,7 +3627,7 @@ def research_prompt_spec(agent_id: str) -> dict[str, Any]:
 def build_research_agent_prompt(
     *,
     company: str,
-    stage: str,
+    agent_id: str,
     plan: dict[str, Any],
     internet: dict[str, Any],
     allowed_tools: set[str],
@@ -3622,16 +3636,16 @@ def build_research_agent_prompt(
     knowledge_rag: dict[str, Any] | None,
     observations: list[dict[str, Any]],
 ) -> tuple[str, dict[str, Any]]:
-    spec = research_prompt_spec(stage)
+    spec = research_prompt_spec(agent_id)
     system_prompt = load_prompt(
         "research-agent-system.md",
-        agent_id=stage,
+        agent_id=agent_id,
         mission=spec["mission"],
     )
     return system_prompt, {
         "task": load_prompt("research-agent-task.md"),
         "company": company,
-        "agent_id": stage,
+        "agent_id": agent_id,
         "mission": spec["mission"],
         "allowed_evidence": spec["allowed_evidence"],
         "forbidden_inputs": spec["forbidden_inputs"],
@@ -3649,8 +3663,8 @@ def build_research_agent_prompt(
         },
         "adaptive_plan": {
             "lanes": plan.get("lanes", []),
-            "stage_queries": (plan.get("stage_queries") or {}).get(stage, []),
-            "stage_target_urls": (plan.get("stage_target_urls") or {}).get(stage, []),
+            "agent_queries": (plan.get("agent_queries") or {}).get(agent_id, []),
+            "agent_target_urls": (plan.get("agent_target_urls") or {}).get(agent_id, []),
             "rendered_target_urls": plan.get("rendered_target_urls", []),
             "signals": plan.get("signals", {}),
         },
@@ -3673,30 +3687,30 @@ def build_research_agent_prompt(
     }
 
 
-def build_research_stage_rag_query(*, stage: str, plan: dict[str, Any]) -> str:
-    spec = research_prompt_spec(stage)
-    stage_queries = (plan.get("stage_queries") or {}).get(stage, []) if isinstance(plan.get("stage_queries"), dict) else []
-    if not stage_queries:
-        stage_queries = plan.get("queries") or []
+def build_research_agent_rag_query(*, agent_id: str, plan: dict[str, Any]) -> str:
+    spec = research_prompt_spec(agent_id)
+    agent_queries = (plan.get("agent_queries") or {}).get(agent_id, []) if isinstance(plan.get("agent_queries"), dict) else []
+    if not agent_queries:
+        agent_queries = plan.get("queries") or []
     lane_ids = [
         str(lane.get("lane_id") or "")
         for lane in plan.get("lanes", [])[:8]
         if isinstance(lane, dict) and lane.get("lane_id")
     ]
     parts = [
-        stage,
+        agent_id,
         spec["mission"],
         " ".join(spec["rag_query_terms"]),
         " ".join(lane_ids),
-        " ".join(str(query) for query in stage_queries[:3]),
+        " ".join(str(query) for query in agent_queries[:3]),
     ]
     return " ".join(part for part in parts if part).strip()
 
 
-def run_agentic_research_stage(
+def run_agentic_research_agent(
     *,
     company: str,
-    stage: str,
+    agent_id: str,
     plan: dict[str, Any],
     internet: dict[str, Any],
     run_dir: Path | None,
@@ -3706,34 +3720,34 @@ def run_agentic_research_stage(
     trace: list[dict[str, Any]] | None,
     knowledge_rag: dict[str, Any] | None = None,
 ) -> tuple[str, list[dict[str, Any]]]:
-    queries = (plan.get("stage_queries") or {}).get(stage, []) or plan.get("queries") or []
-    sources = [_research_stage_plan_record(company, stage, item, plan) for item in queries]
+    queries = (plan.get("agent_queries") or {}).get(agent_id, []) or plan.get("queries") or []
+    sources = [_research_agent_plan_record(company, agent_id, item, plan) for item in queries]
     allowed_tools = set(agentic.get("allowed_tools") or DEFAULT_AGENTIC_RESEARCH_TOOLS)
     max_iterations = int(agentic.get("max_iterations_per_agent") or 20)
     max_tool_calls = int(agentic.get("max_tool_calls_per_agent") or 50)
-    stage_operation_id = f"agentic-research-{slugify(stage)}-{uuid.uuid4().hex[:8]}"
-    stage_started = time.monotonic()
+    agent_operation_id = f"agentic-research-{slugify(agent_id)}-{uuid.uuid4().hex[:8]}"
+    agent_started = time.monotonic()
     append_observation_record(
         run_dir,
         "observability_operation_started",
         {
-            "operation_id": stage_operation_id,
+            "operation_id": agent_operation_id,
             "phase": "agentic_research",
-            "operation": stage,
+            "operation": agent_id,
             "status": "started",
             "company": company,
-            "agent_id": stage,
+            "agent_id": agent_id,
             "max_iterations": max_iterations,
             "max_tool_calls": max_tool_calls,
         },
     )
-    rag_query = build_research_stage_rag_query(stage=stage, plan=plan)
-    rag_context = retrieve_knowledge_rag_context(knowledge_rag=knowledge_rag, query=rag_query, stage=stage, company=company, run_dir=run_dir)
-    require_ready_rag(knowledge_rag, stage=stage, company=company, context=rag_context, min_citations=1, run_dir=run_dir)
+    rag_query = build_research_agent_rag_query(agent_id=agent_id, plan=plan)
+    rag_context = retrieve_knowledge_rag_context(knowledge_rag=knowledge_rag, query=rag_query, stage=agent_id, company=company, run_dir=run_dir)
+    require_ready_rag(knowledge_rag, stage=agent_id, company=company, context=rag_context, min_citations=1, run_dir=run_dir)
     observations: list[dict[str, Any]] = []
     executed_tool_calls = 0
     trace_record = {
-        "agent_id": stage,
+        "agent_id": agent_id,
         "company": company,
         "enabled": True,
         "max_iterations": max_iterations,
@@ -3757,10 +3771,10 @@ def run_agentic_research_stage(
         if executed_tool_calls >= max_tool_calls:
             trace_record["stop_reason"] = "max_tool_calls_reached"
             break
-        fallback = _default_agent_tool_response(stage, plan, observations)
+        fallback = _default_agent_tool_response(agent_id, plan, observations)
         system_prompt, prompt = build_research_agent_prompt(
             company=company,
-            stage=stage,
+            agent_id=agent_id,
             plan=plan,
             internet=internet,
             allowed_tools=allowed_tools,
@@ -3773,19 +3787,19 @@ def run_agentic_research_stage(
             decision = llm.generate_json(system_prompt=system_prompt, user_prompt=json.dumps(prompt, default=str), fallback=fallback)
         except Exception as exc:
             message = f"Agent tool loop failed: {exc}"
-            sources.append(_agent_tool_source(company=company, agent_id=stage, query=queries[0] if queries else "", status="agent_tool_loop_failed", message=message))
+            sources.append(_agent_tool_source(company=company, agent_id=agent_id, query=queries[0] if queries else "", status="agent_tool_loop_failed", message=message))
             trace_record["iterations"].append({"iteration": iteration, "status": "failed", "error": str(exc)})
             trace_record["stop_reason"] = "agent_tool_loop_failed"
             break
         if isinstance(decision, dict) and decision.get("provider") == "budget_exhausted":
             message = "Agent tool loop stopped because the action budget was exhausted before the LLM could choose tools."
-            sources.append(_agent_tool_source(company=company, agent_id=stage, query=queries[0] if queries else "", status="budget_exhausted", message=message))
+            sources.append(_agent_tool_source(company=company, agent_id=agent_id, query=queries[0] if queries else "", status="budget_exhausted", message=message))
             trace_record["iterations"].append({"iteration": iteration, "status": "budget_exhausted"})
             trace_record["stop_reason"] = "budget_exhausted"
             break
         if not isinstance(decision, dict):
             message = "Agent returned non-object JSON for tool decision."
-            sources.append(_agent_tool_source(company=company, agent_id=stage, query=queries[0] if queries else "", status="agent_invalid_tool_call", message=message))
+            sources.append(_agent_tool_source(company=company, agent_id=agent_id, query=queries[0] if queries else "", status="agent_invalid_tool_call", message=message))
             trace_record["iterations"].append({"iteration": iteration, "status": "invalid_response", "response_type": type(decision).__name__})
             trace_record["stop_reason"] = "agent_invalid_tool_call"
             break
@@ -3797,9 +3811,9 @@ def run_agentic_research_stage(
                 if isinstance(decision["evidence_gaps"], list):
                     decision["evidence_gaps"].append("Agent omitted explicit RAG refs; refs were attached from retrieved stage context.")
         try:
-            validate_llm_rag_refs(decision, knowledge_rag=knowledge_rag, stage=stage, company=company)
+            validate_llm_rag_refs(decision, knowledge_rag=knowledge_rag, stage=agent_id, company=company)
         except Exception as exc:
-            sources.append(_agent_tool_source(company=company, agent_id=stage, query=queries[0] if queries else "", status="agent_invalid_tool_call", message=str(exc)))
+            sources.append(_agent_tool_source(company=company, agent_id=agent_id, query=queries[0] if queries else "", status="agent_invalid_tool_call", message=str(exc)))
             trace_record["iterations"].append({"iteration": iteration, "status": "invalid_rag_refs", "error": str(exc)})
             trace_record["stop_reason"] = "required_rag_refs_missing"
             trace_record["budget_end"] = action_budget.summary(include_actions=False) if action_budget else {}
@@ -3809,14 +3823,14 @@ def run_agentic_research_stage(
                 run_dir,
                 "observability_operation_failed",
                 {
-                    "operation_id": stage_operation_id,
+                    "operation_id": agent_operation_id,
                     "phase": "agentic_research",
-                    "operation": stage,
+                    "operation": agent_id,
                     "status": "failed",
                     "company": company,
-                    "agent_id": stage,
+                    "agent_id": agent_id,
                     "error": str(exc),
-                    "elapsed_ms": round((time.monotonic() - stage_started) * 1000, 2),
+                    "elapsed_ms": round((time.monotonic() - agent_started) * 1000, 2),
                 },
             )
             raise
@@ -3832,7 +3846,7 @@ def run_agentic_research_stage(
         }
         if not tool_calls:
             message = "Agent returned no tool calls."
-            sources.append(_agent_tool_source(company=company, agent_id=stage, query=queries[0] if queries else "", status="agent_invalid_tool_call", message=message))
+            sources.append(_agent_tool_source(company=company, agent_id=agent_id, query=queries[0] if queries else "", status="agent_invalid_tool_call", message=message))
             trace_record["validation_failures"].append({"iteration": iteration, "message": message})
             iteration_record["stop_reason"] = "agent_invalid_tool_call"
             trace_record["iterations"].append(iteration_record)
@@ -3842,7 +3856,7 @@ def run_agentic_research_stage(
         plan_execution = _execute_agent_tool_plan(
             sources=sources,
             company=company,
-            stage=stage,
+            stage=agent_id,
             plan=plan,
             internet=internet,
             run_dir=run_dir,
@@ -3878,19 +3892,19 @@ def run_agentic_research_stage(
         run_dir,
         "observability_operation_completed",
         {
-            "operation_id": stage_operation_id,
+            "operation_id": agent_operation_id,
             "phase": "agentic_research",
-            "operation": stage,
+            "operation": agent_id,
             "status": "completed",
             "company": company,
-            "agent_id": stage,
+            "agent_id": agent_id,
             "stop_reason": trace_record["stop_reason"],
             "tool_call_count": executed_tool_calls,
-            "elapsed_ms": round((time.monotonic() - stage_started) * 1000, 2),
+            "elapsed_ms": round((time.monotonic() - agent_started) * 1000, 2),
             "budget_end": trace_record["budget_end"],
         },
     )
-    return stage, sources
+    return agent_id, sources
 
 
 def _append_w3m_research(
@@ -4438,7 +4452,7 @@ def research_company(company: str, config: dict[str, Any], run_dir: Path | None 
     return sources
 
 
-def _research_stage_plan_record(company: str, stage: str, query: str, plan: dict[str, Any]) -> dict[str, Any]:
+def _research_agent_plan_record(company: str, agent_id: str, query: str, plan: dict[str, Any]) -> dict[str, Any]:
     selected_lanes = [
         lane["lane_id"]
         for lane in plan.get("lanes", [])
@@ -4448,68 +4462,68 @@ def _research_stage_plan_record(company: str, stage: str, query: str, plan: dict
         company=company,
         query=query,
         url="research_plan",
-        title=f"{stage.replace('_', ' ').title()} Query",
+        title=f"{agent_id.replace('_', ' ').title()} Query",
         snippet=f"Verification fields: {', '.join(plan.get('verification_fields') or [])}; selected lanes: {', '.join(selected_lanes) if selected_lanes else 'baseline'}",
         status="planned",
         skill="research_planner",
-        verification_target=stage,
+        verification_target=agent_id,
         source_quality_label="thin_signal",
     )
 
 
-def _stage_default_source_record(company: str, stage: str, query: str, url: str) -> dict[str, Any]:
+def _research_agent_default_source_record(company: str, agent_id: str, query: str, url: str) -> dict[str, Any]:
     return _source_record(
         company=company,
         query=query,
         url=url,
         title=url.split("//", 1)[-1].split("/", 1)[0],
-        snippet="Configured public reference for this research stage; live browser runs can replace or supplement this source.",
+        snippet="Configured public reference for this research agent; live browser runs can replace or supplement this source.",
         status="configured_reference",
         skill="w3m_browser_skill",
-        verification_target=stage,
+        verification_target=agent_id,
     )
 
 
-def _stage_plan_with_targets(plan: dict[str, Any], stage: str, queries: list[str]) -> dict[str, Any]:
-    stage_plan = dict(plan)
-    stage_plan["queries"] = [queries[0]]
-    stage_urls = (plan.get("stage_target_urls") or {}).get(stage) or []
-    if stage == "rendered_page_researcher":
-        stage_urls = plan.get("rendered_target_urls") or stage_urls or plan.get("target_urls") or []
-    stage_plan["target_urls"] = dedupe_list(stage_urls or plan.get("target_urls") or [], 30)
-    return stage_plan
+def _research_agent_plan_with_targets(plan: dict[str, Any], agent_id: str, queries: list[str]) -> dict[str, Any]:
+    agent_plan = dict(plan)
+    agent_plan["queries"] = [queries[0]]
+    agent_urls = (plan.get("agent_target_urls") or {}).get(agent_id) or []
+    if agent_id == "rendered_page_researcher":
+        agent_urls = plan.get("rendered_target_urls") or agent_urls or plan.get("target_urls") or []
+    agent_plan["target_urls"] = dedupe_list(agent_urls or plan.get("target_urls") or [], 30)
+    return agent_plan
 
 
-def _research_one_stage(company: str, stage: str, query: str | list[str], plan: dict[str, Any], internet: dict[str, Any], run_dir: Path | None, action_budget: ActionBudget | None = None) -> tuple[str, list[dict[str, Any]]]:
+def _run_research_agent(company: str, agent_id: str, query: str | list[str], plan: dict[str, Any], internet: dict[str, Any], run_dir: Path | None, action_budget: ActionBudget | None = None) -> tuple[str, list[dict[str, Any]]]:
     queries = query if isinstance(query, list) else [query]
-    sources = [_research_stage_plan_record(company, stage, item, plan) for item in queries]
-    stage_plan = _stage_plan_with_targets(plan, stage, queries)
+    sources = [_research_agent_plan_record(company, agent_id, item, plan) for item in queries]
+    agent_plan = _research_agent_plan_with_targets(plan, agent_id, queries)
 
-    if stage == "company_identity_researcher":
+    if agent_id == "company_identity_researcher":
         identity_internet = dict(internet)
         identity_internet["source_url_templates"] = [
             "https://www.crunchbase.com/organization/{company_slug}",
             "https://www.linkedin.com/company/{company_slug}",
         ]
-        identity_plan = _stage_plan_with_targets(plan, stage, queries)
+        identity_plan = _research_agent_plan_with_targets(plan, agent_id, queries)
         identity_plan["target_urls"] = dedupe_list(identity_plan.get("target_urls", []) + [
             template.format(company=company, company_slug=plan["company_slug"])
             for template in identity_internet["source_url_templates"]
         ], 30)
         for item in queries:
             identity_plan["queries"] = [item]
-            call_with_supported_kwargs(_append_w3m_research, sources=sources, company=company, plan=identity_plan, internet=identity_internet, run_dir=run_dir, verification_target=stage, action_budget=action_budget)
+            call_with_supported_kwargs(_append_w3m_research, sources=sources, company=company, plan=identity_plan, internet=identity_internet, run_dir=run_dir, verification_target=agent_id, action_budget=action_budget)
         call_with_supported_kwargs(_append_target_url_research, sources=sources, company=company, plan=identity_plan, internet=identity_internet, run_dir=run_dir, action_budget=action_budget)
-    elif stage in {"funding_researcher", "market_comp_researcher", "traction_verifier"}:
+    elif agent_id in {"funding_researcher", "market_comp_researcher", "traction_verifier"}:
         for item in queries:
-            stage_plan["queries"] = [item]
-            call_with_supported_kwargs(_append_w3m_research, sources=sources, company=company, plan=stage_plan, internet=internet, run_dir=run_dir, verification_target=stage, action_budget=action_budget)
-        if stage_plan.get("target_urls"):
-            call_with_supported_kwargs(_append_target_url_research, sources=sources, company=company, plan=stage_plan, internet=internet, run_dir=run_dir, action_budget=action_budget)
+            agent_plan["queries"] = [item]
+            call_with_supported_kwargs(_append_w3m_research, sources=sources, company=company, plan=agent_plan, internet=internet, run_dir=run_dir, verification_target=agent_id, action_budget=action_budget)
+        if agent_plan.get("target_urls"):
+            call_with_supported_kwargs(_append_target_url_research, sources=sources, company=company, plan=agent_plan, internet=internet, run_dir=run_dir, action_budget=action_budget)
         for url in list(internet.get("default_source_urls") or DEFAULT_RESEARCH_SOURCE_URLS):
-            sources.append(_stage_default_source_record(company, stage, queries[0], url))
-    elif stage == "rendered_page_researcher":
-        call_with_supported_kwargs(_append_rendered_browser_research, sources=sources, company=company, plan=stage_plan, internet=internet, run_dir=run_dir, action_budget=action_budget)
+            sources.append(_research_agent_default_source_record(company, agent_id, queries[0], url))
+    elif agent_id == "rendered_page_researcher":
+        call_with_supported_kwargs(_append_rendered_browser_research, sources=sources, company=company, plan=agent_plan, internet=internet, run_dir=run_dir, action_budget=action_budget)
         if len(sources) == 1:
             sources.append(
                 _source_record(
@@ -4520,13 +4534,13 @@ def _research_one_stage(company: str, stage: str, query: str | list[str], plan: 
                     snippet="Set internet_research.rendered_browser.enabled=true to inspect JavaScript-rendered public profiles when needed.",
                     status="disabled",
                     skill="web_browser_skill",
-                    verification_target=stage,
+                    verification_target=agent_id,
                 )
             )
-    return stage, sources
+    return agent_id, sources
 
 
-def _stage_needs_deterministic_gap_fill(sources: list[dict[str, Any]]) -> bool:
+def _research_agent_needs_deterministic_gap_fill(sources: list[dict[str, Any]]) -> bool:
     if any(is_substantive_public_source(source) for source in sources):
         return False
     return any(str(source.get("status") or "") in {"planned", "warning", "failed", "blocked", "skill_unavailable", "agent_tool_loop_failed", "agent_invalid_tool_call"} for source in sources)
@@ -4535,7 +4549,7 @@ def _stage_needs_deterministic_gap_fill(sources: list[dict[str, Any]]) -> bool:
 def _with_agentic_gap_fill(
     *,
     company: str,
-    stage: str,
+    agent_id: str,
     sources: list[dict[str, Any]],
     query: str | list[str],
     plan: dict[str, Any],
@@ -4543,15 +4557,15 @@ def _with_agentic_gap_fill(
     run_dir: Path | None,
     action_budget: ActionBudget | None,
 ) -> tuple[str, list[dict[str, Any]]]:
-    if not _stage_needs_deterministic_gap_fill(sources):
-        return stage, sources
-    _, fallback_sources = _research_one_stage(company, stage, query, plan, internet, run_dir, action_budget)
+    if not _research_agent_needs_deterministic_gap_fill(sources):
+        return agent_id, sources
+    _, fallback_sources = _run_research_agent(company, agent_id, query, plan, internet, run_dir, action_budget)
     for source in fallback_sources:
         source["fallback_after_agentic"] = True
-    return stage, [*sources, *fallback_sources]
+    return agent_id, [*sources, *fallback_sources]
 
 
-def research_company_by_stage(
+def research_company_with_agents(
     company: str,
     config: dict[str, Any],
     run_dir: Path | None = None,
@@ -4563,15 +4577,15 @@ def research_company_by_stage(
 ) -> dict[str, list[dict[str, Any]]]:
     internet = config.get("internet_research") if isinstance(config.get("internet_research"), dict) else {}
     if internet.get("enabled") is False:
-        return {stage: [] for stage in RESEARCH_STAGE_IDS}
+        return {agent_id: [] for agent_id in RESEARCH_AGENT_IDS}
     plan = build_adaptive_research_plan(company, records or [], internet)
     agentic = agentic_research_config(config)
-    staged_queries = plan["stage_queries"]
+    agent_queries = plan["agent_queries"]
     planner_sources: list[dict[str, Any]] = []
-    if llm is not None and _agent_stage_enabled(agentic, "research_planner"):
-        _, planner_sources = run_agentic_research_stage(
+    if llm is not None and _research_agent_enabled(agentic, "research_planner"):
+        _, planner_sources = run_agentic_research_agent(
             company=company,
-            stage="research_planner",
+            agent_id="research_planner",
             plan=plan,
             internet=internet,
             run_dir=run_dir,
@@ -4581,13 +4595,13 @@ def research_company_by_stage(
             trace=agent_tool_trace,
             knowledge_rag=knowledge_rag,
         )
-    worker_count = bounded_int(internet.get("max_stage_workers"), default=min(5, len(staged_queries)), maximum=len(staged_queries))
+    worker_count = bounded_int(internet.get("max_parallel_research_agents"), default=min(5, len(agent_queries)), maximum=len(agent_queries))
     if worker_count <= 1:
         results = [
             (
-                run_agentic_research_stage(
+                run_agentic_research_agent(
                     company=company,
-                    stage=stage,
+                    agent_id=agent_id,
                     plan=plan,
                     internet=internet,
                     run_dir=run_dir,
@@ -4597,19 +4611,19 @@ def research_company_by_stage(
                     trace=agent_tool_trace,
                     knowledge_rag=knowledge_rag,
                 )
-                if llm is not None and _agent_stage_enabled(agentic, stage)
-                else _research_one_stage(company, stage, query, plan, internet, run_dir, action_budget)
+                if llm is not None and _research_agent_enabled(agentic, agent_id)
+                else _run_research_agent(company, agent_id, query, plan, internet, run_dir, action_budget)
             )
-            for stage, query in staged_queries.items()
+            for agent_id, query in agent_queries.items()
         ]
     else:
         with ThreadPoolExecutor(max_workers=worker_count, thread_name_prefix="vc-research") as executor:
             futures = {
                 (
                     executor.submit(
-                        run_agentic_research_stage,
+                        run_agentic_research_agent,
                         company=company,
-                        stage=stage,
+                        agent_id=agent_id,
                         plan=plan,
                         internet=internet,
                         run_dir=run_dir,
@@ -4619,21 +4633,21 @@ def research_company_by_stage(
                         trace=agent_tool_trace,
                         knowledge_rag=knowledge_rag,
                     )
-                    if llm is not None and _agent_stage_enabled(agentic, stage)
-                    else executor.submit(_research_one_stage, company, stage, query, plan, internet, run_dir, action_budget)
-                ): stage
-                for stage, query in staged_queries.items()
+                    if llm is not None and _research_agent_enabled(agentic, agent_id)
+                    else executor.submit(_run_research_agent, company, agent_id, query, plan, internet, run_dir, action_budget)
+                ): agent_id
+                for agent_id, query in agent_queries.items()
             }
             results = [future.result() for future in as_completed(futures)]
     normalized_results = []
-    for stage, stage_sources in results:
-        if llm is not None and _agent_stage_enabled(agentic, stage):
+    for agent_id, agent_sources in results:
+        if llm is not None and _research_agent_enabled(agentic, agent_id):
             normalized_results.append(
                 _with_agentic_gap_fill(
                     company=company,
-                    stage=stage,
-                    sources=stage_sources,
-                    query=staged_queries.get(stage, []),
+                    agent_id=agent_id,
+                    sources=agent_sources,
+                    query=agent_queries.get(agent_id, []),
                     plan=plan,
                     internet=internet,
                     run_dir=run_dir,
@@ -4641,12 +4655,12 @@ def research_company_by_stage(
                 )
             )
         else:
-            normalized_results.append((stage, stage_sources))
+            normalized_results.append((agent_id, agent_sources))
     results = normalized_results
-    by_stage = {stage: sources for stage, sources in results}
+    by_agent = {agent_id: sources for agent_id, sources in results}
     if planner_sources:
-        by_stage["company_identity_researcher"] = planner_sources + by_stage.get("company_identity_researcher", [])
-    return {stage: by_stage.get(stage, []) for stage in RESEARCH_STAGE_IDS}
+        by_agent["company_identity_researcher"] = planner_sources + by_agent.get("company_identity_researcher", [])
+    return {agent_id: by_agent.get(agent_id, []) for agent_id in RESEARCH_AGENT_IDS}
 
 
 def append_financial_tool_research(
@@ -5003,7 +5017,7 @@ def build_research_coverage(research_ledgers: dict[str, dict[str, list[dict[str,
         name = str(company.get("company_name") or "")
         ledger = research_ledgers.get(name) if isinstance(research_ledgers.get(name), dict) else {}
         company["company_slug"] = slugify(name)
-        company["stage_counts"] = {stage: len(sources) for stage, sources in ledger.items()}
+        company["agent_counts"] = {agent_id: len(sources) for agent_id, sources in ledger.items()}
         company["statuses"] = sorted({str(source.get("status") or "") for sources in ledger.values() for source in sources if source.get("status")})
     coverage["generated_at"] = utc_now_iso()
     return coverage
@@ -5594,7 +5608,7 @@ def prepare_actor_review_prompt_context(
 def actor_prompt_spec(actor_id: str) -> dict[str, Any]:
     if actor_id in REVIEW_AGENT_PROMPT_FILES:
         return prompt_spec_from_markdown(REVIEW_AGENT_PROMPT_FILES[actor_id])
-    for method_id, scorer_id in SCORER_STAGE_BY_METHOD.items():
+    for method_id, scorer_id in SCORER_AGENT_BY_METHOD.items():
         if actor_id == scorer_id:
             return prompt_spec_from_markdown("method-scorer-review.md", method_id=method_id)
     if actor_id in RESEARCH_AGENT_PROMPT_FILES:
@@ -5769,7 +5783,7 @@ def render_run_summary(analyses: list[dict[str, Any]], queue: list[dict[str, Any
         )
     lines += ["", "## Research Coverage"]
     for item in research_coverage["companies"]:
-        lines.append(f"- {item['company_name']}: {item['stage_counts']}")
+        lines.append(f"- {item['company_name']}: {item['agent_counts']}")
     lines += ["", "## Method Coverage"]
     for item in method_coverage["companies"]:
         lines.append(f"- {item['company_name']}: {item['method_statuses']}")
@@ -5945,7 +5959,7 @@ def process_company_packet(
     research_plan = build_adaptive_research_plan(company, records, internet)
     agent_tool_trace: list[dict[str, Any]] = []
     research_ledger = call_with_supported_kwargs(
-        research_company_by_stage,
+        research_company_with_agents,
         company=company,
         config=resolved_config,
         run_dir=run_dir,
@@ -6000,7 +6014,6 @@ def process_company_packet(
     }
 
 
-SCORER_METHOD_BY_STAGE = {stage_id: method_id for method_id, stage_id in SCORER_STAGE_BY_METHOD.items()}
 METHOD_SCORER_FUNCTIONS = {
     "berkus_method": score_berkus,
     "scorecard_bill_payne_method": score_scorecard,
@@ -6014,7 +6027,7 @@ METHOD_SCORER_FUNCTIONS = {
 
 normalized_research_ledger = partial(
     shared_normalize_research_ledger,
-    stage_ids=RESEARCH_STAGE_IDS,
+    stage_ids=RESEARCH_AGENT_IDS,
     include_unknown_stages=False,
 )
 
@@ -6175,8 +6188,9 @@ def build_runtime_services(
     }
 
 
-def step_actor_review_selected(ctx: dict[str, Any], step_id: str) -> bool:
-    return step_id in set(actor_review_config(ctx["config"]).get("llm_actor_ids") or [])
+def step_agent_review_selected(ctx: dict[str, Any], agent_ids: list[str]) -> bool:
+    selected = set(actor_review_config(ctx["config"]).get("llm_actor_ids") or [])
+    return bool(selected & set(agent_ids))
 
 
 def workflow_state_summary(ctx: dict[str, Any]) -> dict[str, Any]:
@@ -6215,6 +6229,7 @@ def _build_step_actor_review_context(
     ctx: dict[str, Any],
     *,
     step_id: str,
+    agent_id: str,
     services: dict[str, Any],
     **_options: Any,
 ) -> dict[str, Any]:
@@ -6222,13 +6237,13 @@ def _build_step_actor_review_context(
     knowledge_rag = services.get("knowledge_rag") or {}
     actor_rag_context = retrieve_knowledge_rag_context(
         knowledge_rag=knowledge_rag,
-        query=f"{step_id} VC workflow quality evidence grounding scoring research report-only boundary",
-        stage=step_id,
+        query=f"{agent_id} {step_id} VC workflow quality evidence grounding scoring research report-only boundary",
+        stage=agent_id,
         run_dir=ctx["run_dir"],
     )
     require_ready_rag(
         knowledge_rag,
-        stage=step_id,
+        stage=agent_id,
         context=actor_rag_context,
         min_citations=1,
         run_dir=ctx["run_dir"],
@@ -6244,6 +6259,7 @@ def _build_step_actor_review_context(
     return {
         "blueprint_id": BLUEPRINT_ID,
         "workflow_step_id": step_id,
+        "agent_id": agent_id,
         "output_type": OUTPUT_TYPE,
         "report_only": True,
         "decision_boundary": "reports include scores, assumptions, evidence, and warnings only; users make all investment decisions",
@@ -6352,7 +6368,7 @@ def _persist_step_actor_review(
 STEP_ACTOR_REVIEW_AGENT = create_actor_review(
     ActorReviewSpec(
         runner=_run_step_actor_review_agent,
-        actor_ids=lambda _ctx, *, step_id, **_options: [step_id],
+        actor_ids=lambda _ctx, *, agent_id, **_options: [agent_id],
         build_context=_build_step_actor_review_context,
         persist=_persist_step_actor_review,
         failure_policy=lambda ctx, *, services, **_options: (
@@ -6366,15 +6382,18 @@ STEP_ACTOR_REVIEW_AGENT = create_actor_review(
 )
 
 
-def run_step_actor_review(
+def run_step_agent_reviews(
     ctx: dict[str, Any],
     step_id: str,
+    agent_ids: list[str],
     services: dict[str, Any],
     *,
     llm_client: Any | None = None,
-) -> None:
-    if not step_actor_review_selected(ctx, step_id):
-        return
+) -> dict[str, Any]:
+    selected = set(actor_review_config(ctx["config"]).get("llm_actor_ids") or [])
+    review_agent_ids = [agent_id for agent_id in agent_ids if agent_id in selected]
+    if not review_agent_ids:
+        return {"reviewed_agent_ids": []}
     action_budget = services.get("action_budget") or load_action_budget_state(ctx)
     active_knowledge = services.get("active_knowledge") or {}
     knowledge_rag = services.get("knowledge_rag") or {}
@@ -6387,20 +6406,23 @@ def run_step_actor_review(
         services["llm_limiter"] = limiter
     services["active_knowledge"] = active_knowledge
     services["knowledge_rag"] = knowledge_rag
-    STEP_ACTOR_REVIEW_AGENT(
-        ctx,
-        llm_client=llm,
-        step_id=step_id,
-        services=services,
-        step_context=ctx,
-    )
+    for agent_id in review_agent_ids:
+        STEP_ACTOR_REVIEW_AGENT(
+            ctx,
+            llm_client=llm,
+            step_id=step_id,
+            agent_id=agent_id,
+            services=services,
+            step_context=ctx,
+        )
     persist_action_budget_state(ctx, action_budget)
+    return {"reviewed_agent_ids": review_agent_ids}
 
 
 def ensure_all_actor_findings(ctx: dict[str, Any]) -> dict[str, Any]:
     actor_specs = resolve_actor_specs(ctx["config"])
     actor_findings = load_actor_findings_state(ctx)
-    for actor_id in WORKFLOW_STEP_IDS:
+    for actor_id in AGENT_IDS:
         if actor_id not in actor_findings:
             actor_findings[actor_id] = not_llm_reviewed_actor_finding(actor_id, dict(actor_specs.get(actor_id) or {}))
     write_actor_findings_state(ctx, actor_findings)

@@ -264,7 +264,7 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         {"source": "examples/sample_inputs", "target": "vc_assistant/examples/sample_inputs"},
         {"source": "knowledge", "target": "knowledge"},
     ]
-    assert len(nodes) == 21
+    assert len(nodes) == 10
     assert report_sink["config"] == {"complete_on_message": True, "terminal_sink": True, "complete_run": True}
     assert config["python_dependencies"]["installer"] == "pip"
     assert config["python_dependencies"]["requirements"] == requirements_path
@@ -353,7 +353,7 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         "mode": "live",
     }
     assert config["execution"]["max_company_workers"] == 1
-    assert config["internet_research"]["max_stage_workers"] == 1
+    assert config["internet_research"]["max_parallel_research_agents"] == 1
     assert config["backpressure"]["llm"] == {
         "max_concurrent_calls": 1,
         "min_interval_seconds": 1.0,
@@ -679,7 +679,7 @@ def test_debug_mode_writes_step_trace(tmp_path, monkeypatch):
     monkeypatch.delenv("MN_DEBUG", raising=False)
 
     result = runner.run_runtime_step(
-        "startup_folder_watcher",
+        "detect_packet_changes",
         inputs={
             "document_folder": str(docs),
             "output_folder": str(outputs),
@@ -699,7 +699,7 @@ def test_debug_mode_writes_step_trace(tmp_path, monkeypatch):
     )
 
     run_dir = tmp_path / "vc-debug-step"
-    assert result["workflow_step_id"] == "startup_folder_watcher"
+    assert result["workflow_step_id"] == "detect_packet_changes"
     debug_trace = (run_dir / "debug_trace.jsonl").read_text(encoding="utf-8")
     events = (run_dir / "events.jsonl").read_text(encoding="utf-8")
     assert "debug_workflow_step_started" in debug_trace
@@ -917,7 +917,7 @@ def test_three_bundled_companies_match_deterministic_golden_contract(tmp_path):
         json.loads(line)
         for line in (tmp_path / run_id / "events.jsonl").read_text(encoding="utf-8").splitlines()
     ]
-    assert any(event["type"] == "batch_index_writer_completed" for event in events)
+    assert any(event["type"] == "publish_batch_summary_completed" for event in events)
     assert json.loads((outputs / "final_artifact.json").read_text(encoding="utf-8"))["company_reports"] == artifact["company_reports"]
 
 
@@ -1173,7 +1173,7 @@ def test_vc_assistant_runtime_graph_is_manifest_declared_dag_with_terminal_sink(
         for edge in manifest["agents"]["edges"]
     }
     assert any(
-        edge["from_node"] == "batch_index_writer" and edge["to_node"] == "report_sink"
+        edge["from_node"] == "publish_batch_summary" and edge["to_node"] == "report_sink"
         for edge in manifest["agents"]["edges"]
     )
 
@@ -1203,14 +1203,8 @@ def test_vc_manifest_agent_dependencies_are_imported_and_runtime_boundaries_are_
         for group in source["workers"]["groups"]
     }
     assert worker_stereotypes == {
-        "public_browser_worker": (
-            "company_identity_researcher",
-            "funding_researcher",
-            "market_comp_researcher",
-            "traction_verifier",
-            "rendered_page_researcher",
-        ),
-        "internal_write_worker": ("company_report_writer", "batch_index_writer"),
+        "public_browser_worker": ("collect_public_research",),
+        "internal_write_worker": ("write_company_reports", "publish_batch_summary"),
     }
     assert source["agents"]["extra_templates"] == [
         {
@@ -1221,9 +1215,9 @@ def test_vc_manifest_agent_dependencies_are_imported_and_runtime_boundaries_are_
     ]
     assert source["agents"]["extra_edges"] == [
         {
-            "edge_id": "batch_index_writer_to_report_sink",
-            "from_node": "batch_index_writer",
-            "message_type": "batch_index_writer_completed",
+            "edge_id": "publish_batch_summary_to_report_sink",
+            "from_node": "publish_batch_summary",
+            "message_type": "publish_batch_summary_completed",
             "to_node": "report_sink",
         }
     ]
@@ -1235,14 +1229,31 @@ def test_vc_agents_are_llm_backed_and_selected_for_actor_reviews():
     agents = config["llm"]["agents"]
 
     assert len(agents) == 21
-    assert set(agents) == set(runner.WORKFLOW_STEP_IDS)
-    for actor_id in runner.WORKFLOW_STEP_IDS:
+    assert set(agents) == set(runner.AGENT_IDS)
+    assert set(runner.WORKFLOW_STEP_IDS).isdisjoint(runner.AGENT_IDS)
+    for actor_id in runner.AGENT_IDS:
         assert agents[actor_id]["llm_config"] == "primary"
         assert "model" not in agents[actor_id]
 
     actor_specs = runner.resolve_actor_specs(config)
-    actor_ids = [actor_id for actor_id in runner.WORKFLOW_STEP_IDS if actor_id in actor_specs]
-    assert actor_ids == runner.WORKFLOW_STEP_IDS
+    actor_ids = [actor_id for actor_id in runner.AGENT_IDS if actor_id in actor_specs]
+    assert actor_ids == runner.AGENT_IDS
+
+
+def test_vc_workflow_steps_assign_explicit_reusable_agent_crews():
+    runner = _load_runner()
+    source = json.loads((ROOT / "vc_assistant" / "manifest.json").read_text(encoding="utf-8"))
+    assignments = {
+        step["id"]: tuple(step["run"]["with"]["agent_ids"])
+        for step in source["workflow"]["steps"]
+    }
+
+    assert assignments == runner.WORKFLOW_STEP_AGENT_IDS
+    assert all(agent_ids for agent_ids in assignments.values())
+    assert {agent_id for agent_ids in assignments.values() for agent_id in agent_ids} == set(runner.AGENT_IDS)
+    assert assignments["collect_public_research"] == tuple(runner.RESEARCH_AGENT_IDS)
+    assert len(assignments["calculate_valuation_scores"]) == 7
+    assert source["agents"]["crew"]["completion_rule"] == "all_assigned_agents_required"
 
 
 def test_vc_knowledge_excludes_stale_non_vc_domain_terms():
@@ -1290,8 +1301,8 @@ def test_adaptive_research_plan_extracts_public_safe_signals():
     plan = runner.build_adaptive_research_plan("Example AI", records, {"max_queries": 20, "max_target_urls_per_company": 10, "rendered_browser": {"max_pages_per_company": 5}})
     lane_ids = {lane["lane_id"] for lane in plan["lanes"]}
     assert {"github_research", "technical_product_research", "founder_research", "pricing_business_model_research", "regulatory_risk_research"} <= lane_ids
-    assert "https://github.com/example/example-ai" in plan["stage_target_urls"]["market_comp_researcher"]
-    assert any("GitHub" in query for query in plan["stage_queries"]["market_comp_researcher"])
+    assert "https://github.com/example/example-ai" in plan["agent_target_urls"]["market_comp_researcher"]
+    assert any("GitHub" in query for query in plan["agent_queries"]["market_comp_researcher"])
     assert "https://www.linkedin.com/company/example-ai" in plan["rendered_target_urls"]
     assert "confidential excerpts" in plan["privacy_policy"]
 
@@ -1351,14 +1362,14 @@ def test_adaptive_research_routes_known_urls_to_direct_fetches(monkeypatch, tmp_
     monkeypatch.setattr(runner, "_append_target_url_research", fake_target)
     monkeypatch.setattr(runner, "_append_rendered_browser_research", fake_rendered)
 
-    ledger = runner.research_company_by_stage(
+    ledger = runner.research_company_with_agents(
         "Example AI",
-        {"internet_research": {"enabled": True, "max_stage_workers": 1, "rendered_browser": {"enabled": True, "max_pages_per_company": 5}}},
+        {"internet_research": {"enabled": True, "max_parallel_research_agents": 1, "rendered_browser": {"enabled": True, "max_pages_per_company": 5}}},
         run_dir=tmp_path,
         records=records,
     )
 
-    assert set(ledger) == set(runner.RESEARCH_STAGE_IDS)
+    assert set(ledger) == set(runner.RESEARCH_AGENT_IDS)
     assert "https://github.com/example/example-ai" in direct_urls
     assert "https://docs.example.ai/api" in direct_urls
     assert "https://www.linkedin.com/company/example-ai" in direct_urls
@@ -1392,10 +1403,10 @@ def test_agentic_research_executes_llm_selected_tools(monkeypatch, tmp_path):
     records = [{"filename": "packet.md", "text_preview": "GitHub https://github.com/example/example-ai LinkedIn https://www.linkedin.com/company/example-ai"}]
     trace = []
 
-    ledger = runner.research_company_by_stage(
+    ledger = runner.research_company_with_agents(
         "Example AI",
         {
-            "internet_research": {"enabled": True, "max_stage_workers": 1, "rendered_browser": {"enabled": True, "max_pages_per_company": 5}},
+            "internet_research": {"enabled": True, "max_parallel_research_agents": 1, "rendered_browser": {"enabled": True, "max_pages_per_company": 5}},
             "agentic_research": {
                 "enabled": True,
                 "agent_ids": ["research_planner", "company_identity_researcher", "market_comp_researcher", "traction_verifier", "rendered_page_researcher"],
@@ -1435,9 +1446,9 @@ def test_agentic_research_blocks_confidential_tool_queries(tmp_path):
     plan = runner.build_adaptive_research_plan("Example AI", [], {"max_queries": 20, "rendered_browser": {"max_pages_per_company": 5}})
     trace = []
 
-    stage, sources = runner.run_agentic_research_stage(
+    agent_id, sources = runner.run_agentic_research_agent(
         company="Example AI",
-        stage="market_comp_researcher",
+        agent_id="market_comp_researcher",
         plan=plan,
         internet={"blocked_inputs": ["raw_document_text", "customer_names", "private_financials"]},
         run_dir=tmp_path,
@@ -1447,7 +1458,7 @@ def test_agentic_research_blocks_confidential_tool_queries(tmp_path):
         trace=trace,
     )
 
-    assert stage == "market_comp_researcher"
+    assert agent_id == "market_comp_researcher"
     assert any(source["status"] == "agent_invalid_tool_call" for source in sources)
     assert trace[0]["validation_failures"]
     assert trace[0]["tool_call_count"] == 0
@@ -1474,9 +1485,9 @@ def test_agentic_research_tool_exceptions_continue_as_failed_sources(monkeypatch
     trace = []
     monkeypatch.setattr(runner, "_execute_agent_tool_call", lambda **_: (_ for _ in ()).throw(RuntimeError("browser timeout")))
 
-    stage, sources = runner.run_agentic_research_stage(
+    agent_id, sources = runner.run_agentic_research_agent(
         company="Example AI",
-        stage="market_comp_researcher",
+        agent_id="market_comp_researcher",
         plan=plan,
         internet={"blocked_inputs": []},
         run_dir=tmp_path,
@@ -1486,7 +1497,7 @@ def test_agentic_research_tool_exceptions_continue_as_failed_sources(monkeypatch
         trace=trace,
     )
 
-    assert stage == "market_comp_researcher"
+    assert agent_id == "market_comp_researcher"
     assert any(source["status"] == "agent_tool_call_failed" and "browser timeout" in source["warning"] for source in sources)
     assert trace[0]["tool_call_count"] == 1
     trace_text = (tmp_path / "llm_rag_trace.jsonl").read_text(encoding="utf-8")
@@ -1530,9 +1541,9 @@ def test_agentic_research_prompt_includes_knowledge_rag_context(monkeypatch, tmp
     )
     trace = []
 
-    stage, _sources = runner.run_agentic_research_stage(
+    agent_id, _sources = runner.run_agentic_research_agent(
         company="Example AI",
-        stage="market_comp_researcher",
+        agent_id="market_comp_researcher",
         plan=plan,
         internet={"blocked_inputs": []},
         run_dir=tmp_path,
@@ -1543,7 +1554,7 @@ def test_agentic_research_prompt_includes_knowledge_rag_context(monkeypatch, tmp
         knowledge_rag={"enabled": True, "status": "ready", "_rag_config": object(), "config": {"max_context_chars": 6000}, "warnings": []},
     )
 
-    assert stage == "market_comp_researcher"
+    assert agent_id == "market_comp_researcher"
     prompt_payload = llm_client.prompts[0]["user"]
     assert "GitHub playbook context" in prompt_payload
     assert trace[0]["rag_context"]["status"] == "ready"
@@ -1873,7 +1884,7 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path
     assert run_artifact["method_ids"] == list(runner.METHOD_IDS)
     assert set(run_artifact["workflow_step_ids"]) == set(runner.WORKFLOW_STEP_IDS)
     assert {item["status"] for item in run_artifact["company_work_queue"]} == {"new_or_changed"}
-    assert set(run_artifact["actor_findings"]) == set(runner.WORKFLOW_STEP_IDS)
+    assert set(run_artifact["actor_findings"]) == set(runner.AGENT_IDS)
     assert run_artifact["llm_usage"]["provider"] == "fake"
     assert run_artifact["llm_usage"]["model"] == "fake-vc-actor"
     assert run_artifact["llm_usage"]["calls"] >= len(run_artifact["actor_review"]["llm_actor_ids"])
@@ -1930,7 +1941,7 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path
         actor_id
         for actor_id, finding in run_artifact["actor_findings"].items()
         if finding.get("status") == "not_llm_reviewed"
-    } == set(runner.WORKFLOW_STEP_IDS) - set(run_artifact["actor_review"]["llm_actor_ids"])
+    } == set(runner.AGENT_IDS) - set(run_artifact["actor_review"]["llm_actor_ids"])
     trace_path = tmp_path / "vc-unit" / "llm_rag_trace.jsonl"
     assert trace_path.exists()
     assert (outputs / "llm_rag_trace.jsonl").exists()
@@ -2050,7 +2061,7 @@ def test_actor_review_failure_does_not_fail_report_outputs(tmp_path):
     assert (outputs / "company_index.json").exists()
     assert artifact["actor_review_warnings"][0]["status"] == "actor_review_unavailable"
     assert artifact["actor_review_warnings"][0]["affected_actor_count"] == len(artifact["actor_review"]["llm_actor_ids"])
-    assert set(artifact["actor_findings"]) == set(runner.WORKFLOW_STEP_IDS)
+    assert set(artifact["actor_findings"]) == set(runner.AGENT_IDS)
     assert failing_llm.calls == len(artifact["actor_review"]["llm_actor_ids"])
     assert any(finding.get("status") == "not_llm_reviewed" for finding in artifact["actor_findings"].values())
 
@@ -2062,7 +2073,7 @@ def test_runtime_steps_use_distributed_step_handlers(tmp_path):
     _write_startup_packets(docs)
 
     entry_result = runner.run_runtime_step(
-        "startup_folder_watcher",
+        "detect_packet_changes",
         inputs={
             "document_folder": str(docs),
             "output_folder": str(outputs),
@@ -2082,13 +2093,13 @@ def test_runtime_steps_use_distributed_step_handlers(tmp_path):
 
     run_dir = tmp_path / "vc-runtime-entry"
     assert entry_result["runtime_step_mode"] == "workflow_step_handler"
-    assert entry_result["workflow_step_id"] == "startup_folder_watcher"
+    assert entry_result["workflow_step_id"] == "detect_packet_changes"
     assert (run_dir / "workflow_state" / "document_files.json").exists()
     assert not (outputs / "company_index.json").exists()
     assert not (outputs / "alpha-ai" / "analysis.json").exists()
 
     grouped_result = runner.run_runtime_step(
-        "company_packet_grouper",
+        "assemble_company_packets",
         inputs={
             "document_folder": str(docs),
             "output_folder": str(outputs),
@@ -2106,10 +2117,10 @@ def test_runtime_steps_use_distributed_step_handlers(tmp_path):
     )
 
     assert grouped_result["runtime_step_mode"] == "workflow_step_handler"
-    assert grouped_result["workflow_step_id"] == "company_packet_grouper"
+    assert grouped_result["workflow_step_id"] == "assemble_company_packets"
     assert "final_artifact" not in grouped_result
     assert (run_dir / "workflow_state" / "company_packet_groups.json").exists()
-    assert (run_dir / "company_packet_grouper_result.json").exists()
+    assert (run_dir / "assemble_company_packets_result.json").exists()
 
 
 def test_runtime_step_entrypoint_honors_mirror_neuron_run_environment(tmp_path, monkeypatch):
@@ -2122,7 +2133,7 @@ def test_runtime_step_entrypoint_honors_mirror_neuron_run_environment(tmp_path, 
     monkeypatch.setenv("MN_RUNS_ROOT", str(runtime_runs))
 
     result = runner.run_runtime_step(
-        "startup_folder_watcher",
+        "detect_packet_changes",
         inputs={
             "document_folder": str(docs),
             "output_folder": str(outputs),
@@ -2141,7 +2152,7 @@ def test_runtime_step_entrypoint_honors_mirror_neuron_run_environment(tmp_path, 
     run_dir = runtime_runs / "vc-runtime-env"
     assert result["run_id"] == "vc-runtime-env"
     assert result["runtime_step_mode"] == "workflow_step_handler"
-    assert result["workflow_step_id"] == "startup_folder_watcher"
+    assert result["workflow_step_id"] == "detect_packet_changes"
     assert (run_dir / "run.json").exists()
     assert (run_dir / "workflow_state" / "document_files.json").exists()
     assert not (run_dir / "final_artifact.json").exists()
@@ -2203,15 +2214,14 @@ def test_explicit_output_folder_wins_for_local_direct_runs(monkeypatch, tmp_path
     ) == explicit_output
 
 
-def test_changed_company_packets_use_stage_handlers_with_stable_output_order(tmp_path):
+def test_changed_company_packets_use_agent_crews_with_stable_output_order(tmp_path):
     runner = _load_runner()
     docs = tmp_path / "startup-docs"
     outputs = tmp_path / "reports"
     _write_startup_packets(docs)
     research_calls: list[tuple[str, str]] = []
     scorer_calls: list[str] = []
-    research_stage = importlib.import_module("agents.research_stage")
-    original_research_one_stage = research_stage._research_one_stage
+    original_run_research_agent = runner._run_research_agent
     original_scorers = dict(runner.METHOD_SCORER_FUNCTIONS)
 
     def fake_research_one_stage(company, stage, query, plan, internet, run_dir, action_budget):
@@ -2239,7 +2249,7 @@ def test_changed_company_packets_use_stage_handlers_with_stable_output_order(tmp
 
         return score
 
-    research_stage._research_one_stage = fake_research_one_stage
+    runner._run_research_agent = fake_research_one_stage
     for method_id in runner.METHOD_IDS:
         runner.METHOD_SCORER_FUNCTIONS[method_id] = wrapped_scorer(method_id)
     try:
@@ -2262,7 +2272,7 @@ def test_changed_company_packets_use_stage_handlers_with_stable_output_order(tmp
             llm_client=FakeVCLLM(),
         )
     finally:
-        research_stage._research_one_stage = original_research_one_stage
+        runner._run_research_agent = original_run_research_agent
         runner.METHOD_SCORER_FUNCTIONS.clear()
         runner.METHOD_SCORER_FUNCTIONS.update(original_scorers)
 
@@ -2270,7 +2280,7 @@ def test_changed_company_packets_use_stage_handlers_with_stable_output_order(tmp
     assert set(research_calls) == {
         (company, stage)
         for company in {"Alpha Ai", "Sparse Labs"}
-        for stage in runner.RESEARCH_STAGE_IDS
+        for stage in runner.RESEARCH_AGENT_IDS
     }
     assert set(scorer_calls) == set(runner.METHOD_IDS)
     assert artifact["parallel_execution"]["max_company_workers"] == 2
@@ -2279,7 +2289,7 @@ def test_changed_company_packets_use_stage_handlers_with_stable_output_order(tmp
     assert [report["company_slug"] for report in artifact["company_reports"]] == ["alpha-ai", "sparse-labs"]
 
 
-def test_research_ledgers_emit_stage_specific_records_without_browser_network(tmp_path):
+def test_research_ledgers_emit_agent_specific_records_without_browser_network(tmp_path):
     runner = _load_runner()
     original_w3m = runner._append_w3m_research
     original_target = runner._append_target_url_research
@@ -2319,12 +2329,12 @@ def test_research_ledgers_emit_stage_specific_records_without_browser_network(tm
     runner._append_w3m_research = fake_w3m
     runner._append_target_url_research = fake_target
     try:
-        ledger = runner.research_company_by_stage(
+        ledger = runner.research_company_with_agents(
             "Example AI",
             {
                 "internet_research": {
                     "enabled": True,
-                    "max_stage_workers": 5,
+                    "max_parallel_research_agents": 5,
                     "default_source_urls": ["https://example.com/reference"],
                     "rendered_browser": {"enabled": False},
                 }
@@ -2335,8 +2345,8 @@ def test_research_ledgers_emit_stage_specific_records_without_browser_network(tm
         runner._append_w3m_research = original_w3m
         runner._append_target_url_research = original_target
 
-    assert set(ledger) == set(runner.RESEARCH_STAGE_IDS)
-    for stage in runner.RESEARCH_STAGE_IDS:
+    assert set(ledger) == set(runner.RESEARCH_AGENT_IDS)
+    for stage in runner.RESEARCH_AGENT_IDS:
         assert any(source["verification_target"] == stage for source in ledger[stage])
     assert any("funding" in source["query"].lower() for source in ledger["funding_researcher"])
     assert any("competitors" in source["query"].lower() for source in ledger["market_comp_researcher"])
@@ -2388,7 +2398,7 @@ def test_scorecard_and_comparables_ignore_non_substantive_defaults():
                 "retrieved_at": runner.utc_now_iso(),
             },
         ]
-        for stage in runner.RESEARCH_STAGE_IDS
+        for stage in runner.RESEARCH_AGENT_IDS
     }
 
     analysis = runner.build_company_analysis("Empty Co", records, ledger, scoring_workers=7)
@@ -2423,7 +2433,7 @@ def test_vc_claim_layer_caps_self_reported_revenue_confidence():
         }
     ]
 
-    analysis = runner.build_company_analysis("Aurora AI", records, {stage: [] for stage in runner.RESEARCH_STAGE_IDS}, fund_profile="seed_saas")
+    analysis = runner.build_company_analysis("Aurora AI", records, {agent_id: [] for agent_id in runner.RESEARCH_AGENT_IDS}, fund_profile="seed_saas")
     revenue_evidence = [item for item in analysis["evidence_items"] if item["claim_type"] == "traction.revenue.arr"]
     revenue_claims = [item for item in analysis["claim_records"] if item["claim_type"] == "traction.revenue.arr"]
 

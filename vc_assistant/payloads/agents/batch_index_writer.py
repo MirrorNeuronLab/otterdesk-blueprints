@@ -25,7 +25,7 @@ from runtime.runtime import (
     METHOD_IDS,
     OUTPUT_TYPE,
     RECOMMENDED_ACTION,
-    RESEARCH_STAGE_IDS,
+    RESEARCH_AGENT_IDS,
     WORKFLOW_STEP_IDS,
     active_knowledge_reference,
     actor_review_config,
@@ -46,12 +46,12 @@ from runtime.runtime import (
     persist_action_budget_state,
     processed_and_skipped_company_names,
     public_knowledge_rag_state,
-    run_step_actor_review,
+    run_step_agent_reviews,
     scoring_worker_count,
     write_actor_review_warnings_state,
 )
 
-def run_batch_index_writer_step(ctx: dict[str, Any], *, llm_client: Any | None = None) -> dict[str, Any]:
+def run_batch_index_writer(ctx: dict[str, Any], *, llm_client: Any | None = None) -> dict[str, Any]:
     store = ctx["state_store"]
     company_records = store.read_object("company_records.json")
     company_work_queue = store.read_list("company_work_queue.json")
@@ -70,7 +70,13 @@ def run_batch_index_writer_step(ctx: dict[str, Any], *, llm_client: Any | None =
     services = ctx["services"]
     active_knowledge = services.get("active_knowledge") or load_vc_knowledge(ctx["blueprint_dir"])
     knowledge_rag = services.get("knowledge_rag") or {}
-    run_step_actor_review(ctx, "batch_index_writer", services, llm_client=llm_client)
+    run_step_agent_reviews(
+        ctx,
+        ctx["workflow_step_id"],
+        ["batch_index_writer"],
+        services,
+        llm_client=llm_client,
+    )
     action_ledger = persist_action_budget_state(ctx, services["action_budget"])
     actor_findings = ensure_all_actor_findings(ctx)
     actor_review_warnings = normalized_actor_review_warnings(ctx, actor_findings)
@@ -137,7 +143,7 @@ def run_batch_index_writer_step(ctx: dict[str, Any], *, llm_client: Any | None =
             "processed_company_count": len(processed_company_names),
             "skipped_company_count": len(skipped_company_names),
             "privacy_policy": "no confidential excerpts in public research queries",
-            "stage_ids": RESEARCH_STAGE_IDS,
+            "agent_ids": RESEARCH_AGENT_IDS,
             "coverage": research_coverage,
             "knowledge_rag": public_knowledge_rag_state(knowledge_rag),
         },
@@ -162,7 +168,7 @@ def run_batch_index_writer_step(ctx: dict[str, Any], *, llm_client: Any | None =
         },
         "parallel_execution": {
             "max_company_workers": company_worker_count(ctx["config"], len(company_records)),
-            "max_stage_workers": bounded_int((ctx["config"].get("internet_research") or {}).get("max_stage_workers"), default=len(RESEARCH_STAGE_IDS), maximum=len(RESEARCH_STAGE_IDS)),
+            "max_parallel_research_agents": bounded_int((ctx["config"].get("internet_research") or {}).get("max_parallel_research_agents"), default=len(RESEARCH_AGENT_IDS), maximum=len(RESEARCH_AGENT_IDS)),
             "max_scoring_workers": scoring_worker_count(ctx["config"]),
             "llm_backpressure": services["llm_limiter"].config_summary(),
             "company_processing_order": [analysis["company_slug"] for analysis in analyses],
@@ -237,11 +243,11 @@ def run_batch_index_writer_step(ctx: dict[str, Any], *, llm_client: Any | None =
                 writes=tuple(writes),
                 result=result,
             ),
-            step_id="batch_index_writer",
+            step_id=ctx["workflow_step_id"],
             event_writer=artifact_event_writer,
             result_builder=lambda context, _result, **_options: step_result(
                 context,
-                "batch_index_writer",
+                ctx["workflow_step_id"],
                 final_artifact=final_artifact,
             ),
         )

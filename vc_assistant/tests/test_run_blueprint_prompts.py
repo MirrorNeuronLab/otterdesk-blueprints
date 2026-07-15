@@ -17,11 +17,19 @@ for skill_name in (
     "client_report_skill",
     "document_reading_skill",
     "public_research_orchestrator_skill",
+    "rag_skill",
     "scoring_framework_skill",
 ):
     skill_src = BLUEPRINT_DIR.parents[1] / "mn-skills" / skill_name / "src"
     if skill_src.exists():
         sys.path.insert(0, str(skill_src))
+for agent_name in (
+    "prototype_bounded_tool_loop_agent",
+    "prototype_actor_review_agent",
+):
+    agent_src = BLUEPRINT_DIR.parents[1] / "mn-agents" / agent_name / "src"
+    if agent_src.exists():
+        sys.path.insert(0, str(agent_src))
 
 
 def load_module():
@@ -36,8 +44,13 @@ def test_source_manifest_keeps_the_default_runtime_declarative():
     default_config = json.loads((BLUEPRINT_DIR / "config" / "default.json").read_text())
     manifest = json.loads((BLUEPRINT_DIR / "manifest.json").read_text())
     assert manifest["apiVersion"] == "mn.workflow.source/v2"
-    assert manifest["agents"] == {"extra_templates": manifest["agents"]["extra_templates"], "extra_edges": manifest["agents"]["extra_edges"]}
-    assert manifest["workflow"]["steps"][0]["id"] == "startup_folder_watcher"
+    assert manifest["agents"] == {
+        "crew": manifest["agents"]["crew"],
+        "extra_templates": manifest["agents"]["extra_templates"],
+        "extra_edges": manifest["agents"]["extra_edges"],
+    }
+    assert manifest["workflow"]["steps"][0]["id"] == "detect_packet_changes"
+    assert all(step["run"]["with"]["agent_ids"] for step in manifest["workflow"]["steps"])
     assert default_config["llm"]["model"] == "default"
 
 
@@ -87,30 +100,12 @@ def test_model_contract_uses_the_shared_adaptive_default():
     assert "large_model_profile" not in llm
 
 
-def test_method_score_state_merges_independent_scorer_outputs(tmp_path):
+def test_valuation_scoring_crew_maps_every_method_to_a_specialist_agent():
     rb = load_module()
-    rb.write_company_method_scores_state(
-        tmp_path,
-        "Acme",
-        {"berkus_method": {"method_id": "berkus_method", "score": 1}},
-    )
-    rb.write_company_method_score_state(
-        tmp_path,
-        "Acme",
-        "scorecard_bill_payne_method",
-        {"method_id": "scorecard_bill_payne_method", "score": 2},
-    )
-    rb.write_company_method_score_state(
-        tmp_path,
-        "Acme",
-        "berkus_method",
-        {"method_id": "berkus_method", "score": 3},
-    )
 
-    methods = rb.read_company_method_scores_state(tmp_path, "Acme")
-
-    assert methods["berkus_method"]["score"] == 3
-    assert methods["scorecard_bill_payne_method"]["score"] == 2
+    assert set(rb.SCORER_AGENT_BY_METHOD) == set(rb.METHOD_IDS)
+    assert set(rb.METHOD_SCORER_FUNCTIONS) == set(rb.METHOD_IDS)
+    assert set(rb.SCORER_AGENT_BY_METHOD.values()) <= set(rb.AGENT_IDS)
 
 
 def test_research_prompt_specs_are_distinct_for_all_agent_ids():
@@ -131,13 +126,13 @@ def test_research_prompt_specs_are_distinct_for_all_agent_ids():
     assert "rendered" in specs["rendered_page_researcher"]["mission"].lower()
 
 
-def test_research_prompts_include_stage_specific_rag_and_tool_policy():
+def test_research_prompts_include_agent_specific_rag_and_tool_policy():
     rb = load_module()
-    plan = {"stage_queries": {"funding_researcher": ["Acme funding"]}, "lanes": [], "signals": {}, "privacy_policy": "public-safe"}
+    plan = {"agent_queries": {"funding_researcher": ["Acme funding"]}, "lanes": [], "signals": {}, "privacy_policy": "public-safe"}
     rag_context = {"status": "ready", "context": "Funding playbook", "citations": [{"ref": 1}]}
     system_prompt, prompt = rb.build_research_agent_prompt(
         company="Acme",
-        stage="funding_researcher",
+        agent_id="funding_researcher",
         plan=plan,
         internet={},
         allowed_tools={"browser_search", "finish"},
@@ -178,9 +173,6 @@ def test_required_rag_zero_citations_fails_before_llm(monkeypatch):
     rb = load_module()
     calls = {"llm": 0}
 
-    def fake_load_rag_skill():
-        return None
-
     def fake_require_ready(state, *, stage="", company="", context=None, min_citations=0):
         if min_citations and not (context or {}).get("citations"):
             raise RuntimeError("required RAG returned zero citations")
@@ -191,7 +183,6 @@ def test_required_rag_zero_citations_fails_before_llm(monkeypatch):
             calls["llm"] += 1
             return {"tool_calls": [{"tool": "finish"}], "rag_refs": [1]}
 
-    monkeypatch.setattr(rb, "_load_rag_skill", fake_load_rag_skill)
     monkeypatch.setattr(rb, "skill_require_ready_knowledge_rag", fake_require_ready)
     monkeypatch.setattr(
         rb,
@@ -200,10 +191,10 @@ def test_required_rag_zero_citations_fails_before_llm(monkeypatch):
     )
 
     with pytest.raises(RuntimeError, match="zero citations"):
-        rb.run_agentic_research_stage(
+        rb.run_agentic_research_agent(
             company="Acme",
-            stage="funding_researcher",
-            plan={"stage_queries": {"funding_researcher": ["Acme funding"]}, "queries": ["Acme"], "lanes": []},
+            agent_id="funding_researcher",
+            plan={"agent_queries": {"funding_researcher": ["Acme funding"]}, "queries": ["Acme"], "lanes": []},
             internet={},
             run_dir=None,
             action_budget=None,
@@ -253,12 +244,9 @@ def test_explicit_knowledge_rag_db_path_is_preserved(monkeypatch):
     assert "redis_url" not in config["knowledge_rag"]
 
 
-def test_agentic_rag_query_prioritizes_stage_playbook_terms(monkeypatch):
+def test_agentic_rag_query_prioritizes_agent_playbook_terms(monkeypatch):
     rb = load_module()
     captured: dict[str, str] = {}
-
-    def fake_load_rag_skill():
-        return None
 
     def fake_require_ready(state, *, stage="", company="", context=None, min_citations=0):
         return context if context is not None else state
@@ -275,17 +263,16 @@ def test_agentic_rag_query_prioritizes_stage_playbook_terms(monkeypatch):
 
     class FinishLLM:
         def generate_json(self, **kwargs):
-            return {"tool_calls": [{"tool": "finish", "reason": "stage guidance reviewed"}], "rag_refs": [1]}
+            return {"tool_calls": [{"tool": "finish", "reason": "agent guidance reviewed"}], "rag_refs": [1]}
 
-    monkeypatch.setattr(rb, "_load_rag_skill", fake_load_rag_skill)
     monkeypatch.setattr(rb, "skill_require_ready_knowledge_rag", fake_require_ready)
     monkeypatch.setattr(rb, "retrieve_knowledge_rag_context", fake_retrieve)
 
-    rb.run_agentic_research_stage(
+    rb.run_agentic_research_agent(
         company="Aurora Ai",
-        stage="research_planner",
+        agent_id="research_planner",
         plan={
-            "stage_queries": {"research_planner": ["Aurora Ai company website Crunchbase public profile"]},
+            "agent_queries": {"research_planner": ["Aurora Ai company website Crunchbase public profile"]},
             "queries": ["Aurora Ai startup public evidence"],
             "lanes": [{"lane_id": "fundraising"}],
         },
@@ -309,16 +296,16 @@ def test_funding_researcher_uses_agentic_path(monkeypatch):
     called: list[str] = []
 
     def fake_agentic(**kwargs):
-        called.append(kwargs["stage"])
-        return kwargs["stage"], []
+        called.append(kwargs["agent_id"])
+        return kwargs["agent_id"], []
 
-    monkeypatch.setattr(rb, "run_agentic_research_stage", fake_agentic)
-    monkeypatch.setattr(rb, "_research_one_stage", lambda company, stage, query, plan, internet, run_dir, action_budget: (stage, []))
+    monkeypatch.setattr(rb, "run_agentic_research_agent", fake_agentic)
+    monkeypatch.setattr(rb, "_run_research_agent", lambda company, agent_id, query, plan, internet, run_dir, action_budget: (agent_id, []))
 
-    rb.research_company_by_stage(
+    rb.research_company_with_agents(
         "Acme",
         {
-            "internet_research": {"enabled": True, "max_stage_workers": 1},
+            "internet_research": {"enabled": True, "max_parallel_research_agents": 1},
             "agentic_research": {"enabled": True, "agent_ids": ["funding_researcher"]},
         },
         llm=object(),
@@ -327,12 +314,12 @@ def test_funding_researcher_uses_agentic_path(monkeypatch):
     assert called == ["funding_researcher"]
 
 
-def test_agentic_stage_gap_fill_runs_deterministic_research(monkeypatch):
+def test_agentic_agent_gap_fill_runs_deterministic_research(monkeypatch):
     rb = load_module()
     deterministic_calls: list[str] = []
 
     def fake_agentic(**kwargs):
-        return kwargs["stage"], [
+        return kwargs["agent_id"], [
             rb._source_record(
                 company=kwargs["company"],
                 query="Acme funding",
@@ -341,7 +328,7 @@ def test_agentic_stage_gap_fill_runs_deterministic_research(monkeypatch):
                 snippet="planned",
                 status="planned",
                 skill="research_planner",
-                verification_target=kwargs["stage"],
+                verification_target=kwargs["agent_id"],
             )
         ]
 
@@ -360,21 +347,21 @@ def test_agentic_stage_gap_fill_runs_deterministic_research(monkeypatch):
             )
         ]
 
-    monkeypatch.setattr(rb, "run_agentic_research_stage", fake_agentic)
-    monkeypatch.setattr(rb, "_research_one_stage", fake_one_stage)
+    monkeypatch.setattr(rb, "run_agentic_research_agent", fake_agentic)
+    monkeypatch.setattr(rb, "_run_research_agent", fake_one_stage)
 
-    by_stage = rb.research_company_by_stage(
+    by_agent = rb.research_company_with_agents(
         "Acme",
         {
-            "internet_research": {"enabled": True, "max_stage_workers": 1},
+            "internet_research": {"enabled": True, "max_parallel_research_agents": 1},
             "agentic_research": {"enabled": True, "agent_ids": ["funding_researcher"]},
         },
         llm=object(),
     )
 
     assert deterministic_calls.count("funding_researcher") == 1
-    assert any(source.get("fallback_after_agentic") is True for source in by_stage["funding_researcher"])
-    assert any(rb.is_substantive_public_source(source) for source in by_stage["funding_researcher"])
+    assert any(source.get("fallback_after_agentic") is True for source in by_agent["funding_researcher"])
+    assert any(rb.is_substantive_public_source(source) for source in by_agent["funding_researcher"])
 
 
 def test_company_evidence_summaries_include_counts_and_source_quality():
