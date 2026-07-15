@@ -45,8 +45,8 @@ HEALTH_URL="${CUSTOMER_SERVICE_HEALTH_URL:-https://localhost:${LOCAL_PROXY_PORT}
 KNOWLEDGE_PATH="${RUN_DIR}/knowledge/customer_service_knowledge.txt"
 
 if [[ -z "${KNOWLEDGE_TEXT}" ]]; then
-  if [[ -f "${BUNDLE_DIR}/payloads/voice_service/knowledge/default_knowledge.txt" ]]; then
-    KNOWLEDGE_TEXT="$(cat "${BUNDLE_DIR}/payloads/voice_service/knowledge/default_knowledge.txt")"
+  if [[ -f "${BUNDLE_DIR}/payloads/agents/voice_service/knowledge/default_knowledge.txt" ]]; then
+    KNOWLEDGE_TEXT="$(cat "${BUNDLE_DIR}/payloads/agents/voice_service/knowledge/default_knowledge.txt")"
   elif [[ -f "${BUNDLE_DIR}/knowledge/default_knowledge.txt" ]]; then
     KNOWLEDGE_TEXT="$(cat "${BUNDLE_DIR}/knowledge/default_knowledge.txt")"
   else

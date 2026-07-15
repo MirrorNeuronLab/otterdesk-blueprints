@@ -6,15 +6,15 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-RUNNER_PATH = ROOT / "vc_assistant" / "payloads" / "document_workflow" / "scripts" / "run_blueprint.py"
+RUNNER_PATH = ROOT / "vc_assistant" / "payloads" / "runtime" / "runtime.py"
 
 
 def _load_runner():
-    spec = importlib.util.spec_from_file_location("vc_token_runner", RUNNER_PATH)
+    spec = importlib.util.spec_from_file_location("vc_token_runtime", RUNNER_PATH)
     module = importlib.util.module_from_spec(spec)
     assert spec and spec.loader
     spec.loader.exec_module(module)
-    return module.runtime
+    return module
 
 
 def test_vc_manifest_workers_do_not_expose_legacy_token_budget():

@@ -13,7 +13,7 @@ if str(SUPPORT_SRC) not in sys.path:
 
 
 def _runner():
-    path = ROOT / "purchase_research_assistant" / "payloads" / "document_workflow" / "scripts" / "run_blueprint.py"
+    path = ROOT / "purchase_research_assistant" / "payloads" / "runtime" / "runtime.py"
     spec = importlib.util.spec_from_file_location("purchase_research_runner_tests", path)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
@@ -60,7 +60,7 @@ def test_purchase_prompts_are_inside_the_uploaded_worker_bundle():
     runner = _runner()
 
     assert runner.PROMPTS.prompt_dir == (
-        ROOT / "purchase_research_assistant" / "payloads" / "document_workflow" / "prompts"
+        ROOT / "purchase_research_assistant" / "payloads" / "prompts"
     )
     assert "Purchase Research Review Task" in runner.load_prompt("purchase-review-task.md")
     assert "bounded purchase-research specialist" in runner.load_prompt("recommendation-system.md")

@@ -50,7 +50,7 @@ def _document_runner_template(path: Path) -> str:
 
 def test_document_ocr_blueprint_runner_templates_stay_aligned():
     runner_paths = [
-        ROOT / blueprint_id / "payloads" / "document_workflow" / "scripts" / "run_blueprint.py"
+        ROOT / blueprint_id / "payloads" / "runtime" / "runtime.py"
         for blueprint_id in (
             "medical_deid_record_intake_assistant",
         )

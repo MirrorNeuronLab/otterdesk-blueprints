@@ -24,7 +24,7 @@ def _manifest() -> dict:
 
 
 def _runner():
-    path = ROOT / "research_coscientist" / "payloads" / "document_workflow" / "scripts" / "run_blueprint.py"
+    path = ROOT / "research_coscientist" / "payloads" / "runtime" / "runtime.py"
     spec = importlib.util.spec_from_file_location("research_coscientist_runner_tests", path)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
@@ -58,7 +58,7 @@ def test_research_input_normalization_and_query_privacy():
 def test_research_prompts_and_fake_run_write_review_only_packet(tmp_path):
     runner = _runner()
     assert runner.PROMPTS.prompt_dir == (
-        ROOT / "research_coscientist" / "payloads" / "document_workflow" / "prompts"
+        ROOT / "research_coscientist" / "payloads" / "prompts"
     )
     assert "Research Packet System Prompt" in runner.load_prompt("research-packet-system.md")
     assert "Research Co-Scientist Autonomous Review Task" in runner.load_prompt("research-review-task.md")
@@ -261,7 +261,7 @@ def test_research_defaults_use_downloads_and_mirrored_config():
         blueprint / "payloads" / "config" / "default.json",
         blueprint / "config" / "overwrite.json",
         blueprint / "scenario.json",
-        blueprint / "payloads" / "document_workflow" / "scripts" / "run_blueprint.py",
+        blueprint / "payloads" / "runtime" / "runtime.py",
     ):
         assert "~/Download/research_coscientist" not in path.read_text(encoding="utf-8")
 
@@ -281,8 +281,8 @@ def test_manifest_uses_exactly_one_current_openshell_worker():
     assert config["reuse_shared_sandbox"] is True
     assert config["persistent_workspace"] is True
     assert config["cleanup_remote_dir"] is False
-    assert config["custom_openshell_image"] == "document_workflow/openshell_worker"
-    assert config["policy"] == "document_workflow/openshell-policy.yaml"
+    assert config["custom_openshell_image"] == "openshell_worker"
+    assert config["policy"] == "openshell-policy.yaml"
     assert manifest["workflow"]["steps"][0]["label"].startswith("Deterministically")
     assert manifest["workflow"]["steps"][-1]["label"].startswith("Deterministically")
 

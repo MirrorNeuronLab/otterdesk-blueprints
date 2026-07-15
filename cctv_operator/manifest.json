@@ -81,7 +81,7 @@
             "bash",
             "scripts/run_detector_on_nvidia.sh"
           ],
-          "docker_worker_image": "visual_detector/docker_worker",
+          "docker_worker_image": "docker_worker",
           "environment": {},
           "from": "base",
           "gpus": "all",
@@ -98,7 +98,7 @@
           "tty": false,
           "upload_paths": [
             {
-              "source": "visual_detector",
+              "source": "agents/visual_detector",
               "target": "visual_detector"
             },
             {
@@ -162,7 +162,7 @@
           "upload_path": "report_writer",
           "upload_paths": [
             {
-              "source": "report_writer",
+              "source": "agents/report_writer",
               "target": "report_writer"
             }
           ],
@@ -573,7 +573,7 @@
         {
           "command": [
             "/usr/bin/python3",
-            "payloads/validation/validate_video_source.py"
+            "payloads/agents/validation/validate_video_source.py"
           ],
           "name": "video_source_validate",
           "timeout_seconds": 12,
@@ -623,7 +623,7 @@
               "bash",
               "scripts/run_detector_on_nvidia.sh"
             ],
-            "docker_worker_image": "visual_detector/docker_worker",
+            "docker_worker_image": "docker_worker",
             "environment": {},
             "gpus": "all",
             "image": "mirror-neuron/cctv-operator:local",
@@ -635,7 +635,7 @@
             "shared_container": true,
             "upload_paths": [
               {
-                "source": "visual_detector",
+                "source": "agents/visual_detector",
                 "target": "visual_detector"
               },
               {
@@ -663,7 +663,7 @@
             "upload_path": "report_writer",
             "upload_paths": [
               {
-                "source": "report_writer",
+                "source": "agents/report_writer",
                 "target": "report_writer"
               }
             ],
@@ -759,7 +759,7 @@
                 "bash",
                 "scripts/run_detector_on_nvidia.sh"
               ],
-              "docker_worker_image": "visual_detector/docker_worker",
+              "docker_worker_image": "docker_worker",
               "environment": {},
               "gpus": "all",
               "image": "mirror-neuron/cctv-operator:local",
@@ -771,7 +771,7 @@
               "shared_container": true,
               "upload_paths": [
                 {
-                  "source": "visual_detector",
+                  "source": "agents/visual_detector",
                   "target": "visual_detector"
                 },
                 {
@@ -795,7 +795,7 @@
                 "bash",
                 "scripts/run_detector_on_nvidia.sh"
               ],
-              "docker_worker_image": "visual_detector/docker_worker",
+              "docker_worker_image": "docker_worker",
               "environment": {},
               "from": "base",
               "gpus": "all",
@@ -812,7 +812,7 @@
               "tty": false,
               "upload_paths": [
                 {
-                  "source": "visual_detector",
+                  "source": "agents/visual_detector",
                   "target": "visual_detector"
                 },
                 {
@@ -872,7 +872,7 @@
               "upload_path": "report_writer",
               "upload_paths": [
                 {
-                  "source": "report_writer",
+                  "source": "agents/report_writer",
                   "target": "report_writer"
                 }
               ],
@@ -905,7 +905,7 @@
               "upload_path": "report_writer",
               "upload_paths": [
                 {
-                  "source": "report_writer",
+                  "source": "agents/report_writer",
                   "target": "report_writer"
                 }
               ],
@@ -994,7 +994,7 @@
           "type": "domain_value"
         },
         {
-          "default": "cctv_operator/examples/sample_inputs",
+          "default": "examples/sample_inputs",
           "description": "Folder whose supported video files are staged and analyzed in folder mode.",
           "label": "Input folder",
           "path": "video_source.folder_path",
@@ -1159,7 +1159,7 @@
         {
           "command": [
             "/usr/bin/python3",
-            "payloads/validation/validate_video_source.py"
+            "payloads/agents/validation/validate_video_source.py"
           ],
           "name": "video_source_validate",
           "timeout_seconds": 12,
@@ -1843,7 +1843,7 @@
         "CCTV_MEDIA_ACCELERATOR"
       ],
       "description": "Folder mode processes all supported staged recordings; stream mode samples one approved RTSP/RTMP URI. CUDA-enabled FFmpeg is the only media-preparation path.",
-      "folder_path": "cctv_operator/examples/sample_inputs",
+      "folder_path": "examples/sample_inputs",
       "media_accelerator": "nvidia_cuda",
       "mode": "folder",
       "transport": "auto",
@@ -2244,9 +2244,14 @@
       "version": "1.2.22"
     }
   ],
+  "agent_dependencies": [
+    {"type": "pip", "source": "gar", "name": "mn-prototype-stream-processor-agent", "version": "1.2.7"},
+    {"type": "pip", "source": "gar", "name": "mn-prototype-supervised-service-agent", "version": "1.2.7"},
+    {"type": "pip", "source": "gar", "name": "mn-prototype-artifact-finalizer-agent", "version": "1.2.7"}
+  ],
   "standard": {
     "migration_policy": "sdk_managed",
-    "profile": "document_workflow",
+    "profile": "blueprint",
     "source_schema": "mn.workflow.source/v2",
     "target_schema": "mn.workflow/v1"
   },

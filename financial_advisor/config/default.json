@@ -540,11 +540,11 @@
       "max_queries": 6,
       "max_sources_per_query": 3,
       "use_model_compression": true,
-      "docker_worker_requirements": "document_workflow/requirements.txt",
+      "docker_worker_requirements": "requirements.txt",
       "runtime": {
         "driver": "docker_worker",
         "install_scope": "shared_job_container",
-        "docker_worker_image": "document_workflow/docker_worker",
+        "docker_worker_image": "docker_worker",
         "image": "mirror-neuron/financial-advisor:local",
         "network": "mirror-neuron-runtime",
         "node_scope": "financial_advisor_python_executor_nodes"
@@ -566,7 +566,7 @@
       "timeout_seconds": 30,
       "max_chars": 12000,
       "max_pages_per_run": 2,
-      "python_environment": "document_workflow/requirements.txt"
+      "python_environment": "requirements.txt"
     }
   },
   "skill_runtime": {
@@ -574,7 +574,7 @@
     "auto_patch": false,
     "driver": "docker_worker",
     "install_scope": "shared_job_container",
-    "docker_worker_image": "document_workflow/docker_worker",
+    "docker_worker_image": "docker_worker",
     "image": "mirror-neuron/financial-advisor:local",
     "network": "mirror-neuron-runtime",
     "node_scope": "financial_advisor_python_executor_nodes"
@@ -585,7 +585,7 @@
         "config_path": "document_sources.folder_path",
         "default_config_value": "financial_advisor/examples/sample_inputs",
         "source_path": "examples/sample_inputs",
-        "payload_path": "document_workflow/mn_local_inputs/financial_documents",
+        "payload_path": "mn_local_inputs/financial_documents",
         "runtime_path": "mn_local_inputs/financial_documents",
         "allowed_extensions": [
           ".pdf",

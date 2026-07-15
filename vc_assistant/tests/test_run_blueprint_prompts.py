@@ -7,8 +7,9 @@ from pathlib import Path
 
 import pytest
 
+from mn_sdk.blueprint_support import BlueprintBundleLayout, default_config_path
 
-SCRIPT_PATH = Path(__file__).resolve().parents[1] / "payloads" / "document_workflow" / "scripts" / "run_blueprint.py"
+SCRIPT_PATH = Path(__file__).resolve().parents[1] / "payloads" / "runtime" / "runtime.py"
 BLUEPRINT_DIR = Path(__file__).resolve().parents[1]
 for skill_name in (
     "evidence_engine_skill",
@@ -24,11 +25,11 @@ for skill_name in (
 
 
 def load_module():
-    spec = importlib.util.spec_from_file_location("vc_run_blueprint", SCRIPT_PATH)
+    spec = importlib.util.spec_from_file_location("vc_runtime", SCRIPT_PATH)
     module = importlib.util.module_from_spec(spec)
     assert spec and spec.loader
     spec.loader.exec_module(module)
-    return module.runtime
+    return module
 
 
 def test_source_manifest_keeps_the_default_runtime_declarative():
@@ -45,21 +46,35 @@ def test_manifest_steps_resolve_to_conventional_behavior_modules():
     handlers = {step["run"]["handler"] for step in manifest["workflow"]["steps"]}
 
     assert handlers == {
-        "vc_assistant.steps.intake",
-        "vc_assistant.steps.evidence",
-        "vc_assistant.steps.research",
-        "vc_assistant.steps.scoring",
-        "vc_assistant.steps.reporting",
+        "steps.intake",
+        "steps.evidence",
+        "steps.research",
+        "steps.scoring",
+        "steps.reporting",
     }
     assert all(":" not in handler for handler in handlers)
 
 
 def test_runtime_module_resolves_the_blueprint_root_after_the_entrypoint_move():
     runner = load_module()
+    layout = BlueprintBundleLayout.discover(SCRIPT_PATH)
 
-    assert runner._script_blueprint_root() == BLUEPRINT_DIR
-    assert runner.default_config_path() == BLUEPRINT_DIR / "config" / "default.json"
+    assert layout.root == BLUEPRINT_DIR
+    assert layout.payload_root == BLUEPRINT_DIR / "payloads"
+    assert default_config_path(SCRIPT_PATH) == BLUEPRINT_DIR / "config" / "default.json"
     assert runner.PROMPTS.prompt_dir == BLUEPRINT_DIR / "payloads" / "prompts"
+
+
+def test_vc_has_no_local_blueprint_entrypoint_or_generic_dispatch():
+    runtime_source = SCRIPT_PATH.read_text(encoding="utf-8")
+
+    assert not (SCRIPT_PATH.parent / "run_blueprint.py").exists()
+    assert "def run_blueprint(" not in runtime_source
+    assert "def execute_runtime_handler(" not in runtime_source
+    assert "globals().update(" not in "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in (BLUEPRINT_DIR / "payloads" / "agents").glob("*.py")
+    )
 
 
 def test_model_contract_uses_the_shared_adaptive_default():

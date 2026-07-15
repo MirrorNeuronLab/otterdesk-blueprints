@@ -350,13 +350,13 @@
         "pool": "default",
         "runner_module": "MirrorNeuron.Runner.HostLocal",
         "stereotype": [
-          "document_workflow_host_worker"
+          "blueprint_host_worker"
         ],
         "upload_as": "service",
         "upload_path": "service",
         "upload_paths": [
           {
-            "source": "service",
+            "source": "agents/service",
             "target": "service"
           },
           {
@@ -1325,9 +1325,14 @@
     "stop_file": "${MN_RUN_DIR}/STOP"
   },
   "skill_dependencies": [],
+  "agent_dependencies": [
+    {"type": "pip", "source": "gar", "name": "mn-prototype-supervised-service-agent", "version": "1.2.7"},
+    {"type": "pip", "source": "gar", "name": "mn-prototype-entity-queue-agent", "version": "1.2.7"},
+    {"type": "pip", "source": "gar", "name": "mn-prototype-stream-processor-agent", "version": "1.2.7"}
+  ],
   "standard": {
     "migration_policy": "sdk_managed",
-    "profile": "document_workflow",
+    "profile": "blueprint",
     "profile_version": 1,
     "source_schema": "mn.workflow.source/v2",
     "target_schema": "mn.workflow/v1"

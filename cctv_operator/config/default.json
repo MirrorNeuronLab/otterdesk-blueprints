@@ -111,7 +111,7 @@
           "restricted-area entry"
         ]
       },
-      "input_folder": "cctv_operator/examples/sample_inputs",
+      "input_folder": "examples/sample_inputs",
       "output_folder": "~/Download/cctv_operator",
       "source_mode": "folder",
       "video_source": "",
@@ -541,7 +541,7 @@
         "config_path": "video_source.folder_path",
         "payload_path": "cctv_operator/mn_local_inputs/videos",
         "runtime_path": "mn_local_inputs/videos",
-        "default_config_value": "cctv_operator/examples/sample_inputs",
+        "default_config_value": "examples/sample_inputs",
         "source_path": "examples/sample_inputs",
         "allowed_extensions": [
           ".mp4",
@@ -789,7 +789,7 @@
       "event_id"
     ],
     "resume_mode": "checkpoint",
-    "input_folder": "cctv_operator/examples/sample_inputs",
+    "input_folder": "examples/sample_inputs",
     "output_folder": "~/Download/cctv_operator"
   },
   "streams": {
@@ -811,7 +811,7 @@
   "video_source": {
     "camera_id": "cctv",
     "mode": "folder",
-    "folder_path": "cctv_operator/examples/sample_inputs",
+    "folder_path": "examples/sample_inputs",
     "uri": "",
     "description": "Choose folder to process staged local recordings or stream to monitor one approved RTSP/RTMP source.",
     "media_accelerator": "nvidia_cuda",

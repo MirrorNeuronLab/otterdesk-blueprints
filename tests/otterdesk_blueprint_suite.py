@@ -643,7 +643,7 @@ def test_document_ocr_blueprints_emit_actor_findings_and_usage(tmp_path):
         "medical_deid_record_intake_assistant",
     ]
     for blueprint_id in targets:
-        runner_path = ROOT / blueprint_id / "payloads" / "document_workflow" / "scripts" / "run_blueprint.py"
+        runner_path = ROOT / blueprint_id / "payloads" / "runtime" / "runtime.py"
         module = _load_script(runner_path, f"{blueprint_id}_actor_runner_test")
         docs = tmp_path / blueprint_id / "docs"
         docs.mkdir(parents=True)
@@ -708,7 +708,7 @@ def test_cctv_operator_report_writer_emits_cumulative_reports(tmp_path):
     result = subprocess.run(
         [
             sys.executable,
-            str(ROOT / "cctv_operator" / "payloads" / "report_writer" / "scripts" / "write_cctv_report.py"),
+                str(ROOT / "cctv_operator" / "payloads" / "agents" / "report_writer" / "scripts" / "write_cctv_report.py"),
         ],
         cwd=tmp_path,
         env=env,
@@ -762,7 +762,7 @@ def test_cctv_operator_report_writer_derives_run_dir_from_runtime_environment(tm
     result = subprocess.run(
         [
             sys.executable,
-            str(ROOT / "cctv_operator" / "payloads" / "report_writer" / "scripts" / "write_cctv_report.py"),
+                str(ROOT / "cctv_operator" / "payloads" / "agents" / "report_writer" / "scripts" / "write_cctv_report.py"),
         ],
         cwd=tmp_path,
         env=env,
@@ -1260,7 +1260,7 @@ def test_generic_customer_service_voice_blueprint_contract():
 
 
 def test_generic_customer_service_rag_chunking_and_retrieval():
-    payload_dir = ROOT / "generic_customer_service_voice_coworker" / "payloads" / "voice_service"
+    payload_dir = ROOT / "generic_customer_service_voice_coworker" / "payloads" / "agents" / "voice_service"
     sys.path.insert(0, str(payload_dir))
     try:
         from rag import build_rag_context, chunk_text, retrieve
@@ -1292,7 +1292,7 @@ def test_generic_customer_service_rag_chunking_and_retrieval():
 
 
 def test_generic_customer_service_knowledge_persistence(tmp_path, monkeypatch):
-    payload_dir = ROOT / "generic_customer_service_voice_coworker" / "payloads" / "voice_service"
+    payload_dir = ROOT / "generic_customer_service_voice_coworker" / "payloads" / "agents" / "voice_service"
     sys.path.insert(0, str(payload_dir))
     try:
         from knowledge_store import ensure_knowledge_file, knowledge_metadata, read_knowledge, write_knowledge
@@ -1316,7 +1316,7 @@ def test_generic_customer_service_knowledge_persistence(tmp_path, monkeypatch):
 
 
 def test_purchase_research_final_artifact_uses_product_output_fields(tmp_path):
-    runner_path = ROOT / "purchase_research_assistant" / "payloads" / "document_workflow" / "scripts" / "run_blueprint.py"
+    runner_path = ROOT / "purchase_research_assistant" / "payloads" / "runtime" / "runtime.py"
     spec = importlib.util.spec_from_file_location("otterdesk_purchase_runner_product_test", runner_path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
@@ -1565,14 +1565,14 @@ def test_cctv_operator_uses_dockerworker_nvidia_media_worker():
     assert tick_node["config"]["module_source"] == "beam_modules/video_frame_tick_source.ex"
     assert tick_node["config"]["interval_seconds"] == 20
     assert visual_node["config"]["runner_module"] == "MirrorNeuron.Runner.DockerWorker"
-    assert visual_node["config"]["docker_worker_image"] == "visual_detector/docker_worker"
+    assert visual_node["config"]["docker_worker_image"] == "docker_worker"
     assert visual_node["config"]["image"] == "mirror-neuron/cctv-operator:local"
     assert visual_node["config"]["network"] == "mirror-neuron-runtime"
     assert visual_node["config"]["gpus"] == "all"
     assert visual_node["config"]["workdir"] == "/mn/job/visual_detector"
     assert visual_node["config"]["command"] == ["bash", "scripts/run_detector_on_nvidia.sh"]
     assert visual_node["config"]["upload_paths"] == [
-        {"source": "visual_detector", "target": "visual_detector"},
+        {"source": "agents/visual_detector", "target": "visual_detector"},
         {"source": "prompts", "target": "prompts"},
     ]
     assert "upload_path" not in visual_node["config"]
@@ -1581,14 +1581,14 @@ def test_cctv_operator_uses_dockerworker_nvidia_media_worker():
     _assert_hard_gpu_worker_requirements(visual_node)
 
     dockerfile = (
-        blueprint_dir / "payloads" / "visual_detector" / "docker_worker" / "Dockerfile"
+        blueprint_dir / "payloads" / "docker_worker" / "Dockerfile"
     ).read_text()
     assert "FROM nvidia/cuda:13.0.0-base-ubuntu24.04" in dockerfile
     assert "ffmpeg" in dockerfile
     assert "python3" in dockerfile
 
     launch_script = (
-        blueprint_dir / "payloads" / "visual_detector" / "scripts" / "run_detector_on_nvidia.sh"
+        blueprint_dir / "payloads" / "agents" / "visual_detector" / "scripts" / "run_detector_on_nvidia.sh"
     ).read_text()
     assert "nvidia-smi" not in launch_script
     assert "ffmpeg -hide_banner -hwaccels" in launch_script
@@ -1627,7 +1627,7 @@ def test_cctv_operator_seeds_live_monitor_start_message():
 
 def test_cctv_operator_detector_script_compiles_with_shared_helper_import():
     py_compile.compile(
-        str(ROOT / "cctv_operator" / "payloads" / "visual_detector" / "scripts" / "analyze_video_frame.py"),
+        str(ROOT / "cctv_operator" / "payloads" / "agents" / "visual_detector" / "scripts" / "analyze_video_frame.py"),
         doraise=True,
     )
 
@@ -1678,7 +1678,7 @@ def test_cctv_operator_uses_shared_runtime_web_ui_without_compose_or_media_bridg
 
 
 def _load_cctv_operator_validator():
-    path = ROOT / "cctv_operator" / "payloads" / "validation" / "validate_video_source.py"
+    path = ROOT / "cctv_operator" / "payloads" / "agents" / "validation" / "validate_video_source.py"
     spec = importlib.util.spec_from_file_location("cctv_operator_validate_video_source", path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
@@ -1707,7 +1707,7 @@ def test_cctv_operator_default_folder_validates_from_blueprint_root(monkeypatch)
     config = json.loads((blueprint_dir / "config" / "default.json").read_text())
     assert manifest["input_validation"]["rules"][0]["command"] == [
         "/usr/bin/python3",
-        "payloads/validation/validate_video_source.py",
+        "payloads/agents/validation/validate_video_source.py",
     ]
     monkeypatch.chdir(blueprint_dir)
 

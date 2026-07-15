@@ -64,8 +64,9 @@
           "beacon_missed_action": "fail_attempt",
           "beacon_timeout_ms": 45000,
           "command": [
-            "python3.11",
-            "scripts/run_blueprint.py"
+            "python3",
+            "-m",
+            "mn_sdk.step_runtime"
           ],
           "from": "base",
           "max_attempts": 2,
@@ -78,9 +79,9 @@
           "runner_module": "MirrorNeuron.Runner.HostLocal",
           "timeout_seconds": 300,
           "tty": false,
-          "upload_as": "document_workflow",
-          "upload_path": "document_workflow",
-          "workdir": "/sandbox/job/document_workflow"
+          "upload_as": "runtime",
+          "upload_path": "runtime",
+          "workdir": "/mn/job/runtime"
         },
         "node_id": "collect_purchase_context",
         "type": "generic"
@@ -94,8 +95,9 @@
           "beacon_missed_action": "fail_attempt",
           "beacon_timeout_ms": 45000,
           "command": [
-            "python3.11",
-            "scripts/run_blueprint.py"
+            "python3",
+            "-m",
+            "mn_sdk.step_runtime"
           ],
           "from": "base",
           "max_attempts": 2,
@@ -108,9 +110,9 @@
           "runner_module": "MirrorNeuron.Runner.HostLocal",
           "timeout_seconds": 300,
           "tty": false,
-          "upload_as": "document_workflow",
-          "upload_path": "document_workflow",
-          "workdir": "/sandbox/job/document_workflow"
+          "upload_as": "runtime",
+          "upload_path": "runtime",
+          "workdir": "/mn/job/runtime"
         },
         "node_id": "retrieve_purchase_knowledge",
         "type": "generic"
@@ -124,8 +126,9 @@
           "beacon_missed_action": "fail_attempt",
           "beacon_timeout_ms": 45000,
           "command": [
-            "python3.11",
-            "scripts/run_blueprint.py"
+            "python3",
+            "-m",
+            "mn_sdk.step_runtime"
           ],
           "from": "base",
           "max_attempts": 2,
@@ -138,9 +141,9 @@
           "runner_module": "MirrorNeuron.Runner.HostLocal",
           "timeout_seconds": 300,
           "tty": false,
-          "upload_as": "document_workflow",
-          "upload_path": "document_workflow",
-          "workdir": "/sandbox/job/document_workflow"
+          "upload_as": "runtime",
+          "upload_path": "runtime",
+          "workdir": "/mn/job/runtime"
         },
         "node_id": "research_purchase_options",
         "type": "generic"
@@ -154,8 +157,9 @@
           "beacon_missed_action": "fail_attempt",
           "beacon_timeout_ms": 45000,
           "command": [
-            "python3.11",
-            "scripts/run_blueprint.py"
+            "python3",
+            "-m",
+            "mn_sdk.step_runtime"
           ],
           "from": "base",
           "max_attempts": 2,
@@ -168,9 +172,9 @@
           "runner_module": "MirrorNeuron.Runner.HostLocal",
           "timeout_seconds": 300,
           "tty": false,
-          "upload_as": "document_workflow",
-          "upload_path": "document_workflow",
-          "workdir": "/sandbox/job/document_workflow"
+          "upload_as": "runtime",
+          "upload_path": "runtime",
+          "workdir": "/mn/job/runtime"
         },
         "node_id": "write_purchase_report",
         "type": "generic"
@@ -698,8 +702,7 @@
             "uses": "mn-agents.data_python_executor@1",
             "with": {
               "output_message_type": "purchase_context_ready",
-              "script": "scripts/run_blueprint.py",
-              "upload_path": "document_workflow"
+              "upload_path": "runtime"
             }
           },
           "rendered_node": {
@@ -711,8 +714,9 @@
               "beacon_missed_action": "fail_attempt",
               "beacon_timeout_ms": 45000,
               "command": [
-                "python3.11",
-                "scripts/run_blueprint.py"
+                "python3",
+                "-m",
+                "mn_sdk.step_runtime"
               ],
               "from": "base",
               "max_attempts": 2,
@@ -725,9 +729,9 @@
               "runner_module": "MirrorNeuron.Runner.HostLocal",
               "timeout_seconds": 300,
               "tty": false,
-              "upload_as": "document_workflow",
-              "upload_path": "document_workflow",
-              "workdir": "/sandbox/job/document_workflow"
+              "upload_as": "runtime",
+              "upload_path": "runtime",
+              "workdir": "/mn/job/runtime"
             },
             "node_id": "collect_purchase_context",
             "type": "generic"
@@ -742,8 +746,7 @@
             "uses": "mn-agents.data_python_executor@1",
             "with": {
               "output_message_type": "retrieved_knowledge_ready",
-              "script": "scripts/run_blueprint.py",
-              "upload_path": "document_workflow"
+              "upload_path": "runtime"
             }
           },
           "rendered_node": {
@@ -755,8 +758,9 @@
               "beacon_missed_action": "fail_attempt",
               "beacon_timeout_ms": 45000,
               "command": [
-                "python3.11",
-                "scripts/run_blueprint.py"
+                "python3",
+                "-m",
+                "mn_sdk.step_runtime"
               ],
               "from": "base",
               "max_attempts": 2,
@@ -769,9 +773,9 @@
               "runner_module": "MirrorNeuron.Runner.HostLocal",
               "timeout_seconds": 300,
               "tty": false,
-              "upload_as": "document_workflow",
-              "upload_path": "document_workflow",
-              "workdir": "/sandbox/job/document_workflow"
+              "upload_as": "runtime",
+              "upload_path": "runtime",
+              "workdir": "/mn/job/runtime"
             },
             "node_id": "retrieve_purchase_knowledge",
             "type": "generic"
@@ -786,8 +790,7 @@
             "uses": "mn-agents.data_python_executor@1",
             "with": {
               "output_message_type": "purchase_options_ready",
-              "script": "scripts/run_blueprint.py",
-              "upload_path": "document_workflow"
+              "upload_path": "runtime"
             }
           },
           "rendered_node": {
@@ -799,8 +802,9 @@
               "beacon_missed_action": "fail_attempt",
               "beacon_timeout_ms": 45000,
               "command": [
-                "python3.11",
-                "scripts/run_blueprint.py"
+                "python3",
+                "-m",
+                "mn_sdk.step_runtime"
               ],
               "from": "base",
               "max_attempts": 2,
@@ -813,9 +817,9 @@
               "runner_module": "MirrorNeuron.Runner.HostLocal",
               "timeout_seconds": 300,
               "tty": false,
-              "upload_as": "document_workflow",
-              "upload_path": "document_workflow",
-              "workdir": "/sandbox/job/document_workflow"
+              "upload_as": "runtime",
+              "upload_path": "runtime",
+              "workdir": "/mn/job/runtime"
             },
             "node_id": "research_purchase_options",
             "type": "generic"
@@ -830,8 +834,7 @@
             "uses": "mn-agents.data_python_executor@1",
             "with": {
               "output_message_type": "purchase_report_ready",
-              "script": "scripts/run_blueprint.py",
-              "upload_path": "document_workflow"
+              "upload_path": "runtime"
             }
           },
           "rendered_node": {
@@ -843,8 +846,9 @@
               "beacon_missed_action": "fail_attempt",
               "beacon_timeout_ms": 45000,
               "command": [
-                "python3.11",
-                "scripts/run_blueprint.py"
+                "python3",
+                "-m",
+                "mn_sdk.step_runtime"
               ],
               "from": "base",
               "max_attempts": 2,
@@ -857,9 +861,9 @@
               "runner_module": "MirrorNeuron.Runner.HostLocal",
               "timeout_seconds": 300,
               "tty": false,
-              "upload_as": "document_workflow",
-              "upload_path": "document_workflow",
-              "workdir": "/sandbox/job/document_workflow"
+              "upload_as": "runtime",
+              "upload_path": "runtime",
+              "workdir": "/mn/job/runtime"
             },
             "node_id": "write_purchase_report",
             "type": "generic"
@@ -935,7 +939,7 @@
         "SPEC.md",
         "config/default.json",
         "payloads/",
-        "payloads/document_workflow/prompts/",
+        "payloads/prompts/",
         "LICENSE.md",
         "TERM.md"
       ]
@@ -1683,7 +1687,7 @@
     },
     "problem_solved": "Purchase review depends on older broker, lender, rent, insurance, and diligence details that are easy to lose in noisy pipelines.",
     "quick_test": {
-      "command": "python3.11 payloads/document_workflow/scripts/run_blueprint.py --mock-llm --steps 2",
+      "command": "python3 -m mn_sdk.step_runtime",
       "enabled": true
     },
     "runtime_features": [
@@ -2136,9 +2140,15 @@
       "version": "1.2.7"
     }
   ],
+  "agent_dependencies": [
+    {"type": "pip", "source": "gar", "name": "mn-prototype-stateful-step-agent", "version": "1.2.7"},
+    {"type": "pip", "source": "gar", "name": "mn-prototype-bounded-tool-loop-agent", "version": "1.2.7"},
+    {"type": "pip", "source": "gar", "name": "mn-prototype-actor-review-agent", "version": "1.2.7"},
+    {"type": "pip", "source": "gar", "name": "mn-prototype-artifact-finalizer-agent", "version": "1.2.7"}
+  ],
   "standard": {
     "migration_policy": "sdk_managed",
-    "profile": "document_workflow",
+    "profile": "blueprint",
     "source_schema": "mn.workflow.source/v2",
     "target_schema": "mn.workflow/v1"
   },
@@ -2209,7 +2219,7 @@
         },
         "run": {
           "agent": "collect_purchase_context",
-          "handler": "purchase_research_assistant.steps.intake"
+          "handler": "steps.intake"
         }
       },
       {
@@ -2245,7 +2255,7 @@
         },
         "run": {
           "agent": "retrieve_purchase_knowledge",
-          "handler": "purchase_research_assistant.steps.knowledge"
+          "handler": "steps.knowledge"
         }
       },
       {
@@ -2280,7 +2290,7 @@
         },
         "run": {
           "agent": "research_purchase_options",
-          "handler": "purchase_research_assistant.steps.research"
+          "handler": "steps.research"
         }
       },
       {
@@ -2314,7 +2324,7 @@
         },
         "run": {
           "agent": "write_purchase_report",
-          "handler": "purchase_research_assistant.steps.reporting"
+          "handler": "steps.reporting"
         }
       }
     ],

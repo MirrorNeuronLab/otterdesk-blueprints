@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib
 import importlib.util
 import json
 import sys
@@ -26,9 +27,8 @@ RUNNER_PATH = (
     ROOT
     / "vc_assistant"
     / "payloads"
-    / "document_workflow"
-    / "scripts"
-    / "run_blueprint.py"
+    / "runtime"
+    / "runtime.py"
 )
 METHOD_IDS = {
     "berkus_method",
@@ -104,11 +104,72 @@ class ToolCallingVCLLM(FakeVCLLM):
 
 
 def _load_runner():
-    spec = importlib.util.spec_from_file_location("vc_early_runner", RUNNER_PATH)
-    module = importlib.util.module_from_spec(spec)
-    assert spec and spec.loader
-    spec.loader.exec_module(module)
-    return module.runtime
+    payload_root = RUNNER_PATH.parents[1]
+    if str(payload_root) not in sys.path:
+        sys.path.insert(0, str(payload_root))
+    module = importlib.import_module("runtime.runtime")
+    module.run_blueprint = lambda **kwargs: _run_vc_manifest_handlers(module, **kwargs)
+    module.run_runtime_step = lambda step_id, **kwargs: _run_vc_manifest_step(module, step_id, **kwargs)
+    return module
+
+
+def _run_vc_manifest_step(
+    runner,
+    step_id: str,
+    *,
+    inputs: dict | None = None,
+    config: dict | None = None,
+    runs_root: str | Path | None = None,
+    run_id: str | None = None,
+    llm_client=None,
+):
+    from mn_sdk.step_runtime import StepContext, invoke_handler
+
+    manifest = json.loads((ROOT / "vc_assistant" / "manifest.json").read_text(encoding="utf-8"))
+    step = next(item for item in manifest["workflow"]["steps"] if item["id"] == step_id)
+    run = step["run"]
+    parameters = dict(run.get("with") or {})
+    parameters.update(
+        {
+            "inputs": dict(inputs or {}),
+            "runs_root": str(runs_root) if runs_root is not None else None,
+            "llm_client": llm_client,
+        }
+    )
+    return invoke_handler(
+        run["handler"],
+        context=StepContext(
+            step_id=step["id"],
+            run_id=str(run_id or ""),
+            message={"kwargs": dict(inputs or {})},
+            config=dict(config or {}),
+        ),
+        parameters=parameters,
+    )
+
+
+def _run_vc_manifest_handlers(
+    runner,
+    *,
+    inputs: dict | None = None,
+    config: dict | None = None,
+    runs_root: str | Path | None = None,
+    run_id: str | None = None,
+    llm_client=None,
+):
+    manifest = json.loads((ROOT / "vc_assistant" / "manifest.json").read_text(encoding="utf-8"))
+    result = {}
+    for step in manifest["workflow"]["steps"]:
+        result = _run_vc_manifest_step(
+            runner,
+            step["id"],
+            inputs=inputs,
+            config=config,
+            runs_root=runs_root,
+            run_id=run_id,
+            llm_client=llm_client,
+        )
+    return result
 
 
 def _expand_source_manifest(source: dict) -> dict:
@@ -180,9 +241,11 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
     config = json.loads((ROOT / "vc_assistant" / "config" / "default.json").read_text(encoding="utf-8"))
     nodes = [node for node in manifest["agents"]["nodes"] if node["node_id"] != "report_sink"]
     report_sink = next(node for node in manifest["agents"]["nodes"] if node["node_id"] == "report_sink")
-    requirements_path = "document_workflow/requirements.txt"
+    requirements_path = "requirements.txt"
     upload_paths = [
-        {"source": "document_workflow", "target": "document_workflow"},
+        {"source": "runtime", "target": "runtime"},
+        {"source": "agents", "target": "agents"},
+        {"source": "steps", "target": "steps"},
         {"source": "config", "target": "config"},
         {"source": "prompts", "target": "prompts"},
         {"source": "examples/sample_inputs", "target": "vc_assistant/examples/sample_inputs"},
@@ -203,7 +266,7 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
                 "config_path": "document_sources.folder_path",
                 "default_config_value": "vc_assistant/examples/sample_inputs",
                 "source_path": "examples/sample_inputs",
-                "payload_path": "document_workflow/mn_local_inputs/vc_documents",
+                "payload_path": "runtime/mn_local_inputs/vc_documents",
                 "runtime_path": "mn_local_inputs/vc_documents",
                 "allowed_extensions": [".pdf", ".txt", ".md", ".json", ".csv"],
                 "linked_config_paths": [
@@ -239,7 +302,7 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
     assert config["input_skills"]["w3m_browser"]["runtime"] == {
         "driver": "docker_worker",
         "install_scope": "shared_job_container",
-        "docker_worker_image": "document_workflow/docker_worker",
+        "docker_worker_image": "docker_worker",
         "image": "mirror-neuron/vc-assistant:local",
         "network": "mirror-neuron-runtime",
         "node_scope": "vc_python_executor_nodes",
@@ -249,7 +312,7 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         "auto_patch": False,
         "driver": "docker_worker",
         "install_scope": "shared_job_container",
-        "docker_worker_image": "document_workflow/docker_worker",
+        "docker_worker_image": "docker_worker",
         "image": "mirror-neuron/vc-assistant:local",
         "network": "mirror-neuron-runtime",
         "node_scope": "vc_python_executor_nodes",
@@ -342,7 +405,7 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
     assert "run_health.json" in config["interfaces"]["run_artifacts"]
     assert "run_health.json" in config["interfaces"]["channels"]["artifacts"]["artifacts"]
     assert "skill_runtime" in config["interfaces"]["config"]
-    dockerfile = (ROOT / "vc_assistant" / "payloads" / "document_workflow" / "docker_worker" / "Dockerfile").read_text(
+    dockerfile = (ROOT / "vc_assistant" / "payloads" / "docker_worker" / "Dockerfile").read_text(
         encoding="utf-8"
     )
     assert "w3m" in dockerfile
@@ -352,14 +415,15 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
     assert "mn_context_engine_sdk" in dockerfile
     assert "MilvusClient" in dockerfile
     assert (
-        ROOT / "vc_assistant" / "payloads" / "document_workflow" / "docker_worker" / "local-requirements.txt"
+        ROOT / "vc_assistant" / "payloads" / "docker_worker" / "local-requirements.txt"
     ).exists()
     for node in nodes:
         assert "python_environment" not in node["config"]
         assert node["config"]["runner_module"] == "MirrorNeuron.Runner.DockerWorker"
-        assert node["config"]["workdir"] == "/mn/job/document_workflow"
+        assert node["config"]["workdir"] == "/mn/job/runtime"
         assert node["config"]["command"] == ["python3", "-m", "mn_sdk.step_runtime"]
-        assert node["config"]["docker_worker_image"] == "document_workflow/docker_worker"
+        assert "script" not in node["config"]
+        assert node["config"]["docker_worker_image"] == "docker_worker"
         assert "force_build" not in node["config"]
         assert node["config"]["image"] == "mirror-neuron/vc-assistant:local"
         assert node["config"]["network"] == "mirror-neuron-runtime"
@@ -408,7 +472,7 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         if template["node_id"] == "report_sink":
             assert template["uses"] == "mn-agents.control.terminal_sink@1"
             continue
-        assert template["with"]["docker_worker_image"] == "document_workflow/docker_worker"
+        assert template["with"]["docker_worker_image"] == "docker_worker"
         assert "force_build" not in template["with"]
         assert template["with"]["image"] == "mirror-neuron/vc-assistant:local"
         assert template["with"]["network"] == "mirror-neuron-runtime"
@@ -426,7 +490,7 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
 def test_vc_runner_resolves_config_from_docker_worker_attempt_root(monkeypatch, tmp_path):
     runner = _load_runner()
     attempt_root = tmp_path / "runs" / "startup_folder_watcher" / "i1-a1-23108"
-    script_path = attempt_root / "document_workflow" / "scripts" / "run_blueprint.py"
+    script_path = attempt_root / "runtime" / "runtime.py"
     config_path = attempt_root / "config" / "default.json"
     script_path.parent.mkdir(parents=True)
     config_path.parent.mkdir(parents=True)
@@ -445,15 +509,17 @@ def test_vc_runner_resolves_config_from_docker_worker_attempt_root(monkeypatch, 
     monkeypatch.setattr(runner, "__file__", str(script_path))
 
     assert script_path.parents[3] != attempt_root
-    assert runner.default_config_path() == config_path
-    assert runner.resolve_blueprint_dir() == attempt_root
-    assert runner.load_resolved_config()["identity"]["blueprint_id"] == "vc_assistant"
+    from mn_sdk.blueprint_support import default_config_path, load_runtime_config, resolve_blueprint_dir
+
+    assert default_config_path(script_path) == config_path
+    assert resolve_blueprint_dir(script_path) == attempt_root
+    assert load_runtime_config(script_path)["identity"]["blueprint_id"] == "vc_assistant"
 
 
 def test_vc_runner_uses_embedded_config_when_default_file_is_not_mounted(monkeypatch, tmp_path):
     runner = _load_runner()
     attempt_root = tmp_path / "runs" / "research_planner" / "i1-a1-55620"
-    script_path = attempt_root / "document_workflow" / "scripts" / "run_blueprint.py"
+    script_path = attempt_root / "runtime" / "runtime.py"
     script_path.parent.mkdir(parents=True)
     embedded_config = {
         "identity": {"blueprint_id": "vc_assistant"},
@@ -466,9 +532,11 @@ def test_vc_runner_uses_embedded_config_when_default_file_is_not_mounted(monkeyp
     monkeypatch.setattr(runner, "__file__", str(script_path))
 
     assert script_path.parents[3] != attempt_root
-    assert runner.default_config_path() == attempt_root / "config" / "default.json"
-    assert runner.resolve_blueprint_dir() == attempt_root
-    assert runner.load_resolved_config()["identity"]["blueprint_id"] == "vc_assistant"
+    from mn_sdk.blueprint_support import default_config_path, load_runtime_config, resolve_blueprint_dir
+
+    assert default_config_path(script_path) == attempt_root / "config" / "default.json"
+    assert resolve_blueprint_dir(script_path) == attempt_root
+    assert load_runtime_config(script_path)["identity"]["blueprint_id"] == "vc_assistant"
 
 
 def test_explicit_fake_llm_mode_overrides_live_vc_runtime(monkeypatch, tmp_path):
@@ -582,10 +650,11 @@ def test_benchmark_artifacts_summarize_steps_and_mocked_skills(tmp_path):
 
 
 def test_benchmark_mode_is_off_by_default(monkeypatch):
-    runner = _load_runner()
+    from mn_sdk.blueprint_support import benchmark_mode_enabled
+
     monkeypatch.delenv("MN_BLUEPRINT_BENCHMARK", raising=False)
 
-    assert runner.benchmark_mode_enabled({}) is False
+    assert benchmark_mode_enabled({}) is False
 
 
 def test_debug_mode_writes_step_trace(tmp_path, monkeypatch):
@@ -691,7 +760,7 @@ def test_vc_assistant_is_daily_batch_folder_scan():
 
 def test_vc_assistant_runtime_requirements_install_skills_with_pip():
     requirements = (
-        ROOT / "vc_assistant" / "payloads" / "document_workflow" / "requirements.txt"
+        ROOT / "vc_assistant" / "payloads" / "requirements.txt"
     ).read_text(encoding="utf-8").splitlines()
 
     assert requirements == [
@@ -922,7 +991,7 @@ def test_vc_ocr_failure_marks_run_failed(monkeypatch, tmp_path):
     monkeypatch.setattr(runner, "prepare_knowledge_rag", lambda **kwargs: {"enabled": False, "status": "disabled"})
     monkeypatch.setattr(runner, "require_ready_rag", lambda *args, **kwargs: None)
     monkeypatch.setattr(
-        runner,
+        importlib.import_module("agents.document_evidence_extractor"),
         "scan_documents",
         lambda folder, config=None: (_ for _ in ()).throw(runner.OcrRequiredError("PDF OCR did not produce usable text")),
     )
@@ -1923,24 +1992,31 @@ def test_tilde_output_folder_derives_user_home_from_mirror_neuron_runs_root(monk
 
 
 def test_runtime_managed_output_folder_wins_over_configured_downloads(monkeypatch, tmp_path):
-    runner = _load_runner()
+    from mn_sdk.blueprint_support import resolve_output_folder
+
     runtime_output = tmp_path / "shared" / "outputs" / "user"
     payload = {"output_folder": "~/Downloads/vc_assistant"}
     resolved_config = {"outputs": {"folder_path": str(runtime_output)}}
     monkeypatch.setenv("MN_JOB_OUTPUT_DIR", str(runtime_output))
 
-    assert runner.resolve_output_folder(payload, resolved_config, inputs={}) == runtime_output
+    assert resolve_output_folder(payload, resolved_config, inputs={}, blueprint_id="vc_assistant") == runtime_output
 
 
 def test_explicit_output_folder_wins_for_local_direct_runs(monkeypatch, tmp_path):
-    runner = _load_runner()
+    from mn_sdk.blueprint_support import resolve_output_folder
+
     runtime_output = tmp_path / "shared" / "outputs" / "user"
     explicit_output = tmp_path / "explicit"
     payload = {"output_folder": "~/Downloads/vc_assistant"}
     resolved_config = {"outputs": {"folder_path": str(runtime_output)}}
     monkeypatch.delenv("MN_JOB_OUTPUT_DIR", raising=False)
 
-    assert runner.resolve_output_folder(payload, resolved_config, inputs={"output_folder": str(explicit_output)}) == explicit_output
+    assert resolve_output_folder(
+        payload,
+        resolved_config,
+        inputs={"output_folder": str(explicit_output)},
+        blueprint_id="vc_assistant",
+    ) == explicit_output
 
 
 def test_changed_company_packets_use_stage_handlers_with_stable_output_order(tmp_path):
@@ -1950,7 +2026,8 @@ def test_changed_company_packets_use_stage_handlers_with_stable_output_order(tmp
     _write_startup_packets(docs)
     research_calls: list[tuple[str, str]] = []
     scorer_calls: list[str] = []
-    original_research_one_stage = runner._research_one_stage
+    research_stage = importlib.import_module("agents.research_stage")
+    original_research_one_stage = research_stage._research_one_stage
     original_scorers = dict(runner.METHOD_SCORER_FUNCTIONS)
 
     def fake_research_one_stage(company, stage, query, plan, internet, run_dir, action_budget):
@@ -1978,7 +2055,7 @@ def test_changed_company_packets_use_stage_handlers_with_stable_output_order(tmp
 
         return score
 
-    runner._research_one_stage = fake_research_one_stage
+    research_stage._research_one_stage = fake_research_one_stage
     for method_id in runner.METHOD_IDS:
         runner.METHOD_SCORER_FUNCTIONS[method_id] = wrapped_scorer(method_id)
     try:
@@ -2001,7 +2078,7 @@ def test_changed_company_packets_use_stage_handlers_with_stable_output_order(tmp
             llm_client=FakeVCLLM(),
         )
     finally:
-        runner._research_one_stage = original_research_one_stage
+        research_stage._research_one_stage = original_research_one_stage
         runner.METHOD_SCORER_FUNCTIONS.clear()
         runner.METHOD_SCORER_FUNCTIONS.update(original_scorers)
 

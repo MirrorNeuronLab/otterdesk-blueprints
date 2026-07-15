@@ -603,9 +603,17 @@
       "version": "1.2.15"
     }
   ],
+  "agent_dependencies": [
+    {"type": "pip", "source": "gar", "name": "mn-prototype-operation-router-agent", "version": "1.2.7"},
+    {"type": "pip", "source": "gar", "name": "mn-prototype-stateful-step-agent", "version": "1.2.7"},
+    {"type": "pip", "source": "gar", "name": "mn-prototype-entity-queue-agent", "version": "1.2.7"},
+    {"type": "pip", "source": "gar", "name": "mn-prototype-bounded-tool-loop-agent", "version": "1.2.7"},
+    {"type": "pip", "source": "gar", "name": "mn-prototype-actor-review-agent", "version": "1.2.7"},
+    {"type": "pip", "source": "gar", "name": "mn-prototype-artifact-finalizer-agent", "version": "1.2.7"}
+  ],
   "standard": {
     "migration_policy": "sdk_managed",
-    "profile": "document_workflow",
+    "profile": "blueprint",
     "profile_version": 1,
     "source_schema": "mn.workflow.source/v2",
     "target_schema": "mn.workflow/v1"
@@ -711,7 +719,7 @@
           "legal_folder_watcher": "$state.workflow.legal_folder_watcher"
         },
         "run": {
-          "handler": "legal_assistant.steps.intake",
+          "handler": "steps.intake",
           "with": {
             "operation": "watch"
           }
@@ -732,7 +740,7 @@
           "legal_document_reader": "$state.workflow.legal_document_reader"
         },
         "run": {
-          "handler": "legal_assistant.steps.intake",
+          "handler": "steps.intake",
           "with": {
             "operation": "read"
           }
@@ -753,7 +761,7 @@
           "invoice_bill_extractor": "$state.workflow.invoice_bill_extractor"
         },
         "run": {
-          "handler": "legal_assistant.steps.invoices",
+          "handler": "steps.invoices",
           "with": {
             "operation": "extract"
           }
@@ -774,7 +782,7 @@
           "payable_field_validator": "$state.workflow.payable_field_validator"
         },
         "run": {
-          "handler": "legal_assistant.steps.invoices",
+          "handler": "steps.invoices",
           "with": {
             "operation": "validate"
           }
@@ -795,7 +803,7 @@
           "contract_clause_extractor": "$state.workflow.contract_clause_extractor"
         },
         "run": {
-          "handler": "legal_assistant.steps.contracts",
+          "handler": "steps.contracts",
           "with": {
             "operation": "extract"
           }
@@ -816,7 +824,7 @@
           "contract_playbook_comparator": "$state.workflow.contract_playbook_comparator"
         },
         "run": {
-          "handler": "legal_assistant.steps.contracts",
+          "handler": "steps.contracts",
           "with": {
             "operation": "compare"
           }
@@ -838,7 +846,7 @@
           "legal_evidence_reconciler": "$state.workflow.legal_evidence_reconciler"
         },
         "run": {
-          "handler": "legal_assistant.steps.review",
+          "handler": "steps.review",
           "with": {
             "operation": "reconcile"
           }
@@ -863,7 +871,7 @@
           "legal_review_auditor": "$state.workflow.legal_review_auditor"
         },
         "run": {
-          "handler": "legal_assistant.steps.review",
+          "handler": "steps.review",
           "with": {
             "operation": "audit"
           }
@@ -884,7 +892,7 @@
           "legal_reporter": "$state.workflow.legal_reporter"
         },
         "run": {
-          "handler": "legal_assistant.steps.review",
+          "handler": "steps.review",
           "with": {
             "operation": "report"
           }

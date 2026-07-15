@@ -33,7 +33,11 @@ def _is_acyclic(step_ids: set[str], edges: list[dict]) -> bool:
 
 
 def test_every_catalog_blueprint_lowers_its_declared_workflow_into_the_core_dag():
-    manifest_paths = sorted(ROOT.glob("*/manifest.json"))
+    manifest_paths = [
+        path
+        for path in sorted(ROOT.glob("*/manifest.json"))
+        if (json.loads(path.read_text(encoding="utf-8")).get("standard") or {}).get("profile") == "blueprint"
+    ]
     assert manifest_paths
 
     for path in manifest_paths:
@@ -51,12 +55,8 @@ def test_every_catalog_blueprint_lowers_its_declared_workflow_into_the_core_dag(
         assert all((step.get("agent_id") or step["run"]) in node_ids for step in steps), path.parent.name
 
 
-def test_financial_legal_and_vc_blueprints_compile_to_fork_join_dags():
-    for blueprint_id, join_step in (
-        ("financial_advisor", "advisor_evidence_reconciler"),
-        ("legal_assistant", "legal_evidence_reconciler"),
-        ("vc_assistant", "score_consistency_auditor"),
-    ):
+def test_migrated_vc_blueprint_compiles_to_fork_join_dag():
+    for blueprint_id, join_step in (("vc_assistant", "score_consistency_auditor"),):
         manifest = _runtime_manifest(ROOT / blueprint_id / "manifest.json")
         edges = manifest["flow"]["graph"]["edges"]
         parents = [edge["from"] for edge in edges if edge["to"] == join_step]

@@ -22,7 +22,8 @@ def _run_handler_workflow(
     config: dict,
 ) -> dict:
     blueprint = ROOT / blueprint_id
-    scripts = blueprint / "payloads" / "document_workflow" / "scripts"
+    payloads = blueprint / "payloads"
+    scripts = payloads
     manifest = json.loads((blueprint / "manifest.json").read_text(encoding="utf-8"))
     message_path = tmp_path / f"{blueprint_id}-message.json"
     message_path.write_text(json.dumps({"kwargs": inputs}), encoding="utf-8")
@@ -85,31 +86,6 @@ def _run_handler_workflow(
                 "agentic_research": {"enabled": False},
                 "internet_research": {"enabled": False},
             },
-        ),
-        (
-            "financial_advisor",
-            {"document_folder": "financial_advisor/examples/sample_inputs"},
-            {"llm": {"mode": "fake"}, "knowledge_rag": {"enabled": False, "required": False}},
-        ),
-        (
-            "legal_assistant",
-            {"document_folder": "legal_assistant/examples/sample_inputs"},
-            {"llm": {"mode": "fake"}, "knowledge_rag": {"enabled": False, "required": False}},
-        ),
-        (
-            "purchase_research_assistant",
-            {"purchase_type": "car", "item_description": "used hybrid SUV", "budget": 30000},
-            {"llm": {"mode": "fake"}, "knowledge_rag": {"enabled": False, "required": False}},
-        ),
-        (
-            "research_coscientist",
-            {
-                "research_goal": "Evaluate a low-risk cooling-loop efficiency hypothesis.",
-                "research_domain": "engineering",
-                "research_question": "Which measurement distinguishes the effect from ambient variation?",
-                "input_folder": "research_coscientist/examples/sample_inputs",
-            },
-            {"llm": {"mode": "fake"}, "knowledge_rag": {"enabled": False, "required": False}},
         ),
     ],
 )

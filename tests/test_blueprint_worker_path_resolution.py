@@ -21,10 +21,10 @@ def _load_runner(name: str, path: Path):
 def test_medical_deid_runner_resolves_config_from_docker_worker_attempt_root(monkeypatch, tmp_path):
     runner = _load_runner(
         "medical_deid_runner_path_test",
-        ROOT / "medical_deid_record_intake_assistant" / "payloads" / "document_workflow" / "scripts" / "run_blueprint.py",
+        ROOT / "medical_deid_record_intake_assistant" / "payloads" / "runtime" / "runtime.py",
     )
     attempt_root = tmp_path / "runs" / "stage_medical_inputs" / "i1-a1-23108"
-    script_path = attempt_root / "document_workflow" / "scripts" / "run_blueprint.py"
+    script_path = attempt_root / "runtime" / "runtime.py"
     config_path = attempt_root / "config" / "default.json"
     script_path.parent.mkdir(parents=True)
     config_path.parent.mkdir(parents=True)
@@ -52,10 +52,10 @@ def test_medical_deid_runner_resolves_config_from_docker_worker_attempt_root(mon
 def test_purchase_research_runner_uses_embedded_config_when_default_file_is_not_mounted(monkeypatch, tmp_path):
     runner = _load_runner(
         "purchase_research_runner_path_test",
-        ROOT / "purchase_research_assistant" / "payloads" / "document_workflow" / "scripts" / "run_blueprint.py",
+        ROOT / "purchase_research_assistant" / "payloads" / "runtime" / "runtime.py",
     )
     attempt_root = tmp_path / "runs" / "collect_deal_context" / "i1-a1-23108"
-    script_path = attempt_root / "document_workflow" / "scripts" / "run_blueprint.py"
+    script_path = attempt_root / "runtime" / "runtime.py"
     script_path.parent.mkdir(parents=True)
     embedded_config = json.loads((ROOT / "purchase_research_assistant" / "config" / "default.json").read_text(encoding="utf-8"))
     monkeypatch.delenv("MN_BLUEPRINT_CONFIG_PATH", raising=False)

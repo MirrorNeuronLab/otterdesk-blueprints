@@ -77,7 +77,7 @@
           "upload_path": "voice_service",
           "upload_paths": [
             {
-              "source": "voice_service",
+              "source": "agents/voice_service",
               "target": "voice_service"
             }
           ],
@@ -606,7 +606,7 @@
             "upload_path": "voice_service",
             "upload_paths": [
               {
-                "source": "voice_service",
+                "source": "agents/voice_service",
                 "target": "voice_service"
               }
             ]
@@ -716,7 +716,7 @@
               "upload_path": "voice_service",
               "upload_paths": [
                 {
-                  "source": "voice_service",
+                  "source": "agents/voice_service",
                   "target": "voice_service"
                 }
               ]
@@ -760,7 +760,7 @@
               "upload_path": "voice_service",
               "upload_paths": [
                 {
-                  "source": "voice_service",
+                  "source": "agents/voice_service",
                   "target": "voice_service"
                 }
               ],
@@ -2045,9 +2045,13 @@
       "version": "1.2.7"
     }
   ],
+  "agent_dependencies": [
+    {"type": "pip", "source": "gar", "name": "mn-prototype-supervised-service-agent", "version": "1.2.7"},
+    {"type": "pip", "source": "gar", "name": "mn-prototype-stream-processor-agent", "version": "1.2.7"}
+  ],
   "standard": {
     "migration_policy": "sdk_managed",
-    "profile": "document_workflow",
+    "profile": "blueprint",
     "source_schema": "mn.workflow.source/v2",
     "target_schema": "mn.workflow/v1"
   },

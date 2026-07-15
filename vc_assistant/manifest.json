@@ -715,9 +715,17 @@
       "version": "1.2.7"
     }
   ],
+  "agent_dependencies": [
+    {"type": "pip", "source": "gar", "name": "mn-prototype-operation-router-agent", "version": "1.2.7"},
+    {"type": "pip", "source": "gar", "name": "mn-prototype-stateful-step-agent", "version": "1.2.7"},
+    {"type": "pip", "source": "gar", "name": "mn-prototype-entity-queue-agent", "version": "1.2.7"},
+    {"type": "pip", "source": "gar", "name": "mn-prototype-bounded-tool-loop-agent", "version": "1.2.7"},
+    {"type": "pip", "source": "gar", "name": "mn-prototype-actor-review-agent", "version": "1.2.7"},
+    {"type": "pip", "source": "gar", "name": "mn-prototype-artifact-finalizer-agent", "version": "1.2.7"}
+  ],
   "standard": {
     "migration_policy": "sdk_managed",
-    "profile": "document_workflow",
+    "profile": "blueprint",
     "profile_version": 1,
     "source_schema": "mn.workflow.source/v2",
     "target_schema": "mn.workflow/v1"
@@ -817,7 +825,7 @@
           "startup_folder_watcher": "$state.workflow.startup_folder_watcher"
         },
         "run": {
-          "handler": "vc_assistant.steps.intake",
+          "handler": "steps.intake",
           "with": {
             "operation": "watch"
           }
@@ -838,7 +846,7 @@
           "company_packet_grouper": "$state.workflow.company_packet_grouper"
         },
         "run": {
-          "handler": "vc_assistant.steps.intake",
+          "handler": "steps.intake",
           "with": {
             "operation": "group"
           }
@@ -859,7 +867,7 @@
           "document_evidence_extractor": "$state.workflow.document_evidence_extractor"
         },
         "run": {
-          "handler": "vc_assistant.steps.evidence",
+          "handler": "steps.evidence",
           "with": {
             "operation": "extract"
           }
@@ -880,7 +888,7 @@
           "claim_normalizer": "$state.workflow.claim_normalizer"
         },
         "run": {
-          "handler": "vc_assistant.steps.evidence",
+          "handler": "steps.evidence",
           "with": {
             "operation": "normalize"
           }
@@ -901,7 +909,7 @@
           "research_planner": "$state.workflow.research_planner"
         },
         "run": {
-          "handler": "vc_assistant.steps.research",
+          "handler": "steps.research",
           "with": {
             "operation": "plan"
           }
@@ -922,7 +930,7 @@
           "company_identity_researcher": "$state.workflow.company_identity_researcher"
         },
         "run": {
-          "handler": "vc_assistant.steps.research",
+          "handler": "steps.research",
           "with": {
             "operation": "company_identity"
           }
@@ -943,7 +951,7 @@
           "funding_researcher": "$state.workflow.funding_researcher"
         },
         "run": {
-          "handler": "vc_assistant.steps.research",
+          "handler": "steps.research",
           "with": {
             "operation": "funding"
           }
@@ -964,7 +972,7 @@
           "market_comp_researcher": "$state.workflow.market_comp_researcher"
         },
         "run": {
-          "handler": "vc_assistant.steps.research",
+          "handler": "steps.research",
           "with": {
             "operation": "market_comparables"
           }
@@ -985,7 +993,7 @@
           "traction_verifier": "$state.workflow.traction_verifier"
         },
         "run": {
-          "handler": "vc_assistant.steps.research",
+          "handler": "steps.research",
           "with": {
             "operation": "traction"
           }
@@ -1006,7 +1014,7 @@
           "rendered_page_researcher": "$state.workflow.rendered_page_researcher"
         },
         "run": {
-          "handler": "vc_assistant.steps.research",
+          "handler": "steps.research",
           "with": {
             "operation": "rendered_pages"
           }
@@ -1030,7 +1038,7 @@
           "research_reconciler": "$state.workflow.research_reconciler"
         },
         "run": {
-          "handler": "vc_assistant.steps.research",
+          "handler": "steps.research",
           "with": {
             "operation": "reconcile"
           }
@@ -1051,7 +1059,7 @@
           "berkus_scorer": "$state.workflow.berkus_scorer"
         },
         "run": {
-          "handler": "vc_assistant.steps.scoring",
+          "handler": "steps.scoring",
           "with": {
             "method": "berkus_method"
           }
@@ -1072,7 +1080,7 @@
           "scorecard_bill_payne_scorer": "$state.workflow.scorecard_bill_payne_scorer"
         },
         "run": {
-          "handler": "vc_assistant.steps.scoring",
+          "handler": "steps.scoring",
           "with": {
             "method": "scorecard_bill_payne_method"
           }
@@ -1093,7 +1101,7 @@
           "risk_factor_summation_scorer": "$state.workflow.risk_factor_summation_scorer"
         },
         "run": {
-          "handler": "vc_assistant.steps.scoring",
+          "handler": "steps.scoring",
           "with": {
             "method": "risk_factor_summation_method"
           }
@@ -1114,7 +1122,7 @@
           "venture_capital_method_scorer": "$state.workflow.venture_capital_method_scorer"
         },
         "run": {
-          "handler": "vc_assistant.steps.scoring",
+          "handler": "steps.scoring",
           "with": {
             "method": "venture_capital_method"
           }
@@ -1135,7 +1143,7 @@
           "first_chicago_scorer": "$state.workflow.first_chicago_scorer"
         },
         "run": {
-          "handler": "vc_assistant.steps.scoring",
+          "handler": "steps.scoring",
           "with": {
             "method": "first_chicago_method"
           }
@@ -1156,7 +1164,7 @@
           "comparables_market_multiple_scorer": "$state.workflow.comparables_market_multiple_scorer"
         },
         "run": {
-          "handler": "vc_assistant.steps.scoring",
+          "handler": "steps.scoring",
           "with": {
             "method": "comparables_market_multiple_method"
           }
@@ -1177,7 +1185,7 @@
           "cost_to_duplicate_scorer": "$state.workflow.cost_to_duplicate_scorer"
         },
         "run": {
-          "handler": "vc_assistant.steps.scoring",
+          "handler": "steps.scoring",
           "with": {
             "method": "cost_to_duplicate_method"
           }
@@ -1207,7 +1215,7 @@
           "score_consistency_auditor": "$state.workflow.score_consistency_auditor"
         },
         "run": {
-          "handler": "vc_assistant.steps.scoring",
+          "handler": "steps.scoring",
           "with": {
             "method": "audit"
           }
@@ -1229,7 +1237,7 @@
           "company_report_writer": "$state.workflow.company_report_writer"
         },
         "run": {
-          "handler": "vc_assistant.steps.reporting",
+          "handler": "steps.reporting",
           "with": {
             "operation": "company"
           }
@@ -1250,7 +1258,7 @@
           "batch_index_writer": "$state.workflow.batch_index_writer"
         },
         "run": {
-          "handler": "vc_assistant.steps.reporting",
+          "handler": "steps.reporting",
           "with": {
             "operation": "batch_index"
           }

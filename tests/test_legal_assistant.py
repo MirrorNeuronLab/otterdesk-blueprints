@@ -8,7 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 BLUEPRINT_DIR = ROOT / "legal_assistant"
-RUNNER_PATH = BLUEPRINT_DIR / "payloads" / "document_workflow" / "scripts" / "run_blueprint.py"
+RUNNER_PATH = BLUEPRINT_DIR / "payloads" / "runtime" / "runtime.py"
 HEAVY_STEPS = {
     "contract_playbook_comparator",
     "legal_review_auditor",
@@ -138,7 +138,7 @@ def test_legal_source_manifest_expands_with_terminal_sink():
 def test_legal_runner_resolves_config_from_docker_worker_attempt_root(monkeypatch, tmp_path):
     runner = _load_runner()
     attempt_root = tmp_path / "runs" / "legal_folder_watcher" / "i1-a1-23108"
-    script_path = attempt_root / "document_workflow" / "scripts" / "run_blueprint.py"
+    script_path = attempt_root / "runtime" / "runtime.py"
     config_path = attempt_root / "config" / "default.json"
     script_path.parent.mkdir(parents=True)
     config_path.parent.mkdir(parents=True)

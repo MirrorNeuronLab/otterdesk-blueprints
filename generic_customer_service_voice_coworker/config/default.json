@@ -573,7 +573,7 @@
   "openshell_network": {
     "endpoints": [],
     "include_dns": false,
-    "policy_path": "voice_service/policies/customer-service-egress.yaml"
+    "policy_path": "agents/voice_service/policies/customer-service-egress.yaml"
   },
   "output_skills": {
     "websocket_events": {

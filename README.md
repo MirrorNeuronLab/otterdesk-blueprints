@@ -67,10 +67,18 @@ Most blueprint folders contain:
 | `config/overwrite.json` | Optional local overrides. Do not commit customer secrets. |
 | `payloads/` | Worker code, prompts, policies, fixtures, and support files. |
 
-Python handler steps use module-only references such as
-`vc_assistant.steps.research`; the generic runtime calls that module's `run()`
-function. Keep DAG topology in the manifest rather than duplicating it in
-`run_blueprint.py` or configuration handoff lists.
+The standard payload layout is consistent across the catalog: `runtime/` contains
+the blueprint context adapter, `steps/` contains manifest-facing handlers, and
+`agents/` contains domain workers or services. Docker, native-host, OpenShell,
+and Beam worker assets stay as sibling payload directories (`docker_worker/`,
+`openshell_worker/`, or `beam_modules/`) rather than nested under a script
+wrapper. Python workflow steps are launched with the shared SDK module
+`python3 -m mn_sdk.step_runtime`.
+
+Python handler steps use module-only references such as `steps.research`; the
+shared `mn_sdk.step_runtime` entrypoint calls that module's `run()` function.
+Keep DAG topology in the manifest rather than duplicating it in blueprint-local
+dispatch code or configuration handoff lists.
 
 ## Safety Checklist
 

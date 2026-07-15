@@ -709,9 +709,17 @@
       "version": "1.2.7"
     }
   ],
+  "agent_dependencies": [
+    {"type": "pip", "source": "gar", "name": "mn-prototype-operation-router-agent", "version": "1.2.7"},
+    {"type": "pip", "source": "gar", "name": "mn-prototype-stateful-step-agent", "version": "1.2.7"},
+    {"type": "pip", "source": "gar", "name": "mn-prototype-entity-queue-agent", "version": "1.2.7"},
+    {"type": "pip", "source": "gar", "name": "mn-prototype-bounded-tool-loop-agent", "version": "1.2.7"},
+    {"type": "pip", "source": "gar", "name": "mn-prototype-actor-review-agent", "version": "1.2.7"},
+    {"type": "pip", "source": "gar", "name": "mn-prototype-artifact-finalizer-agent", "version": "1.2.7"}
+  ],
   "standard": {
     "migration_policy": "sdk_managed",
-    "profile": "document_workflow",
+    "profile": "blueprint",
     "profile_version": 1,
     "source_schema": "mn.workflow.source/v2",
     "target_schema": "mn.workflow/v1"
@@ -880,7 +888,7 @@
           "financial_folder_watcher": "$state.workflow.financial_folder_watcher"
         },
         "run": {
-          "handler": "financial_advisor.steps.intake",
+          "handler": "steps.intake",
           "with": {
             "operation": "watch"
           }
@@ -916,7 +924,7 @@
           "financial_document_reader": "$state.workflow.financial_document_reader"
         },
         "run": {
-          "handler": "financial_advisor.steps.intake",
+          "handler": "steps.intake",
           "with": {
             "operation": "read"
           }
@@ -952,7 +960,7 @@
           "bank_statement_extractor": "$state.workflow.bank_statement_extractor"
         },
         "run": {
-          "handler": "financial_advisor.steps.cash_flow",
+          "handler": "steps.cash_flow",
           "with": {
             "operation": "extract"
           }
@@ -988,7 +996,7 @@
           "cash_flow_normalizer": "$state.workflow.cash_flow_normalizer"
         },
         "run": {
-          "handler": "financial_advisor.steps.cash_flow",
+          "handler": "steps.cash_flow",
           "with": {
             "operation": "normalize"
           }
@@ -1024,7 +1032,7 @@
           "cash_flow_llm_analyst": "$state.workflow.cash_flow_llm_analyst"
         },
         "run": {
-          "handler": "financial_advisor.steps.cash_flow",
+          "handler": "steps.cash_flow",
           "with": {
             "operation": "analyze"
           }
@@ -1060,7 +1068,7 @@
           "tax_document_router": "$state.workflow.tax_document_router"
         },
         "run": {
-          "handler": "financial_advisor.steps.tax",
+          "handler": "steps.tax",
           "with": {
             "operation": "route"
           }
@@ -1096,7 +1104,7 @@
           "tax_form_ocr_capturer": "$state.workflow.tax_form_ocr_capturer"
         },
         "run": {
-          "handler": "financial_advisor.steps.tax",
+          "handler": "steps.tax",
           "with": {
             "operation": "ocr"
           }
@@ -1132,7 +1140,7 @@
           "tax_workpaper_preparer": "$state.workflow.tax_workpaper_preparer"
         },
         "run": {
-          "handler": "financial_advisor.steps.tax",
+          "handler": "steps.tax",
           "with": {
             "operation": "prepare"
           }
@@ -1168,7 +1176,7 @@
           "tax_llm_reviewer": "$state.workflow.tax_llm_reviewer"
         },
         "run": {
-          "handler": "financial_advisor.steps.tax",
+          "handler": "steps.tax",
           "with": {
             "operation": "review"
           }
@@ -1204,7 +1212,7 @@
           "portfolio_context_loader": "$state.workflow.portfolio_context_loader"
         },
         "run": {
-          "handler": "financial_advisor.steps.portfolio",
+          "handler": "steps.portfolio",
           "with": {
             "operation": "load_context"
           }
@@ -1240,7 +1248,7 @@
           "portfolio_market_data_loader": "$state.workflow.portfolio_market_data_loader"
         },
         "run": {
-          "handler": "financial_advisor.steps.portfolio",
+          "handler": "steps.portfolio",
           "with": {
             "operation": "load_market_data"
           }
@@ -1276,7 +1284,7 @@
           "portfolio_risk_engine": "$state.workflow.portfolio_risk_engine"
         },
         "run": {
-          "handler": "financial_advisor.steps.portfolio",
+          "handler": "steps.portfolio",
           "with": {
             "operation": "risk"
           }
@@ -1312,7 +1320,7 @@
           "portfolio_llm_reviewer": "$state.workflow.portfolio_llm_reviewer"
         },
         "run": {
-          "handler": "financial_advisor.steps.portfolio",
+          "handler": "steps.portfolio",
           "with": {
             "operation": "review"
           }
@@ -1348,7 +1356,7 @@
           "public_finance_researcher": "$state.workflow.public_finance_researcher"
         },
         "run": {
-          "handler": "financial_advisor.steps.research",
+          "handler": "steps.research",
           "with": {
             "operation": "public_finance"
           }
@@ -1387,7 +1395,7 @@
           "advisor_evidence_reconciler": "$state.workflow.advisor_evidence_reconciler"
         },
         "run": {
-          "handler": "financial_advisor.steps.research",
+          "handler": "steps.research",
           "with": {
             "operation": "reconcile"
           }
@@ -1424,7 +1432,7 @@
           "advisor_review_auditor": "$state.workflow.advisor_review_auditor"
         },
         "run": {
-          "handler": "financial_advisor.steps.reporting",
+          "handler": "steps.reporting",
           "with": {
             "operation": "audit"
           }
@@ -1460,7 +1468,7 @@
           "financial_advice_reporter": "$state.workflow.financial_advice_reporter"
         },
         "run": {
-          "handler": "financial_advisor.steps.reporting",
+          "handler": "steps.reporting",
           "with": {
             "operation": "report"
           }

@@ -1,0 +1,1 @@
+"""Purchase-specific strategy configuration."""
