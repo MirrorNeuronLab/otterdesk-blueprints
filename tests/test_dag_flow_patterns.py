@@ -69,23 +69,25 @@ def test_every_catalog_blueprint_lowers_its_declared_workflow_into_the_core_dag(
         ), path.parent.name
 
 
-def test_migrated_vc_blueprint_compiles_to_redis_routed_fork_join_crews():
+def test_migrated_vc_blueprint_compiles_step_local_redis_fork_join_graphs():
     manifest = _runtime_manifest(ROOT / "vc_assistant" / "manifest.json")
     edges = manifest["agents"]["edges"]
 
-    for coordinator, expected_count in (
+    for step_id, expected_count in (
         ("collect_public_research", 5),
         ("calculate_valuation_scores", 7),
     ):
+        fork = f"{step_id}__fork_1"
+        join = f"{step_id}__join_2"
         outbound = [
             edge
             for edge in edges
-            if edge["from_node"] == coordinator and "__" in edge["to_node"]
+            if edge["from_node"] == fork and "__" in edge["to_node"]
         ]
         inbound = [
             edge
             for edge in edges
-            if edge["to_node"] == coordinator and "__" in edge["from_node"]
+            if edge["to_node"] == join and "__" in edge["from_node"]
         ]
         assert len(outbound) == expected_count
         assert len(inbound) == expected_count
@@ -109,7 +111,7 @@ def test_vc_scorers_share_a_single_predecessor_and_do_not_depend_on_each_other()
     }
     scorer_edges = [edge for edge in edges if edge["to_node"] in invocation_ids]
     assert {(edge["from_node"], edge["to_node"]) for edge in scorer_edges} == {
-        ("calculate_valuation_scores", invocation_id)
+        ("calculate_valuation_scores__fork_1", invocation_id)
         for invocation_id in invocation_ids
     }
     assert not any(

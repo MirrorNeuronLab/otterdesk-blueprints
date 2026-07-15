@@ -1326,9 +1326,9 @@
   },
   "skill_dependencies": [],
   "agent_dependencies": [
-    {"type": "pip", "source": "gar", "name": "mn-prototype-supervised-service-agent", "version": "1.2.7"},
-    {"type": "pip", "source": "gar", "name": "mn-prototype-entity-queue-agent", "version": "1.2.7"},
-    {"type": "pip", "source": "gar", "name": "mn-prototype-stream-processor-agent", "version": "1.2.7"}
+    {"type": "pip", "source": "gar", "name": "mn-prototype-supervised-service-agent", "version": "1.2.24"},
+    {"type": "pip", "source": "gar", "name": "mn-prototype-entity-queue-agent", "version": "1.2.24"},
+    {"type": "pip", "source": "gar", "name": "mn-prototype-stream-processor-agent", "version": "1.2.24"}
   ],
   "standard": {
     "migration_policy": "sdk_managed",

@@ -53,24 +53,25 @@ def test_source_manifest_keeps_the_default_runtime_declarative():
     default_config = json.loads((BLUEPRINT_DIR / "config" / "default.json").read_text())
     manifest = json.loads((BLUEPRINT_DIR / "manifest.json").read_text())
     assert manifest["apiVersion"] == "mn.workflow.source/v2"
-    assert manifest["agents"] == {
-        "registry": manifest["agents"]["registry"],
-        "extra_templates": manifest["agents"]["extra_templates"],
-        "extra_edges": manifest["agents"]["extra_edges"],
-    }
+    assert manifest["agents"] == {"registry": manifest["agents"]["registry"]}
     assert manifest["workflow"]["steps"][0]["id"] == "detect_packet_changes"
-    assert all(step["run"]["agents"] for step in manifest["workflow"]["steps"])
+    assert all(step["run"]["definition"] for step in manifest["workflow"]["steps"])
     assert default_config["llm"]["model"] == "default"
 
 
-def test_manifest_assignments_resolve_to_direct_agent_handlers():
+def test_step_definitions_resolve_to_direct_agent_handlers():
     manifest = json.loads((BLUEPRINT_DIR / "manifest.json").read_text())
     registry = manifest["agents"]["registry"]
-    assigned = {
-        assignment["agent_id"]
-        for step in manifest["workflow"]["steps"]
-        for assignment in step["run"]["agents"]
-    }
+    assigned = set()
+    for step in manifest["workflow"]["steps"]:
+        module = importlib.import_module(step["run"]["definition"])
+        stack = [module.STEP.to_dict()["flow"]]
+        while stack:
+            item = stack.pop()
+            if item["type"] == "agent":
+                assigned.add(item["agent_id"])
+            else:
+                stack.extend(item.get("items") or [])
     handlers = {registry[agent_id]["handler"] for agent_id in assigned}
 
     assert assigned == set(registry)
@@ -79,12 +80,15 @@ def test_manifest_assignments_resolve_to_direct_agent_handlers():
     assert not any(handler.startswith("steps.") for handler in handlers)
     assert all(":" not in handler for handler in handlers)
 
-    evidence_agents = manifest["workflow"]["steps"][2]["run"]["agents"]
-    assert evidence_agents[1]["needs"] == ["document_evidence_extractor"]
+    evidence = importlib.import_module("steps.prepare_company_evidence").STEP.to_dict()
+    assert [item["agent_id"] for item in evidence["flow"]["items"]] == [
+        "document_evidence_extractor",
+        "claim_normalizer",
+    ]
     assert all(callable(resolve_handler(handler)) for handler in handlers)
 
 
-def test_manifest_compiles_parallel_crews_and_unique_invocations():
+def test_manifest_compiles_step_boundaries_parallel_joins_and_unique_invocations():
     expanded = expand_manifest_source(
         json.loads((BLUEPRINT_DIR / "manifest.json").read_text()),
         root_dir=BLUEPRINT_DIR,
@@ -92,18 +96,20 @@ def test_manifest_compiles_parallel_crews_and_unique_invocations():
     nodes = {node["node_id"]: node for node in expanded["agents"]["nodes"]}
     steps = {step["id"]: step for step in expanded["workflow"]["steps"]}
 
-    assert nodes["prepare_company_evidence"]["config"]["crew"]["agents"][1][
-        "needs"
-    ] == ["document_evidence_extractor"]
-    assert len(nodes["collect_public_research"]["config"]["crew"]["agents"]) == 5
-    assert len(nodes["calculate_valuation_scores"]["config"]["crew"]["agents"]) == 7
-    assert steps["collect_public_research"]["agent_ids"][1:] == [
+    assert nodes["prepare_company_evidence__start"]["agent_type"] == "step_source"
+    assert nodes["prepare_company_evidence__end"]["agent_type"] == "step_sink"
+    assert nodes["collect_public_research__join_2"]["agent_type"] == "step_join"
+    assert len(nodes["collect_public_research__join_2"]["config"]["expected_sources"]) == 5
+    assert len(nodes["calculate_valuation_scores__join_2"]["config"]["expected_sources"]) == 7
+    assert steps["collect_public_research"]["agent_ids"][1:6] == [
         "collect_public_research__company_identity_researcher",
         "collect_public_research__funding_researcher",
         "collect_public_research__market_comp_researcher",
         "collect_public_research__traction_verifier",
         "collect_public_research__rendered_page_researcher",
     ]
+    assert steps["collect_public_research"]["start_agent_id"] == "collect_public_research__start"
+    assert steps["collect_public_research"]["end_agent_id"] == "collect_public_research__end"
 
 
 def test_runtime_module_resolves_the_blueprint_root_after_the_entrypoint_move():

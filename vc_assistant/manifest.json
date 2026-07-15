@@ -128,24 +128,7 @@
         "handler": "agents.batch_index_writer",
         "role": "Batch Index Writer"
       }
-    },
-    "extra_edges": [
-      {
-        "edge_id": "publish_batch_summary_to_report_sink",
-        "from_node": "publish_batch_summary",
-        "message_type": "publish_batch_summary_completed",
-        "to_node": "report_sink"
-      }
-    ],
-    "extra_templates": [
-      {
-        "node_id": "report_sink",
-        "uses": "mn-agents.control.terminal_sink@1",
-        "with": {
-          "stereotype": "terminal_report_sink"
-        }
-      }
-    ]
+    }
   },
   "apiVersion": "mn.workflow.source/v2",
   "config": {
@@ -742,81 +725,81 @@
       "name": "mirrorneuron-blueprint-support-skill",
       "source": "gar",
       "type": "pip",
-      "version": "1.2.8"
+      "version": "1.2.24"
     },
     {
       "name": "mirrorneuron-litellm-communicate-skill",
       "source": "gar",
       "type": "pip",
-      "version": "1.2.7"
+      "version": "1.2.24"
     },
     {
       "name": "mirrorneuron-evidence-engine-skill",
       "source": "gar",
       "type": "pip",
-      "version": "1.2.7"
+      "version": "1.2.24"
     },
     {
       "name": "mirrorneuron-actor-review-skill",
       "source": "gar",
       "type": "pip",
-      "version": "1.2.7"
+      "version": "1.2.24"
     },
     {
       "name": "mirrorneuron-client-report-skill",
       "source": "gar",
       "type": "pip",
-      "version": "1.2.7"
+      "version": "1.2.24"
     },
     {
       "name": "mirrorneuron-document-reading-skill",
       "source": "gar",
       "type": "pip",
-      "version": "1.2.7"
+      "version": "1.2.24"
     },
     {
       "name": "mirrorneuron-public-research-orchestrator-skill",
       "source": "gar",
       "type": "pip",
-      "version": "1.2.7"
+      "version": "1.2.24"
     },
     {
       "name": "mirrorneuron-scoring-framework-skill",
       "source": "gar",
       "type": "pip",
-      "version": "1.2.7"
+      "version": "1.2.24"
     },
     {
       "name": "mirrorneuron-llm-ocr-skill",
       "source": "gar",
       "type": "pip",
-      "version": "1.2.7"
+      "version": "1.2.24"
     },
     {
       "name": "mirrorneuron-rag-skill",
       "source": "gar",
       "type": "pip",
-      "version": "1.2.14"
+      "version": "1.2.24"
     },
     {
       "name": "mirrorneuron-w3m-browser-skill",
       "source": "gar",
       "type": "pip",
-      "version": "1.2.7"
+      "version": "1.2.24"
     },
     {
       "name": "mirrorneuron-web-browser-skill",
       "source": "gar",
       "type": "pip",
-      "version": "1.2.7"
+      "version": "1.2.24"
     }
   ],
   "agent_dependencies": [
-    {"type": "pip", "source": "gar", "name": "mn-prototype-stateful-step-agent", "version": "1.2.7"},
-    {"type": "pip", "source": "gar", "name": "mn-prototype-entity-queue-agent", "version": "1.2.7"},
-    {"type": "pip", "source": "gar", "name": "mn-prototype-bounded-tool-loop-agent", "version": "1.2.7"},
-    {"type": "pip", "source": "gar", "name": "mn-prototype-actor-review-agent", "version": "1.2.7"},
-    {"type": "pip", "source": "gar", "name": "mn-prototype-artifact-finalizer-agent", "version": "1.2.7"}
+    {"type": "pip", "source": "gar", "name": "mn-prototype-stateful-step-agent", "version": "1.2.24"},
+    {"type": "pip", "source": "gar", "name": "mn-prototype-entity-queue-agent", "version": "1.2.24"},
+    {"type": "pip", "source": "gar", "name": "mn-prototype-bounded-tool-loop-agent", "version": "1.2.24"},
+    {"type": "pip", "source": "gar", "name": "mn-prototype-actor-review-agent", "version": "1.2.24"},
+    {"type": "pip", "source": "gar", "name": "mn-prototype-artifact-finalizer-agent", "version": "1.2.24"}
   ],
   "standard": {
     "migration_policy": "sdk_managed",
@@ -905,256 +888,119 @@
       {
         "goal": "Detect startup document changes and persist the input-file inventory for this run.",
         "id": "detect_packet_changes",
-        "in": {
-          "document_folder": "$state.document_folder",
-          "monitoring": "$inputs.monitoring"
-        },
         "kind": "source",
         "label": "Detect Packet Changes",
         "needs": [],
-        "out": {
-          "packet_changes": "$state.workflow.detect_packet_changes"
-        },
         "run": {
-          "agents": [
-            {
-              "agent_id": "startup_folder_watcher"
-            }
-          ]
+          "definition": "steps.detect_packet_changes"
         }
       },
       {
         "goal": "Group startup documents by company, resolve aliases, and create stable company ids and slugs.",
         "id": "assemble_company_packets",
-        "in": {
-          "previous": "$state.workflow"
-        },
         "kind": "stage",
         "label": "Assemble Company Packets",
         "needs": [
           "detect_packet_changes"
         ],
-        "out": {
-          "company_packets": "$state.workflow.assemble_company_packets"
-        },
         "run": {
-          "agents": [
-            {
-              "agent_id": "company_packet_grouper"
-            }
-          ]
+          "definition": "steps.assemble_company_packets"
         }
       },
       {
         "goal": "Extract local evidence and normalize claims into deterministic company fact inputs.",
         "id": "prepare_company_evidence",
-        "in": {
-          "previous": "$state.workflow"
-        },
         "kind": "stage",
         "label": "Prepare Company Evidence",
         "needs": [
           "assemble_company_packets"
         ],
-        "out": {
-          "company_evidence": "$state.workflow.prepare_company_evidence"
-        },
         "run": {
-          "agents": [
-            {
-              "agent_id": "document_evidence_extractor"
-            },
-            {
-              "agent_id": "claim_normalizer",
-              "needs": [
-                "document_evidence_extractor"
-              ]
-            }
-          ]
+          "definition": "steps.prepare_company_evidence"
         }
       },
       {
         "goal": "Create privacy-safe public research queries from company name, domain, category, and non-confidential claims.",
         "id": "plan_public_research",
-        "in": {
-          "previous": "$state.workflow"
-        },
         "kind": "stage",
         "label": "Plan Public Research",
         "needs": [
           "prepare_company_evidence"
         ],
-        "out": {
-          "research_plan": "$state.workflow.plan_public_research"
-        },
         "run": {
-          "agents": [
-            {
-              "agent_id": "research_planner"
-            }
-          ]
+          "definition": "steps.plan_public_research"
         }
       },
       {
         "goal": "Collect public identity, funding, market, comparable, traction, and rendered-page evidence with a specialist research crew.",
         "id": "collect_public_research",
-        "in": {
-          "previous": "$state.workflow"
-        },
         "kind": "stage",
         "label": "Collect Public Research",
         "needs": [
           "plan_public_research"
         ],
-        "out": {
-          "public_research": "$state.workflow.collect_public_research"
-        },
         "run": {
-          "agents": [
-            {
-              "agent_id": "company_identity_researcher"
-            },
-            {
-              "agent_id": "funding_researcher"
-            },
-            {
-              "agent_id": "market_comp_researcher"
-            },
-            {
-              "agent_id": "traction_verifier"
-            },
-            {
-              "agent_id": "rendered_page_researcher"
-            }
-          ]
+          "definition": "steps.collect_public_research"
         }
       },
       {
         "goal": "Merge public findings with local claims and flag confirmations, contradictions, missing evidence, and source-quality warnings.",
         "id": "reconcile_research_evidence",
-        "in": {
-          "previous": "$state.workflow"
-        },
         "kind": "stage",
         "label": "Reconcile Research Evidence",
         "needs": [
           "collect_public_research"
         ],
-        "out": {
-          "reconciled_evidence": "$state.workflow.reconcile_research_evidence"
-        },
         "run": {
-          "agents": [
-            {
-              "agent_id": "research_reconciler"
-            }
-          ]
+          "definition": "steps.reconcile_research_evidence"
         }
       },
       {
         "goal": "Calculate all seven deterministic valuation heuristics with a parallel specialist scoring crew.",
         "id": "calculate_valuation_scores",
-        "in": {
-          "previous": "$state.workflow"
-        },
         "kind": "stage",
         "label": "Calculate Valuation Scores",
         "needs": [
           "reconcile_research_evidence"
         ],
-        "out": {
-          "valuation_scores": "$state.workflow.calculate_valuation_scores"
-        },
         "run": {
-          "agents": [
-            {
-              "agent_id": "berkus_scorer"
-            },
-            {
-              "agent_id": "scorecard_bill_payne_scorer"
-            },
-            {
-              "agent_id": "risk_factor_summation_scorer"
-            },
-            {
-              "agent_id": "venture_capital_method_scorer"
-            },
-            {
-              "agent_id": "first_chicago_scorer"
-            },
-            {
-              "agent_id": "comparables_market_multiple_scorer"
-            },
-            {
-              "agent_id": "cost_to_duplicate_scorer"
-            }
-          ]
+          "definition": "steps.calculate_valuation_scores"
         }
       },
       {
         "goal": "Check math, missing evidence handling, contradictory assumptions, unsupported valuation claims, and formula completeness.",
         "id": "audit_valuation_analysis",
-        "in": {
-          "previous": "$state.workflow"
-        },
         "kind": "stage",
         "label": "Audit Valuation Analysis",
         "needs": [
           "calculate_valuation_scores"
         ],
-        "out": {
-          "audited_analysis": "$state.workflow.audit_valuation_analysis"
-        },
         "run": {
-          "agents": [
-            {
-              "agent_id": "score_consistency_auditor"
-            }
-          ]
+          "definition": "steps.audit_valuation_analysis"
         }
       },
       {
         "goal": "Write per-company reports: analysis, method scores, research sources, evidence, and warnings.",
         "id": "write_company_reports",
-        "in": {
-          "previous": "$state.workflow"
-        },
         "kind": "stage",
         "label": "Write Company Reports",
         "needs": [
           "audit_valuation_analysis"
         ],
-        "out": {
-          "company_reports": "$state.workflow.write_company_reports"
-        },
         "run": {
-          "agents": [
-            {
-              "agent_id": "company_report_writer"
-            }
-          ]
+          "definition": "steps.write_company_reports"
         }
       },
       {
         "goal": "Write root-level company index, research coverage, method coverage, queue, and run summary artifacts.",
         "id": "publish_batch_summary",
-        "in": {
-          "previous": "$state.workflow"
-        },
         "kind": "sink",
         "label": "Publish Batch Summary",
         "needs": [
           "write_company_reports"
         ],
-        "out": {
-          "batch_summary": "$state.workflow.publish_batch_summary"
-        },
         "run": {
-          "agents": [
-            {
-              "agent_id": "batch_index_writer"
-            }
-          ]
+          "definition": "steps.publish_batch_summary"
         }
       }
     ],

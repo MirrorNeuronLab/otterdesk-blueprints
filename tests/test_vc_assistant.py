@@ -153,14 +153,33 @@ def _run_vc_manifest_step(
     )
     step = next(item for item in manifest["workflow"]["steps"] if item["id"] == step_id)
     registry = manifest["agents"]["registry"]
+    step_module = importlib.import_module(step["run"]["definition"])
+    flow = step_module.STEP.to_dict()["flow"]
     resolved_run_id = str(
         run_id or os.environ.get("MN_RUN_ID") or os.environ.get("MN_JOB_ID") or ""
     )
     agent_outputs = {}
     result = {}
-    for assignment in step["run"]["agents"]:
-        agent_id = assignment["agent_id"]
-        invocation_id = f"{step_id}__{agent_id}"
+
+    def run_flow(flow_node, delivered_payload):
+        nonlocal result
+        kind = flow_node["type"]
+        if kind == "sequence":
+            current = delivered_payload
+            for item in flow_node["items"]:
+                current = run_flow(item, current)
+            return current
+        if kind == "parallel":
+            return {
+                (item.get("alias") or item["agent_id"]): run_flow(
+                    item, delivered_payload
+                )
+                for item in flow_node["items"]
+            }
+        assert kind == "agent"
+        agent_id = flow_node["agent_id"]
+        call_id = flow_node.get("alias") or agent_id
+        invocation_id = f"{step_id}__{call_id}"
         definition = registry[agent_id]
         parameters = {
             **dict(definition.get("with") or {}),
@@ -177,12 +196,9 @@ def _run_vc_manifest_step(
                 idempotency_key=f"{resolved_run_id or 'test'}/{invocation_id}",
                 message={
                     "body": {
-                        "step_input": {"kwargs": dict(inputs or {})},
-                        "agent_outputs": {
-                            dependency: agent_outputs[dependency]
-                            for dependency in assignment.get("needs", [])
-                        },
-                        "artifact_refs": [],
+                        "outputs": dict(delivered_payload or {}),
+                        "artifacts": [],
+                        "_mn_step": {"step_input": dict(inputs or {})},
                     }
                 },
                 config=dict(config or {}),
@@ -190,7 +206,13 @@ def _run_vc_manifest_step(
             parameters=parameters,
         )
         agent_outputs[agent_id] = dict(result.get("outputs") or {})
-    flattened = dict(result.get("outputs") or {})
+        return dict(result.get("outputs") or {})
+
+    flow_outputs = run_flow(flow, dict(inputs or {}))
+    if flow["type"] == "parallel":
+        flattened = dict(flow_outputs)
+    else:
+        flattened = dict(result.get("outputs") or {})
     return {
         **flattened,
         "outputs": flattened,
@@ -304,13 +326,20 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         for node in manifest["agents"]["nodes"]
         if node.get("agent_type") == "executor"
     ]
-    coordinators = [
+    step_sources = [
         node
         for node in manifest["agents"]["nodes"]
-        if node.get("agent_type") == "aggregator" and node["node_id"] != "report_sink"
+        if node.get("agent_type") == "step_source"
     ]
-    report_sink = next(
-        node for node in manifest["agents"]["nodes"] if node["node_id"] == "report_sink"
+    step_sinks = [
+        node
+        for node in manifest["agents"]["nodes"]
+        if node.get("agent_type") == "step_sink"
+    ]
+    terminal_sink = next(
+        node
+        for node in manifest["agents"]["nodes"]
+        if node["node_id"] == "workflow__terminal"
     )
     requirements_path = "requirements.txt"
     upload_paths = [
@@ -326,9 +355,10 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         {"source": "knowledge", "target": "knowledge"},
     ]
     assert len(nodes) == 21
-    assert len(coordinators) == 10
-    assert report_sink["config"] == {
-        "complete_on_message": True,
+    assert len(step_sources) == 10
+    assert len(step_sinks) == 10
+    assert terminal_sink["config"] == {
+        "complete_after": 1,
         "terminal_sink": True,
         "complete_run": True,
     }
@@ -590,9 +620,6 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         assert embedded_config["skill_runtime"] == config["skill_runtime"]
         assert embedded_config["suggested_schedule"] == config["suggested_schedule"]
     for template in manifest["metadata"]["agent_templates"]["nodes"]:
-        if template["node_id"] == "report_sink":
-            assert template["uses"] == "mn-agents.control.terminal_sink@1"
-            continue
         assert template["with"]["docker_worker_image"] == "docker_worker"
         assert "force_build" not in template["with"]
         assert template["with"]["image"] == "mirror-neuron/vc-assistant:local"
@@ -1426,18 +1453,23 @@ def test_vc_assistant_runtime_graph_is_manifest_declared_dag_with_terminal_sink(
     assert "type" not in manifest
     assert config["execution_model"] == {
         "type": "manifest_dag",
-        "runtime_note": "Topology, dependencies, handlers, and terminal routing are declared only in manifest.json.",
+        "runtime_note": "Logical step dependencies are declared in manifest.json; step I/O and agent collaboration are declared in payloads/steps.",
     }
     assert config["agent_handoffs"] == {}
     assert {
         (edge["from"], edge["to"]) for edge in manifest["workflow"]["edges"]
     } == expected_pairs
-    assert expected_pairs <= {
-        (edge["from_node"], edge["to_node"]) for edge in manifest["agents"]["edges"]
+    physical_pairs = {
+        (edge["from_node"], edge["to_node"])
+        for edge in manifest["agents"]["edges"]
     }
+    assert {
+        (f"{source}__end", f"{target}__start")
+        for source, target in expected_pairs
+    } <= physical_pairs
     assert any(
-        edge["from_node"] == "publish_batch_summary"
-        and edge["to_node"] == "report_sink"
+        edge["from_node"] == "publish_batch_summary__end"
+        and edge["to_node"] == "workflow__terminal"
         for edge in manifest["agents"]["edges"]
     )
 
@@ -1474,21 +1506,7 @@ def test_vc_manifest_agent_dependencies_are_imported_and_runtime_boundaries_are_
         "public_browser_worker": ("collect_public_research",),
         "internal_write_worker": ("write_company_reports", "publish_batch_summary"),
     }
-    assert source["agents"]["extra_templates"] == [
-        {
-            "node_id": "report_sink",
-            "uses": "mn-agents.control.terminal_sink@1",
-            "with": {"stereotype": "terminal_report_sink"},
-        }
-    ]
-    assert source["agents"]["extra_edges"] == [
-        {
-            "edge_id": "publish_batch_summary_to_report_sink",
-            "from_node": "publish_batch_summary",
-            "message_type": "publish_batch_summary_completed",
-            "to_node": "report_sink",
-        }
-    ]
+    assert source["agents"] == {"registry": source["agents"]["registry"]}
 
 
 def test_vc_agents_are_llm_backed_and_selected_for_actor_reviews():
@@ -1510,28 +1528,39 @@ def test_vc_agents_are_llm_backed_and_selected_for_actor_reviews():
     assert actor_ids == runner.AGENT_IDS
 
 
-def test_vc_workflow_steps_assign_explicit_reusable_agent_crews():
+def test_vc_step_modules_assign_explicit_reusable_agents():
     runner = _load_runner()
     source = json.loads(
         (ROOT / "vc_assistant" / "manifest.json").read_text(encoding="utf-8")
     )
-    assignments = {
-        step["id"]: tuple(
-            assignment["agent_id"] for assignment in step["run"]["agents"]
-        )
-        for step in source["workflow"]["steps"]
-    }
+    def agent_ids(flow):
+        if flow["type"] == "agent":
+            return [flow["agent_id"]]
+        return [
+            agent_id
+            for item in flow.get("items", [])
+            for agent_id in agent_ids(item)
+        ]
 
-    assert assignments == runner.WORKFLOW_STEP_AGENT_IDS
+    assignments = {}
+    for step in source["workflow"]["steps"]:
+        module = importlib.import_module(step["run"]["definition"])
+        assignments[step["id"]] = tuple(agent_ids(module.STEP.to_dict()["flow"]))
+
     assert all(agent_ids for agent_ids in assignments.values())
     assert {
         agent_id for agent_ids in assignments.values() for agent_id in agent_ids
     } == set(runner.AGENT_IDS)
     assert assignments["collect_public_research"] == tuple(runner.RESEARCH_AGENT_IDS)
     assert len(assignments["calculate_valuation_scores"]) == 7
-    assert source["workflow"]["steps"][2]["run"]["agents"][1]["needs"] == [
-        "document_evidence_extractor"
-    ]
+    assert assignments["prepare_company_evidence"] == (
+        "document_evidence_extractor",
+        "claim_normalizer",
+    )
+    assert all(
+        step["run"]["definition"].startswith("steps.")
+        for step in source["workflow"]["steps"]
+    )
 
 
 def test_vc_knowledge_excludes_stale_non_vc_domain_terms():

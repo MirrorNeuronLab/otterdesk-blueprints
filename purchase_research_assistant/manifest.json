@@ -2113,38 +2113,38 @@
       "name": "mirrorneuron-blueprint-support-skill",
       "source": "gar",
       "type": "pip",
-      "version": "1.2.7"
+      "version": "1.2.24"
     },
     {
       "name": "mirrorneuron-llm-ocr-skill",
       "source": "gar",
       "type": "pip",
-      "version": "1.2.7"
+      "version": "1.2.24"
     },
     {
       "name": "mirrorneuron-rag-skill",
       "source": "gar",
       "type": "pip",
-      "version": "1.2.14"
+      "version": "1.2.24"
     },
     {
       "name": "mirrorneuron-w3m-browser-skill",
       "source": "gar",
       "type": "pip",
-      "version": "1.2.7"
+      "version": "1.2.24"
     },
     {
       "name": "mirrorneuron-web-browser-skill",
       "source": "gar",
       "type": "pip",
-      "version": "1.2.7"
+      "version": "1.2.24"
     }
   ],
   "agent_dependencies": [
-    {"type": "pip", "source": "gar", "name": "mn-prototype-stateful-step-agent", "version": "1.2.7"},
-    {"type": "pip", "source": "gar", "name": "mn-prototype-bounded-tool-loop-agent", "version": "1.2.7"},
-    {"type": "pip", "source": "gar", "name": "mn-prototype-actor-review-agent", "version": "1.2.7"},
-    {"type": "pip", "source": "gar", "name": "mn-prototype-artifact-finalizer-agent", "version": "1.2.7"}
+    {"type": "pip", "source": "gar", "name": "mn-prototype-stateful-step-agent", "version": "1.2.24"},
+    {"type": "pip", "source": "gar", "name": "mn-prototype-bounded-tool-loop-agent", "version": "1.2.24"},
+    {"type": "pip", "source": "gar", "name": "mn-prototype-actor-review-agent", "version": "1.2.24"},
+    {"type": "pip", "source": "gar", "name": "mn-prototype-artifact-finalizer-agent", "version": "1.2.24"}
   ],
   "standard": {
     "migration_policy": "sdk_managed",

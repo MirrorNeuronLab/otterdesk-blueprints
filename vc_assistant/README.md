@@ -29,11 +29,12 @@ The workflow plans privacy-safe searches for company websites, Crunchbase, found
 Agents and steps are separate concepts:
 
 - An **agent** is a reusable specialist worker with a role and bounded responsibility.
-- A **step** is a durable phase in the workflow DAG. It owns dependencies, lifecycle state, and completion.
-- Every step declares a non-empty `run.agents` assignment list. The step completes only after all assigned agents finish.
-- A step may assign one or many agents, and the same agent may be assigned to multiple steps.
+- A **step** is a durable phase in the workflow DAG. It owns its input/output contract and internal collaboration graph.
+- `manifest.json` chains logical steps with `needs`; each `run.definition` points to one `payloads/steps` module.
+- The compiler expands each step into a generic start boundary, its agent graph, and a generic end boundary.
+- A step may invoke one or many agents, and the same agent may be reused with a unique call alias.
 - `agents.registry` owns each reusable handler and its immutable parameters; `llm.agents` only configures optional LLM review.
-- Assignment-level `needs` defines communication inside a step. Agents receive and return route-free SDK messages while the DAG owns routing.
+- Agents receive and return route-free SDK messages; the compiled internal graph owns Redis routing, sequencing, fan-out, and fan-in.
 
 | Workflow step | Required agent crew |
 | --- | --- |
@@ -48,7 +49,7 @@ Agents and steps are separate concepts:
 | `write_company_reports` | `company_report_writer` |
 | `publish_batch_summary` | `batch_index_writer` |
 
-`prepare_company_evidence` runs extractor → normalizer. Public research and valuation scoring fan out through Redis, then a domain-neutral coordinator joins every required result before marking the logical step complete. Messages contain bounded outputs and artifact references; confidential documents, research ledgers, and reports stay in the durable filesystem data plane.
+`prepare_company_evidence` runs extractor → normalizer. Public research and valuation scoring fan out through Redis, then a named generic join waits for every required result. Only the generated step end boundary completes the logical step and publishes its declared output. Messages contain bounded outputs and artifact references; confidential documents, research ledgers, and reports stay in the durable filesystem data plane.
 
 ## Quick Start
 

@@ -163,9 +163,9 @@ GPU_WORKER_DEVICE_REQUIREMENT = {
 }
 
 
-SKILL_DEPENDENCY_VERSION = "1.2.7"
+SKILL_DEPENDENCY_VERSION = "1.2.24"
 SKILL_DEPENDENCY_VERSION_OVERRIDES = {
-    "mirrorneuron-rag-skill": "1.2.14",
+    "mirrorneuron-rag-skill": "1.2.24",
 }
 IMPORT_MARKER_PACKAGES = {
     "mn_blueprint_support": "mirrorneuron-blueprint-support-skill",
@@ -1646,8 +1646,8 @@ def test_cctv_operator_uses_shared_runtime_web_ui_without_compose_or_media_bridg
     config = json.loads((blueprint_dir / "config" / "default.json").read_text())
 
     assert {dependency["name"]: dependency["version"] for dependency in manifest["skill_dependencies"]} == {
-        "mirrorneuron-blueprint-support-skill": "1.2.22",
-        "mirrorneuron-websocket-stream-skill": "1.2.22",
+        "mirrorneuron-blueprint-support-skill": "1.2.24",
+        "mirrorneuron-websocket-stream-skill": "1.2.24",
     }
     assert not (blueprint_dir / "docker-compose.yml").exists()
     assert not (blueprint_dir / "compose.yaml").exists()

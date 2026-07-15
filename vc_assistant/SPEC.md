@@ -12,9 +12,9 @@ Early-stage startup review is noisy. Pitch decks, notes, founder bios, traction 
 
 The blueprint is a scheduled batch-style OtterDesk workflow. Agents are reusable specialist workers; steps are durable phases in the workflow DAG. Step ids use action phrases, agent ids use role names, and the two namespaces must remain disjoint.
 
-Each step declares its required crew in `run.agents`. The list is non-empty, may contain one or many agents, and is evaluated with an all-required completion rule. `agents.registry` defines handlers and immutable handler parameters independently from optional `llm.agents` review configuration. An agent may be assigned to more than one step; every `(step_id, agent_id)` pair receives a unique invocation id.
+Each manifest step references a `payloads/steps` module through `run.definition`. That module declares the step's input contract, output contract, and internal `StepSpec` collaboration graph. `agents.registry` defines handlers and immutable handler parameters independently from optional `llm.agents` review configuration. An agent may be reused by multiple steps or calls; every compiled call receives a unique invocation id derived from its step and call alias.
 
-The durable data plane is the run filesystem. The live message plane is acknowledged Redis Streams. Agent handlers use the route-free SDK `receive_input` and `send_output` functions, and the compiled DAG owns routing, fan-out, fan-in, retries, ACKs, deduplication, and dead-letter behavior. Assignment-level `needs` creates intra-step dependencies: `prepare_company_evidence` runs extractor → normalizer, while research and scoring assignments run in parallel and join at the step coordinator.
+The durable data plane is the run filesystem. The live message plane is acknowledged Redis Streams. Agent handlers use the route-free SDK `receive_input` and `send_output` functions. The workflow DAG contains only logical step dependencies; each compiled step contains a generated source boundary, its internal agent graph, and a generated sink boundary. The internal graph owns routing, fan-out, fan-in, retries, ACKs, deduplication, and dead-letter behavior. `prepare_company_evidence` runs extractor → normalizer, while research and scoring calls run in parallel and join before the sink completes the logical step.
 
 | DAG step | Required agents |
 | --- | --- |
@@ -61,7 +61,7 @@ Internal artifacts include `company_work_queue.json`, company fact tables, resea
 
 - Company grouping is explainable and stable.
 - Workflow step ids and agent ids remain disjoint.
-- Every step declares one or more valid agent ids, and all assigned agents are required for step completion.
+- Every step definition references one or more valid registry agents and declares its input and output mappings.
 - Multi-agent research and scoring crews join before their containing step completes.
 - Agent messages contain bounded results and artifact references rather than confidential documents or large ledgers.
 - `payloads/runtime/runtime.py` remains below 500 lines and contains only runtime context, configuration, service preparation, observability, and lifecycle persistence.

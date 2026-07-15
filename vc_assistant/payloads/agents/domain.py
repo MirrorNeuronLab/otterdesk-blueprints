@@ -76,6 +76,7 @@ from mn_sdk.blueprint_support import (
     read_workflow_state,
     resolve_existing_path,
     source_workflow_steps,
+    source_manifest_path,
     observed_operation as shared_observed_operation,
     redact_observation_value,
     utc_now_iso,
@@ -212,19 +213,8 @@ METHOD_IDS = [
 ]
 WORKFLOW_STEPS = source_workflow_steps(__file__)
 WORKFLOW_STEP_IDS = [str(step["id"]) for step in WORKFLOW_STEPS]
-WORKFLOW_STEP_AGENT_IDS = {
-    str(step["id"]): tuple(
-        str(assignment.get("agent_id"))
-        for assignment in (step.get("run") or {}).get("agents", [])
-        if isinstance(assignment, dict) and str(assignment.get("agent_id") or "")
-    )
-    for step in WORKFLOW_STEPS
-}
-AGENT_IDS = list(dict.fromkeys(
-    agent_id
-    for step_id in WORKFLOW_STEP_IDS
-    for agent_id in WORKFLOW_STEP_AGENT_IDS[step_id]
-))
+_SOURCE_MANIFEST = read_json(source_manifest_path(__file__))
+AGENT_IDS = list(((_SOURCE_MANIFEST.get("agents") or {}).get("registry") or {}))
 RESEARCH_AGENT_IDS = [
     "company_identity_researcher",
     "funding_researcher",

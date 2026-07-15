@@ -1104,7 +1104,7 @@
   },
   "execution_model": {
     "type": "manifest_dag",
-    "runtime_note": "Topology, dependencies, handlers, and terminal routing are declared only in manifest.json."
+    "runtime_note": "Logical step dependencies are declared in manifest.json; step I/O and agent collaboration are declared in payloads/steps."
   },
   "python_dependencies": {
     "installer": "pip",
