@@ -4,6 +4,7 @@ import ast
 import importlib
 import importlib.util
 import json
+import os
 import sys
 import threading
 import time
@@ -36,13 +37,7 @@ for agent_name in (
     agent_src = ROOT.parent / "mn-agents" / agent_name / "src"
     if agent_src.exists():
         sys.path.insert(0, str(agent_src))
-RUNNER_PATH = (
-    ROOT
-    / "vc_assistant"
-    / "payloads"
-    / "runtime"
-    / "runtime.py"
-)
+RUNNER_PATH = ROOT / "vc_assistant" / "payloads" / "agents" / "domain.py"
 METHOD_IDS = {
     "berkus_method",
     "scorecard_bill_payne_method",
@@ -52,12 +47,18 @@ METHOD_IDS = {
     "comparables_market_multiple_method",
     "cost_to_duplicate_method",
 }
-LEGACY_RAG_BACKENDS = {"redis_vector_rag", "lexical_plain_text", "working_memory_plus_rag"}
+LEGACY_RAG_BACKENDS = {
+    "redis_vector_rag",
+    "lexical_plain_text",
+    "working_memory_plus_rag",
+}
 
 
 def _normalized_rag_snapshot(rag: dict) -> dict:
     normalized = dict(rag)
-    if normalized.get("backend") in LEGACY_RAG_BACKENDS or ("backend" not in normalized and normalized.get("enabled") is True):
+    if normalized.get("backend") in LEGACY_RAG_BACKENDS or (
+        "backend" not in normalized and normalized.get("enabled") is True
+    ):
         normalized["backend"] = "milvus_lite"
     normalized.pop("redis_url", None)
     if normalized.get("enabled") is True:
@@ -78,7 +79,9 @@ class FakeVCLLM:
         self.calls += 1
         self.prompts.append({"system": system_prompt, "user": user_prompt})
         response = dict(fallback)
-        response["summary"] = response.get("summary") or "VC actor reviewed the report packet."
+        response["summary"] = (
+            response.get("summary") or "VC actor reviewed the report packet."
+        )
         response["provider"] = self.provider
         response["model"] = self.model
         return response
@@ -113,16 +116,23 @@ class ToolCallingVCLLM(FakeVCLLM):
                 break
         if queue:
             return queue.pop(0)
-        return {"thought_summary": "done", "tool_calls": [{"tool": "finish", "reason": "done"}], "stop_reason": "done", "evidence_gaps": []}
+        return {
+            "thought_summary": "done",
+            "tool_calls": [{"tool": "finish", "reason": "done"}],
+            "stop_reason": "done",
+            "evidence_gaps": [],
+        }
 
 
 def _load_runner():
     payload_root = RUNNER_PATH.parents[1]
     if str(payload_root) not in sys.path:
         sys.path.insert(0, str(payload_root))
-    module = importlib.import_module("runtime.runtime")
+    module = importlib.import_module("agents.domain")
     module.run_blueprint = lambda **kwargs: _run_vc_manifest_handlers(module, **kwargs)
-    module.run_runtime_step = lambda step_id, **kwargs: _run_vc_manifest_step(module, step_id, **kwargs)
+    module.run_runtime_step = lambda step_id, **kwargs: _run_vc_manifest_step(
+        module, step_id, **kwargs
+    )
     return module
 
 
@@ -138,27 +148,58 @@ def _run_vc_manifest_step(
 ):
     from mn_sdk.step_runtime import StepContext, invoke_handler
 
-    manifest = json.loads((ROOT / "vc_assistant" / "manifest.json").read_text(encoding="utf-8"))
+    manifest = json.loads(
+        (ROOT / "vc_assistant" / "manifest.json").read_text(encoding="utf-8")
+    )
     step = next(item for item in manifest["workflow"]["steps"] if item["id"] == step_id)
-    run = step["run"]
-    parameters = dict(run.get("with") or {})
-    parameters.update(
-        {
-            "inputs": dict(inputs or {}),
+    registry = manifest["agents"]["registry"]
+    resolved_run_id = str(
+        run_id or os.environ.get("MN_RUN_ID") or os.environ.get("MN_JOB_ID") or ""
+    )
+    agent_outputs = {}
+    result = {}
+    for assignment in step["run"]["agents"]:
+        agent_id = assignment["agent_id"]
+        invocation_id = f"{step_id}__{agent_id}"
+        definition = registry[agent_id]
+        parameters = {
+            **dict(definition.get("with") or {}),
             "runs_root": str(runs_root) if runs_root is not None else None,
             "llm_client": llm_client,
         }
-    )
-    return invoke_handler(
-        run["handler"],
-        context=StepContext(
-            step_id=step["id"],
-            run_id=str(run_id or ""),
-            message={"kwargs": dict(inputs or {})},
-            config=dict(config or {}),
-        ),
-        parameters=parameters,
-    )
+        result = invoke_handler(
+            definition["handler"],
+            context=StepContext(
+                step_id=step["id"],
+                agent_id=agent_id,
+                invocation_id=invocation_id,
+                run_id=resolved_run_id,
+                idempotency_key=f"{resolved_run_id or 'test'}/{invocation_id}",
+                message={
+                    "body": {
+                        "step_input": {"kwargs": dict(inputs or {})},
+                        "agent_outputs": {
+                            dependency: agent_outputs[dependency]
+                            for dependency in assignment.get("needs", [])
+                        },
+                        "artifact_refs": [],
+                    }
+                },
+                config=dict(config or {}),
+            ),
+            parameters=parameters,
+        )
+        agent_outputs[agent_id] = dict(result.get("outputs") or {})
+    flattened = dict(result.get("outputs") or {})
+    return {
+        **flattened,
+        "outputs": flattened,
+        "agent_outputs": agent_outputs,
+        "workflow_step_id": step_id,
+        "run_id": str(resolved_run_id or flattened.get("run_id") or ""),
+        "runtime_step_mode": "agent_invocation",
+        "status": str(flattened.get("status") or result.get("status") or "completed"),
+    }
 
 
 def _run_vc_manifest_handlers(
@@ -170,7 +211,9 @@ def _run_vc_manifest_handlers(
     run_id: str | None = None,
     llm_client=None,
 ):
-    manifest = json.loads((ROOT / "vc_assistant" / "manifest.json").read_text(encoding="utf-8"))
+    manifest = json.loads(
+        (ROOT / "vc_assistant" / "manifest.json").read_text(encoding="utf-8")
+    )
     result = {}
     for step in manifest["workflow"]["steps"]:
         result = _run_vc_manifest_step(
@@ -249,11 +292,26 @@ def _write_startup_packets(path: Path) -> None:
 
 def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
     manifest = _expand_source_manifest(
-        json.loads((ROOT / "vc_assistant" / "manifest.json").read_text(encoding="utf-8"))
+        json.loads(
+            (ROOT / "vc_assistant" / "manifest.json").read_text(encoding="utf-8")
+        )
     )
-    config = json.loads((ROOT / "vc_assistant" / "config" / "default.json").read_text(encoding="utf-8"))
-    nodes = [node for node in manifest["agents"]["nodes"] if node["node_id"] != "report_sink"]
-    report_sink = next(node for node in manifest["agents"]["nodes"] if node["node_id"] == "report_sink")
+    config = json.loads(
+        (ROOT / "vc_assistant" / "config" / "default.json").read_text(encoding="utf-8")
+    )
+    nodes = [
+        node
+        for node in manifest["agents"]["nodes"]
+        if node.get("agent_type") == "executor"
+    ]
+    coordinators = [
+        node
+        for node in manifest["agents"]["nodes"]
+        if node.get("agent_type") == "aggregator" and node["node_id"] != "report_sink"
+    ]
+    report_sink = next(
+        node for node in manifest["agents"]["nodes"] if node["node_id"] == "report_sink"
+    )
     requirements_path = "requirements.txt"
     upload_paths = [
         {"source": "runtime", "target": "runtime"},
@@ -261,14 +319,25 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         {"source": "steps", "target": "steps"},
         {"source": "config", "target": "config"},
         {"source": "prompts", "target": "prompts"},
-        {"source": "examples/sample_inputs", "target": "vc_assistant/examples/sample_inputs"},
+        {
+            "source": "examples/sample_inputs",
+            "target": "vc_assistant/examples/sample_inputs",
+        },
         {"source": "knowledge", "target": "knowledge"},
     ]
-    assert len(nodes) == 10
-    assert report_sink["config"] == {"complete_on_message": True, "terminal_sink": True, "complete_run": True}
+    assert len(nodes) == 21
+    assert len(coordinators) == 10
+    assert report_sink["config"] == {
+        "complete_on_message": True,
+        "terminal_sink": True,
+        "complete_run": True,
+    }
     assert config["python_dependencies"]["installer"] == "pip"
     assert config["python_dependencies"]["requirements"] == requirements_path
-    assert config["python_dependencies"]["index_url"] == "https://us-central1-python.pkg.dev/mirrorneuron-public-packages/agent-skills/simple/"
+    assert (
+        config["python_dependencies"]["index_url"]
+        == "https://us-central1-python.pkg.dev/mirrorneuron-public-packages/agent-skills/simple/"
+    )
     assert config["python_dependencies"]["extra_index_url"] == "https://pypi.org/simple"
     assert config["python_dependencies"]["packages"] == [
         "mirrorneuron-membrane-python-sdk",
@@ -311,7 +380,9 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         "require_hardware_acceleration": True,
         "timeout_seconds": 180,
     }
-    assert config["input_skills"]["w3m_browser"]["install_policy"] == "docker_worker_image"
+    assert (
+        config["input_skills"]["w3m_browser"]["install_policy"] == "docker_worker_image"
+    )
     assert config["input_skills"]["w3m_browser"]["runtime"] == {
         "driver": "docker_worker",
         "install_scope": "shared_job_container",
@@ -383,7 +454,10 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
     assert config["cache_policy"]["force_reprocess"] is False
     assert "force_reprocess" in config["cache_policy"]["force_reprocess_inputs"]
     assert config["agentic_research"]["enabled"] is True
-    assert config["agentic_research"]["default_mode"] == "bounded_llm_guided_public_tool_research"
+    assert (
+        config["agentic_research"]["default_mode"]
+        == "bounded_llm_guided_public_tool_research"
+    )
     assert config["agentic_research"]["max_iterations_per_agent"] == 1
     assert config["agentic_research"]["max_tool_calls_per_agent"] == 2
     assert config["actor_review"] == {
@@ -408,19 +482,30 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         "context_target_tokens": 1800,
     }
     assert "llm_rag_trace.jsonl" in config["interfaces"]["optional_run_artifacts"]
-    assert "llm_rag_trace.jsonl" in config["interfaces"]["channels"]["artifacts"]["optional_artifacts"]
+    assert (
+        "llm_rag_trace.jsonl"
+        in config["interfaces"]["channels"]["artifacts"]["optional_artifacts"]
+    )
     assert "debug_trace.jsonl" in config["interfaces"]["optional_run_artifacts"]
-    assert "debug_trace.jsonl" in config["interfaces"]["channels"]["artifacts"]["optional_artifacts"]
+    assert (
+        "debug_trace.jsonl"
+        in config["interfaces"]["channels"]["artifacts"]["optional_artifacts"]
+    )
     assert "artifact_quality.json" in config["interfaces"]["outputs"]
     assert "artifact_quality.json" in config["interfaces"]["run_artifacts"]
-    assert "artifact_quality.json" in config["interfaces"]["channels"]["artifacts"]["artifacts"]
+    assert (
+        "artifact_quality.json"
+        in config["interfaces"]["channels"]["artifacts"]["artifacts"]
+    )
     assert "run_health.json" in config["interfaces"]["outputs"]
     assert "run_health.json" in config["interfaces"]["run_artifacts"]
-    assert "run_health.json" in config["interfaces"]["channels"]["artifacts"]["artifacts"]
-    assert "skill_runtime" in config["interfaces"]["config"]
-    dockerfile = (ROOT / "vc_assistant" / "payloads" / "docker_worker" / "Dockerfile").read_text(
-        encoding="utf-8"
+    assert (
+        "run_health.json" in config["interfaces"]["channels"]["artifacts"]["artifacts"]
     )
+    assert "skill_runtime" in config["interfaces"]["config"]
+    dockerfile = (
+        ROOT / "vc_assistant" / "payloads" / "docker_worker" / "Dockerfile"
+    ).read_text(encoding="utf-8")
     assert "w3m" in dockerfile
     assert "requirements.txt" in dockerfile
     assert "local-requirements.txt" in dockerfile
@@ -443,10 +528,17 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         assert node["config"]["upload_paths"] == upload_paths
         assert "build_context_upload_paths" not in node["config"]
         environment = node["config"]["environment"]
-        assert environment["MN_WORKFLOW_STEP_ID"] == node["node_id"]
+        assert environment["MN_WORKFLOW_INVOCATION_ID"] == node["node_id"]
+        assert environment["MN_WORKFLOW_STEP_ID"] == node["node_id"].split("__", 1)[0]
         embedded_config = json.loads(environment["MN_BLUEPRINT_CONFIG_JSON"])
-        assert embedded_config["inputs"]["payload"]["input_folder"] == "vc_assistant/examples/sample_inputs"
-        assert embedded_config["inputs"]["payload"]["output_folder"] == "~/Downloads/vc_assistant"
+        assert (
+            embedded_config["inputs"]["payload"]["input_folder"]
+            == "vc_assistant/examples/sample_inputs"
+        )
+        assert (
+            embedded_config["inputs"]["payload"]["output_folder"]
+            == "~/Downloads/vc_assistant"
+        )
         assert embedded_config["local_inputs"] == config["local_inputs"]
         assert embedded_config["outputs"]["folder_path"] == "~/Downloads/vc_assistant"
         assert embedded_config["llm"]["model"] == "default"
@@ -461,7 +553,10 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         assert embedded_config["execution"]["quick_test"] is False
         assert embedded_config["research_budget"]["default_actions"] == 160
         assert embedded_config["agentic_research"]["enabled"] is True
-        assert embedded_config["agentic_research"]["default_mode"] == "bounded_llm_guided_public_tool_research"
+        assert (
+            embedded_config["agentic_research"]["default_mode"]
+            == "bounded_llm_guided_public_tool_research"
+        )
         assert embedded_config["agentic_research"]["agent_ids"] == [
             "research_planner",
             "company_identity_researcher",
@@ -472,13 +567,26 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         ]
         assert embedded_config["agentic_research"]["max_iterations_per_agent"] == 1
         assert embedded_config["agentic_research"]["max_tool_calls_per_agent"] == 2
-        assert embedded_config["agentic_research"]["allowed_tools"] == ["browser_search", "browser_page", "rendered_browser_page", "finish"]
+        assert embedded_config["agentic_research"]["allowed_tools"] == [
+            "browser_search",
+            "browser_page",
+            "rendered_browser_page",
+            "finish",
+        ]
         assert embedded_config["actor_review"] == config["actor_review"]
         assert embedded_config["backpressure"] == config["backpressure"]
-        assert _normalized_rag_snapshot(embedded_config["knowledge_rag"]) == _normalized_rag_snapshot(config["knowledge_rag"])
+        assert _normalized_rag_snapshot(
+            embedded_config["knowledge_rag"]
+        ) == _normalized_rag_snapshot(config["knowledge_rag"])
         assert embedded_config["python_dependencies"] == config["python_dependencies"]
-        assert embedded_config["input_skills"]["llm_ocr"] == config["input_skills"]["llm_ocr"]
-        assert embedded_config["input_skills"]["w3m_browser"] == config["input_skills"]["w3m_browser"]
+        assert (
+            embedded_config["input_skills"]["llm_ocr"]
+            == config["input_skills"]["llm_ocr"]
+        )
+        assert (
+            embedded_config["input_skills"]["w3m_browser"]
+            == config["input_skills"]["w3m_browser"]
+        )
         assert embedded_config["skill_runtime"] == config["skill_runtime"]
         assert embedded_config["suggested_schedule"] == config["suggested_schedule"]
     for template in manifest["metadata"]["agent_templates"]["nodes"]:
@@ -490,17 +598,29 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         assert template["with"]["image"] == "mirror-neuron/vc-assistant:local"
         assert template["with"]["network"] == "mirror-neuron-runtime"
         assert template["with"]["upload_paths"] == upload_paths
-        template_config = json.loads(template["with"]["environment"]["MN_BLUEPRINT_CONFIG_JSON"])
+        template_config = json.loads(
+            template["with"]["environment"]["MN_BLUEPRINT_CONFIG_JSON"]
+        )
         assert template_config["backpressure"] == config["backpressure"]
-        assert _normalized_rag_snapshot(template_config["knowledge_rag"]) == _normalized_rag_snapshot(config["knowledge_rag"])
+        assert _normalized_rag_snapshot(
+            template_config["knowledge_rag"]
+        ) == _normalized_rag_snapshot(config["knowledge_rag"])
         assert template_config["actor_review"] == config["actor_review"]
-        assert template_config["input_skills"]["llm_ocr"] == config["input_skills"]["llm_ocr"]
-        assert template_config["input_skills"]["w3m_browser"] == config["input_skills"]["w3m_browser"]
+        assert (
+            template_config["input_skills"]["llm_ocr"]
+            == config["input_skills"]["llm_ocr"]
+        )
+        assert (
+            template_config["input_skills"]["w3m_browser"]
+            == config["input_skills"]["w3m_browser"]
+        )
         assert template_config["skill_runtime"] == config["skill_runtime"]
         assert template_config["suggested_schedule"] == config["suggested_schedule"]
 
 
-def test_vc_runner_resolves_config_from_docker_worker_attempt_root(monkeypatch, tmp_path):
+def test_vc_runner_resolves_config_from_docker_worker_attempt_root(
+    monkeypatch, tmp_path
+):
     runner = _load_runner()
     attempt_root = tmp_path / "runs" / "startup_folder_watcher" / "i1-a1-23108"
     script_path = attempt_root / "runtime" / "runtime.py"
@@ -511,7 +631,12 @@ def test_vc_runner_resolves_config_from_docker_worker_attempt_root(monkeypatch, 
         json.dumps(
             {
                 "identity": {"blueprint_id": "vc_assistant"},
-                "inputs": {"payload": {"document_folder": "docs", "output_folder": str(tmp_path / "out")}},
+                "inputs": {
+                    "payload": {
+                        "document_folder": "docs",
+                        "output_folder": str(tmp_path / "out"),
+                    }
+                },
                 "outputs": {"folder_path": str(tmp_path / "out")},
             }
         ),
@@ -522,21 +647,34 @@ def test_vc_runner_resolves_config_from_docker_worker_attempt_root(monkeypatch, 
     monkeypatch.setattr(runner, "__file__", str(script_path))
 
     assert script_path.parents[3] != attempt_root
-    from mn_sdk.blueprint_support import default_config_path, load_runtime_config, resolve_blueprint_dir
+    from mn_sdk.blueprint_support import (
+        default_config_path,
+        load_runtime_config,
+        resolve_blueprint_dir,
+    )
 
     assert default_config_path(script_path) == config_path
     assert resolve_blueprint_dir(script_path) == attempt_root
-    assert load_runtime_config(script_path)["identity"]["blueprint_id"] == "vc_assistant"
+    assert (
+        load_runtime_config(script_path)["identity"]["blueprint_id"] == "vc_assistant"
+    )
 
 
-def test_vc_runner_uses_embedded_config_when_default_file_is_not_mounted(monkeypatch, tmp_path):
+def test_vc_runner_uses_embedded_config_when_default_file_is_not_mounted(
+    monkeypatch, tmp_path
+):
     runner = _load_runner()
     attempt_root = tmp_path / "runs" / "research_planner" / "i1-a1-55620"
     script_path = attempt_root / "runtime" / "runtime.py"
     script_path.parent.mkdir(parents=True)
     embedded_config = {
         "identity": {"blueprint_id": "vc_assistant"},
-        "inputs": {"payload": {"document_folder": "docs", "output_folder": str(tmp_path / "out")}},
+        "inputs": {
+            "payload": {
+                "document_folder": "docs",
+                "output_folder": str(tmp_path / "out"),
+            }
+        },
         "outputs": {"folder_path": str(tmp_path / "out")},
     }
     monkeypatch.delenv("MN_BLUEPRINT_CONFIG_PATH", raising=False)
@@ -545,16 +683,24 @@ def test_vc_runner_uses_embedded_config_when_default_file_is_not_mounted(monkeyp
     monkeypatch.setattr(runner, "__file__", str(script_path))
 
     assert script_path.parents[3] != attempt_root
-    from mn_sdk.blueprint_support import default_config_path, load_runtime_config, resolve_blueprint_dir
+    from mn_sdk.blueprint_support import (
+        default_config_path,
+        load_runtime_config,
+        resolve_blueprint_dir,
+    )
 
     assert default_config_path(script_path) == attempt_root / "config" / "default.json"
     assert resolve_blueprint_dir(script_path) == attempt_root
-    assert load_runtime_config(script_path)["identity"]["blueprint_id"] == "vc_assistant"
+    assert (
+        load_runtime_config(script_path)["identity"]["blueprint_id"] == "vc_assistant"
+    )
 
 
 def test_explicit_fake_llm_mode_overrides_live_vc_runtime(monkeypatch, tmp_path):
     runner = _load_runner()
-    config = json.loads((ROOT / "vc_assistant" / "config" / "default.json").read_text(encoding="utf-8"))
+    config = json.loads(
+        (ROOT / "vc_assistant" / "config" / "default.json").read_text(encoding="utf-8")
+    )
 
     monkeypatch.setenv("MN_BLUEPRINT_FAKE_LLM", "true")
 
@@ -595,7 +741,10 @@ def test_fake_skills_synthesizes_pdf_ocr_records(tmp_path):
 
 def test_fake_skills_returns_mock_rag_context(tmp_path):
     runner = _load_runner()
-    config = {"execution": {"fake_skills": True}, "knowledge_rag": {"enabled": True, "required": True}}
+    config = {
+        "execution": {"fake_skills": True},
+        "knowledge_rag": {"enabled": True, "required": True},
+    }
 
     rag = runner.prepare_knowledge_rag(
         blueprint_dir=ROOT / "vc_assistant",
@@ -640,9 +789,15 @@ def test_fake_skills_mocks_browser_sources(tmp_path, monkeypatch):
 
 def test_benchmark_artifacts_summarize_steps_and_mocked_skills(tmp_path):
     runner = _load_runner()
-    runner.append_event(tmp_path, "benchmark_step_started", {"step_id": "startup_folder_watcher"})
+    runner.append_event(
+        tmp_path, "benchmark_step_started", {"step_id": "startup_folder_watcher"}
+    )
     time.sleep(0.001)
-    runner.append_event(tmp_path, "benchmark_step_completed", {"step_id": "startup_folder_watcher", "status": "completed"})
+    runner.append_event(
+        tmp_path,
+        "benchmark_step_completed",
+        {"step_id": "startup_folder_watcher", "status": "completed"},
+    )
     with runner.observed_operation(
         tmp_path,
         phase="public_tool_call",
@@ -652,14 +807,18 @@ def test_benchmark_artifacts_summarize_steps_and_mocked_skills(tmp_path):
     ) as op:
         op.close("completed", mocked=True)
 
-    benchmark = runner.write_benchmark_artifacts(tmp_path, run_id="bench-run", status="completed")
+    benchmark = runner.write_benchmark_artifacts(
+        tmp_path, run_id="bench-run", status="completed"
+    )
 
     assert benchmark["schema"] == "mn.blueprint.benchmark.v1"
     assert benchmark["steps"][0]["step_id"] == "startup_folder_watcher"
     assert benchmark["skills"][0]["mocked"] is True
     assert benchmark["totals"]["mocked_skill_call_count"] == 1
     assert (tmp_path / "benchmark.json").exists()
-    assert "w3m_browser_skill.research_topic" in (tmp_path / "benchmark.md").read_text(encoding="utf-8")
+    assert "w3m_browser_skill.research_topic" in (tmp_path / "benchmark.md").read_text(
+        encoding="utf-8"
+    )
 
 
 def test_benchmark_mode_is_off_by_default(monkeypatch):
@@ -683,7 +842,11 @@ def test_debug_mode_writes_step_trace(tmp_path, monkeypatch):
         inputs={
             "document_folder": str(docs),
             "output_folder": str(outputs),
-            "monitoring": {"enabled": True, "poll_interval_seconds": 1, "max_cycles": 1},
+            "monitoring": {
+                "enabled": True,
+                "poll_interval_seconds": 1,
+                "max_cycles": 1,
+            },
         },
         config={
             "execution": {"debug": True},
@@ -691,7 +854,9 @@ def test_debug_mode_writes_step_trace(tmp_path, monkeypatch):
             "knowledge_rag": {"enabled": False, "required": False},
             "internet_research": {"enabled": False},
             "agentic_research": {"enabled": False},
-            "backpressure": {"llm": {"max_concurrent_calls": 1, "min_interval_seconds": 0}},
+            "backpressure": {
+                "llm": {"max_concurrent_calls": 1, "min_interval_seconds": 0}
+            },
         },
         runs_root=tmp_path,
         run_id="vc-debug-step",
@@ -732,11 +897,17 @@ def test_actor_llm_init_failure_writes_failed_run(tmp_path, monkeypatch):
             inputs={
                 "document_folder": str(docs),
                 "output_folder": str(outputs),
-                "monitoring": {"enabled": True, "poll_interval_seconds": 1, "max_cycles": 1},
+                "monitoring": {
+                    "enabled": True,
+                    "poll_interval_seconds": 1,
+                    "max_cycles": 1,
+                },
             },
             config={
                 "knowledge_rag": {"enabled": False, "required": False},
-                "backpressure": {"llm": {"max_concurrent_calls": 1, "min_interval_seconds": 0}},
+                "backpressure": {
+                    "llm": {"max_concurrent_calls": 1, "min_interval_seconds": 0}
+                },
             },
             runs_root=tmp_path,
             run_id="vc-llm-init-failed",
@@ -754,8 +925,12 @@ def test_actor_llm_init_failure_writes_failed_run(tmp_path, monkeypatch):
 def test_vc_assistant_is_daily_batch_folder_scan():
     index = json.loads((ROOT / "index.json").read_text(encoding="utf-8"))
     entry = next(item for item in index if item["id"] == "vc_assistant")
-    manifest = json.loads((ROOT / "vc_assistant" / "manifest.json").read_text(encoding="utf-8"))
-    config = json.loads((ROOT / "vc_assistant" / "config" / "default.json").read_text(encoding="utf-8"))
+    manifest = json.loads(
+        (ROOT / "vc_assistant" / "manifest.json").read_text(encoding="utf-8")
+    )
+    config = json.loads(
+        (ROOT / "vc_assistant" / "config" / "default.json").read_text(encoding="utf-8")
+    )
 
     assert entry["type"] == "batch"
     assert "service" not in entry["product"]["runtime_features"][0]
@@ -773,8 +948,10 @@ def test_vc_assistant_is_daily_batch_folder_scan():
 
 def test_vc_assistant_runtime_requirements_install_skills_with_pip():
     requirements = (
-        ROOT / "vc_assistant" / "payloads" / "requirements.txt"
-    ).read_text(encoding="utf-8").splitlines()
+        (ROOT / "vc_assistant" / "payloads" / "requirements.txt")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    )
 
     assert requirements == [
         "--index-url https://us-central1-python.pkg.dev/mirrorneuron-public-packages/agent-skills/simple/",
@@ -785,14 +962,11 @@ def test_vc_assistant_runtime_requirements_install_skills_with_pip():
 
 
 def test_vc_assistant_runtime_upload_bundle_contains_sample_inputs():
-    bundled_sample_root = (
-        ROOT
-        / "vc_assistant"
-        / "examples"
-        / "sample_inputs"
-    )
+    bundled_sample_root = ROOT / "vc_assistant" / "examples" / "sample_inputs"
 
-    assert sorted(path.name for path in bundled_sample_root.iterdir() if path.is_dir()) == [
+    assert sorted(
+        path.name for path in bundled_sample_root.iterdir() if path.is_dir()
+    ) == [
         "aurora_ai",
         "boreal_robotics",
         "otterdesk",
@@ -808,9 +982,15 @@ def test_three_bundled_companies_match_deterministic_golden_contract(tmp_path):
     run_id = "vc-three-company-golden"
     result = runner.run_blueprint(
         inputs={
-            "document_folder": str(ROOT / "vc_assistant" / "examples" / "sample_inputs"),
+            "document_folder": str(
+                ROOT / "vc_assistant" / "examples" / "sample_inputs"
+            ),
             "output_folder": str(outputs),
-            "monitoring": {"enabled": True, "poll_interval_seconds": 1, "max_cycles": 1},
+            "monitoring": {
+                "enabled": True,
+                "poll_interval_seconds": 1,
+                "max_cycles": 1,
+            },
         },
         config={
             "llm": {"mode": "fake", "require_live": False},
@@ -818,7 +998,9 @@ def test_three_bundled_companies_match_deterministic_golden_contract(tmp_path):
             "knowledge_rag": {"enabled": True, "required": True},
             "internet_research": {"enabled": True},
             "agentic_research": {"enabled": False},
-            "backpressure": {"llm": {"max_concurrent_calls": 1, "min_interval_seconds": 0}},
+            "backpressure": {
+                "llm": {"max_concurrent_calls": 1, "min_interval_seconds": 0}
+            },
         },
         runs_root=tmp_path,
         run_id=run_id,
@@ -863,7 +1045,9 @@ def test_three_bundled_companies_match_deterministic_golden_contract(tmp_path):
             for method_id, method in reports[company_slug]["methods"].items()
         } == expected
 
-    assert {slug: len(report["research_sources"]) for slug, report in reports.items()} == {
+    assert {
+        slug: len(report["research_sources"]) for slug, report in reports.items()
+    } == {
         "aurora-ai": 43,
         "boreal-robotics": 47,
         "otterdesk": 43,
@@ -915,10 +1099,17 @@ def test_three_bundled_companies_match_deterministic_golden_contract(tmp_path):
     }
     events = [
         json.loads(line)
-        for line in (tmp_path / run_id / "events.jsonl").read_text(encoding="utf-8").splitlines()
+        for line in (tmp_path / run_id / "events.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
     ]
     assert any(event["type"] == "publish_batch_summary_completed" for event in events)
-    assert json.loads((outputs / "final_artifact.json").read_text(encoding="utf-8"))["company_reports"] == artifact["company_reports"]
+    assert (
+        json.loads((outputs / "final_artifact.json").read_text(encoding="utf-8"))[
+            "company_reports"
+        ]
+        == artifact["company_reports"]
+    )
 
 
 def test_budgeted_llm_serializes_concurrent_model_calls():
@@ -930,14 +1121,20 @@ def test_budgeted_llm_serializes_concurrent_model_calls():
     class SlowVCLLM(FakeVCLLM):
         provider = "docker_model_runner"
 
-        def generate_json(self, *, system_prompt: str, user_prompt: str, fallback: dict):
+        def generate_json(
+            self, *, system_prompt: str, user_prompt: str, fallback: dict
+        ):
             nonlocal active_calls, max_active_calls
             with lock:
                 active_calls += 1
                 max_active_calls = max(max_active_calls, active_calls)
             time.sleep(0.02)
             try:
-                return super().generate_json(system_prompt=system_prompt, user_prompt=user_prompt, fallback=fallback)
+                return super().generate_json(
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                    fallback=fallback,
+                )
             finally:
                 with lock:
                     active_calls -= 1
@@ -988,7 +1185,11 @@ def test_budgeted_llm_writes_metadata_only_trace(tmp_path):
     assert "secret system prompt" not in trace_text
     assert "Confidential Startup ARR" not in trace_text
     records = [json.loads(line) for line in trace_text.splitlines()]
-    completed = [record for record in records if record["type"] == "observability_operation_completed"]
+    completed = [
+        record
+        for record in records
+        if record["type"] == "observability_operation_completed"
+    ]
     assert completed
     payload = completed[-1]["payload"]
     assert payload["phase"] == "llm_call"
@@ -1003,13 +1204,26 @@ def test_budgeted_llm_writes_metadata_only_trace(tmp_path):
 def test_observed_operation_emits_heartbeat(tmp_path):
     runner = _load_runner()
 
-    with runner.observed_operation(tmp_path, phase="knowledge_rag", operation="prepare", heartbeat_seconds=0.01):
+    with runner.observed_operation(
+        tmp_path, phase="knowledge_rag", operation="prepare", heartbeat_seconds=0.01
+    ):
         time.sleep(0.03)
 
-    records = [json.loads(line) for line in (tmp_path / "llm_rag_trace.jsonl").read_text(encoding="utf-8").splitlines()]
-    assert any(record["type"] == "observability_operation_started" for record in records)
-    assert any(record["type"] == "observability_operation_heartbeat" for record in records)
-    assert any(record["type"] == "observability_operation_completed" for record in records)
+    records = [
+        json.loads(line)
+        for line in (tmp_path / "llm_rag_trace.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
+    ]
+    assert any(
+        record["type"] == "observability_operation_started" for record in records
+    )
+    assert any(
+        record["type"] == "observability_operation_heartbeat" for record in records
+    )
+    assert any(
+        record["type"] == "observability_operation_completed" for record in records
+    )
 
 
 def test_rag_retrieval_observation_is_metadata_only(monkeypatch, tmp_path):
@@ -1038,14 +1252,20 @@ def test_rag_retrieval_observation_is_metadata_only(monkeypatch, tmp_path):
     trace_text = (tmp_path / "llm_rag_trace.jsonl").read_text(encoding="utf-8")
     assert "Confidential company query" not in trace_text
     assert "Sensitive RAG context" not in trace_text
-    completed = [json.loads(line) for line in trace_text.splitlines() if "observability_operation_completed" in line][-1]
+    completed = [
+        json.loads(line)
+        for line in trace_text.splitlines()
+        if "observability_operation_completed" in line
+    ][-1]
     payload = completed["payload"]
     assert payload["phase"] == "knowledge_rag"
     assert payload["operation"] == "retrieve"
     assert payload["query_hash"]
     assert payload["query_chars"] == len("Confidential company query")
     assert payload["citation_count"] == 1
-    assert payload["context_chars"] == len("Sensitive RAG context should not be written to trace.")
+    assert payload["context_chars"] == len(
+        "Sensitive RAG context should not be written to trace."
+    )
 
 
 def test_vc_pdf_packets_use_llm_ocr_skill_for_evidence(monkeypatch, tmp_path):
@@ -1055,7 +1275,10 @@ def test_vc_pdf_packets_use_llm_ocr_skill_for_evidence(monkeypatch, tmp_path):
     company_dir.mkdir(parents=True)
     pdf_path = company_dir / "pitch.pdf"
     pdf_path.write_bytes(b"%PDF-1.4 synthetic startup packet")
-    (company_dir / "memo.txt").write_text("Company: Optical Ventures\nMarket: oncology workflow software.", encoding="utf-8")
+    (company_dir / "memo.txt").write_text(
+        "Company: Optical Ventures\nMarket: oncology workflow software.",
+        encoding="utf-8",
+    )
     factory_configs = []
 
     def fake_factory(config):
@@ -1084,12 +1307,24 @@ def test_vc_pdf_packets_use_llm_ocr_skill_for_evidence(monkeypatch, tmp_path):
 
     records = runner.scan_documents(
         docs,
-        {"input_skills": {"llm_ocr": {"enabled": True, "required": True, "min_text_chars": 40}}},
+        {
+            "input_skills": {
+                "llm_ocr": {"enabled": True, "required": True, "min_text_chars": 40}
+            }
+        },
     )
 
     assert sorted(records) == ["Optical Ventures"]
-    pdf_record = next(record for record in records["Optical Ventures"] if record["filename"] == "pitch.pdf")
-    txt_record = next(record for record in records["Optical Ventures"] if record["filename"] == "memo.txt")
+    pdf_record = next(
+        record
+        for record in records["Optical Ventures"]
+        if record["filename"] == "pitch.pdf"
+    )
+    txt_record = next(
+        record
+        for record in records["Optical Ventures"]
+        if record["filename"] == "memo.txt"
+    )
     assert pdf_record["text_preview"].startswith("Company: Optical Ventures")
     assert pdf_record["character_count"] > 40
     assert pdf_record["extraction_method"] == "llm_ocr"
@@ -1098,7 +1333,13 @@ def test_vc_pdf_packets_use_llm_ocr_skill_for_evidence(monkeypatch, tmp_path):
     assert len(pdf_record["sha256"]) == 64
     assert txt_record["extraction_method"] == "embedded_text"
     assert txt_record["ocr_required"] is False
-    assert factory_configs == [{"input_skills": {"llm_ocr": {"enabled": True, "required": True, "min_text_chars": 40}}}]
+    assert factory_configs == [
+        {
+            "input_skills": {
+                "llm_ocr": {"enabled": True, "required": True, "min_text_chars": 40}
+            }
+        }
+    ]
 
 
 def test_vc_pdf_packets_fail_closed_when_ocr_unavailable(monkeypatch, tmp_path):
@@ -1109,7 +1350,9 @@ def test_vc_pdf_packets_fail_closed_when_ocr_unavailable(monkeypatch, tmp_path):
     monkeypatch.setattr(runner, "extract_document_folder", None)
 
     with pytest.raises(runner.OcrRequiredError, match="OCR extractor is unavailable"):
-        runner.scan_documents(docs, {"input_skills": {"llm_ocr": {"enabled": True, "required": True}}})
+        runner.scan_documents(
+            docs, {"input_skills": {"llm_ocr": {"enabled": True, "required": True}}}
+        )
 
 
 def test_vc_ocr_failure_marks_run_failed(monkeypatch, tmp_path):
@@ -1119,27 +1362,42 @@ def test_vc_ocr_failure_marks_run_failed(monkeypatch, tmp_path):
     (docs / "pitch.pdf").write_bytes(b"%PDF-1.4 image-only packet")
     outputs = tmp_path / "reports"
 
-    monkeypatch.setattr(runner, "prepare_knowledge_rag", lambda **kwargs: {"enabled": False, "status": "disabled"})
+    monkeypatch.setattr(
+        runner,
+        "prepare_knowledge_rag",
+        lambda **kwargs: {"enabled": False, "status": "disabled"},
+    )
     monkeypatch.setattr(runner, "require_ready_rag", lambda *args, **kwargs: None)
     monkeypatch.setattr(
         importlib.import_module("agents.document_evidence_extractor"),
         "scan_documents",
-        lambda folder, config=None: (_ for _ in ()).throw(runner.OcrRequiredError("PDF OCR did not produce usable text")),
+        lambda folder, config=None: (_ for _ in ()).throw(
+            runner.OcrRequiredError("PDF OCR did not produce usable text")
+        ),
     )
 
-    with pytest.raises(runner.OcrRequiredError, match="PDF OCR did not produce usable text"):
+    with pytest.raises(
+        runner.OcrRequiredError, match="PDF OCR did not produce usable text"
+    ):
         runner.run_blueprint(
             inputs={"document_folder": str(docs), "output_folder": str(outputs)},
-            config={"llm": {"mode": "fake", "require_live": False}, "knowledge_rag": {"enabled": False, "required": False}},
+            config={
+                "llm": {"mode": "fake", "require_live": False},
+                "knowledge_rag": {"enabled": False, "required": False},
+            },
             runs_root=tmp_path,
             run_id="vc-ocr-failed",
             llm_client=FakeVCLLM(),
         )
 
-    run_json = json.loads((tmp_path / "vc-ocr-failed" / "run.json").read_text(encoding="utf-8"))
+    run_json = json.loads(
+        (tmp_path / "vc-ocr-failed" / "run.json").read_text(encoding="utf-8")
+    )
     events = [
         json.loads(line)
-        for line in (tmp_path / "vc-ocr-failed" / "events.jsonl").read_text(encoding="utf-8").splitlines()
+        for line in (tmp_path / "vc-ocr-failed" / "events.jsonl")
+        .read_text(encoding="utf-8")
+        .splitlines()
     ]
     assert run_json["status"] == "failed"
     assert run_json["error"] == "PDF OCR did not produce usable text"
@@ -1152,9 +1410,13 @@ def test_vc_ocr_failure_marks_run_failed(monkeypatch, tmp_path):
 
 
 def test_vc_assistant_runtime_graph_is_manifest_declared_dag_with_terminal_sink():
-    source = json.loads((ROOT / "vc_assistant" / "manifest.json").read_text(encoding="utf-8"))
+    source = json.loads(
+        (ROOT / "vc_assistant" / "manifest.json").read_text(encoding="utf-8")
+    )
     manifest = _expand_source_manifest(source)
-    config = json.loads((ROOT / "vc_assistant" / "config" / "default.json").read_text(encoding="utf-8"))
+    config = json.loads(
+        (ROOT / "vc_assistant" / "config" / "default.json").read_text(encoding="utf-8")
+    )
     expected_pairs = {
         (dependency, step["id"])
         for step in source["workflow"]["steps"]
@@ -1167,26 +1429,32 @@ def test_vc_assistant_runtime_graph_is_manifest_declared_dag_with_terminal_sink(
         "runtime_note": "Topology, dependencies, handlers, and terminal routing are declared only in manifest.json.",
     }
     assert config["agent_handoffs"] == {}
-    assert {(edge["from"], edge["to"]) for edge in manifest["workflow"]["edges"]} == expected_pairs
+    assert {
+        (edge["from"], edge["to"]) for edge in manifest["workflow"]["edges"]
+    } == expected_pairs
     assert expected_pairs <= {
-        (edge["from_node"], edge["to_node"])
-        for edge in manifest["agents"]["edges"]
+        (edge["from_node"], edge["to_node"]) for edge in manifest["agents"]["edges"]
     }
     assert any(
-        edge["from_node"] == "publish_batch_summary" and edge["to_node"] == "report_sink"
+        edge["from_node"] == "publish_batch_summary"
+        and edge["to_node"] == "report_sink"
         for edge in manifest["agents"]["edges"]
     )
 
 
 def test_vc_manifest_agent_dependencies_are_imported_and_runtime_boundaries_are_stable():
-    source = json.loads((ROOT / "vc_assistant" / "manifest.json").read_text(encoding="utf-8"))
+    source = json.loads(
+        (ROOT / "vc_assistant" / "manifest.json").read_text(encoding="utf-8")
+    )
     payload_root = ROOT / "vc_assistant" / "payloads"
     imported_modules: set[str] = set()
     for path in payload_root.rglob("*.py"):
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
-                imported_modules.update(alias.name.split(".", 1)[0] for alias in node.names)
+                imported_modules.update(
+                    alias.name.split(".", 1)[0] for alias in node.names
+                )
             elif isinstance(node, ast.ImportFrom) and node.module:
                 imported_modules.add(node.module.split(".", 1)[0])
 
@@ -1225,7 +1493,9 @@ def test_vc_manifest_agent_dependencies_are_imported_and_runtime_boundaries_are_
 
 def test_vc_agents_are_llm_backed_and_selected_for_actor_reviews():
     runner = _load_runner()
-    config = json.loads((ROOT / "vc_assistant" / "config" / "default.json").read_text(encoding="utf-8"))
+    config = json.loads(
+        (ROOT / "vc_assistant" / "config" / "default.json").read_text(encoding="utf-8")
+    )
     agents = config["llm"]["agents"]
 
     assert len(agents) == 21
@@ -1242,28 +1512,44 @@ def test_vc_agents_are_llm_backed_and_selected_for_actor_reviews():
 
 def test_vc_workflow_steps_assign_explicit_reusable_agent_crews():
     runner = _load_runner()
-    source = json.loads((ROOT / "vc_assistant" / "manifest.json").read_text(encoding="utf-8"))
+    source = json.loads(
+        (ROOT / "vc_assistant" / "manifest.json").read_text(encoding="utf-8")
+    )
     assignments = {
-        step["id"]: tuple(step["run"]["with"]["agent_ids"])
+        step["id"]: tuple(
+            assignment["agent_id"] for assignment in step["run"]["agents"]
+        )
         for step in source["workflow"]["steps"]
     }
 
     assert assignments == runner.WORKFLOW_STEP_AGENT_IDS
     assert all(agent_ids for agent_ids in assignments.values())
-    assert {agent_id for agent_ids in assignments.values() for agent_id in agent_ids} == set(runner.AGENT_IDS)
+    assert {
+        agent_id for agent_ids in assignments.values() for agent_id in agent_ids
+    } == set(runner.AGENT_IDS)
     assert assignments["collect_public_research"] == tuple(runner.RESEARCH_AGENT_IDS)
     assert len(assignments["calculate_valuation_scores"]) == 7
-    assert source["agents"]["crew"]["completion_rule"] == "all_assigned_agents_required"
+    assert source["workflow"]["steps"][2]["run"]["agents"][1]["needs"] == [
+        "document_evidence_extractor"
+    ]
 
 
 def test_vc_knowledge_excludes_stale_non_vc_domain_terms():
     runner = _load_runner()
-    playbook = (ROOT / "vc_assistant" / "payloads" / "knowledge" / "startup_research_playbook.md").read_text(encoding="utf-8")
+    playbook = (
+        ROOT
+        / "vc_assistant"
+        / "payloads"
+        / "knowledge"
+        / "startup_research_playbook.md"
+    ).read_text(encoding="utf-8")
     knowledge = runner.load_vc_knowledge(ROOT / "vc_assistant")
     serialized = json.dumps(knowledge).lower()
 
     assert knowledge["path"] == "knowledge/startup_research_playbook.md"
-    assert knowledge["resolved_path"].endswith("vc_assistant/payloads/knowledge/startup_research_playbook.md")
+    assert knowledge["resolved_path"].endswith(
+        "vc_assistant/payloads/knowledge/startup_research_playbook.md"
+    )
     assert "Berkus Method" in playbook
     assert "Scorecard / Bill Payne Method" in playbook
     assert "VC Method" in playbook
@@ -1298,11 +1584,30 @@ def test_adaptive_research_plan_extracts_public_safe_signals():
     assert "pricing" in signals["pricing_terms"]
     assert "soc 2" in signals["regulatory_terms"]
 
-    plan = runner.build_adaptive_research_plan("Example AI", records, {"max_queries": 20, "max_target_urls_per_company": 10, "rendered_browser": {"max_pages_per_company": 5}})
+    plan = runner.build_adaptive_research_plan(
+        "Example AI",
+        records,
+        {
+            "max_queries": 20,
+            "max_target_urls_per_company": 10,
+            "rendered_browser": {"max_pages_per_company": 5},
+        },
+    )
     lane_ids = {lane["lane_id"] for lane in plan["lanes"]}
-    assert {"github_research", "technical_product_research", "founder_research", "pricing_business_model_research", "regulatory_risk_research"} <= lane_ids
-    assert "https://github.com/example/example-ai" in plan["agent_target_urls"]["market_comp_researcher"]
-    assert any("GitHub" in query for query in plan["agent_queries"]["market_comp_researcher"])
+    assert {
+        "github_research",
+        "technical_product_research",
+        "founder_research",
+        "pricing_business_model_research",
+        "regulatory_risk_research",
+    } <= lane_ids
+    assert (
+        "https://github.com/example/example-ai"
+        in plan["agent_target_urls"]["market_comp_researcher"]
+    )
+    assert any(
+        "GitHub" in query for query in plan["agent_queries"]["market_comp_researcher"]
+    )
     assert "https://www.linkedin.com/company/example-ai" in plan["rendered_target_urls"]
     assert "confidential excerpts" in plan["privacy_policy"]
 
@@ -1318,45 +1623,59 @@ def test_adaptive_research_routes_known_urls_to_direct_fetches(monkeypatch, tmp_
     direct_urls = []
     rendered_urls = []
 
-    def fake_w3m(sources, *, company, plan, internet, run_dir, verification_target="search_result_or_public_source"):
-        sources.append(runner._source_record(
-            company=company,
-            query=plan["queries"][0],
-            url=f"https://example.com/{verification_target}",
-            title=verification_target,
-            snippet="public evidence",
-            status="ok",
-            skill="w3m_browser_skill",
-            verification_target=verification_target,
-        ))
+    def fake_w3m(
+        sources,
+        *,
+        company,
+        plan,
+        internet,
+        run_dir,
+        verification_target="search_result_or_public_source",
+    ):
+        sources.append(
+            runner._source_record(
+                company=company,
+                query=plan["queries"][0],
+                url=f"https://example.com/{verification_target}",
+                title=verification_target,
+                snippet="public evidence",
+                status="ok",
+                skill="w3m_browser_skill",
+                verification_target=verification_target,
+            )
+        )
 
     def fake_target(sources, *, company, plan, internet, run_dir):
         direct_urls.extend(plan.get("target_urls") or [])
         for url in plan.get("target_urls") or []:
-            sources.append(runner._source_record(
-                company=company,
-                query=plan["queries"][0],
-                url=url,
-                title=url,
-                snippet="direct public page",
-                status="ok",
-                skill="w3m_browser_skill",
-                verification_target="public_profile",
-            ))
+            sources.append(
+                runner._source_record(
+                    company=company,
+                    query=plan["queries"][0],
+                    url=url,
+                    title=url,
+                    snippet="direct public page",
+                    status="ok",
+                    skill="w3m_browser_skill",
+                    verification_target="public_profile",
+                )
+            )
 
     def fake_rendered(sources, *, company, plan, internet, action_budget=None):
         rendered_urls.extend(plan.get("target_urls") or [])
         for url in plan.get("target_urls") or []:
-            sources.append(runner._source_record(
-                company=company,
-                query=plan["queries"][0],
-                url=url,
-                title="Rendered",
-                snippet="rendered profile",
-                status="ok",
-                skill="web_browser_skill",
-                verification_target="rendered_public_profile",
-            ))
+            sources.append(
+                runner._source_record(
+                    company=company,
+                    query=plan["queries"][0],
+                    url=url,
+                    title="Rendered",
+                    snippet="rendered profile",
+                    status="ok",
+                    skill="web_browser_skill",
+                    verification_target="rendered_public_profile",
+                )
+            )
 
     monkeypatch.setattr(runner, "_append_w3m_research", fake_w3m)
     monkeypatch.setattr(runner, "_append_target_url_research", fake_target)
@@ -1364,7 +1683,13 @@ def test_adaptive_research_routes_known_urls_to_direct_fetches(monkeypatch, tmp_
 
     ledger = runner.research_company_with_agents(
         "Example AI",
-        {"internet_research": {"enabled": True, "max_parallel_research_agents": 1, "rendered_browser": {"enabled": True, "max_pages_per_company": 5}}},
+        {
+            "internet_research": {
+                "enabled": True,
+                "max_parallel_research_agents": 1,
+                "rendered_browser": {"enabled": True, "max_pages_per_company": 5},
+            }
+        },
         run_dir=tmp_path,
         records=records,
     )
@@ -1374,7 +1699,10 @@ def test_adaptive_research_routes_known_urls_to_direct_fetches(monkeypatch, tmp_
     assert "https://docs.example.ai/api" in direct_urls
     assert "https://www.linkedin.com/company/example-ai" in direct_urls
     assert "https://www.linkedin.com/company/example-ai" in rendered_urls
-    assert any(source["source_quality_label"] == "technical_signal" for source in ledger["market_comp_researcher"])
+    assert any(
+        source["source_quality_label"] == "technical_signal"
+        for source in ledger["market_comp_researcher"]
+    )
 
 
 def test_agentic_research_executes_llm_selected_tools(monkeypatch, tmp_path):
@@ -1386,33 +1714,134 @@ def test_agentic_research_executes_llm_selected_tools(monkeypatch, tmp_path):
 
     monkeypatch.setattr(runner, "_load_w3m_browser_skill", lambda: None)
     monkeypatch.setattr(runner, "W3mBrowserConfig", DummyConfig)
-    monkeypatch.setattr(runner, "research_topic", lambda query, browser_config, max_sources, observer=None: {"sources": [{"url": "https://example.com/search", "title": "Search", "snippet": query}], "warnings": []})
-    monkeypatch.setattr(runner, "browse_url", lambda url, browser_config, observer=None: {"status": "ok", "url": url, "title": "Direct", "snippet": "direct page"})
+    monkeypatch.setattr(
+        runner,
+        "research_topic",
+        lambda query, browser_config, max_sources, observer=None: {
+            "sources": [
+                {
+                    "url": "https://example.com/search",
+                    "title": "Search",
+                    "snippet": query,
+                }
+            ],
+            "warnings": [],
+        },
+    )
+    monkeypatch.setattr(
+        runner,
+        "browse_url",
+        lambda url, browser_config, observer=None: {
+            "status": "ok",
+            "url": url,
+            "title": "Direct",
+            "snippet": "direct page",
+        },
+    )
     monkeypatch.setattr(runner, "_load_web_browser_skill", lambda: None)
     monkeypatch.setattr(runner, "WebBrowserConfig", DummyConfig)
-    monkeypatch.setattr(runner, "scrape_page", lambda url, browser_config: {"status": "ok", "final_url": url, "title": "Rendered", "text": "rendered page", "warnings": []})
+    monkeypatch.setattr(
+        runner,
+        "scrape_page",
+        lambda url, browser_config: {
+            "status": "ok",
+            "final_url": url,
+            "title": "Rendered",
+            "text": "rendered page",
+            "warnings": [],
+        },
+    )
 
     decisions = {
-        "research_planner": [{"thought_summary": "planner done", "tool_calls": [{"tool": "finish", "reason": "planned"}], "stop_reason": "planned", "evidence_gaps": []}],
-        "company_identity_researcher": [{"thought_summary": "search identity", "tool_calls": [{"tool": "browser_search", "query": "Example AI company website"}], "stop_reason": "", "evidence_gaps": []}],
-        "market_comp_researcher": [{"thought_summary": "inspect github", "tool_calls": [{"tool": "browser_page", "url": "https://github.com/example/example-ai", "query": "Example AI GitHub"}], "stop_reason": "", "evidence_gaps": []}],
-        "traction_verifier": [{"thought_summary": "done", "tool_calls": [{"tool": "finish", "reason": "no public traction url"}], "stop_reason": "done", "evidence_gaps": ["public traction proof"]}],
-        "rendered_page_researcher": [{"thought_summary": "render profile", "tool_calls": [{"tool": "rendered_browser_page", "url": "https://www.linkedin.com/company/example-ai", "query": "Example AI rendered profile"}], "stop_reason": "", "evidence_gaps": []}],
+        "research_planner": [
+            {
+                "thought_summary": "planner done",
+                "tool_calls": [{"tool": "finish", "reason": "planned"}],
+                "stop_reason": "planned",
+                "evidence_gaps": [],
+            }
+        ],
+        "company_identity_researcher": [
+            {
+                "thought_summary": "search identity",
+                "tool_calls": [
+                    {"tool": "browser_search", "query": "Example AI company website"}
+                ],
+                "stop_reason": "",
+                "evidence_gaps": [],
+            }
+        ],
+        "market_comp_researcher": [
+            {
+                "thought_summary": "inspect github",
+                "tool_calls": [
+                    {
+                        "tool": "browser_page",
+                        "url": "https://github.com/example/example-ai",
+                        "query": "Example AI GitHub",
+                    }
+                ],
+                "stop_reason": "",
+                "evidence_gaps": [],
+            }
+        ],
+        "traction_verifier": [
+            {
+                "thought_summary": "done",
+                "tool_calls": [{"tool": "finish", "reason": "no public traction url"}],
+                "stop_reason": "done",
+                "evidence_gaps": ["public traction proof"],
+            }
+        ],
+        "rendered_page_researcher": [
+            {
+                "thought_summary": "render profile",
+                "tool_calls": [
+                    {
+                        "tool": "rendered_browser_page",
+                        "url": "https://www.linkedin.com/company/example-ai",
+                        "query": "Example AI rendered profile",
+                    }
+                ],
+                "stop_reason": "",
+                "evidence_gaps": [],
+            }
+        ],
     }
     llm = runner.BudgetedLLM(ToolCallingVCLLM(decisions), runner.ActionBudget(100))
-    records = [{"filename": "packet.md", "text_preview": "GitHub https://github.com/example/example-ai LinkedIn https://www.linkedin.com/company/example-ai"}]
+    records = [
+        {
+            "filename": "packet.md",
+            "text_preview": "GitHub https://github.com/example/example-ai LinkedIn https://www.linkedin.com/company/example-ai",
+        }
+    ]
     trace = []
 
     ledger = runner.research_company_with_agents(
         "Example AI",
         {
-            "internet_research": {"enabled": True, "max_parallel_research_agents": 1, "rendered_browser": {"enabled": True, "max_pages_per_company": 5}},
+            "internet_research": {
+                "enabled": True,
+                "max_parallel_research_agents": 1,
+                "rendered_browser": {"enabled": True, "max_pages_per_company": 5},
+            },
             "agentic_research": {
                 "enabled": True,
-                "agent_ids": ["research_planner", "company_identity_researcher", "market_comp_researcher", "traction_verifier", "rendered_page_researcher"],
+                "agent_ids": [
+                    "research_planner",
+                    "company_identity_researcher",
+                    "market_comp_researcher",
+                    "traction_verifier",
+                    "rendered_page_researcher",
+                ],
                 "max_iterations_per_agent": 20,
                 "max_tool_calls_per_agent": 50,
-                "allowed_tools": ["browser_search", "browser_page", "rendered_browser_page", "finish"],
+                "allowed_tools": [
+                    "browser_search",
+                    "browser_page",
+                    "rendered_browser_page",
+                    "finish",
+                ],
             },
         },
         run_dir=tmp_path,
@@ -1422,10 +1851,24 @@ def test_agentic_research_executes_llm_selected_tools(monkeypatch, tmp_path):
         agent_tool_trace=trace,
     )
 
-    assert {item["agent_id"] for item in trace} == {"research_planner", "company_identity_researcher", "market_comp_researcher", "traction_verifier", "rendered_page_researcher"}
+    assert {item["agent_id"] for item in trace} == {
+        "research_planner",
+        "company_identity_researcher",
+        "market_comp_researcher",
+        "traction_verifier",
+        "rendered_page_researcher",
+    }
     assert "funding_researcher" not in {item["agent_id"] for item in trace}
-    assert any(source.get("tool_decision_source") == "llm_agent" and source.get("agent_id") == "market_comp_researcher" for source in ledger["market_comp_researcher"])
-    assert any(source.get("skill") == "web_browser_skill" and source.get("agent_id") == "rendered_page_researcher" for source in ledger["rendered_page_researcher"])
+    assert any(
+        source.get("tool_decision_source") == "llm_agent"
+        and source.get("agent_id") == "market_comp_researcher"
+        for source in ledger["market_comp_researcher"]
+    )
+    assert any(
+        source.get("skill") == "web_browser_skill"
+        and source.get("agent_id") == "rendered_page_researcher"
+        for source in ledger["rendered_page_researcher"]
+    )
     assert all(item["max_iterations"] == 20 for item in trace)
     assert all(item["max_tool_calls"] == 50 for item in trace)
 
@@ -1436,25 +1879,51 @@ def test_agentic_research_blocks_confidential_tool_queries(tmp_path):
         "market_comp_researcher": [
             {
                 "thought_summary": "bad query",
-                "tool_calls": [{"tool": "browser_search", "query": "confidential raw document text customer_names private financials"}],
+                "tool_calls": [
+                    {
+                        "tool": "browser_search",
+                        "query": "confidential raw document text customer_names private financials",
+                    }
+                ],
                 "stop_reason": "",
                 "evidence_gaps": [],
             }
         ]
     }
     llm = runner.BudgetedLLM(ToolCallingVCLLM(decisions), runner.ActionBudget(20))
-    plan = runner.build_adaptive_research_plan("Example AI", [], {"max_queries": 20, "rendered_browser": {"max_pages_per_company": 5}})
+    plan = runner.build_adaptive_research_plan(
+        "Example AI",
+        [],
+        {"max_queries": 20, "rendered_browser": {"max_pages_per_company": 5}},
+    )
     trace = []
 
     agent_id, sources = runner.run_agentic_research_agent(
         company="Example AI",
         agent_id="market_comp_researcher",
         plan=plan,
-        internet={"blocked_inputs": ["raw_document_text", "customer_names", "private_financials"]},
+        internet={
+            "blocked_inputs": [
+                "raw_document_text",
+                "customer_names",
+                "private_financials",
+            ]
+        },
         run_dir=tmp_path,
         action_budget=llm._action_budget,
         llm=llm,
-        agentic={"enabled": True, "agent_ids": ["market_comp_researcher"], "max_iterations_per_agent": 20, "max_tool_calls_per_agent": 50, "allowed_tools": ["browser_search", "browser_page", "rendered_browser_page", "finish"]},
+        agentic={
+            "enabled": True,
+            "agent_ids": ["market_comp_researcher"],
+            "max_iterations_per_agent": 20,
+            "max_tool_calls_per_agent": 50,
+            "allowed_tools": [
+                "browser_search",
+                "browser_page",
+                "rendered_browser_page",
+                "finish",
+            ],
+        },
         trace=trace,
     )
 
@@ -1464,7 +1933,9 @@ def test_agentic_research_blocks_confidential_tool_queries(tmp_path):
     assert trace[0]["tool_call_count"] == 0
 
 
-def test_agentic_research_tool_exceptions_continue_as_failed_sources(monkeypatch, tmp_path):
+def test_agentic_research_tool_exceptions_continue_as_failed_sources(
+    monkeypatch, tmp_path
+):
     runner = _load_runner()
     llm = runner.BudgetedLLM(
         ToolCallingVCLLM(
@@ -1472,7 +1943,12 @@ def test_agentic_research_tool_exceptions_continue_as_failed_sources(monkeypatch
                 "market_comp_researcher": [
                     {
                         "thought_summary": "try public search",
-                        "tool_calls": [{"tool": "browser_search", "query": "Example AI market competitors"}],
+                        "tool_calls": [
+                            {
+                                "tool": "browser_search",
+                                "query": "Example AI market competitors",
+                            }
+                        ],
                         "stop_reason": "",
                         "evidence_gaps": [],
                     }
@@ -1481,9 +1957,17 @@ def test_agentic_research_tool_exceptions_continue_as_failed_sources(monkeypatch
         ),
         runner.ActionBudget(20),
     )
-    plan = runner.build_adaptive_research_plan("Example AI", [], {"max_queries": 20, "rendered_browser": {"max_pages_per_company": 5}})
+    plan = runner.build_adaptive_research_plan(
+        "Example AI",
+        [],
+        {"max_queries": 20, "rendered_browser": {"max_pages_per_company": 5}},
+    )
     trace = []
-    monkeypatch.setattr(runner, "_execute_agent_tool_call", lambda **_: (_ for _ in ()).throw(RuntimeError("browser timeout")))
+    monkeypatch.setattr(
+        runner,
+        "_execute_agent_tool_call",
+        lambda **_: (_ for _ in ()).throw(RuntimeError("browser timeout")),
+    )
 
     agent_id, sources = runner.run_agentic_research_agent(
         company="Example AI",
@@ -1493,12 +1977,27 @@ def test_agentic_research_tool_exceptions_continue_as_failed_sources(monkeypatch
         run_dir=tmp_path,
         action_budget=llm._action_budget,
         llm=llm,
-        agentic={"enabled": True, "agent_ids": ["market_comp_researcher"], "max_iterations_per_agent": 1, "max_tool_calls_per_agent": 2, "allowed_tools": ["browser_search", "browser_page", "rendered_browser_page", "finish"]},
+        agentic={
+            "enabled": True,
+            "agent_ids": ["market_comp_researcher"],
+            "max_iterations_per_agent": 1,
+            "max_tool_calls_per_agent": 2,
+            "allowed_tools": [
+                "browser_search",
+                "browser_page",
+                "rendered_browser_page",
+                "finish",
+            ],
+        },
         trace=trace,
     )
 
     assert agent_id == "market_comp_researcher"
-    assert any(source["status"] == "agent_tool_call_failed" and "browser timeout" in source["warning"] for source in sources)
+    assert any(
+        source["status"] == "agent_tool_call_failed"
+        and "browser timeout" in source["warning"]
+        for source in sources
+    )
     assert trace[0]["tool_call_count"] == 1
     trace_text = (tmp_path / "llm_rag_trace.jsonl").read_text(encoding="utf-8")
     assert "browser timeout" in trace_text
@@ -1512,7 +2011,9 @@ def test_agentic_research_prompt_includes_knowledge_rag_context(monkeypatch, tmp
             "market_comp_researcher": [
                 {
                     "thought_summary": "enough knowledge",
-                    "tool_calls": [{"tool": "finish", "reason": "rag guidance reviewed"}],
+                    "tool_calls": [
+                        {"tool": "finish", "reason": "rag guidance reviewed"}
+                    ],
                     "stop_reason": "rag_guidance_reviewed",
                     "evidence_gaps": [],
                 }
@@ -1522,7 +2023,12 @@ def test_agentic_research_prompt_includes_knowledge_rag_context(monkeypatch, tmp
     llm = runner.BudgetedLLM(llm_client, runner.ActionBudget(20))
     plan = runner.build_adaptive_research_plan(
         "Example AI",
-        [{"filename": "packet.md", "text_preview": "GitHub https://github.com/example/example-ai"}],
+        [
+            {
+                "filename": "packet.md",
+                "text_preview": "GitHub https://github.com/example/example-ai",
+            }
+        ],
         {"max_queries": 20, "rendered_browser": {"max_pages_per_company": 5}},
     )
     monkeypatch.setattr(
@@ -1533,7 +2039,15 @@ def test_agentic_research_prompt_includes_knowledge_rag_context(monkeypatch, tmp
             "status": "ready",
             "query": query,
             "context": "GitHub playbook context: inspect stars, issues, releases, README, and package hints.",
-            "citations": [{"ref": 1, "chunk_id": "chunk-github", "path": "startup_research_playbook.md", "heading": "GitHub Evidence", "score": 0.91}],
+            "citations": [
+                {
+                    "ref": 1,
+                    "chunk_id": "chunk-github",
+                    "path": "startup_research_playbook.md",
+                    "heading": "GitHub Evidence",
+                    "score": 0.91,
+                }
+            ],
             "chunks": [{"chunk_id": "chunk-github"}],
             "stage": stage,
             "company": company,
@@ -1549,9 +2063,26 @@ def test_agentic_research_prompt_includes_knowledge_rag_context(monkeypatch, tmp
         run_dir=tmp_path,
         action_budget=llm._action_budget,
         llm=llm,
-        agentic={"enabled": True, "agent_ids": ["market_comp_researcher"], "max_iterations_per_agent": 20, "max_tool_calls_per_agent": 50, "allowed_tools": ["browser_search", "browser_page", "rendered_browser_page", "finish"]},
+        agentic={
+            "enabled": True,
+            "agent_ids": ["market_comp_researcher"],
+            "max_iterations_per_agent": 20,
+            "max_tool_calls_per_agent": 50,
+            "allowed_tools": [
+                "browser_search",
+                "browser_page",
+                "rendered_browser_page",
+                "finish",
+            ],
+        },
         trace=trace,
-        knowledge_rag={"enabled": True, "status": "ready", "_rag_config": object(), "config": {"max_context_chars": 6000}, "warnings": []},
+        knowledge_rag={
+            "enabled": True,
+            "status": "ready",
+            "_rag_config": object(),
+            "config": {"max_context_chars": 6000},
+            "warnings": [],
+        },
     )
 
     assert agent_id == "market_comp_researcher"
@@ -1607,8 +2138,17 @@ def test_actor_review_context_is_compacted_and_bounded():
                 "methods": methods,
                 "evidence_summary": {"missing_methods": []},
                 "audit": {"warnings": ["warn"] * 5},
-                "research_reconciliation": {"confirmations": [1], "contradictions": [], "missing_public_evidence": [1]},
-                "research_plan": {"lanes": [{"lane_id": "market"}], "github_urls": [], "known_public_urls": ["https://example.com"], "signals": {"market_terms": True}},
+                "research_reconciliation": {
+                    "confirmations": [1],
+                    "contradictions": [],
+                    "missing_public_evidence": [1],
+                },
+                "research_plan": {
+                    "lanes": [{"lane_id": "market"}],
+                    "github_urls": [],
+                    "known_public_urls": ["https://example.com"],
+                    "signals": {"market_terms": True},
+                },
             }
         )
 
@@ -1619,10 +2159,26 @@ def test_actor_review_context_is_compacted_and_bounded():
         method_coverage={"companies": []},
         processed_company_names=["Company 0"],
         skipped_company_names=[],
-        output_files=[{"kind": "analysis", "path": f"/tmp/{index}.json"} for index in range(50)],
-        active_knowledge={"id": "knowledge", "content": "very long content", "method_guidance": {}, "judge_rubric": runner.JUDGE_RUBRIC},
-        knowledge_rag={"enabled": True, "status": "ready", "config": {"required": True}},
-        actor_rag_context={"enabled": True, "status": "ready", "context": "rag context", "citations": [{"ref": 1}]},
+        output_files=[
+            {"kind": "analysis", "path": f"/tmp/{index}.json"} for index in range(50)
+        ],
+        active_knowledge={
+            "id": "knowledge",
+            "content": "very long content",
+            "method_guidance": {},
+            "judge_rubric": runner.JUDGE_RUBRIC,
+        },
+        knowledge_rag={
+            "enabled": True,
+            "status": "ready",
+            "config": {"required": True},
+        },
+        actor_rag_context={
+            "enabled": True,
+            "status": "ready",
+            "context": "rag context",
+            "citations": [{"ref": 1}],
+        },
         max_context_chars=6000,
     )
 
@@ -1634,7 +2190,9 @@ def test_actor_review_context_is_compacted_and_bounded():
     assert context["rag_context"]["citation_count"] == 1
 
 
-def test_actor_review_prompt_context_uses_local_context_engine_without_redis_persistence(monkeypatch, tmp_path):
+def test_actor_review_prompt_context_uses_local_context_engine_without_redis_persistence(
+    monkeypatch, tmp_path
+):
     runner = _load_runner()
     calls = {}
 
@@ -1665,8 +2223,14 @@ def test_actor_review_prompt_context_uses_local_context_engine_without_redis_per
         "company_count": 1,
         "processed_company_names": ["Alpha AI"],
         "skipped_company_names": [],
-        "company_summaries": [{"company_name": "Alpha AI", "method_evidence": "very long content" * 1000}],
-        "method_coverage": {"companies": [{"company": "Alpha AI", "details": "very long content" * 1000}]},
+        "company_summaries": [
+            {"company_name": "Alpha AI", "method_evidence": "very long content" * 1000}
+        ],
+        "method_coverage": {
+            "companies": [
+                {"company": "Alpha AI", "details": "very long content" * 1000}
+            ]
+        },
         "rag_context": {"enabled": True, "status": "ready", "citations": [{"ref": 1}]},
         "output_files": [{"path": "/tmp/alpha/analysis.json", "kind": "analysis"}],
         "privacy_controls": {"local_document_text": "not included"},
@@ -1693,8 +2257,14 @@ def test_actor_review_prompt_context_uses_local_context_engine_without_redis_per
     assert calls["memory_item"]["content"]["validation"]["persistent_storage"] is False
     assert prompt_context["context_compression"]["enabled"] is True
     assert prompt_context["context_compression"]["persisted"] is False
-    assert prompt_context["context_compression"]["working_memory_persist_to_redis"] is False
-    assert prompt_context["memory_boundary"]["rag_knowledge"] == "persistent Redis-backed knowledge index"
+    assert (
+        prompt_context["context_compression"]["working_memory_persist_to_redis"]
+        is False
+    )
+    assert (
+        prompt_context["memory_boundary"]["rag_knowledge"]
+        == "persistent Redis-backed knowledge index"
+    )
     assert "mn_context_engine_sdk.WorkingMemory" in serialized
     assert len(serialized) < 7000
     trace_text = (tmp_path / "llm_rag_trace.jsonl").read_text(encoding="utf-8")
@@ -1703,7 +2273,9 @@ def test_actor_review_prompt_context_uses_local_context_engine_without_redis_per
     assert "very long content" not in trace_text
 
 
-def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path, monkeypatch):
+def test_vc_early_heuristic_filtering_writes_score_only_company_reports(
+    tmp_path, monkeypatch
+):
     runner = _load_runner()
     docs = tmp_path / "startup-docs"
     outputs = tmp_path / "reports"
@@ -1728,7 +2300,11 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path
                 "top_k": 5,
                 "max_context_chars": 6000,
             },
-            "index_summary": {"indexed_count": 3, "deleted_count": 0, "index_name": "idx:test_namespace:rag:vc_assistant"},
+            "index_summary": {
+                "indexed_count": 3,
+                "deleted_count": 0,
+                "index_name": "idx:test_namespace:rag:vc_assistant",
+            },
             "warnings": [],
         }
 
@@ -1743,15 +2319,29 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path
                 "Comparable Transactions / Market Multiples. Cost-to-Duplicate Method. "
                 "Use method_correctness, evidence_grounding, and financial_reasoning_quality."
             ),
-            "citations": [{"ref": 1, "chunk_id": "vc-methods", "path": "startup_research_playbook.md", "heading": "VC Methods", "score": 0.95}],
-            "chunks": [{"chunk_id": "vc-methods", "path": "startup_research_playbook.md"}],
+            "citations": [
+                {
+                    "ref": 1,
+                    "chunk_id": "vc-methods",
+                    "path": "startup_research_playbook.md",
+                    "heading": "VC Methods",
+                    "score": 0.95,
+                }
+            ],
+            "chunks": [
+                {"chunk_id": "vc-methods", "path": "startup_research_playbook.md"}
+            ],
             "stage": stage,
             "company": company,
         }
 
-    monkeypatch.setattr(runner, "skill_prepare_blueprint_knowledge_rag", fake_prepare_rag)
+    monkeypatch.setattr(
+        runner, "skill_prepare_blueprint_knowledge_rag", fake_prepare_rag
+    )
     monkeypatch.setattr(runner, "skill_public_rag_state", fake_public_rag_state)
-    monkeypatch.setattr(runner, "skill_retrieve_knowledge_rag_context", fake_rag_context)
+    monkeypatch.setattr(
+        runner, "skill_retrieve_knowledge_rag_context", fake_rag_context
+    )
 
     class FakeW3mBrowserConfig:
         def __init__(self, **kwargs):
@@ -1759,7 +2349,10 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path
 
     def fake_research_topic(query, browser_config, max_sources=3, observer=None):
         if observer is not None:
-            observer("tool_call_completed", {"tool": "w3m", "status": "completed", "target": query})
+            observer(
+                "tool_call_completed",
+                {"tool": "w3m", "status": "completed", "target": query},
+            )
         return {
             "sources": [
                 {
@@ -1777,20 +2370,48 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path
     monkeypatch.setattr(runner, "W3mBrowserConfig", FakeW3mBrowserConfig)
     monkeypatch.setattr(runner, "research_topic", fake_research_topic)
     monkeypatch.setattr(runner, "browse_url", lambda *args, **kwargs: {"status": "ok"})
-    monkeypatch.setattr(runner, "_fetch_public_http", lambda url, *, internet: {"status": "ok", "url": url, "title": "HTTP fallback", "text": "deterministic public fallback", "html": "", "error": "", "http_status": 200})
+    monkeypatch.setattr(
+        runner,
+        "_fetch_public_http",
+        lambda url, *, internet: {
+            "status": "ok",
+            "url": url,
+            "title": "HTTP fallback",
+            "text": "deterministic public fallback",
+            "html": "",
+            "error": "",
+            "http_status": 200,
+        },
+    )
     monkeypatch.setattr(runner, "_load_web_browser_skill", lambda: None)
     monkeypatch.setattr(runner, "WebBrowserConfig", FakeW3mBrowserConfig)
-    monkeypatch.setattr(runner, "scrape_page", lambda url, browser_config: {"status": "ok", "final_url": url, "title": "Rendered", "text": "rendered page", "warnings": []})
+    monkeypatch.setattr(
+        runner,
+        "scrape_page",
+        lambda url, browser_config: {
+            "status": "ok",
+            "final_url": url,
+            "title": "Rendered",
+            "text": "rendered page",
+            "warnings": [],
+        },
+    )
 
     result = runner.run_blueprint(
         inputs={
             "document_folder": str(docs),
             "output_folder": str(outputs),
-            "monitoring": {"enabled": True, "poll_interval_seconds": 1, "max_cycles": 1},
+            "monitoring": {
+                "enabled": True,
+                "poll_interval_seconds": 1,
+                "max_cycles": 1,
+            },
         },
         config={
             "llm": {"mode": "live", "require_live": False},
-            "backpressure": {"llm": {"max_concurrent_calls": 1, "min_interval_seconds": 0}},
+            "backpressure": {
+                "llm": {"max_concurrent_calls": 1, "min_interval_seconds": 0}
+            },
         },
         runs_root=tmp_path,
         run_id="vc-unit",
@@ -1802,8 +2423,14 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path
     assert artifact["type"] == "vc_early_heuristic_analysis_reports"
     assert artifact["report_only"] is True
     assert len(artifact["company_reports"]) == 2
-    assert {report["company_slug"] for report in artifact["company_reports"]} == {"alpha-ai", "sparse-labs"}
-    assert [report["company_slug"] for report in artifact["company_reports"]] == ["alpha-ai", "sparse-labs"]
+    assert {report["company_slug"] for report in artifact["company_reports"]} == {
+        "alpha-ai",
+        "sparse-labs",
+    }
+    assert [report["company_slug"] for report in artifact["company_reports"]] == [
+        "alpha-ai",
+        "sparse-labs",
+    ]
 
     for report in artifact["company_reports"]:
         company_dir = outputs / report["company_slug"]
@@ -1819,21 +2446,51 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path
             "evidence.json",
             "warnings.json",
         } <= {path.name for path in company_dir.iterdir()}
-        sources = json.loads((company_dir / "research_sources.json").read_text(encoding="utf-8"))
+        sources = json.loads(
+            (company_dir / "research_sources.json").read_text(encoding="utf-8")
+        )
         assert any(source["skill"] == "w3m_browser_skill" for source in sources)
-        assert any("crunchbase.com" in source["url"] or "Crunchbase" in source["query"] for source in sources)
-        assert any(source["verification_target"] in {"company_identity_researcher", "crunchbase", "search_results"} for source in sources)
-        analysis = json.loads((company_dir / "analysis.json").read_text(encoding="utf-8"))
-        method_scores = json.loads((company_dir / "method_scores.json").read_text(encoding="utf-8"))
+        assert any(
+            "crunchbase.com" in source["url"] or "Crunchbase" in source["query"]
+            for source in sources
+        )
+        assert any(
+            source["verification_target"]
+            in {"company_identity_researcher", "crunchbase", "search_results"}
+            for source in sources
+        )
+        analysis = json.loads(
+            (company_dir / "analysis.json").read_text(encoding="utf-8")
+        )
+        method_scores = json.loads(
+            (company_dir / "method_scores.json").read_text(encoding="utf-8")
+        )
         assert set(analysis["methods"]) == METHOD_IDS
         assert set(method_scores) == METHOD_IDS
         assert analysis["method_count"] == 7
-        assert analysis["evidence_summary"]["composite_score_evidence"]["status"] in {"scored", "insufficient_evidence"}
+        assert analysis["evidence_summary"]["composite_score_evidence"]["status"] in {
+            "scored",
+            "insufficient_evidence",
+        }
         assert "result_evidence" in analysis
         for method in analysis["methods"].values():
-            assert {"score", "inputs_used", "formula_or_weighting", "assumptions", "source_refs", "evidence_refs", "evidence_summary", "missing_evidence", "warnings"} <= set(method)
+            assert {
+                "score",
+                "inputs_used",
+                "formula_or_weighting",
+                "assumptions",
+                "source_refs",
+                "evidence_refs",
+                "evidence_summary",
+                "missing_evidence",
+                "warnings",
+            } <= set(method)
             assert method["status"] in {"scored", "insufficient_evidence"}
-            assert method["evidence_refs"] or method["missing_evidence"] or method["status"] == "scored"
+            assert (
+                method["evidence_refs"]
+                or method["missing_evidence"]
+                or method["status"] == "scored"
+            )
         markdown = (company_dir / "analysis.md").read_text(encoding="utf-8")
         assert "score-only early screening report" in markdown
         assert "Result Evidence" in markdown
@@ -1841,22 +2498,27 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path
         assert "- Why:" in markdown
         assert "pre-revenue value proxy based on risk reduction" in markdown
         assert "Assumptions:" in markdown
-        research_plan = json.loads((company_dir / "research_plan.json").read_text(encoding="utf-8"))
+        research_plan = json.loads(
+            (company_dir / "research_plan.json").read_text(encoding="utf-8")
+        )
         assert research_plan["adaptive"] is True
         assert research_plan["lanes"]
         assert research_plan["knowledge_rag"]["status"] == "ready"
         assert research_plan["agentic_research"]["enabled"] is True
         assert research_plan["agentic_research"]["max_iterations_per_agent"] == 1
         assert research_plan["agentic_research"]["max_tool_calls_per_agent"] == 2
-        agent_trace = json.loads((company_dir / "agent_tool_trace.json").read_text(encoding="utf-8"))
+        agent_trace = json.loads(
+            (company_dir / "agent_tool_trace.json").read_text(encoding="utf-8")
+        )
         assert isinstance(agent_trace, list)
         assert all(item["rag_context"]["status"] == "ready" for item in agent_trace)
         assert all(item["knowledge_refs"] for item in agent_trace)
 
-    sparse = json.loads((outputs / "sparse-labs" / "analysis.json").read_text(encoding="utf-8"))
+    sparse = json.loads(
+        (outputs / "sparse-labs" / "analysis.json").read_text(encoding="utf-8")
+    )
     assert "insufficient_evidence" in {
-        method["status"]
-        for method in sparse["methods"].values()
+        method["status"] for method in sparse["methods"].values()
     }
     assert (outputs / "company_index.json").exists()
     assert (outputs / "company_index.md").exists()
@@ -1868,10 +2530,21 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path
     assert (outputs / "action_ledger.json").exists()
     assert (outputs / "artifact_quality.json").exists()
     assert (outputs / "run_health.json").exists()
-    assert sorted(path.name for path in (outputs / "company_fact_tables").iterdir()) == ["alpha-ai.json", "sparse-labs.json"]
-    assert sorted(path.name for path in (outputs / "research_ledgers").iterdir()) == ["alpha-ai.json", "sparse-labs.json"]
-    assert sorted(path.name for path in (outputs / "method_scores").iterdir()) == ["alpha-ai.json", "sparse-labs.json"]
-    assert sorted(path.name for path in (outputs / "audit_findings").iterdir()) == ["alpha-ai.json", "sparse-labs.json"]
+    assert sorted(
+        path.name for path in (outputs / "company_fact_tables").iterdir()
+    ) == ["alpha-ai.json", "sparse-labs.json"]
+    assert sorted(path.name for path in (outputs / "research_ledgers").iterdir()) == [
+        "alpha-ai.json",
+        "sparse-labs.json",
+    ]
+    assert sorted(path.name for path in (outputs / "method_scores").iterdir()) == [
+        "alpha-ai.json",
+        "sparse-labs.json",
+    ]
+    assert sorted(path.name for path in (outputs / "audit_findings").iterdir()) == [
+        "alpha-ai.json",
+        "sparse-labs.json",
+    ]
 
     serialized = json.dumps(artifact).lower()
     assert "filter_label" not in serialized
@@ -1880,21 +2553,37 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path
     assert '"watch"' not in serialized
     assert '"reject"' not in serialized
 
-    run_artifact = json.loads((tmp_path / "vc-unit" / "final_artifact.json").read_text(encoding="utf-8"))
+    run_artifact = json.loads(
+        (tmp_path / "vc-unit" / "final_artifact.json").read_text(encoding="utf-8")
+    )
     assert run_artifact["method_ids"] == list(runner.METHOD_IDS)
     assert set(run_artifact["workflow_step_ids"]) == set(runner.WORKFLOW_STEP_IDS)
-    assert {item["status"] for item in run_artifact["company_work_queue"]} == {"new_or_changed"}
+    assert {item["status"] for item in run_artifact["company_work_queue"]} == {
+        "new_or_changed"
+    }
     assert set(run_artifact["actor_findings"]) == set(runner.AGENT_IDS)
     assert run_artifact["llm_usage"]["provider"] == "fake"
     assert run_artifact["llm_usage"]["model"] == "fake-vc-actor"
-    assert run_artifact["llm_usage"]["calls"] >= len(run_artifact["actor_review"]["llm_actor_ids"])
+    assert run_artifact["llm_usage"]["calls"] >= len(
+        run_artifact["actor_review"]["llm_actor_ids"]
+    )
     assert run_artifact["action_ledger"]["budget"] == 160
-    assert run_artifact["action_ledger"]["used"] >= len(run_artifact["actor_review"]["llm_actor_ids"])
-    assert any(action["action_type"] == "financial_tool" for action in run_artifact["action_ledger"]["actions"])
+    assert run_artifact["action_ledger"]["used"] >= len(
+        run_artifact["actor_review"]["llm_actor_ids"]
+    )
+    assert any(
+        action["action_type"] == "financial_tool"
+        for action in run_artifact["action_ledger"]["actions"]
+    )
     assert run_artifact["cache_policy"]["fresh_run"] is True
     assert run_artifact["cache_policy"]["force_reprocess"] is False
-    assert {item["freshness"] for item in run_artifact["cache_policy"]["companies"]} == {"fresh_or_changed"}
-    assert all(report["cache_policy"]["decision"] == "process_company_packet" for report in run_artifact["company_reports"])
+    assert {
+        item["freshness"] for item in run_artifact["cache_policy"]["companies"]
+    } == {"fresh_or_changed"}
+    assert all(
+        report["cache_policy"]["decision"] == "process_company_packet"
+        for report in run_artifact["company_reports"]
+    )
     assert run_artifact["artifact_quality"]["passes_required_gate"] is True
     assert run_artifact["artifact_quality"]["status"] in {"passed", "warning"}
     assert run_artifact["artifact_quality"]["company_count"] == 2
@@ -1909,29 +2598,61 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path
     artifact_quality_text = json.dumps(run_artifact["artifact_quality"])
     assert "VC Startup Research And Method Playbook" not in artifact_quality_text
     assert "raw_document_text" not in artifact_quality_text
-    assert json.loads((outputs / "final_artifact.json").read_text(encoding="utf-8"))["action_ledger"]["budget"] == 160
-    assert json.loads((outputs / "action_ledger.json").read_text(encoding="utf-8"))["budget"] == 160
-    assert json.loads((outputs / "artifact_quality.json").read_text(encoding="utf-8")) == run_artifact["artifact_quality"]
+    assert (
+        json.loads((outputs / "final_artifact.json").read_text(encoding="utf-8"))[
+            "action_ledger"
+        ]["budget"]
+        == 160
+    )
+    assert (
+        json.loads((outputs / "action_ledger.json").read_text(encoding="utf-8"))[
+            "budget"
+        ]
+        == 160
+    )
+    assert (
+        json.loads((outputs / "artifact_quality.json").read_text(encoding="utf-8"))
+        == run_artifact["artifact_quality"]
+    )
     run_health = json.loads((outputs / "run_health.json").read_text(encoding="utf-8"))
     assert run_health["status"] in {"healthy", "warning"}
     assert run_health["components"]["artifact_quality"]["passes_required_gate"] is True
-    assert run_health["components"]["context_engine"]["actor_review_uses_context_engine"] is True
-    assert run_health["components"]["context_engine"]["working_memory_persist_to_redis"] is False
+    assert (
+        run_health["components"]["context_engine"]["actor_review_uses_context_engine"]
+        is True
+    )
+    assert (
+        run_health["components"]["context_engine"]["working_memory_persist_to_redis"]
+        is False
+    )
     assert run_health["components"]["public_tools"]["tool_operation_count"] >= 1
     assert run_health["components"]["knowledge_rag"]["status"] == "ready"
-    assert run_health["privacy"] == "metadata_only_no_prompts_no_raw_rag_context_no_document_text_no_raw_public_pages"
+    assert (
+        run_health["privacy"]
+        == "metadata_only_no_prompts_no_raw_rag_context_no_document_text_no_raw_public_pages"
+    )
     run_health_text = json.dumps(run_health)
     assert "VC Startup Research And Method Playbook" not in run_health_text
     assert run_artifact["run_health"]["artifact"] == "run_health.json"
     assert run_artifact["run_health"]["status"] == run_health["status"]
-    company_index = json.loads((outputs / "company_index.json").read_text(encoding="utf-8"))
+    company_index = json.loads(
+        (outputs / "company_index.json").read_text(encoding="utf-8")
+    )
     assert company_index["cache_policy"]["fresh_run"] is True
-    assert all(item["cache_policy"]["freshness"] == "fresh_or_changed" for item in company_index["companies"])
+    assert all(
+        item["cache_policy"]["freshness"] == "fresh_or_changed"
+        for item in company_index["companies"]
+    )
     run_summary = (outputs / "run_summary.md").read_text(encoding="utf-8")
     assert "## Cache Policy" in run_summary
     assert "fresh_or_changed" in run_summary
-    assert any(item["kind"] == "final_artifact_json" for item in run_artifact["output_files"])
-    assert run_artifact["active_knowledge"]["path"] == "knowledge/startup_research_playbook.md"
+    assert any(
+        item["kind"] == "final_artifact_json" for item in run_artifact["output_files"]
+    )
+    assert (
+        run_artifact["active_knowledge"]["path"]
+        == "knowledge/startup_research_playbook.md"
+    )
     assert run_artifact["active_knowledge"]["sha256"]
     assert set(run_artifact["active_knowledge"]["method_memory_hooks"]) == METHOD_IDS
     assert run_artifact["knowledge_rag"]["status"] == "ready"
@@ -1950,16 +2671,27 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path
     assert "VC Startup Research And Method Playbook" not in trace_text
     assert "observability_operation_started" in trace_text
     assert "observability_operation_completed" in trace_text
-    assert any(item["kind"] == "llm_rag_trace_jsonl" for item in run_artifact["output_files"])
-    assert any(item["kind"] == "artifact_quality_json" for item in run_artifact["output_files"])
-    assert any(item["kind"] == "run_health_json" for item in run_artifact["output_files"])
+    assert any(
+        item["kind"] == "llm_rag_trace_jsonl" for item in run_artifact["output_files"]
+    )
+    assert any(
+        item["kind"] == "artifact_quality_json" for item in run_artifact["output_files"]
+    )
+    assert any(
+        item["kind"] == "run_health_json" for item in run_artifact["output_files"]
+    )
     observability = run_artifact["observability"]
     assert observability["trace_available"] is True
     assert observability["trace_artifact"] == "llm_rag_trace.jsonl"
     assert observability["record_count"] >= 1
-    assert observability["llm_call_count"] >= len(run_artifact["actor_review"]["llm_actor_ids"])
+    assert observability["llm_call_count"] >= len(
+        run_artifact["actor_review"]["llm_actor_ids"]
+    )
     assert observability["tool_operation_count"] >= 1
-    assert observability["privacy"] == "metadata_only_no_prompts_no_raw_rag_context_no_document_text"
+    assert (
+        observability["privacy"]
+        == "metadata_only_no_prompts_no_raw_rag_context_no_document_text"
+    )
     observability_text = json.dumps(observability)
     assert "VC Startup Research And Method Playbook" not in observability_text
     assert "raw_document_text" not in observability_text
@@ -1970,7 +2702,11 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path
     assert "actions" not in transport_artifact["action_ledger"]
     assert transport_artifact["company_reports"]
     assert transport_artifact["observability"]["trace_available"] is True
-    prompt_payload = next(prompt["user"] for prompt in fake_llm.prompts if "memory_boundary" in prompt["user"])
+    prompt_payload = next(
+        prompt["user"]
+        for prompt in fake_llm.prompts
+        if "memory_boundary" in prompt["user"]
+    )
     assert "rag_context" in prompt_payload
     assert "citation_count" in prompt_payload
     assert "persistent Redis-backed knowledge index" in prompt_payload
@@ -1984,50 +2720,84 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(tmp_path
         inputs={
             "document_folder": str(docs),
             "output_folder": str(outputs),
-            "monitoring": {"enabled": True, "poll_interval_seconds": 1, "max_cycles": 1},
+            "monitoring": {
+                "enabled": True,
+                "poll_interval_seconds": 1,
+                "max_cycles": 1,
+            },
         },
         config={
             "llm": {"mode": "fake", "require_live": False},
             "internet_research": {"enabled": False},
             "agentic_research": {"enabled": False},
-            "backpressure": {"llm": {"max_concurrent_calls": 1, "min_interval_seconds": 0}},
+            "backpressure": {
+                "llm": {"max_concurrent_calls": 1, "min_interval_seconds": 0}
+            },
         },
         runs_root=tmp_path,
         run_id="vc-repeat",
         llm_client=FakeVCLLM(),
     )
-    assert {item["status"] for item in repeat["final_artifact"]["company_work_queue"]} == {"unchanged_skipped"}
+    assert {
+        item["status"] for item in repeat["final_artifact"]["company_work_queue"]
+    } == {"unchanged_skipped"}
     assert repeat["final_artifact"]["monitor_state"]["processed_company_count"] == 0
     assert repeat["final_artifact"]["monitor_state"]["skipped_company_count"] == 2
-    assert {report["processing_status"] for report in repeat["final_artifact"]["company_reports"]} == {"unchanged_skipped"}
+    assert {
+        report["processing_status"]
+        for report in repeat["final_artifact"]["company_reports"]
+    } == {"unchanged_skipped"}
     assert repeat["final_artifact"]["cache_policy"]["fresh_run"] is False
-    assert {item["freshness"] for item in repeat["final_artifact"]["cache_policy"]["companies"]} == {"unchanged_cached"}
-    assert all(report["cache_policy"]["cache_source"] == "watch_state_and_company_artifacts" for report in repeat["final_artifact"]["company_reports"])
+    assert {
+        item["freshness"]
+        for item in repeat["final_artifact"]["cache_policy"]["companies"]
+    } == {"unchanged_cached"}
+    assert all(
+        report["cache_policy"]["cache_source"] == "watch_state_and_company_artifacts"
+        for report in repeat["final_artifact"]["company_reports"]
+    )
 
     forced = runner.run_blueprint(
         inputs={
             "document_folder": str(docs),
             "output_folder": str(outputs),
             "force_reprocess": True,
-            "monitoring": {"enabled": True, "poll_interval_seconds": 1, "max_cycles": 1},
+            "monitoring": {
+                "enabled": True,
+                "poll_interval_seconds": 1,
+                "max_cycles": 1,
+            },
         },
         config={
             "llm": {"mode": "fake", "require_live": False},
             "knowledge_rag": {"enabled": False, "required": False},
             "internet_research": {"enabled": False},
             "agentic_research": {"enabled": False},
-            "backpressure": {"llm": {"max_concurrent_calls": 1, "min_interval_seconds": 0}},
+            "backpressure": {
+                "llm": {"max_concurrent_calls": 1, "min_interval_seconds": 0}
+            },
         },
         runs_root=tmp_path,
         run_id="vc-force",
         llm_client=FakeVCLLM(),
     )
-    assert {item["status"] for item in forced["final_artifact"]["company_work_queue"]} == {"new_or_changed"}
+    assert {
+        item["status"] for item in forced["final_artifact"]["company_work_queue"]
+    } == {"new_or_changed"}
     assert forced["final_artifact"]["cache_policy"]["force_reprocess"] is True
     assert forced["final_artifact"]["cache_policy"]["fresh_run"] is True
-    assert {item["freshness"] for item in forced["final_artifact"]["cache_policy"]["companies"]} == {"forced_reprocess"}
-    assert {report["processing_status"] for report in forced["final_artifact"]["company_reports"]} == {"new_or_changed"}
-    assert {report["cached_from_previous_run"] for report in forced["final_artifact"]["company_reports"]} == {False}
+    assert {
+        item["freshness"]
+        for item in forced["final_artifact"]["cache_policy"]["companies"]
+    } == {"forced_reprocess"}
+    assert {
+        report["processing_status"]
+        for report in forced["final_artifact"]["company_reports"]
+    } == {"new_or_changed"}
+    assert {
+        report["cached_from_previous_run"]
+        for report in forced["final_artifact"]["company_reports"]
+    } == {False}
 
 
 def test_actor_review_failure_does_not_fail_report_outputs(tmp_path):
@@ -2041,14 +2811,20 @@ def test_actor_review_failure_does_not_fail_report_outputs(tmp_path):
         inputs={
             "document_folder": str(docs),
             "output_folder": str(outputs),
-            "monitoring": {"enabled": True, "poll_interval_seconds": 1, "max_cycles": 1},
+            "monitoring": {
+                "enabled": True,
+                "poll_interval_seconds": 1,
+                "max_cycles": 1,
+            },
         },
         config={
             "llm": {"mode": "fake", "require_live": False},
             "knowledge_rag": {"enabled": False, "required": False},
             "agentic_research": {"enabled": False},
             "internet_research": {"enabled": False},
-            "backpressure": {"llm": {"max_concurrent_calls": 1, "min_interval_seconds": 0}},
+            "backpressure": {
+                "llm": {"max_concurrent_calls": 1, "min_interval_seconds": 0}
+            },
         },
         runs_root=tmp_path,
         run_id="vc-llm-fails",
@@ -2060,10 +2836,15 @@ def test_actor_review_failure_does_not_fail_report_outputs(tmp_path):
     assert (outputs / "alpha-ai" / "analysis.md").exists()
     assert (outputs / "company_index.json").exists()
     assert artifact["actor_review_warnings"][0]["status"] == "actor_review_unavailable"
-    assert artifact["actor_review_warnings"][0]["affected_actor_count"] == len(artifact["actor_review"]["llm_actor_ids"])
+    assert artifact["actor_review_warnings"][0]["affected_actor_count"] == len(
+        artifact["actor_review"]["llm_actor_ids"]
+    )
     assert set(artifact["actor_findings"]) == set(runner.AGENT_IDS)
     assert failing_llm.calls == len(artifact["actor_review"]["llm_actor_ids"])
-    assert any(finding.get("status") == "not_llm_reviewed" for finding in artifact["actor_findings"].values())
+    assert any(
+        finding.get("status") == "not_llm_reviewed"
+        for finding in artifact["actor_findings"].values()
+    )
 
 
 def test_runtime_steps_use_distributed_step_handlers(tmp_path):
@@ -2077,14 +2858,20 @@ def test_runtime_steps_use_distributed_step_handlers(tmp_path):
         inputs={
             "document_folder": str(docs),
             "output_folder": str(outputs),
-            "monitoring": {"enabled": True, "poll_interval_seconds": 1, "max_cycles": 1},
+            "monitoring": {
+                "enabled": True,
+                "poll_interval_seconds": 1,
+                "max_cycles": 1,
+            },
         },
         config={
             "llm": {"mode": "fake", "require_live": False},
             "knowledge_rag": {"enabled": False, "required": False},
             "internet_research": {"enabled": False},
             "agentic_research": {"enabled": False},
-            "backpressure": {"llm": {"max_concurrent_calls": 1, "min_interval_seconds": 0}},
+            "backpressure": {
+                "llm": {"max_concurrent_calls": 1, "min_interval_seconds": 0}
+            },
         },
         runs_root=tmp_path,
         run_id="vc-runtime-entry",
@@ -2092,7 +2879,7 @@ def test_runtime_steps_use_distributed_step_handlers(tmp_path):
     )
 
     run_dir = tmp_path / "vc-runtime-entry"
-    assert entry_result["runtime_step_mode"] == "workflow_step_handler"
+    assert entry_result["runtime_step_mode"] == "agent_invocation"
     assert entry_result["workflow_step_id"] == "detect_packet_changes"
     assert (run_dir / "workflow_state" / "document_files.json").exists()
     assert not (outputs / "company_index.json").exists()
@@ -2109,21 +2896,27 @@ def test_runtime_steps_use_distributed_step_handlers(tmp_path):
             "knowledge_rag": {"enabled": False, "required": False},
             "internet_research": {"enabled": False},
             "agentic_research": {"enabled": False},
-            "backpressure": {"llm": {"max_concurrent_calls": 1, "min_interval_seconds": 0}},
+            "backpressure": {
+                "llm": {"max_concurrent_calls": 1, "min_interval_seconds": 0}
+            },
         },
         runs_root=tmp_path,
         run_id="vc-runtime-entry",
         llm_client=FakeVCLLM(),
     )
 
-    assert grouped_result["runtime_step_mode"] == "workflow_step_handler"
+    assert grouped_result["runtime_step_mode"] == "agent_invocation"
     assert grouped_result["workflow_step_id"] == "assemble_company_packets"
     assert "final_artifact" not in grouped_result
     assert (run_dir / "workflow_state" / "company_packet_groups.json").exists()
-    assert (run_dir / "assemble_company_packets_result.json").exists()
+    assert (
+        run_dir / "assemble_company_packets__company_packet_grouper_result.json"
+    ).exists()
 
 
-def test_runtime_step_entrypoint_honors_mirror_neuron_run_environment(tmp_path, monkeypatch):
+def test_runtime_step_entrypoint_honors_mirror_neuron_run_environment(
+    tmp_path, monkeypatch
+):
     runner = _load_runner()
     docs = tmp_path / "startup-docs"
     outputs = tmp_path / "reports"
@@ -2137,21 +2930,27 @@ def test_runtime_step_entrypoint_honors_mirror_neuron_run_environment(tmp_path, 
         inputs={
             "document_folder": str(docs),
             "output_folder": str(outputs),
-            "monitoring": {"enabled": True, "poll_interval_seconds": 1, "max_cycles": 1},
+            "monitoring": {
+                "enabled": True,
+                "poll_interval_seconds": 1,
+                "max_cycles": 1,
+            },
         },
         config={
             "llm": {"mode": "fake", "require_live": False},
             "knowledge_rag": {"enabled": False, "required": False},
             "internet_research": {"enabled": False},
             "agentic_research": {"enabled": False},
-            "backpressure": {"llm": {"max_concurrent_calls": 1, "min_interval_seconds": 0}},
+            "backpressure": {
+                "llm": {"max_concurrent_calls": 1, "min_interval_seconds": 0}
+            },
         },
         llm_client=FakeVCLLM(),
     )
 
     run_dir = runtime_runs / "vc-runtime-env"
     assert result["run_id"] == "vc-runtime-env"
-    assert result["runtime_step_mode"] == "workflow_step_handler"
+    assert result["runtime_step_mode"] == "agent_invocation"
     assert result["workflow_step_id"] == "detect_packet_changes"
     assert (run_dir / "run.json").exists()
     assert (run_dir / "workflow_state" / "document_files.json").exists()
@@ -2163,10 +2962,15 @@ def test_tilde_output_folder_can_use_runtime_output_home(tmp_path, monkeypatch):
     output_home = tmp_path / "host-home"
     monkeypatch.setenv("MN_OUTPUT_HOME", str(output_home))
 
-    assert runner.expand_runtime_path("~/Downloads/vc_assistant") == output_home / "Downloads" / "vc_assistant"
+    assert (
+        runner.expand_runtime_path("~/Downloads/vc_assistant")
+        == output_home / "Downloads" / "vc_assistant"
+    )
 
 
-def test_tilde_output_folder_derives_user_home_from_mirror_neuron_runs_root(monkeypatch):
+def test_tilde_output_folder_derives_user_home_from_mirror_neuron_runs_root(
+    monkeypatch,
+):
     runner = _load_runner()
     user_home = Path("/Users/vc-test-user")
     for env_name in (
@@ -2183,10 +2987,15 @@ def test_tilde_output_folder_derives_user_home_from_mirror_neuron_runs_root(monk
     monkeypatch.setenv("HOME", "/root")
     monkeypatch.setenv("MN_RUNS_ROOT", str(user_home / ".mn" / "runs"))
 
-    assert runner.expand_runtime_path("~/Downloads/vc_assistant") == user_home / "Downloads" / "vc_assistant"
+    assert (
+        runner.expand_runtime_path("~/Downloads/vc_assistant")
+        == user_home / "Downloads" / "vc_assistant"
+    )
 
 
-def test_runtime_managed_output_folder_wins_over_configured_downloads(monkeypatch, tmp_path):
+def test_runtime_managed_output_folder_wins_over_configured_downloads(
+    monkeypatch, tmp_path
+):
     from mn_sdk.blueprint_support import resolve_output_folder
 
     runtime_output = tmp_path / "shared" / "outputs" / "user"
@@ -2194,7 +3003,12 @@ def test_runtime_managed_output_folder_wins_over_configured_downloads(monkeypatc
     resolved_config = {"outputs": {"folder_path": str(runtime_output)}}
     monkeypatch.setenv("MN_JOB_OUTPUT_DIR", str(runtime_output))
 
-    assert resolve_output_folder(payload, resolved_config, inputs={}, blueprint_id="vc_assistant") == runtime_output
+    assert (
+        resolve_output_folder(
+            payload, resolved_config, inputs={}, blueprint_id="vc_assistant"
+        )
+        == runtime_output
+    )
 
 
 def test_explicit_output_folder_wins_for_local_direct_runs(monkeypatch, tmp_path):
@@ -2206,12 +3020,15 @@ def test_explicit_output_folder_wins_for_local_direct_runs(monkeypatch, tmp_path
     resolved_config = {"outputs": {"folder_path": str(runtime_output)}}
     monkeypatch.delenv("MN_JOB_OUTPUT_DIR", raising=False)
 
-    assert resolve_output_folder(
-        payload,
-        resolved_config,
-        inputs={"output_folder": str(explicit_output)},
-        blueprint_id="vc_assistant",
-    ) == explicit_output
+    assert (
+        resolve_output_folder(
+            payload,
+            resolved_config,
+            inputs={"output_folder": str(explicit_output)},
+            blueprint_id="vc_assistant",
+        )
+        == explicit_output
+    )
 
 
 def test_changed_company_packets_use_agent_crews_with_stable_output_order(tmp_path):
@@ -2224,7 +3041,9 @@ def test_changed_company_packets_use_agent_crews_with_stable_output_order(tmp_pa
     original_run_research_agent = runner._run_research_agent
     original_scorers = dict(runner.METHOD_SCORER_FUNCTIONS)
 
-    def fake_research_one_stage(company, stage, query, plan, internet, run_dir, action_budget):
+    def fake_research_one_stage(
+        company, stage, query, plan, internet, run_dir, action_budget
+    ):
         research_calls.append((company, stage))
         slug = runner.slugify(company)
         return stage, [
@@ -2257,13 +3076,19 @@ def test_changed_company_packets_use_agent_crews_with_stable_output_order(tmp_pa
             inputs={
                 "document_folder": str(docs),
                 "output_folder": str(outputs),
-                "monitoring": {"enabled": True, "poll_interval_seconds": 1, "max_cycles": 1},
+                "monitoring": {
+                    "enabled": True,
+                    "poll_interval_seconds": 1,
+                    "max_cycles": 1,
+                },
             },
             config={
                 "llm": {"mode": "fake", "require_live": False},
                 "knowledge_rag": {"enabled": False, "required": False},
                 "agentic_research": {"enabled": False},
-                "backpressure": {"llm": {"max_concurrent_calls": 1, "min_interval_seconds": 0}},
+                "backpressure": {
+                    "llm": {"max_concurrent_calls": 1, "min_interval_seconds": 0}
+                },
                 "execution": {"max_company_workers": 2},
                 "scoring": {"max_workers": 7},
             },
@@ -2285,8 +3110,14 @@ def test_changed_company_packets_use_agent_crews_with_stable_output_order(tmp_pa
     assert set(scorer_calls) == set(runner.METHOD_IDS)
     assert artifact["parallel_execution"]["max_company_workers"] == 2
     assert artifact["parallel_execution"]["max_scoring_workers"] == 7
-    assert artifact["parallel_execution"]["company_processing_order"] == ["alpha-ai", "sparse-labs"]
-    assert [report["company_slug"] for report in artifact["company_reports"]] == ["alpha-ai", "sparse-labs"]
+    assert artifact["parallel_execution"]["company_processing_order"] == [
+        "alpha-ai",
+        "sparse-labs",
+    ]
+    assert [report["company_slug"] for report in artifact["company_reports"]] == [
+        "alpha-ai",
+        "sparse-labs",
+    ]
 
 
 def test_research_ledgers_emit_agent_specific_records_without_browser_network(tmp_path):
@@ -2294,7 +3125,15 @@ def test_research_ledgers_emit_agent_specific_records_without_browser_network(tm
     original_w3m = runner._append_w3m_research
     original_target = runner._append_target_url_research
 
-    def fake_w3m(sources, *, company, plan, internet, run_dir, verification_target="search_result_or_public_source"):
+    def fake_w3m(
+        sources,
+        *,
+        company,
+        plan,
+        internet,
+        run_dir,
+        verification_target="search_result_or_public_source",
+    ):
         sources.append(
             {
                 "company": company,
@@ -2348,11 +3187,23 @@ def test_research_ledgers_emit_agent_specific_records_without_browser_network(tm
     assert set(ledger) == set(runner.RESEARCH_AGENT_IDS)
     for stage in runner.RESEARCH_AGENT_IDS:
         assert any(source["verification_target"] == stage for source in ledger[stage])
-    assert any("funding" in source["query"].lower() for source in ledger["funding_researcher"])
-    assert any("competitors" in source["query"].lower() for source in ledger["market_comp_researcher"])
-    assert any("customers" in source["query"].lower() for source in ledger["traction_verifier"])
-    assert any(source["verification_target"] == "crunchbase" for source in ledger["company_identity_researcher"])
-    assert any(source["status"] == "disabled" for source in ledger["rendered_page_researcher"])
+    assert any(
+        "funding" in source["query"].lower() for source in ledger["funding_researcher"]
+    )
+    assert any(
+        "competitors" in source["query"].lower()
+        for source in ledger["market_comp_researcher"]
+    )
+    assert any(
+        "customers" in source["query"].lower() for source in ledger["traction_verifier"]
+    )
+    assert any(
+        source["verification_target"] == "crunchbase"
+        for source in ledger["company_identity_researcher"]
+    )
+    assert any(
+        source["status"] == "disabled" for source in ledger["rendered_page_researcher"]
+    )
 
 
 def test_scorecard_and_comparables_ignore_non_substantive_defaults():
@@ -2401,12 +3252,22 @@ def test_scorecard_and_comparables_ignore_non_substantive_defaults():
         for stage in runner.RESEARCH_AGENT_IDS
     }
 
-    analysis = runner.build_company_analysis("Empty Co", records, ledger, scoring_workers=7)
-    assert analysis["methods"]["scorecard_bill_payne_method"]["status"] == "insufficient_evidence"
+    analysis = runner.build_company_analysis(
+        "Empty Co", records, ledger, scoring_workers=7
+    )
+    assert (
+        analysis["methods"]["scorecard_bill_payne_method"]["status"]
+        == "insufficient_evidence"
+    )
     assert analysis["methods"]["scorecard_bill_payne_method"]["score"] is None
-    assert analysis["methods"]["comparables_market_multiple_method"]["status"] == "insufficient_evidence"
+    assert (
+        analysis["methods"]["comparables_market_multiple_method"]["status"]
+        == "insufficient_evidence"
+    )
     assert analysis["methods"]["comparables_market_multiple_method"]["score"] is None
-    assert analysis["fact_table"]["raw_counts"]["substantive_research_source_count"] == 0
+    assert (
+        analysis["fact_table"]["raw_counts"]["substantive_research_source_count"] == 0
+    )
 
 
 def test_vc_claim_layer_caps_self_reported_revenue_confidence():
@@ -2433,13 +3294,29 @@ def test_vc_claim_layer_caps_self_reported_revenue_confidence():
         }
     ]
 
-    analysis = runner.build_company_analysis("Aurora AI", records, {agent_id: [] for agent_id in runner.RESEARCH_AGENT_IDS}, fund_profile="seed_saas")
-    revenue_evidence = [item for item in analysis["evidence_items"] if item["claim_type"] == "traction.revenue.arr"]
-    revenue_claims = [item for item in analysis["claim_records"] if item["claim_type"] == "traction.revenue.arr"]
+    analysis = runner.build_company_analysis(
+        "Aurora AI",
+        records,
+        {agent_id: [] for agent_id in runner.RESEARCH_AGENT_IDS},
+        fund_profile="seed_saas",
+    )
+    revenue_evidence = [
+        item
+        for item in analysis["evidence_items"]
+        if item["claim_type"] == "traction.revenue.arr"
+    ]
+    revenue_claims = [
+        item
+        for item in analysis["claim_records"]
+        if item["claim_type"] == "traction.revenue.arr"
+    ]
 
     assert analysis["investment_score"] == analysis["composite_score"]
     assert analysis["method_average_score"] is not None
-    assert "confidence-weighted investment score" in analysis["evidence_summary"]["composite_score_evidence"]["reason"]
+    assert (
+        "confidence-weighted investment score"
+        in analysis["evidence_summary"]["composite_score_evidence"]["reason"]
+    )
     assert revenue_evidence
     assert revenue_claims
     assert revenue_evidence[0]["source_type"] == "founder_provided_document"
@@ -2449,9 +3326,17 @@ def test_vc_claim_layer_caps_self_reported_revenue_confidence():
     assert revenue_claims[0]["verification_status"] == "self_reported_unverified"
     explanations = analysis["bayesian_claim_explanations"]
     assert explanations
-    revenue_explanation = next(item for item in explanations if item["template_id"] == "revenue_claim")
-    assert revenue_explanation["posterior_probability"] > revenue_explanation["prior_probability"]
-    assert "no independent verification evidence" in revenue_explanation["main_confidence_limiter"]
+    revenue_explanation = next(
+        item for item in explanations if item["template_id"] == "revenue_claim"
+    )
+    assert (
+        revenue_explanation["posterior_probability"]
+        > revenue_explanation["prior_probability"]
+    )
+    assert (
+        "no independent verification evidence"
+        in revenue_explanation["main_confidence_limiter"]
+    )
     markdown = runner.render_markdown(analysis, [], records)
     assert "## Bayesian Claim Explanation" in markdown
     assert "Prior probability:" in markdown
@@ -2475,9 +3360,19 @@ def test_search_result_pages_cannot_support_serious_claim_confidence():
         }
     ]
 
-    analysis = runner.build_company_analysis("SearchCo", [], {"traction_verifier": sources}, fund_profile="generalist")
-    search_evidence = [item for item in analysis["evidence_items"] if item["source_type"] == "search_result_page"]
-    claims = [item for item in analysis["claim_records"] if item["claim_type"] == "traction.revenue.arr"]
+    analysis = runner.build_company_analysis(
+        "SearchCo", [], {"traction_verifier": sources}, fund_profile="generalist"
+    )
+    search_evidence = [
+        item
+        for item in analysis["evidence_items"]
+        if item["source_type"] == "search_result_page"
+    ]
+    claims = [
+        item
+        for item in analysis["claim_records"]
+        if item["claim_type"] == "traction.revenue.arr"
+    ]
 
     assert search_evidence
     assert all(item["source_quality_score"] <= 5 for item in search_evidence)
@@ -2511,7 +3406,9 @@ def test_failed_public_sources_do_not_create_positive_evidence():
     assert layer["company_evidence_summary"]["investment_score"] is None
 
 
-def test_action_budget_charges_browser_rendered_financial_tool_and_llm(monkeypatch, tmp_path):
+def test_action_budget_charges_browser_rendered_financial_tool_and_llm(
+    monkeypatch, tmp_path
+):
     runner = _load_runner()
     budget = runner.ActionBudget(10)
 
@@ -2525,27 +3422,62 @@ def test_action_budget_charges_browser_rendered_financial_tool_and_llm(monkeypat
         runner,
         "research_topic",
         lambda query, browser_config, max_sources, observer=None: {
-            "sources": [{"url": "https://example.com/source", "title": "Source", "snippet": "market revenue comparable"}],
+            "sources": [
+                {
+                    "url": "https://example.com/source",
+                    "title": "Source",
+                    "snippet": "market revenue comparable",
+                }
+            ],
             "warnings": [],
         },
     )
     monkeypatch.setattr(
         runner,
         "browse_url",
-        lambda url, browser_config, observer=None: {"status": "ok", "url": url, "title": "Profile", "snippet": "funding customer traction"},
+        lambda url, browser_config, observer=None: {
+            "status": "ok",
+            "url": url,
+            "title": "Profile",
+            "snippet": "funding customer traction",
+        },
     )
     monkeypatch.setattr(runner, "_load_web_browser_skill", lambda: None)
     monkeypatch.setattr(runner, "WebBrowserConfig", DummyConfig)
     monkeypatch.setattr(
         runner,
         "scrape_page",
-        lambda url, browser_config: {"status": "ok", "final_url": url, "title": "Rendered", "text": "rendered startup profile", "warnings": []},
+        lambda url, browser_config: {
+            "status": "ok",
+            "final_url": url,
+            "title": "Rendered",
+            "text": "rendered startup profile",
+            "warnings": [],
+        },
     )
 
     sources = []
-    plan = {"queries": ["Example AI funding"], "target_urls": ["https://example.com/profile"], "company_slug": "example-ai"}
-    runner._append_w3m_research(sources, company="Example AI", plan=plan, internet={"max_sources_per_company": 1}, run_dir=tmp_path, action_budget=budget)
-    runner._append_target_url_research(sources, company="Example AI", plan=plan, internet={"max_target_urls_per_company": 1}, run_dir=tmp_path, action_budget=budget)
+    plan = {
+        "queries": ["Example AI funding"],
+        "target_urls": ["https://example.com/profile"],
+        "company_slug": "example-ai",
+    }
+    runner._append_w3m_research(
+        sources,
+        company="Example AI",
+        plan=plan,
+        internet={"max_sources_per_company": 1},
+        run_dir=tmp_path,
+        action_budget=budget,
+    )
+    runner._append_target_url_research(
+        sources,
+        company="Example AI",
+        plan=plan,
+        internet={"max_target_urls_per_company": 1},
+        run_dir=tmp_path,
+        action_budget=budget,
+    )
     runner._append_rendered_browser_research(
         sources,
         company="Example AI",
@@ -2555,12 +3487,23 @@ def test_action_budget_charges_browser_rendered_financial_tool_and_llm(monkeypat
     )
     runner.append_financial_tool_research(
         "Example AI",
-        [{"path": "pitch.txt", "filename": "pitch.txt", "text_preview": "Revenue $100k. Example.com comparable.", "character_count": 35}],
+        [
+            {
+                "path": "pitch.txt",
+                "filename": "pitch.txt",
+                "text_preview": "Revenue $100k. Example.com comparable.",
+                "character_count": 35,
+            }
+        ],
         {"market_comp_researcher": sources},
         action_budget=budget,
     )
     llm = runner.BudgetedLLM(FakeVCLLM(), budget)
-    llm.generate_json(system_prompt="actor", user_prompt="{}", fallback={"actor_id": "actor", "summary": "", "findings": [], "risks": []})
+    llm.generate_json(
+        system_prompt="actor",
+        user_prompt="{}",
+        fallback={"actor_id": "actor", "summary": "", "findings": [], "risks": []},
+    )
 
     ledger = budget.summary()
     assert ledger["used"] == 5
@@ -2584,12 +3527,18 @@ def test_budget_exhaustion_finishes_with_warnings_and_no_extra_llm_calls(tmp_pat
         inputs={
             "document_folder": str(docs),
             "output_folder": str(outputs),
-            "monitoring": {"enabled": True, "poll_interval_seconds": 1, "max_cycles": 1},
+            "monitoring": {
+                "enabled": True,
+                "poll_interval_seconds": 1,
+                "max_cycles": 1,
+            },
         },
         config={
             "llm": {"mode": "fake", "require_live": False},
             "knowledge_rag": {"enabled": False, "required": False},
-            "backpressure": {"llm": {"max_concurrent_calls": 1, "min_interval_seconds": 0}},
+            "backpressure": {
+                "llm": {"max_concurrent_calls": 1, "min_interval_seconds": 0}
+            },
             "research_budget": {"default_actions": 1},
         },
         runs_root=tmp_path,
@@ -2602,6 +3551,12 @@ def test_budget_exhaustion_finishes_with_warnings_and_no_extra_llm_calls(tmp_pat
     assert artifact["action_ledger"]["budget"] == 1
     assert artifact["action_ledger"]["used"] == 1
     assert artifact["action_ledger"]["exhausted"] is True
-    assert any(action["status"] == "budget_exhausted" for action in artifact["action_ledger"]["actions"])
-    assert any(warning["status"] == "budget_exhausted" for warning in artifact["research_warnings"])
+    assert any(
+        action["status"] == "budget_exhausted"
+        for action in artifact["action_ledger"]["actions"]
+    )
+    assert any(
+        warning["status"] == "budget_exhausted"
+        for warning in artifact["research_warnings"]
+    )
     assert fake_llm.calls <= 1

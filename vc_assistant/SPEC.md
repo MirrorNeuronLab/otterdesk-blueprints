@@ -12,7 +12,9 @@ Early-stage startup review is noisy. Pitch decks, notes, founder bios, traction 
 
 The blueprint is a scheduled batch-style OtterDesk workflow. Agents are reusable specialist workers; steps are durable phases in the workflow DAG. Step ids use action phrases, agent ids use role names, and the two namespaces must remain disjoint.
 
-Each step declares its required crew in `run.with.agent_ids`. The list is non-empty, may contain one or many agents, and is evaluated with an all-required completion rule. An agent may be assigned to more than one step when its specialty is needed again. Agent functions do not mark DAG progress complete; the shared step wrapper owns lifecycle state and completion.
+Each step declares its required crew in `run.agents`. The list is non-empty, may contain one or many agents, and is evaluated with an all-required completion rule. `agents.registry` defines handlers and immutable handler parameters independently from optional `llm.agents` review configuration. An agent may be assigned to more than one step; every `(step_id, agent_id)` pair receives a unique invocation id.
+
+The durable data plane is the run filesystem. The live message plane is acknowledged Redis Streams. Agent handlers use the route-free SDK `receive_input` and `send_output` functions, and the compiled DAG owns routing, fan-out, fan-in, retries, ACKs, deduplication, and dead-letter behavior. Assignment-level `needs` creates intra-step dependencies: `prepare_company_evidence` runs extractor → normalizer, while research and scoring assignments run in parallel and join at the step coordinator.
 
 | DAG step | Required agents |
 | --- | --- |
@@ -61,6 +63,8 @@ Internal artifacts include `company_work_queue.json`, company fact tables, resea
 - Workflow step ids and agent ids remain disjoint.
 - Every step declares one or more valid agent ids, and all assigned agents are required for step completion.
 - Multi-agent research and scoring crews join before their containing step completes.
+- Agent messages contain bounded results and artifact references rather than confidential documents or large ledgers.
+- `payloads/runtime/runtime.py` remains below 500 lines and contains only runtime context, configuration, service preparation, observability, and lifecycle persistence.
 - All seven method sections are present for every company.
 - Scores are included where evidence exists.
 - Missing evidence is explicit and not hallucinated.

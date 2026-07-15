@@ -27,7 +27,11 @@ def _is_acyclic(step_ids: set[str], edges: list[dict]) -> bool:
             parents[target].add(source)
 
     resolved: set[str] = set()
-    while ready := {step_id for step_id, dependencies in parents.items() if step_id not in resolved and dependencies <= resolved}:
+    while ready := {
+        step_id
+        for step_id, dependencies in parents.items()
+        if step_id not in resolved and dependencies <= resolved
+    }:
         resolved.update(ready)
     return resolved == step_ids
 
@@ -36,7 +40,10 @@ def test_every_catalog_blueprint_lowers_its_declared_workflow_into_the_core_dag(
     manifest_paths = [
         path
         for path in sorted(ROOT.glob("*/manifest.json"))
-        if (json.loads(path.read_text(encoding="utf-8")).get("standard") or {}).get("profile") == "blueprint"
+        if (json.loads(path.read_text(encoding="utf-8")).get("standard") or {}).get(
+            "profile"
+        )
+        == "blueprint"
     ]
     assert manifest_paths
 
@@ -51,24 +58,42 @@ def test_every_catalog_blueprint_lowers_its_declared_workflow_into_the_core_dag(
         assert steps, path.parent.name
         assert graph_edges or len(steps) == 1, path.parent.name
         assert _is_acyclic(step_ids, graph_edges), path.parent.name
-        assert all(step["trigger_rule"] == "all_success" or step["id"] in {"advisor_evidence_reconciler", "legal_evidence_reconciler"} for step in steps), path.parent.name
-        assert all((step.get("agent_id") or step["run"]) in node_ids for step in steps), path.parent.name
+        assert all(
+            step["trigger_rule"] == "all_success"
+            or step["id"]
+            in {"advisor_evidence_reconciler", "legal_evidence_reconciler"}
+            for step in steps
+        ), path.parent.name
+        assert all(
+            (step.get("agent_id") or step["run"]) in node_ids for step in steps
+        ), path.parent.name
 
 
-def test_migrated_vc_blueprint_compiles_to_fork_join_dag():
-    for blueprint_id, join_step in (("vc_assistant", "score_consistency_auditor"),):
-        manifest = _runtime_manifest(ROOT / blueprint_id / "manifest.json")
-        edges = manifest["flow"]["graph"]["edges"]
-        parents = [edge["from"] for edge in edges if edge["to"] == join_step]
-        fan_out_sources = {edge["from"] for edge in edges}
+def test_migrated_vc_blueprint_compiles_to_redis_routed_fork_join_crews():
+    manifest = _runtime_manifest(ROOT / "vc_assistant" / "manifest.json")
+    edges = manifest["agents"]["edges"]
 
-        assert len(parents) > 1, blueprint_id
-        assert any(sum(edge["from"] == source for edge in edges) > 1 for source in fan_out_sources), blueprint_id
+    for coordinator, expected_count in (
+        ("collect_public_research", 5),
+        ("calculate_valuation_scores", 7),
+    ):
+        outbound = [
+            edge
+            for edge in edges
+            if edge["from_node"] == coordinator and "__" in edge["to_node"]
+        ]
+        inbound = [
+            edge
+            for edge in edges
+            if edge["to_node"] == coordinator and "__" in edge["from_node"]
+        ]
+        assert len(outbound) == expected_count
+        assert len(inbound) == expected_count
 
 
 def test_vc_scorers_share_a_single_predecessor_and_do_not_depend_on_each_other():
     manifest = _runtime_manifest(ROOT / "vc_assistant" / "manifest.json")
-    edges = manifest["flow"]["graph"]["edges"]
+    edges = manifest["agents"]["edges"]
     scorer_ids = {
         "berkus_scorer",
         "scorecard_bill_payne_scorer",
@@ -79,10 +104,18 @@ def test_vc_scorers_share_a_single_predecessor_and_do_not_depend_on_each_other()
         "cost_to_duplicate_scorer",
     }
 
-    scorer_edges = [edge for edge in edges if edge["to"] in scorer_ids]
-    assert {(edge["from"], edge["to"]) for edge in scorer_edges} == {
-        ("research_reconciler", scorer_id) for scorer_id in scorer_ids
+    invocation_ids = {
+        f"calculate_valuation_scores__{scorer_id}" for scorer_id in scorer_ids
     }
+    scorer_edges = [edge for edge in edges if edge["to_node"] in invocation_ids]
+    assert {(edge["from_node"], edge["to_node"]) for edge in scorer_edges} == {
+        ("calculate_valuation_scores", invocation_id)
+        for invocation_id in invocation_ids
+    }
+    assert not any(
+        edge["from_node"] in invocation_ids and edge["to_node"] in invocation_ids
+        for edge in edges
+    )
 
 
 def test_default_llm_blueprints_keep_litellm_routing_logical():
@@ -104,9 +137,7 @@ def test_purchase_research_workers_use_the_logical_default_model():
     blueprint = ROOT / "purchase_research_assistant"
     manifest = json.loads((blueprint / "manifest.json").read_text(encoding="utf-8"))
     payload_config = json.loads(
-        (blueprint / "payloads" / "config" / "default.json").read_text(
-            encoding="utf-8"
-        )
+        (blueprint / "payloads" / "config" / "default.json").read_text(encoding="utf-8")
     )
 
     workers = [

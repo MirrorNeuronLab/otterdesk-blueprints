@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import json
 import importlib.util
 import sys
@@ -7,10 +8,15 @@ from pathlib import Path
 
 import pytest
 
+from mn_sdk import expand_manifest_source
 from mn_sdk.blueprint_support import BlueprintBundleLayout, default_config_path
+from mn_sdk.step_runtime import StepContext, resolve_handler
 
-SCRIPT_PATH = Path(__file__).resolve().parents[1] / "payloads" / "runtime" / "runtime.py"
 BLUEPRINT_DIR = Path(__file__).resolve().parents[1]
+PAYLOAD_DIR = BLUEPRINT_DIR / "payloads"
+RUNTIME_PATH = PAYLOAD_DIR / "runtime" / "runtime.py"
+DOMAIN_PATH = PAYLOAD_DIR / "agents" / "domain.py"
+sys.path.insert(0, str(PAYLOAD_DIR))
 for skill_name in (
     "evidence_engine_skill",
     "actor_review_skill",
@@ -26,6 +32,9 @@ for skill_name in (
 for agent_name in (
     "prototype_bounded_tool_loop_agent",
     "prototype_actor_review_agent",
+    "prototype_artifact_finalizer_agent",
+    "prototype_entity_queue_agent",
+    "prototype_stateful_step_agent",
 ):
     agent_src = BLUEPRINT_DIR.parents[1] / "mn-agents" / agent_name / "src"
     if agent_src.exists():
@@ -33,7 +42,7 @@ for agent_name in (
 
 
 def load_module():
-    spec = importlib.util.spec_from_file_location("vc_runtime", SCRIPT_PATH)
+    spec = importlib.util.spec_from_file_location("vc_agent_domain", DOMAIN_PATH)
     module = importlib.util.module_from_spec(spec)
     assert spec and spec.loader
     spec.loader.exec_module(module)
@@ -45,49 +54,160 @@ def test_source_manifest_keeps_the_default_runtime_declarative():
     manifest = json.loads((BLUEPRINT_DIR / "manifest.json").read_text())
     assert manifest["apiVersion"] == "mn.workflow.source/v2"
     assert manifest["agents"] == {
-        "crew": manifest["agents"]["crew"],
+        "registry": manifest["agents"]["registry"],
         "extra_templates": manifest["agents"]["extra_templates"],
         "extra_edges": manifest["agents"]["extra_edges"],
     }
     assert manifest["workflow"]["steps"][0]["id"] == "detect_packet_changes"
-    assert all(step["run"]["with"]["agent_ids"] for step in manifest["workflow"]["steps"])
+    assert all(step["run"]["agents"] for step in manifest["workflow"]["steps"])
     assert default_config["llm"]["model"] == "default"
 
 
-def test_manifest_steps_resolve_to_conventional_behavior_modules():
+def test_manifest_assignments_resolve_to_direct_agent_handlers():
     manifest = json.loads((BLUEPRINT_DIR / "manifest.json").read_text())
-    handlers = {step["run"]["handler"] for step in manifest["workflow"]["steps"]}
-
-    assert handlers == {
-        "steps.intake",
-        "steps.evidence",
-        "steps.research",
-        "steps.scoring",
-        "steps.reporting",
+    registry = manifest["agents"]["registry"]
+    assigned = {
+        assignment["agent_id"]
+        for step in manifest["workflow"]["steps"]
+        for assignment in step["run"]["agents"]
     }
+    handlers = {registry[agent_id]["handler"] for agent_id in assigned}
+
+    assert assigned == set(registry)
+    assert "agents.public_researcher" in handlers
+    assert "agents.valuation_scorer" in handlers
+    assert not any(handler.startswith("steps.") for handler in handlers)
     assert all(":" not in handler for handler in handlers)
+
+    evidence_agents = manifest["workflow"]["steps"][2]["run"]["agents"]
+    assert evidence_agents[1]["needs"] == ["document_evidence_extractor"]
+    assert all(callable(resolve_handler(handler)) for handler in handlers)
+
+
+def test_manifest_compiles_parallel_crews_and_unique_invocations():
+    expanded = expand_manifest_source(
+        json.loads((BLUEPRINT_DIR / "manifest.json").read_text()),
+        root_dir=BLUEPRINT_DIR,
+    )
+    nodes = {node["node_id"]: node for node in expanded["agents"]["nodes"]}
+    steps = {step["id"]: step for step in expanded["workflow"]["steps"]}
+
+    assert nodes["prepare_company_evidence"]["config"]["crew"]["agents"][1][
+        "needs"
+    ] == ["document_evidence_extractor"]
+    assert len(nodes["collect_public_research"]["config"]["crew"]["agents"]) == 5
+    assert len(nodes["calculate_valuation_scores"]["config"]["crew"]["agents"]) == 7
+    assert steps["collect_public_research"]["agent_ids"][1:] == [
+        "collect_public_research__company_identity_researcher",
+        "collect_public_research__funding_researcher",
+        "collect_public_research__market_comp_researcher",
+        "collect_public_research__traction_verifier",
+        "collect_public_research__rendered_page_researcher",
+    ]
 
 
 def test_runtime_module_resolves_the_blueprint_root_after_the_entrypoint_move():
     runner = load_module()
-    layout = BlueprintBundleLayout.discover(SCRIPT_PATH)
+    layout = BlueprintBundleLayout.discover(RUNTIME_PATH)
 
     assert layout.root == BLUEPRINT_DIR
     assert layout.payload_root == BLUEPRINT_DIR / "payloads"
-    assert default_config_path(SCRIPT_PATH) == BLUEPRINT_DIR / "config" / "default.json"
+    assert (
+        default_config_path(RUNTIME_PATH) == BLUEPRINT_DIR / "config" / "default.json"
+    )
     assert runner.PROMPTS.prompt_dir == BLUEPRINT_DIR / "payloads" / "prompts"
 
 
 def test_vc_has_no_local_blueprint_entrypoint_or_generic_dispatch():
-    runtime_source = SCRIPT_PATH.read_text(encoding="utf-8")
+    runtime_source = RUNTIME_PATH.read_text(encoding="utf-8")
 
-    assert not (SCRIPT_PATH.parent / "run_blueprint.py").exists()
+    assert not (RUNTIME_PATH.parent / "run_blueprint.py").exists()
     assert "def run_blueprint(" not in runtime_source
     assert "def execute_runtime_handler(" not in runtime_source
+    assert len(runtime_source.splitlines()) <= 500
     assert "globals().update(" not in "\n".join(
         path.read_text(encoding="utf-8")
         for path in (BLUEPRINT_DIR / "payloads" / "agents").glob("*.py")
     )
+
+
+def test_runtime_boundary_contains_only_runtime_preparation_responsibilities():
+    source = RUNTIME_PATH.read_text(encoding="utf-8")
+    function_names = {
+        node.name
+        for node in ast.parse(source).body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
+
+    assert function_names <= {
+        "runtime_context_for_step",
+        "agentic_research_config",
+        "step_agent_review_selected",
+        "build_runtime_services",
+        "persist_action_budget_state",
+        "append_event",
+        "append_debug_record",
+        "write_benchmark_artifacts",
+    }
+    for path in (PAYLOAD_DIR / "agents").glob("*.py"):
+        if path.name == "_shared.py":
+            continue
+        agent_source = path.read_text(encoding="utf-8")
+        assert "from runtime.runtime import" not in agent_source
+        assert "from runtime import runtime" not in agent_source
+
+
+def test_old_stage_routers_and_in_process_crew_modules_are_removed():
+    removed = {
+        "steps/intake.py",
+        "steps/evidence.py",
+        "steps/research.py",
+        "steps/scoring.py",
+        "steps/reporting.py",
+        "agents/public_research_crew.py",
+        "agents/valuation_scoring_crew.py",
+    }
+
+    assert all(not (PAYLOAD_DIR / relative).exists() for relative in removed)
+
+
+def test_agent_invocation_replay_uses_durable_idempotency_record(tmp_path):
+    from agents._shared import create_agent_handler
+
+    calls = []
+
+    def domain_handler(ctx, **_options):
+        calls.append(ctx["idempotency_key"])
+        return {"value": len(calls)}
+
+    handler = create_agent_handler(domain_handler)
+    context = StepContext(
+        step_id="test_step",
+        agent_id="test_agent",
+        invocation_id="test_step__test_agent",
+        run_id="replay-run",
+        idempotency_key="replay-run/test_step__test_agent",
+        message={"body": {"step_input": {"kwargs": {"output_folder": str(tmp_path)}}}},
+        config={
+            "agentic_research": {"enabled": False},
+            "actor_review": {"llm_actor_ids": []},
+            "knowledge_rag": {"enabled": False, "required": False},
+        },
+    )
+
+    first = handler(context, runs_root=tmp_path)
+    replay = handler(context, runs_root=tmp_path)
+
+    assert first.outputs == {"value": 1}
+    assert replay.outputs == {"value": 1}
+    assert calls == ["replay-run/test_step__test_agent"]
+    assert (
+        tmp_path
+        / "replay-run"
+        / "workflow_state"
+        / "agent_invocations"
+        / "test_step__test_agent.json"
+    ).exists()
 
 
 def test_model_contract_uses_the_shared_adaptive_default():
@@ -128,8 +248,17 @@ def test_research_prompt_specs_are_distinct_for_all_agent_ids():
 
 def test_research_prompts_include_agent_specific_rag_and_tool_policy():
     rb = load_module()
-    plan = {"agent_queries": {"funding_researcher": ["Acme funding"]}, "lanes": [], "signals": {}, "privacy_policy": "public-safe"}
-    rag_context = {"status": "ready", "context": "Funding playbook", "citations": [{"ref": 1}]}
+    plan = {
+        "agent_queries": {"funding_researcher": ["Acme funding"]},
+        "lanes": [],
+        "signals": {},
+        "privacy_policy": "public-safe",
+    }
+    rag_context = {
+        "status": "ready",
+        "context": "Funding playbook",
+        "citations": [{"ref": 1}],
+    }
     system_prompt, prompt = rb.build_research_agent_prompt(
         company="Acme",
         agent_id="funding_researcher",
@@ -138,7 +267,11 @@ def test_research_prompts_include_agent_specific_rag_and_tool_policy():
         allowed_tools={"browser_search", "finish"},
         remaining_tool_calls=2,
         rag_context=rag_context,
-        knowledge_rag={"enabled": True, "status": "ready", "config": {"required": True}},
+        knowledge_rag={
+            "enabled": True,
+            "status": "ready",
+            "config": {"required": True},
+        },
         observations=[],
     )
 
@@ -155,13 +288,21 @@ def test_actor_review_prompts_are_role_specific():
         actor_id="berkus_scorer",
         actor_spec={"role": "Berkus Scorer"},
         context=context,
-        knowledge_rag={"enabled": True, "status": "ready", "config": {"required": False}},
+        knowledge_rag={
+            "enabled": True,
+            "status": "ready",
+            "config": {"required": False},
+        },
     )[1]
     writer_prompt = rb.build_actor_review_prompt(
         actor_id="company_report_writer",
         actor_spec={"role": "Company Report Writer"},
         context=context,
-        knowledge_rag={"enabled": True, "status": "ready", "config": {"required": False}},
+        knowledge_rag={
+            "enabled": True,
+            "status": "ready",
+            "config": {"required": False},
+        },
     )[1]
 
     assert scorer_prompt["task"] != writer_prompt["task"]
@@ -173,7 +314,9 @@ def test_required_rag_zero_citations_fails_before_llm(monkeypatch):
     rb = load_module()
     calls = {"llm": 0}
 
-    def fake_require_ready(state, *, stage="", company="", context=None, min_citations=0):
+    def fake_require_ready(
+        state, *, stage="", company="", context=None, min_citations=0
+    ):
         if min_citations and not (context or {}).get("citations"):
             raise RuntimeError("required RAG returned zero citations")
         return context if context is not None else state
@@ -187,21 +330,39 @@ def test_required_rag_zero_citations_fails_before_llm(monkeypatch):
     monkeypatch.setattr(
         rb,
         "retrieve_knowledge_rag_context",
-        lambda **kwargs: {"enabled": True, "status": "ready", "context": "", "citations": [], "chunks": []},
+        lambda **kwargs: {
+            "enabled": True,
+            "status": "ready",
+            "context": "",
+            "citations": [],
+            "chunks": [],
+        },
     )
 
     with pytest.raises(RuntimeError, match="zero citations"):
         rb.run_agentic_research_agent(
             company="Acme",
             agent_id="funding_researcher",
-            plan={"agent_queries": {"funding_researcher": ["Acme funding"]}, "queries": ["Acme"], "lanes": []},
+            plan={
+                "agent_queries": {"funding_researcher": ["Acme funding"]},
+                "queries": ["Acme"],
+                "lanes": [],
+            },
             internet={},
             run_dir=None,
             action_budget=None,
             llm=SpyLLM(),
-            agentic={"allowed_tools": ["finish"], "max_iterations_per_agent": 1, "max_tool_calls_per_agent": 1},
+            agentic={
+                "allowed_tools": ["finish"],
+                "max_iterations_per_agent": 1,
+                "max_tool_calls_per_agent": 1,
+            },
             trace=[],
-            knowledge_rag={"enabled": True, "status": "ready", "config": {"required": True}},
+            knowledge_rag={
+                "enabled": True,
+                "status": "ready",
+                "config": {"required": True},
+            },
         )
 
     assert calls["llm"] == 0
@@ -248,7 +409,9 @@ def test_agentic_rag_query_prioritizes_agent_playbook_terms(monkeypatch):
     rb = load_module()
     captured: dict[str, str] = {}
 
-    def fake_require_ready(state, *, stage="", company="", context=None, min_citations=0):
+    def fake_require_ready(
+        state, *, stage="", company="", context=None, min_citations=0
+    ):
         return context if context is not None else state
 
     def fake_retrieve(**kwargs):
@@ -263,7 +426,10 @@ def test_agentic_rag_query_prioritizes_agent_playbook_terms(monkeypatch):
 
     class FinishLLM:
         def generate_json(self, **kwargs):
-            return {"tool_calls": [{"tool": "finish", "reason": "agent guidance reviewed"}], "rag_refs": [1]}
+            return {
+                "tool_calls": [{"tool": "finish", "reason": "agent guidance reviewed"}],
+                "rag_refs": [1],
+            }
 
     monkeypatch.setattr(rb, "skill_require_ready_knowledge_rag", fake_require_ready)
     monkeypatch.setattr(rb, "retrieve_knowledge_rag_context", fake_retrieve)
@@ -272,7 +438,11 @@ def test_agentic_rag_query_prioritizes_agent_playbook_terms(monkeypatch):
         company="Aurora Ai",
         agent_id="research_planner",
         plan={
-            "agent_queries": {"research_planner": ["Aurora Ai company website Crunchbase public profile"]},
+            "agent_queries": {
+                "research_planner": [
+                    "Aurora Ai company website Crunchbase public profile"
+                ]
+            },
             "queries": ["Aurora Ai startup public evidence"],
             "lanes": [{"lane_id": "fundraising"}],
         },
@@ -280,9 +450,17 @@ def test_agentic_rag_query_prioritizes_agent_playbook_terms(monkeypatch):
         run_dir=None,
         action_budget=None,
         llm=FinishLLM(),
-        agentic={"allowed_tools": ["finish"], "max_iterations_per_agent": 1, "max_tool_calls_per_agent": 1},
+        agentic={
+            "allowed_tools": ["finish"],
+            "max_iterations_per_agent": 1,
+            "max_tool_calls_per_agent": 1,
+        },
         trace=[],
-        knowledge_rag={"enabled": True, "status": "ready", "config": {"required": True}},
+        knowledge_rag={
+            "enabled": True,
+            "status": "ready",
+            "config": {"required": True},
+        },
     )
 
     assert "VC diligence lane planning" in captured["query"]
@@ -300,7 +478,14 @@ def test_funding_researcher_uses_agentic_path(monkeypatch):
         return kwargs["agent_id"], []
 
     monkeypatch.setattr(rb, "run_agentic_research_agent", fake_agentic)
-    monkeypatch.setattr(rb, "_run_research_agent", lambda company, agent_id, query, plan, internet, run_dir, action_budget: (agent_id, []))
+    monkeypatch.setattr(
+        rb,
+        "_run_research_agent",
+        lambda company, agent_id, query, plan, internet, run_dir, action_budget: (
+            agent_id,
+            [],
+        ),
+    )
 
     rb.research_company_with_agents(
         "Acme",
@@ -360,8 +545,14 @@ def test_agentic_agent_gap_fill_runs_deterministic_research(monkeypatch):
     )
 
     assert deterministic_calls.count("funding_researcher") == 1
-    assert any(source.get("fallback_after_agentic") is True for source in by_agent["funding_researcher"])
-    assert any(rb.is_substantive_public_source(source) for source in by_agent["funding_researcher"])
+    assert any(
+        source.get("fallback_after_agentic") is True
+        for source in by_agent["funding_researcher"]
+    )
+    assert any(
+        rb.is_substantive_public_source(source)
+        for source in by_agent["funding_researcher"]
+    )
 
 
 def test_company_evidence_summaries_include_counts_and_source_quality():
@@ -404,7 +595,10 @@ def test_company_evidence_summaries_include_counts_and_source_quality():
 
     assert summaries[0]["local_evidence"]["record_count"] == 1
     assert summaries[0]["research_sources"]["substantive_source_count"] == 1
-    assert summaries[0]["research_sources"]["source_quality_counts"]["public_confirmation"] == 1
+    assert (
+        summaries[0]["research_sources"]["source_quality_counts"]["public_confirmation"]
+        == 1
+    )
     assert summaries[0]["missing_methods"] == ["cost_to_duplicate_method"]
 
 
@@ -453,9 +647,15 @@ def test_transport_keeps_compact_company_evidence_but_omits_top_level_raw_fields
     assert "actions" not in transport["action_ledger"]
     report = transport["company_reports"][0]
     assert report["evidence"][0]["filename"] == "pitch.txt"
-    assert len(report["evidence"][0]["text_preview"]) <= rb.MAX_TRANSPORT_TEXT_PREVIEW_CHARS + 20
+    assert (
+        len(report["evidence"][0]["text_preview"])
+        <= rb.MAX_TRANSPORT_TEXT_PREVIEW_CHARS + 20
+    )
     assert report["research_sources"][0]["url"] == "https://acme.example/funding"
-    assert len(report["research_sources"][0]["snippet"]) <= rb.MAX_TRANSPORT_SNIPPET_CHARS + 20
+    assert (
+        len(report["research_sources"][0]["snippet"])
+        <= rb.MAX_TRANSPORT_SNIPPET_CHARS + 20
+    )
 
 
 def test_require_live_llm_rejects_fallback_provider():
@@ -481,4 +681,6 @@ def test_require_live_llm_rejects_fallback_provider():
     llm = rb.BudgetedLLM(FakeLLM(), Budget(), require_live=True)
 
     with pytest.raises(RuntimeError, match="non-live provider"):
-        llm.generate_json(system_prompt="actor", user_prompt="{}", fallback={"actor_id": "actor"})
+        llm.generate_json(
+            system_prompt="actor", user_prompt="{}", fallback={"actor_id": "actor"}
+        )

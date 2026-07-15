@@ -7,7 +7,7 @@ Checks a local folder of startup documents on each scheduled batch run, builds a
 
 ## What It Does
 
-This blueprint is a report-only early diligence assistant. It helps a reviewer inspect one or more startup document packets with a specialist agent crew for grouping, evidence extraction, fact normalization, public research, seven deterministic scoring methods, score auditing, and batch report writing. The local runner uses bounded parallelism for changed company packets, research agents, and method scorers while preserving stable company-slug output order.
+This blueprint is a report-only early diligence assistant. It helps a reviewer inspect one or more startup document packets with a specialist agent crew for grouping, evidence extraction, fact normalization, public research, seven deterministic scoring methods, score auditing, and batch report writing. MirrorNeuron routes each assigned agent through acknowledged Redis Streams while durable evidence and reports remain filesystem artifacts.
 
 It does not decide whether to invest, pass, watch, or reject. It writes scores, evidence, assumptions, missing-evidence flags, and source references so the user can decide.
 
@@ -30,8 +30,10 @@ Agents and steps are separate concepts:
 
 - An **agent** is a reusable specialist worker with a role and bounded responsibility.
 - A **step** is a durable phase in the workflow DAG. It owns dependencies, lifecycle state, and completion.
-- Every step declares a non-empty `run.with.agent_ids` crew. The step completes only after all assigned agents finish.
+- Every step declares a non-empty `run.agents` assignment list. The step completes only after all assigned agents finish.
 - A step may assign one or many agents, and the same agent may be assigned to multiple steps.
+- `agents.registry` owns each reusable handler and its immutable parameters; `llm.agents` only configures optional LLM review.
+- Assignment-level `needs` defines communication inside a step. Agents receive and return route-free SDK messages while the DAG owns routing.
 
 | Workflow step | Required agent crew |
 | --- | --- |
@@ -46,7 +48,7 @@ Agents and steps are separate concepts:
 | `write_company_reports` | `company_report_writer` |
 | `publish_batch_summary` | `batch_index_writer` |
 
-The public-research and valuation-scoring steps fan out internally across their assigned crews, then join before their single DAG step is marked complete. Agent modules perform specialist work; the step wrapper owns workflow completion and state transitions.
+`prepare_company_evidence` runs extractor → normalizer. Public research and valuation scoring fan out through Redis, then a domain-neutral coordinator joins every required result before marking the logical step complete. Messages contain bounded outputs and artifact references; confidential documents, research ledgers, and reports stay in the durable filesystem data plane.
 
 ## Quick Start
 

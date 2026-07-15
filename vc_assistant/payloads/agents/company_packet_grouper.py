@@ -7,11 +7,20 @@ from mn_sdk.blueprint_support import (
     slugify,
     write_workflow_state,
 )
-from runtime.runtime import group_document_file_records
+from agents.domain import group_document_file_records
 
-def run_company_packet_grouper(ctx: dict[str, Any], *, llm_client: Any | None = None) -> dict[str, Any]:
+from ._shared import create_agent_handler
+
+
+def run_company_packet_grouper(
+    ctx: dict[str, Any], *, llm_client: Any | None = None
+) -> dict[str, Any]:
     files = read_workflow_state(ctx["run_dir"], "document_files.json", [])
-    files = [item for item in files if isinstance(item, dict)] if isinstance(files, list) else []
+    files = (
+        [item for item in files if isinstance(item, dict)]
+        if isinstance(files, list)
+        else []
+    )
     groups = group_document_file_records(ctx["document_folder"], files)
     packets = [
         {
@@ -24,3 +33,6 @@ def run_company_packet_grouper(ctx: dict[str, Any], *, llm_client: Any | None = 
     ]
     write_workflow_state(ctx["run_dir"], "company_packet_groups.json", packets)
     return {"company_count": len(packets), "document_file_count": len(files)}
+
+
+run = create_agent_handler(run_company_packet_grouper)

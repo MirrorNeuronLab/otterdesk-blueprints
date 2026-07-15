@@ -30,50 +30,75 @@ def _run_handler_workflow(
     message_path.write_text(json.dumps({"kwargs": inputs}), encoding="utf-8")
     result: dict = {}
     for step in manifest["workflow"]["steps"]:
-        run = step["run"]
-        environment = dict(os.environ)
-        environment.update(
-            {
-                "MN_JOB_ID": f"{blueprint_id}-handler-test",
-                "MN_MESSAGE_FILE": str(message_path),
-                "MN_WORKFLOW_STEP_ID": step["id"],
-                "MN_BLUEPRINT_CONFIG_JSON": json.dumps(config),
-                "MN_JOB_OUTPUT_DIR": str(tmp_path / "outputs"),
-                "MN_RUNS_ROOT": str(tmp_path / "runs"),
-                "MN_WORKDIR": str(tmp_path / "workspace"),
-                "PYTHONPATH": os.pathsep.join(
-                    value
-                    for value in (
-                        str(SDK_ROOT),
-                        *(str(path) for path in SKILL_SOURCES),
-                        *(str(path) for path in AGENT_SOURCES),
-                        environment.get("PYTHONPATH", ""),
-                    )
-                    if value
+        agent_outputs = {}
+        for assignment in step["run"]["agents"]:
+            agent_id = assignment["agent_id"]
+            invocation_id = f"{step['id']}__{agent_id}"
+            definition = manifest["agents"]["registry"][agent_id]
+            message_path.write_text(
+                json.dumps(
+                    {
+                        "body": {
+                            "step_input": {"kwargs": inputs},
+                            "agent_outputs": {
+                                dependency: agent_outputs[dependency]
+                                for dependency in assignment.get("needs", [])
+                            },
+                            "artifact_refs": [],
+                        }
+                    }
                 ),
-            }
-        )
-        completed = subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "mn_sdk.step_runtime",
-                "--handler",
-                run["handler"],
-                "--with-json",
-                json.dumps(run.get("with") or {}),
-            ],
-            cwd=scripts,
-            env=environment,
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        assert completed.returncode == 0, completed.stderr
-        result = json.loads(completed.stdout)
-        assert result["workflow_step_id"] == step["id"]
-        message_path.write_text(json.dumps(result), encoding="utf-8")
-    return result
+                encoding="utf-8",
+            )
+            environment = dict(os.environ)
+            environment.update(
+                {
+                    "MN_JOB_ID": f"{blueprint_id}-handler-test",
+                    "MN_MESSAGE_FILE": str(message_path),
+                    "MN_WORKFLOW_STEP_ID": step["id"],
+                    "MN_WORKFLOW_AGENT_ID": agent_id,
+                    "MN_WORKFLOW_INVOCATION_ID": invocation_id,
+                    "MN_WORKFLOW_IDEMPOTENCY_KEY": f"{blueprint_id}/{invocation_id}",
+                    "MN_BLUEPRINT_CONFIG_JSON": json.dumps(config),
+                    "MN_JOB_OUTPUT_DIR": str(tmp_path / "outputs"),
+                    "MN_RUNS_ROOT": str(tmp_path / "runs"),
+                    "MN_WORKDIR": str(tmp_path / "workspace"),
+                    "PYTHONPATH": os.pathsep.join(
+                        value
+                        for value in (
+                            str(SDK_ROOT),
+                            *(str(path) for path in SKILL_SOURCES),
+                            *(str(path) for path in AGENT_SOURCES),
+                            environment.get("PYTHONPATH", ""),
+                        )
+                        if value
+                    ),
+                }
+            )
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "mn_sdk.step_runtime",
+                    "--handler",
+                    definition["handler"],
+                    "--with-json",
+                    json.dumps(definition.get("with") or {}),
+                ],
+                cwd=scripts,
+                env=environment,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            assert completed.returncode == 0, completed.stderr
+            result = json.loads(completed.stdout)
+            assert result["workflow_step_id"] == step["id"]
+            agent_outputs[agent_id] = dict(result.get("outputs") or {})
+    return {
+        **dict(result.get("outputs") or {}),
+        **{key: value for key, value in result.items() if key != "outputs"},
+    }
 
 
 @pytest.mark.parametrize(
@@ -81,7 +106,10 @@ def _run_handler_workflow(
     [
         (
             "vc_assistant",
-            {"document_folder": "vc_assistant/examples/sample_inputs", "monitoring": {"max_cycles": 1}},
+            {
+                "document_folder": "vc_assistant/examples/sample_inputs",
+                "monitoring": {"max_cycles": 1},
+            },
             {
                 "llm": {"mode": "fake", "require_live": False},
                 "knowledge_rag": {"enabled": False, "required": False},
