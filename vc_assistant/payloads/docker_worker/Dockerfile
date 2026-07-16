@@ -1,7 +1,6 @@
 FROM debian:bookworm-slim
 
-# w3m is an internal fast engine used by the unified web browser skill; the
-# blueprint no longer imports or depends on the deprecated w3m browser skill.
+# w3m is an internal fast engine used by the unified web browser skill.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     python3 \

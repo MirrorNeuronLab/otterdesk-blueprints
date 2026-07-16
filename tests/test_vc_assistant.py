@@ -406,10 +406,6 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         config["input_skills"]["web_browser"]["install_policy"] == "docker_worker_image"
     )
     assert "w3m_browser" not in config["input_skills"]
-    assert all(
-        dependency["name"] != "mirrorneuron-w3m-browser-skill"
-        for dependency in manifest["skill_dependencies"]
-    )
     assert config["input_skills"]["web_browser"]["runtime"] == {
         "driver": "docker_worker",
         "install_scope": "shared_job_container",
