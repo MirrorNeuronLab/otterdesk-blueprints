@@ -16,6 +16,10 @@ Each manifest step references a `payloads/steps` module through `run.definition`
 
 The durable data plane is the run filesystem. The live message plane is acknowledged Redis Streams. Agent handlers use the route-free SDK `receive_input` and `send_output` functions. The workflow DAG contains only logical step dependencies; each compiled step contains a generated source boundary, its internal agent graph, and a generated sink boundary. The internal graph owns routing, fan-out, fan-in, retries, ACKs, deduplication, and dead-letter behavior. `prepare_company_evidence` runs extractor → normalizer, while research and scoring calls run in parallel and join before the sink completes the logical step.
 
+Production code follows a strict ownership boundary. `payloads/steps` owns orchestration declarations, `payloads/agents` owns executable worker entrypoints, `payloads/vc_domain` owns VC-specific evidence/research/valuation/report policy, and `payloads/runtime` owns runtime context and shared-service preparation. Domain-neutral message envelopes, artifact references, durable replay, document intake utilities, and control agents belong to the SDK, reusable agents, and skills. No aggregate `agents/domain.py` compatibility module is permitted.
+
+Every scorer registry ID resolves to a same-named agent module. The shared scorer executor handles durable queue mechanics, while deterministic formulas remain individually inspectable under `vc_domain/valuation` (`first_chicago.py`, `berkus.py`, `scorecard.py`, and the other method modules).
+
 | DAG step | Required agents |
 | --- | --- |
 | `detect_packet_changes` | `startup_folder_watcher` |
@@ -65,6 +69,8 @@ Internal artifacts include `company_work_queue.json`, company fact tables, resea
 - Multi-agent research and scoring crews join before their containing step completes.
 - Agent messages contain bounded results and artifact references rather than confidential documents or large ledgers.
 - `payloads/runtime/runtime.py` remains below 500 lines and contains only runtime context, configuration, service preparation, observability, and lifecycle persistence.
+- `payloads/agents/domain.py` does not exist, agent modules do not import it, and no VC domain module grows beyond the architecture size guard.
+- Every valuation scorer registry entry resolves to a same-named agent module and an individually owned formula module.
 - All seven method sections are present for every company.
 - Scores are included where evidence exists.
 - Missing evidence is explicit and not hallucinated.

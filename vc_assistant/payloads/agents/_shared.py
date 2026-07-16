@@ -3,20 +3,21 @@ from __future__ import annotations
 from typing import Any, Callable
 
 from mn_prototype_stateful_step_agent import (
+    AgentHandlerOutput,
+    MessageAgentSpec,
     StatefulStepContext,
     StatefulStepSpec,
-    create_agent,
+    create_message_agent,
 )
 from mn_sdk.blueprint_support import StepLifecycleHooks
 from mn_sdk.step_runtime import (
     AgentInput,
-    StepContext,
+    artifact_reference,
     find_message_payload,
-    receive_input,
-    send_output,
+    find_artifact_reference,
 )
 
-from . import domain as runtime
+from runtime import runtime
 from .review import review_agent_invocation
 
 
@@ -90,7 +91,7 @@ AGENT_SPEC = StatefulStepSpec(
 
 
 def create_agent_handler(
-    domain_handler: Callable[..., dict[str, Any]],
+    domain_handler: Callable[..., Any],
 ) -> Callable[..., Any]:
     def invoke(
         context: StatefulStepContext,
@@ -98,20 +99,7 @@ def create_agent_handler(
         llm_client: Any | None = None,
         agent_input: AgentInput,
         **parameters: Any,
-    ) -> dict[str, Any]:
-        invocation_id = (
-            context.step_context.invocation_id
-            or f"{context.step_context.step_id}__{context.step_context.agent_id}"
-        )
-        marker_name = f"agent_invocations/{invocation_id}.json"
-        cached = context.state_store.read(marker_name, {})
-        if (
-            agent_input.idempotency_key
-            and isinstance(cached, dict)
-            and cached.get("idempotency_key") == agent_input.idempotency_key
-            and isinstance(cached.get("outputs"), dict)
-        ):
-            return dict(cached["outputs"])
+    ) -> Any:
         mapping = context.to_mapping()
         mapping.update(
             {
@@ -130,51 +118,15 @@ def create_agent_handler(
                 services=context.services,
                 llm_client=llm_client,
             )
-        context.state_store.write(
-            marker_name,
-            {
-                "agent_id": context.step_context.agent_id,
-                "invocation_id": invocation_id,
-                "idempotency_key": agent_input.idempotency_key,
-                "outputs": result,
-                "status": "completed",
-            },
-        )
         return result
 
-    managed_handler = create_agent(AGENT_SPEC, invoke)
-
-    def run(step_context: StepContext, **parameters: Any):
-        agent_input = receive_input(step_context)
-        result = managed_handler(
-            step_context,
-            inputs=_runtime_inputs(agent_input.payload),
-            agent_input=agent_input,
-            **parameters,
-        )
-        outputs = (
-            result.get("outputs") if isinstance(result.get("outputs"), dict) else result
-        )
-        invocation_id = (
-            step_context.invocation_id
-            or f"{step_context.step_id}__{step_context.agent_id}"
-        )
-        artifacts = [
-            {
-                "kind": "agent_result",
-                "path": f"workflow_state/{invocation_id}_result.json",
-                "invocation_id": invocation_id,
-            },
-            {
-                "kind": "agent_idempotency_record",
-                "path": f"workflow_state/agent_invocations/{invocation_id}.json",
-                "invocation_id": invocation_id,
-            },
-        ]
-        return send_output(outputs, artifacts=artifacts)
-
-    run.__name__ = "run"
-    return run
+    return create_message_agent(
+        MessageAgentSpec(
+            stateful=AGENT_SPEC,
+            input_resolver=lambda value: _runtime_inputs(value.payload),
+        ),
+        invoke,
+    )
 
 
 def _runtime_inputs(payload: dict[str, Any]) -> dict[str, Any]:
@@ -187,4 +139,32 @@ def _runtime_inputs(payload: dict[str, Any]) -> dict[str, Any]:
     return found if found else {}
 
 
-__all__ = ["create_agent_handler"]
+def durable_artifact(kind: str, path: str, **metadata: Any) -> dict[str, Any]:
+    return artifact_reference(kind, path, **metadata)
+
+
+def agent_output(
+    payload: dict[str, Any],
+    *artifacts: dict[str, Any],
+    metrics: dict[str, Any] | None = None,
+    status: str = "completed",
+) -> AgentHandlerOutput:
+    return AgentHandlerOutput(
+        payload=payload,
+        artifacts=tuple(artifacts),
+        metrics=dict(metrics or {}),
+        status=status,
+    )
+
+
+def input_artifact(ctx: dict[str, Any], kind: str) -> dict[str, Any] | None:
+    value = ctx.get("agent_input")
+    return find_artifact_reference(value, kind) if isinstance(value, AgentInput) else None
+
+
+__all__ = [
+    "agent_output",
+    "create_agent_handler",
+    "durable_artifact",
+    "input_artifact",
+]

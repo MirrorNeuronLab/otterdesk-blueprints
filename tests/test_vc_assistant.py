@@ -12,6 +12,8 @@ from pathlib import Path
 
 import pytest
 
+from vc_assistant.domain_test_support import load_domain_test_surface
+
 
 ROOT = Path(__file__).resolve().parents[1]
 for skill_name in (
@@ -37,7 +39,7 @@ for agent_name in (
     agent_src = ROOT.parent / "mn-agents" / agent_name / "src"
     if agent_src.exists():
         sys.path.insert(0, str(agent_src))
-RUNNER_PATH = ROOT / "vc_assistant" / "payloads" / "agents" / "domain.py"
+BLUEPRINT_DIR = ROOT / "vc_assistant"
 METHOD_IDS = {
     "berkus_method",
     "scorecard_bill_payne_method",
@@ -125,10 +127,7 @@ class ToolCallingVCLLM(FakeVCLLM):
 
 
 def _load_runner():
-    payload_root = RUNNER_PATH.parents[1]
-    if str(payload_root) not in sys.path:
-        sys.path.insert(0, str(payload_root))
-    module = importlib.import_module("agents.domain")
+    module = load_domain_test_surface(BLUEPRINT_DIR)
     module.run_blueprint = lambda **kwargs: _run_vc_manifest_handlers(module, **kwargs)
     module.run_runtime_step = lambda step_id, **kwargs: _run_vc_manifest_step(
         module, step_id, **kwargs
@@ -247,6 +246,16 @@ def _run_vc_manifest_handlers(
             run_id=run_id,
             llm_client=llm_client,
         )
+    # Redis messages intentionally carry only bounded artifact references.  The
+    # legacy end-to-end assertions inspect the durable payload, so resolve that
+    # reference at the test boundary instead of weakening the production API.
+    final_ref = result.get("final_artifact")
+    if isinstance(final_ref, dict) and final_ref.get("path"):
+        candidate = Path(runs_root or ROOT / "runs") / str(
+            result.get("run_id") or run_id or ""
+        ) / str(final_ref["path"])
+        if candidate.exists():
+            result["final_artifact"] = json.loads(candidate.read_text(encoding="utf-8"))
     return result
 
 
@@ -1130,7 +1139,12 @@ def test_three_bundled_companies_match_deterministic_golden_contract(tmp_path):
         .read_text(encoding="utf-8")
         .splitlines()
     ]
-    assert any(event["type"] == "publish_batch_summary_completed" for event in events)
+    # Logical step completion is emitted by the generated StepSink, not by the
+    # batch-writing domain agent exercised by this direct-handler harness.
+    assert any(event["type"] == "artifact_written" for event in events)
+    assert not any(
+        event["type"] == "publish_batch_summary_completed" for event in events
+    )
     assert (
         json.loads((outputs / "final_artifact.json").read_text(encoding="utf-8"))[
             "company_reports"
@@ -2981,7 +2995,8 @@ def test_runtime_step_entrypoint_honors_mirror_neuron_run_environment(
     assert result["run_id"] == "vc-runtime-env"
     assert result["runtime_step_mode"] == "agent_invocation"
     assert result["workflow_step_id"] == "detect_packet_changes"
-    assert (run_dir / "run.json").exists()
+    assert not (run_dir / "run.json").exists()
+    assert (run_dir / "workflow_state" / "runtime_context.json").exists()
     assert (run_dir / "workflow_state" / "document_files.json").exists()
     assert not (run_dir / "final_artifact.json").exists()
 

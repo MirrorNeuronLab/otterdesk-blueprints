@@ -51,6 +51,16 @@ Agents and steps are separate concepts:
 
 `prepare_company_evidence` runs extractor → normalizer. Public research and valuation scoring fan out through Redis, then a named generic join waits for every required result. Only the generated step end boundary completes the logical step and publishes its declared output. Messages contain bounded outputs and artifact references; confidential documents, research ledgers, and reports stay in the durable filesystem data plane.
 
+## Code Ownership
+
+- `payloads/steps/` contains only logical step contracts, input/output mappings, and internal collaboration graphs.
+- `payloads/agents/` contains executable specialist workers. Each valuation agent has a discoverable module matching its registry ID; for example, `agents/first_chicago_scorer.py` binds the First Chicago worker.
+- `payloads/vc_domain/` contains blueprint-specific diligence policy and deterministic behavior. Valuation formulas are split by method under `vc_domain/valuation/`; the First Chicago formula is in `valuation/first_chicago.py`.
+- `payloads/runtime/` contains dependency bootstrap and runtime/service preparation only. It must not import agent behavior.
+- Shared, domain-neutral mechanisms stay in the SDK, skills, or reusable agent packages. Route-neutral message parsing and artifact references live in `mn_sdk.step_runtime`; durable message-agent replay lives in `prototype_stateful_step_agent`; document hashing, grouping, and common PII redaction live in `document_reading_skill`.
+
+There is intentionally no `payloads/agents/domain.py`. Agents import only the VC domain modules they own, while reusable skills remain independent of VC terminology.
+
 ## Quick Start
 
 Run from the catalog:

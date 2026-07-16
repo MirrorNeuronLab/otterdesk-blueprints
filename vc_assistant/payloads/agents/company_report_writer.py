@@ -3,19 +3,18 @@ from __future__ import annotations
 from typing import Any
 
 from mn_sdk.blueprint_support import write_workflow_state
-from agents.domain import (
-    append_event,
-    normalized_research_ledger,
-    update_watch_state,
-    write_company_outputs,
-)
+from vc_domain.intake import update_watch_state
+from vc_domain.outputs import write_company_outputs
+from vc_domain.research_core import normalized_research_ledger
+from vc_domain.runtime_tools import append_event
 
-from ._shared import create_agent_handler
+from ._shared import agent_output, create_agent_handler, durable_artifact, input_artifact
 
 
 def run_company_report_writer(
     ctx: dict[str, Any], *, llm_client: Any | None = None
 ) -> dict[str, Any]:
+    input_artifact(ctx, "audited_analysis_index")
     store = ctx["state_store"]
     company_records = store.read_object("company_records.json")
     company_work_queue = store.read_list("company_work_queue.json")
@@ -52,10 +51,18 @@ def run_company_report_writer(
         "watch_cycle_completed",
         {"cycle": 1, "companies": len(company_records)},
     )
-    return {
-        "output_folder": str(ctx["output_folder"]),
-        "output_file_count": len(output_files),
-    }
+    artifact = durable_artifact(
+        "company_report_index", "workflow_state/output_files.json"
+    )
+    return agent_output(
+        {
+            "output_folder": str(ctx["output_folder"]),
+            "output_file_count": len(output_files),
+            "company_reports_artifact": artifact,
+        },
+        artifact,
+        metrics={"output_file_count": len(output_files)},
+    )
 
 
 run = create_agent_handler(run_company_report_writer)

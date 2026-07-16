@@ -2,25 +2,27 @@ from __future__ import annotations
 
 from typing import Any
 
+from mn_sdk.blueprint_support import write_workflow_state
 from mn_prototype_entity_queue_agent import (
     EntityQueueSpec,
     create_agent as create_entity_queue,
 )
-from agents.domain import (
+from vc_domain.execution_policy import company_worker_count
+from vc_domain.research_agentic import run_agentic_research_agent
+from vc_domain.research_core import (
     _research_agent_enabled,
     agentic_research_config,
-    build_adaptive_research_plan,
-    company_worker_count,
     normalized_research_ledger,
-    run_agentic_research_agent,
 )
+from vc_domain.research_policy import build_adaptive_research_plan
 
-from ._shared import create_agent_handler
+from ._shared import agent_output, create_agent_handler, durable_artifact, input_artifact
 
 
 def run_research_planner(
     ctx: dict[str, Any], *, llm_client: Any | None = None
 ) -> dict[str, Any]:
+    input_artifact(ctx, "company_evidence_index")
     store = ctx["state_store"]
     company_records = store.read_object("company_records.json")
     company_work_queue = store.read_list("company_work_queue.json")
@@ -89,7 +91,24 @@ def run_research_planner(
         )
     )(ctx)
     planned_count = int(queue_result["processed_count"])
-    return {"company_count": planned_count}
+    refs = [
+        durable_artifact(
+            "research_plan",
+            f"workflow_state/research_plans/{item['company_slug']}.json",
+            company=item["company_name"],
+        )
+        for item in company_work_queue
+    ]
+    write_workflow_state(ctx["run_dir"], "research_plan_index.json", refs)
+    index = durable_artifact(
+        "research_plan_index", "workflow_state/research_plan_index.json"
+    )
+    return agent_output(
+        {"company_count": planned_count, "research_plan_artifact": index},
+        index,
+        *refs,
+        metrics={"company_count": planned_count},
+    )
 
 
 run = create_agent_handler(run_research_planner)

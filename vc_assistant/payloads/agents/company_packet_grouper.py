@@ -7,14 +7,17 @@ from mn_sdk.blueprint_support import (
     slugify,
     write_workflow_state,
 )
-from agents.domain import group_document_file_records
+from vc_domain.intake import group_document_file_records
 
-from ._shared import create_agent_handler
+from ._shared import agent_output, create_agent_handler, durable_artifact, input_artifact
 
 
 def run_company_packet_grouper(
     ctx: dict[str, Any], *, llm_client: Any | None = None
 ) -> dict[str, Any]:
+    upstream = input_artifact(ctx, "document_file_index")
+    if upstream is not None and upstream.get("path") != "workflow_state/document_files.json":
+        raise ValueError("unexpected document file index artifact path")
     files = read_workflow_state(ctx["run_dir"], "document_files.json", [])
     files = (
         [item for item in files if isinstance(item, dict)]
@@ -32,7 +35,18 @@ def run_company_packet_grouper(
         for company, items in groups.items()
     ]
     write_workflow_state(ctx["run_dir"], "company_packet_groups.json", packets)
-    return {"company_count": len(packets), "document_file_count": len(files)}
+    artifact = durable_artifact(
+        "company_packet_index", "workflow_state/company_packet_groups.json"
+    )
+    return agent_output(
+        {
+            "company_count": len(packets),
+            "document_file_count": len(files),
+            "company_packets_artifact": artifact,
+        },
+        artifact,
+        metrics={"company_count": len(packets)},
+    )
 
 
 run = create_agent_handler(run_company_packet_grouper)

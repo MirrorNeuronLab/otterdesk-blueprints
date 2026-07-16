@@ -2,27 +2,28 @@ from __future__ import annotations
 
 from typing import Any
 
+from mn_sdk.blueprint_support import slugify, write_workflow_state
 from mn_prototype_entity_queue_agent import (
     EntityQueueSpec,
     create_agent as create_entity_queue,
 )
-from agents.domain import (
-    METHOD_IDS,
+from vc_domain.common import METHOD_IDS
+from vc_domain.composition import build_company_analysis_from_method_scores
+from vc_domain.knowledge import public_knowledge_rag_state
+from vc_domain.execution_policy import company_worker_count, scoring_fund_profile
+from vc_domain.research_core import (
     agentic_research_config,
-    build_company_analysis_from_method_scores,
-    company_worker_count,
     normalized_research_ledger,
-    public_knowledge_rag_state,
-    reconcile_research,
-    scoring_fund_profile,
 )
+from vc_domain.research_orchestration import reconcile_research
 
-from ._shared import create_agent_handler
+from ._shared import agent_output, create_agent_handler, durable_artifact, input_artifact
 
 
 def run_score_consistency_auditor(
     ctx: dict[str, Any], *, llm_client: Any | None = None
 ) -> dict[str, Any]:
+    input_artifact(ctx, "valuation_method_score_index")
     store = ctx["state_store"]
     company_records = store.read_object("company_records.json")
     company_work_queue = store.read_list("company_work_queue.json")
@@ -116,10 +117,29 @@ def run_score_consistency_auditor(
     )(ctx)
     processed_count = int(queue_result["processed_count"])
     skipped_count = int(queue_result["skipped_count"])
-    return {
-        "processed_company_count": processed_count,
-        "skipped_company_count": skipped_count,
-    }
+    refs = [
+        durable_artifact(
+            "audited_company_analysis",
+            f"workflow_state/analyses/{slugify(item['company_name'])}.json",
+            company=item["company_name"],
+        )
+        for item in company_work_queue
+        if item.get("status") != "unchanged_skipped"
+    ]
+    write_workflow_state(ctx["run_dir"], "audited_analysis_index.json", refs)
+    index = durable_artifact(
+        "audited_analysis_index", "workflow_state/audited_analysis_index.json"
+    )
+    return agent_output(
+        {
+            "processed_company_count": processed_count,
+            "skipped_company_count": skipped_count,
+            "audited_analysis_artifact": index,
+        },
+        index,
+        *refs,
+        metrics={"audited_company_count": processed_count},
+    )
 
 
 run = create_agent_handler(run_score_consistency_auditor)

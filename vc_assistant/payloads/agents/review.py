@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from . import domain
+from vc_domain.agent_review import run_step_agent_reviews
 
 
 def review_agent_invocation(
@@ -15,7 +15,7 @@ def review_agent_invocation(
     services: dict[str, Any],
     llm_client: Any | None = None,
 ) -> dict[str, Any]:
-    return domain.run_step_agent_reviews(
+    return run_step_agent_reviews(
         ctx,
         step_id,
         [agent_id],

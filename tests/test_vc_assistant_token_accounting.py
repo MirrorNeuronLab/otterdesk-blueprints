@@ -1,20 +1,16 @@
 from __future__ import annotations
 
-import importlib.util
 import json
 from pathlib import Path
 
+from vc_assistant.domain_test_support import load_domain_test_surface
+
 
 ROOT = Path(__file__).resolve().parents[1]
-RUNNER_PATH = ROOT / "vc_assistant" / "payloads" / "agents" / "domain.py"
 
 
 def _load_runner():
-    spec = importlib.util.spec_from_file_location("vc_token_runtime", RUNNER_PATH)
-    module = importlib.util.module_from_spec(spec)
-    assert spec and spec.loader
-    spec.loader.exec_module(module)
-    return module
+    return load_domain_test_surface(ROOT / "vc_assistant")
 
 
 def test_vc_manifest_workers_do_not_expose_legacy_token_budget():

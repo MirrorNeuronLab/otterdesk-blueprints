@@ -2,66 +2,29 @@ from __future__ import annotations
 
 from typing import Any
 
-from mn_blueprint_support import start_agent_beacon_thread
-from mn_sdk.blueprint_support import write_json, write_workflow_state
-from agents.domain import (
-    BLUEPRINT_ID,
-    BLUEPRINT_NAME,
+from mn_sdk.blueprint_support import write_workflow_state
+from vc_domain.common import (
     SUPPORTED_SUFFIXES,
-    _document_paths,
+)
+from vc_domain.intake import _document_paths
+from vc_domain.runtime_tools import (
     append_event,
     observed_operation,
-    persist_runtime_context,
     stable_text_hash,
 )
 
-from ._shared import create_agent_handler
+from ._shared import agent_output, create_agent_handler, durable_artifact
 
 
 def run_startup_folder_watcher(
     ctx: dict[str, Any], *, llm_client: Any | None = None
 ) -> dict[str, Any]:
-    start_agent_beacon_thread(f"{BLUEPRINT_NAME} is running")
     ctx["run_dir"].mkdir(parents=True, exist_ok=True)
     ctx["output_folder"].mkdir(parents=True, exist_ok=True)
-    persist_runtime_context(ctx)
-    write_json(ctx["run_dir"] / "config.json", ctx["config"])
-    write_json(
-        ctx["run_dir"] / "inputs.json",
-        {
-            "payload": ctx["payload"],
-            "document_folder": str(ctx["document_folder"]),
-            "force_reprocess": ctx["force_reprocess"],
-        },
-    )
-    write_json(
-        ctx["run_dir"] / "run.json",
-        {
-            "run_id": ctx["run_id"],
-            "blueprint_id": BLUEPRINT_ID,
-            "status": "running",
-            "started_at": ctx["started_at"],
-        },
-    )
-    append_event(
-        ctx["run_dir"],
-        "blueprint_phase_started",
-        {"phase": "loading_inputs", "component": BLUEPRINT_ID},
-    )
-    append_event(
-        ctx["run_dir"],
-        "blueprint_phase_completed",
-        {"phase": "loading_inputs", "component": BLUEPRINT_ID},
-    )
     append_event(
         ctx["run_dir"],
         "watch_cycle_started",
         {"cycle": 1, "max_cycles": ctx["max_cycles"]},
-    )
-    append_event(
-        ctx["run_dir"],
-        "blueprint_phase_started",
-        {"phase": "running_worker", "component": BLUEPRINT_ID},
     )
     with observed_operation(
         ctx["run_dir"],
@@ -84,10 +47,18 @@ def run_startup_folder_watcher(
         ]
         write_workflow_state(ctx["run_dir"], "document_files.json", files)
         op.close("completed", document_file_count=len(files))
-    return {
-        "document_file_count": len(files),
-        "document_folder": str(ctx["document_folder"]),
-    }
+    artifact = durable_artifact(
+        "document_file_index", "workflow_state/document_files.json"
+    )
+    return agent_output(
+        {
+            "document_file_count": len(files),
+            "document_folder": str(ctx["document_folder"]),
+            "document_files_artifact": artifact,
+        },
+        artifact,
+        metrics={"document_file_count": len(files)},
+    )
 
 
 run = create_agent_handler(run_startup_folder_watcher)

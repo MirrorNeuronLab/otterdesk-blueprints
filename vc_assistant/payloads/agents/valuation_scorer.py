@@ -2,19 +2,18 @@ from __future__ import annotations
 
 from typing import Any
 
+from mn_sdk.blueprint_support import slugify, write_workflow_state
 from mn_prototype_entity_queue_agent import (
     EntityQueueSpec,
     create_agent as create_entity_queue,
 )
-from agents.domain import (
-    METHOD_SCORER_FUNCTIONS,
-    build_fact_table,
-    company_worker_count,
-    flattened_sources,
-    normalized_research_ledger,
-)
+from mn_public_research_orchestrator_skill import flatten_research_ledger
+from vc_domain.execution_policy import company_worker_count
+from vc_domain.research_core import normalized_research_ledger
+from vc_domain.research_policy import build_fact_table
+from vc_domain.valuation import METHOD_SCORER_FUNCTIONS
 
-from ._shared import create_agent_handler
+from ._shared import agent_output, create_agent_handler, durable_artifact, input_artifact
 
 
 def run_valuation_scorer(
@@ -23,6 +22,7 @@ def run_valuation_scorer(
     method: str,
     llm_client: Any | None = None,
 ) -> dict[str, Any]:
+    input_artifact(ctx, "reconciled_research_index")
     if method not in METHOD_SCORER_FUNCTIONS:
         raise ValueError(f"unknown valuation method: {method}")
     store = ctx["state_store"]
@@ -36,7 +36,7 @@ def run_valuation_scorer(
         ledger = normalized_research_ledger(
             store.read_entity_object("research_ledgers", company)
         )
-        facts = build_fact_table(company, records, flattened_sources(ledger))
+        facts = build_fact_table(company, records, flatten_research_ledger(ledger))
         score = scorer(facts)
         store.write_entity(f"method_scores_by_method/{method}", company, score)
         store.write_entity(f"company_fact_tables_by_method/{method}", company, facts)
@@ -55,11 +55,43 @@ def run_valuation_scorer(
             ),
         )
     )(ctx)
-    return {
-        "method": method,
-        "processed_company_count": int(queue_result["processed_count"]),
-        "skipped_company_count": int(queue_result["skipped_count"]),
-    }
+    refs = [
+        durable_artifact(
+            "valuation_method_score",
+            f"workflow_state/method_scores_by_method/{method}/{slugify(item['company_name'])}.json",
+            company=item["company_name"],
+            method=method,
+        )
+        for item in company_work_queue
+        if item.get("status") != "unchanged_skipped"
+    ]
+    index_name = f"method_score_indexes/{method}.json"
+    write_workflow_state(ctx["run_dir"], index_name, refs)
+    index = durable_artifact(
+        "valuation_method_score_index", f"workflow_state/{index_name}", method=method
+    )
+    return agent_output(
+        {
+            "method": method,
+            "processed_company_count": int(queue_result["processed_count"]),
+            "skipped_company_count": int(queue_result["skipped_count"]),
+            "method_scores_artifact": index,
+        },
+        index,
+        *refs,
+        metrics={"scored_company_count": int(queue_result["processed_count"])},
+    )
 
 
-run = create_agent_handler(run_valuation_scorer)
+def create_valuation_scorer(method: str):
+    """Bind one registry-visible scorer agent to one immutable method."""
+
+    def run_method(
+        ctx: dict[str, Any], *, llm_client: Any | None = None
+    ) -> dict[str, Any]:
+        return run_valuation_scorer(ctx, method=method, llm_client=llm_client)
+
+    return create_agent_handler(run_method)
+
+
+__all__ = ["create_valuation_scorer", "run_valuation_scorer"]

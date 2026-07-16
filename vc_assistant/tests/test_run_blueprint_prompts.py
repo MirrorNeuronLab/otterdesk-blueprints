@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import ast
 import json
-import importlib.util
 import sys
 from pathlib import Path
 
 import pytest
+
+from vc_assistant.domain_test_support import load_domain_test_surface
 
 from mn_sdk import expand_manifest_source
 from mn_sdk.blueprint_support import BlueprintBundleLayout, default_config_path
@@ -15,7 +16,6 @@ from mn_sdk.step_runtime import StepContext, resolve_handler
 BLUEPRINT_DIR = Path(__file__).resolve().parents[1]
 PAYLOAD_DIR = BLUEPRINT_DIR / "payloads"
 RUNTIME_PATH = PAYLOAD_DIR / "runtime" / "runtime.py"
-DOMAIN_PATH = PAYLOAD_DIR / "agents" / "domain.py"
 sys.path.insert(0, str(PAYLOAD_DIR))
 for skill_name in (
     "evidence_engine_skill",
@@ -42,11 +42,7 @@ for agent_name in (
 
 
 def load_module():
-    spec = importlib.util.spec_from_file_location("vc_agent_domain", DOMAIN_PATH)
-    module = importlib.util.module_from_spec(spec)
-    assert spec and spec.loader
-    spec.loader.exec_module(module)
-    return module
+    return load_domain_test_surface(BLUEPRINT_DIR)
 
 
 def test_source_manifest_keeps_the_default_runtime_declarative():
@@ -76,7 +72,12 @@ def test_step_definitions_resolve_to_direct_agent_handlers():
 
     assert assigned == set(registry)
     assert "agents.public_researcher" in handlers
-    assert "agents.valuation_scorer" in handlers
+    scorer_handlers = {
+        f"agents.{agent_id}"
+        for agent_id in registry
+        if agent_id.endswith("_scorer")
+    }
+    assert scorer_handlers <= handlers
     assert not any(handler.startswith("steps.") for handler in handlers)
     assert all(":" not in handler for handler in handlers)
 
@@ -161,6 +162,14 @@ def test_runtime_boundary_contains_only_runtime_preparation_responsibilities():
         agent_source = path.read_text(encoding="utf-8")
         assert "from runtime.runtime import" not in agent_source
         assert "from runtime import runtime" not in agent_source
+        assert "agents.domain" not in agent_source
+
+    assert not (PAYLOAD_DIR / "agents" / "domain.py").exists()
+    assert "from agents" not in source
+    assert all(
+        len(path.read_text(encoding="utf-8").splitlines()) <= 800
+        for path in (PAYLOAD_DIR / "vc_domain").rglob("*.py")
+    )
 
 
 def test_old_stage_routers_and_in_process_crew_modules_are_removed():
@@ -172,6 +181,7 @@ def test_old_stage_routers_and_in_process_crew_modules_are_removed():
         "steps/reporting.py",
         "agents/public_research_crew.py",
         "agents/valuation_scoring_crew.py",
+        "agents/domain.py",
     }
 
     assert all(not (PAYLOAD_DIR / relative).exists() for relative in removed)
@@ -226,12 +236,17 @@ def test_model_contract_uses_the_shared_adaptive_default():
     assert "large_model_profile" not in llm
 
 
-def test_valuation_scoring_crew_maps_every_method_to_a_specialist_agent():
+def test_valuation_methods_map_to_discoverable_specialist_agents():
     rb = load_module()
+    manifest = json.loads((BLUEPRINT_DIR / "manifest.json").read_text())
+    registry = manifest["agents"]["registry"]
 
     assert set(rb.SCORER_AGENT_BY_METHOD) == set(rb.METHOD_IDS)
     assert set(rb.METHOD_SCORER_FUNCTIONS) == set(rb.METHOD_IDS)
     assert set(rb.SCORER_AGENT_BY_METHOD.values()) <= set(rb.AGENT_IDS)
+    for agent_id in rb.SCORER_AGENT_BY_METHOD.values():
+        assert registry[agent_id]["handler"] == f"agents.{agent_id}"
+        assert (PAYLOAD_DIR / "agents" / f"{agent_id}.py").exists()
 
 
 def test_research_prompt_specs_are_distinct_for_all_agent_ids():

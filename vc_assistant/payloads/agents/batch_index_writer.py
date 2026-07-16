@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from mn_blueprint_support import llm_usage
+from mn_public_research_orchestrator_skill import flatten_research_ledger
 from mn_prototype_artifact_finalizer_agent import (
     ArtifactBundle,
     ArtifactFinalizerSpec,
@@ -14,11 +15,15 @@ from mn_sdk.blueprint_support import (
     elapsed_ms_from_started_at,
     observation_trace_summary,
     read_workflow_state,
-    step_result,
-    utc_now_iso,
-    write_json,
 )
-from agents.domain import (
+from vc_domain.agent_review import (
+    ensure_all_actor_findings,
+    normalized_actor_review_warnings,
+    run_step_agent_reviews,
+    write_actor_review_warnings_state,
+)
+from vc_domain.analysis import build_company_evidence_summaries
+from vc_domain.common import (
     BLUEPRINT_ID,
     BLUEPRINT_NAME,
     KNOWLEDGE_PLAYBOOK_RELATIVE_PATH,
@@ -27,36 +32,37 @@ from agents.domain import (
     RECOMMENDED_ACTION,
     RESEARCH_AGENT_IDS,
     WORKFLOW_STEP_IDS,
-    active_knowledge_reference,
-    actor_review_config,
-    append_event,
-    build_artifact_quality_report,
+)
+from vc_domain.intake import (
     build_cache_policy_summary,
-    build_company_evidence_summaries,
+    processed_and_skipped_company_names,
+)
+from vc_domain.knowledge import (
+    active_knowledge_reference,
+    load_vc_knowledge,
+    public_knowledge_rag_state,
+)
+from vc_domain.execution_policy import company_worker_count, scoring_worker_count
+from vc_domain.reporting import (
+    build_artifact_quality_report,
     build_method_coverage,
     build_research_coverage,
     build_run_health_report,
-    company_worker_count,
-    ensure_all_actor_findings,
-    flattened_sources,
-    load_vc_knowledge,
-    normalized_actor_review_warnings,
+)
+from vc_domain.research_core import actor_review_config, normalized_research_ledger
+from vc_domain.runtime_services import persist_action_budget_state
+from vc_domain.runtime_tools import (
+    append_event,
     observed_operation,
-    normalized_research_ledger,
-    persist_action_budget_state,
-    processed_and_skipped_company_names,
-    public_knowledge_rag_state,
-    run_step_agent_reviews,
-    scoring_worker_count,
-    write_actor_review_warnings_state,
 )
 
-from ._shared import create_agent_handler
+from ._shared import agent_output, create_agent_handler, durable_artifact, input_artifact
 
 
 def run_batch_index_writer(
     ctx: dict[str, Any], *, llm_client: Any | None = None
 ) -> dict[str, Any]:
+    input_artifact(ctx, "company_report_index")
     store = ctx["state_store"]
     company_records = store.read_object("company_records.json")
     company_work_queue = store.read_list("company_work_queue.json")
@@ -180,7 +186,7 @@ def run_batch_index_writer(
         "research_sources": [
             source
             for ledger in research_ledgers.values()
-            for source in flattened_sources(ledger)
+            for source in flatten_research_ledger(ledger)
         ],
         "company_evidence_summaries": company_evidence_summaries,
         "research_warnings": [*budget_warnings, *knowledge_rag_warnings],
@@ -288,24 +294,6 @@ def run_batch_index_writer(
         "final_artifact": final_artifact,
     }
 
-    append_event(
-        ctx["run_dir"],
-        "blueprint_phase_completed",
-        {"phase": "running_worker", "component": BLUEPRINT_ID},
-    )
-    append_event(
-        ctx["run_dir"],
-        "human_input_requested",
-        {
-            "mode": "approval_required",
-            "reason": "Reports contain heuristic investment-analysis scores for human review only.",
-        },
-    )
-    append_event(
-        ctx["run_dir"],
-        "blueprint_phase_started",
-        {"phase": "writing_artifacts", "component": BLUEPRINT_ID},
-    )
     writes = [
         ArtifactWrite("final_artifact.json", final_artifact, destination="both"),
         ArtifactWrite("action_ledger.json", action_ledger, destination="both"),
@@ -328,13 +316,7 @@ def run_batch_index_writer(
                 writes=tuple(writes),
                 result=result,
             ),
-            step_id=ctx["workflow_step_id"],
             event_writer=artifact_event_writer,
-            result_builder=lambda context, _result, **_options: step_result(
-                context,
-                ctx["workflow_step_id"],
-                final_artifact=final_artifact,
-            ),
         )
     )
     with observed_operation(
@@ -343,7 +325,7 @@ def run_batch_index_writer(
         operation="write_final_outputs",
         output_file_count=len(final_artifact["output_files"]),
     ):
-        finalized_result = finalizer(ctx)
+        finalizer(ctx)
     if trace_path.exists():
         create_artifact_finalizer(
             ArtifactFinalizerSpec(
@@ -364,26 +346,27 @@ def run_batch_index_writer(
         append_event(
             ctx["run_dir"], "artifact_written", {"path": "llm_rag_trace.jsonl"}
         )
-    append_event(
-        ctx["run_dir"],
-        "blueprint_phase_completed",
-        {"phase": "writing_artifacts", "component": BLUEPRINT_ID},
-    )
-    append_event(
-        ctx["run_dir"],
-        "blueprint_phase_completed",
-        {"phase": "completed", "component": BLUEPRINT_ID},
-    )
-    write_json(
-        ctx["run_dir"] / "run.json",
+    final_ref = durable_artifact("final_artifact", "final_artifact.json")
+    quality_ref = durable_artifact("artifact_quality", "artifact_quality.json")
+    health_ref = durable_artifact("run_health", "run_health.json")
+    ledger_ref = durable_artifact("action_ledger", "action_ledger.json")
+    return agent_output(
         {
             "run_id": ctx["run_id"],
             "blueprint_id": BLUEPRINT_ID,
-            "status": "completed",
-            "completed_at": utc_now_iso(),
+            "company_count": len(analyses),
+            "processed_company_count": len(processed_company_names),
+            "skipped_company_count": len(skipped_company_names),
+            "final_artifact": final_ref,
+            "artifact_quality": quality_ref,
+            "run_health": health_ref,
         },
+        final_ref,
+        quality_ref,
+        health_ref,
+        ledger_ref,
+        metrics={"company_count": len(analyses)},
     )
-    return finalized_result
 
 
 run = create_agent_handler(run_batch_index_writer)

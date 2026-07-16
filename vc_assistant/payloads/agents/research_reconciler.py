@@ -2,24 +2,26 @@ from __future__ import annotations
 
 from typing import Any
 
+from mn_sdk.blueprint_support import slugify, write_workflow_state
 from mn_prototype_entity_queue_agent import (
     EntityQueueSpec,
     create_agent as create_entity_queue,
 )
-from agents.domain import (
-    RESEARCH_AGENT_IDS,
+from vc_domain.common import RESEARCH_AGENT_IDS
+from vc_domain.execution_policy import company_worker_count
+from vc_domain.research_core import normalized_research_ledger
+from vc_domain.research_orchestration import (
     append_financial_tool_research,
-    company_worker_count,
-    normalized_research_ledger,
     reconcile_research,
 )
 
-from ._shared import create_agent_handler
+from ._shared import agent_output, create_agent_handler, durable_artifact, input_artifact
 
 
 def run_research_reconciler(
     ctx: dict[str, Any], *, llm_client: Any | None = None
 ) -> dict[str, Any]:
+    input_artifact(ctx, "public_research_ledger_index")
     store = ctx["state_store"]
     company_records = store.read_object("company_records.json")
     company_work_queue = store.read_list("company_work_queue.json")
@@ -83,10 +85,29 @@ def run_research_reconciler(
     )(ctx)
     processed_count = int(queue_result["processed_count"])
     skipped_count = int(queue_result["skipped_count"])
-    return {
-        "processed_company_count": processed_count,
-        "skipped_company_count": skipped_count,
-    }
+    refs = [
+        durable_artifact(
+            "reconciled_research",
+            f"workflow_state/reconciliations/{slugify(item['company_name'])}.json",
+            company=item["company_name"],
+        )
+        for item in company_work_queue
+        if item.get("status") != "unchanged_skipped"
+    ]
+    write_workflow_state(ctx["run_dir"], "reconciled_research_index.json", refs)
+    index = durable_artifact(
+        "reconciled_research_index", "workflow_state/reconciled_research_index.json"
+    )
+    return agent_output(
+        {
+            "processed_company_count": processed_count,
+            "skipped_company_count": skipped_count,
+            "reconciled_research_artifact": index,
+        },
+        index,
+        *refs,
+        metrics={"reconciled_company_count": processed_count},
+    )
 
 
 run = create_agent_handler(run_research_reconciler)

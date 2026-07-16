@@ -68,53 +68,32 @@
         "role": "Research Reconciler"
       },
       "berkus_scorer": {
-        "handler": "agents.valuation_scorer",
-        "role": "Berkus Scorer",
-        "with": {
-          "method": "berkus_method"
-        }
+        "handler": "agents.berkus_scorer",
+        "role": "Berkus Scorer"
       },
       "scorecard_bill_payne_scorer": {
-        "handler": "agents.valuation_scorer",
-        "role": "Scorecard Bill Payne Scorer",
-        "with": {
-          "method": "scorecard_bill_payne_method"
-        }
+        "handler": "agents.scorecard_bill_payne_scorer",
+        "role": "Scorecard Bill Payne Scorer"
       },
       "risk_factor_summation_scorer": {
-        "handler": "agents.valuation_scorer",
-        "role": "Risk Factor Summation Scorer",
-        "with": {
-          "method": "risk_factor_summation_method"
-        }
+        "handler": "agents.risk_factor_summation_scorer",
+        "role": "Risk Factor Summation Scorer"
       },
       "venture_capital_method_scorer": {
-        "handler": "agents.valuation_scorer",
-        "role": "Venture Capital Method Scorer",
-        "with": {
-          "method": "venture_capital_method"
-        }
+        "handler": "agents.venture_capital_method_scorer",
+        "role": "Venture Capital Method Scorer"
       },
       "first_chicago_scorer": {
-        "handler": "agents.valuation_scorer",
-        "role": "First Chicago Scorer",
-        "with": {
-          "method": "first_chicago_method"
-        }
+        "handler": "agents.first_chicago_scorer",
+        "role": "First Chicago Scorer"
       },
       "comparables_market_multiple_scorer": {
-        "handler": "agents.valuation_scorer",
-        "role": "Comparables Market Multiple Scorer",
-        "with": {
-          "method": "comparables_market_multiple_method"
-        }
+        "handler": "agents.comparables_market_multiple_scorer",
+        "role": "Comparables Market Multiple Scorer"
       },
       "cost_to_duplicate_scorer": {
-        "handler": "agents.valuation_scorer",
-        "role": "Cost To Duplicate Scorer",
-        "with": {
-          "method": "cost_to_duplicate_method"
-        }
+        "handler": "agents.cost_to_duplicate_scorer",
+        "role": "Cost To Duplicate Scorer"
       },
       "score_consistency_auditor": {
         "handler": "agents.score_consistency_auditor",
