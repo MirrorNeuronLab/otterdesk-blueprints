@@ -267,33 +267,12 @@ def _run_vc_manifest_handlers(
 
 
 def _expand_source_manifest(source: dict) -> dict:
-    sdk_root = ROOT.parent / "mn-python-sdk" / "mn_sdk"
-    package_spec = importlib.util.spec_from_file_location(
-        "mn_sdk",
-        sdk_root / "__init__.py",
-        submodule_search_locations=[str(sdk_root)],
-    )
-    package = importlib.util.module_from_spec(package_spec)
-    package.__path__ = [str(sdk_root)]
-    sys.modules["mn_sdk"] = package
-    profiles_spec = importlib.util.spec_from_file_location(
-        "mn_sdk.manifest_profiles",
-        sdk_root / "manifest_profiles" / "__init__.py",
-        submodule_search_locations=[str(sdk_root / "manifest_profiles")],
-    )
-    profiles = importlib.util.module_from_spec(profiles_spec)
-    assert profiles_spec and profiles_spec.loader
-    sys.modules["mn_sdk.manifest_profiles"] = profiles
-    profiles_spec.loader.exec_module(profiles)
-
-    spec = importlib.util.spec_from_file_location(
-        "mn_sdk.manifest_converter",
-        sdk_root / "manifest_converter.py",
-    )
-    module = importlib.util.module_from_spec(spec)
-    assert spec and spec.loader
-    sys.modules["mn_sdk.manifest_converter"] = module
-    spec.loader.exec_module(module)
+    sdk_parent = ROOT.parent / "mn-python-sdk"
+    sys.path.insert(0, str(sdk_parent))
+    try:
+        module = importlib.import_module("mn_sdk.manifest_converter")
+    finally:
+        sys.path.remove(str(sdk_parent))
     return module.expand_manifest_source(source, root_dir=ROOT / "vc_assistant")
 
 
@@ -367,6 +346,7 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
             "target": "vc_assistant/examples/sample_inputs",
         },
         {"source": "knowledge", "target": "knowledge"},
+        {"source": "vc_domain", "target": "vc_domain"},
     ]
     assert len(nodes) == 21
     assert len(step_sources) == 10
@@ -390,8 +370,6 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         "folders": [
             {
                 "config_path": "document_sources.folder_path",
-                "default_config_value": "vc_assistant/examples/sample_inputs",
-                "source_path": "examples/sample_inputs",
                 "payload_path": "runtime/mn_local_inputs/vc_documents",
                 "runtime_path": "mn_local_inputs/vc_documents",
                 "allowed_extensions": [".pdf", ".txt", ".md", ".json", ".csv"],
@@ -577,7 +555,7 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         embedded_config = json.loads(environment["MN_BLUEPRINT_CONFIG_JSON"])
         assert (
             embedded_config["inputs"]["payload"]["input_folder"]
-            == "vc_assistant/examples/sample_inputs"
+            == "@/examples/sample_inputs"
         )
         assert (
             embedded_config["inputs"]["payload"]["output_folder"]
@@ -1489,6 +1467,25 @@ def test_vc_assistant_runtime_graph_is_manifest_declared_dag_with_terminal_sink(
         and edge["to_node"] == "workflow__terminal"
         for edge in manifest["agents"]["edges"]
     )
+    expected_timeouts = {
+        "prepare_company_evidence": 1200,
+        "plan_public_research": 1200,
+        "collect_public_research": 3600,
+        "reconcile_research_evidence": 900,
+        "calculate_valuation_scores": 1800,
+        "audit_valuation_analysis": 900,
+        "write_company_reports": 900,
+        "publish_batch_summary": 900,
+    }
+    assert {
+        step["id"]: step["control"]["timeout_seconds"]
+        for step in source["workflow"]["steps"]
+        if "control" in step
+    } == expected_timeouts
+    for node in manifest["agents"]["nodes"]:
+        step_id = node["node_id"].split("__", 1)[0]
+        if node["agent_type"] == "executor" and step_id in expected_timeouts:
+            assert node["config"]["timeout_seconds"] == expected_timeouts[step_id]
 
 
 def test_vc_manifest_agent_dependencies_are_imported_and_runtime_boundaries_are_stable():

@@ -22,6 +22,9 @@ from functools import partial
 
 from pathlib import Path
 
+from mn_sdk import resolve_blueprint_path, resolve_bundle_path
+from mn_sdk.blueprint_support import BlueprintBundleLayout
+
 from typing import Any
 
 from urllib.parse import urlparse
@@ -330,15 +333,20 @@ _KNOWLEDGE_RAG_DESCRIPTOR = (
 _KNOWLEDGE_RELATIVE_DIR = Path(
     str(_KNOWLEDGE_RAG_DESCRIPTOR.get("knowledge_dir") or "knowledge")
 )
-if _KNOWLEDGE_RELATIVE_DIR.parts[:1] == ("payloads",):
-    _KNOWLEDGE_RELATIVE_DIR = Path(*_KNOWLEDGE_RELATIVE_DIR.parts[1:])
+_KNOWLEDGE_LAYOUT = BlueprintBundleLayout.discover(__file__, require_manifest=True)
+_KNOWLEDGE_DIRECTORY = resolve_bundle_path(
+    str(_KNOWLEDGE_RELATIVE_DIR),
+    bundle_root=_KNOWLEDGE_LAYOUT.root,
+    payload_root=_KNOWLEDGE_LAYOUT.payload_root,
+)
 _KNOWLEDGE_DOCUMENTS = sorted(
-    (Path(__file__).resolve().parents[1] / _KNOWLEDGE_RELATIVE_DIR).glob("*.md")
+    _KNOWLEDGE_DIRECTORY.glob("*.md")
 )
 if len(_KNOWLEDGE_DOCUMENTS) != 1:
     raise RuntimeError("VC knowledge_rag.knowledge_dir must contain one Markdown playbook")
 KNOWLEDGE_PLAYBOOK_RELATIVE_PATH = str(
-    _KNOWLEDGE_RELATIVE_DIR / _KNOWLEDGE_DOCUMENTS[0].name
+    _KNOWLEDGE_DIRECTORY.relative_to(_KNOWLEDGE_LAYOUT.payload_root)
+    / _KNOWLEDGE_DOCUMENTS[0].name
 )
 
 _AGENTIC_RESEARCH_DEFAULTS = (

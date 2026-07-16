@@ -99,6 +99,12 @@ Do not repeat descriptive manifest information in payload Python or `config/defa
 - Use `config.manifest_defaults` when a manifest descriptor must also be available through resolved runtime configuration. A dotted string preserves the same path; a `{ "from": ..., "to": ... }` mapping projects it to a runtime-config path. Runtime and compiler code must use the SDK resolver so manifest values merge before config-file and invocation overlays.
 - Keep executable policy and algorithms in code: formulas, evidence confidence rules, report semantics, and other blueprint-specific behavior are not descriptive manifest data.
 
+## Bundle Paths
+
+- Use the SDK-owned `@/` prefix when configuration refers to a path inside the blueprint source bundle. For example, `@/examples/sample_inputs` addresses the bundle-root examples folder and `@/payloads/knowledge` addresses the payload knowledge folder.
+- Do not put a blueprint directory name into a relative path (for example, `vc_assistant/examples/...`) and do not add `default_config_value`/`source_path` aliases to compensate for an ambiguous path.
+- Launch-time local-input staging resolves source-root references and rewrites linked config fields to their staged runtime paths. Runtime payload references resolve against the worker's staged payload root. Blueprint agents must consume the resolved config and must not implement their own `@/` parsing.
+
 When a value changes for structural reasons, it usually belongs in the manifest. When an operator should tune it per run, it belongs in config. When it computes or enforces domain behavior, it belongs in the owning agent, skill, or blueprint domain module.
 
 ## Placement Test

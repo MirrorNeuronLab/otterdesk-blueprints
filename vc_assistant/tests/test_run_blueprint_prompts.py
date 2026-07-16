@@ -73,7 +73,7 @@ def test_source_manifest_keeps_the_default_runtime_declarative():
     }
     assert resolved["llm"]["model"] == "default"
     assert resolved["agentic_research"] == manifest["agentic_research"]
-    assert resolved["knowledge_rag"]["knowledge_dir"] == "payloads/knowledge"
+    assert resolved["knowledge_rag"]["knowledge_dir"] == "@/payloads/knowledge"
     assert resolved["resources"] == manifest["requirements"]
     assert resolved["human_control"] == manifest["workflow"]["policy"]["human"]
     assert (
@@ -87,6 +87,26 @@ def test_source_manifest_keeps_the_default_runtime_declarative():
     assert set(resolved["llm"]["agents"]) == set(manifest["agents"]["registry"])
     for agent_id, actor in resolved["llm"]["agents"].items():
         assert actor["role"] == manifest["agents"]["registry"][agent_id]["role"]
+
+
+def test_bundle_references_resolve_for_source_and_staged_payload_roots(tmp_path):
+    module = load_module()
+    active_knowledge = module.load_vc_knowledge(BLUEPRINT_DIR)
+
+    assert module.resolve_knowledge_dir(
+        BLUEPRINT_DIR,
+        active_knowledge,
+        "@/payloads/knowledge",
+    ) == (BLUEPRINT_DIR / "payloads" / "knowledge").resolve()
+
+    staged_root = tmp_path / "attempt"
+    staged_knowledge = staged_root / "knowledge"
+    staged_knowledge.mkdir(parents=True)
+    assert module.resolve_knowledge_dir(
+        staged_root,
+        active_knowledge,
+        "@/payloads/knowledge",
+    ) == staged_knowledge.resolve()
 
 
 def test_step_definitions_resolve_to_direct_agent_handlers():
@@ -145,6 +165,9 @@ def test_manifest_compiles_step_boundaries_parallel_joins_and_unique_invocations
     ]
     assert steps["collect_public_research"]["start_agent_id"] == "collect_public_research__start"
     assert steps["collect_public_research"]["end_agent_id"] == "collect_public_research__end"
+    assert {"source": "vc_domain", "target": "vc_domain"} in nodes[
+        "detect_packet_changes__startup_folder_watcher"
+    ]["config"]["upload_paths"]
 
 
 def test_runtime_module_resolves_the_blueprint_root_after_the_entrypoint_move():
@@ -157,6 +180,42 @@ def test_runtime_module_resolves_the_blueprint_root_after_the_entrypoint_move():
         default_config_path(RUNTIME_PATH) == BLUEPRINT_DIR / "config" / "default.json"
     )
     assert runner.PROMPTS.prompt_dir == BLUEPRINT_DIR / "payloads" / "prompts"
+
+
+def test_runtime_context_uses_the_platform_staged_input_folder(tmp_path):
+    from vc_domain.runtime_services import runtime_context_for_step
+
+    staged_inputs = tmp_path / "staged-inputs"
+    staged_inputs.mkdir()
+    (staged_inputs / "packet.txt").write_text("Company: Staged Input", encoding="utf-8")
+    output_folder = tmp_path / "outputs"
+    run_id = "staged-input-run"
+
+    context = runtime_context_for_step(
+        inputs={
+            "document_folder": None,
+            "input_folder": str(staged_inputs),
+            "output_folder": str(output_folder),
+        },
+        runs_root=tmp_path / "runs",
+        run_id=run_id,
+    )
+
+    assert context["document_folder"] == staged_inputs
+    assert context["payload"]["document_folder"] == str(staged_inputs)
+    assert context["payload"]["input_folder"] == str(staged_inputs)
+
+    persisted = json.loads(
+        (tmp_path / "runs" / run_id / "workflow_state" / "runtime_context.json").read_text()
+    )
+    assert persisted["document_folder"] == str(staged_inputs)
+
+    replay = runtime_context_for_step(
+        inputs={"document_folder": None, "output_folder": str(output_folder)},
+        runs_root=tmp_path / "runs",
+        run_id=run_id,
+    )
+    assert replay["document_folder"] == staged_inputs
 
 
 def test_vc_has_no_local_blueprint_entrypoint_or_generic_dispatch():

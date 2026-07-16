@@ -216,7 +216,7 @@
     "inputs": {
       "document_folder": {
         "description": "Local folder monitored for startup documents; first-level folders are treated as companies.",
-        "example": "vc_assistant/examples/sample_inputs",
+        "example": "@/examples/sample_inputs",
         "path_kind": "directory",
         "privacy": "confidential",
         "required": true,
@@ -246,7 +246,7 @@
       },
       "input_folder": {
         "description": "Default local input folder for sample files or user-provided files.",
-        "example": "vc_assistant/examples/sample_inputs",
+        "example": "@/examples/sample_inputs",
         "path_kind": "directory",
         "privacy": "confidential",
         "required": false,
@@ -453,7 +453,13 @@
   "defaults": {
     "worker": {
       "with": {
-        "image": "mirror-neuron/vc-assistant:local"
+        "image": "mirror-neuron/vc-assistant:local",
+        "upload_paths": [
+          {
+            "source": "vc_domain",
+            "target": "vc_domain"
+          }
+        ]
       }
     }
   },
@@ -514,7 +520,7 @@
     "embedding_start_command": "",
     "enabled": true,
     "index_on_startup": true,
-    "knowledge_dir": "payloads/knowledge",
+    "knowledge_dir": "@/payloads/knowledge",
     "max_context_chars": 6000,
     "namespace": "",
     "required": true,
@@ -951,6 +957,9 @@
         }
       },
       {
+        "control": {
+          "timeout_seconds": 1200
+        },
         "goal": "Extract local evidence and normalize claims into deterministic company fact inputs.",
         "id": "prepare_company_evidence",
         "kind": "stage",
@@ -963,6 +972,9 @@
         }
       },
       {
+        "control": {
+          "timeout_seconds": 1200
+        },
         "goal": "Create privacy-safe public research queries from company name, domain, category, and non-confidential claims.",
         "id": "plan_public_research",
         "kind": "stage",
@@ -975,6 +987,9 @@
         }
       },
       {
+        "control": {
+          "timeout_seconds": 3600
+        },
         "goal": "Collect public identity, funding, market, comparable, traction, and rendered-page evidence with a specialist research crew.",
         "id": "collect_public_research",
         "kind": "stage",
@@ -987,6 +1002,9 @@
         }
       },
       {
+        "control": {
+          "timeout_seconds": 900
+        },
         "goal": "Merge public findings with local claims and flag confirmations, contradictions, missing evidence, and source-quality warnings.",
         "id": "reconcile_research_evidence",
         "kind": "stage",
@@ -999,6 +1017,9 @@
         }
       },
       {
+        "control": {
+          "timeout_seconds": 1800
+        },
         "goal": "Calculate all seven deterministic valuation heuristics with a parallel specialist scoring crew.",
         "id": "calculate_valuation_scores",
         "kind": "stage",
@@ -1011,6 +1032,9 @@
         }
       },
       {
+        "control": {
+          "timeout_seconds": 900
+        },
         "goal": "Check math, missing evidence handling, contradictory assumptions, unsupported valuation claims, and formula completeness.",
         "id": "audit_valuation_analysis",
         "kind": "stage",
@@ -1023,6 +1047,9 @@
         }
       },
       {
+        "control": {
+          "timeout_seconds": 900
+        },
         "goal": "Write per-company reports: analysis, method scores, research sources, evidence, and warnings.",
         "id": "write_company_reports",
         "kind": "stage",
@@ -1035,6 +1062,9 @@
         }
       },
       {
+        "control": {
+          "timeout_seconds": 900
+        },
         "goal": "Write root-level company index, research coverage, method coverage, queue, and run summary artifacts.",
         "id": "publish_batch_summary",
         "kind": "sink",

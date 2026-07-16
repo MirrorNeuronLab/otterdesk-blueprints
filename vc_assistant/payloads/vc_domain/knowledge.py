@@ -118,10 +118,29 @@ def with_runtime_knowledge_rag_defaults(config: dict[str, Any]) -> dict[str, Any
     patched["knowledge_rag"] = {**raw, **updates}
     return patched
 
-def resolve_knowledge_dir(blueprint_dir: Path, active_knowledge: dict[str, Any]) -> Path:
+def resolve_knowledge_dir(
+    blueprint_dir: Path,
+    active_knowledge: dict[str, Any],
+    configured_path: str | Path | None = None,
+) -> Path:
     if fake_skills_mode_enabled():
         return blueprint_dir / "knowledge"
-    return skill_resolve_blueprint_knowledge_dir(blueprint_dir, active_knowledge=active_knowledge)
+    if configured_path:
+        payload_root = (
+            blueprint_dir / "payloads"
+            if (blueprint_dir / "payloads").is_dir()
+            else blueprint_dir
+        )
+        return resolve_blueprint_path(
+            configured_path,
+            bundle_root=blueprint_dir,
+            payload_root=payload_root,
+        )
+    return skill_resolve_blueprint_knowledge_dir(
+        blueprint_dir,
+        active_knowledge=active_knowledge,
+        configured_path=configured_path,
+    )
 
 def prepare_knowledge_rag(
     *,
@@ -229,6 +248,11 @@ def prepare_knowledge_rag(
             blueprint_dir=blueprint_dir,
             config=resolved_config,
             active_knowledge=active_knowledge,
+            knowledge_dir=resolve_knowledge_dir(
+                blueprint_dir,
+                active_knowledge,
+                raw.get("knowledge_dir"),
+            ),
             event_callback=event_callback,
             prepare_callback=skill_prepare_blueprint_knowledge_rag,
             retrieve_callback=skill_retrieve_knowledge_rag_context,

@@ -9,7 +9,7 @@
     "adapter": "mock",
     "description": "Default demo inputs use bundled synthetic startup packets with one first-level folder per company.",
     "payload": {
-      "document_folder": "vc_assistant/examples/sample_inputs",
+      "document_folder": "@/examples/sample_inputs",
       "output_folder": "~/Downloads/vc_assistant",
       "field_profile": [
         "company_name",
@@ -39,11 +39,11 @@
           "*.csv"
         ]
       },
-      "input_folder": "vc_assistant/examples/sample_inputs"
+      "input_folder": "@/examples/sample_inputs"
     }
   },
   "document_sources": {
-    "folder_path": "vc_assistant/examples/sample_inputs",
+    "folder_path": "@/examples/sample_inputs",
     "expected_files": [
       "*.pdf",
       "*.txt",
@@ -57,8 +57,6 @@
     "folders": [
       {
         "config_path": "document_sources.folder_path",
-        "default_config_value": "vc_assistant/examples/sample_inputs",
-        "source_path": "examples/sample_inputs",
         "payload_path": "runtime/mn_local_inputs/vc_documents",
         "runtime_path": "mn_local_inputs/vc_documents",
         "allowed_extensions": [
@@ -233,11 +231,11 @@
     "sdk_import_package": "mn_context_engine_sdk"
   },
   "state": {
-    "document_folder": "vc_assistant/examples/sample_inputs",
+    "document_folder": "@/examples/sample_inputs",
     "output_folder": "~/Downloads/vc_assistant",
     "monitor_state": {},
     "final_report": {},
-    "input_folder": "vc_assistant/examples/sample_inputs"
+    "input_folder": "@/examples/sample_inputs"
   },
   "triggers": {
     "type": "folder_watch",

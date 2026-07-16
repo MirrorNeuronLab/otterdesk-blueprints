@@ -40,7 +40,6 @@ def runtime_context_for_step(
         )
         output_folder = expand_runtime_path(persisted.get("output_folder") or output_folder)
         run_dir = expand_runtime_path(persisted.get("run_dir") or run_dir)
-        document_folder = expand_runtime_path(persisted.get("document_folder") or payload.get("document_folder") or "")
         started_at = str(persisted.get("started_at") or base.started_at)
         force_reprocess = (
             bool(persisted["force_reprocess"])
@@ -52,19 +51,37 @@ def runtime_context_for_step(
             persisted.get("max_cycles") or monitoring.get("max_cycles") or 1
         )
     else:
-        document_folder = (
-            resolve_existing_path(
-                payload["document_folder"],
-                [base.layout.payload_root, blueprint_dir, blueprint_dir.parent],
-                blueprint_id=BLUEPRINT_ID,
-            )
-            if payload.get("document_folder")
-            else base.layout.payload_root / "examples" / "sample_inputs"
-        )
         monitoring = dict(payload.get("monitoring") or {})
         max_cycles = int(monitoring.get("max_cycles") or 1)
         force_reprocess = force_reprocess_enabled(payload, resolved_config)
         started_at = base.started_at
+
+    search_roots = [base.layout.payload_root, blueprint_dir, blueprint_dir.parent]
+    document_folder = None
+    first_candidate = None
+    for raw_path in (
+        persisted.get("document_folder") if persisted else None,
+        payload.get("document_folder"),
+        payload.get("input_folder"),
+    ):
+        if not str(raw_path or "").strip():
+            continue
+        candidate = resolve_existing_path(
+            raw_path,
+            search_roots,
+            blueprint_id=BLUEPRINT_ID,
+        )
+        first_candidate = first_candidate or candidate
+        if candidate.exists():
+            document_folder = candidate
+            break
+    document_folder = (
+        document_folder
+        or first_candidate
+        or base.layout.payload_root / "examples" / "sample_inputs"
+    )
+    payload["document_folder"] = str(document_folder)
+    payload["input_folder"] = str(document_folder)
     context = base.to_mapping()
     context.update({
         "_base_context": base,
@@ -76,6 +93,7 @@ def runtime_context_for_step(
         "force_reprocess": force_reprocess,
         "started_at": started_at,
     })
+    persist_runtime_context(context)
     return context
 
 def persist_runtime_context(ctx: dict[str, Any]) -> None:
