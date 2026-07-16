@@ -162,20 +162,8 @@ def build_adaptive_research_plan(company: str, records: list[dict[str, Any]], in
             )
         )
 
-    agent_queries = {
-        "company_identity_researcher": [],
-        "funding_researcher": [],
-        "market_comp_researcher": [],
-        "traction_verifier": [],
-        "rendered_page_researcher": [],
-    }
-    agent_target_urls = {
-        "company_identity_researcher": [],
-        "funding_researcher": [],
-        "market_comp_researcher": [],
-        "traction_verifier": [],
-        "rendered_page_researcher": [],
-    }
+    agent_queries = {agent_id: [] for agent_id in RESEARCH_AGENT_IDS}
+    agent_target_urls = {agent_id: [] for agent_id in RESEARCH_AGENT_IDS}
     lane_agent = {
         "company_identity_research": "company_identity_researcher",
         "founder_research": "company_identity_researcher",
@@ -359,11 +347,19 @@ def build_fact_table(company: str, records: list[dict[str, Any]], sources: list[
         },
     }
 
-method_result = partial(
-    shared_method_result,
-    guidance_resolver=method_guidance,
-    status_reason_builder=method_status_reason,
-    evidence_summary_defaults={"judge_rubric": JUDGE_RUBRIC},
-    include_descriptors=False,
-)
+def method_result(*, method_id: str, **values: Any) -> dict[str, Any]:
+    """Build a score result using the manifest-owned method-to-agent binding."""
 
+    try:
+        scorer_id = SCORER_AGENT_BY_METHOD[method_id]
+    except KeyError as exc:
+        raise ValueError(f"unknown valuation method: {method_id}") from exc
+    return shared_method_result(
+        method_id=method_id,
+        scorer_id=scorer_id,
+        guidance_resolver=method_guidance,
+        status_reason_builder=method_status_reason,
+        evidence_summary_defaults={"judge_rubric": JUDGE_RUBRIC},
+        include_descriptors=False,
+        **values,
+    )

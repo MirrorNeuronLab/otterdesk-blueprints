@@ -7,4 +7,4 @@ this module makes the executable agent binding directly discoverable.
 from .valuation_scorer import create_valuation_scorer
 
 
-run = create_valuation_scorer("first_chicago_method")
+run = create_valuation_scorer()

@@ -49,12 +49,13 @@ from mn_sdk.blueprint_support import (
     create_blueprint_run_context,
     debug_mode_enabled,
     expand_runtime_path,
+    load_runtime_config,
     persist_blueprint_run_context,
     read_json_object as read_json,
     read_workflow_state,
     resolve_existing_path,
+    source_manifest,
     source_workflow_steps,
-    source_manifest_path,
     observed_operation as shared_observed_operation,
     redact_observation_value,
     utc_now_iso,
@@ -183,73 +184,92 @@ _fetch_public_http = partial(
     default_user_agent="MirrorNeuron-VC-Assistant/1.0 (+public research fallback)",
 )
 
-BLUEPRINT_ID = "vc_assistant"
+_SOURCE_MANIFEST = source_manifest(__file__)
+_DEFAULT_CONFIG = load_runtime_config(__file__)
+_IDENTITY = (
+    _SOURCE_MANIFEST.get("identity")
+    if isinstance(_SOURCE_MANIFEST.get("identity"), dict)
+    else {}
+)
+_DOCUMENT_AUTOMATION = (
+    _DEFAULT_CONFIG.get("document_automation")
+    if isinstance(_DEFAULT_CONFIG.get("document_automation"), dict)
+    else {}
+)
+_INPUT_PAYLOAD = (
+    (_DEFAULT_CONFIG.get("inputs") or {}).get("payload")
+    if isinstance(_DEFAULT_CONFIG.get("inputs"), dict)
+    and isinstance((_DEFAULT_CONFIG.get("inputs") or {}).get("payload"), dict)
+    else {}
+)
+_PUBLIC_DATASET = (
+    _INPUT_PAYLOAD.get("public_dataset")
+    if isinstance(_INPUT_PAYLOAD.get("public_dataset"), dict)
+    else {}
+)
 
-BLUEPRINT_NAME = "VC Assistant"
+BLUEPRINT_ID = str(_IDENTITY.get("id") or "").strip()
+BLUEPRINT_NAME = str(_IDENTITY.get("name") or "").strip()
+OUTPUT_TYPE = str(_DOCUMENT_AUTOMATION.get("output_type") or "").strip()
+RECOMMENDED_ACTION = str(
+    _DOCUMENT_AUTOMATION.get("recommended_action") or ""
+).strip()
 
-OUTPUT_TYPE = "vc_early_heuristic_analysis_reports"
+if not all((BLUEPRINT_ID, BLUEPRINT_NAME, OUTPUT_TYPE, RECOMMENDED_ACTION)):
+    raise RuntimeError(
+        "VC manifest identity and default document_automation contract are required"
+    )
 
-RECOMMENDED_ACTION = "review_scores_sources_and_assumptions_before_making_any_investment_decision"
-
-SUPPORTED_SUFFIXES = {".pdf", ".txt", ".md", ".json", ".csv"}
-
-TEXT_SUFFIXES = {".txt", ".md", ".json", ".csv"}
-
-METHOD_IDS = [
-    "berkus_method",
-    "scorecard_bill_payne_method",
-    "risk_factor_summation_method",
-    "venture_capital_method",
-    "first_chicago_method",
-    "comparables_market_multiple_method",
-    "cost_to_duplicate_method",
-]
+SUPPORTED_SUFFIXES = {
+    suffix
+    for item in _PUBLIC_DATASET.get("expected_files") or []
+    for suffix in [str(item).strip().removeprefix("*").lower()]
+    if suffix.startswith(".")
+}
+if not SUPPORTED_SUFFIXES:
+    raise RuntimeError("VC default input public_dataset.expected_files is required")
+TEXT_SUFFIXES = SUPPORTED_SUFFIXES - {".pdf"}
 
 WORKFLOW_STEPS = source_workflow_steps(__file__)
 
 WORKFLOW_STEP_IDS = [str(step["id"]) for step in WORKFLOW_STEPS]
 
-_SOURCE_MANIFEST = read_json(source_manifest_path(__file__))
-
-AGENT_IDS = list(((_SOURCE_MANIFEST.get("agents") or {}).get("registry") or {}))
-
+_AGENT_REGISTRY = (
+    (_SOURCE_MANIFEST.get("agents") or {}).get("registry")
+    if isinstance(_SOURCE_MANIFEST.get("agents"), dict)
+    and isinstance((_SOURCE_MANIFEST.get("agents") or {}).get("registry"), dict)
+    else {}
+)
+AGENT_IDS = list(_AGENT_REGISTRY)
 RESEARCH_AGENT_IDS = [
-    "company_identity_researcher",
-    "funding_researcher",
-    "market_comp_researcher",
-    "traction_verifier",
-    "rendered_page_researcher",
+    agent_id
+    for agent_id, definition in _AGENT_REGISTRY.items()
+    if isinstance(definition, dict)
+    and definition.get("handler") == "agents.public_researcher"
 ]
-
 SCORER_AGENT_BY_METHOD = {
-    "berkus_method": "berkus_scorer",
-    "scorecard_bill_payne_method": "scorecard_bill_payne_scorer",
-    "risk_factor_summation_method": "risk_factor_summation_scorer",
-    "venture_capital_method": "venture_capital_method_scorer",
-    "first_chicago_method": "first_chicago_scorer",
-    "comparables_market_multiple_method": "comparables_market_multiple_scorer",
-    "cost_to_duplicate_method": "cost_to_duplicate_scorer",
+    str(parameters["method"]): agent_id
+    for agent_id, definition in _AGENT_REGISTRY.items()
+    if isinstance(definition, dict)
+    and isinstance((parameters := definition.get("with")), dict)
+    and str(parameters.get("method") or "").strip()
 }
+METHOD_IDS = list(SCORER_AGENT_BY_METHOD)
 
-DEFAULT_RESEARCH_SOURCE_URLS = [
-    "https://www.sba.gov/business-guide/plan-your-business/market-research-competitive-analysis",
-    "https://www.sec.gov/education/smallbusiness",
-    "https://www.bls.gov/",
-]
-
-DEFAULT_VERIFICATION_DOMAINS = [
-    "crunchbase.com",
-    "linkedin.com/company",
-    "sec.gov",
-    "company_website",
-    "news_and_press",
-]
-
-DEFAULT_SOURCE_URL_TEMPLATES = [
-    "https://www.crunchbase.com/organization/{company_slug}",
-    "https://www.linkedin.com/company/{company_slug}",
-    "https://www.sec.gov/edgar/search/",
-]
+_INTERNET_RESEARCH_DEFAULTS = (
+    _DEFAULT_CONFIG.get("internet_research")
+    if isinstance(_DEFAULT_CONFIG.get("internet_research"), dict)
+    else {}
+)
+DEFAULT_RESEARCH_SOURCE_URLS = list(
+    _INTERNET_RESEARCH_DEFAULTS.get("default_source_urls") or []
+)
+DEFAULT_VERIFICATION_DOMAINS = list(
+    _INTERNET_RESEARCH_DEFAULTS.get("verification_domains") or []
+)
+DEFAULT_SOURCE_URL_TEMPLATES = list(
+    _INTERNET_RESEARCH_DEFAULTS.get("source_url_templates") or []
+)
 
 W3mBrowserConfig = None
 
@@ -277,20 +297,22 @@ NON_SUBSTANTIVE_SOURCE_STATUSES = {"planned", "configured_reference", "disabled"
 
 WARNING_SOURCE_STATUSES = {"failed", "blocked", "skill_unavailable", "warning", "budget_exhausted"}
 
-DEFAULT_ACTION_BUDGET = 80
-
 DEFAULT_OBSERVABILITY_HEARTBEAT_SECONDS = 10.0
 
-DEFAULT_ACTOR_REVIEW_LLM_ACTOR_IDS = [
-    "research_reconciler",
-    "score_consistency_auditor",
-    "company_report_writer",
-    "batch_index_writer",
-]
-
-DEFAULT_ACTOR_REVIEW_CONTEXT_TARGET_TOKENS = 1200
-
-DEFAULT_ACTOR_REVIEW_CONTEXT_TOKEN_BUDGET = 3000
+_ACTOR_REVIEW_DEFAULTS = (
+    _DEFAULT_CONFIG.get("actor_review")
+    if isinstance(_DEFAULT_CONFIG.get("actor_review"), dict)
+    else {}
+)
+DEFAULT_ACTOR_REVIEW_LLM_ACTOR_IDS = list(
+    _ACTOR_REVIEW_DEFAULTS.get("llm_actor_ids") or []
+)
+DEFAULT_ACTOR_REVIEW_CONTEXT_TARGET_TOKENS = int(
+    _ACTOR_REVIEW_DEFAULTS.get("context_target_tokens") or 0
+)
+DEFAULT_ACTOR_REVIEW_CONTEXT_TOKEN_BUDGET = int(
+    _ACTOR_REVIEW_DEFAULTS.get("context_token_budget") or 0
+)
 
 MAX_TRANSPORT_EVIDENCE_PER_COMPANY = 20
 
@@ -300,18 +322,36 @@ MAX_TRANSPORT_SNIPPET_CHARS = 1200
 
 MAX_TRANSPORT_TEXT_PREVIEW_CHARS = 600
 
-KNOWLEDGE_PLAYBOOK_RELATIVE_PATH = "knowledge/startup_research_playbook.md"
+_KNOWLEDGE_RAG_DESCRIPTOR = (
+    _SOURCE_MANIFEST.get("knowledge_rag")
+    if isinstance(_SOURCE_MANIFEST.get("knowledge_rag"), dict)
+    else {}
+)
+_KNOWLEDGE_RELATIVE_DIR = Path(
+    str(_KNOWLEDGE_RAG_DESCRIPTOR.get("knowledge_dir") or "knowledge")
+)
+if _KNOWLEDGE_RELATIVE_DIR.parts[:1] == ("payloads",):
+    _KNOWLEDGE_RELATIVE_DIR = Path(*_KNOWLEDGE_RELATIVE_DIR.parts[1:])
+_KNOWLEDGE_DOCUMENTS = sorted(
+    (Path(__file__).resolve().parents[1] / _KNOWLEDGE_RELATIVE_DIR).glob("*.md")
+)
+if len(_KNOWLEDGE_DOCUMENTS) != 1:
+    raise RuntimeError("VC knowledge_rag.knowledge_dir must contain one Markdown playbook")
+KNOWLEDGE_PLAYBOOK_RELATIVE_PATH = str(
+    _KNOWLEDGE_RELATIVE_DIR / _KNOWLEDGE_DOCUMENTS[0].name
+)
 
-DEFAULT_AGENTIC_RESEARCH_AGENT_IDS = [
-    "research_planner",
-    "company_identity_researcher",
-    "funding_researcher",
-    "market_comp_researcher",
-    "traction_verifier",
-    "rendered_page_researcher",
-]
-
-DEFAULT_AGENTIC_RESEARCH_TOOLS = ["browser_search", "browser_page", "rendered_browser_page", "finish"]
+_AGENTIC_RESEARCH_DEFAULTS = (
+    _SOURCE_MANIFEST.get("agentic_research")
+    if isinstance(_SOURCE_MANIFEST.get("agentic_research"), dict)
+    else {}
+)
+DEFAULT_AGENTIC_RESEARCH_AGENT_IDS = list(
+    _AGENTIC_RESEARCH_DEFAULTS.get("agent_ids") or []
+)
+DEFAULT_AGENTIC_RESEARCH_TOOLS = list(
+    _AGENTIC_RESEARCH_DEFAULTS.get("allowed_tools") or []
+)
 
 PROFILE_DOMAINS = ("linkedin.com", "crunchbase.com", "x.com", "twitter.com", "angellist.com", "wellfound.com")
 

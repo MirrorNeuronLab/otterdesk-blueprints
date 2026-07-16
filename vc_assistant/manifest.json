@@ -69,31 +69,52 @@
       },
       "berkus_scorer": {
         "handler": "agents.berkus_scorer",
-        "role": "Berkus Scorer"
+        "role": "Berkus Scorer",
+        "with": {
+          "method": "berkus_method"
+        }
       },
       "scorecard_bill_payne_scorer": {
         "handler": "agents.scorecard_bill_payne_scorer",
-        "role": "Scorecard Bill Payne Scorer"
+        "role": "Scorecard Bill Payne Scorer",
+        "with": {
+          "method": "scorecard_bill_payne_method"
+        }
       },
       "risk_factor_summation_scorer": {
         "handler": "agents.risk_factor_summation_scorer",
-        "role": "Risk Factor Summation Scorer"
+        "role": "Risk Factor Summation Scorer",
+        "with": {
+          "method": "risk_factor_summation_method"
+        }
       },
       "venture_capital_method_scorer": {
         "handler": "agents.venture_capital_method_scorer",
-        "role": "Venture Capital Method Scorer"
+        "role": "Venture Capital Method Scorer",
+        "with": {
+          "method": "venture_capital_method"
+        }
       },
       "first_chicago_scorer": {
         "handler": "agents.first_chicago_scorer",
-        "role": "First Chicago Scorer"
+        "role": "First Chicago Scorer",
+        "with": {
+          "method": "first_chicago_method"
+        }
       },
       "comparables_market_multiple_scorer": {
         "handler": "agents.comparables_market_multiple_scorer",
-        "role": "Comparables Market Multiple Scorer"
+        "role": "Comparables Market Multiple Scorer",
+        "with": {
+          "method": "comparables_market_multiple_method"
+        }
       },
       "cost_to_duplicate_scorer": {
         "handler": "agents.cost_to_duplicate_scorer",
-        "role": "Cost To Duplicate Scorer"
+        "role": "Cost To Duplicate Scorer",
+        "with": {
+          "method": "cost_to_duplicate_method"
+        }
       },
       "score_consistency_auditor": {
         "handler": "agents.score_consistency_auditor",
@@ -105,6 +126,10 @@
       },
       "batch_index_writer": {
         "handler": "agents.batch_index_writer",
+        "lifecycle": {
+          "rag_stage": "batch_indexing",
+          "review_after_run": false
+        },
         "role": "Batch Index Writer"
       }
     }
@@ -112,7 +137,36 @@
   "apiVersion": "mn.workflow.source/v2",
   "config": {
     "default": "config/default.json",
-    "embed": true
+    "embed": true,
+    "manifest_defaults": [
+      "agentic_research",
+      "knowledge_rag",
+      "llm",
+      {
+        "from": "requirements",
+        "to": "resources"
+      },
+      {
+        "from": "workflow.policy.human",
+        "to": "human_control"
+      },
+      {
+        "from": "contracts.input_adapters.supported",
+        "to": "interfaces.input_adapters"
+      },
+      {
+        "from": "contracts.inputs.monitoring.example",
+        "to": "inputs.payload.monitoring"
+      },
+      {
+        "from": "identity.id",
+        "to": "identity.blueprint_id"
+      },
+      {
+        "from": "identity.name",
+        "to": "identity.name"
+      }
+    ]
   },
   "contracts": {
     "events": {
@@ -182,6 +236,13 @@
         "privacy": "internal",
         "required": false,
         "type": "domain_value"
+      },
+      "force_reprocess": {
+        "description": "Reprocess unchanged company packets instead of reusing durable cached reports.",
+        "example": false,
+        "privacy": "internal",
+        "required": false,
+        "type": "boolean"
       },
       "input_folder": {
         "description": "Default local input folder for sample files or user-provided files.",
@@ -456,7 +517,6 @@
     "knowledge_dir": "payloads/knowledge",
     "max_context_chars": 6000,
     "namespace": "",
-    "redis_url": "",
     "required": true,
     "top_k": 5,
     "vector_dim": 1024
@@ -469,8 +529,7 @@
           "Write batch indexes.",
           "Write coverage summaries.",
           "Keep output report-only."
-        ],
-        "role": "Batch Index Writer"
+        ]
       },
       "berkus_scorer": {
         "llm_config": "primary",
@@ -478,8 +537,7 @@
           "Score five Berkus buckets.",
           "Use deterministic formulas.",
           "Record assumptions."
-        ],
-        "role": "Berkus Scorer"
+        ]
       },
       "claim_normalizer": {
         "llm_config": "primary",
@@ -487,8 +545,7 @@
           "Build fact tables.",
           "Normalize numeric evidence.",
           "Separate local and public facts."
-        ],
-        "role": "Claim Normalizer"
+        ]
       },
       "company_identity_researcher": {
         "llm_config": "primary",
@@ -496,8 +553,7 @@
           "Research company identity.",
           "Check Crunchbase/profile targets.",
           "Record blocked outcomes."
-        ],
-        "role": "Company Identity Researcher"
+        ]
       },
       "company_packet_grouper": {
         "llm_config": "primary",
@@ -505,8 +561,7 @@
           "Group files by company.",
           "Resolve stable company ids.",
           "Preserve source refs."
-        ],
-        "role": "Company Packet Grouper"
+        ]
       },
       "company_report_writer": {
         "llm_config": "primary",
@@ -514,8 +569,7 @@
           "Write per-company folders.",
           "Preserve method sections.",
           "Write warnings and evidence files."
-        ],
-        "role": "Company Report Writer"
+        ]
       },
       "comparables_market_multiple_scorer": {
         "llm_config": "primary",
@@ -523,8 +577,7 @@
           "Use comparable evidence.",
           "Record market multiple assumptions.",
           "Mark insufficient evidence."
-        ],
-        "role": "Comparables Market Multiple Scorer"
+        ]
       },
       "cost_to_duplicate_scorer": {
         "llm_config": "primary",
@@ -532,8 +585,7 @@
           "Estimate rebuild-cost floor.",
           "Use asset evidence.",
           "Flag missing asset details."
-        ],
-        "role": "Cost To Duplicate Scorer"
+        ]
       },
       "document_evidence_extractor": {
         "llm_config": "primary",
@@ -541,8 +593,7 @@
           "Extract local evidence.",
           "Capture structured claims.",
           "Mark unreadable files."
-        ],
-        "role": "Document Evidence Extractor"
+        ]
       },
       "first_chicago_scorer": {
         "llm_config": "primary",
@@ -550,8 +601,7 @@
           "Build bear/base/bull cases.",
           "Apply probabilities.",
           "Record scenario warnings."
-        ],
-        "role": "First Chicago Scorer"
+        ]
       },
       "funding_researcher": {
         "llm_config": "primary",
@@ -559,8 +609,7 @@
           "Research funding mentions.",
           "Check investor and accelerator signals.",
           "Record source quality."
-        ],
-        "role": "Funding Researcher"
+        ]
       },
       "market_comp_researcher": {
         "llm_config": "primary",
@@ -568,8 +617,7 @@
           "Research market context.",
           "Find comparable candidates.",
           "Capture source references."
-        ],
-        "role": "Market And Comparable Researcher"
+        ]
       },
       "rendered_page_researcher": {
         "llm_config": "primary",
@@ -577,8 +625,7 @@
           "Use rendered browser when enabled.",
           "Respect robots and blocked pages.",
           "Record JS-heavy page status."
-        ],
-        "role": "Rendered Page Researcher"
+        ]
       },
       "research_planner": {
         "llm_config": "primary",
@@ -586,8 +633,7 @@
           "Create safe queries.",
           "Avoid confidential excerpts.",
           "Plan profile and market lookups."
-        ],
-        "role": "Research Planner"
+        ]
       },
       "research_reconciler": {
         "llm_config": "primary",
@@ -595,8 +641,7 @@
           "Merge local and public evidence.",
           "Flag confirmations.",
           "Flag conflicts and missing evidence."
-        ],
-        "role": "Research Reconciler"
+        ]
       },
       "risk_factor_summation_scorer": {
         "llm_config": "primary",
@@ -604,8 +649,7 @@
           "Run 12-risk checklist.",
           "Record adjustments.",
           "Mark missing risk evidence."
-        ],
-        "role": "Risk Factor Summation Scorer"
+        ]
       },
       "score_consistency_auditor": {
         "llm_config": "primary",
@@ -613,8 +657,7 @@
           "Check score math.",
           "Check missing-evidence handling.",
           "Flag unsupported assumptions."
-        ],
-        "role": "Score Consistency Auditor"
+        ]
       },
       "scorecard_bill_payne_scorer": {
         "llm_config": "primary",
@@ -622,8 +665,7 @@
           "Apply weighted factors.",
           "Record inputs used.",
           "Keep scores report-only."
-        ],
-        "role": "Scorecard Bill Payne Scorer"
+        ]
       },
       "startup_folder_watcher": {
         "llm_config": "primary",
@@ -631,8 +673,7 @@
           "Detect changed files.",
           "Build company fingerprints.",
           "Identify unchanged company packets."
-        ],
-        "role": "Startup Folder Watcher"
+        ]
       },
       "traction_verifier": {
         "llm_config": "primary",
@@ -640,8 +681,7 @@
           "Verify customer and launch claims.",
           "Check public traction signals.",
           "Flag missing evidence."
-        ],
-        "role": "Traction Verifier"
+        ]
       },
       "venture_capital_method_scorer": {
         "llm_config": "primary",
@@ -649,8 +689,7 @@
           "Run exit-back math.",
           "Record assumptions.",
           "Avoid valuation recommendations."
-        ],
-        "role": "Venture Capital Method Scorer"
+        ]
       }
     },
     "backend": "llama.cpp",
@@ -774,11 +813,36 @@
     }
   ],
   "agent_dependencies": [
-    {"type": "pip", "source": "gar", "name": "mn-prototype-stateful-step-agent", "version": "1.2.24"},
-    {"type": "pip", "source": "gar", "name": "mn-prototype-entity-queue-agent", "version": "1.2.24"},
-    {"type": "pip", "source": "gar", "name": "mn-prototype-bounded-tool-loop-agent", "version": "1.2.24"},
-    {"type": "pip", "source": "gar", "name": "mn-prototype-actor-review-agent", "version": "1.2.24"},
-    {"type": "pip", "source": "gar", "name": "mn-prototype-artifact-finalizer-agent", "version": "1.2.24"}
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mn-prototype-stateful-step-agent",
+      "version": "1.2.24"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mn-prototype-entity-queue-agent",
+      "version": "1.2.24"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mn-prototype-bounded-tool-loop-agent",
+      "version": "1.2.24"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mn-prototype-actor-review-agent",
+      "version": "1.2.24"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mn-prototype-artifact-finalizer-agent",
+      "version": "1.2.24"
+    }
   ],
   "standard": {
     "migration_policy": "sdk_managed",

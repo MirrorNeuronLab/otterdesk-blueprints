@@ -88,6 +88,19 @@ MirrorNeuron core owns execution topology and delivery semantics: generated sour
 
 Do not place document processing, evidence modeling, research policy, valuation formulas, auditing, review prompts, rendering, or artifact composition in `runtime.py`. Runtime code must not import executable agent behavior. Add architecture tests that enforce this boundary; for large blueprints, keep `runtime.py` comfortably below 500 lines.
 
+## Single Sources of Truth
+
+Do not repeat descriptive manifest information in payload Python or `config/default.json`.
+
+- `manifest.json` owns blueprint identity, workflow topology, contracts, dependency declarations, agent registry entries, handler bindings, roles, and immutable handler parameters.
+- `config/default.json` owns operator-tunable runtime values and may override manifest-owned defaults; it must not copy whole manifest descriptor sections.
+- Payload Python derives agent rosters, workflow step IDs, scorer/method bindings, prompt-file conventions, accepted run-input keys, and similar descriptors from the staged source manifest or resolved runtime config.
+- `skill_dependencies` and `agent_dependencies` are installed by the platform from the manifest. Never add a payload dependency bootstrap module or duplicate package lists in Python.
+- Use `config.manifest_defaults` when a manifest descriptor must also be available through resolved runtime configuration. A dotted string preserves the same path; a `{ "from": ..., "to": ... }` mapping projects it to a runtime-config path. Runtime and compiler code must use the SDK resolver so manifest values merge before config-file and invocation overlays.
+- Keep executable policy and algorithms in code: formulas, evidence confidence rules, report semantics, and other blueprint-specific behavior are not descriptive manifest data.
+
+When a value changes for structural reasons, it usually belongs in the manifest. When an operator should tune it per run, it belongs in config. When it computes or enforces domain behavior, it belongs in the owning agent, skill, or blueprint domain module.
+
 ## Placement Test
 
 Before adding code, ask:

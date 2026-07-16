@@ -21,21 +21,19 @@ def prompt_library_for_runtime() -> PromptLibrary:
 
 PROMPTS = prompt_library_for_runtime()
 
-RESEARCH_AGENT_PROMPT_FILES = {
-    "research_planner": "research-planner.md",
-    "company_identity_researcher": "company-identity-researcher.md",
-    "funding_researcher": "funding-researcher.md",
-    "market_comp_researcher": "market-comp-researcher.md",
-    "traction_verifier": "traction-verifier.md",
-    "rendered_page_researcher": "rendered-page-researcher.md",
-}
+def _agent_prompt_files(agent_ids: list[str]) -> dict[str, str]:
+    return {
+        agent_id: filename
+        for agent_id in agent_ids
+        for filename in [f"{agent_id.replace('_', '-')}.md"]
+        if (PROMPTS.prompt_dir / filename).is_file()
+    }
 
-REVIEW_AGENT_PROMPT_FILES = {
-    "research_reconciler": "research-reconciler.md",
-    "score_consistency_auditor": "score-consistency-auditor.md",
-    "company_report_writer": "company-report-writer.md",
-    "batch_index_writer": "batch-index-writer.md",
-}
+
+RESEARCH_AGENT_PROMPT_FILES = _agent_prompt_files(DEFAULT_AGENTIC_RESEARCH_AGENT_IDS)
+REVIEW_AGENT_PROMPT_FILES = _agent_prompt_files(
+    [agent_id for agent_id in AGENT_IDS if agent_id not in RESEARCH_AGENT_PROMPT_FILES]
+)
 
 def load_prompt(name: str, **values: Any) -> str:
     return PROMPTS.load(name, **values)
@@ -442,4 +440,3 @@ def active_knowledge_reference(active_knowledge: dict[str, Any]) -> dict[str, An
         },
         "judge_rubric": list(active_knowledge.get("judge_rubric") or []),
     }
-

@@ -1,9 +1,5 @@
 {
   "standard_version": "mn.blueprint.config.v1",
-  "identity": {
-    "blueprint_id": "vc_assistant",
-    "name": "VC Assistant"
-  },
   "mode": "document_automation_review",
   "metadata": {
     "category": "Finance",
@@ -29,11 +25,6 @@
       "grouping": {
         "mode": "folder_first",
         "infer_loose_files": true
-      },
-      "monitoring": {
-        "enabled": true,
-        "poll_interval_seconds": 60,
-        "max_cycles": 1
       },
       "public_dataset": {
         "name": "Synthetic startup packet samples",
@@ -116,226 +107,15 @@
     "recommended_action": "review_scores_sources_and_assumptions_before_making_any_investment_decision"
   },
   "llm": {
-    "enabled": true,
-    "mode": "live",
-    "mock_mode": "fake",
-    "model": "default",
-    "default_config": "primary",
-    "quick_test_uses_fake": true,
     "strict_json": false,
-    "prefer_shared_skill": true,
     "configs": {
       "primary": {
-        "provider": "docker_model_runner",
-        "backend": "llama.cpp",
-        "api_base": "auto",
-        "timeout_seconds": 60,
         "max_tokens": 1800,
         "num_retries": 2,
-        "retry_backoff_seconds": 1.0,
-        "mock_mode": "fake",
-        "mode": "live"
+        "retry_backoff_seconds": 1.0
       }
     },
-    "agents": {
-      "startup_folder_watcher": {
-        "llm_config": "primary",
-        "role": "Startup Folder Watcher",
-        "responsibilities": [
-          "Detect changed files.",
-          "Build company fingerprints.",
-          "Identify unchanged company packets."
-        ]
-      },
-      "company_packet_grouper": {
-        "llm_config": "primary",
-        "role": "Company Packet Grouper",
-        "responsibilities": [
-          "Group files by company.",
-          "Resolve stable company ids.",
-          "Preserve source refs."
-        ]
-      },
-      "document_evidence_extractor": {
-        "llm_config": "primary",
-        "role": "Document Evidence Extractor",
-        "responsibilities": [
-          "Extract local evidence.",
-          "Capture structured claims.",
-          "Mark unreadable files."
-        ]
-      },
-      "claim_normalizer": {
-        "llm_config": "primary",
-        "role": "Claim Normalizer",
-        "responsibilities": [
-          "Build fact tables.",
-          "Normalize numeric evidence.",
-          "Separate local and public facts."
-        ]
-      },
-      "research_planner": {
-        "llm_config": "primary",
-        "role": "Research Planner",
-        "responsibilities": [
-          "Create safe queries.",
-          "Avoid confidential excerpts.",
-          "Plan profile and market lookups."
-        ]
-      },
-      "company_identity_researcher": {
-        "llm_config": "primary",
-        "role": "Company Identity Researcher",
-        "responsibilities": [
-          "Research company identity.",
-          "Check Crunchbase/profile targets.",
-          "Record blocked outcomes."
-        ]
-      },
-      "funding_researcher": {
-        "llm_config": "primary",
-        "role": "Funding Researcher",
-        "responsibilities": [
-          "Research funding mentions.",
-          "Check investor and accelerator signals.",
-          "Record source quality."
-        ]
-      },
-      "market_comp_researcher": {
-        "llm_config": "primary",
-        "role": "Market And Comparable Researcher",
-        "responsibilities": [
-          "Research market context.",
-          "Find comparable candidates.",
-          "Capture source references."
-        ]
-      },
-      "traction_verifier": {
-        "llm_config": "primary",
-        "role": "Traction Verifier",
-        "responsibilities": [
-          "Verify customer and launch claims.",
-          "Check public traction signals.",
-          "Flag missing evidence."
-        ]
-      },
-      "rendered_page_researcher": {
-        "llm_config": "primary",
-        "role": "Rendered Page Researcher",
-        "responsibilities": [
-          "Use rendered browser when enabled.",
-          "Respect robots and blocked pages.",
-          "Record JS-heavy page status."
-        ]
-      },
-      "research_reconciler": {
-        "llm_config": "primary",
-        "role": "Research Reconciler",
-        "responsibilities": [
-          "Merge local and public evidence.",
-          "Flag confirmations.",
-          "Flag conflicts and missing evidence."
-        ]
-      },
-      "berkus_scorer": {
-        "llm_config": "primary",
-        "role": "Berkus Scorer",
-        "responsibilities": [
-          "Score five Berkus buckets.",
-          "Use deterministic formulas.",
-          "Record assumptions."
-        ]
-      },
-      "scorecard_bill_payne_scorer": {
-        "llm_config": "primary",
-        "role": "Scorecard Bill Payne Scorer",
-        "responsibilities": [
-          "Apply weighted factors.",
-          "Record inputs used.",
-          "Keep scores report-only."
-        ]
-      },
-      "risk_factor_summation_scorer": {
-        "llm_config": "primary",
-        "role": "Risk Factor Summation Scorer",
-        "responsibilities": [
-          "Run 12-risk checklist.",
-          "Record adjustments.",
-          "Mark missing risk evidence."
-        ]
-      },
-      "venture_capital_method_scorer": {
-        "llm_config": "primary",
-        "role": "Venture Capital Method Scorer",
-        "responsibilities": [
-          "Run exit-back math.",
-          "Record assumptions.",
-          "Avoid valuation recommendations."
-        ]
-      },
-      "first_chicago_scorer": {
-        "llm_config": "primary",
-        "role": "First Chicago Scorer",
-        "responsibilities": [
-          "Build bear/base/bull cases.",
-          "Apply probabilities.",
-          "Record scenario warnings."
-        ]
-      },
-      "comparables_market_multiple_scorer": {
-        "llm_config": "primary",
-        "role": "Comparables Market Multiple Scorer",
-        "responsibilities": [
-          "Use comparable evidence.",
-          "Record market multiple assumptions.",
-          "Mark insufficient evidence."
-        ]
-      },
-      "cost_to_duplicate_scorer": {
-        "llm_config": "primary",
-        "role": "Cost To Duplicate Scorer",
-        "responsibilities": [
-          "Estimate rebuild-cost floor.",
-          "Use asset evidence.",
-          "Flag missing asset details."
-        ]
-      },
-      "score_consistency_auditor": {
-        "llm_config": "primary",
-        "role": "Score Consistency Auditor",
-        "responsibilities": [
-          "Check score math.",
-          "Check missing-evidence handling.",
-          "Flag unsupported assumptions."
-        ]
-      },
-      "company_report_writer": {
-        "llm_config": "primary",
-        "role": "Company Report Writer",
-        "responsibilities": [
-          "Write per-company folders.",
-          "Preserve method sections.",
-          "Write warnings and evidence files."
-        ]
-      },
-      "batch_index_writer": {
-        "llm_config": "primary",
-        "role": "Batch Index Writer",
-        "responsibilities": [
-          "Write batch indexes.",
-          "Write coverage summaries.",
-          "Keep output report-only."
-        ]
-      }
-    },
-    "responsibilities": [
-      "Keep VC outputs report-only and source-grounded.",
-      "Use specialist agents for research, scoring, audit, and report writing.",
-      "Avoid automated investment decisions or confidential-data web disclosure."
-    ],
-    "require_live": false,
-    "provider": "docker_model_runner",
-    "backend": "llama.cpp"
+    "require_live": false
   },
   "outputs": {
     "folder_path": "~/Downloads/vc_assistant",
@@ -402,51 +182,6 @@
       "watch_cycle_started",
       "watch_cycle_completed"
     ]
-  },
-  "resources": {
-    "cpu": {
-      "min_cores": 1
-    },
-    "memory": {
-      "min_gb": 2
-    },
-    "disk": {
-      "min_gb": 1
-    },
-    "gpu": {
-      "min_count": 0
-    }
-  },
-  "human_control": {
-    "allowed_decisions": [
-      "approve",
-      "revise",
-      "reject"
-    ],
-    "blocked_actions": [
-      "make_investment_decision",
-      "send_investment_recommendation",
-      "share_confidential_documents",
-      "submit_term_sheet",
-      "contact_founder_without_review",
-      "mark_scores_as_final_valuation"
-    ],
-    "decision_event": "human_decision_applied",
-    "default_action": "reject",
-    "enabled": true,
-    "events": [
-      "human_notice",
-      "human_input_requested",
-      "human_input_received",
-      "human_input_timeout",
-      "human_decision_applied"
-    ],
-    "mode": "approval_required",
-    "reason": "Human approval is required before any external sharing, investment action, founder contact, valuation use, or downstream decision.",
-    "request_event": "human_input_requested",
-    "response_event": "human_input_received",
-    "timeout_event": "human_input_timeout",
-    "timeout_seconds": 3600
   },
   "privacy": {
     "default_classification": "confidential",
@@ -639,28 +374,6 @@
       "max_pages_per_company": 3,
       "per_host_delay_seconds": 1
     }
-  },
-  "agentic_research": {
-    "enabled": true,
-    "agent_ids": [
-      "research_planner",
-      "company_identity_researcher",
-      "funding_researcher",
-      "market_comp_researcher",
-      "traction_verifier",
-      "rendered_page_researcher"
-    ],
-    "max_iterations_per_agent": 1,
-    "max_tool_calls_per_agent": 2,
-    "allowed_tools": [
-      "browser_search",
-      "browser_page",
-      "rendered_browser_page",
-      "finish"
-    ],
-    "quick_test_behavior": "disabled_for_default_smoke_run",
-    "default_mode": "bounded_llm_guided_public_tool_research",
-    "note": "Default batch research uses bounded LLM tool-decision loops for public-safe evidence collection; browser failures remain warnings and are recorded."
   },
   "financial_tools": {
     "enabled": true,
@@ -1033,12 +746,6 @@
       "name",
       "run_id"
     ],
-    "input_adapters": [
-      "mock",
-      "json",
-      "file",
-      "env_json"
-    ],
     "output_adapters": [
       "local_run_store"
     ],
@@ -1126,23 +833,7 @@
     "node_scope": "vc_python_executor_nodes"
   },
   "knowledge_rag": {
-    "enabled": true,
-    "backend": "milvus_lite",
-    "namespace": "",
-    "embedding_provider": "docker_model_runner",
-    "embedding_model": "rag-embedding",
-    "embedding_api_base": "auto",
-    "embedding_query_prefix": "Query: ",
-    "embedding_document_prefix": "Document: ",
-    "embedding_start_command": "",
-    "embedding_healthcheck_enabled": true,
-    "vector_dim": 1024,
-    "index_on_startup": true,
-    "top_k": 5,
-    "max_context_chars": 6000,
-    "chunk_size": 800,
-    "chunk_overlap": 80,
-    "required": true
+    "backend": "milvus_lite"
   },
   "suggested_schedule": {
     "cron": "0 7 * * *",

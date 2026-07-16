@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..common import evidence_status
 from ..research_policy import method_result
 
 def score_venture_capital_method(facts: dict[str, Any]) -> dict[str, Any]:
@@ -14,7 +13,6 @@ def score_venture_capital_method(facts: dict[str, Any]) -> dict[str, Any]:
     score = min(100, facts["traction_facts"]["score"] * 0.6 + facts["market_facts"]["score"] * 0.4) if status == "scored" else None
     return method_result(
         method_id="venture_capital_method",
-        scorer_id="venture_capital_method_scorer",
         memory_hook="Work backward from exit",
         status=status,
         score=score,
@@ -26,4 +24,3 @@ def score_venture_capital_method(facts: dict[str, Any]) -> dict[str, Any]:
         details={"assumed_exit_value": assumed_exit_value, "required_return_multiple": 10, "monetary_value_source": "local_or_public_or_financial_tool"},
         missing_evidence=[] if status == "scored" else ["No local, public, or financial-tool monetary value was available for exit-back math."],
     )
-

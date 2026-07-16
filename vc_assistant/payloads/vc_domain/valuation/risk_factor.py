@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..common import evidence_status
 from ..research_policy import method_result
 
 def score_risk_factor_summation(facts: dict[str, Any]) -> dict[str, Any]:
@@ -33,7 +32,6 @@ def score_risk_factor_summation(facts: dict[str, Any]) -> dict[str, Any]:
     status = "scored" if facts["risk_facts"]["score"] else "insufficient_evidence"
     return method_result(
         method_id="risk_factor_summation_method",
-        scorer_id="risk_factor_summation_scorer",
         memory_hook="12-risk checklist",
         status=status,
         score=max(0, 100 - facts["risk_facts"]["score"]) if status == "scored" else None,
@@ -44,4 +42,3 @@ def score_risk_factor_summation(facts: dict[str, Any]) -> dict[str, Any]:
         warnings=["Several risk checklist factors lack explicit evidence."] if status == "scored" else ["No explicit risk evidence found."],
         details={"risk_adjustments": adjustments},
     )
-

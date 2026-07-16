@@ -1,6 +1,1 @@
-"""One module per VC Assistant agent."""
-
-from runtime.dependencies import prepare_dependencies
-
-
-prepare_dependencies(__file__)
+"""One module per VC Assistant agent; dependencies come from the manifest."""

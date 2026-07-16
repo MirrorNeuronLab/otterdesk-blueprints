@@ -11,7 +11,6 @@ def score_cost_to_duplicate(facts: dict[str, Any]) -> dict[str, Any]:
     status = evidence_status(facts["ip_asset_facts"]["score"])
     return method_result(
         method_id="cost_to_duplicate_method",
-        scorer_id="cost_to_duplicate_scorer",
         memory_hook="What would it cost to rebuild?",
         status=status,
         score=facts["ip_asset_facts"]["score"] if status == "scored" else None,
@@ -22,4 +21,3 @@ def score_cost_to_duplicate(facts: dict[str, Any]) -> dict[str, Any]:
         warnings=[] if status == "scored" else ["No rebuild-cost asset evidence found."],
         details={"evidence_terms": facts["ip_asset_facts"]["keywords"]},
     )
-

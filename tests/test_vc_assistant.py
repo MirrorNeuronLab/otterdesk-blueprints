@@ -13,6 +13,7 @@ from pathlib import Path
 import pytest
 
 from vc_assistant.domain_test_support import load_domain_test_surface
+from mn_sdk.blueprint_support import load_runtime_config
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -54,6 +55,12 @@ LEGACY_RAG_BACKENDS = {
     "lexical_plain_text",
     "working_memory_plus_rag",
 }
+
+
+def _resolved_vc_config() -> dict:
+    return load_runtime_config(
+        BLUEPRINT_DIR / "payloads" / "runtime" / "runtime.py"
+    )
 
 
 def _normalized_rag_snapshot(rag: dict) -> dict:
@@ -327,9 +334,7 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
             (ROOT / "vc_assistant" / "manifest.json").read_text(encoding="utf-8")
         )
     )
-    config = json.loads(
-        (ROOT / "vc_assistant" / "config" / "default.json").read_text(encoding="utf-8")
-    )
+    config = _resolved_vc_config()
     nodes = [
         node
         for node in manifest["agents"]["nodes"]
@@ -734,9 +739,7 @@ def test_vc_runner_uses_embedded_config_when_default_file_is_not_mounted(
 
 def test_explicit_fake_llm_mode_overrides_live_vc_runtime(monkeypatch, tmp_path):
     runner = _load_runner()
-    config = json.loads(
-        (ROOT / "vc_assistant" / "config" / "default.json").read_text(encoding="utf-8")
-    )
+    config = _resolved_vc_config()
 
     monkeypatch.setenv("MN_BLUEPRINT_FAKE_LLM", "true")
 
@@ -1525,9 +1528,7 @@ def test_vc_manifest_agent_dependencies_are_imported_and_runtime_boundaries_are_
 
 def test_vc_agents_are_llm_backed_and_selected_for_actor_reviews():
     runner = _load_runner()
-    config = json.loads(
-        (ROOT / "vc_assistant" / "config" / "default.json").read_text(encoding="utf-8")
-    )
+    config = _resolved_vc_config()
     agents = config["llm"]["agents"]
 
     assert len(agents) == 21

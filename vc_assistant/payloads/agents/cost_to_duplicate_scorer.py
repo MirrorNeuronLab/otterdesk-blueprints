@@ -3,4 +3,4 @@
 from .valuation_scorer import create_valuation_scorer
 
 
-run = create_valuation_scorer("cost_to_duplicate_method")
+run = create_valuation_scorer()

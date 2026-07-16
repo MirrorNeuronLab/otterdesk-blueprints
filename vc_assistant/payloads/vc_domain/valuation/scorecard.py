@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..common import evidence_status
 from ..research_policy import method_result
 
 def score_scorecard(facts: dict[str, Any]) -> dict[str, Any]:
@@ -30,7 +29,6 @@ def score_scorecard(facts: dict[str, Any]) -> dict[str, Any]:
     status = "scored" if substantive_inputs else "insufficient_evidence"
     return method_result(
         method_id="scorecard_bill_payne_method",
-        scorer_id="scorecard_bill_payne_scorer",
         memory_hook="Compare to the average startup",
         status=status,
         score=sum(factors[key] * weight for key, weight in weights.items()) if status == "scored" else None,
@@ -45,4 +43,3 @@ def score_scorecard(facts: dict[str, Any]) -> dict[str, Any]:
             "non_substantive_default_inputs": ["competition"] + ([] if facts["financial_facts"]["local_monetary_values"] else ["financing_need"]),
         },
     )
-

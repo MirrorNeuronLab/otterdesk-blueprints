@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..common import evidence_status
 from ..research_policy import method_result
 
 def score_berkus(facts: dict[str, Any]) -> dict[str, Any]:
@@ -18,7 +17,6 @@ def score_berkus(facts: dict[str, Any]) -> dict[str, Any]:
     status = "scored" if any(buckets.values()) else "insufficient_evidence"
     return method_result(
         method_id="berkus_method",
-        scorer_id="berkus_scorer",
         memory_hook="5 buckets",
         status=status,
         score=sum(buckets.values()) / len(buckets) if status == "scored" else None,
@@ -28,4 +26,3 @@ def score_berkus(facts: dict[str, Any]) -> dict[str, Any]:
         source_refs=facts["team_facts"]["evidence_refs"] + facts["market_facts"]["public_source_refs"][:5],
         details={"buckets": buckets},
     )
-

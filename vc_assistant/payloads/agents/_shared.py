@@ -10,6 +10,7 @@ from mn_prototype_stateful_step_agent import (
     create_message_agent,
 )
 from mn_sdk.blueprint_support import StepLifecycleHooks
+from mn_sdk.blueprint_support import source_manifest
 from mn_sdk.step_runtime import (
     AgentInput,
     artifact_reference,
@@ -21,15 +22,27 @@ from runtime import runtime
 from .review import review_agent_invocation
 
 
-_RUNTIME_INPUT_KEYS = frozenset(
-    {
-        "document_folder",
-        "input_folder",
-        "output_folder",
-        "monitoring",
-        "force_reprocess",
-    }
+_MANIFEST = source_manifest(__file__)
+_CONTRACTS = (
+    _MANIFEST.get("contracts") if isinstance(_MANIFEST.get("contracts"), dict) else {}
 )
+_AGENT_REGISTRY = (
+    (_MANIFEST.get("agents") or {}).get("registry")
+    if isinstance(_MANIFEST.get("agents"), dict)
+    else {}
+)
+_INPUT_CONTRACT = (
+    _CONTRACTS.get("inputs")
+    if isinstance(_CONTRACTS.get("inputs"), dict)
+    else {}
+)
+_RUNTIME_INPUT_KEYS = frozenset(_INPUT_CONTRACT)
+
+
+def _agent_lifecycle(agent_id: str) -> dict[str, Any]:
+    registered = _AGENT_REGISTRY.get(agent_id)
+    lifecycle = registered.get("lifecycle") if isinstance(registered, dict) else {}
+    return lifecycle if isinstance(lifecycle, dict) else {}
 
 
 def _prepare_agent_services(
@@ -46,11 +59,8 @@ def _prepare_agent_services(
     )
     needs_review_llm = runtime.step_agent_review_selected(mapping, [agent_id])
     needs_llm = needs_agentic_llm or needs_review_llm
-    rag_stage = (
-        "batch_indexing"
-        if agent_id == "batch_index_writer"
-        else (agent_id if needs_llm else "")
-    )
+    lifecycle = _agent_lifecycle(agent_id)
+    rag_stage = str(lifecycle.get("rag_stage") or (agent_id if needs_llm else ""))
     return {
         "workflow_state": context.state_store,
         **runtime.build_runtime_services(
@@ -110,7 +120,8 @@ def create_agent_handler(
             }
         )
         result = domain_handler(mapping, llm_client=llm_client, **parameters)
-        if context.step_context.agent_id != "batch_index_writer":
+        lifecycle = _agent_lifecycle(context.step_context.agent_id)
+        if lifecycle.get("review_after_run", True) is not False:
             review_agent_invocation(
                 mapping,
                 step_id=context.step_context.step_id,

@@ -83,11 +83,11 @@ def run_valuation_scorer(
     )
 
 
-def create_valuation_scorer(method: str):
-    """Bind one registry-visible scorer agent to one immutable method."""
+def create_valuation_scorer():
+    """Create a scorer whose immutable method binding comes from the manifest."""
 
     def run_method(
-        ctx: dict[str, Any], *, llm_client: Any | None = None
+        ctx: dict[str, Any], *, method: str, llm_client: Any | None = None
     ) -> dict[str, Any]:
         return run_valuation_scorer(ctx, method=method, llm_client=llm_client)
 

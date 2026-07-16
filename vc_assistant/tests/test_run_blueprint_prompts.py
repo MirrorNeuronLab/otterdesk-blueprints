@@ -11,7 +11,11 @@ import pytest
 from vc_assistant.domain_test_support import load_domain_test_surface
 
 from mn_sdk import expand_manifest_source
-from mn_sdk.blueprint_support import BlueprintBundleLayout, default_config_path
+from mn_sdk.blueprint_support import (
+    BlueprintBundleLayout,
+    default_config_path,
+    load_runtime_config,
+)
 from mn_sdk.step_runtime import StepContext, resolve_handler
 
 BLUEPRINT_DIR = Path(__file__).resolve().parents[1]
@@ -53,7 +57,36 @@ def test_source_manifest_keeps_the_default_runtime_declarative():
     assert manifest["agents"] == {"registry": manifest["agents"]["registry"]}
     assert manifest["workflow"]["steps"][0]["id"] == "detect_packet_changes"
     assert all(step["run"]["definition"] for step in manifest["workflow"]["steps"])
-    assert default_config["llm"]["model"] == "default"
+    assert set(default_config["llm"]) == {"strict_json", "configs", "require_live"}
+    assert "agentic_research" not in default_config
+    assert default_config["knowledge_rag"] == {"backend": "milvus_lite"}
+    assert "resources" not in default_config
+    assert "human_control" not in default_config
+    assert "input_adapters" not in default_config["interfaces"]
+    assert "monitoring" not in default_config["inputs"]["payload"]
+    assert "identity" not in default_config
+
+    resolved = load_runtime_config(RUNTIME_PATH)
+    assert resolved["identity"] == {
+        "blueprint_id": manifest["identity"]["id"],
+        "name": manifest["identity"]["name"],
+    }
+    assert resolved["llm"]["model"] == "default"
+    assert resolved["agentic_research"] == manifest["agentic_research"]
+    assert resolved["knowledge_rag"]["knowledge_dir"] == "payloads/knowledge"
+    assert resolved["resources"] == manifest["requirements"]
+    assert resolved["human_control"] == manifest["workflow"]["policy"]["human"]
+    assert (
+        resolved["interfaces"]["input_adapters"]
+        == manifest["contracts"]["input_adapters"]["supported"]
+    )
+    assert (
+        resolved["inputs"]["payload"]["monitoring"]
+        == manifest["contracts"]["inputs"]["monitoring"]["example"]
+    )
+    assert set(resolved["llm"]["agents"]) == set(manifest["agents"]["registry"])
+    for agent_id, actor in resolved["llm"]["agents"].items():
+        assert actor["role"] == manifest["agents"]["registry"][agent_id]["role"]
 
 
 def test_step_definitions_resolve_to_direct_agent_handlers():
@@ -166,6 +199,7 @@ def test_runtime_boundary_contains_only_runtime_preparation_responsibilities():
         assert "agents.domain" not in agent_source
 
     assert not (PAYLOAD_DIR / "agents" / "domain.py").exists()
+    assert not (PAYLOAD_DIR / "runtime" / "dependencies.py").exists()
     assert "from agents" not in source
     assert all(
         len(path.read_text(encoding="utf-8").splitlines()) <= 800
@@ -228,8 +262,7 @@ def test_agent_invocation_replay_uses_durable_idempotency_record(tmp_path):
 
 
 def test_model_contract_uses_the_shared_adaptive_default():
-    default_config = json.loads((BLUEPRINT_DIR / "config" / "default.json").read_text())
-    llm = default_config["llm"]
+    llm = load_runtime_config(RUNTIME_PATH)["llm"]
 
     assert llm["model"] == "default"
     assert "model" not in llm["configs"]["primary"]
@@ -248,6 +281,29 @@ def test_valuation_methods_map_to_discoverable_specialist_agents():
     for agent_id in rb.SCORER_AGENT_BY_METHOD.values():
         assert registry[agent_id]["handler"] == f"agents.{agent_id}"
         assert (PAYLOAD_DIR / "agents" / f"{agent_id}.py").exists()
+
+    valuation_source = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in (PAYLOAD_DIR / "vc_domain" / "valuation").glob("*.py")
+    )
+    assert "scorer_id=" not in valuation_source
+
+
+def test_agent_lifecycle_exceptions_are_manifest_owned():
+    manifest = json.loads((BLUEPRINT_DIR / "manifest.json").read_text())
+    batch_lifecycle = manifest["agents"]["registry"]["batch_index_writer"][
+        "lifecycle"
+    ]
+    shared_source = (PAYLOAD_DIR / "agents" / "_shared.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert batch_lifecycle == {
+        "rag_stage": "batch_indexing",
+        "review_after_run": False,
+    }
+    assert 'agent_id == "batch_index_writer"' not in shared_source
+    assert 'agent_id != "batch_index_writer"' not in shared_source
 
 
 def test_research_prompt_specs_are_distinct_for_all_agent_ids():

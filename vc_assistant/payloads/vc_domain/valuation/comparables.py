@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..common import evidence_status
 from ..research_policy import method_result
 
 def score_comparables(facts: dict[str, Any]) -> dict[str, Any]:
@@ -12,7 +11,6 @@ def score_comparables(facts: dict[str, Any]) -> dict[str, Any]:
     status = "scored" if source_count else "insufficient_evidence"
     return method_result(
         method_id="comparables_market_multiple_method",
-        scorer_id="comparables_market_multiple_scorer",
         memory_hook="What are similar companies worth?",
         status=status,
         score=(facts["market_facts"]["score"] + facts["traction_facts"]["score"]) / 2 if status == "scored" else None,
@@ -24,4 +22,3 @@ def score_comparables(facts: dict[str, Any]) -> dict[str, Any]:
         details={"source_count": source_count, "domains": facts["comparable_candidates"]["domains"][:12], "financial_tool_outputs": facts["financial_facts"]["financial_tool_outputs"]},
         missing_evidence=[] if status == "scored" else ["No substantive public comparable source or deterministic financial-tool comparable was available."],
     )
-

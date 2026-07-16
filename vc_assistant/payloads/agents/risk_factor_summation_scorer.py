@@ -3,4 +3,4 @@
 from .valuation_scorer import create_valuation_scorer
 
 
-run = create_valuation_scorer("risk_factor_summation_method")
+run = create_valuation_scorer()

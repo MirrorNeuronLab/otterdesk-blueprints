@@ -35,6 +35,7 @@ FOLDER_INPUT_FIELDS = {
 
 from mn_blueprint_support import render_manifest_agent_templates
 from mn_sdk import expand_manifest_source, is_manifest_source, run_input_validation
+from mn_sdk.blueprint_support import deep_merge, manifest_config_defaults
 from mn_blueprint_support.experience import (
     FINAL_ARTIFACT_REQUIRED_FIELDS,
     HUMAN_CONTROL_MODES,
@@ -56,6 +57,12 @@ def _runtime_manifest(path: Path) -> dict:
     if is_manifest_source(manifest):
         return expand_manifest_source(manifest, root_dir=path.parent)
     return manifest
+
+
+def _resolved_default_config(blueprint_dir: Path) -> dict:
+    manifest = json.loads((blueprint_dir / "manifest.json").read_text())
+    config = json.loads((blueprint_dir / "config" / "default.json").read_text())
+    return deep_merge(manifest_config_defaults(manifest), config)
 
 
 def _indexed_blueprints() -> list[dict]:
@@ -298,7 +305,7 @@ def test_all_blueprints_declare_actor_style_llm_config():
     for manifest_path in _manifest_paths():
         manifest = json.loads(manifest_path.read_text())
         blueprint_id = str((manifest.get("identity") or {}).get("id") or (manifest.get("metadata") or {}).get("blueprint_id"))
-        config = json.loads((manifest_path.parent / "config" / "default.json").read_text())
+        config = _resolved_default_config(manifest_path.parent)
         llm = config.get("llm")
         assert isinstance(llm, dict), blueprint_id
         assert required_llm_keys <= set(llm), blueprint_id
@@ -320,11 +327,26 @@ def test_all_blueprints_declare_actor_style_llm_config():
                 for actor_id in (((step.get("run") or {}).get("with") or {}).get("agent_ids") or [])
                 if str(actor_id)
             ))
+            registered_actor_ids = list(
+                ((manifest.get("agents") or {}).get("registry") or {})
+            )
         else:
             graph_nodes = [node["node_id"] for node in _flow_nodes(manifest)]
             assigned_actor_ids = []
-        required_actor_ids = assigned_actor_ids or workers or graph_nodes
-        valid_actor_ids = set(assigned_actor_ids) | set(workers) | (set() if assigned_actor_ids else set(graph_nodes))
+            registered_actor_ids = []
+        required_actor_ids = (
+            registered_actor_ids or assigned_actor_ids or workers or graph_nodes
+        )
+        valid_actor_ids = (
+            set(registered_actor_ids)
+            | set(assigned_actor_ids)
+            | set(workers)
+            | (
+                set()
+                if registered_actor_ids or assigned_actor_ids
+                else set(graph_nodes)
+            )
+        )
         agents = llm["agents"]
         assert isinstance(agents, dict) and agents, blueprint_id
         assert set(required_actor_ids) <= set(agents), blueprint_id
@@ -671,7 +693,9 @@ def test_document_ocr_blueprints_emit_actor_findings_and_usage(tmp_path):
 
         artifact = result["final_artifact"]
         actor_ids = set((result["final_artifact"]["actor_findings"] or {}).keys())
-        expected_actor_ids = set((json.loads((ROOT / blueprint_id / "config" / "default.json").read_text())["llm"]["agents"]).keys())
+        expected_actor_ids = set(
+            _resolved_default_config(ROOT / blueprint_id)["llm"]["agents"]
+        )
         assert actor_ids == expected_actor_ids, blueprint_id
         assert artifact["llm_usage"]["calls"] == len(expected_actor_ids), blueprint_id
         assert fake_llm.calls == len(expected_actor_ids), blueprint_id

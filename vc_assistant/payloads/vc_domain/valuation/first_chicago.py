@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..common import evidence_status
 from ..research_policy import method_result
 
 def score_first_chicago(facts: dict[str, Any]) -> dict[str, Any]:
@@ -18,7 +17,6 @@ def score_first_chicago(facts: dict[str, Any]) -> dict[str, Any]:
     weighted = sum(case["probability"] * case["score"] for case in cases.values()) if status == "scored" else None
     return method_result(
         method_id="first_chicago_method",
-        scorer_id="first_chicago_scorer",
         memory_hook="Bear/base/bull cases",
         status=status,
         score=weighted,
@@ -30,4 +28,3 @@ def score_first_chicago(facts: dict[str, Any]) -> dict[str, Any]:
         details={"cases": cases},
         missing_evidence=[] if status == "scored" else ["First Chicago needs monetary evidence plus traction evidence before scenario math is useful."],
     )
-
