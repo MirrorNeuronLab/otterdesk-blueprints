@@ -542,6 +542,36 @@ def test_explicit_knowledge_rag_db_path_is_preserved(monkeypatch):
     assert "redis_url" not in config["knowledge_rag"]
 
 
+def test_runtime_rag_uses_a_stable_database_per_agent(monkeypatch):
+    rb = load_module()
+    config = {
+        "knowledge_rag": {
+            "enabled": True,
+            "namespace": "vc_runtime",
+            "db_root": "/runtime/rag",
+            "db_path": "vc.db",
+        }
+    }
+
+    funding = rb.with_agent_scoped_knowledge_rag_config(
+        config, agent_id="funding_researcher"
+    )
+    market = rb.with_agent_scoped_knowledge_rag_config(
+        config, agent_id="market_comp_researcher"
+    )
+
+    assert funding["knowledge_rag"]["namespace"] == (
+        "vc_runtime_vc_assistant_funding_researcher"
+    )
+    assert market["knowledge_rag"]["namespace"] == (
+        "vc_runtime_vc_assistant_market_comp_researcher"
+    )
+    assert funding["knowledge_rag"]["db_path"] == "vc_funding_researcher.db"
+    assert market["knowledge_rag"]["db_path"] == "vc_market_comp_researcher.db"
+    assert config["knowledge_rag"]["namespace"] == "vc_runtime"
+    assert config["knowledge_rag"]["db_path"] == "vc.db"
+
+
 def test_agentic_rag_query_prioritizes_agent_playbook_terms(monkeypatch):
     rb = load_module()
     captured: dict[str, str] = {}

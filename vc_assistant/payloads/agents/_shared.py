@@ -53,6 +53,7 @@ def _prepare_agent_services(
 ) -> dict[str, Any]:
     mapping = context.to_mapping()
     agent_id = context.step_context.agent_id
+    mapping["agent_id"] = agent_id
     agentic = runtime.agentic_research_config(mapping["config"])
     needs_agentic_llm = bool(agentic.get("enabled")) and agent_id in set(
         agentic.get("agent_ids") or []

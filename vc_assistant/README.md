@@ -91,6 +91,7 @@ mn blueprint monitor --follow
 - `skill_runtime`: shared DockerWorker image settings for skills that need system binaries.
 - `execution.max_company_workers`: maximum changed-company packets processed concurrently; defaults to one for local Docker Model Runner stability.
 - `backpressure.llm`: serializes and spaces local LLM calls so agentic research does not overwhelm Docker Model Runner.
+- Concurrent RAG-consuming workers use stable per-agent Milvus Lite namespaces, so the shared DockerWorker never opens one database file from multiple processes.
 - `internet_research`: public verification targets, browser-skill settings, Crunchbase/profile URL templates, and rendered-browser fallback controls.
 - `internet_research.max_parallel_research_agents`: maximum research agents running in parallel per changed company.
 - `scoring.max_workers`: maximum parallel method scorers per changed company.

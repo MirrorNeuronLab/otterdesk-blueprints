@@ -137,18 +137,59 @@ def init_runtime_llm(ctx: dict[str, Any], action_budget: ActionBudget, llm_clien
         write_failed_run(ctx, exc)
         raise
 
+def with_agent_scoped_knowledge_rag_config(
+    config: dict[str, Any], *, agent_id: str = ""
+) -> dict[str, Any]:
+    """Give concurrently invoked agents independent Milvus Lite database files.
+
+    Milvus Lite takes an exclusive lock on its database file. The VC workflow
+    deliberately fans out specialist agents, so they cannot all open the
+    blueprint-wide default file. A stable agent suffix retains each worker's
+    unchanged-index cache while preventing cross-worker lock contention.
+    """
+    if not isinstance(config, dict) or not str(agent_id or "").strip():
+        return config
+
+    raw = config.get("knowledge_rag")
+    if not isinstance(raw, dict) or raw.get("enabled") is False:
+        return config
+
+    base_namespace = str(
+        raw.get("namespace")
+        or os.environ.get("MN_RAG_NAMESPACE")
+        or "mirror_neuron_rag"
+    ).strip()
+    scoped = {
+        **raw,
+        "namespace": f"{base_namespace}_{BLUEPRINT_ID}_{agent_id}",
+    }
+    if raw.get("db_path"):
+        configured_path = Path(str(raw["db_path"]))
+        suffix = configured_path.suffix or ".db"
+        scoped["db_path"] = str(
+            configured_path.with_name(
+                f"{configured_path.stem}_{agent_id}{suffix}"
+            )
+        )
+
+    return {**config, "knowledge_rag": scoped}
+
+
 def prepare_runtime_knowledge_rag(ctx: dict[str, Any], *, stage: str) -> tuple[dict[str, Any], dict[str, Any]]:
     active_knowledge = load_vc_knowledge(ctx["blueprint_dir"])
+    rag_config = with_agent_scoped_knowledge_rag_config(
+        ctx["config"], agent_id=str(ctx.get("agent_id") or stage)
+    )
     with observed_operation(
         ctx["run_dir"],
         phase="knowledge_rag",
         operation="prepare",
-        embedding_provider=((ctx["config"].get("knowledge_rag") or {}).get("embedding_provider") if isinstance(ctx["config"].get("knowledge_rag"), dict) else ""),
-        embedding_model=((ctx["config"].get("knowledge_rag") or {}).get("embedding_model") if isinstance(ctx["config"].get("knowledge_rag"), dict) else ""),
+        embedding_provider=((rag_config.get("knowledge_rag") or {}).get("embedding_provider") if isinstance(rag_config.get("knowledge_rag"), dict) else ""),
+        embedding_model=((rag_config.get("knowledge_rag") or {}).get("embedding_model") if isinstance(rag_config.get("knowledge_rag"), dict) else ""),
     ) as op:
         knowledge_rag = prepare_knowledge_rag(
             blueprint_dir=ctx["blueprint_dir"],
-            resolved_config=ctx["config"],
+            resolved_config=rag_config,
             active_knowledge=active_knowledge,
             run_dir=ctx["run_dir"],
         )
