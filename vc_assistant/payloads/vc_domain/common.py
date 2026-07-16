@@ -127,6 +127,7 @@ from mn_client_report_skill import (
 from mn_document_reading_skill import (
     document_paths as shared_document_paths,
     file_sha256,
+    group_document_file_records as shared_group_document_file_records,
     infer_group_name,
     redact_common_pii,
     records_fingerprint,

@@ -267,19 +267,7 @@ def build_cache_policy_summary(queue: list[dict[str, Any]], *, processed_company
     }
 
 def group_document_file_records(document_folder: Path, files: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
-    grouped: dict[str, list[dict[str, Any]]] = {}
-    for item in files:
-        path = Path(str(item.get("path") or ""))
-        try:
-            relative = path.relative_to(document_folder)
-        except ValueError:
-            relative = path
-        if len(relative.parts) > 1:
-            company = relative.parts[0].replace("_", " ").replace("-", " ").title()
-        else:
-            company = path.stem.replace("_", " ").replace("-", " ").title()
-        grouped.setdefault(company, []).append(item)
-    return dict(sorted(grouped.items(), key=lambda entry: slugify(entry[0])))
+    return shared_group_document_file_records(document_folder, files)
 
 def processed_and_skipped_company_names(company_work_queue: list[dict[str, Any]]) -> tuple[list[str], list[str]]:
     processed = [str(item["company_name"]) for item in company_work_queue if item.get("status") != "unchanged_skipped"]
