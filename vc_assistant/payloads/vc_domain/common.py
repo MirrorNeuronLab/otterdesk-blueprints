@@ -274,17 +274,11 @@ DEFAULT_SOURCE_URL_TEMPLATES = list(
     _INTERNET_RESEARCH_DEFAULTS.get("source_url_templates") or []
 )
 
-W3mBrowserConfig = None
-
-browse_url = None
-
-build_search_url = None
-
-research_topic = None
-
 WebBrowserConfig = None
 
-scrape_page = None
+browse = None
+
+research_topic = None
 
 docker_ocr_client_factory_from_config = None
 
@@ -296,7 +290,18 @@ TRACE_LOCK = threading.Lock()
 
 SKILL_LOAD_LOCK = threading.Lock()
 
-NON_SUBSTANTIVE_SOURCE_STATUSES = {"planned", "configured_reference", "disabled", "skill_unavailable", "failed", "blocked", "warning", "error", "budget_exhausted"}
+NON_SUBSTANTIVE_SOURCE_STATUSES = {
+    "planned",
+    "configured_reference",
+    "disabled",
+    "skill_unavailable",
+    "failed",
+    "blocked",
+    "warning",
+    "error",
+    "budget_exhausted",
+    "mocked",
+}
 
 WARNING_SOURCE_STATUSES = {"failed", "blocked", "skill_unavailable", "warning", "budget_exhausted"}
 

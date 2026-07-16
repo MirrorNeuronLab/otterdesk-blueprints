@@ -299,8 +299,7 @@
   },
   "internet_research": {
     "enabled": true,
-    "browser_skill": "w3m_browser_skill",
-    "rendered_browser_skill": "web_browser_skill",
+    "browser_skill": "web_browser_skill",
     "privacy": "derive queries from company names, public categories, domains, and public claims only",
     "research_targets": [
       "company_website",
@@ -350,19 +349,12 @@
     "max_target_urls_per_company": 6,
     "max_parallel_research_agents": 1,
     "timeout_seconds": 20,
+    "total_timeout_seconds": 60,
     "max_chars": 12000,
     "use_model_compression": true,
-    "python_http_fallback": {
-      "enabled": true,
-      "purpose": "Bounded stdlib HTTP fallback for public search/result pages when the optional w3m binary is unavailable in the worker image.",
-      "timeout_seconds": 5,
-      "max_chars": 6000,
-      "max_search_results": 2,
-      "user_agent": "MirrorNeuron-VC-Assistant/1.0 (+public research fallback)"
-    },
     "rendered_browser": {
       "enabled": true,
-      "purpose": "Optional Playwright fallback for JavaScript-rendered public pages such as Crunchbase profiles when w3m cannot extract useful text.",
+      "purpose": "Explicit deep mode for JavaScript-rendered public pages; normal engine fallback is handled inside web_browser_skill standard mode.",
       "respect_robots": true,
       "stop_on_blocked": true,
       "no_proxy_rotation": true,
@@ -406,12 +398,12 @@
       "require_hardware_acceleration": true,
       "timeout_seconds": 180
     },
-    "w3m_browser": {
-      "skill": "w3m_browser_skill",
-      "package": "mirrorneuron-w3m-browser-skill",
-      "import": "mn_w3m_browser_skill",
-      "runner": "w3m",
-      "purpose": "primary lightweight text-browser research for startup verification, Crunchbase search snippets, competitors, and public market context",
+    "web_browser": {
+      "skill": "web_browser_skill",
+      "package": "mirrorneuron-web-browser-skill",
+      "import": "mn_web_browser_skill",
+      "runner": "adaptive_local_browser",
+      "purpose": "unified public research with automatic lightweight/rendered engine routing, plain-text extraction, bounded retries, and structured blocked outcomes",
       "enabled": true,
       "required": false,
       "install_policy": "docker_worker_image",
@@ -423,32 +415,19 @@
         "network": "mirror-neuron-runtime",
         "node_scope": "vc_python_executor_nodes"
       },
-      "timeout_seconds": 20,
-      "max_chars": 12000,
-      "max_queries": 8,
-      "max_sources_per_company": 8,
-      "use_model_compression": true,
-      "docker_worker_requirements": "requirements.txt"
-    },
-    "web_browser": {
-      "skill": "web_browser_skill",
-      "package": "mirrorneuron-web-browser-skill",
-      "import": "mn_web_browser_skill",
-      "runner": "playwright",
-      "purpose": "optional rendered-page fallback for JavaScript-heavy public sources such as Crunchbase pages; records blocked/login/robots states instead of bypassing them",
-      "enabled": true,
-      "required": false,
-      "install_policy": "python_environment_pip",
-      "activation": "set internet_research.rendered_browser.enabled=true for rendered public-page verification",
       "respect_robots": true,
       "stop_on_blocked": true,
       "no_proxy_rotation": true,
       "no_captcha_solving": true,
-      "timeout_seconds": 30,
+      "timeout_seconds": 20,
+      "total_timeout_seconds": 60,
       "max_chars": 12000,
-      "max_pages_per_company": 2,
+      "max_queries": 8,
+      "max_sources_per_company": 8,
+      "max_pages_per_company": 3,
       "per_host_delay_seconds": 1,
-      "python_environment": "requirements.txt"
+      "use_model_compression": true,
+      "docker_worker_requirements": "requirements.txt"
     }
   },
   "output_skills": {},

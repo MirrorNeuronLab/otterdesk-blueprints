@@ -281,7 +281,9 @@ def build_artifact_quality_report(
         public_tool_attempts = [
             source
             for source in sources
-            if source.get("skill") in {"w3m_browser_skill", "web_browser_skill", "financial_public_data_tool"}
+            if str(source.get("skill") or "").startswith(
+                ("web_browser_skill", "financial_public_data_tool")
+            )
             or str(source.get("url") or "").startswith("financial_tool://")
         ]
         failed_tool_attempts = [source for source in public_tool_attempts if source.get("status") in WARNING_SOURCE_STATUSES]
@@ -471,4 +473,3 @@ def build_run_health_report(
         },
         include_counts=False,
     )
-

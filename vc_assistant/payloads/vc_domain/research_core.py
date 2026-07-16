@@ -351,9 +351,9 @@ def _execute_agent_tool_call(
     # Imported lazily to keep the domain dependency direction acyclic: browser
     # adapters depend on the record/tool policy in this module.
     from .research_browser import (
+        _append_browser_research,
         _append_rendered_browser_research,
         _append_target_url_research,
-        _append_w3m_research,
     )
 
     tool = str(tool_call.get("tool") or "")
@@ -368,7 +368,7 @@ def _execute_agent_tool_call(
         tool_plan["target_urls"] = [url]
     def browser_search(**_options: Any) -> None:
         call_with_supported_kwargs(
-            _append_w3m_research,
+            _append_browser_research,
             sources=sources,
             company=company,
             plan=tool_plan,

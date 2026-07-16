@@ -19,11 +19,11 @@ Use this playbook as the canonical knowledge source for VC Assistant actor revie
 - Use each agent's specialist mission. Do not reuse a generic all-agent prompt when the job is identity, funding, market/comps, traction, rendered-page review, reconciliation, scoring review, audit, report writing, or batch indexing.
 - No agent may issue pass, watch, reject, buy, sell, invest, or investment recommendation labels. The output is diligence support only.
 
-## Browser Skills
+## Browser Skill
 
-- `w3m_browser_skill` is the primary lightweight browser for search result pages and text-readable public pages.
-- `web_browser_skill` is the optional Playwright fallback for JavaScript-rendered public pages such as Crunchbase profiles.
-- Keep `respect_robots` enabled for rendered browsing.
+- `web_browser_skill` is the only browser capability. Use standard mode for search and normal public pages; let the skill choose and retry local engines internally.
+- Use deep mode only for an explicitly JavaScript-rendered page that needs it, such as a public Crunchbase profile.
+- Request plain-text output and keep `respect_robots` enabled.
 - Treat blocked, login-required, CAPTCHA, rate-limit, and robots responses as source facts to record. Do not bypass them.
 
 ## Adaptive Research Playbooks
@@ -36,7 +36,7 @@ Use the company packet to choose research lanes. Start with identity, funding, m
 - Inspect: public organization/repository pages, README content, release/package hints, language mix, recent activity wording, issues/discussions wording, stars/forks if visible, and links to docs or packages.
 - Good evidence: maintained repositories, public releases, meaningful technical docs, clear product relationship, active ecosystem use, or credible open-source adoption.
 - Weak evidence: empty repos, unrelated personal projects, stale README-only projects, fork-only activity, or pages that require login.
-- Tool choice: fetch known GitHub URLs directly with `w3m_browser_skill`; use rendered browser only if the public page is empty or blocked in lightweight browsing.
+- Tool choice: fetch known GitHub URLs with `web_browser_skill` standard mode; use deep mode only if the standard result reports insufficient rendered content.
 
 ### Technical Product Depth
 

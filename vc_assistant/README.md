@@ -19,10 +19,9 @@ PDF startup packets are extracted through the shared `llm_ocr_skill` LightOnOCR 
 
 The research phase is configured to use:
 
-- `w3m_browser_skill` for lightweight text-browser research over public sources, installed with the `w3m` binary inside the shared DockerWorker image.
-- `web_browser_skill` as an optional Playwright fallback for JavaScript-rendered public pages such as Crunchbase profiles.
+- `web_browser_skill` as the single public-browser capability. Standard mode handles discovery, readable-text extraction, retries, throttling, and automatic local engine selection; deep mode is reserved for explicitly rendered profile checks.
 
-The workflow plans privacy-safe searches for company websites, Crunchbase, founder public profiles, funding mentions, competitors, press, and market context. Blocked, login-required, CAPTCHA, robots, or rate-limit responses are recorded in `sources.json`; the blueprint does not bypass them.
+The workflow plans privacy-safe searches for company websites, Crunchbase, founder public profiles, funding mentions, competitors, press, and market context. It consumes plain-text results only. Blocked, login-required, CAPTCHA, robots, or rate-limit responses are recorded in `sources.json`; the blueprint does not bypass them.
 
 ## Agents And Workflow Steps
 
@@ -87,12 +86,12 @@ mn blueprint monitor --follow
 - `output_folder`: folder where per-company analysis folders and root index files are written.
 - `monitoring`: bounded single-run scan controls; the runtime scheduler decides when to launch the batch.
 - `input_skills.llm_ocr`: shared local LightOnOCR OCR settings for PDF startup packets.
-- `input_skills.w3m_browser`: public text-browser research provided by the `docker_worker` image.
+- `input_skills.web_browser`: unified adaptive public research provided by the `docker_worker` image.
 - `skill_runtime`: shared DockerWorker image settings for skills that need system binaries.
 - `execution.max_company_workers`: maximum changed-company packets processed concurrently; defaults to one for local Docker Model Runner stability.
 - `backpressure.llm`: serializes and spaces local LLM calls so agentic research does not overwhelm Docker Model Runner.
 - Concurrent RAG-consuming workers use stable per-agent Milvus Lite namespaces, so the shared DockerWorker never opens one database file from multiple processes.
-- `internet_research`: public verification targets, browser-skill settings, Crunchbase/profile URL templates, and rendered-browser fallback controls.
+- `internet_research`: public verification targets, bounded browser timeouts, Crunchbase/profile URL templates, and explicit deep-render controls.
 - `internet_research.max_parallel_research_agents`: maximum research agents running in parallel per changed company.
 - `scoring.max_workers`: maximum parallel method scorers per changed company.
 

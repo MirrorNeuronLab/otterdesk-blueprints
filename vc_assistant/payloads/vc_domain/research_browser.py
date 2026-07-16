@@ -4,51 +4,42 @@ from __future__ import annotations
 
 from .common import *
 from .research_core import (
-    _append_python_http_search,
-    _append_python_http_target_research,
     _budget_exhausted_source,
-    _fetch_public_http,
     _mock_public_source,
     _research_observer,
     _source_record,
 )
 from .runtime_tools import append_observation_record, observed_operation, stable_text_hash
 
-def _load_w3m_browser_skill() -> None:
-    global W3mBrowserConfig, browse_url, build_search_url, research_topic
-    if W3mBrowserConfig is not None and browse_url is not None and research_topic is not None:
-        return
-    with SKILL_LOAD_LOCK:
-        if W3mBrowserConfig is not None and browse_url is not None and research_topic is not None:
-            return
-        try:
-            from mn_w3m_browser_skill import W3mBrowserConfig as imported_config
-            from mn_w3m_browser_skill import browse_url as imported_browse_url
-            from mn_w3m_browser_skill import build_search_url as imported_build_search_url
-            from mn_w3m_browser_skill import research_topic as imported_research_topic
-        except Exception:
-            return
-        W3mBrowserConfig = imported_config
-        browse_url = imported_browse_url
-        build_search_url = imported_build_search_url
-        research_topic = imported_research_topic
-
 def _load_web_browser_skill() -> None:
-    global WebBrowserConfig, scrape_page
-    if WebBrowserConfig is not None and scrape_page is not None:
+    global WebBrowserConfig, browse, research_topic
+    if WebBrowserConfig is not None and browse is not None and research_topic is not None:
         return
     with SKILL_LOAD_LOCK:
-        if WebBrowserConfig is not None and scrape_page is not None:
+        if WebBrowserConfig is not None and browse is not None and research_topic is not None:
             return
         try:
             from mn_web_browser_skill import WebBrowserConfig as imported_config
-            from mn_web_browser_skill import scrape_page as imported_scrape_page
+            from mn_web_browser_skill import browse as imported_browse
+            from mn_web_browser_skill import research_topic as imported_research_topic
         except Exception:
             return
         WebBrowserConfig = imported_config
-        scrape_page = imported_scrape_page
+        browse = imported_browse
+        research_topic = imported_research_topic
 
-def _append_w3m_research(
+def _browser_config(settings: dict[str, Any]) -> Any:
+    return WebBrowserConfig(
+        timeout_seconds=int(settings.get("timeout_seconds") or 20),
+        total_timeout_seconds=int(settings.get("total_timeout_seconds") or 60),
+        max_chars=int(settings.get("max_chars") or 12000),
+        output_format="plain_text",
+        respect_robots=bool(settings.get("respect_robots", True)),
+        per_host_delay_seconds=float(settings.get("per_host_delay_seconds") or 1.0),
+    )
+
+
+def _append_browser_research(
     sources: list[dict[str, Any]],
     *,
     company: str,
@@ -64,15 +55,15 @@ def _append_w3m_research(
     op = observed_operation(
         run_dir,
         phase="public_tool_call",
-        operation="w3m_browser_skill.research_topic",
-        tool="w3m_browser_skill.research_topic",
+        operation="web_browser_skill.research_topic",
+        tool="web_browser_skill.research_topic",
         company=company,
         verification_target=verification_target,
         query_hash=stable_text_hash((plan.get("queries") or [""])[0]),
         query_chars=len(str((plan.get("queries") or [""])[0])),
     ).__enter__()
     try:
-        _append_w3m_research_unobserved(
+        _append_browser_research_unobserved(
             sources,
             company=company,
             plan=plan,
@@ -102,7 +93,7 @@ def _append_w3m_research(
             mocked=tool_status == "mocked",
         )
 
-def _append_w3m_research_unobserved(
+def _append_browser_research_unobserved(
     sources: list[dict[str, Any]],
     *,
     company: str,
@@ -118,7 +109,7 @@ def _append_w3m_research_unobserved(
             _mock_public_source(
                 company=company,
                 query=query,
-                skill="w3m_browser_skill.research_topic",
+                skill="web_browser_skill.research_topic",
                 verification_target=verification_target,
             )
         )
@@ -127,8 +118,8 @@ def _append_w3m_research_unobserved(
             "skill_mock_used",
             {
                 "phase": "public_tool_call",
-                "operation": "w3m_browser_skill.research_topic",
-                "tool": "w3m_browser_skill.research_topic",
+                "operation": "web_browser_skill.research_topic",
+                "tool": "web_browser_skill.research_topic",
                 "status": "mocked",
                 "company": company,
                 "mocked": True,
@@ -136,51 +127,45 @@ def _append_w3m_research_unobserved(
             },
         )
         return
-    _load_w3m_browser_skill()
+    _load_web_browser_skill()
     query = plan["queries"][0]
     max_sources = int(internet.get("max_sources_per_company") or 3)
-    if W3mBrowserConfig is None or research_topic is None or browse_url is None:
-        _append_python_http_search(
-            sources,
-            entity=company,
-            plan=plan,
-            internet=internet,
-            verification_target=verification_target,
-            action_budget=action_budget,
-        )
-        if not any(source.get("skill") == "python_http_fallback" for source in sources):
-            sources.append(
-                _source_record(
-                    company=company,
-                    query=query,
-                    url="w3m_browser_skill",
-                    title="w3m browser skill unavailable",
-                    snippet="Install mirrorneuron-w3m-browser-skill and w3m in the worker image to enable lightweight public research.",
-                    status="skill_unavailable",
-                    skill="w3m_browser_skill",
-                    verification_target=verification_target,
-                    warning="mn_w3m_browser_skill import failed",
-                )
+    if WebBrowserConfig is None or research_topic is None or browse is None:
+        sources.append(
+            _source_record(
+                company=company,
+                query=query,
+                url="web_browser_skill",
+                title="web browser skill unavailable",
+                snippet="Install mirrorneuron-web-browser-skill and its local browser prerequisites to enable public research.",
+                status="skill_unavailable",
+                skill="web_browser_skill",
+                verification_target=verification_target,
+                warning="mn_web_browser_skill import failed",
             )
+        )
         return
-    browser_config = W3mBrowserConfig(
-        timeout_seconds=int(internet.get("timeout_seconds") or 12),
-        max_chars=int(internet.get("max_chars") or 6000),
-        search_url_template=str(internet.get("search_url_template") or "https://duckduckgo.com/html/?q={query}"),
-    )
+    browser_config = _browser_config(internet)
     observer = _research_observer(run_dir)
     action = action_budget.start(
         action_type="browser_search",
         stage=verification_target,
         company=company,
-        tool="w3m_browser_skill.research_topic",
-        metadata={"query": query, "max_sources": max_sources},
+        tool="web_browser_skill.research_topic",
+        metadata={"query": query, "max_sources": max_sources, "depth": "standard"},
     ) if action_budget else None
     if action_budget and action is None:
-        sources.append(_budget_exhausted_source(company, query, "w3m_browser_skill", verification_target, "browser_search"))
+        sources.append(_budget_exhausted_source(company, query, "web_browser_skill", verification_target, "browser_search"))
         return
     try:
-        result = research_topic(query, browser_config, max_sources=max_sources, observer=observer)
+        result = research_topic(
+            query,
+            browser_config,
+            depth="standard",
+            max_sources=max_sources,
+            observer=observer,
+            output_format="plain_text",
+        )
     except Exception as exc:
         if action_budget:
             action_budget.complete(action, "failed", {"error": str(exc)})
@@ -188,22 +173,14 @@ def _append_w3m_research_unobserved(
             _source_record(
                 company=company,
                 query=query,
-                url="w3m_browser_skill",
-                title="w3m research failed",
+                url="web_browser_skill",
+                title="web research failed",
                 snippet=str(exc),
                 status="failed",
-                skill="w3m_browser_skill",
+                skill="web_browser_skill",
                 verification_target=verification_target,
                 warning=str(exc),
             )
-        )
-        _append_python_http_search(
-            sources,
-            entity=company,
-            plan=plan,
-            internet=internet,
-            verification_target=verification_target,
-            action_budget=action_budget,
         )
         return
     if action_budget:
@@ -213,11 +190,11 @@ def _append_w3m_research_unobserved(
             _source_record(
                 company=company,
                 query=query,
-                url=str(source.get("url") or ""),
+                url=str(source.get("final_url") or source.get("url") or ""),
                 title=str(source.get("title") or ""),
                 snippet=str(source.get("snippet") or source.get("text") or ""),
                 status=str(source.get("status") or "ok"),
-                skill="w3m_browser_skill",
+                skill="web_browser_skill",
                 verification_target=verification_target,
             )
         )
@@ -227,10 +204,10 @@ def _append_w3m_research_unobserved(
                 company=company,
                 query=query,
                 url=str(result.get("search_url") or ""),
-                title="w3m research warning",
+                title="web research warning",
                 snippet=str(warning),
                 status="warning",
-                skill="w3m_browser_skill",
+                skill="web_browser_skill",
                 verification_target=verification_target,
                 warning=str(warning),
             )
@@ -252,8 +229,8 @@ def _append_target_url_research(
     op = observed_operation(
         run_dir,
         phase="public_tool_call",
-        operation="w3m_browser_skill.browse_url",
-        tool="w3m_browser_skill.browse_url",
+        operation="web_browser_skill.browse",
+        tool="web_browser_skill.browse",
         company=company,
         url_count=len(target_urls),
         url_hash=stable_text_hash("\n".join(str(url) for url in target_urls[:10])),
@@ -306,7 +283,7 @@ def _append_target_url_research_unobserved(
                     company=company,
                     query=query,
                     url=str(url or ""),
-                    skill="w3m_browser_skill.browse_url",
+                    skill="web_browser_skill.browse",
                     verification_target="public_profile",
                 )
             )
@@ -315,8 +292,8 @@ def _append_target_url_research_unobserved(
             "skill_mock_used",
             {
                 "phase": "public_tool_call",
-                "operation": "w3m_browser_skill.browse_url",
-                "tool": "w3m_browser_skill.browse_url",
+                "operation": "web_browser_skill.browse",
+                "tool": "web_browser_skill.browse",
                 "status": "mocked",
                 "company": company,
                 "mocked": True,
@@ -324,36 +301,24 @@ def _append_target_url_research_unobserved(
             },
         )
         return
-    _load_w3m_browser_skill()
-    if W3mBrowserConfig is None or browse_url is None:
-        before_fallback = len(sources)
-        _append_python_http_target_research(
-            sources,
-            entity=company,
-            plan=plan,
-            internet=internet,
-            action_budget=action_budget,
-        )
-        if len(sources) == before_fallback:
-            for url in plan["target_urls"][: int(internet.get("max_target_urls_per_company") or 2)]:
-                sources.append(
-                    _source_record(
-                        company=company,
-                        query=plan["queries"][0],
-                        url=url or "w3m_browser_skill",
-                        title="w3m direct page skill unavailable",
-                        snippet="Install mirrorneuron-w3m-browser-skill and w3m in the worker image to enable direct public page research.",
-                        status="skill_unavailable",
-                        skill="w3m_browser_skill",
-                        verification_target="public_profile",
-                        warning="mn_w3m_browser_skill direct page import failed",
-                    )
+    _load_web_browser_skill()
+    if WebBrowserConfig is None or browse is None:
+        for url in plan["target_urls"][: int(internet.get("max_target_urls_per_company") or 2)]:
+            sources.append(
+                _source_record(
+                    company=company,
+                    query=plan["queries"][0],
+                    url=url or "web_browser_skill",
+                    title="web browser skill unavailable",
+                    snippet="Install mirrorneuron-web-browser-skill and its local browser prerequisites to enable direct public-page research.",
+                    status="skill_unavailable",
+                    skill="web_browser_skill",
+                    verification_target="public_profile",
+                    warning="mn_web_browser_skill import failed",
                 )
+            )
         return
-    browser_config = W3mBrowserConfig(
-        timeout_seconds=int(internet.get("timeout_seconds") or 12),
-        max_chars=int(internet.get("max_chars") or 6000),
-    )
+    browser_config = _browser_config(internet)
     observer = _research_observer(run_dir)
     for url in plan["target_urls"][: int(internet.get("max_target_urls_per_company") or 2)]:
         target = "crunchbase" if "crunchbase.com" in url else "public_profile"
@@ -361,47 +326,24 @@ def _append_target_url_research_unobserved(
             action_type="browser_page",
             stage=target,
             company=company,
-            tool="w3m_browser_skill.browse_url",
-            metadata={"url": url},
+            tool="web_browser_skill.browse",
+            metadata={"url": url, "depth": "standard"},
         ) if action_budget else None
         if action_budget and action is None:
-            sources.append(_budget_exhausted_source(company, plan["queries"][0], "w3m_browser_skill", target, "browser_page"))
+            sources.append(_budget_exhausted_source(company, plan["queries"][0], "web_browser_skill", target, "browser_page"))
             continue
         try:
-            result = browse_url(url, browser_config, observer=observer)
+            result = browse(
+                url,
+                browser_config,
+                depth="standard",
+                observer=observer,
+                output_format="plain_text",
+            )
         except Exception as exc:
             result = {"status": "failed", "url": url, "title": "", "snippet": "", "error": str(exc)}
             if action_budget:
                 action_budget.complete(action, "failed", {"url": url, "error": str(exc)})
-            fallback_action = action_budget.start(
-                action_type="browser_page",
-                stage=target,
-                company=company,
-                tool="python_http_fallback.fetch_url",
-                metadata={"url": url, "fallback_reason": str(exc)[:240]},
-            ) if action_budget else None
-            if not action_budget or fallback_action is not None:
-                fallback_result = _fetch_public_http(str(url), internet=internet)
-                if action_budget:
-                    action_budget.complete(
-                        fallback_action,
-                        str(fallback_result.get("status") or "failed"),
-                        {"url": fallback_result.get("url"), "http_status": fallback_result.get("http_status")},
-                    )
-                sources.append(
-                    _source_record(
-                        company=company,
-                        query=plan["queries"][0],
-                        url=str(fallback_result.get("url") or url),
-                        title=str(fallback_result.get("title") or ""),
-                        snippet=str(fallback_result.get("text") or fallback_result.get("error") or ""),
-                        status=str(fallback_result.get("status") or "failed"),
-                        skill="python_http_fallback",
-                        verification_target=target,
-                        warning=str(fallback_result.get("error") or ""),
-                    )
-                )
-                continue
         else:
             if action_budget:
                 action_budget.complete(action, str(result.get("status") or "completed"), {"url": str(result.get("url") or url)})
@@ -409,11 +351,11 @@ def _append_target_url_research_unobserved(
             _source_record(
                 company=company,
                 query=plan["queries"][0],
-                url=str(result.get("url") or url),
+                url=str(result.get("final_url") or result.get("url") or url),
                 title=str(result.get("title") or ""),
                 snippet=str(result.get("snippet") or result.get("text") or result.get("error") or ""),
                 status=str(result.get("status") or "failed"),
-                skill="w3m_browser_skill",
+                skill="web_browser_skill",
                 verification_target=target,
                 warning=str(result.get("error") or ""),
             )
@@ -435,8 +377,8 @@ def _append_rendered_browser_research(
     op = observed_operation(
         run_dir,
         phase="public_tool_call",
-        operation="web_browser_skill.scrape_page",
-        tool="web_browser_skill.scrape_page",
+        operation="web_browser_skill.browse.deep",
+        tool="web_browser_skill.browse",
         company=company,
         url_count=len(target_urls),
         url_hash=stable_text_hash("\n".join(str(url) for url in target_urls[:10])),
@@ -489,13 +431,13 @@ def _append_rendered_browser_research_unobserved(
                     company=company,
                     query=query,
                     url=str(url or ""),
-                    skill="web_browser_skill.scrape_page",
+                    skill="web_browser_skill.browse",
                     verification_target="rendered_public_profile",
                 )
             )
         return
     _load_web_browser_skill()
-    if WebBrowserConfig is None or scrape_page is None:
+    if WebBrowserConfig is None or browse is None:
         sources.append(
             _source_record(
                 company=company,
@@ -510,25 +452,25 @@ def _append_rendered_browser_research_unobserved(
             )
         )
         return
-    browser_config = WebBrowserConfig(
-        timeout_seconds=int(rendered.get("timeout_seconds") or 20),
-        max_chars=int(rendered.get("max_chars") or 12000),
-        respect_robots=bool(rendered.get("respect_robots", True)),
-        per_host_delay_seconds=float(rendered.get("per_host_delay_seconds") or 1.0),
-    )
+    browser_config = _browser_config(rendered)
     for url in plan["target_urls"][: int(rendered.get("max_pages_per_company") or 1)]:
         action = action_budget.start(
             action_type="rendered_browser_page",
             stage="rendered_page_researcher",
             company=company,
-            tool="web_browser_skill.scrape_page",
-            metadata={"url": url},
+            tool="web_browser_skill.browse",
+            metadata={"url": url, "depth": "deep"},
         ) if action_budget else None
         if action_budget and action is None:
             sources.append(_budget_exhausted_source(company, plan["queries"][0], "web_browser_skill", "rendered_public_profile", "rendered_browser_page"))
             continue
         try:
-            result = scrape_page(url, browser_config)
+            result = browse(
+                url,
+                browser_config,
+                depth="deep",
+                output_format="plain_text",
+            )
         except Exception as exc:
             result = {"status": "failed", "url": url, "title": "", "text": "", "error": str(exc), "warnings": []}
             if action_budget:
@@ -549,4 +491,3 @@ def _append_rendered_browser_research_unobserved(
                 warning="; ".join(str(item) for item in (result.get("warnings") or [])) or str(result.get("error") or ""),
             )
         )
-

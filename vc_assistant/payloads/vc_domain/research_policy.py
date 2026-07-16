@@ -81,26 +81,26 @@ def build_adaptive_research_plan(company: str, records: list[dict[str, Any]], in
         _lane(
             "company_identity_research",
             "Always verify company identity, website, founder/profile pages, and basic public footprint.",
-            ["w3m_browser_skill", "web_browser_skill_when_profile_page_is_empty"],
+            ["web_browser_skill.standard", "web_browser_skill.deep_when_profile_page_is_empty"],
             [f"{company} company website Crunchbase LinkedIn founders", f"{company} founder background company profile"],
             [url for url in target_urls if any(domain in _url_domain(url) for domain in PROFILE_DOMAINS)] or base["target_urls"][:2],
         ),
         _lane(
             "funding_research",
             "Always check funding, investor, accelerator, and press mentions.",
-            ["w3m_browser_skill"],
+            ["web_browser_skill.standard"],
             [f"{company} startup funding investors accelerator press", f"{company} seed round venture capital investors"],
         ),
         _lane(
             "market_map_research",
             "Map category, market context, competitors, and comparable public companies.",
-            ["w3m_browser_skill"],
+            ["web_browser_skill.standard"],
             [f"{company} competitors market size comparable companies", f"{company} industry report public company comparables market multiple"],
         ),
         _lane(
             "traction_research",
             "Verify public customer, revenue, partnership, launch, and product traction claims.",
-            ["w3m_browser_skill"],
+            ["web_browser_skill.standard"],
             [f"{company} customers pilots revenue partnerships product launch", f"{company} customer case study ARR retention growth"],
         ),
     ]
@@ -109,7 +109,7 @@ def build_adaptive_research_plan(company: str, records: list[dict[str, Any]], in
             _lane(
                 "github_research",
                 "GitHub or open-source signal was present in the packet; inspect public repo/org activity and technical credibility.",
-                ["w3m_browser_skill.direct_page", "web_browser_skill_when_page_is_empty"],
+                ["web_browser_skill.standard", "web_browser_skill.deep_when_page_is_empty"],
                 [f"{company} GitHub repository open source stars forks issues releases"],
                 signals["github_urls"],
             )
@@ -119,7 +119,7 @@ def build_adaptive_research_plan(company: str, records: list[dict[str, Any]], in
             _lane(
                 "technical_product_research",
                 "Technical/product signals were present; inspect docs, package/app footprint, developer surface, and product maturity.",
-                ["w3m_browser_skill.direct_page", "w3m_browser_skill.search"],
+                ["web_browser_skill.standard", "web_browser_skill.research_topic"],
                 [f"{company} API docs SDK developer documentation product", f"{company} app store package release changelog"],
                 signals["docs_urls"] + signals["package_urls"] + signals["app_store_urls"],
             )
@@ -129,7 +129,7 @@ def build_adaptive_research_plan(company: str, records: list[dict[str, Any]], in
             _lane(
                 "founder_research",
                 "Public profile links were present; inspect founder/company profile pages without using contact details.",
-                ["w3m_browser_skill.direct_page", "web_browser_skill_when_profile_page_is_empty"],
+                ["web_browser_skill.standard", "web_browser_skill.deep_when_profile_page_is_empty"],
                 [f"{company} founder background public profile"],
                 signals["profile_urls"],
             )
@@ -139,7 +139,7 @@ def build_adaptive_research_plan(company: str, records: list[dict[str, Any]], in
             _lane(
                 "pricing_business_model_research",
                 "Pricing or business-model terms were present; look for public pricing, packaging, and monetization evidence.",
-                ["w3m_browser_skill.search"],
+                ["web_browser_skill.research_topic"],
                 [f"{company} pricing subscription business model revenue model"],
             )
         )
@@ -148,7 +148,7 @@ def build_adaptive_research_plan(company: str, records: list[dict[str, Any]], in
             _lane(
                 "regulatory_risk_research",
                 "Regulatory or security claims were present; inspect public compliance and risk context.",
-                ["w3m_browser_skill.search"],
+                ["web_browser_skill.research_topic"],
                 [f"{company} security compliance regulatory privacy SOC 2 GDPR"],
             )
         )
@@ -157,7 +157,7 @@ def build_adaptive_research_plan(company: str, records: list[dict[str, Any]], in
             _lane(
                 "data_ip_defensibility_research",
                 "Data, IP, model, or patent terms were present; inspect defensibility and asset evidence.",
-                ["w3m_browser_skill.search"],
+                ["web_browser_skill.research_topic"],
                 [f"{company} patent proprietary dataset model defensibility"],
             )
         )

@@ -403,9 +403,14 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         "timeout_seconds": 180,
     }
     assert (
-        config["input_skills"]["w3m_browser"]["install_policy"] == "docker_worker_image"
+        config["input_skills"]["web_browser"]["install_policy"] == "docker_worker_image"
     )
-    assert config["input_skills"]["w3m_browser"]["runtime"] == {
+    assert "w3m_browser" not in config["input_skills"]
+    assert all(
+        dependency["name"] != "mirrorneuron-w3m-browser-skill"
+        for dependency in manifest["skill_dependencies"]
+    )
+    assert config["input_skills"]["web_browser"]["runtime"] == {
         "driver": "docker_worker",
         "install_scope": "shared_job_container",
         "docker_worker_image": "docker_worker",
@@ -606,8 +611,8 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
             == config["input_skills"]["llm_ocr"]
         )
         assert (
-            embedded_config["input_skills"]["w3m_browser"]
-            == config["input_skills"]["w3m_browser"]
+            embedded_config["input_skills"]["web_browser"]
+            == config["input_skills"]["web_browser"]
         )
         assert embedded_config["skill_runtime"] == config["skill_runtime"]
         assert embedded_config["suggested_schedule"] == config["suggested_schedule"]
@@ -630,8 +635,8 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
             == config["input_skills"]["llm_ocr"]
         )
         assert (
-            template_config["input_skills"]["w3m_browser"]
-            == config["input_skills"]["w3m_browser"]
+            template_config["input_skills"]["web_browser"]
+            == config["input_skills"]["web_browser"]
         )
         assert template_config["skill_runtime"] == config["skill_runtime"]
         assert template_config["suggested_schedule"] == config["suggested_schedule"]
@@ -789,7 +794,7 @@ def test_fake_skills_mocks_browser_sources(tmp_path, monkeypatch):
     monkeypatch.setenv("MN_BLUEPRINT_FAKE_SKILLS", "1")
     sources: list[dict] = []
 
-    runner._append_w3m_research(
+    runner._append_browser_research(
         sources,
         company="Mock Company",
         plan={"queries": ["Mock Company startup traction"]},
@@ -818,8 +823,8 @@ def test_benchmark_artifacts_summarize_steps_and_mocked_skills(tmp_path):
     with runner.observed_operation(
         tmp_path,
         phase="public_tool_call",
-        operation="w3m_browser_skill.research_topic",
-        tool="w3m_browser_skill.research_topic",
+        operation="web_browser_skill.research_topic",
+        tool="web_browser_skill.research_topic",
         mocked=True,
     ) as op:
         op.close("completed", mocked=True)
@@ -833,7 +838,7 @@ def test_benchmark_artifacts_summarize_steps_and_mocked_skills(tmp_path):
     assert benchmark["skills"][0]["mocked"] is True
     assert benchmark["totals"]["mocked_skill_call_count"] == 1
     assert (tmp_path / "benchmark.json").exists()
-    assert "w3m_browser_skill.research_topic" in (tmp_path / "benchmark.md").read_text(
+    assert "web_browser_skill.research_topic" in (tmp_path / "benchmark.md").read_text(
         encoding="utf-8"
     )
 
@@ -993,8 +998,11 @@ def test_vc_assistant_runtime_upload_bundle_contains_sample_inputs():
     assert (bundled_sample_root / "otterdesk" / "otterdesk pitch v0.pdf").exists()
 
 
-def test_three_bundled_companies_match_deterministic_golden_contract(tmp_path):
+def test_three_bundled_companies_match_deterministic_golden_contract(
+    tmp_path, monkeypatch
+):
     runner = _load_runner()
+    monkeypatch.setenv("MN_BLUEPRINT_FAKE_SKILLS", "1")
     outputs = tmp_path / "reports"
     run_id = "vc-three-company-golden"
     result = runner.run_blueprint(
@@ -1065,24 +1073,23 @@ def test_three_bundled_companies_match_deterministic_golden_contract(tmp_path):
     assert {
         slug: len(report["research_sources"]) for slug, report in reports.items()
     } == {
-        "aurora-ai": 43,
-        "boreal-robotics": 47,
-        "otterdesk": 43,
+        "aurora-ai": 44,
+        "boreal-robotics": 48,
+        "otterdesk": 44,
     }
     assert {slug: len(report["warnings"]) for slug, report in reports.items()} == {
-        "aurora-ai": 28,
-        "boreal-robotics": 31,
-        "otterdesk": 30,
+        "aurora-ai": 29,
+        "boreal-robotics": 32,
+        "otterdesk": 31,
     }
     expected_verification_targets = {
         "company_identity_researcher",
-        "crunchbase",
         "financial_tool_comparables",
         "funding_researcher",
         "market_comp_researcher",
         "public_profile",
         "rendered_page_researcher",
-        "rendered_page_setup",
+        "rendered_public_profile",
         "traction_verifier",
     }
     assert all(
@@ -1664,7 +1671,7 @@ def test_adaptive_research_routes_known_urls_to_direct_fetches(monkeypatch, tmp_
     direct_urls = []
     rendered_urls = []
 
-    def fake_w3m(
+    def fake_browser(
         sources,
         *,
         company,
@@ -1681,7 +1688,7 @@ def test_adaptive_research_routes_known_urls_to_direct_fetches(monkeypatch, tmp_
                 title=verification_target,
                 snippet="public evidence",
                 status="ok",
-                skill="w3m_browser_skill",
+                skill="web_browser_skill",
                 verification_target=verification_target,
             )
         )
@@ -1697,7 +1704,7 @@ def test_adaptive_research_routes_known_urls_to_direct_fetches(monkeypatch, tmp_
                     title=url,
                     snippet="direct public page",
                     status="ok",
-                    skill="w3m_browser_skill",
+                    skill="web_browser_skill",
                     verification_target="public_profile",
                 )
             )
@@ -1718,7 +1725,7 @@ def test_adaptive_research_routes_known_urls_to_direct_fetches(monkeypatch, tmp_
                 )
             )
 
-    monkeypatch.setattr(runner, "_append_w3m_research", fake_w3m)
+    monkeypatch.setattr(runner, "_append_browser_research", fake_browser)
     monkeypatch.setattr(runner, "_append_target_url_research", fake_target)
     monkeypatch.setattr(runner, "_append_rendered_browser_research", fake_rendered)
 
@@ -1753,12 +1760,12 @@ def test_agentic_research_executes_llm_selected_tools(monkeypatch, tmp_path):
         def __init__(self, **kwargs):
             self.kwargs = kwargs
 
-    monkeypatch.setattr(runner, "_load_w3m_browser_skill", lambda: None)
-    monkeypatch.setattr(runner, "W3mBrowserConfig", DummyConfig)
+    monkeypatch.setattr(runner, "_load_web_browser_skill", lambda: None)
+    monkeypatch.setattr(runner, "WebBrowserConfig", DummyConfig)
     monkeypatch.setattr(
         runner,
         "research_topic",
-        lambda query, browser_config, max_sources, observer=None: {
+        lambda query, browser_config, depth, max_sources, observer=None, output_format=None: {
             "sources": [
                 {
                     "url": "https://example.com/search",
@@ -1771,24 +1778,12 @@ def test_agentic_research_executes_llm_selected_tools(monkeypatch, tmp_path):
     )
     monkeypatch.setattr(
         runner,
-        "browse_url",
-        lambda url, browser_config, observer=None: {
-            "status": "ok",
-            "url": url,
-            "title": "Direct",
-            "snippet": "direct page",
-        },
-    )
-    monkeypatch.setattr(runner, "_load_web_browser_skill", lambda: None)
-    monkeypatch.setattr(runner, "WebBrowserConfig", DummyConfig)
-    monkeypatch.setattr(
-        runner,
-        "scrape_page",
-        lambda url, browser_config: {
+        "browse",
+        lambda url, browser_config, depth, observer=None, output_format=None: {
             "status": "ok",
             "final_url": url,
-            "title": "Rendered",
-            "text": "rendered page",
+            "title": "Rendered" if depth == "deep" else "Direct",
+            "text": "rendered page" if depth == "deep" else "direct page",
             "warnings": [],
         },
     )
@@ -2384,15 +2379,22 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(
         runner, "skill_retrieve_knowledge_rag_context", fake_rag_context
     )
 
-    class FakeW3mBrowserConfig:
+    class FakeWebBrowserConfig:
         def __init__(self, **kwargs):
             self.kwargs = kwargs
 
-    def fake_research_topic(query, browser_config, max_sources=3, observer=None):
+    def fake_research_topic(
+        query,
+        browser_config,
+        depth="standard",
+        max_sources=3,
+        observer=None,
+        output_format=None,
+    ):
         if observer is not None:
             observer(
                 "tool_call_completed",
-                {"tool": "w3m", "status": "completed", "target": query},
+                {"tool": "web_browser", "status": "completed", "target": query},
             )
         return {
             "sources": [
@@ -2407,33 +2409,17 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(
             "search_url": f"https://duckduckgo.test/?q={query}",
         }
 
-    monkeypatch.setattr(runner, "_load_w3m_browser_skill", lambda: None)
-    monkeypatch.setattr(runner, "W3mBrowserConfig", FakeW3mBrowserConfig)
-    monkeypatch.setattr(runner, "research_topic", fake_research_topic)
-    monkeypatch.setattr(runner, "browse_url", lambda *args, **kwargs: {"status": "ok"})
-    monkeypatch.setattr(
-        runner,
-        "_fetch_public_http",
-        lambda url, *, internet: {
-            "status": "ok",
-            "url": url,
-            "title": "HTTP fallback",
-            "text": "deterministic public fallback",
-            "html": "",
-            "error": "",
-            "http_status": 200,
-        },
-    )
     monkeypatch.setattr(runner, "_load_web_browser_skill", lambda: None)
-    monkeypatch.setattr(runner, "WebBrowserConfig", FakeW3mBrowserConfig)
+    monkeypatch.setattr(runner, "WebBrowserConfig", FakeWebBrowserConfig)
+    monkeypatch.setattr(runner, "research_topic", fake_research_topic)
     monkeypatch.setattr(
         runner,
-        "scrape_page",
-        lambda url, browser_config: {
+        "browse",
+        lambda url, browser_config, depth, observer=None, output_format=None: {
             "status": "ok",
             "final_url": url,
-            "title": "Rendered",
-            "text": "rendered page",
+            "title": "Rendered" if depth == "deep" else "Direct",
+            "text": "rendered page" if depth == "deep" else "direct page",
             "warnings": [],
         },
     )
@@ -2490,7 +2476,7 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(
         sources = json.loads(
             (company_dir / "research_sources.json").read_text(encoding="utf-8")
         )
-        assert any(source["skill"] == "w3m_browser_skill" for source in sources)
+        assert any(source["skill"] == "web_browser_skill" for source in sources)
         assert any(
             "crunchbase.com" in source["url"] or "Crunchbase" in source["query"]
             for source in sources
@@ -3096,7 +3082,7 @@ def test_changed_company_packets_use_agent_crews_with_stable_output_order(tmp_pa
                 "title": stage,
                 "snippet": "founder market customer revenue product prototype competitor patent funding investor",
                 "status": "ok",
-                "skill": "w3m_browser_skill",
+                "skill": "web_browser_skill",
                 "verification_target": stage,
                 "warning": "",
                 "retrieved_at": runner.utc_now_iso(),
@@ -3164,10 +3150,10 @@ def test_changed_company_packets_use_agent_crews_with_stable_output_order(tmp_pa
 
 def test_research_ledgers_emit_agent_specific_records_without_browser_network(tmp_path):
     runner = _load_runner()
-    original_w3m = runner._append_w3m_research
+    original_browser = runner._append_browser_research
     original_target = runner._append_target_url_research
 
-    def fake_w3m(
+    def fake_browser(
         sources,
         *,
         company,
@@ -3184,7 +3170,7 @@ def test_research_ledgers_emit_agent_specific_records_without_browser_network(tm
                 "title": verification_target,
                 "snippet": f"public {verification_target} evidence",
                 "status": "ok",
-                "skill": "w3m_browser_skill",
+                "skill": "web_browser_skill",
                 "verification_target": verification_target,
                 "warning": "",
                 "retrieved_at": runner.utc_now_iso(),
@@ -3200,14 +3186,14 @@ def test_research_ledgers_emit_agent_specific_records_without_browser_network(tm
                 "title": "Crunchbase profile",
                 "snippet": "public profile source",
                 "status": "ok",
-                "skill": "w3m_browser_skill",
+                "skill": "web_browser_skill",
                 "verification_target": "crunchbase",
                 "warning": "",
                 "retrieved_at": runner.utc_now_iso(),
             }
         )
 
-    runner._append_w3m_research = fake_w3m
+    runner._append_browser_research = fake_browser
     runner._append_target_url_research = fake_target
     try:
         ledger = runner.research_company_with_agents(
@@ -3223,7 +3209,7 @@ def test_research_ledgers_emit_agent_specific_records_without_browser_network(tm
             run_dir=tmp_path,
         )
     finally:
-        runner._append_w3m_research = original_w3m
+        runner._append_browser_research = original_browser
         runner._append_target_url_research = original_target
 
     assert set(ledger) == set(runner.RESEARCH_AGENT_IDS)
@@ -3285,7 +3271,7 @@ def test_scorecard_and_comparables_ignore_non_substantive_defaults():
                 "title": "reference",
                 "snippet": "market competitor revenue configured reference text",
                 "status": "configured_reference",
-                "skill": "w3m_browser_skill",
+                "skill": "web_browser_skill",
                 "verification_target": stage,
                 "warning": "",
                 "retrieved_at": runner.utc_now_iso(),
@@ -3453,17 +3439,24 @@ def test_action_budget_charges_browser_rendered_financial_tool_and_llm(
 ):
     runner = _load_runner()
     budget = runner.ActionBudget(10)
+    browser_calls = []
+    browser_configs = []
 
     class DummyConfig:
         def __init__(self, **kwargs):
             self.kwargs = kwargs
+            browser_configs.append(kwargs)
 
-    monkeypatch.setattr(runner, "_load_w3m_browser_skill", lambda: None)
-    monkeypatch.setattr(runner, "W3mBrowserConfig", DummyConfig)
-    monkeypatch.setattr(
-        runner,
-        "research_topic",
-        lambda query, browser_config, max_sources, observer=None: {
+    def fake_research_topic(
+        query,
+        browser_config,
+        depth,
+        max_sources,
+        observer=None,
+        output_format=None,
+    ):
+        browser_calls.append(("research", depth, output_format))
+        return {
             "sources": [
                 {
                     "url": "https://example.com/source",
@@ -3472,31 +3465,36 @@ def test_action_budget_charges_browser_rendered_financial_tool_and_llm(
                 }
             ],
             "warnings": [],
-        },
-    )
-    monkeypatch.setattr(
-        runner,
-        "browse_url",
-        lambda url, browser_config, observer=None: {
+        }
+
+    def fake_browse(
+        url,
+        browser_config,
+        depth,
+        observer=None,
+        output_format=None,
+    ):
+        browser_calls.append(("browse", depth, output_format))
+        return {
             "status": "ok",
-            "url": url,
-            "title": "Profile",
-            "snippet": "funding customer traction",
-        },
-    )
+            "final_url": url,
+            "title": "Rendered" if depth == "deep" else "Profile",
+            "text": (
+                "rendered startup profile"
+                if depth == "deep"
+                else "funding customer traction"
+            ),
+            "warnings": [],
+        }
+
     monkeypatch.setattr(runner, "_load_web_browser_skill", lambda: None)
     monkeypatch.setattr(runner, "WebBrowserConfig", DummyConfig)
     monkeypatch.setattr(
         runner,
-        "scrape_page",
-        lambda url, browser_config: {
-            "status": "ok",
-            "final_url": url,
-            "title": "Rendered",
-            "text": "rendered startup profile",
-            "warnings": [],
-        },
+        "research_topic",
+        fake_research_topic,
     )
+    monkeypatch.setattr(runner, "browse", fake_browse)
 
     sources = []
     plan = {
@@ -3504,7 +3502,7 @@ def test_action_budget_charges_browser_rendered_financial_tool_and_llm(
         "target_urls": ["https://example.com/profile"],
         "company_slug": "example-ai",
     }
-    runner._append_w3m_research(
+    runner._append_browser_research(
         sources,
         company="Example AI",
         plan=plan,
@@ -3556,6 +3554,13 @@ def test_action_budget_charges_browser_rendered_financial_tool_and_llm(
         "financial_tool",
         "llm_call",
     ]
+    assert browser_calls == [
+        ("research", "standard", "plain_text"),
+        ("browse", "standard", "plain_text"),
+        ("browse", "deep", "plain_text"),
+    ]
+    assert all(config["timeout_seconds"] == 20 for config in browser_configs)
+    assert all(config["total_timeout_seconds"] == 60 for config in browser_configs)
 
 
 def test_budget_exhaustion_finishes_with_warnings_and_no_extra_llm_calls(tmp_path):

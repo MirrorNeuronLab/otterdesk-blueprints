@@ -6,9 +6,9 @@ from .common import *
 from .evidence import is_substantive_public_source
 from .research_agentic import run_agentic_research_agent
 from .research_browser import (
+    _append_browser_research,
     _append_rendered_browser_research,
     _append_target_url_research,
-    _append_w3m_research,
 )
 from .research_core import (
     _budget_exhausted_source,
@@ -38,7 +38,7 @@ def research_company(company: str, config: dict[str, Any], run_dir: Path | None 
         )
         for query in plan["queries"]
     ]
-    call_with_supported_kwargs(_append_w3m_research, sources=sources, company=company, plan=plan, internet=internet, run_dir=run_dir, action_budget=action_budget)
+    call_with_supported_kwargs(_append_browser_research, sources=sources, company=company, plan=plan, internet=internet, run_dir=run_dir, action_budget=action_budget)
     call_with_supported_kwargs(_append_target_url_research, sources=sources, company=company, plan=plan, internet=internet, run_dir=run_dir, action_budget=action_budget)
     call_with_supported_kwargs(_append_rendered_browser_research, sources=sources, company=company, plan=plan, internet=internet, run_dir=run_dir, action_budget=action_budget)
     for url in list(internet.get("default_source_urls") or DEFAULT_RESEARCH_SOURCE_URLS):
@@ -64,7 +64,7 @@ def _research_agent_default_source_record(company: str, agent_id: str, query: st
         title=url.split("//", 1)[-1].split("/", 1)[0],
         snippet="Configured public reference for this research agent; live browser runs can replace or supplement this source.",
         status="configured_reference",
-        skill="w3m_browser_skill",
+        skill="web_browser_skill",
         verification_target=agent_id,
     )
 
@@ -95,12 +95,12 @@ def _run_research_agent(company: str, agent_id: str, query: str | list[str], pla
         ], 30)
         for item in queries:
             identity_plan["queries"] = [item]
-            call_with_supported_kwargs(_append_w3m_research, sources=sources, company=company, plan=identity_plan, internet=identity_internet, run_dir=run_dir, verification_target=agent_id, action_budget=action_budget)
+            call_with_supported_kwargs(_append_browser_research, sources=sources, company=company, plan=identity_plan, internet=identity_internet, run_dir=run_dir, verification_target=agent_id, action_budget=action_budget)
         call_with_supported_kwargs(_append_target_url_research, sources=sources, company=company, plan=identity_plan, internet=identity_internet, run_dir=run_dir, action_budget=action_budget)
     elif agent_id in {"funding_researcher", "market_comp_researcher", "traction_verifier"}:
         for item in queries:
             agent_plan["queries"] = [item]
-            call_with_supported_kwargs(_append_w3m_research, sources=sources, company=company, plan=agent_plan, internet=internet, run_dir=run_dir, verification_target=agent_id, action_budget=action_budget)
+            call_with_supported_kwargs(_append_browser_research, sources=sources, company=company, plan=agent_plan, internet=internet, run_dir=run_dir, verification_target=agent_id, action_budget=action_budget)
         if agent_plan.get("target_urls"):
             call_with_supported_kwargs(_append_target_url_research, sources=sources, company=company, plan=agent_plan, internet=internet, run_dir=run_dir, action_budget=action_budget)
         for url in list(internet.get("default_source_urls") or DEFAULT_RESEARCH_SOURCE_URLS):
