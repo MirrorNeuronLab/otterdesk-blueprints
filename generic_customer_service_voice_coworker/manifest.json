@@ -2036,18 +2036,18 @@
       "name": "mirrorneuron-blueprint-support-skill",
       "source": "gar",
       "type": "pip",
-      "version": "1.2.24"
+      "version": "1.2.25"
     },
     {
       "name": "mirrorneuron-websocket-stream-skill",
       "source": "gar",
       "type": "pip",
-      "version": "1.2.24"
+      "version": "1.2.25"
     }
   ],
   "agent_dependencies": [
-    {"type": "pip", "source": "gar", "name": "mn-prototype-supervised-service-agent", "version": "1.2.24"},
-    {"type": "pip", "source": "gar", "name": "mn-prototype-stream-processor-agent", "version": "1.2.24"}
+    {"type": "pip", "source": "gar", "name": "mn-prototype-supervised-service-agent", "version": "1.2.25"},
+    {"type": "pip", "source": "gar", "name": "mn-prototype-stream-processor-agent", "version": "1.2.25"}
   ],
   "standard": {
     "migration_policy": "sdk_managed",
