@@ -1,6 +1,5 @@
 """Purchase Research Assistant runtime preparation boundary."""
 
-from purchase_domain.runtime_services import default_config_path
+from purchase_domain.runtime_services import runtime_context_for_step
 
-__all__ = ["default_config_path"]
-
+__all__ = ["runtime_context_for_step"]

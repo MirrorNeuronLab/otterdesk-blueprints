@@ -26,28 +26,73 @@
     "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run"
   },
   "agents": {
-    "extra_edges": [
-      {
-        "edge_id": "legal_reporter_to_report_sink",
-        "from_node": "legal_reporter",
-        "message_type": "legal_reporter_completed",
-        "to_node": "report_sink"
+    "registry": {
+      "legal_folder_watcher": {
+        "handler": "agents.legal_folder_watcher",
+        "role": "Legal Folder Watcher"
+      },
+      "legal_document_reader": {
+        "handler": "agents.legal_document_reader",
+        "role": "Legal Document Reader"
+      },
+      "invoice_bill_extractor": {
+        "handler": "agents.invoice_bill_extractor",
+        "role": "Invoice Bill Extractor"
+      },
+      "payable_field_validator": {
+        "handler": "agents.payable_field_validator",
+        "role": "Payable Field Validator"
+      },
+      "contract_clause_extractor": {
+        "handler": "agents.contract_clause_extractor",
+        "role": "Contract Clause Extractor"
+      },
+      "contract_playbook_comparator": {
+        "handler": "agents.contract_playbook_comparator",
+        "role": "Contract Playbook Comparator"
+      },
+      "legal_evidence_reconciler": {
+        "handler": "agents.legal_evidence_reconciler",
+        "role": "Legal Evidence Reconciler"
+      },
+      "legal_review_auditor": {
+        "handler": "agents.legal_review_auditor",
+        "role": "Legal Review Auditor"
+      },
+      "legal_reporter": {
+        "handler": "agents.legal_reporter",
+        "role": "Legal Reporter"
       }
-    ],
-    "extra_templates": [
-      {
-        "node_id": "report_sink",
-        "uses": "mn-agents.control.terminal_sink@1",
-        "with": {
-          "stereotype": "terminal_report_sink"
-        }
-      }
-    ]
+    }
   },
   "apiVersion": "mn.workflow.source/v2",
   "config": {
     "default": "config/default.json",
-    "embed": true
+    "embed": true,
+    "manifest_defaults": [
+      "agentic_research",
+      "llm",
+      {
+        "from": "requirements",
+        "to": "resources"
+      },
+      {
+        "from": "workflow.policy.human",
+        "to": "human_control"
+      },
+      {
+        "from": "contracts.input_adapters.supported",
+        "to": "interfaces.input_adapters"
+      },
+      {
+        "from": "identity.id",
+        "to": "identity.blueprint_id"
+      },
+      {
+        "from": "identity.name",
+        "to": "identity.name"
+      }
+    ]
   },
   "contracts": {
     "events": {
@@ -604,12 +649,30 @@
     }
   ],
   "agent_dependencies": [
-    {"type": "pip", "source": "gar", "name": "mn-prototype-operation-router-agent", "version": "1.2.24"},
-    {"type": "pip", "source": "gar", "name": "mn-prototype-stateful-step-agent", "version": "1.2.24"},
-    {"type": "pip", "source": "gar", "name": "mn-prototype-entity-queue-agent", "version": "1.2.24"},
-    {"type": "pip", "source": "gar", "name": "mn-prototype-bounded-tool-loop-agent", "version": "1.2.24"},
-    {"type": "pip", "source": "gar", "name": "mn-prototype-actor-review-agent", "version": "1.2.24"},
-    {"type": "pip", "source": "gar", "name": "mn-prototype-artifact-finalizer-agent", "version": "1.2.24"}
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mn-prototype-stateful-step-agent",
+      "version": "1.2.24"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mn-prototype-bounded-tool-loop-agent",
+      "version": "1.2.24"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mn-prototype-actor-review-agent",
+      "version": "1.2.24"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mn-prototype-artifact-finalizer-agent",
+      "version": "1.2.24"
+    }
   ],
   "standard": {
     "migration_policy": "sdk_managed",
@@ -709,156 +772,90 @@
       {
         "goal": "Detect changed invoice, bill, contract, clause-note, label, and support files.",
         "id": "legal_folder_watcher",
-        "in": {
-          "document_folder": "$state.document_folder"
-        },
         "kind": "source",
         "label": "Legal Folder Watcher",
         "needs": [],
-        "out": {
-          "legal_folder_watcher": "$state.workflow.legal_folder_watcher"
-        },
         "run": {
-          "handler": "steps.intake",
-          "with": {
-            "operation": "watch"
-          }
+          "definition": "steps.legal_folder_watcher"
         }
       },
       {
         "goal": "Read local text and structured files, classify invoices, bills, contracts, clauses, and OCR-required sources.",
         "id": "legal_document_reader",
-        "in": {
-          "previous": "$state.workflow"
-        },
         "kind": "stage",
         "label": "Legal Document Reader",
         "needs": [
           "legal_folder_watcher"
         ],
-        "out": {
-          "legal_document_reader": "$state.workflow.legal_document_reader"
-        },
         "run": {
-          "handler": "steps.intake",
-          "with": {
-            "operation": "read"
-          }
+          "definition": "steps.legal_document_reader"
         }
       },
       {
         "goal": "Extract supplier, customer, invoice id, tax id, due date, total, line items, consumption fields, and billing period values.",
         "id": "invoice_bill_extractor",
-        "in": {
-          "previous": "$state.workflow"
-        },
         "kind": "stage",
         "label": "Invoice Bill Extractor",
         "needs": [
           "legal_document_reader"
         ],
-        "out": {
-          "invoice_bill_extractor": "$state.workflow.invoice_bill_extractor"
-        },
         "run": {
-          "handler": "steps.invoices",
-          "with": {
-            "operation": "extract"
-          }
+          "definition": "steps.invoice_bill_extractor"
         }
       },
       {
         "goal": "Validate payable fields, missing values, OCR warnings, and payment/ERP blockers.",
         "id": "payable_field_validator",
-        "in": {
-          "previous": "$state.workflow"
-        },
         "kind": "stage",
         "label": "Payable Field Validator",
         "needs": [
           "invoice_bill_extractor"
         ],
-        "out": {
-          "payable_field_validator": "$state.workflow.payable_field_validator"
-        },
         "run": {
-          "handler": "steps.invoices",
-          "with": {
-            "operation": "validate"
-          }
+          "definition": "steps.payable_field_validator"
         }
       },
       {
         "goal": "Extract candidate contract clauses and source snippets for governing law, assignment, indemnity, termination, liability, renewal, exclusivity, audit rights, and change of control.",
         "id": "contract_clause_extractor",
-        "in": {
-          "previous": "$state.workflow"
-        },
         "kind": "stage",
         "label": "Contract Clause Extractor",
         "needs": [
           "legal_document_reader"
         ],
-        "out": {
-          "contract_clause_extractor": "$state.workflow.contract_clause_extractor"
-        },
         "run": {
-          "handler": "steps.contracts",
-          "with": {
-            "operation": "extract"
-          }
+          "definition": "steps.contract_clause_extractor"
         }
       },
       {
         "goal": "Compare extracted clauses to playbook expectations and flag deviations, missing high-value terms, and attorney review blockers.",
         "id": "contract_playbook_comparator",
-        "in": {
-          "previous": "$state.workflow"
-        },
         "kind": "stage",
         "label": "Contract Playbook Comparator",
         "needs": [
           "contract_clause_extractor"
         ],
-        "out": {
-          "contract_playbook_comparator": "$state.workflow.contract_playbook_comparator"
-        },
         "run": {
-          "handler": "steps.contracts",
-          "with": {
-            "operation": "compare"
-          }
+          "definition": "steps.contract_playbook_comparator"
         }
       },
       {
         "goal": "Merge invoice, bill, contract, clause, issue-register, and warning evidence into one review packet.",
         "id": "legal_evidence_reconciler",
-        "in": {
-          "previous": "$state.workflow"
-        },
         "kind": "stage",
         "label": "Legal Evidence Reconciler",
         "needs": [
           "payable_field_validator",
           "contract_playbook_comparator"
         ],
-        "out": {
-          "legal_evidence_reconciler": "$state.workflow.legal_evidence_reconciler"
-        },
         "run": {
-          "handler": "steps.review",
-          "with": {
-            "operation": "reconcile"
-          }
+          "definition": "steps.legal_evidence_reconciler"
         },
         "trigger_rule": "all_success"
       },
       {
         "goal": "Audit source references, review-only boundaries, blocked actions, and human/attorney approval requirements.",
         "id": "legal_review_auditor",
-        "in": {
-          "previous": "$state.workflow"
-        },
         "join": {
           "mode": "all_required"
         },
@@ -867,35 +864,20 @@
         "needs": [
           "legal_evidence_reconciler"
         ],
-        "out": {
-          "legal_review_auditor": "$state.workflow.legal_review_auditor"
-        },
         "run": {
-          "handler": "steps.review",
-          "with": {
-            "operation": "audit"
-          }
+          "definition": "steps.legal_review_auditor"
         }
       },
       {
         "goal": "Write the integrated review-only report, domain artifacts, action ledger, quality summary, and run health files.",
         "id": "legal_reporter",
-        "in": {
-          "previous": "$state.workflow"
-        },
         "kind": "sink",
         "label": "Legal Reporter",
         "needs": [
           "legal_review_auditor"
         ],
-        "out": {
-          "legal_reporter": "$state.workflow.legal_reporter"
-        },
         "run": {
-          "handler": "steps.review",
-          "with": {
-            "operation": "report"
-          }
+          "definition": "steps.legal_reporter"
         }
       }
     ],
