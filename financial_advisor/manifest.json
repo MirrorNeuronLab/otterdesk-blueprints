@@ -30,28 +30,105 @@
     "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run"
   },
   "agents": {
-    "extra_edges": [
-      {
-        "edge_id": "financial_advice_reporter_to_report_sink",
-        "from_node": "financial_advice_reporter",
-        "message_type": "financial_advice_reporter_completed",
-        "to_node": "report_sink"
+    "registry": {
+      "financial_folder_watcher": {
+        "handler": "agents.financial_folder_watcher",
+        "role": "Financial Folder Watcher"
+      },
+      "financial_document_reader": {
+        "handler": "agents.financial_document_reader",
+        "role": "Financial Document Reader"
+      },
+      "bank_statement_extractor": {
+        "handler": "agents.bank_statement_extractor",
+        "role": "Bank Statement Extractor"
+      },
+      "cash_flow_normalizer": {
+        "handler": "agents.cash_flow_normalizer",
+        "role": "Cash Flow Normalizer"
+      },
+      "cash_flow_llm_analyst": {
+        "handler": "agents.cash_flow_llm_analyst",
+        "role": "Cash Flow LLM Analyst"
+      },
+      "tax_document_router": {
+        "handler": "agents.tax_document_router",
+        "role": "Tax Document Router"
+      },
+      "tax_form_ocr_capturer": {
+        "handler": "agents.tax_form_ocr_capturer",
+        "role": "Tax Form OCR Capturer"
+      },
+      "tax_workpaper_preparer": {
+        "handler": "agents.tax_workpaper_preparer",
+        "role": "Tax Workpaper Preparer"
+      },
+      "tax_llm_reviewer": {
+        "handler": "agents.tax_llm_reviewer",
+        "role": "Tax LLM Reviewer"
+      },
+      "portfolio_context_loader": {
+        "handler": "agents.portfolio_context_loader",
+        "role": "Portfolio Context Loader"
+      },
+      "portfolio_market_data_loader": {
+        "handler": "agents.portfolio_market_data_loader",
+        "role": "Portfolio Market Data Loader"
+      },
+      "portfolio_risk_engine": {
+        "handler": "agents.portfolio_risk_engine",
+        "role": "Portfolio Risk Engine"
+      },
+      "portfolio_llm_reviewer": {
+        "handler": "agents.portfolio_llm_reviewer",
+        "role": "Portfolio LLM Reviewer"
+      },
+      "public_finance_researcher": {
+        "handler": "agents.public_finance_researcher",
+        "role": "Public Finance Researcher"
+      },
+      "advisor_evidence_reconciler": {
+        "handler": "agents.advisor_evidence_reconciler",
+        "role": "Advisor Evidence Reconciler"
+      },
+      "advisor_review_auditor": {
+        "handler": "agents.advisor_review_auditor",
+        "role": "Advisor Review Auditor"
+      },
+      "financial_advice_reporter": {
+        "handler": "agents.financial_advice_reporter",
+        "role": "Financial Advice Reporter"
       }
-    ],
-    "extra_templates": [
-      {
-        "node_id": "report_sink",
-        "uses": "mn-agents.control.terminal_sink@1",
-        "with": {
-          "stereotype": "terminal_report_sink"
-        }
-      }
-    ]
+    }
   },
   "apiVersion": "mn.workflow.source/v2",
   "config": {
     "default": "config/default.json",
-    "embed": true
+    "embed": true,
+    "manifest_defaults": [
+      "agentic_research",
+      "llm",
+      {
+        "from": "requirements",
+        "to": "resources"
+      },
+      {
+        "from": "workflow.policy.human",
+        "to": "human_control"
+      },
+      {
+        "from": "contracts.input_adapters.supported",
+        "to": "interfaces.input_adapters"
+      },
+      {
+        "from": "identity.id",
+        "to": "identity.blueprint_id"
+      },
+      {
+        "from": "identity.name",
+        "to": "identity.name"
+      }
+    ]
   },
   "contracts": {
     "events": {
@@ -710,12 +787,30 @@
     }
   ],
   "agent_dependencies": [
-    {"type": "pip", "source": "gar", "name": "mn-prototype-operation-router-agent", "version": "1.2.24"},
-    {"type": "pip", "source": "gar", "name": "mn-prototype-stateful-step-agent", "version": "1.2.24"},
-    {"type": "pip", "source": "gar", "name": "mn-prototype-entity-queue-agent", "version": "1.2.24"},
-    {"type": "pip", "source": "gar", "name": "mn-prototype-bounded-tool-loop-agent", "version": "1.2.24"},
-    {"type": "pip", "source": "gar", "name": "mn-prototype-actor-review-agent", "version": "1.2.24"},
-    {"type": "pip", "source": "gar", "name": "mn-prototype-artifact-finalizer-agent", "version": "1.2.24"}
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mn-prototype-stateful-step-agent",
+      "version": "1.2.24"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mn-prototype-bounded-tool-loop-agent",
+      "version": "1.2.24"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mn-prototype-actor-review-agent",
+      "version": "1.2.24"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mn-prototype-artifact-finalizer-agent",
+      "version": "1.2.24"
+    }
   ],
   "standard": {
     "migration_policy": "sdk_managed",
@@ -877,21 +972,11 @@
         },
         "goal": "Resolve the monitored finance folder, output folder, portfolio settings, tax settings, and sample input notes.",
         "id": "financial_folder_watcher",
-        "in": {
-          "document_folder": "$state.document_folder",
-          "monitoring": "$inputs.monitoring"
-        },
         "kind": "source",
         "label": "Financial Folder Watcher",
         "needs": [],
-        "out": {
-          "financial_folder_watcher": "$state.workflow.financial_folder_watcher"
-        },
         "run": {
-          "handler": "steps.intake",
-          "with": {
-            "operation": "watch"
-          }
+          "definition": "steps.financial_folder_watcher"
         }
       },
       {
@@ -912,22 +997,13 @@
         },
         "goal": "Read local text, JSON, CSV, and PDF/image evidence; use shared LightOnOCR for low-text or image-only documents; classify finance, tax, bank statement, and portfolio evidence.",
         "id": "financial_document_reader",
-        "in": {
-          "previous": "$state.workflow"
-        },
         "kind": "stage",
         "label": "Financial Document Reader",
         "needs": [
           "financial_folder_watcher"
         ],
-        "out": {
-          "financial_document_reader": "$state.workflow.financial_document_reader"
-        },
         "run": {
-          "handler": "steps.intake",
-          "with": {
-            "operation": "read"
-          }
+          "definition": "steps.financial_document_reader"
         }
       },
       {
@@ -948,22 +1024,13 @@
         },
         "goal": "Extract statement balances, deposits, withdrawals, fees, account labels, and transaction evidence.",
         "id": "bank_statement_extractor",
-        "in": {
-          "previous": "$state.workflow"
-        },
         "kind": "stage",
         "label": "Bank Statement Extractor",
         "needs": [
           "financial_document_reader"
         ],
-        "out": {
-          "bank_statement_extractor": "$state.workflow.bank_statement_extractor"
-        },
         "run": {
-          "handler": "steps.cash_flow",
-          "with": {
-            "operation": "extract"
-          }
+          "definition": "steps.bank_statement_extractor"
         }
       },
       {
@@ -984,22 +1051,13 @@
         },
         "goal": "Normalize income, expenses, balances, debt obligations, fees, recurring items, and household finance risks.",
         "id": "cash_flow_normalizer",
-        "in": {
-          "previous": "$state.workflow"
-        },
         "kind": "stage",
         "label": "Cash Flow Normalizer",
         "needs": [
           "bank_statement_extractor"
         ],
-        "out": {
-          "cash_flow_normalizer": "$state.workflow.cash_flow_normalizer"
-        },
         "run": {
-          "handler": "steps.cash_flow",
-          "with": {
-            "operation": "normalize"
-          }
+          "definition": "steps.cash_flow_normalizer"
         }
       },
       {
@@ -1020,22 +1078,13 @@
         },
         "goal": "Review deterministic cash-flow totals for evidence gaps, recurring-risk signals, and human-check questions without changing cash-flow math.",
         "id": "cash_flow_llm_analyst",
-        "in": {
-          "previous": "$state.workflow"
-        },
         "kind": "stage",
         "label": "Cash Flow LLM Analyst",
         "needs": [
           "cash_flow_normalizer"
         ],
-        "out": {
-          "cash_flow_llm_analyst": "$state.workflow.cash_flow_llm_analyst"
-        },
         "run": {
-          "handler": "steps.cash_flow",
-          "with": {
-            "operation": "analyze"
-          }
+          "definition": "steps.cash_flow_llm_analyst"
         }
       },
       {
@@ -1056,22 +1105,13 @@
         },
         "goal": "Route W-2, 1099, brokerage, receipt, and tax-relevant source evidence into draft workpaper groups.",
         "id": "tax_document_router",
-        "in": {
-          "previous": "$state.workflow"
-        },
         "kind": "stage",
         "label": "Tax Document Router",
         "needs": [
           "financial_document_reader"
         ],
-        "out": {
-          "tax_document_router": "$state.workflow.tax_document_router"
-        },
         "run": {
-          "handler": "steps.tax",
-          "with": {
-            "operation": "route"
-          }
+          "definition": "steps.tax_document_router"
         }
       },
       {
@@ -1092,22 +1132,13 @@
         },
         "goal": "Classify tax-form images, preserve OCR-required status, capture answer-file fields, and validate field locations for review.",
         "id": "tax_form_ocr_capturer",
-        "in": {
-          "previous": "$state.workflow"
-        },
         "kind": "stage",
         "label": "Tax Form OCR Capturer",
         "needs": [
           "tax_document_router"
         ],
-        "out": {
-          "tax_form_ocr_capturer": "$state.workflow.tax_form_ocr_capturer"
-        },
         "run": {
-          "handler": "steps.tax",
-          "with": {
-            "operation": "ocr"
-          }
+          "definition": "steps.tax_form_ocr_capturer"
         }
       },
       {
@@ -1128,22 +1159,13 @@
         },
         "goal": "Prepare draft Form 1040-style review workpapers, manager checks, and missing-document flags without filing-ready conclusions.",
         "id": "tax_workpaper_preparer",
-        "in": {
-          "previous": "$state.workflow"
-        },
         "kind": "stage",
         "label": "Tax Workpaper Preparer",
         "needs": [
           "tax_form_ocr_capturer"
         ],
-        "out": {
-          "tax_workpaper_preparer": "$state.workflow.tax_workpaper_preparer"
-        },
         "run": {
-          "handler": "steps.tax",
-          "with": {
-            "operation": "prepare"
-          }
+          "definition": "steps.tax_workpaper_preparer"
         }
       },
       {
@@ -1164,22 +1186,13 @@
         },
         "goal": "Review draft tax workpapers, OCR capture, missing-form blockers, and filing-boundary constraints without changing draft tax math.",
         "id": "tax_llm_reviewer",
-        "in": {
-          "previous": "$state.workflow"
-        },
         "kind": "stage",
         "label": "Tax LLM Reviewer",
         "needs": [
           "tax_workpaper_preparer"
         ],
-        "out": {
-          "tax_llm_reviewer": "$state.workflow.tax_llm_reviewer"
-        },
         "run": {
-          "handler": "steps.tax",
-          "with": {
-            "operation": "review"
-          }
+          "definition": "steps.tax_llm_reviewer"
         }
       },
       {
@@ -1200,22 +1213,13 @@
         },
         "goal": "Load portfolio holdings, benchmark weights, market notes, risk policy, and review-only decision constraints.",
         "id": "portfolio_context_loader",
-        "in": {
-          "previous": "$state.workflow"
-        },
         "kind": "stage",
         "label": "Portfolio Context Loader",
         "needs": [
           "financial_document_reader"
         ],
-        "out": {
-          "portfolio_context_loader": "$state.workflow.portfolio_context_loader"
-        },
         "run": {
-          "handler": "steps.portfolio",
-          "with": {
-            "operation": "load_context"
-          }
+          "definition": "steps.portfolio_context_loader"
         }
       },
       {
@@ -1236,22 +1240,13 @@
         },
         "goal": "Load bounded public or deterministic market context and record source freshness for portfolio symbols.",
         "id": "portfolio_market_data_loader",
-        "in": {
-          "previous": "$state.workflow"
-        },
         "kind": "stage",
         "label": "Portfolio Market Data Loader",
         "needs": [
           "portfolio_context_loader"
         ],
-        "out": {
-          "portfolio_market_data_loader": "$state.workflow.portfolio_market_data_loader"
-        },
         "run": {
-          "handler": "steps.portfolio",
-          "with": {
-            "operation": "load_market_data"
-          }
+          "definition": "steps.portfolio_market_data_loader"
         }
       },
       {
@@ -1272,22 +1267,13 @@
         },
         "goal": "Compute review-only concentration, cash, volatility, VaR-style, and policy-violation risk summaries.",
         "id": "portfolio_risk_engine",
-        "in": {
-          "previous": "$state.workflow"
-        },
         "kind": "stage",
         "label": "Portfolio Risk Engine",
         "needs": [
           "portfolio_market_data_loader"
         ],
-        "out": {
-          "portfolio_risk_engine": "$state.workflow.portfolio_risk_engine"
-        },
         "run": {
-          "handler": "steps.portfolio",
-          "with": {
-            "operation": "risk"
-          }
+          "definition": "steps.portfolio_risk_engine"
         }
       },
       {
@@ -1308,22 +1294,13 @@
         },
         "goal": "Review deterministic portfolio risk metrics, policy violations, source gaps, and human review questions without recommending trades.",
         "id": "portfolio_llm_reviewer",
-        "in": {
-          "previous": "$state.workflow"
-        },
         "kind": "stage",
         "label": "Portfolio LLM Reviewer",
         "needs": [
           "portfolio_risk_engine"
         ],
-        "out": {
-          "portfolio_llm_reviewer": "$state.workflow.portfolio_llm_reviewer"
-        },
         "run": {
-          "handler": "steps.portfolio",
-          "with": {
-            "operation": "review"
-          }
+          "definition": "steps.portfolio_llm_reviewer"
         }
       },
       {
@@ -1344,22 +1321,13 @@
         },
         "goal": "Gather privacy-safe public guidance from generic risk categories and official source targets.",
         "id": "public_finance_researcher",
-        "in": {
-          "previous": "$state.workflow"
-        },
         "kind": "stage",
         "label": "Public Finance Researcher",
         "needs": [
           "financial_document_reader"
         ],
-        "out": {
-          "public_finance_researcher": "$state.workflow.public_finance_researcher"
-        },
         "run": {
-          "handler": "steps.research",
-          "with": {
-            "operation": "public_finance"
-          }
+          "definition": "steps.public_finance_researcher"
         }
       },
       {
@@ -1380,9 +1348,6 @@
         },
         "goal": "Merge statement, household, tax, portfolio, and public guidance findings and flag contradictions or missing evidence.",
         "id": "advisor_evidence_reconciler",
-        "in": {
-          "previous": "$state.workflow"
-        },
         "kind": "stage",
         "label": "Advisor Evidence Reconciler",
         "needs": [
@@ -1391,14 +1356,8 @@
           "portfolio_llm_reviewer",
           "public_finance_researcher"
         ],
-        "out": {
-          "advisor_evidence_reconciler": "$state.workflow.advisor_evidence_reconciler"
-        },
         "run": {
-          "handler": "steps.research",
-          "with": {
-            "operation": "reconcile"
-          }
+          "definition": "steps.advisor_evidence_reconciler"
         },
         "trigger_rule": "all_success"
       },
@@ -1420,22 +1379,13 @@
         },
         "goal": "Audit calculations, missing evidence, action boundaries, and human-review blockers.",
         "id": "advisor_review_auditor",
-        "in": {
-          "previous": "$state.workflow"
-        },
         "kind": "stage",
         "label": "Advisor Review Auditor",
         "needs": [
           "advisor_evidence_reconciler"
         ],
-        "out": {
-          "advisor_review_auditor": "$state.workflow.advisor_review_auditor"
-        },
         "run": {
-          "handler": "steps.reporting",
-          "with": {
-            "operation": "audit"
-          }
+          "definition": "steps.advisor_review_auditor"
         }
       },
       {
@@ -1456,22 +1406,13 @@
         },
         "goal": "Write the integrated review-only financial advisor report and domain artifacts.",
         "id": "financial_advice_reporter",
-        "in": {
-          "previous": "$state.workflow"
-        },
         "kind": "sink",
         "label": "Financial Advice Reporter",
         "needs": [
           "advisor_review_auditor"
         ],
-        "out": {
-          "financial_advice_reporter": "$state.workflow.financial_advice_reporter"
-        },
         "run": {
-          "handler": "steps.reporting",
-          "with": {
-            "operation": "report"
-          }
+          "definition": "steps.financial_advice_reporter"
         }
       }
     ],
