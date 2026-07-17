@@ -308,7 +308,8 @@ def _call_optional(function: Callable[..., Any], **kwargs: Any) -> Any:
 def load_purchase_knowledge(root: Path) -> dict[str, Any]:
     files = []
     combined: list[str] = []
-    for path in sorted((root / "knowledge").rglob("*")) if (root / "knowledge").exists() else []:
+    knowledge_root = root / "payloads" / "knowledge"
+    for path in sorted(knowledge_root.rglob("*")) if knowledge_root.exists() else []:
         if path.is_file() and path.suffix.lower() in {".md", ".txt", ".json", ".csv"}:
             text = path.read_text(encoding="utf-8", errors="replace")
             files.append({"path": str(path), "name": path.name, "sha256": _sha256(text), "chars": len(text)})

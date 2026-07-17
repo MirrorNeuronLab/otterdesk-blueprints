@@ -48,193 +48,49 @@
     "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run"
   },
   "agents": {
-    "entrypoints": [
-      "frame_research_goal"
-    ],
-    "extra_edges": [
-      {
-        "edge_id": "frame_to_evidence",
-        "from_node": "frame_research_goal",
-        "message_type": "research_goal_framed",
-        "to_node": "retrieve_and_evaluate_evidence"
+    "registry": {
+      "frame_research_goal": {
+        "handler": "agents.frame_research_goal",
+        "role": "Deterministically Frame Research Goal"
       },
-      {
-        "edge_id": "evidence_to_autonomous",
-        "from_node": "retrieve_and_evaluate_evidence",
-        "message_type": "evidence_evaluated",
-        "to_node": "autonomous_research"
+      "retrieve_and_evaluate_evidence": {
+        "handler": "agents.retrieve_and_evaluate_evidence",
+        "role": "Deterministically Prepare Evidence"
       },
-      {
-        "edge_id": "autonomous_to_verification",
-        "from_node": "autonomous_research",
-        "message_type": "autonomous_research_completed",
-        "to_node": "verify_and_publish_packet"
+      "autonomous_research": {
+        "handler": "agents.autonomous_research",
+        "role": "Autonomous Research in OpenShell"
       },
-      {
-        "edge_id": "packet_to_report",
-        "from_node": "verify_and_publish_packet",
-        "message_type": "research_packet_ready",
-        "to_node": "report_sink"
+      "verify_and_publish_packet": {
+        "handler": "agents.verify_and_publish_packet",
+        "role": "Deterministically Verify and Publish Packet"
       }
-    ],
-    "extra_nodes": [
-      {
-        "agent_type": "executor",
-        "config": {
-          "agent_beacon_required": true,
-          "beacon_enabled": true,
-          "beacon_interval_ms": 15000,
-          "beacon_missed_action": "fail_attempt",
-          "beacon_timeout_ms": 45000,
-          "command": [
-            "python3",
-            "-m",
-            "mn_sdk.step_runtime"
-          ],
-          "environment": {
-            "MN_WORKFLOW_STEP_ID": "frame_research_goal"
-          },
-          "from": "base",
-          "max_attempts": 2,
-          "no_auto_providers": true,
-          "no_keep": true,
-          "output_message_type": "research_goal_framed",
-          "pool": "default",
-          "pool_slots": 1,
-          "retry_backoff_ms": 1000,
-          "runner_module": "MirrorNeuron.Runner.HostLocal",
-          "timeout_seconds": 300,
-          "tty": false,
-          "upload_as": "runtime",
-          "upload_path": "runtime",
-          "workdir": "/mn/job/runtime"
-        },
-        "node_id": "frame_research_goal",
-        "type": "generic"
-      },
-      {
-        "agent_type": "executor",
-        "config": {
-          "agent_beacon_required": true,
-          "beacon_enabled": true,
-          "beacon_interval_ms": 15000,
-          "beacon_missed_action": "fail_attempt",
-          "beacon_timeout_ms": 45000,
-          "command": [
-            "python3",
-            "-m",
-            "mn_sdk.step_runtime"
-          ],
-          "environment": {
-            "MN_WORKFLOW_STEP_ID": "retrieve_and_evaluate_evidence"
-          },
-          "from": "base",
-          "max_attempts": 2,
-          "no_auto_providers": true,
-          "no_keep": true,
-          "output_message_type": "evidence_evaluated",
-          "pool": "default",
-          "pool_slots": 1,
-          "retry_backoff_ms": 1000,
-          "runner_module": "MirrorNeuron.Runner.HostLocal",
-          "timeout_seconds": 300,
-          "tty": false,
-          "upload_as": "runtime",
-          "upload_path": "runtime",
-          "workdir": "/mn/job/runtime"
-        },
-        "node_id": "retrieve_and_evaluate_evidence",
-        "type": "generic"
-      },
-      {
-        "agent_type": "executor",
-        "config": {
-          "agent_beacon_required": true,
-          "beacon_enabled": true,
-          "beacon_interval_ms": 15000,
-          "beacon_missed_action": "fail_attempt",
-          "beacon_timeout_ms": 45000,
-          "cleanup_remote_dir": false,
-          "command": [
-            "python3",
-            "-m",
-            "mn_sdk.step_runtime"
-          ],
-          "custom_openshell_image": "openshell_worker",
-          "environment": {
-            "MN_WORKFLOW_STEP_ID": "autonomous_research"
-          },
-          "max_attempts": 2,
-          "no_auto_providers": true,
-          "no_keep": true,
-          "output_message_type": "autonomous_research_completed",
-          "persistent_workspace": true,
-          "policy": "openshell-policy.yaml",
-          "pool": "default",
-          "pool_slots": 1,
-          "retry_backoff_ms": 1000,
-          "reuse_shared_sandbox": true,
-          "runner_module": "MirrorNeuron.Runner.OpenShell",
-          "timeout_seconds": 600,
-          "tty": false,
-          "upload_as": "runtime",
-          "upload_path": "runtime",
-          "workdir": "/mn/job/runtime"
-        },
-        "node_id": "autonomous_research",
-        "type": "generic"
-      },
-      {
-        "agent_type": "executor",
-        "config": {
-          "agent_beacon_required": true,
-          "beacon_enabled": true,
-          "beacon_interval_ms": 15000,
-          "beacon_missed_action": "fail_attempt",
-          "beacon_timeout_ms": 45000,
-          "command": [
-            "python3",
-            "-m",
-            "mn_sdk.step_runtime"
-          ],
-          "environment": {
-            "MN_WORKFLOW_STEP_ID": "verify_and_publish_packet"
-          },
-          "from": "base",
-          "max_attempts": 2,
-          "no_auto_providers": true,
-          "no_keep": true,
-          "output_message_type": "research_packet_ready",
-          "pool": "default",
-          "pool_slots": 1,
-          "retry_backoff_ms": 1000,
-          "runner_module": "MirrorNeuron.Runner.HostLocal",
-          "timeout_seconds": 300,
-          "tty": false,
-          "upload_as": "runtime",
-          "upload_path": "runtime",
-          "workdir": "/mn/job/runtime"
-        },
-        "node_id": "verify_and_publish_packet",
-        "type": "generic"
-      },
-      {
-        "agent_type": "aggregator",
-        "config": {
-          "complete_on_message": true,
-          "complete_run": true,
-          "terminal_sink": true
-        },
-        "node_id": "report_sink",
-        "role": "result_sink",
-        "type": "reduce"
-      }
-    ]
+    }
   },
   "apiVersion": "mn.workflow.source/v2",
   "config": {
     "default": "config/default.json",
-    "embed": true
+    "embed": true,
+    "manifest_defaults": [
+      "agentic_research",
+      "knowledge_rag",
+      {
+        "from": "requirements",
+        "to": "resources"
+      },
+      {
+        "from": "contracts.input_adapters.supported",
+        "to": "interfaces.input_adapters"
+      },
+      {
+        "from": "identity.id",
+        "to": "identity.blueprint_id"
+      },
+      {
+        "from": "identity.name",
+        "to": "identity.name"
+      }
+    ]
   },
   "contracts": {
     "events": {
@@ -605,7 +461,10 @@
   },
   "defaults": {
     "worker": {
-      "enabled": false
+      "with": {
+        "stereotype": "internal_write_worker",
+        "image": "mirror-neuron/research-coscientist:local"
+      }
     }
   },
   "identity": {
@@ -1730,131 +1589,6 @@
     }
   },
   "runtime": {
-    "bindings": {
-      "autonomous_research": {
-        "risk": "low",
-        "side_effect": "read",
-        "strategy": "fanout_reduce",
-        "type": "team",
-        "workers": [
-          {
-            "id": "research:idea_generator",
-            "model": "default",
-            "role": "Generate falsifiable candidate hypotheses",
-            "tokens": 14000,
-            "tools": 6
-          },
-          {
-            "id": "research:skeptic",
-            "model": "default",
-            "role": "Adversarially critique causal claims",
-            "tokens": 14000,
-            "tools": 6
-          },
-          {
-            "id": "research:proximity_reviewer",
-            "model": "default",
-            "role": "Review overlap and bounded novelty",
-            "tokens": 14000,
-            "tools": 6
-          }
-        ]
-      },
-      "frame_research_goal": {
-        "risk": "low",
-        "side_effect": "read",
-        "strategy": "fanout_reduce",
-        "type": "team",
-        "workers": [
-          {
-            "id": "research:topic_finder",
-            "model": "default",
-            "role": "Frame the goal and define research questions",
-            "tokens": 14000,
-            "tools": 6
-          },
-          {
-            "id": "research:literature_reviewer",
-            "model": "default",
-            "role": "Plan evidence discovery and source evaluation",
-            "tokens": 14000,
-            "tools": 6
-          }
-        ]
-      },
-      "retrieve_and_evaluate_evidence": {
-        "risk": "low",
-        "side_effect": "read",
-        "strategy": "fanout_reduce",
-        "type": "team",
-        "workers": [
-          {
-            "id": "research:literature_reviewer",
-            "model": "default",
-            "role": "Retrieve and qualify evidence",
-            "tokens": 14000,
-            "tools": 6
-          },
-          {
-            "id": "research:evidence_ranker",
-            "model": "default",
-            "role": "Rank evidence strength and coverage",
-            "tokens": 14000,
-            "tools": 6
-          }
-        ]
-      },
-      "verify_and_publish_packet": {
-        "risk": "medium",
-        "side_effect": "internal_write",
-        "strategy": "fanout_reduce",
-        "type": "team",
-        "workers": [
-          {
-            "id": "research:experiment_designer",
-            "model": "default",
-            "role": "Design experiments and controls",
-            "tokens": 14000,
-            "tools": 6
-          },
-          {
-            "id": "research:code_implementer",
-            "model": "default",
-            "role": "Plan reproducible implementation",
-            "tokens": 14000,
-            "tools": 6
-          },
-          {
-            "id": "research:benchmark_runner",
-            "model": "default",
-            "role": "Specify benchmark comparisons",
-            "tokens": 14000,
-            "tools": 6
-          },
-          {
-            "id": "research:result_analyst",
-            "model": "default",
-            "role": "Plan interpretation and sensitivity checks",
-            "tokens": 14000,
-            "tools": 6
-          },
-          {
-            "id": "research:paper_writer",
-            "model": "default",
-            "role": "Draft the research brief",
-            "tokens": 14000,
-            "tools": 6
-          },
-          {
-            "id": "research:meta_reviewer",
-            "model": "default",
-            "role": "Audit ranking, evidence, and review boundaries",
-            "tokens": 14000,
-            "tools": 6
-          }
-        ]
-      }
-    },
     "memory": {
       "collection": "mn_memory",
       "containers": "optional_sidecar",
@@ -2051,11 +1785,30 @@
     }
   ],
   "agent_dependencies": [
-    {"type": "pip", "source": "gar", "name": "mn-prototype-stateful-step-agent", "version": "1.2.24"},
-    {"type": "pip", "source": "gar", "name": "mn-prototype-bounded-tool-loop-agent", "version": "1.2.24"},
-    {"type": "pip", "source": "gar", "name": "mn-prototype-actor-review-agent", "version": "1.2.24"},
-    {"type": "pip", "source": "gar", "name": "mn-prototype-artifact-finalizer-agent", "version": "1.2.24"},
-    {"type": "pip", "source": "gar", "name": "mn-prototype-supervised-service-agent", "version": "1.2.24"}
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mn-prototype-stateful-step-agent",
+      "version": "1.2.24"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mn-prototype-bounded-tool-loop-agent",
+      "version": "1.2.24"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mn-prototype-actor-review-agent",
+      "version": "1.2.24"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mn-prototype-artifact-finalizer-agent",
+      "version": "1.2.24"
+    }
   ],
   "standard": {
     "migration_policy": "sdk_managed",
@@ -2118,18 +1871,11 @@
         },
         "goal": "Deterministically normalize the question, scope, success criteria, constraints, and unknowns.",
         "id": "frame_research_goal",
-        "in": {
-          "research_goal": "$state.research_goal"
-        },
         "kind": "stage",
         "label": "Deterministically Frame Research Goal",
         "needs": [],
-        "out": {
-          "research_context": "$state.research_context"
-        },
         "run": {
-          "agent": "frame_research_goal",
-          "handler": "steps.goal"
+          "definition": "steps.frame_research_goal"
         }
       },
       {
@@ -2150,20 +1896,13 @@
         },
         "goal": "Deterministically retrieve approved local material and build source and gap ledgers before autonomous exploration.",
         "id": "retrieve_and_evaluate_evidence",
-        "in": {
-          "research_context": "$state.research_context"
-        },
         "kind": "stage",
         "label": "Deterministically Prepare Evidence",
         "needs": [
           "frame_research_goal"
         ],
-        "out": {
-          "retrieved_evidence": "$state.retrieved_evidence"
-        },
         "run": {
-          "agent": "retrieve_and_evaluate_evidence",
-          "handler": "steps.evidence"
+          "definition": "steps.retrieve_and_evaluate_evidence"
         }
       },
       {
@@ -2184,21 +1923,13 @@
         },
         "goal": "Refine goals, create prompts, request allowlisted mn-skills tools, run bounded generated code, and adversarially explore falsifiable hypotheses inside the job's single OpenShell worker.",
         "id": "autonomous_research",
-        "in": {
-          "evidence": "$state.retrieved_evidence"
-        },
         "kind": "stage",
         "label": "Autonomous Research in OpenShell",
         "needs": [
           "retrieve_and_evaluate_evidence"
         ],
-        "out": {
-          "autonomous_session": "$state.autonomous_session",
-          "hypothesis_ledger": "$state.hypothesis_ledger"
-        },
         "run": {
-          "agent": "autonomous_research",
-          "handler": "steps.autonomous"
+          "definition": "steps.autonomous_research"
         }
       },
       {
@@ -2219,23 +1950,49 @@
         },
         "goal": "Verify source traceability, autonomous tool and code ledgers, review boundaries, and artifact schemas before publishing the research packet.",
         "id": "verify_and_publish_packet",
-        "in": {
-          "hypotheses": "$state.hypothesis_ledger"
-        },
         "kind": "stage",
         "label": "Deterministically Verify and Publish Packet",
         "needs": [
           "autonomous_research"
         ],
-        "out": {
-          "research_packet": "$state.research_packet"
-        },
         "run": {
-          "agent": "verify_and_publish_packet",
-          "handler": "steps.reporting"
+          "definition": "steps.verify_and_publish_packet"
         }
       }
     ],
     "workflow_id": "research_coscientist_v1"
+  },
+  "workers": {
+    "groups": [
+      {
+        "steps": [
+          "retrieve_and_evaluate_evidence"
+        ],
+        "with": {
+          "stereotype": "public_browser_worker"
+        }
+      },
+      {
+        "steps": [
+          "verify_and_publish_packet"
+        ],
+        "with": {
+          "stereotype": "internal_write_worker"
+        }
+      }
+    ],
+    "by_step": {
+      "autonomous_research": {
+        "with": {
+          "runner_module": "MirrorNeuron.Runner.OpenShell",
+          "custom_openshell_image": "openshell_worker",
+          "policy": "openshell-policy.yaml",
+          "persistent_workspace": true,
+          "reuse_shared_sandbox": true,
+          "cleanup_remote_dir": false,
+          "timeout_seconds": 600
+        }
+      }
+    }
   }
 }

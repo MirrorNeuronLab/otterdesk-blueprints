@@ -20,8 +20,8 @@
     "adapter": "mock",
     "description": "Default sample inputs include one invoice/bill JSON fixture and one contract text fixture.",
     "payload": {
-      "document_folder": "legal_assistant/examples/sample_inputs",
-      "input_folder": "legal_assistant/examples/sample_inputs",
+      "document_folder": "@/examples/sample_inputs",
+      "input_folder": "@/examples/sample_inputs",
       "output_folder": "~/Downloads/legal_assistant",
       "field_profile": {
         "invoice_fields": [
@@ -66,7 +66,7 @@
         "jurisdiction_note": "Use the supplied document's governing framework only; do not generalize federal-contract terms to another matter."
       },
       "public_dataset": {
-        "name": "FAR 52.212-4 Contract Terms and Conditions—Commercial Products and Commercial Services",
+        "name": "FAR 52.212-4 Contract Terms and Conditions\u2014Commercial Products and Commercial Services",
         "provider": "U.S. General Services Administration, Acquisition.gov",
         "url": "https://www.acquisition.gov/far/52.212-4",
         "download_url": "https://www.acquisition.gov/node/31867/printable/pdf",
@@ -82,7 +82,7 @@
     }
   },
   "document_sources": {
-    "folder_path": "legal_assistant/examples/sample_inputs",
+    "folder_path": "@/examples/sample_inputs",
     "expected_files": [
       "*.pdf",
       "*.txt",
@@ -449,7 +449,7 @@
       "knowledge_rag": {
         "description": "Optional local blueprint knowledge retrieval used to ground actor prompts and tool planning.",
         "config": "knowledge_rag",
-        "artifact": "knowledge/",
+        "artifact": "@/payloads/knowledge/",
         "privacy": "blueprint knowledge only by default"
       },
       "agentic_research": {
@@ -681,5 +681,27 @@
     "cadence": "weekday_daily",
     "advisory_only": true,
     "note": "Suggested cadence only; runtime decides the actual schedule."
+  },
+  "local_inputs": {
+    "folders": [
+      {
+        "config_path": "inputs.payload.document_folder",
+        "payload_path": "runtime/mn_local_inputs/legal_assistant_documents",
+        "runtime_path": "mn_local_inputs/legal_assistant_documents",
+        "allowed_extensions": [
+          ".pdf",
+          ".txt",
+          ".json",
+          ".csv",
+          ".md"
+        ],
+        "linked_config_paths": [
+          "inputs.payload.document_folder",
+          "inputs.payload.input_folder",
+          "state.document_folder",
+          "state.input_folder"
+        ]
+      }
+    ]
   }
 }

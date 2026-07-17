@@ -107,7 +107,6 @@
     "embed": true,
     "manifest_defaults": [
       "agentic_research",
-      "llm",
       {
         "from": "requirements",
         "to": "resources"

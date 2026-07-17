@@ -163,7 +163,7 @@ def render_prompt(name: str, **values: str) -> str:
 
 
 def load_legal_knowledge(blueprint_root: Path) -> dict[str, Any]:
-    playbook_path = blueprint_root / "knowledge" / "legal_playbook.md"
+    playbook_path = blueprint_root / "payloads" / "knowledge" / "legal_playbook.md"
     content = playbook_path.read_text(encoding="utf-8") if playbook_path.exists() else ""
     return {
         "id": "legal_assistant_playbook",

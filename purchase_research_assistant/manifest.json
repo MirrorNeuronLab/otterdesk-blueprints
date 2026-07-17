@@ -25,177 +25,49 @@
     "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run"
   },
   "agents": {
-    "entrypoints": [
-      "collect_purchase_context"
-    ],
-    "extra_edges": [
-      {
-        "edge_id": "collect_purchase_context_to_retrieve_purchase_knowledge",
-        "from_node": "collect_purchase_context",
-        "message_type": "purchase_context_ready",
-        "to_node": "retrieve_purchase_knowledge"
+    "registry": {
+      "collect_purchase_context": {
+        "handler": "agents.collect_purchase_context",
+        "role": "Collect Purchase Context"
       },
-      {
-        "edge_id": "retrieve_purchase_knowledge_to_research_purchase_options",
-        "from_node": "retrieve_purchase_knowledge",
-        "message_type": "retrieved_knowledge_ready",
-        "to_node": "research_purchase_options"
+      "retrieve_purchase_knowledge": {
+        "handler": "agents.retrieve_purchase_knowledge",
+        "role": "Retrieve Purchase Knowledge"
       },
-      {
-        "edge_id": "research_purchase_options_to_write_purchase_report",
-        "from_node": "research_purchase_options",
-        "message_type": "purchase_options_ready",
-        "to_node": "write_purchase_report"
+      "research_purchase_options": {
+        "handler": "agents.research_purchase_options",
+        "role": "Research Purchase Options"
       },
-      {
-        "edge_id": "memo_to_report",
-        "from_node": "write_purchase_report",
-        "message_type": "purchase_report_ready",
-        "to_node": "report_sink"
+      "write_purchase_report": {
+        "handler": "agents.write_purchase_report",
+        "role": "Write Purchase Report"
       }
-    ],
-    "extra_nodes": [
-      {
-        "agent_type": "executor",
-        "config": {
-          "agent_beacon_required": true,
-          "beacon_enabled": true,
-          "beacon_interval_ms": 15000,
-          "beacon_missed_action": "fail_attempt",
-          "beacon_timeout_ms": 45000,
-          "command": [
-            "python3",
-            "-m",
-            "mn_sdk.step_runtime"
-          ],
-          "from": "base",
-          "max_attempts": 2,
-          "no_auto_providers": true,
-          "no_keep": true,
-          "output_message_type": "purchase_context_ready",
-          "pool": "default",
-          "pool_slots": 1,
-          "retry_backoff_ms": 1000,
-          "runner_module": "MirrorNeuron.Runner.HostLocal",
-          "timeout_seconds": 300,
-          "tty": false,
-          "upload_as": "runtime",
-          "upload_path": "runtime",
-          "workdir": "/mn/job/runtime"
-        },
-        "node_id": "collect_purchase_context",
-        "type": "generic"
-      },
-      {
-        "agent_type": "executor",
-        "config": {
-          "agent_beacon_required": true,
-          "beacon_enabled": true,
-          "beacon_interval_ms": 15000,
-          "beacon_missed_action": "fail_attempt",
-          "beacon_timeout_ms": 45000,
-          "command": [
-            "python3",
-            "-m",
-            "mn_sdk.step_runtime"
-          ],
-          "from": "base",
-          "max_attempts": 2,
-          "no_auto_providers": true,
-          "no_keep": true,
-          "output_message_type": "retrieved_knowledge_ready",
-          "pool": "default",
-          "pool_slots": 1,
-          "retry_backoff_ms": 1000,
-          "runner_module": "MirrorNeuron.Runner.HostLocal",
-          "timeout_seconds": 300,
-          "tty": false,
-          "upload_as": "runtime",
-          "upload_path": "runtime",
-          "workdir": "/mn/job/runtime"
-        },
-        "node_id": "retrieve_purchase_knowledge",
-        "type": "generic"
-      },
-      {
-        "agent_type": "executor",
-        "config": {
-          "agent_beacon_required": true,
-          "beacon_enabled": true,
-          "beacon_interval_ms": 15000,
-          "beacon_missed_action": "fail_attempt",
-          "beacon_timeout_ms": 45000,
-          "command": [
-            "python3",
-            "-m",
-            "mn_sdk.step_runtime"
-          ],
-          "from": "base",
-          "max_attempts": 2,
-          "no_auto_providers": true,
-          "no_keep": true,
-          "output_message_type": "purchase_options_ready",
-          "pool": "default",
-          "pool_slots": 1,
-          "retry_backoff_ms": 1000,
-          "runner_module": "MirrorNeuron.Runner.HostLocal",
-          "timeout_seconds": 300,
-          "tty": false,
-          "upload_as": "runtime",
-          "upload_path": "runtime",
-          "workdir": "/mn/job/runtime"
-        },
-        "node_id": "research_purchase_options",
-        "type": "generic"
-      },
-      {
-        "agent_type": "executor",
-        "config": {
-          "agent_beacon_required": true,
-          "beacon_enabled": true,
-          "beacon_interval_ms": 15000,
-          "beacon_missed_action": "fail_attempt",
-          "beacon_timeout_ms": 45000,
-          "command": [
-            "python3",
-            "-m",
-            "mn_sdk.step_runtime"
-          ],
-          "from": "base",
-          "max_attempts": 2,
-          "no_auto_providers": true,
-          "no_keep": true,
-          "output_message_type": "purchase_report_ready",
-          "pool": "default",
-          "pool_slots": 1,
-          "retry_backoff_ms": 1000,
-          "runner_module": "MirrorNeuron.Runner.HostLocal",
-          "timeout_seconds": 300,
-          "tty": false,
-          "upload_as": "runtime",
-          "upload_path": "runtime",
-          "workdir": "/mn/job/runtime"
-        },
-        "node_id": "write_purchase_report",
-        "type": "generic"
-      },
-      {
-        "agent_type": "aggregator",
-        "config": {
-          "complete_on_message": true,
-          "complete_run": true,
-          "terminal_sink": true
-        },
-        "node_id": "report_sink",
-        "role": "result_sink",
-        "type": "reduce"
-      }
-    ]
+    }
   },
   "apiVersion": "mn.workflow.source/v2",
   "config": {
     "default": "config/default.json",
-    "embed": true
+    "embed": true,
+    "manifest_defaults": [
+      "agentic_research",
+      "knowledge_rag",
+      {
+        "from": "requirements",
+        "to": "resources"
+      },
+      {
+        "from": "contracts.input_adapters.supported",
+        "to": "interfaces.input_adapters"
+      },
+      {
+        "from": "identity.id",
+        "to": "identity.blueprint_id"
+      },
+      {
+        "from": "identity.name",
+        "to": "identity.name"
+      }
+    ]
   },
   "contracts": {
     "events": {
@@ -580,7 +452,10 @@
   },
   "defaults": {
     "worker": {
-      "enabled": false
+      "with": {
+        "stereotype": "internal_write_worker",
+        "image": "mirror-neuron/purchase-research-assistant:local"
+      }
     }
   },
   "identity": {
@@ -1858,96 +1733,6 @@
     }
   },
   "runtime": {
-    "bindings": {
-      "collect_purchase_context": {
-        "risk": "low",
-        "side_effect": "read",
-        "strategy": "fanout_reduce",
-        "type": "team",
-        "workers": [
-          {
-            "id": "purchase:intake",
-            "model": "default",
-            "role": "Frame the purchase goal and decision criteria",
-            "tokens": 14000,
-            "tools": 4
-          },
-          {
-            "id": "purchase:price_research",
-            "model": "default",
-            "role": "Research current price and availability",
-            "tokens": 14000,
-            "tools": 4
-          },
-          {
-            "id": "purchase:total_cost",
-            "model": "default",
-            "role": "Analyze total cost and recurring obligations",
-            "tokens": 14000,
-            "tools": 4
-          }
-        ]
-      },
-      "research_purchase_options": {
-        "risk": "low",
-        "side_effect": "read",
-        "strategy": "fanout_reduce",
-        "type": "team",
-        "workers": [
-          {
-            "id": "purchase:recommender",
-            "model": "default",
-            "role": "Synthesize options and tradeoffs",
-            "tokens": 14000,
-            "tools": 4
-          },
-          {
-            "id": "purchase:auditor",
-            "model": "default",
-            "role": "Audit downside risks and evidence gaps",
-            "tokens": 14000,
-            "tools": 4
-          }
-        ]
-      },
-      "retrieve_purchase_knowledge": {
-        "risk": "low",
-        "side_effect": "read",
-        "strategy": "fanout_reduce",
-        "type": "team",
-        "workers": [
-          {
-            "id": "purchase:policy_risk",
-            "model": "default",
-            "role": "Review policy, quality, and risk evidence",
-            "tokens": 14000,
-            "tools": 4
-          },
-          {
-            "id": "purchase:alternatives",
-            "model": "default",
-            "role": "Compare credible alternatives",
-            "tokens": 14000,
-            "tools": 4
-          }
-        ]
-      },
-      "write_purchase_report": {
-        "risk": "medium",
-        "side_effect": "internal_write",
-        "strategy": "single",
-        "type": "worker",
-        "workers": [
-          {
-            "id": "purchase:report_writer",
-            "model": "default",
-            "role": "Write the review-only purchase report",
-            "tokens": 14000,
-            "tools": 4
-          }
-        ]
-      }
-    },
     "memory": {
       "collection": "mn_memory",
       "containers": "optional_sidecar",
@@ -2141,10 +1926,30 @@
     }
   ],
   "agent_dependencies": [
-    {"type": "pip", "source": "gar", "name": "mn-prototype-stateful-step-agent", "version": "1.2.24"},
-    {"type": "pip", "source": "gar", "name": "mn-prototype-bounded-tool-loop-agent", "version": "1.2.24"},
-    {"type": "pip", "source": "gar", "name": "mn-prototype-actor-review-agent", "version": "1.2.24"},
-    {"type": "pip", "source": "gar", "name": "mn-prototype-artifact-finalizer-agent", "version": "1.2.24"}
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mn-prototype-stateful-step-agent",
+      "version": "1.2.24"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mn-prototype-bounded-tool-loop-agent",
+      "version": "1.2.24"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mn-prototype-actor-review-agent",
+      "version": "1.2.24"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mn-prototype-artifact-finalizer-agent",
+      "version": "1.2.24"
+    }
   ],
   "standard": {
     "migration_policy": "sdk_managed",
@@ -2207,19 +2012,11 @@
         },
         "goal": "Collect purchase type, item details, budget, constraints, and local evidence.",
         "id": "collect_purchase_context",
-        "in": {
-          "ceiling": "$state.budget",
-          "zip": "$state.purchase_request"
-        },
         "kind": "stage",
         "label": "Collect Purchase Context",
         "needs": [],
-        "out": {
-          "purchase_context": "$state.purchase_context"
-        },
         "run": {
-          "agent": "collect_purchase_context",
-          "handler": "steps.intake"
+          "definition": "steps.collect_purchase_context"
         }
       },
       {
@@ -2240,22 +2037,13 @@
         },
         "goal": "Retrieve local guidance and approved user evidence under the declared research policy.",
         "id": "retrieve_purchase_knowledge",
-        "in": {
-          "history": "$state.local_evidence",
-          "policy": "$state.research_policy",
-          "purchase_context": "$state.purchase_context"
-        },
         "kind": "stage",
         "label": "Retrieve Purchase Knowledge",
         "needs": [
           "collect_purchase_context"
         ],
-        "out": {
-          "retrieved_knowledge": "$state.retrieved_knowledge"
-        },
         "run": {
-          "agent": "retrieve_purchase_knowledge",
-          "handler": "steps.knowledge"
+          "definition": "steps.retrieve_purchase_knowledge"
         }
       },
       {
@@ -2276,21 +2064,13 @@
         },
         "goal": "Research price, availability, total cost, policy, and risk tradeoffs.",
         "id": "research_purchase_options",
-        "in": {
-          "purchase_context": "$state.purchase_context",
-          "signals": "$state.retrieved_knowledge"
-        },
         "kind": "stage",
         "label": "Research Purchase Options",
         "needs": [
           "retrieve_purchase_knowledge"
         ],
-        "out": {
-          "purchase_comparison": "$state.purchase_comparison"
-        },
         "run": {
-          "agent": "research_purchase_options",
-          "handler": "steps.research"
+          "definition": "steps.research_purchase_options"
         }
       },
       {
@@ -2311,23 +2091,36 @@
         },
         "goal": "Write the purchase report with evidence, caveats, sources, and reviewable next steps.",
         "id": "write_purchase_report",
-        "in": {
-          "opportunities": "$state.purchase_comparison"
-        },
         "kind": "stage",
         "label": "Write Purchase Report",
         "needs": [
           "research_purchase_options"
         ],
-        "out": {
-          "final_report": "$state.final_report"
-        },
         "run": {
-          "agent": "write_purchase_report",
-          "handler": "steps.reporting"
+          "definition": "steps.write_purchase_report"
         }
       }
     ],
     "workflow_id": "purchase_research_assistant_v1"
+  },
+  "workers": {
+    "groups": [
+      {
+        "steps": [
+          "research_purchase_options"
+        ],
+        "with": {
+          "stereotype": "public_browser_worker"
+        }
+      },
+      {
+        "steps": [
+          "write_purchase_report"
+        ],
+        "with": {
+          "stereotype": "internal_write_worker"
+        }
+      }
+    ]
   }
 }

@@ -170,7 +170,7 @@
         "min_bedrooms": 3,
         "zip_code": "03755"
       },
-      "input_folder": "purchase_research_assistant/examples/sample_inputs",
+      "input_folder": "@/examples/sample_inputs",
       "output_folder": "~/Downloads/purchase_research_assistant"
     }
   },
@@ -269,7 +269,7 @@
       "knowledge_rag": {
         "description": "Optional local blueprint knowledge retrieval used to ground actor prompts and tool planning.",
         "config": "knowledge_rag",
-        "artifact": "knowledge/",
+        "artifact": "@/payloads/knowledge/",
         "privacy": "blueprint knowledge only by default"
       },
       "agentic_research": {
@@ -449,7 +449,7 @@
         "llm_config": "primary",
         "role": "Alternatives comparer",
         "responsibilities": [
-          "Compare options on the user’s stated priorities.",
+          "Compare options on the user\u2019s stated priorities.",
           "Separate observed facts from subjective preferences.",
           "Flag when alternatives are not directly comparable."
         ]
@@ -763,7 +763,7 @@
       "event_id"
     ],
     "resume_mode": "none",
-    "input_folder": "purchase_research_assistant/examples/sample_inputs",
+    "input_folder": "@/examples/sample_inputs",
     "output_folder": "~/Downloads/purchase_research_assistant"
   },
   "streams": {},
@@ -831,5 +831,32 @@
     "cadence": "weekly",
     "advisory_only": true,
     "note": "Suggested cadence only; runtime decides the actual schedule."
+  },
+  "local_inputs": {
+    "folders": [
+      {
+        "config_path": "inputs.payload.input_folder",
+        "payload_path": "runtime/mn_local_inputs/purchase_research_assistant_documents",
+        "runtime_path": "mn_local_inputs/purchase_research_assistant_documents",
+        "allowed_extensions": [
+          ".pdf",
+          ".png",
+          ".jpg",
+          ".jpeg",
+          ".tif",
+          ".tiff",
+          ".bmp",
+          ".webp",
+          ".txt",
+          ".json",
+          ".csv",
+          ".md"
+        ],
+        "linked_config_paths": [
+          "inputs.payload.input_folder",
+          "state.input_folder"
+        ]
+      }
+    ]
   }
 }

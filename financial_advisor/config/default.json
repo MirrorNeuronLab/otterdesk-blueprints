@@ -17,8 +17,8 @@
     "adapter": "mock",
     "description": "Default demo inputs use bundled synthetic finance documents, tax records, tax-form OCR fixtures, and a sample portfolio.",
     "payload": {
-      "document_folder": "financial_advisor/examples/sample_inputs",
-      "input_folder": "financial_advisor/examples/sample_inputs",
+      "document_folder": "@/examples/sample_inputs",
+      "input_folder": "@/examples/sample_inputs",
       "output_folder": "~/Downloads/financial_advisor",
       "tax_year": 2025,
       "filing_status": "single",
@@ -143,7 +143,7 @@
     }
   },
   "document_sources": {
-    "folder_path": "financial_advisor/examples/sample_inputs",
+    "folder_path": "@/examples/sample_inputs",
     "expected_files": [
       "*.pdf",
       "*.png",
@@ -583,9 +583,7 @@
     "folders": [
       {
         "config_path": "document_sources.folder_path",
-        "default_config_value": "financial_advisor/examples/sample_inputs",
-        "source_path": "examples/sample_inputs",
-        "payload_path": "mn_local_inputs/financial_documents",
+        "payload_path": "runtime/mn_local_inputs/financial_documents",
         "runtime_path": "mn_local_inputs/financial_documents",
         "allowed_extensions": [
           ".pdf",
@@ -678,7 +676,7 @@
       "5498",
       "brokerage_statement"
     ],
-    "folder_path": "financial_advisor/examples/sample_inputs",
+    "folder_path": "@/examples/sample_inputs",
     "recommended_forms": [
       "W-2",
       "1099-INT",
@@ -733,7 +731,7 @@
       "knowledge_rag": {
         "description": "Optional local blueprint knowledge retrieval used to ground actor prompts.",
         "config": "knowledge_rag",
-        "artifact": "knowledge/",
+        "artifact": "@/payloads/knowledge/",
         "privacy": "blueprint knowledge only by default"
       },
       "agentic_research": {
