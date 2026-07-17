@@ -23,7 +23,21 @@ A blueprint is the product- and domain-specific composition layer. It may own:
 
 A blueprint must not own generic message delivery, Redis routing, ACK/retry/dead-letter behavior, generic source/sink/join controls, manifest compilation, or broadly reusable document/tool helpers. Extract those to the appropriate shared repository.
 
-Keep blueprint-specific behavior in a clearly named domain package such as `payloads/<domain>_domain/`, split by responsibility. Do not create `payloads/agents/domain.py`, a generic operation router, or another monolithic compatibility facade. Agent modules must import only the specific domain modules they use.
+Keep blueprint-specific behavior in the uniform `payloads/domain/` package, split by responsibility. Do not create `payloads/agents/domain.py`, a generic operation router, or another monolithic compatibility facade. Agent modules must import only the specific domain modules they use.
+
+### Payload domain package contract
+
+Every blueprint payload uses exactly one domain package at `payloads/domain/`.
+The package name is intentionally generic so the bundle has one stable layout;
+the blueprint boundary comes from the staged payload root, not from a
+blueprint-specific Python package name. New domain behavior belongs in a
+small, responsibility-named module such as `intake.py`, `evidence.py`,
+`research.py`, `reporting.py`, `runtime_services.py`, or a method-specific
+submodule. Do not add `payloads/<blueprint>_domain/` packages or reintroduce
+blueprint-specific aliases for the `domain` package.
+When an existing implementation is still consolidated, a focused module may
+expose its owned functions without copying them; keep one implementation
+source and put all new behavior in the focused module that owns it.
 
 ### Workflow steps
 

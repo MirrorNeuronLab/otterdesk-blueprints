@@ -15,7 +15,7 @@ from mn_prototype_stateful_step_agent import (
 from mn_sdk.blueprint_support import StepLifecycleHooks, source_manifest
 from mn_sdk.step_runtime import AgentInput, artifact_reference, find_message_payload
 
-from financial_domain import runtime_services, workflow as workflow
+from domain import execution, runtime_services
 
 
 _MANIFEST = source_manifest(__file__)
@@ -32,7 +32,7 @@ _SPEC = StatefulStepSpec(
     context_factory=runtime_services.runtime_context_for_step,
     input_keys=_INPUT_KEYS,
     hooks=StepLifecycleHooks(
-        append_event=workflow.append_event,
+        append_event=runtime_services.append_event,
         runtime_step_mode="agent_invocation",
     ),
 )
@@ -49,7 +49,7 @@ def create_domain_agent(step_id: str, handler: Callable[[dict[str, Any]], dict[s
         **_parameters: Any,
     ) -> AgentHandlerOutput:
         mapping = context.to_mapping()
-        result = workflow.execute_runtime_handler(
+        result = execution.execute_runtime_handler(
             step_id,
             handler,
             inputs=dict(context.inputs),

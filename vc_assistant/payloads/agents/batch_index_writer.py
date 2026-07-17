@@ -16,14 +16,14 @@ from mn_sdk.blueprint_support import (
     observation_trace_summary,
     read_workflow_state,
 )
-from vc_domain.agent_review import (
+from domain.agent_review import (
     ensure_all_actor_findings,
     normalized_actor_review_warnings,
     run_step_agent_reviews,
     write_actor_review_warnings_state,
 )
-from vc_domain.analysis import build_company_evidence_summaries
-from vc_domain.common import (
+from domain.analysis import build_company_evidence_summaries
+from domain.common import (
     BLUEPRINT_ID,
     BLUEPRINT_NAME,
     KNOWLEDGE_PLAYBOOK_RELATIVE_PATH,
@@ -33,25 +33,25 @@ from vc_domain.common import (
     RESEARCH_AGENT_IDS,
     WORKFLOW_STEP_IDS,
 )
-from vc_domain.intake import (
+from domain.intake import (
     build_cache_policy_summary,
     processed_and_skipped_company_names,
 )
-from vc_domain.knowledge import (
+from domain.knowledge import (
     active_knowledge_reference,
     load_vc_knowledge,
     public_knowledge_rag_state,
 )
-from vc_domain.execution_policy import company_worker_count, scoring_worker_count
-from vc_domain.reporting import (
+from domain.execution_policy import company_worker_count, scoring_worker_count
+from domain.reporting import (
     build_artifact_quality_report,
     build_method_coverage,
     build_research_coverage,
     build_run_health_report,
 )
-from vc_domain.research_core import actor_review_config, normalized_research_ledger
-from vc_domain.runtime_services import persist_action_budget_state
-from vc_domain.runtime_tools import (
+from domain.research_core import actor_review_config, normalized_research_ledger
+from domain.runtime_services import persist_action_budget_state
+from domain.runtime_tools import (
     append_event,
     observed_operation,
 )

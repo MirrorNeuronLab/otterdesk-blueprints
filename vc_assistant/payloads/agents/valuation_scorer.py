@@ -8,10 +8,10 @@ from mn_prototype_entity_queue_agent import (
     create_agent as create_entity_queue,
 )
 from mn_public_research_orchestrator_skill import flatten_research_ledger
-from vc_domain.execution_policy import company_worker_count
-from vc_domain.research_core import normalized_research_ledger
-from vc_domain.research_policy import build_fact_table
-from vc_domain.valuation import METHOD_SCORER_FUNCTIONS
+from domain.execution_policy import company_worker_count
+from domain.research_core import normalized_research_ledger
+from domain.research_policy import build_fact_table
+from domain.valuation import METHOD_SCORER_FUNCTIONS
 
 from ._shared import agent_output, create_agent_handler, durable_artifact, input_artifact
 

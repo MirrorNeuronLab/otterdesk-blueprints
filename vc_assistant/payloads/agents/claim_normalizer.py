@@ -3,9 +3,9 @@ from __future__ import annotations
 from typing import Any
 
 from mn_sdk.blueprint_support import slugify, write_json, write_workflow_state
-from vc_domain.composition import hydrate_cached_company_state
-from vc_domain.evidence import build_company_evidence_layer
-from vc_domain.intake import (
+from domain.composition import hydrate_cached_company_state
+from domain.evidence import build_company_evidence_layer
+from domain.intake import (
     build_company_work_queue,
     load_watch_state,
     processed_and_skipped_company_names,

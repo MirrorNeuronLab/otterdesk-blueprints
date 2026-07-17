@@ -3,12 +3,12 @@ from __future__ import annotations
 from typing import Any
 
 from mn_sdk.blueprint_support import write_failed_run, write_workflow_state
-from vc_domain.common import SUPPORTED_SUFFIXES
-from vc_domain.intake import (
+from domain.common import SUPPORTED_SUFFIXES
+from domain.intake import (
     OcrRequiredError,
     scan_documents,
 )
-from vc_domain.runtime_tools import (
+from domain.runtime_tools import (
     append_event,
     observed_operation,
     stable_text_hash,

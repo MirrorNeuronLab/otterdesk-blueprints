@@ -7,10 +7,10 @@ from mn_prototype_entity_queue_agent import (
     EntityQueueSpec,
     create_agent as create_entity_queue,
 )
-from vc_domain.common import RESEARCH_AGENT_IDS
-from vc_domain.execution_policy import company_worker_count
-from vc_domain.research_core import normalized_research_ledger
-from vc_domain.research_orchestration import (
+from domain.common import RESEARCH_AGENT_IDS
+from domain.execution_policy import company_worker_count
+from domain.research_core import normalized_research_ledger
+from domain.research_orchestration import (
     append_financial_tool_research,
     reconcile_research,
 )

@@ -346,7 +346,7 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
             "target": "vc_assistant/examples/sample_inputs",
         },
         {"source": "knowledge", "target": "knowledge"},
-        {"source": "vc_domain", "target": "vc_domain"},
+        {"source": "domain", "target": "domain"},
     ]
     assert len(nodes) == 21
     assert len(step_sources) == 10
@@ -1578,7 +1578,7 @@ def test_vc_step_modules_assign_explicit_reusable_agents():
     )
 
 
-def test_vc_knowledge_excludes_stale_non_vc_domain_terms():
+def test_vc_knowledge_excludes_stale_non_domain_terms():
     runner = _load_runner()
     playbook = (
         ROOT

@@ -8,7 +8,7 @@ from mn_prototype_stateful_step_agent import AgentHandlerOutput, MessageAgentSpe
 from mn_sdk.blueprint_support import source_manifest
 from mn_sdk.step_runtime import AgentInput, artifact_reference, find_message_payload
 
-from drug_discovery_domain.runtime_services import runtime_context_for_step
+from domain.runtime_services import runtime_context_for_step
 
 
 _manifest = source_manifest(__file__)

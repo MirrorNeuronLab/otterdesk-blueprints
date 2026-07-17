@@ -7,15 +7,15 @@ from mn_prototype_entity_queue_agent import (
     EntityQueueSpec,
     create_agent as create_entity_queue,
 )
-from vc_domain.common import METHOD_IDS
-from vc_domain.composition import build_company_analysis_from_method_scores
-from vc_domain.knowledge import public_knowledge_rag_state
-from vc_domain.execution_policy import company_worker_count, scoring_fund_profile
-from vc_domain.research_core import (
+from domain.common import METHOD_IDS
+from domain.composition import build_company_analysis_from_method_scores
+from domain.knowledge import public_knowledge_rag_state
+from domain.execution_policy import company_worker_count, scoring_fund_profile
+from domain.research_core import (
     agentic_research_config,
     normalized_research_ledger,
 )
-from vc_domain.research_orchestration import reconcile_research
+from domain.research_orchestration import reconcile_research
 
 from ._shared import agent_output, create_agent_handler, durable_artifact, input_artifact
 

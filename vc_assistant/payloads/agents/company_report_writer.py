@@ -3,10 +3,10 @@ from __future__ import annotations
 from typing import Any
 
 from mn_sdk.blueprint_support import write_workflow_state
-from vc_domain.intake import update_watch_state
-from vc_domain.outputs import write_company_outputs
-from vc_domain.research_core import normalized_research_ledger
-from vc_domain.runtime_tools import append_event
+from domain.intake import update_watch_state
+from domain.outputs import write_company_outputs
+from domain.research_core import normalized_research_ledger
+from domain.runtime_tools import append_event
 
 from ._shared import agent_output, create_agent_handler, durable_artifact, input_artifact
 

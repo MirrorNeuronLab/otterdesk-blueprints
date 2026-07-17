@@ -5,15 +5,15 @@ lifecycle hooks.  It deliberately has no dependency on executable agents or
 VC analysis behavior.
 """
 
-from vc_domain.agent_review import step_agent_review_selected
-from vc_domain.common import BLUEPRINT_ID, BLUEPRINT_NAME
-from vc_domain.research_core import agentic_research_config
-from vc_domain.runtime_services import (
+from domain.agent_review import step_agent_review_selected
+from domain.common import BLUEPRINT_ID, BLUEPRINT_NAME
+from domain.research_core import agentic_research_config
+from domain.runtime_services import (
     build_runtime_services,
     persist_action_budget_state,
     runtime_context_for_step,
 )
-from vc_domain.runtime_tools import (
+from domain.runtime_tools import (
     append_debug_record,
     append_event,
     write_benchmark_artifacts,

@@ -3,11 +3,11 @@ from __future__ import annotations
 from typing import Any
 
 from mn_sdk.blueprint_support import write_workflow_state
-from vc_domain.common import (
+from domain.common import (
     SUPPORTED_SUFFIXES,
 )
-from vc_domain.intake import _document_paths
-from vc_domain.runtime_tools import (
+from domain.intake import _document_paths
+from domain.runtime_tools import (
     append_event,
     observed_operation,
     stable_text_hash,

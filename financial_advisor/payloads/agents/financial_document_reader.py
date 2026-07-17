@@ -1,5 +1,5 @@
-from financial_domain import workflow
+from domain.intake import step_financial_document_reader
 from ._shared import create_domain_agent
 
-run = create_domain_agent("financial_document_reader", workflow.step_financial_document_reader)
+run = create_domain_agent("financial_document_reader", step_financial_document_reader)
 

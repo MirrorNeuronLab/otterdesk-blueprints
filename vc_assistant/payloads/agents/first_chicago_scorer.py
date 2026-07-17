@@ -1,6 +1,6 @@
 """First Chicago worker registered as ``first_chicago_scorer``.
 
-The deterministic formula is implemented in ``vc_domain.valuation.first_chicago``;
+The deterministic formula is implemented in ``domain.valuation.first_chicago``;
 this module makes the executable agent binding directly discoverable.
 """
 

@@ -165,7 +165,7 @@ def test_manifest_compiles_step_boundaries_parallel_joins_and_unique_invocations
     ]
     assert steps["collect_public_research"]["start_agent_id"] == "collect_public_research__start"
     assert steps["collect_public_research"]["end_agent_id"] == "collect_public_research__end"
-    assert {"source": "vc_domain", "target": "vc_domain"} in nodes[
+    assert {"source": "domain", "target": "domain"} in nodes[
         "detect_packet_changes__startup_folder_watcher"
     ]["config"]["upload_paths"]
 
@@ -183,7 +183,7 @@ def test_runtime_module_resolves_the_blueprint_root_after_the_entrypoint_move():
 
 
 def test_runtime_context_uses_the_platform_staged_input_folder(tmp_path):
-    from vc_domain.runtime_services import runtime_context_for_step
+    from domain.runtime_services import runtime_context_for_step
 
     staged_inputs = tmp_path / "staged-inputs"
     staged_inputs.mkdir()
@@ -262,7 +262,7 @@ def test_runtime_boundary_contains_only_runtime_preparation_responsibilities():
     assert "from agents" not in source
     assert all(
         len(path.read_text(encoding="utf-8").splitlines()) <= 800
-        for path in (PAYLOAD_DIR / "vc_domain").rglob("*.py")
+        for path in (PAYLOAD_DIR / "domain").rglob("*.py")
     )
 
 
@@ -343,7 +343,7 @@ def test_valuation_methods_map_to_discoverable_specialist_agents():
 
     valuation_source = "\n".join(
         path.read_text(encoding="utf-8")
-        for path in (PAYLOAD_DIR / "vc_domain" / "valuation").glob("*.py")
+        for path in (PAYLOAD_DIR / "domain" / "valuation").glob("*.py")
     )
     assert "scorer_id=" not in valuation_source
 

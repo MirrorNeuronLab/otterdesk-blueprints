@@ -7,15 +7,15 @@ from mn_prototype_entity_queue_agent import (
     EntityQueueSpec,
     create_agent as create_entity_queue,
 )
-from vc_domain.execution_policy import company_worker_count
-from vc_domain.research_agentic import run_agentic_research_agent
-from vc_domain.research_core import agentic_research_config, _research_agent_enabled
-from vc_domain.research_orchestration import (
+from domain.execution_policy import company_worker_count
+from domain.research_agentic import run_agentic_research_agent
+from domain.research_core import agentic_research_config, _research_agent_enabled
+from domain.research_orchestration import (
     _research_agent_needs_deterministic_gap_fill,
     _run_research_agent,
     _with_agentic_gap_fill,
 )
-from vc_domain.research_policy import build_adaptive_research_plan
+from domain.research_policy import build_adaptive_research_plan
 from ._shared import agent_output, create_agent_handler, durable_artifact, input_artifact
 
 

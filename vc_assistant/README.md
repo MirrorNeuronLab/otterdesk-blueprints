@@ -54,7 +54,7 @@ Agents and steps are separate concepts:
 
 - `payloads/steps/` contains only logical step contracts, input/output mappings, and internal collaboration graphs.
 - `payloads/agents/` contains executable specialist workers. Each valuation agent has a discoverable module matching its registry ID; for example, `agents/first_chicago_scorer.py` binds the First Chicago worker.
-- `payloads/vc_domain/` contains blueprint-specific diligence policy and deterministic behavior. Valuation formulas are split by method under `vc_domain/valuation/`; the First Chicago formula is in `valuation/first_chicago.py`.
+- `payloads/domain/` contains blueprint-specific diligence policy and deterministic behavior. Valuation formulas are split by method under `domain/valuation/`; the First Chicago formula is in `valuation/first_chicago.py`.
 - `payloads/runtime/` contains dependency bootstrap and runtime/service preparation only. It must not import agent behavior.
 - Shared, domain-neutral mechanisms stay in the SDK, skills, or reusable agent packages. Route-neutral message parsing and artifact references live in `mn_sdk.step_runtime`; durable message-agent replay lives in `prototype_stateful_step_agent`; document hashing, grouping, and common PII redaction live in `document_reading_skill`.
 

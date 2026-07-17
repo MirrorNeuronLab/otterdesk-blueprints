@@ -7,7 +7,7 @@ from mn_sdk.blueprint_support import (
     slugify,
     write_workflow_state,
 )
-from vc_domain.intake import group_document_file_records
+from domain.intake import group_document_file_records
 
 from ._shared import agent_output, create_agent_handler, durable_artifact, input_artifact
 

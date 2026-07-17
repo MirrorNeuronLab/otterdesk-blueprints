@@ -8,8 +8,7 @@ from mn_prototype_stateful_step_agent import AgentHandlerOutput, MessageAgentSpe
 from mn_sdk.blueprint_support import StepLifecycleHooks, source_manifest
 from mn_sdk.step_runtime import AgentInput, artifact_reference, find_message_payload
 
-from legal_domain import workflow
-from legal_domain.runtime_services import runtime_context_for_step
+from domain.runtime_services import append_event, runtime_context_for_step
 
 
 _manifest = source_manifest(__file__)
@@ -18,7 +17,7 @@ _input_keys = frozenset(_contracts.get("inputs") or {})
 _spec = StatefulStepSpec(
     context_factory=runtime_context_for_step,
     input_keys=_input_keys,
-    hooks=StepLifecycleHooks(append_event=workflow.append_event, runtime_step_mode="agent_invocation"),
+    hooks=StepLifecycleHooks(append_event=append_event, runtime_step_mode="agent_invocation"),
 )
 
 

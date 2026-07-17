@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from vc_domain.agent_review import run_step_agent_reviews
+from domain.agent_review import run_step_agent_reviews
 
 
 def review_agent_invocation(

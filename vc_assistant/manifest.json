@@ -456,8 +456,8 @@
         "image": "mirror-neuron/vc-assistant:local",
         "upload_paths": [
           {
-            "source": "vc_domain",
-            "target": "vc_domain"
+            "source": "domain",
+            "target": "domain"
           }
         ]
       }
