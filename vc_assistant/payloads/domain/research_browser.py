@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+
 from .common import *
 from .research_core import (
     _budget_exhausted_source,
@@ -28,7 +30,13 @@ def _load_web_browser_skill() -> None:
         browse = imported_browse
         research_topic = imported_research_topic
 
-def _browser_config(settings: dict[str, Any]) -> Any:
+def _browser_config(settings: dict[str, Any], run_dir: Path | None = None) -> Any:
+    workflow_id = (
+        os.environ.get("MN_WORKFLOW_ID")
+        or os.environ.get("MN_JOB_ID")
+        or os.environ.get("MN_WORKFLOW_INVOCATION_ID")
+        or "vc-public-research"
+    )
     return WebBrowserConfig(
         timeout_seconds=int(settings.get("timeout_seconds") or 20),
         total_timeout_seconds=int(settings.get("total_timeout_seconds") or 60),
@@ -36,6 +44,9 @@ def _browser_config(settings: dict[str, Any]) -> Any:
         output_format="plain_text",
         respect_robots=bool(settings.get("respect_robots", True)),
         per_host_delay_seconds=float(settings.get("per_host_delay_seconds") or 1.0),
+        workflow_id=workflow_id,
+        artifact_root=str(run_dir / "browser_artifacts") if run_dir is not None else "",
+        audit_log_path=str(run_dir / "browser_audit.jsonl") if run_dir is not None else "",
     )
 
 
@@ -145,7 +156,7 @@ def _append_browser_research_unobserved(
             )
         )
         return
-    browser_config = _browser_config(internet)
+    browser_config = _browser_config(internet, run_dir)
     observer = _research_observer(run_dir)
     action = action_budget.start(
         action_type="browser_search",
@@ -318,7 +329,7 @@ def _append_target_url_research_unobserved(
                 )
             )
         return
-    browser_config = _browser_config(internet)
+    browser_config = _browser_config(internet, run_dir)
     observer = _research_observer(run_dir)
     for url in plan["target_urls"][: int(internet.get("max_target_urls_per_company") or 2)]:
         target = "crunchbase" if "crunchbase.com" in url else "public_profile"
@@ -389,6 +400,7 @@ def _append_rendered_browser_research(
             company=company,
             plan=plan,
             internet=internet,
+            run_dir=run_dir,
             action_budget=action_budget,
         )
         new_sources = sources[source_count_start:]
@@ -418,6 +430,7 @@ def _append_rendered_browser_research_unobserved(
     company: str,
     plan: dict[str, Any],
     internet: dict[str, Any],
+    run_dir: Path | None = None,
     action_budget: ActionBudget | None = None,
 ) -> None:
     rendered = internet.get("rendered_browser") if isinstance(internet.get("rendered_browser"), dict) else {}
@@ -444,7 +457,7 @@ def _append_rendered_browser_research_unobserved(
                 query=plan["queries"][0],
                 url="web_browser_skill",
                 title="rendered browser skill unavailable",
-                snippet="Install mirrorneuron-web-browser-skill with Playwright to inspect JavaScript-rendered startup profiles.",
+                snippet="Install mirrorneuron-web-browser-skill with the native agent-browser CLI and local Chrome for Testing to inspect JavaScript-rendered startup profiles.",
                 status="skill_unavailable",
                 skill="web_browser_skill",
                 verification_target="rendered_page_setup",
@@ -452,7 +465,7 @@ def _append_rendered_browser_research_unobserved(
             )
         )
         return
-    browser_config = _browser_config(rendered)
+    browser_config = _browser_config(rendered, run_dir)
     for url in plan["target_urls"][: int(rendered.get("max_pages_per_company") or 1)]:
         action = action_budget.start(
             action_type="rendered_browser_page",

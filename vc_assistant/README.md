@@ -19,7 +19,7 @@ PDF startup packets are extracted through the shared `llm_ocr_skill` LightOnOCR 
 
 The research phase is configured to use:
 
-- `web_browser_skill` as the single public-browser capability. Standard mode handles discovery, readable-text extraction, retries, throttling, and automatic local engine selection; deep mode is reserved for explicitly rendered profile checks.
+- `web_browser_skill` as the single public-browser capability. Standard mode handles discovery, readable-text extraction, retries, throttling, and automatic local engine selection; deep mode uses the constrained `agent-browser` actuator for explicitly rendered profile checks.
 
 The workflow plans privacy-safe searches for company websites, Crunchbase, founder public profiles, funding mentions, competitors, press, and market context. It consumes plain-text results only. Blocked, login-required, CAPTCHA, robots, or rate-limit responses are recorded in `sources.json`; the blueprint does not bypass them.
 
@@ -86,7 +86,7 @@ mn blueprint monitor --follow
 - `output_folder`: folder where per-company analysis folders and root index files are written.
 - `monitoring`: bounded single-run scan controls; the runtime scheduler decides when to launch the batch.
 - `input_skills.llm_ocr`: shared local LightOnOCR OCR settings for PDF startup packets.
-- `input_skills.web_browser`: unified adaptive public research provided by the `docker_worker` image.
+- `input_skills.web_browser`: unified public research with lightweight w3m support in the `docker_worker` image and policy-governed agent-browser/Chrome rendering supplied by the selected browser execution environment. The job image does not install Playwright or its Chromium/system dependency bundle.
 - `skill_runtime`: shared DockerWorker image settings for skills that need system binaries.
 - `execution.max_company_workers`: maximum changed-company packets processed concurrently; defaults to one for local Docker Model Runner stability.
 - `backpressure.llm`: serializes and spaces local LLM calls so agentic research does not overwhelm Docker Model Runner.
@@ -107,7 +107,7 @@ Each company receives a subfolder containing:
 - `evidence.json`
 - `warnings.json`
 
-The output root also contains `company_index.json`, `company_index.md`, `company_work_queue.json`, `research_coverage.json`, `method_coverage.json`, `run_summary.md`, and internal artifact folders for fact tables, research ledgers, method scores, and audit findings.
+The output root also contains `company_index.json`, `company_index.md`, `company_work_queue.json`, `research_coverage.json`, `method_coverage.json`, `run_summary.md`, and internal artifact folders for fact tables, research ledgers, method scores, and audit findings. When rendered browsing runs, `browser_audit.jsonl` and bounded files under `browser_artifacts/` record the actuator trail and captured artifacts.
 
 ## Safety Checklist
 

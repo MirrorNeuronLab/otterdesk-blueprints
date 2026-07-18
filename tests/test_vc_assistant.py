@@ -514,6 +514,11 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         "debug_trace.jsonl"
         in config["interfaces"]["channels"]["artifacts"]["optional_artifacts"]
     )
+    assert "browser_audit.jsonl" in config["interfaces"]["optional_run_artifacts"]
+    assert (
+        "browser_artifacts/*"
+        in config["interfaces"]["channels"]["artifacts"]["optional_artifacts"]
+    )
     assert "artifact_quality.json" in config["interfaces"]["outputs"]
     assert "artifact_quality.json" in config["interfaces"]["run_artifacts"]
     assert (
@@ -535,6 +540,8 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
     assert "mirrorneuron: skill-dependencies" in dockerfile
     assert "mn_context_engine_sdk" in dockerfile
     assert "MilvusClient" in dockerfile
+    assert "playwright" not in dockerfile.lower()
+    assert "chromium" not in dockerfile.lower()
     assert (
         ROOT / "vc_assistant" / "payloads" / "docker_worker" / "local-requirements.txt"
     ).exists()
