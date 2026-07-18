@@ -749,67 +749,67 @@
       "name": "mirrorneuron-blueprint-support-skill",
       "source": "gar",
       "type": "pip",
-      "version": "1.2.25"
+      "version": "1.2.27"
     },
     {
       "name": "mirrorneuron-litellm-communicate-skill",
       "source": "gar",
       "type": "pip",
-      "version": "1.2.25"
+      "version": "1.2.27"
     },
     {
       "name": "mirrorneuron-evidence-engine-skill",
       "source": "gar",
       "type": "pip",
-      "version": "1.2.25"
+      "version": "1.2.27"
     },
     {
       "name": "mirrorneuron-actor-review-skill",
       "source": "gar",
       "type": "pip",
-      "version": "1.2.25"
+      "version": "1.2.27"
     },
     {
       "name": "mirrorneuron-client-report-skill",
       "source": "gar",
       "type": "pip",
-      "version": "1.2.25"
+      "version": "1.2.27"
     },
     {
       "name": "mirrorneuron-document-reading-skill",
       "source": "gar",
       "type": "pip",
-      "version": "1.2.25"
+      "version": "1.2.27"
     },
     {
       "name": "mirrorneuron-public-research-orchestrator-skill",
       "source": "gar",
       "type": "pip",
-      "version": "1.2.25"
+      "version": "1.2.27"
     },
     {
       "name": "mirrorneuron-scoring-framework-skill",
       "source": "gar",
       "type": "pip",
-      "version": "1.2.25"
+      "version": "1.2.27"
     },
     {
       "name": "mirrorneuron-llm-ocr-skill",
       "source": "gar",
       "type": "pip",
-      "version": "1.2.25"
+      "version": "1.2.27"
     },
     {
       "name": "mirrorneuron-rag-skill",
       "source": "gar",
       "type": "pip",
-      "version": "1.2.25"
+      "version": "1.2.27"
     },
     {
       "name": "mirrorneuron-web-browser-skill",
       "source": "gar",
       "type": "pip",
-      "version": "1.2.25"
+      "version": "1.2.27"
     }
   ],
   "agent_dependencies": [
@@ -817,31 +817,31 @@
       "type": "pip",
       "source": "gar",
       "name": "mn-prototype-stateful-step-agent",
-      "version": "1.2.25"
+      "version": "1.2.27"
     },
     {
       "type": "pip",
       "source": "gar",
       "name": "mn-prototype-entity-queue-agent",
-      "version": "1.2.25"
+      "version": "1.2.27"
     },
     {
       "type": "pip",
       "source": "gar",
       "name": "mn-prototype-bounded-tool-loop-agent",
-      "version": "1.2.25"
+      "version": "1.2.27"
     },
     {
       "type": "pip",
       "source": "gar",
       "name": "mn-prototype-actor-review-agent",
-      "version": "1.2.25"
+      "version": "1.2.27"
     },
     {
       "type": "pip",
       "source": "gar",
       "name": "mn-prototype-artifact-finalizer-agent",
-      "version": "1.2.25"
+      "version": "1.2.27"
     }
   ],
   "standard": {
