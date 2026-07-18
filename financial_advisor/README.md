@@ -23,7 +23,7 @@ The default sample input folder is `financial_advisor/examples/sample_inputs`; t
 
 ## PDF and Image OCR
 
-PDFs and document images use the shared `mirrorneuron-llm-ocr-skill`. Embedded PDF text is used when it is substantial; image-only or low-text PDFs, PNGs, JPGs, TIFFs, BMPs, and WEBPs trigger the skill's private OCR model. The skill passes its model specification to the SDK wrapper, which installs or reuses it on the best compatible cluster node on first OCR use. The blueprint does not declare or preload that model, and the worker never needs a Docker CLI. The workflow records the extraction method, OCR model, warnings, and review-required status in the output packet. Explicit fake/quick-test runs skip OCR.
+PDFs and document images use the shared `mirrorneuron-llm-ocr-skill`. Embedded PDF text is used when it is substantial; image-only or low-text PDFs, PNGs, JPGs, TIFFs, BMPs, and WEBPs are sent to LightOnOCR-2-1B through Docker Model Runner. The runtime prepares and starts the shared OCR model before the worker begins; the worker uses the shared endpoint and never needs a Docker CLI. The workflow records the extraction method, OCR model, warnings, and review-required status in the output packet. Explicit fake/quick-test runs skip model startup.
 
 ## Safety
 

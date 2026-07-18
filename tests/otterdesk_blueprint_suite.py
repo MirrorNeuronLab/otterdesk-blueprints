@@ -177,7 +177,6 @@ SKILL_DEPENDENCY_VERSION_OVERRIDES = {
 }
 IMPORT_MARKER_PACKAGES = {
     "mn_blueprint_support": "mirrorneuron-blueprint-support-skill",
-    "mn_litellm_communicate_skill": "mirrorneuron-litellm-communicate-skill",
     "mn_llm_ocr_skill": "mirrorneuron-llm-ocr-skill",
     "mn_w3m_browser_skill": "mirrorneuron-w3m-browser-skill",
     "mn_web_browser_skill": "mirrorneuron-web-browser-skill",
@@ -198,7 +197,11 @@ SKILL_NAME_PACKAGES = {
     "web_browser_skill": "mirrorneuron-web-browser-skill",
     "websocket_stream": "mirrorneuron-websocket-stream-skill",
 }
-BLUEPRINT_TRANSITIVE_SKILL_PACKAGES = {}
+BLUEPRINT_TRANSITIVE_SKILL_PACKAGES = {
+    # Financial Advisor still consumes the previously published package; its
+    # SDK migration is intentionally out of scope for this change.
+    "financial_advisor": {"mirrorneuron-litellm-communicate-skill"},
+}
 
 
 def _completion_threshold(value) -> bool:

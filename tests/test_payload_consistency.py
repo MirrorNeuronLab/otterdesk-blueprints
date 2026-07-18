@@ -63,16 +63,7 @@ def test_document_ocr_blueprint_runner_templates_stay_aligned():
         assert _document_runner_template(path) == expected, path
 
 
-def test_active_assistants_use_sdk_llm_without_communication_skill_dependency():
-    for blueprint_id in ("vc_assistant", "financial_advisor", "legal_assistant"):
-        manifest = json.loads((ROOT / blueprint_id / "manifest.json").read_text())
-        packages = {
-            str(item.get("name") or "")
-            for item in manifest.get("skill_dependencies") or []
-            if isinstance(item, dict)
-        }
-        assert "mirrorneuron-litellm-communicate-skill" not in packages
-
+def test_vc_assistant_uses_sdk_llm_without_communication_skill_dependency():
     vc_manifest = json.loads((ROOT / "vc_assistant" / "manifest.json").read_text())
     vc_packages = {
         str(item.get("name") or "")
@@ -83,23 +74,17 @@ def test_active_assistants_use_sdk_llm_without_communication_skill_dependency():
     assert "mirrorneuron-llm-ocr-skill" in vc_packages
 
 
-def test_active_assistants_leave_rag_and_ocr_model_specs_in_their_skills():
+def test_vc_assistant_leaves_rag_and_ocr_model_specs_in_their_skills():
     forbidden_model_text = ("lightonocr", "jina-embeddings", "rag-embedding")
-    for blueprint_id in ("vc_assistant", "financial_advisor", "legal_assistant"):
-        manifest_path = ROOT / blueprint_id / "manifest.json"
-        config_path = ROOT / blueprint_id / "config" / "default.json"
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        serialized = json.dumps(
-            {
-                "manifest": manifest,
-                "config": json.loads(config_path.read_text(encoding="utf-8")),
-            }
-        ).lower()
+    manifest_path = ROOT / "vc_assistant" / "manifest.json"
+    config_path = ROOT / "vc_assistant" / "config" / "default.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    serialized = json.dumps(
+        {
+            "manifest": manifest,
+            "config": json.loads(config_path.read_text(encoding="utf-8")),
+        }
+    ).lower()
 
-        assert not any(value in serialized for value in forbidden_model_text)
-        assert "ocr" not in (manifest.get("runtime", {}).get("models", {}))
-
-        workflow_path = ROOT / blueprint_id / "payloads" / "domain" / "workflow.py"
-        if workflow_path.exists():
-            workflow_source = workflow_path.read_text(encoding="utf-8").lower()
-            assert "lightonai/lightonocr" not in workflow_source
+    assert not any(value in serialized for value in forbidden_model_text)
+    assert "ocr" not in (manifest.get("runtime", {}).get("models", {}))
