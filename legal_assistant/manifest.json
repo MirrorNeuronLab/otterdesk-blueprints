@@ -404,13 +404,6 @@
     "backend": "milvus_lite",
     "chunk_overlap": 150,
     "chunk_size": 2500,
-    "embedding_api_base": "auto",
-    "embedding_document_prefix": "Document: ",
-    "embedding_healthcheck_enabled": false,
-    "embedding_model": "rag-embedding",
-    "embedding_provider": "docker_model_runner",
-    "embedding_query_prefix": "Query: ",
-    "embedding_start_command": "",
     "enabled": true,
     "grounding_policy": "Use retrieved or bundled local blueprint knowledge to improve actor prompts; preserve deterministic outputs, cite supplied evidence, and label unknowns when retrieval is unavailable.",
     "index_on_startup": true,
@@ -431,8 +424,7 @@
       "calculation invariance and assumption clarity",
       "cross-domain reconciliation and report quality"
     ],
-    "top_k": 5,
-    "vector_dim": 1024
+    "top_k": 5
   },
   "metadata": {
     "agent_role": "Local legal document assistant that extracts invoice and contract evidence while keeping conclusions review-only.",
@@ -560,13 +552,6 @@
       "backend": "milvus_lite",
       "chunk_overlap": 150,
       "chunk_size": 2500,
-      "embedding_api_base": "auto",
-      "embedding_document_prefix": "Document: ",
-      "embedding_healthcheck_enabled": false,
-      "embedding_model": "rag-embedding",
-      "embedding_provider": "docker_model_runner",
-      "embedding_query_prefix": "Query: ",
-      "embedding_start_command": "",
       "enabled": true,
       "grounding_policy": "Use retrieved or bundled local blueprint knowledge to improve actor prompts; preserve deterministic outputs, cite supplied evidence, and label unknowns when retrieval is unavailable.",
       "index_on_startup": true,
@@ -587,8 +572,7 @@
         "calculation invariance and assumption clarity",
         "cross-domain reconciliation and report quality"
       ],
-      "top_k": 5,
-      "vector_dim": 1024
+      "top_k": 5
     },
     "name": "Legal Assistant",
     "problem": "Personal and small-business legal work often mixes payable documents with contracts and obligations; users need one local review assistant that keeps invoice facts, contract clauses, evidence, and approval boundaries together.",
@@ -630,12 +614,6 @@
     },
     {
       "name": "mirrorneuron-llm-ocr-skill",
-      "source": "gar",
-      "type": "pip",
-      "version": "1.2.27"
-    },
-    {
-      "name": "mirrorneuron-litellm-communicate-skill",
       "source": "gar",
       "type": "pip",
       "version": "1.2.27"

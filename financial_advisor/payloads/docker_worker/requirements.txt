@@ -1,7 +1,6 @@
 --index-url https://us-central1-python.pkg.dev/mirrorneuron-public-packages/agent-skills/simple/
 --extra-index-url https://pypi.org/simple
 mirrorneuron-blueprint-support-skill==1.2.27
-mirrorneuron-litellm-communicate-skill==1.2.27
 mirrorneuron-llm-ocr-skill==1.2.27
 mirrorneuron-w3m-browser-skill==1.2.27
-mirrorneuron-web-browser-skill==1.2.27
+mirrorneuron-web-browser-skill==1.2.28

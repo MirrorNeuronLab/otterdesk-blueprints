@@ -43,7 +43,7 @@ Local LLM calls are deliberately backpressured. The default run serializes Docke
 
 ## Input
 
-The prototype accepts local startup documents in PDF, TXT, Markdown, JSON, and CSV formats. Text-like files are read directly. PDF files use the shared `llm_ocr_skill` LightOnOCR path for embedded or OCR text extraction. If a PDF startup packet cannot produce usable text, the batch run fails closed instead of creating metadata-only evidence.
+The prototype accepts local startup documents in PDF, TXT, Markdown, JSON, and CSV formats. Text-like files are read directly. PDF files use the shared `llm_ocr_skill` for embedded or OCR text extraction. The skill owns its model and prepares it lazily only when OCR is required. If a PDF startup packet cannot produce usable text, the batch run fails closed instead of creating metadata-only evidence.
 
 ## Output: Expected Customer Outcome
 

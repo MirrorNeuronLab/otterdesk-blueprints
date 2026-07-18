@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 
@@ -60,3 +61,45 @@ def test_document_ocr_blueprint_runner_templates_stay_aligned():
     expected = _document_runner_template(runner_paths[0])
     for path in runner_paths[1:]:
         assert _document_runner_template(path) == expected, path
+
+
+def test_active_assistants_use_sdk_llm_without_communication_skill_dependency():
+    for blueprint_id in ("vc_assistant", "financial_advisor", "legal_assistant"):
+        manifest = json.loads((ROOT / blueprint_id / "manifest.json").read_text())
+        packages = {
+            str(item.get("name") or "")
+            for item in manifest.get("skill_dependencies") or []
+            if isinstance(item, dict)
+        }
+        assert "mirrorneuron-litellm-communicate-skill" not in packages
+
+    vc_manifest = json.loads((ROOT / "vc_assistant" / "manifest.json").read_text())
+    vc_packages = {
+        str(item.get("name") or "")
+        for item in vc_manifest.get("skill_dependencies") or []
+        if isinstance(item, dict)
+    }
+    assert "mirrorneuron-rag-skill" in vc_packages
+    assert "mirrorneuron-llm-ocr-skill" in vc_packages
+
+
+def test_active_assistants_leave_rag_and_ocr_model_specs_in_their_skills():
+    forbidden_model_text = ("lightonocr", "jina-embeddings", "rag-embedding")
+    for blueprint_id in ("vc_assistant", "financial_advisor", "legal_assistant"):
+        manifest_path = ROOT / blueprint_id / "manifest.json"
+        config_path = ROOT / blueprint_id / "config" / "default.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        serialized = json.dumps(
+            {
+                "manifest": manifest,
+                "config": json.loads(config_path.read_text(encoding="utf-8")),
+            }
+        ).lower()
+
+        assert not any(value in serialized for value in forbidden_model_text)
+        assert "ocr" not in (manifest.get("runtime", {}).get("models", {}))
+
+        workflow_path = ROOT / blueprint_id / "payloads" / "domain" / "workflow.py"
+        if workflow_path.exists():
+            workflow_source = workflow_path.read_text(encoding="utf-8").lower()
+            assert "lightonai/lightonocr" not in workflow_source

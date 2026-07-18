@@ -385,21 +385,11 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
     assert config["input_skills"]["llm_ocr"] == {
         "skill": "llm_ocr_skill",
         "package": "mirrorneuron-llm-ocr-skill",
-        "connector": "docker_model_runner",
-        "purpose": "shared local LightOnOCR-2-1B OCR for scanned or low-text PDF startup packets",
+        "purpose": "shared local OCR for scanned or low-text PDF startup packets",
         "enabled": True,
         "required": True,
-        "backend": "auto",
-        "endpoint": "auto",
-        "model": "hf.co/noctrex/LightOnOCR-2-1B-GGUF:Q4_K_M",
-        "api_model": "lightonocr-2-1b",
-        "quantization": "Q4_K_M",
         "min_text_chars": 40,
         "max_pages": None,
-        "preload": False,
-        "install_policy": "on_first_required_document",
-        "remove_policy": "manual",
-        "require_hardware_acceleration": True,
         "timeout_seconds": 180,
     }
     assert (
@@ -457,14 +447,10 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
     assert config["knowledge_rag"]["backend"] == "milvus_lite"
     assert "redis_url" not in config["knowledge_rag"]
     assert config["knowledge_rag"]["namespace"] == ""
-    assert config["knowledge_rag"]["embedding_provider"] == "docker_model_runner"
-    assert config["knowledge_rag"]["embedding_model"] == "rag-embedding"
-    assert config["knowledge_rag"]["embedding_api_base"] == "auto"
-    assert config["knowledge_rag"]["embedding_query_prefix"] == "Query: "
-    assert config["knowledge_rag"]["embedding_document_prefix"] == "Document: "
-    assert config["knowledge_rag"]["embedding_start_command"] == ""
-    assert config["knowledge_rag"]["embedding_healthcheck_enabled"] is True
-    assert config["knowledge_rag"]["vector_dim"] == 1024
+    assert not any(
+        key.startswith("embedding_") or key == "vector_dim"
+        for key in config["knowledge_rag"]
+    )
     assert config["knowledge_rag"]["index_on_startup"] is True
     assert config["knowledge_rag"]["chunk_size"] == 800
     assert config["knowledge_rag"]["chunk_overlap"] == 80

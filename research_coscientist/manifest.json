@@ -1775,7 +1775,7 @@
       "name": "mirrorneuron-web-browser-skill",
       "source": "gar",
       "type": "pip",
-      "version": "1.2.27"
+      "version": "1.2.28"
     },
     {
       "name": "mirrorneuron-autonomous-research-skill",

@@ -511,21 +511,13 @@
   "knowledge_rag": {
     "chunk_overlap": 80,
     "chunk_size": 800,
-    "embedding_api_base": "auto",
-    "embedding_document_prefix": "Document: ",
-    "embedding_healthcheck_enabled": true,
-    "embedding_model": "rag-embedding",
-    "embedding_provider": "docker_model_runner",
-    "embedding_query_prefix": "Query: ",
-    "embedding_start_command": "",
     "enabled": true,
     "index_on_startup": true,
     "knowledge_dir": "@/payloads/knowledge",
     "max_context_chars": 6000,
     "namespace": "",
     "required": true,
-    "top_k": 5,
-    "vector_dim": 1024
+    "top_k": 5
   },
   "llm": {
     "agents": {
@@ -752,12 +744,6 @@
       "version": "1.2.27"
     },
     {
-      "name": "mirrorneuron-litellm-communicate-skill",
-      "source": "gar",
-      "type": "pip",
-      "version": "1.2.27"
-    },
-    {
       "name": "mirrorneuron-evidence-engine-skill",
       "source": "gar",
       "type": "pip",
@@ -809,7 +795,7 @@
       "name": "mirrorneuron-web-browser-skill",
       "source": "gar",
       "type": "pip",
-      "version": "1.2.27"
+      "version": "1.2.28"
     }
   ],
   "agent_dependencies": [

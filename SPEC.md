@@ -10,6 +10,13 @@ terms, and deterministic tests into an installable co-worker/workflow bundle.
 This specification applies only to this repository. Reusable agents, skills,
 SDK compilation, and Core delivery are dependencies, not code owned here.
 
+Blueprints use foundational `mn_sdk.llm` access through blueprint support and
+must not declare `mirrorneuron-litellm-communicate-skill`. Model-specific skills
+such as RAG and OCR own their complete model specifications and pass them to the
+SDK's lazy runtime model wrapper. Blueprints declare only the skill and
+product-level behavior; first-use runtime selection chooses and prepares the
+concrete DMR model.
+
 ## Catalog Contract
 
 Root `index.json` is the authoritative list of published blueprint identities,

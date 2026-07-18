@@ -173,6 +173,7 @@ GPU_WORKER_DEVICE_REQUIREMENT = {
 SKILL_DEPENDENCY_VERSION = "1.2.27"
 SKILL_DEPENDENCY_VERSION_OVERRIDES = {
     "mirrorneuron-rag-skill": "1.2.27",
+    "mirrorneuron-web-browser-skill": "1.2.28",
 }
 IMPORT_MARKER_PACKAGES = {
     "mn_blueprint_support": "mirrorneuron-blueprint-support-skill",
@@ -197,10 +198,7 @@ SKILL_NAME_PACKAGES = {
     "web_browser_skill": "mirrorneuron-web-browser-skill",
     "websocket_stream": "mirrorneuron-websocket-stream-skill",
 }
-BLUEPRINT_TRANSITIVE_SKILL_PACKAGES = {
-    "financial_advisor": {"mirrorneuron-litellm-communicate-skill"},
-    "vc_assistant": {"mirrorneuron-litellm-communicate-skill"},
-}
+BLUEPRINT_TRANSITIVE_SKILL_PACKAGES = {}
 
 
 def _completion_threshold(value) -> bool:

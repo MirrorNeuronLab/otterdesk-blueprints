@@ -11,7 +11,7 @@ Create one financial-advisor blueprint that covers bank statement extraction, ta
 
 ## OCR
 
-PDFs and document images use `mirrorneuron-llm-ocr-skill`. Embedded PDF text is preferred when it is substantial; image-only or low-text documents are sent to the shared LightOnOCR-2-1B Docker Model Runner service. The runtime prepares the catalogued OCR model before worker execution; the worker uses the shared endpoint without a Docker CLI. The workflow preserves OCR-required status, extraction method, model metadata, page metadata, and warnings for human review.
+PDFs and document images use `mirrorneuron-llm-ocr-skill`. Embedded PDF text is preferred when it is substantial; image-only or low-text documents trigger the skill's private OCR model. The skill owns the model specification and uses the SDK wrapper to install or reuse it on the best compatible cluster node on first OCR use. The blueprint does not declare or preload that model, and the worker uses the shared endpoint without a Docker CLI. The workflow preserves OCR-required status, extraction method, model metadata, page metadata, and warnings for human review.
 
 ## Outputs
 

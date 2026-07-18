@@ -519,13 +519,6 @@
     "backend": "redis_vector_rag",
     "chunk_overlap": 80,
     "chunk_size": 800,
-    "embedding_api_base": "auto",
-    "embedding_document_prefix": "Document: ",
-    "embedding_healthcheck_enabled": true,
-    "embedding_model": "rag-embedding",
-    "embedding_provider": "docker_model_runner",
-    "embedding_query_prefix": "Query: ",
-    "embedding_start_command": "",
     "enabled": true,
     "grounding_policy": "Use retrieved or bundled local blueprint knowledge to improve actor prompts; preserve deterministic outputs, cite supplied evidence, and label unknowns when retrieval is unavailable.",
     "index_on_startup": false,
@@ -548,8 +541,7 @@
       "calculation invariance and assumption clarity",
       "cross-domain reconciliation and report quality"
     ],
-    "top_k": 5,
-    "vector_dim": 1024
+    "top_k": 5
   },
   "metadata": {
     "agentic_research": {
@@ -681,13 +673,6 @@
       "backend": "redis_vector_rag",
       "chunk_overlap": 80,
       "chunk_size": 800,
-      "embedding_api_base": "auto",
-      "embedding_document_prefix": "Document: ",
-      "embedding_healthcheck_enabled": true,
-      "embedding_model": "rag-embedding",
-      "embedding_provider": "docker_model_runner",
-      "embedding_query_prefix": "Query: ",
-      "embedding_start_command": "",
       "enabled": true,
       "grounding_policy": "Use retrieved or bundled local blueprint knowledge to improve actor prompts; preserve deterministic outputs, cite supplied evidence, and label unknowns when retrieval is unavailable.",
       "index_on_startup": false,
@@ -710,8 +695,7 @@
         "calculation invariance and assumption clarity",
         "cross-domain reconciliation and report quality"
       ],
-      "top_k": 5,
-      "vector_dim": 1024
+      "top_k": 5
     },
     "name": "Financial Advisor",
     "problem": "Personal finance work is split across statement review, tax preparation, household planning, and portfolio risk checks; users need one review-only local assistant that keeps evidence, calculations, and next steps together.",
@@ -736,15 +720,6 @@
   },
   "runtime": {
     "models": {
-      "ocr": {
-        "backend": "llama.cpp",
-        "context_size": 4096,
-        "model": "hf.co/noctrex/LightOnOCR-2-1B-GGUF:Q4_K_M",
-        "provider": "docker_model_runner",
-        "purpose": "document_ocr",
-        "required": true,
-        "runtime_model": "hf.co/noctrex/LightOnOCR-2-1B-GGUF:Q4_K_M"
-      },
       "primary": {
         "backend": "llama.cpp",
         "model": "default",
@@ -756,12 +731,6 @@
   "skill_dependencies": [
     {
       "name": "mirrorneuron-blueprint-support-skill",
-      "source": "gar",
-      "type": "pip",
-      "version": "1.2.27"
-    },
-    {
-      "name": "mirrorneuron-litellm-communicate-skill",
       "source": "gar",
       "type": "pip",
       "version": "1.2.27"
@@ -782,7 +751,7 @@
       "name": "mirrorneuron-web-browser-skill",
       "source": "gar",
       "type": "pip",
-      "version": "1.2.27"
+      "version": "1.2.28"
     }
   ],
   "agent_dependencies": [
@@ -994,7 +963,7 @@
             "on_low_confidence": "human_review"
           }
         },
-        "goal": "Read local text, JSON, CSV, and PDF/image evidence; use shared LightOnOCR for low-text or image-only documents; classify finance, tax, bank statement, and portfolio evidence.",
+        "goal": "Read local text, JSON, CSV, and PDF/image evidence; use the shared OCR skill for low-text or image-only documents; classify finance, tax, bank statement, and portfolio evidence.",
         "id": "financial_document_reader",
         "kind": "stage",
         "label": "Financial Document Reader",

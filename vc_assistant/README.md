@@ -13,7 +13,7 @@ It does not decide whether to invest, pass, watch, or reject. It writes scores, 
 
 All actor-style LLM analysis uses the local Docker Model Runner default model `small` for ordinary local launches. A `medium` profile is also recorded for deployments that explicitly select a 48GB-or-above runtime node with GPU or integrated-GPU memory, including NVIDIA, Apple, AMD, and DGX Spark / GB10 unified-memory nodes reported by `mn status`. Numerical formulas and missing-evidence gates remain deterministic.
 
-PDF startup packets are extracted through the shared `llm_ocr_skill` LightOnOCR path. TXT, Markdown, JSON, and CSV files are read directly; PDF files must produce embedded or OCR text for the batch run to continue.
+PDF startup packets are extracted through the shared `llm_ocr_skill`. TXT, Markdown, JSON, and CSV files are read directly; the skill prepares its private OCR model lazily only when a PDF needs OCR, and PDF files must produce embedded or OCR text for the batch run to continue.
 
 ## Online Research Skills
 
@@ -85,7 +85,7 @@ mn blueprint monitor --follow
 - `document_folder`: folder containing startup documents. Each first-level subfolder is treated as one company; loose files are grouped by inferred company name.
 - `output_folder`: folder where per-company analysis folders and root index files are written.
 - `monitoring`: bounded single-run scan controls; the runtime scheduler decides when to launch the batch.
-- `input_skills.llm_ocr`: shared local LightOnOCR OCR settings for PDF startup packets.
+- `input_skills.llm_ocr`: shared OCR enablement and document thresholds for PDF startup packets; model details stay in the skill.
 - `input_skills.web_browser`: unified public research with lightweight w3m support in the `docker_worker` image and policy-governed agent-browser/Chrome rendering supplied by the selected browser execution environment. The job image does not install Playwright or its Chromium/system dependency bundle.
 - `skill_runtime`: shared DockerWorker image settings for skills that need system binaries.
 - `execution.max_company_workers`: maximum changed-company packets processed concurrently; defaults to one for local Docker Model Runner stability.
