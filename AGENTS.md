@@ -2,6 +2,20 @@
 
 Guidance for future coding agents working in this repository.
 
+These instructions apply only to `otterdesk-blueprints`.
+
+## Start Here
+
+Read repository `SPEC.md`, `README.md`, and `DAG_FLOW_PATTERNS.md`. For the
+target blueprint, read its complete `README.md`, `SPEC.md`, `manifest.json`,
+configuration, payload entrypoints, and tests before editing. Check `git status`
+and preserve unrelated work.
+
+Root `index.json` is the catalog inventory and identity source. Do not infer the
+current catalog from a README table or from folders alone. Each blueprint is a
+self-contained product contract; do not transfer domain rules between
+blueprints without an explicit shared dependency.
+
 ## Issue Fixing Policy
 
 - Unless the user explicitly asks for a temporary workaround, fix the root cause in the intended layer or contract.
@@ -146,3 +160,21 @@ For architecture-affecting blueprint changes, test the affected layers in their 
 - core source/sink/join, workflow-ledger, and Redis delivery behavior when those contracts change.
 
 Architecture tests should reject agent/step naming confusion, missing registry handlers, `agents/domain.py`, domain imports from runtime, routing fields in agent payloads, nonexistent artifact references, and logical completion emitted by domain agents.
+
+## Verification Workflow
+
+Install only the test dependencies and declared sibling packages required by
+the target suite, then run:
+
+```bash
+python -m pytest tests/test_manifest_contracts.py -q
+python -m pytest tests/test_<blueprint>.py -q
+python -m pytest tests -q
+git diff --check
+```
+
+The suite intentionally consumes sibling `mn-python-sdk`, `mn-agents`, and
+`mn-skills` contracts. Do not copy or vendor those implementations here to make
+a test pass. Live models, network research, cameras, voice services, email, and
+other external side effects are opt-in and are not part of the default catalog
+gate.
