@@ -7,7 +7,7 @@ Checks a local folder of startup documents on each scheduled batch run, builds a
 
 ## What It Does
 
-This blueprint is a report-only early diligence assistant. It helps a reviewer inspect one or more startup document packets with a specialist agent crew for grouping, evidence extraction, fact normalization, public research, seven deterministic scoring methods, score auditing, and batch report writing. MirrorNeuron routes each assigned agent through acknowledged Redis Streams while durable evidence and reports remain filesystem artifacts.
+This blueprint is a report-only early diligence assistant. It helps a reviewer inspect one or more startup document packets with a specialist agent crew for grouping, evidence extraction, fact normalization, public research, seven deterministic scoring methods, score auditing, and batch report writing. MirrorNeuron routes each assigned agent through acknowledged Redis Streams while durable evidence and reports remain filesystem artifacts. The workflow uses `manual_recover`: after a runtime interruption, relaunch the blueprint from its durable inputs instead of repeatedly reconstructing the full agent graph from Redis snapshots.
 
 It does not decide whether to invest, pass, watch, or reject. It writes scores, evidence, assumptions, missing-evidence flags, and source references so the user can decide.
 

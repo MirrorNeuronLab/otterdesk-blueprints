@@ -54,6 +54,7 @@ def test_source_manifest_keeps_the_default_runtime_declarative():
     default_config = json.loads((BLUEPRINT_DIR / "config" / "default.json").read_text())
     manifest = json.loads((BLUEPRINT_DIR / "manifest.json").read_text())
     assert manifest["apiVersion"] == "mn.workflow.source/v2"
+    assert manifest["manifest"]["policies"]["recovery_mode"] == "manual_recover"
     assert manifest["agents"] == {"registry": manifest["agents"]["registry"]}
     assert manifest["workflow"]["steps"][0]["id"] == "detect_packet_changes"
     assert all(step["run"]["definition"] for step in manifest["workflow"]["steps"])
@@ -87,6 +88,9 @@ def test_source_manifest_keeps_the_default_runtime_declarative():
     assert set(resolved["llm"]["agents"]) == set(manifest["agents"]["registry"])
     for agent_id, actor in resolved["llm"]["agents"].items():
         assert actor["role"] == manifest["agents"]["registry"][agent_id]["role"]
+
+    expanded = expand_manifest_source(manifest, root_dir=BLUEPRINT_DIR)
+    assert expanded["policies"]["recovery_mode"] == "manual_recover"
 
 
 def test_bundle_references_resolve_for_source_and_staged_payload_roots(tmp_path):

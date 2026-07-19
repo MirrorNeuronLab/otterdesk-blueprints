@@ -463,6 +463,11 @@
       }
     }
   },
+  "manifest": {
+    "policies": {
+      "recovery_mode": "manual_recover"
+    }
+  },
   "identity": {
     "category": "finance",
     "id": "vc_assistant",
