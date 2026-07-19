@@ -1,4 +1,4 @@
 --index-url https://us-central1-python.pkg.dev/mirrorneuron-public-packages/agent-skills/simple/
 --extra-index-url https://pypi.org/simple
-mirrorneuron-membrane-python-sdk
+mirrorneuron-membrane-python-sdk==1.2.29
 pymilvus[milvus-lite]>=2.4

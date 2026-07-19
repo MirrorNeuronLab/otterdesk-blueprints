@@ -792,7 +792,7 @@
     "index_url": "https://us-central1-python.pkg.dev/mirrorneuron-public-packages/agent-skills/simple/",
     "extra_index_url": "https://pypi.org/simple",
     "packages": [
-      "mirrorneuron-membrane-python-sdk"
+      "mirrorneuron-membrane-python-sdk==1.2.29"
     ]
   },
   "skill_runtime": {
