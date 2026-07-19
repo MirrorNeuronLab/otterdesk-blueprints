@@ -364,7 +364,7 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
     )
     assert config["python_dependencies"]["extra_index_url"] == "https://pypi.org/simple"
     assert config["python_dependencies"]["packages"] == [
-        "mirrorneuron-membrane-python-sdk",
+        "mirrorneuron-membrane-python-sdk==1.2.29",
     ]
     assert config["local_inputs"] == {
         "folders": [
@@ -967,7 +967,7 @@ def test_vc_assistant_runtime_requirements_install_skills_with_pip():
     assert requirements == [
         "--index-url https://us-central1-python.pkg.dev/mirrorneuron-public-packages/agent-skills/simple/",
         "--extra-index-url https://pypi.org/simple",
-        "mirrorneuron-membrane-python-sdk",
+        "mirrorneuron-membrane-python-sdk==1.2.29",
         "pymilvus[milvus-lite]>=2.4",
     ]
 
