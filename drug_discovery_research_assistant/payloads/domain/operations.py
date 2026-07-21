@@ -16,7 +16,7 @@ from mn_sdk.blueprint_support import WorkflowStateStore
 
 BLUEPRINT_ID = "drug_discovery_research_assistant"
 STATE_FILE = "drug_discovery_state.json"
-SCRIPTS = Path(__file__).resolve().parents[1] / "agents" / "service" / "scripts"
+SCRIPTS = Path(__file__).resolve().parents[1] / "service" / "scripts"
 
 
 def _inputs(ctx: dict[str, Any]) -> dict[str, Any]:
@@ -123,4 +123,3 @@ def publish_ranking(ctx: dict[str, Any], **_options: Any) -> dict[str, Any]:
     (Path(ctx["run_dir"]) / "final_artifact.json").write_text(json.dumps(artifact, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     _save(ctx, state)
     return {"final_artifact": artifact, "output_files": [str(output / "final_artifact.json")]}
-

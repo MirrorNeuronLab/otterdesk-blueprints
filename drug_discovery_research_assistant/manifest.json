@@ -149,7 +149,7 @@
           "known_reference_compound_a"
         ],
         "privacy": "confidential",
-        "required": true,
+        "required": false,
         "type": "domain_value"
       },
       "disease_or_target_profile": {
@@ -161,7 +161,7 @@
       },
       "input_folder": {
         "description": "Default local input folder for sample files or user-provided files.",
-        "example": "drug_discovery_research_assistant/examples/sample_inputs",
+        "example": "@/examples/sample_inputs",
         "path_kind": "directory",
         "privacy": "confidential",
         "required": false,
@@ -189,7 +189,7 @@
           "toxicity": "low"
         },
         "privacy": "confidential",
-        "required": true,
+        "required": false,
         "type": "domain_value"
       }
     },
@@ -384,9 +384,22 @@
   },
   "defaults": {
     "worker": {
+      "uses": "mn-agents.worker.python_host@1",
       "with": {
-        "stereotype": "internal_write_worker",
-        "image": "mirror-neuron/drug-discovery-research-assistant:local"
+        "stereotype": [
+          "blueprint_host_worker",
+          "internal_write_worker"
+        ],
+        "upload_paths": [
+          {
+            "source": "domain",
+            "target": "domain"
+          },
+          {
+            "source": "service",
+            "target": "service"
+          }
+        ]
       }
     }
   },
@@ -560,10 +573,10 @@
       ],
       "fields": [
         {
-          "default": "Alzheimer",
+          "default": "Alzheimer disease with BACE1 modulation as the primary target hypothesis.",
           "description": "Confirm the disease, phenotype, or target family to investigate.",
           "label": "Disease or target",
-          "path": "inputs.payload.disease"
+          "path": "inputs.payload.disease_or_target_profile"
         },
         {
           "default": 600,
@@ -572,7 +585,7 @@
           "path": "budgets.max_runtime_seconds"
         },
         {
-          "default": "drug_discovery_research_assistant/examples/sample_inputs",
+          "default": "@/examples/sample_inputs",
           "description": "Default local input folder for sample files or user-provided files.",
           "label": "Input folder",
           "path": "inputs.payload.input_folder",
@@ -610,8 +623,25 @@
           "type": "domain_value"
         },
         {
+          "description": "Desired candidate, assay, safety, novelty, or evidence criteria.",
+          "example": {
+            "potency": "sub-micromolar",
+            "toxicity": "low"
+          },
+          "name": "screening_criteria",
+          "type": "domain_value"
+        },
+        {
+          "description": "Optional seed molecules, protein targets, or prior candidates to compare.",
+          "example": [
+            "known_reference_compound_a"
+          ],
+          "name": "candidate_seed_set",
+          "type": "domain_value"
+        },
+        {
           "description": "Default local input folder for sample files or user-provided files.",
-          "example": "drug_discovery_research_assistant/examples/sample_inputs",
+          "example": "@/examples/sample_inputs",
           "name": "input_folder",
           "path_kind": "directory",
           "privacy": "confidential",
@@ -650,7 +680,7 @@
           "adapter": "mock",
           "description": "Bundled Alzheimer demo target and synthetic candidate workflow.",
           "payload": {
-            "disease": "Alzheimer"
+            "disease_or_target_profile": "Alzheimer disease with BACE1 modulation as the primary target hypothesis."
           }
         },
         "sample_file": {
@@ -664,23 +694,6 @@
           "description": "Disease, target, pathway, or phenotype that frames the discovery run.",
           "example": "Alzheimer disease BACE1 modulation",
           "name": "disease_or_target_profile",
-          "type": "domain_value"
-        },
-        {
-          "description": "Desired candidate, assay, safety, novelty, or evidence criteria.",
-          "example": {
-            "potency": "sub-micromolar",
-            "toxicity": "low"
-          },
-          "name": "screening_criteria",
-          "type": "domain_value"
-        },
-        {
-          "description": "Optional seed molecules, protein targets, or prior candidates to compare.",
-          "example": [
-            "known_reference_compound_a"
-          ],
-          "name": "candidate_seed_set",
           "type": "domain_value"
         }
       ],
@@ -1376,7 +1389,10 @@
           "binding_evaluation"
         ],
         "with": {
-          "stereotype": "internal_write_worker"
+          "stereotype": [
+            "blueprint_host_worker",
+            "internal_write_worker"
+          ]
         }
       },
       {
@@ -1384,7 +1400,10 @@
           "candidate_generation"
         ],
         "with": {
-          "stereotype": "internal_write_worker",
+          "stereotype": [
+            "blueprint_host_worker",
+            "internal_write_worker"
+          ],
           "timeout_seconds": 0
         }
       }
