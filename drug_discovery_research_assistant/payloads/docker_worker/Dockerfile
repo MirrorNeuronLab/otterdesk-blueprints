@@ -48,12 +48,14 @@ RUN python3 -m pip install --no-cache-dir "pytest>=8,<10"
 
 # GNINA is built natively for the selected CUDA worker; DockerWorker does not
 # expose a Docker socket, so Stage D executes this installed binary directly.
+# Disable Eigen's host NEON path only in CUDA translation units because NVCC on
+# ARM64 cannot parse GCC's arm_neon builtins pulled through GNINA's splines.
 RUN export CXXFLAGS="-Wno-error=maybe-uninitialized" TORCH_CUDA_ARCH_LIST="12.1" \
     && git clone --branch "${GNINA_VERSION}" --depth 1 https://github.com/gnina/gnina.git /tmp/gnina \
     && cmake -S /tmp/gnina -B /tmp/gnina/build \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_CUDA_ARCHITECTURES=121 \
-        -DCMAKE_CUDA_FLAGS="-DBOOST_UNORDERED_DISABLE_NEON" \
+        -DCMAKE_CUDA_FLAGS="-DEIGEN_DONT_VECTORIZE" \
         -DCMAKE_PREFIX_PATH="$(python3 -c 'import torch; print(torch.utils.cmake_prefix_path)')" \
     && cmake --build /tmp/gnina/build --parallel 4 \
     && cmake --install /tmp/gnina/build \
