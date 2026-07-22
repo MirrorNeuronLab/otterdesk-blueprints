@@ -15,7 +15,7 @@ _BEACON_SEQUENCE = 0
 
 
 def start_agent_beacon_thread(message: str | None = None) -> threading.Thread | None:
-    """Keep the HostLocal liveness contract alive for the long-running service."""
+    """Keep the runtime liveness contract alive for the long-running service."""
     prefix = os.environ.get("MN_AGENT_BEACON_STDOUT_PREFIX")
     if not prefix:
         return None

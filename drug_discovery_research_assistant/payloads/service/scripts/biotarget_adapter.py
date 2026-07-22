@@ -1,7 +1,7 @@
 #!/usr/bin/env python3.11
 """JSON adapter for the local BioTarget + homerquan/DrugClip implementation.
 
-This runs as a native HostLocal or cross-box dispatched process.  It deliberately
+This runs as a native DockerWorker or cross-box dispatched process.  It deliberately
 uses BioTarget's stage modules rather than reproducing their model logic in the
 blueprint.  Dependencies must be installed on the worker that receives the job.
 """

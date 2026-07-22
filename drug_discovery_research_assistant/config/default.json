@@ -711,8 +711,7 @@
       "candidate_generation": "biotarget.stages.stage_c_generative",
       "evaluation": "biotarget.stages.stage_d_evaluation"
     },
-    "simulation_engine": "gnina",
-    "simulation_runtime_note": "BioTarget Stage D currently invokes GNINA through its own containerized runner; the continuous control plane and adapter processes remain native HostLocal workers."
+    "simulation_engine": "gnina"
   },
   "output_skills": {},
   "python_dependencies": {
