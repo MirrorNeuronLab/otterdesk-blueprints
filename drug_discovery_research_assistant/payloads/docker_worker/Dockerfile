@@ -33,7 +33,8 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 RUN python3 -m venv /opt/mn-venv
-ENV PATH="/opt/mn-venv/bin:${PATH}"
+ENV PATH="/opt/mn-venv/bin:${PATH}" \
+    LD_LIBRARY_PATH="/opt/mn-venv/lib/python3.12/site-packages/torch/lib:${LD_LIBRARY_PATH}"
 
 # mn-python-sdk stages this requirements file from payloads/requirements.txt.
 # Keep it before the GNINA build so CMake can use the same CUDA-enabled PyTorch
