@@ -3,8 +3,6 @@ import torch
 import shutil
 import tempfile
 import subprocess
-import sys
-import platform
 from torch_geometric.data import Batch
 from tqdm import tqdm
 from rdkit import Chem
@@ -12,22 +10,13 @@ from rdkit.Chem import AllChem
 from biotarget.core.utils import normalize_01
 
 
-def requires_gnina_cpu_emulation():
-    """Return whether GNINA must run as an emulated amd64 CPU container."""
-    machine = platform.machine().lower()
-    gpu_vendor = os.environ.get("MN_NODE_GPU_VENDOR", "").lower()
-    gpu_type = os.environ.get("MN_NODE_GPU_TYPE", "").lower()
-    return (
-        machine in {"aarch64", "arm64"}
-        or gpu_vendor == "apple"
-        or gpu_type.startswith("apple/")
-    )
-
-
 def run_gnina(receptor_path, ligand_smiles):
-    # Verify docker
-    if not shutil.which("docker"):
-        raise RuntimeError("docker not found in PATH. Please install docker.")
+    executable = shutil.which("gnina")
+    if not executable:
+        raise RuntimeError(
+            "GNINA is not installed in the NVIDIA DockerWorker image. "
+            "Rebuild the drug-discovery DockerWorker image before running this blueprint."
+        )
 
     ligand_sdf = None
     try:
@@ -48,7 +37,6 @@ def run_gnina(receptor_path, ligand_smiles):
         writer.write(mol)
         writer.close()
 
-        # Mount directories
         receptor_dir = os.path.dirname(os.path.abspath(receptor_path))
         receptor_name = os.path.basename(receptor_path)
 
@@ -60,42 +48,16 @@ def run_gnina(receptor_path, ligand_smiles):
                     if line.startswith("MODEL") or line.startswith("ENDMDL"):
                         continue
                     fout.write(line)
-        cleaned_receptor_name = os.path.basename(cleaned_receptor)
-
-        ligand_dir = os.path.dirname(os.path.abspath(ligand_sdf))
-        ligand_name = os.path.basename(ligand_sdf)
-
         cmd = [
-            "docker",
-            "run",
-            "--rm",
+            executable,
+            "-r",
+            cleaned_receptor,
+            "-l",
+            ligand_sdf,
+            "--score_only",
+            "--cnn",
+            "fast",
         ]
-
-        # The Linux worker reports x86_64 even when its selected runtime node
-        # is Apple Silicon, so include the runtime GPU metadata in this check.
-        if requires_gnina_cpu_emulation():
-            # On ARM we must override the nvidia_entrypoint.sh which strictly fails without a GPU on x86 container
-            cmd.extend(["--platform", "linux/amd64", "--entrypoint", ""])
-        else:
-            cmd.extend(["--gpus", "all"])
-
-        cmd.extend(
-            [
-                "-v",
-                f"{receptor_dir}:/receptor",
-                "-v",
-                f"/tmp:/ligand",  # Workaround for tempfile being created in /tmp
-                "gnina/gnina",
-                "gnina",
-                "-r",
-                f"/receptor/{cleaned_receptor_name}",
-                "-l",
-                f"/ligand/{ligand_name}",
-                "--score_only",
-                "--cnn",
-                "fast",
-            ]
-        )
 
         result = subprocess.run(
             cmd, capture_output=True, text=True, timeout=300
@@ -128,7 +90,7 @@ def run_gnina(receptor_path, ligand_smiles):
                         pass
 
     except subprocess.TimeoutExpired as error:
-        raise RuntimeError("GNINA timed out during CPU emulation.") from error
+        raise RuntimeError("GNINA timed out.") from error
     except RuntimeError:
         raise
     except Exception as error:
@@ -150,12 +112,10 @@ def stage_d_evaluate_binding_and_tox(
         f"[*] Loaded Target Receptor: {target_protein['gene']} from Stage B ({receptor_path})"
     )
 
-    if not shutil.which("docker"):
-        print("[!] Error: 'docker' was not found in your system $PATH.")
-        print(
-            "[*] gnina runs as a container and requires docker to be installed and running."
+    if not shutil.which("gnina"):
+        raise RuntimeError(
+            "GNINA is unavailable. Candidate generation must run in the bundled NVIDIA DockerWorker image."
         )
-        sys.exit(1)
 
     print(
         f"[*] Computing Toxicity penalties for {len(candidates)} candidates via DrugCLIP..."

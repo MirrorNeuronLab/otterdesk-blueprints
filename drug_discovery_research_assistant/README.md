@@ -9,7 +9,7 @@ This blueprint runs a review-only discovery service until it is closed manually.
 
 DrugClip is a problem-specific scientific checkpoint, not a shared LLM model. The adapter uses `mirrorneuron-use-generic-model-skill` to validate the explicit `https://huggingface.co/homerquan/DrugClip` reference, then downloads `best.ckpt` and runs it through the native `DrugCLIP` graph/text adapter. Docker Model Runner is deliberately not used: the repository is a checkpoint-only graph/text model, not a DMR-compatible generative model. No fake adapter or surrogate score is used in live mode.
 
-This blueprint requires one NVIDIA CUDA GPU. The manifest declares that as a hard runtime requirement, so the platform rejects Apple-Silicon and CPU-only nodes before a workflow is submitted. The native DrugClip adapter also rejects a CPU-only PyTorch installation rather than silently falling back to CPU execution.
+This blueprint requires one NVIDIA CUDA GPU. The manifest declares that as a hard runtime requirement, so the platform rejects Apple-Silicon and CPU-only nodes before a workflow is submitted. Candidate generation runs in a `DockerWorker` with `gpus: all`; that image contains CUDA/cuDNN, the real DrugClip dependencies, and a native GNINA build. The native DrugClip adapter also rejects a CPU-only PyTorch installation rather than silently falling back to CPU execution.
 
 ## Running and stopping
 
@@ -21,11 +21,11 @@ mn run drug_discovery_research_assistant
 
 The service continues until the runtime sends `SIGTERM`/`SIGINT` or the configured `STOP` file is created under the run directory. It writes `service_state.json` and per-cycle artifacts under `cycles/` while it runs.
 
-The committed `config/overwrite.json` selects live native adapter mode. On the first model-dependent adapter call, the generic-model skill validates the configured `https://huggingface.co/homerquan/DrugClip` reference without adding it to the shared model catalog; the native adapter then loads `best.ckpt` from the same repository when it is not cached. The BioTarget source is bundled under `payloads/biotarget/`, and its native dependencies are declared in `payloads/requirements.txt`; no external BioTarget checkout is required. GNINA Docker and the Open Targets/AlphaFold network APIs remain external live-run requirements on the NVIDIA node. To run a bounded test, provide `service.max_cycles` through the runtime override. Fake adapters are limited to explicit mock/smoke-test overrides.
+The committed `config/overwrite.json` selects live native adapter mode. On the first model-dependent adapter call, the generic-model skill validates the configured `https://huggingface.co/homerquan/DrugClip` reference without adding it to the shared model catalog; the native adapter then loads `best.ckpt` from the same repository when it is not cached. The BioTarget source is bundled under `payloads/biotarget/`, and its native dependencies are declared in `payloads/requirements.txt`; no external BioTarget checkout is required. The DockerWorker builds its native GNINA executable from the pinned `v1.3.2` source release, and the Open Targets/AlphaFold network APIs remain external live-run requirements. To run a bounded test, provide `service.max_cycles` through the runtime override. Fake adapters are limited to explicit mock/smoke-test overrides.
 
 ## Distributed native execution
 
-The service coordinator and BioTarget adapter jobs use `MirrorNeuron.Runner.HostLocal`, not OpenShell. In live cluster mode, it sends JSON job specifications to a configured native dispatcher that places work in these pools:
+The target, structure, binding-review, and report workers use `MirrorNeuron.Runner.HostLocal`. The candidate-generation service uses `MirrorNeuron.Runner.DockerWorker` on the NVIDIA CUDA node, so its real DrugClip and GNINA work execute in the prepared GPU container rather than in the core runtime container. In live cluster mode, it sends JSON job specifications to a configured native dispatcher that places work in these pools:
 
 - `science-generation`: candidate-generation jobs
 - `science-folding`: fan-out folding by target
@@ -33,7 +33,7 @@ The service coordinator and BioTarget adapter jobs use `MirrorNeuron.Runner.Host
 - `science-simulation`: fan-out simulation of DrugCLIP-selected candidates
 - `default`: native control, aggregation, state, and review reports
 
-The dispatcher must accept the job JSON on stdin and return a JSON result or write the declared output file. If it is absent, live runs fail closed rather than running a misleading local fallback. BioTarget Stage D currently uses its own GNINA containerized runner for docking; this is isolated to the scientific evaluation adapter, while the service control plane remains native.
+The dispatcher must accept the job JSON on stdin and return a JSON result or write the declared output file. If it is absent, live runs fail closed rather than running a misleading local fallback. BioTarget Stage D invokes the GNINA binary already installed in the GPU DockerWorker image; it never relies on a nested Docker socket.
 
 ## Output and safety
 

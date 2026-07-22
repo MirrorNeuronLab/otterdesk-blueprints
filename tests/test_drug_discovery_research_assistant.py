@@ -73,9 +73,7 @@ def test_drug_discovery_manifest_uses_source_format_and_shared_blocks():
     assert [step["id"] for step in manifest["workflow"]["steps"]] == list(STEP_SCRIPTS)
     assert manifest["agents"].get("extra_templates", []) == []
     assert manifest["defaults"]["worker"]["uses"] == "mn-agents.worker.python_host@1"
-    assert manifest["defaults"]["worker"]["with"]["python_environment"] == {
-        "requirements": "requirements.txt"
-    }
+    assert "python_environment" not in manifest["defaults"]["worker"]["with"]
     assert "blueprint_host_worker" in manifest["defaults"]["worker"]["with"]["stereotype"]
     assert {entry["source"] for entry in manifest["defaults"]["worker"]["with"]["upload_paths"]} == {
         "service",
@@ -95,6 +93,26 @@ def test_drug_discovery_manifest_uses_source_format_and_shared_blocks():
         "min_count": 1,
         "vendor": "nvidia",
     }
+    host_worker, gpu_worker = manifest["workers"]["groups"]
+    assert set(host_worker["steps"]) == {
+        "target_discovery",
+        "structure_generation",
+        "binding_evaluation",
+        "ranking_reporting",
+    }
+    assert host_worker["with"]["python_environment"] == {"requirements": "requirements.txt"}
+    assert gpu_worker["steps"] == ["candidate_generation"]
+    assert gpu_worker["uses"] == "mn-agents.worker.python_docker@1"
+    assert gpu_worker["with"]["gpus"] == "all"
+    assert gpu_worker["with"]["docker_worker_image"] == "docker_worker"
+    assert gpu_worker["with"]["image"] == "mirror-neuron/drug-discovery-research-assistant:drugclip-gnina"
+    assert gpu_worker["resources"]["gpu_count"] == 1
+    assert gpu_worker["resources"]["devices"] == [
+        {"kind": "gpu", "vendor": "nvidia", "driver": "cuda", "count": 1}
+    ]
+    assert gpu_worker["constraints"] == [
+        {"attribute": "capabilities", "operator": "contains_all", "value": ["nvidia", "cuda"]}
+    ]
 
     assert {step["id"] for step in manifest["workflow"]["steps"]} == set(STEP_SCRIPTS)
     assert set(manifest["agents"]["registry"]) == set(STEP_SCRIPTS)
@@ -162,8 +180,22 @@ def test_drug_discovery_source_manifest_expands_with_native_service_script():
     for step in STEP_SCRIPTS:
         config = step_nodes[f"{step}__{step}"]["config"]
         assert config["command"] == ["python3", "-m", "mn_sdk.step_runtime"]
-        assert config["runner_module"] == "MirrorNeuron.Runner.HostLocal"
-        assert config["python_environment"]["requirements"] == "requirements.txt"
+        if step == "candidate_generation":
+            assert config["runner_module"] == "MirrorNeuron.Runner.DockerWorker"
+            assert "python_environment" not in config
+            assert config["gpus"] == "all"
+            assert config["docker_worker_image"] == "docker_worker"
+            assert config["image"] == "mirror-neuron/drug-discovery-research-assistant:drugclip-gnina"
+        else:
+            assert config["runner_module"] == "MirrorNeuron.Runner.HostLocal"
+            assert config["python_environment"]["requirements"] == "requirements.txt"
+    candidate_node = step_nodes["candidate_generation__candidate_generation"]
+    assert candidate_node["resources"]["gpu_count"] == 1
+    assert candidate_node["constraints"][-1] == {
+        "attribute": "capabilities",
+        "operator": "contains_all",
+        "value": ["nvidia", "cuda"],
+    }
     assert expanded["workflow"]["steps"]
     assert expanded["runtime"]["resources"]["gpu"] == {
         "driver": "cuda",
@@ -198,8 +230,13 @@ def test_drug_discovery_bundles_biotarget_and_prefers_it_at_runtime():
     stage_d = (BLUEPRINT_DIR / "payloads" / "biotarget" / "stages" / "stage_d_evaluation.py").read_text(encoding="utf-8")
     assert "_mock_targets" not in stage_a
     assert "surrogate docking" not in stage_d
-    assert "MN_NODE_GPU_VENDOR" in stage_d
-    assert "requires_gnina_cpu_emulation" in stage_d
+    assert 'shutil.which("gnina")' in stage_d
+    assert '"docker",' not in stage_d
+    assert "requires_gnina_cpu_emulation" not in stage_d
+    dockerfile = (BLUEPRINT_DIR / "payloads" / "docker_worker" / "Dockerfile").read_text(encoding="utf-8")
+    assert "nvidia/cuda:13.0.0-cudnn-devel-ubuntu24.04" in dockerfile
+    assert "GNINA_VERSION=v1.3.2" in dockerfile
+    assert "CMAKE_CUDA_ARCHITECTURES=121" in dockerfile
 
 
 def test_continuous_service_fake_mode_writes_parallel_cycle_artifacts(tmp_path):
