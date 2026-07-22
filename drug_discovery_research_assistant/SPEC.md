@@ -20,7 +20,7 @@ The manifest hard-requires one NVIDIA CUDA GPU. MirrorNeuron resource validation
 
 ## Native cross-box contract
 
-Target discovery, structure generation, binding review, and reporting are `MirrorNeuron.Runner.HostLocal` workers. Candidate generation is the NVIDIA `DockerWorker`; it owns the continuous service and all real DrugClip/GNINA calls. Live cluster mode requires a native dispatcher command. The controller sends it a JSON job containing adapter name, target pool, expanded command, request path, output path, and request payload. BioTarget is bundled in `payloads/biotarget/` and native dependencies are declared in `payloads/requirements.txt`; the staged payload is preferred over any external source path. The dispatcher returns a JSON `result` or writes the output path. Missing dispatcher, bundled BioTarget package, checkpoint, GNINA binary, or adapter configuration is a live-run error.
+Target discovery, structure generation, binding review, and reporting are `MirrorNeuron.Runner.HostLocal` workers with only `payloads/host_requirements.txt` (`requests`). Candidate generation is the NVIDIA `DockerWorker`; it owns the continuous service and all real DrugClip/GNINA calls with the full `payloads/requirements.txt` stack. Live cluster mode requires a native dispatcher command. The controller sends it a JSON job containing adapter name, target pool, expanded command, request path, output path, and request payload. BioTarget is bundled in `payloads/biotarget/`; the staged payload is preferred over any external source path. The dispatcher returns a JSON `result` or writes the output path. Missing dispatcher, bundled BioTarget package, checkpoint, GNINA binary, or adapter configuration is a live-run error.
 
 ## Service lifecycle
 

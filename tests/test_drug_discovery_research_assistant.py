@@ -100,7 +100,7 @@ def test_drug_discovery_manifest_uses_source_format_and_shared_blocks():
         "binding_evaluation",
         "ranking_reporting",
     }
-    assert host_worker["with"]["python_environment"] == {"requirements": "requirements.txt"}
+    assert host_worker["with"]["python_environment"] == {"requirements": "host_requirements.txt"}
     assert gpu_worker["steps"] == ["candidate_generation"]
     assert gpu_worker["uses"] == "mn-agents.worker.python_docker@1"
     assert gpu_worker["with"]["gpus"] == "all"
@@ -152,6 +152,7 @@ def test_drug_discovery_model_profiles_match_vc_style_defaults():
     requirements = (BLUEPRINT_DIR / "payloads" / "requirements.txt").read_text(encoding="utf-8")
     for package in ("drugclip>=0.1.2", "torch>=2.0", "torch_geometric>=2.3", "requests"):
         assert package in requirements
+    assert (BLUEPRINT_DIR / "payloads" / "host_requirements.txt").read_text(encoding="utf-8") == "requests\n"
     for adapter_name in ("candidate_generator", "folding", "drugclip", "simulation"):
         assert config[adapter_name]["command"][0] == "python3"
         assert config[adapter_name]["command"][1] == "scripts/biotarget_adapter.py"
@@ -181,7 +182,7 @@ def test_drug_discovery_source_manifest_expands_with_native_service_script():
             assert config["image"] == "mirror-neuron/drug-discovery-research-assistant:drugclip-gnina"
         else:
             assert config["runner_module"] == "MirrorNeuron.Runner.HostLocal"
-            assert config["python_environment"]["requirements"] == "requirements.txt"
+            assert config["python_environment"]["requirements"] == "host_requirements.txt"
     assert expanded["workflow"]["steps"]
     assert expanded["runtime"]["resources"]["gpu"] == {
         "driver": "cuda",

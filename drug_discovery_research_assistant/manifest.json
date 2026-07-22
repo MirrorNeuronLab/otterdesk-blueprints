@@ -1409,7 +1409,7 @@
         ],
         "with": {
           "python_environment": {
-            "requirements": "requirements.txt"
+            "requirements": "host_requirements.txt"
           },
           "stereotype": [
             "blueprint_host_worker",

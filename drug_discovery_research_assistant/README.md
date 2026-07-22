@@ -25,7 +25,7 @@ The committed `config/overwrite.json` selects live native adapter mode. On the f
 
 ## Distributed native execution
 
-The target, structure, binding-review, and report workers use `MirrorNeuron.Runner.HostLocal`. The candidate-generation service uses `MirrorNeuron.Runner.DockerWorker` on the NVIDIA CUDA node, so its real DrugClip and GNINA work execute in the prepared GPU container rather than in the core runtime container. In live cluster mode, it sends JSON job specifications to a configured native dispatcher that places work in these pools:
+The target, structure, binding-review, and report workers use `MirrorNeuron.Runner.HostLocal` with the lightweight `payloads/host_requirements.txt` environment. The candidate-generation service uses `MirrorNeuron.Runner.DockerWorker` on the NVIDIA CUDA node, so its full `payloads/requirements.txt` DrugClip/GNINA stack executes in the prepared GPU container rather than in the core runtime container. In live cluster mode, it sends JSON job specifications to a configured native dispatcher that places work in these pools:
 
 - `science-generation`: candidate-generation jobs
 - `science-folding`: fan-out folding by target
