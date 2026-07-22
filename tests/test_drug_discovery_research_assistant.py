@@ -323,6 +323,26 @@ def test_continuous_service_uses_unique_work_directories_for_parallel_jobs(tmp_p
     assert first.parent == second.parent == tmp_path / "drugclip"
 
 
+def test_biotarget_adapter_makes_folded_structure_path_absolute(tmp_path):
+    adapter_path = BLUEPRINT_DIR / "payloads" / "service" / "scripts" / "biotarget_adapter.py"
+    spec = importlib.util.spec_from_file_location("drug_discovery_biotarget_adapter_path_test", adapter_path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+
+    receptor = tmp_path / "runs" / "structures" / "BACE1_P56817.pdb"
+    receptor.parent.mkdir(parents=True)
+    receptor.write_text("HEADER    TEST STRUCTURE\nEND\n", encoding="utf-8")
+
+    result = module.absolute_structure_result(
+        {"gene": "BACE1", "path": "./runs/structures/BACE1_P56817.pdb"},
+        tmp_path,
+    )
+
+    assert result["path"] == str(receptor.resolve())
+
+
 def test_continuous_service_live_mode_requires_native_adapter_contracts(tmp_path):
     service_path = BLUEPRINT_DIR / "payloads" / "service" / "scripts" / "continuous_service.py"
     spec = importlib.util.spec_from_file_location("drug_discovery_continuous_service_live_test", service_path)

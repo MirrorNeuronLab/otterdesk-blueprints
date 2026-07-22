@@ -155,6 +155,20 @@ def working_directory(path: Path) -> Iterator[None]:
         os.chdir(previous)
 
 
+def absolute_structure_result(structure: dict[str, Any], work_dir: Path) -> dict[str, Any]:
+    """Keep a folded receptor addressable after leaving its adapter cwd."""
+    raw_path = str(structure.get("path") or "").strip()
+    if not raw_path:
+        raise RuntimeError("BioTarget Stage B returned a structure without a path.")
+    path = Path(raw_path).expanduser()
+    if not path.is_absolute():
+        path = work_dir / path
+    path = path.resolve()
+    if not path.is_file():
+        raise RuntimeError(f"BioTarget Stage B structure does not exist: {path}")
+    return {**structure, "path": str(path)}
+
+
 def design_prompt(request: dict[str, Any]) -> str:
     if isinstance(request.get("design_prompt"), str) and request["design_prompt"].strip():
         return request["design_prompt"].strip()
@@ -251,11 +265,13 @@ def folding(request: dict[str, Any], work_dir: Path) -> dict[str, Any]:
         "gene": str(target.get("gene") or target.get("protein_id") or "TARGET"),
         "protein_id": str(target.get("protein_id") or target.get("gene") or "TARGET"),
     }
+    work_dir = work_dir.expanduser().resolve()
     with working_directory(work_dir):
         structures = stage_b_structure_generation([normalized_target], engine="openfold3")
     if not structures:
         raise RuntimeError("BioTarget Stage B returned no structure.")
-    return {"target": normalized_target, **structures[0], "provenance": "BioTarget Stage B"}
+    structure = absolute_structure_result(structures[0], work_dir)
+    return {"target": normalized_target, **structure, "provenance": "BioTarget Stage B"}
 
 
 def graph_text_score(request: dict[str, Any], _work_dir: Path) -> dict[str, Any]:
