@@ -4,7 +4,6 @@ ARG DEBIAN_FRONTEND=noninteractive
 ARG GNINA_VERSION=v1.3.2
 
 ENV DEBIAN_FRONTEND=${DEBIAN_FRONTEND} \
-    CXXFLAGS="-Wno-error=maybe-uninitialized" \
     PIP_ROOT_USER_ACTION=ignore \
     PYTHONUNBUFFERED=1
 
@@ -49,7 +48,8 @@ RUN python3 -m pip install --no-cache-dir "pytest>=8,<10"
 
 # GNINA is built natively for the selected CUDA worker; DockerWorker does not
 # expose a Docker socket, so Stage D executes this installed binary directly.
-RUN git clone --branch "${GNINA_VERSION}" --depth 1 https://github.com/gnina/gnina.git /tmp/gnina \
+RUN export CXXFLAGS="-Wno-error=maybe-uninitialized" \
+    && git clone --branch "${GNINA_VERSION}" --depth 1 https://github.com/gnina/gnina.git /tmp/gnina \
     && cmake -S /tmp/gnina -B /tmp/gnina/build \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_CUDA_ARCHITECTURES=121 \
