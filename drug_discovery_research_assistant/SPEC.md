@@ -14,6 +14,10 @@ Operate a continuously running, human-review-only computational discovery servic
 
 DrugClip is the problem-specific scientific checkpoint `homerquan/DrugClip`, loaded by the BioTarget adapter as `best.ckpt`. `mirrorneuron-use-generic-model-skill` validates the explicit Hugging Face reference before the model-specific adapter downloads the matching checkpoint and instantiates native `DrugCLIP`. DrugClip is never added to the shared LLM model list, and Docker Model Runner is intentionally not used because this repository is not a DMR-compatible generative model. Its 3D graph and text encoders provide the BioTarget Stage C selection and Stage D toxicity-alignment path; live runs fail rather than substitute a synthetic model or score.
 
+## NVIDIA CUDA requirement
+
+The manifest hard-requires one NVIDIA CUDA GPU. MirrorNeuron resource validation owns the hardware check and rejects Apple-Silicon and CPU-only nodes before scheduling a workflow. The native DrugClip adapter repeats that requirement at model load time by rejecting a PyTorch runtime without CUDA; it never falls back to CPU execution. GNINA runs with NVIDIA GPU access on the selected node.
+
 ## Native cross-box contract
 
 The service controller is a `MirrorNeuron.Runner.HostLocal` worker. Live cluster mode requires a native dispatcher command. The controller sends it a JSON job containing adapter name, target pool, expanded command, request path, output path, and request payload. BioTarget is bundled in `payloads/biotarget/` and native dependencies are declared in `payloads/requirements.txt`; the staged payload is preferred over any external source path. The dispatcher returns a JSON `result` or writes the output path. Missing dispatcher, bundled BioTarget package, checkpoint, or adapter configuration is a live-run error.
@@ -24,4 +28,4 @@ The service has no automatic completion time. It stops on a process termination 
 
 ## Safety and non-goals
 
-All results are computational hypotheses. The blueprint does not synthesize compounds, run assays, make clinical claims, submit regulatory material, or send candidates to external systems. Fake adapters are limited to explicit mock/smoke-test configuration and are labeled synthetic in every artifact. BioTarget Stage D's current GNINA invocation is containerized; the control service and cross-box adapters are native workers.
+All results are computational hypotheses. The blueprint does not synthesize compounds, run assays, make clinical claims, submit regulatory material, or send candidates to external systems. Fake adapters are limited to explicit mock/smoke-test configuration and are labeled synthetic in every artifact. BioTarget Stage D's current GNINA invocation is containerized on the selected NVIDIA node; the control service and cross-box adapters are native workers.

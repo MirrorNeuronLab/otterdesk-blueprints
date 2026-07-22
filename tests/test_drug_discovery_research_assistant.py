@@ -89,6 +89,12 @@ def test_drug_discovery_manifest_uses_source_format_and_shared_blocks():
     assert manifest["runtime"]["models"] == {
         "primary": {"provider": "docker_model_runner", "model": "default", "backend": "llama.cpp", "required": True}
     }
+    assert manifest["requirements"]["gpu"] == {
+        "driver": "cuda",
+        "enforcement": "hard",
+        "min_count": 1,
+        "vendor": "nvidia",
+    }
 
     assert {step["id"] for step in manifest["workflow"]["steps"]} == set(STEP_SCRIPTS)
     assert set(manifest["agents"]["registry"]) == set(STEP_SCRIPTS)
@@ -106,6 +112,13 @@ def test_drug_discovery_model_profiles_match_vc_style_defaults():
     assert config["service"]["candidate_count"] == 160
     assert config["service"]["candidate_pool_size"] == 800
     assert config["service"]["drugclip_scoring_batch_size"] == 64
+    assert config["resources"]["gpu"] == {
+        "min_count": 1,
+        "vendor": "nvidia",
+        "driver": "cuda",
+        "enforcement": "hard",
+    }
+    assert config["resources"]["required_capabilities"] == ["nvidia", "cuda"]
     assert config["outputs"]["folder_path"] == "~/Downloads/drug_discovery_research_assistant"
     assert config["llm"]["model"] == "default"
     assert "runtime_model" not in config["llm"]
@@ -152,7 +165,12 @@ def test_drug_discovery_source_manifest_expands_with_native_service_script():
         assert config["runner_module"] == "MirrorNeuron.Runner.HostLocal"
         assert config["python_environment"]["requirements"] == "requirements.txt"
     assert expanded["workflow"]["steps"]
-    assert expanded["runtime"]["resources"]["gpu"] == {"min_count": 0}
+    assert expanded["runtime"]["resources"]["gpu"] == {
+        "driver": "cuda",
+        "enforcement": "hard",
+        "min_count": 1,
+        "vendor": "nvidia",
+    }
 
 
 def test_drug_discovery_stage_environment_propagates_biotarget_source():
@@ -168,6 +186,7 @@ def test_drug_discovery_bundles_biotarget_and_prefers_it_at_runtime():
     assert "normalize_model_reference" in adapter
     assert "prepare_model(" not in adapter
     assert "drugclip_scoring_batch_size" in adapter
+    assert "requires an NVIDIA CUDA PyTorch runtime" in adapter
     service = (BLUEPRINT_DIR / "payloads" / "service" / "scripts" / "continuous_service.py").read_text(encoding="utf-8")
     assert '"candidates": candidates' in service
     assert "DrugClip batch adapter returned incomplete target-candidate scores." in service

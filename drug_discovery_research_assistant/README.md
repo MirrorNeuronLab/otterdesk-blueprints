@@ -9,6 +9,8 @@ This blueprint runs a review-only discovery service until it is closed manually.
 
 DrugClip is a problem-specific scientific checkpoint, not a shared LLM model. The adapter uses `mirrorneuron-use-generic-model-skill` to validate the explicit `https://huggingface.co/homerquan/DrugClip` reference, then downloads `best.ckpt` and runs it through the native `DrugCLIP` graph/text adapter. Docker Model Runner is deliberately not used: the repository is a checkpoint-only graph/text model, not a DMR-compatible generative model. No fake adapter or surrogate score is used in live mode.
 
+This blueprint requires one NVIDIA CUDA GPU. The manifest declares that as a hard runtime requirement, so the platform rejects Apple-Silicon and CPU-only nodes before a workflow is submitted. The native DrugClip adapter also rejects a CPU-only PyTorch installation rather than silently falling back to CPU execution.
+
 ## Running and stopping
 
 Start the service with:
@@ -19,7 +21,7 @@ mn run drug_discovery_research_assistant
 
 The service continues until the runtime sends `SIGTERM`/`SIGINT` or the configured `STOP` file is created under the run directory. It writes `service_state.json` and per-cycle artifacts under `cycles/` while it runs.
 
-The committed `config/overwrite.json` selects live native adapter mode. On the first model-dependent adapter call, the generic-model skill validates the configured `https://huggingface.co/homerquan/DrugClip` reference without adding it to the shared model catalog; the native adapter then loads `best.ckpt` from the same repository when it is not cached. The BioTarget source is bundled under `payloads/biotarget/`, and its native dependencies are declared in `payloads/requirements.txt`; no external BioTarget checkout is required. GNINA Docker and the Open Targets/AlphaFold network APIs remain external live-run requirements. To run a bounded test, provide `service.max_cycles` through the runtime override. Fake adapters are limited to explicit mock/smoke-test overrides.
+The committed `config/overwrite.json` selects live native adapter mode. On the first model-dependent adapter call, the generic-model skill validates the configured `https://huggingface.co/homerquan/DrugClip` reference without adding it to the shared model catalog; the native adapter then loads `best.ckpt` from the same repository when it is not cached. The BioTarget source is bundled under `payloads/biotarget/`, and its native dependencies are declared in `payloads/requirements.txt`; no external BioTarget checkout is required. GNINA Docker and the Open Targets/AlphaFold network APIs remain external live-run requirements on the NVIDIA node. To run a bounded test, provide `service.max_cycles` through the runtime override. Fake adapters are limited to explicit mock/smoke-test overrides.
 
 ## Distributed native execution
 

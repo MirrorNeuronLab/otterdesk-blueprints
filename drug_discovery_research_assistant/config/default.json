@@ -772,13 +772,24 @@
     }
   },
   "resources": {
-    "enabled": false,
-    "gpu_enabled": "auto",
+    "enabled": true,
+    "gpu_enabled": true,
     "gpu_sample_interval_seconds": 60,
     "history_window_hours": 24,
     "raw_retention_hours": 48,
     "rollup_bucket_seconds": 3600,
-    "sample_interval_seconds": 10
+    "sample_interval_seconds": 10,
+    "gpu_count": 1,
+    "gpu": {
+      "min_count": 1,
+      "vendor": "nvidia",
+      "driver": "cuda",
+      "enforcement": "hard"
+    },
+    "required_capabilities": [
+      "nvidia",
+      "cuda"
+    ]
   },
   "schemas": {
     "artifact_record": "mn.artifact.record.v1",

@@ -1338,7 +1338,10 @@
       "min_gb": 1
     },
     "gpu": {
-      "min_count": 0
+      "driver": "cuda",
+      "enforcement": "hard",
+      "min_count": 1,
+      "vendor": "nvidia"
     },
     "memory": {
       "min_gb": 2

@@ -130,7 +130,12 @@ def load_drugclip(request: dict[str, Any]) -> tuple[Any, Any]:
             )
         )
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if not torch.cuda.is_available():
+        raise RuntimeError(
+            "DrugClip requires an NVIDIA CUDA PyTorch runtime; no CUDA device is available. "
+            "This blueprint is not supported on Apple or CPU-only workers."
+        )
+    device = torch.device("cuda")
     model = DrugCLIP(hidden_channels=64, out_dim=128, text_model="distilbert-base-uncased")
     state_dict = torch.load(checkpoint, map_location=device)
     model.load_state_dict(state_dict)
