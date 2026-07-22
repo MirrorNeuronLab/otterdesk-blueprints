@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any, Iterator
 
 
-_GENERIC_MODEL_BINDINGS: dict[str, Any] = {}
+_MODEL_REFERENCE_VALIDATIONS: dict[str, dict[str, Any]] = {}
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -48,59 +48,63 @@ def drugclip_config(request: dict[str, Any]) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
 
-def prepare_problem_specific_model(request: dict[str, Any]) -> dict[str, Any] | None:
-    """Prepare DrugClip without declaring it as a shared LLM runtime model."""
+def prepare_problem_specific_model(request: dict[str, Any]) -> dict[str, Any]:
+    """Validate the DrugClip source before its native checkpoint is loaded.
+
+    DrugClip is a graph/text checkpoint, not a generative model that Docker
+    Model Runner can serve.  The generic-model skill therefore owns canonical
+    Hugging Face reference validation; this adapter owns the actual native
+    checkpoint download and ``DrugCLIP`` execution.
+    """
     config = drugclip_config(request)
     generic = config.get("generic_model") if isinstance(config.get("generic_model"), dict) else {}
-    if generic.get("enabled") is False:
-        return None
+    if generic.get("enabled") is not True:
+        raise RuntimeError(
+            "DrugClip cannot run: native checkpoint execution requires generic_model reference validation to be enabled."
+        )
     model_ref = str(generic.get("model_ref") or config.get("model_ref") or "").strip()
     if not model_ref:
         raise RuntimeError("DrugClip cannot run: no Hugging Face model reference is configured.")
-    cache_key = json.dumps(
-        {
-            "model_ref": model_ref,
-            "runtime": generic.get("runtime", "auto"),
-            "backend": generic.get("backend", "auto"),
-            "context_size": generic.get("context_size"),
-            "docker": generic.get("docker"),
-        },
-        sort_keys=True,
-        default=str,
-    )
-    cached = _GENERIC_MODEL_BINDINGS.get(cache_key)
+    cached = _MODEL_REFERENCE_VALIDATIONS.get(model_ref)
     if cached is not None:
         return cached
     try:
-        from mn_use_generic_model_skill import (
-            GenericModelUnavailableError,
-            prepare_model,
-        )
+        from mn_use_generic_model_skill import normalize_model_reference
 
-        docker = generic.get("docker") if isinstance(generic.get("docker"), dict) else None
-        if isinstance(docker, dict) and docker.get("enabled") is not True:
-            docker = None
-        binding = prepare_model(
-            model_ref,
-            runtime=str(generic.get("runtime") or "auto"),
-            backend=str(generic.get("backend") or "auto"),
-            context_size=generic.get("context_size"),
-            docker=docker,
-        )
+        source_model, normalized_model = normalize_model_reference(model_ref)
     except ImportError as error:  # pragma: no cover - depends on native worker image
         raise RuntimeError("DrugClip cannot run: mirrorneuron-use-generic-model-skill is not installed on this worker.") from error
-    except GenericModelUnavailableError as error:
-        raise RuntimeError(str(error)) from error
     except Exception as error:
-        raise RuntimeError(f"DrugClip cannot run: {error}") from error
-    result = binding.to_dict()
-    _GENERIC_MODEL_BINDINGS[cache_key] = result
+        raise RuntimeError(f"DrugClip cannot validate its Hugging Face model reference: {error}") from error
+
+    repository = normalized_model
+    for prefix in ("hf.co/", "huggingface.co/"):
+        if repository.startswith(prefix):
+            repository = repository[len(prefix) :]
+            break
+    repository, separator, revision = repository.partition(":")
+    if not repository or "/" not in repository:
+        raise RuntimeError(f"DrugClip cannot run: invalid normalized Hugging Face repository {normalized_model!r}.")
+    configured_repository = str(config.get("checkpoint_repo") or repository).strip()
+    if configured_repository != repository:
+        raise RuntimeError(
+            "DrugClip checkpoint repository must match the validated model reference: "
+            f"{configured_repository!r} != {repository!r}."
+        )
+    result = {
+        "model_ref": source_model,
+        "normalized_model_ref": normalized_model,
+        "checkpoint_repo": repository,
+        "checkpoint_revision": revision or None,
+        "execution": "native_checkpoint",
+    }
+    _MODEL_REFERENCE_VALIDATIONS[model_ref] = result
     return result
 
 
 def load_drugclip(request: dict[str, Any]) -> tuple[Any, Any]:
     """Load the exact graph-text checkpoint used by the local BioTarget stages."""
-    prepare_problem_specific_model(request)
+    model_reference = prepare_problem_specific_model(request)
     biotarget_source(request)
     import torch
     from drugclip.models.align_model import DrugCLIP
@@ -112,13 +116,19 @@ def load_drugclip(request: dict[str, Any]) -> tuple[Any, Any]:
         if not checkpoint.is_file():
             raise RuntimeError(f"Configured DrugClip checkpoint does not exist: {checkpoint}")
     else:
-        repo_id = str(config.get("checkpoint_repo") or "homerquan/DrugClip")
+        repo_id = str(model_reference["checkpoint_repo"])
         filename = str(config.get("checkpoint_filename") or "best.ckpt")
         try:
             from huggingface_hub import hf_hub_download
         except ImportError as error:  # pragma: no cover - depends on native worker image
             raise RuntimeError("BioTarget DrugClip loading requires huggingface_hub or DRUGCLIP_CHECKPOINT.") from error
-        checkpoint = Path(hf_hub_download(repo_id=repo_id, filename=filename))
+        checkpoint = Path(
+            hf_hub_download(
+                repo_id=repo_id,
+                filename=filename,
+                revision=model_reference.get("checkpoint_revision") or None,
+            )
+        )
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = DrugCLIP(hidden_channels=64, out_dim=128, text_model="distilbert-base-uncased")
@@ -183,20 +193,32 @@ def candidate_generation(request: dict[str, Any], work_dir: Path) -> dict[str, A
     model, device = load_drugclip(request)
     service = request.get("service") if isinstance(request.get("service"), dict) else {}
     candidate_count = int(service.get("candidate_count") or service.get("simulation_top_k", 16) * 10)
-    pool = get_seed_smiles(max(3000, candidate_count * 5))
+    candidate_pool_size = int(service.get("candidate_pool_size") or candidate_count * 5)
+    if candidate_count < 1:
+        raise RuntimeError("DrugClip candidate_count must be at least one.")
+    if candidate_pool_size < candidate_count:
+        raise RuntimeError("DrugClip candidate_pool_size must be at least candidate_count.")
+    scoring_batch_size = int(service.get("drugclip_scoring_batch_size") or 64)
+    if scoring_batch_size < 1:
+        raise RuntimeError("DrugClip drugclip_scoring_batch_size must be at least one.")
+    pool = get_seed_smiles(candidate_pool_size)
     valid_smiles: list[str] = []
     graphs: list[Any] = []
     for smiles in pool:
         try:
             graphs.append(molecule_graph(str(smiles)))
             valid_smiles.append(str(smiles))
-        except RuntimeError:
+        except (RuntimeError, ValueError):
             continue
     if not graphs:
         raise RuntimeError("BioTarget candidate pool produced no valid DrugClip molecular graphs.")
-    scores = score_graphs(model, device, graphs, design_prompt(request))
+    prompt = design_prompt(request)
+    scores: list[float] = []
+    for offset in range(0, len(graphs), scoring_batch_size):
+        batch_scores = score_graphs(model, device, graphs[offset : offset + scoring_batch_size], prompt)
+        scores.extend(float(value) for value in batch_scores.detach().cpu().tolist())
     selected = sorted(
-        ((float(scores[index].item()), smiles) for index, smiles in enumerate(valid_smiles)),
+        ((scores[index], smiles) for index, smiles in enumerate(valid_smiles)),
         key=lambda item: (-item[0], item[1]),
     )[:candidate_count]
     return {
@@ -232,23 +254,57 @@ def folding(request: dict[str, Any], work_dir: Path) -> dict[str, Any]:
 
 
 def graph_text_score(request: dict[str, Any], _work_dir: Path) -> dict[str, Any]:
+    """Score one candidate or a batch against the same therapeutic prompt.
+
+    Batch requests are the live service contract.  Loading a fresh DrugClip
+    checkpoint for every candidate would multiply the real model's startup
+    cost without changing the graph/text score.
+    """
     prepare_problem_specific_model(request)
     biotarget_source(request)
 
-    candidate = request.get("candidate") if isinstance(request.get("candidate"), dict) else {}
+    batch = request.get("candidates") if isinstance(request.get("candidates"), list) else None
+    candidates = batch if batch is not None else [request.get("candidate")]
+    normalized_candidates = [candidate for candidate in candidates if isinstance(candidate, dict)]
+    if not normalized_candidates:
+        raise RuntimeError("DrugClip scoring request requires one or more candidate objects.")
     structure = request.get("structure") if isinstance(request.get("structure"), dict) else {}
-    smiles = str(candidate.get("smiles") or "")
-    if not smiles:
-        raise RuntimeError("DrugClip scoring request requires candidate.smiles.")
     model, device = load_drugclip(request)
-    score = float(score_graphs(model, device, [molecule_graph(smiles)], design_prompt(request))[0].item())
-    return {
-        "candidate": candidate,
-        "structure": structure,
-        "drugclip_score": score,
-        "provenance": "homerquan/DrugClip graph-text alignment via BioTarget",
-        "model_ref": drugclip_config(request).get("model_ref", "hf.co/homerquan/DrugClip"),
-    }
+    service = request.get("service") if isinstance(request.get("service"), dict) else {}
+    batch_size = int(service.get("drugclip_scoring_batch_size") or 64)
+    if batch_size < 1:
+        raise RuntimeError("DrugClip drugclip_scoring_batch_size must be at least one.")
+    graphs: list[Any] = []
+    valid_candidates: list[dict[str, Any]] = []
+    for candidate in normalized_candidates:
+        smiles = str(candidate.get("smiles") or "")
+        if not smiles:
+            raise RuntimeError("DrugClip scoring request requires each candidate to include smiles.")
+        try:
+            graph = molecule_graph(smiles)
+        except (RuntimeError, ValueError) as error:
+            candidate_id = str(candidate.get("candidate_id") or smiles)
+            raise RuntimeError(f"DrugClip could not construct a graph for candidate {candidate_id!r}.") from error
+        graphs.append(graph)
+        valid_candidates.append(candidate)
+    scores: list[float] = []
+    prompt = design_prompt(request)
+    for offset in range(0, len(graphs), batch_size):
+        values = score_graphs(model, device, graphs[offset : offset + batch_size], prompt)
+        scores.extend(float(value) for value in values.detach().cpu().tolist())
+    screens = [
+        {
+            "candidate": candidate,
+            "structure": structure,
+            "drugclip_score": scores[index],
+            "provenance": "homerquan/DrugClip graph-text alignment via BioTarget",
+            "model_ref": drugclip_config(request).get("model_ref", "hf.co/homerquan/DrugClip"),
+        }
+        for index, candidate in enumerate(valid_candidates)
+    ]
+    if batch is None:
+        return screens[0]
+    return {"screens": screens}
 
 
 def simulation(request: dict[str, Any], work_dir: Path) -> dict[str, Any]:

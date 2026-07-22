@@ -12,6 +12,18 @@ from rdkit.Chem import AllChem
 from biotarget.core.utils import normalize_01
 
 
+def requires_gnina_cpu_emulation():
+    """Return whether GNINA must run as an emulated amd64 CPU container."""
+    machine = platform.machine().lower()
+    gpu_vendor = os.environ.get("MN_NODE_GPU_VENDOR", "").lower()
+    gpu_type = os.environ.get("MN_NODE_GPU_TYPE", "").lower()
+    return (
+        machine in {"aarch64", "arm64"}
+        or gpu_vendor == "apple"
+        or gpu_type.startswith("apple/")
+    )
+
+
 def run_gnina(receptor_path, ligand_smiles):
     # Verify docker
     if not shutil.which("docker"):
@@ -59,8 +71,9 @@ def run_gnina(receptor_path, ligand_smiles):
             "--rm",
         ]
 
-        # Handle ARM emulation vs x86_64 GPU execution
-        if platform.machine().lower() in ["aarch64", "arm64"]:
+        # The Linux worker reports x86_64 even when its selected runtime node
+        # is Apple Silicon, so include the runtime GPU metadata in this check.
+        if requires_gnina_cpu_emulation():
             # On ARM we must override the nvidia_entrypoint.sh which strictly fails without a GPU on x86 container
             cmd.extend(["--platform", "linux/amd64", "--entrypoint", ""])
         else:
@@ -88,6 +101,12 @@ def run_gnina(receptor_path, ligand_smiles):
             cmd, capture_output=True, text=True, timeout=300
         )  # Increased timeout for slow emulation
 
+        if result.returncode != 0:
+            detail = (result.stderr or result.stdout or "").strip()
+            raise RuntimeError(
+                f"GNINA failed with exit code {result.returncode}: {detail[:500]}"
+            )
+
         for line in result.stdout.split("\n"):
             if "CNN_VS" in line:
                 pass  # gnina prints some lines starting with CNN_VS
@@ -108,14 +127,12 @@ def run_gnina(receptor_path, ligand_smiles):
                     except (ValueError, IndexError):
                         pass
 
-        if result.returncode != 0:
-            print(f"\n[!] gnina failed with return code {result.returncode}")
-            print(f"[!] stderr: {result.stderr.strip()}")
-            print(f"[!] stdout: {result.stdout.strip()[:500]}...")
-    except subprocess.TimeoutExpired:
-        print("\n[!] gnina timed out (this is common on ARM CPU emulation).")
-    except Exception as e:
-        print(f"\n[!] gnina execution exception: {e}")
+    except subprocess.TimeoutExpired as error:
+        raise RuntimeError("GNINA timed out during CPU emulation.") from error
+    except RuntimeError:
+        raise
+    except Exception as error:
+        raise RuntimeError(f"GNINA execution failed: {error}") from error
     finally:
         if ligand_sdf and os.path.exists(ligand_sdf):
             os.remove(ligand_sdf)

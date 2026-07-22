@@ -57,12 +57,26 @@ def _run_script(ctx: dict[str, Any], state: dict[str, Any], script: str, payload
         "MN_BLUEPRINT_CONFIG_JSON": json.dumps(_stage_config(ctx, state)),
         "MN_SCIENCE_FAKE_MODE": "1" if str((ctx["config"].get("mode") or "")).lower() in {"fake", "mock"} else "0",
     })
+    # The continuous service writes its own JSON artifacts and emits the
+    # HostLocal beacon protocol on stdout.  Do not capture that output here:
+    # swallowing it makes the outer worker look idle while DrugClip is loading
+    # or scoring, which causes a false liveness timeout.
+    capture_output = script != "run_continuous_service.py"
     completed = subprocess.run(
-        [sys.executable, str(SCRIPTS / script)], cwd=run_dir, env=environment,
-        capture_output=True, text=True, check=False, timeout=timeout,
+        [sys.executable, str(SCRIPTS / script)],
+        cwd=run_dir,
+        env=environment,
+        capture_output=capture_output,
+        text=True,
+        check=False,
+        timeout=timeout,
     )
     if completed.returncode:
-        raise RuntimeError(f"{script} failed: {completed.stderr.strip() or completed.stdout.strip()}")
+        stderr = (completed.stderr or "").strip()
+        stdout = (completed.stdout or "").strip()
+        raise RuntimeError(f"{script} failed: {stderr or stdout}")
+    if not capture_output:
+        return {}
     for line in reversed(completed.stdout.splitlines()):
         try:
             parsed = json.loads(line)

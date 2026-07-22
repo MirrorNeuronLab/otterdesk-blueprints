@@ -390,6 +390,9 @@
     "worker": {
       "uses": "mn-agents.worker.python_host@1",
       "with": {
+        "python_environment": {
+          "requirements": "requirements.txt"
+        },
         "stereotype": [
           "blueprint_host_worker",
           "internal_write_worker"

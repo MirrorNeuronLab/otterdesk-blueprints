@@ -12,8 +12,11 @@ try:
     if os.environ.get("BIOTARGET_SOURCE_DIR"):
         sys.path.append(os.environ["BIOTARGET_SOURCE_DIR"])
     from biotarget.stages.stage_b_structure import stage_b_structure_generation
-except Exception:
+except Exception as error:
     stage_b_structure_generation = None
+    stage_b_import_error = error
+else:
+    stage_b_import_error = None
 
 logger = get_logger("mn.blueprint.drug_discovery.stage_b")
 
@@ -66,7 +69,10 @@ def main():
     logger.info("Stage B: generating structures for %d targets", len(targets))
     if stage_b_structure_generation is None:
         if not fake_mode():
-            raise RuntimeError("Live folding is owned by the continuous service and requires the configured folding adapter; synthetic structures are fake-mode only.")
+            raise RuntimeError(
+                "Live structure generation could not import the bundled BioTarget adapter: "
+                f"{stage_b_import_error}"
+            ) from stage_b_import_error
         structures = fallback_structure_generation(targets)
     else:
         try:

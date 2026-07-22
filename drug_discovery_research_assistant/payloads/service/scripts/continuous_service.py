@@ -174,7 +174,12 @@ def run_native_adapter(
         raise RuntimeError(f"cluster dispatch for {adapter_name} returned no result")
     process = subprocess.run(_expand_command(command, values), text=True, capture_output=True, check=False, cwd=service_root, env=adapter_environment, timeout=int((config.get(adapter_name) or {}).get("timeout_seconds", 1800)))
     if process.returncode:
-        raise RuntimeError(f"native {adapter_name} adapter failed: {process.stderr.strip()}")
+        stderr = process.stderr.strip()
+        stdout = process.stdout.strip()
+        diagnostics = stderr
+        if stdout:
+            diagnostics = f"{diagnostics}\nstdout (tail): {stdout[-4000:]}".strip()
+        raise RuntimeError(f"native {adapter_name} adapter failed: {diagnostics}")
     return _parse_command_result(process, output_path)
 
 
@@ -298,17 +303,30 @@ def run_cycle(config: dict[str, Any], run_dir: Path, cycle_id: int) -> dict[str,
     structures = _parallel(targets, int(parallelism.get("folding_workers", 2)), fold_target)
     json_dump(cycle_dir / "folding_results.json", structures)
 
-    screening_jobs = [{"structure": structure, "candidate": candidate} for structure in structures for candidate in candidates]
-    def screen(job: dict[str, Any]) -> dict[str, Any]:
+    def screen_structure(structure: dict[str, Any]) -> list[dict[str, Any]]:
         if fake:
-            return fake_score(job["structure"], job["candidate"])
-        target = job["structure"].get("target") if isinstance(job["structure"].get("target"), dict) else {}
-        target_id = target.get("protein_id") or target.get("gene") or job["structure"].get("path") or "target"
-        candidate_id = job["candidate"].get("candidate_id") or job["candidate"].get("smiles") or "candidate"
-        result = run_native_adapter("drugclip", config, {"cycle_id": cycle_id, "design_prompt": design_prompt_from_config(config), **job}, job_artifact_dir(cycle_dir, "drugclip", target_id, candidate_id), str(pools.get("drugclip", "science-drugclip")))
-        return result if isinstance(result, dict) else {**job, "result": result}
+            return [fake_score(structure, candidate) for candidate in candidates]
+        target = structure.get("target") if isinstance(structure.get("target"), dict) else {}
+        target_id = target.get("protein_id") or target.get("gene") or structure.get("path") or "target"
+        result = run_native_adapter(
+            "drugclip",
+            config,
+            {
+                "cycle_id": cycle_id,
+                "design_prompt": design_prompt_from_config(config),
+                "structure": structure,
+                "candidates": candidates,
+            },
+            job_artifact_dir(cycle_dir, "drugclip", target_id),
+            str(pools.get("drugclip", "science-drugclip")),
+        )
+        screens = result.get("screens") if isinstance(result, dict) else None
+        if not isinstance(screens, list) or len(screens) != len(candidates):
+            raise RuntimeError("DrugClip batch adapter returned incomplete target-candidate scores.")
+        return [item for item in screens if isinstance(item, dict)]
 
-    screens = _parallel(screening_jobs, int(parallelism.get("drugclip_workers", 4)), screen)
+    screened_groups = _parallel(structures, int(parallelism.get("drugclip_workers", 4)), screen_structure)
+    screens = [screen for group in screened_groups for screen in group]
     screens.sort(key=screen_sort_key)
     top_k = int((config.get("service") or {}).get("simulation_top_k", 16))
     selected = screens[:top_k]

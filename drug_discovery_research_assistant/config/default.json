@@ -603,6 +603,9 @@
     "stop_file": "${MN_RUN_DIR}/STOP",
     "cycle_interval_seconds": 15,
     "max_cycles": null,
+    "candidate_count": 160,
+    "candidate_pool_size": 800,
+    "drugclip_scoring_batch_size": 64,
     "simulation_top_k": 16,
     "parallelism": {
       "folding_workers": 2,
@@ -676,19 +679,11 @@
       "ownership": "blueprint_problem_specific",
       "shared_model_catalog": false,
       "model_ref": "https://huggingface.co/homerquan/DrugClip",
-      "runtime": "auto",
-      "backend": "auto",
-      "context_size": null,
+      "runtime": "native_checkpoint",
+      "execution": "native_checkpoint",
+      "validator": "mirrorneuron-use-generic-model-skill",
       "failure_policy": "fail_closed",
-      "installation_policy": "try Docker Model Runner on the strongest eligible cluster node first; otherwise use only an explicitly configured model-specific Docker runtime.",
-      "docker": {
-        "enabled": false,
-        "prefer_nvidia": true,
-        "image": "",
-        "command": [],
-        "api_base": "",
-        "activation": "Set enabled, image, command, and api_base for a DrugClip-specific Docker server. The fallback runs docker with --gpus all and fails when NVIDIA Docker support is unavailable."
-      }
+      "installation_policy": "Validate the explicit Hugging Face reference with mirrorneuron-use-generic-model-skill, then load best.ckpt through the native DrugCLIP checkpoint adapter. Docker Model Runner is intentionally unsupported for this checkpoint-only repository."
     },
     "checkpoint_repo": "homerquan/DrugClip",
     "checkpoint_filename": "best.ckpt",

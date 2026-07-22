@@ -12,7 +12,7 @@ Operate a continuously running, human-review-only computational discovery servic
 4. Simulations fan out over the best DrugCLIP-ranked candidates across the `science-simulation` pool.
 5. The native control worker fans results in, writes a cycle report, and starts the next cycle.
 
-DrugClip is the problem-specific scientific checkpoint `homerquan/DrugClip`, loaded by the BioTarget adapter as `best.ckpt`. Before the model-specific adapter loads it, `mirrorneuron-use-generic-model-skill` attempts to prepare the unverified Hugging Face repository with Docker Model Runner on the strongest eligible cluster node. DrugClip is never added to the shared LLM model list. If DMR cannot serve it, the only allowed fallback is an explicitly configured DrugClip Docker server that requests NVIDIA GPU access; when neither route works, the dependent adapter fails with a cannot-run error. Its 3D graph and text encoders provide the BioTarget Stage C selection and Stage D toxicity-alignment path.
+DrugClip is the problem-specific scientific checkpoint `homerquan/DrugClip`, loaded by the BioTarget adapter as `best.ckpt`. `mirrorneuron-use-generic-model-skill` validates the explicit Hugging Face reference before the model-specific adapter downloads the matching checkpoint and instantiates native `DrugCLIP`. DrugClip is never added to the shared LLM model list, and Docker Model Runner is intentionally not used because this repository is not a DMR-compatible generative model. Its 3D graph and text encoders provide the BioTarget Stage C selection and Stage D toxicity-alignment path; live runs fail rather than substitute a synthetic model or score.
 
 ## Native cross-box contract
 

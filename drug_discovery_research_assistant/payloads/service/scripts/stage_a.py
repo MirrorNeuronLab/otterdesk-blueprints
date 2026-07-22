@@ -11,8 +11,11 @@ try:
     if os.environ.get("BIOTARGET_SOURCE_DIR"):
         sys.path.append(os.environ["BIOTARGET_SOURCE_DIR"])
     from biotarget.stages.stage_a_discovery import stage_a_target_discovery
-except Exception:
+except Exception as error:
     stage_a_target_discovery = None
+    stage_a_import_error = error
+else:
+    stage_a_import_error = None
 
 logger = get_logger("mn.blueprint.drug_discovery.stage_a")
 
@@ -46,7 +49,10 @@ def main():
     logger.info("Stage A: discovering targets for %s", disease)
     if stage_a_target_discovery is None:
         if not fake_mode():
-            raise RuntimeError("Live target discovery requires the configured BioTarget target-discovery adapter; synthetic target fallback is fake-mode only.")
+            raise RuntimeError(
+                "Live target discovery could not import the bundled BioTarget adapter: "
+                f"{stage_a_import_error}"
+            ) from stage_a_import_error
         targets = fallback_targets()
     else:
         try:

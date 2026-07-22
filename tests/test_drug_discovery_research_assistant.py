@@ -73,6 +73,9 @@ def test_drug_discovery_manifest_uses_source_format_and_shared_blocks():
     assert [step["id"] for step in manifest["workflow"]["steps"]] == list(STEP_SCRIPTS)
     assert manifest["agents"].get("extra_templates", []) == []
     assert manifest["defaults"]["worker"]["uses"] == "mn-agents.worker.python_host@1"
+    assert manifest["defaults"]["worker"]["with"]["python_environment"] == {
+        "requirements": "requirements.txt"
+    }
     assert "blueprint_host_worker" in manifest["defaults"]["worker"]["with"]["stereotype"]
     assert {entry["source"] for entry in manifest["defaults"]["worker"]["with"]["upload_paths"]} == {
         "service",
@@ -100,6 +103,9 @@ def test_drug_discovery_model_profiles_match_vc_style_defaults():
     assert config["execution"]["fake_science_adapters"] is False
     assert config["service"]["run_until"] == "manual_stop"
     assert config["service"]["max_cycles"] is None
+    assert config["service"]["candidate_count"] == 160
+    assert config["service"]["candidate_pool_size"] == 800
+    assert config["service"]["drugclip_scoring_batch_size"] == 64
     assert config["outputs"]["folder_path"] == "~/Downloads/drug_discovery_research_assistant"
     assert config["llm"]["model"] == "default"
     assert "runtime_model" not in config["llm"]
@@ -112,7 +118,8 @@ def test_drug_discovery_model_profiles_match_vc_style_defaults():
     assert "runtime_model_key" not in config["drugclip"]
     assert config["drugclip"]["model_ref"] == "hf.co/homerquan/DrugClip"
     assert config["drugclip"]["generic_model"]["model_ref"] == "https://huggingface.co/homerquan/DrugClip"
-    assert config["drugclip"]["generic_model"]["runtime"] == "auto"
+    assert config["drugclip"]["generic_model"]["runtime"] == "native_checkpoint"
+    assert config["drugclip"]["generic_model"]["validator"] == "mirrorneuron-use-generic-model-skill"
     assert config["drugclip"]["generic_model"]["shared_model_catalog"] is False
     assert config["drugclip"]["checkpoint_filename"] == "best.ckpt"
     assert config["drugclip"]["source_repository"] == "@/payloads"
@@ -143,6 +150,7 @@ def test_drug_discovery_source_manifest_expands_with_native_service_script():
         config = step_nodes[f"{step}__{step}"]["config"]
         assert config["command"] == ["python3", "-m", "mn_sdk.step_runtime"]
         assert config["runner_module"] == "MirrorNeuron.Runner.HostLocal"
+        assert config["python_environment"]["requirements"] == "requirements.txt"
     assert expanded["workflow"]["steps"]
     assert expanded["runtime"]["resources"]["gpu"] == {"min_count": 0}
 
@@ -157,10 +165,22 @@ def test_drug_discovery_bundles_biotarget_and_prefers_it_at_runtime():
     adapter = (BLUEPRINT_DIR / "payloads" / "service" / "scripts" / "biotarget_adapter.py").read_text(encoding="utf-8")
     assert 'bundled / "biotarget" / "pipeline.py"' in adapter
     assert "configured = os.environ" not in adapter
+    assert "normalize_model_reference" in adapter
+    assert "prepare_model(" not in adapter
+    assert "drugclip_scoring_batch_size" in adapter
+    service = (BLUEPRINT_DIR / "payloads" / "service" / "scripts" / "continuous_service.py").read_text(encoding="utf-8")
+    assert '"candidates": candidates' in service
+    assert "DrugClip batch adapter returned incomplete target-candidate scores." in service
+    operations = (BLUEPRINT_DIR / "payloads" / "domain" / "operations.py").read_text(encoding="utf-8")
+    assert 'capture_output = script != "run_continuous_service.py"' in operations
+    continuous_service = (BLUEPRINT_DIR / "payloads" / "service" / "scripts" / "continuous_service.py").read_text(encoding="utf-8")
+    assert "stdout (tail)" in continuous_service
     stage_a = (BLUEPRINT_DIR / "payloads" / "biotarget" / "stages" / "stage_a_discovery.py").read_text(encoding="utf-8")
     stage_d = (BLUEPRINT_DIR / "payloads" / "biotarget" / "stages" / "stage_d_evaluation.py").read_text(encoding="utf-8")
     assert "_mock_targets" not in stage_a
     assert "surrogate docking" not in stage_d
+    assert "MN_NODE_GPU_VENDOR" in stage_d
+    assert "requires_gnina_cpu_emulation" in stage_d
 
 
 def test_continuous_service_fake_mode_writes_parallel_cycle_artifacts(tmp_path):
