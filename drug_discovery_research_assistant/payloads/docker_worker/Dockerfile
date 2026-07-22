@@ -43,6 +43,9 @@ RUN if [ -s /tmp/mn-skill-runtime/requirements.txt ]; then \
       python3 -m pip install --timeout 120 --retries 10 --break-system-packages --no-cache-dir -r /tmp/mn-skill-runtime/requirements.txt; \
     fi
 
+# GNINA validates its Python test harness while CMake configures the build.
+RUN python3 -m pip install --no-cache-dir "pytest>=8,<10"
+
 # GNINA is built natively for the selected CUDA worker; DockerWorker does not
 # expose a Docker socket, so Stage D executes this installed binary directly.
 RUN git clone --branch "${GNINA_VERSION}" --depth 1 https://github.com/gnina/gnina.git /tmp/gnina \
