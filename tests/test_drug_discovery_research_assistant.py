@@ -93,15 +93,14 @@ def test_drug_discovery_manifest_uses_source_format_and_shared_blocks():
         "min_count": 1,
         "vendor": "nvidia",
     }
-    host_worker, gpu_worker = manifest["workers"]["groups"]
-    assert set(host_worker["steps"]) == {
+    [gpu_worker] = manifest["workers"]["groups"]
+    assert set(gpu_worker["steps"]) == {
         "target_discovery",
         "structure_generation",
+        "candidate_generation",
         "binding_evaluation",
         "ranking_reporting",
     }
-    assert host_worker["with"]["python_environment"] == {"requirements": "host_requirements.txt"}
-    assert gpu_worker["steps"] == ["candidate_generation"]
     assert gpu_worker["uses"] == "mn-agents.worker.python_docker@1"
     assert gpu_worker["with"]["gpus"] == "all"
     assert gpu_worker["with"]["docker_worker_image"] == "docker_worker"
@@ -152,7 +151,6 @@ def test_drug_discovery_model_profiles_match_vc_style_defaults():
     requirements = (BLUEPRINT_DIR / "payloads" / "requirements.txt").read_text(encoding="utf-8")
     for package in ("drugclip>=0.1.2", "torch>=2.0", "torch_geometric>=2.3", "requests"):
         assert package in requirements
-    assert (BLUEPRINT_DIR / "payloads" / "host_requirements.txt").read_text(encoding="utf-8") == "requests\n"
     for adapter_name in ("candidate_generator", "folding", "drugclip", "simulation"):
         assert config[adapter_name]["command"][0] == "python3"
         assert config[adapter_name]["command"][1] == "scripts/biotarget_adapter.py"
@@ -174,15 +172,11 @@ def test_drug_discovery_source_manifest_expands_with_native_service_script():
     for step in STEP_SCRIPTS:
         config = step_nodes[f"{step}__{step}"]["config"]
         assert config["command"] == ["python3", "-m", "mn_sdk.step_runtime"]
-        if step == "candidate_generation":
-            assert config["runner_module"] == "MirrorNeuron.Runner.DockerWorker"
-            assert "python_environment" not in config
-            assert config["gpus"] == "all"
-            assert config["docker_worker_image"] == "docker_worker"
-            assert config["image"] == "mirror-neuron/drug-discovery-research-assistant:drugclip-gnina"
-        else:
-            assert config["runner_module"] == "MirrorNeuron.Runner.HostLocal"
-            assert config["python_environment"]["requirements"] == "host_requirements.txt"
+        assert config["runner_module"] == "MirrorNeuron.Runner.DockerWorker"
+        assert "python_environment" not in config
+        assert config["gpus"] == "all"
+        assert config["docker_worker_image"] == "docker_worker"
+        assert config["image"] == "mirror-neuron/drug-discovery-research-assistant:drugclip-gnina"
     assert expanded["workflow"]["steps"]
     assert expanded["runtime"]["resources"]["gpu"] == {
         "driver": "cuda",

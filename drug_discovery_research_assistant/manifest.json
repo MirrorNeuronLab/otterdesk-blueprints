@@ -1404,22 +1404,9 @@
         "steps": [
           "target_discovery",
           "structure_generation",
+          "candidate_generation",
           "binding_evaluation",
           "ranking_reporting"
-        ],
-        "with": {
-          "python_environment": {
-            "requirements": "host_requirements.txt"
-          },
-          "stereotype": [
-            "blueprint_host_worker",
-            "internal_write_worker"
-          ]
-        }
-      },
-      {
-        "steps": [
-          "candidate_generation"
         ],
         "uses": "mn-agents.worker.python_docker@1",
         "with": {
