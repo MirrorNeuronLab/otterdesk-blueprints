@@ -48,7 +48,7 @@ RUN python3 -m pip install --no-cache-dir "pytest>=8,<10"
 
 # GNINA is built natively for the selected CUDA worker; DockerWorker does not
 # expose a Docker socket, so Stage D executes this installed binary directly.
-RUN export CXXFLAGS="-Wno-error=maybe-uninitialized" \
+RUN export CXXFLAGS="-Wno-error=maybe-uninitialized" TORCH_CUDA_ARCH_LIST="12.1" \
     && git clone --branch "${GNINA_VERSION}" --depth 1 https://github.com/gnina/gnina.git /tmp/gnina \
     && cmake -S /tmp/gnina -B /tmp/gnina/build \
         -DCMAKE_BUILD_TYPE=Release \
