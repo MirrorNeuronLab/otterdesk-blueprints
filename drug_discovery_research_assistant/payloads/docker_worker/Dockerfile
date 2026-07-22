@@ -53,8 +53,8 @@ RUN export CXXFLAGS="-Wno-error=maybe-uninitialized" TORCH_CUDA_ARCH_LIST="12.1"
     && cmake -S /tmp/gnina -B /tmp/gnina/build \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_CUDA_ARCHITECTURES=121 \
+        -DCMAKE_CUDA_FLAGS="-DBOOST_UNORDERED_DISABLE_NEON" \
         -DCMAKE_PREFIX_PATH="$(python3 -c 'import torch; print(torch.utils.cmake_prefix_path)')" \
-        -DUSE_SYSTEM_NVTX=ON \
     && cmake --build /tmp/gnina/build --parallel 4 \
     && cmake --install /tmp/gnina/build \
     && rm -rf /tmp/gnina
