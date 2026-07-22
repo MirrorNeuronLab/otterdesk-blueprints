@@ -4,6 +4,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 ARG GNINA_VERSION=v1.3.2
 
 ENV DEBIAN_FRONTEND=${DEBIAN_FRONTEND} \
+    CXXFLAGS="-Wno-error=maybe-uninitialized" \
     PIP_ROOT_USER_ACTION=ignore \
     PYTHONUNBUFFERED=1
 
