@@ -46,12 +46,15 @@ RUN if [ -s /tmp/mn-skill-runtime/requirements.txt ]; then \
 # GNINA validates its Python test harness while CMake configures the build.
 RUN python3 -m pip install --no-cache-dir "pytest>=8,<10"
 
+COPY patches/gnina-cuda-13.patch /tmp/gnina-cuda-13.patch
+
 # GNINA is built natively for the selected CUDA worker; DockerWorker does not
 # expose a Docker socket, so Stage D executes this installed binary directly.
 # Disable Eigen's host NEON path only in CUDA translation units because NVCC on
 # ARM64 cannot parse GCC's arm_neon builtins pulled through GNINA's splines.
 RUN export CXXFLAGS="-Wno-error=maybe-uninitialized" TORCH_CUDA_ARCH_LIST="12.1" \
     && git clone --branch "${GNINA_VERSION}" --depth 1 https://github.com/gnina/gnina.git /tmp/gnina \
+    && git -C /tmp/gnina apply /tmp/gnina-cuda-13.patch \
     && cmake -S /tmp/gnina -B /tmp/gnina/build \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_CUDA_ARCHITECTURES=121 \

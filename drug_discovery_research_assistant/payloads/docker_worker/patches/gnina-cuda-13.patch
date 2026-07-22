@@ -1,0 +1,36 @@
+diff --git a/gninasrc/lib/dl_scorer.cpp b/gninasrc/lib/dl_scorer.cpp
+index 843ec6d..36a67c9 100644
+--- a/gninasrc/lib/dl_scorer.cpp
++++ b/gninasrc/lib/dl_scorer.cpp
+@@ -3,7 +3,7 @@
+ // set the default device to device and return cuda error code if there's a problem
+ int initializeCUDA(int device) {
+   cudaError_t error;
+-  cudaDeviceProp deviceProp;
++  int computeMode = cudaComputeModeDefault;
+ 
+   error = cudaSetDevice(device);
+   if (error != cudaSuccess) {
+@@ -18,15 +18,15 @@ int initializeCUDA(int device) {
+     return error;
+   }
+ 
+-  error = cudaGetDeviceProperties(&deviceProp, device);
++  error = cudaDeviceGetAttribute(&computeMode, cudaDevAttrComputeMode, device);
++
++  if (error != cudaSuccess) {
++    return error;
++  }
+ 
+-  if (deviceProp.computeMode == cudaComputeModeProhibited) {
++  if (computeMode == cudaComputeModeProhibited) {
+     std::cerr << "Error: device is running in <Compute Mode Prohibited>, no threads can use ::cudaSetDevice().\n";
+     return -1;
+   }
+ 
+-  if (error != cudaSuccess) {
+-    return error;
+-  }
+-
+   return 0;
+ }
