@@ -141,8 +141,8 @@ def stage_d_evaluate_binding_and_tox(
                 )
 
         all_graph_embs = torch.cat(all_graph_embs, dim=0)
-        raw_tox_scores = torch.matmul(tox_emb, all_graph_embs.T).squeeze()
-        norm_tox_scores = normalize_01(raw_tox_scores)
+        raw_tox_scores = torch.matmul(tox_emb, all_graph_embs.T).reshape(-1)
+        norm_tox_scores = normalize_01(raw_tox_scores).reshape(-1)
 
     print(
         f"[*] Executing 'gnina' structure-aware docking & CNN scoring on {len(candidates)} candidates..."

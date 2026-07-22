@@ -215,6 +215,8 @@ def test_drug_discovery_bundles_biotarget_and_prefers_it_at_runtime():
     assert 'shutil.which("gnina")' in stage_d
     assert '"docker",' not in stage_d
     assert "requires_gnina_cpu_emulation" not in stage_d
+    assert "torch.matmul(tox_emb, all_graph_embs.T).reshape(-1)" in stage_d
+    assert "normalize_01(raw_tox_scores).reshape(-1)" in stage_d
     dockerfile = (BLUEPRINT_DIR / "payloads" / "docker_worker" / "Dockerfile").read_text(encoding="utf-8")
     assert "nvidia/cuda:13.0.0-cudnn-devel-ubuntu24.04" in dockerfile
     assert "GNINA_VERSION=v1.3.2" in dockerfile
