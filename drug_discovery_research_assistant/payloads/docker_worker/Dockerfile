@@ -28,8 +28,12 @@ RUN apt-get update \
         python3-dev \
         python3-numpy \
         python3-pip \
+        python3-venv \
         swig \
     && rm -rf /var/lib/apt/lists/*
+
+RUN python3 -m venv /opt/mn-venv
+ENV PATH="/opt/mn-venv/bin:${PATH}"
 
 # mn-python-sdk stages this requirements file from payloads/requirements.txt.
 # Keep it before the GNINA build so CMake can use the same CUDA-enabled PyTorch

@@ -224,6 +224,7 @@ def test_drug_discovery_bundles_biotarget_and_prefers_it_at_runtime():
     assert "nvidia/cuda:13.0.0-cudnn-devel-ubuntu24.04" in dockerfile
     assert "GNINA_VERSION=v1.3.2" in dockerfile
     assert "CMAKE_CUDA_ARCHITECTURES=121" in dockerfile
+    assert "python3 -m venv /opt/mn-venv" in dockerfile
 
 
 def test_continuous_service_fake_mode_writes_parallel_cycle_artifacts(tmp_path):
