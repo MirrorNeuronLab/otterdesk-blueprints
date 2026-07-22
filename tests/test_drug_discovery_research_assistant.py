@@ -106,13 +106,6 @@ def test_drug_discovery_manifest_uses_source_format_and_shared_blocks():
     assert gpu_worker["with"]["gpus"] == "all"
     assert gpu_worker["with"]["docker_worker_image"] == "docker_worker"
     assert gpu_worker["with"]["image"] == "mirror-neuron/drug-discovery-research-assistant:drugclip-gnina"
-    assert gpu_worker["resources"]["gpu_count"] == 1
-    assert gpu_worker["resources"]["devices"] == [
-        {"kind": "gpu", "vendor": "nvidia", "driver": "cuda", "count": 1}
-    ]
-    assert gpu_worker["constraints"] == [
-        {"attribute": "capabilities", "operator": "contains_all", "value": ["nvidia", "cuda"]}
-    ]
 
     assert {step["id"] for step in manifest["workflow"]["steps"]} == set(STEP_SCRIPTS)
     assert set(manifest["agents"]["registry"]) == set(STEP_SCRIPTS)
@@ -189,13 +182,6 @@ def test_drug_discovery_source_manifest_expands_with_native_service_script():
         else:
             assert config["runner_module"] == "MirrorNeuron.Runner.HostLocal"
             assert config["python_environment"]["requirements"] == "requirements.txt"
-    candidate_node = step_nodes["candidate_generation__candidate_generation"]
-    assert candidate_node["resources"]["gpu_count"] == 1
-    assert candidate_node["constraints"][-1] == {
-        "attribute": "capabilities",
-        "operator": "contains_all",
-        "value": ["nvidia", "cuda"],
-    }
     assert expanded["workflow"]["steps"]
     assert expanded["runtime"]["resources"]["gpu"] == {
         "driver": "cuda",

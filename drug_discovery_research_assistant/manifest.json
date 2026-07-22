@@ -1422,27 +1422,6 @@
           "candidate_generation"
         ],
         "uses": "mn-agents.worker.python_docker@1",
-        "constraints": [
-          {
-            "attribute": "capabilities",
-            "operator": "contains_all",
-            "value": [
-              "nvidia",
-              "cuda"
-            ]
-          }
-        ],
-        "resources": {
-          "gpu_count": 1,
-          "devices": [
-            {
-              "kind": "gpu",
-              "vendor": "nvidia",
-              "driver": "cuda",
-              "count": 1
-            }
-          ]
-        },
         "with": {
           "stereotype": [
             "blueprint_docker_worker",

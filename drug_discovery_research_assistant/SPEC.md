@@ -16,7 +16,7 @@ DrugClip is the problem-specific scientific checkpoint `homerquan/DrugClip`, loa
 
 ## NVIDIA CUDA requirement
 
-The manifest hard-requires one NVIDIA CUDA GPU. MirrorNeuron resource validation owns the hardware check and rejects Apple-Silicon and CPU-only nodes before scheduling a workflow. The candidate-generation node is a `MirrorNeuron.Runner.DockerWorker` constrained to NVIDIA/CUDA capabilities with `gpus: all`; its CUDA/cuDNN image installs the native DrugClip stack and builds GNINA `v1.3.2` for the selected GPU architecture. The native DrugClip adapter repeats that requirement at model load time by rejecting a PyTorch runtime without CUDA; it never falls back to CPU execution.
+The manifest hard-requires one NVIDIA CUDA GPU. MirrorNeuron resource validation owns the hardware check and rejects Apple-Silicon and CPU-only nodes before scheduling a workflow. The candidate-generation node is a `MirrorNeuron.Runner.DockerWorker` configured with `gpus: all`; DockerWorker placement therefore also requires an NVIDIA node. Its CUDA/cuDNN image installs the native DrugClip stack and builds GNINA `v1.3.2` for the selected GPU architecture. The native DrugClip adapter repeats that requirement at model load time by rejecting a PyTorch runtime without CUDA; it never falls back to CPU execution.
 
 ## Native cross-box contract
 
