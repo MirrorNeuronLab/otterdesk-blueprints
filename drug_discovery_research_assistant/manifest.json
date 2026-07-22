@@ -87,6 +87,10 @@
         "to": "interfaces.input_adapters"
       },
       {
+        "from": "contracts.inputs",
+        "to": "interfaces.input_contract"
+      },
+      {
         "from": "identity.id",
         "to": "identity.blueprint_id"
       },
@@ -398,6 +402,10 @@
           {
             "source": "service",
             "target": "service"
+          },
+          {
+            "source": "biotarget",
+            "target": "biotarget"
           }
         ]
       }
@@ -1351,7 +1359,14 @@
     "state_artifact": "service_state.json",
     "stop_file": "${MN_RUN_DIR}/STOP"
   },
-  "skill_dependencies": [],
+  "skill_dependencies": [
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mirrorneuron-use-generic-model-skill",
+      "version": "1.2.29"
+    }
+  ],
   "agent_dependencies": [
     {
       "type": "pip",

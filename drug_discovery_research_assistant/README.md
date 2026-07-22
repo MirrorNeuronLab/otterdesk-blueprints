@@ -7,7 +7,7 @@
 
 This blueprint runs a review-only discovery service until it is closed manually. Each cycle uses the local BioTarget Stage C path to generate a molecular candidate pool and rank it against therapeutic text with DrugClip, folds targets, runs BioTarget evaluation, and writes traceable cycle artifacts for human scientific review.
 
-DrugClip is a native scientific dependency, not a Docker Model Runner chat model. The adapter loads `best.ckpt` through the BioTarget Python package and uses its dual-encoder text↔3D-molecular-graph model to align each molecular graph with therapeutic intent and toxicity text. Docker Model Runner is used only for the blueprint's LLM and retrieval models.
+DrugClip is a problem-specific scientific dependency, not a shared LLM model. Before BioTarget loads `best.ckpt`, the adapter uses `mirrorneuron-use-generic-model-skill` to try the unverified Hugging Face repository on the best eligible Docker Model Runner cluster node. If that cannot serve the model, the only fallback is an explicitly configured DrugClip Docker server that requests NVIDIA GPU access; otherwise the service reports that DrugClip cannot run and stops the dependent job. BioTarget remains the model-specific adapter that loads `best.ckpt` and uses its dual-encoder text↔3D-molecular-graph model to align each molecular graph with therapeutic intent and toxicity text.
 
 ## Running and stopping
 
@@ -19,7 +19,7 @@ mn run drug_discovery_research_assistant
 
 The service continues until the runtime sends `SIGTERM`/`SIGINT` or the configured `STOP` file is created under the run directory. It writes `service_state.json` and per-cycle artifacts under `cycles/` while it runs.
 
-The committed `config/overwrite.json` keeps the service in explicit fake-science mode for a continuous local smoke run. To make a bounded test, provide `service.max_cycles` through the runtime override. Live use must set `mode` to `live`, disable `execution.fake_science_adapters`, configure the native adapter commands, and configure the cross-box dispatcher.
+The committed `config/overwrite.json` selects live native adapter mode. On the first real model-dependent adapter call, the generic-model skill first attempts the configured repository (`https://huggingface.co/homerquan/DrugClip`) through Docker Model Runner, without adding it to the shared model catalog. If preparation succeeds, BioTarget loads `best.ckpt` from `homerquan/DrugClip` when it is not cached. The BioTarget source is bundled under `payloads/biotarget/`, and its native dependencies are declared in `payloads/requirements.txt`; no external BioTarget checkout is required. If Docker Model Runner cannot serve the repository, configure `drugclip.generic_model.docker` with a DrugClip-specific image, launch command, and API base; its GPU-required Docker fallback is otherwise disabled. GNINA Docker and the Open Targets/AlphaFold network APIs remain external live-run requirements. To run a bounded test, provide `service.max_cycles` through the runtime override. Fake adapters are limited to explicit mock/smoke-test overrides.
 
 ## Distributed native execution
 

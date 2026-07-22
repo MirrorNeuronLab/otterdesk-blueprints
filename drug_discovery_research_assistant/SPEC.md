@@ -12,11 +12,11 @@ Operate a continuously running, human-review-only computational discovery servic
 4. Simulations fan out over the best DrugCLIP-ranked candidates across the `science-simulation` pool.
 5. The native control worker fans results in, writes a cycle report, and starts the next cycle.
 
-DrugClip is the native scientific checkpoint `homerquan/DrugClip`, loaded by the BioTarget adapter as `best.ckpt`. Its 3D graph and text encoders provide the BioTarget Stage C selection and Stage D toxicity-alignment path; it is not a Docker Model Runner chat model. Docker Model Runner is limited to the blueprint's LLM and retrieval models.
+DrugClip is the problem-specific scientific checkpoint `homerquan/DrugClip`, loaded by the BioTarget adapter as `best.ckpt`. Before the model-specific adapter loads it, `mirrorneuron-use-generic-model-skill` attempts to prepare the unverified Hugging Face repository with Docker Model Runner on the strongest eligible cluster node. DrugClip is never added to the shared LLM model list. If DMR cannot serve it, the only allowed fallback is an explicitly configured DrugClip Docker server that requests NVIDIA GPU access; when neither route works, the dependent adapter fails with a cannot-run error. Its 3D graph and text encoders provide the BioTarget Stage C selection and Stage D toxicity-alignment path.
 
 ## Native cross-box contract
 
-The service controller is a `MirrorNeuron.Runner.HostLocal` worker. Live cluster mode requires a native dispatcher command. The controller sends it a JSON job containing adapter name, target pool, expanded command, request path, output path, and request payload. The payload carries the BioTarget source and DrugClip checkpoint configuration. The dispatcher returns a JSON `result` or writes the output path. Missing dispatcher, BioTarget source, checkpoint, or adapter configuration is a live-run error.
+The service controller is a `MirrorNeuron.Runner.HostLocal` worker. Live cluster mode requires a native dispatcher command. The controller sends it a JSON job containing adapter name, target pool, expanded command, request path, output path, and request payload. BioTarget is bundled in `payloads/biotarget/` and native dependencies are declared in `payloads/requirements.txt`; the staged payload is preferred over any external source path. The dispatcher returns a JSON `result` or writes the output path. Missing dispatcher, bundled BioTarget package, checkpoint, or adapter configuration is a live-run error.
 
 ## Service lifecycle
 

@@ -596,7 +596,7 @@
     "target_user": "Computational biology researchers, scientific AI platform teams, and research operations groups.",
     "target_users": "Computational biology researchers, scientific AI platform teams, and research operations groups."
   },
-  "mode": "mock",
+  "mode": "live",
   "service": {
     "enabled": true,
     "run_until": "manual_stop",
@@ -640,7 +640,7 @@
   "candidate_generator": {
     "required": true,
     "command": [
-      "/usr/bin/python3.11",
+      "python3",
       "scripts/biotarget_adapter.py",
       "--adapter",
       "candidate_generator",
@@ -655,7 +655,7 @@
   "folding": {
     "required": true,
     "command": [
-      "/usr/bin/python3.11",
+      "python3",
       "scripts/biotarget_adapter.py",
       "--adapter",
       "folding",
@@ -671,11 +671,30 @@
     "required": true,
     "mode": "text_molecular_graph_alignment",
     "model_ref": "hf.co/homerquan/DrugClip",
+    "generic_model": {
+      "enabled": true,
+      "ownership": "blueprint_problem_specific",
+      "shared_model_catalog": false,
+      "model_ref": "https://huggingface.co/homerquan/DrugClip",
+      "runtime": "auto",
+      "backend": "auto",
+      "context_size": null,
+      "failure_policy": "fail_closed",
+      "installation_policy": "try Docker Model Runner on the strongest eligible cluster node first; otherwise use only an explicitly configured model-specific Docker runtime.",
+      "docker": {
+        "enabled": false,
+        "prefer_nvidia": true,
+        "image": "",
+        "command": [],
+        "api_base": "",
+        "activation": "Set enabled, image, command, and api_base for a DrugClip-specific Docker server. The fallback runs docker with --gpus all and fails when NVIDIA Docker support is unavailable."
+      }
+    },
     "checkpoint_repo": "homerquan/DrugClip",
     "checkpoint_filename": "best.ckpt",
-    "source_repository": "/Users/homer/Sandbox/BioTarget",
+    "source_repository": "@/payloads",
     "command": [
-      "/usr/bin/python3.11",
+      "python3",
       "scripts/biotarget_adapter.py",
       "--adapter",
       "drugclip",
@@ -689,7 +708,7 @@
   },
   "biotarget": {
     "enabled": true,
-    "source_dir": "/Users/homer/Sandbox/BioTarget",
+    "source_dir": "@/payloads",
     "native_python_required": true,
     "stages": {
       "target_discovery": "biotarget.stages.stage_a_discovery",
@@ -701,6 +720,13 @@
     "simulation_runtime_note": "BioTarget Stage D currently invokes GNINA through its own containerized runner; the continuous control plane and adapter processes remain native HostLocal workers."
   },
   "output_skills": {},
+  "python_dependencies": {
+    "installer": "pip",
+    "requirements": "requirements.txt",
+    "index_url": "https://us-central1-python.pkg.dev/mirrorneuron-public-packages/agent-skills/simple/",
+    "extra_index_url": "https://pypi.org/simple",
+    "packages": []
+  },
   "outputs": {
     "adapter": "local_run_store",
     "artifact_contract": "Continuous-cycle candidate, folding, DrugCLIP, simulation, state, and review-only scientific evidence artifacts.",
@@ -780,7 +806,7 @@
     "type": "Configured parallel molecular simulation after DrugClip graph-text screening.",
     "required": true,
     "command": [
-      "/usr/bin/python3.11",
+      "python3",
       "scripts/biotarget_adapter.py",
       "--adapter",
       "simulation",

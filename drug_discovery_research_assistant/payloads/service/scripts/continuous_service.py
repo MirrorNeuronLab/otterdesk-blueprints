@@ -132,6 +132,12 @@ def run_native_adapter(
     pool: str,
 ) -> Any:
     """Execute one declared scientific adapter or submit it to the cluster dispatcher."""
+    service_root = Path(__file__).resolve().parent.parent
+    adapter_environment = dict(os.environ)
+    bundled_source = service_root.parent
+    if not (bundled_source / "biotarget" / "pipeline.py").is_file():
+        raise RuntimeError(f"Bundled BioTarget package is missing from the staged payload: {bundled_source}")
+    adapter_environment["BIOTARGET_SOURCE_DIR"] = str(bundled_source)
     output_path = work_dir / f"{adapter_name}.json"
     request_path = work_dir / f"{adapter_name}.request.json"
     # BioTarget adapters receive their model and source configuration in the
@@ -157,7 +163,7 @@ def run_native_adapter(
     if distribution.get("enabled"):
         dispatch = _expand_command(_command(distribution.get("dispatch_command")), values)
         job = {"adapter": adapter_name, "pool": pool, "command": _expand_command(command, values), "request_path": str(request_path), "output_path": str(output_path), "request": request}
-        process = subprocess.run(dispatch, input=json.dumps(job), text=True, capture_output=True, check=False, timeout=int(distribution.get("dispatch_timeout_seconds", 1800)))
+        process = subprocess.run(dispatch, input=json.dumps(job), text=True, capture_output=True, check=False, cwd=service_root, env=adapter_environment, timeout=int(distribution.get("dispatch_timeout_seconds", 1800)))
         if process.returncode:
             raise RuntimeError(f"cluster dispatch failed for {adapter_name}: {process.stderr.strip()}")
         dispatched = json.loads(process.stdout) if process.stdout.strip() else {}
@@ -166,7 +172,7 @@ def run_native_adapter(
         if output_path.exists():
             return json.loads(output_path.read_text(encoding="utf-8"))
         raise RuntimeError(f"cluster dispatch for {adapter_name} returned no result")
-    process = subprocess.run(_expand_command(command, values), text=True, capture_output=True, check=False, timeout=int((config.get(adapter_name) or {}).get("timeout_seconds", 1800)))
+    process = subprocess.run(_expand_command(command, values), text=True, capture_output=True, check=False, cwd=service_root, env=adapter_environment, timeout=int((config.get(adapter_name) or {}).get("timeout_seconds", 1800)))
     if process.returncode:
         raise RuntimeError(f"native {adapter_name} adapter failed: {process.stderr.strip()}")
     return _parse_command_result(process, output_path)

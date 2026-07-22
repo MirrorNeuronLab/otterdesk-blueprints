@@ -55,18 +55,29 @@ def test_drug_discovery_manifest_uses_source_format_and_shared_blocks():
     assert manifest["kind"] == "WorkflowSource"
     assert manifest["type"] == "service"
     assert manifest["identity"]["id"] == "drug_discovery_research_assistant"
+    assert manifest["skill_dependencies"] == [
+        {
+            "type": "pip",
+            "source": "gar",
+            "name": "mirrorneuron-use-generic-model-skill",
+            "version": "1.2.29",
+        }
+    ]
+    assert {
+        entry.get("from")
+        for entry in manifest["config"]["manifest_defaults"]
+        if isinstance(entry, dict)
+    } >= {"contracts.inputs"}
     assert "nodes" not in manifest.get("agents", {})
     assert "edges" not in manifest.get("agents", {})
     assert [step["id"] for step in manifest["workflow"]["steps"]] == list(STEP_SCRIPTS)
-    assert manifest["agents"]["extra_templates"] == []
+    assert manifest["agents"].get("extra_templates", []) == []
     assert manifest["defaults"]["worker"]["uses"] == "mn-agents.worker.python_host@1"
-    assert manifest["defaults"]["worker"]["with"]["runner_module"] == "MirrorNeuron.Runner.HostLocal"
-    assert manifest["defaults"]["worker"]["with"]["upload_path"] == "service"
+    assert "blueprint_host_worker" in manifest["defaults"]["worker"]["with"]["stereotype"]
     assert {entry["source"] for entry in manifest["defaults"]["worker"]["with"]["upload_paths"]} == {
         "service",
-        "config",
-        "examples/sample_inputs",
-        "knowledge",
+        "domain",
+        "biotarget",
     }
     for script in STEP_SCRIPTS.values():
         assert (BLUEPRINT_DIR / "payloads" / "service" / script).is_file(), script
@@ -76,15 +87,17 @@ def test_drug_discovery_manifest_uses_source_format_and_shared_blocks():
         "primary": {"provider": "docker_model_runner", "model": "default", "backend": "llama.cpp", "required": True}
     }
 
-    by_step = manifest["workers"]["by_step"]
-    assert set(by_step) == set(STEP_SCRIPTS)
-    for step, script in STEP_SCRIPTS.items():
-        assert by_step[step]["with"]["script"] == script
+    assert {step["id"] for step in manifest["workflow"]["steps"]} == set(STEP_SCRIPTS)
+    assert set(manifest["agents"]["registry"]) == set(STEP_SCRIPTS)
+    for step in STEP_SCRIPTS:
+        assert manifest["workflow"]["steps"][[item["id"] for item in manifest["workflow"]["steps"]].index(step)]["run"]["definition"] == f"steps.{step}"
 
 
 def test_drug_discovery_model_profiles_match_vc_style_defaults():
     config = json.loads((BLUEPRINT_DIR / "config" / "default.json").read_text(encoding="utf-8"))
 
+    assert config["mode"] == "live"
+    assert config["execution"]["fake_science_adapters"] is False
     assert config["service"]["run_until"] == "manual_stop"
     assert config["service"]["max_cycles"] is None
     assert config["outputs"]["folder_path"] == "~/Downloads/drug_discovery_research_assistant"
@@ -98,9 +111,18 @@ def test_drug_discovery_model_profiles_match_vc_style_defaults():
     assert {spec["llm_config"] for spec in config["llm"]["agents"].values()} == {"primary"}
     assert "runtime_model_key" not in config["drugclip"]
     assert config["drugclip"]["model_ref"] == "hf.co/homerquan/DrugClip"
+    assert config["drugclip"]["generic_model"]["model_ref"] == "https://huggingface.co/homerquan/DrugClip"
+    assert config["drugclip"]["generic_model"]["runtime"] == "auto"
+    assert config["drugclip"]["generic_model"]["shared_model_catalog"] is False
     assert config["drugclip"]["checkpoint_filename"] == "best.ckpt"
-    assert config["drugclip"]["source_repository"] == "/Users/homer/Sandbox/BioTarget"
+    assert config["drugclip"]["source_repository"] == "@/payloads"
+    assert config["biotarget"]["source_dir"] == "@/payloads"
+    assert config["python_dependencies"]["requirements"] == "requirements.txt"
+    requirements = (BLUEPRINT_DIR / "payloads" / "requirements.txt").read_text(encoding="utf-8")
+    for package in ("drugclip>=0.1.2", "torch>=2.0", "torch_geometric>=2.3", "requests"):
+        assert package in requirements
     for adapter_name in ("candidate_generator", "folding", "drugclip", "simulation"):
+        assert config[adapter_name]["command"][0] == "python3"
         assert config[adapter_name]["command"][1] == "scripts/biotarget_adapter.py"
 
 
@@ -111,19 +133,34 @@ def test_drug_discovery_source_manifest_expands_with_native_service_script():
     assert expanded["type"] == "service"
     assert expanded["job_name"] == "drug-discovery-research-assistant"
     node_by_id = {node["node_id"]: node for node in expanded["agents"]["nodes"]}
-    assert set(node_by_id) == set(STEP_SCRIPTS)
-    for step, script in STEP_SCRIPTS.items():
-        config = node_by_id[step]["config"]
-        assert config["command"] == ["/usr/bin/python3.11", script]
-        assert config["output_message_type"] == source["workers"]["by_step"][step]["with"]["output_message_type"]
+    step_nodes = {
+        node_id: node
+        for node_id, node in node_by_id.items()
+        if node_id.endswith(tuple(f"__{step}" for step in STEP_SCRIPTS))
+    }
+    assert {node_id.split("__", 1)[0] for node_id in step_nodes} == set(STEP_SCRIPTS)
+    for step in STEP_SCRIPTS:
+        config = step_nodes[f"{step}__{step}"]["config"]
+        assert config["command"] == ["python3", "-m", "mn_sdk.step_runtime"]
         assert config["runner_module"] == "MirrorNeuron.Runner.HostLocal"
-    service_config = node_by_id["candidate_generation"]["config"]
-    assert service_config["service"] is True
-    assert service_config["service_kind"] == "continuous_drug_discovery"
-    assert service_config["upload_path"] == "service"
-    assert service_config["cleanup_remote_dir"] is False
-    assert node_by_id["ranking_reporting"]["config"]["side_effect"] == "internal_write"
+    assert expanded["workflow"]["steps"]
     assert expanded["runtime"]["resources"]["gpu"] == {"min_count": 0}
+
+
+def test_drug_discovery_stage_environment_propagates_biotarget_source():
+    operations = (BLUEPRINT_DIR / "payloads" / "domain" / "operations.py").read_text(encoding="utf-8")
+    assert 'environment["BIOTARGET_SOURCE_DIR"] = str(bundled_source)' in operations
+
+
+def test_drug_discovery_bundles_biotarget_and_prefers_it_at_runtime():
+    assert (BLUEPRINT_DIR / "payloads" / "biotarget" / "pipeline.py").is_file()
+    adapter = (BLUEPRINT_DIR / "payloads" / "service" / "scripts" / "biotarget_adapter.py").read_text(encoding="utf-8")
+    assert 'bundled / "biotarget" / "pipeline.py"' in adapter
+    assert "configured = os.environ" not in adapter
+    stage_a = (BLUEPRINT_DIR / "payloads" / "biotarget" / "stages" / "stage_a_discovery.py").read_text(encoding="utf-8")
+    stage_d = (BLUEPRINT_DIR / "payloads" / "biotarget" / "stages" / "stage_d_evaluation.py").read_text(encoding="utf-8")
+    assert "_mock_targets" not in stage_a
+    assert "surrogate docking" not in stage_d
 
 
 def test_continuous_service_fake_mode_writes_parallel_cycle_artifacts(tmp_path):

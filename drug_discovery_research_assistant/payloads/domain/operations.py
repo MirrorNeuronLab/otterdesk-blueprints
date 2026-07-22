@@ -47,6 +47,10 @@ def _run_script(ctx: dict[str, Any], state: dict[str, Any], script: str, payload
     message = run_dir / f"{script}.message.json"
     message.write_text(json.dumps({"body": payload}), encoding="utf-8")
     environment = dict(os.environ)
+    bundled_source = Path(__file__).resolve().parents[1]
+    if not (bundled_source / "biotarget" / "pipeline.py").is_file():
+        raise RuntimeError(f"Bundled BioTarget package is missing from the staged payload: {bundled_source}")
+    environment["BIOTARGET_SOURCE_DIR"] = str(bundled_source)
     environment.update({
         "MN_MESSAGE_FILE": str(message),
         "MN_RUN_DIR": str(run_dir),

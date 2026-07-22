@@ -16,6 +16,9 @@ from pathlib import Path
 from typing import Any, Iterator
 
 
+_GENERIC_MODEL_BINDINGS: dict[str, Any] = {}
+
+
 def load_json(path: Path) -> dict[str, Any]:
     value = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(value, dict):
@@ -29,13 +32,10 @@ def dump_json(path: Path, value: Any) -> None:
 
 
 def biotarget_source(request: dict[str, Any]) -> Path:
-    config = request.get("biotarget") if isinstance(request.get("biotarget"), dict) else {}
-    configured = os.environ.get("BIOTARGET_SOURCE_DIR") or config.get("source_dir")
-    if not configured:
-        raise RuntimeError("BioTarget source directory is not configured; set BIOTARGET_SOURCE_DIR or biotarget.source_dir.")
-    source = Path(str(configured)).expanduser().resolve()
-    if not (source / "biotarget" / "pipeline.py").is_file():
-        raise RuntimeError(f"BioTarget source directory is unavailable or invalid: {source}")
+    bundled = Path(__file__).resolve().parents[2]
+    if not (bundled / "biotarget" / "pipeline.py").is_file():
+        raise RuntimeError(f"Bundled BioTarget package is missing from the staged payload: {bundled}")
+    source = bundled
     os.environ["USE_TF"] = "0"
     os.environ["BIOTARGET_SOURCE_DIR"] = str(source)
     if str(source) not in sys.path:
@@ -48,8 +48,59 @@ def drugclip_config(request: dict[str, Any]) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
 
+def prepare_problem_specific_model(request: dict[str, Any]) -> dict[str, Any] | None:
+    """Prepare DrugClip without declaring it as a shared LLM runtime model."""
+    config = drugclip_config(request)
+    generic = config.get("generic_model") if isinstance(config.get("generic_model"), dict) else {}
+    if generic.get("enabled") is False:
+        return None
+    model_ref = str(generic.get("model_ref") or config.get("model_ref") or "").strip()
+    if not model_ref:
+        raise RuntimeError("DrugClip cannot run: no Hugging Face model reference is configured.")
+    cache_key = json.dumps(
+        {
+            "model_ref": model_ref,
+            "runtime": generic.get("runtime", "auto"),
+            "backend": generic.get("backend", "auto"),
+            "context_size": generic.get("context_size"),
+            "docker": generic.get("docker"),
+        },
+        sort_keys=True,
+        default=str,
+    )
+    cached = _GENERIC_MODEL_BINDINGS.get(cache_key)
+    if cached is not None:
+        return cached
+    try:
+        from mn_use_generic_model_skill import (
+            GenericModelUnavailableError,
+            prepare_model,
+        )
+
+        docker = generic.get("docker") if isinstance(generic.get("docker"), dict) else None
+        if isinstance(docker, dict) and docker.get("enabled") is not True:
+            docker = None
+        binding = prepare_model(
+            model_ref,
+            runtime=str(generic.get("runtime") or "auto"),
+            backend=str(generic.get("backend") or "auto"),
+            context_size=generic.get("context_size"),
+            docker=docker,
+        )
+    except ImportError as error:  # pragma: no cover - depends on native worker image
+        raise RuntimeError("DrugClip cannot run: mirrorneuron-use-generic-model-skill is not installed on this worker.") from error
+    except GenericModelUnavailableError as error:
+        raise RuntimeError(str(error)) from error
+    except Exception as error:
+        raise RuntimeError(f"DrugClip cannot run: {error}") from error
+    result = binding.to_dict()
+    _GENERIC_MODEL_BINDINGS[cache_key] = result
+    return result
+
+
 def load_drugclip(request: dict[str, Any]) -> tuple[Any, Any]:
     """Load the exact graph-text checkpoint used by the local BioTarget stages."""
+    prepare_problem_specific_model(request)
     biotarget_source(request)
     import torch
     from drugclip.models.align_model import DrugCLIP
@@ -125,6 +176,7 @@ def score_graphs(model: Any, device: Any, graphs: list[Any], prompt: str) -> Any
 
 
 def candidate_generation(request: dict[str, Any], work_dir: Path) -> dict[str, Any]:
+    prepare_problem_specific_model(request)
     biotarget_source(request)
     from biotarget.core.utils import get_seed_smiles
 
@@ -180,6 +232,7 @@ def folding(request: dict[str, Any], work_dir: Path) -> dict[str, Any]:
 
 
 def graph_text_score(request: dict[str, Any], _work_dir: Path) -> dict[str, Any]:
+    prepare_problem_specific_model(request)
     biotarget_source(request)
 
     candidate = request.get("candidate") if isinstance(request.get("candidate"), dict) else {}
@@ -199,6 +252,7 @@ def graph_text_score(request: dict[str, Any], _work_dir: Path) -> dict[str, Any]
 
 
 def simulation(request: dict[str, Any], work_dir: Path) -> dict[str, Any]:
+    prepare_problem_specific_model(request)
     biotarget_source(request)
     from biotarget.stages.stage_d_evaluation import stage_d_evaluate_binding_and_tox
 

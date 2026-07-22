@@ -1,0 +1,9 @@
+requests
+torch>=2.0
+torch_geometric>=2.3
+transformers
+rdkit
+pandas
+scikit-learn
+tqdm
+drugclip>=0.1.2
