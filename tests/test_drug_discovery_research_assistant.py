@@ -82,6 +82,7 @@ def test_drug_discovery_manifest_uses_source_format_and_shared_blocks():
     }
     for script in STEP_SCRIPTS.values():
         assert (BLUEPRINT_DIR / "payloads" / "service" / script).is_file(), script
+    assert (BLUEPRINT_DIR / "payloads" / "prompts" / "scientific-review.md").is_file()
     assert manifest["service"]["run_until"] == "manual_stop"
     assert manifest["cluster_distribution"]["collaboration"]["mode"] == "cross_box_fanout_fanin"
     assert manifest["runtime"]["models"] == {
