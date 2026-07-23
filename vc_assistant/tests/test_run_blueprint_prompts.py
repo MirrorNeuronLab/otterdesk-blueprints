@@ -546,57 +546,16 @@ def test_explicit_knowledge_rag_db_path_is_preserved(monkeypatch):
     assert "redis_url" not in config["knowledge_rag"]
 
 
-def test_runtime_rag_uses_a_stable_database_per_agent(monkeypatch, tmp_path):
+def test_runtime_rag_uses_one_job_database_for_every_agent(monkeypatch, tmp_path):
     rb = load_module()
     config = {
         "knowledge_rag": {
             "enabled": True,
             "namespace": "vc_runtime",
-            "db_root": "/runtime/rag",
-            "db_path": "vc.db",
         }
     }
 
-    funding = rb.with_agent_scoped_knowledge_rag_config(
-        config, agent_id="funding_researcher"
-    )
-    market = rb.with_agent_scoped_knowledge_rag_config(
-        config, agent_id="market_comp_researcher"
-    )
-
-    assert funding["knowledge_rag"]["namespace"] == (
-        "vc_runtime_vc_assistant_funding_researcher"
-    )
-    assert market["knowledge_rag"]["namespace"] == (
-        "vc_runtime_vc_assistant_market_comp_researcher"
-    )
-    assert funding["knowledge_rag"]["db_path"] == "vc_funding_researcher.db"
-    assert market["knowledge_rag"]["db_path"] == "vc_market_comp_researcher.db"
-    assert config["knowledge_rag"]["namespace"] == "vc_runtime"
-    assert config["knowledge_rag"]["db_path"] == "vc.db"
-
-    implicit_config = {
-        "knowledge_rag": {
-            "enabled": True,
-            "namespace": "vc_runtime",
-        }
-    }
-    implicit_funding = rb.with_agent_scoped_knowledge_rag_config(
-        implicit_config, agent_id="funding_researcher"
-    )
-    implicit_market = rb.with_agent_scoped_knowledge_rag_config(
-        implicit_config, agent_id="market_comp_researcher"
-    )
-
-    assert (
-        implicit_funding["knowledge_rag"]["db_path"]
-        == "milvus_funding_researcher.db"
-    )
-    assert (
-        implicit_market["knowledge_rag"]["db_path"]
-        == "milvus_market_comp_researcher.db"
-    )
-    assert "db_path" not in implicit_config["knowledge_rag"]
+    assert not hasattr(rb, "with_agent_scoped_knowledge_rag_config")
 
     from mn_rag_skill import RagConfig
 
@@ -605,19 +564,20 @@ def test_runtime_rag_uses_a_stable_database_per_agent(monkeypatch, tmp_path):
     monkeypatch.setenv("MN_JOB_ID", job_id)
     monkeypatch.setenv("MN_JOB_DATA_DIR", str(job_data_dir))
     funding_rag = RagConfig.from_mapping(
-        implicit_funding["knowledge_rag"], blueprint_id="vc_assistant"
+        config["knowledge_rag"], blueprint_id="vc_assistant"
     )
     market_rag = RagConfig.from_mapping(
-        implicit_market["knowledge_rag"], blueprint_id="vc_assistant"
+        config["knowledge_rag"], blueprint_id="vc_assistant"
     )
 
     assert Path(funding_rag.db_path) == (
-        job_data_dir / "databases" / "rag" / "milvus_funding_researcher.db"
+        job_data_dir / "databases" / "rag" / "milvus.db"
     )
     assert Path(market_rag.db_path) == (
-        job_data_dir / "databases" / "rag" / "milvus_market_comp_researcher.db"
+        job_data_dir / "databases" / "rag" / "milvus.db"
     )
-    assert funding_rag.db_path != market_rag.db_path
+    assert funding_rag.db_path == market_rag.db_path
+    assert funding_rag.collection_name == market_rag.collection_name
 
 
 def test_agentic_rag_query_prioritizes_agent_playbook_terms(monkeypatch):

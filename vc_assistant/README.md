@@ -90,7 +90,7 @@ mn blueprint monitor --follow
 - `skill_runtime`: shared DockerWorker image settings for skills that need system binaries.
 - `execution.max_company_workers`: maximum changed-company packets processed concurrently; defaults to one for local Docker Model Runner stability.
 - `backpressure.llm`: serializes and spaces local LLM calls so agentic research does not overwhelm Docker Model Runner.
-- Concurrent RAG-consuming workers use stable per-agent Milvus Lite namespaces, so the shared DockerWorker never opens one database file from multiple processes.
+- Concurrent RAG-consuming workers use the RAG skill's job-scoped Unix-socket service. One owner process retains the sole Milvus Lite connection to `databases/rag/milvus.db`; every specialist agent indexes and queries through that shared connection.
 - `internet_research`: public verification targets, bounded browser timeouts, Crunchbase/profile URL templates, and explicit deep-render controls.
 - `internet_research.max_parallel_research_agents`: maximum research agents running in parallel per changed company.
 - `scoring.max_workers`: maximum parallel method scorers per changed company.
@@ -99,8 +99,10 @@ mn blueprint monitor --follow
 
 Each configured VC Assistant job owns persistent `knowledge/`,
 `databases/rag/`, and `state/`. Bundled diligence knowledge seeds once; later
-runs preserve edits and reuse the database. Pitch inputs, reports, logs, and
-ordinary artifacts remain independent by `run_id`.
+runs preserve edits and reuse one Milvus Lite database. The RAG skill
+single-flights startup indexing and serves parallel agent retrieval through one
+connection. Pitch inputs, reports, logs, and ordinary artifacts remain
+independent by `run_id`.
 
 ## Outputs
 

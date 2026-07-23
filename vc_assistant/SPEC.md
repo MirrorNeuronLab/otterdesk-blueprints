@@ -68,7 +68,11 @@ Internal artifacts include `company_work_queue.json`, company fact tables, resea
 The stable job owns cross-run knowledge, Milvus Lite RAG data, and explicitly
 durable state. Run inputs and reports remain execution-scoped. Seeds apply only
 on job initialization/reset; run cancellation, retention, or deletion does not
-remove shared data.
+remove shared data. All agents in a job use the same
+`databases/rag/milvus.db` and collection namespace. The reusable RAG skill owns
+a job-scoped Unix-socket service that retains the only Milvus Lite connection;
+parallel agents submit indexing, state, and retrieval operations through that
+service instead of opening the file independently.
 
 ## Evaluation Criteria
 

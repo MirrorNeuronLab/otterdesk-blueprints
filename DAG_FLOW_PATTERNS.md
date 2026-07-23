@@ -17,7 +17,7 @@ workflow ledger, not only displayed in the UI.
 | Legal Assistant | Fork/join: document reading fans out to invoice and contract review lanes; evidence reconciliation waits for both. |
 | Purchase Research Assistant | Ordered evidence and recommendation pipeline. |
 | Research Co-scientist | Ordered evidence, autonomous-research, verification, and publication pipeline. |
-| VC Assistant | Fan-out/fan-in: ordered evidence preparation leads to seven independent valuation-method scorers, then an all-success score-consistency join. Per-method state files prevent concurrent scorers from racing. |
+| VC Assistant | Fan-out/fan-in: ordered evidence preparation leads to seven independent valuation-method scorers, then an all-success score-consistency join. Per-method state files prevent scorer artifact races, while the RAG skill brokers all Milvus Lite operations through one job-scoped connection. |
 
 ## Authoring rules
 
