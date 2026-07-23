@@ -4,14 +4,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-import shutil
-import subprocess
 import sys
-from urllib.parse import urlparse
-
-
-VIDEO_EXTENSIONS = {".mp4", ".mov", ".mkv", ".avi", ".webm", ".m4v", ".ts", ".mts"}
-STREAM_SCHEMES = {"rtsp", "rtsps", "rtmp", "rtmps"}
 
 
 def _load_repo_env() -> None:
@@ -27,121 +20,57 @@ def _load_repo_env() -> None:
 
 _load_repo_env()
 
+from mn_live_video_analysis_skill import (
+    probe_stream,
+    redact_source_uri,
+    validate_stream_uri,
+)
+
 
 def main() -> int:
     config = blueprint_config()
     video_source = config.get("video_source") if isinstance(config.get("video_source"), dict) else {}
-    mode = str(video_source.get("mode") or "folder").strip().lower()
-    if mode == "folder":
-        return validate_video_folder(config, video_source)
+    mode = str(video_source.get("mode") or "stream").strip().lower()
     if mode != "stream":
         return fail(
             "config.invalid_source_mode",
-            "video_source.mode must be either folder or stream",
-            "Choose folder for staged local videos or stream for an RTSP/RTMP source.",
+            "video_source.mode must be stream",
+            "CCTV Operator accepts one approved RTSP/RTMP stream.",
             actual=mode,
             path="video_source.mode",
             status=2,
         )
 
     uri = video_source_uri(video_source)
-    parsed = urlparse(uri)
-    if parsed.scheme.lower() not in STREAM_SCHEMES or not parsed.netloc:
+    try:
+        uri = validate_stream_uri(uri)
+    except ValueError as exc:
         return fail(
             "config.invalid_scheme",
-            "stream mode requires an rtsp://, rtsps://, rtmp://, or rtmps:// URL",
+            str(exc),
             "Set video_source.uri to an approved CCTV stream URL.",
             actual=uri,
             status=2,
         )
 
-    ffprobe = shutil.which("ffprobe")
-    if not ffprobe:
-        return fail(
-            "validator.dependency_missing",
-            "ffprobe is required to validate RTSP/RTMP video streams",
-            "Install ffmpeg/ffprobe on the runtime host or run with --force if you intentionally want to skip probing.",
-            status=2,
+    try:
+        probe_stream(
+            uri,
+            timeout_seconds=float(
+                os.environ.get("RTSP_VALIDATE_TIMEOUT_SECONDS", "5")
+            ),
+            rtsp_transport=os.environ.get("FFMPEG_RTSP_TRANSPORT", "tcp"),
         )
-
-    return validate_stream(ffprobe, uri)
-
-
-def validate_video_folder(config: dict, video_source: dict) -> int:
-    raw_folder = str(
-        video_source.get("folder_path")
-        or config.get("inputs", {}).get("payload", {}).get("input_folder")
-        or "examples/sample_inputs"
-    ).strip()
-    folder = resolve_folder_path(raw_folder)
-    if not folder.is_dir():
-        return fail(
-            "video_folder.missing",
-            f"video folder is not available: {folder}",
-            "Choose a readable folder containing approved video files.",
-            actual=str(folder),
-            path="video_source.folder_path",
-            status=1,
-        )
-    videos = sorted(path for path in folder.rglob("*") if path.is_file() and path.suffix.lower() in VIDEO_EXTENSIONS)
-    if not videos:
-        return fail(
-            "video_folder.empty",
-            f"video folder contains no supported video files: {folder}",
-            "Add MP4, MOV, MKV, AVI, WebM, M4V, TS, or MTS files.",
-            actual=str(folder),
-            path="video_source.folder_path",
-            status=1,
-        )
-    print(f"Video folder validated: {folder} ({len(videos)} supported file(s))")
-    return 0
-
-
-def resolve_folder_path(raw_folder: str) -> Path:
-    raw = Path(raw_folder).expanduser()
-    if raw.is_absolute():
-        return raw
-
-    blueprint_root = Path(__file__).resolve().parents[3]
-    candidates = [Path.cwd() / raw, blueprint_root / raw, blueprint_root.parent / raw]
-    if raw.parts and raw.parts[0] == blueprint_root.name and len(raw.parts) > 1:
-        candidates.insert(1, blueprint_root.joinpath(*raw.parts[1:]))
-    for candidate in candidates:
-        if candidate.is_dir():
-            return candidate.resolve()
-    return candidates[0].resolve()
-
-
-def validate_stream(ffprobe: str, uri: str) -> int:
-    command = [
-        ffprobe,
-        "-v",
-        "error",
-        "-rw_timeout",
-        str(int(float(os.environ.get("RTSP_VALIDATE_TIMEOUT_SECONDS", "5")) * 1_000_000)),
-        "-select_streams",
-        "v:0",
-        "-show_entries",
-        "stream=codec_type",
-        "-of",
-        "csv=p=0",
-        uri,
-    ]
-    if uri.lower().startswith(("rtsp://", "rtsps://")):
-        command[3:3] = ["-rtsp_transport", os.environ.get("FFMPEG_RTSP_TRANSPORT", "tcp")]
-    result = subprocess.run(command, capture_output=True, text=True, timeout=8, check=False)
-    if result.returncode != 0 or "video" not in result.stdout.lower():
-        detail = (result.stderr or result.stdout or "no video stream reported").strip()
+    except RuntimeError as exc:
         return fail(
             "stream.unreachable",
-            f"video stream is not reachable: {detail}",
-            "Check the camera URL, credentials, network access, and whether the stream exposes a video track.",
+            str(exc),
+            "Check the camera URL, credentials, network access, FFmpeg installation, and whether the stream exposes a video track.",
             actual=uri,
-            debug={"returncode": result.returncode, "detail": detail},
             status=1,
         )
 
-    print(f"Video stream validated: {redact_url(uri)}")
+    print(f"Video stream validated: {redact_source_uri(uri)}")
     return 0
 
 
@@ -167,9 +96,11 @@ def fail(
         },
     }
     if actual is not None:
-        issue["actual"] = redact_url(actual)
+        issue["actual"] = redact_source_uri(actual)
     if debug:
-        issue["debug"] = {key: redact_url(str(value)) for key, value in debug.items()}
+        issue["debug"] = {
+            key: redact_source_uri(str(value)) for key, value in debug.items()
+        }
     print(json.dumps({
         "version": 1,
         "schema_version": "validation.report/v1",
@@ -181,16 +112,6 @@ def fail(
         "results": [],
     }, sort_keys=True))
     return status
-
-
-def redact_url(value: str) -> str:
-    parsed = urlparse(value)
-    if not parsed.scheme or not parsed.netloc:
-        return value
-    host = parsed.hostname or ""
-    if parsed.port:
-        host = f"{host}:{parsed.port}"
-    return parsed._replace(netloc=host, query="[redacted]" if parsed.query else "").geturl()
 
 
 def blueprint_config() -> dict:

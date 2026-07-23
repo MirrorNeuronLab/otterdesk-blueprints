@@ -4,15 +4,10 @@ from __future__ import annotations
 import base64
 import importlib.util
 import json
-import mimetypes
 import os
-import shutil
-import subprocess
 import sys
-import tempfile
 import time
 import urllib.error
-import urllib.parse
 import urllib.request
 from pathlib import Path
 from typing import Any
@@ -20,8 +15,15 @@ from typing import Any
 SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
+for ancestor in (SCRIPT_DIR, *SCRIPT_DIR.parents):
+    if (ancestor / "domain").is_dir() and str(ancestor) not in sys.path:
+        sys.path.insert(0, str(ancestor))
+        break
 
-RUNTIME_SKILL_PACKAGES = ("mirrorneuron-blueprint-support-skill",)
+RUNTIME_SKILL_PACKAGES = (
+    "mirrorneuron-blueprint-support-skill",
+    "mirrorneuron-live-video-analysis-skill",
+)
 
 
 def _bootstrap_runtime() -> None:
@@ -50,18 +52,15 @@ from video_json_utils import (
 )
 
 from mn_blueprint_support import PromptLibrary, start_agent_beacon_thread
+from mn_live_video_analysis_skill import (
+    model_user_content,
+    redact_source_uri,
+    write_latest_analyzed_frame,
+)
 
 
 PROMPTS = PromptLibrary.from_script(__file__, parents_up=3)
 
-IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
-VIDEO_SUFFIXES = {".mp4", ".mov", ".mkv", ".avi", ".webm", ".m4v", ".ts", ".mts"}
-DEFAULT_VIDEO_INPUT_FOLDER = "mn_local_inputs/videos"
-LIVE_STREAM_SCHEMES = ("rtsp://", "rtsps://", "rtmp://", "rtmps://")
-
-
-class FolderSourceExhausted(RuntimeError):
-    pass
 
 
 def load_prompt(name: str) -> str:
@@ -96,12 +95,7 @@ def load_blueprint_config() -> dict[str, Any]:
 def initial_state() -> dict[str, Any]:
     return {
         "frames_seen": 0,
-        "source_index": 0,
-        "source_position_seconds": 0.0,
-        "source_mode": None,
-        "active_source": None,
-        "completed_sources": [],
-        "folder_completed_emitted": False,
+        "source_mode": "stream",
         "last_alert_wall_ts": 0.0,
         "last_human_notice_wall_ts": 0.0,
         "last_human_notice_signature": None,
@@ -120,384 +114,6 @@ def initial_state() -> dict[str, Any]:
         },
         "last_error": None,
     }
-
-
-def resolve_source_uri(source_uri: str) -> str:
-    source = source_uri.strip()
-    source_path = source_path_from_uri(source)
-    if source_path is None:
-        return source_uri
-
-    candidates = source_path_candidates(source_path)
-    for candidate in candidates:
-        if candidate.exists():
-            return str(candidate)
-    return source_uri
-
-
-def configured_source_mode(config: dict[str, Any]) -> str:
-    video_source = config.get("video_source") if isinstance(config.get("video_source"), dict) else {}
-    inputs = config.get("inputs") if isinstance(config.get("inputs"), dict) else {}
-    payload = inputs.get("payload") if isinstance(inputs.get("payload"), dict) else {}
-    mode = str(
-        os.environ.get("CCTV_SOURCE_MODE")
-        or video_source.get("mode")
-        or payload.get("source_mode")
-        or "folder"
-    ).strip().lower()
-    if mode not in {"folder", "stream"}:
-        raise ValueError("video_source.mode must be either 'folder' or 'stream'")
-    return mode
-
-
-def configured_stream_uri(config: dict[str, Any]) -> str:
-    video_source = config.get("video_source") if isinstance(config.get("video_source"), dict) else {}
-    inputs = config.get("inputs") if isinstance(config.get("inputs"), dict) else {}
-    payload = inputs.get("payload") if isinstance(inputs.get("payload"), dict) else {}
-    uri = str(
-        os.environ.get("VIDEO_SOURCE_URI")
-        or video_source.get("uri")
-        or payload.get("video_source")
-        or ""
-    ).strip()
-    if not uri.lower().startswith(LIVE_STREAM_SCHEMES):
-        raise ValueError("stream mode requires an rtsp://, rtsps://, rtmp://, or rtmps:// video_source.uri")
-    return uri
-
-
-def configured_folder_candidates(config: dict[str, Any]) -> list[Path]:
-    video_source = config.get("video_source") if isinstance(config.get("video_source"), dict) else {}
-    inputs = config.get("inputs") if isinstance(config.get("inputs"), dict) else {}
-    payload = inputs.get("payload") if isinstance(inputs.get("payload"), dict) else {}
-    local_inputs = config.get("local_inputs") if isinstance(config.get("local_inputs"), dict) else {}
-    folders = local_inputs.get("folders") if isinstance(local_inputs.get("folders"), list) else []
-    runtime_path = next(
-        (
-            item.get("runtime_path")
-            for item in folders
-            if isinstance(item, dict) and item.get("runtime_path")
-        ),
-        DEFAULT_VIDEO_INPUT_FOLDER,
-    )
-    raw_values = [
-        os.environ.get("CCTV_VIDEO_INPUT_FOLDER"),
-        runtime_path,
-        video_source.get("folder_path"),
-        payload.get("input_folder"),
-    ]
-    candidates: list[Path] = []
-    for value in raw_values:
-        if not value:
-            continue
-        path = Path(str(value)).expanduser()
-        if path.is_absolute():
-            resolved = path
-        else:
-            resolved = Path(os.environ.get("MN_WORKDIR", Path.cwd())) / path
-        if resolved not in candidates:
-            candidates.append(resolved)
-    return candidates
-
-
-def configured_video_files(config: dict[str, Any]) -> tuple[Path, list[Path]]:
-    checked: list[str] = []
-    for folder in configured_folder_candidates(config):
-        checked.append(str(folder))
-        if not folder.is_dir():
-            continue
-        videos = sorted(
-            path
-            for path in folder.rglob("*")
-            if path.is_file() and path.suffix.lower() in VIDEO_SUFFIXES
-        )
-        if videos:
-            return folder, videos
-    raise FileNotFoundError(f"folder mode found no supported videos in: {', '.join(checked)}")
-
-
-def select_media_source(config: dict[str, Any], state: dict[str, Any]) -> dict[str, Any]:
-    mode = configured_source_mode(config)
-    state["source_mode"] = mode
-    if mode == "stream":
-        uri = configured_stream_uri(config)
-        state["active_source"] = uri
-        return {
-            "mode": mode,
-            "uri": uri,
-            "logical_name": redact_source_uri(uri),
-            "position_seconds": 0.0,
-            "duration_seconds": None,
-            "index": 0,
-            "count": 1,
-        }
-
-    folder, videos = configured_video_files(config)
-    index = int(state.get("source_index") or 0)
-    if index >= len(videos):
-        raise FolderSourceExhausted(f"processed all {len(videos)} video file(s) from {folder}")
-    path = videos[index]
-    position = max(0.0, float(state.get("source_position_seconds") or 0.0))
-    duration = probe_video_duration(path)
-    state["active_source"] = path.name
-    return {
-        "mode": mode,
-        "uri": str(path),
-        "logical_name": path.relative_to(folder).as_posix(),
-        "position_seconds": position,
-        "duration_seconds": duration,
-        "index": index,
-        "count": len(videos),
-    }
-
-
-def advance_media_source(state: dict[str, Any], source: dict[str, Any], sample_seconds: float) -> None:
-    if source["mode"] == "stream":
-        return
-    next_position = float(source["position_seconds"]) + sample_seconds
-    duration = source.get("duration_seconds")
-    if duration is not None and next_position >= max(float(duration), sample_seconds):
-        completed = state.setdefault("completed_sources", [])
-        if source["logical_name"] not in completed:
-            completed.append(source["logical_name"])
-        state["source_index"] = int(source["index"]) + 1
-        state["source_position_seconds"] = 0.0
-    else:
-        state["source_position_seconds"] = next_position
-
-
-def redact_source_uri(uri: str) -> str:
-    parsed = urllib.parse.urlsplit(uri)
-    if not parsed.netloc:
-        return uri
-    host = parsed.hostname or ""
-    if parsed.port:
-        host = f"{host}:{parsed.port}"
-    return urllib.parse.urlunsplit((parsed.scheme, host, parsed.path, "", ""))
-
-
-def source_path_from_uri(source_uri: str) -> Path | None:
-    parsed = urllib.parse.urlsplit(source_uri)
-    if parsed.scheme and parsed.scheme != "file":
-        return None
-    if parsed.scheme == "file":
-        path = urllib.request.url2pathname(parsed.path)
-        if parsed.netloc and parsed.netloc not in {"", "localhost"}:
-            path = f"//{parsed.netloc}{path}"
-        return Path(path)
-    return Path(source_uri)
-
-
-def source_path_candidates(source_path: Path) -> list[Path]:
-    script_path = Path(__file__).resolve()
-    detector_root = script_path.parents[1]
-    blueprint_root = script_path.parents[4]
-    raw = source_path.expanduser()
-    candidates: list[Path] = []
-
-    if raw.is_absolute():
-        candidates.append(raw)
-    else:
-        candidates.extend(
-            [
-                Path.cwd() / raw,
-                detector_root / raw,
-                blueprint_root / raw,
-                blueprint_root / "payloads" / "agents" / "visual_detector" / raw,
-            ]
-        )
-
-    candidates.extend(remapped_payload_candidates(raw, detector_root, blueprint_root))
-
-    unique: list[Path] = []
-    seen: set[str] = set()
-    for candidate in candidates:
-        key = str(candidate)
-        if key not in seen:
-            seen.add(key)
-            unique.append(candidate)
-    return unique
-
-
-def remapped_payload_candidates(source_path: Path, detector_root: Path, blueprint_root: Path) -> list[Path]:
-    parts = source_path.parts
-    candidates: list[Path] = []
-
-    payload_suffix = suffix_after(parts, ("payloads", "agents", "visual_detector"))
-    if payload_suffix is not None:
-        candidates.append(detector_root / payload_suffix)
-        candidates.append(blueprint_root / "payloads" / "agents" / "visual_detector" / payload_suffix)
-
-    blueprint_suffix = suffix_after(parts, ("cctv_operator",))
-    if blueprint_suffix is not None:
-        candidates.append(blueprint_root / blueprint_suffix)
-        nested_suffix = suffix_after(blueprint_suffix.parts, ("payloads", "agents", "visual_detector"))
-        if nested_suffix is not None:
-            candidates.append(detector_root / nested_suffix)
-
-    return candidates
-
-
-def suffix_after(parts: tuple[str, ...], marker: tuple[str, ...]) -> Path | None:
-    marker_len = len(marker)
-    for index in range(0, len(parts) - marker_len + 1):
-        if parts[index : index + marker_len] == marker:
-            suffix = parts[index + marker_len :]
-            if suffix:
-                return Path(*suffix)
-    return None
-
-
-def is_live_stream_source(source_uri: str) -> bool:
-    return source_uri.strip().lower().startswith(LIVE_STREAM_SCHEMES)
-
-
-def ffmpeg_rtsp_transport() -> str:
-    transport = os.environ.get("FFMPEG_RTSP_TRANSPORT", "tcp").strip().lower()
-    if transport not in {"tcp", "udp"}:
-        return "tcp"
-    return transport
-
-
-def ffmpeg_binary() -> str:
-    configured = os.environ.get("FFMPEG_BINARY", "").strip()
-    if configured:
-        return configured
-    discovered = shutil.which("ffmpeg")
-    if discovered:
-        return discovered
-    for candidate in ("/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg", "/usr/bin/ffmpeg"):
-        if Path(candidate).is_file():
-            return candidate
-    return "ffmpeg"
-
-
-def ffprobe_binary() -> str:
-    configured = os.environ.get("FFPROBE_BINARY", "").strip()
-    if configured:
-        return configured
-    return shutil.which("ffprobe") or "ffprobe"
-
-
-def probe_video_duration(path: Path) -> float | None:
-    command = [
-        ffprobe_binary(),
-        "-v",
-        "error",
-        "-show_entries",
-        "format=duration",
-        "-of",
-        "default=noprint_wrappers=1:nokey=1",
-        str(path),
-    ]
-    try:
-        result = subprocess.run(command, capture_output=True, text=True, timeout=10, check=True)
-        duration = float(result.stdout.strip())
-    except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired, ValueError):
-        return None
-    return duration if duration > 0 else None
-
-
-def media_accelerator() -> str:
-    accelerator = os.environ.get("CCTV_MEDIA_ACCELERATOR", "nvidia_cuda").strip().lower()
-    if accelerator != "nvidia_cuda":
-        raise RuntimeError("CCTV_MEDIA_ACCELERATOR must be nvidia_cuda; this blueprint has no CPU media path")
-    return accelerator
-
-
-def configured_frame_sample_seconds(config: dict[str, Any]) -> float:
-    video_source = config.get("video_source") if isinstance(config.get("video_source"), dict) else {}
-    raw = os.environ.get("FRAME_SAMPLE_SECONDS") or video_source.get("frame_sample_seconds") or 20
-    try:
-        return max(0.25, float(raw))
-    except (TypeError, ValueError):
-        return 20.0
-
-
-def configured_frame_max_width(config: dict[str, Any]) -> int:
-    video_source = config.get("video_source") if isinstance(config.get("video_source"), dict) else {}
-    raw = os.environ.get("FRAME_JPEG_MAX_WIDTH") or video_source.get("frame_jpeg_max_width") or 896
-    try:
-        return max(64, int(raw))
-    except (TypeError, ValueError):
-        return 896
-
-
-def ffmpeg_frame_timeout_seconds() -> float:
-    try:
-        return max(1.0, float(os.environ.get("FFMPEG_FRAME_TIMEOUT_SECONDS", "8")))
-    except ValueError:
-        return 8.0
-
-
-def extract_frame(source_uri: str, position_seconds: float, max_width: int) -> tuple[bytes, str]:
-    resolved = resolve_source_uri(source_uri)
-    suffix = Path(resolved).suffix.lower()
-    if suffix in IMAGE_SUFFIXES and Path(resolved).exists():
-        return Path(resolved).read_bytes(), "image/jpeg" if suffix in {".jpg", ".jpeg"} else mimetypes.guess_type(resolved)[0] or "image/png"
-
-    with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as temp_file:
-        temp_path = Path(temp_file.name)
-
-    media_accelerator()
-    vf = (
-        f"scale_cuda={max_width}:-2:force_original_aspect_ratio=decrease,"
-        "hwdownload,format=nv12,format=yuvj420p"
-    )
-    try:
-        command = [
-            ffmpeg_binary(),
-            "-hide_banner",
-            "-loglevel",
-            "error",
-            "-nostdin",
-        ]
-        if is_live_stream_source(resolved):
-            if resolved.lower().startswith(("rtsp://", "rtsps://")):
-                command.extend(["-rtsp_transport", ffmpeg_rtsp_transport()])
-        else:
-            command.extend(["-ss", f"{position_seconds:.3f}"])
-        command.extend(
-            [
-                "-hwaccel",
-                "cuda",
-                "-hwaccel_output_format",
-                "cuda",
-                "-i",
-                resolved,
-                "-frames:v",
-                "1",
-                "-vf",
-                vf,
-                "-q:v",
-                "4",
-                "-y",
-                str(temp_path),
-            ]
-        )
-        try:
-            subprocess.run(
-                command,
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                timeout=ffmpeg_frame_timeout_seconds(),
-            )
-        except subprocess.CalledProcessError as exc:
-            detail = exc.stderr.decode("utf-8", errors="replace").strip()
-            raise RuntimeError(f"NVIDIA FFmpeg frame extraction failed: {detail}") from exc
-        except subprocess.TimeoutExpired as exc:
-            raise RuntimeError(f"NVIDIA FFmpeg timed out extracting a frame from {redact_source_uri(resolved)}") from exc
-        data = temp_path.read_bytes()
-        if not data:
-            raise RuntimeError(f"NVIDIA FFmpeg produced no frame from {redact_source_uri(resolved)}")
-        return data, "image/jpeg"
-    except FileNotFoundError as exc:
-        raise RuntimeError("ffmpeg with CUDA support is required on the selected NVIDIA node") from exc
-    finally:
-        try:
-            temp_path.unlink()
-        except FileNotFoundError:
-            pass
 
 
 def mock_detection(frame_seq: int) -> dict[str, Any]:
@@ -533,7 +149,7 @@ def mock_detection(frame_seq: int) -> dict[str, Any]:
     }
 
 
-def call_ollama(frame: bytes, prompt: str) -> dict[str, Any]:
+def call_ollama(frame: bytes | list[bytes], prompt: str) -> dict[str, Any]:
     provider = (
         os.environ.get("MN_VLM_PROVIDER")
         or os.environ.get("MN_LLM_PROVIDER")
@@ -557,19 +173,15 @@ def call_ollama(frame: bytes, prompt: str) -> dict[str, Any]:
     )
     timeout = float(os.environ.get("MN_VLM_TIMEOUT_SECONDS") or os.environ.get("MN_LLM_TIMEOUT_SECONDS") or os.environ.get("OLLAMA_TIMEOUT_SECONDS", "90"))
     if _uses_openai_compatible_runtime(provider, base_url):
-        encoded = base64.b64encode(frame).decode("ascii")
         payload = {
             "model": model,
             "messages": [
                 {
                     "role": "user",
-                    "content": [
-                        {"type": "text", "text": prompt},
-                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{encoded}"}},
-                    ],
+                    "content": model_user_content(prompt, frame),
                 }
             ],
-            "max_tokens": int(os.environ.get("MN_VLM_MAX_TOKENS") or os.environ.get("MN_LLM_MAX_TOKENS") or os.environ.get("OLLAMA_NUM_PREDICT", "600")),
+            "max_tokens": int(os.environ.get("MN_VLM_MAX_TOKENS") or os.environ.get("MN_LLM_MAX_TOKENS") or os.environ.get("OLLAMA_NUM_PREDICT", "900")),
             "temperature": float(os.environ.get("MN_VLM_TEMPERATURE") or os.environ.get("OLLAMA_TEMPERATURE", "0.0")),
             "response_format": {"type": "json_object"},
         }
@@ -602,7 +214,10 @@ def call_ollama(frame: bytes, prompt: str) -> dict[str, Any]:
         "stream": False,
         "format": "json",
         "think": os.environ.get("OLLAMA_THINK", "false").strip().lower() in {"1", "true", "yes", "on"},
-        "images": [base64.b64encode(frame).decode("ascii")],
+        "images": [
+            base64.b64encode(item).decode("ascii")
+            for item in ([frame] if isinstance(frame, bytes) else frame)
+        ],
         "options": {
             "temperature": float(os.environ.get("OLLAMA_TEMPERATURE", "0.0")),
             "num_predict": int(os.environ.get("OLLAMA_NUM_PREDICT", "300")),
@@ -870,6 +485,7 @@ def looks_like_attention_request(text: str) -> bool:
 
 def attention_request_from_inputs(payload: dict[str, Any], message: dict[str, Any]) -> str:
     direct_keys = (
+        "instruction",
         "attention_instruction",
         "attention_request",
         "attention_targets",
@@ -896,12 +512,82 @@ def attention_request_from_inputs(payload: dict[str, Any], message: dict[str, An
     return ""
 
 
+def configured_run_dir() -> Path:
+    explicit = str(os.environ.get("MN_RUN_DIR") or "").strip()
+    if explicit:
+        return Path(explicit).expanduser()
+    runs_root = str(os.environ.get("MN_RUNS_ROOT") or "").strip()
+    run_id = str(os.environ.get("MN_RUN_ID") or os.environ.get("MN_JOB_ID") or "").strip()
+    if runs_root and run_id:
+        return Path(runs_root).expanduser() / run_id
+    return Path.cwd()
+
+
+def load_frame_batch(batch_ref: str) -> tuple[dict[str, Any], list[bytes]]:
+    relative = Path(str(batch_ref))
+    if relative.is_absolute() or ".." in relative.parts:
+        raise ValueError("frame_batch_ref must be a run-relative path")
+    batch_path = configured_run_dir() / relative
+    batch = json.loads(batch_path.read_text(encoding="utf-8"))
+    if not isinstance(batch, dict):
+        raise ValueError("frame batch manifest must be a JSON object")
+    selected = batch.get("selected_frames")
+    if not isinstance(selected, list) or not selected:
+        raise ValueError("frame batch contains no selected frames")
+    frames: list[bytes] = []
+    for item in selected[:20]:
+        if not isinstance(item, dict):
+            continue
+        frame_relative = Path(str(item.get("path") or ""))
+        if frame_relative.is_absolute() or ".." in frame_relative.parts:
+            raise ValueError("selected frame path must be run-relative")
+        frame_path = configured_run_dir() / frame_relative
+        frames.append(frame_path.read_bytes())
+    if not frames:
+        raise ValueError("frame batch selected frame artifacts are missing")
+    return batch, frames
+
+
 def apply_attention_request(
     state: dict[str, Any],
     payload: dict[str, Any],
     message: dict[str, Any],
     camera_id: str,
 ) -> dict[str, Any] | None:
+    if "instruction" in payload and "instruction_revision" in payload:
+        instruction = normalize_attention_instruction(payload.get("instruction"))
+        revision = max(0, int(payload.get("instruction_revision") or 0))
+        current_revision = max(0, int(state.get("instruction_revision") or 0))
+        if revision < current_revision:
+            return None
+        previous = normalize_attention_instruction(state.get("attention_instruction"))
+        state["attention_instruction"] = instruction
+        state["attention_targets"] = [instruction] if instruction else []
+        state["instruction_revision"] = revision
+        state["last_attention_update"] = {
+            "camera_id": camera_id,
+            "instruction": instruction,
+            "instruction_revision": revision,
+            "updated_at_wall_ts": time.time(),
+        }
+        if previous == instruction:
+            return None
+        return {
+            "type": "cctv_operator_attention_updated",
+            "payload": {
+                "camera_id": camera_id,
+                "attention_instruction": instruction,
+                "attention_targets": [instruction] if instruction else [],
+                "instruction_revision": revision,
+                "cleared": not bool(instruction),
+                "summary": (
+                    "Operator attention request cleared."
+                    if not instruction
+                    else f"Operator attention request updated: {instruction}"
+                ),
+            },
+        }
+
     instruction = attention_request_from_inputs(payload, message)
     if not instruction:
         return None
@@ -1080,6 +766,15 @@ def frame_observed_event(observation: dict[str, Any], conversation_summary: str 
             "activity_description": observation.get("activity_description"),
             "visible_subjects": observation.get("visible_subjects"),
             "attention_instruction": observation.get("attention_instruction"),
+            "instruction_revision": observation.get("instruction_revision"),
+            "sampling_trigger": observation.get("sampling_trigger"),
+            "frame_batch_ref": observation.get("frame_batch_ref"),
+            "batch_id": observation.get("batch_id"),
+            "candidate_count": observation.get("candidate_count"),
+            "selected_count": observation.get("selected_count"),
+            "command_id": observation.get("command_id"),
+            "model_latency_ms": observation.get("model_latency_ms"),
+            "sampling_metrics": observation.get("sampling_metrics"),
             "conversation_summary": conversation_summary or what_happened_summary([observation]),
         },
     }
@@ -1249,27 +944,52 @@ def main() -> None:
         or video_source_config.get("camera_id")
         or "cctv"
     )
-    sample_seconds = configured_frame_sample_seconds(config)
-    max_width = configured_frame_max_width(config)
-
     events: list[dict[str, Any]] = []
     stream = message.get("stream") or {}
     source: dict[str, Any] | None = None
+    batch: dict[str, Any] | None = None
 
     try:
         attention_event = apply_attention_request(state, payload, message, camera_id)
         if attention_event:
             events.append(attention_event)
         attention_instruction = normalize_attention_instruction(state.get("attention_instruction"))
-        source = select_media_source(config, state)
+        batch_ref = compact_string(payload.get("frame_batch_ref"), limit=500)
+        if not batch_ref:
+            raise ValueError("visual detector requires a persisted frame_batch_ref")
+        batch, batch_frames = load_frame_batch(batch_ref)
+        batch_source = batch.get("source") if isinstance(batch.get("source"), dict) else {}
+        source = {
+            "mode": "stream",
+            "uri": batch_source.get("uri") or "",
+            "logical_name": batch_source.get("name") or batch_source.get("uri") or "unknown",
+            "position_seconds": batch_source.get("position_seconds") or 0.0,
+            "duration_seconds": None,
+            "index": 0,
+            "count": 1,
+        }
         source_uri = str(source["uri"])
         safe_source_uri = redact_source_uri(source_uri)
         position = float(source["position_seconds"])
+        model_started = time.monotonic()
         if os.environ.get("MOCK_VLM_DETECTION", "false").strip().lower() in {"1", "true", "yes", "on"}:
             detection = mock_detection(frame_seq)
         else:
-            frame, _content_type = extract_frame(source_uri, position, max_width)
-            detection = call_ollama(frame, detection_prompt(camera_id, attention_instruction))
+            detection = call_ollama(
+                batch_frames,
+                detection_prompt(camera_id, attention_instruction),
+            )
+        model_latency_ms = max(
+            0, int((time.monotonic() - model_started) * 1000)
+        )
+        latest_frame_metadata: dict[str, Any] = {}
+        if batch is not None:
+            _latest_path, latest_frame_metadata = write_latest_analyzed_frame(
+                configured_run_dir(),
+                batch,
+                model_latency_ms=model_latency_ms,
+                schema="otterdesk.cctv_operator.latest_frame.v2",
+            )
 
         detection_payload = {
             **detection,
@@ -1285,6 +1005,20 @@ def main() -> None:
             "media_accelerator": "nvidia_cuda",
             "stream_id": stream.get("stream_id"),
             "attention_instruction": attention_instruction,
+            "instruction_revision": int(
+                payload.get("instruction_revision")
+                or (batch or {}).get("instruction_revision")
+                or 0
+            ),
+            "sampling_trigger": payload.get("trigger") or batch.get("trigger"),
+            "frame_batch_ref": batch_ref,
+            "batch_id": payload.get("batch_id") or (batch or {}).get("batch_id"),
+            "candidate_count": int(payload.get("candidate_count") or (batch or {}).get("candidate_count") or 1),
+            "selected_count": int(payload.get("selected_count") or (batch or {}).get("selected_count") or 1),
+            "command_id": payload.get("command_id"),
+            "model_latency_ms": model_latency_ms,
+            "sampling_metrics": dict((batch or {}).get("metrics") or {}),
+            "latest_analyzed_frame": latest_frame_metadata or None,
         }
         previous_observation = state.get("last_observation") if isinstance(state.get("last_observation"), dict) else {}
         observation = update_conversation_context(state, detection_payload)
@@ -1311,24 +1045,19 @@ def main() -> None:
         events.extend(primary_events)
 
         state["last_error"] = None
-        advance_media_source(state, source, sample_seconds)
+        state["last_batch"] = {
+            "batch_id": detection_payload.get("batch_id"),
+            "frame_batch_ref": batch_ref,
+            "sampling_trigger": detection_payload["sampling_trigger"],
+            "instruction_revision": detection_payload[
+                "instruction_revision"
+            ],
+            "candidate_count": detection_payload["candidate_count"],
+            "selected_count": detection_payload["selected_count"],
+            "model_latency_ms": model_latency_ms,
+            "sampling_metrics": detection_payload["sampling_metrics"],
+        }
         state["frames_seen"] = int(state.get("frames_seen", 0)) + 1
-    except FolderSourceExhausted as exc:
-        state["active_source"] = None
-        state["last_error"] = None
-        if not state.get("folder_completed_emitted"):
-            state["folder_completed_emitted"] = True
-            events.append(
-                {
-                    "type": "cctv_operator_folder_completed",
-                    "payload": {
-                        "camera_id": camera_id,
-                        "source_mode": "folder",
-                        "completed_sources": list(state.get("completed_sources") or []),
-                        "summary": str(exc),
-                    },
-                }
-            )
     except Exception as exc:
         message_text = str(exc)[:800]
         state["last_error"] = message_text

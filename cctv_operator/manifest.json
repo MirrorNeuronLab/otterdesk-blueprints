@@ -2,7 +2,7 @@
   "agentic_research": {
     "agent_ids": [
       "video_source_validator",
-      "frame_sampler",
+      "adaptive_frame_sampler",
       "visual_target_detector",
       "quality_controller",
       "report_writer"
@@ -19,24 +19,37 @@
     "enabled": true,
     "max_iterations_per_agent": 1,
     "max_tool_calls_per_agent": 2,
-    "note": "CCTV actors ground detections in staged files or the configured stream, frame evidence, and alert policy.",
+    "note": "CCTV actors ground detections in the configured live stream, selected frame evidence, and alert policy.",
     "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run"
   },
   "agents": {
     "entrypoints": [
-      "ingress"
+      "ingress",
+      "cctv_web_ui"
     ],
     "extra_edges": [
       {
-        "edge_id": "ingress_to_frame_tick",
+        "edge_id": "ingress_to_adaptive_sampler",
         "from_node": "ingress",
         "message_type": "cctv_operator_start",
-        "to_node": "video_frame_tick_source"
+        "to_node": "adaptive_frame_sampler"
       },
       {
-        "edge_id": "frame_tick_to_visual_detector",
-        "from_node": "video_frame_tick_source",
-        "message_type": "video_frame_tick_generated",
+        "edge_id": "adaptive_sampler_continues_sampling",
+        "from_node": "adaptive_frame_sampler",
+        "message_type": "cctv_operator_sample_due",
+        "to_node": "adaptive_frame_sampler"
+      },
+      {
+        "edge_id": "ingress_to_adaptive_sampler_steering",
+        "from_node": "ingress",
+        "message_type": "cctv_operator_steer",
+        "to_node": "adaptive_frame_sampler"
+      },
+      {
+        "edge_id": "adaptive_sampler_to_visual_detector",
+        "from_node": "adaptive_frame_sampler",
+        "message_type": "cctv_operator_frame_batch_ready",
         "to_node": "visual_detector"
       },
       {
@@ -56,27 +69,94 @@
         "type": "map"
       },
       {
-        "agent_type": "module",
-        "alias": "frame_sampler",
-        "config": {
-          "emit_type": "video_frame_tick_generated",
-          "interval_seconds": 20,
-          "module": "MirrorNeuron.Examples.CctvOperator.VideoFrameTickSource",
-          "module_source": "beam_modules/video_frame_tick_source.ex"
-        },
-        "display_name": "Frame Sampler",
-        "node_id": "video_frame_tick_source",
-        "type": "generic"
-      },
-      {
         "agent_type": "executor",
-        "alias": "quality_controller",
+        "alias": "adaptive_frame_sampler",
         "config": {
           "agent_beacon_required": true,
           "beacon_enabled": true,
           "beacon_interval_ms": 15000,
           "beacon_missed_action": "fail_attempt",
           "beacon_timeout_ms": 45000,
+          "backpressure": {
+            "high_watermark": 1,
+            "low_watermark": 0,
+            "max_queue_depth": 2,
+            "retry_after_ms": 1000
+          },
+          "command": [
+            "bash",
+            "scripts/run_sampler_on_nvidia.sh"
+          ],
+          "docker_worker_image": "docker_worker",
+          "environment": {},
+          "from": "base",
+          "gpus": "all",
+          "image": "mirror-neuron/cctv-operator:local",
+          "network": "mirror-neuron-runtime",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "output_message_type": null,
+          "pool": "default",
+          "pool_slots": 1,
+          "reuse_shared_container": true,
+          "runner_module": "MirrorNeuron.Runner.DockerWorker",
+          "shared_container": true,
+          "tty": false,
+          "upload_paths": [
+            {
+              "source": "agents/adaptive_frame_sampler",
+              "target": "adaptive_frame_sampler"
+            },
+            {
+              "source": "domain",
+              "target": "adaptive_frame_sampler/domain"
+            }
+          ],
+          "workdir": "/mn/job/adaptive_frame_sampler"
+        },
+        "constraints": [
+          {
+            "attribute": "capabilities",
+            "operator": "contains_all",
+            "value": [
+              "nvidia",
+              "cuda"
+            ]
+          }
+        ],
+        "display_name": "Adaptive Frame Sampler",
+        "node_id": "adaptive_frame_sampler",
+        "resources": {
+          "devices": [
+            {
+              "count": 1,
+              "driver": "cuda",
+              "kind": "gpu",
+              "memory_operator": ">=",
+              "min_memory_mb": 49152,
+              "type": "nvidia/gpu",
+              "vendor": "nvidia"
+            }
+          ],
+          "gpu_count": 1
+        },
+        "type": "generic"
+      },
+      {
+        "agent_type": "executor",
+        "alias": "visual_target_detector",
+        "config": {
+          "agent_beacon_required": true,
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_missed_action": "fail_attempt",
+          "beacon_timeout_ms": 45000,
+          "backpressure": {
+            "high_watermark": 1,
+            "low_watermark": 0,
+            "max_queue_depth": 2,
+            "retry_after_ms": 1000
+          },
           "command": [
             "bash",
             "scripts/run_detector_on_nvidia.sh"
@@ -118,7 +198,7 @@
             ]
           }
         ],
-        "display_name": "Quality Controller",
+        "display_name": "Visual Target Detector",
         "node_id": "visual_detector",
         "resources": {
           "devices": [
@@ -164,6 +244,10 @@
             {
               "source": "agents/report_writer",
               "target": "report_writer"
+            },
+            {
+              "source": "domain",
+              "target": "report_writer/domain"
             }
           ],
           "workdir": "/sandbox/job/report_writer"
@@ -171,6 +255,62 @@
         "display_name": "CCTV Report Writer",
         "node_id": "report_writer",
         "type": "generic"
+      },
+      {
+        "agent_type": "executor",
+        "alias": "cctv_web_ui",
+        "config": {
+          "command": [
+            "python3.11",
+            "cctv_web_ui.py"
+          ],
+          "environment": {},
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "output_message_type": null,
+          "pool": "default",
+          "pool_slots": 1,
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "tty": false,
+          "upload_as": "cctv_web_ui",
+          "upload_path": "services",
+          "workdir": "/sandbox/job/cctv_web_ui"
+        },
+        "display_name": "CCTV Web UI",
+        "node_id": "cctv_web_ui",
+        "resources": {
+          "ports": [
+            {
+              "label": "web_ui",
+              "port": 61000,
+              "protocol": "http"
+            }
+          ]
+        },
+        "services": [
+          {
+            "address": "127.0.0.1",
+            "checks": [
+              {
+                "interval": "2s",
+                "name": "http-ready",
+                "path": "/healthz",
+                "timeout": "1s",
+                "type": "http"
+              }
+            ],
+            "name": "cctv-operator-web-ui",
+            "port": 61000,
+            "tags": [
+              "web_ui",
+              "blueprint",
+              "cctv_operator",
+              "json-render"
+            ]
+          }
+        ],
+        "type": "stream"
       }
     ]
   },
@@ -190,9 +330,14 @@
         "llm_decision",
         "simulation_state_updated",
         "run_completed",
-        "video_frame_tick_generated",
+        "cctv_operator_sample_due",
+        "cctv_operator_scene_change_detected",
+        "cctv_operator_burst_started",
+        "cctv_operator_burst_completed",
+        "cctv_operator_frame_batch_ready",
+        "cctv_operator_sample_skipped",
+        "cctv_operator_queue_lag",
         "cctv_operator_frame_observed",
-        "cctv_operator_folder_completed",
         "cctv_operator_attention_updated",
         "cctv_operator_detection",
         "human_notice",
@@ -225,6 +370,31 @@
         "env_json"
       ]
     },
+    "live_inputs": {
+      "steer_monitoring": {
+        "description": "Update or clear the current run's monitoring instruction and optionally analyze immediately.",
+        "entrypoint": "ingress",
+        "message_type": "cctv_operator_steer",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "analyze_now": {
+              "default": true,
+              "type": "boolean"
+            },
+            "clear": {
+              "default": false,
+              "type": "boolean"
+            },
+            "instruction": {
+              "maxLength": 500,
+              "type": "string"
+            }
+          },
+          "type": "object"
+        }
+      }
+    },
     "inputs": {
       "alert_policy": {
         "description": "Cooldown, confidence, and notification policy for reviewer notices.",
@@ -242,14 +412,6 @@
         "required": false,
         "type": "domain_value"
       },
-      "input_folder": {
-        "description": "Default local input folder for sample files or user-provided files.",
-        "example": "cctv_operator/examples/sample_inputs",
-        "path_kind": "directory",
-        "privacy": "internal",
-        "required": false,
-        "type": "local_path"
-      },
       "output_folder": {
         "description": "Default local output folder for generated artifacts and reports.",
         "example": "~/Download/cctv_operator",
@@ -265,18 +427,11 @@
         "required": false,
         "type": "domain_value"
       },
-      "source_mode": {
-        "description": "Select folder to process staged local recordings or stream to monitor one RTSP/RTMP source.",
-        "example": "folder",
-        "privacy": "internal",
-        "required": true,
-        "type": "domain_value"
-      },
       "video_source": {
-        "description": "Approved RTSP/RTMP URI used only when source_mode is stream.",
+        "description": "Approved RTSP/RTMP URI monitored by this run.",
         "example": "rtsp://camera.example/cctv",
         "privacy": "internal",
-        "required": false,
+        "required": true,
         "type": "domain_value"
       },
       "visual_targets": {
@@ -360,7 +515,7 @@
           "mime_type": "application/json",
           "path": "cctv_report.json",
           "producer": "report_writer",
-          "schema_version": "otterdesk.cctv_operator_report.v1",
+          "schema_version": "otterdesk.cctv_operator_report.v2",
           "source_refs": [
             "events.jsonl",
             "inputs.json"
@@ -372,11 +527,33 @@
           "mime_type": "text/markdown",
           "path": "cctv_report.md",
           "producer": "report_writer",
-          "schema_version": "otterdesk.cctv_operator_report.v1",
+          "schema_version": "otterdesk.cctv_operator_report.v2",
           "source_refs": [
             "cctv_report.json"
           ],
           "type": "domain_report"
+        },
+        {
+          "artifact_id": "frame_batches",
+          "mime_type": "application/json",
+          "path": "frame_batches",
+          "producer": "adaptive_frame_sampler",
+          "schema_version": "otterdesk.cctv_operator.frame_batch.v2",
+          "source_refs": [
+            "inputs.json"
+          ],
+          "type": "artifact_collection"
+        },
+        {
+          "artifact_id": "latest_analyzed_frame",
+          "mime_type": "image/jpeg",
+          "path": "latest_analyzed_frame.jpg",
+          "producer": "visual_detector",
+          "schema_version": "otterdesk.cctv_operator.latest_frame.v2",
+          "source_refs": [
+            "latest_analyzed_frame.json"
+          ],
+          "type": "image"
         },
         {
           "artifact_id": "logs",
@@ -499,7 +676,7 @@
         "completed"
       ]
     },
-    "summary": "Analyze a staged folder of recordings or one approved RTSP/RTMP stream on a qualifying NVIDIA node, with CUDA-accelerated frame preparation and durable review reports.",
+    "summary": "Monitor one approved RTSP/RTMP stream on a qualifying NVIDIA node with sparse adaptive sampling and durable review reports.",
     "users": [
       "Video operators, security reviewers, safety operations teams, and site-access coordinators."
     ]
@@ -513,13 +690,13 @@
     "category": "business",
     "id": "cctv_operator",
     "job_name": "cctv-operator",
-    "manifest_version": "1.0",
+    "manifest_version": "2.0",
     "name": "CCTV Operator",
-    "version": 1
+    "version": 2
   },
   "intent": {
-    "description": "An NVIDIA-only CCTV co-worker. Give it a local input folder of recordings or one approved RTSP/RTMP stream, visual targets, alert policy, and output folder; it prepares sampled frames with CUDA-enabled FFmpeg and writes source-grounded JSON and Markdown review reports.",
-    "problem": "One NVIDIA-only workflow now handles both staged recording folders and approved RTSP/RTMP streams, preserving source provenance in cumulative review reports.",
+    "description": "An NVIDIA-only CCTV co-worker for one approved RTSP/RTMP stream, with operator steering, sparse adaptive sampling, and source-grounded reports.",
+    "problem": "Monitor a live CCTV stream without sending its native frame rate to the model.",
     "safety": {
       "enabled": true,
       "events": [
@@ -560,7 +737,7 @@
     "required": false,
     "retrieval_targets": [
       "visual target evidence",
-      "folder or stream source provenance",
+      "live stream source provenance",
       "alert cooldowns",
       "human review boundaries"
     ],
@@ -593,12 +770,24 @@
   "metadata": {
     "job_data": {
       "resources": [
-        { "name": "knowledge", "path": "knowledge", "access": "read_write" },
-        { "name": "rag", "path": "databases/rag", "access": "read_write" },
-        { "name": "state", "path": "state", "access": "read_write" }
+        {
+          "name": "knowledge",
+          "path": "knowledge",
+          "access": "read_write"
+        },
+        {
+          "name": "rag",
+          "path": "databases/rag",
+          "access": "read_write"
+        },
+        {
+          "name": "state",
+          "path": "state",
+          "access": "read_write"
+        }
       ]
     },
-    "agent_role": "AI assistant for reviewing recorded or live video activity and preparing visual detection reports and alerts.",
+    "agent_role": "AI assistant for reviewing live video activity and preparing visual detection reports and alerts.",
     "agent_templates": {
       "library": "../mn-agents/index.json",
       "nodes": [
@@ -609,20 +798,41 @@
           "uses": "mn-agents.control_router@1"
         },
         {
-          "alias": "frame_sampler",
-          "display_name": "Frame Sampler",
-          "node_id": "video_frame_tick_source",
-          "uses": "mn-agents.data_module@1",
+          "alias": "adaptive_frame_sampler",
+          "display_name": "Adaptive Frame Sampler",
+          "node_id": "adaptive_frame_sampler",
+          "uses": "mn-agents.data_python_executor@1",
           "with": {
-            "emit_type": "video_frame_tick_generated",
-            "interval_seconds": 20,
-            "module": "MirrorNeuron.Examples.CctvOperator.VideoFrameTickSource",
-            "module_source": "beam_modules/video_frame_tick_source.ex"
+            "command": [
+              "bash",
+              "scripts/run_sampler_on_nvidia.sh"
+            ],
+            "docker_worker_image": "docker_worker",
+            "environment": {},
+            "gpus": "all",
+            "image": "mirror-neuron/cctv-operator:local",
+            "network": "mirror-neuron-runtime",
+            "output_message_type": null,
+            "reuse_shared_container": true,
+            "runner_module": "MirrorNeuron.Runner.DockerWorker",
+            "script": "scripts/sample_video.py",
+            "shared_container": true,
+            "upload_paths": [
+              {
+                "source": "agents/adaptive_frame_sampler",
+                "target": "adaptive_frame_sampler"
+              },
+              {
+                "source": "domain",
+                "target": "adaptive_frame_sampler/domain"
+              }
+            ],
+            "workdir": "/mn/job/adaptive_frame_sampler"
           }
         },
         {
-          "alias": "quality_controller",
-          "display_name": "Quality Controller",
+          "alias": "visual_target_detector",
+          "display_name": "Visual Target Detector",
           "node_id": "visual_detector",
           "uses": "mn-agents.data_python_executor@1",
           "with": {
@@ -644,6 +854,10 @@
               {
                 "source": "agents/visual_detector",
                 "target": "visual_detector"
+              },
+              {
+                "source": "domain",
+                "target": "visual_detector/domain"
               },
               {
                 "source": "prompts",
@@ -672,267 +886,21 @@
               {
                 "source": "agents/report_writer",
                 "target": "report_writer"
+              },
+              {
+                "source": "domain",
+                "target": "report_writer/domain"
               }
             ],
             "workdir": "/sandbox/job/report_writer"
           }
         }
-      ],
-      "render_tool": "../mn-agents/tools/render_agent_templates.py",
-      "rendered": [
-        {
-          "node_id": "ingress",
-          "original_node": {
-            "alias": "video_monitor",
-            "display_name": "Video Monitor",
-            "node_id": "ingress",
-            "uses": "mn-agents.control_router@1",
-            "with": {}
-          },
-          "rendered_node": {
-            "agent_type": "router",
-            "alias": "video_monitor",
-            "config": {},
-            "display_name": "Video Monitor",
-            "node_id": "ingress",
-            "type": "map"
-          },
-          "template_id": "mn-agents.control_router",
-          "version": 1
-        },
-        {
-          "node_id": "video_frame_tick_source",
-          "original_node": {
-            "alias": "frame_sampler",
-            "display_name": "Frame Sampler",
-            "node_id": "video_frame_tick_source",
-            "uses": "mn-agents.data_module@1",
-            "with": {
-              "emit_type": "video_frame_tick_generated",
-              "interval_seconds": 20,
-              "module": "MirrorNeuron.Examples.CctvOperator.VideoFrameTickSource",
-              "module_source": "beam_modules/video_frame_tick_source.ex"
-            }
-          },
-          "rendered_node": {
-            "agent_type": "module",
-            "alias": "frame_sampler",
-            "config": {
-              "emit_type": "video_frame_tick_generated",
-              "interval_seconds": 20,
-              "module": "MirrorNeuron.Examples.CctvOperator.VideoFrameTickSource",
-              "module_source": "beam_modules/video_frame_tick_source.ex"
-            },
-            "display_name": "Frame Sampler",
-            "node_id": "video_frame_tick_source",
-            "type": "generic"
-          },
-          "template_id": "mn-agents.data_module",
-          "version": 1
-        },
-        {
-          "node_id": "visual_detector",
-          "original_node": {
-            "alias": "quality_controller",
-            "constraints": [
-              {
-                "attribute": "capabilities",
-                "operator": "contains_all",
-                "value": [
-                  "nvidia",
-                  "cuda"
-                ]
-              }
-            ],
-            "display_name": "Quality Controller",
-            "node_id": "visual_detector",
-            "resources": {
-              "devices": [
-                {
-                  "count": 1,
-                  "driver": "cuda",
-                  "kind": "gpu",
-                  "memory_operator": ">=",
-                  "min_memory_mb": 49152,
-                  "type": "nvidia/gpu",
-                  "vendor": "nvidia"
-                }
-              ],
-              "gpu_count": 1
-            },
-            "uses": "mn-agents.data_python_executor@1",
-            "with": {
-              "command": [
-                "bash",
-                "scripts/run_detector_on_nvidia.sh"
-              ],
-              "docker_worker_image": "docker_worker",
-              "environment": {},
-              "gpus": "all",
-              "image": "mirror-neuron/cctv-operator:local",
-              "network": "mirror-neuron-runtime",
-              "output_message_type": "cctv_operator_detection",
-              "reuse_shared_container": true,
-              "runner_module": "MirrorNeuron.Runner.DockerWorker",
-              "script": "scripts/analyze_video_frame.py",
-              "shared_container": true,
-              "upload_paths": [
-                {
-                  "source": "agents/visual_detector",
-                  "target": "visual_detector"
-                },
-                {
-                  "source": "prompts",
-                  "target": "prompts"
-                }
-              ],
-              "workdir": "/mn/job/visual_detector"
-            }
-          },
-          "rendered_node": {
-            "agent_type": "executor",
-            "alias": "quality_controller",
-            "config": {
-              "agent_beacon_required": true,
-              "beacon_enabled": true,
-              "beacon_interval_ms": 15000,
-              "beacon_missed_action": "fail_attempt",
-              "beacon_timeout_ms": 45000,
-              "command": [
-                "bash",
-                "scripts/run_detector_on_nvidia.sh"
-              ],
-              "docker_worker_image": "docker_worker",
-              "environment": {},
-              "from": "base",
-              "gpus": "all",
-              "image": "mirror-neuron/cctv-operator:local",
-              "network": "mirror-neuron-runtime",
-              "no_auto_providers": true,
-              "no_keep": true,
-              "output_message_type": "cctv_operator_detection",
-              "pool": "default",
-              "pool_slots": 1,
-              "reuse_shared_container": true,
-              "runner_module": "MirrorNeuron.Runner.DockerWorker",
-              "shared_container": true,
-              "tty": false,
-              "upload_paths": [
-                {
-                  "source": "agents/visual_detector",
-                  "target": "visual_detector"
-                },
-                {
-                  "source": "prompts",
-                  "target": "prompts"
-                }
-              ],
-              "workdir": "/mn/job/visual_detector"
-            },
-            "constraints": [
-              {
-                "attribute": "capabilities",
-                "operator": "contains_all",
-                "value": [
-                  "nvidia",
-                  "cuda"
-                ]
-              }
-            ],
-            "display_name": "Quality Controller",
-            "node_id": "visual_detector",
-            "resources": {
-              "devices": [
-                {
-                  "count": 1,
-                  "driver": "cuda",
-                  "kind": "gpu",
-                  "memory_operator": ">=",
-                  "min_memory_mb": 49152,
-                  "type": "nvidia/gpu",
-                  "vendor": "nvidia"
-                }
-              ],
-              "gpu_count": 1
-            },
-            "type": "generic"
-          },
-          "template_id": "mn-agents.data_python_executor",
-          "version": 1
-        },
-        {
-          "node_id": "report_writer",
-          "original_node": {
-            "alias": "report_writer",
-            "display_name": "CCTV Report Writer",
-            "node_id": "report_writer",
-            "uses": "mn-agents.data_python_executor@1",
-            "with": {
-              "command": [
-                "python3.11",
-                "scripts/write_cctv_report.py"
-              ],
-              "environment": {},
-              "output_message_type": "cctv_operator_report_ready",
-              "runner_module": "MirrorNeuron.Runner.HostLocal",
-              "script": "scripts/write_cctv_report.py",
-              "upload_path": "report_writer",
-              "upload_paths": [
-                {
-                  "source": "agents/report_writer",
-                  "target": "report_writer"
-                }
-              ],
-              "workdir": "/sandbox/job/report_writer"
-            }
-          },
-          "rendered_node": {
-            "agent_type": "executor",
-            "alias": "report_writer",
-            "config": {
-              "agent_beacon_required": true,
-              "beacon_enabled": true,
-              "beacon_interval_ms": 15000,
-              "beacon_missed_action": "fail_attempt",
-              "beacon_timeout_ms": 45000,
-              "command": [
-                "python3.11",
-                "scripts/write_cctv_report.py"
-              ],
-              "environment": {},
-              "from": "base",
-              "no_auto_providers": true,
-              "no_keep": true,
-              "output_message_type": "cctv_operator_report_ready",
-              "pool": "default",
-              "pool_slots": 1,
-              "runner_module": "MirrorNeuron.Runner.HostLocal",
-              "tty": false,
-              "upload_as": "report_writer",
-              "upload_path": "report_writer",
-              "upload_paths": [
-                {
-                  "source": "agents/report_writer",
-                  "target": "report_writer"
-                }
-              ],
-              "workdir": "/sandbox/job/report_writer"
-            },
-            "display_name": "CCTV Report Writer",
-            "node_id": "report_writer",
-            "type": "generic"
-          },
-          "template_id": "mn-agents.data_python_executor",
-          "version": 1
-        }
-      ],
-      "rendered_output": "manifest.rendered.json or runtime metadata",
-      "renderer": "mn_blueprint_support.render_manifest_agent_templates"
+      ]
     },
     "agentic_research": {
       "agent_ids": [
         "video_source_validator",
-        "frame_sampler",
+        "adaptive_frame_sampler",
         "visual_target_detector",
         "quality_controller",
         "report_writer"
@@ -949,7 +917,7 @@
       "enabled": true,
       "max_iterations_per_agent": 1,
       "max_tool_calls_per_agent": 2,
-      "note": "CCTV actors ground detections in staged files or the configured stream, frame evidence, and alert policy.",
+      "note": "CCTV actors ground detections in the configured live stream, selected frame evidence, and alert policy.",
       "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run"
     },
     "blueprint_id": "cctv_operator",
@@ -972,7 +940,7 @@
       ]
     },
     "customizable_for": "Video monitoring, configurable visual detection, facility operations, and site safety workflows.",
-    "description": "An NVIDIA-only CCTV co-worker. Give it a local input folder of recordings or one approved RTSP/RTMP stream, visual targets, alert policy, and output folder; it prepares sampled frames with CUDA-enabled FFmpeg and writes source-grounded JSON and Markdown review reports.",
+    "description": "An NVIDIA-only CCTV co-worker for one approved RTSP/RTMP stream, with operator steering, sparse adaptive sampling, and source-grounded reports.",
     "features": [
       "optional local knowledge RAG grounding",
       "bounded LLM tool-plan contract"
@@ -994,32 +962,17 @@
     "init_config_review": {
       "fields": [
         {
-          "default": "folder",
-          "description": "Choose folder for staged recordings or stream for one RTSP/RTMP source.",
-          "label": "Source mode",
-          "path": "video_source.mode",
-          "type": "domain_value"
-        },
-        {
-          "default": "examples/sample_inputs",
-          "description": "Folder whose supported video files are staged and analyzed in folder mode.",
-          "label": "Input folder",
-          "path": "video_source.folder_path",
-          "path_kind": "directory",
-          "type": "local_path"
-        },
-        {
           "default": "",
-          "description": "Approved RTSP/RTMP URI used only in stream mode.",
+          "description": "Approved RTSP/RTMP URI monitored by the selected NVIDIA node.",
           "label": "Stream URI",
           "path": "video_source.uri",
           "type": "domain_value"
         },
         {
           "default": 20,
-          "description": "Seconds between sampled frames. Twenty seconds avoids inference backlog on one DGX Spark while remaining configurable.",
-          "label": "Frame sample interval",
-          "path": "video_source.frame_sample_seconds",
+          "description": "Seconds between baseline multimodal analyses; local scene scoring can trigger bounded bursts sooner.",
+          "label": "Baseline analysis interval",
+          "path": "sampling.baseline_interval_seconds",
           "type": "domain_value"
         },
         {
@@ -1061,7 +1014,7 @@
       "required": true
     },
     "input_contract": {
-      "description": "Select folder mode to analyze every supported staged recording, or stream mode to sample one approved RTSP/RTMP source on a qualifying NVIDIA node.",
+      "description": "Configure one approved RTSP/RTMP source for sparse adaptive analysis on a qualifying NVIDIA node.",
       "optional_inputs": [
         {
           "description": "Operator instruction for a detail to watch in the current stream.",
@@ -1074,15 +1027,6 @@
           "example": "MN_SLACK_WEBHOOK_URL",
           "name": "slack_destination",
           "type": "domain_value"
-        },
-        {
-          "description": "Default local input folder for sample files or user-provided files.",
-          "example": "cctv_operator/examples/sample_inputs",
-          "name": "input_folder",
-          "path_kind": "directory",
-          "privacy": "internal",
-          "required": false,
-          "type": "local_path"
         },
         {
           "description": "Default local output folder for generated artifacts and reports.",
@@ -1121,19 +1065,15 @@
         },
         "mock": {
           "adapter": "mock",
-          "description": "Bundled sample folder with deterministic quick-test detection behavior.",
+          "description": "Deterministic model-output testing while the stream capture boundary is mocked.",
           "payload": {}
-        },
-        "recording_folder": {
-          "adapter": "file",
-          "description": "A local folder staged into the selected NVIDIA runtime node."
         }
       },
       "required_inputs": [
         {
-          "description": "Select folder or stream source behavior.",
-          "example": "folder",
-          "name": "source_mode",
+          "description": "Approved RTSP/RTMP URI monitored by this run.",
+          "example": "rtsp://camera.example/cctv",
+          "name": "video_source",
           "type": "domain_value"
         },
         {
@@ -1405,7 +1345,7 @@
       "web_ui_adapters": [
         "none",
         "static_html",
-        "gradio",
+        "json_render",
         "custom"
       ]
     },
@@ -1432,14 +1372,14 @@
       "required": false,
       "retrieval_targets": [
         "visual target evidence",
-        "folder or stream source provenance",
+        "live stream source provenance",
         "alert cooldowns",
         "human review boundaries"
       ],
       "top_k": 4,
       "vector_dim": 1024
     },
-    "llm_agent_role": "AI assistant for reviewing recorded or live video activity and preparing visual detection reports and alerts.",
+    "llm_agent_role": "AI assistant for reviewing live video activity and preparing visual detection reports and alerts.",
     "memory_layer": {
       "collection": "mn_memory",
       "containers": "optional_sidecar",
@@ -1566,7 +1506,7 @@
           "mime_type": "application/json",
           "path": "cctv_report.json",
           "producer": "report_writer",
-          "schema_version": "otterdesk.cctv_operator_report.v1",
+          "schema_version": "otterdesk.cctv_operator_report.v2",
           "source_refs": [
             "events.jsonl",
             "inputs.json"
@@ -1578,7 +1518,7 @@
           "mime_type": "text/markdown",
           "path": "cctv_report.md",
           "producer": "report_writer",
-          "schema_version": "otterdesk.cctv_operator_report.v1",
+          "schema_version": "otterdesk.cctv_operator_report.v2",
           "source_refs": [
             "cctv_report.json"
           ],
@@ -1690,7 +1630,7 @@
       "status": "JSON lines on stderr",
       "stdout": "single JSON object, event envelope, or bundle path"
     },
-    "problem_solved": "One NVIDIA-only workflow now handles both staged recording folders and approved RTSP/RTMP streams, preserving source provenance in cumulative review reports.",
+    "problem_solved": "Monitor a live CCTV stream without sending its native frame rate to the model.",
     "quick_test": {
       "description": "Quick test mode shortens the sample interval, disables Slack, and uses mock visual detection unless OLLAMA_LIVE_IN_QUICK_TEST=1.",
       "enabled": false,
@@ -1721,12 +1661,11 @@
       "visual detection",
       "facility operations",
       "site safety",
-      "recording folder",
       "rtsp stream",
       "rtmp stream",
       "nvidia video analysis"
     ],
-    "simulation_type": "Recording-folder or live-stream sampling with visual detection review state.",
+    "simulation_type": "Live-stream adaptive sampling with visual detection review state.",
     "standard": {
       "config_path": "config/default.json",
       "default_input_adapter": "mock",
@@ -1829,16 +1768,16 @@
       "backpressure": {
         "drop_policy": "skip_with_error",
         "llm": {
-          "max_calls_per_minute": 30,
-          "max_concurrent_calls": 2
+          "max_calls_per_minute": 6,
+          "max_concurrent_calls": 1
         },
-        "max_concurrency": 4,
+        "max_concurrency": 1,
         "max_events_per_second": 25,
-        "queue_size": 1000
+        "queue_size": 1
       },
       "kind": "video",
       "primary_stream": "selected_video_source",
-      "transport": "folder_or_rtsp_rtmp",
+      "transport": "rtsp_rtmp",
       "websocket_skill": false
     },
     "target_user": "Video operators, security reviewers, safety operations teams, and site-access coordinators.",
@@ -1846,98 +1785,34 @@
     "video_source": {
       "config_env": [
         "VIDEO_SOURCE_URI",
-        "CCTV_VIDEO_INPUT_FOLDER",
         "CCTV_MEDIA_ACCELERATOR"
       ],
-      "description": "Folder mode processes all supported staged recordings; stream mode samples one approved RTSP/RTMP URI. CUDA-enabled FFmpeg is the only media-preparation path.",
-      "folder_path": "examples/sample_inputs",
+      "description": "One approved RTSP/RTMP stream; CUDA-enabled FFmpeg is the only media-preparation path.",
       "media_accelerator": "nvidia_cuda",
-      "mode": "folder",
-      "transport": "auto",
+      "mode": "stream",
+      "transport": "rtsp_rtmp",
       "uri": ""
     },
     "web_ui": {
-      "adapter": "gradio",
-      "arguments": {
-        "browser_publish_source": "Disabled; the shared dashboard observes run-store artifacts and does not republish camera media.",
-        "browser_video_source": "Optional preview source configured independently from the NVIDIA analysis source.",
-        "run_id": "MirrorNeuron run id used to resolve ~/.mn/runs/<run_id>.",
-        "runs_root": "MirrorNeuron runs root, defaulting to ~/.mn/runs.",
-        "url": "Shared support Gradio app URL written to web_ui.json."
-      },
-      "browser_publish_source": "disabled",
-      "browser_video_source": "disabled",
-      "dashboard_model": "grafana_json",
-      "data_source": "local_run_store",
-      "description": "Shared blueprint support Gradio dashboard rendered from the blueprint's Grafana JSON model and live run-store events.",
+      "adapter": "json-render",
+      "description": "Blueprint-owned CCTV service rendered with the generic web UI skill.",
       "enabled": true,
-      "event_types": [
-        "video_frame_tick_generated",
-        "cctv_operator_frame_observed",
-        "cctv_operator_folder_completed",
-        "cctv_operator_attention_updated",
-        "cctv_operator_detection",
-        "human_notice",
-        "cctv_operator_slack_alert_sent",
-        "cctv_operator_slack_alert_skipped",
-        "cctv_operator_slack_alert_error",
-        "cctv_operator_frame_analysis_failed",
-        "cctv_operator_report_ready"
-      ],
       "kind": "output",
-      "reads": [
-        "events.jsonl",
-        "human.jsonl",
-        "logs.jsonl",
-        "resources.jsonl",
-        "result.json",
-        "final_artifact.json",
-        "cctv_report.json",
-        "cctv_report.md",
-        "web_ui.json"
-      ],
+      "node_id": "cctv_web_ui",
+      "service_name": "cctv-operator-web-ui",
       "registration": {
-        "api": [
-          "main"
-        ],
-        "module": "mn_blueprint_support.gradio_dashboard",
-        "package": "mirrorneuron-blueprint-support-skill[webui]",
+        "module": "cctv_web_ui",
+        "package": "mirrorneuron-web-ui-skill",
         "writes": "ui.json and web_ui.json"
       },
-      "rendering": {
-        "layout": {
-          "column_regions": [
-            {
-              "w": 12,
-              "x": 0
-            },
-            {
-              "w": 12,
-              "x": 12
-            }
-          ]
-        }
-      },
-      "server": "blueprint_support",
-      "standard_panels": [
-        "current_status",
-        "recent_events",
-        "pending_human_requests",
-        "output_artifacts",
-        "resource_usage",
-        "errors",
-        "input_lag",
-        "backpressure",
-        "llm_calls",
-        "token_budget",
-        "llm_retries",
-        "output_skill_attempts",
-        "output_skill_failures"
+      "reads": [
+        "events.jsonl",
+        "latest_analyzed_frame.jpg",
+        "latest_analyzed_frame.json",
+        "web_ui.json"
       ],
-      "video_preview_bridge": {
-        "auto_start": false,
-        "enabled": false
-      }
+      "steering_action": "/actions/steer-monitoring",
+      "preview_path": "/preview/stream.m3u8"
     }
   },
   "requirements": {
@@ -1987,18 +1862,18 @@
           }
         ]
       },
-      "sample_video_frames": {
+      "adaptively_sample_video": {
         "risk": "low",
         "side_effect": "read",
         "strategy": "single",
         "type": "worker",
         "workers": [
           {
-            "alias": "frame_sampler",
-            "display_name": "Frame Sampler",
-            "id": "frame_sampler",
+            "alias": "adaptive_frame_sampler",
+            "display_name": "Adaptive Frame Sampler",
+            "id": "adaptive_frame_sampler",
             "model": "nemotron3",
-            "role": "Sample video frames",
+            "role": "Select sparse and event-triggered frame batches",
             "tokens": 14000,
             "tools": 4
           }
@@ -2249,12 +2124,39 @@
       "source": "gar",
       "type": "pip",
       "version": "1.2.29"
+    },
+    {
+      "name": "mirrorneuron-live-video-analysis-skill",
+      "source": "gar",
+      "type": "pip",
+      "version": "1.2.29"
+    },
+    {
+      "name": "mirrorneuron-web-ui-skill",
+      "source": "gar",
+      "type": "pip",
+      "version": "1.2.29"
     }
   ],
   "agent_dependencies": [
-    {"type": "pip", "source": "gar", "name": "mn-prototype-stream-processor-agent", "version": "1.2.29"},
-    {"type": "pip", "source": "gar", "name": "mn-prototype-supervised-service-agent", "version": "1.2.29"},
-    {"type": "pip", "source": "gar", "name": "mn-prototype-artifact-finalizer-agent", "version": "1.2.29"}
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mn-prototype-stream-processor-agent",
+      "version": "1.2.29"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mn-prototype-supervised-service-agent",
+      "version": "1.2.29"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mn-prototype-artifact-finalizer-agent",
+      "version": "1.2.29"
+    }
   ],
   "standard": {
     "migration_policy": "sdk_managed",
@@ -2270,17 +2172,17 @@
         ],
         "event": "video_monitor_start",
         "from": "start_video_monitor",
-        "id": "start_video_monitor_to_sample_video_frames",
+        "id": "start_video_monitor_to_adaptively_sample_video",
         "required": true,
-        "to": "sample_video_frames"
+        "to": "adaptively_sample_video"
       },
       {
         "accepts": [
           "done"
         ],
-        "event": "video_frame_tick_generated",
-        "from": "sample_video_frames",
-        "id": "sample_video_frames_to_detect_visual_targets",
+        "event": "cctv_operator_frame_batch_ready",
+        "from": "adaptively_sample_video",
+        "id": "adaptively_sample_video_to_detect_visual_targets",
         "required": true,
         "to": "detect_visual_targets"
       },
@@ -2315,11 +2217,9 @@
             "on_low_confidence": "continue_with_warning"
           }
         },
-        "goal": "Validate the selected recording folder or RTSP/RTMP stream and start the analysis session.",
+        "goal": "Validate the configured RTSP/RTMP stream and start the analysis session.",
         "id": "start_video_monitor",
         "in": {
-          "input_folder": "$state.input_folder",
-          "source_mode": "$state.source_mode",
           "video_source": "$state.video_source"
         },
         "kind": "stage",
@@ -2349,22 +2249,22 @@
             "on_low_confidence": "continue_with_warning"
           }
         },
-        "goal": "Emit frame ticks according to the configured sample interval.",
-        "id": "sample_video_frames",
+        "goal": "Inspect a low-resolution proxy stream and select sparse or event-triggered frame batches.",
+        "id": "adaptively_sample_video",
         "in": {
           "session": "$state.stream_session"
         },
         "kind": "stage",
-        "label": "Sample Video Frames",
+        "label": "Adaptively Sample Video",
         "needs": [
           "start_video_monitor"
         ],
         "out": {
-          "frame_ticks": "$state.frame_ticks"
+          "frame_batches": "$state.frame_batches"
         },
         "run": {
-          "agent": "video_frame_tick_source",
-          "binding": "sample_video_frames"
+          "agent": "adaptive_frame_sampler",
+          "binding": "adaptively_sample_video"
         }
       },
       {
@@ -2386,14 +2286,14 @@
         "goal": "Analyze sampled frames for configured targets and alert status.",
         "id": "detect_visual_targets",
         "in": {
-          "frame_ticks": "$state.frame_ticks",
+          "frame_batches": "$state.frame_batches",
           "policy": "$state.alert_policy",
           "targets": "$state.visual_targets"
         },
         "kind": "stage",
         "label": "Detect Visual Targets",
         "needs": [
-          "sample_video_frames"
+          "adaptively_sample_video"
         ],
         "out": {
           "detections": "$state.detections"
@@ -2438,6 +2338,6 @@
         }
       }
     ],
-    "workflow_id": "cctv_operator_v1"
+    "workflow_id": "cctv_operator_v2"
   }
 }

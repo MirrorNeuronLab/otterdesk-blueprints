@@ -1,5 +1,11 @@
 # CCTV Operator sample inputs
 
-`sample.mp4` is the bundled folder-mode recording. `cctv_policy.json` mirrors the default visual targets and conservative review policy.
+`sample.mp4` is a deterministic media-processing fixture for unit tests; the
+runtime does not accept it as a source. `cctv_policy.json` mirrors the default
+visual targets and conservative review policy.
+`steer_monitoring.json` is an example payload for the dashboard's
+`steer_monitoring` live input; the idempotency key is supplied separately by
+the blueprint-owned UI service.
 
-Select this directory for a quick folder-mode run. For stream mode, set an approved RTSP/RTMP URI during init review; the sample does not start or map a local stream.
+Set an approved RTSP/RTMP URI during init review. This sample directory does
+not start, map, or substitute a local stream.

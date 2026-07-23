@@ -643,7 +643,7 @@
   "candidate_generator": {
     "required": true,
     "command": [
-      "python3",
+      "/usr/bin/python3",
       "scripts/biotarget_adapter.py",
       "--adapter",
       "candidate_generator",
@@ -658,7 +658,7 @@
   "folding": {
     "required": true,
     "command": [
-      "python3",
+      "/usr/bin/python3",
       "scripts/biotarget_adapter.py",
       "--adapter",
       "folding",
@@ -689,7 +689,7 @@
     "checkpoint_filename": "best.ckpt",
     "source_repository": "@/payloads",
     "command": [
-      "python3",
+      "/usr/bin/python3",
       "scripts/biotarget_adapter.py",
       "--adapter",
       "drugclip",
@@ -811,7 +811,7 @@
     "type": "Configured parallel molecular simulation after DrugClip graph-text screening.",
     "required": true,
     "command": [
-      "python3",
+      "/usr/bin/python3",
       "scripts/biotarget_adapter.py",
       "--adapter",
       "simulation",

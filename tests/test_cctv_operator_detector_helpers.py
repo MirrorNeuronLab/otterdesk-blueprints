@@ -3,17 +3,43 @@ from __future__ import annotations
 import importlib.util
 import json
 from pathlib import Path
+import sys
+
+import pytest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DETECTOR_PATH = ROOT / "cctv_operator" / "payloads" / "visual_detector" / "scripts" / "analyze_video_frame.py"
+DETECTOR_PATH = (
+    ROOT
+    / "cctv_operator"
+    / "payloads"
+    / "agents"
+    / "visual_detector"
+    / "scripts"
+    / "analyze_video_frame.py"
+)
 
 
 def _load_detector():
+    original_path = list(sys.path)
+    original_domain_modules = {
+        key: value
+        for key, value in sys.modules.items()
+        if key == "domain" or key.startswith("domain.")
+    }
+    for key in original_domain_modules:
+        sys.modules.pop(key, None)
     spec = importlib.util.spec_from_file_location("cctv_operator_detector_helpers", DETECTOR_PATH)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        sys.path[:] = original_path
+        for key in list(sys.modules):
+            if key == "domain" or key.startswith("domain."):
+                sys.modules.pop(key, None)
+        sys.modules.update(original_domain_modules)
     return module
 
 
@@ -33,71 +59,41 @@ def test_parse_model_json_accepts_fenced_embedded_and_repaired_objects():
     assert parsed == {"detected": True, "confidence": 0.5}
 
 
-def test_folder_source_selection_advances_across_sorted_recordings(monkeypatch, tmp_path):
+def test_detector_reads_only_run_relative_finalized_frame_batches(
+    monkeypatch, tmp_path
+):
     detector = _load_detector()
-    folder = tmp_path / "recordings"
-    folder.mkdir()
-    (folder / "b.mkv").write_bytes(b"video")
-    (folder / "a.mp4").write_bytes(b"video")
-    (folder / "ignore.txt").write_text("not video")
-    config = {"video_source": {"mode": "folder", "folder_path": str(folder)}}
-    state = detector.initial_state()
-    monkeypatch.setattr(detector, "probe_video_duration", lambda _path: 5.0)
+    batch_dir = tmp_path / "frame_batches" / "batch-1"
+    batch_dir.mkdir(parents=True)
+    (batch_dir / "frame-01.jpg").write_bytes(b"selected-jpeg")
+    (batch_dir / "batch.json").write_text(
+        json.dumps(
+            {
+                "selected_frames": [
+                    {
+                        "path": "frame_batches/batch-1/frame-01.jpg",
+                        "timestamp": 1.0,
+                    }
+                ]
+            }
+        )
+    )
+    monkeypatch.setenv("MN_RUN_DIR", str(tmp_path))
 
-    first = detector.select_media_source(config, state)
-    assert first["logical_name"] == "a.mp4"
-    assert first["count"] == 2
-    detector.advance_media_source(state, first, sample_seconds=10.0)
+    batch, frames = detector.load_frame_batch(
+        "frame_batches/batch-1/batch.json"
+    )
 
-    second = detector.select_media_source(config, state)
-    assert second["logical_name"] == "b.mkv"
-    assert state["completed_sources"] == ["a.mp4"]
+    assert batch["selected_frames"][0]["timestamp"] == 1.0
+    assert frames == [b"selected-jpeg"]
+    with pytest.raises(ValueError, match="run-relative"):
+        detector.load_frame_batch("../outside.json")
 
 
-def test_stream_source_is_validated_and_credentials_are_redacted():
+def test_detector_uses_vision_model_defaults(monkeypatch):
     detector = _load_detector()
-    config = {"video_source": {"mode": "stream", "uri": "rtmp://user:pass@camera.example:1935/live?token=secret"}}
-    source = detector.select_media_source(config, detector.initial_state())
-
-    assert source["mode"] == "stream"
-    assert source["uri"].startswith("rtmp://user:pass@")
-    assert source["logical_name"] == "rtmp://camera.example:1935/live"
-
-
-def test_extract_frame_uses_cuda_decode_and_scale(monkeypatch):
-    detector = _load_detector()
-    commands = []
-
-    def fake_run(command, **_kwargs):
-        commands.append(command)
-        Path(command[-1]).write_bytes(b"jpeg")
-
-    monkeypatch.setattr(detector.subprocess, "run", fake_run)
-    monkeypatch.setattr(detector, "ffmpeg_binary", lambda: "/usr/bin/ffmpeg")
-    monkeypatch.setenv("CCTV_MEDIA_ACCELERATOR", "nvidia_cuda")
-
-    frame, mime = detector.extract_frame("rtsp://camera.example/live", 0.0, 896)
-
-    assert frame == b"jpeg"
-    assert mime == "image/jpeg"
-    command = commands[0]
-    assert ["-hwaccel", "cuda"] == command[command.index("-hwaccel") : command.index("-hwaccel") + 2]
-    assert ["-hwaccel_output_format", "cuda"] == command[
-        command.index("-hwaccel_output_format") : command.index("-hwaccel_output_format") + 2
-    ]
-    assert "scale_cuda=896" in command[command.index("-vf") + 1]
-
-
-def test_detector_uses_configured_cadence_and_vision_model_defaults(monkeypatch):
-    detector = _load_detector()
-    monkeypatch.delenv("FRAME_SAMPLE_SECONDS", raising=False)
-    monkeypatch.delenv("FRAME_JPEG_MAX_WIDTH", raising=False)
     monkeypatch.delenv("MN_LLM_RUNTIME_MODEL", raising=False)
 
-    config = {"video_source": {"frame_sample_seconds": 23, "frame_jpeg_max_width": 768}}
-
-    assert detector.configured_frame_sample_seconds(config) == 23
-    assert detector.configured_frame_max_width(config) == 768
     assert detector._normalize_vlm_model("medium") == "nemotron3"
     assert detector._normalize_vlm_model("nemotron3") == "nemotron3"
 
@@ -155,7 +151,7 @@ def test_openai_vlm_uses_portable_openai_fields_and_normalizes_model_variants(mo
     result = detector.call_ollama(b"jpeg", "inspect the frame")
 
     assert "chat_template_kwargs" not in captured
-    assert captured["max_tokens"] == 600
+    assert captured["max_tokens"] == 900
     assert captured["url"] == "http://model.example/engines/v1/chat/completions"
     assert result["detected_target"] is True
     assert result["confidence"] == 0.91

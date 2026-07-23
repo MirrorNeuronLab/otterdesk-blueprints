@@ -32,37 +32,6 @@ def test_gtm_vendored_runtime_and_skill_copies_stay_identical():
         _assert_all_identical(paths)
 
 
-def _document_runner_template(path: Path) -> str:
-    omitted_prefixes = (
-        "BLUEPRINT_ID =",
-        "BLUEPRINT_NAME =",
-        "OUTPUT_TYPE =",
-        "RECOMMENDED_ACTION =",
-        "FIELD_PROFILE =",
-        "DATASET_INPUT =",
-    )
-    lines = [
-        line
-        for line in path.read_text(encoding="utf-8").splitlines()
-        if not line.startswith(omitted_prefixes)
-    ]
-    return "\n".join(lines)
-
-
-def test_document_ocr_blueprint_runner_templates_stay_aligned():
-    runner_paths = [
-        ROOT / blueprint_id / "payloads" / "runtime" / "runtime.py"
-        for blueprint_id in (
-            "medical_deid_record_intake_assistant",
-        )
-    ]
-    if len(runner_paths) < 2:
-        return
-    expected = _document_runner_template(runner_paths[0])
-    for path in runner_paths[1:]:
-        assert _document_runner_template(path) == expected, path
-
-
 def test_vc_assistant_uses_sdk_llm_without_communication_skill_dependency():
     vc_manifest = json.loads((ROOT / "vc_assistant" / "manifest.json").read_text())
     vc_packages = {

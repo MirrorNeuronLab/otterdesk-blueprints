@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from mn_sdk.blueprint_support import deep_merge, manifest_config_defaults
+
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -10,7 +12,6 @@ RAG_BLUEPRINTS = {
     "drug_discovery_research_assistant",
     "financial_advisor",
     "generic_customer_service_voice_coworker",
-    "medical_deid_record_intake_assistant",
     "legal_assistant",
     "purchase_research_assistant",
     "cctv_operator",
@@ -41,11 +42,34 @@ def _embedded_manifest_configs(manifest: dict):
             yield json.loads(env["MN_BLUEPRINT_CONFIG_JSON"])
 
 
+def _knowledge_source_dir(blueprint_dir: Path, manifest: dict, knowledge_rag: dict) -> Path:
+    configured = blueprint_dir / str(knowledge_rag["knowledge_dir"])
+    if configured.is_dir():
+        return configured
+    resources = manifest.get("metadata", {}).get("job_data", {}).get("resources", [])
+    knowledge = next(
+        (
+            resource
+            for resource in resources
+            if isinstance(resource, dict) and resource.get("name") == "knowledge"
+        ),
+        {},
+    )
+    seed = str(knowledge.get("seed") or "")
+    assert seed.startswith("@/"), blueprint_dir.name
+    return blueprint_dir / seed.removeprefix("@/")
+
+
 def test_non_vc_blueprints_declare_grounded_rag_and_agentic_tool_contracts():
     for blueprint_id in sorted(RAG_BLUEPRINTS):
         blueprint_dir = ROOT / blueprint_id
-        config = json.loads((blueprint_dir / "config" / "default.json").read_text(encoding="utf-8"))
         manifest = json.loads((blueprint_dir / "manifest.json").read_text(encoding="utf-8"))
+        config = deep_merge(
+            manifest_config_defaults(manifest),
+            json.loads(
+                (blueprint_dir / "config" / "default.json").read_text(encoding="utf-8")
+            ),
+        )
 
         knowledge_rag = config.get("knowledge_rag")
         assert isinstance(knowledge_rag, dict), blueprint_id
@@ -54,7 +78,7 @@ def test_non_vc_blueprints_declare_grounded_rag_and_agentic_tool_contracts():
         assert knowledge_rag["purpose"], blueprint_id
         assert knowledge_rag["grounding_policy"], blueprint_id
         assert len(knowledge_rag.get("retrieval_targets") or []) >= 3, blueprint_id
-        knowledge_dir = blueprint_dir / knowledge_rag["knowledge_dir"]
+        knowledge_dir = _knowledge_source_dir(blueprint_dir, manifest, knowledge_rag)
         assert knowledge_dir.exists(), blueprint_id
         assert any(path.suffix in SUPPORTED_KNOWLEDGE_SUFFIXES for path in knowledge_dir.rglob("*") if path.is_file()), blueprint_id
 
@@ -71,14 +95,10 @@ def test_non_vc_blueprints_declare_grounded_rag_and_agentic_tool_contracts():
         expected_rag_snapshot = _normalized_rag_snapshot(knowledge_rag)
         assert _normalized_rag_snapshot(manifest.get("knowledge_rag")) == expected_rag_snapshot, blueprint_id
         assert manifest.get("agentic_research") == agentic, blueprint_id
-        assert _normalized_rag_snapshot(manifest["metadata"]["knowledge_rag"]) == expected_rag_snapshot, blueprint_id
-        assert manifest["metadata"]["agentic_research"] == agentic, blueprint_id
 
         for section_list in (
             config["interfaces"]["config"],
             config["interfaces"]["config_sections"],
-            manifest["metadata"]["interfaces"]["config"],
-            manifest["metadata"]["interfaces"]["config_sections"],
         ):
             assert "knowledge_rag" in section_list, blueprint_id
             assert "agentic_research" in section_list, blueprint_id

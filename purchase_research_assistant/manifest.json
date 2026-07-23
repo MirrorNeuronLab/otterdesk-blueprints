@@ -1,14 +1,13 @@
 {
   "agentic_research": {
     "agent_ids": [
-      "purchase:intake",
-      "purchase:price_research",
-      "purchase:total_cost",
-      "purchase:policy_risk",
-      "purchase:alternatives",
-      "purchase:recommender",
-      "purchase:auditor",
-      "purchase:report_writer"
+      "purchase_intake_analyst",
+      "purchase_knowledge_retriever",
+      "purchase_market_researcher",
+      "purchase_total_cost_analyst",
+      "purchase_risk_reviewer",
+      "purchase_recommendation_auditor",
+      "purchase_report_writer"
     ],
     "allowed_tools": [
       "document_extract",

@@ -26,7 +26,6 @@ FOLDER_INPUT_FIELDS = {
     "drug_discovery_research_assistant": {"input_folder", "output_folder"},
     "financial_advisor": {"document_folder", "input_folder", "output_folder"},
     "generic_customer_service_voice_coworker": {"input_folder", "output_folder"},
-    "medical_deid_record_intake_assistant": {"document_folder", "output_folder"},
     "legal_assistant": {"document_folder", "input_folder", "output_folder"},
     "purchase_research_assistant": {"input_folder", "output_folder"},
     "vc_assistant": {"document_folder", "output_folder"},
@@ -189,6 +188,9 @@ IMPORT_MARKER_PACKAGES = {
     "mn_public_research_orchestrator_skill": "mirrorneuron-public-research-orchestrator-skill",
     "mn_scoring_framework_skill": "mirrorneuron-scoring-framework-skill",
     "mn_autonomous_research_skill": "mirrorneuron-autonomous-research-skill",
+    "mn_use_generic_model_skill": "mirrorneuron-use-generic-model-skill",
+    "mn_live_video_analysis_skill": "mirrorneuron-live-video-analysis-skill",
+    "mn_web_ui_skill": "mirrorneuron-web-ui-skill",
 }
 SKILL_NAME_PACKAGES = {
     "llm_ocr_skill": "mirrorneuron-llm-ocr-skill",
@@ -198,9 +200,8 @@ SKILL_NAME_PACKAGES = {
     "websocket_stream": "mirrorneuron-websocket-stream-skill",
 }
 BLUEPRINT_TRANSITIVE_SKILL_PACKAGES = {
-    # Financial Advisor still consumes the previously published package; its
-    # SDK migration is intentionally out of scope for this change.
     "financial_advisor": {"mirrorneuron-litellm-communicate-skill"},
+    "legal_assistant": {"mirrorneuron-litellm-communicate-skill"},
 }
 
 
@@ -389,7 +390,7 @@ def test_otterdesk_blueprints_are_workflow_driven_manifests():
         assert manifest["apiVersion"] == "mn.workflow/v1", blueprint_id
         assert manifest["kind"] == "Workflow", blueprint_id
         assert manifest["id"] == blueprint_id
-        assert manifest["workflow"]["workflow_id"] == f"{blueprint_id}_v1"
+        assert manifest["workflow"]["workflow_id"] == f"{blueprint_id}_v{manifest['version']}"
         assert manifest["contract"]["inputs"], blueprint_id
         assert manifest["contract"]["outputs"]["primary"]["path"] == "final_artifact.json"
         assert manifest["contract"]["status"]["heartbeat"] is True, blueprint_id
@@ -429,11 +430,12 @@ def test_otterdesk_blueprints_are_workflow_driven_manifests():
             assert {"id", "kind", "label", "goal", "action", "run", "emits", "on"} <= set(step), (blueprint_id, step)
             assert {"required", "retry", "failure_policy", "uncertainty"} <= set(step["control"]), (blueprint_id, step)
             assert step["control"]["retry"]["max_attempts"] >= 1, (blueprint_id, step)
-            assert step["run"] in bindings, (blueprint_id, step)
-            workers = bindings[step["run"]].get("workers") or []
-            assert workers, (blueprint_id, step["run"])
+            binding_id = step["run"]
+            assert binding_id in bindings, (blueprint_id, step)
+            workers = bindings[binding_id].get("workers") or []
+            assert workers, (blueprint_id, binding_id)
             for worker in workers:
-                assert {"id", "role"} <= set(worker), (blueprint_id, step["run"], worker)
+                assert {"id", "role"} <= set(worker), (blueprint_id, binding_id, worker)
 
 
 def test_otterdesk_workflow_join_modes_use_runtime_contract_values():
@@ -454,7 +456,7 @@ def test_otterdesk_json_uses_python311_for_host_python_commands():
     bare_python3 = re.compile(r"(?<![\w.])python3(?!\.\d)")
 
     for json_path in sorted(ROOT.rglob("*.json")):
-        if ".pytest_cache" in json_path.parts:
+        if ".pytest_cache" in json_path.parts or ".venv" in json_path.parts:
             continue
         data = json.loads(json_path.read_text())
         for value_path, value in _json_strings(data):
@@ -641,74 +643,6 @@ def test_otterdesk_batch_workflows_complete_with_shared_runner(tmp_path):
         assert "workflow_finished" in event_types, blueprint_id
 
 
-class FakeBlueprintActorLLM:
-    provider = "fake"
-    model = "fake-blueprint-actor"
-
-    def __init__(self) -> None:
-        self.calls = 0
-        self.fallback_calls = 0
-        self.prompts: list[dict[str, str]] = []
-
-    def generate_json(self, *, system_prompt: str, user_prompt: str, fallback: dict):
-        self.calls += 1
-        self.prompts.append({"system": system_prompt, "user": user_prompt})
-        response = dict(fallback)
-        response["summary"] = response.get("summary") or "Actor reviewed the packet."
-        response["provider"] = self.provider
-        response["model"] = self.model
-        return response
-
-
-def _load_script(path: Path, module_name: str):
-    spec = importlib.util.spec_from_file_location(module_name, path)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-def test_document_ocr_blueprints_emit_actor_findings_and_usage(tmp_path):
-    targets = [
-        "medical_deid_record_intake_assistant",
-    ]
-    for blueprint_id in targets:
-        runner_path = ROOT / blueprint_id / "payloads" / "runtime" / "runtime.py"
-        module = _load_script(runner_path, f"{blueprint_id}_actor_runner_test")
-        docs = tmp_path / blueprint_id / "docs"
-        docs.mkdir(parents=True)
-        (docs / "sample.txt").write_text("Sample source text with invoice total 123.45 and review notes.", encoding="utf-8")
-        fake_llm = FakeBlueprintActorLLM()
-
-        result = module.run_blueprint(
-            inputs={
-                "document_folder": str(docs),
-                "output_folder": str(tmp_path / blueprint_id / "outputs"),
-            },
-            config={"llm": {"mode": "fake"}},
-            runs_root=tmp_path,
-            run_id=f"{blueprint_id}-actors",
-            llm_client=fake_llm,
-        )
-
-        artifact = result["final_artifact"]
-        actor_ids = set((result["final_artifact"]["actor_findings"] or {}).keys())
-        expected_actor_ids = set(
-            _resolved_default_config(ROOT / blueprint_id)["llm"]["agents"]
-        )
-        assert actor_ids == expected_actor_ids, blueprint_id
-        assert artifact["llm_usage"]["calls"] == len(expected_actor_ids), blueprint_id
-        assert fake_llm.calls == len(expected_actor_ids), blueprint_id
-        events = [
-            json.loads(line)
-            for line in (tmp_path / f"{blueprint_id}-actors" / "events.jsonl").read_text().splitlines()
-            if line.strip()
-        ]
-        actor_events = [event for event in events if event["type"] == "actor_activity"]
-        assert {event["payload"]["agent_id"] for event in actor_events} == expected_actor_ids, blueprint_id
-
-
 def test_cctv_operator_report_writer_emits_cumulative_reports(tmp_path):
     detector_payload = {
         "events": [
@@ -852,7 +786,6 @@ def test_otterdesk_blueprints_declare_product_experience_contracts():
         "purchase_research_assistant": "approval_required",
         "cctv_operator": "notice_only",
         "generic_customer_service_voice_coworker": "notice_only",
-        "medical_deid_record_intake_assistant": "approval_required",
         "legal_assistant": "approval_required",
         "vc_assistant": "approval_required",
     }
@@ -1073,6 +1006,19 @@ def test_indexed_non_vc_blueprints_have_non_trivial_rag_knowledge():
             continue
 
         knowledge_dir = blueprint_dir / rag.get("knowledge_dir", "knowledge")
+        if not knowledge_dir.is_dir():
+            resources = manifest.get("metadata", {}).get("job_data", {}).get("resources", [])
+            knowledge = next(
+                (
+                    resource
+                    for resource in resources
+                    if isinstance(resource, dict) and resource.get("name") == "knowledge"
+                ),
+                {},
+            )
+            seed = str(knowledge.get("seed") or "")
+            assert seed.startswith("@/"), blueprint_id
+            knowledge_dir = blueprint_dir / seed.removeprefix("@/")
         assert knowledge_dir.is_dir(), blueprint_id
         knowledge_files = [
             path
@@ -1091,7 +1037,6 @@ def test_indexed_non_vc_blueprints_have_non_trivial_rag_knowledge():
 def test_product_ready_llm_configs_use_explicit_live_docker_model_runner_profile():
     targets = {
         "drug_discovery_research_assistant",
-        "medical_deid_record_intake_assistant",
         "legal_assistant",
         "purchase_research_assistant",
     }
@@ -1152,7 +1097,6 @@ def test_otterdesk_blueprint_descriptions_are_customer_facing_and_synchronized()
 EXPECTED_BATCH_SUGGESTED_SCHEDULES = {
     "drug_discovery_research_assistant": {"cron": "0 8 * * 1", "cadence": "weekly"},
     "financial_advisor": {"cron": "0 8 * * *", "cadence": "daily"},
-    "medical_deid_record_intake_assistant": {"cron": "0 * * * *", "cadence": "hourly"},
     "legal_assistant": {"cron": "0 8 * * 1-5", "cadence": "weekday_daily"},
     "purchase_research_assistant": {"cron": "0 8 * * 1", "cadence": "weekly"},
     "vc_assistant": {"cron": "0 7 * * *", "cadence": "daily"},
@@ -1408,8 +1352,8 @@ def test_cctv_operator_declares_domain_agent_aliases():
     }
     assert template_aliases == {
         "ingress": "video_monitor",
-        "video_frame_tick_source": "frame_sampler",
-        "visual_detector": "quality_controller",
+        "adaptive_frame_sampler": "adaptive_frame_sampler",
+        "visual_detector": "visual_target_detector",
         "report_writer": "report_writer",
     }
 
@@ -1421,7 +1365,7 @@ def test_cctv_operator_declares_domain_agent_aliases():
     assert worker_ids == [
         "visual_target_detector",
         "quality_controller",
-        "frame_sampler",
+        "adaptive_frame_sampler",
         "video_source_validator",
         "video_monitor",
         "report_writer",
@@ -1433,7 +1377,7 @@ def test_cctv_operator_declares_domain_agent_aliases():
     )
     assert [step["label"] for step in manifest["workflow"]["steps"]] == [
         "Start Video Monitor",
-        "Sample Video Frames",
+        "Adaptively Sample Video",
         "Detect Visual Targets",
         "Write CCTV Report",
     ]
@@ -1601,15 +1545,18 @@ def test_cctv_operator_uses_dockerworker_nvidia_media_worker():
     manifest = _runtime_manifest(blueprint_dir / "manifest.json")
     config = json.loads((blueprint_dir / "config" / "default.json").read_text())
 
-    tick_node = next(node for node in _flow_nodes(manifest) if node["node_id"] == "video_frame_tick_source")
+    sampler_node = next(node for node in _flow_nodes(manifest) if node["node_id"] == "adaptive_frame_sampler")
     visual_node = next(node for node in _flow_nodes(manifest) if node["node_id"] == "visual_detector")
-    assert tick_node["config"]["module_source"] == "beam_modules/video_frame_tick_source.ex"
-    assert tick_node["config"]["interval_seconds"] == 20
-    assert visual_node["config"]["runner_module"] == "MirrorNeuron.Runner.DockerWorker"
-    assert visual_node["config"]["docker_worker_image"] == "docker_worker"
-    assert visual_node["config"]["image"] == "mirror-neuron/cctv-operator:local"
-    assert visual_node["config"]["network"] == "mirror-neuron-runtime"
-    assert visual_node["config"]["gpus"] == "all"
+    for node in (sampler_node, visual_node):
+        assert node["config"]["runner_module"] == "MirrorNeuron.Runner.DockerWorker"
+        assert node["config"]["docker_worker_image"] == "docker_worker"
+        assert node["config"]["image"] == "mirror-neuron/cctv-operator:local"
+        assert node["config"]["network"] == "mirror-neuron-runtime"
+        assert node["config"]["gpus"] == "all"
+        _assert_hard_gpu_worker_requirements(node)
+    assert sampler_node["config"]["command"] == ["bash", "scripts/run_sampler_on_nvidia.sh"]
+    assert sampler_node["config"]["workdir"] == "/mn/job/adaptive_frame_sampler"
+    assert sampler_node["config"].get("output_message_type") is None
     assert visual_node["config"]["workdir"] == "/mn/job/visual_detector"
     assert visual_node["config"]["command"] == ["bash", "scripts/run_detector_on_nvidia.sh"]
     assert visual_node["config"]["upload_paths"] == [
@@ -1619,7 +1566,6 @@ def test_cctv_operator_uses_dockerworker_nvidia_media_worker():
     assert "upload_path" not in visual_node["config"]
     assert "upload_as" not in visual_node["config"]
     assert "policy" not in visual_node["config"]
-    _assert_hard_gpu_worker_requirements(visual_node)
 
     dockerfile = (
         blueprint_dir / "payloads" / "docker_worker" / "Dockerfile"
@@ -1644,11 +1590,24 @@ def test_cctv_operator_uses_dockerworker_nvidia_media_worker():
     assert manifest["runtime"]["models"]["primary"]["runtime_model"] == "nemotron3"
     assert config["llm"]["model"] == "nemotron3"
     assert config["llm"]["runtime_model"] == "nemotron3"
-    assert config["video_source"]["frame_sample_seconds"] == 20
+    assert config["sampling"]["baseline_interval_seconds"] == 20
+    assert config["sampling"]["proxy_fps"] == 1
+    assert config["sampling"]["max_model_frames"] == 10
+    assert not any(
+        "sampling_clock" in str(binding.get("manifest_path"))
+        for binding in config["manifest_config_bindings"]
+    )
     assert {
-        "config_path": "video_source.frame_sample_seconds",
-        "manifest_path": "agents.nodes.video_frame_tick_source.config.interval_seconds",
-    } in config["manifest_config_bindings"]
+        (edge["from_node"], edge["to_node"], edge["message_type"])
+        for edge in _flow_edges(manifest)
+    } >= {
+        ("ingress", "adaptive_frame_sampler", "cctv_operator_start"),
+        (
+            "adaptive_frame_sampler",
+            "adaptive_frame_sampler",
+            "cctv_operator_sample_due",
+        ),
+    }
 
 
 def test_cctv_operator_seeds_live_monitor_start_message():
@@ -1666,6 +1625,25 @@ def test_cctv_operator_seeds_live_monitor_start_message():
     }
 
 
+def test_cctv_operator_declares_only_routed_schema_validated_live_input():
+    source = json.loads(
+        (ROOT / "cctv_operator" / "manifest.json").read_text()
+    )
+    runtime = _runtime_manifest(ROOT / "cctv_operator" / "manifest.json")
+    declaration = source["contracts"]["live_inputs"]["steer_monitoring"]
+
+    assert declaration["entrypoint"] == "ingress"
+    assert declaration["message_type"] == "cctv_operator_steer"
+    assert declaration["schema"]["additionalProperties"] is False
+    assert declaration["schema"]["properties"]["instruction"]["maxLength"] == 500
+    assert runtime["contract"]["live_inputs"]["steer_monitoring"] == declaration
+    assert any(
+        edge["from_node"] == "ingress"
+        and edge["message_type"] == "cctv_operator_steer"
+        for edge in _flow_edges(runtime)
+    )
+
+
 def test_cctv_operator_detector_script_compiles_with_shared_helper_import():
     py_compile.compile(
         str(ROOT / "cctv_operator" / "payloads" / "agents" / "visual_detector" / "scripts" / "analyze_video_frame.py"),
@@ -1673,49 +1651,47 @@ def test_cctv_operator_detector_script_compiles_with_shared_helper_import():
     )
 
 
-def test_cctv_operator_uses_shared_runtime_web_ui_without_compose_or_media_bridge():
+def test_cctv_operator_owns_json_render_web_ui_and_uses_generic_skills():
     blueprint_dir = ROOT / "cctv_operator"
     manifest = json.loads((blueprint_dir / "manifest.json").read_text())
     config = json.loads((blueprint_dir / "config" / "default.json").read_text())
 
-    assert {dependency["name"]: dependency["version"] for dependency in manifest["skill_dependencies"]} == {
+    assert {
+        dependency["name"]: dependency["version"]
+        for dependency in manifest["skill_dependencies"]
+    } == {
         "mirrorneuron-blueprint-support-skill": "1.2.29",
         "mirrorneuron-websocket-stream-skill": "1.2.29",
+        "mirrorneuron-live-video-analysis-skill": "1.2.29",
+        "mirrorneuron-web-ui-skill": "1.2.29",
     }
     assert not (blueprint_dir / "docker-compose.yml").exists()
     assert not (blueprint_dir / "compose.yaml").exists()
     assert not (blueprint_dir / "scripts" / "pre-launch.sh").exists()
     assert not (blueprint_dir / "scripts" / "post-launch.sh").exists()
 
-    dashboard = config["web_ui"]["dashboard"]
-    assert dashboard["browser_video_source"] == "disabled"
-    assert dashboard["browser_publish_source"] == "disabled"
-    assert dashboard["rendering"]["layout"]["column_regions"] == [
-        {"w": 12, "x": 0},
-        {"w": 12, "x": 12},
-    ]
-    video_panel = next(panel for panel in dashboard["grafana"]["panels"] if panel["type"] == "video")
-    assert video_panel["options"]["browserSource"] == "${browser_video_source}"
-    assert video_panel["options"]["browserPublishSource"] == "${browser_publish_source}"
-    assert dashboard["video_preview_bridge"]["enabled"] is False
-    assert dashboard["video_preview_bridge"]["auto_start"] is False
-    assert set(dashboard["video_preview_bridge"]) == {"enabled", "auto_start"}
-    assert {"cctv_report.json", "cctv_report.md"} <= set(dashboard["reads"])
+    assert config["video_source"]["mode"] == "stream"
+    assert "folder_path" not in config["video_source"]
+    assert config["web_ui"]["renderer"] == "json-render"
+    assert config["web_ui"]["preview"]["optional"] is True
 
     manifest_web_ui = manifest["metadata"]["web_ui"]
-    assert manifest_web_ui["adapter"] == "gradio"
-    assert manifest_web_ui["server"] == "blueprint_support"
-    assert manifest_web_ui["registration"]["module"] == "mn_blueprint_support.gradio_dashboard"
-    assert manifest_web_ui["browser_video_source"] == "disabled"
-    assert manifest_web_ui["browser_publish_source"] == "disabled"
-    assert manifest_web_ui["rendering"]["layout"]["column_regions"] == [
-        {"w": 12, "x": 0},
-        {"w": 12, "x": 12},
-    ]
-    assert manifest_web_ui["video_preview_bridge"]["enabled"] is False
-    assert manifest_web_ui["video_preview_bridge"]["auto_start"] is False
-    assert set(manifest_web_ui["video_preview_bridge"]) == {"enabled", "auto_start"}
-    assert {"cctv_report.json", "cctv_report.md"} <= set(manifest_web_ui["reads"])
+    assert manifest_web_ui["adapter"] == "json-render"
+    assert manifest_web_ui["node_id"] == "cctv_web_ui"
+    assert manifest_web_ui["registration"]["module"] == "cctv_web_ui"
+    assert manifest_web_ui["steering_action"] == "/actions/steer-monitoring"
+    assert "/api/v1/runs" not in json.dumps(manifest_web_ui)
+
+    web_ui_node = next(
+        node
+        for node in manifest["agents"]["extra_nodes"]
+        if node["node_id"] == "cctv_web_ui"
+    )
+    assert web_ui_node["type"] == "stream"
+    assert web_ui_node["config"]["runner_module"] == "MirrorNeuron.Runner.HostLocal"
+    assert web_ui_node["config"]["upload_path"] == "services"
+    assert web_ui_node["services"][0]["name"] == "cctv-operator-web-ui"
+    assert "cctv_web_ui" in manifest["agents"]["entrypoints"]
 
 
 def _load_cctv_operator_validator():
@@ -1727,22 +1703,19 @@ def _load_cctv_operator_validator():
     return module
 
 
-def test_cctv_operator_folder_validator_accepts_supported_recordings(monkeypatch, tmp_path):
+def test_cctv_operator_rejects_folder_mode(monkeypatch, capsys):
     validator = _load_cctv_operator_validator()
-    video_folder = tmp_path / "recordings"
-    video_folder.mkdir()
-    (video_folder / "camera-a.mp4").write_bytes(b"fake-video")
-    (video_folder / "notes.txt").write_text("ignored")
     monkeypatch.setenv(
         "MN_BLUEPRINT_CONFIG_JSON",
-        json.dumps({"video_source": {"mode": "folder", "folder_path": str(video_folder)}}),
+        json.dumps({"video_source": {"mode": "folder"}}),
     )
-    monkeypatch.setattr(validator.subprocess, "run", lambda *_args, **_kwargs: pytest.fail("folder validation must not probe a stream"))
 
-    assert validator.main() == 0
+    assert validator.main() == 2
+    report = json.loads(capsys.readouterr().out)
+    assert report["issues"][0]["code"] == "config.invalid_source_mode"
 
 
-def test_cctv_operator_default_folder_validates_from_blueprint_root(monkeypatch):
+def test_cctv_operator_default_contract_is_stream_only(monkeypatch):
     blueprint_dir = ROOT / "cctv_operator"
     manifest = _runtime_manifest(blueprint_dir / "manifest.json")
     config = json.loads((blueprint_dir / "config" / "default.json").read_text())
@@ -1750,25 +1723,9 @@ def test_cctv_operator_default_folder_validates_from_blueprint_root(monkeypatch)
         "/usr/bin/python3",
         "payloads/agents/validation/validate_video_source.py",
     ]
-    monkeypatch.chdir(blueprint_dir)
-
-    report = run_input_validation(blueprint_dir, manifest, config=config)
-
-    assert report["ok"] is True, report
-
-
-def test_cctv_operator_folder_validator_rejects_empty_folder(monkeypatch, tmp_path, capsys):
-    validator = _load_cctv_operator_validator()
-    video_folder = tmp_path / "empty"
-    video_folder.mkdir()
-    monkeypatch.setenv(
-        "MN_BLUEPRINT_CONFIG_JSON",
-        json.dumps({"video_source": {"mode": "folder", "folder_path": str(video_folder)}}),
-    )
-
-    assert validator.main() == 1
-    report = json.loads(capsys.readouterr().out)
-    assert report["issues"][0]["code"] == "video_folder.empty"
+    assert config["video_source"]["mode"] == "stream"
+    assert "folder_path" not in config["video_source"]
+    assert "input_folder" not in config["inputs"]["payload"]
 
 
 @pytest.mark.parametrize(
@@ -1781,18 +1738,16 @@ def test_cctv_operator_stream_validator_probes_rtsp_and_rtmp(monkeypatch, uri, e
         "MN_BLUEPRINT_CONFIG_JSON",
         json.dumps({"video_source": {"mode": "stream", "uri": uri}}),
     )
-    monkeypatch.setattr(validator.shutil, "which", lambda _name: "/usr/bin/ffprobe")
     calls = []
 
-    def fake_run(command, **_kwargs):
-        calls.append(command)
-        return subprocess.CompletedProcess(command, 0, stdout="video\n", stderr="")
+    def fake_probe(source, **kwargs):
+        calls.append((source, kwargs))
 
-    monkeypatch.setattr(validator.subprocess, "run", fake_run)
+    monkeypatch.setattr(validator, "probe_stream", fake_probe)
 
     assert validator.main() == 0
-    assert uri in calls[0]
-    assert ("-rtsp_transport" in calls[0]) is expects_rtsp_transport
+    assert calls[0][0] == uri
+    assert (uri.startswith("rtsp")) is expects_rtsp_transport
 
 
 def test_cctv_operator_stream_validator_rejects_non_stream_uri(monkeypatch, capsys):

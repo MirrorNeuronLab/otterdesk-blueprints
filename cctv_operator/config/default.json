@@ -3,22 +3,22 @@
   "backpressure": {
     "drop_policy": "skip_with_error",
     "llm": {
-      "max_calls_per_minute": 30,
+      "max_calls_per_minute": 6,
       "max_concurrent_calls": 1,
-      "min_interval_seconds": 2.0,
+      "min_interval_seconds": 10.0,
       "rationale": "Protect local Docker Model Runner from concurrent blueprint actor calls."
     },
-    "max_concurrency": 4,
+    "max_concurrency": 1,
     "max_events_per_second": 25,
-    "queue_size": 1000
+    "queue_size": 1
   },
   "budgets": {
     "max_connector_reads": 500,
     "max_connector_writes": 20,
-    "max_disk_mb": 250,
-    "max_llm_calls": 20,
-    "max_llm_tokens": 20000,
-    "max_runtime_seconds": 600,
+    "max_disk_mb": 2048,
+    "max_llm_calls": 360,
+    "max_llm_tokens": 324000,
+    "max_runtime_seconds": 3600,
     "max_stream_duration_seconds": 3600
   },
   "capabilities": {
@@ -111,9 +111,8 @@
           "restricted-area entry"
         ]
       },
-      "input_folder": "examples/sample_inputs",
       "output_folder": "~/Download/cctv_operator",
-      "source_mode": "folder",
+      "source_mode": "stream",
       "video_source": "",
       "visual_targets": [
         "person",
@@ -324,7 +323,7 @@
     "web_ui_adapters": [
       "none",
       "static_html",
-      "gradio",
+      "json_render",
       "custom"
     ],
     "config": [
@@ -370,6 +369,16 @@
     "enabled": true,
     "agent_role": "AI assistant for reviewing video stream activity and preparing visual detection alerts.",
     "agents": {
+      "adaptive_frame_sampler": {
+        "llm_config": "primary",
+        "model": "nemotron3",
+        "role": "Adaptive frame sampler",
+        "responsibilities": [
+          "Apply the configured baseline, scene-event, and on-demand priorities.",
+          "Select bounded, non-duplicate frame batches with source provenance.",
+          "Expose sampling skips and backpressure without making detections."
+        ]
+      },
       "visual_target_detector": {
         "llm_config": "primary",
         "model": "nemotron3",
@@ -388,16 +397,6 @@
           "Check detection confidence and stream quality.",
           "Flag blurry, missing, or stale frames.",
           "Keep alert quality visible to reviewers."
-        ]
-      },
-      "frame_sampler": {
-        "llm_config": "primary",
-        "model": "nemotron3",
-        "role": "Frame sampler actor",
-        "responsibilities": [
-          "Sample frames from configured video sources.",
-          "Track sample cadence and source provenance.",
-          "Flag source gaps or decode failures."
         ]
       },
       "video_source_validator": {
@@ -464,9 +463,14 @@
       "llm_decision",
       "simulation_state_updated",
       "run_completed",
-      "video_frame_tick_generated",
+      "cctv_operator_sample_due",
+      "cctv_operator_scene_change_detected",
+      "cctv_operator_burst_started",
+      "cctv_operator_burst_completed",
+      "cctv_operator_frame_batch_ready",
+      "cctv_operator_sample_skipped",
+      "cctv_operator_queue_lag",
       "cctv_operator_frame_observed",
-      "cctv_operator_folder_completed",
       "cctv_operator_attention_updated",
       "cctv_operator_detection",
       "human_notice",
@@ -529,36 +533,9 @@
       "config_path": "outputs.run_root",
       "manifest_path": "runtime.bindings.run_workflow.workers.visual_detector.with.environment.MN_RUNS_ROOT",
       "stringify": true
-    },
-    {
-      "config_path": "video_source.frame_sample_seconds",
-      "manifest_path": "agents.nodes.video_frame_tick_source.config.interval_seconds"
     }
   ],
-  "local_inputs": {
-    "folders": [
-      {
-        "config_path": "video_source.folder_path",
-        "payload_path": "cctv_operator/mn_local_inputs/videos",
-        "runtime_path": "mn_local_inputs/videos",
-        "default_config_value": "examples/sample_inputs",
-        "source_path": "examples/sample_inputs",
-        "allowed_extensions": [
-          ".mp4",
-          ".mov",
-          ".mkv",
-          ".avi",
-          ".webm",
-          ".m4v",
-          ".ts",
-          ".mts"
-        ],
-        "linked_config_paths": [
-          "inputs.payload.input_folder"
-        ]
-      }
-    ]
-  },
+  "local_inputs": {},
   "memory_layer": {
     "collection": "mn_memory",
     "containers": "optional_sidecar",
@@ -587,7 +564,7 @@
     "enabled": true,
     "agent_ids": [
       "video_source_validator",
-      "frame_sampler",
+      "adaptive_frame_sampler",
       "visual_target_detector",
       "quality_controller",
       "report_writer"
@@ -604,7 +581,7 @@
     ],
     "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run",
     "default_mode": "bounded_llm_guided_cctv_operator_review",
-    "note": "CCTV actors ground detections in staged files or the configured stream, frame evidence, and alert policy."
+    "note": "CCTV actors ground detections in the configured live stream, selected frame evidence, and alert policy."
   },
   "knowledge_rag": {
     "enabled": true,
@@ -614,7 +591,7 @@
     "purpose": "Retrieve approved CCTV policy for target detections, source provenance, cooldown behavior, and review-only alert boundaries.",
     "retrieval_targets": [
       "visual target evidence",
-      "folder or stream source provenance",
+      "live stream source provenance",
       "alert cooldowns",
       "human review boundaries"
     ],
@@ -636,16 +613,16 @@
     "privacy": "index local blueprint knowledge only; do not index private run documents unless a future runtime explicitly opts in"
   },
   "metadata": {
-    "agent_role": "AI assistant for reviewing recorded or live video activity and preparing visual detection reports and alerts.",
+    "agent_role": "AI assistant for reviewing live video activity and preparing visual detection reports and alerts.",
     "blueprint_id": "cctv_operator",
     "blueprint_revision": "v1",
     "category": "business",
     "customizable_for": "Video monitoring, configurable visual detection, facility operations, and site safety workflows.",
-    "description": "An NVIDIA-only CCTV co-worker. Give it a local input folder of recordings or one approved RTSP/RTMP stream, visual targets, alert policy, and output folder; it prepares sampled frames with CUDA-enabled FFmpeg and writes source-grounded JSON and Markdown review reports.",
-    "llm_agent_role": "AI assistant for reviewing recorded or live video activity and preparing visual detection reports and alerts.",
+    "description": "An NVIDIA-only CCTV co-worker for one approved RTSP/RTMP stream. It uses sparse adaptive sampling, operator steering, CUDA-enabled frame preparation, and source-grounded review reports.",
+    "llm_agent_role": "AI assistant for reviewing live video activity and preparing visual detection reports and alerts.",
     "name": "CCTV Operator",
-    "problem_solved": "One NVIDIA-only workflow handles both staged recording folders and approved RTSP/RTMP streams while preserving source provenance in cumulative review reports.",
-    "simulation_type": "Recording-folder or live-stream sampling with visual detection review state.",
+    "problem_solved": "One NVIDIA-only workflow monitors an approved RTSP/RTMP stream without sending the source frame rate to the model.",
+    "simulation_type": "Live-stream adaptive sampling with visual detection review state.",
     "standard_version": "1.0",
     "target_user": "Video operators, security reviewers, safety operations teams, and site-access coordinators.",
     "target_users": "Video operators, security reviewers, safety operations teams, and site-access coordinators."
@@ -789,7 +766,6 @@
       "event_id"
     ],
     "resume_mode": "checkpoint",
-    "input_folder": "examples/sample_inputs",
     "output_folder": "~/Download/cctv_operator"
   },
   "streams": {
@@ -810,428 +786,38 @@
   },
   "video_source": {
     "camera_id": "cctv",
-    "mode": "folder",
-    "folder_path": "examples/sample_inputs",
+    "mode": "stream",
     "uri": "",
-    "description": "Choose folder to process staged local recordings or stream to monitor one approved RTSP/RTMP source.",
+    "description": "Monitor one approved RTSP/RTMP source reachable from the selected NVIDIA node.",
     "media_accelerator": "nvidia_cuda",
+    "transport": "rtsp_rtmp"
+  },
+  "sampling": {
+    "baseline_interval_seconds": 20,
+    "burst_candidate_fps": 5,
     "frame_jpeg_max_width": 896,
-    "frame_sample_seconds": 20,
-    "transport": "auto"
+    "max_calls_per_minute": 6,
+    "max_model_frames": 10,
+    "max_pending_batches": 1,
+    "post_roll_seconds": 5,
+    "pre_roll_seconds": 3,
+    "proxy_fps": 1,
+    "proxy_width": 320,
+    "scene_change_consecutive_samples": 2,
+    "scene_change_threshold": 0.18
   },
   "web_ui": {
-    "dashboard": {
-      "browser_publish_source": "disabled",
-      "browser_video_source": "disabled",
-      "rendering": {
-        "layout": {
-          "column_regions": [
-            {
-              "w": 12,
-              "x": 0
-            },
-            {
-              "w": 12,
-              "x": 12
-            }
-          ]
-        }
-      },
-      "copy": {
-        "event_glossary": {
-          "human_notice": "The co-worker saw a meaningful video change that should be surfaced promptly in OtterDesk chat.",
-          "video_frame_tick_generated": "A frame was queued for real model analysis. The dashboard can show this as an in-progress state until a result event arrives.",
-          "cctv_operator_attention_updated": "The operator asked the video co-worker to pay attention to a specific visual detail.",
-          "cctv_operator_detection": "The visual detector saw configured target activity and recorded observable details for review.",
-          "cctv_operator_frame_analysis_failed": "A sampled frame could not be read or analyzed. Check the selected NVIDIA node, source, and model service.",
-          "cctv_operator_frame_observed": "A sampled frame was analyzed and summarized for co-worker chat and audit review.",
-          "cctv_operator_folder_completed": "Every supported recording in the selected input folder was sampled.",
-          "cctv_operator_report_ready": "The cumulative JSON, Markdown, and final review artifacts were updated.",
-          "cctv_operator_slack_alert_error": "The workflow tried to send a Slack alert but the delivery call failed.",
-          "cctv_operator_slack_alert_sent": "A visual detection alert was sent to the configured review channel.",
-          "cctv_operator_slack_alert_skipped": "The workflow detected activity but skipped notification because alerting is disabled or the cooldown policy suppressed it."
-        },
-        "events_help": "Each event is a durable breadcrumb from the blueprint run. Operators can scan the friendly stream first, then open raw events when they need exact payloads.",
-        "overview": "CCTV Operator analyzes either a folder of recordings or one approved RTSP/RTMP stream on an NVIDIA node, then exposes observations and reports through the shared dashboard.",
-        "review_help": "The final result is not just a video preview. It is a run record: source, frame observations, alert decisions, errors, and event payloads that a human can audit after the workflow runs.",
-        "source_help": "Choose folder mode for staged recordings or stream mode for an RTSP/RTMP URI reachable from the selected NVIDIA node. Browser preview is optional and separate from analysis.",
-        "workflow_steps": [
-          "Stage every supported file when folder mode is selected, or validate the configured RTSP/RTMP URI in stream mode.",
-          "Sample frames on the NVIDIA node with CUDA/NVDEC-enabled FFmpeg.",
-          "Use the configured vision-language model to describe detection count, label, category, color, position, and activity.",
-          "Write cumulative JSON and Markdown reports plus all events to the local run store."
-        ]
-      },
-      "data_source": "local_run_store",
-      "default_video_source": "examples/sample_inputs/sample.mp4",
-      "event_feed": {
-        "default_path": "~/.mn/runs/<run_id>/events.jsonl",
-        "format": "jsonl"
-      },
-      "event_types": [
-        "video_frame_tick_generated",
-        "cctv_operator_frame_observed",
-        "cctv_operator_folder_completed",
-        "cctv_operator_attention_updated",
-        "cctv_operator_detection",
-        "human_notice",
-        "cctv_operator_slack_alert_sent",
-        "cctv_operator_slack_alert_skipped",
-        "cctv_operator_slack_alert_error",
-        "cctv_operator_frame_analysis_failed",
-        "cctv_operator_report_ready"
-      ],
-      "grafana": {
-        "editable": false,
-        "panels": [
-          {
-            "gridPos": {
-              "h": 4,
-              "w": 24,
-              "x": 0,
-              "y": 0
-            },
-            "id": 1,
-            "options": {
-              "content": "Analyze staged recordings or one approved RTSP/RTMP stream with NVIDIA-accelerated frame preparation and review-only visual detection.",
-              "mode": "markdown"
-            },
-            "title": "Overview",
-            "type": "text"
-          },
-          {
-            "gridPos": {
-              "h": 10,
-              "w": 12,
-              "x": 0,
-              "y": 4
-            },
-            "id": 2,
-            "options": {
-              "browserPublishSource": "${browser_publish_source}",
-              "browserSource": "${browser_video_source}",
-              "source": "examples/sample_inputs/sample.mp4"
-            },
-            "title": "Configured Source Preview",
-            "type": "video"
-          },
-          {
-            "gridPos": {
-              "h": 4,
-              "w": 4,
-              "x": 12,
-              "y": 4
-            },
-            "id": 3,
-            "targets": [
-              {
-                "queryType": "run_status",
-                "refId": "A"
-              }
-            ],
-            "title": "Run Status",
-            "type": "stat"
-          },
-          {
-            "gridPos": {
-              "h": 4,
-              "w": 4,
-              "x": 16,
-              "y": 4
-            },
-            "id": 4,
-            "targets": [
-              {
-                "eventTypes": [
-                  "cctv_operator_detection"
-                ],
-                "queryType": "event_count",
-                "refId": "A"
-              }
-            ],
-            "title": "Detections",
-            "type": "stat"
-          },
-          {
-            "gridPos": {
-              "h": 4,
-              "w": 4,
-              "x": 20,
-              "y": 4
-            },
-            "id": 5,
-            "targets": [
-              {
-                "eventTypes": [
-                  "video_frame_tick_generated",
-                  "cctv_operator_frame_observed",
-                  "cctv_operator_folder_completed",
-                  "cctv_operator_attention_updated",
-                  "cctv_operator_detection",
-                  "human_notice",
-                  "cctv_operator_slack_alert_sent",
-                  "cctv_operator_slack_alert_skipped",
-                  "cctv_operator_slack_alert_error",
-                  "cctv_operator_frame_analysis_failed",
-                  "cctv_operator_report_ready"
-                ],
-                "queryType": "latest_event_type",
-                "refId": "A"
-              }
-            ],
-            "title": "Latest Observation",
-            "type": "stat"
-          },
-          {
-            "gridPos": {
-              "h": 10,
-              "w": 12,
-              "x": 12,
-              "y": 8
-            },
-            "id": 6,
-            "options": {
-              "columns": [
-                {
-                  "field": "timestamp",
-                  "text": "Time"
-                },
-                {
-                  "field": "type",
-                  "text": "Event",
-                  "transform": "humanize"
-                },
-                {
-                  "field": "summary",
-                  "text": "Summary"
-                },
-                {
-                  "field": "camera_id",
-                  "text": "Camera"
-                },
-                {
-                  "field": "source_name",
-                  "text": "Source"
-                },
-                {
-                  "field": "frame_seq",
-                  "text": "Frame"
-                },
-                {
-                  "field": "confidence",
-                  "text": "Confidence"
-                }
-              ]
-            },
-            "targets": [
-              {
-                "eventTypes": [
-                  "cctv_operator_frame_observed",
-                  "cctv_operator_detection",
-                  "cctv_operator_folder_completed",
-                  "cctv_operator_frame_analysis_failed",
-                  "human_notice"
-                ],
-                "limit": 50,
-                "queryType": "events",
-                "refId": "A"
-              }
-            ],
-            "title": "Detection Timeline",
-            "type": "table"
-          },
-          {
-            "gridPos": {
-              "h": 8,
-              "w": 12,
-              "x": 0,
-              "y": 14
-            },
-            "id": 7,
-            "targets": [
-              {
-                "eventTypes": [
-                  "video_frame_tick_generated",
-                  "cctv_operator_frame_observed",
-                  "cctv_operator_attention_updated",
-                  "cctv_operator_detection",
-                  "human_notice",
-                  "cctv_operator_slack_alert_sent",
-                  "cctv_operator_slack_alert_skipped",
-                  "cctv_operator_slack_alert_error",
-                  "cctv_operator_frame_analysis_failed",
-                  "cctv_operator_report_ready"
-                ],
-                "limit": 12,
-                "queryType": "events",
-                "refId": "A"
-              }
-            ],
-            "title": "Operator Event Log",
-            "type": "logs"
-          },
-          {
-            "gridPos": {
-              "h": 7,
-              "w": 12,
-              "x": 12,
-              "y": 18
-            },
-            "id": 8,
-            "options": {
-              "x": "time",
-              "y": "value"
-            },
-            "targets": [
-              {
-                "eventTypes": [
-                  "video_frame_tick_generated",
-                  "cctv_operator_frame_observed",
-                  "cctv_operator_attention_updated",
-                  "cctv_operator_detection",
-                  "human_notice",
-                  "cctv_operator_slack_alert_sent",
-                  "cctv_operator_slack_alert_skipped",
-                  "cctv_operator_slack_alert_error",
-                  "cctv_operator_frame_analysis_failed",
-                  "cctv_operator_report_ready"
-                ],
-                "queryType": "event_timeseries",
-                "refId": "A"
-              }
-            ],
-            "title": "Event Rate",
-            "type": "timeseries"
-          },
-          {
-            "gridPos": {
-              "h": 8,
-              "w": 12,
-              "x": 0,
-              "y": 22
-            },
-            "id": 9,
-            "targets": [
-              {
-                "eventTypes": [
-                  "video_frame_tick_generated",
-                  "cctv_operator_frame_observed",
-                  "cctv_operator_attention_updated",
-                  "cctv_operator_detection",
-                  "human_notice",
-                  "cctv_operator_slack_alert_sent",
-                  "cctv_operator_slack_alert_skipped",
-                  "cctv_operator_slack_alert_error",
-                  "cctv_operator_frame_analysis_failed",
-                  "cctv_operator_report_ready"
-                ],
-                "queryType": "latest_event",
-                "refId": "A"
-              }
-            ],
-            "title": "Latest Raw Event",
-            "type": "json"
-          },
-          {
-            "gridPos": {
-              "h": 8,
-              "w": 12,
-              "x": 12,
-              "y": 25
-            },
-            "id": 10,
-            "targets": [
-              {
-                "queryType": "final_artifact",
-                "refId": "A"
-              }
-            ],
-            "title": "Final Artifact",
-            "type": "json"
-          }
-        ],
-        "refresh": "2s",
-        "schemaVersion": 39,
-        "tags": [
-          "mirrorneuron",
-          "blueprint",
-          "video"
-        ],
-        "templating": {
-          "list": []
-        },
-        "time": {
-          "from": "now-1h",
-          "to": "now"
-        },
-        "timezone": "browser",
-        "title": "CCTV Operator"
-      },
-      "panels": [
-        "current_status",
-        "recent_events",
-        "pending_human_requests",
-        "output_artifacts",
-        "resource_usage",
-        "errors",
-        "input_lag",
-        "backpressure",
-        "llm_calls",
-        "token_budget",
-        "llm_retries",
-        "output_skill_attempts",
-        "output_skill_failures"
-      ],
-      "reads": [
-        "events.jsonl",
-        "human.jsonl",
-        "logs.jsonl",
-        "resources.jsonl",
-        "result.json",
-        "final_artifact.json",
-        "web_ui.json",
-        "cctv_report.json",
-        "cctv_report.md"
-      ],
-      "standard_panels": [
-        "current_status",
-        "recent_events",
-        "pending_human_requests",
-        "output_artifacts",
-        "resource_usage",
-        "errors",
-        "input_lag",
-        "backpressure",
-        "llm_calls",
-        "token_budget",
-        "llm_retries",
-        "output_skill_attempts",
-        "output_skill_failures"
-      ],
-      "video_preview_bridge": {
-        "auto_start": false,
-        "enabled": false
-      }
-    },
     "enabled": true,
-    "input": {
-      "adapter": "none",
-      "custom_url": null,
-      "fields": [],
+    "renderer": "json-render",
+    "service": {
       "host": "127.0.0.1",
-      "instructions": null,
-      "port": null,
-      "share": false,
-      "title": null
+      "port": 61000,
+      "public_url": ""
     },
-    "output": {
-      "adapter": "gradio",
-      "auto_generate": true,
-      "custom_url": null,
-      "host": "127.0.0.1",
-      "refresh_seconds": 2,
-      "server": "blueprint_support",
-      "title": "CCTV Operator"
-    }
+    "preview": {
+      "enabled": true,
+      "optional": true
+    },
+    "refresh_seconds": 1
   }
 }

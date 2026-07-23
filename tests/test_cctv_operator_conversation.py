@@ -3,18 +3,42 @@ from __future__ import annotations
 import importlib.util
 import json
 from pathlib import Path
+import sys
 from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DETECTOR_PATH = ROOT / "cctv_operator" / "payloads" / "visual_detector" / "scripts" / "analyze_video_frame.py"
+DETECTOR_PATH = (
+    ROOT
+    / "cctv_operator"
+    / "payloads"
+    / "agents"
+    / "visual_detector"
+    / "scripts"
+    / "analyze_video_frame.py"
+)
 
 
 def _load_detector():
+    original_path = list(sys.path)
+    original_domain_modules = {
+        key: value
+        for key, value in sys.modules.items()
+        if key == "domain" or key.startswith("domain.")
+    }
+    for key in original_domain_modules:
+        sys.modules.pop(key, None)
     spec = importlib.util.spec_from_file_location("cctv_operator_analyze_video_frame", DETECTOR_PATH)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        sys.path[:] = original_path
+        for key in list(sys.modules):
+            if key == "domain" or key.startswith("domain."):
+                sys.modules.pop(key, None)
+        sys.modules.update(original_domain_modules)
     return module
 
 
@@ -24,6 +48,49 @@ def _write_json(path: Path, value: dict[str, Any]) -> Path:
 
 
 def _run_detector(module, monkeypatch, tmp_path, capsys, *, payload, detection, state=None, message=None):
+    run_dir = tmp_path / "run"
+    batch_dir = run_dir / "frame_batches" / "batch-test"
+    batch_dir.mkdir(parents=True)
+    frame_path = batch_dir / "frame-01.jpg"
+    frame_path.write_bytes(b"jpeg-frame")
+    batch_ref = "frame_batches/batch-test/batch.json"
+    instruction = str(payload.get("instruction") or "")
+    revision = int(payload.get("instruction_revision") or 0)
+    _write_json(
+        batch_dir / "batch.json",
+        {
+            "schema": "otterdesk.cctv_operator.frame_batch.v2",
+            "batch_id": "batch-test",
+            "trigger": "on_demand" if instruction else "baseline",
+            "source": {
+                "mode": "stream",
+                "uri": "rtsp://camera.example/unit-test",
+                "name": "rtsp://camera.example/unit-test",
+                "position_seconds": 0,
+            },
+            "instruction": instruction,
+            "instruction_revision": revision,
+            "candidate_count": 1,
+            "selected_count": 1,
+            "selected_frames": [
+                {
+                    "path": "frame_batches/batch-test/frame-01.jpg",
+                    "timestamp": 1.0,
+                    "score": 0.5,
+                    "sha256": "test",
+                }
+            ],
+            "metrics": {},
+        },
+    )
+    payload = {
+        **payload,
+        "batch_id": "batch-test",
+        "frame_batch_ref": batch_ref,
+        "trigger": "on_demand" if instruction else "baseline",
+        "candidate_count": 1,
+        "selected_count": 1,
+    }
     input_file = _write_json(tmp_path / "input.json", payload)
     message_file = _write_json(tmp_path / "message.json", message or {"stream": {"stream_id": "unit-stream"}})
     context_file = _write_json(tmp_path / "context.json", {"agent_state": state or module.initial_state()})
@@ -32,6 +99,7 @@ def _run_detector(module, monkeypatch, tmp_path, capsys, *, payload, detection, 
     monkeypatch.setenv("MN_INPUT_FILE", str(input_file))
     monkeypatch.setenv("MN_MESSAGE_FILE", str(message_file))
     monkeypatch.setenv("MN_CONTEXT_FILE", str(context_file))
+    monkeypatch.setenv("MN_RUN_DIR", str(run_dir))
     monkeypatch.setenv(
         "MN_BLUEPRINT_CONFIG_JSON",
         json.dumps({"video_source": {"mode": "stream", "uri": "rtsp://camera.example/unit-test"}}),
@@ -40,8 +108,6 @@ def _run_detector(module, monkeypatch, tmp_path, capsys, *, payload, detection, 
     monkeypatch.setenv("SLACK_ALERT_ENABLED", "false")
     monkeypatch.delenv("MOCK_VLM_DETECTION", raising=False)
     monkeypatch.delenv("VISUAL_DETECTION_PROMPT", raising=False)
-    monkeypatch.setattr(module, "extract_frame", lambda *_args: (b"jpeg-frame", "image/jpeg"))
-
     def fake_call_ollama(_frame, prompt):
         prompts.append(prompt)
         return module.normalize_detection(detection)
@@ -168,7 +234,8 @@ def test_cctv_operator_user_attention_request_changes_prompt_and_state(monkeypat
         payload={
             "tick_seq": 3,
             "camera_id": "warehouse-aisle",
-            "user_message": "Pay attention to the red backpack near the left doorway.",
+            "instruction": "Pay attention to the red backpack near the left doorway.",
+            "instruction_revision": 1,
         },
         detection={
             "detected": False,
@@ -190,3 +257,25 @@ def test_cctv_operator_user_attention_request_changes_prompt_and_state(monkeypat
     attention_event = next(event for event in output["events"] if event["type"] == "cctv_operator_attention_updated")
     assert "red backpack" in attention_event["payload"]["summary"]
     assert output["events"][-1]["type"] == "cctv_operator_frame_observed"
+
+
+def test_cctv_operator_batch_revision_can_clear_attention_state():
+    detector = _load_detector()
+    state = {
+        **detector.initial_state(),
+        "attention_instruction": "Watch the red backpack.",
+        "attention_targets": ["Watch the red backpack."],
+        "instruction_revision": 1,
+    }
+
+    event = detector.apply_attention_request(
+        state,
+        {"instruction": "", "instruction_revision": 2},
+        {},
+        "camera-1",
+    )
+
+    assert state["attention_instruction"] == ""
+    assert state["attention_targets"] == []
+    assert state["instruction_revision"] == 2
+    assert event["payload"]["cleared"] is True

@@ -3,8 +3,17 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 from pathlib import Path
 from typing import Any
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+for ancestor in (SCRIPT_DIR, *SCRIPT_DIR.parents):
+    if (ancestor / "domain").is_dir() and str(ancestor) not in sys.path:
+        sys.path.insert(0, str(ancestor))
+        break
+
+from domain.reporting import bounded_history, sampling_records
 
 
 RESULT_START = "__MN_RESULT_START__"
@@ -61,11 +70,28 @@ def merge_report(previous: dict[str, Any], detector: dict[str, Any]) -> dict[str
         and str(event.get("type") or "").startswith("cctv_operator_slack_alert_")
         and isinstance(event.get("payload"), dict)
     ]
+    sampling = sampling_records(events)
+    sampling.extend(
+        {
+            "type": "cctv_operator_frame_batch_ready",
+            "trigger": item.get("sampling_trigger"),
+            "instruction_revision": item.get("instruction_revision"),
+            "frame_batch_ref": item.get("frame_batch_ref"),
+            "batch_id": item.get("batch_id"),
+            "candidate_count": item.get("candidate_count"),
+            "selected_count": item.get("selected_count"),
+            "model_latency_ms": item.get("model_latency_ms"),
+            "metrics": item.get("sampling_metrics") or {},
+        }
+        for item in observed
+        if item.get("frame_batch_ref")
+    )
 
     history = previous.get("observations") if isinstance(previous.get("observations"), list) else []
     detection_history = previous.get("detections") if isinstance(previous.get("detections"), list) else []
     error_history = previous.get("errors") if isinstance(previous.get("errors"), list) else []
     alert_history = previous.get("alerts") if isinstance(previous.get("alerts"), list) else []
+    sampling_history = bounded_history(previous.get("sampling"), sampling, limit=500)
     history = [*history, *observed][-500:]
     detection_history = [*detection_history, *detections][-500:]
     error_history = [*error_history, *errors][-100:]
@@ -79,7 +105,7 @@ def merge_report(previous: dict[str, Any], detector: dict[str, Any]) -> dict[str
         }
     )
     return {
-        "schema": "otterdesk.cctv_operator_report.v1",
+        "schema": "otterdesk.cctv_operator_report.v2",
         "blueprint_id": "cctv_operator",
         "source_mode": state.get("source_mode") or previous.get("source_mode") or "unknown",
         "media_accelerator": "nvidia_cuda",
@@ -91,6 +117,49 @@ def merge_report(previous: dict[str, Any], detector: dict[str, Any]) -> dict[str
         "detections": detection_history,
         "alerts": alert_history,
         "errors": error_history,
+        "sampling": sampling_history,
+        "sampling_metrics": {
+            "batches_ready": sum(
+                item.get("type") == "cctv_operator_frame_batch_ready"
+                for item in sampling_history
+            ),
+            "scene_changes": sum(
+                item.get("type") == "cctv_operator_scene_change_detected"
+                for item in sampling_history
+            ),
+            "samples_skipped": sum(
+                item.get("type") == "cctv_operator_sample_skipped"
+                for item in sampling_history
+            ),
+            "dropped_baselines": max(
+                [
+                    int((item.get("metrics") or {}).get("dropped_baselines") or 0)
+                    for item in sampling_history
+                    if isinstance(item.get("metrics"), dict)
+                ]
+                or [0]
+            ),
+            "latest_model_latency_ms": next(
+                (
+                    int(item.get("model_latency_ms") or 0)
+                    for item in reversed(sampling_history)
+                    if item.get("model_latency_ms") is not None
+                ),
+                0,
+            ),
+        },
+        "latest_batch": state.get("last_batch") or previous.get("latest_batch"),
+        "monitoring": (
+            {
+                "instruction": observed[-1].get("attention_instruction") or "",
+                "instruction_revision": int(
+                    observed[-1].get("instruction_revision") or 0
+                ),
+                "last_command_id": observed[-1].get("command_id") or "",
+            }
+            if observed
+            else previous.get("monitoring") or {}
+        ),
         "review_boundary": "Decision support only; a human reviewer must confirm safety or security decisions.",
     }
 
@@ -105,6 +174,11 @@ def markdown_report(report: dict[str, Any]) -> str:
         f"- Target detections: {report['detection_count']}",
         f"- Alert records: {len(report['alerts'])}",
         f"- Analysis errors: {len(report['errors'])}",
+        f"- Adaptive batches: {report['sampling_metrics']['batches_ready']}",
+        f"- Scene changes: {report['sampling_metrics']['scene_changes']}",
+        f"- Samples skipped: {report['sampling_metrics']['samples_skipped']}",
+        f"- Dropped baselines: {report['sampling_metrics']['dropped_baselines']}",
+        f"- Latest model latency: {report['sampling_metrics']['latest_model_latency_ms']} ms",
         "",
         "## Sources",
     ]

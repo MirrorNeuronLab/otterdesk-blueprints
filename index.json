@@ -1,21 +1,24 @@
 [
   {
     "category": "Security",
-    "description": "An NVIDIA-only CCTV co-worker. Give it a local input folder of recordings or one approved RTSP/RTMP stream, visual targets, alert policy, and output folder; it prepares sampled frames with CUDA-enabled FFmpeg and writes source-grounded JSON and Markdown review reports.",
+    "description": "An NVIDIA-only, stream-only CCTV co-worker with a blueprint-owned json-render UI, sparse baseline analysis, and event-triggered frame bursts for one approved RTSP/RTMP source.",
     "id": "cctv_operator",
     "job_name": "cctv-operator",
     "name": "CCTV Operator",
     "path": "cctv_operator",
     "product": {
-      "agent_role": "AI assistant for reviewing recorded or live video activity and preparing visual detection reports and alerts.",
-      "benefit": "Uses one source-grounded workflow for historical recordings and live CCTV while keeping safety and security decisions with people.",
+      "agent_role": "AI assistant for reviewing live video activity and preparing visual detection reports and alerts.",
+      "benefit": "Combines live operator steering with bounded multimodal analysis so a 24 FPS source does not become a 24 FPS model workload.",
       "customizable_for": "Video monitoring, configurable visual detection, facility operations, and site safety workflows.",
-      "how_it_works": "Stages and walks every supported recording in folder mode or samples one approved RTSP/RTMP source in stream mode, prepares frames on NVIDIA CUDA, applies visual detection and cooldown policy, and writes cumulative JSON and Markdown reports.",
-      "input": "Local video folder or approved RTSP/RTMP stream, target prompt, alert thresholds, and notification settings.",
-      "output": "Cumulative source-grounded visual observations and reports with count, label, category, color, position, activity, confidence, and alert status.",
-      "problem": "Teams need one review surface for both recorded footage and continuous streams without losing source provenance or requiring manual watching of every frame.",
+      "how_it_works": "Inspects a 1 FPS proxy, analyzes a baseline frame every 20 seconds, selects up to ten frames around sustained scene changes, and prioritizes operator-requested analysis.",
+      "input": "Approved RTSP/RTMP stream, run-scoped monitoring instruction, sampling thresholds, alert policy, and notification settings.",
+      "output": "Smooth source preview, the latest analyzed frame, durable frame-batch manifests, and cumulative source-grounded observations and reports.",
+      "problem": "Teams need a steerable review surface for a continuous stream without turning every source frame into a model request.",
       "runtime_features": [
-        "folder and stream video sampling",
+      "stream-only adaptive sampling",
+      "live monitoring steering",
+      "event-triggered frame bursts",
+      "browser preview and analyzed-frame review",
         "NVIDIA CUDA media preparation",
         "visual detection",
         "cooldown state",
@@ -26,7 +29,7 @@
         "artifact records",
         "run-store observability dashboard"
       ],
-      "simulation_type": "Recording-folder or live-stream sampling with visual detection review state.",
+      "simulation_type": "Live-stream adaptive sampling with visual detection review state.",
       "target_users": "Video operators, security reviewers, safety operations teams, and site-access coordinators."
     },
     "requirements": {
@@ -40,7 +43,7 @@
       }
     },
     "type": "service",
-    "workflow_id": "cctv_operator_v1"
+    "workflow_id": "cctv_operator_v2"
   },
   {
     "category": "Business",

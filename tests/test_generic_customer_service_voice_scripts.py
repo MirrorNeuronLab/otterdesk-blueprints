@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 
@@ -40,7 +41,7 @@ def test_customer_service_pre_launch_writes_valid_json_for_quoted_multiline_valu
         "MN_POST_LAUNCH_STATE_FILE": str(state_file),
         "MN_BLUEPRINT_BUNDLE_DIR": str(BLUEPRINT_DIR),
         "MN_BLUEPRINT_CONFIG_JSON": json.dumps(payload),
-        "PYTHON_BIN": "python3.11",
+        "PYTHON_BIN": sys.executable,
     }
 
     subprocess.run(["bash", str(BLUEPRINT_DIR / "scripts" / "pre-launch.sh")], cwd=BLUEPRINT_DIR, env=env, check=True)
@@ -82,7 +83,7 @@ def test_customer_service_post_launch_writes_valid_json_for_quoted_state_values(
         "MN_RUN_DIR": str(run_dir),
         "MN_POST_LAUNCH_STATE_FILE": str(state_file),
         "MN_POST_LAUNCH_REASON": 'operator said "done"\ncleanup',
-        "PYTHON_BIN": "python3.11",
+        "PYTHON_BIN": sys.executable,
     }
 
     subprocess.run(["bash", str(BLUEPRINT_DIR / "scripts" / "post-launch.sh")], cwd=BLUEPRINT_DIR, env=env, check=True)

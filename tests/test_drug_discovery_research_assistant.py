@@ -153,7 +153,7 @@ def test_drug_discovery_model_profiles_match_vc_style_defaults():
     for package in ("drugclip>=0.1.2", "torch>=2.0", "torch_geometric>=2.3", "requests"):
         assert package in requirements
     for adapter_name in ("candidate_generator", "folding", "drugclip", "simulation"):
-        assert config[adapter_name]["command"][0] == "python3"
+        assert config[adapter_name]["command"][0] == "/usr/bin/python3"
         assert config[adapter_name]["command"][1] == "scripts/biotarget_adapter.py"
 
 

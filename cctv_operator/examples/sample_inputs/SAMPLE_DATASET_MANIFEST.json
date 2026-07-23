@@ -1,23 +1,32 @@
 {
   "schema": "otterdesk.sample_dataset.v1",
   "blueprint_id": "cctv_operator",
-  "description": "Bundled recording plus target and alert-policy sample for folder-mode evaluation.",
+  "description": "Media-processing test fixture plus target, alert-policy, and steering examples for the stream-only CCTV service.",
   "files": [
     {
       "path": "sample.mp4",
       "type": "video/mp4",
       "contains_pii": false,
-      "intended_use": "CUDA frame-extraction and CCTV workflow smoke testing"
+      "intended_use": "Skill-level CUDA frame-processing tests; not a runtime source"
     },
     {
       "path": "cctv_policy.json",
       "type": "application/json",
       "contains_pii": false,
       "intended_use": "cctv onboarding, launch validation, and local demos"
+    },
+    {
+      "path": "steer_monitoring.json",
+      "type": "application/json",
+      "contains_pii": false,
+      "intended_use": "run-scoped steering and Analyze now demonstration"
     }
   ],
   "expected_outputs": [
     "events.jsonl",
+    "frame_batches/<batch_id>/batch.json",
+    "latest_analyzed_frame.jpg",
+    "latest_analyzed_frame.json",
     "cctv_report.json",
     "cctv_report.md",
     "final_artifact.json",
