@@ -20,10 +20,28 @@ Provide one local review workflow for mixed personal or small-business legal doc
 - Compare clause coverage against a small playbook.
 - Create an issue register across invoices and contracts.
 - Write integrated review-only artifacts and a strict JSON actor-review packet.
+- Produce a severity-sorted review queue and dated/unknown-date obligation calendar with explicit owners.
+
+## Logical workflow contract
+
+- `prepare_legal_matter`: deterministic inventory and source extraction.
+- `analyze_legal_documents`: independent payable and contract lanes with a generated fork/join.
+- `reconcile_legal_review`: cross-lane issue reconciliation followed by bounded model audit.
+- `publish_legal_review_packet`: durable packet publication; the generated step sink alone completes the logical step.
+
+Agent IDs identify specialist roles and never double as logical step IDs.
+Large or authoritative results are written to deterministic run artifacts before
+an agent returns its bounded message payload.
 
 ## Real Sample And Runtime Skills
 
 The checked-in sample packet includes the official Acquisition.gov FAR 52.212-4 contract-terms PDF. The document reader uses `mirrorneuron-llm-ocr-skill` for PDF/image extraction when embedded text is insufficient, and the actor prompts use `mirrorneuron-rag-skill` to retrieve cited sections from the local legal playbook. Normal runs use the shared live LLM; fake/quick-test mode remains available for deterministic smoke tests.
+
+## Persistent job data
+
+Knowledge, RAG, and explicitly durable state are isolated by stable `job_id`.
+Multiple runs share them; separate jobs and their matters cannot see each
+other's data. Reset and deletion require explicit job lifecycle operations.
 
 ## Non-Goals
 

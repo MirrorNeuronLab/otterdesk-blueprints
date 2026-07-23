@@ -12,7 +12,7 @@ workflow ledger, not only displayed in the UI.
 | --- | --- |
 | CCTV Operator | Event-driven service flow: monitor ingress, sample frames, detect, and report. |
 | Drug Discovery Research Assistant | Guarded continuous service with service-managed scatter/gather: each discovery cycle fans targets and candidate/structure pairs across native workers, then ranks the collected results. |
-| Financial Advisor | Fork/join: document reading fans out to cash-flow, tax, portfolio, and public-research lanes; reconciliation waits for every lane. |
+| Financial Advisor | Ordered regulated-state pipeline: packet intake, household analysis, tax review, portfolio risk, public guidance, reconciliation, and publication. |
 | Generic Customer Service Voice Coworker | External-event service: setup hands off to the live voice service. |
 | Legal Assistant | Fork/join: document reading fans out to invoice and contract review lanes; evidence reconciliation waits for both. |
 | Purchase Research Assistant | Ordered evidence and recommendation pipeline. |

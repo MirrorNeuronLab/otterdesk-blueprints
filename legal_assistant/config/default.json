@@ -1,20 +1,9 @@
 {
   "standard_version": "mn.blueprint.config.v1",
   "mode": "review_only",
-  "identity": {
-    "blueprint_id": "legal_assistant",
-    "name": "Legal Assistant"
-  },
   "metadata": {
-    "blueprint_id": "legal_assistant",
-    "blueprint_revision": "v1",
     "category": "Legal",
-    "name": "Legal Assistant",
-    "description": "A legal document co-worker for invoice, bill, and contract review. Put invoices, bills, contracts, clause notes, labels, or supporting files in the input folder; it extracts payable fields, maps contract clauses, compares playbook expectations, flags review issues, and writes a source-grounded review packet to the output folder.",
-    "problem": "Personal and small-business legal work often mixes payable documents with contracts and obligations; users need one local review assistant that keeps invoice facts, contract clauses, evidence, and approval boundaries together.",
-    "target_users": "Individuals, founders, small-business operators, legal operations teams, in-house reviewers, and attorneys preparing first-pass document packets.",
-    "customizable_for": "Individual legal intake, small-business invoice review, vendor contract review, CLM intake, payable approval support, and attorney review preparation.",
-    "agent_role": "Local legal document assistant that extracts invoice and contract evidence while keeping conclusions review-only."
+    "description": "A legal document co-worker for invoice, bill, and contract review. Put invoices, bills, contracts, clause notes, labels, or supporting files in the input folder; it extracts payable fields, maps contract clauses, compares playbook expectations, flags review issues, and writes a source-grounded review packet to the output folder."
   },
   "inputs": {
     "adapter": "mock",
@@ -66,7 +55,7 @@
         "jurisdiction_note": "Use the supplied document's governing framework only; do not generalize federal-contract terms to another matter."
       },
       "public_dataset": {
-        "name": "FAR 52.212-4 Contract Terms and Conditions\u2014Commercial Products and Commercial Services",
+        "name": "FAR 52.212-4 Contract Terms and Conditions—Commercial Products and Commercial Services",
         "provider": "U.S. General Services Administration, Acquisition.gov",
         "url": "https://www.acquisition.gov/far/52.212-4",
         "download_url": "https://www.acquisition.gov/node/31867/printable/pdf",
@@ -118,38 +107,6 @@
     "raw_retention_hours": 48,
     "rollup_bucket_seconds": 3600
   },
-  "human_control": {
-    "enabled": true,
-    "mode": "approval_required",
-    "default_action": "reject",
-    "allowed_decisions": [
-      "approve",
-      "revise",
-      "reject"
-    ],
-    "blocked_actions": [
-      "send_legal_advice",
-      "approve_or_sign_contract",
-      "redline_contract_as_final",
-      "post_invoice_to_erp",
-      "submit_payment_instruction",
-      "email_vendor_or_counterparty_without_review",
-      "share_privileged_or_private_documents_externally"
-    ],
-    "reason": "Human and attorney review is required before relying on legal conclusions, approving payments, signing contracts, contacting counterparties, or sharing private/privileged documents.",
-    "events": [
-      "human_notice",
-      "human_input_requested",
-      "human_input_received",
-      "human_input_timeout",
-      "human_decision_applied"
-    ],
-    "request_event": "human_input_requested",
-    "response_event": "human_input_received",
-    "timeout_event": "human_input_timeout",
-    "decision_event": "human_decision_applied",
-    "timeout_seconds": 3600
-  },
   "privacy": {
     "default_classification": "confidential",
     "rules": {
@@ -181,188 +138,20 @@
     }
   },
   "llm": {
-    "enabled": true,
     "mode": "live",
-    "mock_mode": "fake",
-    "model": "default",
-    "backend": "llama.cpp",
-    "provider": "docker_model_runner",
-    "default_config": "primary",
-    "quick_test_uses_fake": true,
     "strict_json": false,
-    "prefer_shared_skill": true,
     "require_live": true,
-    "review_agents": [
-      "invoice_bill_extractor",
-      "payable_field_validator",
-      "contract_clause_extractor",
-      "contract_playbook_comparator",
-      "legal_evidence_reconciler",
-      "legal_review_auditor",
-      "legal_reporter"
-    ],
     "configs": {
       "primary": {
-        "provider": "docker_model_runner",
-        "backend": "llama.cpp",
-        "api_base": "auto",
         "timeout_seconds": 75,
         "max_tokens": 1600,
         "num_retries": 1,
-        "retry_backoff_seconds": 1.0,
-        "mock_mode": "fake",
-        "mode": "live",
-        "strict_json": false,
-        "required": true
+        "retry_backoff_seconds": 1.0
       }
-    },
-    "agents": {
-      "legal_folder_watcher": {
-        "llm_config": "primary",
-        "role": "Legal Folder Watcher",
-        "responsibilities": [
-          "Resolve the local legal document folder.",
-          "Fingerprint invoice, bill, contract, and support files.",
-          "Preserve source paths without exposing private content externally."
-        ]
-      },
-      "legal_document_reader": {
-        "llm_config": "primary",
-        "role": "Legal Document Reader",
-        "responsibilities": [
-          "Read local text and structured files.",
-          "Classify invoice, bill, contract, clause, and supporting documents.",
-          "Flag OCR-required documents for review."
-        ]
-      },
-      "invoice_bill_extractor": {
-        "llm_config": "primary",
-        "role": "Invoice And Bill Extractor",
-        "responsibilities": [
-          "Extract payable fields from invoices and bills.",
-          "Tie supplier, date, total, and line-item values to source evidence.",
-          "Flag missing or ambiguous payable fields."
-        ]
-      },
-      "payable_field_validator": {
-        "llm_config": "primary",
-        "role": "Payable Field Validator",
-        "responsibilities": [
-          "Check extracted invoice fields for completeness.",
-          "Separate review-only values from downstream payment actions.",
-          "Flag ERP and payment blockers."
-        ]
-      },
-      "contract_clause_extractor": {
-        "llm_config": "primary",
-        "role": "Contract Clause Extractor",
-        "responsibilities": [
-          "Extract candidate clauses from contract text.",
-          "Map clauses to the configured taxonomy.",
-          "Preserve snippets and source references."
-        ]
-      },
-      "contract_playbook_comparator": {
-        "llm_config": "primary",
-        "role": "Contract Playbook Comparator",
-        "responsibilities": [
-          "Compare extracted clauses to playbook expectations.",
-          "Flag missing high-value clauses and deviations.",
-          "Avoid giving legal advice."
-        ]
-      },
-      "legal_evidence_reconciler": {
-        "llm_config": "primary",
-        "role": "Legal Evidence Reconciler",
-        "responsibilities": [
-          "Merge invoice and contract evidence.",
-          "Create a unified issue register.",
-          "Preserve confidence, warnings, and review owners."
-        ]
-      },
-      "legal_review_auditor": {
-        "llm_config": "primary",
-        "role": "Legal Review Auditor",
-        "responsibilities": [
-          "Audit review-only boundaries.",
-          "Check blocked actions remain blocked.",
-          "Prepare attorney and human-review caveats."
-        ]
-      },
-      "legal_reporter": {
-        "llm_config": "primary",
-        "role": "Legal Reporter",
-        "responsibilities": [
-          "Write the integrated legal review packet.",
-          "Summarize invoice, bill, contract, and issue-register sections.",
-          "Keep all next steps source-grounded and review-only."
-        ]
-      }
-    },
-    "responsibilities": [
-      "Keep legal and payable outputs review-only and source-grounded.",
-      "Use specialist agents for document intake, extraction, playbook comparison, audit, and report writing.",
-      "Require human and attorney approval before legal advice, payment, signature, or external sharing."
-    ]
+    }
   },
   "knowledge_rag": {
-    "enabled": true,
-    "backend": "milvus_lite",
-    "required": false,
-    "knowledge_dir": "knowledge",
-    "purpose": "Retrieve local legal assistant guidance for invoice extraction, contract clause mapping, playbook comparison, privilege/privacy handling, and review-only boundaries.",
-    "retrieval_targets": [
-      "invoice and bill extraction",
-      "contract clause taxonomy",
-      "playbook comparison",
-      "privilege and privacy review",
-      "payment and legal action blockers",
-      "evidence hierarchy and source traceability",
-      "calculation invariance and assumption clarity",
-      "cross-domain reconciliation and report quality"
-    ],
-    "grounding_policy": "Use retrieved or bundled local blueprint knowledge to improve actor prompts; preserve deterministic outputs, cite supplied evidence, and label unknowns when retrieval is unavailable.",
-    "namespace": "",
-    "embedding_provider": "docker_model_runner",
-    "embedding_model": "rag-embedding",
-    "embedding_api_base": "auto",
-    "embedding_query_prefix": "Query: ",
-    "embedding_document_prefix": "Document: ",
-    "embedding_start_command": "",
-    "embedding_healthcheck_enabled": false,
-    "vector_dim": 1024,
-    "index_on_startup": true,
-    "top_k": 5,
-    "max_context_chars": 4500,
-    "chunk_size": 2500,
-    "chunk_overlap": 150,
-    "privacy": "index local blueprint knowledge only; do not index private run documents unless a future runtime explicitly opts in"
-  },
-  "agentic_research": {
-    "enabled": true,
-    "agent_ids": [
-      "invoice_bill_extractor",
-      "payable_field_validator",
-      "contract_clause_extractor",
-      "contract_playbook_comparator",
-      "legal_evidence_reconciler",
-      "legal_review_auditor",
-      "legal_reporter"
-    ],
-    "max_iterations_per_agent": 1,
-    "max_tool_calls_per_agent": 2,
-    "allowed_tools": [
-      "llm_ocr_extract",
-      "field_extract",
-      "schema_validate",
-      "clause_extract",
-      "taxonomy_map",
-      "knowledge_retrieve",
-      "finish"
-    ],
-    "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run",
-    "default_mode": "bounded_llm_guided_legal_document_review",
-    "note": "Document actors may use OCR and local playbook guidance; uncertain legal or payable values remain review-required."
+    "backend": "milvus_lite"
   },
   "input_skills": {
     "llm_ocr": {

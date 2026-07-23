@@ -1,0 +1,58 @@
+{
+  "schema": "mn.sample.purchase_candidates.v1",
+  "observed_at": "2026-07-15",
+  "disclaimer": "Synthetic candidate snapshots for offline workflow testing; not live listings.",
+  "candidates": [
+    {
+      "candidate_id": "hanover-maple-12",
+      "address": "12 Maple Ridge Road, Hanover, NH 03755",
+      "property_type": "single-family house",
+      "bedrooms": 3,
+      "zip_code": "03755",
+      "asking_price": 675000,
+      "annual_property_tax": 11900,
+      "annual_insurance_estimate": 2600,
+      "closing_cost_estimate": 15500,
+      "inspection_reserve": 18000,
+      "hoa_monthly": 0,
+      "condition": "1980s home; roof age unknown; seller notes prior basement moisture mitigation.",
+      "disclosures": ["roof age not documented", "basement moisture history"],
+      "observed_at": "2026-07-15",
+      "source_type": "synthetic_listing_snapshot"
+    },
+    {
+      "candidate_id": "hanover-pine-44",
+      "address": "44 Pine Hollow Lane, Hanover, NH 03755",
+      "property_type": "single-family house",
+      "bedrooms": 4,
+      "zip_code": "03755",
+      "asking_price": 742000,
+      "annual_property_tax": 13150,
+      "annual_insurance_estimate": 2450,
+      "closing_cost_estimate": 16900,
+      "inspection_reserve": 9000,
+      "hoa_monthly": 85,
+      "condition": "Recent mechanical updates reported; private-road maintenance obligation requires document review.",
+      "disclosures": ["private-road agreement", "association documents not supplied"],
+      "observed_at": "2026-07-15",
+      "source_type": "synthetic_listing_snapshot"
+    },
+    {
+      "candidate_id": "lebanon-river-8",
+      "address": "8 River View Drive, Lebanon, NH 03766",
+      "property_type": "single-family house",
+      "bedrooms": 3,
+      "zip_code": "03766",
+      "asking_price": 598000,
+      "annual_property_tax": 10300,
+      "annual_insurance_estimate": 2300,
+      "closing_cost_estimate": 14200,
+      "inspection_reserve": 12000,
+      "hoa_monthly": 0,
+      "condition": "Lower asking price but outside the required ZIP code.",
+      "disclosures": ["outside hard location constraint"],
+      "observed_at": "2026-07-15",
+      "source_type": "synthetic_listing_snapshot"
+    }
+  ]
+}

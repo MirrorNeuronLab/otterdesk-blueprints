@@ -16,6 +16,12 @@
       "intended_use": "Smoke-test contract clause extraction and playbook comparison."
     },
     {
+      "path": "sample_payment_change_notice.txt",
+      "type": "synthetic_payment_instruction_change",
+      "contains_pii": false,
+      "intended_use": "Exercise deterministic payment-control escalation and independent-verification requirements."
+    },
+    {
       "path": "far_52_212_4_contract_terms.pdf",
       "type": "real_public_contract_terms_pdf",
       "contains_pii": false,

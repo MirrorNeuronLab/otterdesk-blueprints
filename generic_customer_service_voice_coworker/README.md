@@ -54,6 +54,13 @@ Start a cluster node advertising one of the required NVIDIA capabilities above.
 The local dashboard links to the localhost HTTPS page, while model lifecycle is
 handled by `mn model` and Docker Model Runner.
 
+## Shared job data
+
+The co-worker seeds its voice-service knowledge once and stores Milvus Lite
+under the stable job's `databases/rag/`. Runs share knowledge and durable state,
+while recordings, transcripts, logs, and artifacts stay execution-scoped. A
+second job using this blueprint gets an independent database.
+
 ## Artifacts
 
 - `web_ui.json`

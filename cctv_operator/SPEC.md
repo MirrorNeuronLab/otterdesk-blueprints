@@ -42,6 +42,13 @@ The shared `mirrorneuron-blueprint-support-skill[webui]` Gradio dashboard is use
 
 The dashboard reads `events.jsonl`, human/log/resource streams, `cctv_report.json`, `cctv_report.md`, `final_artifact.json`, and `web_ui.json`. Browser preview is optional and disabled by default; analysis does not depend on browser republishing or MediaMTX.
 
+## Persistent job data
+
+Knowledge, RAG, and durable application state are isolated by stable `job_id`
+and survive multiple runs. Run media inputs and review outputs remain
+run-scoped. This blueprint has no bundle seed for runtime-generated CCTV
+knowledge and never clears job data during run cleanup.
+
 ## Outputs and review boundary
 
 Every report preserves source mode, source name, recording index, sampled position or stream observation time, detections, confidence, alert records, errors, and completed recording names. The durable outputs are:

@@ -591,6 +591,13 @@
     "type": "service"
   },
   "metadata": {
+    "job_data": {
+      "resources": [
+        { "name": "knowledge", "path": "knowledge", "access": "read_write" },
+        { "name": "rag", "path": "databases/rag", "access": "read_write" },
+        { "name": "state", "path": "state", "access": "read_write" }
+      ]
+    },
     "agent_role": "AI assistant for reviewing recorded or live video activity and preparing visual detection reports and alerts.",
     "agent_templates": {
       "library": "../mn-agents/index.json",

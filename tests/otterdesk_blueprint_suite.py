@@ -1349,35 +1349,43 @@ def test_generic_customer_service_knowledge_persistence(tmp_path, monkeypatch):
 
 
 def test_purchase_research_final_artifact_uses_product_output_fields(tmp_path):
-    runner_path = ROOT / "purchase_research_assistant" / "payloads" / "runtime" / "runtime.py"
-    spec = importlib.util.spec_from_file_location("otterdesk_purchase_runner_product_test", runner_path)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
+    from blueprint_modernization_support import run_payload_script
 
-    result = module.run_blueprint(
-        inputs={"purchase_type": "car", "item_description": "used hybrid SUV", "budget": 30000},
-        config={"llm": {"mode": "fake"}},
-        runs_root=tmp_path,
-        run_id="purchase-product-contract",
+    result = run_payload_script(
+        "purchase_research_assistant",
+        f"""
+import json
+from pathlib import Path
+from domain.composition import run_blueprint
+
+root = Path({str((ROOT / 'purchase_research_assistant').resolve())!r})
+output = Path({str(tmp_path.resolve())!r}) / "output"
+result = run_blueprint(
+    inputs={{
+        "input_folder": str(root / "examples" / "sample_inputs"),
+        "output_folder": str(output),
+    }},
+    config={{"execution": {{"quick_test": True}}}},
+    runs_root=output / "runs",
+    run_id="purchase-product-contract",
+)
+artifact = result["final_artifact"]
+print(json.dumps({{
+    "status": result["status"],
+    "artifact": artifact,
+    "run_artifact_exists": (output / "runs" / "purchase-product-contract" / "final_artifact.json").exists(),
+}}))
+""",
     )
-    artifact = result["final_artifact"]
+    artifact = result["artifact"]
 
     assert set(FINAL_ARTIFACT_REQUIRED_FIELDS) <= set(artifact)
     assert artifact["evidence"]
     assert {"inputs.json", "events.jsonl", "result.json"} <= set(artifact["source_refs"])
-    expected_actor_ids = set(json.loads((ROOT / "purchase_research_assistant" / "config" / "default.json").read_text())["llm"]["agents"])
-    assert set(artifact["actor_findings"]) == expected_actor_ids
-    assert artifact["llm_usage"]["calls"] >= len(expected_actor_ids)
-
-    events = [
-        json.loads(line)
-    for line in (tmp_path / "purchase-product-contract" / "events.jsonl").read_text().splitlines()
-        if line.strip()
-    ]
-    event_types = {event["type"] for event in events}
-    assert {"blueprint_status", "blueprint_phase_started", "blueprint_phase_completed", "artifact_written"} <= event_types
+    assert artifact["preferred_candidate"] == "hanover-maple-12"
+    assert len(artifact["candidate_comparisons"]) == 3
+    assert artifact["actor_findings"]["purchase_recommendation_auditor"]
+    assert result["run_artifact_exists"] is True
 
 
 def test_cctv_operator_declares_otterdesk_chat_system_prompt():

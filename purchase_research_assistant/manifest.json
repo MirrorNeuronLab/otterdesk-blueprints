@@ -26,21 +26,33 @@
   },
   "agents": {
     "registry": {
-      "collect_purchase_context": {
-        "handler": "agents.collect_purchase_context",
-        "role": "Collect Purchase Context"
+      "purchase_intake_analyst": {
+        "handler": "agents.purchase_intake_analyst",
+        "role": "Purchase Intake Analyst"
       },
-      "retrieve_purchase_knowledge": {
-        "handler": "agents.retrieve_purchase_knowledge",
-        "role": "Retrieve Purchase Knowledge"
+      "purchase_knowledge_retriever": {
+        "handler": "agents.purchase_knowledge_retriever",
+        "role": "Purchase Knowledge Retriever"
       },
-      "research_purchase_options": {
-        "handler": "agents.research_purchase_options",
-        "role": "Research Purchase Options"
+      "purchase_market_researcher": {
+        "handler": "agents.purchase_market_researcher",
+        "role": "Purchase Market Researcher"
       },
-      "write_purchase_report": {
-        "handler": "agents.write_purchase_report",
-        "role": "Write Purchase Report"
+      "purchase_total_cost_analyst": {
+        "handler": "agents.purchase_total_cost_analyst",
+        "role": "Purchase Total Cost Analyst"
+      },
+      "purchase_risk_reviewer": {
+        "handler": "agents.purchase_risk_reviewer",
+        "role": "Purchase Risk Reviewer"
+      },
+      "purchase_recommendation_auditor": {
+        "handler": "agents.purchase_recommendation_auditor",
+        "role": "Purchase Recommendation Auditor"
+      },
+      "purchase_report_writer": {
+        "handler": "agents.purchase_report_writer",
+        "role": "Purchase Report Writer"
       }
     }
   },
@@ -49,11 +61,16 @@
     "default": "config/default.json",
     "embed": true,
     "manifest_defaults": [
-      "agentic_research",
+      "llm",
       "knowledge_rag",
+      "agentic_research",
       {
         "from": "requirements",
         "to": "resources"
+      },
+      {
+        "from": "workflow.policy.human",
+        "to": "human_control"
       },
       {
         "from": "contracts.input_adapters.supported",
@@ -543,1178 +560,25 @@
     "term": "TERM.md"
   },
   "metadata": {
-    "agent_role": "AI assistant for researching purchases and drafting source-grounded comparisons.",
-    "agent_templates": {
-      "library": "../mn-agents/index.json",
-      "nodes": [
-        {
-          "node_id": "collect_purchase_context",
-          "uses": "mn-agents.data_python_executor@1"
-        },
-        {
-          "node_id": "retrieve_purchase_knowledge",
-          "uses": "mn-agents.data_python_executor@1"
-        },
-        {
-          "node_id": "research_purchase_options",
-          "uses": "mn-agents.data_python_executor@1"
-        },
-        {
-          "node_id": "write_purchase_report",
-          "uses": "mn-agents.data_python_executor@1"
-        },
-        {
-          "node_id": "report_sink",
-          "uses": "mn-agents.control_join@1"
-        }
-      ],
-      "render_tool": "../mn-agents/tools/render_agent_templates.py",
-      "rendered": [
-        {
-          "node_id": "collect_purchase_context",
-          "original_node": {
-            "node_id": "collect_purchase_context",
-            "uses": "mn-agents.data_python_executor@1",
-            "with": {
-              "output_message_type": "purchase_context_ready",
-              "upload_path": "runtime"
-            }
-          },
-          "rendered_node": {
-            "agent_type": "executor",
-            "config": {
-              "agent_beacon_required": true,
-              "beacon_enabled": true,
-              "beacon_interval_ms": 15000,
-              "beacon_missed_action": "fail_attempt",
-              "beacon_timeout_ms": 45000,
-              "command": [
-                "python3",
-                "-m",
-                "mn_sdk.step_runtime"
-              ],
-              "from": "base",
-              "max_attempts": 2,
-              "no_auto_providers": true,
-              "no_keep": true,
-              "output_message_type": "purchase_context_ready",
-              "pool": "default",
-              "pool_slots": 1,
-              "retry_backoff_ms": 1000,
-              "runner_module": "MirrorNeuron.Runner.HostLocal",
-              "timeout_seconds": 300,
-              "tty": false,
-              "upload_as": "runtime",
-              "upload_path": "runtime",
-              "workdir": "/mn/job/runtime"
-            },
-            "node_id": "collect_purchase_context",
-            "type": "generic"
-          },
-          "template_id": "mn-agents.data_python_executor",
-          "version": 1
-        },
-        {
-          "node_id": "retrieve_purchase_knowledge",
-          "original_node": {
-            "node_id": "retrieve_purchase_knowledge",
-            "uses": "mn-agents.data_python_executor@1",
-            "with": {
-              "output_message_type": "retrieved_knowledge_ready",
-              "upload_path": "runtime"
-            }
-          },
-          "rendered_node": {
-            "agent_type": "executor",
-            "config": {
-              "agent_beacon_required": true,
-              "beacon_enabled": true,
-              "beacon_interval_ms": 15000,
-              "beacon_missed_action": "fail_attempt",
-              "beacon_timeout_ms": 45000,
-              "command": [
-                "python3",
-                "-m",
-                "mn_sdk.step_runtime"
-              ],
-              "from": "base",
-              "max_attempts": 2,
-              "no_auto_providers": true,
-              "no_keep": true,
-              "output_message_type": "retrieved_knowledge_ready",
-              "pool": "default",
-              "pool_slots": 1,
-              "retry_backoff_ms": 1000,
-              "runner_module": "MirrorNeuron.Runner.HostLocal",
-              "timeout_seconds": 300,
-              "tty": false,
-              "upload_as": "runtime",
-              "upload_path": "runtime",
-              "workdir": "/mn/job/runtime"
-            },
-            "node_id": "retrieve_purchase_knowledge",
-            "type": "generic"
-          },
-          "template_id": "mn-agents.data_python_executor",
-          "version": 1
-        },
-        {
-          "node_id": "research_purchase_options",
-          "original_node": {
-            "node_id": "research_purchase_options",
-            "uses": "mn-agents.data_python_executor@1",
-            "with": {
-              "output_message_type": "purchase_options_ready",
-              "upload_path": "runtime"
-            }
-          },
-          "rendered_node": {
-            "agent_type": "executor",
-            "config": {
-              "agent_beacon_required": true,
-              "beacon_enabled": true,
-              "beacon_interval_ms": 15000,
-              "beacon_missed_action": "fail_attempt",
-              "beacon_timeout_ms": 45000,
-              "command": [
-                "python3",
-                "-m",
-                "mn_sdk.step_runtime"
-              ],
-              "from": "base",
-              "max_attempts": 2,
-              "no_auto_providers": true,
-              "no_keep": true,
-              "output_message_type": "purchase_options_ready",
-              "pool": "default",
-              "pool_slots": 1,
-              "retry_backoff_ms": 1000,
-              "runner_module": "MirrorNeuron.Runner.HostLocal",
-              "timeout_seconds": 300,
-              "tty": false,
-              "upload_as": "runtime",
-              "upload_path": "runtime",
-              "workdir": "/mn/job/runtime"
-            },
-            "node_id": "research_purchase_options",
-            "type": "generic"
-          },
-          "template_id": "mn-agents.data_python_executor",
-          "version": 1
-        },
-        {
-          "node_id": "write_purchase_report",
-          "original_node": {
-            "node_id": "write_purchase_report",
-            "uses": "mn-agents.data_python_executor@1",
-            "with": {
-              "output_message_type": "purchase_report_ready",
-              "upload_path": "runtime"
-            }
-          },
-          "rendered_node": {
-            "agent_type": "executor",
-            "config": {
-              "agent_beacon_required": true,
-              "beacon_enabled": true,
-              "beacon_interval_ms": 15000,
-              "beacon_missed_action": "fail_attempt",
-              "beacon_timeout_ms": 45000,
-              "command": [
-                "python3",
-                "-m",
-                "mn_sdk.step_runtime"
-              ],
-              "from": "base",
-              "max_attempts": 2,
-              "no_auto_providers": true,
-              "no_keep": true,
-              "output_message_type": "purchase_report_ready",
-              "pool": "default",
-              "pool_slots": 1,
-              "retry_backoff_ms": 1000,
-              "runner_module": "MirrorNeuron.Runner.HostLocal",
-              "timeout_seconds": 300,
-              "tty": false,
-              "upload_as": "runtime",
-              "upload_path": "runtime",
-              "workdir": "/mn/job/runtime"
-            },
-            "node_id": "write_purchase_report",
-            "type": "generic"
-          },
-          "template_id": "mn-agents.data_python_executor",
-          "version": 1
-        },
-        {
-          "node_id": "report_sink",
-          "original_node": {
-            "node_id": "report_sink",
-            "uses": "mn-agents.control_join@1",
-            "with": {
-              "complete_on_message": true,
-              "complete_run": true,
-              "terminal_sink": true
-            }
-          },
-          "rendered_node": {
-            "agent_type": "aggregator",
-            "config": {
-              "complete_on_message": true,
-              "complete_run": true,
-              "terminal_sink": true
-            },
-            "node_id": "report_sink",
-            "role": "result_sink",
-            "type": "reduce"
-          },
-          "template_id": "mn-agents.control_join",
-          "version": 1
-        }
-      ],
-      "rendered_output": "manifest.rendered.json or runtime metadata",
-      "renderer": "mn_blueprint_support.render_manifest_agent_templates"
-    },
-    "agentic_research": {
-      "agent_ids": [
-        "purchase:intake",
-        "purchase:price_research",
-        "purchase:total_cost",
-        "purchase:policy_risk",
-        "purchase:alternatives",
-        "purchase:recommender",
-        "purchase:auditor",
-        "purchase:report_writer"
-      ],
-      "allowed_tools": [
-        "document_extract",
-        "browser_search",
-        "browser_page",
-        "knowledge_retrieve",
-        "finish"
-      ],
-      "default_mode": "bounded_llm_guided_purchase_research",
-      "enabled": true,
-      "max_iterations_per_agent": 1,
-      "max_tool_calls_per_agent": 2,
-      "note": "Purchase actors combine user documents, local RAG, public sources, and deterministic checks while preserving source refs and uncertainty.",
-      "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run"
-    },
     "blueprint_id": "purchase_research_assistant",
-    "category": "finance",
-    "configuration_contract": {
-      "optional_files": [
-        "scenario.json",
-        "config/overwrite.json",
-        "knowledge/"
-      ],
-      "required_files": [
-        "manifest.json",
-        "README.md",
-        "SPEC.md",
-        "config/default.json",
-        "payloads/",
-        "payloads/prompts/",
-        "LICENSE.md",
-        "TERM.md"
-      ]
-    },
-    "customizable_for": "Any consumer or business purchase, including rental acquisitions, property, vehicles, travel, equipment, services, subscriptions, software, and custom goods.",
-    "description": "A general purchase research co-worker using the portable local DMR profile. It studies property, rental property, cars, travel, equipment, services, subscriptions, software, and custom purchases with local knowledge, user evidence, and bounded public research.",
-    "features": [
-      "optional local knowledge RAG grounding",
-      "bounded LLM tool-plan contract"
-    ],
-    "human_control": {
-      "allowed_decisions": [
-        "approve",
-        "revise",
-        "reject"
-      ],
-      "blocked_actions": [
-        "buy_or_book",
-        "pay_or_transfer_funds",
-        "submit_application_or_offer",
-        "contact_seller_provider_or_broker"
-      ],
-      "decision_event": "human_decision_applied",
-      "default_action": "reject",
-      "enabled": true,
-      "events": [
-        "human_notice",
-        "human_input_requested",
-        "human_input_received",
-        "human_input_timeout",
-        "human_decision_applied"
-      ],
-      "mode": "approval_required",
-      "reason": "Human approval is required before any purchase, booking, payment, application, offer, or seller/provider contact action.",
-      "request_event": "human_input_requested",
-      "response_event": "human_input_received",
-      "timeout_event": "human_input_timeout",
-      "timeout_seconds": 3600
-    },
-    "init_config_review": {
-      "checks": [
-        "identity",
-        "mode",
-        "inputs",
-        "streams",
-        "input_skills",
-        "outputs",
-        "privacy",
-        "budgets"
-      ],
-      "fields": [
+    "job_data": {
+      "resources": [
         {
-          "default": "property",
-          "description": "Choose a known purchase category or custom for any other good, service, subscription, or commitment.",
-          "label": "Purchase type",
-          "path": "inputs.payload.purchase_type"
+          "name": "knowledge",
+          "path": "knowledge",
+          "access": "read_write",
+          "seed": "@/payloads/knowledge"
         },
         {
-          "default": "Find one single-family house with at least 3 bedrooms in ZIP code 03755.",
-          "description": "Describe the item, listing, vehicle, route, or trip to study.",
-          "label": "Item or trip",
-          "path": "inputs.payload.item_description"
+          "name": "rag",
+          "path": "databases/rag",
+          "access": "read_write"
         },
         {
-          "description": "Optional budget or price ceiling; none is set for the bundled sample goal.",
-          "label": "Budget",
-          "path": "inputs.payload.budget"
-        },
-        {
-          "default": "purchase_research_assistant/examples/sample_inputs",
-          "description": "Default local input folder for sample files or user-provided files.",
-          "label": "Input folder",
-          "path": "inputs.payload.input_folder",
-          "path_kind": "directory",
-          "type": "local_path"
-        },
-        {
-          "default": "~/Downloads/purchase_research_assistant",
-          "description": "Default local output folder for generated artifacts and reports.",
-          "label": "Output folder",
-          "path": "outputs.folder_path",
-          "path_kind": "directory",
-          "type": "local_path"
+          "name": "state",
+          "path": "state",
+          "access": "read_write"
         }
-      ],
-      "instruction": "When running in OtterDesk, show these overwriteable fields during init config and ask the user to change them or keep the defaults before launch.",
-      "required": true
-    },
-    "input_contract": {
-      "description": "Purchase decisions depend on scattered prices, fees, policies, condition, availability, and source quality across local documents and public pages.",
-      "optional_inputs": [
-        {
-          "description": "Optional market, pickup, destination, or service location.",
-          "example": "Boston, MA",
-          "name": "location",
-          "type": "domain_value"
-        },
-        {
-          "description": "Optional origin and destination for airline or travel research.",
-          "example": "Boston to Lisbon",
-          "name": "route",
-          "type": "domain_value"
-        },
-        {
-          "description": "Optional travel dates or purchase timing.",
-          "example": "2026-09-10 to 2026-09-18",
-          "name": "travel_dates",
-          "type": "domain_value"
-        },
-        {
-          "description": "Optional ranking priorities and must-have constraints.",
-          "example": {
-            "constraints": {
-              "must_have": [
-                "refundable"
-              ]
-            },
-            "priorities": [
-              "total cost"
-            ]
-          },
-          "name": "priorities_and_constraints",
-          "type": "domain_value"
-        },
-        {
-          "description": "Default local input folder for sample files or user-provided files.",
-          "example": "purchase_research_assistant/examples/sample_inputs",
-          "name": "input_folder",
-          "path_kind": "directory",
-          "privacy": "confidential",
-          "required": false,
-          "type": "local_path"
-        },
-        {
-          "description": "Default local output folder for generated artifacts and reports.",
-          "example": "~/Downloads/purchase_research_assistant",
-          "name": "output_folder",
-          "path_kind": "directory",
-          "privacy": "confidential",
-          "required": false,
-          "type": "local_path"
-        }
-      ],
-      "privacy_classification": "confidential",
-      "profiles": {
-        "connector": {
-          "adapter": "json",
-          "description": "Purchase details and local evidence supplied by approved connectors."
-        },
-        "env_json": {
-          "adapter": "env_json",
-          "description": "JSON object loaded from MN_BLUEPRINT_INPUT_JSON."
-        },
-        "file": {
-          "adapter": "file",
-          "description": "JSON object loaded from a local file path."
-        },
-        "json": {
-          "adapter": "json",
-          "description": "Inline JSON object supplied through config or runtime overrides."
-        },
-        "mock": {
-          "adapter": "mock",
-          "description": "Bundled ZIP-constrained property research sample.",
-          "payload": {
-            "constraints": {
-              "min_bedrooms": 3,
-              "property_type": "single-family house",
-              "zip_code": "03755"
-            },
-            "item_description": "Find one single-family house with at least 3 bedrooms in ZIP code 03755.",
-            "location": "03755",
-            "priorities": [
-              "single-family house",
-              "at least 3 bedrooms",
-              "03755",
-              "total cost",
-              "condition",
-              "inspection risk"
-            ],
-            "purchase_type": "property"
-          }
-        },
-        "sample_file": {
-          "adapter": "file",
-          "description": "Purchase details and evidence loaded from disk.",
-          "path": "scenario.json"
-        }
-      },
-      "required_inputs": [
-        {
-          "description": "Broad purchase category; use custom for any other good, service, subscription, or commitment.",
-          "example": "car",
-          "name": "purchase_type",
-          "type": "domain_value"
-        },
-        {
-          "description": "The item, listing, vehicle, route, or trip to study.",
-          "example": "2022 hybrid SUV with 40,000 miles",
-          "name": "item_description",
-          "type": "domain_value"
-        }
-      ],
-      "resolved_artifact": "inputs.json",
-      "schema_version": "mn.blueprint.input_contract.v1",
-      "supported_adapters": [
-        "mock",
-        "json",
-        "file",
-        "env_json"
-      ],
-      "validation_rules": []
-    },
-    "interfaces": {
-      "channels": {
-        "agentic_research": {
-          "config": "agentic_research",
-          "description": "Bounded LLM-selected or actor-guided tool contract for domain work."
-        },
-        "artifacts": {
-          "artifacts": [
-            "run.json",
-            "config.json",
-            "inputs.json",
-            "events.jsonl",
-            "result.json",
-            "final_artifact.json"
-          ],
-          "description": "Stable run-store files and domain-specific outputs.",
-          "optional_artifacts": [
-            "job.json",
-            "web_ui.json",
-            "ui.json",
-            "web/index.html",
-            "logs.jsonl"
-          ]
-        },
-        "events": {
-          "artifact": "events.jsonl",
-          "description": "Append-only workflow events."
-        },
-        "human": {
-          "artifact": "human.jsonl",
-          "description": "Human notices, approval requests, responses, timeouts, and applied decisions."
-        },
-        "input_skills": {
-          "description": "Connector-backed or reusable skill-backed input sources."
-        },
-        "inputs": {
-          "artifact": "inputs.json",
-          "description": "Resolved runtime inputs and adapter provenance."
-        },
-        "knowledge_rag": {
-          "artifact": "knowledge/",
-          "config": "knowledge_rag",
-          "description": "Optional local blueprint knowledge retrieval used to ground actor prompts and tool planning.",
-          "privacy": "blueprint knowledge only by default"
-        },
-        "logs": {
-          "description": "Runtime stdout/stderr and explicit log artifacts.",
-          "stream": "stdout/stderr"
-        },
-        "output_skills": {
-          "description": "Optional fan-out destinations after local run-store writes."
-        },
-        "outputs": {
-          "artifacts": [
-            "result.json",
-            "final_artifact.json"
-          ],
-          "description": "Primary result and final user-facing artifact."
-        },
-        "resources": {
-          "artifact": "resources.jsonl",
-          "description": "Resource samples such as token, runtime, connector, and disk usage."
-        },
-        "streams": {
-          "default": [
-            "events"
-          ],
-          "description": "Named data or event streams exposed by the blueprint.",
-          "kinds": [
-            "audio",
-            "video",
-            "data",
-            "multimodal"
-          ],
-          "transports": [
-            "file",
-            "http",
-            "https",
-            "rtsp",
-            "rtmp",
-            "webrtc",
-            "websocket",
-            "socketio",
-            "tcp",
-            "udp",
-            "sse",
-            "kafka",
-            "mqtt",
-            "custom"
-          ]
-        },
-        "web_ui": {
-          "artifacts": [
-            "web_ui.json",
-            "ui.json",
-            "web/index.html"
-          ],
-          "description": "Optional web input/output handles."
-        }
-      },
-      "config": [
-        "standard_version",
-        "identity",
-        "mode",
-        "metadata",
-        "inputs",
-        "simulation",
-        "llm",
-        "outputs",
-        "logging",
-        "resources",
-        "human_control",
-        "real_adapters",
-        "streams",
-        "input_skills",
-        "output_skills",
-        "error_handling",
-        "state",
-        "capabilities",
-        "privacy",
-        "triggers",
-        "backpressure",
-        "determinism",
-        "schemas",
-        "budgets",
-        "agent_handoffs",
-        "web_ui",
-        "interfaces",
-        "execution_model",
-        "suggested_schedule",
-        "knowledge_rag",
-        "agentic_research"
-      ],
-      "config_sections": [
-        "standard_version",
-        "identity",
-        "mode",
-        "metadata",
-        "inputs",
-        "simulation",
-        "llm",
-        "outputs",
-        "logging",
-        "resources",
-        "human_control",
-        "real_adapters",
-        "streams",
-        "input_skills",
-        "output_skills",
-        "error_handling",
-        "state",
-        "capabilities",
-        "privacy",
-        "triggers",
-        "backpressure",
-        "determinism",
-        "schemas",
-        "budgets",
-        "agent_handoffs",
-        "web_ui",
-        "interfaces",
-        "execution_model",
-        "suggested_schedule",
-        "knowledge_rag",
-        "agentic_research"
-      ],
-      "identity": [
-        "blueprint_id",
-        "name",
-        "run_id"
-      ],
-      "input_adapters": [
-        "mock",
-        "json",
-        "file",
-        "env_json"
-      ],
-      "optional_outputs": [
-        "job.json",
-        "web_ui.json",
-        "ui.json",
-        "web/index.html",
-        "logs.jsonl"
-      ],
-      "output_adapters": [
-        "local_run_store"
-      ],
-      "outputs": [
-        "run.json",
-        "config.json",
-        "inputs.json",
-        "events.jsonl",
-        "result.json",
-        "final_artifact.json"
-      ],
-      "response_schema": "mn.blueprint.response.v1",
-      "stream_kinds": [
-        "audio",
-        "video",
-        "data",
-        "multimodal"
-      ],
-      "stream_transports": [
-        "file",
-        "http",
-        "https",
-        "rtsp",
-        "rtmp",
-        "webrtc",
-        "websocket",
-        "socketio",
-        "tcp",
-        "udp",
-        "sse",
-        "kafka",
-        "mqtt",
-        "custom"
-      ],
-      "web_ui_adapters": [
-        "none",
-        "static_html",
-        "gradio",
-        "custom"
-      ]
-    },
-    "knowledge_rag": {
-      "backend": "milvus_lite",
-      "chunk_overlap": 70,
-      "chunk_size": 700,
-      "embedding_api_base": "auto",
-      "embedding_document_prefix": "Document: ",
-      "embedding_healthcheck_enabled": true,
-      "embedding_model": "rag-embedding",
-      "embedding_provider": "docker_model_runner",
-      "embedding_query_prefix": "Query: ",
-      "embedding_start_command": "",
-      "enabled": true,
-      "grounding_policy": "Use retrieved guidance as a checklist; facts must come from user documents or cited public sources.",
-      "index_on_startup": true,
-      "knowledge_dir": "knowledge",
-      "max_context_chars": 4000,
-      "namespace": "",
-      "privacy": "index checked-in guidance and approved local input files in an isolated per-run namespace; do not send private files to public research.",
-      "purpose": "Retrieve purchase guidance and approved local evidence for price, total cost, policy, risk, and comparison checks.",
-      "required": false,
-      "retrieval_targets": [
-        "purchase-type evidence checklists",
-        "price and availability facts",
-        "total cost and recurring fees",
-        "policy, warranty, cancellation, and risk gaps",
-        "alternative comparison criteria"
-      ],
-      "top_k": 4,
-      "vector_dim": 1024
-    },
-    "llm_agent_role": "AI assistant for researching purchases and drafting source-grounded comparisons.",
-    "memory_layer": {
-      "collection": "mn_memory",
-      "containers": "optional_sidecar",
-      "context_addr_env": "MN_CONTEXT_ADDR",
-      "conversation": {
-        "agent_role": "otterdesk_chat",
-        "include_human_events": true,
-        "include_runtime_events": true,
-        "include_runtime_logs": true,
-        "target_tokens": 2400,
-        "token_budget": 6000,
-        "use_model_compression": false
-      },
-      "conversation_enabled": true,
-      "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
-      "default_context_addr": "localhost:50052",
-      "enabled": true,
-      "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
-      "namespace": "purchase_research_assistant_context",
-      "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
-      "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
-      "sdk_distribution": "mirrorneuron-membrane-python-sdk",
-      "sdk_import_package": "mn_context_engine_sdk"
-    },
-    "name": "Purchase Research Assistant",
-    "observability_dashboard": {
-      "panels": [
-        "current_status",
-        "recent_events",
-        "pending_human_requests",
-        "output_artifacts",
-        "resource_usage",
-        "errors",
-        "llm_calls",
-        "token_budget",
-        "llm_retries"
-      ],
-      "reads": [
-        "events.jsonl",
-        "human.jsonl",
-        "logs.jsonl",
-        "resources.jsonl",
-        "result.json",
-        "final_artifact.json",
-        "web_ui.json"
-      ],
-      "schema_version": "mn.blueprint.observability_dashboard.v1",
-      "source": "local_run_store"
-    },
-    "output": "Source-grounded purchase comparison, risk flags, evidence gaps, and review-only recommendation.",
-    "output_contract": {
-      "artifacts": [
-        {
-          "artifact_id": "run_metadata",
-          "mime_type": "application/json",
-          "path": "run.json",
-          "producer": "local_run_store",
-          "schema_version": "mn.artifact.run_summary.v1",
-          "source_refs": [],
-          "type": "run_summary"
-        },
-        {
-          "artifact_id": "resolved_config",
-          "mime_type": "application/json",
-          "path": "config.json",
-          "producer": "local_run_store",
-          "schema_version": "mn.blueprint.config.v1",
-          "source_refs": [],
-          "type": "config"
-        },
-        {
-          "artifact_id": "resolved_inputs",
-          "mime_type": "application/json",
-          "path": "inputs.json",
-          "producer": "local_run_store",
-          "schema_version": "mn.blueprint.inputs.v1",
-          "source_refs": [],
-          "type": "inputs"
-        },
-        {
-          "artifact_id": "event_stream",
-          "mime_type": "application/x-jsonlines",
-          "path": "events.jsonl",
-          "producer": "local_run_store",
-          "schema_version": "mn.blueprint.events.v1",
-          "source_refs": [],
-          "type": "events"
-        },
-        {
-          "artifact_id": "result",
-          "mime_type": "application/json",
-          "path": "result.json",
-          "producer": "local_run_store",
-          "schema_version": "mn.blueprint.response.v1",
-          "source_refs": [
-            "inputs.json",
-            "events.jsonl"
-          ],
-          "type": "result"
-        },
-        {
-          "artifact_id": "final_artifact",
-          "mime_type": "application/json",
-          "path": "final_artifact.json",
-          "producer": "workflow",
-          "schema_version": "mn.blueprint.final_artifact.v1",
-          "source_refs": [
-            "inputs.json",
-            "events.jsonl",
-            "result.json"
-          ],
-          "type": "final_artifact"
-        },
-        {
-          "artifact_id": "logs",
-          "mime_type": "application/x-jsonlines",
-          "path": "logs.jsonl",
-          "producer": "local_run_store",
-          "schema_version": "mn.blueprint.logs.v1",
-          "source_refs": [
-            "events.jsonl"
-          ],
-          "type": "logs"
-        },
-        {
-          "artifact_id": "resources",
-          "mime_type": "application/x-jsonlines",
-          "path": "resources.jsonl",
-          "producer": "local_run_store",
-          "schema_version": "mn.blueprint.resources.v1",
-          "source_refs": [
-            "run.json"
-          ],
-          "type": "resource_samples"
-        },
-        {
-          "artifact_id": "web_ui",
-          "mime_type": "application/json",
-          "path": "web_ui.json",
-          "producer": "web_ui",
-          "schema_version": "mn.blueprint.web_ui.v1",
-          "source_refs": [
-            "run.json"
-          ],
-          "type": "web_ui"
-        },
-        {
-          "artifact_id": "human_events",
-          "mime_type": "application/x-jsonlines",
-          "path": "human.jsonl",
-          "producer": "human_control",
-          "schema_version": "mn.blueprint.human_events.v1",
-          "source_refs": [
-            "events.jsonl"
-          ],
-          "type": "human_events"
-        },
-        {
-          "artifact_id": "purchase_research_report",
-          "mime_type": "application/json",
-          "path": "final_artifact.json",
-          "producer": "workflow",
-          "schema_version": "mn.blueprint.generated_report.v1",
-          "source_refs": [
-            "inputs.json",
-            "events.jsonl",
-            "result.json"
-          ],
-          "type": "generated_report"
-        },
-        {
-          "artifact_id": "purchase_research_bundle",
-          "mime_type": "application/json",
-          "path": "purchase_research.json",
-          "producer": "workflow",
-          "schema_version": "mn.blueprint.purchase_research.v1",
-          "source_refs": [
-            "inputs.json",
-            "events.jsonl",
-            "result.json"
-          ],
-          "type": "purchase_research"
-        },
-        {
-          "artifact_id": "research_sources",
-          "mime_type": "application/json",
-          "path": "research_sources.json",
-          "producer": "workflow",
-          "schema_version": "mn.blueprint.research_sources.v1",
-          "source_refs": [
-            "inputs.json",
-            "events.jsonl"
-          ],
-          "type": "research_sources"
-        },
-        {
-          "artifact_id": "knowledge_rag",
-          "mime_type": "application/json",
-          "path": "knowledge_rag.json",
-          "producer": "workflow",
-          "schema_version": "mn.blueprint.knowledge_rag.v1",
-          "source_refs": [
-            "inputs.json",
-            "events.jsonl"
-          ],
-          "type": "knowledge_rag"
-        },
-        {
-          "artifact_id": "evidence",
-          "mime_type": "application/json",
-          "path": "evidence.json",
-          "producer": "workflow",
-          "schema_version": "mn.blueprint.evidence.v1",
-          "source_refs": [
-            "inputs.json",
-            "events.jsonl"
-          ],
-          "type": "evidence"
-        },
-        {
-          "artifact_id": "artifact_quality",
-          "mime_type": "application/json",
-          "path": "artifact_quality.json",
-          "producer": "workflow",
-          "schema_version": "mn.blueprint.artifact_quality.v1",
-          "source_refs": [
-            "purchase_research.json"
-          ],
-          "type": "artifact_quality"
-        },
-        {
-          "artifact_id": "run_health",
-          "mime_type": "application/json",
-          "path": "run_health.json",
-          "producer": "workflow",
-          "schema_version": "mn.blueprint.run_health.v1",
-          "source_refs": [
-            "purchase_research.json"
-          ],
-          "type": "run_health"
-        },
-        {
-          "artifact_id": "memory_benchmark",
-          "mime_type": "application/json",
-          "path": "result.json#/benchmark",
-          "producer": "workflow",
-          "schema_version": "mn.blueprint.benchmark_report.v1",
-          "source_refs": [
-            "events.jsonl"
-          ],
-          "type": "benchmark_report"
-        }
-      ],
-      "events": "blueprint_report",
-      "events_jsonl": "events.jsonl",
-      "final_artifact": {
-        "description": "The durable user-facing artifact should summarize the result, recommendation, confidence, evidence, next steps, and source references.",
-        "required_fields": [
-          "type",
-          "executive_summary",
-          "recommended_action",
-          "confidence",
-          "evidence",
-          "next_steps",
-          "source_refs"
-        ],
-        "schema_version": "mn.blueprint.final_artifact_contract.v1"
-      },
-      "final_artifact_json": "final_artifact.json",
-      "local_run_store": "~/.mn/runs/<run_id>/",
-      "logs_jsonl": "logs.jsonl",
-      "output_skills": [],
-      "response_schema": "mn.blueprint.response.v1",
-      "result_json": "result.json",
-      "stdout": "JSON object with timeline, all-context summaries, memory packets, state_changes, benchmark, final_artifact, and llm metadata"
-    },
-    "problem_solved": "Purchase review depends on older broker, lender, rent, insurance, and diligence details that are easy to lose in noisy pipelines.",
-    "quick_test": {
-      "command": "python3 -m mn_sdk.step_runtime",
-      "enabled": true
-    },
-    "runtime_features": [
-      "large synthetic finance context",
-      "working memory retrieval",
-      "source_refs",
-      "decision quality benchmark",
-      "LLM investment notes",
-      "Membrane context memory optimization",
-      "product input contract",
-      "transparent run status",
-      "human control policy",
-      "artifact records",
-      "run-store observability dashboard",
-      "workflow-driven problem graph",
-      "step-scoped worker teams",
-      "optional knowledge_rag guidance",
-      "actor-style LLM specialists use retrieved policy context when available"
-    ],
-    "simulation": {
-      "actions": [
-        "buy_or_book",
-        "pay_or_transfer_funds",
-        "insufficient_evidence"
-      ],
-      "agent_role": "Purchase research assistant",
-      "dynamic_metrics": [
-        "median_price_index",
-        "demand_index",
-        "cap_rate_pct",
-        "risk_score",
-        "liquidity_score",
-        "rent_growth_signal"
-      ]
-    },
-    "simulation_type": "General purchase research with deal-memory retrieval.",
-    "standard": {
-      "config_path": "config/default.json",
-      "default_input_adapter": "mock",
-      "execution_model": "load_metadata -> resolve_config -> load_inputs -> start_run_store -> observe_simulation_state -> call_llm_agent -> evaluate_workflow_state -> route_by_context -> request_human_input -> apply_decision_to_simulation -> emit_events -> write_final_artifact -> fan_out_output_skills",
-      "execution_steps": [
-        "load_metadata",
-        "resolve_config",
-        "load_inputs",
-        "start_run_store",
-        "observe_simulation_state",
-        "call_llm_agent",
-        "evaluate_workflow_state",
-        "route_by_context",
-        "request_human_input",
-        "apply_decision_to_simulation",
-        "emit_events",
-        "write_final_artifact",
-        "fan_out_output_skills"
-      ],
-      "output_adapter": "local_run_store",
-      "real_input_adapters": [
-        "file",
-        "json",
-        "env_json"
-      ],
-      "run_store": "~/.mn/runs/<run_id>/",
-      "version": "1.0",
-      "workflow_api_version": "mn.workflow/v1",
-      "workflow_model": "contract -> workflow -> agents/runtime"
-    },
-    "status_contract": {
-      "attempt_event": "workflow_step_attempt_started",
-      "beacon_event": "agent_beacon",
-      "beacon_interval_ms": 15000,
-      "beacon_missed_action": "fail_attempt",
-      "beacon_timeout_ms": 45000,
-      "blocked_event": "workflow_step_blocked",
-      "heartbeat_event": "agent_beacon",
-      "heartbeat_required": true,
-      "phases": [
-        {
-          "completion_event": "blueprint_phase_completed",
-          "failure_event": "blueprint_phase_failed",
-          "phase": "loading_inputs",
-          "progress_event": "blueprint_status",
-          "required": true,
-          "start_event": "blueprint_phase_started"
-        },
-        {
-          "completion_event": "blueprint_phase_completed",
-          "failure_event": "blueprint_phase_failed",
-          "phase": "running_worker",
-          "progress_event": "blueprint_status",
-          "required": true,
-          "start_event": "blueprint_phase_started"
-        },
-        {
-          "completion_event": "blueprint_phase_completed",
-          "failure_event": "blueprint_phase_failed",
-          "phase": "waiting_for_human",
-          "progress_event": "blueprint_status",
-          "required": true,
-          "start_event": "blueprint_phase_started"
-        },
-        {
-          "completion_event": "blueprint_phase_completed",
-          "failure_event": "blueprint_phase_failed",
-          "phase": "writing_artifacts",
-          "progress_event": "blueprint_status",
-          "required": true,
-          "start_event": "blueprint_phase_started"
-        },
-        {
-          "completion_event": "blueprint_phase_completed",
-          "failure_event": "blueprint_phase_failed",
-          "phase": "completed",
-          "progress_event": "blueprint_status",
-          "required": true,
-          "start_event": "blueprint_phase_started"
-        }
-      ],
-      "retry_event": "workflow_step_attempt_retry_scheduled",
-      "runtime_state_source": "workflow_state",
-      "schema_version": "mn.blueprint.status_contract.v1",
-      "source": "run_store",
-      "status_event": "blueprint_status",
-      "terminal_step_events": [
-        "workflow_step_completed",
-        "workflow_step_partial",
-        "workflow_step_skipped",
-        "workflow_step_failed"
-      ]
-    },
-    "target_user": "Consumers, travelers, vehicle buyers, property buyers, renters, and purchase analysts.",
-    "target_users": "Consumers, travelers, vehicle buyers, property buyers, renters, and purchase analysts.",
-    "web_ui": {
-      "data_source": "local_run_store",
-      "reads": [
-        "events.jsonl",
-        "human.jsonl",
-        "logs.jsonl",
-        "resources.jsonl",
-        "result.json",
-        "final_artifact.json",
-        "web_ui.json"
-      ],
-      "standard_panels": [
-        "current_status",
-        "recent_events",
-        "pending_human_requests",
-        "output_artifacts",
-        "resource_usage",
-        "errors",
-        "llm_calls",
-        "token_budget",
-        "llm_retries"
       ]
     }
   },
@@ -1730,167 +594,6 @@
     },
     "memory": {
       "min_gb": 2
-    }
-  },
-  "runtime": {
-    "memory": {
-      "collection": "mn_memory",
-      "containers": "optional_sidecar",
-      "context_addr_env": "MN_CONTEXT_ADDR",
-      "conversation": {
-        "agent_role": "otterdesk_chat",
-        "include_human_events": true,
-        "include_runtime_events": true,
-        "include_runtime_logs": true,
-        "target_tokens": 2400,
-        "token_budget": 6000,
-        "use_model_compression": false
-      },
-      "conversation_enabled": true,
-      "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
-      "default_context_addr": "localhost:50052",
-      "enabled": true,
-      "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
-      "namespace": "purchase_research_assistant_context",
-      "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
-      "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
-      "sdk_distribution": "mirrorneuron-membrane-python-sdk",
-      "sdk_import_package": "mn_context_engine_sdk"
-    },
-    "models": {
-      "primary": {
-        "backend": "llama.cpp",
-        "model": "default",
-        "provider": "docker_model_runner",
-        "required": true
-      }
-    },
-    "observability": {
-      "panels": [
-        "current_status",
-        "recent_events",
-        "pending_human_requests",
-        "output_artifacts",
-        "resource_usage",
-        "errors",
-        "llm_calls",
-        "token_budget",
-        "llm_retries"
-      ],
-      "reads": [
-        "events.jsonl",
-        "human.jsonl",
-        "logs.jsonl",
-        "resources.jsonl",
-        "result.json",
-        "final_artifact.json",
-        "web_ui.json"
-      ],
-      "schema_version": "mn.blueprint.observability_dashboard.v1",
-      "source": "local_run_store"
-    },
-    "resources": {
-      "cpu": {
-        "min_cores": 1
-      },
-      "disk": {
-        "min_gb": 1
-      },
-      "gpu": {
-        "min_count": 0
-      },
-      "memory": {
-        "min_gb": 2
-      }
-    },
-    "store": {
-      "artifacts": [
-        "run.json",
-        "config.json",
-        "inputs.json",
-        "events.jsonl",
-        "human.jsonl",
-        "logs.jsonl",
-        "resources.jsonl",
-        "result.json",
-        "final_artifact.json"
-      ],
-      "path": "./runs/${run_id}",
-      "type": "local_run_store"
-    },
-    "worker_defaults": {
-      "model": "default",
-      "pool": "default",
-      "pool_slots": 1,
-      "runner": "MirrorNeuron.Runner.HostLocal",
-      "uses": "mn-agents.data_python_executor@1",
-      "workdir": "/sandbox/job/workflow"
-    },
-    "workflow_control": {
-      "attempts": {
-        "dispatch_metadata": [
-          "workflow_run_id",
-          "step_id",
-          "attempt_id",
-          "attempt",
-          "deadline_at",
-          "heartbeat_deadline_at",
-          "idempotency_key"
-        ],
-        "retry_policy_source": "workflow.steps[].control.retry",
-        "stale_attempt_outputs": "ignore",
-        "timeout_source": "workflow.steps[].control.timeout_seconds"
-      },
-      "enabled": true,
-      "events": [
-        "workflow_step_attempt_started",
-        "workflow_step_beacon",
-        "workflow_step_attempt_completed",
-        "workflow_step_attempt_timed_out",
-        "workflow_step_attempt_retry_scheduled",
-        "workflow_step_blocked",
-        "workflow_step_completed",
-        "workflow_step_failed",
-        "workflow_message_dead_lettered"
-      ],
-      "liveness": {
-        "event": "agent_beacon",
-        "interval_ms": 15000,
-        "missed_action": "fail_attempt",
-        "required": true,
-        "timeout_ms": 45000
-      },
-      "pause_cancel": {
-        "cancel_mode": "terminate_active_attempts",
-        "pause_mode": "stop_active_attempts",
-        "resume_mode": "reconcile_from_workflow_state"
-      },
-      "reconciliation": {
-        "interval_ms": 2000,
-        "on_missed_beacon": "fail_attempt_then_retry",
-        "on_retry_exhausted": "apply_step_failure_policy",
-        "on_timeout": "fail_attempt_then_retry"
-      },
-      "schema_version": "mn.workflow.runtime_control.v1",
-      "source_of_truth": "workflow.steps",
-      "state_ledger": {
-        "delivery_semantics": "at_least_once_with_idempotency",
-        "enabled": true,
-        "message_ledger": true,
-        "persisted_field": "workflow_state",
-        "step_statuses": [
-          "pending",
-          "ready",
-          "queued",
-          "running",
-          "retry_wait",
-          "blocked",
-          "completed",
-          "partial",
-          "skipped",
-          "failed"
-        ]
-      }
     }
   },
   "skill_dependencies": [
@@ -1958,40 +661,53 @@
     "target_schema": "mn.workflow/v1"
   },
   "workflow": {
-    "edges": [
-      {
-        "accepts": [
-          "done"
-        ],
-        "event": "purchase_context_ready",
-        "from": "collect_purchase_context",
-        "id": "collect_purchase_context_to_retrieve_purchase_knowledge",
-        "required": true,
-        "to": "retrieve_purchase_knowledge"
-      },
-      {
-        "accepts": [
-          "done"
-        ],
-        "event": "retrieved_knowledge_ready",
-        "from": "retrieve_purchase_knowledge",
-        "id": "retrieve_purchase_knowledge_to_research_purchase_options",
-        "required": true,
-        "to": "research_purchase_options"
-      },
-      {
-        "accepts": [
-          "done"
-        ],
-        "event": "purchase_options_ready",
-        "from": "research_purchase_options",
-        "id": "research_purchase_options_to_write_purchase_report",
-        "required": true,
-        "to": "write_purchase_report"
-      }
-    ],
+    "workflow_id": "purchase_research_assistant_v1",
     "execution": {
       "strategy": "parallel"
+    },
+    "policy": {
+      "failure": {
+        "default": "fail_closed"
+      },
+      "human": {
+        "allowed_decisions": [
+          "approve",
+          "revise",
+          "reject"
+        ],
+        "blocked_actions": [
+          "buy_or_book",
+          "pay_or_transfer_funds",
+          "submit_application_or_offer",
+          "contact_seller_provider_or_broker"
+        ],
+        "decision_event": "human_decision_applied",
+        "default_action": "reject",
+        "enabled": true,
+        "events": [
+          "human_notice",
+          "human_input_requested",
+          "human_input_received",
+          "human_input_timeout",
+          "human_decision_applied"
+        ],
+        "mode": "approval_required",
+        "reason": "Human approval is required before any purchase, booking, payment, application, offer, or seller/provider contact action.",
+        "request_event": "human_input_requested",
+        "response_event": "human_input_received",
+        "timeout_event": "human_input_timeout",
+        "timeout_seconds": 3600
+      }
+    },
+    "state": {
+      "input_folder": {
+        "from": "$inputs.input_folder"
+      },
+      "output_folder": {
+        "from": "$inputs.output_folder"
+      },
+      "workflow": {},
+      "final_report": {}
     },
     "steps": [
       {
@@ -2004,19 +720,19 @@
             "jitter": 0,
             "max_attempts": 2
           },
-          "timeout_seconds": 300,
+          "timeout_seconds": 900,
           "uncertainty": {
             "min_confidence": 0,
             "on_low_confidence": "continue_with_warning"
           }
         },
-        "goal": "Collect purchase type, item details, budget, constraints, and local evidence.",
-        "id": "collect_purchase_context",
-        "kind": "stage",
-        "label": "Collect Purchase Context",
+        "goal": "Normalize the decision, constraints, must-haves, budget, horizon, and evidence gaps.",
+        "id": "frame_purchase_request",
+        "kind": "source",
+        "label": "Frame Purchase Request",
         "needs": [],
         "run": {
-          "definition": "steps.collect_purchase_context"
+          "definition": "steps.frame_purchase_request"
         }
       },
       {
@@ -2029,21 +745,21 @@
             "jitter": 0,
             "max_attempts": 2
           },
-          "timeout_seconds": 300,
+          "timeout_seconds": 900,
           "uncertainty": {
             "min_confidence": 0,
             "on_low_confidence": "continue_with_warning"
           }
         },
-        "goal": "Retrieve local guidance and approved user evidence under the declared research policy.",
-        "id": "retrieve_purchase_knowledge",
+        "goal": "Extract approved local evidence and retrieve category-specific diligence guidance.",
+        "id": "build_purchase_evidence",
         "kind": "stage",
-        "label": "Retrieve Purchase Knowledge",
+        "label": "Build Purchase Evidence",
         "needs": [
-          "collect_purchase_context"
+          "frame_purchase_request"
         ],
         "run": {
-          "definition": "steps.retrieve_purchase_knowledge"
+          "definition": "steps.build_purchase_evidence"
         }
       },
       {
@@ -2056,21 +772,21 @@
             "jitter": 0,
             "max_attempts": 2
           },
-          "timeout_seconds": 300,
+          "timeout_seconds": 1800,
           "uncertainty": {
             "min_confidence": 0,
             "on_low_confidence": "continue_with_warning"
           }
         },
-        "goal": "Research price, availability, total cost, policy, and risk tradeoffs.",
-        "id": "research_purchase_options",
+        "goal": "Research candidate availability, model total cost, test constraints, and audit recommendation support.",
+        "id": "compare_purchase_options",
         "kind": "stage",
-        "label": "Research Purchase Options",
+        "label": "Compare Purchase Options",
         "needs": [
-          "retrieve_purchase_knowledge"
+          "build_purchase_evidence"
         ],
         "run": {
-          "definition": "steps.research_purchase_options"
+          "definition": "steps.compare_purchase_options"
         }
       },
       {
@@ -2083,31 +799,30 @@
             "jitter": 0,
             "max_attempts": 2
           },
-          "timeout_seconds": 300,
+          "timeout_seconds": 900,
           "uncertainty": {
             "min_confidence": 0,
             "on_low_confidence": "continue_with_warning"
           }
         },
-        "goal": "Write the purchase report with evidence, caveats, sources, and reviewable next steps.",
-        "id": "write_purchase_report",
-        "kind": "stage",
-        "label": "Write Purchase Report",
+        "goal": "Write a review-ready comparison with candidate ranking, cost ranges, risks, sources, and verification tasks.",
+        "id": "publish_purchase_decision_packet",
+        "kind": "sink",
+        "label": "Publish Purchase Decision Packet",
         "needs": [
-          "research_purchase_options"
+          "compare_purchase_options"
         ],
         "run": {
-          "definition": "steps.write_purchase_report"
+          "definition": "steps.publish_purchase_decision_packet"
         }
       }
-    ],
-    "workflow_id": "purchase_research_assistant_v1"
+    ]
   },
   "workers": {
     "groups": [
       {
         "steps": [
-          "research_purchase_options"
+          "compare_purchase_options"
         ],
         "with": {
           "stereotype": "public_browser_worker"
@@ -2115,12 +830,106 @@
       },
       {
         "steps": [
-          "write_purchase_report"
+          "publish_purchase_decision_packet"
         ],
         "with": {
           "stereotype": "internal_write_worker"
         }
       }
     ]
+  },
+  "llm": {
+    "enabled": true,
+    "agents": {
+      "purchase_intake_analyst": {
+        "llm_config": "primary",
+        "role": "Purchase Intake Analyst",
+        "responsibilities": [
+          "Normalize the decision horizon and hard constraints.",
+          "Separate supplied facts from preferences and assumptions.",
+          "Identify missing scope before research begins."
+        ]
+      },
+      "purchase_knowledge_retriever": {
+        "llm_config": "primary",
+        "role": "Purchase Knowledge Retriever",
+        "responsibilities": [
+          "Retrieve category-specific diligence guidance.",
+          "Index only approved local evidence.",
+          "Return citations and retrieval limitations."
+        ]
+      },
+      "purchase_market_researcher": {
+        "llm_config": "primary",
+        "role": "Purchase Market Researcher",
+        "responsibilities": [
+          "Collect candidate, price, availability, and comparable evidence.",
+          "Timestamp volatile facts and preserve URLs.",
+          "Record blocked or stale sources without bypassing controls."
+        ]
+      },
+      "purchase_total_cost_analyst": {
+        "llm_config": "primary",
+        "role": "Purchase Total Cost Analyst",
+        "responsibilities": [
+          "Compute acquisition and recurring-cost ranges from explicit inputs.",
+          "Keep unknown costs visible.",
+          "Never invent financing or fee assumptions."
+        ]
+      },
+      "purchase_risk_reviewer": {
+        "llm_config": "primary",
+        "role": "Purchase Risk Reviewer",
+        "responsibilities": [
+          "Check hard constraints, condition, policy, safety, and fraud risks.",
+          "Distinguish blockers from negotiable tradeoffs.",
+          "Create verification tasks for material unknowns."
+        ]
+      },
+      "purchase_recommendation_auditor": {
+        "llm_config": "primary",
+        "role": "Purchase Recommendation Auditor",
+        "responsibilities": [
+          "Reconcile candidate fit, cost, risk, and source quality.",
+          "Use only bounded recommendation labels.",
+          "Fail to insufficient evidence when material gates are unresolved."
+        ]
+      },
+      "purchase_report_writer": {
+        "llm_config": "primary",
+        "role": "Purchase Report Writer",
+        "responsibilities": [
+          "Write an option-by-option decision packet.",
+          "Keep facts, estimates, and preferences distinct.",
+          "Preserve the human transaction boundary."
+        ]
+      }
+    },
+    "responsibilities": [
+      "Keep deterministic extraction and source records authoritative.",
+      "Use actors to connect local documents, RAG context, and public research.",
+      "Keep purchase recommendations review-only and source-referenced."
+    ],
+    "provider": "docker_model_runner",
+    "model": "default",
+    "backend": "llama.cpp",
+    "mode": "live",
+    "mock_mode": "fake",
+    "default_config": "primary",
+    "quick_test_uses_fake": true,
+    "strict_json": false,
+    "prefer_shared_skill": true,
+    "configs": {
+      "primary": {
+        "provider": "docker_model_runner",
+        "backend": "llama.cpp",
+        "api_base": "auto",
+        "timeout_seconds": 60,
+        "max_tokens": 1200,
+        "num_retries": 1,
+        "mock_mode": "fake",
+        "mode": "live"
+      }
+    }
   }
 }

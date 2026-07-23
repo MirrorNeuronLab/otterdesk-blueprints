@@ -15,7 +15,23 @@ mn run research_coscientist
 
 The default output folder is `~/Downloads/research_coscientist`. Run-store artifacts are also written under `~/.mn/runs/<run_id>/`.
 
-The workflow deliberately mixes execution modes. `frame_research_goal`, `retrieve_and_evaluate_evidence`, and `verify_and_publish_packet` are deterministic HostLocal stages. `autonomous_research` is the only OpenShell node and uses the runtime's job-scoped shared sandbox (`reuse_shared_sandbox: true`) for all autonomous subphases. Generated code never runs in a deterministic stage.
+The workflow deliberately mixes execution modes. `frame_research_problem` and
+`build_research_evidence` prepare deterministic context;
+`develop_and_challenge_hypotheses` contains the only OpenShell specialist; and
+`verify_and_publish_research_packet` performs deterministic audit and report
+publication. The autonomous worker uses the runtime's job-scoped shared sandbox
+(`reuse_shared_sandbox: true`) for its bounded subphases. Generated code never
+runs in a deterministic specialist.
+
+## Process and agents
+
+1. `research_goal_framer` normalizes the question, constraints, success criteria, and explicit unknowns.
+2. `research_evidence_curator` creates the local/public evidence ledger and keeps run metadata separate from evidence.
+3. `autonomous_researcher` develops hypotheses, counterarguments, predictions, disconfirming observations, and experiment concepts inside OpenShell.
+4. `research_packet_auditor` verifies isolation trace, source refs, falsifiability, counterarguments, and review boundaries; `research_report_writer` then durably publishes the packet.
+
+The bundled baseline CSV contains 12 synthetic cooling-loop observations so
+the sample can form a measurable hypothesis rather than a generic prose idea.
 
 ## Inputs
 
@@ -48,6 +64,22 @@ The output folder contains:
 Packets with at least one extracted local document or observed public source are `review_ready`. If neither is available, the full diagnostic bundle is still written, but the packet and quality report are marked `needs_evidence`; its next steps tell the customer whether to supply local material or retry retrieval. Run metadata is tracked separately from evidence references and never qualifies a packet as source-grounded.
 
 The blueprint does not run unapproved experiments, make a validated scientific or clinical claim, publish or submit a manuscript, contact research participants, or make consequential safety decisions. A person must review and approve any such action.
+
+## Shared job data
+
+The stable research job seeds bundled knowledge once and reuses its
+`knowledge/`, `databases/rag/`, and `state/` resources across runs. Hypothesis
+inputs, evidence, and reports remain run-scoped; another job gets an independent
+store.
+
+## Payload layout
+
+The four `payloads/steps/` modules declare only logical contracts and internal
+agent graphs. Five same-named modules under `payloads/agents/` bind focused
+implementations from `payloads/domain/inputs.py`, `evidence.py`,
+`autonomous.py`, `verification.py`, and `reporting.py`. Runtime preparation is
+isolated in `runtime_services.py`; local sample composition lives in
+`composition.py`.
 
 ## Validation
 

@@ -863,6 +863,16 @@
       }
     ]
   },
+  "metadata": {
+    "blueprint_id": "vc_assistant",
+    "job_data": {
+      "resources": [
+        { "name": "knowledge", "path": "knowledge", "access": "read_write", "seed": "@/payloads/knowledge" },
+        { "name": "rag", "path": "databases/rag", "access": "read_write" },
+        { "name": "state", "path": "state", "access": "read_write" }
+      ]
+    }
+  },
   "workflow": {
     "dynamic": {
       "apply_at": "between_steps",

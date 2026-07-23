@@ -34,6 +34,12 @@ small lexical scorer before each LLM turn. The LLM is instructed to answer from
 retrieved snippets, ask one order question at a time when needed, and recommend
 human handoff when the answer is not grounded in knowledge.
 
+## Persistent job data
+
+RAG isolation uses stable `job_id`, not blueprint ID. The database lives under
+the job's `databases/rag/`, and bundled knowledge is copied only at job
+initialization or explicit reset. Runs do not overwrite or delete it.
+
 ## Limits
 
 - v1 uses plain text and lexical retrieval, not a vector database.

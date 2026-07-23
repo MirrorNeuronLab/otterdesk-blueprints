@@ -63,6 +63,13 @@ If evidence is missing for a method, the method status is `insufficient_evidence
 
 Internal artifacts include `company_work_queue.json`, company fact tables, research ledgers, method-score files, audit findings, research coverage, method coverage, and a run summary.
 
+## Persistent job data
+
+The stable job owns cross-run knowledge, Milvus Lite RAG data, and explicitly
+durable state. Run inputs and reports remain execution-scoped. Seeds apply only
+on job initialization/reset; run cancellation, retention, or deletion does not
+remove shared data.
+
 ## Evaluation Criteria
 
 - Company grouping is explainable and stable.

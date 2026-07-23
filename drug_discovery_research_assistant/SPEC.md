@@ -26,6 +26,12 @@ Target discovery, structure generation, candidate generation, binding review, an
 
 The service has no automatic completion time. It stops on a process termination signal or when the configured `STOP` file is created. Each cycle updates `service_state.json`; detailed artifacts are written under `cycles/cycle-<id>/`, while the configured user-facing output folder is updated with `service_status.json`, `candidates.json`, and `latest_cycle_report.json` so a long-running job has observable output before it stops.
 
+## Persistent job data
+
+Durable knowledge, Milvus Lite data, and service state belong to the stable job,
+not the blueprint ID or execution. Two jobs cannot observe each other's data.
+Run cancellation and retention do not remove those resources.
+
 ## Safety and non-goals
 
 All results are computational hypotheses. The blueprint does not synthesize compounds, run assays, make clinical claims, submit regulatory material, or send candidates to external systems. Fake adapters are limited to explicit mock/smoke-test configuration and are labeled synthetic in every artifact. BioTarget Stage D invokes the native GNINA executable in the selected NVIDIA DockerWorker; no nested Docker socket or CPU-emulation path is part of the live contract.

@@ -95,6 +95,13 @@ mn blueprint monitor --follow
 - `internet_research.max_parallel_research_agents`: maximum research agents running in parallel per changed company.
 - `scoring.max_workers`: maximum parallel method scorers per changed company.
 
+## Shared job data
+
+Each configured VC Assistant job owns persistent `knowledge/`,
+`databases/rag/`, and `state/`. Bundled diligence knowledge seeds once; later
+runs preserve edits and reuse the database. Pitch inputs, reports, logs, and
+ordinary artifacts remain independent by `run_id`.
+
 ## Outputs
 
 Each company receives a subfolder containing:

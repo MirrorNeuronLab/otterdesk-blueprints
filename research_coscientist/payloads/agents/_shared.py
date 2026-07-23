@@ -17,16 +17,27 @@ _input_keys = frozenset(_contracts.get("inputs") or {})
 _spec = StatefulStepSpec(context_factory=runtime_context_for_step, input_keys=_input_keys, hooks=StepLifecycleHooks(runtime_step_mode="agent_invocation"))
 
 
-def create_domain_agent(name: str, operation: Callable[..., dict[str, Any]]):
+def create_domain_agent(agent_id: str, operation: Callable[..., dict[str, Any]]):
     def invoke(context: StatefulStepContext, *, agent_input: AgentInput, **options: Any) -> AgentHandlerOutput:
         result = operation(context.to_mapping(), **options)
         ref = artifact_reference("research_coscientist_state", "workflow_state/research_coscientist_state.json")
         artifacts = [ref]
-        payload: dict[str, Any] = {"step_id": name, "state_artifact": ref}
+        payload: dict[str, Any] = {
+            "result": {
+                key: value
+                for key, value in result.items()
+                if key not in {"final_artifact", "output_files"}
+            },
+            "state_artifact": ref,
+        }
         if isinstance(result.get("final_artifact"), dict):
             final_ref = artifact_reference("final_artifact", "final_artifact.json")
             artifacts.append(final_ref)
             payload["final_artifact"] = final_ref
-        return AgentHandlerOutput(payload=payload, artifacts=tuple(artifacts), metrics={"step_id": name})
+        return AgentHandlerOutput(
+            payload=payload,
+            artifacts=tuple(artifacts),
+            metrics={"agent_id": agent_id},
+        )
 
     return create_message_agent(MessageAgentSpec(stateful=_spec, input_resolver=lambda value: find_message_payload(value.payload, required_keys=_input_keys)), invoke)

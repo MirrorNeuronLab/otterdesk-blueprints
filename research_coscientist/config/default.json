@@ -90,40 +90,6 @@
     "handle_human_control",
     "write_artifact_records"
   ],
-  "human_control": {
-    "allowed_decisions": [
-      "approve",
-      "revise",
-      "reject"
-    ],
-    "blocked_actions": [
-      "execute_unapproved_experiment",
-      "claim_validated_result",
-      "publish_or_submit_manuscript",
-      "contact_external_research_participant",
-      "make_clinical_or_safety_decision"
-    ],
-    "decision_event": "human_decision_applied",
-    "default_action": "reject",
-    "enabled": true,
-    "events": [
-      "human_notice",
-      "human_input_requested",
-      "human_input_received",
-      "human_input_timeout",
-      "human_decision_applied"
-    ],
-    "mode": "approval_required",
-    "reason": "Human approval is required before experiments, public claims, manuscripts, participant contact, or consequential scientific and safety decisions.",
-    "request_event": "human_input_requested",
-    "response_event": "human_input_received",
-    "timeout_event": "human_input_timeout",
-    "timeout_seconds": 3600
-  },
-  "identity": {
-    "blueprint_id": "research_coscientist",
-    "name": "Research Co-Scientist"
-  },
   "input_skills": {
     "llm_ocr": {
       "skill": "llm_ocr_skill",
@@ -403,142 +369,14 @@
     ]
   },
   "llm": {
-    "enabled": true,
-    "agent_role": "Multi-agent research team that finds, evaluates, critiques, and drafts evidence-grounded research directions.",
-    "agents": {
-      "research:topic_finder": {
-        "llm_config": "primary",
-        "role": "Research goal framer",
-        "responsibilities": [
-          "Turn the goal into answerable questions and definitions.",
-          "Separate supplied facts, assumptions, and unknowns.",
-          "Define scope and success criteria without inventing evidence."
-        ]
-      },
-      "research:literature_reviewer": {
-        "llm_config": "primary",
-        "role": "Literature reviewer",
-        "responsibilities": [
-          "Find relevant evidence in approved local and public sources.",
-          "Record source references, dates, and access limits.",
-          "Distinguish primary evidence from commentary and unsupported claims."
-        ]
-      },
-      "research:idea_generator": {
-        "llm_config": "primary",
-        "role": "Hypothesis generator",
-        "responsibilities": [
-          "Propose distinct, falsifiable hypotheses grounded in the evidence ledger.",
-          "State mechanisms, predictions, and disconfirming observations.",
-          "Avoid claiming hypotheses are validated."
-        ]
-      },
-      "research:skeptic": {
-        "llm_config": "primary",
-        "role": "Skeptic and reflection reviewer",
-        "responsibilities": [
-          "Challenge causal leaps, confounders, novelty claims, and missing controls.",
-          "Identify plausible competing explanations.",
-          "Return actionable critique with source or method gaps."
-        ]
-      },
-      "research:proximity_reviewer": {
-        "llm_config": "primary",
-        "role": "Proximity and novelty reviewer",
-        "responsibilities": [
-          "Compare candidates for conceptual overlap with retrieved evidence.",
-          "Flag duplicate, incremental, or already-supported ideas.",
-          "Explain novelty as a bounded assessment, not a guarantee."
-        ]
-      },
-      "research:experiment_designer": {
-        "llm_config": "primary",
-        "role": "Experiment designer",
-        "responsibilities": [
-          "Translate high-value hypotheses into falsifiable study plans.",
-          "Specify controls, measurements, decision rules, and failure modes.",
-          "Mark ethics, safety, approval, or feasibility dependencies."
-        ]
-      },
-      "research:code_implementer": {
-        "llm_config": "primary",
-        "role": "Code implementation planner",
-        "responsibilities": [
-          "Outline reproducible analysis or simulation work needed for a test.",
-          "Identify datasets, dependencies, and validation checks.",
-          "Do not run unapproved code against external systems."
-        ]
-      },
-      "research:benchmark_runner": {
-        "llm_config": "primary",
-        "role": "Benchmark planning reviewer",
-        "responsibilities": [
-          "Define baseline comparisons and evaluation metrics.",
-          "Check whether proposed benchmarks answer the question.",
-          "Expose data leakage, overfitting, and reproducibility risks."
-        ]
-      },
-      "research:result_analyst": {
-        "llm_config": "primary",
-        "role": "Result analysis planner",
-        "responsibilities": [
-          "Specify how results would be interpreted under uncertainty.",
-          "List alternative explanations and sensitivity checks.",
-          "Prohibit causal or clinical conclusions beyond the evidence."
-        ]
-      },
-      "research:paper_writer": {
-        "llm_config": "primary",
-        "role": "Research brief writer",
-        "responsibilities": [
-          "Draft an evidence-grounded research brief.",
-          "Carry uncertainty, counterarguments, and citations into the draft.",
-          "Keep language proportional to evidence strength."
-        ]
-      },
-      "research:meta_reviewer": {
-        "llm_config": "primary",
-        "role": "Meta-reviewer and ranking auditor",
-        "responsibilities": [
-          "Rank candidates using traceable criteria.",
-          "Audit evidence coverage and review boundaries.",
-          "Recommend revision or human review rather than self-approval."
-        ]
-      },
-      "research:evidence_ranker": {
-        "llm_config": "primary",
-        "role": "Evidence ranking reviewer",
-        "responsibilities": [
-          "Rate source traceability, relevance, and methodological strength.",
-          "Identify conflicts, stale evidence, and unverified claims.",
-          "Keep ranking criteria explicit and non-authoritative."
-        ]
-      }
-    },
-    "responsibilities": [
-      "Keep source evidence, uncertainty, and counterarguments visible.",
-      "Use specialized roles to generate and challenge research hypotheses.",
-      "Keep experiments, conclusions, and external actions review-only until a person approves them."
-    ],
-    "provider": "docker_model_runner",
-    "model": "default",
-    "backend": "llama.cpp",
     "mode": "live",
-    "mock_mode": "fake",
-    "default_config": "primary",
-    "quick_test_uses_fake": true,
     "strict_json": false,
-    "prefer_shared_skill": true,
+    "require_live": false,
     "configs": {
       "primary": {
-        "provider": "docker_model_runner",
-        "backend": "llama.cpp",
-        "api_base": "auto",
         "timeout_seconds": 60,
         "max_tokens": 900,
-        "num_retries": 1,
-        "mock_mode": "fake",
-        "mode": "live"
+        "num_retries": 1
       }
     }
   },
@@ -641,98 +479,12 @@
     "sdk_distribution": "mirrorneuron-membrane-python-sdk",
     "sdk_import_package": "mn_context_engine_sdk"
   },
-  "agentic_research": {
-    "enabled": true,
-    "isolation": {
-      "runner": "openshell",
-      "single_job_instance": true,
-      "reuse_shared_sandbox": true,
-      "autonomous_node": "autonomous_research"
-    },
-    "agent_ids": [
-      "research:benchmark_runner",
-      "research:code_implementer",
-      "research:evidence_ranker",
-      "research:experiment_designer",
-      "research:idea_generator",
-      "research:literature_reviewer",
-      "research:meta_reviewer",
-      "research:paper_writer",
-      "research:proximity_reviewer",
-      "research:result_analyst",
-      "research:skeptic",
-      "research:topic_finder"
-    ],
-    "max_iterations_per_agent": 3,
-    "max_tool_calls_per_agent": 4,
-    "max_total_tool_calls": 12,
-    "allow_goal_refinement": true,
-    "allow_prompt_creation": true,
-    "allow_generated_code": true,
-    "generated_code": {
-      "language": "python",
-      "timeout_seconds": 15,
-      "max_output_chars": 20000,
-      "max_memory_mb": 256,
-      "workspace": "generated_research"
-    },
-    "allowed_tools": [
-      "document_extract",
-      "browser_search",
-      "browser_page",
-      "knowledge_retrieve",
-      "hypothesis_rank",
-      "generated_python",
-      "finish"
-    ],
-    "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run",
-    "default_mode": "isolated_autonomous_research",
-    "note": "One job-scoped OpenShell worker owns every autonomous subphase. It may refine goals, create prompts, request allowlisted mn-skills tools, and execute bounded generated Python; deterministic stages prepare evidence and verify all outputs."
-  },
   "knowledge_rag": {
-    "enabled": true,
-    "backend": "milvus_lite",
-    "required": false,
-    "knowledge_dir": "knowledge",
-    "purpose": "Retrieve research-method guidance, evidence-quality checks, and approved local documents for topic framing, hypothesis critique, experiment design, and drafting.",
-    "retrieval_targets": [
-      "research question and scope framing",
-      "literature and source-quality evaluation",
-      "hypothesis and counter-hypothesis criteria",
-      "experiment, benchmark, and analysis planning",
-      "evidence gaps, ethics, safety, and human-review checks"
-    ],
-    "grounding_policy": "Use retrieved material to locate and evaluate evidence; label hypotheses, inferences, and unknowns rather than treating them as facts.",
-    "namespace": "",
-    "embedding_provider": "docker_model_runner",
-    "embedding_model": "rag-embedding",
-    "embedding_api_base": "auto",
-    "embedding_query_prefix": "Query: ",
-    "embedding_document_prefix": "Document: ",
-    "embedding_start_command": "",
-    "embedding_healthcheck_enabled": true,
-    "vector_dim": 1024,
-    "index_on_startup": true,
-    "top_k": 4,
-    "max_context_chars": 4000,
-    "chunk_size": 700,
-    "chunk_overlap": 70,
-    "privacy": "Index checked-in guidance and approved local input files in an isolated per-run namespace; never send private records, credentials, or participant data to public research."
+    "backend": "milvus_lite"
   },
   "metadata": {
-    "agent_role": "Research co-scientist with deterministic evidence gates and an isolated autonomous exploration worker.",
-    "blueprint_id": "research_coscientist",
-    "blueprint_revision": "v2",
     "category": "science",
-    "customizable_for": "Scientific research, engineering investigations, product discovery, policy analysis, literature synthesis, and experiment planning.",
-    "description": "A research co-scientist combining deterministic evidence and verification with one isolated OpenShell worker for autonomous, tool-driven exploration and bounded generated-code experiments.",
-    "llm_agent_role": "Isolated autonomous research worker operating between deterministic preparation and verification stages.",
-    "name": "Research Co-Scientist",
-    "problem_solved": "Research teams need to explore many possible explanations while preserving evidence, exposing counterarguments, and keeping experiments and claims under human control.",
-    "simulation_type": "Multi-agent research workflow with literature review, hypothesis generation, adversarial critique, experiment design, and drafting.",
-    "standard_version": "1.0",
-    "target_user": "Researchers, scientists, engineers, analysts, and research leads.",
-    "target_users": "Researchers, scientists, engineers, analysts, and research leads."
+    "description": "A research co-scientist combining deterministic evidence and verification with one isolated OpenShell worker for autonomous, tool-driven exploration and bounded generated-code experiments."
   },
   "mode": "mock",
   "output_skills": {},

@@ -6,7 +6,7 @@ from typing import Any
 
 from mn_sdk.blueprint_support import create_blueprint_run_context
 
-from . import workflow
+from .common import BLUEPRINT_ID
 
 
 def runtime_context_for_step(
@@ -14,7 +14,7 @@ def runtime_context_for_step(
     runs_root: str | None = None, run_id: str | None = None,
 ) -> dict[str, Any]:
     return create_blueprint_run_context(
-        runtime_file=workflow.__file__, blueprint_id=workflow.BLUEPRINT_ID,
+        runtime_file=__file__, blueprint_id=BLUEPRINT_ID,
         inputs=inputs, config=config, runs_root=runs_root, run_id=run_id,
     ).to_mapping()
 

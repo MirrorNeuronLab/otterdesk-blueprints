@@ -73,6 +73,23 @@ Most blueprint folders contain:
 | `config/overwrite.json` | Optional local overrides. Do not commit customer secrets. |
 | `payloads/` | Worker code, prompts, policies, fixtures, and support files. |
 
+Blueprints that retain knowledge, RAG, or application state across executions
+declare `metadata.job_data.resources` in `manifest.json`. Core creates one
+stable job-data directory per hired/configured job:
+
+```text
+$MN_HOME/job-data/<job-id>/
+  knowledge/
+  databases/rag/
+  state/
+```
+
+The bundle's knowledge seed is copied only when the stable job is initialized
+or explicitly reset. Later runs share that directory and never overwrite user
+edits. Run inputs, outputs, logs, and artifacts remain run-scoped. Two jobs
+created from the same blueprint receive different job-data directories and RAG
+databases.
+
 The standard payload layout is consistent across the catalog: `runtime/` contains
 the blueprint context adapter, `steps/` contains manifest-facing handlers, and
 `agents/` contains domain workers or services. Docker, native-host, OpenShell,
@@ -92,3 +109,5 @@ dispatch code or configuration handoff lists.
 - Start with mock, dry-run, or quick-test settings before enabling real external services.
 - Keep customer-specific inputs and secrets in local overrides or environment variables.
 - Update the local blueprint README and `SPEC.md` when behavior, inputs, outputs, or limits change.
+- Declare durable resources by logical name, validated relative path, access
+  mode, and optional `@/` bundle seed. Never declare or accept a host path.

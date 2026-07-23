@@ -6,12 +6,14 @@ Provide a source-grounded purchase study workflow for any consumer or business p
 
 ## Workflow
 
-1. Normalize the purchase category and user request.
-2. Read approved local evidence using direct text extraction or the shared OCR skill.
-3. Retrieve relevant checked-in guidance and user-document evidence through isolated per-run RAG.
-4. Use the portable local DMR profile for intake and research planning, then collect privacy-safe public price, availability, fee, policy, and risk evidence.
-5. Run bounded specialists for price, total cost, policies, risks, alternatives, recommendation, audit, and reporting.
-6. Preserve deterministic fields, source references, retrieval timestamps, warnings, and human review boundaries.
+1. `frame_purchase_request`: normalize the category, constraints, budget, and priorities with `purchase_intake_analyst`.
+2. `build_purchase_evidence`: read approved local evidence and retrieve checked-in guidance with `purchase_knowledge_retriever`.
+3. `compare_purchase_options`: run `purchase_market_researcher`, `purchase_total_cost_analyst`, `purchase_risk_reviewer`, and `purchase_recommendation_auditor` in sequence. Hard constraints and deterministic cost fields remain authoritative.
+4. `publish_purchase_decision_packet`: have `purchase_report_writer` durably write the bounded JSON and Markdown packet.
+
+The compiler owns step boundaries, routing, joins, and logical completion. The
+specialists return bounded coordination results plus artifact references; they
+do not address streams or traverse workflow dependencies.
 
 ## Supported Categories
 
@@ -23,6 +25,12 @@ Provide a source-grounded purchase study workflow for any consumer or business p
 ## Research Boundaries
 
 Public research uses sanitized item, location, route, timing, and non-confidential constraint text only. The primary source path is `w3m_browser_skill`; a rendered browser may inspect public JavaScript-heavy pages. Login walls, robots restrictions, CAPTCHAs, rate limits, and access denials are recorded as source warnings. The workflow never bypasses access controls and never performs a transaction.
+
+## Persistent job data
+
+Persistent knowledge, RAG storage, and declared state are isolated by stable
+`job_id`; two jobs built from this blueprint do not share data. Run retention
+and deletion do not clear job data.
 
 ## Output Contract
 
@@ -39,3 +47,4 @@ Recommendation labels are `buy`, `consider`, `wait`, `avoid`, and `insufficient_
 - Missing, stale, conflicting, and blocked evidence is explicit.
 - Fake/offline runs are deterministic and write the complete output bundle.
 - No transactional action is emitted or executed.
+- The sample comparison rejects candidates that fail hard constraints and preserves known-cost, unknown-cost, and financing gaps separately.

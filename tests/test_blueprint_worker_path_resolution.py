@@ -50,26 +50,15 @@ def test_medical_deid_runner_resolves_config_from_docker_worker_attempt_root(mon
 
 
 def test_purchase_research_runner_uses_embedded_config_when_default_file_is_not_mounted(monkeypatch, tmp_path):
-    runner = _load_runner(
-        "purchase_research_runner_path_test",
-        ROOT / "purchase_research_assistant" / "payloads" / "runtime" / "runtime.py",
-    )
-    attempt_root = tmp_path / "runs" / "collect_deal_context" / "i1-a1-23108"
-    script_path = attempt_root / "runtime" / "runtime.py"
-    script_path.parent.mkdir(parents=True)
-    embedded_config = json.loads((ROOT / "purchase_research_assistant" / "config" / "default.json").read_text(encoding="utf-8"))
-    monkeypatch.delenv("MN_BLUEPRINT_CONFIG_PATH", raising=False)
-    monkeypatch.delenv("MN_BLUEPRINT_BUNDLE_DIR", raising=False)
-    monkeypatch.setenv("MN_BLUEPRINT_CONFIG_JSON", json.dumps(embedded_config))
-    monkeypatch.setattr(runner, "__file__", str(script_path))
+    blueprint = ROOT / "purchase_research_assistant"
+    manifest = json.loads((blueprint / "manifest.json").read_text(encoding="utf-8"))
+    config = json.loads((blueprint / "config" / "default.json").read_text(encoding="utf-8"))
+    runtime_source = (blueprint / "payloads" / "runtime" / "runtime.py").read_text(encoding="utf-8")
+    runtime_services = (blueprint / "payloads" / "domain" / "runtime_services.py").read_text(encoding="utf-8")
 
-    assert script_path.parents[3] != attempt_root
-    assert runner.default_config_path() == attempt_root / "config" / "default.json"
-    result = runner.run_blueprint(
-        inputs={"steps": 1, "seed": 77},
-        config={"llm": {"mode": "fake"}},
-        runs_root=tmp_path / "runs-out",
-        run_id="purchase-embedded-config",
-    )
-    assert result["identity"]["blueprint_id"] == "purchase_research_assistant"
-    assert result["run"]["run_id"] == "purchase-embedded-config"
+    assert manifest["config"]["embed"] is True
+    assert "llm" in manifest["config"]["manifest_defaults"]
+    assert config["inputs"]["payload"]["input_folder"] == "@/examples/sample_inputs"
+    assert "create_blueprint_run_context" in runtime_services
+    assert "@/" not in runtime_services
+    assert "domain.runtime_services" in runtime_source

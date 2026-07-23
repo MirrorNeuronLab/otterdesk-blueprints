@@ -91,39 +91,6 @@
     "handle_human_control",
     "write_artifact_records"
   ],
-  "human_control": {
-    "allowed_decisions": [
-      "approve",
-      "revise",
-      "reject"
-    ],
-    "blocked_actions": [
-      "buy_or_book",
-      "pay_or_transfer_funds",
-      "submit_application_or_offer",
-      "contact_seller_provider_or_broker"
-    ],
-    "decision_event": "human_decision_applied",
-    "default_action": "reject",
-    "enabled": true,
-    "events": [
-      "human_notice",
-      "human_input_requested",
-      "human_input_received",
-      "human_input_timeout",
-      "human_decision_applied"
-    ],
-    "mode": "approval_required",
-    "reason": "Human approval is required before any purchase, booking, payment, application, offer, or seller/provider contact action.",
-    "request_event": "human_input_requested",
-    "response_event": "human_input_received",
-    "timeout_event": "human_input_timeout",
-    "timeout_seconds": 3600
-  },
-  "identity": {
-    "blueprint_id": "purchase_research_assistant",
-    "name": "Purchase Research Assistant"
-  },
   "input_skills": {
     "llm_ocr": {
       "skill": "llm_ocr_skill",
@@ -406,106 +373,14 @@
     ]
   },
   "llm": {
-    "enabled": true,
-    "agent_role": "AI assistant for researching purchases and drafting source-grounded comparisons.",
-    "agents": {
-      "purchase:intake": {
-        "llm_config": "primary",
-        "role": "Purchase intake and category reviewer",
-        "responsibilities": [
-          "Classify the purchase type and normalize the user request.",
-          "Separate user-provided facts from assumptions.",
-          "Flag missing scope, budget, location, route, or date details."
-        ]
-      },
-      "purchase:price_research": {
-        "llm_config": "primary",
-        "role": "Price and availability researcher",
-        "responsibilities": [
-          "Collect public price and availability evidence.",
-          "Tie volatile facts to URLs and retrieval timestamps.",
-          "Flag stale, blocked, or unsupported pricing claims."
-        ]
-      },
-      "purchase:total_cost": {
-        "llm_config": "primary",
-        "role": "Total-cost and fee analyst",
-        "responsibilities": [
-          "Identify taxes, fees, ownership costs, and recurring charges.",
-          "Keep calculations deterministic and source-referenced.",
-          "Mark unknown fees instead of inventing estimates."
-        ]
-      },
-      "purchase:policy_risk": {
-        "llm_config": "primary",
-        "role": "Policy, warranty, and risk reviewer",
-        "responsibilities": [
-          "Review return, cancellation, warranty, insurance, and condition evidence.",
-          "Flag access, safety, fraud, and policy risks.",
-          "Preserve critical source references and unknowns."
-        ]
-      },
-      "purchase:alternatives": {
-        "llm_config": "primary",
-        "role": "Alternatives comparer",
-        "responsibilities": [
-          "Compare options on the user\u2019s stated priorities.",
-          "Separate observed facts from subjective preferences.",
-          "Flag when alternatives are not directly comparable."
-        ]
-      },
-      "purchase:recommender": {
-        "llm_config": "primary",
-        "role": "Purchase recommendation reviewer",
-        "responsibilities": [
-          "Choose only buy, consider, wait, avoid, or insufficient_evidence.",
-          "Explain the recommendation from cited evidence.",
-          "Never initiate a purchase, booking, payment, or contact."
-        ]
-      },
-      "purchase:auditor": {
-        "llm_config": "primary",
-        "role": "Evidence and review-boundary auditor",
-        "responsibilities": [
-          "Check source traceability and deterministic-field invariance.",
-          "Flag missing evidence and public-source conflicts.",
-          "Confirm transactional actions remain blocked."
-        ]
-      },
-      "purchase:report_writer": {
-        "llm_config": "primary",
-        "role": "Purchase research report writer",
-        "responsibilities": [
-          "Prepare the review-only purchase research report.",
-          "Summarize options, evidence, risks, and open questions.",
-          "Require human approval before any purchase-related action."
-        ]
-      }
-    },
-    "responsibilities": [
-      "Keep deterministic extraction and source records authoritative.",
-      "Use actors to connect local documents, RAG context, and public research.",
-      "Keep purchase recommendations review-only and source-referenced."
-    ],
-    "provider": "docker_model_runner",
-    "model": "default",
-    "backend": "llama.cpp",
     "mode": "live",
-    "mock_mode": "fake",
-    "default_config": "primary",
-    "quick_test_uses_fake": true,
     "strict_json": false,
-    "prefer_shared_skill": true,
+    "require_live": false,
     "configs": {
       "primary": {
-        "provider": "docker_model_runner",
-        "backend": "llama.cpp",
-        "api_base": "auto",
         "timeout_seconds": 60,
         "max_tokens": 1200,
-        "num_retries": 1,
-        "mock_mode": "fake",
-        "mode": "live"
+        "num_retries": 1
       }
     }
   },
@@ -602,75 +477,12 @@
     "sdk_distribution": "mirrorneuron-membrane-python-sdk",
     "sdk_import_package": "mn_context_engine_sdk"
   },
-  "agentic_research": {
-    "enabled": true,
-    "agent_ids": [
-      "purchase:intake",
-      "purchase:price_research",
-      "purchase:total_cost",
-      "purchase:policy_risk",
-      "purchase:alternatives",
-      "purchase:recommender",
-      "purchase:auditor",
-      "purchase:report_writer"
-    ],
-    "max_iterations_per_agent": 1,
-    "max_tool_calls_per_agent": 2,
-    "allowed_tools": [
-      "document_extract",
-      "browser_search",
-      "browser_page",
-      "knowledge_retrieve",
-      "finish"
-    ],
-    "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run",
-    "default_mode": "bounded_llm_guided_purchase_research",
-    "note": "Purchase actors combine user documents, local RAG, public sources, and deterministic checks while preserving source refs and uncertainty."
-  },
   "knowledge_rag": {
-    "enabled": true,
-    "backend": "milvus_lite",
-    "required": false,
-    "knowledge_dir": "knowledge",
-    "purpose": "Retrieve purchase guidance and approved local evidence for price, total cost, policy, risk, and comparison checks.",
-    "retrieval_targets": [
-      "purchase-type evidence checklists",
-      "price and availability facts",
-      "total cost and recurring fees",
-      "policy, warranty, cancellation, and risk gaps",
-      "alternative comparison criteria"
-    ],
-    "grounding_policy": "Use retrieved guidance as a checklist; facts must come from user documents or cited public sources.",
-    "namespace": "",
-    "embedding_provider": "docker_model_runner",
-    "embedding_model": "rag-embedding",
-    "embedding_api_base": "auto",
-    "embedding_query_prefix": "Query: ",
-    "embedding_document_prefix": "Document: ",
-    "embedding_start_command": "",
-    "embedding_healthcheck_enabled": true,
-    "vector_dim": 1024,
-    "index_on_startup": true,
-    "top_k": 4,
-    "max_context_chars": 4000,
-    "chunk_size": 700,
-    "chunk_overlap": 70,
-    "privacy": "index checked-in guidance and approved local input files in an isolated per-run namespace; do not send private files to public research."
+    "backend": "milvus_lite"
   },
   "metadata": {
-    "agent_role": "AI assistant for researching purchases and drafting source-grounded comparisons.",
-    "blueprint_id": "purchase_research_assistant",
-    "blueprint_revision": "v1",
     "category": "finance",
-    "customizable_for": "Any purchase, including property, rental property, cars, travel, equipment, services, subscriptions, software, and custom goods.",
-    "description": "A general purchase research co-worker using the portable local DMR profile. It studies property, rental property, cars, travel, equipment, services, subscriptions, software, and custom purchases with local knowledge, user evidence, and bounded public research.",
-    "llm_agent_role": "AI assistant for researching purchases and drafting source-grounded comparisons.",
-    "name": "Purchase Research Assistant",
-    "problem_solved": "Purchase decisions depend on scattered prices, fees, policies, condition, availability, and source quality that are easy to miss across documents and public pages.",
-    "simulation_type": "General purchase research with local RAG and public-source comparison.",
-    "standard_version": "1.0",
-    "target_user": "Real-estate investors, acquisition analysts, property-tech teams, and diligence operators.",
-    "target_users": "Real-estate investors, acquisition analysts, property-tech teams, and diligence operators."
+    "description": "A general purchase research co-worker using the portable local DMR profile. It studies property, rental property, cars, travel, equipment, services, subscriptions, software, and custom purchases with local knowledge, user evidence, and bounded public research."
   },
   "mode": "mock",
   "output_skills": {},

@@ -491,6 +491,13 @@
     "type": "service"
   },
   "metadata": {
+    "job_data": {
+      "resources": [
+        { "name": "knowledge", "path": "knowledge", "access": "read_write", "seed": "@/payloads/knowledge" },
+        { "name": "rag", "path": "databases/rag", "access": "read_write" },
+        { "name": "state", "path": "state", "access": "read_write" }
+      ]
+    },
     "agent_role": "AI service coordinator for distributed candidate generation, DrugCLIP virtual screening, folding, simulation, and evidence review.",
     "agentic_research": {
       "agent_ids": [

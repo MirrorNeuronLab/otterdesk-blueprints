@@ -84,6 +84,19 @@ Bundle-local config paths use SDK `@/` references and are resolved by the shared
 staging/runtime contract. Blueprint code consumes resolved paths and does not
 implement alternate path syntax.
 
+Persistent cross-run state is explicit in `metadata.job_data.resources`.
+Resources declare a logical name, validated relative job-data path,
+`read_only`/`read_write` access, and optional bundle-local `@/` directory seed.
+The stable `job_id`, not blueprint ID or `run_id`, is the storage isolation
+key. Seeds apply only on initialization and explicit data reset. Knowledge,
+Milvus Lite databases, and durable application state remain job-scoped; run
+inputs, outputs, logs, and ordinary artifacts remain run-scoped.
+
+Blueprints must not derive host storage paths, treat replication as a
+transactional filesystem, or clear job data during run cleanup. Mutable
+file-backed resources require Core owner-node placement and the declared access
+mode. Two jobs using one blueprint must remain mutually isolated.
+
 ## Documentation and Safety
 
 Each blueprint README explains setup, smallest safe run, inputs/outputs, and

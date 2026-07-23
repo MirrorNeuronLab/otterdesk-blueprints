@@ -38,7 +38,7 @@ _SPEC = StatefulStepSpec(
 )
 
 
-def create_domain_agent(step_id: str, handler: Callable[[dict[str, Any]], dict[str, Any]]):
+def create_domain_agent(agent_id: str, handler: Callable[[dict[str, Any]], dict[str, Any]]):
     """Bind one financial specialist to its durable domain operation."""
 
     def invoke(
@@ -50,7 +50,7 @@ def create_domain_agent(step_id: str, handler: Callable[[dict[str, Any]], dict[s
     ) -> AgentHandlerOutput:
         mapping = context.to_mapping()
         result = execution.execute_runtime_handler(
-            step_id,
+            agent_id,
             handler,
             inputs=dict(context.inputs),
             config=dict(context.config),
@@ -61,10 +61,13 @@ def create_domain_agent(step_id: str, handler: Callable[[dict[str, Any]], dict[s
             run_id=context.run_id,
             llm_client=llm_client,
         )
-        step_ref = artifact_reference("financial_step_result", f"{step_id}_result.json")
+        step_ref = artifact_reference(
+            "financial_agent_result",
+            f"workflow_state/{agent_id}_result.json",
+            owner=agent_id,
+        )
         artifacts = [step_ref]
         payload: dict[str, Any] = {
-            "step_id": step_id,
             "status": str(result.get("status") or "completed"),
             "result_artifact": step_ref,
         }
@@ -76,7 +79,7 @@ def create_domain_agent(step_id: str, handler: Callable[[dict[str, Any]], dict[s
         return AgentHandlerOutput(
             payload=payload,
             artifacts=tuple(artifacts),
-            metrics={"step_id": step_id},
+            metrics={"agent_id": agent_id},
         )
 
     return create_message_agent(

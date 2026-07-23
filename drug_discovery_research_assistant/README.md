@@ -39,6 +39,13 @@ The dispatcher must accept the job JSON on stdin and return a JSON result or wri
 
 The default user-facing output folder is `~/Downloads/drug_discovery_research_assistant`. While the service runs, it publishes `service_status.json`, the latest generated candidate pool in `candidates.json`, and the latest completed cycle in `latest_cycle_report.json`; detailed per-cycle artifacts remain under the run directory. Service reports are computational hypotheses only. The blueprint does not authorize wet-lab work, clinical claims, regulatory submissions, or external candidate publication without human approval.
 
+## Shared job data
+
+The configured research job seeds bundled knowledge once, then shares
+`knowledge/`, `databases/rag/`, and `state/` across runs without overwriting
+edits. Experimental inputs, outputs, logs, and artifacts remain isolated by
+`run_id`.
+
 ## Validation
 
 ```bash

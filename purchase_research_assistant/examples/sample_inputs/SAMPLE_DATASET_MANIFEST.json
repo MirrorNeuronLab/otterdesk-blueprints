@@ -4,6 +4,7 @@
   "description": "Synthetic local property-search request for testing ZIP-constrained purchase intake, evidence extraction, RAG, and review-only recommendations.",
   "files": [
     {"path": "sample_purchase_request.json", "type": "purchase_request", "contains_pii": false, "intended_use": "offline 03755 property research smoke test"},
-    {"path": "sample_purchase_notes.md", "type": "purchase_notes", "contains_pii": false, "intended_use": "local 03755 property evidence and RAG retrieval smoke test"}
+    {"path": "sample_purchase_notes.md", "type": "purchase_notes", "contains_pii": false, "intended_use": "local 03755 property evidence and RAG retrieval smoke test"},
+    {"path": "sample_property_candidates.json", "type": "synthetic_candidate_snapshots", "contains_pii": false, "intended_use": "constraint, known-cost, disclosure, and evidence-gap comparison"}
   ]
 }

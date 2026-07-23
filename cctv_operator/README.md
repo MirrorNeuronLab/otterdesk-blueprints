@@ -55,6 +55,13 @@ Primary run artifacts under `~/.mn/runs/<run_id>/` are:
 
 The output is decision support. A human must confirm any safety, security, access, or disciplinary response against the original recording or live stream.
 
+## Shared job data
+
+Each configured CCTV job owns persistent `knowledge/`, `databases/rag/`, and
+`state/` resources under its stable `job_id`. Manual and scheduled runs share
+those resources but retain independent inputs, reports, logs, and status. Run
+cleanup never deletes shared resources; reset or deletion is explicit.
+
 ## Repository validation
 
 ```bash

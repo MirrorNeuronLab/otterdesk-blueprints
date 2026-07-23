@@ -20,18 +20,45 @@ _spec = StatefulStepSpec(
     hooks=StepLifecycleHooks(append_event=append_event, runtime_step_mode="agent_invocation"),
 )
 
+_STATE_ARTIFACTS = {
+    "legal_folder_watcher": "workflow_state/legal_matter_state.json",
+    "legal_document_reader": "workflow_state/legal_matter_state.json",
+    "invoice_bill_extractor": "workflow_state/legal_invoice_lane.json",
+    "payable_field_validator": "workflow_state/legal_invoice_lane.json",
+    "contract_clause_extractor": "workflow_state/legal_contract_lane.json",
+    "contract_playbook_comparator": "workflow_state/legal_contract_lane.json",
+    "legal_evidence_reconciler": "workflow_state/legal_review_state.json",
+    "legal_review_auditor": "workflow_state/legal_review_state.json",
+    "legal_reporter": "workflow_state/legal_review_state.json",
+}
 
-def create_domain_agent(name: str, operation: Callable[..., dict[str, Any]]):
+
+def create_domain_agent(agent_id: str, operation: Callable[..., dict[str, Any]]):
     def invoke(context: StatefulStepContext, *, agent_input: AgentInput, **options: Any) -> AgentHandlerOutput:
         result = operation(context.to_mapping(), **options)
-        ref = artifact_reference("legal_workflow_state", "workflow_state/legal_workflow_state.json")
+        ref = artifact_reference(
+            "legal_workflow_state",
+            _STATE_ARTIFACTS[agent_id],
+            owner=agent_id,
+        )
         artifacts = [ref]
-        payload: dict[str, Any] = {"step_id": name, "state_artifact": ref}
+        payload: dict[str, Any] = {
+            "result": {
+                key: value
+                for key, value in result.items()
+                if key not in {"final_artifact", "output_files"}
+            },
+            "state_artifact": ref,
+        }
         if isinstance(result.get("final_artifact"), dict):
             final_ref = artifact_reference("final_artifact", "final_artifact.json")
             artifacts.append(final_ref)
             payload["final_artifact"] = final_ref
-        return AgentHandlerOutput(payload=payload, artifacts=tuple(artifacts), metrics={"step_id": name})
+        return AgentHandlerOutput(
+            payload=payload,
+            artifacts=tuple(artifacts),
+            metrics={"agent_id": agent_id},
+        )
 
     return create_message_agent(
         MessageAgentSpec(
