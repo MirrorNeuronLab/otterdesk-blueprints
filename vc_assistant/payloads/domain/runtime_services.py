@@ -154,6 +154,12 @@ def with_agent_scoped_knowledge_rag_config(
     if not isinstance(raw, dict) or raw.get("enabled") is False:
         return config
 
+    agent_scope = re.sub(
+        r"[^A-Za-z0-9_.-]+", "_", str(agent_id).strip()
+    ).strip("._")
+    if not agent_scope:
+        return config
+
     base_namespace = str(
         raw.get("namespace")
         or os.environ.get("MN_RAG_NAMESPACE")
@@ -161,16 +167,15 @@ def with_agent_scoped_knowledge_rag_config(
     ).strip()
     scoped = {
         **raw,
-        "namespace": f"{base_namespace}_{BLUEPRINT_ID}_{agent_id}",
+        "namespace": f"{base_namespace}_{BLUEPRINT_ID}_{agent_scope}",
     }
-    if raw.get("db_path"):
-        configured_path = Path(str(raw["db_path"]))
-        suffix = configured_path.suffix or ".db"
-        scoped["db_path"] = str(
-            configured_path.with_name(
-                f"{configured_path.stem}_{agent_id}{suffix}"
-            )
+    configured_path = Path(str(raw.get("db_path") or "milvus.db"))
+    suffix = configured_path.suffix or ".db"
+    scoped["db_path"] = str(
+        configured_path.with_name(
+            f"{configured_path.stem}_{agent_scope}{suffix}"
         )
+    )
 
     return {**config, "knowledge_rag": scoped}
 
