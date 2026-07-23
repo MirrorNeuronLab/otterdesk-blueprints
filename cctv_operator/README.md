@@ -37,9 +37,11 @@ Dashboard steering persists only for the current run. “Update watch target” 
 
 The manifest declares a hard NVIDIA CUDA requirement with one GPU and at least 49,152 MB of GPU or unified IGP memory. Eligibility, including DGX Spark unified-memory accounting, is enforced by `mn-python-sdk`; the blueprint does not duplicate that detection logic. There is no CPU or Mac-only execution path.
 
-Frame preparation runs in SDK-managed `MirrorNeuron.Runner.DockerWorker`
-agents on the selected NVIDIA node. Reusable capture, scene scoring, selection,
-batch persistence, and preview relay mechanics come from
+Frame preparation runs in one SDK-managed shared
+`MirrorNeuron.Runner.DockerWorker` on the selected NVIDIA node. The sampler owns
+the exclusive GPU allocation; the detector remains pinned by NVIDIA/CUDA
+capabilities and reuses that GPU-enabled container. Reusable capture, scene
+scoring, selection, batch persistence, and preview relay mechanics come from
 `mirrorneuron-live-video-analysis-skill`; the blueprint retains CCTV steering,
 detection, alert, and report policy. The default Nemotron 3 multimodal model
 requires the declared 48 GB memory floor.

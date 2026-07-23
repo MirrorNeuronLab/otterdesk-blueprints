@@ -56,7 +56,13 @@ events. The workflow never performs physical security actions.
 
 The manifest hard-requires `nvidia`, `cuda`, one NVIDIA GPU, and 49,152 MB or more of GPU/unified IGP memory. `mn-python-sdk` owns cluster resource validation, including DGX Spark unified-memory accounting. The blueprint only declares the requirement and does not implement another hardware probe.
 
-The sampler and detector run in SDK-managed DockerWorkers on the selected NVIDIA node. FFmpeg uses CUDA decode and `scale_cuda` for selected JPEGs. The low-resolution proxy comparison is deterministic local preprocessing, not a model call. No CPU decoder or Mac-only execution fallback exists.
+The sampler and detector run in one SDK-managed shared DockerWorker on the
+selected NVIDIA node. The sampler owns the exclusive GPU device allocation; the
+detector retains NVIDIA/CUDA placement constraints and reuses that GPU-enabled
+container, so a single-GPU node is valid. FFmpeg uses CUDA decode and
+`scale_cuda` for selected JPEGs. The low-resolution proxy comparison is
+deterministic local preprocessing, not a model call. No CPU decoder or Mac-only
+execution fallback exists.
 
 This small FFmpeg CUDA worker is the preferred single-DGX-Spark design. It avoids a large DeepStream service image; DeepStream remains a future option for deployments that need batched multi-camera pipelines, tracker plugins, or high camera density.
 

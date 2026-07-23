@@ -275,7 +275,7 @@ def test_otterdesk_manifests_pin_gar_skill_dependencies():
 
 def test_video_gpu_blueprints_declare_hard_nvidia_cuda_requirements_consistently():
     targets = {
-        "cctv_operator": ("visual_detector", "primary"),
+        "cctv_operator": ("adaptive_frame_sampler", "primary"),
     }
     for blueprint_id, (worker_id, runtime_model_key) in targets.items():
         manifest = _runtime_manifest(ROOT / blueprint_id / "manifest.json")
@@ -1553,7 +1553,19 @@ def test_cctv_operator_uses_dockerworker_nvidia_media_worker():
         assert node["config"]["image"] == "mirror-neuron/cctv-operator:local"
         assert node["config"]["network"] == "mirror-neuron-runtime"
         assert node["config"]["gpus"] == "all"
-        _assert_hard_gpu_worker_requirements(node)
+        assert node["constraints"] == [
+            {
+                "attribute": "capabilities",
+                "operator": "contains_all",
+                "value": ["nvidia", "cuda"],
+            }
+        ]
+    _assert_hard_gpu_worker_requirements(sampler_node)
+    assert not visual_node.get("resources")
+    assert sampler_node["config"]["shared_container"] is True
+    assert sampler_node["config"]["reuse_shared_container"] is True
+    assert visual_node["config"]["shared_container"] is True
+    assert visual_node["config"]["reuse_shared_container"] is True
     assert sampler_node["config"]["command"] == ["bash", "scripts/run_sampler_on_nvidia.sh"]
     assert sampler_node["config"]["workdir"] == "/mn/job/adaptive_frame_sampler"
     assert sampler_node["config"].get("output_message_type") is None

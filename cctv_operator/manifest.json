@@ -200,20 +200,6 @@
         ],
         "display_name": "Visual Target Detector",
         "node_id": "visual_detector",
-        "resources": {
-          "devices": [
-            {
-              "count": 1,
-              "driver": "cuda",
-              "kind": "gpu",
-              "memory_operator": ">=",
-              "min_memory_mb": 49152,
-              "type": "nvidia/gpu",
-              "vendor": "nvidia"
-            }
-          ],
-          "gpu_count": 1
-        },
         "type": "generic"
       },
       {
