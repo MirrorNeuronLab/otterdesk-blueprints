@@ -61,11 +61,14 @@ Outputs are review-only. The blueprint does not file tax returns, make trades, m
 
 ## Model Profiles
 
-Normal runs require the `nemotron3` model and a node with at least 48 GB of
-GPU memory or Apple unified memory. The runtime selects a qualifying node and
-prepares the model automatically. If no node meets that requirement, launch
-fails before workers start; it does not silently fall back to the small default
-model. Explicit fake/quick-test runs do not need the live model.
+Normal runs request the Docker Model Runner proxy's managed `default` model.
+The runtime selects and prepares the medium `nemotron3` catalog model when a
+capable endpoint is advertised, including a DGX Spark with 128 GB of unified
+memory. On smaller machines, the catalog may select the portable small model.
+The blueprint does not pin a concrete runtime model or impose a hard GPU
+requirement, but normal runs still require live model responses and fail rather
+than silently accepting deterministic fallback advice. Explicit fake/quick-test
+runs do not need a live model.
 
 ## Payload layout
 

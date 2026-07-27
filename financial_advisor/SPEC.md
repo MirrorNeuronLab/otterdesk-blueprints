@@ -25,6 +25,17 @@ domain agent—owns source collection, routing, joins, and logical completion.
 
 PDFs and document images use `mirrorneuron-llm-ocr-skill`. Embedded PDF text is preferred when it is substantial; image-only or low-text documents are sent to the shared LightOnOCR-2-1B Docker Model Runner service. The runtime prepares the catalogued OCR model before worker execution; the worker uses the shared endpoint without a Docker CLI. The workflow preserves OCR-required status, extraction method, model metadata, page metadata, and warnings for human review.
 
+## Model selection
+
+Actor-style LLM analysis requests the Docker Model Runner proxy's managed
+`default` model. Runtime model preparation maps that default to the medium
+`nemotron3` catalog model on a qualifying high-memory endpoint, including a
+128 GB DGX Spark, and may use the portable small model on less capable
+machines. The blueprint does not pin a concrete runtime model or hard-require a
+GPU. Live model output is still required during normal runs; deterministic
+financial formulas, evidence gates, and review boundaries do not change with
+the selected model.
+
 ## Outputs
 
 - `final_artifact.json`

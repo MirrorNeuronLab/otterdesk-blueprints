@@ -589,13 +589,10 @@
       "min_gb": 1
     },
     "gpu": {
-      "enforcement": "hard",
-      "memory_operator": ">=",
-      "min_count": 1,
-      "min_memory_mb": 49152
+      "min_count": 0
     },
     "memory": {
-      "min_gb": 48
+      "min_gb": 2
     }
   },
   "skill_dependencies": [
@@ -926,7 +923,7 @@
     "enabled": true,
     "mode": "live",
     "mock_mode": "fake",
-    "model": "nemotron3",
+    "model": "default",
     "backend": "llama.cpp",
     "default_config": "primary",
     "quick_test_uses_fake": true,
@@ -936,8 +933,6 @@
     "configs": {
       "primary": {
         "provider": "docker_model_runner",
-        "model": "nemotron3",
-        "runtime_model": "nemotron3",
         "backend": "llama.cpp",
         "api_base": "auto",
         "timeout_seconds": 60,
@@ -945,8 +940,7 @@
         "num_retries": 2,
         "retry_backoff_seconds": 1.0,
         "mock_mode": "fake",
-        "mode": "live",
-        "required": true
+        "mode": "live"
       }
     },
     "agents": {

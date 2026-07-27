@@ -28,16 +28,11 @@ def test_financial_manifest_compiles_ordered_regulated_state_pipeline():
     expanded = expanded_manifest("financial_advisor")
     primary_llm = source["llm"]["configs"]["primary"]
 
-    assert source["llm"]["model"] == "nemotron3"
-    assert primary_llm["model"] == "nemotron3"
-    assert primary_llm["runtime_model"] == "nemotron3"
-    assert source["requirements"]["memory"]["min_gb"] == 48
-    assert source["requirements"]["gpu"] == {
-        "enforcement": "hard",
-        "memory_operator": ">=",
-        "min_count": 1,
-        "min_memory_mb": 49152,
-    }
+    assert source["llm"]["model"] == "default"
+    assert "model" not in primary_llm
+    assert "runtime_model" not in primary_llm
+    assert source["requirements"]["memory"]["min_gb"] == 2
+    assert source["requirements"]["gpu"] == {"min_count": 0}
     assert [step["id"] for step in source["workflow"]["steps"]] == EXPECTED_STEPS
     assert [step.get("needs", []) for step in source["workflow"]["steps"]] == [
         [],
