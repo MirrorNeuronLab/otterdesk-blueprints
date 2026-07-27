@@ -1775,7 +1775,7 @@
         "web_ui.json"
       ],
       "steering_action": "/actions/steer-monitoring",
-      "preview_path": "/preview/stream.m3u8"
+      "preview_config": "web_ui.preview.url"
     }
   },
   "requirements": {

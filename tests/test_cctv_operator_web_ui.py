@@ -125,6 +125,96 @@ def test_cctv_ui_state_redacts_stream_credentials(tmp_path: Path):
     assert state["metrics"]["instruction revision"] == 3
 
 
+def test_cctv_ui_state_prefers_durable_monitoring_state(tmp_path: Path):
+    (tmp_path / "monitoring_state.json").write_text(
+        json.dumps(
+            {
+                "schema": "otterdesk.cctv_operator.monitoring_state.v1",
+                "instruction": "Monitor the left doorway.",
+                "instruction_revision": 4,
+                "last_command_id": "command-four",
+                "updated_at": 42.0,
+            }
+        )
+    )
+    service = cctv_web_ui.CCTVWebUIService(
+        run_id="run-1",
+        run_dir=tmp_path,
+        config={},
+        send_run_input=lambda *_args: {},
+    )
+
+    state = service.ui_state()
+
+    assert state["metrics"]["watch target"] == "Monitor the left doorway."
+    assert state["metrics"]["instruction revision"] == 4
+
+
+def test_cctv_ui_uses_external_browser_preview_without_local_relay(
+    tmp_path: Path,
+):
+    preview_url = "http://camera-gateway:8888/cctv/index.m3u8"
+    service = cctv_web_ui.CCTVWebUIService(
+        run_id="run-1",
+        run_dir=tmp_path,
+        config={
+            "web_ui": {
+                "preview": {
+                    "enabled": True,
+                    "url": preview_url,
+                }
+            }
+        },
+        send_run_input=lambda *_args: {},
+    )
+
+    preview = service.application.spec["elements"]["preview-video"]
+    assert preview["type"] == "Video"
+    assert preview["props"]["source"] == preview_url
+    assert service.ui_state()["metrics"]["preview"] == "external"
+    assert all(
+        mount.url_prefix != "/preview"
+        for mount in service.application.static_mounts
+    )
+    assert not (tmp_path / "preview_relay").exists()
+
+
+def test_cctv_ui_without_preview_url_keeps_analysis_available(tmp_path: Path):
+    service = cctv_web_ui.CCTVWebUIService(
+        run_id="run-1",
+        run_dir=tmp_path,
+        config={},
+        send_run_input=lambda *_args: {},
+    )
+
+    preview = service.application.spec["elements"]["preview-video"]
+    state = service.ui_state()
+    assert preview["type"] == "Text"
+    assert state["metrics"]["preview"] == "unavailable"
+    assert "not configured" in state["warning"]
+
+
+@pytest.mark.parametrize(
+    "preview_url",
+    [
+        "rtsp://camera/live",
+        "http://user:secret@camera/live/index.m3u8",
+        "/preview/stream.m3u8",
+    ],
+)
+def test_cctv_ui_rejects_non_browser_safe_preview_urls(
+    tmp_path: Path,
+    preview_url: str,
+):
+    with pytest.raises(ValueError, match="web_ui.preview.url"):
+        cctv_web_ui.CCTVWebUIService(
+            run_id="run-1",
+            run_dir=tmp_path,
+            config={"web_ui": {"preview": {"url": preview_url}}},
+            send_run_input=lambda *_args: {},
+        )
+
+
 def test_cctv_ui_host_and_port_config_update_runtime_service_contract():
     blueprint = ROOT / "cctv_operator"
     source = json.loads((blueprint / "manifest.json").read_text())

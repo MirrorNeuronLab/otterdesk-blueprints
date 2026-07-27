@@ -5,15 +5,14 @@ import json
 import os
 import signal
 import threading
+import urllib.parse
 from collections import deque
 from pathlib import Path
 from typing import Any, Callable
 
 import grpc
 from mn_live_video_analysis_skill import (
-    LivePreviewRelay,
     redact_source_urls,
-    validate_stream_uri,
 )
 from mn_sdk import Client
 from mn_web_ui_skill import (
@@ -84,7 +83,69 @@ def validate_steering_payload(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def build_ui_spec() -> dict[str, Any]:
+def validate_preview_url(value: Any) -> str:
+    url = str(value or "").strip()
+    if not url:
+        return ""
+    if len(url) > 2048:
+        raise ValueError("web_ui.preview.url must not exceed 2048 characters")
+    parsed = urllib.parse.urlsplit(url)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise ValueError(
+            "web_ui.preview.url must be an absolute HTTP(S) URL"
+        )
+    if parsed.username is not None or parsed.password is not None:
+        raise ValueError(
+            "web_ui.preview.url must not contain embedded credentials"
+        )
+    return url
+
+
+def preview_config(config: dict[str, Any]) -> tuple[str, str, str]:
+    web_ui = config.get("web_ui")
+    web_ui = web_ui if isinstance(web_ui, dict) else {}
+    preview = web_ui.get("preview")
+    preview = preview if isinstance(preview, dict) else {}
+    if not bool(preview.get("enabled", True)):
+        return "", "disabled", ""
+    url = validate_preview_url(preview.get("url"))
+    if not url:
+        return (
+            "",
+            "unavailable",
+            (
+                "Live preview URL is not configured; sparse analysis "
+                "remains active."
+            ),
+        )
+    return url, "external", ""
+
+
+def build_ui_spec(preview_url: str = "") -> dict[str, Any]:
+    preview_element = (
+        {
+            "type": "Video",
+            "props": {
+                "source": preview_url,
+                "label": (
+                    "Preview is observational. Analysis uses sparse "
+                    "selected frame batches."
+                ),
+            },
+            "children": [],
+        }
+        if preview_url
+        else {
+            "type": "Text",
+            "props": {
+                "text": (
+                    "No browser-safe preview URL is configured. "
+                    "Video analysis continues independently."
+                )
+            },
+            "children": [],
+        }
+    )
     return {
         "root": "app",
         "elements": {
@@ -114,17 +175,7 @@ def build_ui_spec() -> dict[str, Any]:
                 "props": {"title": "Live source preview", "span": 8},
                 "children": ["preview-video"],
             },
-            "preview-video": {
-                "type": "Video",
-                "props": {
-                    "source": "/preview/stream.m3u8",
-                    "label": (
-                        "Preview is observational. Analysis uses sparse "
-                        "selected frame batches."
-                    ),
-                },
-                "children": [],
-            },
+            "preview-video": preview_element,
             "controls": {
                 "type": "Card",
                 "props": {"title": "Steer monitoring", "span": 4},
@@ -217,14 +268,14 @@ class CCTVWebUIService:
         self.run_dir = run_dir
         self.config = config
         self.send_run_input = send_run_input
-        self.preview_dir = run_dir / "preview_relay"
-        self.preview: LivePreviewRelay | None = None
-        source = self._source_uri()
-        if source and self._preview_enabled():
-            self.preview = LivePreviewRelay(source, self.preview_dir)
+        (
+            self.preview_url,
+            self.preview_status,
+            self.preview_warning,
+        ) = preview_config(config)
         self.application = JsonRenderApplication(
             title="CCTV Operator",
-            spec=build_ui_spec(),
+            spec=build_ui_spec(self.preview_url),
             state_provider=self.ui_state,
             actions={STEERING_ACTION: self.steer_monitoring},
             static_mounts=(
@@ -238,7 +289,6 @@ class CCTVWebUIService:
                         }
                     ),
                 ),
-                StaticMount("/preview", self.preview_dir),
             ),
         )
 
@@ -295,22 +345,18 @@ class CCTVWebUIService:
         )
         latest_batch = _latest_event(events, "cctv_operator_frame_batch_ready")
         attention_payload = _event_payload(latest_attention)
-        batch_payload = _event_payload(latest_batch)
-        preview_status = (
-            self.preview.status()
-            if self.preview is not None
-            else {
-                "status": "disabled",
-                "playlist_ready": False,
-                "warning": (
-                    "Preview relay is unavailable; sparse analysis remains active."
-                ),
-            }
+        monitoring_state = read_monitoring_state(
+            self.run_dir / "monitoring_state.json"
         )
+        if int(monitoring_state.get("instruction_revision") or 0) >= int(
+            attention_payload.get("instruction_revision") or 0
+        ):
+            attention_payload = monitoring_state
+        batch_payload = _event_payload(latest_batch)
         return {
             "metrics": {
                 "run": self.run_id,
-                "preview": preview_status.get("status", "unknown"),
+                "preview": self.preview_status,
                 "instruction revision": attention_payload.get(
                     "instruction_revision", 0
                 ),
@@ -319,32 +365,9 @@ class CCTVWebUIService:
                 "latest trigger": batch_payload.get("trigger", "waiting"),
                 "selected frames": batch_payload.get("selected_count", 0),
             },
-            "warning": preview_status.get("warning", ""),
+            "warning": self.preview_warning,
             "events": [_public_event(event) for event in events[-50:]],
         }
-
-    def start_preview(self) -> None:
-        if self.preview is not None:
-            self.preview.start()
-
-    def stop_preview(self) -> None:
-        if self.preview is not None:
-            self.preview.stop()
-
-    def _source_uri(self) -> str:
-        source = self.config.get("video_source")
-        source = source if isinstance(source, dict) else {}
-        try:
-            return validate_stream_uri(source.get("uri"))
-        except ValueError:
-            return ""
-
-    def _preview_enabled(self) -> bool:
-        web_ui = self.config.get("web_ui")
-        web_ui = web_ui if isinstance(web_ui, dict) else {}
-        preview = web_ui.get("preview")
-        preview = preview if isinstance(preview, dict) else {}
-        return bool(preview.get("enabled", True))
 
 
 def read_event_tail(path: Path, *, limit: int) -> list[dict[str, Any]]:
@@ -364,6 +387,29 @@ def read_event_tail(path: Path, *, limit: int) -> list[dict[str, Any]]:
     except OSError:
         return []
     return list(rows)
+
+
+def read_monitoring_state(path: Path) -> dict[str, Any]:
+    try:
+        decoded = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    if not isinstance(decoded, dict):
+        return {}
+    instruction = decoded.get("instruction")
+    revision = decoded.get("instruction_revision")
+    if not isinstance(instruction, str):
+        return {}
+    try:
+        normalized_revision = max(int(revision or 0), 0)
+    except (TypeError, ValueError):
+        return {}
+    return {
+        "instruction": " ".join(instruction.split())[:500],
+        "instruction_revision": normalized_revision,
+        "updated_at": decoded.get("updated_at"),
+        "command_id": str(decoded.get("last_command_id") or "")[:500],
+    }
 
 
 def _latest_event(
@@ -466,25 +512,20 @@ def main() -> int:
         metadata={
             "listen_host": host,
             "listen_port": port,
-            "preview_url": f"{public_url}/preview/stream.m3u8",
+            "preview_url": service.preview_url,
             "latest_analyzed_frame_url": (
                 f"{public_url}/artifacts/latest_analyzed_frame.jpg"
             ),
             "steering_action": f"{public_url}/actions/{STEERING_ACTION}",
         },
     )
-    service.start_preview()
 
     def stop(_signum: int, _frame: Any) -> None:
-        service.stop_preview()
         threading.Thread(target=server.stop, daemon=True).start()
 
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGINT, stop)
-    try:
-        server.serve_forever()
-    finally:
-        service.stop_preview()
+    server.serve_forever()
     return 0
 
 

@@ -44,6 +44,7 @@ from domain.monitoring import (
     apply_steering_command,
     initial_monitoring_state,
     is_steering_command,
+    write_monitoring_state,
 )
 from mn_blueprint_support import start_agent_beacon_thread
 from mn_live_video_analysis_skill import (
@@ -186,6 +187,7 @@ def main() -> int:
     state["monitoring"] = monitoring
 
     try:
+        write_monitoring_state(run_dir(), monitoring)
         result = AdaptiveStreamSampler(
             run_dir=run_dir(),
             policy=policy,

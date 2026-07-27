@@ -9,8 +9,8 @@ the blueprint-owned UI service.
 
 Set an approved RTSP/RTMP URI during init review. This sample directory does
 not automatically start, map, or substitute a local stream. On a test host
-with Docker, FFmpeg, and FFprobe installed, publish `sample.mp4` as a looping
-RTSP stream with:
+with Docker, FFmpeg, FFprobe, and curl installed, publish `sample.mp4` as a
+looping RTSP stream and expose MediaMTX's HLS proxy with:
 
 ```bash
 ./cctv_operator/scripts/sample_rtsp.sh start
@@ -18,6 +18,8 @@ RTSP stream with:
 ./cctv_operator/scripts/sample_rtsp.sh stop
 ```
 
-The start command prints the host-reachable RTSP URI to use for
-`video_source.uri`. Set `CCTV_SAMPLE_RTSP_HOST` when the automatically detected
-host address is not reachable from the blueprint's DockerWorker.
+The start command prints the host-reachable RTSP URI for `video_source.uri`,
+the browser-safe HLS URL for `web_ui.preview.url`, and a complete run command.
+Set `CCTV_SAMPLE_RTSP_HOST` when the automatically detected host address is not
+reachable from either the blueprint's DockerWorker or the operator's browser.
+Use `CCTV_SAMPLE_HLS_PORT` to change the default HLS port `8888`.

@@ -1686,12 +1686,14 @@ def test_cctv_operator_owns_json_render_web_ui_and_uses_generic_skills():
     assert "folder_path" not in config["video_source"]
     assert config["web_ui"]["renderer"] == "json-render"
     assert config["web_ui"]["preview"]["optional"] is True
+    assert config["web_ui"]["preview"]["url"] == ""
 
     manifest_web_ui = manifest["metadata"]["web_ui"]
     assert manifest_web_ui["adapter"] == "json-render"
     assert manifest_web_ui["node_id"] == "cctv_web_ui"
     assert manifest_web_ui["registration"]["module"] == "cctv_web_ui"
     assert manifest_web_ui["steering_action"] == "/actions/steer-monitoring"
+    assert manifest_web_ui["preview_config"] == "web_ui.preview.url"
     assert "/api/v1/runs" not in json.dumps(manifest_web_ui)
 
     web_ui_node = next(

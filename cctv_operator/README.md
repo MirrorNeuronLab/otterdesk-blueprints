@@ -16,7 +16,9 @@ sent to the model.
 Set `video_source.uri` to one reachable `rtsp://`, `rtsps://`, `rtmp://`, or
 `rtmps://` URI during init review. File and folder sources are rejected.
 Visual targets, alert policy, sampling thresholds, output folder, UI port, and
-preview enablement remain configurable.
+preview enablement remain configurable. Browsers cannot consume RTSP directly,
+so set `web_ui.preview.url` separately to a browser-safe HTTP(S) media URL such
+as an HLS playlist.
 
 ## Adaptive monitoring
 
@@ -41,7 +43,7 @@ Frame preparation runs in one SDK-managed shared
 `MirrorNeuron.Runner.DockerWorker` on the selected NVIDIA node. The sampler owns
 the exclusive GPU allocation; the detector remains pinned by NVIDIA/CUDA
 capabilities and reuses that GPU-enabled container. Reusable capture, scene
-scoring, selection, batch persistence, and preview relay mechanics come from
+scoring, selection, and batch persistence mechanics come from
 `mirrorneuron-live-video-analysis-skill`; the blueprint retains CCTV steering,
 detection, alert, and report policy. The default Nemotron 3 multimodal model
 requires the declared 48 GB memory floor. Docker Model Runner inference disables
@@ -54,7 +56,7 @@ The blueprint owns a HostLocal `cctv_web_ui` service rendered with
 `vercel-labs/json-render` through the generic
 `mirrorneuron-web-ui-skill`. It shows:
 
-- an optional browser-safe live preview relay;
+- an optional browser-safe live preview supplied by the stream gateway;
 - `latest_analyzed_frame.jpg`, labelled by its batch metadata;
 - controls for updating or clearing the monitoring instruction; and
 - live sampling, backpressure, observation, and report events.
@@ -62,12 +64,17 @@ The blueprint owns a HostLocal `cctv_web_ui` service rendered with
 The blueprint service owns `/actions/steer-monitoring`, validates the
 CCTV-specific payload, and submits the declared live input directly to Core
 over the SDK gRPC client. `mn-api` does not expose a CCTV steering route.
-The preview relay is optional and analysis continues if it is unavailable.
-Camera credentials remain server-side and are redacted from browser URLs and
-events. The dashboard shows the active watch target and accepts a new
-plain-language monitoring prompt at any time. Changing `web_ui.service.host`
-or `web_ui.service.port` updates both the HostLocal listener and the runtime's
-declared service and health-check contract.
+The HostLocal UI does not decode or relay media and therefore does not require
+FFmpeg. `web_ui.preview.url` points at HLS or another browser-safe HTTP(S) URL
+provided by the camera gateway; preview is optional and analysis continues if
+it is absent. Camera credentials remain server-side and are redacted from
+browser URLs and events. The dashboard shows the active watch target and
+accepts a new plain-language monitoring prompt at any time. Changing
+`web_ui.service.host` or `web_ui.service.port` updates both the HostLocal
+listener and the runtime's declared service and health-check contract.
+The sampler durably writes the current run-scoped instruction to
+`monitoring_state.json`, which the dashboard uses as its authoritative watch
+target instead of depending on transient event relay files.
 
 ## Run and inspect
 
@@ -91,8 +98,16 @@ control to reachable peers. Use a firewall or trusted network boundary.
 From this folder:
 
 ```bash
-mn blueprint run --folder . --web-ui
+mn blueprint run --folder . \
+  --set video_source.uri=rtsp://camera.example/live \
+  --set web_ui.preview.url=https://gateway.example/live/index.m3u8 \
+  --web-ui
 ```
+
+For local development,
+`./cctv_operator/scripts/sample_rtsp.sh start` publishes the sample over RTSP
+and exposes MediaMTX's HLS proxy. It prints both `--set` values for the run
+command.
 
 Inspect recent state:
 
@@ -103,6 +118,7 @@ mn blueprint monitor --follow
 Primary run artifacts under `~/.mn/runs/<run_id>/` are:
 
 - `events.jsonl`
+- `monitoring_state.json`
 - `cctv_report.json`
 - `cctv_report.md`
 - `final_artifact.json`

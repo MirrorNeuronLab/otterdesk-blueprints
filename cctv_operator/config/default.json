@@ -828,7 +828,8 @@
     },
     "preview": {
       "enabled": true,
-      "optional": true
+      "optional": true,
+      "url": ""
     },
     "refresh_seconds": 1
   }

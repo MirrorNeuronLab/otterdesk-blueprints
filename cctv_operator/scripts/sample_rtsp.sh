@@ -7,6 +7,7 @@ BLUEPRINT_DIR="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 CONTAINER_NAME="${CCTV_SAMPLE_RTSP_CONTAINER:-cctv-sample-rtsp}"
 MEDIAMTX_IMAGE="${CCTV_SAMPLE_RTSP_IMAGE:-bluenviron/mediamtx:latest}"
 RTSP_PORT="${CCTV_SAMPLE_RTSP_PORT:-8554}"
+HLS_PORT="${CCTV_SAMPLE_HLS_PORT:-8888}"
 RTSP_PATH="${CCTV_SAMPLE_RTSP_PATH:-cctv-sample}"
 STATE_DIR="${CCTV_SAMPLE_RTSP_STATE_DIR:-${TMPDIR:-/tmp}/cctv-sample-rtsp-${USER:-user}}"
 PID_FILE="${STATE_DIR}/ffmpeg.pid"
@@ -20,13 +21,15 @@ Usage:
   sample_rtsp.sh stop
   sample_rtsp.sh status
 
-Starts a MediaMTX RTSP server and publishes a looping sample video with
-FFmpeg. The default video is examples/sample_inputs/sample.mp4.
+Starts a MediaMTX RTSP server, publishes a looping sample video with FFmpeg,
+and exposes MediaMTX's browser-safe HLS proxy. The default video is
+examples/sample_inputs/sample.mp4.
 
 Optional environment variables:
   CCTV_SAMPLE_VIDEO              Default input video path
   CCTV_SAMPLE_RTSP_HOST          Host/IP printed for DockerWorker access
   CCTV_SAMPLE_RTSP_PORT          Host RTSP port (default: 8554)
+  CCTV_SAMPLE_HLS_PORT           Host HLS port (default: 8888)
   CCTV_SAMPLE_RTSP_PATH          RTSP stream path (default: cctv-sample)
   CCTV_SAMPLE_RTSP_CONTAINER     MediaMTX container name
   CCTV_SAMPLE_RTSP_IMAGE         MediaMTX image
@@ -62,6 +65,16 @@ public_host() {
 
 public_rtsp_url() {
   printf 'rtsp://%s:%s/%s' "$(public_host)" "${RTSP_PORT}" "${RTSP_PATH}"
+}
+
+local_preview_url() {
+  printf 'http://127.0.0.1:%s/%s/index.m3u8' \
+    "${HLS_PORT}" "${RTSP_PATH}"
+}
+
+public_preview_url() {
+  printf 'http://%s:%s/%s/index.m3u8' \
+    "$(public_host)" "${HLS_PORT}" "${RTSP_PATH}"
 }
 
 container_exists() {
@@ -154,6 +167,24 @@ wait_for_stream() {
   return 1
 }
 
+wait_for_preview() {
+  local preview_url="$1"
+  for _ in {1..30}; do
+    if curl \
+      --fail \
+      --location \
+      --silent \
+      --show-error \
+      --max-time 2 \
+      "${preview_url}" >/dev/null 2>&1; then
+      return 0
+    fi
+    recorded_publisher_is_running || return 1
+    sleep 1
+  done
+  return 1
+}
+
 print_status() {
   require_command docker
 
@@ -173,6 +204,7 @@ print_status() {
 
   if container_is_running && recorded_publisher_is_running; then
     echo "RTSP URL: $(public_rtsp_url)"
+    echo "Browser preview URL: $(public_preview_url)"
   fi
 }
 
@@ -184,10 +216,14 @@ start_all() {
   require_command docker
   require_command ffmpeg
   require_command ffprobe
+  require_command curl
   require_command ps
 
   [[ "${RTSP_PORT}" =~ ^[0-9]+$ ]] || fail "CCTV_SAMPLE_RTSP_PORT must be numeric"
   ((RTSP_PORT >= 1 && RTSP_PORT <= 65535)) || fail "CCTV_SAMPLE_RTSP_PORT must be between 1 and 65535"
+  [[ "${HLS_PORT}" =~ ^[0-9]+$ ]] || fail "CCTV_SAMPLE_HLS_PORT must be numeric"
+  ((HLS_PORT >= 1 && HLS_PORT <= 65535)) || fail "CCTV_SAMPLE_HLS_PORT must be between 1 and 65535"
+  [[ "${HLS_PORT}" != "${RTSP_PORT}" ]] || fail "CCTV_SAMPLE_HLS_PORT must differ from CCTV_SAMPLE_RTSP_PORT"
   [[ -n "${RTSP_PATH}" ]] || fail "CCTV_SAMPLE_RTSP_PATH must not be empty"
   [[ "${RTSP_PATH}" != /* ]] || fail "CCTV_SAMPLE_RTSP_PATH must not begin with '/'"
   [[ -f "${video_file}" ]] || fail "sample video not found: ${video_file}"
@@ -195,6 +231,7 @@ start_all() {
   if container_is_running && recorded_publisher_is_running; then
     echo "Sample RTSP stream is already running."
     echo "RTSP URL: $(public_rtsp_url)"
+    echo "Browser preview URL: $(public_preview_url)"
     return
   fi
 
@@ -213,6 +250,7 @@ start_all() {
     --detach \
     --name "${CONTAINER_NAME}" \
     --publish "${RTSP_PORT}:8554" \
+    --publish "${HLS_PORT}:8888" \
     "${MEDIAMTX_IMAGE}" >/dev/null
 
   if ! wait_for_rtsp_server; then
@@ -252,12 +290,23 @@ start_all() {
     exit 1
   fi
 
+  if ! wait_for_preview "$(local_preview_url)"; then
+    echo "MediaMTX did not expose a playable HLS preview." >&2
+    stop_publisher
+    stop_server
+    exit 1
+  fi
+
   echo "Sample RTSP stream is ready."
   echo "RTSP URL: $(public_rtsp_url)"
+  echo "Browser preview URL: $(public_preview_url)"
   echo "FFmpeg log: ${FFMPEG_LOG}"
   echo
   echo "Run the blueprint with:"
-  echo "  mn blueprint run --folder \"${BLUEPRINT_DIR}\" --set video_source.uri=$(public_rtsp_url) --debug --web-ui"
+  echo "  mn blueprint run --folder \"${BLUEPRINT_DIR}\" \\"
+  echo "    --set video_source.uri=$(public_rtsp_url) \\"
+  echo "    --set web_ui.preview.url=$(public_preview_url) \\"
+  echo "    --debug --web-ui"
 }
 
 action="${1:-}"
