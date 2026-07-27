@@ -213,7 +213,7 @@
           "beacon_timeout_ms": 45000,
           "command": [
             "python3.11",
-            "scripts/write_cctv_report.py"
+            "agents/report_writer/scripts/write_cctv_report.py"
           ],
           "environment": {},
           "from": "base",
@@ -224,19 +224,9 @@
           "pool_slots": 1,
           "runner_module": "MirrorNeuron.Runner.HostLocal",
           "tty": false,
-          "upload_as": "report_writer",
-          "upload_path": "report_writer",
-          "upload_paths": [
-            {
-              "source": "agents/report_writer",
-              "target": "report_writer"
-            },
-            {
-              "source": "domain",
-              "target": "report_writer/domain"
-            }
-          ],
-          "workdir": "/sandbox/job/report_writer"
+          "upload_as": ".",
+          "upload_path": ".",
+          "workdir": "/sandbox/job"
         },
         "display_name": "CCTV Report Writer",
         "node_id": "report_writer",
@@ -248,7 +238,7 @@
         "config": {
           "command": [
             "python3.11",
-            "cctv_web_ui.py"
+            "services/cctv_web_ui.py"
           ],
           "environment": {},
           "from": "base",
@@ -259,9 +249,9 @@
           "pool_slots": 1,
           "runner_module": "MirrorNeuron.Runner.HostLocal",
           "tty": false,
-          "upload_as": "cctv_web_ui",
-          "upload_path": "services",
-          "workdir": "/sandbox/job/cctv_web_ui"
+          "upload_as": ".",
+          "upload_path": ".",
+          "workdir": "/sandbox/job"
         },
         "display_name": "CCTV Web UI",
         "node_id": "cctv_web_ui",
@@ -861,24 +851,15 @@
           "with": {
             "command": [
               "python3.11",
-              "scripts/write_cctv_report.py"
+              "agents/report_writer/scripts/write_cctv_report.py"
             ],
             "environment": {},
             "output_message_type": "cctv_operator_report_ready",
             "runner_module": "MirrorNeuron.Runner.HostLocal",
-            "script": "scripts/write_cctv_report.py",
-            "upload_path": "report_writer",
-            "upload_paths": [
-              {
-                "source": "agents/report_writer",
-                "target": "report_writer"
-              },
-              {
-                "source": "domain",
-                "target": "report_writer/domain"
-              }
-            ],
-            "workdir": "/sandbox/job/report_writer"
+            "script": "agents/report_writer/scripts/write_cctv_report.py",
+            "upload_as": ".",
+            "upload_path": ".",
+            "workdir": "/sandbox/job"
           }
         }
       ]

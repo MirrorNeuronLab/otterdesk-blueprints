@@ -1698,7 +1698,12 @@ def test_cctv_operator_owns_json_render_web_ui_and_uses_generic_skills():
     )
     assert web_ui_node["type"] == "stream"
     assert web_ui_node["config"]["runner_module"] == "MirrorNeuron.Runner.HostLocal"
-    assert web_ui_node["config"]["upload_path"] == "services"
+    assert web_ui_node["config"]["upload_path"] == "."
+    assert web_ui_node["config"]["workdir"] == "/sandbox/job"
+    assert web_ui_node["config"]["command"] == [
+        "python3.11",
+        "services/cctv_web_ui.py",
+    ]
     assert web_ui_node["services"][0]["name"] == "cctv-operator-web-ui"
     assert "cctv_web_ui" in manifest["agents"]["entrypoints"]
 

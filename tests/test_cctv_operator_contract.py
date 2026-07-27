@@ -4,6 +4,10 @@ import json
 from pathlib import Path
 
 from mn_sdk import run_input_validation
+from mn_sdk.submission_preparation import (
+    manifest_nodes,
+    prepare_manifest_for_submission,
+)
 from otterdesk_blueprint_suite import (
     test_cctv_operator_declares_domain_agent_aliases,
     test_cctv_operator_declares_otterdesk_chat_system_prompt,
@@ -42,3 +46,31 @@ def test_cctv_operator_rejects_empty_stream_before_submission(tmp_path):
     assert report["ok"] is False
     assert report["issues"][0]["code"] == "config.invalid_scheme"
     assert report["issues"][0]["location"]["path"] == "video_source.uri"
+
+
+def test_cctv_hostlocal_commands_use_the_normalized_payload_root(
+    monkeypatch, tmp_path
+):
+    blueprint = ROOT / "cctv_operator"
+    source = json.loads((blueprint / "manifest.json").read_text())
+    monkeypatch.setenv("MN_ENV", "dev")
+    monkeypatch.setenv("MN_HOME", str(tmp_path / ".mn"))
+    monkeypatch.setenv("MN_WORKSPACE_ROOT", str(ROOT.parent))
+    monkeypatch.setenv("MN_SKILLS_ROOT", str(ROOT.parent / "mn-skills"))
+    monkeypatch.setenv("MN_AGENTS_ROOT", str(ROOT.parent / "mn-agents"))
+
+    prepared = prepare_manifest_for_submission(blueprint, source)
+    nodes = {
+        node["node_id"]: node
+        for node in manifest_nodes(prepared)
+        if node.get("node_id") in {"report_writer", "cctv_web_ui"}
+    }
+
+    assert set(nodes) == {"report_writer", "cctv_web_ui"}
+    for node in nodes.values():
+        config = node["config"]
+        assert config["upload_path"] == "."
+        assert config["upload_as"] == "."
+        assert config["workdir"] == "/sandbox/job"
+        assert "upload_paths" not in config
+        assert (blueprint / "payloads" / config["command"][1]).is_file()
