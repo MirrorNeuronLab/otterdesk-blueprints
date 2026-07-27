@@ -62,7 +62,8 @@ CCTV-specific payload, and submits the declared live input directly to Core
 over the SDK gRPC client. `mn-api` does not expose a CCTV steering route.
 The preview relay is optional and analysis continues if it is unavailable.
 Camera credentials remain server-side and are redacted from browser URLs and
-events.
+events. Changing `web_ui.service.port` updates both the HostLocal listener and
+the runtime's declared port and health-check contract.
 
 ## Run and inspect
 

@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from mn_sdk import apply_manifest_config_bindings, expand_manifest_source
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -105,3 +106,21 @@ def test_cctv_ui_state_redacts_stream_credentials(tmp_path: Path):
     assert "secret" not in encoded
     assert "token=" not in encoded
     assert state["metrics"]["latest trigger"] == "scene_event"
+
+
+def test_cctv_ui_port_config_updates_runtime_resource_and_service_contract():
+    blueprint = ROOT / "cctv_operator"
+    source = json.loads((blueprint / "manifest.json").read_text())
+    manifest = expand_manifest_source(source, root_dir=blueprint)
+    config = json.loads((blueprint / "config" / "default.json").read_text())
+    config["web_ui"]["service"]["port"] = 61017
+
+    apply_manifest_config_bindings(manifest, config)
+
+    node = next(
+        item
+        for item in manifest["agents"]["nodes"]
+        if item["node_id"] == "cctv_web_ui"
+    )
+    assert node["resources"]["ports"][0]["port"] == 61017
+    assert node["services"][0]["port"] == 61017

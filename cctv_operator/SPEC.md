@@ -79,7 +79,9 @@ The service uses the optional relay from
 Relay failure is visible but never stops sampling. The UI separately renders
 `latest_analyzed_frame.jpg` so the operator can distinguish the smooth preview
 from model evidence. There is no Gradio path and no `mn-api` live-input REST
-route.
+route. The operator-facing `web_ui.service.port` setting is projected into the
+HostLocal port reservation and service health declaration as one runtime
+contract.
 
 ## Persistent job data
 
