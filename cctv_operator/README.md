@@ -44,7 +44,9 @@ capabilities and reuses that GPU-enabled container. Reusable capture, scene
 scoring, selection, batch persistence, and preview relay mechanics come from
 `mirrorneuron-live-video-analysis-skill`; the blueprint retains CCTV steering,
 detection, alert, and report policy. The default Nemotron 3 multimodal model
-requires the declared 48 GB memory floor.
+requires the declared 48 GB memory floor. Docker Model Runner inference disables
+reasoning for this bounded structured-detection call; invalid or reasoning-only
+responses surface as analysis failures instead of false “no detection” records.
 
 ## Web UI
 

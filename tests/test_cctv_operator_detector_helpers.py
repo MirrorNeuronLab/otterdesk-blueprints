@@ -101,7 +101,7 @@ def test_detector_uses_vision_model_defaults(monkeypatch):
     assert detector._normalize_vlm_model("docker.io/ai/nemotron3:latest") == "nemotron3"
 
 
-def test_openai_vlm_uses_portable_openai_fields_and_normalizes_model_variants(monkeypatch):
+def test_dmr_vlm_disables_reasoning_and_normalizes_model_variants(monkeypatch):
     detector = _load_detector()
     captured = {}
     model_content = {
@@ -150,7 +150,7 @@ def test_openai_vlm_uses_portable_openai_fields_and_normalizes_model_variants(mo
 
     result = detector.call_ollama(b"jpeg", "inspect the frame")
 
-    assert "chat_template_kwargs" not in captured
+    assert captured["chat_template_kwargs"] == {"enable_thinking": False}
     assert captured["max_tokens"] == 900
     assert captured["url"] == "http://model.example/engines/v1/chat/completions"
     assert result["detected_target"] is True
@@ -176,6 +176,7 @@ def test_litellm_vlm_preserves_v1_openai_endpoint(monkeypatch):
     def fake_urlopen(request, timeout):
         captured["url"] = request.full_url
         captured["timeout"] = timeout
+        captured["payload"] = json.loads(request.data.decode())
         return FakeResponse()
 
     monkeypatch.setenv("MN_VLM_PROVIDER", "litellm")
@@ -186,4 +187,60 @@ def test_litellm_vlm_preserves_v1_openai_endpoint(monkeypatch):
     result = detector.call_ollama(b"jpeg", "inspect the frame")
 
     assert captured["url"] == "http://mn-litellm-proxy:4000/v1/chat/completions"
+    assert "chat_template_kwargs" not in captured["payload"]
     assert result["detected"] is False
+
+
+def test_dmr_vlm_rejects_reasoning_only_response(monkeypatch):
+    detector = _load_detector()
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read(self):
+            return json.dumps(
+                {
+                    "choices": [
+                        {
+                            "finish_reason": "length",
+                            "message": {
+                                "content": "",
+                                "reasoning_content": "I can see three people.",
+                            },
+                        }
+                    ]
+                }
+            ).encode()
+
+    monkeypatch.setenv("MN_VLM_PROVIDER", "docker_model_runner")
+    monkeypatch.setattr(detector.urllib.request, "urlopen", lambda *_args, **_kwargs: FakeResponse())
+
+    with pytest.raises(
+        RuntimeError,
+        match=r"finish_reason=length, reasoning_only=true",
+    ):
+        detector.call_ollama(b"jpeg", "inspect the frame")
+
+
+def test_normalize_detection_accepts_visible_color():
+    detector = _load_detector()
+
+    result = detector.normalize_detection(
+        {
+            "detected": True,
+            "detections": [
+                {
+                    "label": "person",
+                    "category": "human",
+                    "visible_color": "dark clothing",
+                    "confidence": 0.9,
+                }
+            ],
+        }
+    )
+
+    assert result["detections"][0]["color"] == "dark clothing"

@@ -64,6 +64,12 @@ container, so a single-GPU node is valid. FFmpeg uses CUDA decode and
 deterministic local preprocessing, not a model call. No CPU decoder or Mac-only
 execution fallback exists.
 
+Docker Model Runner requests disable model reasoning through the llama.cpp
+chat-template control so the bounded token budget is spent on the required
+structured visual observation. Empty, reasoning-only, truncated, or malformed
+model output is an explicit frame-analysis failure; it is never converted into
+a synthetic “no detection” result.
+
 This small FFmpeg CUDA worker is the preferred single-DGX-Spark design. It avoids a large DeepStream service image; DeepStream remains a future option for deployments that need batched multi-camera pipelines, tracker plugins, or high camera density.
 
 ## Web UI deployment decision

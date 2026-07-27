@@ -185,6 +185,8 @@ def call_ollama(frame: bytes | list[bytes], prompt: str) -> dict[str, Any]:
             "temperature": float(os.environ.get("MN_VLM_TEMPERATURE") or os.environ.get("OLLAMA_TEMPERATURE", "0.0")),
             "response_format": {"type": "json_object"},
         }
+        if _uses_docker_model_runner(provider, base_url):
+            payload["chat_template_kwargs"] = {"enable_thinking": False}
         request = urllib.request.Request(
             f"{base_url}/chat/completions",
             data=json.dumps(payload).encode("utf-8"),
@@ -205,7 +207,20 @@ def call_ollama(frame: bytes | list[bytes], prompt: str) -> dict[str, Any]:
         text = str((message or {}).get("content") or "")
         result, parse_error = parse_model_json(text)
         if result is None:
-            return fallback_detection_from_model_text(text, parse_error)
+            reasoning_only = bool(
+                str((message or {}).get("reasoning_content") or "").strip()
+            )
+            finish_reason = (
+                str(choice.get("finish_reason") or "unknown")
+                if isinstance(choice, dict)
+                else "unknown"
+            )
+            raise RuntimeError(
+                "model runner returned no valid structured detection "
+                f"(finish_reason={finish_reason}, "
+                f"reasoning_only={str(reasoning_only).lower()}, "
+                f"parse_error={parse_error})"
+            )
         return normalize_detection(result)
 
     payload = {
@@ -242,7 +257,10 @@ def call_ollama(frame: bytes | list[bytes], prompt: str) -> dict[str, Any]:
     text = raw.get("response") or raw.get("message", {}).get("content") or raw.get("thinking") or ""
     result, parse_error = parse_model_json(text)
     if result is None:
-        return fallback_detection_from_model_text(text, parse_error)
+        raise RuntimeError(
+            "legacy Ollama returned no valid structured detection "
+            f"(parse_error={parse_error})"
+        )
     return normalize_detection(result)
 
 
@@ -287,24 +305,8 @@ def _uses_openai_compatible_runtime(provider: str, api_base: str) -> bool:
     } or "/engines/" in api_base
 
 
-def fallback_detection_from_model_text(_text: str, _reason: str) -> dict[str, Any]:
-    return normalize_detection(
-        {
-            "detected": False,
-            "detected_target": False,
-            "detection_count": 0,
-            "detections": [],
-            "confidence": 0.0,
-            "summary": "No reliable visual detection was produced for this frame.",
-            "detection_report": "",
-            "activity_description": "",
-            "detected_types": [],
-            "detected_colors": [],
-            "appearance_notes": [],
-            "risk_level": "low",
-            "visible_subjects": [],
-        }
-    )
+def _uses_docker_model_runner(provider: str, api_base: str) -> bool:
+    return provider in {"docker_model_runner", "dmr"} or "/engines/" in api_base
 
 
 def normalize_detection(result: dict[str, Any]) -> dict[str, Any]:
@@ -340,7 +342,10 @@ def normalize_detection(result: dict[str, Any]) -> dict[str, Any]:
                 {
                     "label": label,
                     "category": str(item.get("category", item.get("type", label))).strip()[:80] or label,
-                    "color": str(item.get("color", "unknown")).strip()[:60] or "unknown",
+                    "color": str(
+                        item.get("color", item.get("visible_color", "unknown"))
+                    ).strip()[:60]
+                    or "unknown",
                     "position": str(item.get("position", item.get("location", ""))).strip()[:160],
                     "activity": str(item.get("activity", item.get("movement", ""))).strip()[:160],
                     "confidence": safe_confidence(item.get("confidence", confidence)),
