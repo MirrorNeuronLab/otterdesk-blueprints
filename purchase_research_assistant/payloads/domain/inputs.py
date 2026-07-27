@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import copy
+import ipaddress
 import inspect
 import os
+import re
+import urllib.parse
 from pathlib import Path
 from typing import Any, Callable
 
@@ -42,6 +45,294 @@ def _as_list(value: Any) -> list[str]:
     if isinstance(value, (list, tuple, set)):
         return [str(item).strip() for item in value if str(item).strip()]
     return [str(value)]
+
+
+_REQUEST_FIELD_ALIASES = {
+    "what i want to buy": "item_description",
+    "purchase goal": "item_description",
+    "item description": "item_description",
+    "item or trip": "item_description",
+    "purchase type": "purchase_type",
+    "category": "purchase_type",
+    "budget": "budget",
+    "price ceiling": "budget",
+    "location": "location",
+    "route": "route",
+    "travel dates": "travel_dates",
+    "purchase timing": "travel_dates",
+}
+_PRIORITY_SECTION_NAMES = {"priorities", "preferences", "ranking priorities"}
+_CONSTRAINT_SECTION_NAMES = {"constraints", "hard constraints", "must haves", "must-have requirements"}
+_RESEARCH_SECTION_NAMES = {
+    "research",
+    "research links",
+    "research leads",
+    "research already started but incomplete",
+    "unfinished research",
+}
+_CONSTRAINT_KEY_ALIASES = {
+    "property type": "property_type",
+    "minimum bedrooms": "min_bedrooms",
+    "min bedrooms": "min_bedrooms",
+    "bedrooms minimum": "min_bedrooms",
+    "zip": "zip_code",
+    "zip code": "zip_code",
+    "postal code": "zip_code",
+}
+_EMPTY_VALUES = {"", "none", "not set", "not specified", "unknown", "n/a", "null"}
+_SENSITIVE_URL_QUERY_KEYS = {
+    "access_token",
+    "api_key",
+    "apikey",
+    "auth",
+    "authorization",
+    "key",
+    "password",
+    "secret",
+    "signature",
+    "sig",
+    "token",
+}
+
+
+def resolve_request_from_documents(
+    inputs: dict[str, Any],
+    documents: list[dict[str, Any]],
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Treat a plain-text purchase request as the primary request contract."""
+    normalized = normalize_inputs(inputs)
+    request_document = _select_request_document(documents)
+    parsed = (
+        parse_plain_text_purchase_request(str(request_document.get("text") or ""))
+        if request_document is not None
+        else {}
+    )
+    links = extract_public_research_links(documents)
+    if parsed:
+        request_values = {
+            key: value
+            for key, value in parsed.items()
+            if key
+            in {
+                "purchase_type",
+                "item_description",
+                "budget",
+                "location",
+                "route",
+                "travel_dates",
+                "priorities",
+                "constraints",
+            }
+        }
+        normalized = normalize_inputs({**normalized, **request_values})
+    return normalized, {
+        "source_ref": request_document.get("source_ref") if request_document else None,
+        "source_name": request_document.get("name") if request_document else None,
+        "parsed_fields": sorted(parsed),
+        "research_links": links,
+    }
+
+
+def parse_plain_text_purchase_request(text: str) -> dict[str, Any]:
+    """Parse the small labeled plain-text contract while retaining prose for the LLM."""
+    parsed: dict[str, Any] = {}
+    priorities: list[str] = []
+    constraints: dict[str, Any] = {}
+    active_section = ""
+    pending_field = ""
+    prose_lines: list[str] = []
+
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        cleaned = line.lstrip("-*• ").strip()
+        label_match = re.match(r"^([^:]{1,80}):\s*(.*)$", cleaned)
+        if label_match:
+            label = _normalize_label(label_match.group(1))
+            value = label_match.group(2).strip()
+            field = _REQUEST_FIELD_ALIASES.get(label)
+            if field:
+                if value:
+                    parsed[field] = _parse_request_field(field, value)
+                    pending_field = ""
+                else:
+                    pending_field = field
+                active_section = ""
+                continue
+            if label in _PRIORITY_SECTION_NAMES:
+                active_section = "priorities"
+                pending_field = ""
+                if value:
+                    priorities.extend(_as_list(value))
+                continue
+            if label in _CONSTRAINT_SECTION_NAMES:
+                active_section = "constraints"
+                pending_field = ""
+                if value:
+                    _add_constraint(constraints, value)
+                continue
+            if label in _RESEARCH_SECTION_NAMES:
+                active_section = "research"
+                pending_field = ""
+                continue
+            if active_section == "constraints" and value and line != cleaned:
+                _add_constraint(constraints, f"{label_match.group(1)}: {value}")
+                continue
+            active_section = ""
+            pending_field = ""
+            continue
+
+        if pending_field:
+            parsed[pending_field] = _parse_request_field(pending_field, cleaned)
+            pending_field = ""
+            continue
+        if active_section == "priorities" and line != cleaned:
+            priorities.append(cleaned)
+            continue
+        if active_section == "constraints" and line != cleaned:
+            _add_constraint(constraints, cleaned)
+            continue
+        if not line.startswith("#") and not re.search(r"https?://", line, flags=re.I):
+            prose_lines.append(cleaned)
+
+    if priorities:
+        parsed["priorities"] = list(dict.fromkeys(priorities))
+    if constraints:
+        parsed["constraints"] = constraints
+    if not str(parsed.get("item_description") or "").strip() and prose_lines:
+        parsed["item_description"] = prose_lines[0][:1000]
+    if parsed.get("item_description") and not parsed.get("purchase_type"):
+        parsed["purchase_type"] = _infer_purchase_type(str(parsed["item_description"]))
+    return parsed
+
+
+def extract_public_research_links(documents: list[dict[str, Any]]) -> list[str]:
+    links: list[str] = []
+    for document in documents:
+        text = str(document.get("text") or "")
+        for raw_url in re.findall(r"https?://[^\s<>{}\\\"']+", text, flags=re.I):
+            url = _public_research_url(raw_url.rstrip(".,;:!?)\\]"))
+            if url:
+                links.append(url)
+    return list(dict.fromkeys(links))
+
+
+def _select_request_document(documents: list[dict[str, Any]]) -> dict[str, Any] | None:
+    text_documents = [
+        document
+        for document in documents
+        if str(document.get("suffix") or "").lower() in {".txt", ".md"}
+        and str(document.get("name") or "").lower() != "readme.md"
+        and str(document.get("text") or "").strip()
+    ]
+    for document in text_documents:
+        name = str(document.get("name") or "").lower()
+        if name in {"purchase_request.txt", "purchase_request.md"}:
+            return document
+    labeled = [
+        document
+        for document in text_documents
+        if re.search(
+            r"(?im)^\s*(what i want to buy|purchase goal|item description|purchase type)\s*:",
+            str(document.get("text") or ""),
+        )
+    ]
+    if labeled:
+        return labeled[0]
+    return text_documents[0] if len(text_documents) == 1 else None
+
+
+def _parse_request_field(field: str, value: str) -> Any:
+    if field == "budget":
+        if value.strip().lower() in _EMPTY_VALUES:
+            return None
+        numeric = re.sub(r"[^0-9.-]", "", value)
+        try:
+            return float(numeric)
+        except ValueError:
+            return value.strip()
+    if field == "purchase_type":
+        return value.strip().lower().replace(" ", "_")
+    return value.strip()
+
+
+def _add_constraint(constraints: dict[str, Any], value: str) -> None:
+    match = re.match(r"^([^:=]{1,80})\s*[:=]\s*(.+)$", value.strip())
+    if not match:
+        key = f"must_have_{len(constraints) + 1}"
+        constraints[key] = value.strip()
+        return
+    raw_key, raw_value = match.groups()
+    normalized_key = _normalize_label(raw_key)
+    key = _CONSTRAINT_KEY_ALIASES.get(normalized_key, normalized_key.replace(" ", "_"))
+    constraints[key] = (
+        raw_value.strip()
+        if key == "zip_code"
+        else _coerce_scalar(raw_value.strip())
+    )
+
+
+def _coerce_scalar(value: str) -> Any:
+    lowered = value.lower()
+    if lowered in _EMPTY_VALUES:
+        return None
+    if lowered in {"true", "yes"}:
+        return True
+    if lowered in {"false", "no"}:
+        return False
+    if re.fullmatch(r"-?\d+", value):
+        return int(value)
+    if re.fullmatch(r"-?\d+\.\d+", value):
+        return float(value)
+    return value
+
+
+def _normalize_label(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", value.lower()).strip()
+
+
+def _infer_purchase_type(description: str) -> str:
+    lowered = description.lower()
+    if any(term in lowered for term in ("flight", "airline", "airfare", "plane ticket")):
+        return "airline_ticket"
+    if any(term in lowered for term in ("rental property", "rent an apartment", "lease a home")):
+        return "rental_property"
+    if any(term in lowered for term in ("house", "home", "condo", "property", "real estate")):
+        return "property"
+    if any(term in lowered for term in ("car", "vehicle", "truck", "suv", "automobile")):
+        return "car"
+    return "custom"
+
+
+def _public_research_url(value: str) -> str:
+    try:
+        parsed = urllib.parse.urlsplit(value)
+        host = (parsed.hostname or "").lower()
+        if parsed.scheme.lower() not in {"http", "https"} or not host:
+            return ""
+        if parsed.username or parsed.password or host == "localhost" or host.endswith(".local"):
+            return ""
+        try:
+            address = ipaddress.ip_address(host)
+        except ValueError:
+            address = None
+        if address and (
+            address.is_private
+            or address.is_loopback
+            or address.is_link_local
+            or address.is_multicast
+            or address.is_reserved
+        ):
+            return ""
+        query = urllib.parse.parse_qsl(parsed.query, keep_blank_values=True)
+        if any(key.lower() in _SENSITIVE_URL_QUERY_KEYS for key, _value in query):
+            return ""
+        return urllib.parse.urlunsplit(
+            (parsed.scheme.lower(), parsed.netloc, parsed.path or "/", parsed.query, "")
+        )[:2048]
+    except (TypeError, ValueError):
+        return ""
 
 
 def resolve_input_folder(config: dict[str, Any], inputs: dict[str, Any], root: Path) -> Path | None:
@@ -179,4 +470,13 @@ def _call_optional(function: Callable[..., Any], **kwargs: Any) -> Any:
         return function(next(iter(kwargs.values())))
 
 
-__all__ = ['normalize_inputs', '_as_list', 'resolve_input_folder', '_looks_like_sandbox_home', '_home_from_mirror_neuron_path', '_home_from_macos_users_dir', 'runtime_user_home', 'expand_runtime_path', 'load_input_documents', '_call_optional']
+__all__ = [
+    "extract_public_research_links",
+    "expand_runtime_path",
+    "load_input_documents",
+    "normalize_inputs",
+    "parse_plain_text_purchase_request",
+    "resolve_input_folder",
+    "resolve_request_from_documents",
+    "runtime_user_home",
+]

@@ -2,7 +2,22 @@
 
 ## Purpose
 
-Provide a source-grounded purchase study workflow for any consumer or business purchase. The workflow turns a purchase request plus local evidence into a comparison, risk review, evidence-gap list, and review-only recommendation.
+Provide a source-grounded purchase study workflow for any consumer or business
+purchase. The workflow turns an ordinary plain-text purchase request, any
+unfinished public research links, and optional local evidence into a
+comparison, risk review, evidence-gap list, and review-only recommendation.
+
+## Input Contract
+
+`purchase_request.txt` is the primary request contract. The user can describe
+what they want in prose and optionally use labels such as `Purchase type`,
+`Budget`, `Location`, `Priorities`, and `Hard constraints`. Public HTTP(S)
+links in the note are treated as unverified research leads, not as evidence.
+Structured input fields remain optional fallbacks for API-driven runs.
+
+The default bundle-relative input is `@/examples/sample_inputs`; checked-in
+overwrite configuration must not replace it with a repository-relative path.
+The launcher stages that folder and rewrites the linked runtime input paths.
 
 ## Workflow
 
@@ -24,7 +39,14 @@ do not address streams or traverse workflow dependencies.
 
 ## Research Boundaries
 
-Public research uses sanitized item, location, route, timing, and non-confidential constraint text only. The primary source path is `w3m_browser_skill`; a rendered browser may inspect public JavaScript-heavy pages. Login walls, robots restrictions, CAPTCHAs, rate limits, and access denials are recorded as source warnings. The workflow never bypasses access controls and never performs a transaction.
+Public research uses sanitized item, location, route, timing, and
+non-confidential constraint text only. Supplied links must use public HTTP(S),
+must not target local/private addresses, and must not contain credentials or
+sensitive query parameters. The primary source path is `w3m_browser_skill`; a
+rendered browser may inspect public JavaScript-heavy pages. Login walls, robots
+restrictions, CAPTCHAs, rate limits, and access denials are recorded as source
+warnings. The workflow never bypasses access controls and never performs a
+transaction.
 
 ## Persistent job data
 
@@ -41,6 +63,10 @@ Recommendation labels are `buy`, `consider`, `wait`, `avoid`, and `insufficient_
 ## Evaluation
 
 - Category-specific inputs normalize correctly.
+- Plain-text requests override generic structured fallbacks and preserve their
+  source reference.
+- Safe public links become bounded research leads; private or credential-bearing
+  links are rejected before browser use.
 - Deterministic prices, dates, fee fields, hashes, and source statuses are not overwritten by LLM output.
 - Local RAG returns citations from checked-in knowledge and approved user documents.
 - Public source records retain URLs, timestamps, snippets, skills, status, and warnings.

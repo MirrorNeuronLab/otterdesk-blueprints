@@ -33,13 +33,13 @@
   "entity_names": ["Candidate A", "Candidate B", "Candidate C"],
   "purchase_types": ["property", "rental_property", "car", "airline_ticket", "custom"],
   "default_inputs": {
-    "purchase_type": "property",
-    "item_description": "Find one single-family house with at least 3 bedrooms in ZIP code 03755.",
+    "purchase_type": "custom",
+    "item_description": "Read the purchase request and incomplete research leads from the input folder.",
     "budget": null,
-    "location": "03755",
-    "priorities": ["single-family house", "at least 3 bedrooms", "03755", "total cost", "condition", "inspection risk"],
-    "constraints": {"property_type": "single-family house", "min_bedrooms": 3, "zip_code": "03755"},
-    "input_folder": "purchase_research_assistant/examples/sample_inputs",
+    "location": "",
+    "priorities": [],
+    "constraints": {},
+    "input_folder": "@/examples/sample_inputs",
     "output_folder": "~/Downloads/purchase_research_assistant"
   },
   "workflow_stages": [

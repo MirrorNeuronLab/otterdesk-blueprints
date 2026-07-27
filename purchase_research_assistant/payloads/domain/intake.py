@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from .common import purchase_llm
-from .inputs import load_input_documents, resolve_input_folder
+from .inputs import load_input_documents, resolve_input_folder, resolve_request_from_documents
 from .knowledge import load_purchase_knowledge, prepare_purchase_rag, retrieve_purchase_rag_context
 from .research import ask_llm_for_intake, build_public_queries
 from .state import _inputs, _save, _state
@@ -16,17 +16,30 @@ def collect_context(ctx: dict[str, Any], **_options: Any) -> dict[str, Any]:
     root = Path(ctx["blueprint_dir"])
     folder = resolve_input_folder(ctx["config"], inputs, root)
     documents, warnings = load_input_documents(folder, ctx["config"])
+    inputs, request = resolve_request_from_documents(inputs, documents)
     knowledge = load_purchase_knowledge(root)
     llm = purchase_llm(ctx["config"])
     intake_plan = ask_llm_for_intake(llm, inputs, documents, knowledge)
-    state = {"inputs": inputs, "documents": documents, "document_warnings": warnings, "knowledge": knowledge, "intake_plan": intake_plan}
+    state = {
+        "inputs": inputs,
+        "request": request,
+        "research_links": request["research_links"],
+        "documents": documents,
+        "document_warnings": warnings,
+        "knowledge": knowledge,
+        "intake_plan": intake_plan,
+    }
     _save(ctx, state)
-    return {"document_count": len(documents)}
+    return {
+        "document_count": len(documents),
+        "request_source_ref": request["source_ref"],
+        "research_link_count": len(request["research_links"]),
+    }
 
 
 def retrieve_knowledge(ctx: dict[str, Any], **_options: Any) -> dict[str, Any]:
     state = _state(ctx)
-    inputs = _inputs(ctx)
+    inputs = state.get("inputs") or _inputs(ctx)
     root = Path(ctx["blueprint_dir"])
     documents = state.get("documents") or []
     knowledge = state.get("knowledge") or load_purchase_knowledge(root)

@@ -138,7 +138,7 @@
   },
   {
     "category": "Finance",
-    "description": "A purchase research co-worker for studying property, rental property, car, airline ticket, and custom purchases. Give it the purchase type, item or trip details, budget, priorities, constraints, and an input folder; it uses local knowledge, user evidence, and bounded public research to explain tradeoffs and write a review-ready recommendation to the output folder.",
+    "description": "A purchase research co-worker for property, rental property, car, airline ticket, and custom purchases. Put a plain-text note describing what you want to buy in the input folder, plus unfinished research, public links, or supporting evidence; it performs bounded research and writes a review-ready recommendation.",
     "id": "purchase_research_assistant",
     "job_name": "purchase-research-assistant",
     "name": "Purchase Research Assistant",
@@ -148,7 +148,7 @@
       "benefit": "Turns scattered local evidence and public purchase facts into a clear comparison, risk review, and human-checkable recommendation.",
       "customizable_for": "Property, rental property, car, airline ticket, travel, equipment, and custom purchase research.",
       "how_it_works": "Classifies the request, retrieves local guidance and evidence, performs bounded public research, checks total cost and policies, and writes a review packet.",
-      "input": "Purchase type, item or trip description, budget, location or route, priorities, constraints, and local documents.",
+      "input": "Plain-text purchase request, unfinished public research links, and optional local evidence; structured purchase type, budget, location, priorities, and constraints remain available as fallbacks.",
       "output": "Purchase comparison, deterministic evidence, public-source ledger, RAG citations, risk flags, evidence gaps, and review-only recommendation.",
       "problem": "Purchase decisions depend on scattered prices, fees, policies, condition, availability, and source quality that are easy to miss across documents and public pages.",
       "runtime_features": [

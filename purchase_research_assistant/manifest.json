@@ -144,18 +144,18 @@
         "type": "domain_value"
       },
       "input_folder": {
-        "description": "Default local input folder for sample files or user-provided files.",
-        "example": "purchase_research_assistant/examples/sample_inputs",
+        "description": "Local folder containing a plain-text purchase request, incomplete research notes or public links, and optional supporting evidence.",
+        "example": "@/examples/sample_inputs",
         "path_kind": "directory",
         "privacy": "confidential",
         "required": false,
         "type": "local_path"
       },
       "item_description": {
-        "description": "The item, listing, vehicle, route, or trip to study.",
+        "description": "Optional structured fallback for the item, listing, vehicle, route, or trip to study; purchase_request.txt is primary when present.",
         "example": "2022 hybrid SUV with 40,000 miles",
         "privacy": "confidential",
-        "required": true,
+        "required": false,
         "type": "domain_value"
       },
       "location": {
@@ -184,10 +184,10 @@
         "type": "domain_value"
       },
       "purchase_type": {
-        "description": "Broad purchase category; use property, rental_property, car, airline_ticket, or custom for any other good, service, subscription, or commitment.",
+        "description": "Optional structured fallback category; use property, rental_property, car, airline_ticket, or custom. Plain-text intake may infer it.",
         "example": "car",
         "privacy": "confidential",
-        "required": true,
+        "required": false,
         "type": "domain_value"
       },
       "route": {
@@ -470,7 +470,13 @@
     "worker": {
       "with": {
         "stereotype": "internal_write_worker",
-        "image": "mirror-neuron/purchase-research-assistant:local"
+        "image": "mirror-neuron/purchase-research-assistant:local",
+        "upload_paths": [
+          {
+            "source": "domain",
+            "target": "domain"
+          }
+        ]
       }
     }
   },

@@ -1,0 +1,28 @@
+What I want to buy: Find one single-family house with at least 3 bedrooms in ZIP code 03755.
+Purchase type: property
+Budget: Not set
+Location: 03755
+
+Priorities:
+- single-family house
+- at least 3 bedrooms
+- ZIP code 03755
+- total cost
+- condition
+- inspection risk
+
+Hard constraints:
+- Property type: single-family house
+- Minimum bedrooms: 3
+- ZIP code: 03755
+
+Research already started, but incomplete:
+- Realtor.com search lead: https://www.realtor.com/realestateandhomes-search/03755/type-single-family-home/beds-3
+- Redfin search lead: https://www.redfin.com/zipcode/03755/filter/property-type=house,min-beds=3
+
+The included candidate snapshots are synthetic, not live listings. The public
+links above are only starting points. Verify that any candidate is active and
+confirm the ZIP code, property type, bedroom count, asking price, taxes,
+insurance, title, condition, inspection risks, and total cost before making a
+recommendation. Financing, utilities, maintenance, and resale research is still
+incomplete.

@@ -2,6 +2,10 @@ from __future__ import annotations
 
 import json
 
+from mn_sdk.blueprint_runtime import load_blueprint_config
+from mn_sdk.blueprint_support.local_inputs import stage_local_input_payloads
+from mn_sdk.bundle_io import load_bundle_payloads
+
 from blueprint_modernization_support import (
     ROOT,
     assert_modular_payload,
@@ -38,6 +42,30 @@ def test_purchase_payload_is_modular_and_handlers_resolve():
     assert_registry_handlers_import("purchase_research_assistant")
 
 
+def test_purchase_compiled_docker_workers_ship_their_build_context():
+    blueprint = ROOT / "purchase_research_assistant"
+    expanded = expanded_manifest("purchase_research_assistant")
+    worker_nodes = [
+        node
+        for node in expanded["agents"]["nodes"]
+        if (node.get("config") or {}).get("runner_module")
+        == "MirrorNeuron.Runner.DockerWorker"
+    ]
+    assert worker_nodes
+    assert {
+        node["config"]["docker_worker_image"]
+        for node in worker_nodes
+    } == {"docker_worker"}
+    assert all(
+        {"source": "domain", "target": "domain"}
+        in node["config"]["upload_paths"]
+        for node in worker_nodes
+    )
+
+    payloads = load_bundle_payloads(blueprint)
+    assert "docker_worker/Dockerfile" in payloads
+
+
 def test_purchase_sample_produces_a_real_candidate_comparison(tmp_path):
     result = run_payload_script(
         "purchase_research_assistant",
@@ -45,6 +73,7 @@ def test_purchase_sample_produces_a_real_candidate_comparison(tmp_path):
 import json
 from pathlib import Path
 from domain.composition import run_blueprint
+from domain.inputs import parse_plain_text_purchase_request
 
 root = Path({str((ROOT / 'purchase_research_assistant').resolve())!r})
 out = Path({str(tmp_path)!r}) / "output"
@@ -56,6 +85,9 @@ run = run_blueprint(
 )
 artifact = run["final_artifact"]
 comparisons = artifact["candidate_comparisons"]
+parsed_request = parse_plain_text_purchase_request(
+    (root / "examples" / "sample_inputs" / "purchase_request.txt").read_text()
+)
 print(json.dumps({{
     "status": run["status"],
     "action": artifact["recommended_action"],
@@ -68,6 +100,11 @@ print(json.dumps({{
     "rag_status": artifact["knowledge_rag"]["status"],
     "run_artifact_exists": (out / "runs" / "purchase-quality" / "final_artifact.json").exists(),
     "report_exists": (out / "purchase_research_report.md").exists(),
+    "purchase_type": artifact["purchase_type"],
+    "item_description": artifact["item_description"],
+    "request_source_ref": artifact["request_source"]["source_ref"],
+    "research_lead_count": len(artifact["research_leads"]),
+    "parsed_constraints": parsed_request["constraints"],
 }}))
 """,
     )
@@ -83,6 +120,15 @@ print(json.dumps({{
         "rag_status": "skipped_quick_test",
         "run_artifact_exists": True,
         "report_exists": True,
+        "purchase_type": "property",
+        "item_description": "Find one single-family house with at least 3 bedrooms in ZIP code 03755.",
+        "request_source_ref": "local:purchase_request.txt",
+        "research_lead_count": 2,
+        "parsed_constraints": {
+            "property_type": "single-family house",
+            "min_bedrooms": 3,
+            "zip_code": "03755",
+        },
     }
 
 
@@ -91,3 +137,102 @@ def test_purchase_config_uses_bundle_paths_and_manifest_owned_descriptors():
     assert config["inputs"]["payload"]["input_folder"] == "@/examples/sample_inputs"
     assert "identity" not in config
     assert "agents" not in config["llm"]
+
+
+def test_purchase_merged_config_stages_the_bundled_plain_text_request():
+    blueprint = ROOT / "purchase_research_assistant"
+    config = load_blueprint_config(blueprint)
+    assert config is not None
+    assert config["inputs"]["payload"]["input_folder"] == "@/examples/sample_inputs"
+
+    payloads: dict[str, bytes] = {}
+    summary = stage_local_input_payloads(config, payloads, bundle_dir=blueprint)
+
+    assert summary["folders"][0]["config_path"] == "inputs.payload.input_folder"
+    assert config["inputs"]["payload"]["input_folder"] == "mn_local_inputs/purchase_research_assistant_documents"
+    assert config["state"]["input_folder"] == "mn_local_inputs/purchase_research_assistant_documents"
+    assert (
+        "runtime/mn_local_inputs/purchase_research_assistant_documents/purchase_request.txt"
+        in payloads
+    )
+
+
+def test_purchase_research_opens_supplied_public_links_before_search_queries():
+    result = run_payload_script(
+        "purchase_research_assistant",
+        """
+import json
+from domain import research
+
+class BrowserConfig:
+    def __init__(self, **values):
+        self.values = values
+
+def browse_url(url, **_options):
+    return {"url": url, "title": "Seed lead", "text": "Public listing search page"}
+
+def research_topic(query, **_options):
+    return []
+
+research._load_w3m = lambda: (BrowserConfig, browse_url, research_topic)
+sources, warnings = research.research_public_sources(
+    ["property alternatives"],
+    {"internet_research": {"enabled": True, "rendered_browser": {"enabled": False}}},
+    seed_urls=["https://example.com/public-lead"],
+)
+print(json.dumps({
+    "urls": [item["url"] for item in sources],
+    "queries": [item["query"] for item in sources],
+    "warnings": warnings,
+}))
+""",
+    )
+    assert result == {
+        "urls": ["https://example.com/public-lead"],
+        "queries": ["User-supplied public research lead"],
+        "warnings": [],
+    }
+
+
+def test_purchase_plain_text_request_overrides_fallbacks_and_rejects_private_links():
+    result = run_payload_script(
+        "purchase_research_assistant",
+        """
+import json
+from domain.inputs import resolve_request_from_documents
+
+inputs, request = resolve_request_from_documents(
+    {
+        "purchase_type": "custom",
+        "item_description": "Read the purchase request from the input folder.",
+    },
+    [{
+        "name": "my_notes.txt",
+        "suffix": ".txt",
+        "source_ref": "local:my_notes.txt",
+        "text": '''
+What I want to buy: A reliable used hybrid SUV.
+Budget: $30,000
+Research:
+- https://example.com/cars?zip=02110#offers
+- http://127.0.0.1/private
+- https://example.com/private?token=secret
+''',
+    }],
+)
+print(json.dumps({
+    "purchase_type": inputs["purchase_type"],
+    "item_description": inputs["item_description"],
+    "budget": inputs["budget"],
+    "source_ref": request["source_ref"],
+    "research_links": request["research_links"],
+}))
+""",
+    )
+    assert result == {
+        "purchase_type": "car",
+        "item_description": "A reliable used hybrid SUV.",
+        "budget": 30000.0,
+        "source_ref": "local:my_notes.txt",
+        "research_links": ["https://example.com/cars?zip=02110"],
+    }

@@ -20,7 +20,7 @@ from .inputs import expand_runtime_path
 from .state import _inputs, _save, _state
 
 
-def build_final_artifact(inputs: dict[str, Any], evidence: dict[str, Any], recommendation: dict[str, Any], rag: dict[str, Any], sources: list[dict[str, Any]], warnings: list[dict[str, Any]], documents: list[dict[str, Any]], actor_findings: dict[str, Any], run_id: str, intake_plan: dict[str, Any] | None = None) -> dict[str, Any]:
+def build_final_artifact(inputs: dict[str, Any], evidence: dict[str, Any], recommendation: dict[str, Any], rag: dict[str, Any], sources: list[dict[str, Any]], warnings: list[dict[str, Any]], documents: list[dict[str, Any]], actor_findings: dict[str, Any], run_id: str, intake_plan: dict[str, Any] | None = None, request: dict[str, Any] | None = None) -> dict[str, Any]:
     source_refs = list(dict.fromkeys(["inputs.json", "events.jsonl", "result.json", *(evidence.get("source_refs") or []), *(rag.get("citations") or []), *(item.get("source_ref") for item in sources if item.get("source_ref"))]))
     return {
         "type": OUTPUT_TYPE,
@@ -35,6 +35,8 @@ def build_final_artifact(inputs: dict[str, Any], evidence: dict[str, Any], recom
         "confidence": recommendation.get("confidence"),
         "recommendation_rationale": recommendation.get("rationale"),
         "intake_plan": intake_plan or {},
+        "request_source": request or {},
+        "research_leads": list((request or {}).get("research_links") or []),
         "evidence": {"deterministic": evidence, "documents": [{key: value for key, value in item.items() if key != "text"} for item in documents], "public_sources": sources},
         "risk_flags": recommendation.get("risk_flags") or [],
         "evidence_gaps": recommendation.get("evidence_gaps") or [],
@@ -154,9 +156,9 @@ def render_markdown(artifact: dict[str, Any]) -> str:
 
 def publish_report(ctx: dict[str, Any], **_options: Any) -> dict[str, Any]:
     state = _state(ctx)
-    inputs = _inputs(ctx)
+    inputs = state.get("inputs") or _inputs(ctx)
     warnings = [*(state.get("document_warnings") or []), *((state.get("rag") or {}).get("warnings") or []), *(state.get("web_warnings") or [])]
-    final = build_final_artifact(inputs, state.get("evidence") or {}, state.get("recommendation") or {}, state.get("rag") or {}, state.get("sources") or [], warnings, state.get("documents") or [], state.get("actor_findings") or {}, ctx["run_id"], intake_plan=state.get("intake_plan") or {})
+    final = build_final_artifact(inputs, state.get("evidence") or {}, state.get("recommendation") or {}, state.get("rag") or {}, state.get("sources") or [], warnings, state.get("documents") or [], state.get("actor_findings") or {}, ctx["run_id"], intake_plan=state.get("intake_plan") or {}, request=state.get("request") or {})
     final["candidate_comparisons"] = state.get("candidate_comparisons") or []
     final["preferred_candidate"] = (state.get("recommendation") or {}).get("preferred_candidate")
     result = {

@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import inspect
 import json
 import re
 import urllib.parse
 from typing import Any
 
-from .common import RECOMMENDATIONS, _compact, _now, load_prompt
+from .common import RECOMMENDATIONS, _compact, _now, _sha256, load_prompt
+from .inputs import _call_optional
 
 
 def build_public_queries(inputs: dict[str, Any], intake_plan: dict[str, Any] | None = None) -> list[str]:
@@ -130,7 +132,13 @@ def _normalize_browser_result(result: Any, query: str, skill: str) -> list[dict[
     return records
 
 
-def research_public_sources(queries: list[str], config: dict[str, Any], *, quick_test: bool = False) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+def research_public_sources(
+    queries: list[str],
+    config: dict[str, Any],
+    *,
+    seed_urls: list[str] | None = None,
+    quick_test: bool = False,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     internet = config.get("internet_research") if isinstance(config.get("internet_research"), dict) else {}
     if not internet.get("enabled", True):
         return [], [{"status": "disabled", "message": "Public research is disabled by configuration."}]
@@ -140,13 +148,58 @@ def research_public_sources(queries: list[str], config: dict[str, Any], *, quick
     warnings: list[dict[str, Any]] = []
     max_queries = int(internet.get("max_queries", 6))
     w3m_config_cls, browse_url, research_topic = _load_w3m()
-    for query in queries[:max_queries]:
-        if research_topic is None:
-            warnings.append({"status": "skill_unavailable", "skill": "w3m_browser_skill", "message": "Install the w3m browser skill for public research."})
+    raw_config = {
+        "timeout_seconds": internet.get("timeout_seconds", 20),
+        "max_chars": internet.get("max_chars", 12000),
+    }
+    browser_config = _instantiate(w3m_config_cls, raw_config)
+    for url in list(seed_urls or [])[: int(internet.get("max_seed_urls", 6))]:
+        if browse_url is None:
+            warnings.append(
+                {
+                    "status": "skill_unavailable",
+                    "skill": "w3m_browser_skill",
+                    "url": url,
+                    "message": "The supplied public research link could not be opened because the text browser skill is unavailable.",
+                }
+            )
             break
         try:
-            raw_config = {"timeout_seconds": internet.get("timeout_seconds", 20), "max_chars": internet.get("max_chars", 12000)}
-            browser_config = _instantiate(w3m_config_cls, raw_config)
+            result = _call_optional(
+                browse_url,
+                url=url,
+                config=browser_config,
+                browser_config=browser_config,
+            )
+            records = _normalize_browser_result(
+                result,
+                "User-supplied public research lead",
+                "w3m_browser_skill",
+            )
+            for record in records:
+                if not record["url"]:
+                    record["url"] = url
+                    record["source_ref"] = f"web:{_sha256(url)[:12]}"
+            sources.extend(records)
+        except Exception as exc:
+            warnings.append(
+                {
+                    "status": "failed",
+                    "skill": "w3m_browser_skill",
+                    "url": url,
+                    "message": str(exc),
+                }
+            )
+    for query in queries[:max_queries]:
+        if research_topic is None:
+            if not any(
+                warning.get("status") == "skill_unavailable"
+                and warning.get("skill") == "w3m_browser_skill"
+                for warning in warnings
+            ):
+                warnings.append({"status": "skill_unavailable", "skill": "w3m_browser_skill", "message": "Install the w3m browser skill for public research."})
+            break
+        try:
             result = _call_optional(research_topic, query=query, topic=query, config=browser_config, browser_config=browser_config, max_sources=int(internet.get("max_sources", 8)))
             sources.extend(_normalize_browser_result(result, query, "w3m_browser_skill"))
         except Exception as exc:
@@ -156,8 +209,17 @@ def research_public_sources(queries: list[str], config: dict[str, Any], *, quick
         if scrape_page is None:
             warnings.append({"status": "skill_unavailable", "skill": "web_browser_skill", "message": "Rendered-browser fallback is unavailable."})
         else:
-            for query in queries[:2]:
-                url = "https://www.google.com/search?" + urllib.parse.urlencode({"q": query})
+            rendered_targets = [
+                (url, "User-supplied public research lead")
+                for url in list(seed_urls or [])[:2]
+            ] or [
+                (
+                    "https://www.google.com/search?" + urllib.parse.urlencode({"q": query}),
+                    query,
+                )
+                for query in queries[:2]
+            ]
+            for url, query in rendered_targets:
                 try:
                     browser_config = _instantiate(rendered_cls, {"timeout_seconds": 30, "max_chars": 12000})
                     result = _call_optional(scrape_page, url=url, config=browser_config, browser_config=browser_config)

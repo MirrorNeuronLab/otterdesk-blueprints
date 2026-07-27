@@ -13,10 +13,15 @@ from .state import _inputs, _save, _state
 
 def research_market(ctx: dict[str, Any], **_options: Any) -> dict[str, Any]:
     state = _state(ctx)
-    inputs = _inputs(ctx)
+    inputs = state.get("inputs") or _inputs(ctx)
     llm_config = ctx["config"].get("llm") if isinstance(ctx["config"].get("llm"), dict) else {}
     quick = str(llm_config.get("mode") or "live").lower() in {"fake", "mock"} or bool((ctx["config"].get("execution") or {}).get("quick_test"))
-    sources, web_warnings = research_public_sources(state.get("research_queries") or [], ctx["config"], quick_test=quick)
+    sources, web_warnings = research_public_sources(
+        state.get("research_queries") or [],
+        ctx["config"],
+        seed_urls=state.get("research_links") or [],
+        quick_test=quick,
+    )
     documents = state.get("documents") or []
     evidence = deterministic_evidence(inputs, documents, sources)
     state.update({"inputs": inputs, "sources": sources, "web_warnings": web_warnings, "evidence": evidence})
@@ -101,7 +106,7 @@ def build_candidate_comparisons(
 
 def analyze_total_cost(ctx: dict[str, Any], **_options: Any) -> dict[str, Any]:
     state = _state(ctx)
-    inputs = _inputs(ctx)
+    inputs = state.get("inputs") or _inputs(ctx)
     comparisons = build_candidate_comparisons(inputs, state.get("documents") or [])
     state["candidate_comparisons"] = comparisons
     _save(ctx, state)
@@ -143,7 +148,7 @@ def review_purchase_risks(ctx: dict[str, Any], **_options: Any) -> dict[str, Any
 
 def audit_recommendation(ctx: dict[str, Any], **_options: Any) -> dict[str, Any]:
     state = _state(ctx)
-    inputs = _inputs(ctx)
+    inputs = state.get("inputs") or _inputs(ctx)
     sources = state.get("sources") or []
     evidence = state.get("evidence") or deterministic_evidence(inputs, state.get("documents") or [], sources)
     deterministic = deterministic_recommendation(evidence, sources)

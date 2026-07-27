@@ -1,9 +1,0 @@
-{
-  "purchase_type": "property",
-  "item_description": "Find one single-family house with at least 3 bedrooms in ZIP code 03755.",
-  "budget": null,
-  "location": "03755",
-  "priorities": ["single-family house", "at least 3 bedrooms", "03755", "total cost", "condition", "inspection risk"],
-  "constraints": {"property_type": "single-family house", "min_bedrooms": 3, "zip_code": "03755"},
-  "candidates": []
-}

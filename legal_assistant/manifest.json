@@ -350,7 +350,13 @@
   "defaults": {
     "worker": {
       "with": {
-        "image": "mirror-neuron/legal-assistant:local"
+        "image": "mirror-neuron/legal-assistant:local",
+        "upload_paths": [
+          {
+            "source": "domain",
+            "target": "domain"
+          }
+        ]
       }
     }
   },
