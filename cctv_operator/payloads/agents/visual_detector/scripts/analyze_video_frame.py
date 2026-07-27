@@ -51,6 +51,7 @@ from video_json_utils import (
     strip_json_code_fence,
 )
 
+from mn_sdk import RuntimeModelError, runtime_model_json_request
 from mn_blueprint_support import PromptLibrary, start_agent_beacon_thread
 from mn_live_video_analysis_skill import (
     model_user_content,
@@ -187,20 +188,33 @@ def call_ollama(frame: bytes | list[bytes], prompt: str) -> dict[str, Any]:
         }
         if _uses_docker_model_runner(provider, base_url):
             payload["chat_template_kwargs"] = {"enable_thinking": False}
-        request = urllib.request.Request(
-            f"{base_url}/chat/completions",
-            data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
         try:
-            with urllib.request.urlopen(request, timeout=timeout) as response:
-                raw = json.loads(response.read().decode("utf-8"))
-        except urllib.error.HTTPError as exc:
-            detail = exc.read(2048).decode("utf-8", errors="replace").strip()
-            suffix = f": {detail}" if detail else ""
-            raise RuntimeError(f"model runner request failed: HTTP {exc.code}{suffix}") from exc
-        except urllib.error.URLError as exc:
+            raw = runtime_model_json_request(
+                "vlm",
+                model,
+                "/chat/completions",
+                payload,
+                provider=provider,
+                backend=os.environ.get("MN_VLM_BACKEND")
+                or os.environ.get("MN_LLM_BACKEND")
+                or "auto",
+                api_base=base_url,
+                api_key=os.environ.get("MN_VLM_API_KEY")
+                or os.environ.get("MN_LLM_API_KEY"),
+                timeout_seconds=timeout,
+                num_retries=int(
+                    os.environ.get("MN_VLM_NUM_RETRIES")
+                    or os.environ.get("MN_LLM_NUM_RETRIES")
+                    or "1"
+                ),
+                retry_backoff_seconds=float(
+                    os.environ.get("MN_VLM_RETRY_BACKOFF_SECONDS")
+                    or os.environ.get("MN_LLM_RETRY_BACKOFF_SECONDS")
+                    or "1"
+                ),
+                urlopen=urllib.request.urlopen,
+            )
+        except RuntimeModelError as exc:
             raise RuntimeError(f"model runner request failed: {exc}") from exc
         choice = (raw.get("choices") or [{}])[0]
         message = choice.get("message") if isinstance(choice, dict) else {}

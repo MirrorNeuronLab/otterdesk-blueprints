@@ -179,14 +179,14 @@
           "upload_paths": [
             {
               "source": "agents/visual_detector",
-              "target": "visual_detector"
+              "target": "agents/visual_detector"
             },
             {
               "source": "prompts",
               "target": "prompts"
             }
           ],
-          "workdir": "/mn/job/visual_detector"
+          "workdir": "/mn/job/agents/visual_detector"
         },
         "constraints": [
           {
@@ -829,18 +829,14 @@
             "upload_paths": [
               {
                 "source": "agents/visual_detector",
-                "target": "visual_detector"
-              },
-              {
-                "source": "domain",
-                "target": "visual_detector/domain"
+                "target": "agents/visual_detector"
               },
               {
                 "source": "prompts",
                 "target": "prompts"
               }
             ],
-            "workdir": "/mn/job/visual_detector"
+            "workdir": "/mn/job/agents/visual_detector"
           }
         },
         {

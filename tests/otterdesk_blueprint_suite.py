@@ -1566,10 +1566,13 @@ def test_cctv_operator_uses_dockerworker_nvidia_media_worker():
     assert sampler_node["config"]["command"] == ["bash", "scripts/run_sampler_on_nvidia.sh"]
     assert sampler_node["config"]["workdir"] == "/mn/job/adaptive_frame_sampler"
     assert sampler_node["config"].get("output_message_type") is None
-    assert visual_node["config"]["workdir"] == "/mn/job/visual_detector"
+    assert visual_node["config"]["workdir"] == "/mn/job/agents/visual_detector"
     assert visual_node["config"]["command"] == ["bash", "scripts/run_detector_on_nvidia.sh"]
     assert visual_node["config"]["upload_paths"] == [
-        {"source": "agents/visual_detector", "target": "visual_detector"},
+        {
+            "source": "agents/visual_detector",
+            "target": "agents/visual_detector",
+        },
         {"source": "prompts", "target": "prompts"},
     ]
     assert "upload_path" not in visual_node["config"]

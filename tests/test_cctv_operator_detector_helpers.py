@@ -157,6 +157,51 @@ def test_dmr_vlm_disables_reasoning_and_normalizes_model_variants(monkeypatch):
     assert result["confidence"] == 0.91
 
 
+def test_managed_dmr_vlm_uses_lazy_runtime_model_access(monkeypatch):
+    detector = _load_detector()
+    captured = {}
+
+    def fake_runtime_request(purpose, model, path, payload, **kwargs):
+        captured.update(
+            {
+                "purpose": purpose,
+                "model": model,
+                "path": path,
+                "payload": payload,
+                **kwargs,
+            }
+        )
+        return {
+            "choices": [
+                {
+                    "message": {
+                        "content": '{"detected": true, "confidence": 0.88}'
+                    }
+                }
+            ]
+        }
+
+    monkeypatch.setenv("MN_RUNTIME_MODEL_MANAGED", "1")
+    monkeypatch.setenv("MN_VLM_PROVIDER", "docker_model_runner")
+    monkeypatch.setenv("MN_VLM_API_BASE", "auto")
+    monkeypatch.setenv("MN_VLM_MODEL", "nemotron3")
+    monkeypatch.setattr(
+        detector, "runtime_model_json_request", fake_runtime_request
+    )
+
+    result = detector.call_ollama(b"jpeg", "inspect the frame")
+
+    assert captured["purpose"] == "vlm"
+    assert captured["model"] == "nemotron3"
+    assert captured["path"] == "/chat/completions"
+    assert captured["api_base"] == "auto"
+    assert captured["payload"]["chat_template_kwargs"] == {
+        "enable_thinking": False
+    }
+    assert result["detected"] is True
+    assert result["confidence"] == 0.88
+
+
 def test_litellm_vlm_preserves_v1_openai_endpoint(monkeypatch):
     detector = _load_detector()
     captured = {}

@@ -74,3 +74,32 @@ def test_cctv_hostlocal_commands_use_the_normalized_payload_root(
         assert config["workdir"] == "/sandbox/job"
         assert "upload_paths" not in config
         assert (blueprint / "payloads" / config["command"][1]).is_file()
+
+
+def test_cctv_visual_detector_preserves_the_payload_root(monkeypatch, tmp_path):
+    blueprint = ROOT / "cctv_operator"
+    source = json.loads((blueprint / "manifest.json").read_text())
+    monkeypatch.setenv("MN_ENV", "dev")
+    monkeypatch.setenv("MN_HOME", str(tmp_path / ".mn"))
+    monkeypatch.setenv("MN_WORKSPACE_ROOT", str(ROOT.parent))
+    monkeypatch.setenv("MN_SKILLS_ROOT", str(ROOT.parent / "mn-skills"))
+    monkeypatch.setenv("MN_AGENTS_ROOT", str(ROOT.parent / "mn-agents"))
+
+    prepared = prepare_manifest_for_submission(blueprint, source)
+    detector = next(
+        node
+        for node in manifest_nodes(prepared)
+        if node.get("node_id") == "visual_detector"
+    )
+    config = detector["config"]
+    upload_paths = {
+        item["source"]: item["target"] for item in config["upload_paths"]
+    }
+
+    assert config["workdir"] == "/mn/job/agents/visual_detector"
+    assert upload_paths == {
+        "agents/visual_detector": "agents/visual_detector",
+        "prompts": "prompts",
+    }
+    for source_path in upload_paths:
+        assert (blueprint / "payloads" / source_path).exists()
