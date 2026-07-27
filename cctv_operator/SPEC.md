@@ -79,6 +79,9 @@ specific UI spec, `/actions/steer-monitoring` handler, payload validation,
 state projection, and Core call live in `payloads/services/cctv_web_ui.py`.
 The generic `mirrorneuron-web-ui-skill` hosts and renders the validated spec
 with `vercel-labs/json-render`; it knows no CCTV routes or policy.
+The rendered dashboard displays the current watch target and provides a
+bounded 500-character prompt form that updates the declared
+`steer_monitoring` live input.
 
 The service uses the optional relay from
 `mirrorneuron-live-video-analysis-skill` to expose a credential-free HLS path.
@@ -87,7 +90,10 @@ Relay failure is visible but never stops sampling. The UI separately renders
 from model evidence. There is no Gradio path and no `mn-api` live-input REST
 route. The operator-facing `web_ui.service.port` setting is projected into the
 HostLocal port reservation and service health declaration as one runtime
-contract.
+contract. `web_ui.service.host` is projected into the declared service address.
+The CLI `--web-ui-host` and `--web-ui-port` options override those settings for
+one run. A wildcard host such as `0.0.0.0` is an explicit network-exposure
+decision; the service does not add authentication.
 
 ## Persistent job data
 

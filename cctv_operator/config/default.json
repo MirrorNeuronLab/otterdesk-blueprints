@@ -525,6 +525,10 @@
   },
   "manifest_config_bindings": [
     {
+      "config_path": "web_ui.service.host",
+      "manifest_path": "agents.nodes.cctv_web_ui.services.0.address"
+    },
+    {
       "config_path": "web_ui.service.port",
       "manifest_path": "agents.nodes.cctv_web_ui.resources.ports.0.port"
     },

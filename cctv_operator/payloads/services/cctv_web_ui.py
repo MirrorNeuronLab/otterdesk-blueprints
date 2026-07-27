@@ -144,9 +144,10 @@ def build_ui_spec() -> dict[str, Any]:
                         {
                             "name": "instruction",
                             "label": "What should the AI monitor?",
-                            "type": "text",
+                            "type": "textarea",
                             "required": True,
                             "max_length": 500,
+                            "rows": 4,
                             "placeholder": (
                                 "Watch for a red backpack near the left doorway."
                             ),
@@ -272,13 +273,15 @@ class CCTVWebUIService:
                 status_code=status,
                 headers=headers,
             )
+        action = "cleared" if normalized["clear"] else "updated"
+        suffix = (
+            " and immediate analysis was queued."
+            if normalized["analyze_now"]
+            else "."
+        )
         return ActionResponse(
             {
-                "message": (
-                    "Monitoring instruction cleared and analysis queued."
-                    if normalized["clear"]
-                    else "Monitoring instruction accepted and analysis queued."
-                ),
+                "message": f"Monitoring instruction {action}{suffix}",
                 "status": response.get("status", "accepted"),
                 "command_id": response.get("command_id") or idempotency_key,
             },
@@ -311,6 +314,8 @@ class CCTVWebUIService:
                 "instruction revision": attention_payload.get(
                     "instruction_revision", 0
                 ),
+                "watch target": attention_payload.get("instruction")
+                or "Default visual targets",
                 "latest trigger": batch_payload.get("trigger", "waiting"),
                 "selected frames": batch_payload.get("selected_count", 0),
             },
@@ -412,6 +417,20 @@ def core_send_run_input(
     return decoded if isinstance(decoded, dict) else {"status": "accepted"}
 
 
+def public_service_url(
+    host: str,
+    port: int,
+    configured_url: str = "",
+) -> str:
+    explicit = str(configured_url or "").strip().rstrip("/")
+    if explicit:
+        return explicit
+    display_host = (
+        "127.0.0.1" if host in {"0.0.0.0", "::", "[::]"} else host
+    )
+    return f"http://{display_host}:{port}"
+
+
 def main() -> int:
     config = load_config()
     run_id = configured_run_id()
@@ -423,9 +442,11 @@ def main() -> int:
     service_config = service_config if isinstance(service_config, dict) else {}
     host = str(service_config.get("host") or "127.0.0.1")
     port = int(service_config.get("port") or 61000)
-    public_url = str(
-        service_config.get("public_url") or f"http://{host}:{port}"
-    ).rstrip("/")
+    public_url = public_service_url(
+        host,
+        port,
+        str(service_config.get("public_url") or ""),
+    )
 
     service = CCTVWebUIService(
         run_id=run_id,
@@ -443,6 +464,8 @@ def main() -> int:
         service_name=WEB_UI_SERVICE_NAME,
         node_id=WEB_UI_NODE_ID,
         metadata={
+            "listen_host": host,
+            "listen_port": port,
             "preview_url": f"{public_url}/preview/stream.m3u8",
             "latest_analyzed_frame_url": (
                 f"{public_url}/artifacts/latest_analyzed_frame.jpg"

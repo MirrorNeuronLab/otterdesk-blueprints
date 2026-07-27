@@ -64,8 +64,10 @@ CCTV-specific payload, and submits the declared live input directly to Core
 over the SDK gRPC client. `mn-api` does not expose a CCTV steering route.
 The preview relay is optional and analysis continues if it is unavailable.
 Camera credentials remain server-side and are redacted from browser URLs and
-events. Changing `web_ui.service.port` updates both the HostLocal listener and
-the runtime's declared port and health-check contract.
+events. The dashboard shows the active watch target and accepts a new
+plain-language monitoring prompt at any time. Changing `web_ui.service.host`
+or `web_ui.service.port` updates both the HostLocal listener and the runtime's
+declared service and health-check contract.
 
 ## Run and inspect
 
@@ -74,6 +76,17 @@ From the catalog:
 ```bash
 mn blueprint run cctv_operator --web-ui
 ```
+
+Bind the dashboard on all interfaces or choose another port:
+
+```bash
+mn blueprint run cctv_operator --web-ui \
+  --web-ui-host 0.0.0.0 \
+  --web-ui-port 61017
+```
+
+Binding `0.0.0.0` exposes the unauthenticated dashboard and its steering
+control to reachable peers. Use a firewall or trusted network boundary.
 
 From this folder:
 

@@ -1708,6 +1708,18 @@ def test_cctv_operator_owns_json_render_web_ui_and_uses_generic_skills():
         "services/cctv_web_ui.py",
     ]
     assert web_ui_node["services"][0]["name"] == "cctv-operator-web-ui"
+    bindings = {
+        (binding["config_path"], binding["manifest_path"])
+        for binding in config["manifest_config_bindings"]
+    }
+    assert (
+        "web_ui.service.host",
+        "agents.nodes.cctv_web_ui.services.0.address",
+    ) in bindings
+    assert (
+        "web_ui.service.port",
+        "agents.nodes.cctv_web_ui.services.0.port",
+    ) in bindings
     assert "cctv_web_ui" in manifest["agents"]["entrypoints"]
 
 
