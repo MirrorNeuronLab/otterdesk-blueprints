@@ -927,7 +927,7 @@
     "backend": "llama.cpp",
     "default_config": "primary",
     "quick_test_uses_fake": true,
-    "strict_json": false,
+    "strict_json": true,
     "prefer_shared_skill": true,
     "require_live": true,
     "configs": {
@@ -936,7 +936,7 @@
         "backend": "llama.cpp",
         "api_base": "auto",
         "timeout_seconds": 60,
-        "max_tokens": 1800,
+        "max_tokens": 10000,
         "num_retries": 2,
         "retry_backoff_seconds": 1.0,
         "mock_mode": "fake",

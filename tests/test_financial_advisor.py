@@ -29,8 +29,10 @@ def test_financial_manifest_compiles_ordered_regulated_state_pipeline():
     primary_llm = source["llm"]["configs"]["primary"]
 
     assert source["llm"]["model"] == "default"
+    assert source["llm"]["strict_json"] is True
     assert "model" not in primary_llm
     assert "runtime_model" not in primary_llm
+    assert primary_llm["max_tokens"] == 10000
     assert source["requirements"]["memory"]["min_gb"] == 2
     assert source["requirements"]["gpu"] == {"min_count": 0}
     assert [step["id"] for step in source["workflow"]["steps"]] == EXPECTED_STEPS
@@ -95,6 +97,69 @@ print(json.dumps(normalized))
         "review source evidence",
         {"kind": "source_gap", "source": "sample-w2.txt"},
     ]
+
+
+def test_portfolio_reviewer_does_not_feed_prior_llm_finding_back_to_model():
+    result = run_payload_script(
+        "financial_advisor",
+        """
+import json
+from domain.portfolio import step_portfolio_llm_reviewer
+
+class CapturingLLM:
+    provider = "test"
+    model = "test"
+    calls = 0
+    fallback_calls = 0
+    input_tokens = 0
+    output_tokens = 0
+    total_tokens = 0
+    estimated_tokens = 0
+
+    def generate_json(self, *, user_prompt, fallback, **_kwargs):
+        self.calls += 1
+        self.user_prompt = user_prompt
+        return fallback
+
+llm = CapturingLLM()
+ctx = {
+    "config": {"llm": {"enabled": True, "configs": {"primary": {}}}},
+    "llm": llm,
+    "active_knowledge": {},
+    "state": {
+        "workflow": {
+            "portfolio_context_loader": {
+                "holding_count": 1,
+                "portfolio_source_refs": ["portfolio.json"],
+                "risk_policy": {},
+                "risk_policy_provenance": {},
+                "customer_profile_status": {"missing_fields": []},
+            },
+            "portfolio_market_data_loader": {
+                "provider": "fixture",
+                "source_refs": ["fixture:ABC"],
+            },
+            "portfolio_risk_engine": {
+                "total_value": 100.0,
+                "cash_weight_pct": 10.0,
+                "largest_position_weight_pct": 90.0,
+                "largest_position": {"symbol": "ABC", "instrument_type": "stock"},
+                "holdings": [{"symbol": "ABC"}],
+                "policy_violations": [],
+                "screening_threshold_flags": [],
+                "warnings": [],
+                "actor_finding": {"summary": "PRIOR MODEL NARRATIVE MUST NOT BE RECYCLED"},
+            },
+        }
+    },
+}
+step_portfolio_llm_reviewer(ctx)
+print(json.dumps({"prompt": llm.user_prompt}))
+""",
+    )
+
+    assert "PRIOR MODEL NARRATIVE MUST NOT BE RECYCLED" not in result["prompt"]
+    assert '"total_value": 100.0' in result["prompt"]
 
 
 def test_financial_payload_is_modular_and_handlers_resolve():

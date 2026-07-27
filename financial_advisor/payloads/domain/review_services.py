@@ -183,6 +183,7 @@ def actor_review(
                             ],
                             "source_ref_rule": "Use only supplied local source_refs or explicitly supplied public source URLs.",
                             "unknown_rule": "If evidence is absent, say unknown or review-required; never infer a financial fact.",
+                            "size_rule": "Keep summary under 600 characters. Return at most 5 concise items in each list field and at most 12 source_refs. Do not repeat a finding across fields.",
                         },
                         "fallback_shape": fallback,
                     },

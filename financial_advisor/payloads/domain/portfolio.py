@@ -296,6 +296,16 @@ def step_portfolio_llm_reviewer(ctx: dict[str, Any]) -> dict[str, Any]:
     context = workflow["portfolio_context_loader"]
     market = workflow["portfolio_market_data_loader"]
     risk = workflow["portfolio_risk_engine"]
+    # The risk engine already produced and persisted its own LLM finding. Feeding
+    # that prose back into the final reviewer duplicates model output, inflates
+    # the prompt, and can cause the review JSON to hit its output-token ceiling.
+    # The final reviewer needs the deterministic risk result, not another
+    # reviewer's narrative.
+    risk_review_context = {
+        key: copy.deepcopy(value)
+        for key, value in risk.items()
+        if key != "actor_finding"
+    }
     source_refs = sorted(
         {str(item) for item in market.get("source_refs", []) if item}
         | {
@@ -329,7 +339,7 @@ def step_portfolio_llm_reviewer(ctx: dict[str, Any]) -> dict[str, Any]:
         context={
             "portfolio_context_loader": context,
             "portfolio_market_data_loader": market,
-            "portfolio_risk_engine": risk,
+            "portfolio_risk_engine": risk_review_context,
             "review_constraints": [
                 "Do not change portfolio values, weights, volatility, VaR, CVaR, or policy-violation math.",
                 "Do not recommend executing trades, reallocations, or money movement.",

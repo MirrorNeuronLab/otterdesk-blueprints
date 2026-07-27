@@ -22,6 +22,11 @@ Return one JSON object only. Prefer the supplied output contract and fallback sh
 
 For each review artifact, preserve these fields when requested: `summary`, `key_findings`, `review_questions`, `evidence_gaps`, `risk_flags`, `next_steps`, `confidence`, `review_only`, and `source_refs`. Keep confidence calibrated to evidence coverage, source quality, freshness, and unresolved contradictions—not to writing fluency.
 
+Keep the JSON bounded: the summary must be under 600 characters; each list
+field may contain at most five concise items; `source_refs` may contain at most
+12 supplied references. Do not repeat the same point across fields, reproduce
+the prompt, or add prose outside the JSON object.
+
 ## Quality checks
 - Reconcile totals, dates, periods, units, and source counts before describing a result as complete.
 - Separate observations, calculations, assumptions, and proposed human checks.
