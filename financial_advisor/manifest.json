@@ -463,7 +463,13 @@
   "defaults": {
     "worker": {
       "with": {
-        "image": "mirror-neuron/financial-advisor:local"
+        "image": "mirror-neuron/financial-advisor:local",
+        "upload_paths": [
+          {
+            "source": "domain",
+            "target": "domain"
+          }
+        ]
       }
     }
   },
@@ -583,10 +589,13 @@
       "min_gb": 1
     },
     "gpu": {
-      "min_count": 0
+      "enforcement": "hard",
+      "memory_operator": ">=",
+      "min_count": 1,
+      "min_memory_mb": 49152
     },
     "memory": {
-      "min_gb": 2
+      "min_gb": 48
     }
   },
   "skill_dependencies": [
@@ -917,7 +926,7 @@
     "enabled": true,
     "mode": "live",
     "mock_mode": "fake",
-    "model": "default",
+    "model": "nemotron3",
     "backend": "llama.cpp",
     "default_config": "primary",
     "quick_test_uses_fake": true,
@@ -927,6 +936,8 @@
     "configs": {
       "primary": {
         "provider": "docker_model_runner",
+        "model": "nemotron3",
+        "runtime_model": "nemotron3",
         "backend": "llama.cpp",
         "api_base": "auto",
         "timeout_seconds": 60,

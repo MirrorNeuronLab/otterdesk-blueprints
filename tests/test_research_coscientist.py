@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from mn_sdk.bundle_io import load_bundle_payloads
+
 from blueprint_modernization_support import (
     ROOT,
     assert_modular_payload,
@@ -31,6 +33,42 @@ def test_research_manifest_has_one_isolated_autonomous_specialist():
         "develop_and_challenge_hypotheses__autonomous_researcher"
     ]
     assert openshell[0]["config"]["reuse_shared_sandbox"] is True
+    assert openshell[0]["config"]["sync_shared_storage"] is True
+    assert openshell[0]["config"]["workdir"] == "/sandbox/job"
+
+
+def test_research_workers_ship_build_contexts_and_domain_handlers():
+    blueprint = ROOT / "research_coscientist"
+    expanded = expanded_manifest("research_coscientist")
+    executable_nodes = [
+        node
+        for node in expanded["agents"]["nodes"]
+        if (node.get("config") or {}).get("runner_module")
+        in {
+            "MirrorNeuron.Runner.DockerWorker",
+            "MirrorNeuron.Runner.OpenShell",
+        }
+    ]
+    docker_workers = [
+        node
+        for node in executable_nodes
+        if node["config"]["runner_module"] == "MirrorNeuron.Runner.DockerWorker"
+    ]
+
+    assert docker_workers
+    assert {
+        node["config"]["docker_worker_image"]
+        for node in docker_workers
+    } == {"docker_worker"}
+    assert all(
+        {"source": "domain", "target": "domain"}
+        in node["config"]["upload_paths"]
+        for node in executable_nodes
+    )
+
+    payloads = load_bundle_payloads(blueprint)
+    assert "docker_worker/Dockerfile" in payloads
+    assert "openshell_worker/Dockerfile" in payloads
 
 
 def test_research_payload_is_modular_and_handlers_resolve():

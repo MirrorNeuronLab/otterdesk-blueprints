@@ -36,6 +36,23 @@ def listify(value: Any) -> list[Any]:
         return [value] if value.strip() else []
     return [value]
 
+
+def unique_review_values(values: list[Any]) -> list[Any]:
+    """Keep first-seen review values, including structured model findings."""
+
+    unique: list[Any] = []
+    seen: set[str] = set()
+    for value in values:
+        try:
+            marker = json.dumps(value, default=str, separators=(",", ":"), sort_keys=True)
+        except (TypeError, ValueError):
+            marker = repr(value)
+        if marker not in seen:
+            seen.add(marker)
+            unique.append(value)
+    return unique
+
+
 def normalize_review_response(response: dict[str, Any], fallback: dict[str, Any], source_refs: list[str]) -> dict[str, Any]:
     normalized = copy.deepcopy(fallback)
     if isinstance(response, dict):
@@ -54,7 +71,7 @@ def normalize_review_response(response: dict[str, Any], fallback: dict[str, Any]
         fallback_values = listify(fallback.get(field))
         # Deterministic blockers and source-review tasks cannot be cleared by
         # a polished LLM response that omits them.
-        normalized[field] = list(dict.fromkeys([*fallback_values, *response_values]))
+        normalized[field] = unique_review_values([*fallback_values, *response_values])
     normalized["review_only"] = True
     normalized["source_refs"] = sorted({str(item) for item in listify(normalized.get("source_refs")) + source_refs if str(item)})
     try:

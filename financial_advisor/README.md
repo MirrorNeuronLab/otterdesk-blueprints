@@ -61,7 +61,11 @@ Outputs are review-only. The blueprint does not file tax returns, make trades, m
 
 ## Model Profiles
 
-The small default profile uses `small`. Heavy review/reporting nodes can use the `large` profile backed by `medium`, following the `vc_assistant` pattern. Model calls use the SDK-backed blueprint support client; this blueprint does not install a separate communication skill.
+Normal runs require the `nemotron3` model and a node with at least 48 GB of
+GPU memory or Apple unified memory. The runtime selects a qualifying node and
+prepares the model automatically. If no node meets that requirement, launch
+fails before workers start; it does not silently fall back to the small default
+model. Explicit fake/quick-test runs do not need the live model.
 
 ## Payload layout
 

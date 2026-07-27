@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from mn_sdk.bundle_io import load_bundle_payloads
+
 from blueprint_modernization_support import (
     ROOT,
     assert_modular_payload,
@@ -24,6 +26,18 @@ EXPECTED_STEPS = [
 def test_financial_manifest_compiles_ordered_regulated_state_pipeline():
     source = source_manifest("financial_advisor")
     expanded = expanded_manifest("financial_advisor")
+    primary_llm = source["llm"]["configs"]["primary"]
+
+    assert source["llm"]["model"] == "nemotron3"
+    assert primary_llm["model"] == "nemotron3"
+    assert primary_llm["runtime_model"] == "nemotron3"
+    assert source["requirements"]["memory"]["min_gb"] == 48
+    assert source["requirements"]["gpu"] == {
+        "enforcement": "hard",
+        "memory_operator": ">=",
+        "min_count": 1,
+        "min_memory_mb": 49152,
+    }
     assert [step["id"] for step in source["workflow"]["steps"]] == EXPECTED_STEPS
     assert [step.get("needs", []) for step in source["workflow"]["steps"]] == [
         [],
@@ -38,6 +52,54 @@ def test_financial_manifest_compiles_ordered_regulated_state_pipeline():
     assert "prepare_tax_review__capture" in node_ids
     assert "analyze_portfolio_risk__risk" in node_ids
     assert "publish_financial_review_packet__end" in node_ids
+
+
+def test_financial_workers_stage_the_domain_package():
+    blueprint = ROOT / "financial_advisor"
+    expanded = expanded_manifest("financial_advisor")
+    executable_nodes = [
+        node
+        for node in expanded["agents"]["nodes"]
+        if (node.get("config") or {}).get("runner_module")
+        == "MirrorNeuron.Runner.DockerWorker"
+    ]
+
+    assert executable_nodes
+    assert all(
+        {"source": "domain", "target": "domain"}
+        in node["config"]["upload_paths"]
+        for node in executable_nodes
+    )
+
+    payloads = load_bundle_payloads(blueprint)
+    assert "docker_worker/Dockerfile" in payloads
+
+
+def test_financial_review_normalization_preserves_structured_model_findings():
+    result = run_payload_script(
+        "financial_advisor",
+        """
+import json
+from domain.review_services import normalize_review_response
+
+finding = {"kind": "source_gap", "source": "sample-w2.txt"}
+normalized = normalize_review_response(
+    {"risk_flags": [finding, dict(finding)]},
+    {
+        "summary": "fallback",
+        "risk_flags": ["review source evidence"],
+        "confidence": 0.68,
+    },
+    [],
+)
+print(json.dumps(normalized))
+""",
+    )
+
+    assert result["risk_flags"] == [
+        "review source evidence",
+        {"kind": "source_gap", "source": "sample-w2.txt"},
+    ]
 
 
 def test_financial_payload_is_modular_and_handlers_resolve():

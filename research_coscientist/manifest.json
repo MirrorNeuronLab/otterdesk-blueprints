@@ -465,7 +465,13 @@
     "worker": {
       "with": {
         "stereotype": "internal_write_worker",
-        "image": "mirror-neuron/research-coscientist:local"
+        "image": "mirror-neuron/research-coscientist:local",
+        "upload_paths": [
+          {
+            "source": "domain",
+            "target": "domain"
+          }
+        ]
       }
     }
   },
@@ -851,6 +857,8 @@
           "persistent_workspace": true,
           "reuse_shared_sandbox": true,
           "cleanup_remote_dir": false,
+          "sync_shared_storage": true,
+          "workdir": "/sandbox/job",
           "timeout_seconds": 2400
         }
       }
