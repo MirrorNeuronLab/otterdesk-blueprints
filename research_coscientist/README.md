@@ -5,6 +5,8 @@
 
 Research Co-Scientist turns a research goal and an approved evidence folder into a source-grounded research packet. Deterministic host stages normalize inputs, build the evidence ledger, and verify the final packet. A single shared OpenShell worker owns every autonomous phase: it may refine the goal, create phase prompts, call allowlisted `mn-skills` tools on demand, generate and execute bounded analysis code, challenge hypotheses, and draft the candidate packet.
 
+The autonomous specialist receives its configured LLM through the SDK-backed blueprint support client. It does not require the deprecated LiteLLM communication skill; first use resolves the configured runtime model lazily.
+
 It is inspired by the role separation in Google's AI co-scientist—not a reproduction of Google's system. The workflow uses an explicit evidence ledger and bounded review roles so that generated hypotheses remain hypotheses until a qualified person evaluates them.
 
 ## Quick Start

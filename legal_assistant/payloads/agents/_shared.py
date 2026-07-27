@@ -34,8 +34,16 @@ _STATE_ARTIFACTS = {
 
 
 def create_domain_agent(agent_id: str, operation: Callable[..., dict[str, Any]]):
-    def invoke(context: StatefulStepContext, *, agent_input: AgentInput, **options: Any) -> AgentHandlerOutput:
-        result = operation(context.to_mapping(), **options)
+    def invoke(
+        context: StatefulStepContext,
+        *,
+        agent_input: AgentInput,
+        llm_client: Any | None = None,
+        **options: Any,
+    ) -> AgentHandlerOutput:
+        mapping = context.to_mapping()
+        mapping["llm_client"] = llm_client
+        result = operation(mapping, **options)
         ref = artifact_reference(
             "legal_workflow_state",
             _STATE_ARTIFACTS[agent_id],

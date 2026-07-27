@@ -61,7 +61,7 @@ Outputs are review-only. The blueprint does not file tax returns, make trades, m
 
 ## Model Profiles
 
-The small default profile uses `small`. Heavy review/reporting nodes can use the `large` profile backed by `medium`, following the `vc_assistant` pattern.
+The small default profile uses `small`. Heavy review/reporting nodes can use the `large` profile backed by `medium`, following the `vc_assistant` pattern. Model calls use the SDK-backed blueprint support client; this blueprint does not install a separate communication skill.
 
 ## Payload layout
 

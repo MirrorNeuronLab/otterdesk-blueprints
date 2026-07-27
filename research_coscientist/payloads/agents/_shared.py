@@ -18,8 +18,14 @@ _spec = StatefulStepSpec(context_factory=runtime_context_for_step, input_keys=_i
 
 
 def create_domain_agent(agent_id: str, operation: Callable[..., dict[str, Any]]):
-    def invoke(context: StatefulStepContext, *, agent_input: AgentInput, **options: Any) -> AgentHandlerOutput:
-        result = operation(context.to_mapping(), **options)
+    def invoke(
+        context: StatefulStepContext,
+        *,
+        agent_input: AgentInput,
+        llm_client: Any | None = None,
+        **options: Any,
+    ) -> AgentHandlerOutput:
+        result = operation(context.to_mapping(), llm_client=llm_client, **options)
         ref = artifact_reference("research_coscientist_state", "workflow_state/research_coscientist_state.json")
         artifacts = [ref]
         payload: dict[str, Any] = {

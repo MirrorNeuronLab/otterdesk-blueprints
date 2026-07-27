@@ -10,12 +10,12 @@ terms, and deterministic tests into an installable co-worker/workflow bundle.
 This specification applies only to this repository. Reusable agents, skills,
 SDK compilation, and Core delivery are dependencies, not code owned here.
 
-VC Assistant uses foundational `mn_sdk.llm` access through blueprint support
-and does not declare `mirrorneuron-litellm-communicate-skill`. Its RAG and OCR
-skills own their complete model specifications and pass them to the SDK's lazy
-runtime model wrapper. VC Assistant declares only the skills and product-level
-behavior; first-use runtime selection chooses and prepares the concrete DMR
-model. This migration does not change other blueprints.
+VC Assistant, Financial Advisor, Legal Assistant, and Research Co-Scientist
+use foundational `mn_sdk.llm` access through blueprint support and do not
+declare `mirrorneuron-litellm-communicate-skill`. Their RAG and OCR skills own
+complete model specifications and pass them to the SDK's lazy runtime wrapper.
+Blueprints declare only skills and product-level behavior; first-use runtime
+selection chooses and prepares the concrete DMR model.
 
 ## Catalog Contract
 

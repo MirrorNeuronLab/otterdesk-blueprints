@@ -13,6 +13,9 @@ Provide a source-grounded, adversarial research workflow for scientists, enginee
 
 The roles are inspired by the generation, reflection, ranking, evolution, proximity, and meta-review pattern described for Google's AI co-scientist. This blueprint uses those ideas as a workflow pattern; it does not claim to replicate Google's models, data, or results.
 
+The autonomous specialist uses the configured SDK-backed LLM client. It does not
+declare or install the deprecated LiteLLM communication skill.
+
 ## Output Contract
 
 The primary artifact is `mn.blueprint.research_coscientist.v2`. It contains a research goal, executive summary, `recommended_action` (`review_research_packet` or `gather_more_evidence`), confidence, source-grounded evidence, autonomous session and generated-code traces, a hypothesis ledger, critique ledger, experiment concepts, evidence gaps, next steps, and source references. Its `status` is `review_ready` only when at least one extracted local document or observed public source is present; otherwise it is `needs_evidence` and preserves diagnostics without presenting the packet as review-ready.

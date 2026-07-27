@@ -242,7 +242,7 @@ def read_documents(ctx: dict[str, Any], **_options: Any) -> dict[str, Any]:
     from .review import build_llm_client
 
     state = load_state(ctx)
-    llm = build_llm_client(ctx["config"], ctx["payload"], None)
+    llm = build_llm_client(ctx["config"], ctx["payload"], ctx.get("llm_client"))
     ocr_client, ocr_status = build_ocr_runtime({"config": ctx["config"], "payload": ctx["payload"], "llm": llm})
     records = load_documents(Path(state["document_folder"]), ocr_client=ocr_client)
     state.update({"records": records, "evidence": summarize_records(records), "warnings": record_warnings(records), "ocr_status": ocr_status})

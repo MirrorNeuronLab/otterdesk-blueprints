@@ -333,10 +333,12 @@ def _experiment_concepts(hypotheses: list[dict[str, Any]], inputs: dict[str, Any
     return concepts
 
 
-def autonomous_research(ctx: dict[str, Any], **_options: Any) -> dict[str, Any]:
+def autonomous_research(
+    ctx: dict[str, Any], *, llm_client: Any | None = None, **_options: Any
+) -> dict[str, Any]:
     state = _state(ctx)
     inputs = _inputs(ctx)
-    llm = research_llm(ctx["config"], actor=True)
+    llm = research_llm(ctx["config"], llm_client)
     documents = state.get("documents") or []
     sources = state.get("sources") or []
     evidence = state.get("evidence") or research_evidence(inputs, documents, sources)

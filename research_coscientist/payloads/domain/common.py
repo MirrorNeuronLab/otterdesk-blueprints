@@ -33,7 +33,7 @@ def _bootstrap_runtime() -> None:
 
 _bootstrap_runtime()
 
-from mn_blueprint_support import DeterministicFallbackLLM, PromptLibrary, get_actor_llm_client, get_llm_client
+from mn_blueprint_support import DeterministicFallbackLLM, PromptLibrary, get_actor_llm_client
 from mn_sdk.blueprint_support import source_manifest
 
 
@@ -86,12 +86,12 @@ def quick_test_enabled(config: dict[str, Any]) -> bool:
     return bool(execution.get("quick_test")) or str(llm.get("mode") or "").lower() in {"fake", "mock", "test"}
 
 
-def research_llm(config: dict[str, Any], provided: Any | None = None, *, actor: bool = False) -> Any:
+def research_llm(config: dict[str, Any], provided: Any | None = None) -> Any:
     if provided is not None:
         return provided
     if quick_test_enabled(config):
         return QuickTestLLM()
-    return get_actor_llm_client(config, None) if actor else get_llm_client(None)
+    return get_actor_llm_client(config, None)
 
 
 def load_prompt(name: str) -> str:

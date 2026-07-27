@@ -3,11 +3,11 @@
 `otterdesk-blueprints` is a self-contained OtterDesk-facing worker blueprint catalog. Each blueprint folder includes
 its own manifest, configuration, payloads, README, and user-facing `SPEC.md`.
 
-VC Assistant uses foundational `mn_sdk.llm` calls through blueprint support and
-does not depend on the LiteLLM communication skill. Its RAG and OCR skills own
-their model specifications and use the SDK runtime model wrapper; the VC
-blueprint declares the skills, not their model artifacts. Other blueprints are
-outside this migration.
+VC Assistant, Financial Advisor, Legal Assistant, and Research Co-Scientist
+use foundational `mn_sdk.llm` calls through blueprint support; they do not
+depend on the deprecated LiteLLM communication skill. Their RAG and OCR skills
+own model specifications and use the SDK runtime model wrapper, while each
+blueprint declares only its product-level behavior and required skills.
 
 ## Quick Start
 

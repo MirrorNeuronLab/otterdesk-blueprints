@@ -112,7 +112,7 @@ def build_llm_client(config: dict[str, Any], payload: dict[str, Any], llm_client
     if get_actor_llm_client is None:
         raise RuntimeError(
             "Legal Assistant requires the shared live LLM client for normal runs. "
-            "Install/enable mirrorneuron-litellm-communicate-skill or run with explicit fake/quick-test mode."
+            "Install/enable mirrorneuron-blueprint-support-skill or run with explicit fake/quick-test mode."
         )
     selection = select_default_model(config)
     try:
@@ -338,7 +338,7 @@ def reconcile_evidence(ctx: dict[str, Any], **_options: Any) -> dict[str, Any]:
 def audit_review(ctx: dict[str, Any], **_options: Any) -> dict[str, Any]:
     state = load_state(ctx)
     records = state.get("records") or []
-    llm = build_llm_client(ctx["config"], ctx["payload"], None)
+    llm = build_llm_client(ctx["config"], ctx["payload"], ctx.get("llm_client"))
     knowledge = load_legal_knowledge(Path(ctx["blueprint_dir"]))
     rag = prepare_legal_rag(ctx["config"], Path(ctx["blueprint_dir"]), knowledge)
     actor_context = {

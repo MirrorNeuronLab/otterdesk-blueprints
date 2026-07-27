@@ -199,10 +199,7 @@ SKILL_NAME_PACKAGES = {
     "web_browser_skill": "mirrorneuron-web-browser-skill",
     "websocket_stream": "mirrorneuron-websocket-stream-skill",
 }
-BLUEPRINT_TRANSITIVE_SKILL_PACKAGES = {
-    "financial_advisor": {"mirrorneuron-litellm-communicate-skill"},
-    "legal_assistant": {"mirrorneuron-litellm-communicate-skill"},
-}
+BLUEPRINT_TRANSITIVE_SKILL_PACKAGES: dict[str, set[str]] = {}
 
 
 def _completion_threshold(value) -> bool:

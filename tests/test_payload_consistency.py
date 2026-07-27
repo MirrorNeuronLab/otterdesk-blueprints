@@ -32,15 +32,28 @@ def test_gtm_vendored_runtime_and_skill_copies_stay_identical():
         _assert_all_identical(paths)
 
 
-def test_vc_assistant_uses_sdk_llm_without_communication_skill_dependency():
+def test_sdk_llm_blueprints_do_not_depend_on_the_communication_skill():
+    for blueprint_id in (
+        "vc_assistant",
+        "financial_advisor",
+        "legal_assistant",
+        "research_coscientist",
+    ):
+        manifest = json.loads((ROOT / blueprint_id / "manifest.json").read_text())
+        packages = {
+            str(item.get("name") or "")
+            for item in manifest.get("skill_dependencies") or []
+            if isinstance(item, dict)
+        }
+        assert "mirrorneuron-litellm-communicate-skill" not in packages
+
     vc_manifest = json.loads((ROOT / "vc_assistant" / "manifest.json").read_text())
     vc_packages = {
         str(item.get("name") or "")
         for item in vc_manifest.get("skill_dependencies") or []
         if isinstance(item, dict)
     }
-    assert "mirrorneuron-rag-skill" in vc_packages
-    assert "mirrorneuron-llm-ocr-skill" in vc_packages
+    assert {"mirrorneuron-rag-skill", "mirrorneuron-llm-ocr-skill"} <= vc_packages
 
 
 def test_vc_assistant_leaves_rag_and_ocr_model_specs_in_their_skills():

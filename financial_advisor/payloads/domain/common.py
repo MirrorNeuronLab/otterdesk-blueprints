@@ -18,7 +18,6 @@ from typing import Any
 
 RUNTIME_SKILL_PACKAGES = (
     "mirrorneuron-blueprint-support-skill",
-    "mirrorneuron-litellm-communicate-skill",
     "mirrorneuron-llm-ocr-skill",
 )
 
