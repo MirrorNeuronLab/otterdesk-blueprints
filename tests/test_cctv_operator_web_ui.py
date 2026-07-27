@@ -64,6 +64,11 @@ def test_cctv_ui_owns_steering_route_and_payload_validation(tmp_path: Path):
     ]
     assert "steer-monitoring" in service.application.actions
     assert "/api/v1/runs" not in json.dumps(service.application.spec)
+    instruction_field = service.application.spec["elements"]["update-watch"][
+        "props"
+    ]["fields"][0]
+    assert instruction_field["type"] == "textarea"
+    assert instruction_field["max_length"] == 500
 
 
 def test_cctv_ui_rejects_unknown_and_invalid_steering_fields():
@@ -82,6 +87,16 @@ def test_cctv_ui_rejects_unknown_and_invalid_steering_fields():
 def test_cctv_ui_state_redacts_stream_credentials(tmp_path: Path):
     (tmp_path / "events.jsonl").write_text(
         json.dumps(
+            {
+                "type": "cctv_operator_attention_updated",
+                "payload": {
+                    "instruction": "Watch the loading dock",
+                    "instruction_revision": 3,
+                },
+            }
+        )
+        + "\n"
+        + json.dumps(
             {
                 "type": "cctv_operator_frame_batch_ready",
                 "payload": {
@@ -106,13 +121,106 @@ def test_cctv_ui_state_redacts_stream_credentials(tmp_path: Path):
     assert "secret" not in encoded
     assert "token=" not in encoded
     assert state["metrics"]["latest trigger"] == "scene_event"
+    assert state["metrics"]["watch target"] == "Watch the loading dock"
+    assert state["metrics"]["instruction revision"] == 3
 
 
-def test_cctv_ui_port_config_updates_runtime_resource_and_service_contract():
+def test_cctv_ui_state_prefers_durable_monitoring_state(tmp_path: Path):
+    (tmp_path / "monitoring_state.json").write_text(
+        json.dumps(
+            {
+                "schema": "otterdesk.cctv_operator.monitoring_state.v1",
+                "instruction": "Monitor the left doorway.",
+                "instruction_revision": 4,
+                "last_command_id": "command-four",
+                "updated_at": 42.0,
+            }
+        )
+    )
+    service = cctv_web_ui.CCTVWebUIService(
+        run_id="run-1",
+        run_dir=tmp_path,
+        config={},
+        send_run_input=lambda *_args: {},
+    )
+
+    state = service.ui_state()
+
+    assert state["metrics"]["watch target"] == "Monitor the left doorway."
+    assert state["metrics"]["instruction revision"] == 4
+
+
+def test_cctv_ui_uses_external_browser_preview_without_local_relay(
+    tmp_path: Path,
+):
+    preview_url = "http://camera-gateway:8888/cctv/index.m3u8"
+    service = cctv_web_ui.CCTVWebUIService(
+        run_id="run-1",
+        run_dir=tmp_path,
+        config={
+            "web_ui": {
+                "preview": {
+                    "enabled": True,
+                    "url": preview_url,
+                }
+            }
+        },
+        send_run_input=lambda *_args: {},
+    )
+
+    preview = service.application.spec["elements"]["preview-video"]
+    assert preview["type"] == "Video"
+    assert preview["props"]["source"] == preview_url
+    assert service.ui_state()["metrics"]["preview"] == "external"
+    assert all(
+        mount.url_prefix != "/preview"
+        for mount in service.application.static_mounts
+    )
+    assert not (tmp_path / "preview_relay").exists()
+
+
+def test_cctv_ui_without_preview_url_keeps_analysis_available(tmp_path: Path):
+    service = cctv_web_ui.CCTVWebUIService(
+        run_id="run-1",
+        run_dir=tmp_path,
+        config={},
+        send_run_input=lambda *_args: {},
+    )
+
+    preview = service.application.spec["elements"]["preview-video"]
+    state = service.ui_state()
+    assert preview["type"] == "Text"
+    assert state["metrics"]["preview"] == "unavailable"
+    assert "not configured" in state["warning"]
+
+
+@pytest.mark.parametrize(
+    "preview_url",
+    [
+        "rtsp://camera/live",
+        "http://user:secret@camera/live/index.m3u8",
+        "/preview/stream.m3u8",
+    ],
+)
+def test_cctv_ui_rejects_non_browser_safe_preview_urls(
+    tmp_path: Path,
+    preview_url: str,
+):
+    with pytest.raises(ValueError, match="web_ui.preview.url"):
+        cctv_web_ui.CCTVWebUIService(
+            run_id="run-1",
+            run_dir=tmp_path,
+            config={"web_ui": {"preview": {"url": preview_url}}},
+            send_run_input=lambda *_args: {},
+        )
+
+
+def test_cctv_ui_host_and_port_config_update_runtime_service_contract():
     blueprint = ROOT / "cctv_operator"
     source = json.loads((blueprint / "manifest.json").read_text())
     manifest = expand_manifest_source(source, root_dir=blueprint)
     config = json.loads((blueprint / "config" / "default.json").read_text())
+    config["web_ui"]["service"]["host"] = "0.0.0.0"
     config["web_ui"]["service"]["port"] = 61017
 
     apply_manifest_config_bindings(manifest, config)
@@ -122,5 +230,19 @@ def test_cctv_ui_port_config_updates_runtime_resource_and_service_contract():
         for item in manifest["agents"]["nodes"]
         if item["node_id"] == "cctv_web_ui"
     )
+    assert node["services"][0]["address"] == "0.0.0.0"
     assert node["resources"]["ports"][0]["port"] == 61017
     assert node["services"][0]["port"] == 61017
+
+
+def test_cctv_ui_uses_loopback_public_url_for_wildcard_listener():
+    assert (
+        cctv_web_ui.public_service_url("0.0.0.0", 61017)
+        == "http://127.0.0.1:61017"
+    )
+    assert (
+        cctv_web_ui.public_service_url(
+            "0.0.0.0", 61017, "https://camera-ui.example/"
+        )
+        == "https://camera-ui.example"
+    )

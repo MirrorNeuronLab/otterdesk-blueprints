@@ -24,10 +24,9 @@ The logical processing path is `ingress → adaptive_frame_sampler →
 visual_detector → report_writer`. The sampler self-schedules at the configured
 proxy cadence; there is no runtime timer or video-specific Core module. The
 generic live-video skill owns a run-scoped persistent FFmpeg connection, proxy
-comparison primitives, selection, batch persistence, and preview relay
-mechanics. The blueprint sampler owns CCTV cadence, event names, steering
-priority, and product metadata; the detector owns prompt, observation, alert,
-and report semantics.
+comparison primitives, selection, and batch persistence. The blueprint sampler
+owns CCTV cadence, event names, steering priority, and product metadata; the
+detector owns prompt, observation, alert, and report semantics.
 
 The manifest declares `contracts.live_inputs.steer_monitoring`. Core resolves
 that identifier to `ingress` and `cctv_operator_steer`; callers cannot name a
@@ -64,6 +63,12 @@ container, so a single-GPU node is valid. FFmpeg uses CUDA decode and
 deterministic local preprocessing, not a model call. No CPU decoder or Mac-only
 execution fallback exists.
 
+Docker Model Runner requests disable model reasoning through the llama.cpp
+chat-template control so the bounded token budget is spent on the required
+structured visual observation. Empty, reasoning-only, truncated, or malformed
+model output is an explicit frame-analysis failure; it is never converted into
+a synthetic “no detection” result.
+
 This small FFmpeg CUDA worker is the preferred single-DGX-Spark design. It avoids a large DeepStream service image; DeepStream remains a future option for deployments that need batched multi-camera pipelines, tracker plugins, or high camera density.
 
 ## Web UI deployment decision
@@ -73,15 +78,29 @@ specific UI spec, `/actions/steer-monitoring` handler, payload validation,
 state projection, and Core call live in `payloads/services/cctv_web_ui.py`.
 The generic `mirrorneuron-web-ui-skill` hosts and renders the validated spec
 with `vercel-labs/json-render`; it knows no CCTV routes or policy.
+The rendered dashboard displays the current watch target and provides a
+bounded 500-character prompt form that updates the declared
+`steer_monitoring` live input.
+The adaptive sampler durably writes the current run-scoped instruction to
+`monitoring_state.json`. The Web UI uses that artifact as the authoritative
+watch-target state and treats event records as supplemental activity history.
 
-The service uses the optional relay from
-`mirrorneuron-live-video-analysis-skill` to expose a credential-free HLS path.
-Relay failure is visible but never stops sampling. The UI separately renders
-`latest_analyzed_frame.jpg` so the operator can distinguish the smooth preview
-from model evidence. There is no Gradio path and no `mn-api` live-input REST
-route. The operator-facing `web_ui.service.port` setting is projected into the
-HostLocal port reservation and service health declaration as one runtime
-contract.
+The HostLocal service never opens the RTSP source and never launches FFmpeg.
+The optional `web_ui.preview.url` setting must name an absolute,
+credential-free HTTP(S) media URL supplied by an external camera gateway. HLS
+playlists are rendered by the generic web UI skill. A missing preview is
+visible but never stops sampling. The local `scripts/sample_rtsp.sh`
+development helper publishes the fixture over RTSP and uses MediaMTX itself as
+the HLS proxy; that sample proxy is not a Core responsibility. The UI
+separately renders `latest_analyzed_frame.jpg` so the operator can distinguish
+the smooth preview from model evidence. There is no Gradio path and no
+`mn-api` live-input REST route. The operator-facing `web_ui.service.port`
+setting is projected into the HostLocal port reservation and service health
+declaration as one runtime contract. `web_ui.service.host` is projected into
+the declared service address. The CLI `--web-ui-host` and `--web-ui-port`
+options override those settings for one run. A wildcard host such as `0.0.0.0`
+is an explicit network-exposure decision; the service does not add
+authentication.
 
 ## Persistent job data
 
@@ -97,6 +116,7 @@ confidence, alert records, errors, sampling trigger, instruction revision, and
 batch reference. The durable outputs are:
 
 - `events.jsonl`
+- `monitoring_state.json`
 - `cctv_report.json`
 - `cctv_report.md`
 - `final_artifact.json`

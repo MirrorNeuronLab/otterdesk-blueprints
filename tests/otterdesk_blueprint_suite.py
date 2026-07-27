@@ -1566,10 +1566,13 @@ def test_cctv_operator_uses_dockerworker_nvidia_media_worker():
     assert sampler_node["config"]["command"] == ["bash", "scripts/run_sampler_on_nvidia.sh"]
     assert sampler_node["config"]["workdir"] == "/mn/job/adaptive_frame_sampler"
     assert sampler_node["config"].get("output_message_type") is None
-    assert visual_node["config"]["workdir"] == "/mn/job/visual_detector"
+    assert visual_node["config"]["workdir"] == "/mn/job/agents/visual_detector"
     assert visual_node["config"]["command"] == ["bash", "scripts/run_detector_on_nvidia.sh"]
     assert visual_node["config"]["upload_paths"] == [
-        {"source": "agents/visual_detector", "target": "visual_detector"},
+        {
+            "source": "agents/visual_detector",
+            "target": "agents/visual_detector",
+        },
         {"source": "prompts", "target": "prompts"},
     ]
     assert "upload_path" not in visual_node["config"]
@@ -1683,12 +1686,14 @@ def test_cctv_operator_owns_json_render_web_ui_and_uses_generic_skills():
     assert "folder_path" not in config["video_source"]
     assert config["web_ui"]["renderer"] == "json-render"
     assert config["web_ui"]["preview"]["optional"] is True
+    assert config["web_ui"]["preview"]["url"] == ""
 
     manifest_web_ui = manifest["metadata"]["web_ui"]
     assert manifest_web_ui["adapter"] == "json-render"
     assert manifest_web_ui["node_id"] == "cctv_web_ui"
     assert manifest_web_ui["registration"]["module"] == "cctv_web_ui"
     assert manifest_web_ui["steering_action"] == "/actions/steer-monitoring"
+    assert manifest_web_ui["preview_config"] == "web_ui.preview.url"
     assert "/api/v1/runs" not in json.dumps(manifest_web_ui)
 
     web_ui_node = next(
@@ -1698,8 +1703,25 @@ def test_cctv_operator_owns_json_render_web_ui_and_uses_generic_skills():
     )
     assert web_ui_node["type"] == "stream"
     assert web_ui_node["config"]["runner_module"] == "MirrorNeuron.Runner.HostLocal"
-    assert web_ui_node["config"]["upload_path"] == "services"
+    assert web_ui_node["config"]["upload_path"] == "."
+    assert web_ui_node["config"]["workdir"] == "/sandbox/job"
+    assert web_ui_node["config"]["command"] == [
+        "python3.11",
+        "services/cctv_web_ui.py",
+    ]
     assert web_ui_node["services"][0]["name"] == "cctv-operator-web-ui"
+    bindings = {
+        (binding["config_path"], binding["manifest_path"])
+        for binding in config["manifest_config_bindings"]
+    }
+    assert (
+        "web_ui.service.host",
+        "agents.nodes.cctv_web_ui.services.0.address",
+    ) in bindings
+    assert (
+        "web_ui.service.port",
+        "agents.nodes.cctv_web_ui.services.0.port",
+    ) in bindings
     assert "cctv_web_ui" in manifest["agents"]["entrypoints"]
 
 

@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import json
+import os
+from pathlib import Path
 import time
 import uuid
 from typing import Any, Mapping
 
 
 MAX_INSTRUCTION_CHARS = 500
+MONITORING_STATE_FILENAME = "monitoring_state.json"
 
 
 def initial_monitoring_state() -> dict[str, Any]:
@@ -67,3 +71,23 @@ def apply_steering_command(
         },
     }
     return current, event
+
+
+def write_monitoring_state(
+    run_dir: str | Path,
+    state: Mapping[str, Any],
+) -> Path:
+    target = Path(run_dir) / MONITORING_STATE_FILENAME
+    target.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "schema": "otterdesk.cctv_operator.monitoring_state.v1",
+        **initial_monitoring_state(),
+        **dict(state),
+    }
+    temporary = target.with_name(f".{target.name}.{os.getpid()}.tmp")
+    temporary.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    os.replace(temporary, target)
+    return target

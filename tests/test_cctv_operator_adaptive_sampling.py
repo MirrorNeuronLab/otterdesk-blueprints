@@ -146,6 +146,29 @@ def test_steering_is_run_scoped_revisioned_and_clearable():
     assert event["payload"]["cleared"] is True
 
 
+def test_monitoring_state_is_written_as_a_durable_run_artifact(tmp_path):
+    from cctv_operator.payloads.domain.monitoring import (
+        initial_monitoring_state,
+        write_monitoring_state,
+    )
+
+    state = {
+        **initial_monitoring_state(),
+        "instruction": "Watch the left doorway.",
+        "instruction_revision": 4,
+        "last_command_id": "command-four",
+        "updated_at": 42.0,
+    }
+
+    path = write_monitoring_state(tmp_path, state)
+
+    assert path == tmp_path / "monitoring_state.json"
+    assert json.loads(path.read_text()) == {
+        "schema": "otterdesk.cctv_operator.monitoring_state.v1",
+        **state,
+    }
+
+
 def test_sampler_uses_live_input_idempotency_metadata_as_command_id():
     sampler = _load(
         PAYLOADS / "agents" / "adaptive_frame_sampler" / "scripts" / "sample_video.py",
