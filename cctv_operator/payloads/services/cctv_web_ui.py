@@ -131,42 +131,11 @@ def preview_config(config: dict[str, Any]) -> tuple[str, str, str]:
         return "", "disabled", ""
     url = validate_preview_url(preview.get("url"))
     if not url:
-        return (
-            "",
-            "unavailable",
-            (
-                "Live preview URL is not configured; sparse analysis "
-                "remains active."
-            ),
-        )
+        return "", "unavailable", ""
     return url, "external", ""
 
 
 def build_ui_spec(preview_url: str = "") -> dict[str, Any]:
-    preview_element = (
-        {
-            "type": "Video",
-            "props": {
-                "source": preview_url,
-                "label": (
-                    "Preview is observational. Analysis uses sparse "
-                    "selected frame batches."
-                ),
-            },
-            "children": [],
-        }
-        if preview_url
-        else {
-            "type": "Text",
-            "props": {
-                "text": (
-                    "No browser-safe preview URL is configured. "
-                    "Video analysis continues independently."
-                )
-            },
-            "children": [],
-        }
-    )
     return {
         "root": "app",
         "elements": {
@@ -174,9 +143,10 @@ def build_ui_spec(preview_url: str = "") -> dict[str, Any]:
                 "type": "App",
                 "props": {
                     "title": "CCTV Operator",
+                    "density": "compact",
                     "subtitle": (
-                        "See what needs attention, verify the selected "
-                        "evidence, and steer the current watch."
+                        "Monitor the source, verify AI evidence, and steer "
+                        "the active watch."
                     ),
                 },
                 "children": ["layout"],
@@ -188,8 +158,8 @@ def build_ui_spec(preview_url: str = "") -> dict[str, Any]:
                     "operations",
                     "preview",
                     "latest",
-                    "controls",
                     "events",
+                    "controls",
                     "boundary",
                 ],
             },
@@ -200,7 +170,21 @@ def build_ui_spec(preview_url: str = "") -> dict[str, Any]:
             },
             "status": {
                 "type": "LiveStatus",
-                "props": {"endpoint": "/ui/state", "refreshMs": 1000},
+                "props": {
+                    "endpoint": "/ui/state",
+                    "refreshMs": 1000,
+                    "keys": [
+                        "status",
+                        "watch target",
+                        "latest finding",
+                        "confidence",
+                        "risk",
+                        "alerts to review",
+                        "frames analyzed",
+                        "last analyzed",
+                        "model latency",
+                    ],
+                },
                 "children": [],
             },
             "preview": {
@@ -208,10 +192,18 @@ def build_ui_spec(preview_url: str = "") -> dict[str, Any]:
                 "props": {"title": "Live source preview", "span": 7},
                 "children": ["preview-video"],
             },
-            "preview-video": preview_element,
+            "preview-video": {
+                "type": "Video",
+                "props": {
+                    "source": preview_url,
+                    "label": "Live preview; AI evidence is shown separately.",
+                    "emptyLabel": "Live preview is blank",
+                },
+                "children": [],
+            },
             "controls": {
                 "type": "Card",
-                "props": {"title": "Change the watch", "span": 5},
+                "props": {"title": "Change the watch", "span": 4},
                 "children": ["update-watch", "clear-watch"],
             },
             "update-watch": {
@@ -226,7 +218,7 @@ def build_ui_spec(preview_url: str = "") -> dict[str, Any]:
                             "type": "textarea",
                             "required": True,
                             "max_length": 500,
-                            "rows": 4,
+                            "rows": 2,
                             "placeholder": (
                                 "Watch for a red backpack near the left doorway."
                             ),
@@ -267,7 +259,7 @@ def build_ui_spec(preview_url: str = "") -> dict[str, Any]:
             },
             "events": {
                 "type": "Card",
-                "props": {"title": "What the operator should review", "span": 7},
+                "props": {"title": "Review activity", "span": 8},
                 "children": ["event-feed"],
             },
             "event-feed": {
@@ -275,7 +267,7 @@ def build_ui_spec(preview_url: str = "") -> dict[str, Any]:
                 "props": {
                     "endpoint": "/ui/state",
                     "refreshMs": 1000,
-                    "limit": 30,
+                    "limit": 16,
                 },
                 "children": [],
             },
@@ -540,7 +532,7 @@ def main() -> int:
     web_ui = web_ui if isinstance(web_ui, dict) else {}
     service_config = web_ui.get("service")
     service_config = service_config if isinstance(service_config, dict) else {}
-    host = str(service_config.get("host") or "127.0.0.1")
+    host = str(service_config.get("host") or "0.0.0.0")
     port = int(service_config.get("port") or 61000)
     public_url = public_service_url(
         host,

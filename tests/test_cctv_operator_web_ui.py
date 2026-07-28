@@ -263,9 +263,36 @@ def test_cctv_ui_without_preview_url_keeps_analysis_available(tmp_path: Path):
 
     preview = service.application.spec["elements"]["preview-video"]
     state = service.ui_state()
-    assert preview["type"] == "Text"
+    assert preview["type"] == "Video"
+    assert preview["props"]["source"] == ""
+    assert preview["props"]["emptyLabel"] == "Live preview is blank"
     assert state["metrics"]["preview"] == "unavailable"
-    assert "not configured" in state["warning"]
+    assert "not configured" not in state["warning"]
+
+
+def test_cctv_ui_uses_compact_operator_layout_and_keeps_evidence():
+    spec = cctv_web_ui.build_ui_spec("https://camera.example/live.m3u8")
+    elements = spec["elements"]
+
+    assert elements["app"]["props"]["density"] == "compact"
+    assert elements["layout"]["children"] == [
+        "operations",
+        "preview",
+        "latest",
+        "events",
+        "controls",
+        "boundary",
+    ]
+    assert elements["latest"]["props"]["span"] == 5
+    assert elements["latest-image"]["type"] == "ArtifactImage"
+    assert elements["events"]["props"]["span"] == 8
+    assert elements["controls"]["props"]["span"] == 4
+    assert elements["event-feed"]["props"]["limit"] == 16
+    assert elements["status"]["props"]["keys"][0:3] == [
+        "status",
+        "watch target",
+        "latest finding",
+    ]
 
 
 @pytest.mark.parametrize(
@@ -294,7 +321,7 @@ def test_cctv_ui_host_and_port_config_update_runtime_service_contract():
     source = json.loads((blueprint / "manifest.json").read_text())
     manifest = expand_manifest_source(source, root_dir=blueprint)
     config = json.loads((blueprint / "config" / "default.json").read_text())
-    config["web_ui"]["service"]["host"] = "0.0.0.0"
+    assert config["web_ui"]["service"]["host"] == "0.0.0.0"
     config["web_ui"]["service"]["port"] = 61017
 
     apply_manifest_config_bindings(manifest, config)

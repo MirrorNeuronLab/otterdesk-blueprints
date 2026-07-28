@@ -111,8 +111,8 @@ services are scheduled on a different cluster node from the detector.
 The HostLocal service never opens the RTSP source and never launches FFmpeg.
 The optional `web_ui.preview.url` setting must name an absolute,
 credential-free HTTP(S) media URL supplied by an external camera gateway. HLS
-playlists are rendered by the generic web UI skill. A missing preview is
-visible but never stops sampling. The local `scripts/sample_rtsp.sh`
+playlists are rendered by the generic web UI skill. A missing preview leaves a
+blank media surface and never stops sampling. The local `scripts/sample_rtsp.sh`
 development helper publishes the fixture over RTSP and uses MediaMTX itself as
 the HLS proxy; that sample proxy is not a Core responsibility. The UI
 separately renders `latest_analyzed_frame.jpg` so the operator can distinguish
@@ -121,9 +121,9 @@ the smooth preview from model evidence. There is no Gradio path and no
 setting is projected into the HostLocal port reservation and service health
 declaration as one runtime contract. `web_ui.service.host` is projected into
 the declared service address. The CLI `--web-ui-host` and `--web-ui-port`
-options override those settings for one run. A wildcard host such as `0.0.0.0`
-is an explicit network-exposure decision; the service does not add
-authentication.
+options override those settings for one run. The default wildcard listener is
+required for container port publication and exposes the service to peers that
+can reach the published port; the service does not add authentication.
 
 ## Persistent job data
 

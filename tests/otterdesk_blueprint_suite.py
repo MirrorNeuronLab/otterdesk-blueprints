@@ -1686,6 +1686,7 @@ def test_cctv_operator_owns_json_render_web_ui_and_uses_generic_skills():
     assert config["video_source"]["mode"] == "stream"
     assert "folder_path" not in config["video_source"]
     assert config["web_ui"]["renderer"] == "json-render"
+    assert config["web_ui"]["service"]["host"] == "0.0.0.0"
     assert config["web_ui"]["preview"]["optional"] is True
     assert config["web_ui"]["preview"]["url"] == ""
 
@@ -1711,6 +1712,7 @@ def test_cctv_operator_owns_json_render_web_ui_and_uses_generic_skills():
         "services/cctv_web_ui.py",
     ]
     assert web_ui_node["services"][0]["name"] == "cctv-operator-web-ui"
+    assert web_ui_node["services"][0]["address"] == "0.0.0.0"
     bindings = {
         (binding["config_path"], binding["manifest_path"])
         for binding in config["manifest_config_bindings"]

@@ -56,7 +56,8 @@ The blueprint owns a HostLocal `cctv_web_ui` service rendered with
 `vercel-labs/json-render` through the generic
 `mirrorneuron-web-ui-skill`. It shows:
 
-- an optional browser-safe live preview supplied by the stream gateway;
+- a browser-safe live preview supplied by the stream gateway, or a blank
+  preview surface when no preview URL is configured;
 - `latest_analyzed_frame.jpg`, labelled by its batch metadata;
 - controls for updating or clearing the monitoring instruction; and
 - live sampling, backpressure, observation, and report events.
@@ -66,11 +67,12 @@ CCTV-specific payload, and submits the declared live input directly to Core
 over the SDK gRPC client. `mn-api` does not expose a CCTV steering route.
 The HostLocal UI does not decode or relay media and therefore does not require
 FFmpeg. `web_ui.preview.url` points at HLS or another browser-safe HTTP(S) URL
-provided by the camera gateway; preview is optional and analysis continues if
-it is absent. Camera credentials remain server-side and are redacted from
-browser URLs and events. The dashboard derives operator status, latest finding,
-confidence, risk, notices, errors, frame counts, sampling trigger, skipped
-samples, and model latency from the durable report and latest-frame artifacts.
+provided by the camera gateway; preview is optional, remains blank when absent,
+and analysis continues independently. Camera credentials remain server-side
+and are redacted from browser URLs and events. The dashboard derives operator
+status, latest finding, confidence, risk, notices, errors, frame counts,
+sampling trigger, skipped samples, and model latency from the durable report
+and latest-frame artifacts.
 It does not depend on a per-service `events.jsonl` mirror. The dashboard also
 shows the active watch target and accepts a new plain-language monitoring
 prompt at any time. Changing
@@ -139,16 +141,18 @@ From the catalog:
 mn blueprint run cctv_operator --web-ui
 ```
 
-Bind the dashboard on all interfaces or choose another port:
+The dashboard listens on all container interfaces by default so the runtime's
+published port is reachable. Choose another port when needed:
 
 ```bash
 mn blueprint run cctv_operator --web-ui \
-  --web-ui-host 0.0.0.0 \
   --web-ui-port 61017
 ```
 
-Binding `0.0.0.0` exposes the unauthenticated dashboard and its steering
-control to reachable peers. Use a firewall or trusted network boundary.
+The dashboard and its steering control are unauthenticated and exposed to
+peers that can reach the published port. Use a firewall or trusted network
+boundary. Set `--web-ui-host 127.0.0.1` only for a genuinely host-local
+non-container deployment.
 
 From this folder:
 
