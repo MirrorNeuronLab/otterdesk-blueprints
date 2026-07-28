@@ -1573,6 +1573,7 @@ def test_cctv_operator_uses_dockerworker_nvidia_media_worker():
             "source": "agents/visual_detector",
             "target": "agents/visual_detector",
         },
+        {"source": "domain", "target": "domain"},
         {"source": "prompts", "target": "prompts"},
     ]
     assert "upload_path" not in visual_node["config"]
@@ -1594,7 +1595,7 @@ def test_cctv_operator_uses_dockerworker_nvidia_media_worker():
     assert "CCTV_MEDIA_ACCELERATOR" in launch_script
     assert "nvidia_cuda" in launch_script
     assert manifest["runtime"]["models"]["primary"]["type"] == "vlm"
-    assert manifest["runtime"]["placement"]["mode"] == "single_node"
+    assert manifest["runtime"]["placement"]["mode"] == "distributed"
     assert manifest["runtime"]["models"]["primary"]["install_mode"] == "workflow_node"
     assert config["llm"]["install_mode"] == "workflow_node"
     assert config["llm"]["configs"]["primary"]["install_mode"] == "workflow_node"
@@ -1774,11 +1775,41 @@ def test_cctv_operator_stream_validator_probes_rtsp_and_rtmp(monkeypatch, uri, e
     def fake_probe(source, **kwargs):
         calls.append((source, kwargs))
 
+    monkeypatch.setattr(
+        validator.shutil, "which", lambda _name: "/usr/bin/ffprobe"
+    )
     monkeypatch.setattr(validator, "probe_stream", fake_probe)
 
     assert validator.main() == 0
     assert calls[0][0] == uri
     assert (uri.startswith("rtsp")) is expects_rtsp_transport
+
+
+def test_cctv_operator_stream_validator_defers_probe_without_local_ffprobe(
+    monkeypatch, capsys
+):
+    validator = _load_cctv_operator_validator()
+    monkeypatch.setenv(
+        "MN_BLUEPRINT_CONFIG_JSON",
+        json.dumps(
+            {
+                "video_source": {
+                    "mode": "stream",
+                    "uri": "rtsp://camera.example/live",
+                }
+            }
+        ),
+    )
+    monkeypatch.delenv("FFPROBE_BINARY", raising=False)
+    monkeypatch.setattr(validator.shutil, "which", lambda _name: None)
+    monkeypatch.setattr(
+        validator,
+        "probe_stream",
+        lambda *_args, **_kwargs: pytest.fail("probe must be deferred"),
+    )
+
+    assert validator.main() == 0
+    assert "scheduled NVIDIA worker" in capsys.readouterr().out
 
 
 def test_cctv_operator_stream_validator_rejects_non_stream_uri(monkeypatch, capsys):

@@ -15,6 +15,7 @@ from otterdesk_blueprint_suite import (
     test_cctv_operator_default_contract_is_stream_only,
     test_cctv_operator_rejects_folder_mode,
     test_cctv_operator_seeds_live_monitor_start_message,
+    test_cctv_operator_stream_validator_defers_probe_without_local_ffprobe,
     test_cctv_operator_stream_validator_probes_rtsp_and_rtmp,
     test_cctv_operator_stream_validator_rejects_non_stream_uri,
     test_cctv_operator_uses_dockerworker_nvidia_media_worker,
@@ -99,6 +100,7 @@ def test_cctv_visual_detector_preserves_the_payload_root(monkeypatch, tmp_path):
     assert config["workdir"] == "/mn/job/agents/visual_detector"
     assert upload_paths == {
         "agents/visual_detector": "agents/visual_detector",
+        "domain": "domain",
         "prompts": "prompts",
     }
     for source_path in upload_paths:

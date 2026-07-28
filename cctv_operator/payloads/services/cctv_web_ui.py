@@ -1,6 +1,7 @@
 #!/usr/bin/env python3.11
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
 import signal
@@ -9,6 +10,24 @@ import urllib.parse
 from collections import deque
 from pathlib import Path
 from typing import Any, Callable
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+
+
+def _load_dashboard_projection() -> Callable[..., dict[str, Any]]:
+    for ancestor in (SCRIPT_DIR, *SCRIPT_DIR.parents):
+        module_path = ancestor / "domain" / "dashboard.py"
+        if not module_path.is_file():
+            continue
+        spec = importlib.util.spec_from_file_location(
+            "cctv_operator_dashboard", module_path
+        )
+        if spec is None or spec.loader is None:
+            break
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module.operator_state
+    raise RuntimeError("cctv_operator dashboard projection is unavailable")
 
 import grpc
 from mn_live_video_analysis_skill import (
@@ -22,6 +41,8 @@ from mn_web_ui_skill import (
     StaticMount,
     write_service_artifacts,
 )
+
+operator_state = _load_dashboard_projection()
 
 
 WEB_UI_NODE_ID = "cctv_web_ui"
@@ -154,8 +175,8 @@ def build_ui_spec(preview_url: str = "") -> dict[str, Any]:
                 "props": {
                     "title": "CCTV Operator",
                     "subtitle": (
-                        "Smooth preview and the bounded evidence actually "
-                        "selected for multimodal analysis."
+                        "See what needs attention, verify the selected "
+                        "evidence, and steer the current watch."
                     ),
                 },
                 "children": ["layout"],
@@ -164,27 +185,34 @@ def build_ui_spec(preview_url: str = "") -> dict[str, Any]:
                 "type": "Grid",
                 "props": {},
                 "children": [
+                    "operations",
                     "preview",
-                    "controls",
                     "latest",
+                    "controls",
                     "events",
+                    "boundary",
                 ],
             },
-            "preview": {
+            "operations": {
                 "type": "Card",
-                "props": {"title": "Live source preview", "span": 8},
-                "children": ["preview-video"],
-            },
-            "preview-video": preview_element,
-            "controls": {
-                "type": "Card",
-                "props": {"title": "Steer monitoring", "span": 4},
-                "children": ["status", "update-watch", "clear-watch"],
+                "props": {"title": "Operator status", "span": 12},
+                "children": ["status"],
             },
             "status": {
                 "type": "LiveStatus",
                 "props": {"endpoint": "/ui/state", "refreshMs": 1000},
                 "children": [],
+            },
+            "preview": {
+                "type": "Card",
+                "props": {"title": "Live source preview", "span": 7},
+                "children": ["preview-video"],
+            },
+            "preview-video": preview_element,
+            "controls": {
+                "type": "Card",
+                "props": {"title": "Change the watch", "span": 5},
+                "children": ["update-watch", "clear-watch"],
             },
             "update-watch": {
                 "type": "ActionForm",
@@ -225,7 +253,7 @@ def build_ui_spec(preview_url: str = "") -> dict[str, Any]:
             },
             "latest": {
                 "type": "Card",
-                "props": {"title": "Latest frame analyzed by AI", "span": 6},
+                "props": {"title": "Latest evidence analyzed by AI", "span": 5},
                 "children": ["latest-image"],
             },
             "latest-image": {
@@ -239,7 +267,7 @@ def build_ui_spec(preview_url: str = "") -> dict[str, Any]:
             },
             "events": {
                 "type": "Card",
-                "props": {"title": "Sampling and observation events", "span": 6},
+                "props": {"title": "What the operator should review", "span": 7},
                 "children": ["event-feed"],
             },
             "event-feed": {
@@ -248,6 +276,22 @@ def build_ui_spec(preview_url: str = "") -> dict[str, Any]:
                     "endpoint": "/ui/state",
                     "refreshMs": 1000,
                     "limit": 30,
+                },
+                "children": [],
+            },
+            "boundary": {
+                "type": "Card",
+                "props": {"title": "Decision boundary", "span": 12},
+                "children": ["boundary-text"],
+            },
+            "boundary-text": {
+                "type": "Text",
+                "props": {
+                    "text": (
+                        "This is sparse decision support, not continuous "
+                        "surveillance. Confirm notices against the source "
+                        "video before taking a safety or security action."
+                    )
                 },
                 "children": [],
             },
@@ -353,21 +397,23 @@ class CCTVWebUIService:
         ):
             attention_payload = monitoring_state
         batch_payload = _event_payload(latest_batch)
-        return {
-            "metrics": {
-                "run": self.run_id,
-                "preview": self.preview_status,
-                "instruction revision": attention_payload.get(
-                    "instruction_revision", 0
-                ),
-                "watch target": attention_payload.get("instruction")
-                or "Default visual targets",
-                "latest trigger": batch_payload.get("trigger", "waiting"),
-                "selected frames": batch_payload.get("selected_count", 0),
-            },
-            "warning": self.preview_warning,
-            "events": [_public_event(event) for event in events[-50:]],
-        }
+        report = read_json_object(self.run_dir / "cctv_report.json")
+        if batch_payload and not isinstance(report.get("latest_batch"), dict):
+            report = {**report, "latest_batch": batch_payload}
+        latest_frame = read_json_object(
+            self.run_dir / "latest_analyzed_frame.json"
+        )
+        state = operator_state(
+            run_id=self.run_id,
+            config=self.config,
+            report=report,
+            latest_frame=latest_frame,
+            monitoring=attention_payload,
+            supplemental_events=events,
+            preview_status=self.preview_status,
+            preview_warning=self.preview_warning,
+        )
+        return json.loads(redact_source_urls(json.dumps(state)))
 
 
 def read_event_tail(path: Path, *, limit: int) -> list[dict[str, Any]]:
@@ -410,6 +456,14 @@ def read_monitoring_state(path: Path) -> dict[str, Any]:
         "updated_at": decoded.get("updated_at"),
         "command_id": str(decoded.get("last_command_id") or "")[:500],
     }
+
+
+def read_json_object(path: Path) -> dict[str, Any]:
+    try:
+        decoded = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return decoded if isinstance(decoded, dict) else {}
 
 
 def _latest_event(

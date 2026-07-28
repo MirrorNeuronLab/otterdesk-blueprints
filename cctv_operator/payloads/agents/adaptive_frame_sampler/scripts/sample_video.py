@@ -203,7 +203,15 @@ def main() -> int:
             command_id=str(monitoring.get("last_command_id") or "") or None,
             idempotency_key=invocation_id or None,
             batch_metadata={
-                "camera_id": payload.get("camera_id") or "cctv"
+                "camera_id": (
+                    payload.get("camera_id")
+                    or (
+                        config.get("video_source", {}).get("camera_id")
+                        if isinstance(config.get("video_source"), dict)
+                        else None
+                    )
+                    or "cctv"
+                )
             },
         )
         state = result.state

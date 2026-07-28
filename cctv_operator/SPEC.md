@@ -17,6 +17,10 @@ RTSP, RTSPS, RTMP, or RTMPS URI. Stream credentials are redacted from logs,
 events, browser URLs, and public service artifacts. A file URI, unsupported
 scheme, unreachable stream, decode failure, or model failure is explicit;
 there is no automatic switch to a demo source or CPU decoder.
+The submission-side validator always checks mode and URI syntax. It probes
+reachability when `ffprobe` is available locally; otherwise it defers that
+check to the scheduled NVIDIA worker so a Mac control node does not need media
+tooling merely to submit a distributed run.
 
 ## Runtime graph and live input
 
@@ -26,7 +30,12 @@ proxy cadence; there is no runtime timer or video-specific Core module. The
 generic live-video skill owns a run-scoped persistent FFmpeg connection, proxy
 comparison primitives, selection, and batch persistence. The blueprint sampler
 owns CCTV cadence, event names, steering priority, and product metadata; the
-detector owns prompt, observation, alert, and report semantics.
+detector owns prompt, observation, alert, and report semantics. The configured
+`inputs.payload.visual_targets` are rendered into every detector prompt. The
+blueprint-owned detection policy matches observations against
+`alert_policy.notify_on`, then applies `min_confidence` and
+`cooldown_seconds`. The default `human_notice_only` mode creates a reviewable
+human notice without attempting an external delivery.
 
 The manifest declares `contracts.live_inputs.steer_monitoring`. Core resolves
 that identifier to `ingress` and `cctv_operator_steer`; callers cannot name a
@@ -71,6 +80,17 @@ a synthetic “no detection” result.
 
 This small FFmpeg CUDA worker is the preferred single-DGX-Spark design. It avoids a large DeepStream service image; DeepStream remains a future option for deployments that need batched multi-camera pipelines, tracker plugins, or high camera density.
 
+The runtime placement mode is `distributed` and scheduling remains
+constraint-driven. A cluster containing only Spark is valid: all nodes are
+placed there. In a Mac + Spark cluster, the NVIDIA/CUDA constraint keeps the
+sampler and detector on Spark while HostLocal report and UI nodes remain
+portable. Cross-node batch and report access uses the runtime shared-storage
+contract; the blueprint passes run-relative artifact references and contains no
+machine address or node-selection logic. The Mac may own the job lease while
+the cluster scheduler binpacks every workflow agent on Spark; this is still a
+multi-node control/data-plane deployment. Once both runtimes are healthy at
+submission, Core reports `multi_node` reliability and enables cluster recovery.
+
 ## Web UI deployment decision
 
 The manifest declares a blueprint-owned HostLocal `cctv_web_ui` service. Its
@@ -83,7 +103,10 @@ bounded 500-character prompt form that updates the declared
 `steer_monitoring` live input.
 The adaptive sampler durably writes the current run-scoped instruction to
 `monitoring_state.json`. The Web UI uses that artifact as the authoritative
-watch-target state and treats event records as supplemental activity history.
+watch-target state. It projects operational status and review history from
+`cctv_report.json` and `latest_analyzed_frame.json`, treating event records as
+supplemental activity history. This keeps the UI meaningful when HostLocal
+services are scheduled on a different cluster node from the detector.
 
 The HostLocal service never opens the RTSP source and never launches FFmpeg.
 The optional `web_ui.preview.url` setting must name an absolute,

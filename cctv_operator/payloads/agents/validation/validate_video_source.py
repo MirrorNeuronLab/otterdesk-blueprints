@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+import shutil
 import sys
 
 
@@ -52,6 +53,16 @@ def main() -> int:
             actual=uri,
             status=2,
         )
+
+    ffprobe_binary = str(
+        os.environ.get("FFPROBE_BINARY") or shutil.which("ffprobe") or ""
+    ).strip()
+    if not ffprobe_binary:
+        print(
+            "Video stream URI accepted; reachability will be checked by "
+            f"the scheduled NVIDIA worker: {redact_source_uri(uri)}"
+        )
+        return 0
 
     try:
         probe_stream(

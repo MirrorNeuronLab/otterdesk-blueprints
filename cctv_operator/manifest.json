@@ -182,6 +182,10 @@
               "target": "agents/visual_detector"
             },
             {
+              "source": "domain",
+              "target": "domain"
+            },
+            {
               "source": "prompts",
               "target": "prompts"
             }
@@ -663,7 +667,7 @@
     }
   },
   "identity": {
-    "category": "business",
+    "category": "security",
     "id": "cctv_operator",
     "job_name": "cctv-operator",
     "manifest_version": "2.0",
@@ -832,6 +836,10 @@
                 "target": "agents/visual_detector"
               },
               {
+                "source": "domain",
+                "target": "domain"
+              },
+              {
                 "source": "prompts",
                 "target": "prompts"
               }
@@ -884,7 +892,7 @@
       "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run"
     },
     "blueprint_id": "cctv_operator",
-    "category": "business",
+    "category": "security",
     "configuration_contract": {
       "optional_files": [
         "scenario.json",
@@ -953,6 +961,7 @@
           "default": {
             "cooldown_seconds": 120,
             "min_confidence": 0.55,
+            "mode": "human_notice_only",
             "notify_on": [
               "person",
               "unattended package",
@@ -1962,7 +1971,7 @@
       "source": "local_run_store"
     },
     "placement": {
-      "mode": "single_node"
+      "mode": "distributed"
     },
     "resources": {
       "cpu": {

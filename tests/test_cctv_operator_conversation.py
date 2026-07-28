@@ -47,7 +47,18 @@ def _write_json(path: Path, value: dict[str, Any]) -> Path:
     return path
 
 
-def _run_detector(module, monkeypatch, tmp_path, capsys, *, payload, detection, state=None, message=None):
+def _run_detector(
+    module,
+    monkeypatch,
+    tmp_path,
+    capsys,
+    *,
+    payload,
+    detection,
+    state=None,
+    message=None,
+    config=None,
+):
     run_dir = tmp_path / "run"
     batch_dir = run_dir / "frame_batches" / "batch-test"
     batch_dir.mkdir(parents=True)
@@ -102,7 +113,15 @@ def _run_detector(module, monkeypatch, tmp_path, capsys, *, payload, detection, 
     monkeypatch.setenv("MN_RUN_DIR", str(run_dir))
     monkeypatch.setenv(
         "MN_BLUEPRINT_CONFIG_JSON",
-        json.dumps({"video_source": {"mode": "stream", "uri": "rtsp://camera.example/unit-test"}}),
+        json.dumps(
+            config
+            or {
+                "video_source": {
+                    "mode": "stream",
+                    "uri": "rtsp://camera.example/unit-test",
+                }
+            }
+        ),
     )
     monkeypatch.delenv("VIDEO_SOURCE_URI", raising=False)
     monkeypatch.setenv("SLACK_ALERT_ENABLED", "false")
@@ -163,6 +182,18 @@ def test_cctv_operator_chat_context_answers_what_happened(monkeypatch, tmp_path,
     assert "two people appeared near the loading dock entrance" in context["what_happened"].lower()
     assert any(event["type"] == "cctv_operator_frame_observed" for event in output["events"])
     assert output["events"][-1]["type"] == "cctv_operator_detection"
+    observed = next(
+        event["payload"]
+        for event in output["events"]
+        if event["type"] == "cctv_operator_frame_observed"
+    )
+    assert observed["frame_batch_ref"] == (
+        "frame_batches/batch-test/batch.json"
+    )
+    assert observed["batch_id"] == "batch-test"
+    assert observed["selected_count"] == 1
+    assert observed["model_latency_ms"] >= 0
+    assert observed["observed_at"].endswith("Z")
 
 
 def test_cctv_operator_big_change_emits_chat_human_notice(monkeypatch, tmp_path, capsys):
@@ -257,6 +288,76 @@ def test_cctv_operator_user_attention_request_changes_prompt_and_state(monkeypat
     attention_event = next(event for event in output["events"] if event["type"] == "cctv_operator_attention_updated")
     assert "red backpack" in attention_event["payload"]["summary"]
     assert output["events"][-1]["type"] == "cctv_operator_frame_observed"
+
+
+def test_cctv_operator_uses_configured_targets_and_notice_policy(
+    monkeypatch, tmp_path, capsys
+):
+    detector = _load_detector()
+    output, prompts = _run_detector(
+        detector,
+        monkeypatch,
+        tmp_path,
+        capsys,
+        payload={"tick_seq": 2, "camera_id": "lobby"},
+        config={
+            "video_source": {
+                "mode": "stream",
+                "uri": "rtsp://camera.example/unit-test",
+            },
+            "inputs": {
+                "payload": {
+                    "visual_targets": ["red backpack"],
+                    "alert_policy": {
+                        "mode": "human_notice_only",
+                        "min_confidence": 0.8,
+                        "cooldown_seconds": 120,
+                        "notify_on": ["red backpack"],
+                    },
+                }
+            },
+        },
+        detection={
+            "detected": True,
+            "detected_target": True,
+            "detection_count": 1,
+            "detections": [
+                {
+                    "label": "red backpack",
+                    "category": "unattended package",
+                    "color": "red",
+                    "position": "left side",
+                    "activity": "stationary",
+                    "confidence": 0.93,
+                }
+            ],
+            "confidence": 0.93,
+            "summary": "A red backpack is visible in the lobby.",
+            "detection_report": "A red backpack is stationary on the left.",
+            "risk_level": "medium",
+            "visible_subjects": ["red backpack"],
+        },
+    )
+
+    assert "red backpack" in prompts[0].lower()
+    detection_event = next(
+        event
+        for event in output["events"]
+        if event["type"] == "cctv_operator_detection"
+    )
+    assert detection_event["payload"]["configured_targets"] == [
+        "red backpack"
+    ]
+    assert detection_event["payload"]["alert_decision"]["notify"] is True
+    notice = next(
+        event for event in output["events"] if event["type"] == "human_notice"
+    )
+    assert notice["payload"]["kind"] == "configured_target_detection"
+    assert notice["payload"]["matched_targets"] == ["red backpack"]
+    assert not any(
+        str(event["type"]).startswith("cctv_operator_slack_alert_")
+        for event in output["events"]
+    )
 
 
 def test_cctv_operator_batch_revision_can_clear_attention_state():

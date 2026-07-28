@@ -105,6 +105,7 @@
       "alert_policy": {
         "cooldown_seconds": 120,
         "min_confidence": 0.55,
+        "mode": "human_notice_only",
         "notify_on": [
           "person",
           "unattended package",
@@ -628,7 +629,7 @@
     "agent_role": "AI assistant for reviewing live video activity and preparing visual detection reports and alerts.",
     "blueprint_id": "cctv_operator",
     "blueprint_revision": "v1",
-    "category": "business",
+    "category": "security",
     "customizable_for": "Video monitoring, configurable visual detection, facility operations, and site safety workflows.",
     "description": "An NVIDIA-only CCTV co-worker for one approved RTSP/RTMP stream. It uses sparse adaptive sampling, operator steering, CUDA-enabled frame preparation, and source-grounded review reports.",
     "llm_agent_role": "AI assistant for reviewing live video activity and preparing visual detection reports and alerts.",

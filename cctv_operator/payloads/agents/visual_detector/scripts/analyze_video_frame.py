@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import base64
+import datetime as dt
 import importlib.util
 import json
 import os
@@ -57,6 +58,13 @@ from mn_live_video_analysis_skill import (
     model_user_content,
     redact_source_uri,
     write_latest_analyzed_frame,
+)
+from domain.detection_policy import (
+    configured_alert_policy,
+    configured_target_notice,
+    configured_visual_targets,
+    evaluate_alert,
+    target_prompt_text,
 )
 
 
@@ -633,11 +641,16 @@ def apply_attention_request(
     }
 
 
-def detection_prompt(camera_id: str, attention_instruction: str | None = None) -> str:
-    target_description = os.environ.get(
-        "VISUAL_DETECTION_TARGETS",
-        "notable people, equipment, objects, hazards, access activity, workflow activity, or other user-defined subjects",
-    )
+def detection_prompt(
+    camera_id: str,
+    attention_instruction: str | None = None,
+    visual_targets: list[str] | None = None,
+) -> str:
+    target_description = os.environ.get("VISUAL_DETECTION_TARGETS", "").strip()
+    if not target_description:
+        target_description = target_prompt_text(
+            visual_targets or list(configured_visual_targets({}))
+        )
     attention_text = normalize_attention_instruction(attention_instruction)
     attention_instruction_text = (
         f"Operator attention request: {attention_text}"
@@ -711,6 +724,29 @@ def observation_from_detection(detection_payload: dict[str, Any]) -> dict[str, A
         "detections": detection_payload.get("detections") if isinstance(detection_payload.get("detections"), list) else [],
         "person_like_count": person_like_count(detection_payload),
         "attention_instruction": compact_string(detection_payload.get("attention_instruction"), limit=500),
+        "instruction_revision": detection_payload.get("instruction_revision"),
+        "sampling_trigger": detection_payload.get("sampling_trigger"),
+        "frame_batch_ref": detection_payload.get("frame_batch_ref"),
+        "batch_id": detection_payload.get("batch_id"),
+        "candidate_count": detection_payload.get("candidate_count"),
+        "selected_count": detection_payload.get("selected_count"),
+        "command_id": detection_payload.get("command_id"),
+        "model_latency_ms": detection_payload.get("model_latency_ms"),
+        "sampling_metrics": detection_payload.get("sampling_metrics")
+        if isinstance(detection_payload.get("sampling_metrics"), dict)
+        else {},
+        "observed_at": detection_payload.get("observed_at"),
+        "configured_targets": detection_payload.get("configured_targets")
+        if isinstance(detection_payload.get("configured_targets"), list)
+        else [],
+        "matched_alert_targets": detection_payload.get(
+            "matched_alert_targets"
+        )
+        if isinstance(detection_payload.get("matched_alert_targets"), list)
+        else [],
+        "alert_decision": detection_payload.get("alert_decision")
+        if isinstance(detection_payload.get("alert_decision"), dict)
+        else {},
     }
 
 
@@ -794,6 +830,12 @@ def frame_observed_event(observation: dict[str, Any], conversation_summary: str 
             "command_id": observation.get("command_id"),
             "model_latency_ms": observation.get("model_latency_ms"),
             "sampling_metrics": observation.get("sampling_metrics"),
+            "observed_at": observation.get("observed_at"),
+            "configured_targets": observation.get("configured_targets"),
+            "matched_alert_targets": observation.get(
+                "matched_alert_targets"
+            ),
+            "alert_decision": observation.get("alert_decision"),
             "conversation_summary": conversation_summary or what_happened_summary([observation]),
         },
     }
@@ -884,21 +926,35 @@ def maybe_build_big_change_notice(
     }
 
 
-def should_alert(detection: dict[str, Any], state: dict[str, Any]) -> bool:
-    threshold = float(
-        os.environ.get(
-            "DETECTION_CONFIDENCE_THRESHOLD",
-            "0.65",
-        )
-    )
-    cooldown = float(os.environ.get("DETECTION_ALERT_COOLDOWN_SECONDS", "60"))
-    if not detection.get("detected_target") or float(detection.get("confidence", 0)) < threshold:
-        return False
-    return time.time() - float(state.get("last_alert_wall_ts", 0.0)) >= cooldown
+def should_alert(
+    detection: dict[str, Any],
+    state: dict[str, Any],
+    policy: dict[str, Any] | None = None,
+) -> bool:
+    effective_policy = policy or {
+        "mode": "human_notice_only",
+        "min_confidence": float(
+            os.environ.get("DETECTION_CONFIDENCE_THRESHOLD", "0.65")
+        ),
+        "cooldown_seconds": float(
+            os.environ.get("DETECTION_ALERT_COOLDOWN_SECONDS", "60")
+        ),
+        "notify_on": list(detection.get("detected_types") or [])
+        or list(detection.get("visible_subjects") or [])
+        or ["configured target"],
+    }
+    return bool(evaluate_alert(detection, effective_policy, state)["notify"])
 
 
-def post_slack(text: str) -> tuple[str, dict[str, Any]]:
-    enabled = os.environ.get("SLACK_ALERT_ENABLED", "true").strip().lower() in {"1", "true", "yes", "on"}
+def post_slack(
+    text: str,
+    *,
+    enabled: bool | None = None,
+) -> tuple[str, dict[str, Any]]:
+    if enabled is None:
+        enabled = os.environ.get(
+            "SLACK_ALERT_ENABLED", "false"
+        ).strip().lower() in {"1", "true", "yes", "on"}
     token = os.environ.get("MN_SLACK_BOT_TOKEN") or os.environ.get("SLACK_BOT_TOKEN")
     channel = os.environ.get("MN_SLACK_DEFAULT_CHANNEL") or os.environ.get("SLACK_DEFAULT_CHANNEL")
     if not enabled:
@@ -956,6 +1012,10 @@ def main() -> None:
         state = initial_state()
 
     frame_seq = int(payload.get("tick_seq") or state.get("frames_seen", 0) + 1)
+    visual_targets = configured_visual_targets(config)
+    alert_policy = configured_alert_policy(
+        config, visual_targets=visual_targets
+    )
     video_source_config = config.get("video_source") if isinstance(config.get("video_source"), dict) else {}
     camera_id = (
         payload.get("camera_id")
@@ -996,7 +1056,11 @@ def main() -> None:
         else:
             detection = call_ollama(
                 batch_frames,
-                detection_prompt(camera_id, attention_instruction),
+                detection_prompt(
+                    camera_id,
+                    attention_instruction,
+                    visual_targets,
+                ),
             )
         model_latency_ms = max(
             0, int((time.monotonic() - model_started) * 1000)
@@ -1012,6 +1076,9 @@ def main() -> None:
 
         detection_payload = {
             **detection,
+            "observed_at": dt.datetime.now(dt.timezone.utc)
+            .isoformat()
+            .replace("+00:00", "Z"),
             "camera_id": camera_id,
             "frame_seq": frame_seq,
             "video_position_seconds": round(position, 3),
@@ -1038,7 +1105,17 @@ def main() -> None:
             "model_latency_ms": model_latency_ms,
             "sampling_metrics": dict((batch or {}).get("metrics") or {}),
             "latest_analyzed_frame": latest_frame_metadata or None,
+            "configured_targets": visual_targets,
         }
+        alert_decision = evaluate_alert(
+            detection_payload,
+            alert_policy,
+            state,
+        )
+        detection_payload["matched_alert_targets"] = list(
+            alert_decision["matched_targets"]
+        )
+        detection_payload["alert_decision"] = alert_decision
         previous_observation = state.get("last_observation") if isinstance(state.get("last_observation"), dict) else {}
         observation = update_conversation_context(state, detection_payload)
         conversation_context = state.get("conversation_context") if isinstance(state.get("conversation_context"), dict) else {}
@@ -1052,14 +1129,64 @@ def main() -> None:
 
         big_change_notice = maybe_build_big_change_notice(detection_payload, state, previous_observation)
         if big_change_notice:
+            if alert_decision["notify"]:
+                big_change_notice["payload"].update(
+                    {
+                        "matched_targets": list(
+                            alert_decision["matched_targets"]
+                        ),
+                        "confidence": alert_decision["confidence"],
+                        "risk_level": detection_payload.get("risk_level"),
+                        "observed_at": detection_payload.get("observed_at"),
+                        "frame_batch_ref": detection_payload.get(
+                            "frame_batch_ref"
+                        ),
+                    }
+                )
+                state["last_alert_wall_ts"] = float(
+                    alert_decision["evaluated_at"]
+                )
             events.append(big_change_notice)
+        elif alert_decision["notify"]:
+            events.append(
+                configured_target_notice(
+                    detection_payload,
+                    alert_decision,
+                )
+            )
+            state["last_alert_wall_ts"] = float(
+                alert_decision["evaluated_at"]
+            )
 
-        if should_alert(detection, state):
-            status, slack_payload = post_slack(alert_text(camera_id, detection, frame_seq, safe_source_uri))
+        slack_enabled = os.environ.get(
+            "SLACK_ALERT_ENABLED", "false"
+        ).strip().lower() in {"1", "true", "yes", "on"}
+        if alert_decision["notify"] and (
+            alert_policy["mode"] == "human_notice_and_slack"
+            or slack_enabled
+        ):
+            status, slack_payload = post_slack(
+                alert_text(
+                    camera_id,
+                    detection,
+                    frame_seq,
+                    safe_source_uri,
+                ),
+                enabled=True,
+            )
             event_type = "cctv_operator_slack_alert_sent" if status == "sent" else f"cctv_operator_slack_alert_{status}"
-            events.append({"type": event_type, "payload": {**slack_payload, "frame_seq": frame_seq, "camera_id": camera_id}})
-            if status in {"sent", "skipped"}:
-                state["last_alert_wall_ts"] = time.time()
+            events.append(
+                {
+                    "type": event_type,
+                    "payload": {
+                        **slack_payload,
+                        "frame_seq": frame_seq,
+                        "camera_id": camera_id,
+                        "observed_at": detection_payload.get("observed_at"),
+                        "matched_targets": alert_decision["matched_targets"],
+                    },
+                }
+            )
 
         events.extend(primary_events)
 
@@ -1087,6 +1214,9 @@ def main() -> None:
                 "payload": {
                     "camera_id": camera_id,
                     "frame_seq": frame_seq,
+                    "observed_at": dt.datetime.now(dt.timezone.utc)
+                    .isoformat()
+                    .replace("+00:00", "Z"),
                     "source_uri": source_uri,
                     "source_mode": state.get("source_mode"),
                     "error": message_text,

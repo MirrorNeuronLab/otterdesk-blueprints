@@ -63,7 +63,8 @@ def merge_report(previous: dict[str, Any], detector: dict[str, Any]) -> dict[str
     observed = event_payloads(events, "cctv_operator_frame_observed")
     detections = event_payloads(events, "cctv_operator_detection")
     errors = event_payloads(events, "cctv_operator_frame_analysis_failed")
-    alerts = [
+    alerts = event_payloads(events, "human_notice")
+    deliveries = [
         event.get("payload")
         for event in events
         if isinstance(event, dict)
@@ -91,11 +92,13 @@ def merge_report(previous: dict[str, Any], detector: dict[str, Any]) -> dict[str
     detection_history = previous.get("detections") if isinstance(previous.get("detections"), list) else []
     error_history = previous.get("errors") if isinstance(previous.get("errors"), list) else []
     alert_history = previous.get("alerts") if isinstance(previous.get("alerts"), list) else []
+    delivery_history = previous.get("alert_deliveries") if isinstance(previous.get("alert_deliveries"), list) else []
     sampling_history = bounded_history(previous.get("sampling"), sampling, limit=500)
     history = [*history, *observed][-500:]
     detection_history = [*detection_history, *detections][-500:]
     error_history = [*error_history, *errors][-100:]
     alert_history = [*alert_history, *alerts][-100:]
+    delivery_history = [*delivery_history, *deliveries][-100:]
 
     source_names = sorted(
         {
@@ -116,6 +119,7 @@ def merge_report(previous: dict[str, Any], detector: dict[str, Any]) -> dict[str
         "observations": history,
         "detections": detection_history,
         "alerts": alert_history,
+        "alert_deliveries": delivery_history,
         "errors": error_history,
         "sampling": sampling_history,
         "sampling_metrics": {
@@ -165,14 +169,17 @@ def merge_report(previous: dict[str, Any], detector: dict[str, Any]) -> dict[str
 
 
 def markdown_report(report: dict[str, Any]) -> str:
+    monitoring = report.get("monitoring")
+    monitoring = monitoring if isinstance(monitoring, dict) else {}
     lines = [
         "# CCTV Operator Report",
         "",
+        f"- Watch target: {monitoring.get('instruction') or 'Configured visual targets'}",
         f"- Source mode: {report['source_mode']}",
         f"- Media accelerator: {report['media_accelerator']}",
         f"- Frames analyzed: {report['frames_analyzed']}",
         f"- Target detections: {report['detection_count']}",
-        f"- Alert records: {len(report['alerts'])}",
+        f"- Operator notices: {len(report['alerts'])}",
         f"- Analysis errors: {len(report['errors'])}",
         f"- Adaptive batches: {report['sampling_metrics']['batches_ready']}",
         f"- Scene changes: {report['sampling_metrics']['scene_changes']}",
@@ -186,6 +193,17 @@ def markdown_report(report: dict[str, Any]) -> str:
         lines.extend(f"- {source}" for source in report["sources_observed"])
     else:
         lines.append("- No source frames have been observed yet.")
+    lines.extend(["", "## Notices requiring review"])
+    alerts = report["alerts"][-20:]
+    if not alerts:
+        lines.append("- No operator notices have been recorded.")
+    for item in alerts:
+        target = ", ".join(item.get("matched_targets") or [])
+        target_suffix = f" · {target}" if target else ""
+        lines.append(
+            f"- Frame {item.get('frame_seq', '?')}{target_suffix}: "
+            f"{item.get('message') or item.get('detail') or 'Review the linked frame evidence.'}"
+        )
     lines.extend(["", "## Latest observations"])
     observations = report["observations"][-20:]
     if not observations:
@@ -194,7 +212,17 @@ def markdown_report(report: dict[str, Any]) -> str:
         source = item.get("source_name") or item.get("source_uri") or "unknown source"
         lines.append(
             f"- Frame {item.get('frame_seq', '?')} · {source} · "
-            f"confidence {float(item.get('confidence') or 0):.2f}: {item.get('summary') or 'No summary.'}"
+            f"confidence {float(item.get('confidence') or 0):.2f} · "
+            f"{item.get('observed_at') or 'time unavailable'}: "
+            f"{item.get('summary') or 'No summary.'}"
+        )
+    lines.extend(["", "## Analysis errors"])
+    if not report["errors"]:
+        lines.append("- No analysis errors have been recorded.")
+    for item in report["errors"][-20:]:
+        lines.append(
+            f"- Frame {item.get('frame_seq', '?')}: "
+            f"{item.get('error') or 'Unknown analysis error.'}"
         )
     lines.extend(["", "## Review boundary", "", report["review_boundary"]])
     return "\n".join(lines) + "\n"
@@ -202,6 +230,7 @@ def markdown_report(report: dict[str, Any]) -> str:
 
 def final_artifact(report: dict[str, Any]) -> dict[str, Any]:
     has_errors = bool(report["errors"])
+    needs_review = bool(report["alerts"])
     return {
         "type": "cctv_operator_review",
         "executive_summary": (
@@ -211,12 +240,16 @@ def final_artifact(report: dict[str, Any]) -> dict[str, Any]:
         "recommended_action": (
             "Review media decode or model errors before relying on the observations."
             if has_errors
-            else "Review the detection timeline and confirm any safety or security response with a person."
+            else (
+                "Review the operator notices and linked frame evidence before deciding on any response."
+                if needs_review
+                else "Continue monitoring; confirm any later safety or security response with a person."
+            )
         ),
-        "confidence": 0.55 if has_errors else 0.78,
+        "confidence": 0.55 if has_errors else (0.74 if needs_review else 0.78),
         "evidence": [
             {"source": "cctv_report.json", "detail": "Structured source, frame, detection, alert, and error history."},
-            {"source": "events.jsonl", "detail": "Append-only runtime observation and human-notice events."},
+            {"source": "latest_analyzed_frame.jpg", "detail": "Latest selected frame actually reviewed by the model."},
         ],
         "next_steps": [
             "Inspect configured-target detections and source timestamps.",

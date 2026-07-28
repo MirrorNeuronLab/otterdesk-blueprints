@@ -4,7 +4,7 @@
 
 `Category:` `Security`
 
-`Runtime:` `NVIDIA-only service`
+`Runtime:` `NVIDIA worker; single-node or distributed cluster`
 
 CCTV Operator is a stream-only live monitoring service for one approved
 RTSP/RTMP source. Version 2 adds live operator steering, adaptive scene
@@ -68,13 +68,68 @@ The HostLocal UI does not decode or relay media and therefore does not require
 FFmpeg. `web_ui.preview.url` points at HLS or another browser-safe HTTP(S) URL
 provided by the camera gateway; preview is optional and analysis continues if
 it is absent. Camera credentials remain server-side and are redacted from
-browser URLs and events. The dashboard shows the active watch target and
-accepts a new plain-language monitoring prompt at any time. Changing
+browser URLs and events. The dashboard derives operator status, latest finding,
+confidence, risk, notices, errors, frame counts, sampling trigger, skipped
+samples, and model latency from the durable report and latest-frame artifacts.
+It does not depend on a per-service `events.jsonl` mirror. The dashboard also
+shows the active watch target and accepts a new plain-language monitoring
+prompt at any time. Changing
 `web_ui.service.host` or `web_ui.service.port` updates both the HostLocal
 listener and the runtime's declared service and health-check contract.
 The sampler durably writes the current run-scoped instruction to
 `monitoring_state.json`, which the dashboard uses as its authoritative watch
 target instead of depending on transient event relay files.
+
+## Single-node and multi-node placement
+
+The manifest uses distributed, constraint-based placement. “Distributed” does
+not require two computers: with only Spark in the cluster, every workflow node
+runs on Spark. In a Mac + Spark cluster, the CUDA-constrained sampler and
+detector run on Spark, while the HostLocal report and UI services may run on
+either eligible node. Run artifacts and selected-frame references use the
+runtime shared-storage data plane, so the report and UI can consume evidence
+produced on Spark without embedding node-local absolute paths.
+
+For the simplest single-node deployment, run the command on Spark with its
+standalone runtime active.
+
+For the tested Mac-primary + Spark-worker deployment, start the Mac runtime
+first and retain the secret token it prints. Stop any standalone runtime on
+Spark before starting Spark directly against the Mac primary:
+
+```bash
+# On Spark
+mn runtime stop
+mn runtime start \
+  --join-host <mac-ip> \
+  --token <main-token> \
+  --host <spark-ip>
+
+# On the Mac
+mn node join <spark-ip> \
+  --local-host <mac-ip> \
+  --token <main-token>
+
+mn node list
+mn resource list
+mn blueprint run --folder ./cctv_operator --web-ui
+```
+
+Do not run the worker as an unrelated standalone cluster and then submit work
+to it. Restarting with `--join-host` gives both nodes the same cluster
+credentials and primary Redis data plane before registration. `mn node list`
+must show the Mac and Spark as healthy, and `mn resource list` must show Spark's
+NVIDIA/CUDA device, before launch. A healthy two-node run reports
+`reliability.mode=multi_node`; the scheduler may still binpack all five
+workflow agents on Spark while the Mac owns the job lease.
+
+The cluster token is a secret. Pass it only to the runtime and join commands;
+do not store it in blueprint config, logs, or reports.
+
+The submit host validates the stream URI and probes it when local `ffprobe` is
+available. If the Mac has no `ffprobe`, reachability is deferred to the
+scheduled NVIDIA worker, which owns the actual FFmpeg connection and surfaces
+an explicit analysis error if the source cannot be opened.
 
 ## Run and inspect
 
@@ -126,6 +181,11 @@ Primary run artifacts under `~/.mn/runs/<run_id>/` are:
 - `latest_analyzed_frame.jpg`
 - `latest_analyzed_frame.json`
 - `frame_batches/<batch_id>/batch.json` and selected JPEGs
+
+The alert policy is applied to configured target names, model confidence, and
+cooldown before creating an operator notice. The default mode is
+`human_notice_only`; Slack is attempted only when explicitly enabled and
+configured with credentials and a destination.
 
 The output is decision support. A human must confirm any safety, security,
 access, or disciplinary response against the original live stream.

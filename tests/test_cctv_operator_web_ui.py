@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -148,6 +149,79 @@ def test_cctv_ui_state_prefers_durable_monitoring_state(tmp_path: Path):
 
     assert state["metrics"]["watch target"] == "Monitor the left doorway."
     assert state["metrics"]["instruction revision"] == 4
+
+
+def test_cctv_ui_projects_operator_status_from_durable_report(
+    tmp_path: Path,
+):
+    observed_at = time.time()
+    (tmp_path / "cctv_report.json").write_text(
+        json.dumps(
+            {
+                "frames_analyzed": 7,
+                "detection_count": 2,
+                "observations": [
+                    {
+                        "frame_seq": 7,
+                        "observed_at": observed_at,
+                        "summary": "One person is visible.",
+                        "confidence": 0.91,
+                        "risk_level": "medium",
+                    }
+                ],
+                "detections": [
+                    {
+                        "frame_seq": 7,
+                        "observed_at": observed_at,
+                        "summary": "One person entered the lobby.",
+                        "confidence": 0.91,
+                        "risk_level": "medium",
+                    }
+                ],
+                "alerts": [
+                    {
+                        "frame_seq": 7,
+                        "observed_at": observed_at,
+                        "message": "Review the person entering the lobby.",
+                        "matched_targets": ["person"],
+                    }
+                ],
+                "errors": [],
+                "sampling_metrics": {
+                    "latest_model_latency_ms": 834,
+                    "samples_skipped": 3,
+                },
+                "latest_batch": {
+                    "sampling_trigger": "scene_event",
+                    "selected_count": 4,
+                },
+            }
+        )
+    )
+    service = cctv_web_ui.CCTVWebUIService(
+        run_id="run-report",
+        run_dir=tmp_path,
+        config={
+            "inputs": {"payload": {"visual_targets": ["person"]}},
+            "sampling": {"baseline_interval_seconds": 20},
+        },
+        send_run_input=lambda *_args: {},
+    )
+
+    state = service.ui_state()
+
+    assert state["metrics"]["status"] == "Review needed"
+    assert state["metrics"]["frames analyzed"] == 7
+    assert state["metrics"]["target detections"] == 2
+    assert state["metrics"]["alerts to review"] == 1
+    assert state["metrics"]["confidence"] == "91%"
+    assert state["metrics"]["latest trigger"] == "scene_event"
+    assert state["metrics"]["selected frames"] == 4
+    assert state["metrics"]["model latency"] == "834 ms"
+    assert any(
+        event["type"] == "Operator notice"
+        for event in state["events"]
+    )
 
 
 def test_cctv_ui_uses_external_browser_preview_without_local_relay(
