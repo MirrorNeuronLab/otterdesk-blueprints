@@ -42,11 +42,12 @@ do not address streams or traverse workflow dependencies.
 Public research uses sanitized item, location, route, timing, and
 non-confidential constraint text only. Supplied links must use public HTTP(S),
 must not target local/private addresses, and must not contain credentials or
-sensitive query parameters. The primary source path is `w3m_browser_skill`; a
-rendered browser may inspect public JavaScript-heavy pages. Login walls, robots
-restrictions, CAPTCHAs, rate limits, and access denials are recorded as source
-warnings. The workflow never bypasses access controls and never performs a
-transaction.
+sensitive query parameters. `web_browser_skill` standard mode owns the unified
+source path: it starts with lightweight text extraction and uses its
+policy-governed rendered browser only when needed for public JavaScript-heavy
+pages. Login walls, robots restrictions, CAPTCHAs, rate limits, and access
+denials are recorded as source warnings. The workflow never bypasses access
+controls and never performs a transaction.
 
 ## Persistent job data
 

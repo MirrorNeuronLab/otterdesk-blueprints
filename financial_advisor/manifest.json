@@ -609,12 +609,6 @@
       "version": "1.2.31"
     },
     {
-      "name": "mirrorneuron-w3m-browser-skill",
-      "source": "gar",
-      "type": "pip",
-      "version": "1.2.29"
-    },
-    {
       "name": "mirrorneuron-web-browser-skill",
       "source": "gar",
       "type": "pip",

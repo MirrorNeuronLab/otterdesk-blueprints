@@ -157,7 +157,7 @@ def test_purchase_merged_config_stages_the_bundled_plain_text_request():
     )
 
 
-def test_purchase_research_opens_supplied_public_links_before_search_queries():
+def test_purchase_research_uses_unified_browser_for_supplied_links_before_queries():
     result = run_payload_script(
         "purchase_research_assistant",
         """
@@ -168,13 +168,17 @@ class BrowserConfig:
     def __init__(self, **values):
         self.values = values
 
-def browse_url(url, **_options):
-    return {"url": url, "title": "Seed lead", "text": "Public listing search page"}
+calls = []
 
-def research_topic(query, **_options):
+def browse(url, config=None, depth=None, output_format=None):
+    calls.append({"operation": "browse", "depth": depth, "output_format": output_format})
+    return {"status": "ok", "final_url": url, "title": "Seed lead", "text": "Public listing search page"}
+
+def research_topic(query, config=None, depth=None, max_sources=None, output_format=None):
+    calls.append({"operation": "research_topic", "depth": depth, "output_format": output_format})
     return []
 
-research._load_w3m = lambda: (BrowserConfig, browse_url, research_topic)
+research._load_web_browser_skill = lambda: (BrowserConfig, browse, research_topic)
 sources, warnings = research.research_public_sources(
     ["property alternatives"],
     {"internet_research": {"enabled": True, "rendered_browser": {"enabled": False}}},
@@ -183,6 +187,7 @@ sources, warnings = research.research_public_sources(
 print(json.dumps({
     "urls": [item["url"] for item in sources],
     "queries": [item["query"] for item in sources],
+    "calls": calls,
     "warnings": warnings,
 }))
 """,
@@ -190,6 +195,18 @@ print(json.dumps({
     assert result == {
         "urls": ["https://example.com/public-lead"],
         "queries": ["User-supplied public research lead"],
+        "calls": [
+            {
+                "operation": "browse",
+                "depth": "standard",
+                "output_format": "plain_text",
+            },
+            {
+                "operation": "research_topic",
+                "depth": "standard",
+                "output_format": "plain_text",
+            },
+        ],
         "warnings": [],
     }
 

@@ -15,7 +15,6 @@ RUNTIME_SKILL_PACKAGES = (
     "mirrorneuron-blueprint-support-skill",
     "mirrorneuron-llm-ocr-skill",
     "mirrorneuron-rag-skill",
-    "mirrorneuron-w3m-browser-skill",
     "mirrorneuron-web-browser-skill",
 )
 

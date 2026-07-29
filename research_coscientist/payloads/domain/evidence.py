@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
+import inspect
 import os
 import re
-import urllib.parse
 from pathlib import Path
 from typing import Any
 
-from .common import DEFAULT_OUTPUT_FOLDER, _now, runtime_asset_root
-from .inputs import expand_runtime_path, load_input_documents, resolve_input_folder
+from .common import DEFAULT_OUTPUT_FOLDER, _now, _sha256, runtime_asset_root
+from .inputs import _call_optional, expand_runtime_path, load_input_documents, resolve_input_folder
 from .knowledge import load_research_knowledge, prepare_research_rag, retrieve_research_rag_context
 from .state import _inputs, _save, _state
 
@@ -92,26 +92,20 @@ def sanitize_public_text(value: Any) -> str:
     return re.sub(r"[^\w\s.,:/-]", "", text)[:180]
 
 
-def _load_w3m() -> tuple[Any, Any, Any]:
+def _load_web_browser_skill() -> tuple[Any, Any, Any]:
     try:
-        from mn_w3m_browser_skill import W3mBrowserConfig, browse_url, research_topic
-        return W3mBrowserConfig, browse_url, research_topic
+        from mn_web_browser_skill import WebBrowserConfig, browse, research_topic
+        return WebBrowserConfig, browse, research_topic
     except Exception:
         return None, None, None
-
-
-def _load_rendered_browser() -> tuple[Any, Any]:
-    try:
-        from mn_web_browser_skill import WebBrowserConfig, scrape_page
-        return WebBrowserConfig, scrape_page
-    except Exception:
-        return None, None
 
 
 def _source_record(*, url: str, title: str, snippet: str, status: str, skill: str, query: str, warning: str = "") -> dict[str, Any]:
     lowered = f"{title} {snippet} {warning}".lower()
     if any(marker in lowered for marker in ("captcha", "login required", "robots.txt", "access denied", "blocked")):
         status = "blocked"
+    elif status == "ok":
+        status = "observed"
     return {
         "source_ref": f"web:{_sha256(url or query)[:12]}",
         "url": url,
@@ -127,7 +121,12 @@ def _source_record(*, url: str, title: str, snippet: str, status: str, skill: st
 
 def _normalize_browser_result(result: Any, query: str, skill: str) -> list[dict[str, Any]]:
     if isinstance(result, dict):
-        candidates = result.get("sources") or result.get("results") or result.get("items") or [result]
+        candidates = [result]
+        for collection_key in ("sources", "results", "items"):
+            if collection_key in result:
+                collection = result.get(collection_key)
+                candidates = collection if isinstance(collection, list) else []
+                break
     elif isinstance(result, list):
         candidates = result
     else:
@@ -136,14 +135,24 @@ def _normalize_browser_result(result: Any, query: str, skill: str) -> list[dict[
     for item in candidates:
         if isinstance(item, str):
             item = {"text": item}
+        item_warnings = item.get("warnings") or []
+        if isinstance(item_warnings, str):
+            item_warnings = [item_warnings]
+        warning = str(
+            item.get("warning")
+            or item.get("error")
+            or item.get("block_reason")
+            or "; ".join(str(value) for value in item_warnings if value)
+            or ""
+        )
         records.append(_source_record(
-            url=str(item.get("url") or item.get("link") or ""),
+            url=str(item.get("final_url") or item.get("url") or item.get("link") or ""),
             title=str(item.get("title") or item.get("name") or ""),
             snippet=str(item.get("snippet") or item.get("text") or item.get("content") or ""),
             status=str(item.get("status") or "observed"),
             skill=skill,
             query=query,
-            warning=str(item.get("warning") or ""),
+            warning=warning,
         ))
     return records
 
@@ -157,31 +166,44 @@ def research_public_sources(queries: list[str], config: dict[str, Any], *, quick
     sources: list[dict[str, Any]] = []
     warnings: list[dict[str, Any]] = []
     max_queries = int(internet.get("max_queries", 6))
-    w3m_config_cls, browse_url, research_topic = _load_w3m()
+    browser_config_cls, _browse, research_topic = _load_web_browser_skill()
+    browser_config = _instantiate(
+        browser_config_cls,
+        {
+            "timeout_seconds": internet.get("timeout_seconds", 20),
+            "total_timeout_seconds": internet.get("total_timeout_seconds", 60),
+            "max_chars": internet.get("max_chars", 12000),
+            "output_format": "plain_text",
+            "respect_robots": internet.get("respect_robots", True),
+            "per_host_delay_seconds": internet.get("per_host_delay_seconds", 1),
+        },
+    )
     for query in queries[:max_queries]:
         if research_topic is None:
-            warnings.append({"status": "skill_unavailable", "skill": "w3m_browser_skill", "message": "Install the w3m browser skill for public research."})
+            warnings.append({"status": "skill_unavailable", "skill": "web_browser_skill", "message": "Install mirrorneuron-web-browser-skill for public research."})
             break
         try:
-            raw_config = {"timeout_seconds": internet.get("timeout_seconds", 20), "max_chars": internet.get("max_chars", 12000)}
-            browser_config = _instantiate(w3m_config_cls, raw_config)
-            result = _call_optional(research_topic, query=query, topic=query, config=browser_config, browser_config=browser_config, max_sources=int(internet.get("max_sources", 8)))
-            sources.extend(_normalize_browser_result(result, query, "w3m_browser_skill"))
+            result = _call_optional(
+                research_topic,
+                query=query,
+                config=browser_config,
+                depth="standard",
+                max_sources=int(internet.get("max_sources", 8)),
+                output_format="plain_text",
+            )
+            sources.extend(_normalize_browser_result(result, query, "web_browser_skill"))
+            if isinstance(result, dict):
+                for warning in result.get("warnings") or []:
+                    warnings.append(
+                        {
+                            "status": "warning",
+                            "skill": "web_browser_skill",
+                            "query": query,
+                            "message": str(warning),
+                        }
+                    )
         except Exception as exc:
-            warnings.append({"status": "failed", "skill": "w3m_browser_skill", "query": query, "message": str(exc)})
-    if not sources and internet.get("rendered_browser", {}).get("enabled", True):
-        rendered_cls, scrape_page = _load_rendered_browser()
-        if scrape_page is None:
-            warnings.append({"status": "skill_unavailable", "skill": "web_browser_skill", "message": "Rendered-browser fallback is unavailable."})
-        else:
-            for query in queries[:2]:
-                url = "https://www.google.com/search?" + urllib.parse.urlencode({"q": query})
-                try:
-                    browser_config = _instantiate(rendered_cls, {"timeout_seconds": 30, "max_chars": 12000})
-                    result = _call_optional(scrape_page, url=url, config=browser_config, browser_config=browser_config)
-                    sources.extend(_normalize_browser_result(result, query, "web_browser_skill"))
-                except Exception as exc:
-                    warnings.append({"status": "failed", "skill": "web_browser_skill", "url": url, "message": str(exc)})
+            warnings.append({"status": "failed", "skill": "web_browser_skill", "query": query, "message": str(exc)})
     return sources, warnings
 
 
@@ -301,8 +323,7 @@ def prepare_evidence(ctx: dict[str, Any], **_options: Any) -> dict[str, Any]:
 
 __all__ = [
     "_instantiate",
-    "_load_rendered_browser",
-    "_load_w3m",
+    "_load_web_browser_skill",
     "_normalize_browser_result",
     "_source_record",
     "_status_counts",

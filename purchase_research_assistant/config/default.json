@@ -99,19 +99,12 @@
       "required": false,
       "min_text_chars": 40
     },
-    "w3m_browser": {
-      "skill": "w3m_browser_skill",
-      "package": "mirrorneuron-w3m-browser-skill",
-      "enabled": true,
-      "required": false,
-      "purpose": "Primary public text-browser research."
-    },
     "web_browser": {
       "skill": "web_browser_skill",
       "package": "mirrorneuron-web-browser-skill",
       "enabled": true,
       "required": false,
-      "purpose": "Optional rendered-browser fallback."
+      "purpose": "Unified public research with lightweight w3m routing and policy-governed rendered-page fallback."
     }
   },
   "inputs": {

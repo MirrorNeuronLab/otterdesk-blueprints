@@ -169,15 +169,14 @@ GPU_WORKER_DEVICE_REQUIREMENT = {
 }
 
 
-SKILL_DEPENDENCY_VERSION = "1.2.29"
+SKILL_DEPENDENCY_VERSION = "1.2.31"
 SKILL_DEPENDENCY_VERSION_OVERRIDES = {
-    "mirrorneuron-rag-skill": "1.2.29",
-    "mirrorneuron-web-browser-skill": "1.2.29",
+    "mirrorneuron-rag-skill": "1.2.31",
+    "mirrorneuron-web-browser-skill": "1.2.31",
 }
 IMPORT_MARKER_PACKAGES = {
     "mn_blueprint_support": "mirrorneuron-blueprint-support-skill",
     "mn_llm_ocr_skill": "mirrorneuron-llm-ocr-skill",
-    "mn_w3m_browser_skill": "mirrorneuron-w3m-browser-skill",
     "mn_web_browser_skill": "mirrorneuron-web-browser-skill",
     "mn_rag_skill": "mirrorneuron-rag-skill",
     "mn_websocket_stream_skill": "mirrorneuron-websocket-stream-skill",
@@ -195,7 +194,6 @@ IMPORT_MARKER_PACKAGES = {
 SKILL_NAME_PACKAGES = {
     "llm_ocr_skill": "mirrorneuron-llm-ocr-skill",
     "rag_skill": "mirrorneuron-rag-skill",
-    "w3m_browser_skill": "mirrorneuron-w3m-browser-skill",
     "web_browser_skill": "mirrorneuron-web-browser-skill",
     "websocket_stream": "mirrorneuron-websocket-stream-skill",
 }
@@ -1673,10 +1671,10 @@ def test_cctv_operator_owns_json_render_web_ui_and_uses_generic_skills():
         dependency["name"]: dependency["version"]
         for dependency in manifest["skill_dependencies"]
     } == {
-        "mirrorneuron-blueprint-support-skill": "1.2.29",
-        "mirrorneuron-websocket-stream-skill": "1.2.29",
-        "mirrorneuron-live-video-analysis-skill": "1.2.29",
-        "mirrorneuron-web-ui-skill": "1.2.29",
+        "mirrorneuron-blueprint-support-skill": "1.2.31",
+        "mirrorneuron-websocket-stream-skill": "1.2.31",
+        "mirrorneuron-live-video-analysis-skill": "1.2.31",
+        "mirrorneuron-web-ui-skill": "1.2.31",
     }
     assert not (blueprint_dir / "docker-compose.yml").exists()
     assert not (blueprint_dir / "compose.yaml").exists()

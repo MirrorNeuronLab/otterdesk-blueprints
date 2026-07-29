@@ -76,6 +76,57 @@ def test_research_payload_is_modular_and_handlers_resolve():
     assert_registry_handlers_import("research_coscientist")
 
 
+def test_research_coscientist_normalizes_unified_browser_results_as_evidence():
+    result = run_payload_script(
+        "research_coscientist",
+        """
+import json
+from domain import evidence
+
+class BrowserConfig:
+    def __init__(self, **values):
+        self.values = values
+
+calls = []
+
+def browse(url, config=None, depth=None, output_format=None):
+    return {"status": "ok", "final_url": url, "text": "unused"}
+
+def research_topic(query, config=None, depth=None, max_sources=None, output_format=None):
+    calls.append({"depth": depth, "output_format": output_format})
+    return {
+        "sources": [{
+            "status": "ok",
+            "final_url": "https://example.com/research",
+            "title": "Public research",
+            "text": "Source-grounded public evidence",
+        }],
+        "warnings": [],
+    }
+
+evidence._load_web_browser_skill = lambda: (BrowserConfig, browse, research_topic)
+sources, warnings = evidence.research_public_sources(
+    ["cooling loop energy evidence"],
+    {"internet_research": {"enabled": True}},
+)
+print(json.dumps({
+    "statuses": [item["status"] for item in sources],
+    "skills": [item["skill"] for item in sources],
+    "urls": [item["url"] for item in sources],
+    "calls": calls,
+    "warnings": warnings,
+}))
+""",
+    )
+    assert result == {
+        "statuses": ["observed"],
+        "skills": ["web_browser_skill"],
+        "urls": ["https://example.com/research"],
+        "calls": [{"depth": "standard", "output_format": "plain_text"}],
+        "warnings": [],
+    }
+
+
 def test_research_sample_audits_falsifiable_hypotheses(tmp_path):
     result = run_payload_script(
         "research_coscientist",

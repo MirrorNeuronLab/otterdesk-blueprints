@@ -259,21 +259,15 @@
       "require_hardware_acceleration": true,
       "timeout_seconds": 180
     },
-    "w3m_browser": {
-      "skill": "w3m_browser_skill",
-      "package": "mirrorneuron-w3m-browser-skill",
-      "import": "mn_w3m_browser_skill",
-      "runner": "w3m",
-      "purpose": "privacy-safe public web research for source-grounded finance, tax, and investor education guidance",
+    "web_browser": {
+      "skill": "web_browser_skill",
+      "package": "mirrorneuron-web-browser-skill",
+      "import": "mn_web_browser_skill",
+      "runner": "policy_governed_agent_browser",
+      "purpose": "unified privacy-safe public research with lightweight w3m routing, rendered-page fallback, bounded retries, and structured blocked outcomes",
       "enabled": true,
       "required": false,
       "install_policy": "docker_worker_image",
-      "timeout_seconds": 20,
-      "max_chars": 12000,
-      "max_queries": 6,
-      "max_sources_per_query": 3,
-      "use_model_compression": true,
-      "docker_worker_requirements": "requirements.txt",
       "runtime": {
         "driver": "docker_worker",
         "install_scope": "shared_job_container",
@@ -281,25 +275,20 @@
         "image": "mirror-neuron/financial-advisor:local",
         "network": "mirror-neuron-runtime",
         "node_scope": "financial_advisor_python_executor_nodes"
-      }
-    },
-    "web_browser": {
-      "skill": "web_browser_skill",
-      "package": "mirrorneuron-web-browser-skill",
-      "import": "mn_web_browser_skill",
-      "runner": "playwright",
-      "purpose": "optional rendered-page fallback for JavaScript-heavy public guidance pages; records blocked states instead of bypassing them",
-      "enabled": true,
-      "required": false,
-      "install_policy": "python_environment_pip",
+      },
       "respect_robots": true,
       "stop_on_blocked": true,
       "no_proxy_rotation": true,
       "no_captcha_solving": true,
-      "timeout_seconds": 30,
+      "timeout_seconds": 20,
+      "total_timeout_seconds": 60,
       "max_chars": 12000,
+      "max_queries": 6,
+      "max_sources_per_query": 3,
       "max_pages_per_run": 2,
-      "python_environment": "requirements.txt"
+      "per_host_delay_seconds": 1,
+      "use_model_compression": true,
+      "docker_worker_requirements": "requirements.txt"
     }
   },
   "skill_runtime": {

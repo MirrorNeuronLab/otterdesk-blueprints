@@ -50,7 +50,12 @@ The bundled sample is an engineering question about reducing energy use in a sma
 
 The blueprint assigns bounded responsibilities across a topic finder, literature reviewer, idea generator, skeptic, proximity/novelty reviewer, experiment designer, code and benchmark planners, result analyst, paper writer, and meta-reviewer. Each role preserves evidence references or marks an assertion as an inference, hypothesis, or unknown.
 
-Public research is limited to sanitized research goals and questions. It does not send private documents, credentials, participant data, or raw confidential notes to public search. Blocked pages, login walls, CAPTCHAs, stale sources, and evidence conflicts are recorded rather than bypassed.
+Public research uses `web_browser_skill` standard mode, which starts with
+lightweight w3m extraction and invokes its policy-governed rendered browser only
+when needed. Queries are limited to sanitized research goals and questions. The
+workflow does not send private documents, credentials, participant data, or raw
+confidential notes to public search. Blocked pages, login walls, CAPTCHAs, stale
+sources, and evidence conflicts are recorded rather than bypassed.
 
 ## Outputs
 

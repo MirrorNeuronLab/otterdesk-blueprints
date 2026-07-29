@@ -26,7 +26,12 @@ Each hypothesis must identify its mechanism, predicted observation, evidence sup
 
 ## Research Boundaries
 
-Public queries contain only sanitized research-goal, domain, and question text. Login walls, robots restrictions, CAPTCHAs, rate limits, conflicts, and unavailable sources are retained as warnings. The workflow never bypasses access controls, contacts participants, collects restricted data, changes live systems, executes an experiment, or submits a manuscript.
+Public queries contain only sanitized research-goal, domain, and question text.
+`web_browser_skill` standard mode owns lightweight and rendered retrieval.
+Login walls, robots restrictions, CAPTCHAs, rate limits, conflicts, and
+unavailable sources are retained as warnings. The workflow never bypasses
+access controls, contacts participants, collects restricted data, changes live
+systems, executes an experiment, or submits a manuscript.
 
 For medical, biological, safety-critical, or regulated topics, users must supply the applicable human oversight, ethics, institutional, and domain-expert review. The workflow is not clinical advice and must not be used to make treatment, diagnostic, or safety decisions.
 

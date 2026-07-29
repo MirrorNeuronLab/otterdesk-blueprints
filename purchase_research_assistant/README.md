@@ -56,13 +56,14 @@ The default user-facing output folder is `~/Downloads/purchase_research_assistan
 ## Research and RAG
 
 Checked-in knowledge under `knowledge/` and usable local input documents are
-retrieved in an isolated per-run context. The text browser opens safe public
+retrieved in an isolated per-run context. `web_browser_skill` opens safe public
 HTTP(S) links supplied in the request, then runs queries derived only from
-sanitized purchase details. Local/private URLs, credential-bearing URLs, raw
-documents, private financials, credentials, and contact details are never sent
-to public research. The workflow uses `w3m_browser_skill` first and an optional
-rendered-browser fallback, recording blocked, login, robots, CAPTCHA, and
-transient-source warnings.
+sanitized purchase details. Its standard mode uses lightweight w3m extraction
+and automatically falls through to the policy-governed rendered browser when
+needed. Local/private URLs, credential-bearing URLs, raw documents, private
+financials, credentials, and contact details are never sent to public research.
+The workflow records blocked, login, robots, CAPTCHA, and transient-source
+warnings.
 
 ## Shared job data
 
