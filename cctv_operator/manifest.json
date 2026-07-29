@@ -2089,25 +2089,25 @@
       "name": "mirrorneuron-blueprint-support-skill",
       "source": "gar",
       "type": "pip",
-      "version": "1.2.29"
+      "version": "1.2.31"
     },
     {
       "name": "mirrorneuron-websocket-stream-skill",
       "source": "gar",
       "type": "pip",
-      "version": "1.2.29"
+      "version": "1.2.31"
     },
     {
       "name": "mirrorneuron-live-video-analysis-skill",
       "source": "gar",
       "type": "pip",
-      "version": "1.2.29"
+      "version": "1.2.31"
     },
     {
       "name": "mirrorneuron-web-ui-skill",
       "source": "gar",
       "type": "pip",
-      "version": "1.2.29"
+      "version": "1.2.31"
     }
   ],
   "agent_dependencies": [
@@ -2115,19 +2115,19 @@
       "type": "pip",
       "source": "gar",
       "name": "mn-prototype-stream-processor-agent",
-      "version": "1.2.29"
+      "version": "1.2.31"
     },
     {
       "type": "pip",
       "source": "gar",
       "name": "mn-prototype-supervised-service-agent",
-      "version": "1.2.29"
+      "version": "1.2.31"
     },
     {
       "type": "pip",
       "source": "gar",
       "name": "mn-prototype-artifact-finalizer-agent",
-      "version": "1.2.29"
+      "version": "1.2.31"
     }
   ],
   "standard": {

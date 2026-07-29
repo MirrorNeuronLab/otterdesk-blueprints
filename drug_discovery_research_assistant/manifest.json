@@ -1374,7 +1374,7 @@
       "type": "pip",
       "source": "gar",
       "name": "mirrorneuron-use-generic-model-skill",
-      "version": "1.2.29"
+      "version": "1.2.31"
     }
   ],
   "agent_dependencies": [
@@ -1382,19 +1382,19 @@
       "type": "pip",
       "source": "gar",
       "name": "mn-prototype-stateful-step-agent",
-      "version": "1.2.29"
+      "version": "1.2.31"
     },
     {
       "type": "pip",
       "source": "gar",
       "name": "mn-prototype-supervised-service-agent",
-      "version": "1.2.29"
+      "version": "1.2.31"
     },
     {
       "type": "pip",
       "source": "gar",
       "name": "mn-prototype-artifact-finalizer-agent",
-      "version": "1.2.29"
+      "version": "1.2.31"
     }
   ],
   "standard": {

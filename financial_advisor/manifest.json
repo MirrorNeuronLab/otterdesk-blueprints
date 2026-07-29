@@ -600,13 +600,13 @@
       "name": "mirrorneuron-blueprint-support-skill",
       "source": "gar",
       "type": "pip",
-      "version": "1.2.29"
+      "version": "1.2.31"
     },
     {
       "name": "mirrorneuron-llm-ocr-skill",
       "source": "gar",
       "type": "pip",
-      "version": "1.2.29"
+      "version": "1.2.31"
     },
     {
       "name": "mirrorneuron-w3m-browser-skill",
@@ -618,7 +618,7 @@
       "name": "mirrorneuron-web-browser-skill",
       "source": "gar",
       "type": "pip",
-      "version": "1.2.29"
+      "version": "1.2.31"
     }
   ],
   "agent_dependencies": [
@@ -626,25 +626,25 @@
       "type": "pip",
       "source": "gar",
       "name": "mn-prototype-stateful-step-agent",
-      "version": "1.2.29"
+      "version": "1.2.31"
     },
     {
       "type": "pip",
       "source": "gar",
       "name": "mn-prototype-bounded-tool-loop-agent",
-      "version": "1.2.29"
+      "version": "1.2.31"
     },
     {
       "type": "pip",
       "source": "gar",
       "name": "mn-prototype-actor-review-agent",
-      "version": "1.2.29"
+      "version": "1.2.31"
     },
     {
       "type": "pip",
       "source": "gar",
       "name": "mn-prototype-artifact-finalizer-agent",
-      "version": "1.2.29"
+      "version": "1.2.31"
     }
   ],
   "standard": {
