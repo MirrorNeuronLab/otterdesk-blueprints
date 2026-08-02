@@ -1,0 +1,32 @@
+{
+  "data_status": "synthetic_demo",
+  "items": [
+    {
+      "id": "content-001",
+      "title": "Ten-minute personalized bedtime reading routine",
+      "age_band": "5-7",
+      "learning_objective": "Blend and recognize common consonant-vowel-consonant words.",
+      "parent_value": "A repeatable short reading routine with an explicit skill label.",
+      "sensitive_topic": false,
+      "claim_risk": "low"
+    },
+    {
+      "id": "content-002",
+      "title": "Name the feeling and choose a calming action",
+      "age_band": "3-5",
+      "learning_objective": "Practice basic emotional vocabulary in an everyday fictional scene.",
+      "parent_value": "A gentle conversation prompt without therapeutic claims.",
+      "sensitive_topic": false,
+      "claim_risk": "medium"
+    },
+    {
+      "id": "content-003",
+      "title": "Personalized anxiety treatment story",
+      "age_band": "3-7",
+      "learning_objective": "Treat childhood anxiety through a generated therapeutic narrative.",
+      "parent_value": "Unverified medical outcome claim.",
+      "sensitive_topic": true,
+      "claim_risk": "blocked"
+    }
+  ]
+}

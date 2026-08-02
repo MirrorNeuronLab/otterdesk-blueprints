@@ -1,0 +1,11 @@
+{
+  "blueprint_id": "bibblio_learning_safety_coworker",
+  "data_status": "synthetic_demo",
+  "files": [
+    "content_backlog.json"
+  ],
+  "notes": [
+    "All content proposals are invented.",
+    "The blocked therapeutic proposal exists to verify fail-closed review."
+  ]
+}

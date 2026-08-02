@@ -1,0 +1,9 @@
+feedback_id,journey_stage,theme,sentiment,observation,data_status
+fb-001,activation,time_to_value,negative,"I was not sure what to choose before making the first story.",synthetic_demo
+fb-002,activation,personalization,positive,"My child wanted to see their favorite animal in another story.",synthetic_demo
+fb-003,retention,variety,negative,"After the first week the activities felt too similar.",synthetic_demo
+fb-004,retention,parent_progress,negative,"I could not tell what skill we were practicing or whether it was improving.",synthetic_demo
+fb-005,conversion,value_proof,negative,"The trial was fun, but I did not know why I should keep paying every month.",synthetic_demo
+fb-006,retention,routine,positive,"A ten-minute bedtime activity fits our routine.",synthetic_demo
+fb-007,support,child_safety,neutral,"I want to know how stories are checked before my child sees them.",synthetic_demo
+fb-008,conversion,annual_plan,neutral,"I would consider a yearly option if I knew we would keep using it.",synthetic_demo

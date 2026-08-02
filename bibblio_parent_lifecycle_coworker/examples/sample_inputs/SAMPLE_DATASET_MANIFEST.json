@@ -1,0 +1,11 @@
+{
+  "blueprint_id": "bibblio_parent_lifecycle_coworker",
+  "data_status": "synthetic_demo",
+  "files": [
+    "parent_feedback.csv"
+  ],
+  "notes": [
+    "All feedback records are invented and de-identified.",
+    "Feedback counts are not population prevalence."
+  ]
+}

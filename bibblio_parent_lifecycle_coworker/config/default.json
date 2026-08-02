@@ -1,0 +1,41 @@
+{
+  "inputs": {
+    "adapter": "mock",
+    "description": "Synthetic focused input for Bibblio Parent Lifecycle Co-worker.",
+    "payload": {
+      "business_goal": "Turn Bibblio into a profitable business.",
+      "goal_id": "bibblio-profitable-business",
+      "input_folder": "@/examples/sample_inputs",
+      "parent_feedback_file": "@/examples/sample_inputs/parent_feedback.csv",
+      "output_folder": "~/Downloads/bibblio_parent_lifecycle_coworker",
+      "peer_mcp_servers": []
+    }
+  },
+  "outputs": {
+    "folder_path": "~/Downloads/bibblio_parent_lifecycle_coworker",
+    "write_run_store": true
+  },
+  "execution": {
+    "quick_test": true
+  },
+  "llm": {
+    "mode": "fake",
+    "require_live": false
+  },
+  "mcp_collaboration": {
+    "publish_local_exchange": true,
+    "peer_reads_enabled": false
+  },
+  "privacy": {
+    "default_classification": "confidential",
+    "child_data_export": "blocked",
+    "external_communications": "approval_required",
+    "minimum_data": true
+  },
+  "parent_lifecycle": {
+    "outreach_mode": "draft_only",
+    "child_directed_messaging": false,
+    "max_message_frequency_per_week": 1
+  }
+}
+

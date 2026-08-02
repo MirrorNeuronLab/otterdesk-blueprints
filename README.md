@@ -49,6 +49,11 @@ helpers and render shared agent templates.
 
 | Blueprint | Category | Purpose |
 | --- | --- | --- |
+| [`bibblio_gtm_coworker`](bibblio_gtm_coworker/README.md) | Business | Qualifies approved adult-professional seed contacts into a confidential, draft-only outreach queue and shares only aggregate GTM evidence. |
+| [`bibblio_finance_coworker`](bibblio_finance_coworker/README.md) | Business | Calculates unit economics, break-even scale, cash guardrails, and finance evidence gaps. |
+| [`bibblio_learning_safety_coworker`](bibblio_learning_safety_coworker/README.md) | Business | Reviews learning objectives, age fit, claims, personalization, and child-safety risks before content production. |
+| [`bibblio_content_studio_coworker`](bibblio_content_studio_coworker/README.md) | Business | Converts approved learning briefs into small, versioned, review-required content package drafts. |
+| [`bibblio_parent_lifecycle_coworker`](bibblio_parent_lifecycle_coworker/README.md) | Business | Turns de-identified parent feedback into journey friction, product priorities, and approval-gated intervention drafts. |
 | [`drug_discovery_research_assistant`](drug_discovery_research_assistant/README.md) | Science | A continuously running drug-discovery research service. Give it a disease or target profile, screening criteria, optional candidate seeds, literature notes, and an input folder; it uses BioTarget and the custom homerquan/DrugClip text-to-molecular-graph model for continuous candidate generation, folding, evaluation, and review-only cycle reports until manually stopped. |
 | [`research_coscientist`](research_coscientist/README.md) | Science | A research co-scientist that combines deterministic evidence and verification stages with an isolated OpenShell worker for autonomous goal refinement, tool-driven exploration, hypothesis generation, and bounded generated-code experiments. |
 | [`generic_customer_service_voice_coworker`](generic_customer_service_voice_coworker/README.md) | Business | A voice customer-service co-worker for a small business demo. Give it the business name, service scope, opening message, escalation rules, editable knowledge text, and optional sample/input folder; it starts a local WebRTC voice experience and writes service status, conversation logs, knowledge snapshots, and handoff-ready run artifacts to the output folder. |

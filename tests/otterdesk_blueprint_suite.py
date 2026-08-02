@@ -190,6 +190,11 @@ IMPORT_MARKER_PACKAGES = {
     "mn_use_generic_model_skill": "mirrorneuron-use-generic-model-skill",
     "mn_live_video_analysis_skill": "mirrorneuron-live-video-analysis-skill",
     "mn_web_ui_skill": "mirrorneuron-web-ui-skill",
+    "mn_market_research_skill": "mirrorneuron-market-research-skill",
+    "mn_marketing_email_skill": "mirrorneuron-marketing-email-skill",
+    "mn_mcp_client_skill": "mirrorneuron-mcp-client-skill",
+    "mn_mcp_server_skill": "mirrorneuron-mcp-server-skill",
+    "mn_goal_work_packet_skill": "mirrorneuron-goal-work-packet-skill",
 }
 SKILL_NAME_PACKAGES = {
     "llm_ocr_skill": "mirrorneuron-llm-ocr-skill",

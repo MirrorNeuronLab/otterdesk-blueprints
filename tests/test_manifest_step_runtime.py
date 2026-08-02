@@ -199,6 +199,77 @@ def _run_handler_workflow(
                 "internet_research": {"enabled": False},
             },
         ),
+        (
+            "bibblio_gtm_coworker",
+            {
+                "input_folder": str(ROOT / "bibblio_gtm_coworker" / "examples" / "sample_inputs"),
+                "contacts_csv": str(ROOT / "bibblio_gtm_coworker" / "examples" / "sample_inputs" / "edtech_contacts_sample.csv"),
+                "business_goal": "Turn Bibblio into a profitable business.",
+                "goal_id": "bibblio-profitable-business",
+            },
+            {
+                "execution": {"quick_test": True},
+                "llm": {"mode": "fake", "require_live": False},
+                "mcp_collaboration": {"publish_local_exchange": True, "peer_reads_enabled": False},
+                "gtm": {"max_contacts_per_run": 5, "outreach_mode": "draft_only"},
+            },
+        ),
+        (
+            "bibblio_finance_coworker",
+            {
+                "input_folder": str(ROOT / "bibblio_finance_coworker" / "examples" / "sample_inputs"),
+                "metrics_file": str(ROOT / "bibblio_finance_coworker" / "examples" / "sample_inputs" / "business_metrics.json"),
+                "business_goal": "Turn Bibblio into a profitable business.",
+                "goal_id": "bibblio-profitable-business",
+            },
+            {
+                "execution": {"quick_test": True},
+                "llm": {"mode": "fake", "require_live": False},
+                "mcp_collaboration": {"publish_local_exchange": True, "peer_reads_enabled": False},
+            },
+        ),
+        (
+            "bibblio_learning_safety_coworker",
+            {
+                "input_folder": str(ROOT / "bibblio_learning_safety_coworker" / "examples" / "sample_inputs"),
+                "content_backlog_file": str(ROOT / "bibblio_learning_safety_coworker" / "examples" / "sample_inputs" / "content_backlog.json"),
+                "business_goal": "Turn Bibblio into a profitable business.",
+                "goal_id": "bibblio-profitable-business",
+            },
+            {
+                "execution": {"quick_test": True},
+                "llm": {"mode": "fake", "require_live": False},
+                "mcp_collaboration": {"publish_local_exchange": True, "peer_reads_enabled": False},
+            },
+        ),
+        (
+            "bibblio_content_studio_coworker",
+            {
+                "input_folder": str(ROOT / "bibblio_content_studio_coworker" / "examples" / "sample_inputs"),
+                "learning_briefs_file": str(ROOT / "bibblio_content_studio_coworker" / "examples" / "sample_inputs" / "approved_learning_briefs.json"),
+                "business_goal": "Turn Bibblio into a profitable business.",
+                "goal_id": "bibblio-profitable-business",
+            },
+            {
+                "execution": {"quick_test": True},
+                "llm": {"mode": "fake", "require_live": False},
+                "mcp_collaboration": {"publish_local_exchange": True, "peer_reads_enabled": False},
+            },
+        ),
+        (
+            "bibblio_parent_lifecycle_coworker",
+            {
+                "input_folder": str(ROOT / "bibblio_parent_lifecycle_coworker" / "examples" / "sample_inputs"),
+                "parent_feedback_file": str(ROOT / "bibblio_parent_lifecycle_coworker" / "examples" / "sample_inputs" / "parent_feedback.csv"),
+                "business_goal": "Turn Bibblio into a profitable business.",
+                "goal_id": "bibblio-profitable-business",
+            },
+            {
+                "execution": {"quick_test": True},
+                "llm": {"mode": "fake", "require_live": False},
+                "mcp_collaboration": {"publish_local_exchange": True, "peer_reads_enabled": False},
+            },
+        ),
     ],
 )
 def test_manifest_handlers_execute_as_message_chained_workflows(

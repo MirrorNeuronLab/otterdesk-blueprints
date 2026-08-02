@@ -1,0 +1,22 @@
+{
+  "data_status": "synthetic_demo",
+  "coverage_period": "2026-07-01/2026-07-31",
+  "currency": "USD",
+  "monthly_qualified_visitors": 8200,
+  "monthly_signups": 540,
+  "monthly_activated_families": 216,
+  "monthly_trial_families": 165,
+  "monthly_new_paid_families": 28,
+  "paying_families_end_of_period": 94,
+  "monthly_arpu": 14.99,
+  "gross_margin_rate": 0.78,
+  "monthly_churn_rate": 0.12,
+  "monthly_acquisition_spend": 900,
+  "monthly_fixed_operating_costs": 5500,
+  "refund_rate": 0.035,
+  "notes": [
+    "All values are synthetic and exist only for the bundled demo.",
+    "Gross margin includes modeled inference and payment costs but not fixed founder compensation.",
+    "Attribution coverage is incomplete, so channel-level CAC must not be inferred."
+  ]
+}
