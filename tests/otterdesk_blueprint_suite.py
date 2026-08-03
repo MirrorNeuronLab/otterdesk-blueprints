@@ -192,6 +192,7 @@ IMPORT_MARKER_PACKAGES = {
     "mn_web_ui_skill": "mirrorneuron-web-ui-skill",
     "mn_market_research_skill": "mirrorneuron-market-research-skill",
     "mn_marketing_email_skill": "mirrorneuron-marketing-email-skill",
+    "mn_email_delivery_skill": "mirrorneuron-email-delivery-skill",
     "mn_mcp_client_skill": "mirrorneuron-mcp-client-skill",
     "mn_mcp_server_skill": "mirrorneuron-mcp-server-skill",
     "mn_goal_work_packet_skill": "mirrorneuron-goal-work-packet-skill",

@@ -15,7 +15,7 @@ for source in sorted((WORKSPACE / "mn-skills").glob("*/src")):
         sys.path.insert(0, str(source))
 
 BLUEPRINTS = {
-    "growth_partnerships_coworker": ("growth_partnerships_lead", ["qualify_seed_contacts", "publish_gtm_outreach_queue"]),
+    "growth_partnerships_coworker": ("growth_partnerships_lead", ["qualify_seed_contacts", "publish_gtm_outreach_queue", "deliver_approved_email"]),
     "business_finance_coworker": ("business_finance_controller", ["calculate_unit_economics", "publish_financial_control_packet"]),
     "learning_quality_safety_coworker": ("learning_quality_safety_director", ["review_learning_backlog", "publish_learning_safety_packet"]),
     "content_studio_coworker": ("content_studio_director", ["plan_content_batch", "publish_content_studio_packet"]),
@@ -68,6 +68,22 @@ def test_five_independent_blueprints_share_one_goal_contract():
         assert list(manifest["agents"]["registry"]) == [agent_id]
         assert [step["id"] for step in manifest["workflow"]["steps"]] == step_ids
         assert manifest["workflow"]["steps"][1]["needs"] == [step_ids[0]]
+        if blueprint_id == "growth_partnerships_coworker":
+            assert manifest["identity"]["version"] == 2
+            assert manifest["workflow"]["workflow_id"] == "growth_partnerships_coworker_v2"
+            assert manifest["workflow"]["steps"][2]["needs"] == [step_ids[1]]
+            assert manifest["workflow"]["steps"][2]["control"]["retry"]["max_attempts"] == 1
+            delivery_worker = manifest["workers"]["groups"][0]
+            assert delivery_worker["steps"] == ["deliver_approved_email"]
+            assert delivery_worker["with"]["side_effect"] == "external"
+            assert delivery_worker["with"]["pass_env"] == [
+                "MN_SMTP_USERNAME",
+                "MN_SMTP_PASSWORD",
+                "MN_SMTP_DEV_RECIPIENT",
+            ]
+            assert "mirrorneuron-email-delivery-skill" in {
+                dependency["name"] for dependency in manifest["skill_dependencies"]
+            }
         assert "mirrorneuron-goal-work-packet-skill" in {
             dependency["name"] for dependency in manifest["skill_dependencies"]
         }
@@ -166,6 +182,28 @@ def test_gtm_fixture_is_synthetic_and_mcp_packet_excludes_contact_fields():
     source = (ROOT / "growth_partnerships_coworker" / "payloads" / "domain" / "workers.py").read_text(encoding="utf-8")
     assert '"send_authorized": False' in source
     assert '"private_fields_excluded_from_mcp": ["name", "email", "note", "individual draft body"]' in source
+
+
+def test_gtm_smtp_defaults_are_disabled_and_contain_no_live_identity_or_secret():
+    blueprint = ROOT / "growth_partnerships_coworker"
+    config_text = (blueprint / "config" / "default.json").read_text(encoding="utf-8")
+    manifest_text = (blueprint / "manifest.json").read_text(encoding="utf-8")
+    config = json.loads(config_text)
+
+    assert config["smtp_delivery"] == {
+        "enabled": False,
+        "mode": "development",
+        "host": "smtp.mail.me.com",
+        "port": 587,
+        "security": "starttls",
+        "timeout_seconds": 10,
+        "max_messages_per_run": 1,
+    }
+    assert config["inputs"]["payload"]["email_send_approval"] == {"approved": False}
+    assert "@me.com" not in config_text
+    assert "@gmail.com" not in config_text
+    assert "@me.com" not in manifest_text
+    assert "@gmail.com" not in manifest_text
 
 
 def test_finance_fixture_retains_deterministic_economics():

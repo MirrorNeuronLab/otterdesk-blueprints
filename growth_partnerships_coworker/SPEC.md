@@ -1,12 +1,12 @@
-# Growth & Partnerships Co-worker v1 Specification
+# Growth & Partnerships Co-worker v2 Specification
 
 ## Purpose
 
-Own demand discovery, contact qualification, channel experiments, partnerships, and draft outreach for a configurable business and goal. The default demo business is Bibblio and its default goal is "Build a successful business for Bibblio."
+Own demand discovery, contact qualification, channel experiments, partnerships, draft outreach, and a bounded development-only SMTP delivery check for a configurable business and goal. The default demo business is Bibblio and its default goal is "Build a successful business for Bibblio."
 
 ## Independence contract
 
-The blueprint declares exactly one domain specialist and two sequential steps: qualify_seed_contacts followed by publish_gtm_outreach_queue. It produces its own final artifact and does not depend on any peer blueprint to complete.
+The blueprint declares exactly one domain specialist and three sequential steps: qualify_seed_contacts, publish_gtm_outreach_queue, and deliver_approved_email. It produces its own final artifact and does not depend on any peer blueprint to complete. The final step is also the only external side-effect boundary and has one attempt with no automatic retry.
 
 ## Collaboration contract
 
@@ -29,16 +29,27 @@ approved same-node peers. The service is read-only and ends with the run.
 
 Input is an approved adult-professional contact CSV with Name, Email, Category, Note, and Highlight columns. Synthetic fixtures are labeled synthetic_demo. User-supplied data is treated as confidential unless an operator explicitly classifies a derived aggregate otherwise. Missing evidence remains explicit and cannot be converted into an observed claim.
 
-## Safety and approval contract
+## SMTP, safety, and approval contract
 
-It never sends messages. Names, email addresses, source notes, and individual drafts stay in a confidential local run artifact and are excluded from MCP packets.
+SMTP is disabled by default and only development mode is supported. A delivery requires both `smtp_delivery.enabled: true` and an input `email_send_approval` object containing `approved: true` and a bounded `approval_id`. Missing configuration or approval sends nothing.
+
+The worker accepts only `smtp.mail.me.com:587` with STARTTLS. Username and app-specific password come from `MN_SMTP_USERNAME` and `MN_SMTP_PASSWORD`; the single development recipient comes from `MN_SMTP_DEV_RECIPIENT`. No committed file contains these values. Development mode ignores all queued addresses, strips the queued contact greeting from the selected quality-approved draft, sends exactly one message, and never uses CC or BCC.
+
+Before connecting, the blueprint writes a confidential run-local reservation. A completed receipt makes replay idempotent; any prior incomplete or failed attempt causes the run to fail closed because SMTP cannot prove exactly-once delivery after interruption. Production and bulk-list delivery are out of scope.
+
+Names, email addresses, source notes, individual drafts, credentials, and the development test recipient stay out of MCP packets and final artifacts. The confidential local delivery receipt contains only bounded status, message identity, policy, and approval-reference metadata.
 
 ## Acceptance criteria
 
 - The source manifest expands and validates.
-- Exactly one route-neutral agent executes both declared steps.
+- Exactly one route-neutral agent executes all three declared steps.
+- The reusable email-delivery skill validates the allowlisted TLS endpoint and returns credential-free errors.
+- The default run sends no email and requires no SMTP credentials.
+- Development mode cannot connect without explicit approval and all secret environment values.
+- Development mode sends one message to the environment-injected test recipient even when the queue contains many contacts.
+- Replaying a completed delivery returns the stored receipt without opening a second SMTP connection.
 - The focused synthetic fixture produces a durable final artifact.
 - The aspect packet contains evidence, assumptions, confidence, risks, approvals, and next-check fields.
 - MCP exchange publication contains no credentials or forbidden private fields.
-- The final artifact states that consequential external actions remain approval-required.
+- The final artifact accurately distinguishes no-send and one-message development-delivery outcomes while keeping production actions approval-required.
 - The final role brief identifies all four peer-role handoffs and preserves bounded peer evidence when configured.

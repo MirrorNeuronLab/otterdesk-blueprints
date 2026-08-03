@@ -10,7 +10,10 @@
       "input_folder": "@/examples/sample_inputs",
       "contacts_csv": "@/examples/sample_inputs/edtech_contacts_sample.csv",
       "output_folder": "~/Downloads/growth_partnerships_coworker",
-      "peer_mcp_servers": []
+      "peer_mcp_servers": [],
+      "email_send_approval": {
+        "approved": false
+      }
     }
   },
   "outputs": {
@@ -19,6 +22,14 @@
   },
   "execution": {
     "quick_test": true
+  },
+  "capabilities": {
+    "required": [
+      "filesystem.write"
+    ],
+    "optional": [
+      "network.egress"
+    ]
   },
   "llm": {
     "mode": "fake",
@@ -39,5 +50,14 @@
     "max_contacts_per_run": 100,
     "outreach_mode": "draft_only",
     "max_initial_pilot_contacts": 10
+  },
+  "smtp_delivery": {
+    "enabled": false,
+    "mode": "development",
+    "host": "smtp.mail.me.com",
+    "port": 587,
+    "security": "starttls",
+    "timeout_seconds": 10,
+    "max_messages_per_run": 1
   }
 }

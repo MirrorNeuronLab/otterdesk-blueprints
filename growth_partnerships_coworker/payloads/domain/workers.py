@@ -10,6 +10,7 @@ from mn_market_research_skill import build_research_brief
 from mn_sdk.blueprint_support.workflow_state import write_json
 
 from .collaboration import build_packet, peer_signals, persist_packet, write_final_artifact
+from .delivery import deliver_approved_development_email
 from .inputs import csv_rows, normalized_inputs, resolve_input_file, source_descriptor
 
 
@@ -21,6 +22,8 @@ def run_growth_lead(context: dict[str, Any], *, step_id: str, **_: Any) -> dict[
         return _qualify_seed_contacts(context)
     if step_id == "publish_gtm_outreach_queue":
         return _publish_gtm_packet(context)
+    if step_id == "deliver_approved_email":
+        return _deliver_approved_email(context)
     raise ValueError(f"Growth & Partnerships co-worker does not own step {step_id!r}")
 
 
@@ -96,8 +99,6 @@ def _qualify_seed_contacts(context: dict[str, Any]) -> dict[str, Any]:
 
 
 def _publish_gtm_packet(context: dict[str, Any]) -> dict[str, Any]:
-    inputs = normalized_inputs(context)
-    business_name = str(inputs["business_name"])
     queue = _read_json(Path(context["run_dir"]) / PRIVATE_QUEUE_PATH)
     contacts = queue.get("contacts") if isinstance(queue.get("contacts"), list) else []
     approved_drafts = sum(1 for item in contacts if isinstance(item, dict) and (item.get("draft_review") or {}).get("approved"))
@@ -127,6 +128,70 @@ def _publish_gtm_packet(context: dict[str, Any]) -> dict[str, Any]:
         requested_approval=["Founder approves the specific recipients, copy, lawful basis, and send mechanism for the pilot."],
         outputs=["GTM decision packet", "confidential outreach queue"],
         next_check="After the approved pilot's response window closes.",
+        publication_state="staged",
+    )
+    return persist_packet(context, packet)
+
+
+def _deliver_approved_email(context: dict[str, Any]) -> dict[str, Any]:
+    inputs = normalized_inputs(context)
+    business_name = str(inputs["business_name"])
+    queue = _read_json(Path(context["run_dir"]) / PRIVATE_QUEUE_PATH)
+    contacts = queue.get("contacts") if isinstance(queue.get("contacts"), list) else []
+    approved_drafts = sum(1 for item in contacts if isinstance(item, dict) and (item.get("draft_review") or {}).get("approved"))
+    delivery = deliver_approved_development_email(context, queue)
+    delivered = delivery.get("status") in {"sent", "already_sent"}
+    peers = peer_signals(context)
+    packet = build_packet(
+        context,
+        stage="deliver_approved_email",
+        objective="Apply an explicitly approved development email send while keeping queued contact identities private and bulk delivery blocked.",
+        trigger="The approval-ready outreach queue is published and SMTP delivery policy is evaluated.",
+        sources=[{"source_ref": str(queue.get("source_ref") or "input:contacts.csv"), "data_quality_note": "Contact details remain in a confidential run artifact and are never used as development recipients."}],
+        observed_facts=[
+            f"The local queue contains {len(contacts)} draft-only contact records.",
+            f"{approved_drafts} drafts passed deterministic placeholder and structure checks.",
+            (
+                "One explicitly approved development test email was delivered; no queued contact address was used."
+                if delivered
+                else "No email was delivered because SMTP delivery is disabled or explicit approval is absent."
+            ),
+        ],
+        assumptions=["A successful development delivery does not authorize production outreach or establish a lawful basis for contacting queued recipients."],
+        analysis={
+            "private_queue_artifact": PRIVATE_QUEUE_PATH,
+            "delivery_receipt_artifact": delivery.get("receipt_artifact") or "not_created",
+            "queued_contact_count": len(contacts),
+            "draft_quality_pass_count": approved_drafts,
+            "delivery_status": delivery.get("status"),
+            "delivery_mode": delivery.get("mode"),
+            "delivered_recipient_count": int(delivery.get("recipient_count") or 0),
+            "queued_contact_addresses_used": False,
+            "peer_goal_packet_count": len(peers["signals"]),
+            "peer_goal_signals": peers["signals"],
+        },
+        recommendation=(
+            "Review the development message rendering and delivery receipt before authorizing any separately implemented production pilot."
+            if delivered
+            else "Keep outreach in draft-only mode until a human supplies explicit approval and the development SMTP secret environment is configured."
+        ),
+        confidence="medium" if delivered else "low",
+        risks=[
+            "SMTP cannot guarantee exactly-once delivery after an interrupted network transaction.",
+            "A development delivery must never be treated as approval for queued production contacts.",
+            "Bulk sending and production list delivery remain prohibited.",
+        ],
+        requested_approval=(
+            []
+            if delivered
+            else ["Founder supplies a bounded approval_id and approves one development delivery after reviewing the draft and sender identity."]
+        ),
+        outputs=["GTM decision packet", "confidential outreach queue", "confidential SMTP delivery receipt"],
+        next_check=(
+            "After the test recipient confirms rendering and receipt."
+            if delivered
+            else "After a human reviews the draft and configures the development-only SMTP environment."
+        ),
         publication_state="final",
     )
     persisted = persist_packet(context, packet)
@@ -134,12 +199,20 @@ def _publish_gtm_packet(context: dict[str, Any]) -> dict[str, Any]:
         context,
         packet,
         artifact_type="growth_partnerships_operating_brief",
-        executive_summary=f"The Growth & Partnerships co-worker converted {business_name}'s supplied adult-professional seed list into a confidential, draft-only queue and an aggregate approval packet. No outreach was sent.",
+        executive_summary=(
+            f"The Growth & Partnerships co-worker converted {business_name}'s supplied adult-professional seed list into a confidential queue and delivered one explicitly approved development test email. No queued contact address was used."
+            if delivered
+            else f"The Growth & Partnerships co-worker converted {business_name}'s supplied adult-professional seed list into a confidential, draft-only queue and an aggregate approval packet. No outreach was sent."
+        ),
         evidence={
             "seed_contact_count": queue.get("total_seed_contacts", 0),
             "queued_contact_count": len(contacts),
             "draft_quality_pass_count": approved_drafts,
             "private_queue_artifact": PRIVATE_QUEUE_PATH,
+            "delivery_status": delivery.get("status"),
+            "delivery_mode": delivery.get("mode"),
+            "delivered_recipient_count": int(delivery.get("recipient_count") or 0),
+            "delivery_receipt_artifact": delivery.get("receipt_artifact") or "not_created",
             "privacy_note": "Names, email addresses, source notes, and individual drafts are excluded from MCP publication.",
         },
         next_steps=[
@@ -174,6 +247,9 @@ def _publish_gtm_packet(context: dict[str, Any]) -> dict[str, Any]:
             {"days": "61-90", "outcome": "Recommend scale, revise, or stop using retained conversion, CAC, payback, trust, and safety evidence from peer roles."},
         ],
         peer_context=peers,
+        recommended_action_status=(
+            "development_test_delivered" if delivered else "awaiting_human_approval"
+        ),
     )
     return {**persisted, **final}
 

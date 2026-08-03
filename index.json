@@ -268,7 +268,7 @@
   },
   {
     "category": "Business",
-    "description": "A generic Growth & Partnerships co-worker that turns approved contacts into a confidential, research-ranked demand-learning queue and a founder-ready 90-day role brief.",
+    "description": "A generic Growth & Partnerships co-worker that turns approved contacts into a confidential, research-ranked demand-learning queue, a founder-ready 90-day role brief, and an optional one-recipient development SMTP check.",
     "id": "growth_partnerships_coworker",
     "job_name": "growth-partnerships-coworker",
     "name": "Growth & Partnerships Co-worker",
@@ -286,18 +286,18 @@
     },
     "product": {
       "agent_role": "Growth and Partnerships Lead.",
-      "benefit": "Builds relevance-first customer, partner, creator, and investor learning without optimizing for spam or exposing contact details to collaboration records.",
+      "benefit": "Builds relevance-first customer, partner, creator, and investor learning without optimizing for spam, and safely verifies one approved development email without exposing contact details to collaboration records.",
       "business_goal": "Build a successful business for Bibblio.",
       "collaboration_group": "business-success-team",
       "default_demo_business": "Bibblio",
       "customizable_for": "Founder-led products, partnership development, customer discovery, channel experiments, and careful seed-list outreach.",
-      "how_it_works": "Qualifies and ranks contacts, drafts adult-directed messages, performs deterministic copy checks, keeps identities local, consumes bounded peer evidence, and publishes a scorecard with decisions and cross-functional handoffs.",
-      "input": "An authorized contact CSV with Name, Email, Category, Note, and Highlight columns, plus optional explicit MCP peers.",
-      "output": "A confidential draft outreach queue, Growth & Partnerships role brief, 90-day plan, founder decisions, and MCP-safe peer handoffs.",
+      "how_it_works": "Qualifies and ranks contacts, drafts adult-directed messages, performs deterministic copy checks, keeps identities local, optionally sends one explicitly approved development test through allowlisted STARTTLS SMTP, consumes bounded peer evidence, and publishes a scorecard with decisions and cross-functional handoffs.",
+      "input": "An authorized contact CSV with Name, Email, Category, Note, and Highlight columns, optional explicit MCP peers, and an optional explicit development-send approval.",
+      "output": "A confidential draft outreach queue, optional confidential development-delivery receipt, Growth & Partnerships role brief, 90-day plan, founder decisions, and MCP-safe peer handoffs.",
       "problem": "Early-stage businesses need qualified conversations and partnerships without bulk cold outreach, unsupported claims, unaffordable acquisition, or personal-data leakage.",
       "runtime_features": [
         "confidential seed-contact intake",
-        "draft-only adult outreach",
+        "approval-gated single-recipient development SMTP",
         "relevance ranking",
         "copy quality checks",
         "MCP-safe aggregates",
@@ -307,7 +307,7 @@
       "target_users": "Founders and designated growth, partnerships, brand, privacy, and legal reviewers."
     },
     "type": "batch",
-    "workflow_id": "growth_partnerships_coworker_v1"
+    "workflow_id": "growth_partnerships_coworker_v2"
   },
   {
     "category": "Business",

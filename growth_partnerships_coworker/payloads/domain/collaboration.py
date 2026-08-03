@@ -126,6 +126,7 @@ def write_final_artifact(
     cross_functional_handoffs: list[dict[str, Any]],
     ninety_day_plan: list[dict[str, Any]],
     peer_context: dict[str, Any],
+    recommended_action_status: str = "awaiting_human_approval",
 ) -> dict[str, Any]:
     run_dir = Path(context["run_dir"])
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -153,7 +154,7 @@ def write_final_artifact(
         "data_status": data_status,
         "executive_summary": executive_summary,
         "recommended_action": {
-            "decision": "awaiting_human_approval",
+            "decision": recommended_action_status,
             "recommendation": packet["decision_or_recommendation"],
         },
         "confidence": packet["confidence"],

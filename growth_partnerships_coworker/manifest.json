@@ -12,10 +12,10 @@
     "name": "Growth & Partnerships Co-worker",
     "job_name": "growth-partnerships-coworker",
     "category": "business",
-    "version": 1,
+    "version": 2,
     "manifest_version": "1.0"
   },
-  "description": "A generic Growth & Partnerships co-worker that qualifies approved contacts, designs relevance-first demand tests, and produces aggregate channel evidence without sending messages or exposing contact details through MCP.",
+  "description": "A generic Growth & Partnerships co-worker that qualifies approved contacts, designs relevance-first demand tests, and can deliver one explicitly approved development SMTP test without exposing contact details through MCP.",
   "intent": {
     "description": "Growth and Partnerships Lead serving a configurable business-success goal; the bundled demo applies the role to Bibblio.",
     "problem": "Early-stage businesses need a repeatable path to qualified customers and partners without optimizing for spam, unqualified volume, or unaffordable acquisition.",
@@ -29,7 +29,8 @@
         "reject"
       ],
       "blocked_actions": [
-        "send_external_communications",
+        "send_external_communications_without_explicit_approval",
+        "send_bulk_external_communications_in_development",
         "publish_child_facing_content",
         "spend_money_or_launch_paid_campaigns",
         "change_pricing_or_subscription_terms",
@@ -38,7 +39,7 @@
       ],
       "default_action": "reject",
       "timeout_seconds": 86400,
-      "reason": "The co-worker observes, analyzes, drafts, and queues; a designated human approves every consequential external action."
+      "reason": "The co-worker observes, analyzes, drafts, and queues. SMTP is disabled by default; a designated human must explicitly approve the single-recipient development delivery."
     }
   },
   "config": {
@@ -78,6 +79,23 @@
         ]
       }
     }
+  },
+  "workers": {
+    "groups": [
+      {
+        "steps": [
+          "deliver_approved_email"
+        ],
+        "with": {
+          "side_effect": "external",
+          "pass_env": [
+            "MN_SMTP_USERNAME",
+            "MN_SMTP_PASSWORD",
+            "MN_SMTP_DEV_RECIPIENT"
+          ]
+        }
+      }
+    ]
   },
   "contracts": {
     "input_adapters": {
@@ -149,6 +167,15 @@
         "privacy": "confidential",
         "description": "Approved confidential CSV with Name, Email, Category, Note, and Highlight columns.",
         "example": "@/examples/sample_inputs/edtech_contacts_sample.csv"
+      },
+      "email_send_approval": {
+        "type": "domain_value",
+        "required": false,
+        "privacy": "confidential",
+        "description": "Explicit development-send decision. Delivery requires approved=true and a bounded approval_id; omission keeps SMTP disabled.",
+        "example": {
+          "approved": false
+        }
       }
     },
     "outputs": {
@@ -200,6 +227,18 @@
           "source_refs": [
             "inputs.json",
             "workflow_state/work_packets"
+          ]
+        },
+        {
+          "artifact_id": "email_delivery_receipt",
+          "type": "confidential_email_delivery_receipt",
+          "path": "confidential_email_delivery_receipt.json",
+          "producer": "growth_partnerships_lead",
+          "mime_type": "application/json",
+          "schema_version": "mn.business_growth.email_delivery_receipt.v1",
+          "source_refs": [
+            "confidential_outreach_queue.json",
+            "inputs.json"
           ]
         },
         {
@@ -336,7 +375,7 @@
     "responsibilities": [
       "Separate observed facts from assumptions.",
       "Preserve source references and name missing evidence.",
-      "Draft review-ready recommendations without executing external actions."
+      "Draft review-ready recommendations and execute only an explicitly approved, development-only SMTP test."
     ],
     "agents": {
       "growth_partnerships_lead": {
@@ -345,7 +384,7 @@
         "responsibilities": [
           "Qualify adult professional seed contacts by relevance and evidence.",
           "Draft customer- and partner-facing outreach without unsupported product or outcome claims.",
-          "Keep all sends, spend, and public claims behind human approval."
+          "Keep SMTP disabled by default; allow only one explicitly approved development test recipient per run."
         ]
       }
     }
@@ -379,7 +418,7 @@
     "blueprint_id": "growth_partnerships_coworker",
     "runtime_features": [
       "confidential seed contact intake",
-      "draft-only personalized outreach",
+      "approval-gated development SMTP delivery",
       "MCP-safe aggregate work packets",
       "human send approval"
     ],
@@ -396,7 +435,7 @@
     }
   },
   "workflow": {
-    "workflow_id": "growth_partnerships_coworker_v1",
+    "workflow_id": "growth_partnerships_coworker_v2",
     "execution": {
       "strategy": "serial"
     },
@@ -413,7 +452,8 @@
           "reject"
         ],
         "blocked_actions": [
-          "send_external_communications",
+          "send_external_communications_without_explicit_approval",
+          "send_bulk_external_communications_in_development",
           "publish_child_facing_content",
           "spend_money",
           "change_pricing",
@@ -451,7 +491,7 @@
       },
       {
         "id": "publish_gtm_outreach_queue",
-        "kind": "sink",
+        "kind": "transform",
         "label": "Publish GTM Outreach Queue",
         "goal": "Publish an MCP-safe aggregate GTM decision packet and a local draft-only outreach queue.",
         "needs": [
@@ -475,10 +515,43 @@
             "on_low_confidence": "continue_with_warning"
           }
         }
+      },
+      {
+        "id": "deliver_approved_email",
+        "kind": "sink",
+        "label": "Deliver Approved Development Email",
+        "goal": "Fail closed unless one development SMTP message has explicit approval and a secret-injected single test recipient.",
+        "needs": [
+          "publish_gtm_outreach_queue"
+        ],
+        "run": {
+          "definition": "steps.deliver_approved_email"
+        },
+        "control": {
+          "required": true,
+          "timeout_seconds": 60,
+          "failure_policy": "fail_workflow",
+          "retry": {
+            "max_attempts": 1,
+            "backoff_seconds": 0,
+            "backoff_multiplier": 1,
+            "jitter": 0
+          },
+          "uncertainty": {
+            "min_confidence": 0,
+            "on_low_confidence": "continue_with_warning"
+          }
+        }
       }
     ]
   },
   "skill_dependencies": [
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mirrorneuron-email-delivery-skill",
+      "version": "1.2.31"
+    },
     {
       "type": "pip",
       "source": "gar",
