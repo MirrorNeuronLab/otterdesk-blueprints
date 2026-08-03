@@ -273,6 +273,17 @@
     "job_name": "bibblio-gtm-coworker",
     "name": "Bibblio GTM Co-worker",
     "path": "bibblio_gtm_coworker",
+    "mcp_collaboration": {
+      "enabled": true,
+      "goal_id": "bibblio-profitable-business",
+      "path": "/mcp",
+      "service_name": "mn-job-collaboration",
+      "service_tags": [
+        "mcp",
+        "job-collaboration"
+      ],
+      "transport": "streamable-http"
+    },
     "product": {
       "agent_role": "AI Head of Growth and Go-to-Market Operations.",
       "benefit": "Builds relevance-first customer, partner, creator, and investor learning without optimizing for spam or exposing contact details to collaboration records.",
@@ -304,6 +315,17 @@
     "job_name": "bibblio-finance-coworker",
     "name": "Bibblio Finance Co-worker",
     "path": "bibblio_finance_coworker",
+    "mcp_collaboration": {
+      "enabled": true,
+      "goal_id": "bibblio-profitable-business",
+      "path": "/mcp",
+      "service_name": "mn-job-collaboration",
+      "service_tags": [
+        "mcp",
+        "job-collaboration"
+      ],
+      "transport": "streamable-http"
+    },
     "product": {
       "agent_role": "AI CFO and Financial Controller.",
       "benefit": "Turns dated operating inputs into cash-bounded profitability decisions with explicit missing evidence and approval gates.",
@@ -335,6 +357,17 @@
     "job_name": "bibblio-learning-safety-coworker",
     "name": "Bibblio Learning & Safety Co-worker",
     "path": "bibblio_learning_safety_coworker",
+    "mcp_collaboration": {
+      "enabled": true,
+      "goal_id": "bibblio-profitable-business",
+      "path": "/mcp",
+      "service_name": "mn-job-collaboration",
+      "service_tags": [
+        "mcp",
+        "job-collaboration"
+      ],
+      "transport": "streamable-http"
+    },
     "product": {
       "agent_role": "AI Director of Learning Science and Child Safety.",
       "benefit": "Stops unsafe or unsupported learning concepts before production while turning remediable briefs into explicit review conditions.",
@@ -366,6 +399,17 @@
     "job_name": "bibblio-content-studio-coworker",
     "name": "Bibblio Content Studio Co-worker",
     "path": "bibblio_content_studio_coworker",
+    "mcp_collaboration": {
+      "enabled": true,
+      "goal_id": "bibblio-profitable-business",
+      "path": "/mcp",
+      "service_name": "mn-job-collaboration",
+      "service_tags": [
+        "mcp",
+        "job-collaboration"
+      ],
+      "transport": "streamable-http"
+    },
     "product": {
       "agent_role": "AI Content Studio Director.",
       "benefit": "Creates a reusable, cost-aware content supply without treating generated output as child-ready.",
@@ -397,6 +441,17 @@
     "job_name": "bibblio-parent-lifecycle-coworker",
     "name": "Bibblio Parent Lifecycle Co-worker",
     "path": "bibblio_parent_lifecycle_coworker",
+    "mcp_collaboration": {
+      "enabled": true,
+      "goal_id": "bibblio-profitable-business",
+      "path": "/mcp",
+      "service_name": "mn-job-collaboration",
+      "service_tags": [
+        "mcp",
+        "job-collaboration"
+      ],
+      "transport": "streamable-http"
+    },
     "product": {
       "agent_role": "AI Parent Lifecycle and Product Intelligence Lead.",
       "benefit": "Improves time to first value, repeat routines, retention, and value proof while protecting family trust.",

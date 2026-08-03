@@ -224,6 +224,10 @@ def _expected_skill_dependency_packages(blueprint_dir: Path) -> set[str]:
                 if marker in text:
                     packages.add(package)
 
+    manifest_path = blueprint_dir / "manifest.json"
+    if manifest_path.is_file() and "mn-job-mcp-server" in manifest_path.read_text(encoding="utf-8"):
+        packages.add("mirrorneuron-mcp-server-skill")
+
     config_path = blueprint_dir / "config" / "default.json"
     if config_path.is_file():
         config = json.loads(config_path.read_text())
@@ -250,6 +254,8 @@ def _expected_skill_dependency_packages(blueprint_dir: Path) -> set[str]:
     package = registration.get("package") if isinstance(registration, dict) else None
     if isinstance(package, str) and package.startswith("mirrorneuron-blueprint-support-skill"):
         packages.add("mirrorneuron-blueprint-support-skill")
+    if "mirrorneuron-goal-work-packet-skill" in packages:
+        packages.add("mirrorneuron-mcp-client-skill")
     return packages
 
 

@@ -34,6 +34,49 @@ def test_five_independent_blueprints_share_one_goal_contract():
         assert "mirrorneuron-goal-work-packet-skill" in {
             dependency["name"] for dependency in manifest["skill_dependencies"]
         }
+        assert "mirrorneuron-mcp-server-skill" in {
+            dependency["name"] for dependency in manifest["skill_dependencies"]
+        }
+        assert "mirrorneuron-mcp-client-skill" in {
+            dependency["name"] for dependency in manifest["skill_dependencies"]
+        }
+        assert manifest["mcp_collaboration"]["enabled"] is True
+        config = json.loads(
+            (ROOT / blueprint_id / "config" / "default.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        assert config["mcp_collaboration"]["chat_grace_seconds"] == 8
+        assert manifest["agents"]["auxiliary_entrypoints"] == [
+            "mcp_collaboration_server"
+        ]
+        service_node = next(
+            node
+            for node in manifest["agents"]["extra_nodes"]
+            if node["node_id"] == "mcp_collaboration_server"
+        )
+        assert service_node["config"]["command"] == ["mn-job-mcp-server"]
+        assert service_node["config"]["environment"]["MN_BLUEPRINT_ID"] == blueprint_id
+        assert service_node["config"]["pass_env"] == [
+            "MN_MCP_CONTAINER_LOOPBACK_PROXY"
+        ]
+        assert service_node["resources"]["ports"] == [
+            {
+                "label": "mcp-collaboration",
+                "port": "auto",
+                "protocol": "http",
+            }
+        ]
+        assert service_node["services"][0]["name"] == "mn-job-collaboration"
+        assert service_node["services"][0]["port"] == "${env.MN_PORT_MCP_COLLABORATION}"
+        assert set(service_node["services"][0]["tags"]) == {
+            "mcp",
+            "job-collaboration",
+        }
+        assert service_node["services"][0]["meta"]["job_id"] == "${env.MN_JOB_ID}"
+        assert service_node["services"][0]["meta"]["run_id"] == "${env.MN_RUN_ID}"
+        assert service_node["services"][0]["checks"][0]["interval_ms"] == 100
+        assert (ROOT / blueprint_id / "payloads" / "prompts").is_dir()
 
 
 def test_catalog_replaces_the_monolith_with_five_collaboration_group_members():
@@ -44,6 +87,14 @@ def test_catalog_replaces_the_monolith_with_five_collaboration_group_members():
         product = entries[blueprint_id]["product"]
         assert product["business_goal"] == "Turn Bibblio into a profitable business."
         assert product["collaboration_group"] == "bibblio-profitability-team"
+        assert entries[blueprint_id]["mcp_collaboration"] == {
+            "enabled": True,
+            "goal_id": "bibblio-profitable-business",
+            "path": "/mcp",
+            "service_name": "mn-job-collaboration",
+            "service_tags": ["mcp", "job-collaboration"],
+            "transport": "streamable-http",
+        }
 
 
 def test_gtm_fixture_is_synthetic_and_mcp_packet_excludes_contact_fields():
