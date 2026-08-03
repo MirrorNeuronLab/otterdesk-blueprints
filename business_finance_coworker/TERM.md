@@ -1,4 +1,4 @@
-# Bibblio Finance Co-worker Terms
+# Business Finance Co-worker Terms
 
 This blueprint produces analysis, drafts, and approval queues. It provides decision support only. It cannot spend, move money, change pricing, file tax, sign contracts, or make accounting adjustments.
 

@@ -8,18 +8,18 @@
     "migration_policy": "sdk_managed"
   },
   "identity": {
-    "id": "bibblio_finance_coworker",
-    "name": "Bibblio Finance Co-worker",
-    "job_name": "bibblio-finance-coworker",
+    "id": "business_finance_coworker",
+    "name": "Business Finance Co-worker",
+    "job_name": "business-finance-coworker",
     "category": "business",
     "version": 1,
     "manifest_version": "1.0"
   },
-  "description": "A focused finance co-worker that calculates contribution economics, exposes missing evidence, and publishes cash and acquisition guardrails for founder review.",
+  "description": "A generic Business Finance co-worker that calculates contribution economics, exposes missing evidence, and publishes cash, acquisition, pricing, and break-even guardrails for founder review.",
   "intent": {
-    "description": "AI Chief Financial Officer and Unit Economics Controller serving one shared goal: turn Bibblio into a profitable business.",
-    "problem": "Bibblio needs a reliable view of contribution, CAC, payback, break-even scale, and missing financial inputs before growth or pricing decisions.",
-    "target_users": "Bibblio's founder and designated finance, bookkeeping, accounting, and growth reviewers.",
+    "description": "Business Finance and Unit Economics Controller serving a configurable business-success goal; the bundled demo applies the role to Bibblio.",
+    "problem": "Early-stage businesses need a reliable view of contribution, CAC, payback, break-even scale, and missing financial inputs before growth or pricing decisions.",
+    "target_users": "Founders and designated finance, bookkeeping, accounting, and operating reviewers.",
     "safety": {
       "enabled": true,
       "mode": "approval_required",
@@ -69,7 +69,7 @@
     "worker": {
       "with": {
         "stereotype": "internal_write_worker",
-        "image": "mirror-neuron/bibblio-finance-coworker:local",
+        "image": "mirror-neuron/business-finance-coworker:local",
         "upload_paths": [
           {
             "source": "domain",
@@ -91,19 +91,33 @@
       ]
     },
     "inputs": {
+      "business_name": {
+        "type": "domain_value",
+        "required": false,
+        "privacy": "internal",
+        "description": "Business name used to contextualize role outputs. The bundled demo defaults to Bibblio.",
+        "example": "Bibblio"
+      },
       "business_goal": {
         "type": "domain_value",
         "required": false,
         "privacy": "internal",
-        "description": "Shared business goal served by all five independently launched Bibblio co-workers.",
-        "example": "Turn Bibblio into a profitable business."
+        "description": "Shared business goal served by the independently launched co-workers.",
+        "example": "Build a successful business for Bibblio."
       },
       "goal_id": {
         "type": "domain_value",
         "required": false,
         "privacy": "internal",
         "description": "Stable goal identity used for explicit MCP peer collaboration.",
-        "example": "bibblio-profitable-business"
+        "example": "bibblio-business-success"
+      },
+      "planning_horizon_days": {
+        "type": "domain_value",
+        "required": false,
+        "privacy": "internal",
+        "description": "Founder-facing planning horizon, bounded from 30 to 365 days.",
+        "example": 90
       },
       "input_folder": {
         "type": "local_path",
@@ -125,7 +139,7 @@
         "type": "domain_value",
         "required": false,
         "privacy": "confidential",
-        "description": "Optional pre-approved MCP servers for peer Bibblio co-worker jobs serving the same goal.",
+        "description": "Optional pre-approved MCP servers for peer co-worker jobs serving the same goal.",
         "example": []
       },
       "metrics_file": {
@@ -133,7 +147,7 @@
         "path_kind": "file",
         "required": false,
         "privacy": "confidential",
-        "description": "Dated JSON snapshot of funnel, subscription, margin, acquisition-spend, and operating-cost metrics.",
+        "description": "Dated JSON snapshot of customer funnel, subscription, margin, acquisition-spend, and operating-cost metrics. Generic customer fields are preferred; the unchanged Bibblio demo retains family-named fields.",
         "example": "@/examples/sample_inputs/business_metrics.json"
       }
     },
@@ -143,14 +157,24 @@
         "type": "final_artifact",
         "path": "final_artifact.json",
         "schema_version": "mn.blueprint.final_artifact_contract.v1",
-        "required_fields": [
-          "type",
-          "executive_summary",
+      "required_fields": [
+        "type",
+        "business_name",
+        "business_goal",
+        "worker_role",
+        "role_contribution",
+        "north_star_question",
+        "role_scorecard",
+        "founder_decisions",
+        "executive_summary",
           "recommended_action",
           "confidence",
           "evidence",
-          "next_steps",
-          "source_refs"
+        "next_steps",
+        "ninety_day_plan",
+        "cross_functional_handoffs",
+        "collaboration",
+        "source_refs"
         ]
       },
       "artifacts": [
@@ -158,7 +182,7 @@
           "artifact_id": "final_artifact",
           "type": "final_artifact",
           "path": "final_artifact.json",
-          "producer": "bibblio_finance_controller",
+          "producer": "business_finance_controller",
           "mime_type": "application/json",
           "schema_version": "mn.blueprint.final_artifact.v1",
           "source_refs": [
@@ -167,12 +191,12 @@
           ]
         },
         {
-          "artifact_id": "bibblio_finance_packet",
-          "type": "financial_control_packet",
-          "path": "bibblio_finance_packet.json",
-          "producer": "bibblio_finance_controller",
+          "artifact_id": "business_finance_packet",
+          "type": "business_finance_control_brief",
+          "path": "business_finance_packet.json",
+          "producer": "business_finance_controller",
           "mime_type": "application/json",
-          "schema_version": "mn.bibblio.aspect_packet.v1",
+          "schema_version": "mn.business_success.role_brief.v1",
           "source_refs": [
             "inputs.json",
             "workflow_state/work_packets"
@@ -222,8 +246,8 @@
             "mn-job-mcp-server"
           ],
           "environment": {
-            "MN_BLUEPRINT_ID": "bibblio_finance_coworker",
-            "MN_MCP_GOAL_ID": "bibblio-profitable-business",
+            "MN_BLUEPRINT_ID": "business_finance_coworker",
+            "MN_MCP_GOAL_ID": "bibblio-business-success",
             "MN_MCP_PATH": "/mcp"
           },
           "no_auto_providers": true,
@@ -262,8 +286,8 @@
               "job-collaboration"
             ],
             "meta": {
-              "blueprint_id": "bibblio_finance_coworker",
-              "goal_id": "bibblio-profitable-business",
+              "blueprint_id": "business_finance_coworker",
+              "goal_id": "bibblio-business-success",
               "job_id": "${env.MN_JOB_ID}",
               "run_id": "${env.MN_RUN_ID}",
               "path": "/mcp",
@@ -284,9 +308,9 @@
       }
     ],
     "registry": {
-      "bibblio_finance_controller": {
-        "handler": "agents.bibblio_finance_controller",
-        "role": "AI Chief Financial Officer and Unit Economics Controller"
+      "business_finance_controller": {
+        "handler": "agents.business_finance_controller",
+        "role": "Business Finance and Unit Economics Controller"
       }
     }
   },
@@ -315,9 +339,9 @@
       "Draft review-ready recommendations without executing external actions."
     ],
     "agents": {
-      "bibblio_finance_controller": {
+      "business_finance_controller": {
         "llm_config": "primary",
-        "role": "AI Chief Financial Officer and Unit Economics Controller",
+        "role": "Business Finance and Unit Economics Controller",
         "responsibilities": [
           "Calculate contribution economics from supplied observed inputs.",
           "Gate acquisition and pricing proposals against explicit cash and payback thresholds.",
@@ -328,7 +352,7 @@
   },
   "mcp_collaboration": {
     "enabled": true,
-    "goal_id": "bibblio-profitable-business",
+    "goal_id": "bibblio-business-success",
     "publication_state": "staged",
     "publish_local_exchange": true,
     "peer_reads_enabled": false,
@@ -352,15 +376,15 @@
     }
   },
   "metadata": {
-    "blueprint_id": "bibblio_finance_coworker",
+    "blueprint_id": "business_finance_coworker",
     "runtime_features": [
       "deterministic unit economics",
       "break-even and payback model",
       "MCP finance thresholds",
       "human financial approval"
     ],
-    "collaboration_group": "bibblio-profitability-team",
-    "business_goal": "Turn Bibblio into a profitable business.",
+    "collaboration_group": "business-success-team",
+    "business_goal": "Build a successful business for Bibblio.",
     "job_data": {
       "resources": [
         {
@@ -372,7 +396,7 @@
     }
   },
   "workflow": {
-    "workflow_id": "bibblio_finance_coworker_v1",
+    "workflow_id": "business_finance_coworker_v1",
     "execution": {
       "strategy": "serial"
     },

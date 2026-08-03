@@ -1,18 +1,20 @@
 {
   "inputs": {
     "adapter": "mock",
-    "description": "Synthetic focused input for Bibblio GTM Co-worker.",
+    "description": "Synthetic Bibblio demo input for the generic Growth & Partnerships Co-worker.",
     "payload": {
-      "business_goal": "Turn Bibblio into a profitable business.",
-      "goal_id": "bibblio-profitable-business",
+      "business_name": "Bibblio",
+      "business_goal": "Build a successful business for Bibblio.",
+      "goal_id": "bibblio-business-success",
+      "planning_horizon_days": 90,
       "input_folder": "@/examples/sample_inputs",
       "contacts_csv": "@/examples/sample_inputs/edtech_contacts_sample.csv",
-      "output_folder": "~/Downloads/bibblio_gtm_coworker",
+      "output_folder": "~/Downloads/growth_partnerships_coworker",
       "peer_mcp_servers": []
     }
   },
   "outputs": {
-    "folder_path": "~/Downloads/bibblio_gtm_coworker",
+    "folder_path": "~/Downloads/growth_partnerships_coworker",
     "write_run_store": true
   },
   "execution": {

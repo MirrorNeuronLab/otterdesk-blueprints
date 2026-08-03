@@ -5,7 +5,7 @@ from ._shared import inputs
 
 STEP = StepSpec(
     input=InputSpec(fields=inputs("metrics_file")),
-    flow=agent("bibblio_finance_controller"),
+    flow=agent("business_finance_controller"),
     output=OutputSpec(fields={"unit_economics_analysis": flow_output()}),
 )
 

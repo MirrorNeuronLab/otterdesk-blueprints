@@ -1,10 +1,16 @@
-# Bibblio Content Studio Co-worker
+# Content Studio Co-worker
 
-Blueprint ID: bibblio_content_studio_coworker
+Blueprint ID: content_studio_coworker
 
-Business goal: Turn Bibblio into a profitable business.
+Default demo business: Bibblio.
 
-This is one independent member of the bibblio-profitability-team collaboration group. It owns small-batch content production planning, reuse, cost control, provenance, and QA handoff. It can run by itself and can exchange bounded, aggregate goal work packets with the other Bibblio co-workers through explicit MCP peer configurations.
+Default demo goal: Build a successful business for Bibblio.
+
+The role is generic. Set `business_name`, `business_goal`, `goal_id`, and
+`planning_horizon_days` for another business; the bundled knowledge and sample
+inputs remain an unchanged Bibblio demonstration.
+
+This is one independent member of the `business-success-team` collaboration group. It owns small-batch content production planning, reuse, cost control, provenance, and QA handoff. It can run by itself and exchange bounded aggregate goal packets with explicitly approved peer co-workers.
 
 ## Workflow
 
@@ -14,7 +20,13 @@ This is one independent member of the bibblio-profitability-team collaboration g
 Input: JSON learning briefs already marked PASS or PASS WITH CONDITIONS.
 
 Local working artifact: draft_content_packages.json.
-Final artifact: content_studio_packet.json.
+Final role brief: `content_studio_packet.json` and `final_artifact.json`.
+
+## Founder-facing output
+
+The role brief contains a production scorecard, batch and release decisions, a
+90-day build/test plan, and named handoffs connecting approved briefs, customer
+content gaps, Growth proof assets, and Finance unit-cost constraints.
 
 ## Control boundary
 
@@ -28,9 +40,9 @@ The default configuration uses examples/sample_inputs/approved_learning_briefs.j
 
 Run from the blueprint catalog:
 
-    mn blueprint run bibblio_content_studio_coworker
+    mn blueprint run content_studio_coworker
 
-To collaborate, supply explicit peer_mcp_servers and enable peer_reads_enabled. Each peer record is filtered to goal_id bibblio-profitable-business.
+To collaborate, supply explicit peer_mcp_servers and enable peer_reads_enabled. Each peer record is filtered to goal_id bibblio-business-success.
 
 While a run is active, the blueprint starts a loopback, read-only
 `mn-job-collaboration` MCP service on a runtime-allocated port. OtterDesk and

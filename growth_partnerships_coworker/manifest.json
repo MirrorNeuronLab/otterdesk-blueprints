@@ -8,18 +8,18 @@
     "migration_policy": "sdk_managed"
   },
   "identity": {
-    "id": "bibblio_gtm_coworker",
-    "name": "Bibblio GTM Co-worker",
-    "job_name": "bibblio-gtm-coworker",
+    "id": "growth_partnerships_coworker",
+    "name": "Growth & Partnerships Co-worker",
+    "job_name": "growth-partnerships-coworker",
     "category": "business",
     "version": 1,
     "manifest_version": "1.0"
   },
-  "description": "A focused GTM co-worker that qualifies approved adult professional seed contacts, drafts relevance-first outreach, and produces an aggregate growth packet without sending messages or exposing contact details through MCP.",
+  "description": "A generic Growth & Partnerships co-worker that qualifies approved contacts, designs relevance-first demand tests, and produces aggregate channel evidence without sending messages or exposing contact details through MCP.",
   "intent": {
-    "description": "AI Head of Growth and Go-to-Market Operations serving one shared goal: turn Bibblio into a profitable business.",
-    "problem": "Bibblio needs a repeatable way to reach relevant parents, educators, creators, partners, and investors without optimizing for spam or unqualified volume.",
-    "target_users": "Bibblio's founder and designated growth, partnership, privacy, and brand reviewers.",
+    "description": "Growth and Partnerships Lead serving a configurable business-success goal; the bundled demo applies the role to Bibblio.",
+    "problem": "Early-stage businesses need a repeatable path to qualified customers and partners without optimizing for spam, unqualified volume, or unaffordable acquisition.",
+    "target_users": "Founders and designated growth, partnership, privacy, brand, and legal reviewers.",
     "safety": {
       "enabled": true,
       "mode": "approval_required",
@@ -69,7 +69,7 @@
     "worker": {
       "with": {
         "stereotype": "internal_write_worker",
-        "image": "mirror-neuron/bibblio-gtm-coworker:local",
+        "image": "mirror-neuron/growth-partnerships-coworker:local",
         "upload_paths": [
           {
             "source": "domain",
@@ -91,19 +91,33 @@
       ]
     },
     "inputs": {
+      "business_name": {
+        "type": "domain_value",
+        "required": false,
+        "privacy": "internal",
+        "description": "Business name used to contextualize role outputs. The bundled demo defaults to Bibblio.",
+        "example": "Bibblio"
+      },
       "business_goal": {
         "type": "domain_value",
         "required": false,
         "privacy": "internal",
-        "description": "Shared business goal served by all five independently launched Bibblio co-workers.",
-        "example": "Turn Bibblio into a profitable business."
+        "description": "Shared business goal served by the independently launched co-workers.",
+        "example": "Build a successful business for Bibblio."
       },
       "goal_id": {
         "type": "domain_value",
         "required": false,
         "privacy": "internal",
         "description": "Stable goal identity used for explicit MCP peer collaboration.",
-        "example": "bibblio-profitable-business"
+        "example": "bibblio-business-success"
+      },
+      "planning_horizon_days": {
+        "type": "domain_value",
+        "required": false,
+        "privacy": "internal",
+        "description": "Founder-facing planning horizon, bounded from 30 to 365 days.",
+        "example": 90
       },
       "input_folder": {
         "type": "local_path",
@@ -125,7 +139,7 @@
         "type": "domain_value",
         "required": false,
         "privacy": "confidential",
-        "description": "Optional pre-approved MCP servers for peer Bibblio co-worker jobs serving the same goal.",
+        "description": "Optional pre-approved MCP servers for peer co-worker jobs serving the same goal.",
         "example": []
       },
       "contacts_csv": {
@@ -143,14 +157,24 @@
         "type": "final_artifact",
         "path": "final_artifact.json",
         "schema_version": "mn.blueprint.final_artifact_contract.v1",
-        "required_fields": [
-          "type",
-          "executive_summary",
+      "required_fields": [
+        "type",
+        "business_name",
+        "business_goal",
+        "worker_role",
+        "role_contribution",
+        "north_star_question",
+        "role_scorecard",
+        "founder_decisions",
+        "executive_summary",
           "recommended_action",
           "confidence",
           "evidence",
-          "next_steps",
-          "source_refs"
+        "next_steps",
+        "ninety_day_plan",
+        "cross_functional_handoffs",
+        "collaboration",
+        "source_refs"
         ]
       },
       "artifacts": [
@@ -158,7 +182,7 @@
           "artifact_id": "final_artifact",
           "type": "final_artifact",
           "path": "final_artifact.json",
-          "producer": "bibblio_growth_lead",
+          "producer": "growth_partnerships_lead",
           "mime_type": "application/json",
           "schema_version": "mn.blueprint.final_artifact.v1",
           "source_refs": [
@@ -167,12 +191,12 @@
           ]
         },
         {
-          "artifact_id": "bibblio_gtm_packet",
-          "type": "gtm_operating_packet",
-          "path": "bibblio_gtm_packet.json",
-          "producer": "bibblio_growth_lead",
+          "artifact_id": "growth_partnerships_packet",
+          "type": "growth_partnerships_operating_brief",
+          "path": "growth_partnerships_packet.json",
+          "producer": "growth_partnerships_lead",
           "mime_type": "application/json",
-          "schema_version": "mn.bibblio.aspect_packet.v1",
+          "schema_version": "mn.business_success.role_brief.v1",
           "source_refs": [
             "inputs.json",
             "workflow_state/work_packets"
@@ -222,8 +246,8 @@
             "mn-job-mcp-server"
           ],
           "environment": {
-            "MN_BLUEPRINT_ID": "bibblio_gtm_coworker",
-            "MN_MCP_GOAL_ID": "bibblio-profitable-business",
+            "MN_BLUEPRINT_ID": "growth_partnerships_coworker",
+            "MN_MCP_GOAL_ID": "bibblio-business-success",
             "MN_MCP_PATH": "/mcp"
           },
           "no_auto_providers": true,
@@ -262,8 +286,8 @@
               "job-collaboration"
             ],
             "meta": {
-              "blueprint_id": "bibblio_gtm_coworker",
-              "goal_id": "bibblio-profitable-business",
+              "blueprint_id": "growth_partnerships_coworker",
+              "goal_id": "bibblio-business-success",
               "job_id": "${env.MN_JOB_ID}",
               "run_id": "${env.MN_RUN_ID}",
               "path": "/mcp",
@@ -284,9 +308,9 @@
       }
     ],
     "registry": {
-      "bibblio_growth_lead": {
-        "handler": "agents.bibblio_growth_lead",
-        "role": "AI Head of Growth and Go-to-Market Operations"
+      "growth_partnerships_lead": {
+        "handler": "agents.growth_partnerships_lead",
+        "role": "Growth and Partnerships Lead"
       }
     }
   },
@@ -315,12 +339,12 @@
       "Draft review-ready recommendations without executing external actions."
     ],
     "agents": {
-      "bibblio_growth_lead": {
+      "growth_partnerships_lead": {
         "llm_config": "primary",
-        "role": "AI Head of Growth and Go-to-Market Operations",
+        "role": "Growth and Partnerships Lead",
         "responsibilities": [
           "Qualify adult professional seed contacts by relevance and evidence.",
-          "Draft parent- and partner-facing outreach without unsupported learning claims.",
+          "Draft customer- and partner-facing outreach without unsupported product or outcome claims.",
           "Keep all sends, spend, and public claims behind human approval."
         ]
       }
@@ -328,7 +352,7 @@
   },
   "mcp_collaboration": {
     "enabled": true,
-    "goal_id": "bibblio-profitable-business",
+    "goal_id": "bibblio-business-success",
     "publication_state": "staged",
     "publish_local_exchange": true,
     "peer_reads_enabled": false,
@@ -352,15 +376,15 @@
     }
   },
   "metadata": {
-    "blueprint_id": "bibblio_gtm_coworker",
+    "blueprint_id": "growth_partnerships_coworker",
     "runtime_features": [
       "confidential seed contact intake",
       "draft-only personalized outreach",
       "MCP-safe aggregate work packets",
       "human send approval"
     ],
-    "collaboration_group": "bibblio-profitability-team",
-    "business_goal": "Turn Bibblio into a profitable business.",
+    "collaboration_group": "business-success-team",
+    "business_goal": "Build a successful business for Bibblio.",
     "job_data": {
       "resources": [
         {
@@ -372,7 +396,7 @@
     }
   },
   "workflow": {
-    "workflow_id": "bibblio_gtm_coworker_v1",
+    "workflow_id": "growth_partnerships_coworker_v1",
     "execution": {
       "strategy": "serial"
     },

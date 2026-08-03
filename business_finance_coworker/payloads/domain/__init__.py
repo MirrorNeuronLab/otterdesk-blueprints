@@ -1,2 +1,1 @@
-"""Bibblio-specific product policy and operating logic."""
-
+"""Business-role product policy and operating logic."""

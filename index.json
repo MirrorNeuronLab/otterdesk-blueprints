@@ -268,14 +268,14 @@
   },
   {
     "category": "Business",
-    "description": "An independent Bibblio growth co-worker that turns an approved adult-professional seed list into a confidential, research-ranked, draft-only outreach queue and an aggregate approval packet.",
-    "id": "bibblio_gtm_coworker",
-    "job_name": "bibblio-gtm-coworker",
-    "name": "Bibblio GTM Co-worker",
-    "path": "bibblio_gtm_coworker",
+    "description": "A generic Growth & Partnerships co-worker that turns approved contacts into a confidential, research-ranked demand-learning queue and a founder-ready 90-day role brief.",
+    "id": "growth_partnerships_coworker",
+    "job_name": "growth-partnerships-coworker",
+    "name": "Growth & Partnerships Co-worker",
+    "path": "growth_partnerships_coworker",
     "mcp_collaboration": {
       "enabled": true,
-      "goal_id": "bibblio-profitable-business",
+      "goal_id": "bibblio-business-success",
       "path": "/mcp",
       "service_name": "mn-job-collaboration",
       "service_tags": [
@@ -285,15 +285,16 @@
       "transport": "streamable-http"
     },
     "product": {
-      "agent_role": "AI Head of Growth and Go-to-Market Operations.",
+      "agent_role": "Growth and Partnerships Lead.",
       "benefit": "Builds relevance-first customer, partner, creator, and investor learning without optimizing for spam or exposing contact details to collaboration records.",
-      "business_goal": "Turn Bibblio into a profitable business.",
-      "collaboration_group": "bibblio-profitability-team",
-      "customizable_for": "Founder-led education products, partnership development, customer discovery, and careful seed-list outreach.",
-      "how_it_works": "Qualifies and ranks seed contacts, drafts adult-directed messages, performs deterministic copy checks, keeps identities local, and publishes only aggregate work packets.",
+      "business_goal": "Build a successful business for Bibblio.",
+      "collaboration_group": "business-success-team",
+      "default_demo_business": "Bibblio",
+      "customizable_for": "Founder-led products, partnership development, customer discovery, channel experiments, and careful seed-list outreach.",
+      "how_it_works": "Qualifies and ranks contacts, drafts adult-directed messages, performs deterministic copy checks, keeps identities local, consumes bounded peer evidence, and publishes a scorecard with decisions and cross-functional handoffs.",
       "input": "An authorized contact CSV with Name, Email, Category, Note, and Highlight columns, plus optional explicit MCP peers.",
-      "output": "A confidential draft outreach queue, GTM operating packet, approval requests, and MCP-safe aggregate work packets.",
-      "problem": "Bibblio needs qualified conversations and partnerships without bulk cold outreach, unsupported claims, or personal-data leakage.",
+      "output": "A confidential draft outreach queue, Growth & Partnerships role brief, 90-day plan, founder decisions, and MCP-safe peer handoffs.",
+      "problem": "Early-stage businesses need qualified conversations and partnerships without bulk cold outreach, unsupported claims, unaffordable acquisition, or personal-data leakage.",
       "runtime_features": [
         "confidential seed-contact intake",
         "draft-only adult outreach",
@@ -303,21 +304,21 @@
         "human send approval"
       ],
       "simulation_type": "Synthetic seed-contact qualification and approval workflow.",
-      "target_users": "Bibblio's founder and designated growth, partnerships, brand, privacy, and legal reviewers."
+      "target_users": "Founders and designated growth, partnerships, brand, privacy, and legal reviewers."
     },
     "type": "batch",
-    "workflow_id": "bibblio_gtm_coworker_v1"
+    "workflow_id": "growth_partnerships_coworker_v1"
   },
   {
     "category": "Business",
-    "description": "An independent Bibblio finance co-worker that calculates contribution economics, acquisition affordability, break-even scale, and financial evidence gaps.",
-    "id": "bibblio_finance_coworker",
-    "job_name": "bibblio-finance-coworker",
-    "name": "Bibblio Finance Co-worker",
-    "path": "bibblio_finance_coworker",
+    "description": "A generic Business Finance co-worker that calculates contribution economics, acquisition affordability, break-even scale, and financial evidence gaps for founder decisions.",
+    "id": "business_finance_coworker",
+    "job_name": "business-finance-coworker",
+    "name": "Business Finance Co-worker",
+    "path": "business_finance_coworker",
     "mcp_collaboration": {
       "enabled": true,
-      "goal_id": "bibblio-profitable-business",
+      "goal_id": "bibblio-business-success",
       "path": "/mcp",
       "service_name": "mn-job-collaboration",
       "service_tags": [
@@ -327,15 +328,16 @@
       "transport": "streamable-http"
     },
     "product": {
-      "agent_role": "AI CFO and Financial Controller.",
+      "agent_role": "Business Finance and Unit Economics Controller.",
       "benefit": "Turns dated operating inputs into cash-bounded profitability decisions with explicit missing evidence and approval gates.",
-      "business_goal": "Turn Bibblio into a profitable business.",
-      "collaboration_group": "bibblio-profitability-team",
+      "business_goal": "Build a successful business for Bibblio.",
+      "collaboration_group": "business-success-team",
+      "default_demo_business": "Bibblio",
       "customizable_for": "Subscription products, early-stage SaaS, family products, unit-economics reviews, and experiment cash controls.",
-      "how_it_works": "Calculates deterministic revenue, gross profit, contribution, CAC, directional LTV and payback, and break-even families before publishing a financial control packet.",
-      "input": "A dated JSON snapshot of paid families, ARPU, margin, churn, acquisition spend, refunds, and fixed operating costs.",
-      "output": "Unit-economics baseline, break-even model, evidence-gap register, financial control packet, and MCP work packets.",
-      "problem": "Bibblio needs acquisition and product bets constrained by cash, retained-family value, and reconciled economics.",
+      "how_it_works": "Calculates deterministic revenue, gross profit, contribution, CAC, directional LTV, payback, and break-even scale, then turns peer evidence into cash and operating guardrails.",
+      "input": "A dated JSON snapshot of paying customers, ARPU, margin, churn, acquisition spend, refunds, and fixed operating costs; the unchanged Bibblio demo retains family-named fields.",
+      "output": "Unit-economics baseline, break-even model, evidence-gap register, founder decisions, 90-day finance plan, and MCP handoffs.",
+      "problem": "Early-stage businesses need acquisition and product bets constrained by cash, retained-customer value, and reconciled economics.",
       "runtime_features": [
         "deterministic unit economics",
         "cash guardrails",
@@ -345,21 +347,21 @@
         "human financial authority"
       ],
       "simulation_type": "Synthetic monthly finance-control workflow.",
-      "target_users": "Bibblio's founder and designated finance, bookkeeping, accounting, and operating reviewers."
+      "target_users": "Founders and designated finance, bookkeeping, accounting, and operating reviewers."
     },
     "type": "batch",
-    "workflow_id": "bibblio_finance_coworker_v1"
+    "workflow_id": "business_finance_coworker_v1"
   },
   {
     "category": "Business",
-    "description": "An independent Bibblio learning-science and child-safety co-worker that reviews content briefs, claims, age fit, practice design, and minimum personalization.",
-    "id": "bibblio_learning_safety_coworker",
-    "job_name": "bibblio-learning-safety-coworker",
-    "name": "Bibblio Learning & Safety Co-worker",
-    "path": "bibblio_learning_safety_coworker",
+    "description": "A generic Learning Quality & Safety co-worker that reviews objectives, claims, suitability, practice design, privacy, and safety before work advances.",
+    "id": "learning_quality_safety_coworker",
+    "job_name": "learning-quality-safety-coworker",
+    "name": "Learning Quality & Safety Co-worker",
+    "path": "learning_quality_safety_coworker",
     "mcp_collaboration": {
       "enabled": true,
-      "goal_id": "bibblio-profitable-business",
+      "goal_id": "bibblio-business-success",
       "path": "/mcp",
       "service_name": "mn-job-collaboration",
       "service_tags": [
@@ -369,15 +371,16 @@
       "transport": "streamable-http"
     },
     "product": {
-      "agent_role": "AI Director of Learning Science and Child Safety.",
+      "agent_role": "Learning Quality and Safety Director.",
       "benefit": "Stops unsafe or unsupported learning concepts before production while turning remediable briefs into explicit review conditions.",
-      "business_goal": "Turn Bibblio into a profitable business.",
-      "collaboration_group": "bibblio-profitability-team",
+      "business_goal": "Build a successful business for Bibblio.",
+      "collaboration_group": "business-success-team",
+      "default_demo_business": "Bibblio",
       "customizable_for": "Early-learning products, child-facing content pipelines, curriculum review, and responsible personalization.",
       "how_it_works": "Reviews each candidate against observable objectives, age fit, claims, practice, parent guidance, privacy, and therapeutic or diagnostic blocks, then publishes a review packet.",
       "input": "A JSON backlog of candidate learning experiences and optional explicit MCP peer packets.",
-      "output": "PASS, PASS WITH CONDITIONS, REVISE, or BLOCK decisions; a review artifact; safety packet; and MCP work packets.",
-      "problem": "Bibblio needs credible learning value and child safety to gate content production and marketing claims.",
+      "output": "PASS, PASS WITH CONDITIONS, REVISE, or BLOCK decisions; a quality scorecard; approved claim boundaries; a 90-day plan; and MCP handoffs.",
+      "problem": "Learning businesses need credible customer value and safety to gate production, lifecycle messaging, and marketing claims.",
       "runtime_features": [
         "learning-objective review",
         "claim-risk gate",
@@ -387,21 +390,21 @@
         "human publish approval"
       ],
       "simulation_type": "Synthetic learning-backlog review with a fail-closed therapeutic-content fixture.",
-      "target_users": "Bibblio's founder and designated learning-science, child-safety, privacy, legal, and product reviewers."
+      "target_users": "Founders and designated learning, quality, safety, privacy, legal, and product reviewers."
     },
     "type": "batch",
-    "workflow_id": "bibblio_learning_safety_coworker_v1"
+    "workflow_id": "learning_quality_safety_coworker_v1"
   },
   {
     "category": "Business",
-    "description": "An independent Bibblio content-production co-worker that converts only learning-approved briefs into small, versioned, review-required package drafts.",
-    "id": "bibblio_content_studio_coworker",
-    "job_name": "bibblio-content-studio-coworker",
-    "name": "Bibblio Content Studio Co-worker",
-    "path": "bibblio_content_studio_coworker",
+    "description": "A generic Content Studio co-worker that converts approved briefs into small, versioned, review-required package drafts and tracks production economics.",
+    "id": "content_studio_coworker",
+    "job_name": "content-studio-coworker",
+    "name": "Content Studio Co-worker",
+    "path": "content_studio_coworker",
     "mcp_collaboration": {
       "enabled": true,
-      "goal_id": "bibblio-profitable-business",
+      "goal_id": "bibblio-business-success",
       "path": "/mcp",
       "service_name": "mn-job-collaboration",
       "service_tags": [
@@ -411,15 +414,16 @@
       "transport": "streamable-http"
     },
     "product": {
-      "agent_role": "AI Content Studio Director.",
+      "agent_role": "Content Studio Director.",
       "benefit": "Creates a reusable, cost-aware content supply without treating generated output as child-ready.",
-      "business_goal": "Turn Bibblio into a profitable business.",
-      "collaboration_group": "bibblio-profitability-team",
+      "business_goal": "Build a successful business for Bibblio.",
+      "collaboration_group": "business-success-team",
+      "default_demo_business": "Bibblio",
       "customizable_for": "Personalized education content, learning-story pipelines, activity production, and multimodal QA planning.",
       "how_it_works": "Accepts PASS or PASS WITH CONDITIONS briefs, drafts story and activity package structures, records personalization limits, and stops at complete-package review.",
       "input": "JSON learning briefs carrying current learning-review status and approved personalization fields.",
-      "output": "Draft content packages, review queues, production-status packet, and MCP work packets.",
-      "problem": "Bibblio needs enough varied content to retain families without sacrificing safety, provenance, QA, or unit cost.",
+      "output": "Draft content packages, review queues, a production scorecard, founder decisions, a 90-day plan, and MCP handoffs.",
+      "problem": "Content businesses need enough useful variation to retain customers without sacrificing safety, provenance, quality, or unit cost.",
       "runtime_features": [
         "learning-approved intake",
         "small-batch production",
@@ -429,21 +433,21 @@
         "human publish approval"
       ],
       "simulation_type": "Synthetic learning-brief-to-draft production workflow.",
-      "target_users": "Bibblio's founder and designated content, learning, safety, brand, accessibility, licensing, and product reviewers."
+      "target_users": "Founders and designated content, learning, quality, safety, brand, accessibility, licensing, and product reviewers."
     },
     "type": "batch",
-    "workflow_id": "bibblio_content_studio_coworker_v1"
+    "workflow_id": "content_studio_coworker_v1"
   },
   {
     "category": "Business",
-    "description": "An independent Bibblio lifecycle co-worker that converts de-identified parent feedback into journey friction, product priorities, and approval-gated intervention drafts.",
-    "id": "bibblio_parent_lifecycle_coworker",
-    "job_name": "bibblio-parent-lifecycle-coworker",
-    "name": "Bibblio Parent Lifecycle Co-worker",
-    "path": "bibblio_parent_lifecycle_coworker",
+    "description": "A generic Customer Lifecycle co-worker that converts de-identified feedback into journey friction, retention evidence, product priorities, and approval-gated intervention drafts.",
+    "id": "customer_lifecycle_coworker",
+    "job_name": "customer-lifecycle-coworker",
+    "name": "Customer Lifecycle Co-worker",
+    "path": "customer_lifecycle_coworker",
     "mcp_collaboration": {
       "enabled": true,
-      "goal_id": "bibblio-profitable-business",
+      "goal_id": "bibblio-business-success",
       "path": "/mcp",
       "service_name": "mn-job-collaboration",
       "service_tags": [
@@ -453,15 +457,16 @@
       "transport": "streamable-http"
     },
     "product": {
-      "agent_role": "AI Parent Lifecycle and Product Intelligence Lead.",
-      "benefit": "Improves time to first value, repeat routines, retention, and value proof while protecting family trust.",
-      "business_goal": "Turn Bibblio into a profitable business.",
-      "collaboration_group": "bibblio-profitability-team",
-      "customizable_for": "Family subscriptions, activation and retention programs, voice-of-customer synthesis, and parent-support operations.",
+      "agent_role": "Customer Lifecycle and Product Intelligence Director.",
+      "benefit": "Improves time to first value, repeat routines, retention, and value proof while protecting customer trust.",
+      "business_goal": "Build a successful business for Bibblio.",
+      "collaboration_group": "business-success-team",
+      "default_demo_business": "Bibblio",
+      "customizable_for": "Subscriptions, activation and retention programs, voice-of-customer synthesis, product intelligence, and support operations.",
       "how_it_works": "Aggregates journey stages and themes, drafts minimal interventions, prioritizes product fixes, and shares only aggregate retained-segment evidence with peer co-workers.",
-      "input": "A de-identified parent-feedback CSV and optional explicit MCP peer packets.",
-      "output": "Journey-friction map, draft parent interventions, lifecycle decision packet, aggregate product intelligence, and MCP work packets.",
-      "problem": "Bibblio needs parents to reach sustained value without manipulative messaging, excessive frequency, or unsupported progress claims.",
+      "input": "A de-identified customer-feedback CSV and optional explicit MCP peer packets; the bundled demo uses parent feedback.",
+      "output": "Journey-friction map, draft customer interventions, lifecycle scorecard, founder decisions, a 90-day plan, and MCP handoffs.",
+      "problem": "Subscription businesses need customers to reach sustained value without manipulative messaging, excessive frequency, or unsupported progress claims.",
       "runtime_features": [
         "de-identified feedback synthesis",
         "journey-stage diagnosis",
@@ -470,10 +475,10 @@
         "MCP aggregates",
         "human communication approval"
       ],
-      "simulation_type": "Synthetic parent-journey diagnosis and intervention-drafting workflow.",
-      "target_users": "Bibblio's founder and designated product, lifecycle, support, privacy, brand, and learning reviewers."
+      "simulation_type": "Synthetic customer-journey diagnosis and intervention-drafting workflow using the unchanged Bibblio parent-feedback demo.",
+      "target_users": "Founders and designated product, lifecycle, support, privacy, brand, and quality reviewers."
     },
     "type": "batch",
-    "workflow_id": "bibblio_parent_lifecycle_coworker_v1"
+    "workflow_id": "customer_lifecycle_coworker_v1"
   }
 ]

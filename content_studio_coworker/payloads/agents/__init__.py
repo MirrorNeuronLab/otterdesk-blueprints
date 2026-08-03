@@ -1,2 +1,1 @@
-"""Executable Bibblio specialist entrypoints."""
-
+"""Executable business-role specialist entrypoints."""

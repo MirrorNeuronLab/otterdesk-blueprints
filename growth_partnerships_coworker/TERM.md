@@ -1,4 +1,4 @@
-# Bibblio GTM Co-worker Terms
+# Growth & Partnerships Co-worker Terms
 
 This blueprint produces analysis, drafts, and approval queues. It never sends messages. Names, email addresses, source notes, and individual drafts stay in a confidential local run artifact and are excluded from MCP packets.
 

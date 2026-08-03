@@ -1,24 +1,36 @@
-# Bibblio Parent Lifecycle Co-worker
+# Customer Lifecycle Co-worker
 
-Blueprint ID: bibblio_parent_lifecycle_coworker
+Blueprint ID: customer_lifecycle_coworker
 
-Business goal: Turn Bibblio into a profitable business.
+Default demo business: Bibblio.
 
-This is one independent member of the bibblio-profitability-team collaboration group. It owns activation, retention, support friction, voice-of-parent synthesis, and draft lifecycle interventions. It can run by itself and can exchange bounded, aggregate goal work packets with the other Bibblio co-workers through explicit MCP peer configurations.
+Default demo goal: Build a successful business for Bibblio.
+
+The role is generic. Set `business_name`, `business_goal`, `goal_id`, and
+`planning_horizon_days` for another business; the bundled knowledge and sample
+inputs remain an unchanged Bibblio demonstration.
+
+This is one independent member of the `business-success-team` collaboration group. It owns activation, retention, support friction, voice-of-customer synthesis, and draft lifecycle interventions. It can run by itself and exchange bounded aggregate goal packets with explicitly approved peer co-workers.
 
 ## Workflow
 
-1. diagnose_parent_journey creates the aspect analysis and a durable work packet.
-2. publish_parent_lifecycle_packet publishes a final, approval-ready aspect packet.
+1. diagnose_customer_journey creates the aspect analysis and a durable work packet.
+2. publish_customer_lifecycle_packet publishes a final, approval-ready aspect packet.
 
-Input: a de-identified parent-feedback CSV.
+Input: a de-identified customer-feedback CSV. The unchanged bundled demo uses parent feedback.
 
-Local working artifact: draft_parent_interventions.json.
-Final artifact: parent_lifecycle_packet.json.
+Local working artifact: draft_customer_interventions.json.
+Final role brief: `customer_lifecycle_packet.json` and `final_artifact.json`.
+
+## Founder-facing output
+
+The role brief contains an activation/retention scorecard, founder decisions, a
+90-day cohort plan, and named handoffs linking Finance targets, Growth promises,
+Content gaps, and Quality & Safety claim and escalation boundaries.
 
 ## Control boundary
 
-It does not contact families. Copy, cohorts, frequency caps, and support escalation rules require approval, and raw family records are not shared through MCP.
+It does not contact customers. Copy, cohorts, frequency caps, and support escalation rules require approval, and raw customer records are not shared through MCP.
 
 No co-worker owns workflow routing, retry, logical completion, or human approval. Those remain blueprint and Mirror Neuron Core responsibilities.
 
@@ -28,9 +40,9 @@ The default configuration uses examples/sample_inputs/parent_feedback.csv. All b
 
 Run from the blueprint catalog:
 
-    mn blueprint run bibblio_parent_lifecycle_coworker
+    mn blueprint run customer_lifecycle_coworker
 
-To collaborate, supply explicit peer_mcp_servers and enable peer_reads_enabled. Each peer record is filtered to goal_id bibblio-profitable-business.
+To collaborate, supply explicit peer_mcp_servers and enable peer_reads_enabled. Each peer record is filtered to goal_id bibblio-business-success.
 
 While a run is active, the blueprint starts a loopback, read-only
 `mn-job-collaboration` MCP service on a runtime-allocated port. OtterDesk and

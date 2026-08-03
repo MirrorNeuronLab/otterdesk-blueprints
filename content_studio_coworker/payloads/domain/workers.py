@@ -6,7 +6,7 @@ from typing import Any
 from mn_sdk.blueprint_support.workflow_state import write_json
 
 from .collaboration import build_packet, peer_signals, persist_packet, write_final_artifact
-from .inputs import json_object, resolve_input_file, source_descriptor
+from .inputs import json_object, normalized_inputs, resolve_input_file, source_descriptor
 
 
 DRAFT_PACKAGES_PATH = "draft_content_packages.json"
@@ -34,7 +34,7 @@ def _plan_content_batch(context: dict[str, Any]) -> dict[str, Any]:
     rejected = [brief for brief in briefs if brief not in accepted]
     packages = [_draft_package(brief) for brief in accepted]
     artifact = {
-        "schema_version": "mn.bibblio.draft_content_batch.v1",
+        "schema_version": "mn.content_studio.draft_content_batch.v1",
         "classification": "draft_child_facing_content",
         "publication_authorized": False,
         "packages": packages,
@@ -72,8 +72,11 @@ def _plan_content_batch(context: dict[str, Any]) -> dict[str, Any]:
 
 
 def _publish_content_packet(context: dict[str, Any]) -> dict[str, Any]:
+    inputs = normalized_inputs(context)
+    business_name = str(inputs["business_name"])
     artifact = json_object(Path(context["run_dir"]) / DRAFT_PACKAGES_PATH)
     packages = artifact.get("packages") if isinstance(artifact.get("packages"), list) else []
+    peers = peer_signals(context)
     packet = build_packet(
         context,
         stage="publish_content_studio_packet",
@@ -82,7 +85,13 @@ def _publish_content_packet(context: dict[str, Any]) -> dict[str, Any]:
         sources=[{"source_ref": "artifact:draft_content_packages.json", "data_quality_note": "Draft content requires complete downstream review."}],
         observed_facts=[f"{len(packages)} draft packages are ready for mandatory learning, safety, and human review."],
         assumptions=["No package is live, parent-approved, or evidence of learning efficacy."],
-        analysis={"draft_package_count": len(packages), "draft_packages_artifact": DRAFT_PACKAGES_PATH, "publication_authorized": False},
+        analysis={
+            "draft_package_count": len(packages),
+            "draft_packages_artifact": DRAFT_PACKAGES_PATH,
+            "publication_authorized": False,
+            "peer_goal_packet_count": len(peers["signals"]),
+            "peer_goal_signals": peers["signals"],
+        },
         recommendation="Review and revise the complete packages; release none until Learning Science returns an approved decision and the founder authorizes publication.",
         confidence="low",
         risks=["Partial review can miss cross-modal defects.", "Synthetic briefs do not establish parent demand."],
@@ -95,8 +104,8 @@ def _publish_content_packet(context: dict[str, Any]) -> dict[str, Any]:
     final = write_final_artifact(
         context,
         packet,
-        artifact_type="bibblio_content_studio_production_packet",
-        executive_summary="The Content Studio independently converted approved briefs into versioned draft package structures and stopped at the mandatory learning-safety and founder review boundary.",
+        artifact_type="content_studio_production_brief",
+        executive_summary=f"The Content Studio independently converted {business_name}'s approved briefs into versioned draft package structures and stopped at the mandatory quality, safety, and founder-review boundary.",
         evidence={"draft_package_count": len(packages), "draft_packages_artifact": DRAFT_PACKAGES_PATH, "publication_authorized": False},
         next_steps=[
             "Send complete draft packages to the Learning Science and Safety co-worker.",
@@ -105,6 +114,32 @@ def _publish_content_packet(context: dict[str, Any]) -> dict[str, Any]:
             "Publish only after explicit human approval.",
         ],
         data_status=str(artifact.get("classification") or "unknown"),
+        role_contribution="Turn approved customer-value briefs into a small, reusable, measurable supply of release candidates without confusing generated drafts with finished product.",
+        north_star_question="What is the smallest approved content batch that can test customer value, retention, and repeatable production economics?",
+        role_scorecard=[
+            {"metric": "draft_packages_ready", "current": len(packages), "target": "smallest batch sufficient for one customer-value test", "decision_use": "Limits inventory and review waste."},
+            {"metric": "publication_authorized", "current": False, "target": "true only after complete review and founder approval", "decision_use": "Keeps draft status unambiguous."},
+            {"metric": "first_pass_review_rate", "current": "not_measured", "target": "improve without weakening standards", "decision_use": "Finds specification and production defects."},
+            {"metric": "cost_per_approved_package", "current": "needs production and Finance evidence", "target": "within Finance-approved unit-cost guardrail", "decision_use": "Connects content supply to viable economics."},
+            {"metric": "reusable_component_coverage", "current": "not_measured", "target": "increase where reuse preserves quality", "decision_use": "Improves throughput without unsafe shortcuts."},
+        ],
+        founder_decisions=[
+            {"decision": "Approve the proposed batch size and test purpose", "why_now": "Production should answer a customer-value question, not create speculative inventory."},
+            {"decision": "Assign complete-package reviewers", "why_now": "No draft can become customer-facing until all required disciplines review the same version."},
+            {"decision": "Approve release, revise, or stop after review", "why_now": "Learning approval at brief intake does not cover defects introduced during production."},
+        ],
+        cross_functional_handoffs=[
+            {"to": "learning_quality_safety_director", "provides": "versioned complete packages, provenance, answer keys, and QA results", "needs_from": "approved briefs, conditions, blocked topics, and final review decisions"},
+            {"to": "customer_lifecycle_director", "provides": "approved continuation assets and package metadata", "needs_from": "activation friction, content gaps, retained-use patterns, and customer language"},
+            {"to": "growth_partnerships_lead", "provides": "approved demo and proof assets with explicit claim limits", "needs_from": "priority audience, channel format, objections, and proof-asset requirements"},
+            {"to": "business_finance_controller", "provides": "production time, revision rate, asset cost, and reuse coverage", "needs_from": "batch budget and approved cost-per-package guardrails"},
+        ],
+        ninety_day_plan=[
+            {"days": "0-30", "outcome": "Produce and completely review the smallest approved batch; record every defect, revision, cost, and reused component."},
+            {"days": "31-60", "outcome": "Release only approved packages into one bounded customer-value test and supply relevant assets to Growth and Lifecycle."},
+            {"days": "61-90", "outcome": "Recommend which formats to scale, revise, or retire using retention, review quality, production cost, and demand evidence."},
+        ],
+        peer_context=peers,
     )
     return {**persisted, **final}
 

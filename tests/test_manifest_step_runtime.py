@@ -200,12 +200,12 @@ def _run_handler_workflow(
             },
         ),
         (
-            "bibblio_gtm_coworker",
+            "growth_partnerships_coworker",
             {
-                "input_folder": str(ROOT / "bibblio_gtm_coworker" / "examples" / "sample_inputs"),
-                "contacts_csv": str(ROOT / "bibblio_gtm_coworker" / "examples" / "sample_inputs" / "edtech_contacts_sample.csv"),
-                "business_goal": "Turn Bibblio into a profitable business.",
-                "goal_id": "bibblio-profitable-business",
+                "input_folder": str(ROOT / "growth_partnerships_coworker" / "examples" / "sample_inputs"),
+                "contacts_csv": str(ROOT / "growth_partnerships_coworker" / "examples" / "sample_inputs" / "edtech_contacts_sample.csv"),
+                "business_goal": "Build a successful business for Bibblio.",
+                "goal_id": "bibblio-business-success",
             },
             {
                 "execution": {"quick_test": True},
@@ -215,12 +215,12 @@ def _run_handler_workflow(
             },
         ),
         (
-            "bibblio_finance_coworker",
+            "business_finance_coworker",
             {
-                "input_folder": str(ROOT / "bibblio_finance_coworker" / "examples" / "sample_inputs"),
-                "metrics_file": str(ROOT / "bibblio_finance_coworker" / "examples" / "sample_inputs" / "business_metrics.json"),
-                "business_goal": "Turn Bibblio into a profitable business.",
-                "goal_id": "bibblio-profitable-business",
+                "input_folder": str(ROOT / "business_finance_coworker" / "examples" / "sample_inputs"),
+                "metrics_file": str(ROOT / "business_finance_coworker" / "examples" / "sample_inputs" / "business_metrics.json"),
+                "business_goal": "Build a successful business for Bibblio.",
+                "goal_id": "bibblio-business-success",
             },
             {
                 "execution": {"quick_test": True},
@@ -229,12 +229,12 @@ def _run_handler_workflow(
             },
         ),
         (
-            "bibblio_learning_safety_coworker",
+            "learning_quality_safety_coworker",
             {
-                "input_folder": str(ROOT / "bibblio_learning_safety_coworker" / "examples" / "sample_inputs"),
-                "content_backlog_file": str(ROOT / "bibblio_learning_safety_coworker" / "examples" / "sample_inputs" / "content_backlog.json"),
-                "business_goal": "Turn Bibblio into a profitable business.",
-                "goal_id": "bibblio-profitable-business",
+                "input_folder": str(ROOT / "learning_quality_safety_coworker" / "examples" / "sample_inputs"),
+                "content_backlog_file": str(ROOT / "learning_quality_safety_coworker" / "examples" / "sample_inputs" / "content_backlog.json"),
+                "business_goal": "Build a successful business for Bibblio.",
+                "goal_id": "bibblio-business-success",
             },
             {
                 "execution": {"quick_test": True},
@@ -243,12 +243,12 @@ def _run_handler_workflow(
             },
         ),
         (
-            "bibblio_content_studio_coworker",
+            "content_studio_coworker",
             {
-                "input_folder": str(ROOT / "bibblio_content_studio_coworker" / "examples" / "sample_inputs"),
-                "learning_briefs_file": str(ROOT / "bibblio_content_studio_coworker" / "examples" / "sample_inputs" / "approved_learning_briefs.json"),
-                "business_goal": "Turn Bibblio into a profitable business.",
-                "goal_id": "bibblio-profitable-business",
+                "input_folder": str(ROOT / "content_studio_coworker" / "examples" / "sample_inputs"),
+                "learning_briefs_file": str(ROOT / "content_studio_coworker" / "examples" / "sample_inputs" / "approved_learning_briefs.json"),
+                "business_goal": "Build a successful business for Bibblio.",
+                "goal_id": "bibblio-business-success",
             },
             {
                 "execution": {"quick_test": True},
@@ -257,12 +257,12 @@ def _run_handler_workflow(
             },
         ),
         (
-            "bibblio_parent_lifecycle_coworker",
+            "customer_lifecycle_coworker",
             {
-                "input_folder": str(ROOT / "bibblio_parent_lifecycle_coworker" / "examples" / "sample_inputs"),
-                "parent_feedback_file": str(ROOT / "bibblio_parent_lifecycle_coworker" / "examples" / "sample_inputs" / "parent_feedback.csv"),
-                "business_goal": "Turn Bibblio into a profitable business.",
-                "goal_id": "bibblio-profitable-business",
+                "input_folder": str(ROOT / "customer_lifecycle_coworker" / "examples" / "sample_inputs"),
+                "customer_feedback_file": str(ROOT / "customer_lifecycle_coworker" / "examples" / "sample_inputs" / "parent_feedback.csv"),
+                "business_goal": "Build a successful business for Bibblio.",
+                "goal_id": "bibblio-business-success",
             },
             {
                 "execution": {"quick_test": True},
@@ -291,4 +291,49 @@ def test_manifest_handlers_execute_as_message_chained_workflows(
     final_ref = result.get("final_artifact")
     assert isinstance(final_ref, dict)
     assert final_ref["kind"] == "final_artifact"
-    assert (Path(result["run_dir"]) / final_ref["path"]).exists()
+    final_path = Path(result["run_dir"]) / final_ref["path"]
+    assert final_path.exists()
+    if manifest["metadata"].get("collaboration_group") == "business-success-team":
+        final_artifact = json.loads(final_path.read_text(encoding="utf-8"))
+        assert final_artifact["schema_version"] == "mn.business_success.role_brief.v1"
+        assert final_artifact["type"] == manifest["contracts"]["outputs"]["artifacts"][1]["type"]
+        assert final_artifact["business_name"] == "Bibblio"
+        assert final_artifact["business_goal"] == "Build a successful business for Bibblio."
+        assert final_artifact["planning_horizon_days"] == 90
+        assert final_artifact["role_contribution"]
+        assert final_artifact["north_star_question"]
+        assert len(final_artifact["role_scorecard"]) >= 4
+        assert len(final_artifact["founder_decisions"]) >= 3
+        assert len(final_artifact["ninety_day_plan"]) == 3
+        assert len(final_artifact["cross_functional_handoffs"]) == 4
+        assert final_artifact["collaboration"]["peer_input_mode"] == "explicit_mcp_servers_only"
+        assert "team_synthesis" in final_artifact["collaboration"]
+        assert len(final_artifact["collaboration"]["team_synthesis"]["unresolved_without_peer_evidence"]) == 4
+
+
+def test_generic_business_identity_replaces_the_default_demo_context(tmp_path: Path):
+    blueprint_id = "business_finance_coworker"
+    result = _run_handler_workflow(
+        blueprint_id,
+        tmp_path,
+        inputs={
+            "business_name": "Northstar Learning",
+            "business_goal": "Reach sustainable product-market fit for Northstar Learning.",
+            "goal_id": "northstar-sustainable-fit",
+            "planning_horizon_days": 120,
+            "input_folder": str(ROOT / blueprint_id / "examples" / "sample_inputs"),
+            "metrics_file": str(ROOT / blueprint_id / "examples" / "sample_inputs" / "business_metrics.json"),
+        },
+        config={
+            "execution": {"quick_test": True},
+            "llm": {"mode": "fake", "require_live": False},
+            "mcp_collaboration": {"publish_local_exchange": True, "peer_reads_enabled": False},
+        },
+    )
+    final_path = Path(result["run_dir"]) / result["final_artifact"]["path"]
+    final_artifact = json.loads(final_path.read_text(encoding="utf-8"))
+    assert final_artifact["business_name"] == "Northstar Learning"
+    assert final_artifact["business_goal"] == "Reach sustainable product-market fit for Northstar Learning."
+    assert final_artifact["goal_id"] == "northstar-sustainable-fit"
+    assert final_artifact["planning_horizon_days"] == 120
+    assert "Bibblio" not in json.dumps(final_artifact)

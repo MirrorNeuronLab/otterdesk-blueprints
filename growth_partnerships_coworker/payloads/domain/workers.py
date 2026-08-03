@@ -21,22 +21,23 @@ def run_growth_lead(context: dict[str, Any], *, step_id: str, **_: Any) -> dict[
         return _qualify_seed_contacts(context)
     if step_id == "publish_gtm_outreach_queue":
         return _publish_gtm_packet(context)
-    raise ValueError(f"GTM co-worker does not own step {step_id!r}")
+    raise ValueError(f"Growth & Partnerships co-worker does not own step {step_id!r}")
 
 
 def _qualify_seed_contacts(context: dict[str, Any]) -> dict[str, Any]:
     inputs = normalized_inputs(context)
+    business_name = str(inputs["business_name"])
     contacts_path = resolve_input_file(context, "contacts_csv", "edtech_contacts_sample.csv")
     contacts = csv_rows(contacts_path)
     synthetic = _is_synthetic_source(context, contacts_path)
     settings = (context.get("config") or {}).get("gtm") or {}
     max_contacts = max(1, min(int(settings.get("max_contacts_per_run", 100)), 500))
     ranked = sorted((_contact_candidate(row) for row in contacts), key=lambda item: (-item["priority_score"], item["contact_id"]))
-    queue = [_draft_contact(candidate) for candidate in ranked[:max_contacts]]
+    queue = [_draft_contact(candidate, business_name=business_name) for candidate in ranked[:max_contacts]]
     category_counts = Counter(item["category"] for item in ranked)
     quality_pass_count = sum(1 for item in queue if item["draft_review"]["approved"])
     queue_artifact = {
-        "schema_version": "mn.bibblio.confidential_outreach_queue.v1",
+        "schema_version": "mn.business_growth.confidential_outreach_queue.v1",
         "classification": "confidential_contact_data",
         "source_ref": f"input:{contacts_path.name}",
         "mode": "draft_only",
@@ -72,15 +73,15 @@ def _qualify_seed_contacts(context: dict[str, Any]) -> dict[str, Any]:
             "peer_goal_packet_count": len(peers["signals"]),
             "peer_goal_signals": peers["signals"],
             "research_brief": build_research_brief(
-                "Bibblio educator, creator, newsletter, community, and investor partnership outreach",
-                audience="Adult education-sector professionals and potential partners",
-                competitors=["printed workbooks", "generic story generators", "early-learning apps"],
+                f"{business_name} customer, creator, community, distribution, and investor partnership outreach",
+                audience="Adult professionals and potential business partners",
+                competitors=["customer status quo", "manual alternatives", "direct and adjacent competitors"],
             ),
         },
         recommendation="Research the highest-fit education customers first, then a small investor-learning cohort; keep general contacts on hold until relevance is established.",
         confidence="low" if synthetic or category_counts.get("other", 0) > len(contacts) / 2 else "medium",
         risks=[
-            "Irrelevant cold outreach can harm Bibblio's reputation and sender deliverability.",
+            f"Irrelevant cold outreach can harm {business_name}'s reputation and sender deliverability.",
             "Contact data may be stale or lack an appropriate outreach basis.",
             "Marketing claims about learning outcomes require evidence and approval.",
         ],
@@ -95,9 +96,12 @@ def _qualify_seed_contacts(context: dict[str, Any]) -> dict[str, Any]:
 
 
 def _publish_gtm_packet(context: dict[str, Any]) -> dict[str, Any]:
+    inputs = normalized_inputs(context)
+    business_name = str(inputs["business_name"])
     queue = _read_json(Path(context["run_dir"]) / PRIVATE_QUEUE_PATH)
     contacts = queue.get("contacts") if isinstance(queue.get("contacts"), list) else []
     approved_drafts = sum(1 for item in contacts if isinstance(item, dict) and (item.get("draft_review") or {}).get("approved"))
+    peers = peer_signals(context)
     packet = build_packet(
         context,
         stage="publish_gtm_outreach_queue",
@@ -114,6 +118,8 @@ def _publish_gtm_packet(context: dict[str, Any]) -> dict[str, Any]:
             "queued_contact_count": len(contacts),
             "draft_quality_pass_count": approved_drafts,
             "send_authorized": False,
+            "peer_goal_packet_count": len(peers["signals"]),
+            "peer_goal_signals": peers["signals"],
         },
         recommendation="Approve a manually researched ten-contact pilot, measure qualified replies and opt-outs, and expand only if relevance and trust guardrails hold.",
         confidence="low",
@@ -127,8 +133,8 @@ def _publish_gtm_packet(context: dict[str, Any]) -> dict[str, Any]:
     final = write_final_artifact(
         context,
         packet,
-        artifact_type="bibblio_gtm_operating_packet",
-        executive_summary="The GTM co-worker converted the supplied adult professional seed list into a confidential, draft-only queue and an aggregate approval packet. No outreach was sent.",
+        artifact_type="growth_partnerships_operating_brief",
+        executive_summary=f"The Growth & Partnerships co-worker converted {business_name}'s supplied adult-professional seed list into a confidential, draft-only queue and an aggregate approval packet. No outreach was sent.",
         evidence={
             "seed_contact_count": queue.get("total_seed_contacts", 0),
             "queued_contact_count": len(contacts),
@@ -140,9 +146,34 @@ def _publish_gtm_packet(context: dict[str, Any]) -> dict[str, Any]:
             "Manually research the first ten education-sector contacts for relevance and lawful outreach basis.",
             "Review and revise every draft before sending.",
             "Record replies, opt-outs, qualified conversations, and downstream activation evidence.",
-            "Share only aggregate GTM findings with the other Bibblio co-workers through MCP.",
+            "Share only aggregate channel, objection, and conversion findings with peer co-workers through MCP.",
         ],
         data_status=str(queue.get("classification") or "unknown"),
+        role_contribution="Create a repeatable path to qualified demand and distribution while protecting brand trust, contact privacy, and cash.",
+        north_star_question="Which customer or partner channel produces retained, evidence-backed value at an affordable acquisition cost?",
+        role_scorecard=[
+            {"metric": "pilot_contacts_ready", "current": len(contacts), "target": "10 manually researched contacts", "decision_use": "Confirm the first learning cohort is small and reviewable."},
+            {"metric": "draft_quality_pass_rate", "current": round(approved_drafts / len(contacts), 3) if contacts else 0, "target": 1.0, "decision_use": "Do not test copy that fails deterministic quality checks."},
+            {"metric": "qualified_reply_rate", "current": "not_measured", "target": "measure after approved pilot", "decision_use": "Continue only where conversations are relevant and voluntary."},
+            {"metric": "retained_customer_cac", "current": "needs Finance and Lifecycle evidence", "target": "within Finance-approved CAC and payback guardrails", "decision_use": "Scale channels only after retention evidence exists."},
+        ],
+        founder_decisions=[
+            {"decision": "Approve or reject the first ten-contact pilot", "why_now": "The queue and drafts are ready, but lawful basis, recipient relevance, claims, and sender identity require human judgment."},
+            {"decision": "Choose the primary learning channel", "why_now": "A single audience and offer produces interpretable evidence; parallel broad outreach would not."},
+            {"decision": "Set the stop rule", "why_now": "Pause if relevance, opt-out, trust, CAC, or safety thresholds fail."},
+        ],
+        cross_functional_handoffs=[
+            {"to": "business_finance_controller", "provides": "channel-level qualified-conversation and acquisition evidence", "needs_from": "maximum CAC, payback, and experiment cash limits"},
+            {"to": "customer_lifecycle_director", "provides": "prospect objections and segment language", "needs_from": "retained-customer segments, activation friction, and churn evidence"},
+            {"to": "learning_quality_safety_director", "provides": "claims proposed in outreach", "needs_from": "approved claim language and blocked promise categories"},
+            {"to": "content_studio_director", "provides": "audience and channel proof-asset requirements", "needs_from": "approved demo assets and production lead times"},
+        ],
+        ninety_day_plan=[
+            {"days": "0-30", "outcome": "Research and run one approved ten-contact customer-learning pilot; record replies, objections, opt-outs, and next steps."},
+            {"days": "31-60", "outcome": "Repeat only the strongest segment-message pair and validate handoff from conversation to first product value."},
+            {"days": "61-90", "outcome": "Recommend scale, revise, or stop using retained conversion, CAC, payback, trust, and safety evidence from peer roles."},
+        ],
+        peer_context=peers,
     )
     return {**persisted, **final}
 
@@ -173,25 +204,25 @@ def _contact_candidate(row: dict[str, str]) -> dict[str, Any]:
     }
 
 
-def _draft_contact(candidate: dict[str, Any]) -> dict[str, Any]:
+def _draft_contact(candidate: dict[str, Any], *, business_name: str) -> dict[str, Any]:
     category = candidate["category"]
     first_name = str(candidate.get("name") or "there").split()[0]
     angle = {
-        "client": "a short conversation about parent-led personalized learning routines",
-        "investor": "a short conversation about Bibblio's early-learning product and evidence plan",
-        "other": "a relevance check before proposing any Bibblio collaboration",
+        "client": "a short conversation about the customer problem, current alternatives, and desired outcome",
+        "investor": f"a short conversation about {business_name}'s product and evidence plan",
+        "other": f"a relevance check before proposing any {business_name} collaboration",
     }[category]
     draft = normalize_structured_draft(
         {
             "subject_candidates": [
-                "A focused Bibblio learning conversation",
-                "Exploring a useful early-learning collaboration",
+                f"A focused {business_name} conversation",
+                "Exploring a useful collaboration",
             ],
-            "preview_text": "A short, adult-directed note about personalized learning stories for families.",
+            "preview_text": "A short, adult-directed note to confirm relevance before discussing the business.",
             "body_sections": [
                 {
                     "title": f"Hi {first_name}",
-                    "body": "I'm working on Bibblio, a parent-led product that creates personalized learning stories and activities for children ages 3–7.",
+                    "body": f"I'm working on {business_name}, and I am reaching out to learn whether its customer problem and evidence plan are relevant to your work.",
                 },
                 {
                     "title": "Why I'm reaching out",
@@ -199,7 +230,7 @@ def _draft_contact(candidate: dict[str, Any]) -> dict[str, Any]:
                 },
                 {
                     "title": "A small next step",
-                    "body": "If relevant, would you be open to a brief conversation about the problem, current alternatives, and the evidence you would need to take Bibblio seriously?",
+                    "body": f"If relevant, would you be open to a brief conversation about the problem, current alternatives, and the evidence you would need to take {business_name} seriously?",
                 },
             ],
             "cta_label": "Reply if relevant",

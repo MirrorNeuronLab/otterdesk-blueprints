@@ -1,10 +1,16 @@
-# Bibblio Learning & Safety Co-worker
+# Learning Quality & Safety Co-worker
 
-Blueprint ID: bibblio_learning_safety_coworker
+Blueprint ID: learning_quality_safety_coworker
 
-Business goal: Turn Bibblio into a profitable business.
+Default demo business: Bibblio.
 
-This is one independent member of the bibblio-profitability-team collaboration group. It owns learning-objective review, age fit, claim safety, personalization minimization, and child-safety gates. It can run by itself and can exchange bounded, aggregate goal work packets with the other Bibblio co-workers through explicit MCP peer configurations.
+Default demo goal: Build a successful business for Bibblio.
+
+The role is generic. Set `business_name`, `business_goal`, `goal_id`, and
+`planning_horizon_days` for another business; the bundled knowledge and sample
+inputs remain an unchanged Bibblio demonstration.
+
+This is one independent member of the `business-success-team` collaboration group. It owns observable-value review, suitability, claim safety, personalization minimization, and release gates. It can run by itself and exchange bounded aggregate goal packets with explicitly approved peer co-workers.
 
 ## Workflow
 
@@ -14,7 +20,13 @@ This is one independent member of the bibblio-profitability-team collaboration g
 Input: a JSON backlog of candidate learning experiences.
 
 Local working artifact: none.
-Final artifact: learning_safety_packet.json.
+Final role brief: `learning_quality_safety_packet.json` and `final_artifact.json`.
+
+## Founder-facing output
+
+The role brief contains a PASS/REVISE/BLOCK scorecard, decisions about evidence
+standards and release authority, a 90-day quality plan, and explicit claim,
+content-review, customer-feedback, and cost-capacity handoffs to peer roles.
 
 ## Control boundary
 
@@ -28,9 +40,9 @@ The default configuration uses examples/sample_inputs/content_backlog.json. All 
 
 Run from the blueprint catalog:
 
-    mn blueprint run bibblio_learning_safety_coworker
+    mn blueprint run learning_quality_safety_coworker
 
-To collaborate, supply explicit peer_mcp_servers and enable peer_reads_enabled. Each peer record is filtered to goal_id bibblio-profitable-business.
+To collaborate, supply explicit peer_mcp_servers and enable peer_reads_enabled. Each peer record is filtered to goal_id bibblio-business-success.
 
 While a run is active, the blueprint starts a loopback, read-only
 `mn-job-collaboration` MCP service on a runtime-allocated port. OtterDesk and

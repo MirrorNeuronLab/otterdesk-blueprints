@@ -5,7 +5,7 @@ from typing import Any
 
 from .collaboration import build_packet, peer_signals, persist_packet, write_final_artifact
 from .common import BLOCKED_ACTIONS
-from .inputs import json_object, resolve_input_file, source_descriptor
+from .inputs import json_object, normalized_inputs, resolve_input_file, source_descriptor
 
 
 def run_learning_safety_director(context: dict[str, Any], *, step_id: str, **_: Any) -> dict[str, Any]:
@@ -13,7 +13,7 @@ def run_learning_safety_director(context: dict[str, Any], *, step_id: str, **_: 
         return _review_backlog(context)
     if step_id == "publish_learning_safety_packet":
         return _publish_learning_packet(context)
-    raise ValueError(f"Learning-safety co-worker does not own step {step_id!r}")
+    raise ValueError(f"Learning Quality & Safety co-worker does not own step {step_id!r}")
 
 
 def _dataset(context: dict[str, Any]) -> tuple[list[dict[str, Any]], dict[str, Any], bool]:
@@ -27,6 +27,7 @@ def _dataset(context: dict[str, Any]) -> tuple[list[dict[str, Any]], dict[str, A
 
 
 def _review_backlog(context: dict[str, Any]) -> dict[str, Any]:
+    business_name = str(normalized_inputs(context)["business_name"])
     items, source, synthetic = _dataset(context)
     reviewed = [_review_item(item) for item in items]
     decisions = Counter(item["decision"] for item in reviewed)
@@ -34,7 +35,7 @@ def _review_backlog(context: dict[str, Any]) -> dict[str, Any]:
     packet = build_packet(
         context,
         stage="review_learning_backlog",
-        objective="Map every proposed Bibblio content item to an observable learning objective and block unsafe, unsuitable, or unsupported claims.",
+        objective=f"Map every proposed {business_name} content item to an observable learning objective and block unsafe, unsuitable, or unsupported claims.",
         trigger="A learning or content backlog is submitted for curriculum and child-safety review.",
         sources=[source],
         observed_facts=[
@@ -61,9 +62,12 @@ def _review_backlog(context: dict[str, Any]) -> dict[str, Any]:
 
 
 def _publish_learning_packet(context: dict[str, Any]) -> dict[str, Any]:
+    inputs = normalized_inputs(context)
+    business_name = str(inputs["business_name"])
     items, source, synthetic = _dataset(context)
     reviewed = [_review_item(item) for item in items]
     decisions = Counter(item["decision"] for item in reviewed)
+    peers = peer_signals(context)
     packet = build_packet(
         context,
         stage="publish_learning_safety_packet",
@@ -72,7 +76,13 @@ def _publish_learning_packet(context: dict[str, Any]) -> dict[str, Any]:
         sources=[source],
         observed_facts=[f"{decisions.get('BLOCK', 0)} items are blocked and {decisions.get('REVISE', 0)} require revision."],
         assumptions=["The packet covers only the supplied backlog fields, not a complete release candidate."],
-        analysis={"reviewed_backlog": reviewed, "decision_counts": dict(decisions), "publication_authorized": False},
+        analysis={
+            "reviewed_backlog": reviewed,
+            "decision_counts": dict(decisions),
+            "publication_authorized": False,
+            "peer_goal_packet_count": len(peers["signals"]),
+            "peer_goal_signals": peers["signals"],
+        },
         recommendation="Use PASS or PASS WITH CONDITIONS items only as inputs to draft production; do not publish until complete content and human review are available.",
         confidence="low" if synthetic else "medium",
         risks=["Missing images, audio, interactions, answer keys, or personalization substitutions can introduce new defects."],
@@ -85,8 +95,8 @@ def _publish_learning_packet(context: dict[str, Any]) -> dict[str, Any]:
     final = write_final_artifact(
         context,
         packet,
-        artifact_type="bibblio_learning_safety_decision_packet",
-        executive_summary="The learning-safety co-worker independently reviewed the supplied backlog, recorded PASS/REVISE/BLOCK decisions, and kept publication behind qualified human approval.",
+        artifact_type="learning_quality_safety_decision_brief",
+        executive_summary=f"The Learning Quality & Safety co-worker independently reviewed {business_name}'s supplied backlog, recorded PASS/REVISE/BLOCK decisions, and kept publication behind qualified human approval.",
         evidence={"decision_counts": dict(decisions), "reviewed_backlog": reviewed, "publication_authorized": False},
         next_steps=[
             "Resolve every REVISE condition and quarantine every BLOCK item.",
@@ -95,6 +105,32 @@ def _publish_learning_packet(context: dict[str, Any]) -> dict[str, Any]:
             "Monitor post-release defects without claiming causation from weak observational data.",
         ],
         data_status="synthetic_demo" if synthetic else "user_supplied",
+        role_contribution="Protect customer trust and product value by turning quality, learning, claim, privacy, and safety requirements into explicit pass, revise, and block decisions.",
+        north_star_question="Can this product or claim deliver its intended value safely, observably, and honestly for the target customer?",
+        role_scorecard=[
+            {"metric": "items_passed", "current": decisions.get("PASS", 0), "target": "only complete, observable, age-appropriate briefs", "decision_use": "Defines the production-ready intake pool."},
+            {"metric": "items_passed_with_conditions", "current": decisions.get("PASS WITH CONDITIONS", 0), "target": "all conditions owned and verified before release", "decision_use": "Makes conditional risk visible."},
+            {"metric": "items_requiring_revision", "current": decisions.get("REVISE", 0), "target": 0, "decision_use": "Measures avoidable rework sent back upstream."},
+            {"metric": "items_blocked", "current": decisions.get("BLOCK", 0), "target": "all unsafe or unsupported proposals quarantined", "decision_use": "Prevents trust and safety failures from reaching customers."},
+            {"metric": "complete_release_reviews", "current": 0, "target": "100% before publication", "decision_use": "Brief approval never substitutes for full-package review."},
+        ],
+        founder_decisions=[
+            {"decision": "Accept the BLOCK and REVISE queue", "why_now": "Unsafe or incomplete concepts must not consume production or marketing capacity."},
+            {"decision": "Assign qualified reviewers and release authority", "why_now": "The deterministic intake gate cannot approve complete customer-facing packages."},
+            {"decision": "Choose the evidence standard for value claims", "why_now": "Growth and Lifecycle need language they can use without overstating observational evidence."},
+        ],
+        cross_functional_handoffs=[
+            {"to": "content_studio_director", "provides": "approved briefs, required conditions, blocked topics, and complete-package review checklist", "needs_from": "versioned release candidates with text, visuals, audio, activities, answer keys, and provenance"},
+            {"to": "growth_partnerships_lead", "provides": "approved claim language and prohibited promise categories", "needs_from": "proposed outreach claims and objections that reveal evidence gaps"},
+            {"to": "customer_lifecycle_director", "provides": "safe progress language and escalation triggers", "needs_from": "customer complaints, confusion, sensitive cases, and observed value gaps"},
+            {"to": "business_finance_controller", "provides": "review workload, revise rate, and remediation implications", "needs_from": "capacity constraints only; financial pressure cannot bypass a quality or safety block"},
+        ],
+        ninety_day_plan=[
+            {"days": "0-30", "outcome": "Clear the supplied backlog into owned PASS, REVISE, and BLOCK queues and publish approved claim language."},
+            {"days": "31-60", "outcome": "Review complete Content Studio packages and measure first-pass quality, revision causes, and review capacity."},
+            {"days": "61-90", "outcome": "Connect customer feedback and incident evidence to updated standards without making unsupported causal claims."},
+        ],
+        peer_context=peers,
     )
     return {**persisted, **final}
 

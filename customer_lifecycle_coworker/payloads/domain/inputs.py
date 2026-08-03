@@ -5,16 +5,26 @@ import json
 from pathlib import Path
 from typing import Any
 
-from .common import BUSINESS_GOAL
+from .common import BUSINESS_GOAL, DEFAULT_BUSINESS_NAME, DEFAULT_GOAL_ID
 
 
 def normalized_inputs(context: dict[str, Any]) -> dict[str, Any]:
     config_payload = ((context.get("config") or {}).get("inputs") or {}).get("payload") or {}
     payload = {**config_payload, **(context.get("payload") or {}), **(context.get("inputs") or {})}
+    payload.setdefault("business_name", DEFAULT_BUSINESS_NAME)
     payload.setdefault("business_goal", BUSINESS_GOAL)
-    payload.setdefault("goal_id", "bibblio-profitable-business")
+    payload.setdefault("goal_id", DEFAULT_GOAL_ID)
+    payload["planning_horizon_days"] = _planning_horizon(payload.get("planning_horizon_days"))
     payload.setdefault("peer_mcp_servers", [])
     return payload
+
+
+def _planning_horizon(value: Any) -> int:
+    try:
+        days = int(value)
+    except (TypeError, ValueError):
+        days = 90
+    return max(30, min(days, 365))
 
 
 def resolve_input_file(context: dict[str, Any], key: str, fallback_name: str) -> Path:
@@ -54,7 +64,7 @@ def source_descriptor(path: Path, *, synthetic: bool) -> dict[str, Any]:
         "timestamp": "not_reported",
         "coverage_period": "not_reported",
         "data_quality_note": (
-            "Bundled synthetic demo; do not treat as measured Bibblio evidence."
+            "Bundled synthetic demo; do not treat as measured business evidence."
             if synthetic
             else "User-supplied confidential input; authorization, provenance, and consent require operator review."
         ),
@@ -68,4 +78,3 @@ def _resolve_path(blueprint_dir: Path, value: str) -> Path:
     if not candidate.is_absolute():
         candidate = blueprint_dir / candidate
     return candidate.resolve()
-

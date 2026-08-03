@@ -1,18 +1,20 @@
 {
   "inputs": {
     "adapter": "mock",
-    "description": "Synthetic focused input for Bibblio Learning & Safety Co-worker.",
+    "description": "Synthetic Bibblio demo input for the generic Learning Quality & Safety Co-worker.",
     "payload": {
-      "business_goal": "Turn Bibblio into a profitable business.",
-      "goal_id": "bibblio-profitable-business",
+      "business_name": "Bibblio",
+      "business_goal": "Build a successful business for Bibblio.",
+      "goal_id": "bibblio-business-success",
+      "planning_horizon_days": 90,
       "input_folder": "@/examples/sample_inputs",
       "content_backlog_file": "@/examples/sample_inputs/content_backlog.json",
-      "output_folder": "~/Downloads/bibblio_learning_safety_coworker",
+      "output_folder": "~/Downloads/learning_quality_safety_coworker",
       "peer_mcp_servers": []
     }
   },
   "outputs": {
-    "folder_path": "~/Downloads/bibblio_learning_safety_coworker",
+    "folder_path": "~/Downloads/learning_quality_safety_coworker",
     "write_run_store": true
   },
   "execution": {

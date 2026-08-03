@@ -1,4 +1,4 @@
-# Bibblio Content Studio Co-worker Terms
+# Content Studio Co-worker Terms
 
 This blueprint produces analysis, drafts, and approval queues. It creates draft package structures only. Every complete package returns to learning, safety, brand, accessibility, licensing, and founder review before release.
 

@@ -8,18 +8,18 @@
     "migration_policy": "sdk_managed"
   },
   "identity": {
-    "id": "bibblio_parent_lifecycle_coworker",
-    "name": "Bibblio Parent Lifecycle Co-worker",
-    "job_name": "bibblio-parent-lifecycle-coworker",
+    "id": "customer_lifecycle_coworker",
+    "name": "Customer Lifecycle Co-worker",
+    "job_name": "customer-lifecycle-coworker",
     "category": "business",
     "version": 1,
     "manifest_version": "1.0"
   },
-  "description": "A focused parent lifecycle co-worker that converts de-identified feedback into journey friction, draft interventions, support escalations, and evidence-backed product priorities.",
+  "description": "A generic Customer Lifecycle co-worker that converts de-identified feedback into journey friction, draft interventions, support escalations, retention evidence, and product priorities.",
   "intent": {
-    "description": "AI Director of Parent Lifecycle, Customer Success, and Product Intelligence serving one shared goal: turn Bibblio into a profitable business.",
-    "problem": "Bibblio needs families to reach value quickly, form a useful routine, receive safe support, and turn churn or feedback into product improvements.",
-    "target_users": "Bibblio's founder and designated product, lifecycle, customer-success, support, privacy, and growth reviewers.",
+    "description": "Customer Lifecycle and Product Intelligence Director serving a configurable business-success goal; the bundled demo applies the role to Bibblio's parent lifecycle.",
+    "problem": "Subscription businesses need customers to reach value quickly, form useful routines, receive trustworthy support, and turn churn or feedback into product improvements.",
+    "target_users": "Founders and designated product, lifecycle, customer-success, support, privacy, and growth reviewers.",
     "safety": {
       "enabled": true,
       "mode": "approval_required",
@@ -69,7 +69,7 @@
     "worker": {
       "with": {
         "stereotype": "internal_write_worker",
-        "image": "mirror-neuron/bibblio-parent-lifecycle-coworker:local",
+        "image": "mirror-neuron/customer-lifecycle-coworker:local",
         "upload_paths": [
           {
             "source": "domain",
@@ -91,19 +91,33 @@
       ]
     },
     "inputs": {
+      "business_name": {
+        "type": "domain_value",
+        "required": false,
+        "privacy": "internal",
+        "description": "Business name used to contextualize role outputs. The bundled demo defaults to Bibblio.",
+        "example": "Bibblio"
+      },
       "business_goal": {
         "type": "domain_value",
         "required": false,
         "privacy": "internal",
-        "description": "Shared business goal served by all five independently launched Bibblio co-workers.",
-        "example": "Turn Bibblio into a profitable business."
+        "description": "Shared business goal served by the independently launched co-workers.",
+        "example": "Build a successful business for Bibblio."
       },
       "goal_id": {
         "type": "domain_value",
         "required": false,
         "privacy": "internal",
         "description": "Stable goal identity used for explicit MCP peer collaboration.",
-        "example": "bibblio-profitable-business"
+        "example": "bibblio-business-success"
+      },
+      "planning_horizon_days": {
+        "type": "domain_value",
+        "required": false,
+        "privacy": "internal",
+        "description": "Founder-facing planning horizon, bounded from 30 to 365 days.",
+        "example": 90
       },
       "input_folder": {
         "type": "local_path",
@@ -125,15 +139,15 @@
         "type": "domain_value",
         "required": false,
         "privacy": "confidential",
-        "description": "Optional pre-approved MCP servers for peer Bibblio co-worker jobs serving the same goal.",
+        "description": "Optional pre-approved MCP servers for peer co-worker jobs serving the same goal.",
         "example": []
       },
-      "parent_feedback_file": {
+      "customer_feedback_file": {
         "type": "local_path",
         "path_kind": "file",
         "required": false,
         "privacy": "confidential",
-        "description": "De-identified CSV of parent observations, journey stages, themes, and evidence status.",
+        "description": "De-identified CSV of customer observations, journey stages, themes, and evidence status; the bundled demo uses parent feedback.",
         "example": "@/examples/sample_inputs/parent_feedback.csv"
       }
     },
@@ -143,14 +157,24 @@
         "type": "final_artifact",
         "path": "final_artifact.json",
         "schema_version": "mn.blueprint.final_artifact_contract.v1",
-        "required_fields": [
-          "type",
-          "executive_summary",
+      "required_fields": [
+        "type",
+        "business_name",
+        "business_goal",
+        "worker_role",
+        "role_contribution",
+        "north_star_question",
+        "role_scorecard",
+        "founder_decisions",
+        "executive_summary",
           "recommended_action",
           "confidence",
           "evidence",
-          "next_steps",
-          "source_refs"
+        "next_steps",
+        "ninety_day_plan",
+        "cross_functional_handoffs",
+        "collaboration",
+        "source_refs"
         ]
       },
       "artifacts": [
@@ -158,7 +182,7 @@
           "artifact_id": "final_artifact",
           "type": "final_artifact",
           "path": "final_artifact.json",
-          "producer": "bibblio_parent_lifecycle_director",
+          "producer": "customer_lifecycle_director",
           "mime_type": "application/json",
           "schema_version": "mn.blueprint.final_artifact.v1",
           "source_refs": [
@@ -167,12 +191,12 @@
           ]
         },
         {
-          "artifact_id": "bibblio_parent_lifecycle_packet",
-          "type": "parent_lifecycle_packet",
-          "path": "bibblio_parent_lifecycle_packet.json",
-          "producer": "bibblio_parent_lifecycle_director",
+          "artifact_id": "customer_lifecycle_packet",
+          "type": "customer_lifecycle_operating_brief",
+          "path": "customer_lifecycle_packet.json",
+          "producer": "customer_lifecycle_director",
           "mime_type": "application/json",
-          "schema_version": "mn.bibblio.aspect_packet.v1",
+          "schema_version": "mn.business_success.role_brief.v1",
           "source_refs": [
             "inputs.json",
             "workflow_state/work_packets"
@@ -222,8 +246,8 @@
             "mn-job-mcp-server"
           ],
           "environment": {
-            "MN_BLUEPRINT_ID": "bibblio_parent_lifecycle_coworker",
-            "MN_MCP_GOAL_ID": "bibblio-profitable-business",
+            "MN_BLUEPRINT_ID": "customer_lifecycle_coworker",
+            "MN_MCP_GOAL_ID": "bibblio-business-success",
             "MN_MCP_PATH": "/mcp"
           },
           "no_auto_providers": true,
@@ -262,8 +286,8 @@
               "job-collaboration"
             ],
             "meta": {
-              "blueprint_id": "bibblio_parent_lifecycle_coworker",
-              "goal_id": "bibblio-profitable-business",
+              "blueprint_id": "customer_lifecycle_coworker",
+              "goal_id": "bibblio-business-success",
               "job_id": "${env.MN_JOB_ID}",
               "run_id": "${env.MN_RUN_ID}",
               "path": "/mcp",
@@ -284,9 +308,9 @@
       }
     ],
     "registry": {
-      "bibblio_parent_lifecycle_director": {
-        "handler": "agents.bibblio_parent_lifecycle_director",
-        "role": "AI Director of Parent Lifecycle, Customer Success, and Product Intelligence"
+      "customer_lifecycle_director": {
+        "handler": "agents.customer_lifecycle_director",
+        "role": "Customer Lifecycle and Product Intelligence Director"
       }
     }
   },
@@ -315,12 +339,12 @@
       "Draft review-ready recommendations without executing external actions."
     ],
     "agents": {
-      "bibblio_parent_lifecycle_director": {
+      "customer_lifecycle_director": {
         "llm_config": "primary",
-        "role": "AI Director of Parent Lifecycle, Customer Success, and Product Intelligence",
+        "role": "Customer Lifecycle and Product Intelligence Director",
         "responsibilities": [
           "Diagnose activation, retention, support, cancellation, and value-proof friction.",
-          "Draft least-intrusive parent interventions and evidence-backed product briefs.",
+          "Draft least-intrusive customer interventions and evidence-backed product briefs.",
           "Keep communications, sensitive support, refunds, and data changes human-controlled."
         ]
       }
@@ -328,7 +352,7 @@
   },
   "mcp_collaboration": {
     "enabled": true,
-    "goal_id": "bibblio-profitable-business",
+    "goal_id": "bibblio-business-success",
     "publication_state": "staged",
     "publish_local_exchange": true,
     "peer_reads_enabled": false,
@@ -352,15 +376,15 @@
     }
   },
   "metadata": {
-    "blueprint_id": "bibblio_parent_lifecycle_coworker",
+    "blueprint_id": "customer_lifecycle_coworker",
     "runtime_features": [
       "de-identified feedback analysis",
-      "draft parent interventions",
+      "draft customer interventions",
       "support escalation guards",
       "MCP aggregate product intelligence"
     ],
-    "collaboration_group": "bibblio-profitability-team",
-    "business_goal": "Turn Bibblio into a profitable business.",
+    "collaboration_group": "business-success-team",
+    "business_goal": "Build a successful business for Bibblio.",
     "job_data": {
       "resources": [
         {
@@ -372,7 +396,7 @@
     }
   },
   "workflow": {
-    "workflow_id": "bibblio_parent_lifecycle_coworker_v1",
+    "workflow_id": "customer_lifecycle_coworker_v1",
     "execution": {
       "strategy": "serial"
     },
@@ -401,13 +425,13 @@
     },
     "steps": [
       {
-        "id": "diagnose_parent_journey",
+        "id": "diagnose_customer_journey",
         "kind": "source",
-        "label": "Diagnose Parent Journey",
+        "label": "Diagnose Customer Journey",
         "goal": "Identify activation, retention, support, and value-proof friction from de-identified evidence.",
         "needs": [],
         "run": {
-          "definition": "steps.diagnose_parent_journey"
+          "definition": "steps.diagnose_customer_journey"
         },
         "control": {
           "required": true,
@@ -426,15 +450,15 @@
         }
       },
       {
-        "id": "publish_parent_lifecycle_packet",
+        "id": "publish_customer_lifecycle_packet",
         "kind": "sink",
-        "label": "Publish Parent Lifecycle Packet",
-        "goal": "Publish aggregate product intelligence and draft interventions without contacting families.",
+        "label": "Publish Customer Lifecycle Brief",
+        "goal": "Publish aggregate product intelligence and draft interventions without contacting customers.",
         "needs": [
-          "diagnose_parent_journey"
+          "diagnose_customer_journey"
         ],
         "run": {
-          "definition": "steps.publish_parent_lifecycle_packet"
+          "definition": "steps.publish_customer_lifecycle_packet"
         },
         "control": {
           "required": true,

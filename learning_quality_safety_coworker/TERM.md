@@ -1,4 +1,4 @@
-# Bibblio Learning & Safety Co-worker Terms
+# Learning Quality & Safety Co-worker Terms
 
 This blueprint produces analysis, drafts, and approval queues. Therapeutic, diagnostic, medical, or guaranteed-outcome proposals are blocked. No review decision is a publication authorization.
 

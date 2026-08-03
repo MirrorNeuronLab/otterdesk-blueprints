@@ -1,10 +1,16 @@
-# Bibblio GTM Co-worker
+# Growth & Partnerships Co-worker
 
-Blueprint ID: bibblio_gtm_coworker
+Blueprint ID: growth_partnerships_coworker
 
-Business goal: Turn Bibblio into a profitable business.
+Default demo business: Bibblio.
 
-This is one independent member of the bibblio-profitability-team collaboration group. It owns GTM discovery, seed-contact qualification, partnerships, and draft outreach. It can run by itself and can exchange bounded, aggregate goal work packets with the other Bibblio co-workers through explicit MCP peer configurations.
+Default demo goal: Build a successful business for Bibblio.
+
+The role is generic. Set `business_name`, `business_goal`, `goal_id`, and
+`planning_horizon_days` for another business; the bundled knowledge and sample
+inputs remain an unchanged Bibblio demonstration.
+
+This is one independent member of the `business-success-team` collaboration group. It owns demand discovery, contact qualification, channel experiments, partnerships, and draft outreach. It can run by itself and exchange bounded aggregate goal packets with explicitly approved peer co-workers.
 
 ## Workflow
 
@@ -14,7 +20,14 @@ This is one independent member of the bibblio-profitability-team collaboration g
 Input: an approved adult-professional contact CSV with Name, Email, Category, Note, and Highlight columns.
 
 Local working artifact: confidential_outreach_queue.json.
-Final artifact: gtm_operating_packet.json.
+Final role brief: `growth_partnerships_packet.json` and `final_artifact.json`.
+
+## Founder-facing output
+
+The role brief contains a demand scorecard, decisions for the founder, a 90-day
+pilot plan, and named handoffs: Finance supplies CAC/payback limits; Lifecycle
+supplies retained-customer evidence; Quality & Safety supplies claim boundaries;
+and Content Studio supplies approved proof assets.
 
 ## Control boundary
 
@@ -28,9 +41,9 @@ The default configuration uses examples/sample_inputs/edtech_contacts_sample.csv
 
 Run from the blueprint catalog:
 
-    mn blueprint run bibblio_gtm_coworker
+    mn blueprint run growth_partnerships_coworker
 
-To collaborate, supply explicit peer_mcp_servers and enable peer_reads_enabled. Each peer record is filtered to goal_id bibblio-profitable-business.
+To collaborate, supply explicit peer_mcp_servers and enable peer_reads_enabled. Each peer record is filtered to goal_id bibblio-business-success.
 
 While a run is active, the blueprint starts a loopback, read-only
 `mn-job-collaboration` MCP service on a runtime-allocated port. OtterDesk and

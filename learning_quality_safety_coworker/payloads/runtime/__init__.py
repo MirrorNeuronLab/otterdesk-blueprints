@@ -1,1 +1,1 @@
-"""Independent Bibblio co-worker runtime boundary."""
+"""Independent business co-worker runtime boundary."""

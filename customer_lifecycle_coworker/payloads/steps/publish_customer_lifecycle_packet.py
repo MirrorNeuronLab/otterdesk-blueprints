@@ -4,8 +4,7 @@ from ._shared import inputs
 
 
 STEP = StepSpec(
-    input=InputSpec(fields=inputs("parent_feedback_file", previous_step="diagnose_parent_journey")),
-    flow=agent("bibblio_parent_lifecycle_director"),
-    output=OutputSpec(fields={"parent_lifecycle_packet": flow_output()}),
+    input=InputSpec(fields=inputs("customer_feedback_file", previous_step="diagnose_customer_journey")),
+    flow=agent("customer_lifecycle_director"),
+    output=OutputSpec(fields={"customer_lifecycle_packet": flow_output()}),
 )
-

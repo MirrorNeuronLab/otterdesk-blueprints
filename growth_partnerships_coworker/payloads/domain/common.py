@@ -15,11 +15,11 @@ ASPECT_PACKET_PATH = "growth_partnerships_packet.json"
 
 BLOCKED_ACTIONS = [
     "publish child-facing content",
-    "send parent or prospect communications",
+    "send customer, parent, or prospect communications",
     "spend money or launch paid campaigns",
     "change pricing or subscription terms",
     "make learning, medical, or therapeutic outcome claims",
-    "change child or family data collection",
+    "change customer, child, or family data collection",
 ]
 
 

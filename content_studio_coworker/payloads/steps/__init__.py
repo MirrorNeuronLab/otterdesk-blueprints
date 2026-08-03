@@ -1,2 +1,1 @@
-"""Logical Bibblio workflow phase definitions."""
-
+"""Logical business-role workflow phase definitions."""

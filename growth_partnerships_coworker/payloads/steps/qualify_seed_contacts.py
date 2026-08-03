@@ -5,7 +5,7 @@ from ._shared import inputs
 
 STEP = StepSpec(
     input=InputSpec(fields=inputs("contacts_csv")),
-    flow=agent("bibblio_growth_lead"),
+    flow=agent("growth_partnerships_lead"),
     output=OutputSpec(fields={"qualified_seed_contacts": flow_output()}),
 )
 

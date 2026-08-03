@@ -18,6 +18,8 @@ from .common import (
     ASPECT_PACKET_PATH,
     BLUEPRINT_ID,
     BUSINESS_GOAL,
+    DEFAULT_BUSINESS_NAME,
+    DEFAULT_GOAL_ID,
     WORKER_ID,
     WORKER_ROLE,
 )
@@ -27,7 +29,7 @@ from .inputs import normalized_inputs
 def build_packet(context: dict[str, Any], **fields: Any) -> dict[str, Any]:
     inputs = normalized_inputs(context)
     return build_goal_work_packet(
-        goal_id=str(inputs.get("goal_id") or "bibblio-profitable-business"),
+        goal_id=str(inputs.get("goal_id") or DEFAULT_GOAL_ID),
         business_goal=str(inputs.get("business_goal") or BUSINESS_GOAL),
         worker_id=WORKER_ID,
         worker_role=WORKER_ROLE,
@@ -70,7 +72,7 @@ def publish_workflow_status(
         job_id=str(context.get("job_id") or context.get("run_id") or "local-job"),
         blueprint_id=BLUEPRINT_ID,
         run_id=str(context.get("run_id") or ""),
-        goal_id=str(inputs.get("goal_id") or "bibblio-profitable-business"),
+        goal_id=str(inputs.get("goal_id") or DEFAULT_GOAL_ID),
         status=status,
         stage=stage,
         summary=summary,
@@ -92,7 +94,7 @@ def peer_packets(context: dict[str, Any]) -> dict[str, Any]:
     settings = (context.get("config") or {}).get("mcp_collaboration") or {}
     return read_peer_goal_packets(
         inputs.get("peer_mcp_servers") or [],
-        goal_id=str(inputs.get("goal_id") or "bibblio-profitable-business"),
+        goal_id=str(inputs.get("goal_id") or DEFAULT_GOAL_ID),
         enabled=bool(settings.get("peer_reads_enabled", False)),
         max_servers=int(settings.get("max_peer_servers", 8)),
         max_records_per_peer=int(settings.get("max_records_per_peer", 50)),
@@ -117,16 +119,37 @@ def write_final_artifact(
     evidence: dict[str, Any],
     next_steps: list[str],
     data_status: str,
+    role_contribution: str,
+    north_star_question: str,
+    role_scorecard: list[dict[str, Any]],
+    founder_decisions: list[dict[str, Any]],
+    cross_functional_handoffs: list[dict[str, Any]],
+    ninety_day_plan: list[dict[str, Any]],
+    peer_context: dict[str, Any],
 ) -> dict[str, Any]:
     run_dir = Path(context["run_dir"])
     run_dir.mkdir(parents=True, exist_ok=True)
+    inputs = normalized_inputs(context)
+    peer_signals = list(peer_context.get("signals") or [])
+    peer_warnings = list(peer_context.get("warnings") or [])
+    peer_workers = {
+        str(signal.get("worker") or "")
+        for signal in peer_signals
+        if isinstance(signal, dict)
+    }
     final_artifact = {
-        "schema_version": "mn.bibblio.aspect_packet.v1",
+        "schema_version": "mn.business_success.role_brief.v1",
         "type": artifact_type,
+        "business_name": str(inputs.get("business_name") or DEFAULT_BUSINESS_NAME),
         "business_goal": packet["business_goal"],
         "goal_id": packet["goal_id"],
+        "planning_horizon_days": int(inputs["planning_horizon_days"]),
         "worker": WORKER_ID,
         "worker_role": WORKER_ROLE,
+        "role_contribution": role_contribution,
+        "north_star_question": north_star_question,
+        "role_scorecard": role_scorecard,
+        "founder_decisions": founder_decisions,
         "data_status": data_status,
         "executive_summary": executive_summary,
         "recommended_action": {
@@ -138,11 +161,29 @@ def write_final_artifact(
         "approval_queue": packet["requested_approval"],
         "risks": packet["risks"],
         "next_steps": next_steps,
+        "ninety_day_plan": ninety_day_plan,
+        "cross_functional_handoffs": cross_functional_handoffs,
         "source_refs": packet["source_refs"],
         "collaboration": {
             "goal_work_packet": packet["work_packet_id"],
             "peer_input_mode": "explicit_mcp_servers_only",
             "mcp_exchange": "collaboration/mcp_exchange.sqlite3",
+            "peer_read_status": peer_context.get("status", "unknown"),
+            "peer_goal_packet_count": len(peer_signals),
+            "peer_goal_signals": peer_signals,
+            "peer_warnings": peer_warnings,
+            "team_synthesis": {
+                "shared_goal": packet["business_goal"],
+                "operating_rule": "Use bounded peer evidence to resolve dependencies; never treat another role's recommendation as approval.",
+                "signals_considered": len(peer_signals),
+                "peer_workers_considered": sorted(worker for worker in peer_workers if worker),
+                "handoffs_defined": len(cross_functional_handoffs),
+                "unresolved_without_peer_evidence": [
+                    handoff.get("needs_from")
+                    for handoff in cross_functional_handoffs
+                    if handoff.get("needs_from") and handoff.get("to") not in peer_workers
+                ],
+            },
         },
     }
     write_json(run_dir / "final_artifact.json", final_artifact)

@@ -1,4 +1,4 @@
-"""Runtime-boundary adapter for one independent Bibblio co-worker."""
+"""Runtime-boundary adapter for one independent business co-worker."""
 
 from __future__ import annotations
 

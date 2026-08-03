@@ -9,10 +9,10 @@ from .common import as_number, round_or_none
 def calculate_unit_economics(metrics: dict[str, Any]) -> dict[str, Any]:
     visitors = as_number(metrics.get("monthly_qualified_visitors"))
     signups = as_number(metrics.get("monthly_signups"))
-    activated = as_number(metrics.get("monthly_activated_families"))
-    trials = as_number(metrics.get("monthly_trial_families"))
-    new_paid = as_number(metrics.get("monthly_new_paid_families"))
-    paying = as_number(metrics.get("paying_families_end_of_period"))
+    activated = _first_number(metrics, "monthly_activated_customers", "monthly_activated_families")
+    trials = _first_number(metrics, "monthly_trial_customers", "monthly_trial_families")
+    new_paid = _first_number(metrics, "monthly_new_paid_customers", "monthly_new_paid_families")
+    paying = _first_number(metrics, "paying_customers_end_of_period", "paying_families_end_of_period")
     arpu = as_number(metrics.get("monthly_arpu"))
     margin = as_number(metrics.get("gross_margin_rate"))
     churn = as_number(metrics.get("monthly_churn_rate"))
@@ -23,12 +23,12 @@ def calculate_unit_economics(metrics: dict[str, Any]) -> dict[str, Any]:
     monthly_gross_profit = _product(monthly_revenue, margin)
     monthly_contribution = _subtract(monthly_gross_profit, spend, fixed)
     cac = _divide(spend, new_paid)
-    gross_profit_per_family = _product(arpu, margin)
-    ltv = _divide(gross_profit_per_family, churn)
-    payback = _divide(cac, gross_profit_per_family)
+    gross_profit_per_customer = _product(arpu, margin)
+    ltv = _divide(gross_profit_per_customer, churn)
+    payback = _divide(cac, gross_profit_per_customer)
     break_even = None
-    if gross_profit_per_family and gross_profit_per_family > 0 and spend is not None and fixed is not None:
-        break_even = math.ceil((spend + fixed) / gross_profit_per_family)
+    if gross_profit_per_customer and gross_profit_per_customer > 0 and spend is not None and fixed is not None:
+        break_even = math.ceil((spend + fixed) / gross_profit_per_customer)
 
     values = {
         "visitor_to_signup_rate": _divide(signups, visitors),
@@ -41,8 +41,8 @@ def calculate_unit_economics(metrics: dict[str, Any]) -> dict[str, Any]:
         "blended_cac": cac,
         "modeled_gross_profit_ltv": ltv,
         "modeled_cac_payback_months": payback,
-        "break_even_paying_families": break_even,
-        "current_paying_families": paying,
+        "break_even_paying_customers": break_even,
+        "current_paying_customers": paying,
         "monthly_churn_rate": churn,
         "gross_margin_rate": margin,
     }
@@ -51,10 +51,10 @@ def calculate_unit_economics(metrics: dict[str, Any]) -> dict[str, Any]:
         for name, value in {
             "monthly_qualified_visitors": visitors,
             "monthly_signups": signups,
-            "monthly_activated_families": activated,
-            "monthly_trial_families": trials,
-            "monthly_new_paid_families": new_paid,
-            "paying_families_end_of_period": paying,
+            "monthly_activated_customers": activated,
+            "monthly_trial_customers": trials,
+            "monthly_new_paid_customers": new_paid,
+            "paying_customers_end_of_period": paying,
             "monthly_arpu": arpu,
             "gross_margin_rate": margin,
             "monthly_churn_rate": churn,
@@ -70,12 +70,18 @@ def calculate_unit_economics(metrics: dict[str, Any]) -> dict[str, Any]:
         "metrics": {key: round_or_none(value) for key, value in values.items()},
         "missing_inputs": missing,
         "formula_notes": [
-            "Monthly revenue = paying families × monthly ARPU.",
+            "Monthly revenue = paying customers × monthly ARPU.",
             "Contribution = revenue × gross margin rate − acquisition spend − fixed operating costs.",
             "Modeled LTV = monthly ARPU × gross margin rate ÷ monthly churn rate.",
             "CAC and LTV are directional when attribution and retention history are incomplete.",
         ],
     }
+
+
+def _first_number(metrics: dict[str, Any], primary: str, demo_field: str) -> float | None:
+    """Prefer the generic field while keeping the unchanged Bibblio demo readable."""
+    value = metrics.get(primary)
+    return as_number(value if value not in (None, "") else metrics.get(demo_field))
 
 
 def _divide(numerator: float | None, denominator: float | None) -> float | None:

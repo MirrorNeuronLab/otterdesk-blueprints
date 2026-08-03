@@ -1,4 +1,4 @@
-"""Route-neutral stateful binding for one Bibblio specialist."""
+"""Route-neutral stateful binding for one business-role specialist."""
 
 from __future__ import annotations
 
@@ -89,7 +89,7 @@ def create_domain_agent(agent_id: str, operation: Callable[..., dict[str, Any]])
         artifacts = []
         work_packet_artifact = result.get("work_packet_artifact")
         if isinstance(work_packet_artifact, str) and work_packet_artifact:
-            artifacts.append(artifact_reference("bibblio_goal_work_packet", work_packet_artifact))
+            artifacts.append(artifact_reference("business_goal_work_packet", work_packet_artifact))
         payload: dict[str, Any] = {
             "result": {
                 key: value
