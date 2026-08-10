@@ -110,7 +110,7 @@ def _publish_lifecycle_packet(context: dict[str, Any]) -> dict[str, Any]:
         context,
         packet,
         artifact_type="customer_lifecycle_operating_brief",
-        executive_summary=f"The Customer Lifecycle co-worker translated {business_name}'s de-identified feedback into journey friction, draft interventions, and product priorities while keeping every customer communication behind approval.",
+        executive_summary=f"The GTM Assistant translated {business_name}'s de-identified feedback into journey friction, draft interventions, and product priorities while keeping every customer communication behind approval.",
         evidence={"feedback_record_count": len(rows), "theme_counts": dict(themes), "interventions_artifact": INTERVENTIONS_PATH, "send_authorized": False},
         next_steps=[
             "Join feedback themes to de-identified activation and retention cohorts.",

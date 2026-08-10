@@ -1,4 +1,4 @@
-# Customer Lifecycle Co-worker Terms
+# GTM Assistant Terms
 
 This blueprint produces analysis, drafts, and approval queues. It does not contact customers. Copy, cohorts, frequency caps, and support escalation rules require approval, and raw customer records are not shared through MCP. The unchanged Bibblio demo happens to model a family product.
 

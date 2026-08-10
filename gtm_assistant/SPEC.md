@@ -1,4 +1,4 @@
-# Customer Lifecycle Co-worker v1 Specification
+# GTM Assistant v1 Specification
 
 ## Purpose
 

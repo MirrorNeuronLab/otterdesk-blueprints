@@ -1,7 +1,7 @@
 {
   "inputs": {
     "adapter": "mock",
-    "description": "Synthetic Bibblio demo input for the generic Customer Lifecycle Co-worker.",
+    "description": "Synthetic Bibblio demo input for the generic GTM Assistant.",
     "payload": {
       "business_name": "Bibblio",
       "business_goal": "Build a successful business for Bibblio.",
@@ -9,12 +9,12 @@
       "planning_horizon_days": 90,
       "input_folder": "@/examples/sample_inputs",
       "customer_feedback_file": "@/examples/sample_inputs/parent_feedback.csv",
-      "output_folder": "~/Downloads/customer_lifecycle_coworker",
+      "output_folder": "~/Downloads/gtm_assistant",
       "peer_mcp_servers": []
     }
   },
   "outputs": {
-    "folder_path": "~/Downloads/customer_lifecycle_coworker",
+    "folder_path": "~/Downloads/gtm_assistant",
     "write_run_store": true
   },
   "execution": {

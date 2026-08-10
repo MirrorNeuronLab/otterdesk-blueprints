@@ -440,11 +440,11 @@
   },
   {
     "category": "Business",
-    "description": "A generic Customer Lifecycle co-worker that converts de-identified feedback into journey friction, retention evidence, product priorities, and approval-gated intervention drafts.",
-    "id": "customer_lifecycle_coworker",
-    "job_name": "customer-lifecycle-coworker",
-    "name": "Customer Lifecycle Co-worker",
-    "path": "customer_lifecycle_coworker",
+    "description": "A GTM assistant that converts de-identified feedback into journey friction, retention evidence, product priorities, and approval-gated intervention drafts.",
+    "id": "gtm_assistant",
+    "job_name": "gtm-assistant",
+    "name": "GTM Assistant",
+    "path": "gtm_assistant",
     "mcp_collaboration": {
       "enabled": true,
       "goal_id": "bibblio-business-success",
@@ -479,6 +479,6 @@
       "target_users": "Founders and designated product, lifecycle, support, privacy, brand, and quality reviewers."
     },
     "type": "batch",
-    "workflow_id": "customer_lifecycle_coworker_v1"
+    "workflow_id": "gtm_assistant_v1"
   }
 ]

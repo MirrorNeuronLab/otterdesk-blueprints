@@ -257,10 +257,10 @@ def _run_handler_workflow(
             },
         ),
         (
-            "customer_lifecycle_coworker",
+            "gtm_assistant",
             {
-                "input_folder": str(ROOT / "customer_lifecycle_coworker" / "examples" / "sample_inputs"),
-                "customer_feedback_file": str(ROOT / "customer_lifecycle_coworker" / "examples" / "sample_inputs" / "parent_feedback.csv"),
+                "input_folder": str(ROOT / "gtm_assistant" / "examples" / "sample_inputs"),
+                "customer_feedback_file": str(ROOT / "gtm_assistant" / "examples" / "sample_inputs" / "parent_feedback.csv"),
                 "business_goal": "Build a successful business for Bibblio.",
                 "goal_id": "bibblio-business-success",
             },

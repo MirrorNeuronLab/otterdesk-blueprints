@@ -1,6 +1,6 @@
-# Customer Lifecycle Co-worker
+# GTM Assistant
 
-Blueprint ID: customer_lifecycle_coworker
+Blueprint ID: gtm_assistant
 
 Default demo business: Bibblio.
 
@@ -40,7 +40,7 @@ The default configuration uses examples/sample_inputs/parent_feedback.csv. All b
 
 Run from the blueprint catalog:
 
-    mn blueprint run customer_lifecycle_coworker
+    mn blueprint run gtm_assistant
 
 To collaborate, supply explicit peer_mcp_servers and enable peer_reads_enabled. Each peer record is filtered to goal_id bibblio-business-success.
 

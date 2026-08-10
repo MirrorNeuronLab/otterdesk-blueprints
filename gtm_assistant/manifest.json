@@ -8,14 +8,14 @@
     "migration_policy": "sdk_managed"
   },
   "identity": {
-    "id": "customer_lifecycle_coworker",
-    "name": "Customer Lifecycle Co-worker",
-    "job_name": "customer-lifecycle-coworker",
+    "id": "gtm_assistant",
+    "name": "GTM Assistant",
+    "job_name": "gtm-assistant",
     "category": "business",
     "version": 1,
     "manifest_version": "1.0"
   },
-  "description": "A generic Customer Lifecycle co-worker that converts de-identified feedback into journey friction, draft interventions, support escalations, retention evidence, and product priorities.",
+  "description": "A GTM assistant that converts de-identified customer feedback into journey friction, draft interventions, support escalations, retention evidence, and product priorities.",
   "intent": {
     "description": "Customer Lifecycle and Product Intelligence Director serving a configurable business-success goal; the bundled demo applies the role to Bibblio's parent lifecycle.",
     "problem": "Subscription businesses need customers to reach value quickly, form useful routines, receive trustworthy support, and turn churn or feedback into product improvements.",
@@ -69,7 +69,7 @@
     "worker": {
       "with": {
         "stereotype": "internal_write_worker",
-        "image": "mirror-neuron/customer-lifecycle-coworker:local",
+        "image": "mirror-neuron/gtm-assistant:local",
         "upload_paths": [
           {
             "source": "domain",
@@ -246,7 +246,7 @@
             "mn-job-mcp-server"
           ],
           "environment": {
-            "MN_BLUEPRINT_ID": "customer_lifecycle_coworker",
+            "MN_BLUEPRINT_ID": "gtm_assistant",
             "MN_MCP_GOAL_ID": "bibblio-business-success",
             "MN_MCP_PATH": "/mcp"
           },
@@ -286,7 +286,7 @@
               "job-collaboration"
             ],
             "meta": {
-              "blueprint_id": "customer_lifecycle_coworker",
+              "blueprint_id": "gtm_assistant",
               "goal_id": "bibblio-business-success",
               "job_id": "${env.MN_JOB_ID}",
               "run_id": "${env.MN_RUN_ID}",
@@ -376,7 +376,7 @@
     }
   },
   "metadata": {
-    "blueprint_id": "customer_lifecycle_coworker",
+    "blueprint_id": "gtm_assistant",
     "runtime_features": [
       "de-identified feedback analysis",
       "draft customer interventions",
@@ -396,7 +396,7 @@
     }
   },
   "workflow": {
-    "workflow_id": "customer_lifecycle_coworker_v1",
+    "workflow_id": "gtm_assistant_v1",
     "execution": {
       "strategy": "serial"
     },

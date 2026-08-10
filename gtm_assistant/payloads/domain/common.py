@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 
-BLUEPRINT_ID = "customer_lifecycle_coworker"
+BLUEPRINT_ID = "gtm_assistant"
 DEFAULT_BUSINESS_NAME = "Bibblio"
 BUSINESS_GOAL = "Build a successful business for Bibblio."
 DEFAULT_GOAL_ID = "bibblio-business-success"

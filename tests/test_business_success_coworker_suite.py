@@ -19,7 +19,7 @@ BLUEPRINTS = {
     "business_finance_coworker": ("business_finance_controller", ["calculate_unit_economics", "publish_financial_control_packet"]),
     "learning_quality_safety_coworker": ("learning_quality_safety_director", ["review_learning_backlog", "publish_learning_safety_packet"]),
     "content_studio_coworker": ("content_studio_director", ["plan_content_batch", "publish_content_studio_packet"]),
-    "customer_lifecycle_coworker": ("customer_lifecycle_director", ["diagnose_customer_journey", "publish_customer_lifecycle_packet"]),
+    "gtm_assistant": ("customer_lifecycle_director", ["diagnose_customer_journey", "publish_customer_lifecycle_packet"]),
 }
 
 PUBLIC_NAMES = {
@@ -27,7 +27,7 @@ PUBLIC_NAMES = {
     "business_finance_coworker": "Business Finance Co-worker",
     "learning_quality_safety_coworker": "Learning Quality & Safety Co-worker",
     "content_studio_coworker": "Content Studio Co-worker",
-    "customer_lifecycle_coworker": "Customer Lifecycle Co-worker",
+    "gtm_assistant": "GTM Assistant",
 }
 
 RETIRED_BLUEPRINT_IDS = {
@@ -51,9 +51,9 @@ UNCHANGED_DEMO_ASSETS = {
     "content_studio_coworker/examples/sample_inputs/SAMPLE_DATASET_MANIFEST.json": "b03ff1ec1dac1a707fc3fc8cba7c91a14097c1bd828aa5a979b95455cc1b23b5",
     "content_studio_coworker/examples/sample_inputs/approved_learning_briefs.json": "48f86e915f86f81345288f4557473aabc6ee9e031c78b8b55616a8ea767b5afa",
     "content_studio_coworker/payloads/knowledge/content_studio_playbook.md": "bb38345a24ed03a4b3c5a02a83177412a879277d8ba47462564607d18f46a96b",
-    "customer_lifecycle_coworker/examples/sample_inputs/SAMPLE_DATASET_MANIFEST.json": "3bfea624c7279aa87aa9747658c27fffc8e90d75a3d900e56c6042f20e396cfd",
-    "customer_lifecycle_coworker/examples/sample_inputs/parent_feedback.csv": "6e490348b8e4c4b140c559b1c5e4bbdc316af2cc37df667e0ab55dec0f84b5bd",
-    "customer_lifecycle_coworker/payloads/knowledge/parent_lifecycle_playbook.md": "d2506c08e13a2e4218db698aa2aacc0e9fb9606fe7941985c8778ace6cf893a9",
+    "gtm_assistant/examples/sample_inputs/SAMPLE_DATASET_MANIFEST.json": "3bfea624c7279aa87aa9747658c27fffc8e90d75a3d900e56c6042f20e396cfd",
+    "gtm_assistant/examples/sample_inputs/parent_feedback.csv": "6e490348b8e4c4b140c559b1c5e4bbdc316af2cc37df667e0ab55dec0f84b5bd",
+    "gtm_assistant/payloads/knowledge/parent_lifecycle_playbook.md": "d2506c08e13a2e4218db698aa2aacc0e9fb9606fe7941985c8778ace6cf893a9",
 }
 
 
@@ -232,7 +232,7 @@ def test_role_specific_safety_fixtures_are_present():
     statuses = {item["learning_review_status"] for item in content["briefs"]}
     assert {"PASS", "PASS WITH CONDITIONS", "REVISE"} <= statuses
 
-    with (ROOT / "customer_lifecycle_coworker" / "examples" / "sample_inputs" / "parent_feedback.csv").open(
+    with (ROOT / "gtm_assistant" / "examples" / "sample_inputs" / "parent_feedback.csv").open(
         newline="", encoding="utf-8"
     ) as handle:
         feedback = list(csv.DictReader(handle))
