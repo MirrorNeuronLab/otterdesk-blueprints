@@ -64,4 +64,14 @@ customer-specific data. Its MCP record and final brief expose only delivery
 status and recipient count; the confidential receipt excludes credentials,
 addresses, and approval text.
 
+OtterDesk presents an explicit development-delivery switch plus separate fields
+for `smtp.mail.me.com`, port `587`, `starttls`, the iCloud sender/SMTP username,
+an Apple app-specific password, and the single development recipient. The
+password remains in the OS
+credential store. The desktop sends the three identity/credential values over
+the authenticated local launch API as declared secret environment values; they
+are not included in the blueprint configuration overlay. IMAP
+`imap.mail.me.com:993` is an incoming-mail setting and cannot be used for this
+outbound-only check.
+
 See SPEC.md and payloads/knowledge/parent_lifecycle_playbook.md for the role contract.

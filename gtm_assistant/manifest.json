@@ -411,6 +411,72 @@
     ],
     "collaboration_group": "business-success-team",
     "business_goal": "Build a successful business for Bibblio.",
+    "init_config_review": {
+      "required": true,
+      "instruction": "Configure the approved iCloud SMTP sender and one development test inbox. Credentials stay in the desktop OS credential store and are supplied only to the declared delivery worker at launch.",
+      "fields": [
+        {
+          "path": "smtp_delivery.enabled",
+          "label": "Enable Development Email Delivery",
+          "type": "boolean",
+          "default": false,
+          "required": true,
+          "description": "Allows the reviewed development-send step to run. Every email still requires a separate explicit approval for that run."
+        },
+        {
+          "path": "smtp_delivery.host",
+          "label": "SMTP Server",
+          "type": "text",
+          "default": "smtp.mail.me.com",
+          "required": true,
+          "description": "Outbound iCloud mail server. imap.mail.me.com on port 993 is only for reading incoming mail and is not supported here."
+        },
+        {
+          "path": "smtp_delivery.port",
+          "label": "SMTP Port",
+          "type": "text",
+          "default": "587",
+          "required": true,
+          "description": "The approved iCloud SMTP submission port."
+        },
+        {
+          "path": "smtp_delivery.security",
+          "label": "Connection Security",
+          "type": "text",
+          "default": "starttls",
+          "required": true,
+          "description": "GTM Assistant supports STARTTLS with smtp.mail.me.com on port 587."
+        },
+        {
+          "path": "smtp_credentials.username",
+          "label": "SMTP Username / Sender Email",
+          "type": "email",
+          "default": "",
+          "required": true,
+          "environment_variable": "MN_SMTP_USERNAME",
+          "description": "The iCloud email address that authenticates with SMTP and appears as the sender."
+        },
+        {
+          "path": "smtp_credentials.app_password",
+          "label": "App-Specific Password",
+          "type": "password",
+          "default": "",
+          "required": true,
+          "secret": true,
+          "environment_variable": "MN_SMTP_PASSWORD",
+          "description": "An Apple app-specific password. It is encrypted in the OS credential store and never saved in the co-worker registry or configuration JSON."
+        },
+        {
+          "path": "smtp_credentials.development_recipient",
+          "label": "Development Recipient",
+          "type": "email",
+          "default": "",
+          "required": true,
+          "environment_variable": "MN_SMTP_DEV_RECIPIENT",
+          "description": "The single test inbox that may receive an explicitly approved development email. This is not the sender address or a customer list."
+        }
+      ]
+    },
     "job_data": {
       "resources": [
         {

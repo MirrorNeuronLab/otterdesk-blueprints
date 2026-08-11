@@ -150,6 +150,30 @@ def test_default_config_keeps_smtp_disabled_without_live_identity_or_secret():
     assert "@gmail.com" not in manifest_text
 
 
+def test_manifest_declares_separate_otterdesk_smtp_fields_without_live_values():
+    manifest = json.loads((ROOT / "gtm_assistant" / "manifest.json").read_text(encoding="utf-8"))
+    review = manifest["metadata"]["init_config_review"]
+    fields = {field["path"]: field for field in review["fields"]}
+
+    assert review["required"] is True
+    assert fields["smtp_delivery.enabled"]["default"] is False
+    assert fields["smtp_delivery.host"]["default"] == "smtp.mail.me.com"
+    assert fields["smtp_delivery.port"]["default"] == "587"
+    assert fields["smtp_delivery.security"]["default"] == "starttls"
+    assert fields["smtp_credentials.username"]["environment_variable"] == "MN_SMTP_USERNAME"
+    assert fields["smtp_credentials.app_password"] == {
+        "path": "smtp_credentials.app_password",
+        "label": "App-Specific Password",
+        "type": "password",
+        "default": "",
+        "required": True,
+        "secret": True,
+        "environment_variable": "MN_SMTP_PASSWORD",
+        "description": "An Apple app-specific password. It is encrypted in the OS credential store and never saved in the co-worker registry or configuration JSON.",
+    }
+    assert fields["smtp_credentials.development_recipient"]["environment_variable"] == "MN_SMTP_DEV_RECIPIENT"
+
+
 def test_delivery_rejects_more_than_one_message_per_run(tmp_path):
     delivery = _load_delivery()
     context = _context(tmp_path)
