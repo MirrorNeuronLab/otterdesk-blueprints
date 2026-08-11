@@ -1,0 +1,60 @@
+{
+  "inputs": {
+    "adapter": "mock",
+    "payload": {
+      "schema_version": "otterdesk.conversation_assistant.request.v1",
+      "request_id": "desktop-conversation-demo",
+      "question": "What is this co-worker working on?",
+      "target_worker": {
+        "id": "demo_worker",
+        "blueprintId": "demo_worker",
+        "name": "Demo Worker",
+        "jobId": "demo-job",
+        "runId": "demo-run"
+      },
+      "mcp_context": {
+        "schema": "otterdesk.worker_mcp_conversation_context.v1",
+        "workerId": "demo_worker",
+        "jobId": "demo-job",
+        "runId": "demo-run",
+        "mcp": {
+          "readOnly": true,
+          "currentRevision": 1,
+          "records": [
+            {
+              "kind": "status",
+              "record_id": "demo-status",
+              "revision": 1,
+              "publication_state": "staged",
+              "summary": "The demo co-worker is preparing a review packet."
+            }
+          ]
+        }
+      }
+    }
+  },
+  "outputs": {
+    "folder_path": "~/Downloads/otterdesk_conversation_assistant",
+    "write_run_store": true
+  },
+  "execution": {
+    "quick_test": true
+  },
+  "llm": {
+    "mode": "fake",
+    "require_live": false,
+    "configs": {
+      "primary": {
+        "timeout_seconds": 60,
+        "max_tokens": 1200,
+        "num_retries": 1
+      }
+    }
+  },
+  "privacy": {
+    "default_classification": "confidential",
+    "minimum_data": true,
+    "external_communications": "blocked"
+  }
+}
+

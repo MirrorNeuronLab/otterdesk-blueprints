@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter
+import json
 from pathlib import Path
 from typing import Any
 
@@ -8,6 +9,7 @@ from mn_marketing_email_skill import normalize_structured_draft, review_email_qu
 from mn_sdk.blueprint_support.workflow_state import write_json
 
 from .collaboration import build_packet, peer_signals, persist_packet, write_final_artifact
+from .delivery import deliver_approved_development_email
 from .inputs import csv_rows, normalized_inputs, resolve_input_file, source_descriptor
 
 
@@ -19,6 +21,8 @@ def run_customer_lifecycle_director(context: dict[str, Any], *, step_id: str, **
         return _diagnose_customer_journey(context)
     if step_id == "publish_customer_lifecycle_packet":
         return _publish_lifecycle_packet(context)
+    if step_id == "deliver_approved_lifecycle_email":
+        return _deliver_approved_lifecycle_email(context)
     raise ValueError(f"Customer Lifecycle co-worker does not own step {step_id!r}")
 
 
@@ -147,6 +151,125 @@ def _publish_lifecycle_packet(context: dict[str, Any]) -> dict[str, Any]:
         peer_context=peers,
     )
     return {**persisted, **final}
+
+
+def _deliver_approved_lifecycle_email(context: dict[str, Any]) -> dict[str, Any]:
+    inputs = normalized_inputs(context)
+    business_name = str(inputs["business_name"])
+    rows, source, synthetic = _dataset(context)
+    themes = Counter(str(row.get("theme") or "unknown") for row in rows)
+    interventions = [
+        _intervention(theme, count, business_name=business_name)
+        for theme, count in themes.most_common(5)
+    ]
+    delivery = deliver_approved_development_email(context, interventions)
+    delivered = delivery.get("status") in {"sent", "already_sent"}
+    peers = peer_signals(context)
+    packet = build_packet(
+        context,
+        stage="deliver_approved_lifecycle_email",
+        objective="Render one aggregate lifecycle draft to an explicitly configured development inbox without using customer addresses or customer-specific data.",
+        trigger="The lifecycle brief is published and the development-only SMTP policy is evaluated.",
+        sources=[source],
+        observed_facts=[
+            f"The lifecycle draft was generated from {len(rows)} de-identified feedback records and {len(themes)} aggregate themes.",
+            (
+                "One explicitly approved development test email was delivered; no customer address or customer-specific data was used."
+                if delivered
+                else "No email was delivered because SMTP delivery is disabled or explicit approval is absent."
+            ),
+        ],
+        assumptions=["A successful development rendering check does not authorize production lifecycle messaging or establish customer consent."],
+        analysis={
+            "delivery_receipt_artifact": delivery.get("receipt_artifact") or "not_created",
+            "delivery_status": delivery.get("status"),
+            "delivery_mode": delivery.get("mode"),
+            "delivered_recipient_count": int(delivery.get("recipient_count") or 0),
+            "customer_addresses_used": False,
+            "customer_specific_data_used": False,
+            "peer_goal_packet_count": len(peers["signals"]),
+            "peer_goal_signals": peers["signals"],
+        },
+        recommendation=(
+            "Review the development message rendering and delivery receipt before authorizing any separately implemented production lifecycle communication."
+            if delivered
+            else "Keep lifecycle messaging in draft-only mode until a human supplies explicit approval and the development SMTP secret environment is configured."
+        ),
+        confidence="medium" if delivered and not synthetic else "low",
+        risks=[
+            "SMTP cannot guarantee exactly-once delivery after an interrupted network transaction.",
+            "A development delivery must never be treated as consent or approval for customer messaging.",
+            "Production lifecycle delivery remains blocked.",
+        ],
+        requested_approval=(
+            []
+            if delivered
+            else ["Founder supplies a bounded approval_id and approves one development delivery after reviewing the draft and sender identity."]
+        ),
+        outputs=["aggregate lifecycle decision packet", "confidential SMTP delivery receipt"],
+        next_check=(
+            "After the test recipient confirms message rendering and receipt."
+            if delivered
+            else "After a human reviews the draft and configures the development-only SMTP environment."
+        ),
+        publication_state="final",
+    )
+    persisted = persist_packet(context, packet)
+    final_artifact = _record_email_delivery_on_final_artifact(context, delivery)
+    return {
+        **persisted,
+        "email_delivery": delivery,
+        "final_artifact": final_artifact,
+        "output_files": [
+            "final_artifact.json",
+            "customer_lifecycle_packet.json",
+            "collaboration/mcp_exchange.sqlite3",
+            *([delivery["receipt_artifact"]] if delivery.get("receipt_artifact") else []),
+        ],
+    }
+
+
+def _record_email_delivery_on_final_artifact(
+    context: dict[str, Any], delivery: dict[str, Any]
+) -> dict[str, Any]:
+    run_dir = Path(context["run_dir"])
+    final_path = run_dir / "final_artifact.json"
+    try:
+        artifact = json.loads(final_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise RuntimeError("The lifecycle final artifact is missing before development delivery") from exc
+    if not isinstance(artifact, dict):
+        raise RuntimeError("The lifecycle final artifact is invalid before development delivery")
+
+    delivered = delivery.get("status") in {"sent", "already_sent"}
+    evidence = artifact.get("evidence") if isinstance(artifact.get("evidence"), dict) else {}
+    artifact["evidence"] = {
+        **evidence,
+        "development_email_delivery": {
+            "status": str(delivery.get("status") or "not_sent"),
+            "mode": str(delivery.get("mode") or "development"),
+            "recipient_count": int(delivery.get("recipient_count") or 0),
+            "receipt_artifact": str(delivery.get("receipt_artifact") or "not_created"),
+            "customer_addresses_used": False,
+            "customer_specific_data_used": False,
+        },
+    }
+    artifact["executive_summary"] = (
+        f"{artifact.get('executive_summary', '')} One explicitly approved development test rendering was delivered to a configured test inbox; no customer address or customer-specific data was used."
+        if delivered
+        else f"{artifact.get('executive_summary', '')} No development email was delivered; lifecycle messaging remains draft-only pending explicit approval and SMTP configuration."
+    ).strip()
+    artifact["next_steps"] = [
+        *list(artifact.get("next_steps") or []),
+        (
+            "Confirm the development message rendering and delivery receipt before considering any separately implemented production lifecycle communication."
+            if delivered
+            else "Keep lifecycle messaging draft-only until a human approves one development rendering check and configures the secret SMTP environment."
+        ),
+    ]
+    for path in (final_path, run_dir / "customer_lifecycle_packet.json"):
+        write_json(path, artifact)
+    return artifact
 
 
 def _intervention(theme: str, count: int, *, business_name: str) -> dict[str, Any]:

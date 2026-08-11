@@ -309,6 +309,12 @@ def test_manifest_handlers_execute_as_message_chained_workflows(
         assert final_artifact["collaboration"]["peer_input_mode"] == "explicit_mcp_servers_only"
         assert "team_synthesis" in final_artifact["collaboration"]
         assert len(final_artifact["collaboration"]["team_synthesis"]["unresolved_without_peer_evidence"]) == 4
+        if blueprint_id == "gtm_assistant":
+            delivery = final_artifact["evidence"]["development_email_delivery"]
+            assert delivery["status"] == "not_sent"
+            assert delivery["recipient_count"] == 0
+            assert delivery["customer_addresses_used"] is False
+            assert delivery["customer_specific_data_used"] is False
 
 
 def test_generic_business_identity_replaces_the_default_demo_context(tmp_path: Path):

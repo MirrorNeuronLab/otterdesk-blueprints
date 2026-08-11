@@ -19,7 +19,7 @@ BLUEPRINTS = {
     "business_finance_coworker": ("business_finance_controller", ["calculate_unit_economics", "publish_financial_control_packet"]),
     "learning_quality_safety_coworker": ("learning_quality_safety_director", ["review_learning_backlog", "publish_learning_safety_packet"]),
     "content_studio_coworker": ("content_studio_director", ["plan_content_batch", "publish_content_studio_packet"]),
-    "gtm_assistant": ("customer_lifecycle_director", ["diagnose_customer_journey", "publish_customer_lifecycle_packet"]),
+    "gtm_assistant": ("customer_lifecycle_director", ["diagnose_customer_journey", "publish_customer_lifecycle_packet", "deliver_approved_lifecycle_email"]),
 }
 
 PUBLIC_NAMES = {
@@ -69,12 +69,28 @@ def test_five_independent_blueprints_share_one_goal_contract():
         assert [step["id"] for step in manifest["workflow"]["steps"]] == step_ids
         assert manifest["workflow"]["steps"][1]["needs"] == [step_ids[0]]
         if blueprint_id == "growth_partnerships_coworker":
-            assert manifest["identity"]["version"] == 2
+            assert manifest["identity"]["version"] == 1
             assert manifest["workflow"]["workflow_id"] == "growth_partnerships_coworker_v2"
             assert manifest["workflow"]["steps"][2]["needs"] == [step_ids[1]]
             assert manifest["workflow"]["steps"][2]["control"]["retry"]["max_attempts"] == 1
             delivery_worker = manifest["workers"]["groups"][0]
             assert delivery_worker["steps"] == ["deliver_approved_email"]
+            assert delivery_worker["with"]["side_effect"] == "external"
+            assert delivery_worker["with"]["pass_env"] == [
+                "MN_SMTP_USERNAME",
+                "MN_SMTP_PASSWORD",
+                "MN_SMTP_DEV_RECIPIENT",
+            ]
+            assert "mirrorneuron-email-delivery-skill" in {
+                dependency["name"] for dependency in manifest["skill_dependencies"]
+            }
+        if blueprint_id == "gtm_assistant":
+            assert manifest["identity"]["version"] == 2
+            assert manifest["workflow"]["workflow_id"] == "gtm_assistant_v2"
+            assert manifest["workflow"]["steps"][2]["needs"] == [step_ids[1]]
+            assert manifest["workflow"]["steps"][2]["control"]["retry"]["max_attempts"] == 1
+            delivery_worker = manifest["workers"]["groups"][0]
+            assert delivery_worker["steps"] == ["deliver_approved_lifecycle_email"]
             assert delivery_worker["with"]["side_effect"] == "external"
             assert delivery_worker["with"]["pass_env"] == [
                 "MN_SMTP_USERNAME",
@@ -156,7 +172,7 @@ def test_catalog_replaces_the_monolith_with_five_collaboration_group_members():
         assert product["default_demo_business"] == "Bibblio"
         assert product["business_goal"] == "Build a successful business for Bibblio."
         assert product["collaboration_group"] == "business-success-team"
-        assert entries[blueprint_id]["mcp_collaboration"] == {
+        expected_mcp_collaboration = {
             "enabled": True,
             "goal_id": "bibblio-business-success",
             "path": "/mcp",
@@ -164,6 +180,13 @@ def test_catalog_replaces_the_monolith_with_five_collaboration_group_members():
             "service_tags": ["mcp", "job-collaboration"],
             "transport": "streamable-http",
         }
+        if blueprint_id == "gtm_assistant":
+            expected_mcp_collaboration["starter_questions"] = [
+                "How many development emails were sent in this run?",
+                "What should we do next?",
+                "What approval do you need before a development email can be sent?",
+            ]
+        assert entries[blueprint_id]["mcp_collaboration"] == expected_mcp_collaboration
 
 
 def test_knowledge_and_sample_inputs_remain_the_unchanged_bibblio_demo():

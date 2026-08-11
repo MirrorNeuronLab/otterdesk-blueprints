@@ -440,7 +440,7 @@
   },
   {
     "category": "Business",
-    "description": "A GTM assistant that converts de-identified feedback into journey friction, retention evidence, product priorities, and approval-gated intervention drafts.",
+    "description": "A GTM assistant that converts de-identified feedback into journey friction, retention evidence, product priorities, approval-gated intervention drafts, and an optional development email rendering check.",
     "id": "gtm_assistant",
     "job_name": "gtm-assistant",
     "name": "GTM Assistant",
@@ -454,6 +454,11 @@
         "mcp",
         "job-collaboration"
       ],
+      "starter_questions": [
+        "How many development emails were sent in this run?",
+        "What should we do next?",
+        "What approval do you need before a development email can be sent?"
+      ],
       "transport": "streamable-http"
     },
     "product": {
@@ -463,14 +468,15 @@
       "collaboration_group": "business-success-team",
       "default_demo_business": "Bibblio",
       "customizable_for": "Subscriptions, activation and retention programs, voice-of-customer synthesis, product intelligence, and support operations.",
-      "how_it_works": "Aggregates journey stages and themes, drafts minimal interventions, prioritizes product fixes, and shares only aggregate retained-segment evidence with peer co-workers.",
+      "how_it_works": "Aggregates journey stages and themes, drafts minimal interventions, prioritizes product fixes, shares only aggregate retained-segment evidence with peer co-workers, and can optionally send one explicitly approved aggregate draft to an environment-injected development inbox.",
       "input": "A de-identified customer-feedback CSV and optional explicit MCP peer packets; the bundled demo uses parent feedback.",
-      "output": "Journey-friction map, draft customer interventions, lifecycle scorecard, founder decisions, a 90-day plan, and MCP handoffs.",
+      "output": "Journey-friction map, draft customer interventions, lifecycle scorecard, optional confidential development-delivery receipt, founder decisions, a 90-day plan, and MCP handoffs.",
       "problem": "Subscription businesses need customers to reach sustained value without manipulative messaging, excessive frequency, or unsupported progress claims.",
       "runtime_features": [
         "de-identified feedback synthesis",
         "journey-stage diagnosis",
         "draft-only interventions",
+        "approval-gated single-recipient development SMTP",
         "frequency and trust guardrails",
         "MCP aggregates",
         "human communication approval"
@@ -479,6 +485,34 @@
       "target_users": "Founders and designated product, lifecycle, support, privacy, brand, and quality reviewers."
     },
     "type": "batch",
-    "workflow_id": "gtm_assistant_v1"
+    "workflow_id": "gtm_assistant_v2"
+  },
+  {
+    "category": "System",
+    "description": "A private OtterDesk runtime co-worker that converts bounded, identity-checked, read-only MCP job snapshots into grounded desktop conversation replies.",
+    "id": "otterdesk_conversation_assistant",
+    "job_name": "otterdesk-conversation-assistant",
+    "name": "OtterDesk Conversation Assistant",
+    "path": "otterdesk_conversation_assistant",
+    "visibility": "internal",
+    "otterdesk_hidden": true,
+    "product": {
+      "agent_role": "Private desktop conversation router and evidence-grounded supervisor assistant.",
+      "benefit": "Lets a user talk naturally with any MCP-enabled co-worker while preserving target-job identity, evidence, and approval boundaries.",
+      "how_it_works": "OtterDesk validates and reads the target co-worker's loopback MCP service, then launches this hidden MN batch co-worker with only the bounded snapshot and user question.",
+      "input": "A desktop-generated question, bounded target identity, and validated read-only MCP snapshot.",
+      "output": "A grounded conversational reply with source record ids, MCP revision, and runtime LLM usage.",
+      "problem": "Desktop supervision needs natural conversation without exposing MCP transport or allowing the renderer to invoke arbitrary runtime tools.",
+      "runtime_features": [
+        "first-run private install",
+        "stable internal MN job",
+        "read-only MCP snapshot grounding",
+        "runtime-selected built-in LLM",
+        "bounded final reply artifact"
+      ],
+      "target_users": "OtterDesk desktop users supervising MCP-enabled co-workers."
+    },
+    "type": "batch",
+    "workflow_id": "otterdesk_conversation_assistant_v1"
   }
 ]

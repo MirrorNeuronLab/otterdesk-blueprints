@@ -79,6 +79,23 @@
       }
     }
   },
+  "workers": {
+    "groups": [
+      {
+        "steps": [
+          "deliver_approved_lifecycle_email"
+        ],
+        "with": {
+          "side_effect": "external",
+          "pass_env": [
+            "MN_SMTP_USERNAME",
+            "MN_SMTP_PASSWORD",
+            "MN_SMTP_DEV_RECIPIENT"
+          ]
+        }
+      }
+    ]
+  },
   "contracts": {
     "input_adapters": {
       "default": "mock",
@@ -149,6 +166,15 @@
         "privacy": "confidential",
         "description": "De-identified CSV of customer observations, journey stages, themes, and evidence status; the bundled demo uses parent feedback.",
         "example": "@/examples/sample_inputs/parent_feedback.csv"
+      },
+      "email_send_approval": {
+        "type": "domain_value",
+        "required": false,
+        "privacy": "confidential",
+        "description": "Explicit development-send decision. Delivery requires approved=true and a bounded approval_id; omission keeps SMTP disabled.",
+        "example": {
+          "approved": false
+        }
       }
     },
     "outputs": {
@@ -396,7 +422,7 @@
     }
   },
   "workflow": {
-    "workflow_id": "gtm_assistant_v1",
+    "workflow_id": "gtm_assistant_v2",
     "execution": {
       "strategy": "serial"
     },
@@ -475,10 +501,43 @@
             "on_low_confidence": "continue_with_warning"
           }
         }
+      },
+      {
+        "id": "deliver_approved_lifecycle_email",
+        "kind": "sink",
+        "label": "Deliver Approved Development Lifecycle Email",
+        "goal": "Fail closed unless one aggregate lifecycle draft has explicit approval and a secret-injected single test recipient.",
+        "needs": [
+          "publish_customer_lifecycle_packet"
+        ],
+        "run": {
+          "definition": "steps.deliver_approved_lifecycle_email"
+        },
+        "control": {
+          "required": true,
+          "timeout_seconds": 60,
+          "failure_policy": "fail_workflow",
+          "retry": {
+            "max_attempts": 1,
+            "backoff_seconds": 0,
+            "backoff_multiplier": 1,
+            "jitter": 0
+          },
+          "uncertainty": {
+            "min_confidence": 0,
+            "on_low_confidence": "continue_with_warning"
+          }
+        }
       }
     ]
   },
   "skill_dependencies": [
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mirrorneuron-email-delivery-skill",
+      "version": "1.2.31"
+    },
     {
       "type": "pip",
       "source": "gar",

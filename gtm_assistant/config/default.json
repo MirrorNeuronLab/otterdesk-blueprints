@@ -10,7 +10,10 @@
       "input_folder": "@/examples/sample_inputs",
       "customer_feedback_file": "@/examples/sample_inputs/parent_feedback.csv",
       "output_folder": "~/Downloads/gtm_assistant",
-      "peer_mcp_servers": []
+      "peer_mcp_servers": [],
+      "email_send_approval": {
+        "approved": false
+      }
     }
   },
   "outputs": {
@@ -39,5 +42,14 @@
     "outreach_mode": "draft_only",
     "child_directed_messaging": false,
     "max_message_frequency_per_week": 1
+  },
+  "smtp_delivery": {
+    "enabled": false,
+    "mode": "development",
+    "host": "smtp.mail.me.com",
+    "port": 587,
+    "security": "starttls",
+    "timeout_seconds": 10,
+    "max_messages_per_run": 1
   }
 }

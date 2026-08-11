@@ -1,0 +1,311 @@
+{
+  "apiVersion": "mn.workflow.source/v2",
+  "kind": "WorkflowSource",
+  "standard": {
+    "profile": "blueprint",
+    "source_schema": "mn.workflow.source/v2",
+    "target_schema": "mn.workflow/v1",
+    "migration_policy": "sdk_managed"
+  },
+  "identity": {
+    "id": "otterdesk_conversation_assistant",
+    "name": "OtterDesk Conversation Assistant",
+    "job_name": "otterdesk-conversation-assistant",
+    "category": "system",
+    "version": 1,
+    "manifest_version": "1.0"
+  },
+  "description": "A private OtterDesk system co-worker that answers desktop supervisor questions from a bounded, identity-checked, read-only MCP snapshot of another co-worker.",
+  "metadata": {
+    "visibility": "internal",
+    "otterdesk_hidden": true
+  },
+  "intent": {
+    "description": "Provide grounded natural-language supervision of hired co-workers without exposing runtime transport details in the renderer.",
+    "problem": "Desktop users need to ask what a co-worker noticed, did, or needs next while retaining the target job's MCP identity, evidence, and approval boundaries.",
+    "target_users": "OtterDesk desktop users supervising MCP-enabled co-workers.",
+    "safety": {
+      "enabled": true,
+      "mode": "approval_required",
+      "allowed_decisions": [
+        "review"
+      ],
+      "blocked_actions": [
+        "call_target_mcp_tools",
+        "send_external_communications",
+        "approve_or_reject_human_requests",
+        "change_co_worker_configuration",
+        "change_schedules",
+        "start_pause_resume_or_stop_jobs",
+        "execute_shell_commands",
+        "access_arbitrary_files"
+      ],
+      "default_action": "reject",
+      "timeout_seconds": 300,
+      "reason": "This internal co-worker summarizes a desktop-validated read-only MCP snapshot and cannot perform target-job actions."
+    }
+  },
+  "config": {
+    "default": "config/default.json",
+    "embed": true,
+    "manifest_defaults": [
+      "llm",
+      {
+        "from": "requirements",
+        "to": "resources"
+      },
+      {
+        "from": "workflow.policy.human",
+        "to": "human_control"
+      },
+      {
+        "from": "identity.id",
+        "to": "identity.blueprint_id"
+      },
+      {
+        "from": "identity.name",
+        "to": "identity.name"
+      }
+    ]
+  },
+  "defaults": {
+    "worker": {
+      "with": {
+        "stereotype": "internal_write_worker",
+        "image": "mirror-neuron/otterdesk-conversation-assistant:local",
+        "upload_paths": [
+          {
+            "source": "domain",
+            "target": "domain"
+          }
+        ]
+      }
+    }
+  },
+  "llm": {
+    "enabled": true,
+    "mode": "actor_assisted",
+    "mock_mode": "deterministic",
+    "provider": "docker_model_runner",
+    "model": "small",
+    "runtime_model": "small",
+    "backend": "llama.cpp",
+    "default_config": "primary",
+    "configs": {
+      "primary": {
+        "provider": "docker_model_runner",
+        "model": "small",
+        "runtime_model": "small",
+        "backend": "llama.cpp",
+        "temperature": 0.2,
+        "max_tokens": 1200,
+        "timeout_seconds": 60,
+        "num_retries": 1
+      }
+    },
+    "responsibilities": [
+      "Ground every answer in the supplied read-only MCP snapshot.",
+      "Keep staged and final evidence distinct and name missing evidence.",
+      "Preserve target-job approval boundaries and never execute actions."
+    ],
+    "agents": {
+      "otterdesk_conversation_assistant": {
+        "llm_config": "primary",
+        "role": "OtterDesk Conversation Assistant",
+        "responsibilities": [
+          "Answer only from the supplied read-only MCP snapshot.",
+          "Keep staged and final evidence distinct.",
+          "State unknowns and preserve target-job approval boundaries."
+        ]
+      }
+    }
+  },
+  "contracts": {
+    "input_adapters": {
+      "default": "mock",
+      "resolved_artifact": "inputs.json",
+      "supported": [
+        "mock",
+        "desktop_mcp",
+        "json",
+        "env_json"
+      ]
+    },
+    "inputs": {
+      "payload": {
+        "type": "domain_value",
+        "required": true,
+        "privacy": "confidential",
+        "description": "Bounded desktop question, target identity, and validated read-only MCP snapshot.",
+        "example": {
+          "schema_version": "otterdesk.conversation_assistant.request.v1",
+          "request_id": "desktop-conversation-demo",
+          "question": "What is this co-worker working on?"
+        }
+      }
+    },
+    "outputs": {
+      "primary": {
+        "id": "final_artifact",
+        "type": "final_artifact",
+        "path": "final_artifact.json",
+        "schema_version": "otterdesk.conversation_assistant.reply.v1",
+        "required_fields": [
+          "schema_version",
+          "type",
+          "request_id",
+          "target_worker",
+          "reply",
+          "sources",
+          "used_record_ids",
+          "mcp_revision",
+          "read_only",
+          "llm"
+        ]
+      },
+      "artifacts": [
+        {
+          "artifact_id": "final_artifact",
+          "type": "final_artifact",
+          "path": "final_artifact.json",
+          "producer": "otterdesk_conversation_assistant",
+          "mime_type": "application/json",
+          "schema_version": "otterdesk.conversation_assistant.reply.v1",
+          "source_refs": [
+            "workflow_state/conversation_context.json"
+          ]
+        }
+      ]
+    },
+    "status": {
+      "event": "blueprint_status",
+      "heartbeat": true,
+      "phases": [
+        "validating_context",
+        "answering_question",
+        "writing_artifact",
+        "completed"
+      ]
+    },
+    "privacy": {
+      "default_classification": "confidential"
+    }
+  },
+  "requirements": {
+    "cpu": {
+      "min_cores": 1
+    },
+    "memory": {
+      "min_gb": 1
+    },
+    "disk": {
+      "min_gb": 1
+    },
+    "gpu": {
+      "min_count": 0
+    }
+  },
+  "workflow": {
+    "workflow_id": "otterdesk_conversation_assistant_v1",
+    "execution": {
+      "strategy": "serial"
+    },
+    "policy": {
+      "failure": {
+        "default": "fail_closed"
+      },
+      "human": {
+        "enabled": true,
+        "mode": "approval_required",
+        "allowed_decisions": [
+          "review"
+        ],
+        "blocked_actions": [
+          "perform_target_job_action",
+          "send_external_communication",
+          "change_runtime_state"
+        ],
+        "default_action": "reject",
+        "timeout_seconds": 300
+      }
+    },
+    "steps": [
+      {
+        "id": "prepare_conversation_context",
+        "kind": "source",
+        "label": "Prepare Conversation Context",
+        "goal": "Validate the desktop request, target job identity, read-only marker, and MCP context bounds.",
+        "needs": [],
+        "run": {
+          "definition": "steps.prepare_conversation_context"
+        },
+        "control": {
+          "required": true,
+          "timeout_seconds": 60,
+          "failure_policy": "fail_workflow",
+          "retry": {
+            "max_attempts": 1,
+            "backoff_seconds": 1,
+            "backoff_multiplier": 1,
+            "jitter": 0
+          },
+          "uncertainty": {
+            "min_confidence": 0,
+            "on_low_confidence": "continue_with_warning"
+          }
+        }
+      },
+      {
+        "id": "answer_desktop_conversation",
+        "kind": "sink",
+        "label": "Answer Desktop Conversation",
+        "goal": "Use the runtime-selected built-in LLM to answer only from the validated MCP evidence and write the final reply artifact.",
+        "needs": [
+          "prepare_conversation_context"
+        ],
+        "run": {
+          "definition": "steps.answer_desktop_conversation"
+        },
+        "control": {
+          "required": true,
+          "timeout_seconds": 120,
+          "failure_policy": "fail_workflow",
+          "retry": {
+            "max_attempts": 1,
+            "backoff_seconds": 1,
+            "backoff_multiplier": 1,
+            "jitter": 0
+          },
+          "uncertainty": {
+            "min_confidence": 0,
+            "on_low_confidence": "continue_with_warning"
+          }
+        }
+      }
+    ]
+  },
+  "agents": {
+    "registry": {
+      "otterdesk_conversation_assistant": {
+        "handler": "agents.otterdesk_conversation_assistant",
+        "role": "OtterDesk Conversation Assistant"
+      }
+    }
+  },
+  "skill_dependencies": [
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mirrorneuron-blueprint-support-skill",
+      "version": "1.2.31"
+    }
+  ],
+  "agent_dependencies": [
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mn-prototype-stateful-step-agent",
+      "version": "1.2.31"
+    }
+  ]
+}

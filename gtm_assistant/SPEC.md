@@ -31,7 +31,7 @@ Input is a de-identified customer-feedback CSV; the bundled demo uses parent fee
 
 ## Safety and approval contract
 
-It does not contact customers. Copy, cohorts, frequency caps, and support escalation rules require approval, and raw customer records are not shared through MCP.
+It does not contact customers. Copy, cohorts, frequency caps, and support escalation rules require approval, and raw customer records are not shared through MCP. An opt-in development-only SMTP check may render one aggregate draft to an environment-injected test inbox only after explicit approval; it uses no customer address or customer-specific data, records a confidential receipt, and never authorizes production messaging.
 
 ## Acceptance criteria
 
@@ -42,3 +42,4 @@ It does not contact customers. Copy, cohorts, frequency caps, and support escala
 - MCP exchange publication contains no credentials or forbidden private fields.
 - The final artifact states that consequential external actions remain approval-required.
 - The final role brief identifies all four peer-role handoffs and preserves bounded peer evidence when configured.
+- A development SMTP check is disabled by default, requires an approval id plus secret-injected SMTP values, and can send at most one test email per run.
