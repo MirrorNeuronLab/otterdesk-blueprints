@@ -12,10 +12,10 @@
     "name": "OtterDesk Conversation Assistant",
     "job_name": "otterdesk-conversation-assistant",
     "category": "system",
-    "version": 1,
+    "version": 3,
     "manifest_version": "1.0"
   },
-  "description": "A private OtterDesk system co-worker that answers desktop supervisor questions from a bounded, identity-checked, read-only MCP snapshot of another co-worker.",
+  "description": "A private OtterDesk system co-worker that answers desktop supervisor questions from bounded, identity-checked, read-only MCP evidence and supervision state, and can return reviewable configuration proposals.",
   "metadata": {
     "visibility": "internal",
     "otterdesk_hidden": true
@@ -98,7 +98,7 @@
         "runtime_model": "small",
         "backend": "llama.cpp",
         "temperature": 0.2,
-        "max_tokens": 1200,
+        "max_tokens": 480,
         "timeout_seconds": 60,
         "num_retries": 1
       }
@@ -106,7 +106,8 @@
     "responsibilities": [
       "Ground every answer in the supplied read-only MCP snapshot.",
       "Keep staged and final evidence distinct and name missing evidence.",
-      "Preserve target-job approval boundaries and never execute actions."
+      "Preserve target-job approval boundaries and never execute actions.",
+      "Return non-secret configuration proposals only from desktop-provided editable fields."
     ],
     "agents": {
       "otterdesk_conversation_assistant": {
@@ -115,7 +116,8 @@
         "responsibilities": [
           "Answer only from the supplied read-only MCP snapshot.",
           "Keep staged and final evidence distinct.",
-          "State unknowns and preserve target-job approval boundaries."
+          "State unknowns and preserve target-job approval boundaries.",
+          "Propose configuration changes only; never apply them."
         ]
       }
     }
@@ -136,7 +138,7 @@
         "type": "domain_value",
         "required": true,
         "privacy": "confidential",
-        "description": "Bounded desktop question, target identity, and validated read-only MCP snapshot.",
+        "description": "Bounded desktop question, target identity, validated read-only MCP snapshot, and a safe supervision context with runtime status and editable non-secret configuration fields.",
         "example": {
           "schema_version": "otterdesk.conversation_assistant.request.v1",
           "request_id": "desktop-conversation-demo",

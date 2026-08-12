@@ -46,7 +46,7 @@
     "configs": {
       "primary": {
         "timeout_seconds": 60,
-        "max_tokens": 1200,
+        "max_tokens": 480,
         "num_retries": 1
       }
     }
@@ -57,4 +57,3 @@
     "external_communications": "blocked"
   }
 }
-

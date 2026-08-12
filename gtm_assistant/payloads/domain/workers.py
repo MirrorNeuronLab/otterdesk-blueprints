@@ -9,7 +9,7 @@ from mn_marketing_email_skill import normalize_structured_draft, review_email_qu
 from mn_sdk.blueprint_support.workflow_state import write_json
 
 from .collaboration import build_packet, peer_signals, persist_packet, write_final_artifact
-from .delivery import deliver_approved_development_email
+from .delivery import deliver_approved_development_email, request_development_email_approval
 from .inputs import csv_rows, normalized_inputs, resolve_input_file, source_descriptor
 
 
@@ -163,6 +163,11 @@ def _deliver_approved_lifecycle_email(context: dict[str, Any]) -> dict[str, Any]
         for theme, count in themes.most_common(5)
     ]
     delivery = deliver_approved_development_email(context, interventions)
+    approval_request = (
+        request_development_email_approval(context)
+        if delivery.get("reason") == "explicit_approval_required"
+        else None
+    )
     delivered = delivery.get("status") in {"sent", "already_sent"}
     peers = peer_signals(context)
     packet = build_packet(
@@ -219,6 +224,7 @@ def _deliver_approved_lifecycle_email(context: dict[str, Any]) -> dict[str, Any]
     return {
         **persisted,
         "email_delivery": delivery,
+        "human_approval_request": approval_request,
         "final_artifact": final_artifact,
         "output_files": [
             "final_artifact.json",

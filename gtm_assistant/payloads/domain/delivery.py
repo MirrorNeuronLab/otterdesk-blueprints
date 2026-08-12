@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import re
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
 from mn_email_delivery_skill import SmtpDeliveryValidationError, SmtpSettings, send_smtp_email
+from mn_sdk.blueprint_support.observability import append_human_event
 from mn_sdk.blueprint_support.workflow_state import write_json
 
 from .inputs import normalized_inputs
@@ -18,6 +20,7 @@ ICLOUD_SMTP_PORT = 587
 SMTP_USERNAME_ENV = "MN_SMTP_USERNAME"
 SMTP_PASSWORD_ENV = "MN_SMTP_PASSWORD"
 SMTP_DEV_RECIPIENT_ENV = "MN_SMTP_DEV_RECIPIENT"
+DEVELOPMENT_EMAIL_APPROVAL_PREFIX = "gtm-development-email"
 _APPROVAL_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
 
 
@@ -135,6 +138,84 @@ def deliver_approved_development_email(
     return safe_result
 
 
+def request_development_email_approval(context: Mapping[str, Any]) -> dict[str, Any] | None:
+    """Create one durable runtime request before any development email send."""
+
+    settings = (context.get("config") or {}).get("smtp_delivery") or {}
+    if not bool(settings.get("enabled", False)):
+        return None
+    run_id = str(context.get("run_id") or context.get("job_id") or "").strip()
+    run_dir = Path(str(context.get("run_dir") or ""))
+    if not run_id or not str(run_dir):
+        return None
+    request_id = development_email_approval_request_id(run_id)
+    existing = development_email_approval_response(context)
+    if existing is not None or _human_request_exists(run_dir, request_id):
+        return None
+    return append_human_event(
+        run_id,
+        "human_input_requested",
+        {
+            "request_id": request_id,
+            "prompt": "Send one aggregate development email to the configured test recipient?",
+            "options": ["Approve", "Reject"],
+            "allowed_decisions": ["approve", "reject"],
+            "decision_type": "external_email_send",
+            "action": "send_development_email",
+            "status": "pending",
+        },
+        runs_root=run_dir.parent,
+    )
+
+
+def development_email_approval_request_id(run_id: str) -> str:
+    safe_run_id = re.sub(r"[^A-Za-z0-9._:-]+", "-", str(run_id).strip()).strip("-._:")
+    return f"{DEVELOPMENT_EMAIL_APPROVAL_PREFIX}:{safe_run_id}"[:128]
+
+
+def development_email_approval_response(context: Mapping[str, Any]) -> dict[str, Any] | None:
+    run_id = str(context.get("run_id") or context.get("job_id") or "").strip()
+    request_id = development_email_approval_request_id(run_id)
+    events = _human_events(Path(str(context.get("run_dir") or "")))
+    for event in reversed(events):
+        if str(event.get("type") or "").strip() not in {
+            "human_input_received",
+            "human_input_timeout",
+            "human_decision_applied",
+        }:
+            continue
+        payload = event.get("payload") if isinstance(event.get("payload"), dict) else {}
+        if str(payload.get("request_id") or "").strip() == request_id:
+            return payload
+    return None
+
+
+def _human_request_exists(run_dir: Path, request_id: str) -> bool:
+    return any(
+        str(event.get("type") or "").strip() == "human_input_requested"
+        and str((event.get("payload") or {}).get("request_id") or "").strip() == request_id
+        for event in _human_events(run_dir)
+        if isinstance(event.get("payload"), dict)
+    )
+
+
+def _human_events(run_dir: Path) -> list[dict[str, Any]]:
+    path = run_dir / "human.jsonl"
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return []
+    events: list[dict[str, Any]] = []
+    for line in lines:
+        try:
+            value = json.loads(line)
+        except (TypeError, ValueError):
+            continue
+        if isinstance(value, dict):
+            events.append(value)
+    return events
+
+
 def _first_approved_draft(interventions: Sequence[Mapping[str, Any]]) -> dict[str, str]:
     for intervention in interventions:
         if not isinstance(intervention, Mapping) or not bool((intervention.get("draft_review") or {}).get("approved")):
@@ -206,5 +287,8 @@ __all__ = [
     "SMTP_DEV_RECIPIENT_ENV",
     "SMTP_PASSWORD_ENV",
     "SMTP_USERNAME_ENV",
+    "development_email_approval_request_id",
+    "development_email_approval_response",
     "deliver_approved_development_email",
+    "request_development_email_approval",
 ]

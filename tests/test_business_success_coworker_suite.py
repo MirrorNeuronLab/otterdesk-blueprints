@@ -19,7 +19,15 @@ BLUEPRINTS = {
     "business_finance_coworker": ("business_finance_controller", ["calculate_unit_economics", "publish_financial_control_packet"]),
     "learning_quality_safety_coworker": ("learning_quality_safety_director", ["review_learning_backlog", "publish_learning_safety_packet"]),
     "content_studio_coworker": ("content_studio_director", ["plan_content_batch", "publish_content_studio_packet"]),
-    "gtm_assistant": ("customer_lifecycle_director", ["diagnose_customer_journey", "publish_customer_lifecycle_packet", "deliver_approved_lifecycle_email"]),
+    "gtm_assistant": (
+        ["customer_lifecycle_director", "development_reply_monitor"],
+        [
+            "diagnose_customer_journey",
+            "publish_customer_lifecycle_packet",
+            "deliver_approved_lifecycle_email",
+            "monitor_development_email_replies",
+        ],
+    ),
 }
 
 PUBLIC_NAMES = {
@@ -65,7 +73,8 @@ def test_five_independent_blueprints_share_one_goal_contract():
         assert "Bibblio" not in manifest["identity"]["name"]
         assert manifest["metadata"]["business_goal"] == "Build a successful business for Bibblio."
         assert manifest["metadata"]["collaboration_group"] == "business-success-team"
-        assert list(manifest["agents"]["registry"]) == [agent_id]
+        expected_agent_ids = [agent_id] if isinstance(agent_id, str) else agent_id
+        assert list(manifest["agents"]["registry"]) == expected_agent_ids
         assert [step["id"] for step in manifest["workflow"]["steps"]] == step_ids
         assert manifest["workflow"]["steps"][1]["needs"] == [step_ids[0]]
         if blueprint_id == "growth_partnerships_coworker":
@@ -85,12 +94,18 @@ def test_five_independent_blueprints_share_one_goal_contract():
                 dependency["name"] for dependency in manifest["skill_dependencies"]
             }
         if blueprint_id == "gtm_assistant":
-            assert manifest["identity"]["version"] == 2
-            assert manifest["workflow"]["workflow_id"] == "gtm_assistant_v2"
+            assert manifest["identity"]["version"] == 3
+            assert manifest["workflow"]["workflow_id"] == "gtm_assistant_v3"
             assert manifest["workflow"]["steps"][2]["needs"] == [step_ids[1]]
             assert manifest["workflow"]["steps"][2]["control"]["retry"]["max_attempts"] == 1
+            assert manifest["workflow"]["steps"][3]["needs"] == [step_ids[2]]
+            assert manifest["type"] == "service"
+            assert manifest["service"]["run_until"] == "manual_stop"
             delivery_worker = manifest["workers"]["groups"][0]
-            assert delivery_worker["steps"] == ["deliver_approved_lifecycle_email"]
+            assert delivery_worker["steps"] == [
+                "deliver_approved_lifecycle_email",
+                "monitor_development_email_replies",
+            ]
             assert delivery_worker["with"]["side_effect"] == "external"
             assert delivery_worker["with"]["pass_env"] == [
                 "MN_SMTP_USERNAME",
@@ -99,6 +114,9 @@ def test_five_independent_blueprints_share_one_goal_contract():
             ]
             assert "mirrorneuron-email-delivery-skill" in {
                 dependency["name"] for dependency in manifest["skill_dependencies"]
+            }
+            assert "mn-prototype-supervised-service-agent" in {
+                dependency["name"] for dependency in manifest["agent_dependencies"]
             }
         assert "mirrorneuron-goal-work-packet-skill" in {
             dependency["name"] for dependency in manifest["skill_dependencies"]
@@ -183,6 +201,7 @@ def test_catalog_replaces_the_monolith_with_five_collaboration_group_members():
         if blueprint_id == "gtm_assistant":
             expected_mcp_collaboration["starter_questions"] = [
                 "How many development emails were sent in this run?",
+                "How many matching development replies have been observed?",
                 "What should we do next?",
                 "What approval do you need before a development email can be sent?",
             ]

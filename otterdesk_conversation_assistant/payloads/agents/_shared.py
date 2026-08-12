@@ -27,6 +27,26 @@ _spec = StatefulStepSpec(
 )
 
 
+def domain_result_payload(result: dict[str, Any]) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    payload: dict[str, Any] = {
+        "result": {
+            key: value
+            for key, value in result.items()
+            if key != "final_artifact"
+        }
+    }
+    artifacts: list[dict[str, Any]] = []
+    if isinstance(result.get("final_artifact"), dict):
+        # The bounded reply is part of the step result contract as well as a
+        # durable audit artifact. Keeping it inline lets API clients read the
+        # answer without reaching into synchronized worker storage.
+        payload["result"]["artifact"] = dict(result["final_artifact"])
+        final_ref = artifact_reference("final_artifact", "final_artifact.json")
+        artifacts.append(final_ref)
+        payload["final_artifact"] = final_ref
+    return payload, artifacts
+
+
 def create_domain_agent(agent_id: str, operation: Callable[..., dict[str, Any]]):
     def invoke(
         context: StatefulStepContext,
@@ -40,18 +60,7 @@ def create_domain_agent(agent_id: str, operation: Callable[..., dict[str, Any]])
             invocation_id=context.step_context.invocation_id,
             **options,
         )
-        artifacts = []
-        payload: dict[str, Any] = {
-            "result": {
-                key: value
-                for key, value in result.items()
-                if key != "final_artifact"
-            }
-        }
-        if isinstance(result.get("final_artifact"), dict):
-            final_ref = artifact_reference("final_artifact", "final_artifact.json")
-            artifacts.append(final_ref)
-            payload["final_artifact"] = final_ref
+        payload, artifacts = domain_result_payload(result)
         return AgentHandlerOutput(
             payload=payload,
             artifacts=tuple(artifacts),
@@ -68,4 +77,3 @@ def create_domain_agent(agent_id: str, operation: Callable[..., dict[str, Any]])
         ),
         invoke,
     )
-

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -10,7 +11,14 @@ from .common import BUSINESS_GOAL, DEFAULT_BUSINESS_NAME, DEFAULT_GOAL_ID
 
 def normalized_inputs(context: dict[str, Any]) -> dict[str, Any]:
     config_payload = ((context.get("config") or {}).get("inputs") or {}).get("payload") or {}
-    payload = {**config_payload, **(context.get("payload") or {}), **(context.get("inputs") or {})}
+    runtime_payload = {
+        key: value
+        for source in (context.get("payload") or {}, context.get("inputs") or {})
+        if isinstance(source, dict)
+        for key, value in source.items()
+        if value is not None
+    }
+    payload = {**config_payload, **runtime_payload}
     payload.setdefault("business_name", DEFAULT_BUSINESS_NAME)
     payload.setdefault("business_goal", BUSINESS_GOAL)
     payload.setdefault("goal_id", DEFAULT_GOAL_ID)
@@ -32,10 +40,23 @@ def resolve_input_file(context: dict[str, Any], key: str, fallback_name: str) ->
     value = str(inputs.get(key) or "").strip()
     root_value = str(inputs.get("input_folder") or "").strip()
     blueprint_dir = Path(context["blueprint_dir"])
+    candidates: list[Path] = []
     if value:
-        return _resolve_path(blueprint_dir, value)
+        candidates.append(_resolve_path(blueprint_dir, value))
     root = _resolve_path(blueprint_dir, root_value) if root_value else blueprint_dir / "examples" / "sample_inputs"
-    return (root / fallback_name).resolve()
+    candidates.append((root / fallback_name).resolve())
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+
+    job_input_dir = str(os.environ.get("MN_JOB_INPUT_DIR") or "").strip()
+    if job_input_dir:
+        staged_matches = sorted(
+            path for path in Path(job_input_dir).rglob(fallback_name) if path.is_file()
+        )
+        if len(staged_matches) == 1:
+            return staged_matches[0]
+    return candidates[0]
 
 
 def json_object(path: Path) -> dict[str, Any]:
@@ -75,6 +96,11 @@ def _resolve_path(blueprint_dir: Path, value: str) -> Path:
     if value.startswith("@/"):
         return (blueprint_dir / value[2:]).resolve()
     candidate = Path(value).expanduser()
-    if not candidate.is_absolute():
-        candidate = blueprint_dir / candidate
-    return candidate.resolve()
+    if candidate.is_absolute():
+        return candidate.resolve()
+    job_input_dir = str(os.environ.get("MN_JOB_INPUT_DIR") or "").strip()
+    if job_input_dir:
+        staged = (Path(job_input_dir) / candidate).resolve()
+        if staged.exists():
+            return staged
+    return (blueprint_dir / candidate).resolve()

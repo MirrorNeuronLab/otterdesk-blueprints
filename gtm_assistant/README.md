@@ -17,6 +17,7 @@ This is one independent member of the `business-success-team` collaboration grou
 1. diagnose_customer_journey creates the aspect analysis and a durable work packet.
 2. publish_customer_lifecycle_packet publishes a final, approval-ready aspect packet.
 3. deliver_approved_lifecycle_email evaluates an optional, one-recipient development SMTP rendering check.
+4. monitor_development_email_replies keeps the approved run active until manually stopped and reads only matching reply headers from the configured development inbox.
 
 Input: a de-identified customer-feedback CSV. The unchanged bundled demo uses parent feedback.
 
@@ -31,7 +32,7 @@ Content gaps, and Quality & Safety claim and escalation boundaries.
 
 ## Control boundary
 
-It does not contact customers. Copy, cohorts, frequency caps, and support escalation rules require approval, and raw customer records are not shared through MCP. The only supported delivery is an explicitly approved, one-recipient development test using an environment-injected inbox; it never uses a customer address or customer-specific data and does not authorize production messaging.
+It does not contact customers. Copy, cohorts, frequency caps, and support escalation rules require approval, and raw customer records are not shared through MCP. The only supported delivery is an explicitly approved, one-recipient development test using an environment-injected inbox; it never uses a customer address or customer-specific data and does not authorize production messaging. The optional reply monitor is read-only: it never sends a reply, retains no message body, and counts only replies from that same development inbox that reference the development message.
 
 No co-worker owns workflow routing, retry, logical completion, or human approval. Those remain blueprint and Mirror Neuron Core responsibilities.
 
@@ -45,10 +46,12 @@ Run from the blueprint catalog:
 
 To collaborate, supply explicit peer_mcp_servers and enable peer_reads_enabled. Each peer record is filtered to goal_id bibblio-business-success.
 
-While a run is active, the blueprint starts a loopback, read-only
+While the service is active, the blueprint starts a loopback, read-only
 `mn-job-collaboration` MCP service on a runtime-allocated port. OtterDesk and
 approved same-node peer jobs can use that endpoint to read bounded progress and
-work-packet updates; stopping the run removes the endpoint.
+work-packet updates. After an approved development send, enabling reply
+monitoring keeps this endpoint available until the co-worker is manually
+stopped.
 
 ## Development SMTP check
 
@@ -58,7 +61,7 @@ delivery configuration and provide `email_send_approval` with
 one environment-injected test recipient and SMTP credentials through
 `MN_SMTP_DEV_RECIPIENT`, `MN_SMTP_USERNAME`, and `MN_SMTP_PASSWORD`.
 
-The check sends one aggregate rendering draft at most once per run through the
+The check sends one aggregate rendering draft at most once per service run through the
 allowlisted iCloud STARTTLS endpoint. It uses neither a customer address nor
 customer-specific data. Its MCP record and final brief expose only delivery
 status and recipient count; the confidential receipt excludes credentials,
@@ -70,8 +73,11 @@ an Apple app-specific password, and the single development recipient. The
 password remains in the OS
 credential store. The desktop sends the three identity/credential values over
 the authenticated local launch API as declared secret environment values; they
-are not included in the blueprint configuration overlay. IMAP
-`imap.mail.me.com:993` is an incoming-mail setting and cannot be used for this
-outbound-only check.
+are not included in the blueprint configuration overlay. When explicitly
+enabled after the approved send, the same identity is used with
+`imap.mail.me.com:993` over SSL to inspect unread message headers only. A reply
+counts only when its sender is the configured development recipient and its
+`In-Reply-To` or `References` header names the development message. No message
+is marked read, no message content is stored, and no reply is sent.
 
 See SPEC.md and payloads/knowledge/parent_lifecycle_playbook.md for the role contract.

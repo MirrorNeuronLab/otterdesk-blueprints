@@ -12,12 +12,15 @@ BLUEPRINT_ID = "otterdesk_conversation_assistant"
 BLUEPRINT_NAME = "OtterDesk Conversation Assistant"
 REQUEST_SCHEMA = "otterdesk.conversation_assistant.request.v1"
 CONTEXT_SCHEMA = "otterdesk.worker_mcp_conversation_context.v1"
+SUPERVISION_SCHEMA = "otterdesk.worker_supervision_context.v1"
 OUTPUT_SCHEMA = "otterdesk.conversation_assistant.reply.v1"
 OUTPUT_TYPE = "otterdesk_conversation_reply"
 PREPARED_CONTEXT_PATH = "workflow_state/conversation_context.json"
 MAX_QUESTION_LENGTH = 20_000
 MAX_CONTEXT_BYTES = 512 * 1024
+MAX_SUPERVISION_CONTEXT_BYTES = 64 * 1024
 MAX_RECORDS = 50
+MAX_PROMPT_RECORDS = 12
 RUNTIME_SKILL_PACKAGES = ("mirrorneuron-blueprint-support-skill",)
 
 
@@ -83,9 +86,12 @@ __all__ = [
     "BLUEPRINT_ID",
     "BLUEPRINT_NAME",
     "CONTEXT_SCHEMA",
+    "SUPERVISION_SCHEMA",
     "MAX_CONTEXT_BYTES",
+    "MAX_SUPERVISION_CONTEXT_BYTES",
     "MAX_QUESTION_LENGTH",
     "MAX_RECORDS",
+    "MAX_PROMPT_RECORDS",
     "OUTPUT_SCHEMA",
     "OUTPUT_TYPE",
     "PREPARED_CONTEXT_PATH",
@@ -95,4 +101,3 @@ __all__ = [
     "conversation_llm",
     "encoded_size",
 ]
-

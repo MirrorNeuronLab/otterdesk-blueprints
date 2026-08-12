@@ -120,6 +120,44 @@ def test_delivery_is_disabled_by_default_and_requires_explicit_approval(tmp_path
     )["reason"] == "explicit_approval_required"
 
 
+def test_enabled_delivery_creates_one_runtime_human_approval_request(tmp_path):
+    delivery = _load_delivery()
+    run_id = "gtm-human-approval-test"
+    run_dir = tmp_path / run_id
+    run_dir.mkdir()
+    context = _context(run_dir, approved=False)
+    context["run_id"] = run_id
+
+    first = delivery.request_development_email_approval(context)
+    second = delivery.request_development_email_approval(context)
+
+    assert first["type"] == "human_input_requested"
+    assert first["payload"] == {
+        "request_id": f"gtm-development-email:{run_id}",
+        "prompt": "Send one aggregate development email to the configured test recipient?",
+        "options": ["Approve", "Reject"],
+        "allowed_decisions": ["approve", "reject"],
+        "decision_type": "external_email_send",
+        "action": "send_development_email",
+        "status": "pending",
+    }
+    assert second is None
+    events = [json.loads(line) for line in (run_dir / "human.jsonl").read_text(encoding="utf-8").splitlines()]
+    assert len(events) == 1
+
+    with (run_dir / "human.jsonl").open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps({
+            "type": "human_input_received",
+            "payload": {
+                "request_id": f"gtm-development-email:{run_id}",
+                "decision": "approve",
+                "approved": True,
+            },
+        }) + "\n")
+
+    assert delivery.development_email_approval_response(context)["approved"] is True
+
+
 def test_delivery_replay_does_not_open_a_second_smtp_transaction(tmp_path):
     delivery = _load_delivery()
     calls = 0
@@ -144,6 +182,14 @@ def test_default_config_keeps_smtp_disabled_without_live_identity_or_secret():
 
     assert config["smtp_delivery"]["enabled"] is False
     assert config["inputs"]["payload"]["email_send_approval"] == {"approved": False}
+    assert config["reply_monitoring"] == {
+        "enabled": False,
+        "host": "imap.mail.me.com",
+        "port": 993,
+        "security": "ssl",
+        "timeout_seconds": 10,
+        "poll_interval_seconds": 15,
+    }
     assert "@me.com" not in config_text
     assert "@gmail.com" not in config_text
     assert "@me.com" not in manifest_text
@@ -168,10 +214,28 @@ def test_manifest_declares_separate_otterdesk_smtp_fields_without_live_values():
         "default": "",
         "required": True,
         "secret": True,
+        "active_when_any": [
+            {"path": "smtp_delivery.enabled", "equals": True},
+            {"path": "reply_monitoring.enabled", "equals": True},
+        ],
         "environment_variable": "MN_SMTP_PASSWORD",
         "description": "An Apple app-specific password. It is encrypted in the OS credential store and never saved in the co-worker registry or configuration JSON.",
     }
     assert fields["smtp_credentials.development_recipient"]["environment_variable"] == "MN_SMTP_DEV_RECIPIENT"
+    assert fields["reply_monitoring.enabled"]["default"] is False
+    assert fields["inputs.payload.email_send_approval.approved"]["default"] is False
+
+
+def test_mcp_collaboration_service_is_safe_to_restart_after_local_core_recovery():
+    manifest = json.loads((ROOT / "gtm_assistant" / "manifest.json").read_text(encoding="utf-8"))
+    mcp_server = next(
+        node
+        for node in manifest["agents"]["extra_nodes"]
+        if node["node_id"] == "mcp_collaboration_server"
+    )
+
+    assert mcp_server["config"]["idempotent"] is True
+    assert mcp_server["config"]["safe_to_retry"] is True
 
 
 def test_delivery_rejects_more_than_one_message_per_run(tmp_path):

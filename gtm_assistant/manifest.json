@@ -12,7 +12,7 @@
     "name": "GTM Assistant",
     "job_name": "gtm-assistant",
     "category": "business",
-    "version": 1,
+    "version": 3,
     "manifest_version": "1.0"
   },
   "description": "A GTM assistant that converts de-identified customer feedback into journey friction, draft interventions, support escalations, retention evidence, and product priorities.",
@@ -83,7 +83,8 @@
     "groups": [
       {
         "steps": [
-          "deliver_approved_lifecycle_email"
+          "deliver_approved_lifecycle_email",
+          "monitor_development_email_replies"
         ],
         "with": {
           "side_effect": "external",
@@ -238,6 +239,17 @@
           "source_refs": [
             "workflow_state/work_packets"
           ]
+        },
+        {
+          "artifact_id": "development_reply_monitoring",
+          "type": "development_reply_monitoring_status",
+          "path": "development_reply_monitoring_state.json",
+          "producer": "development_reply_monitor",
+          "mime_type": "application/json",
+          "schema_version": "mn.gtm_assistant.reply_monitoring.v1",
+          "source_refs": [
+            "confidential_lifecycle_email_delivery_receipt.json"
+          ]
         }
       ]
     },
@@ -249,6 +261,7 @@
         "running_worker",
         "waiting_for_human",
         "writing_artifacts",
+        "monitoring_development_replies",
         "completed"
       ]
     },
@@ -278,6 +291,7 @@
           },
           "no_auto_providers": true,
           "no_keep": true,
+          "idempotent": true,
           "output_message_type": null,
           "pass_env": [
             "MN_MCP_CONTAINER_LOOPBACK_PROXY"
@@ -288,6 +302,7 @@
             ]
           },
           "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "safe_to_retry": true,
           "tty": false,
           "upload_as": ".",
           "upload_path": ".",
@@ -337,6 +352,10 @@
       "customer_lifecycle_director": {
         "handler": "agents.customer_lifecycle_director",
         "role": "Customer Lifecycle and Product Intelligence Director"
+      },
+      "development_reply_monitor": {
+        "handler": "agents.development_reply_monitor",
+        "role": "Read-only Development Reply Monitor"
       }
     }
   },
@@ -373,6 +392,15 @@
           "Draft least-intrusive customer interventions and evidence-backed product briefs.",
           "Keep communications, sensitive support, refunds, and data changes human-controlled."
         ]
+      },
+      "development_reply_monitor": {
+        "llm_config": "primary",
+        "role": "Read-only Development Reply Monitor",
+        "responsibilities": [
+          "Keep the approved development service available for supervised MCP inspection.",
+          "Read only matching development-reply headers without retaining message bodies.",
+          "Report bounded reply counts and monitor state without sending an automated response."
+        ]
       }
     }
   },
@@ -385,7 +413,7 @@
     "include_staged_peer_records": true,
     "max_peer_servers": 8,
     "max_records_per_peer": 50,
-    "note": "Internal workflow messages remain on Core. MCP exposes bounded goal work packets from separately launched co-worker jobs only when explicit peer configurations are approved."
+    "note": "Internal workflow messages remain on Core. MCP exposes bounded goal work packets and development reply-monitoring status from separately launched co-worker jobs only when explicit peer configurations are approved."
   },
   "requirements": {
     "cpu": {
@@ -429,6 +457,10 @@
           "type": "text",
           "default": "smtp.mail.me.com",
           "required": true,
+          "active_when_any": [
+            { "path": "smtp_delivery.enabled", "equals": true },
+            { "path": "reply_monitoring.enabled", "equals": true }
+          ],
           "description": "Outbound iCloud mail server. imap.mail.me.com on port 993 is only for reading incoming mail and is not supported here."
         },
         {
@@ -437,6 +469,10 @@
           "type": "text",
           "default": "587",
           "required": true,
+          "active_when_any": [
+            { "path": "smtp_delivery.enabled", "equals": true },
+            { "path": "reply_monitoring.enabled", "equals": true }
+          ],
           "description": "The approved iCloud SMTP submission port."
         },
         {
@@ -445,7 +481,11 @@
           "type": "text",
           "default": "starttls",
           "required": true,
-          "description": "GTM Assistant supports STARTTLS with smtp.mail.me.com on port 587."
+          "active_when_any": [
+            { "path": "smtp_delivery.enabled", "equals": true },
+            { "path": "reply_monitoring.enabled", "equals": true }
+          ],
+          "description": "GTM Assistant supports STARTTLS with smtp.mail.me.com on port 587. Optional reply monitoring uses the same approved identity through IMAP separately."
         },
         {
           "path": "smtp_credentials.username",
@@ -453,6 +493,10 @@
           "type": "email",
           "default": "",
           "required": true,
+          "active_when_any": [
+            { "path": "smtp_delivery.enabled", "equals": true },
+            { "path": "reply_monitoring.enabled", "equals": true }
+          ],
           "environment_variable": "MN_SMTP_USERNAME",
           "description": "The iCloud email address that authenticates with SMTP and appears as the sender."
         },
@@ -463,6 +507,10 @@
           "default": "",
           "required": true,
           "secret": true,
+          "active_when_any": [
+            { "path": "smtp_delivery.enabled", "equals": true },
+            { "path": "reply_monitoring.enabled", "equals": true }
+          ],
           "environment_variable": "MN_SMTP_PASSWORD",
           "description": "An Apple app-specific password. It is encrypted in the OS credential store and never saved in the co-worker registry or configuration JSON."
         },
@@ -472,8 +520,50 @@
           "type": "email",
           "default": "",
           "required": true,
+          "active_when_any": [
+            { "path": "smtp_delivery.enabled", "equals": true },
+            { "path": "reply_monitoring.enabled", "equals": true }
+          ],
           "environment_variable": "MN_SMTP_DEV_RECIPIENT",
-          "description": "The single test inbox that may receive an explicitly approved development email. This is not the sender address or a customer list."
+          "description": "The single test inbox that may receive an explicitly approved development email. Only replies from this inbox that reference that development message are counted. This is not the sender address or a customer list."
+        },
+        {
+          "path": "inputs.payload.email_send_approval.approved",
+          "label": "Send Approved Development Email",
+          "type": "boolean",
+          "default": false,
+          "required": false,
+          "description": "Permits one development-only rendering check when paired with a bounded approval ID. It never authorizes customer messaging."
+        },
+        {
+          "path": "inputs.payload.email_send_approval.approval_id",
+          "label": "Development Send Approval ID",
+          "type": "text",
+          "default": "",
+          "required": false,
+          "active_when_any": [
+            { "path": "inputs.payload.email_send_approval.approved", "equals": true }
+          ],
+          "description": "A bounded human approval reference for the one development-only send."
+        },
+        {
+          "path": "reply_monitoring.enabled",
+          "label": "Monitor Development Replies",
+          "type": "boolean",
+          "default": false,
+          "required": false,
+          "description": "After a successful approved development send, keep the co-worker running and read only matching IMAP reply headers. No reply is ever sent automatically."
+        },
+        {
+          "path": "reply_monitoring.poll_interval_seconds",
+          "label": "Reply Monitor Interval (seconds)",
+          "type": "text",
+          "default": "15",
+          "required": false,
+          "active_when_any": [
+            { "path": "reply_monitoring.enabled", "equals": true }
+          ],
+          "description": "How often the read-only development inbox monitor checks for replies, bounded between 5 and 300 seconds."
         }
       ]
     },
@@ -488,7 +578,7 @@
     }
   },
   "workflow": {
-    "workflow_id": "gtm_assistant_v2",
+    "workflow_id": "gtm_assistant_v3",
     "execution": {
       "strategy": "serial"
     },
@@ -594,8 +684,45 @@
             "on_low_confidence": "continue_with_warning"
           }
         }
+      },
+      {
+        "id": "monitor_development_email_replies",
+        "kind": "sink",
+        "label": "Monitor Development Email Replies",
+        "goal": "Keep the approved development run available for MCP while reading only matching reply headers until manually stopped.",
+        "needs": [
+          "deliver_approved_lifecycle_email"
+        ],
+        "run": {
+          "definition": "steps.monitor_development_email_replies"
+        },
+        "control": {
+          "required": true,
+          "timeout_seconds": 86400,
+          "failure_policy": "fail_workflow",
+          "retry": {
+            "max_attempts": 1,
+            "backoff_seconds": 0,
+            "backoff_multiplier": 1,
+            "jitter": 0
+          },
+          "uncertainty": {
+            "min_confidence": 0,
+            "on_low_confidence": "continue_with_warning"
+          }
+        }
       }
     ]
+  },
+  "manifest": {
+    "type": "service"
+  },
+  "service": {
+    "enabled": true,
+    "manual_close": "Stop the co-worker in OtterDesk, send SIGTERM, or create the configured STOP file.",
+    "run_until": "manual_stop",
+    "state_artifact": "development_reply_monitoring_state.json",
+    "stop_file": "${MN_RUN_DIR}/STOP"
   },
   "skill_dependencies": [
     {
@@ -635,6 +762,13 @@
       "source": "gar",
       "name": "mn-prototype-stateful-step-agent",
       "version": "1.2.31"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mn-prototype-supervised-service-agent",
+      "version": "1.2.31"
     }
-  ]
+  ],
+  "type": "service"
 }

@@ -8,7 +8,7 @@
       "goal_id": "bibblio-business-success",
       "planning_horizon_days": 90,
       "input_folder": "@/examples/sample_inputs",
-      "customer_feedback_file": "@/examples/sample_inputs/parent_feedback.csv",
+      "customer_feedback_file": "",
       "output_folder": "~/Downloads/gtm_assistant",
       "peer_mcp_servers": [],
       "email_send_approval": {
@@ -19,6 +19,18 @@
   "outputs": {
     "folder_path": "~/Downloads/gtm_assistant",
     "write_run_store": true
+  },
+  "local_inputs": {
+    "folders": [
+      {
+        "config_path": "inputs.payload.input_folder",
+        "payload_path": "mn_local_inputs/gtm_assistant",
+        "runtime_path": "mn_local_inputs/gtm_assistant",
+        "allowed_extensions": [
+          "csv"
+        ]
+      }
+    ]
   },
   "execution": {
     "quick_test": true
@@ -51,5 +63,13 @@
     "security": "starttls",
     "timeout_seconds": 10,
     "max_messages_per_run": 1
+  },
+  "reply_monitoring": {
+    "enabled": false,
+    "host": "imap.mail.me.com",
+    "port": 993,
+    "security": "ssl",
+    "timeout_seconds": 10,
+    "poll_interval_seconds": 15
   }
 }

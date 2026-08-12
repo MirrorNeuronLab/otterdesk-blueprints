@@ -17,6 +17,7 @@ DEVELOPMENT_ROOT = (
     else ROOT.parent / "mirror-neuron-set"
 )
 SKILL_SOURCES = sorted((DEVELOPMENT_ROOT / "mn-skills").glob("*/src"))
+AGENT_SOURCES = sorted((DEVELOPMENT_ROOT / "mn-agents").glob("*/src"))
 
 
 class FakeConversationLLM:
@@ -24,13 +25,36 @@ class FakeConversationLLM:
         assert "read-only MCP job snapshot" in system_prompt
         prepared = json.loads(user_prompt)
         assert prepared["question"] == "How many development emails were sent?"
+        assert prepared["supervision_context"]["runtime"]["state"] == "running"
         return {
             "reply": "One development email was sent, according to the final delivery receipt.",
             "used_record_ids": ["development-email-delivery"],
+            "configuration_proposal": {
+                "title": "Move the next check-in",
+                "summary": "Use the newly approved cadence.",
+                "changes": [{
+                    "key": "monitoring.check_in_hour",
+                    "value": "09:30",
+                    "reason": "Matches the requested morning review.",
+                }],
+            },
         }
 
     def usage_snapshot(self) -> dict:
         return {"provider": "fake-test", "model": "fixture", "calls": 1}
+
+
+class AttributeOnlyConversationLLM(FakeConversationLLM):
+    provider = "live-test"
+    model = "gemma4:e2b"
+    calls = 1
+    fallback_calls = 0
+    input_tokens = 10
+    output_tokens = 4
+    total_tokens = 14
+    estimated_tokens = 0
+
+    usage_snapshot = None
 
 
 @pytest.fixture()
@@ -47,6 +71,27 @@ def conversation_module():
                 sys.path.remove(value)
         for name in list(sys.modules):
             if name == "domain" or name.startswith("domain."):
+                sys.modules.pop(name, None)
+
+
+@pytest.fixture()
+def conversation_agent_shared_module():
+    inserted = [
+        str(PAYLOADS),
+        *(str(path) for path in SKILL_SOURCES),
+        *(str(path) for path in AGENT_SOURCES),
+    ]
+    for value in reversed(inserted):
+        sys.path.insert(0, value)
+    try:
+        module = importlib.import_module("agents._shared")
+        yield module
+    finally:
+        for value in inserted:
+            if value in sys.path:
+                sys.path.remove(value)
+        for name in list(sys.modules):
+            if name == "agents" or name.startswith("agents."):
                 sys.modules.pop(name, None)
 
 
@@ -82,6 +127,27 @@ def request_payload() -> dict:
                 ],
             },
         },
+        "supervision_context": {
+            "schema": "otterdesk.worker_supervision_context.v1",
+            "workerId": "gtm_assistant",
+            "jobId": "gtm-job-1",
+            "runId": "gtm-run-1",
+            "runtime": {
+                "state": "running",
+                "available": True,
+                "message": "The worker is checking replies.",
+                "updatedAt": "2026-08-11T12:00:00.000Z",
+            },
+            "configuration": {
+                "editableFields": [{
+                    "key": "monitoring.check_in_hour",
+                    "label": "Check-in hour",
+                    "type": "text",
+                    "required": False,
+                    "currentValue": "10:00",
+                }],
+            },
+        },
     }
 
 
@@ -108,6 +174,7 @@ def test_prepares_identity_checked_context_and_writes_grounded_final_artifact(
     assert prepared == {
         "prepared_context": "workflow_state/conversation_context.json",
         "record_count": 1,
+        "available_record_count": 1,
     }
     artifact = result["final_artifact"]
     assert artifact["type"] == "otterdesk_conversation_reply"
@@ -116,8 +183,68 @@ def test_prepares_identity_checked_context_and_writes_grounded_final_artifact(
     assert artifact["sources"] == [
         "MCP result development-email-delivery (final)"
     ]
+    assert artifact["configuration_proposal"] is None
     assert artifact["llm"]["provider"] == "fake-test"
     assert json.loads((tmp_path / "final_artifact.json").read_text(encoding="utf-8")) == artifact
+
+
+def test_compacts_large_snapshots_for_a_job_focused_model_prompt(
+    conversation_module,
+    tmp_path: Path,
+) -> None:
+    payload = request_payload()
+    payload["question"] = "What changed in reply monitoring?"
+    payload["target_worker"]["mission"] = "Monitor lifecycle email replies and surface decisions."
+    payload["conversation_history"] = [
+        {"role": "user", "text": "hello"},
+        {"role": "worker", "text": "I am watching the reply queue."},
+    ]
+    payload["mcp_context"]["mcp"]["records"] = [
+        {
+            "kind": "status",
+            "record_id": f"status-{index}",
+            "revision": index,
+            "publication_state": "staged",
+            "summary": "Reply monitoring found a new response." if index == 3 else f"Routine lifecycle update {index}.",
+            "payload": {"detail": "x" * 2_000},
+        }
+        for index in range(1, 31)
+    ]
+    context = {"run_dir": tmp_path, "config": {"inputs": {"payload": payload}}, "payload": {}}
+
+    result = conversation_module.prepare_conversation_context(context)
+    prepared = json.loads((tmp_path / "workflow_state/conversation_context.json").read_text(encoding="utf-8"))
+
+    assert result == {
+        "prepared_context": "workflow_state/conversation_context.json",
+        "record_count": 12,
+        "available_record_count": 30,
+    }
+    assert prepared["target_worker"]["mission"] == "Monitor lifecycle email replies and surface decisions."
+    assert prepared["conversation_history"][-1]["text"] == "I am watching the reply queue."
+    assert any(record["record_id"] == "status-3" for record in prepared["records"])
+    assert prepared["supervision_context"]["configuration"]["editableFields"] == []
+    assert len(json.dumps(prepared)) < 20_000
+
+
+def test_includes_editable_configuration_only_for_configuration_questions(
+    conversation_module,
+    tmp_path: Path,
+) -> None:
+    payload = request_payload()
+    payload["question"] = "Change the monitoring check-in to 09:30."
+    context = {"run_dir": tmp_path, "config": {"inputs": {"payload": payload}}, "payload": {}}
+
+    conversation_module.prepare_conversation_context(context)
+    prepared = json.loads((tmp_path / "workflow_state/conversation_context.json").read_text(encoding="utf-8"))
+
+    assert prepared["supervision_context"]["configuration"]["editableFields"] == [{
+        "key": "monitoring.check_in_hour",
+        "label": "Check-in hour",
+        "type": "text",
+        "required": False,
+        "currentValue": "10:00",
+    }]
 
 
 def test_rejects_a_target_job_identity_mismatch(conversation_module, tmp_path: Path) -> None:
@@ -131,6 +258,51 @@ def test_rejects_a_target_job_identity_mismatch(conversation_module, tmp_path: P
 
     with pytest.raises(ValueError, match="identity mismatch for jobId"):
         conversation_module.prepare_conversation_context(context)
+
+
+def test_records_usage_from_older_runtime_clients_without_a_snapshot_method(
+    conversation_module,
+) -> None:
+    client = AttributeOnlyConversationLLM()
+
+    assert conversation_module._llm_usage(client) == {
+        "provider": "live-test",
+        "model": "gemma4:e2b",
+        "calls": 1,
+        "fallback_calls": 0,
+        "input_tokens": 10,
+        "output_tokens": 4,
+        "total_tokens": 14,
+        "estimated_tokens": 0,
+    }
+
+
+def test_exposes_the_bounded_reply_inline_and_as_a_durable_artifact(
+    conversation_agent_shared_module,
+) -> None:
+    artifact = {
+        "type": "otterdesk_conversation_reply",
+        "reply": "The worker needs approval.",
+        "sources": ["MCP approval approval-1 (staged)"],
+        "mcp_revision": 7,
+    }
+
+    payload, artifacts = conversation_agent_shared_module.domain_result_payload({
+        "final_artifact": artifact,
+        "reply": artifact["reply"],
+        "source_count": 1,
+    })
+
+    assert payload["result"] == {
+        "artifact": artifact,
+        "reply": artifact["reply"],
+        "source_count": 1,
+    }
+    assert payload["final_artifact"] == {
+        "kind": "final_artifact",
+        "path": "final_artifact.json",
+    }
+    assert artifacts == [payload["final_artifact"]]
 
 
 def test_catalog_marks_the_blueprint_private_and_manifest_keeps_it_read_only() -> None:
