@@ -22,6 +22,12 @@ process. This blueprint receives only the resulting snapshot.
 2. `answer_desktop_conversation` uses the MirrorNeuron actor LLM selected by the
    runtime to answer from that artifact and writes `final_artifact.json`.
 
-Normal desktop runs require a live runtime-selected LLM. Quick tests use a
-deterministic fallback and make no network calls.
-
+Normal desktop runs request the logical `default` LLM. MirrorNeuron selects and
+prepares the concrete model for the execution node's hardware (Gemma 4 E2B on
+the standard supported profile), then the actor calls it through that node's
+LiteLLM gateway. Quick tests use a deterministic fallback and make no network
+calls. Live replies use a compact JSON contract and the standard 800-token
+runtime output allowance so the small hardware-selected model can finish the
+object instead of returning a truncated conversation failure. A malformed JSON
+response gets one stricter retry and then a bounded deterministic snapshot reply,
+so model formatting variance does not turn a safe read-only chat into a 500.

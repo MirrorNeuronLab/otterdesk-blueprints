@@ -12,7 +12,7 @@
     "name": "OtterDesk Conversation Assistant",
     "job_name": "otterdesk-conversation-assistant",
     "category": "system",
-    "version": 3,
+    "version": 6,
     "manifest_version": "1.0"
   },
   "description": "A private OtterDesk system co-worker that answers desktop supervisor questions from bounded, identity-checked, read-only MCP evidence and supervision state, and can return reviewable configuration proposals.",
@@ -87,18 +87,18 @@
     "mode": "actor_assisted",
     "mock_mode": "deterministic",
     "provider": "docker_model_runner",
-    "model": "small",
-    "runtime_model": "small",
+    "model": "default",
+    "runtime_model": "default",
     "backend": "llama.cpp",
     "default_config": "primary",
     "configs": {
       "primary": {
         "provider": "docker_model_runner",
-        "model": "small",
-        "runtime_model": "small",
+        "model": "default",
+        "runtime_model": "default",
         "backend": "llama.cpp",
         "temperature": 0.2,
-        "max_tokens": 480,
+        "max_tokens": 800,
         "timeout_seconds": 60,
         "num_retries": 1
       }

@@ -46,7 +46,7 @@
     "configs": {
       "primary": {
         "timeout_seconds": 60,
-        "max_tokens": 480,
+        "max_tokens": 800,
         "num_retries": 1
       }
     }

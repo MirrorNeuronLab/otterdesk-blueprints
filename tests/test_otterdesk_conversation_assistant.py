@@ -57,6 +57,18 @@ class AttributeOnlyConversationLLM(FakeConversationLLM):
     usage_snapshot = None
 
 
+class MalformedJsonConversationLLM:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def generate_json(self, **_: object) -> dict:
+        self.calls += 1
+        raise RuntimeError("LLM did not return valid JSON: Expecting ',' delimiter")
+
+    def usage_snapshot(self) -> dict:
+        return {"provider": "fake-test", "model": "gemma4:e2b", "calls": self.calls}
+
+
 @pytest.fixture()
 def conversation_module():
     inserted = [str(PAYLOADS), *(str(path) for path in SKILL_SOURCES)]
@@ -227,6 +239,43 @@ def test_compacts_large_snapshots_for_a_job_focused_model_prompt(
     assert len(json.dumps(prepared)) < 20_000
 
 
+def test_recovers_repeated_model_json_formatting_errors_with_grounded_fallback(
+    conversation_module,
+    tmp_path: Path,
+) -> None:
+    context = {
+        "run_dir": tmp_path,
+        "config": {"inputs": {"payload": request_payload()}},
+        "payload": {},
+    }
+    client = MalformedJsonConversationLLM()
+
+    conversation_module.prepare_conversation_context(context)
+    result = conversation_module.answer_desktop_conversation(context, llm=client)
+
+    artifact = result["final_artifact"]
+    assert client.calls == 2
+    assert artifact["reply"] == (
+        "One approved development email was delivered. This is final evidence."
+    )
+    assert artifact["used_record_ids"] == ["development-email-delivery"]
+    assert artifact["read_only"] is True
+    assert artifact["llm"]["response_recovery"] == "deterministic_invalid_json_fallback"
+
+
+def test_does_not_mask_non_formatting_model_errors(conversation_module) -> None:
+    class UnavailableLLM:
+        def generate_json(self, **_: object) -> dict:
+            raise RuntimeError("LiteLLM gateway connection refused")
+
+    with pytest.raises(RuntimeError, match="connection refused"):
+        conversation_module._generate_conversation_response(
+            UnavailableLLM(),
+            {"question": "What are you doing?"},
+            {"reply": "Unknown", "used_record_ids": [], "configuration_proposal": None},
+        )
+
+
 def test_includes_editable_configuration_only_for_configuration_questions(
     conversation_module,
     tmp_path: Path,
@@ -317,6 +366,17 @@ def test_catalog_marks_the_blueprint_private_and_manifest_keeps_it_read_only() -
         "otterdesk_hidden": True,
     }
     assert manifest["workflow"]["execution"]["strategy"] == "serial"
+    assert manifest["identity"]["version"] == 6
+    assert manifest["llm"]["model"] == "default"
+    assert manifest["llm"]["runtime_model"] == "default"
+    assert manifest["llm"]["provider"] == "docker_model_runner"
+    assert manifest["llm"]["configs"]["primary"]["model"] == "default"
+    assert manifest["llm"]["configs"]["primary"]["runtime_model"] == "default"
+    assert manifest["llm"]["configs"]["primary"]["provider"] == "docker_model_runner"
+    assert manifest["llm"]["configs"]["primary"]["max_tokens"] == 800
+    assert "api_base" not in manifest["llm"]["configs"]["primary"]
+    default_config = json.loads((BLUEPRINT / "config/default.json").read_text(encoding="utf-8"))
+    assert default_config["llm"]["configs"]["primary"]["max_tokens"] == 800
     assert [step["id"] for step in manifest["workflow"]["steps"]] == [
         "prepare_conversation_context",
         "answer_desktop_conversation",

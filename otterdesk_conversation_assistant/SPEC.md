@@ -29,6 +29,21 @@ bounded snapshot by recency and question relevance. Configuration fields are
 included only when the question asks about changing settings. This keeps normal
 job conversation responsive without weakening the read-only identity checks.
 
+Live runs request the logical `default` runtime model. MirrorNeuron owns
+hardware-aware concrete model selection and preparation, and inference uses the
+selected node's LiteLLM gateway; the blueprint does not hard-code a model
+artifact or direct provider endpoint.
+
+The live response budget is 800 tokens. The prompt limits ordinary replies to
+600 characters, four evidence ids, and at most three proposed configuration
+changes so the hardware-selected small model can complete a valid JSON object
+within that budget.
+
+If the selected small model returns malformed JSON, the answer step makes one
+tighter JSON-only retry. A second formatting-only failure uses the deterministic
+grounded fallback from the same bounded snapshot; transport, authentication,
+model-selection, and other runtime errors still fail rather than being masked.
+
 ## Output contract
 
 `final_artifact.json` has type `otterdesk_conversation_reply` and contains the
