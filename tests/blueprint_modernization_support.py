@@ -10,8 +10,11 @@ from typing import Any
 
 from mn_sdk.manifest_converter import expand_manifest_source
 
+from workspace_paths import companion_workspace
+
 
 ROOT = Path(__file__).resolve().parents[1]
+WORKSPACE = companion_workspace(ROOT)
 
 
 def source_manifest(blueprint_id: str) -> dict[str, Any]:
@@ -56,8 +59,8 @@ def assert_modular_payload(blueprint_id: str) -> None:
 
 def _payload_pythonpath(blueprint_id: str) -> str:
     roots = [ROOT / blueprint_id / "payloads"]
-    roots.extend(sorted((ROOT.parent / "mn-skills").glob("*/src")))
-    roots.extend(sorted((ROOT.parent / "mn-agents").glob("*/src")))
+    roots.extend(sorted((WORKSPACE / "mn-skills").glob("*/src")))
+    roots.extend(sorted((WORKSPACE / "mn-agents").glob("*/src")))
     existing = os.environ.get("PYTHONPATH")
     values = [str(path) for path in roots if path.exists()]
     if existing:

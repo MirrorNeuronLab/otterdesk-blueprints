@@ -201,6 +201,12 @@ Each configured CCTV job owns persistent `knowledge/`, `databases/rag/`, and
 those resources but retain independent inputs, reports, logs, and status. Run
 cleanup never deletes shared resources; reset or deletion is explicit.
 
+## Persistent conversation
+
+OtterDesk can ask this hired co-worker about its monitoring role, safe
+configuration, schedule, and latest run through the stable read-only job MCP,
+even when no CCTV run is active. A question never starts the stream service.
+
 ## Repository validation
 
 ```bash

@@ -76,7 +76,9 @@ def test_budgeted_llm_records_token_usage_and_dmr_metadata(tmp_path):
         fallback={"actor_id": "funding_researcher"},
     )
 
-    assert wrapped.strict is True
+    # Current actor runtime keeps live-provider enforcement separate from the
+    # optional strict-JSON retry policy.
+    assert wrapped.strict is False
     trace_records = [
         json.loads(line)
         for line in (tmp_path / "llm_rag_trace.jsonl").read_text().splitlines()

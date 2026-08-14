@@ -1,5 +1,5 @@
 {
-  "schema_version": "otterdesk.conversation_assistant.request.v1",
+  "schema_version": "otterdesk.conversation_assistant.request.v2",
   "request_id": "desktop-conversation-demo",
   "question": "What is this co-worker working on?",
   "note": "Documentation-only synthetic input. The desktop passes the real bounded payload through config overrides."

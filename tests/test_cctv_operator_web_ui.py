@@ -9,13 +9,16 @@ from pathlib import Path
 import pytest
 from mn_sdk import apply_manifest_config_bindings, expand_manifest_source
 
+from workspace_paths import companion_workspace
+
 
 ROOT = Path(__file__).resolve().parents[1]
-SKILLS = ROOT.parent / "mn-skills"
+WORKSPACE = companion_workspace(ROOT)
+SKILLS = WORKSPACE / "mn-skills"
 for source in (
     SKILLS / "live_video_analysis_skill" / "src",
     SKILLS / "web_ui_skill" / "src",
-    ROOT.parent / "mn-python-sdk",
+    WORKSPACE / "mn-python-sdk",
 ):
     if str(source) not in sys.path:
         sys.path.insert(0, str(source))

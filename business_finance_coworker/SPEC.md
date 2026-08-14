@@ -25,6 +25,11 @@ the `mcp` and `job-collaboration` tags. It publishes bounded staged status
 transitions and existing staged/final work packets for OtterDesk and explicitly
 approved same-node peers. The service is read-only and ends with the run.
 
+OtterDesk supervision does not use that runtime service. The API-owned stable
+job MCP remains available without an active run and exposes only bounded,
+non-secret profile, schedule, lifecycle, and latest-run context. It cannot
+start, configure, approve, or otherwise mutate this co-worker.
+
 ## Input and evidence contract
 
 Input is a dated JSON snapshot of subscriptions, customer funnel counts, ARPU, gross margin, churn, refunds, acquisition spend, and operating costs. Generic customer field names are preferred; the unchanged Bibblio fixture retains its family-named fields. Synthetic fixtures are labeled synthetic_demo. User-supplied data is treated as confidential unless an operator explicitly classifies a derived aggregate otherwise. Missing evidence remains explicit and cannot be converted into an observed claim.

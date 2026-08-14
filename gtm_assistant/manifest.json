@@ -12,7 +12,7 @@
     "name": "GTM Assistant",
     "job_name": "gtm-assistant",
     "category": "business",
-    "version": 3,
+    "version": 1,
     "manifest_version": "1.0"
   },
   "description": "A GTM assistant that converts de-identified customer feedback into journey friction, draft interventions, support escalations, retention evidence, and product priorities.",
@@ -364,15 +364,15 @@
     "mode": "actor_assisted",
     "mock_mode": "deterministic",
     "provider": "docker_model_runner",
-    "model": "small",
-    "runtime_model": "small",
+    "model": "default",
+    "runtime_model": "default",
     "backend": "llama.cpp",
     "default_config": "primary",
     "configs": {
       "primary": {
         "provider": "docker_model_runner",
-        "model": "small",
-        "runtime_model": "small",
+        "model": "default",
+        "runtime_model": "default",
         "backend": "llama.cpp",
         "temperature": 0.2,
         "max_tokens": 2400
@@ -407,12 +407,19 @@
   "mcp_collaboration": {
     "enabled": true,
     "goal_id": "bibblio-business-success",
+    "path": "/mcp",
     "publication_state": "staged",
     "publish_local_exchange": true,
     "peer_reads_enabled": false,
     "include_staged_peer_records": true,
     "max_peer_servers": 8,
     "max_records_per_peer": 50,
+    "service_name": "mn-job-collaboration",
+    "service_tags": [
+      "mcp",
+      "job-collaboration"
+    ],
+    "transport": "streamable-http",
     "note": "Internal workflow messages remain on Core. MCP exposes bounded goal work packets and development reply-monitoring status from separately launched co-worker jobs only when explicit peer configurations are approved."
   },
   "requirements": {
@@ -578,7 +585,7 @@
     }
   },
   "workflow": {
-    "workflow_id": "gtm_assistant_v3",
+    "workflow_id": "gtm_assistant_v4",
     "execution": {
       "strategy": "serial"
     },

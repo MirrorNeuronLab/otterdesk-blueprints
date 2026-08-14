@@ -672,7 +672,18 @@
     "job_name": "cctv-operator",
     "manifest_version": "2.0",
     "name": "CCTV Operator",
-    "version": 2
+    "version": 1
+  },
+  "mcp_collaboration": {
+    "enabled": true,
+    "goal_id": "cctv_operator",
+    "path": "/mcp",
+    "service_name": "mn-job-collaboration",
+    "service_tags": [
+      "mcp",
+      "job-collaboration"
+    ],
+    "transport": "streamable-http"
   },
   "intent": {
     "description": "An NVIDIA-only CCTV co-worker for one approved RTSP/RTMP stream, with operator steering, sparse adaptive sampling, and source-grounded reports.",

@@ -39,6 +39,10 @@ def monitor_development_email_replies(context: dict[str, Any], **_: Any) -> dict
     """Run the read-only reply monitor until the service is manually stopped."""
 
     settings = _settings(context)
+    config = context.get("config") if isinstance(context.get("config"), Mapping) else {}
+    execution = config.get("execution") if isinstance(config.get("execution"), Mapping) else {}
+    if bool(execution.get("quick_test", False)):
+        return _not_started(context, "quick_test")
     delivery = _delivery_receipt(context)
     if delivery.get("status") not in {"sent", "already_sent"} and _smtp_delivery_enabled(context):
         return _await_approved_delivery(context, settings, "approved_development_delivery_not_found")

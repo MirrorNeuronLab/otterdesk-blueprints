@@ -488,6 +488,17 @@
     "name": "Purchase Research Assistant",
     "version": 1
   },
+  "mcp_collaboration": {
+    "enabled": true,
+    "goal_id": "purchase_research_assistant",
+    "path": "/mcp",
+    "service_name": "mn-job-collaboration",
+    "service_tags": [
+      "mcp",
+      "job-collaboration"
+    ],
+    "transport": "streamable-http"
+  },
   "intent": {
     "description": "A general purchase research co-worker for studying property, rental property, cars, airline tickets, services, subscriptions, equipment, software, and other custom purchases. It uses a portable local DMR profile, local knowledge, user evidence, and bounded public research to explain total-cost tradeoffs and write a review-ready recommendation.",
     "problem": "Purchase review depends on older broker, lender, rent, insurance, and diligence details that are easy to lose in noisy pipelines.",

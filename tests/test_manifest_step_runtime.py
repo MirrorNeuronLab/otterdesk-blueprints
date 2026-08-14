@@ -10,11 +10,14 @@ import pytest
 
 from mn_sdk import expand_manifest_source, is_manifest_source
 
+from workspace_paths import companion_workspace
+
 
 ROOT = Path(__file__).resolve().parents[1]
-SDK_ROOT = ROOT.parent / "mn-python-sdk"
-SKILL_SOURCES = sorted((ROOT.parent / "mn-skills").glob("*/src"))
-AGENT_SOURCES = sorted((ROOT.parent / "mn-agents").glob("*/src"))
+WORKSPACE = companion_workspace(ROOT)
+SDK_ROOT = WORKSPACE / "mn-python-sdk"
+SKILL_SOURCES = sorted((WORKSPACE / "mn-skills").glob("*/src"))
+AGENT_SOURCES = sorted((WORKSPACE / "mn-agents").glob("*/src"))
 
 
 def _run_handler_workflow(

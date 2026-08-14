@@ -6,9 +6,15 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parents[1]
 BLUEPRINT_DIR = ROOT / "generic_customer_service_voice_coworker"
+pytestmark = pytest.mark.skipif(
+    not (BLUEPRINT_DIR / "manifest.json").is_file(),
+    reason="the retired voice blueprint is not part of the current catalog",
+)
 
 
 def _json_lines(path: Path) -> list[dict]:

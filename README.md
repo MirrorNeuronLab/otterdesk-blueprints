@@ -41,6 +41,21 @@ python3.11 -m venv .venv
 See [Runtime DAG Flow Patterns](DAG_FLOW_PATTERNS.md) for the catalog's
 event-driven, fork/join, service, and linear flow contracts.
 
+## Persistent co-worker conversation
+
+Every published blueprint opts into the stable, read-only job MCP contract.
+After hiring, OtterDesk talks to `/api/v1/jobs/{job_id}/mcp` through `mn-api`,
+so the co-worker can answer questions about its role, safe configuration,
+schedule, and latest work when it has never run, is idle, paused, scheduled,
+completed, failed, or archived. Sending a question does not start the target
+co-worker.
+
+This supervisory endpoint is API-owned and exposes only bounded job context.
+It is separate from the optional `mn-job-collaboration` runtime service used by
+some executing workflows for peer work-packet exchange. The runtime service
+exists only during a run; persistent OtterDesk conversation does not depend on
+it.
+
 The catalog contract tests also expect this repository to live beside the companion
 `mn-skills` and `mn-agents` folders because they import shared blueprint support
 helpers and render shared agent templates.
@@ -56,7 +71,6 @@ helpers and render shared agent templates.
 | [`gtm_assistant`](gtm_assistant/README.md) | Business | Turns de-identified customer feedback into activation, retention, product, and lifecycle decisions. |
 | [`drug_discovery_research_assistant`](drug_discovery_research_assistant/README.md) | Science | A continuously running drug-discovery research service. Give it a disease or target profile, screening criteria, optional candidate seeds, literature notes, and an input folder; it uses BioTarget and the custom homerquan/DrugClip text-to-molecular-graph model for continuous candidate generation, folding, evaluation, and review-only cycle reports until manually stopped. |
 | [`research_coscientist`](research_coscientist/README.md) | Science | A research co-scientist that combines deterministic evidence and verification stages with an isolated OpenShell worker for autonomous goal refinement, tool-driven exploration, hypothesis generation, and bounded generated-code experiments. |
-| [`generic_customer_service_voice_coworker`](generic_customer_service_voice_coworker/README.md) | Business | A voice customer-service co-worker for a small business demo. Give it the business name, service scope, opening message, escalation rules, editable knowledge text, and optional sample/input folder; it starts a local WebRTC voice experience and writes service status, conversation logs, knowledge snapshots, and handoff-ready run artifacts to the output folder. |
 | [`financial_advisor`](financial_advisor/README.md) | Finance | A unified personal financial advisor co-worker. Put bank statements, receipts, bills, income records, W-2s, 1099s, tax-form images with answer files, brokerage statements, portfolio files, and related finance documents in the input folder; it extracts document evidence, captures tax-form OCR fields for review, prepares review-only tax and household finance summaries, runs portfolio risk analysis, and writes integrated advisor reports to the output folder. |
 | [`purchase_research_assistant`](purchase_research_assistant/README.md) | Finance | A purchase research co-worker for property, rental property, cars, airline tickets, and custom purchases. Put a plain-text note describing what you want to buy in the input folder, plus unfinished research, public links, or supporting evidence; it performs bounded research and writes a review-ready recommendation. |
 | [`vc_assistant`](vc_assistant/README.md) | Finance | A VC analysis co-worker for early startup screening reports. Put pitch decks, memos, financial snippets, company folders, or other startup documents in the input folder; it groups documents by company, performs privacy-safe public research, applies seven VC heuristic scoring methods, audits the math and evidence, and writes score-only per-company reports and batch indexes to the output folder. |

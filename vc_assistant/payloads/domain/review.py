@@ -367,6 +367,7 @@ def build_actor_review_prompt(
         actor_id=actor_id,
         mission=prompt_spec["mission"],
     )
+    prompt_context = _compact_actor_model_context(context)
     return system_prompt, {
         "task": prompt_spec["mission"],
         "actor_id": actor_id,
@@ -375,7 +376,7 @@ def build_actor_review_prompt(
         "focus": prompt_spec.get("focus") or [],
         "rag_refs_required": knowledge_rag_is_required(knowledge_rag),
         "available_rag_refs": available_rag_refs,
-        "context": context,
+        "context": prompt_context,
         "required_schema": {
             "summary": "short role-specific review summary",
             "findings": [
@@ -394,6 +395,69 @@ def build_actor_review_prompt(
             "recommended_next_step": "one bounded next workflow action, no investment recommendation",
         },
     }
+
+def _compact_actor_model_context(context: dict[str, Any], max_chars: int = 2400) -> dict[str, Any]:
+    if len(json.dumps(context, default=str, ensure_ascii=False)) <= max_chars:
+        return context
+    rag_context = context.get("rag_context") if isinstance(context.get("rag_context"), dict) else {}
+    citations = []
+    for item in (rag_context.get("citations") or [])[:3]:
+        if isinstance(item, dict):
+            citations.append(
+                {
+                    key: item.get(key)
+                    for key in ("ref", "title", "source", "score")
+                    if item.get(key) not in (None, "")
+                }
+            )
+    summaries = []
+    for item in (context.get("company_summaries") or [])[:3]:
+        if not isinstance(item, dict):
+            continue
+        summaries.append(
+            {
+                key: item.get(key)
+                for key in (
+                    "company_name",
+                    "company_slug",
+                    "processing_status",
+                    "composite_score",
+                    "method_statuses",
+                    "method_scores",
+                    "missing_methods",
+                    "audit_warning_count",
+                )
+                if item.get(key) not in (None, "", [], {})
+            }
+        )
+    compact = {
+        "blueprint_id": context.get("blueprint_id", BLUEPRINT_ID),
+        "report_only": True,
+        "decision_boundary": context.get("decision_boundary"),
+        "company_count": context.get("company_count"),
+        "processed_company_names": list(context.get("processed_company_names") or [])[:5],
+        "skipped_company_names": list(context.get("skipped_company_names") or [])[:5],
+        "company_summaries": summaries,
+        "rag_context": {
+            "status": rag_context.get("status"),
+            "citation_count": len(rag_context.get("citations") or []),
+            "citations": citations,
+        },
+        "output_files": list(context.get("output_files") or [])[:5],
+        "actor_review_focus": list(context.get("actor_review_focus") or [])[:1],
+        "context_truncated_for_model": True,
+    }
+    if len(json.dumps(compact, default=str, ensure_ascii=False)) > max_chars:
+        compact["company_summaries"] = [
+            {
+                key: item.get(key)
+                for key in ("company_name", "processing_status", "composite_score", "missing_methods")
+                if item.get(key) not in (None, "", [], {})
+            }
+            for item in summaries
+        ]
+        compact["output_files"] = compact["output_files"][:2]
+    return compact
 
 def default_actor_rag_refs(context: dict[str, Any]) -> list[Any]:
     rag_context = context.get("rag_context") if isinstance(context.get("rag_context"), dict) else {}
@@ -482,4 +546,3 @@ def run_vc_actor_reviews(
         if event_sink is not None:
             append_event(event_sink, "actor_activity", {"agent_id": actor_id, "status": "completed", "summary": finding.get("summary")})
     return findings
-

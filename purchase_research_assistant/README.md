@@ -91,6 +91,13 @@ The assistant does not buy, book, pay, submit an offer or application, or contac
 - `payloads/docker_worker/Dockerfile`: shared Python/w3m worker build context
   used by the compiled specialist nodes.
 
+## Persistent conversation
+
+OtterDesk can ask this hired co-worker about its research role, schedule,
+latest comparison, or unresolved evidence through the stable read-only job MCP
+even when it has never run or is idle. Conversation never starts research or a
+transaction.
+
 ## Validation
 
 ```bash

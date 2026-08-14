@@ -12,6 +12,11 @@ inputs remain an unchanged Bibblio demonstration.
 
 This is one independent member of the `business-success-team` collaboration group. It owns activation, retention, support friction, voice-of-customer synthesis, and draft lifecycle interventions. It can run by itself and exchange bounded aggregate goal packets with explicitly approved peer co-workers.
 
+Actor-assisted analysis uses MirrorNeuron's logical `default` model. Operators
+can change that shared default with `mn model add --file <definition.json>
+--default` without editing or reinstalling a machine-specific model name in
+this blueprint.
+
 ## Workflow
 
 1. diagnose_customer_journey creates the aspect analysis and a durable work packet.
@@ -47,11 +52,15 @@ Run from the blueprint catalog:
 To collaborate, supply explicit peer_mcp_servers and enable peer_reads_enabled. Each peer record is filtered to goal_id bibblio-business-success.
 
 While the service is active, the blueprint starts a loopback, read-only
-`mn-job-collaboration` MCP service on a runtime-allocated port. OtterDesk and
+`mn-job-collaboration` MCP service on a runtime-allocated port. Explicitly
 approved same-node peer jobs can use that endpoint to read bounded progress and
 work-packet updates. After an approved development send, enabling reply
 monitoring keeps this endpoint available until the co-worker is manually
 stopped.
+
+OtterDesk conversation uses the separate API-owned stable job MCP. It remains
+readable before the first run and while idle, paused, scheduled, terminal, or
+archived; asking a question never starts this co-worker or its reply monitor.
 
 ## Development SMTP check
 

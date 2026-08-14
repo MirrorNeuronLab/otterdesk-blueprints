@@ -6,6 +6,22 @@
     "job_name": "cctv-operator",
     "name": "CCTV Operator",
     "path": "cctv_operator",
+    "mcp_collaboration": {
+      "enabled": true,
+      "goal_id": "cctv_operator",
+      "path": "/mcp",
+      "service_name": "mn-job-collaboration",
+      "service_tags": [
+        "mcp",
+        "job-collaboration"
+      ],
+      "starter_questions": [
+        "What is this CCTV job configured to monitor?",
+        "What happened in the latest monitoring run?",
+        "What warnings or review items need my attention?"
+      ],
+      "transport": "streamable-http"
+    },
     "product": {
       "agent_role": "AI assistant for reviewing live video activity and preparing visual detection reports and alerts.",
       "benefit": "Combines live operator steering with bounded multimodal analysis so a 24 FPS source does not become a 24 FPS model workload.",
@@ -52,6 +68,22 @@
     "job_name": "financial-advisor",
     "name": "Financial Advisor",
     "path": "financial_advisor",
+    "mcp_collaboration": {
+      "enabled": true,
+      "goal_id": "financial_advisor",
+      "path": "/mcp",
+      "service_name": "mn-job-collaboration",
+      "service_tags": [
+        "mcp",
+        "job-collaboration"
+      ],
+      "starter_questions": [
+        "What can you help me review?",
+        "What did you find in your latest run?",
+        "Which financial items still need human review?"
+      ],
+      "transport": "streamable-http"
+    },
     "product": {
       "agent_role": "Integrated financial advisor team for bank statement extraction, tax-form OCR capture, household cash-flow review, draft tax workpapers, portfolio risk analysis, and review-only report writing.",
       "benefit": "Turns one local finance folder into a source-grounded advisor packet that combines statement, tax-form OCR, tax, cash-flow, and portfolio evidence before any human-approved downstream action.",
@@ -88,6 +120,22 @@
     "job_name": "purchase-research-assistant",
     "name": "Purchase Research Assistant",
     "path": "purchase_research_assistant",
+    "mcp_collaboration": {
+      "enabled": true,
+      "goal_id": "purchase_research_assistant",
+      "path": "/mcp",
+      "service_name": "mn-job-collaboration",
+      "service_tags": [
+        "mcp",
+        "job-collaboration"
+      ],
+      "starter_questions": [
+        "What purchase can you help me research?",
+        "What is the latest recommendation and supporting evidence?",
+        "Which costs, risks, or evidence gaps remain?"
+      ],
+      "transport": "streamable-http"
+    },
     "product": {
       "agent_role": "Purchase research co-worker that prepares source-grounded comparisons without transacting.",
       "benefit": "Turns scattered local evidence and public purchase facts into a clear comparison, risk review, and human-checkable recommendation.",
@@ -120,6 +168,22 @@
     "job_name": "vc-assistant",
     "name": "VC Assistant",
     "path": "vc_assistant",
+    "mcp_collaboration": {
+      "enabled": true,
+      "goal_id": "vc_assistant",
+      "path": "/mcp",
+      "service_name": "mn-job-collaboration",
+      "service_tags": [
+        "mcp",
+        "job-collaboration"
+      ],
+      "starter_questions": [
+        "What startup screening work can you do?",
+        "What did the latest company analysis show?",
+        "Which claims or valuation inputs still need diligence?"
+      ],
+      "transport": "streamable-http"
+    },
     "product": {
       "agent_role": "VC analysis coworker that prepares source-grounded score reports without issuing investment decisions.",
       "benefit": "Turns mixed startup document packets into organized per-company heuristic reports, method-score files, research ledgers, and batch coverage summaries so the user can decide what deserves deeper diligence.",
@@ -178,6 +242,22 @@
     "job_name": "drug-discovery-research-assistant",
     "name": "Drug Discovery Research Assistant",
     "path": "drug_discovery_research_assistant",
+    "mcp_collaboration": {
+      "enabled": true,
+      "goal_id": "drug_discovery_research_assistant",
+      "path": "/mcp",
+      "service_name": "mn-job-collaboration",
+      "service_tags": [
+        "mcp",
+        "job-collaboration"
+      ],
+      "starter_questions": [
+        "What discovery work is this job configured to perform?",
+        "What candidates or evidence emerged from the latest cycle?",
+        "Which scientific risks or review gates remain?"
+      ],
+      "transport": "streamable-http"
+    },
     "product": {
       "agent_role": "Continuous native service coordinator for BioTarget and custom DrugClip graph-text candidate generation, folding, simulation, and evidence review.",
       "benefit": "Keeps BioTarget computational discovery cycles moving while distributing DrugClip graph-text screening, folding, and simulation across cluster boxes with reviewable evidence.",
@@ -211,6 +291,22 @@
     "job_name": "legal-assistant",
     "name": "Legal Assistant",
     "path": "legal_assistant",
+    "mcp_collaboration": {
+      "enabled": true,
+      "goal_id": "legal_assistant",
+      "path": "/mcp",
+      "service_name": "mn-job-collaboration",
+      "service_tags": [
+        "mcp",
+        "job-collaboration"
+      ],
+      "starter_questions": [
+        "What legal document review can you help with?",
+        "What issues appeared in the latest review packet?",
+        "Which clauses, invoices, or decisions need human review?"
+      ],
+      "transport": "streamable-http"
+    },
     "product": {
       "agent_role": "Local legal document assistant that extracts invoice and contract evidence while keeping conclusions review-only.",
       "benefit": "Combines payable extraction and contract clause review into one local, source-grounded review packet.",
@@ -243,6 +339,22 @@
     "job_name": "research-coscientist",
     "name": "Research Co-Scientist",
     "path": "research_coscientist",
+    "mcp_collaboration": {
+      "enabled": true,
+      "goal_id": "research_coscientist",
+      "path": "/mcp",
+      "service_name": "mn-job-collaboration",
+      "service_tags": [
+        "mcp",
+        "job-collaboration"
+      ],
+      "starter_questions": [
+        "What research questions can you investigate?",
+        "What did the latest research run conclude?",
+        "Which hypotheses, evidence gaps, or experiments come next?"
+      ],
+      "transport": "streamable-http"
+    },
     "product": {
       "agent_role": "Multi-agent research team that finds, evaluates, critiques, and drafts evidence-grounded research directions.",
       "benefit": "Turns a research goal and approved evidence into a traceable, adversarially reviewed research packet before any experiment or claim is made.",
@@ -281,6 +393,11 @@
       "service_tags": [
         "mcp",
         "job-collaboration"
+      ],
+      "starter_questions": [
+        "What is your role in the business-success team?",
+        "What did your latest outreach analysis recommend?",
+        "Which founder decisions or approvals do you need?"
       ],
       "transport": "streamable-http"
     },
@@ -325,6 +442,11 @@
         "mcp",
         "job-collaboration"
       ],
+      "starter_questions": [
+        "What finance questions does this job answer?",
+        "What did the latest unit-economics analysis show?",
+        "Which assumptions or founder decisions remain open?"
+      ],
       "transport": "streamable-http"
     },
     "product": {
@@ -368,6 +490,11 @@
         "mcp",
         "job-collaboration"
       ],
+      "starter_questions": [
+        "What learning and safety checks do you perform?",
+        "What did the latest backlog review find?",
+        "Which items are blocked or need human approval?"
+      ],
       "transport": "streamable-http"
     },
     "product": {
@@ -410,6 +537,11 @@
       "service_tags": [
         "mcp",
         "job-collaboration"
+      ],
+      "starter_questions": [
+        "What content work is this job responsible for?",
+        "What did the latest content batch produce?",
+        "Which packages or approvals need attention next?"
       ],
       "transport": "streamable-http"
     },
@@ -487,7 +619,7 @@
       "target_users": "Founders and designated product, lifecycle, support, privacy, brand, and quality reviewers."
     },
     "type": "service",
-    "workflow_id": "gtm_assistant_v3"
+    "workflow_id": "gtm_assistant_v4"
   },
   {
     "category": "System",
@@ -498,10 +630,26 @@
     "path": "otterdesk_conversation_assistant",
     "visibility": "internal",
     "otterdesk_hidden": true,
+    "mcp_collaboration": {
+      "enabled": true,
+      "goal_id": "otterdesk_conversation_assistant",
+      "path": "/mcp",
+      "service_name": "mn-job-collaboration",
+      "service_tags": [
+        "mcp",
+        "job-collaboration"
+      ],
+      "starter_questions": [
+        "What is your supervisory role?",
+        "What context was available in your latest run?",
+        "Which boundaries apply to the answer?"
+      ],
+      "transport": "streamable-http"
+    },
     "product": {
       "agent_role": "Private desktop conversation router and evidence-grounded supervisor assistant.",
       "benefit": "Lets a user talk naturally with any MCP-enabled co-worker while preserving target-job identity, evidence, and approval boundaries.",
-      "how_it_works": "OtterDesk validates and reads the target co-worker's loopback MCP service, then launches this hidden MN batch co-worker with only the bounded snapshot and user question.",
+      "how_it_works": "OtterDesk validates and reads the target co-worker's stable API-owned job MCP, then launches this hidden MN batch co-worker with only the bounded snapshot and user question; the target co-worker is never started by conversation.",
       "input": "A desktop-generated question, bounded target identity, and validated read-only MCP snapshot.",
       "output": "A grounded conversational reply with source record ids, MCP revision, and runtime LLM usage.",
       "problem": "Desktop supervision needs natural conversation without exposing MCP transport or allowing the renderer to invoke arbitrary runtime tools.",

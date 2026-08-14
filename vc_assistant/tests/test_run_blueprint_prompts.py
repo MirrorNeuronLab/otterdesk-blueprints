@@ -422,6 +422,59 @@ def test_research_prompts_include_agent_specific_rag_and_tool_policy():
     assert prompt["required_schema"]["tool_calls"][0]["rag_refs"]
 
 
+def test_research_prompt_bounds_large_rag_and_plan_context():
+    rb = load_module()
+    _, prompt = rb.build_research_agent_prompt(
+        company="Acme",
+        agent_id="funding_researcher",
+        plan={
+            "agent_queries": {"funding_researcher": ["Acme funding"] * 20},
+            "agent_target_urls": {"funding_researcher": ["https://acme.example"] * 20},
+            "rendered_target_urls": ["https://acme.example/app"] * 20,
+            "lanes": [{"lane_id": f"lane-{index}", "private": "x" * 1000} for index in range(20)],
+            "signals": {f"signal-{index}": True for index in range(20)},
+        },
+        internet={},
+        allowed_tools={"browser_search", "finish"},
+        remaining_tool_calls=2,
+        rag_context={
+            "status": "ready",
+            "context": "playbook " * 2000,
+            "citations": [{"ref": index, "body": "private " * 100} for index in range(20)],
+        },
+        knowledge_rag={"enabled": True, "config": {"required": True}},
+        observations=[{"snippets": ["raw " * 1000], "urls": ["https://acme.example"]}] * 20,
+    )
+
+    assert len(json.dumps(prompt)) < 5000
+    assert len(prompt["knowledge_rag"]["context"]) == 800
+    assert "private" not in json.dumps(prompt["adaptive_plan"])
+
+
+def test_actor_review_prompt_bounds_large_context():
+    rb = load_module()
+    _, prompt = rb.build_actor_review_prompt(
+        actor_id="company_report_writer",
+        actor_spec={"role": "Company Report Writer"},
+        context={
+            "company_count": 10,
+            "company_summaries": [
+                {"company_name": f"Acme {index}", "raw": "private " * 1000}
+                for index in range(10)
+            ],
+            "rag_context": {
+                "status": "ready",
+                "citations": [{"ref": index, "body": "large " * 100} for index in range(10)],
+            },
+            "output_files": [{"path": f"report-{index}.json"} for index in range(20)],
+        },
+        knowledge_rag={"enabled": True, "config": {"required": False}},
+    )
+
+    assert len(json.dumps(prompt["context"])) <= 2400
+    assert prompt["context"]["context_truncated_for_model"] is True
+
+
 def test_actor_review_prompts_are_role_specific():
     rb = load_module()
     context = {"rag_context": {"citations": [{"ref": 1}]}, "company_summaries": []}

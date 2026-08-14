@@ -7,9 +7,11 @@ from pathlib import Path
 
 import pytest
 
+from workspace_paths import companion_workspace
+
 
 ROOT = Path(__file__).resolve().parents[1]
-WORKSPACE = ROOT.parent
+WORKSPACE = companion_workspace(ROOT)
 for source in sorted((WORKSPACE / "mn-skills").glob("*/src")):
     if str(source) not in sys.path:
         sys.path.insert(0, str(source))

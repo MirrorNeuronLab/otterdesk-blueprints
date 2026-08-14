@@ -12,13 +12,24 @@
     "name": "OtterDesk Conversation Assistant",
     "job_name": "otterdesk-conversation-assistant",
     "category": "system",
-    "version": 6,
-    "manifest_version": "1.0"
+    "version": 1,
+    "manifest_version": "8.0"
   },
   "description": "A private OtterDesk system co-worker that answers desktop supervisor questions from bounded, identity-checked, read-only MCP evidence and supervision state, and can return reviewable configuration proposals.",
   "metadata": {
     "visibility": "internal",
     "otterdesk_hidden": true
+  },
+  "mcp_collaboration": {
+    "enabled": true,
+    "goal_id": "otterdesk_conversation_assistant",
+    "path": "/mcp",
+    "service_name": "mn-job-collaboration",
+    "service_tags": [
+      "mcp",
+      "job-collaboration"
+    ],
+    "transport": "streamable-http"
   },
   "intent": {
     "description": "Provide grounded natural-language supervision of hired co-workers without exposing runtime transport details in the renderer.",
@@ -140,7 +151,7 @@
         "privacy": "confidential",
         "description": "Bounded desktop question, target identity, validated read-only MCP snapshot, and a safe supervision context with runtime status and editable non-secret configuration fields.",
         "example": {
-          "schema_version": "otterdesk.conversation_assistant.request.v1",
+          "schema_version": "otterdesk.conversation_assistant.request.v2",
           "request_id": "desktop-conversation-demo",
           "question": "What is this co-worker working on?"
         }

@@ -89,7 +89,7 @@ def _llm_usage_event_fields(llm: Any) -> dict[str, Any]:
     usage = getattr(llm, "last_usage", {}) or {}
     if not isinstance(usage, dict):
         usage = {}
-    return {
+    fields = {
         "input_tokens": int(usage.get("input_tokens") or 0),
         "output_tokens": int(usage.get("output_tokens") or 0),
         "total_tokens": int(usage.get("total_tokens") or 0),
@@ -99,6 +99,15 @@ def _llm_usage_event_fields(llm: Any) -> dict[str, Any]:
         "usage_model": str(usage.get("model") or getattr(llm, "model", "unknown")),
         "api_base_kind": _api_base_kind(getattr(llm, "api_base", "")),
     }
+    for key in (
+        "fallback",
+        "fallback_reason",
+        "provider_response_count",
+        "structured_output_retries",
+    ):
+        if key in usage:
+            fields[key] = usage[key]
+    return fields
 
 def _vc_llm_fallback(
     *,
@@ -190,4 +199,3 @@ def provider_is_live(provider: str) -> bool:
         "unavailable",
         "disabled",
     }
-

@@ -420,6 +420,17 @@
     "name": "Drug Discovery Research Assistant",
     "version": 1
   },
+  "mcp_collaboration": {
+    "enabled": true,
+    "goal_id": "drug_discovery_research_assistant",
+    "path": "/mcp",
+    "service_name": "mn-job-collaboration",
+    "service_tags": [
+      "mcp",
+      "job-collaboration"
+    ],
+    "transport": "streamable-http"
+  },
   "intent": {
     "customizable_for": "Drug discovery, material search, assay planning, scientific literature review, and research pipeline support.",
     "description": "A continuous drug-discovery research service. Give it a disease or target profile, screening criteria, optional candidate seeds, literature notes, and an input folder; it continuously generates candidate hypotheses, screens them with DrugCLIP, folds targets, runs configured simulations across cluster workers, and writes review-only cycle reports until manually stopped.",

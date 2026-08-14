@@ -88,6 +88,13 @@ implementations from `payloads/domain/inputs.py`, `evidence.py`,
 isolated in `runtime_services.py`; local sample composition lives in
 `composition.py`.
 
+## Persistent conversation
+
+OtterDesk can ask this hired co-worker about its research role, schedule,
+latest hypotheses, or evidence gaps through the stable read-only job MCP even
+before its first run or while idle. Conversation never starts research or an
+experiment.
+
 ## Validation
 
 ```bash

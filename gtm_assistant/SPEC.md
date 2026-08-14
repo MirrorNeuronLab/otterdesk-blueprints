@@ -28,9 +28,19 @@ monitoring is enabled after a successful approved send, it remains available
 until manually stopped and reports only reply counts and monitor status; it
 never exposes message bodies, addresses, or reply content through MCP.
 
+OtterDesk supervision does not use that runtime service. The API-owned stable
+job MCP remains available without an active run and exposes only bounded,
+non-secret profile, schedule, lifecycle, and latest-run context. It cannot
+start the service, send or monitor email, configure, approve, or otherwise
+mutate this co-worker.
+
 ## Input and evidence contract
 
 Input is a de-identified customer-feedback CSV; the bundled demo uses parent feedback. Synthetic fixtures are labeled synthetic_demo. User-supplied data is treated as confidential unless an operator explicitly classifies a derived aggregate otherwise. Missing evidence remains explicit and cannot be converted into an observed claim.
+
+Actor-assisted analysis resolves MirrorNeuron's logical `default` model through
+the operator model registry and managed gateway. The blueprint does not pin a
+machine-specific model identifier or endpoint.
 
 ## Safety and approval contract
 

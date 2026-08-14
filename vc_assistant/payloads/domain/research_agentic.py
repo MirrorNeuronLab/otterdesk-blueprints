@@ -26,6 +26,41 @@ from .runtime_tools import append_observation_record
 def research_prompt_spec(agent_id: str) -> dict[str, Any]:
     return prompt_spec_from_markdown(RESEARCH_AGENT_PROMPT_FILES.get(agent_id, RESEARCH_AGENT_PROMPT_FILES["research_planner"]))
 
+def _compact_rag_prompt_context(rag_context: dict[str, Any]) -> dict[str, Any]:
+    citations = []
+    for item in (rag_context.get("citations") or [])[:3]:
+        if not isinstance(item, dict):
+            continue
+        citations.append(
+            {
+                key: item.get(key)
+                for key in ("ref", "title", "source", "score")
+                if item.get(key) not in (None, "")
+            }
+        )
+    return {
+        "status": rag_context.get("status"),
+        "context": str(rag_context.get("context") or "")[:800],
+        "citations": citations,
+        "truncated": len(str(rag_context.get("context") or "")) > 800
+        or len(rag_context.get("citations") or []) > 3,
+    }
+
+def _compact_agent_observations(observations: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    compact = []
+    for item in observations[-2:]:
+        if not isinstance(item, dict):
+            continue
+        compact.append(
+            {
+                "status": item.get("status"),
+                "source_count": item.get("source_count"),
+                "statuses": list(item.get("statuses") or [])[:3],
+                "urls": list(item.get("urls") or [])[:2],
+            }
+        )
+    return compact
+
 def build_research_agent_prompt(
     *,
     company: str,
@@ -58,19 +93,21 @@ def build_research_agent_prompt(
         "allowed_tools": sorted(allowed_tools),
         "remaining_tool_calls": remaining_tool_calls,
         "rag_refs_required": knowledge_rag_is_required(knowledge_rag),
-        "knowledge_rag": {
-            "status": rag_context.get("status"),
-            "context": rag_context.get("context"),
-            "citations": rag_context.get("citations"),
-        },
+        "knowledge_rag": _compact_rag_prompt_context(rag_context),
         "adaptive_plan": {
-            "lanes": plan.get("lanes", []),
-            "agent_queries": (plan.get("agent_queries") or {}).get(agent_id, []),
-            "agent_target_urls": (plan.get("agent_target_urls") or {}).get(agent_id, []),
-            "rendered_target_urls": plan.get("rendered_target_urls", []),
-            "signals": plan.get("signals", {}),
+            "lane_ids": [
+                lane.get("lane_id")
+                for lane in (plan.get("lanes") or [])[:5]
+                if isinstance(lane, dict) and lane.get("lane_id")
+            ],
+            "agent_queries": (plan.get("agent_queries") or {}).get(agent_id, [])[:2],
+            "agent_target_urls": (plan.get("agent_target_urls") or {}).get(agent_id, [])[:2],
+            "rendered_target_urls": (plan.get("rendered_target_urls") or [])[:1],
+            "signal_keys": sorted(
+                key for key, value in (plan.get("signals") or {}).items() if value
+            )[:8],
         },
-        "observations": observations[-8:],
+        "observations": _compact_agent_observations(observations),
         "required_schema": {
             "thought_summary": "short non-sensitive rationale",
             "tool_calls": [
@@ -305,4 +342,3 @@ def run_agentic_research_agent(
         },
     )
     return agent_id, sources
-

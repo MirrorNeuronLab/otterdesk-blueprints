@@ -11,7 +11,11 @@ This blueprint is a report-only early diligence assistant. It helps a reviewer i
 
 It does not decide whether to invest, pass, watch, or reject. It writes scores, evidence, assumptions, missing-evidence flags, and source references so the user can decide.
 
-All actor-style LLM analysis uses the local Docker Model Runner default model `small` for ordinary local launches. A `medium` profile is also recorded for deployments that explicitly select a 48GB-or-above runtime node with GPU or integrated-GPU memory, including NVIDIA, Apple, AMD, and DGX Spark / GB10 unified-memory nodes reported by `mn status`. Numerical formulas and missing-evidence gates remain deterministic.
+All actor-style LLM analysis uses MirrorNeuron's logical `default` model. The
+bundled catalog normally resolves that default through adaptive local model
+selection, while an operator-selected provider model can replace it with `mn
+model add --file <definition.json> --default`. Numerical formulas and
+missing-evidence gates remain deterministic.
 
 PDF startup packets are extracted through the shared `llm_ocr_skill`. TXT, Markdown, JSON, and CSV files are read directly; the skill prepares its private OCR model lazily only when a PDF needs OCR, and PDF files must produce embedded or OCR text for the batch run to continue.
 
@@ -134,6 +138,13 @@ The output root also contains `company_index.json`, `company_index.md`, `company
 - [Manifest](manifest.json)
 - [Default config](config/default.json)
 - [Startup research playbook](payloads/knowledge/startup_research_playbook.md)
+
+## Persistent conversation
+
+OtterDesk can ask this hired co-worker about its screening role, schedule,
+latest company analysis, or diligence gaps through the stable read-only job
+MCP even when it has never run or is idle. Conversation never starts a batch
+or makes an investment decision.
 
 ## Validation
 

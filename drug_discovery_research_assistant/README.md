@@ -46,6 +46,13 @@ The configured research job seeds bundled knowledge once, then shares
 edits. Experimental inputs, outputs, logs, and artifacts remain isolated by
 `run_id`.
 
+## Persistent conversation
+
+OtterDesk can ask this hired co-worker about its scientific role, schedule,
+latest cycle, or review gates through the stable read-only job MCP even while
+the continuous service is stopped. Conversation never starts a discovery
+cycle.
+
 ## Validation
 
 ```bash

@@ -12,8 +12,8 @@
     "name": "Growth & Partnerships Co-worker",
     "job_name": "growth-partnerships-coworker",
     "category": "business",
-    "version": 2,
-    "manifest_version": "1.0"
+    "version": 1,
+    "manifest_version": "2.0"
   },
   "description": "A generic Growth & Partnerships co-worker that qualifies approved contacts, designs relevance-first demand tests, and can deliver one explicitly approved development SMTP test without exposing contact details through MCP.",
   "intent": {
@@ -392,12 +392,19 @@
   "mcp_collaboration": {
     "enabled": true,
     "goal_id": "bibblio-business-success",
+    "path": "/mcp",
     "publication_state": "staged",
     "publish_local_exchange": true,
     "peer_reads_enabled": false,
     "include_staged_peer_records": true,
     "max_peer_servers": 8,
     "max_records_per_peer": 50,
+    "service_name": "mn-job-collaboration",
+    "service_tags": [
+      "mcp",
+      "job-collaboration"
+    ],
+    "transport": "streamable-http",
     "note": "Internal workflow messages remain on Core. MCP exposes bounded goal work packets from separately launched co-worker jobs only when explicit peer configurations are approved."
   },
   "requirements": {

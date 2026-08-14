@@ -10,10 +10,11 @@ runtime becomes available. It is deliberately absent from the Co-worker Hub and
 My Team: it is runtime infrastructure for supervising other co-workers, not a
 co-worker the user hires directly.
 
-The workflow never discovers MCP endpoints, accepts credentials, sends messages,
-or mutates the target job. Endpoint discovery, service identity validation, tool
-allowlisting, response bounds, and MCP reads remain owned by the Electron main
-process. This blueprint receives only the resulting snapshot.
+The workflow never constructs MCP endpoints, accepts credentials, sends
+messages, or mutates the target job. Stable endpoint construction, API
+authentication, identity validation, tool allowlisting, response bounds, and
+MCP reads remain owned by the Electron main process. This blueprint receives
+only the resulting `otterdesk.worker_stable_job_mcp_context.v1` snapshot.
 
 ## Workflow
 

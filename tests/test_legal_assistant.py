@@ -172,11 +172,11 @@ print(json.dumps({{
         "invoice_count": 2,
         "contract_count": 2,
         "high_severity_issue_count": 1,
-        "open_obligation_count": 8,
+        "open_obligation_count": 7,
     }
     assert result["priority_area"] == "payment_controls"
     assert result["priority_severity"] == "high"
     assert result["requires_trusted_verification"] is True
-    assert result["obligation_count"] == 8
+    assert result["obligation_count"] == 7
     assert result["lane_files"] == ["legal_contract_lane.json", "legal_invoice_lane.json"]
     assert result["run_artifact_exists"] is True

@@ -39,7 +39,15 @@ The workflow groups first-level input subfolders as companies. Loose files are g
 
 The online research layer uses `web_browser_skill` as its only browser capability. Standard mode performs provider discovery, readable plain-text extraction, bounded retries, throttling, and adaptive local engine selection; explicit deep mode renders JavaScript-heavy public sources such as Crunchbase through a deterministic, policy-governed `agent-browser` actuator. MirrorNeuron remains the planner. The browser layer owns session/domain policy, approval gates, per-run audit records, and bounded artifacts; it does not expose eval, arbitrary JavaScript, uploads, profiles, clipboard access, raw CDP, or agent-browser's autonomous chat loop. The workflow records source status, snippets, warnings, and blocked/login/robots outcomes rather than bypassing access controls. Changed company packets, per-company research agents, and numerical method scorers run with bounded parallel workers while outputs remain ordered by stable company slug.
 
-Actor-style LLM analysis uses the local Docker Model Runner default model `small` for ordinary local launches. A `medium` profile is also recorded for deployments that explicitly select a 48GB-or-above runtime node with GPU or integrated-GPU memory, including NVIDIA, Apple, AMD, and DGX Spark / GB10 unified-memory nodes reported by `mn status`. Numerical scoring remains deterministic: formulas, weights, scenario math, missing-evidence status, and audit checks are owned by deterministic workers. Non-substantive records such as research plans, configured references, disabled browser fallback notices, unavailable skills, blocked pages, and failed requests do not create comparable evidence by themselves.
+Actor-style LLM analysis uses MirrorNeuron's logical `default` model. The
+bundled catalog normally resolves it through adaptive local model selection;
+an operator-selected provider definition may replace it without changing the
+blueprint. Numerical scoring remains deterministic: formulas, weights,
+scenario math, missing-evidence status, and audit checks are owned by
+deterministic workers. Non-substantive records such as research plans,
+configured references, disabled browser fallback notices, unavailable skills,
+blocked pages, and failed requests do not create comparable evidence by
+themselves.
 
 Local LLM calls are deliberately backpressured. The default run serializes Docker Model Runner calls, spaces them slightly, keeps company and research-agent defaults serial, and caps agentic research loops so a scheduled batch does not burst many model calls at once.
 
@@ -99,6 +107,13 @@ service instead of opening the file independently.
 ## Prototype Limits
 
 This is an early heuristic report assistant. Scores are not valuations, investment recommendations, legal advice, or financial advice. Comparable, exit, and rebuild-cost outputs are deliberately conservative when source evidence is thin.
+
+## Persistent supervisory MCP
+
+The API-owned stable job MCP exposes bounded role, schedule, safe
+configuration, lifecycle, and latest-run evidence without requiring an active
+screening batch. It cannot start research, alter scoring, or take investment
+action.
 
 ## Upgrade Path To Real Customer Use
 

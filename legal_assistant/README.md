@@ -60,3 +60,10 @@ Specialist actors receive role-specific missions for intake, invoice/bill review
 nine same-named bindings. Focused modules under `payloads/domain/` own document
 reading, invoices, contracts, evidence review, reporting, state, knowledge, and
 runtime preparation. There is no workflow facade or generic operation router.
+
+## Persistent conversation
+
+OtterDesk can ask this hired co-worker about its document-review role,
+schedule, latest issues, or evidence gaps through the stable read-only job MCP
+even before its first run or while idle. Conversation never starts review or
+takes legal or payable action.

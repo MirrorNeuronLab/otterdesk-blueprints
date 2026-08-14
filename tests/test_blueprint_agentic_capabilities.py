@@ -11,7 +11,6 @@ ROOT = Path(__file__).resolve().parents[1]
 RAG_BLUEPRINTS = {
     "drug_discovery_research_assistant",
     "financial_advisor",
-    "generic_customer_service_voice_coworker",
     "legal_assistant",
     "purchase_research_assistant",
     "cctv_operator",

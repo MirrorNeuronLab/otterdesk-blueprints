@@ -64,6 +64,10 @@ Knowledge, Milvus Lite RAG storage, and explicitly durable advisor state are
 isolated by stable `job_id` and survive multiple runs. Inputs and outputs are
 isolated by `run_id`; ordinary run cleanup never deletes job data.
 
+The API-owned stable job MCP exposes only bounded, non-secret profile,
+schedule, lifecycle, and latest-run context. It remains readable without an
+active run and cannot file, trade, transfer, configure, or start the job.
+
 ## Non-Goals
 
 The blueprint does not file taxes, make trades, move money, pay bills, open accounts, or send reports externally. It prepares source-grounded review packets for humans.

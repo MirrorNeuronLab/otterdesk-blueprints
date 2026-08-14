@@ -11,9 +11,11 @@ from pathlib import Path
 
 import pytest
 
+from workspace_paths import companion_workspace
+
 
 ROOT = Path(__file__).resolve().parents[1]
-WORKSPACE = ROOT.parent
+WORKSPACE = companion_workspace(ROOT)
 SDK_SRC = WORKSPACE / "mn-python-sdk"
 SUPPORT_SRC = WORKSPACE / "mn-skills" / "blueprint_support_skill" / "src"
 AGENTS_ROOT = WORKSPACE / "mn-agents"
@@ -25,7 +27,6 @@ if str(SUPPORT_SRC) not in sys.path:
 FOLDER_INPUT_FIELDS = {
     "drug_discovery_research_assistant": {"input_folder", "output_folder"},
     "financial_advisor": {"document_folder", "input_folder", "output_folder"},
-    "generic_customer_service_voice_coworker": {"input_folder", "output_folder"},
     "legal_assistant": {"document_folder", "input_folder", "output_folder"},
     "purchase_research_assistant": {"input_folder", "output_folder"},
     "vc_assistant": {"document_folder", "output_folder"},
@@ -792,7 +793,6 @@ def test_otterdesk_blueprints_declare_product_experience_contracts():
         "financial_advisor": "approval_required",
         "purchase_research_assistant": "approval_required",
         "cctv_operator": "notice_only",
-        "generic_customer_service_voice_coworker": "notice_only",
         "legal_assistant": "approval_required",
         "vc_assistant": "approval_required",
     }
@@ -1110,7 +1110,6 @@ EXPECTED_BATCH_SUGGESTED_SCHEDULES = {
 }
 
 CONTINUOUS_BLUEPRINTS_WITHOUT_SUGGESTED_SCHEDULES = {
-    "generic_customer_service_voice_coworker",
     "cctv_operator",
 }
 

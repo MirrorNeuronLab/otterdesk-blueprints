@@ -11,18 +11,22 @@
 
 The `inputs.payload` object must contain:
 
-- `schema_version`: `otterdesk.conversation_assistant.request.v1`
+- `schema_version`: `otterdesk.conversation_assistant.request.v2`
 - `request_id`: opaque desktop-generated request id
 - `question`: non-empty user question, at most 20,000 characters
 - `conversation_history`: up to eight bounded recent user/co-worker turns for continuity; never evidence
 - `target_worker`: bounded worker, mission, blueprint, stable job, and runtime run identity
-- `mcp_context`: `otterdesk.worker_mcp_conversation_context.v1` with
+- `mcp_context`: `otterdesk.worker_stable_job_mcp_context.v1` with
   `mcp.readOnly` set to `true` and identity matching the target
 - `supervision_context`: `otterdesk.worker_supervision_context.v1` with the
   identity-matched runtime summary and editable non-secret configuration fields
 
 The payload must not contain MCP URLs, tokens, passwords, or renderer-provided
 shell/filesystem instructions.
+
+The stable job and blueprint identities are always required. Run identity is
+required only when a latest run exists; a never-run co-worker legitimately has
+no run id and remains conversational.
 
 The model prompt receives at most twelve compact job records selected from the
 bounded snapshot by recency and question relevance. Configuration fields are

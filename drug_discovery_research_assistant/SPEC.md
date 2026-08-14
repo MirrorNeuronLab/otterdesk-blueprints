@@ -32,6 +32,10 @@ Durable knowledge, Milvus Lite data, and service state belong to the stable job,
 not the blueprint ID or execution. Two jobs cannot observe each other's data.
 Run cancellation and retention do not remove those resources.
 
+The API-owned stable job MCP remains readable when the continuous service is
+not running. It exposes bounded non-secret profile, schedule, lifecycle, and
+latest-cycle context and cannot launch computation or advance a candidate.
+
 ## Safety and non-goals
 
 All results are computational hypotheses. The blueprint does not synthesize compounds, run assays, make clinical claims, submit regulatory material, or send candidates to external systems. Fake adapters are limited to explicit mock/smoke-test configuration and are labeled synthetic in every artifact. BioTarget Stage D invokes the native GNINA executable in the selected NVIDIA DockerWorker; no nested Docker socket or CPU-emulation path is part of the live contract.

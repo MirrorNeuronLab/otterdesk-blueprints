@@ -26,12 +26,48 @@ RAG_BLUEPRINTS = {
     "cctv_operator",
     "drug_discovery_research_assistant",
     "financial_advisor",
-    "generic_customer_service_voice_coworker",
     "legal_assistant",
     "purchase_research_assistant",
     "research_coscientist",
     "vc_assistant",
 }
+
+
+def test_every_catalog_blueprint_enables_stable_job_scoped_mcp():
+    root = Path(__file__).resolve().parents[1]
+    entries = json.loads((root / "index.json").read_text(encoding="utf-8"))
+
+    assert entries
+    for entry in entries:
+        blueprint_id = entry["id"]
+        manifest = json.loads(
+            (root / entry["path"] / "manifest.json").read_text(encoding="utf-8")
+        )
+        catalog_mcp = entry.get("mcp_collaboration")
+        manifest_mcp = manifest.get("mcp_collaboration")
+
+        for descriptor in (catalog_mcp, manifest_mcp):
+            assert descriptor["enabled"] is True, blueprint_id
+            assert descriptor["path"] == "/mcp", blueprint_id
+            assert descriptor["service_name"] == "mn-job-collaboration", blueprint_id
+            assert descriptor["service_tags"] == ["mcp", "job-collaboration"], blueprint_id
+            assert descriptor["transport"] == "streamable-http", blueprint_id
+            assert descriptor["goal_id"], blueprint_id
+
+        assert len(catalog_mcp["starter_questions"]) >= 3, blueprint_id
+
+
+def test_source_manifests_use_current_runtime_envelope_version():
+    root = Path(__file__).resolve().parents[1]
+    entries = json.loads((root / "index.json").read_text(encoding="utf-8"))
+
+    for entry in entries:
+        manifest = json.loads(
+            (root / entry["path"] / "manifest.json").read_text(encoding="utf-8")
+        )
+        assert manifest["apiVersion"] == "mn.workflow.source/v2", entry["id"]
+        assert manifest["identity"]["version"] == 1, entry["id"]
+        assert manifest["identity"]["manifest_version"], entry["id"]
 
 
 def test_rag_blueprints_declare_job_scoped_knowledge_database_and_state_resources():

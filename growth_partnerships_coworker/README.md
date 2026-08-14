@@ -59,8 +59,12 @@ Run from the blueprint catalog:
 To collaborate, supply explicit peer_mcp_servers and enable peer_reads_enabled. Each peer record is filtered to goal_id bibblio-business-success.
 
 While a run is active, the blueprint starts a loopback, read-only
-`mn-job-collaboration` MCP service on a runtime-allocated port. OtterDesk and
+`mn-job-collaboration` MCP service on a runtime-allocated port. Explicitly
 approved same-node peer jobs can use that endpoint to read bounded progress and
 work-packet updates; stopping the run removes the endpoint.
+
+OtterDesk conversation uses the separate API-owned stable job MCP. It remains
+readable before the first run and while idle, paused, scheduled, terminal, or
+archived; asking a question never starts this co-worker.
 
 See SPEC.md and payloads/knowledge/gtm_playbook.md for the role contract.

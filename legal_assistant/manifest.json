@@ -368,6 +368,17 @@
     "name": "Legal Assistant",
     "version": 1
   },
+  "mcp_collaboration": {
+    "enabled": true,
+    "goal_id": "legal_assistant",
+    "path": "/mcp",
+    "service_name": "mn-job-collaboration",
+    "service_tags": [
+      "mcp",
+      "job-collaboration"
+    ],
+    "transport": "streamable-http"
+  },
   "intent": {
     "customizable_for": "Individual legal intake, small-business invoice review, vendor contract review, CLM intake, payable approval support, and attorney review preparation.",
     "description": "A legal document co-worker for invoice, bill, and contract review. Put invoices, bills, contracts, clause notes, labels, or supporting files in the input folder; it extracts payable fields, maps contract clauses, compares playbook expectations, flags review issues, and writes a source-grounded review packet to the output folder.",

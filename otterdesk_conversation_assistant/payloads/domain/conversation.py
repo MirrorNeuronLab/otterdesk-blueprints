@@ -82,11 +82,15 @@ def _matching_identity(payload: dict[str, Any]) -> tuple[dict[str, Any], dict[st
         raise ValueError("Desktop conversation MCP context must be explicitly read-only.")
     if str(mcp_context.get("schema") or "") != CONTEXT_SCHEMA:
         raise ValueError("Desktop conversation MCP context schema is invalid.")
-    for target_key, context_key in (("id", "workerId"), ("jobId", "jobId"), ("runId", "runId")):
+    for target_key, context_key in (("id", "workerId"), ("jobId", "jobId")):
         expected = str(target.get(target_key) or "").strip()
         observed = str(mcp_context.get(context_key) or "").strip()
         if not expected or expected != observed:
             raise ValueError(f"Desktop conversation target identity mismatch for {target_key}.")
+    target_run_id = str(target.get("runId") or "").strip()
+    context_run_id = str(mcp_context.get("runId") or "").strip()
+    if target_run_id != context_run_id:
+        raise ValueError("Desktop conversation target identity mismatch for runId.")
     return target, mcp_context
 
 
@@ -94,11 +98,15 @@ def _supervision_context(payload: dict[str, Any], target: dict[str, Any]) -> dic
     context = as_record(payload.get("supervision_context"))
     if str(context.get("schema") or "") != SUPERVISION_SCHEMA:
         raise ValueError("Desktop conversation supervision context schema is invalid.")
-    for target_key, context_key in (("id", "workerId"), ("jobId", "jobId"), ("runId", "runId")):
+    for target_key, context_key in (("id", "workerId"), ("jobId", "jobId")):
         expected = str(target.get(target_key) or "").strip()
         observed = str(context.get(context_key) or "").strip()
         if not expected or expected != observed:
             raise ValueError(f"Desktop conversation supervision identity mismatch for {target_key}.")
+    target_run_id = str(target.get("runId") or "").strip()
+    context_run_id = str(context.get("runId") or "").strip()
+    if target_run_id != context_run_id:
+        raise ValueError("Desktop conversation supervision identity mismatch for runId.")
     if encoded_size(context) > MAX_SUPERVISION_CONTEXT_BYTES:
         raise ValueError("Desktop conversation supervision context exceeds the blueprint limit.")
     return context

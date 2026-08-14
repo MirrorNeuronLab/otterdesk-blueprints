@@ -50,3 +50,9 @@ reset or confirmed job deletion clears them.
 - Missing, stale, blocked, and conflicting evidence is explicit.
 - Fake/offline runs are deterministic and write the full output bundle.
 - Consequential actions remain blocked pending human review.
+
+## Persistent supervisory MCP
+
+The API-owned stable job MCP exposes bounded role, schedule, safe
+configuration, lifecycle, and latest-run context without an active workflow.
+It cannot launch tools, execute experiments, configure, or start the job.

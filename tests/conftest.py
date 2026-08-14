@@ -3,8 +3,10 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+from workspace_paths import companion_workspace
 
-WORKSPACE = Path(__file__).resolve().parents[2]
+
+WORKSPACE = companion_workspace(Path(__file__).resolve().parents[1])
 SIBLING_SOURCES = (
     WORKSPACE / "mn-python-sdk",
     WORKSPACE / "mn-skills" / "blueprint_support_skill" / "src",

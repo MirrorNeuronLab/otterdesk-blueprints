@@ -125,6 +125,7 @@ def test_default_llm_blueprints_keep_model_routing_logical():
         "vc_assistant",
         "legal_assistant",
         "financial_advisor",
+        "gtm_assistant",
         "research_coscientist",
         "purchase_research_assistant",
     ):

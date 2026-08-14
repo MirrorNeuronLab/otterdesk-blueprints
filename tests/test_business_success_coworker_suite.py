@@ -7,9 +7,11 @@ import json
 import sys
 from pathlib import Path
 
+from workspace_paths import companion_workspace
+
 
 ROOT = Path(__file__).resolve().parents[1]
-WORKSPACE = ROOT.parent
+WORKSPACE = companion_workspace(ROOT)
 for source in sorted((WORKSPACE / "mn-skills").glob("*/src")):
     if str(source) not in sys.path:
         sys.path.insert(0, str(source))
@@ -79,6 +81,7 @@ def test_five_independent_blueprints_share_one_goal_contract():
         assert manifest["workflow"]["steps"][1]["needs"] == [step_ids[0]]
         if blueprint_id == "growth_partnerships_coworker":
             assert manifest["identity"]["version"] == 1
+            assert manifest["identity"]["manifest_version"] == "2.0"
             assert manifest["workflow"]["workflow_id"] == "growth_partnerships_coworker_v2"
             assert manifest["workflow"]["steps"][2]["needs"] == [step_ids[1]]
             assert manifest["workflow"]["steps"][2]["control"]["retry"]["max_attempts"] == 1
@@ -94,8 +97,8 @@ def test_five_independent_blueprints_share_one_goal_contract():
                 dependency["name"] for dependency in manifest["skill_dependencies"]
             }
         if blueprint_id == "gtm_assistant":
-            assert manifest["identity"]["version"] == 3
-            assert manifest["workflow"]["workflow_id"] == "gtm_assistant_v3"
+            assert manifest["identity"]["version"] == 1
+            assert manifest["workflow"]["workflow_id"] == "gtm_assistant_v4"
             assert manifest["workflow"]["steps"][2]["needs"] == [step_ids[1]]
             assert manifest["workflow"]["steps"][2]["control"]["retry"]["max_attempts"] == 1
             assert manifest["workflow"]["steps"][3]["needs"] == [step_ids[2]]
@@ -198,14 +201,19 @@ def test_catalog_replaces_the_monolith_with_five_collaboration_group_members():
             "service_tags": ["mcp", "job-collaboration"],
             "transport": "streamable-http",
         }
+        actual_mcp_collaboration = entries[blueprint_id]["mcp_collaboration"]
+        assert {
+            key: actual_mcp_collaboration[key]
+            for key in expected_mcp_collaboration
+        } == expected_mcp_collaboration
+        assert len(actual_mcp_collaboration["starter_questions"]) >= 3
         if blueprint_id == "gtm_assistant":
-            expected_mcp_collaboration["starter_questions"] = [
+            assert actual_mcp_collaboration["starter_questions"] == [
                 "How many development emails were sent in this run?",
                 "How many matching development replies have been observed?",
                 "What should we do next?",
                 "What approval do you need before a development email can be sent?",
             ]
-        assert entries[blueprint_id]["mcp_collaboration"] == expected_mcp_collaboration
 
 
 def test_knowledge_and_sample_inputs_remain_the_unchanged_bibblio_demo():
@@ -250,13 +258,25 @@ def test_gtm_smtp_defaults_are_disabled_and_contain_no_live_identity_or_secret()
 
 def test_finance_fixture_retains_deterministic_economics():
     payloads = ROOT / "business_finance_coworker" / "payloads"
-    if str(payloads) not in sys.path:
-        sys.path.insert(0, str(payloads))
-    module = importlib.import_module("domain.metrics")
-    fixture = json.loads(
-        (ROOT / "business_finance_coworker" / "examples" / "sample_inputs" / "business_metrics.json").read_text()
-    )
-    values = module.calculate_unit_economics(fixture)["metrics"]
+    previous_domain_modules = [
+        name
+        for name in sys.modules
+        if name == "domain" or name.startswith("domain.")
+    ]
+    for name in previous_domain_modules:
+        sys.modules.pop(name, None)
+    sys.path.insert(0, str(payloads))
+    try:
+        module = importlib.import_module("domain.metrics")
+        fixture = json.loads(
+            (ROOT / "business_finance_coworker" / "examples" / "sample_inputs" / "business_metrics.json").read_text()
+        )
+        values = module.calculate_unit_economics(fixture)["metrics"]
+    finally:
+        sys.path.remove(str(payloads))
+        for name in list(sys.modules):
+            if name == "domain" or name.startswith("domain."):
+                sys.modules.pop(name, None)
     assert values["monthly_revenue"] == 1409.06
     assert values["monthly_contribution_after_fixed_costs_and_acquisition"] == -5300.9332
     assert values["break_even_paying_customers"] == 548

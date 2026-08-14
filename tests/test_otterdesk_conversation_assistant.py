@@ -7,15 +7,14 @@ from pathlib import Path
 
 import pytest
 
+from workspace_paths import companion_workspace
+
 
 ROOT = Path(__file__).resolve().parents[1]
+WORKSPACE = companion_workspace(ROOT)
 BLUEPRINT = ROOT / "otterdesk_conversation_assistant"
 PAYLOADS = BLUEPRINT / "payloads"
-DEVELOPMENT_ROOT = (
-    ROOT.parent
-    if (ROOT.parent / "mn-skills").is_dir()
-    else ROOT.parent / "mirror-neuron-set"
-)
+DEVELOPMENT_ROOT = WORKSPACE
 SKILL_SOURCES = sorted((DEVELOPMENT_ROOT / "mn-skills").glob("*/src"))
 AGENT_SOURCES = sorted((DEVELOPMENT_ROOT / "mn-agents").glob("*/src"))
 
@@ -109,7 +108,7 @@ def conversation_agent_shared_module():
 
 def request_payload() -> dict:
     return {
-        "schema_version": "otterdesk.conversation_assistant.request.v1",
+        "schema_version": "otterdesk.conversation_assistant.request.v2",
         "request_id": "desktop-request-1",
         "question": "How many development emails were sent?",
         "target_worker": {
@@ -120,7 +119,7 @@ def request_payload() -> dict:
             "runId": "gtm-run-1",
         },
         "mcp_context": {
-            "schema": "otterdesk.worker_mcp_conversation_context.v1",
+            "schema": "otterdesk.worker_stable_job_mcp_context.v1",
             "workerId": "gtm_assistant",
             "jobId": "gtm-job-1",
             "runId": "gtm-run-1",
@@ -198,6 +197,42 @@ def test_prepares_identity_checked_context_and_writes_grounded_final_artifact(
     assert artifact["configuration_proposal"] is None
     assert artifact["llm"]["provider"] == "fake-test"
     assert json.loads((tmp_path / "final_artifact.json").read_text(encoding="utf-8")) == artifact
+
+
+def test_accepts_direct_stable_context_for_a_never_run_job(
+    conversation_module,
+    tmp_path: Path,
+) -> None:
+    payload = request_payload()
+    payload["target_worker"]["runId"] = None
+    payload["mcp_context"]["runId"] = None
+    payload["mcp_context"]["stableJob"] = {
+        "schema_version": "mn.mcp.stable_job_context.v1",
+        "state": "never_run",
+        "read_only": True,
+    }
+    payload["mcp_context"]["mcp"]["records"] = [{
+        "kind": "status",
+        "record_id": "stable-job-state",
+        "revision": 1,
+        "publication_state": "final",
+        "summary": "This co-worker has not run yet; its role is ready for questions.",
+    }]
+    payload["supervision_context"]["runId"] = None
+    context = {
+        "run_dir": tmp_path,
+        "config": {"inputs": {"payload": payload}},
+        "payload": {},
+    }
+
+    prepared = conversation_module.prepare_conversation_context(context)
+    stored = json.loads(
+        (tmp_path / "workflow_state/conversation_context.json").read_text(encoding="utf-8")
+    )
+
+    assert prepared["record_count"] == 1
+    assert stored["target_worker"]["runId"] == ""
+    assert stored["records"][0]["record_id"] == "stable-job-state"
 
 
 def test_compacts_large_snapshots_for_a_job_focused_model_prompt(
@@ -366,7 +401,9 @@ def test_catalog_marks_the_blueprint_private_and_manifest_keeps_it_read_only() -
         "otterdesk_hidden": True,
     }
     assert manifest["workflow"]["execution"]["strategy"] == "serial"
-    assert manifest["identity"]["version"] == 6
+    assert manifest["identity"]["version"] == 1
+    assert manifest["identity"]["manifest_version"] == "8.0"
+    assert manifest["mcp_collaboration"]["enabled"] is True
     assert manifest["llm"]["model"] == "default"
     assert manifest["llm"]["runtime_model"] == "default"
     assert manifest["llm"]["provider"] == "docker_model_runner"

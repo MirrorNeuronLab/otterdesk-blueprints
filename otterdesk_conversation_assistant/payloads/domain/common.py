@@ -10,8 +10,8 @@ from typing import Any
 
 BLUEPRINT_ID = "otterdesk_conversation_assistant"
 BLUEPRINT_NAME = "OtterDesk Conversation Assistant"
-REQUEST_SCHEMA = "otterdesk.conversation_assistant.request.v1"
-CONTEXT_SCHEMA = "otterdesk.worker_mcp_conversation_context.v1"
+REQUEST_SCHEMA = "otterdesk.conversation_assistant.request.v2"
+CONTEXT_SCHEMA = "otterdesk.worker_stable_job_mcp_context.v1"
 SUPERVISION_SCHEMA = "otterdesk.worker_supervision_context.v1"
 OUTPUT_SCHEMA = "otterdesk.conversation_assistant.reply.v1"
 OUTPUT_TYPE = "otterdesk_conversation_reply"

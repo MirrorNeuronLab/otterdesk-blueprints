@@ -483,6 +483,17 @@
     "name": "Research Co-Scientist",
     "version": 1
   },
+  "mcp_collaboration": {
+    "enabled": true,
+    "goal_id": "research_coscientist",
+    "path": "/mcp",
+    "service_name": "mn-job-collaboration",
+    "service_tags": [
+      "mcp",
+      "job-collaboration"
+    ],
+    "transport": "streamable-http"
+  },
   "intent": {
     "description": "A research co-scientist combining deterministic evidence and verification stages with one isolated OpenShell worker for autonomous, tool-driven exploration and bounded generated-code experiments.",
     "problem": "Research teams need to explore many possible explanations while preserving evidence, exposing counterarguments, and keeping experiments and claims under human control.",

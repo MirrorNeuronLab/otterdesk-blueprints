@@ -5,9 +5,12 @@ import json
 import sys
 from pathlib import Path
 
+from workspace_paths import companion_workspace
+
 
 ROOT = Path(__file__).resolve().parents[1]
 BLUEPRINT_DIR = ROOT / "drug_discovery_research_assistant"
+WORKSPACE = companion_workspace(ROOT)
 STEP_SCRIPTS = {
     "target_discovery": "scripts/stage_a.py",
     "structure_generation": "scripts/stage_b.py",
@@ -18,7 +21,7 @@ STEP_SCRIPTS = {
 
 
 def _expand_source_manifest(source: dict) -> dict:
-    sdk_root = ROOT.parent / "mn-python-sdk" / "mn_sdk"
+    sdk_root = WORKSPACE / "mn-python-sdk" / "mn_sdk"
     package_spec = importlib.util.spec_from_file_location(
         "mn_sdk",
         sdk_root / "__init__.py",

@@ -78,3 +78,9 @@ intake, source ingestion, cash flow, tax, portfolio, public research,
 reconciliation, reporting, model-review services, durable state, and runtime
 preparation. `composition.py` is the local sample runner; deployed agents call
 the same focused functions.
+
+## Persistent conversation
+
+OtterDesk can ask this hired co-worker about its role, schedule, evidence gaps,
+and latest review through the stable read-only job MCP even before its first
+run or while it is idle. Conversation never starts a financial review.
