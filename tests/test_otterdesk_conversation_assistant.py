@@ -20,11 +20,24 @@ AGENT_SOURCES = sorted((DEVELOPMENT_ROOT / "mn-agents").glob("*/src"))
 
 
 class FakeConversationLLM:
+    def __init__(self) -> None:
+        self.calls = 0
+
     def generate_json(self, *, system_prompt: str, user_prompt: str, fallback: dict) -> dict:
-        assert "read-only MCP job snapshot" in system_prompt
-        prepared = json.loads(user_prompt)
+        self.calls += 1
+        assert "read-only MCP" in system_prompt
+        payload = json.loads(user_prompt)
+        prepared = payload.get("prepared_context") or payload
         assert prepared["question"] == "How many development emails were sent?"
         assert prepared["supervision_context"]["runtime"]["state"] == "running"
+        if "Accountable co-worker" in system_prompt:
+            return {
+                "intent": "monitor",
+                "draft_reply": "I sent one development email, according to the final delivery receipt.",
+                "used_record_ids": ["development-email-delivery"],
+                "uncertainties": [],
+                "configuration_proposal": None,
+            }
         return {
             "reply": "One development email was sent, according to the final delivery receipt.",
             "used_record_ids": ["development-email-delivery"],
@@ -40,7 +53,7 @@ class FakeConversationLLM:
         }
 
     def usage_snapshot(self) -> dict:
-        return {"provider": "fake-test", "model": "fixture", "calls": 1}
+        return {"provider": "fake-test", "model": "fixture", "calls": self.calls}
 
 
 class AttributeOnlyConversationLLM(FakeConversationLLM):
@@ -54,6 +67,9 @@ class AttributeOnlyConversationLLM(FakeConversationLLM):
     estimated_tokens = 0
 
     usage_snapshot = None
+
+    def __init__(self) -> None:
+        pass
 
 
 class MalformedJsonConversationLLM:
@@ -70,6 +86,9 @@ class MalformedJsonConversationLLM:
 
 @pytest.fixture()
 def conversation_module():
+    for name in list(sys.modules):
+        if name == "domain" or name.startswith("domain."):
+            sys.modules.pop(name, None)
     inserted = [str(PAYLOADS), *(str(path) for path in SKILL_SOURCES)]
     for value in reversed(inserted):
         sys.path.insert(0, value)
@@ -87,6 +106,9 @@ def conversation_module():
 
 @pytest.fixture()
 def conversation_agent_shared_module():
+    for name in list(sys.modules):
+        if name in {"agents", "domain"} or name.startswith(("agents.", "domain.")):
+            sys.modules.pop(name, None)
     inserted = [
         str(PAYLOADS),
         *(str(path) for path in SKILL_SOURCES),
@@ -102,7 +124,7 @@ def conversation_agent_shared_module():
             if value in sys.path:
                 sys.path.remove(value)
         for name in list(sys.modules):
-            if name == "agents" or name.startswith("agents."):
+            if name in {"agents", "domain"} or name.startswith(("agents.", "domain.")):
                 sys.modules.pop(name, None)
 
 
@@ -176,10 +198,12 @@ def test_prepares_identity_checked_context_and_writes_grounded_final_artifact(
         "payload": {},
     }
 
+    client = FakeConversationLLM()
     prepared = conversation_module.prepare_conversation_context(context)
+    turn = conversation_module.draft_coworker_turn(context, llm=client)
     result = conversation_module.answer_desktop_conversation(
         context,
-        llm=FakeConversationLLM(),
+        llm=client,
     )
 
     assert prepared == {
@@ -196,6 +220,13 @@ def test_prepares_identity_checked_context_and_writes_grounded_final_artifact(
     ]
     assert artifact["configuration_proposal"] is None
     assert artifact["llm"]["provider"] == "fake-test"
+    assert artifact["llm"]["calls"] == 2
+    assert artifact["llm"]["coworker_turn"]["calls"] == 1
+    assert turn == {
+        "coworker_turn": "workflow_state/coworker_turn.json",
+        "intent": "monitor",
+        "source_count": 1,
+    }
     assert json.loads((tmp_path / "final_artifact.json").read_text(encoding="utf-8")) == artifact
 
 
@@ -286,12 +317,13 @@ def test_recovers_repeated_model_json_formatting_errors_with_grounded_fallback(
     client = MalformedJsonConversationLLM()
 
     conversation_module.prepare_conversation_context(context)
+    conversation_module.draft_coworker_turn(context, llm=FakeConversationLLM())
     result = conversation_module.answer_desktop_conversation(context, llm=client)
 
     artifact = result["final_artifact"]
     assert client.calls == 2
     assert artifact["reply"] == (
-        "One approved development email was delivered. This is final evidence."
+        "One development email was sent, according to the final delivery receipt."
     )
     assert artifact["used_record_ids"] == ["development-email-delivery"]
     assert artifact["read_only"] is True
@@ -402,7 +434,7 @@ def test_catalog_marks_the_blueprint_private_and_manifest_keeps_it_read_only() -
     }
     assert manifest["workflow"]["execution"]["strategy"] == "serial"
     assert manifest["identity"]["version"] == 1
-    assert manifest["identity"]["manifest_version"] == "8.0"
+    assert manifest["identity"]["manifest_version"] == "9.0"
     assert manifest["mcp_collaboration"]["enabled"] is True
     assert manifest["llm"]["model"] == "default"
     assert manifest["llm"]["runtime_model"] == "default"
@@ -410,12 +442,17 @@ def test_catalog_marks_the_blueprint_private_and_manifest_keeps_it_read_only() -
     assert manifest["llm"]["configs"]["primary"]["model"] == "default"
     assert manifest["llm"]["configs"]["primary"]["runtime_model"] == "default"
     assert manifest["llm"]["configs"]["primary"]["provider"] == "docker_model_runner"
-    assert manifest["llm"]["configs"]["primary"]["max_tokens"] == 800
+    assert manifest["llm"]["configs"]["primary"]["max_tokens"] == 1200
+    assert set(manifest["llm"]["agents"]) == {
+        "coworker_conversation_proxy",
+        "otterdesk_conversation_assistant",
+    }
     assert "api_base" not in manifest["llm"]["configs"]["primary"]
     default_config = json.loads((BLUEPRINT / "config/default.json").read_text(encoding="utf-8"))
-    assert default_config["llm"]["configs"]["primary"]["max_tokens"] == 800
+    assert default_config["llm"]["configs"]["primary"]["max_tokens"] == 1200
     assert [step["id"] for step in manifest["workflow"]["steps"]] == [
         "prepare_conversation_context",
+        "draft_coworker_turn",
         "answer_desktop_conversation",
     ]
     assert "perform_target_job_action" in manifest["workflow"]["policy"]["human"]["blocked_actions"]

@@ -13,7 +13,7 @@
     "job_name": "otterdesk-conversation-assistant",
     "category": "system",
     "version": 1,
-    "manifest_version": "8.0"
+    "manifest_version": "9.0"
   },
   "description": "A private OtterDesk system co-worker that answers desktop supervisor questions from bounded, identity-checked, read-only MCP evidence and supervision state, and can return reviewable configuration proposals.",
   "metadata": {
@@ -109,7 +109,7 @@
         "runtime_model": "default",
         "backend": "llama.cpp",
         "temperature": 0.2,
-        "max_tokens": 800,
+        "max_tokens": 1200,
         "timeout_seconds": 60,
         "num_retries": 1
       }
@@ -121,6 +121,15 @@
       "Return non-secret configuration proposals only from desktop-provided editable fields."
     ],
     "agents": {
+      "coworker_conversation_proxy": {
+        "llm_config": "primary",
+        "role": "Accountable Co-worker Conversation Proxy",
+        "responsibilities": [
+          "Interpret ordinary conversation, monitoring questions, and control requests in the target co-worker's voice.",
+          "Reason only from the supplied stable job evidence and desktop supervision state.",
+          "Draft non-secret configuration proposals without applying changes or performing actions."
+        ]
+      },
       "otterdesk_conversation_assistant": {
         "llm_config": "primary",
         "role": "OtterDesk Conversation Assistant",
@@ -185,7 +194,8 @@
           "mime_type": "application/json",
           "schema_version": "otterdesk.conversation_assistant.reply.v1",
           "source_refs": [
-            "workflow_state/conversation_context.json"
+            "workflow_state/conversation_context.json",
+            "workflow_state/coworker_turn.json"
           ]
         }
       ]
@@ -269,12 +279,39 @@
         }
       },
       {
+        "id": "draft_coworker_turn",
+        "kind": "transform",
+        "label": "Draft Co-worker Turn",
+        "goal": "Use the runtime-selected default LLM to interpret the supervisor's intent and draft an evidence-grounded turn in the target co-worker's voice.",
+        "needs": [
+          "prepare_conversation_context"
+        ],
+        "run": {
+          "definition": "steps.draft_coworker_turn"
+        },
+        "control": {
+          "required": true,
+          "timeout_seconds": 120,
+          "failure_policy": "fail_workflow",
+          "retry": {
+            "max_attempts": 1,
+            "backoff_seconds": 1,
+            "backoff_multiplier": 1,
+            "jitter": 0
+          },
+          "uncertainty": {
+            "min_confidence": 0,
+            "on_low_confidence": "continue_with_warning"
+          }
+        }
+      },
+      {
         "id": "answer_desktop_conversation",
         "kind": "sink",
         "label": "Answer Desktop Conversation",
         "goal": "Use the runtime-selected built-in LLM to answer only from the validated MCP evidence and write the final reply artifact.",
         "needs": [
-          "prepare_conversation_context"
+          "draft_coworker_turn"
         ],
         "run": {
           "definition": "steps.answer_desktop_conversation"
@@ -299,6 +336,10 @@
   },
   "agents": {
     "registry": {
+      "coworker_conversation_proxy": {
+        "handler": "agents.coworker_conversation_proxy",
+        "role": "Accountable Co-worker Conversation Proxy"
+      },
       "otterdesk_conversation_assistant": {
         "handler": "agents.otterdesk_conversation_assistant",
         "role": "OtterDesk Conversation Assistant"

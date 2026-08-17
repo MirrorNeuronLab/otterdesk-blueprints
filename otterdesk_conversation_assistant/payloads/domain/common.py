@@ -16,6 +16,7 @@ SUPERVISION_SCHEMA = "otterdesk.worker_supervision_context.v1"
 OUTPUT_SCHEMA = "otterdesk.conversation_assistant.reply.v1"
 OUTPUT_TYPE = "otterdesk_conversation_reply"
 PREPARED_CONTEXT_PATH = "workflow_state/conversation_context.json"
+COWORKER_TURN_PATH = "workflow_state/coworker_turn.json"
 MAX_QUESTION_LENGTH = 20_000
 MAX_CONTEXT_BYTES = 512 * 1024
 MAX_SUPERVISION_CONTEXT_BYTES = 64 * 1024
@@ -86,6 +87,7 @@ __all__ = [
     "BLUEPRINT_ID",
     "BLUEPRINT_NAME",
     "CONTEXT_SCHEMA",
+    "COWORKER_TURN_PATH",
     "SUPERVISION_SCHEMA",
     "MAX_CONTEXT_BYTES",
     "MAX_SUPERVISION_CONTEXT_BYTES",

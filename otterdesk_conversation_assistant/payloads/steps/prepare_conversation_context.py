@@ -8,4 +8,3 @@ STEP = StepSpec(
     flow=agent("otterdesk_conversation_assistant"),
     output=OutputSpec(fields={"prepared_context": flow_output()}),
 )
-

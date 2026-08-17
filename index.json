@@ -623,7 +623,7 @@
   },
   {
     "category": "System",
-    "description": "A private OtterDesk runtime co-worker that converts bounded, identity-checked, read-only MCP job snapshots into grounded desktop conversation replies.",
+    "description": "A private OtterDesk runtime co-worker that uses two default-LLM reasoning turns to convert bounded, identity-checked, read-only MCP job snapshots into natural grounded supervision conversations.",
     "id": "otterdesk_conversation_assistant",
     "job_name": "otterdesk-conversation-assistant",
     "name": "OtterDesk Conversation Assistant",
@@ -649,7 +649,7 @@
     "product": {
       "agent_role": "Private desktop conversation router and evidence-grounded supervisor assistant.",
       "benefit": "Lets a user talk naturally with any MCP-enabled co-worker while preserving target-job identity, evidence, and approval boundaries.",
-      "how_it_works": "OtterDesk validates and reads the target co-worker's stable API-owned job MCP, then launches this hidden MN batch co-worker with only the bounded snapshot and user question; the target co-worker is never started by conversation.",
+      "how_it_works": "OtterDesk validates and reads the target co-worker's stable API-owned job MCP, then launches this hidden MN batch co-worker with only the bounded snapshot and user question. A default-LLM co-worker proxy drafts an accountable turn and a separate default-LLM assistant verifies its grounding and safety before replying; the target co-worker is never started by conversation.",
       "input": "A desktop-generated question, bounded target identity, and validated read-only MCP snapshot.",
       "output": "A grounded conversational reply with source record ids, MCP revision, and runtime LLM usage.",
       "problem": "Desktop supervision needs natural conversation without exposing MCP transport or allowing the renderer to invoke arbitrary runtime tools.",
@@ -657,7 +657,8 @@
         "first-run private install",
         "stable internal MN job",
         "read-only MCP snapshot grounding",
-        "runtime-selected built-in LLM",
+        "default-LLM co-worker reasoning turn",
+        "default-LLM assistant verification turn",
         "bounded final reply artifact"
       ],
       "target_users": "OtterDesk desktop users supervising MCP-enabled co-workers."

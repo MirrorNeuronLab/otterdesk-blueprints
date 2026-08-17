@@ -20,15 +20,20 @@ only the resulting `otterdesk.worker_stable_job_mcp_context.v1` snapshot.
 
 1. `prepare_conversation_context` validates the request, target identity, and
    read-only MCP marker and writes a bounded internal context artifact.
-2. `answer_desktop_conversation` uses the MirrorNeuron actor LLM selected by the
-   runtime to answer from that artifact and writes `final_artifact.json`.
+2. `draft_coworker_turn` uses the runtime-selected default LLM to interpret the
+   supervisor's conversational, monitoring, or control intent and draft a turn
+   in the accountable target co-worker's voice.
+3. `answer_desktop_conversation` uses a separate default-LLM turn to verify the
+   draft against the same evidence and safety boundaries, then writes
+   `final_artifact.json`.
 
 Normal desktop runs request the logical `default` LLM. MirrorNeuron selects and
-prepares the concrete model for the execution node's hardware (Gemma 4 E2B on
-the standard supported profile), then the actor calls it through that node's
-LiteLLM gateway. Quick tests use a deterministic fallback and make no network
-calls. Live replies use a compact JSON contract and the standard 800-token
-runtime output allowance so the small hardware-selected model can finish the
-object instead of returning a truncated conversation failure. A malformed JSON
-response gets one stricter retry and then a bounded deterministic snapshot reply,
-so model formatting variance does not turn a safe read-only chat into a 500.
+prepares the operator-configured concrete model for the execution node, then the
+actor calls it through that node's LiteLLM gateway. Every normal chat
+turn—including greetings, status checks,
+monitoring questions, and configuration requests—uses both model passes rather
+than a desktop database-response shortcut. Quick tests use deterministic
+fallbacks and make no network calls. Live replies use compact JSON contracts
+and a 1,200-token allowance per model turn. A malformed JSON response gets one
+stricter retry and then a bounded deterministic snapshot reply, so formatting
+variance does not turn a safe read-only chat into a 500.

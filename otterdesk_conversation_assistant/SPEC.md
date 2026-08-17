@@ -28,7 +28,7 @@ The stable job and blueprint identities are always required. Run identity is
 required only when a latest run exists; a never-run co-worker legitimately has
 no run id and remains conversational.
 
-The model prompt receives at most twelve compact job records selected from the
+The model prompts receive at most twelve compact job records selected from the
 bounded snapshot by recency and question relevance. Configuration fields are
 included only when the question asks about changing settings. This keeps normal
 job conversation responsive without weakening the read-only identity checks.
@@ -38,12 +38,18 @@ hardware-aware concrete model selection and preparation, and inference uses the
 selected node's LiteLLM gateway; the blueprint does not hard-code a model
 artifact or direct provider endpoint.
 
-The live response budget is 800 tokens. The prompt limits ordinary replies to
-600 characters, four evidence ids, and at most three proposed configuration
-changes so the hardware-selected small model can complete a valid JSON object
-within that budget.
+After deterministic identity and bounds validation, a default-LLM co-worker
+proxy classifies the turn as conversation, monitoring, or control and drafts an
+accountable first-person response. A separate default-LLM assistant pass treats
+that draft as untrusted, verifies it against the same evidence and supervision
+state, and produces the final reply. Both agents request the logical `default`
+model; neither uses a desktop database-response shortcut.
 
-If the selected small model returns malformed JSON, the answer step makes one
+Each live model turn has a 1,200-token budget. The prompt limits ordinary
+replies to 1,200 characters, six evidence ids, and at most three proposed
+configuration changes.
+
+If either selected model turn returns malformed JSON, that step makes one
 tighter JSON-only retry. A second formatting-only failure uses the deterministic
 grounded fallback from the same bounded snapshot; transport, authentication,
 model-selection, and other runtime errors still fail rather than being masked.
