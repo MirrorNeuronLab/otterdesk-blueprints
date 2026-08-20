@@ -1,9 +1,9 @@
 {
-  "apiVersion": "mn.workflow.source/v2",
+  "apiVersion": "mn.workflow/v1",
   "kind": "WorkflowSource",
   "standard": {
     "profile": "blueprint",
-    "source_schema": "mn.workflow.source/v2",
+    "source_schema": "mn.workflow/v1",
     "target_schema": "mn.workflow/v1",
     "migration_policy": "sdk_managed"
   },

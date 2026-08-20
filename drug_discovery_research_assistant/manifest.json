@@ -46,7 +46,7 @@
       }
     }
   },
-  "apiVersion": "mn.workflow.source/v2",
+  "apiVersion": "mn.workflow/v1",
   "cluster_distribution": {
     "collaboration": {
       "aggregation": "fan in cycle artifacts into review-only reports",
@@ -1412,7 +1412,7 @@
     "migration_policy": "sdk_managed",
     "profile": "blueprint",
     "profile_version": 1,
-    "source_schema": "mn.workflow.source/v2",
+    "source_schema": "mn.workflow/v1",
     "target_schema": "mn.workflow/v1"
   },
   "type": "service",

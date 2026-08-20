@@ -65,7 +65,7 @@ def test_source_manifests_use_current_runtime_envelope_version():
         manifest = json.loads(
             (root / entry["path"] / "manifest.json").read_text(encoding="utf-8")
         )
-        assert manifest["apiVersion"] == "mn.workflow.source/v2", entry["id"]
+        assert manifest["apiVersion"] == "mn.workflow/v1", entry["id"]
         assert manifest["identity"]["version"] == 1, entry["id"]
         assert manifest["identity"]["manifest_version"], entry["id"]
 

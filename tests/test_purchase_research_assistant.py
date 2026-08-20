@@ -27,7 +27,7 @@ EXPECTED_STEPS = [
 def test_purchase_manifest_compiles_logical_steps_and_specialist_graphs():
     source = source_manifest("purchase_research_assistant")
     expanded = expanded_manifest("purchase_research_assistant")
-    assert source["apiVersion"] == "mn.workflow.source/v2"
+    assert source["apiVersion"] == "mn.workflow/v1"
     assert [step["id"] for step in source["workflow"]["steps"]] == EXPECTED_STEPS
     node_ids = {node["node_id"] for node in expanded["agents"]["nodes"]}
     assert "compare_purchase_options__market" in node_ids

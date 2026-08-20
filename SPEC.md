@@ -37,7 +37,7 @@ Each published blueprint provides, as applicable:
   payloads/
 ```
 
-`manifest.json` uses the readable `mn.workflow.source/v2` contract and owns
+`manifest.json` uses the readable `mn.workflow/v1` contract and owns
 identity, topology, contracts, registry bindings, immutable handler parameters,
 requirements, and declared dependencies. `config/default.json` owns tunable
 defaults; committed overwrite files contain no user secrets.

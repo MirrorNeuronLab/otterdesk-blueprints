@@ -53,7 +53,7 @@ def load_module():
 def test_source_manifest_keeps_the_default_runtime_declarative():
     default_config = json.loads((BLUEPRINT_DIR / "config" / "default.json").read_text())
     manifest = json.loads((BLUEPRINT_DIR / "manifest.json").read_text())
-    assert manifest["apiVersion"] == "mn.workflow.source/v2"
+    assert manifest["apiVersion"] == "mn.workflow/v1"
     assert manifest["manifest"]["policies"]["recovery_mode"] == "manual_recover"
     assert manifest["agents"] == {"registry": manifest["agents"]["registry"]}
     assert manifest["workflow"]["steps"][0]["id"] == "detect_packet_changes"

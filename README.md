@@ -86,7 +86,7 @@ Most blueprint folders contain:
 | `README.md` | Self-contained quickstart, inspection notes, and validation guidance. |
 | `SPEC.md` | User-facing problem, outcome, evaluation criteria, limits, and upgrade path. |
 | `TERM.md` | Terms, assumptions, or domain notes when present. |
-| `manifest.json` | Readable `mn.workflow.source/v2` DAG: direct `needs`, module handlers or agent assignments, control policy, contracts, and runtime requirements. The SDK expands it for Core. |
+| `manifest.json` | Readable `mn.workflow/v1` DAG: direct `needs`, module handlers or agent assignments, control policy, contracts, and runtime requirements. The SDK expands it for Core. |
 | `config/default.json` | Default launch configuration and mock/sample inputs. |
 | `config/overwrite.json` | Optional local overrides. Do not commit customer secrets. |
 | `payloads/` | Worker code, prompts, policies, fixtures, and support files. |

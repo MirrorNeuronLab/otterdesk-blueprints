@@ -21,7 +21,7 @@ workflow ledger, not only displayed in the UI.
 
 ## Authoring rules
 
-- Use `requires`/`provides` in `mn.workflow.source/v1` manifests to declare
+- Use `requires`/`provides` in `mn.workflow/v1` manifests to declare
   data dependencies. The converter produces the corresponding DAG edges.
 - Use `trigger_rule` on a step for joins and failure-aware transitions. Core
   supports `all_success`, `all_done`, `one_success`, `one_done`, `one_failed`,

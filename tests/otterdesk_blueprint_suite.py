@@ -433,7 +433,7 @@ def test_otterdesk_blueprints_are_workflow_driven_manifests():
         if isinstance(standard, dict):
             assert standard["workflow_model"] == "contract -> workflow -> agents/runtime"
         else:
-            assert manifest["metadata"]["generated_from"]["schema"] == "mn.workflow.source/v2"
+            assert manifest["metadata"]["generated_from"]["schema"] == "mn.workflow/v1"
         for step in steps:
             assert {"id", "kind", "label", "goal", "action", "run", "emits", "on"} <= set(step), (blueprint_id, step)
             assert {"required", "retry", "failure_policy", "uncertainty"} <= set(step["control"]), (blueprint_id, step)
