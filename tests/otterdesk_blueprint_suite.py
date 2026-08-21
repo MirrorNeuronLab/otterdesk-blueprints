@@ -248,6 +248,10 @@ def _expected_skill_dependency_packages(blueprint_dir: Path) -> set[str]:
                     packages.add(SKILL_NAME_PACKAGES[skill])
 
     manifest = json.loads((blueprint_dir / "manifest.json").read_text())
+    response_service = manifest.get("response_service")
+    if response_service == {"enabled": True}:
+        packages.add("mirrorneuron-job-response-skill")
+        packages.add("mirrorneuron-rag-skill")
     registration = (
         manifest.get("metadata", {})
         .get("web_ui", {})
@@ -256,7 +260,10 @@ def _expected_skill_dependency_packages(blueprint_dir: Path) -> set[str]:
     package = registration.get("package") if isinstance(registration, dict) else None
     if isinstance(package, str) and package.startswith("mirrorneuron-blueprint-support-skill"):
         packages.add("mirrorneuron-blueprint-support-skill")
-    if "mirrorneuron-goal-work-packet-skill" in packages:
+    if (
+        "mirrorneuron-goal-work-packet-skill" in packages
+        and response_service != {"enabled": True}
+    ):
         packages.add("mirrorneuron-mcp-client-skill")
     return packages
 

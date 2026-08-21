@@ -8,7 +8,7 @@ from typing import Any
 from mn_marketing_email_skill import normalize_structured_draft, review_email_quality
 from mn_sdk.blueprint_support.workflow_state import write_json
 
-from .collaboration import build_packet, peer_signals, persist_packet, write_final_artifact
+from .collaboration import build_packet, persist_packet, write_final_artifact
 from .delivery import deliver_approved_development_email, request_development_email_approval
 from .inputs import csv_rows, normalized_inputs, resolve_input_file, source_descriptor
 
@@ -49,7 +49,6 @@ def _diagnose_customer_journey(context: dict[str, Any]) -> dict[str, Any]:
             "interventions": interventions,
         },
     )
-    peers = peer_signals(context)
     packet = build_packet(
         context,
         stage="diagnose_customer_journey",
@@ -67,8 +66,6 @@ def _diagnose_customer_journey(context: dict[str, Any]) -> dict[str, Any]:
             "journey_stage_counts": dict(stage_counts),
             "draft_intervention_count": len(interventions),
             "interventions_artifact": INTERVENTIONS_PATH,
-            "peer_goal_packet_count": len(peers["signals"]),
-            "peer_goal_signals": peers["signals"],
         },
         recommendation="Instrument the first-value journey, fix product friction before adding messages, and test one customer-visible next-step intervention with strict frequency and trust guardrails.",
         confidence="low" if synthetic or len(rows) < 20 else "medium",
@@ -85,7 +82,6 @@ def _publish_lifecycle_packet(context: dict[str, Any]) -> dict[str, Any]:
     business_name = str(inputs["business_name"])
     rows, source, synthetic = _dataset(context)
     themes = Counter(str(row.get("theme") or "unknown") for row in rows)
-    peers = peer_signals(context)
     packet = build_packet(
         context,
         stage="publish_customer_lifecycle_packet",
@@ -98,8 +94,6 @@ def _publish_lifecycle_packet(context: dict[str, Any]) -> dict[str, Any]:
             "theme_counts": dict(themes),
             "interventions_artifact": INTERVENTIONS_PATH,
             "send_authorized": False,
-            "peer_goal_packet_count": len(peers["signals"]),
-            "peer_goal_signals": peers["signals"],
         },
         recommendation="Prioritize time-to-first-value and customer-visible next steps; share aggregate segment and objection evidence with Growth rather than raw customer records.",
         confidence="low" if synthetic or len(rows) < 20 else "medium",
@@ -120,7 +114,7 @@ def _publish_lifecycle_packet(context: dict[str, Any]) -> dict[str, Any]:
             "Join feedback themes to de-identified activation and retention cohorts.",
             "Fix technical or product friction before adding communications.",
             "Human-review one minimal customer-facing intervention and its frequency cap.",
-            "Share aggregate retained-segment and objection evidence with Growth through MCP.",
+            "Record aggregate retained-segment and objection evidence as a cross-functional handoff.",
         ],
         data_status="synthetic_demo" if synthetic else "user_supplied",
         role_contribution="Turn customer behavior and feedback into faster first value, stronger retention, better product priorities, and trustworthy lifecycle experiments.",
@@ -148,7 +142,6 @@ def _publish_lifecycle_packet(context: dict[str, Any]) -> dict[str, Any]:
             {"days": "31-60", "outcome": "Fix the highest-confidence product friction, then run one approved minimal intervention with a holdout or clear baseline."},
             {"days": "61-90", "outcome": "Recommend product, content, channel, and lifecycle priorities using retained behavior, customer trust, support load, and Finance thresholds."},
         ],
-        peer_context=peers,
     )
     return {**persisted, **final}
 
@@ -169,7 +162,6 @@ def _deliver_approved_lifecycle_email(context: dict[str, Any]) -> dict[str, Any]
         else None
     )
     delivered = delivery.get("status") in {"sent", "already_sent"}
-    peers = peer_signals(context)
     packet = build_packet(
         context,
         stage="deliver_approved_lifecycle_email",
@@ -192,8 +184,6 @@ def _deliver_approved_lifecycle_email(context: dict[str, Any]) -> dict[str, Any]
             "delivered_recipient_count": int(delivery.get("recipient_count") or 0),
             "customer_addresses_used": False,
             "customer_specific_data_used": False,
-            "peer_goal_packet_count": len(peers["signals"]),
-            "peer_goal_signals": peers["signals"],
         },
         recommendation=(
             "Review the development message rendering and delivery receipt before authorizing any separately implemented production lifecycle communication."
@@ -229,7 +219,6 @@ def _deliver_approved_lifecycle_email(context: dict[str, Any]) -> dict[str, Any]
         "output_files": [
             "final_artifact.json",
             "customer_lifecycle_packet.json",
-            "collaboration/mcp_exchange.sqlite3",
             *([delivery["receipt_artifact"]] if delivery.get("receipt_artifact") else []),
         ],
     }

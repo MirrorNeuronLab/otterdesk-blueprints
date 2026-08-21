@@ -270,7 +270,7 @@ def _run_handler_workflow(
             {
                 "execution": {"quick_test": True},
                 "llm": {"mode": "fake", "require_live": False},
-                "mcp_collaboration": {"publish_local_exchange": True, "peer_reads_enabled": False},
+                "knowledge_rag": {"enabled": False, "required": False},
             },
         ),
     ],
@@ -309,15 +309,19 @@ def test_manifest_handlers_execute_as_message_chained_workflows(
         assert len(final_artifact["founder_decisions"]) >= 3
         assert len(final_artifact["ninety_day_plan"]) == 3
         assert len(final_artifact["cross_functional_handoffs"]) == 4
-        assert final_artifact["collaboration"]["peer_input_mode"] == "explicit_mcp_servers_only"
-        assert "team_synthesis" in final_artifact["collaboration"]
-        assert len(final_artifact["collaboration"]["team_synthesis"]["unresolved_without_peer_evidence"]) == 4
         if blueprint_id == "gtm_assistant":
+            assert final_artifact["job_context"]["goal_work_packet"]
+            assert "team_synthesis" in final_artifact["job_context"]
+            assert len(final_artifact["job_context"]["team_synthesis"]["unresolved_evidence_requests"]) == 4
             delivery = final_artifact["evidence"]["development_email_delivery"]
             assert delivery["status"] == "not_sent"
             assert delivery["recipient_count"] == 0
             assert delivery["customer_addresses_used"] is False
             assert delivery["customer_specific_data_used"] is False
+        else:
+            assert final_artifact["collaboration"]["peer_input_mode"] == "explicit_mcp_servers_only"
+            assert "team_synthesis" in final_artifact["collaboration"]
+            assert len(final_artifact["collaboration"]["team_synthesis"]["unresolved_without_peer_evidence"]) == 4
 
 
 def test_generic_business_identity_replaces_the_default_demo_context(tmp_path: Path):

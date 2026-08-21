@@ -228,16 +228,14 @@ def test_manifest_declares_separate_otterdesk_smtp_fields_without_live_values():
     assert fields["inputs.payload.email_send_approval.approved"]["default"] is False
 
 
-def test_mcp_collaboration_service_is_safe_to_restart_after_local_core_recovery():
+def test_response_service_is_definition_scoped_and_not_a_run_node():
     manifest = json.loads((ROOT / "gtm_assistant" / "manifest.json").read_text(encoding="utf-8"))
-    mcp_server = next(
-        node
-        for node in manifest["agents"]["extra_nodes"]
-        if node["node_id"] == "mcp_collaboration_server"
-    )
 
-    assert mcp_server["config"]["idempotent"] is True
-    assert mcp_server["config"]["safe_to_retry"] is True
+    assert manifest["response_service"] == {"enabled": True}
+    assert "mcp_collaboration" not in manifest
+    assert "extra_nodes" not in manifest["agents"]
+    assert "auxiliary_entrypoints" not in manifest["agents"]
+    assert all("mcp" not in step["id"] for step in manifest["workflow"]["steps"])
 
 
 def test_delivery_rejects_more_than_one_message_per_run(tmp_path):

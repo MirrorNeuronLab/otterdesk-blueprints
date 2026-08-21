@@ -108,12 +108,13 @@ service instead of opening the file independently.
 
 This is an early heuristic report assistant. Scores are not valuations, investment recommendations, legal advice, or financial advice. Comparable, exit, and rebuild-cost outputs are deliberately conservative when source evidence is thin.
 
-## Persistent supervisory MCP
+## Persistent Job response service
 
-The API-owned stable job MCP exposes bounded role, schedule, safe
-configuration, lifecycle, and latest-run evidence without requiring an active
-screening batch. It cannot start research, alter scoring, or take investment
-action.
+The top-level response service stays available without an active screening
+batch. It combines sanitized role, schedule, safe configuration, lifecycle,
+and latest-Run evidence with the existing Job-scoped startup research RAG. It
+answers through `ask_job` without starting research, altering scoring, or
+taking investment action.
 
 ## Upgrade Path To Real Customer Use
 

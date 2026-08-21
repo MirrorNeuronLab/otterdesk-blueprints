@@ -26,6 +26,7 @@ RAG_BLUEPRINTS = {
     "cctv_operator",
     "drug_discovery_research_assistant",
     "financial_advisor",
+    "gtm_assistant",
     "legal_assistant",
     "purchase_research_assistant",
     "research_coscientist",
@@ -33,7 +34,7 @@ RAG_BLUEPRINTS = {
 }
 
 
-def test_every_catalog_blueprint_enables_stable_job_scoped_mcp():
+def test_catalog_blueprints_declare_legacy_or_enhanced_job_scoped_mcp():
     root = Path(__file__).resolve().parents[1]
     entries = json.loads((root / "index.json").read_text(encoding="utf-8"))
 
@@ -43,10 +44,18 @@ def test_every_catalog_blueprint_enables_stable_job_scoped_mcp():
         manifest = json.loads(
             (root / entry["path"] / "manifest.json").read_text(encoding="utf-8")
         )
-        catalog_mcp = entry.get("mcp_collaboration")
-        manifest_mcp = manifest.get("mcp_collaboration")
+        if blueprint_id in {"vc_assistant", "gtm_assistant"}:
+            assert entry["response_service"] == {"enabled": True}
+            assert manifest["response_service"] == {"enabled": True}
+            assert "mcp_collaboration" not in entry
+            assert "mcp_collaboration" not in manifest
+            assert len(entry["starter_questions"]) >= 3
+            assert "response_service" not in manifest["workflow"]
+            assert "response_service" not in manifest["agents"]
+            assert "services" not in manifest or "response_service" not in manifest["services"]
+            continue
 
-        for descriptor in (catalog_mcp, manifest_mcp):
+        for descriptor in (entry["mcp_collaboration"], manifest["mcp_collaboration"]):
             assert descriptor["enabled"] is True, blueprint_id
             assert descriptor["path"] == "/mcp", blueprint_id
             assert descriptor["service_name"] == "mn-job-collaboration", blueprint_id
@@ -54,7 +63,7 @@ def test_every_catalog_blueprint_enables_stable_job_scoped_mcp():
             assert descriptor["transport"] == "streamable-http", blueprint_id
             assert descriptor["goal_id"], blueprint_id
 
-        assert len(catalog_mcp["starter_questions"]) >= 3, blueprint_id
+        assert len(entry["mcp_collaboration"]["starter_questions"]) >= 3, blueprint_id
 
 
 def test_source_manifests_use_current_runtime_envelope_version():

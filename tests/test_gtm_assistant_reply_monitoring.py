@@ -118,9 +118,7 @@ def test_reply_monitor_waits_without_inbox_access_until_an_approved_delivery_exi
         "config": {"reply_monitoring": {"enabled": True, "poll_interval_seconds": 5}},
     }
     original_interval = monitoring._bounded_float
-    original_publish_status = monitoring._publish_monitoring_status
     monitoring._bounded_float = lambda *_args, **_kwargs: 0.01
-    monitoring._publish_monitoring_status = lambda *_args, **_kwargs: None
     thread = threading.Thread(
         target=monitoring._wait_for_approved_delivery,
         kwargs={
@@ -149,54 +147,25 @@ def test_reply_monitor_waits_without_inbox_access_until_an_approved_delivery_exi
         assert state["reply_count"] == 0
     finally:
         monitoring._bounded_float = original_interval
-        monitoring._publish_monitoring_status = original_publish_status
 
 
-def test_disabled_reply_monitor_keeps_mcp_collaboration_available_without_inbox_access(tmp_path):
+def test_disabled_reply_monitor_exits_without_opening_the_inbox_or_keeping_run_alive(tmp_path):
     monitoring = _load_monitoring()
     run_dir = tmp_path / "run"
     run_dir.mkdir()
     context = {
         "run_dir": str(run_dir),
-        "run_id": "gtm-mcp-only-service-test",
+        "run_id": "gtm-disabled-monitor-test",
         "config": {"reply_monitoring": {"enabled": False, "poll_interval_seconds": 5}},
     }
-    original_interval = monitoring._bounded_float
-    original_publish_status = monitoring._publish_monitoring_status
-    monitoring._bounded_float = lambda *_args, **_kwargs: 0.01
-    monitoring._publish_monitoring_status = lambda *_args, **_kwargs: None
-    thread = threading.Thread(
-        target=monitoring._wait_for_collaboration_stop,
-        kwargs={
-            "context": context,
-            "settings": context["config"]["reply_monitoring"],
-        },
-        daemon=True,
-    )
-    try:
-        thread.start()
-        state_path = run_dir / monitoring.DEVELOPMENT_REPLY_MONITORING_STATE_PATH
-        deadline = time.monotonic() + 2
-        while time.monotonic() < deadline:
-            if state_path.exists():
-                state = json.loads(state_path.read_text(encoding="utf-8"))
-                if state.get("status") == "collaboration_available":
-                    break
-            time.sleep(0.01)
-        else:
-            raise AssertionError("Expected MCP-only service mode to remain available")
-        (run_dir / "STOP").touch()
-        thread.join(timeout=2)
-        assert not thread.is_alive()
-        assert state["reason"] == "reply_monitoring_disabled"
-        assert state["inbox_accessed"] is False
-        assert state["reply_count"] == 0
-    finally:
-        monitoring._bounded_float = original_interval
-        monitoring._publish_monitoring_status = original_publish_status
+    result = monitoring.monitor_development_email_replies(context)
+
+    assert result["status"] == "not_started"
+    assert result["reply_monitoring"]["reason"] == "reply_monitoring_disabled"
+    assert result["reply_monitoring"]["reply_count"] == 0
 
 
-def test_human_rejection_keeps_email_unsent_and_returns_to_collaboration_mode(tmp_path):
+def test_human_rejection_keeps_email_unsent_and_ends_the_waiting_service(tmp_path):
     monitoring = _load_monitoring()
     run_id = "gtm-human-rejection-test"
     run_dir = tmp_path / run_id
@@ -219,9 +188,7 @@ def test_human_rejection_keeps_email_unsent_and_returns_to_collaboration_mode(tm
         },
     }
     original_interval = monitoring._bounded_float
-    original_publish_status = monitoring._publish_monitoring_status
     monitoring._bounded_float = lambda *_args, **_kwargs: 0.01
-    monitoring._publish_monitoring_status = lambda *_args, **_kwargs: None
     thread = threading.Thread(
         target=monitoring._wait_for_approved_delivery,
         kwargs={
@@ -238,18 +205,16 @@ def test_human_rejection_keeps_email_unsent_and_returns_to_collaboration_mode(tm
         while time.monotonic() < deadline:
             if state_path.exists():
                 state = json.loads(state_path.read_text(encoding="utf-8"))
-                if state.get("reason") == "development_email_not_approved":
+                if state.get("reason") == "human_rejected_or_revised":
                     break
             time.sleep(0.01)
         else:
-            raise AssertionError("Expected the rejected request to return to collaboration mode")
-        (run_dir / "STOP").touch()
+            raise AssertionError("Expected the rejected request to end the waiting service")
         thread.join(timeout=2)
         assert not thread.is_alive()
         assert not (run_dir / monitoring.DELIVERY_RECEIPT_PATH).exists()
     finally:
         monitoring._bounded_float = original_interval
-        monitoring._publish_monitoring_status = original_publish_status
 
 
 def test_human_approval_is_converted_to_one_bounded_delivery_authorization(tmp_path):

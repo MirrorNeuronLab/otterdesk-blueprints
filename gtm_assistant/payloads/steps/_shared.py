@@ -7,7 +7,6 @@ def inputs(*aspect_keys: str, previous_step: str = ""):
         "goal_id",
         "input_folder",
         "output_folder",
-        "peer_mcp_servers",
         "email_send_approval",
         *aspect_keys,
     )

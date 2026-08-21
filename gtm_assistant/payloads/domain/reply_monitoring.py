@@ -14,7 +14,6 @@ from typing import Any, Callable, Mapping
 
 from mn_sdk.blueprint_support.workflow_state import write_json
 
-from .collaboration import publish_workflow_status
 from .delivery import (
     DELIVERY_RECEIPT_PATH,
     SMTP_DEV_RECIPIENT_ENV,
@@ -47,7 +46,7 @@ def monitor_development_email_replies(context: dict[str, Any], **_: Any) -> dict
     if delivery.get("status") not in {"sent", "already_sent"} and _smtp_delivery_enabled(context):
         return _await_approved_delivery(context, settings, "approved_development_delivery_not_found")
     if not bool(settings.get("enabled", False)):
-        return _keep_collaboration_available(context, settings)
+        return _not_started(context, "reply_monitoring_disabled")
     if delivery.get("status") not in {"sent", "already_sent"}:
         return _await_approved_delivery(context, settings, "approved_development_delivery_not_found")
     outbound_message_id = str(delivery.get("message_id") or "").strip()
@@ -121,102 +120,6 @@ def _await_approved_delivery(
     return _result_from_state(context)
 
 
-def _keep_collaboration_available(
-    context: dict[str, Any], settings: Mapping[str, Any], *, reason: str = "reply_monitoring_disabled"
-) -> dict[str, Any]:
-    """Keep MCP collaboration live without opening the development inbox."""
-
-    from mn_prototype_supervised_service_agent import (
-        ServiceContext,
-        SupervisedServiceSpec,
-        create_agent as create_supervised_service,
-    )
-
-    service = create_supervised_service(
-        SupervisedServiceSpec(
-            serve=lambda _service_context: _wait_for_collaboration_stop(
-                context,
-                settings=settings,
-                reason=reason,
-            )
-        )
-    )
-    service(
-        context=ServiceContext(
-            config=context["config"],
-            run_dir=Path(context["run_dir"]),
-            output_folder=Path(context.get("output_folder") or context["run_dir"]),
-        )
-    )
-    return _result_from_state(context)
-
-
-def _wait_for_collaboration_stop(
-    context: dict[str, Any], *, settings: Mapping[str, Any], reason: str = "reply_monitoring_disabled"
-) -> dict[str, Any]:
-    state = _load_state(context)
-    stop_requested = threading.Event()
-    previous_handlers = _install_stop_handlers(stop_requested)
-    stop_file = _stop_file(context, settings)
-    interval_seconds = _bounded_float(
-        settings.get("poll_interval_seconds"),
-        default=15.0,
-        minimum=_MIN_POLL_INTERVAL_SECONDS,
-        maximum=_MAX_POLL_INTERVAL_SECONDS,
-    )
-    state.update(
-        {
-            "schema_version": "mn.gtm_assistant.reply_monitoring.v1",
-            "status": "collaboration_available",
-            "reason": reason,
-            "started_at": state.get("started_at") or str(context.get("started_at") or "not_reported"),
-            "poll_interval_seconds": interval_seconds,
-            "reply_count": int(state.get("reply_count") or 0),
-            "poll_count": int(state.get("poll_count") or 0),
-            "inbox_accessed": False,
-            "match_policy": "same_development_recipient_and_reply_reference_only",
-        }
-    )
-    _write_state(context, state)
-    _publish_monitoring_status(
-        context,
-        state,
-        "MCP collaboration is available; email delivery and inbox monitoring are disabled.",
-        "collaboration-started",
-    )
-
-    try:
-        while not stop_requested.is_set() and not stop_file.exists():
-            state["poll_count"] += 1
-            state["updated_at"] = str(context.get("started_at") or "not_reported")
-            _write_state(context, state)
-            _publish_monitoring_status(
-                context,
-                state,
-                "MCP collaboration remains available; no inbox access has occurred.",
-                f"collaboration-{state['poll_count']}",
-            )
-            stop_requested.wait(interval_seconds)
-    finally:
-        _restore_stop_handlers(previous_handlers)
-
-    state.update(
-        {
-            "status": "stopped",
-            "stop_reason": "signal" if stop_requested.is_set() else "stop_file",
-            "updated_at": str(context.get("started_at") or "not_reported"),
-        }
-    )
-    _write_state(context, state)
-    _publish_monitoring_status(
-        context,
-        state,
-        "MCP-only GTM service stopped without accessing the inbox.",
-        "collaboration-stopped",
-    )
-    return state
-
-
 def _deliver_after_human_approval(context: dict[str, Any]) -> dict[str, Any]:
     run_dir = Path(str(context["run_dir"]))
     interventions_artifact = _json_object(run_dir / "draft_customer_interventions.json")
@@ -266,12 +169,6 @@ def _wait_for_approved_delivery(
         }
     )
     _write_state(context, state)
-    _publish_monitoring_status(
-        context,
-        state,
-        "Waiting for an explicitly approved development delivery before reading reply headers.",
-        "awaiting-delivery",
-    )
 
     approval_response: dict[str, Any] | None = None
     try:
@@ -282,12 +179,6 @@ def _wait_for_approved_delivery(
             state["poll_count"] += 1
             state["updated_at"] = str(context.get("started_at") or "not_reported")
             _write_state(context, state)
-            _publish_monitoring_status(
-                context,
-                state,
-                "Still waiting for an explicitly approved development delivery; no inbox access has occurred.",
-                f"awaiting-delivery-{state['poll_count']}",
-            )
             stop_requested.wait(interval_seconds)
     finally:
         _restore_stop_handlers(previous_handlers)
@@ -307,12 +198,6 @@ def _wait_for_approved_delivery(
                 }
             )
             _write_state(context, state)
-            _publish_monitoring_status(
-                context,
-                state,
-                "The approved development email was sent to the configured test recipient.",
-                "human-approved-delivery",
-            )
             if bool(settings.get("enabled", False)):
                 return _monitor_forever(
                     context,
@@ -322,11 +207,7 @@ def _wait_for_approved_delivery(
                     development_recipient=str(os.environ.get(SMTP_DEV_RECIPIENT_ENV) or "").strip(),
                     outbound_message_id=str(delivery.get("message_id") or "").strip(),
                 )
-            return _wait_for_collaboration_stop(
-                context,
-                settings=settings,
-                reason="development_email_sent_after_human_approval",
-            )
+            return _result_from_state(context)
 
         state.update(
             {
@@ -336,17 +217,7 @@ def _wait_for_approved_delivery(
             }
         )
         _write_state(context, state)
-        _publish_monitoring_status(
-            context,
-            state,
-            "The development email remains unsent because approval was not granted.",
-            "human-rejected-delivery",
-        )
-        return _wait_for_collaboration_stop(
-            context,
-            settings=settings,
-            reason="development_email_not_approved",
-        )
+        return _result_from_state(context)
 
     state.update(
         {
@@ -356,12 +227,6 @@ def _wait_for_approved_delivery(
         }
     )
     _write_state(context, state)
-    _publish_monitoring_status(
-        context,
-        state,
-        "Reply monitoring stopped while waiting for an approved development delivery.",
-        "stopped",
-    )
     return state
 
 
@@ -398,7 +263,6 @@ def _monitor_forever(
         }
     )
     _write_state(context, state)
-    _publish_monitoring_status(context, state, "Reply monitoring is active; no reply content is retained.", "started")
 
     try:
         while not stop_requested.is_set() and not stop_file.exists():
@@ -420,20 +284,12 @@ def _monitor_forever(
                 state["last_error"] = ""
                 if new_fingerprints:
                     state["last_reply_at"] = str(context.get("started_at") or "not_reported")
-                    summary = f"Observed {len(new_fingerprints)} matching development reply header(s)."
-                    marker = f"reply-{state['reply_count']}"
-                else:
-                    summary = f"Monitoring replies; {state['reply_count']} matching reply header(s) observed."
-                    marker = f"poll-{state['poll_count']}"
             except Exception:
                 state["last_error"] = "imap_poll_failed"
-                summary = "Reply monitor could not reach the development inbox and will retry."
-                marker = f"error-{state['poll_count']}"
 
             state["poll_count"] += 1
             state["updated_at"] = str(context.get("started_at") or "not_reported")
             _write_state(context, state)
-            _publish_monitoring_status(context, state, summary, marker)
             stop_requested.wait(interval_seconds)
     finally:
         _restore_stop_handlers(previous_handlers)
@@ -446,12 +302,6 @@ def _monitor_forever(
         }
     )
     _write_state(context, state)
-    _publish_monitoring_status(
-        context,
-        state,
-        f"Reply monitoring stopped after observing {state['reply_count']} matching reply header(s).",
-        "stopped",
-    )
     return state
 
 
@@ -623,24 +473,6 @@ def _read_final_artifact(context: Mapping[str, Any]) -> dict[str, Any] | None:
     except (OSError, ValueError):
         return None
     return value if isinstance(value, dict) else None
-
-
-def _publish_monitoring_status(
-    context: dict[str, Any], state: Mapping[str, Any], summary: str, marker: str
-) -> None:
-    publish_workflow_status(
-        context,
-        status="working" if state.get("status") in {
-            "monitoring",
-            "awaiting_approved_development_delivery",
-            "collaboration_available",
-        } else "completed",
-        stage="monitor_development_email_replies",
-        summary=summary,
-        idempotency_key=(
-            f"development-reply-monitor:{context.get('run_id') or context.get('job_id') or 'local'}:{marker}"
-        ),
-    )
 
 
 def _stop_file(context: Mapping[str, Any], settings: Mapping[str, Any]) -> Path:

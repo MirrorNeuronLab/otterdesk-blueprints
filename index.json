@@ -168,22 +168,14 @@
     "job_name": "vc-assistant",
     "name": "VC Assistant",
     "path": "vc_assistant",
-    "mcp_collaboration": {
-      "enabled": true,
-      "goal_id": "vc_assistant",
-      "path": "/mcp",
-      "service_name": "mn-job-collaboration",
-      "service_tags": [
-        "mcp",
-        "job-collaboration"
-      ],
-      "starter_questions": [
-        "What startup screening work can you do?",
-        "What did the latest company analysis show?",
-        "Which claims or valuation inputs still need diligence?"
-      ],
-      "transport": "streamable-http"
+    "response_service": {
+      "enabled": true
     },
+    "starter_questions": [
+      "What startup screening work can you do?",
+      "What did the latest company analysis show?",
+      "Which claims or valuation inputs still need diligence?"
+    ],
     "product": {
       "agent_role": "VC analysis coworker that prepares source-grounded score reports without issuing investment decisions.",
       "benefit": "Turns mixed startup document packets into organized per-company heuristic reports, method-score files, research ledgers, and batch coverage summaries so the user can decide what deserves deeper diligence.",
@@ -577,23 +569,15 @@
     "job_name": "gtm-assistant",
     "name": "GTM Assistant",
     "path": "gtm_assistant",
-    "mcp_collaboration": {
-      "enabled": true,
-      "goal_id": "bibblio-business-success",
-      "path": "/mcp",
-      "service_name": "mn-job-collaboration",
-      "service_tags": [
-        "mcp",
-        "job-collaboration"
-      ],
-      "starter_questions": [
-        "How many development emails were sent in this run?",
-        "How many matching development replies have been observed?",
-        "What should we do next?",
-        "What approval do you need before a development email can be sent?"
-      ],
-      "transport": "streamable-http"
+    "response_service": {
+      "enabled": true
     },
+    "starter_questions": [
+      "What is this Job responsible for?",
+      "What progress and results are available from the latest Run?",
+      "What evidence is still missing?",
+      "What approval is needed before a development email can be sent?"
+    ],
     "product": {
       "agent_role": "Customer Lifecycle and Product Intelligence Director.",
       "benefit": "Improves time to first value, repeat routines, retention, and value proof while protecting customer trust.",
@@ -601,9 +585,9 @@
       "collaboration_group": "business-success-team",
       "default_demo_business": "Bibblio",
       "customizable_for": "Subscriptions, activation and retention programs, voice-of-customer synthesis, product intelligence, and support operations.",
-      "how_it_works": "Aggregates journey stages and themes, drafts minimal interventions, prioritizes product fixes, shares only aggregate retained-segment evidence with peer co-workers, and can optionally send one explicitly approved aggregate draft then monitor only matching development-inbox reply headers until manually stopped.",
-      "input": "A de-identified customer-feedback CSV and optional explicit MCP peer packets; the bundled demo uses parent feedback.",
-      "output": "Journey-friction map, draft customer interventions, lifecycle scorecard, optional confidential development-delivery receipt, reply-monitoring status without message content, founder decisions, a 90-day plan, and MCP handoffs.",
+      "how_it_works": "Aggregates journey stages and themes, drafts minimal interventions, prioritizes product fixes, records evidence-bounded cross-functional handoffs, and can optionally send one explicitly approved aggregate draft then monitor only matching development-inbox reply headers until manually stopped.",
+      "input": "A de-identified customer-feedback CSV; the bundled demo uses parent feedback and its lifecycle playbook is indexed as Job knowledge.",
+      "output": "Journey-friction map, draft customer interventions, lifecycle scorecard, durable goal work packet, optional confidential development-delivery receipt, reply-monitoring status without message content, founder decisions, and a 90-day plan.",
       "problem": "Subscription businesses need customers to reach sustained value without manipulative messaging, excessive frequency, or unsupported progress claims.",
       "runtime_features": [
         "de-identified feedback synthesis",
@@ -612,7 +596,7 @@
         "approval-gated single-recipient development SMTP",
         "read-only development reply monitoring",
         "frequency and trust guardrails",
-        "MCP aggregates",
+        "real-time grounded Job responses between Runs",
         "human communication approval"
       ],
       "simulation_type": "Synthetic customer-journey diagnosis, intervention drafting, approved development rendering, and optional read-only reply-monitoring service using the unchanged Bibblio parent-feedback demo.",
@@ -620,50 +604,5 @@
     },
     "type": "service",
     "workflow_id": "gtm_assistant_v4"
-  },
-  {
-    "category": "System",
-    "description": "A private OtterDesk runtime co-worker that uses two default-LLM reasoning turns to convert bounded, identity-checked, read-only MCP job snapshots into natural grounded supervision conversations.",
-    "id": "otterdesk_conversation_assistant",
-    "job_name": "otterdesk-conversation-assistant",
-    "name": "OtterDesk Conversation Assistant",
-    "path": "otterdesk_conversation_assistant",
-    "visibility": "internal",
-    "otterdesk_hidden": true,
-    "mcp_collaboration": {
-      "enabled": true,
-      "goal_id": "otterdesk_conversation_assistant",
-      "path": "/mcp",
-      "service_name": "mn-job-collaboration",
-      "service_tags": [
-        "mcp",
-        "job-collaboration"
-      ],
-      "starter_questions": [
-        "What is your supervisory role?",
-        "What context was available in your latest run?",
-        "Which boundaries apply to the answer?"
-      ],
-      "transport": "streamable-http"
-    },
-    "product": {
-      "agent_role": "Private desktop conversation router and evidence-grounded supervisor assistant.",
-      "benefit": "Lets a user talk naturally with any MCP-enabled co-worker while preserving target-job identity, evidence, and approval boundaries.",
-      "how_it_works": "OtterDesk validates and reads the target co-worker's stable API-owned job MCP, then launches this hidden MN batch co-worker with only the bounded snapshot and user question. A default-LLM co-worker proxy drafts an accountable turn and a separate default-LLM assistant verifies its grounding and safety before replying; the target co-worker is never started by conversation.",
-      "input": "A desktop-generated question, bounded target identity, and validated read-only MCP snapshot.",
-      "output": "A grounded conversational reply with source record ids, MCP revision, and runtime LLM usage.",
-      "problem": "Desktop supervision needs natural conversation without exposing MCP transport or allowing the renderer to invoke arbitrary runtime tools.",
-      "runtime_features": [
-        "first-run private install",
-        "stable internal MN job",
-        "read-only MCP snapshot grounding",
-        "default-LLM co-worker reasoning turn",
-        "default-LLM assistant verification turn",
-        "bounded final reply artifact"
-      ],
-      "target_users": "OtterDesk desktop users supervising MCP-enabled co-workers."
-    },
-    "type": "batch",
-    "workflow_id": "otterdesk_conversation_assistant_v1"
   }
 ]

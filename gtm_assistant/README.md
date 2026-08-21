@@ -10,7 +10,7 @@ The role is generic. Set `business_name`, `business_goal`, `goal_id`, and
 `planning_horizon_days` for another business; the bundled knowledge and sample
 inputs remain an unchanged Bibblio demonstration.
 
-This is one independent member of the `business-success-team` collaboration group. It owns activation, retention, support friction, voice-of-customer synthesis, and draft lifecycle interventions. It can run by itself and exchange bounded aggregate goal packets with explicitly approved peer co-workers.
+This is one independent member of the `business-success-team` group. It owns activation, retention, support friction, voice-of-customer synthesis, and draft lifecycle interventions. It runs independently and records its durable goal work packet as ordinary result context.
 
 Actor-assisted analysis uses MirrorNeuron's logical `default` model. Operators
 can change that shared default with `mn model add --file <definition.json>
@@ -37,7 +37,7 @@ Content gaps, and Quality & Safety claim and escalation boundaries.
 
 ## Control boundary
 
-It does not contact customers. Copy, cohorts, frequency caps, and support escalation rules require approval, and raw customer records are not shared through MCP. The only supported delivery is an explicitly approved, one-recipient development test using an environment-injected inbox; it never uses a customer address or customer-specific data and does not authorize production messaging. The optional reply monitor is read-only: it never sends a reply, retains no message body, and counts only replies from that same development inbox that reference the development message.
+It does not contact customers. Copy, cohorts, frequency caps, and support escalation rules require approval. The only supported delivery is an explicitly approved, one-recipient development test using an environment-injected inbox; it never uses a customer address or customer-specific data and does not authorize production messaging. The optional reply monitor is read-only: it never sends a reply, retains no message body, and counts only replies from that same development inbox that reference the development message.
 
 No co-worker owns workflow routing, retry, logical completion, or human approval. Those remain blueprint and Mirror Neuron Core responsibilities.
 
@@ -49,18 +49,14 @@ Run from the blueprint catalog:
 
     mn blueprint run gtm_assistant
 
-To collaborate, supply explicit peer_mcp_servers and enable peer_reads_enabled. Each peer record is filtered to goal_id bibblio-business-success.
+## Real-time Job questions
 
-While the service is active, the blueprint starts a loopback, read-only
-`mn-job-collaboration` MCP service on a runtime-allocated port. Explicitly
-approved same-node peer jobs can use that endpoint to read bounded progress and
-work-packet updates. After an approved development send, enabling reply
-monitoring keeps this endpoint available until the co-worker is manually
-stopped.
-
-OtterDesk conversation uses the separate API-owned stable job MCP. It remains
-readable before the first run and while idle, paused, scheduled, terminal, or
-archived; asking a question never starts this co-worker or its reply monitor.
+The stable Job owns one response service outside the Run DAG. It stays available
+before the first Run and between Runs, uses the bundled lifecycle playbook as
+Job-scoped RAG knowledge, and answers bounded questions about purpose, status,
+progress, results, and missing evidence. Asking a question never creates a Run
+or starts the reply monitor. The legacy run-scoped MCP node, peer inputs, and
+exchange database are not part of this blueprint.
 
 ## Development SMTP check
 
@@ -72,8 +68,8 @@ one environment-injected test recipient and SMTP credentials through
 
 The check sends one aggregate rendering draft at most once per service run through the
 allowlisted iCloud STARTTLS endpoint. It uses neither a customer address nor
-customer-specific data. Its MCP record and final brief expose only delivery
-status and recipient count; the confidential receipt excludes credentials,
+customer-specific data. Its final brief exposes only delivery status and
+recipient count; the confidential receipt excludes credentials,
 addresses, and approval text.
 
 OtterDesk presents an explicit development-delivery switch plus separate fields

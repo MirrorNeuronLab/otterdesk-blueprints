@@ -141,10 +141,11 @@ The output root also contains `company_index.json`, `company_index.md`, `company
 
 ## Persistent conversation
 
-OtterDesk can ask this hired co-worker about its screening role, schedule,
-latest company analysis, or diligence gaps through the stable read-only job
-MCP even when it has never run or is idle. Conversation never starts a batch
-or makes an investment decision.
+OtterDesk or another MCP client can ask this hired co-worker about its screening
+role, schedule, latest company analysis, or diligence gaps through the stable
+Job response service even when it has never run or is idle. The responder uses
+the existing Job-scoped startup-research RAG and never starts a batch or makes
+an investment decision.
 
 ## Validation
 
