@@ -152,6 +152,9 @@ def test_dmr_vlm_disables_reasoning_and_normalizes_model_variants(monkeypatch):
 
     assert captured["chat_template_kwargs"] == {"enable_thinking": False}
     assert captured["max_tokens"] == 900
+    assert captured["messages"][0]["content"][0]["text"].startswith(
+        "/no_think\ninspect the frame"
+    )
     assert captured["url"] == "http://model.example/engines/v1/chat/completions"
     assert result["detected_target"] is True
     assert result["confidence"] == 0.91
@@ -198,6 +201,9 @@ def test_managed_dmr_vlm_uses_lazy_runtime_model_access(monkeypatch):
     assert captured["payload"]["chat_template_kwargs"] == {
         "enable_thinking": False
     }
+    assert captured["payload"]["messages"][0]["content"][0]["text"].startswith(
+        "/no_think\ninspect the frame"
+    )
     assert result["detected"] is True
     assert result["confidence"] == 0.88
 

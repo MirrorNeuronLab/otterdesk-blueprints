@@ -182,12 +182,15 @@ def call_ollama(frame: bytes | list[bytes], prompt: str) -> dict[str, Any]:
     )
     timeout = float(os.environ.get("MN_VLM_TIMEOUT_SECONDS") or os.environ.get("MN_LLM_TIMEOUT_SECONDS") or os.environ.get("OLLAMA_TIMEOUT_SECONDS", "90"))
     if _uses_openai_compatible_runtime(provider, base_url):
+        model_prompt = prompt
+        if _uses_docker_model_runner(provider, base_url) and not prompt.lstrip().startswith("/no_think"):
+            model_prompt = f"/no_think\n{prompt}"
         payload = {
             "model": model,
             "messages": [
                 {
                     "role": "user",
-                    "content": model_user_content(prompt, frame),
+                    "content": model_user_content(model_prompt, frame),
                 }
             ],
             "max_tokens": int(os.environ.get("MN_VLM_MAX_TOKENS") or os.environ.get("MN_LLM_MAX_TOKENS") or os.environ.get("OLLAMA_NUM_PREDICT", "900")),
