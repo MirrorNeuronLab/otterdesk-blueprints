@@ -170,7 +170,7 @@ def call_ollama(frame: bytes | list[bytes], prompt: str) -> dict[str, Any]:
         or os.environ.get("MN_LLM_API_BASE")
         or os.environ.get("VL_MODEL_BASE_URL")
         or os.environ.get("OLLAMA_BASE_URL")
-        or ("http://localhost:11434" if provider == "ollama" else "http://localhost:12434/engines/v1"),
+        or ("http://localhost:11434" if provider == "ollama" else "http://host.docker.internal:12434/engines/v1"),
         provider=provider,
     )
     model = _normalize_vlm_model(
@@ -315,7 +315,7 @@ def _normalize_vlm_model(model: str) -> str:
 def _normalize_model_api_base(api_base: str, *, provider: str) -> str:
     value = str(api_base or "").strip().rstrip("/")
     if not value:
-        return "http://localhost:11434" if provider == "ollama" else "http://localhost:12434/engines/v1"
+        return "http://localhost:11434" if provider == "ollama" else "http://host.docker.internal:12434/engines/v1"
     if "/engines/" in value:
         if value.endswith("/chat/completions"):
             value = value[: -len("/chat/completions")]

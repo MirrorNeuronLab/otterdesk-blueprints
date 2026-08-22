@@ -516,10 +516,32 @@ def public_service_url(
 ) -> str:
     explicit = str(configured_url or "").strip().rstrip("/")
     if explicit:
-        return explicit
-    display_host = (
-        "127.0.0.1" if host in {"0.0.0.0", "::", "[::]"} else host
-    )
+        return validate_preview_url(explicit)
+
+    runtime_base_url = str(
+        os.environ.get("MN_BLUEPRINT_WEB_UI_BASE_URL") or ""
+    ).strip().rstrip("/")
+    if runtime_base_url:
+        return validate_preview_url(runtime_base_url)
+
+    wildcard_bind = host in {"0.0.0.0", "::", "[::]"}
+    public_host = str(
+        os.environ.get("MN_BLUEPRINT_WEB_UI_PUBLIC_HOST") or ""
+    ).strip()
+    advertised_host = str(
+        os.environ.get("MN_NETWORK_ADVERTISE_HOST") or ""
+    ).strip()
+
+    if wildcard_bind and public_host and public_host not in {"localhost", "127.0.0.1", "::1"}:
+        display_host = public_host
+    elif wildcard_bind and advertised_host:
+        # A wildcard listener on a scheduled remote node must report a URL
+        # the operator's browser can reach, never that node's loopback.
+        display_host = advertised_host
+    elif wildcard_bind:
+        display_host = "127.0.0.1"
+    else:
+        display_host = host
     return f"http://{display_host}:{port}"
 
 
@@ -533,7 +555,14 @@ def main() -> int:
     service_config = web_ui.get("service")
     service_config = service_config if isinstance(service_config, dict) else {}
     host = str(service_config.get("host") or "0.0.0.0")
-    port = int(service_config.get("port") or 61000)
+    allocated_port = str(os.environ.get("MN_PORT_WEB_UI") or "").strip()
+    port_value = allocated_port or service_config.get("port") or 61000
+    try:
+        port = int(port_value)
+    except (TypeError, ValueError) as exc:
+        raise RuntimeError("CCTV Web UI requires a numeric web_ui service port") from exc
+    if not 1 <= port <= 65535:
+        raise RuntimeError("CCTV Web UI service port must be between 1 and 65535")
     public_url = public_service_url(
         host,
         port,

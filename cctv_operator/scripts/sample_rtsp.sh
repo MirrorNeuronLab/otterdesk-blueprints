@@ -303,10 +303,10 @@ start_all() {
   echo "FFmpeg log: ${FFMPEG_LOG}"
   echo
   echo "Run the blueprint with:"
-  echo "  mn blueprint run --folder \"${BLUEPRINT_DIR}\" \\"
+  echo "  mn blueprint run \"${BLUEPRINT_DIR}\" \\"
   echo "    --set video_source.uri=$(public_rtsp_url) \\"
   echo "    --set web_ui.preview.url=$(public_preview_url) \\"
-  echo "    --debug --web-ui"
+  echo "    --debug --web-ui --web-ui-host 0.0.0.0 --web-ui-port 61000"
 }
 
 action="${1:-}"

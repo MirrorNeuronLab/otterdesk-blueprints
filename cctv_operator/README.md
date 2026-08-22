@@ -4,7 +4,7 @@
 
 `Category:` `Security`
 
-`Runtime:` `NVIDIA worker; single-node or distributed cluster`
+`Runtime:` `NVIDIA worker; Spark single-node placement`
 
 CCTV Operator is a stream-only live monitoring service for one approved
 RTSP/RTMP source. Version 2 adds live operator steering, adaptive scene
@@ -49,6 +49,9 @@ detection, alert, and report policy. The default Nemotron 3 multimodal model
 requires the declared 48 GB memory floor. Docker Model Runner inference disables
 reasoning for this bounded structured-detection call; invalid or reasoning-only
 responses surface as analysis failures instead of false “no detection” records.
+The model endpoint is configured as `host.docker.internal:12434` because the
+detector runs in a Docker Worker on Spark; do not change it to `localhost`,
+which would point at the worker container rather than the GPU host.
 
 ## Web UI
 
@@ -82,48 +85,45 @@ The sampler durably writes the current run-scoped instruction to
 `monitoring_state.json`, which the dashboard uses as its authoritative watch
 target instead of depending on transient event relay files.
 
+When the workflow is scheduled on a remote GPU machine, the report writer and
+dashboard are constrained to that same CUDA node. This keeps the UI beside the
+run artifacts and avoids a cross-node read of a node-local frame batch. A
+wildcard UI listener uses the worker's advertised LAN address when it writes
+`web_ui.json`; a browser on the primary computer therefore opens
+`http://<spark-ip>:<ui-port>`, not the remote machine's `localhost`.
+
 ## Single-node and multi-node placement
 
-The manifest uses distributed, constraint-based placement. “Distributed” does
-not require two computers: with only Spark in the cluster, every workflow node
-runs on Spark. In a Mac + Spark cluster, the CUDA-constrained sampler and
-detector run on Spark, while the HostLocal report and UI services may run on
-either eligible node. Run artifacts and selected-frame references use the
-runtime shared-storage data plane, so the report and UI can consume evidence
-produced on Spark without embedding node-local absolute paths.
+The manifest uses constraint-based single-node placement. Spark is selected in
+a Mac + Spark cluster because it is the only node meeting the required NVIDIA
+CUDA GPU capacity; the sampler, detector, report writer, and UI therefore all
+run there. This gives the long-running dashboard and the workers one
+authoritative run-artifact directory.
 
-For the simplest single-node deployment, run the command on Spark with its
-standalone runtime active.
-
-For the tested Mac-primary + Spark-worker deployment, start the Mac runtime
-first and retain the secret token it prints. Stop any standalone runtime on
-Spark before starting Spark directly against the Mac primary:
+For a Mac-primary + Spark-worker deployment, both cores must use the same
+primary Redis coordination store. Start the primary runtime first, then start
+Spark as a clean worker with the primary's password-authenticated Redis URL:
 
 ```bash
 # On Spark
-mn runtime stop
-mn runtime start \
-  --join-host <mac-ip> \
-  --token <main-token> \
-  --host <spark-ip>
+MN_REDIS_URL='redis://:<primary-redis-password>@<mac-ip>:<redis-port>/0' \
+MN_REDIS_HA_MODE=single \
+MN_REDIS_SENTINELS='' \
+MN_REDIS_SENTINEL_HOST_MAP='' \
+mn runtime start --worker --host <spark-ip>
 
 # On the Mac
-mn node join <spark-ip> \
-  --local-host <mac-ip> \
-  --token <main-token>
+mn node add <spark-ip> --token <spark-worker-token>
 
 mn node list
-mn resource list
-mn blueprint run --folder ./cctv_operator --web-ui
+mn resource show
+mn blueprint run ./cctv_operator --web-ui
 ```
 
-Do not run the worker as an unrelated standalone cluster and then submit work
-to it. Restarting with `--join-host` gives both nodes the same cluster
-credentials and primary Redis data plane before registration. `mn node list`
-must show the Mac and Spark as healthy, and `mn resource list` must show Spark's
-NVIDIA/CUDA device, before launch. A healthy two-node run reports
-`reliability.mode=multi_node`; the scheduler may still binpack all five
-workflow agents on Spark while the Mac owns the job lease.
+Do not join an unrelated standalone Spark runtime. `mn node add` rejects it
+when its coordination-store identity differs from the primary. `mn node list`
+must show the Mac and Spark as healthy, and `mn resource show` must show
+Spark's NVIDIA/CUDA device before launch.
 
 The cluster token is a secret. Pass it only to the runtime and join commands;
 do not store it in blueprint config, logs, or reports.
@@ -142,7 +142,12 @@ mn blueprint run cctv_operator --web-ui
 ```
 
 The dashboard listens on all container interfaces by default so the runtime's
-published port is reachable. Choose another port when needed:
+published port is reachable. On a remote Spark worker, open the URL shown in
+the run's `web_ui.json` (for example, `http://10.0.4.26:61000`) from the Mac.
+The launch confirmation can show a submit-host URL, so prefer the URL written
+by the dashboard service itself in `web_ui.json` when the scheduled node is
+remote. The runtime prepublishes ports `61000` through `61049`; choose
+another port in that range when needed:
 
 ```bash
 mn blueprint run cctv_operator --web-ui \
@@ -157,16 +162,26 @@ non-container deployment.
 From this folder:
 
 ```bash
-mn blueprint run --folder . \
+mn blueprint run . \
   --set video_source.uri=rtsp://camera.example/live \
   --set web_ui.preview.url=https://gateway.example/live/index.m3u8 \
-  --web-ui
+  --web-ui --web-ui-host 0.0.0.0 --web-ui-port 61000
 ```
 
-For local development,
-`./cctv_operator/scripts/sample_rtsp.sh start` publishes the sample over RTSP
-and exposes MediaMTX's HLS proxy. It prints both `--set` values for the run
-command.
+For a Spark smoke test, copy this blueprint to Spark (or run the command from a
+shared checkout), then start the deterministic source there:
+
+```bash
+ssh spark 'cd <blueprint-path> && CCTV_SAMPLE_RTSP_HOST=10.0.4.26 ./scripts/sample_rtsp.sh start'
+
+mn blueprint run . \
+  --set video_source.uri=rtsp://10.0.4.26:8554/cctv-sample \
+  --set web_ui.preview.url=http://10.0.4.26:8888/cctv-sample/index.m3u8 \
+  --web-ui --web-ui-host 0.0.0.0 --web-ui-port 61000
+```
+
+The local computer can then open `http://10.0.4.26:61000`. Stop the fixture
+with `ssh spark 'cd <blueprint-path> && ./scripts/sample_rtsp.sh stop'`.
 
 Inspect recent state:
 
@@ -210,7 +225,14 @@ even when no CCTV run is active. A question never starts the stream service.
 ## Repository validation
 
 ```bash
-.venv/bin/python -m pytest -q
+python3 -m py_compile \
+  payloads/services/cctv_web_ui.py \
+  payloads/agents/visual_detector/scripts/analyze_video_frame.py
+jq empty manifest.json
+jq empty config/default.json
 ```
+
+Use the launch command above with an explicit `video_source.uri` for runtime
+validation; the source contract intentionally rejects the empty default URI.
 
 See [SPEC.md](SPEC.md) for the complete design contract.

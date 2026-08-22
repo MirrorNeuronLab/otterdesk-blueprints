@@ -232,6 +232,16 @@
           "upload_path": ".",
           "workdir": "/sandbox/job"
         },
+        "constraints": [
+          {
+            "attribute": "capabilities",
+            "operator": "contains_all",
+            "value": [
+              "nvidia",
+              "cuda"
+            ]
+          }
+        ],
         "display_name": "CCTV Report Writer",
         "node_id": "report_writer",
         "type": "generic"
@@ -257,6 +267,16 @@
           "upload_path": ".",
           "workdir": "/sandbox/job"
         },
+        "constraints": [
+          {
+            "attribute": "capabilities",
+            "operator": "contains_all",
+            "value": [
+              "nvidia",
+              "cuda"
+            ]
+          }
+        ],
         "display_name": "CCTV Web UI",
         "node_id": "cctv_web_ui",
         "resources": {
@@ -273,10 +293,14 @@
             "address": "0.0.0.0",
             "checks": [
               {
-                "interval": "2s",
+                "address": "127.0.0.1",
+                "expected_status": 200,
+                "failures_before_critical": 2,
+                "interval_ms": 2000,
                 "name": "http-ready",
                 "path": "/healthz",
-                "timeout": "1s",
+                "required": true,
+                "timeout_ms": 1000,
                 "type": "http"
               }
             ],
@@ -709,7 +733,7 @@
     "backend": "redis_vector_rag",
     "chunk_overlap": 70,
     "chunk_size": 700,
-    "embedding_api_base": "http://localhost:12434/engines/v1",
+    "embedding_api_base": "http://host.docker.internal:12434/engines/v1",
     "embedding_document_prefix": "Document: ",
     "embedding_healthcheck_enabled": true,
     "embedding_model": "rag-embedding",
@@ -1336,7 +1360,7 @@
       "backend": "redis_vector_rag",
       "chunk_overlap": 70,
       "chunk_size": 700,
-      "embedding_api_base": "http://localhost:12434/engines/v1",
+      "embedding_api_base": "http://host.docker.internal:12434/engines/v1",
       "embedding_document_prefix": "Document: ",
       "embedding_healthcheck_enabled": true,
       "embedding_model": "rag-embedding",
