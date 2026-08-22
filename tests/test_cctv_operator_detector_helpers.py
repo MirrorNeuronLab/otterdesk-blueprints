@@ -151,6 +151,7 @@ def test_dmr_vlm_disables_reasoning_and_normalizes_model_variants(monkeypatch):
     result = detector.call_ollama(b"jpeg", "inspect the frame")
 
     assert captured["chat_template_kwargs"] == {"enable_thinking": False}
+    assert captured["thinking_budget_tokens"] == 0
     assert captured["max_tokens"] == 900
     assert captured["messages"][0]["content"][0]["text"].startswith(
         "/no_think\ninspect the frame"
@@ -201,6 +202,7 @@ def test_managed_dmr_vlm_uses_lazy_runtime_model_access(monkeypatch):
     assert captured["payload"]["chat_template_kwargs"] == {
         "enable_thinking": False
     }
+    assert captured["payload"]["thinking_budget_tokens"] == 0
     assert captured["payload"]["messages"][0]["content"][0]["text"].startswith(
         "/no_think\ninspect the frame"
     )

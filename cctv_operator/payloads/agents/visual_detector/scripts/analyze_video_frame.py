@@ -199,6 +199,7 @@ def call_ollama(frame: bytes | list[bytes], prompt: str) -> dict[str, Any]:
         }
         if _uses_docker_model_runner(provider, base_url):
             payload["chat_template_kwargs"] = {"enable_thinking": False}
+            payload["thinking_budget_tokens"] = 0
         try:
             raw = runtime_model_json_request(
                 "vlm",
