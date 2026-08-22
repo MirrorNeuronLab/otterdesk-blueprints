@@ -186,8 +186,8 @@ def test_managed_dmr_vlm_uses_lazy_runtime_model_access(monkeypatch):
         }
 
     monkeypatch.setenv("MN_RUNTIME_MODEL_MANAGED", "1")
-    monkeypatch.setenv("MN_VLM_PROVIDER", "docker_model_runner")
-    monkeypatch.setenv("MN_VLM_API_BASE", "auto")
+    monkeypatch.setenv("MN_VLM_PROVIDER", "litellm")
+    monkeypatch.setenv("MN_VLM_API_BASE", "http://mn-litellm-proxy:4000/v1")
     monkeypatch.setenv("MN_VLM_MODEL", "nemotron3")
     monkeypatch.setattr(
         detector, "runtime_model_json_request", fake_runtime_request
@@ -198,7 +198,7 @@ def test_managed_dmr_vlm_uses_lazy_runtime_model_access(monkeypatch):
     assert captured["purpose"] == "vlm"
     assert captured["model"] == "nemotron3"
     assert captured["path"] == "/chat/completions"
-    assert captured["api_base"] == "auto"
+    assert captured["api_base"] == "http://mn-litellm-proxy:4000/v1"
     assert captured["payload"]["chat_template_kwargs"] == {
         "enable_thinking": False
     }

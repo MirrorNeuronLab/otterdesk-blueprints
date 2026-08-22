@@ -182,8 +182,13 @@ def call_ollama(frame: bytes | list[bytes], prompt: str) -> dict[str, Any]:
     )
     timeout = float(os.environ.get("MN_VLM_TIMEOUT_SECONDS") or os.environ.get("MN_LLM_TIMEOUT_SECONDS") or os.environ.get("OLLAMA_TIMEOUT_SECONDS", "90"))
     if _uses_openai_compatible_runtime(provider, base_url):
+        uses_dmr = _uses_docker_model_runner(provider, base_url) or (
+            provider == "litellm"
+            and os.environ.get("MN_RUNTIME_MODEL_MANAGED", "").strip().lower()
+            in {"1", "true", "yes", "on"}
+        )
         model_prompt = prompt
-        if _uses_docker_model_runner(provider, base_url) and not prompt.lstrip().startswith("/no_think"):
+        if uses_dmr and not prompt.lstrip().startswith("/no_think"):
             model_prompt = f"/no_think\n{prompt}"
         payload = {
             "model": model,
@@ -197,7 +202,7 @@ def call_ollama(frame: bytes | list[bytes], prompt: str) -> dict[str, Any]:
             "temperature": float(os.environ.get("MN_VLM_TEMPERATURE") or os.environ.get("OLLAMA_TEMPERATURE", "0.0")),
             "response_format": {"type": "json_object"},
         }
-        if _uses_docker_model_runner(provider, base_url):
+        if uses_dmr:
             payload["chat_template_kwargs"] = {"enable_thinking": False}
             payload["thinking_budget_tokens"] = 0
         try:
