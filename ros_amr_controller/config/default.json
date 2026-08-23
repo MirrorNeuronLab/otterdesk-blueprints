@@ -1,0 +1,140 @@
+{
+  "standard_version": "1.0",
+  "identity": {
+    "blueprint_id": "ros_amr_controller",
+    "name": "ROS AMR Controller"
+  },
+  "metadata": {
+    "description": "Give it a warehouse scenario and it runs a long-lived ROS 2 TurtleBot simulation on a joined NVIDIA node, with a browser control room, bounded natural-language MCP controls, and run evidence written to the configured output folder without exposing an arbitrary host input folder."
+  },
+  "inputs": {
+    "adapter": "mock",
+    "payload": {
+      "scenario": "warehouse"
+    }
+  },
+  "outputs": {
+    "adapter": "local_run_store",
+    "run_root": "~/.mn/runs",
+    "write_run_store": true
+  },
+  "resources": {
+    "enabled": true,
+    "gpu_enabled": true,
+    "sample_interval_seconds": 5,
+    "gpu_sample_interval_seconds": 5
+  },
+  "web_ui": {
+    "enabled": true,
+    "kind": "live_service",
+    "service": {
+      "host": "0.0.0.0",
+      "advertise_host": "10.0.4.26",
+      "port": 8088
+    },
+    "dashboard": {
+      "path": "payloads/worker/web_ui/index.html",
+      "standard_panels": [
+        "status",
+        "timeline",
+        "agents",
+        "artifacts",
+        "resources",
+        "logs",
+        "human_control"
+      ]
+    },
+    "input": {
+      "adapter": "rosbridge"
+    },
+    "output": {
+      "adapter": "live_http"
+    }
+  },
+  "mcp_control": {
+    "enabled": true,
+    "kind": "streamable_http",
+    "service": {
+      "host": "0.0.0.0",
+      "advertise_host": "10.0.4.26",
+      "port": 8090,
+      "path": "/mcp"
+    },
+    "allowed_tools": [
+      "adjust_robot",
+      "cancel_navigation",
+      "get_robot_status",
+      "navigate_to_zone"
+    ]
+  },
+  "memory_layer": {
+    "enabled": true,
+    "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
+    "conversation_enabled": true,
+    "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
+    "namespace": "ros_amr_controller_context",
+    "collection": "mn_memory",
+    "sdk_distribution": "mirrorneuron-membrane-python-sdk",
+    "sdk_import_package": "mn_context_engine_sdk",
+    "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
+    "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
+    "conversation": {
+      "agent_role": "otterdesk_chat",
+      "include_runtime_events": true,
+      "include_runtime_logs": true,
+      "include_human_events": true,
+      "target_tokens": 1200,
+      "token_budget": 1800
+    }
+  },
+  "llm": {
+    "enabled": true,
+    "mode": "actor_assisted",
+    "mock_mode": "deterministic",
+    "provider": "docker_model_runner",
+    "model": "default",
+    "runtime_model": "default",
+    "backend": "llama.cpp",
+    "default_config": "primary",
+    "configs": {
+      "primary": {
+        "provider": "docker_model_runner",
+        "model": "default",
+        "runtime_model": "default",
+        "backend": "llama.cpp",
+        "temperature": 0.1,
+        "max_tokens": 600
+      }
+    },
+    "responsibilities": [
+      "Interpret explicit warehouse-robot control requests conservatively.",
+      "Use only the allowlisted MCP tools and fixed navigation zones.",
+      "Report accepted commands and observed status without inventing motion results."
+    ],
+    "agents": {
+      "warehouse_service": {
+        "llm_config": "primary",
+        "role": "ROS AMR service controller",
+        "responsibilities": [
+          "Keep the ROS 2 simulation and controls healthy.",
+          "Use only bounded robot controls.",
+          "Stop cleanly with the service lease."
+        ]
+      },
+      "finalize": {
+        "llm_config": "primary",
+        "role": "ROS AMR service finalizer",
+        "responsibilities": [
+          "Record deliberate shutdown.",
+          "Preserve the run event trail.",
+          "Never issue a motion command."
+        ]
+      }
+    }
+  },
+  "logging": {
+    "events_jsonl": true,
+    "logs_jsonl": true,
+    "redact_env_secrets": true
+  }
+}
