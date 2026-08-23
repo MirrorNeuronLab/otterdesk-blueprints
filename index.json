@@ -6,22 +6,6 @@
     "job_name": "cctv-operator",
     "name": "CCTV Operator",
     "path": "cctv_operator",
-    "mcp_collaboration": {
-      "enabled": true,
-      "goal_id": "cctv_operator",
-      "path": "/mcp",
-      "service_name": "mn-job-collaboration",
-      "service_tags": [
-        "mcp",
-        "job-collaboration"
-      ],
-      "starter_questions": [
-        "What is this CCTV job configured to monitor?",
-        "What happened in the latest monitoring run?",
-        "What warnings or review items need my attention?"
-      ],
-      "transport": "streamable-http"
-    },
     "product": {
       "agent_role": "AI assistant for reviewing live video activity and preparing visual detection reports and alerts.",
       "benefit": "Combines live operator steering with bounded multimodal analysis so a 24 FPS source does not become a 24 FPS model workload.",
@@ -31,10 +15,10 @@
       "output": "Smooth source preview, the latest analyzed frame, durable frame-batch manifests, and cumulative source-grounded observations and reports.",
       "problem": "Teams need a steerable review surface for a continuous stream without turning every source frame into a model request.",
       "runtime_features": [
-      "stream-only adaptive sampling",
-      "live monitoring steering",
-      "event-triggered frame bursts",
-      "browser preview and analyzed-frame review",
+        "stream-only adaptive sampling",
+        "live monitoring steering",
+        "event-triggered frame bursts",
+        "browser preview and analyzed-frame review",
         "NVIDIA CUDA media preparation",
         "visual detection",
         "cooldown state",
@@ -59,7 +43,15 @@
       }
     },
     "type": "service",
-    "workflow_id": "cctv_operator_v2"
+    "workflow_id": "cctv_operator_v2",
+    "response_service": {
+      "enabled": true
+    },
+    "starter_questions": [
+      "What is this CCTV job configured to monitor?",
+      "What happened in the latest monitoring run?",
+      "What warnings or review items need my attention?"
+    ]
   },
   {
     "category": "Finance",
@@ -68,22 +60,6 @@
     "job_name": "financial-advisor",
     "name": "Financial Advisor",
     "path": "financial_advisor",
-    "mcp_collaboration": {
-      "enabled": true,
-      "goal_id": "financial_advisor",
-      "path": "/mcp",
-      "service_name": "mn-job-collaboration",
-      "service_tags": [
-        "mcp",
-        "job-collaboration"
-      ],
-      "starter_questions": [
-        "What can you help me review?",
-        "What did you find in your latest run?",
-        "Which financial items still need human review?"
-      ],
-      "transport": "streamable-http"
-    },
     "product": {
       "agent_role": "Integrated financial advisor team for bank statement extraction, tax-form OCR capture, household cash-flow review, draft tax workpapers, portfolio risk analysis, and review-only report writing.",
       "benefit": "Turns one local finance folder into a source-grounded advisor packet that combines statement, tax-form OCR, tax, cash-flow, and portfolio evidence before any human-approved downstream action.",
@@ -111,7 +87,15 @@
       "target_users": "Individuals, households, freelancers, financial coaches, tax preparers, and advisors reviewing personal finance folders."
     },
     "type": "batch",
-    "workflow_id": "financial_advisor_v1"
+    "workflow_id": "financial_advisor_v1",
+    "response_service": {
+      "enabled": true
+    },
+    "starter_questions": [
+      "What can you help me review?",
+      "What did you find in your latest run?",
+      "Which financial items still need human review?"
+    ]
   },
   {
     "category": "Finance",
@@ -120,22 +104,6 @@
     "job_name": "purchase-research-assistant",
     "name": "Purchase Research Assistant",
     "path": "purchase_research_assistant",
-    "mcp_collaboration": {
-      "enabled": true,
-      "goal_id": "purchase_research_assistant",
-      "path": "/mcp",
-      "service_name": "mn-job-collaboration",
-      "service_tags": [
-        "mcp",
-        "job-collaboration"
-      ],
-      "starter_questions": [
-        "What purchase can you help me research?",
-        "What is the latest recommendation and supporting evidence?",
-        "Which costs, risks, or evidence gaps remain?"
-      ],
-      "transport": "streamable-http"
-    },
     "product": {
       "agent_role": "Purchase research co-worker that prepares source-grounded comparisons without transacting.",
       "benefit": "Turns scattered local evidence and public purchase facts into a clear comparison, risk review, and human-checkable recommendation.",
@@ -159,7 +127,15 @@
       "simulation_type": "General purchase research with local RAG and public-source comparison.",
       "target_users": "Consumers, travelers, vehicle buyers, property buyers, renters, and purchase analysts."
     },
-    "workflow_id": "purchase_research_assistant_v1"
+    "workflow_id": "purchase_research_assistant_v1",
+    "response_service": {
+      "enabled": true
+    },
+    "starter_questions": [
+      "What purchase can you help me research?",
+      "What is the latest recommendation and supporting evidence?",
+      "Which costs, risks, or evidence gaps remain?"
+    ]
   },
   {
     "category": "Finance",
@@ -234,22 +210,6 @@
     "job_name": "drug-discovery-research-assistant",
     "name": "Drug Discovery Research Assistant",
     "path": "drug_discovery_research_assistant",
-    "mcp_collaboration": {
-      "enabled": true,
-      "goal_id": "drug_discovery_research_assistant",
-      "path": "/mcp",
-      "service_name": "mn-job-collaboration",
-      "service_tags": [
-        "mcp",
-        "job-collaboration"
-      ],
-      "starter_questions": [
-        "What discovery work is this job configured to perform?",
-        "What candidates or evidence emerged from the latest cycle?",
-        "Which scientific risks or review gates remain?"
-      ],
-      "transport": "streamable-http"
-    },
     "product": {
       "agent_role": "Continuous native service coordinator for BioTarget and custom DrugClip graph-text candidate generation, folding, simulation, and evidence review.",
       "benefit": "Keeps BioTarget computational discovery cycles moving while distributing DrugClip graph-text screening, folding, and simulation across cluster boxes with reviewable evidence.",
@@ -274,7 +234,15 @@
       "target_users": "Computational biology researchers, scientific AI platform teams, and research operations groups."
     },
     "type": "service",
-    "workflow_id": "drug_discovery_research_assistant_v1"
+    "workflow_id": "drug_discovery_research_assistant_v1",
+    "response_service": {
+      "enabled": true
+    },
+    "starter_questions": [
+      "What discovery work is this job configured to perform?",
+      "What candidates or evidence emerged from the latest cycle?",
+      "Which scientific risks or review gates remain?"
+    ]
   },
   {
     "category": "Legal",
@@ -283,22 +251,6 @@
     "job_name": "legal-assistant",
     "name": "Legal Assistant",
     "path": "legal_assistant",
-    "mcp_collaboration": {
-      "enabled": true,
-      "goal_id": "legal_assistant",
-      "path": "/mcp",
-      "service_name": "mn-job-collaboration",
-      "service_tags": [
-        "mcp",
-        "job-collaboration"
-      ],
-      "starter_questions": [
-        "What legal document review can you help with?",
-        "What issues appeared in the latest review packet?",
-        "Which clauses, invoices, or decisions need human review?"
-      ],
-      "transport": "streamable-http"
-    },
     "product": {
       "agent_role": "Local legal document assistant that extracts invoice and contract evidence while keeping conclusions review-only.",
       "benefit": "Combines payable extraction and contract clause review into one local, source-grounded review packet.",
@@ -322,7 +274,15 @@
       "simulation_type": "Document automation workflow with local OCR and review-gated legal/payable extraction.",
       "target_users": "Individuals, founders, small-business operators, legal operations teams, in-house reviewers, and attorneys preparing first-pass document packets."
     },
-    "workflow_id": "legal_assistant_v1"
+    "workflow_id": "legal_assistant_v1",
+    "response_service": {
+      "enabled": true
+    },
+    "starter_questions": [
+      "What legal document review can you help with?",
+      "What issues appeared in the latest review packet?",
+      "Which clauses, invoices, or decisions need human review?"
+    ]
   },
   {
     "category": "Science",
@@ -331,22 +291,6 @@
     "job_name": "research-coscientist",
     "name": "Research Co-Scientist",
     "path": "research_coscientist",
-    "mcp_collaboration": {
-      "enabled": true,
-      "goal_id": "research_coscientist",
-      "path": "/mcp",
-      "service_name": "mn-job-collaboration",
-      "service_tags": [
-        "mcp",
-        "job-collaboration"
-      ],
-      "starter_questions": [
-        "What research questions can you investigate?",
-        "What did the latest research run conclude?",
-        "Which hypotheses, evidence gaps, or experiments come next?"
-      ],
-      "transport": "streamable-http"
-    },
     "product": {
       "agent_role": "Multi-agent research team that finds, evaluates, critiques, and drafts evidence-grounded research directions.",
       "benefit": "Turns a research goal and approved evidence into a traceable, adversarially reviewed research packet before any experiment or claim is made.",
@@ -368,7 +312,15 @@
       "target_users": "Researchers, scientists, engineers, analysts, and research leads."
     },
     "type": "batch",
-    "workflow_id": "research_coscientist_v1"
+    "workflow_id": "research_coscientist_v1",
+    "response_service": {
+      "enabled": true
+    },
+    "starter_questions": [
+      "What research questions can you investigate?",
+      "What did the latest research run conclude?",
+      "Which hypotheses, evidence gaps, or experiments come next?"
+    ]
   },
   {
     "category": "Business",
@@ -377,22 +329,6 @@
     "job_name": "growth-partnerships-coworker",
     "name": "Growth & Partnerships Co-worker",
     "path": "growth_partnerships_coworker",
-    "mcp_collaboration": {
-      "enabled": true,
-      "goal_id": "bibblio-business-success",
-      "path": "/mcp",
-      "service_name": "mn-job-collaboration",
-      "service_tags": [
-        "mcp",
-        "job-collaboration"
-      ],
-      "starter_questions": [
-        "What is your role in the business-success team?",
-        "What did your latest outreach analysis recommend?",
-        "Which founder decisions or approvals do you need?"
-      ],
-      "transport": "streamable-http"
-    },
     "product": {
       "agent_role": "Growth and Partnerships Lead.",
       "benefit": "Builds relevance-first customer, partner, creator, and investor learning without optimizing for spam, and safely verifies one approved development email without exposing contact details to collaboration records.",
@@ -416,7 +352,15 @@
       "target_users": "Founders and designated growth, partnerships, brand, privacy, and legal reviewers."
     },
     "type": "batch",
-    "workflow_id": "growth_partnerships_coworker_v2"
+    "workflow_id": "growth_partnerships_coworker_v2",
+    "response_service": {
+      "enabled": true
+    },
+    "starter_questions": [
+      "What is your role in the business-success team?",
+      "What did your latest outreach analysis recommend?",
+      "Which founder decisions or approvals do you need?"
+    ]
   },
   {
     "category": "Business",
@@ -425,22 +369,6 @@
     "job_name": "business-finance-coworker",
     "name": "Business Finance Co-worker",
     "path": "business_finance_coworker",
-    "mcp_collaboration": {
-      "enabled": true,
-      "goal_id": "bibblio-business-success",
-      "path": "/mcp",
-      "service_name": "mn-job-collaboration",
-      "service_tags": [
-        "mcp",
-        "job-collaboration"
-      ],
-      "starter_questions": [
-        "What finance questions does this job answer?",
-        "What did the latest unit-economics analysis show?",
-        "Which assumptions or founder decisions remain open?"
-      ],
-      "transport": "streamable-http"
-    },
     "product": {
       "agent_role": "Business Finance and Unit Economics Controller.",
       "benefit": "Turns dated operating inputs into cash-bounded profitability decisions with explicit missing evidence and approval gates.",
@@ -464,7 +392,15 @@
       "target_users": "Founders and designated finance, bookkeeping, accounting, and operating reviewers."
     },
     "type": "batch",
-    "workflow_id": "business_finance_coworker_v1"
+    "workflow_id": "business_finance_coworker_v1",
+    "response_service": {
+      "enabled": true
+    },
+    "starter_questions": [
+      "What finance questions does this job answer?",
+      "What did the latest unit-economics analysis show?",
+      "Which assumptions or founder decisions remain open?"
+    ]
   },
   {
     "category": "Business",
@@ -473,22 +409,6 @@
     "job_name": "learning-quality-safety-coworker",
     "name": "Learning Quality & Safety Co-worker",
     "path": "learning_quality_safety_coworker",
-    "mcp_collaboration": {
-      "enabled": true,
-      "goal_id": "bibblio-business-success",
-      "path": "/mcp",
-      "service_name": "mn-job-collaboration",
-      "service_tags": [
-        "mcp",
-        "job-collaboration"
-      ],
-      "starter_questions": [
-        "What learning and safety checks do you perform?",
-        "What did the latest backlog review find?",
-        "Which items are blocked or need human approval?"
-      ],
-      "transport": "streamable-http"
-    },
     "product": {
       "agent_role": "Learning Quality and Safety Director.",
       "benefit": "Stops unsafe or unsupported learning concepts before production while turning remediable briefs into explicit review conditions.",
@@ -512,7 +432,15 @@
       "target_users": "Founders and designated learning, quality, safety, privacy, legal, and product reviewers."
     },
     "type": "batch",
-    "workflow_id": "learning_quality_safety_coworker_v1"
+    "workflow_id": "learning_quality_safety_coworker_v1",
+    "response_service": {
+      "enabled": true
+    },
+    "starter_questions": [
+      "What learning and safety checks do you perform?",
+      "What did the latest backlog review find?",
+      "Which items are blocked or need human approval?"
+    ]
   },
   {
     "category": "Business",
@@ -521,22 +449,6 @@
     "job_name": "content-studio-coworker",
     "name": "Content Studio Co-worker",
     "path": "content_studio_coworker",
-    "mcp_collaboration": {
-      "enabled": true,
-      "goal_id": "bibblio-business-success",
-      "path": "/mcp",
-      "service_name": "mn-job-collaboration",
-      "service_tags": [
-        "mcp",
-        "job-collaboration"
-      ],
-      "starter_questions": [
-        "What content work is this job responsible for?",
-        "What did the latest content batch produce?",
-        "Which packages or approvals need attention next?"
-      ],
-      "transport": "streamable-http"
-    },
     "product": {
       "agent_role": "Content Studio Director.",
       "benefit": "Creates a reusable, cost-aware content supply without treating generated output as child-ready.",
@@ -560,7 +472,15 @@
       "target_users": "Founders and designated content, learning, quality, safety, brand, accessibility, licensing, and product reviewers."
     },
     "type": "batch",
-    "workflow_id": "content_studio_coworker_v1"
+    "workflow_id": "content_studio_coworker_v1",
+    "response_service": {
+      "enabled": true
+    },
+    "starter_questions": [
+      "What content work is this job responsible for?",
+      "What did the latest content batch produce?",
+      "Which packages or approvals need attention next?"
+    ]
   },
   {
     "category": "Business",

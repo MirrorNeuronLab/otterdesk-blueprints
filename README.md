@@ -43,18 +43,16 @@ event-driven, fork/join, service, and linear flow contracts.
 
 ## Persistent co-worker conversation
 
-Every published blueprint opts into the stable, read-only job MCP contract.
-After hiring, OtterDesk talks to `/api/v1/jobs/{job_id}/mcp` through `mn-api`,
-so the co-worker can answer questions about its role, safe configuration,
-schedule, and latest work when it has never run, is idle, paused, scheduled,
-completed, failed, or archived. Sending a question does not start the target
-co-worker.
+Every published blueprint declares the stable Job response service. After
+hiring, OtterDesk can ask bounded questions about the co-worker's role, safe
+configuration, schedule, and latest work when it has never run, is idle,
+paused, scheduled, completed, failed, or archived. Sending a question never
+starts the target co-worker.
 
-This supervisory endpoint is API-owned and exposes only bounded job context.
-It is separate from the optional `mn-job-collaboration` runtime service used by
-some executing workflows for peer work-packet exchange. The runtime service
-exists only during a run; persistent OtterDesk conversation does not depend on
-it.
+Core owns this response service outside the workflow DAG. It uses sanitized Job
+context and Job-scoped knowledge, never a blueprint-defined service node or
+command, and excludes credentials, private source data, and unrestricted
+artifacts from its responses.
 
 The catalog contract tests also expect this repository to live beside the companion
 `mn-skills` and `mn-agents` folders because they import shared blueprint support

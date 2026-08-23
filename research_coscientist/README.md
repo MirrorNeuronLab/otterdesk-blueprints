@@ -91,7 +91,7 @@ isolated in `runtime_services.py`; local sample composition lives in
 ## Persistent conversation
 
 OtterDesk can ask this hired co-worker about its research role, schedule,
-latest hypotheses, or evidence gaps through the stable read-only job MCP even
+latest hypotheses, or evidence gaps through the stable Job response service even
 before its first run or while idle. Conversation never starts research or an
 experiment.
 

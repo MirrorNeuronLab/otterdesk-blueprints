@@ -483,16 +483,8 @@
     "name": "Research Co-Scientist",
     "version": 1
   },
-  "mcp_collaboration": {
-    "enabled": true,
-    "goal_id": "research_coscientist",
-    "path": "/mcp",
-    "service_name": "mn-job-collaboration",
-    "service_tags": [
-      "mcp",
-      "job-collaboration"
-    ],
-    "transport": "streamable-http"
+  "response_service": {
+    "enabled": true
   },
   "intent": {
     "description": "A research co-scientist combining deterministic evidence and verification stages with one isolated OpenShell worker for autonomous, tool-driven exploration and bounded generated-code experiments.",
@@ -638,6 +630,12 @@
     },
     {
       "name": "mirrorneuron-autonomous-research-skill",
+      "source": "gar",
+      "type": "pip",
+      "version": "1.2.31"
+    },
+    {
+      "name": "mirrorneuron-job-response-skill",
       "source": "gar",
       "type": "pip",
       "version": "1.2.31"

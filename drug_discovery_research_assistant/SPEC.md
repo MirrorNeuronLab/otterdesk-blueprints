@@ -32,7 +32,7 @@ Durable knowledge, Milvus Lite data, and service state belong to the stable job,
 not the blueprint ID or execution. Two jobs cannot observe each other's data.
 Run cancellation and retention do not remove those resources.
 
-The API-owned stable job MCP remains readable when the continuous service is
+The top-level Job response service remains readable when the continuous service is
 not running. It exposes bounded non-secret profile, schedule, lifecycle, and
 latest-cycle context and cannot launch computation or advance a candidate.
 

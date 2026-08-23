@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import time
 from typing import Any, Callable
 
 from mn_prototype_stateful_step_agent import (
@@ -16,7 +15,6 @@ from mn_sdk.blueprint_support import StepLifecycleHooks, source_manifest
 from mn_sdk.step_runtime import AgentInput, artifact_reference, find_message_payload
 
 from domain.common import ASPECT_ARTIFACT_ID, ASPECT_PACKET_PATH
-from domain.collaboration import publish_workflow_status
 from domain.runtime_services import runtime_context_for_step
 
 
@@ -39,53 +37,12 @@ def create_domain_agent(agent_id: str, operation: Callable[..., dict[str, Any]])
     ) -> AgentHandlerOutput:
         context_mapping = context.to_mapping()
         step_id = context.step_context.step_id
-        invocation_id = context.step_context.invocation_id
-        publish_workflow_status(
+        result = operation(
             context_mapping,
-            status="working",
-            stage=step_id,
-            summary=f"Working on {step_id.replace('_', ' ')}.",
-            idempotency_key=f"{invocation_id}:{step_id}:working",
+            step_id=step_id,
+            invocation_id=context.step_context.invocation_id,
+            **options,
         )
-        try:
-            result = operation(
-                context_mapping,
-                step_id=step_id,
-                invocation_id=invocation_id,
-                **options,
-            )
-        except Exception:
-            publish_workflow_status(
-                context_mapping,
-                status="failed",
-                stage=step_id,
-                summary=f"{step_id.replace('_', ' ').capitalize()} needs attention.",
-                idempotency_key=f"{invocation_id}:{step_id}:failed",
-            )
-            raise
-        packet = result.get("work_packet") if isinstance(result.get("work_packet"), dict) else {}
-        awaiting_review = bool(result.get("final_artifact") and packet.get("requested_approval"))
-        publish_workflow_status(
-            context_mapping,
-            status="waiting_for_human" if awaiting_review else "completed",
-            stage=step_id,
-            summary=(
-                f"Completed {step_id.replace('_', ' ')} and is waiting for review."
-                if awaiting_review
-                else f"Completed {step_id.replace('_', ' ')}."
-            ),
-            idempotency_key=f"{invocation_id}:{step_id}:{'waiting' if awaiting_review else 'completed'}",
-        )
-        if step_id.startswith("publish_") and result.get("final_artifact"):
-            collaboration = (context_mapping.get("config") or {}).get(
-                "mcp_collaboration"
-            ) or {}
-            grace_seconds = min(
-                max(float(collaboration.get("chat_grace_seconds", 0)), 0.0),
-                30.0,
-            )
-            if grace_seconds:
-                time.sleep(grace_seconds)
         artifacts = []
         work_packet_artifact = result.get("work_packet_artifact")
         if isinstance(work_packet_artifact, str) and work_packet_artifact:

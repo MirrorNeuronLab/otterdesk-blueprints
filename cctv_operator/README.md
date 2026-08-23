@@ -219,7 +219,7 @@ cleanup never deletes shared resources; reset or deletion is explicit.
 ## Persistent conversation
 
 OtterDesk can ask this hired co-worker about its monitoring role, safe
-configuration, schedule, and latest run through the stable read-only job MCP,
+configuration, schedule, and latest run through the stable Job response service,
 even when no CCTV run is active. A question never starts the stream service.
 
 ## Repository validation

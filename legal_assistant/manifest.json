@@ -368,16 +368,8 @@
     "name": "Legal Assistant",
     "version": 1
   },
-  "mcp_collaboration": {
-    "enabled": true,
-    "goal_id": "legal_assistant",
-    "path": "/mcp",
-    "service_name": "mn-job-collaboration",
-    "service_tags": [
-      "mcp",
-      "job-collaboration"
-    ],
-    "transport": "streamable-http"
+  "response_service": {
+    "enabled": true
   },
   "intent": {
     "customizable_for": "Individual legal intake, small-business invoice review, vendor contract review, CLM intake, payable approval support, and attorney review preparation.",
@@ -504,6 +496,12 @@
     },
     {
       "name": "mirrorneuron-rag-skill",
+      "source": "gar",
+      "type": "pip",
+      "version": "1.2.31"
+    },
+    {
+      "name": "mirrorneuron-job-response-skill",
       "source": "gar",
       "type": "pip",
       "version": "1.2.31"

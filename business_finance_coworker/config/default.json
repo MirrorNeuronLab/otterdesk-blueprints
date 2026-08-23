@@ -9,8 +9,7 @@
       "planning_horizon_days": 90,
       "input_folder": "@/examples/sample_inputs",
       "metrics_file": "@/examples/sample_inputs/business_metrics.json",
-      "output_folder": "~/Downloads/business_finance_coworker",
-      "peer_mcp_servers": []
+      "output_folder": "~/Downloads/business_finance_coworker"
     }
   },
   "outputs": {
@@ -24,10 +23,8 @@
     "mode": "fake",
     "require_live": false
   },
-  "mcp_collaboration": {
-    "chat_grace_seconds": 8,
-    "publish_local_exchange": true,
-    "peer_reads_enabled": false
+  "knowledge_rag": {
+    "backend": "milvus_lite"
   },
   "privacy": {
     "default_classification": "confidential",

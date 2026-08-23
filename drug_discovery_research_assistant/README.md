@@ -49,7 +49,7 @@ edits. Experimental inputs, outputs, logs, and artifacts remain isolated by
 ## Persistent conversation
 
 OtterDesk can ask this hired co-worker about its scientific role, schedule,
-latest cycle, or review gates through the stable read-only job MCP even while
+latest cycle, or review gates through the stable Job response service even while
 the continuous service is stopped. Conversation never starts a discovery
 cycle.
 

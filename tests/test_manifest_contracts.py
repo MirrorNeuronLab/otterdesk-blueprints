@@ -23,10 +23,14 @@ from otterdesk_blueprint_suite import (
 
 
 RAG_BLUEPRINTS = {
+    "business_finance_coworker",
     "cctv_operator",
+    "content_studio_coworker",
     "drug_discovery_research_assistant",
     "financial_advisor",
     "gtm_assistant",
+    "growth_partnerships_coworker",
+    "learning_quality_safety_coworker",
     "legal_assistant",
     "purchase_research_assistant",
     "research_coscientist",
@@ -34,7 +38,7 @@ RAG_BLUEPRINTS = {
 }
 
 
-def test_catalog_blueprints_declare_legacy_or_enhanced_job_scoped_mcp():
+def test_catalog_blueprints_declare_job_response_service():
     root = Path(__file__).resolve().parents[1]
     entries = json.loads((root / "index.json").read_text(encoding="utf-8"))
 
@@ -44,26 +48,14 @@ def test_catalog_blueprints_declare_legacy_or_enhanced_job_scoped_mcp():
         manifest = json.loads(
             (root / entry["path"] / "manifest.json").read_text(encoding="utf-8")
         )
-        if blueprint_id in {"vc_assistant", "gtm_assistant"}:
-            assert entry["response_service"] == {"enabled": True}
-            assert manifest["response_service"] == {"enabled": True}
-            assert "mcp_collaboration" not in entry
-            assert "mcp_collaboration" not in manifest
-            assert len(entry["starter_questions"]) >= 3
-            assert "response_service" not in manifest["workflow"]
-            assert "response_service" not in manifest["agents"]
-            assert "services" not in manifest or "response_service" not in manifest["services"]
-            continue
-
-        for descriptor in (entry["mcp_collaboration"], manifest["mcp_collaboration"]):
-            assert descriptor["enabled"] is True, blueprint_id
-            assert descriptor["path"] == "/mcp", blueprint_id
-            assert descriptor["service_name"] == "mn-job-collaboration", blueprint_id
-            assert descriptor["service_tags"] == ["mcp", "job-collaboration"], blueprint_id
-            assert descriptor["transport"] == "streamable-http", blueprint_id
-            assert descriptor["goal_id"], blueprint_id
-
-        assert len(entry["mcp_collaboration"]["starter_questions"]) >= 3, blueprint_id
+        assert entry["response_service"] == {"enabled": True}, blueprint_id
+        assert manifest["response_service"] == {"enabled": True}, blueprint_id
+        assert "mcp_collaboration" not in entry, blueprint_id
+        assert "mcp_collaboration" not in manifest, blueprint_id
+        assert len(entry["starter_questions"]) >= 3, blueprint_id
+        assert "response_service" not in manifest["workflow"], blueprint_id
+        assert "response_service" not in manifest["agents"], blueprint_id
+        assert "services" not in manifest or "response_service" not in manifest["services"], blueprint_id
 
 
 def test_source_manifests_use_current_runtime_envelope_version():

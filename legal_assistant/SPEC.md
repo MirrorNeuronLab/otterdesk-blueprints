@@ -54,9 +54,9 @@ other's data. Reset and deletion require explicit job lifecycle operations.
 
 A successful run writes the standard run store plus invoice, contract, issue-register, quality, health, and Markdown report artifacts. The final artifact must include evidence, next steps, source references, the bundled playbook hash, specialist findings, and blocked actions.
 
-## Persistent supervisory MCP
+## Persistent Job response service
 
-The API-owned stable job MCP exposes bounded role, schedule, safe
+The top-level Job response service exposes bounded role, schedule, safe
 configuration, lifecycle, and latest-review context without an active run. It
 cannot start work, disclose document bodies, or perform legal or payment
 actions.

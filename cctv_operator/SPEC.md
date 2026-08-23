@@ -132,7 +132,7 @@ and survive multiple runs. Run media inputs and review outputs remain
 run-scoped. This blueprint has no bundle seed for runtime-generated CCTV
 knowledge and never clears job data during run cleanup.
 
-The stable job exposes the API-owned read-only supervisory MCP while `mn-api`
+The stable job exposes the API-owned top-level Job response service while `mn-api`
 is reachable. It reports bounded role, configuration, lifecycle, schedule, and
 latest-run context without launching the stream workflow or exposing camera
 credentials, raw logs, host paths, or unrestricted artifacts.

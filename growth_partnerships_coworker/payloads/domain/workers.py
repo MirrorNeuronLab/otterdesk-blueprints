@@ -9,7 +9,7 @@ from mn_marketing_email_skill import compose_text_body, normalize_structured_dra
 from mn_market_research_skill import build_research_brief
 from mn_sdk.blueprint_support.workflow_state import write_json
 
-from .collaboration import build_packet, peer_signals, persist_packet, write_final_artifact
+from .collaboration import build_packet, persist_packet, write_final_artifact
 from .delivery import deliver_approved_development_email
 from .inputs import csv_rows, normalized_inputs, resolve_input_file, source_descriptor
 
@@ -50,7 +50,6 @@ def _qualify_seed_contacts(context: dict[str, Any]) -> dict[str, Any]:
         "contacts": queue,
     }
     write_json(Path(context["run_dir"]) / PRIVATE_QUEUE_PATH, queue_artifact)
-    peers = peer_signals(context)
     packet = build_packet(
         context,
         stage="qualify_seed_contacts",
@@ -72,9 +71,7 @@ def _qualify_seed_contacts(context: dict[str, Any]) -> dict[str, Any]:
             "draft_quality_pass_count": quality_pass_count,
             "contacts_requiring_research": category_counts.get("other", 0),
             "private_queue_artifact": PRIVATE_QUEUE_PATH,
-            "private_fields_excluded_from_mcp": ["name", "email", "note", "individual draft body"],
-            "peer_goal_packet_count": len(peers["signals"]),
-            "peer_goal_signals": peers["signals"],
+            "confidential_fields_excluded_from_response_context": ["name", "email", "note", "individual draft body"],
             "research_brief": build_research_brief(
                 f"{business_name} customer, creator, community, distribution, and investor partnership outreach",
                 audience="Adult professionals and potential business partners",
@@ -92,7 +89,7 @@ def _qualify_seed_contacts(context: dict[str, Any]) -> dict[str, Any]:
             "Approve the lawful basis, relevance research, sender identity, and each initial outreach batch before sending.",
             "Approve all product, learning, pricing, and investment claims in the draft copy.",
         ],
-        outputs=["confidential ranked outreach queue", "per-contact draft copy", "aggregate MCP-safe GTM work packet"],
+        outputs=["confidential ranked outreach queue", "per-contact draft copy", "aggregate GTM work packet"],
         next_check="After a human reviews the first ten contacts and records reply, opt-out, and relevance outcomes.",
     )
     return {**persist_packet(context, packet), "private_queue_artifact": PRIVATE_QUEUE_PATH}
@@ -102,7 +99,6 @@ def _publish_gtm_packet(context: dict[str, Any]) -> dict[str, Any]:
     queue = _read_json(Path(context["run_dir"]) / PRIVATE_QUEUE_PATH)
     contacts = queue.get("contacts") if isinstance(queue.get("contacts"), list) else []
     approved_drafts = sum(1 for item in contacts if isinstance(item, dict) and (item.get("draft_review") or {}).get("approved"))
-    peers = peer_signals(context)
     packet = build_packet(
         context,
         stage="publish_gtm_outreach_queue",
@@ -119,8 +115,6 @@ def _publish_gtm_packet(context: dict[str, Any]) -> dict[str, Any]:
             "queued_contact_count": len(contacts),
             "draft_quality_pass_count": approved_drafts,
             "send_authorized": False,
-            "peer_goal_packet_count": len(peers["signals"]),
-            "peer_goal_signals": peers["signals"],
         },
         recommendation="Approve a manually researched ten-contact pilot, measure qualified replies and opt-outs, and expand only if relevance and trust guardrails hold.",
         confidence="low",
@@ -141,7 +135,6 @@ def _deliver_approved_email(context: dict[str, Any]) -> dict[str, Any]:
     approved_drafts = sum(1 for item in contacts if isinstance(item, dict) and (item.get("draft_review") or {}).get("approved"))
     delivery = deliver_approved_development_email(context, queue)
     delivered = delivery.get("status") in {"sent", "already_sent"}
-    peers = peer_signals(context)
     packet = build_packet(
         context,
         stage="deliver_approved_email",
@@ -167,8 +160,6 @@ def _deliver_approved_email(context: dict[str, Any]) -> dict[str, Any]:
             "delivery_mode": delivery.get("mode"),
             "delivered_recipient_count": int(delivery.get("recipient_count") or 0),
             "queued_contact_addresses_used": False,
-            "peer_goal_packet_count": len(peers["signals"]),
-            "peer_goal_signals": peers["signals"],
         },
         recommendation=(
             "Review the development message rendering and delivery receipt before authorizing any separately implemented production pilot."
@@ -213,13 +204,13 @@ def _deliver_approved_email(context: dict[str, Any]) -> dict[str, Any]:
             "delivery_mode": delivery.get("mode"),
             "delivered_recipient_count": int(delivery.get("recipient_count") or 0),
             "delivery_receipt_artifact": delivery.get("receipt_artifact") or "not_created",
-            "privacy_note": "Names, email addresses, source notes, and individual drafts are excluded from MCP publication.",
+            "privacy_note": "Names, email addresses, source notes, and individual drafts remain only in confidential run artifacts and are excluded from response context.",
         },
         next_steps=[
             "Manually research the first ten education-sector contacts for relevance and lawful outreach basis.",
             "Review and revise every draft before sending.",
             "Record replies, opt-outs, qualified conversations, and downstream activation evidence.",
-            "Share only aggregate channel, objection, and conversion findings with peer co-workers through MCP.",
+            "Record aggregate channel, objection, and conversion findings as human-reviewed cross-functional handoffs.",
         ],
         data_status=str(queue.get("classification") or "unknown"),
         role_contribution="Create a repeatable path to qualified demand and distribution while protecting brand trust, contact privacy, and cash.",
@@ -246,7 +237,6 @@ def _deliver_approved_email(context: dict[str, Any]) -> dict[str, Any]:
             {"days": "31-60", "outcome": "Repeat only the strongest segment-message pair and validate handoff from conversation to first product value."},
             {"days": "61-90", "outcome": "Recommend scale, revise, or stop using retained conversion, CAC, payback, trust, and safety evidence from peer roles."},
         ],
-        peer_context=peers,
         recommended_action_status=(
             "development_test_delivered" if delivered else "awaiting_human_approval"
         ),

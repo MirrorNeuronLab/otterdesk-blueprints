@@ -420,16 +420,8 @@
     "name": "Drug Discovery Research Assistant",
     "version": 1
   },
-  "mcp_collaboration": {
-    "enabled": true,
-    "goal_id": "drug_discovery_research_assistant",
-    "path": "/mcp",
-    "service_name": "mn-job-collaboration",
-    "service_tags": [
-      "mcp",
-      "job-collaboration"
-    ],
-    "transport": "streamable-http"
+  "response_service": {
+    "enabled": true
   },
   "intent": {
     "customizable_for": "Drug discovery, material search, assay planning, scientific literature review, and research pipeline support.",
@@ -1385,6 +1377,18 @@
       "type": "pip",
       "source": "gar",
       "name": "mirrorneuron-use-generic-model-skill",
+      "version": "1.2.31"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mirrorneuron-job-response-skill",
+      "version": "1.2.31"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mirrorneuron-rag-skill",
       "version": "1.2.31"
     }
   ],

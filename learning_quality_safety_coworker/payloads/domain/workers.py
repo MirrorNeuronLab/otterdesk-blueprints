@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import Counter
 from typing import Any
 
-from .collaboration import build_packet, peer_signals, persist_packet, write_final_artifact
+from .collaboration import build_packet, persist_packet, write_final_artifact
 from .common import BLOCKED_ACTIONS
 from .inputs import json_object, normalized_inputs, resolve_input_file, source_descriptor
 
@@ -31,7 +31,6 @@ def _review_backlog(context: dict[str, Any]) -> dict[str, Any]:
     items, source, synthetic = _dataset(context)
     reviewed = [_review_item(item) for item in items]
     decisions = Counter(item["decision"] for item in reviewed)
-    peers = peer_signals(context)
     packet = build_packet(
         context,
         stage="review_learning_backlog",
@@ -47,8 +46,6 @@ def _review_backlog(context: dict[str, Any]) -> dict[str, Any]:
         analysis={
             "reviewed_backlog": reviewed,
             "decision_counts": dict(decisions),
-            "peer_goal_packet_count": len(peers["signals"]),
-            "peer_goal_signals": peers["signals"],
             "blocked_actions": BLOCKED_ACTIONS,
         },
         recommendation="Allow only complete observable learning briefs to proceed; quarantine blocked or therapeutic proposals and require full-package review before publication.",
@@ -67,7 +64,6 @@ def _publish_learning_packet(context: dict[str, Any]) -> dict[str, Any]:
     items, source, synthetic = _dataset(context)
     reviewed = [_review_item(item) for item in items]
     decisions = Counter(item["decision"] for item in reviewed)
-    peers = peer_signals(context)
     packet = build_packet(
         context,
         stage="publish_learning_safety_packet",
@@ -80,8 +76,6 @@ def _publish_learning_packet(context: dict[str, Any]) -> dict[str, Any]:
             "reviewed_backlog": reviewed,
             "decision_counts": dict(decisions),
             "publication_authorized": False,
-            "peer_goal_packet_count": len(peers["signals"]),
-            "peer_goal_signals": peers["signals"],
         },
         recommendation="Use PASS or PASS WITH CONDITIONS items only as inputs to draft production; do not publish until complete content and human review are available.",
         confidence="low" if synthetic else "medium",
@@ -130,7 +124,6 @@ def _publish_learning_packet(context: dict[str, Any]) -> dict[str, Any]:
             {"days": "31-60", "outcome": "Review complete Content Studio packages and measure first-pass quality, revision causes, and review capacity."},
             {"days": "61-90", "outcome": "Connect customer feedback and incident evidence to updated standards without making unsupported causal claims."},
         ],
-        peer_context=peers,
     )
     return {**persisted, **final}
 

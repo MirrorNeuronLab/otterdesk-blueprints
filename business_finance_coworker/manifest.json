@@ -46,7 +46,7 @@
     "embed": true,
     "manifest_defaults": [
       "llm",
-      "mcp_collaboration",
+      "knowledge_rag",
       {
         "from": "requirements",
         "to": "resources"
@@ -135,13 +135,6 @@
         "description": "Local folder for review-ready artifacts.",
         "example": "~/Downloads/bibblio"
       },
-      "peer_mcp_servers": {
-        "type": "domain_value",
-        "required": false,
-        "privacy": "confidential",
-        "description": "Optional pre-approved MCP servers for peer co-worker jobs serving the same goal.",
-        "example": []
-      },
       "metrics_file": {
         "type": "local_path",
         "path_kind": "file",
@@ -157,24 +150,24 @@
         "type": "final_artifact",
         "path": "final_artifact.json",
         "schema_version": "mn.blueprint.final_artifact_contract.v1",
-      "required_fields": [
-        "type",
-        "business_name",
-        "business_goal",
-        "worker_role",
-        "role_contribution",
-        "north_star_question",
-        "role_scorecard",
-        "founder_decisions",
-        "executive_summary",
+        "required_fields": [
+          "type",
+          "business_name",
+          "business_goal",
+          "worker_role",
+          "role_contribution",
+          "north_star_question",
+          "role_scorecard",
+          "founder_decisions",
+          "executive_summary",
           "recommended_action",
           "confidence",
           "evidence",
-        "next_steps",
-        "ninety_day_plan",
-        "cross_functional_handoffs",
-        "collaboration",
-        "source_refs"
+          "next_steps",
+          "ninety_day_plan",
+          "cross_functional_handoffs",
+          "source_refs",
+          "job_context"
         ]
       },
       "artifacts": [
@@ -201,17 +194,6 @@
             "inputs.json",
             "workflow_state/work_packets"
           ]
-        },
-        {
-          "artifact_id": "mcp_exchange",
-          "type": "mcp_job_exchange",
-          "path": "collaboration/mcp_exchange.sqlite3",
-          "producer": "mirrorneuron-goal-work-packet-skill",
-          "mime_type": "application/vnd.sqlite3",
-          "schema_version": "mn.mcp.job_exchange.v1",
-          "source_refs": [
-            "workflow_state/work_packets"
-          ]
         }
       ]
     },
@@ -231,82 +213,6 @@
     }
   },
   "agents": {
-    "auxiliary_entrypoints": [
-      "mcp_collaboration_server"
-    ],
-    "extra_nodes": [
-      {
-        "node_id": "mcp_collaboration_server",
-        "type": "stream",
-        "agent_type": "executor",
-        "alias": "mcp_collaboration_server",
-        "display_name": "MCP Collaboration Server",
-        "config": {
-          "command": [
-            "mn-job-mcp-server"
-          ],
-          "environment": {
-            "MN_BLUEPRINT_ID": "business_finance_coworker",
-            "MN_MCP_GOAL_ID": "bibblio-business-success",
-            "MN_MCP_PATH": "/mcp"
-          },
-          "no_auto_providers": true,
-          "no_keep": true,
-          "output_message_type": null,
-          "pass_env": [
-            "MN_MCP_CONTAINER_LOOPBACK_PROXY"
-          ],
-          "python_environment": {
-            "packages": [
-              "mirrorneuron-mcp-server-skill==1.2.31"
-            ]
-          },
-          "runner_module": "MirrorNeuron.Runner.HostLocal",
-          "tty": false,
-          "upload_as": ".",
-          "upload_path": ".",
-          "workdir": "/sandbox/job"
-        },
-        "resources": {
-          "ports": [
-            {
-              "label": "mcp-collaboration",
-              "port": "auto",
-              "protocol": "http"
-            }
-          ]
-        },
-        "services": [
-          {
-            "address": "127.0.0.1",
-            "name": "mn-job-collaboration",
-            "port": "${env.MN_PORT_MCP_COLLABORATION}",
-            "tags": [
-              "mcp",
-              "job-collaboration"
-            ],
-            "meta": {
-              "blueprint_id": "business_finance_coworker",
-              "goal_id": "bibblio-business-success",
-              "job_id": "${env.MN_JOB_ID}",
-              "run_id": "${env.MN_RUN_ID}",
-              "path": "/mcp",
-              "transport": "streamable-http"
-            },
-            "checks": [
-              {
-                "name": "tcp-ready",
-                "type": "tcp",
-                "port": "${service.port}",
-                "interval_ms": 100,
-                "timeout_ms": 1000,
-                "failures_before_critical": 3
-              }
-            ]
-          }
-        ]
-      }
-    ],
     "registry": {
       "business_finance_controller": {
         "handler": "agents.business_finance_controller",
@@ -350,23 +256,19 @@
       }
     }
   },
-  "mcp_collaboration": {
+  "response_service": {
+    "enabled": true
+  },
+  "knowledge_rag": {
+    "chunk_overlap": 80,
+    "chunk_size": 800,
     "enabled": true,
-    "goal_id": "bibblio-business-success",
-    "path": "/mcp",
-    "publication_state": "staged",
-    "publish_local_exchange": true,
-    "peer_reads_enabled": false,
-    "include_staged_peer_records": true,
-    "max_peer_servers": 8,
-    "max_records_per_peer": 50,
-    "service_name": "mn-job-collaboration",
-    "service_tags": [
-      "mcp",
-      "job-collaboration"
-    ],
-    "transport": "streamable-http",
-    "note": "Internal workflow messages remain on Core. MCP exposes bounded goal work packets from separately launched co-worker jobs only when explicit peer configurations are approved."
+    "index_on_startup": true,
+    "knowledge_dir": "@/payloads/knowledge",
+    "max_context_chars": 6000,
+    "namespace": "",
+    "required": true,
+    "top_k": 5
   },
   "requirements": {
     "cpu": {
@@ -394,6 +296,17 @@
     "business_goal": "Build a successful business for Bibblio.",
     "job_data": {
       "resources": [
+        {
+          "name": "knowledge",
+          "path": "knowledge",
+          "access": "read_write",
+          "seed": "@/payloads/knowledge"
+        },
+        {
+          "name": "rag",
+          "path": "databases/rag",
+          "access": "read_write"
+        },
         {
           "name": "state",
           "path": "state",
@@ -489,19 +402,19 @@
     {
       "type": "pip",
       "source": "gar",
-      "name": "mirrorneuron-mcp-client-skill",
-      "version": "1.2.31"
-    },
-    {
-      "type": "pip",
-      "source": "gar",
-      "name": "mirrorneuron-mcp-server-skill",
-      "version": "1.2.31"
-    },
-    {
-      "type": "pip",
-      "source": "gar",
       "name": "mirrorneuron-goal-work-packet-skill",
+      "version": "1.2.31"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mirrorneuron-rag-skill",
+      "version": "1.2.31"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mirrorneuron-job-response-skill",
       "version": "1.2.31"
     }
   ],

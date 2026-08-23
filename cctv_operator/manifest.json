@@ -698,16 +698,8 @@
     "name": "CCTV Operator",
     "version": 1
   },
-  "mcp_collaboration": {
-    "enabled": true,
-    "goal_id": "cctv_operator",
-    "path": "/mcp",
-    "service_name": "mn-job-collaboration",
-    "service_tags": [
-      "mcp",
-      "job-collaboration"
-    ],
-    "transport": "streamable-http"
+  "response_service": {
+    "enabled": true
   },
   "intent": {
     "description": "An NVIDIA-only CCTV co-worker for one approved RTSP/RTMP stream, with operator steering, sparse adaptive sampling, and source-grounded reports.",
@@ -2140,6 +2132,18 @@
     },
     {
       "name": "mirrorneuron-web-ui-skill",
+      "source": "gar",
+      "type": "pip",
+      "version": "1.2.31"
+    },
+    {
+      "name": "mirrorneuron-job-response-skill",
+      "source": "gar",
+      "type": "pip",
+      "version": "1.2.31"
+    },
+    {
+      "name": "mirrorneuron-rag-skill",
       "source": "gar",
       "type": "pip",
       "version": "1.2.31"

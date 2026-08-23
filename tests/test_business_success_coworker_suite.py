@@ -129,59 +129,20 @@ def test_five_independent_blueprints_share_one_goal_contract():
                 encoding="utf-8"
             )
         )
-        if blueprint_id == "gtm_assistant":
-            dependency_names = {
-                dependency["name"] for dependency in manifest["skill_dependencies"]
-            }
-            assert manifest["response_service"] == {"enabled": True}
-            assert "mcp_collaboration" not in manifest
-            assert "mirrorneuron-job-response-skill" in dependency_names
-            assert "mirrorneuron-rag-skill" in dependency_names
-            assert "mirrorneuron-mcp-server-skill" not in dependency_names
-            assert "mirrorneuron-mcp-client-skill" not in dependency_names
-            assert "auxiliary_entrypoints" not in manifest["agents"]
-            assert "extra_nodes" not in manifest["agents"]
-            assert config["knowledge_rag"]["backend"] == "milvus_lite"
-            assert "mcp_collaboration" not in config
-            assert "peer_mcp_servers" not in config["inputs"]["payload"]
-        else:
-            assert "mirrorneuron-mcp-server-skill" in {
-                dependency["name"] for dependency in manifest["skill_dependencies"]
-            }
-            assert "mirrorneuron-mcp-client-skill" in {
-                dependency["name"] for dependency in manifest["skill_dependencies"]
-            }
-            assert manifest["mcp_collaboration"]["enabled"] is True
-            assert config["mcp_collaboration"]["chat_grace_seconds"] == 8
-            assert manifest["agents"]["auxiliary_entrypoints"] == [
-                "mcp_collaboration_server"
-            ]
-            service_node = next(
-                node
-                for node in manifest["agents"]["extra_nodes"]
-                if node["node_id"] == "mcp_collaboration_server"
-            )
-            assert service_node["config"]["command"] == ["mn-job-mcp-server"]
-            assert service_node["config"]["environment"]["MN_BLUEPRINT_ID"] == blueprint_id
-            assert service_node["config"]["pass_env"] == [
-                "MN_MCP_CONTAINER_LOOPBACK_PROXY"
-            ]
-            assert service_node["resources"]["ports"] == [
-                {
-                    "label": "mcp-collaboration",
-                    "port": "auto",
-                    "protocol": "http",
-                }
-            ]
-            assert service_node["services"][0]["name"] == "mn-job-collaboration"
-            assert service_node["services"][0]["port"] == "${env.MN_PORT_MCP_COLLABORATION}"
-            assert set(service_node["services"][0]["tags"]) == {
-                "mcp",
-                "job-collaboration",
-            }
-            assert service_node["services"][0]["meta"]["job_id"] == "${env.MN_JOB_ID}"
-            assert service_node["services"][0]["meta"]["run_id"] == "${env.MN_RUN_ID}"
-            assert service_node["services"][0]["checks"][0]["interval_ms"] == 100
+        dependency_names = {
+            dependency["name"] for dependency in manifest["skill_dependencies"]
+        }
+        assert manifest["response_service"] == {"enabled": True}
+        assert "mcp_collaboration" not in manifest
+        assert "mirrorneuron-job-response-skill" in dependency_names
+        assert "mirrorneuron-rag-skill" in dependency_names
+        assert "mirrorneuron-mcp-server-skill" not in dependency_names
+        assert "mirrorneuron-mcp-client-skill" not in dependency_names
+        assert "auxiliary_entrypoints" not in manifest["agents"]
+        assert "extra_nodes" not in manifest["agents"]
+        assert config["knowledge_rag"]["backend"] == "milvus_lite"
+        assert "mcp_collaboration" not in config
+        assert "peer_mcp_servers" not in config["inputs"]["payload"]
         assert config["inputs"]["payload"]["business_name"] == "Bibblio"
         assert config["inputs"]["payload"]["planning_horizon_days"] == 90
         required_fields = set(manifest["contracts"]["outputs"]["primary"]["required_fields"])
@@ -192,7 +153,7 @@ def test_five_independent_blueprints_share_one_goal_contract():
             "founder_decisions",
             "ninety_day_plan",
             "cross_functional_handoffs",
-            "job_context" if blueprint_id == "gtm_assistant" else "collaboration",
+            "job_context",
         } <= required_fields
         assert (ROOT / blueprint_id / "payloads" / "prompts").is_dir()
 
@@ -209,32 +170,9 @@ def test_catalog_replaces_the_monolith_with_five_collaboration_group_members():
         assert product["default_demo_business"] == "Bibblio"
         assert product["business_goal"] == "Build a successful business for Bibblio."
         assert product["collaboration_group"] == "business-success-team"
-        if blueprint_id == "gtm_assistant":
-            assert entries[blueprint_id]["response_service"] == {"enabled": True}
-            assert "mcp_collaboration" not in entries[blueprint_id]
-            assert len(entries[blueprint_id]["starter_questions"]) >= 3
-            continue
-        expected_mcp_collaboration = {
-            "enabled": True,
-            "goal_id": "bibblio-business-success",
-            "path": "/mcp",
-            "service_name": "mn-job-collaboration",
-            "service_tags": ["mcp", "job-collaboration"],
-            "transport": "streamable-http",
-        }
-        actual_mcp_collaboration = entries[blueprint_id]["mcp_collaboration"]
-        assert {
-            key: actual_mcp_collaboration[key]
-            for key in expected_mcp_collaboration
-        } == expected_mcp_collaboration
-        assert len(actual_mcp_collaboration["starter_questions"]) >= 3
-        if blueprint_id == "gtm_assistant":
-            assert actual_mcp_collaboration["starter_questions"] == [
-                "How many development emails were sent in this run?",
-                "How many matching development replies have been observed?",
-                "What should we do next?",
-                "What approval do you need before a development email can be sent?",
-            ]
+        assert entries[blueprint_id]["response_service"] == {"enabled": True}
+        assert "mcp_collaboration" not in entries[blueprint_id]
+        assert len(entries[blueprint_id]["starter_questions"]) >= 3
 
 
 def test_knowledge_and_sample_inputs_remain_the_unchanged_bibblio_demo():
@@ -243,7 +181,7 @@ def test_knowledge_and_sample_inputs_remain_the_unchanged_bibblio_demo():
         assert actual_digest == expected_digest, relative_path
 
 
-def test_gtm_fixture_is_synthetic_and_mcp_packet_excludes_contact_fields():
+def test_growth_fixture_is_synthetic_and_response_context_excludes_contact_fields():
     sample_path = ROOT / "growth_partnerships_coworker" / "examples" / "sample_inputs" / "edtech_contacts_sample.csv"
     with sample_path.open(newline="", encoding="utf-8") as handle:
         rows = list(csv.DictReader(handle))
@@ -252,7 +190,7 @@ def test_gtm_fixture_is_synthetic_and_mcp_packet_excludes_contact_fields():
 
     source = (ROOT / "growth_partnerships_coworker" / "payloads" / "domain" / "workers.py").read_text(encoding="utf-8")
     assert '"send_authorized": False' in source
-    assert '"private_fields_excluded_from_mcp": ["name", "email", "note", "individual draft body"]' in source
+    assert '"confidential_fields_excluded_from_response_context": ["name", "email", "note", "individual draft body"]' in source
 
 
 def test_gtm_smtp_defaults_are_disabled_and_contain_no_live_identity_or_secret():
@@ -322,7 +260,7 @@ def test_role_specific_safety_fixtures_are_present():
     assert feedback and all(row["data_status"] == "synthetic_demo" for row in feedback)
 
 
-def test_founder_brief_preserves_partial_peer_evidence_and_only_keeps_unmet_handoffs(tmp_path):
+def test_founder_brief_keeps_cross_functional_handoffs_as_unresolved_evidence(tmp_path):
     payloads = ROOT / "business_finance_coworker" / "payloads"
     for module_name in [name for name in sys.modules if name == "domain" or name.startswith("domain.")]:
         sys.modules.pop(module_name)
@@ -335,15 +273,6 @@ def test_founder_brief_preserves_partial_peer_evidence_and_only_keeps_unmet_hand
             {"to": "content_studio_director", "provides": "unit-cost limit", "needs_from": "production evidence"},
             {"to": "learning_quality_safety_director", "provides": "capacity context", "needs_from": "review evidence"},
         ]
-        peer_signal = {
-            "work_packet_id": "wp-growth",
-            "worker": "growth_partnerships_lead",
-            "worker_role": "Growth and Partnerships Lead",
-            "stage": "publish_gtm_outreach_queue",
-            "decision_or_recommendation": "Run the bounded pilot.",
-            "confidence": "low",
-            "publication_state": "final",
-        }
         collaboration.write_final_artifact(
             {
                 "run_dir": str(tmp_path),
@@ -383,13 +312,13 @@ def test_founder_brief_preserves_partial_peer_evidence_and_only_keeps_unmet_hand
                 {"days": "31-60", "outcome": "Measure."},
                 {"days": "61-90", "outcome": "Decide."},
             ],
-            peer_context={"status": "ok", "signals": [peer_signal], "warnings": []},
         )
         artifact = json.loads((tmp_path / "final_artifact.json").read_text(encoding="utf-8"))
-        synthesis = artifact["collaboration"]["team_synthesis"]
-        assert artifact["collaboration"]["peer_goal_signals"] == [peer_signal]
-        assert synthesis["peer_workers_considered"] == ["growth_partnerships_lead"]
-        assert synthesis["unresolved_without_peer_evidence"] == [
+        synthesis = artifact["job_context"]["team_synthesis"]
+        assert artifact["job_context"]["goal_work_packet"] == "wp-finance"
+        assert synthesis["handoffs_defined"] == 4
+        assert synthesis["unresolved_evidence_requests"] == [
+            "channel evidence",
             "retention evidence",
             "production evidence",
             "review evidence",

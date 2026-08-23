@@ -51,8 +51,8 @@ reset or confirmed job deletion clears them.
 - Fake/offline runs are deterministic and write the full output bundle.
 - Consequential actions remain blocked pending human review.
 
-## Persistent supervisory MCP
+## Persistent Job response service
 
-The API-owned stable job MCP exposes bounded role, schedule, safe
+The top-level Job response service exposes bounded role, schedule, safe
 configuration, lifecycle, and latest-run context without an active workflow.
 It cannot launch tools, execute experiments, configure, or start the job.

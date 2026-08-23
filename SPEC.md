@@ -42,19 +42,18 @@ identity, topology, contracts, registry bindings, immutable handler parameters,
 requirements, and declared dependencies. `config/default.json` owns tunable
 defaults; committed overwrite files contain no user secrets.
 
-Every published source manifest and catalog entry declares
-`mcp_collaboration.enabled: true` with the standard Streamable HTTP descriptor.
-That opt-in authorizes `mn-api` to expose the stable, URL-bound, read-only
-supervisory endpoint at `/api/v1/jobs/{job_id}/mcp`. The endpoint remains
-available without an active run and cannot start, pause, configure, schedule,
-approve, or otherwise mutate the job. The source-manifest envelope version is
-always `identity.version: 1`; product revisions are recorded separately in
-`identity.manifest_version`.
+Every published source manifest and catalog entry declares the exact top-level
+`response_service: { "enabled": true }` contract. Core owns this bounded,
+definition-scoped service outside the workflow DAG. It remains available
+without an active run, exposes only sanitized role, safe configuration,
+lifecycle, schedule, and latest-run context, and cannot start, pause,
+configure, schedule, approve, or otherwise mutate the job. The source-manifest
+envelope version is always `identity.version: 1`; product revisions are
+recorded separately in `identity.manifest_version`.
 
-An executing blueprint may additionally declare the MCP server/client and
-goal-work-packet skills plus an `mn-job-collaboration` runtime node. That
-run-scoped peer collaboration service ends with its run and is not the desktop
-conversation transport.
+The response service is not a workflow node, port, command, or run-scoped
+worker. Blueprint response context must exclude credentials, private source
+documents, unrestricted artifacts, and other confidential run data.
 
 ## Blueprint Ownership
 

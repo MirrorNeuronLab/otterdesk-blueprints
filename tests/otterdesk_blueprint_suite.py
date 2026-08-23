@@ -1190,121 +1190,6 @@ def test_index_entries_point_to_loadable_blueprint_folders():
         assert manifest["job_name"] == entry["job_name"]
 
 
-def test_generic_customer_service_voice_blueprint_contract():
-    blueprint_dir = ROOT / "generic_customer_service_voice_coworker"
-    manifest = _runtime_manifest(blueprint_dir / "manifest.json")
-    config = json.loads((blueprint_dir / "config" / "default.json").read_text())
-    script = (blueprint_dir / "scripts" / "pre-launch.sh").read_text()
-    cleanup = (blueprint_dir / "scripts" / "post-launch.sh").read_text()
-
-    assert manifest["type"] == "service"
-    assert "voice_service" in _agent_entrypoints(manifest)
-    assert manifest["runtime"]["resources"]["gpu"]["min_count"] == 1
-    assert manifest["runtime"]["worker_defaults"]["pool"] == "nvidia-accelerated"
-    assert manifest["runtime"]["models"]["primary"]["model"] == "medium"
-    assert manifest["runtime"]["models"]["asr"]["model"] == "otterdesk-voice-asr:default"
-    assert manifest["runtime"]["models"]["tts"]["model"] == "otterdesk-voice-tts:default"
-    voice_node = next(node for node in _flow_nodes(manifest) if node["node_id"] == "voice_service")
-    voice_config = _node_config(voice_node)
-    assert voice_config["execution_profile"] == "nvidia-accelerated-voice"
-    assert voice_config["pool"] == "nvidia-accelerated"
-    assert voice_config["pool_slots"] == 1
-    assert voice_config["agent_beacon_required"] is False
-    assert voice_config["command"] == ["bash", "scripts/run_voice_service.sh"]
-    assert voice_config["upload_path"] == "voice_service"
-    assert voice_node["resources"]["gpu_count"] == 1
-    assert {port["label"]: port["port"] for port in voice_node["resources"]["ports"]} == {
-        "voice_https": 7863,
-        "nvidia_asr": 8080,
-        "docker_model_runner": 12434,
-        "magpie_tts": 8001,
-    }
-    assert voice_node["constraints"][0]["attribute"] == "capabilities"
-    assert voice_node["constraints"][0]["operator"] == "contains_any"
-    assert "nvidia-dgx-spark" in voice_node["constraints"][0]["value"]
-    assert "nvidia-gb10" in voice_node["constraints"][0]["value"]
-    assert voice_config["public_url"] == "https://localhost:7863/customer-service"
-
-    payload = config["inputs"]["payload"]
-    assert payload["business_name"] == "Otter Slice Pizza"
-    assert "spark_host" not in payload
-    assert payload["voice"] == "aria"
-    assert payload["voice_https_port"] == 7863
-    assert payload["voice_local_proxy_port"] == 7863
-    assert config["web_ui"]["dashboard"]["voice_url"] == "https://localhost:7863/customer-service"
-    assert config["streams"]["customer_service_voice_stream"]["transport"] == "webrtc"
-    assert manifest["input_validation"]["rules"] == []
-    assert "validate_rtsp_source.py" not in json.dumps(manifest)
-
-    assert "NVIDIA-accelerated runtime launch" in script
-    assert "CUSTOMER_SERVICE_SPARK" not in script
-    assert "CUSTOMER_SERVICE_KNOWLEDGE_PATH" in script
-    assert "MN_PRE_LAUNCH_READY_FILE" in script
-    assert "customer_service_knowledge.txt" in script
-    assert "MN_POST_LAUNCH_REASON" in cleanup
-    assert "customer_service_voice_cleanup_deferred" in cleanup
-    assert "voice_proxy.pid" not in cleanup
-    assert "voice_service.pid" in cleanup
-    assert "serve_customer_service_https.py" in cleanup
-    assert "scripts/model_service.sh stop" not in cleanup
-
-
-def test_generic_customer_service_rag_chunking_and_retrieval():
-    payload_dir = ROOT / "generic_customer_service_voice_coworker" / "payloads" / "agents" / "voice_service"
-    sys.path.insert(0, str(payload_dir))
-    try:
-        from rag import build_rag_context, chunk_text, retrieve
-    finally:
-        try:
-            sys.path.remove(str(payload_dir))
-        except ValueError:
-            pass
-
-    text = """
-    Hours:
-    The support desk is open Monday through Friday from 9 AM to 5 PM.
-
-    Appointments:
-    Customers can reschedule an appointment with at least 24 hours notice.
-
-    Billing:
-    Billing disputes must be escalated to a human support lead.
-    """
-    chunks = chunk_text(text, max_tokens=18, overlap=4)
-    assert len(chunks) >= 3
-    results = retrieve("Can I reschedule my appointment tomorrow?", chunks, top_k=2)
-    assert results
-    assert "reschedule" in results[0].text.lower()
-
-    context, selected = build_rag_context("billing dispute refund", text, top_k=2)
-    assert selected
-    assert "Billing disputes" in context
-
-
-def test_generic_customer_service_knowledge_persistence(tmp_path, monkeypatch):
-    payload_dir = ROOT / "generic_customer_service_voice_coworker" / "payloads" / "agents" / "voice_service"
-    sys.path.insert(0, str(payload_dir))
-    try:
-        from knowledge_store import ensure_knowledge_file, knowledge_metadata, read_knowledge, write_knowledge
-    finally:
-        try:
-            sys.path.remove(str(payload_dir))
-        except ValueError:
-            pass
-
-    knowledge_path = tmp_path / "knowledge" / "customer_service_knowledge.txt"
-    monkeypatch.setenv("CUSTOMER_SERVICE_KNOWLEDGE_PATH", str(knowledge_path))
-    ensure_knowledge_file(seed_text="Hours are 10 to 4.")
-    assert read_knowledge() == "Hours are 10 to 4.\n"
-
-    metadata = write_knowledge("Emergency calls go to the dispatcher.")
-    assert metadata.bytes > 0
-    assert metadata.sha256
-    assert "dispatcher" in read_knowledge()
-    assert knowledge_metadata().sha256 == metadata.sha256
-    assert (knowledge_path.parent / "customer_service_knowledge.meta.json").exists()
-
-
 def test_purchase_research_final_artifact_uses_product_output_fields(tmp_path):
     from blueprint_modernization_support import run_payload_script
 
@@ -1693,6 +1578,8 @@ def test_cctv_operator_owns_json_render_web_ui_and_uses_generic_skills():
         "mirrorneuron-websocket-stream-skill": "1.2.31",
         "mirrorneuron-live-video-analysis-skill": "1.2.31",
         "mirrorneuron-web-ui-skill": "1.2.31",
+        "mirrorneuron-job-response-skill": "1.2.31",
+        "mirrorneuron-rag-skill": "1.2.31",
     }
     assert not (blueprint_dir / "docker-compose.yml").exists()
     assert not (blueprint_dir / "compose.yaml").exists()

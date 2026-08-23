@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .collaboration import build_packet, peer_signals, persist_packet, write_final_artifact
+from .collaboration import build_packet, persist_packet, write_final_artifact
 from .inputs import json_object, normalized_inputs, resolve_input_file, source_descriptor
 from .metrics import calculate_unit_economics
 
@@ -27,7 +27,6 @@ def _calculate_economics(context: dict[str, Any]) -> dict[str, Any]:
     metrics, source, synthetic = _dataset(context)
     economics = calculate_unit_economics(metrics)
     values = economics["metrics"]
-    peers = peer_signals(context)
     packet = build_packet(
         context,
         stage="calculate_unit_economics",
@@ -46,8 +45,6 @@ def _calculate_economics(context: dict[str, Any]) -> dict[str, Any]:
         ],
         analysis={
             "unit_economics": economics,
-            "peer_goal_packet_count": len(peers["signals"]),
-            "peer_goal_signals": peers["signals"],
             "decision_rule": "Do not scale acquisition until retained paid-customer contribution is positive under the approved cash guardrail.",
         },
         recommendation="Protect cash and improve retained activation before scaling paid acquisition; replace every missing or synthetic input before a live budget decision.",
@@ -67,7 +64,6 @@ def _publish_finance_packet(context: dict[str, Any]) -> dict[str, Any]:
     economics = calculate_unit_economics(metrics)
     values = economics["metrics"]
     contribution = values.get("monthly_contribution_after_fixed_costs_and_acquisition")
-    peers = peer_signals(context)
     packet = build_packet(
         context,
         stage="publish_financial_control_packet",
@@ -82,8 +78,6 @@ def _publish_finance_packet(context: dict[str, Any]) -> dict[str, Any]:
         analysis={
             "unit_economics": economics,
             "financial_status": "review_required",
-            "peer_goal_packet_count": len(peers["signals"]),
-            "peer_goal_signals": peers["signals"],
         },
         recommendation="Approve only cash-bounded tests, refresh the model with observed cohort data, and defer paid-channel scaling until contribution and payback are defensible.",
         confidence="low" if synthetic or economics["missing_inputs"] else "medium",
@@ -104,7 +98,7 @@ def _publish_finance_packet(context: dict[str, Any]) -> dict[str, Any]:
             "Replace synthetic inputs with reconciled billing, cost, cash, refund, and cohort exports.",
             "Confirm which direct content and support costs are included in gross margin.",
             "Set a founder-approved experiment cash limit.",
-            "Share only finance thresholds and aggregate results with peer co-workers through MCP.",
+            "Record finance thresholds and aggregate results as explicit human-reviewed cross-functional handoffs.",
         ],
         data_status="synthetic_demo" if synthetic else economics["status"],
         role_contribution="Translate growth, retention, pricing, production, and operating choices into cash, contribution, payback, and break-even guardrails.",
@@ -132,7 +126,6 @@ def _publish_finance_packet(context: dict[str, Any]) -> dict[str, Any]:
             {"days": "31-60", "outcome": "Join channel, activation, churn, support, content-cost, and review-cost evidence into cohort contribution."},
             {"days": "61-90", "outcome": "Issue a scale/revise/stop recommendation with runway, break-even, downside, and evidence-quality scenarios."},
         ],
-        peer_context=peers,
     )
     return {**persisted, **final}
 

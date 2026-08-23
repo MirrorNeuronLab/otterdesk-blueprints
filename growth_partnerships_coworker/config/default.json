@@ -10,7 +10,6 @@
       "input_folder": "@/examples/sample_inputs",
       "contacts_csv": "@/examples/sample_inputs/edtech_contacts_sample.csv",
       "output_folder": "~/Downloads/growth_partnerships_coworker",
-      "peer_mcp_servers": [],
       "email_send_approval": {
         "approved": false
       }
@@ -35,10 +34,8 @@
     "mode": "fake",
     "require_live": false
   },
-  "mcp_collaboration": {
-    "chat_grace_seconds": 8,
-    "publish_local_exchange": true,
-    "peer_reads_enabled": false
+  "knowledge_rag": {
+    "backend": "milvus_lite"
   },
   "privacy": {
     "default_classification": "confidential",

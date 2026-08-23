@@ -94,7 +94,7 @@ The assistant does not buy, book, pay, submit an offer or application, or contac
 ## Persistent conversation
 
 OtterDesk can ask this hired co-worker about its research role, schedule,
-latest comparison, or unresolved evidence through the stable read-only job MCP
+latest comparison, or unresolved evidence through the stable Job response service
 even when it has never run or is idle. Conversation never starts research or a
 transaction.
 

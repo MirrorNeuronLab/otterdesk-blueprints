@@ -64,6 +64,6 @@ runtime preparation. There is no workflow facade or generic operation router.
 ## Persistent conversation
 
 OtterDesk can ask this hired co-worker about its document-review role,
-schedule, latest issues, or evidence gaps through the stable read-only job MCP
+schedule, latest issues, or evidence gaps through the stable Job response service
 even before its first run or while idle. Conversation never starts review or
 takes legal or payable action.

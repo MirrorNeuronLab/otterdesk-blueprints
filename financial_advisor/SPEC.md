@@ -64,7 +64,7 @@ Knowledge, Milvus Lite RAG storage, and explicitly durable advisor state are
 isolated by stable `job_id` and survive multiple runs. Inputs and outputs are
 isolated by `run_id`; ordinary run cleanup never deletes job data.
 
-The API-owned stable job MCP exposes only bounded, non-secret profile,
+The top-level Job response service exposes only bounded, non-secret profile,
 schedule, lifecycle, and latest-run context. It remains readable without an
 active run and cannot file, trade, transfer, configure, or start the job.
 

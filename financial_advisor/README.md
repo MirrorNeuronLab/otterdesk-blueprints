@@ -82,5 +82,5 @@ the same focused functions.
 ## Persistent conversation
 
 OtterDesk can ask this hired co-worker about its role, schedule, evidence gaps,
-and latest review through the stable read-only job MCP even before its first
+and latest review through the stable Job response service even before its first
 run or while it is idle. Conversation never starts a financial review.

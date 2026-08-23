@@ -488,16 +488,8 @@
     "name": "Purchase Research Assistant",
     "version": 1
   },
-  "mcp_collaboration": {
-    "enabled": true,
-    "goal_id": "purchase_research_assistant",
-    "path": "/mcp",
-    "service_name": "mn-job-collaboration",
-    "service_tags": [
-      "mcp",
-      "job-collaboration"
-    ],
-    "transport": "streamable-http"
+  "response_service": {
+    "enabled": true
   },
   "intent": {
     "description": "A general purchase research co-worker for studying property, rental property, cars, airline tickets, services, subscriptions, equipment, software, and other custom purchases. It uses a portable local DMR profile, local knowledge, user evidence, and bounded public research to explain total-cost tradeoffs and write a review-ready recommendation.",
@@ -633,6 +625,12 @@
     },
     {
       "name": "mirrorneuron-web-browser-skill",
+      "source": "gar",
+      "type": "pip",
+      "version": "1.2.31"
+    },
+    {
+      "name": "mirrorneuron-job-response-skill",
       "source": "gar",
       "type": "pip",
       "version": "1.2.31"

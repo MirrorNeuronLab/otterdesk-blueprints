@@ -5,7 +5,7 @@ from typing import Any
 
 from mn_sdk.blueprint_support.workflow_state import write_json
 
-from .collaboration import build_packet, peer_signals, persist_packet, write_final_artifact
+from .collaboration import build_packet, persist_packet, write_final_artifact
 from .inputs import json_object, normalized_inputs, resolve_input_file, source_descriptor
 
 
@@ -41,7 +41,6 @@ def _plan_content_batch(context: dict[str, Any]) -> dict[str, Any]:
         "rejected_brief_ids": [str(item.get("brief_id") or item.get("id") or "unknown") for item in rejected],
     }
     write_json(Path(context["run_dir"]) / DRAFT_PACKAGES_PATH, artifact)
-    peers = peer_signals(context)
     packet = build_packet(
         context,
         stage="plan_content_batch",
@@ -57,8 +56,6 @@ def _plan_content_batch(context: dict[str, Any]) -> dict[str, Any]:
             "draft_package_count": len(packages),
             "rejected_brief_count": len(rejected),
             "draft_packages_artifact": DRAFT_PACKAGES_PATH,
-            "peer_goal_packet_count": len(peers["signals"]),
-            "peer_goal_signals": peers["signals"],
             "production_pattern": "small reusable story-and-activity batch",
         },
         recommendation="Produce the smallest complete draft batch, reuse approved structures, and send every package back to Learning Science and Safety before release.",
@@ -76,7 +73,6 @@ def _publish_content_packet(context: dict[str, Any]) -> dict[str, Any]:
     business_name = str(inputs["business_name"])
     artifact = json_object(Path(context["run_dir"]) / DRAFT_PACKAGES_PATH)
     packages = artifact.get("packages") if isinstance(artifact.get("packages"), list) else []
-    peers = peer_signals(context)
     packet = build_packet(
         context,
         stage="publish_content_studio_packet",
@@ -89,8 +85,6 @@ def _publish_content_packet(context: dict[str, Any]) -> dict[str, Any]:
             "draft_package_count": len(packages),
             "draft_packages_artifact": DRAFT_PACKAGES_PATH,
             "publication_authorized": False,
-            "peer_goal_packet_count": len(peers["signals"]),
-            "peer_goal_signals": peers["signals"],
         },
         recommendation="Review and revise the complete packages; release none until Learning Science returns an approved decision and the founder authorizes publication.",
         confidence="low",
@@ -139,7 +133,6 @@ def _publish_content_packet(context: dict[str, Any]) -> dict[str, Any]:
             {"days": "31-60", "outcome": "Release only approved packages into one bounded customer-value test and supply relevant assets to Growth and Lifecycle."},
             {"days": "61-90", "outcome": "Recommend which formats to scale, revise, or retire using retention, review quality, production cost, and demand evidence."},
         ],
-        peer_context=peers,
     )
     return {**persisted, **final}
 

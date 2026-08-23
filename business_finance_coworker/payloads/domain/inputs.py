@@ -15,7 +15,6 @@ def normalized_inputs(context: dict[str, Any]) -> dict[str, Any]:
     payload.setdefault("business_goal", BUSINESS_GOAL)
     payload.setdefault("goal_id", DEFAULT_GOAL_ID)
     payload["planning_horizon_days"] = _planning_horizon(payload.get("planning_horizon_days"))
-    payload.setdefault("peer_mcp_servers", [])
     return payload
 
 

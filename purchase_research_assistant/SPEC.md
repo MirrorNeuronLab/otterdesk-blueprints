@@ -76,8 +76,8 @@ Recommendation labels are `buy`, `consider`, `wait`, `avoid`, and `insufficient_
 - No transactional action is emitted or executed.
 - The sample comparison rejects candidates that fail hard constraints and preserves known-cost, unknown-cost, and financing gaps separately.
 
-## Persistent supervisory MCP
+## Persistent Job response service
 
 The stable job exposes bounded role, safe configuration, schedule, lifecycle,
-and latest-run context through the API-owned read-only MCP. It requires no
+and latest-run context through the top-level Job response service. It requires no
 active workflow and cannot research, buy, book, configure, or start work.

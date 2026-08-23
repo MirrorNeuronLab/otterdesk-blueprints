@@ -64,7 +64,19 @@ def test_drug_discovery_manifest_uses_source_format_and_shared_blocks():
             "source": "gar",
             "name": "mirrorneuron-use-generic-model-skill",
             "version": "1.2.31",
-        }
+        },
+        {
+            "type": "pip",
+            "source": "gar",
+            "name": "mirrorneuron-job-response-skill",
+            "version": "1.2.31",
+        },
+        {
+            "type": "pip",
+            "source": "gar",
+            "name": "mirrorneuron-rag-skill",
+            "version": "1.2.31",
+        },
     ]
     assert {
         entry.get("from")
