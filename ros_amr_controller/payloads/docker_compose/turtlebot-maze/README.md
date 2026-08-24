@@ -358,14 +358,14 @@ uses these ROS 2 topics:
 | Panel | ROS 2 topic |
 |---|---|
 | Overhead | `/warehouse/overhead_camera/image_raw` |
-| Navigation map + LiDAR | `/map` + `/scan` + `/odom` |
+| Navigation map + LiDAR | `/global_costmap/costmap` + `/scan` + `/odom` |
 | TurtleBot RGB | `/camera/color/image_raw` |
 | TurtleBot depth | `/camera/depth/image_rect_raw` |
 
-The navigation panel renders the Nav2 occupancy map in the browser, overlays
-live `/scan` laser returns as red dots, and shows the robot's `/odom` pose as a
-blue direction marker. It uses the existing rosbridge connection—no additional
-dashboard port is required.
+The navigation panel renders Nav2's global occupancy costmap in the browser,
+overlays live `/scan` laser returns as red dots, and shows the robot's `/odom`
+pose as a blue direction marker. It uses the existing rosbridge connection—no
+additional dashboard port is required.
 
 The dashboard's left panel offers three low-speed, fixed-duration drive
 commands: **Forward**, **Turn left**, and **Turn right**. It connects to the

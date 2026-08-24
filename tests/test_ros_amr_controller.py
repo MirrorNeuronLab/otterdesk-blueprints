@@ -86,4 +86,5 @@ def test_ros_amr_dashboard_hides_controls_and_prioritizes_video_layout():
     assert 'id="control-panel" class="control-drawer"' in dashboard
     assert 'class="overhead-card"' in dashboard
     assert dashboard.count('class="camera-card"') == 2
+    assert 'const mapTopic = "/global_costmap/costmap"' in dashboard
     assert 'durability: "transient_local"' in dashboard

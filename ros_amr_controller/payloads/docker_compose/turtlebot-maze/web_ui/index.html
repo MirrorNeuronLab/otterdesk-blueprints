@@ -262,7 +262,7 @@
         </article>
         <article class="map-card">
           <h2>Navigation map + LiDAR</h2>
-          <code>/map + /scan + /odom</code>
+          <code>/global_costmap/costmap + /scan + /odom</code>
           <div id="map-frame" class="map-frame" aria-label="Warehouse occupancy map with live LiDAR scan points">
             <canvas id="map-canvas"></canvas>
             <canvas id="lidar-canvas"></canvas>
@@ -293,7 +293,7 @@
       const commandType = "geometry_msgs/msg/TwistStamped";
       const navigationCommandTopic = "/web_navigation_command";
       const navigationStatusTopic = "/warehouse/navigation_status";
-      const mapTopic = "/map";
+      const mapTopic = "/global_costmap/costmap";
       const scanTopic = "/scan";
       const odometryTopic = "/odom";
       const pulseMilliseconds = 500;
