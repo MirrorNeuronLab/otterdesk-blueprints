@@ -64,3 +64,26 @@ def test_ros_amr_compose_owns_mcp_and_opt_in_x11_mounts():
     assert '"8765:8765"' not in source
     assert "warehouse-video-ui:\n    image: nginx:alpine\n    network_mode: host" in source
     assert "COPY --chmod=0755 ./docker/entrypoint.sh /entrypoint.sh" in dockerfile
+
+
+def test_ros_amr_warehouse_map_uses_a_compact_staged_image():
+    map_yaml = SOURCE.joinpath("tb_worlds/maps/warehouse_world_map.yaml").read_text(encoding="utf-8")
+    map_png = SOURCE.joinpath("tb_worlds/maps/warehouse_world_map.png").read_bytes()
+    compose = SOURCE.joinpath("docker-compose.yaml").read_text(encoding="utf-8")
+
+    assert "image: warehouse_world_map.png" in map_yaml
+    assert "./tb_worlds/maps/warehouse_world_map.png:" in compose
+    assert map_png.startswith(b"\x89PNG\r\n\x1a\n")
+    assert int.from_bytes(map_png[16:20], "big") == 1536
+    assert int.from_bytes(map_png[20:24], "big") == 1504
+    assert len(map_png) < 256 * 1024
+
+
+def test_ros_amr_dashboard_hides_controls_and_prioritizes_video_layout():
+    dashboard = SOURCE.joinpath("web_ui/index.html").read_text(encoding="utf-8")
+
+    assert 'aria-controls="control-panel" aria-expanded="false"' in dashboard
+    assert 'id="control-panel" class="control-drawer"' in dashboard
+    assert 'class="overhead-card"' in dashboard
+    assert dashboard.count('class="camera-card"') == 2
+    assert 'durability: "transient_local"' in dashboard
