@@ -1,0 +1,89 @@
+# This file has been modified from
+# https://github.com/ros-navigation/nav2_minimal_turtlebot_simulation/blob/091b5ff12436890a54de6325df3573ae110e912b/nav2_minimal_tb3_sim/configs/turtlebot3_waffle_bridge.yaml
+# Modification:
+#   - Added camera bridge
+
+# replace clock_bridge
+- topic_name: "/clock"
+  ros_type_name: "rosgraph_msgs/msg/Clock"
+  gz_type_name: "gz.msgs.Clock"
+  direction: GZ_TO_ROS
+
+# no equivalent in TB3 - add
+- topic_name: "joint_states"
+  ros_type_name: "sensor_msgs/msg/JointState"
+  gz_type_name: "gz.msgs.Model"
+  direction: GZ_TO_ROS
+
+# replace odom_bridge - check gz topic name
+# gz topic published by DiffDrive plugin
+- topic_name: "odom"
+  ros_type_name: "nav_msgs/msg/Odometry"
+  gz_type_name: "gz.msgs.Odometry"
+  direction: GZ_TO_ROS
+
+# replace odom_tf_bridge - check gz and ros topic names
+# gz topic published by DiffDrive plugin
+# prefix ros2 topic with gz
+- topic_name: "tf"
+  ros_type_name: "tf2_msgs/msg/TFMessage"
+  gz_type_name: "gz.msgs.Pose_V"
+  direction: GZ_TO_ROS
+
+# replace imu_bridge - check gz topic name
+- topic_name: "imu"
+  ros_type_name: "sensor_msgs/msg/Imu"
+  gz_type_name: "gz.msgs.IMU"
+  direction: GZ_TO_ROS
+
+# replace lidar_bridge
+- topic_name: "scan"
+  ros_type_name: "sensor_msgs/msg/LaserScan"
+  gz_type_name: "gz.msgs.LaserScan"
+  direction: GZ_TO_ROS
+
+# replace cmd_vel_bridge
+- topic_name: "cmd_vel"
+  ros_type_name: "geometry_msgs/msg/TwistStamped"
+  gz_type_name: "gz.msgs.Twist"
+  direction: ROS_TO_GZ
+
+# RealSense D435i camera bridges
+# Gz sensor topic prefix: camera/realsense_d435i (set in gz_waffle.sdf.xacro)
+# ROS topic names match realsense2_camera driver conventions for real-robot compatibility.
+# Gazebo type="rgbd_camera" publishes: <topic>/image (RGB), <topic>/depth_image, <topic>/points
+- ros_topic_name: "/camera/color/image_raw"
+  gz_topic_name: "/camera/realsense_d435i/image"
+  ros_type_name: "sensor_msgs/msg/Image"
+  gz_type_name: "gz.msgs.Image"
+  direction: GZ_TO_ROS
+
+- ros_topic_name: "/camera/depth/image_rect_raw"
+  gz_topic_name: "/camera/realsense_d435i/depth_image"
+  ros_type_name: "sensor_msgs/msg/Image"
+  gz_type_name: "gz.msgs.Image"
+  direction: GZ_TO_ROS
+
+- ros_topic_name: "/camera/depth/color/points"
+  gz_topic_name: "/camera/realsense_d435i/points"
+  ros_type_name: "sensor_msgs/msg/PointCloud2"
+  gz_type_name: "gz.msgs.PointCloudPacked"
+  direction: GZ_TO_ROS
+
+# Legacy alias: vision behaviors (vision_behaviors.cpp, vision.py) subscribe to
+# /camera/image_raw.  This bridge entry means no code changes are needed in
+# tb_autonomy for the D435i swap — same alias pattern works in simulation and
+# on the real robot (where a launch-file remap covers the same purpose).
+- ros_topic_name: "/camera/image_raw"
+  gz_topic_name: "/camera/realsense_d435i/image"
+  ros_type_name: "sensor_msgs/msg/Image"
+  gz_type_name: "gz.msgs.Image"
+  direction: GZ_TO_ROS
+
+# Fixed overhead camera used by the warehouse operations dashboard. It is a
+# world sensor, but the same bridge instance exposes it as a ROS 2 image topic.
+- ros_topic_name: "/warehouse/overhead_camera/image_raw"
+  gz_topic_name: "/warehouse/overhead_camera/image_raw"
+  ros_type_name: "sensor_msgs/msg/Image"
+  gz_type_name: "gz.msgs.Image"
+  direction: GZ_TO_ROS
