@@ -24,7 +24,7 @@
   },
   "service": {
     "enabled": true,
-    "manual_close": "Pause or stop the co-worker in OtterDesk; Core terminates the attached ROS service process.",
+    "manual_close": "Pause or stop the co-worker in OtterDesk; Core tears down only this run's isolated Docker Compose project on the selected ROS host.",
     "run_until": "manual_stop"
   },
   "contract": {
@@ -73,7 +73,7 @@
     "runtime_features": [
       "service lifecycle",
       "federated CUDA placement",
-      "DockerWorker execution",
+      "isolated Docker Compose execution",
       "blueprint-owned Web UI",
       "allowlisted Streamable HTTP MCP robot controls",
       "Membrane context memory optimization"
@@ -248,7 +248,7 @@
           "memory_mb": 8192,
           "disk_mb": 10240,
           "gpu_count": 1,
-          "runtime_driver": "docker_worker",
+          "runtime_driver": "docker_compose",
           "devices": [
             {
               "kind": "gpu",
@@ -284,31 +284,42 @@
           ]
         },
         "config": {
-          "runner_module": "MirrorNeuron.Runner.DockerWorker",
-          "image": "turtlebot_behavior:overlay",
-          "command": [
-            "bash",
-            "start_service.sh"
-          ],
-          "environment": {
-            "EGL_PLATFORM": "surfaceless",
-            "GZ_SIM_RESOURCE_PATH": "/overlay_ws/install/tb_worlds/share/tb_worlds/worlds:/overlay_ws/install/tb_worlds/share/tb_worlds/models",
-            "PYTHONUNBUFFERED": "1",
-            "RMW_IMPLEMENTATION": "rmw_cyclonedds_cpp",
-            "TURTLEBOT_MODEL": "3",
-            "__EGL_VENDOR_LIBRARY_FILENAMES": "/usr/share/glvnd/egl_vendor.d/10_nvidia.json"
+          "runner_module": "MirrorNeuron.Runner.DockerCompose",
+          "compose": {
+            "context": "docker_compose/turtlebot-maze",
+            "file": "docker-compose.yaml",
+            "env_file": "mirrorneuron/warehouse.env",
+            "services": [
+              "demo-world-warehouse",
+              "warehouse-video-server",
+              "warehouse-video-ui",
+              "rosbridge",
+              "warehouse-control-relay",
+              "warehouse-navigation-gateway",
+              "warehouse-mcp"
+            ],
+            "health": [
+              {
+                "url": "http://127.0.0.1:8088/"
+              },
+              {
+                "url": "http://127.0.0.1:8090/health"
+              },
+              {
+                "tcp_port": 8080
+              },
+              {
+                "tcp_port": 9090
+              }
+            ],
+            "startup_timeout_seconds": 900
           },
-          "gpus": "all",
-          "network_mode": "host",
           "idempotent": false,
           "safe_to_retry": false,
           "timeout_seconds": 86400,
           "output_message_type": "service_stopped",
           "max_attempts": 1,
-          "max_output_bytes": 1048576,
-          "upload_as": "worker",
-          "upload_path": "worker",
-          "workdir": "/mn/job/worker"
+          "max_output_bytes": 1048576
         },
         "services": [
           {
@@ -318,11 +329,14 @@
             "origin": "internal",
             "tags": [
               "web_ui",
+              "ros_amr_controller",
               "robotics",
               "turtlebot",
               "warehouse"
             ],
             "meta": {
+              "blueprint_id": "ros_amr_controller",
+              "title": "Warehouse AMR Monitor",
               "url": "http://${config.web_ui.service.advertise_host}:${config.web_ui.service.port}",
               "schema_version": "mn.turtlebot.web_ui.v1"
             },

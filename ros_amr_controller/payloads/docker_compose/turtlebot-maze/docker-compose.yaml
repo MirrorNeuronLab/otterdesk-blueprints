@@ -14,7 +14,7 @@
 services:
   # Base image containing dependencies.
   base:
-    image: turtlebot_behavior:base
+    image: ${TURTLEBOT_BASE_IMAGE:-turtlebot_behavior:base}
     build:
       context: .
       dockerfile: docker/Dockerfile.gpu
@@ -35,18 +35,18 @@ services:
       # Allows graphical programs in the container.
       # - __GLX_VENDOR_LIBRARY_NAME=nvidia
       - NVIDIA_VISIBLE_DEVICES=all
-      - DISPLAY=${DISPLAY}
+      - DISPLAY=${DISPLAY:-}
       - QT_X11_NO_MITSHM=1
       - NVIDIA_DRIVER_CAPABILITIES=all
     volumes:
       # Allows graphical programs in the container.
-      - /tmp/.X11-unix:/tmp/.X11-unix:rw
-      - ${XAUTHORITY:-$HOME/.Xauthority}:/root/.Xauthority
+      - ${TURTLEBOT_X11_SOCKET:-/dev/null}:/tmp/.X11-unix:rw
+      - ${TURTLEBOT_XAUTHORITY:-/dev/null}:/root/.Xauthority:ro
 
   # Overlay image containing the example source code.
   overlay:
     extends: base
-    image: turtlebot_behavior:overlay
+    image: ${TURTLEBOT_OVERLAY_IMAGE:-turtlebot_behavior:overlay}
     build:
       context: .
       dockerfile: docker/Dockerfile.gpu
@@ -157,6 +157,7 @@ services:
       - rosbridge
       - warehouse-control-relay
       - warehouse-navigation-gateway
+      - warehouse-mcp
     # Gazebo camera sensors still need a renderer in server-only mode. Spark's
     # NVIDIA EGL driver supports this without a desktop display.
     gpus: all
@@ -198,8 +199,7 @@ services:
   # streams together. It is separate from ROS so any LAN browser can use it.
   warehouse-video-ui:
     image: nginx:alpine
-    ports:
-      - "8088:8088"
+    network_mode: host
     volumes:
       - ./web_ui:/usr/share/nginx/html:ro
       - ./web_ui/nginx.conf:/etc/nginx/nginx.conf:ro
@@ -232,15 +232,11 @@ services:
   foxglove-bridge:
     extends: overlay
     command: ros2 launch foxglove_bridge foxglove_bridge_launch.xml port:=8765
-    ports:
-      - "8765:8765"
 
   # Rosbridge WebSocket server for ros-mcp-server integration
   rosbridge:
     extends: overlay
     command: ros2 launch rosbridge_server rosbridge_websocket_launch.xml
-    ports:
-      - "9090:9090"
 
   # Converts browser-originated velocity requests into normal ROS 2 command
   # traffic and forcibly stops the robot when requests go stale. Keeping this
@@ -259,6 +255,16 @@ services:
     volumes:
       - ./web_control/navigation_gateway.py:/app/navigation_gateway.py:ro
     command: python3 /app/navigation_gateway.py
+
+  # Bounded Streamable HTTP MCP control surface on the inherited host network.
+  warehouse-mcp:
+    extends: overlay
+    volumes:
+      - ./mcp/robot_control_server.py:/app/robot_control_server.py:ro
+    command: >
+      python3 /app/robot_control_server.py
+      --host 0.0.0.0
+      --port 8090
 
   # Zenoh router for cross-container pub/sub.
   # Loads zenoh/zenoh-storage.json5 which enables the storage-manager plugin

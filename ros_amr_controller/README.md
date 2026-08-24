@@ -1,14 +1,15 @@
 # ROS AMR Controller
 
-This blueprint runs the ROS 2 Jazzy TurtleBot warehouse demo as a long-lived
-MirrorNeuron `type: service` job. The local PC remains the control plane. Its
-CUDA and NVIDIA device declaration causes normal runtime placement to select
-the federated Spark node, where the DockerWorker executes.
+This long-lived service runs the ROS 2 Jazzy TurtleBot warehouse simulation as
+an isolated Docker Compose project on the selected CUDA/NVIDIA runtime node.
+The blueprint source includes the complete Compose context at
+`payloads/docker_compose/turtlebot-maze`; it does not require a prebuilt image
+or a checkout at `/home/homer/Sandbox`.
 
-The worker uses Spark's `turtlebot_behavior:overlay` image built from
-`/home/homer/Sandbox/turtlebot-maze`. The blueprint packages the live dashboard
-and its two safe ROS control gateways. It does not pin the runtime node by name;
-the hard NVIDIA CUDA requirement selects the joined GPU node.
+The control plane stages the large source tree through shared storage, then
+Spark's native SDK builds and starts a project named for the service run. This
+is separate from MirrorNeuron's own runtime Compose file and from
+DockerWorker's generated `docker-compose.workers.yml`.
 
 Run from the control PC:
 
@@ -17,32 +18,28 @@ mn blueprint validate /Users/homer/Projects/otterdesk-blueprints/ros_amr_control
 mn blueprint run /Users/homer/Projects/otterdesk-blueprints/ros_amr_controller --web-ui --detached
 ```
 
-The dashboard is advertised at `http://10.0.4.26:8088`. The MCP endpoint is
-`http://10.0.4.26:8090/mcp`. Ports 8080, 8088, 8090, and 9090 are declared
-runtime resources and must be free on the selected NVIDIA node.
+The selected Spark node advertises the dashboard at `http://10.0.4.26:8088`,
+the bounded MCP endpoint at `http://10.0.4.26:8090/mcp`, video on `8080`, and
+rosbridge on `9090`. Startup requires all seven declared Compose services plus
+the dashboard, MCP health endpoint, video TCP port, and rosbridge TCP port.
 
-The desktop catalog reads this folder through the root `index.json`. For local
-desktop development, point the catalog at this checkout:
+Pausing or stopping the service runs Compose `down --remove-orphans --volumes`
+only for this service project. Resuming recreates that same owned project from
+the staged, digest-verified source. Other Docker projects and runtime services
+on Spark are not touched.
 
-```bash
-MN_BLUEPRINT_SOURCE=local \
-MN_BLUEPRINT_LOCAL=/Users/homer/Projects/otterdesk-blueprints \
-npm run dev
-```
-
-The desktop only attaches the MCP endpoint for an explicit robot-control
-request. The published tools are deliberately small: inspect status, navigate
-to one of the named zones A/B/C, cancel navigation, or issue a short
-forward/left/right adjustment. Arbitrary ROS topics, shell commands, poses, and
-unbounded velocity commands are not exposed.
-
-Pause and resume retain the same service run identity:
+For manual headless Compose development, run from the bundled source:
 
 ```bash
-mn run pause <run-id>
-mn run resume <run-id>
+cd /Users/homer/Projects/otterdesk-blueprints/ros_amr_controller/payloads/docker_compose/turtlebot-maze
+docker compose --env-file mirrorneuron/warehouse.env up --build demo-world-warehouse
 ```
 
-An ordinary second start is rejected. Use the separately confirmed service
-replacement flow only when the existing run and its run-scoped history should
-be permanently removed.
+The desktop catalog reads this folder through the root `index.json`. To use
+this local checkout in desktop development, set `MN_BLUEPRINT_SOURCE=local`
+and `MN_BLUEPRINT_LOCAL=/Users/homer/Projects/otterdesk-blueprints`.
+
+The published robot controls remain intentionally narrow: inspect status,
+navigate only to zones A/B/C, cancel, or make a short watchdog-limited manual
+adjustment. Arbitrary ROS topics, shell commands, poses, and unbounded velocity
+commands are not exposed.

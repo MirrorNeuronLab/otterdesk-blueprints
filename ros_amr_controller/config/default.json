@@ -33,7 +33,7 @@
       "port": 8088
     },
     "dashboard": {
-      "path": "payloads/worker/web_ui/index.html",
+      "path": "@/payloads/docker_compose/turtlebot-maze/web_ui/index.html",
       "standard_panels": [
         "status",
         "timeline",
