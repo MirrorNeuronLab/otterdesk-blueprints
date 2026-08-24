@@ -72,7 +72,7 @@ ENV NO_AT_BRIDGE=1
 
 # Set up the entrypoint
 WORKDIR /turtlebot_ws
-COPY ./docker/entrypoint.sh /
+COPY --chmod=0755 ./docker/entrypoint.sh /entrypoint.sh
 ENTRYPOINT [ "/entrypoint.sh" ]
 
 ##########################################
@@ -117,7 +117,7 @@ RUN source /turtlebot_ws/install/setup.bash \
 RUN pip3 install --break-system-packages "mcp==2.0.0"
 
 # Set up the entrypoint
-COPY ./docker/entrypoint.sh /
+COPY --chmod=0755 ./docker/entrypoint.sh /entrypoint.sh
 ENTRYPOINT [ "/entrypoint.sh" ]
 
 #####################

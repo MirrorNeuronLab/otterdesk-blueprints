@@ -55,6 +55,7 @@ def test_ros_amr_compose_configuration_resolves_with_headless_environment():
 
 def test_ros_amr_compose_owns_mcp_and_opt_in_x11_mounts():
     source = SOURCE.joinpath("docker-compose.yaml").read_text(encoding="utf-8")
+    dockerfile = SOURCE.joinpath("docker/Dockerfile.gpu").read_text(encoding="utf-8")
     assert "warehouse-mcp:" in source
     assert "./mcp/robot_control_server.py" in source
     assert "TURTLEBOT_X11_SOCKET:-/dev/null" in source
@@ -62,3 +63,4 @@ def test_ros_amr_compose_owns_mcp_and_opt_in_x11_mounts():
     assert '"9090:9090"' not in source
     assert '"8765:8765"' not in source
     assert "warehouse-video-ui:\n    image: nginx:alpine\n    network_mode: host" in source
+    assert "COPY --chmod=0755 ./docker/entrypoint.sh /entrypoint.sh" in dockerfile
