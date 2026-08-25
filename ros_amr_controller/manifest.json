@@ -286,6 +286,8 @@
         "config": {
           "runner_module": "MirrorNeuron.Runner.DockerCompose",
           "compose": {
+            "exclusive": true,
+            "project_name": "mn-compose-ros-amr-controller",
             "context": "docker_compose/turtlebot-maze",
             "file": "docker-compose.yaml",
             "env_file": "mirrorneuron/warehouse.env",

@@ -1,5 +1,12 @@
 [
   {
+    "capabilities": [
+      "Reviews only the approved RTSP/RTMP stream configured for the run.",
+      "Redacts stream credentials from logs, events, browser URLs, and public service artifacts.",
+      "Uses human notices for notable visual changes and does not execute physical security actions.",
+      "Requires human confirmation for safety, security, access, or disciplinary responses.",
+      "Keeps dashboard steering scoped to the current run."
+    ],
     "category": "Security",
     "description": "An NVIDIA-only, stream-only CCTV co-worker with a blueprint-owned json-render UI, sparse baseline analysis, and event-triggered frame bursts for one approved RTSP/RTMP source.",
     "id": "cctv_operator",

@@ -18,10 +18,18 @@ mn blueprint validate /Users/homer/Projects/otterdesk-blueprints/ros_amr_control
 mn blueprint run /Users/homer/Projects/otterdesk-blueprints/ros_amr_controller --web-ui --detached
 ```
 
-The selected Spark node advertises the dashboard at `http://10.0.4.26:8088`,
-the bounded MCP endpoint at `http://10.0.4.26:8090/mcp`, video on `8080`, and
-rosbridge on `9090`. Startup requires all seven declared Compose services plus
-the dashboard, MCP health endpoint, video TCP port, and rosbridge TCP port.
+The service uses the exclusive Compose project name
+`mn-compose-ros-amr-controller` on the selected runtime node. A new launch
+clears that previous project before starting, preventing stale services from
+holding the dashboard, video, rosbridge, or MCP ports.
+
+The selected Spark node hosts the dashboard on `8088`, the bounded MCP endpoint
+on `8090`, video on `8080`, and rosbridge on `9090`. With `--web-ui`, open the
+local MirrorNeuron URL printed by the CLI (`/jobs/<job_id>/ui`): it proxies the
+dashboard, video streams, and rosbridge through the local Web UI service rather
+than navigating the browser directly to Spark. Startup requires all seven
+declared Compose services plus the dashboard, MCP health endpoint, video TCP
+port, and rosbridge TCP port.
 
 Pausing or stopping the service runs Compose `down --remove-orphans --volumes`
 only for this service project. Resuming recreates that same owned project from

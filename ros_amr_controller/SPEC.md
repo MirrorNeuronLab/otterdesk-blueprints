@@ -8,8 +8,10 @@
 - Placement is capability based: one NVIDIA CUDA GPU and native capability
   `docker_compose_prepare_v1` are required, with no node name embedded in the
   scheduling constraints.
-- The native host owns an isolated, per-service Docker Compose project. It does
-  not use or modify the MirrorNeuron runtime Compose environment or DockerWorker
+- The native host owns one exclusive Docker Compose project for this service.
+  Starting a new service run first tears down the previous project, including
+  its orphans and volumes, then starts the new project. It does not use or
+  modify the MirrorNeuron runtime Compose environment or DockerWorker
   generated worker Compose file.
 - The root project starts the warehouse simulation, video server/UI, rosbridge,
   control relay, navigation gateway, and bounded MCP service. Readiness requires
@@ -17,8 +19,11 @@
 - GUI mounts are opt-in. Spark runs with the headless settings in
   `mirrorneuron/warehouse.env`; local GUI development can provide explicit
   `TURTLEBOT_X11_SOCKET` and `TURTLEBOT_XAUTHORITY` values.
-- The Web UI is the existing TurtleBot dashboard on port 8088. The MCP service
-  advertises Streamable HTTP at `/mcp` on port 8090.
+- The Web UI is the existing TurtleBot dashboard on port 8088. When it is
+  opened through MirrorNeuron, its video stream (8080) and rosbridge (9090)
+  use the authenticated local job UI proxy instead of exposing the Spark host
+  to the browser. The MCP service advertises Streamable HTTP at `/mcp` on port
+  8090 and is not part of that UI proxy allowlist.
 - The MCP allowlist is exact: `get_robot_status`, `navigate_to_zone`,
   `cancel_navigation`, and `adjust_robot`. Navigation accepts only zones A/B/C,
   and manual adjustments are short pulses routed through a dead-man relay.
