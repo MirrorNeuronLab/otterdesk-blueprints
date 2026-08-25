@@ -24,9 +24,27 @@
   use the authenticated local job UI proxy instead of exposing the Spark host
   to the browser. The MCP service advertises Streamable HTTP at `/mcp` on port
   8090 and is not part of that UI proxy allowlist.
-- The MCP allowlist is exact: `get_robot_status`, `navigate_to_zone`,
-  `cancel_navigation`, and `adjust_robot`. Navigation accepts only zones A/B/C,
-  and manual adjustments are short pulses routed through a dead-man relay.
+- The response-agent declaration is the single control contract. User tools
+  are exactly `get_robot_status`, `navigate_to_zone`, `cancel_navigation`, and
+  `adjust_robot`; the internal operation tool is exactly
+  `get_navigation_operation`. Navigation accepts only zones A/B/C, and manual
+  adjustments are short pulses routed through a dead-man relay.
+- The bounded response agent is Job-scoped and starts with the stable response
+  service. It is not a DAG node and does not start, resume, or replace the
+  run-scoped Compose service. Effects require one passing MCP service whose
+  name, path, tags, registry, and argument schemas match the manifest exactly.
+- Each initial agent turn uses one strict JSON completion from the resolved
+  `default` model. Invalid output or model failure causes no motion. One turn
+  can produce at most one control effect or one explicit memory mutation.
+- `navigate_to_zone` returns an operation UUID. The navigation gateway accepts
+  both correlated JSON commands and the dashboard's existing string commands;
+  correlated progress is published separately without breaking dashboard
+  status. `get_job_turn` polls the observed operation at one-second intervals
+  for no more than 180 seconds.
+- Job knowledge and RAG resources are durable across ROS Run restarts. Explicit
+  memory supports only Zone A/B/C aliases, capability notes, and constraints
+  that disable existing controls. It cannot add coordinates, tools, speed,
+  duration, or relaxed safety.
 - Pause, cancel, retry failure, and stop clean up only the owned Compose project;
   resume starts it again from the same staged source and project identity.
 - Stable job data, definition identity, and schedules remain independent from

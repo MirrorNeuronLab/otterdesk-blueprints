@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import json
 import subprocess
 from pathlib import Path
@@ -102,3 +103,83 @@ def test_ros_amr_video_pipeline_colorizes_depth_for_the_browser():
     assert 'DEPTH_INPUT_TOPIC = "/camera/depth/image_rect_raw"' in pipeline
     assert 'DEPTH_DISPLAY_TOPIC = "/camera/depth/image_visualized"' in pipeline
     assert 'output.encoding = "rgb8"' in pipeline
+
+
+def test_ros_amr_declares_job_scoped_bounded_response_agent():
+    manifest = json.loads((BLUEPRINT / "manifest.json").read_text(encoding="utf-8"))
+    agent = manifest["response_service"]["agent"]
+
+    assert agent["kind"] == "bounded_mcp"
+    assert agent["service"] == {
+        "name": "ros-amr-controller-mcp",
+        "path": "/mcp",
+        "required_tags": ["mcp", "robot-control", "ros-amr-controller"],
+    }
+    assert set(agent["tools"]["user"]) == {
+        "adjust_robot",
+        "cancel_navigation",
+        "get_robot_status",
+        "navigate_to_zone",
+    }
+    assert set(agent["tools"]["internal"]) == {"get_navigation_operation"}
+    assert agent["operations"]["navigate_to_zone"]["timeout_seconds"] == 180
+    assert agent["memory"]["types"] == [
+        "zone_alias",
+        "control_constraint",
+        "capability_note",
+    ]
+    assert "mcp_control" not in manifest["metadata"]
+    assert {item["name"] for item in manifest["skill_dependencies"]} >= {
+        "mirrorneuron-job-response-skill",
+        "mirrorneuron-rag-skill",
+        "mirrorneuron-mcp-client-skill",
+    }
+
+
+def test_ros_amr_navigation_is_correlated_without_breaking_dashboard_commands():
+    gateway = SOURCE.joinpath("web_control/navigation_gateway.py").read_text(encoding="utf-8")
+    server = SOURCE.joinpath("mcp/robot_control_server.py").read_text(encoding="utf-8")
+
+    assert '"kind": "navigate"' in server
+    assert '"operation_id": operation_id' in server
+    assert '"/warehouse/navigation_operation"' in server
+    assert "def get_navigation_operation(operation_id: str)" in server
+    assert "json.loads(raw_command)" in gateway
+    assert "command = raw_command.lower()" in gateway
+    assert '"completed", zone=route, progress="arrived"' in gateway
+
+
+def test_ros_amr_robot_mcp_exposes_exact_bounded_tool_set():
+    source = SOURCE.joinpath("mcp/robot_control_server.py").read_text(encoding="utf-8")
+    module = ast.parse(source)
+    tools = {
+        node.name
+        for node in module.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        if any(
+            isinstance(decorator, ast.Call)
+            and isinstance(decorator.func, ast.Attribute)
+            and isinstance(decorator.func.value, ast.Name)
+            and decorator.func.value.id == "mcp"
+            and decorator.func.attr == "tool"
+            for decorator in node.decorator_list
+        )
+    }
+
+    assert tools == {
+        "adjust_robot",
+        "cancel_navigation",
+        "get_navigation_operation",
+        "get_robot_status",
+        "navigate_to_zone",
+    }
+
+
+def test_ros_amr_navigation_operation_matches_its_non_nullable_output_schema():
+    source = SOURCE.joinpath("mcp/robot_control_server.py").read_text(encoding="utf-8")
+
+    assert "class NavigationOperation(TypedDict):" in source
+    assert '"zone": str(operation.get("zone") or "")' in source
+    assert '"progress": str(operation.get("progress") or "")' in source
+    assert '"reason": str(operation.get("reason") or "")' in source
+    assert '"updated_at": str(operation.get("updated_at") or "")' in source

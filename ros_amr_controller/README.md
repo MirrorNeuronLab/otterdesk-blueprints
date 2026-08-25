@@ -51,3 +51,23 @@ The published robot controls remain intentionally narrow: inspect status,
 navigate only to zones A/B/C, cancel, or make a short watchdog-limited manual
 adjustment. Arbitrary ROS topics, shell commands, poses, and unbounded velocity
 commands are not exposed.
+
+The stable Job also owns a bounded conversational response agent. OtterDesk
+chat calls the Job's `ask_job` MCP tool directly; it does not run a desktop
+keyword parser or call the robot MCP endpoint. The agent uses MirrorNeuron's
+resolved `default` model for one strict JSON plan per turn, discovers only the
+healthy MCP service registered by the already-running ROS service Run, and
+checks its exact tool schemas before issuing at most one declared effect. It
+never starts or resumes the ROS Run.
+
+Navigation replies are correlated. Chat receives an immediate accepted reply
+with a turn to poll; the Job agent then reads `get_navigation_operation` once
+per second for up to 180 seconds and reports only observed progress and a
+terminal arrival, failure, cancellation, supersession, or timeout.
+
+Learning is explicit and Job-scoped. “Remember”, “learn”, correction, and
+“forget” requests may store aliases to Zone A/B/C, restrictive constraints
+that disable an existing control, or descriptive capability notes. Normal chat
+is not learned. Active records live under Job `knowledge/learned/`, their
+history and tombstones remain in Job SQLite, and the Job RAG index is refreshed
+after each committed change. See [SAFETY.md](SAFETY.md).

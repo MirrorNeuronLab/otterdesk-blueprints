@@ -4,10 +4,13 @@
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import os
 import threading
 import time
+import uuid
+from collections import OrderedDict
 from typing import Literal, TypedDict
 
 from mcp.server import MCPServer
@@ -33,6 +36,19 @@ class CommandReceipt(TypedDict):
     message: str
 
 
+class NavigationReceipt(CommandReceipt):
+    operation_id: str
+
+
+class NavigationOperation(TypedDict):
+    operation_id: str
+    state: str
+    zone: str
+    progress: str
+    reason: str
+    updated_at: str
+
+
 class RosControlBridge:
     """Own the ROS publishers/subscribers used by the intentionally small tool set."""
 
@@ -54,6 +70,7 @@ class RosControlBridge:
         self._command_lock = threading.Lock()
         self._navigation_status = "waiting"
         self._pose: dict[str, float] | None = None
+        self._operations: OrderedDict[str, NavigationOperation] = OrderedDict()
 
         browser_qos = QoSProfile(
             depth=10,
@@ -75,6 +92,12 @@ class RosControlBridge:
         self._node.create_subscription(
             String, "/warehouse/navigation_status", self._on_navigation_status, status_qos
         )
+        self._node.create_subscription(
+            String,
+            "/warehouse/navigation_operation",
+            self._on_navigation_operation,
+            status_qos,
+        )
         self._node.create_subscription(Odometry, "/odom", self._on_odometry, 10)
         self._spin_thread = threading.Thread(target=rclpy.spin, args=(self._node,), daemon=True)
         self._spin_thread.start()
@@ -94,6 +117,22 @@ class RosControlBridge:
                 "orientation_w": round(float(orientation.w), 4),
             }
 
+    def _on_navigation_operation(self, message) -> None:
+        try:
+            operation = json.loads(str(message.data or "{}"))
+            operation_id = str(uuid.UUID(str(operation.get("operation_id") or "")))
+        except (json.JSONDecodeError, ValueError, TypeError, AttributeError):
+            return
+        with self._state_lock:
+            self._operations[operation_id] = {
+                key: value
+                for key, value in operation.items()
+                if key in {"operation_id", "state", "zone", "progress", "reason", "updated_at"}
+            }
+            self._operations.move_to_end(operation_id)
+            while len(self._operations) > 100:
+                self._operations.popitem(last=False)
+
     def status(self) -> RobotStatus:
         with self._state_lock:
             return {
@@ -108,14 +147,53 @@ class RosControlBridge:
             self._navigation_publisher.publish(message)
             time.sleep(0.1)
 
-    def navigate(self, zone: Zone) -> CommandReceipt:
+    def navigate(self, zone: Zone) -> NavigationReceipt:
+        operation_id = str(uuid.uuid4())
+        command = json.dumps(
+            {"kind": "navigate", "zone": zone, "operation_id": operation_id},
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        with self._state_lock:
+            self._operations[operation_id] = {
+                "operation_id": operation_id,
+                "state": "accepted",
+                "zone": zone,
+                "progress": "accepted",
+            }
         with self._command_lock:
-            self._publish_navigation(zone)
+            self._publish_navigation(command)
         return {
             "accepted": True,
             "command": f"navigate:{zone}",
             "message": f"Requested autonomous navigation to {zone.replace('_', ' ').title()}.",
+            "operation_id": operation_id,
         }
+
+    def navigation_operation(self, operation_id: str) -> NavigationOperation:
+        try:
+            normalized = str(uuid.UUID(operation_id))
+        except (ValueError, TypeError, AttributeError) as error:
+            raise ValueError("operation_id must be a UUID") from error
+        with self._state_lock:
+            operation = self._operations.get(normalized)
+            if operation is None:
+                return {
+                    "operation_id": normalized,
+                    "state": "unknown",
+                    "zone": "",
+                    "progress": "",
+                    "reason": "operation_not_found",
+                    "updated_at": "",
+                }
+            return {
+                "operation_id": normalized,
+                "state": str(operation.get("state") or "unknown"),
+                "zone": str(operation.get("zone") or ""),
+                "progress": str(operation.get("progress") or ""),
+                "reason": str(operation.get("reason") or ""),
+                "updated_at": str(operation.get("updated_at") or ""),
+            }
 
     def cancel(self) -> CommandReceipt:
         with self._command_lock:
@@ -192,10 +270,17 @@ def get_robot_status() -> RobotStatus:
 
 
 @mcp.tool()
-def navigate_to_zone(zone: Zone) -> CommandReceipt:
+def navigate_to_zone(zone: Zone) -> NavigationReceipt:
     """Navigate the simulated robot to one allowlisted warehouse zone: zone_a, zone_b, or zone_c."""
 
     return control().navigate(zone)
+
+
+@mcp.tool()
+def get_navigation_operation(operation_id: str) -> NavigationOperation:
+    """Read observed progress for one correlated navigation operation returned by navigate_to_zone."""
+
+    return control().navigation_operation(operation_id)
 
 
 @mcp.tool()

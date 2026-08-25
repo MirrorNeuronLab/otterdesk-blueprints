@@ -34,6 +34,7 @@ RAG_BLUEPRINTS = {
     "legal_assistant",
     "purchase_research_assistant",
     "research_coscientist",
+    "ros_amr_controller",
     "vc_assistant",
 }
 
@@ -49,7 +50,11 @@ def test_catalog_blueprints_declare_job_response_service():
             (root / entry["path"] / "manifest.json").read_text(encoding="utf-8")
         )
         assert entry["response_service"] == {"enabled": True}, blueprint_id
-        assert manifest["response_service"] == {"enabled": True}, blueprint_id
+        assert manifest["response_service"]["enabled"] is True, blueprint_id
+        if blueprint_id == "ros_amr_controller":
+            assert manifest["response_service"]["agent"]["kind"] == "bounded_mcp"
+        else:
+            assert manifest["response_service"] == {"enabled": True}, blueprint_id
         assert "mcp_collaboration" not in entry, blueprint_id
         assert "mcp_collaboration" not in manifest, blueprint_id
         assert len(entry["starter_questions"]) >= 3, blueprint_id

@@ -111,26 +111,12 @@
       "enabled": true,
       "title": "Warehouse AMR Monitor"
     },
-    "mcp_control": {
-      "enabled": true,
-      "service_name": "ros-amr-controller-mcp",
-      "path": "/mcp",
-      "required_tags": [
-        "mcp",
-        "robot-control",
-        "ros-amr-controller"
-      ],
-      "allowed_tools": [
-        "adjust_robot",
-        "cancel_navigation",
-        "get_robot_status",
-        "navigate_to_zone"
-      ]
-    },
     "starter_questions": [
-      "What is the robot doing right now?",
-      "Move the robot to zone B.",
-      "Stop the current robot navigation."
+      "Move the simulated robot to Zone A.",
+      "What is the robot's current status?",
+      "What can this robot do and what can it not do?",
+      "Remember that loading dock means Zone A.",
+      "Forget the loading dock alias."
     ]
   },
   {

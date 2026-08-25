@@ -3,9 +3,12 @@
 
 from __future__ import annotations
 
+import json
 import math
 import time
+import uuid
 from dataclasses import dataclass
+from datetime import UTC, datetime
 
 import rclpy
 from action_msgs.msg import GoalStatus
@@ -50,12 +53,18 @@ class WarehouseNavigationGateway(Node):
             durability=DurabilityPolicy.TRANSIENT_LOCAL,
         )
         self._status_publisher = self.create_publisher(String, "/warehouse/navigation_status", status_qos)
+        self._operation_publisher = self.create_publisher(
+            String, "/warehouse/navigation_operation", status_qos
+        )
         self._initial_pose_publisher = self.create_publisher(PoseWithCovarianceStamped, "/initialpose", 10)
         self.create_subscription(String, "/web_navigation_command", self._on_command, browser_qos)
         self.create_subscription(Odometry, "/odom", self._on_odometry, 10)
         self._navigation_client = ActionClient(self, NavigateToPose, "/navigate_to_pose")
         self._pending_route: str | None = None
+        self._pending_operation_id: str | None = None
         self._active_route: str | None = None
+        self._active_operation_id: str | None = None
+        self._superseded_operations: set[str] = set()
         self._goal_handle = None
         self._goal_request_in_flight = False
         self._cancel_in_flight = False
@@ -69,6 +78,32 @@ class WarehouseNavigationGateway(Node):
 
     def _publish_status(self, status: str) -> None:
         self._status_publisher.publish(String(data=status))
+
+    def _publish_operation(
+        self,
+        operation_id: str | None,
+        state: str,
+        *,
+        zone: str | None = None,
+        progress: str | None = None,
+        reason: str | None = None,
+    ) -> None:
+        if not operation_id:
+            return
+        payload = {
+            "operation_id": operation_id,
+            "state": state,
+            "updated_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        }
+        if zone:
+            payload["zone"] = zone
+        if progress:
+            payload["progress"] = progress
+        if reason:
+            payload["reason"] = reason
+        self._operation_publisher.publish(
+            String(data=json.dumps(payload, sort_keys=True, separators=(",", ":")))
+        )
 
     def _check_navigation_server(self) -> None:
         available = self._navigation_client.server_is_ready()
@@ -88,6 +123,9 @@ class WarehouseNavigationGateway(Node):
         """Set AMCL's map pose from exact Gazebo odometry before navigating."""
         if self._latest_odom is None:
             self._publish_status(f"localizing:{route}")
+            self._publish_operation(
+                self._pending_operation_id, "running", zone=route, progress="waiting_for_odometry"
+            )
             return False
         initial_pose = PoseWithCovarianceStamped()
         initial_pose.header.stamp = self.get_clock().now().to_msg()
@@ -99,12 +137,37 @@ class WarehouseNavigationGateway(Node):
         self._initial_pose_publisher.publish(initial_pose)
         self._route_start_not_before = time.monotonic() + 1.0
         self._publish_status(f"localizing:{route}")
+        self._publish_operation(
+            self._pending_operation_id, "running", zone=route, progress="localizing"
+        )
         return True
 
     def _on_command(self, message: String) -> None:
-        command = message.data.strip().lower()
+        raw_command = message.data.strip()
+        operation_id: str | None = None
+        try:
+            correlated = json.loads(raw_command)
+        except json.JSONDecodeError:
+            correlated = None
+        if isinstance(correlated, dict) and correlated.get("kind") == "navigate":
+            command = str(correlated.get("zone") or "").strip().lower()
+            try:
+                operation_id = str(uuid.UUID(str(correlated.get("operation_id") or "")))
+            except (ValueError, TypeError, AttributeError):
+                self.get_logger().warning("Ignoring correlated navigation request with invalid operation id")
+                return
+        else:
+            command = raw_command.lower()
         if command == "cancel":
+            if self._pending_operation_id:
+                self._publish_operation(
+                    self._pending_operation_id,
+                    "cancelled",
+                    zone=self._pending_route,
+                    progress="cancelled_before_start",
+                )
             self._pending_route = None
+            self._pending_operation_id = None
             if self._goal_handle is not None:
                 self._cancel_active_goal()
             elif self._goal_request_in_flight:
@@ -119,7 +182,25 @@ class WarehouseNavigationGateway(Node):
             return
 
         self.get_logger().info(f"Dashboard requested route to {command}")
+        if self._pending_operation_id and self._pending_operation_id != operation_id:
+            self._publish_operation(
+                self._pending_operation_id,
+                "superseded",
+                zone=self._pending_route,
+                progress="superseded",
+            )
+            self._superseded_operations.add(self._pending_operation_id)
+        if self._active_operation_id and self._active_operation_id != operation_id:
+            self._publish_operation(
+                self._active_operation_id,
+                "superseded",
+                zone=self._active_route,
+                progress="superseded",
+            )
+            self._superseded_operations.add(self._active_operation_id)
         self._pending_route = command
+        self._pending_operation_id = operation_id
+        self._publish_operation(operation_id, "accepted", zone=command, progress="accepted")
         self._synchronize_localization(command)
         if self._goal_handle is not None:
             self._publish_status(f"rerouting:{command}")
@@ -147,7 +228,9 @@ class WarehouseNavigationGateway(Node):
             return
 
         route = self._pending_route
+        operation_id = self._pending_operation_id
         self._pending_route = None
+        self._pending_operation_id = None
         destination = DESTINATIONS[route]
         goal = NavigateToPose.Goal()
         goal.pose = PoseStamped()
@@ -159,28 +242,46 @@ class WarehouseNavigationGateway(Node):
 
         self._goal_request_in_flight = True
         self._publish_status(f"routing:{route}")
+        self._publish_operation(operation_id, "running", zone=route, progress="routing")
         future = self._navigation_client.send_goal_async(goal)
-        future.add_done_callback(lambda response, route_name=route: self._on_goal_response(response, route_name))
+        future.add_done_callback(
+            lambda response, route_name=route, correlated_id=operation_id: self._on_goal_response(
+                response, route_name, correlated_id
+            )
+        )
 
-    def _on_goal_response(self, future, route: str) -> None:
+    def _on_goal_response(self, future, route: str, operation_id: str | None) -> None:
         self._goal_request_in_flight = False
         try:
             goal_handle = future.result()
         except Exception as error:  # rclpy action transport error
             self.get_logger().error(f"Could not request route to {route}: {error}")
             self._publish_status(f"failed:{route}")
+            if operation_id not in self._superseded_operations:
+                self._publish_operation(
+                    operation_id, "failed", zone=route, reason="goal_request_failed"
+                )
             self._send_pending_route()
             return
         if not goal_handle.accepted:
             self.get_logger().warning(f"Nav2 rejected route to {route}")
             self._publish_status(f"failed:{route}")
+            if operation_id not in self._superseded_operations:
+                self._publish_operation(
+                    operation_id, "failed", zone=route, reason="goal_rejected"
+                )
             self._send_pending_route()
             return
 
         self._goal_handle = goal_handle
         self._active_route = route
+        self._active_operation_id = operation_id
         result_future = goal_handle.get_result_async()
-        result_future.add_done_callback(lambda result, route_name=route: self._on_goal_result(result, route_name))
+        result_future.add_done_callback(
+            lambda result, route_name=route, correlated_id=operation_id: self._on_goal_result(
+                result, route_name, correlated_id
+            )
+        )
         if self._cancel_after_accept:
             self._cancel_after_accept = False
             self._cancel_active_goal()
@@ -193,10 +294,15 @@ class WarehouseNavigationGateway(Node):
         self._cancel_in_flight = True
         self._publish_status("cancelling")
         active_route = self._active_route
+        active_operation_id = self._active_operation_id
         future = self._goal_handle.cancel_goal_async()
-        future.add_done_callback(lambda response, route_name=active_route: self._on_cancel_response(response, route_name))
+        future.add_done_callback(
+            lambda response, route_name=active_route, correlated_id=active_operation_id: self._on_cancel_response(
+                response, route_name, correlated_id
+            )
+        )
 
-    def _on_cancel_response(self, future, route: str | None) -> None:
+    def _on_cancel_response(self, future, route: str | None, operation_id: str | None) -> None:
         self._cancel_in_flight = False
         try:
             accepted = bool(future.result().goals_canceling)
@@ -205,30 +311,50 @@ class WarehouseNavigationGateway(Node):
             accepted = False
         if accepted:
             self._publish_status(f"cancelled:{route}" if route else "cancelled")
+            if operation_id not in self._superseded_operations:
+                self._publish_operation(
+                    operation_id, "cancelled", zone=route, progress="cancelled"
+                )
             self._goal_handle = None
             self._active_route = None
+            self._active_operation_id = None
             self._send_pending_route()
         else:
             self.get_logger().warning(f"Nav2 did not confirm cancellation of route to {route}")
 
-    def _on_goal_result(self, future, route: str) -> None:
+    def _on_goal_result(self, future, route: str, operation_id: str | None) -> None:
         try:
             status = future.result().status
         except Exception as error:  # rclpy action transport error
             self.get_logger().error(f"Route to {route} ended with an error: {error}")
             status = GoalStatus.STATUS_ABORTED
 
-        if self._active_route != route:
+        if self._active_route != route or self._active_operation_id != operation_id:
             return
         self._goal_handle = None
         self._active_route = None
+        self._active_operation_id = None
         self._cancel_in_flight = False
         if status == GoalStatus.STATUS_SUCCEEDED:
             self._publish_status(f"arrived:{route}")
+            if operation_id not in self._superseded_operations:
+                self._publish_operation(
+                    operation_id, "completed", zone=route, progress="arrived"
+                )
         elif status == GoalStatus.STATUS_CANCELED:
             self._publish_status(f"cancelled:{route}")
+            if operation_id not in self._superseded_operations:
+                self._publish_operation(
+                    operation_id, "cancelled", zone=route, progress="cancelled"
+                )
         else:
             self._publish_status(f"failed:{route}")
+            if operation_id not in self._superseded_operations:
+                self._publish_operation(
+                    operation_id, "failed", zone=route, reason="navigation_failed"
+                )
+        if operation_id:
+            self._superseded_operations.discard(operation_id)
         self._send_pending_route()
 
 

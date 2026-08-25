@@ -59,13 +59,7 @@
       "advertise_host": "10.0.4.26",
       "port": 8090,
       "path": "/mcp"
-    },
-    "allowed_tools": [
-      "adjust_robot",
-      "cancel_navigation",
-      "get_robot_status",
-      "navigate_to_zone"
-    ]
+    }
   },
   "memory_layer": {
     "enabled": true,

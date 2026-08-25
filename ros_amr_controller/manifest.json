@@ -20,7 +20,86 @@
     "version": 1
   },
   "response_service": {
-    "enabled": true
+    "enabled": true,
+    "agent": {
+      "kind": "bounded_mcp",
+      "service": {
+        "name": "ros-amr-controller-mcp",
+        "path": "/mcp",
+        "required_tags": [
+          "mcp",
+          "robot-control",
+          "ros-amr-controller"
+        ]
+      },
+      "tools": {
+        "user": {
+          "get_robot_status": {
+            "effect": "read",
+            "arguments": {}
+          },
+          "navigate_to_zone": {
+            "effect": "motion",
+            "arguments": {
+              "zone": {
+                "type": "string",
+                "enum": [
+                  "zone_a",
+                  "zone_b",
+                  "zone_c"
+                ]
+              }
+            }
+          },
+          "cancel_navigation": {
+            "effect": "motion",
+            "arguments": {}
+          },
+          "adjust_robot": {
+            "effect": "motion",
+            "arguments": {
+              "direction": {
+                "type": "string",
+                "enum": [
+                  "forward",
+                  "left",
+                  "right"
+                ]
+              }
+            }
+          }
+        },
+        "internal": {
+          "get_navigation_operation": {
+            "arguments": {
+              "operation_id": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "operations": {
+        "navigate_to_zone": {
+          "id_field": "operation_id",
+          "poll_tool": "get_navigation_operation",
+          "poll_argument": "operation_id",
+          "poll_interval_ms": 1000,
+          "timeout_seconds": 180
+        }
+      },
+      "memory": {
+        "enabled": true,
+        "mode": "explicit",
+        "path": "knowledge/learned",
+        "types": [
+          "zone_alias",
+          "control_constraint",
+          "capability_note"
+        ],
+        "max_active_records": 500
+      }
+    }
   },
   "service": {
     "enabled": true,
@@ -84,22 +163,32 @@
       "node_id": "warehouse_service",
       "service_name": "ros-amr-controller-web-ui"
     },
-    "mcp_control": {
-      "enabled": true,
-      "service_name": "ros-amr-controller-mcp",
-      "path": "/mcp",
-      "required_tags": [
-        "mcp",
-        "robot-control",
-        "ros-amr-controller"
-      ],
-      "allowed_tools": [
-        "adjust_robot",
-        "cancel_navigation",
-        "get_robot_status",
-        "navigate_to_zone"
-      ],
-      "safety": "Simulation-only, explicit-request control with named zones and watchdog-limited adjustment pulses."
+    "starter_questions": [
+      "Move the simulated robot to Zone A.",
+      "What is the robot's current status?",
+      "What can this robot do and what can it not do?",
+      "Remember that loading dock means Zone A.",
+      "Forget the loading dock alias."
+    ],
+    "job_data": {
+      "resources": [
+        {
+          "name": "knowledge",
+          "path": "knowledge",
+          "access": "read_write",
+          "seed": "@/payloads/knowledge"
+        },
+        {
+          "name": "rag",
+          "path": "databases/rag",
+          "access": "read_write"
+        },
+        {
+          "name": "state",
+          "path": "state",
+          "access": "read_write"
+        }
+      ]
     },
     "memory_layer": {
       "enabled": true,
@@ -211,6 +300,18 @@
         ]
       }
     }
+  },
+  "knowledge_rag": {
+    "backend": "milvus_lite",
+    "enabled": true,
+    "index_on_startup": true,
+    "knowledge_dir": "knowledge",
+    "required": false,
+    "chunk_size": 700,
+    "chunk_overlap": 70,
+    "top_k": 5,
+    "max_context_chars": 6000,
+    "namespace": ""
   },
   "agents": {
     "schema": "mn.agents.communication_graph/v1",
@@ -638,6 +739,12 @@
       "type": "pip",
       "source": "gar",
       "name": "mirrorneuron-rag-skill",
+      "version": "1.2.31"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mirrorneuron-mcp-client-skill",
       "version": "1.2.31"
     }
   ]
