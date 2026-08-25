@@ -114,9 +114,9 @@
     "starter_questions": [
       "Move the simulated robot to Zone A.",
       "What is the robot's current status?",
+      "Do not enter Zone C.",
       "What can this robot do and what can it not do?",
-      "Remember that loading dock means Zone A.",
-      "Forget the loading dock alias."
+      "Remember that loading dock means Zone A."
     ]
   },
   {

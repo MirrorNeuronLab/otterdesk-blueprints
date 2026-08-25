@@ -30,10 +30,17 @@ class RobotStatus(TypedDict):
     pose: dict[str, float] | None
 
 
+class CommandConfirmation(TypedDict, total=False):
+    kind: str
+    label: str
+    target: str
+
+
 class CommandReceipt(TypedDict):
     accepted: bool
     command: str
     message: str
+    confirmation: CommandConfirmation
 
 
 class NavigationReceipt(CommandReceipt):
@@ -149,6 +156,7 @@ class RosControlBridge:
 
     def navigate(self, zone: Zone) -> NavigationReceipt:
         operation_id = str(uuid.uuid4())
+        target = zone.replace("_", " ").title()
         command = json.dumps(
             {"kind": "navigate", "zone": zone, "operation_id": operation_id},
             sort_keys=True,
@@ -166,7 +174,12 @@ class RosControlBridge:
         return {
             "accepted": True,
             "command": f"navigate:{zone}",
-            "message": f"Requested autonomous navigation to {zone.replace('_', ' ').title()}.",
+            "message": f"Requested autonomous navigation to {target}.",
+            "confirmation": {
+                "kind": "navigation",
+                "label": "NAVIGATION COMMAND",
+                "target": target,
+            },
             "operation_id": operation_id,
         }
 
@@ -203,6 +216,10 @@ class RosControlBridge:
             "accepted": True,
             "command": "cancel_navigation",
             "message": "Requested cancellation and sent a bounded stop burst.",
+            "confirmation": {
+                "kind": "navigation",
+                "label": "CANCEL COMMAND",
+            },
         }
 
     def _twist(self, linear: float = 0.0, angular: float = 0.0):
@@ -236,6 +253,11 @@ class RosControlBridge:
             "accepted": True,
             "command": f"adjust:{direction}",
             "message": f"Completed one watchdog-limited {direction} adjustment pulse.",
+            "confirmation": {
+                "kind": "adjustment",
+                "label": "ADJUSTMENT COMMAND",
+                "target": direction.title(),
+            },
         }
 
     def close(self) -> None:

@@ -45,6 +45,13 @@
   memory supports only Zone A/B/C aliases, capability notes, and constraints
   that disable existing controls. It cannot add coordinates, tools, speed,
   duration, or relaxed safety.
+- A direct human prohibition such as “Do not enter Zone C” is an explicit,
+  argument-scoped control constraint. It blocks only navigation to Zone C,
+  returns the applied rule identity with the command receipt, and links to the
+  authoritative Job file at `knowledge/learned/active.md`.
+- Robot tools return bounded confirmation metadata. The Job response preserves
+  command state, target, validated arguments, applied rules, and learned-memory
+  receipts so clients do not infer control or safety outcomes from prose.
 - Pause, cancel, retry failure, and stop clean up only the owned Compose project;
   resume starts it again from the same staged source and project identity.
 - Stable job data, definition identity, and schedules remain independent from

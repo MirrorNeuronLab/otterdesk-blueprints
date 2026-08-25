@@ -183,3 +183,15 @@ def test_ros_amr_navigation_operation_matches_its_non_nullable_output_schema():
     assert '"progress": str(operation.get("progress") or "")' in source
     assert '"reason": str(operation.get("reason") or "")' in source
     assert '"updated_at": str(operation.get("updated_at") or "")' in source
+
+
+def test_ros_amr_command_receipts_declare_compact_confirmation_metadata():
+    source = SOURCE.joinpath("mcp/robot_control_server.py").read_text(encoding="utf-8")
+    specification = BLUEPRINT.joinpath("SPEC.md").read_text(encoding="utf-8")
+
+    assert "class CommandConfirmation(TypedDict, total=False):" in source
+    assert '"label": "NAVIGATION COMMAND"' in source
+    assert '"label": "CANCEL COMMAND"' in source
+    assert '"label": "ADJUSTMENT COMMAND"' in source
+    assert "Do not enter Zone C" in specification
+    assert "knowledge/learned/active.md" in specification

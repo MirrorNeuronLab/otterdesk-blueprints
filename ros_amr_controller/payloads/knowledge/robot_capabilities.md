@@ -11,4 +11,4 @@ The bounded controls are:
 
 The conversational response agent never starts or resumes a ROS service Run. It cannot accept arbitrary coordinates, speeds, durations, shell commands, MCP endpoints, or new tools. It reports navigation success only after the correlated ROS operation reports arrival.
 
-Learning is explicit. A human may teach an alias for Zone A, Zone B, or Zone C, add a descriptive capability note, or add a constraint that disables an existing control. Learned memory cannot broaden the control envelope.
+Learning is explicit. A human may teach an alias for Zone A, Zone B, or Zone C, add a descriptive capability note, or add a constraint that disables an existing control. A direct prohibition such as “Do not enter Zone C” is stored as an argument-scoped constraint and blocks only navigation to that zone. Learned memory cannot broaden the control envelope. Active learned knowledge is written to `knowledge/learned/active.md` in the stable Job data directory.

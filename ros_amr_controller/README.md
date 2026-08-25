@@ -71,3 +71,9 @@ that disable an existing control, or descriptive capability notes. Normal chat
 is not learned. Active records live under Job `knowledge/learned/`, their
 history and tombstones remain in Job SQLite, and the Job RAG index is refreshed
 after each committed change. See [SAFETY.md](SAFETY.md).
+
+Direct restrictive instructions beginning with “do not”, “don’t”, or “never”
+are also explicit learning. For example, “Do not enter Zone C” stores an
+argument-scoped rule that blocks `navigate_to_zone(zone_c)` without disabling
+Zones A or B. Command and learning replies include structured receipts and the
+Job-relative link `knowledge/learned/active.md` for the saved knowledge.
