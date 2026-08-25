@@ -203,7 +203,7 @@
         <h1>Warehouse AMR Monitor</h1>
       </div>
       <div class="header-actions">
-        <span class="status">ROS 2 video online</span>
+        <span id="video-status" class="status offline">Connecting camera feeds…</span>
         <button id="reconnect" class="secondary-button" type="button">Reconnect streams</button>
         <button id="toggle-controls" class="control-toggle" type="button" aria-controls="control-panel" aria-expanded="false">Open controls</button>
       </div>
@@ -277,9 +277,9 @@
         </article>
         <article class="camera-card">
           <h2>TurtleBot depth camera</h2>
-          <code>/camera/depth/image_rect_raw</code>
-          <img data-topic="/camera/depth/image_rect_raw" alt="TurtleBot depth camera stream" />
-          <footer>Forward-facing RealSense D435i depth feed.</footer>
+          <code>/camera/depth/image_visualized</code>
+          <img data-topic="/camera/depth/image_visualized" alt="TurtleBot colorized depth camera stream" />
+          <footer>Forward-facing RealSense D435i depth, colorized from near (red) to far (blue).</footer>
         </article>
     </main>
     <script>
@@ -297,7 +297,10 @@
       const scanTopic = "/scan";
       const odometryTopic = "/odom";
       const pulseMilliseconds = 500;
+      const snapshotIntervalMilliseconds = 350;
+      const snapshotTimeoutMilliseconds = 5000;
       const topics = document.querySelectorAll("img[data-topic]");
+      const videoStatus = document.querySelector("#video-status");
       const controlPanel = document.querySelector("#control-panel");
       const controlBackdrop = document.querySelector("#control-backdrop");
       const controlToggle = document.querySelector("#toggle-controls");
@@ -320,19 +323,22 @@
       let mapMetadata;
       let latestScan;
       let latestOdometry;
+      const streamState = new WeakMap();
 
       function browserHost() {
         const host = window.location.hostname;
         return host.includes(":") ? `[${host}]` : host;
       }
 
-      function streamUrl(topic) {
-        // web_video_server expects the slash-delimited ROS topic name itself;
-        // do not percent-encode the leading slash with URLSearchParams.
+      function snapshotUrl(topic, frame) {
+        // A fresh snapshot avoids long-lived MJPEG connections retaining their
+        // last frame after a Compose restart or an interrupted network path.
+        // Keep the slash-delimited topic readable for web_video_server.
+        const path = `snapshot?topic=${topic}&quality=80&width=640&height=480&frame=${frame}`;
         if (localProxyBase) {
-          return `${window.location.origin}${localProxyBase}/${videoPort}/stream?topic=${topic}&type=mjpeg&quality=80&width=640&height=480`;
+          return `${window.location.origin}${localProxyBase}/${videoPort}/${path}`;
         }
-        return `${window.location.protocol}//${browserHost()}:${videoPort}/stream?topic=${topic}&type=mjpeg&quality=80&width=640&height=480`;
+        return `${window.location.protocol}//${browserHost()}:${videoPort}/${path}`;
       }
 
       function rosbridgeUrl() {
@@ -343,11 +349,61 @@
         return `ws://${browserHost()}:${rosbridgePort}`;
       }
 
+      function updateVideoStatus() {
+        const online = Array.from(topics).filter((image) => streamState.get(image)?.online).length;
+        videoStatus.textContent = online === topics.length
+          ? `${online}/${topics.length} camera feeds live`
+          : `Connecting camera feeds… ${online}/${topics.length}`;
+        videoStatus.classList.toggle("offline", online !== topics.length);
+      }
+
+      function scheduleSnapshot(image, state, delay = snapshotIntervalMilliseconds) {
+        window.clearTimeout(state.nextTimer);
+        state.nextTimer = window.setTimeout(() => loadSnapshot(image, state), delay);
+      }
+
+      function loadSnapshot(image, state) {
+        const generation = state.generation;
+        image.onload = () => {
+          if (state.generation !== generation) return;
+          window.clearTimeout(state.watchdogTimer);
+          state.online = true;
+          updateVideoStatus();
+          scheduleSnapshot(image, state);
+        };
+        image.onerror = () => {
+          if (state.generation !== generation) return;
+          window.clearTimeout(state.watchdogTimer);
+          state.online = false;
+          updateVideoStatus();
+          scheduleSnapshot(image, state, 1000);
+        };
+        image.src = snapshotUrl(image.dataset.topic, `${generation}-${Date.now()}`);
+        state.watchdogTimer = window.setTimeout(() => {
+          if (state.generation !== generation) return;
+          image.onload = null;
+          image.onerror = null;
+          image.removeAttribute("src");
+          state.online = false;
+          updateVideoStatus();
+          scheduleSnapshot(image, state, 500);
+        }, snapshotTimeoutMilliseconds);
+      }
+
       function connectStreams() {
         topics.forEach((image) => {
-          image.src = "";
-          image.src = streamUrl(image.dataset.topic);
+          const state = streamState.get(image) || { generation: 0, online: false };
+          window.clearTimeout(state.nextTimer);
+          window.clearTimeout(state.watchdogTimer);
+          state.generation += 1;
+          state.online = false;
+          streamState.set(image, state);
+          image.onload = null;
+          image.onerror = null;
+          image.removeAttribute("src");
+          loadSnapshot(image, state);
         });
+        updateVideoStatus();
       }
 
       function setControlsOpen(open) {

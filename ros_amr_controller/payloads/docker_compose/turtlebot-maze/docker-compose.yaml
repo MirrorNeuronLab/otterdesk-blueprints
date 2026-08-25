@@ -183,17 +183,15 @@ services:
       headless:=True
       use_rviz:=False
 
-  # ROS 2 image topics -> browser-compatible MJPEG streams. The inherited
-  # host network makes port 8080 reachable at http://<spark-lan-ip>:8080.
+  # ROS 2 image topics -> browser-compatible images. The pipeline also
+  # colorizes the metric 32FC1 depth feed because browsers cannot render that
+  # encoding directly. The inherited host network makes port 8080 reachable at
+  # http://<spark-lan-ip>:8080.
   warehouse-video-server:
     extends: overlay
-    command: >
-      ros2 run web_video_server web_video_server --ros-args
-      -p address:=0.0.0.0
-      -p port:=8080
-      -p server_threads:=4
-      -p ros_threads:=2
-      -p default_stream_type:=mjpeg
+    volumes:
+      - ./web_control/video_pipeline.py:/app/video_pipeline.py:ro
+    command: python3 /app/video_pipeline.py
 
   # A small, no-build dashboard that places the overhead, RGB, and depth
   # streams together. It is separate from ROS so any LAN browser can use it.

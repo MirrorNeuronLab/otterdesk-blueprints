@@ -88,3 +88,17 @@ def test_ros_amr_dashboard_hides_controls_and_prioritizes_video_layout():
     assert dashboard.count('class="camera-card"') == 2
     assert 'const mapTopic = "/global_costmap/costmap"' in dashboard
     assert 'durability: "transient_local"' in dashboard
+    assert 'data-topic="/camera/depth/image_visualized"' in dashboard
+    assert "snapshot?topic=${topic}" in dashboard
+    assert "snapshotTimeoutMilliseconds = 5000" in dashboard
+
+
+def test_ros_amr_video_pipeline_colorizes_depth_for_the_browser():
+    compose = SOURCE.joinpath("docker-compose.yaml").read_text(encoding="utf-8")
+    pipeline = SOURCE.joinpath("web_control/video_pipeline.py").read_text(encoding="utf-8")
+
+    assert "./web_control/video_pipeline.py:/app/video_pipeline.py:ro" in compose
+    assert "command: python3 /app/video_pipeline.py" in compose
+    assert 'DEPTH_INPUT_TOPIC = "/camera/depth/image_rect_raw"' in pipeline
+    assert 'DEPTH_DISPLAY_TOPIC = "/camera/depth/image_visualized"' in pipeline
+    assert 'output.encoding = "rgb8"' in pipeline
