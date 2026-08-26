@@ -215,21 +215,42 @@ def render_markdown(analysis: dict[str, Any], sources: list[dict[str, Any]], evi
     return "\n".join(lines) + "\n"
 
 def build_research_coverage(research_ledgers: dict[str, dict[str, list[dict[str, Any]]]]) -> dict[str, Any]:
-    coverage = shared_build_research_coverage(research_ledgers)
-    for company in coverage.get("companies", []):
-        name = str(company.get("company_name") or "")
+    shared = shared_build_research_coverage(research_ledgers)
+    companies = []
+    for entity in shared.get("entities", []):
+        name = str(entity.get("entity_id") or "")
         ledger = research_ledgers.get(name) if isinstance(research_ledgers.get(name), dict) else {}
-        company["company_slug"] = slugify(name)
-        company["agent_counts"] = {agent_id: len(sources) for agent_id, sources in ledger.items()}
-        company["statuses"] = sorted({str(source.get("status") or "") for sources in ledger.values() for source in sources if source.get("status")})
-    coverage["generated_at"] = utc_now_iso()
-    return coverage
+        companies.append(
+            {
+                "company_name": name,
+                "company_slug": slugify(name),
+                "stage_count": entity.get("stage_count"),
+                "source_count": entity.get("source_count"),
+                "status_counts": entity.get("status_counts", {}),
+                "agent_counts": {
+                    agent_id: len(sources) for agent_id, sources in ledger.items()
+                },
+                "statuses": sorted(
+                    {
+                        str(source.get("status") or "")
+                        for sources in ledger.values()
+                        for source in sources
+                        if source.get("status")
+                    }
+                ),
+            }
+        )
+    return {
+        "generated_at": utc_now_iso(),
+        "company_count": len(companies),
+        "companies": companies,
+    }
 
 def build_method_coverage(analyses: list[dict[str, Any]]) -> dict[str, Any]:
-    shared = shared_build_method_coverage(analyses)
+    shared = shared_build_method_coverage(analyses, entity_id_key="company_name")
     shared_companies = {
-        str(company.get("company_name") or ""): company
-        for company in shared.get("companies") or []
+        str(entity.get("entity_id") or ""): entity
+        for entity in shared.get("entities") or []
     }
     companies = [
         {

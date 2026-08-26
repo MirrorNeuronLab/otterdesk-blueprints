@@ -16,6 +16,7 @@ DOMAIN_MODULES = (
     "domain.research_core",
     "domain.knowledge",
     "domain.evidence",
+    "domain.bayesian_policy",
     "domain.research_policy",
     "domain.valuation",
     "domain.analysis",

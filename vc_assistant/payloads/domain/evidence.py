@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from .common import *
+from .bayesian_policy import build_vc_bayesian_claim_explanations
 from .intake import slugify
 from .research_core import infer_source_quality_label
 
@@ -104,7 +105,7 @@ def build_source_records(company: str, records: list[dict[str, Any]], sources: l
         source_id = stable_short_id("src", company_slug, record.get("path"), record.get("sha256"))
         item = SourceRecord(
             source_id=source_id,
-            company_slug=company_slug,
+            entity_id=company_slug,
             source_type=source_type,
             title=str(record.get("filename") or record.get("path") or "local document"),
             source_url=None,
@@ -129,7 +130,7 @@ def build_source_records(company: str, records: list[dict[str, Any]], sources: l
         status = str(source.get("status") or "unknown")
         item = SourceRecord(
             source_id=source_id,
-            company_slug=company_slug,
+            entity_id=company_slug,
             source_type=source_type,
             title=str(source.get("title") or source.get("url") or "public source"),
             source_url=str(source.get("url") or "") or None,
@@ -395,7 +396,7 @@ def build_evidence_items(company: str, records: list[dict[str, Any]], sources: l
             })
 
     return build_evidence_items_from_texts(
-        company_slug=company_slug,
+        entity_id=company_slug,
         source_texts=source_texts,
         source_records_by_id=source_records_by_id,
         claim_specs=CLAIM_EXTRACTION_SPECS,
@@ -445,7 +446,20 @@ def fund_profile_weights(fund_profile: str | None) -> dict[str, float]:
 def apply_company_score_caps(raw_score: int | None, claims: list[dict[str, Any]], evidence_quality: int, fund_profile: str) -> tuple[int | None, list[dict[str, Any]]]:
     if raw_score is None:
         return None, []
-    score, cap_codes = apply_evidence_score_caps(int(raw_score), claims, evidence_quality, fund_profile)
+    score = clamp_score(raw_score)
+    cap_codes: list[str] = []
+    has_founder_info = any(str(claim.get("claim_type") or "").startswith("team.") and _claim_is_present(claim) for claim in claims)
+    has_traction = any(str(claim.get("claim_type") or "").startswith("traction.") and _claim_is_present(claim) for claim in claims)
+    has_product = any(str(claim.get("claim_type") or "").startswith("product.") and _claim_is_present(claim) for claim in claims)
+    for applies, maximum, code in (
+        (not has_founder_info, 65, "no_founder_info_cap_65"),
+        (not has_traction and fund_profile != "deeptech", 55, "no_customer_or_traction_cap_55"),
+        (not has_product, 50, "no_product_or_prototype_cap_50"),
+        (evidence_quality < 30, 45, "low_evidence_quality_cap_45"),
+    ):
+        if applies and score > maximum:
+            score = maximum
+            cap_codes.append(code)
     cap_messages = {
         "no_founder_info_cap_65": (65, "No founder or team evidence was found."),
         "no_customer_or_traction_cap_55": (55, "No customer or traction evidence was found."),
@@ -457,6 +471,12 @@ def apply_company_score_caps(raw_score: int | None, claims: list[dict[str, Any]]
         for code in cap_codes
     ]
     return score, caps
+
+def _claim_is_present(claim: dict[str, Any]) -> bool:
+    posterior = claim.get("posterior_probability")
+    if posterior is not None:
+        return float(posterior or 0) > 0.5
+    return int(claim.get("net_confidence") or 0) > 20
 
 def source_prior_adjusted_claim_probability(
     claim: dict[str, Any],
@@ -597,7 +617,7 @@ def build_bayesian_explainability_layer(
         if record.get("source_id")
     }
     try:
-        return build_bayesian_claim_explanations(
+        return build_vc_bayesian_claim_explanations(
             company_name=company_name,
             claims=claim_records,
             evidence_items=evidence_items,
@@ -661,8 +681,14 @@ def build_company_evidence_layer(
         canonical_claim_key_resolver=canonical_claim_key,
         value_extractor=extract_claim_value,
         required_next_evidence_resolver=required_next_evidence_for_claim,
-        motion_resolver=motion_for_claim,
-        self_reported_confidence_caps={"traction.": 60},
+        impact_resolver=motion_for_claim,
+        penalty_confidence_caps=[
+            {
+                "claim_type_prefix": "traction.",
+                "penalty": "self_reported",
+                "max_confidence": 60,
+            }
+        ],
     )
     dimension_scores = {
         dimension: dimension_score_from_claims(claim_records, dimension, dimension_resolver=claim_dimension)

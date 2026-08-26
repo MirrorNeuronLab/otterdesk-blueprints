@@ -161,7 +161,7 @@ def _append_browser_research_unobserved(
     action = action_budget.start(
         action_type="browser_search",
         stage=verification_target,
-        company=company,
+        entity_id=company,
         tool="web_browser_skill.research_topic",
         metadata={"query": query, "max_sources": max_sources, "depth": "standard"},
     ) if action_budget else None
@@ -336,7 +336,7 @@ def _append_target_url_research_unobserved(
         action = action_budget.start(
             action_type="browser_page",
             stage=target,
-            company=company,
+            entity_id=company,
             tool="web_browser_skill.browse",
             metadata={"url": url, "depth": "standard"},
         ) if action_budget else None
@@ -470,7 +470,7 @@ def _append_rendered_browser_research_unobserved(
         action = action_budget.start(
             action_type="rendered_browser_page",
             stage="rendered_page_researcher",
-            company=company,
+            entity_id=company,
             tool="web_browser_skill.browse",
             metadata={"url": url, "depth": "deep"},
         ) if action_budget else None

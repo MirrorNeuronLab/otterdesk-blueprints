@@ -91,7 +91,7 @@ def _source_record(
     selected_entity = str(company or entity or "")
     snippet_limit = 10000 if skill == "financial_public_data_tool" else 1000
     quality = source_quality_label or infer_source_quality_label(status, skill, verification_target, url, snippet)
-    return shared_source_record(
+    record = shared_source_record(
         entity=selected_entity,
         query=query,
         url=url,
@@ -104,6 +104,8 @@ def _source_record(
         retrieved_at=utc_now_iso(),
         source_quality_label=quality if quality in SOURCE_QUALITY_LABELS else "thin_signal",
     )
+    record["company"] = selected_entity
+    return record
 
 def _mock_public_source(
     *,
@@ -151,12 +153,31 @@ _append_python_http_search = partial(
     fetcher=_fetch_public_http,
 )
 
-_append_python_http_target_research = partial(
-    shared_append_python_http_targets,
-    source_builder=_source_record,
-    budget_exhausted_builder=_budget_exhausted_source,
-    fetcher=_fetch_public_http,
-)
+def _append_python_http_target_research(
+    sources: list[dict[str, Any]],
+    *,
+    company: str,
+    plan: dict[str, Any],
+    internet: dict[str, Any],
+    action_budget: ActionBudget | None = None,
+    **_context: Any,
+) -> None:
+    generic_internet = {
+        **internet,
+        "max_target_urls_per_entity": int(
+            internet.get("max_target_urls_per_company") or 2
+        ),
+    }
+    shared_append_python_http_targets(
+        sources,
+        entity=company,
+        plan=plan,
+        internet=generic_internet,
+        source_builder=_source_record,
+        budget_exhausted_builder=_budget_exhausted_source,
+        action_budget=action_budget,
+        fetcher=_fetch_public_http,
+    )
 
 def _compact_text(value: Any, *, limit: int) -> str:
     text = redactor(str(value or "")).strip()
@@ -168,10 +189,17 @@ def compact_local_evidence_for_transport(
     *,
     limit: int = MAX_TRANSPORT_EVIDENCE_PER_COMPANY,
 ) -> list[dict[str, Any]]:
-    compact_records = shared_compact_local_evidence_for_transport(
+    compact_records = shared_compact_records_for_transport(
         records,
+        fields=[
+            "filename",
+            "company_name",
+            "character_count",
+            "text_preview",
+            "warnings",
+        ],
         limit=limit,
-        text_limit=MAX_TRANSPORT_TEXT_PREVIEW_CHARS,
+        text_limits={"text_preview": MAX_TRANSPORT_TEXT_PREVIEW_CHARS},
     )
     for item, record in zip(compact_records, records[:limit]):
         item.update(
@@ -213,7 +241,23 @@ def compact_research_sources_for_transport(
     return compact_sources
 
 def compact_company_report_for_transport(report: dict[str, Any]) -> dict[str, Any]:
-    compact = {**shared_compact_company_report_for_transport(report), **dict(report)}
+    compact = {
+        **shared_compact_report_for_transport(
+            report,
+            fields=[
+                "company_name",
+                "company_slug",
+                "investment_score",
+                "composite_score",
+                "evidence_quality_score",
+                "confidence_band",
+                "recommendation",
+                "warnings",
+                "research_gap_followups",
+            ],
+        ),
+        **dict(report),
+    }
     evidence = report.get("evidence")
     if isinstance(evidence, list):
         compact["evidence"] = compact_local_evidence_for_transport(evidence)

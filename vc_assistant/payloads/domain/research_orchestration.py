@@ -288,7 +288,7 @@ def append_financial_tool_research_unobserved(
     action = action_budget.start(
         action_type="financial_tool",
         stage="comparables_market_multiple_scorer",
-        company=company,
+        entity_id=company,
         tool="local_public_financial_tool",
         metadata={"adapter": "deterministic_public_comparable_and_exit_math"},
     ) if action_budget else None
