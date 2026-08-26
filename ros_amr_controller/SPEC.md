@@ -35,7 +35,16 @@
   name, path, tags, registry, and argument schemas match the manifest exactly.
 - Each initial agent turn uses one strict JSON completion from the resolved
   `default` model. Invalid output or model failure causes no motion. One turn
-  can produce at most one control effect or one explicit memory mutation.
+  can produce at most one control effect or one explicit memory mutation. RAG
+  retrieval is capped at two compact chunks and 1,000 characters so the plan,
+  Job context, and bounded answer remain inside the model context window.
+- Job/Run status is a timestamped structured context plane, never vector-indexed
+  knowledge. Conversation may use a clearly marked last-known-good snapshot for
+  up to 30 seconds, but every non-emergency motion calls `get_robot_status`
+  live and requires `connected: true` before the motion tool is invoked.
+- Status, capability, direct control, and explicit learning questions skip
+  vector retrieval while still using one LLM plan. Exact stop/cancel/halt is
+  the sole direct safety path and is not blocked by a failed status preflight.
 - `navigate_to_zone` returns an operation UUID. The navigation gateway accepts
   both correlated JSON commands and the dashboard's existing string commands;
   correlated progress is published separately without breaking dashboard
@@ -45,6 +54,9 @@
   memory supports only Zone A/B/C aliases, capability notes, and constraints
   that disable existing controls. It cannot add coordinates, tools, speed,
   duration, or relaxed safety.
+- Durable RAG contains only capabilities, zone semantics, safety rules, and
+  human-learned knowledge. Operational pose, Run state, navigation progress,
+  and service health remain in the freshness-marked live context plane.
 - A direct human prohibition such as “Do not enter Zone C” is an explicit,
   argument-scoped control constraint. It blocks only navigation to Zone C,
   returns the applied rule identity with the command receipt, and links to the

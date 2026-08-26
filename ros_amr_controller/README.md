@@ -60,6 +60,15 @@ healthy MCP service registered by the already-running ROS service Run, and
 checks its exact tool schemas before issuing at most one declared effect. It
 never starts or resumes the ROS Run.
 
+The agent keeps operational state separate from RAG. Capabilities, zone
+semantics, safety policy, and explicitly learned rules are durable knowledge;
+Job, Run, navigation, pose, and service status are timestamped structured
+snapshots. A conversational answer may identify a snapshot as last-known-good
+for up to 30 seconds, but cached status never authorizes motion. Before any
+non-emergency motion, the agent calls `get_robot_status` live and requires the
+robot bridge to report `connected: true`. Exact stop/cancel/halt remains the
+direct safety exception.
+
 Navigation replies are correlated. Chat receives an immediate accepted reply
 with a turn to poll; the Job agent then reads `get_navigation_operation` once
 per second for up to 180 seconds and reports only observed progress and a

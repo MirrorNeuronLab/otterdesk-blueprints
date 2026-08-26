@@ -115,6 +115,12 @@ def test_ros_amr_declares_job_scoped_bounded_response_agent():
         "path": "/mcp",
         "required_tags": ["mcp", "robot-control", "ros-amr-controller"],
     }
+    assert agent["preflight"] == {
+        "required_for_effects": ["motion"],
+        "tool": "get_robot_status",
+        "arguments": {},
+        "required_result": {"connected": True},
+    }
     assert set(agent["tools"]["user"]) == {
         "adjust_robot",
         "cancel_navigation",
@@ -128,6 +134,8 @@ def test_ros_amr_declares_job_scoped_bounded_response_agent():
         "control_constraint",
         "capability_note",
     ]
+    assert manifest["knowledge_rag"]["top_k"] == 2
+    assert manifest["knowledge_rag"]["max_context_chars"] == 1_000
     assert "mcp_control" not in manifest["metadata"]
     assert {item["name"] for item in manifest["skill_dependencies"]} >= {
         "mirrorneuron-job-response-skill",

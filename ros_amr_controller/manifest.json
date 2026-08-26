@@ -32,6 +32,16 @@
           "ros-amr-controller"
         ]
       },
+      "preflight": {
+        "required_for_effects": [
+          "motion"
+        ],
+        "tool": "get_robot_status",
+        "arguments": {},
+        "required_result": {
+          "connected": true
+        }
+      },
       "tools": {
         "user": {
           "get_robot_status": {
@@ -309,8 +319,8 @@
     "required": false,
     "chunk_size": 700,
     "chunk_overlap": 70,
-    "top_k": 5,
-    "max_context_chars": 6000,
+    "top_k": 2,
+    "max_context_chars": 1000,
     "namespace": ""
   },
   "agents": {
