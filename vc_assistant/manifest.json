@@ -718,7 +718,6 @@
     "mode": "live",
     "model": "default",
     "parameter_count_b": 31.58,
-    "prefer_shared_skill": true,
     "provider": "docker_model_runner",
     "quantization": "MOSTLY_Q4_K_M",
     "quick_test_uses_fake": true,
@@ -806,6 +805,12 @@
       "version": "1.2.31"
     },
     {
+      "name": "mirrorneuron-mcp-client-skill",
+      "source": "gar",
+      "type": "pip",
+      "version": "1.2.31"
+    },
+    {
       "name": "mirrorneuron-web-browser-skill",
       "source": "gar",
       "type": "pip",
@@ -845,11 +850,8 @@
     }
   ],
   "standard": {
-    "migration_policy": "sdk_managed",
     "profile": "blueprint",
-    "profile_version": 1,
-    "source_schema": "mn.workflow/v1",
-    "target_schema": "mn.workflow/v1"
+    "profile_version": 1
   },
   "workers": {
     "groups": [

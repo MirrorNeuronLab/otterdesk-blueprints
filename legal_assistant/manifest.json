@@ -505,6 +505,12 @@
       "source": "gar",
       "type": "pip",
       "version": "1.2.31"
+    },
+    {
+      "name": "mirrorneuron-mcp-client-skill",
+      "source": "gar",
+      "type": "pip",
+      "version": "1.2.31"
     }
   ],
   "agent_dependencies": [
@@ -534,11 +540,8 @@
     }
   ],
   "standard": {
-    "migration_policy": "sdk_managed",
     "profile": "blueprint",
-    "profile_version": 1,
-    "source_schema": "mn.workflow/v1",
-    "target_schema": "mn.workflow/v1"
+    "profile_version": 1
   },
   "workers": {
     "groups": [
@@ -723,7 +726,6 @@
     "default_config": "primary",
     "quick_test_uses_fake": true,
     "strict_json": false,
-    "prefer_shared_skill": true,
     "require_live": true,
     "configs": {
       "primary": {

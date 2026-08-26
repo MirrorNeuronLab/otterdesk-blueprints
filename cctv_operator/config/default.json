@@ -362,9 +362,9 @@
     ]
   },
   "llm": {
-    "model": "nemotron3",
+    "model": "nemotron-3.5-lightning:latest",
     "provider": "docker_model_runner",
-    "runtime_model": "nemotron3",
+    "runtime_model": "nemotron-3.5-lightning:latest",
     "backend": "llama.cpp",
     "install_mode": "workflow_node",
     "enabled": true,
@@ -372,7 +372,7 @@
     "agents": {
       "adaptive_frame_sampler": {
         "llm_config": "primary",
-        "model": "nemotron3",
+        "model": "nemotron-3.5-lightning:latest",
         "role": "Adaptive frame sampler",
         "responsibilities": [
           "Apply the configured baseline, scene-event, and on-demand priorities.",
@@ -382,7 +382,7 @@
       },
       "visual_target_detector": {
         "llm_config": "primary",
-        "model": "nemotron3",
+        "model": "nemotron-3.5-lightning:latest",
         "role": "Visual target detector actor",
         "responsibilities": [
           "Detect configured visual targets from sampled frames.",
@@ -392,7 +392,7 @@
       },
       "quality_controller": {
         "llm_config": "primary",
-        "model": "nemotron3",
+        "model": "nemotron-3.5-lightning:latest",
         "role": "Video quality controller",
         "responsibilities": [
           "Check detection confidence and stream quality.",
@@ -402,7 +402,7 @@
       },
       "video_source_validator": {
         "llm_config": "primary",
-        "model": "nemotron3",
+        "model": "nemotron-3.5-lightning:latest",
         "role": "Video source validator",
         "responsibilities": [
           "Validate video source configuration and reachability.",
@@ -412,7 +412,7 @@
       },
       "video_monitor": {
         "llm_config": "primary",
-        "model": "nemotron3",
+        "model": "nemotron-3.5-lightning:latest",
         "role": "Video monitor actor",
         "responsibilities": [
           "Maintain watch state and runtime lifecycle.",
@@ -422,7 +422,7 @@
       },
       "report_writer": {
         "llm_config": "primary",
-        "model": "nemotron3",
+        "model": "nemotron-3.5-lightning:latest",
         "role": "CCTV report writer",
         "responsibilities": [
           "Write concise watch summaries from detection events.",
@@ -436,7 +436,6 @@
     "default_config": "primary",
     "quick_test_uses_fake": true,
     "strict_json": false,
-    "prefer_shared_skill": true,
     "responsibilities": [
       "Keep visual detection evidence tied to sampled frames and runtime service state.",
       "Use actors to explain alerts, quality checks, and watch summaries.",
@@ -445,7 +444,7 @@
     "configs": {
       "primary": {
         "provider": "docker_model_runner",
-        "model": "nemotron3",
+        "model": "nemotron-3.5-lightning:latest",
         "install_mode": "workflow_node",
         "api_base": "http://host.docker.internal:12434/engines/v1",
         "timeout_seconds": 60,

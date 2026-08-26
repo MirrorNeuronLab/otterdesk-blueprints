@@ -430,7 +430,6 @@
     "default_config": "primary",
     "quick_test_uses_fake": true,
     "strict_json": false,
-    "prefer_shared_skill": true,
     "responsibilities": [
       "Keep cheminformatics scoring and simulation outputs as the source of truth.",
       "Use LLM actors to explain hypotheses, evidence gaps, and review packets.",

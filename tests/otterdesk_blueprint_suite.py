@@ -252,8 +252,7 @@ def _expected_skill_dependency_packages(blueprint_dir: Path) -> set[str]:
     if isinstance(response_service, dict) and response_service.get("enabled") is True:
         packages.add("mirrorneuron-job-response-skill")
         packages.add("mirrorneuron-rag-skill")
-        if isinstance(response_service.get("agent"), dict):
-            packages.add("mirrorneuron-mcp-client-skill")
+        packages.add("mirrorneuron-mcp-client-skill")
     registration = (
         manifest.get("metadata", {})
         .get("web_ui", {})
@@ -298,8 +297,14 @@ def test_video_gpu_blueprints_declare_hard_nvidia_cuda_requirements_consistently
         manifest = _runtime_manifest(ROOT / blueprint_id / "manifest.json")
         assert manifest["requirements"]["gpu"] == GPU_HARD_REQUIREMENT
         assert manifest["runtime"]["resources"]["gpu"] == GPU_HARD_REQUIREMENT
-        assert manifest["runtime"]["models"][runtime_model_key]["model"] == "nemotron3"
-        assert manifest["runtime"]["models"][runtime_model_key]["runtime_model"] == "nemotron3"
+        assert (
+            manifest["runtime"]["models"][runtime_model_key]["model"]
+            == "nemotron-3.5-lightning:latest"
+        )
+        assert (
+            manifest["runtime"]["models"][runtime_model_key]["runtime_model"]
+            == "nemotron-3.5-lightning:latest"
+        )
         assert manifest["runtime"]["models"][runtime_model_key]["type"] == "vlm"
         assert manifest["runtime"]["models"][runtime_model_key]["install_mode"] == "workflow_node"
 
@@ -313,8 +318,8 @@ def test_video_gpu_blueprints_declare_hard_nvidia_cuda_requirements_consistently
                     _assert_hard_gpu_worker_requirements(rendered)
 
     config = json.loads((ROOT / "cctv_operator" / "config" / "default.json").read_text())
-    assert config["llm"]["model"] == "nemotron3"
-    assert config["llm"]["runtime_model"] == "nemotron3"
+    assert config["llm"]["model"] == "nemotron-3.5-lightning:latest"
+    assert config["llm"]["runtime_model"] == "nemotron-3.5-lightning:latest"
     assert config["llm"]["install_mode"] == "workflow_node"
     assert config["resources"]["gpu"] == GPU_HARD_REQUIREMENT
     assert config["resources"]["required_capabilities"] == ["nvidia", "cuda"]
@@ -396,6 +401,7 @@ def _assert_hard_gpu_worker_requirements(worker: dict) -> None:
 
 def test_otterdesk_blueprints_are_workflow_driven_manifests():
     for manifest_path in _manifest_paths():
+        source_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         manifest = _runtime_manifest(manifest_path)
         assert "graph_id" not in manifest, manifest_path.parent.name
         if not _is_workflow_manifest(manifest):
@@ -407,7 +413,10 @@ def test_otterdesk_blueprints_are_workflow_driven_manifests():
         assert manifest["apiVersion"] == "mn.workflow/v1", blueprint_id
         assert manifest["kind"] == "Workflow", blueprint_id
         assert manifest["id"] == blueprint_id
-        assert manifest["workflow"]["workflow_id"] == f"{blueprint_id}_v{manifest['version']}"
+        assert (
+            manifest["workflow"]["workflow_id"]
+            == source_manifest["workflow"]["workflow_id"]
+        )
         assert manifest["contract"]["inputs"], blueprint_id
         assert manifest["contract"]["outputs"]["primary"]["path"] == "final_artifact.json"
         assert manifest["contract"]["status"]["heartbeat"] is True, blueprint_id
@@ -553,7 +562,7 @@ def test_gtm_ai_workflow_uses_current_flow_runtime_graph():
 
 def test_otterdesk_completion_contract_is_explicit_and_terminal_sinks_are_reachable():
     for manifest_path in _manifest_paths():
-        manifest = json.loads(manifest_path.read_text())
+        manifest = _runtime_manifest(manifest_path)
         if not _is_workflow_manifest(manifest):
             continue
         blueprint_id = manifest["metadata"]["blueprint_id"]
@@ -609,7 +618,7 @@ def test_otterdesk_completion_contract_is_explicit_and_terminal_sinks_are_reacha
 
 def test_otterdesk_rendered_completion_contract_is_valid():
     for manifest_path in _manifest_paths():
-        manifest = json.loads(manifest_path.read_text())
+        manifest = _runtime_manifest(manifest_path)
         if not _is_workflow_manifest(manifest):
             continue
         blueprint_id = manifest["metadata"]["blueprint_id"]
@@ -1502,10 +1511,16 @@ def test_cctv_operator_uses_dockerworker_nvidia_media_worker():
     assert manifest["runtime"]["models"]["primary"]["install_mode"] == "workflow_node"
     assert config["llm"]["install_mode"] == "workflow_node"
     assert config["llm"]["configs"]["primary"]["install_mode"] == "workflow_node"
-    assert manifest["runtime"]["models"]["primary"]["model"] == "nemotron3"
-    assert manifest["runtime"]["models"]["primary"]["runtime_model"] == "nemotron3"
-    assert config["llm"]["model"] == "nemotron3"
-    assert config["llm"]["runtime_model"] == "nemotron3"
+    assert (
+        manifest["runtime"]["models"]["primary"]["model"]
+        == "nemotron-3.5-lightning:latest"
+    )
+    assert (
+        manifest["runtime"]["models"]["primary"]["runtime_model"]
+        == "nemotron-3.5-lightning:latest"
+    )
+    assert config["llm"]["model"] == "nemotron-3.5-lightning:latest"
+    assert config["llm"]["runtime_model"] == "nemotron-3.5-lightning:latest"
     assert config["sampling"]["baseline_interval_seconds"] == 20
     assert config["sampling"]["proxy_fps"] == 1
     assert config["sampling"]["max_model_frames"] == 10
@@ -1582,6 +1597,7 @@ def test_cctv_operator_owns_json_render_web_ui_and_uses_generic_skills():
         "mirrorneuron-web-ui-skill": "1.2.31",
         "mirrorneuron-job-response-skill": "1.2.31",
         "mirrorneuron-rag-skill": "1.2.31",
+        "mirrorneuron-mcp-client-skill": "1.2.31",
     }
     assert not (blueprint_dir / "docker-compose.yml").exists()
     assert not (blueprint_dir / "compose.yaml").exists()

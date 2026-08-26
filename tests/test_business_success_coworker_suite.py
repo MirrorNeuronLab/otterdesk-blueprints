@@ -137,7 +137,7 @@ def test_five_independent_blueprints_share_one_goal_contract():
         assert "mirrorneuron-job-response-skill" in dependency_names
         assert "mirrorneuron-rag-skill" in dependency_names
         assert "mirrorneuron-mcp-server-skill" not in dependency_names
-        assert "mirrorneuron-mcp-client-skill" not in dependency_names
+        assert "mirrorneuron-mcp-client-skill" in dependency_names
         assert "auxiliary_entrypoints" not in manifest["agents"]
         assert "extra_nodes" not in manifest["agents"]
         assert config["knowledge_rag"]["backend"] == "milvus_lite"

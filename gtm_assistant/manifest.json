@@ -2,10 +2,7 @@
   "apiVersion": "mn.workflow/v1",
   "kind": "WorkflowSource",
   "standard": {
-    "profile": "blueprint",
-    "source_schema": "mn.workflow/v1",
-    "target_schema": "mn.workflow/v1",
-    "migration_policy": "sdk_managed"
+    "profile": "blueprint"
   },
   "identity": {
     "id": "gtm_assistant",
@@ -671,6 +668,12 @@
       "type": "pip",
       "source": "gar",
       "name": "mirrorneuron-job-response-skill",
+      "version": "1.2.31"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mirrorneuron-mcp-client-skill",
       "version": "1.2.31"
     }
   ],

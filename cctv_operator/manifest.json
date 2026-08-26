@@ -770,7 +770,7 @@
       "recovery_mode": "cluster_recover",
       "stream_mode": "live"
     },
-    "requiredContextEngine": false,
+    "required_context_engine": false,
     "term": "TERM.md",
     "type": "service"
   },
@@ -1845,7 +1845,7 @@
             "alias": "visual_target_detector",
             "display_name": "Visual Target Detector",
             "id": "visual_target_detector",
-            "model": "nemotron3",
+            "model": "nemotron-3.5-lightning:latest",
             "role": "Run visual detection",
             "tokens": 14000,
             "tools": 4
@@ -1854,7 +1854,7 @@
             "alias": "quality_controller",
             "display_name": "Quality Controller",
             "id": "quality_controller",
-            "model": "nemotron3",
+            "model": "nemotron-3.5-lightning:latest",
             "role": "Review alert quality",
             "tokens": 14000,
             "tools": 4
@@ -1871,7 +1871,7 @@
             "alias": "adaptive_frame_sampler",
             "display_name": "Adaptive Frame Sampler",
             "id": "adaptive_frame_sampler",
-            "model": "nemotron3",
+            "model": "nemotron-3.5-lightning:latest",
             "role": "Select sparse and event-triggered frame batches",
             "tokens": 14000,
             "tools": 4
@@ -1898,7 +1898,7 @@
             "alias": "video_source_validator",
             "display_name": "Video Source Validator",
             "id": "video_source_validator",
-            "model": "nemotron3",
+            "model": "nemotron-3.5-lightning:latest",
             "role": "Validate video source",
             "tokens": 14000,
             "tools": 4
@@ -1907,7 +1907,7 @@
             "alias": "video_monitor",
             "display_name": "Video Monitor",
             "id": "video_monitor",
-            "model": "nemotron3",
+            "model": "nemotron-3.5-lightning:latest",
             "role": "Coordinate video monitoring",
             "tokens": 14000,
             "tools": 4
@@ -1924,7 +1924,7 @@
             "alias": "report_writer",
             "display_name": "CCTV Report Writer",
             "id": "report_writer",
-            "model": "nemotron3",
+            "model": "nemotron-3.5-lightning:latest",
             "role": "Write cumulative CCTV reports",
             "tokens": 14000,
             "tools": 4
@@ -1960,10 +1960,10 @@
       "primary": {
         "backend": "llama.cpp",
         "install_mode": "workflow_node",
-        "model": "nemotron3",
+        "model": "nemotron-3.5-lightning:latest",
         "provider": "docker_model_runner",
         "required": true,
-        "runtime_model": "nemotron3",
+        "runtime_model": "nemotron-3.5-lightning:latest",
         "type": "vlm"
       }
     },
@@ -2037,7 +2037,7 @@
       "type": "local_run_store"
     },
     "worker_defaults": {
-      "model": "nemotron3",
+      "model": "nemotron-3.5-lightning:latest",
       "pool": "default",
       "pool_slots": 1,
       "runner": "MirrorNeuron.Runner.HostLocal",
@@ -2143,6 +2143,12 @@
       "version": "1.2.31"
     },
     {
+      "name": "mirrorneuron-mcp-client-skill",
+      "source": "gar",
+      "type": "pip",
+      "version": "1.2.31"
+    },
+    {
       "name": "mirrorneuron-rag-skill",
       "source": "gar",
       "type": "pip",
@@ -2170,10 +2176,7 @@
     }
   ],
   "standard": {
-    "migration_policy": "sdk_managed",
-    "profile": "blueprint",
-    "source_schema": "mn.workflow/v1",
-    "target_schema": "mn.workflow/v1"
+    "profile": "blueprint"
   },
   "workflow": {
     "edges": [

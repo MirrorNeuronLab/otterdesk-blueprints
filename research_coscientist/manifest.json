@@ -563,7 +563,7 @@
     "policies": {
       "recovery_mode": "local_restart"
     },
-    "requiredContextEngine": false,
+    "required_context_engine": false,
     "term": "TERM.md"
   },
   "metadata": {
@@ -639,6 +639,12 @@
       "source": "gar",
       "type": "pip",
       "version": "1.2.31"
+    },
+    {
+      "name": "mirrorneuron-mcp-client-skill",
+      "source": "gar",
+      "type": "pip",
+      "version": "1.2.31"
     }
   ],
   "agent_dependencies": [
@@ -668,10 +674,7 @@
     }
   ],
   "standard": {
-    "migration_policy": "sdk_managed",
-    "profile": "blueprint",
-    "source_schema": "mn.workflow/v1",
-    "target_schema": "mn.workflow/v1"
+    "profile": "blueprint"
   },
   "workflow": {
     "workflow_id": "research_coscientist_v1",
@@ -929,7 +932,6 @@
     "default_config": "primary",
     "quick_test_uses_fake": true,
     "strict_json": false,
-    "prefer_shared_skill": true,
     "configs": {
       "primary": {
         "provider": "docker_model_runner",
