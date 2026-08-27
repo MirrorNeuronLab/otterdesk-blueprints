@@ -877,6 +877,10 @@
   },
   "metadata": {
     "blueprint_id": "vc_assistant",
+    "init_config_review": {
+      "required": false,
+      "fields": []
+    },
     "job_data": {
       "resources": [
         { "name": "knowledge", "path": "knowledge", "access": "read_write", "seed": "@/payloads/knowledge" },

@@ -86,6 +86,11 @@ mn blueprint monitor --follow
 
 ## Inputs And Configuration
 
+VC Assistant requires no initial configuration. Its bundled synthetic startup
+packets and local output folder provide safe defaults for the first run. Override
+the document and output folders only when you are ready to analyze your own
+startup materials.
+
 - `document_folder`: folder containing startup documents. Each first-level subfolder is treated as one company; loose files are grouped by inferred company name.
 - `output_folder`: folder where per-company analysis folders and root index files are written.
 - `monitoring`: bounded single-run scan controls; the runtime scheduler decides when to launch the batch.

@@ -980,6 +980,24 @@ def test_vc_assistant_is_daily_batch_folder_scan():
     }
 
 
+def test_vc_assistant_requires_no_initial_config():
+    manifest = json.loads(
+        (ROOT / "vc_assistant" / "manifest.json").read_text(encoding="utf-8")
+    )
+    config = json.loads(
+        (ROOT / "vc_assistant" / "config" / "default.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert manifest["metadata"]["init_config_review"] == {
+        "required": False,
+        "fields": [],
+    }
+    assert config["inputs"]["payload"]["document_folder"] == "@/examples/sample_inputs"
+    assert config["outputs"]["folder_path"] == "~/Downloads/vc_assistant"
+
+
 def test_vc_assistant_runtime_requirements_install_skills_with_pip():
     requirements = (
         (ROOT / "vc_assistant" / "payloads" / "requirements.txt")
