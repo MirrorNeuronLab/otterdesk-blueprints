@@ -131,6 +131,8 @@ from mn_client_report_skill import (
 )
 
 from mn_document_reading_skill import (
+    AnyDocConversionError,
+    convert_with_anydoc,
     document_paths as shared_document_paths,
     file_sha256,
     group_document_file_records as shared_group_document_file_records,
@@ -233,7 +235,10 @@ SUPPORTED_SUFFIXES = {
 }
 if not SUPPORTED_SUFFIXES:
     raise RuntimeError("VC default input public_dataset.expected_files is required")
-TEXT_SUFFIXES = SUPPORTED_SUFFIXES - {".pdf"}
+PDF_SUFFIXES = {".pdf"}
+PLAIN_TEXT_SUFFIXES = {".txt", ".md", ".json"}
+ANYDOC_DOCUMENT_SUFFIXES = SUPPORTED_SUFFIXES - PDF_SUFFIXES - PLAIN_TEXT_SUFFIXES
+TEXT_SUFFIXES = PLAIN_TEXT_SUFFIXES
 
 WORKFLOW_STEPS = source_workflow_steps(__file__)
 

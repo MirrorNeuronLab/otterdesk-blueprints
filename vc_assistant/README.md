@@ -17,7 +17,7 @@ selection, while an operator-selected provider model can replace it with `mn
 model add --file <definition.json> --default`. Numerical formulas and
 missing-evidence gates remain deterministic.
 
-PDF startup packets are extracted through the shared `llm_ocr_skill`. TXT, Markdown, JSON, and CSV files are read directly; the skill prepares its private OCR model lazily only when a PDF needs OCR, and PDF files must produce embedded or OCR text for the batch run to continue.
+PDF startup packets are extracted only through the shared `llm_ocr_skill`. The public Firecrawl [AnyDoc](https://github.com/firecrawl/anydoc) converter turns non-PDF office documents, spreadsheets, EPUB, RTF, and CSV files into Markdown; TXT, Markdown, and JSON remain direct reads. The OCR model is prepared lazily only when a PDF needs OCR, and PDF files must produce embedded or OCR text for the batch run to continue.
 
 ## Online Research Skills
 
@@ -89,6 +89,7 @@ mn blueprint monitor --follow
 - `document_folder`: folder containing startup documents. Each first-level subfolder is treated as one company; loose files are grouped by inferred company name.
 - `output_folder`: folder where per-company analysis folders and root index files are written.
 - `monitoring`: bounded single-run scan controls; the runtime scheduler decides when to launch the batch.
+- `input_skills.anydoc`: public Firecrawl AnyDoc Markdown conversion for non-PDF office-style inputs.
 - `input_skills.llm_ocr`: shared OCR enablement and document thresholds for PDF startup packets; model details stay in the skill.
 - `input_skills.web_browser`: unified public research with lightweight w3m support in the `docker_worker` image and policy-governed agent-browser/Chrome rendering supplied by the selected browser execution environment. The job image does not install Playwright or its Chromium/system dependency bundle.
 - `skill_runtime`: shared DockerWorker image settings for skills that need system binaries.

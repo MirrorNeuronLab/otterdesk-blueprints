@@ -8,7 +8,11 @@ from mn_prototype_entity_queue_agent import (
     create_agent as create_entity_queue,
 )
 from domain.execution_policy import company_worker_count
-from domain.research_agentic import run_agentic_research_agent
+from domain.knowledge import require_ready_rag, retrieve_knowledge_rag_context
+from domain.research_agentic import (
+    build_research_agent_rag_query,
+    run_agentic_research_agent,
+)
 from domain.research_core import agentic_research_config, _research_agent_enabled
 from domain.research_orchestration import (
     _research_agent_needs_deterministic_gap_fill,
@@ -34,6 +38,41 @@ def run_public_researcher(
         else {}
     )
     agentic = agentic_research_config(ctx["config"])
+    use_agentic_research = (
+        services.get("llm") is not None and _research_agent_enabled(agentic, agent_id)
+    )
+    preloaded_rag_contexts: dict[str, dict[str, Any]] = {}
+
+    # Retrieve every company-specific context before this stage begins its
+    # serial model calls. This preserves the normal query-specific citations
+    # without requiring a second embedding-model request after a long actor
+    # completion.
+    if internet.get("enabled") is not False and use_agentic_research:
+        for item in company_work_queue:
+            if item.get("status") == "unchanged_skipped":
+                continue
+            company = str(item["company_name"])
+            plan = store.read_entity_object("research_plans", company)
+            if not plan:
+                plan = build_adaptive_research_plan(
+                    company, company_records.get(company, []), internet
+                )
+            rag_context = retrieve_knowledge_rag_context(
+                knowledge_rag=services.get("knowledge_rag") or {},
+                query=build_research_agent_rag_query(agent_id=agent_id, plan=plan),
+                stage=agent_id,
+                company=company,
+                run_dir=ctx["run_dir"],
+            )
+            require_ready_rag(
+                services.get("knowledge_rag") or {},
+                stage=agent_id,
+                company=company,
+                context=rag_context,
+                min_citations=1,
+                run_dir=ctx["run_dir"],
+            )
+            preloaded_rag_contexts[company] = rag_context
 
     def research_company(
         _context: dict[str, Any], item: dict[str, Any]
@@ -47,9 +86,7 @@ def run_public_researcher(
         trace: list[dict[str, Any]] = []
         if internet.get("enabled") is False:
             sources: list[dict[str, Any]] = []
-        elif services.get("llm") is not None and _research_agent_enabled(
-            agentic, agent_id
-        ):
+        elif use_agentic_research:
             _, sources = run_agentic_research_agent(
                 company=company,
                 agent_id=agent_id,
@@ -61,6 +98,7 @@ def run_public_researcher(
                 agentic=agentic,
                 trace=trace,
                 knowledge_rag=services.get("knowledge_rag") or {},
+                rag_context=preloaded_rag_contexts.get(company),
             )
             _, sources = _with_agentic_gap_fill(
                 company=company,

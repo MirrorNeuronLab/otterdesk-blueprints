@@ -156,6 +156,7 @@ def run_agentic_research_agent(
     agentic: dict[str, Any],
     trace: list[dict[str, Any]] | None,
     knowledge_rag: dict[str, Any] | None = None,
+    rag_context: dict[str, Any] | None = None,
 ) -> tuple[str, list[dict[str, Any]]]:
     queries = (plan.get("agent_queries") or {}).get(agent_id, []) or plan.get("queries") or []
     sources = [_research_agent_plan_record(company, agent_id, item, plan) for item in queries]
@@ -179,7 +180,14 @@ def run_agentic_research_agent(
         },
     )
     rag_query = build_research_agent_rag_query(agent_id=agent_id, plan=plan)
-    rag_context = retrieve_knowledge_rag_context(knowledge_rag=knowledge_rag, query=rag_query, stage=agent_id, company=company, run_dir=run_dir)
+    if rag_context is None:
+        rag_context = retrieve_knowledge_rag_context(
+            knowledge_rag=knowledge_rag,
+            query=rag_query,
+            stage=agent_id,
+            company=company,
+            run_dir=run_dir,
+        )
     require_ready_rag(knowledge_rag, stage=agent_id, company=company, context=rag_context, min_citations=1, run_dir=run_dir)
     observations: list[dict[str, Any]] = []
     executed_tool_calls = 0

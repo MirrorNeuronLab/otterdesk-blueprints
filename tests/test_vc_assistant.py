@@ -15,6 +15,7 @@ import pytest
 
 from vc_assistant.domain_test_support import load_domain_test_surface
 from mn_sdk.blueprint_support import load_runtime_config
+from mn_sdk.model_runtime import resolve_llm_environment
 
 from workspace_paths import companion_workspace
 
@@ -421,6 +422,17 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
     assert config["llm"]["provider"] == "docker_model_runner"
     assert config["llm"]["model"] == "default"
     assert config["llm"]["backend"] == "llama.cpp"
+    assert resolve_llm_environment(config, container=True) == {
+        "MN_LLM_API_BASE": "http://mn-litellm-proxy:4000/v1",
+        "MN_LLM_BACKEND": "llama.cpp",
+        "MN_LLM_CONTEXT_SIZE": "8192",
+        "MN_LLM_MAX_TOKENS": "1800",
+        "MN_LLM_MODEL": "default",
+        "MN_LLM_NUM_RETRIES": "2",
+        "MN_LLM_PROVIDER": "litellm",
+        "MN_LLM_RETRY_BACKOFF_SECONDS": "1.0",
+        "MN_LLM_TIMEOUT_SECONDS": "60",
+    }
     assert "runtime_model" not in config["llm"]
     assert "fallback_model" not in config["llm"]
     assert "preferred_model" not in config["llm"]
@@ -950,7 +962,14 @@ def test_vc_assistant_is_daily_batch_folder_scan():
     assert entry["type"] == "batch"
     assert "service" not in entry["product"]["runtime_features"][0]
     assert entry["product"]["runtime_features"][0] == "daily scheduled folder scan"
+    assert (
+        "Adaptive default-model route through LiteLLM proxy"
+        in entry["product"]["runtime_features"]
+    )
+    assert "requirements" not in entry
     assert manifest["kind"] == "WorkflowSource"
+    assert manifest["llm"]["model"] == "default"
+    assert manifest["requirements"]["gpu"] == {"min_count": 0}
     assert config["monitoring"]["max_cycles"] == 1
     assert config["triggers"]["schedule"] is None
     assert config["suggested_schedule"] == {

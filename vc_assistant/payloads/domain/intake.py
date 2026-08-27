@@ -15,6 +15,10 @@ def redactor(text: str) -> str:
 class OcrRequiredError(RuntimeError):
     pass
 
+
+class DocumentConversionError(RuntimeError):
+    pass
+
 def startup_packet_classifier(text: str, filename: str) -> str:
     del text, filename
     return "startup_packet"
@@ -117,17 +121,29 @@ def scan_documents(folder: Path, config: dict[str, Any] | None = None) -> dict[s
     ocr_records_by_path = _llm_ocr_records_for_pdfs(folder, pdf_paths, config)
     for path in paths:
         suffix = path.suffix.lower()
-        if suffix in TEXT_SUFFIXES:
+        if suffix in PLAIN_TEXT_SUFFIXES:
             text, warnings = safe_read_text(path)
             extraction_method = "embedded_text"
             ocr_required = False
-        else:
+        elif suffix in ANYDOC_DOCUMENT_SUFFIXES:
+            try:
+                text = convert_with_anydoc(path)
+            except AnyDocConversionError as exc:
+                raise DocumentConversionError(
+                    f"Non-PDF document conversion failed for {path}: {exc}"
+                ) from exc
+            warnings = []
+            extraction_method = "firecrawl_anydoc"
+            ocr_required = False
+        elif suffix in PDF_SUFFIXES:
             ocr_record = ocr_records_by_path[_path_key(path)]
             text = str(ocr_record.get("text") or "")
             raw_warnings = ocr_record.get("warnings")
             warnings = [str(warning) for warning in raw_warnings] if isinstance(raw_warnings, list) else []
             extraction_method = str(ocr_record.get("extraction_method") or "llm_ocr")
             ocr_required = bool(ocr_record.get("ocr_required"))
+        else:  # pragma: no cover - paths are filtered by SUPPORTED_SUFFIXES
+            raise DocumentConversionError(f"Unsupported startup packet format: {path}")
         redacted = redactor(text)
         company = infer_company_name(path, redacted, folder)
         digest = file_sha256(path)

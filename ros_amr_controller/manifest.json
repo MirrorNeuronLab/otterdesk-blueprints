@@ -1,4 +1,5 @@
 {
+  "air-gapped": true,
   "apiVersion": "mn.workflow/v1",
   "kind": "WorkflowSource",
   "manifest_version": "1.0",

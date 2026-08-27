@@ -1,7 +1,10 @@
 FROM debian:bookworm-slim
 
+ARG DEBIAN_MIRROR=http://mirror.csclub.uwaterloo.ca
+
 # w3m is an internal fast engine used by the unified web browser skill.
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN sed -i "s|http://deb.debian.org|${DEBIAN_MIRROR}|g" /etc/apt/sources.list.d/debian.sources \
+    && apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     python3 \
     python3-pip \

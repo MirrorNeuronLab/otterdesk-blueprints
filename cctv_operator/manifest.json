@@ -1,4 +1,5 @@
 {
+  "air-gapped": false,
   "agentic_research": {
     "agent_ids": [
       "video_source_validator",

@@ -8,7 +8,11 @@ from mn_prototype_entity_queue_agent import (
     create_agent as create_entity_queue,
 )
 from domain.execution_policy import company_worker_count
-from domain.research_agentic import run_agentic_research_agent
+from domain.knowledge import require_ready_rag, retrieve_knowledge_rag_context
+from domain.research_agentic import (
+    build_research_agent_rag_query,
+    run_agentic_research_agent,
+)
 from domain.research_core import (
     _research_agent_enabled,
     agentic_research_config,
@@ -39,6 +43,38 @@ def run_research_planner(
     knowledge_rag = services.get("knowledge_rag") or {}
     llm = services.get("llm")
     action_budget = services["action_budget"]
+    planner_rag_contexts: dict[str, dict[str, Any]] = {}
+
+    # The model runner may need to switch from the embedding model to the
+    # actor model for every company. Resolve all required knowledge contexts
+    # before that first actor call, while the embedding route is warm, then
+    # reuse the cited context for the corresponding planning decision.
+    if need_agentic_planner and llm is not None:
+        for item in company_work_queue:
+            if item.get("status") == "unchanged_skipped":
+                continue
+            company = str(item["company_name"])
+            plan = build_adaptive_research_plan(
+                company, company_records.get(company, []), internet
+            )
+            rag_context = retrieve_knowledge_rag_context(
+                knowledge_rag=knowledge_rag,
+                query=build_research_agent_rag_query(
+                    agent_id="research_planner", plan=plan
+                ),
+                stage="research_planner",
+                company=company,
+                run_dir=ctx["run_dir"],
+            )
+            require_ready_rag(
+                knowledge_rag,
+                stage="research_planner",
+                company=company,
+                context=rag_context,
+                min_citations=1,
+                run_dir=ctx["run_dir"],
+            )
+            planner_rag_contexts[company] = rag_context
 
     def plan_company(_context: dict[str, Any], item: dict[str, Any]) -> dict[str, Any]:
         company = str(item["company_name"])
@@ -67,6 +103,7 @@ def run_research_planner(
                 agentic=agentic,
                 trace=trace,
                 knowledge_rag=knowledge_rag,
+                rag_context=planner_rag_contexts.get(company),
             )
             ledger = normalized_research_ledger(
                 store.read_entity_object("research_ledgers", company)

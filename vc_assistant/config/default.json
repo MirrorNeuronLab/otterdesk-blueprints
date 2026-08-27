@@ -36,7 +36,22 @@
           "*.txt",
           "*.md",
           "*.json",
-          "*.csv"
+          "*.csv",
+          "*.doc",
+          "*.docx",
+          "*.docm",
+          "*.ppt",
+          "*.pptx",
+          "*.pptm",
+          "*.xls",
+          "*.xlsx",
+          "*.xlsm",
+          "*.xlsb",
+          "*.odt",
+          "*.ods",
+          "*.odp",
+          "*.rtf",
+          "*.epub"
         ]
       },
       "input_folder": "@/examples/sample_inputs"
@@ -49,7 +64,22 @@
       "*.txt",
       "*.md",
       "*.json",
-      "*.csv"
+      "*.csv",
+      "*.doc",
+      "*.docx",
+      "*.docm",
+      "*.ppt",
+      "*.pptx",
+      "*.pptm",
+      "*.xls",
+      "*.xlsx",
+      "*.xlsm",
+      "*.xlsb",
+      "*.odt",
+      "*.ods",
+      "*.odp",
+      "*.rtf",
+      "*.epub"
     ],
     "grouping": "first_level_folder_then_infer_company_name"
   },
@@ -64,7 +94,22 @@
           ".txt",
           ".md",
           ".json",
-          ".csv"
+          ".csv",
+          ".doc",
+          ".docx",
+          ".docm",
+          ".ppt",
+          ".pptx",
+          ".pptm",
+          ".xls",
+          ".xlsx",
+          ".xlsm",
+          ".xlsb",
+          ".odt",
+          ".ods",
+          ".odp",
+          ".rtf",
+          ".epub"
         ],
         "linked_config_paths": [
           "inputs.payload.document_folder",
@@ -85,7 +130,22 @@
       "*.txt",
       "*.md",
       "*.json",
-      "*.csv"
+      "*.csv",
+      "*.doc",
+      "*.docx",
+      "*.docm",
+      "*.ppt",
+      "*.pptx",
+      "*.pptm",
+      "*.xls",
+      "*.xlsx",
+      "*.xlsm",
+      "*.xlsb",
+      "*.odt",
+      "*.ods",
+      "*.odp",
+      "*.rtf",
+      "*.epub"
     ]
   },
   "document_automation": {
@@ -378,6 +438,15 @@
     "deterministic_method_order": true
   },
   "input_skills": {
+    "anydoc": {
+      "skill": "firecrawl/anydoc",
+      "package": "firecrawl-anydoc",
+      "import": "anydoc",
+      "purpose": "public Markdown conversion for non-PDF office, spreadsheet, ebook, and CSV startup packets",
+      "enabled": true,
+      "required": true,
+      "pdf_policy": "PDF files bypass AnyDoc and are handled only by llm_ocr_skill"
+    },
     "llm_ocr": {
       "skill": "llm_ocr_skill",
       "package": "mirrorneuron-llm-ocr-skill",
