@@ -468,43 +468,43 @@
       "type": "pip",
       "source": "gar",
       "name": "mirrorneuron-email-delivery-skill",
-      "version": "1.2.31"
+      "version": "1.3.22"
     },
     {
       "type": "pip",
       "source": "gar",
       "name": "mirrorneuron-goal-work-packet-skill",
-      "version": "1.2.31"
+      "version": "1.3.22"
     },
     {
       "type": "pip",
       "source": "gar",
       "name": "mirrorneuron-marketing-email-skill",
-      "version": "1.2.31"
+      "version": "1.3.22"
     },
     {
       "type": "pip",
       "source": "gar",
       "name": "mirrorneuron-market-research-skill",
-      "version": "1.2.31"
+      "version": "1.3.22"
     },
     {
       "type": "pip",
       "source": "gar",
       "name": "mirrorneuron-rag-skill",
-      "version": "1.2.31"
+      "version": "1.3.22"
     },
     {
       "type": "pip",
       "source": "gar",
       "name": "mirrorneuron-job-response-skill",
-      "version": "1.2.31"
+      "version": "1.3.22"
     },
     {
       "type": "pip",
       "source": "gar",
       "name": "mirrorneuron-mcp-client-skill",
-      "version": "1.2.31"
+      "version": "1.3.22"
     }
   ],
   "agent_dependencies": [
@@ -512,7 +512,7 @@
       "type": "pip",
       "source": "gar",
       "name": "mn-prototype-stateful-step-agent",
-      "version": "1.2.31"
+      "version": "1.3.9"
     }
   ]
 }

@@ -76,25 +76,25 @@ def test_drug_discovery_manifest_uses_source_format_and_shared_blocks():
             "type": "pip",
             "source": "gar",
             "name": "mirrorneuron-use-generic-model-skill",
-            "version": "1.2.31",
+            "version": "1.3.22",
         },
         {
             "type": "pip",
             "source": "gar",
             "name": "mirrorneuron-job-response-skill",
-            "version": "1.2.31",
+            "version": "1.3.22",
         },
         {
             "type": "pip",
             "source": "gar",
             "name": "mirrorneuron-mcp-client-skill",
-            "version": "1.2.31",
+            "version": "1.3.22",
         },
         {
             "type": "pip",
             "source": "gar",
             "name": "mirrorneuron-rag-skill",
-            "version": "1.2.31",
+            "version": "1.3.22",
         },
     ]
     assert {
