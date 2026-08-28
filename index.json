@@ -168,24 +168,30 @@
   },
   {
     "category": "Finance",
-    "description": "A purchase research co-worker for property, rental property, car, airline ticket, and custom purchases. Put a plain-text note describing what you want to buy in the input folder, plus unfinished research, public links, or supporting evidence; it performs bounded research and writes a review-ready recommendation.",
+    "description": "A source-grounded purchasing co-worker that turns real market evidence and company planning assumptions into an approval-ready heavy-asset comparison using landed cost, discounted and risk-adjusted TCO, equivalent annual cost, unit economics, scenario sensitivity, and acquisition-method analysis.",
     "air-gapped": false,
-    "id": "purchase_research_assistant",
-    "job_name": "purchase-research-assistant",
-    "name": "Purchase Research Assistant",
-    "path": "purchase_research_assistant",
+    "id": "purchasing_manager",
+    "job_name": "purchasing-manager",
+    "name": "Purchasing Manager",
+    "path": "purchasing_manager",
     "product": {
-      "agent_role": "Purchase research co-worker that prepares source-grounded comparisons without transacting.",
-      "benefit": "Turns scattered local evidence and public purchase facts into a clear comparison, risk review, and human-checkable recommendation.",
-      "customizable_for": "Property, rental property, car, airline ticket, travel, equipment, and custom purchase research.",
-      "how_it_works": "Classifies the request, retrieves local guidance and evidence, performs bounded public research, checks total cost and policies, and writes a review packet.",
-      "input": "Plain-text purchase request, unfinished public research links, and optional local evidence; structured purchase type, budget, location, priorities, and constraints remain available as fallbacks.",
-      "output": "Purchase comparison, deterministic evidence, public-source ledger, RAG citations, risk flags, evidence gaps, and review-only recommendation.",
-      "problem": "Purchase decisions depend on scattered prices, fees, policies, condition, availability, and source quality that are easy to miss across documents and public pages.",
+      "agent_role": "Procurement decision-support co-worker that prepares source-grounded, numerically rigorous supplier and acquisition-method comparisons without transacting.",
+      "benefit": "Turns scattered requirements, market observations, supplier terms, and company economic assumptions into a clear landed-budget, lifecycle-cost, risk, scenario, and approval decision packet.",
+      "customizable_for": "Office equipment, AI workstations, machinery, vehicles, software, services, supplier sourcing, property, travel, and custom purchase research.",
+      "how_it_works": "Frames technical and commercial requirements, retrieves approved local evidence, performs bounded real-source research, screens hard constraints, models landed acquisition and discounted/risk-adjusted lifecycle cost, evaluates scenarios and acquisition methods, independently audits the recommendation, and writes a review packet.",
+      "input": "Plain-text procurement request, supplier evidence, public research links, local documents, and approved numerical assumptions for horizon, utilization, labor, energy, downtime, maintenance, discount rate, and residual value; structured fallbacks remain available.",
+      "output": "Supplier comparison, source-provenance ledger, landed acquisition cost, financial and risk-adjusted NPV TCO, equivalent annual cost, productive-unit economics, scenario sensitivity, cash/finance/lease status, RAG citations, risks, approval checklist, evidence gaps, and review-only recommendation.",
+      "problem": "Heavy-asset decisions depend on fragmented requirements, volatile market facts, acquisition costs, recurring operations, downtime, residual value, transaction terms, technical fit, and approval evidence that sticker-price comparisons miss.",
       "runtime_features": [
         "local and user-document RAG",
         "privacy-safe public research",
-        "total-cost and policy review",
+        "landed acquisition cost and hard-constraint review",
+        "discounted and risk-adjusted total cost of ownership",
+        "equivalent annual and productive-unit economics",
+        "low/base/stress scenario sensitivity",
+        "cash, financing, and lease term analysis",
+        "independent procurement recommendation audit",
+        "approval-ready supplier decision packet",
         "source_refs",
         "bounded specialist agents",
         "product input contract",
@@ -194,17 +200,18 @@
         "artifact records",
         "run-store observability dashboard"
       ],
-      "simulation_type": "General purchase research with local RAG and public-source comparison.",
-      "target_users": "Consumers, travelers, vehicle buyers, property buyers, renters, and purchase analysts."
+      "simulation_type": "Procurement decision support with real-source market evidence, local RAG, deterministic lifecycle economics, acquisition-method analysis, and human approval gates.",
+      "target_users": "Engineering operations, IT buyers, finance operations, procurement teams, office managers, purchase analysts, and other business request owners."
     },
-    "workflow_id": "purchase_research_assistant_v1",
+    "workflow_id": "purchasing_manager_v1",
     "response_service": {
       "enabled": true
     },
     "starter_questions": [
-      "What purchase can you help me research?",
-      "What is the latest recommendation and supporting evidence?",
-      "Which costs, risks, or evidence gaps remain?"
+      "What supplier requirements can you help me compare?",
+      "Which real market options pass the landed-cost and technical gates?",
+      "What are the financial NPV TCO, risk-adjusted TCO, EAC, and scenario range?",
+      "Which assumptions, transaction terms, approvals, or evidence gaps remain before a purchase order?"
     ]
   },
   {
@@ -351,12 +358,12 @@
   },
   {
     "category": "Science",
-    "description": "A research co-scientist that combines deterministic evidence and verification stages with one isolated OpenShell worker for autonomous, tool-driven exploration and bounded generated-code experiments.",
+    "description": "A research assistant. Give it a research goal, constraints, and an approved input folder of papers, notes, datasets, or evidence; it prepares a source-grounded research packet, evidence ledger, ranked hypotheses, and a review-only brief in the output folder.",
     "air-gapped": false,
-    "id": "research_coscientist",
-    "job_name": "research-coscientist",
-    "name": "Research Co-Scientist",
-    "path": "research_coscientist",
+    "id": "research_assistant",
+    "job_name": "research-assistant",
+    "name": "Research Assistant",
+    "path": "research_assistant",
     "product": {
       "agent_role": "Multi-agent research team that finds, evaluates, critiques, and drafts evidence-grounded research directions.",
       "benefit": "Turns a research goal and approved evidence into a traceable, adversarially reviewed research packet before any experiment or claim is made.",
@@ -378,7 +385,7 @@
       "target_users": "Researchers, scientists, engineers, analysts, and research leads."
     },
     "type": "batch",
-    "workflow_id": "research_coscientist_v1",
+    "workflow_id": "research_assistant_v1",
     "response_service": {
       "enabled": true
     },
@@ -595,5 +602,45 @@
     },
     "type": "service",
     "workflow_id": "gtm_assistant_v4"
+  },
+  {
+    "category": "Engineering",
+    "description": "Software Architecture Advisor is a read-only, air-gapped software-architecture co-worker. Give it a pre-staged source input folder or a GitHub repository URL that OtterDesk materializes before the isolated run; it maps structural evidence and writes an architecture assessment plus copy-ready, implementation-safe prompts to the output folder without changing source code.",
+    "air-gapped": true,
+    "id": "software_architecture_advisor",
+    "job_name": "software-architecture-advisor",
+    "name": "Software Architecture Advisor",
+    "path": "software_architecture_advisor",
+    "product": {
+      "agent_role": "Read-only Software Architecture Advisor.",
+      "benefit": "Turns a bounded source snapshot into triangulated architecture findings, explicit counter-evidence, migration options, and implementation prompts that a separate coding agent can use safely.",
+      "customizable_for": "Legacy-system modernization, monolith modularization, dependency-risk review, interface stabilization, change-risk analysis, and engineering planning.",
+      "how_it_works": "Validates a local or pre-staged GitHub source snapshot; builds authoritative static evidence with a bundled offline skill; runs eight required grounded passes through the runtime-selected default local model; adversarially audits every finding and prompt; then deterministically publishes only an approved read-only advice bundle.",
+      "input": "One local source folder, or one HTTPS GitHub URL materialized into a source folder by the connected intake service before the air-gapped run; optional branch and architecture focus.",
+      "output": "Architecture assessment, normalized fact database, numbered deep-dive reports, adversarial review, migration options, and standalone copy-ready prompts for another AI coding agent.",
+      "problem": "Teams need credible architectural improvement plans without giving an analysis workflow permission to execute, alter, or upload their code.",
+      "runtime_features": [
+        "air-gapped analysis runtime",
+        "platform-pre-staged GitHub snapshots",
+        "blueprint-owned deep static evidence skill",
+        "48 GB minimum host memory",
+        "loopback-only local model",
+        "eight required fail-closed LLM analysis passes",
+        "metadata-only model usage trace",
+        "read-only source guardrail",
+        "counter-evidence and confidence calibration",
+        "copy-ready coding-agent prompts"
+      ],
+      "simulation_type": "Offline deep static evidence collection plus eight serial local-model passes for reconstruction, cross-cutting analysis, finding synthesis, adversarial review, prompt authoring, report synthesis, and final audit.",
+      "target_users": "Staff engineers, architects, technical leads, maintainers, and engineering managers."
+    },
+    "type": "batch",
+    "workflow_id": "software_architecture_advisor_v3",
+    "response_service": {"enabled": true},
+    "starter_questions": [
+      "What source evidence does this architecture review use?",
+      "What were the highest-priority architectural risks in the latest assessment?",
+      "Which improvement prompt should a coding agent implement first?"
+    ]
   }
 ]

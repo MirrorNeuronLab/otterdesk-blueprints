@@ -1,0 +1,184 @@
+"""Model and deterministic final checks before any advisory artifact is published."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Any
+
+from .model_analysis import STAGES, fake_mode, known_fact_ids, known_paths, run_model_stage, string_list, structured_packet, text, validate_references
+from .report_drafting import SECTION_NAMES
+from .state import read_state, write_state
+
+
+_AUDIT_CHECKS = (
+    "claims_are_fact_grounded",
+    "metrics_are_deterministic",
+    "adversarial_dispositions_are_complete",
+    "prompts_are_safe_and_reversible",
+    "report_coverage_is_complete",
+)
+
+
+def audit_advice(
+    ctx: dict[str, Any], *, llm_client: Any | None = None, **_options: Any
+) -> dict[str, Any]:
+    state = read_state(ctx)
+    preliminary = _deterministic_checks(ctx, state, include_final_usage=False)
+    known = known_fact_ids(state)
+    fallback_verdict = "approve" if all(item["passed"] for item in preliminary) else "reject"
+    fallback = {
+        "verdict": fallback_verdict,
+        "summary": "The complete draft package is approved only when every deterministic grounding, coverage, usage, and safety check passes.",
+        "checks": [
+            {
+                "name": name,
+                "status": fallback_verdict,
+                "rationale": "Deterministic package checks passed." if fallback_verdict == "approve" else "One or more deterministic package checks require revision.",
+                "fact_ids": sorted(known)[:20],
+            }
+            for name in _AUDIT_CHECKS
+        ],
+        "rejected_claims": [],
+        "required_revisions": [] if fallback_verdict == "approve" else [item["name"] for item in preliminary if not item["passed"]],
+    }
+    final_model_audit = run_model_stage(
+        ctx,
+        state,
+        stage="final_audit",
+        task="Reject unsupported claims, unresolved citations, altered metrics, unsafe prompts, missing adversarial dispositions, or missing report coverage.",
+        context=structured_packet(
+            state,
+            preliminary_checks=preliminary,
+            report_draft=state.get("report_draft") or {},
+            findings=state.get("findings") or [],
+            prompts=state.get("prompt_pack") or [],
+            adversarial_review=state.get("adversarial_review") or {},
+            prior_llm_stages={
+                name: record
+                for name, record in ((state.get("llm_analysis") or {}).get("stages") or {}).items()
+                if name != "final_audit"
+            },
+        ),
+        fallback=fallback,
+        validator=lambda value: _validate_model_audit(value, fact_ids=known),
+        llm_client=llm_client,
+    )
+    checks = _deterministic_checks(ctx, state, include_final_usage=True)
+    checks.append({"name": "model_final_audit_approved", "passed": final_model_audit["verdict"] == "approve"})
+    audit = {
+        "status": "passed" if all(item["passed"] for item in checks) else "needs_revision",
+        "checks": checks,
+        "model_audit": final_model_audit,
+        "review_required": True,
+        "publication_authorized": all(item["passed"] for item in checks),
+    }
+    state["audit"] = audit
+    write_state(ctx, state)
+    if audit["status"] != "passed":
+        failed = ", ".join(item["name"] for item in checks if not item["passed"])
+        raise ValueError(f"Architecture advice failed final audit: {failed}")
+    return audit
+
+
+def _deterministic_checks(
+    ctx: dict[str, Any], state: dict[str, Any], *, include_final_usage: bool
+) -> list[dict[str, Any]]:
+    findings = state.get("findings") or []
+    prompts = state.get("prompt_pack") or []
+    facts = known_fact_ids(state)
+    paths = known_paths(state)
+    reviews = {
+        item.get("finding_id"): item
+        for item in ((state.get("adversarial_review") or {}).get("finding_reviews") or [])
+    }
+    draft = state.get("report_draft") or {}
+    sections = draft.get("sections") if isinstance(draft.get("sections"), dict) else {}
+    analysis = state.get("llm_analysis") or {}
+    aggregate = analysis.get("aggregate_usage") or {}
+    quick = fake_mode(ctx.get("config") or {})
+    checks = [
+        {"name": "source_was_not_executed", "passed": (state.get("source") or {}).get("source_execution") == "forbidden"},
+        {"name": "network_egress_forbidden", "passed": (state.get("source") or {}).get("network_egress") == "forbidden"},
+        {"name": "findings_have_evidence", "passed": bool(findings) and all((item.get("evidence") or {}).get("fact_ids") for item in findings)},
+        {"name": "finding_origins_are_declared", "passed": all(item.get("origin") in {"deterministic", "llm_grounded"} for item in findings)},
+        {"name": "finding_fact_ids_resolve", "passed": all(set((item.get("evidence") or {}).get("fact_ids") or []).issubset(facts) for item in findings)},
+        {"name": "finding_paths_exist", "passed": all(set((item.get("evidence") or {}).get("paths") or []).issubset(paths) for item in findings)},
+        {"name": "high_findings_are_triangulated", "passed": all(item.get("severity") not in {"high", "critical"} or len(set((item.get("evidence") or {}).get("signal_types") or [])) >= 2 for item in findings)},
+        {"name": "adversarial_reviews_cover_findings", "passed": all(item["finding_id"] in reviews and reviews[item["finding_id"]].get("verdict") != "reject" for item in findings)},
+        {"name": "counter_evidence_was_considered", "passed": all(bool(item.get("counter_evidence_considered")) for item in findings)},
+        {"name": "findings_offer_options", "passed": all(len(item.get("alternative_options") or []) >= 2 for item in findings)},
+        {"name": "prompts_cover_findings", "passed": {item.get("finding_id") for item in prompts} == {item.get("finding_id") for item in findings}},
+        {"name": "prompts_include_safeguards", "passed": all(all(section in item.get("body", "") for section in ("Architecture intent", "Counter-evidence to check", "Migration sequence", "Tests", "Non-goals and safeguards", "Rollback considerations", "Stop conditions")) for item in prompts)},
+        {"name": "report_coverage_is_complete", "passed": set(sections) == set(SECTION_NAMES) and set(draft.get("coverage") or []) == set(SECTION_NAMES)},
+        {"name": "report_fact_ids_resolve", "passed": all(set((item or {}).get("fact_ids") or []).issubset(facts) for item in sections.values())},
+        {"name": "llm_trace_is_metadata_only", "passed": _trace_is_metadata_only(Path(ctx["run_dir"]) / "llm_trace.jsonl")},
+    ]
+    if include_final_usage:
+        stages = analysis.get("stages") if isinstance(analysis.get("stages"), dict) else {}
+        checks.extend([
+            {"name": "all_eight_llm_stages_completed", "passed": list(stages) == list(STAGES) and all((stages[name] or {}).get("status") in {"completed", "completed_fake"} for name in STAGES)},
+            {"name": "llm_action_budget_exact", "passed": int(aggregate.get("calls") or 0) == len(STAGES)},
+            {"name": "live_llm_fallbacks_absent", "passed": quick or int(aggregate.get("fallback_calls") or 0) == 0},
+            {"name": "live_provider_responses_present", "passed": quick or int(aggregate.get("provider_response_count") or 0) >= len(STAGES)},
+            {"name": "live_provider_tokens_present", "passed": quick or (int(aggregate.get("input_tokens") or 0) > 0 and int(aggregate.get("output_tokens") or 0) > 0)},
+        ])
+    return checks
+
+
+def _validate_model_audit(
+    value: dict[str, Any], *, fact_ids: set[str]
+) -> dict[str, Any] | None:
+    if not isinstance(value, dict):
+        return None
+    verdict = str(value.get("verdict") or "").lower()
+    raw_checks = value.get("checks")
+    if verdict not in {"approve", "reject"} or not isinstance(raw_checks, list):
+        return None
+    checks = []
+    seen = set()
+    for item in raw_checks:
+        if not isinstance(item, dict):
+            return None
+        name = str(item.get("name") or "")
+        status = str(item.get("status") or "").lower()
+        cited = validate_references(item.get("fact_ids"), fact_ids)
+        if name not in _AUDIT_CHECKS or name in seen or status not in {"approve", "reject"} or cited is None:
+            return None
+        seen.add(name)
+        checks.append({"name": name, "status": status, "rationale": text(item.get("rationale"), maximum=1800), "fact_ids": cited})
+    if seen != set(_AUDIT_CHECKS):
+        return None
+    rejected = string_list(value.get("rejected_claims"), maximum_items=20)
+    revisions = string_list(value.get("required_revisions"), maximum_items=20)
+    summary = text(value.get("summary"), maximum=3600)
+    if rejected is None or revisions is None or not summary:
+        return None
+    if verdict == "approve" and any(item["status"] != "approve" for item in checks):
+        return None
+    return {"verdict": verdict, "summary": summary, "checks": checks, "rejected_claims": rejected, "required_revisions": revisions}
+
+
+def _trace_is_metadata_only(path: Path) -> bool:
+    if not path.is_file():
+        return False
+    forbidden = {"prompt", "system_prompt", "user_prompt", "bounded_context", "context", "excerpt", "source", "response", "output"}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        try:
+            value = json.loads(line)
+        except json.JSONDecodeError:
+            return False
+        if _contains_forbidden_key(value, forbidden):
+            return False
+    return True
+
+
+def _contains_forbidden_key(value: Any, forbidden: set[str]) -> bool:
+    if isinstance(value, dict):
+        return any(str(key).lower() in forbidden or _contains_forbidden_key(item, forbidden) for key, item in value.items())
+    if isinstance(value, list):
+        return any(_contains_forbidden_key(item, forbidden) for item in value)
+    return False
+
+
+__all__ = ["audit_advice"]

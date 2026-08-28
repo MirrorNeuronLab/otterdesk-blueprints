@@ -1,0 +1,60 @@
+{
+  "blueprint_id": "purchasing_manager",
+  "name": "Purchasing Manager",
+  "category": "finance",
+  "description": "A procurement-oriented purchasing co-worker for source-backed supplier, equipment, software, service, property, vehicle, trip, and heavy-asset lifecycle comparisons.",
+  "llm_role": "AI assistant for evaluating procurement requirements and drafting source-grounded, numerically rigorous decision packets.",
+  "agent_responsibilities": [
+    "translate purchase needs into testable technical and commercial requirements",
+    "retrieve local guidance, quotes, and approved user evidence",
+    "research real public product specifications, supplier terms, prices, stock, and risks with URLs and timestamps",
+    "calculate landed acquisition cost, discounted and risk-adjusted TCO, equivalent annual cost, productive-unit economics, and scenario sensitivity",
+    "compare cash, financing, lease, rental, or service methods only when complete real terms are available",
+    "write a review-only procurement decision packet with source references, assumptions, and approval dependencies"
+  ],
+  "features": ["local_document_evidence", "knowledge_rag", "privacy_safe_public_research", "source_provenance", "landed_acquisition_cost", "discounted_total_cost_of_ownership", "risk_adjusted_tco", "equivalent_annual_cost", "scenario_sensitivity", "cash_finance_lease_analysis", "supplier_comparison", "bounded_specialist_agents", "approval_ready_decision_packet"],
+  "metrics": [
+    {"name": "evidence_completeness", "initial": 40, "drift": 0, "volatility": 5, "minimum": 0, "maximum": 100, "label": "Evidence completeness"},
+    {"name": "total_cost_confidence", "initial": 30, "drift": 0, "volatility": 5, "minimum": 0, "maximum": 100, "label": "Total-cost confidence"},
+    {"name": "source_quality", "initial": 50, "drift": 0, "volatility": 5, "minimum": 0, "maximum": 100, "label": "Source quality"},
+    {"name": "recommendation_confidence", "initial": 25, "drift": 0, "volatility": 5, "minimum": 0, "maximum": 100, "label": "Recommendation confidence"}
+  ],
+  "actions": [
+    {"name": "buy", "description": "Prepare a buy recommendation for human review.", "effects": {"recommendation_confidence": 5, "evidence_completeness": 2}},
+    {"name": "consider", "description": "Prepare a consider recommendation for human review.", "effects": {"recommendation_confidence": 3, "evidence_completeness": 1}},
+    {"name": "wait", "description": "Recommend waiting for better timing or evidence.", "effects": {"recommendation_confidence": 1, "source_quality": 2}},
+    {"name": "avoid", "description": "Flag a material blocker or conflict for human review.", "effects": {"recommendation_confidence": 2, "source_quality": 1}},
+    {"name": "insufficient_evidence", "description": "Decline to recommend because evidence is insufficient.", "effects": {"evidence_completeness": 1}}
+  ],
+  "primary_metric": "recommendation_confidence",
+  "objective": "maximize",
+  "risk_metric": "source_quality",
+  "artifact_type": "source-grounded procurement decision packet",
+  "entity_label": "supplier_option",
+  "entity_names": ["Micro Center", "Dell", "B&H Photo Video"],
+  "purchase_types": ["property", "rental_property", "car", "airline_ticket", "computer", "custom"],
+  "default_inputs": {
+    "purchase_type": "computer",
+    "item_description": "Source one supportable local-AI desktop for a Boston engineering office within a $5,000 landed-acquisition budget.",
+    "budget": 5000,
+    "location": "Boston, MA",
+    "priorities": ["technical fit", "landed budget adherence", "risk-adjusted lifecycle economics", "current availability", "supportability"],
+    "constraints": {"min_gpu_vram_gb": 16, "min_system_ram_gb": 64, "min_storage_tb": 2, "min_warranty_years": 1, "available_for_purchase_required": true},
+    "analysis": {"horizon_years": 3, "discount_rate": 0.08, "tax_rate": 0.0625, "electricity_rate_per_kwh": 0.2452, "active_hours_per_year": 1000, "idle_hours_per_year": 1000, "loaded_labor_cost_per_hour": 95, "downtime_cost_per_hour": 190, "expected_downtime_hours_per_year": 6, "annual_maintenance_reserve": 150, "residual_value_percent": 0.1},
+    "input_folder": "@/examples/sample_inputs",
+    "output_folder": "~/Downloads/purchasing_manager"
+  },
+  "workflow_stages": [
+    "procurement_intake_and_requirements",
+    "source_backed_market_and_document_evidence",
+    "knowledge_rag_retrieval",
+    "public_product_and_supplier_research",
+    "landed_cost_discounted_tco_risk_and_scenarios",
+    "cash_finance_lease_method_analysis",
+    "supplier_option_comparison",
+    "independent_recommendation_audit",
+    "approval_ready_decision_packet"
+  ],
+  "recommendation_labels": ["buy", "consider", "wait", "avoid", "insufficient_evidence"],
+  "blocked_actions": ["buy_or_book", "pay_or_transfer_funds", "submit_application_or_offer", "contact_seller_provider_or_broker", "issue_purchase_order", "accept_supplier_quote", "sign_supplier_agreement"]
+}

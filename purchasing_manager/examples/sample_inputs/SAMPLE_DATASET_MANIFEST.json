@@ -1,0 +1,9 @@
+{
+  "schema": "otterdesk.sample_dataset.v1",
+  "blueprint_id": "purchasing_manager",
+  "description": "Office procurement request with company planning assumptions and time-stamped, URL-backed public AI-system observations for testing availability, hard constraints, landed acquisition cost, discounted and risk-adjusted TCO, equivalent annual cost, scenario sensitivity, acquisition-method gaps, and review-only recommendations.",
+  "files": [
+    {"path": "purchase_request.txt", "type": "plain_text_business_procurement_request_and_public_research_leads", "contains_pii": false, "intended_use": "editable office local-AI system procurement analysis"},
+    {"path": "observed_ai_systems.json", "type": "time_stamped_public_market_observations_with_source_urls", "contains_pii": false, "intended_use": "source provenance, hard-gate, lifecycle-economics, supplier-term, and evidence-gap comparison"}
+  ]
+}

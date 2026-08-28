@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import json
+
+from mn_sdk.blueprint_support import load_runtime_config
+
 from blueprint_modernization_support import (
     ROOT,
     assert_modular_payload,
@@ -16,6 +20,96 @@ EXPECTED_STEPS = [
     "reconcile_legal_review",
     "publish_legal_review_packet",
 ]
+
+
+def test_legal_default_runtime_is_manifest_projected_and_declarative():
+    blueprint = ROOT / "legal_assistant"
+    manifest = source_manifest("legal_assistant")
+    default_config = json.loads(
+        (blueprint / "config" / "default.json").read_text(encoding="utf-8")
+    )
+    resolved = load_runtime_config(blueprint / "payloads" / "runtime" / "runtime.py")
+
+    assert manifest["manifest"]["policies"]["recovery_mode"] == "manual_recover"
+    assert manifest["config"]["manifest_defaults"][:3] == [
+        "agentic_research",
+        "knowledge_rag",
+        "llm",
+    ]
+    assert set(default_config["llm"]) == {"strict_json", "configs", "require_live"}
+    assert "agentic_research" not in default_config
+    assert default_config["knowledge_rag"] == {"backend": "milvus_lite"}
+    assert "resources" not in default_config
+    assert "human_control" not in default_config
+    assert "input_adapters" not in default_config["interfaces"]
+    declared_runtime = json.dumps(
+        {"manifest": manifest, "config": default_config}
+    ).lower()
+    assert "lightonocr" not in declared_runtime
+    assert "rag-embedding" not in declared_runtime
+
+    assert resolved["identity"] == {
+        "blueprint_id": manifest["identity"]["id"],
+        "name": manifest["identity"]["name"],
+    }
+    assert resolved["agentic_research"] == manifest["agentic_research"]
+    assert resolved["knowledge_rag"]["knowledge_dir"] == "@/payloads/knowledge"
+    assert resolved["resources"] == manifest["requirements"]
+    assert resolved["human_control"] == manifest["workflow"]["policy"]["human"]
+    assert (
+        resolved["interfaces"]["input_adapters"]
+        == manifest["contracts"]["input_adapters"]["supported"]
+    )
+    for agent_id, actor in resolved["llm"]["agents"].items():
+        assert actor["role"] == manifest["agents"]["registry"][agent_id]["role"]
+
+
+def test_legal_runtime_uses_the_platform_staged_input_folder(tmp_path):
+    staged_inputs = tmp_path / "staged-inputs"
+    staged_inputs.mkdir()
+    (staged_inputs / "packet.txt").write_text(
+        "Supplier: Staged Vendor\nInvoice: STAGED-1\nTotal: $10.00\n",
+        encoding="utf-8",
+    )
+    output_folder = tmp_path / "outputs"
+    runs_root = tmp_path / "runs"
+
+    result = run_payload_script(
+        "legal_assistant",
+        f"""
+import json
+from pathlib import Path
+
+from domain.runtime_services import runtime_context_for_step
+
+context = runtime_context_for_step(
+    inputs={{
+        "document_folder": None,
+        "input_folder": {str(staged_inputs)!r},
+        "output_folder": {str(output_folder)!r},
+    }},
+    runs_root={str(runs_root)!r},
+    run_id="staged-input-run",
+)
+persisted = json.loads(
+    (Path({str(runs_root)!r}) / "staged-input-run" / "workflow_state" / "runtime_context.json").read_text()
+)
+print(json.dumps({{
+    "document_folder": str(context["document_folder"]),
+    "payload_document_folder": context["payload"]["document_folder"],
+    "payload_input_folder": context["payload"]["input_folder"],
+    "persisted_document_folder": persisted["document_folder"],
+}}))
+""",
+    )
+
+    expected = str(staged_inputs)
+    assert result == {
+        "document_folder": expected,
+        "payload_document_folder": expected,
+        "payload_input_folder": expected,
+        "persisted_document_folder": expected,
+    }
 
 
 def test_legal_manifest_compiles_parallel_invoice_and_contract_lanes():

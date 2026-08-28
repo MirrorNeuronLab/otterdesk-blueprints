@@ -15,17 +15,9 @@ def runtime_context_path(run_dir: Path) -> Path:
     return run_dir / "workflow_state" / "runtime_context.json"
 
 def persist_runtime_context(ctx: dict[str, Any]) -> None:
-    write_json(
-        runtime_context_path(ctx["run_dir"]),
-        {
-            "blueprint_id": BLUEPRINT_ID,
-            "run_id": ctx["run_id"],
-            "started_at": ctx["started_at"],
-            "output_folder": str(ctx["output_folder"]),
-            "run_dir": str(ctx["run_dir"]),
-            "document_folder": str(ctx["document_folder"]),
-            "payload": ctx["payload"],
-        },
+    persist_blueprint_run_context(
+        ctx["_base_context"],
+        document_folder=str(ctx["document_folder"]),
     )
 
 def write_failed_run(ctx: dict[str, Any], error: Exception | str) -> None:

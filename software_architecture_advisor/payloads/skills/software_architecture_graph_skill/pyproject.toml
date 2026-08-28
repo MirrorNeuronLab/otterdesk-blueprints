@@ -1,0 +1,17 @@
+[build-system]
+# Match the bundled private-skill contract: DockerWorker's Python image already
+# supplies setuptools, so packaging this source skill never needs a network
+# download after the air-gapped bundle has been prepared.
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mn-software-architecture-graph-skill"
+version = "1.0.0"
+description = "Air-gapped static source inventory and architecture graph helpers."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+
+[tool.setuptools.packages.find]
+where = ["src"]

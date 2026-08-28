@@ -12,7 +12,7 @@ RAG_BLUEPRINTS = {
     "drug_discovery_research_assistant",
     "financial_advisor",
     "legal_assistant",
-    "purchase_research_assistant",
+    "purchasing_manager",
     "cctv_operator",
 }
 

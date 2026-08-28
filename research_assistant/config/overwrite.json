@@ -1,0 +1,14 @@
+{
+  "inputs": {
+    "payload": {
+      "research_goal": "Evaluate a shared robotics simulation infrastructure for a review-only pilot across manipulation, navigation, and multi-robot coordination teams.",
+      "research_domain": "robotics",
+      "research_question": "Which simulation infrastructure choices should be tested first to reduce onboarding time and improve experiment comparability, reproducibility, and provenance?",
+      "scope": "Desk research and offline simulation planning only; no live robot or production simulator changes.",
+      "success_criteria": ["testable hypotheses", "traceable evidence", "falsifiable experiment plan", "explicit uncertainty"],
+      "constraints": {"no_live_system_changes": true, "require_human_review": true, "max_hypotheses": 3},
+      "input_folder": "@/examples/sample_inputs",
+      "output_folder": "~/Downloads/research_assistant"
+    }
+  }
+}

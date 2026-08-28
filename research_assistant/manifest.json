@@ -1,0 +1,996 @@
+{
+  "air-gapped": false,
+  "agentic_research": {
+    "agent_ids": [
+      "research_goal_framer",
+      "research_evidence_curator",
+      "autonomous_researcher",
+      "research_packet_auditor",
+      "research_report_writer"
+    ],
+    "allow_generated_code": true,
+    "allow_goal_refinement": true,
+    "allow_prompt_creation": true,
+    "allowed_tools": [
+      "document_extract",
+      "browser_search",
+      "browser_page",
+      "knowledge_retrieve",
+      "hypothesis_rank",
+      "generated_python",
+      "finish"
+    ],
+    "default_mode": "isolated_autonomous_research",
+    "enabled": true,
+    "generated_code": {
+      "language": "python",
+      "max_memory_mb": 256,
+      "max_output_chars": 20000,
+      "timeout_seconds": 15,
+      "workspace": "generated_research"
+    },
+    "isolation": {
+      "autonomous_node": "autonomous_researcher",
+      "runner": "docker_worker",
+      "shared_job_container": true,
+      "single_job_instance": true
+    },
+    "max_iterations_per_agent": 3,
+    "max_tool_calls_per_agent": 4,
+    "max_total_tool_calls": 12,
+    "note": "One job-scoped Docker worker owns the model-backed source analysis, question decomposition, competing-hypothesis generation, per-hypothesis adversarial review, gap-directed probes, evidence revision, experiment design, meta-review, and executive synthesis. Deterministic stages prepare evidence and verify all outputs.",
+    "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run"
+  },
+  "agents": {
+    "registry": {
+      "research_goal_framer": {
+        "handler": "agents.research_goal_framer",
+        "role": "Research Goal Framer"
+      },
+      "research_evidence_curator": {
+        "handler": "agents.research_evidence_curator",
+        "role": "Research Evidence Curator"
+      },
+      "autonomous_researcher": {
+        "handler": "agents.autonomous_researcher",
+        "role": "Autonomous Researcher"
+      },
+      "research_packet_auditor": {
+        "handler": "agents.research_packet_auditor",
+        "role": "Research Packet Auditor"
+      },
+      "research_report_writer": {
+        "handler": "agents.research_report_writer",
+        "role": "Research Report Writer"
+      }
+    }
+  },
+  "apiVersion": "mn.workflow/v1",
+  "config": {
+    "default": "config/default.json",
+    "embed": true,
+    "manifest_defaults": [
+      "llm",
+      "knowledge_rag",
+      "agentic_research",
+      {
+        "from": "requirements",
+        "to": "resources"
+      },
+      {
+        "from": "workflow.policy.human",
+        "to": "human_control"
+      },
+      {
+        "from": "contracts.input_adapters.supported",
+        "to": "interfaces.input_adapters"
+      },
+      {
+        "from": "metadata.memory_layer",
+        "to": "memory_layer"
+      },
+      {
+        "from": "identity.id",
+        "to": "identity.blueprint_id"
+      },
+      {
+        "from": "identity.name",
+        "to": "identity.name"
+      }
+    ]
+  },
+  "contracts": {
+    "events": {
+      "human_stream": "human.jsonl",
+      "stream": "events.jsonl",
+      "types": [
+        "run_started",
+        "inputs_loaded",
+        "large_context_seeded",
+        "simulation_step_started",
+        "memory_context_compiled",
+        "llm_decision",
+        "benchmark_step_scored",
+        "simulation_state_updated",
+        "run_completed",
+        "blueprint_status",
+        "blueprint_phase_started",
+        "blueprint_phase_completed",
+        "blueprint_phase_failed",
+        "artifact_written",
+        "human_notice",
+        "human_input_requested",
+        "human_input_received",
+        "human_input_timeout",
+        "human_decision_applied",
+        "output_skill_started",
+        "output_skill_completed",
+        "output_skill_failed",
+        "autonomous_research_started",
+        "autonomous_research_completed",
+        "autonomous_prompt_created",
+        "autonomous_tool_called",
+        "generated_code_executed",
+        "deterministic_verification_completed"
+      ]
+    },
+    "input_adapters": {
+      "default": "mock",
+      "resolved_artifact": "inputs.json",
+      "supported": [
+        "mock",
+        "json",
+        "file",
+        "env_json"
+      ]
+    },
+    "inputs": {
+      "constraints": {
+        "description": "Safety, ethics, budget, data, or policy constraints.",
+        "example": {
+          "no_live_system_changes": true
+        },
+        "privacy": "confidential",
+        "required": false,
+        "type": "domain_value"
+      },
+      "input_folder": {
+        "description": "Local papers, notes, datasets, and evidence approved for this run.",
+        "example": "examples/sample_inputs",
+        "path_kind": "directory",
+        "privacy": "confidential",
+        "required": false,
+        "type": "local_path"
+      },
+      "output_folder": {
+        "description": "Folder for the research packet and supporting ledgers.",
+        "example": "~/Downloads/research_assistant",
+        "path_kind": "directory",
+        "privacy": "confidential",
+        "required": false,
+        "type": "local_path"
+      },
+      "research_domain": {
+        "description": "Optional domain used to frame terminology and methods.",
+        "example": "robotics",
+        "privacy": "confidential",
+        "required": false,
+        "type": "domain_value"
+      },
+      "research_goal": {
+        "description": "The outcome, mechanism, or problem to investigate.",
+        "example": "Evaluate shared simulation infrastructure for a review-only robotics pilot.",
+        "privacy": "confidential",
+        "required": true,
+        "type": "domain_value"
+      },
+      "research_question": {
+        "description": "Optional answerable question or decision boundary.",
+        "example": "Which infrastructure choices should be tested first for reproducible simulator runs?",
+        "privacy": "confidential",
+        "required": false,
+        "type": "domain_value"
+      },
+      "scope": {
+        "description": "Optional exclusions, time horizon, and permitted research activities.",
+        "example": "Desk research and offline simulation planning only; no live robot changes.",
+        "privacy": "confidential",
+        "required": false,
+        "type": "domain_value"
+      },
+      "seed_hypotheses": {
+        "description": "Optional human-provided ideas to challenge and refine. Each item may be a statement string or a structured test contract with prediction, counterargument, disconfirming observation, evidence refs, assumptions, and experiment fields.",
+        "example": [
+          {
+            "statement": "Pinned ROS 2 container images may reduce onboarding time.",
+            "prediction": "Median time-to-first-reproducible-run is at least 25% lower than the matched baseline.",
+            "evidence_support": ["local:research_notes.md"]
+          }
+        ],
+        "privacy": "confidential",
+        "required": false,
+        "type": "domain_value"
+      },
+      "success_criteria": {
+        "description": "Optional criteria for a useful research packet.",
+        "example": [
+          "testable hypotheses",
+          "traceable evidence"
+        ],
+        "privacy": "confidential",
+        "required": false,
+        "type": "domain_value"
+      }
+    },
+    "outputs": {
+      "artifacts": [
+        {
+          "artifact_id": "run_metadata",
+          "mime_type": "application/json",
+          "path": "run.json",
+          "producer": "local_run_store",
+          "schema_version": "mn.artifact.run_summary.v1",
+          "source_refs": [],
+          "type": "run_summary"
+        },
+        {
+          "artifact_id": "resolved_config",
+          "mime_type": "application/json",
+          "path": "config.json",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.config.v1",
+          "source_refs": [],
+          "type": "config"
+        },
+        {
+          "artifact_id": "resolved_inputs",
+          "mime_type": "application/json",
+          "path": "inputs.json",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.inputs.v1",
+          "source_refs": [],
+          "type": "inputs"
+        },
+        {
+          "artifact_id": "event_stream",
+          "mime_type": "application/x-jsonlines",
+          "path": "events.jsonl",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.events.v1",
+          "source_refs": [],
+          "type": "events"
+        },
+        {
+          "artifact_id": "result",
+          "mime_type": "application/json",
+          "path": "result.json",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.response.v1",
+          "source_refs": [
+            "inputs.json",
+            "events.jsonl"
+          ],
+          "type": "result"
+        },
+        {
+          "artifact_id": "final_artifact",
+          "mime_type": "application/json",
+          "path": "final_artifact.json",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.final_artifact.v1",
+          "source_refs": [
+            "inputs.json",
+            "events.jsonl",
+            "result.json"
+          ],
+          "type": "final_artifact"
+        },
+        {
+          "artifact_id": "logs",
+          "mime_type": "application/x-jsonlines",
+          "path": "logs.jsonl",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.logs.v1",
+          "source_refs": [
+            "events.jsonl"
+          ],
+          "type": "logs"
+        },
+        {
+          "artifact_id": "resources",
+          "mime_type": "application/x-jsonlines",
+          "path": "resources.jsonl",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.resources.v1",
+          "source_refs": [
+            "run.json"
+          ],
+          "type": "resource_samples"
+        },
+        {
+          "artifact_id": "web_ui",
+          "mime_type": "application/json",
+          "path": "web_ui.json",
+          "producer": "web_ui",
+          "schema_version": "mn.blueprint.web_ui.v1",
+          "source_refs": [
+            "run.json"
+          ],
+          "type": "web_ui"
+        },
+        {
+          "artifact_id": "human_events",
+          "mime_type": "application/x-jsonlines",
+          "path": "human.jsonl",
+          "producer": "human_control",
+          "schema_version": "mn.blueprint.human_events.v1",
+          "source_refs": [
+            "events.jsonl"
+          ],
+          "type": "human_events"
+        },
+        {
+          "artifact_id": "research_packet",
+          "mime_type": "application/json",
+          "path": "research_packet.json",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.research_assistant.v2",
+          "source_refs": [
+            "inputs.json",
+            "events.jsonl",
+            "result.json"
+          ],
+          "type": "research_packet"
+        },
+        {
+          "artifact_id": "research_brief",
+          "mime_type": "text/markdown",
+          "path": "research_brief.md",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.research_assistant_brief.v2",
+          "source_refs": [
+            "research_packet.json"
+          ],
+          "type": "research_brief"
+        },
+        {
+          "artifact_id": "evidence_ledger",
+          "mime_type": "application/json",
+          "path": "evidence_ledger.json",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.evidence_ledger.v1",
+          "source_refs": [
+            "inputs.json",
+            "events.jsonl"
+          ],
+          "type": "evidence_ledger"
+        },
+        {
+          "artifact_id": "hypothesis_ledger",
+          "mime_type": "application/json",
+          "path": "hypothesis_ledger.json",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.hypothesis_ledger.v1",
+          "source_refs": [
+            "research_packet.json"
+          ],
+          "type": "hypothesis_ledger"
+        },
+        {
+          "artifact_id": "review_ledger",
+          "mime_type": "application/json",
+          "path": "review_ledger.json",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.review_ledger.v1",
+          "source_refs": [
+            "research_packet.json"
+          ],
+          "type": "review_ledger"
+        },
+        {
+          "artifact_id": "artifact_quality",
+          "mime_type": "application/json",
+          "path": "artifact_quality.json",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.artifact_quality.v1",
+          "source_refs": [
+            "research_packet.json"
+          ],
+          "type": "artifact_quality"
+        },
+        {
+          "artifact_id": "run_health",
+          "mime_type": "application/json",
+          "path": "run_health.json",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.run_health.v1",
+          "source_refs": [
+            "research_packet.json"
+          ],
+          "type": "run_health"
+        }
+      ],
+      "primary": {
+        "id": "final_artifact",
+        "path": "final_artifact.json",
+        "required_fields": [
+          "type",
+          "status",
+          "executive_summary",
+          "recommended_action",
+          "confidence",
+          "evidence",
+          "next_steps",
+          "source_refs",
+          "provenance_refs"
+        ],
+        "schema_version": "mn.blueprint.final_artifact_contract.v1",
+        "type": "final_artifact"
+      },
+      "profile": "standard_run_store"
+    },
+    "privacy": {
+      "default_classification": "confidential",
+      "rules": {
+        "confidential": {
+          "log": "redacted",
+          "send_to_llm": "allowed_configs_only",
+          "send_to_output_skills": "approved_destinations_only"
+        },
+        "internal": {
+          "log": "metadata_only",
+          "send_to_llm": true,
+          "send_to_output_skills": true
+        },
+        "public": {
+          "log": true,
+          "send_to_llm": true,
+          "send_to_output_skills": true
+        },
+        "regulated": {
+          "log": "redacted",
+          "send_to_llm": false,
+          "send_to_output_skills": "approved_destinations_only"
+        }
+      }
+    },
+    "status": {
+      "event": "blueprint_status",
+      "heartbeat": true,
+      "phases": [
+        "loading_inputs",
+        "running_worker",
+        "waiting_for_human",
+        "writing_artifacts",
+        "completed"
+      ]
+    },
+    "summary": "Find, evaluate, critique, and draft research directions with an explicit evidence ledger and human review boundary.",
+    "users": [
+      "Researchers, scientists, engineers, analysts, and research leads."
+    ]
+  },
+  "defaults": {
+    "worker": {
+      "with": {
+        "stereotype": "internal_write_worker",
+        "image": "mirror-neuron/research-assistant:local",
+        "upload_paths": [
+          {
+            "source": "domain",
+            "target": "domain"
+          }
+        ]
+      }
+    }
+  },
+  "description": "A research assistant. Give it a research goal, constraints, and an approved input folder of papers, notes, datasets, or evidence; it prepares a source-grounded research packet, evidence ledger, ranked hypotheses, and a review-only brief in the output folder.",
+  "identity": {
+    "category": "Science",
+    "id": "research_assistant",
+    "job_name": "research-assistant",
+    "manifest_version": "2.0",
+    "name": "Research Assistant",
+    "version": 1
+  },
+  "response_service": {
+    "enabled": true
+  },
+  "intent": {
+    "description": "A research assistant. Give it a research goal, constraints, and an approved input folder of papers, notes, datasets, or evidence; it prepares a source-grounded research packet, evidence ledger, ranked hypotheses, and a review-only brief in the output folder.",
+    "problem": "Research teams need to explore many possible explanations while preserving evidence, exposing counterarguments, and keeping experiments and claims under human control.",
+    "safety": {
+      "allowed_decisions": [
+        "approve",
+        "revise",
+        "reject"
+      ],
+      "blocked_actions": [
+        "execute_unapproved_experiment",
+        "claim_validated_result",
+        "publish_or_submit_manuscript",
+        "contact_external_research_participant",
+        "make_clinical_or_safety_decision"
+      ],
+      "decision_event": "human_decision_applied",
+      "default_action": "reject",
+      "enabled": true,
+      "events": [
+        "human_notice",
+        "human_input_requested",
+        "human_input_received",
+        "human_input_timeout",
+        "human_decision_applied"
+      ],
+      "mode": "approval_required",
+      "reason": "Human approval is required before experiments, public claims, manuscripts, participant contact, or consequential scientific and safety decisions.",
+      "request_event": "human_input_requested",
+      "response_event": "human_input_received",
+      "timeout_event": "human_input_timeout",
+      "timeout_seconds": 3600
+    },
+    "target_users": "Researchers, scientists, engineers, analysts, and research leads."
+  },
+  "kind": "WorkflowSource",
+  "knowledge_rag": {
+    "backend": "milvus_lite",
+    "chunk_overlap": 70,
+    "chunk_size": 700,
+    "embedding_api_base": "auto",
+    "embedding_document_prefix": "Document: ",
+    "embedding_healthcheck_enabled": true,
+    "embedding_model": "rag-embedding",
+    "embedding_provider": "docker_model_runner",
+    "embedding_query_prefix": "Query: ",
+    "embedding_start_command": "",
+    "enabled": true,
+    "grounding_policy": "Use retrieved material to locate and evaluate evidence; label hypotheses, inferences, and unknowns rather than treating them as facts.",
+    "index_on_startup": true,
+    "knowledge_dir": "knowledge",
+    "max_context_chars": 4000,
+    "namespace": "",
+    "privacy": "Index checked-in guidance and approved local input files in an isolated per-run namespace; never send private records, credentials, or participant data to public research.",
+    "purpose": "Retrieve research-method guidance, evidence-quality checks, and approved local documents for topic framing, hypothesis critique, experiment design, and drafting.",
+    "required": false,
+    "retrieval_targets": [
+      "research question and scope framing",
+      "literature and source-quality evaluation",
+      "hypothesis and counter-hypothesis criteria",
+      "experiment, benchmark, and analysis planning",
+      "evidence gaps, ethics, safety, and human-review checks"
+    ],
+    "top_k": 4,
+    "vector_dim": 1024
+  },
+  "manifest": {
+    "input_validation": {
+      "required": [
+        "research_goal"
+      ],
+      "rules": []
+    },
+    "license": "LICENSE.md",
+    "policies": {
+      "recovery_mode": "local_restart"
+    },
+    "required_context_engine": false,
+    "term": "TERM.md"
+  },
+  "metadata": {
+    "blueprint_id": "research_assistant",
+    "description": "A research assistant. Give it a research goal, constraints, and an approved input folder of papers, notes, datasets, or evidence; it prepares a source-grounded research packet, evidence ledger, ranked hypotheses, and a review-only brief in the output folder.",
+    "job_data": {
+      "resources": [
+        {
+          "name": "knowledge",
+          "path": "knowledge",
+          "access": "read_write",
+          "seed": "@/payloads/knowledge"
+        },
+        {
+          "name": "rag",
+          "path": "databases/rag",
+          "access": "read_write"
+        },
+        {
+          "name": "state",
+          "path": "state",
+          "access": "read_write"
+        }
+      ]
+    },
+    "memory_layer": {
+      "collection": "mn_memory",
+      "containers": "optional_sidecar",
+      "context_addr_env": "MN_CONTEXT_ADDR",
+      "conversation": {
+        "agent_role": "otterdesk_chat",
+        "include_human_events": true,
+        "include_runtime_events": true,
+        "include_runtime_logs": true,
+        "target_tokens": 2400,
+        "token_budget": 6000,
+        "use_model_compression": false
+      },
+      "conversation_enabled": true,
+      "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
+      "default_context_addr": "localhost:50052",
+      "enabled": true,
+      "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
+      "namespace": "research_assistant_context",
+      "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
+      "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
+      "sdk_distribution": "mirrorneuron-membrane-python-sdk",
+      "sdk_import_package": "mn_context_engine_sdk"
+    },
+    "runtime_features": [
+      "deterministic evidence preparation",
+      "isolated autonomous research worker",
+      "adversarial hypothesis review",
+      "human review gate",
+      "Membrane context memory optimization",
+      "product input contract",
+      "transparent run status",
+      "artifact records",
+      "run-store observability dashboard",
+      "workflow-driven problem graph",
+      "step-scoped worker teams",
+      "optional knowledge_rag guidance",
+      "actor-style LLM specialists use retrieved policy context when available"
+    ]
+  },
+  "requirements": {
+    "cpu": {
+      "min_cores": 1
+    },
+    "disk": {
+      "min_gb": 1
+    },
+    "gpu": {
+      "enforcement": "hard",
+      "memory_operator": ">=",
+      "min_count": 1,
+      "min_memory_mb": 49152
+    },
+    "memory": {
+      "min_gb": 2
+    }
+  },
+  "skill_dependencies": [
+    {
+      "name": "mirrorneuron-blueprint-support-skill",
+      "source": "gar",
+      "type": "pip",
+      "version": "1.2.31"
+    },
+    {
+      "name": "mirrorneuron-llm-ocr-skill",
+      "source": "gar",
+      "type": "pip",
+      "version": "1.2.31"
+    },
+    {
+      "name": "mirrorneuron-rag-skill",
+      "source": "gar",
+      "type": "pip",
+      "version": "1.2.31"
+    },
+    {
+      "name": "mirrorneuron-web-browser-skill",
+      "source": "gar",
+      "type": "pip",
+      "version": "1.2.31"
+    },
+    {
+      "name": "mirrorneuron-autonomous-research-skill",
+      "source": "gar",
+      "type": "pip",
+      "version": "1.2.31"
+    },
+    {
+      "name": "mirrorneuron-job-response-skill",
+      "source": "gar",
+      "type": "pip",
+      "version": "1.2.31"
+    },
+    {
+      "name": "mirrorneuron-mcp-client-skill",
+      "source": "gar",
+      "type": "pip",
+      "version": "1.2.31"
+    }
+  ],
+  "agent_dependencies": [
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mn-prototype-stateful-step-agent",
+      "version": "1.2.31"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mn-prototype-bounded-tool-loop-agent",
+      "version": "1.2.31"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mn-prototype-actor-review-agent",
+      "version": "1.2.31"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mn-prototype-artifact-finalizer-agent",
+      "version": "1.2.31"
+    }
+  ],
+  "standard": {
+    "profile": "blueprint"
+  },
+  "workflow": {
+    "workflow_id": "research_assistant_v1",
+    "execution": {
+      "strategy": "parallel"
+    },
+    "policy": {
+      "failure": {
+        "default": "fail_closed"
+      },
+      "human": {
+        "allowed_decisions": [
+          "approve",
+          "revise",
+          "reject"
+        ],
+        "blocked_actions": [
+          "execute_unapproved_experiment",
+          "claim_validated_result",
+          "publish_or_submit_manuscript",
+          "contact_external_research_participant",
+          "make_clinical_or_safety_decision"
+        ],
+        "decision_event": "human_decision_applied",
+        "default_action": "reject",
+        "enabled": true,
+        "events": [
+          "human_notice",
+          "human_input_requested",
+          "human_input_received",
+          "human_input_timeout",
+          "human_decision_applied"
+        ],
+        "mode": "approval_required",
+        "reason": "Human approval is required before experiments, public claims, manuscripts, participant contact, or consequential scientific and safety decisions.",
+        "request_event": "human_input_requested",
+        "response_event": "human_input_received",
+        "timeout_event": "human_input_timeout",
+        "timeout_seconds": 3600
+      }
+    },
+    "state": {
+      "input_folder": {
+        "from": "$inputs.input_folder"
+      },
+      "output_folder": {
+        "from": "$inputs.output_folder"
+      },
+      "workflow": {},
+      "final_report": {}
+    },
+    "steps": [
+      {
+        "control": {
+          "failure_policy": "fail_workflow",
+          "required": true,
+          "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 1,
+            "jitter": 0,
+            "max_attempts": 2
+          },
+          "timeout_seconds": 900,
+          "uncertainty": {
+            "min_confidence": 0,
+            "on_low_confidence": "continue_with_warning"
+          }
+        },
+        "goal": "Turn the request into answerable questions, definitions, success criteria, assumptions, and stop conditions.",
+        "id": "frame_research_problem",
+        "kind": "source",
+        "label": "Frame Research Problem",
+        "needs": [],
+        "run": {
+          "definition": "steps.frame_research_problem"
+        }
+      },
+      {
+        "control": {
+          "failure_policy": "fail_workflow",
+          "required": true,
+          "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 1,
+            "jitter": 0,
+            "max_attempts": 2
+          },
+          "timeout_seconds": 1800,
+          "uncertainty": {
+            "min_confidence": 0,
+            "on_low_confidence": "continue_with_warning"
+          }
+        },
+        "goal": "Extract approved local evidence, retrieve method guidance, and record bounded public-source observations.",
+        "id": "build_research_evidence",
+        "kind": "stage",
+        "label": "Build Research Evidence",
+        "needs": [
+          "frame_research_problem"
+        ],
+        "run": {
+          "definition": "steps.build_research_evidence"
+        }
+      },
+      {
+        "control": {
+          "failure_policy": "fail_workflow",
+          "required": true,
+          "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 1,
+            "jitter": 0,
+            "max_attempts": 2
+          },
+          "timeout_seconds": 2400,
+          "uncertainty": {
+            "min_confidence": 0,
+            "on_low_confidence": "continue_with_warning"
+          }
+        },
+        "goal": "Use one isolated Docker worker to read sources, decompose the question, generate competing hypotheses, critique each one, run gap-directed probes, revise, design tests, rank the results, and synthesize decision implications.",
+        "id": "develop_and_challenge_hypotheses",
+        "kind": "stage",
+        "label": "Develop And Challenge Hypotheses",
+        "needs": [
+          "build_research_evidence"
+        ],
+        "run": {
+          "definition": "steps.develop_and_challenge_hypotheses"
+        }
+      },
+      {
+        "control": {
+          "failure_policy": "fail_workflow",
+          "required": true,
+          "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 1,
+            "jitter": 0,
+            "max_attempts": 2
+          },
+          "timeout_seconds": 1800,
+          "uncertainty": {
+            "min_confidence": 0,
+            "on_low_confidence": "continue_with_warning"
+          }
+        },
+        "goal": "Deterministically audit traceability, falsifiability, controls, safety gates, and publish the review packet.",
+        "id": "verify_and_publish_research_packet",
+        "kind": "sink",
+        "label": "Verify And Publish Research Packet",
+        "needs": [
+          "develop_and_challenge_hypotheses"
+        ],
+        "run": {
+          "definition": "steps.verify_and_publish_research_packet"
+        }
+      }
+    ]
+  },
+  "workers": {
+    "groups": [
+      {
+        "steps": [
+          "build_research_evidence",
+          "develop_and_challenge_hypotheses"
+        ],
+        "with": {
+          "stereotype": "public_browser_worker"
+        }
+      },
+      {
+        "steps": [
+          "verify_and_publish_research_packet"
+        ],
+        "with": {
+          "stereotype": "internal_write_worker"
+        }
+      }
+    ]
+  },
+  "llm": {
+    "enabled": true,
+    "agents": {
+      "research_goal_framer": {
+        "llm_config": "primary",
+        "role": "Research Goal Framer",
+        "responsibilities": [
+          "Define an answerable question and decision relevance.",
+          "Separate facts, assumptions, and unknowns.",
+          "Set scope, success criteria, and stop conditions."
+        ]
+      },
+      "research_evidence_curator": {
+        "llm_config": "primary",
+        "role": "Research Evidence Curator",
+        "responsibilities": [
+          "Build a source ledger with origin and retrieval status.",
+          "Rate relevance and methodological limitations.",
+          "Keep public queries free of confidential evidence."
+        ]
+      },
+      "autonomous_researcher": {
+        "llm_config": "primary",
+        "role": "Autonomous Researcher",
+        "responsibilities": [
+          "Generate falsifiable competing hypotheses.",
+          "Use allowlisted tools and bounded generated code only.",
+          "Record critiques, tool calls, and disconfirming observations."
+        ]
+      },
+      "research_packet_auditor": {
+        "llm_config": "primary",
+        "role": "Research Packet Auditor",
+        "responsibilities": [
+          "Reject untraceable claims and circular evidence.",
+          "Check controls, measurements, decision rules, and safety gates.",
+          "Downgrade unsupported novelty or causal language."
+        ]
+      },
+      "research_report_writer": {
+        "llm_config": "primary",
+        "role": "Research Report Writer",
+        "responsibilities": [
+          "Write ranked hypotheses and an evidence map.",
+          "Preserve counterarguments and uncertainty.",
+          "Keep experiments and external claims review-only."
+        ]
+      }
+    },
+    "responsibilities": [
+      "Keep source evidence, uncertainty, and counterarguments visible.",
+      "Use specialized roles to generate and challenge research hypotheses.",
+      "Keep experiments, conclusions, and external actions review-only until a person approves them."
+    ],
+    "provider": "docker_model_runner",
+    "model": "default",
+    "backend": "llama.cpp",
+    "context_size": 8192,
+    "parameter_count_b": 31.58,
+    "quantization": "MOSTLY_Q4_K_M",
+    "mode": "live",
+    "mock_mode": "fake",
+    "default_config": "primary",
+    "quick_test_uses_fake": true,
+    "require_live": true,
+    "structured_output_options": {
+      "chat_template_kwargs": {
+        "enable_thinking": false
+      }
+    },
+    "strict_json": false,
+    "configs": {
+      "primary": {
+        "provider": "docker_model_runner",
+        "backend": "llama.cpp",
+        "api_base": "auto",
+        "timeout_seconds": 180,
+        "max_tokens": 4096,
+        "num_retries": 2,
+        "mock_mode": "fake",
+        "mode": "live"
+      }
+    }
+  }
+}

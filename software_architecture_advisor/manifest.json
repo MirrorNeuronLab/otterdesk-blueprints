@@ -1,0 +1,254 @@
+{
+  "apiVersion": "mn.workflow/v1",
+  "kind": "WorkflowSource",
+  "air-gapped": true,
+  "type": "batch",
+  "identity": {
+    "id": "software_architecture_advisor",
+    "name": "Software Architecture Advisor",
+    "job_name": "software-architecture-advisor",
+    "category": "Engineering",
+    "version": 1,
+    "manifest_version": "1.0"
+  },
+  "job_name": "software-architecture-advisor",
+  "description": "Software Architecture Advisor is a read-only, air-gapped software-architecture co-worker. Give it a pre-staged source input folder or a GitHub repository URL that OtterDesk materializes before the isolated run; it maps structural evidence and writes an architecture assessment plus copy-ready, implementation-safe prompts to the output folder without changing source code.",
+  "response_service": {"enabled": true},
+  "config": {
+    "default": "config/default.json",
+    "embed": true,
+    "manifest_defaults": [
+      "llm",
+      {"from": "requirements", "to": "resources"},
+      {"from": "metadata.memory_layer", "to": "memory_layer"},
+      {"from": "identity.id", "to": "identity.blueprint_id"},
+      {"from": "identity.name", "to": "identity.name"}
+    ]
+  },
+  "contracts": {
+    "summary": "Read-only, air-gapped software architecture analysis with evidence-backed coding-agent improvement prompts.",
+    "input_adapters": {
+      "default": "mock",
+      "resolved_artifact": "inputs.json",
+      "supported": ["mock", "json", "file", "env_json"]
+    },
+    "inputs": {
+      "input_folder": {
+        "type": "local_path",
+        "path_kind": "directory",
+        "required": false,
+        "privacy": "confidential",
+        "description": "A local source folder or the platform-pre-staged snapshot of a GitHub repository.",
+        "example": "@/examples/sample_inputs"
+      },
+      "github_repo_url": {
+        "type": "domain_value",
+        "required": false,
+        "privacy": "confidential",
+        "description": "HTTPS GitHub URL materialized by the connected intake service before this air-gapped job begins.",
+        "example": "https://github.com/homerquan/Archmind"
+      },
+      "branch": {
+        "type": "domain_value",
+        "required": false,
+        "privacy": "confidential",
+        "description": "Optional branch requested from the connected GitHub intake service.",
+        "example": "main"
+      },
+      "analysis_focus": {
+        "type": "domain_value",
+        "required": false,
+        "privacy": "confidential",
+        "description": "Optional concerns to prioritize, such as modularity, reliability, or data ownership.",
+        "example": ["module boundaries", "testability"]
+      },
+      "output_folder": {
+        "type": "local_path",
+        "path_kind": "directory",
+        "required": false,
+        "privacy": "confidential",
+        "description": "Destination for assessment, evidence, and copy-ready improvement prompts.",
+        "example": "~/Downloads/software_architecture_advisor"
+      }
+    },
+    "events": {
+      "stream": "events.jsonl",
+      "human_stream": "human.jsonl",
+      "types": [
+        "blueprint_status", "blueprint_phase_started", "blueprint_phase_completed",
+        "blueprint_phase_failed", "artifact_written", "human_notice",
+        "source_snapshot_validated", "architecture_graph_built",
+        "architecture_finding_created", "improvement_prompt_authored"
+      ]
+    },
+    "privacy": {
+      "default_classification": "confidential",
+      "network": "forbidden",
+      "rules": {
+        "confidential": {"log": "redacted", "send_to_llm": "local_model_only", "send_to_output_skills": false},
+        "internal": {"log": "metadata_only", "send_to_llm": "local_model_only", "send_to_output_skills": false}
+      }
+    },
+    "outputs": {
+      "profile": "standard_run_store",
+      "primary": {
+        "id": "final_artifact",
+        "path": "final_artifact.json",
+        "type": "final_artifact",
+        "schema_version": "mn.blueprint.final_artifact_contract.v1",
+        "required_fields": ["type", "status", "executive_summary", "recommended_action", "confidence", "evidence", "next_steps", "source_refs", "provenance_refs"]
+      },
+      "artifacts": [
+        {"artifact_id": "run_metadata", "type": "run_summary", "path": "run.json", "producer": "local_run_store", "mime_type": "application/json", "schema_version": "mn.artifact.run_summary.v1", "source_refs": []},
+        {"artifact_id": "resolved_config", "type": "config", "path": "config.json", "producer": "local_run_store", "mime_type": "application/json", "schema_version": "mn.blueprint.config.v1", "source_refs": []},
+        {"artifact_id": "resolved_inputs", "type": "inputs", "path": "inputs.json", "producer": "local_run_store", "mime_type": "application/json", "schema_version": "mn.blueprint.inputs.v1", "source_refs": []},
+        {"artifact_id": "event_stream", "type": "events", "path": "events.jsonl", "producer": "local_run_store", "mime_type": "application/x-jsonlines", "schema_version": "mn.blueprint.events.v1", "source_refs": []},
+        {"artifact_id": "result", "type": "result", "path": "result.json", "producer": "local_run_store", "mime_type": "application/json", "schema_version": "mn.blueprint.response.v1", "source_refs": ["inputs.json", "events.jsonl"]},
+        {"artifact_id": "final_artifact", "type": "final_artifact", "path": "final_artifact.json", "producer": "workflow", "mime_type": "application/json", "schema_version": "mn.blueprint.software_architecture_advisor.v3", "source_refs": ["inputs.json", "events.jsonl", "result.json"]},
+        {"artifact_id": "architecture_assessment", "type": "architecture_assessment", "path": "architecture_assessment.json", "producer": "architecture_artifact_publisher", "mime_type": "application/json", "schema_version": "mn.blueprint.software_architecture_advisor.v3", "source_refs": ["source_inventory.json", "architecture_graph.json", "analysis_metrics.json", "evidence/architecture_facts.json", "evidence/llm_analysis.json"]},
+        {"artifact_id": "architecture_report", "type": "architecture_report", "path": "architecture_report.md", "producer": "architecture_artifact_publisher", "mime_type": "text/markdown", "schema_version": "mn.architecture.report.v2", "source_refs": ["architecture_assessment.json"]},
+        {"artifact_id": "improvement_prompts", "type": "improvement_prompts", "path": "improvement_prompts.md", "producer": "improvement_prompt_author", "mime_type": "text/markdown", "schema_version": "mn.architecture.prompts.v1", "source_refs": ["architecture_assessment.json"]},
+        {"artifact_id": "architecture_graph", "type": "architecture_graph", "path": "architecture_graph.json", "producer": "codebase_mapper", "mime_type": "application/json", "schema_version": "mn.architecture.graph.v1", "source_refs": ["source_inventory.json"]},
+        {"artifact_id": "source_inventory", "type": "source_inventory", "path": "source_inventory.json", "producer": "source_intake_analyst", "mime_type": "application/json", "schema_version": "mn.architecture.inventory.v1", "source_refs": ["inputs.json"]},
+        {"artifact_id": "repository_profile", "type": "repository_profile", "path": "evidence/repository_profile.json", "producer": "codebase_mapper", "mime_type": "application/json", "schema_version": "mn.architecture.repository_profile.v1", "source_refs": ["source_inventory.json"]},
+        {"artifact_id": "symbol_index", "type": "symbol_index", "path": "evidence/symbol_index.json", "producer": "codebase_mapper", "mime_type": "application/json", "schema_version": "mn.architecture.symbol_index.v1", "source_refs": ["source_inventory.json"]},
+        {"artifact_id": "architecture_facts", "type": "architecture_fact_database", "path": "evidence/architecture_facts.json", "producer": "codebase_mapper", "mime_type": "application/json", "schema_version": "mn.architecture.fact_database.v1", "source_refs": ["source_inventory.json", "architecture_graph.json"]},
+        {"artifact_id": "state_model", "type": "state_model", "path": "evidence/state_model.json", "producer": "codebase_mapper", "mime_type": "application/json", "schema_version": "mn.architecture.state_model.v1", "source_refs": ["evidence/architecture_facts.json"]},
+        {"artifact_id": "trust_boundaries", "type": "trust_model", "path": "evidence/trust_boundaries.json", "producer": "codebase_mapper", "mime_type": "application/json", "schema_version": "mn.architecture.trust_model.v1", "source_refs": ["evidence/architecture_facts.json"]},
+        {"artifact_id": "test_architecture", "type": "test_architecture", "path": "evidence/test_architecture.json", "producer": "codebase_mapper", "mime_type": "application/json", "schema_version": "mn.architecture.test_architecture.v1", "source_refs": ["architecture_graph.json"]},
+        {"artifact_id": "deployment_model", "type": "deployment_model", "path": "evidence/deployment_model.json", "producer": "codebase_mapper", "mime_type": "application/json", "schema_version": "mn.architecture.deployment_model.v1", "source_refs": ["evidence/repository_profile.json"]},
+        {"artifact_id": "history_evidence", "type": "history_evidence", "path": "evidence/history_evidence.json", "producer": "codebase_mapper", "mime_type": "application/json", "schema_version": "mn.architecture.history_evidence.v1", "source_refs": ["inputs.json"]},
+        {"artifact_id": "prioritized_findings", "type": "architecture_findings", "path": "evidence/prioritized_findings.json", "producer": "architecture_reviewer", "mime_type": "application/json", "schema_version": "mn.architecture.findings.v1", "source_refs": ["evidence/architecture_facts.json"]},
+        {"artifact_id": "llm_analysis", "type": "llm_analysis", "path": "evidence/llm_analysis.json", "producer": "architecture_artifact_publisher", "mime_type": "application/json", "schema_version": "mn.blueprint.software_architecture_advisor.llm_analysis.v1", "source_refs": ["evidence/architecture_facts.json"]},
+        {"artifact_id": "llm_trace", "type": "llm_trace", "path": "llm_trace.jsonl", "producer": "architecture_artifact_publisher", "mime_type": "application/x-jsonlines", "schema_version": "mn.blueprint.llm_trace.metadata.v1", "source_refs": []}
+      ]
+    }
+  },
+  "manifest": {
+    "license": "LICENSE.md",
+    "term": "TERM.md",
+    "input_validation": {"required": [], "rules": []},
+    "policies": {"recovery_mode": "local_restart"}
+  },
+  "intent": {
+    "description": "Turn a staged source snapshot into an evidence-backed, read-only architecture assessment and implementation prompt pack.",
+    "problem": "Engineering teams need prioritized architecture improvements that an implementation agent can execute safely without allowing the advisory workflow itself to change code.",
+    "target_users": "Staff engineers, architects, technical leads, maintainers, and engineering managers.",
+    "safety": {
+      "enabled": true,
+      "mode": "notice_only",
+      "notice_event": "human_notice",
+      "requires_ack": false,
+      "blocked_actions": ["modify_source_code", "execute_project_code", "install_project_dependencies", "run_project_tests", "network_egress", "push_to_repository", "deploy_or_release"],
+      "reason": "The product is advisory only and the analysis environment is air-gapped."
+    }
+  },
+  "metadata": {
+    "blueprint_id": "software_architecture_advisor",
+    "description": "Software Architecture Advisor is a read-only, air-gapped software-architecture co-worker. Give it a pre-staged source input folder or a GitHub repository URL that OtterDesk materializes before the isolated run; it maps structural evidence and writes an architecture assessment plus copy-ready, implementation-safe prompts to the output folder without changing source code.",
+    "runtime_features": [
+      "air-gapped read-only source analysis", "platform-pre-staged GitHub intake", "blueprint-owned graph analysis skill", "loopback-only local model", "evidence-backed improvement prompts", "no-code-change guardrail", "Membrane context memory optimization"
+    ],
+    "mn_airgap": {
+      "network": "forbidden",
+      "model_access": "local_runtime_only",
+      "package_installation": "prepared_before_disconnection"
+    },
+    "memory_layer": {
+      "enabled": true,
+      "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
+      "conversation_enabled": true,
+      "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
+      "namespace": "software_architecture_advisor_context",
+      "collection": "mn_memory",
+      "sdk_distribution": "mirrorneuron-membrane-python-sdk",
+      "sdk_import_package": "mn_context_engine_sdk",
+      "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
+      "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
+      "conversation": {"agent_role": "otterdesk_chat", "include_runtime_events": true, "include_runtime_logs": true, "include_human_events": true, "target_tokens": 2400, "token_budget": 6000, "use_model_compression": false}
+    },
+    "init_config_review": {
+      "required": true,
+      "fields": [
+        {"path": "inputs.payload.input_folder", "label": "Source input folder", "default": "@/examples/sample_inputs", "description": "The bundled offline fixture. Replace it with the directory staged by GitHub intake for a repository review.", "type": "local_path", "path_kind": "directory"},
+        {"path": "inputs.payload.github_repo_url", "label": "GitHub repository URL", "default": "", "description": "Optional HTTPS GitHub URL that the connected intake service will materialize before the air-gapped run. The bundled default reference is examples/sample_inputs/ARCHMIND_GITHUB_REPOSITORY.txt."},
+        {"path": "analysis.focus", "label": "Architecture focus", "default": ["module boundaries", "change risk"], "description": "Prioritized architecture questions for the review."},
+        {"path": "outputs.folder_path", "label": "Output folder", "default": "~/Downloads/software_architecture_advisor", "description": "Where the assessment and copy-ready prompts are written.", "type": "local_path", "path_kind": "directory"}
+      ]
+    }
+  },
+  "requirements": {
+    "cpu": {"min_cores": 8},
+    "memory": {"min_gb": 48},
+    "disk": {"min_gb": 16},
+    "gpu": {"min_count": 0},
+    "network": {"egress": "forbidden", "loopback_only": true},
+    "local_model": {"required": true, "provider": "docker_model_runner", "model": "default", "minimum_host_memory_gb": 48, "preinstalled_only": true}
+  },
+  "defaults": {"worker": {"with": {"stereotype": "internal_write_worker", "image": "mirror-neuron/software-architecture-advisor:local", "upload_paths": [{"source": "domain", "target": "domain"}]}}},
+  "agents": {
+    "registry": {
+      "source_intake_analyst": {"handler": "agents.source_intake_analyst", "role": "Read-only Source Intake Analyst"},
+      "codebase_mapper": {"handler": "agents.codebase_mapper", "role": "Architecture Graph Mapper"},
+      "architecture_reviewer": {"handler": "agents.architecture_reviewer", "role": "Evidence-grounded Architecture Reviewer"},
+      "improvement_prompt_author": {"handler": "agents.improvement_prompt_author", "role": "Implementation Prompt Author"},
+      "architecture_advice_auditor": {"handler": "agents.architecture_advice_auditor", "role": "Architecture Advice Auditor"},
+      "architecture_report_writer": {"handler": "agents.architecture_report_writer", "role": "Read-only Architecture Report Writer"},
+      "architecture_artifact_publisher": {"handler": "agents.architecture_artifact_publisher", "role": "Deterministic Architecture Artifact Publisher"}
+    }
+  },
+  "llm": {
+    "enabled": true,
+    "mode": "live",
+    "mock_mode": "fake",
+    "require_live": true,
+    "strict_json": true,
+    "provider": "docker_model_runner",
+    "backend": "llama.cpp",
+    "model": "default",
+    "context_size": 32768,
+    "default_config": "analysis",
+    "configs": {
+      "analysis": {"provider": "docker_model_runner", "backend": "llama.cpp", "model": "default", "api_base": "auto", "context_size": 32768, "timeout_seconds": 600, "max_tokens": 6000, "num_retries": 2, "retry_backoff_seconds": 1, "network": "loopback_only"},
+      "writing": {"provider": "docker_model_runner", "backend": "llama.cpp", "model": "default", "api_base": "auto", "context_size": 32768, "timeout_seconds": 600, "max_tokens": 7000, "num_retries": 2, "retry_backoff_seconds": 1, "network": "loopback_only"},
+      "audit": {"provider": "docker_model_runner", "backend": "llama.cpp", "model": "default", "api_base": "auto", "context_size": 32768, "timeout_seconds": 600, "max_tokens": 5000, "num_retries": 2, "retry_backoff_seconds": 1, "network": "loopback_only"}
+    },
+    "quick_test_uses_fake": true,
+    "responsibilities": ["Synthesize only supplied local evidence.", "Keep unknowns and static-analysis limits explicit.", "Produce safe implementation prompts without altering code."],
+    "agents": {
+      "source_intake_analyst": {"llm_config": "analysis", "role": "Read-only Source Intake Analyst", "responsibilities": ["Validate a local or pre-staged source locator.", "Reject ambiguous source selection.", "Record provenance without reading secrets."]},
+      "codebase_mapper": {"llm_config": "analysis", "role": "Architecture Graph Mapper", "responsibilities": ["Build inspectable dependency evidence.", "Keep dynamic behavior marked unknown.", "Do not execute or modify source code."]},
+      "architecture_reviewer": {"llm_config": "analysis", "role": "Evidence-grounded Architecture Reviewer", "responsibilities": ["Prioritize evidence-backed change risks.", "Separate findings from hypotheses.", "State static-analysis limitations clearly."]},
+      "improvement_prompt_author": {"llm_config": "analysis", "role": "Implementation Prompt Author", "responsibilities": ["Create narrow, copy-ready prompts.", "Include tests and acceptance criteria.", "Forbid source edits by this advisory workflow."]},
+      "architecture_advice_auditor": {"llm_config": "analysis", "role": "Architecture Advice Auditor", "responsibilities": ["Verify evidence references.", "Reject prompts missing constraints.", "Check that prompts do not authorize unsafe actions."]},
+      "architecture_report_writer": {"llm_config": "analysis", "role": "Read-only Architecture Report Writer", "responsibilities": ["Draft analytical narrative.", "Preserve uncertainty and review boundaries.", "Write no source-code modifications."]},
+      "architecture_artifact_publisher": {"llm_config": "analysis", "role": "Deterministic Architecture Artifact Publisher", "responsibilities": ["Publish only after audit approval.", "Preserve exact deterministic facts and metrics.", "Never invoke the model or modify source code."]}
+    }
+  },
+  "workflow": {
+    "workflow_id": "software_architecture_advisor_v3",
+    "execution": {"strategy": "serial"},
+    "policy": {"failure": {"default": "fail_closed"}, "human": {"enabled": true, "mode": "notice_only", "notice_event": "human_notice", "requires_ack": false, "blocked_actions": ["modify_source_code", "execute_project_code", "network_egress"]}},
+    "steps": [
+      {"id": "resolve_software_source", "kind": "source", "label": "Resolve Software Source", "goal": "Validate a safe local source folder or a GitHub snapshot that was pre-staged before the air-gapped job.", "needs": [], "run": {"definition": "steps.resolve_software_source"}, "control": {"required": true, "retry": {"max_attempts": 1, "backoff_seconds": 1, "backoff_multiplier": 2, "jitter": 0}, "failure_policy": "fail_workflow", "timeout_seconds": 900, "uncertainty": {"min_confidence": 0, "on_low_confidence": "continue_with_warning"}}},
+      {"id": "map_architecture_evidence", "kind": "stage", "label": "Map Architecture Evidence", "goal": "Build an inspectable static dependency and boundary graph without executing the source.", "needs": ["resolve_software_source"], "run": {"definition": "steps.map_architecture_evidence"}, "control": {"required": true, "retry": {"max_attempts": 1, "backoff_seconds": 1, "backoff_multiplier": 2, "jitter": 0}, "failure_policy": "fail_workflow", "timeout_seconds": 1800, "uncertainty": {"min_confidence": 0, "on_low_confidence": "continue_with_warning"}}},
+      {"id": "assess_architecture_improvements", "kind": "stage", "label": "Assess Architecture Improvements", "goal": "Turn static evidence into bounded architecture findings and priorities.", "needs": ["map_architecture_evidence"], "run": {"definition": "steps.assess_architecture_improvements"}, "control": {"required": true, "retry": {"max_attempts": 1, "backoff_seconds": 1, "backoff_multiplier": 2, "jitter": 0}, "failure_policy": "fail_workflow", "timeout_seconds": 1800, "uncertainty": {"min_confidence": 0, "on_low_confidence": "continue_with_warning"}}},
+      {"id": "author_implementation_prompts", "kind": "stage", "label": "Author Implementation Prompts", "goal": "Create copy-ready but non-executing prompts for another coding agent.", "needs": ["assess_architecture_improvements"], "run": {"definition": "steps.author_implementation_prompts"}, "control": {"required": true, "retry": {"max_attempts": 1, "backoff_seconds": 1, "backoff_multiplier": 2, "jitter": 0}, "failure_policy": "fail_workflow", "timeout_seconds": 900, "uncertainty": {"min_confidence": 0, "on_low_confidence": "continue_with_warning"}}},
+      {"id": "draft_architecture_report", "kind": "stage", "label": "Draft Architecture Report", "goal": "Use the local model to draft grounded analytical narrative without publishing artifacts.", "needs": ["author_implementation_prompts"], "run": {"definition": "steps.draft_architecture_report"}, "control": {"required": true, "retry": {"max_attempts": 1, "backoff_seconds": 1, "backoff_multiplier": 2, "jitter": 0}, "failure_policy": "fail_workflow", "timeout_seconds": 900, "uncertainty": {"min_confidence": 0, "on_low_confidence": "continue_with_warning"}}},
+      {"id": "audit_architecture_advice", "kind": "stage", "label": "Audit Architecture Advice", "goal": "Run the final model and deterministic evidence, usage, coverage, and safety audits over the complete draft package.", "needs": ["draft_architecture_report"], "run": {"definition": "steps.audit_architecture_advice"}, "control": {"required": true, "retry": {"max_attempts": 1, "backoff_seconds": 1, "backoff_multiplier": 2, "jitter": 0}, "failure_policy": "fail_workflow", "timeout_seconds": 900, "uncertainty": {"min_confidence": 0, "on_low_confidence": "fail_step"}}},
+      {"id": "publish_architecture_advice", "kind": "sink", "label": "Publish Architecture Advice", "goal": "Deterministically materialize the audited read-only assessment, evidence, trace, report, and prompt bundle.", "needs": ["audit_architecture_advice"], "run": {"definition": "steps.publish_architecture_advice"}, "control": {"required": true, "retry": {"max_attempts": 2, "backoff_seconds": 1, "backoff_multiplier": 2, "jitter": 0}, "failure_policy": "fail_workflow", "timeout_seconds": 600, "uncertainty": {"min_confidence": 0, "on_low_confidence": "fail_step"}}}
+    ]
+  },
+  "workers": {"groups": [{"steps": ["resolve_software_source", "map_architecture_evidence", "assess_architecture_improvements", "author_implementation_prompts", "draft_architecture_report", "audit_architecture_advice", "publish_architecture_advice"], "with": {"stereotype": "internal_write_worker"}}]},
+  "skill_dependencies": [
+    {"type": "pip", "source": "payload", "format": "source", "name": "mn-software-architecture-graph-skill", "version": "1.0.0", "path": "skills/software_architecture_graph_skill"},
+    {"type": "pip", "source": "gar", "name": "mirrorneuron-blueprint-support-skill", "version": "1.2.31"},
+    {"type": "pip", "source": "gar", "name": "mirrorneuron-job-response-skill", "version": "1.2.31"},
+    {"type": "pip", "source": "gar", "name": "mirrorneuron-rag-skill", "version": "1.2.31"},
+    {"type": "pip", "source": "gar", "name": "mirrorneuron-mcp-client-skill", "version": "1.2.31"}
+  ],
+  "agent_dependencies": [
+    {"type": "pip", "source": "gar", "name": "mn-prototype-stateful-step-agent", "version": "1.2.31"}
+  ],
+  "standard": {"profile": "blueprint"}
+}

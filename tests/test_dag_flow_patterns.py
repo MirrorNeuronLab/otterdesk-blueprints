@@ -126,8 +126,8 @@ def test_default_llm_blueprints_keep_model_routing_logical():
         "legal_assistant",
         "financial_advisor",
         "gtm_assistant",
-        "research_coscientist",
-        "purchase_research_assistant",
+        "research_assistant",
+        "purchasing_manager",
     ):
         config = json.loads(
             (ROOT / blueprint_id / "config" / "default.json").read_text(
@@ -141,8 +141,8 @@ def test_default_llm_blueprints_keep_model_routing_logical():
         assert "model" not in config["llm"], blueprint_id
 
 
-def test_purchase_research_uses_manifest_owned_logical_default_model():
-    blueprint = ROOT / "purchase_research_assistant"
+def test_purchasing_manager_uses_manifest_owned_logical_default_model():
+    blueprint = ROOT / "purchasing_manager"
     manifest = json.loads((blueprint / "manifest.json").read_text(encoding="utf-8"))
     config = json.loads(
         (blueprint / "config" / "default.json").read_text(encoding="utf-8")

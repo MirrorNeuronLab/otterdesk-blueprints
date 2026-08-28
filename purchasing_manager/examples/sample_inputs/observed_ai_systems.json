@@ -1,0 +1,217 @@
+{
+  "schema": "mn.sample.public_market_observations.v1",
+  "currency": "USD",
+  "observed_at": "2026-08-28",
+  "provenance": {
+    "data_policy": "Every supplier, configuration, price, stock statement, warranty term, tax rate, and component specification below is tied to a public source URL. Values are time-stamped observations, not quotes or guarantees.",
+    "refresh_policy": "Open every source again and capture the cart-ready configuration before approval or purchase-order creation.",
+    "planning_assumptions": "Internal labor, utilization, maintenance reserve, discount rate, downtime exposure, and residual value come from the purchase request or resolved runtime configuration and are calculations, not supplier claims."
+  },
+  "economic_sources": [
+    {
+      "field": "massachusetts_sales_tax_rate",
+      "value": 0.0625,
+      "observed_at": "2026-08-28",
+      "source_url": "https://www.mass.gov/guides/sales-and-use-tax",
+      "source_owner": "Massachusetts Department of Revenue"
+    },
+    {
+      "field": "massachusetts_commercial_electricity_usd_per_kwh",
+      "value": 0.2452,
+      "period": "June 2026",
+      "observed_at": "2026-08-28",
+      "source_url": "https://www.eia.gov/electricity/monthly/epm_table_grapher.php?t=epmt_5_6_a",
+      "source_owner": "U.S. Energy Information Administration"
+    }
+  ],
+  "candidates": [
+    {
+      "candidate_id": "microcenter-powerspec-g913",
+      "name": "PowerSpec G913 Gaming PC",
+      "vendor": "Micro Center",
+      "model": "G913",
+      "sku": "916445",
+      "source_type": "public_retail_listing",
+      "source_url": "https://www.microcenter.com/product/700439/powerspec-g913-gaming-pc?storeid=121",
+      "observed_at": "2026-08-28",
+      "quote_subtotal": 3599.99,
+      "price_type": "public_listing_price",
+      "available_for_purchase": true,
+      "availability_status": "25+ listed in stock at the Cambridge, Massachusetts store; in-store pickup only",
+      "local_pickup_available": true,
+      "shipping_available": false,
+      "shipping_cost": 0,
+      "lead_time_business_days": 1,
+      "warranty_years": 1,
+      "mandatory_options": [
+        {
+          "name": "Retailer-listed Windows 11 Pro upgrade",
+          "cost": 99.99,
+          "source_url": "https://www.microcenter.com/product/700439/powerspec-g913-gaming-pc?storeid=029"
+        }
+      ],
+      "internal_labor_hours": {
+        "pickup": 2,
+        "deployment": 4
+      },
+      "specifications": {
+        "gpu_model": "NVIDIA GeForce RTX 5080",
+        "min_gpu_vram_gb": 16,
+        "cpu": "AMD Ryzen 9 9900X3D",
+        "min_system_ram_gb": 64,
+        "min_storage_tb": 2,
+        "base_operating_system": "Windows 11 Home",
+        "operating_system": "Windows 11 Pro after mandatory retailer-listed upgrade",
+        "network": "5 GbE, Wi-Fi 7, Bluetooth 5.4",
+        "power_supply_watts": 1000,
+        "form_factor": "tower desktop"
+      },
+      "power_model": {
+        "gpu_tgp_watts": 360,
+        "cpu_tdp_watts": 120,
+        "system_overhead_planning_watts": 80,
+        "idle_system_planning_watts": 100,
+        "measurement_status": "Component limits are sourced; system overhead and idle draw are explicit planning assumptions, not measured consumption.",
+        "source_urls": [
+          "https://www.nvidia.com/en-us/geforce/graphics-cards/50-series/rtx-5080/",
+          "https://www.amd.com/en/products/processors/desktops/ryzen/9000-series/amd-ryzen-9-9900x3d.html"
+        ]
+      },
+      "commercial_terms": {
+        "fulfillment": "In-store pickup only",
+        "support": "One-year limited parts and labor warranty; PowerSpec purchases receive one year of complimentary Micro Center technical support",
+        "return_policy": "15-day return window shown on the product page",
+        "payment_terms": "Retail checkout; business terms not published"
+      },
+      "open_cost_items": [
+        "Any protection-plan extension beyond the included one-year warranty",
+        "Actual measured wall-power consumption under the office AI workload",
+        "Software, model, backup, and security tooling not already licensed",
+        "Repair parts, downtime, and support after the included warranty"
+      ],
+      "disclosures": [
+        "The product is marketed as a gaming PC rather than an enterprise workstation.",
+        "Price and Cambridge inventory are volatile and must be refreshed immediately before approval."
+      ]
+    },
+    {
+      "candidate_id": "dell-alienware-aurora-act1250",
+      "name": "Alienware Aurora Gaming Desktop ACT1250",
+      "vendor": "Dell",
+      "model": "ACT1250",
+      "order_code": "useact1250wcto07",
+      "source_type": "manufacturer_store_listing",
+      "source_url": "https://www.dell.com/en-us/shop/deals/pc-gaming-deals",
+      "observed_at": "2026-08-28",
+      "quote_subtotal": 4649.99,
+      "price_type": "manufacturer_store_price",
+      "available_for_purchase": true,
+      "availability_status": "Order code listed as available on Dell's U.S. gaming deals page",
+      "local_pickup_available": false,
+      "shipping_available": true,
+      "shipping_cost": 0,
+      "warranty_years": 1,
+      "internal_labor_hours": {
+        "pickup": 0,
+        "deployment": 4
+      },
+      "specifications": {
+        "gpu_model": "NVIDIA GeForce RTX 5080",
+        "min_gpu_vram_gb": 16,
+        "cpu": "Intel Core Ultra 9 285K",
+        "min_system_ram_gb": 64,
+        "min_storage_tb": 2,
+        "operating_system": "Windows 11 Home",
+        "network": "2.5 GbE and Wi-Fi 7",
+        "power_supply_watts": 1000,
+        "form_factor": "tower desktop"
+      },
+      "power_model": {
+        "gpu_tgp_watts": 360,
+        "cpu_tdp_watts": 250,
+        "system_overhead_planning_watts": 80,
+        "idle_system_planning_watts": 100,
+        "measurement_status": "GPU TGP and CPU maximum turbo power are sourced upper-bound inputs; overhead and idle draw are planning assumptions.",
+        "source_urls": [
+          "https://www.nvidia.com/en-us/geforce/graphics-cards/50-series/rtx-5080/",
+          "https://www.intel.com/content/dam/www/central-libraries/us/en/documents/2024-09/core-ultra-desktop-processors-series-2-product-brief.pdf"
+        ]
+      },
+      "commercial_terms": {
+        "fulfillment": "Free standard shipping shown on the manufacturer store",
+        "support": "Basic onsite service for 12 months shown as the selected support level",
+        "return_policy": "Must be reconfirmed for the exact business order",
+        "payment_terms": "Retail checkout; advertised financing is excluded until APR, fees, eligibility, and legal terms are supplied"
+      },
+      "open_cost_items": [
+        "Windows 11 Pro licensing if required by company endpoint policy",
+        "Support coverage after the included 12 months",
+        "Actual delivery date and any business-order fees",
+        "Actual measured wall-power consumption and post-warranty repair costs"
+      ],
+      "disclosures": [
+        "The observed configuration uses Windows 11 Home; technical approval must confirm that it can join the office management and security environment.",
+        "The all-in economic cost can exceed the $5,000 ceiling after tax and internal deployment labor even when the displayed purchase price does not."
+      ]
+    },
+    {
+      "candidate_id": "bh-cyberpowerpc-slc10360cpgv9",
+      "name": "CyberPowerPC Gamer Supreme SLC10360CPGV9",
+      "vendor": "B&H Photo Video",
+      "model": "SLC10360CPGV9",
+      "source_type": "authorized_retailer_listing",
+      "source_url": "https://www.bhphotovideo.com/c/product/1969873-REG/cyberpowerpc_slc10360cpgv9_gamer_supreme_desktop_computer.html/overview",
+      "observed_at": "2026-08-28",
+      "quote_subtotal": 5979.99,
+      "price_type": "public_listing_price",
+      "available_for_purchase": false,
+      "availability_status": "Special order; the page's stated expected-availability date had passed, so fulfillment is unverified",
+      "local_pickup_available": false,
+      "shipping_available": true,
+      "shipping_cost": 0,
+      "warranty_years": 1,
+      "internal_labor_hours": {
+        "pickup": 0,
+        "deployment": 4
+      },
+      "specifications": {
+        "gpu_model": "NVIDIA GeForce RTX 5090",
+        "min_gpu_vram_gb": 32,
+        "cpu": "Intel Core Ultra 9 285K",
+        "min_system_ram_gb": 64,
+        "min_storage_tb": 4,
+        "operating_system": "Windows 11 Home",
+        "network": "Gigabit Ethernet and Wi-Fi 6",
+        "power_supply_watts": 1300,
+        "form_factor": "tower desktop"
+      },
+      "power_model": {
+        "gpu_tgp_watts": 575,
+        "cpu_tdp_watts": 250,
+        "system_overhead_planning_watts": 80,
+        "idle_system_planning_watts": 120,
+        "measurement_status": "GPU TGP and CPU maximum turbo power are sourced upper-bound inputs; overhead and idle draw are planning assumptions.",
+        "source_urls": [
+          "https://www.nvidia.com/en-us/geforce/graphics-cards/50-series/rtx-5090/",
+          "https://www.intel.com/content/dam/www/central-libraries/us/en/documents/2024-09/core-ultra-desktop-processors-series-2-product-brief.pdf"
+        ]
+      },
+      "commercial_terms": {
+        "fulfillment": "Free standard shipping; special order",
+        "support": "Limited one-year manufacturer warranty",
+        "return_policy": "Must be reconfirmed for a special-order computer",
+        "payment_terms": "Retail checkout; advertised financing is excluded until full terms are supplied"
+      },
+      "open_cost_items": [
+        "Availability and delivery date",
+        "Windows 11 Pro licensing if required",
+        "Support after the one-year manufacturer warranty",
+        "Actual wall-power use, post-warranty repairs, and downtime"
+      ],
+      "disclosures": [
+        "The displayed price exceeds the $5,000 acquisition ceiling before Massachusetts tax or internal deployment cost.",
+        "The special-order availability statement was stale at observation time and cannot support a purchase recommendation without refresh."
+      ]
+    }
+  ]
+}

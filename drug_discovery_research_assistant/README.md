@@ -9,7 +9,7 @@ This blueprint runs a review-only discovery service until it is closed manually.
 
 DrugClip is a problem-specific scientific checkpoint, not a shared LLM model. The adapter uses `mirrorneuron-use-generic-model-skill` to validate the explicit `https://huggingface.co/homerquan/DrugClip` reference, then downloads `best.ckpt` and runs it through the native `DrugCLIP` graph/text adapter. Docker Model Runner is deliberately not used: the repository is a checkpoint-only graph/text model, not a DMR-compatible generative model. No fake adapter or surrogate score is used in live mode.
 
-This blueprint requires one NVIDIA CUDA GPU. The manifest declares that as a hard runtime requirement, so the platform rejects Apple-Silicon and CPU-only nodes before a workflow is submitted. Every specialist step runs in one shared `DockerWorker` with `gpus: all`; that image contains the SDK and agent runtime, CUDA/cuDNN, the real DrugClip dependencies, and a native GNINA build. The native DrugClip adapter also rejects a CPU-only PyTorch installation rather than silently falling back to CPU execution.
+This blueprint hard-requires at least one schedulable NVIDIA CUDA GPU with at least 48 GB (49,152 MB) of memory. The manifest declares this before scheduling, so the platform rejects Apple-Silicon, CPU-only, and undersized placements before a workflow is submitted. Every specialist step runs in one shared `DockerWorker` with `gpus: all`; that image contains the SDK and agent runtime, CUDA/cuDNN, the real DrugClip dependencies, and a native GNINA build. The native DrugClip adapter also rejects a CPU-only PyTorch installation rather than silently falling back to CPU execution.
 
 ## Running and stopping
 

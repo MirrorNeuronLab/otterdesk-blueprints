@@ -35,7 +35,9 @@ an agent returns its bounded message payload.
 
 ## Real Sample And Runtime Skills
 
-The checked-in sample packet includes the official Acquisition.gov FAR 52.212-4 contract-terms PDF. The document reader uses `mirrorneuron-llm-ocr-skill` for PDF/image extraction when embedded text is insufficient, and the actor prompts use `mirrorneuron-rag-skill` to retrieve cited sections from the local legal playbook. Normal runs use the shared live LLM; fake/quick-test mode remains available for deterministic smoke tests.
+The checked-in sample packet includes the official Acquisition.gov FAR 52.212-4 contract-terms PDF. The document reader uses `mirrorneuron-llm-ocr-skill` for PDF/image extraction when embedded text is insufficient, and the actor prompts use `mirrorneuron-rag-skill` to retrieve cited sections from the local legal playbook. The blueprint supplies product policy only: the shared OCR and RAG skills own their model specifications, and the SDK selects the foundational LLM runtime. Normal runs use the shared live LLM; fake/quick-test mode remains available for deterministic smoke tests.
+
+The runtime uses the declarative manifest DAG, with identity, resources, agent roles, human-control policy, RAG defaults, and model defaults projected into the resolved configuration. It receives the platform-staged local input folder rather than resolving bundle paths in domain code.
 
 ## Persistent job data
 

@@ -7,9 +7,6 @@ from typing import Any
 
 from mn_sdk.blueprint_support import WorkflowStateStore
 
-from .runtime_services import expand_runtime_path
-
-
 STATE_FILES = (
     "legal_matter_state.json",
     "legal_invoice_lane.json",
@@ -27,7 +24,12 @@ def load_state(ctx: dict[str, Any]) -> dict[str, Any]:
             state.update(value)
     state.update({
         "run_id": ctx["run_id"],
-        "document_folder": str(expand_runtime_path(ctx["payload"].get("document_folder") or ctx["payload"].get("input_folder") or "examples/sample_inputs")),
+        "document_folder": str(
+            ctx.get("document_folder")
+            or ctx["payload"].get("document_folder")
+            or ctx["payload"].get("input_folder")
+            or "examples/sample_inputs"
+        ),
         "output_folder": str(ctx["output_folder"]),
     })
     return state

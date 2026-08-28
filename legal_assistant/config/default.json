@@ -1,13 +1,13 @@
 {
   "standard_version": "mn.blueprint.config.v1",
-  "mode": "review_only",
+  "mode": "document_automation_review",
   "metadata": {
     "category": "Legal",
     "description": "A legal document co-worker for invoice, bill, and contract review. Put invoices, bills, contracts, clause notes, labels, or supporting files in the input folder; it extracts payable fields, maps contract clauses, compares playbook expectations, flags review issues, and writes a source-grounded review packet to the output folder."
   },
   "inputs": {
     "adapter": "mock",
-    "description": "Default sample inputs include one invoice/bill JSON fixture and one contract text fixture.",
+    "description": "Default sample inputs combine synthetic payable documents, a synthetic payment-change notice, and a public contract-terms PDF.",
     "payload": {
       "document_folder": "@/examples/sample_inputs",
       "input_folder": "@/examples/sample_inputs",
@@ -80,32 +80,132 @@
     ],
     "grouping": "single_legal_review_packet"
   },
-  "outputs": {
-    "adapter": "local_run_store",
-    "folder_path": "~/Downloads/legal_assistant",
-    "run_root": "~/.mn/runs",
-    "write_run_store": true,
-    "write_markdown_report": true,
-    "domain_artifacts": [
-      "invoice_bill_extraction.json",
-      "contract_clause_review.json",
-      "legal_issue_register.json",
-      "legal_deep_review.json",
-      "legal_assistant_report.md",
-      "action_ledger.json",
-      "artifact_quality.json",
-      "run_health.json"
-    ],
-    "artifact_contract": "Review-only invoice extraction, OCR-aware contract clause review, RAG-grounded deep LLM review, issue register, action ledger, quality summary, and integrated Markdown report."
+  "local_inputs": {
+    "folders": [
+      {
+        "config_path": "document_sources.folder_path",
+        "payload_path": "runtime/mn_local_inputs/legal_documents",
+        "runtime_path": "mn_local_inputs/legal_documents",
+        "allowed_extensions": [
+          ".pdf",
+          ".txt",
+          ".json",
+          ".csv",
+          ".md"
+        ],
+        "linked_config_paths": [
+          "inputs.payload.document_folder",
+          "inputs.payload.input_folder",
+          "state.document_folder",
+          "state.input_folder"
+        ]
+      }
+    ]
   },
-  "resources": {
-    "enabled": true,
-    "gpu_enabled": "auto",
-    "sample_interval_seconds": 10,
-    "gpu_sample_interval_seconds": 60,
-    "history_window_hours": 24,
-    "raw_retention_hours": 48,
-    "rollup_bucket_seconds": 3600
+  "dataset_input": {
+    "name": "FAR 52.212-4 Contract Terms and Conditions—Commercial Products and Commercial Services",
+    "provider": "U.S. General Services Administration, Acquisition.gov",
+    "url": "https://www.acquisition.gov/far/52.212-4",
+    "download_url": "https://www.acquisition.gov/node/31867/printable/pdf",
+    "license_note": "U.S. government regulatory text; verify current version and source terms before production use.",
+    "availability_note": "Bundled public-domain sample PDF is for local blueprint validation and is not legal advice.",
+    "expected_files": [
+      "*.pdf",
+      "*.txt",
+      "*.json",
+      "*.md"
+    ]
+  },
+  "document_automation": {
+    "fields": {
+      "invoice_fields": [
+        "supplier_name",
+        "customer_name",
+        "invoice_id",
+        "tax_id",
+        "due_date",
+        "total_amount",
+        "line_items",
+        "consumption_fields",
+        "billing_period"
+      ],
+      "clause_fields": [
+        "governing_law",
+        "change_of_control",
+        "assignment",
+        "indemnity",
+        "termination",
+        "audit_rights",
+        "renewal",
+        "exclusivity",
+        "liability"
+      ]
+    },
+    "output_type": "legal_assistant_report",
+    "review_required": true,
+    "recommended_action": "attorney_and_human_review_required_before_legal_payment_or_contract_action"
+  },
+  "llm": {
+    "strict_json": false,
+    "configs": {
+      "primary": {
+        "max_tokens": 1600,
+        "num_retries": 1,
+        "retry_backoff_seconds": 1.0
+      }
+    },
+    "require_live": true
+  },
+  "outputs": {
+    "folder_path": "~/Downloads/legal_assistant",
+    "write_run_store": true,
+    "write_markdown_report": true
+  },
+  "logging": {
+    "level": "info",
+    "events_jsonl": true,
+    "logs_jsonl": true,
+    "resources_jsonl": true,
+    "stderr_jsonl": true,
+    "redact_env_secrets": true,
+    "redact_fields": [
+      "api_key",
+      "token",
+      "authorization",
+      "cookie",
+      "password",
+      "private_key",
+      "customer_name",
+      "email",
+      "phone"
+    ],
+    "events": [
+      "blueprint_status",
+      "blueprint_phase_started",
+      "blueprint_phase_completed",
+      "blueprint_phase_failed",
+      "artifact_written",
+      "human_notice",
+      "human_input_requested",
+      "human_input_received",
+      "human_input_timeout",
+      "human_decision_applied",
+      "output_skill_started",
+      "output_skill_completed",
+      "output_skill_failed",
+      "tool_call_started",
+      "tool_call_completed",
+      "tool_call_failed",
+      "legal_folder_watcher_completed",
+      "legal_document_reader_completed",
+      "invoice_bill_extractor_completed",
+      "payable_field_validator_completed",
+      "contract_clause_extractor_completed",
+      "contract_playbook_comparator_completed",
+      "legal_evidence_reconciler_completed",
+      "legal_review_auditor_completed",
+      "legal_reporter_completed"
+    ]
   },
   "privacy": {
     "default_classification": "confidential",
@@ -137,310 +237,6 @@
       }
     }
   },
-  "llm": {
-    "mode": "live",
-    "strict_json": false,
-    "require_live": true,
-    "configs": {
-      "primary": {
-        "timeout_seconds": 75,
-        "max_tokens": 1600,
-        "num_retries": 1,
-        "retry_backoff_seconds": 1.0
-      }
-    }
-  },
-  "knowledge_rag": {
-    "backend": "milvus_lite"
-  },
-  "input_skills": {
-    "llm_ocr": {
-      "skill": "llm_ocr_skill",
-      "package": "mirrorneuron-llm-ocr-skill",
-      "connector": "docker_model_runner",
-      "purpose": "Shared local LightOnOCR-2-1B OCR for scanned invoices, bills, contracts, and legal-support documents.",
-      "enabled": true,
-      "required": false,
-      "backend": "llama.cpp",
-      "endpoint": "auto",
-      "model": "hf.co/noctrex/LightOnOCR-2-1B-GGUF:Q4_K_M",
-      "api_model": "lightonocr-2-1b",
-      "quantization": "Q4_K_M",
-      "min_text_chars": 40,
-      "max_pages": null,
-      "preload": true,
-      "install_policy": "runtime",
-      "remove_policy": "manual",
-      "require_hardware_acceleration": true,
-      "timeout_seconds": 180
-    }
-  },
-  "output_skills": {},
-  "skill_runtime": {
-    "enabled": true,
-    "auto_patch": false,
-    "driver": "docker_worker",
-    "install_scope": "shared_job_container",
-    "docker_worker_image": "docker_worker",
-    "image": "mirror-neuron/legal-assistant:local",
-    "network": "mirror-neuron-runtime",
-    "node_scope": "legal_assistant_python_executor_nodes"
-  },
-  "document_automation": {
-    "fields": {
-      "invoice_fields": [
-        "supplier_name",
-        "customer_name",
-        "invoice_id",
-        "tax_id",
-        "due_date",
-        "total_amount",
-        "line_items",
-        "consumption_fields",
-        "billing_period"
-      ],
-      "clause_fields": [
-        "governing_law",
-        "change_of_control",
-        "assignment",
-        "indemnity",
-        "termination",
-        "audit_rights",
-        "renewal",
-        "exclusivity",
-        "liability"
-      ]
-    },
-    "output_type": "legal_assistant_report",
-    "review_required": true,
-    "recommended_action": "attorney_and_human_review_required_before_legal_payment_or_contract_action"
-  },
-  "interfaces": {
-    "channels": {
-      "artifacts": {
-        "artifacts": [
-          "run.json",
-          "config.json",
-          "inputs.json",
-          "events.jsonl",
-          "result.json",
-          "final_artifact.json"
-        ],
-        "description": "Stable run-store files and domain-specific outputs.",
-        "optional_artifacts": [
-          "action_ledger.json",
-          "artifact_quality.json",
-          "run_health.json",
-          "legal_deep_review.json",
-          "legal_assistant_report.md"
-        ]
-      },
-      "knowledge_rag": {
-        "description": "Optional local blueprint knowledge retrieval used to ground actor prompts and tool planning.",
-        "config": "knowledge_rag",
-        "artifact": "@/payloads/knowledge/",
-        "privacy": "blueprint knowledge only by default"
-      },
-      "agentic_research": {
-        "description": "Bounded LLM-selected or actor-guided tool contract for local legal document work.",
-        "config": "agentic_research"
-      }
-    },
-    "config": [
-      "standard_version",
-      "identity",
-      "mode",
-      "metadata",
-      "inputs",
-      "llm",
-      "outputs",
-      "logging",
-      "resources",
-      "human_control",
-      "privacy",
-      "input_skills",
-      "output_skills",
-      "error_handling",
-      "state",
-      "capabilities",
-      "backpressure",
-      "determinism",
-      "schemas",
-      "budgets",
-      "agent_handoffs",
-      "web_ui",
-      "interfaces",
-      "execution_model",
-      "memory_layer",
-      "document_automation",
-      "knowledge_rag",
-      "agentic_research"
-    ],
-    "config_sections": [
-      "standard_version",
-      "identity",
-      "mode",
-      "metadata",
-      "inputs",
-      "llm",
-      "outputs",
-      "logging",
-      "resources",
-      "human_control",
-      "privacy",
-      "input_skills",
-      "output_skills",
-      "error_handling",
-      "state",
-      "capabilities",
-      "backpressure",
-      "determinism",
-      "schemas",
-      "budgets",
-      "agent_handoffs",
-      "web_ui",
-      "interfaces",
-      "execution_model",
-      "memory_layer",
-      "document_automation",
-      "knowledge_rag",
-      "agentic_research"
-    ],
-    "input_adapters": [
-      "mock",
-      "json",
-      "file",
-      "env_json"
-    ],
-    "output_adapters": [
-      "local_run_store"
-    ]
-  },
-  "logging": {
-    "level": "INFO",
-    "events": [
-      "blueprint_status",
-      "blueprint_phase_started",
-      "blueprint_phase_completed",
-      "blueprint_phase_failed",
-      "artifact_written",
-      "human_notice",
-      "human_input_requested",
-      "human_input_received",
-      "human_input_timeout",
-      "human_decision_applied",
-      "legal_folder_watcher_completed",
-      "legal_document_reader_completed",
-      "invoice_bill_extractor_completed",
-      "payable_field_validator_completed",
-      "contract_clause_extractor_completed",
-      "contract_playbook_comparator_completed",
-      "legal_evidence_reconciler_completed",
-      "legal_review_auditor_completed",
-      "legal_reporter_completed"
-    ]
-  },
-  "schemas": {
-    "artifact_record": "mn.artifact.record.v1",
-    "config": "mn.blueprint.config.v1",
-    "events": "mn.blueprint.events.v1",
-    "final_artifact": "mn.blueprint.final_artifact.v1",
-    "human_control": "mn.blueprint.human_control.v1",
-    "input_skills": "mn.blueprint.input_skills.v1",
-    "inputs": "mn.blueprint.inputs.v1",
-    "logs": "mn.blueprint.logs.v1",
-    "output_skills": "mn.blueprint.output_skills.v1",
-    "resources": "mn.blueprint.resources.v1",
-    "status_contract": "mn.blueprint.status_contract.v1",
-    "web_ui": "mn.blueprint.web_ui.v1"
-  },
-  "budgets": {
-    "max_runtime_seconds": 900,
-    "max_llm_calls": 12,
-    "max_llm_tokens": 20000,
-    "max_disk_mb": 250,
-    "max_connector_reads": 500,
-    "max_connector_writes": 10
-  },
-  "capabilities": {
-    "required": [
-      "filesystem.write"
-    ],
-    "optional": [
-      "llm.call",
-      "knowledge.rag",
-      "llm_ocr.extract"
-    ]
-  },
-  "backpressure": {
-    "max_concurrency": 4,
-    "queue_size": 1000,
-    "max_events_per_second": 10,
-    "drop_policy": "skip_with_error",
-    "llm": {
-      "max_concurrent_calls": 1,
-      "max_calls_per_minute": 30,
-      "min_interval_seconds": 2.0
-    }
-  },
-  "determinism": {
-    "enabled": true,
-    "seed_field": "seed",
-    "replay": {
-      "from_inputs": "inputs.json",
-      "from_events": "events.jsonl",
-      "llm_mode": "mock"
-    }
-  },
-  "execution_model": [
-    "load_metadata",
-    "resolve_config",
-    "load_inputs",
-    "start_run_store",
-    "extract_invoice_bill_fields",
-    "extract_contract_clauses",
-    "compare_playbook",
-    "audit_review_boundaries",
-    "write_final_artifact",
-    "emit_status_events"
-  ],
-  "error_handling": {
-    "default_mode": "stop",
-    "policies": {
-      "llm_call": {
-        "mode": "retry",
-        "max_attempts": 3,
-        "backoff_seconds": 2
-      },
-      "optional_output": {
-        "mode": "skip"
-      },
-      "required_output": {
-        "mode": "stop"
-      }
-    }
-  },
-  "state": {
-    "persist_workflow_state": true,
-    "final_artifact_path": "final_artifact.json"
-  },
-  "agent_handoffs": {},
-  "web_ui": {
-    "enabled": false,
-    "dashboard": {
-      "standard_panels": [
-        "current_status",
-        "recent_events",
-        "pending_human_requests",
-        "output_artifacts",
-        "resource_usage",
-        "errors",
-        "llm_calls",
-        "token_budget",
-        "llm_retries"
-      ]
-    }
-  },
   "memory_layer": {
     "enabled": true,
     "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
@@ -462,35 +258,356 @@
       "include_human_events": true,
       "target_tokens": 2400,
       "token_budget": 6000,
-      "use_model_compression": false
+      "use_model_compression": true
     }
+  },
+  "state": {
+    "document_folder": "@/examples/sample_inputs",
+    "input_folder": "@/examples/sample_inputs",
+    "output_folder": "~/Downloads/legal_assistant",
+    "final_report": {}
+  },
+  "triggers": {
+    "type": "folder_watch",
+    "sources": [
+      "legal_document_folder"
+    ],
+    "schedule": null
+  },
+  "real_adapters": {
+    "filesystem": {
+      "enabled": true,
+      "read": true,
+      "write": true
+    }
+  },
+  "input_skills": {
+    "llm_ocr": {
+      "skill": "llm_ocr_skill",
+      "package": "mirrorneuron-llm-ocr-skill",
+      "purpose": "Shared OCR for scanned invoices, bills, contracts, and legal-support documents.",
+      "enabled": true,
+      "required": false,
+      "min_text_chars": 40,
+      "max_pages": null,
+      "timeout_seconds": 180
+    }
+  },
+  "output_skills": {},
+  "error_handling": {
+    "default_mode": "stop",
+    "policies": {
+      "llm_call": {
+        "mode": "retry",
+        "max_attempts": 3,
+        "backoff_seconds": 2
+      },
+      "optional_output": {
+        "mode": "skip"
+      },
+      "required_output": {
+        "mode": "stop"
+      }
+    }
+  },
+  "backpressure": {
+    "max_concurrency": 4,
+    "queue_size": 1000,
+    "max_events_per_second": 10,
+    "drop_policy": "skip_with_error",
+    "llm": {
+      "max_concurrent_calls": 1,
+      "max_calls_per_minute": 30,
+      "min_interval_seconds": 2.0
+    }
+  },
+  "determinism": {
+    "enabled": true,
+    "seed_field": "seed",
+    "replay": {
+      "from_inputs": "inputs.json",
+      "from_events": "events.jsonl",
+      "llm_mode": "mock"
+    }
+  },
+  "capabilities": {
+    "required": [
+      "filesystem.write"
+    ],
+    "optional": [
+      "llm.call",
+      "knowledge.rag",
+      "llm_ocr.extract"
+    ]
+  },
+  "budgets": {
+    "max_runtime_seconds": 900,
+    "max_llm_calls": 12,
+    "max_llm_tokens": 20000,
+    "max_disk_mb": 250,
+    "max_connector_reads": 500,
+    "max_connector_writes": 10
+  },
+  "agent_handoffs": {},
+  "web_ui": {
+    "enabled": false,
+    "dashboard": {
+      "standard_panels": [
+        "current_status",
+        "recent_events",
+        "pending_human_requests",
+        "output_artifacts",
+        "resource_usage",
+        "errors",
+        "llm_calls",
+        "token_budget",
+        "llm_retries"
+      ]
+    }
+  },
+  "schemas": {
+    "artifact_record": "mn.artifact.record.v1",
+    "config": "mn.blueprint.config.v1",
+    "events": "mn.blueprint.events.v1",
+    "final_artifact": "mn.blueprint.final_artifact.v1",
+    "human_control": "mn.blueprint.human_control.v1",
+    "input_skills": "mn.blueprint.input_skills.v1",
+    "inputs": "mn.blueprint.inputs.v1",
+    "logs": "mn.blueprint.logs.v1",
+    "output_skills": "mn.blueprint.output_skills.v1",
+    "resources": "mn.blueprint.resources.v1",
+    "status_contract": "mn.blueprint.status_contract.v1",
+    "web_ui": "mn.blueprint.web_ui.v1"
+  },
+  "interfaces": {
+    "channels": {
+      "artifacts": {
+        "artifacts": [
+          "run.json",
+          "config.json",
+          "inputs.json",
+          "events.jsonl",
+          "result.json",
+          "final_artifact.json",
+          "action_ledger.json",
+          "artifact_quality.json",
+          "run_health.json"
+        ],
+        "description": "Stable run-store files and review-only legal output artifacts.",
+        "optional_artifacts": [
+          "job.json",
+          "web_ui.json",
+          "logs.jsonl",
+          "resources.jsonl",
+          "human.jsonl",
+          "legal_deep_review.json",
+          "legal_assistant_report.md"
+        ]
+      },
+      "events": {
+        "artifact": "events.jsonl",
+        "description": "Append-only workflow events."
+      },
+      "human": {
+        "artifact": "human.jsonl",
+        "description": "Human notices, approval requests, responses, timeouts, and applied decisions."
+      },
+      "inputs": {
+        "artifact": "inputs.json",
+        "description": "Resolved legal document folder and review settings."
+      },
+      "input_skills": {
+        "description": "Local filesystem legal-document intake with optional shared OCR."
+      },
+      "knowledge_rag": {
+        "description": "Local legal-playbook retrieval used to ground review prompts.",
+        "config": "knowledge_rag",
+        "artifact": "@/payloads/knowledge/",
+        "privacy": "blueprint knowledge only by default"
+      },
+      "logs": {
+        "artifact": "logs.jsonl",
+        "description": "Runtime stdout/stderr and redacted legal-review logs.",
+        "stream": "stdout/stderr"
+      },
+      "outputs": {
+        "artifacts": [
+          "result.json",
+          "final_artifact.json",
+          "action_ledger.json",
+          "artifact_quality.json",
+          "run_health.json",
+          "invoice_bill_extraction.json",
+          "contract_clause_review.json",
+          "legal_issue_register.json",
+          "legal_deep_review.json",
+          "legal_assistant_report.md"
+        ],
+        "description": "Source-grounded, review-only invoice and contract analysis artifacts."
+      },
+      "resources": {
+        "artifact": "resources.jsonl",
+        "description": "Resource samples such as token, runtime, connector, and disk usage."
+      },
+      "web_ui": {
+        "artifacts": [
+          "web_ui.json"
+        ],
+        "description": "Optional review dashboard for artifact inspection."
+      }
+    },
+    "config": [
+      "standard_version",
+      "identity",
+      "mode",
+      "metadata",
+      "inputs",
+      "llm",
+      "outputs",
+      "logging",
+      "resources",
+      "human_control",
+      "real_adapters",
+      "skill_runtime",
+      "input_skills",
+      "output_skills",
+      "error_handling",
+      "state",
+      "capabilities",
+      "privacy",
+      "triggers",
+      "backpressure",
+      "determinism",
+      "schemas",
+      "budgets",
+      "agent_handoffs",
+      "web_ui",
+      "interfaces",
+      "execution_model",
+      "memory_layer",
+      "dataset_input",
+      "document_automation",
+      "agentic_research",
+      "knowledge_rag",
+      "suggested_schedule"
+    ],
+    "config_sections": [
+      "standard_version",
+      "identity",
+      "mode",
+      "metadata",
+      "inputs",
+      "llm",
+      "outputs",
+      "logging",
+      "resources",
+      "human_control",
+      "real_adapters",
+      "skill_runtime",
+      "input_skills",
+      "output_skills",
+      "error_handling",
+      "state",
+      "capabilities",
+      "privacy",
+      "triggers",
+      "backpressure",
+      "determinism",
+      "schemas",
+      "budgets",
+      "agent_handoffs",
+      "web_ui",
+      "interfaces",
+      "execution_model",
+      "memory_layer",
+      "dataset_input",
+      "document_automation",
+      "agentic_research",
+      "knowledge_rag",
+      "suggested_schedule"
+    ],
+    "identity": [
+      "blueprint_id",
+      "name",
+      "run_id"
+    ],
+    "identity_fields": [
+      "blueprint_id",
+      "name",
+      "run_id"
+    ],
+    "run_artifacts": [
+      "run.json",
+      "config.json",
+      "inputs.json",
+      "events.jsonl",
+      "result.json",
+      "final_artifact.json",
+      "action_ledger.json",
+      "artifact_quality.json",
+      "run_health.json"
+    ],
+    "outputs": [
+      "run.json",
+      "config.json",
+      "inputs.json",
+      "events.jsonl",
+      "result.json",
+      "final_artifact.json",
+      "action_ledger.json",
+      "artifact_quality.json",
+      "run_health.json"
+    ],
+    "optional_run_artifacts": [
+      "job.json",
+      "web_ui.json",
+      "logs.jsonl",
+      "resources.jsonl",
+      "human.jsonl",
+      "legal_deep_review.json",
+      "legal_assistant_report.md"
+    ],
+    "optional_outputs": [
+      "job.json",
+      "web_ui.json",
+      "logs.jsonl",
+      "resources.jsonl",
+      "human.jsonl",
+      "legal_deep_review.json",
+      "legal_assistant_report.md"
+    ],
+    "output_adapters": [
+      "local_run_store"
+    ],
+    "response_schema": "mn.blueprint.response.v1",
+    "web_ui_adapters": [
+      "none",
+      "static_html",
+      "gradio",
+      "custom"
+    ]
+  },
+  "execution_model": {
+    "type": "manifest_dag",
+    "runtime_note": "Logical step dependencies are declared in manifest.json; step I/O and agent collaboration are declared in payloads/steps."
+  },
+  "skill_runtime": {
+    "enabled": true,
+    "auto_patch": false,
+    "driver": "docker_worker",
+    "install_scope": "shared_job_container",
+    "docker_worker_image": "docker_worker",
+    "image": "mirror-neuron/legal-assistant:local",
+    "network": "mirror-neuron-runtime",
+    "node_scope": "legal_assistant_python_executor_nodes"
+  },
+  "knowledge_rag": {
+    "backend": "milvus_lite"
   },
   "suggested_schedule": {
     "cron": "0 8 * * 1-5",
     "cadence": "weekday_daily",
     "advisory_only": true,
     "note": "Suggested cadence only; runtime decides the actual schedule."
-  },
-  "local_inputs": {
-    "folders": [
-      {
-        "config_path": "inputs.payload.document_folder",
-        "payload_path": "runtime/mn_local_inputs/legal_assistant_documents",
-        "runtime_path": "mn_local_inputs/legal_assistant_documents",
-        "allowed_extensions": [
-          ".pdf",
-          ".txt",
-          ".json",
-          ".csv",
-          ".md"
-        ],
-        "linked_config_paths": [
-          "inputs.payload.document_folder",
-          "inputs.payload.input_folder",
-          "state.document_folder",
-          "state.input_folder"
-        ]
-      }
-    ]
   }
 }

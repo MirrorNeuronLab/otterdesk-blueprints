@@ -32,8 +32,8 @@ RAG_BLUEPRINTS = {
     "growth_partnerships_coworker",
     "learning_quality_safety_coworker",
     "legal_assistant",
-    "purchase_research_assistant",
-    "research_coscientist",
+    "purchasing_manager",
+    "research_assistant",
     "ros_amr_controller",
     "vc_assistant",
 }

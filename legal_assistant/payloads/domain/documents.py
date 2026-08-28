@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from .common import *
-from .runtime_services import build_ocr_runtime, expand_runtime_path
+from .runtime_services import build_ocr_runtime
 from .state import load_state, save_state
 
 def classify_document(text: str, filename: str) -> str:

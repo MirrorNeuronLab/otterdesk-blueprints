@@ -110,6 +110,11 @@ def _run_handler_workflow(
                         value
                         for value in (
                             str(SDK_ROOT),
+                            *(
+                                str(path)
+                                for path in sorted((payloads / "skills").glob("*/src"))
+                                if path.is_dir()
+                            ),
                             *(str(path) for path in SKILL_SOURCES),
                             *(str(path) for path in AGENT_SOURCES),
                             environment.get("PYTHONPATH", ""),
@@ -164,8 +169,8 @@ def _run_handler_workflow(
             },
         ),
         (
-            "purchase_research_assistant",
-            {"input_folder": str(ROOT / "purchase_research_assistant" / "examples" / "sample_inputs")},
+            "purchasing_manager",
+            {"input_folder": str(ROOT / "purchasing_manager" / "examples" / "sample_inputs")},
             {
                 "execution": {"quick_test": True},
                 "llm": {"mode": "fake", "require_live": False},
@@ -193,13 +198,23 @@ def _run_handler_workflow(
             },
         ),
         (
-            "research_coscientist",
-            {"input_folder": str(ROOT / "research_coscientist" / "examples" / "sample_inputs")},
+            "research_assistant",
+            {"input_folder": str(ROOT / "research_assistant" / "examples" / "sample_inputs")},
             {
                 "execution": {"quick_test": True},
                 "llm": {"mode": "fake", "require_live": False},
                 "knowledge_rag": {"enabled": False, "required": False},
                 "internet_research": {"enabled": False},
+            },
+        ),
+        (
+            "software_architecture_advisor",
+            {
+                "input_folder": str(ROOT / "software_architecture_advisor" / "examples" / "sample_inputs"),
+            },
+            {
+                "llm": {"mode": "fake", "require_live": False},
+                "analysis": {"max_files": 100, "large_module_line_threshold": 2},
             },
         ),
         (

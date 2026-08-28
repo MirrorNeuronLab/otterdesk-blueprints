@@ -71,9 +71,9 @@
     "default": "config/default.json",
     "embed": true,
     "manifest_defaults": [
-      "llm",
-      "knowledge_rag",
       "agentic_research",
+      "knowledge_rag",
+      "llm",
       {
         "from": "requirements",
         "to": "resources"
@@ -111,6 +111,12 @@
         "human_input_received",
         "human_input_timeout",
         "human_decision_applied",
+        "output_skill_started",
+        "output_skill_completed",
+        "output_skill_failed",
+        "tool_call_started",
+        "tool_call_completed",
+        "tool_call_failed",
         "legal_folder_watcher_completed",
         "legal_document_reader_completed",
         "invoice_bill_extractor_completed",
@@ -135,7 +141,7 @@
     "inputs": {
       "document_folder": {
         "description": "Local folder containing invoices, bills, contracts, clause notes, labels, and support files.",
-        "example": "legal_assistant/examples/sample_inputs",
+        "example": "@/examples/sample_inputs",
         "path_kind": "directory",
         "privacy": "confidential",
         "required": true,
@@ -163,7 +169,7 @@
       },
       "input_folder": {
         "description": "Alias for document_folder.",
-        "example": "legal_assistant/examples/sample_inputs",
+        "example": "@/examples/sample_inputs",
         "path_kind": "directory",
         "privacy": "confidential",
         "required": false,
@@ -268,6 +274,85 @@
           "type": "final_artifact"
         },
         {
+          "artifact_id": "action_ledger",
+          "mime_type": "application/json",
+          "path": "action_ledger.json",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.action_ledger.v1",
+          "source_refs": [
+            "final_artifact.json"
+          ],
+          "type": "action_ledger"
+        },
+        {
+          "artifact_id": "artifact_quality",
+          "mime_type": "application/json",
+          "path": "artifact_quality.json",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.artifact_quality.v1",
+          "source_refs": [
+            "final_artifact.json"
+          ],
+          "type": "artifact_quality"
+        },
+        {
+          "artifact_id": "run_health",
+          "mime_type": "application/json",
+          "path": "run_health.json",
+          "producer": "workflow",
+          "schema_version": "mn.blueprint.run_health.v1",
+          "source_refs": [
+            "final_artifact.json",
+            "action_ledger.json",
+            "artifact_quality.json"
+          ],
+          "type": "run_health"
+        },
+        {
+          "artifact_id": "logs",
+          "mime_type": "application/x-jsonlines",
+          "path": "logs.jsonl",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.logs.v1",
+          "source_refs": [
+            "events.jsonl"
+          ],
+          "type": "logs"
+        },
+        {
+          "artifact_id": "resources",
+          "mime_type": "application/x-jsonlines",
+          "path": "resources.jsonl",
+          "producer": "local_run_store",
+          "schema_version": "mn.blueprint.resources.v1",
+          "source_refs": [
+            "run.json"
+          ],
+          "type": "resource_samples"
+        },
+        {
+          "artifact_id": "web_ui",
+          "mime_type": "application/json",
+          "path": "web_ui.json",
+          "producer": "web_ui",
+          "schema_version": "mn.blueprint.web_ui.v1",
+          "source_refs": [
+            "run.json"
+          ],
+          "type": "web_ui"
+        },
+        {
+          "artifact_id": "human_events",
+          "mime_type": "application/x-jsonlines",
+          "path": "human.jsonl",
+          "producer": "human_control",
+          "schema_version": "mn.blueprint.human_events.v1",
+          "source_refs": [
+            "events.jsonl"
+          ],
+          "type": "human_events"
+        },
+        {
           "artifact_id": "invoice_bill_extraction",
           "mime_type": "application/json",
           "path": "invoice_bill_extraction.json",
@@ -361,6 +446,11 @@
       }
     }
   },
+  "manifest": {
+    "policies": {
+      "recovery_mode": "manual_recover"
+    }
+  },
   "identity": {
     "category": "legal",
     "id": "legal_assistant",
@@ -413,40 +503,29 @@
   "kind": "WorkflowSource",
   "knowledge_rag": {
     "backend": "milvus_lite",
-    "chunk_overlap": 150,
-    "chunk_size": 2500,
-    "embedding_api_base": "auto",
-    "embedding_document_prefix": "Document: ",
-    "embedding_healthcheck_enabled": false,
-    "embedding_model": "rag-embedding",
-    "embedding_provider": "docker_model_runner",
-    "embedding_query_prefix": "Query: ",
-    "embedding_start_command": "",
     "enabled": true,
-    "grounding_policy": "Use retrieved or bundled local blueprint knowledge to improve actor prompts; preserve deterministic outputs, cite supplied evidence, and label unknowns when retrieval is unavailable.",
+    "grounding_policy": "Use retrieved or bundled legal-playbook guidance to ground review prompts, preserve deterministic outputs, cite supplied evidence, and label unknowns when retrieval is unavailable.",
     "index_on_startup": true,
-    "knowledge_dir": "knowledge",
+    "knowledge_dir": "@/payloads/knowledge",
     "max_context_chars": 4500,
-    "namespace": "",
-    "privacy": "index local blueprint knowledge only; do not index private run documents unless a future runtime explicitly opts in",
-    "purpose": "Retrieve local legal assistant guidance for invoice extraction, contract clause mapping, playbook comparison, privilege/privacy handling, and review-only boundaries.",
-    "redis_url": "",
+    "privacy": "Index local blueprint knowledge only; do not index private run documents unless a future runtime explicitly opts in.",
+    "purpose": "Retrieve local legal guidance for invoice extraction, contract clause mapping, playbook comparison, privilege/privacy handling, and review-only boundaries.",
     "required": false,
     "retrieval_targets": [
       "invoice and bill extraction",
       "contract clause taxonomy",
       "playbook comparison",
-      "privilege and privacy review",
-      "payment and legal action blockers",
-      "evidence hierarchy and source traceability",
-      "calculation invariance and assumption clarity",
-      "cross-domain reconciliation and report quality"
+      "privacy and privilege review",
+      "payment and legal action blockers"
     ],
-    "top_k": 5,
-    "vector_dim": 1024
+    "top_k": 5
   },
   "metadata": {
     "blueprint_id": "legal_assistant",
+    "init_config_review": {
+      "required": false,
+      "fields": []
+    },
     "job_data": {
       "resources": [
         {
@@ -476,7 +555,10 @@
       "min_gb": 1
     },
     "gpu": {
-      "min_count": 0
+      "min_count": 1,
+      "min_memory_mb": 49152,
+      "memory_operator": ">=",
+      "enforcement": "hard"
     },
     "memory": {
       "min_gb": 2
@@ -764,7 +846,7 @@
       },
       "invoice_bill_extractor": {
         "llm_config": "primary",
-        "role": "Invoice And Bill Extractor",
+        "role": "Invoice Bill Extractor",
         "responsibilities": [
           "Extract payable fields from invoices and bills.",
           "Tie supplier, date, total, and line-item values to source evidence.",

@@ -1,0 +1,51 @@
+What I want to buy: Source one supportable local-AI desktop for the Boston engineering office. Two machine-learning engineers will use it for private model prototyping, document-extraction evaluation, retrieval experiments, and smaller fine-tuning jobs. We need a complete desktop system, not a DIY parts list or a cloud subscription.
+Purchase type: computer
+Budget: $5,000 landed acquisition cost, including purchase price, mandatory options, tax, delivery or pickup labor, and initial deployment labor
+Location: Boston, MA
+Purchase timing: Approve only a configuration that is currently purchasable; target deployment within 15 business days of purchase-order approval
+
+Business context:
+- Request owner: Engineering Operations
+- Technical approver: Director of Machine Learning
+- Procurement approver: Finance Operations
+- Deployment location: Secure engineering room; wired Ethernet and standard 120V power are already available
+- Intended life: Three years before reassessment
+
+Priorities:
+- at least 16 GB GPU VRAM, 64 GB system memory, and 2 TB storage
+- landed acquisition cost at or below the approved $5,000 ceiling
+- lowest credible three-year risk-adjusted total ownership cost among technically eligible options
+- current availability, a minimum one-year warranty, and a clear return/support path
+- Windows 11 Pro or an explicitly costed upgrade path compatible with office endpoint controls
+- source freshness, exact configuration, and fulfillment terms verified at approval time
+
+Hard constraints:
+- Minimum GPU VRAM: 16 GB
+- Minimum system RAM: 64 GB
+- Minimum storage: 2 TB
+- Minimum warranty years: 1
+- Available for purchase required: yes
+
+Planning assumptions:
+- Analysis horizon: 3 years
+- Discount rate: 8% annually
+- Expected use: 1,000 active workload hours and 1,000 powered-idle hours per year
+- Loaded engineering/IT labor cost: $95 per hour
+- Business interruption cost: $190 per workstation hour, representing two engineers at the loaded planning rate
+- Expected downtime: 6 hours per year
+- Annual maintenance and repair reserve: $150
+- Residual value at year 3: 10% of observed base purchase price
+- Low, base, and high-utilization/disruption scenarios are required
+
+Public research sources to refresh:
+- Micro Center PowerSpec G913 product page: https://www.microcenter.com/product/700439/powerspec-g913-gaming-pc?storeid=121
+- Dell U.S. gaming desktop deals: https://www.dell.com/en-us/shop/deals/pc-gaming-deals
+- B&H CyberPowerPC SLC10360CPGV9 product page: https://www.bhphotovideo.com/c/product/1969873-REG/cyberpowerpc_slc10360cpgv9_gamer_supreme_desktop_computer.html/overview
+- Massachusetts sales and use tax guidance: https://www.mass.gov/guides/sales-and-use-tax
+- U.S. EIA commercial electricity prices: https://www.eia.gov/electricity/monthly/epm_table_grapher.php?t=epmt_5_6_a
+- NVIDIA GeForce RTX 5080 specifications: https://www.nvidia.com/en-us/geforce/graphics-cards/50-series/rtx-5080/
+- NVIDIA GeForce RTX 5090 specifications: https://www.nvidia.com/en-us/geforce/graphics-cards/50-series/rtx-5090/
+- AMD Ryzen 9 9900X3D specifications: https://www.amd.com/en/products/processors/desktops/ryzen/9000-series/amd-ryzen-9-9900x3d.html
+- Intel Core Ultra desktop processor brief: https://www.intel.com/content/dam/www/central-libraries/us/en/documents/2024-09/core-ultra-desktop-processors-series-2-product-brief.pdf
+
+All included prices, stock statements, and terms are time-stamped public observations—not supplier quotes or guarantees. Do not invent missing prices, availability, financing, lease terms, warranty coverage, power measurements, or residual value. Refresh every listing, obtain a written business quote for the selected exact configuration, replace the company planning assumptions with approved values, and obtain Finance Operations and Director of Machine Learning approval before a purchase order is issued.

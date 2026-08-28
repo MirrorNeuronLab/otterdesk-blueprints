@@ -10,7 +10,7 @@ terms, and deterministic tests into an installable co-worker/workflow bundle.
 This specification applies only to this repository. Reusable agents, skills,
 SDK compilation, and Core delivery are dependencies, not code owned here.
 
-VC Assistant, Financial Advisor, Legal Assistant, and Research Co-Scientist
+VC Assistant, Financial Advisor, Legal Assistant, and Research Assistant
 use foundational `mn_sdk.llm` access through blueprint support and do not
 declare `mirrorneuron-litellm-communicate-skill`. Their RAG and OCR skills own
 complete model specifications and pass them to the SDK's lazy runtime wrapper.

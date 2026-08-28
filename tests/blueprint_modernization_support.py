@@ -59,6 +59,13 @@ def assert_modular_payload(blueprint_id: str) -> None:
 
 def _payload_pythonpath(blueprint_id: str) -> str:
     roots = [ROOT / blueprint_id / "payloads"]
+    roots.extend(
+        sorted(
+            path
+            for path in (ROOT / blueprint_id / "payloads" / "skills").glob("*/src")
+            if path.is_dir()
+        )
+    )
     roots.extend(sorted((WORKSPACE / "mn-skills").glob("*/src")))
     roots.extend(sorted((WORKSPACE / "mn-agents").glob("*/src")))
     existing = os.environ.get("PYTHONPATH")

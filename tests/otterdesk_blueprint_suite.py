@@ -28,7 +28,7 @@ FOLDER_INPUT_FIELDS = {
     "drug_discovery_research_assistant": {"input_folder", "output_folder"},
     "financial_advisor": {"document_folder", "input_folder", "output_folder"},
     "legal_assistant": {"document_folder", "input_folder", "output_folder"},
-    "purchase_research_assistant": {"input_folder", "output_folder"},
+    "purchasing_manager": {"input_folder", "output_folder"},
     "vc_assistant": {"document_folder", "output_folder"},
     "cctv_operator": {"input_folder", "output_folder"},
 }
@@ -276,10 +276,20 @@ def test_otterdesk_manifests_pin_gar_skill_dependencies():
         dependencies = manifest.get("skill_dependencies")
         assert isinstance(dependencies, list), blueprint_id
         by_name = {dependency.get("name"): dependency for dependency in dependencies if isinstance(dependency, dict)}
+        gar_dependencies = {
+            name: dependency
+            for name, dependency in by_name.items()
+            if dependency.get("source") == "gar"
+        }
+        payload_dependencies = {
+            name: dependency
+            for name, dependency in by_name.items()
+            if dependency.get("source") == "payload"
+        }
 
-        assert set(by_name) == _expected_skill_dependency_packages(manifest_path.parent), blueprint_id
+        assert set(gar_dependencies) == _expected_skill_dependency_packages(manifest_path.parent), blueprint_id
         assert "mn-skills" not in by_name
-        for name, dependency in by_name.items():
+        for name, dependency in gar_dependencies.items():
             expected_version = SKILL_DEPENDENCY_VERSION_OVERRIDES.get(name, SKILL_DEPENDENCY_VERSION)
             assert dependency == {
                 "type": "pip",
@@ -287,6 +297,15 @@ def test_otterdesk_manifests_pin_gar_skill_dependencies():
                 "name": name,
                 "version": expected_version,
             }, (blueprint_id, name)
+        for name, dependency in payload_dependencies.items():
+            assert dependency.get("type") == "pip", (blueprint_id, name)
+            assert dependency.get("format") == "source", (blueprint_id, name)
+            assert dependency.get("version"), (blueprint_id, name)
+            path = dependency.get("path")
+            assert isinstance(path, str) and path and not Path(path).is_absolute(), (blueprint_id, name)
+            skill_root = manifest_path.parent / "payloads" / path
+            assert (skill_root / "pyproject.toml").is_file(), (blueprint_id, name)
+            assert (skill_root / "SKILL.md").is_file(), (blueprint_id, name)
 
 
 def test_video_gpu_blueprints_declare_hard_nvidia_cuda_requirements_consistently():
@@ -809,7 +828,7 @@ def test_otterdesk_blueprints_declare_product_experience_contracts():
     expected_modes = {
         "drug_discovery_research_assistant": "approval_required",
         "financial_advisor": "approval_required",
-        "purchase_research_assistant": "approval_required",
+        "purchasing_manager": "approval_required",
         "cctv_operator": "notice_only",
         "legal_assistant": "approval_required",
         "vc_assistant": "approval_required",
@@ -1063,7 +1082,7 @@ def test_product_ready_llm_configs_use_explicit_live_docker_model_runner_profile
     targets = {
         "drug_discovery_research_assistant",
         "legal_assistant",
-        "purchase_research_assistant",
+        "purchasing_manager",
     }
     for blueprint_id in sorted(targets):
         config = json.loads((ROOT / blueprint_id / "config" / "default.json").read_text())
@@ -1123,7 +1142,7 @@ EXPECTED_BATCH_SUGGESTED_SCHEDULES = {
     "drug_discovery_research_assistant": {"cron": "0 8 * * 1", "cadence": "weekly"},
     "financial_advisor": {"cron": "0 8 * * *", "cadence": "daily"},
     "legal_assistant": {"cron": "0 8 * * 1-5", "cadence": "weekday_daily"},
-    "purchase_research_assistant": {"cron": "0 8 * * 1", "cadence": "weekly"},
+    "purchasing_manager": {"cron": "0 8 * * 1", "cadence": "weekly"},
     "vc_assistant": {"cron": "0 7 * * *", "cadence": "daily"},
 }
 
@@ -1201,17 +1220,17 @@ def test_index_entries_point_to_loadable_blueprint_folders():
         assert manifest["job_name"] == entry["job_name"]
 
 
-def test_purchase_research_final_artifact_uses_product_output_fields(tmp_path):
+def test_purchasing_manager_final_artifact_uses_product_output_fields(tmp_path):
     from blueprint_modernization_support import run_payload_script
 
     result = run_payload_script(
-        "purchase_research_assistant",
+        "purchasing_manager",
         f"""
 import json
 from pathlib import Path
 from domain.composition import run_blueprint
 
-root = Path({str((ROOT / 'purchase_research_assistant').resolve())!r})
+root = Path({str((ROOT / 'purchasing_manager').resolve())!r})
 output = Path({str(tmp_path.resolve())!r}) / "output"
 result = run_blueprint(
     inputs={{
@@ -1235,8 +1254,9 @@ print(json.dumps({{
     assert set(FINAL_ARTIFACT_REQUIRED_FIELDS) <= set(artifact)
     assert artifact["evidence"]
     assert {"inputs.json", "events.jsonl", "result.json"} <= set(artifact["source_refs"])
-    assert artifact["preferred_candidate"] == "hanover-maple-12"
+    assert artifact["preferred_candidate"] == "microcenter-powerspec-g913"
     assert len(artifact["candidate_comparisons"]) == 3
+    assert artifact["procurement_summary"]["budget_status"] == "within_budget"
     assert artifact["actor_findings"]["purchase_recommendation_auditor"]
     assert result["run_artifact_exists"] is True
 

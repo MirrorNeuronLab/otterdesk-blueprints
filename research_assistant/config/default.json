@@ -1,0 +1,733 @@
+{
+  "agent_handoffs": {},
+  "backpressure": {
+    "drop_policy": "skip_with_error",
+    "llm": {
+      "max_calls_per_minute": 30,
+      "max_concurrent_calls": 1,
+      "min_interval_seconds": 2.0,
+      "rationale": "Protect local Docker Model Runner from concurrent blueprint actor calls."
+    },
+    "max_concurrency": 4,
+    "max_events_per_second": 10,
+    "queue_size": 1000
+  },
+  "benchmark": {
+    "baseline": "all_context",
+    "enabled": true,
+    "quality_metrics": [
+      "evidence_traceability",
+      "hypothesis_falsifiability",
+      "counterargument_coverage",
+      "experiment_design_quality",
+      "uncertainty_calibration",
+      "token_reduction_ratio"
+    ],
+    "schema_version": "mn.science.research_assistant.v2"
+  },
+  "budgets": {
+    "max_connector_reads": 500,
+    "max_connector_writes": 20,
+    "max_disk_mb": 250,
+    "max_llm_calls": 20,
+    "max_llm_tokens": 65536,
+    "max_runtime_seconds": 600,
+    "max_stream_duration_seconds": 3600
+  },
+  "capabilities": {
+    "optional": [
+      "llm.call",
+      "network.egress",
+      "stream.subscribe",
+      "knowledge.rag",
+      "llm.tool_plan"
+    ],
+    "required": [
+      "filesystem.write"
+    ]
+  },
+  "determinism": {
+    "enabled": true,
+    "frozen_clock": null,
+    "replay": {
+      "from_events": "events.jsonl",
+      "from_inputs": "inputs.json",
+      "llm_mode": "mock"
+    },
+    "seed_field": "seed"
+  },
+  "error_handling": {
+    "default_mode": "stop",
+    "policies": {
+      "llm_call": {
+        "backoff_seconds": 2,
+        "max_attempts": 3,
+        "mode": "retry"
+      },
+      "optional_output": {
+        "mode": "skip"
+      },
+      "required_output": {
+        "mode": "stop"
+      }
+    }
+  },
+  "execution_model": [
+    "load_metadata",
+    "resolve_config",
+    "load_inputs",
+    "start_run_store",
+    "observe_simulation_state",
+    "call_llm_agent",
+    "evaluate_workflow_state",
+    "route_by_context",
+    "request_human_input",
+    "apply_decision_to_simulation",
+    "emit_events",
+    "write_final_artifact",
+    "fan_out_output_skills",
+    "emit_status_events",
+    "handle_human_control",
+    "write_artifact_records"
+  ],
+  "input_skills": {
+    "llm_ocr": {
+      "skill": "llm_ocr_skill",
+      "package": "mirrorneuron-llm-ocr-skill",
+      "enabled": true,
+      "required": false,
+      "min_text_chars": 40
+    },
+    "web_browser": {
+      "skill": "web_browser_skill",
+      "package": "mirrorneuron-web-browser-skill",
+      "enabled": true,
+      "required": false,
+      "purpose": "Unified source-grounded literature discovery with lightweight w3m routing and policy-governed rendered-page fallback."
+    }
+  },
+  "inputs": {
+    "adapter": "mock",
+    "description": "Default synthetic large-context inputs bundled with the blueprint.",
+    "payload": {
+      "research_goal": "Evaluate a shared robotics simulation infrastructure for a review-only pilot across manipulation, navigation, and multi-robot coordination teams.",
+      "research_domain": "robotics",
+      "research_question": "Which simulation infrastructure choices should be tested first to reduce onboarding time and improve experiment comparability, reproducibility, and provenance?",
+      "scope": "Desk research and offline simulation planning only; no live robot or production simulator changes.",
+      "success_criteria": [
+        "testable hypotheses",
+        "traceable evidence",
+        "falsifiable experiment plan",
+        "explicit uncertainty"
+      ],
+      "constraints": {
+        "no_live_system_changes": true,
+        "require_human_review": true,
+        "max_hypotheses": 3
+      },
+      "seed_hypotheses": [
+        {
+          "statement": "Shared container images plus pinned ROS 2 distributions reduce onboarding time for new robot projects.",
+          "prediction": "Across at least three representative robot projects, median time from a clean workstation to the first reproducible benchmark run is at least 25% lower with shared pinned images than with team-maintained environments.",
+          "counterargument": "Any improvement may come from better documentation or expert support rather than containerization, while pinned images may introduce hardware-specific incompatibilities.",
+          "disconfirming_observation": "Matched onboarding trials show less than a 25% reduction in median setup time, lower first-run success, or a critical compatibility failure in the shared image.",
+          "assumptions": ["The same benchmark and acceptance test are used in both conditions.", "Hardware class and engineer experience are balanced or reported."],
+          "evidence_status": "planning_hypothesis_unvalidated",
+          "evidence_support": ["local:research_notes.md", "local:sample_research_request.json"],
+          "experiment": {
+            "objective": "Estimate whether pinned container images reduce time-to-first-reproducible-run without increasing setup failures.",
+            "unit_of_analysis": "One onboarding attempt by an engineer who did not prepare the tested environment.",
+            "baseline": "Team-maintained installation instructions and environment setup for the same robot project and benchmark.",
+            "intervention": "A shared container image with a pinned ROS 2 distribution, simulator version, dependencies, and benchmark entrypoint.",
+            "primary_outcome": "Median elapsed minutes from a clean workstation to the first benchmark run that passes the reproducibility acceptance check.",
+            "measurements": ["setup time in minutes", "first-attempt success", "support interventions", "version-mismatch count", "critical compatibility failures"],
+            "procedure": ["Select at least three representative projects and define one acceptance command and expected artifact for each.", "Stratify participants by relevant experience and assign matched onboarding attempts to baseline or shared-image conditions.", "Start each attempt from a documented clean workstation or VM image.", "Record timestamps, commands, support interventions, failures, and the produced artifact.", "Repeat the acceptance command on a second clean environment to test reproducibility.", "Compare medians, dispersion, first-attempt success, and compatibility failures by project and hardware class."],
+            "decision_rule": "Advance only if median setup time is at least 25% lower, first-attempt success is not lower, and no critical compatibility failure is observed.",
+            "analysis_plan": "Report medians and interquartile ranges, stratify by project, hardware class, and experience, and repeat the comparison after excluding attempts with expert intervention.",
+            "stop_conditions": ["A container requests credentials or access outside the approved sandbox.", "A critical driver, license, or hardware compatibility issue appears.", "The clean-environment or timestamp protocol cannot be verified."]
+          }
+        },
+        {
+          "statement": "A central scenario schema improves cross-team comparability of simulator runs.",
+          "prediction": "For identical versioned scenes and seeds executed by two teams, at least 95% of run artifacts pass schema validation and normalized episode-success rates differ by no more than five percentage points.",
+          "counterargument": "A shared schema can standardize labels while hidden simulator versions, assets, hardware, or policy checkpoints still drive incomparable outcomes.",
+          "disconfirming_observation": "Schema-valid paired runs still differ by more than five percentage points in episode success, or required environment fields cannot represent material simulator differences.",
+          "assumptions": ["Teams can run the same scene, seed set, policy checkpoint, and metric definitions.", "Hardware and simulator-version differences are recorded."],
+          "evidence_status": "planning_hypothesis_unvalidated",
+          "evidence_support": ["local:research_notes.md", "local:baseline_measurements.csv", "local:sample_research_request.json"],
+          "experiment": {
+            "objective": "Test whether a versioned scenario schema makes independently executed simulator results comparable.",
+            "unit_of_analysis": "One paired team-by-seed execution of the same versioned scene and policy checkpoint.",
+            "baseline": "Existing team-specific scenario configuration and result formats.",
+            "intervention": "A central schema that pins scene, seed, assets, simulator version, policy checkpoint, metric definitions, and hardware metadata.",
+            "primary_outcome": "Absolute percentage-point difference in episode-success rate between teams after validating and normalizing paired run metadata.",
+            "measurements": ["schema-validation rate", "paired episode-success difference", "collision-rate difference", "missing-field count", "rerun failure count"],
+            "procedure": ["Select shared scenes spanning manipulation, navigation, and multi-robot coordination.", "Freeze seed lists, policy checkpoints, metric definitions, and acceptance tolerances before execution.", "Have two teams encode and run the same cases first with their current formats and then with the central schema.", "Validate every artifact and record simulator, asset, hardware, and policy versions.", "Repeat failed or divergent pairs once without changing the frozen inputs.", "Compare validation rate and paired metric differences between baseline and schema conditions."],
+            "decision_rule": "Advance only if at least 95% of artifacts validate, paired success-rate differences are at most five percentage points, and no material simulator difference is hidden by the schema.",
+            "analysis_plan": "Use paired differences by scene and seed, report dispersion and missingness, and inspect whether conclusions change after stratifying by simulator and hardware class.",
+            "stop_conditions": ["A required material environment difference cannot be represented.", "Metric definitions differ after the freeze point.", "A team cannot reproduce the pinned scene or policy artifact."]
+          }
+        },
+        {
+          "statement": "Versioned datasets, maps, and metrics improve the provenance and reproducibility of robotics simulation results.",
+          "prediction": "Independent reviewers can reconstruct at least 90% of sampled run lineages without clarification, and median clarification time is at least 30% lower than for the current artifact process.",
+          "counterargument": "Higher reconstruction rates may come from reviewer training or simpler sampled runs, while provenance requirements may add authoring cost without improving rerun fidelity.",
+          "disconfirming_observation": "Reviewers reconstruct fewer than 90% of lineages, clarification time falls by less than 30%, or reruns still fail because material dependencies are absent from the manifest.",
+          "assumptions": ["The baseline and intervention samples have comparable run complexity.", "A lineage is successful only when all material inputs and versions are identified."],
+          "evidence_status": "planning_hypothesis_unvalidated",
+          "evidence_support": ["local:research_notes.md", "local:sample_research_request.json"],
+          "experiment": {
+            "objective": "Measure whether artifact-level version manifests improve lineage reconstruction and independent rerun readiness.",
+            "unit_of_analysis": "One completed simulator run artifact package reviewed by someone outside the authoring team.",
+            "baseline": "Current run package without a required versioned manifest for datasets, maps, metrics, policies, and simulator assets.",
+            "intervention": "The same class of run packaged with immutable identifiers and checksums for every material input and metric definition.",
+            "primary_outcome": "Share of sampled run lineages reconstructed correctly without clarification from the author.",
+            "measurements": ["lineage reconstruction rate", "clarification minutes", "missing dependency count", "independent rerun success", "manifest authoring time"],
+            "procedure": ["Define the minimum material lineage fields and a scoring rubric before sampling artifacts.", "Sample baseline and manifest-backed run packages matched on scene and complexity.", "Randomize package order and blind reviewers to the condition label where feasible.", "Have independent reviewers reconstruct inputs, versions, metrics, and expected outputs without author contact.", "Permit one timed clarification round, then attempt a bounded rerun in an approved sandbox.", "Compare reconstruction, clarification, rerun success, and authoring overhead between conditions."],
+            "decision_rule": "Advance only if at least 90% of lineages are reconstructed without clarification, median clarification time falls by at least 30%, and authoring overhead remains within the reviewer-approved budget.",
+            "analysis_plan": "Report proportions with uncertainty, medians and dispersion, failure reasons, and sensitivity to scene complexity and reviewer experience.",
+            "stop_conditions": ["A package contains credentials, personal data, or unapproved proprietary artifacts.", "Checksums or immutable identifiers cannot be verified.", "The rerun would require a live robot or production simulator change."]
+          }
+        }
+      ],
+      "input_folder": "@/examples/sample_inputs",
+      "output_folder": "~/Downloads/research_assistant"
+    }
+  },
+  "interfaces": {
+    "channels": {
+      "artifacts": {
+        "artifacts": [
+          "run.json",
+          "config.json",
+          "inputs.json",
+          "events.jsonl",
+          "result.json",
+          "final_artifact.json"
+        ],
+        "description": "Stable run-store files and domain-specific outputs.",
+        "optional_artifacts": [
+          "job.json",
+          "web_ui.json",
+          "ui.json",
+          "web/index.html",
+          "logs.jsonl"
+        ]
+      },
+      "events": {
+        "artifact": "events.jsonl",
+        "description": "Append-only workflow events."
+      },
+      "human": {
+        "artifact": "human.jsonl",
+        "description": "Human notices, approval requests, responses, timeouts, and applied decisions.",
+        "mirrored_to": "events.jsonl"
+      },
+      "input_skills": {
+        "description": "Connector-backed or reusable skill-backed input sources."
+      },
+      "inputs": {
+        "artifact": "inputs.json",
+        "description": "Resolved runtime inputs and adapter provenance."
+      },
+      "logs": {
+        "artifact": "logs.jsonl",
+        "description": "Runtime stdout/stderr and explicit log artifacts.",
+        "index": "logs.index.json",
+        "stream": "stdout/stderr"
+      },
+      "output_skills": {
+        "description": "Optional fan-out destinations after local run-store writes."
+      },
+      "outputs": {
+        "artifacts": [
+          "result.json",
+          "final_artifact.json"
+        ],
+        "description": "Primary result and final user-facing artifact."
+      },
+      "resources": {
+        "artifact": "resources.jsonl",
+        "description": "Resource samples such as token, runtime, connector, and disk usage."
+      },
+      "streams": {
+        "default": [
+          "events"
+        ],
+        "description": "Named data or event streams exposed by the blueprint.",
+        "kinds": [
+          "audio",
+          "video",
+          "data",
+          "multimodal"
+        ],
+        "transports": [
+          "file",
+          "http",
+          "https",
+          "rtsp",
+          "rtmp",
+          "webrtc",
+          "websocket",
+          "socketio",
+          "tcp",
+          "udp",
+          "sse",
+          "kafka",
+          "mqtt",
+          "custom"
+        ]
+      },
+      "web_ui": {
+        "artifacts": [
+          "web_ui.json",
+          "ui.json",
+          "web/index.html"
+        ],
+        "description": "Optional web input/output handles."
+      },
+      "knowledge_rag": {
+        "description": "Optional local blueprint knowledge retrieval used to ground actor prompts and tool planning.",
+        "config": "knowledge_rag",
+        "artifact": "@/payloads/knowledge/",
+        "privacy": "blueprint knowledge only by default"
+      },
+      "agentic_research": {
+        "description": "Bounded LLM-selected or actor-guided tool contract for domain work.",
+        "config": "agentic_research"
+      }
+    },
+    "config_sections": [
+      "standard_version",
+      "identity",
+      "mode",
+      "metadata",
+      "inputs",
+      "simulation",
+      "llm",
+      "outputs",
+      "logging",
+      "resources",
+      "human_control",
+      "real_adapters",
+      "streams",
+      "input_skills",
+      "output_skills",
+      "error_handling",
+      "state",
+      "capabilities",
+      "privacy",
+      "triggers",
+      "backpressure",
+      "determinism",
+      "schemas",
+      "budgets",
+      "agent_handoffs",
+      "web_ui",
+      "interfaces",
+      "execution_model",
+      "suggested_schedule",
+      "knowledge_rag",
+      "agentic_research"
+    ],
+    "identity_fields": [
+      "blueprint_id",
+      "name",
+      "run_id"
+    ],
+    "input_adapters": [
+      "mock",
+      "json",
+      "file",
+      "env_json"
+    ],
+    "optional_run_artifacts": [
+      "job.json",
+      "web_ui.json",
+      "ui.json",
+      "web/index.html",
+      "logs.jsonl",
+      "logs.index.json",
+      "human.jsonl",
+      "resources.jsonl"
+    ],
+    "output_adapters": [
+      "local_run_store"
+    ],
+    "response_schema": "mn.blueprint.response.v1",
+    "run_artifacts": [
+      "run.json",
+      "config.json",
+      "inputs.json",
+      "events.jsonl",
+      "result.json",
+      "final_artifact.json"
+    ],
+    "stream_kinds": [
+      "audio",
+      "video",
+      "data",
+      "multimodal"
+    ],
+    "stream_transports": [
+      "file",
+      "http",
+      "https",
+      "rtsp",
+      "rtmp",
+      "webrtc",
+      "websocket",
+      "socketio",
+      "tcp",
+      "udp",
+      "sse",
+      "kafka",
+      "mqtt",
+      "custom"
+    ],
+    "web_ui_adapters": [
+      "none",
+      "static_html",
+      "gradio",
+      "custom"
+    ],
+    "config": [
+      "standard_version",
+      "identity",
+      "mode",
+      "metadata",
+      "inputs",
+      "simulation",
+      "llm",
+      "outputs",
+      "logging",
+      "resources",
+      "human_control",
+      "real_adapters",
+      "streams",
+      "input_skills",
+      "output_skills",
+      "error_handling",
+      "state",
+      "capabilities",
+      "privacy",
+      "triggers",
+      "backpressure",
+      "determinism",
+      "schemas",
+      "budgets",
+      "agent_handoffs",
+      "web_ui",
+      "interfaces",
+      "execution_model",
+      "suggested_schedule",
+      "knowledge_rag",
+      "agentic_research"
+    ]
+  },
+  "llm": {
+    "mode": "live",
+    "strict_json": false,
+    "require_live": true,
+    "configs": {
+      "primary": {
+        "timeout_seconds": 180,
+        "max_tokens": 4096,
+        "num_retries": 2
+      }
+    }
+  },
+  "logging": {
+    "events": [
+      "run_started",
+      "inputs_loaded",
+      "large_context_seeded",
+      "simulation_step_started",
+      "memory_context_compiled",
+      "llm_decision",
+      "benchmark_step_scored",
+      "simulation_state_updated",
+      "run_completed",
+      "blueprint_status",
+      "blueprint_phase_started",
+      "blueprint_phase_completed",
+      "blueprint_phase_failed",
+      "artifact_written",
+      "human_notice",
+      "human_input_requested",
+      "human_input_received",
+      "human_input_timeout",
+      "human_decision_applied",
+      "output_skill_started",
+      "output_skill_completed",
+      "output_skill_failed",
+      "autonomous_research_started",
+      "autonomous_research_completed",
+      "autonomous_prompt_created",
+      "autonomous_tool_called",
+      "generated_code_executed",
+      "deterministic_verification_completed"
+    ],
+    "events_jsonl": true,
+    "level": "INFO",
+    "logs_jsonl": true,
+    "redact_env_secrets": true,
+    "redact_fields": [
+      "api_key",
+      "token",
+      "authorization",
+      "cookie",
+      "password",
+      "private_key"
+    ],
+    "resources_jsonl": true,
+    "rotation": {
+      "check_interval_records": 100,
+      "compress": "background",
+      "enabled": true,
+      "max_bytes_mb": 100,
+      "max_segments": 7,
+      "span_seconds": 86400
+    },
+    "stderr_jsonl": true,
+    "writer": {
+      "batch_size": 100,
+      "flush_interval_seconds": 0.5,
+      "mode": "async",
+      "overflow_policy": "drop_low_priority",
+      "queue_size": 10000,
+      "shutdown_flush_timeout_seconds": 2
+    }
+  },
+  "memory": {
+    "compression_goal": "replace full-history agent handoffs with a compact source-grounded decision packet while preserving older critical facts",
+    "enabled": true,
+    "mode": "compare",
+    "retrieval_tags": [
+      "critical",
+      "demand_tailwind",
+      "rent_growth",
+      "risk_flag",
+      "financing"
+    ],
+    "selection_limit": 36
+  },
+  "memory_layer": {
+    "collection": "mn_memory",
+    "containers": "optional_sidecar",
+    "context_addr_env": "MN_CONTEXT_ADDR",
+    "conversation": {
+      "agent_role": "otterdesk_chat",
+      "include_human_events": true,
+      "include_runtime_events": true,
+      "include_runtime_logs": true,
+      "target_tokens": 2400,
+      "token_budget": 6000,
+      "use_model_compression": false
+    },
+    "conversation_enabled": true,
+    "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
+    "default_context_addr": "localhost:50052",
+    "enabled": true,
+    "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
+    "namespace": "research_assistant_context",
+    "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
+    "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
+    "sdk_distribution": "mirrorneuron-membrane-python-sdk",
+    "sdk_import_package": "mn_context_engine_sdk"
+  },
+  "knowledge_rag": {
+    "backend": "milvus_lite"
+  },
+  "metadata": {
+    "category": "science",
+    "description": "A research assistant. Give it a research goal, constraints, and an approved input folder of papers, notes, datasets, or evidence; it prepares a source-grounded research packet, evidence ledger, ranked hypotheses, and a review-only brief in the output folder."
+  },
+  "mode": "mock",
+  "output_skills": {},
+  "outputs": {
+    "adapter": "local_run_store",
+    "artifact_contract": "Source-grounded research brief with ranked hypotheses, adversarial critiques, experiment plans, evidence gaps, and a human-review gate.",
+    "run_root": "~/.mn/runs",
+    "skills": {},
+    "tcp": {
+      "enabled": false,
+      "ports": []
+    },
+    "write_run_store": true,
+    "folder_path": "~/Downloads/research_assistant"
+  },
+  "privacy": {
+    "default_classification": "confidential",
+    "rules": {
+      "confidential": {
+        "log": "redacted",
+        "send_to_llm": "allowed_configs_only",
+        "send_to_output_skills": "approved_destinations_only"
+      },
+      "internal": {
+        "log": "metadata_only",
+        "send_to_llm": true,
+        "send_to_output_skills": true
+      },
+      "public": {
+        "log": true,
+        "send_to_llm": true,
+        "send_to_output_skills": true
+      },
+      "regulated": {
+        "log": "redacted",
+        "send_to_llm": false,
+        "send_to_output_skills": "approved_destinations_only"
+      }
+    }
+  },
+  "real_adapters": {
+    "inline_json": {
+      "adapter": "json",
+      "description": "Load overrides from an inline JSON object.",
+      "payload": {}
+    },
+    "input_file": {
+      "adapter": "file",
+      "description": "Load JSON overrides from a local file path.",
+      "path": null
+    }
+  },
+  "resources": {
+    "enabled": true,
+    "gpu_enabled": "auto",
+    "gpu_sample_interval_seconds": 60,
+    "history_window_hours": 24,
+    "raw_retention_hours": 48,
+    "rollup_bucket_seconds": 3600,
+    "sample_interval_seconds": 10
+  },
+  "schemas": {
+    "artifact_record": "mn.artifact.record.v1",
+    "config": "mn.blueprint.config.v1",
+    "events": "mn.blueprint.events.v1",
+    "final_artifact": "mn.blueprint.final_artifact.v1",
+    "human_control": "mn.blueprint.human_control.v1",
+    "input_skills": "mn.blueprint.input_skills.v1",
+    "inputs": "mn.blueprint.inputs.v1",
+    "logs": "mn.blueprint.logs.v1",
+    "output_skills": "mn.blueprint.output_skills.v1",
+    "resources": "mn.blueprint.resources.v1",
+    "status_contract": "mn.blueprint.status_contract.v1",
+    "web_ui": "mn.blueprint.web_ui.v1"
+  },
+  "simulation": {
+    "enabled": false,
+    "deterministic": true,
+    "type": "Mixed deterministic and isolated autonomous research with local RAG and public-source comparison."
+  },
+  "standard_version": "1.0",
+  "state": {
+    "checkpoint_interval": {
+      "events": 100,
+      "seconds": 60
+    },
+    "enabled": false,
+    "idempotency_key_fields": [
+      "source_ref",
+      "event_id"
+    ],
+    "resume_mode": "none",
+    "input_folder": "@/examples/sample_inputs",
+    "output_folder": "~/Downloads/research_assistant"
+  },
+  "streams": {},
+  "triggers": {
+    "schedule": null,
+    "sources": [],
+    "type": "manual"
+  },
+  "web_ui": {
+    "dashboard": {
+      "data_source": "local_run_store",
+      "panels": [
+        "current_status",
+        "recent_events",
+        "pending_human_requests",
+        "output_artifacts",
+        "resource_usage",
+        "errors",
+        "llm_calls",
+        "token_budget",
+        "llm_retries"
+      ],
+      "reads": [
+        "events.jsonl",
+        "human.jsonl",
+        "logs.jsonl",
+        "resources.jsonl",
+        "result.json",
+        "final_artifact.json",
+        "web_ui.json"
+      ],
+      "standard_panels": [
+        "current_status",
+        "recent_events",
+        "pending_human_requests",
+        "output_artifacts",
+        "resource_usage",
+        "errors",
+        "llm_calls",
+        "token_budget",
+        "llm_retries"
+      ]
+    },
+    "enabled": true,
+    "input": {
+      "adapter": "none",
+      "custom_url": null,
+      "fields": [],
+      "host": "127.0.0.1",
+      "instructions": null,
+      "port": null,
+      "share": false,
+      "title": null
+    },
+    "output": {
+      "adapter": "gradio",
+      "auto_generate": true,
+      "custom_url": null,
+      "refresh_seconds": 2,
+      "title": null
+    }
+  },
+  "suggested_schedule": {
+    "cron": "0 8 * * 1",
+    "cadence": "weekly",
+    "advisory_only": true,
+    "note": "Suggested cadence only; runtime decides the actual schedule."
+  },
+  "local_inputs": {
+    "folders": [
+      {
+        "config_path": "inputs.payload.input_folder",
+        "payload_path": "runtime/mn_local_inputs/research_assistant_documents",
+        "runtime_path": "mn_local_inputs/research_assistant_documents",
+        "allowed_extensions": [
+          ".pdf",
+          ".png",
+          ".jpg",
+          ".jpeg",
+          ".tif",
+          ".tiff",
+          ".bmp",
+          ".webp",
+          ".txt",
+          ".json",
+          ".csv",
+          ".md"
+        ],
+        "linked_config_paths": [
+          "inputs.payload.input_folder",
+          "state.input_folder"
+        ]
+      }
+    ]
+  }
+}

@@ -1,9 +1,0 @@
-{
-  "schema": "otterdesk.sample_dataset.v1",
-  "blueprint_id": "purchase_research_assistant",
-  "description": "Plain-text local property-search request with incomplete public research leads and synthetic evidence for testing ZIP-constrained intake, RAG, and review-only recommendations.",
-  "files": [
-    {"path": "purchase_request.txt", "type": "plain_text_purchase_request_and_research_leads", "contains_pii": false, "intended_use": "editable 03755 property research smoke test"},
-    {"path": "sample_property_candidates.json", "type": "synthetic_candidate_snapshots", "contains_pii": false, "intended_use": "constraint, known-cost, disclosure, and evidence-gap comparison"}
-  ]
-}

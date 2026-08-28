@@ -6,8 +6,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
-def test_purchase_research_runner_uses_embedded_config_when_default_file_is_not_mounted(monkeypatch, tmp_path):
-    blueprint = ROOT / "purchase_research_assistant"
+def test_purchasing_manager_runner_uses_embedded_config_when_default_file_is_not_mounted(monkeypatch, tmp_path):
+    blueprint = ROOT / "purchasing_manager"
     manifest = json.loads((blueprint / "manifest.json").read_text(encoding="utf-8"))
     config = json.loads((blueprint / "config" / "default.json").read_text(encoding="utf-8"))
     runtime_source = (blueprint / "payloads" / "runtime" / "runtime.py").read_text(encoding="utf-8")

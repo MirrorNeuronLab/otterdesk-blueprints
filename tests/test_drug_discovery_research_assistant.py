@@ -5,6 +5,12 @@ import json
 import sys
 from pathlib import Path
 
+from mn_sdk.blueprint_runtime import load_blueprint_config
+
+from blueprint_modernization_support import (
+    assert_modular_payload,
+    assert_registry_handlers_import,
+)
 from workspace_paths import companion_workspace
 
 
@@ -17,6 +23,13 @@ STEP_SCRIPTS = {
     "candidate_generation": "scripts/run_continuous_service.py",
     "binding_evaluation": "scripts/stage_d.py",
     "ranking_reporting": "scripts/stage_e.py",
+}
+STEP_AGENTS = {
+    "target_discovery": "target_biology_researcher",
+    "structure_generation": "structure_modeler",
+    "candidate_generation": "discovery_service_operator",
+    "binding_evaluation": "binding_evidence_reviewer",
+    "ranking_reporting": "discovery_packet_writer",
 }
 
 
@@ -106,13 +119,13 @@ def test_drug_discovery_manifest_uses_source_format_and_shared_blocks():
     assert (BLUEPRINT_DIR / "payloads" / "prompts" / "scientific-review.md").is_file()
     assert manifest["service"]["run_until"] == "manual_stop"
     assert manifest["cluster_distribution"]["collaboration"]["mode"] == "cross_box_fanout_fanin"
-    assert manifest["runtime"]["models"] == {
-        "primary": {"provider": "docker_model_runner", "model": "default", "backend": "llama.cpp", "required": True}
-    }
+    assert "runtime" not in manifest
     assert manifest["requirements"]["gpu"] == {
         "driver": "cuda",
         "enforcement": "hard",
+        "memory_operator": ">=",
         "min_count": 1,
+        "min_memory_mb": 49152,
         "vendor": "nvidia",
     }
     [gpu_worker] = manifest["workers"]["groups"]
@@ -129,13 +142,16 @@ def test_drug_discovery_manifest_uses_source_format_and_shared_blocks():
     assert gpu_worker["with"]["image"] == "mirror-neuron/drug-discovery-research-assistant:drugclip-gnina"
 
     assert {step["id"] for step in manifest["workflow"]["steps"]} == set(STEP_SCRIPTS)
-    assert set(manifest["agents"]["registry"]) == set(STEP_SCRIPTS)
+    assert set(manifest["agents"]["registry"]) == set(STEP_AGENTS.values())
     for step in STEP_SCRIPTS:
         assert manifest["workflow"]["steps"][[item["id"] for item in manifest["workflow"]["steps"]].index(step)]["run"]["definition"] == f"steps.{step}"
 
 
 def test_drug_discovery_model_profiles_match_vc_style_defaults():
-    config = json.loads((BLUEPRINT_DIR / "config" / "default.json").read_text(encoding="utf-8"))
+    default_config = json.loads(
+        (BLUEPRINT_DIR / "config" / "default.json").read_text(encoding="utf-8")
+    )
+    config = load_blueprint_config(BLUEPRINT_DIR)
 
     assert config["mode"] == "live"
     assert config["execution"]["fake_science_adapters"] is False
@@ -148,18 +164,25 @@ def test_drug_discovery_model_profiles_match_vc_style_defaults():
         "min_count": 1,
         "vendor": "nvidia",
         "driver": "cuda",
+        "min_memory_mb": 49152,
+        "memory_operator": ">=",
         "enforcement": "hard",
     }
-    assert config["resources"]["required_capabilities"] == ["nvidia", "cuda"]
     assert config["outputs"]["folder_path"] == "~/Downloads/drug_discovery_research_assistant"
-    assert config["llm"]["model"] == "default"
-    assert "runtime_model" not in config["llm"]
+    assert config["llm"]["model"] == "small"
+    assert config["llm"]["runtime_model"] == "small"
+    assert config["llm"]["live_model_profile"]["runtime_model"] == "small"
     assert "preferred_model" not in config["llm"]
-    assert "model" not in config["llm"]["configs"]["primary"]
+    assert config["llm"]["configs"]["primary"]["model"] == "small"
+    assert config["llm"]["configs"]["primary"]["runtime_model"] == "small"
     assert set(config["llm"]["configs"]) == {"primary"}
     assert "small_model_profile" not in config["llm"]
     assert "large_model_profile" not in config["llm"]
     assert {spec["llm_config"] for spec in config["llm"]["agents"].values()} == {"primary"}
+    assert set(default_config["llm"]) == {"strict_json", "require_live", "configs"}
+    assert default_config["knowledge_rag"] == {"backend": "milvus_lite"}
+    assert "resources" not in default_config
+    assert "agentic_research" not in default_config
     assert "runtime_model_key" not in config["drugclip"]
     assert config["drugclip"]["model_ref"] == "hf.co/homerquan/DrugClip"
     assert config["drugclip"]["generic_model"]["model_ref"] == "https://huggingface.co/homerquan/DrugClip"
@@ -188,11 +211,11 @@ def test_drug_discovery_source_manifest_expands_with_native_service_script():
     step_nodes = {
         node_id: node
         for node_id, node in node_by_id.items()
-        if node_id.endswith(tuple(f"__{step}" for step in STEP_SCRIPTS))
+        if node_id.endswith(tuple(f"__{agent_id}" for agent_id in STEP_AGENTS.values()))
     }
     assert {node_id.split("__", 1)[0] for node_id in step_nodes} == set(STEP_SCRIPTS)
     for step in STEP_SCRIPTS:
-        config = step_nodes[f"{step}__{step}"]["config"]
+        config = step_nodes[f"{step}__{STEP_AGENTS[step]}"]["config"]
         assert config["command"] == ["python3", "-m", "mn_sdk.step_runtime"]
         assert config["runner_module"] == "MirrorNeuron.Runner.DockerWorker"
         assert "python_environment" not in config
@@ -203,14 +226,16 @@ def test_drug_discovery_source_manifest_expands_with_native_service_script():
     assert expanded["runtime"]["resources"]["gpu"] == {
         "driver": "cuda",
         "enforcement": "hard",
+        "memory_operator": ">=",
         "min_count": 1,
+        "min_memory_mb": 49152,
         "vendor": "nvidia",
     }
 
 
 def test_drug_discovery_stage_environment_propagates_biotarget_source():
-    operations = (BLUEPRINT_DIR / "payloads" / "domain" / "operations.py").read_text(encoding="utf-8")
-    assert 'environment["BIOTARGET_SOURCE_DIR"] = str(bundled_source)' in operations
+    stages = (BLUEPRINT_DIR / "payloads" / "domain" / "native_stages.py").read_text(encoding="utf-8")
+    assert 'environment["BIOTARGET_SOURCE_DIR"] = str(bundled_source)' in stages
 
 
 def test_drug_discovery_bundles_biotarget_and_prefers_it_at_runtime():
@@ -225,8 +250,8 @@ def test_drug_discovery_bundles_biotarget_and_prefers_it_at_runtime():
     service = (BLUEPRINT_DIR / "payloads" / "service" / "scripts" / "continuous_service.py").read_text(encoding="utf-8")
     assert '"candidates": candidates' in service
     assert "DrugClip batch adapter returned incomplete target-candidate scores." in service
-    operations = (BLUEPRINT_DIR / "payloads" / "domain" / "operations.py").read_text(encoding="utf-8")
-    assert 'capture_output = script != "run_continuous_service.py"' in operations
+    stages = (BLUEPRINT_DIR / "payloads" / "domain" / "native_stages.py").read_text(encoding="utf-8")
+    assert 'capture_output = script != "run_continuous_service.py"' in stages
     continuous_service = (BLUEPRINT_DIR / "payloads" / "service" / "scripts" / "continuous_service.py").read_text(encoding="utf-8")
     assert "stdout (tail)" in continuous_service
     stage_a = (BLUEPRINT_DIR / "payloads" / "biotarget" / "stages" / "stage_a_discovery.py").read_text(encoding="utf-8")
@@ -244,6 +269,11 @@ def test_drug_discovery_bundles_biotarget_and_prefers_it_at_runtime():
     assert "CMAKE_CUDA_ARCHITECTURES=121" in dockerfile
     assert "python3 -m venv /opt/mn-venv" in dockerfile
     assert "/opt/mn-venv/lib/python3.12/site-packages/torch/lib" in dockerfile
+
+
+def test_drug_discovery_payload_is_modular_and_handlers_resolve():
+    assert_modular_payload("drug_discovery_research_assistant")
+    assert_registry_handlers_import("drug_discovery_research_assistant")
 
 
 def test_continuous_service_fake_mode_writes_parallel_cycle_artifacts(tmp_path):

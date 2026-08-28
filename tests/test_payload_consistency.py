@@ -37,7 +37,7 @@ def test_sdk_llm_blueprints_do_not_depend_on_the_communication_skill():
         "vc_assistant",
         "financial_advisor",
         "legal_assistant",
-        "research_coscientist",
+        "research_assistant",
     ):
         manifest = json.loads((ROOT / blueprint_id / "manifest.json").read_text())
         packages = {

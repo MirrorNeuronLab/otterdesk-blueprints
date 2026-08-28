@@ -170,6 +170,61 @@ def test_financial_payload_is_modular_and_handlers_resolve():
     assert "WORKFLOW_STEPS[-1]" not in execution
 
 
+def test_financial_runtime_uses_shared_job_context_and_persistence(tmp_path):
+    result = run_payload_script(
+        "financial_advisor",
+        f"""
+import json
+import os
+from pathlib import Path
+
+from domain.runtime_services import build_context
+from domain.state import persist_runtime_context, runtime_context_path
+
+documents = Path({str((ROOT / 'financial_advisor' / 'examples' / 'sample_inputs').resolve())!r})
+output_folder = Path({str((tmp_path / 'job-output').resolve())!r})
+runs_root = Path({str((tmp_path / 'runs').resolve())!r})
+os.environ['MN_JOB_ID'] = 'financial-runtime-job'
+os.environ['MN_WORKFLOW_ATTEMPT_ID'] = 'attempt-3'
+os.environ['MN_JOB_OUTPUT_DIR'] = str(output_folder)
+os.environ['MN_RUNS_ROOT'] = str(runs_root)
+
+context = build_context(
+    inputs={{
+        'document_folder': str(documents),
+        'output_folder': str(Path({str((tmp_path / 'ignored-local-output').resolve())!r})),
+    }},
+    config={{'llm': {{'mode': 'fake', 'require_live': False}}}},
+    config_json=None,
+    runs_root=None,
+    run_id='financial-runtime-run',
+    llm_client=None,
+)
+persist_runtime_context(context)
+stored = json.loads(runtime_context_path(context['run_dir']).read_text(encoding='utf-8'))
+print(json.dumps({{
+    'job_id': context['job_id'],
+    'attempt_id': context['attempt_id'],
+    'run_dir': str(context['run_dir']),
+    'output_folder': str(context['output_folder']),
+    'document_folder': str(context['document_folder']),
+    'stored_document_folder': stored['document_folder'],
+    'stored_payload_folder': stored['payload']['document_folder'],
+}}))
+""",
+    )
+
+    assert result["job_id"] == "financial-runtime-job"
+    assert result["attempt_id"] == "attempt-3"
+    assert result["run_dir"] == str(tmp_path / "runs" / "financial-runtime-run")
+    assert result["output_folder"] == str(tmp_path / "job-output")
+    assert result["document_folder"] == str(
+        ROOT / "financial_advisor" / "examples" / "sample_inputs"
+    )
+    assert result["stored_document_folder"] == result["document_folder"]
+    assert result["stored_payload_folder"] == result["document_folder"]
+
+
 def test_financial_sample_builds_customer_and_audit_layers(tmp_path):
     result = run_payload_script(
         "financial_advisor",

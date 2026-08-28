@@ -1,605 +1,6 @@
 {
-  "agent_handoffs": {},
-  "backpressure": {
-    "drop_policy": "skip_with_error",
-    "llm": {
-      "max_calls_per_minute": 30,
-      "max_concurrent_calls": 1,
-      "min_interval_seconds": 2.0,
-      "rationale": "Protect local Docker Model Runner from concurrent blueprint actor calls."
-    },
-    "max_concurrency": 4,
-    "max_events_per_second": 10,
-    "queue_size": 1000
-  },
-  "budgets": {
-    "max_connector_reads": 500,
-    "max_connector_writes": 20,
-    "max_disk_mb": 250,
-    "max_llm_calls": 20,
-    "max_llm_tokens": 20000,
-    "max_runtime_seconds": 0,
-    "max_stream_duration_seconds": 3600
-  },
-  "capabilities": {
-    "optional": [
-      "llm.call",
-      "network.egress",
-      "stream.subscribe",
-      "knowledge.rag",
-      "llm.tool_plan"
-    ],
-    "required": [
-      "filesystem.write"
-    ]
-  },
-  "determinism": {
-    "enabled": true,
-    "frozen_clock": null,
-    "replay": {
-      "from_events": "events.jsonl",
-      "from_inputs": "inputs.json",
-      "llm_mode": "mock"
-    },
-    "seed_field": "seed"
-  },
-  "error_handling": {
-    "default_mode": "stop",
-    "policies": {
-      "llm_call": {
-        "backoff_seconds": 2,
-        "max_attempts": 3,
-        "mode": "retry"
-      },
-      "optional_output": {
-        "mode": "skip"
-      },
-      "required_output": {
-        "mode": "stop"
-      }
-    }
-  },
-  "execution_model": [
-    "load_metadata",
-    "resolve_config",
-    "load_inputs",
-    "start_run_store",
-    "start_continuous_service",
-    "dispatch_cross_box_scientific_jobs",
-    "generate_candidates",
-    "fold_targets_in_parallel",
-    "screen_with_drugclip",
-    "run_parallel_simulations",
-    "aggregate_cycle_results",
-    "emit_events",
-    "write_final_artifact",
-    "fan_out_output_skills",
-    "emit_status_events",
-    "handle_human_control",
-    "write_artifact_records"
-  ],
-  "human_control": {
-    "allowed_decisions": [
-      "approve",
-      "revise",
-      "reject"
-    ],
-    "blocked_actions": [
-      "advance_to_lab_experiment",
-      "make_clinical_claim",
-      "submit_regulatory_material",
-      "send_candidate_to_external_system_without_review"
-    ],
-    "decision_event": "human_decision_applied",
-    "default_action": "reject",
-    "enabled": true,
-    "events": [
-      "human_notice",
-      "human_input_requested",
-      "human_input_received",
-      "human_input_timeout",
-      "human_decision_applied"
-    ],
-    "mode": "approval_required",
-    "reason": "Human approval is required before high-impact downstream actions such as advance_to_lab_experiment, make_clinical_claim, submit_regulatory_material.",
-    "request_event": "human_input_requested",
-    "response_event": "human_input_received",
-    "timeout_event": "human_input_timeout",
-    "timeout_seconds": 3600
-  },
-  "identity": {
-    "blueprint_id": "drug_discovery_research_assistant",
-    "name": "Drug Discovery Research Assistant"
-  },
-  "input_skills": {},
-  "inputs": {
-    "adapter": "mock",
-    "description": "Default synthetic inputs bundled with the blueprint.",
-    "payload": {
-      "disease_or_target_profile": "Alzheimer disease BACE1 modulation",
-      "targets": [
-        {
-          "protein_id": "P56817",
-          "gene": "BACE1"
-        }
-      ],
-      "input_folder": "@/examples/sample_inputs",
-      "output_folder": "~/Downloads/drug_discovery_research_assistant"
-    }
-  },
-  "interfaces": {
-    "channels": {
-      "artifacts": {
-        "artifacts": [
-          "run.json",
-          "config.json",
-          "inputs.json",
-          "events.jsonl",
-          "result.json",
-          "final_artifact.json"
-        ],
-        "description": "Stable run-store files and domain-specific outputs.",
-        "optional_artifacts": [
-          "job.json",
-          "web_ui.json",
-          "ui.json",
-          "web/index.html",
-          "logs.jsonl"
-        ]
-      },
-      "events": {
-        "artifact": "events.jsonl",
-        "description": "Append-only workflow events."
-      },
-      "human": {
-        "artifact": "human.jsonl",
-        "description": "Human notices, approval requests, responses, timeouts, and applied decisions.",
-        "mirrored_to": "events.jsonl"
-      },
-      "input_skills": {
-        "description": "Connector-backed or reusable skill-backed input sources."
-      },
-      "inputs": {
-        "artifact": "inputs.json",
-        "description": "Resolved runtime inputs and adapter provenance."
-      },
-      "logs": {
-        "artifact": "logs.jsonl",
-        "description": "Runtime stdout/stderr and explicit log artifacts.",
-        "index": "logs.index.json",
-        "stream": "stdout/stderr"
-      },
-      "output_skills": {
-        "description": "Optional fan-out destinations after local run-store writes."
-      },
-      "outputs": {
-        "artifacts": [
-          "result.json",
-          "final_artifact.json"
-        ],
-        "description": "Primary result and final user-facing artifact."
-      },
-      "resources": {
-        "artifact": "resources.jsonl",
-        "description": "Resource samples such as token, runtime, connector, and disk usage."
-      },
-      "streams": {
-        "default": [
-          "events"
-        ],
-        "description": "Named data or event streams exposed by the blueprint.",
-        "kinds": [
-          "audio",
-          "video",
-          "data",
-          "multimodal"
-        ],
-        "transports": [
-          "file",
-          "http",
-          "https",
-          "rtsp",
-          "rtmp",
-          "webrtc",
-          "websocket",
-          "socketio",
-          "tcp",
-          "udp",
-          "sse",
-          "kafka",
-          "mqtt",
-          "custom"
-        ]
-      },
-      "web_ui": {
-        "artifacts": [
-          "web_ui.json",
-          "ui.json",
-          "web/index.html"
-        ],
-        "description": "Optional web input/output handles."
-      },
-      "knowledge_rag": {
-        "description": "Optional local blueprint knowledge retrieval used to ground actor prompts and tool planning.",
-        "config": "knowledge_rag",
-        "artifact": "@/payloads/knowledge/",
-        "privacy": "blueprint knowledge only by default"
-      },
-      "agentic_research": {
-        "description": "Bounded LLM-selected or actor-guided tool contract for domain work.",
-        "config": "agentic_research"
-      }
-    },
-    "config_sections": [
-      "standard_version",
-      "identity",
-      "mode",
-      "service",
-      "execution",
-      "cluster_distribution",
-      "candidate_generator",
-      "folding",
-      "drugclip",
-      "simulation",
-      "metadata",
-      "inputs",
-      "simulation",
-      "llm",
-      "outputs",
-      "logging",
-      "resources",
-      "human_control",
-      "real_adapters",
-      "streams",
-      "input_skills",
-      "output_skills",
-      "error_handling",
-      "state",
-      "capabilities",
-      "privacy",
-      "triggers",
-      "backpressure",
-      "determinism",
-      "schemas",
-      "budgets",
-      "agent_handoffs",
-      "web_ui",
-      "interfaces",
-      "execution_model",
-      "suggested_schedule",
-      "knowledge_rag",
-      "agentic_research"
-    ],
-    "identity_fields": [
-      "blueprint_id",
-      "name",
-      "run_id"
-    ],
-    "input_adapters": [
-      "mock",
-      "json",
-      "file",
-      "env_json"
-    ],
-    "optional_run_artifacts": [
-      "job.json",
-      "web_ui.json",
-      "ui.json",
-      "web/index.html",
-      "logs.jsonl",
-      "logs.index.json",
-      "human.jsonl",
-      "resources.jsonl"
-    ],
-    "output_adapters": [
-      "local_run_store"
-    ],
-    "response_schema": "mn.blueprint.response.v1",
-    "run_artifacts": [
-      "run.json",
-      "config.json",
-      "inputs.json",
-      "events.jsonl",
-      "result.json",
-      "final_artifact.json"
-    ],
-    "stream_kinds": [
-      "audio",
-      "video",
-      "data",
-      "multimodal"
-    ],
-    "stream_transports": [
-      "file",
-      "http",
-      "https",
-      "rtsp",
-      "rtmp",
-      "webrtc",
-      "websocket",
-      "socketio",
-      "tcp",
-      "udp",
-      "sse",
-      "kafka",
-      "mqtt",
-      "custom"
-    ],
-    "web_ui_adapters": [
-      "none",
-      "static_html",
-      "gradio",
-      "custom"
-    ],
-    "config": [
-      "standard_version",
-      "identity",
-      "mode",
-      "service",
-      "execution",
-      "cluster_distribution",
-      "candidate_generator",
-      "folding",
-      "drugclip",
-      "simulation",
-      "metadata",
-      "inputs",
-      "simulation",
-      "llm",
-      "outputs",
-      "logging",
-      "resources",
-      "human_control",
-      "real_adapters",
-      "streams",
-      "input_skills",
-      "output_skills",
-      "error_handling",
-      "state",
-      "capabilities",
-      "privacy",
-      "triggers",
-      "backpressure",
-      "determinism",
-      "schemas",
-      "budgets",
-      "agent_handoffs",
-      "web_ui",
-      "interfaces",
-      "execution_model",
-      "suggested_schedule",
-      "knowledge_rag",
-      "agentic_research"
-    ]
-  },
-  "llm": {
-    "enabled": true,
-    "agent_role": "AI service coordinator for distributed candidate generation, DrugCLIP virtual screening, folding, simulation, and evidence review.",
-    "agents": {
-      "binding_evaluation": {
-        "llm_config": "primary",
-        "role": "Binding evaluation analyst",
-        "responsibilities": [
-          "Review docking or binding-score outputs.",
-          "Explain affinity ranking caveats.",
-          "Flag candidates needing wet-lab validation."
-        ]
-      },
-      "candidate_generation": {
-        "llm_config": "primary",
-        "role": "Candidate generation strategist",
-        "responsibilities": [
-          "Compare generated compounds against project constraints.",
-          "Summarize candidate families and tradeoffs.",
-          "Flag manufacturability or novelty review needs."
-        ]
-      },
-      "ranking_reporting": {
-        "llm_config": "primary",
-        "role": "Discovery report lead",
-        "responsibilities": [
-          "Assemble candidate ranking evidence.",
-          "Summarize go/no-go review points.",
-          "Keep conclusions preclinical and hypothesis-only."
-        ]
-      },
-      "structure_generation": {
-        "llm_config": "primary",
-        "role": "Molecular design chemist",
-        "responsibilities": [
-          "Generate candidate structure rationale from deterministic outputs.",
-          "Explain scaffold diversity and chemistry caveats.",
-          "Keep generated structures review-only."
-        ]
-      },
-      "target_discovery": {
-        "llm_config": "primary",
-        "role": "Target discovery scientist",
-        "responsibilities": [
-          "Identify disease-target hypotheses from configured inputs.",
-          "Summarize target evidence and uncertainty.",
-          "Flag missing assay or literature support."
-        ]
-      }
-    },
-    "provider": "docker_model_runner",
-    "model": "default",
-    "backend": "llama.cpp",
-    "mode": "live",
-    "mock_mode": "fake",
-    "default_config": "primary",
-    "quick_test_uses_fake": true,
-    "strict_json": false,
-    "responsibilities": [
-      "Keep cheminformatics scoring and simulation outputs as the source of truth.",
-      "Use LLM actors to explain hypotheses, evidence gaps, and review packets.",
-      "Avoid claiming experimental validation or clinical readiness."
-    ],
-    "configs": {
-      "primary": {
-        "provider": "docker_model_runner",
-        "backend": "llama.cpp",
-        "api_base": "auto",
-        "timeout_seconds": 60,
-        "max_tokens": 900,
-        "num_retries": 1,
-        "mock_mode": "fake",
-        "mode": "live",
-        "retry_backoff_seconds": 1.0,
-        "required": true
-      }
-    },
-    "require_live": false
-  },
-  "logging": {
-    "events": [
-      "run_started",
-      "inputs_loaded",
-      "simulation_step_started",
-      "llm_decision",
-      "simulation_state_updated",
-      "run_completed",
-      "blueprint_status",
-      "blueprint_phase_started",
-      "blueprint_phase_completed",
-      "blueprint_phase_failed",
-      "artifact_written",
-      "human_notice",
-      "human_input_requested",
-      "human_input_received",
-      "human_input_timeout",
-      "human_decision_applied",
-      "output_skill_started",
-      "output_skill_completed",
-      "output_skill_failed"
-    ],
-    "events_jsonl": true,
-    "level": "INFO",
-    "logs_jsonl": true,
-    "redact_env_secrets": true,
-    "redact_fields": [
-      "api_key",
-      "token",
-      "authorization",
-      "cookie",
-      "password",
-      "private_key"
-    ],
-    "resources_jsonl": true,
-    "rotation": {
-      "check_interval_records": 100,
-      "compress": "background",
-      "enabled": true,
-      "max_bytes_mb": 100,
-      "max_segments": 7,
-      "span_seconds": 86400
-    },
-    "stderr_jsonl": true,
-    "writer": {
-      "batch_size": 100,
-      "flush_interval_seconds": 0.5,
-      "mode": "async",
-      "overflow_policy": "drop_low_priority",
-      "queue_size": 10000,
-      "shutdown_flush_timeout_seconds": 2
-    }
-  },
-  "memory_layer": {
-    "collection": "mn_memory",
-    "containers": "optional_sidecar",
-    "context_addr_env": "MN_CONTEXT_ADDR",
-    "conversation": {
-      "agent_role": "otterdesk_chat",
-      "include_human_events": true,
-      "include_runtime_events": true,
-      "include_runtime_logs": true,
-      "target_tokens": 2400,
-      "token_budget": 6000,
-      "use_model_compression": false
-    },
-    "conversation_enabled": true,
-    "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
-    "default_context_addr": "localhost:50052",
-    "enabled": true,
-    "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
-    "namespace": "drug_discovery_research_assistant_context",
-    "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
-    "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
-    "sdk_distribution": "mirrorneuron-membrane-python-sdk",
-    "sdk_import_package": "mn_context_engine_sdk"
-  },
-  "agentic_research": {
-    "enabled": true,
-    "agent_ids": [
-      "target_discovery",
-      "structure_generation",
-      "candidate_generation",
-      "binding_evaluation",
-      "ranking_reporting"
-    ],
-    "max_iterations_per_agent": 1,
-    "max_tool_calls_per_agent": 2,
-    "allowed_tools": [
-      "target_database_lookup",
-      "structure_generation",
-      "candidate_generation",
-      "docking_score",
-      "toxicity_filter",
-      "finish"
-    ],
-    "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run",
-    "default_mode": "bounded_llm_guided_scientific_tool_review",
-    "note": "Scientific workers may use bounded tool outputs and local RAG guidance; failed or thin evidence remains explicit in the review packet."
-  },
-  "knowledge_rag": {
-    "enabled": true,
-    "backend": "milvus_lite",
-    "required": false,
-    "knowledge_dir": "knowledge",
-    "purpose": "Retrieve local discovery-triage guidance for target evidence, generated candidate review, docking caveats, and report-only scientific risk checks.",
-    "retrieval_targets": [
-      "target evidence",
-      "candidate scoring caveats",
-      "docking and toxicity limitations",
-      "scientific review blockers"
-    ],
-    "grounding_policy": "Use retrieved local blueprint knowledge to improve actor review prompts; do not invent facts when retrieval is unavailable.",
-    "namespace": "",
-    "embedding_provider": "docker_model_runner",
-    "embedding_model": "rag-embedding",
-    "embedding_api_base": "auto",
-    "embedding_query_prefix": "Query: ",
-    "embedding_document_prefix": "Document: ",
-    "embedding_start_command": "",
-    "embedding_healthcheck_enabled": true,
-    "vector_dim": 1024,
-    "index_on_startup": true,
-    "top_k": 4,
-    "max_context_chars": 4000,
-    "chunk_size": 700,
-    "chunk_overlap": 70,
-    "privacy": "index local blueprint knowledge only; do not index private run documents unless a future runtime explicitly opts in"
-  },
-  "metadata": {
-    "agent_role": "AI assistant for organizing drug discovery candidate generation, filtering, and evidence review.",
-    "blueprint_id": "drug_discovery_research_assistant",
-    "blueprint_revision": "v1",
-    "category": "science",
-    "customizable_for": "Drug discovery, target-focused virtual screening, molecular-generation pipelines, folding, simulation, and scientific research operations.",
-    "description": "A continuous drug-discovery research service. Give it a disease or target profile, screening criteria, optional candidate seeds, literature notes, and an input folder; it continuously generates candidate hypotheses, screens them with DrugCLIP, folds targets, runs configured simulations across cluster workers, and writes review-only cycle reports until manually stopped.",
-    "llm_agent_role": "AI service coordinator for distributed candidate generation, DrugCLIP virtual screening, folding, simulation, and evidence review.",
-    "name": "Drug Discovery Research Assistant",
-    "problem_solved": "Discovery work needs continuous, traceable candidate generation and scientific screening without collapsing cluster-scale folding and simulation into a single serial worker.",
-    "simulation_type": "Continuous distributed computational discovery service with DrugCLIP virtual screening.",
-    "standard_version": "1.0",
-    "target_user": "Computational biology researchers, scientific AI platform teams, and research operations groups.",
-    "target_users": "Computational biology researchers, scientific AI platform teams, and research operations groups."
-  },
   "mode": "live",
   "service": {
-    "enabled": true,
-    "run_until": "manual_stop",
-    "stop_file": "${MN_RUN_DIR}/STOP",
     "cycle_interval_seconds": 15,
     "max_cycles": null,
     "candidate_count": 160,
@@ -611,8 +12,7 @@
       "drugclip_workers": 4,
       "simulation_workers": 4
     },
-    "shutdown_grace_seconds": 30,
-    "status_artifact": "service_state.json"
+    "shutdown_grace_seconds": 30
   },
   "execution": {
     "fake_science_adapters": false,
@@ -712,25 +112,182 @@
     },
     "simulation_engine": "gnina"
   },
-  "output_skills": {},
-  "python_dependencies": {
-    "installer": "pip",
-    "requirements": "requirements.txt",
-    "index_url": "https://us-central1-python.pkg.dev/mirrorneuron-public-packages/agent-skills/simple/",
-    "extra_index_url": "https://pypi.org/simple",
-    "packages": []
+  "simulation": {
+    "deterministic": true,
+    "enabled": true,
+    "seed_field": "seed",
+    "type": "Configured parallel molecular simulation after DrugClip graph-text screening.",
+    "required": true,
+    "command": [
+      "/usr/bin/python3",
+      "scripts/biotarget_adapter.py",
+      "--adapter",
+      "simulation",
+      "--input",
+      "{input_path}",
+      "--output",
+      "{output_path}"
+    ],
+    "timeout_seconds": 3600,
+    "contract": "Run BioTarget Stage D evaluation for a DrugClip-selected candidate. Read JSON from {input_path}; write docking and toxicity metrics to {output_path}."
+  },
+  "inputs": {
+    "adapter": "mock",
+    "description": "Default synthetic inputs bundled with the blueprint.",
+    "payload": {
+      "disease_or_target_profile": "Alzheimer disease BACE1 modulation",
+      "targets": [
+        {
+          "protein_id": "P56817",
+          "gene": "BACE1"
+        }
+      ],
+      "input_folder": "@/examples/sample_inputs",
+      "output_folder": "~/Downloads/drug_discovery_research_assistant"
+    }
   },
   "outputs": {
     "adapter": "local_run_store",
     "artifact_contract": "Continuous-cycle candidate, folding, DrugCLIP, simulation, state, and review-only scientific evidence artifacts.",
     "run_root": "~/.mn/runs",
-    "skills": {},
-    "tcp": {
-      "enabled": false,
-      "ports": []
-    },
     "write_run_store": true,
     "folder_path": "~/Downloads/drug_discovery_research_assistant"
+  },
+  "llm": {
+    "strict_json": false,
+    "require_live": true,
+    "configs": {
+      "primary": {
+        "timeout_seconds": 60,
+        "max_tokens": 900,
+        "num_retries": 1,
+        "retry_backoff_seconds": 1.0
+      }
+    }
+  },
+  "knowledge_rag": {
+    "backend": "milvus_lite"
+  },
+  "interfaces": {
+    "config": [
+      "mode",
+      "service",
+      "execution",
+      "cluster_distribution",
+      "candidate_generator",
+      "folding",
+      "drugclip",
+      "biotarget",
+      "simulation",
+      "inputs",
+      "outputs",
+      "llm",
+      "knowledge_rag",
+      "agentic_research",
+      "resources",
+      "human_control",
+      "memory_layer",
+      "backpressure",
+      "budgets",
+      "determinism",
+      "error_handling",
+      "logging",
+      "privacy",
+      "python_dependencies",
+      "state",
+      "suggested_schedule"
+    ],
+    "config_sections": [
+      "mode",
+      "service",
+      "execution",
+      "cluster_distribution",
+      "candidate_generator",
+      "folding",
+      "drugclip",
+      "biotarget",
+      "simulation",
+      "inputs",
+      "outputs",
+      "llm",
+      "knowledge_rag",
+      "agentic_research",
+      "resources",
+      "human_control",
+      "memory_layer",
+      "backpressure",
+      "budgets",
+      "determinism",
+      "error_handling",
+      "logging",
+      "privacy",
+      "python_dependencies",
+      "state",
+      "suggested_schedule"
+    ]
+  },
+  "backpressure": {
+    "drop_policy": "skip_with_error",
+    "llm": {
+      "max_calls_per_minute": 30,
+      "max_concurrent_calls": 1,
+      "min_interval_seconds": 2.0,
+      "rationale": "Protect local Docker Model Runner from concurrent blueprint actor calls."
+    },
+    "max_concurrency": 4,
+    "max_events_per_second": 10,
+    "queue_size": 1000
+  },
+  "budgets": {
+    "max_connector_reads": 500,
+    "max_connector_writes": 20,
+    "max_disk_mb": 250,
+    "max_llm_calls": 20,
+    "max_llm_tokens": 20000,
+    "max_runtime_seconds": 0,
+    "max_stream_duration_seconds": 3600
+  },
+  "determinism": {
+    "enabled": true,
+    "frozen_clock": null,
+    "replay": {
+      "from_events": "events.jsonl",
+      "from_inputs": "inputs.json",
+      "llm_mode": "fake"
+    },
+    "seed_field": "seed"
+  },
+  "error_handling": {
+    "default_mode": "stop",
+    "policies": {
+      "llm_call": {
+        "backoff_seconds": 2,
+        "max_attempts": 3,
+        "mode": "retry"
+      },
+      "optional_output": {
+        "mode": "skip"
+      },
+      "required_output": {
+        "mode": "stop"
+      }
+    }
+  },
+  "logging": {
+    "level": "INFO",
+    "events_jsonl": true,
+    "logs_jsonl": true,
+    "resources_jsonl": true,
+    "stderr_jsonl": true,
+    "redact_env_secrets": true,
+    "redact_fields": [
+      "api_key",
+      "token",
+      "authorization",
+      "cookie",
+      "password",
+      "private_key"
+    ]
   },
   "privacy": {
     "default_classification": "confidential",
@@ -757,72 +314,13 @@
       }
     }
   },
-  "real_adapters": {
-    "inline_json": {
-      "adapter": "json",
-      "description": "Load overrides from an inline JSON object.",
-      "payload": {}
-    },
-    "input_file": {
-      "adapter": "file",
-      "description": "Load JSON overrides from a local file path.",
-      "path": null
-    }
+  "python_dependencies": {
+    "installer": "pip",
+    "requirements": "requirements.txt",
+    "index_url": "https://us-central1-python.pkg.dev/mirrorneuron-public-packages/agent-skills/simple/",
+    "extra_index_url": "https://pypi.org/simple",
+    "packages": []
   },
-  "resources": {
-    "enabled": true,
-    "gpu_enabled": true,
-    "gpu_sample_interval_seconds": 60,
-    "history_window_hours": 24,
-    "raw_retention_hours": 48,
-    "rollup_bucket_seconds": 3600,
-    "sample_interval_seconds": 10,
-    "gpu_count": 1,
-    "gpu": {
-      "min_count": 1,
-      "vendor": "nvidia",
-      "driver": "cuda",
-      "enforcement": "hard"
-    },
-    "required_capabilities": [
-      "nvidia",
-      "cuda"
-    ]
-  },
-  "schemas": {
-    "artifact_record": "mn.artifact.record.v1",
-    "config": "mn.blueprint.config.v1",
-    "events": "mn.blueprint.events.v1",
-    "final_artifact": "mn.blueprint.final_artifact.v1",
-    "human_control": "mn.blueprint.human_control.v1",
-    "input_skills": "mn.blueprint.input_skills.v1",
-    "inputs": "mn.blueprint.inputs.v1",
-    "logs": "mn.blueprint.logs.v1",
-    "output_skills": "mn.blueprint.output_skills.v1",
-    "resources": "mn.blueprint.resources.v1",
-    "status_contract": "mn.blueprint.status_contract.v1",
-    "web_ui": "mn.blueprint.web_ui.v1"
-  },
-  "simulation": {
-    "deterministic": true,
-    "enabled": true,
-    "seed_field": "seed",
-    "type": "Configured parallel molecular simulation after DrugClip graph-text screening.",
-    "required": true,
-    "command": [
-      "/usr/bin/python3",
-      "scripts/biotarget_adapter.py",
-      "--adapter",
-      "simulation",
-      "--input",
-      "{input_path}",
-      "--output",
-      "{output_path}"
-    ],
-    "timeout_seconds": 3600,
-    "contract": "Run BioTarget Stage D evaluation for a DrugClip-selected candidate. Read JSON from {input_path}; write docking and toxicity metrics to {output_path}."
-  },
-  "standard_version": "1.0",
   "state": {
     "checkpoint_interval": {
       "events": 100,
@@ -836,66 +334,6 @@
     "resume_mode": "none",
     "input_folder": "@/examples/sample_inputs",
     "output_folder": "~/Downloads/drug_discovery_research_assistant"
-  },
-  "streams": {},
-  "triggers": {
-    "schedule": null,
-    "sources": [],
-    "type": "manual_service"
-  },
-  "web_ui": {
-    "dashboard": {
-      "data_source": "local_run_store",
-      "panels": [
-        "current_status",
-        "recent_events",
-        "pending_human_requests",
-        "output_artifacts",
-        "resource_usage",
-        "errors",
-        "llm_calls",
-        "token_budget",
-        "llm_retries"
-      ],
-      "reads": [
-        "events.jsonl",
-        "human.jsonl",
-        "logs.jsonl",
-        "resources.jsonl",
-        "result.json",
-        "final_artifact.json",
-        "web_ui.json"
-      ],
-      "standard_panels": [
-        "current_status",
-        "recent_events",
-        "pending_human_requests",
-        "output_artifacts",
-        "resource_usage",
-        "errors",
-        "llm_calls",
-        "token_budget",
-        "llm_retries"
-      ]
-    },
-    "enabled": true,
-    "input": {
-      "adapter": "none",
-      "custom_url": null,
-      "fields": [],
-      "host": "127.0.0.1",
-      "instructions": null,
-      "port": null,
-      "share": false,
-      "title": null
-    },
-    "output": {
-      "adapter": "gradio",
-      "auto_generate": true,
-      "custom_url": null,
-      "refresh_seconds": 2,
-      "title": null
-    }
   },
   "suggested_schedule": {
     "cron": "0 8 * * 1",
