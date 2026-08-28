@@ -1,7 +1,0 @@
-Company: Aurora AI
-Founders include a former logistics operator and two machine learning engineers.
-Product: an AI routing platform with a working prototype and enterprise demo.
-Market: warehouse and delivery operations with a large buyer segment.
-Traction: five pilots, two paid customers, and early revenue of $120k ARR.
-Strategic relationships include a channel partner and cloud marketplace listing.
-Risks: crowded competition and enterprise sales cycle dependency.
