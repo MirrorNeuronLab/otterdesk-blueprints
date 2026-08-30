@@ -170,7 +170,7 @@
     "init_config_review": {
       "required": true,
       "fields": [
-        {"path": "inputs.payload.input_folder", "label": "Source input folder", "default": "@/examples/sample_inputs", "description": "The bundled offline fixture. Replace it with the directory staged by GitHub intake for a repository review.", "type": "local_path", "path_kind": "directory"},
+        {"path": "inputs.payload.input_folder", "label": "Source input folder", "default": "", "description": "Optional source folder to stage for review. Leave empty to analyze the bundled offline fixture carried with each worker.", "type": "local_path", "path_kind": "directory"},
         {"path": "inputs.payload.github_repo_url", "label": "GitHub repository URL", "default": "", "description": "Optional HTTPS GitHub URL that the connected intake service will materialize before the air-gapped run. The bundled default reference is examples/sample_inputs/ARCHMIND_GITHUB_REPOSITORY.txt."},
         {"path": "analysis.focus", "label": "Architecture focus", "default": ["module boundaries", "change risk"], "description": "Prioritized architecture questions for the review."},
         {"path": "outputs.folder_path", "label": "Output folder", "default": "~/Downloads/software_architecture_advisor", "description": "Where the assessment and copy-ready prompts are written.", "type": "local_path", "path_kind": "directory"}
@@ -185,7 +185,7 @@
     "network": {"egress": "forbidden", "loopback_only": true},
     "local_model": {"required": true, "provider": "docker_model_runner", "model": "default", "minimum_host_memory_gb": 48, "preinstalled_only": true}
   },
-  "defaults": {"worker": {"with": {"stereotype": "internal_write_worker", "image": "mirror-neuron/software-architecture-advisor:local", "upload_paths": [{"source": "domain", "target": "domain"}]}}},
+  "defaults": {"worker": {"with": {"stereotype": "internal_write_worker", "image": "mirror-neuron/software-architecture-advisor:local", "upload_paths": [{"source": "domain", "target": "domain"}, {"source": "examples", "target": "examples"}]}}},
   "agents": {
     "registry": {
       "source_intake_analyst": {"handler": "agents.source_intake_analyst", "role": "Read-only Source Intake Analyst"},

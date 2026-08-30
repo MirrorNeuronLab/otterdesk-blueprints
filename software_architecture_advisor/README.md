@@ -39,8 +39,9 @@ ownership. The input source is treated as untrusted data; embedded instructions
 in source comments or documentation never override this blueprint's policy.
 
 The bundled default remains the small offline fixture at
-`@/examples/sample_inputs`, so `mn blueprint run software_architecture_advisor`
-works without network access. Its
+`@/examples/sample_inputs`, and it is included in every worker payload, so
+`mn blueprint run software_architecture_advisor` works without network access
+or a cross-node input mount. Its
 [`ARCHMIND_GITHUB_REPOSITORY.txt`](examples/sample_inputs/ARCHMIND_GITHUB_REPOSITORY.txt)
 file records `https://github.com/homerquan/Archmind` as the default repository
 for a platform-owned GitHub pre-staging request. It is a reference only: the

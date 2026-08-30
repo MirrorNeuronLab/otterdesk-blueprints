@@ -8,7 +8,7 @@
   "inputs": {
     "adapter": "mock",
     "payload": {
-      "input_folder": "@/examples/sample_inputs",
+      "input_folder": "",
       "github_repo_url": "",
       "branch": "main",
       "analysis_focus": ["module boundaries", "change risk"],

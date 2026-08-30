@@ -5,7 +5,11 @@ from pathlib import Path
 
 from blueprint_modernization_support import ROOT, assert_modular_payload, assert_registry_handlers_import, run_payload_script, source_manifest
 from mn_sdk import expand_manifest_source
-from mn_sdk.submission_preparation import prepare_manifest_for_submission, stage_skill_dependency_payloads_for_manifest
+from mn_sdk.submission_preparation import (
+    prepare_manifest_for_submission,
+    stage_skill_dependency_payloads_for_manifest,
+    stage_upload_path_payloads_for_manifest,
+)
 
 
 def test_software_architecture_advisor_is_air_gapped_and_requires_a_large_local_model():
@@ -55,7 +59,7 @@ def test_software_architecture_advisor_keeps_its_default_github_reference_in_sam
     reference = blueprint / "examples" / "sample_inputs" / "ARCHMIND_GITHUB_REPOSITORY.txt"
 
     assert reference.read_text().strip() == "https://github.com/homerquan/Archmind"
-    assert config["inputs"]["payload"]["input_folder"] == "@/examples/sample_inputs"
+    assert config["inputs"]["payload"]["input_folder"] == ""
     assert config["source_acquisition"]["default_repository_reference_file"] == "@/examples/sample_inputs/ARCHMIND_GITHUB_REPOSITORY.txt"
 
 
@@ -105,13 +109,16 @@ def test_software_architecture_advisor_includes_a_docker_worker_build_context():
         for node in workers
         for item in node["config"].get("upload_paths") or []
         if isinstance(item, dict) and item.get("source") in {
-            "agents", "domain", "knowledge", "prompts", "runtime", "steps"
+            "agents", "domain", "examples", "knowledge", "prompts", "runtime", "steps"
         }
     }
     assert payload_upload_sources == {
-        "agents", "domain", "knowledge", "prompts", "runtime", "steps"
+        "agents", "domain", "examples", "knowledge", "prompts", "runtime", "steps"
     }
-    assert all((payloads / source).is_dir() for source in payload_upload_sources)
+    assert all(
+        ((ROOT / "software_architecture_advisor" if source == "examples" else payloads) / source).is_dir()
+        for source in payload_upload_sources
+    )
 
 
 def test_software_architecture_advisor_stages_its_owned_graph_skill_into_the_docker_image(monkeypatch):
@@ -132,6 +139,19 @@ def test_software_architecture_advisor_stages_its_owned_graph_skill_into_the_doc
         "docker_worker/__mn_skill_dependencies/local/software_architecture_graph_skill/pyproject.toml"
         in staged
     )
+
+
+def test_software_architecture_advisor_stages_the_bundled_default_source_for_workers():
+    blueprint = ROOT / "software_architecture_advisor"
+    prepared = prepare_manifest_for_submission(
+        blueprint,
+        source_manifest("software_architecture_advisor"),
+    )
+    staged: dict[str, bytes] = {}
+
+    stage_upload_path_payloads_for_manifest(prepared, staged, bundle_dir=blueprint)
+
+    assert "examples/sample_inputs/mini_order_service/api.py" in staged
 
 
 def test_software_architecture_advisor_writes_copy_ready_prompts_without_changing_source(tmp_path: Path):
@@ -619,4 +639,35 @@ print(json.dumps({{
         "waited_for_platform_source": True,
         "ordinary_source_unchanged": True,
         "ordinary_source_missing": True,
+    }
+
+
+def test_software_architecture_advisor_mapper_re_resolves_the_source_in_its_own_worker(tmp_path: Path):
+    mapper_source = ROOT / "software_architecture_advisor" / "examples" / "sample_inputs"
+    stale_source = tmp_path / "intake-worker" / "examples" / "sample_inputs"
+
+    result = run_payload_script(
+        "software_architecture_advisor",
+        f"""
+import json
+from pathlib import Path
+from domain.runtime_services import runtime_context_for_step
+from domain.state import source_root_for_context
+
+context = runtime_context_for_step(
+    inputs={{"input_folder": {str(mapper_source)!r}}},
+    config={{"analysis": {{"max_files": 100}}, "llm": {{"mode": "fake"}}}},
+    runs_root={str(tmp_path / 'runs')!r},
+    run_id="mapper-source-workspace-test",
+)
+print(json.dumps({{
+    "source_root": str(source_root_for_context(context)),
+    "stale_source_is_missing": not Path({str(stale_source)!r}).exists(),
+}}))
+""",
+    )
+
+    assert result == {
+        "source_root": str(mapper_source.resolve()),
+        "stale_source_is_missing": True,
     }

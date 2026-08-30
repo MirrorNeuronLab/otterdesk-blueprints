@@ -1589,6 +1589,17 @@
         }
       },
       {
+        "control": {
+          "failure_policy": "fail_workflow",
+          "required": true,
+          "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 1,
+            "jitter": 0,
+            "max_attempts": 1
+          },
+          "timeout_seconds": 86400
+        },
         "goal": "Continuously generate candidates, dispatch parallel folding, DrugCLIP screening, and simulation jobs until manually stopped.",
         "id": "candidate_generation",
         "kind": "stage",

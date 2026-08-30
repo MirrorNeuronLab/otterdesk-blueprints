@@ -147,6 +147,18 @@ def test_drug_discovery_manifest_uses_source_format_and_shared_blocks():
     assert set(manifest["agents"]["registry"]) == set(STEP_AGENTS.values())
     for step in STEP_SCRIPTS:
         assert manifest["workflow"]["steps"][[item["id"] for item in manifest["workflow"]["steps"]].index(step)]["run"]["definition"] == f"steps.{step}"
+    candidate_step = next(item for item in manifest["workflow"]["steps"] if item["id"] == "candidate_generation")
+    assert candidate_step["control"] == {
+        "failure_policy": "fail_workflow",
+        "required": True,
+        "retry": {
+            "backoff_multiplier": 2,
+            "backoff_seconds": 1,
+            "jitter": 0,
+            "max_attempts": 1,
+        },
+        "timeout_seconds": 86400,
+    }
 
 
 def test_drug_discovery_model_profiles_match_vc_style_defaults():

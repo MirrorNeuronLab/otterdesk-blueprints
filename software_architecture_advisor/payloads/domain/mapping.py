@@ -13,7 +13,7 @@ from .model_analysis import (
     text,
     validate_references,
 )
-from .state import read_state, write_state
+from .state import read_state, source_root_for_context, write_state
 
 
 def map_architecture(
@@ -29,8 +29,13 @@ def map_architecture(
 
     state = read_state(ctx)
     source = state.get("source") or {}
-    if not source.get("root"):
+    if not source:
         raise ValueError("source intake state is missing; map_architecture must follow resolve_source")
+    # Each Docker worker has its own payload workspace. Re-resolve the source
+    # from this invocation instead of using the preceding worker's absolute
+    # path persisted in durable workflow state.
+    source["root"] = str(source_root_for_context(ctx))
+    state["source"] = source
     settings = (ctx.get("config") or {}).get("analysis") or {}
     inventory = build_inventory(source["root"], settings)
     graph = build_architecture_graph(inventory)
