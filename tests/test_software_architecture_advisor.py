@@ -16,6 +16,8 @@ def test_software_architecture_advisor_is_air_gapped_and_requires_a_large_local_
     assert manifest["requirements"]["memory"]["min_gb"] == 48
     assert manifest["requirements"]["network"]["egress"] == "forbidden"
     assert config["source_acquisition"]["mode"] == "platform_pre_staged_github_snapshot"
+    assert config["source_acquisition"]["staging_wait_seconds"] == 180
+    assert config["source_acquisition"]["staging_poll_interval_seconds"] == 2
     assert config["outputs"]["folder_path"] == "~/Downloads/software_architecture_advisor"
     assert config["local_model"]["preinstalled_only"] is True
     assert manifest["llm"]["model"] == "default"
@@ -37,7 +39,7 @@ def test_software_architecture_advisor_is_air_gapped_and_requires_a_large_local_
         "folders": [
             {
                 "config_path": "inputs.payload.input_folder",
-                "payload_path": "runtime/mn_local_inputs/software_architecture_advisor_source",
+                "payload_path": "mn_local_inputs/software_architecture_advisor_source",
                 "runtime_path": "mn_local_inputs/software_architecture_advisor_source",
                 "allowed_extensions": [".py", ".js", ".jsx", ".ts", ".tsx", ".java", ".go", ".rs", ".c", ".h", ".cpp", ".hpp", ".cs", ".rb", ".php", ".swift", ".kt", ".kts", ".md", ".txt", ".json", ".yaml", ".yml", ".toml", ".xml", ".gradle", ".properties", ".lock", ".sh", ".sql", ".tf", ".hcl", ".graphql"],
                 "allowed_file_names": ["Dockerfile", "Makefile", "Procfile", "Jenkinsfile", "Gemfile", "Rakefile", "go.mod", "go.sum", "Cargo.toml", "Cargo.lock"],
@@ -574,3 +576,47 @@ print(json.dumps({{'input_folder': context['payload']['input_folder']}}))
 """,
     )
     assert result == {"input_folder": str(staged)}
+
+
+def test_software_architecture_advisor_waits_only_for_a_platform_staged_source(tmp_path: Path):
+    staged = tmp_path / ".mn" / "shared" / "submissions" / "job-123" / "inputs" / "source"
+    ordinary_missing = tmp_path / "missing-local-source"
+    result = run_payload_script(
+        "software_architecture_advisor",
+        f"""
+import json
+from pathlib import Path
+from domain.intake import wait_for_platform_staged_directory
+
+staged = Path({str(staged)!r})
+waited = []
+def stage_source(seconds):
+    waited.append(seconds)
+    staged.mkdir(parents=True, exist_ok=True)
+
+ready = wait_for_platform_staged_directory(
+    str(staged),
+    maximum_wait_seconds=1,
+    polling_seconds=0.1,
+    sleeper=stage_source,
+)
+ordinary = wait_for_platform_staged_directory(
+    {str(ordinary_missing)!r},
+    maximum_wait_seconds=1,
+    polling_seconds=0.1,
+    sleeper=lambda _seconds: (_ for _ in ()).throw(RuntimeError('must not wait')),
+)
+print(json.dumps({{
+    'staged_source_ready': ready == staged,
+    'waited_for_platform_source': len(waited) == 1,
+    'ordinary_source_unchanged': ordinary == Path({str(ordinary_missing)!r}).resolve(),
+    'ordinary_source_missing': not ordinary.exists(),
+}}))
+""",
+    )
+    assert result == {
+        "staged_source_ready": True,
+        "waited_for_platform_source": True,
+        "ordinary_source_unchanged": True,
+        "ordinary_source_missing": True,
+    }

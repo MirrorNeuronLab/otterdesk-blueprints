@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import sys
+import types
 from pathlib import Path
 
 from mn_sdk.blueprint_runtime import load_blueprint_config
@@ -118,6 +119,7 @@ def test_drug_discovery_manifest_uses_source_format_and_shared_blocks():
         assert (BLUEPRINT_DIR / "payloads" / "service" / script).is_file(), script
     assert (BLUEPRINT_DIR / "payloads" / "prompts" / "scientific-review.md").is_file()
     assert manifest["service"]["run_until"] == "manual_stop"
+    assert manifest["cluster_distribution"]["enabled"] is False
     assert manifest["cluster_distribution"]["collaboration"]["mode"] == "cross_box_fanout_fanin"
     assert "runtime" not in manifest
     assert manifest["requirements"]["gpu"] == {
@@ -155,6 +157,8 @@ def test_drug_discovery_model_profiles_match_vc_style_defaults():
 
     assert config["mode"] == "live"
     assert config["execution"]["fake_science_adapters"] is False
+    assert config["execution"]["mode"] == "native_local"
+    assert config["cluster_distribution"]["enabled"] is False
     assert config["service"]["run_until"] == "manual_stop"
     assert config["service"]["max_cycles"] is None
     assert config["service"]["candidate_count"] == 160
@@ -197,7 +201,7 @@ def test_drug_discovery_model_profiles_match_vc_style_defaults():
     for package in ("drugclip>=0.1.2", "torch>=2.0", "torch_geometric>=2.3", "requests"):
         assert package in requirements
     for adapter_name in ("candidate_generator", "folding", "drugclip", "simulation"):
-        assert config[adapter_name]["command"][0] == "/usr/bin/python3"
+        assert config[adapter_name]["command"][0] == "python"
         assert config[adapter_name]["command"][1] == "scripts/biotarget_adapter.py"
 
 
@@ -395,6 +399,54 @@ def test_biotarget_adapter_makes_folded_structure_path_absolute(tmp_path):
     )
 
     assert result["path"] == str(receptor.resolve())
+
+
+def test_biotarget_stage_b_uses_stable_pdb_url_after_api_failure(tmp_path, monkeypatch):
+    stage_path = BLUEPRINT_DIR / "payloads" / "biotarget" / "stages" / "stage_b_structure.py"
+    class RequestException(Exception):
+        pass
+
+    class HTTPError(RequestException):
+        pass
+
+    monkeypatch.setitem(
+        sys.modules,
+        "requests",
+        types.SimpleNamespace(RequestException=RequestException, HTTPError=HTTPError),
+    )
+    spec = importlib.util.spec_from_file_location("drug_discovery_stage_b_test", stage_path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+
+    calls = []
+
+    class Response:
+        content = b"HEADER    ALPHAFOLD TEST STRUCTURE\nEND\n"
+
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return []
+
+    def fake_get(url, **_kwargs):
+        calls.append(url)
+        if "/api/prediction/" in url:
+            error = module.requests.HTTPError("temporary AlphaFold API failure")
+            raise error
+        return Response()
+
+    monkeypatch.setattr(module.requests, "get", fake_get, raising=False)
+    monkeypatch.setattr(module, "RETRIEVAL_ATTEMPTS", 1)
+
+    destination = tmp_path / "BACE1_P56817.pdb"
+    module.fetch_alphafold_structure("P56817", destination)
+
+    assert destination.read_bytes().startswith(b"HEADER")
+    assert calls[0] == "https://alphafold.ebi.ac.uk/api/prediction/P56817"
+    assert calls[1] == "https://alphafold.ebi.ac.uk/files/AF-P56817-F1-model_v6.pdb"
 
 
 def test_continuous_service_live_mode_requires_native_adapter_contracts(tmp_path):

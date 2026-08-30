@@ -25,7 +25,9 @@ The committed `config/overwrite.json` selects live native adapter mode. On the f
 
 ## Distributed native execution
 
-The target, structure, candidate-generation, binding-review, and report specialists use one shared `MirrorNeuron.Runner.DockerWorker` on the NVIDIA CUDA node. Its full `payloads/requirements.txt` DrugClip/GNINA stack and the declared SDK/agent dependencies execute in the prepared GPU container rather than an isolated HostLocal environment. In live cluster mode, the continuous service sends JSON job specifications to a configured native dispatcher that places work in these pools:
+The target, structure, candidate-generation, binding-review, and report specialists use one shared `MirrorNeuron.Runner.DockerWorker` on the NVIDIA CUDA node. Its full `payloads/requirements.txt` DrugClip/GNINA stack and the declared SDK/agent dependencies execute in the prepared GPU container rather than an isolated HostLocal environment. This single-worker mode is the live default, so it needs no cross-box dispatcher. The native adapter commands intentionally use the active `python` executable (not `/usr/bin/python3`) so they use the Docker worker's `/opt/mn-venv`, where DrugClip and CUDA PyTorch are installed.
+
+Cross-box dispatch is an optional advanced configuration. When `cluster_distribution.enabled` is explicitly set to `true`, the continuous service sends JSON job specifications to a configured native dispatcher that places work in these pools:
 
 - `science-generation`: candidate-generation jobs
 - `science-folding`: fan-out folding by target

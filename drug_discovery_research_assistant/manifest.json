@@ -57,7 +57,7 @@
       "simulation": "fan out over DrugCLIP-selected candidates"
     },
     "dispatch_contract": "A configured dispatcher receives JSON jobs on stdin and returns JSON results or writes the declared output_path.",
-    "enabled": true,
+    "enabled": false,
     "execution_backend": "native_dispatch_contract",
     "fallback": "fail_closed",
     "native_worker": "MirrorNeuron.Runner.HostLocal",

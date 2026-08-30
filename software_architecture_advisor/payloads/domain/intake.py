@@ -3,11 +3,53 @@
 from __future__ import annotations
 
 from pathlib import Path
+import time
 from typing import Any
 from urllib.parse import urlparse
 
 from .model_analysis import build_source_packet, run_model_stage, string_list, text, validate_references
 from .state import inputs_for, write_state
+
+
+def wait_for_platform_staged_directory(
+    folder_value: str,
+    *,
+    maximum_wait_seconds: float,
+    polling_seconds: float,
+    sleeper: Any = time.sleep,
+) -> Path:
+    """Return the source directory after the shared staging transfer completes.
+
+    Cross-node submissions carry the source snapshot through the runtime shared
+    store.  A Docker worker can be scheduled before that store has replicated a
+    newly created ``submissions/.../inputs`` directory to its node.  Waiting is
+    limited to that platform-owned path; arbitrary missing local inputs remain
+    a validation error.
+    """
+    folder = Path(folder_value).expanduser().resolve()
+    if folder.is_dir() or not _is_platform_staging_path(folder):
+        return folder
+
+    deadline = time.monotonic() + max(0.0, maximum_wait_seconds)
+    interval = max(0.1, polling_seconds)
+    while not folder.is_dir() and time.monotonic() < deadline:
+        sleeper(min(interval, max(0.0, deadline - time.monotonic())))
+    return folder
+
+
+def _is_platform_staging_path(folder: Path) -> bool:
+    normalized = folder.as_posix()
+    return ".mn/shared/submissions/" in normalized and "/inputs/" in normalized
+
+
+def _staging_wait_settings(ctx: dict[str, Any]) -> tuple[float, float]:
+    source_acquisition = ctx.get("config", {}).get("source_acquisition", {})
+    if not isinstance(source_acquisition, dict):
+        return 0.0, 2.0
+    return (
+        float(source_acquisition.get("staging_wait_seconds", 0)),
+        float(source_acquisition.get("staging_poll_interval_seconds", 2)),
+    )
 
 
 def resolve_source(ctx: dict, *, llm_client: Any | None = None, **_options: object) -> dict:
@@ -25,7 +67,12 @@ def resolve_source(ctx: dict, *, llm_client: Any | None = None, **_options: obje
         source_kind = "github_pre_staged_snapshot"
     else:
         source_kind = "local_folder"
-    folder = Path(folder_value).expanduser().resolve()
+    maximum_wait_seconds, polling_seconds = _staging_wait_settings(ctx)
+    folder = wait_for_platform_staged_directory(
+        folder_value,
+        maximum_wait_seconds=maximum_wait_seconds,
+        polling_seconds=polling_seconds,
+    )
     if not folder.is_dir():
         raise ValueError(f"input_folder is not an accessible directory: {folder}")
     state = {

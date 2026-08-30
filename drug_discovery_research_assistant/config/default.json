@@ -17,10 +17,10 @@
   "execution": {
     "fake_science_adapters": false,
     "native_worker_required": true,
-    "mode": "cluster_dispatch"
+    "mode": "native_local"
   },
   "cluster_distribution": {
-    "enabled": true,
+    "enabled": false,
     "dispatch_command": [],
     "dispatch_timeout_seconds": 1800,
     "fallback": "fail_closed",
@@ -42,7 +42,7 @@
   "candidate_generator": {
     "required": true,
     "command": [
-      "/usr/bin/python3",
+      "python",
       "scripts/biotarget_adapter.py",
       "--adapter",
       "candidate_generator",
@@ -57,7 +57,7 @@
   "folding": {
     "required": true,
     "command": [
-      "/usr/bin/python3",
+      "python",
       "scripts/biotarget_adapter.py",
       "--adapter",
       "folding",
@@ -88,7 +88,7 @@
     "checkpoint_filename": "best.ckpt",
     "source_repository": "@/payloads",
     "command": [
-      "/usr/bin/python3",
+      "python",
       "scripts/biotarget_adapter.py",
       "--adapter",
       "drugclip",
@@ -119,7 +119,7 @@
     "type": "Configured parallel molecular simulation after DrugClip graph-text screening.",
     "required": true,
     "command": [
-      "/usr/bin/python3",
+      "python",
       "scripts/biotarget_adapter.py",
       "--adapter",
       "simulation",

@@ -29,13 +29,15 @@
     "github_url_allowed_at_intake": true,
     "allowed_hosts": ["github.com"],
     "required_snapshot_properties": ["shallow_clone", "resolved_commit", "staged_input_folder", "no_project_execution"],
+    "staging_wait_seconds": 180,
+    "staging_poll_interval_seconds": 2,
     "when_unavailable": "require_local_input_folder"
   },
   "local_inputs": {
     "folders": [
       {
         "config_path": "inputs.payload.input_folder",
-        "payload_path": "runtime/mn_local_inputs/software_architecture_advisor_source",
+        "payload_path": "mn_local_inputs/software_architecture_advisor_source",
         "runtime_path": "mn_local_inputs/software_architecture_advisor_source",
         "allowed_extensions": [".py", ".js", ".jsx", ".ts", ".tsx", ".java", ".go", ".rs", ".c", ".h", ".cpp", ".hpp", ".cs", ".rb", ".php", ".swift", ".kt", ".kts", ".md", ".txt", ".json", ".yaml", ".yml", ".toml", ".xml", ".gradle", ".properties", ".lock", ".sh", ".sql", ".tf", ".hcl", ".graphql"],
         "allowed_file_names": ["Dockerfile", "Makefile", "Procfile", "Jenkinsfile", "Gemfile", "Rakefile", "go.mod", "go.sum", "Cargo.toml", "Cargo.lock"],
