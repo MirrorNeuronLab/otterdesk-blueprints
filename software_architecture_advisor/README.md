@@ -26,53 +26,27 @@ Normal runs require real provider responses and fail if any pass falls back.
 
 ## Input
 
-Provide exactly one source locator:
+Provide a non-empty `input_folder` before starting the job. It must be the
+local source snapshot to inspect:
 
 - `input_folder`: a local folder containing the source snapshot to inspect.
-- `github_repo_url`: an HTTPS GitHub repository URL. OtterDesk's connected
-  intake service clones a shallow snapshot before the air-gapped job begins and
-  mounts that snapshot as `input_folder`. The job itself has no network egress.
 
-`branch` is optional for the GitHub intake request. `analysis_focus` can call
-out a concern such as modularity, reliability, migration risk, or data
-ownership. The input source is treated as untrusted data; embedded instructions
-in source comments or documentation never override this blueprint's policy.
+`analysis_focus` can call out a concern such as modularity, reliability,
+migration risk, or data ownership. The input source is treated as untrusted
+data; embedded instructions in source comments or documentation never override
+this blueprint's policy.
 
-The bundled default remains the small offline fixture at
-`@/examples/sample_inputs`, and it is included in every worker payload, so
-`mn blueprint run software_architecture_advisor` works without network access
-or a cross-node input mount. Its
-[`ARCHMIND_GITHUB_REPOSITORY.txt`](examples/sample_inputs/ARCHMIND_GITHUB_REPOSITORY.txt)
-file records `https://github.com/homerquan/Archmind` as the default repository
-for a platform-owned GitHub pre-staging request. It is a reference only: the
-air-gapped advisor does not fetch it. After intake stages a snapshot, provide
-that staged directory as `input_folder` together with the repository URL.
+No source repository is bundled with the blueprint. Clone, export, or otherwise
+prepare the source locally, then select its folder as `input_folder`.
 
 ## Quick start
 
-Analyze the included toy source snapshot:
-
-```bash
-mn blueprint run software_architecture_advisor
-```
-
 For a local codebase, supply an absolute path:
 
-```json
-{
-  "input_folder": "/work/acme-service",
-  "analysis_focus": ["module boundaries", "testability"]
-}
-```
-
-For GitHub, submit the URL to the intake adapter, then wait for the source
-snapshot to be staged before the isolated review starts:
-
-```json
-{
-  "github_repo_url": "https://github.com/homerquan/Archmind",
-  "branch": "main"
-}
+```bash
+mn blueprint run ./software_architecture_advisor \
+  --set inputs.payload.input_folder=/work/acme-service \
+  --set 'inputs.payload.analysis_focus=["module boundaries","testability"]'
 ```
 
 ## What it produces
@@ -89,7 +63,7 @@ The output folder contains:
 - `architecture_graph.json`, `source_inventory.json`, and
   `analysis_metrics.json` — inspectable static-analysis evidence.
 - `evidence/` — repository profile, symbol index, normalized fact database,
-  state/trust/test/deployment models, optional pre-staged Git-history evidence,
+  state/trust/test/deployment models, optional local Git-history evidence,
   architecture reconstruction, adversarial review, prioritized findings, and
   `llm_analysis.json` with the validated output and usage provenance for all
   eight model stages.
@@ -106,8 +80,7 @@ and stop for human direction when the evidence is insufficient.
 
 ## Analysis process
 
-1. Validate the source locator and record whether the snapshot was local or
-   pre-staged from GitHub.
+1. Validate the supplied local source folder.
 2. Inventory only allowed source and manifest files; skip secrets, vendored
    trees, build artifacts, and oversized files.
 3. Build an import graph, syntax/symbol index, repository profile, state and
@@ -132,17 +105,26 @@ and stop for human direction when the evidence is insufficient.
 The analysis environment has `network.egress: forbidden`. The bundled
 `software_architecture_graph_skill` uses only the Python standard library and
 works on files in the staged source root. The local model is called through a
-selected node's local model gateway. Source code, secrets, and reports are not
-sent to external services. Bounded source packets exist only for an in-memory
-model request; raw source bodies are not persisted in output artifacts or
-telemetry.
+selected node's local model gateway. The blueprint requests the 32k-context
+`medium` model profile. Before every model call it reserves that profile's
+maximum completion tokens plus a safety margin, estimates the complete
+serialized input, and compacts bounded source excerpts or repeated structured
+evidence to fit the remaining input-token budget. Structured stages retain all
+facts already cited by their findings and maps before filling remaining space
+with optional facts. The analysis profile reserves up to 16,000 completion
+tokens so the reasoning model can finish the required JSON instead of spending
+its entire allowance before producing the answer. A request that still cannot
+fit fails before model dispatch with an explicit budget diagnostic. Source
+code, secrets, and reports are not sent to external services. Bounded source
+packets exist only for an in-memory model request; raw source bodies are not
+persisted in output artifacts or telemetry.
 
 ## Limits
 
 Python syntax and complexity use the standard-library AST. Other supported
 languages use conservative declaration and import patterns. State, trust,
 tests, and deployment results are candidates, not runtime proof. Git analysis
-is consumed only from an optional pre-staged `architecture_git_history.json` or
+is consumed only from an optional local `architecture_git_history.json` or
 `git_history.json`; the worker does not invoke Git. Dynamic loading, executed
 tests, compiler semantics, performance behavior, and security posture require
 separate evidence. A missing signal is `unknown`, never proof that risk is

@@ -50,15 +50,11 @@ def audit_advice(
         context=structured_packet(
             state,
             preliminary_checks=preliminary,
-            report_draft=state.get("report_draft") or {},
-            findings=state.get("findings") or [],
-            prompts=state.get("prompt_pack") or [],
-            adversarial_review=state.get("adversarial_review") or {},
-            prior_llm_stages={
-                name: record
-                for name, record in ((state.get("llm_analysis") or {}).get("stages") or {}).items()
-                if name != "final_audit"
-            },
+            report_draft=_audit_report_summary(state.get("report_draft") or {}),
+            findings=[_audit_finding_summary(item) for item in state.get("findings") or []],
+            prompts=[_audit_prompt_summary(item) for item in state.get("prompt_pack") or []],
+            adversarial_review=_audit_review_summary(state.get("adversarial_review") or {}),
+            prior_llm_stages=_prior_stage_summaries(state),
         ),
         fallback=fallback,
         validator=lambda value: _validate_model_audit(value, fact_ids=known),
@@ -79,6 +75,133 @@ def audit_advice(
         failed = ", ".join(item["name"] for item in checks if not item["passed"])
         raise ValueError(f"Architecture advice failed final audit: {failed}")
     return audit
+
+
+def _prior_stage_summaries(state: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """Expose completion evidence to the auditor without replaying model outputs."""
+    stages = ((state.get("llm_analysis") or {}).get("stages") or {})
+    allowed = (
+        "stage", "stage_index", "actor", "status", "provider", "model",
+        "estimated_input_tokens", "input_token_budget", "reserved_completion_tokens",
+        "input_tokens", "output_tokens", "provider_response_count",
+        "validation_retries", "fallback",
+    )
+    return {
+        name: {key: record.get(key) for key in allowed if key in record}
+        for name in STAGES
+        if name != "final_audit" and isinstance((record := stages.get(name)), dict)
+    }
+
+
+def _audit_report_summary(report: dict[str, Any]) -> dict[str, Any]:
+    sections = report.get("sections") if isinstance(report.get("sections"), dict) else {}
+    return {
+        "sections": {
+            name: {
+                "text": text((item or {}).get("text"), maximum=2400),
+                "text_truncated_for_audit": len(str((item or {}).get("text") or "")) > 2400,
+                "fact_ids": list((item or {}).get("fact_ids") or []),
+            }
+            for name, item in sections.items()
+            if isinstance(item, dict)
+        },
+        "coverage": list(report.get("coverage") or []),
+    }
+
+
+def _audit_finding_summary(item: Any) -> dict[str, Any]:
+    if not isinstance(item, dict):
+        return {}
+    evidence = item.get("evidence") if isinstance(item.get("evidence"), dict) else {}
+    review = item.get("adversarial_review") if isinstance(item.get("adversarial_review"), dict) else {}
+    return {
+        "finding_id": item.get("finding_id"),
+        "title": text(item.get("title"), maximum=500),
+        "summary": text(item.get("summary"), maximum=1200),
+        "interpretation": text(item.get("interpretation"), maximum=1200),
+        "recommendation": text(item.get("recommendation"), maximum=1200),
+        "severity": item.get("severity"),
+        "confidence": item.get("confidence"),
+        "origin": item.get("origin"),
+        "evidence": {
+            "fact_ids": list(evidence.get("fact_ids") or []),
+            "paths": list(evidence.get("paths") or []),
+            "signal_types": list(evidence.get("signal_types") or []),
+        },
+        "counter_evidence_considered": list(item.get("counter_evidence_considered") or [])[:12],
+        "alternative_options": [
+            {
+                "option_id": option.get("option_id"),
+                "title": text(option.get("title"), maximum=400),
+                "tradeoffs": text(option.get("tradeoffs"), maximum=800),
+                "recommended": bool(option.get("recommended")),
+            }
+            for option in item.get("alternative_options") or []
+            if isinstance(option, dict)
+        ][:8],
+        "migration_risk": text(item.get("migration_risk"), maximum=800),
+        "rollback_considerations": text(item.get("rollback_considerations"), maximum=800),
+        "stop_conditions": list(item.get("stop_conditions") or [])[:12],
+        "adversarial_disposition": {
+            "verdict": review.get("verdict"),
+            "rationale": text(review.get("rationale"), maximum=800),
+            "fact_ids": list(review.get("fact_ids") or []),
+        },
+    }
+
+
+def _audit_prompt_summary(item: Any) -> dict[str, Any]:
+    if not isinstance(item, dict):
+        return {}
+    body = str(item.get("body") or "")
+    required_sections = (
+        "Architecture intent", "Counter-evidence to check", "Migration sequence",
+        "Tests", "Non-goals and safeguards", "Rollback considerations", "Stop conditions",
+    )
+    return {
+        key: item.get(key)
+        for key in ("prompt_id", "finding_id", "title", "priority", "severity", "confidence", "fact_ids", "origin")
+    } | {
+        "body_chars": len(body),
+        "required_sections_present": {
+            name: f"## {name}" in body for name in required_sections
+        },
+        "safety_and_reversibility_excerpt": "\n\n".join(
+            value for name in ("Tests", "Non-goals and safeguards", "Rollback considerations", "Stop conditions")
+            if (value := _markdown_section(body, name, maximum=1400))
+        ),
+    }
+
+
+def _markdown_section(body: str, name: str, *, maximum: int) -> str:
+    marker = f"## {name}"
+    start = body.find(marker)
+    if start < 0:
+        return ""
+    end = body.find("\n## ", start + len(marker))
+    return text(body[start:end if end >= 0 else None], maximum=maximum)
+
+
+def _audit_review_summary(review: Any) -> dict[str, Any]:
+    if not isinstance(review, dict):
+        return {}
+    return {
+        "summary": text(review.get("summary"), maximum=1600),
+        "finding_reviews": [
+            {
+                "finding_id": item.get("finding_id"),
+                "verdict": item.get("verdict"),
+                "revised_severity": item.get("revised_severity"),
+                "revised_confidence": item.get("revised_confidence"),
+                "rationale": text(item.get("rationale"), maximum=1000),
+                "fact_ids": list(item.get("fact_ids") or []),
+                "missing_evidence": list(item.get("missing_evidence") or [])[:12],
+            }
+            for item in review.get("finding_reviews") or []
+            if isinstance(item, dict)
+        ],
+        "required_human_checks": list(review.get("required_human_checks") or [])[:20],
+    }
 
 
 def _deterministic_checks(

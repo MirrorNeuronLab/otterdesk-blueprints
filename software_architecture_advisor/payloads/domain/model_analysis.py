@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
+import math
 import os
 import time
 from pathlib import Path
@@ -189,28 +191,13 @@ def run_model_stage(
     quick = fake_mode(config)
     require_live = bool(((config.get("llm") or {}).get("require_live", True))) and not quick
     system_prompt = _load_prompt(ctx, stage)
-    user_payload = {
-        "stage": stage,
-        "task": task,
-        "bounded_context": context,
-        "required_output_contract": _STAGE_OUTPUT_CONTRACTS[stage],
-        "structured_output_rules": [
-            "Return exactly one JSON object with every required top-level field.",
-            "Arrays declared as object arrays may contain only objects, never prose strings.",
-            "Use an empty array only where the contract explicitly permits it.",
-            "Copy cited identifiers and paths exactly from bounded_context; never create or repair identifiers.",
-        ],
-        "grounding_rules": {
-            "static_facts_are_authoritative": True,
-            "cite_only_supplied_fact_ids_and_paths": True,
-            "do_not_invent_metrics": True,
-            "do_not_include_raw_source_in_output": True,
-        },
-    }
-    user_prompt = json.dumps(user_payload, sort_keys=True, default=str)
-    max_context_chars = int(((config.get("llm_analysis") or {}).get("max_context_chars") or 110_000))
-    if len(user_prompt) > max_context_chars:
-        raise ValueError(f"Bounded context for {stage} exceeded {max_context_chars} characters.")
+    context, user_prompt, prompt_budget = _prepare_budgeted_prompt(
+        config,
+        stage=stage,
+        task=task,
+        system_prompt=system_prompt,
+        context=context,
+    )
     prompt_hash = hashlib.sha256(f"{system_prompt}\n{user_prompt}".encode()).hexdigest()
     budget = _load_budget(ctx, config)
     limiter = build_llm_call_limiter(config, fake_mode=quick)
@@ -238,6 +225,7 @@ def run_model_stage(
         "status": "running",
         "prompt_hash": prompt_hash,
         "prompt_chars": len(user_prompt),
+        **prompt_budget,
         "context_kind": str(context.get("packet_kind") or "structured_evidence"),
         "context_item_count": _context_item_count(context),
         "raw_prompt_persisted": False,
@@ -373,14 +361,313 @@ def build_source_packet(ctx: dict[str, Any], state: dict[str, Any], *, stage: st
     return packet
 
 
+def _prepare_budgeted_prompt(
+    config: dict[str, Any],
+    *,
+    stage: str,
+    task: str,
+    system_prompt: str,
+    context: dict[str, Any],
+) -> tuple[dict[str, Any], str, dict[str, Any]]:
+    """Fit a complete serialized prompt inside its model profile's input budget."""
+    context_size, completion_reserve, safety_margin, bytes_per_token = _stage_token_budget(config, stage)
+    input_budget = context_size - completion_reserve - safety_margin
+    if input_budget <= 0:
+        raise ValueError(
+            f"Invalid LLM token budget for {stage}: context_size={context_size}, "
+            f"completion_reserve={completion_reserve}, safety_margin={safety_margin}."
+        )
+
+    def render(candidate: dict[str, Any]) -> tuple[str, int]:
+        user_prompt = json.dumps(_user_payload(stage, task, candidate), sort_keys=True, default=str)
+        estimated = _estimate_tokens(system_prompt, bytes_per_token) + _estimate_tokens(user_prompt, bytes_per_token)
+        return user_prompt, estimated
+
+    bounded_context = copy.deepcopy(context)
+    user_prompt, estimated = render(bounded_context)
+    original_estimated = estimated
+    compacted = False
+
+    if estimated > input_budget and str(bounded_context.get("packet_kind") or "").startswith("bounded_"):
+        bounded_context = _compact_source_packet_to_budget(
+            bounded_context,
+            input_budget=input_budget,
+            render=render,
+        )
+        user_prompt, estimated = render(bounded_context)
+        compacted = True
+
+    if estimated > input_budget and bounded_context.get("packet_kind") == "validated_architecture_evidence":
+        bounded_context = _compact_structured_packet_to_budget(
+            bounded_context,
+            input_budget=input_budget,
+            render=render,
+        )
+        user_prompt, estimated = render(bounded_context)
+        compacted = True
+
+    if estimated > input_budget:
+        raise ValueError(
+            f"Prompt for {stage} requires an estimated {estimated} input tokens but its budget is "
+            f"{input_budget} ({context_size} context - {completion_reserve} completion - "
+            f"{safety_margin} safety)."
+        )
+
+    return bounded_context, user_prompt, {
+        "estimated_input_tokens": estimated,
+        "original_estimated_input_tokens": original_estimated,
+        "input_token_budget": input_budget,
+        "context_window_tokens": context_size,
+        "reserved_completion_tokens": completion_reserve,
+        "token_safety_margin": safety_margin,
+        "prompt_compacted": compacted,
+    }
+
+
+def _user_payload(stage: str, task: str, context: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "stage": stage,
+        "task": task,
+        "bounded_context": context,
+        "required_output_contract": _STAGE_OUTPUT_CONTRACTS[stage],
+        "structured_output_rules": [
+            "Return exactly one JSON object with every required top-level field.",
+            "Arrays declared as object arrays may contain only objects, never prose strings.",
+            "Use an empty array only where the contract explicitly permits it.",
+            "Copy cited identifiers and paths exactly from bounded_context; never create or repair identifiers.",
+        ],
+        "grounding_rules": {
+            "static_facts_are_authoritative": True,
+            "cite_only_supplied_fact_ids_and_paths": True,
+            "do_not_invent_metrics": True,
+            "do_not_include_raw_source_in_output": True,
+        },
+    }
+
+
+def _stage_token_budget(config: dict[str, Any], stage: str) -> tuple[int, int, int, float]:
+    llm = config.get("llm") if isinstance(config.get("llm"), dict) else {}
+    agents = llm.get("agents") if isinstance(llm.get("agents"), dict) else {}
+    actor = agents.get(STAGE_ACTORS[stage]) if isinstance(agents.get(STAGE_ACTORS[stage]), dict) else {}
+    profile_name = str(actor.get("llm_config") or llm.get("default_config") or "analysis")
+    profiles = llm.get("configs") if isinstance(llm.get("configs"), dict) else {}
+    profile = profiles.get(profile_name) if isinstance(profiles.get(profile_name), dict) else {}
+    analysis = config.get("llm_analysis") if isinstance(config.get("llm_analysis"), dict) else {}
+    context_size = max(1, int(profile.get("context_size") or llm.get("context_size") or 32_768))
+    completion_reserve = max(1, int(profile.get("max_tokens") or llm.get("max_tokens") or 4_096))
+    safety_margin = max(0, int(analysis.get("token_safety_margin") or 2_048))
+    bytes_per_token = min(8.0, max(1.0, float(analysis.get("estimated_bytes_per_token") or 3.0)))
+    return context_size, completion_reserve, safety_margin, bytes_per_token
+
+
+def _estimate_tokens(text: str, bytes_per_token: float) -> int:
+    return max(1, math.ceil(len(text.encode("utf-8")) / bytes_per_token))
+
+
+def _compact_source_packet_to_budget(
+    context: dict[str, Any],
+    *,
+    input_budget: int,
+    render: Callable[[dict[str, Any]], tuple[str, int]],
+) -> dict[str, Any]:
+    files = context.get("files") if isinstance(context.get("files"), list) else []
+    excerpts = [str(item.get("excerpt") or "") if isinstance(item, dict) else "" for item in files]
+
+    def with_excerpt_cap(cap: int) -> dict[str, Any]:
+        candidate = copy.deepcopy(context)
+        candidate_files = candidate.get("files") if isinstance(candidate.get("files"), list) else []
+        for item, original in zip(candidate_files, excerpts):
+            if not isinstance(item, dict):
+                continue
+            item["excerpt"] = original[:cap]
+            item["excerpt_truncated"] = bool(item.get("excerpt_truncated")) or len(original) > cap
+        limits = candidate.setdefault("packet_limits", {})
+        limits["effective_max_chars_per_file"] = cap
+        limits["token_budget_compacted"] = True
+        return candidate
+
+    best: dict[str, Any] | None = None
+    low, high = 0, max((len(value) for value in excerpts), default=0)
+    while low <= high:
+        midpoint = (low + high) // 2
+        candidate = with_excerpt_cap(midpoint)
+        _prompt, estimated = render(candidate)
+        if estimated <= input_budget:
+            best = candidate
+            low = midpoint + 1
+        else:
+            high = midpoint - 1
+    if best is not None:
+        return best
+
+    no_excerpts = with_excerpt_cap(0)
+    facts = no_excerpts.get("facts") if isinstance(no_excerpts.get("facts"), list) else []
+    if not facts:
+        return no_excerpts
+
+    minimum_facts = min(8, len(facts))
+    low, high = minimum_facts, len(facts)
+    while low <= high:
+        midpoint = (low + high) // 2
+        candidate = copy.deepcopy(no_excerpts)
+        candidate["facts"] = facts[:midpoint]
+        limits = candidate.setdefault("packet_limits", {})
+        limits["facts_included"] = midpoint
+        limits["facts_available"] = len(facts)
+        limits["facts_truncated"] = midpoint < len(facts)
+        _prompt, estimated = render(candidate)
+        if estimated <= input_budget:
+            best = candidate
+            low = midpoint + 1
+        else:
+            high = midpoint - 1
+    return best or no_excerpts
+
+
+def _compact_structured_packet_to_budget(
+    context: dict[str, Any],
+    *,
+    input_budget: int,
+    render: Callable[[dict[str, Any]], tuple[str, int]],
+) -> dict[str, Any]:
+    """Retain cited facts first, then fit as many additional facts as possible."""
+    facts = context.get("facts") if isinstance(context.get("facts"), list) else []
+    if not facts:
+        return context
+    known = {
+        str(item.get("fact_id"))
+        for item in facts
+        if isinstance(item, dict) and item.get("fact_id")
+    }
+    referenced = _collect_exact_strings(
+        {key: value for key, value in context.items() if key != "facts"},
+        allowed=known,
+    )
+    optional_indexes = [
+        index for index, item in enumerate(facts)
+        if not isinstance(item, dict) or str(item.get("fact_id") or "") not in referenced
+    ]
+
+    def with_optional_count(count: int) -> dict[str, Any]:
+        included_optional = set(optional_indexes[:count])
+        candidate = copy.deepcopy(context)
+        candidate["facts"] = [
+            item for index, item in enumerate(facts)
+            if index in included_optional
+            or (isinstance(item, dict) and str(item.get("fact_id") or "") in referenced)
+        ]
+        limits = candidate.setdefault("packet_limits", {})
+        limits.update({
+            "token_budget_compacted": True,
+            "facts_available": len(facts),
+            "facts_included": len(candidate["facts"]),
+            "facts_truncated": len(candidate["facts"]) < len(facts),
+            "referenced_facts_preserved": len(referenced),
+        })
+        return candidate
+
+    best: dict[str, Any] | None = None
+    low, high = 0, len(optional_indexes)
+    while low <= high:
+        midpoint = (low + high) // 2
+        candidate = with_optional_count(midpoint)
+        _prompt, estimated = render(candidate)
+        if estimated <= input_budget:
+            best = candidate
+            low = midpoint + 1
+        else:
+            high = midpoint - 1
+    return best or with_optional_count(0)
+
+
+def _collect_exact_strings(value: Any, *, allowed: set[str]) -> set[str]:
+    if isinstance(value, dict):
+        return set().union(*(
+            _collect_exact_strings(item, allowed=allowed) for item in value.values()
+        )) if value else set()
+    if isinstance(value, list):
+        return set().union(*(
+            _collect_exact_strings(item, allowed=allowed) for item in value
+        )) if value else set()
+    candidate = str(value or "")
+    return {candidate} if candidate in allowed else set()
+
+
 def structured_packet(state: dict[str, Any], **values: Any) -> dict[str, Any]:
+    facts = ((state.get("architecture_facts") or {}).get("facts") or [])[:240]
     return {
         "packet_kind": "validated_architecture_evidence",
-        "repository_profile": state.get("repository_profile") or {},
-        "metrics": state.get("metrics") or {},
+        "repository_profile": _compact_repository_profile(state.get("repository_profile") or {}),
+        "metrics": _compact_metrics(state.get("metrics") or {}),
         "evidence_availability": state.get("evidence_availability") or {},
-        "facts": ((state.get("architecture_facts") or {}).get("facts") or [])[:240],
+        "facts": [_compact_fact(item) for item in facts if isinstance(item, dict)],
+        "packet_limits": {
+            "base_evidence_compacted": True,
+            "facts_available": len((state.get("architecture_facts") or {}).get("facts") or []),
+            "facts_included": len(facts),
+        },
         **values,
+    }
+
+
+def _compact_repository_profile(profile: Any) -> dict[str, Any]:
+    if not isinstance(profile, dict):
+        return {}
+    retained = (
+        "schema_version", "languages", "packages", "applications", "entrypoints",
+        "frameworks", "data_stores", "queues", "architecture_documents", "ci_files",
+        "source_file_count", "symbol_count", "internal_dependency_count",
+    )
+    result = {key: profile.get(key) for key in retained if key in profile}
+    metadata = profile.get("metadata_files") if isinstance(profile.get("metadata_files"), list) else []
+    result["metadata_files"] = [
+        {key: item.get(key) for key in ("path", "kind") if key in item}
+        for item in metadata[:40]
+        if isinstance(item, dict)
+    ]
+    observations = profile.get("documentation_observations") if isinstance(profile.get("documentation_observations"), list) else []
+    marker_counts: dict[str, int] = {}
+    observation_paths: list[str] = []
+    for item in observations:
+        if not isinstance(item, dict):
+            continue
+        path = str(item.get("path") or "")
+        if path and path not in observation_paths:
+            observation_paths.append(path)
+        for marker in item.get("matched_markers") or []:
+            name = str(marker)
+            marker_counts[name] = marker_counts.get(name, 0) + 1
+    result["documentation_observation_summary"] = {
+        "count": len(observations),
+        "paths": observation_paths[:20],
+        "matched_marker_counts": marker_counts,
+    }
+    return result
+
+
+def _compact_metrics(metrics: Any) -> dict[str, Any]:
+    if not isinstance(metrics, dict):
+        return {}
+    retained = (
+        "schema_version", "module_count", "dependency_edge_count", "external_import_count",
+        "cycle_count", "cycles", "cross_boundary_dependency_count",
+        "cross_boundary_dependencies", "large_modules", "limitations", "symbol_count",
+        "endpoint_count", "state_store_count", "trust_boundary_candidate_count",
+        "test_file_count", "direct_test_gap_count", "deployment_descriptor_count",
+        "history_available",
+    )
+    result = {key: metrics.get(key) for key in retained if key in metrics}
+    result["top_fan_in"] = list(metrics.get("top_fan_in") or [])[:8]
+    result["top_fan_out"] = list(metrics.get("top_fan_out") or [])[:8]
+    result["structural_hotspot_count"] = len(metrics.get("structural_hotspots") or [])
+    return result
+
+
+def _compact_fact(item: dict[str, Any]) -> dict[str, Any]:
+    return {
+        key: item.get(key)
+        for key in ("fact_id", "fact_type", "evidence_type", "paths", "value", "confidence")
+        if key in item
     }
 
 

@@ -2,9 +2,8 @@
 
 ## Outcome
 
-Given one local source folder or a GitHub URL materialized by the connected
-intake service before execution, produce a read-only architecture assessment
-and copy-ready improvement prompts. The primary artifact is
+Given a required local source folder, produce a read-only architecture
+assessment and copy-ready improvement prompts. The primary artifact is
 `mn.blueprint.software_architecture_advisor.v3`; it retains the v2 fields and
 filenames while adding eight validated model-stage records, aggregate real
 token usage, a metadata-only model trace, model-authored analytical narrative,
@@ -35,12 +34,10 @@ pack. It never includes changed source files.
 
 ## Air-gapped contract
 
-The worker is air-gapped. It may read the staged source folder and invoke a
-runtime-prepared local model through the selected node's model gateway, but it
-cannot reach GitHub, package
-indexes, telemetry endpoints, or arbitrary URLs. `github_repo_url` therefore
-belongs to a platform-owned pre-staging adapter that runs before this job's
-isolation boundary; the analysis worker never runs `git clone`.
+The worker is air-gapped. It may read the local source folder staged at launch
+and invoke a runtime-prepared local model through the selected node's model
+gateway, but it cannot reach GitHub, package indexes, telemetry endpoints, or
+arbitrary URLs. The analysis worker never runs `git clone`.
 
 ## Evaluation
 
@@ -54,9 +51,18 @@ isolation boundary; the analysis worker never runs `git clone`.
 - Final artifacts explicitly state that source changes are out of scope.
 - Normal runs complete all eight model stages with real provider responses,
   nonzero token usage, and zero fallbacks; otherwise they fail closed.
+- Each model stage budgets the full serialized prompt against the selected
+  profile's context window after reserving maximum completion tokens and a
+  configurable safety margin. Bounded source packets compact excerpts first
+  and facts only when necessary. Later structured packets remove duplicated
+  profile detail and preserve cited facts before adding optional facts up to
+  the same budget; unfit prompts fail before provider dispatch.
+- The analysis profile reserves up to 16,000 completion tokens because the
+  local reasoning model may consume more than 12,000 tokens before emitting its
+  strict-JSON answer.
 - Raw prompts, source excerpts, credentials, and full model responses never
   appear in durable traces. `llm_trace.jsonl` is metadata only.
-- Source metadata records whether a repository was local or pre-staged.
+- Source metadata records the local source-folder provenance.
 
 ## Non-goals
 

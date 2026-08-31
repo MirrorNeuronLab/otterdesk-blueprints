@@ -7,9 +7,32 @@ from blueprint_modernization_support import ROOT, assert_modular_payload, assert
 from mn_sdk import expand_manifest_source
 from mn_sdk.submission_preparation import (
     prepare_manifest_for_submission,
+    stage_local_input_payloads_for_manifest,
     stage_skill_dependency_payloads_for_manifest,
     stage_upload_path_payloads_for_manifest,
 )
+
+
+def _write_architecture_fixture(root: Path) -> Path:
+    package = root / "sample_app"
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text("")
+    (package / "api.py").write_text(
+        "from .orders import create_order\n\n\ndef submit_order(customer_id: str, sku: str):\n"
+        "    return create_order(customer_id, sku)\n"
+    )
+    (package / "orders.py").write_text(
+        "from .notifications import send_order_confirmation\n\n\ndef create_order(customer_id: str, sku: str):\n"
+        "    order = {'customer_id': customer_id, 'sku': sku, 'status': 'created'}\n"
+        "    send_order_confirmation(order)\n"
+        "    return order\n"
+    )
+    (package / "notifications.py").write_text(
+        "from .orders import create_order\n\n\ndef send_order_confirmation(order):\n"
+        "    if order.get('status') == 'retry':\n"
+        "        create_order(order['customer_id'], order['sku'])\n"
+    )
+    return root
 
 
 def test_software_architecture_advisor_is_air_gapped_and_requires_a_large_local_model():
@@ -17,14 +40,28 @@ def test_software_architecture_advisor_is_air_gapped_and_requires_a_large_local_
     config = json.loads((ROOT / "software_architecture_advisor" / "config" / "default.json").read_text())
 
     assert manifest["air-gapped"] is True
+    assert manifest["contracts"]["inputs"]["input_folder"]["required"] is True
+    assert manifest["manifest"]["input_validation"] == {
+        "required": ["input_folder"],
+        "rules": [],
+    }
     assert manifest["requirements"]["memory"]["min_gb"] == 48
     assert manifest["requirements"]["network"]["egress"] == "forbidden"
-    assert config["source_acquisition"]["mode"] == "platform_pre_staged_github_snapshot"
-    assert config["source_acquisition"]["staging_wait_seconds"] == 180
-    assert config["source_acquisition"]["staging_poll_interval_seconds"] == 2
     assert config["outputs"]["folder_path"] == "~/Downloads/software_architecture_advisor"
+    assert config["inputs"]["payload"]["input_folder"] == ""
+    assert set(manifest["contracts"]["inputs"]) == {
+        "input_folder",
+        "analysis_focus",
+        "output_folder",
+    }
+    assert set(config["inputs"]["payload"]) == {
+        "input_folder",
+        "analysis_focus",
+        "output_folder",
+    }
+    assert "source_acquisition" not in config
     assert config["local_model"]["preinstalled_only"] is True
-    assert manifest["llm"]["model"] == "default"
+    assert manifest["llm"]["model"] == "medium"
     assert manifest["workflow"]["workflow_id"] == "software_architecture_advisor_v3"
     assert manifest["workflow"]["execution"]["strategy"] == "serial"
     assert config["llm"]["require_live"] is True
@@ -34,11 +71,16 @@ def test_software_architecture_advisor_is_air_gapped_and_requires_a_large_local_
     assert config["backpressure"]["llm"]["max_concurrent_calls"] == 1
     for profile in config["llm"]["configs"].values():
         assert "runtime_model" not in profile
-        assert profile["model"] == "default"
+        assert profile["model"] == "medium"
         assert profile["timeout_seconds"] == 600
         assert profile["num_retries"] == 2
-        assert 5000 <= profile["max_tokens"] <= 7000
+    assert config["llm"]["configs"]["analysis"]["max_tokens"] == 16000
+    assert config["llm"]["configs"]["writing"]["max_tokens"] == 7000
+    assert config["llm"]["configs"]["audit"]["max_tokens"] == 5000
     assert config["local_model"]["minimum_host_memory_gb"] == 48
+    assert config["llm_analysis"]["token_safety_margin"] == 2048
+    assert config["llm_analysis"]["estimated_bytes_per_token"] == 3.0
+    assert "max_context_chars" not in config["llm_analysis"]
     assert config["local_inputs"] == {
         "folders": [
             {
@@ -53,14 +95,256 @@ def test_software_architecture_advisor_is_air_gapped_and_requires_a_large_local_
     }
 
 
-def test_software_architecture_advisor_keeps_its_default_github_reference_in_sample_inputs():
+def test_software_architecture_advisor_bundles_no_external_repository_reference():
     blueprint = ROOT / "software_architecture_advisor"
-    config = json.loads((blueprint / "config" / "default.json").read_text())
-    reference = blueprint / "examples" / "sample_inputs" / "ARCHMIND_GITHUB_REPOSITORY.txt"
+    sample_inputs = blueprint / "examples" / "sample_inputs"
 
-    assert reference.read_text().strip() == "https://github.com/homerquan/Archmind"
-    assert config["inputs"]["payload"]["input_folder"] == ""
-    assert config["source_acquisition"]["default_repository_reference_file"] == "@/examples/sample_inputs/ARCHMIND_GITHUB_REPOSITORY.txt"
+    assert {path.name for path in sample_inputs.iterdir()} == {
+        "README.md",
+        "SAMPLE_DATASET_MANIFEST.json",
+    }
+
+
+def test_software_architecture_advisor_compacts_prompts_to_the_model_token_budget():
+    result = run_payload_script(
+        "software_architecture_advisor",
+        '''
+import json
+from domain.model_analysis import _prepare_budgeted_prompt
+
+config = {
+    "llm": {
+        "context_size": 32768,
+        "default_config": "analysis",
+        "configs": {"analysis": {"context_size": 32768, "max_tokens": 6000}},
+        "agents": {"codebase_mapper": {"llm_config": "analysis"}},
+    },
+    "llm_analysis": {"token_safety_margin": 2048, "estimated_bytes_per_token": 3.0},
+}
+context = {
+    "packet_kind": "bounded_component_mapping_source_packet",
+    "files": [{
+        "path": "src/large.py",
+        "sha256": "a" * 64,
+        "line_count": 5000,
+        "excerpt": "value = dependency_call()\\n" * 5000,
+        "excerpt_truncated": False,
+    }],
+    "facts": [{"fact_id": f"F{index:04d}", "paths": ["src/large.py"]} for index in range(12)],
+    "packet_limits": {"max_chars": 200000, "max_files": 1, "max_chars_per_file": 200000},
+}
+fitted, prompt, budget = _prepare_budgeted_prompt(
+    config,
+    stage="component_mapping",
+    task="Map the supplied architecture evidence.",
+    system_prompt="Return strict JSON grounded in supplied evidence.",
+    context=context,
+)
+structured_context = {
+    "packet_kind": "validated_architecture_evidence",
+    "facts": [
+        {
+            "fact_id": f"F{index:04d}",
+            "fact_type": "large_test_fact",
+            "paths": ["src/large.py"],
+            "value": {"description": "x" * 1000},
+        }
+        for index in range(160)
+    ],
+    "candidate_findings": [{"finding_id": "candidate", "fact_ids": ["F0159"]}],
+}
+structured_fitted, _structured_prompt, structured_budget = _prepare_budgeted_prompt(
+    config,
+    stage="component_mapping",
+    task="Map the supplied architecture evidence.",
+    system_prompt="Return strict JSON grounded in supplied evidence.",
+    context=structured_context,
+)
+try:
+    _prepare_budgeted_prompt(
+        config,
+        stage="component_mapping",
+        task="Map the supplied architecture evidence.",
+        system_prompt="Return strict JSON grounded in supplied evidence.",
+        context={"packet_kind": "validated_architecture_evidence", "opaque": "x" * 100000},
+    )
+except ValueError as exc:
+    overflow_error = str(exc)
+else:
+    overflow_error = ""
+print(json.dumps({
+    "compacted": budget["prompt_compacted"],
+    "within_budget": budget["estimated_input_tokens"] <= budget["input_token_budget"],
+    "original_over_budget": budget["original_estimated_input_tokens"] > budget["input_token_budget"],
+    "budget_math": budget["input_token_budget"] == 32768 - 6000 - 2048,
+    "excerpt_reduced": len(fitted["files"][0]["excerpt"]) < len(context["files"][0]["excerpt"]),
+    "facts_preserved": len(fitted["facts"]) == len(context["facts"]),
+    "prompt_uses_fitted_context": json.loads(prompt)["bounded_context"] == fitted,
+    "structured_compacted": structured_budget["prompt_compacted"],
+    "structured_within_budget": structured_budget["estimated_input_tokens"] <= structured_budget["input_token_budget"],
+    "referenced_fact_preserved": any(item["fact_id"] == "F0159" for item in structured_fitted["facts"]),
+    "optional_facts_reduced": len(structured_fitted["facts"]) < len(structured_context["facts"]),
+    "overflow_failed_before_call": "estimated" in overflow_error and "budget" in overflow_error,
+}))
+''',
+    )
+    assert result == {
+        "compacted": True,
+        "within_budget": True,
+        "original_over_budget": True,
+        "budget_math": True,
+        "excerpt_reduced": True,
+        "facts_preserved": True,
+        "prompt_uses_fitted_context": True,
+        "structured_compacted": True,
+        "structured_within_budget": True,
+        "referenced_fact_preserved": True,
+        "optional_facts_reduced": True,
+        "overflow_failed_before_call": True,
+    }
+
+
+def test_software_architecture_advisor_keeps_grounded_cross_cutting_items_and_drops_bad_references():
+    result = run_payload_script(
+        "software_architecture_advisor",
+        '''
+import json
+from domain.mapping import _validate_cross_cutting
+
+valid = {
+    "name": "Request flow",
+    "analysis": "The API delegates order creation to the orders module.",
+    "confidence": "high",
+    "paths": ["sample_app/api.py"],
+    "fact_ids": ["F0001"],
+}
+invalid = {
+    "name": "Invented flow",
+    "analysis": "This cites evidence that was not supplied.",
+    "confidence": "high",
+    "paths": ["missing.py"],
+    "fact_ids": ["F9999"],
+}
+value = {
+    "summary": "Only supplied evidence is retained.",
+    "flows": [valid, invalid, "not-an-object"],
+    "state_ownership": [],
+    "trust_boundaries": [],
+    "deployment_interactions": [],
+    "test_observations": [],
+    "unknowns": ["Runtime behavior was not executed."],
+}
+print(json.dumps(_validate_cross_cutting(
+    value,
+    fact_ids={"F0001"},
+    paths={"sample_app/api.py"},
+)))
+''',
+    )
+    assert result["summary"] == "Only supplied evidence is retained."
+    assert result["flows"] == [
+        {
+            "name": "Request flow",
+            "analysis": "The API delegates order creation to the orders module.",
+            "confidence": "high",
+            "paths": ["sample_app/api.py"],
+            "fact_ids": ["F0001"],
+        }
+    ]
+    assert result["unknowns"] == ["Runtime behavior was not executed."]
+
+
+def test_software_architecture_advisor_keeps_grounded_components_and_drops_bad_references():
+    result = run_payload_script(
+        "software_architecture_advisor",
+        '''
+import json
+from domain.mapping import _validate_component_map
+
+value = {
+    "summary": "Only grounded components and relationships are retained.",
+    "components": [
+        {
+            "component_id": "api",
+            "name": "API",
+            "responsibility": "Accept requests and delegate application work.",
+            "paths": ["sample_app/api.py"],
+            "fact_ids": ["F0001"],
+        },
+        {
+            "component_id": "invented",
+            "name": "Invented",
+            "responsibility": "Not grounded in the packet.",
+            "paths": ["missing.py"],
+            "fact_ids": ["F9999"],
+        },
+    ],
+    "entrypoints": [
+        {"path": "sample_app/api.py", "role": "HTTP entrypoint", "fact_ids": ["F0001"]},
+        {"path": "missing.py", "role": "Invented entrypoint", "fact_ids": ["F9999"]},
+    ],
+    "dependency_directions": [
+        {
+            "from_component": "api",
+            "to_component": "invented",
+            "relationship": "Invented relationship",
+            "paths": ["missing.py"],
+            "fact_ids": ["F9999"],
+        }
+    ],
+    "unknowns": ["Runtime composition was not executed."],
+}
+print(json.dumps(_validate_component_map(
+    value,
+    fact_ids={"F0001"},
+    paths={"sample_app/api.py"},
+)))
+''',
+    )
+    assert [item["component_id"] for item in result["components"]] == ["api"]
+    assert [item["path"] for item in result["entrypoints"]] == ["sample_app/api.py"]
+    assert result["dependency_directions"] == []
+    assert result["unknowns"] == ["Runtime composition was not executed."]
+
+    baseline = run_payload_script(
+        "software_architecture_advisor",
+        '''
+import json
+from domain.mapping import _validate_component_map
+
+print(json.dumps(_validate_component_map(
+    {
+        "summary": "The model synthesis remains useful even when its collection is ungrounded.",
+        "components": [{
+            "component_id": "invented",
+            "name": "Invented",
+            "responsibility": "Not grounded.",
+            "paths": ["missing.py"],
+            "fact_ids": ["F9999"],
+        }],
+        "entrypoints": [],
+        "dependency_directions": [],
+        "unknowns": [],
+    },
+    fact_ids={"F0001"},
+    paths={"sample_app/api.py"},
+    baseline_components=[{
+        "component_id": "repository-root",
+        "name": "Repository",
+        "responsibility": "Deterministically grounded repository boundary.",
+        "paths": ["sample_app/api.py"],
+        "fact_ids": ["F0001"],
+    }],
+    baseline_entrypoints=[{
+        "path": "sample_app/api.py",
+        "role": "Statically detected entrypoint candidate",
+        "fact_ids": ["F0001"],
+    }],
+)))
+''',
+    )
+    assert [item["component_id"] for item in baseline["components"]] == ["repository-root"]
+    assert [item["path"] for item in baseline["entrypoints"]] == ["sample_app/api.py"]
 
 
 def test_software_architecture_advisor_payload_is_modular_and_handlers_resolve():
@@ -141,7 +425,7 @@ def test_software_architecture_advisor_stages_its_owned_graph_skill_into_the_doc
     )
 
 
-def test_software_architecture_advisor_stages_the_bundled_default_source_for_workers():
+def test_software_architecture_advisor_stages_only_bundled_documentation_for_workers():
     blueprint = ROOT / "software_architecture_advisor"
     prepared = prepare_manifest_for_submission(
         blueprint,
@@ -151,10 +435,40 @@ def test_software_architecture_advisor_stages_the_bundled_default_source_for_wor
 
     stage_upload_path_payloads_for_manifest(prepared, staged, bundle_dir=blueprint)
 
-    assert "examples/sample_inputs/mini_order_service/api.py" in staged
+    assert "examples/sample_inputs/README.md" in staged
+    assert "examples/sample_inputs/SAMPLE_DATASET_MANIFEST.json" in staged
+    assert not any("mini_order_service" in path for path in staged)
+
+
+def test_software_architecture_advisor_stages_the_required_local_source_folder(tmp_path: Path):
+    blueprint = ROOT / "software_architecture_advisor"
+    source = _write_architecture_fixture(tmp_path / "local-source")
+    prepared = prepare_manifest_for_submission(
+        blueprint,
+        source_manifest("software_architecture_advisor"),
+        config_overrides={"inputs": {"payload": {"input_folder": str(source)}}},
+    )
+    staged: dict[str, bytes] = {}
+
+    summary = stage_local_input_payloads_for_manifest(
+        prepared,
+        staged,
+        bundle_dir=blueprint,
+    )
+
+    assert summary["folders"] == [
+        {
+            "config_path": "inputs.payload.input_folder",
+            "payload_path": "mn_local_inputs/software_architecture_advisor_source",
+            "runtime_path": "mn_local_inputs/software_architecture_advisor_source",
+            "file_count": 4,
+        }
+    ]
+    assert "mn_local_inputs/software_architecture_advisor_source/sample_app/api.py" in staged
 
 
 def test_software_architecture_advisor_writes_copy_ready_prompts_without_changing_source(tmp_path: Path):
+    source = _write_architecture_fixture(tmp_path / "architecture-source")
     result = run_payload_script(
         "software_architecture_advisor",
         f"""
@@ -163,8 +477,7 @@ import json
 from pathlib import Path
 from domain.composition import run_blueprint
 
-root = Path({str((ROOT / 'software_architecture_advisor').resolve())!r})
-source = root / 'examples' / 'sample_inputs'
+source = Path({str(source.resolve())!r})
 before = {{str(path.relative_to(source)): hashlib.sha256(path.read_bytes()).hexdigest() for path in source.rglob('*') if path.is_file()}}
 output = Path({str(tmp_path)!r}) / 'output'
 result = run_blueprint(
@@ -230,6 +543,7 @@ print(json.dumps({{
 
 
 def test_software_architecture_advisor_runs_eight_live_scripted_passes_and_uses_their_outputs(tmp_path: Path):
+    source = _write_architecture_fixture(tmp_path / "live-architecture-source")
     result = run_payload_script(
         "software_architecture_advisor",
         f'''
@@ -246,6 +560,7 @@ class ScriptedLiveLLM:
         self.last_usage = {{}}
         self.stages = []
         self.packet_kinds = []
+        self.final_audit_is_compact = False
     def generate_json(self, *, system_prompt, user_prompt, fallback, validator=None, validation_retries=0):
         payload = json.loads(user_prompt)
         stage = payload["stage"]
@@ -311,6 +626,12 @@ class ScriptedLiveLLM:
         elif stage == "report_synthesis":
             for name, section in value["sections"].items():
                 section["text"] = "Scripted " + name.replace("_", " ") + " narrative grounded in cited facts."
+        elif stage == "final_audit":
+            self.final_audit_is_compact = (
+                all("output" not in record for record in context["prior_llm_stages"].values())
+                and all("body" not in prompt for prompt in context["prompts"])
+                and all(prompt["safety_and_reversibility_excerpt"] for prompt in context["prompts"])
+            )
         self.calls += 1
         self.input_tokens += 120
         self.output_tokens += 60
@@ -325,8 +646,7 @@ class ScriptedLiveLLM:
             raise ValueError("scripted response failed validator")
         return validated
 
-root = Path({str((ROOT / 'software_architecture_advisor').resolve())!r})
-source = root / "examples" / "sample_inputs"
+source = Path({str(source.resolve())!r})
 output = Path({str(tmp_path)!r}) / "live-output"
 llm = ScriptedLiveLLM()
 result = run_blueprint(
@@ -350,6 +670,7 @@ print(json.dumps({{
     "finding_influenced": any(item.get("llm_rationale", "").startswith("Scripted rationale") for item in artifact["evidence"]["findings"]),
     "prompt_influenced": "Scripted objective" in (output / "improvement_prompts.md").read_text(),
     "report_influenced": "Scripted executive summary narrative" in (output / "architecture_report.md").read_text(),
+    "final_audit_is_compact": llm.final_audit_is_compact,
     "raw_source_absent": 'order = {{"customer_id": customer_id, "sku": sku, "status": "created"}}' not in all_durable,
     "trace_has_no_prompt": '\"user_prompt\":' not in (output / "llm_trace.jsonl").read_text() and '\"bounded_context\":' not in (output / "llm_trace.jsonl").read_text(),
 }}))
@@ -380,12 +701,14 @@ print(json.dumps({{
         "finding_influenced": True,
         "prompt_influenced": True,
         "report_influenced": True,
+        "final_audit_is_compact": True,
         "raw_source_absent": True,
         "trace_has_no_prompt": True,
     }
 
 
 def test_software_architecture_advisor_fails_closed_for_unreachable_fallback_missing_response_and_budget(tmp_path: Path):
+    source = _write_architecture_fixture(tmp_path / "failure-architecture-source")
     for mode in ("unreachable", "fallback", "no_response", "budget"):
         result = run_payload_script(
             "software_architecture_advisor",
@@ -419,12 +742,11 @@ class FailingLiveLLM:
         }}
         return validator(fallback) if validator else dict(fallback)
 
-root = Path({str((ROOT / 'software_architecture_advisor').resolve())!r})
 output = Path({str(tmp_path)!r}) / {mode!r}
 llm = FailingLiveLLM({mode!r})
 try:
     run_blueprint(
-        inputs={{"input_folder": str(root / "examples" / "sample_inputs"), "output_folder": str(output)}},
+        inputs={{"input_folder": {str(source.resolve())!r}, "output_folder": str(output)}},
         config={{"llm": {{"mode": "live", "require_live": True}}, "research_budget": {{"default_actions": {0 if mode == 'budget' else 8}}}}},
         runs_root=output / "runs",
         run_id="architecture-advisor-fail-closed-{mode}",
@@ -450,6 +772,7 @@ else:
 
 
 def test_software_architecture_advisor_final_model_rejection_prevents_publication(tmp_path: Path):
+    source = _write_architecture_fixture(tmp_path / "rejection-architecture-source")
     result = run_payload_script(
         "software_architecture_advisor",
         f'''
@@ -479,12 +802,11 @@ class RejectingFinalAuditor:
         self.last_usage = {{"input_tokens": 20, "output_tokens": 10, "total_tokens": 30, "estimated": False, "source": "scripted_provider", "provider_response_count": 1, "fallback": False}}
         return validator(value) if validator else value
 
-root = Path({str((ROOT / 'software_architecture_advisor').resolve())!r})
 output = Path({str(tmp_path)!r}) / "rejected"
 llm = RejectingFinalAuditor()
 try:
     run_blueprint(
-        inputs={{"input_folder": str(root / "examples" / "sample_inputs"), "output_folder": str(output)}},
+        inputs={{"input_folder": {str(source.resolve())!r}, "output_folder": str(output)}},
         config={{"analysis": {{"large_module_line_threshold": 2}}, "llm": {{"mode": "live", "require_live": True}}}},
         runs_root=output / "runs",
         run_id="architecture-advisor-final-reject",
@@ -547,39 +869,42 @@ print(json.dumps({{
     }
 
 
-def test_software_architecture_advisor_uses_the_staged_sample_when_optional_inputs_are_null(tmp_path: Path):
+def test_software_architecture_advisor_requires_a_local_source_folder(tmp_path: Path):
     result = run_payload_script(
         "software_architecture_advisor",
         f"""
 import json
 from pathlib import Path
+from domain.intake import resolve_source
 from domain.runtime_services import runtime_context_for_step
 
-root = Path({str((ROOT / 'software_architecture_advisor').resolve())!r})
 context = runtime_context_for_step(
-    inputs={{'input_folder': None, 'github_repo_url': None, 'output_folder': str(Path({str(tmp_path)!r}) / 'output')}},
+    inputs={{'input_folder': None, 'output_folder': str(Path({str(tmp_path)!r}) / 'output')}},
     config={{'llm': {{'mode': 'fake'}}}},
     runs_root=Path({str(tmp_path)!r}) / 'runs',
     run_id='architecture-advisor-default-input-test',
 )
-source = Path(context['payload']['input_folder'])
+try:
+    resolve_source(context)
+except ValueError as exc:
+    error = str(exc)
+else:
+    error = None
 print(json.dumps({{
-    'source_is_staged_sample': source == root / 'examples' / 'sample_inputs',
-    'source_exists': source.is_dir(),
-    'github_repo_url': context['payload'].get('github_repo_url'),
+    'input_folder_is_empty': not bool(context['payload'].get('input_folder')),
+    'error': error,
 }}))
 """,
     )
     assert result == {
-        "source_is_staged_sample": True,
-        "source_exists": True,
-        "github_repo_url": None,
+        "input_folder_is_empty": True,
+        "error": "input_folder is required and must identify a local source directory.",
     }
 
 
-def test_software_architecture_advisor_prefers_the_launch_staged_source_path(tmp_path: Path):
-    staged = tmp_path / "staged-source"
-    staged.mkdir()
+def test_software_architecture_advisor_prefers_the_worker_staged_source_path(tmp_path: Path):
+    host_source = tmp_path / "host-source"
+    worker_source = "mn_local_inputs/software_architecture_advisor_source"
     result = run_payload_script(
         "software_architecture_advisor",
         f"""
@@ -587,63 +912,44 @@ import json
 from domain.runtime_services import runtime_context_for_step
 
 context = runtime_context_for_step(
-    inputs={{'input_folder': None, 'github_repo_url': None}},
-    config={{'inputs': {{'payload': {{'input_folder': {str(staged)!r}}}}}}},
+    inputs={{'input_folder': {str(host_source)!r}}},
+    config={{'inputs': {{'payload': {{'input_folder': {worker_source!r}}}}}}},
     runs_root={str(tmp_path / 'runs')!r},
     run_id='architecture-advisor-staged-input-test',
 )
 print(json.dumps({{'input_folder': context['payload']['input_folder']}}))
 """,
     )
-    assert result == {"input_folder": str(staged)}
+    assert result == {"input_folder": worker_source}
 
 
-def test_software_architecture_advisor_waits_only_for_a_platform_staged_source(tmp_path: Path):
-    staged = tmp_path / ".mn" / "shared" / "submissions" / "job-123" / "inputs" / "source"
-    ordinary_missing = tmp_path / "missing-local-source"
+def test_software_architecture_advisor_uses_the_mounted_source_when_invocation_config_restores_host_path(tmp_path: Path):
+    host_source = "/Users/homer/Sandbox/Archmind"
+    job_input_dir = tmp_path / "job-inputs"
+    worker_source = job_input_dir / "mn_local_inputs" / "software_architecture_advisor_source"
+    worker_source.mkdir(parents=True)
     result = run_payload_script(
         "software_architecture_advisor",
         f"""
 import json
-from pathlib import Path
-from domain.intake import wait_for_platform_staged_directory
+import os
+from domain.runtime_services import runtime_context_for_step
 
-staged = Path({str(staged)!r})
-waited = []
-def stage_source(seconds):
-    waited.append(seconds)
-    staged.mkdir(parents=True, exist_ok=True)
-
-ready = wait_for_platform_staged_directory(
-    str(staged),
-    maximum_wait_seconds=1,
-    polling_seconds=0.1,
-    sleeper=stage_source,
+os.environ["MN_JOB_INPUT_DIR"] = {str(job_input_dir)!r}
+context = runtime_context_for_step(
+    inputs={{"input_folder": {host_source!r}}},
+    config={{"inputs": {{"payload": {{"input_folder": {host_source!r}}}}}}},
+    runs_root={str(tmp_path / 'runs')!r},
+    run_id="architecture-advisor-mounted-input-test",
 )
-ordinary = wait_for_platform_staged_directory(
-    {str(ordinary_missing)!r},
-    maximum_wait_seconds=1,
-    polling_seconds=0.1,
-    sleeper=lambda _seconds: (_ for _ in ()).throw(RuntimeError('must not wait')),
-)
-print(json.dumps({{
-    'staged_source_ready': ready == staged,
-    'waited_for_platform_source': len(waited) == 1,
-    'ordinary_source_unchanged': ordinary == Path({str(ordinary_missing)!r}).resolve(),
-    'ordinary_source_missing': not ordinary.exists(),
-}}))
+print(json.dumps({{"input_folder": context["payload"]["input_folder"]}}))
 """,
     )
-    assert result == {
-        "staged_source_ready": True,
-        "waited_for_platform_source": True,
-        "ordinary_source_unchanged": True,
-        "ordinary_source_missing": True,
-    }
+    assert result == {"input_folder": str(worker_source)}
 
 
 def test_software_architecture_advisor_mapper_re_resolves_the_source_in_its_own_worker(tmp_path: Path):
-    mapper_source = ROOT / "software_architecture_advisor" / "examples" / "sample_inputs"
+    mapper_source = _write_architecture_fixture(tmp_path / "mapper-source")
     stale_source = tmp_path / "intake-worker" / "examples" / "sample_inputs"
 
     result = run_payload_script(

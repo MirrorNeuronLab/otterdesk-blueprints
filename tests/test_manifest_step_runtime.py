@@ -20,6 +20,31 @@ SKILL_SOURCES = sorted((WORKSPACE / "mn-skills").glob("*/src"))
 AGENT_SOURCES = sorted((WORKSPACE / "mn-agents").glob("*/src"))
 
 
+def _write_software_architecture_source(root: Path) -> Path:
+    package = root / "sample_app"
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text("", encoding="utf-8")
+    (package / "api.py").write_text(
+        "from .orders import create_order\n\n\ndef submit_order(customer_id, sku):\n"
+        "    return create_order(customer_id, sku)\n",
+        encoding="utf-8",
+    )
+    (package / "orders.py").write_text(
+        "from .notifications import notify\n\n\ndef create_order(customer_id, sku):\n"
+        "    order = {'customer_id': customer_id, 'sku': sku}\n"
+        "    notify(order)\n"
+        "    return order\n",
+        encoding="utf-8",
+    )
+    (package / "notifications.py").write_text(
+        "from .orders import create_order\n\n\ndef notify(order):\n"
+        "    if order.get('retry'):\n"
+        "        create_order(order['customer_id'], order['sku'])\n",
+        encoding="utf-8",
+    )
+    return root
+
+
 def _run_handler_workflow(
     blueprint_id: str,
     tmp_path: Path,
@@ -296,6 +321,13 @@ def test_manifest_handlers_execute_as_message_chained_workflows(
     config: dict,
     tmp_path: Path,
 ):
+    if blueprint_id == "software_architecture_advisor":
+        inputs = {
+            **inputs,
+            "input_folder": str(
+                _write_software_architecture_source(tmp_path / "software-architecture-source")
+            ),
+        }
     result = _run_handler_workflow(
         blueprint_id,
         tmp_path,

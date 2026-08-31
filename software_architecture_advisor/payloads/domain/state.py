@@ -21,13 +21,7 @@ def inputs_for(ctx: dict[str, Any]) -> dict[str, Any]:
         if value is not None
     }
     merged = {**configured, **supplied}
-    # A URL is the user's source selection. The platform must replace the
-    # bundled demo folder with a materialized snapshot before analysis starts.
-    if supplied.get("github_repo_url") and "input_folder" not in supplied:
-        merged["input_folder"] = ""
     merged["input_folder"] = str(merged.get("input_folder") or "").strip()
-    merged["github_repo_url"] = str(merged.get("github_repo_url") or "").strip()
-    merged["branch"] = str(merged.get("branch") or "main").strip() or "main"
     focus = merged.get("analysis_focus") or []
     merged["analysis_focus"] = [str(item).strip() for item in (focus if isinstance(focus, list) else [focus]) if str(item).strip()]
     merged["output_folder"] = str(merged.get("output_folder") or "").strip()

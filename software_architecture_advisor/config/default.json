@@ -3,14 +3,12 @@
   "mode": "real",
   "metadata": {
     "category": "engineering",
-    "description": "Software Architecture Advisor is a read-only, air-gapped software-architecture co-worker. Give it a pre-staged source input folder or a GitHub repository URL that OtterDesk materializes before the isolated run; it maps structural evidence and writes an architecture assessment plus copy-ready, implementation-safe prompts to the output folder without changing source code."
+    "description": "Software Architecture Advisor is a read-only, air-gapped software-architecture co-worker. Give it a local source folder; it maps structural evidence and writes an architecture assessment plus copy-ready, implementation-safe prompts to the output folder without changing source code."
   },
   "inputs": {
     "adapter": "mock",
     "payload": {
       "input_folder": "",
-      "github_repo_url": "",
-      "branch": "main",
       "analysis_focus": ["module boundaries", "change risk"],
       "output_folder": "~/Downloads/software_architecture_advisor"
     }
@@ -21,17 +19,6 @@
     "write_run_store": true,
     "folder_path": "~/Downloads/software_architecture_advisor",
     "artifact_contract": "Read-only architecture assessment, evidence bundle, and copy-ready implementation prompts; no source changes."
-  },
-  "source_acquisition": {
-    "mode": "platform_pre_staged_github_snapshot",
-    "default_repository_reference_file": "@/examples/sample_inputs/ARCHMIND_GITHUB_REPOSITORY.txt",
-    "network_egress": "forbidden_in_analysis_job",
-    "github_url_allowed_at_intake": true,
-    "allowed_hosts": ["github.com"],
-    "required_snapshot_properties": ["shallow_clone", "resolved_commit", "staged_input_folder", "no_project_execution"],
-    "staging_wait_seconds": 180,
-    "staging_poll_interval_seconds": 2,
-    "when_unavailable": "require_local_input_folder"
   },
   "local_inputs": {
     "folders": [
@@ -81,13 +68,13 @@
     "strict_json": true,
     "provider": "docker_model_runner",
     "backend": "llama.cpp",
-    "model": "default",
+    "model": "medium",
     "context_size": 32768,
     "default_config": "analysis",
     "configs": {
-      "analysis": {"provider": "docker_model_runner", "backend": "llama.cpp", "model": "default", "api_base": "auto", "context_size": 32768, "timeout_seconds": 600, "max_tokens": 6000, "num_retries": 2, "retry_backoff_seconds": 1, "network": "loopback_only"},
-      "writing": {"provider": "docker_model_runner", "backend": "llama.cpp", "model": "default", "api_base": "auto", "context_size": 32768, "timeout_seconds": 600, "max_tokens": 7000, "num_retries": 2, "retry_backoff_seconds": 1, "network": "loopback_only"},
-      "audit": {"provider": "docker_model_runner", "backend": "llama.cpp", "model": "default", "api_base": "auto", "context_size": 32768, "timeout_seconds": 600, "max_tokens": 5000, "num_retries": 2, "retry_backoff_seconds": 1, "network": "loopback_only"}
+      "analysis": {"provider": "docker_model_runner", "backend": "llama.cpp", "model": "medium", "api_base": "auto", "context_size": 32768, "timeout_seconds": 600, "max_tokens": 16000, "num_retries": 2, "retry_backoff_seconds": 1, "network": "loopback_only"},
+      "writing": {"provider": "docker_model_runner", "backend": "llama.cpp", "model": "medium", "api_base": "auto", "context_size": 32768, "timeout_seconds": 600, "max_tokens": 7000, "num_retries": 2, "retry_backoff_seconds": 1, "network": "loopback_only"},
+      "audit": {"provider": "docker_model_runner", "backend": "llama.cpp", "model": "medium", "api_base": "auto", "context_size": 32768, "timeout_seconds": 600, "max_tokens": 5000, "num_retries": 2, "retry_backoff_seconds": 1, "network": "loopback_only"}
     },
     "quick_test_uses_fake": true,
     "responsibilities": ["Read local evidence only.", "Preserve uncertainty.", "Generate advisory prompts without modifying code."],
@@ -101,7 +88,7 @@
       "architecture_artifact_publisher": {"llm_config": "analysis", "role": "Deterministic Architecture Artifact Publisher", "responsibilities": ["Publish only after audit approval.", "Preserve exact deterministic facts and metrics.", "Never invoke the model or modify source code."]}
     }
   },
-  "llm_analysis": {"required_stage_count": 8, "max_context_chars": 110000, "validation_retries": 1, "persist_validated_outputs": true, "persist_raw_prompts": false, "persist_raw_source": false},
+  "llm_analysis": {"required_stage_count": 8, "token_safety_margin": 2048, "estimated_bytes_per_token": 3.0, "validation_retries": 1, "persist_validated_outputs": true, "persist_raw_prompts": false, "persist_raw_source": false},
   "source_packets": {"max_chars": 72000, "max_files": 14, "max_chars_per_file": 4000, "persist": false},
   "research_budget": {"default_actions": 8},
   "backpressure": {"llm": {"max_concurrent_calls": 1, "min_interval_seconds": 0}},
@@ -124,7 +111,7 @@
   "resources": {"enabled": true, "memory": {"min_gb": 48}, "gpu_enabled": "auto", "sample_interval_seconds": 10},
   "logging": {"level": "INFO", "events_jsonl": true, "logs_jsonl": true, "resources_jsonl": true, "redact_env_secrets": true, "redact_fields": ["token", "password", "private_key", "api_key"], "events": ["blueprint_status", "blueprint_phase_started", "blueprint_phase_completed", "blueprint_phase_failed", "artifact_written", "human_notice", "human_input_requested", "human_input_received", "human_input_timeout", "human_decision_applied", "source_snapshot_validated", "architecture_graph_built", "architecture_finding_created", "improvement_prompt_authored"]},
   "schemas": {"artifact_record": "mn.artifact.record.v1", "config": "mn.blueprint.config.v1", "events": "mn.blueprint.events.v1", "final_artifact": "mn.blueprint.final_artifact.v1", "human_control": "mn.blueprint.human_control.v1", "inputs": "mn.blueprint.inputs.v1", "logs": "mn.blueprint.logs.v1", "resources": "mn.blueprint.resources.v1", "status_contract": "mn.blueprint.status_contract.v1", "web_ui": "mn.blueprint.web_ui.v1"},
-  "interfaces": {"config": ["identity", "inputs", "outputs", "source_acquisition", "analysis", "local_model", "llm", "resources", "human_control", "privacy", "logging", "memory_layer"], "config_sections": ["identity", "inputs", "outputs", "source_acquisition", "analysis", "local_model", "llm", "resources", "human_control", "privacy", "logging", "memory_layer"], "input_adapters": ["mock", "json", "file", "env_json"], "output_adapters": ["local_run_store"]},
+  "interfaces": {"config": ["identity", "inputs", "outputs", "analysis", "local_model", "llm", "resources", "human_control", "privacy", "logging", "memory_layer"], "config_sections": ["identity", "inputs", "outputs", "analysis", "local_model", "llm", "resources", "human_control", "privacy", "logging", "memory_layer"], "input_adapters": ["mock", "json", "file", "env_json"], "output_adapters": ["local_run_store"]},
   "web_ui": {"enabled": true, "dashboard": {"data_source": "local_run_store", "panels": ["current_status", "recent_events", "pending_human_requests", "output_artifacts", "resource_usage", "errors", "llm_calls", "token_budget", "llm_retries"], "standard_panels": ["current_status", "recent_events", "pending_human_requests", "output_artifacts", "resource_usage", "errors", "llm_calls", "token_budget", "llm_retries"], "reads": ["events.jsonl", "human.jsonl", "logs.jsonl", "resources.jsonl", "result.json", "final_artifact.json"]}},
   "triggers": {"type": "manual", "schedule": null, "sources": []},
   "suggested_schedule": {"cron": "0 8 * * 1", "cadence": "weekly", "advisory_only": true, "note": "Suggested cadence only; runtime decides the actual schedule."}

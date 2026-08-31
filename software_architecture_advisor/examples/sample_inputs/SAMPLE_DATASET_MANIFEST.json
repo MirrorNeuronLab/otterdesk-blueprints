@@ -1,12 +1,8 @@
 {
   "schema": "otterdesk.sample_dataset.v1",
   "blueprint_id": "software_architecture_advisor",
-  "description": "A small intentionally coupled Python order-service snapshot for safe offline architecture-analysis demonstrations. It also carries the default Archmind repository reference for the platform-owned pre-staging intake.",
+  "description": "No source repository is bundled with the air-gapped advisor; supply a local source folder at launch.",
   "files": [
-    {"path": "README.md", "type": "text/markdown", "contains_pii": false, "intended_use": "Explains the synthetic demo source."},
-    {"path": "ARCHMIND_GITHUB_REPOSITORY.txt", "type": "text/plain", "contains_pii": false, "intended_use": "Default GitHub repository reference for pre-staging; never fetched by the air-gapped advisor."},
-    {"path": "mini_order_service/api.py", "type": "text/x-python", "contains_pii": false, "intended_use": "Demo API boundary with imports."},
-    {"path": "mini_order_service/orders.py", "type": "text/x-python", "contains_pii": false, "intended_use": "Demo domain module with a dependency cycle."},
-    {"path": "mini_order_service/notifications.py", "type": "text/x-python", "contains_pii": false, "intended_use": "Demo notification module with a dependency cycle."}
+    {"path": "README.md", "type": "text/markdown", "contains_pii": false, "intended_use": "Explains that the user must supply a local source folder."}
   ]
 }

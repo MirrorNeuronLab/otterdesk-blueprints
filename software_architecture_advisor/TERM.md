@@ -9,11 +9,9 @@ audit, production-readiness certification, or guarantee that an improvement
 will preserve behavior. A qualified maintainer must validate every generated
 implementation prompt, code change, migration, test, and deployment plan.
 
-The isolated analysis run has no network access. A GitHub URL is a request for
-OtterDesk's connected intake service to create a shallow, immutable snapshot
-before the job starts. If that service is unavailable, provide the source
-folder directly. The air-gapped job never fetches, pushes, uploads, or contacts
-GitHub or another external service.
+The isolated analysis run has no network access. Supply the source folder from
+the local host at launch. The air-gapped job never fetches, pushes, uploads, or
+contacts an external service.
 
 The required local model must be installed and licensed by the operator. This
 blueprint does not bundle model weights or fetch models at run time.
