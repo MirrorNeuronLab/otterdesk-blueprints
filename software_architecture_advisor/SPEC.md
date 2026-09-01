@@ -29,15 +29,27 @@ pack. It never includes changed source files.
    while deterministic renderers retain ownership of facts, metrics, and tables.
 6. `audit_architecture_advice` runs the eighth model pass over the complete
    package, followed by deterministic grounding, usage, coverage, and safety
-   checks.
+   checks. The machine-generated deterministic gate is the authoritative
+   publication precondition; the model supplies the evidence-grounded audit
+   rationale and must mirror that gate rather than inventing failures from
+   explicitly unavailable runtime evidence.
 7. `publish_architecture_advice` writes artifacts only after audit approval.
+
+The publisher creates a `prompts/` output directory with a `README.md` index
+and one complete, copy-ready Markdown prompt per prioritized finding. The
+combined `improvement_prompts.md` and machine-readable
+`improvement_prompts.json` files remain available alongside it.
 
 ## Air-gapped contract
 
 The worker is air-gapped. It may read the local source folder staged at launch
 and invoke a runtime-prepared local model through the selected node's model
 gateway, but it cannot reach GitHub, package indexes, telemetry endpoints, or
-arbitrary URLs. The analysis worker never runs `git clone`.
+arbitrary URLs. The analysis worker never runs `git clone`. Its LLM declaration
+requires the SDK-owned `structured_output` and `thinking` capabilities. Model
+catalog entries satisfy known capabilities directly; the SDK evaluates unknown
+ones through the prepared loopback endpoint before inference and caches the
+result in the runtime model catalog.
 
 ## Evaluation
 
@@ -51,6 +63,8 @@ arbitrary URLs. The analysis worker never runs `git clone`.
 - Final artifacts explicitly state that source changes are out of scope.
 - Normal runs complete all eight model stages with real provider responses,
   nonzero token usage, and zero fallbacks; otherwise they fail closed.
+- Model capability verification is owned by the SDK runtime and is not
+  reimplemented in blueprint analysis code.
 - Each model stage budgets the full serialized prompt against the selected
   profile's context window after reserving maximum completion tokens and a
   configurable safety margin. Bounded source packets compact excerpts first

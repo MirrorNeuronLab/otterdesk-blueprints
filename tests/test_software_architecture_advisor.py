@@ -5,6 +5,7 @@ from pathlib import Path
 
 from blueprint_modernization_support import ROOT, assert_modular_payload, assert_registry_handlers_import, run_payload_script, source_manifest
 from mn_sdk import expand_manifest_source
+from mn_sdk.blueprint_support import configured_llm_environment
 from mn_sdk.submission_preparation import (
     prepare_manifest_for_submission,
     stage_local_input_payloads_for_manifest,
@@ -66,6 +67,19 @@ def test_software_architecture_advisor_is_air_gapped_and_requires_a_large_local_
     assert manifest["workflow"]["execution"]["strategy"] == "serial"
     assert config["llm"]["require_live"] is True
     assert config["llm"]["strict_json"] is True
+    assert manifest["llm"]["required_capabilities"] == [
+        "structured_output",
+        "thinking",
+    ]
+    assert config["llm"]["required_capabilities"] == [
+        "structured_output",
+        "thinking",
+    ]
+    model_environment = configured_llm_environment(config)
+    assert json.loads(model_environment["MN_LLM_REQUIRED_CAPABILITIES_JSON"]) == [
+        "structured_output",
+        "thinking",
+    ]
     assert config["llm"]["context_size"] >= 32768
     assert config["research_budget"]["default_actions"] == 8
     assert config["backpressure"]["llm"]["max_concurrent_calls"] == 1
@@ -500,10 +514,12 @@ print(json.dumps({{
     'counter_evidence_recorded': all(item['counter_evidence_considered'] for item in artifact['evidence']['findings']),
     'options_recorded': all(len(item['alternative_options']) >= 2 for item in artifact['evidence']['findings']),
     'prompt_file': (output / 'improvement_prompts.md').is_file(),
+    'prompt_index_file': (output / 'prompts' / 'README.md').is_file(),
     'report_file': (output / 'architecture_report.md').is_file(),
     'fact_file': (output / 'evidence' / 'architecture_facts.json').is_file(),
     'repository_map': (output / 'architecture-report' / '01-repository-map.md').is_file(),
-    'standalone_prompt_count': len(list((output / 'codex-prompts').glob('*.md'))),
+    'standalone_prompt_count': len(list((output / 'prompts').glob('??-*.md'))),
+    'prompt_index_links_to_prompt': '01-' in (output / 'prompts' / 'README.md').read_text(),
     'schema_version': artifact['schema_version'],
     'llm_stage_count': artifact['llm_analysis']['completed_stage_count'],
     'llm_stage_order': list(artifact['llm_analysis']['stages']),
@@ -525,10 +541,12 @@ print(json.dumps({{
         "counter_evidence_recorded": True,
         "options_recorded": True,
         "prompt_file": True,
+        "prompt_index_file": True,
         "report_file": True,
         "fact_file": True,
         "repository_map": True,
         "standalone_prompt_count": 1,
+        "prompt_index_links_to_prompt": True,
         "schema_version": "mn.blueprint.software_architecture_advisor.v3",
         "llm_stage_count": 8,
         "llm_stage_order": [
@@ -628,9 +646,13 @@ class ScriptedLiveLLM:
                 section["text"] = "Scripted " + name.replace("_", " ") + " narrative grounded in cited facts."
         elif stage == "final_audit":
             self.final_audit_is_compact = (
-                all("output" not in record for record in context["prior_llm_stages"].values())
+                "deterministic_gate" in system_prompt
+                and "all_preliminary_checks_pass" in system_prompt
+                and all("output" not in record for record in context["prior_llm_stages"].values())
                 and all("body" not in prompt for prompt in context["prompts"])
                 and all(prompt["safety_and_reversibility_excerpt"] for prompt in context["prompts"])
+                and context["deterministic_gate"]["all_preliminary_checks_pass"]
+                and context["deterministic_gate"]["failed_preliminary_checks"] == []
             )
         self.calls += 1
         self.input_tokens += 120

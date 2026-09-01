@@ -205,6 +205,10 @@ SKILL_NAME_PACKAGES = {
     "websocket_stream": "mirrorneuron-websocket-stream-skill",
 }
 BLUEPRINT_TRANSITIVE_SKILL_PACKAGES: dict[str, set[str]] = {}
+# The Microduck service exposes an MCP server for an external conversational
+# agent. Its response-service declaration is Core-owned; the worker embeds no
+# response client, RAG, or MCP-client package.
+CORE_OWNED_RESPONSE_SERVICES = {"microduck_controller"}
 
 
 def _completion_threshold(value) -> bool:
@@ -250,9 +254,10 @@ def _expected_skill_dependency_packages(blueprint_dir: Path) -> set[str]:
     manifest = json.loads((blueprint_dir / "manifest.json").read_text())
     response_service = manifest.get("response_service")
     if isinstance(response_service, dict) and response_service.get("enabled") is True:
-        packages.add("mirrorneuron-job-response-skill")
-        packages.add("mirrorneuron-rag-skill")
-        packages.add("mirrorneuron-mcp-client-skill")
+        if blueprint_dir.name not in CORE_OWNED_RESPONSE_SERVICES:
+            packages.add("mirrorneuron-job-response-skill")
+            packages.add("mirrorneuron-rag-skill")
+            packages.add("mirrorneuron-mcp-client-skill")
     registration = (
         manifest.get("metadata", {})
         .get("web_ui", {})

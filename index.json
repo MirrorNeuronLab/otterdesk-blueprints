@@ -441,7 +441,7 @@
   },
   {
     "category": "Engineering",
-    "description": "Software Architecture Advisor is a read-only, air-gapped software-architecture co-worker. Give it a pre-staged source input folder or a GitHub repository URL that OtterDesk materializes before the isolated run; it maps structural evidence and writes an architecture assessment plus copy-ready, implementation-safe prompts to the output folder without changing source code.",
+    "description": "Software Architecture Advisor is a read-only, air-gapped software-architecture co-worker. Give it a local source folder; it maps structural evidence and writes an architecture assessment plus copy-ready, implementation-safe prompts to the output folder without changing source code.",
     "air-gapped": true,
     "id": "software_architecture_advisor",
     "job_name": "software-architecture-advisor",
@@ -451,13 +451,13 @@
       "agent_role": "Read-only Software Architecture Advisor.",
       "benefit": "Turns a bounded source snapshot into triangulated architecture findings, explicit counter-evidence, migration options, and implementation prompts that a separate coding agent can use safely.",
       "customizable_for": "Legacy-system modernization, monolith modularization, dependency-risk review, interface stabilization, change-risk analysis, and engineering planning.",
-      "how_it_works": "Validates a local or pre-staged GitHub source snapshot; builds authoritative static evidence with a bundled offline skill; runs eight required grounded passes through the runtime-selected default local model; adversarially audits every finding and prompt; then deterministically publishes only an approved read-only advice bundle.",
-      "input": "One local source folder, or one HTTPS GitHub URL materialized into a source folder by the connected intake service before the air-gapped run; optional branch and architecture focus.",
+      "how_it_works": "Validates a local source folder; builds authoritative static evidence with a bundled offline skill; runs eight required grounded passes through the runtime-selected default local model; adversarially audits every finding and prompt; then deterministically publishes only an approved read-only advice bundle.",
+      "input": "One local source folder and optional architecture focus.",
       "output": "Architecture assessment, normalized fact database, numbered deep-dive reports, adversarial review, migration options, and standalone copy-ready prompts for another AI coding agent.",
       "problem": "Teams need credible architectural improvement plans without giving an analysis workflow permission to execute, alter, or upload their code.",
       "runtime_features": [
         "air-gapped analysis runtime",
-        "platform-pre-staged GitHub snapshots",
+        "local-folder source intake",
         "blueprint-owned deep static evidence skill",
         "48 GB minimum host memory",
         "loopback-only local model",
@@ -477,6 +477,49 @@
       "What source evidence does this architecture review use?",
       "What were the highest-priority architectural risks in the latest assessment?",
       "Which improvement prompt should a coding agent implement first?"
+    ]
+  },
+  {
+    "category": "Robotics",
+    "description": "Talk to a live Microduck MuJoCo simulation in OtterDesk: the Job agent interprets natural-language intent and invokes bounded MCP movement plus deterministic goal-directed ball navigation.",
+    "air-gapped": false,
+    "id": "microduck_controller",
+    "job_name": "microduck-controller",
+    "name": "Microduck Controller",
+    "path": "microduck_controller",
+    "product": {
+      "agent_role": "Browser-backed Microduck simulation service operator.",
+      "benefit": "Lets an OtterDesk user move, inspect, and send a visible Microduck toward an active ball in ordinary language without granting raw simulator, shell, or browser-control access.",
+      "customizable_for": "Interactive robotics demonstrations, agent-tool evaluation, browser-based simulation control, and bounded closed-loop navigation prototypes.",
+      "how_it_works": "Builds and serves the bundled Vite simulator, grants one ?control=1 browser tab a lease, indexes the same manual exposed by MCP, lets the default Job model select one validated effect per turn, and runs find-ball requests through a deterministic position-feedback loop.",
+      "input": "The bundled demo input folder, one local browser control tab, and natural-language requests in OtterDesk.",
+      "output": "A visual simulator URL, compact live service state, command receipts/history, and a final run artifact.",
+      "problem": "Conversation agents need an auditable way to act in a web robot simulator without direct MuJoCo state mutation or unbounded browser automation.",
+      "runtime_features": [
+        "browser-owned MuJoCo simulation",
+        "single-tab control lease",
+        "same-origin WebSocket bridge",
+        "bounded Streamable HTTP MCP tools",
+        "deterministic closed-loop ball navigation",
+        "blueprint-owned MCP control manual",
+        "bounded natural-language Job agent",
+        "fresh compact sensor context",
+        "idempotent command receipts",
+        "loopback-first unauthenticated service"
+      ],
+      "simulation_type": "One browser-owned Microduck MuJoCo simulation controlled through bounded primitive effects and a deterministic active-ball approach.",
+      "target_users": "Robotics demonstrators, AI-agent developers, simulation researchers, and evaluators."
+    },
+    "type": "service",
+    "workflow_id": "microduck_controller_v1",
+    "response_service": {
+      "enabled": true
+    },
+    "starter_questions": [
+      "Move forward for a medium step.",
+      "Find the ball.",
+      "Run the showcase routine.",
+      "What can you do, and what are your safety limits?"
     ]
   }
 ]

@@ -66,6 +66,7 @@
     "mock_mode": "fake",
     "require_live": true,
     "strict_json": true,
+    "required_capabilities": ["structured_output", "thinking"],
     "provider": "docker_model_runner",
     "backend": "llama.cpp",
     "model": "medium",

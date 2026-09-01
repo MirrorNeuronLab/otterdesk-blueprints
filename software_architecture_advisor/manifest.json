@@ -9,7 +9,7 @@
     "job_name": "software-architecture-advisor",
     "category": "Engineering",
     "version": 1,
-    "manifest_version": "1.1"
+    "manifest_version": "1.2"
   },
   "job_name": "software-architecture-advisor",
   "description": "Software Architecture Advisor is a read-only, air-gapped software-architecture co-worker. Give it a local source folder; it maps structural evidence and writes an architecture assessment plus copy-ready, implementation-safe prompts to the output folder without changing source code.",
@@ -94,6 +94,7 @@
         {"artifact_id": "architecture_assessment", "type": "architecture_assessment", "path": "architecture_assessment.json", "producer": "architecture_artifact_publisher", "mime_type": "application/json", "schema_version": "mn.blueprint.software_architecture_advisor.v3", "source_refs": ["source_inventory.json", "architecture_graph.json", "analysis_metrics.json", "evidence/architecture_facts.json", "evidence/llm_analysis.json"]},
         {"artifact_id": "architecture_report", "type": "architecture_report", "path": "architecture_report.md", "producer": "architecture_artifact_publisher", "mime_type": "text/markdown", "schema_version": "mn.architecture.report.v2", "source_refs": ["architecture_assessment.json"]},
         {"artifact_id": "improvement_prompts", "type": "improvement_prompts", "path": "improvement_prompts.md", "producer": "improvement_prompt_author", "mime_type": "text/markdown", "schema_version": "mn.architecture.prompts.v1", "source_refs": ["architecture_assessment.json"]},
+        {"artifact_id": "prompt_directory_index", "type": "implementation_prompt_index", "path": "prompts/README.md", "producer": "architecture_artifact_publisher", "mime_type": "text/markdown", "schema_version": "mn.architecture.prompts.v1", "source_refs": ["architecture_assessment.json"]},
         {"artifact_id": "architecture_graph", "type": "architecture_graph", "path": "architecture_graph.json", "producer": "codebase_mapper", "mime_type": "application/json", "schema_version": "mn.architecture.graph.v1", "source_refs": ["source_inventory.json"]},
         {"artifact_id": "source_inventory", "type": "source_inventory", "path": "source_inventory.json", "producer": "source_intake_analyst", "mime_type": "application/json", "schema_version": "mn.architecture.inventory.v1", "source_refs": ["inputs.json"]},
         {"artifact_id": "repository_profile", "type": "repository_profile", "path": "evidence/repository_profile.json", "producer": "codebase_mapper", "mime_type": "application/json", "schema_version": "mn.architecture.repository_profile.v1", "source_refs": ["source_inventory.json"]},
@@ -188,6 +189,7 @@
     "mock_mode": "fake",
     "require_live": true,
     "strict_json": true,
+    "required_capabilities": ["structured_output", "thinking"],
     "provider": "docker_model_runner",
     "backend": "llama.cpp",
     "model": "medium",

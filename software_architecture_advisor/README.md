@@ -23,6 +23,10 @@ model and injects the selected node's reachable model gateway and lazy
 model-control service into Docker workers. The blueprint never hardcodes a node,
 model ID, or direct model-runner endpoint and never downloads a model itself.
 Normal runs require real provider responses and fail if any pass falls back.
+The model contract declares `structured_output` and `thinking` through the SDK's
+`required_capabilities` runtime interface. The SDK rejects a cataloged mismatch
+before inference; unknown capabilities are checked once against the prepared
+loopback endpoint and cached in the user model catalog for later runs.
 
 ## Input
 
@@ -72,7 +76,9 @@ The output folder contains:
   responses.
 - `architecture-report/` — numbered reviewer views for repository structure,
   dependencies, hotspots, state, trust boundaries, tests, and migration order.
-- `codex-prompts/` — one standalone prompt per prioritized finding.
+- `prompts/` — an indexed folder containing one standalone `.md` prompt per
+  prioritized finding. Open `prompts/README.md`, choose a prompt, and paste it
+  into Codex or another coding agent.
 
 Prompts recommend changes but never perform them. They explicitly instruct a
 coding agent to inspect the cited paths, preserve behavior, add or update tests,
