@@ -62,6 +62,9 @@ _EVENT_NAMES = {
     "burst_completed": "cctv_operator_burst_completed",
     "batch_ready": "cctv_operator_frame_batch_ready",
 }
+_SAMPLING_STATE_FILE = "sampling_state.json"
+_INLINE_STATE_EXCLUSIONS = {"previous_proxy", "recent_frames"}
+_LIVE_STREAM_CACHE_DIRECTORY = "live_stream_cache"
 
 
 def load_json_env(name: str) -> dict[str, Any]:
@@ -96,6 +99,82 @@ def run_dir() -> Path:
         if runs_root
         else Path.cwd() / "run_artifacts"
     )
+
+
+def load_sampling_state(directory: Path) -> dict[str, Any]:
+    path = directory / _SAMPLING_STATE_FILE
+    if not path.is_file():
+        return {}
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
+def write_sampling_state(directory: Path, state: dict[str, Any]) -> Path:
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / _SAMPLING_STATE_FILE
+    temporary = path.with_suffix(".tmp")
+    temporary.write_text(json.dumps(state, sort_keys=True), encoding="utf-8")
+    temporary.replace(path)
+    return path
+
+
+def reset_stale_live_stream_cache(directory: Path) -> bool:
+    """Forget a dead detached FFmpeg reader before the next DockerWorker call.
+
+    DockerWorker executes each sampling tick with ``docker exec``. Its detached
+    FFmpeg child can be reaped as a zombie after the tick finishes, while the
+    skill's status file still names that PID. ``kill(pid, 0)`` regards a zombie
+    as alive, so the next tick would keep waiting for an old JPEG forever.
+    The bundled NVIDIA worker is Linux, where ``/proc/<pid>/stat`` reliably
+    identifies the zombie state. A missing process is stale on every platform.
+    """
+
+    cache = directory / _LIVE_STREAM_CACHE_DIRECTORY
+    status_path = cache / "status.json"
+    try:
+        status = json.loads(status_path.read_text(encoding="utf-8"))
+        pid = int(status.get("pid")) if isinstance(status, dict) else 0
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        return False
+    if pid > 0 and not _persistent_reader_is_stale(pid):
+        return False
+    for path in (status_path, cache / "latest.jpg"):
+        try:
+            path.unlink()
+        except FileNotFoundError:
+            continue
+    return True
+
+
+def _persistent_reader_is_stale(pid: int) -> bool:
+    proc_stat = Path(f"/proc/{pid}/stat")
+    try:
+        # The first field can contain spaces inside parentheses. Everything
+        # following the final ')' begins with the one-character process state.
+        details = proc_stat.read_text(encoding="utf-8").rsplit(")", 1)[1].split()
+        return not details or details[0] == "Z"
+    except (FileNotFoundError, IndexError, OSError):
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return True
+        except PermissionError:
+            return False
+        return False
+
+
+def compact_sampling_state(state: dict[str, Any]) -> dict[str, Any]:
+    compact = {
+        key: value
+        for key, value in state.items()
+        if key not in _INLINE_STATE_EXCLUSIONS
+    }
+    compact["sampling_state_ref"] = _SAMPLING_STATE_FILE
+    compact["recent_frame_count"] = len(state.get("recent_frames") or [])
+    return compact
 
 
 def initial_state() -> dict[str, Any]:
@@ -141,6 +220,8 @@ def main() -> int:
         "CCTV adaptive sampler is inspecting the proxy stream"
     )
     config = load_config()
+    artifact_dir = run_dir()
+    reset_stale_live_stream_cache(artifact_dir)
     policy = SamplingPolicy.from_mapping(config.get("sampling"))
     payload = load_json_env("MN_INPUT_FILE")
     message = load_json_env("MN_MESSAGE_FILE")
@@ -148,6 +229,7 @@ def main() -> int:
     prior_state = context.get("agent_state")
     state = {
         **initial_state(),
+        **load_sampling_state(artifact_dir),
         **(prior_state if isinstance(prior_state, dict) else {}),
     }
     monitoring = state.get("monitoring")
@@ -187,9 +269,9 @@ def main() -> int:
     state["monitoring"] = monitoring
 
     try:
-        write_monitoring_state(run_dir(), monitoring)
+        write_monitoring_state(artifact_dir, monitoring)
         result = AdaptiveStreamSampler(
-            run_dir=run_dir(),
+            run_dir=artifact_dir,
             policy=policy,
             batch_schema="otterdesk.cctv_operator.frame_batch.v2",
         ).sample(
@@ -216,6 +298,7 @@ def main() -> int:
         )
         state = result.state
         state["monitoring"] = monitoring
+        write_sampling_state(artifact_dir, state)
         events.extend(_event(event) for event in result.events)
         if result.batch:
             batch_ref = str(result.batch["frame_batch_ref"])
@@ -230,6 +313,7 @@ def main() -> int:
             )
     except Exception as exc:
         state["last_error"] = str(exc)[:800]
+        write_sampling_state(artifact_dir, state)
         events.append(
             {
                 "type": "cctv_operator_frame_analysis_failed",
@@ -255,7 +339,7 @@ def main() -> int:
     print(
         json.dumps(
             {
-                "next_state": state,
+                "next_state": compact_sampling_state(state),
                 "events": events,
                 "emit_messages": emit_messages,
             },

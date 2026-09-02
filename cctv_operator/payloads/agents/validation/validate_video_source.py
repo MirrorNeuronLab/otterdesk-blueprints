@@ -28,6 +28,10 @@ from mn_live_video_analysis_skill import (
 )
 
 
+BUNDLED_DEMO_PROFILE = "bundled_demo"
+BUNDLED_DEMO_URI = "rtsp://127.0.0.1:8554/cctv-demo"
+
+
 def main() -> int:
     config = blueprint_config()
     video_source = config.get("video_source") if isinstance(config.get("video_source"), dict) else {}
@@ -43,6 +47,16 @@ def main() -> int:
         )
 
     uri = video_source_uri(video_source)
+    profile = video_source_profile(video_source, uri)
+    if profile not in {BUNDLED_DEMO_PROFILE, "external"}:
+        return fail(
+            "config.invalid_source_profile",
+            "video_source.profile must be bundled_demo or external",
+            "Keep bundled_demo for the self-contained demo, or use external with an approved RTSP/RTMP URI.",
+            actual=profile,
+            path="video_source.profile",
+            status=2,
+        )
     try:
         uri = validate_stream_uri(uri)
     except ValueError as exc:
@@ -53,6 +67,21 @@ def main() -> int:
             actual=uri,
             status=2,
         )
+
+    if profile == BUNDLED_DEMO_PROFILE:
+        if uri != BUNDLED_DEMO_URI:
+            return fail(
+                "config.invalid_demo_uri",
+                f"bundled demo source must use {BUNDLED_DEMO_URI}",
+                "Keep the bundled demo URI, or set video_source.profile=external for a real CCTV stream.",
+                actual=uri,
+                status=2,
+            )
+        print(
+            "Bundled CCTV demo source accepted; the shared NVIDIA "
+            "DockerWorker will start and probe it before sampling."
+        )
+        return 0
 
     ffprobe_binary = str(
         os.environ.get("FFPROBE_BINARY") or shutil.which("ffprobe") or ""
@@ -139,6 +168,17 @@ def blueprint_config() -> dict:
 def video_source_uri(video_source: dict) -> str:
     uri = video_source.get("uri") if isinstance(video_source, dict) else None
     return str(uri or os.environ.get("VIDEO_SOURCE_URI") or "").strip()
+
+
+def video_source_profile(video_source: dict, uri: str) -> str:
+    profile = (
+        video_source.get("profile")
+        if isinstance(video_source, dict)
+        else None
+    )
+    if profile is None and uri == BUNDLED_DEMO_URI:
+        return BUNDLED_DEMO_PROFILE
+    return str(profile or "external").strip().lower()
 
 
 if __name__ == "__main__":

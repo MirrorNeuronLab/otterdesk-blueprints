@@ -5,9 +5,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from .model_analysis import known_fact_ids, run_model_stage, structured_packet, text, validate_references
+from .model_analysis import known_fact_ids, run_model_stage, structured_packet, text
 from .state import read_state, write_state
-
 
 SECTION_NAMES = (
     "executive_summary",
@@ -69,7 +68,11 @@ def draft_architecture_report(
             prompt_metadata=[{key: item.get(key) for key in ("prompt_id", "finding_id", "title", "fact_ids")} for item in state.get("prompt_pack") or []],
         ),
         fallback=fallback,
-        validator=lambda value: _validate_report_draft(value, fact_ids=known_fact_ids(state)),
+        validator=lambda value: _validate_report_draft(
+            value,
+            fact_ids=known_fact_ids(state),
+            fallback_sections=fallback["sections"],
+        ),
         llm_client=llm_client,
     )
     state["report_draft"] = draft
@@ -78,28 +81,40 @@ def draft_architecture_report(
 
 
 def _validate_report_draft(
-    value: dict[str, Any], *, fact_ids: set[str]
+    value: dict[str, Any], *, fact_ids: set[str],
+    fallback_sections: dict[str, dict[str, Any]],
 ) -> dict[str, Any] | None:
-    if not isinstance(value, dict) or not isinstance(value.get("sections"), dict):
+    if not isinstance(value, dict):
         return None
-    if set(value["sections"]) != set(SECTION_NAMES):
-        return None
+    supplied_sections = value.get("sections") if isinstance(value.get("sections"), dict) else {}
     sections = {}
     for name in SECTION_NAMES:
-        item = value["sections"].get(name)
-        if not isinstance(item, dict):
-            return None
+        fallback = fallback_sections[name]
+        item = supplied_sections.get(name)
+        item = item if isinstance(item, dict) else {}
         prose = text(item.get("text"), maximum=7000)
-        cited = validate_references(item.get("fact_ids"), fact_ids, allow_empty=False)
+        supplied_fact_ids = item.get("fact_ids") if isinstance(item.get("fact_ids"), list) else []
+        cited = list(
+            dict.fromkeys(
+                str(fact_id).strip()
+                for fact_id in supplied_fact_ids
+                if str(fact_id).strip() in fact_ids
+            )
+        )
         # Exact metrics and tables are deterministic; model prose must not emit
         # new numeric claims. Fact IDs are citations and are ignored here.
         numeric_probe = re.sub(r"\bF\d+\b", "", prose)
-        if not prose or cited is None or _NUMBER.search(numeric_probe):
+        if not prose or _NUMBER.search(numeric_probe):
+            prose = str(fallback["text"])
+        if not cited:
+            cited = [
+                str(fact_id)
+                for fact_id in fallback["fact_ids"]
+                if str(fact_id) in fact_ids
+            ]
+        if not cited:
             return None
         sections[name] = {"text": prose, "fact_ids": cited}
-    coverage = value.get("coverage")
-    if not isinstance(coverage, list) or set(map(str, coverage)) != set(SECTION_NAMES):
-        return None
     return {"sections": sections, "coverage": list(SECTION_NAMES)}
 
 

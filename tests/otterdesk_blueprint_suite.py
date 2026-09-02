@@ -323,14 +323,15 @@ def test_video_gpu_blueprints_declare_hard_nvidia_cuda_requirements_consistently
         assert manifest["runtime"]["resources"]["gpu"] == GPU_HARD_REQUIREMENT
         assert (
             manifest["runtime"]["models"][runtime_model_key]["model"]
-            == "nemotron-3.5-lightning:latest"
+            == "nemotron3:q4_K_M"
         )
         assert (
-            manifest["runtime"]["models"][runtime_model_key]["runtime_model"]
-            == "nemotron-3.5-lightning:latest"
+            manifest["runtime"]["models"][runtime_model_key]["provider"]
+            == "docker_model_runner"
         )
+        assert "runtime_model" not in manifest["runtime"]["models"][runtime_model_key]
         assert manifest["runtime"]["models"][runtime_model_key]["type"] == "vlm"
-        assert manifest["runtime"]["models"][runtime_model_key]["install_mode"] == "workflow_node"
+        assert "install_mode" not in manifest["runtime"]["models"][runtime_model_key]
 
         worker = next(node for node in _flow_nodes(manifest) if node["node_id"] == worker_id)
         _assert_hard_gpu_worker_requirements(worker)
@@ -342,9 +343,11 @@ def test_video_gpu_blueprints_declare_hard_nvidia_cuda_requirements_consistently
                     _assert_hard_gpu_worker_requirements(rendered)
 
     config = json.loads((ROOT / "cctv_operator" / "config" / "default.json").read_text())
-    assert config["llm"]["model"] == "nemotron-3.5-lightning:latest"
-    assert config["llm"]["runtime_model"] == "nemotron-3.5-lightning:latest"
-    assert config["llm"]["install_mode"] == "workflow_node"
+    assert config["llm"]["model"] == "nemotron3:q4_K_M"
+    assert config["llm"]["provider"] == "docker_model_runner"
+    assert "runtime_model" not in config["llm"]
+    assert "install_mode" not in config["llm"]
+    assert config["llm"]["configs"]["primary"]["api_base"] == "auto"
     assert config["resources"]["gpu"] == GPU_HARD_REQUIREMENT
     assert config["resources"]["required_capabilities"] == ["nvidia", "cuda"]
 
@@ -1352,7 +1355,10 @@ def test_otterdesk_nodes_use_shared_agent_templates_and_render():
             node_id = node["node_id"]
             assert config["beacon_enabled"] is True, (manifest_path.parent.name, node_id)
             assert config["beacon_interval_ms"] == 15000, (manifest_path.parent.name, node_id)
-            assert config["beacon_timeout_ms"] == 45000, (manifest_path.parent.name, node_id)
+            assert config["beacon_timeout_ms"] == 45000, (
+                manifest_path.parent.name,
+                node_id,
+            )
             assert config["beacon_missed_action"] == "fail_attempt", (manifest_path.parent.name, node_id)
             if original_nodes[node_id]["uses"].startswith("mn-agents.data_python_executor@"):
                 configured_beacon_required = original_nodes[node_id].get("with", {}).get(
@@ -1479,14 +1485,25 @@ def test_cctv_operator_uses_dockerworker_nvidia_media_worker():
     manifest = _runtime_manifest(blueprint_dir / "manifest.json")
     config = json.loads((blueprint_dir / "config" / "default.json").read_text())
 
-    sampler_node = next(node for node in _flow_nodes(manifest) if node["node_id"] == "adaptive_frame_sampler")
-    visual_node = next(node for node in _flow_nodes(manifest) if node["node_id"] == "visual_detector")
-    for node in (sampler_node, visual_node):
+    nodes = {node["node_id"]: node for node in _flow_nodes(manifest)}
+    assert set(nodes) == {
+        "ingress",
+        "adaptive_frame_sampler",
+        "visual_detector",
+        "report_writer",
+        "cctv_web_ui",
+    }
+    sampler_node = nodes["adaptive_frame_sampler"]
+    visual_node = nodes["visual_detector"]
+    for node in nodes.values():
         assert node["config"]["runner_module"] == "MirrorNeuron.Runner.DockerWorker"
         assert node["config"]["docker_worker_image"] == "docker_worker"
         assert node["config"]["image"] == "mirror-neuron/cctv-operator:local"
-        assert node["config"]["network"] == "mirror-neuron-runtime"
+        assert node["config"]["network_mode"] == "host"
+        assert "network" not in node["config"]
         assert node["config"]["gpus"] == "all"
+        assert node["config"]["shared_container"] is True
+        assert node["config"]["reuse_shared_container"] is True
         assert node["constraints"] == [
             {
                 "attribute": "capabilities",
@@ -1494,17 +1511,40 @@ def test_cctv_operator_uses_dockerworker_nvidia_media_worker():
                 "value": ["nvidia", "cuda"],
             }
         ]
+        assert "upload_path" not in node["config"]
+        assert "upload_as" not in node["config"]
     _assert_hard_gpu_worker_requirements(sampler_node)
     assert not visual_node.get("resources")
-    assert sampler_node["config"]["shared_container"] is True
-    assert sampler_node["config"]["reuse_shared_container"] is True
-    assert visual_node["config"]["shared_container"] is True
-    assert visual_node["config"]["reuse_shared_container"] is True
+    assert not nodes["ingress"].get("resources")
+    assert not nodes["report_writer"].get("resources")
     assert sampler_node["config"]["command"] == ["bash", "scripts/run_sampler_on_nvidia.sh"]
     assert sampler_node["config"]["workdir"] == "/mn/job/adaptive_frame_sampler"
     assert sampler_node["config"].get("output_message_type") is None
     assert visual_node["config"]["workdir"] == "/mn/job/agents/visual_detector"
     assert visual_node["config"]["command"] == ["bash", "scripts/run_detector_on_nvidia.sh"]
+    visual_model_environment = visual_node["config"]["environment"]
+    assert visual_model_environment["MN_VLM_PROVIDER"] == "docker_model_runner"
+    assert (
+        visual_model_environment["MN_VLM_API_BASE"]
+        == "auto"
+    )
+    assert (
+        visual_model_environment["MN_VLM_MODEL"]
+        == "nemotron3:q4_K_M"
+    )
+    assert visual_model_environment["MN_RUNTIME_MODEL_MANAGED"] == "1"
+    assert (
+        visual_model_environment["MN_RUNTIME_MODEL_CONTROL_TARGET"]
+        == "127.0.0.1:55051"
+    )
+    assert (
+        visual_model_environment["MN_RUNTIME_MODEL_GATEWAY_HOST"]
+        == "127.0.0.1"
+    )
+    assert (
+        visual_model_environment["MN_RUNTIME_MODEL_NATIVE_TARGET"]
+        == "127.0.0.1:55052"
+    )
     assert visual_node["config"]["upload_paths"] == [
         {
             "source": "agents/visual_detector",
@@ -1513,16 +1553,41 @@ def test_cctv_operator_uses_dockerworker_nvidia_media_worker():
         {"source": "domain", "target": "domain"},
         {"source": "prompts", "target": "prompts"},
     ]
-    assert "upload_path" not in visual_node["config"]
-    assert "upload_as" not in visual_node["config"]
     assert "policy" not in visual_node["config"]
 
     dockerfile = (
         blueprint_dir / "payloads" / "docker_worker" / "Dockerfile"
     ).read_text()
+    docker_worker = blueprint_dir / "payloads" / "docker_worker"
     assert "FROM nvidia/cuda:13.0.0-base-ubuntu24.04" in dockerfile
+    assert "FROM bluenviron/mediamtx:1.20.1 AS mediamtx" in dockerfile
+    assert "COPY demo/ /opt/cctv-demo/" in dockerfile
     assert "ffmpeg" in dockerfile
+    assert "scale_cuda" in dockerfile
+    assert "mjpeg" in dockerfile
     assert "python3" in dockerfile
+    assert (docker_worker / "demo" / "sample.mp4").stat().st_size > 0
+    assert (docker_worker / "demo" / "mediamtx.yml").is_file()
+    demo_script = (
+        docker_worker / "demo" / "start_demo_stream.sh"
+    ).read_text()
+    assert "rtsp://127.0.0.1:8554/cctv-demo" in demo_script
+    assert "-stream_loop -1" in demo_script
+
+    sampler_launch_script = (
+        blueprint_dir
+        / "payloads"
+        / "agents"
+        / "adaptive_frame_sampler"
+        / "scripts"
+        / "run_sampler_on_nvidia.sh"
+    ).read_text()
+    assert 'demo_profile' in sampler_launch_script
+    assert "/opt/cctv-demo/start_demo_stream.sh" in sampler_launch_script
+    assert (
+        "/opt/cctv-demo/start_demo_stream.sh >/dev/null 2>&1"
+        in sampler_launch_script
+    )
 
     launch_script = (
         blueprint_dir / "payloads" / "agents" / "visual_detector" / "scripts" / "run_detector_on_nvidia.sh"
@@ -1532,20 +1597,24 @@ def test_cctv_operator_uses_dockerworker_nvidia_media_worker():
     assert "CCTV_MEDIA_ACCELERATOR" in launch_script
     assert "nvidia_cuda" in launch_script
     assert manifest["runtime"]["models"]["primary"]["type"] == "vlm"
-    assert manifest["runtime"]["placement"]["mode"] == "distributed"
-    assert manifest["runtime"]["models"]["primary"]["install_mode"] == "workflow_node"
-    assert config["llm"]["install_mode"] == "workflow_node"
-    assert config["llm"]["configs"]["primary"]["install_mode"] == "workflow_node"
+    assert manifest["runtime"]["placement"]["mode"] == "single_node"
+    assert (
+        manifest["runtime"]["models"]["primary"]["provider"]
+        == "docker_model_runner"
+    )
+    assert config["llm"]["provider"] == "docker_model_runner"
+    assert (
+        config["llm"]["configs"]["primary"]["provider"]
+        == "docker_model_runner"
+    )
+    assert config["llm"]["configs"]["primary"]["api_base"] == "auto"
     assert (
         manifest["runtime"]["models"]["primary"]["model"]
-        == "nemotron-3.5-lightning:latest"
+        == "nemotron3:q4_K_M"
     )
-    assert (
-        manifest["runtime"]["models"]["primary"]["runtime_model"]
-        == "nemotron-3.5-lightning:latest"
-    )
-    assert config["llm"]["model"] == "nemotron-3.5-lightning:latest"
-    assert config["llm"]["runtime_model"] == "nemotron-3.5-lightning:latest"
+    assert "runtime_model" not in manifest["runtime"]["models"]["primary"]
+    assert config["llm"]["model"] == "nemotron3:q4_K_M"
+    assert "runtime_model" not in config["llm"]
     assert config["sampling"]["baseline_interval_seconds"] == 20
     assert config["sampling"]["proxy_fps"] == 1
     assert config["sampling"]["max_model_frames"] == 10
@@ -1581,6 +1650,29 @@ def test_cctv_operator_seeds_live_monitor_start_message():
     }
 
 
+def test_cctv_operator_start_stage_completes_before_stream_routing():
+    source = json.loads((ROOT / "cctv_operator" / "manifest.json").read_text())
+    runtime = _runtime_manifest(ROOT / "cctv_operator" / "manifest.json")
+
+    source_node = next(
+        node
+        for node in source["agents"]["extra_nodes"]
+        if node["node_id"] == "ingress"
+    )
+    runtime_node = next(
+        node for node in runtime["agents"]["nodes"] if node["node_id"] == "ingress"
+    )
+
+    assert source_node["agent_type"] == "executor"
+    assert runtime_node["agent_type"] == "executor"
+    assert source_node["config"]["output_message_type"] is None
+    assert runtime_node["config"].get("output_message_type") is None
+    assert runtime_node["config"]["command"] == [
+        "python3",
+        "agents/validation/start_video_monitor.py",
+    ]
+
+
 def test_cctv_operator_declares_only_routed_schema_validated_live_input():
     source = json.loads(
         (ROOT / "cctv_operator" / "manifest.json").read_text()
@@ -1607,7 +1699,7 @@ def test_cctv_operator_detector_script_compiles_with_shared_helper_import():
     )
 
 
-def test_cctv_operator_owns_json_render_web_ui_and_uses_generic_skills():
+def test_cctv_operator_owns_external_web_ui_and_uses_generic_skills():
     blueprint_dir = ROOT / "cctv_operator"
     manifest = json.loads((blueprint_dir / "manifest.json").read_text())
     config = json.loads((blueprint_dir / "config" / "default.json").read_text())
@@ -1631,17 +1723,28 @@ def test_cctv_operator_owns_json_render_web_ui_and_uses_generic_skills():
 
     assert config["video_source"]["mode"] == "stream"
     assert "folder_path" not in config["video_source"]
-    assert config["web_ui"]["renderer"] == "json-render"
+    assert "renderer" not in config["web_ui"]
     assert config["web_ui"]["service"]["host"] == "0.0.0.0"
-    assert config["web_ui"]["preview"]["optional"] is True
-    assert config["web_ui"]["preview"]["url"] == ""
+    assert config["web_ui"]["service"]["port"] == 0
+    assert config["web_ui"]["preview"] == {
+        "enabled": True,
+        "transport": "mjpeg",
+        "fps": 8,
+        "width": 1280,
+        "jpeg_quality": 5,
+        "reconnect_seconds": 1,
+    }
+    assert config["web_ui"]["event_stream"]["transport"] == "sse"
 
     manifest_web_ui = manifest["metadata"]["web_ui"]
-    assert manifest_web_ui["adapter"] == "json-render"
+    assert manifest_web_ui["adapter"] == "external-url"
     assert manifest_web_ui["node_id"] == "cctv_web_ui"
     assert manifest_web_ui["registration"]["module"] == "cctv_web_ui"
-    assert manifest_web_ui["steering_action"] == "/actions/steer-monitoring"
-    assert manifest_web_ui["preview_config"] == "web_ui.preview.url"
+    assert manifest_web_ui["mjpeg_stream"] == "/streams/live.mjpg"
+    assert manifest_web_ui["operator_event_stream"] == "/streams/operator-events"
+    assert manifest_web_ui["preview_config"] == "web_ui.preview"
+    assert manifest_web_ui["steering"] == "external_chat_mcp_via_declared_live_input"
+    assert "steering_action" not in manifest_web_ui
     assert "/api/v1/runs" not in json.dumps(manifest_web_ui)
 
     web_ui_node = next(
@@ -1650,15 +1753,22 @@ def test_cctv_operator_owns_json_render_web_ui_and_uses_generic_skills():
         if node["node_id"] == "cctv_web_ui"
     )
     assert web_ui_node["type"] == "stream"
-    assert web_ui_node["config"]["runner_module"] == "MirrorNeuron.Runner.HostLocal"
-    assert web_ui_node["config"]["upload_path"] == "."
-    assert web_ui_node["config"]["workdir"] == "/sandbox/job"
+    assert web_ui_node["config"]["runner_module"] == "MirrorNeuron.Runner.DockerWorker"
+    assert web_ui_node["config"]["docker_worker_image"] == "docker_worker"
+    assert web_ui_node["config"]["network_mode"] == "host"
+    assert web_ui_node["config"]["shared_container"] is True
+    assert web_ui_node["config"]["reuse_shared_container"] is True
+    assert web_ui_node["config"]["upload_paths"] == [
+        {"source": "services", "target": "services"},
+        {"source": "domain", "target": "domain"},
+    ]
+    assert web_ui_node["config"]["workdir"] == "/mn/job"
     assert web_ui_node["config"]["command"] == [
-        "python3.11",
+        "python3",
         "services/cctv_web_ui.py",
     ]
-    assert web_ui_node["services"][0]["name"] == "cctv-operator-web-ui"
-    assert web_ui_node["services"][0]["address"] == "0.0.0.0"
+    assert "resources" not in web_ui_node
+    assert "services" not in web_ui_node
     bindings = {
         (binding["config_path"], binding["manifest_path"])
         for binding in config["manifest_config_bindings"]
@@ -1666,11 +1776,11 @@ def test_cctv_operator_owns_json_render_web_ui_and_uses_generic_skills():
     assert (
         "web_ui.service.host",
         "agents.nodes.cctv_web_ui.services.0.address",
-    ) in bindings
+    ) not in bindings
     assert (
         "web_ui.service.port",
-        "agents.nodes.cctv_web_ui.services.0.port",
-    ) in bindings
+        "agents.nodes.cctv_web_ui.resources.ports.0.port",
+    ) not in bindings
     assert "cctv_web_ui" in manifest["agents"]["entrypoints"]
 
 
@@ -1704,8 +1814,41 @@ def test_cctv_operator_default_contract_is_stream_only(monkeypatch):
         "payloads/agents/validation/validate_video_source.py",
     ]
     assert config["video_source"]["mode"] == "stream"
+    assert config["video_source"]["profile"] == "bundled_demo"
+    assert (
+        config["video_source"]["uri"]
+        == "rtsp://127.0.0.1:8554/cctv-demo"
+    )
     assert "folder_path" not in config["video_source"]
     assert "input_folder" not in config["inputs"]["payload"]
+
+
+def test_cctv_operator_bundled_demo_validator_defers_to_dockerworker(
+    monkeypatch, capsys
+):
+    validator = _load_cctv_operator_validator()
+    monkeypatch.setenv(
+        "MN_BLUEPRINT_CONFIG_JSON",
+        json.dumps(
+            {
+                "video_source": {
+                    "mode": "stream",
+                    "profile": "bundled_demo",
+                    "uri": "rtsp://127.0.0.1:8554/cctv-demo",
+                }
+            }
+        ),
+    )
+    monkeypatch.setattr(
+        validator,
+        "probe_stream",
+        lambda *_args, **_kwargs: pytest.fail(
+            "submit host must not probe DockerWorker loopback"
+        ),
+    )
+
+    assert validator.main() == 0
+    assert "DockerWorker" in capsys.readouterr().out
 
 
 @pytest.mark.parametrize(

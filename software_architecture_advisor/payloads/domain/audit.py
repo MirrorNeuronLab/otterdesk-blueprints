@@ -6,10 +6,19 @@ import json
 from pathlib import Path
 from typing import Any
 
-from .model_analysis import STAGES, fake_mode, known_fact_ids, known_paths, run_model_stage, string_list, structured_packet, text, validate_references
+from .model_analysis import (
+    STAGES,
+    fake_mode,
+    known_fact_ids,
+    known_paths,
+    run_model_stage,
+    string_list,
+    structured_packet,
+    text,
+    validate_references,
+)
 from .report_drafting import SECTION_NAMES
 from .state import read_state, write_state
-
 
 _AUDIT_CHECKS = (
     "claims_are_fact_grounded",
@@ -42,6 +51,16 @@ def audit_advice(
         "rejected_claims": [],
         "required_revisions": [] if fallback_verdict == "approve" else [item["name"] for item in preliminary if not item["passed"]],
     }
+    audit_context = structured_packet(
+        state,
+        preliminary_checks=preliminary,
+        deterministic_gate=_deterministic_gate(preliminary),
+        report_draft=_audit_report_summary(state.get("report_draft") or {}),
+        findings=[_audit_finding_summary(item) for item in state.get("findings") or []],
+        prompts=[_audit_prompt_summary(item) for item in state.get("prompt_pack") or []],
+        adversarial_review=_audit_review_summary(state.get("adversarial_review") or {}),
+        prior_llm_stages=_prior_stage_summaries(state),
+    )
     final_model_audit = run_model_stage(
         ctx,
         state,
@@ -54,18 +73,15 @@ def audit_advice(
             "report coverage. Treat explicitly unavailable runtime evidence as a stated "
             "limitation, not as a failure."
         ),
-        context=structured_packet(
-            state,
-            preliminary_checks=preliminary,
-            deterministic_gate=_deterministic_gate(preliminary),
-            report_draft=_audit_report_summary(state.get("report_draft") or {}),
-            findings=[_audit_finding_summary(item) for item in state.get("findings") or []],
-            prompts=[_audit_prompt_summary(item) for item in state.get("prompt_pack") or []],
-            adversarial_review=_audit_review_summary(state.get("adversarial_review") or {}),
-            prior_llm_stages=_prior_stage_summaries(state),
-        ),
+        context=audit_context,
         fallback=fallback,
-        validator=lambda value: _validate_model_audit(value, fact_ids=known),
+        validator=lambda value: _validate_model_audit(
+            value,
+            fact_ids=known,
+            deterministic_gate=audit_context["deterministic_gate"],
+            supplied_context=audit_context,
+            fallback=fallback,
+        ),
         llm_client=llm_client,
     )
     checks = _deterministic_checks(ctx, state, include_final_usage=True)
@@ -280,7 +296,9 @@ def _deterministic_checks(
 
 
 def _validate_model_audit(
-    value: dict[str, Any], *, fact_ids: set[str]
+    value: dict[str, Any], *, fact_ids: set[str],
+    deterministic_gate: dict[str, Any], supplied_context: dict[str, Any],
+    fallback: dict[str, Any],
 ) -> dict[str, Any] | None:
     if not isinstance(value, dict):
         return None
@@ -309,6 +327,22 @@ def _validate_model_audit(
         return None
     if verdict == "approve" and any(item["status"] != "approve" for item in checks):
         return None
+    gate_passed = bool(deterministic_gate.get("all_preliminary_checks_pass"))
+    if gate_passed and verdict == "reject":
+        # A final model can still veto a deterministically valid package, but
+        # the veto must identify an actual supplied claim. This prevents
+        # explicitly unavailable runtime evidence from becoming an invented
+        # publication requirement while preserving a concrete safety veto.
+        supplied = json.dumps(supplied_context, sort_keys=True, default=str).casefold()
+        concrete = [
+            claim
+            for claim in rejected
+            if len(claim.strip()) >= 16 and claim.strip().casefold() in supplied
+        ]
+        if not concrete:
+            return dict(fallback)
+    if not gate_passed and verdict == "approve":
+        return dict(fallback)
     return {"verdict": verdict, "summary": summary, "checks": checks, "rejected_claims": rejected, "required_revisions": revisions}
 
 

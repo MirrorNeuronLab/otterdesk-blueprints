@@ -1,7 +1,8 @@
 {
   "schema": "otterdesk.cctv_operator.sample_policy.v1",
   "source_mode": "stream",
-  "video_source": "rtsp://camera.example/cctv",
+  "source_profile": "bundled_demo",
+  "video_source": "rtsp://127.0.0.1:8554/cctv-demo",
   "visual_targets": [
     "person",
     "unattended package",

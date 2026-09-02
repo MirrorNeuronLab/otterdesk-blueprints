@@ -55,6 +55,7 @@
     "required": true,
     "preinstalled_only": true,
     "provider": "docker_model_runner",
+    "model": "medium",
     "api_base": "auto",
     "minimum_host_memory_gb": 48,
     "minimum_context_tokens": 32768,
@@ -70,12 +71,13 @@
     "provider": "docker_model_runner",
     "backend": "llama.cpp",
     "model": "medium",
+    "runtime_model": "medium",
     "context_size": 32768,
     "default_config": "analysis",
     "configs": {
-      "analysis": {"provider": "docker_model_runner", "backend": "llama.cpp", "model": "medium", "api_base": "auto", "context_size": 32768, "timeout_seconds": 600, "max_tokens": 16000, "num_retries": 2, "retry_backoff_seconds": 1, "network": "loopback_only"},
-      "writing": {"provider": "docker_model_runner", "backend": "llama.cpp", "model": "medium", "api_base": "auto", "context_size": 32768, "timeout_seconds": 600, "max_tokens": 7000, "num_retries": 2, "retry_backoff_seconds": 1, "network": "loopback_only"},
-      "audit": {"provider": "docker_model_runner", "backend": "llama.cpp", "model": "medium", "api_base": "auto", "context_size": 32768, "timeout_seconds": 600, "max_tokens": 5000, "num_retries": 2, "retry_backoff_seconds": 1, "network": "loopback_only"}
+      "analysis": {"provider": "docker_model_runner", "backend": "llama.cpp", "model": "medium", "runtime_model": "medium", "api_base": "auto", "context_size": 32768, "timeout_seconds": 600, "max_tokens": 16000, "num_retries": 2, "retry_backoff_seconds": 1, "network": "loopback_only"},
+      "writing": {"provider": "docker_model_runner", "backend": "llama.cpp", "model": "medium", "runtime_model": "medium", "api_base": "auto", "context_size": 32768, "timeout_seconds": 600, "max_tokens": 7000, "num_retries": 2, "retry_backoff_seconds": 1, "network": "loopback_only"},
+      "audit": {"provider": "docker_model_runner", "backend": "llama.cpp", "model": "medium", "runtime_model": "medium", "api_base": "auto", "context_size": 32768, "timeout_seconds": 600, "max_tokens": 5000, "num_retries": 2, "retry_backoff_seconds": 1, "network": "loopback_only"}
     },
     "quick_test_uses_fake": true,
     "responsibilities": ["Read local evidence only.", "Preserve uncertainty.", "Generate advisory prompts without modifying code."],

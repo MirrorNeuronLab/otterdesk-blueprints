@@ -169,7 +169,21 @@
     "disk": {"min_gb": 16},
     "gpu": {"min_count": 0},
     "network": {"egress": "forbidden", "loopback_only": true},
-    "local_model": {"required": true, "provider": "docker_model_runner", "model": "default", "minimum_host_memory_gb": 48, "preinstalled_only": true}
+    "local_model": {"required": true, "provider": "docker_model_runner", "model": "medium", "minimum_host_memory_gb": 48, "preinstalled_only": true}
+  },
+  "runtime": {
+    "models": {
+      "primary": {
+        "provider": "docker_model_runner",
+        "backend": "llama.cpp",
+        "model": "medium",
+        "runtime_model": "medium",
+        "context_size": 32768,
+        "required": true,
+        "install_mode": "workflow_node",
+        "type": "llm"
+      }
+    }
   },
   "defaults": {"worker": {"with": {"stereotype": "internal_write_worker", "image": "mirror-neuron/software-architecture-advisor:local", "upload_paths": [{"source": "domain", "target": "domain"}, {"source": "examples", "target": "examples"}]}}},
   "agents": {
@@ -193,12 +207,13 @@
     "provider": "docker_model_runner",
     "backend": "llama.cpp",
     "model": "medium",
+    "runtime_model": "medium",
     "context_size": 32768,
     "default_config": "analysis",
     "configs": {
-      "analysis": {"provider": "docker_model_runner", "backend": "llama.cpp", "model": "medium", "api_base": "auto", "context_size": 32768, "timeout_seconds": 600, "max_tokens": 16000, "num_retries": 2, "retry_backoff_seconds": 1, "network": "loopback_only"},
-      "writing": {"provider": "docker_model_runner", "backend": "llama.cpp", "model": "medium", "api_base": "auto", "context_size": 32768, "timeout_seconds": 600, "max_tokens": 7000, "num_retries": 2, "retry_backoff_seconds": 1, "network": "loopback_only"},
-      "audit": {"provider": "docker_model_runner", "backend": "llama.cpp", "model": "medium", "api_base": "auto", "context_size": 32768, "timeout_seconds": 600, "max_tokens": 5000, "num_retries": 2, "retry_backoff_seconds": 1, "network": "loopback_only"}
+      "analysis": {"provider": "docker_model_runner", "backend": "llama.cpp", "model": "medium", "runtime_model": "medium", "api_base": "auto", "context_size": 32768, "timeout_seconds": 600, "max_tokens": 16000, "num_retries": 2, "retry_backoff_seconds": 1, "network": "loopback_only"},
+      "writing": {"provider": "docker_model_runner", "backend": "llama.cpp", "model": "medium", "runtime_model": "medium", "api_base": "auto", "context_size": 32768, "timeout_seconds": 600, "max_tokens": 7000, "num_retries": 2, "retry_backoff_seconds": 1, "network": "loopback_only"},
+      "audit": {"provider": "docker_model_runner", "backend": "llama.cpp", "model": "medium", "runtime_model": "medium", "api_base": "auto", "context_size": 32768, "timeout_seconds": 600, "max_tokens": 5000, "num_retries": 2, "retry_backoff_seconds": 1, "network": "loopback_only"}
     },
     "quick_test_uses_fake": true,
     "responsibilities": ["Synthesize only supplied local evidence.", "Keep unknowns and static-analysis limits explicit.", "Produce safe implementation prompts without altering code."],

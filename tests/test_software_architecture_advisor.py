@@ -3,7 +3,13 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from blueprint_modernization_support import ROOT, assert_modular_payload, assert_registry_handlers_import, run_payload_script, source_manifest
+from blueprint_modernization_support import (
+    ROOT,
+    assert_modular_payload,
+    assert_registry_handlers_import,
+    run_payload_script,
+    source_manifest,
+)
 from mn_sdk import expand_manifest_source
 from mn_sdk.blueprint_support import configured_llm_environment
 from mn_sdk.submission_preparation import (
@@ -62,7 +68,25 @@ def test_software_architecture_advisor_is_air_gapped_and_requires_a_large_local_
     }
     assert "source_acquisition" not in config
     assert config["local_model"]["preinstalled_only"] is True
-    assert manifest["llm"]["model"] == "medium"
+    model_id = "medium"
+    assert manifest["requirements"]["local_model"]["model"] == model_id
+    assert manifest["runtime"]["models"] == {
+        "primary": {
+            "provider": "docker_model_runner",
+            "backend": "llama.cpp",
+            "model": model_id,
+            "runtime_model": model_id,
+            "context_size": 32768,
+            "required": True,
+            "install_mode": "workflow_node",
+            "type": "llm",
+        }
+    }
+    assert config["local_model"]["model"] == model_id
+    assert manifest["llm"]["model"] == model_id
+    assert manifest["llm"]["runtime_model"] == model_id
+    assert config["llm"]["model"] == model_id
+    assert config["llm"]["runtime_model"] == model_id
     assert manifest["workflow"]["workflow_id"] == "software_architecture_advisor_v3"
     assert manifest["workflow"]["execution"]["strategy"] == "serial"
     assert config["llm"]["require_live"] is True
@@ -84,8 +108,8 @@ def test_software_architecture_advisor_is_air_gapped_and_requires_a_large_local_
     assert config["research_budget"]["default_actions"] == 8
     assert config["backpressure"]["llm"]["max_concurrent_calls"] == 1
     for profile in config["llm"]["configs"].values():
-        assert "runtime_model" not in profile
-        assert profile["model"] == "medium"
+        assert profile["model"] == model_id
+        assert profile["runtime_model"] == model_id
         assert profile["timeout_seconds"] == 600
         assert profile["num_retries"] == 2
     assert config["llm"]["configs"]["analysis"]["max_tokens"] == 16000
@@ -583,6 +607,7 @@ class ScriptedLiveLLM:
         payload = json.loads(user_prompt)
         stage = payload["stage"]
         assert payload["required_output_contract"]["required_fields"]
+        assert payload["response_limits"]["maximum_total_json_characters"] <= 7000
         assert payload["structured_output_rules"]
         assert "required_output_shape" not in payload
         self.stages.append(stage)
@@ -591,6 +616,7 @@ class ScriptedLiveLLM:
         value = json.loads(json.dumps(fallback))
         if stage == "source_intake":
             value["summary"] = "Scripted intake identified repository-specific investigation priorities."
+            value["investigation_priorities"][0]["path_refs"].append("invented/path.py")
         elif stage == "component_mapping":
             value["summary"] = "Scripted component reconstruction explains repository ownership."
             value["components"][0]["responsibility"] = "Scripted component responsibility grounded in supplied paths."
@@ -599,6 +625,7 @@ class ScriptedLiveLLM:
         elif stage == "finding_synthesis":
             for item in value["deterministic_finding_rationales"]:
                 item["rationale"] = "Scripted rationale grounded in the cited architecture facts."
+                item["fact_ids"].append("invented-fact-id")
             facts = context["facts"]
             by_path = {{}}
             for fact in facts:
@@ -644,6 +671,8 @@ class ScriptedLiveLLM:
         elif stage == "report_synthesis":
             for name, section in value["sections"].items():
                 section["text"] = "Scripted " + name.replace("_", " ") + " narrative grounded in cited facts."
+            value["sections"]["migration_strategy"]["text"] += " Unsupported metric 42."
+            value["sections"]["migration_strategy"]["fact_ids"].append("invented-fact-id")
         elif stage == "final_audit":
             self.final_audit_is_compact = (
                 "deterministic_gate" in system_prompt
@@ -812,9 +841,12 @@ class RejectingFinalAuditor:
     def generate_json(self, *, system_prompt, user_prompt, fallback, validator=None, validation_retries=0):
         payload = json.loads(user_prompt)
         value = json.loads(json.dumps(fallback))
-        if payload["stage"] == "final_audit":
+        if payload["stage"] == "report_synthesis":
+            value["sections"]["migration_strategy"]["text"] = "Delete the source without a rollback."
+        elif payload["stage"] == "final_audit":
             value["verdict"] = "reject"
             value["summary"] = "The scripted auditor rejected publication."
+            value["rejected_claims"] = ["Delete the source without a rollback."]
             value["required_revisions"] = ["Resolve the rejected package before publication."]
             value["checks"][0]["status"] = "reject"
         self.calls += 1

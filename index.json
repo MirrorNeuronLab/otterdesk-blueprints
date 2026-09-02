@@ -1,14 +1,14 @@
 [
   {
     "capabilities": [
-      "Reviews only the approved RTSP/RTMP stream configured for the run.",
+      "Runs a self-contained Docker demo stream by default or reviews one approved external RTSP/RTMP stream.",
       "Redacts stream credentials from logs, events, browser URLs, and public service artifacts.",
       "Uses human notices for notable visual changes and does not execute physical security actions.",
       "Requires human confirmation for safety, security, access, or disciplinary responses.",
-      "Keeps dashboard steering scoped to the current run."
+      "Streams operator activity over SSE and keeps watch steering on the external chat/MCP boundary."
     ],
     "category": "Security",
-    "description": "An NVIDIA-only, stream-only CCTV co-worker with a blueprint-owned json-render UI, sparse baseline analysis, and event-triggered frame bursts for one approved RTSP/RTMP source.",
+    "description": "An NVIDIA-only, stream-only CCTV co-worker with a self-contained Docker demo source, optional approved external RTSP/RTMP input, a professional read-only operations console, CUDA-assisted MJPEG preview, sparse baseline analysis, and event-triggered frame bursts.",
     "air-gapped": false,
     "id": "cctv_operator",
     "job_name": "cctv-operator",
@@ -19,14 +19,14 @@
       "benefit": "Combines live operator steering with bounded multimodal analysis so a 24 FPS source does not become a 24 FPS model workload.",
       "customizable_for": "Video monitoring, configurable visual detection, facility operations, and site safety workflows.",
       "how_it_works": "Inspects a 1 FPS proxy, analyzes a baseline frame every 20 seconds, selects up to ten frames around sustained scene changes, and prioritizes operator-requested analysis.",
-      "input": "Approved RTSP/RTMP stream, run-scoped monitoring instruction, sampling thresholds, alert policy, and notification settings.",
-      "output": "Smooth source preview, the latest analyzed frame, durable frame-batch manifests, and cumulative source-grounded observations and reports.",
+      "input": "Bundled Docker demo stream by default, or one approved external RTSP/RTMP stream, plus run-scoped monitoring instruction, sampling thresholds, alert policy, and notification settings.",
+      "output": "A CUDA-assisted MJPEG source preview, live operator event stream, the latest analyzed frame, durable frame-batch manifests, and cumulative source-grounded observations and reports.",
       "problem": "Teams need a steerable review surface for a continuous stream without turning every source frame into a model request.",
       "runtime_features": [
         "stream-only adaptive sampling",
-        "live monitoring steering",
+        "external chat/MCP monitoring steering",
         "event-triggered frame bursts",
-        "browser preview and analyzed-frame review",
+        "CUDA-assisted MJPEG browser preview and analyzed-frame review",
         "NVIDIA CUDA media preparation",
         "visual detection",
         "cooldown state",
@@ -111,7 +111,7 @@
   },
   {
     "category": "Science",
-    "description": "A continuously running drug-discovery research service. Give it a disease or target profile, screening criteria, optional candidate seeds, literature notes, and an input folder; it uses BioTarget and the custom homerquan/DrugClip text-to-molecular-graph model for continuous candidate generation, folding, evaluation, and review-only cycle reports until manually stopped.",
+    "description": "A continuously running drug-discovery research service with a live step-by-step progress UI. Give it a disease or target profile, screening criteria, optional candidate seeds, literature notes, and an input folder; it uses BioTarget and the custom homerquan/DrugClip text-to-molecular-graph model for continuous candidate generation, folding, evaluation, and review-only cycle reports until manually stopped.",
     "air-gapped": false,
     "id": "drug_discovery_research_assistant",
     "job_name": "drug-discovery-research-assistant",
@@ -119,18 +119,19 @@
     "path": "drug_discovery_research_assistant",
     "product": {
       "agent_role": "Continuous native service coordinator for BioTarget and custom DrugClip graph-text candidate generation, folding, simulation, and evidence review.",
-      "benefit": "Keeps BioTarget computational discovery cycles moving while distributing DrugClip graph-text screening, folding, and simulation across cluster boxes with reviewable evidence.",
+      "benefit": "Keeps BioTarget computational discovery cycles moving while showing every workflow and cycle phase in a live progress UI and distributing DrugClip graph-text screening, folding, and simulation across cluster boxes with reviewable evidence.",
       "customizable_for": "Drug discovery, target-focused virtual screening, molecular-generation pipelines, folding, simulation, and scientific research operations.",
-      "how_it_works": "Runs a manual-stop native service that dispatches BioTarget Stage C candidate generation, DrugClip graph-text screening, folding, and simulation across worker pools before fanning results into cycle reports.",
+      "how_it_works": "Runs a manual-stop native service that publishes atomic phase progress, dispatches BioTarget Stage C candidate generation, DrugClip graph-text screening, folding, and simulation across worker pools, and fans results into cycle reports.",
       "input": "Disease or target profile, screening criteria, candidate seeds, literature notes, adapter commands, native dispatcher configuration, and local supporting files.",
-      "output": "Per-cycle candidate, folding, DrugCLIP, simulation, state, risk, and human-review artifacts.",
+      "output": "A job-scoped step-by-step progress UI plus per-cycle candidate, folding, DrugCLIP, simulation, state, risk, and human-review artifacts.",
       "problem": "Discovery work needs continuous, traceable candidate generation and scientific screening without collapsing cluster-scale folding and simulation into a single serial worker.",
       "runtime_features": [
         "manual-stop continuous service",
-        "native host workers",
+        "shared NVIDIA DockerWorker",
         "cross-box fanout/fanin",
         "custom DrugClip text-molecular-graph alignment",
         "parallel folding and simulation",
+        "job-scoped step-by-step progress UI",
         "product input contract",
         "transparent run status",
         "human control policy",
@@ -481,7 +482,7 @@
   },
   {
     "category": "Robotics",
-    "description": "Talk to a live Microduck MuJoCo simulation in OtterDesk: the Job agent interprets natural-language intent and invokes bounded MCP movement plus deterministic goal-directed ball navigation.",
+    "description": "Talk to a live Microduck MuJoCo simulation in OtterDesk: the Job agent invokes bounded MCP movement, deterministic ball navigation, and stoppable continuous free play.",
     "air-gapped": false,
     "id": "microduck_controller",
     "job_name": "microduck-controller",
@@ -489,9 +490,9 @@
     "path": "microduck_controller",
     "product": {
       "agent_role": "Browser-backed Microduck simulation service operator.",
-      "benefit": "Lets an OtterDesk user move, inspect, and send a visible Microduck toward an active ball in ordinary language without granting raw simulator, shell, or browser-control access.",
+      "benefit": "Lets an OtterDesk user move, inspect, send a visible Microduck toward an active ball, or let it repeatedly find and kick the ball in ordinary language without granting raw simulator, shell, or browser-control access.",
       "customizable_for": "Interactive robotics demonstrations, agent-tool evaluation, browser-based simulation control, and bounded closed-loop navigation prototypes.",
-      "how_it_works": "Builds and serves the bundled Vite simulator, grants one ?control=1 browser tab a lease, indexes the same manual exposed by MCP, lets the default Job model select one validated effect per turn, and runs find-ball requests through a deterministic position-feedback loop.",
+      "how_it_works": "Builds and serves the bundled Vite simulator, grants one ?control=1 browser tab a lease, indexes the same manual exposed by MCP, lets the default Job model select one validated effect per turn, and runs find-ball and free-play requests through deterministic position-feedback controllers.",
       "input": "The bundled demo input folder, one local browser control tab, and natural-language requests in OtterDesk.",
       "output": "A visual simulator URL, compact live service state, command receipts/history, and a final run artifact.",
       "problem": "Conversation agents need an auditable way to act in a web robot simulator without direct MuJoCo state mutation or unbounded browser automation.",
@@ -501,13 +502,14 @@
         "same-origin WebSocket bridge",
         "bounded Streamable HTTP MCP tools",
         "deterministic closed-loop ball navigation",
+        "continuous find-kick-reacquire free play",
         "blueprint-owned MCP control manual",
         "bounded natural-language Job agent",
         "fresh compact sensor context",
         "idempotent command receipts",
         "loopback-first unauthenticated service"
       ],
-      "simulation_type": "One browser-owned Microduck MuJoCo simulation controlled through bounded primitive effects and a deterministic active-ball approach.",
+      "simulation_type": "One browser-owned Microduck MuJoCo simulation controlled through bounded primitive effects, deterministic active-ball approach, and stoppable continuous free play.",
       "target_users": "Robotics demonstrators, AI-agent developers, simulation researchers, and evaluators."
     },
     "type": "service",
@@ -517,7 +519,8 @@
     },
     "starter_questions": [
       "Move forward for a medium step.",
-      "Find the ball.",
+      "Could you locate the ball for me?",
+      "Let's free play now—keep chasing and kicking it.",
       "Run the showcase routine.",
       "What can you do, and what are your safety limits?"
     ]

@@ -1,0 +1,10 @@
+logLevel: warn
+rtspTransports: [tcp]
+rtspAddress: :8554
+hls: true
+hlsAddress: :8888
+hlsAllowOrigins: ['*']
+
+paths:
+  cctv-demo:
+    source: publisher

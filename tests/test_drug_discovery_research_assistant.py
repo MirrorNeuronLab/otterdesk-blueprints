@@ -6,6 +6,7 @@ import sys
 import types
 from pathlib import Path
 
+from mn_sdk import apply_manifest_config_bindings
 from mn_sdk.blueprint_runtime import load_blueprint_config
 
 from blueprint_modernization_support import (
@@ -97,6 +98,12 @@ def test_drug_discovery_manifest_uses_source_format_and_shared_blocks():
             "name": "mirrorneuron-rag-skill",
             "version": "1.3.22",
         },
+        {
+            "type": "pip",
+            "source": "gar",
+            "name": "mirrorneuron-web-ui-skill",
+            "version": "1.3.22",
+        },
     ]
     assert {
         entry.get("from")
@@ -105,6 +112,20 @@ def test_drug_discovery_manifest_uses_source_format_and_shared_blocks():
     } >= {"contracts.inputs"}
     assert "nodes" not in manifest.get("agents", {})
     assert "edges" not in manifest.get("agents", {})
+    assert manifest["identity"]["manifest_version"] == "1.1"
+    assert manifest["agents"]["entrypoints"] == ["drug_discovery_web_ui"]
+    [web_ui_node] = manifest["agents"]["extra_nodes"]
+    assert web_ui_node["node_id"] == "drug_discovery_web_ui"
+    assert web_ui_node["type"] == "stream"
+    assert web_ui_node["config"]["runner_module"] == "MirrorNeuron.Runner.HostLocal"
+    assert web_ui_node["config"]["command"] == [
+        "python3.11",
+        "services/drug_discovery_web_ui.py",
+    ]
+    assert web_ui_node["services"][0]["name"] == "drug-discovery-progress"
+    assert web_ui_node["services"][0]["checks"][0]["path"] == "/healthz"
+    assert manifest["metadata"]["web_ui"]["source_of_truth"] == "workflow.steps"
+    assert manifest["metadata"]["web_ui"]["registration"]["scope"] == "job"
     assert [step["id"] for step in manifest["workflow"]["steps"]] == list(STEP_SCRIPTS)
     assert manifest["agents"].get("extra_templates", []) == []
     assert manifest["defaults"]["worker"]["uses"] == "mn-agents.worker.python_host@1"
@@ -176,6 +197,18 @@ def test_drug_discovery_model_profiles_match_vc_style_defaults():
     assert config["service"]["candidate_count"] == 160
     assert config["service"]["candidate_pool_size"] == 800
     assert config["service"]["drugclip_scoring_batch_size"] == 64
+    assert [step["id"] for step in config["web_ui"]["workflow_steps"]] == list(
+        STEP_SCRIPTS
+    )
+    assert [step["id"] for step in config["service"]["cycle_steps"]] == [
+        "generate_candidates",
+        "fold_targets",
+        "screen_with_drugclip",
+        "simulate_candidates",
+        "publish_cycle_report",
+    ]
+    assert default_config["web_ui"]["renderer"] == "json-render"
+    assert default_config["web_ui"]["service"]["port"] == 61020
     assert config["resources"]["gpu"] == {
         "min_count": 1,
         "vendor": "nvidia",
@@ -210,7 +243,13 @@ def test_drug_discovery_model_profiles_match_vc_style_defaults():
     assert config["biotarget"]["source_dir"] == "@/payloads"
     assert config["python_dependencies"]["requirements"] == "requirements.txt"
     requirements = (BLUEPRINT_DIR / "payloads" / "requirements.txt").read_text(encoding="utf-8")
-    for package in ("drugclip>=0.1.2", "torch>=2.0", "torch_geometric>=2.3", "requests"):
+    for package in (
+        "drugclip>=0.1.2",
+        "torch>=2.0",
+        "torch_geometric>=2.3",
+        "huggingface_hub",
+        "requests",
+    ):
         assert package in requirements
     for adapter_name in ("candidate_generator", "folding", "drugclip", "simulation"):
         assert config[adapter_name]["command"][0] == "python"
@@ -239,6 +278,9 @@ def test_drug_discovery_source_manifest_expands_with_native_service_script():
         assert config["docker_worker_image"] == "docker_worker"
         assert config["image"] == "mirror-neuron/drug-discovery-research-assistant:drugclip-gnina"
     assert expanded["workflow"]["steps"]
+    ui_node = node_by_id["drug_discovery_web_ui"]
+    assert ui_node["config"]["runner_module"] == "MirrorNeuron.Runner.HostLocal"
+    assert ui_node["services"][0]["name"] == "drug-discovery-progress"
     assert expanded["runtime"]["resources"]["gpu"] == {
         "driver": "cuda",
         "enforcement": "hard",
@@ -317,6 +359,17 @@ def test_continuous_service_fake_mode_writes_parallel_cycle_artifacts(tmp_path):
     report = json.loads((cycle / "cycle_report.json").read_text(encoding="utf-8"))
     assert report["mode"] == "fake_smoke_test"
     assert report["simulation_count"] > 0
+    progress = json.loads((tmp_path / "cycle_progress.json").read_text(encoding="utf-8"))
+    assert progress["status"] == "complete"
+    assert progress["mode"] == "fake_smoke_test"
+    assert progress["active_step"] is None
+    assert [step["status"] for step in progress["steps"]] == ["Complete"] * 5
+    assert progress["counts"] == {
+        "targets": 1,
+        "candidates": 3,
+        "screens": 3,
+        "simulations": 2,
+    }
 
 
 def test_continuous_service_publishes_user_facing_candidates(tmp_path):
@@ -345,6 +398,231 @@ def test_continuous_service_publishes_user_facing_candidates(tmp_path):
     status = json.loads((output_folder / "service_status.json").read_text(encoding="utf-8"))
     assert status["status"] == "stopped"
     assert status["completed_cycles"] == 1
+    assert (output_folder / "cycle_progress.json").exists()
+
+
+def _load_drug_discovery_web_ui():
+    module_path = (
+        BLUEPRINT_DIR / "payloads" / "services" / "drug_discovery_web_ui.py"
+    )
+    spec = importlib.util.spec_from_file_location(
+        "drug_discovery_web_ui_test", module_path
+    )
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _load_drug_discovery_domain_module(name: str):
+    package_name = "drug_discovery_domain_test"
+    domain_dir = BLUEPRINT_DIR / "payloads" / "domain"
+    package = types.ModuleType(package_name)
+    package.__path__ = [str(domain_dir)]
+    sys.modules[package_name] = package
+    module_name = f"{package_name}.{name}"
+    spec = importlib.util.spec_from_file_location(module_name, domain_dir / f"{name}.py")
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_drug_discovery_web_ui_shows_workflow_and_cycle_steps_clearly():
+    module = _load_drug_discovery_web_ui()
+    config = load_blueprint_config(BLUEPRINT_DIR)
+
+    spec = module.build_ui_spec(config)
+    elements = spec["elements"]
+
+    assert elements["layout"]["children"] == [
+        "overview",
+        "workflow",
+        "cycle",
+        "activity",
+        "boundary",
+    ]
+    assert elements["workflow"]["props"]["title"] == "Workflow steps"
+    assert elements["workflow-status"]["props"]["keys"] == [
+        "Step 1 — Target Discovery",
+        "Step 2 — Structure Generation",
+        "Step 3 — Continuous Discovery Service",
+        "Step 4 — Cycle Results Review",
+        "Step 5 — Ranking And Reporting",
+    ]
+    assert elements["cycle-status"]["props"]["keys"] == [
+        "Cycle — Generate candidate pool",
+        "Cycle — Fold target structures",
+        "Cycle — Screen with DrugCLIP",
+        "Cycle — Run GNINA and toxicity evaluation",
+        "Cycle — Publish cycle report",
+    ]
+
+
+def test_drug_discovery_web_ui_projects_durable_progress_without_candidates(
+    tmp_path,
+):
+    module = _load_drug_discovery_web_ui()
+    config = load_blueprint_config(BLUEPRINT_DIR)
+    workflow_state = tmp_path / "workflow_state"
+    workflow_state.mkdir()
+    (workflow_state / "drug_discovery_state.json").write_text(
+        json.dumps(
+            {
+                "targets": [{"gene": "BACE1"}],
+                "structures": [{"gene": "BACE1", "path": "/private/receptor.pdb"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "service_state.json").write_text(
+        json.dumps(
+            {
+                "status": "running",
+                "completed_cycles": 2,
+                "last_report": {
+                    "candidate_count": 160,
+                    "screen_count": 160,
+                    "simulation_count": 16,
+                    "top_candidates": [{"smiles": "CONFIDENTIAL-SMILES"}],
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "cycle_progress.json").write_text(
+        json.dumps(
+            {
+                "cycle_id": 2,
+                "status": "running",
+                "active_step": "screen_with_drugclip",
+                "updated_at": "2026-09-01T12:00:00Z",
+                "counts": {
+                    "targets": 1,
+                    "candidates": 160,
+                    "screens": 64,
+                    "simulations": 0,
+                },
+                "steps": [
+                    {
+                        "id": step["id"],
+                        "label": "Artifact label must not override the manifest",
+                        "status": "Complete" if index < 2 else "Running" if index == 2 else "Waiting",
+                    }
+                    for index, step in enumerate(config["service"]["cycle_steps"])
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "events.jsonl").write_text(
+        json.dumps(
+            {
+                "type": "workflow_step_started",
+                "step_id": "candidate_generation",
+                "payload": {"summary": "CONFIDENTIAL TARGET TEXT"},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    service = module.DrugDiscoveryWebUIService(
+        run_id="run-3", run_dir=tmp_path, config=config
+    )
+    state = service.ui_state()
+
+    assert state["metrics"]["Step 1 — Target Discovery"] == "Complete"
+    assert state["metrics"]["Step 2 — Structure Generation"] == "Complete"
+    assert state["metrics"]["Step 3 — Continuous Discovery Service"] == "Running"
+    assert state["metrics"]["Cycle — Screen with DrugCLIP"] == "Running"
+    assert state["metrics"]["Current cycle"] == 3
+    assert state["metrics"]["DrugCLIP screens"] == 64
+    assert "CONFIDENTIAL-SMILES" not in json.dumps(state)
+    assert "CONFIDENTIAL TARGET TEXT" not in json.dumps(state)
+    assert "/private/receptor.pdb" not in json.dumps(state)
+
+
+def test_drug_discovery_web_ui_requires_direct_job_data_directory(
+    tmp_path, monkeypatch
+):
+    module = _load_drug_discovery_web_ui()
+    job_dir = tmp_path / "job-1"
+    monkeypatch.setenv("MN_JOB_DATA_DIR", str(job_dir))
+    assert module.configured_job_data_dir("job-1") == job_dir.resolve()
+    try:
+        module.configured_job_data_dir("job-2")
+    except RuntimeError as error:
+        assert "direct directory" in str(error)
+    else:  # pragma: no cover - guards job isolation
+        raise AssertionError("web UI accepted another job's data directory")
+
+
+def test_drug_discovery_web_ui_config_updates_expanded_service_contract():
+    source = json.loads((BLUEPRINT_DIR / "manifest.json").read_text(encoding="utf-8"))
+    manifest = _expand_source_manifest(source)
+    config = load_blueprint_config(BLUEPRINT_DIR)
+    config["web_ui"]["service"]["port"] = 61027
+
+    apply_manifest_config_bindings(manifest, config)
+
+    node = next(
+        item
+        for item in manifest["agents"]["nodes"]
+        if item["node_id"] == "drug_discovery_web_ui"
+    )
+    assert node["resources"]["ports"][0]["port"] == 61027
+    assert node["services"][0]["port"] == 61027
+
+
+def test_drug_discovery_reporting_writes_the_declared_final_contract(
+    tmp_path, monkeypatch
+):
+    module = _load_drug_discovery_domain_module("reporting")
+    stored_state = {}
+    monkeypatch.setattr(module, "read_discovery_state", lambda _ctx: {})
+    monkeypatch.setattr(
+        module,
+        "run_stage_script",
+        lambda *_args, **_kwargs: {
+            "review_report": {
+                "candidate_count": 2,
+                "ranked_candidates": [{"candidate_id": "candidate-1"}],
+                "recommendation": "review_required",
+            }
+        },
+    )
+    monkeypatch.setattr(
+        module,
+        "write_discovery_state",
+        lambda _ctx, state: stored_state.update(state),
+    )
+    run_dir = tmp_path / "run"
+    output_dir = tmp_path / "output"
+    run_dir.mkdir()
+
+    result = module.publish_ranking(
+        {
+            "run_dir": str(run_dir),
+            "output_folder": str(output_dir),
+            "config": {},
+        }
+    )
+
+    artifact = result["final_artifact"]
+    manifest = json.loads((BLUEPRINT_DIR / "manifest.json").read_text(encoding="utf-8"))
+    required = manifest["contracts"]["outputs"]["primary"]["required_fields"]
+    assert set(required) <= set(artifact)
+    assert artifact["confidence"] == 0.25
+    assert artifact["evidence"][0]["candidate_count"] == 2
+    assert {"inputs.json", "events.jsonl", "result.json"} <= set(
+        artifact["source_refs"]
+    )
+    assert json.loads((run_dir / "final_artifact.json").read_text()) == artifact
+    assert json.loads((output_dir / "final_artifact.json").read_text()) == artifact
+    assert stored_state["final_report"] == artifact
 
 
 def test_continuous_service_repeats_generation_and_simulation_until_stop_file(tmp_path):

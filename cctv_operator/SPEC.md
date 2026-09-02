@@ -12,15 +12,23 @@ are outside this product contract.
 
 ## Source contract
 
-`video_source.mode` is fixed to `stream`. `video_source.uri` must contain one
-RTSP, RTSPS, RTMP, or RTMPS URI. Stream credentials are redacted from logs,
-events, browser URLs, and public service artifacts. A file URI, unsupported
-scheme, unreachable stream, decode failure, or model failure is explicit;
-there is no automatic switch to a demo source or CPU decoder.
-The submission-side validator always checks mode and URI syntax. It probes
-reachability when `ffprobe` is available locally; otherwise it defers that
-check to the scheduled NVIDIA worker so a Mac control node does not need media
-tooling merely to submit a distributed run.
+`video_source.mode` is fixed to `stream`. The default
+`video_source.profile=bundled_demo` uses the fixed
+`rtsp://127.0.0.1:8554/cctv-demo` URI. The shared NVIDIA DockerWorker contains
+the deterministic sample video, a pinned MediaMTX server, and the FFmpeg
+publisher, and starts them before the sampler opens the stream. This is an
+explicit source profile, not an error fallback.
+
+`video_source.profile=external` requires one RTSP, RTSPS, RTMP, or RTMPS URI.
+Stream credentials are redacted from logs, events, browser URLs, and public
+service artifacts. A file URI, unsupported scheme, unreachable stream, decode
+failure, or model failure is explicit; an external source never falls back to
+the bundled demo or a CPU decoder. The submission-side validator always checks
+the profile, mode, and URI syntax. It does not probe the submit host's loopback
+for the bundled source, which exists only in the worker. It probes an external
+source when `ffprobe` is available locally; otherwise it defers that check to
+the scheduled NVIDIA worker so a Mac control node does not need media tooling
+merely to submit a single-node run owned by the qualifying NVIDIA runtime.
 
 ## Runtime graph and live input
 
@@ -64,13 +72,24 @@ events. The workflow never performs physical security actions.
 
 The manifest hard-requires `nvidia`, `cuda`, one NVIDIA GPU, and 49,152 MB or more of GPU/unified IGP memory. `mn-python-sdk` owns cluster resource validation, including DGX Spark unified-memory accounting. The blueprint only declares the requirement and does not implement another hardware probe.
 
-The sampler and detector run in one SDK-managed shared DockerWorker on the
-selected NVIDIA node. The sampler owns the exclusive GPU device allocation; the
-detector retains NVIDIA/CUDA placement constraints and reuses that GPU-enabled
-container, so a single-GPU node is valid. FFmpeg uses CUDA decode and
+Every executable CCTV node runs in an SDK-managed DockerWorker on the selected
+NVIDIA node. The sampler owns the exclusive GPU device allocation; ingress,
+detector, and report writer reuse that GPU-enabled container, so a single-GPU
+node is valid. The Web UI uses that same host-network DockerWorker and shared
+runtime artifact volume, avoiding both another GPU reservation and another
+transfer of the bundled sample-video build payload. FFmpeg uses CUDA decode and
 `scale_cuda` for selected JPEGs. The low-resolution proxy comparison is
 deterministic local preprocessing, not a model call. No CPU decoder or Mac-only
 execution fallback exists.
+
+In bundled-demo mode, the same Docker image also owns test-stream generation.
+Its pinned MediaMTX binary and bundled MP4 are build-context assets, and an
+idempotent startup script maintains the looping publisher for the life of the
+shared container. Demo publishing may encode the fixture with `libx264`; this
+does not alter the NVIDIA/CUDA-only decoding and frame-preparation contract of
+the sampler. Worker cleanup terminates the server and publisher with the
+container, so there is no separate host process or test-stream container to
+start and stop.
 
 Docker Model Runner requests disable model reasoning through the llama.cpp
 chat-template control so the bounded token budget is spent on the required
@@ -78,52 +97,62 @@ structured visual observation. Empty, reasoning-only, truncated, or malformed
 model output is an explicit frame-analysis failure; it is never converted into
 a synthetic “no detection” result.
 
+The model contract is the explicit cataloged `nemotron3:q4_K_M` Docker Model
+Runner artifact. It is a blueprint-specific multimodal model, not the cluster
+`default` route. Its first use lazily installs the exact short Docker Model
+Runner artifact on the selected qualifying NVIDIA node, registers it, and
+refreshes the node-local LiteLLM gateway. The detector uses that LiteLLM route;
+it never sends model traffic directly to a Docker Model Runner endpoint or to
+the submit host. The blueprint never falls back to the text-only
+`nemotron-3.5-lightning:latest` route.
+
 This small FFmpeg CUDA worker is the preferred single-DGX-Spark design. It avoids a large DeepStream service image; DeepStream remains a future option for deployments that need batched multi-camera pipelines, tracker plugins, or high camera density.
 
-The runtime placement mode is `distributed` and scheduling remains
-constraint-driven. A cluster containing only Spark is valid: all nodes are
-placed there. In a Mac + Spark cluster, the NVIDIA/CUDA constraint keeps the
-sampler and detector on Spark while HostLocal report and UI nodes remain
-portable. Cross-node batch and report access uses the runtime shared-storage
-contract; the blueprint passes run-relative artifact references and contains no
-machine address or node-selection logic. The Mac may own the job lease while
-the cluster scheduler binpacks every workflow agent on Spark; this is still a
-multi-node control/data-plane deployment. Once both runtimes are healthy at
-submission, Core reports `multi_node` reliability and enables cluster recovery.
+The runtime placement mode is `single_node` and selection remains
+constraint-driven. A cluster containing only Spark is valid. In a Mac + Spark
+federation, the NVIDIA/CUDA and 49,152 MB requirements make Spark the only
+eligible job owner. The SDK forwards the job definition to Spark's Core and
+pins every workflow and control node there, so a workflow never crosses the
+distinct coordination-store boundary between federated runtimes. The
+blueprint contains no machine address or hard-coded node name; the Mac remains
+the submitting control plane and observes the Spark-owned job through the
+federation projection.
 
 ## Web UI deployment decision
 
-The manifest declares a blueprint-owned HostLocal `cctv_web_ui` service. Its
-specific UI spec, `/actions/steer-monitoring` handler, payload validation,
-state projection, and Core call live in `payloads/services/cctv_web_ui.py`.
-The generic `mirrorneuron-web-ui-skill` hosts and renders the validated spec
-with `vercel-labs/json-render`; it knows no CCTV routes or policy.
-The rendered dashboard displays the current watch target and provides a
-bounded 500-character prompt form that updates the declared
-`steer_monitoring` live input.
+The manifest declares a blueprint-owned DockerWorker `cctv_web_ui` service in
+the same shared host-network container as the stream and analysis workers. Its
+HTML page, MJPEG relay, SSE event feed, and state projection live in
+`payloads/services/cctv_web_ui.py`. The
+generic `mirrorneuron-web-ui-skill` claims the already-bound endpoint and its
+proxy allowlist; it knows no CCTV routes or policy. The dashboard is read-only,
+displays the current watch target, and leaves updates to an external chat AI
+calling the blueprint MCP and its declared `steer_monitoring` live input.
 The adaptive sampler durably writes the current run-scoped instruction to
 `monitoring_state.json`. The Web UI uses that artifact as the authoritative
 watch-target state. It projects operational status and review history from
 `cctv_report.json` and `latest_analyzed_frame.json`, treating event records as
-supplemental activity history. This keeps the UI meaningful when HostLocal
-services are scheduled on a different cluster node from the detector.
+supplemental activity history. This keeps the UI meaningful without depending
+on transient relay files.
 
-The HostLocal service never opens the RTSP source and never launches FFmpeg.
-The optional `web_ui.preview.url` setting must name an absolute,
-credential-free HTTP(S) media URL supplied by an external camera gateway. HLS
-playlists are rendered by the generic web UI skill. A missing preview leaves a
-blank media surface and never stops sampling. The local `scripts/sample_rtsp.sh`
-development helper publishes the fixture over RTSP and uses MediaMTX itself as
-the HLS proxy; that sample proxy is not a Core responsibility. The UI
-separately renders `latest_analyzed_frame.jpg` so the operator can distinguish
-the smooth preview from model evidence. There is no Gradio path and no
-`mn-api` live-input REST route. The operator-facing `web_ui.service.port`
-setting is projected into the HostLocal port reservation and service health
-declaration as one runtime contract. `web_ui.service.host` is projected into
-the declared service address. The CLI `--web-ui-host` and `--web-ui-port`
-options override those settings for one run. The default wildcard listener is
-required for container port publication and exposes the service to peers that
-can reach the published port; the service does not add authentication.
+The Web UI process opens the configured RTSP/RTMP source once and fans a
+multipart MJPEG stream out to all connected browser clients. Its FFmpeg process
+requires CUDA decode and `scale_cuda`; it does not silently fall back to CPU
+decode. NVIDIA FFmpeg has no MJPEG NVENC codec, so the final JPEG entropy encode
+uses FFmpeg's MJPEG encoder after GPU download. The source URI and credentials
+never appear in the browser route or public service metadata. The operator
+event projection is delivered over server-sent events, sorted newest first, and
+the browser returns the feed to the top when a new event arrives. The UI
+separately renders `latest_analyzed_frame.jpg` as model evidence. There is no
+Gradio path, browser steering action, or `mn-api` live-input REST route.
+`web_ui.service.port` defaults to `0`; the
+generic Web UI skill resolves a runtime-reserved port or allows an
+operating-system-selected free port. The service claims that actual port in the
+skill-owned `mn.web_ui.proxy.v1` handle. There is no
+blueprint port range, fixed reservation, or host-side registrar. The operator
+receives only the local `/jobs/<job_id>/ui` route; the worker address and
+dynamic port remain iframe-proxy upstream data. The wildcard listener is
+required for the host-network DockerWorker.
 
 ## Persistent job data
 
@@ -133,8 +162,10 @@ run-scoped. This blueprint has no bundle seed for runtime-generated CCTV
 knowledge and never clears job data during run cleanup.
 
 The stable job exposes the API-owned top-level Job response service while `mn-api`
-is reachable. It reports bounded role, configuration, lifecycle, schedule, and
-latest-run context without launching the stream workflow or exposing camera
+is reachable. Its job-facing agent is limited to interpreting the analysis
+artifacts and responding through the response MCP. It reports bounded role,
+configuration, lifecycle, schedule, and latest-run context without hosting the
+sample data, stream, Web UI, or helper processes and without exposing camera
 credentials, raw logs, host paths, or unrestricted artifacts.
 
 ## Outputs and review boundary

@@ -7,6 +7,8 @@
 
 This blueprint runs a review-only discovery service until it is closed manually. Each cycle uses the local BioTarget Stage C path to generate a molecular candidate pool and rank it against therapeutic text with DrugClip, folds targets, runs BioTarget evaluation, and writes traceable cycle artifacts for human scientific review.
 
+OtterDesk also exposes a read-only **Drug Discovery Progress** web UI. It shows the five logical workflow steps separately from the five phases inside the current discovery cycle, along with bounded target, candidate, DrugCLIP-screen, simulation, and completed-cycle counts. The UI reads durable artifacts and workflow events; it cannot start a run, stop the service, approve a candidate, or invoke a scientific adapter.
+
 DrugClip is a problem-specific scientific checkpoint, not a shared LLM model. The adapter uses `mirrorneuron-use-generic-model-skill` to validate the explicit `https://huggingface.co/homerquan/DrugClip` reference, then downloads `best.ckpt` and runs it through the native `DrugCLIP` graph/text adapter. Docker Model Runner is deliberately not used: the repository is a checkpoint-only graph/text model, not a DMR-compatible generative model. No fake adapter or surrogate score is used in live mode.
 
 This blueprint hard-requires at least one schedulable NVIDIA CUDA GPU with at least 48 GB (49,152 MB) of memory. The manifest declares this before scheduling, so the platform rejects Apple-Silicon, CPU-only, and undersized placements before a workflow is submitted. Every specialist step runs in one shared `DockerWorker` with `gpus: all`; that image contains the SDK and agent runtime, CUDA/cuDNN, the real DrugClip dependencies, and a native GNINA build. The native DrugClip adapter also rejects a CPU-only PyTorch installation rather than silently falling back to CPU execution.
@@ -16,10 +18,21 @@ This blueprint hard-requires at least one schedulable NVIDIA CUDA GPU with at le
 Start the service with:
 
 ```bash
-mn run drug_discovery_research_assistant
+cd drug_discovery_research_assistant
+mn blueprint run --folder .
 ```
 
 The service continues until the runtime sends `SIGTERM`/`SIGINT` or the configured `STOP` file is created under the run directory. It writes `service_state.json` and per-cycle artifacts under `cycles/` while it runs.
+
+Open the **Drug Discovery Progress** output in OtterDesk to follow:
+
+1. Target Discovery
+2. Structure Generation
+3. Continuous Discovery Service
+4. Cycle Results Review
+5. Ranking And Reporting
+
+During step 3, the same UI shows candidate generation, target folding, DrugCLIP screening, GNINA/toxicity evaluation, and cycle-report publication as distinct live phases. `cycle_progress.json` is updated atomically in both the run store and configured output folder, so a refresh never needs to parse a partially written progress document.
 
 The committed `config/overwrite.json` selects live native adapter mode. On the first model-dependent adapter call, the generic-model skill validates the configured `https://huggingface.co/homerquan/DrugClip` reference without adding it to the shared model catalog; the native adapter then loads `best.ckpt` from the same repository when it is not cached. The BioTarget source is bundled under `payloads/biotarget/`, and its native dependencies are declared in `payloads/requirements.txt`; no external BioTarget checkout is required. The DockerWorker builds its native GNINA executable from the pinned `v1.3.2` source release, and the Open Targets/AlphaFold network APIs remain external live-run requirements. To run a bounded test, provide `service.max_cycles` through the runtime override. Fake adapters are limited to explicit mock/smoke-test overrides.
 
@@ -39,7 +52,7 @@ The dispatcher must accept the job JSON on stdin and return a JSON result or wri
 
 ## Output and safety
 
-The default user-facing output folder is `~/Downloads/drug_discovery_research_assistant`. While the service runs, it publishes `service_status.json`, the latest generated candidate pool in `candidates.json`, and the latest completed cycle in `latest_cycle_report.json`; detailed per-cycle artifacts remain under the run directory. Service reports are computational hypotheses only. The blueprint does not authorize wet-lab work, clinical claims, regulatory submissions, or external candidate publication without human approval.
+The default user-facing output folder is `~/Downloads/drug_discovery_research_assistant`. While the service runs, it publishes `service_status.json`, `cycle_progress.json`, the latest generated candidate pool in `candidates.json`, and the latest completed cycle in `latest_cycle_report.json`; detailed per-cycle artifacts remain under the run directory. Service reports are computational hypotheses only. The blueprint does not authorize wet-lab work, clinical claims, regulatory submissions, or external candidate publication without human approval.
 
 ## Shared job data
 

@@ -12,6 +12,8 @@ Operate a continuously running, human-review-only computational discovery servic
 4. Simulations fan out over the best DrugCLIP-ranked candidates across the `science-simulation` pool.
 5. The native control worker fans results in, writes a cycle report, and starts the next cycle.
 
+The job-scoped json-render UI presents these cycle phases beneath the logical five-step workflow. Its labels come from the source manifest, and its status comes from workflow events plus `workflow_state/drug_discovery_state.json`, `service_state.json`, `cycle_progress.json`, and `final_artifact.json`. It exposes counts and lifecycle status only; confidential candidate structures and input text are not copied into the UI state response.
+
 DrugClip is the problem-specific scientific checkpoint `homerquan/DrugClip`, loaded by the BioTarget adapter as `best.ckpt`. `mirrorneuron-use-generic-model-skill` validates the explicit Hugging Face reference before the model-specific adapter downloads the matching checkpoint and instantiates native `DrugCLIP`. DrugClip is never added to the shared LLM model list, and Docker Model Runner is intentionally not used because this repository is not a DMR-compatible generative model. Its 3D graph and text encoders provide the BioTarget Stage C selection and Stage D toxicity-alignment path; live runs fail rather than substitute a synthetic model or score.
 
 ## NVIDIA CUDA requirement
@@ -24,7 +26,7 @@ Target discovery, structure generation, candidate generation, binding review, an
 
 ## Service lifecycle
 
-The service has no automatic completion time. It stops on a process termination signal or when the configured `STOP` file is created. Each cycle updates `service_state.json`; detailed artifacts are written under `cycles/cycle-<id>/`, while the configured user-facing output folder is updated with `service_status.json`, `candidates.json`, and `latest_cycle_report.json` so a long-running job has observable output before it stops.
+The service has no automatic completion time. It stops on a process termination signal or when the configured `STOP` file is created. Each cycle updates `service_state.json` and atomically advances `cycle_progress.json` through candidate generation, folding, DrugCLIP screening, simulation, and report publication. Detailed artifacts are written under `cycles/cycle-<id>/`, while the configured user-facing output folder is updated with `service_status.json`, `cycle_progress.json`, `candidates.json`, and `latest_cycle_report.json` so a long-running job has observable output before it stops.
 
 ## Persistent job data
 

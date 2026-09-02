@@ -168,6 +168,16 @@
   "knowledge_rag": {
     "backend": "milvus_lite"
   },
+  "web_ui": {
+    "enabled": true,
+    "renderer": "json-render",
+    "refresh_seconds": 1,
+    "service": {
+      "host": "0.0.0.0",
+      "port": 61020,
+      "public_url": ""
+    }
+  },
   "interfaces": {
     "config": [
       "mode",
@@ -183,6 +193,7 @@
       "outputs",
       "llm",
       "knowledge_rag",
+      "web_ui",
       "agentic_research",
       "resources",
       "human_control",
@@ -211,6 +222,7 @@
       "outputs",
       "llm",
       "knowledge_rag",
+      "web_ui",
       "agentic_research",
       "resources",
       "human_control",
@@ -341,6 +353,20 @@
     "advisory_only": true,
     "note": "Suggested cadence only; runtime decides the actual schedule."
   },
+  "manifest_config_bindings": [
+    {
+      "config_path": "web_ui.service.host",
+      "manifest_path": "agents.nodes.drug_discovery_web_ui.services.0.address"
+    },
+    {
+      "config_path": "web_ui.service.port",
+      "manifest_path": "agents.nodes.drug_discovery_web_ui.resources.ports.0.port"
+    },
+    {
+      "config_path": "web_ui.service.port",
+      "manifest_path": "agents.nodes.drug_discovery_web_ui.services.0.port"
+    }
+  ],
   "local_inputs": {
     "folders": [
       {
