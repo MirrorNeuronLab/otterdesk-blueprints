@@ -38,7 +38,8 @@ ENV PATH="/opt/mn-venv/bin:${PATH}" \
 
 # mn-python-sdk stages this requirements file from payloads/requirements.txt.
 # Keep it before the GNINA build so CMake can use the same CUDA-enabled PyTorch
-# runtime that serves DrugClip.
+# runtime that serves DrugClip. requirements.txt pins PyTorch to the C++17 2.12
+# line because GNINA v1.3.2 sets CMAKE_CXX_STANDARD to 17.
 COPY requirements.txt /tmp/mn-skill-runtime/requirements.txt
 RUN if [ -s /tmp/mn-skill-runtime/requirements.txt ]; then \
       python3 -m pip install --timeout 120 --retries 10 --break-system-packages --no-cache-dir -r /tmp/mn-skill-runtime/requirements.txt; \

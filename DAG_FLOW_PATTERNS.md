@@ -11,7 +11,7 @@ workflow ledger, not only displayed in the UI.
 | Blueprint | Runtime flow pattern |
 | --- | --- |
 | CCTV Operator | Event-driven service flow: monitor ingress, sample frames, detect, and report. |
-| Drug Discovery Research Assistant | Guarded continuous service with service-managed scatter/gather: each discovery cycle fans targets and candidate/structure pairs across native workers, then ranks the collected results. |
+| Drug Discovery Research Assistant | Bounded discovery batch: one cycle evaluates five distinct molecules, then review and reporting complete the run. |
 | Financial Advisor | Ordered regulated-state pipeline: packet intake, household analysis, tax review, portfolio risk, public guidance, reconciliation, and publication. |
 | Legal Assistant | Fork/join: document reading fans out to invoice and contract review lanes; evidence reconciliation waits for both. |
 | Purchasing Manager | Ordered procurement pipeline: requirements framing, quote and evidence retrieval, supplier comparison and total-cost review, independent recommendation audit, and approval-ready publication. |

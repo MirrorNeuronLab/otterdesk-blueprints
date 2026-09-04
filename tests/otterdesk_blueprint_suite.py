@@ -1086,26 +1086,28 @@ def test_indexed_non_vc_blueprints_have_non_trivial_rag_knowledge():
         assert "review" in lowered, blueprint_id
 
 
-def test_product_ready_llm_configs_use_explicit_live_docker_model_runner_profile():
+def test_product_ready_llm_configs_use_manifest_owned_default_route():
     targets = {
         "drug_discovery_research_assistant",
         "legal_assistant",
         "purchasing_manager",
     }
     for blueprint_id in sorted(targets):
+        manifest = json.loads((ROOT / blueprint_id / "manifest.json").read_text())
         config = json.loads((ROOT / blueprint_id / "config" / "default.json").read_text())
-        llm = config["llm"]
+        llm = manifest["llm"]
         primary = llm["configs"]["primary"]
 
         assert llm["provider"] == "docker_model_runner", blueprint_id
-        assert llm["model"] == "small", blueprint_id
-        assert llm["runtime_model"] == "small", blueprint_id
+        assert llm["model"] == "default", blueprint_id
+        assert "runtime_model" not in llm, blueprint_id
         assert llm["backend"] == "llama.cpp", blueprint_id
         assert primary["provider"] == "docker_model_runner", blueprint_id
-        assert primary["model"] == "small", blueprint_id
-        assert primary["runtime_model"] == "small", blueprint_id
+        assert "model" not in primary, blueprint_id
+        assert "runtime_model" not in primary, blueprint_id
         assert primary["backend"] == "llama.cpp", blueprint_id
-        assert llm["live_model_profile"]["runtime_model"] == "small", blueprint_id
+        assert primary["api_base"] == "auto", blueprint_id
+        assert "model" not in config["llm"], blueprint_id
 
 
 def test_otterdesk_init_config_review_does_not_duplicate_folder_controls():

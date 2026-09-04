@@ -8,7 +8,9 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import html
 import json
+import math
 import os
 import signal
 import subprocess
@@ -20,6 +22,10 @@ from threading import Event
 from typing import Any
 
 
+# Direct script entrypoints share the staged payload's single domain package.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from domain.candidates import best_screen_per_candidate, five_distinct_candidates
+
 STOP_REQUESTED = Event()
 REQUIRED_ADAPTERS = ("candidate_generator", "folding", "drugclip", "simulation")
 FAKE_SMILES = (
@@ -27,6 +33,7 @@ FAKE_SMILES = (
     "CN1C=NC2=C1C(=O)N(C(=O)N2C)C",
     "C1=CC=C(C=C1)S(=O)(=O)N",
     "CCOc1ccc(CC(=O)N(C)O)cc1",
+    "CC(=O)Nc1ccc(O)cc1",
 )
 DEFAULT_CYCLE_STEP_IDS = (
     "generate_candidates",
@@ -35,6 +42,14 @@ DEFAULT_CYCLE_STEP_IDS = (
     "simulate_candidates",
     "publish_cycle_report",
 )
+PUBLIC_OUTPUT_ARTIFACTS = [
+    "candidates.json",
+    "cycle_progress.json",
+    "latest_cycle_report.json",
+    "leading_candidate.json",
+    "leading_candidate.svg",
+    "service_status.json",
+]
 
 
 def utc_now() -> str:
@@ -52,6 +67,177 @@ def json_dump(path: Path, value: Any) -> None:
         json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
     temporary.replace(path)
+
+
+def text_dump(path: Path, value: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(value, encoding="utf-8")
+    temporary.replace(path)
+
+
+def _bounded_preview_dimension(value: Any, default: int) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return default
+    return min(max(parsed, 240), 1200)
+
+
+def molecule_preview_settings(config: dict[str, Any]) -> dict[str, Any]:
+    web_ui = config.get("web_ui") if isinstance(config.get("web_ui"), dict) else {}
+    preview = (
+        web_ui.get("molecule_preview")
+        if isinstance(web_ui.get("molecule_preview"), dict)
+        else {}
+    )
+    return {
+        "enabled": preview.get("enabled", True) is not False,
+        "width": _bounded_preview_dimension(preview.get("width"), 720),
+        "height": _bounded_preview_dimension(preview.get("height"), 420),
+    }
+
+
+def _synthetic_molecule_svg(
+    smiles: str, candidate_id: str, *, width: int, height: int
+) -> str:
+    """Return an explicitly synthetic placeholder for dependency-light smoke tests."""
+    label = html.escape(candidate_id or "Synthetic candidate")
+    structure = html.escape(smiles)
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}" role="img" aria-labelledby="title description">
+  <title id="title">Synthetic molecule preview for {label}</title>
+  <desc id="description">Smoke-test placeholder labelled with the candidate SMILES string.</desc>
+  <rect width="100%" height="100%" rx="24" fill="#f6f8f5"/>
+  <g fill="none" stroke="#1c5949" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M{width * 0.25:g} {height * 0.50:g} L{width * 0.34:g} {height * 0.34:g} L{width * 0.52:g} {height * 0.34:g} L{width * 0.61:g} {height * 0.50:g} L{width * 0.52:g} {height * 0.66:g} L{width * 0.34:g} {height * 0.66:g} Z"/>
+    <path d="M{width * 0.61:g} {height * 0.50:g} L{width * 0.76:g} {height * 0.42:g}"/>
+  </g>
+  <circle cx="{width * 0.78:g}" cy="{height * 0.41:g}" r="13" fill="#d95b43"/>
+  <text x="24" y="32" fill="#547067" font-family="ui-monospace,monospace" font-size="13">SYNTHETIC SMOKE-TEST PREVIEW</text>
+  <text x="{width / 2:g}" y="{height - 30:g}" text-anchor="middle" fill="#173c32" font-family="ui-monospace,monospace" font-size="15">{structure}</text>
+</svg>\n"""
+
+
+def render_molecule_svg(
+    smiles: str,
+    candidate_id: str,
+    *,
+    width: int,
+    height: int,
+    synthetic: bool,
+) -> tuple[str, str]:
+    normalized_smiles = str(smiles or "").strip()
+    if not normalized_smiles or len(normalized_smiles) > 2048:
+        raise ValueError("candidate SMILES must contain between 1 and 2048 characters")
+    try:
+        from rdkit import Chem
+        from rdkit.Chem.Draw import rdMolDraw2D
+    except ImportError as error:
+        if synthetic:
+            return (
+                _synthetic_molecule_svg(
+                    normalized_smiles,
+                    candidate_id,
+                    width=width,
+                    height=height,
+                ),
+                "synthetic_smoke_test",
+            )
+        raise RuntimeError(
+            "RDKit is required to render live leading-candidate structures"
+        ) from error
+
+    molecule = Chem.MolFromSmiles(normalized_smiles)
+    if molecule is None:
+        raise ValueError("RDKit could not parse the leading candidate SMILES")
+    drawer = rdMolDraw2D.MolDraw2DSVG(width, height)
+    drawer.drawOptions().padding = 0.08
+    rdMolDraw2D.PrepareAndDrawMolecule(drawer, molecule)
+    drawer.FinishDrawing()
+    return drawer.GetDrawingText().replace("svg:", ""), "rdkit_2d_svg"
+
+
+def _optional_number(value: Any) -> float | None:
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return None
+    return round(parsed, 6) if math.isfinite(parsed) else None
+
+
+def publish_leading_candidate_preview(
+    config: dict[str, Any],
+    run_dir: Path,
+    output_folder: Path,
+    cycle_dir: Path,
+    *,
+    cycle_id: int,
+    simulations: list[dict[str, Any]],
+    synthetic: bool,
+) -> dict[str, Any]:
+    settings = molecule_preview_settings(config)
+    metadata: dict[str, Any] = {
+        "schema_version": "mn.blueprint.leading_candidate_preview.v1",
+        "cycle_id": cycle_id,
+        "generated_at": utc_now(),
+        "status": "disabled" if not settings["enabled"] else "waiting",
+        "review_boundary": (
+            "Computational hypothesis only; this visualization is not experimental "
+            "evidence or approval for downstream action."
+        ),
+    }
+    if not settings["enabled"] or not simulations:
+        for directory in (cycle_dir, run_dir, output_folder):
+            json_dump(directory / "leading_candidate.json", metadata)
+        return metadata
+
+    leading = simulations[0]
+    candidate = (
+        leading.get("candidate")
+        if isinstance(leading.get("candidate"), dict)
+        else {}
+    )
+    smiles = str(candidate.get("smiles") or leading.get("smiles") or "").strip()
+    candidate_id = str(candidate.get("candidate_id") or "leading-candidate").strip()
+    try:
+        svg, renderer = render_molecule_svg(
+            smiles,
+            candidate_id,
+            width=int(settings["width"]),
+            height=int(settings["height"]),
+            synthetic=synthetic,
+        )
+    except (RuntimeError, ValueError) as error:
+        metadata.update(
+            {
+                "status": "unavailable",
+                "candidate_id": candidate_id[:160],
+                "detail": str(error)[:300],
+            }
+        )
+        for directory in (cycle_dir, run_dir, output_folder):
+            json_dump(directory / "leading_candidate.json", metadata)
+        return metadata
+
+    metadata.update(
+        {
+            "status": "ready",
+            "candidate_id": candidate_id[:160],
+            "smiles": smiles,
+            "renderer": renderer,
+            "svg_artifact": "leading_candidate.svg",
+            "drugclip_score": _optional_number(leading.get("drugclip_score")),
+            "simulation_stability": _optional_number(
+                leading.get("simulation_stability")
+            ),
+            "gnina_affinity": _optional_number(leading.get("gnina_affinity")),
+            "toxicity_penalty": _optional_number(leading.get("tox_penalty")),
+        }
+    )
+    for directory in (cycle_dir, run_dir, output_folder):
+        text_dump(directory / "leading_candidate.svg", svg)
+        json_dump(directory / "leading_candidate.json", metadata)
+    return metadata
 
 
 def cycle_steps(config: dict[str, Any]) -> list[dict[str, str]]:
@@ -266,7 +452,7 @@ def run_native_adapter(
 
 def fake_candidates(cycle_id: int) -> list[dict[str, Any]]:
     offset = cycle_id % len(FAKE_SMILES)
-    return [{"candidate_id": f"fake-{cycle_id}-{index}", "smiles": FAKE_SMILES[(offset + index) % len(FAKE_SMILES)], "provenance": "fake_smoke_test"} for index in range(min(3, len(FAKE_SMILES)))]
+    return [{"candidate_id": f"fake-{cycle_id}-{index}", "smiles": FAKE_SMILES[(offset + index) % len(FAKE_SMILES)], "provenance": "fake_smoke_test"} for index in range(len(FAKE_SMILES))]
 
 
 def fake_fold(target: dict[str, Any], work_dir: Path) -> dict[str, Any]:
@@ -370,6 +556,7 @@ def run_cycle(config: dict[str, Any], run_dir: Path, cycle_id: int) -> dict[str,
         candidates = generated.get("candidates") if isinstance(generated, dict) else generated
         if not isinstance(candidates, list) or not candidates:
             raise RuntimeError("candidate_generator returned no candidates")
+    candidates = five_distinct_candidates(candidates, synthetic=fake)
     counts["candidates"] = len(candidates)
     json_dump(cycle_dir / "generated_candidates.json", candidates)
     json_dump(
@@ -437,8 +624,7 @@ def run_cycle(config: dict[str, Any], run_dir: Path, cycle_id: int) -> dict[str,
     screens = [screen for group in screened_groups for screen in group]
     screens.sort(key=screen_sort_key)
     counts["screens"] = len(screens)
-    top_k = int((config.get("service") or {}).get("simulation_top_k", 16))
-    selected = screens[:top_k]
+    selected = best_screen_per_candidate(screens)
     json_dump(cycle_dir / "drugclip_screening.json", {"all_results": screens, "selected": selected})
     publish_cycle_progress(
         config,
@@ -471,6 +657,15 @@ def run_cycle(config: dict[str, Any], run_dir: Path, cycle_id: int) -> dict[str,
         active_step="publish_cycle_report",
         counts=counts,
     )
+    molecule_preview = publish_leading_candidate_preview(
+        config,
+        run_dir,
+        output_folder,
+        cycle_dir,
+        cycle_id=cycle_id,
+        simulations=simulations,
+        synthetic=fake,
+    )
     report = {
         "schema_version": "mn.blueprint.continuous_discovery_cycle.v1",
         "cycle_id": cycle_id,
@@ -482,6 +677,7 @@ def run_cycle(config: dict[str, Any], run_dir: Path, cycle_id: int) -> dict[str,
         "screen_count": len(screens),
         "simulation_count": len(simulations),
         "top_candidates": simulations[: min(20, len(simulations))],
+        "molecule_preview": molecule_preview,
         "review_boundary": "Computational hypotheses only; no wet-lab, clinical, regulatory, or external system action is authorized.",
     }
     json_dump(cycle_dir / "simulation_results.json", simulations)
@@ -523,7 +719,7 @@ def run_service(config: dict[str, Any], run_dir: Path) -> dict[str, Any]:
             "started_at": utc_now(),
             "run_dir": str(run_dir),
             "output_folder": str(output_folder),
-            "artifacts": ["candidates.json", "cycle_progress.json", "latest_cycle_report.json", "service_status.json"],
+            "artifacts": PUBLIC_OUTPUT_ARTIFACTS,
             "review_boundary": "Computational hypotheses only; human scientific review is required.",
         },
     )
@@ -534,9 +730,9 @@ def run_service(config: dict[str, Any], run_dir: Path) -> dict[str, Any]:
     stop_file_value = str(service.get("stop_file") or run_dir / "STOP")
     stop_file_value = stop_file_value.replace("${MN_RUN_DIR}", str(run_dir))
     stop_file = Path(os.path.expandvars(stop_file_value)).expanduser()
-    max_cycles = service.get("max_cycles")
-    if max_cycles is not None:
-        max_cycles = int(max_cycles)
+    # This blueprint is a single-run product, including when an older operator
+    # config still contains an unlimited cycle setting.
+    max_cycles = 1
     cycle_interval = max(0.1, float(service.get("cycle_interval_seconds", 15)))
     state_path = run_dir / "service_state.json"
     reports: list[dict[str, Any]] = []
@@ -557,7 +753,7 @@ def run_service(config: dict[str, Any], run_dir: Path) -> dict[str, Any]:
                     "output_folder": str(output_folder),
                     "completed_cycles": cycle_id + 1,
                     "last_cycle_id": cycle_id,
-                    "artifacts": ["candidates.json", "cycle_progress.json", "latest_cycle_report.json", "service_status.json"],
+                    "artifacts": PUBLIC_OUTPUT_ARTIFACTS,
                     "review_boundary": "Computational hypotheses only; human scientific review is required.",
                 },
             )
@@ -591,7 +787,7 @@ def run_service(config: dict[str, Any], run_dir: Path) -> dict[str, Any]:
                 **failed,
                 "run_dir": str(run_dir),
                 "output_folder": str(output_folder),
-                "artifacts": ["candidates.json", "cycle_progress.json", "latest_cycle_report.json", "service_status.json"],
+                "artifacts": PUBLIC_OUTPUT_ARTIFACTS,
                 "review_boundary": "Computational hypotheses only; human scientific review is required.",
             },
         )
@@ -605,7 +801,7 @@ def run_service(config: dict[str, Any], run_dir: Path) -> dict[str, Any]:
             **final,
             "run_dir": str(run_dir),
             "output_folder": str(output_folder),
-            "artifacts": ["candidates.json", "cycle_progress.json", "latest_cycle_report.json", "service_status.json"],
+            "artifacts": PUBLIC_OUTPUT_ARTIFACTS,
             "review_boundary": "Computational hypotheses only; human scientific review is required.",
         },
     )

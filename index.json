@@ -111,37 +111,37 @@
   },
   {
     "category": "Science",
-    "description": "A continuously running drug-discovery research service with a live step-by-step progress UI. Give it a disease or target profile, screening criteria, optional candidate seeds, literature notes, and an input folder; it uses BioTarget and the custom homerquan/DrugClip text-to-molecular-graph model for continuous candidate generation, folding, evaluation, and review-only cycle reports until manually stopped.",
+    "description": "Runs one drug-discovery cycle to produce five distinct computational candidates, screens and evaluates them, writes a review packet and molecule preview to ~/Downloads/{job_id}, then completes.",
     "air-gapped": false,
     "id": "drug_discovery_research_assistant",
     "job_name": "drug-discovery-research-assistant",
     "name": "Drug Discovery Research Assistant",
     "path": "drug_discovery_research_assistant",
     "product": {
-      "agent_role": "Continuous native service coordinator for BioTarget and custom DrugClip graph-text candidate generation, folding, simulation, and evidence review.",
-      "benefit": "Keeps BioTarget computational discovery cycles moving while showing every workflow and cycle phase in a live progress UI and distributing DrugClip graph-text screening, folding, and simulation across cluster boxes with reviewable evidence.",
+      "agent_role": "Bounded candidate discovery, screening, simulation, and evidence review.",
+      "benefit": "Produces five distinct evaluated candidate hypotheses and a review packet, then stops.",
       "customizable_for": "Drug discovery, target-focused virtual screening, molecular-generation pipelines, folding, simulation, and scientific research operations.",
-      "how_it_works": "Runs a manual-stop native service that publishes atomic phase progress, dispatches BioTarget Stage C candidate generation, DrugClip graph-text screening, folding, and simulation across worker pools, and fans results into cycle reports.",
+      "how_it_works": "Runs one drug-discovery cycle to produce five distinct computational candidates, screens and evaluates them, writes a review packet and molecule preview to ~/Downloads/{job_id}, then completes.",
       "input": "Disease or target profile, screening criteria, candidate seeds, literature notes, adapter commands, native dispatcher configuration, and local supporting files.",
-      "output": "A job-scoped step-by-step progress UI plus per-cycle candidate, folding, DrugCLIP, simulation, state, risk, and human-review artifacts.",
-      "problem": "Discovery work needs continuous, traceable candidate generation and scientific screening without collapsing cluster-scale folding and simulation into a single serial worker.",
+      "output": "A job-scoped progress UI with a 2D leading-molecule view and bounded scores, plus per-cycle candidate, folding, DrugCLIP, simulation, state, risk, and human-review artifacts.",
+      "problem": "Discovery work needs a bounded, traceable five-candidate result with scientific evidence.",
       "runtime_features": [
-        "manual-stop continuous service",
+        "single-cycle five-candidate batch",
         "shared NVIDIA DockerWorker",
         "cross-box fanout/fanin",
         "custom DrugClip text-molecular-graph alignment",
         "parallel folding and simulation",
-        "job-scoped step-by-step progress UI",
+        "job-scoped progress UI with local 2D molecule rendering",
         "product input contract",
         "transparent run status",
         "human control policy",
         "artifact records",
         "run-store observability dashboard"
       ],
-      "simulation_type": "Continuous distributed BioTarget computational discovery service with custom DrugClip graph-text alignment.",
+      "simulation_type": "Single-cycle BioTarget discovery with DrugCLIP screening and five evaluated molecules.",
       "target_users": "Computational biology researchers, scientific AI platform teams, and research operations groups."
     },
-    "type": "service",
+    "type": "batch",
     "workflow_id": "drug_discovery_research_assistant_v1",
     "response_service": {
       "enabled": true
@@ -473,7 +473,9 @@
     },
     "type": "batch",
     "workflow_id": "software_architecture_advisor_v3",
-    "response_service": {"enabled": true},
+    "response_service": {
+      "enabled": true
+    },
     "starter_questions": [
       "What source evidence does this architecture review use?",
       "What were the highest-priority architectural risks in the latest assessment?",

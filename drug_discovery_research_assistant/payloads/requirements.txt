@@ -1,5 +1,7 @@
 requests
-torch>=2.0
+# GNINA v1.3.2 is a C++17 project. Keep the newest PyTorch line that supports
+# CUDA 13 while retaining its C++17 extension ABI.
+torch>=2.12,<2.13
 torch_geometric>=2.3
 transformers
 huggingface_hub

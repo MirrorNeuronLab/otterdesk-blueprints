@@ -190,6 +190,48 @@ def _public_events(
     return rows
 
 
+def _molecule_state(value: Mapping[str, Any]) -> dict[str, Any]:
+    status = str(value.get("status") or "waiting").strip().lower()
+    if status not in {"ready", "waiting", "unavailable", "disabled"}:
+        status = "unavailable"
+    try:
+        cycle = max(int(value.get("cycle_id") or 0), 0) + 1
+    except (TypeError, ValueError):
+        cycle = 1
+    result: dict[str, Any] = {
+        "status": status,
+        "cycle": cycle,
+    }
+    if status == "ready":
+        result.update(
+            {
+                "candidate_id": str(value.get("candidate_id") or "Leading candidate")[
+                    :160
+                ],
+                "smiles": str(value.get("smiles") or "")[:2048],
+                "renderer": str(value.get("renderer") or "2d_svg")[:80],
+                "image_url": (
+                    "/artifacts/leading_candidate.svg?cycle="
+                    f"{cycle - 1}"
+                ),
+            }
+        )
+        for key in (
+            "drugclip_score",
+            "simulation_stability",
+            "gnina_affinity",
+            "toxicity_penalty",
+        ):
+            metric = value.get(key)
+            if isinstance(metric, (int, float)):
+                result[key] = metric
+    elif status == "unavailable":
+        result["detail"] = str(
+            value.get("detail") or "The leading candidate could not be rendered."
+        )[:300]
+    return result
+
+
 def discovery_dashboard_state(
     *,
     run_id: str,
@@ -197,10 +239,11 @@ def discovery_dashboard_state(
     workflow_state: Mapping[str, Any],
     service_state: Mapping[str, Any],
     cycle_progress: Mapping[str, Any],
+    molecule_preview: Mapping[str, Any],
     final_artifact: Mapping[str, Any],
     events: list[Mapping[str, Any]],
 ) -> dict[str, Any]:
-    """Project durable run state into bounded, non-sensitive UI data."""
+    """Project durable run state into bounded, job-scoped UI data."""
     steps = workflow_steps(config)
     workflow_status = _workflow_statuses(
         config=config,
@@ -322,4 +365,9 @@ def discovery_dashboard_state(
                 "timestamp": str(cycle_progress.get("updated_at") or "")[:80],
             }
         )
-    return {"metrics": metrics, "warning": warning, "events": public_events[-50:]}
+    return {
+        "metrics": metrics,
+        "molecule": _molecule_state(molecule_preview),
+        "warning": warning,
+        "events": public_events[-50:],
+    }

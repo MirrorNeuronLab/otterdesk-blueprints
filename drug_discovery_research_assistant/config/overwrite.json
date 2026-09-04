@@ -4,7 +4,7 @@
     "payload": {
       "disease_or_target_profile": "Alzheimer disease with BACE1 modulation as the primary target hypothesis.",
       "input_folder": "@/examples/sample_inputs",
-      "output_folder": "~/Downloads/drug_discovery_research_assistant"
+      "output_folder": "~/Downloads/{job_id}"
     }
   },
   "budgets": {
