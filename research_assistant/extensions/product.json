@@ -1,5 +1,5 @@
 {
-  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/extensions/product.schema.json",
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/product.schema.json",
   "runtime_features": [
     "deterministic evidence preparation",
     "isolated autonomous research worker",

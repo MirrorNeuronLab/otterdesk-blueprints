@@ -1,5 +1,5 @@
 {
-  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/extensions/rag.schema.json",
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/rag.schema.json",
   "backend": "milvus_lite",
   "enabled": true,
   "grounding_policy": "Use retrieved or bundled legal-playbook guidance to ground review prompts, preserve deterministic outputs, cite supplied evidence, and label unknowns when retrieval is unavailable.",

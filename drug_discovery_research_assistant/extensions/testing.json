@@ -1,5 +1,5 @@
 {
-  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/extensions/testing.schema.json",
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/testing.schema.json",
   "quick_test": {
     "description": "Use generated quick-test bundles when available; fixed blueprints use local dry-run/mock provider environment variables and deterministic sample inputs.",
     "enabled": false,

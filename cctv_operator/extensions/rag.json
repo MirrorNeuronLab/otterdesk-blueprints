@@ -1,5 +1,5 @@
 {
-  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/extensions/rag.schema.json",
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/rag.schema.json",
   "backend": "redis_vector_rag",
   "chunk_overlap": 70,
   "chunk_size": 700,

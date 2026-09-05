@@ -1,4 +1,4 @@
 {
-  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/extensions/airgap.schema.json",
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/airgap.schema.json",
   "enabled": false
 }

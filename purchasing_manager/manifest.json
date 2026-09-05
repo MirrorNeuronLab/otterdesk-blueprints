@@ -1,5 +1,5 @@
 {
-  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/manifest.schema.json",
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/manifest.schema.json",
   "id": "purchasing_manager",
   "name": "Purchasing Manager",
   "version": "1.0.0",

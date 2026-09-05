@@ -1,5 +1,5 @@
 {
-  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/extensions/domain.schema.json",
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/domain.schema.json",
   "metadata": {
     "interfaces": {
       "channels": {

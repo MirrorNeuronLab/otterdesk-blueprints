@@ -1,5 +1,5 @@
 {
-  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/manifest.schema.json",
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/manifest.schema.json",
   "id": "gtm_assistant",
   "name": "GTM Assistant",
   "version": "1.0.0",

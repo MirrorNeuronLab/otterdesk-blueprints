@@ -1,5 +1,5 @@
 {
-  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/contracts.schema.json",
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/contracts.schema.json",
   "summary": "Read-only, air-gapped software architecture analysis with evidence-backed coding-agent improvement prompts.",
   "input_adapters": {
     "default": "mock",

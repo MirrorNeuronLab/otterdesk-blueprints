@@ -1,5 +1,5 @@
 {
-  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/extensions/llm.schema.json",
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/llm.schema.json",
   "enabled": true,
   "mode": "live",
   "mock_mode": "fake",

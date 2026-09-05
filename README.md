@@ -133,7 +133,7 @@ dispatch code or configuration handoff lists.
 `index.json` is an ordered list of published package paths. Names, descriptions,
 versions, requirements, and product information come from each package's documents.
 Catalog reads validate data without importing Python code or preparing resources.
-All folders and ZIPs use `https://mirrorneuron.dev/schemas/blueprint/v1/manifest.schema.json`.
+All folders and ZIPs use `https://mirrorneuron.io/schemas/blueprint/v1/manifest.schema.json`.
 Use `mn_sdk.blueprints.read_blueprint`, `resolve_config`, and `compile_blueprint`;
 `open_blueprint` adds ZIP extraction and `export_blueprint` preserves the full package.
 External dependencies remain declared; offline vendoring is optional.

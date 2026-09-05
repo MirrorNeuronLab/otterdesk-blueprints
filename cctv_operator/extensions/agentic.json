@@ -1,5 +1,5 @@
 {
-  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/extensions/agentic.schema.json",
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/agentic.schema.json",
   "agent_ids": [
     "video_source_validator",
     "adaptive_frame_sampler",

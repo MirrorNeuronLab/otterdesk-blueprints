@@ -1,5 +1,5 @@
 {
-  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/extensions/testing.schema.json",
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/testing.schema.json",
   "quick_test": {
     "description": "Quick test mode shortens the sample interval, disables Slack, and uses mock visual detection unless OLLAMA_LIVE_IN_QUICK_TEST=1.",
     "enabled": false,

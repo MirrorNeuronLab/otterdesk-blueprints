@@ -1,5 +1,5 @@
 {
-  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/workflow.schema.json",
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/workflow.schema.json",
   "workflow_id": "software_architecture_advisor_v3",
   "execution": {
     "strategy": "serial"

@@ -1,5 +1,5 @@
 {
-  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/extensions/product.schema.json",
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/product.schema.json",
   "category": "Legal",
   "intent": {
     "customizable_for": "Individual legal intake, small-business invoice review, vendor contract review, CLM intake, payable approval support, and attorney review preparation.",

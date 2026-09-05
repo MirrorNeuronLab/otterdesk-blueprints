@@ -1,5 +1,5 @@
 {
-  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/manifest.schema.json",
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/manifest.schema.json",
   "id": "drug_discovery_research_assistant",
   "name": "Drug Discovery Research Assistant",
   "version": "1.0.0",

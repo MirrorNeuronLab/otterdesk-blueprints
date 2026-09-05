@@ -1,5 +1,5 @@
 {
-  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/contracts.schema.json",
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/contracts.schema.json",
   "events": {
     "human_stream": "human.jsonl",
     "stream": "events.jsonl",

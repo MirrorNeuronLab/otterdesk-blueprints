@@ -1,5 +1,5 @@
 {
-  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/manifest.schema.json",
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/manifest.schema.json",
   "id": "cctv_operator",
   "name": "CCTV Operator",
   "version": "1.0.0",

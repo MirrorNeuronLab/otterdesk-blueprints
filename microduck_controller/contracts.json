@@ -1,5 +1,5 @@
 {
-  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/contracts.schema.json",
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/contracts.schema.json",
   "summary": "Keep one browser-backed Microduck simulator service running and expose compact state plus bounded primitive and goal-directed MCP control.",
   "inputs": {
     "input_folder": {

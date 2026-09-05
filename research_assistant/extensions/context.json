@@ -1,5 +1,5 @@
 {
-  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/extensions/context.schema.json",
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/context.schema.json",
   "memory_layer": {
     "collection": "mn_memory",
     "containers": "optional_sidecar",

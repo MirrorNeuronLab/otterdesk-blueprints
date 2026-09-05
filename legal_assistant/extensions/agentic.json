@@ -1,5 +1,5 @@
 {
-  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/extensions/agentic.schema.json",
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/agentic.schema.json",
   "agent_ids": [
     "invoice_bill_extractor",
     "payable_field_validator",
