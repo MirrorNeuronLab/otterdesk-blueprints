@@ -1,14 +1,8 @@
 {
   "schema": "otterdesk.sample_dataset.v1",
   "blueprint_id": "cctv_operator",
-  "description": "Media-processing test fixture plus target, alert-policy, and steering examples for the stream-only CCTV service.",
+  "description": "Target, alert-policy, and steering examples for the stream-only CCTV service. Its deterministic media fixture is built into the DockerWorker.",
   "files": [
-    {
-      "path": "sample.mp4",
-      "type": "video/mp4",
-      "contains_pii": false,
-      "intended_use": "Skill-level CUDA frame-processing tests; not a runtime source"
-    },
     {
       "path": "cctv_policy.json",
       "type": "application/json",

@@ -48,6 +48,56 @@ def _event(
     }
 
 
+def _runtime_event_summary(event_type: str, payload: Mapping[str, Any]) -> str:
+    explicit = (
+        payload.get("summary")
+        or payload.get("message")
+        or payload.get("reason")
+        or payload.get("error")
+        or payload.get("detail")
+    )
+    if explicit:
+        return str(explicit)
+    if event_type == "cctv_operator_frame_batch_ready":
+        count = int(payload.get("selected_count") or 0)
+        trigger = str(payload.get("trigger") or payload.get("sampling_trigger") or "scheduled")
+        return f"Selected {count} frame(s) for {trigger.replace('_', ' ')} analysis."
+    if event_type == "cctv_operator_frame_observed":
+        count = int(payload.get("selected_count") or 0)
+        return f"Visual analysis completed for a {count}-frame evidence batch."
+    if event_type == "cctv_operator_report_ready":
+        return "The cumulative operator report was updated."
+    if event_type == "cctv_operator_burst_started":
+        return "A sustained scene change started an evidence burst."
+    if event_type == "cctv_operator_burst_completed":
+        return "The scene-change evidence burst completed."
+    if event_type == "video_monitor_start":
+        return "The video source was validated and monitoring started."
+    if event_type == "run_started":
+        return "The CCTV monitoring run started."
+    status = payload.get("status") or payload.get("phase")
+    return f"Operator state changed to {status}." if status else ""
+
+
+def _runtime_event_label(event_type: str) -> str:
+    labels = {
+        "cctv_operator_frame_batch_ready": "Evidence selected",
+        "cctv_operator_frame_observed": "Frame analyzed",
+        "cctv_operator_report_ready": "Report updated",
+        "cctv_operator_burst_started": "Scene burst",
+        "cctv_operator_burst_completed": "Burst completed",
+        "cctv_operator_sample_skipped": "Sample skipped",
+        "cctv_operator_queue_lag": "Queue delayed",
+        "cctv_operator_attention_updated": "Monitoring focus",
+        "cctv_operator_frame_analysis_failed": "Analysis error",
+        "video_monitor_start": "Monitor online",
+        "run_started": "Run started",
+    }
+    if event_type in labels:
+        return labels[event_type]
+    return " ".join(event_type.replace("cctv_operator_", "").split("_")).title()
+
+
 def operator_state(
     *,
     run_id: str,
@@ -159,19 +209,35 @@ def operator_state(
         )
     for event in supplemental_events[-20:]:
         payload_value = _mapping(event.get("payload"))
+        event_type = str(event.get("type") or "runtime_event")
+        if event_type == "cctv_operator_sample_due":
+            continue
         recent_events.append(
             _event(
-                str(event.get("type") or "Runtime event"),
-                str(
-                    payload_value.get("summary")
-                    or payload_value.get("reason")
-                    or payload_value.get("error")
-                    or ""
-                ),
+                _runtime_event_label(event_type),
+                _runtime_event_summary(event_type, payload_value),
                 timestamp=event.get("timestamp") or event.get("ts"),
             )
         )
-    recent_events = [event for event in recent_events if event["summary"]][-50:]
+    indexed_events = [
+        (index, event)
+        for index, event in enumerate(recent_events)
+        if event["summary"]
+    ]
+    indexed_events.sort(
+        key=lambda item: (_epoch(item[1]["timestamp"]) or 0.0, item[0]),
+        reverse=True,
+    )
+    recent_events = []
+    seen: set[tuple[str, str, str]] = set()
+    for _index, event in indexed_events:
+        identity = (event["type"], event["timestamp"], event["summary"])
+        if identity in seen:
+            continue
+        seen.add(identity)
+        recent_events.append(event)
+        if len(recent_events) >= 50:
+            break
 
     finding = (
         latest_detection.get("detection_report")

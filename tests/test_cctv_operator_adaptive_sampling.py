@@ -183,6 +183,21 @@ def test_sampler_uses_live_input_idempotency_metadata_as_command_id():
     )
 
 
+def test_sampler_discards_a_dead_persistent_frame_reader_cache(tmp_path):
+    sampler = _load(
+        PAYLOADS / "agents" / "adaptive_frame_sampler" / "scripts" / "sample_video.py",
+        "cctv_adaptive_sampler_stale_reader",
+    )
+    cache = tmp_path / "live_stream_cache"
+    cache.mkdir()
+    (cache / "status.json").write_text(json.dumps({"pid": -1}))
+    (cache / "latest.jpg").write_bytes(b"stale-frame")
+
+    assert sampler.reset_stale_live_stream_cache(tmp_path) is True
+    assert not (cache / "status.json").exists()
+    assert not (cache / "latest.jpg").exists()
+
+
 def test_frame_batch_is_durable_and_contains_only_artifact_metadata(tmp_path):
     from mn_live_video_analysis_skill import (
         frame_digest,
@@ -251,7 +266,18 @@ def test_sampler_maps_skill_batch_to_cctv_message_without_image_blob(
         json.dumps({"sampling": {}, "video_source": {"mode": "stream", "uri": "rtsp://secret:password@camera/live"}}),
     )
     class Result:
-        state = sampler.initial_state()
+        state = {
+            **sampler.initial_state(),
+            "previous_proxy": "cHJveHk=" * 20_000,
+            "recent_frames": [
+                {
+                    "content_base64": "ZnJhbWU=" * 20_000,
+                    "score": 0.2,
+                    "sha256": "frame-sha",
+                    "timestamp": 1.0,
+                }
+            ],
+        }
         events = (
             {
                 "kind": "batch_ready",
@@ -291,7 +317,8 @@ def test_sampler_maps_skill_batch_to_cctv_message_without_image_blob(
 
     assert sampler.main() == 0
 
-    result = json.loads(capsys.readouterr().out)
+    raw_output = capsys.readouterr().out
+    result = json.loads(raw_output)
     message = result["emit_messages"][0]
     assert message["type"] == "cctv_operator_frame_batch_ready"
     assert message["body"]["trigger"] == "baseline"
@@ -299,3 +326,13 @@ def test_sampler_maps_skill_batch_to_cctv_message_without_image_blob(
     assert "password" not in json.dumps(result)
     assert "jpeg" not in json.dumps(message)
     assert result["emit_messages"][-1]["type"] == "cctv_operator_sample_due"
+    assert "previous_proxy" not in result["next_state"]
+    assert "recent_frames" not in result["next_state"]
+    assert result["next_state"]["sampling_state_ref"] == "sampling_state.json"
+    assert result["next_state"]["recent_frame_count"] == 1
+    persisted_state = json.loads(
+        (tmp_path / "run" / "sampling_state.json").read_text()
+    )
+    assert persisted_state["previous_proxy"] == Result.state["previous_proxy"]
+    assert persisted_state["recent_frames"] == Result.state["recent_frames"]
+    assert len(raw_output.encode()) < 64 * 1024

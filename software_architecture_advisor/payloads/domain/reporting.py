@@ -101,7 +101,7 @@ def publish_advice(ctx: dict[str, Any], **_options: Any) -> dict[str, Any]:
     output_dir = expand_output_path(inputs.get("output_folder") or "")
     report_dir = output_dir / "architecture-report"
     evidence_dir = output_dir / "evidence"
-    prompt_dir = output_dir / "codex-prompts"
+    prompt_dir = output_dir / "prompts"
     for directory in (output_dir, report_dir, evidence_dir, prompt_dir):
         directory.mkdir(parents=True, exist_ok=True)
 
@@ -110,6 +110,7 @@ def publish_advice(ctx: dict[str, Any], **_options: Any) -> dict[str, Any]:
         "architecture_report": output_dir / "architecture_report.md",
         "improvement_prompts": output_dir / "improvement_prompts.md",
         "improvement_prompts_json": output_dir / "improvement_prompts.json",
+        "prompt_index": prompt_dir / "README.md",
         "architecture_graph": output_dir / "architecture_graph.json",
         "source_inventory": output_dir / "source_inventory.json",
         "analysis_metrics": output_dir / "analysis_metrics.json",
@@ -169,6 +170,7 @@ def publish_advice(ctx: dict[str, Any], **_options: Any) -> dict[str, Any]:
     markdown_values = {
         "architecture_report": render_architecture_report(assessment),
         "improvement_prompts": render_prompt_markdown(prompts),
+        "prompt_index": _render_prompt_index(prompts),
         "executive_summary_report": render_executive_summary(assessment),
         "repository_map_report": render_repository_map(state),
         "system_architecture_report": render_system_architecture(state),
@@ -236,6 +238,25 @@ def _confidence(findings: list[dict[str, Any]]) -> str:
 def _slug(value: str) -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
     return slug[:80] or "architecture-improvement"
+
+
+def _render_prompt_index(prompts: list[dict[str, Any]]) -> str:
+    lines = [
+        "# Copy-ready architecture prompts",
+        "",
+        "Choose one numbered Markdown file and paste it into Codex or another coding agent. Each file is a complete implementation prompt; validate its evidence against the current checkout first.",
+        "",
+    ]
+    if not prompts:
+        lines.append("No prioritized implementation prompts were produced.")
+        return "\n".join(lines) + "\n"
+
+    for index, prompt in enumerate(prompts, start=1):
+        slug = _slug(prompt.get("title") or prompt.get("prompt_id") or str(index))
+        filename = f"{index:02d}-{slug}.md"
+        priority = prompt.get("priority") or "unranked"
+        lines.append(f"- [{prompt.get('title') or filename}]({filename}) — priority: {priority}")
+    return "\n".join(lines) + "\n"
 
 
 def _json(value: Any) -> str:

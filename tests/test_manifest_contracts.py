@@ -32,6 +32,7 @@ RAG_BLUEPRINTS = {
     "growth_partnerships_coworker",
     "learning_quality_safety_coworker",
     "legal_assistant",
+    "microduck_controller",
     "purchasing_manager",
     "research_assistant",
     "ros_amr_controller",
@@ -51,7 +52,7 @@ def test_catalog_blueprints_declare_job_response_service():
         )
         assert entry["response_service"] == {"enabled": True}, blueprint_id
         assert manifest["response_service"]["enabled"] is True, blueprint_id
-        if blueprint_id == "ros_amr_controller":
+        if blueprint_id in {"microduck_controller", "ros_amr_controller"}:
             assert manifest["response_service"]["agent"]["kind"] == "bounded_mcp"
         else:
             assert manifest["response_service"] == {"enabled": True}, blueprint_id

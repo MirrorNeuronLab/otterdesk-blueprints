@@ -159,7 +159,10 @@ def _phase_generate_json(
             f"Research phase: {phase}.\n{instruction}\n"
             "Use only supplied evidence. Preserve exact source_ref values. "
             "Separate observed facts, inferences, hypotheses, and unknowns. "
-            "Return only the requested compact JSON object."
+            "Return only the requested compact JSON object. The entire response must "
+            "fit under 800 tokens: use one short sentence per string, keep arrays to "
+            "at most three items unless this phase explicitly requires more, never "
+            "repeat source excerpts or inputs, and add no unrequested fields."
         ),
         user_prompt=json.dumps(context, sort_keys=True, default=str),
         fallback=phase_fallback,
@@ -224,6 +227,49 @@ def _compact_hypothesis(item: dict[str, Any]) -> dict[str, Any]:
             "evidence_status",
         )
     }
+
+
+def _compact_research_request(inputs: dict[str, Any]) -> dict[str, Any]:
+    """Exclude bulky seed test plans and local paths from model phase prompts."""
+    return {
+        "research_goal": str(inputs.get("research_goal") or "")[:600],
+        "research_domain": str(inputs.get("research_domain") or "")[:120],
+        "research_question": str(inputs.get("research_question") or "")[:600],
+        "scope": str(inputs.get("scope") or "")[:600],
+        "success_criteria": _text_items(
+            inputs.get("success_criteria"), limit=6, chars=200
+        ),
+        "constraints": {
+            str(key)[:100]: _json_safe(value)
+            for key, value in list((inputs.get("constraints") or {}).items())[:12]
+        }
+        if isinstance(inputs.get("constraints"), dict)
+        else {},
+    }
+
+
+def _compact_seed_hypotheses(inputs: dict[str, Any]) -> list[dict[str, Any]]:
+    seeds = inputs.get("seed_hypotheses")
+    raw_seeds = seeds if isinstance(seeds, list) else []
+    compact: list[dict[str, Any]] = []
+    for seed in raw_seeds[:3]:
+        item = seed if isinstance(seed, dict) else {"statement": str(seed)}
+        compact.append(
+            {
+                "statement": str(
+                    item.get("statement") or item.get("hypothesis") or ""
+                )[:500],
+                "prediction": str(item.get("prediction") or "")[:500],
+                "counterargument": str(item.get("counterargument") or "")[:400],
+                "disconfirming_observation": str(
+                    item.get("disconfirming_observation") or ""
+                )[:400],
+                "evidence_support": _text_items(
+                    item.get("evidence_support"), limit=4, chars=120
+                ),
+            }
+        )
+    return compact
 
 
 def _dict_items(value: Any) -> list[dict[str, Any]]:
@@ -335,7 +381,8 @@ def _prepare_deep_research(
         instruction=(
             "Read every source excerpt. Extract only observations actually stated, assess limitations, "
             "and identify agreements, tensions, and missing evidence. Return source_assessments, "
-            "cross_source_agreements, cross_source_tensions, and evidence_gaps."
+            "cross_source_agreements, cross_source_tensions, and evidence_gaps. Include one assessment "
+            "per supplied source_ref, with at most two short observations and two short limitations."
         ),
         context={
             "research_question": inputs.get("research_question"),
@@ -372,7 +419,8 @@ def _prepare_deep_research(
         instruction=(
             "Decompose the decision into distinct answerable subquestions. Define ambiguous terms, "
             "name assumptions that must be tested, and state what evidence would answer each subquestion. "
-            "Return subquestions, key_definitions, assumptions_to_test, and stop_conditions."
+            "Return at most four subquestions, three key_definitions, three assumptions_to_test, and "
+            "three stop_conditions."
         ),
         context={
             "research_goal": inputs.get("research_goal"),
@@ -396,15 +444,17 @@ def _prepare_deep_research(
         instruction=(
             "Generate at most three genuinely competing, falsifiable mechanism hypotheses—not cosmetic "
             "variations. For each return statement, prediction, evidence_support, counterargument, "
-            "disconfirming_observation, assumptions, evidence_status, and an initial experiment object."
+            "disconfirming_observation, assumptions, and evidence_status. Keep every field to one short "
+            "sentence, use at most two assumptions, and do not return experiment objects; a later phase "
+            "designs the tests."
         ),
         context={
-            "research_request": inputs,
+            "research_request": _compact_research_request(inputs),
             "source_refs": source_refs,
             "source_analysis": source_analysis,
             "question_decomposition": question_decomposition,
             "retrieved_method_context": str(rag.get("context") or "")[:2500],
-            "seed_hypotheses_to_challenge": inputs.get("seed_hypotheses") or [],
+            "seed_hypotheses_to_challenge": _compact_seed_hypotheses(inputs),
         },
         fallback={
             **posture,
@@ -423,7 +473,8 @@ def _prepare_deep_research(
             instruction=(
                 "Act as a hostile but fair methodological reviewer. Find the strongest alternative "
                 "explanations, confounders, measurement failures, boundary conditions, and decisive "
-                "disconfirming observations. Recommend a concrete revision without inventing evidence."
+                "disconfirming observations. Recommend a concrete revision without inventing evidence. "
+                "Use at most two items in each array and one short sentence per item."
             ),
             context={
                 "research_question": inputs.get("research_question"),
@@ -455,7 +506,8 @@ def _prepare_deep_research(
         instruction=(
             "Choose only allowlisted probes that can resolve a named evidence or reasoning gap. "
             "Return tool_requests and optional generated_python. Generated Python may only perform "
-            "bounded descriptive, ranking, sensitivity, or consistency analysis on supplied data."
+            "bounded descriptive, ranking, sensitivity, or consistency analysis on supplied data. "
+            "Return at most two tool requests and no prose outside those fields."
         ),
         context={
             "research_question": inputs.get("research_question"),
@@ -518,10 +570,12 @@ def _finalize_deep_research(
         instruction=(
             "Revise, merge, or reject candidate hypotheses in light of the source analysis, adversarial "
             "reviews, and probe observations. Do not treat tool or code output as empirical validation. "
-            "Return the complete revised candidate_hypotheses plus rationale, recommended_action, and confidence."
+            "Return the complete revised candidate_hypotheses plus rationale, recommended_action, and "
+            "confidence. Keep every hypothesis field to one short sentence, use at most two assumptions, "
+            "and do not return experiment objects."
         ),
         context={
-            "research_request": inputs,
+            "research_request": _compact_research_request(inputs),
             "source_refs": deep_state["source_refs"],
             "source_analysis": deep_state["source_analysis"],
             "question_decomposition": deep_state["question_decomposition"],
@@ -544,35 +598,60 @@ def _finalize_deep_research(
     candidates = _normalize_hypotheses(
         revision.get("candidate_hypotheses"), inputs, evidence, documents, sources
     )
-    experiment_design = _phase_generate_json(
-        llm,
-        phase="experiment_design",
-        instruction=(
-            "Design one decision-useful, review-only test for each hypothesis. Each experiment must name "
-            "objective, unit_of_analysis, baseline, intervention, primary_outcome, measurements, procedure, "
-            "decision_rule, analysis_plan, and stop_conditions. Return an experiments array whose objects "
-            "are keyed by hypothesis_id."
-        ),
-        context={
-            "research_question": inputs.get("research_question"),
-            "constraints": inputs.get("constraints"),
-            "source_refs": deep_state["source_refs"],
-            "candidate_hypotheses": [_compact_hypothesis(item) for item in candidates],
-            "critique_ledger": deep_state["critique_ledger"],
-        },
-        fallback={
-            "experiments": [
-                {"hypothesis_id": item["hypothesis_id"], **_normalize_experiment(item.get("experiment"), item)}
-                for item in candidates
-            ]
-        },
-        phase_trace=phase_trace,
+    experiment_traces: list[dict[str, Any]] = []
+    experiments_by_id: dict[str, dict[str, Any]] = {}
+    for item in candidates:
+        hypothesis_id = item["hypothesis_id"]
+        critique = next(
+            (
+                value
+                for value in deep_state["critique_ledger"]
+                if value.get("hypothesis_id") == hypothesis_id
+            ),
+            {},
+        )
+        fallback_experiment = {
+            "hypothesis_id": hypothesis_id,
+            **_normalize_experiment(item.get("experiment"), item),
+        }
+        design = _phase_generate_json(
+            llm,
+            phase=f"experiment_design_{hypothesis_id}",
+            instruction=(
+                "Design one decision-useful, review-only test for this hypothesis. Return one experiment "
+                "object with hypothesis_id, objective, unit_of_analysis, baseline, intervention, "
+                "primary_outcome, measurements, procedure, decision_rule, analysis_plan, and "
+                "stop_conditions. Use at most five measurements, five short procedure steps, and three "
+                "stop conditions so the complete object fits under 800 tokens."
+            ),
+            context={
+                "research_question": inputs.get("research_question"),
+                "constraints": inputs.get("constraints"),
+                "source_refs": deep_state["source_refs"],
+                "hypothesis": _compact_hypothesis(item),
+                "adversarial_review": critique,
+            },
+            fallback={"experiment": fallback_experiment},
+            phase_trace=experiment_traces,
+        )
+        experiment = design.get("experiment")
+        if not isinstance(experiment, dict):
+            legacy = _dict_items(design.get("experiments"))
+            experiment = legacy[0] if legacy else fallback_experiment
+        experiment["hypothesis_id"] = hypothesis_id
+        experiments_by_id[hypothesis_id] = experiment
+    phase_trace.append(
+        {
+            "phase": "experiment_design",
+            "status": "completed",
+            "llm_calls": sum(int(item.get("llm_calls") or 0) for item in experiment_traces),
+            "fallback_calls": sum(
+                int(item.get("fallback_calls") or 0) for item in experiment_traces
+            ),
+            "source_refs": list(deep_state["source_refs"])[:20],
+            "hypothesis_ids": [item["hypothesis_id"] for item in candidates],
+        }
     )
-    experiments_by_id = {
-        str(item.get("hypothesis_id")): item
-        for item in _dict_items(experiment_design.get("experiments"))
-        if item.get("hypothesis_id")
-    }
     for item in candidates:
         designed = experiments_by_id.get(item["hypothesis_id"])
         item["experiment"] = _normalize_experiment(designed, item)
@@ -583,7 +662,8 @@ def _finalize_deep_research(
         instruction=(
             "Independently rank the hypotheses by traceable support, falsifiability, decision value, and "
             "risk of misleading the reviewer. Penalize unsupported causal or novelty claims. Return ranking, "
-            "recommended_action, confidence, rationale, and unresolved_gaps."
+            "recommended_action, confidence, rationale, and unresolved_gaps. Use one short rationale per "
+            "hypothesis and at most five unresolved gaps."
         ),
         context={
             "research_question": inputs.get("research_question"),
@@ -645,7 +725,8 @@ def _finalize_deep_research(
         instruction=(
             "Write the decision-useful synthesis after ranking. Return executive_summary, key_findings, "
             "decision_implications, and caveats. Integrate the source analysis, hypothesis tests, critiques, "
-            "and unresolved gaps; introduce no new facts and do not imply validation or authorization."
+            "and unresolved gaps; introduce no new facts and do not imply validation or authorization. "
+            "Use at most three short items in each array and keep the summary under 120 words."
         ),
         context={
             "research_goal": inputs.get("research_goal"),

@@ -178,7 +178,7 @@ def call_ollama(frame: bytes | list[bytes], prompt: str) -> dict[str, Any]:
         or os.environ.get("MN_LLM_MODEL")
         or os.environ.get("VL_MODEL_NAME")
         or os.environ.get("OLLAMA_MODEL")
-        or "nemotron3"
+        or "nemotron3:q4_K_M"
     )
     timeout = float(os.environ.get("MN_VLM_TIMEOUT_SECONDS") or os.environ.get("MN_LLM_TIMEOUT_SECONDS") or os.environ.get("OLLAMA_TIMEOUT_SECONDS", "90"))
     if _uses_openai_compatible_runtime(provider, base_url):
@@ -229,6 +229,8 @@ def call_ollama(frame: bytes | list[bytes], prompt: str) -> dict[str, Any]:
                     or os.environ.get("MN_LLM_RETRY_BACKOFF_SECONDS")
                     or "1"
                 ),
+                structured_output=True,
+                required_capabilities=("image_input", "structured_output"),
                 urlopen=urllib.request.urlopen,
             )
         except RuntimeModelError as exc:
@@ -301,14 +303,20 @@ def _normalize_vlm_model(model: str) -> str:
         "",
         "default",
         "medium",
+        "small",
         "nemotron3",
+        "nemotron3:q4_k_m",
         "nemotron3:latest",
         "ai/nemotron3:latest",
         "docker.io/ai/nemotron3:latest",
+        "ai/nemotron3:q4_k_m",
+        "docker.io/ai/nemotron3:q4_k_m",
     }:
-        # The node-local model gateway routes the catalog alias; the Docker
-        # image reference is only for provisioning the runner model.
-        return "nemotron3"
+        # Use the catalog's explicit vision-capable DMR artifact. The runtime
+        # wrapper lazily prepares it and then sends the request through the
+        # node-local LiteLLM proxy rather than addressing Docker Model Runner
+        # directly from this worker.
+        return "nemotron3:q4_K_M"
     return value
 
 

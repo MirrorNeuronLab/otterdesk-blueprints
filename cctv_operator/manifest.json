@@ -62,12 +62,54 @@
     ],
     "extra_nodes": [
       {
-        "agent_type": "router",
+        "agent_type": "executor",
         "alias": "video_monitor",
-        "config": {},
+        "config": {
+          "agent_beacon_required": false,
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_missed_action": "fail_attempt",
+          "beacon_timeout_ms": 45000,
+          "command": [
+            "python3",
+            "agents/validation/start_video_monitor.py"
+          ],
+          "docker_worker_image": "docker_worker",
+          "environment": {},
+          "from": "base",
+          "gpus": "all",
+          "image": "mirror-neuron/cctv-operator:local",
+          "network_mode": "host",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "output_message_type": null,
+          "pool": "default",
+          "pool_slots": 1,
+          "reuse_shared_container": true,
+          "runner_module": "MirrorNeuron.Runner.DockerWorker",
+          "shared_container": true,
+          "tty": false,
+          "upload_paths": [
+            {
+              "source": "agents/validation",
+              "target": "agents/validation"
+            }
+          ],
+          "workdir": "/mn/job"
+        },
+        "constraints": [
+          {
+            "attribute": "capabilities",
+            "operator": "contains_all",
+            "value": [
+              "nvidia",
+              "cuda"
+            ]
+          }
+        ],
         "display_name": "Video Monitor",
         "node_id": "ingress",
-        "type": "map"
+        "type": "generic"
       },
       {
         "agent_type": "executor",
@@ -93,7 +135,7 @@
           "from": "base",
           "gpus": "all",
           "image": "mirror-neuron/cctv-operator:local",
-          "network": "mirror-neuron-runtime",
+          "network_mode": "host",
           "no_auto_providers": true,
           "no_keep": true,
           "output_message_type": null,
@@ -163,11 +205,24 @@
             "scripts/run_detector_on_nvidia.sh"
           ],
           "docker_worker_image": "docker_worker",
-          "environment": {},
+          "environment": {
+            "MN_LLM_API_BASE": "auto",
+            "MN_LLM_BACKEND": "llama.cpp",
+            "MN_LLM_MODEL": "nemotron3:q4_K_M",
+            "MN_LLM_PROVIDER": "docker_model_runner",
+            "MN_RUNTIME_MODEL_CONTROL_TARGET": "127.0.0.1:55051",
+            "MN_RUNTIME_MODEL_GATEWAY_HOST": "127.0.0.1",
+            "MN_RUNTIME_MODEL_NATIVE_TARGET": "127.0.0.1:55052",
+            "MN_RUNTIME_MODEL_MANAGED": "1",
+            "MN_VLM_API_BASE": "auto",
+            "MN_VLM_BACKEND": "llama.cpp",
+            "MN_VLM_MODEL": "nemotron3:q4_K_M",
+            "MN_VLM_PROVIDER": "docker_model_runner"
+          },
           "from": "base",
           "gpus": "all",
           "image": "mirror-neuron/cctv-operator:local",
-          "network": "mirror-neuron-runtime",
+          "network_mode": "host",
           "no_auto_providers": true,
           "no_keep": true,
           "output_message_type": "cctv_operator_detection",
@@ -217,21 +272,35 @@
           "beacon_missed_action": "fail_attempt",
           "beacon_timeout_ms": 45000,
           "command": [
-            "python3.11",
+            "python3",
             "agents/report_writer/scripts/write_cctv_report.py"
           ],
+          "docker_worker_image": "docker_worker",
           "environment": {},
           "from": "base",
+          "gpus": "all",
+          "image": "mirror-neuron/cctv-operator:local",
+          "network_mode": "host",
           "no_auto_providers": true,
           "no_keep": true,
           "output_message_type": "cctv_operator_report_ready",
           "pool": "default",
           "pool_slots": 1,
-          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "reuse_shared_container": true,
+          "runner_module": "MirrorNeuron.Runner.DockerWorker",
+          "shared_container": true,
           "tty": false,
-          "upload_as": ".",
-          "upload_path": ".",
-          "workdir": "/sandbox/job"
+          "upload_paths": [
+            {
+              "source": "agents/report_writer",
+              "target": "agents/report_writer"
+            },
+            {
+              "source": "domain",
+              "target": "domain"
+            }
+          ],
+          "workdir": "/mn/job"
         },
         "constraints": [
           {
@@ -252,21 +321,35 @@
         "alias": "cctv_web_ui",
         "config": {
           "command": [
-            "python3.11",
+            "python3",
             "services/cctv_web_ui.py"
           ],
+          "docker_worker_image": "docker_worker",
           "environment": {},
           "from": "base",
+          "gpus": "all",
+          "image": "mirror-neuron/cctv-operator:local",
+          "network_mode": "host",
           "no_auto_providers": true,
           "no_keep": true,
           "output_message_type": null,
           "pool": "default",
           "pool_slots": 1,
-          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "reuse_shared_container": true,
+          "runner_module": "MirrorNeuron.Runner.DockerWorker",
+          "shared_container": true,
           "tty": false,
-          "upload_as": ".",
-          "upload_path": ".",
-          "workdir": "/sandbox/job"
+          "upload_paths": [
+            {
+              "source": "services",
+              "target": "services"
+            },
+            {
+              "source": "domain",
+              "target": "domain"
+            }
+          ],
+          "workdir": "/mn/job"
         },
         "constraints": [
           {
@@ -280,46 +363,12 @@
         ],
         "display_name": "CCTV Web UI",
         "node_id": "cctv_web_ui",
-        "resources": {
-          "ports": [
-            {
-              "label": "web_ui",
-              "port": 61000,
-              "protocol": "http"
-            }
-          ]
-        },
-        "services": [
-          {
-            "address": "0.0.0.0",
-            "checks": [
-              {
-                "address": "127.0.0.1",
-                "expected_status": 200,
-                "failures_before_critical": 2,
-                "interval_ms": 2000,
-                "name": "http-ready",
-                "path": "/healthz",
-                "required": true,
-                "timeout_ms": 1000,
-                "type": "http"
-              }
-            ],
-            "name": "cctv-operator-web-ui",
-            "port": 61000,
-            "tags": [
-              "web_ui",
-              "blueprint",
-              "cctv_operator",
-              "json-render"
-            ]
-          }
-        ],
         "type": "stream"
       }
     ]
   },
   "apiVersion": "mn.workflow/v1",
+  "type": "service",
   "config": {
     "default": "config/default.json",
     "embed": true
@@ -433,8 +482,8 @@
         "type": "domain_value"
       },
       "video_source": {
-        "description": "Approved RTSP/RTMP URI monitored by this run.",
-        "example": "rtsp://camera.example/cctv",
+        "description": "Bundled Docker demo stream by default, or one approved external RTSP/RTMP URI.",
+        "example": "bundled_demo",
         "privacy": "internal",
         "required": true,
         "type": "domain_value"
@@ -681,7 +730,7 @@
         "completed"
       ]
     },
-    "summary": "Monitor one approved RTSP/RTMP stream on a qualifying NVIDIA node with sparse adaptive sampling and durable review reports.",
+    "summary": "Monitor the bundled Docker demo stream or one approved external RTSP/RTMP stream on a qualifying NVIDIA node with sparse adaptive sampling and durable review reports.",
     "users": [
       "Video operators, security reviewers, safety operations teams, and site-access coordinators."
     ]
@@ -695,15 +744,21 @@
     "category": "security",
     "id": "cctv_operator",
     "job_name": "cctv-operator",
-    "manifest_version": "2.0",
+    "manifest_version": "3.1",
     "name": "CCTV Operator",
     "version": 1
   },
   "response_service": {
     "enabled": true
   },
+  "service": {
+    "enabled": true,
+    "manual_close": "Stop the CCTV Operator job in OtterDesk or send SIGTERM.",
+    "run_until": "manual_stop",
+    "state_artifact": "monitoring_state.json"
+  },
   "intent": {
-    "description": "An NVIDIA-only CCTV co-worker for one approved RTSP/RTMP stream, with operator steering, sparse adaptive sampling, and source-grounded reports.",
+    "description": "An NVIDIA-only CCTV co-worker with a self-contained Docker demo stream, optional approved external RTSP/RTMP input, operator steering, sparse adaptive sampling, and source-grounded reports.",
     "problem": "Monitor a live CCTV stream without sending its native frame rate to the model.",
     "safety": {
       "enabled": true,
@@ -726,13 +781,6 @@
     "backend": "redis_vector_rag",
     "chunk_overlap": 70,
     "chunk_size": 700,
-    "embedding_api_base": "http://host.docker.internal:12434/engines/v1",
-    "embedding_document_prefix": "Document: ",
-    "embedding_healthcheck_enabled": true,
-    "embedding_model": "rag-embedding",
-    "embedding_provider": "docker_model_runner",
-    "embedding_query_prefix": "Query: ",
-    "embedding_start_command": "",
     "enabled": true,
     "grounding_policy": "Use retrieved local blueprint knowledge to improve actor review prompts; do not invent facts when retrieval is unavailable.",
     "index_on_startup": false,
@@ -749,8 +797,7 @@
       "alert cooldowns",
       "human review boundaries"
     ],
-    "top_k": 4,
-    "vector_dim": 1024
+    "top_k": 4
   },
   "manifest": {
     "input_validation": {
@@ -803,7 +850,31 @@
           "alias": "video_monitor",
           "display_name": "Video Monitor",
           "node_id": "ingress",
-          "uses": "mn-agents.control_router@1"
+          "uses": "mn-agents.data_python_executor@1",
+          "with": {
+            "agent_beacon_required": false,
+            "command": [
+              "python3",
+              "agents/validation/start_video_monitor.py"
+            ],
+            "docker_worker_image": "docker_worker",
+            "environment": {},
+            "gpus": "all",
+            "image": "mirror-neuron/cctv-operator:local",
+            "network_mode": "host",
+            "output_message_type": null,
+            "reuse_shared_container": true,
+            "runner_module": "MirrorNeuron.Runner.DockerWorker",
+            "script": "agents/validation/start_video_monitor.py",
+            "shared_container": true,
+            "upload_paths": [
+              {
+                "source": "agents/validation",
+                "target": "agents/validation"
+              }
+            ],
+            "workdir": "/mn/job"
+          }
         },
         {
           "alias": "adaptive_frame_sampler",
@@ -819,7 +890,7 @@
             "environment": {},
             "gpus": "all",
             "image": "mirror-neuron/cctv-operator:local",
-            "network": "mirror-neuron-runtime",
+            "network_mode": "host",
             "output_message_type": null,
             "reuse_shared_container": true,
             "runner_module": "MirrorNeuron.Runner.DockerWorker",
@@ -844,15 +915,29 @@
           "node_id": "visual_detector",
           "uses": "mn-agents.data_python_executor@1",
           "with": {
+            "beacon_timeout_ms": 45000,
             "command": [
               "bash",
               "scripts/run_detector_on_nvidia.sh"
             ],
             "docker_worker_image": "docker_worker",
-            "environment": {},
+            "environment": {
+              "MN_LLM_API_BASE": "auto",
+              "MN_LLM_BACKEND": "llama.cpp",
+            "MN_LLM_MODEL": "nemotron3:q4_K_M",
+            "MN_LLM_PROVIDER": "docker_model_runner",
+            "MN_RUNTIME_MODEL_CONTROL_TARGET": "127.0.0.1:55051",
+            "MN_RUNTIME_MODEL_GATEWAY_HOST": "127.0.0.1",
+            "MN_RUNTIME_MODEL_NATIVE_TARGET": "127.0.0.1:55052",
+            "MN_RUNTIME_MODEL_MANAGED": "1",
+              "MN_VLM_API_BASE": "auto",
+              "MN_VLM_BACKEND": "llama.cpp",
+              "MN_VLM_MODEL": "nemotron3:q4_K_M",
+              "MN_VLM_PROVIDER": "docker_model_runner"
+            },
             "gpus": "all",
             "image": "mirror-neuron/cctv-operator:local",
-            "network": "mirror-neuron-runtime",
+            "network_mode": "host",
             "output_message_type": "cctv_operator_detection",
             "reuse_shared_container": true,
             "runner_module": "MirrorNeuron.Runner.DockerWorker",
@@ -882,16 +967,30 @@
           "uses": "mn-agents.data_python_executor@1",
           "with": {
             "command": [
-              "python3.11",
+              "python3",
               "agents/report_writer/scripts/write_cctv_report.py"
             ],
+            "docker_worker_image": "docker_worker",
             "environment": {},
+            "gpus": "all",
+            "image": "mirror-neuron/cctv-operator:local",
+            "network_mode": "host",
             "output_message_type": "cctv_operator_report_ready",
-            "runner_module": "MirrorNeuron.Runner.HostLocal",
+            "reuse_shared_container": true,
+            "runner_module": "MirrorNeuron.Runner.DockerWorker",
             "script": "agents/report_writer/scripts/write_cctv_report.py",
-            "upload_as": ".",
-            "upload_path": ".",
-            "workdir": "/sandbox/job"
+            "shared_container": true,
+            "upload_paths": [
+              {
+                "source": "agents/report_writer",
+                "target": "agents/report_writer"
+              },
+              {
+                "source": "domain",
+                "target": "domain"
+              }
+            ],
+            "workdir": "/mn/job"
           }
         }
       ]
@@ -939,7 +1038,7 @@
       ]
     },
     "customizable_for": "Video monitoring, configurable visual detection, facility operations, and site safety workflows.",
-    "description": "An NVIDIA-only CCTV co-worker for one approved RTSP/RTMP stream, with operator steering, sparse adaptive sampling, and source-grounded reports.",
+    "description": "An NVIDIA-only CCTV co-worker with a self-contained Docker demo stream, optional approved external RTSP/RTMP input, operator steering, sparse adaptive sampling, and source-grounded reports.",
     "features": [
       "optional local knowledge RAG grounding",
       "bounded LLM tool-plan contract"
@@ -961,10 +1060,10 @@
     "init_config_review": {
       "fields": [
         {
-          "default": "",
-          "description": "Approved RTSP/RTMP URI monitored by the selected NVIDIA node.",
-          "label": "Stream URI",
-          "path": "video_source.uri",
+          "default": "bundled_demo",
+          "description": "Use the bundled Docker demo by default. Choose external only when supplying an approved RTSP/RTMP URI.",
+          "label": "Video source profile",
+          "path": "video_source.profile",
           "type": "domain_value"
         },
         {
@@ -1014,7 +1113,7 @@
       "required": true
     },
     "input_contract": {
-      "description": "Configure one approved RTSP/RTMP source for sparse adaptive analysis on a qualifying NVIDIA node.",
+      "description": "Use the bundled Docker demo stream or configure one approved external RTSP/RTMP source for sparse adaptive analysis on a qualifying NVIDIA node.",
       "optional_inputs": [
         {
           "description": "Operator instruction for a detail to watch in the current stream.",
@@ -1058,7 +1157,7 @@
         },
         "live_stream": {
           "adapter": "json",
-          "description": "Runtime configuration for one approved RTSP/RTMP source.",
+          "description": "Runtime configuration for the bundled Docker demo or one approved external RTSP/RTMP source.",
           "streams": [
             "cctv_operator_stream"
           ]
@@ -1071,8 +1170,8 @@
       },
       "required_inputs": [
         {
-          "description": "Approved RTSP/RTMP URI monitored by this run.",
-          "example": "rtsp://camera.example/cctv",
+          "description": "Bundled Docker demo stream by default, or one approved external RTSP/RTMP URI.",
+          "example": "bundled_demo",
           "name": "video_source",
           "type": "domain_value"
         },
@@ -1345,7 +1444,7 @@
       "web_ui_adapters": [
         "none",
         "static_html",
-        "json_render",
+        "external_url",
         "custom"
       ]
     },
@@ -1353,13 +1452,6 @@
       "backend": "redis_vector_rag",
       "chunk_overlap": 70,
       "chunk_size": 700,
-      "embedding_api_base": "http://host.docker.internal:12434/engines/v1",
-      "embedding_document_prefix": "Document: ",
-      "embedding_healthcheck_enabled": true,
-      "embedding_model": "rag-embedding",
-      "embedding_provider": "docker_model_runner",
-      "embedding_query_prefix": "Query: ",
-      "embedding_start_command": "",
       "enabled": true,
       "grounding_policy": "Use retrieved local blueprint knowledge to improve actor review prompts; do not invent facts when retrieval is unavailable.",
       "index_on_startup": false,
@@ -1376,8 +1468,7 @@
         "alert cooldowns",
         "human review boundaries"
       ],
-      "top_k": 4,
-      "vector_dim": 1024
+      "top_k": 4
     },
     "llm_agent_role": "AI assistant for reviewing live video activity and preparing visual detection reports and alerts.",
     "memory_layer": {
@@ -1630,7 +1721,7 @@
       "status": "JSON lines on stderr",
       "stdout": "single JSON object, event envelope, or bundle path"
     },
-    "problem_solved": "Monitor a live CCTV stream without sending its native frame rate to the model.",
+    "problem_solved": "Run a self-contained CCTV demo or monitor an approved external live stream without sending its native frame rate to the model.",
     "quick_test": {
       "description": "Quick test mode shortens the sample interval, disables Slack, and uses mock visual detection unless OLLAMA_LIVE_IN_QUICK_TEST=1.",
       "enabled": false,
@@ -1787,23 +1878,24 @@
         "VIDEO_SOURCE_URI",
         "CCTV_MEDIA_ACCELERATOR"
       ],
-      "description": "One approved RTSP/RTMP stream; CUDA-enabled FFmpeg is the only media-preparation path.",
+      "description": "The bundled Docker demo or one approved external RTSP/RTMP stream; CUDA-enabled FFmpeg is the only analysis media-preparation path.",
       "media_accelerator": "nvidia_cuda",
       "mode": "stream",
+      "profile": "bundled_demo",
       "transport": "rtsp_rtmp",
-      "uri": ""
+      "uri": "rtsp://127.0.0.1:8554/cctv-demo"
     },
     "web_ui": {
-      "adapter": "json-render",
-      "description": "Blueprint-owned CCTV service rendered with the generic web UI skill.",
+      "adapter": "external-url",
+      "description": "Read-only CCTV operations console with a CUDA-assisted MJPEG preview and server-sent operator events, claimed through the generic Web UI skill.",
       "enabled": true,
-      "kind": "output",
+      "kind": "service",
       "node_id": "cctv_web_ui",
       "service_name": "cctv-operator-web-ui",
       "registration": {
         "module": "cctv_web_ui",
         "package": "mirrorneuron-web-ui-skill",
-        "writes": "ui.json and web_ui.json"
+        "writes": "external-url ui.json and web_ui.json after the service binds"
       },
       "reads": [
         "events.jsonl",
@@ -1811,8 +1903,10 @@
         "latest_analyzed_frame.json",
         "web_ui.json"
       ],
-      "steering_action": "/actions/steer-monitoring",
-      "preview_config": "web_ui.preview.url"
+      "mjpeg_stream": "/streams/live.mjpg",
+      "operator_event_stream": "/streams/operator-events",
+      "preview_config": "web_ui.preview",
+      "steering": "external_chat_mcp_via_declared_live_input"
     }
   },
   "requirements": {
@@ -1846,7 +1940,7 @@
             "alias": "visual_target_detector",
             "display_name": "Visual Target Detector",
             "id": "visual_target_detector",
-            "model": "nemotron-3.5-lightning:latest",
+            "model": "nemotron3:q4_K_M",
             "role": "Run visual detection",
             "tokens": 14000,
             "tools": 4
@@ -1855,7 +1949,7 @@
             "alias": "quality_controller",
             "display_name": "Quality Controller",
             "id": "quality_controller",
-            "model": "nemotron-3.5-lightning:latest",
+            "model": "nemotron3:q4_K_M",
             "role": "Review alert quality",
             "tokens": 14000,
             "tools": 4
@@ -1872,7 +1966,7 @@
             "alias": "adaptive_frame_sampler",
             "display_name": "Adaptive Frame Sampler",
             "id": "adaptive_frame_sampler",
-            "model": "nemotron-3.5-lightning:latest",
+            "model": "nemotron3:q4_K_M",
             "role": "Select sparse and event-triggered frame batches",
             "tokens": 14000,
             "tools": 4
@@ -1899,7 +1993,7 @@
             "alias": "video_source_validator",
             "display_name": "Video Source Validator",
             "id": "video_source_validator",
-            "model": "nemotron-3.5-lightning:latest",
+            "model": "nemotron3:q4_K_M",
             "role": "Validate video source",
             "tokens": 14000,
             "tools": 4
@@ -1908,7 +2002,7 @@
             "alias": "video_monitor",
             "display_name": "Video Monitor",
             "id": "video_monitor",
-            "model": "nemotron-3.5-lightning:latest",
+            "model": "nemotron3:q4_K_M",
             "role": "Coordinate video monitoring",
             "tokens": 14000,
             "tools": 4
@@ -1925,7 +2019,7 @@
             "alias": "report_writer",
             "display_name": "CCTV Report Writer",
             "id": "report_writer",
-            "model": "nemotron-3.5-lightning:latest",
+            "model": "nemotron3:q4_K_M",
             "role": "Write cumulative CCTV reports",
             "tokens": 14000,
             "tools": 4
@@ -1959,13 +2053,14 @@
     },
     "models": {
       "primary": {
-        "backend": "llama.cpp",
-        "install_mode": "workflow_node",
-        "model": "nemotron-3.5-lightning:latest",
+        "model": "nemotron3:q4_K_M",
         "provider": "docker_model_runner",
         "required": true,
-        "runtime_model": "nemotron-3.5-lightning:latest",
-        "type": "vlm"
+        "type": "vlm",
+        "required_capabilities": [
+          "image_input",
+          "structured_output"
+        ]
       }
     },
     "observability": {
@@ -1999,7 +2094,7 @@
       "source": "local_run_store"
     },
     "placement": {
-      "mode": "distributed"
+      "mode": "single_node"
     },
     "resources": {
       "cpu": {
@@ -2038,12 +2133,18 @@
       "type": "local_run_store"
     },
     "worker_defaults": {
-      "model": "nemotron-3.5-lightning:latest",
+      "docker_worker_image": "docker_worker",
+      "gpus": "all",
+      "image": "mirror-neuron/cctv-operator:local",
+      "network_mode": "host",
+      "model": "nemotron3:q4_K_M",
       "pool": "default",
       "pool_slots": 1,
-      "runner": "MirrorNeuron.Runner.HostLocal",
+      "reuse_shared_container": true,
+      "runner": "MirrorNeuron.Runner.DockerWorker",
+      "shared_container": true,
       "uses": "mn-agents.data_python_executor@1",
-      "workdir": "/sandbox/job/workflow"
+      "workdir": "/mn/job/workflow"
     },
     "workflow_control": {
       "attempts": {
@@ -2232,7 +2333,7 @@
             "on_low_confidence": "continue_with_warning"
           }
         },
-        "goal": "Validate the configured RTSP/RTMP stream and start the analysis session.",
+        "goal": "Validate the bundled demo or configured external RTSP/RTMP stream and start the analysis session.",
         "id": "start_video_monitor",
         "in": {
           "video_source": "$state.video_source"

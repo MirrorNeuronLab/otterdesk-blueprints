@@ -24,6 +24,71 @@
     "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run"
   },
   "agents": {
+    "auxiliary_entrypoints": [
+      "drug_discovery_web_ui"
+    ],
+    "extra_nodes": [
+      {
+        "agent_type": "executor",
+        "alias": "drug_discovery_web_ui",
+        "config": {
+          "command": [
+            "python3.11",
+            "services/drug_discovery_web_ui.py"
+          ],
+          "environment": {},
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "output_message_type": null,
+          "pool": "default",
+          "pool_slots": 1,
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "tty": false,
+          "upload_as": ".",
+          "upload_path": ".",
+          "workdir": "/sandbox/job"
+        },
+        "display_name": "Drug Discovery Progress",
+        "node_id": "drug_discovery_web_ui",
+        "resources": {
+          "ports": [
+            {
+              "label": "web_ui",
+              "port": 61020,
+              "protocol": "http"
+            }
+          ]
+        },
+        "services": [
+          {
+            "address": "0.0.0.0",
+            "checks": [
+              {
+                "address": "127.0.0.1",
+                "expected_status": 200,
+                "failures_before_critical": 3,
+                "interval_ms": 2000,
+                "name": "http-ready",
+                "path": "/healthz",
+                "required": true,
+                "timeout_ms": 1000,
+                "type": "http"
+              }
+            ],
+            "name": "drug-discovery-progress",
+            "port": 61020,
+            "tags": [
+              "web_ui",
+              "blueprint",
+              "drug_discovery_research_assistant",
+              "molecule-viewer"
+            ]
+          }
+        ],
+        "type": "stream"
+      }
+    ],
     "registry": {
       "target_biology_researcher": {
         "handler": "agents.target_biology_researcher",
@@ -35,7 +100,7 @@
       },
       "discovery_service_operator": {
         "handler": "agents.discovery_service_operator",
-        "role": "Continuous Discovery Service Operator"
+        "role": "Candidate Discovery Specialist"
       },
       "binding_evidence_reviewer": {
         "handler": "agents.binding_evidence_reviewer",
@@ -93,6 +158,10 @@
       {
         "from": "contracts.inputs",
         "to": "interfaces.input_contract"
+      },
+      {
+        "from": "workflow.steps",
+        "to": "web_ui.workflow_steps"
       },
       {
         "from": "metadata.memory_layer",
@@ -188,7 +257,7 @@
       },
       "output_folder": {
         "description": "Default local output folder for generated artifacts and reports.",
-        "example": "~/Downloads/drug_discovery_research_assistant",
+        "example": "~/Downloads/{job_id}",
         "path_kind": "directory",
         "privacy": "confidential",
         "required": false,
@@ -325,6 +394,39 @@
           "type": "generated_report"
         },
         {
+          "artifact_id": "cycle_progress",
+          "mime_type": "application/json",
+          "path": "cycle_progress.json",
+          "producer": "discovery_service_operator",
+          "schema_version": "mn.blueprint.discovery_cycle_progress.v1",
+          "source_refs": [
+            "service_state.json"
+          ],
+          "type": "service_progress"
+        },
+        {
+          "artifact_id": "leading_candidate_metadata",
+          "mime_type": "application/json",
+          "path": "leading_candidate.json",
+          "producer": "discovery_service_operator",
+          "schema_version": "mn.blueprint.leading_candidate_preview.v1",
+          "source_refs": [
+            "cycle_progress.json"
+          ],
+          "type": "molecule_preview"
+        },
+        {
+          "artifact_id": "leading_candidate_visualization",
+          "mime_type": "image/svg+xml",
+          "path": "leading_candidate.svg",
+          "producer": "discovery_service_operator",
+          "schema_version": "mn.blueprint.molecule_svg.v1",
+          "source_refs": [
+            "leading_candidate.json"
+          ],
+          "type": "molecule_visualization"
+        },
+        {
           "artifact_id": "stage_logs",
           "mime_type": "application/x-jsonlines",
           "path": "events.jsonl",
@@ -389,7 +491,7 @@
         "completed"
       ]
     },
-    "summary": "A manually stopped native discovery service that continuously fans candidate, folding, DrugCLIP, and simulation work across configured cluster pools.",
+    "summary": "Runs one drug-discovery cycle to produce five distinct computational candidates, screens and evaluates them, writes a review packet and molecule preview to ~/Downloads/{job_id}, then completes.",
     "users": [
       "Computational biology researchers, scientific AI platform teams, and research operations groups."
     ]
@@ -419,12 +521,12 @@
       }
     }
   },
-  "description": "A continuous drug-discovery research service. Give it a disease or target profile, screening criteria, optional candidate seeds, literature notes, and an input folder; it continuously generates candidate hypotheses, screens them with DrugCLIP, folds targets, runs configured simulations across cluster workers, and writes review-only cycle reports until manually stopped.",
+  "description": "Runs one drug-discovery cycle to produce five distinct computational candidates, screens and evaluates them, writes a review packet and molecule preview to ~/Downloads/{job_id}, then completes.",
   "identity": {
     "category": "science",
     "id": "drug_discovery_research_assistant",
     "job_name": "drug-discovery-research-assistant",
-    "manifest_version": "1.0",
+    "manifest_version": "1.6",
     "name": "Drug Discovery Research Assistant",
     "version": 1
   },
@@ -433,8 +535,8 @@
   },
   "intent": {
     "customizable_for": "Drug discovery, material search, assay planning, scientific literature review, and research pipeline support.",
-    "description": "A continuous drug-discovery research service. Give it a disease or target profile, screening criteria, optional candidate seeds, literature notes, and an input folder; it continuously generates candidate hypotheses, screens them with DrugCLIP, folds targets, runs configured simulations across cluster workers, and writes review-only cycle reports until manually stopped.",
-    "problem": "Discovery work needs continuous, traceable candidate generation and scientific screening without collapsing cluster-scale folding and simulation into a single serial worker.",
+    "description": "Runs one drug-discovery cycle to produce five distinct computational candidates, screens and evaluates them, writes a review packet and molecule preview to ~/Downloads/{job_id}, then completes.",
+    "problem": "Discovery work needs a bounded, traceable five-candidate result with scientific evidence.",
     "safety": {
       "allowed_decisions": [
         "approve",
@@ -541,8 +643,7 @@
       }
     },
     "provider": "docker_model_runner",
-    "model": "small",
-    "runtime_model": "small",
+    "model": "default",
     "backend": "llama.cpp",
     "mode": "live",
     "mock_mode": "fake",
@@ -550,12 +651,6 @@
     "quick_test_uses_fake": true,
     "strict_json": false,
     "require_live": true,
-    "live_model_profile": {
-      "provider": "docker_model_runner",
-      "model": "small",
-      "runtime_model": "small",
-      "backend": "llama.cpp"
-    },
     "responsibilities": [
       "Keep cheminformatics scoring and simulation outputs as the source of truth.",
       "Use LLM actors to explain hypotheses, evidence gaps, and review packets.",
@@ -564,8 +659,6 @@
     "configs": {
       "primary": {
         "provider": "docker_model_runner",
-        "model": "small",
-        "runtime_model": "small",
         "backend": "llama.cpp",
         "api_base": "auto",
         "timeout_seconds": 60,
@@ -573,20 +666,33 @@
         "num_retries": 1,
         "mock_mode": "fake",
         "mode": "live",
-        "retry_backoff_seconds": 1.0,
+        "retry_backoff_seconds": 1,
         "required": true
       }
     }
   },
   "manifest": {
-    "type": "service"
+    "type": "batch"
   },
   "metadata": {
     "job_data": {
       "resources": [
-        { "name": "knowledge", "path": "knowledge", "access": "read_write", "seed": "@/payloads/knowledge" },
-        { "name": "rag", "path": "databases/rag", "access": "read_write" },
-        { "name": "state", "path": "state", "access": "read_write" }
+        {
+          "name": "knowledge",
+          "path": "knowledge",
+          "access": "read_write",
+          "seed": "@/payloads/knowledge"
+        },
+        {
+          "name": "rag",
+          "path": "databases/rag",
+          "access": "read_write"
+        },
+        {
+          "name": "state",
+          "path": "state",
+          "access": "read_write"
+        }
       ]
     },
     "agent_role": "AI service coordinator for distributed candidate generation, DrugCLIP virtual screening, folding, simulation, and evidence review.",
@@ -609,7 +715,7 @@
       ]
     },
     "customizable_for": "Drug discovery, material search, assay planning, scientific literature review, and research pipeline support.",
-    "description": "A continuous drug-discovery research service. Give it a disease or target profile, screening criteria, optional candidate seeds, literature notes, and an input folder; it continuously generates candidate hypotheses, screens them with DrugCLIP, folds targets, runs configured simulations across cluster workers, and writes review-only cycle reports until manually stopped.",
+    "description": "Runs one drug-discovery cycle to produce five distinct computational candidates, screens and evaluates them, writes a review packet and molecule preview to ~/Downloads/{job_id}, then completes.",
     "features": [
       "optional local knowledge RAG grounding",
       "bounded LLM tool-plan contract"
@@ -676,7 +782,7 @@
           "type": "local_path"
         },
         {
-          "default": "~/Downloads/drug_discovery_research_assistant",
+          "default": "~/Downloads/{job_id}",
           "description": "Default local output folder for generated artifacts and reports.",
           "label": "Output folder",
           "path": "outputs.folder_path",
@@ -733,7 +839,7 @@
         },
         {
           "description": "Default local output folder for generated artifacts and reports.",
-          "example": "~/Downloads/drug_discovery_research_assistant",
+          "example": "~/Downloads/{job_id}",
           "name": "output_folder",
           "path_kind": "directory",
           "privacy": "confidential",
@@ -803,7 +909,10 @@
             "inputs.json",
             "events.jsonl",
             "result.json",
-            "final_artifact.json"
+            "final_artifact.json",
+            "cycle_progress.json",
+            "leading_candidate.json",
+            "leading_candidate.svg"
           ],
           "description": "Stable run-store files and domain-specific outputs.",
           "optional_artifacts": [
@@ -845,9 +954,12 @@
         "outputs": {
           "artifacts": [
             "result.json",
-            "final_artifact.json"
+            "final_artifact.json",
+            "cycle_progress.json",
+            "leading_candidate.json",
+            "leading_candidate.svg"
           ],
-          "description": "Primary result and final user-facing artifact."
+          "description": "Live cycle progress, the primary result, and the final user-facing artifact."
         },
         "resources": {
           "artifact": "resources.jsonl",
@@ -884,10 +996,9 @@
         "web_ui": {
           "artifacts": [
             "web_ui.json",
-            "ui.json",
-            "web/index.html"
+            "ui.json"
           ],
-          "description": "Optional web input/output handles."
+          "description": "Job-scoped progress dashboard with a leading-candidate molecule preview."
         }
       },
       "config": [
@@ -1011,7 +1122,7 @@
       "web_ui_adapters": [
         "none",
         "static_html",
-        "gradio",
+        "external_url",
         "custom"
       ]
     },
@@ -1085,6 +1196,8 @@
       ],
       "reads": [
         "events.jsonl",
+        "cycle_progress.json",
+        "leading_candidate.json",
         "human.jsonl",
         "logs.jsonl",
         "resources.jsonl",
@@ -1095,7 +1208,7 @@
       "schema_version": "mn.blueprint.observability_dashboard.v1",
       "source": "local_run_store"
     },
-    "output": "Candidate artifacts, stage logs, evidence notes, and discovery summaries for researcher review.",
+    "output": "A job-scoped progress UI with a 2D leading-molecule view, candidate artifacts, stage logs, evidence notes, and discovery summaries for researcher review.",
     "output_contract": {
       "artifacts": [
         {
@@ -1216,6 +1329,39 @@
           "type": "generated_report"
         },
         {
+          "artifact_id": "cycle_progress",
+          "mime_type": "application/json",
+          "path": "cycle_progress.json",
+          "producer": "discovery_service_operator",
+          "schema_version": "mn.blueprint.discovery_cycle_progress.v1",
+          "source_refs": [
+            "service_state.json"
+          ],
+          "type": "service_progress"
+        },
+        {
+          "artifact_id": "leading_candidate_metadata",
+          "mime_type": "application/json",
+          "path": "leading_candidate.json",
+          "producer": "discovery_service_operator",
+          "schema_version": "mn.blueprint.leading_candidate_preview.v1",
+          "source_refs": [
+            "cycle_progress.json"
+          ],
+          "type": "molecule_preview"
+        },
+        {
+          "artifact_id": "leading_candidate_visualization",
+          "mime_type": "image/svg+xml",
+          "path": "leading_candidate.svg",
+          "producer": "discovery_service_operator",
+          "schema_version": "mn.blueprint.molecule_svg.v1",
+          "source_refs": [
+            "leading_candidate.json"
+          ],
+          "type": "molecule_visualization"
+        },
+        {
           "artifact_id": "stage_logs",
           "mime_type": "application/x-jsonlines",
           "path": "events.jsonl",
@@ -1251,19 +1397,20 @@
       "status": "JSON lines on stderr",
       "stdout": "single JSON object, event envelope, or bundle path"
     },
-    "problem_solved": "Discovery work needs continuous, traceable candidate generation and scientific screening without collapsing cluster-scale folding and simulation into a single serial worker.",
+    "problem_solved": "Discovery work needs a bounded, traceable five-candidate result with scientific evidence.",
     "quick_test": {
       "description": "Use generated quick-test bundles when available; fixed blueprints use local dry-run/mock provider environment variables and deterministic sample inputs.",
       "enabled": false,
       "env": "MN_BLUEPRINT_QUICK_TEST=1"
     },
     "runtime_features": [
-      "manual-stop continuous service",
+      "single-cycle five-candidate batch",
       "native host service worker",
       "cross-box folding fanout",
       "DrugCLIP target-candidate screening",
       "parallel simulation fanout",
       "cycle artifact aggregation",
+      "local RDKit leading-molecule rendering",
       "Membrane context memory optimization",
       "product input contract",
       "transparent run status",
@@ -1275,24 +1422,24 @@
       "optional knowledge_rag guidance",
       "actor-style LLM specialists use retrieved policy context when available"
     ],
-    "simulation_type": "Continuous distributed computational discovery service with DrugCLIP virtual screening.",
+    "simulation_type": "Single-cycle BioTarget discovery with DrugCLIP screening and five evaluated molecules.",
     "standard": {
       "config_path": "config/default.json",
       "default_input_adapter": "mock",
-      "execution_model": "load_metadata -> resolve_config -> start_native_service -> dispatch_cross_box_jobs -> generate_candidates -> fold_targets -> screen_with_drugclip -> simulate_selected_candidates -> aggregate_cycle_artifacts -> stop_on_manual_signal",
+      "execution_model": "load_metadata -> resolve_config -> start_discovery_cycle -> dispatch_cross_box_jobs -> generate_candidates -> fold_targets -> screen_with_drugclip -> simulate_selected_candidates -> aggregate_cycle_artifacts -> complete_after_one_cycle",
       "execution_steps": [
         "load_metadata",
         "resolve_config",
         "load_inputs",
         "start_run_store",
-        "start_native_service",
+        "start_discovery_cycle",
         "dispatch_cross_box_jobs",
         "generate_candidates",
         "fold_targets",
         "screen_with_drugclip",
         "simulate_selected_candidates",
         "aggregate_cycle_artifacts",
-        "stop_on_manual_signal",
+        "complete_after_one_cycle",
         "emit_events",
         "write_final_artifact",
         "fan_out_output_skills"
@@ -1379,9 +1526,11 @@
     "target_user": "Computational biology researchers, scientific AI platform teams, and research operations groups.",
     "target_users": "Computational biology researchers, scientific AI platform teams, and research operations groups.",
     "web_ui": {
-      "data_source": "local_run_store",
+      "data_source": "run_store_and_job_data",
       "reads": [
         "events.jsonl",
+        "cycle_progress.json",
+        "leading_candidate.json",
         "human.jsonl",
         "logs.jsonl",
         "resources.jsonl",
@@ -1399,7 +1548,25 @@
         "llm_calls",
         "token_budget",
         "llm_retries"
-      ]
+      ],
+      "adapter": "external-url",
+      "description": "Read-only job dashboard showing the leading candidate as a local 2D molecule rendering, its bounded scores, all five workflow steps, and the five phases inside the active discovery cycle.",
+      "enabled": true,
+      "kind": "service",
+      "node_id": "drug_discovery_web_ui",
+      "service_name": "drug-discovery-progress",
+      "registration": {
+        "module": "drug_discovery_web_ui",
+        "package": "mirrorneuron-web-ui-skill",
+        "scope": "job",
+        "writes": "external-url ui.json and web_ui.json handles under MN_JOB_DATA_DIR"
+      },
+      "molecule_artifacts": [
+        "leading_candidate.json",
+        "leading_candidate.svg"
+      ],
+      "progress_artifact": "cycle_progress.json",
+      "source_of_truth": "workflow.steps"
     }
   },
   "requirements": {
@@ -1423,9 +1590,30 @@
   },
   "service": {
     "cycle_artifact_root": "cycles/",
+    "cycle_steps": [
+      {
+        "id": "generate_candidates",
+        "label": "Generate candidate pool"
+      },
+      {
+        "id": "fold_targets",
+        "label": "Fold target structures"
+      },
+      {
+        "id": "screen_with_drugclip",
+        "label": "Screen with DrugCLIP"
+      },
+      {
+        "id": "simulate_candidates",
+        "label": "Run GNINA and toxicity evaluation"
+      },
+      {
+        "id": "publish_cycle_report",
+        "label": "Publish cycle report"
+      }
+    ],
     "enabled": true,
-    "manual_close": "send SIGTERM or create the configured STOP file",
-    "run_until": "manual_stop",
+    "run_until": "one_cycle",
     "state_artifact": "service_state.json",
     "stop_file": "${MN_RUN_DIR}/STOP"
   },
@@ -1453,6 +1641,12 @@
       "source": "gar",
       "name": "mirrorneuron-rag-skill",
       "version": "1.3.22"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mirrorneuron-web-ui-skill",
+      "version": "1.3.22"
     }
   ],
   "agent_dependencies": [
@@ -1479,7 +1673,7 @@
     "profile": "blueprint",
     "profile_version": 1
   },
-  "type": "service",
+  "type": "batch",
   "workers": {
     "groups": [
       {
@@ -1600,10 +1794,10 @@
           },
           "timeout_seconds": 86400
         },
-        "goal": "Continuously generate candidates, dispatch parallel folding, DrugCLIP screening, and simulation jobs until manually stopped.",
+        "goal": "Generate five distinct candidates and run one folding, screening, and simulation cycle, then return for review.",
         "id": "candidate_generation",
         "kind": "stage",
-        "label": "Continuous Discovery Service",
+        "label": "Discover Five Candidates",
         "needs": [
           "structure_generation"
         ],
@@ -1612,7 +1806,7 @@
         }
       },
       {
-        "goal": "Read the final continuous-service cycle summaries and preserve review-only scientific evidence.",
+        "goal": "Review the five candidates and preserve their scientific evidence.",
         "id": "binding_evaluation",
         "kind": "stage",
         "label": "Cycle Results Review",

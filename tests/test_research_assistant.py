@@ -164,7 +164,7 @@ def test_research_payload_is_modular_and_handlers_resolve():
     assert_registry_handlers_import("research_assistant")
 
 
-def test_research_structured_llm_preserves_runtime_route_and_disables_hidden_thinking():
+def test_research_structured_llm_preserves_route_limits_and_accepts_wrapped_json():
     result = run_payload_script(
         "research_assistant",
         """
@@ -179,7 +179,7 @@ class RuntimeSelectedClient:
     backend = "llama.cpp"
     context_size = 8192
     timeout_seconds = 180
-    max_tokens = 4096
+    max_tokens = 1024
     num_retries = 2
     retry_backoff_seconds = 1.0
     strict = False
@@ -195,14 +195,28 @@ def request(purpose, model, path, payload, **kwargs):
         "api_base": kwargs["api_base"],
     })
     return {
-        "choices": [{"message": {"content": '{"finding":"grounded"}'}}],
+        "choices": [{"message": {"content": 'result:\\n{"finding":"grounded"}\\n<end>'}}],
         "usage": {"prompt_tokens": 12, "completion_tokens": 7, "total_tokens": 19},
     }
 
 llm_services.runtime_model_json_request = request
-client = llm_services.StructuredResearchLlmClient(
+client = llm_services.adapt_structured_research_llm(
     RuntimeSelectedClient(),
-    {"chat_template_kwargs": {"enable_thinking": False}},
+    {
+        "llm": {
+            "default_config": "primary",
+            "structured_output_options": {
+                "chat_template_kwargs": {"enable_thinking": False}
+            },
+            "configs": {
+                "primary": {
+                    "max_tokens": 4096,
+                    "timeout_seconds": 180,
+                    "num_retries": 2,
+                }
+            },
+        }
+    },
 )
 response = client.generate_json(
     system_prompt="Analyze supplied evidence.",
@@ -230,6 +244,7 @@ print(json.dumps({
     assert result["request"]["payload"]["response_format"] == {
         "type": "json_object"
     }
+    assert result["request"]["payload"]["max_tokens"] == 4096
     assert result["calls"] == 1
     assert result["fallback_calls"] == 0
     assert result["usage"]["provider_response_count"] == 1
@@ -545,6 +560,88 @@ print(json.dumps({{
     }
 
 
+def test_research_assistant_bounds_large_phase_prompts_and_splits_experiments(tmp_path):
+    result = run_payload_script(
+        "research_assistant",
+        f"""
+import json
+from pathlib import Path
+from domain.autonomous import run_autonomous_research
+
+root = Path({str((ROOT / 'research_assistant').resolve())!r})
+config = json.loads((root / "config" / "default.json").read_text())
+config["execution"] = {{"quick_test": True}}
+inputs = config["inputs"]["payload"]
+
+class CapturingLLM:
+    def __init__(self):
+        self.calls = 0
+        self.prompts = []
+
+    def generate_json(self, system_prompt, user_prompt, fallback):
+        self.calls += 1
+        phase = system_prompt.split("Research phase: ", 1)[1].split(".", 1)[0]
+        self.prompts.append((phase, user_prompt))
+        return dict(fallback)
+
+llm = CapturingLLM()
+documents = [{{
+    "source_ref": "local:research_notes.md",
+    "name": "research_notes.md",
+    "status": "extracted",
+    "text": "Pinned environments, scenario schemas, and provenance need matched review-only tests.",
+}}]
+recommendation, autonomous, warnings = run_autonomous_research(
+    llm,
+    inputs,
+    {{
+        "source_refs": ["local:research_notes.md"],
+        "usable_evidence_present": True,
+        "evidence_gaps": ["matched pilot observations"],
+    }},
+    {{"context": "Use matched controls and preserve uncertainty."}},
+    {{
+        "recommended_action": "review_research_packet",
+        "confidence": "medium",
+        "rationale": "Review the bounded tests.",
+    }},
+    config,
+    documents,
+    [],
+    workspace=Path({str(tmp_path)!r}),
+)
+by_phase = {{phase: prompt for phase, prompt in llm.prompts}}
+experiment_phases = [phase for phase, _prompt in llm.prompts if phase.startswith("experiment_design_")]
+print(json.dumps({{
+    "generation_prompt_chars": len(by_phase["competing_hypothesis_generation"]),
+    "revision_prompt_chars": len(by_phase["evidence_and_probe_revision"]),
+    "generation_has_procedure": '"procedure"' in by_phase["competing_hypothesis_generation"],
+    "revision_has_procedure": '"procedure"' in by_phase["evidence_and_probe_revision"],
+    "experiment_phases": experiment_phases,
+    "trace_experiment_calls": next(
+        item["llm_calls"]
+        for item in autonomous["research_phase_trace"]
+        if item["phase"] == "experiment_design"
+    ),
+    "candidate_count": len(recommendation["candidate_hypotheses"]),
+    "warnings": warnings,
+}}))
+""",
+    )
+    assert result["generation_prompt_chars"] < 12_000
+    assert result["revision_prompt_chars"] < 12_000
+    assert result["generation_has_procedure"] is False
+    assert result["revision_has_procedure"] is False
+    assert result["experiment_phases"] == [
+        "experiment_design_H1",
+        "experiment_design_H2",
+        "experiment_design_H3",
+    ]
+    assert result["trace_experiment_calls"] == 3
+    assert result["candidate_count"] == 3
+    assert result["warnings"] == []
+
+
 def test_research_sample_audits_falsifiable_hypotheses(tmp_path):
     result = run_payload_script(
         "research_assistant",
@@ -612,7 +709,7 @@ print(json.dumps({{
         "baseline_supports_measurement_hypothesis": True,
         "experiment_is_complete": True,
         "generation_mode": "deterministic_fallback",
-        "model_procedure_calls": 16,
+        "model_procedure_calls": 18,
         "research_phase_count": 11,
         "dataset_is_profiled": True,
         "internal_paths_redacted": True,

@@ -100,7 +100,7 @@
   "input_skills": {},
   "inputs": {
     "adapter": "mock",
-    "description": "Default synthetic inputs bundled with the blueprint.",
+    "description": "Default self-contained CCTV demo inputs bundled into the NVIDIA DockerWorker.",
     "payload": {
       "alert_policy": {
         "cooldown_seconds": 120,
@@ -114,7 +114,7 @@
       },
       "output_folder": "~/Download/cctv_operator",
       "source_mode": "stream",
-      "video_source": "",
+      "video_source": "bundled_demo",
       "visual_targets": [
         "person",
         "unattended package",
@@ -324,7 +324,7 @@
     "web_ui_adapters": [
       "none",
       "static_html",
-      "json_render",
+      "external_url",
       "custom"
     ],
     "config": [
@@ -362,17 +362,15 @@
     ]
   },
   "llm": {
-    "model": "nemotron-3.5-lightning:latest",
+    "model": "nemotron3:q4_K_M",
     "provider": "docker_model_runner",
-    "runtime_model": "nemotron-3.5-lightning:latest",
     "backend": "llama.cpp",
-    "install_mode": "workflow_node",
     "enabled": true,
     "agent_role": "AI assistant for reviewing video stream activity and preparing visual detection alerts.",
     "agents": {
       "adaptive_frame_sampler": {
         "llm_config": "primary",
-        "model": "nemotron-3.5-lightning:latest",
+        "model": "nemotron3:q4_K_M",
         "role": "Adaptive frame sampler",
         "responsibilities": [
           "Apply the configured baseline, scene-event, and on-demand priorities.",
@@ -382,7 +380,7 @@
       },
       "visual_target_detector": {
         "llm_config": "primary",
-        "model": "nemotron-3.5-lightning:latest",
+        "model": "nemotron3:q4_K_M",
         "role": "Visual target detector actor",
         "responsibilities": [
           "Detect configured visual targets from sampled frames.",
@@ -392,7 +390,7 @@
       },
       "quality_controller": {
         "llm_config": "primary",
-        "model": "nemotron-3.5-lightning:latest",
+        "model": "nemotron3:q4_K_M",
         "role": "Video quality controller",
         "responsibilities": [
           "Check detection confidence and stream quality.",
@@ -402,7 +400,7 @@
       },
       "video_source_validator": {
         "llm_config": "primary",
-        "model": "nemotron-3.5-lightning:latest",
+        "model": "nemotron3:q4_K_M",
         "role": "Video source validator",
         "responsibilities": [
           "Validate video source configuration and reachability.",
@@ -412,7 +410,7 @@
       },
       "video_monitor": {
         "llm_config": "primary",
-        "model": "nemotron-3.5-lightning:latest",
+        "model": "nemotron3:q4_K_M",
         "role": "Video monitor actor",
         "responsibilities": [
           "Maintain watch state and runtime lifecycle.",
@@ -422,7 +420,7 @@
       },
       "report_writer": {
         "llm_config": "primary",
-        "model": "nemotron-3.5-lightning:latest",
+        "model": "nemotron3:q4_K_M",
         "role": "CCTV report writer",
         "responsibilities": [
           "Write concise watch summaries from detection events.",
@@ -444,9 +442,12 @@
     "configs": {
       "primary": {
         "provider": "docker_model_runner",
-        "model": "nemotron-3.5-lightning:latest",
-        "install_mode": "workflow_node",
-        "api_base": "http://host.docker.internal:12434/engines/v1",
+        "model": "nemotron3:q4_K_M",
+        "api_base": "auto",
+        "required_capabilities": [
+          "image_input",
+          "structured_output"
+        ],
         "timeout_seconds": 60,
         "max_tokens": 900,
         "num_retries": 1,
@@ -525,18 +526,6 @@
   },
   "manifest_config_bindings": [
     {
-      "config_path": "web_ui.service.host",
-      "manifest_path": "agents.nodes.cctv_web_ui.services.0.address"
-    },
-    {
-      "config_path": "web_ui.service.port",
-      "manifest_path": "agents.nodes.cctv_web_ui.resources.ports.0.port"
-    },
-    {
-      "config_path": "web_ui.service.port",
-      "manifest_path": "agents.nodes.cctv_web_ui.services.0.port"
-    },
-    {
       "config_path": "identity.run_id",
       "manifest_path": "runtime.bindings.run_workflow.workers.visual_detector.with.environment.MN_RUN_ID",
       "stringify": true
@@ -609,14 +598,6 @@
     ],
     "grounding_policy": "Use retrieved local blueprint knowledge to improve actor review prompts; do not invent facts when retrieval is unavailable.",
     "namespace": "",
-    "embedding_provider": "docker_model_runner",
-    "embedding_model": "rag-embedding",
-    "embedding_api_base": "http://host.docker.internal:12434/engines/v1",
-    "embedding_query_prefix": "Query: ",
-    "embedding_document_prefix": "Document: ",
-    "embedding_start_command": "",
-    "embedding_healthcheck_enabled": true,
-    "vector_dim": 1024,
     "index_on_startup": true,
     "top_k": 4,
     "max_context_chars": 4000,
@@ -630,10 +611,10 @@
     "blueprint_revision": "v1",
     "category": "security",
     "customizable_for": "Video monitoring, configurable visual detection, facility operations, and site safety workflows.",
-    "description": "An NVIDIA-only CCTV co-worker for one approved RTSP/RTMP stream. It uses sparse adaptive sampling, operator steering, CUDA-enabled frame preparation, and source-grounded review reports.",
+    "description": "An NVIDIA-only CCTV co-worker with a self-contained Docker demo stream and optional approved external RTSP/RTMP input. It uses sparse adaptive sampling, operator steering, CUDA-enabled frame preparation, and source-grounded review reports.",
     "llm_agent_role": "AI assistant for reviewing live video activity and preparing visual detection reports and alerts.",
     "name": "CCTV Operator",
-    "problem_solved": "One NVIDIA-only workflow monitors an approved RTSP/RTMP stream without sending the source frame rate to the model.",
+    "problem_solved": "One NVIDIA-only workflow runs a self-contained CCTV demo or monitors an approved external RTSP/RTMP stream without sending the source frame rate to the model.",
     "simulation_type": "Live-stream adaptive sampling with visual detection review state.",
     "standard_version": "1.0",
     "target_user": "Video operators, security reviewers, safety operations teams, and site-access coordinators.",
@@ -783,10 +764,10 @@
   "streams": {
     "cctv_operator_stream": {
       "codec": "h264",
-      "enabled": false,
+      "enabled": true,
       "kind": "video",
       "transport": "rtsp_or_rtmp",
-      "uri": ""
+      "uri": "rtsp://127.0.0.1:8554/cctv-demo"
     }
   },
   "triggers": {
@@ -797,10 +778,11 @@
     "type": "stream"
   },
   "video_source": {
-    "camera_id": "cctv",
+    "camera_id": "cctv-demo",
     "mode": "stream",
-    "uri": "",
-    "description": "Monitor one approved RTSP/RTMP source reachable from the selected NVIDIA node.",
+    "profile": "bundled_demo",
+    "uri": "rtsp://127.0.0.1:8554/cctv-demo",
+    "description": "Run the bundled looping CCTV demo stream inside the shared NVIDIA DockerWorker. Set profile=external and override uri for an approved real RTSP/RTMP source.",
     "media_accelerator": "nvidia_cuda",
     "transport": "rtsp_rtmp"
   },
@@ -820,17 +802,38 @@
   },
   "web_ui": {
     "enabled": true,
-    "renderer": "json-render",
     "service": {
       "host": "0.0.0.0",
-      "port": 61000,
+      "port": 0,
       "public_url": ""
     },
     "preview": {
       "enabled": true,
-      "optional": true,
-      "url": ""
+      "transport": "mjpeg",
+      "fps": 8,
+      "width": 1280,
+      "jpeg_quality": 5,
+      "reconnect_seconds": 1
     },
-    "refresh_seconds": 1
+    "event_stream": {
+      "transport": "sse"
+    },
+    "dashboard": {
+      "standard_panels": [
+        "current_status",
+        "recent_events",
+        "pending_human_requests",
+        "output_artifacts",
+        "resource_usage",
+        "errors",
+        "input_lag",
+        "backpressure",
+        "llm_calls",
+        "token_budget",
+        "llm_retries",
+        "output_skill_attempts",
+        "output_skill_failures"
+      ]
+    }
   }
 }

@@ -55,7 +55,7 @@ def render_architecture_report(assessment: dict[str, Any]) -> str:
         "## Review boundary",
         "- This workflow did not execute, modify, test, build, install, upload, or deploy the inspected source.",
         "- Static candidates are not proof of runtime behavior, vulnerabilities, ownership, or production risk.",
-        "- Copy-ready implementation prompts are in `improvement_prompts.md` and `codex-prompts/`.",
+        "- Copy-ready implementation prompts are in `improvement_prompts.md` and the indexed `prompts/` folder.",
         "",
     ])
     return "\n".join(lines)

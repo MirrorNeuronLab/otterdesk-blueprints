@@ -2,11 +2,11 @@
   "mode": "live",
   "service": {
     "cycle_interval_seconds": 15,
-    "max_cycles": null,
-    "candidate_count": 160,
+    "max_cycles": 1,
+    "candidate_count": 5,
     "candidate_pool_size": 800,
     "drugclip_scoring_batch_size": 64,
-    "simulation_top_k": 16,
+    "simulation_top_k": 5,
     "parallelism": {
       "folding_workers": 2,
       "drugclip_workers": 4,
@@ -148,10 +148,10 @@
   },
   "outputs": {
     "adapter": "local_run_store",
-    "artifact_contract": "Continuous-cycle candidate, folding, DrugCLIP, simulation, state, and review-only scientific evidence artifacts.",
+    "artifact_contract": "Continuous-cycle candidate, folding, DrugCLIP, simulation, state, leading-molecule visualization, and review-only scientific evidence artifacts.",
     "run_root": "~/.mn/runs",
     "write_run_store": true,
-    "folder_path": "~/Downloads/drug_discovery_research_assistant"
+    "folder_path": "~/Downloads/{job_id}"
   },
   "llm": {
     "strict_json": false,
@@ -168,6 +168,21 @@
   "knowledge_rag": {
     "backend": "milvus_lite"
   },
+  "web_ui": {
+    "enabled": true,
+    "renderer": "external-url",
+    "refresh_seconds": 1,
+    "molecule_preview": {
+      "enabled": true,
+      "width": 720,
+      "height": 420
+    },
+    "service": {
+      "host": "0.0.0.0",
+      "port": 61020,
+      "public_url": ""
+    }
+  },
   "interfaces": {
     "config": [
       "mode",
@@ -183,6 +198,7 @@
       "outputs",
       "llm",
       "knowledge_rag",
+      "web_ui",
       "agentic_research",
       "resources",
       "human_control",
@@ -211,6 +227,7 @@
       "outputs",
       "llm",
       "knowledge_rag",
+      "web_ui",
       "agentic_research",
       "resources",
       "human_control",
@@ -341,6 +358,20 @@
     "advisory_only": true,
     "note": "Suggested cadence only; runtime decides the actual schedule."
   },
+  "manifest_config_bindings": [
+    {
+      "config_path": "web_ui.service.host",
+      "manifest_path": "agents.nodes.drug_discovery_web_ui.services.0.address"
+    },
+    {
+      "config_path": "web_ui.service.port",
+      "manifest_path": "agents.nodes.drug_discovery_web_ui.resources.ports.0.port"
+    },
+    {
+      "config_path": "web_ui.service.port",
+      "manifest_path": "agents.nodes.drug_discovery_web_ui.services.0.port"
+    }
+  ],
   "local_inputs": {
     "folders": [
       {

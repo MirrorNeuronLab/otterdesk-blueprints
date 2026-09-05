@@ -38,7 +38,20 @@ def _parse_json_object(content: str) -> dict[str, Any]:
         if lines and lines[-1].strip() == "```":
             lines = lines[:-1]
         text = "\n".join(lines).strip()
-    parsed = json.loads(text)
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError as direct_error:
+        # Some OpenAI-compatible local routes prepend a short label or append a
+        # stop marker even when json_object mode is requested. Accept one
+        # complete top-level object, but never try to repair a truncated object
+        # or extract a nested object from one.
+        object_start = text.find("{")
+        if object_start < 0:
+            raise direct_error
+        try:
+            parsed, _end = json.JSONDecoder().raw_decode(text[object_start:])
+        except json.JSONDecodeError:
+            raise direct_error
     if not isinstance(parsed, dict):
         raise LLMError("Structured research response was not a JSON object.")
     return parsed
@@ -60,20 +73,44 @@ def _usage(response: Mapping[str, Any]) -> dict[str, int]:
 class StructuredResearchLlmClient:
     """Apply declared JSON request options without replacing model selection."""
 
-    def __init__(self, base: Any, request_options: Mapping[str, Any]) -> None:
+    def __init__(
+        self,
+        base: Any,
+        request_options: Mapping[str, Any],
+        request_limits: Mapping[str, Any] | None = None,
+    ) -> None:
         self._base = base
         self._request_options = copy.deepcopy(dict(request_options))
+        limits = request_limits or {}
         self.provider = str(getattr(base, "provider", "docker_model_runner"))
         self.model = str(getattr(base, "model", "default"))
         self.api_base = getattr(base, "api_base", None)
         self.api_key = str(getattr(base, "api_key", "") or "")
         self.backend = str(getattr(base, "backend", "auto") or "auto")
         self.context_size = getattr(base, "context_size", None)
-        self.timeout_seconds = float(getattr(base, "timeout_seconds", 60.0) or 60.0)
-        self.max_tokens = int(getattr(base, "max_tokens", 800) or 800)
-        self.num_retries = max(int(getattr(base, "num_retries", 0) or 0), 0)
+        self.timeout_seconds = float(
+            limits.get("timeout_seconds")
+            or getattr(base, "timeout_seconds", 60.0)
+            or 60.0
+        )
+        self.max_tokens = int(
+            limits.get("max_tokens") or getattr(base, "max_tokens", 800) or 800
+        )
+        self.num_retries = max(
+            int(
+                limits.get("num_retries")
+                if limits.get("num_retries") is not None
+                else getattr(base, "num_retries", 0) or 0
+            ),
+            0,
+        )
         self.retry_backoff_seconds = max(
-            float(getattr(base, "retry_backoff_seconds", 1.0) or 0.0), 0.0
+            float(
+                limits.get("retry_backoff_seconds")
+                if limits.get("retry_backoff_seconds") is not None
+                else getattr(base, "retry_backoff_seconds", 1.0) or 0.0
+            ),
+            0.0,
         )
         self.strict = bool(getattr(base, "strict", False))
         self.calls = 0
@@ -103,7 +140,9 @@ class StructuredResearchLlmClient:
         error: Exception | None = None
         for attempt in range(self.num_retries + 1):
             retry_note = (
-                "\nA previous response was invalid. Return one complete JSON object now."
+                "\nA previous response was invalid or incomplete. Return one complete "
+                "JSON object under 800 tokens now; shorten strings and arrays before "
+                "omitting a closing delimiter."
                 if attempt
                 else ""
             )
@@ -209,7 +248,23 @@ def adapt_structured_research_llm(base: Any, config: Mapping[str, Any]) -> Any:
         or provider in {"fake", "deterministic", "mock"}
     ):
         return base
-    return StructuredResearchLlmClient(base, options)
+    profiles = llm_config.get("configs")
+    profiles = profiles if isinstance(profiles, Mapping) else {}
+    profile_name = str(llm_config.get("default_config") or "primary")
+    selected_profile = profiles.get(profile_name)
+    selected_profile = selected_profile if isinstance(selected_profile, Mapping) else {}
+    request_limits = {
+        key: llm_config.get(key)
+        if llm_config.get(key) is not None
+        else selected_profile.get(key)
+        for key in (
+            "timeout_seconds",
+            "max_tokens",
+            "num_retries",
+            "retry_backoff_seconds",
+        )
+    }
+    return StructuredResearchLlmClient(base, options, request_limits)
 
 
 __all__ = ["StructuredResearchLlmClient", "adapt_structured_research_llm"]

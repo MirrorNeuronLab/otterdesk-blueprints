@@ -94,11 +94,19 @@ def test_detector_uses_vision_model_defaults(monkeypatch):
     detector = _load_detector()
     monkeypatch.delenv("MN_LLM_RUNTIME_MODEL", raising=False)
 
-    assert detector._normalize_vlm_model("medium") == "nemotron3"
-    assert detector._normalize_vlm_model("nemotron3") == "nemotron3"
+    assert detector._normalize_vlm_model("medium") == "nemotron3:q4_K_M"
+    assert detector._normalize_vlm_model("nemotron3") == "nemotron3:q4_K_M"
+    assert detector._normalize_vlm_model("nemotron3:q4_K_M") == "nemotron3:q4_K_M"
+    assert (
+        detector._normalize_vlm_model("docker.io/ai/nemotron3:q4_K_M")
+        == "nemotron3:q4_K_M"
+    )
 
     monkeypatch.setenv("MN_LLM_RUNTIME_MODEL", "docker.io/ai/nemotron3:latest")
-    assert detector._normalize_vlm_model("docker.io/ai/nemotron3:latest") == "nemotron3"
+    assert (
+        detector._normalize_vlm_model("docker.io/ai/nemotron3:latest")
+        == "nemotron3:q4_K_M"
+    )
 
 
 def test_dmr_vlm_disables_reasoning_and_normalizes_model_variants(monkeypatch):
@@ -140,7 +148,7 @@ def test_dmr_vlm_disables_reasoning_and_normalizes_model_variants(monkeypatch):
 
     monkeypatch.setenv("MN_VLM_PROVIDER", "docker_model_runner")
     monkeypatch.setenv("MN_VLM_API_BASE", "http://model.example/engines/v1")
-    monkeypatch.setenv("MN_VLM_MODEL", "vision-model")
+    monkeypatch.setenv("MN_VLM_MODEL", "nemotron3:q4_K_M")
     monkeypatch.delenv("MN_VLM_MAX_TOKENS", raising=False)
     monkeypatch.delenv("MN_LLM_MAX_TOKENS", raising=False)
     monkeypatch.delenv("OLLAMA_NUM_PREDICT", raising=False)
@@ -186,9 +194,9 @@ def test_managed_dmr_vlm_uses_lazy_runtime_model_access(monkeypatch):
         }
 
     monkeypatch.setenv("MN_RUNTIME_MODEL_MANAGED", "1")
-    monkeypatch.setenv("MN_VLM_PROVIDER", "litellm")
-    monkeypatch.setenv("MN_VLM_API_BASE", "http://mn-litellm-proxy:4000/v1")
-    monkeypatch.setenv("MN_VLM_MODEL", "nemotron3")
+    monkeypatch.setenv("MN_VLM_PROVIDER", "docker_model_runner")
+    monkeypatch.setenv("MN_VLM_API_BASE", "auto")
+    monkeypatch.setenv("MN_VLM_MODEL", "nemotron3:q4_K_M")
     monkeypatch.setattr(
         detector, "runtime_model_json_request", fake_runtime_request
     )
@@ -196,13 +204,19 @@ def test_managed_dmr_vlm_uses_lazy_runtime_model_access(monkeypatch):
     result = detector.call_ollama(b"jpeg", "inspect the frame")
 
     assert captured["purpose"] == "vlm"
-    assert captured["model"] == "nemotron3"
+    assert captured["model"] == "nemotron3:q4_K_M"
     assert captured["path"] == "/chat/completions"
-    assert captured["api_base"] == "http://mn-litellm-proxy:4000/v1"
+    assert captured["provider"] == "docker_model_runner"
+    assert captured["api_base"] == "auto"
     assert captured["payload"]["chat_template_kwargs"] == {
         "enable_thinking": False
     }
     assert captured["payload"]["thinking_budget_tokens"] == 0
+    assert captured["structured_output"] is True
+    assert captured["required_capabilities"] == (
+        "image_input",
+        "structured_output",
+    )
     assert captured["payload"]["messages"][0]["content"][0]["text"].startswith(
         "/no_think\ninspect the frame"
     )
@@ -234,12 +248,13 @@ def test_litellm_vlm_preserves_v1_openai_endpoint(monkeypatch):
 
     monkeypatch.setenv("MN_VLM_PROVIDER", "litellm")
     monkeypatch.setenv("MN_VLM_API_BASE", "http://mn-litellm-proxy:4000/v1")
-    monkeypatch.setenv("MN_VLM_MODEL", "docker.io/ai/nemotron3:latest")
+    monkeypatch.setenv("MN_VLM_MODEL", "docker.io/ai/nemotron3:q4_K_M")
     monkeypatch.setattr(detector.urllib.request, "urlopen", fake_urlopen)
 
     result = detector.call_ollama(b"jpeg", "inspect the frame")
 
     assert captured["url"] == "http://mn-litellm-proxy:4000/v1/chat/completions"
+    assert captured["payload"]["model"] == "nemotron3:q4_K_M"
     assert "chat_template_kwargs" not in captured["payload"]
     assert result["detected"] is False
 

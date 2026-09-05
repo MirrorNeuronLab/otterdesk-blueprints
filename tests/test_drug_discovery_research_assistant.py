@@ -2,10 +2,16 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
+import subprocess
 import sys
+import threading
 import types
+import urllib.request
+import pytest
 from pathlib import Path
 
+from mn_sdk import apply_manifest_config_bindings
 from mn_sdk.blueprint_runtime import load_blueprint_config
 
 from blueprint_modernization_support import (
@@ -70,7 +76,7 @@ def test_drug_discovery_manifest_uses_source_format_and_shared_blocks():
 
     assert manifest["apiVersion"] == "mn.workflow/v1"
     assert manifest["kind"] == "WorkflowSource"
-    assert manifest["type"] == "service"
+    assert manifest["type"] == "batch"
     assert manifest["identity"]["id"] == "drug_discovery_research_assistant"
     assert manifest["skill_dependencies"] == [
         {
@@ -97,6 +103,12 @@ def test_drug_discovery_manifest_uses_source_format_and_shared_blocks():
             "name": "mirrorneuron-rag-skill",
             "version": "1.3.22",
         },
+        {
+            "type": "pip",
+            "source": "gar",
+            "name": "mirrorneuron-web-ui-skill",
+            "version": "1.3.22",
+        },
     ]
     assert {
         entry.get("from")
@@ -105,6 +117,34 @@ def test_drug_discovery_manifest_uses_source_format_and_shared_blocks():
     } >= {"contracts.inputs"}
     assert "nodes" not in manifest.get("agents", {})
     assert "edges" not in manifest.get("agents", {})
+    assert manifest["identity"]["manifest_version"] == "1.6"
+    assert "entrypoints" not in manifest["agents"]
+    assert manifest["agents"]["auxiliary_entrypoints"] == [
+        "drug_discovery_web_ui"
+    ]
+    [web_ui_node] = manifest["agents"]["extra_nodes"]
+    assert web_ui_node["node_id"] == "drug_discovery_web_ui"
+    assert web_ui_node["type"] == "stream"
+    assert web_ui_node["config"]["runner_module"] == "MirrorNeuron.Runner.HostLocal"
+    assert web_ui_node["config"]["command"] == [
+        "python3.11",
+        "services/drug_discovery_web_ui.py",
+    ]
+    assert web_ui_node["services"][0]["name"] == "drug-discovery-progress"
+    assert web_ui_node["services"][0]["checks"][0]["path"] == "/healthz"
+    assert manifest["metadata"]["web_ui"]["source_of_truth"] == "workflow.steps"
+    assert manifest["metadata"]["web_ui"]["registration"]["scope"] == "job"
+    assert manifest["metadata"]["web_ui"]["adapter"] == "external-url"
+    assert manifest["metadata"]["web_ui"]["kind"] == "service"
+    assert "external_url" in manifest["metadata"]["interfaces"]["web_ui_adapters"]
+    assert manifest["metadata"]["web_ui"]["molecule_artifacts"] == [
+        "leading_candidate.json",
+        "leading_candidate.svg",
+    ]
+    output_paths = {
+        artifact["path"] for artifact in manifest["contracts"]["outputs"]["artifacts"]
+    }
+    assert {"leading_candidate.json", "leading_candidate.svg"} <= output_paths
     assert [step["id"] for step in manifest["workflow"]["steps"]] == list(STEP_SCRIPTS)
     assert manifest["agents"].get("extra_templates", []) == []
     assert manifest["defaults"]["worker"]["uses"] == "mn-agents.worker.python_host@1"
@@ -118,7 +158,7 @@ def test_drug_discovery_manifest_uses_source_format_and_shared_blocks():
     for script in STEP_SCRIPTS.values():
         assert (BLUEPRINT_DIR / "payloads" / "service" / script).is_file(), script
     assert (BLUEPRINT_DIR / "payloads" / "prompts" / "scientific-review.md").is_file()
-    assert manifest["service"]["run_until"] == "manual_stop"
+    assert manifest["service"]["run_until"] == "one_cycle"
     assert manifest["cluster_distribution"]["enabled"] is False
     assert manifest["cluster_distribution"]["collaboration"]["mode"] == "cross_box_fanout_fanin"
     assert "runtime" not in manifest
@@ -161,7 +201,7 @@ def test_drug_discovery_manifest_uses_source_format_and_shared_blocks():
     }
 
 
-def test_drug_discovery_model_profiles_match_vc_style_defaults():
+def test_drug_discovery_uses_logical_default_llm_route():
     default_config = json.loads(
         (BLUEPRINT_DIR / "config" / "default.json").read_text(encoding="utf-8")
     )
@@ -171,11 +211,28 @@ def test_drug_discovery_model_profiles_match_vc_style_defaults():
     assert config["execution"]["fake_science_adapters"] is False
     assert config["execution"]["mode"] == "native_local"
     assert config["cluster_distribution"]["enabled"] is False
-    assert config["service"]["run_until"] == "manual_stop"
-    assert config["service"]["max_cycles"] is None
-    assert config["service"]["candidate_count"] == 160
+    assert config["service"]["run_until"] == "one_cycle"
+    assert config["service"]["max_cycles"] == 1
+    assert config["service"]["candidate_count"] == 5
     assert config["service"]["candidate_pool_size"] == 800
     assert config["service"]["drugclip_scoring_batch_size"] == 64
+    assert [step["id"] for step in config["web_ui"]["workflow_steps"]] == list(
+        STEP_SCRIPTS
+    )
+    assert [step["id"] for step in config["service"]["cycle_steps"]] == [
+        "generate_candidates",
+        "fold_targets",
+        "screen_with_drugclip",
+        "simulate_candidates",
+        "publish_cycle_report",
+    ]
+    assert default_config["web_ui"]["renderer"] == "external-url"
+    assert default_config["web_ui"]["molecule_preview"] == {
+        "enabled": True,
+        "width": 720,
+        "height": 420,
+    }
+    assert default_config["web_ui"]["service"]["port"] == 61020
     assert config["resources"]["gpu"] == {
         "min_count": 1,
         "vendor": "nvidia",
@@ -184,13 +241,16 @@ def test_drug_discovery_model_profiles_match_vc_style_defaults():
         "memory_operator": ">=",
         "enforcement": "hard",
     }
-    assert config["outputs"]["folder_path"] == "~/Downloads/drug_discovery_research_assistant"
-    assert config["llm"]["model"] == "small"
-    assert config["llm"]["runtime_model"] == "small"
-    assert config["llm"]["live_model_profile"]["runtime_model"] == "small"
+    assert config["outputs"]["folder_path"] == "~/Downloads/{job_id}"
+    assert config["llm"]["provider"] == "docker_model_runner"
+    assert config["llm"]["model"] == "default"
+    assert "runtime_model" not in config["llm"]
+    assert "live_model_profile" not in config["llm"]
     assert "preferred_model" not in config["llm"]
-    assert config["llm"]["configs"]["primary"]["model"] == "small"
-    assert config["llm"]["configs"]["primary"]["runtime_model"] == "small"
+    assert config["llm"]["configs"]["primary"]["provider"] == "docker_model_runner"
+    assert config["llm"]["configs"]["primary"]["api_base"] == "auto"
+    assert "model" not in config["llm"]["configs"]["primary"]
+    assert "runtime_model" not in config["llm"]["configs"]["primary"]
     assert set(config["llm"]["configs"]) == {"primary"}
     assert "small_model_profile" not in config["llm"]
     assert "large_model_profile" not in config["llm"]
@@ -210,7 +270,14 @@ def test_drug_discovery_model_profiles_match_vc_style_defaults():
     assert config["biotarget"]["source_dir"] == "@/payloads"
     assert config["python_dependencies"]["requirements"] == "requirements.txt"
     requirements = (BLUEPRINT_DIR / "payloads" / "requirements.txt").read_text(encoding="utf-8")
-    for package in ("drugclip>=0.1.2", "torch>=2.0", "torch_geometric>=2.3", "requests"):
+    for package in (
+        "drugclip>=0.1.2",
+        "torch>=2.12,<2.13",
+        "torch_geometric>=2.3",
+        "huggingface_hub",
+        "rdkit",
+        "requests",
+    ):
         assert package in requirements
     for adapter_name in ("candidate_generator", "folding", "drugclip", "simulation"):
         assert config[adapter_name]["command"][0] == "python"
@@ -221,8 +288,12 @@ def test_drug_discovery_source_manifest_expands_with_native_service_script():
     source = json.loads((BLUEPRINT_DIR / "manifest.json").read_text(encoding="utf-8"))
     expanded = _expand_source_manifest(source)
 
-    assert expanded["type"] == "service"
+    assert expanded["type"] == "batch"
     assert expanded["job_name"] == "drug-discovery-research-assistant"
+    assert expanded["agents"]["entrypoints"] == [
+        "drug_discovery_web_ui",
+        "target_discovery__start",
+    ]
     node_by_id = {node["node_id"]: node for node in expanded["agents"]["nodes"]}
     step_nodes = {
         node_id: node
@@ -238,7 +309,11 @@ def test_drug_discovery_source_manifest_expands_with_native_service_script():
         assert config["gpus"] == "all"
         assert config["docker_worker_image"] == "docker_worker"
         assert config["image"] == "mirror-neuron/drug-discovery-research-assistant:drugclip-gnina"
+    assert node_by_id["workflow__terminal"]["config"]["complete_run"] is True
     assert expanded["workflow"]["steps"]
+    ui_node = node_by_id["drug_discovery_web_ui"]
+    assert ui_node["config"]["runner_module"] == "MirrorNeuron.Runner.HostLocal"
+    assert ui_node["services"][0]["name"] == "drug-discovery-progress"
     assert expanded["runtime"]["resources"]["gpu"] == {
         "driver": "cuda",
         "enforcement": "hard",
@@ -282,6 +357,7 @@ def test_drug_discovery_bundles_biotarget_and_prefers_it_at_runtime():
     dockerfile = (BLUEPRINT_DIR / "payloads" / "docker_worker" / "Dockerfile").read_text(encoding="utf-8")
     assert "nvidia/cuda:13.0.0-cudnn-devel-ubuntu24.04" in dockerfile
     assert "GNINA_VERSION=v1.3.2" in dockerfile
+    assert "GNINA v1.3.2 sets CMAKE_CXX_STANDARD to 17" in dockerfile
     assert "CMAKE_CUDA_ARCHITECTURES=121" in dockerfile
     assert "python3 -m venv /opt/mn-venv" in dockerfile
     assert "/opt/mn-venv/lib/python3.12/site-packages/torch/lib" in dockerfile
@@ -316,7 +392,68 @@ def test_continuous_service_fake_mode_writes_parallel_cycle_artifacts(tmp_path):
         assert (cycle / name).exists(), name
     report = json.loads((cycle / "cycle_report.json").read_text(encoding="utf-8"))
     assert report["mode"] == "fake_smoke_test"
-    assert report["simulation_count"] > 0
+    assert report["simulation_count"] == 5
+    assert len({row["candidate"]["smiles"] for row in report["top_candidates"]}) == 5
+    assert report["molecule_preview"]["status"] == "ready"
+    assert report["molecule_preview"]["renderer"] in {
+        "rdkit_2d_svg",
+        "synthetic_smoke_test",
+    }
+    preview = json.loads(
+        (cycle / "leading_candidate.json").read_text(encoding="utf-8")
+    )
+    assert preview["schema_version"] == "mn.blueprint.leading_candidate_preview.v1"
+    assert preview["status"] == "ready"
+    svg = (cycle / "leading_candidate.svg").read_text(encoding="utf-8")
+    assert "<svg" in svg
+    progress = json.loads((tmp_path / "cycle_progress.json").read_text(encoding="utf-8"))
+    assert progress["status"] == "complete"
+    assert progress["mode"] == "fake_smoke_test"
+    assert progress["active_step"] is None
+    assert [step["status"] for step in progress["steps"]] == ["Complete"] * 5
+    assert progress["counts"] == {
+        "targets": 1,
+        "candidates": 5,
+        "screens": 5,
+        "simulations": 5,
+    }
+
+
+def test_five_candidate_policy_rejects_duplicate_shortfall():
+    module = _load_drug_discovery_domain_module("candidates")
+    with pytest.raises(RuntimeError, match="five distinct"):
+        module.five_distinct_candidates([{"smiles": "C"}] * 5, synthetic=True)
+    candidates = [{"smiles": value} for value in ("C", "C", "CC", "CCC", "CO", "CN")]
+    assert len(module.five_distinct_candidates(candidates, synthetic=True)) == 5
+
+
+def test_one_cycle_handoff_produces_five_reviewed_candidates(tmp_path):
+    service_path = BLUEPRINT_DIR / "payloads" / "service" / "scripts" / "continuous_service.py"
+    spec = importlib.util.spec_from_file_location("discovery_one_cycle_test", service_path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    result = module.run_service({
+        "mode": "mock",
+        "service": {"max_cycles": None},
+        "inputs": {"payload": {"targets": [
+            {"protein_id": "P1"}, {"protein_id": "P2"},
+        ]}},
+    }, tmp_path)
+    assert result["completed_cycles"] == 1
+    payload = {"reports": result["reports"]}
+    message = tmp_path / "message.json"
+    for script in ("stage_d.py", "stage_e.py"):
+        message.write_text(json.dumps({"body": payload}))
+        process = subprocess.run(
+            [sys.executable, str(service_path.parent / script)],
+            env={**os.environ, "MN_MESSAGE_FILE": str(message), "MN_RUN_DIR": str(tmp_path)},
+            text=True, capture_output=True, check=True,
+        )
+        payload = json.loads(process.stdout.splitlines()[-1])
+    report = payload["review_report"]
+    assert report["candidate_count"] == 5
+    assert len({row["candidate"]["smiles"] for row in report["ranked_candidates"]}) == 5
+    assert (tmp_path / "discovery_service_review.json").is_file()
 
 
 def test_continuous_service_publishes_user_facing_candidates(tmp_path):
@@ -345,9 +482,306 @@ def test_continuous_service_publishes_user_facing_candidates(tmp_path):
     status = json.loads((output_folder / "service_status.json").read_text(encoding="utf-8"))
     assert status["status"] == "stopped"
     assert status["completed_cycles"] == 1
+    assert (output_folder / "cycle_progress.json").exists()
+    molecule = json.loads(
+        (output_folder / "leading_candidate.json").read_text(encoding="utf-8")
+    )
+    assert molecule["status"] == "ready"
+    assert molecule["candidate_id"]
+    assert molecule["smiles"]
+    assert (output_folder / "leading_candidate.svg").exists()
 
 
-def test_continuous_service_repeats_generation_and_simulation_until_stop_file(tmp_path):
+def _load_drug_discovery_web_ui():
+    module_path = (
+        BLUEPRINT_DIR / "payloads" / "services" / "drug_discovery_web_ui.py"
+    )
+    spec = importlib.util.spec_from_file_location(
+        "drug_discovery_web_ui_test", module_path
+    )
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _load_drug_discovery_domain_module(name: str):
+    package_name = "drug_discovery_domain_test"
+    domain_dir = BLUEPRINT_DIR / "payloads" / "domain"
+    package = types.ModuleType(package_name)
+    package.__path__ = [str(domain_dir)]
+    sys.modules[package_name] = package
+    module_name = f"{package_name}.{name}"
+    spec = importlib.util.spec_from_file_location(module_name, domain_dir / f"{name}.py")
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_drug_discovery_web_ui_shows_workflow_and_cycle_steps_clearly():
+    module = _load_drug_discovery_web_ui()
+    html = module.dashboard_html()
+
+    assert 'id="molecule-image"' in html
+    assert "Leading candidate" in html
+    assert "Workflow steps" in html
+    assert "Current discovery cycle" in html
+    assert "DrugCLIP screens" in html
+    assert "Scientific review boundary" in html
+    assert "fetch('/ui/state'" in html
+
+
+def test_drug_discovery_web_ui_projects_durable_progress_without_candidates(
+    tmp_path,
+):
+    module = _load_drug_discovery_web_ui()
+    config = load_blueprint_config(BLUEPRINT_DIR)
+    workflow_state = tmp_path / "workflow_state"
+    workflow_state.mkdir()
+    (workflow_state / "drug_discovery_state.json").write_text(
+        json.dumps(
+            {
+                "targets": [{"gene": "BACE1"}],
+                "structures": [{"gene": "BACE1", "path": "/private/receptor.pdb"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "service_state.json").write_text(
+        json.dumps(
+            {
+                "status": "running",
+                "completed_cycles": 2,
+                "last_report": {
+                    "candidate_count": 160,
+                    "screen_count": 160,
+                    "simulation_count": 16,
+                    "top_candidates": [{"smiles": "CONFIDENTIAL-SMILES"}],
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "cycle_progress.json").write_text(
+        json.dumps(
+            {
+                "cycle_id": 2,
+                "status": "running",
+                "active_step": "screen_with_drugclip",
+                "updated_at": "2026-09-01T12:00:00Z",
+                "counts": {
+                    "targets": 1,
+                    "candidates": 160,
+                    "screens": 64,
+                    "simulations": 0,
+                },
+                "steps": [
+                    {
+                        "id": step["id"],
+                        "label": "Artifact label must not override the manifest",
+                        "status": "Complete" if index < 2 else "Running" if index == 2 else "Waiting",
+                    }
+                    for index, step in enumerate(config["service"]["cycle_steps"])
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "events.jsonl").write_text(
+        json.dumps(
+            {
+                "type": "workflow_step_started",
+                "step_id": "candidate_generation",
+                "payload": {"summary": "CONFIDENTIAL TARGET TEXT"},
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    service = module.DrugDiscoveryWebUIService(
+        run_id="run-3", run_dir=tmp_path, config=config
+    )
+    state = service.ui_state()
+
+    assert state["metrics"]["Step 1 — Target Discovery"] == "Complete"
+    assert state["metrics"]["Step 2 — Structure Generation"] == "Complete"
+    assert state["metrics"]["Step 3 — Discover Five Candidates"] == "Running"
+    assert state["metrics"]["Cycle — Screen with DrugCLIP"] == "Running"
+    assert state["metrics"]["Current cycle"] == 3
+    assert state["metrics"]["DrugCLIP screens"] == 64
+    assert "CONFIDENTIAL-SMILES" not in json.dumps(state)
+    assert "CONFIDENTIAL TARGET TEXT" not in json.dumps(state)
+    assert "/private/receptor.pdb" not in json.dumps(state)
+    assert state["molecule"] == {"status": "waiting", "cycle": 1}
+
+
+def test_drug_discovery_web_ui_projects_only_the_leading_molecule(tmp_path):
+    module = _load_drug_discovery_web_ui()
+    config = load_blueprint_config(BLUEPRINT_DIR)
+    (tmp_path / "leading_candidate.json").write_text(
+        json.dumps(
+            {
+                "status": "ready",
+                "cycle_id": 4,
+                "candidate_id": "candidate-17",
+                "smiles": "CC(=O)OC1=CC=CC=C1C(=O)O",
+                "renderer": "rdkit_2d_svg",
+                "drugclip_score": 0.92,
+                "simulation_stability": 0.81,
+                "gnina_affinity": -8.7,
+                "toxicity_penalty": 0.12,
+                "private_structure_path": "/private/receptor.pdb",
+                "candidate_pool": [{"candidate_id": "do-not-project"}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    service = module.DrugDiscoveryWebUIService(
+        run_id="run-molecule", run_dir=tmp_path, config=config
+    )
+
+    state = service.ui_state()
+
+    assert state["molecule"] == {
+        "status": "ready",
+        "cycle": 5,
+        "candidate_id": "candidate-17",
+        "smiles": "CC(=O)OC1=CC=CC=C1C(=O)O",
+        "renderer": "rdkit_2d_svg",
+        "image_url": "/artifacts/leading_candidate.svg?cycle=4",
+        "drugclip_score": 0.92,
+        "simulation_stability": 0.81,
+        "gnina_affinity": -8.7,
+        "toxicity_penalty": 0.12,
+    }
+    assert "/private/receptor.pdb" not in json.dumps(state)
+    assert "do-not-project" not in json.dumps(state)
+
+
+def test_drug_discovery_web_ui_serves_dashboard_state_and_svg(tmp_path):
+    module = _load_drug_discovery_web_ui()
+    config = load_blueprint_config(BLUEPRINT_DIR)
+    (tmp_path / "leading_candidate.svg").write_text(
+        '<svg xmlns="http://www.w3.org/2000/svg"><title>Candidate</title></svg>',
+        encoding="utf-8",
+    )
+    service = module.DrugDiscoveryWebUIService(
+        run_id="run-http", run_dir=tmp_path, config=config
+    )
+    server = module.DrugDiscoveryWebUIServer(service, host="127.0.0.1", port=0)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    _host, port = server.address
+
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/", timeout=2) as response:
+            assert response.status == 200
+            assert b"Leading candidate" in response.read()
+        with urllib.request.urlopen(
+            f"http://127.0.0.1:{port}/ui/state", timeout=2
+        ) as response:
+            state = json.loads(response.read())
+            assert state["metrics"]["Run"] == "run-http"
+        with urllib.request.urlopen(
+            f"http://127.0.0.1:{port}/artifacts/leading_candidate.svg",
+            timeout=2,
+        ) as response:
+            assert response.headers.get_content_type() == "image/svg+xml"
+            assert b"<title>Candidate</title>" in response.read()
+        with urllib.request.urlopen(
+            f"http://127.0.0.1:{port}/healthz", timeout=2
+        ) as response:
+            assert json.loads(response.read())["status"] == "ok"
+    finally:
+        server.stop()
+        thread.join(timeout=2)
+
+
+def test_drug_discovery_web_ui_requires_direct_job_data_directory(
+    tmp_path, monkeypatch
+):
+    module = _load_drug_discovery_web_ui()
+    job_dir = tmp_path / "job-1"
+    monkeypatch.setenv("MN_JOB_DATA_DIR", str(job_dir))
+    assert module.configured_job_data_dir("job-1") == job_dir.resolve()
+    try:
+        module.configured_job_data_dir("job-2")
+    except RuntimeError as error:
+        assert "direct directory" in str(error)
+    else:  # pragma: no cover - guards job isolation
+        raise AssertionError("web UI accepted another job's data directory")
+
+
+def test_drug_discovery_web_ui_config_updates_expanded_service_contract():
+    source = json.loads((BLUEPRINT_DIR / "manifest.json").read_text(encoding="utf-8"))
+    manifest = _expand_source_manifest(source)
+    config = load_blueprint_config(BLUEPRINT_DIR)
+    config["web_ui"]["service"]["port"] = 61027
+
+    apply_manifest_config_bindings(manifest, config)
+
+    node = next(
+        item
+        for item in manifest["agents"]["nodes"]
+        if item["node_id"] == "drug_discovery_web_ui"
+    )
+    assert node["resources"]["ports"][0]["port"] == 61027
+    assert node["services"][0]["port"] == 61027
+
+
+def test_drug_discovery_reporting_writes_the_declared_final_contract(
+    tmp_path, monkeypatch
+):
+    module = _load_drug_discovery_domain_module("reporting")
+    stored_state = {}
+    monkeypatch.setattr(module, "read_discovery_state", lambda _ctx: {})
+    monkeypatch.setattr(
+        module,
+        "run_stage_script",
+        lambda *_args, **_kwargs: {
+            "review_report": {
+                "candidate_count": 2,
+                "ranked_candidates": [{"candidate_id": "candidate-1"}],
+                "recommendation": "review_required",
+            }
+        },
+    )
+    monkeypatch.setattr(
+        module,
+        "write_discovery_state",
+        lambda _ctx, state: stored_state.update(state),
+    )
+    run_dir = tmp_path / "run"
+    output_dir = tmp_path / "output"
+    run_dir.mkdir()
+
+    result = module.publish_ranking(
+        {
+            "run_dir": str(run_dir),
+            "output_folder": str(output_dir),
+            "config": {},
+        }
+    )
+
+    artifact = result["final_artifact"]
+    manifest = json.loads((BLUEPRINT_DIR / "manifest.json").read_text(encoding="utf-8"))
+    required = manifest["contracts"]["outputs"]["primary"]["required_fields"]
+    assert set(required) <= set(artifact)
+    assert artifact["confidence"] == 0.25
+    assert artifact["evidence"][0]["candidate_count"] == 2
+    assert {"inputs.json", "events.jsonl", "result.json"} <= set(
+        artifact["source_refs"]
+    )
+    assert json.loads((run_dir / "final_artifact.json").read_text()) == artifact
+    assert json.loads((output_dir / "final_artifact.json").read_text()) == artifact
+    assert stored_state["final_report"] == artifact
+
+
+def test_discovery_runs_once_even_with_legacy_unlimited_config(tmp_path):
     service_path = BLUEPRINT_DIR / "payloads" / "service" / "scripts" / "continuous_service.py"
     spec = importlib.util.spec_from_file_location("drug_discovery_continuous_service_loop_test", service_path)
     module = importlib.util.module_from_spec(spec)
@@ -374,9 +808,9 @@ def test_continuous_service_repeats_generation_and_simulation_until_stop_file(tm
         tmp_path,
     )
 
-    assert calls == [0, 1]
-    assert result["completed_cycles"] == 2
-    assert result["stop_reason"] == "stop_file"
+    assert calls == [0]
+    assert result["completed_cycles"] == 1
+    assert result["stop_reason"] == "max_cycles"
 
 
 def test_continuous_service_uses_unique_work_directories_for_parallel_jobs(tmp_path):

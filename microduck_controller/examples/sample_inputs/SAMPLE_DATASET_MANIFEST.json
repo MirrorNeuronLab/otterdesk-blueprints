@@ -1,0 +1,13 @@
+{
+  "schema_version": "otterdesk.sample_dataset.v1",
+  "blueprint_id": "microduck_controller",
+  "description": "Service-only demo: the browser control tab supplies the live simulator state.",
+  "files": [
+    {
+      "path": "README.md",
+      "type": "text/markdown",
+      "contains_pii": false,
+      "intended_use": "Explains how to initialize the browser-backed demonstration service."
+    }
+  ]
+}
