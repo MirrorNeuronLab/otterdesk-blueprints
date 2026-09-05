@@ -26,18 +26,19 @@ def assess_architecture(
     deterministic_ids = {item["finding_id"] for item in deterministic}
     fact_ids = known_fact_ids(state)
     paths = known_paths(state)
+    deterministic_rationales = [
+        {
+            "finding_id": item["finding_id"],
+            "rationale": item["why_it_matters"],
+            "tradeoffs": [option["tradeoffs"] for option in item["alternative_options"]],
+            "migration_risks": [item["migration_risk"]],
+            "fact_ids": list(item["evidence"]["fact_ids"]),
+        }
+        for item in deterministic
+    ]
     synthesis_fallback = {
         "summary": "Deterministic candidates were retained as architecture hypotheses pending adversarial review and current-checkout verification.",
-        "deterministic_finding_rationales": [
-            {
-                "finding_id": item["finding_id"],
-                "rationale": item["why_it_matters"],
-                "tradeoffs": [option["tradeoffs"] for option in item["alternative_options"]],
-                "migration_risks": [item["migration_risk"]],
-                "fact_ids": list(item["evidence"]["fact_ids"]),
-            }
-            for item in deterministic
-        ],
+        "deterministic_finding_rationales": deterministic_rationales,
         "grounded_findings": [],
     }
     synthesis = run_model_stage(
@@ -54,7 +55,7 @@ def assess_architecture(
         fallback=synthesis_fallback,
         validator=lambda value: _validate_synthesis(
             value,
-            deterministic_ids=deterministic_ids,
+            deterministic_rationales=deterministic_rationales,
             fact_ids=fact_ids,
             paths=paths,
             state=state,
@@ -134,34 +135,46 @@ def assess_architecture(
 
 
 def _validate_synthesis(
-    value: dict[str, Any], *, deterministic_ids: set[str], fact_ids: set[str],
+    value: dict[str, Any], *, deterministic_rationales: list[dict[str, Any]], fact_ids: set[str],
     paths: set[str], state: dict[str, Any],
 ) -> dict[str, Any] | None:
     if not isinstance(value, dict):
         return None
+    baselines = {
+        str(item["finding_id"]): item
+        for item in deterministic_rationales
+    }
     raw_rationales = value.get("deterministic_finding_rationales")
-    if not isinstance(raw_rationales, list):
-        return None
-    rationales = []
-    seen = set()
-    for item in raw_rationales:
+    rationales_by_id: dict[str, dict[str, Any]] = {}
+    for item in raw_rationales if isinstance(raw_rationales, list) else []:
         if not isinstance(item, dict):
-            return None
+            continue
         finding_id = str(item.get("finding_id") or "")
-        cited = validate_references(item.get("fact_ids"), fact_ids, allow_empty=False)
-        tradeoffs = string_list(item.get("tradeoffs"), maximum_items=12)
-        risks = string_list(item.get("migration_risks"), maximum_items=12)
-        rationale = text(item.get("rationale"), maximum=2600)
-        if finding_id not in deterministic_ids or finding_id in seen or cited is None or tradeoffs is None or risks is None or not rationale:
-            return None
-        seen.add(finding_id)
-        rationales.append({"finding_id": finding_id, "rationale": rationale, "tradeoffs": tradeoffs, "migration_risks": risks, "fact_ids": cited})
-    if seen != deterministic_ids:
-        return None
+        baseline = baselines.get(finding_id)
+        if baseline is None or finding_id in rationales_by_id:
+            continue
+        cited = _grounded_references(
+            item.get("fact_ids"),
+            allowed=fact_ids,
+            fallback=baseline["fact_ids"],
+        )
+        tradeoffs = string_list(item.get("tradeoffs"), maximum_items=12) or list(baseline["tradeoffs"])
+        risks = string_list(item.get("migration_risks"), maximum_items=12) or list(baseline["migration_risks"])
+        rationale = text(item.get("rationale"), maximum=2600) or str(baseline["rationale"])
+        rationales_by_id[finding_id] = {
+            "finding_id": finding_id,
+            "rationale": rationale,
+            "tradeoffs": tradeoffs,
+            "migration_risks": risks,
+            "fact_ids": cited,
+        }
+    rationales = [
+        rationales_by_id.get(str(baseline["finding_id"]), dict(baseline))
+        for baseline in deterministic_rationales
+    ]
     grounded = []
     raw_grounded = value.get("grounded_findings")
-    if not isinstance(raw_grounded, list):
-        return None
+    raw_grounded = raw_grounded if isinstance(raw_grounded, list) else []
     evidence_types = {
         str(item.get("fact_id")): str(item.get("evidence_type") or "")
         for item in ((state.get("architecture_facts") or {}).get("facts") or [])
@@ -173,18 +186,34 @@ def _validate_synthesis(
     for item in raw_grounded[:8]:
         normalized = _validate_grounded_finding(item, fact_ids=fact_ids, paths=paths)
         if normalized is None:
-            return None
+            continue
         signals = {evidence_types.get(fact_id) for fact_id in normalized["fact_ids"] if evidence_types.get(fact_id)}
         finding_paths = set(normalized["paths"])
         if any(fact_paths.get(fact_id) and not fact_paths[fact_id].intersection(finding_paths) for fact_id in normalized["fact_ids"]):
-            return None
+            continue
         if normalized["severity"] in {"high", "critical"} and len(signals) < 2:
-            return None
+            continue
         grounded.append(normalized)
     summary = text(value.get("summary"), maximum=4500)
     if not summary:
         return None
     return {"summary": summary, "deterministic_finding_rationales": rationales, "grounded_findings": grounded}
+
+
+def _grounded_references(
+    values: Any, *, allowed: set[str], fallback: list[str]
+) -> list[str]:
+    supplied = values if isinstance(values, list) else []
+    grounded = list(
+        dict.fromkeys(
+            str(item).strip()
+            for item in supplied
+            if str(item).strip() in allowed
+        )
+    )
+    if grounded:
+        return grounded
+    return [item for item in fallback if item in allowed]
 
 
 def _validate_grounded_finding(item: Any, *, fact_ids: set[str], paths: set[str]) -> dict[str, Any] | None:

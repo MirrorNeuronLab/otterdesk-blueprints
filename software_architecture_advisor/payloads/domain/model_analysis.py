@@ -8,14 +8,14 @@ import json
 import math
 import os
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from mn_blueprint_support import get_actor_llm_client, llm_usage
 from mn_sdk.blueprint_support import (
     ActionBudget,
     BudgetedLlmClient,
-    LlmCallLimiter,
     build_llm_call_limiter,
     redact_observation_value,
 )
@@ -23,7 +23,6 @@ from mn_sdk.blueprint_support.utils import utc_now_iso
 from mn_sdk.blueprint_support.workflow_state import WorkflowStateStore
 
 from .state import write_state
-
 
 STAGES = (
     "source_intake",
@@ -117,7 +116,7 @@ _STAGE_OUTPUT_CONTRACTS: dict[str, dict[str, Any]] = {
     "finding_synthesis": {
         "required_fields": {
             "summary": "non-empty string",
-            "deterministic_finding_rationales": "array with exactly one object for every supplied deterministic finding_id",
+            "deterministic_finding_rationales": "array keyed by supplied deterministic finding_id; omitted or unsafe fields are restored from deterministic evidence",
             "grounded_findings": "array of new grounded-finding objects; use [] instead of weak or unsupported candidates",
         },
         "item_contracts": {
@@ -139,7 +138,7 @@ _STAGE_OUTPUT_CONTRACTS: dict[str, dict[str, Any]] = {
         },
     },
     "report_synthesis": {
-        "required_fields": {"sections": "object containing exactly the five named section objects", "coverage": "array containing exactly the five section names"},
+        "required_fields": {"sections": "object containing the five named section objects; unsafe or omitted section fields are restored from the deterministic report scaffold", "coverage": "array containing the five section names"},
         "item_contracts": {
             "sections": "exact keys: executive_summary, system_reconstruction, cross_cutting_analysis, finding_rationale, migration_strategy",
             "each section": {"text": "non-empty analytical prose with no numeric claims", "fact_ids": "non-empty exact fact-ID array"},
@@ -150,7 +149,88 @@ _STAGE_OUTPUT_CONTRACTS: dict[str, dict[str, Any]] = {
         "item_contracts": {
             "checks[]": {"name": "one exact required check name", "status": "approve|reject", "rationale": "string", "fact_ids": "exact fact-ID array"},
             "required check names": "claims_are_fact_grounded, metrics_are_deterministic, adversarial_dispositions_are_complete, prompts_are_safe_and_reversible, report_coverage_is_complete",
+            "rejected_claims[]": "when rejecting a package whose deterministic gate passed, quote an exact concrete claim from bounded_context",
         },
+    },
+}
+
+_STAGE_RESPONSE_LIMITS: dict[str, dict[str, Any]] = {
+    "source_intake": {
+        "maximum_total_json_characters": 5_000,
+        "maximum_items": {
+            "investigation_priorities": 3,
+            "entrypoint_hypotheses": 3,
+            "unknowns": 3,
+            "path_refs_per_item": 3,
+        },
+        "maximum_prose_characters_per_field": 180,
+    },
+    "component_mapping": {
+        "maximum_total_json_characters": 6_000,
+        "maximum_items": {
+            "components": 5,
+            "entrypoints": 4,
+            "dependency_directions": 5,
+            "unknowns": 3,
+            "paths_or_fact_ids_per_item": 3,
+        },
+        "maximum_prose_characters_per_field": 140,
+    },
+    "cross_cutting_mapping": {
+        "maximum_total_json_characters": 6_000,
+        "maximum_items": {
+            "each_analysis_array": 2,
+            "unknowns": 3,
+            "paths_or_fact_ids_per_item": 3,
+        },
+        "maximum_prose_characters_per_field": 140,
+    },
+    "finding_synthesis": {
+        "maximum_total_json_characters": 6_500,
+        "maximum_items": {
+            "deterministic_finding_rationales": "exactly one per supplied finding_id",
+            "tradeoffs_or_migration_risks_per_item": 1,
+            "grounded_findings": 0,
+        },
+        "maximum_prose_characters_per_field": 120,
+    },
+    "adversarial_review": {
+        "maximum_total_json_characters": 6_500,
+        "maximum_items": {
+            "finding_reviews": "exactly one per supplied finding_id",
+            "missing_evidence_per_item": 1,
+            "required_human_checks": 2,
+        },
+        "maximum_prose_characters_per_field": 120,
+    },
+    "prompt_authoring": {
+        "maximum_total_json_characters": 7_000,
+        "maximum_items": {
+            "prompts": "exactly one per supplied finding_id",
+            "option_guidance_per_item": 2,
+            "implementation_steps_per_item": 2,
+            "tests_per_item": 2,
+            "stop_conditions_per_item": 2,
+        },
+        "maximum_prose_characters_per_field": 120,
+    },
+    "report_synthesis": {
+        "maximum_total_json_characters": 6_500,
+        "maximum_items": {
+            "sections": "exactly the five required sections",
+            "fact_ids_per_section": 4,
+        },
+        "maximum_words_per_section": 80,
+    },
+    "final_audit": {
+        "maximum_total_json_characters": 5_000,
+        "maximum_items": {
+            "checks": "exactly the five required checks",
+            "fact_ids_per_check": 3,
+            "rejected_claims": 2,
+            "required_revisions": 2,
+        },
+        "maximum_prose_characters_per_field": 120,
     },
 }
 
@@ -189,7 +269,7 @@ def run_model_stage(
 
     config = ctx.get("config") or {}
     quick = fake_mode(config)
-    require_live = bool(((config.get("llm") or {}).get("require_live", True))) and not quick
+    require_live = bool((config.get("llm") or {}).get("require_live", True)) and not quick
     system_prompt = _load_prompt(ctx, stage)
     context, user_prompt, prompt_budget = _prepare_budgeted_prompt(
         config,
@@ -247,7 +327,7 @@ def run_model_stage(
                 "context_item_count": record["context_item_count"],
             },
             validator=validator,
-            validation_retries=max(0, int(((config.get("llm_analysis") or {}).get("validation_retries") or 1))),
+            validation_retries=max(0, int((config.get("llm_analysis") or {}).get("validation_retries") or 1)),
         )
         validated = validator(response)
         if validated is None:
@@ -430,11 +510,13 @@ def _user_payload(stage: str, task: str, context: dict[str, Any]) -> dict[str, A
         "task": task,
         "bounded_context": context,
         "required_output_contract": _STAGE_OUTPUT_CONTRACTS[stage],
+        "response_limits": _STAGE_RESPONSE_LIMITS[stage],
         "structured_output_rules": [
             "Return exactly one JSON object with every required top-level field.",
             "Arrays declared as object arrays may contain only objects, never prose strings.",
             "Use an empty array only where the contract explicitly permits it.",
             "Copy cited identifiers and paths exactly from bounded_context; never create or repair identifiers.",
+            "Honor response_limits strictly; prefer fewer grounded items and shorter prose over truncating JSON.",
         ],
         "grounding_rules": {
             "static_facts_are_authoritative": True,

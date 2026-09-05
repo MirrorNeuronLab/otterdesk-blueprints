@@ -8,7 +8,7 @@ for a single software repository. It inventories the staged source, builds a
 syntax/symbol and dependency fact database, reconstructs state, trust, test,
 and deployment boundaries, triangulates change-risk hypotheses, and produces
 prioritized improvement prompts for an AI coding agent. Eight required,
-specialist passes through the runtime-selected `default` local model perform
+specialist passes through the logical `medium` local-model route perform
 investigation planning, reconstruction, cross-cutting analysis, finding
 synthesis, adversarial review, prompt authoring, report synthesis, and final
 audit.
@@ -18,11 +18,16 @@ project.
 ## Requirements
 
 This blueprint requires at least **48 GB of host memory** and the runtime's
-runtime-prepared `default` local model. The platform selects the concrete larger
-model and injects the selected node's reachable model gateway and lazy
-model-control service into Docker workers. The blueprint never hardcodes a node,
-model ID, or direct model-runner endpoint and never downloads a model itself.
+`medium` local-model route. The platform selects a capable node, resolves that
+logical route to its concrete installed model, and injects the node's reachable
+model gateway and lazy model-control service into Docker workers. The blueprint
+never hardcodes a model artifact, node, or direct model-runner endpoint and
+never downloads a model itself.
 Normal runs require real provider responses and fail if any pass falls back.
+The model contract declares `structured_output` and `thinking` through the SDK's
+`required_capabilities` runtime interface. The SDK rejects a cataloged mismatch
+before inference; unknown capabilities are checked once against the prepared
+loopback endpoint and cached in the user model catalog for later runs.
 
 ## Input
 
@@ -72,7 +77,9 @@ The output folder contains:
   responses.
 - `architecture-report/` — numbered reviewer views for repository structure,
   dependencies, hotspots, state, trust boundaries, tests, and migration order.
-- `codex-prompts/` — one standalone prompt per prioritized finding.
+- `prompts/` — an indexed folder containing one standalone `.md` prompt per
+  prioritized finding. Open `prompts/README.md`, choose a prompt, and paste it
+  into Codex or another coding agent.
 
 Prompts recommend changes but never perform them. They explicitly instruct a
 coding agent to inspect the cited paths, preserve behavior, add or update tests,
@@ -105,8 +112,8 @@ and stop for human direction when the evidence is insufficient.
 The analysis environment has `network.egress: forbidden`. The bundled
 `software_architecture_graph_skill` uses only the Python standard library and
 works on files in the staged source root. The local model is called through a
-selected node's local model gateway. The blueprint requests the 32k-context
-`medium` model profile. Before every model call it reserves that profile's
+selected node's local model gateway. The blueprint requests the logical
+32k-context `medium` profile. Before every model call it reserves that profile's
 maximum completion tokens plus a safety margin, estimates the complete
 serialized input, and compacts bounded source excerpts or repeated structured
 evidence to fit the remaining input-token budget. Structured stages retain all
