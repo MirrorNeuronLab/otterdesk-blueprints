@@ -9,9 +9,8 @@ import urllib.request
 from pathlib import Path
 
 import pytest
-
+from mn_sdk.blueprints import read_blueprint, resolve_config
 from workspace_paths import companion_workspace
-
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKSPACE = companion_workspace(ROOT)
@@ -68,9 +67,7 @@ def test_cctv_ui_state_redacts_stream_credentials_and_uses_durable_monitoring_st
         ),
         encoding="utf-8",
     )
-    service = cctv_web_ui.CCTVWebUIService(
-        run_id="run-1", run_dir=tmp_path, config={}
-    )
+    service = cctv_web_ui.CCTVWebUIService(run_id="run-1", run_dir=tmp_path, config={})
 
     state = service.ui_state()
 
@@ -104,7 +101,9 @@ def test_cctv_ui_server_serves_mjpeg_sse_and_no_browser_action(tmp_path: Path):
         assert json.loads(
             urllib.request.urlopen(f"http://{host}:{port}/ui/state").read()
         )["metrics"]
-        with urllib.request.urlopen(f"http://{host}:{port}/streams/live.mjpg") as response:
+        with urllib.request.urlopen(
+            f"http://{host}:{port}/streams/live.mjpg"
+        ) as response:
             assert response.headers.get_content_type() == "multipart/x-mixed-replace"
             assert response.headers.get_param("boundary") == cctv_web_ui.MJPEG_BOUNDARY
             assert b"preview-frame" in response.read()
@@ -118,7 +117,7 @@ def test_cctv_ui_server_serves_mjpeg_sse_and_no_browser_action(tmp_path: Path):
             assert lines[2].startswith("data: {")
         request = urllib.request.Request(
             f"http://{host}:{port}/actions/steer-monitoring",
-            data=b'{}',
+            data=b"{}",
             method="POST",
         )
         with pytest.raises(urllib.error.HTTPError) as exc:
@@ -162,9 +161,7 @@ def test_cctv_ui_mjpeg_relay_extracts_complete_jpegs_from_chunked_output():
     preview = cctv_web_ui.CUDAMJPEGPreview(settings)
 
     preview._read_frames(
-        io.BytesIO(
-            b"noise\xff\xd8first\xff\xd9between\xff\xd8second\xff\xd9"
-        )
+        io.BytesIO(b"noise\xff\xd8first\xff\xd9between\xff\xd8second\xff\xd9")
     )
 
     assert preview._latest_frame == b"\xff\xd8second\xff\xd9"
@@ -206,10 +203,10 @@ def test_cctv_ui_operator_events_are_newest_first(tmp_path: Path):
 
 def test_cctv_ui_uses_the_shared_dynamic_port_and_external_handle_contract():
     blueprint = ROOT / "cctv_operator"
-    source = (
-        blueprint / "payloads" / "services" / "cctv_web_ui.py"
-    ).read_text(encoding="utf-8")
-    config = json.loads((blueprint / "config" / "default.json").read_text())
+    source = (blueprint / "payloads" / "services" / "cctv_web_ui.py").read_text(
+        encoding="utf-8"
+    )
+    config = resolve_config(read_blueprint(blueprint)).data
 
     assert "resolve_web_ui_binding" in source
     assert "claim_web_ui" in source

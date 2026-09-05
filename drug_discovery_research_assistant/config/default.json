@@ -1,46 +1,38 @@
 {
-  "mode": "live",
-  "service": {
-    "cycle_interval_seconds": 15,
-    "max_cycles": 1,
-    "candidate_count": 5,
-    "candidate_pool_size": 800,
-    "drugclip_scoring_batch_size": 64,
-    "simulation_top_k": 5,
-    "parallelism": {
-      "folding_workers": 2,
-      "drugclip_workers": 4,
-      "simulation_workers": 4
+  "backpressure": {
+    "drop_policy": "skip_with_error",
+    "llm": {
+      "max_calls_per_minute": 30,
+      "max_concurrent_calls": 1,
+      "min_interval_seconds": 2.0,
+      "rationale": "Protect local Docker Model Runner from concurrent blueprint actor calls."
     },
-    "shutdown_grace_seconds": 30
+    "max_concurrency": 4,
+    "max_events_per_second": 10,
+    "queue_size": 1000
   },
-  "execution": {
-    "fake_science_adapters": false,
-    "native_worker_required": true,
-    "mode": "native_local"
-  },
-  "cluster_distribution": {
-    "enabled": false,
-    "dispatch_command": [],
-    "dispatch_timeout_seconds": 1800,
-    "fallback": "fail_closed",
-    "contract": "The configured native dispatcher receives a JSON job specification on stdin and returns JSON with either result or a written output_path.",
-    "worker_pools": {
-      "control": "default",
-      "generation": "science-generation",
-      "folding": "science-folding",
-      "drugclip": "science-drugclip",
-      "simulation": "science-simulation",
-      "aggregation": "default"
-    },
-    "collaboration": {
-      "mode": "cross_box_fanout_fanin",
-      "shared_artifact_contract": "cycle request/result JSON files in the run store",
-      "idempotency_key": "run_id:cycle_id:adapter:target_or_candidate"
+  "biotarget": {
+    "enabled": true,
+    "native_python_required": true,
+    "simulation_engine": "gnina",
+    "source_dir": "@/payloads",
+    "stages": {
+      "candidate_generation": "biotarget.stages.stage_c_generative",
+      "evaluation": "biotarget.stages.stage_d_evaluation",
+      "folding": "biotarget.stages.stage_b_structure",
+      "target_discovery": "biotarget.stages.stage_a_discovery"
     }
   },
+  "budgets": {
+    "max_connector_reads": 500,
+    "max_connector_writes": 20,
+    "max_disk_mb": 250,
+    "max_llm_calls": 20,
+    "max_llm_tokens": 20000,
+    "max_runtime_seconds": 0,
+    "max_stream_duration_seconds": 3600
+  },
   "candidate_generator": {
-    "required": true,
     "command": [
       "python",
       "scripts/biotarget_adapter.py",
@@ -51,42 +43,43 @@
       "--output",
       "{output_path}"
     ],
-    "timeout_seconds": 1800,
-    "contract": "Run BioTarget Stage C using the DrugClip graph-text model. Read JSON request from {input_path}; write JSON containing candidates to {output_path}."
-  },
-  "folding": {
+    "contract": "Run BioTarget Stage C using the DrugClip graph-text model. Read JSON request from {input_path}; write JSON containing candidates to {output_path}.",
     "required": true,
-    "command": [
-      "python",
-      "scripts/biotarget_adapter.py",
-      "--adapter",
-      "folding",
-      "--input",
-      "{input_path}",
-      "--output",
-      "{output_path}"
-    ],
-    "timeout_seconds": 3600,
-    "contract": "Run BioTarget Stage B. Read a target request from {input_path}; write a structure result with a local path to {output_path}."
+    "timeout_seconds": 1800
+  },
+  "cluster_distribution": {
+    "collaboration": {
+      "idempotency_key": "run_id:cycle_id:adapter:target_or_candidate",
+      "mode": "cross_box_fanout_fanin",
+      "shared_artifact_contract": "cycle request/result JSON files in the run store"
+    },
+    "contract": "The configured native dispatcher receives a JSON job specification on stdin and returns JSON with either result or a written output_path.",
+    "dispatch_command": [],
+    "dispatch_timeout_seconds": 1800,
+    "enabled": false,
+    "fallback": "fail_closed",
+    "worker_pools": {
+      "aggregation": "default",
+      "control": "default",
+      "drugclip": "science-drugclip",
+      "folding": "science-folding",
+      "generation": "science-generation",
+      "simulation": "science-simulation"
+    }
+  },
+  "determinism": {
+    "enabled": true,
+    "frozen_clock": null,
+    "replay": {
+      "from_events": "events.jsonl",
+      "from_inputs": "inputs.json",
+      "llm_mode": "fake"
+    },
+    "seed_field": "seed"
   },
   "drugclip": {
-    "required": true,
-    "mode": "text_molecular_graph_alignment",
-    "model_ref": "hf.co/homerquan/DrugClip",
-    "generic_model": {
-      "enabled": true,
-      "ownership": "blueprint_problem_specific",
-      "shared_model_catalog": false,
-      "model_ref": "https://huggingface.co/homerquan/DrugClip",
-      "runtime": "native_checkpoint",
-      "execution": "native_checkpoint",
-      "validator": "mirrorneuron-use-generic-model-skill",
-      "failure_policy": "fail_closed",
-      "installation_policy": "Validate the explicit Hugging Face reference with mirrorneuron-use-generic-model-skill, then load best.ckpt through the native DrugCLIP checkpoint adapter. Docker Model Runner is intentionally unsupported for this checkpoint-only repository."
-    },
-    "checkpoint_repo": "homerquan/DrugClip",
     "checkpoint_filename": "best.ckpt",
-    "source_repository": "@/payloads",
+    "checkpoint_repo": "homerquan/DrugClip",
     "command": [
       "python",
       "scripts/biotarget_adapter.py",
@@ -97,90 +90,73 @@
       "--output",
       "{output_path}"
     ],
-    "timeout_seconds": 1800,
-    "contract": "Use BioTarget's DrugClip graph-text alignment path. Read a molecular candidate and therapeutic intent from {input_path}; write drugclip_score to {output_path}."
-  },
-  "biotarget": {
-    "enabled": true,
-    "source_dir": "@/payloads",
-    "native_python_required": true,
-    "stages": {
-      "target_discovery": "biotarget.stages.stage_a_discovery",
-      "folding": "biotarget.stages.stage_b_structure",
-      "candidate_generation": "biotarget.stages.stage_c_generative",
-      "evaluation": "biotarget.stages.stage_d_evaluation"
+    "contract": "Use BioTarget's DrugClip graph-text alignment path. Read a molecular candidate and therapeutic intent from {input_path}; write drugclip_score to {output_path}.",
+    "generic_model": {
+      "enabled": true,
+      "execution": "native_checkpoint",
+      "failure_policy": "fail_closed",
+      "installation_policy": "Validate the explicit Hugging Face reference with mirrorneuron-use-generic-model-skill, then load best.ckpt through the native DrugCLIP checkpoint adapter. Docker Model Runner is intentionally unsupported for this checkpoint-only repository.",
+      "model_ref": "https://huggingface.co/homerquan/DrugClip",
+      "ownership": "blueprint_problem_specific",
+      "runtime": "native_checkpoint",
+      "shared_model_catalog": false,
+      "validator": "mirrorneuron-use-generic-model-skill"
     },
-    "simulation_engine": "gnina"
-  },
-  "simulation": {
-    "deterministic": true,
-    "enabled": true,
-    "seed_field": "seed",
-    "type": "Configured parallel molecular simulation after DrugClip graph-text screening.",
+    "mode": "text_molecular_graph_alignment",
+    "model_ref": "hf.co/homerquan/DrugClip",
     "required": true,
+    "source_repository": "@/payloads",
+    "timeout_seconds": 1800
+  },
+  "error_handling": {
+    "default_mode": "stop",
+    "policies": {
+      "llm_call": {
+        "backoff_seconds": 2,
+        "max_attempts": 3,
+        "mode": "retry"
+      },
+      "optional_output": {
+        "mode": "skip"
+      },
+      "required_output": {
+        "mode": "stop"
+      }
+    }
+  },
+  "execution": {
+    "fake_science_adapters": false,
+    "mode": "native_local",
+    "native_worker_required": true
+  },
+  "folding": {
     "command": [
       "python",
       "scripts/biotarget_adapter.py",
       "--adapter",
-      "simulation",
+      "folding",
       "--input",
       "{input_path}",
       "--output",
       "{output_path}"
     ],
-    "timeout_seconds": 3600,
-    "contract": "Run BioTarget Stage D evaluation for a DrugClip-selected candidate. Read JSON from {input_path}; write docking and toxicity metrics to {output_path}."
+    "contract": "Run BioTarget Stage B. Read a target request from {input_path}; write a structure result with a local path to {output_path}.",
+    "required": true,
+    "timeout_seconds": 3600
   },
   "inputs": {
     "adapter": "mock",
     "description": "Default synthetic inputs bundled with the blueprint.",
     "payload": {
       "disease_or_target_profile": "Alzheimer disease BACE1 modulation",
+      "input_folder": "@/examples/sample_inputs",
+      "output_folder": "~/Downloads/{job_name}",
       "targets": [
         {
-          "protein_id": "P56817",
-          "gene": "BACE1"
+          "gene": "BACE1",
+          "protein_id": "P56817"
         }
-      ],
-      "input_folder": "@/examples/sample_inputs",
-      "output_folder": "~/Downloads/drug_discovery_research_assistant"
-    }
-  },
-  "outputs": {
-    "adapter": "local_run_store",
-    "artifact_contract": "Continuous-cycle candidate, folding, DrugCLIP, simulation, state, leading-molecule visualization, and review-only scientific evidence artifacts.",
-    "run_root": "~/.mn/runs",
-    "write_run_store": true,
-    "folder_path": "~/Downloads/{job_id}"
-  },
-  "llm": {
-    "strict_json": false,
-    "require_live": true,
-    "configs": {
-      "primary": {
-        "timeout_seconds": 60,
-        "max_tokens": 900,
-        "num_retries": 1,
-        "retry_backoff_seconds": 1.0
-      }
-    }
-  },
-  "knowledge_rag": {
-    "backend": "milvus_lite"
-  },
-  "web_ui": {
-    "enabled": true,
-    "renderer": "external-url",
-    "refresh_seconds": 1,
-    "molecule_preview": {
-      "enabled": true,
-      "width": 720,
-      "height": 420
-    },
-    "service": {
-      "host": "0.0.0.0",
-      "port": 61020,
-      "public_url": ""
+      ]
     }
   },
   "interfaces": {
@@ -243,59 +219,29 @@
       "suggested_schedule"
     ]
   },
-  "backpressure": {
-    "drop_policy": "skip_with_error",
-    "llm": {
-      "max_calls_per_minute": 30,
-      "max_concurrent_calls": 1,
-      "min_interval_seconds": 2.0,
-      "rationale": "Protect local Docker Model Runner from concurrent blueprint actor calls."
-    },
-    "max_concurrency": 4,
-    "max_events_per_second": 10,
-    "queue_size": 1000
-  },
-  "budgets": {
-    "max_connector_reads": 500,
-    "max_connector_writes": 20,
-    "max_disk_mb": 250,
-    "max_llm_calls": 20,
-    "max_llm_tokens": 20000,
-    "max_runtime_seconds": 0,
-    "max_stream_duration_seconds": 3600
-  },
-  "determinism": {
-    "enabled": true,
-    "frozen_clock": null,
-    "replay": {
-      "from_events": "events.jsonl",
-      "from_inputs": "inputs.json",
-      "llm_mode": "fake"
-    },
-    "seed_field": "seed"
-  },
-  "error_handling": {
-    "default_mode": "stop",
-    "policies": {
-      "llm_call": {
-        "backoff_seconds": 2,
-        "max_attempts": 3,
-        "mode": "retry"
-      },
-      "optional_output": {
-        "mode": "skip"
-      },
-      "required_output": {
-        "mode": "stop"
+  "local_inputs": {
+    "folders": [
+      {
+        "allowed_extensions": [
+          ".json",
+          ".csv",
+          ".txt",
+          ".md"
+        ],
+        "config_path": "inputs.payload.input_folder",
+        "linked_config_paths": [
+          "inputs.payload.input_folder",
+          "state.input_folder"
+        ],
+        "payload_path": "runtime/mn_local_inputs/drug_discovery_research_assistant_documents",
+        "runtime_path": "mn_local_inputs/drug_discovery_research_assistant_documents"
       }
-    }
+    ]
   },
   "logging": {
-    "level": "INFO",
     "events_jsonl": true,
+    "level": "INFO",
     "logs_jsonl": true,
-    "resources_jsonl": true,
-    "stderr_jsonl": true,
     "redact_env_secrets": true,
     "redact_fields": [
       "api_key",
@@ -304,7 +250,31 @@
       "cookie",
       "password",
       "private_key"
-    ]
+    ],
+    "resources_jsonl": true,
+    "stderr_jsonl": true
+  },
+  "manifest_config_bindings": [
+    {
+      "config_path": "web_ui.service.host",
+      "manifest_path": "agents.nodes.drug_discovery_web_ui.services.0.address"
+    },
+    {
+      "config_path": "web_ui.service.port",
+      "manifest_path": "agents.nodes.drug_discovery_web_ui.resources.ports.0.port"
+    },
+    {
+      "config_path": "web_ui.service.port",
+      "manifest_path": "agents.nodes.drug_discovery_web_ui.services.0.port"
+    }
+  ],
+  "mode": "live",
+  "outputs": {
+    "adapter": "local_run_store",
+    "artifact_contract": "Continuous-cycle candidate, folding, DrugCLIP, simulation, state, leading-molecule visualization, and review-only scientific evidence artifacts.",
+    "folder_path": "~/Downloads/{job_name}",
+    "run_root": "~/.mn/runs",
+    "write_run_store": true
   },
   "privacy": {
     "default_classification": "confidential",
@@ -332,11 +302,44 @@
     }
   },
   "python_dependencies": {
-    "installer": "pip",
-    "requirements": "requirements.txt",
-    "index_url": "https://us-central1-python.pkg.dev/mirrorneuron-public-packages/agent-skills/simple/",
     "extra_index_url": "https://pypi.org/simple",
-    "packages": []
+    "index_url": "https://us-central1-python.pkg.dev/mirrorneuron-public-packages/agent-skills/simple/",
+    "installer": "pip",
+    "packages": [],
+    "requirements": "requirements.txt"
+  },
+  "service": {
+    "candidate_count": 5,
+    "candidate_pool_size": 800,
+    "cycle_interval_seconds": 15,
+    "drugclip_scoring_batch_size": 64,
+    "max_cycles": 1,
+    "parallelism": {
+      "drugclip_workers": 4,
+      "folding_workers": 2,
+      "simulation_workers": 4
+    },
+    "shutdown_grace_seconds": 30,
+    "simulation_top_k": 5
+  },
+  "simulation": {
+    "command": [
+      "python",
+      "scripts/biotarget_adapter.py",
+      "--adapter",
+      "simulation",
+      "--input",
+      "{input_path}",
+      "--output",
+      "{output_path}"
+    ],
+    "contract": "Run BioTarget Stage D evaluation for a DrugClip-selected candidate. Read JSON from {input_path}; write docking and toxicity metrics to {output_path}.",
+    "deterministic": true,
+    "enabled": true,
+    "required": true,
+    "seed_field": "seed",
+    "timeout_seconds": 3600,
+    "type": "Configured parallel molecular simulation after DrugClip graph-text screening."
   },
   "state": {
     "checkpoint_interval": {
@@ -348,47 +351,29 @@
       "source_ref",
       "event_id"
     ],
-    "resume_mode": "none",
     "input_folder": "@/examples/sample_inputs",
-    "output_folder": "~/Downloads/drug_discovery_research_assistant"
+    "output_folder": "~/Downloads/{job_name}",
+    "resume_mode": "none"
   },
   "suggested_schedule": {
-    "cron": "0 8 * * 1",
-    "cadence": "weekly",
     "advisory_only": true,
+    "cadence": "weekly",
+    "cron": "0 8 * * 1",
     "note": "Suggested cadence only; runtime decides the actual schedule."
   },
-  "manifest_config_bindings": [
-    {
-      "config_path": "web_ui.service.host",
-      "manifest_path": "agents.nodes.drug_discovery_web_ui.services.0.address"
+  "web_ui": {
+    "enabled": true,
+    "molecule_preview": {
+      "enabled": true,
+      "height": 420,
+      "width": 720
     },
-    {
-      "config_path": "web_ui.service.port",
-      "manifest_path": "agents.nodes.drug_discovery_web_ui.resources.ports.0.port"
-    },
-    {
-      "config_path": "web_ui.service.port",
-      "manifest_path": "agents.nodes.drug_discovery_web_ui.services.0.port"
+    "refresh_seconds": 1,
+    "renderer": "external-url",
+    "service": {
+      "host": "0.0.0.0",
+      "port": 61020,
+      "public_url": ""
     }
-  ],
-  "local_inputs": {
-    "folders": [
-      {
-        "config_path": "inputs.payload.input_folder",
-        "payload_path": "runtime/mn_local_inputs/drug_discovery_research_assistant_documents",
-        "runtime_path": "mn_local_inputs/drug_discovery_research_assistant_documents",
-        "allowed_extensions": [
-          ".json",
-          ".csv",
-          ".txt",
-          ".md"
-        ],
-        "linked_config_paths": [
-          "inputs.payload.input_folder",
-          "state.input_folder"
-        ]
-      }
-    ]
   }
 }

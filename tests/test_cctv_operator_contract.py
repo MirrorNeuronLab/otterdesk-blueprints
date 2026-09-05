@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 from mn_sdk import (
@@ -9,27 +8,13 @@ from mn_sdk import (
     run_input_validation,
     run_model_validation,
 )
+from mn_sdk.blueprints import blueprint_definition, read_blueprint, resolve_config
 from mn_sdk.model_preparation import model_validation_inputs_with_prepared_models
 from mn_sdk.submission_preparation import (
     manifest_nodes,
     prepare_manifest_for_submission,
 )
-from otterdesk_blueprint_suite import (
-    test_cctv_operator_declares_domain_agent_aliases,
-    test_cctv_operator_declares_otterdesk_chat_system_prompt,
-    test_cctv_operator_bundled_demo_validator_defers_to_dockerworker,
-    test_cctv_operator_detector_script_compiles_with_shared_helper_import,
-    test_cctv_operator_default_contract_is_stream_only,
-    test_cctv_operator_rejects_folder_mode,
-    test_cctv_operator_seeds_live_monitor_start_message,
-    test_cctv_operator_stream_validator_defers_probe_without_local_ffprobe,
-    test_cctv_operator_stream_validator_probes_rtsp_and_rtmp,
-    test_cctv_operator_stream_validator_rejects_non_stream_uri,
-    test_cctv_operator_uses_dockerworker_nvidia_media_worker,
-    test_cctv_operator_owns_external_web_ui_and_uses_generic_skills,
-)
 from workspace_paths import companion_workspace
-
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKSPACE = companion_workspace(ROOT)
@@ -37,8 +22,8 @@ WORKSPACE = companion_workspace(ROOT)
 
 def test_cctv_operator_leaves_embedding_policy_to_the_rag_adapter():
     blueprint = ROOT / "cctv_operator"
-    manifest = json.loads((blueprint / "manifest.json").read_text())
-    config = json.loads((blueprint / "config" / "default.json").read_text())
+    manifest = blueprint_definition(read_blueprint(blueprint / "manifest.json"))
+    config = resolve_config(read_blueprint(blueprint)).data
 
     embedding_owned_keys = {
         "embedding_provider",
@@ -52,7 +37,6 @@ def test_cctv_operator_leaves_embedding_policy_to_the_rag_adapter():
     }
     rag_configs = (
         manifest["knowledge_rag"],
-        manifest["metadata"]["knowledge_rag"],
         config["knowledge_rag"],
     )
 
@@ -66,8 +50,8 @@ def test_cctv_operator_leaves_embedding_policy_to_the_rag_adapter():
 
 def test_cctv_operator_uses_the_cataloged_lazy_special_vlm_route():
     blueprint = ROOT / "cctv_operator"
-    manifest = json.loads((blueprint / "manifest.json").read_text())
-    config = json.loads((blueprint / "config" / "default.json").read_text())
+    manifest = blueprint_definition(read_blueprint(blueprint / "manifest.json"))
+    config = resolve_config(read_blueprint(blueprint)).data
 
     primary = manifest["runtime"]["models"]["primary"]
     llm = config["llm"]
@@ -116,10 +100,12 @@ def test_cctv_operator_uses_the_cataloged_lazy_special_vlm_route():
     assert deferred["errors"] == []
     assert deferred["models"][0]["status"] == "deferred_runtime_install"
     assert deferred["models"][0]["runtime_model"] == "nemotron3:q4_K_M"
-    validation_manifest, validation_config = model_validation_inputs_with_prepared_models(
-        manifest,
-        config,
-        model_install_summary=deferred,
+    validation_manifest, validation_config = (
+        model_validation_inputs_with_prepared_models(
+            manifest,
+            config,
+            model_install_summary=deferred,
+        )
     )
     report = run_model_validation(
         blueprint,
@@ -133,8 +119,8 @@ def test_cctv_operator_uses_the_cataloged_lazy_special_vlm_route():
 
 def test_cctv_operator_accepts_the_bundled_demo_before_submission(tmp_path):
     blueprint = ROOT / "cctv_operator"
-    manifest = json.loads((blueprint / "manifest.json").read_text())
-    config = json.loads((blueprint / "config" / "default.json").read_text())
+    manifest = blueprint_definition(read_blueprint(blueprint / "manifest.json"))
+    config = resolve_config(read_blueprint(blueprint)).data
 
     report = run_input_validation(
         blueprint,
@@ -157,8 +143,8 @@ def test_cctv_operator_rejects_an_empty_external_stream_before_submission(
     tmp_path,
 ):
     blueprint = ROOT / "cctv_operator"
-    manifest = json.loads((blueprint / "manifest.json").read_text())
-    config = json.loads((blueprint / "config" / "default.json").read_text())
+    manifest = blueprint_definition(read_blueprint(blueprint / "manifest.json"))
+    config = resolve_config(read_blueprint(blueprint)).data
     config["video_source"] = {
         **config["video_source"],
         "profile": "external",
@@ -187,7 +173,7 @@ def test_cctv_execution_stays_in_dockerworkers_with_scoped_uploads(
     monkeypatch, tmp_path
 ):
     blueprint = ROOT / "cctv_operator"
-    source = json.loads((blueprint / "manifest.json").read_text())
+    source = blueprint_definition(read_blueprint(blueprint / "manifest.json"))
     monkeypatch.setenv("MN_ENV", "dev")
     monkeypatch.setenv("MN_HOME", str(tmp_path / ".mn"))
     monkeypatch.setenv("MN_WORKSPACE_ROOT", str(WORKSPACE))
@@ -255,8 +241,7 @@ def test_cctv_execution_stays_in_dockerworkers_with_scoped_uploads(
         assert "upload_path" not in config
         assert "upload_as" not in config
         upload_paths = {
-            item["source"]: item["target"]
-            for item in config["upload_paths"]
+            item["source"]: item["target"] for item in config["upload_paths"]
         }
         assert upload_paths == expected_uploads[node_id]
         assert "." not in upload_paths
@@ -269,11 +254,9 @@ def test_cctv_execution_stays_in_dockerworkers_with_scoped_uploads(
     assert "services" not in web_ui
 
 
-def test_cctv_service_starts_its_single_monitor_run_immediately(
-    monkeypatch, tmp_path
-):
+def test_cctv_service_starts_its_single_monitor_run_immediately(monkeypatch, tmp_path):
     blueprint = ROOT / "cctv_operator"
-    source = json.loads((blueprint / "manifest.json").read_text())
+    source = blueprint_definition(read_blueprint(blueprint / "manifest.json"))
     monkeypatch.setenv("MN_ENV", "dev")
     monkeypatch.setenv("MN_HOME", str(tmp_path / ".mn"))
     monkeypatch.setenv("MN_WORKSPACE_ROOT", str(WORKSPACE))
@@ -301,7 +284,7 @@ def test_cctv_service_starts_its_single_monitor_run_immediately(
 
 def test_cctv_visual_detector_preserves_the_payload_root(monkeypatch, tmp_path):
     blueprint = ROOT / "cctv_operator"
-    source = json.loads((blueprint / "manifest.json").read_text())
+    source = blueprint_definition(read_blueprint(blueprint / "manifest.json"))
     monkeypatch.setenv("MN_ENV", "dev")
     monkeypatch.setenv("MN_HOME", str(tmp_path / ".mn"))
     monkeypatch.setenv("MN_WORKSPACE_ROOT", str(WORKSPACE))
@@ -315,9 +298,7 @@ def test_cctv_visual_detector_preserves_the_payload_root(monkeypatch, tmp_path):
         if node.get("node_id") == "visual_detector"
     )
     config = detector["config"]
-    upload_paths = {
-        item["source"]: item["target"] for item in config["upload_paths"]
-    }
+    upload_paths = {item["source"]: item["target"] for item in config["upload_paths"]}
 
     assert config["workdir"] == "/mn/job/agents/visual_detector"
     assert upload_paths == {

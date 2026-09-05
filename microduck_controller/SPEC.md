@@ -39,3 +39,15 @@ Every motion, navigation, play, locomotion, ball, and reset effect performs a fr
 This is a software demonstration, not a physical-robot controller. It has no ROS, no server-side simulator backend, no general autonomous navigation, no camera-based perception, and no cross-Run command replay. Its goal-directed behaviors are the bounded deterministic approach to an already-active ball and the stoppable find-kick-reacquire loop built from that approach. Conversation planning belongs to the stable Job response service and uses only the same-node LiteLLM proxy's default route plus the blueprint's MCP contract and job-scoped RAG.
 
 The service writes `web_ui.json`, `duck_service_state.json`, `duck_command_history.json`, and the normal final service artifact under the Run output. These artifacts contain no credentials or browser address details.
+
+## Blueprint package format
+
+This blueprint uses the canonical blueprint/v1 format in both folders and ZIPs.
+`manifest.json` contains identity, semantic release version, and document references.
+`workflow.json` owns logical topology and policies; `execution.json` owns workers,
+resources, and services; `contracts.json` owns input/output and artifact contracts.
+Platform descriptors live in `extensions/`, package requirements in
+`dependencies.json` when present, and operator defaults in `config/default.json`.
+The SDK reads these documents together and compiles the Core execution artifact.
+A ZIP contains the same files as the folder. Local overrides and invocation
+configuration are resolved by the SDK before launch.

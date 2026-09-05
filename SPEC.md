@@ -19,37 +19,25 @@ selection chooses and prepares the concrete DMR model.
 
 ## Catalog Contract
 
-Root `index.json` is the authoritative list of published blueprint identities,
-versions, paths, and catalog metadata. `category.json` defines shared catalog
-categorization. A folder not present in the index is not a published catalog
-entry; an index entry without a valid folder is invalid.
+Root `index.json` is an ordered inventory of published package paths.
+`category.json` defines shared categorization. All descriptive and executable
+information comes from each package, including its semantic release version.
+A package omitted from the inventory remains unpublished.
 
-Each published blueprint provides, as applicable:
+Every package uses the same canonical blueprint/v1 manifest in development,
+installed folders, generated folders, and ZIP distributions. `manifest.json`
+owns identity and role-document references. `workflow.json` owns logical
+steps and policies; `execution.json` owns worker bindings, resources, services,
+and schedules; `contracts.json` owns inputs, outputs, artifacts, and validation.
+Platform features use registered, versioned files under `extensions/`.
+`config/default.json` owns operator tunables; `config/overwrite.json` contains
+optional local overrides. Package dependencies are declared in `dependencies.json`.
 
-```text
-<blueprint>/
-  README.md
-  SPEC.md
-  TERM.md
-  manifest.json
-  config/default.json
-  config/overwrite.json
-  payloads/
-```
-
-`manifest.json` uses the readable `mn.workflow/v1` contract and owns
-identity, topology, contracts, registry bindings, immutable handler parameters,
-requirements, and declared dependencies. `config/default.json` owns tunable
-defaults; committed overwrite files contain no user secrets.
-
-Every published source manifest and catalog entry declares the exact top-level
-`response_service: { "enabled": true }` contract. Core owns this bounded,
-definition-scoped service outside the workflow DAG. It remains available
-without an active run, exposes only sanitized role, safe configuration,
-lifecycle, schedule, and latest-run context, and cannot start, pause,
-configure, schedule, approve, or otherwise mutate the job. The source-manifest
-envelope version is always `identity.version: 1`; product revisions are
-recorded separately in `identity.manifest_version`.
+Every published package enables the `mn.response` extension. Core owns this
+bounded service outside the workflow DAG. Its descriptor may also declare a
+bounded MCP agent. Runtime-affecting extensions require a supported SDK handler.
+Catalog listing reads and validates documents without Python imports or resource
+preparation. Python step modules load only during explicit compilation.
 
 The response service is not a workflow node, port, command, or run-scoped
 worker. Blueprint response context must exclude credentials, private source

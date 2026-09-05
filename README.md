@@ -62,19 +62,12 @@ helpers and render shared agent templates.
 
 | Blueprint | Category | Purpose |
 | --- | --- | --- |
-| [`growth_partnerships_coworker`](growth_partnerships_coworker/README.md) | Business | Finds qualified demand and partnerships, then connects channel evidence to Finance, Lifecycle, Quality & Safety, and Content handoffs. |
-| [`business_finance_coworker`](business_finance_coworker/README.md) | Business | Calculates unit economics, break-even scale, cash guardrails, and cross-functional evidence gaps. |
-| [`learning_quality_safety_coworker`](learning_quality_safety_coworker/README.md) | Business | Gates objectives and claims with PASS/REVISE/BLOCK decisions and supplies approved boundaries to peer roles. |
-| [`content_studio_coworker`](content_studio_coworker/README.md) | Business | Converts approved briefs into small, versioned release candidates while tracking review quality, reuse, and cost. |
 | [`gtm_assistant`](gtm_assistant/README.md) | Business | Turns de-identified customer feedback into activation, retention, product, and lifecycle decisions. |
-| [`drug_discovery_research_assistant`](drug_discovery_research_assistant/README.md) | Science | Runs one discovery cycle, evaluates five distinct molecules, writes a review packet to ~/Downloads/{job_id}, and completes. |
+| [`drug_discovery_research_assistant`](drug_discovery_research_assistant/README.md) | Science | Runs one discovery cycle, evaluates five distinct molecules, writes a review packet to ~/Downloads/{job_name}, and completes. |
 | [`research_assistant`](research_assistant/README.md) | Science | A research assistant that combines deterministic evidence and verification stages with an isolated OpenShell worker for autonomous goal refinement, tool-driven exploration, hypothesis generation, and bounded generated-code experiments. |
 | [`software_architecture_advisor`](software_architecture_advisor/README.md) | Engineering | An air-gapped, read-only software architecture advisor. Give it a local source folder; it produces evidence-backed architecture analysis and copy-ready improvement prompts without changing code. |
-| [`financial_advisor`](financial_advisor/README.md) | Finance | A unified personal financial advisor co-worker. Put bank statements, receipts, bills, income records, W-2s, 1099s, tax-form images with answer files, brokerage statements, portfolio files, and related finance documents in the input folder; it extracts document evidence, captures tax-form OCR fields for review, prepares review-only tax and household finance summaries, runs portfolio risk analysis, and writes integrated advisor reports to the output folder. |
 | [`purchasing_manager`](purchasing_manager/README.md) | Finance | A source-grounded purchasing co-worker for heavy-asset decisions. It screens real market options, models landed cost, discounted and risk-adjusted TCO, EAC, unit economics, scenarios, and cash/finance/lease terms, then prepares an approval-ready packet without transacting. |
-| [`vc_assistant`](vc_assistant/README.md) | Finance | A VC analysis co-worker for early startup screening reports. Put pitch decks, memos, financial snippets, company folders, or other startup documents in the input folder; it groups documents by company, performs privacy-safe public research, applies seven VC heuristic scoring methods, audits the math and evidence, and writes score-only per-company reports and batch indexes to the output folder. |
 | [`cctv_operator`](cctv_operator/README.md) | Security | A steerable NVIDIA CCTV co-worker with a self-contained Docker demo stream, CUDA-assisted MJPEG preview, live operator event feed, sparse baseline analysis, event-triggered frame bursts, and durable reviewed-frame artifacts. |
-| [`ros_amr_controller`](ros_amr_controller/README.md) | Robotics | Runs a TurtleBot warehouse simulation on a joined NVIDIA node with a browser control room and bounded natural-language MCP controls. |
 | [`microduck_controller`](microduck_controller/README.md) | Robotics | Lets an OtterDesk user control the live Microduck MuJoCo simulation in ordinary language through bounded MCP actions, deterministic ball navigation, and stoppable continuous free play. |
 | [`legal_assistant`](legal_assistant/README.md) | Legal | A review-only legal document co-worker for invoice, bill, and contract review. Put invoices, bills, contracts, clause notes, labels, or supporting files in the input folder; it extracts payable fields, maps contract clauses, compares playbook expectations, flags review issues, and writes a source-grounded review packet to the output folder. |
 
@@ -87,13 +80,17 @@ Most blueprint folders contain:
 | `README.md` | Self-contained quickstart, inspection notes, and validation guidance. |
 | `SPEC.md` | User-facing problem, outcome, evaluation criteria, limits, and upgrade path. |
 | `TERM.md` | Terms, assumptions, or domain notes when present. |
-| `manifest.json` | Readable `mn.workflow/v1` DAG: direct `needs`, module handlers or agent assignments, control policy, contracts, and runtime requirements. The SDK expands it for Core. |
+| `manifest.json` | Canonical blueprint/v1 identity, semantic release version, and role-document references. |
+| `workflow.json` | Logical topology and workflow policies. |
+| `execution.json` | Agents, workers, runtime requirements, services, and schedules. |
+| `contracts.json` | Inputs, outputs, artifacts, validation, status, and privacy. |
+| `extensions/` | Versioned platform and product descriptors. |
 | `config/default.json` | Default launch configuration and mock/sample inputs. |
 | `config/overwrite.json` | Optional local overrides. Do not commit customer secrets. |
 | `payloads/` | Worker code, prompts, policies, fixtures, and support files. |
 
 Blueprints that retain knowledge, RAG, or application state across executions
-declare `metadata.job_data.resources` in `manifest.json`. Core creates one
+declare `resources` in `extensions/storage.json` through `mn.storage`. Core creates one
 stable job-data directory per hired/configured job:
 
 ```text
@@ -119,7 +116,7 @@ wrapper. Python workflow steps are launched with the shared SDK module
 
 Python handler steps use module-only references such as `steps.research`; the
 shared `mn_sdk.step_runtime` entrypoint calls that module's `run()` function.
-Keep DAG topology in the manifest rather than duplicating it in blueprint-local
+Keep DAG topology in `workflow.json` rather than duplicating it in blueprint-local
 dispatch code or configuration handoff lists.
 
 ## Safety Checklist
@@ -130,3 +127,13 @@ dispatch code or configuration handoff lists.
 - Update the local blueprint README and `SPEC.md` when behavior, inputs, outputs, or limits change.
 - Declare durable resources by logical name, validated relative path, access
   mode, and optional `@/` bundle seed. Never declare or accept a host path.
+
+## Canonical packages
+
+`index.json` is an ordered list of published package paths. Names, descriptions,
+versions, requirements, and product information come from each package's documents.
+Catalog reads validate data without importing Python code or preparing resources.
+All folders and ZIPs use `https://mirrorneuron.dev/schemas/blueprint/v1/manifest.schema.json`.
+Use `mn_sdk.blueprints.read_blueprint`, `resolve_config`, and `compile_blueprint`;
+`open_blueprint` adds ZIP extraction and `export_blueprint` preserves the full package.
+External dependencies remain declared; offline vendoring is optional.

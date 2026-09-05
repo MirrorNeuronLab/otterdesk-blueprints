@@ -7,8 +7,8 @@ import sys
 from pathlib import Path
 
 import pytest
+from mn_sdk.blueprints import blueprint_definition, read_blueprint, resolve_config
 from mn_sdk.model_runtime import required_blueprint_models
-
 
 ROOT = Path(__file__).resolve().parents[1]
 PAYLOADS = ROOT / "microduck_controller" / "payloads"
@@ -39,7 +39,6 @@ from services.microduck_web_ui_registrar import (
     serve_mcp_proxy,
     upstream_headers,
 )
-
 
 UUID_A = "00000000-0000-4000-8000-000000000001"
 UUID_B = "00000000-0000-4000-8000-000000000002"
@@ -98,11 +97,19 @@ def test_protocol_rejects_raw_or_unbounded_motion_and_projects_compact_state():
     with pytest.raises(ProtocolError, match="UUID"):
         validate_command_id("not-a-uuid")
     with pytest.raises(ProtocolError, match="exactly"):
-        validate_motion_plan([{"direction": "forward", "duration_ms": 100, "velocity": 3}])
+        validate_motion_plan(
+            [{"direction": "forward", "duration_ms": 100, "velocity": 3}]
+        )
     with pytest.raises(ProtocolError, match="not exceed"):
         validate_motion_plan([{"direction": "forward", "duration_ms": 1_000}] * 6)
 
-    state = compact_sensor_state({**raw_state(), "extra": "discard", "duck": {**raw_state()["duck"], "x": 1.23456789}})
+    state = compact_sensor_state(
+        {
+            **raw_state(),
+            "extra": "discard",
+            "duck": {**raw_state()["duck"], "x": 1.23456789},
+        }
+    )
     assert state == {
         "schema_version": "mn.microduck.sensor_state.v1",
         "ready": True,
@@ -129,7 +136,11 @@ def test_bridge_enforces_one_lease_idempotency_busy_gate_and_stop_precedence():
             messages.append(message)
 
         hub = BridgeHub(clock=clock)
-        assert (await hub.enqueue(command_id=UUID_A, kind="motion_plan", payload={"segments": []}))["reason"] == "browser_not_ready"
+        assert (
+            await hub.enqueue(
+                command_id=UUID_A, kind="motion_plan", payload={"segments": []}
+            )
+        )["reason"] == "browser_not_ready"
         assert await hub.claim("control-tab", send) is True
         assert await hub.claim("spectator-tab", send) is False
         assert await hub.update_state("control-tab", raw_state()) is True
@@ -141,26 +152,34 @@ def test_bridge_enforces_one_lease_idempotency_busy_gate_and_stop_precedence():
         )
         assert receipt["status"] == "queued"
         assert messages[-1]["command"]["kind"] == "motion_plan"
-        assert (await hub.enqueue(
-            command_id=UUID_B, kind="reset", payload={}
-        ))["reason"] == "browser_busy"
-        assert (await hub.enqueue(
-            command_id=UUID_A,
-            kind="motion_plan",
-            payload={"segments": [{"direction": "forward", "duration_ms": 100}]},
-        ))["command_id"] == UUID_A
-        assert (await hub.enqueue(
-            command_id=UUID_A,
-            kind="motion_plan",
-            payload={"segments": [{"direction": "backward", "duration_ms": 100}]},
-        ))["reason"] == "command_id_reused_for_different_effect"
+        assert (await hub.enqueue(command_id=UUID_B, kind="reset", payload={}))[
+            "reason"
+        ] == "browser_busy"
+        assert (
+            await hub.enqueue(
+                command_id=UUID_A,
+                kind="motion_plan",
+                payload={"segments": [{"direction": "forward", "duration_ms": 100}]},
+            )
+        )["command_id"] == UUID_A
+        assert (
+            await hub.enqueue(
+                command_id=UUID_A,
+                kind="motion_plan",
+                payload={"segments": [{"direction": "backward", "duration_ms": 100}]},
+            )
+        )["reason"] == "command_id_reused_for_different_effect"
 
         stop = await hub.enqueue(command_id=UUID_C, kind="stop", payload={})
         assert stop["status"] == "queued"
         assert messages[-1]["command"]["kind"] == "stop"
         assert (await hub.command_status(UUID_A))["status"] == "cancelled"
         state = await hub.state()
-        assert state["connection"] == {"connected": True, "control_lease": "active", "state_age_ms": 0}
+        assert state["connection"] == {
+            "connected": True,
+            "control_lease": "active",
+            "state_age_ms": 0,
+        }
         assert state["ready"] is True
         assert set(state["duck"]) == {"x", "y", "yaw", "speed", "mode", "locomotion"}
         assert set(state["ball"]) == {"active", "x", "y", "distance"}
@@ -194,7 +213,9 @@ def test_bridge_stale_state_rejects_active_work_and_future_effects():
             "kind": "stop",
             "payload": {},
         }
-        assert (await hub.enqueue(command_id=UUID_B, kind="reset", payload={}))["reason"] == "browser_not_ready"
+        assert (await hub.enqueue(command_id=UUID_B, kind="reset", payload={}))[
+            "reason"
+        ] == "browser_not_ready"
 
     asyncio.run(scenario())
 
@@ -251,7 +272,9 @@ def test_navigation_receipts_sanitize_progress_and_result_and_keep_idempotency()
         assert completed["message"] == "I found the ball! I’m tired, but I made it."
         assert completed["result"] == compact_navigation_result(result)
         assert "extra" not in completed["result"]
-        assert (await hub.enqueue(command_id=UUID_A, kind="find_ball", payload={})) == completed
+        assert (
+            await hub.enqueue(command_id=UUID_A, kind="find_ball", payload={})
+        ) == completed
 
     asyncio.run(scenario())
 
@@ -378,10 +401,20 @@ def test_stale_state_stops_completed_background_free_play():
 
 
 def test_service_contract_has_exact_mcp_tools_and_private_proxy_defaults(monkeypatch):
-    source = (PAYLOADS / "services" / "duck_control_service.py").read_text(encoding="utf-8")
+    source = (PAYLOADS / "services" / "duck_control_service.py").read_text(
+        encoding="utf-8"
+    )
     module = ast.parse(source)
-    factory = next(node for node in module.body if isinstance(node, ast.FunctionDef) and node.name == "create_mcp_server")
-    tools = {node.name for node in ast.walk(factory) if isinstance(node, ast.AsyncFunctionDef)}
+    factory = next(
+        node
+        for node in module.body
+        if isinstance(node, ast.FunctionDef) and node.name == "create_mcp_server"
+    )
+    tools = {
+        node.name
+        for node in ast.walk(factory)
+        if isinstance(node, ast.AsyncFunctionDef)
+    }
     assert tools == {
         "get_user_manual",
         "get_duck_state",
@@ -396,8 +429,16 @@ def test_service_contract_has_exact_mcp_tools_and_private_proxy_defaults(monkeyp
         "reset_simulation",
     }
 
-    monkeypatch.setenv("MN_DOCKER_WORKER_CONTAINER_NAME", "mn-dw-job-example-shared-1234")
-    settings = service_settings({"web_ui": {"service": {"host": "127.0.0.1", "listen_host": "0.0.0.0", "port": 8080}}})
+    monkeypatch.setenv(
+        "MN_DOCKER_WORKER_CONTAINER_NAME", "mn-dw-job-example-shared-1234"
+    )
+    settings = service_settings(
+        {
+            "web_ui": {
+                "service": {"host": "127.0.0.1", "listen_host": "0.0.0.0", "port": 8080}
+            }
+        }
+    )
     assert settings == {
         "host": "0.0.0.0",
         "port": 8080,
@@ -412,14 +453,38 @@ def test_service_contract_has_exact_mcp_tools_and_private_proxy_defaults(monkeyp
         "proxy_url": "http://127.0.0.1:0",
     }
     with pytest.raises(RuntimeError, match="trusted_lan_enabled"):
-        service_settings({"web_ui": {"service": {"host": "192.168.10.8", "public_url": "http://192.168.10.8:8080"}}})
-    assert service_settings({"web_ui": {"service": {"host": "192.168.10.8", "public_url": "http://192.168.10.8:8080", "trusted_lan_enabled": True}}})["public_url"] == "http://192.168.10.8:8080"
+        service_settings(
+            {
+                "web_ui": {
+                    "service": {
+                        "host": "192.168.10.8",
+                        "public_url": "http://192.168.10.8:8080",
+                    }
+                }
+            }
+        )
+    assert (
+        service_settings(
+            {
+                "web_ui": {
+                    "service": {
+                        "host": "192.168.10.8",
+                        "public_url": "http://192.168.10.8:8080",
+                        "trusted_lan_enabled": True,
+                    }
+                }
+            }
+        )["public_url"]
+        == "http://192.168.10.8:8080"
+    )
 
 
 def test_mcp_manual_and_named_routines_share_the_bounded_control_contract():
     manual = read_user_manual()
 
-    assert "microduck://manual" in (PAYLOADS / "services" / "duck_control_service.py").read_text(encoding="utf-8")
+    assert "microduck://manual" in (
+        PAYLOADS / "services" / "duck_control_service.py"
+    ).read_text(encoding="utf-8")
     assert "`move_duck`" in manual
     assert "`perform_routine`" in manual
     assert "`find_ball`" in manual
@@ -458,7 +523,12 @@ def test_mcp_manual_and_named_routines_share_the_bounded_control_contract():
     ):
         assert f'"tool":"{tool}"' in manual
     assert "One conversation turn may issue at most one effect" in manual
-    assert manual == (PAYLOADS / "docker_worker" / "knowledge" / "microduck_user_manual.md").read_text(encoding="utf-8").strip()
+    assert (
+        manual
+        == (PAYLOADS / "docker_worker" / "knowledge" / "microduck_user_manual.md")
+        .read_text(encoding="utf-8")
+        .strip()
+    )
     assert set(MOTION_ROUTINES) == {"showcase", "spin_left", "spin_right", "zigzag"}
     for segments in MOTION_ROUTINES.values():
         assert validate_motion_plan(segments) == segments
@@ -487,7 +557,9 @@ def test_service_settings_applies_the_scheduler_port_to_the_public_handle(monkey
     }
 
 
-def test_service_binds_an_os_selected_private_port_and_publishes_it_for_the_registrar(tmp_path):
+def test_service_binds_an_os_selected_private_port_and_publishes_it_for_the_registrar(
+    tmp_path,
+):
     port = 62007
     _web_ui_endpoint_artifact(
         run_dir=tmp_path,
@@ -529,9 +601,7 @@ def test_mcp_sidecar_allows_only_loopback_and_the_discovered_docker_gateway(tmp_
     )
 
     assert default_gateway_ipv4(route) == "172.18.0.1"
-    assert allowed_proxy_clients(route) == frozenset(
-        {"127.0.0.1", "::1", "172.18.0.1"}
-    )
+    assert allowed_proxy_clients(route) == frozenset({"127.0.0.1", "::1", "172.18.0.1"})
 
     missing = tmp_path / "missing-route"
     assert default_gateway_ipv4(missing) == ""
@@ -554,7 +624,9 @@ def test_mcp_sidecar_rewrites_the_upstream_host_for_fastmcp():
     }
 
 
-def test_web_ui_registrar_claims_the_shared_proxy_handle_for_the_private_endpoint(tmp_path):
+def test_web_ui_registrar_claims_the_shared_proxy_handle_for_the_private_endpoint(
+    tmp_path,
+):
     calls = []
 
     def claimer(*args, **kwargs):
@@ -582,7 +654,11 @@ def test_finalizer_writes_a_terminal_artifact_without_command_replay(tmp_path):
 
     assert artifact == stored
     assert stored["status"] == "service_stopped"
-    assert stored["source_refs"] == ["web_ui.json", "duck_service_state.json", "duck_command_history.json"]
+    assert stored["source_refs"] == [
+        "web_ui.json",
+        "duck_service_state.json",
+        "duck_command_history.json",
+    ]
     assert "replay" in stored["message"]
 
 
@@ -601,7 +677,9 @@ def test_docker_worker_context_contains_the_exact_runtime_sources():
     for name in ("web_app", "agents", "domain", "knowledge", "services"):
         assert source_files(PAYLOADS / name) == source_files(worker / name)
 
-    assert (PAYLOADS / "requirements.txt").read_bytes() == (worker / "requirements.txt").read_bytes()
+    assert (PAYLOADS / "requirements.txt").read_bytes() == (
+        worker / "requirements.txt"
+    ).read_bytes()
     assert not (worker / "web_app" / "node_modules").exists()
     assert not (worker / "web_app" / "dist").exists()
 
@@ -610,14 +688,16 @@ def test_source_manifest_compiles_to_one_service_and_one_finalizer_with_bounded_
     from mn_sdk import expand_manifest_source
 
     blueprint = ROOT / "microduck_controller"
-    source = json.loads((blueprint / "manifest.json").read_text(encoding="utf-8"))
-    config = json.loads((blueprint / "config" / "default.json").read_text(encoding="utf-8"))
+    source = blueprint_definition(read_blueprint(blueprint / "manifest.json"))
+    config = resolve_config(read_blueprint(blueprint)).data
     expanded = expand_manifest_source(source, root_dir=blueprint)
     node_ids = {node["node_id"] for node in expanded["agents"]["nodes"]}
 
     agent = source["response_service"]["agent"]
-    assert source["identity"]["manifest_version"] == "1.4"
-    assert source["llm"]["configs"]["primary"]["structured_output_options"] == {"temperature": 0}
+    assert read_blueprint(blueprint).manifest["version"] == "1.0.0"
+    assert source["llm"]["configs"]["primary"]["structured_output_options"] == {
+        "temperature": 0
+    }
     assert source["llm"] == config["llm"]
     responsibilities = " ".join(source["llm"]["responsibilities"])
     assert "semantic intent" in responsibilities
@@ -645,7 +725,14 @@ def test_source_manifest_compiles_to_one_service_and_one_finalizer_with_bounded_
         "required_tags": ["mcp", "robot-control", "microduck-controller"],
     }
     assert agent["preflight"] == {
-        "required_for_effects": ["motion", "navigation", "play", "locomotion", "ball", "simulation"],
+        "required_for_effects": [
+            "motion",
+            "navigation",
+            "play",
+            "locomotion",
+            "ball",
+            "simulation",
+        ],
         "tool": "get_duck_state",
         "arguments": {},
         "required_result": {"connected": True, "ready": True},
@@ -695,22 +782,36 @@ def test_source_manifest_compiles_to_one_service_and_one_finalizer_with_bounded_
         "poll_interval_ms": 500,
         "timeout_seconds": 40,
     }
-    assert source["workflow"]["steps"][0]["run"] == {"definition": "steps.run_microduck_service"}
-    assert source["workflow"]["steps"][1]["run"] == {"definition": "steps.finalize_service"}
-    assert all("network_mode" not in group["with"] for group in source["workers"]["groups"])
-    assert {"run_microduck_service__microduck_service", "finalize_service__finalize"} <= node_ids
+    assert source["workflow"]["steps"][0]["run"] == {
+        "definition": "steps.run_microduck_service"
+    }
+    assert source["workflow"]["steps"][1]["run"] == {
+        "definition": "steps.finalize_service"
+    }
+    assert all(
+        "network_mode" not in group["with"] for group in source["workers"]["groups"]
+    )
+    assert {
+        "run_microduck_service__microduck_service",
+        "finalize_service__finalize",
+    } <= node_ids
     assert "microduck_web_ui_registrar" in expanded["agents"]["entrypoints"]
     service_worker = next(
-        node for node in expanded["agents"]["nodes"]
+        node
+        for node in expanded["agents"]["nodes"]
         if node["node_id"] == "run_microduck_service__microduck_service"
     )
     assert "resources" not in service_worker["config"]
     registrar = next(
-        node for node in expanded["agents"]["nodes"]
+        node
+        for node in expanded["agents"]["nodes"]
         if node["node_id"] == "microduck_web_ui_registrar"
     )
     assert registrar["config"]["runner_module"] == "MirrorNeuron.Runner.HostLocal"
-    assert registrar["config"]["command"] == ["python3.11", "microduck_web_ui_registrar.py"]
+    assert registrar["config"]["command"] == [
+        "python3.11",
+        "microduck_web_ui_registrar.py",
+    ]
     assert registrar["config"]["upload_path"] == "services"
     assert registrar["config"]["upload_as"] == "."
     assert registrar["services"][0]["name"] == "microduck-controller-mcp"
@@ -729,7 +830,9 @@ def test_source_manifest_compiles_to_one_service_and_one_finalizer_with_bounded_
     assert source["llm"]["model"] == "default"
     assert source["llm"]["configs"]["primary"]["provider"] == "openai_compatible"
     assert source["llm"]["configs"]["primary"]["api_base"] == "auto"
-    assert config["llm"]["configs"]["primary"]["structured_output_options"] == {"temperature": 0}
+    assert config["llm"]["configs"]["primary"]["structured_output_options"] == {
+        "temperature": 0
+    }
     assert "runtime_model" not in source["llm"]["configs"]["primary"]
     assert required_blueprint_models(source, config) == []
     assert source["knowledge_rag"]["knowledge_dir"] == "knowledge"

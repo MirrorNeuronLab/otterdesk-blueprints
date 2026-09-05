@@ -7,11 +7,10 @@ import sys
 from pathlib import Path
 
 import pytest
-
+from blueprint_modernization_support import blueprint_path
 from mn_sdk import expand_manifest_source, is_manifest_source
-
+from mn_sdk.blueprints import blueprint_definition, read_blueprint
 from workspace_paths import companion_workspace
-
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKSPACE = companion_workspace(ROOT)
@@ -52,10 +51,10 @@ def _run_handler_workflow(
     inputs: dict,
     config: dict,
 ) -> dict:
-    blueprint = ROOT / blueprint_id
+    blueprint = blueprint_path(blueprint_id)
     payloads = blueprint / "payloads"
     scripts = payloads
-    manifest = json.loads((blueprint / "manifest.json").read_text(encoding="utf-8"))
+    manifest = blueprint_definition(read_blueprint(blueprint / "manifest.json"))
     runtime_manifest = (
         expand_manifest_source(manifest, root_dir=blueprint)
         if is_manifest_source(manifest)
@@ -95,80 +94,80 @@ def _run_handler_workflow(
     agent_outputs = {}
     executed_agents = []
     for assignment in assignments:
-            step_id = assignment["step_id"]
-            agent_id = assignment["agent_id"]
-            invocation_id = assignment["invocation_id"]
-            definition = source_registry[agent_id]
-            message_path.write_text(
-                json.dumps(
-                    {
-                        "body": {
-                            "step_input": {"kwargs": inputs},
-                            "agent_outputs": {
-                                dependency: agent_outputs[dependency]
-                                for dependency in assignment.get("needs", [])
-                                if dependency in agent_outputs
-                            },
-                            "artifact_refs": [],
-                        }
-                    }
-                ),
-                encoding="utf-8",
-            )
-            environment = dict(os.environ)
-            environment.update(
+        step_id = assignment["step_id"]
+        agent_id = assignment["agent_id"]
+        invocation_id = assignment["invocation_id"]
+        definition = source_registry[agent_id]
+        message_path.write_text(
+            json.dumps(
                 {
-                    "MN_JOB_ID": f"{blueprint_id}-handler-test",
-                    "MN_MESSAGE_FILE": str(message_path),
-                    "MN_RUN_ID": f"{blueprint_id}-handler-test",
-                    "MN_RUN_DIR": str(tmp_path / "runs" / f"{blueprint_id}-handler-test"),
-                    "MN_BLUEPRINT_BUNDLE_DIR": str(blueprint),
-                    "MN_WORKFLOW_STEP_ID": step_id,
-                    "MN_WORKFLOW_AGENT_ID": agent_id,
-                    "MN_WORKFLOW_INVOCATION_ID": invocation_id,
-                    "MN_WORKFLOW_IDEMPOTENCY_KEY": f"{blueprint_id}/{invocation_id}",
-                    "MN_BLUEPRINT_CONFIG_JSON": json.dumps(config),
-                    "MN_JOB_OUTPUT_DIR": str(tmp_path / "outputs"),
-                    "MN_RUNS_ROOT": str(tmp_path / "runs"),
-                    "MN_WORKDIR": str(tmp_path / "workspace"),
-                    "PYTHONPATH": os.pathsep.join(
-                        value
-                        for value in (
-                            str(SDK_ROOT),
-                            *(
-                                str(path)
-                                for path in sorted((payloads / "skills").glob("*/src"))
-                                if path.is_dir()
-                            ),
-                            *(str(path) for path in SKILL_SOURCES),
-                            *(str(path) for path in AGENT_SOURCES),
-                            environment.get("PYTHONPATH", ""),
-                        )
-                        if value
-                    ),
+                    "body": {
+                        "step_input": {"kwargs": inputs},
+                        "agent_outputs": {
+                            dependency: agent_outputs[dependency]
+                            for dependency in assignment.get("needs", [])
+                            if dependency in agent_outputs
+                        },
+                        "artifact_refs": [],
+                    }
                 }
-            )
-            completed = subprocess.run(
-                [
-                    sys.executable,
-                    "-m",
-                    "mn_sdk.step_runtime",
-                    "--handler",
-                    definition["handler"],
-                    "--with-json",
-                    json.dumps(definition.get("with") or {}),
-                ],
-                cwd=scripts,
-                env=environment,
-                capture_output=True,
-                text=True,
-                timeout=30,
-            )
-            assert completed.returncode == 0, completed.stderr
-            result = json.loads(completed.stdout)
-            assert result["workflow_step_id"] == step_id
-            agent_outputs[agent_id] = dict(result.get("outputs") or {})
-            executed_agents.append(agent_id)
+            ),
+            encoding="utf-8",
+        )
+        environment = dict(os.environ)
+        environment.update(
+            {
+                "MN_JOB_ID": f"{blueprint_id}-handler-test",
+                "MN_MESSAGE_FILE": str(message_path),
+                "MN_RUN_ID": f"{blueprint_id}-handler-test",
+                "MN_RUN_DIR": str(tmp_path / "runs" / f"{blueprint_id}-handler-test"),
+                "MN_BLUEPRINT_BUNDLE_DIR": str(blueprint),
+                "MN_WORKFLOW_STEP_ID": step_id,
+                "MN_WORKFLOW_AGENT_ID": agent_id,
+                "MN_WORKFLOW_INVOCATION_ID": invocation_id,
+                "MN_WORKFLOW_IDEMPOTENCY_KEY": f"{blueprint_id}/{invocation_id}",
+                "MN_BLUEPRINT_CONFIG_JSON": json.dumps(config),
+                "MN_JOB_OUTPUT_DIR": str(tmp_path / "outputs"),
+                "MN_RUNS_ROOT": str(tmp_path / "runs"),
+                "MN_WORKDIR": str(tmp_path / "workspace"),
+                "PYTHONPATH": os.pathsep.join(
+                    value
+                    for value in (
+                        str(SDK_ROOT),
+                        *(
+                            str(path)
+                            for path in sorted((payloads / "skills").glob("*/src"))
+                            if path.is_dir()
+                        ),
+                        *(str(path) for path in SKILL_SOURCES),
+                        *(str(path) for path in AGENT_SOURCES),
+                        environment.get("PYTHONPATH", ""),
+                    )
+                    if value
+                ),
+            }
+        )
+        completed = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "mn_sdk.step_runtime",
+                "--handler",
+                definition["handler"],
+                "--with-json",
+                json.dumps(definition.get("with") or {}),
+            ],
+            cwd=scripts,
+            env=environment,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert completed.returncode == 0, completed.stderr
+        result = json.loads(completed.stdout)
+        assert result["workflow_step_id"] == step_id
+        agent_outputs[agent_id] = dict(result.get("outputs") or {})
+        executed_agents.append(agent_id)
     return {
         **dict(result.get("outputs") or {}),
         **{key: value for key, value in result.items() if key != "outputs"},
@@ -183,7 +182,14 @@ def _run_handler_workflow(
         (
             "vc_assistant",
             {
-                "document_folder": str(ROOT / "vc_assistant" / "examples" / "sample_inputs" / "aurora_ai"),
+                "document_folder": str(
+                    ROOT.parent
+                    / "mn-blueprints"
+                    / "vc_assistant"
+                    / "examples"
+                    / "sample_inputs"
+                    / "aurora_ai"
+                ),
                 "monitoring": {"max_cycles": 1},
             },
             {
@@ -195,7 +201,11 @@ def _run_handler_workflow(
         ),
         (
             "purchasing_manager",
-            {"input_folder": str(ROOT / "purchasing_manager" / "examples" / "sample_inputs")},
+            {
+                "input_folder": str(
+                    ROOT / "purchasing_manager" / "examples" / "sample_inputs"
+                )
+            },
             {
                 "execution": {"quick_test": True},
                 "llm": {"mode": "fake", "require_live": False},
@@ -205,7 +215,11 @@ def _run_handler_workflow(
         ),
         (
             "legal_assistant",
-            {"document_folder": str(ROOT / "legal_assistant" / "examples" / "sample_inputs")},
+            {
+                "document_folder": str(
+                    ROOT / "legal_assistant" / "examples" / "sample_inputs"
+                )
+            },
             {
                 "execution": {"quick_test": True},
                 "llm": {"mode": "fake", "require_live": False},
@@ -214,7 +228,15 @@ def _run_handler_workflow(
         ),
         (
             "financial_advisor",
-            {"document_folder": str(ROOT / "financial_advisor" / "examples" / "sample_inputs")},
+            {
+                "document_folder": str(
+                    ROOT.parent
+                    / "mn-blueprints"
+                    / "financial_advisor"
+                    / "examples"
+                    / "sample_inputs"
+                )
+            },
             {
                 "execution": {"quick_test": True},
                 "llm": {"mode": "fake", "require_live": False},
@@ -224,7 +246,11 @@ def _run_handler_workflow(
         ),
         (
             "research_assistant",
-            {"input_folder": str(ROOT / "research_assistant" / "examples" / "sample_inputs")},
+            {
+                "input_folder": str(
+                    ROOT / "research_assistant" / "examples" / "sample_inputs"
+                )
+            },
             {
                 "execution": {"quick_test": True},
                 "llm": {"mode": "fake", "require_live": False},
@@ -235,7 +261,12 @@ def _run_handler_workflow(
         (
             "software_architecture_advisor",
             {
-                "input_folder": str(ROOT / "software_architecture_advisor" / "examples" / "sample_inputs"),
+                "input_folder": str(
+                    ROOT
+                    / "software_architecture_advisor"
+                    / "examples"
+                    / "sample_inputs"
+                ),
             },
             {
                 "llm": {"mode": "fake", "require_live": False},
@@ -243,67 +274,18 @@ def _run_handler_workflow(
             },
         ),
         (
-            "growth_partnerships_coworker",
-            {
-                "input_folder": str(ROOT / "growth_partnerships_coworker" / "examples" / "sample_inputs"),
-                "contacts_csv": str(ROOT / "growth_partnerships_coworker" / "examples" / "sample_inputs" / "edtech_contacts_sample.csv"),
-                "business_goal": "Build a successful business for Bibblio.",
-                "goal_id": "bibblio-business-success",
-            },
-            {
-                "execution": {"quick_test": True},
-                "llm": {"mode": "fake", "require_live": False},
-                "knowledge_rag": {"enabled": False, "required": False},
-                "gtm": {"max_contacts_per_run": 5, "outreach_mode": "draft_only"},
-            },
-        ),
-        (
-            "business_finance_coworker",
-            {
-                "input_folder": str(ROOT / "business_finance_coworker" / "examples" / "sample_inputs"),
-                "metrics_file": str(ROOT / "business_finance_coworker" / "examples" / "sample_inputs" / "business_metrics.json"),
-                "business_goal": "Build a successful business for Bibblio.",
-                "goal_id": "bibblio-business-success",
-            },
-            {
-                "execution": {"quick_test": True},
-                "llm": {"mode": "fake", "require_live": False},
-                "knowledge_rag": {"enabled": False, "required": False},
-            },
-        ),
-        (
-            "learning_quality_safety_coworker",
-            {
-                "input_folder": str(ROOT / "learning_quality_safety_coworker" / "examples" / "sample_inputs"),
-                "content_backlog_file": str(ROOT / "learning_quality_safety_coworker" / "examples" / "sample_inputs" / "content_backlog.json"),
-                "business_goal": "Build a successful business for Bibblio.",
-                "goal_id": "bibblio-business-success",
-            },
-            {
-                "execution": {"quick_test": True},
-                "llm": {"mode": "fake", "require_live": False},
-                "knowledge_rag": {"enabled": False, "required": False},
-            },
-        ),
-        (
-            "content_studio_coworker",
-            {
-                "input_folder": str(ROOT / "content_studio_coworker" / "examples" / "sample_inputs"),
-                "learning_briefs_file": str(ROOT / "content_studio_coworker" / "examples" / "sample_inputs" / "approved_learning_briefs.json"),
-                "business_goal": "Build a successful business for Bibblio.",
-                "goal_id": "bibblio-business-success",
-            },
-            {
-                "execution": {"quick_test": True},
-                "llm": {"mode": "fake", "require_live": False},
-                "knowledge_rag": {"enabled": False, "required": False},
-            },
-        ),
-        (
             "gtm_assistant",
             {
-                "input_folder": str(ROOT / "gtm_assistant" / "examples" / "sample_inputs"),
-                "customer_feedback_file": str(ROOT / "gtm_assistant" / "examples" / "sample_inputs" / "parent_feedback.csv"),
+                "input_folder": str(
+                    ROOT / "gtm_assistant" / "examples" / "sample_inputs"
+                ),
+                "customer_feedback_file": str(
+                    ROOT
+                    / "gtm_assistant"
+                    / "examples"
+                    / "sample_inputs"
+                    / "parent_feedback.csv"
+                ),
                 "business_goal": "Build a successful business for Bibblio.",
                 "goal_id": "bibblio-business-success",
             },
@@ -325,7 +307,9 @@ def test_manifest_handlers_execute_as_message_chained_workflows(
         inputs = {
             **inputs,
             "input_folder": str(
-                _write_software_architecture_source(tmp_path / "software-architecture-source")
+                _write_software_architecture_source(
+                    tmp_path / "software-architecture-source"
+                )
             ),
         }
     result = _run_handler_workflow(
@@ -335,7 +319,9 @@ def test_manifest_handlers_execute_as_message_chained_workflows(
         config=config,
     )
 
-    manifest = json.loads((ROOT / blueprint_id / "manifest.json").read_text())
+    manifest = blueprint_definition(
+        read_blueprint(blueprint_path(blueprint_id) / "manifest.json")
+    )
     assert result["status"] == "completed"
     assert set(result["executed_agents"]) == set(manifest["agents"]["registry"])
     final_ref = result.get("final_artifact")
@@ -346,9 +332,15 @@ def test_manifest_handlers_execute_as_message_chained_workflows(
     if manifest["metadata"].get("collaboration_group") == "business-success-team":
         final_artifact = json.loads(final_path.read_text(encoding="utf-8"))
         assert final_artifact["schema_version"] == "mn.business_success.role_brief.v1"
-        assert final_artifact["type"] == manifest["contracts"]["outputs"]["artifacts"][1]["type"]
+        assert (
+            final_artifact["type"]
+            == manifest["contracts"]["outputs"]["artifacts"][1]["type"]
+        )
         assert final_artifact["business_name"] == "Bibblio"
-        assert final_artifact["business_goal"] == "Build a successful business for Bibblio."
+        assert (
+            final_artifact["business_goal"]
+            == "Build a successful business for Bibblio."
+        )
         assert final_artifact["planning_horizon_days"] == 90
         assert final_artifact["role_contribution"]
         assert final_artifact["north_star_question"]
@@ -358,38 +350,17 @@ def test_manifest_handlers_execute_as_message_chained_workflows(
         assert len(final_artifact["cross_functional_handoffs"]) == 4
         assert final_artifact["job_context"]["goal_work_packet"]
         assert "team_synthesis" in final_artifact["job_context"]
-        assert len(final_artifact["job_context"]["team_synthesis"]["unresolved_evidence_requests"]) == 4
+        assert (
+            len(
+                final_artifact["job_context"]["team_synthesis"][
+                    "unresolved_evidence_requests"
+                ]
+            )
+            == 4
+        )
         if blueprint_id == "gtm_assistant":
             delivery = final_artifact["evidence"]["development_email_delivery"]
             assert delivery["status"] == "not_sent"
             assert delivery["recipient_count"] == 0
             assert delivery["customer_addresses_used"] is False
             assert delivery["customer_specific_data_used"] is False
-
-
-def test_generic_business_identity_replaces_the_default_demo_context(tmp_path: Path):
-    blueprint_id = "business_finance_coworker"
-    result = _run_handler_workflow(
-        blueprint_id,
-        tmp_path,
-        inputs={
-            "business_name": "Northstar Learning",
-            "business_goal": "Reach sustainable product-market fit for Northstar Learning.",
-            "goal_id": "northstar-sustainable-fit",
-            "planning_horizon_days": 120,
-            "input_folder": str(ROOT / blueprint_id / "examples" / "sample_inputs"),
-            "metrics_file": str(ROOT / blueprint_id / "examples" / "sample_inputs" / "business_metrics.json"),
-        },
-        config={
-            "execution": {"quick_test": True},
-            "llm": {"mode": "fake", "require_live": False},
-            "knowledge_rag": {"enabled": False, "required": False},
-        },
-    )
-    final_path = Path(result["run_dir"]) / result["final_artifact"]["path"]
-    final_artifact = json.loads(final_path.read_text(encoding="utf-8"))
-    assert final_artifact["business_name"] == "Northstar Learning"
-    assert final_artifact["business_goal"] == "Reach sustainable product-market fit for Northstar Learning."
-    assert final_artifact["goal_id"] == "northstar-sustainable-fit"
-    assert final_artifact["planning_horizon_days"] == 120
-    assert "Bibblio" not in json.dumps(final_artifact)

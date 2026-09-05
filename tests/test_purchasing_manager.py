@@ -2,10 +2,6 @@ from __future__ import annotations
 
 import json
 
-from mn_sdk.blueprint_runtime import load_blueprint_config
-from mn_sdk.blueprint_support.local_inputs import stage_local_input_payloads
-from mn_sdk.bundle_io import load_bundle_payloads
-
 from blueprint_modernization_support import (
     ROOT,
     assert_modular_payload,
@@ -14,7 +10,10 @@ from blueprint_modernization_support import (
     run_payload_script,
     source_manifest,
 )
-
+from mn_sdk.blueprint_runtime import load_blueprint_config
+from mn_sdk.blueprint_support.local_inputs import stage_local_input_payloads
+from mn_sdk.blueprints import blueprint_definition, read_blueprint, resolve_config
+from mn_sdk.bundle_io import load_bundle_payloads
 
 EXPECTED_STEPS = [
     "frame_purchase_request",
@@ -54,13 +53,11 @@ def test_purchasing_manager_compiled_docker_workers_ship_their_build_context():
         == "MirrorNeuron.Runner.DockerWorker"
     ]
     assert worker_nodes
-    assert {
-        node["config"]["docker_worker_image"]
-        for node in worker_nodes
-    } == {"docker_worker"}
+    assert {node["config"]["docker_worker_image"] for node in worker_nodes} == {
+        "docker_worker"
+    }
     assert all(
-        {"source": "domain", "target": "domain"}
-        in node["config"]["upload_paths"]
+        {"source": "domain", "target": "domain"} in node["config"]["upload_paths"]
         for node in worker_nodes
     )
 
@@ -68,7 +65,9 @@ def test_purchasing_manager_compiled_docker_workers_ship_their_build_context():
     assert "docker_worker/Dockerfile" in payloads
 
 
-def test_purchasing_manager_sample_produces_a_procurement_ready_ai_workstation_comparison(tmp_path):
+def test_purchasing_manager_sample_produces_a_procurement_ready_ai_workstation_comparison(
+    tmp_path,
+):
     result = run_payload_script(
         "purchasing_manager",
         f"""
@@ -77,7 +76,7 @@ from pathlib import Path
 from domain.composition import run_blueprint
 from domain.inputs import parse_plain_text_purchase_request
 
-root = Path({str((ROOT / 'purchasing_manager').resolve())!r})
+root = Path({str((ROOT / "purchasing_manager").resolve())!r})
 out = Path({str(tmp_path)!r}) / "output"
 run = run_blueprint(
     inputs={{"input_folder": str(root / "examples" / "sample_inputs"), "output_folder": str(out)}},
@@ -244,8 +243,10 @@ print(json.dumps({
 
 
 def test_purchasing_manager_config_uses_bundle_paths_and_manifest_owned_descriptors():
-    config = json.loads((ROOT / "purchasing_manager" / "config" / "default.json").read_text())
-    manifest = json.loads((ROOT / "purchasing_manager" / "manifest.json").read_text())
+    config = resolve_config(read_blueprint(ROOT / "purchasing_manager")).data
+    manifest = blueprint_definition(
+        read_blueprint(ROOT / "purchasing_manager" / "manifest.json")
+    )
     assert config["inputs"]["payload"]["input_folder"] == "@/examples/sample_inputs"
     assert config["inputs"]["adapter"] == "json"
     assert config["mode"] == "live"
@@ -264,8 +265,8 @@ def test_purchasing_manager_config_uses_bundle_paths_and_manifest_owned_descript
         "respect_robots": True,
         "per_host_delay_seconds": 1,
     }
-    assert "identity" not in config
-    assert "agents" not in config["llm"]
+    assert config["identity"]["blueprint_id"] == "purchasing_manager"
+    assert set(config["llm"]["agents"]) == set(manifest["llm"]["agents"])
     assert config["budgets"]["max_llm_calls"] == 5
     assert config["llm"]["strict_json"] is True
     assert config["llm"]["require_live"] is False
@@ -279,9 +280,7 @@ def test_purchasing_manager_config_uses_bundle_paths_and_manifest_owned_descript
     }
     llm_agents = manifest["llm"]["agents"]
     assert {
-        agent_id
-        for agent_id, spec in llm_agents.items()
-        if spec.get("enabled", True)
+        agent_id for agent_id, spec in llm_agents.items() if spec.get("enabled", True)
     } == {
         "purchase_intake_analyst",
         "purchase_total_cost_analyst",
@@ -305,9 +304,15 @@ def test_purchasing_manager_sample_market_observations_are_source_backed():
     assert observations["schema"] == "mn.sample.public_market_observations.v1"
     assert len(observations["economic_sources"]) == 2
     assert len(observations["candidates"]) == 3
-    assert all(item["source_url"].startswith("https://") for item in observations["candidates"])
-    assert all(item["observed_at"] == "2026-08-28" for item in observations["candidates"])
-    assert all(item["source_type"] != "fictional_quote" for item in observations["candidates"])
+    assert all(
+        item["source_url"].startswith("https://") for item in observations["candidates"]
+    )
+    assert all(
+        item["observed_at"] == "2026-08-28" for item in observations["candidates"]
+    )
+    assert all(
+        item["source_type"] != "fictional_quote" for item in observations["candidates"]
+    )
     assert "fictional supplier" not in combined
     assert "sample_ai_workstation_quotes" not in combined
 
@@ -322,8 +327,14 @@ def test_purchasing_manager_merged_config_stages_the_bundled_plain_text_request(
     summary = stage_local_input_payloads(config, payloads, bundle_dir=blueprint)
 
     assert summary["folders"][0]["config_path"] == "inputs.payload.input_folder"
-    assert config["inputs"]["payload"]["input_folder"] == "mn_local_inputs/purchasing_manager_documents"
-    assert config["state"]["input_folder"] == "mn_local_inputs/purchasing_manager_documents"
+    assert (
+        config["inputs"]["payload"]["input_folder"]
+        == "mn_local_inputs/purchasing_manager_documents"
+    )
+    assert (
+        config["state"]["input_folder"]
+        == "mn_local_inputs/purchasing_manager_documents"
+    )
     assert (
         "runtime/mn_local_inputs/purchasing_manager_documents/purchase_request.txt"
         in payloads
@@ -499,7 +510,9 @@ print(json.dumps({
     }
 
 
-def test_purchasing_manager_uses_five_bounded_llm_narrative_calls_without_changing_economics(tmp_path):
+def test_purchasing_manager_uses_five_bounded_llm_narrative_calls_without_changing_economics(
+    tmp_path,
+):
     result = run_payload_script(
         "purchasing_manager",
         f"""
@@ -537,7 +550,7 @@ class BusinessNarrativeLLM:
             response["decision_rationale"] = "Deterministic eligibility and lifecycle ranking support the decision while unresolved commercial evidence limits commitment."
         return response
 
-root = Path({str((ROOT / 'purchasing_manager').resolve())!r})
+root = Path({str((ROOT / "purchasing_manager").resolve())!r})
 out = Path({str(tmp_path)!r}) / "output"
 llm = BusinessNarrativeLLM()
 run = run_blueprint(
@@ -632,7 +645,7 @@ class HallucinatingLLM:
             response["executive_summary"] = "Approve an invented $999999 budget."
         return response
 
-root = Path({str((ROOT / 'purchasing_manager').resolve())!r})
+root = Path({str((ROOT / "purchasing_manager").resolve())!r})
 out = Path({str(tmp_path)!r}) / "output"
 llm = HallucinatingLLM()
 run = run_blueprint(
@@ -676,7 +689,9 @@ print(json.dumps({{
     }
 
 
-def test_purchasing_manager_model_failure_completes_with_visible_deterministic_fallback(tmp_path):
+def test_purchasing_manager_model_failure_completes_with_visible_deterministic_fallback(
+    tmp_path,
+):
     result = run_payload_script(
         "purchasing_manager",
         f"""
@@ -702,7 +717,7 @@ class FailingLLM:
             return ["malformed structured output"]
         raise TimeoutError("model endpoint timed out")
 
-root = Path({str((ROOT / 'purchasing_manager').resolve())!r})
+root = Path({str((ROOT / "purchasing_manager").resolve())!r})
 out = Path({str(tmp_path)!r}) / "output"
 llm = FailingLLM()
 run = run_blueprint(

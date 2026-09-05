@@ -261,3 +261,15 @@ Use the one-command bundled-demo launch above for runtime validation. A real
 camera URL is needed only when `video_source.profile=external`.
 
 See [SPEC.md](SPEC.md) for the complete design contract.
+
+## Blueprint package format
+
+This blueprint uses the canonical blueprint/v1 format in both folders and ZIPs.
+`manifest.json` contains identity, semantic release version, and document references.
+`workflow.json` owns logical topology and policies; `execution.json` owns workers,
+resources, and services; `contracts.json` owns input/output and artifact contracts.
+Platform descriptors live in `extensions/`, package requirements in
+`dependencies.json` when present, and operator defaults in `config/default.json`.
+The SDK reads these documents together and compiles the Core execution artifact.
+A ZIP contains the same files as the folder. Local overrides and invocation
+configuration are resolved by the SDK before launch.

@@ -1,4 +1,16 @@
 {
+  "human_control": {
+    "blocked_actions": [
+      "physical_robot_control",
+      "arbitrary_velocity",
+      "arbitrary_javascript",
+      "shell_execution"
+    ],
+    "enabled": true,
+    "mode": "notice_only",
+    "notice_event": "human_notice",
+    "requires_ack": false
+  },
   "inputs": {
     "adapter": "mock",
     "payload": {
@@ -6,17 +18,50 @@
       "output_folder": "~/Download/microduck_controller"
     }
   },
-  "web_ui": {
+  "mcp_control": {
+    "bridge_path": "/bridge",
+    "browser_control_url": "",
     "enabled": true,
-    "kind": "live_service",
+    "kind": "streamable_http",
+    "path": "/mcp",
     "service": {
       "host": "127.0.0.1",
-      "listen_host": "0.0.0.0",
-      "public_host": "127.0.0.1",
-      "port": 0,
-      "public_url": "http://127.0.0.1:0",
-      "trusted_lan_enabled": false
+      "port": 62008
+    }
+  },
+  "memory_layer": {
+    "collection": "mn_memory",
+    "conversation": {
+      "agent_role": "otterdesk_chat",
+      "include_human_events": true,
+      "include_runtime_events": true,
+      "include_runtime_logs": true,
+      "target_tokens": 800,
+      "token_budget": 1200
     },
+    "conversation_enabled": true,
+    "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
+    "enabled": true,
+    "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
+    "namespace": "microduck_controller_context",
+    "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
+    "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
+    "sdk_distribution": "mirrorneuron-membrane-python-sdk",
+    "sdk_import_package": "mn_context_engine_sdk"
+  },
+  "metadata": {
+    "description": "Give it the bundled input folder and a local browser session, and it runs a live Microduck MuJoCo web simulation with compact duck-and-ball state, a visual control room, bounded primitive controls, deterministic goal-directed ball navigation, and stoppable continuous free play."
+  },
+  "outputs": {
+    "adapter": "local_run_store",
+    "folder_path": "~/Download/microduck_controller",
+    "run_root": "~/.mn/runs",
+    "write_run_store": true
+  },
+  "privacy": {
+    "default_classification": "internal"
+  },
+  "web_ui": {
     "dashboard": {
       "path": "@/payloads/web_app/index.html",
       "standard_panels": [
@@ -28,113 +73,16 @@
         "logs",
         "human_control"
       ]
-    }
-  },
-  "mcp_control": {
+    },
     "enabled": true,
-    "kind": "streamable_http",
-    "path": "/mcp",
-    "bridge_path": "/bridge",
-    "browser_control_url": "",
+    "kind": "live_service",
     "service": {
       "host": "127.0.0.1",
-      "port": 62008
+      "listen_host": "0.0.0.0",
+      "port": 0,
+      "public_host": "127.0.0.1",
+      "public_url": "http://127.0.0.1:0",
+      "trusted_lan_enabled": false
     }
-  },
-  "outputs": {
-    "adapter": "local_run_store",
-    "folder_path": "~/Download/microduck_controller",
-    "run_root": "~/.mn/runs",
-    "write_run_store": true
-  },
-  "metadata": {
-    "description": "Give it the bundled input folder and a local browser session, and it runs a live Microduck MuJoCo web simulation with compact duck-and-ball state, a visual control room, bounded primitive controls, deterministic goal-directed ball navigation, and stoppable continuous free play."
-  },
-  "llm": {
-    "enabled": true,
-    "mode": "actor_assisted",
-    "mock_mode": "deterministic",
-    "model": "default",
-    "default_config": "primary",
-    "configs": {
-      "primary": {
-        "provider": "openai_compatible",
-        "model": "default",
-        "api_base": "auto",
-        "temperature": 0,
-        "structured_output_options": {
-          "temperature": 0
-        },
-        "max_tokens": 300
-      }
-    },
-    "responsibilities": [
-      "Interpret Microduck requests by semantic intent using the indexed MCP control manual; examples are non-exhaustive and never exact-match triggers.",
-      "Ignore polite, modal, permissive, and conversational framing such as please, now, could you, let's, and you can when the underlying supported intent is clear.",
-      "Choose the exact declared tool and enum arguments for a clear paraphrase; clarify only material ambiguity, never wording variation.",
-      "Map movement, routines, locomotion, one-shot ball actions, reset, stop, state, and manual paraphrases to their declared tools.",
-      "Map find, seek, approach, and go-to-ball requests to one find_ball call; never expand them into repeated move_duck calls.",
-      "Map free play, play-with-the-ball, suggestions such as let's free play, and permission statements such as you can free play to one free_play call; never expand them into repeated find_ball or play_ball_action calls.",
-      "Use only the declared bounded MCP tools and their exact argument enums.",
-      "Report observed command receipts without inventing motion or completion."
-    ],
-    "agents": {
-      "microduck_service": {
-        "llm_config": "primary",
-        "role": "Microduck simulator service operator",
-        "responsibilities": [
-          "Keep the browser simulator and MCP surface reachable.",
-          "Use the LLM to match varied natural-language phrasing to one declared control intent without requiring canonical command text.",
-          "Run goal-directed ball approaches through the deterministic browser navigation loop.",
-          "Run continuous free play through the deterministic find-kick-reacquire controller until stop_duck.",
-          "Publish only compact simulation context and bounded command receipts.",
-          "Stop remote movement when the browser lease becomes stale."
-        ]
-      },
-      "finalize": {
-        "llm_config": "primary",
-        "role": "Microduck service finalizer",
-        "responsibilities": [
-          "Record a deliberate service shutdown.",
-          "Preserve the service artifact trail.",
-          "Never start or replay a simulator command."
-        ]
-      }
-    }
-  },
-  "memory_layer": {
-    "enabled": true,
-    "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
-    "conversation_enabled": true,
-    "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
-    "namespace": "microduck_controller_context",
-    "collection": "mn_memory",
-    "sdk_distribution": "mirrorneuron-membrane-python-sdk",
-    "sdk_import_package": "mn_context_engine_sdk",
-    "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
-    "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
-    "conversation": {
-      "agent_role": "otterdesk_chat",
-      "include_runtime_events": true,
-      "include_runtime_logs": true,
-      "include_human_events": true,
-      "target_tokens": 800,
-      "token_budget": 1200
-    }
-  },
-  "human_control": {
-    "enabled": true,
-    "mode": "notice_only",
-    "notice_event": "human_notice",
-    "requires_ack": false,
-    "blocked_actions": [
-      "physical_robot_control",
-      "arbitrary_velocity",
-      "arbitrary_javascript",
-      "shell_execution"
-    ]
-  },
-  "privacy": {
-    "default_classification": "internal"
   }
 }

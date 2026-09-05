@@ -186,3 +186,15 @@ batch reference. The durable outputs are:
 - `latest_analyzed_frame.json`
 
 Evaluation should measure decode reliability, frame-to-observation latency, detection precision/recall, false alerts, missed detections, cooldown correctness, source provenance, and reviewer usefulness. This is decision support, not a certified safety or security system. Human review, privacy/retention policy, camera authorization, incident-response integration, and validation on representative footage remain deployment responsibilities.
+
+## Blueprint package format
+
+This blueprint uses the canonical blueprint/v1 format in both folders and ZIPs.
+`manifest.json` contains identity, semantic release version, and document references.
+`workflow.json` owns logical topology and policies; `execution.json` owns workers,
+resources, and services; `contracts.json` owns input/output and artifact contracts.
+Platform descriptors live in `extensions/`, package requirements in
+`dependencies.json` when present, and operator defaults in `config/default.json`.
+The SDK reads these documents together and compiles the Core execution artifact.
+A ZIP contains the same files as the folder. Local overrides and invocation
+configuration are resolved by the SDK before launch.

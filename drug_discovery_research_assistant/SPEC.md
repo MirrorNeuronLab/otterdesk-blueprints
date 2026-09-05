@@ -44,4 +44,16 @@ latest-cycle context and cannot launch computation or advance a candidate.
 
 All results are computational hypotheses. The blueprint does not synthesize compounds, run assays, make clinical claims, submit regulatory material, or send candidates to external systems. Fake adapters are limited to explicit mock/smoke-test configuration and are labeled synthetic in every artifact. BioTarget Stage D invokes the native GNINA executable in the selected NVIDIA DockerWorker; no nested Docker socket or CPU-emulation path is part of the live contract.
 
-Output folder `{job_id}` is resolved by the submission SDK to the stable job ID, for example `~/Downloads/job_ddra-12345678`. The SDK copies remote outputs back to this directory on the submitting host. `candidates.json` contains five unique molecules; `final_artifact.json` contains their ranked evaluations. The existing live run retains its submitted configuration; these settings apply to new runs.
+Output folder `{job_name}` is resolved by the submission SDK to the configured job name, for example `~/Downloads/drug-discovery-research-assistant`. The SDK copies remote outputs back to this directory on the submitting host. `candidates.json` contains five unique molecules; `final_artifact.json` contains their ranked evaluations. The existing live run retains its submitted configuration; these settings apply to new runs.
+
+## Blueprint package format
+
+This blueprint uses the canonical blueprint/v1 format in both folders and ZIPs.
+`manifest.json` contains identity, semantic release version, and document references.
+`workflow.json` owns logical topology and policies; `execution.json` owns workers,
+resources, and services; `contracts.json` owns input/output and artifact contracts.
+Platform descriptors live in `extensions/`, package requirements in
+`dependencies.json` when present, and operator defaults in `config/default.json`.
+The SDK reads these documents together and compiles the Core execution artifact.
+A ZIP contains the same files as the folder. Local overrides and invocation
+configuration are resolved by the SDK before launch.

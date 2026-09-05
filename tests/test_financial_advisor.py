@@ -1,16 +1,15 @@
 from __future__ import annotations
 
-from mn_sdk.bundle_io import load_bundle_payloads
-
 from blueprint_modernization_support import (
     ROOT,
     assert_modular_payload,
     assert_registry_handlers_import,
+    blueprint_path,
     expanded_manifest,
     run_payload_script,
     source_manifest,
 )
-
+from mn_sdk.bundle_io import load_bundle_payloads
 
 EXPECTED_STEPS = [
     "prepare_financial_packet",
@@ -52,7 +51,7 @@ def test_financial_manifest_compiles_ordered_regulated_state_pipeline():
 
 
 def test_financial_workers_stage_the_domain_package():
-    blueprint = ROOT / "financial_advisor"
+    blueprint = ROOT.parent / "mn-blueprints" / "financial_advisor"
     expanded = expanded_manifest("financial_advisor")
     executable_nodes = [
         node
@@ -63,8 +62,7 @@ def test_financial_workers_stage_the_domain_package():
 
     assert executable_nodes
     assert all(
-        {"source": "domain", "target": "domain"}
-        in node["config"]["upload_paths"]
+        {"source": "domain", "target": "domain"} in node["config"]["upload_paths"]
         for node in executable_nodes
     )
 
@@ -165,7 +163,14 @@ print(json.dumps({"prompt": llm.user_prompt}))
 def test_financial_payload_is_modular_and_handlers_resolve():
     assert_modular_payload("financial_advisor")
     assert_registry_handlers_import("financial_advisor")
-    execution = (ROOT / "financial_advisor" / "payloads" / "domain" / "execution.py").read_text()
+    execution = (
+        ROOT.parent
+        / "mn-blueprints"
+        / "financial_advisor"
+        / "payloads"
+        / "domain"
+        / "execution.py"
+    ).read_text()
     assert "workflow_step_id" not in execution
     assert "WORKFLOW_STEPS[-1]" not in execution
 
@@ -181,9 +186,9 @@ from pathlib import Path
 from domain.runtime_services import build_context
 from domain.state import persist_runtime_context, runtime_context_path
 
-documents = Path({str((ROOT / 'financial_advisor' / 'examples' / 'sample_inputs').resolve())!r})
-output_folder = Path({str((tmp_path / 'job-output').resolve())!r})
-runs_root = Path({str((tmp_path / 'runs').resolve())!r})
+documents = Path({str((blueprint_path("financial_advisor") / "examples" / "sample_inputs").resolve())!r})
+output_folder = Path({str((tmp_path / "job-output").resolve())!r})
+runs_root = Path({str((tmp_path / "runs").resolve())!r})
 os.environ['MN_JOB_ID'] = 'financial-runtime-job'
 os.environ['MN_WORKFLOW_ATTEMPT_ID'] = 'attempt-3'
 os.environ['MN_JOB_OUTPUT_DIR'] = str(output_folder)
@@ -192,7 +197,7 @@ os.environ['MN_RUNS_ROOT'] = str(runs_root)
 context = build_context(
     inputs={{
         'document_folder': str(documents),
-        'output_folder': str(Path({str((tmp_path / 'ignored-local-output').resolve())!r})),
+        'output_folder': str(Path({str((tmp_path / "ignored-local-output").resolve())!r})),
     }},
     config={{'llm': {{'mode': 'fake', 'require_live': False}}}},
     config_json=None,
@@ -219,7 +224,11 @@ print(json.dumps({{
     assert result["run_dir"] == str(tmp_path / "runs" / "financial-runtime-run")
     assert result["output_folder"] == str(tmp_path / "job-output")
     assert result["document_folder"] == str(
-        ROOT / "financial_advisor" / "examples" / "sample_inputs"
+        ROOT.parent
+        / "mn-blueprints"
+        / "financial_advisor"
+        / "examples"
+        / "sample_inputs"
     )
     assert result["stored_document_folder"] == result["document_folder"]
     assert result["stored_payload_folder"] == result["document_folder"]
@@ -233,7 +242,7 @@ import json
 from pathlib import Path
 from domain.composition import run_blueprint
 
-root = Path({str((ROOT / 'financial_advisor').resolve())!r})
+root = Path({str((blueprint_path("financial_advisor")).resolve())!r})
 out = Path({str(tmp_path)!r}) / "output"
 run = run_blueprint(
     inputs={{"document_folder": str(root / "examples" / "sample_inputs"), "input_folder": str(root / "examples" / "sample_inputs"), "output_folder": str(out), "quick_test": True}},

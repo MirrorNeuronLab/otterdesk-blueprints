@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import json
 
-from mn_sdk.blueprint_support import load_runtime_config
-
 from blueprint_modernization_support import (
     ROOT,
     assert_modular_payload,
@@ -12,7 +10,8 @@ from blueprint_modernization_support import (
     run_payload_script,
     source_manifest,
 )
-
+from mn_sdk.blueprint_support import load_runtime_config
+from mn_sdk.blueprints import read_blueprint, resolve_config
 
 EXPECTED_STEPS = [
     "prepare_legal_matter",
@@ -25,23 +24,14 @@ EXPECTED_STEPS = [
 def test_legal_default_runtime_is_manifest_projected_and_declarative():
     blueprint = ROOT / "legal_assistant"
     manifest = source_manifest("legal_assistant")
-    default_config = json.loads(
-        (blueprint / "config" / "default.json").read_text(encoding="utf-8")
-    )
+    default_config = resolve_config(read_blueprint(blueprint)).data
     resolved = load_runtime_config(blueprint / "payloads" / "runtime" / "runtime.py")
 
-    assert manifest["manifest"]["policies"]["recovery_mode"] == "manual_recover"
-    assert manifest["config"]["manifest_defaults"][:3] == [
-        "agentic_research",
-        "knowledge_rag",
-        "llm",
-    ]
-    assert set(default_config["llm"]) == {"strict_json", "configs", "require_live"}
-    assert "agentic_research" not in default_config
-    assert default_config["knowledge_rag"] == {"backend": "milvus_lite"}
-    assert "resources" not in default_config
-    assert "human_control" not in default_config
-    assert "input_adapters" not in default_config["interfaces"]
+    assert manifest["policies"]["recovery_mode"] == "manual_recover"
+    assert manifest["config"]["data"]["llm"]["model"] == "default"
+    assert resolved["llm"]["model"] == "default"
+    assert resolved["resources"] == manifest["requirements"]
+    assert resolved["human_control"] == manifest["workflow"]["policy"]["human"]
     declared_runtime = json.dumps(
         {"manifest": manifest, "config": default_config}
     ).lower()
@@ -117,8 +107,16 @@ def test_legal_manifest_compiles_parallel_invoice_and_contract_lanes():
     expanded = expanded_manifest("legal_assistant")
     assert [step["id"] for step in source["workflow"]["steps"]] == EXPECTED_STEPS
     edges = expanded["agents"]["edges"]
-    assert any(edge["from_node"] == "analyze_legal_documents__fork_1" and edge["to_node"] == "analyze_legal_documents__invoice_extract" for edge in edges)
-    assert any(edge["from_node"] == "analyze_legal_documents__fork_1" and edge["to_node"] == "analyze_legal_documents__clause_extract" for edge in edges)
+    assert any(
+        edge["from_node"] == "analyze_legal_documents__fork_1"
+        and edge["to_node"] == "analyze_legal_documents__invoice_extract"
+        for edge in edges
+    )
+    assert any(
+        edge["from_node"] == "analyze_legal_documents__fork_1"
+        and edge["to_node"] == "analyze_legal_documents__clause_extract"
+        for edge in edges
+    )
     assert any(edge["to_node"] == "analyze_legal_documents__join_2" for edge in edges)
 
 
@@ -138,8 +136,7 @@ def test_legal_compiled_docker_workers_ship_the_domain_llm_handlers():
 
     assert worker_nodes
     assert all(
-        {"source": "domain", "target": "domain"}
-        in node["config"]["upload_paths"]
+        {"source": "domain", "target": "domain"} in node["config"]["upload_paths"]
         for node in worker_nodes
     )
 
@@ -177,7 +174,7 @@ class RecordingLLM:
         return dict(fallback)
 
 
-root = Path({str((ROOT / 'legal_assistant').resolve())!r})
+root = Path({str((ROOT / "legal_assistant").resolve())!r})
 out = Path({str(tmp_path)!r}) / "output"
 context = runtime_context_for_step(
     inputs={{
@@ -237,7 +234,7 @@ import json
 from pathlib import Path
 from domain.composition import run_blueprint
 
-root = Path({str((ROOT / 'legal_assistant').resolve())!r})
+root = Path({str((ROOT / "legal_assistant").resolve())!r})
 out = Path({str(tmp_path)!r}) / "output"
 run = run_blueprint(
     inputs={{"document_folder": str(root / "examples" / "sample_inputs"), "output_folder": str(out), "quick_test": True}},
@@ -272,5 +269,8 @@ print(json.dumps({{
     assert result["priority_severity"] == "high"
     assert result["requires_trusted_verification"] is True
     assert result["obligation_count"] == 7
-    assert result["lane_files"] == ["legal_contract_lane.json", "legal_invoice_lane.json"]
+    assert result["lane_files"] == [
+        "legal_contract_lane.json",
+        "legal_invoice_lane.json",
+    ]
     assert result["run_artifact_exists"] is True

@@ -79,24 +79,6 @@
     "handle_human_control",
     "write_artifact_records"
   ],
-  "human_control": {
-    "enabled": true,
-    "events": [
-      "human_notice",
-      "human_input_requested",
-      "human_input_received",
-      "human_input_timeout",
-      "human_decision_applied"
-    ],
-    "mode": "notice_only",
-    "notice_event": "human_notice",
-    "reason": "The workflow surfaces notable visual changes to reviewers but does not execute physical security actions by itself.",
-    "requires_ack": false
-  },
-  "identity": {
-    "blueprint_id": "cctv_operator",
-    "name": "CCTV Operator"
-  },
   "input_skills": {},
   "inputs": {
     "adapter": "mock",
@@ -124,6 +106,10 @@
   },
   "interfaces": {
     "channels": {
+      "agentic_research": {
+        "config": "agentic_research",
+        "description": "Bounded LLM-selected or actor-guided tool contract for domain work."
+      },
       "artifacts": {
         "artifacts": [
           "run.json",
@@ -161,6 +147,12 @@
       "inputs": {
         "artifact": "inputs.json",
         "description": "Resolved runtime inputs and adapter provenance."
+      },
+      "knowledge_rag": {
+        "artifact": "knowledge/",
+        "config": "knowledge_rag",
+        "description": "Optional local blueprint knowledge retrieval used to ground actor prompts and tool planning.",
+        "privacy": "blueprint knowledge only by default"
       },
       "logs": {
         "artifact": "logs.jsonl",
@@ -219,18 +211,41 @@
           "web/index.html"
         ],
         "description": "Optional web input/output handles."
-      },
-      "knowledge_rag": {
-        "description": "Optional local blueprint knowledge retrieval used to ground actor prompts and tool planning.",
-        "config": "knowledge_rag",
-        "artifact": "knowledge/",
-        "privacy": "blueprint knowledge only by default"
-      },
-      "agentic_research": {
-        "description": "Bounded LLM-selected or actor-guided tool contract for domain work.",
-        "config": "agentic_research"
       }
     },
+    "config": [
+      "standard_version",
+      "identity",
+      "mode",
+      "metadata",
+      "inputs",
+      "simulation",
+      "llm",
+      "outputs",
+      "logging",
+      "resources",
+      "human_control",
+      "real_adapters",
+      "streams",
+      "input_skills",
+      "output_skills",
+      "error_handling",
+      "state",
+      "capabilities",
+      "privacy",
+      "triggers",
+      "backpressure",
+      "determinism",
+      "schemas",
+      "budgets",
+      "agent_handoffs",
+      "web_ui",
+      "interfaces",
+      "execution_model",
+      "openshell_network",
+      "knowledge_rag",
+      "agentic_research"
+    ],
     "config_sections": [
       "standard_version",
       "identity",
@@ -268,12 +283,6 @@
       "blueprint_id",
       "name",
       "run_id"
-    ],
-    "input_adapters": [
-      "mock",
-      "json",
-      "file",
-      "env_json"
     ],
     "optional_run_artifacts": [
       "job.json",
@@ -326,136 +335,108 @@
       "static_html",
       "external_url",
       "custom"
-    ],
-    "config": [
-      "standard_version",
-      "identity",
-      "mode",
-      "metadata",
-      "inputs",
-      "simulation",
-      "llm",
-      "outputs",
-      "logging",
-      "resources",
-      "human_control",
-      "real_adapters",
-      "streams",
-      "input_skills",
-      "output_skills",
-      "error_handling",
-      "state",
-      "capabilities",
-      "privacy",
-      "triggers",
-      "backpressure",
-      "determinism",
-      "schemas",
-      "budgets",
-      "agent_handoffs",
-      "web_ui",
-      "interfaces",
-      "execution_model",
-      "openshell_network",
-      "knowledge_rag",
-      "agentic_research"
     ]
   },
+  "knowledge_rag": {
+    "backend": "milvus_lite",
+    "index_on_startup": true
+  },
   "llm": {
-    "model": "nemotron3:q4_K_M",
-    "provider": "docker_model_runner",
-    "backend": "llama.cpp",
-    "enabled": true,
     "agent_role": "AI assistant for reviewing video stream activity and preparing visual detection alerts.",
     "agents": {
       "adaptive_frame_sampler": {
         "llm_config": "primary",
         "model": "nemotron3:q4_K_M",
-        "role": "Adaptive frame sampler",
         "responsibilities": [
           "Apply the configured baseline, scene-event, and on-demand priorities.",
           "Select bounded, non-duplicate frame batches with source provenance.",
           "Expose sampling skips and backpressure without making detections."
-        ]
-      },
-      "visual_target_detector": {
-        "llm_config": "primary",
-        "model": "nemotron3:q4_K_M",
-        "role": "Visual target detector actor",
-        "responsibilities": [
-          "Detect configured visual targets from sampled frames.",
-          "Tie alerts to frame evidence and model state.",
-          "Flag uncertain detections for review."
-        ]
+        ],
+        "role": "Adaptive frame sampler"
       },
       "quality_controller": {
         "llm_config": "primary",
         "model": "nemotron3:q4_K_M",
-        "role": "Video quality controller",
         "responsibilities": [
           "Check detection confidence and stream quality.",
           "Flag blurry, missing, or stale frames.",
           "Keep alert quality visible to reviewers."
-        ]
-      },
-      "video_source_validator": {
-        "llm_config": "primary",
-        "model": "nemotron3:q4_K_M",
-        "role": "Video source validator",
-        "responsibilities": [
-          "Validate video source configuration and reachability.",
-          "Flag unsupported or unavailable sources.",
-          "Keep service readiness separate from hardware gating."
-        ]
-      },
-      "video_monitor": {
-        "llm_config": "primary",
-        "model": "nemotron3:q4_K_M",
-        "role": "Video monitor actor",
-        "responsibilities": [
-          "Maintain watch state and runtime lifecycle.",
-          "Summarize active monitoring status.",
-          "Escalate service or stream blockers."
-        ]
+        ],
+        "role": "Video quality controller"
       },
       "report_writer": {
         "llm_config": "primary",
         "model": "nemotron3:q4_K_M",
-        "role": "CCTV report writer",
         "responsibilities": [
           "Write concise watch summaries from detection events.",
           "Preserve frame and source references.",
           "Avoid claiming certainty beyond sampled evidence."
-        ]
+        ],
+        "role": "CCTV report writer"
+      },
+      "video_monitor": {
+        "llm_config": "primary",
+        "model": "nemotron3:q4_K_M",
+        "responsibilities": [
+          "Maintain watch state and runtime lifecycle.",
+          "Summarize active monitoring status.",
+          "Escalate service or stream blockers."
+        ],
+        "role": "Video monitor actor"
+      },
+      "video_source_validator": {
+        "llm_config": "primary",
+        "model": "nemotron3:q4_K_M",
+        "responsibilities": [
+          "Validate video source configuration and reachability.",
+          "Flag unsupported or unavailable sources.",
+          "Keep service readiness separate from hardware gating."
+        ],
+        "role": "Video source validator"
+      },
+      "visual_target_detector": {
+        "llm_config": "primary",
+        "model": "nemotron3:q4_K_M",
+        "responsibilities": [
+          "Detect configured visual targets from sampled frames.",
+          "Tie alerts to frame evidence and model state.",
+          "Flag uncertain detections for review."
+        ],
+        "role": "Visual target detector actor"
       }
     },
+    "backend": "llama.cpp",
+    "configs": {
+      "primary": {
+        "api_base": "auto",
+        "max_tokens": 900,
+        "mock_mode": "fake",
+        "mode": "live",
+        "model": "nemotron3:q4_K_M",
+        "num_retries": 1,
+        "provider": "docker_model_runner",
+        "required_capabilities": [
+          "image_input",
+          "structured_output"
+        ],
+        "timeout_seconds": 60
+      }
+    },
+    "default_config": "primary",
+    "enabled": true,
     "mock_mode": "fake",
     "mode": "live",
-    "default_config": "primary",
+    "model": "nemotron3:q4_K_M",
+    "provider": "docker_model_runner",
     "quick_test_uses_fake": true,
-    "strict_json": false,
     "responsibilities": [
       "Keep visual detection evidence tied to sampled frames and runtime service state.",
       "Use actors to explain alerts, quality checks, and watch summaries.",
       "Avoid claiming surveillance certainty beyond the sampled evidence."
     ],
-    "configs": {
-      "primary": {
-        "provider": "docker_model_runner",
-        "model": "nemotron3:q4_K_M",
-        "api_base": "auto",
-        "required_capabilities": [
-          "image_input",
-          "structured_output"
-        ],
-        "timeout_seconds": 60,
-        "max_tokens": 900,
-        "num_retries": 1,
-        "mock_mode": "fake",
-        "mode": "live"
-      }
-    }
+    "strict_json": false
   },
+  "local_inputs": {},
   "logging": {
     "events": [
       "run_started",
@@ -536,7 +517,6 @@
       "stringify": true
     }
   ],
-  "local_inputs": {},
   "memory_layer": {
     "collection": "mn_memory",
     "containers": "optional_sidecar",
@@ -561,50 +541,6 @@
     "sdk_distribution": "mirrorneuron-membrane-python-sdk",
     "sdk_import_package": "mn_context_engine_sdk"
   },
-  "agentic_research": {
-    "enabled": true,
-    "agent_ids": [
-      "video_source_validator",
-      "adaptive_frame_sampler",
-      "visual_target_detector",
-      "quality_controller",
-      "report_writer"
-    ],
-    "max_iterations_per_agent": 1,
-    "max_tool_calls_per_agent": 2,
-    "allowed_tools": [
-      "video_source_validate",
-      "frame_sample",
-      "visual_model_infer",
-      "alert_policy_check",
-      "knowledge_retrieve",
-      "finish"
-    ],
-    "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run",
-    "default_mode": "bounded_llm_guided_cctv_operator_review",
-    "note": "CCTV actors ground detections in the configured live stream, selected frame evidence, and alert policy."
-  },
-  "knowledge_rag": {
-    "enabled": true,
-    "backend": "milvus_lite",
-    "required": false,
-    "knowledge_dir": "knowledge",
-    "purpose": "Retrieve approved CCTV policy for target detections, source provenance, cooldown behavior, and review-only alert boundaries.",
-    "retrieval_targets": [
-      "visual target evidence",
-      "live stream source provenance",
-      "alert cooldowns",
-      "human review boundaries"
-    ],
-    "grounding_policy": "Use retrieved local blueprint knowledge to improve actor review prompts; do not invent facts when retrieval is unavailable.",
-    "namespace": "",
-    "index_on_startup": true,
-    "top_k": 4,
-    "max_context_chars": 4000,
-    "chunk_size": 700,
-    "chunk_overlap": 70,
-    "privacy": "index local blueprint knowledge only; do not index private run documents unless a future runtime explicitly opts in"
-  },
   "metadata": {
     "agent_role": "AI assistant for reviewing live video activity and preparing visual detection reports and alerts.",
     "blueprint_id": "cctv_operator",
@@ -627,6 +563,7 @@
   },
   "output_skills": {
     "websocket_events": {
+      "activation": "Set MN_BLUEPRINT_EVENTS_WS_URL and enable this output skill via config override to stream events.",
       "connector": "websocket",
       "content": "events",
       "destination": "MN_BLUEPRINT_EVENTS_WS_URL",
@@ -634,7 +571,6 @@
       "enabled": false,
       "failure_policy": "skip",
       "integration_status": "optional_mock_disabled_by_default",
-      "activation": "Set MN_BLUEPRINT_EVENTS_WS_URL and enable this output skill via config override to stream events.",
       "mock": true,
       "required": false,
       "skill": "websocket_stream",
@@ -645,15 +581,16 @@
   "outputs": {
     "adapter": "local_run_store",
     "artifact_contract": "Visual detection observations with count, label, category, color, position, activity, confidence, and alert status.",
+    "folder_path": "~/Download/cctv_operator",
     "run_root": "~/.mn/runs",
     "skills": {
       "websocket_events": {
+        "activation": "Set MN_BLUEPRINT_EVENTS_WS_URL and enable this output skill via config override to stream events.",
         "connector": "websocket",
         "content": "events",
         "direction": "output",
         "enabled": false,
         "integration_status": "optional_mock_disabled_by_default",
-        "activation": "Set MN_BLUEPRINT_EVENTS_WS_URL and enable this output skill via config override to stream events.",
         "mock": true,
         "required": false,
         "skill": "websocket_stream",
@@ -665,8 +602,7 @@
       "enabled": false,
       "ports": []
     },
-    "write_run_store": true,
-    "folder_path": "~/Download/cctv_operator"
+    "write_run_store": true
   },
   "privacy": {
     "default_classification": "internal",
@@ -707,25 +643,31 @@
   },
   "resources": {
     "enabled": true,
+    "gpu_count": 1,
     "gpu_enabled": true,
     "gpu_sample_interval_seconds": 60,
     "history_window_hours": 24,
     "raw_retention_hours": 48,
-    "rollup_bucket_seconds": 3600,
-    "sample_interval_seconds": 10,
-    "gpu_count": 1,
-    "gpu": {
-      "min_count": 1,
-      "vendor": "nvidia",
-      "driver": "cuda",
-      "min_memory_mb": 49152,
-      "memory_operator": ">=",
-      "enforcement": "hard"
-    },
     "required_capabilities": [
       "nvidia",
       "cuda"
-    ]
+    ],
+    "rollup_bucket_seconds": 3600,
+    "sample_interval_seconds": 10
+  },
+  "sampling": {
+    "baseline_interval_seconds": 20,
+    "burst_candidate_fps": 5,
+    "frame_jpeg_max_width": 896,
+    "max_calls_per_minute": 6,
+    "max_model_frames": 10,
+    "max_pending_batches": 1,
+    "post_roll_seconds": 5,
+    "pre_roll_seconds": 3,
+    "proxy_fps": 1,
+    "proxy_width": 320,
+    "scene_change_consecutive_samples": 2,
+    "scene_change_threshold": 0.18
   },
   "schemas": {
     "artifact_record": "mn.artifact.record.v1",
@@ -758,8 +700,8 @@
       "source_ref",
       "event_id"
     ],
-    "resume_mode": "checkpoint",
-    "output_folder": "~/Download/cctv_operator"
+    "output_folder": "~/Download/cctv_operator",
+    "resume_mode": "checkpoint"
   },
   "streams": {
     "cctv_operator_stream": {
@@ -779,45 +721,14 @@
   },
   "video_source": {
     "camera_id": "cctv-demo",
-    "mode": "stream",
-    "profile": "bundled_demo",
-    "uri": "rtsp://127.0.0.1:8554/cctv-demo",
     "description": "Run the bundled looping CCTV demo stream inside the shared NVIDIA DockerWorker. Set profile=external and override uri for an approved real RTSP/RTMP source.",
     "media_accelerator": "nvidia_cuda",
-    "transport": "rtsp_rtmp"
-  },
-  "sampling": {
-    "baseline_interval_seconds": 20,
-    "burst_candidate_fps": 5,
-    "frame_jpeg_max_width": 896,
-    "max_calls_per_minute": 6,
-    "max_model_frames": 10,
-    "max_pending_batches": 1,
-    "post_roll_seconds": 5,
-    "pre_roll_seconds": 3,
-    "proxy_fps": 1,
-    "proxy_width": 320,
-    "scene_change_consecutive_samples": 2,
-    "scene_change_threshold": 0.18
+    "mode": "stream",
+    "profile": "bundled_demo",
+    "transport": "rtsp_rtmp",
+    "uri": "rtsp://127.0.0.1:8554/cctv-demo"
   },
   "web_ui": {
-    "enabled": true,
-    "service": {
-      "host": "0.0.0.0",
-      "port": 0,
-      "public_url": ""
-    },
-    "preview": {
-      "enabled": true,
-      "transport": "mjpeg",
-      "fps": 8,
-      "width": 1280,
-      "jpeg_quality": 5,
-      "reconnect_seconds": 1
-    },
-    "event_stream": {
-      "transport": "sse"
-    },
     "dashboard": {
       "standard_panels": [
         "current_status",
@@ -834,6 +745,23 @@
         "output_skill_attempts",
         "output_skill_failures"
       ]
+    },
+    "enabled": true,
+    "event_stream": {
+      "transport": "sse"
+    },
+    "preview": {
+      "enabled": true,
+      "fps": 8,
+      "jpeg_quality": 5,
+      "reconnect_seconds": 1,
+      "transport": "mjpeg",
+      "width": 1280
+    },
+    "service": {
+      "host": "0.0.0.0",
+      "port": 0,
+      "public_url": ""
     }
   }
 }

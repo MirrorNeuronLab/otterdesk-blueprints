@@ -1,121 +1,387 @@
 {
-  "standard_version": "1.0",
-  "mode": "real",
-  "metadata": {
-    "category": "engineering",
-    "description": "Software Architecture Advisor is a read-only, air-gapped software-architecture co-worker. Give it a local source folder; it maps structural evidence and writes an architecture assessment plus copy-ready, implementation-safe prompts to the output folder without changing source code."
+  "airgap": {
+    "model_access": "local_runtime_only",
+    "network": "forbidden",
+    "package_installation": "prepared_before_disconnection"
+  },
+  "analysis": {
+    "architecture_gravity_min_degree": 4,
+    "excluded_directories": [
+      ".git",
+      ".venv",
+      "venv",
+      "node_modules",
+      "vendor",
+      "dist",
+      "build",
+      "coverage",
+      ".next",
+      "target"
+    ],
+    "excluded_file_names": [
+      ".env",
+      ".env.local",
+      "id_rsa",
+      "id_ed25519"
+    ],
+    "focus": [
+      "module boundaries",
+      "change risk"
+    ],
+    "history_evidence_files": [
+      "architecture_git_history.json",
+      "git_history.json"
+    ],
+    "hotspot_risk_threshold": 6.0,
+    "large_module_line_threshold": 500,
+    "max_call_sites": 20000,
+    "max_facts": 5000,
+    "max_file_bytes": 1048576,
+    "max_files": 12000,
+    "max_hotspots": 50,
+    "max_metadata_file_bytes": 524288,
+    "max_metadata_files": 500,
+    "max_symbols": 20000,
+    "max_total_source_mb": 250,
+    "supported_extensions": [
+      ".py",
+      ".js",
+      ".jsx",
+      ".ts",
+      ".tsx",
+      ".java",
+      ".go",
+      ".rs",
+      ".c",
+      ".h",
+      ".cpp",
+      ".hpp",
+      ".cs",
+      ".rb",
+      ".php",
+      ".swift",
+      ".kt",
+      ".kts"
+    ]
+  },
+  "backpressure": {
+    "llm": {
+      "max_concurrent_calls": 1,
+      "min_interval_seconds": 0
+    }
   },
   "inputs": {
     "adapter": "mock",
     "payload": {
+      "analysis_focus": [
+        "module boundaries",
+        "change risk"
+      ],
       "input_folder": "",
-      "analysis_focus": ["module boundaries", "change risk"],
       "output_folder": "~/Downloads/software_architecture_advisor"
     }
   },
-  "outputs": {
-    "adapter": "local_run_store",
-    "run_root": "~/.mn/runs",
-    "write_run_store": true,
-    "folder_path": "~/Downloads/software_architecture_advisor",
-    "artifact_contract": "Read-only architecture assessment, evidence bundle, and copy-ready implementation prompts; no source changes."
+  "interfaces": {
+    "config": [
+      "identity",
+      "inputs",
+      "outputs",
+      "analysis",
+      "local_model",
+      "llm",
+      "resources",
+      "human_control",
+      "privacy",
+      "logging",
+      "memory_layer"
+    ],
+    "config_sections": [
+      "identity",
+      "inputs",
+      "outputs",
+      "analysis",
+      "local_model",
+      "llm",
+      "resources",
+      "human_control",
+      "privacy",
+      "logging",
+      "memory_layer"
+    ],
+    "output_adapters": [
+      "local_run_store"
+    ]
+  },
+  "llm": {
+    "agents": {
+      "architecture_advice_auditor": {
+        "responsibilities": [
+          "Check evidence references.",
+          "Check read-only posture.",
+          "Reject unsafe scope."
+        ]
+      },
+      "architecture_report_writer": {
+        "responsibilities": [
+          "Draft analytical narrative.",
+          "Preserve limits.",
+          "Write no source changes."
+        ],
+        "role": "Architecture Report Writer"
+      },
+      "architecture_reviewer": {
+        "responsibilities": [
+          "Prioritize change risk.",
+          "State limitations.",
+          "Avoid unsupported claims."
+        ],
+        "role": "Architecture Reviewer"
+      },
+      "codebase_mapper": {
+        "responsibilities": [
+          "Map static dependencies.",
+          "Record only evidence.",
+          "Keep runtime behavior unknown."
+        ]
+      },
+      "improvement_prompt_author": {
+        "responsibilities": [
+          "Draft scoped prompts.",
+          "Name acceptance criteria.",
+          "Require verification."
+        ],
+        "role": "Improvement Prompt Author"
+      },
+      "source_intake_analyst": {
+        "responsibilities": [
+          "Validate source provenance.",
+          "Reject ambiguous input.",
+          "Preserve air-gap limits."
+        ]
+      }
+    },
+    "responsibilities": [
+      "Read local evidence only.",
+      "Preserve uncertainty.",
+      "Generate advisory prompts without modifying code."
+    ]
+  },
+  "llm_analysis": {
+    "estimated_bytes_per_token": 3.0,
+    "persist_raw_prompts": false,
+    "persist_raw_source": false,
+    "persist_validated_outputs": true,
+    "required_stage_count": 8,
+    "token_safety_margin": 2048,
+    "validation_retries": 1
   },
   "local_inputs": {
     "folders": [
       {
+        "allowed_extensions": [
+          ".py",
+          ".js",
+          ".jsx",
+          ".ts",
+          ".tsx",
+          ".java",
+          ".go",
+          ".rs",
+          ".c",
+          ".h",
+          ".cpp",
+          ".hpp",
+          ".cs",
+          ".rb",
+          ".php",
+          ".swift",
+          ".kt",
+          ".kts",
+          ".md",
+          ".txt",
+          ".json",
+          ".yaml",
+          ".yml",
+          ".toml",
+          ".xml",
+          ".gradle",
+          ".properties",
+          ".lock",
+          ".sh",
+          ".sql",
+          ".tf",
+          ".hcl",
+          ".graphql"
+        ],
+        "allowed_file_names": [
+          "Dockerfile",
+          "Makefile",
+          "Procfile",
+          "Jenkinsfile",
+          "Gemfile",
+          "Rakefile",
+          "go.mod",
+          "go.sum",
+          "Cargo.toml",
+          "Cargo.lock"
+        ],
         "config_path": "inputs.payload.input_folder",
+        "linked_config_paths": [
+          "inputs.payload.input_folder"
+        ],
         "payload_path": "mn_local_inputs/software_architecture_advisor_source",
-        "runtime_path": "mn_local_inputs/software_architecture_advisor_source",
-        "allowed_extensions": [".py", ".js", ".jsx", ".ts", ".tsx", ".java", ".go", ".rs", ".c", ".h", ".cpp", ".hpp", ".cs", ".rb", ".php", ".swift", ".kt", ".kts", ".md", ".txt", ".json", ".yaml", ".yml", ".toml", ".xml", ".gradle", ".properties", ".lock", ".sh", ".sql", ".tf", ".hcl", ".graphql"],
-        "allowed_file_names": ["Dockerfile", "Makefile", "Procfile", "Jenkinsfile", "Gemfile", "Rakefile", "go.mod", "go.sum", "Cargo.toml", "Cargo.lock"],
-        "linked_config_paths": ["inputs.payload.input_folder"]
+        "runtime_path": "mn_local_inputs/software_architecture_advisor_source"
       }
     ]
   },
-  "analysis": {
-    "focus": ["module boundaries", "change risk"],
-    "max_files": 12000,
-    "max_total_source_mb": 250,
-    "max_file_bytes": 1048576,
-    "max_metadata_files": 500,
-    "max_metadata_file_bytes": 524288,
-    "max_symbols": 20000,
-    "max_call_sites": 20000,
-    "max_facts": 5000,
-    "max_hotspots": 50,
-    "large_module_line_threshold": 500,
-    "architecture_gravity_min_degree": 4,
-    "hotspot_risk_threshold": 6.0,
-    "history_evidence_files": ["architecture_git_history.json", "git_history.json"],
-    "excluded_directories": [".git", ".venv", "venv", "node_modules", "vendor", "dist", "build", "coverage", ".next", "target"],
-    "excluded_file_names": [".env", ".env.local", "id_rsa", "id_ed25519"],
-    "supported_extensions": [".py", ".js", ".jsx", ".ts", ".tsx", ".java", ".go", ".rs", ".c", ".h", ".cpp", ".hpp", ".cs", ".rb", ".php", ".swift", ".kt", ".kts"]
-  },
   "local_model": {
-    "required": true,
+    "api_base": "auto",
+    "minimum_context_tokens": 32768,
+    "minimum_host_memory_gb": 48,
+    "model": "medium",
+    "network": "loopback_only",
     "preinstalled_only": true,
     "provider": "docker_model_runner",
-    "model": "medium",
-    "api_base": "auto",
-    "minimum_host_memory_gb": 48,
-    "minimum_context_tokens": 32768,
-    "network": "loopback_only"
+    "required": true
   },
-  "llm": {
-    "enabled": true,
-    "mode": "live",
-    "mock_mode": "fake",
-    "require_live": true,
-    "strict_json": true,
-    "required_capabilities": ["structured_output", "thinking"],
-    "provider": "docker_model_runner",
-    "backend": "llama.cpp",
-    "model": "medium",
-    "runtime_model": "medium",
-    "context_size": 32768,
-    "default_config": "analysis",
-    "configs": {
-      "analysis": {"provider": "docker_model_runner", "backend": "llama.cpp", "model": "medium", "runtime_model": "medium", "api_base": "auto", "context_size": 32768, "timeout_seconds": 600, "max_tokens": 16000, "num_retries": 2, "retry_backoff_seconds": 1, "network": "loopback_only"},
-      "writing": {"provider": "docker_model_runner", "backend": "llama.cpp", "model": "medium", "runtime_model": "medium", "api_base": "auto", "context_size": 32768, "timeout_seconds": 600, "max_tokens": 7000, "num_retries": 2, "retry_backoff_seconds": 1, "network": "loopback_only"},
-      "audit": {"provider": "docker_model_runner", "backend": "llama.cpp", "model": "medium", "runtime_model": "medium", "api_base": "auto", "context_size": 32768, "timeout_seconds": 600, "max_tokens": 5000, "num_retries": 2, "retry_backoff_seconds": 1, "network": "loopback_only"}
-    },
-    "quick_test_uses_fake": true,
-    "responsibilities": ["Read local evidence only.", "Preserve uncertainty.", "Generate advisory prompts without modifying code."],
-    "agents": {
-      "source_intake_analyst": {"llm_config": "analysis", "role": "Read-only Source Intake Analyst", "responsibilities": ["Validate source provenance.", "Reject ambiguous input.", "Preserve air-gap limits."]},
-      "codebase_mapper": {"llm_config": "analysis", "role": "Architecture Graph Mapper", "responsibilities": ["Map static dependencies.", "Record only evidence.", "Keep runtime behavior unknown."]},
-      "architecture_reviewer": {"llm_config": "analysis", "role": "Architecture Reviewer", "responsibilities": ["Prioritize change risk.", "State limitations.", "Avoid unsupported claims."]},
-      "improvement_prompt_author": {"llm_config": "analysis", "role": "Improvement Prompt Author", "responsibilities": ["Draft scoped prompts.", "Name acceptance criteria.", "Require verification."]},
-      "architecture_advice_auditor": {"llm_config": "analysis", "role": "Architecture Advice Auditor", "responsibilities": ["Check evidence references.", "Check read-only posture.", "Reject unsafe scope."]},
-      "architecture_report_writer": {"llm_config": "analysis", "role": "Architecture Report Writer", "responsibilities": ["Draft analytical narrative.", "Preserve limits.", "Write no source changes."]},
-      "architecture_artifact_publisher": {"llm_config": "analysis", "role": "Deterministic Architecture Artifact Publisher", "responsibilities": ["Publish only after audit approval.", "Preserve exact deterministic facts and metrics.", "Never invoke the model or modify source code."]}
-    }
+  "logging": {
+    "events": [
+      "blueprint_status",
+      "blueprint_phase_started",
+      "blueprint_phase_completed",
+      "blueprint_phase_failed",
+      "artifact_written",
+      "human_notice",
+      "human_input_requested",
+      "human_input_received",
+      "human_input_timeout",
+      "human_decision_applied",
+      "source_snapshot_validated",
+      "architecture_graph_built",
+      "architecture_finding_created",
+      "improvement_prompt_authored"
+    ],
+    "events_jsonl": true,
+    "level": "INFO",
+    "logs_jsonl": true,
+    "redact_env_secrets": true,
+    "redact_fields": [
+      "token",
+      "password",
+      "private_key",
+      "api_key"
+    ],
+    "resources_jsonl": true
   },
-  "llm_analysis": {"required_stage_count": 8, "token_safety_margin": 2048, "estimated_bytes_per_token": 3.0, "validation_retries": 1, "persist_validated_outputs": true, "persist_raw_prompts": false, "persist_raw_source": false},
-  "source_packets": {"max_chars": 72000, "max_files": 14, "max_chars_per_file": 4000, "persist": false},
-  "research_budget": {"default_actions": 8},
-  "backpressure": {"llm": {"max_concurrent_calls": 1, "min_interval_seconds": 0}},
   "memory_layer": {
-    "enabled": true,
-    "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
+    "collection": "mn_memory",
+    "conversation": {
+      "agent_role": "otterdesk_chat",
+      "include_human_events": true,
+      "include_runtime_events": true,
+      "include_runtime_logs": true,
+      "target_tokens": 2400,
+      "token_budget": 6000,
+      "use_model_compression": false
+    },
     "conversation_enabled": true,
     "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
+    "enabled": true,
+    "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
     "namespace": "software_architecture_advisor_context",
-    "collection": "mn_memory",
-    "sdk_distribution": "mirrorneuron-membrane-python-sdk",
-    "sdk_import_package": "mn_context_engine_sdk",
     "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
     "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
-    "conversation": {"agent_role": "otterdesk_chat", "include_runtime_events": true, "include_runtime_logs": true, "include_human_events": true, "target_tokens": 2400, "token_budget": 6000, "use_model_compression": false}
+    "sdk_distribution": "mirrorneuron-membrane-python-sdk",
+    "sdk_import_package": "mn_context_engine_sdk"
   },
-  "privacy": {"default_classification": "confidential", "network": "forbidden"},
-  "airgap": {"network": "forbidden", "model_access": "local_runtime_only", "package_installation": "prepared_before_disconnection"},
-  "human_control": {"enabled": true, "mode": "notice_only", "notice_event": "human_notice", "requires_ack": false, "blocked_actions": ["modify_source_code", "execute_project_code", "network_egress"]},
-  "resources": {"enabled": true, "memory": {"min_gb": 48}, "gpu_enabled": "auto", "sample_interval_seconds": 10},
-  "logging": {"level": "INFO", "events_jsonl": true, "logs_jsonl": true, "resources_jsonl": true, "redact_env_secrets": true, "redact_fields": ["token", "password", "private_key", "api_key"], "events": ["blueprint_status", "blueprint_phase_started", "blueprint_phase_completed", "blueprint_phase_failed", "artifact_written", "human_notice", "human_input_requested", "human_input_received", "human_input_timeout", "human_decision_applied", "source_snapshot_validated", "architecture_graph_built", "architecture_finding_created", "improvement_prompt_authored"]},
-  "schemas": {"artifact_record": "mn.artifact.record.v1", "config": "mn.blueprint.config.v1", "events": "mn.blueprint.events.v1", "final_artifact": "mn.blueprint.final_artifact.v1", "human_control": "mn.blueprint.human_control.v1", "inputs": "mn.blueprint.inputs.v1", "logs": "mn.blueprint.logs.v1", "resources": "mn.blueprint.resources.v1", "status_contract": "mn.blueprint.status_contract.v1", "web_ui": "mn.blueprint.web_ui.v1"},
-  "interfaces": {"config": ["identity", "inputs", "outputs", "analysis", "local_model", "llm", "resources", "human_control", "privacy", "logging", "memory_layer"], "config_sections": ["identity", "inputs", "outputs", "analysis", "local_model", "llm", "resources", "human_control", "privacy", "logging", "memory_layer"], "input_adapters": ["mock", "json", "file", "env_json"], "output_adapters": ["local_run_store"]},
-  "web_ui": {"enabled": true, "dashboard": {"data_source": "local_run_store", "panels": ["current_status", "recent_events", "pending_human_requests", "output_artifacts", "resource_usage", "errors", "llm_calls", "token_budget", "llm_retries"], "standard_panels": ["current_status", "recent_events", "pending_human_requests", "output_artifacts", "resource_usage", "errors", "llm_calls", "token_budget", "llm_retries"], "reads": ["events.jsonl", "human.jsonl", "logs.jsonl", "resources.jsonl", "result.json", "final_artifact.json"]}},
-  "triggers": {"type": "manual", "schedule": null, "sources": []},
-  "suggested_schedule": {"cron": "0 8 * * 1", "cadence": "weekly", "advisory_only": true, "note": "Suggested cadence only; runtime decides the actual schedule."}
+  "metadata": {
+    "category": "engineering",
+    "description": "Software Architecture Advisor is a read-only, air-gapped software-architecture co-worker. Give it a local source folder; it maps structural evidence and writes an architecture assessment plus copy-ready, implementation-safe prompts to the output folder without changing source code."
+  },
+  "mode": "real",
+  "outputs": {
+    "adapter": "local_run_store",
+    "artifact_contract": "Read-only architecture assessment, evidence bundle, and copy-ready implementation prompts; no source changes.",
+    "folder_path": "~/Downloads/software_architecture_advisor",
+    "run_root": "~/.mn/runs",
+    "write_run_store": true
+  },
+  "privacy": {
+    "default_classification": "confidential",
+    "network": "forbidden"
+  },
+  "research_budget": {
+    "default_actions": 8
+  },
+  "resources": {
+    "enabled": true,
+    "gpu_enabled": "auto",
+    "sample_interval_seconds": 10
+  },
+  "schemas": {
+    "artifact_record": "mn.artifact.record.v1",
+    "config": "mn.blueprint.config.v1",
+    "events": "mn.blueprint.events.v1",
+    "final_artifact": "mn.blueprint.final_artifact.v1",
+    "human_control": "mn.blueprint.human_control.v1",
+    "inputs": "mn.blueprint.inputs.v1",
+    "logs": "mn.blueprint.logs.v1",
+    "resources": "mn.blueprint.resources.v1",
+    "status_contract": "mn.blueprint.status_contract.v1",
+    "web_ui": "mn.blueprint.web_ui.v1"
+  },
+  "source_packets": {
+    "max_chars": 72000,
+    "max_chars_per_file": 4000,
+    "max_files": 14,
+    "persist": false
+  },
+  "standard_version": "1.0",
+  "suggested_schedule": {
+    "advisory_only": true,
+    "cadence": "weekly",
+    "cron": "0 8 * * 1",
+    "note": "Suggested cadence only; runtime decides the actual schedule."
+  },
+  "triggers": {
+    "schedule": null,
+    "sources": [],
+    "type": "manual"
+  },
+  "web_ui": {
+    "dashboard": {
+      "data_source": "local_run_store",
+      "panels": [
+        "current_status",
+        "recent_events",
+        "pending_human_requests",
+        "output_artifacts",
+        "resource_usage",
+        "errors",
+        "llm_calls",
+        "token_budget",
+        "llm_retries"
+      ],
+      "reads": [
+        "events.jsonl",
+        "human.jsonl",
+        "logs.jsonl",
+        "resources.jsonl",
+        "result.json",
+        "final_artifact.json"
+      ],
+      "standard_panels": [
+        "current_status",
+        "recent_events",
+        "pending_human_requests",
+        "output_artifacts",
+        "resource_usage",
+        "errors",
+        "llm_calls",
+        "token_budget",
+        "llm_retries"
+      ]
+    },
+    "enabled": true
+  }
 }

@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from blueprint_modernization_support import blueprint_path
+from mn_sdk.blueprints import blueprint_definition, read_blueprint
 
 ROOT = Path(__file__).resolve().parents[1]
 GTM_PAYLOADS = ROOT / "gtm_ai_workflow" / "payloads"
@@ -24,7 +26,11 @@ def test_gtm_vendored_runtime_and_skill_copies_stay_identical():
         sorted(GTM_PAYLOADS.glob("*/_synaptic_skills/email_delivery.py")),
         sorted(GTM_PAYLOADS.glob("*/_synaptic_skills/marketing_email.py")),
         sorted(GTM_PAYLOADS.glob("*/mn_skills/mn_email_send_resend_skill/resend.py")),
-        sorted(GTM_PAYLOADS.glob("*/mn_skills/mn_email_receive_agentmail_skill/agentmail.py")),
+        sorted(
+            GTM_PAYLOADS.glob(
+                "*/mn_skills/mn_email_receive_agentmail_skill/agentmail.py"
+            )
+        ),
     ]
     for paths in duplicate_groups:
         if len(paths) < 2:
@@ -39,7 +45,9 @@ def test_sdk_llm_blueprints_do_not_depend_on_the_communication_skill():
         "legal_assistant",
         "research_assistant",
     ):
-        manifest = json.loads((ROOT / blueprint_id / "manifest.json").read_text())
+        manifest = blueprint_definition(
+            read_blueprint(blueprint_path(blueprint_id) / "manifest.json")
+        )
         packages = {
             str(item.get("name") or "")
             for item in manifest.get("skill_dependencies") or []
@@ -47,7 +55,9 @@ def test_sdk_llm_blueprints_do_not_depend_on_the_communication_skill():
         }
         assert "mirrorneuron-litellm-communicate-skill" not in packages
 
-    vc_manifest = json.loads((ROOT / "vc_assistant" / "manifest.json").read_text())
+    vc_manifest = blueprint_definition(
+        read_blueprint(ROOT.parent / "mn-blueprints" / "vc_assistant" / "manifest.json")
+    )
     vc_packages = {
         str(item.get("name") or "")
         for item in vc_manifest.get("skill_dependencies") or []
@@ -58,9 +68,11 @@ def test_sdk_llm_blueprints_do_not_depend_on_the_communication_skill():
 
 def test_vc_assistant_leaves_rag_and_ocr_model_specs_in_their_skills():
     forbidden_model_text = ("lightonocr", "jina-embeddings", "rag-embedding")
-    manifest_path = ROOT / "vc_assistant" / "manifest.json"
-    config_path = ROOT / "vc_assistant" / "config" / "default.json"
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest_path = ROOT.parent / "mn-blueprints" / "vc_assistant" / "manifest.json"
+    config_path = (
+        ROOT.parent / "mn-blueprints" / "vc_assistant" / "config" / "default.json"
+    )
+    manifest = blueprint_definition(read_blueprint(manifest_path))
     serialized = json.dumps(
         {
             "manifest": manifest,

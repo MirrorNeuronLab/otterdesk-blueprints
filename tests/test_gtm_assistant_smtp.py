@@ -6,9 +6,8 @@ import sys
 from pathlib import Path
 
 import pytest
-
+from mn_sdk.blueprints import blueprint_definition, read_blueprint
 from workspace_paths import companion_workspace
-
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKSPACE = companion_workspace(ROOT)
@@ -19,7 +18,9 @@ for source in sorted((WORKSPACE / "mn-skills").glob("*/src")):
 
 def _load_delivery():
     payloads = ROOT / "gtm_assistant" / "payloads"
-    for module_name in [name for name in sys.modules if name == "domain" or name.startswith("domain.")]:
+    for module_name in [
+        name for name in sys.modules if name == "domain" or name.startswith("domain.")
+    ]:
         sys.modules.pop(module_name)
     if str(payloads) not in sys.path:
         sys.path.insert(0, str(payloads))
@@ -56,8 +57,14 @@ def _interventions() -> list[dict]:
                 "subject": "A simple next step",
                 "preview_text": "A small continuation without pressure.",
                 "body_sections": [
-                    {"title": "What we noticed", "body": "Some customers found setup difficult."},
-                    {"title": "A small next step", "body": "Try one relevant next activity."},
+                    {
+                        "title": "What we noticed",
+                        "body": "Some customers found setup difficult.",
+                    },
+                    {
+                        "title": "A small next step",
+                        "body": "Try one relevant next activity.",
+                    },
                 ],
                 "cta_label": "Review the next activity",
                 "footer": "Draft only — do not send without approval.",
@@ -74,13 +81,19 @@ def _environment() -> dict[str, str]:
     }
 
 
-def test_development_delivery_sends_one_anonymized_message_to_the_injected_test_recipient(tmp_path):
+def test_development_delivery_sends_one_anonymized_message_to_the_injected_test_recipient(
+    tmp_path,
+):
     delivery = _load_delivery()
     calls = []
 
     def fake_sender(request, **kwargs):
         calls.append((request, kwargs))
-        return {"status": "sent", "provider": "smtp", "message_id": "<test@mirrorneuron.local>"}
+        return {
+            "status": "sent",
+            "provider": "smtp",
+            "message_id": "<test@mirrorneuron.local>",
+        }
 
     result = delivery.deliver_approved_development_email(
         _context(tmp_path),
@@ -103,7 +116,9 @@ def test_development_delivery_sends_one_anonymized_message_to_the_injected_test_
     assert request["text"].startswith("Development delivery test only.")
     assert "Hi there" in request["text"]
     assert "sender@example.invalid" not in repr(request)
-    assert "dev-recipient@example.invalid" not in (tmp_path / delivery.DELIVERY_RECEIPT_PATH).read_text(encoding="utf-8")
+    assert "dev-recipient@example.invalid" not in (
+        tmp_path / delivery.DELIVERY_RECEIPT_PATH
+    ).read_text(encoding="utf-8")
     assert options["allowed_hosts"] == ["smtp.mail.me.com"]
     assert options["settings"].security == "starttls"
 
@@ -114,12 +129,24 @@ def test_delivery_is_disabled_by_default_and_requires_explicit_approval(tmp_path
     def forbidden_sender(*_args, **_kwargs):
         raise AssertionError("SMTP must not be called")
 
-    assert delivery.deliver_approved_development_email(
-        _context(tmp_path, enabled=False), _interventions(), environment=_environment(), smtp_sender=forbidden_sender
-    )["reason"] == "smtp_delivery_disabled"
-    assert delivery.deliver_approved_development_email(
-        _context(tmp_path, approved=False), _interventions(), environment=_environment(), smtp_sender=forbidden_sender
-    )["reason"] == "explicit_approval_required"
+    assert (
+        delivery.deliver_approved_development_email(
+            _context(tmp_path, enabled=False),
+            _interventions(),
+            environment=_environment(),
+            smtp_sender=forbidden_sender,
+        )["reason"]
+        == "smtp_delivery_disabled"
+    )
+    assert (
+        delivery.deliver_approved_development_email(
+            _context(tmp_path, approved=False),
+            _interventions(),
+            environment=_environment(),
+            smtp_sender=forbidden_sender,
+        )["reason"]
+        == "explicit_approval_required"
+    )
 
 
 def test_enabled_delivery_creates_one_runtime_human_approval_request(tmp_path):
@@ -144,18 +171,26 @@ def test_enabled_delivery_creates_one_runtime_human_approval_request(tmp_path):
         "status": "pending",
     }
     assert second is None
-    events = [json.loads(line) for line in (run_dir / "human.jsonl").read_text(encoding="utf-8").splitlines()]
+    events = [
+        json.loads(line)
+        for line in (run_dir / "human.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
     assert len(events) == 1
 
     with (run_dir / "human.jsonl").open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps({
-            "type": "human_input_received",
-            "payload": {
-                "request_id": f"gtm-development-email:{run_id}",
-                "decision": "approve",
-                "approved": True,
-            },
-        }) + "\n")
+        handle.write(
+            json.dumps(
+                {
+                    "type": "human_input_received",
+                    "payload": {
+                        "request_id": f"gtm-development-email:{run_id}",
+                        "decision": "approve",
+                        "approved": True,
+                    },
+                }
+            )
+            + "\n"
+        )
 
     assert delivery.development_email_approval_response(context)["approved"] is True
 
@@ -169,8 +204,18 @@ def test_delivery_replay_does_not_open_a_second_smtp_transaction(tmp_path):
         calls += 1
         return {"status": "sent", "message_id": "<stable@mirrorneuron.local>"}
 
-    first = delivery.deliver_approved_development_email(_context(tmp_path), _interventions(), environment=_environment(), smtp_sender=fake_sender)
-    second = delivery.deliver_approved_development_email(_context(tmp_path), _interventions(), environment=_environment(), smtp_sender=fake_sender)
+    first = delivery.deliver_approved_development_email(
+        _context(tmp_path),
+        _interventions(),
+        environment=_environment(),
+        smtp_sender=fake_sender,
+    )
+    second = delivery.deliver_approved_development_email(
+        _context(tmp_path),
+        _interventions(),
+        environment=_environment(),
+        smtp_sender=fake_sender,
+    )
 
     assert first["status"] == "sent"
     assert second["status"] == "already_sent"
@@ -178,8 +223,12 @@ def test_delivery_replay_does_not_open_a_second_smtp_transaction(tmp_path):
 
 
 def test_default_config_keeps_smtp_disabled_without_live_identity_or_secret():
-    config_text = (ROOT / "gtm_assistant" / "config" / "default.json").read_text(encoding="utf-8")
-    manifest_text = (ROOT / "gtm_assistant" / "manifest.json").read_text(encoding="utf-8")
+    config_text = (ROOT / "gtm_assistant" / "config" / "default.json").read_text(
+        encoding="utf-8"
+    )
+    manifest_text = (ROOT / "gtm_assistant" / "manifest.json").read_text(
+        encoding="utf-8"
+    )
     config = json.loads(config_text)
 
     assert config["smtp_delivery"]["enabled"] is False
@@ -199,7 +248,9 @@ def test_default_config_keeps_smtp_disabled_without_live_identity_or_secret():
 
 
 def test_manifest_declares_separate_otterdesk_smtp_fields_without_live_values():
-    manifest = json.loads((ROOT / "gtm_assistant" / "manifest.json").read_text(encoding="utf-8"))
+    manifest = blueprint_definition(
+        read_blueprint(ROOT / "gtm_assistant" / "manifest.json")
+    )
     review = manifest["metadata"]["init_config_review"]
     fields = {field["path"]: field for field in review["fields"]}
 
@@ -208,7 +259,10 @@ def test_manifest_declares_separate_otterdesk_smtp_fields_without_live_values():
     assert fields["smtp_delivery.host"]["default"] == "smtp.mail.me.com"
     assert fields["smtp_delivery.port"]["default"] == "587"
     assert fields["smtp_delivery.security"]["default"] == "starttls"
-    assert fields["smtp_credentials.username"]["environment_variable"] == "MN_SMTP_USERNAME"
+    assert (
+        fields["smtp_credentials.username"]["environment_variable"]
+        == "MN_SMTP_USERNAME"
+    )
     assert fields["smtp_credentials.app_password"] == {
         "path": "smtp_credentials.app_password",
         "label": "App-Specific Password",
@@ -223,13 +277,18 @@ def test_manifest_declares_separate_otterdesk_smtp_fields_without_live_values():
         "environment_variable": "MN_SMTP_PASSWORD",
         "description": "An Apple app-specific password. It is encrypted in the OS credential store and never saved in the co-worker registry or configuration JSON.",
     }
-    assert fields["smtp_credentials.development_recipient"]["environment_variable"] == "MN_SMTP_DEV_RECIPIENT"
+    assert (
+        fields["smtp_credentials.development_recipient"]["environment_variable"]
+        == "MN_SMTP_DEV_RECIPIENT"
+    )
     assert fields["reply_monitoring.enabled"]["default"] is False
     assert fields["inputs.payload.email_send_approval.approved"]["default"] is False
 
 
 def test_response_service_is_definition_scoped_and_not_a_run_node():
-    manifest = json.loads((ROOT / "gtm_assistant" / "manifest.json").read_text(encoding="utf-8"))
+    manifest = blueprint_definition(
+        read_blueprint(ROOT / "gtm_assistant" / "manifest.json")
+    )
 
     assert manifest["response_service"] == {"enabled": True}
     assert "mcp_collaboration" not in manifest
@@ -244,4 +303,6 @@ def test_delivery_rejects_more_than_one_message_per_run(tmp_path):
     context["config"]["smtp_delivery"]["max_messages_per_run"] = 2
 
     with pytest.raises(RuntimeError, match="limited to one message"):
-        delivery.deliver_approved_development_email(context, _interventions(), environment=_environment())
+        delivery.deliver_approved_development_email(
+            context, _interventions(), environment=_environment()
+        )

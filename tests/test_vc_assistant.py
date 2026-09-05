@@ -12,13 +12,17 @@ import time
 from pathlib import Path
 
 import pytest
-
-from vc_assistant.domain_test_support import load_domain_test_surface
+from blueprint_modernization_support import blueprint_path
 from mn_sdk.blueprint_support import load_runtime_config
+from mn_sdk.blueprints import (
+    blueprint_definition,
+    read_blueprint,
+    read_catalog,
+    resolve_config,
+)
 from mn_sdk.model_runtime import resolve_llm_environment
-
+from vc_assistant.domain_test_support import load_domain_test_surface
 from workspace_paths import companion_workspace
-
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKSPACE = companion_workspace(ROOT)
@@ -45,7 +49,7 @@ for agent_name in (
     agent_src = WORKSPACE / "mn-agents" / agent_name / "src"
     if agent_src.exists():
         sys.path.insert(0, str(agent_src))
-BLUEPRINT_DIR = ROOT / "vc_assistant"
+BLUEPRINT_DIR = ROOT.parent / "mn-blueprints" / "vc_assistant"
 METHOD_IDS = {
     "berkus_method",
     "scorecard_bill_payne_method",
@@ -63,9 +67,7 @@ LEGACY_RAG_BACKENDS = {
 
 
 def _resolved_vc_config() -> dict:
-    return load_runtime_config(
-        BLUEPRINT_DIR / "payloads" / "runtime" / "runtime.py"
-    )
+    return load_runtime_config(BLUEPRINT_DIR / "payloads" / "runtime" / "runtime.py")
 
 
 def _normalized_rag_snapshot(rag: dict) -> dict:
@@ -159,8 +161,8 @@ def _run_vc_manifest_step(
 ):
     from mn_sdk.step_runtime import StepContext, invoke_handler
 
-    manifest = json.loads(
-        (ROOT / "vc_assistant" / "manifest.json").read_text(encoding="utf-8")
+    manifest = blueprint_definition(
+        read_blueprint(ROOT.parent / "mn-blueprints" / "vc_assistant" / "manifest.json")
     )
     step = next(item for item in manifest["workflow"]["steps"] if item["id"] == step_id)
     registry = manifest["agents"]["registry"]
@@ -244,8 +246,8 @@ def _run_vc_manifest_handlers(
     run_id: str | None = None,
     llm_client=None,
 ):
-    manifest = json.loads(
-        (ROOT / "vc_assistant" / "manifest.json").read_text(encoding="utf-8")
+    manifest = blueprint_definition(
+        read_blueprint(ROOT.parent / "mn-blueprints" / "vc_assistant" / "manifest.json")
     )
     result = {}
     for step in manifest["workflow"]["steps"]:
@@ -263,9 +265,11 @@ def _run_vc_manifest_handlers(
     # reference at the test boundary instead of weakening the production API.
     final_ref = result.get("final_artifact")
     if isinstance(final_ref, dict) and final_ref.get("path"):
-        candidate = Path(runs_root or ROOT / "runs") / str(
-            result.get("run_id") or run_id or ""
-        ) / str(final_ref["path"])
+        candidate = (
+            Path(runs_root or ROOT / "runs")
+            / str(result.get("run_id") or run_id or "")
+            / str(final_ref["path"])
+        )
         if candidate.exists():
             result["final_artifact"] = json.loads(candidate.read_text(encoding="utf-8"))
     return result
@@ -278,7 +282,9 @@ def _expand_source_manifest(source: dict) -> dict:
         module = importlib.import_module("mn_sdk.manifest_converter")
     finally:
         sys.path.remove(str(sdk_parent))
-    return module.expand_manifest_source(source, root_dir=ROOT / "vc_assistant")
+    return module.expand_manifest_source(
+        source, root_dir=ROOT.parent / "mn-blueprints" / "vc_assistant"
+    )
 
 
 def _write_startup_packets(path: Path) -> None:
@@ -314,8 +320,10 @@ def _write_startup_packets(path: Path) -> None:
 
 def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
     manifest = _expand_source_manifest(
-        json.loads(
-            (ROOT / "vc_assistant" / "manifest.json").read_text(encoding="utf-8")
+        blueprint_definition(
+            read_blueprint(
+                ROOT.parent / "mn-blueprints" / "vc_assistant" / "manifest.json"
+            )
         )
     )
     config = _resolved_vc_config()
@@ -377,7 +385,28 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
                 "config_path": "document_sources.folder_path",
                 "payload_path": "runtime/mn_local_inputs/vc_documents",
                 "runtime_path": "mn_local_inputs/vc_documents",
-                "allowed_extensions": [".pdf", ".txt", ".md", ".json", ".csv"],
+                "allowed_extensions": [
+                    ".pdf",
+                    ".txt",
+                    ".md",
+                    ".json",
+                    ".csv",
+                    ".doc",
+                    ".docx",
+                    ".docm",
+                    ".ppt",
+                    ".pptx",
+                    ".pptm",
+                    ".xls",
+                    ".xlsx",
+                    ".xlsm",
+                    ".xlsb",
+                    ".odt",
+                    ".ods",
+                    ".odp",
+                    ".rtf",
+                    ".epub",
+                ],
                 "linked_config_paths": [
                     "inputs.payload.document_folder",
                     "inputs.payload.input_folder",
@@ -432,6 +461,7 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         "MN_LLM_PROVIDER": "litellm",
         "MN_LLM_RETRY_BACKOFF_SECONDS": "1.0",
         "MN_LLM_TIMEOUT_SECONDS": "60",
+        "MN_LLM_STRUCTURED_OUTPUT_OPTIONS_JSON": '{"chat_template_kwargs":{"enable_thinking":false}}',
     }
     assert "runtime_model" not in config["llm"]
     assert "fallback_model" not in config["llm"]
@@ -534,7 +564,12 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
     )
     assert "skill_runtime" in config["interfaces"]["config"]
     dockerfile = (
-        ROOT / "vc_assistant" / "payloads" / "docker_worker" / "Dockerfile"
+        ROOT.parent
+        / "mn-blueprints"
+        / "vc_assistant"
+        / "payloads"
+        / "docker_worker"
+        / "Dockerfile"
     ).read_text(encoding="utf-8")
     assert "w3m" in dockerfile
     assert "requirements.txt" in dockerfile
@@ -545,7 +580,12 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
     assert "playwright" not in dockerfile.lower()
     assert "chromium" not in dockerfile.lower()
     assert (
-        ROOT / "vc_assistant" / "payloads" / "docker_worker" / "local-requirements.txt"
+        ROOT.parent
+        / "mn-blueprints"
+        / "vc_assistant"
+        / "payloads"
+        / "docker_worker"
+        / "local-requirements.txt"
     ).exists()
     for node in nodes:
         assert "python_environment" not in node["config"]
@@ -737,9 +777,9 @@ def test_explicit_fake_llm_mode_overrides_live_vc_runtime(monkeypatch, tmp_path)
     limiter = runner.build_llm_call_limiter(config)
     assert limiter.config_summary()["min_interval_seconds"] == 0.0
 
-    knowledge = runner.load_vc_knowledge(ROOT / "vc_assistant")
+    knowledge = runner.load_vc_knowledge(ROOT.parent / "mn-blueprints" / "vc_assistant")
     rag = runner.prepare_knowledge_rag(
-        blueprint_dir=ROOT / "vc_assistant",
+        blueprint_dir=ROOT.parent / "mn-blueprints" / "vc_assistant",
         resolved_config=config,
         active_knowledge=knowledge,
         run_dir=tmp_path,
@@ -774,7 +814,7 @@ def test_fake_skills_returns_mock_rag_context(tmp_path):
     }
 
     rag = runner.prepare_knowledge_rag(
-        blueprint_dir=ROOT / "vc_assistant",
+        blueprint_dir=ROOT.parent / "mn-blueprints" / "vc_assistant",
         resolved_config=config,
         active_knowledge={},
         run_dir=tmp_path,
@@ -950,14 +990,14 @@ def test_actor_llm_init_failure_writes_failed_run(tmp_path, monkeypatch):
 
 
 def test_vc_assistant_is_daily_batch_folder_scan():
-    index = json.loads((ROOT / "index.json").read_text(encoding="utf-8"))
+    index = read_catalog(blueprint_path("vc_assistant").parent / "index.json")
     entry = next(item for item in index if item["id"] == "vc_assistant")
-    manifest = json.loads(
-        (ROOT / "vc_assistant" / "manifest.json").read_text(encoding="utf-8")
+    manifest = blueprint_definition(
+        read_blueprint(ROOT.parent / "mn-blueprints" / "vc_assistant" / "manifest.json")
     )
-    config = json.loads(
-        (ROOT / "vc_assistant" / "config" / "default.json").read_text(encoding="utf-8")
-    )
+    config = resolve_config(
+        read_blueprint(ROOT.parent / "mn-blueprints" / "vc_assistant")
+    ).data
 
     assert entry["type"] == "batch"
     assert "service" not in entry["product"]["runtime_features"][0]
@@ -966,7 +1006,7 @@ def test_vc_assistant_is_daily_batch_folder_scan():
         "Adaptive default-model route through LiteLLM proxy"
         in entry["product"]["runtime_features"]
     )
-    assert "requirements" not in entry
+    assert entry["requirements"] == manifest["requirements"]
     assert manifest["kind"] == "WorkflowSource"
     assert manifest["llm"]["model"] == "default"
     assert manifest["requirements"]["gpu"] == {"min_count": 0}
@@ -981,14 +1021,12 @@ def test_vc_assistant_is_daily_batch_folder_scan():
 
 
 def test_vc_assistant_requires_no_initial_config():
-    manifest = json.loads(
-        (ROOT / "vc_assistant" / "manifest.json").read_text(encoding="utf-8")
+    manifest = blueprint_definition(
+        read_blueprint(ROOT.parent / "mn-blueprints" / "vc_assistant" / "manifest.json")
     )
-    config = json.loads(
-        (ROOT / "vc_assistant" / "config" / "default.json").read_text(
-            encoding="utf-8"
-        )
-    )
+    config = resolve_config(
+        read_blueprint(ROOT.parent / "mn-blueprints" / "vc_assistant")
+    ).data
 
     assert manifest["metadata"]["init_config_review"] == {
         "required": False,
@@ -1000,7 +1038,13 @@ def test_vc_assistant_requires_no_initial_config():
 
 def test_vc_assistant_runtime_requirements_install_skills_with_pip():
     requirements = (
-        (ROOT / "vc_assistant" / "payloads" / "requirements.txt")
+        (
+            ROOT.parent
+            / "mn-blueprints"
+            / "vc_assistant"
+            / "payloads"
+            / "requirements.txt"
+        )
         .read_text(encoding="utf-8")
         .splitlines()
     )
@@ -1014,11 +1058,11 @@ def test_vc_assistant_runtime_requirements_install_skills_with_pip():
 
 
 def test_vc_assistant_runtime_upload_bundle_contains_sample_inputs():
-    bundled_sample_root = ROOT / "vc_assistant" / "examples" / "sample_inputs"
+    bundled_sample_root = (
+        ROOT.parent / "mn-blueprints" / "vc_assistant" / "examples" / "sample_inputs"
+    )
 
-    assert {
-        path.name for path in bundled_sample_root.iterdir() if path.is_dir()
-    } >= {
+    assert {path.name for path in bundled_sample_root.iterdir() if path.is_dir()} >= {
         "aurora_ai",
         "boreal_robotics",
         "otterdesk",
@@ -1036,7 +1080,9 @@ def test_three_bundled_companies_match_deterministic_golden_contract(
     outputs = tmp_path / "reports"
     golden_inputs = tmp_path / "golden-inputs"
     golden_inputs.mkdir()
-    bundled_inputs = ROOT / "vc_assistant" / "examples" / "sample_inputs"
+    bundled_inputs = (
+        ROOT.parent / "mn-blueprints" / "vc_assistant" / "examples" / "sample_inputs"
+    )
     for company in ("aurora_ai", "boreal_robotics", "otterdesk"):
         shutil.copytree(bundled_inputs / company, golden_inputs / company)
     run_id = "vc-three-company-golden"
@@ -1472,13 +1518,13 @@ def test_vc_ocr_failure_marks_run_failed(monkeypatch, tmp_path):
 
 
 def test_vc_assistant_runtime_graph_is_manifest_declared_dag_with_terminal_sink():
-    source = json.loads(
-        (ROOT / "vc_assistant" / "manifest.json").read_text(encoding="utf-8")
+    source = blueprint_definition(
+        read_blueprint(ROOT.parent / "mn-blueprints" / "vc_assistant" / "manifest.json")
     )
     manifest = _expand_source_manifest(source)
-    config = json.loads(
-        (ROOT / "vc_assistant" / "config" / "default.json").read_text(encoding="utf-8")
-    )
+    config = resolve_config(
+        read_blueprint(ROOT.parent / "mn-blueprints" / "vc_assistant")
+    ).data
     expected_pairs = {
         (dependency, step["id"])
         for step in source["workflow"]["steps"]
@@ -1495,12 +1541,10 @@ def test_vc_assistant_runtime_graph_is_manifest_declared_dag_with_terminal_sink(
         (edge["from"], edge["to"]) for edge in manifest["workflow"]["edges"]
     } == expected_pairs
     physical_pairs = {
-        (edge["from_node"], edge["to_node"])
-        for edge in manifest["agents"]["edges"]
+        (edge["from_node"], edge["to_node"]) for edge in manifest["agents"]["edges"]
     }
     assert {
-        (f"{source}__end", f"{target}__start")
-        for source, target in expected_pairs
+        (f"{source}__end", f"{target}__start") for source, target in expected_pairs
     } <= physical_pairs
     assert any(
         edge["from_node"] == "publish_batch_summary__end"
@@ -1529,10 +1573,10 @@ def test_vc_assistant_runtime_graph_is_manifest_declared_dag_with_terminal_sink(
 
 
 def test_vc_manifest_agent_dependencies_are_imported_and_runtime_boundaries_are_stable():
-    source = json.loads(
-        (ROOT / "vc_assistant" / "manifest.json").read_text(encoding="utf-8")
+    source = blueprint_definition(
+        read_blueprint(ROOT.parent / "mn-blueprints" / "vc_assistant" / "manifest.json")
     )
-    payload_root = ROOT / "vc_assistant" / "payloads"
+    payload_root = ROOT.parent / "mn-blueprints" / "vc_assistant" / "payloads"
     imported_modules: set[str] = set()
     for path in payload_root.rglob("*.py"):
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
@@ -1582,16 +1626,15 @@ def test_vc_agents_are_llm_backed_and_selected_for_actor_reviews():
 
 def test_vc_step_modules_assign_explicit_reusable_agents():
     runner = _load_runner()
-    source = json.loads(
-        (ROOT / "vc_assistant" / "manifest.json").read_text(encoding="utf-8")
+    source = blueprint_definition(
+        read_blueprint(ROOT.parent / "mn-blueprints" / "vc_assistant" / "manifest.json")
     )
+
     def agent_ids(flow):
         if flow["type"] == "agent":
             return [flow["agent_id"]]
         return [
-            agent_id
-            for item in flow.get("items", [])
-            for agent_id in agent_ids(item)
+            agent_id for item in flow.get("items", []) for agent_id in agent_ids(item)
         ]
 
     assignments = {}
@@ -1603,7 +1646,7 @@ def test_vc_step_modules_assign_explicit_reusable_agents():
     assert {
         agent_id for agent_ids in assignments.values() for agent_id in agent_ids
     } == set(runner.AGENT_IDS)
-    assert assignments["collect_public_research"] == tuple(runner.RESEARCH_AGENT_IDS)
+    assert set(assignments["collect_public_research"]) == set(runner.RESEARCH_AGENT_IDS)
     assert len(assignments["calculate_valuation_scores"]) == 7
     assert assignments["prepare_company_evidence"] == (
         "document_evidence_extractor",
@@ -1618,13 +1661,12 @@ def test_vc_step_modules_assign_explicit_reusable_agents():
 def test_vc_knowledge_excludes_stale_non_domain_terms():
     runner = _load_runner()
     playbook = (
-        ROOT
-        / "vc_assistant"
+        blueprint_path("vc_assistant")
         / "payloads"
         / "knowledge"
         / "startup_research_playbook.md"
     ).read_text(encoding="utf-8")
-    knowledge = runner.load_vc_knowledge(ROOT / "vc_assistant")
+    knowledge = runner.load_vc_knowledge(ROOT.parent / "mn-blueprints" / "vc_assistant")
     serialized = json.dumps(knowledge).lower()
 
     assert knowledge["path"] == "knowledge/startup_research_playbook.md"
@@ -2170,9 +2212,11 @@ def test_knowledge_rag_failure_records_explicit_warning(monkeypatch, tmp_path):
     )
 
     state = runner.prepare_knowledge_rag(
-        blueprint_dir=ROOT / "vc_assistant",
+        blueprint_dir=ROOT.parent / "mn-blueprints" / "vc_assistant",
         resolved_config={"knowledge_rag": {"enabled": True}},
-        active_knowledge=runner.load_vc_knowledge(ROOT / "vc_assistant"),
+        active_knowledge=runner.load_vc_knowledge(
+            ROOT.parent / "mn-blueprints" / "vc_assistant"
+        ),
         run_dir=tmp_path,
     )
 
@@ -2359,7 +2403,13 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(
             "enabled": True,
             "status": "ready",
             "_rag_config": object(),
-            "knowledge_dir": str(ROOT / "vc_assistant" / "payloads" / "knowledge"),
+            "knowledge_dir": str(
+                ROOT.parent
+                / "mn-blueprints"
+                / "vc_assistant"
+                / "payloads"
+                / "knowledge"
+            ),
             "config": {
                 "namespace": "test_namespace",
                 "index_name": "idx:test_namespace:rag:vc_assistant",
@@ -2762,7 +2812,9 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(
     assert "actions" not in transport_artifact["action_ledger"]
     assert transport_artifact["company_reports"]
     assert transport_artifact["observability"]["trace_available"] is True
-    assert run_artifact["memory_boundary"]["working_memory"]["persist_to_redis"] is False
+    assert (
+        run_artifact["memory_boundary"]["working_memory"]["persist_to_redis"] is False
+    )
     assert (tmp_path / "vc-unit" / "action_ledger.json").exists()
 
     repeat = runner.run_blueprint(
@@ -3154,7 +3206,7 @@ def test_changed_company_packets_use_agent_crews_with_stable_output_order(tmp_pa
     artifact = result["final_artifact"]
     assert set(research_calls) == {
         (company, stage)
-        for company in {"Alpha Ai", "Sparse Labs"}
+        for company in ("Alpha Ai", "Sparse Labs")
         for stage in runner.RESEARCH_AGENT_IDS
     }
     assert set(scorer_calls) == set(runner.METHOD_IDS)

@@ -12,6 +12,7 @@ from blueprint_modernization_support import (
 )
 from mn_sdk import expand_manifest_source
 from mn_sdk.blueprint_support import configured_llm_environment
+from mn_sdk.blueprints import read_blueprint, resolve_config
 from mn_sdk.submission_preparation import (
     prepare_manifest_for_submission,
     stage_local_input_payloads_for_manifest,
@@ -44,17 +45,19 @@ def _write_architecture_fixture(root: Path) -> Path:
 
 def test_software_architecture_advisor_is_air_gapped_and_requires_a_large_local_model():
     manifest = source_manifest("software_architecture_advisor")
-    config = json.loads((ROOT / "software_architecture_advisor" / "config" / "default.json").read_text())
+    config = resolve_config(read_blueprint(ROOT / "software_architecture_advisor")).data
 
     assert manifest["air-gapped"] is True
     assert manifest["contracts"]["inputs"]["input_folder"]["required"] is True
-    assert manifest["manifest"]["input_validation"] == {
+    assert manifest["input_validation"] == {
         "required": ["input_folder"],
         "rules": [],
     }
     assert manifest["requirements"]["memory"]["min_gb"] == 48
     assert manifest["requirements"]["network"]["egress"] == "forbidden"
-    assert config["outputs"]["folder_path"] == "~/Downloads/software_architecture_advisor"
+    assert (
+        config["outputs"]["folder_path"] == "~/Downloads/software_architecture_advisor"
+    )
     assert config["inputs"]["payload"]["input_folder"] == ""
     assert set(manifest["contracts"]["inputs"]) == {
         "input_folder",
@@ -125,8 +128,53 @@ def test_software_architecture_advisor_is_air_gapped_and_requires_a_large_local_
                 "config_path": "inputs.payload.input_folder",
                 "payload_path": "mn_local_inputs/software_architecture_advisor_source",
                 "runtime_path": "mn_local_inputs/software_architecture_advisor_source",
-                "allowed_extensions": [".py", ".js", ".jsx", ".ts", ".tsx", ".java", ".go", ".rs", ".c", ".h", ".cpp", ".hpp", ".cs", ".rb", ".php", ".swift", ".kt", ".kts", ".md", ".txt", ".json", ".yaml", ".yml", ".toml", ".xml", ".gradle", ".properties", ".lock", ".sh", ".sql", ".tf", ".hcl", ".graphql"],
-                "allowed_file_names": ["Dockerfile", "Makefile", "Procfile", "Jenkinsfile", "Gemfile", "Rakefile", "go.mod", "go.sum", "Cargo.toml", "Cargo.lock"],
+                "allowed_extensions": [
+                    ".py",
+                    ".js",
+                    ".jsx",
+                    ".ts",
+                    ".tsx",
+                    ".java",
+                    ".go",
+                    ".rs",
+                    ".c",
+                    ".h",
+                    ".cpp",
+                    ".hpp",
+                    ".cs",
+                    ".rb",
+                    ".php",
+                    ".swift",
+                    ".kt",
+                    ".kts",
+                    ".md",
+                    ".txt",
+                    ".json",
+                    ".yaml",
+                    ".yml",
+                    ".toml",
+                    ".xml",
+                    ".gradle",
+                    ".properties",
+                    ".lock",
+                    ".sh",
+                    ".sql",
+                    ".tf",
+                    ".hcl",
+                    ".graphql",
+                ],
+                "allowed_file_names": [
+                    "Dockerfile",
+                    "Makefile",
+                    "Procfile",
+                    "Jenkinsfile",
+                    "Gemfile",
+                    "Rakefile",
+                    "go.mod",
+                    "go.sum",
+                    "Cargo.toml",
+                    "Cargo.lock",
+                ],
                 "linked_config_paths": ["inputs.payload.input_folder"],
             }
         ]
@@ -146,7 +194,7 @@ def test_software_architecture_advisor_bundles_no_external_repository_reference(
 def test_software_architecture_advisor_compacts_prompts_to_the_model_token_budget():
     result = run_payload_script(
         "software_architecture_advisor",
-        '''
+        """
 import json
 from domain.model_analysis import _prepare_budgeted_prompt
 
@@ -224,7 +272,7 @@ print(json.dumps({
     "optional_facts_reduced": len(structured_fitted["facts"]) < len(structured_context["facts"]),
     "overflow_failed_before_call": "estimated" in overflow_error and "budget" in overflow_error,
 }))
-''',
+""",
     )
     assert result == {
         "compacted": True,
@@ -245,7 +293,7 @@ print(json.dumps({
 def test_software_architecture_advisor_keeps_grounded_cross_cutting_items_and_drops_bad_references():
     result = run_payload_script(
         "software_architecture_advisor",
-        '''
+        """
 import json
 from domain.mapping import _validate_cross_cutting
 
@@ -277,7 +325,7 @@ print(json.dumps(_validate_cross_cutting(
     fact_ids={"F0001"},
     paths={"sample_app/api.py"},
 )))
-''',
+""",
     )
     assert result["summary"] == "Only supplied evidence is retained."
     assert result["flows"] == [
@@ -295,7 +343,7 @@ print(json.dumps(_validate_cross_cutting(
 def test_software_architecture_advisor_keeps_grounded_components_and_drops_bad_references():
     result = run_payload_script(
         "software_architecture_advisor",
-        '''
+        """
 import json
 from domain.mapping import _validate_component_map
 
@@ -337,7 +385,7 @@ print(json.dumps(_validate_component_map(
     fact_ids={"F0001"},
     paths={"sample_app/api.py"},
 )))
-''',
+""",
     )
     assert [item["component_id"] for item in result["components"]] == ["api"]
     assert [item["path"] for item in result["entrypoints"]] == ["sample_app/api.py"]
@@ -346,7 +394,7 @@ print(json.dumps(_validate_component_map(
 
     baseline = run_payload_script(
         "software_architecture_advisor",
-        '''
+        """
 import json
 from domain.mapping import _validate_component_map
 
@@ -379,9 +427,11 @@ print(json.dumps(_validate_component_map(
         "fact_ids": ["F0001"],
     }],
 )))
-''',
+""",
     )
-    assert [item["component_id"] for item in baseline["components"]] == ["repository-root"]
+    assert [item["component_id"] for item in baseline["components"]] == [
+        "repository-root"
+    ]
     assert [item["path"] for item in baseline["entrypoints"]] == ["sample_app/api.py"]
 
 
@@ -406,12 +456,21 @@ def test_software_architecture_advisor_declares_explicit_draft_audit_publish_pha
     assert steps[-3]["needs"] == ["author_implementation_prompts"]
     assert steps[-2]["needs"] == ["draft_architecture_report"]
     assert steps[-1]["needs"] == ["audit_architecture_advice"]
-    assert manifest["agents"]["registry"]["architecture_artifact_publisher"]["handler"] == "agents.architecture_artifact_publisher"
+    assert (
+        manifest["agents"]["registry"]["architecture_artifact_publisher"]["handler"]
+        == "agents.architecture_artifact_publisher"
+    )
 
 
 def test_software_architecture_advisor_includes_a_docker_worker_build_context():
     payloads = ROOT / "software_architecture_advisor" / "payloads"
-    dockerfile = ROOT / "software_architecture_advisor" / "payloads" / "docker_worker" / "Dockerfile"
+    dockerfile = (
+        ROOT
+        / "software_architecture_advisor"
+        / "payloads"
+        / "docker_worker"
+        / "Dockerfile"
+    )
 
     text = dockerfile.read_text()
     assert "COPY requirements.txt" in text
@@ -420,30 +479,50 @@ def test_software_architecture_advisor_includes_a_docker_worker_build_context():
     assert (payloads / "prompts" / "architecture-review-system.md").is_file()
     assert (payloads / "knowledge" / "static-analysis-limits.md").is_file()
 
-    manifest = expand_manifest_source(source_manifest("software_architecture_advisor"), root_dir=ROOT / "software_architecture_advisor")
+    manifest = expand_manifest_source(
+        source_manifest("software_architecture_advisor"),
+        root_dir=ROOT / "software_architecture_advisor",
+    )
     workers = [
-        node for node in manifest["agents"]["nodes"]
-        if (node.get("config") or {}).get("runner_module") == "MirrorNeuron.Runner.DockerWorker"
+        node
+        for node in manifest["agents"]["nodes"]
+        if (node.get("config") or {}).get("runner_module")
+        == "MirrorNeuron.Runner.DockerWorker"
     ]
     assert workers
     payload_upload_sources = {
         str(item["source"])
         for node in workers
         for item in node["config"].get("upload_paths") or []
-        if isinstance(item, dict) and item.get("source") in {
-            "agents", "domain", "examples", "knowledge", "prompts", "runtime", "steps"
-        }
+        if isinstance(item, dict)
+        and item.get("source")
+        in {"agents", "domain", "examples", "knowledge", "prompts", "runtime", "steps"}
     }
     assert payload_upload_sources == {
-        "agents", "domain", "examples", "knowledge", "prompts", "runtime", "steps"
+        "agents",
+        "domain",
+        "examples",
+        "knowledge",
+        "prompts",
+        "runtime",
+        "steps",
     }
     assert all(
-        ((ROOT / "software_architecture_advisor" if source == "examples" else payloads) / source).is_dir()
+        (
+            (
+                ROOT / "software_architecture_advisor"
+                if source == "examples"
+                else payloads
+            )
+            / source
+        ).is_dir()
         for source in payload_upload_sources
     )
 
 
-def test_software_architecture_advisor_stages_its_owned_graph_skill_into_the_docker_image(monkeypatch):
+def test_software_architecture_advisor_stages_its_owned_graph_skill_into_the_docker_image(
+    monkeypatch,
+):
     blueprint = ROOT / "software_architecture_advisor"
     # Exercise the same development-localization path used by `mn blueprint
     # run`. Payload-owned private skills must survive it and reach DockerWorker.
@@ -456,7 +535,10 @@ def test_software_architecture_advisor_stages_its_owned_graph_skill_into_the_doc
     stage_skill_dependency_payloads_for_manifest(prepared, staged, bundle_dir=blueprint)
 
     local_requirements = staged["docker_worker/local-requirements.txt"].decode()
-    assert "/tmp/mn-skill-runtime/local/software_architecture_graph_skill" in local_requirements
+    assert (
+        "/tmp/mn-skill-runtime/local/software_architecture_graph_skill"
+        in local_requirements
+    )
     assert (
         "docker_worker/__mn_skill_dependencies/local/software_architecture_graph_skill/pyproject.toml"
         in staged
@@ -478,7 +560,9 @@ def test_software_architecture_advisor_stages_only_bundled_documentation_for_wor
     assert not any("mini_order_service" in path for path in staged)
 
 
-def test_software_architecture_advisor_stages_the_required_local_source_folder(tmp_path: Path):
+def test_software_architecture_advisor_stages_the_required_local_source_folder(
+    tmp_path: Path,
+):
     blueprint = ROOT / "software_architecture_advisor"
     source = _write_architecture_fixture(tmp_path / "local-source")
     prepared = prepare_manifest_for_submission(
@@ -502,10 +586,15 @@ def test_software_architecture_advisor_stages_the_required_local_source_folder(t
             "file_count": 4,
         }
     ]
-    assert "mn_local_inputs/software_architecture_advisor_source/sample_app/api.py" in staged
+    assert (
+        "mn_local_inputs/software_architecture_advisor_source/sample_app/api.py"
+        in staged
+    )
 
 
-def test_software_architecture_advisor_writes_copy_ready_prompts_without_changing_source(tmp_path: Path):
+def test_software_architecture_advisor_writes_copy_ready_prompts_without_changing_source(
+    tmp_path: Path,
+):
     source = _write_architecture_fixture(tmp_path / "architecture-source")
     result = run_payload_script(
         "software_architecture_advisor",
@@ -574,9 +663,14 @@ print(json.dumps({{
         "schema_version": "mn.blueprint.software_architecture_advisor.v3",
         "llm_stage_count": 8,
         "llm_stage_order": [
-            "source_intake", "component_mapping", "cross_cutting_mapping",
-            "finding_synthesis", "adversarial_review", "prompt_authoring",
-            "report_synthesis", "final_audit",
+            "source_intake",
+            "component_mapping",
+            "cross_cutting_mapping",
+            "finding_synthesis",
+            "adversarial_review",
+            "prompt_authoring",
+            "report_synthesis",
+            "final_audit",
         ],
         "llm_analysis_file": True,
         "llm_trace_file": True,
@@ -584,11 +678,13 @@ print(json.dumps({{
     }
 
 
-def test_software_architecture_advisor_runs_eight_live_scripted_passes_and_uses_their_outputs(tmp_path: Path):
+def test_software_architecture_advisor_runs_eight_live_scripted_passes_and_uses_their_outputs(
+    tmp_path: Path,
+):
     source = _write_architecture_fixture(tmp_path / "live-architecture-source")
     result = run_payload_script(
         "software_architecture_advisor",
-        f'''
+        f"""
 import json
 from pathlib import Path
 from domain.composition import run_blueprint
@@ -725,13 +821,18 @@ print(json.dumps({{
     "raw_source_absent": 'order = {{"customer_id": customer_id, "sku": sku, "status": "created"}}' not in all_durable,
     "trace_has_no_prompt": '\"user_prompt\":' not in (output / "llm_trace.jsonl").read_text() and '\"bounded_context\":' not in (output / "llm_trace.jsonl").read_text(),
 }}))
-''',
+""",
     )
     assert result == {
         "stages": [
-            "source_intake", "component_mapping", "cross_cutting_mapping",
-            "finding_synthesis", "adversarial_review", "prompt_authoring",
-            "report_synthesis", "final_audit",
+            "source_intake",
+            "component_mapping",
+            "cross_cutting_mapping",
+            "finding_synthesis",
+            "adversarial_review",
+            "prompt_authoring",
+            "report_synthesis",
+            "final_audit",
         ],
         "packet_kinds": [
             "bounded_source_intake_source_packet",
@@ -758,12 +859,14 @@ print(json.dumps({{
     }
 
 
-def test_software_architecture_advisor_fails_closed_for_unreachable_fallback_missing_response_and_budget(tmp_path: Path):
+def test_software_architecture_advisor_fails_closed_for_unreachable_fallback_missing_response_and_budget(
+    tmp_path: Path,
+):
     source = _write_architecture_fixture(tmp_path / "failure-architecture-source")
     for mode in ("unreachable", "fallback", "no_response", "budget"):
         result = run_payload_script(
             "software_architecture_advisor",
-            f'''
+            f"""
 import json
 from pathlib import Path
 from domain.composition import run_blueprint
@@ -798,7 +901,7 @@ llm = FailingLiveLLM({mode!r})
 try:
     run_blueprint(
         inputs={{"input_folder": {str(source.resolve())!r}, "output_folder": str(output)}},
-        config={{"llm": {{"mode": "live", "require_live": True}}, "research_budget": {{"default_actions": {0 if mode == 'budget' else 8}}}}},
+        config={{"llm": {{"mode": "live", "require_live": True}}, "research_budget": {{"default_actions": {0 if mode == "budget" else 8}}}}},
         runs_root=output / "runs",
         run_id="architecture-advisor-fail-closed-{mode}",
         llm_client=llm,
@@ -807,7 +910,7 @@ except Exception as exc:
     print(json.dumps({{"failed": True, "error": str(exc), "calls": llm.calls, "published": (output / "architecture_assessment.json").exists()}}))
 else:
     print(json.dumps({{"failed": False, "error": "", "calls": llm.calls, "published": True}}))
-''',
+""",
         )
         assert result["failed"] is True
         assert result["published"] is False
@@ -822,11 +925,13 @@ else:
             assert "unreachable" in result["error"].lower()
 
 
-def test_software_architecture_advisor_final_model_rejection_prevents_publication(tmp_path: Path):
+def test_software_architecture_advisor_final_model_rejection_prevents_publication(
+    tmp_path: Path,
+):
     source = _write_architecture_fixture(tmp_path / "rejection-architecture-source")
     result = run_payload_script(
         "software_architecture_advisor",
-        f'''
+        f"""
 import json
 from pathlib import Path
 from domain.composition import run_blueprint
@@ -870,7 +975,7 @@ except Exception as exc:
     print(json.dumps({{"failed": True, "calls": llm.calls, "published": (output / "architecture_assessment.json").exists(), "error": str(exc)}}))
 else:
     print(json.dumps({{"failed": False, "calls": llm.calls, "published": True, "error": ""}}))
-''',
+""",
     )
     assert result["failed"] is True
     assert result["calls"] == 8
@@ -878,7 +983,9 @@ else:
     assert "model_final_audit_approved" in result["error"]
 
 
-def test_software_architecture_advisor_builds_deep_static_evidence_without_executing_repo(tmp_path: Path):
+def test_software_architecture_advisor_builds_deep_static_evidence_without_executing_repo(
+    tmp_path: Path,
+):
     result = run_payload_script(
         "software_architecture_advisor",
         f"""
@@ -886,7 +993,7 @@ import json
 from pathlib import Path
 from mn_software_architecture_graph_skill import build_architecture_graph, build_deep_evidence, build_inventory, compact_inventory
 
-repo = Path({str(tmp_path / 'deep-repo')!r})
+repo = Path({str(tmp_path / "deep-repo")!r})
 (repo / 'tests').mkdir(parents=True)
 (repo / 'app.py').write_text('''from fastapi import FastAPI\nimport redis\nimport subprocess\n\napp = FastAPI()\n\n@app.post("/jobs")\ndef submit_job(command: str):\n    redis.Redis().set("job", command)\n    return subprocess.run([command], check=False)\n''')
 (repo / 'tests' / 'test_app.py').write_text('''from app import submit_job\n\ndef test_submit_job_contract():\n    assert callable(submit_job)\n''')
@@ -956,7 +1063,9 @@ print(json.dumps({{
     }
 
 
-def test_software_architecture_advisor_prefers_the_worker_staged_source_path(tmp_path: Path):
+def test_software_architecture_advisor_prefers_the_worker_staged_source_path(
+    tmp_path: Path,
+):
     host_source = tmp_path / "host-source"
     worker_source = "mn_local_inputs/software_architecture_advisor_source"
     result = run_payload_script(
@@ -968,7 +1077,7 @@ from domain.runtime_services import runtime_context_for_step
 context = runtime_context_for_step(
     inputs={{'input_folder': {str(host_source)!r}}},
     config={{'inputs': {{'payload': {{'input_folder': {worker_source!r}}}}}}},
-    runs_root={str(tmp_path / 'runs')!r},
+    runs_root={str(tmp_path / "runs")!r},
     run_id='architecture-advisor-staged-input-test',
 )
 print(json.dumps({{'input_folder': context['payload']['input_folder']}}))
@@ -977,10 +1086,14 @@ print(json.dumps({{'input_folder': context['payload']['input_folder']}}))
     assert result == {"input_folder": worker_source}
 
 
-def test_software_architecture_advisor_uses_the_mounted_source_when_invocation_config_restores_host_path(tmp_path: Path):
+def test_software_architecture_advisor_uses_the_mounted_source_when_invocation_config_restores_host_path(
+    tmp_path: Path,
+):
     host_source = "/Users/homer/Sandbox/Archmind"
     job_input_dir = tmp_path / "job-inputs"
-    worker_source = job_input_dir / "mn_local_inputs" / "software_architecture_advisor_source"
+    worker_source = (
+        job_input_dir / "mn_local_inputs" / "software_architecture_advisor_source"
+    )
     worker_source.mkdir(parents=True)
     result = run_payload_script(
         "software_architecture_advisor",
@@ -993,7 +1106,7 @@ os.environ["MN_JOB_INPUT_DIR"] = {str(job_input_dir)!r}
 context = runtime_context_for_step(
     inputs={{"input_folder": {host_source!r}}},
     config={{"inputs": {{"payload": {{"input_folder": {host_source!r}}}}}}},
-    runs_root={str(tmp_path / 'runs')!r},
+    runs_root={str(tmp_path / "runs")!r},
     run_id="architecture-advisor-mounted-input-test",
 )
 print(json.dumps({{"input_folder": context["payload"]["input_folder"]}}))
@@ -1002,7 +1115,9 @@ print(json.dumps({{"input_folder": context["payload"]["input_folder"]}}))
     assert result == {"input_folder": str(worker_source)}
 
 
-def test_software_architecture_advisor_mapper_re_resolves_the_source_in_its_own_worker(tmp_path: Path):
+def test_software_architecture_advisor_mapper_re_resolves_the_source_in_its_own_worker(
+    tmp_path: Path,
+):
     mapper_source = _write_architecture_fixture(tmp_path / "mapper-source")
     stale_source = tmp_path / "intake-worker" / "examples" / "sample_inputs"
 
@@ -1017,7 +1132,7 @@ from domain.state import source_root_for_context
 context = runtime_context_for_step(
     inputs={{"input_folder": {str(mapper_source)!r}}},
     config={{"analysis": {{"max_files": 100}}, "llm": {{"mode": "fake"}}}},
-    runs_root={str(tmp_path / 'runs')!r},
+    runs_root={str(tmp_path / "runs")!r},
     run_id="mapper-source-workspace-test",
 )
 print(json.dumps({{

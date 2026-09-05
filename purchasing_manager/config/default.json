@@ -93,43 +93,79 @@
   ],
   "input_skills": {
     "llm_ocr": {
-      "skill": "llm_ocr_skill",
-      "package": "mirrorneuron-llm-ocr-skill",
       "enabled": true,
+      "min_text_chars": 40,
+      "package": "mirrorneuron-llm-ocr-skill",
       "required": false,
-      "min_text_chars": 40
+      "skill": "llm_ocr_skill"
     },
     "web_browser": {
-      "skill": "web_browser_skill",
-      "package": "mirrorneuron-web-browser-skill",
       "enabled": true,
+      "package": "mirrorneuron-web-browser-skill",
+      "purpose": "Unified public research for official product specifications and supplier terms, with lightweight w3m routing and policy-governed rendered-page fallback.",
       "required": false,
-      "purpose": "Unified public research for official product specifications and supplier terms, with lightweight w3m routing and policy-governed rendered-page fallback."
+      "skill": "web_browser_skill"
     }
-  },
-  "internet_research": {
-    "enabled": true,
-    "max_seed_urls": 6,
-    "max_queries": 2,
-    "max_sources": 3,
-    "min_observed_sources_before_search": 4,
-    "search_only_when_source_gap": true,
-    "timeout_seconds": 12,
-    "total_timeout_seconds": 30,
-    "max_chars": 12000,
-    "respect_robots": true,
-    "per_host_delay_seconds": 1
   },
   "inputs": {
     "adapter": "json",
     "description": "Default business request backed by time-stamped public market observations, official technical specifications, and public economic data. Supplier facts must be refreshed before approval.",
     "payload": {
-      "purchase_type": "computer",
-      "item_description": "Source one supportable local-AI desktop system for a Boston engineering office within a $5,000 landed-acquisition budget.",
+      "analysis": {
+        "active_hours_per_year": 1000,
+        "annual_maintenance_reserve": 150,
+        "discount_rate": 0.08,
+        "downtime_cost_per_hour": 190,
+        "electricity_rate_per_kwh": 0.2452,
+        "expected_downtime_hours_per_year": 6,
+        "horizon_years": 3,
+        "idle_hours_per_year": 1000,
+        "loaded_labor_cost_per_hour": 95,
+        "residual_value_percent": 0.1,
+        "scenarios": [
+          {
+            "active_hours_per_year": 750,
+            "annual_maintenance_reserve": 100,
+            "expected_downtime_hours_per_year": 2,
+            "idle_hours_per_year": 750,
+            "name": "low utilization / low disruption",
+            "residual_value_percent": 0.15
+          },
+          {
+            "active_hours_per_year": 1000,
+            "annual_maintenance_reserve": 150,
+            "expected_downtime_hours_per_year": 6,
+            "idle_hours_per_year": 1000,
+            "name": "base planning case",
+            "residual_value_percent": 0.1
+          },
+          {
+            "active_hours_per_year": 1500,
+            "annual_maintenance_reserve": 300,
+            "expected_downtime_hours_per_year": 16,
+            "idle_hours_per_year": 1000,
+            "name": "high utilization / disruption stress",
+            "residual_value_percent": 0.05
+          }
+        ],
+        "source_refs": [
+          "https://www.mass.gov/guides/sales-and-use-tax",
+          "https://www.eia.gov/electricity/monthly/epm_table_grapher.php?t=epmt_5_6_a"
+        ],
+        "tax_rate": 0.0625
+      },
       "budget": 5000,
+      "constraints": {
+        "available_for_purchase_required": true,
+        "min_gpu_vram_gb": 16,
+        "min_storage_tb": 2,
+        "min_system_ram_gb": 64,
+        "min_warranty_years": 1
+      },
+      "input_folder": "@/examples/sample_inputs",
+      "item_description": "Source one supportable local-AI desktop system for a Boston engineering office within a $5,000 landed-acquisition budget.",
       "location": "Boston, MA",
-      "route": "",
-      "travel_dates": "",
+      "output_folder": "~/Downloads/purchasing_manager",
       "priorities": [
         "technical fit for local model development",
         "landed acquisition cost under budget",
@@ -137,62 +173,17 @@
         "current purchase availability",
         "supportability and deployment readiness"
       ],
-      "constraints": {
-        "min_gpu_vram_gb": 16,
-        "min_system_ram_gb": 64,
-        "min_storage_tb": 2,
-        "min_warranty_years": 1,
-        "available_for_purchase_required": true
-      },
-      "analysis": {
-        "horizon_years": 3,
-        "discount_rate": 0.08,
-        "tax_rate": 0.0625,
-        "electricity_rate_per_kwh": 0.2452,
-        "active_hours_per_year": 1000,
-        "idle_hours_per_year": 1000,
-        "loaded_labor_cost_per_hour": 95,
-        "downtime_cost_per_hour": 190,
-        "expected_downtime_hours_per_year": 6,
-        "annual_maintenance_reserve": 150,
-        "residual_value_percent": 0.1,
-        "source_refs": [
-          "https://www.mass.gov/guides/sales-and-use-tax",
-          "https://www.eia.gov/electricity/monthly/epm_table_grapher.php?t=epmt_5_6_a"
-        ],
-        "scenarios": [
-          {
-            "name": "low utilization / low disruption",
-            "active_hours_per_year": 750,
-            "idle_hours_per_year": 750,
-            "expected_downtime_hours_per_year": 2,
-            "annual_maintenance_reserve": 100,
-            "residual_value_percent": 0.15
-          },
-          {
-            "name": "base planning case",
-            "active_hours_per_year": 1000,
-            "idle_hours_per_year": 1000,
-            "expected_downtime_hours_per_year": 6,
-            "annual_maintenance_reserve": 150,
-            "residual_value_percent": 0.1
-          },
-          {
-            "name": "high utilization / disruption stress",
-            "active_hours_per_year": 1500,
-            "idle_hours_per_year": 1000,
-            "expected_downtime_hours_per_year": 16,
-            "annual_maintenance_reserve": 300,
-            "residual_value_percent": 0.05
-          }
-        ]
-      },
-      "input_folder": "@/examples/sample_inputs",
-      "output_folder": "~/Downloads/purchasing_manager"
+      "purchase_type": "computer",
+      "route": "",
+      "travel_dates": ""
     }
   },
   "interfaces": {
     "channels": {
+      "agentic_research": {
+        "config": "agentic_research",
+        "description": "Bounded LLM-selected or actor-guided tool contract for domain work."
+      },
       "artifacts": {
         "artifacts": [
           "run.json",
@@ -226,6 +217,12 @@
       "inputs": {
         "artifact": "inputs.json",
         "description": "Resolved runtime inputs and adapter provenance."
+      },
+      "knowledge_rag": {
+        "artifact": "@/payloads/knowledge/",
+        "config": "knowledge_rag",
+        "description": "Optional local blueprint knowledge retrieval used to ground actor prompts and tool planning.",
+        "privacy": "blueprint knowledge only by default"
       },
       "logs": {
         "artifact": "logs.jsonl",
@@ -282,18 +279,42 @@
           "web/index.html"
         ],
         "description": "Optional web input/output handles."
-      },
-      "knowledge_rag": {
-        "description": "Optional local blueprint knowledge retrieval used to ground actor prompts and tool planning.",
-        "config": "knowledge_rag",
-        "artifact": "@/payloads/knowledge/",
-        "privacy": "blueprint knowledge only by default"
-      },
-      "agentic_research": {
-        "description": "Bounded LLM-selected or actor-guided tool contract for domain work.",
-        "config": "agentic_research"
       }
     },
+    "config": [
+      "standard_version",
+      "identity",
+      "mode",
+      "metadata",
+      "inputs",
+      "simulation",
+      "llm",
+      "outputs",
+      "logging",
+      "resources",
+      "human_control",
+      "real_adapters",
+      "streams",
+      "input_skills",
+      "output_skills",
+      "error_handling",
+      "state",
+      "capabilities",
+      "privacy",
+      "triggers",
+      "backpressure",
+      "determinism",
+      "schemas",
+      "budgets",
+      "agent_handoffs",
+      "web_ui",
+      "interfaces",
+      "execution_model",
+      "suggested_schedule",
+      "knowledge_rag",
+      "agentic_research",
+      "llm_analysis"
+    ],
     "config_sections": [
       "standard_version",
       "identity",
@@ -332,12 +353,6 @@
       "blueprint_id",
       "name",
       "run_id"
-    ],
-    "input_adapters": [
-      "mock",
-      "json",
-      "file",
-      "env_json"
     ],
     "optional_run_artifacts": [
       "job.json",
@@ -388,61 +403,58 @@
       "static_html",
       "gradio",
       "custom"
-    ],
-    "config": [
-      "standard_version",
-      "identity",
-      "mode",
-      "metadata",
-      "inputs",
-      "simulation",
-      "llm",
-      "outputs",
-      "logging",
-      "resources",
-      "human_control",
-      "real_adapters",
-      "streams",
-      "input_skills",
-      "output_skills",
-      "error_handling",
-      "state",
-      "capabilities",
-      "privacy",
-      "triggers",
-      "backpressure",
-      "determinism",
-      "schemas",
-      "budgets",
-      "agent_handoffs",
-      "web_ui",
-      "interfaces",
-      "execution_model",
-      "suggested_schedule",
-      "knowledge_rag",
-      "agentic_research",
-      "llm_analysis"
     ]
   },
+  "internet_research": {
+    "enabled": true,
+    "max_chars": 12000,
+    "max_queries": 2,
+    "max_seed_urls": 6,
+    "max_sources": 3,
+    "min_observed_sources_before_search": 4,
+    "per_host_delay_seconds": 1,
+    "respect_robots": true,
+    "search_only_when_source_gap": true,
+    "timeout_seconds": 12,
+    "total_timeout_seconds": 30
+  },
   "llm": {
-    "mode": "live",
-    "strict_json": true,
-    "require_live": false,
-    "configs": {
-      "primary": {
-        "timeout_seconds": 60,
-        "max_tokens": 1200,
-        "num_retries": 1
-      }
-    }
+    "require_live": false
   },
   "llm_analysis": {
+    "failure_mode": "deterministic_fallback_with_visible_warning",
     "max_calls_per_run": 5,
-    "max_context_chars": 30000,
     "max_candidates": 8,
+    "max_context_chars": 30000,
     "max_list_items": 10,
-    "max_text_chars": 1600,
-    "failure_mode": "deterministic_fallback_with_visible_warning"
+    "max_text_chars": 1600
+  },
+  "local_inputs": {
+    "folders": [
+      {
+        "allowed_extensions": [
+          ".pdf",
+          ".png",
+          ".jpg",
+          ".jpeg",
+          ".tif",
+          ".tiff",
+          ".bmp",
+          ".webp",
+          ".txt",
+          ".json",
+          ".csv",
+          ".md"
+        ],
+        "config_path": "inputs.payload.input_folder",
+        "linked_config_paths": [
+          "inputs.payload.input_folder",
+          "state.input_folder"
+        ],
+        "payload_path": "runtime/mn_local_inputs/purchasing_manager_documents",
+        "runtime_path": "mn_local_inputs/purchasing_manager_documents"
+      }
+    ]
   },
   "logging": {
     "events": [
@@ -543,9 +555,6 @@
     "sdk_distribution": "mirrorneuron-membrane-python-sdk",
     "sdk_import_package": "mn_context_engine_sdk"
   },
-  "knowledge_rag": {
-    "backend": "milvus_lite"
-  },
   "metadata": {
     "category": "finance",
     "description": "A procurement-oriented purchasing co-worker that turns real, traceable market evidence and company assumptions into an approval-ready heavy-asset comparison using landed cost, discounted lifecycle cash flow, risk-adjusted TCO, equivalent annual cost, unit economics, sensitivity analysis, and acquisition-method analysis."
@@ -555,14 +564,14 @@
   "outputs": {
     "adapter": "local_run_store",
     "artifact_contract": "Source-grounded procurement decision packet with supplier comparison, landed acquisition cost, discounted and risk-adjusted TCO, equivalent annual cost, productive-hour economics, scenario sensitivity, cash/finance/lease analysis when real terms exist, risk flags, evidence gaps, approval checklist, and review-only recommendation.",
+    "folder_path": "~/Downloads/purchasing_manager",
     "run_root": "~/.mn/runs",
     "skills": {},
     "tcp": {
       "enabled": false,
       "ports": []
     },
-    "write_run_store": true,
-    "folder_path": "~/Downloads/purchasing_manager"
+    "write_run_store": true
   },
   "privacy": {
     "default_classification": "confidential",
@@ -625,8 +634,8 @@
     "web_ui": "mn.blueprint.web_ui.v1"
   },
   "simulation": {
-    "enabled": false,
     "deterministic": true,
+    "enabled": false,
     "type": "General purchase research with local RAG and public-source comparison."
   },
   "standard_version": "1.0",
@@ -640,11 +649,17 @@
       "source_ref",
       "event_id"
     ],
-    "resume_mode": "none",
     "input_folder": "@/examples/sample_inputs",
-    "output_folder": "~/Downloads/purchasing_manager"
+    "output_folder": "~/Downloads/purchasing_manager",
+    "resume_mode": "none"
   },
   "streams": {},
+  "suggested_schedule": {
+    "advisory_only": true,
+    "cadence": "weekly",
+    "cron": "0 8 * * 1",
+    "note": "Suggested cadence only; runtime decides the actual schedule."
+  },
   "triggers": {
     "schedule": null,
     "sources": [],
@@ -703,38 +718,5 @@
       "refresh_seconds": 2,
       "title": null
     }
-  },
-  "suggested_schedule": {
-    "cron": "0 8 * * 1",
-    "cadence": "weekly",
-    "advisory_only": true,
-    "note": "Suggested cadence only; runtime decides the actual schedule."
-  },
-  "local_inputs": {
-    "folders": [
-      {
-        "config_path": "inputs.payload.input_folder",
-        "payload_path": "runtime/mn_local_inputs/purchasing_manager_documents",
-        "runtime_path": "mn_local_inputs/purchasing_manager_documents",
-        "allowed_extensions": [
-          ".pdf",
-          ".png",
-          ".jpg",
-          ".jpeg",
-          ".tif",
-          ".tiff",
-          ".bmp",
-          ".webp",
-          ".txt",
-          ".json",
-          ".csv",
-          ".md"
-        ],
-        "linked_config_paths": [
-          "inputs.payload.input_folder",
-          "state.input_folder"
-        ]
-      }
-    ]
   }
 }

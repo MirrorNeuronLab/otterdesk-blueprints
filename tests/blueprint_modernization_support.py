@@ -8,25 +8,36 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from mn_sdk.blueprints import blueprint_definition, read_blueprint
 from mn_sdk.manifest_converter import expand_manifest_source
-
 from workspace_paths import companion_workspace
-
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKSPACE = companion_workspace(ROOT)
 
 
+def blueprint_path(blueprint_id: str) -> Path:
+    return (
+        ROOT / blueprint_id
+        if (ROOT / blueprint_id).is_dir()
+        else ROOT.parent / "mn-blueprints" / blueprint_id
+    )
+
+
 def source_manifest(blueprint_id: str) -> dict[str, Any]:
-    return json.loads((ROOT / blueprint_id / "manifest.json").read_text(encoding="utf-8"))
+    return blueprint_definition(
+        read_blueprint(blueprint_path(blueprint_id) / "manifest.json")
+    )
 
 
 def expanded_manifest(blueprint_id: str) -> dict[str, Any]:
-    return expand_manifest_source(source_manifest(blueprint_id), root_dir=ROOT / blueprint_id)
+    return expand_manifest_source(
+        source_manifest(blueprint_id), root_dir=blueprint_path(blueprint_id)
+    )
 
 
 def assert_modular_payload(blueprint_id: str) -> None:
-    blueprint = ROOT / blueprint_id
+    blueprint = blueprint_path(blueprint_id)
     manifest = source_manifest(blueprint_id)
     registry = (manifest.get("agents") or {}).get("registry") or {}
     logical_steps = [step["id"] for step in manifest["workflow"]["steps"]]
@@ -58,11 +69,13 @@ def assert_modular_payload(blueprint_id: str) -> None:
 
 
 def _payload_pythonpath(blueprint_id: str) -> str:
-    roots = [ROOT / blueprint_id / "payloads"]
+    roots = [blueprint_path(blueprint_id) / "payloads"]
     roots.extend(
         sorted(
             path
-            for path in (ROOT / blueprint_id / "payloads" / "skills").glob("*/src")
+            for path in (blueprint_path(blueprint_id) / "payloads" / "skills").glob(
+                "*/src"
+            )
             if path.is_dir()
         )
     )
@@ -100,7 +113,8 @@ import importlib
 import json
 from pathlib import Path
 
-manifest = json.loads(Path({str(ROOT / blueprint_id / 'manifest.json')!r}).read_text())
+from mn_sdk.blueprints import blueprint_definition, read_blueprint
+manifest = blueprint_definition(read_blueprint(Path({str(blueprint_path(blueprint_id))!r})))
 registry = (manifest.get("agents") or {{}}).get("registry") or {{}}
 loaded = []
 for agent_id, spec in registry.items():
@@ -110,4 +124,6 @@ for agent_id, spec in registry.items():
 print(json.dumps({{"loaded": loaded}}, sort_keys=True))
 """,
     )
-    assert set(result["loaded"]) == set((source_manifest(blueprint_id)["agents"]["registry"]))
+    assert set(result["loaded"]) == set(
+        source_manifest(blueprint_id)["agents"]["registry"]
+    )

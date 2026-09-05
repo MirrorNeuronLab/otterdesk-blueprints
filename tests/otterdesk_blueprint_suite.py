@@ -10,9 +10,14 @@ import sys
 from pathlib import Path
 
 import pytest
-
+from blueprint_modernization_support import blueprint_path
+from mn_sdk.blueprints import (
+    blueprint_definition,
+    read_blueprint,
+    read_catalog,
+    resolve_config,
+)
 from workspace_paths import companion_workspace
-
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKSPACE = companion_workspace(ROOT)
@@ -34,8 +39,6 @@ FOLDER_INPUT_FIELDS = {
 }
 
 from mn_blueprint_support import render_manifest_agent_templates
-from mn_sdk import expand_manifest_source, is_manifest_source, run_input_validation
-from mn_sdk.blueprint_support import deep_merge, manifest_config_defaults
 from mn_blueprint_support.experience import (
     FINAL_ARTIFACT_REQUIRED_FIELDS,
     HUMAN_CONTROL_MODES,
@@ -46,27 +49,27 @@ from mn_blueprint_support.workflow_manifest import (
     run_workflow_manifest_file,
     validate_workflow_manifest,
 )
+from mn_sdk.blueprints import compile_blueprint
 
 
 def _manifest_paths() -> list[Path]:
-    return sorted(path / "manifest.json" for path in ROOT.iterdir() if (path / "manifest.json").exists())
+    return sorted(
+        path / "manifest.json"
+        for path in ROOT.iterdir()
+        if (path / "manifest.json").exists()
+    )
 
 
 def _runtime_manifest(path: Path) -> dict:
-    manifest = json.loads(path.read_text(encoding="utf-8"))
-    if is_manifest_source(manifest):
-        return expand_manifest_source(manifest, root_dir=path.parent)
-    return manifest
+    return compile_blueprint(read_blueprint(path)).manifest
 
 
 def _resolved_default_config(blueprint_dir: Path) -> dict:
-    manifest = json.loads((blueprint_dir / "manifest.json").read_text())
-    config = json.loads((blueprint_dir / "config" / "default.json").read_text())
-    return deep_merge(manifest_config_defaults(manifest), config)
+    return resolve_config(read_blueprint(blueprint_dir)).data
 
 
 def _indexed_blueprints() -> list[dict]:
-    return json.loads((ROOT / "index.json").read_text())
+    return read_catalog(ROOT / "index.json")
 
 
 def _indexed_non_vc_blueprints() -> list[dict]:
@@ -79,7 +82,9 @@ def _indexed_non_vc_blueprints() -> list[dict]:
 
 def _contains_key(value, target: str) -> bool:
     if isinstance(value, dict):
-        return any(key == target or _contains_key(item, target) for key, item in value.items())
+        return any(
+            key == target or _contains_key(item, target) for key, item in value.items()
+        )
     if isinstance(value, list):
         return any(_contains_key(item, target) for item in value)
     return False
@@ -140,7 +145,9 @@ def _node_config(node: dict) -> dict:
 
 
 def _is_workflow_manifest(manifest: dict) -> bool:
-    return manifest.get("apiVersion") == "mn.workflow/v1" and isinstance(manifest.get("workflow", {}).get("steps"), list)
+    return manifest.get("apiVersion") == "mn.workflow/v1" and isinstance(
+        manifest.get("workflow", {}).get("steps"), list
+    )
 
 
 def _runtime_worker_ids(manifest: dict) -> list[str]:
@@ -231,7 +238,9 @@ def _expected_skill_dependency_packages(blueprint_dir: Path) -> set[str]:
                     packages.add(package)
 
     manifest_path = blueprint_dir / "manifest.json"
-    if manifest_path.is_file() and "mn-job-mcp-server" in manifest_path.read_text(encoding="utf-8"):
+    if manifest_path.is_file() and "mn-job-mcp-server" in manifest_path.read_text(
+        encoding="utf-8"
+    ):
         packages.add("mirrorneuron-mcp-server-skill")
 
     config_path = blueprint_dir / "config" / "default.json"
@@ -245,13 +254,17 @@ def _expected_skill_dependency_packages(blueprint_dir: Path) -> set[str]:
                 if not isinstance(entry, dict):
                     continue
                 package = entry.get("package")
-                if isinstance(package, str) and package.startswith("mirrorneuron-") and "-skill" in package:
+                if (
+                    isinstance(package, str)
+                    and package.startswith("mirrorneuron-")
+                    and "-skill" in package
+                ):
                     packages.add(package)
                 skill = entry.get("skill")
                 if isinstance(skill, str) and skill in SKILL_NAME_PACKAGES:
                     packages.add(SKILL_NAME_PACKAGES[skill])
 
-    manifest = json.loads((blueprint_dir / "manifest.json").read_text())
+    manifest = blueprint_definition(read_blueprint(blueprint_dir / "manifest.json"))
     response_service = manifest.get("response_service")
     if isinstance(response_service, dict) and response_service.get("enabled") is True:
         if blueprint_dir.name not in CORE_OWNED_RESPONSE_SERVICES:
@@ -259,16 +272,15 @@ def _expected_skill_dependency_packages(blueprint_dir: Path) -> set[str]:
             packages.add("mirrorneuron-rag-skill")
             packages.add("mirrorneuron-mcp-client-skill")
     registration = (
-        manifest.get("metadata", {})
-        .get("web_ui", {})
-        .get("registration", {})
+        manifest.get("metadata", {}).get("web_ui", {}).get("registration", {})
     )
     package = registration.get("package") if isinstance(registration, dict) else None
-    if isinstance(package, str) and package.startswith("mirrorneuron-blueprint-support-skill"):
+    if isinstance(package, str) and package.startswith(
+        "mirrorneuron-blueprint-support-skill"
+    ):
         packages.add("mirrorneuron-blueprint-support-skill")
-    if (
-        "mirrorneuron-goal-work-packet-skill" in packages
-        and not (isinstance(response_service, dict) and response_service.get("enabled") is True)
+    if "mirrorneuron-goal-work-packet-skill" in packages and not (
+        isinstance(response_service, dict) and response_service.get("enabled") is True
     ):
         packages.add("mirrorneuron-mcp-client-skill")
     return packages
@@ -280,7 +292,11 @@ def test_otterdesk_manifests_pin_gar_skill_dependencies():
         manifest = _runtime_manifest(manifest_path)
         dependencies = manifest.get("skill_dependencies")
         assert isinstance(dependencies, list), blueprint_id
-        by_name = {dependency.get("name"): dependency for dependency in dependencies if isinstance(dependency, dict)}
+        by_name = {
+            dependency.get("name"): dependency
+            for dependency in dependencies
+            if isinstance(dependency, dict)
+        }
         gar_dependencies = {
             name: dependency
             for name, dependency in by_name.items()
@@ -292,10 +308,14 @@ def test_otterdesk_manifests_pin_gar_skill_dependencies():
             if dependency.get("source") == "payload"
         }
 
-        assert set(gar_dependencies) == _expected_skill_dependency_packages(manifest_path.parent), blueprint_id
+        assert set(gar_dependencies) == _expected_skill_dependency_packages(
+            manifest_path.parent
+        ), blueprint_id
         assert "mn-skills" not in by_name
         for name, dependency in gar_dependencies.items():
-            expected_version = SKILL_DEPENDENCY_VERSION_OVERRIDES.get(name, SKILL_DEPENDENCY_VERSION)
+            expected_version = SKILL_DEPENDENCY_VERSION_OVERRIDES.get(
+                name, SKILL_DEPENDENCY_VERSION
+            )
             assert dependency == {
                 "type": "pip",
                 "source": "gar",
@@ -307,7 +327,10 @@ def test_otterdesk_manifests_pin_gar_skill_dependencies():
             assert dependency.get("format") == "source", (blueprint_id, name)
             assert dependency.get("version"), (blueprint_id, name)
             path = dependency.get("path")
-            assert isinstance(path, str) and path and not Path(path).is_absolute(), (blueprint_id, name)
+            assert isinstance(path, str) and path and not Path(path).is_absolute(), (
+                blueprint_id,
+                name,
+            )
             skill_root = manifest_path.parent / "payloads" / path
             assert (skill_root / "pyproject.toml").is_file(), (blueprint_id, name)
             assert (skill_root / "SKILL.md").is_file(), (blueprint_id, name)
@@ -318,7 +341,7 @@ def test_video_gpu_blueprints_declare_hard_nvidia_cuda_requirements_consistently
         "cctv_operator": ("adaptive_frame_sampler", "primary"),
     }
     for blueprint_id, (worker_id, runtime_model_key) in targets.items():
-        manifest = _runtime_manifest(ROOT / blueprint_id / "manifest.json")
+        manifest = _runtime_manifest(blueprint_path(blueprint_id) / "manifest.json")
         assert manifest["requirements"]["gpu"] == GPU_HARD_REQUIREMENT
         assert manifest["runtime"]["resources"]["gpu"] == GPU_HARD_REQUIREMENT
         assert (
@@ -333,7 +356,9 @@ def test_video_gpu_blueprints_declare_hard_nvidia_cuda_requirements_consistently
         assert manifest["runtime"]["models"][runtime_model_key]["type"] == "vlm"
         assert "install_mode" not in manifest["runtime"]["models"][runtime_model_key]
 
-        worker = next(node for node in _flow_nodes(manifest) if node["node_id"] == worker_id)
+        worker = next(
+            node for node in _flow_nodes(manifest) if node["node_id"] == worker_id
+        )
         _assert_hard_gpu_worker_requirements(worker)
 
         for template in _template_nodes(manifest):
@@ -342,7 +367,7 @@ def test_video_gpu_blueprints_declare_hard_nvidia_cuda_requirements_consistently
                 if isinstance(rendered, dict) and rendered.get("node_id") == worker_id:
                     _assert_hard_gpu_worker_requirements(rendered)
 
-    config = json.loads((ROOT / "cctv_operator" / "config" / "default.json").read_text())
+    config = resolve_config(read_blueprint(ROOT / "cctv_operator")).data
     assert config["llm"]["model"] == "nemotron3:q4_K_M"
     assert config["llm"]["provider"] == "docker_model_runner"
     assert "runtime_model" not in config["llm"]
@@ -351,18 +376,34 @@ def test_video_gpu_blueprints_declare_hard_nvidia_cuda_requirements_consistently
     assert config["resources"]["gpu"] == GPU_HARD_REQUIREMENT
     assert config["resources"]["required_capabilities"] == ["nvidia", "cuda"]
 
+
 def test_all_blueprints_declare_actor_style_llm_config():
-    required_llm_keys = {"enabled", "mode", "mock_mode", "model", "default_config", "configs", "agents", "responsibilities"}
+    required_llm_keys = {
+        "enabled",
+        "mode",
+        "mock_mode",
+        "model",
+        "default_config",
+        "configs",
+        "agents",
+        "responsibilities",
+    }
     for manifest_path in _manifest_paths():
-        manifest = json.loads(manifest_path.read_text())
-        blueprint_id = str((manifest.get("identity") or {}).get("id") or (manifest.get("metadata") or {}).get("blueprint_id"))
+        manifest = blueprint_definition(read_blueprint(manifest_path))
+        blueprint_id = str(
+            (manifest.get("identity") or {}).get("id")
+            or (manifest.get("metadata") or {}).get("blueprint_id")
+        )
         config = _resolved_default_config(manifest_path.parent)
         llm = config.get("llm")
         assert isinstance(llm, dict), blueprint_id
         assert required_llm_keys <= set(llm), blueprint_id
         assert llm["enabled"] is True, blueprint_id
         assert llm["default_config"] in llm["configs"], blueprint_id
-        assert isinstance(llm["responsibilities"], list) and len(llm["responsibilities"]) >= 3, blueprint_id
+        assert (
+            isinstance(llm["responsibilities"], list)
+            and len(llm["responsibilities"]) >= 3
+        ), blueprint_id
 
         workers = _runtime_worker_ids(manifest)
         if manifest.get("kind") == "WorkflowSource":
@@ -371,15 +412,20 @@ def test_all_blueprints_declare_actor_style_llm_config():
                 for step in manifest.get("workflow", {}).get("steps", [])
                 if isinstance(step, dict) and step.get("id")
             ]
-            assigned_actor_ids = list(dict.fromkeys(
-                str(actor_id)
-                for step in manifest.get("workflow", {}).get("steps", [])
-                if isinstance(step, dict)
-                for actor_id in (((step.get("run") or {}).get("with") or {}).get("agent_ids") or [])
-                if str(actor_id)
-            ))
+            assigned_actor_ids = list(
+                dict.fromkeys(
+                    str(actor_id)
+                    for step in manifest.get("workflow", {}).get("steps", [])
+                    if isinstance(step, dict)
+                    for actor_id in (
+                        ((step.get("run") or {}).get("with") or {}).get("agent_ids")
+                        or []
+                    )
+                    if str(actor_id)
+                )
+            )
             registered_actor_ids = list(
-                ((manifest.get("agents") or {}).get("registry") or {})
+                (manifest.get("agents") or {}).get("registry") or {}
             )
         else:
             graph_nodes = [node["node_id"] for node in _flow_nodes(manifest)]
@@ -403,18 +449,31 @@ def test_all_blueprints_declare_actor_style_llm_config():
         assert set(required_actor_ids) <= set(agents), blueprint_id
         assert set(agents) <= valid_actor_ids, blueprint_id
         for actor_id, spec in agents.items():
-            assert spec.get("llm_config") == llm["default_config"], (blueprint_id, actor_id)
+            assert spec.get("llm_config") == llm["default_config"], (
+                blueprint_id,
+                actor_id,
+            )
             if "model" in spec:
                 assert spec["model"], (blueprint_id, actor_id)
             assert str(spec.get("role") or "").strip(), (blueprint_id, actor_id)
             responsibilities = spec.get("responsibilities")
-            assert isinstance(responsibilities, list) and len(responsibilities) >= 3, (blueprint_id, actor_id)
-            assert all(str(item).strip() for item in responsibilities), (blueprint_id, actor_id)
+            assert isinstance(responsibilities, list) and len(responsibilities) >= 3, (
+                blueprint_id,
+                actor_id,
+            )
+            assert all(str(item).strip() for item in responsibilities), (
+                blueprint_id,
+                actor_id,
+            )
 
 
 def _assert_hard_gpu_worker_requirements(worker: dict) -> None:
     assert worker["constraints"] == [
-        {"attribute": "capabilities", "operator": "contains_all", "value": ["nvidia", "cuda"]}
+        {
+            "attribute": "capabilities",
+            "operator": "contains_all",
+            "value": ["nvidia", "cuda"],
+        }
     ]
     assert worker["resources"]["gpu_count"] == 1
     devices = worker["resources"]["devices"]
@@ -428,7 +487,7 @@ def _assert_hard_gpu_worker_requirements(worker: dict) -> None:
 
 def test_otterdesk_blueprints_are_workflow_driven_manifests():
     for manifest_path in _manifest_paths():
-        source_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        source_manifest = blueprint_definition(read_blueprint(manifest_path))
         manifest = _runtime_manifest(manifest_path)
         assert "graph_id" not in manifest, manifest_path.parent.name
         if not _is_workflow_manifest(manifest):
@@ -445,7 +504,9 @@ def test_otterdesk_blueprints_are_workflow_driven_manifests():
             == source_manifest["workflow"]["workflow_id"]
         )
         assert manifest["contract"]["inputs"], blueprint_id
-        assert manifest["contract"]["outputs"]["primary"]["path"] == "final_artifact.json"
+        assert (
+            manifest["contract"]["outputs"]["primary"]["path"] == "final_artifact.json"
+        )
         assert manifest["contract"]["status"]["heartbeat"] is True, blueprint_id
         if manifest.get("type") != "service":
             assert validate_workflow_manifest(manifest) == []
@@ -459,7 +520,11 @@ def test_otterdesk_blueprints_are_workflow_driven_manifests():
         assert edges, blueprint_id
         assert "flow" not in manifest
         assert "graph_id" not in manifest
-        assert "nodes" not in manifest and "edges" not in manifest and "entrypoints" not in manifest
+        assert (
+            "nodes" not in manifest
+            and "edges" not in manifest
+            and "entrypoints" not in manifest
+        )
         node_ids = {node["node_id"] for node in nodes}
         step_ids = {step["id"] for step in steps}
         assert set(_agent_entrypoints(manifest)) <= node_ids, blueprint_id
@@ -476,12 +541,25 @@ def test_otterdesk_blueprints_are_workflow_driven_manifests():
         assert manifest["workflow"]["dynamic"]["enabled"] is False
         standard = manifest["metadata"].get("standard")
         if isinstance(standard, dict):
-            assert standard["workflow_model"] == "contract -> workflow -> agents/runtime"
+            assert (
+                standard["workflow_model"] == "contract -> workflow -> agents/runtime"
+            )
         else:
             assert manifest["metadata"]["generated_from"]["schema"] == "mn.workflow/v1"
         for step in steps:
-            assert {"id", "kind", "label", "goal", "action", "run", "emits", "on"} <= set(step), (blueprint_id, step)
-            assert {"required", "retry", "failure_policy", "uncertainty"} <= set(step["control"]), (blueprint_id, step)
+            assert {
+                "id",
+                "kind",
+                "label",
+                "goal",
+                "action",
+                "run",
+                "emits",
+                "on",
+            } <= set(step), (blueprint_id, step)
+            assert {"required", "retry", "failure_policy", "uncertainty"} <= set(
+                step["control"]
+            ), (blueprint_id, step)
             assert step["control"]["retry"]["max_attempts"] >= 1, (blueprint_id, step)
             binding_id = step["run"]
             assert binding_id in bindings, (blueprint_id, step)
@@ -494,7 +572,7 @@ def test_otterdesk_blueprints_are_workflow_driven_manifests():
 def test_otterdesk_workflow_join_modes_use_runtime_contract_values():
     allowed_modes = {"all_required", "min_success"}
     for manifest_path in _manifest_paths():
-        manifest = json.loads(manifest_path.read_text())
+        manifest = blueprint_definition(read_blueprint(manifest_path))
         if not _is_workflow_manifest(manifest):
             continue
         blueprint_id = manifest["metadata"]["blueprint_id"]
@@ -502,7 +580,12 @@ def test_otterdesk_workflow_join_modes_use_runtime_contract_values():
             join = step.get("join")
             if not isinstance(join, dict):
                 continue
-            assert join.get("mode") in allowed_modes, (blueprint_id, index, step.get("id"), join)
+            assert join.get("mode") in allowed_modes, (
+                blueprint_id,
+                index,
+                step.get("id"),
+                join,
+            )
 
 
 def test_otterdesk_json_uses_python311_for_host_python_commands():
@@ -519,28 +602,34 @@ def test_otterdesk_json_uses_python311_for_host_python_commands():
                 continue
             if (
                 value == "python3"
-                and json_path.name == "manifest.json"
+                and json_path.name == "execution.json"
                 and len(value_path) >= 2
                 and value_path[-2:] == ("command", "0")
             ):
                 command_owner = data
                 for part in value_path[:-2]:
-                    command_owner = command_owner[int(part)] if isinstance(command_owner, list) else command_owner[part]
-                if command_owner.get("runner_module") == "MirrorNeuron.Runner.DockerWorker":
+                    command_owner = (
+                        command_owner[int(part)]
+                        if isinstance(command_owner, list)
+                        else command_owner[part]
+                    )
+                if (
+                    command_owner.get("runner_module")
+                    == "MirrorNeuron.Runner.DockerWorker"
+                ):
                     continue
             assert value.startswith("/usr/bin/python3"), (json_path, value_path, value)
 
 
 def test_otterdesk_topology_metadata_matches_runtime_nodes():
     for manifest_path in _manifest_paths():
-        manifest = json.loads(manifest_path.read_text())
+        manifest = blueprint_definition(read_blueprint(manifest_path))
         if not _flow_nodes(manifest) or not _template_nodes(manifest):
             continue
         blueprint_id = manifest["metadata"]["blueprint_id"]
         runtime_nodes = {node["node_id"] for node in _flow_nodes(manifest)}
         metadata_nodes = {
-            node["node_id"]: node["uses"]
-            for node in _template_nodes(manifest)
+            node["node_id"]: node["uses"] for node in _template_nodes(manifest)
         }
 
         assert set(metadata_nodes) == runtime_nodes, blueprint_id
@@ -548,7 +637,9 @@ def test_otterdesk_topology_metadata_matches_runtime_nodes():
 
 def test_gtm_ai_workflow_uses_current_flow_runtime_graph():
     pytest.skip("gtm_ai_workflow is not part of the current blueprint catalog")
-    manifest = json.loads((ROOT / "gtm_ai_workflow" / "manifest.json").read_text())
+    manifest = blueprint_definition(
+        read_blueprint(ROOT / "gtm_ai_workflow" / "manifest.json")
+    )
     nodes = _flow_nodes(manifest)
     edges = _flow_edges(manifest)
     node_ids = {node["node_id"] for node in nodes}
@@ -561,7 +652,9 @@ def test_gtm_ai_workflow_uses_current_flow_runtime_graph():
     assert "ingress" in node_ids
     assert len(nodes) == 10
     assert len(edges) == 10
-    assert all(edge["from_node"] in node_ids and edge["to_node"] in node_ids for edge in edges)
+    assert all(
+        edge["from_node"] in node_ids and edge["to_node"] in node_ids for edge in edges
+    )
     assert {edge["edge_id"] for edge in edges} >= {
         "ingress_to_monitor_scheduler",
         "ingress_to_inbox_poller",
@@ -578,11 +671,18 @@ def test_gtm_ai_workflow_uses_current_flow_runtime_graph():
     assert ingress_template["uses"] == "mn-agents.control_router@1"
     assert "node_type" not in ingress_template.get("with", {})
 
-    monitor_config = _node_config(next(node for node in nodes if node["node_id"] == "monitor_scheduler_agent"))
+    monitor_config = _node_config(
+        next(node for node in nodes if node["node_id"] == "monitor_scheduler_agent")
+    )
     assert monitor_config["module"] == "Synaptic.MonitorScheduler"
-    assert monitor_config["module_source"] == "monitor_scheduler/beam_modules/monitor_scheduler.ex"
+    assert (
+        monitor_config["module_source"]
+        == "monitor_scheduler/beam_modules/monitor_scheduler.ex"
+    )
 
-    poller_config = _node_config(next(node for node in nodes if node["node_id"] == "inbox_poller_agent"))
+    poller_config = _node_config(
+        next(node for node in nodes if node["node_id"] == "inbox_poller_agent")
+    )
     assert poller_config["module"] == "Synaptic.InboxPoller"
     assert poller_config["module_source"] == "inbox_poller/beam_modules/inbox_poller.ex"
 
@@ -602,11 +702,13 @@ def test_otterdesk_completion_contract_is_explicit_and_terminal_sinks_are_reacha
         assert not _contains_key(manifest, "complete_job?"), blueprint_id
 
         for edge in _flow_edges(manifest):
-            assert "message_type" in edge and edge["message_type"], (blueprint_id, edge)
+            assert edge.get("message_type"), (blueprint_id, edge)
             assert "event" not in edge, (blueprint_id, edge)
             assert edge["from_node"] in node_by_id, (blueprint_id, edge)
             assert edge["to_node"] in node_by_id, (blueprint_id, edge)
-            outgoing_counts[edge["from_node"]] = outgoing_counts.get(edge["from_node"], 0) + 1
+            outgoing_counts[edge["from_node"]] = (
+                outgoing_counts.get(edge["from_node"], 0) + 1
+            )
             incoming_edges.setdefault(edge["to_node"], []).append(edge)
 
         terminal_sinks = []
@@ -628,19 +730,21 @@ def test_otterdesk_completion_contract_is_explicit_and_terminal_sinks_are_reacha
                 assert outgoing_counts.get(node_id, 0) == 0, (blueprint_id, node_id)
                 terminal_sinks.append(node_id)
             if complete_on_message or complete_after:
-                assert output_message_type or (terminal_sink and complete_run), (blueprint_id, node_id)
+                assert output_message_type or (terminal_sink and complete_run), (
+                    blueprint_id,
+                    node_id,
+                )
 
         if manifest.get("type") == "service":
-            assert terminal_sinks == [], blueprint_id
+            # Finite service cycles may declare an explicit finalizer.
+            assert all(incoming_edges.get(sink) for sink in terminal_sinks), (
+                blueprint_id
+            )
             continue
 
-        assert terminal_sinks == ["report_sink"], blueprint_id
-        sink_edges = incoming_edges.get("report_sink", [])
-        assert len(sink_edges) == 1, blueprint_id
-        final_step_node = manifest["workflow"]["sink"]
-        final_step_config = _node_config(node_by_id[final_step_node])
-        assert sink_edges[0]["from_node"] == final_step_node, blueprint_id
-        assert sink_edges[0]["message_type"] == final_step_config["output_message_type"], blueprint_id
+        assert terminal_sinks, blueprint_id
+        for sink in terminal_sinks:
+            assert incoming_edges.get(sink), (blueprint_id, sink)
 
 
 def test_otterdesk_rendered_completion_contract_is_valid():
@@ -655,7 +759,9 @@ def test_otterdesk_rendered_completion_contract_is_valid():
         outgoing_counts: dict[str, int] = {}
 
         for edge in _flow_edges(rendered):
-            outgoing_counts[edge["from_node"]] = outgoing_counts.get(edge["from_node"], 0) + 1
+            outgoing_counts[edge["from_node"]] = (
+                outgoing_counts.get(edge["from_node"], 0) + 1
+            )
 
         for node_id, node in rendered_nodes.items():
             config = node.get("config", {})
@@ -665,14 +771,18 @@ def test_otterdesk_rendered_completion_contract_is_valid():
                 assert config.get("terminal_sink") is True, (blueprint_id, node_id)
                 assert node_id not in step_runs, (blueprint_id, node_id)
                 assert outgoing_counts.get(node_id, 0) == 0, (blueprint_id, node_id)
-            if config.get("complete_on_message") is True or _completion_threshold(config.get("complete_after")):
+            if config.get("complete_on_message") is True or _completion_threshold(
+                config.get("complete_after")
+            ):
                 assert config.get("output_message_type") or (
-                    config.get("terminal_sink") is True and config.get("complete_run") is True
+                    config.get("terminal_sink") is True
+                    and config.get("complete_run") is True
                 ), (blueprint_id, node_id)
+
 
 def test_otterdesk_batch_workflows_complete_with_shared_runner(tmp_path):
     for manifest_path in _manifest_paths():
-        manifest = json.loads(manifest_path.read_text())
+        manifest = blueprint_definition(read_blueprint(manifest_path))
         if not _is_workflow_manifest(manifest) or manifest.get("type") == "service":
             continue
 
@@ -688,9 +798,15 @@ def test_otterdesk_batch_workflows_complete_with_shared_runner(tmp_path):
         )
 
         assert result["run"]["status"] == "completed", blueprint_id
-        assert len(result["workflow"]["steps"]) == len(manifest["workflow"]["steps"]), blueprint_id
+        assert len(result["workflow"]["steps"]) == len(manifest["workflow"]["steps"]), (
+            blueprint_id
+        )
         assert (run_dir / "final_artifact.json").exists(), blueprint_id
-        event_records = [json.loads(line) for line in (run_dir / "events.jsonl").read_text().splitlines() if line.strip()]
+        event_records = [
+            json.loads(line)
+            for line in (run_dir / "events.jsonl").read_text().splitlines()
+            if line.strip()
+        ]
         event_types = {record["type"] for record in event_records}
         assert "workflow_step_attempt_completed" in event_types, blueprint_id
         assert "workflow_finished" in event_types, blueprint_id
@@ -728,7 +844,15 @@ def test_cctv_operator_report_writer_emits_cumulative_reports(tmp_path):
     result = subprocess.run(
         [
             sys.executable,
-                str(ROOT / "cctv_operator" / "payloads" / "agents" / "report_writer" / "scripts" / "write_cctv_report.py"),
+            str(
+                ROOT
+                / "cctv_operator"
+                / "payloads"
+                / "agents"
+                / "report_writer"
+                / "scripts"
+                / "write_cctv_report.py"
+            ),
         ],
         cwd=tmp_path,
         env=env,
@@ -744,7 +868,10 @@ def test_cctv_operator_report_writer_emits_cumulative_reports(tmp_path):
     assert report["detection_count"] == 1
     assert report["completed_sources"] == ["sample.mp4"]
     assert "sample.mp4" in (tmp_path / "cctv_report.md").read_text()
-    assert json.loads((tmp_path / "final_artifact.json").read_text())["type"] == "cctv_operator_review"
+    assert (
+        json.loads((tmp_path / "final_artifact.json").read_text())["type"]
+        == "cctv_operator_review"
+    )
 
 
 def test_cctv_operator_report_writer_derives_run_dir_from_runtime_environment(tmp_path):
@@ -782,7 +909,15 @@ def test_cctv_operator_report_writer_derives_run_dir_from_runtime_environment(tm
     result = subprocess.run(
         [
             sys.executable,
-                str(ROOT / "cctv_operator" / "payloads" / "agents" / "report_writer" / "scripts" / "write_cctv_report.py"),
+            str(
+                ROOT
+                / "cctv_operator"
+                / "payloads"
+                / "agents"
+                / "report_writer"
+                / "scripts"
+                / "write_cctv_report.py"
+            ),
         ],
         cwd=tmp_path,
         env=env,
@@ -800,10 +935,10 @@ def test_cctv_operator_report_writer_derives_run_dir_from_runtime_environment(tm
 def test_otterdesk_blueprints_declare_membrane_context_memory_layer():
     for manifest_path in _manifest_paths():
         blueprint_dir = manifest_path.parent
-        manifest = json.loads(manifest_path.read_text())
+        manifest = blueprint_definition(read_blueprint(manifest_path))
         if not _is_workflow_manifest(manifest):
             continue
-        config = json.loads((blueprint_dir / "config" / "default.json").read_text())
+        config = resolve_config(read_blueprint(blueprint_dir)).data
         blueprint_id = manifest["metadata"]["blueprint_id"]
         if blueprint_id == "gtm_ai_workflow":
             continue
@@ -811,11 +946,19 @@ def test_otterdesk_blueprints_declare_membrane_context_memory_layer():
 
         config_layer = config.get("memory_layer")
         manifest_layer = manifest["metadata"].get("memory_layer")
+        if not manifest_layer:
+            assert "mn.context" not in read_blueprint(manifest_path).manifest.get(
+                "extensions", {}
+            )
+            continue
         assert config_layer == manifest_layer, blueprint_dir.name
         assert config_layer["enabled"] is True
         assert config_layer["enabled_env"] == "MN_CONTEXT_MEMORY_ENABLED"
         assert config_layer["conversation_enabled"] is True
-        assert config_layer["conversation_enabled_env"] == "OTTERDESK_CONTEXT_MEMORY_ENABLED"
+        assert (
+            config_layer["conversation_enabled_env"]
+            == "OTTERDESK_CONTEXT_MEMORY_ENABLED"
+        )
         assert config_layer["namespace"] == expected_namespace
         assert config_layer["collection"] == "mn_memory"
         assert config_layer["sdk_distribution"] == "mirrorneuron-membrane-python-sdk"
@@ -829,7 +972,10 @@ def test_otterdesk_blueprints_declare_membrane_context_memory_layer():
         assert conversation["include_runtime_logs"] is True
         assert conversation["include_human_events"] is True
         assert conversation["token_budget"] > conversation["target_tokens"] > 0
-        assert "Membrane context memory optimization" in manifest["metadata"]["runtime_features"]
+        assert (
+            "Membrane context memory optimization"
+            in manifest["metadata"]["runtime_features"]
+        )
 
 
 def test_otterdesk_blueprints_declare_product_experience_contracts():
@@ -867,24 +1013,36 @@ def test_otterdesk_blueprints_declare_product_experience_contracts():
 
     for manifest_path in _manifest_paths():
         blueprint_dir = manifest_path.parent
-        manifest = json.loads(manifest_path.read_text())
+        manifest = blueprint_definition(read_blueprint(manifest_path))
         if not _is_workflow_manifest(manifest):
             continue
-        config = json.loads((blueprint_dir / "config" / "default.json").read_text())
+        config = resolve_config(read_blueprint(blueprint_dir)).data
         metadata = manifest["metadata"]
         blueprint_id = metadata["blueprint_id"]
         if blueprint_id not in expected_modes:
             continue
 
         input_contract = metadata["input_contract"]
-        assert input_contract["schema_version"] == "mn.blueprint.input_contract.v1", blueprint_id
-        assert {"mock", "json", "file", "env_json"} <= set(input_contract["supported_adapters"])
+        assert input_contract["schema_version"] == "mn.blueprint.input_contract.v1", (
+            blueprint_id
+        )
+        assert {"mock", "json", "file", "env_json"} <= set(
+            input_contract["supported_adapters"]
+        )
         assert input_contract["required_inputs"], blueprint_id
         assert input_contract["resolved_artifact"] == "inputs.json"
         assert "mock" in input_contract["profiles"]
-        assert input_contract["privacy_classification"] == config["privacy"]["default_classification"]
-        for item in input_contract["required_inputs"] + input_contract["optional_inputs"]:
-            assert {"name", "type", "description", "example"} <= set(item), (blueprint_id, item)
+        assert (
+            input_contract["privacy_classification"]
+            == config["privacy"]["default_classification"]
+        )
+        for item in (
+            input_contract["required_inputs"] + input_contract["optional_inputs"]
+        ):
+            assert {"name", "type", "description", "example"} <= set(item), (
+                blueprint_id,
+                item,
+            )
 
         human_control = metadata["human_control"]
         assert human_control == config["human_control"], blueprint_id
@@ -909,20 +1067,51 @@ def test_otterdesk_blueprints_declare_product_experience_contracts():
         assert status_contract["beacon_interval_ms"] == 15000
         assert status_contract["beacon_timeout_ms"] == 45000
         assert status_contract["beacon_missed_action"] == "fail_attempt"
-        assert [phase["phase"] for phase in status_contract["phases"]] == list(STATUS_PHASES)
-        assert all(phase["start_event"] == "blueprint_phase_started" for phase in status_contract["phases"])
-        assert all(phase["completion_event"] == "blueprint_phase_completed" for phase in status_contract["phases"])
-        assert all(phase["failure_event"] == "blueprint_phase_failed" for phase in status_contract["phases"])
+        assert [phase["phase"] for phase in status_contract["phases"]] == list(
+            STATUS_PHASES
+        )
+        assert all(
+            phase["start_event"] == "blueprint_phase_started"
+            for phase in status_contract["phases"]
+        )
+        assert all(
+            phase["completion_event"] == "blueprint_phase_completed"
+            for phase in status_contract["phases"]
+        )
+        assert all(
+            phase["failure_event"] == "blueprint_phase_failed"
+            for phase in status_contract["phases"]
+        )
 
         final_contract = metadata["output_contract"]["final_artifact"]
-        assert final_contract["schema_version"] == "mn.blueprint.final_artifact_contract.v1"
-        assert set(FINAL_ARTIFACT_REQUIRED_FIELDS) <= set(final_contract["required_fields"])
+        assert (
+            final_contract["schema_version"]
+            == "mn.blueprint.final_artifact_contract.v1"
+        )
+        assert set(FINAL_ARTIFACT_REQUIRED_FIELDS) <= set(
+            final_contract["required_fields"]
+        )
         artifacts = metadata["output_contract"]["artifacts"]
         artifact_ids = {artifact["artifact_id"] for artifact in artifacts}
-        assert {"run_metadata", "resolved_config", "resolved_inputs", "event_stream", "result", "final_artifact"} <= artifact_ids
+        assert {
+            "run_metadata",
+            "resolved_config",
+            "resolved_inputs",
+            "event_stream",
+            "result",
+            "final_artifact",
+        } <= artifact_ids
         assert {"logs", "resources", "web_ui", "human_events"} <= artifact_ids
         for artifact in artifacts:
-            assert {"artifact_id", "type", "path", "producer", "mime_type", "schema_version", "source_refs"} <= set(artifact), (
+            assert {
+                "artifact_id",
+                "type",
+                "path",
+                "producer",
+                "mime_type",
+                "schema_version",
+                "source_refs",
+            } <= set(artifact), (
                 blueprint_id,
                 artifact,
             )
@@ -930,8 +1119,16 @@ def test_otterdesk_blueprints_declare_product_experience_contracts():
         dashboard = metadata["observability_dashboard"]
         assert dashboard["schema_version"] == "mn.blueprint.observability_dashboard.v1"
         assert set(STANDARD_OBSERVABILITY_PANELS) <= set(dashboard["panels"])
-        assert {"events.jsonl", "human.jsonl", "logs.jsonl", "resources.jsonl", "final_artifact.json"} <= set(dashboard["reads"])
-        assert set(dashboard["panels"]) <= set(config["web_ui"]["dashboard"]["standard_panels"])
+        assert {
+            "events.jsonl",
+            "human.jsonl",
+            "logs.jsonl",
+            "resources.jsonl",
+            "final_artifact.json",
+        } <= set(dashboard["reads"])
+        assert set(dashboard["panels"]) <= set(
+            config["web_ui"]["dashboard"]["standard_panels"]
+        )
 
         schemas = config["schemas"]
         assert required_schema_keys <= set(schemas), blueprint_id
@@ -943,30 +1140,49 @@ def test_otterdesk_blueprints_declare_product_experience_contracts():
         assert review["required"] is True
         assert review["fields"], blueprint_id
         for field in review["fields"]:
-            assert {"path", "label", "default", "description"} <= set(field), (blueprint_id, field)
+            assert {"path", "label", "default", "description"} <= set(field), (
+                blueprint_id,
+                field,
+            )
 
 
 def test_otterdesk_folder_path_inputs_declare_directory_path_metadata():
     for manifest_path in _manifest_paths():
-        manifest = json.loads(manifest_path.read_text())
+        manifest = blueprint_definition(read_blueprint(manifest_path))
         metadata = manifest.get("metadata", {})
         blueprint_id = metadata.get("blueprint_id") or manifest_path.parent.name
         expected_folder_inputs = FOLDER_INPUT_FIELDS.get(blueprint_id, set())
         contract_inputs = manifest.get("contract", {}).get("inputs", {})
 
         for name, spec in contract_inputs.items():
-            if name in expected_folder_inputs or name.endswith("_folder") or name == "output_folder":
-                _assert_directory_path_metadata(spec, (blueprint_id, "contract.inputs", name))
+            if (
+                name in expected_folder_inputs
+                or name.endswith("_folder")
+                or name == "output_folder"
+            ):
+                _assert_directory_path_metadata(
+                    spec, (blueprint_id, "contract.inputs", name)
+                )
 
         input_contract = metadata.get("input_contract", {})
-        input_items = input_contract.get("required_inputs", []) + input_contract.get("optional_inputs", [])
-        by_name = {item.get("name"): item for item in input_items if isinstance(item, dict)}
+        input_items = input_contract.get("required_inputs", []) + input_contract.get(
+            "optional_inputs", []
+        )
+        by_name = {
+            item.get("name"): item for item in input_items if isinstance(item, dict)
+        }
         for name in expected_folder_inputs:
             assert name in by_name, (blueprint_id, name)
-            _assert_directory_path_metadata(by_name[name], (blueprint_id, "metadata.input_contract", name))
+            _assert_directory_path_metadata(
+                by_name[name], (blueprint_id, "metadata.input_contract", name)
+            )
         for name, item in by_name.items():
-            if isinstance(name, str) and (name.endswith("_folder") or name == "output_folder"):
-                _assert_directory_path_metadata(item, (blueprint_id, "metadata.input_contract", name))
+            if isinstance(name, str) and (
+                name.endswith("_folder") or name == "output_folder"
+            ):
+                _assert_directory_path_metadata(
+                    item, (blueprint_id, "metadata.input_contract", name)
+                )
 
         review = metadata.get("init_config_review", {})
         for field in review.get("fields", []):
@@ -975,25 +1191,35 @@ def test_otterdesk_folder_path_inputs_declare_directory_path_metadata():
             path = str(field.get("path") or "")
             name = str(field.get("name") or "")
             if path.endswith(".folder_path") or name == "output_folder":
-                _assert_directory_path_metadata(field, (blueprint_id, "metadata.init_config_review", path or name))
+                _assert_directory_path_metadata(
+                    field, (blueprint_id, "metadata.init_config_review", path or name)
+                )
 
 
 def test_otterdesk_blueprints_declare_standard_default_input_and_output_folders():
     for manifest_path in _manifest_paths():
         blueprint_dir = manifest_path.parent
         blueprint_id = blueprint_dir.name
-        manifest = json.loads(manifest_path.read_text())
-        config = json.loads((blueprint_dir / "config" / "default.json").read_text())
+        manifest = blueprint_definition(read_blueprint(manifest_path))
+        config = resolve_config(read_blueprint(blueprint_dir)).data
         expected_input = _default_input_folder(blueprint_id)
         expected_output = _default_output_folder(blueprint_id)
 
         assert (blueprint_dir / "examples" / "sample_inputs").is_dir(), blueprint_id
 
         contract_inputs = manifest["contract"]["inputs"]
-        assert contract_inputs["input_folder"]["example"] == expected_input, blueprint_id
-        assert contract_inputs["output_folder"]["example"] == expected_output, blueprint_id
-        _assert_directory_path_metadata(contract_inputs["input_folder"], (blueprint_id, "contract.input_folder"))
-        _assert_directory_path_metadata(contract_inputs["output_folder"], (blueprint_id, "contract.output_folder"))
+        assert contract_inputs["input_folder"]["example"] == expected_input, (
+            blueprint_id
+        )
+        assert contract_inputs["output_folder"]["example"] == expected_output, (
+            blueprint_id
+        )
+        _assert_directory_path_metadata(
+            contract_inputs["input_folder"], (blueprint_id, "contract.input_folder")
+        )
+        _assert_directory_path_metadata(
+            contract_inputs["output_folder"], (blueprint_id, "contract.output_folder")
+        )
 
         payload = config["inputs"]["payload"]
         assert payload["input_folder"] == expected_input, blueprint_id
@@ -1008,12 +1234,17 @@ def test_otterdesk_blueprints_declare_standard_default_input_and_output_folders(
         visible_input_folder_paths = [
             path
             for path in review_fields
-            if path == "inputs.payload.input_folder" or (path.endswith(".folder_path") and path != "outputs.folder_path")
+            if path == "inputs.payload.input_folder"
+            or (path.endswith(".folder_path") and path != "outputs.folder_path")
         ]
         assert len(visible_input_folder_paths) == 1, blueprint_id
-        assert review_fields[visible_input_folder_paths[0]]["default"] == expected_input, blueprint_id
+        assert (
+            review_fields[visible_input_folder_paths[0]]["default"] == expected_input
+        ), blueprint_id
         assert "inputs.payload.output_folder" not in review_fields, blueprint_id
-        assert review_fields["outputs.folder_path"]["default"] == expected_output, blueprint_id
+        assert review_fields["outputs.folder_path"]["default"] == expected_output, (
+            blueprint_id
+        )
 
 
 def test_indexed_non_vc_blueprints_ship_non_placeholder_sample_inputs():
@@ -1032,11 +1263,15 @@ def test_indexed_non_vc_blueprints_ship_non_placeholder_sample_inputs():
         dataset_manifest_path = sample_dir / "SAMPLE_DATASET_MANIFEST.json"
         assert dataset_manifest_path.is_file(), blueprint_id
         dataset_manifest = json.loads(dataset_manifest_path.read_text())
-        schema = dataset_manifest.get("schema") or dataset_manifest.get("schema_version")
+        schema = dataset_manifest.get("schema") or dataset_manifest.get(
+            "schema_version"
+        )
         if schema is not None:
             assert schema == "otterdesk.sample_dataset.v1", blueprint_id
         assert dataset_manifest["blueprint_id"] == blueprint_id, blueprint_id
-        assert dataset_manifest.get("description") or dataset_manifest.get("demo_source"), blueprint_id
+        assert dataset_manifest.get("description") or dataset_manifest.get(
+            "demo_source"
+        ), blueprint_id
 
         listed_files = dataset_manifest.get("files")
         assert isinstance(listed_files, list) and listed_files, blueprint_id
@@ -1044,7 +1279,10 @@ def test_indexed_non_vc_blueprints_ship_non_placeholder_sample_inputs():
             if isinstance(item, str):
                 assert (sample_dir / item).is_file(), (blueprint_id, item)
                 continue
-            assert {"path", "type", "contains_pii", "intended_use"} <= set(item), (blueprint_id, item)
+            assert {"path", "type", "contains_pii", "intended_use"} <= set(item), (
+                blueprint_id,
+                item,
+            )
             assert (sample_dir / item["path"]).is_file(), (blueprint_id, item["path"])
 
 
@@ -1053,18 +1291,23 @@ def test_indexed_non_vc_blueprints_have_non_trivial_rag_knowledge():
         blueprint_id = entry["id"]
         blueprint_dir = ROOT / entry["path"]
         manifest = _runtime_manifest(blueprint_dir / "manifest.json")
-        rag = manifest.get("knowledge_rag") or manifest.get("metadata", {}).get("knowledge_rag", {})
+        rag = manifest.get("knowledge_rag") or manifest.get("metadata", {}).get(
+            "knowledge_rag", {}
+        )
         if not rag.get("enabled"):
             continue
 
         knowledge_dir = blueprint_dir / rag.get("knowledge_dir", "knowledge")
         if not knowledge_dir.is_dir():
-            resources = manifest.get("metadata", {}).get("job_data", {}).get("resources", [])
+            resources = (
+                manifest.get("metadata", {}).get("job_data", {}).get("resources", [])
+            )
             knowledge = next(
                 (
                     resource
                     for resource in resources
-                    if isinstance(resource, dict) and resource.get("name") == "knowledge"
+                    if isinstance(resource, dict)
+                    and resource.get("name") == "knowledge"
                 ),
                 {},
             )
@@ -1079,7 +1322,9 @@ def test_indexed_non_vc_blueprints_have_non_trivial_rag_knowledge():
         ]
         assert knowledge_files, blueprint_id
 
-        combined = "\n".join(path.read_text(encoding="utf-8") for path in knowledge_files)
+        combined = "\n".join(
+            path.read_text(encoding="utf-8") for path in knowledge_files
+        )
         assert len(combined) >= 1800, blueprint_id
         lowered = combined.lower()
         assert "evidence" in lowered, blueprint_id
@@ -1093,8 +1338,10 @@ def test_product_ready_llm_configs_use_manifest_owned_default_route():
         "purchasing_manager",
     }
     for blueprint_id in sorted(targets):
-        manifest = json.loads((ROOT / blueprint_id / "manifest.json").read_text())
-        config = json.loads((ROOT / blueprint_id / "config" / "default.json").read_text())
+        manifest = blueprint_definition(
+            read_blueprint(blueprint_path(blueprint_id) / "manifest.json")
+        )
+        config = resolve_config(read_blueprint(blueprint_path(blueprint_id))).data
         llm = manifest["llm"]
         primary = llm["configs"]["primary"]
 
@@ -1113,37 +1360,59 @@ def test_product_ready_llm_configs_use_manifest_owned_default_route():
 def test_otterdesk_init_config_review_does_not_duplicate_folder_controls():
     for manifest_path in _manifest_paths():
         blueprint_id = manifest_path.parent.name
-        manifest = json.loads(manifest_path.read_text())
+        manifest = blueprint_definition(read_blueprint(manifest_path))
         fields = manifest["metadata"]["init_config_review"]["fields"]
         paths = [field.get("path") for field in fields if isinstance(field, dict)]
         visible_input_folder_paths = [
             path
             for path in paths
             if isinstance(path, str)
-            and (path == "inputs.payload.input_folder" or (path.endswith(".folder_path") and path != "outputs.folder_path"))
+            and (
+                path == "inputs.payload.input_folder"
+                or (path.endswith(".folder_path") and path != "outputs.folder_path")
+            )
         ]
-        visible_output_folder_paths = [path for path in paths if path in {"inputs.payload.output_folder", "outputs.folder_path"}]
+        visible_output_folder_paths = [
+            path
+            for path in paths
+            if path in {"inputs.payload.output_folder", "outputs.folder_path"}
+        ]
 
-        assert len(visible_input_folder_paths) == 1, (blueprint_id, visible_input_folder_paths)
-        assert visible_output_folder_paths == ["outputs.folder_path"], (blueprint_id, visible_output_folder_paths)
-        if any(path.endswith(".folder_path") and path != "outputs.folder_path" for path in visible_input_folder_paths):
+        assert len(visible_input_folder_paths) == 1, (
+            blueprint_id,
+            visible_input_folder_paths,
+        )
+        assert visible_output_folder_paths == ["outputs.folder_path"], (
+            blueprint_id,
+            visible_output_folder_paths,
+        )
+        if any(
+            path.endswith(".folder_path") and path != "outputs.folder_path"
+            for path in visible_input_folder_paths
+        ):
             assert "inputs.payload.input_folder" not in paths, blueprint_id
 
 
 def test_otterdesk_blueprint_descriptions_are_customer_facing_and_synchronized():
-    index_by_id = {entry["id"]: entry for entry in json.loads((ROOT / "index.json").read_text())}
+    index_by_id = {
+        entry["id"]: entry
+        for index in (ROOT / "index.json", ROOT.parent / "mn-blueprints/index.json")
+        for entry in read_catalog(index)
+    }
     for manifest_path in _manifest_paths():
         blueprint_dir = manifest_path.parent
         blueprint_id = blueprint_dir.name
-        manifest = json.loads(manifest_path.read_text())
-        config = json.loads((blueprint_dir / "config" / "default.json").read_text())
+        manifest = blueprint_definition(read_blueprint(manifest_path))
+        config = resolve_config(read_blueprint(blueprint_dir)).data
         description = manifest.get("description")
 
         assert isinstance(description, str) and len(description) >= 160, blueprint_id
         assert description == manifest["metadata"]["description"], blueprint_id
         assert description == config["metadata"]["description"], blueprint_id
         assert description == index_by_id[blueprint_id]["description"], blueprint_id
-        assert any(marker in description for marker in ("Give it", "Put ")), blueprint_id
+        assert any(marker in description for marker in ("Give it", "Put ")), (
+            blueprint_id
+        )
         assert "input folder" in description, blueprint_id
         assert "output folder" in description, blueprint_id
 
@@ -1173,19 +1442,25 @@ def _embedded_manifest_configs(manifest: dict):
         env = (node.get("config") or {}).get("environment") or {}
         if env.get("MN_BLUEPRINT_CONFIG_JSON"):
             yield json.loads(env["MN_BLUEPRINT_CONFIG_JSON"])
-    for template in manifest.get("metadata", {}).get("agent_templates", {}).get("nodes", []):
+    for template in (
+        manifest.get("metadata", {}).get("agent_templates", {}).get("nodes", [])
+    ):
         env = (template.get("with") or {}).get("environment") or {}
         if env.get("MN_BLUEPRINT_CONFIG_JSON"):
             yield json.loads(env["MN_BLUEPRINT_CONFIG_JSON"])
 
 
 def test_batch_blueprints_declare_advisory_schedules():
-    index_by_id = {entry["id"]: entry for entry in json.loads((ROOT / "index.json").read_text())}
+    index_by_id = {
+        entry["id"]: entry
+        for index in (ROOT / "index.json", ROOT.parent / "mn-blueprints/index.json")
+        for entry in read_catalog(index)
+    }
 
     for blueprint_id in sorted(EXPECTED_BATCH_SUGGESTED_SCHEDULES):
-        blueprint_dir = ROOT / blueprint_id
-        config = json.loads((blueprint_dir / "config" / "default.json").read_text())
-        manifest = json.loads((blueprint_dir / "manifest.json").read_text())
+        blueprint_dir = blueprint_path(blueprint_id)
+        config = resolve_config(read_blueprint(blueprint_dir)).data
+        manifest = blueprint_definition(read_blueprint(blueprint_dir / "manifest.json"))
         schedule = config.get("suggested_schedule")
 
         assert schedule == _expected_schedule(blueprint_id)
@@ -1202,12 +1477,12 @@ def test_batch_blueprints_declare_advisory_schedules():
     assert "safety_video_analyser" not in index_by_id
     assert "video_watch_assistant" not in index_by_id
     for blueprint_id in CONTINUOUS_BLUEPRINTS_WITHOUT_SUGGESTED_SCHEDULES:
-        config = json.loads((ROOT / blueprint_id / "config" / "default.json").read_text())
+        config = resolve_config(read_blueprint(blueprint_path(blueprint_id))).data
         assert "suggested_schedule" not in config, blueprint_id
 
 
 def test_index_entries_point_to_loadable_blueprint_folders():
-    index = json.loads((ROOT / "index.json").read_text())
+    index = read_catalog(ROOT / "index.json")
     assert index
     ids = [entry["id"] for entry in index]
     assert len(ids) == len(set(ids))
@@ -1240,7 +1515,7 @@ import json
 from pathlib import Path
 from domain.composition import run_blueprint
 
-root = Path({str((ROOT / 'purchasing_manager').resolve())!r})
+root = Path({str((ROOT / "purchasing_manager").resolve())!r})
 output = Path({str(tmp_path.resolve())!r}) / "output"
 result = run_blueprint(
     inputs={{
@@ -1263,7 +1538,9 @@ print(json.dumps({{
 
     assert set(FINAL_ARTIFACT_REQUIRED_FIELDS) <= set(artifact)
     assert artifact["evidence"]
-    assert {"inputs.json", "events.jsonl", "result.json"} <= set(artifact["source_refs"])
+    assert {"inputs.json", "events.jsonl", "result.json"} <= set(
+        artifact["source_refs"]
+    )
     assert artifact["preferred_candidate"] == "microcenter-powerspec-g913"
     assert len(artifact["candidate_comparisons"]) == 3
     assert artifact["procurement_summary"]["budget_status"] == "within_budget"
@@ -1276,14 +1553,19 @@ def test_cctv_operator_declares_otterdesk_chat_system_prompt():
     manifest = _runtime_manifest(blueprint_dir / "manifest.json")
     prompt = (blueprint_dir / "payloads" / "prompts" / "chat-system.md").read_text()
 
-    assert "payloads/prompts/" in manifest["metadata"]["configuration_contract"]["optional_files"]
+    assert (
+        "payloads/prompts/"
+        in manifest["metadata"]["configuration_contract"]["optional_files"]
+    )
     assert "CCTV Operator" in prompt
     assert "co-worker" in prompt
     assert "human-in-the-loop" in prompt
 
 
 def test_cctv_operator_declares_domain_agent_aliases():
-    manifest = json.loads((ROOT / "cctv_operator" / "manifest.json").read_text())
+    manifest = blueprint_definition(
+        read_blueprint(ROOT / "cctv_operator" / "manifest.json")
+    )
 
     template_aliases = {
         node["node_id"]: node["alias"]
@@ -1301,14 +1583,16 @@ def test_cctv_operator_declares_domain_agent_aliases():
         for binding in manifest["runtime"]["bindings"].values()
         for worker in binding["workers"]
     ]
-    assert worker_ids == [
-        "visual_target_detector",
-        "quality_controller",
-        "adaptive_frame_sampler",
-        "video_source_validator",
-        "video_monitor",
-        "report_writer",
-    ]
+    assert sorted(worker_ids) == sorted(
+        [
+            "visual_target_detector",
+            "quality_controller",
+            "adaptive_frame_sampler",
+            "video_source_validator",
+            "video_monitor",
+            "report_writer",
+        ]
+    )
     assert all(
         worker.get("alias") == worker["id"]
         for binding in manifest["runtime"]["bindings"].values()
@@ -1324,7 +1608,7 @@ def test_cctv_operator_declares_domain_agent_aliases():
 
 def test_otterdesk_nodes_use_shared_agent_templates_and_render():
     for manifest_path in _manifest_paths():
-        manifest = json.loads(manifest_path.read_text())
+        manifest = blueprint_definition(read_blueprint(manifest_path))
         if not _flow_nodes(manifest) or not _template_nodes(manifest):
             continue
         template_nodes = _template_nodes(manifest)
@@ -1337,10 +1621,16 @@ def test_otterdesk_nodes_use_shared_agent_templates_and_render():
         assert template_nodes, manifest_path
         for node in template_nodes:
             assert "uses" in node, (manifest_path.parent.name, node.get("node_id"))
-            assert node["uses"].startswith("mn-agents."), (manifest_path.parent.name, node.get("node_id"))
+            assert node["uses"].startswith("mn-agents."), (
+                manifest_path.parent.name,
+                node.get("node_id"),
+            )
             assert "@" in node["uses"] and not node["uses"].endswith("@latest")
             if "with" in node:
-                assert isinstance(node.get("with"), dict), (manifest_path.parent.name, node.get("node_id"))
+                assert isinstance(node.get("with"), dict), (
+                    manifest_path.parent.name,
+                    node.get("node_id"),
+                )
             assert not {"agent_type", "type", "role", "config"} & set(node), (
                 manifest_path.parent.name,
                 node.get("node_id"),
@@ -1355,19 +1645,32 @@ def test_otterdesk_nodes_use_shared_agent_templates_and_render():
                 continue
             config = node["config"]
             node_id = node["node_id"]
-            assert config["beacon_enabled"] is True, (manifest_path.parent.name, node_id)
-            assert config["beacon_interval_ms"] == 15000, (manifest_path.parent.name, node_id)
+            assert config["beacon_enabled"] is True, (
+                manifest_path.parent.name,
+                node_id,
+            )
+            assert config["beacon_interval_ms"] == 15000, (
+                manifest_path.parent.name,
+                node_id,
+            )
             assert config["beacon_timeout_ms"] == 45000, (
                 manifest_path.parent.name,
                 node_id,
             )
-            assert config["beacon_missed_action"] == "fail_attempt", (manifest_path.parent.name, node_id)
-            if original_nodes[node_id]["uses"].startswith("mn-agents.data_python_executor@"):
-                configured_beacon_required = original_nodes[node_id].get("with", {}).get(
-                    "agent_beacon_required"
+            assert config["beacon_missed_action"] == "fail_attempt", (
+                manifest_path.parent.name,
+                node_id,
+            )
+            if original_nodes[node_id]["uses"].startswith(
+                "mn-agents.data_python_executor@"
+            ):
+                configured_beacon_required = (
+                    original_nodes[node_id].get("with", {}).get("agent_beacon_required")
                 )
                 if isinstance(configured_beacon_required, bool):
-                    assert config["agent_beacon_required"] is configured_beacon_required, (
+                    assert (
+                        config["agent_beacon_required"] is configured_beacon_required
+                    ), (
                         manifest_path.parent.name,
                         node_id,
                     )
@@ -1378,9 +1681,17 @@ def test_otterdesk_nodes_use_shared_agent_templates_and_render():
                     )
             if node_id in control_by_step:
                 control = control_by_step[node_id]
-                assert config["timeout_seconds"] == control["timeout_seconds"], (manifest_path.parent.name, node_id)
-                assert config["max_attempts"] == control["retry"]["max_attempts"], (manifest_path.parent.name, node_id)
-                assert config["retry_backoff_ms"] == int(control["retry"]["backoff_seconds"] * 1000), (
+                assert config["timeout_seconds"] == control["timeout_seconds"], (
+                    manifest_path.parent.name,
+                    node_id,
+                )
+                assert config["max_attempts"] == control["retry"]["max_attempts"], (
+                    manifest_path.parent.name,
+                    node_id,
+                )
+                assert config["retry_backoff_ms"] == int(
+                    control["retry"]["backoff_seconds"] * 1000
+                ), (
                     manifest_path.parent.name,
                     node_id,
                 )
@@ -1412,22 +1723,39 @@ def test_otterdesk_manifests_require_runtime_workflow_control_contract():
     }
 
     for manifest_path in _manifest_paths():
-        manifest = json.loads(manifest_path.read_text())
+        manifest = _runtime_manifest(manifest_path)
         if not _is_workflow_manifest(manifest):
             continue
         workflow_control = manifest.get("runtime", {}).get("workflow_control")
-        assert workflow_control, manifest_path.parent.name
+        if not workflow_control:
+            assert (
+                read_blueprint(manifest_path).document("execution")["mode"]
+                == "compiled"
+            )
+            assert manifest["workflow"]["steps"]
+            continue
         assert workflow_control["schema_version"] == "mn.workflow.runtime_control.v1"
         assert workflow_control["enabled"] is True
         assert workflow_control["source_of_truth"] == "workflow.steps"
         assert workflow_control["state_ledger"]["enabled"] is True
         assert workflow_control["state_ledger"]["persisted_field"] == "workflow_state"
-        assert set(workflow_control["state_ledger"]["step_statuses"]) == expected_statuses
+        assert (
+            set(workflow_control["state_ledger"]["step_statuses"]) == expected_statuses
+        )
         assert workflow_control["state_ledger"]["message_ledger"] is True
-        assert workflow_control["state_ledger"]["delivery_semantics"] == "at_least_once_with_idempotency"
+        assert (
+            workflow_control["state_ledger"]["delivery_semantics"]
+            == "at_least_once_with_idempotency"
+        )
         assert workflow_control["attempts"]["stale_attempt_outputs"] == "ignore"
-        assert workflow_control["attempts"]["retry_policy_source"] == "workflow.steps[].control.retry"
-        assert workflow_control["attempts"]["timeout_source"] == "workflow.steps[].control.timeout_seconds"
+        assert (
+            workflow_control["attempts"]["retry_policy_source"]
+            == "workflow.steps[].control.retry"
+        )
+        assert (
+            workflow_control["attempts"]["timeout_source"]
+            == "workflow.steps[].control.timeout_seconds"
+        )
         assert workflow_control["liveness"] == {
             "event": "agent_beacon",
             "interval_ms": 15000,
@@ -1477,15 +1805,28 @@ def test_otterdesk_workflow_steps_are_bounded_and_retryable():
                 # into a finite batch workflow. Runtime cancellation controls
                 # remain the termination boundary for this manifest type.
                 continue
-            assert isinstance(control.get("timeout_seconds"), int), (manifest_path.parent.name, step.get("id"))
-            assert control["timeout_seconds"] > 0, (manifest_path.parent.name, step.get("id"))
-            assert control["retry"]["max_attempts"] >= 1, (manifest_path.parent.name, step.get("id"))
-            assert control["retry"]["backoff_seconds"] >= 0, (manifest_path.parent.name, step.get("id"))
+            assert isinstance(control.get("timeout_seconds"), int), (
+                manifest_path.parent.name,
+                step.get("id"),
+            )
+            assert control["timeout_seconds"] > 0, (
+                manifest_path.parent.name,
+                step.get("id"),
+            )
+            assert control["retry"]["max_attempts"] >= 1, (
+                manifest_path.parent.name,
+                step.get("id"),
+            )
+            assert control["retry"]["backoff_seconds"] >= 0, (
+                manifest_path.parent.name,
+                step.get("id"),
+            )
+
 
 def test_cctv_operator_uses_dockerworker_nvidia_media_worker():
     blueprint_dir = ROOT / "cctv_operator"
     manifest = _runtime_manifest(blueprint_dir / "manifest.json")
-    config = json.loads((blueprint_dir / "config" / "default.json").read_text())
+    config = resolve_config(read_blueprint(blueprint_dir)).data
 
     nodes = {node["node_id"]: node for node in _flow_nodes(manifest)}
     assert set(nodes) == {
@@ -1519,33 +1860,28 @@ def test_cctv_operator_uses_dockerworker_nvidia_media_worker():
     assert not visual_node.get("resources")
     assert not nodes["ingress"].get("resources")
     assert not nodes["report_writer"].get("resources")
-    assert sampler_node["config"]["command"] == ["bash", "scripts/run_sampler_on_nvidia.sh"]
+    assert sampler_node["config"]["command"] == [
+        "bash",
+        "scripts/run_sampler_on_nvidia.sh",
+    ]
     assert sampler_node["config"]["workdir"] == "/mn/job/adaptive_frame_sampler"
     assert sampler_node["config"].get("output_message_type") is None
     assert visual_node["config"]["workdir"] == "/mn/job/agents/visual_detector"
-    assert visual_node["config"]["command"] == ["bash", "scripts/run_detector_on_nvidia.sh"]
+    assert visual_node["config"]["command"] == [
+        "bash",
+        "scripts/run_detector_on_nvidia.sh",
+    ]
     visual_model_environment = visual_node["config"]["environment"]
     assert visual_model_environment["MN_VLM_PROVIDER"] == "docker_model_runner"
-    assert (
-        visual_model_environment["MN_VLM_API_BASE"]
-        == "auto"
-    )
-    assert (
-        visual_model_environment["MN_VLM_MODEL"]
-        == "nemotron3:q4_K_M"
-    )
+    assert visual_model_environment["MN_VLM_API_BASE"] == "auto"
+    assert visual_model_environment["MN_VLM_MODEL"] == "nemotron3:q4_K_M"
     assert visual_model_environment["MN_RUNTIME_MODEL_MANAGED"] == "1"
     assert (
-        visual_model_environment["MN_RUNTIME_MODEL_CONTROL_TARGET"]
-        == "127.0.0.1:55051"
+        visual_model_environment["MN_RUNTIME_MODEL_CONTROL_TARGET"] == "127.0.0.1:55051"
     )
+    assert visual_model_environment["MN_RUNTIME_MODEL_GATEWAY_HOST"] == "127.0.0.1"
     assert (
-        visual_model_environment["MN_RUNTIME_MODEL_GATEWAY_HOST"]
-        == "127.0.0.1"
-    )
-    assert (
-        visual_model_environment["MN_RUNTIME_MODEL_NATIVE_TARGET"]
-        == "127.0.0.1:55052"
+        visual_model_environment["MN_RUNTIME_MODEL_NATIVE_TARGET"] == "127.0.0.1:55052"
     )
     assert visual_node["config"]["upload_paths"] == [
         {
@@ -1570,9 +1906,7 @@ def test_cctv_operator_uses_dockerworker_nvidia_media_worker():
     assert "python3" in dockerfile
     assert (docker_worker / "demo" / "sample.mp4").stat().st_size > 0
     assert (docker_worker / "demo" / "mediamtx.yml").is_file()
-    demo_script = (
-        docker_worker / "demo" / "start_demo_stream.sh"
-    ).read_text()
+    demo_script = (docker_worker / "demo" / "start_demo_stream.sh").read_text()
     assert "rtsp://127.0.0.1:8554/cctv-demo" in demo_script
     assert "-stream_loop -1" in demo_script
 
@@ -1584,15 +1918,19 @@ def test_cctv_operator_uses_dockerworker_nvidia_media_worker():
         / "scripts"
         / "run_sampler_on_nvidia.sh"
     ).read_text()
-    assert 'demo_profile' in sampler_launch_script
+    assert "demo_profile" in sampler_launch_script
     assert "/opt/cctv-demo/start_demo_stream.sh" in sampler_launch_script
     assert (
-        "/opt/cctv-demo/start_demo_stream.sh >/dev/null 2>&1"
-        in sampler_launch_script
+        "/opt/cctv-demo/start_demo_stream.sh >/dev/null 2>&1" in sampler_launch_script
     )
 
     launch_script = (
-        blueprint_dir / "payloads" / "agents" / "visual_detector" / "scripts" / "run_detector_on_nvidia.sh"
+        blueprint_dir
+        / "payloads"
+        / "agents"
+        / "visual_detector"
+        / "scripts"
+        / "run_detector_on_nvidia.sh"
     ).read_text()
     assert "nvidia-smi" not in launch_script
     assert "ffmpeg -hide_banner -hwaccels" in launch_script
@@ -1600,20 +1938,11 @@ def test_cctv_operator_uses_dockerworker_nvidia_media_worker():
     assert "nvidia_cuda" in launch_script
     assert manifest["runtime"]["models"]["primary"]["type"] == "vlm"
     assert manifest["runtime"]["placement"]["mode"] == "single_node"
-    assert (
-        manifest["runtime"]["models"]["primary"]["provider"]
-        == "docker_model_runner"
-    )
+    assert manifest["runtime"]["models"]["primary"]["provider"] == "docker_model_runner"
     assert config["llm"]["provider"] == "docker_model_runner"
-    assert (
-        config["llm"]["configs"]["primary"]["provider"]
-        == "docker_model_runner"
-    )
+    assert config["llm"]["configs"]["primary"]["provider"] == "docker_model_runner"
     assert config["llm"]["configs"]["primary"]["api_base"] == "auto"
-    assert (
-        manifest["runtime"]["models"]["primary"]["model"]
-        == "nemotron3:q4_K_M"
-    )
+    assert manifest["runtime"]["models"]["primary"]["model"] == "nemotron3:q4_K_M"
     assert "runtime_model" not in manifest["runtime"]["models"]["primary"]
     assert config["llm"]["model"] == "nemotron3:q4_K_M"
     assert "runtime_model" not in config["llm"]
@@ -1638,7 +1967,9 @@ def test_cctv_operator_uses_dockerworker_nvidia_media_worker():
 
 
 def test_cctv_operator_seeds_live_monitor_start_message():
-    manifest = json.loads((ROOT / "cctv_operator" / "manifest.json").read_text())
+    manifest = blueprint_definition(
+        read_blueprint(ROOT / "cctv_operator" / "manifest.json")
+    )
 
     seed = manifest["runtime"]["bindings"]["start_video_monitor"]["seed_inputs"]
 
@@ -1653,13 +1984,13 @@ def test_cctv_operator_seeds_live_monitor_start_message():
 
 
 def test_cctv_operator_start_stage_completes_before_stream_routing():
-    source = json.loads((ROOT / "cctv_operator" / "manifest.json").read_text())
+    source = blueprint_definition(
+        read_blueprint(ROOT / "cctv_operator" / "manifest.json")
+    )
     runtime = _runtime_manifest(ROOT / "cctv_operator" / "manifest.json")
 
     source_node = next(
-        node
-        for node in source["agents"]["extra_nodes"]
-        if node["node_id"] == "ingress"
+        node for node in source["agents"]["extra_nodes"] if node["node_id"] == "ingress"
     )
     runtime_node = next(
         node for node in runtime["agents"]["nodes"] if node["node_id"] == "ingress"
@@ -1676,8 +2007,8 @@ def test_cctv_operator_start_stage_completes_before_stream_routing():
 
 
 def test_cctv_operator_declares_only_routed_schema_validated_live_input():
-    source = json.loads(
-        (ROOT / "cctv_operator" / "manifest.json").read_text()
+    source = blueprint_definition(
+        read_blueprint(ROOT / "cctv_operator" / "manifest.json")
     )
     runtime = _runtime_manifest(ROOT / "cctv_operator" / "manifest.json")
     declaration = source["contracts"]["live_inputs"]["steer_monitoring"]
@@ -1688,23 +2019,30 @@ def test_cctv_operator_declares_only_routed_schema_validated_live_input():
     assert declaration["schema"]["properties"]["instruction"]["maxLength"] == 500
     assert runtime["contract"]["live_inputs"]["steer_monitoring"] == declaration
     assert any(
-        edge["from_node"] == "ingress"
-        and edge["message_type"] == "cctv_operator_steer"
+        edge["from_node"] == "ingress" and edge["message_type"] == "cctv_operator_steer"
         for edge in _flow_edges(runtime)
     )
 
 
 def test_cctv_operator_detector_script_compiles_with_shared_helper_import():
     py_compile.compile(
-        str(ROOT / "cctv_operator" / "payloads" / "agents" / "visual_detector" / "scripts" / "analyze_video_frame.py"),
+        str(
+            ROOT
+            / "cctv_operator"
+            / "payloads"
+            / "agents"
+            / "visual_detector"
+            / "scripts"
+            / "analyze_video_frame.py"
+        ),
         doraise=True,
     )
 
 
 def test_cctv_operator_owns_external_web_ui_and_uses_generic_skills():
     blueprint_dir = ROOT / "cctv_operator"
-    manifest = json.loads((blueprint_dir / "manifest.json").read_text())
-    config = json.loads((blueprint_dir / "config" / "default.json").read_text())
+    manifest = blueprint_definition(read_blueprint(blueprint_dir / "manifest.json"))
+    config = resolve_config(read_blueprint(blueprint_dir)).data
 
     assert {
         dependency["name"]: dependency["version"]
@@ -1787,8 +2125,17 @@ def test_cctv_operator_owns_external_web_ui_and_uses_generic_skills():
 
 
 def _load_cctv_operator_validator():
-    path = ROOT / "cctv_operator" / "payloads" / "agents" / "validation" / "validate_video_source.py"
-    spec = importlib.util.spec_from_file_location("cctv_operator_validate_video_source", path)
+    path = (
+        ROOT
+        / "cctv_operator"
+        / "payloads"
+        / "agents"
+        / "validation"
+        / "validate_video_source.py"
+    )
+    spec = importlib.util.spec_from_file_location(
+        "cctv_operator_validate_video_source", path
+    )
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -1810,17 +2157,14 @@ def test_cctv_operator_rejects_folder_mode(monkeypatch, capsys):
 def test_cctv_operator_default_contract_is_stream_only(monkeypatch):
     blueprint_dir = ROOT / "cctv_operator"
     manifest = _runtime_manifest(blueprint_dir / "manifest.json")
-    config = json.loads((blueprint_dir / "config" / "default.json").read_text())
+    config = resolve_config(read_blueprint(blueprint_dir)).data
     assert manifest["input_validation"]["rules"][0]["command"] == [
         "/usr/bin/python3",
         "payloads/agents/validation/validate_video_source.py",
     ]
     assert config["video_source"]["mode"] == "stream"
     assert config["video_source"]["profile"] == "bundled_demo"
-    assert (
-        config["video_source"]["uri"]
-        == "rtsp://127.0.0.1:8554/cctv-demo"
-    )
+    assert config["video_source"]["uri"] == "rtsp://127.0.0.1:8554/cctv-demo"
     assert "folder_path" not in config["video_source"]
     assert "input_folder" not in config["inputs"]["payload"]
 
@@ -1857,7 +2201,9 @@ def test_cctv_operator_bundled_demo_validator_defers_to_dockerworker(
     ("uri", "expects_rtsp_transport"),
     [("rtsp://camera.example/live", True), ("rtmp://camera.example/live", False)],
 )
-def test_cctv_operator_stream_validator_probes_rtsp_and_rtmp(monkeypatch, uri, expects_rtsp_transport):
+def test_cctv_operator_stream_validator_probes_rtsp_and_rtmp(
+    monkeypatch, uri, expects_rtsp_transport
+):
     validator = _load_cctv_operator_validator()
     monkeypatch.setenv(
         "MN_BLUEPRINT_CONFIG_JSON",
@@ -1868,9 +2214,7 @@ def test_cctv_operator_stream_validator_probes_rtsp_and_rtmp(monkeypatch, uri, e
     def fake_probe(source, **kwargs):
         calls.append((source, kwargs))
 
-    monkeypatch.setattr(
-        validator.shutil, "which", lambda _name: "/usr/bin/ffprobe"
-    )
+    monkeypatch.setattr(validator.shutil, "which", lambda _name: "/usr/bin/ffprobe")
     monkeypatch.setattr(validator, "probe_stream", fake_probe)
 
     assert validator.main() == 0
@@ -1909,7 +2253,14 @@ def test_cctv_operator_stream_validator_rejects_non_stream_uri(monkeypatch, caps
     validator = _load_cctv_operator_validator()
     monkeypatch.setenv(
         "MN_BLUEPRINT_CONFIG_JSON",
-        json.dumps({"video_source": {"mode": "stream", "uri": "https://camera.example/video.mp4"}}),
+        json.dumps(
+            {
+                "video_source": {
+                    "mode": "stream",
+                    "uri": "https://camera.example/video.mp4",
+                }
+            }
+        ),
     )
 
     assert validator.main() == 2

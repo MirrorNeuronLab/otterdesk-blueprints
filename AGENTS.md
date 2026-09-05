@@ -124,7 +124,7 @@ Do not repeat descriptive manifest information in payload Python or `config/defa
 - `config/default.json` owns operator-tunable runtime values and may override manifest-owned defaults; it must not copy whole manifest descriptor sections.
 - Payload Python derives agent rosters, workflow step IDs, scorer/method bindings, prompt-file conventions, accepted run-input keys, and similar descriptors from the staged source manifest or resolved runtime config.
 - `skill_dependencies` and `agent_dependencies` are installed by the platform from the manifest. Never add a payload dependency bootstrap module or duplicate package lists in Python.
-- Use `config.manifest_defaults` when a manifest descriptor must also be available through resolved runtime configuration. A dotted string preserves the same path; a `{ "from": ..., "to": ... }` mapping projects it to a runtime-config path. Runtime and compiler code must use the SDK resolver so manifest values merge before config-file and invocation overlays.
+- Use the SDK resolved blueprint and configuration APIs to access descriptors. Author each descriptor once in its owning role document or extension. Do not author `config.manifest_defaults`, includes, or raw runtime-manifest overrides.
 - Keep executable policy and algorithms in code: formulas, evidence confidence rules, report semantics, and other blueprint-specific behavior are not descriptive manifest data.
 
 ## Bundle Paths

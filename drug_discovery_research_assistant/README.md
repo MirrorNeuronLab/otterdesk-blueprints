@@ -56,7 +56,7 @@ The dispatcher must accept the job JSON on stdin and return a JSON result or wri
 
 ## Output and safety
 
-The default user-facing output folder is `~/Downloads/{job_id}`. While the service runs, it publishes `service_status.json`, `cycle_progress.json`, the latest generated candidate pool in `candidates.json`, the latest completed cycle in `latest_cycle_report.json`, and the leading-candidate view in `leading_candidate.json` plus `leading_candidate.svg`; detailed per-cycle artifacts remain under the run directory. Only that single leading candidate is projected into the web UI—the full candidate pool and private input text remain outside its state response. Service reports are computational hypotheses only. The blueprint does not authorize wet-lab work, clinical claims, regulatory submissions, or external candidate publication without human approval.
+The default user-facing output folder is `~/Downloads/{job_name}`. While the service runs, it publishes `service_status.json`, `cycle_progress.json`, the latest generated candidate pool in `candidates.json`, the latest completed cycle in `latest_cycle_report.json`, and the leading-candidate view in `leading_candidate.json` plus `leading_candidate.svg`; detailed per-cycle artifacts remain under the run directory. Only that single leading candidate is projected into the web UI—the full candidate pool and private input text remain outside its state response. Service reports are computational hypotheses only. The blueprint does not authorize wet-lab work, clinical claims, regulatory submissions, or external candidate publication without human approval.
 
 ## Shared job data
 
@@ -78,4 +78,16 @@ cycle.
 python3 -m pytest -q tests/test_drug_discovery_research_assistant.py
 ```
 
-Output folder `{job_id}` is resolved by the submission SDK to the stable job ID, for example `~/Downloads/job_ddra-12345678`. The SDK copies remote outputs back to this directory on the submitting host. `candidates.json` contains five unique molecules; `final_artifact.json` contains their ranked evaluations. The existing live run retains its submitted configuration; these settings apply to new runs.
+Output folder `{job_name}` is resolved by the submission SDK to the configured job name, for example `~/Downloads/drug-discovery-research-assistant`. The SDK copies remote outputs back to this directory on the submitting host. `candidates.json` contains five unique molecules; `final_artifact.json` contains their ranked evaluations. The existing live run retains its submitted configuration; these settings apply to new runs.
+
+## Blueprint package format
+
+This blueprint uses the canonical blueprint/v1 format in both folders and ZIPs.
+`manifest.json` contains identity, semantic release version, and document references.
+`workflow.json` owns logical topology and policies; `execution.json` owns workers,
+resources, and services; `contracts.json` owns input/output and artifact contracts.
+Platform descriptors live in `extensions/`, package requirements in
+`dependencies.json` when present, and operator defaults in `config/default.json`.
+The SDK reads these documents together and compiles the Core execution artifact.
+A ZIP contains the same files as the folder. Local overrides and invocation
+configuration are resolved by the SDK before launch.

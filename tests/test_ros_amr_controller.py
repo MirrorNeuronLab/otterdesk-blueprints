@@ -1,19 +1,23 @@
 from __future__ import annotations
 
 import ast
-import json
 import subprocess
 from pathlib import Path
 
+from mn_sdk.blueprints import blueprint_definition, read_blueprint
 
 ROOT = Path(__file__).resolve().parents[1]
-BLUEPRINT = ROOT / "ros_amr_controller"
+BLUEPRINT = ROOT.parent / "mn-blueprints" / "ros_amr_controller"
 SOURCE = BLUEPRINT / "payloads" / "docker_compose" / "turtlebot-maze"
 
 
 def _warehouse_node() -> dict:
-    manifest = json.loads((BLUEPRINT / "manifest.json").read_text(encoding="utf-8"))
-    return next(node for node in manifest["agents"]["nodes"] if node["node_id"] == "warehouse_service")
+    manifest = blueprint_definition(read_blueprint(BLUEPRINT / "manifest.json"))
+    return next(
+        node
+        for node in manifest["agents"]["nodes"]
+        if node["node_id"] == "warehouse_service"
+    )
 
 
 def test_ros_amr_uses_the_isolated_compose_runner_and_bundled_source():
@@ -35,7 +39,11 @@ def test_ros_amr_uses_the_isolated_compose_runner_and_bundled_source():
         "warehouse-navigation-gateway",
         "warehouse-mcp",
     }
-    assert "image" not in config and "upload_path" not in config and "command" not in config
+    assert (
+        "image" not in config
+        and "upload_path" not in config
+        and "command" not in config
+    )
     assert SOURCE.joinpath("docker-compose.yaml").is_file()
     assert SOURCE.joinpath("mirrorneuron/warehouse.env").is_file()
     assert SOURCE.joinpath("mcp/robot_control_server.py").is_file()
@@ -45,7 +53,14 @@ def test_ros_amr_uses_the_isolated_compose_runner_and_bundled_source():
 
 def test_ros_amr_compose_configuration_resolves_with_headless_environment():
     completed = subprocess.run(
-        ["docker", "compose", "--env-file", "mirrorneuron/warehouse.env", "config", "--quiet"],
+        [
+            "docker",
+            "compose",
+            "--env-file",
+            "mirrorneuron/warehouse.env",
+            "config",
+            "--quiet",
+        ],
         cwd=SOURCE,
         check=False,
         capture_output=True,
@@ -63,12 +78,16 @@ def test_ros_amr_compose_owns_mcp_and_opt_in_x11_mounts():
     assert "TURTLEBOT_XAUTHORITY:-/dev/null" in source
     assert '"9090:9090"' not in source
     assert '"8765:8765"' not in source
-    assert "warehouse-video-ui:\n    image: nginx:alpine\n    network_mode: host" in source
+    assert (
+        "warehouse-video-ui:\n    image: nginx:alpine\n    network_mode: host" in source
+    )
     assert "COPY --chmod=0755 ./docker/entrypoint.sh /entrypoint.sh" in dockerfile
 
 
 def test_ros_amr_warehouse_map_uses_a_compact_staged_image():
-    map_yaml = SOURCE.joinpath("tb_worlds/maps/warehouse_world_map.yaml").read_text(encoding="utf-8")
+    map_yaml = SOURCE.joinpath("tb_worlds/maps/warehouse_world_map.yaml").read_text(
+        encoding="utf-8"
+    )
     map_png = SOURCE.joinpath("tb_worlds/maps/warehouse_world_map.png").read_bytes()
     compose = SOURCE.joinpath("docker-compose.yaml").read_text(encoding="utf-8")
 
@@ -96,7 +115,9 @@ def test_ros_amr_dashboard_hides_controls_and_prioritizes_video_layout():
 
 def test_ros_amr_video_pipeline_colorizes_depth_for_the_browser():
     compose = SOURCE.joinpath("docker-compose.yaml").read_text(encoding="utf-8")
-    pipeline = SOURCE.joinpath("web_control/video_pipeline.py").read_text(encoding="utf-8")
+    pipeline = SOURCE.joinpath("web_control/video_pipeline.py").read_text(
+        encoding="utf-8"
+    )
 
     assert "./web_control/video_pipeline.py:/app/video_pipeline.py:ro" in compose
     assert "command: python3 /app/video_pipeline.py" in compose
@@ -106,7 +127,7 @@ def test_ros_amr_video_pipeline_colorizes_depth_for_the_browser():
 
 
 def test_ros_amr_declares_job_scoped_bounded_response_agent():
-    manifest = json.loads((BLUEPRINT / "manifest.json").read_text(encoding="utf-8"))
+    manifest = blueprint_definition(read_blueprint(BLUEPRINT / "manifest.json"))
     agent = manifest["response_service"]["agent"]
 
     assert agent["kind"] == "bounded_mcp"
@@ -145,7 +166,9 @@ def test_ros_amr_declares_job_scoped_bounded_response_agent():
 
 
 def test_ros_amr_navigation_is_correlated_without_breaking_dashboard_commands():
-    gateway = SOURCE.joinpath("web_control/navigation_gateway.py").read_text(encoding="utf-8")
+    gateway = SOURCE.joinpath("web_control/navigation_gateway.py").read_text(
+        encoding="utf-8"
+    )
     server = SOURCE.joinpath("mcp/robot_control_server.py").read_text(encoding="utf-8")
 
     assert '"kind": "navigate"' in server

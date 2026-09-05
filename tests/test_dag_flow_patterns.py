@@ -3,9 +3,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from blueprint_modernization_support import blueprint_path
+from mn_sdk.blueprints import blueprint_definition, read_blueprint, resolve_config
 from mn_sdk.manifest_converter import expand_manifest_source, is_manifest_source
 from mn_sdk.submission_preparation import lower_manifest_topology_for_runtime_submission
-
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -37,14 +38,7 @@ def _is_acyclic(step_ids: set[str], edges: list[dict]) -> bool:
 
 
 def test_every_catalog_blueprint_lowers_its_declared_workflow_into_the_core_dag():
-    manifest_paths = [
-        path
-        for path in sorted(ROOT.glob("*/manifest.json"))
-        if (json.loads(path.read_text(encoding="utf-8")).get("standard") or {}).get(
-            "profile"
-        )
-        == "blueprint"
-    ]
+    manifest_paths = sorted(ROOT.glob("*/manifest.json"))
     assert manifest_paths
 
     for path in manifest_paths:
@@ -70,7 +64,9 @@ def test_every_catalog_blueprint_lowers_its_declared_workflow_into_the_core_dag(
 
 
 def test_migrated_vc_blueprint_compiles_step_local_redis_fork_join_graphs():
-    manifest = _runtime_manifest(ROOT / "vc_assistant" / "manifest.json")
+    manifest = _runtime_manifest(
+        ROOT.parent / "mn-blueprints" / "vc_assistant" / "manifest.json"
+    )
     edges = manifest["agents"]["edges"]
 
     for step_id, expected_count in (
@@ -94,7 +90,9 @@ def test_migrated_vc_blueprint_compiles_step_local_redis_fork_join_graphs():
 
 
 def test_vc_scorers_share_a_single_predecessor_and_do_not_depend_on_each_other():
-    manifest = _runtime_manifest(ROOT / "vc_assistant" / "manifest.json")
+    manifest = _runtime_manifest(
+        ROOT.parent / "mn-blueprints" / "vc_assistant" / "manifest.json"
+    )
     edges = manifest["agents"]["edges"]
     scorer_ids = {
         "berkus_scorer",
@@ -129,26 +127,20 @@ def test_default_llm_blueprints_keep_model_routing_logical():
         "research_assistant",
         "purchasing_manager",
     ):
-        config = json.loads(
-            (ROOT / blueprint_id / "config" / "default.json").read_text(
-                encoding="utf-8"
-            )
-        )
-        manifest = json.loads(
-            (ROOT / blueprint_id / "manifest.json").read_text(encoding="utf-8")
+        config = resolve_config(read_blueprint(blueprint_path(blueprint_id))).data
+        manifest = blueprint_definition(
+            read_blueprint(blueprint_path(blueprint_id) / "manifest.json")
         )
         assert manifest["llm"]["model"] == "default", blueprint_id
-        assert "model" not in config["llm"], blueprint_id
+        assert config["llm"]["model"] == "default", blueprint_id
 
 
 def test_purchasing_manager_uses_manifest_owned_logical_default_model():
     blueprint = ROOT / "purchasing_manager"
-    manifest = json.loads((blueprint / "manifest.json").read_text(encoding="utf-8"))
-    config = json.loads(
-        (blueprint / "config" / "default.json").read_text(encoding="utf-8")
-    )
+    manifest = blueprint_definition(read_blueprint(blueprint / "manifest.json"))
+    config = resolve_config(read_blueprint(blueprint)).data
 
     assert manifest["llm"]["model"] == "default"
-    assert manifest["config"]["manifest_defaults"][0] == "llm"
-    assert "model" not in config["llm"]
+    assert manifest["config"]["data"]["llm"]["model"] == "default"
+    assert config["llm"]["model"] == "default"
     assert not (blueprint / "payloads" / "config" / "default.json").exists()

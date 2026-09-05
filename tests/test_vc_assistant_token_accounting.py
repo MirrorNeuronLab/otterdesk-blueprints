@@ -3,19 +3,19 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from mn_sdk.blueprints import blueprint_definition, read_blueprint
 from vc_assistant.domain_test_support import load_domain_test_surface
-
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def _load_runner():
-    return load_domain_test_surface(ROOT / "vc_assistant")
+    return load_domain_test_surface(ROOT.parent / "mn-blueprints" / "vc_assistant")
 
 
 def test_vc_manifest_workers_do_not_expose_legacy_token_budget():
-    manifest = json.loads(
-        (ROOT / "vc_assistant" / "manifest.json").read_text(encoding="utf-8")
+    manifest = blueprint_definition(
+        read_blueprint(ROOT.parent / "mn-blueprints" / "vc_assistant" / "manifest.json")
     )
     for binding in manifest.get("runtime", {}).get("bindings", {}).values():
         for worker in binding.get("workers") or []:

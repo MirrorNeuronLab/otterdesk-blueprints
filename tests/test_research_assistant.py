@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import json
 
-from mn_sdk.bundle_io import load_bundle_payloads
-
 from blueprint_modernization_support import (
     ROOT,
     assert_modular_payload,
@@ -12,7 +10,8 @@ from blueprint_modernization_support import (
     run_payload_script,
     source_manifest,
 )
-
+from mn_sdk.blueprints import read_blueprint, resolve_config
+from mn_sdk.bundle_io import load_bundle_payloads
 
 EXPECTED_STEPS = [
     "frame_research_problem",
@@ -24,9 +23,11 @@ EXPECTED_STEPS = [
 
 def test_research_default_request_matches_the_bundled_sample_and_staging_contract():
     blueprint = ROOT / "research_assistant"
-    config = json.loads((blueprint / "config" / "default.json").read_text())
+    config = resolve_config(read_blueprint(blueprint)).data
     sample_request = json.loads(
-        (blueprint / "examples" / "sample_inputs" / "sample_research_request.json").read_text()
+        (
+            blueprint / "examples" / "sample_inputs" / "sample_research_request.json"
+        ).read_text()
     )
     default_inputs = config["inputs"]["payload"]
 
@@ -40,9 +41,14 @@ def test_research_default_request_matches_the_bundled_sample_and_staging_contrac
     ):
         assert default_inputs[key] == sample_request[key]
 
-    assert [item["statement"] for item in default_inputs["seed_hypotheses"]] == sample_request["seed_hypotheses"]
+    assert [
+        item["statement"] for item in default_inputs["seed_hypotheses"]
+    ] == sample_request["seed_hypotheses"]
     assert all(item.get("prediction") for item in default_inputs["seed_hypotheses"])
-    assert all(item.get("experiment", {}).get("procedure") for item in default_inputs["seed_hypotheses"])
+    assert all(
+        item.get("experiment", {}).get("procedure")
+        for item in default_inputs["seed_hypotheses"]
+    )
 
     assert default_inputs["input_folder"] == "@/examples/sample_inputs"
     assert config["state"]["input_folder"] == "@/examples/sample_inputs"
@@ -104,11 +110,15 @@ def test_research_manifest_has_one_isolated_autonomous_specialist():
     assert [node["node_id"] for node in autonomous_workers] == [
         "develop_and_challenge_hypotheses__autonomous_researcher"
     ]
-    assert autonomous_workers[0]["config"]["runner_module"] == "MirrorNeuron.Runner.DockerWorker"
+    assert (
+        autonomous_workers[0]["config"]["runner_module"]
+        == "MirrorNeuron.Runner.DockerWorker"
+    )
     assert autonomous_workers[0]["config"]["docker_worker_image"] == "docker_worker"
     assert autonomous_workers[0]["config"]["workdir"] == "/mn/job/runtime"
     assert not any(
-        (node.get("config") or {}).get("runner_module") == "MirrorNeuron.Runner.OpenShell"
+        (node.get("config") or {}).get("runner_module")
+        == "MirrorNeuron.Runner.OpenShell"
         for node in expanded["agents"]["nodes"]
     )
 
@@ -126,7 +136,8 @@ def test_research_workers_ship_build_contexts_and_domain_handlers():
     executable_nodes = [
         node
         for node in expanded["agents"]["nodes"]
-        if (node.get("config") or {}).get("runner_module") == "MirrorNeuron.Runner.DockerWorker"
+        if (node.get("config") or {}).get("runner_module")
+        == "MirrorNeuron.Runner.DockerWorker"
     ]
     docker_workers = [
         node
@@ -135,13 +146,11 @@ def test_research_workers_ship_build_contexts_and_domain_handlers():
     ]
 
     assert docker_workers
-    assert {
-        node["config"]["docker_worker_image"]
-        for node in docker_workers
-    } == {"docker_worker"}
+    assert {node["config"]["docker_worker_image"] for node in docker_workers} == {
+        "docker_worker"
+    }
     assert all(
-        {"source": "domain", "target": "domain"}
-        in node["config"]["upload_paths"]
+        {"source": "domain", "target": "domain"} in node["config"]["upload_paths"]
         for node in executable_nodes
     )
     assert all(
@@ -241,9 +250,7 @@ print(json.dumps({
     assert result["request"]["payload"]["chat_template_kwargs"] == {
         "enable_thinking": False
     }
-    assert result["request"]["payload"]["response_format"] == {
-        "type": "json_object"
-    }
+    assert result["request"]["payload"]["response_format"] == {"type": "json_object"}
     assert result["request"]["payload"]["max_tokens"] == 4096
     assert result["calls"] == 1
     assert result["fallback_calls"] == 0
@@ -301,7 +308,9 @@ print(json.dumps({
     }
 
 
-def test_research_assistant_preserves_configured_inputs_and_accepts_ocr_records(tmp_path):
+def test_research_assistant_preserves_configured_inputs_and_accepts_ocr_records(
+    tmp_path,
+):
     result = run_payload_script(
         "research_assistant",
         f"""
@@ -351,14 +360,23 @@ print(json.dumps({{
 }}))
 """,
     )
-    assert result["resolved"]["research_goal"] == "Evaluate robotics simulation infrastructure"
+    assert (
+        result["resolved"]["research_goal"]
+        == "Evaluate robotics simulation infrastructure"
+    )
     assert result["resolved"]["research_domain"] == "robotics"
     assert result["resolved"]["constraints"] == {"review_only": True}
     assert result["overridden_goal"] == "Compare simulator reproducibility"
     assert result["document_text"] == "Extracted roadmap evidence"
     assert result["document_method"] == "embedded_text"
-    assert result["structured_seed"]["statement"] == "Pinned environments reduce setup time."
-    assert result["structured_seed"]["prediction"] == "Median setup time falls by at least 20%."
+    assert (
+        result["structured_seed"]["statement"]
+        == "Pinned environments reduce setup time."
+    )
+    assert (
+        result["structured_seed"]["prediction"]
+        == "Median setup time falls by at least 20%."
+    )
     assert result["warnings"] == []
 
 
@@ -568,7 +586,7 @@ import json
 from pathlib import Path
 from domain.autonomous import run_autonomous_research
 
-root = Path({str((ROOT / 'research_assistant').resolve())!r})
+root = Path({str((ROOT / "research_assistant").resolve())!r})
 config = json.loads((root / "config" / "default.json").read_text())
 config["execution"] = {{"quick_test": True}}
 inputs = config["inputs"]["payload"]
@@ -650,7 +668,7 @@ import json
 from pathlib import Path
 from domain.composition import run_blueprint
 
-root = Path({str((ROOT / 'research_assistant').resolve())!r})
+root = Path({str((ROOT / "research_assistant").resolve())!r})
 out = Path({str(tmp_path)!r}) / "output"
 run = run_blueprint(
     inputs={{"input_folder": str(root / "examples" / "sample_inputs"), "output_folder": str(out)}},
