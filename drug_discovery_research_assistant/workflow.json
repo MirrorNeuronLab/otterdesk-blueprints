@@ -1,0 +1,133 @@
+{
+  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/workflow.schema.json",
+  "dynamic": {
+    "apply_at": "between_steps",
+    "enabled": false,
+    "patch_events": []
+  },
+  "execution": {
+    "strategy": "parallel"
+  },
+  "policy": {
+    "failure": {
+      "default": "fail_closed"
+    },
+    "human": {
+      "allowed_decisions": [
+        "approve",
+        "revise",
+        "reject"
+      ],
+      "blocked_actions": [
+        "advance_to_lab_experiment",
+        "make_clinical_claim",
+        "submit_regulatory_material",
+        "send_candidate_to_external_system_without_review"
+      ],
+      "decision_event": "human_decision_applied",
+      "default_action": "reject",
+      "enabled": true,
+      "events": [
+        "human_notice",
+        "human_input_requested",
+        "human_input_received",
+        "human_input_timeout",
+        "human_decision_applied"
+      ],
+      "mode": "approval_required",
+      "reason": "Human approval is required before high-impact downstream actions such as advance_to_lab_experiment, make_clinical_claim, submit_regulatory_material.",
+      "request_event": "human_input_requested",
+      "response_event": "human_input_received",
+      "timeout_event": "human_input_timeout",
+      "timeout_seconds": 3600
+    }
+  },
+  "state": {
+    "candidate_seed_set": {
+      "from": "$inputs.candidate_seed_set"
+    },
+    "candidates": {},
+    "disease_or_target_profile": {
+      "from": "$inputs.disease_or_target_profile"
+    },
+    "evaluations": {},
+    "final_report": {},
+    "screening_criteria": {
+      "from": "$inputs.screening_criteria"
+    },
+    "structures": {},
+    "targets": {}
+  },
+  "steps": [
+    {
+      "goal": "Identify and summarize disease targets and biological constraints.",
+      "id": "target_discovery",
+      "kind": "source",
+      "label": "Target Discovery",
+      "needs": [],
+      "run": {
+        "definition": "steps.target_discovery"
+      }
+    },
+    {
+      "goal": "Generate or retrieve useful target structures for screening.",
+      "id": "structure_generation",
+      "kind": "stage",
+      "label": "Structure Generation",
+      "needs": [
+        "target_discovery"
+      ],
+      "run": {
+        "definition": "steps.structure_generation"
+      }
+    },
+    {
+      "control": {
+        "failure_policy": "fail_workflow",
+        "required": true,
+        "retry": {
+          "backoff_multiplier": 2,
+          "backoff_seconds": 1,
+          "jitter": 0,
+          "max_attempts": 1
+        },
+        "timeout_seconds": 86400
+      },
+      "goal": "Generate five distinct candidates and run one folding, screening, and simulation cycle, then return for review.",
+      "id": "candidate_generation",
+      "kind": "stage",
+      "label": "Discover Five Candidates",
+      "needs": [
+        "structure_generation"
+      ],
+      "run": {
+        "definition": "steps.candidate_generation"
+      }
+    },
+    {
+      "goal": "Review the five candidates and preserve their scientific evidence.",
+      "id": "binding_evaluation",
+      "kind": "stage",
+      "label": "Cycle Results Review",
+      "needs": [
+        "candidate_generation"
+      ],
+      "run": {
+        "definition": "steps.binding_evaluation"
+      }
+    },
+    {
+      "goal": "Rank candidates, summarize evidence, and prepare a human-reviewable research artifact.",
+      "id": "ranking_reporting",
+      "kind": "sink",
+      "label": "Ranking And Reporting",
+      "needs": [
+        "binding_evaluation"
+      ],
+      "run": {
+        "definition": "steps.ranking_reporting"
+      }
+    }
+  ],
+  "workflow_id": "drug_discovery_research_assistant_v1"
+}

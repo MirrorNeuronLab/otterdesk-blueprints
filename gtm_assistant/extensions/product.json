@@ -1,0 +1,61 @@
+{
+  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/extensions/product.schema.json",
+  "collaboration_group": "business-success-team",
+  "business_goal": "Build a successful business for Bibblio.",
+  "runtime_features": [
+    "de-identified feedback analysis",
+    "draft customer interventions",
+    "support escalation guards",
+    "real-time Job questions grounded in lifecycle knowledge"
+  ],
+  "category": "Business",
+  "intent": {
+    "problem": "Subscription businesses need customers to reach value quickly, form useful routines, receive trustworthy support, and turn churn or feedback into product improvements.",
+    "target_users": "Founders and designated product, lifecycle, customer-success, support, privacy, and growth reviewers.",
+    "safety": {
+      "enabled": true,
+      "mode": "approval_required",
+      "allowed_decisions": [
+        "approve",
+        "revise",
+        "reject"
+      ],
+      "blocked_actions": [
+        "send_external_communications",
+        "publish_child_facing_content",
+        "spend_money_or_launch_paid_campaigns",
+        "change_pricing_or_subscription_terms",
+        "make_learning_medical_or_therapeutic_claims",
+        "change_child_or_family_data_collection"
+      ],
+      "default_action": "reject",
+      "timeout_seconds": 86400,
+      "reason": "The co-worker observes, analyzes, drafts, and queues; a designated human approves every consequential external action."
+    }
+  },
+  "product": {
+    "agent_role": "Customer Lifecycle and Product Intelligence Director.",
+    "benefit": "Improves time to first value, repeat routines, retention, and value proof while protecting customer trust.",
+    "business_goal": "Build a successful business for Bibblio.",
+    "collaboration_group": "business-success-team",
+    "default_demo_business": "Bibblio",
+    "customizable_for": "Subscriptions, activation and retention programs, voice-of-customer synthesis, product intelligence, and support operations.",
+    "how_it_works": "Aggregates journey stages and themes, drafts minimal interventions, prioritizes product fixes, records evidence-bounded cross-functional handoffs, and can optionally send one explicitly approved aggregate draft then monitor only matching development-inbox reply headers until manually stopped.",
+    "input": "A de-identified customer-feedback CSV; the bundled demo uses parent feedback and its lifecycle playbook is indexed as Job knowledge.",
+    "output": "Journey-friction map, draft customer interventions, lifecycle scorecard, durable goal work packet, optional confidential development-delivery receipt, reply-monitoring status without message content, founder decisions, and a 90-day plan.",
+    "problem": "Subscription businesses need customers to reach sustained value without manipulative messaging, excessive frequency, or unsupported progress claims.",
+    "runtime_features": [
+      "de-identified feedback synthesis",
+      "journey-stage diagnosis",
+      "draft-only interventions",
+      "approval-gated single-recipient development SMTP",
+      "read-only development reply monitoring",
+      "frequency and trust guardrails",
+      "real-time grounded Job responses between Runs",
+      "human communication approval"
+    ],
+    "simulation_type": "Synthetic customer-journey diagnosis, intervention drafting, approved development rendering, and optional read-only reply-monitoring service using the unchanged Bibblio parent-feedback demo.",
+    "target_users": "Founders and designated product, lifecycle, support, privacy, brand, and quality reviewers."
+  },
+  "overview": "A GTM assistant that converts de-identified customer feedback into journey friction, draft interventions, support escalations, retention evidence, and product priorities."
+}

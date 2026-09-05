@@ -1,0 +1,92 @@
+{
+  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/execution.schema.json",
+  "policies": {
+    "recovery_mode": "local_restart"
+  },
+  "required_context_engine": false,
+  "agents": {
+    "registry": {
+      "purchase_intake_analyst": {
+        "handler": "agents.purchase_intake_analyst",
+        "role": "Business Requirements And Acceptance Analyst"
+      },
+      "purchase_knowledge_retriever": {
+        "handler": "agents.purchase_knowledge_retriever",
+        "role": "Procurement Evidence And Assumption Curator"
+      },
+      "purchase_market_researcher": {
+        "handler": "agents.purchase_market_researcher",
+        "role": "Source Provenance And Market Research Analyst"
+      },
+      "purchase_total_cost_analyst": {
+        "handler": "agents.purchase_total_cost_analyst",
+        "role": "Heavy Asset Lifecycle Economics Analyst"
+      },
+      "purchase_risk_reviewer": {
+        "handler": "agents.purchase_risk_reviewer",
+        "role": "Technical Supplier And Operational Risk Reviewer"
+      },
+      "purchase_recommendation_auditor": {
+        "handler": "agents.purchase_recommendation_auditor",
+        "role": "Independent Procurement Investment Auditor"
+      },
+      "purchase_report_writer": {
+        "handler": "agents.purchase_report_writer",
+        "role": "Approval Ready Procurement Decision Writer"
+      }
+    }
+  },
+  "defaults": {
+    "worker": {
+      "with": {
+        "stereotype": "internal_write_worker",
+        "image": "mirror-neuron/purchasing-manager:local",
+        "upload_paths": [
+          {
+            "source": "domain",
+            "target": "domain"
+          }
+        ]
+      }
+    }
+  },
+  "requirements": {
+    "cpu": {
+      "min_cores": 1
+    },
+    "disk": {
+      "min_gb": 1
+    },
+    "gpu": {
+      "min_count": 1,
+      "min_memory_mb": 49152,
+      "memory_operator": ">=",
+      "enforcement": "hard"
+    },
+    "memory": {
+      "min_gb": 2
+    }
+  },
+  "workers": {
+    "groups": [
+      {
+        "steps": [
+          "compare_purchase_options"
+        ],
+        "with": {
+          "stereotype": "public_browser_worker"
+        }
+      },
+      {
+        "steps": [
+          "publish_purchase_decision_packet"
+        ],
+        "with": {
+          "stereotype": "internal_write_worker"
+        }
+      }
+    ]
+  },
+  "mode": "compiled",
+  "job_name": "purchasing-manager"
+}

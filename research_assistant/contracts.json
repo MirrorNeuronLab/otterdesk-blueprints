@@ -1,0 +1,380 @@
+{
+  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/contracts.schema.json",
+  "events": {
+    "human_stream": "human.jsonl",
+    "stream": "events.jsonl",
+    "types": [
+      "run_started",
+      "inputs_loaded",
+      "large_context_seeded",
+      "simulation_step_started",
+      "memory_context_compiled",
+      "llm_decision",
+      "benchmark_step_scored",
+      "simulation_state_updated",
+      "run_completed",
+      "blueprint_status",
+      "blueprint_phase_started",
+      "blueprint_phase_completed",
+      "blueprint_phase_failed",
+      "artifact_written",
+      "human_notice",
+      "human_input_requested",
+      "human_input_received",
+      "human_input_timeout",
+      "human_decision_applied",
+      "output_skill_started",
+      "output_skill_completed",
+      "output_skill_failed",
+      "autonomous_research_started",
+      "autonomous_research_completed",
+      "autonomous_prompt_created",
+      "autonomous_tool_called",
+      "generated_code_executed",
+      "deterministic_verification_completed"
+    ]
+  },
+  "input_adapters": {
+    "default": "mock",
+    "resolved_artifact": "inputs.json",
+    "supported": [
+      "mock",
+      "json",
+      "file",
+      "env_json"
+    ]
+  },
+  "inputs": {
+    "constraints": {
+      "description": "Safety, ethics, budget, data, or policy constraints.",
+      "example": {
+        "no_live_system_changes": true
+      },
+      "privacy": "confidential",
+      "required": false,
+      "type": "domain_value"
+    },
+    "input_folder": {
+      "description": "Local papers, notes, datasets, and evidence approved for this run.",
+      "example": "examples/sample_inputs",
+      "path_kind": "directory",
+      "privacy": "confidential",
+      "required": false,
+      "type": "local_path"
+    },
+    "output_folder": {
+      "description": "Folder for the research packet and supporting ledgers.",
+      "example": "~/Downloads/research_assistant",
+      "path_kind": "directory",
+      "privacy": "confidential",
+      "required": false,
+      "type": "local_path"
+    },
+    "research_domain": {
+      "description": "Optional domain used to frame terminology and methods.",
+      "example": "robotics",
+      "privacy": "confidential",
+      "required": false,
+      "type": "domain_value"
+    },
+    "research_goal": {
+      "description": "The outcome, mechanism, or problem to investigate.",
+      "example": "Evaluate shared simulation infrastructure for a review-only robotics pilot.",
+      "privacy": "confidential",
+      "required": true,
+      "type": "domain_value"
+    },
+    "research_question": {
+      "description": "Optional answerable question or decision boundary.",
+      "example": "Which infrastructure choices should be tested first for reproducible simulator runs?",
+      "privacy": "confidential",
+      "required": false,
+      "type": "domain_value"
+    },
+    "scope": {
+      "description": "Optional exclusions, time horizon, and permitted research activities.",
+      "example": "Desk research and offline simulation planning only; no live robot changes.",
+      "privacy": "confidential",
+      "required": false,
+      "type": "domain_value"
+    },
+    "seed_hypotheses": {
+      "description": "Optional human-provided ideas to challenge and refine. Each item may be a statement string or a structured test contract with prediction, counterargument, disconfirming observation, evidence refs, assumptions, and experiment fields.",
+      "example": [
+        {
+          "statement": "Pinned ROS 2 container images may reduce onboarding time.",
+          "prediction": "Median time-to-first-reproducible-run is at least 25% lower than the matched baseline.",
+          "evidence_support": [
+            "local:research_notes.md"
+          ]
+        }
+      ],
+      "privacy": "confidential",
+      "required": false,
+      "type": "domain_value"
+    },
+    "success_criteria": {
+      "description": "Optional criteria for a useful research packet.",
+      "example": [
+        "testable hypotheses",
+        "traceable evidence"
+      ],
+      "privacy": "confidential",
+      "required": false,
+      "type": "domain_value"
+    }
+  },
+  "outputs": {
+    "artifacts": [
+      {
+        "artifact_id": "run_metadata",
+        "mime_type": "application/json",
+        "path": "run.json",
+        "producer": "local_run_store",
+        "schema_version": "mn.artifact.run_summary.v1",
+        "source_refs": [],
+        "type": "run_summary"
+      },
+      {
+        "artifact_id": "resolved_config",
+        "mime_type": "application/json",
+        "path": "config.json",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.config.v1",
+        "source_refs": [],
+        "type": "config"
+      },
+      {
+        "artifact_id": "resolved_inputs",
+        "mime_type": "application/json",
+        "path": "inputs.json",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.inputs.v1",
+        "source_refs": [],
+        "type": "inputs"
+      },
+      {
+        "artifact_id": "event_stream",
+        "mime_type": "application/x-jsonlines",
+        "path": "events.jsonl",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.events.v1",
+        "source_refs": [],
+        "type": "events"
+      },
+      {
+        "artifact_id": "result",
+        "mime_type": "application/json",
+        "path": "result.json",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.response.v1",
+        "source_refs": [
+          "inputs.json",
+          "events.jsonl"
+        ],
+        "type": "result"
+      },
+      {
+        "artifact_id": "final_artifact",
+        "mime_type": "application/json",
+        "path": "final_artifact.json",
+        "producer": "workflow",
+        "schema_version": "mn.blueprint.final_artifact.v1",
+        "source_refs": [
+          "inputs.json",
+          "events.jsonl",
+          "result.json"
+        ],
+        "type": "final_artifact"
+      },
+      {
+        "artifact_id": "logs",
+        "mime_type": "application/x-jsonlines",
+        "path": "logs.jsonl",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.logs.v1",
+        "source_refs": [
+          "events.jsonl"
+        ],
+        "type": "logs"
+      },
+      {
+        "artifact_id": "resources",
+        "mime_type": "application/x-jsonlines",
+        "path": "resources.jsonl",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.resources.v1",
+        "source_refs": [
+          "run.json"
+        ],
+        "type": "resource_samples"
+      },
+      {
+        "artifact_id": "web_ui",
+        "mime_type": "application/json",
+        "path": "web_ui.json",
+        "producer": "web_ui",
+        "schema_version": "mn.blueprint.web_ui.v1",
+        "source_refs": [
+          "run.json"
+        ],
+        "type": "web_ui"
+      },
+      {
+        "artifact_id": "human_events",
+        "mime_type": "application/x-jsonlines",
+        "path": "human.jsonl",
+        "producer": "human_control",
+        "schema_version": "mn.blueprint.human_events.v1",
+        "source_refs": [
+          "events.jsonl"
+        ],
+        "type": "human_events"
+      },
+      {
+        "artifact_id": "research_packet",
+        "mime_type": "application/json",
+        "path": "research_packet.json",
+        "producer": "workflow",
+        "schema_version": "mn.blueprint.research_assistant.v2",
+        "source_refs": [
+          "inputs.json",
+          "events.jsonl",
+          "result.json"
+        ],
+        "type": "research_packet"
+      },
+      {
+        "artifact_id": "research_brief",
+        "mime_type": "text/markdown",
+        "path": "research_brief.md",
+        "producer": "workflow",
+        "schema_version": "mn.blueprint.research_assistant_brief.v2",
+        "source_refs": [
+          "research_packet.json"
+        ],
+        "type": "research_brief"
+      },
+      {
+        "artifact_id": "evidence_ledger",
+        "mime_type": "application/json",
+        "path": "evidence_ledger.json",
+        "producer": "workflow",
+        "schema_version": "mn.blueprint.evidence_ledger.v1",
+        "source_refs": [
+          "inputs.json",
+          "events.jsonl"
+        ],
+        "type": "evidence_ledger"
+      },
+      {
+        "artifact_id": "hypothesis_ledger",
+        "mime_type": "application/json",
+        "path": "hypothesis_ledger.json",
+        "producer": "workflow",
+        "schema_version": "mn.blueprint.hypothesis_ledger.v1",
+        "source_refs": [
+          "research_packet.json"
+        ],
+        "type": "hypothesis_ledger"
+      },
+      {
+        "artifact_id": "review_ledger",
+        "mime_type": "application/json",
+        "path": "review_ledger.json",
+        "producer": "workflow",
+        "schema_version": "mn.blueprint.review_ledger.v1",
+        "source_refs": [
+          "research_packet.json"
+        ],
+        "type": "review_ledger"
+      },
+      {
+        "artifact_id": "artifact_quality",
+        "mime_type": "application/json",
+        "path": "artifact_quality.json",
+        "producer": "workflow",
+        "schema_version": "mn.blueprint.artifact_quality.v1",
+        "source_refs": [
+          "research_packet.json"
+        ],
+        "type": "artifact_quality"
+      },
+      {
+        "artifact_id": "run_health",
+        "mime_type": "application/json",
+        "path": "run_health.json",
+        "producer": "workflow",
+        "schema_version": "mn.blueprint.run_health.v1",
+        "source_refs": [
+          "research_packet.json"
+        ],
+        "type": "run_health"
+      }
+    ],
+    "primary": {
+      "id": "final_artifact",
+      "path": "final_artifact.json",
+      "required_fields": [
+        "type",
+        "status",
+        "executive_summary",
+        "recommended_action",
+        "confidence",
+        "evidence",
+        "next_steps",
+        "source_refs",
+        "provenance_refs"
+      ],
+      "schema_version": "mn.blueprint.final_artifact_contract.v1",
+      "type": "final_artifact"
+    },
+    "profile": "standard_run_store"
+  },
+  "privacy": {
+    "default_classification": "confidential",
+    "rules": {
+      "confidential": {
+        "log": "redacted",
+        "send_to_llm": "allowed_configs_only",
+        "send_to_output_skills": "approved_destinations_only"
+      },
+      "internal": {
+        "log": "metadata_only",
+        "send_to_llm": true,
+        "send_to_output_skills": true
+      },
+      "public": {
+        "log": true,
+        "send_to_llm": true,
+        "send_to_output_skills": true
+      },
+      "regulated": {
+        "log": "redacted",
+        "send_to_llm": false,
+        "send_to_output_skills": "approved_destinations_only"
+      }
+    }
+  },
+  "status": {
+    "event": "blueprint_status",
+    "heartbeat": true,
+    "phases": [
+      "loading_inputs",
+      "running_worker",
+      "waiting_for_human",
+      "writing_artifacts",
+      "completed"
+    ]
+  },
+  "summary": "Find, evaluate, critique, and draft research directions with an explicit evidence ledger and human review boundary.",
+  "users": [
+    "Researchers, scientists, engineers, analysts, and research leads."
+  ],
+  "input_validation": {
+    "required": [
+      "research_goal"
+    ],
+    "rules": []
+  }
+}

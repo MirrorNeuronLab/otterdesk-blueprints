@@ -1,0 +1,27 @@
+{
+  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/extensions/agentic.schema.json",
+  "agent_ids": [
+    "invoice_bill_extractor",
+    "payable_field_validator",
+    "contract_clause_extractor",
+    "contract_playbook_comparator",
+    "legal_evidence_reconciler",
+    "legal_review_auditor",
+    "legal_reporter"
+  ],
+  "allowed_tools": [
+    "llm_ocr_extract",
+    "field_extract",
+    "schema_validate",
+    "clause_extract",
+    "taxonomy_map",
+    "knowledge_retrieve",
+    "finish"
+  ],
+  "default_mode": "bounded_llm_guided_legal_document_review",
+  "enabled": true,
+  "max_iterations_per_agent": 1,
+  "max_tool_calls_per_agent": 2,
+  "note": "Document actors may use OCR and local playbook guidance; uncertain legal or payable values remain review-required.",
+  "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run"
+}

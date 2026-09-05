@@ -1,0 +1,23 @@
+{
+  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/extensions/rag.schema.json",
+  "backend": "redis_vector_rag",
+  "chunk_overlap": 70,
+  "chunk_size": 700,
+  "enabled": true,
+  "grounding_policy": "Use retrieved local blueprint knowledge to improve actor review prompts; do not invent facts when retrieval is unavailable.",
+  "index_on_startup": false,
+  "knowledge_dir": "knowledge",
+  "max_context_chars": 4000,
+  "namespace": "",
+  "privacy": "index local blueprint knowledge only; do not index private run documents unless a future runtime explicitly opts in",
+  "purpose": "Retrieve approved CCTV policy for target detections, source provenance, cooldown behavior, and review-only alert boundaries.",
+  "redis_url": "",
+  "required": false,
+  "retrieval_targets": [
+    "visual target evidence",
+    "live stream source provenance",
+    "alert cooldowns",
+    "human review boundaries"
+  ],
+  "top_k": 4
+}

@@ -1,0 +1,155 @@
+{
+  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/contracts.schema.json",
+  "input_adapters": {
+    "default": "mock",
+    "resolved_artifact": "inputs.json",
+    "supported": [
+      "mock",
+      "json",
+      "file",
+      "env_json"
+    ]
+  },
+  "inputs": {
+    "business_name": {
+      "type": "domain_value",
+      "required": false,
+      "privacy": "internal",
+      "description": "Business name used to contextualize role outputs. The bundled demo defaults to Bibblio.",
+      "example": "Bibblio"
+    },
+    "business_goal": {
+      "type": "domain_value",
+      "required": false,
+      "privacy": "internal",
+      "description": "Shared business goal served by the independently launched co-workers.",
+      "example": "Build a successful business for Bibblio."
+    },
+    "goal_id": {
+      "type": "domain_value",
+      "required": false,
+      "privacy": "internal",
+      "description": "Stable goal identity attached to the Job's durable work packets and final context.",
+      "example": "bibblio-business-success"
+    },
+    "planning_horizon_days": {
+      "type": "domain_value",
+      "required": false,
+      "privacy": "internal",
+      "description": "Founder-facing planning horizon, bounded from 30 to 365 days.",
+      "example": 90
+    },
+    "input_folder": {
+      "type": "local_path",
+      "path_kind": "directory",
+      "required": false,
+      "privacy": "confidential",
+      "description": "Local folder containing this co-worker's focused input file.",
+      "example": "@/examples/sample_inputs"
+    },
+    "output_folder": {
+      "type": "local_path",
+      "path_kind": "directory",
+      "required": false,
+      "privacy": "confidential",
+      "description": "Local folder for review-ready artifacts.",
+      "example": "~/Downloads/bibblio"
+    },
+    "customer_feedback_file": {
+      "type": "local_path",
+      "path_kind": "file",
+      "required": false,
+      "privacy": "confidential",
+      "description": "De-identified CSV of customer observations, journey stages, themes, and evidence status; the bundled demo uses parent feedback.",
+      "example": "@/examples/sample_inputs/parent_feedback.csv"
+    },
+    "email_send_approval": {
+      "type": "domain_value",
+      "required": false,
+      "privacy": "confidential",
+      "description": "Explicit development-send decision. Delivery requires approved=true and a bounded approval_id; omission keeps SMTP disabled.",
+      "example": {
+        "approved": false
+      }
+    }
+  },
+  "outputs": {
+    "primary": {
+      "id": "final_artifact",
+      "type": "final_artifact",
+      "path": "final_artifact.json",
+      "schema_version": "mn.blueprint.final_artifact_contract.v1",
+      "required_fields": [
+        "type",
+        "business_name",
+        "business_goal",
+        "worker_role",
+        "role_contribution",
+        "north_star_question",
+        "role_scorecard",
+        "founder_decisions",
+        "executive_summary",
+        "recommended_action",
+        "confidence",
+        "evidence",
+        "next_steps",
+        "ninety_day_plan",
+        "cross_functional_handoffs",
+        "job_context",
+        "source_refs"
+      ]
+    },
+    "artifacts": [
+      {
+        "artifact_id": "final_artifact",
+        "type": "final_artifact",
+        "path": "final_artifact.json",
+        "producer": "customer_lifecycle_director",
+        "mime_type": "application/json",
+        "schema_version": "mn.blueprint.final_artifact.v1",
+        "source_refs": [
+          "inputs.json",
+          "workflow_state/work_packets"
+        ]
+      },
+      {
+        "artifact_id": "customer_lifecycle_packet",
+        "type": "customer_lifecycle_operating_brief",
+        "path": "customer_lifecycle_packet.json",
+        "producer": "customer_lifecycle_director",
+        "mime_type": "application/json",
+        "schema_version": "mn.business_success.role_brief.v1",
+        "source_refs": [
+          "inputs.json",
+          "workflow_state/work_packets"
+        ]
+      },
+      {
+        "artifact_id": "development_reply_monitoring",
+        "type": "development_reply_monitoring_status",
+        "path": "development_reply_monitoring_state.json",
+        "producer": "development_reply_monitor",
+        "mime_type": "application/json",
+        "schema_version": "mn.gtm_assistant.reply_monitoring.v1",
+        "source_refs": [
+          "confidential_lifecycle_email_delivery_receipt.json"
+        ]
+      }
+    ]
+  },
+  "status": {
+    "event": "blueprint_status",
+    "heartbeat": true,
+    "phases": [
+      "loading_inputs",
+      "running_worker",
+      "waiting_for_human",
+      "writing_artifacts",
+      "monitoring_development_replies",
+      "completed"
+    ]
+  },
+  "privacy": {
+    "default_classification": "confidential"
+  }
+}

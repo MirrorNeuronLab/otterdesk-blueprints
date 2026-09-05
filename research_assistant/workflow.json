@@ -1,0 +1,130 @@
+{
+  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/workflow.schema.json",
+  "workflow_id": "research_assistant_v1",
+  "execution": {
+    "strategy": "parallel"
+  },
+  "policy": {
+    "failure": {
+      "default": "fail_closed"
+    },
+    "human": {
+      "allowed_decisions": [
+        "approve",
+        "revise",
+        "reject"
+      ],
+      "blocked_actions": [
+        "execute_unapproved_experiment",
+        "claim_validated_result",
+        "publish_or_submit_manuscript",
+        "contact_external_research_participant",
+        "make_clinical_or_safety_decision"
+      ],
+      "decision_event": "human_decision_applied",
+      "default_action": "reject",
+      "enabled": true,
+      "events": [
+        "human_notice",
+        "human_input_requested",
+        "human_input_received",
+        "human_input_timeout",
+        "human_decision_applied"
+      ],
+      "mode": "approval_required",
+      "reason": "Human approval is required before experiments, public claims, manuscripts, participant contact, or consequential scientific and safety decisions.",
+      "request_event": "human_input_requested",
+      "response_event": "human_input_received",
+      "timeout_event": "human_input_timeout",
+      "timeout_seconds": 3600
+    }
+  },
+  "state": {
+    "input_folder": {
+      "from": "$inputs.input_folder"
+    },
+    "output_folder": {
+      "from": "$inputs.output_folder"
+    },
+    "workflow": {},
+    "final_report": {}
+  },
+  "steps": [
+    {
+      "control": {
+        "timeout_seconds": 900
+      },
+      "goal": "Turn the request into answerable questions, definitions, success criteria, assumptions, and stop conditions.",
+      "id": "frame_research_problem",
+      "kind": "source",
+      "label": "Frame Research Problem",
+      "needs": [],
+      "run": {
+        "definition": "steps.frame_research_problem"
+      }
+    },
+    {
+      "control": {
+        "timeout_seconds": 1800
+      },
+      "goal": "Extract approved local evidence, retrieve method guidance, and record bounded public-source observations.",
+      "id": "build_research_evidence",
+      "kind": "stage",
+      "label": "Build Research Evidence",
+      "needs": [
+        "frame_research_problem"
+      ],
+      "run": {
+        "definition": "steps.build_research_evidence"
+      }
+    },
+    {
+      "control": {
+        "timeout_seconds": 2400
+      },
+      "goal": "Use one isolated Docker worker to read sources, decompose the question, generate competing hypotheses, critique each one, run gap-directed probes, revise, design tests, rank the results, and synthesize decision implications.",
+      "id": "develop_and_challenge_hypotheses",
+      "kind": "stage",
+      "label": "Develop And Challenge Hypotheses",
+      "needs": [
+        "build_research_evidence"
+      ],
+      "run": {
+        "definition": "steps.develop_and_challenge_hypotheses"
+      }
+    },
+    {
+      "control": {
+        "timeout_seconds": 1800
+      },
+      "goal": "Deterministically audit traceability, falsifiability, controls, safety gates, and publish the review packet.",
+      "id": "verify_and_publish_research_packet",
+      "kind": "sink",
+      "label": "Verify And Publish Research Packet",
+      "needs": [
+        "develop_and_challenge_hypotheses"
+      ],
+      "run": {
+        "definition": "steps.verify_and_publish_research_packet"
+      }
+    }
+  ],
+  "defaults": {
+    "step": {
+      "control": {
+        "failure_policy": "fail_workflow",
+        "required": true,
+        "retry": {
+          "backoff_multiplier": 2,
+          "backoff_seconds": 1,
+          "jitter": 0,
+          "max_attempts": 2
+        },
+        "uncertainty": {
+          "min_confidence": 0,
+          "on_low_confidence": "continue_with_warning"
+        }
+      }
+    }
+  }
+}

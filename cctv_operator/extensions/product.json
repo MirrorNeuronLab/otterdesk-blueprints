@@ -1,0 +1,93 @@
+{
+  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/extensions/product.schema.json",
+  "features": [
+    "optional local knowledge RAG grounding",
+    "bounded LLM tool-plan contract"
+  ],
+  "target_user": "Video operators, security reviewers, safety operations teams, and site-access coordinators.",
+  "output": "Visual detection observations with count, label, category, color, position, activity, confidence, and alert status.",
+  "search_terms": [
+    "video monitoring",
+    "visual detection",
+    "facility operations",
+    "site safety",
+    "rtsp stream",
+    "rtmp stream",
+    "nvidia video analysis"
+  ],
+  "problem_solved": "Run a self-contained CCTV demo or monitor an approved external live stream without sending its native frame rate to the model.",
+  "target_users": "Video operators, security reviewers, safety operations teams, and site-access coordinators.",
+  "simulation_type": "Live-stream adaptive sampling with visual detection review state.",
+  "runtime_features": [
+    "video sampling",
+    "visual detection review",
+    "cooldown state",
+    "Slack alerting",
+    "Membrane context memory optimization",
+    "product input contract",
+    "transparent run status",
+    "human control policy",
+    "artifact records",
+    "run-store observability dashboard",
+    "workflow-driven problem graph",
+    "step-scoped worker teams",
+    "optional knowledge_rag guidance",
+    "actor-style LLM specialists use retrieved policy context when available"
+  ],
+  "customizable_for": "Video monitoring, configurable visual detection, facility operations, and site safety workflows.",
+  "agent_role": "AI assistant for reviewing live video activity and preparing visual detection reports and alerts.",
+  "category": "Security",
+  "llm_agent_role": "AI assistant for reviewing live video activity and preparing visual detection reports and alerts.",
+  "intent": {
+    "problem": "Monitor a live CCTV stream without sending its native frame rate to the model.",
+    "safety": {
+      "enabled": true,
+      "events": [
+        "human_notice",
+        "human_input_requested",
+        "human_input_received",
+        "human_input_timeout",
+        "human_decision_applied"
+      ],
+      "mode": "notice_only",
+      "notice_event": "human_notice",
+      "reason": "The workflow surfaces notable visual changes to reviewers but does not execute physical security actions by itself.",
+      "requires_ack": false
+    },
+    "target_users": "Video operators, security reviewers, safety operations teams, and site-access coordinators."
+  },
+  "capabilities": [
+    "Runs a self-contained Docker demo stream by default or reviews one approved external RTSP/RTMP stream.",
+    "Redacts stream credentials from logs, events, browser URLs, and public service artifacts.",
+    "Uses human notices for notable visual changes and does not execute physical security actions.",
+    "Requires human confirmation for safety, security, access, or disciplinary responses.",
+    "Streams operator activity over SSE and keeps watch steering on the external chat/MCP boundary."
+  ],
+  "product": {
+    "agent_role": "AI assistant for reviewing live video activity and preparing visual detection reports and alerts.",
+    "benefit": "Combines live operator steering with bounded multimodal analysis so a 24 FPS source does not become a 24 FPS model workload.",
+    "customizable_for": "Video monitoring, configurable visual detection, facility operations, and site safety workflows.",
+    "how_it_works": "Inspects a 1 FPS proxy, analyzes a baseline frame every 20 seconds, selects up to ten frames around sustained scene changes, and prioritizes operator-requested analysis.",
+    "input": "Bundled Docker demo stream by default, or one approved external RTSP/RTMP stream, plus run-scoped monitoring instruction, sampling thresholds, alert policy, and notification settings.",
+    "output": "A CUDA-assisted MJPEG source preview, live operator event stream, the latest analyzed frame, durable frame-batch manifests, and cumulative source-grounded observations and reports.",
+    "problem": "Teams need a steerable review surface for a continuous stream without turning every source frame into a model request.",
+    "runtime_features": [
+      "stream-only adaptive sampling",
+      "external chat/MCP monitoring steering",
+      "event-triggered frame bursts",
+      "CUDA-assisted MJPEG browser preview and analyzed-frame review",
+      "NVIDIA CUDA media preparation",
+      "visual detection",
+      "cooldown state",
+      "Slack alerting",
+      "product input contract",
+      "transparent run status",
+      "human control policy",
+      "artifact records",
+      "run-store observability dashboard"
+    ],
+    "simulation_type": "Live-stream adaptive sampling with visual detection review state.",
+    "target_users": "Video operators, security reviewers, safety operations teams, and site-access coordinators."
+  },
+  "overview": "An NVIDIA-only CCTV co-worker with a self-contained Docker demo stream, optional approved external RTSP/RTMP input, operator steering, sparse adaptive sampling, and source-grounded reports."
+}

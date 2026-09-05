@@ -1,0 +1,338 @@
+{
+  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/contracts.schema.json",
+  "events": {
+    "human_stream": "human.jsonl",
+    "stream": "events.jsonl",
+    "types": [
+      "blueprint_status",
+      "blueprint_phase_started",
+      "blueprint_phase_completed",
+      "blueprint_phase_failed",
+      "artifact_written",
+      "human_notice",
+      "human_input_requested",
+      "human_input_received",
+      "human_input_timeout",
+      "human_decision_applied",
+      "output_skill_started",
+      "output_skill_completed",
+      "output_skill_failed",
+      "tool_call_started",
+      "tool_call_completed",
+      "tool_call_failed",
+      "legal_folder_watcher_completed",
+      "legal_document_reader_completed",
+      "invoice_bill_extractor_completed",
+      "payable_field_validator_completed",
+      "contract_clause_extractor_completed",
+      "contract_playbook_comparator_completed",
+      "legal_evidence_reconciler_completed",
+      "legal_review_auditor_completed",
+      "legal_reporter_completed"
+    ]
+  },
+  "input_adapters": {
+    "default": "mock",
+    "resolved_artifact": "inputs.json",
+    "supported": [
+      "mock",
+      "json",
+      "file",
+      "env_json"
+    ]
+  },
+  "inputs": {
+    "document_folder": {
+      "description": "Local folder containing invoices, bills, contracts, clause notes, labels, and support files.",
+      "example": "@/examples/sample_inputs",
+      "path_kind": "directory",
+      "privacy": "confidential",
+      "required": true,
+      "type": "local_path"
+    },
+    "field_profile": {
+      "description": "Invoice payable fields and contract clause taxonomy fields used by the workflow.",
+      "example": {
+        "clause_fields": [
+          "governing_law",
+          "assignment",
+          "termination",
+          "liability"
+        ],
+        "invoice_fields": [
+          "supplier_name",
+          "invoice_id",
+          "due_date",
+          "total_amount"
+        ]
+      },
+      "privacy": "internal",
+      "required": false,
+      "type": "domain_value"
+    },
+    "input_folder": {
+      "description": "Alias for document_folder.",
+      "example": "@/examples/sample_inputs",
+      "path_kind": "directory",
+      "privacy": "confidential",
+      "required": false,
+      "type": "local_path"
+    },
+    "matter_profile": {
+      "description": "Optional matter, jurisdiction, or review context.",
+      "example": {
+        "jurisdiction": "not_specified",
+        "review_context": "small_business_vendor_contract"
+      },
+      "privacy": "confidential",
+      "required": false,
+      "type": "domain_value"
+    },
+    "output_folder": {
+      "description": "Local folder where integrated legal review packets should be written.",
+      "example": "~/Downloads/legal_assistant",
+      "path_kind": "directory",
+      "privacy": "confidential",
+      "required": true,
+      "type": "local_path"
+    },
+    "review_policy": {
+      "description": "Optional review objective, audience, focus areas, and jurisdiction note for bounded contract triage.",
+      "example": {
+        "audience": "small_business_operator_and_attorney",
+        "focus_areas": [
+          "termination_and_continuity_risk",
+          "indemnity_and_liability_exposure",
+          "assignment_and_change_of_control_effects"
+        ],
+        "jurisdiction_note": "Do not generalize the supplied document's governing framework.",
+        "objective": "contract_intake_risk_triage"
+      },
+      "privacy": "confidential",
+      "required": false,
+      "type": "domain_value"
+    }
+  },
+  "outputs": {
+    "artifacts": [
+      {
+        "artifact_id": "run_metadata",
+        "mime_type": "application/json",
+        "path": "run.json",
+        "producer": "local_run_store",
+        "schema_version": "mn.artifact.run_summary.v1",
+        "source_refs": [],
+        "type": "run_summary"
+      },
+      {
+        "artifact_id": "resolved_config",
+        "mime_type": "application/json",
+        "path": "config.json",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.config.v1",
+        "source_refs": [],
+        "type": "config"
+      },
+      {
+        "artifact_id": "resolved_inputs",
+        "mime_type": "application/json",
+        "path": "inputs.json",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.inputs.v1",
+        "source_refs": [],
+        "type": "inputs"
+      },
+      {
+        "artifact_id": "event_stream",
+        "mime_type": "application/x-jsonlines",
+        "path": "events.jsonl",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.events.v1",
+        "source_refs": [],
+        "type": "events"
+      },
+      {
+        "artifact_id": "result",
+        "mime_type": "application/json",
+        "path": "result.json",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.response.v1",
+        "source_refs": [
+          "inputs.json",
+          "events.jsonl"
+        ],
+        "type": "result"
+      },
+      {
+        "artifact_id": "final_artifact",
+        "mime_type": "application/json",
+        "path": "final_artifact.json",
+        "producer": "workflow",
+        "schema_version": "mn.blueprint.final_artifact.v1",
+        "source_refs": [
+          "inputs.json",
+          "events.jsonl",
+          "result.json"
+        ],
+        "type": "final_artifact"
+      },
+      {
+        "artifact_id": "action_ledger",
+        "mime_type": "application/json",
+        "path": "action_ledger.json",
+        "producer": "workflow",
+        "schema_version": "mn.blueprint.action_ledger.v1",
+        "source_refs": [
+          "final_artifact.json"
+        ],
+        "type": "action_ledger"
+      },
+      {
+        "artifact_id": "artifact_quality",
+        "mime_type": "application/json",
+        "path": "artifact_quality.json",
+        "producer": "workflow",
+        "schema_version": "mn.blueprint.artifact_quality.v1",
+        "source_refs": [
+          "final_artifact.json"
+        ],
+        "type": "artifact_quality"
+      },
+      {
+        "artifact_id": "run_health",
+        "mime_type": "application/json",
+        "path": "run_health.json",
+        "producer": "workflow",
+        "schema_version": "mn.blueprint.run_health.v1",
+        "source_refs": [
+          "final_artifact.json",
+          "action_ledger.json",
+          "artifact_quality.json"
+        ],
+        "type": "run_health"
+      },
+      {
+        "artifact_id": "logs",
+        "mime_type": "application/x-jsonlines",
+        "path": "logs.jsonl",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.logs.v1",
+        "source_refs": [
+          "events.jsonl"
+        ],
+        "type": "logs"
+      },
+      {
+        "artifact_id": "resources",
+        "mime_type": "application/x-jsonlines",
+        "path": "resources.jsonl",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.resources.v1",
+        "source_refs": [
+          "run.json"
+        ],
+        "type": "resource_samples"
+      },
+      {
+        "artifact_id": "web_ui",
+        "mime_type": "application/json",
+        "path": "web_ui.json",
+        "producer": "web_ui",
+        "schema_version": "mn.blueprint.web_ui.v1",
+        "source_refs": [
+          "run.json"
+        ],
+        "type": "web_ui"
+      },
+      {
+        "artifact_id": "human_events",
+        "mime_type": "application/x-jsonlines",
+        "path": "human.jsonl",
+        "producer": "human_control",
+        "schema_version": "mn.blueprint.human_events.v1",
+        "source_refs": [
+          "events.jsonl"
+        ],
+        "type": "human_events"
+      },
+      {
+        "artifact_id": "invoice_bill_extraction",
+        "mime_type": "application/json",
+        "path": "invoice_bill_extraction.json",
+        "producer": "workflow",
+        "schema_version": "mn.blueprint.legal_assistant.invoice_bill_extraction.v1",
+        "source_refs": [
+          "final_artifact.json"
+        ],
+        "type": "structured_extraction"
+      },
+      {
+        "artifact_id": "contract_clause_review",
+        "mime_type": "application/json",
+        "path": "contract_clause_review.json",
+        "producer": "workflow",
+        "schema_version": "mn.blueprint.legal_assistant.contract_clause_review.v1",
+        "source_refs": [
+          "final_artifact.json"
+        ],
+        "type": "clause_review"
+      },
+      {
+        "artifact_id": "legal_issue_register",
+        "mime_type": "application/json",
+        "path": "legal_issue_register.json",
+        "producer": "workflow",
+        "schema_version": "mn.blueprint.legal_assistant.issue_register.v1",
+        "source_refs": [
+          "final_artifact.json"
+        ],
+        "type": "issue_register"
+      },
+      {
+        "artifact_id": "legal_deep_review",
+        "mime_type": "application/json",
+        "path": "legal_deep_review.json",
+        "producer": "workflow",
+        "schema_version": "mn.blueprint.legal_assistant.deep_review.v1",
+        "source_refs": [
+          "final_artifact.json",
+          "knowledge/"
+        ],
+        "type": "llm_review"
+      },
+      {
+        "artifact_id": "review_packet_markdown",
+        "mime_type": "text/markdown",
+        "path": "<outputs.folder_path>/legal_assistant_report.md",
+        "producer": "workflow",
+        "schema_version": "mn.blueprint.generated_report.v1",
+        "source_refs": [
+          "final_artifact.json"
+        ],
+        "type": "generated_report"
+      }
+    ],
+    "primary": {
+      "id": "final_artifact",
+      "path": "final_artifact.json",
+      "required_fields": [
+        "type",
+        "executive_summary",
+        "recommended_action",
+        "confidence",
+        "evidence",
+        "next_steps",
+        "source_refs"
+      ],
+      "schema_version": "mn.blueprint.final_artifact_contract.v1",
+      "type": "final_artifact"
+    },
+    "profile": "standard_run_store"
+  },
+  "privacy": {
+    "default_classification": "confidential"
+  },
+  "status": {
+    "heartbeat": true
+  }
+}

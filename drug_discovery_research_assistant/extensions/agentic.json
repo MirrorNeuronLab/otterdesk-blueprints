@@ -1,0 +1,24 @@
+{
+  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/extensions/agentic.schema.json",
+  "agent_ids": [
+    "target_biology_researcher",
+    "structure_modeler",
+    "discovery_service_operator",
+    "binding_evidence_reviewer",
+    "discovery_packet_writer"
+  ],
+  "allowed_tools": [
+    "target_database_lookup",
+    "structure_generation",
+    "candidate_generation",
+    "docking_score",
+    "toxicity_filter",
+    "finish"
+  ],
+  "default_mode": "bounded_llm_guided_scientific_tool_review",
+  "enabled": true,
+  "max_iterations_per_agent": 1,
+  "max_tool_calls_per_agent": 2,
+  "note": "Scientific workers may use bounded tool outputs and local RAG guidance; failed or thin evidence remains explicit in the review packet.",
+  "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run"
+}

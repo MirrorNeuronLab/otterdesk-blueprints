@@ -1,0 +1,143 @@
+{
+  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/workflow.schema.json",
+  "edges": [
+    {
+      "accepts": [
+        "done"
+      ],
+      "event": "video_monitor_start",
+      "from": "start_video_monitor",
+      "id": "start_video_monitor_to_adaptively_sample_video",
+      "required": true,
+      "to": "adaptively_sample_video"
+    },
+    {
+      "accepts": [
+        "done"
+      ],
+      "event": "cctv_operator_frame_batch_ready",
+      "from": "adaptively_sample_video",
+      "id": "adaptively_sample_video_to_detect_visual_targets",
+      "required": true,
+      "to": "detect_visual_targets"
+    },
+    {
+      "accepts": [
+        "done"
+      ],
+      "event": "cctv_operator_detection",
+      "from": "detect_visual_targets",
+      "id": "detect_visual_targets_to_write_cctv_report",
+      "required": true,
+      "to": "write_cctv_report"
+    }
+  ],
+  "execution": {
+    "strategy": "parallel"
+  },
+  "steps": [
+    {
+      "goal": "Validate the bundled demo or configured external RTSP/RTMP stream and start the analysis session.",
+      "id": "start_video_monitor",
+      "in": {
+        "video_source": "$state.video_source"
+      },
+      "kind": "stage",
+      "label": "Start Video Monitor",
+      "out": {
+        "stream_session": "$state.stream_session"
+      },
+      "run": {
+        "agent": "ingress",
+        "binding": "start_video_monitor"
+      }
+    },
+    {
+      "goal": "Inspect a low-resolution proxy stream and select sparse or event-triggered frame batches.",
+      "id": "adaptively_sample_video",
+      "in": {
+        "session": "$state.stream_session"
+      },
+      "kind": "stage",
+      "label": "Adaptively Sample Video",
+      "out": {
+        "frame_batches": "$state.frame_batches"
+      },
+      "run": {
+        "agent": "adaptive_frame_sampler",
+        "binding": "adaptively_sample_video"
+      }
+    },
+    {
+      "goal": "Analyze sampled frames for configured targets and alert status.",
+      "id": "detect_visual_targets",
+      "in": {
+        "frame_batches": "$state.frame_batches",
+        "policy": "$state.alert_policy",
+        "targets": "$state.visual_targets"
+      },
+      "kind": "stage",
+      "label": "Detect Visual Targets",
+      "out": {
+        "detections": "$state.detections"
+      },
+      "run": {
+        "agent": "visual_detector",
+        "binding": "detect_visual_targets"
+      }
+    },
+    {
+      "goal": "Merge the latest observation into cumulative JSON and Markdown review reports.",
+      "id": "write_cctv_report",
+      "in": {
+        "detections": "$state.detections"
+      },
+      "kind": "stage",
+      "label": "Write CCTV Report",
+      "out": {
+        "final_report": "$state.final_report"
+      },
+      "run": {
+        "agent": "report_writer",
+        "binding": "write_cctv_report"
+      }
+    }
+  ],
+  "workflow_id": "cctv_operator_v2",
+  "defaults": {
+    "step": {
+      "control": {
+        "failure_policy": "fail_workflow",
+        "required": true,
+        "retry": {
+          "backoff_multiplier": 2,
+          "backoff_seconds": 1,
+          "jitter": 0,
+          "max_attempts": 2
+        },
+        "timeout_seconds": 300,
+        "uncertainty": {
+          "min_confidence": 0,
+          "on_low_confidence": "continue_with_warning"
+        }
+      }
+    }
+  },
+  "policy": {
+    "human": {
+      "enabled": true,
+      "events": [
+        "human_notice",
+        "human_input_requested",
+        "human_input_received",
+        "human_input_timeout",
+        "human_decision_applied"
+      ],
+      "mode": "notice_only",
+      "notice_event": "human_notice",
+      "reason": "The workflow surfaces notable visual changes to reviewers but does not execute physical security actions by itself.",
+      "requires_ack": false
+    },
+    "on_step_failure": "fail_workflow"
+  }
+}

@@ -1,0 +1,227 @@
+{
+  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/extensions/response.schema.json",
+  "enabled": true,
+  "agent": {
+    "kind": "bounded_mcp",
+    "service": {
+      "name": "microduck-controller-mcp",
+      "path": "/mcp",
+      "required_tags": [
+        "mcp",
+        "robot-control",
+        "microduck-controller"
+      ]
+    },
+    "preflight": {
+      "required_for_effects": [
+        "motion",
+        "navigation",
+        "play",
+        "locomotion",
+        "ball",
+        "simulation"
+      ],
+      "tool": "get_duck_state",
+      "arguments": {},
+      "required_result": {
+        "connected": true,
+        "ready": true
+      }
+    },
+    "tools": {
+      "user": {
+        "get_user_manual": {
+          "effect": "read",
+          "arguments": {}
+        },
+        "get_duck_state": {
+          "effect": "read",
+          "arguments": {}
+        },
+        "move_duck": {
+          "effect": "motion",
+          "arguments": {
+            "command_id": {
+              "type": "string"
+            },
+            "direction": {
+              "type": "string",
+              "enum": [
+                "forward",
+                "backward",
+                "turn_left",
+                "turn_right"
+              ]
+            },
+            "duration": {
+              "type": "string",
+              "enum": [
+                "short",
+                "medium",
+                "long"
+              ]
+            }
+          }
+        },
+        "perform_routine": {
+          "effect": "motion",
+          "arguments": {
+            "command_id": {
+              "type": "string"
+            },
+            "routine": {
+              "type": "string",
+              "enum": [
+                "showcase",
+                "spin_left",
+                "spin_right",
+                "zigzag"
+              ]
+            }
+          }
+        },
+        "find_ball": {
+          "effect": "navigation",
+          "arguments": {
+            "command_id": {
+              "type": "string"
+            }
+          }
+        },
+        "free_play": {
+          "effect": "play",
+          "arguments": {
+            "command_id": {
+              "type": "string"
+            }
+          }
+        },
+        "stop_duck": {
+          "effect": "stop",
+          "arguments": {
+            "command_id": {
+              "type": "string"
+            }
+          }
+        },
+        "set_locomotion": {
+          "effect": "locomotion",
+          "arguments": {
+            "command_id": {
+              "type": "string"
+            },
+            "locomotion": {
+              "type": "string",
+              "enum": [
+                "legs",
+                "rollers"
+              ]
+            }
+          }
+        },
+        "play_ball_action": {
+          "effect": "ball",
+          "arguments": {
+            "command_id": {
+              "type": "string"
+            },
+            "action": {
+              "type": "string",
+              "enum": [
+                "spawn_ball",
+                "kick_left",
+                "kick_right"
+              ]
+            }
+          }
+        },
+        "reset_simulation": {
+          "effect": "simulation",
+          "arguments": {
+            "command_id": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "internal": {
+        "get_command_status": {
+          "arguments": {
+            "command_id": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "operations": {
+      "move_duck": {
+        "id_field": "command_id",
+        "poll_tool": "get_command_status",
+        "poll_argument": "command_id",
+        "poll_interval_ms": 500,
+        "timeout_seconds": 20
+      },
+      "perform_routine": {
+        "id_field": "command_id",
+        "poll_tool": "get_command_status",
+        "poll_argument": "command_id",
+        "poll_interval_ms": 500,
+        "timeout_seconds": 20
+      },
+      "find_ball": {
+        "id_field": "command_id",
+        "poll_tool": "get_command_status",
+        "poll_argument": "command_id",
+        "poll_interval_ms": 500,
+        "timeout_seconds": 40
+      },
+      "free_play": {
+        "id_field": "command_id",
+        "poll_tool": "get_command_status",
+        "poll_argument": "command_id",
+        "poll_interval_ms": 500,
+        "timeout_seconds": 40
+      },
+      "stop_duck": {
+        "id_field": "command_id",
+        "poll_tool": "get_command_status",
+        "poll_argument": "command_id",
+        "poll_interval_ms": 500,
+        "timeout_seconds": 10
+      },
+      "set_locomotion": {
+        "id_field": "command_id",
+        "poll_tool": "get_command_status",
+        "poll_argument": "command_id",
+        "poll_interval_ms": 500,
+        "timeout_seconds": 20
+      },
+      "play_ball_action": {
+        "id_field": "command_id",
+        "poll_tool": "get_command_status",
+        "poll_argument": "command_id",
+        "poll_interval_ms": 500,
+        "timeout_seconds": 20
+      },
+      "reset_simulation": {
+        "id_field": "command_id",
+        "poll_tool": "get_command_status",
+        "poll_argument": "command_id",
+        "poll_interval_ms": 500,
+        "timeout_seconds": 20
+      }
+    },
+    "memory": {
+      "enabled": true,
+      "mode": "explicit",
+      "path": "knowledge/learned",
+      "types": [
+        "motion_alias",
+        "control_constraint",
+        "capability_note"
+      ],
+      "max_active_records": 100
+    }
+  }
+}

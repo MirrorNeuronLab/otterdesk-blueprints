@@ -1,0 +1,24 @@
+{
+  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/extensions/context.schema.json",
+  "memory_layer": {
+    "enabled": true,
+    "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
+    "conversation_enabled": true,
+    "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
+    "namespace": "software_architecture_advisor_context",
+    "collection": "mn_memory",
+    "sdk_distribution": "mirrorneuron-membrane-python-sdk",
+    "sdk_import_package": "mn_context_engine_sdk",
+    "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
+    "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
+    "conversation": {
+      "agent_role": "otterdesk_chat",
+      "include_runtime_events": true,
+      "include_runtime_logs": true,
+      "include_human_events": true,
+      "target_tokens": 2400,
+      "token_budget": 6000,
+      "use_model_compression": false
+    }
+  }
+}

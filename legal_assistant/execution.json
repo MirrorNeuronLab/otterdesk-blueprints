@@ -1,0 +1,90 @@
+{
+  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/execution.schema.json",
+  "policies": {
+    "recovery_mode": "manual_recover"
+  },
+  "agents": {
+    "registry": {
+      "legal_folder_watcher": {
+        "handler": "agents.legal_folder_watcher",
+        "role": "Legal Folder Watcher"
+      },
+      "legal_document_reader": {
+        "handler": "agents.legal_document_reader",
+        "role": "Legal Document Reader"
+      },
+      "invoice_bill_extractor": {
+        "handler": "agents.invoice_bill_extractor",
+        "role": "Invoice Bill Extractor"
+      },
+      "payable_field_validator": {
+        "handler": "agents.payable_field_validator",
+        "role": "Payable Field Validator"
+      },
+      "contract_clause_extractor": {
+        "handler": "agents.contract_clause_extractor",
+        "role": "Contract Clause Extractor"
+      },
+      "contract_playbook_comparator": {
+        "handler": "agents.contract_playbook_comparator",
+        "role": "Contract Playbook Comparator"
+      },
+      "legal_evidence_reconciler": {
+        "handler": "agents.legal_evidence_reconciler",
+        "role": "Legal Evidence Reconciler"
+      },
+      "legal_review_auditor": {
+        "handler": "agents.legal_review_auditor",
+        "role": "Legal Review Auditor"
+      },
+      "legal_reporter": {
+        "handler": "agents.legal_reporter",
+        "role": "Legal Reporter"
+      }
+    }
+  },
+  "defaults": {
+    "worker": {
+      "with": {
+        "image": "mirror-neuron/legal-assistant:local",
+        "upload_paths": [
+          {
+            "source": "domain",
+            "target": "domain"
+          }
+        ]
+      }
+    }
+  },
+  "requirements": {
+    "cpu": {
+      "min_cores": 1
+    },
+    "disk": {
+      "min_gb": 1
+    },
+    "gpu": {
+      "min_count": 1,
+      "min_memory_mb": 49152,
+      "memory_operator": ">=",
+      "enforcement": "hard"
+    },
+    "memory": {
+      "min_gb": 2
+    }
+  },
+  "workers": {
+    "groups": [
+      {
+        "steps": [
+          "publish_legal_review_packet"
+        ],
+        "with": {
+          "stereotype": "internal_write_worker"
+        }
+      }
+    ]
+  },
+  "mode": "compiled",
+  "job_name": "legal-assistant"
+}

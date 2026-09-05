@@ -1,0 +1,594 @@
+{
+  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/contracts.schema.json",
+  "events": {
+    "human_stream": "human.jsonl",
+    "stream": "events.jsonl",
+    "types": [
+      "run_started",
+      "inputs_loaded",
+      "simulation_step_started",
+      "llm_decision",
+      "simulation_state_updated",
+      "run_completed",
+      "blueprint_status",
+      "blueprint_phase_started",
+      "blueprint_phase_completed",
+      "blueprint_phase_failed",
+      "artifact_written",
+      "human_notice",
+      "human_input_requested",
+      "human_input_received",
+      "human_input_timeout",
+      "human_decision_applied",
+      "output_skill_started",
+      "output_skill_completed",
+      "output_skill_failed"
+    ]
+  },
+  "input_adapters": {
+    "supported": [
+      "mock",
+      "json",
+      "file",
+      "env_json"
+    ],
+    "resolved_artifact": "inputs.json",
+    "default": "mock",
+    "profiles": {
+      "connector": {
+        "adapter": "json",
+        "description": "Connector-provided target profile and evidence summaries from approved research systems."
+      },
+      "env_json": {
+        "adapter": "env_json",
+        "description": "JSON object loaded from MN_BLUEPRINT_INPUT_JSON."
+      },
+      "file": {
+        "adapter": "file",
+        "description": "JSON object loaded from a local file path."
+      },
+      "json": {
+        "adapter": "json",
+        "description": "Inline JSON object supplied through config or runtime overrides."
+      },
+      "mock": {
+        "adapter": "mock",
+        "description": "Bundled Alzheimer demo target and synthetic candidate workflow.",
+        "payload": {
+          "disease_or_target_profile": "Alzheimer disease with BACE1 modulation as the primary target hypothesis."
+        }
+      },
+      "sample_file": {
+        "adapter": "file",
+        "description": "JSON disease profile, candidate seeds, and screening criteria loaded from a local file.",
+        "path": "inputs/drug_discovery_sample.json"
+      }
+    },
+    "validation_rules": []
+  },
+  "inputs": {
+    "assay_constraints": {
+      "description": "Wet-lab, ADMET, or computational constraints that shape recommendations.",
+      "example": {
+        "assay": "in vitro",
+        "species": "human"
+      },
+      "type": "domain_value",
+      "required": false,
+      "privacy": "confidential"
+    },
+    "candidate_seed_set": {
+      "description": "Optional seed molecules, protein targets, or prior candidates to compare.",
+      "example": [
+        "known_reference_compound_a"
+      ],
+      "type": "domain_value",
+      "required": false,
+      "privacy": "confidential"
+    },
+    "disease_or_target_profile": {
+      "description": "Disease, target, pathway, or phenotype that frames the discovery run.",
+      "example": "Alzheimer disease BACE1 modulation",
+      "type": "domain_value",
+      "required": true,
+      "privacy": "confidential"
+    },
+    "input_folder": {
+      "description": "Default local input folder for sample files or user-provided files.",
+      "example": "@/examples/sample_inputs",
+      "path_kind": "directory",
+      "privacy": "confidential",
+      "required": false,
+      "type": "local_path"
+    },
+    "literature_corpus": {
+      "description": "Research papers, notes, or database exports used as evidence.",
+      "example": "pubmed-export.json",
+      "type": "domain_value",
+      "required": false,
+      "privacy": "confidential"
+    },
+    "output_folder": {
+      "description": "Default local output folder for generated artifacts and reports.",
+      "example": "~/Downloads/{job_name}",
+      "path_kind": "directory",
+      "privacy": "confidential",
+      "required": false,
+      "type": "local_path"
+    },
+    "screening_criteria": {
+      "description": "Desired candidate, assay, safety, novelty, or evidence criteria.",
+      "example": {
+        "potency": "sub-micromolar",
+        "toxicity": "low"
+      },
+      "type": "domain_value",
+      "required": false,
+      "privacy": "confidential"
+    }
+  },
+  "outputs": {
+    "artifacts": [
+      {
+        "artifact_id": "run_metadata",
+        "mime_type": "application/json",
+        "path": "run.json",
+        "producer": "local_run_store",
+        "schema_version": "mn.artifact.run_summary.v1",
+        "source_refs": [],
+        "type": "run_summary"
+      },
+      {
+        "artifact_id": "resolved_config",
+        "mime_type": "application/json",
+        "path": "config.json",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.config.v1",
+        "source_refs": [],
+        "type": "config"
+      },
+      {
+        "artifact_id": "resolved_inputs",
+        "mime_type": "application/json",
+        "path": "inputs.json",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.inputs.v1",
+        "source_refs": [],
+        "type": "inputs"
+      },
+      {
+        "artifact_id": "event_stream",
+        "mime_type": "application/x-jsonlines",
+        "path": "events.jsonl",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.events.v1",
+        "source_refs": [],
+        "type": "events"
+      },
+      {
+        "artifact_id": "result",
+        "mime_type": "application/json",
+        "path": "result.json",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.response.v1",
+        "source_refs": [
+          "inputs.json",
+          "events.jsonl"
+        ],
+        "type": "result"
+      },
+      {
+        "artifact_id": "final_artifact",
+        "mime_type": "application/json",
+        "path": "final_artifact.json",
+        "producer": "workflow",
+        "schema_version": "mn.blueprint.final_artifact.v1",
+        "source_refs": [
+          "inputs.json",
+          "events.jsonl",
+          "result.json"
+        ],
+        "type": "final_artifact"
+      },
+      {
+        "artifact_id": "logs",
+        "mime_type": "application/x-jsonlines",
+        "path": "logs.jsonl",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.logs.v1",
+        "source_refs": [
+          "events.jsonl"
+        ],
+        "type": "logs"
+      },
+      {
+        "artifact_id": "resources",
+        "mime_type": "application/x-jsonlines",
+        "path": "resources.jsonl",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.resources.v1",
+        "source_refs": [
+          "run.json"
+        ],
+        "type": "resource_samples"
+      },
+      {
+        "artifact_id": "web_ui",
+        "mime_type": "application/json",
+        "path": "web_ui.json",
+        "producer": "web_ui",
+        "schema_version": "mn.blueprint.web_ui.v1",
+        "source_refs": [
+          "run.json"
+        ],
+        "type": "web_ui"
+      },
+      {
+        "artifact_id": "human_events",
+        "mime_type": "application/x-jsonlines",
+        "path": "human.jsonl",
+        "producer": "human_control",
+        "schema_version": "mn.blueprint.human_events.v1",
+        "source_refs": [
+          "events.jsonl"
+        ],
+        "type": "human_events"
+      },
+      {
+        "artifact_id": "candidate_report",
+        "mime_type": "application/json",
+        "path": "final_artifact.candidate_artifacts",
+        "producer": "workflow",
+        "schema_version": "mn.blueprint.generated_report.v1",
+        "source_refs": [
+          "inputs.json",
+          "events.jsonl"
+        ],
+        "type": "generated_report"
+      },
+      {
+        "artifact_id": "cycle_progress",
+        "mime_type": "application/json",
+        "path": "cycle_progress.json",
+        "producer": "discovery_service_operator",
+        "schema_version": "mn.blueprint.discovery_cycle_progress.v1",
+        "source_refs": [
+          "service_state.json"
+        ],
+        "type": "service_progress"
+      },
+      {
+        "artifact_id": "leading_candidate_metadata",
+        "mime_type": "application/json",
+        "path": "leading_candidate.json",
+        "producer": "discovery_service_operator",
+        "schema_version": "mn.blueprint.leading_candidate_preview.v1",
+        "source_refs": [
+          "cycle_progress.json"
+        ],
+        "type": "molecule_preview"
+      },
+      {
+        "artifact_id": "leading_candidate_visualization",
+        "mime_type": "image/svg+xml",
+        "path": "leading_candidate.svg",
+        "producer": "discovery_service_operator",
+        "schema_version": "mn.blueprint.molecule_svg.v1",
+        "source_refs": [
+          "leading_candidate.json"
+        ],
+        "type": "molecule_visualization"
+      },
+      {
+        "artifact_id": "stage_logs",
+        "mime_type": "application/x-jsonlines",
+        "path": "events.jsonl",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.event_log.v1",
+        "source_refs": [
+          "run.json"
+        ],
+        "type": "event_log"
+      }
+    ],
+    "primary": {
+      "id": "final_artifact",
+      "path": "final_artifact.json",
+      "required_fields": [
+        "type",
+        "executive_summary",
+        "recommended_action",
+        "confidence",
+        "evidence",
+        "next_steps",
+        "source_refs"
+      ],
+      "schema_version": "mn.blueprint.final_artifact_contract.v1",
+      "type": "final_artifact"
+    },
+    "profile": "standard_run_store"
+  },
+  "privacy": {
+    "default_classification": "confidential",
+    "rules": {
+      "confidential": {
+        "log": "redacted",
+        "send_to_llm": "allowed_configs_only",
+        "send_to_output_skills": "approved_destinations_only"
+      },
+      "internal": {
+        "log": "metadata_only",
+        "send_to_llm": true,
+        "send_to_output_skills": true
+      },
+      "public": {
+        "log": true,
+        "send_to_llm": true,
+        "send_to_output_skills": true
+      },
+      "regulated": {
+        "log": "redacted",
+        "send_to_llm": false,
+        "send_to_output_skills": "approved_destinations_only"
+      }
+    },
+    "classification": "confidential"
+  },
+  "status": {
+    "attempt_event": "workflow_step_attempt_started",
+    "beacon_event": "agent_beacon",
+    "beacon_interval_ms": 15000,
+    "beacon_missed_action": "fail_attempt",
+    "beacon_timeout_ms": 45000,
+    "blocked_event": "workflow_step_blocked",
+    "heartbeat_event": "agent_beacon",
+    "heartbeat_required": true,
+    "phases": [
+      {
+        "completion_event": "blueprint_phase_completed",
+        "failure_event": "blueprint_phase_failed",
+        "phase": "loading_inputs",
+        "progress_event": "blueprint_status",
+        "required": true,
+        "start_event": "blueprint_phase_started"
+      },
+      {
+        "completion_event": "blueprint_phase_completed",
+        "failure_event": "blueprint_phase_failed",
+        "phase": "running_worker",
+        "progress_event": "blueprint_status",
+        "required": true,
+        "start_event": "blueprint_phase_started"
+      },
+      {
+        "completion_event": "blueprint_phase_completed",
+        "failure_event": "blueprint_phase_failed",
+        "phase": "waiting_for_human",
+        "progress_event": "blueprint_status",
+        "required": true,
+        "start_event": "blueprint_phase_started"
+      },
+      {
+        "completion_event": "blueprint_phase_completed",
+        "failure_event": "blueprint_phase_failed",
+        "phase": "writing_artifacts",
+        "progress_event": "blueprint_status",
+        "required": true,
+        "start_event": "blueprint_phase_started"
+      },
+      {
+        "completion_event": "blueprint_phase_completed",
+        "failure_event": "blueprint_phase_failed",
+        "phase": "completed",
+        "progress_event": "blueprint_status",
+        "required": true,
+        "start_event": "blueprint_phase_started"
+      }
+    ],
+    "retry_event": "workflow_step_attempt_retry_scheduled",
+    "runtime_state_source": "workflow_state",
+    "schema_version": "mn.blueprint.status_contract.v1",
+    "source": "run_store",
+    "status_event": "blueprint_status",
+    "terminal_step_events": [
+      "workflow_step_completed",
+      "workflow_step_partial",
+      "workflow_step_skipped",
+      "workflow_step_failed"
+    ],
+    "event": "blueprint_status",
+    "heartbeat": true
+  },
+  "summary": "Runs one drug-discovery cycle to produce five distinct computational candidates, screens and evaluates them, writes a review packet and molecule preview to ~/Downloads/{job_name}, then completes.",
+  "users": [
+    "Computational biology researchers, scientific AI platform teams, and research operations groups."
+  ],
+  "artifacts": {
+    "artifacts": [
+      {
+        "artifact_id": "run_metadata",
+        "mime_type": "application/json",
+        "path": "run.json",
+        "producer": "local_run_store",
+        "schema_version": "mn.artifact.run_summary.v1",
+        "source_refs": [],
+        "type": "run_summary"
+      },
+      {
+        "artifact_id": "resolved_config",
+        "mime_type": "application/json",
+        "path": "config.json",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.config.v1",
+        "source_refs": [],
+        "type": "config"
+      },
+      {
+        "artifact_id": "resolved_inputs",
+        "mime_type": "application/json",
+        "path": "inputs.json",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.inputs.v1",
+        "source_refs": [],
+        "type": "inputs"
+      },
+      {
+        "artifact_id": "event_stream",
+        "mime_type": "application/x-jsonlines",
+        "path": "events.jsonl",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.events.v1",
+        "source_refs": [],
+        "type": "events"
+      },
+      {
+        "artifact_id": "result",
+        "mime_type": "application/json",
+        "path": "result.json",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.response.v1",
+        "source_refs": [
+          "inputs.json",
+          "events.jsonl"
+        ],
+        "type": "result"
+      },
+      {
+        "artifact_id": "final_artifact",
+        "mime_type": "application/json",
+        "path": "final_artifact.json",
+        "producer": "workflow",
+        "schema_version": "mn.blueprint.final_artifact.v1",
+        "source_refs": [
+          "inputs.json",
+          "events.jsonl",
+          "result.json"
+        ],
+        "type": "final_artifact"
+      },
+      {
+        "artifact_id": "logs",
+        "mime_type": "application/x-jsonlines",
+        "path": "logs.jsonl",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.logs.v1",
+        "source_refs": [
+          "events.jsonl"
+        ],
+        "type": "logs"
+      },
+      {
+        "artifact_id": "resources",
+        "mime_type": "application/x-jsonlines",
+        "path": "resources.jsonl",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.resources.v1",
+        "source_refs": [
+          "run.json"
+        ],
+        "type": "resource_samples"
+      },
+      {
+        "artifact_id": "web_ui",
+        "mime_type": "application/json",
+        "path": "web_ui.json",
+        "producer": "web_ui",
+        "schema_version": "mn.blueprint.web_ui.v1",
+        "source_refs": [
+          "run.json"
+        ],
+        "type": "web_ui"
+      },
+      {
+        "artifact_id": "human_events",
+        "mime_type": "application/x-jsonlines",
+        "path": "human.jsonl",
+        "producer": "human_control",
+        "schema_version": "mn.blueprint.human_events.v1",
+        "source_refs": [
+          "events.jsonl"
+        ],
+        "type": "human_events"
+      },
+      {
+        "artifact_id": "candidate_report",
+        "mime_type": "application/json",
+        "path": "final_artifact.candidate_artifacts",
+        "producer": "workflow",
+        "schema_version": "mn.blueprint.generated_report.v1",
+        "source_refs": [
+          "inputs.json",
+          "events.jsonl"
+        ],
+        "type": "generated_report"
+      },
+      {
+        "artifact_id": "cycle_progress",
+        "mime_type": "application/json",
+        "path": "cycle_progress.json",
+        "producer": "discovery_service_operator",
+        "schema_version": "mn.blueprint.discovery_cycle_progress.v1",
+        "source_refs": [
+          "service_state.json"
+        ],
+        "type": "service_progress"
+      },
+      {
+        "artifact_id": "leading_candidate_metadata",
+        "mime_type": "application/json",
+        "path": "leading_candidate.json",
+        "producer": "discovery_service_operator",
+        "schema_version": "mn.blueprint.leading_candidate_preview.v1",
+        "source_refs": [
+          "cycle_progress.json"
+        ],
+        "type": "molecule_preview"
+      },
+      {
+        "artifact_id": "leading_candidate_visualization",
+        "mime_type": "image/svg+xml",
+        "path": "leading_candidate.svg",
+        "producer": "discovery_service_operator",
+        "schema_version": "mn.blueprint.molecule_svg.v1",
+        "source_refs": [
+          "leading_candidate.json"
+        ],
+        "type": "molecule_visualization"
+      },
+      {
+        "artifact_id": "stage_logs",
+        "mime_type": "application/x-jsonlines",
+        "path": "events.jsonl",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.event_log.v1",
+        "source_refs": [
+          "run.json"
+        ],
+        "type": "event_log"
+      }
+    ],
+    "events": "typed event objects with payload",
+    "events_jsonl": "events.jsonl",
+    "final_artifact": {
+      "description": "The durable user-facing artifact should summarize the result, recommendation, confidence, evidence, next steps, and source references.",
+      "required_fields": [
+        "type",
+        "executive_summary",
+        "recommended_action",
+        "confidence",
+        "evidence",
+        "next_steps",
+        "source_refs"
+      ],
+      "schema_version": "mn.blueprint.final_artifact_contract.v1"
+    },
+    "final_artifact_json": "final_artifact.json",
+    "local_run_store": "~/.mn/runs/<run_id>/",
+    "logs_jsonl": "logs.jsonl",
+    "output_skills": [],
+    "response_schema": "mn.blueprint.response.v1",
+    "result_json": "result.json",
+    "status": "JSON lines on stderr",
+    "stdout": "single JSON object, event envelope, or bundle path"
+  }
+}

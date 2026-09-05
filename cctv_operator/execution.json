@@ -1,0 +1,822 @@
+{
+  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/execution.schema.json",
+  "policies": {
+    "recovery_mode": "cluster_recover",
+    "stream_mode": "live"
+  },
+  "required_context_engine": false,
+  "type": "service",
+  "agents": {
+    "entrypoints": [
+      "ingress",
+      "cctv_web_ui"
+    ],
+    "extra_edges": [
+      {
+        "edge_id": "ingress_to_adaptive_sampler",
+        "from_node": "ingress",
+        "message_type": "cctv_operator_start",
+        "to_node": "adaptive_frame_sampler"
+      },
+      {
+        "edge_id": "adaptive_sampler_continues_sampling",
+        "from_node": "adaptive_frame_sampler",
+        "message_type": "cctv_operator_sample_due",
+        "to_node": "adaptive_frame_sampler"
+      },
+      {
+        "edge_id": "ingress_to_adaptive_sampler_steering",
+        "from_node": "ingress",
+        "message_type": "cctv_operator_steer",
+        "to_node": "adaptive_frame_sampler"
+      },
+      {
+        "edge_id": "adaptive_sampler_to_visual_detector",
+        "from_node": "adaptive_frame_sampler",
+        "message_type": "cctv_operator_frame_batch_ready",
+        "to_node": "visual_detector"
+      },
+      {
+        "edge_id": "visual_detector_to_report_writer",
+        "from_node": "visual_detector",
+        "message_type": "cctv_operator_detection",
+        "to_node": "report_writer"
+      }
+    ],
+    "extra_nodes": [
+      {
+        "agent_type": "executor",
+        "alias": "video_monitor",
+        "config": {
+          "agent_beacon_required": false,
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_missed_action": "fail_attempt",
+          "beacon_timeout_ms": 45000,
+          "command": [
+            "python3",
+            "agents/validation/start_video_monitor.py"
+          ],
+          "docker_worker_image": "docker_worker",
+          "environment": {},
+          "from": "base",
+          "gpus": "all",
+          "image": "mirror-neuron/cctv-operator:local",
+          "network_mode": "host",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "output_message_type": null,
+          "pool": "default",
+          "pool_slots": 1,
+          "reuse_shared_container": true,
+          "runner_module": "MirrorNeuron.Runner.DockerWorker",
+          "shared_container": true,
+          "tty": false,
+          "upload_paths": [
+            {
+              "source": "agents/validation",
+              "target": "agents/validation"
+            }
+          ],
+          "workdir": "/mn/job"
+        },
+        "constraints": [
+          {
+            "attribute": "capabilities",
+            "operator": "contains_all",
+            "value": [
+              "nvidia",
+              "cuda"
+            ]
+          }
+        ],
+        "display_name": "Video Monitor",
+        "node_id": "ingress",
+        "type": "generic"
+      },
+      {
+        "agent_type": "executor",
+        "alias": "adaptive_frame_sampler",
+        "config": {
+          "agent_beacon_required": true,
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_missed_action": "fail_attempt",
+          "beacon_timeout_ms": 45000,
+          "backpressure": {
+            "high_watermark": 1,
+            "low_watermark": 0,
+            "max_queue_depth": 2,
+            "retry_after_ms": 1000
+          },
+          "command": [
+            "bash",
+            "scripts/run_sampler_on_nvidia.sh"
+          ],
+          "docker_worker_image": "docker_worker",
+          "environment": {},
+          "from": "base",
+          "gpus": "all",
+          "image": "mirror-neuron/cctv-operator:local",
+          "network_mode": "host",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "output_message_type": null,
+          "pool": "default",
+          "pool_slots": 1,
+          "reuse_shared_container": true,
+          "runner_module": "MirrorNeuron.Runner.DockerWorker",
+          "shared_container": true,
+          "tty": false,
+          "upload_paths": [
+            {
+              "source": "agents/adaptive_frame_sampler",
+              "target": "adaptive_frame_sampler"
+            },
+            {
+              "source": "domain",
+              "target": "adaptive_frame_sampler/domain"
+            }
+          ],
+          "workdir": "/mn/job/adaptive_frame_sampler"
+        },
+        "constraints": [
+          {
+            "attribute": "capabilities",
+            "operator": "contains_all",
+            "value": [
+              "nvidia",
+              "cuda"
+            ]
+          }
+        ],
+        "display_name": "Adaptive Frame Sampler",
+        "node_id": "adaptive_frame_sampler",
+        "resources": {
+          "devices": [
+            {
+              "count": 1,
+              "driver": "cuda",
+              "kind": "gpu",
+              "memory_operator": ">=",
+              "min_memory_mb": 49152,
+              "type": "nvidia/gpu",
+              "vendor": "nvidia"
+            }
+          ],
+          "gpu_count": 1
+        },
+        "type": "generic"
+      },
+      {
+        "agent_type": "executor",
+        "alias": "visual_target_detector",
+        "config": {
+          "agent_beacon_required": true,
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_missed_action": "fail_attempt",
+          "beacon_timeout_ms": 45000,
+          "backpressure": {
+            "high_watermark": 1,
+            "low_watermark": 0,
+            "max_queue_depth": 2,
+            "retry_after_ms": 1000
+          },
+          "command": [
+            "bash",
+            "scripts/run_detector_on_nvidia.sh"
+          ],
+          "docker_worker_image": "docker_worker",
+          "environment": {
+            "MN_LLM_API_BASE": "auto",
+            "MN_LLM_BACKEND": "llama.cpp",
+            "MN_LLM_MODEL": "nemotron3:q4_K_M",
+            "MN_LLM_PROVIDER": "docker_model_runner",
+            "MN_RUNTIME_MODEL_CONTROL_TARGET": "127.0.0.1:55051",
+            "MN_RUNTIME_MODEL_GATEWAY_HOST": "127.0.0.1",
+            "MN_RUNTIME_MODEL_NATIVE_TARGET": "127.0.0.1:55052",
+            "MN_RUNTIME_MODEL_MANAGED": "1",
+            "MN_VLM_API_BASE": "auto",
+            "MN_VLM_BACKEND": "llama.cpp",
+            "MN_VLM_MODEL": "nemotron3:q4_K_M",
+            "MN_VLM_PROVIDER": "docker_model_runner"
+          },
+          "from": "base",
+          "gpus": "all",
+          "image": "mirror-neuron/cctv-operator:local",
+          "network_mode": "host",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "output_message_type": "cctv_operator_detection",
+          "pool": "default",
+          "pool_slots": 1,
+          "reuse_shared_container": true,
+          "runner_module": "MirrorNeuron.Runner.DockerWorker",
+          "shared_container": true,
+          "tty": false,
+          "upload_paths": [
+            {
+              "source": "agents/visual_detector",
+              "target": "agents/visual_detector"
+            },
+            {
+              "source": "domain",
+              "target": "domain"
+            },
+            {
+              "source": "prompts",
+              "target": "prompts"
+            }
+          ],
+          "workdir": "/mn/job/agents/visual_detector"
+        },
+        "constraints": [
+          {
+            "attribute": "capabilities",
+            "operator": "contains_all",
+            "value": [
+              "nvidia",
+              "cuda"
+            ]
+          }
+        ],
+        "display_name": "Visual Target Detector",
+        "node_id": "visual_detector",
+        "type": "generic"
+      },
+      {
+        "agent_type": "executor",
+        "alias": "report_writer",
+        "config": {
+          "agent_beacon_required": true,
+          "beacon_enabled": true,
+          "beacon_interval_ms": 15000,
+          "beacon_missed_action": "fail_attempt",
+          "beacon_timeout_ms": 45000,
+          "command": [
+            "python3",
+            "agents/report_writer/scripts/write_cctv_report.py"
+          ],
+          "docker_worker_image": "docker_worker",
+          "environment": {},
+          "from": "base",
+          "gpus": "all",
+          "image": "mirror-neuron/cctv-operator:local",
+          "network_mode": "host",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "output_message_type": "cctv_operator_report_ready",
+          "pool": "default",
+          "pool_slots": 1,
+          "reuse_shared_container": true,
+          "runner_module": "MirrorNeuron.Runner.DockerWorker",
+          "shared_container": true,
+          "tty": false,
+          "upload_paths": [
+            {
+              "source": "agents/report_writer",
+              "target": "agents/report_writer"
+            },
+            {
+              "source": "domain",
+              "target": "domain"
+            }
+          ],
+          "workdir": "/mn/job"
+        },
+        "constraints": [
+          {
+            "attribute": "capabilities",
+            "operator": "contains_all",
+            "value": [
+              "nvidia",
+              "cuda"
+            ]
+          }
+        ],
+        "display_name": "CCTV Report Writer",
+        "node_id": "report_writer",
+        "type": "generic"
+      },
+      {
+        "agent_type": "executor",
+        "alias": "cctv_web_ui",
+        "config": {
+          "command": [
+            "python3",
+            "services/cctv_web_ui.py"
+          ],
+          "docker_worker_image": "docker_worker",
+          "environment": {},
+          "from": "base",
+          "gpus": "all",
+          "image": "mirror-neuron/cctv-operator:local",
+          "network_mode": "host",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "output_message_type": null,
+          "pool": "default",
+          "pool_slots": 1,
+          "reuse_shared_container": true,
+          "runner_module": "MirrorNeuron.Runner.DockerWorker",
+          "shared_container": true,
+          "tty": false,
+          "upload_paths": [
+            {
+              "source": "services",
+              "target": "services"
+            },
+            {
+              "source": "domain",
+              "target": "domain"
+            }
+          ],
+          "workdir": "/mn/job"
+        },
+        "constraints": [
+          {
+            "attribute": "capabilities",
+            "operator": "contains_all",
+            "value": [
+              "nvidia",
+              "cuda"
+            ]
+          }
+        ],
+        "display_name": "CCTV Web UI",
+        "node_id": "cctv_web_ui",
+        "type": "stream"
+      }
+    ]
+  },
+  "defaults": {
+    "worker": {
+      "enabled": false
+    }
+  },
+  "service": {
+    "enabled": true,
+    "manual_close": "Stop the CCTV Operator job in OtterDesk or send SIGTERM.",
+    "run_until": "manual_stop",
+    "state_artifact": "monitoring_state.json"
+  },
+  "requirements": {
+    "cpu": {
+      "min_cores": 1
+    },
+    "disk": {
+      "min_gb": 1
+    },
+    "gpu": {
+      "driver": "cuda",
+      "enforcement": "hard",
+      "memory_operator": ">=",
+      "min_count": 1,
+      "min_memory_mb": 49152,
+      "vendor": "nvidia"
+    },
+    "memory": {
+      "min_gb": 2
+    }
+  },
+  "runtime": {
+    "bindings": {
+      "detect_visual_targets": {
+        "risk": "low",
+        "side_effect": "read",
+        "strategy": "fanout_reduce",
+        "type": "team",
+        "workers": [
+          {
+            "alias": "visual_target_detector",
+            "display_name": "Visual Target Detector",
+            "id": "visual_target_detector",
+            "model": "nemotron3:q4_K_M",
+            "role": "Run visual detection",
+            "tokens": 14000,
+            "tools": 4
+          },
+          {
+            "alias": "quality_controller",
+            "display_name": "Quality Controller",
+            "id": "quality_controller",
+            "model": "nemotron3:q4_K_M",
+            "role": "Review alert quality",
+            "tokens": 14000,
+            "tools": 4
+          }
+        ]
+      },
+      "adaptively_sample_video": {
+        "risk": "low",
+        "side_effect": "read",
+        "strategy": "single",
+        "type": "worker",
+        "workers": [
+          {
+            "alias": "adaptive_frame_sampler",
+            "display_name": "Adaptive Frame Sampler",
+            "id": "adaptive_frame_sampler",
+            "model": "nemotron3:q4_K_M",
+            "role": "Select sparse and event-triggered frame batches",
+            "tokens": 14000,
+            "tools": 4
+          }
+        ]
+      },
+      "start_video_monitor": {
+        "risk": "low",
+        "seed_inputs": {
+          "ingress": [
+            {
+              "payload": {
+                "stream_id": "cctv_operator"
+              },
+              "type": "cctv_operator_start"
+            }
+          ]
+        },
+        "side_effect": "read",
+        "strategy": "fanout_reduce",
+        "type": "team",
+        "workers": [
+          {
+            "alias": "video_source_validator",
+            "display_name": "Video Source Validator",
+            "id": "video_source_validator",
+            "model": "nemotron3:q4_K_M",
+            "role": "Validate video source",
+            "tokens": 14000,
+            "tools": 4
+          },
+          {
+            "alias": "video_monitor",
+            "display_name": "Video Monitor",
+            "id": "video_monitor",
+            "model": "nemotron3:q4_K_M",
+            "role": "Coordinate video monitoring",
+            "tokens": 14000,
+            "tools": 4
+          }
+        ]
+      },
+      "write_cctv_report": {
+        "risk": "low",
+        "side_effect": "read",
+        "strategy": "single",
+        "type": "worker",
+        "workers": [
+          {
+            "alias": "report_writer",
+            "display_name": "CCTV Report Writer",
+            "id": "report_writer",
+            "model": "nemotron3:q4_K_M",
+            "role": "Write cumulative CCTV reports",
+            "tokens": 14000,
+            "tools": 4
+          }
+        ]
+      }
+    },
+    "memory": {
+      "collection": "mn_memory",
+      "containers": "optional_sidecar",
+      "context_addr_env": "MN_CONTEXT_ADDR",
+      "conversation": {
+        "agent_role": "otterdesk_chat",
+        "include_human_events": true,
+        "include_runtime_events": true,
+        "include_runtime_logs": true,
+        "target_tokens": 2400,
+        "token_budget": 6000,
+        "use_model_compression": false
+      },
+      "conversation_enabled": true,
+      "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
+      "default_context_addr": "localhost:50052",
+      "enabled": true,
+      "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
+      "namespace": "cctv_operator_context",
+      "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
+      "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
+      "sdk_distribution": "mirrorneuron-membrane-python-sdk",
+      "sdk_import_package": "mn_context_engine_sdk"
+    },
+    "models": {
+      "primary": {
+        "model": "nemotron3:q4_K_M",
+        "provider": "docker_model_runner",
+        "required": true,
+        "type": "vlm",
+        "required_capabilities": [
+          "image_input",
+          "structured_output"
+        ]
+      }
+    },
+    "observability": {
+      "panels": [
+        "current_status",
+        "recent_events",
+        "pending_human_requests",
+        "output_artifacts",
+        "resource_usage",
+        "errors",
+        "input_lag",
+        "backpressure",
+        "llm_calls",
+        "token_budget",
+        "llm_retries",
+        "output_skill_attempts",
+        "output_skill_failures"
+      ],
+      "reads": [
+        "events.jsonl",
+        "human.jsonl",
+        "logs.jsonl",
+        "resources.jsonl",
+        "result.json",
+        "final_artifact.json",
+        "cctv_report.json",
+        "cctv_report.md",
+        "web_ui.json"
+      ],
+      "schema_version": "mn.blueprint.observability_dashboard.v1",
+      "source": "local_run_store"
+    },
+    "placement": {
+      "mode": "single_node"
+    },
+    "resources": {
+      "cpu": {
+        "min_cores": 1
+      },
+      "disk": {
+        "min_gb": 1
+      },
+      "gpu": {
+        "driver": "cuda",
+        "enforcement": "hard",
+        "memory_operator": ">=",
+        "min_count": 1,
+        "min_memory_mb": 49152,
+        "vendor": "nvidia"
+      },
+      "memory": {
+        "min_gb": 2
+      }
+    },
+    "store": {
+      "artifacts": [
+        "run.json",
+        "config.json",
+        "inputs.json",
+        "events.jsonl",
+        "human.jsonl",
+        "logs.jsonl",
+        "resources.jsonl",
+        "result.json",
+        "final_artifact.json",
+        "cctv_report.json",
+        "cctv_report.md"
+      ],
+      "path": "./runs/${run_id}",
+      "type": "local_run_store"
+    },
+    "worker_defaults": {
+      "docker_worker_image": "docker_worker",
+      "gpus": "all",
+      "image": "mirror-neuron/cctv-operator:local",
+      "network_mode": "host",
+      "model": "nemotron3:q4_K_M",
+      "pool": "default",
+      "pool_slots": 1,
+      "reuse_shared_container": true,
+      "runner": "MirrorNeuron.Runner.DockerWorker",
+      "shared_container": true,
+      "uses": "mn-agents.data_python_executor@1",
+      "workdir": "/mn/job/workflow"
+    },
+    "workflow_control": {
+      "attempts": {
+        "dispatch_metadata": [
+          "workflow_run_id",
+          "step_id",
+          "attempt_id",
+          "attempt",
+          "deadline_at",
+          "heartbeat_deadline_at",
+          "idempotency_key"
+        ],
+        "retry_policy_source": "workflow.steps[].control.retry",
+        "stale_attempt_outputs": "ignore",
+        "timeout_source": "workflow.steps[].control.timeout_seconds"
+      },
+      "enabled": true,
+      "events": [
+        "workflow_step_attempt_started",
+        "workflow_step_beacon",
+        "workflow_step_attempt_completed",
+        "workflow_step_attempt_timed_out",
+        "workflow_step_attempt_retry_scheduled",
+        "workflow_step_blocked",
+        "workflow_step_completed",
+        "workflow_step_failed",
+        "workflow_message_dead_lettered"
+      ],
+      "liveness": {
+        "event": "agent_beacon",
+        "interval_ms": 15000,
+        "missed_action": "fail_attempt",
+        "required": true,
+        "timeout_ms": 45000
+      },
+      "pause_cancel": {
+        "cancel_mode": "terminate_active_attempts",
+        "pause_mode": "stop_active_attempts",
+        "resume_mode": "reconcile_from_workflow_state"
+      },
+      "reconciliation": {
+        "interval_ms": 2000,
+        "on_missed_beacon": "fail_attempt_then_retry",
+        "on_retry_exhausted": "apply_step_failure_policy",
+        "on_timeout": "fail_attempt_then_retry"
+      },
+      "schema_version": "mn.workflow.runtime_control.v1",
+      "source_of_truth": "workflow.steps",
+      "state_ledger": {
+        "delivery_semantics": "at_least_once_with_idempotency",
+        "enabled": true,
+        "message_ledger": true,
+        "persisted_field": "workflow_state",
+        "step_statuses": [
+          "pending",
+          "ready",
+          "queued",
+          "running",
+          "retry_wait",
+          "blocked",
+          "completed",
+          "partial",
+          "skipped",
+          "failed"
+        ]
+      }
+    }
+  },
+  "mode": "compiled",
+  "job_name": "cctv-operator",
+  "agent_templates": {
+    "library": "../mn-agents/index.json",
+    "nodes": [
+      {
+        "alias": "video_monitor",
+        "display_name": "Video Monitor",
+        "node_id": "ingress",
+        "uses": "mn-agents.data_python_executor@1",
+        "with": {
+          "agent_beacon_required": false,
+          "command": [
+            "python3",
+            "agents/validation/start_video_monitor.py"
+          ],
+          "docker_worker_image": "docker_worker",
+          "environment": {},
+          "gpus": "all",
+          "image": "mirror-neuron/cctv-operator:local",
+          "network_mode": "host",
+          "output_message_type": null,
+          "reuse_shared_container": true,
+          "runner_module": "MirrorNeuron.Runner.DockerWorker",
+          "script": "agents/validation/start_video_monitor.py",
+          "shared_container": true,
+          "upload_paths": [
+            {
+              "source": "agents/validation",
+              "target": "agents/validation"
+            }
+          ],
+          "workdir": "/mn/job"
+        }
+      },
+      {
+        "alias": "adaptive_frame_sampler",
+        "display_name": "Adaptive Frame Sampler",
+        "node_id": "adaptive_frame_sampler",
+        "uses": "mn-agents.data_python_executor@1",
+        "with": {
+          "command": [
+            "bash",
+            "scripts/run_sampler_on_nvidia.sh"
+          ],
+          "docker_worker_image": "docker_worker",
+          "environment": {},
+          "gpus": "all",
+          "image": "mirror-neuron/cctv-operator:local",
+          "network_mode": "host",
+          "output_message_type": null,
+          "reuse_shared_container": true,
+          "runner_module": "MirrorNeuron.Runner.DockerWorker",
+          "script": "scripts/sample_video.py",
+          "shared_container": true,
+          "upload_paths": [
+            {
+              "source": "agents/adaptive_frame_sampler",
+              "target": "adaptive_frame_sampler"
+            },
+            {
+              "source": "domain",
+              "target": "adaptive_frame_sampler/domain"
+            }
+          ],
+          "workdir": "/mn/job/adaptive_frame_sampler"
+        }
+      },
+      {
+        "alias": "visual_target_detector",
+        "display_name": "Visual Target Detector",
+        "node_id": "visual_detector",
+        "uses": "mn-agents.data_python_executor@1",
+        "with": {
+          "beacon_timeout_ms": 45000,
+          "command": [
+            "bash",
+            "scripts/run_detector_on_nvidia.sh"
+          ],
+          "docker_worker_image": "docker_worker",
+          "environment": {
+            "MN_LLM_API_BASE": "auto",
+            "MN_LLM_BACKEND": "llama.cpp",
+            "MN_LLM_MODEL": "nemotron3:q4_K_M",
+            "MN_LLM_PROVIDER": "docker_model_runner",
+            "MN_RUNTIME_MODEL_CONTROL_TARGET": "127.0.0.1:55051",
+            "MN_RUNTIME_MODEL_GATEWAY_HOST": "127.0.0.1",
+            "MN_RUNTIME_MODEL_NATIVE_TARGET": "127.0.0.1:55052",
+            "MN_RUNTIME_MODEL_MANAGED": "1",
+            "MN_VLM_API_BASE": "auto",
+            "MN_VLM_BACKEND": "llama.cpp",
+            "MN_VLM_MODEL": "nemotron3:q4_K_M",
+            "MN_VLM_PROVIDER": "docker_model_runner"
+          },
+          "gpus": "all",
+          "image": "mirror-neuron/cctv-operator:local",
+          "network_mode": "host",
+          "output_message_type": "cctv_operator_detection",
+          "reuse_shared_container": true,
+          "runner_module": "MirrorNeuron.Runner.DockerWorker",
+          "script": "scripts/analyze_video_frame.py",
+          "shared_container": true,
+          "upload_paths": [
+            {
+              "source": "agents/visual_detector",
+              "target": "agents/visual_detector"
+            },
+            {
+              "source": "domain",
+              "target": "domain"
+            },
+            {
+              "source": "prompts",
+              "target": "prompts"
+            }
+          ],
+          "workdir": "/mn/job/agents/visual_detector"
+        }
+      },
+      {
+        "alias": "report_writer",
+        "display_name": "CCTV Report Writer",
+        "node_id": "report_writer",
+        "uses": "mn-agents.data_python_executor@1",
+        "with": {
+          "command": [
+            "python3",
+            "agents/report_writer/scripts/write_cctv_report.py"
+          ],
+          "docker_worker_image": "docker_worker",
+          "environment": {},
+          "gpus": "all",
+          "image": "mirror-neuron/cctv-operator:local",
+          "network_mode": "host",
+          "output_message_type": "cctv_operator_report_ready",
+          "reuse_shared_container": true,
+          "runner_module": "MirrorNeuron.Runner.DockerWorker",
+          "script": "agents/report_writer/scripts/write_cctv_report.py",
+          "shared_container": true,
+          "upload_paths": [
+            {
+              "source": "agents/report_writer",
+              "target": "agents/report_writer"
+            },
+            {
+              "source": "domain",
+              "target": "domain"
+            }
+          ],
+          "workdir": "/mn/job"
+        }
+      }
+    ]
+  }
+}

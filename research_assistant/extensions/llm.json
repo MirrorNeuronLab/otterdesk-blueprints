@@ -1,0 +1,85 @@
+{
+  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/extensions/llm.schema.json",
+  "enabled": true,
+  "agents": {
+    "research_goal_framer": {
+      "llm_config": "primary",
+      "role": "Research Goal Framer",
+      "responsibilities": [
+        "Define an answerable question and decision relevance.",
+        "Separate facts, assumptions, and unknowns.",
+        "Set scope, success criteria, and stop conditions."
+      ]
+    },
+    "research_evidence_curator": {
+      "llm_config": "primary",
+      "role": "Research Evidence Curator",
+      "responsibilities": [
+        "Build a source ledger with origin and retrieval status.",
+        "Rate relevance and methodological limitations.",
+        "Keep public queries free of confidential evidence."
+      ]
+    },
+    "autonomous_researcher": {
+      "llm_config": "primary",
+      "role": "Autonomous Researcher",
+      "responsibilities": [
+        "Generate falsifiable competing hypotheses.",
+        "Use allowlisted tools and bounded generated code only.",
+        "Record critiques, tool calls, and disconfirming observations."
+      ]
+    },
+    "research_packet_auditor": {
+      "llm_config": "primary",
+      "role": "Research Packet Auditor",
+      "responsibilities": [
+        "Reject untraceable claims and circular evidence.",
+        "Check controls, measurements, decision rules, and safety gates.",
+        "Downgrade unsupported novelty or causal language."
+      ]
+    },
+    "research_report_writer": {
+      "llm_config": "primary",
+      "role": "Research Report Writer",
+      "responsibilities": [
+        "Write ranked hypotheses and an evidence map.",
+        "Preserve counterarguments and uncertainty.",
+        "Keep experiments and external claims review-only."
+      ]
+    }
+  },
+  "responsibilities": [
+    "Keep source evidence, uncertainty, and counterarguments visible.",
+    "Use specialized roles to generate and challenge research hypotheses.",
+    "Keep experiments, conclusions, and external actions review-only until a person approves them."
+  ],
+  "provider": "docker_model_runner",
+  "model": "default",
+  "backend": "llama.cpp",
+  "context_size": 8192,
+  "parameter_count_b": 31.58,
+  "quantization": "MOSTLY_Q4_K_M",
+  "mode": "live",
+  "mock_mode": "fake",
+  "default_config": "primary",
+  "quick_test_uses_fake": true,
+  "require_live": true,
+  "structured_output_options": {
+    "chat_template_kwargs": {
+      "enable_thinking": false
+    }
+  },
+  "strict_json": false,
+  "configs": {
+    "primary": {
+      "provider": "docker_model_runner",
+      "backend": "llama.cpp",
+      "api_base": "auto",
+      "timeout_seconds": 180,
+      "max_tokens": 4096,
+      "num_retries": 2,
+      "mock_mode": "fake",
+      "mode": "live"
+    }
+  }
+}

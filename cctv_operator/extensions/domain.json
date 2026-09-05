@@ -1,0 +1,240 @@
+{
+  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/extensions/domain.schema.json",
+  "metadata": {
+    "interfaces": {
+      "channels": {
+        "agentic_research": {
+          "config": "agentic_research",
+          "description": "Bounded LLM-selected or actor-guided tool contract for domain work."
+        },
+        "artifacts": {
+          "artifacts": [
+            "run.json",
+            "config.json",
+            "inputs.json",
+            "events.jsonl",
+            "result.json",
+            "final_artifact.json",
+            "cctv_report.json",
+            "cctv_report.md"
+          ],
+          "description": "Stable run-store files and domain-specific outputs.",
+          "optional_artifacts": [
+            "job.json",
+            "web_ui.json",
+            "ui.json",
+            "web/index.html",
+            "logs.jsonl",
+            "cctv_report.json",
+            "cctv_report.md"
+          ]
+        },
+        "events": {
+          "artifact": "events.jsonl",
+          "description": "Append-only workflow events."
+        },
+        "human": {
+          "artifact": "human.jsonl",
+          "description": "Human notices, approval requests, responses, timeouts, and applied decisions."
+        },
+        "input_skills": {
+          "description": "Connector-backed or reusable skill-backed input sources."
+        },
+        "inputs": {
+          "artifact": "inputs.json",
+          "description": "Resolved runtime inputs and adapter provenance."
+        },
+        "knowledge_rag": {
+          "artifact": "knowledge/",
+          "config": "knowledge_rag",
+          "description": "Optional local blueprint knowledge retrieval used to ground actor prompts and tool planning.",
+          "privacy": "blueprint knowledge only by default"
+        },
+        "logs": {
+          "description": "Runtime stdout/stderr and explicit log artifacts.",
+          "stream": "stdout/stderr"
+        },
+        "output_skills": {
+          "description": "Optional fan-out destinations after local run-store writes."
+        },
+        "outputs": {
+          "artifacts": [
+            "result.json",
+            "final_artifact.json",
+            "cctv_report.json",
+            "cctv_report.md"
+          ],
+          "description": "Primary result and final user-facing artifact."
+        },
+        "resources": {
+          "artifact": "resources.jsonl",
+          "description": "Resource samples such as token, runtime, connector, and disk usage."
+        },
+        "streams": {
+          "default": [
+            "events"
+          ],
+          "description": "Named data or event streams exposed by the blueprint.",
+          "kinds": [
+            "audio",
+            "video",
+            "data",
+            "multimodal"
+          ],
+          "transports": [
+            "file",
+            "http",
+            "https",
+            "rtsp",
+            "rtmp",
+            "webrtc",
+            "websocket",
+            "socketio",
+            "tcp",
+            "udp",
+            "sse",
+            "kafka",
+            "mqtt",
+            "custom"
+          ]
+        },
+        "web_ui": {
+          "artifacts": [
+            "web_ui.json",
+            "ui.json",
+            "web/index.html"
+          ],
+          "description": "Optional web input/output handles."
+        }
+      },
+      "config_sections": [
+        "standard_version",
+        "identity",
+        "mode",
+        "metadata",
+        "inputs",
+        "simulation",
+        "llm",
+        "outputs",
+        "logging",
+        "resources",
+        "human_control",
+        "real_adapters",
+        "streams",
+        "input_skills",
+        "output_skills",
+        "error_handling",
+        "state",
+        "capabilities",
+        "privacy",
+        "triggers",
+        "backpressure",
+        "determinism",
+        "schemas",
+        "budgets",
+        "agent_handoffs",
+        "web_ui",
+        "interfaces",
+        "execution_model",
+        "openshell_network",
+        "knowledge_rag",
+        "agentic_research"
+      ],
+      "identity": [
+        "blueprint_id",
+        "name",
+        "run_id"
+      ],
+      "input_adapters": [
+        "mock",
+        "json",
+        "file",
+        "env_json"
+      ],
+      "optional_outputs": [
+        "job.json",
+        "web_ui.json",
+        "ui.json",
+        "web/index.html",
+        "logs.jsonl",
+        "cctv_report.json",
+        "cctv_report.md"
+      ],
+      "output_adapters": [
+        "local_run_store"
+      ],
+      "outputs": [
+        "run.json",
+        "config.json",
+        "inputs.json",
+        "events.jsonl",
+        "result.json",
+        "final_artifact.json",
+        "cctv_report.json",
+        "cctv_report.md"
+      ],
+      "response_schema": "mn.blueprint.response.v1",
+      "stream_kinds": [
+        "audio",
+        "video",
+        "data",
+        "multimodal"
+      ],
+      "stream_transports": [
+        "file",
+        "http",
+        "https",
+        "rtsp",
+        "rtmp",
+        "webrtc",
+        "websocket",
+        "socketio",
+        "tcp",
+        "udp",
+        "sse",
+        "kafka",
+        "mqtt",
+        "custom"
+      ],
+      "web_ui_adapters": [
+        "none",
+        "static_html",
+        "external_url",
+        "custom"
+      ]
+    },
+    "status_logging": {
+      "env": "MN_BLUEPRINT_LOG_LEVEL",
+      "format": "jsonl",
+      "stream": "stderr"
+    },
+    "streaming": {
+      "backpressure": {
+        "drop_policy": "skip_with_error",
+        "llm": {
+          "max_calls_per_minute": 6,
+          "max_concurrent_calls": 1
+        },
+        "max_concurrency": 1,
+        "max_events_per_second": 25,
+        "queue_size": 1
+      },
+      "kind": "video",
+      "primary_stream": "selected_video_source",
+      "transport": "rtsp_rtmp",
+      "websocket_skill": false
+    },
+    "video_source": {
+      "config_env": [
+        "VIDEO_SOURCE_URI",
+        "CCTV_MEDIA_ACCELERATOR"
+      ],
+      "description": "The bundled Docker demo or one approved external RTSP/RTMP stream; CUDA-enabled FFmpeg is the only analysis media-preparation path.",
+      "media_accelerator": "nvidia_cuda",
+      "mode": "stream",
+      "profile": "bundled_demo",
+      "transport": "rtsp_rtmp",
+      "uri": "rtsp://127.0.0.1:8554/cctv-demo"
+    }
+  }
+}

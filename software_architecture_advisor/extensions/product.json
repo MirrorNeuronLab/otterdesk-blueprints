@@ -1,0 +1,56 @@
+{
+  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/extensions/product.schema.json",
+  "runtime_features": [
+    "air-gapped read-only source analysis",
+    "local-folder source intake",
+    "blueprint-owned graph analysis skill",
+    "loopback-only local model",
+    "evidence-backed improvement prompts",
+    "no-code-change guardrail",
+    "Membrane context memory optimization"
+  ],
+  "category": "Engineering",
+  "intent": {
+    "problem": "Engineering teams need prioritized architecture improvements that an implementation agent can execute safely without allowing the advisory workflow itself to change code.",
+    "target_users": "Staff engineers, architects, technical leads, maintainers, and engineering managers.",
+    "safety": {
+      "enabled": true,
+      "mode": "notice_only",
+      "notice_event": "human_notice",
+      "requires_ack": false,
+      "blocked_actions": [
+        "modify_source_code",
+        "execute_project_code",
+        "install_project_dependencies",
+        "run_project_tests",
+        "network_egress",
+        "push_to_repository",
+        "deploy_or_release"
+      ],
+      "reason": "The product is advisory only and the analysis environment is air-gapped."
+    }
+  },
+  "product": {
+    "agent_role": "Read-only Software Architecture Advisor.",
+    "benefit": "Turns a bounded source snapshot into triangulated architecture findings, explicit counter-evidence, migration options, and implementation prompts that a separate coding agent can use safely.",
+    "customizable_for": "Legacy-system modernization, monolith modularization, dependency-risk review, interface stabilization, change-risk analysis, and engineering planning.",
+    "how_it_works": "Validates a local source folder; builds authoritative static evidence with a bundled offline skill; runs eight required grounded passes through the runtime-selected default local model; adversarially audits every finding and prompt; then deterministically publishes only an approved read-only advice bundle.",
+    "input": "One local source folder and optional architecture focus.",
+    "output": "Architecture assessment, normalized fact database, numbered deep-dive reports, adversarial review, migration options, and standalone copy-ready prompts for another AI coding agent.",
+    "problem": "Teams need credible architectural improvement plans without giving an analysis workflow permission to execute, alter, or upload their code.",
+    "runtime_features": [
+      "air-gapped analysis runtime",
+      "local-folder source intake",
+      "blueprint-owned deep static evidence skill",
+      "48 GB minimum host memory",
+      "loopback-only local model",
+      "eight required fail-closed LLM analysis passes",
+      "metadata-only model usage trace",
+      "read-only source guardrail",
+      "counter-evidence and confidence calibration",
+      "copy-ready coding-agent prompts"
+    ],
+    "simulation_type": "Offline deep static evidence collection plus eight serial local-model passes for reconstruction, cross-cutting analysis, finding synthesis, adversarial review, prompt authoring, report synthesis, and final audit.",
+    "target_users": "Staff engineers, architects, technical leads, maintainers, and engineering managers."
+  }
+}

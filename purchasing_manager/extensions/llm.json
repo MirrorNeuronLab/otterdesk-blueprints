@@ -1,0 +1,96 @@
+{
+  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/extensions/llm.schema.json",
+  "enabled": true,
+  "agents": {
+    "purchase_intake_analyst": {
+      "llm_config": "primary",
+      "role": "Procurement Requirements Analyst",
+      "responsibilities": [
+        "Translate the request into testable business, technical, budget, delivery, and approval requirements.",
+        "Separate supplied facts from preferences, assumptions, and unresolved decisions.",
+        "Identify the evidence and named stakeholder sign-offs required before sourcing begins."
+      ]
+    },
+    "purchase_knowledge_retriever": {
+      "enabled": false,
+      "llm_config": "primary",
+      "role": "Procurement Evidence Analyst",
+      "responsibilities": [
+        "Retrieve category-specific procurement and technical diligence guidance deterministically.",
+        "Index only approved local quotes, requirements, and evidence.",
+        "Return source citations, evidence gaps, and retrieval limitations without an LLM call."
+      ]
+    },
+    "purchase_market_researcher": {
+      "enabled": false,
+      "llm_config": "primary",
+      "role": "Supplier And Market Researcher",
+      "responsibilities": [
+        "Collect supplier, configuration, quote, availability, lead-time, and comparable evidence through bounded source tools.",
+        "Timestamp volatile product and supplier facts and preserve URLs.",
+        "Record blocked, stale, or non-verifiable sources without an LLM call."
+      ]
+    },
+    "purchase_total_cost_analyst": {
+      "llm_config": "primary",
+      "role": "Total Cost Of Ownership Analyst",
+      "responsibilities": [
+        "Reconcile quoted subtotal, tax, delivery, setup, support, energy, and renewal costs from explicit evidence.",
+        "Show budget position and known multi-year cost while keeping unknown costs visible.",
+        "Never invent supplier discounts, tax treatment, financing, fees, or savings assumptions."
+      ]
+    },
+    "purchase_risk_reviewer": {
+      "llm_config": "primary",
+      "role": "Technical And Supplier Risk Reviewer",
+      "responsibilities": [
+        "Check hard constraints, compatibility, security, warranty, support, delivery, and supplier risks.",
+        "Distinguish procurement blockers from negotiable tradeoffs.",
+        "Create owner-ready verification tasks for material technical and commercial unknowns."
+      ]
+    },
+    "purchase_recommendation_auditor": {
+      "llm_config": "primary",
+      "role": "Procurement Recommendation Auditor",
+      "responsibilities": [
+        "Reconcile requirement fit, budget, total cost, supplier terms, risk, and source quality.",
+        "Use only bounded recommendation labels and preserve the human approval gate.",
+        "Fail to insufficient evidence when material technical, commercial, or ownership gates are unresolved."
+      ]
+    },
+    "purchase_report_writer": {
+      "llm_config": "primary",
+      "role": "Procurement Decision Packet Writer",
+      "responsibilities": [
+        "Write an approval-ready supplier comparison and decision packet.",
+        "Keep quoted facts, calculated totals, estimates, and preferences distinct.",
+        "Preserve the human transaction boundary and list required approvals."
+      ]
+    }
+  },
+  "responsibilities": [
+    "Keep deterministic extraction and source records authoritative.",
+    "Use actors to connect local documents, RAG context, and public research.",
+    "Keep purchase recommendations review-only and source-referenced."
+  ],
+  "provider": "docker_model_runner",
+  "model": "default",
+  "backend": "llama.cpp",
+  "mode": "live",
+  "mock_mode": "fake",
+  "default_config": "primary",
+  "quick_test_uses_fake": true,
+  "strict_json": true,
+  "configs": {
+    "primary": {
+      "provider": "docker_model_runner",
+      "backend": "llama.cpp",
+      "api_base": "auto",
+      "timeout_seconds": 60,
+      "max_tokens": 1200,
+      "num_retries": 1,
+      "mock_mode": "fake",
+      "mode": "live"
+    }
+  }
+}

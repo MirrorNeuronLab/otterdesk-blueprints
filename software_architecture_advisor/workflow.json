@@ -1,0 +1,206 @@
+{
+  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/workflow.schema.json",
+  "workflow_id": "software_architecture_advisor_v3",
+  "execution": {
+    "strategy": "serial"
+  },
+  "policy": {
+    "failure": {
+      "default": "fail_closed"
+    },
+    "human": {
+      "enabled": true,
+      "mode": "notice_only",
+      "notice_event": "human_notice",
+      "requires_ack": false,
+      "blocked_actions": [
+        "modify_source_code",
+        "execute_project_code",
+        "network_egress"
+      ]
+    }
+  },
+  "steps": [
+    {
+      "id": "resolve_software_source",
+      "kind": "source",
+      "label": "Resolve Software Source",
+      "goal": "Validate a safe local source folder before air-gapped analysis.",
+      "needs": [],
+      "run": {
+        "definition": "steps.resolve_software_source"
+      },
+      "control": {
+        "retry": {
+          "max_attempts": 1,
+          "backoff_seconds": 1,
+          "backoff_multiplier": 2,
+          "jitter": 0
+        },
+        "timeout_seconds": 900,
+        "uncertainty": {
+          "min_confidence": 0,
+          "on_low_confidence": "continue_with_warning"
+        }
+      }
+    },
+    {
+      "id": "map_architecture_evidence",
+      "kind": "stage",
+      "label": "Map Architecture Evidence",
+      "goal": "Build an inspectable static dependency and boundary graph without executing the source.",
+      "needs": [
+        "resolve_software_source"
+      ],
+      "run": {
+        "definition": "steps.map_architecture_evidence"
+      },
+      "control": {
+        "retry": {
+          "max_attempts": 1,
+          "backoff_seconds": 1,
+          "backoff_multiplier": 2,
+          "jitter": 0
+        },
+        "timeout_seconds": 1800,
+        "uncertainty": {
+          "min_confidence": 0,
+          "on_low_confidence": "continue_with_warning"
+        }
+      }
+    },
+    {
+      "id": "assess_architecture_improvements",
+      "kind": "stage",
+      "label": "Assess Architecture Improvements",
+      "goal": "Turn static evidence into bounded architecture findings and priorities.",
+      "needs": [
+        "map_architecture_evidence"
+      ],
+      "run": {
+        "definition": "steps.assess_architecture_improvements"
+      },
+      "control": {
+        "retry": {
+          "max_attempts": 1,
+          "backoff_seconds": 1,
+          "backoff_multiplier": 2,
+          "jitter": 0
+        },
+        "timeout_seconds": 1800,
+        "uncertainty": {
+          "min_confidence": 0,
+          "on_low_confidence": "continue_with_warning"
+        }
+      }
+    },
+    {
+      "id": "author_implementation_prompts",
+      "kind": "stage",
+      "label": "Author Implementation Prompts",
+      "goal": "Create copy-ready but non-executing prompts for another coding agent.",
+      "needs": [
+        "assess_architecture_improvements"
+      ],
+      "run": {
+        "definition": "steps.author_implementation_prompts"
+      },
+      "control": {
+        "retry": {
+          "max_attempts": 1,
+          "backoff_seconds": 1,
+          "backoff_multiplier": 2,
+          "jitter": 0
+        },
+        "timeout_seconds": 900,
+        "uncertainty": {
+          "min_confidence": 0,
+          "on_low_confidence": "continue_with_warning"
+        }
+      }
+    },
+    {
+      "id": "draft_architecture_report",
+      "kind": "stage",
+      "label": "Draft Architecture Report",
+      "goal": "Use the local model to draft grounded analytical narrative without publishing artifacts.",
+      "needs": [
+        "author_implementation_prompts"
+      ],
+      "run": {
+        "definition": "steps.draft_architecture_report"
+      },
+      "control": {
+        "retry": {
+          "max_attempts": 1,
+          "backoff_seconds": 1,
+          "backoff_multiplier": 2,
+          "jitter": 0
+        },
+        "timeout_seconds": 900,
+        "uncertainty": {
+          "min_confidence": 0,
+          "on_low_confidence": "continue_with_warning"
+        }
+      }
+    },
+    {
+      "id": "audit_architecture_advice",
+      "kind": "stage",
+      "label": "Audit Architecture Advice",
+      "goal": "Run the final model and deterministic evidence, usage, coverage, and safety audits over the complete draft package.",
+      "needs": [
+        "draft_architecture_report"
+      ],
+      "run": {
+        "definition": "steps.audit_architecture_advice"
+      },
+      "control": {
+        "retry": {
+          "max_attempts": 1,
+          "backoff_seconds": 1,
+          "backoff_multiplier": 2,
+          "jitter": 0
+        },
+        "timeout_seconds": 900,
+        "uncertainty": {
+          "min_confidence": 0,
+          "on_low_confidence": "fail_step"
+        }
+      }
+    },
+    {
+      "id": "publish_architecture_advice",
+      "kind": "sink",
+      "label": "Publish Architecture Advice",
+      "goal": "Deterministically materialize the audited read-only assessment, evidence, trace, report, and prompt bundle.",
+      "needs": [
+        "audit_architecture_advice"
+      ],
+      "run": {
+        "definition": "steps.publish_architecture_advice"
+      },
+      "control": {
+        "retry": {
+          "max_attempts": 2,
+          "backoff_seconds": 1,
+          "backoff_multiplier": 2,
+          "jitter": 0
+        },
+        "timeout_seconds": 600,
+        "uncertainty": {
+          "min_confidence": 0,
+          "on_low_confidence": "fail_step"
+        }
+      }
+    }
+  ],
+  "defaults": {
+    "step": {
+      "control": {
+        "required": true,
+        "failure_policy": "fail_workflow"
+      }
+    }
+  }
+}

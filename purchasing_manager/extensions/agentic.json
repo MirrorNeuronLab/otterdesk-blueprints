@@ -1,0 +1,23 @@
+{
+  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/extensions/agentic.schema.json",
+  "agent_ids": [
+    "purchase_intake_analyst",
+    "purchase_total_cost_analyst",
+    "purchase_risk_reviewer",
+    "purchase_recommendation_auditor",
+    "purchase_report_writer"
+  ],
+  "allowed_tools": [
+    "document_extract",
+    "browser_search",
+    "browser_page",
+    "knowledge_retrieve",
+    "finish"
+  ],
+  "default_mode": "bounded_llm_guided_purchasing_management",
+  "enabled": true,
+  "max_iterations_per_agent": 1,
+  "max_tool_calls_per_agent": 2,
+  "note": "Purchase actors combine approved user documents, local RAG, time-stamped public sources, and deterministic lifecycle economics while preserving source refs, assumptions, and uncertainty.",
+  "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run"
+}

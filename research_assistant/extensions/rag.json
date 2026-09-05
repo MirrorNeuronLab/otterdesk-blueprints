@@ -1,0 +1,31 @@
+{
+  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/extensions/rag.schema.json",
+  "backend": "milvus_lite",
+  "chunk_overlap": 70,
+  "chunk_size": 700,
+  "embedding_api_base": "auto",
+  "embedding_document_prefix": "Document: ",
+  "embedding_healthcheck_enabled": true,
+  "embedding_model": "rag-embedding",
+  "embedding_provider": "docker_model_runner",
+  "embedding_query_prefix": "Query: ",
+  "embedding_start_command": "",
+  "enabled": true,
+  "grounding_policy": "Use retrieved material to locate and evaluate evidence; label hypotheses, inferences, and unknowns rather than treating them as facts.",
+  "index_on_startup": true,
+  "knowledge_dir": "knowledge",
+  "max_context_chars": 4000,
+  "namespace": "",
+  "privacy": "Index checked-in guidance and approved local input files in an isolated per-run namespace; never send private records, credentials, or participant data to public research.",
+  "purpose": "Retrieve research-method guidance, evidence-quality checks, and approved local documents for topic framing, hypothesis critique, experiment design, and drafting.",
+  "required": false,
+  "retrieval_targets": [
+    "research question and scope framing",
+    "literature and source-quality evaluation",
+    "hypothesis and counter-hypothesis criteria",
+    "experiment, benchmark, and analysis planning",
+    "evidence gaps, ethics, safety, and human-review checks"
+  ],
+  "top_k": 4,
+  "vector_dim": 1024
+}

@@ -1,0 +1,93 @@
+{
+  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/extensions/product.schema.json",
+  "features": [
+    "optional local knowledge RAG grounding",
+    "bounded LLM tool-plan contract"
+  ],
+  "target_user": "Computational biology researchers, scientific AI platform teams, and research operations groups.",
+  "output": "A job-scoped progress UI with a 2D leading-molecule view, candidate artifacts, stage logs, evidence notes, and discovery summaries for researcher review.",
+  "problem_solved": "Discovery work needs a bounded, traceable five-candidate result with scientific evidence.",
+  "target_users": "Computational biology researchers, scientific AI platform teams, and research operations groups.",
+  "simulation_type": "Single-cycle BioTarget discovery with DrugCLIP screening and five evaluated molecules.",
+  "runtime_features": [
+    "single-cycle five-candidate batch",
+    "native host service worker",
+    "cross-box folding fanout",
+    "DrugCLIP target-candidate screening",
+    "parallel simulation fanout",
+    "cycle artifact aggregation",
+    "local RDKit leading-molecule rendering",
+    "Membrane context memory optimization",
+    "product input contract",
+    "transparent run status",
+    "human control policy",
+    "artifact records",
+    "run-store observability dashboard",
+    "workflow-driven problem graph",
+    "step-scoped worker teams",
+    "optional knowledge_rag guidance",
+    "actor-style LLM specialists use retrieved policy context when available"
+  ],
+  "customizable_for": "Drug discovery, material search, assay planning, scientific literature review, and research pipeline support.",
+  "agent_role": "AI service coordinator for distributed candidate generation, DrugCLIP virtual screening, folding, simulation, and evidence review.",
+  "category": "Science",
+  "llm_agent_role": "AI assistant for organizing drug discovery candidate generation, filtering, and evidence review.",
+  "intent": {
+    "customizable_for": "Drug discovery, material search, assay planning, scientific literature review, and research pipeline support.",
+    "problem": "Discovery work needs a bounded, traceable five-candidate result with scientific evidence.",
+    "safety": {
+      "allowed_decisions": [
+        "approve",
+        "revise",
+        "reject"
+      ],
+      "blocked_actions": [
+        "advance_to_lab_experiment",
+        "make_clinical_claim",
+        "submit_regulatory_material",
+        "send_candidate_to_external_system_without_review"
+      ],
+      "decision_event": "human_decision_applied",
+      "default_action": "reject",
+      "enabled": true,
+      "events": [
+        "human_notice",
+        "human_input_requested",
+        "human_input_received",
+        "human_input_timeout",
+        "human_decision_applied"
+      ],
+      "mode": "approval_required",
+      "reason": "Human approval is required before high-impact downstream actions such as advance_to_lab_experiment, make_clinical_claim, submit_regulatory_material.",
+      "request_event": "human_input_requested",
+      "response_event": "human_input_received",
+      "timeout_event": "human_input_timeout",
+      "timeout_seconds": 3600
+    },
+    "target_users": "Computational biology researchers, scientific AI platform teams, and research operations groups."
+  },
+  "product": {
+    "agent_role": "Bounded candidate discovery, screening, simulation, and evidence review.",
+    "benefit": "Produces five distinct evaluated candidate hypotheses and a review packet, then stops.",
+    "customizable_for": "Drug discovery, target-focused virtual screening, molecular-generation pipelines, folding, simulation, and scientific research operations.",
+    "how_it_works": "Runs one drug-discovery cycle to produce five distinct computational candidates, screens and evaluates them, writes a review packet and molecule preview to ~/Downloads/{job_name}, then completes.",
+    "input": "Disease or target profile, screening criteria, candidate seeds, literature notes, adapter commands, native dispatcher configuration, and local supporting files.",
+    "output": "A job-scoped progress UI with a 2D leading-molecule view and bounded scores, plus per-cycle candidate, folding, DrugCLIP, simulation, state, risk, and human-review artifacts.",
+    "problem": "Discovery work needs a bounded, traceable five-candidate result with scientific evidence.",
+    "runtime_features": [
+      "single-cycle five-candidate batch",
+      "shared NVIDIA DockerWorker",
+      "cross-box fanout/fanin",
+      "custom DrugClip text-molecular-graph alignment",
+      "parallel folding and simulation",
+      "job-scoped progress UI with local 2D molecule rendering",
+      "product input contract",
+      "transparent run status",
+      "human control policy",
+      "artifact records",
+      "run-store observability dashboard"
+    ],
+    "simulation_type": "Single-cycle BioTarget discovery with DrugCLIP screening and five evaluated molecules.",
+    "target_users": "Computational biology researchers, scientific AI platform teams, and research operations groups."
+  }
+}

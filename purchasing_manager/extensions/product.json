@@ -1,0 +1,70 @@
+{
+  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/extensions/product.schema.json",
+  "category": "Finance",
+  "intent": {
+    "problem": "Purchase review depends on older broker, lender, rent, insurance, and diligence details that are easy to lose in noisy pipelines.",
+    "safety": {
+      "allowed_decisions": [
+        "approve",
+        "revise",
+        "reject"
+      ],
+      "blocked_actions": [
+        "buy_or_book",
+        "pay_or_transfer_funds",
+        "submit_application_or_offer",
+        "contact_seller_provider_or_broker",
+        "issue_purchase_order",
+        "accept_supplier_quote",
+        "sign_supplier_agreement"
+      ],
+      "decision_event": "human_decision_applied",
+      "default_action": "reject",
+      "enabled": true,
+      "events": [
+        "human_notice",
+        "human_input_requested",
+        "human_input_received",
+        "human_input_timeout",
+        "human_decision_applied"
+      ],
+      "mode": "approval_required",
+      "reason": "Human approval is required before any purchase, booking, payment, application, offer, or seller/provider contact action.",
+      "request_event": "human_input_requested",
+      "response_event": "human_input_received",
+      "timeout_event": "human_input_timeout",
+      "timeout_seconds": 3600
+    },
+    "target_users": "Consumers, travelers, vehicle buyers, property buyers, renters, and purchase analysts."
+  },
+  "product": {
+    "agent_role": "Procurement decision-support co-worker that prepares source-grounded, numerically rigorous supplier and acquisition-method comparisons without transacting.",
+    "benefit": "Turns scattered requirements, market observations, supplier terms, and company economic assumptions into a clear landed-budget, lifecycle-cost, risk, scenario, and approval decision packet.",
+    "customizable_for": "Office equipment, AI workstations, machinery, vehicles, software, services, supplier sourcing, property, travel, and custom purchase research.",
+    "how_it_works": "Frames technical and commercial requirements, retrieves approved local evidence, performs bounded real-source research, screens hard constraints, models landed acquisition and discounted/risk-adjusted lifecycle cost, evaluates scenarios and acquisition methods, independently audits the recommendation, and writes a review packet.",
+    "input": "Plain-text procurement request, supplier evidence, public research links, local documents, and approved numerical assumptions for horizon, utilization, labor, energy, downtime, maintenance, discount rate, and residual value; structured fallbacks remain available.",
+    "output": "Supplier comparison, source-provenance ledger, landed acquisition cost, financial and risk-adjusted NPV TCO, equivalent annual cost, productive-unit economics, scenario sensitivity, cash/finance/lease status, RAG citations, risks, approval checklist, evidence gaps, and review-only recommendation.",
+    "problem": "Heavy-asset decisions depend on fragmented requirements, volatile market facts, acquisition costs, recurring operations, downtime, residual value, transaction terms, technical fit, and approval evidence that sticker-price comparisons miss.",
+    "runtime_features": [
+      "local and user-document RAG",
+      "privacy-safe public research",
+      "landed acquisition cost and hard-constraint review",
+      "discounted and risk-adjusted total cost of ownership",
+      "equivalent annual and productive-unit economics",
+      "low/base/stress scenario sensitivity",
+      "cash, financing, and lease term analysis",
+      "independent procurement recommendation audit",
+      "approval-ready supplier decision packet",
+      "source_refs",
+      "bounded specialist agents",
+      "product input contract",
+      "transparent run status",
+      "human control policy",
+      "artifact records",
+      "run-store observability dashboard"
+    ],
+    "simulation_type": "Procurement decision support with real-source market evidence, local RAG, deterministic lifecycle economics, acquisition-method analysis, and human approval gates.",
+    "target_users": "Engineering operations, IT buyers, finance operations, procurement teams, office managers, purchase analysts, and other business request owners."
+  },
+  "overview": "A purchasing co-worker for studying property, rental property, cars, airline tickets, office equipment, software, services, and other purchases. It combines local quotes, procurement evidence, and bounded public research into a review-ready recommendation."
+}

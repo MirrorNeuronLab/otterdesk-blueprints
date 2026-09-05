@@ -1,0 +1,61 @@
+{
+  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/dependencies.schema.json",
+  "skills": [
+    {
+      "name": "mirrorneuron-blueprint-support-skill",
+      "source": "gar",
+      "type": "pip",
+      "version": "1.3.22"
+    },
+    {
+      "name": "mirrorneuron-llm-ocr-skill",
+      "source": "gar",
+      "type": "pip",
+      "version": "1.3.22"
+    },
+    {
+      "name": "mirrorneuron-rag-skill",
+      "source": "gar",
+      "type": "pip",
+      "version": "1.3.22"
+    },
+    {
+      "name": "mirrorneuron-job-response-skill",
+      "source": "gar",
+      "type": "pip",
+      "version": "1.3.22"
+    },
+    {
+      "name": "mirrorneuron-mcp-client-skill",
+      "source": "gar",
+      "type": "pip",
+      "version": "1.3.22"
+    }
+  ],
+  "agents": [
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mn-prototype-stateful-step-agent",
+      "version": "1.3.9"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mn-prototype-bounded-tool-loop-agent",
+      "version": "1.3.9"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mn-prototype-actor-review-agent",
+      "version": "1.3.9"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mn-prototype-artifact-finalizer-agent",
+      "version": "1.3.9"
+    }
+  ]
+}

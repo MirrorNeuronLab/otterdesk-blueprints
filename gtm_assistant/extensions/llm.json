@@ -1,0 +1,46 @@
+{
+  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/extensions/llm.schema.json",
+  "enabled": true,
+  "mode": "actor_assisted",
+  "mock_mode": "deterministic",
+  "provider": "docker_model_runner",
+  "model": "default",
+  "runtime_model": "default",
+  "backend": "llama.cpp",
+  "default_config": "primary",
+  "configs": {
+    "primary": {
+      "provider": "docker_model_runner",
+      "model": "default",
+      "runtime_model": "default",
+      "backend": "llama.cpp",
+      "temperature": 0.2,
+      "max_tokens": 2400
+    }
+  },
+  "responsibilities": [
+    "Separate observed facts from assumptions.",
+    "Preserve source references and name missing evidence.",
+    "Draft review-ready recommendations without executing external actions."
+  ],
+  "agents": {
+    "customer_lifecycle_director": {
+      "llm_config": "primary",
+      "role": "Customer Lifecycle and Product Intelligence Director",
+      "responsibilities": [
+        "Diagnose activation, retention, support, cancellation, and value-proof friction.",
+        "Draft least-intrusive customer interventions and evidence-backed product briefs.",
+        "Keep communications, sensitive support, refunds, and data changes human-controlled."
+      ]
+    },
+    "development_reply_monitor": {
+      "llm_config": "primary",
+      "role": "Read-only Development Reply Monitor",
+      "responsibilities": [
+        "Keep an explicitly enabled development reply monitor available until it is stopped.",
+        "Read only matching development-reply headers without retaining message bodies.",
+        "Report bounded reply counts and monitor state without sending an automated response."
+      ]
+    }
+  }
+}

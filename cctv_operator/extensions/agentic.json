@@ -1,0 +1,24 @@
+{
+  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/extensions/agentic.schema.json",
+  "agent_ids": [
+    "video_source_validator",
+    "adaptive_frame_sampler",
+    "visual_target_detector",
+    "quality_controller",
+    "report_writer"
+  ],
+  "allowed_tools": [
+    "video_source_validate",
+    "frame_sample",
+    "visual_model_infer",
+    "alert_policy_check",
+    "knowledge_retrieve",
+    "finish"
+  ],
+  "default_mode": "bounded_llm_guided_cctv_operator_review",
+  "enabled": true,
+  "max_iterations_per_agent": 1,
+  "max_tool_calls_per_agent": 2,
+  "note": "CCTV actors ground detections in the configured live stream, selected frame evidence, and alert policy.",
+  "quick_test_behavior": "tools_may_be_stubbed_or_skipped_for_default_smoke_run"
+}

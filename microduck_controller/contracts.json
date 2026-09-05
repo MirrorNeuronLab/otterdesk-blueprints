@@ -1,0 +1,62 @@
+{
+  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/contracts.schema.json",
+  "summary": "Keep one browser-backed Microduck simulator service running and expose compact state plus bounded primitive and goal-directed MCP control.",
+  "inputs": {
+    "input_folder": {
+      "type": "local_path",
+      "path_kind": "directory",
+      "required": false,
+      "description": "Bundled service-only demo instructions.",
+      "example": "microduck_controller/examples/sample_inputs"
+    },
+    "output_folder": {
+      "type": "local_path",
+      "path_kind": "directory",
+      "required": false,
+      "description": "Run-scoped service artifacts are materialized here.",
+      "example": "~/Download/microduck_controller"
+    }
+  },
+  "outputs": {
+    "profile": "standard_run_store",
+    "primary": {
+      "id": "service_result",
+      "path": "final_artifact.json",
+      "schema_version": "mn.microduck.service_result.v1",
+      "type": "service_result"
+    },
+    "artifacts": [
+      {
+        "artifact_id": "web_ui",
+        "path": "web_ui.json",
+        "schema_version": "mn.blueprint.web_ui.v1"
+      },
+      {
+        "artifact_id": "service_state",
+        "path": "duck_service_state.json",
+        "schema_version": "mn.microduck.service_state.v1"
+      },
+      {
+        "artifact_id": "command_history",
+        "path": "duck_command_history.json",
+        "schema_version": "mn.microduck.command_history.v1"
+      },
+      {
+        "artifact_id": "final_service_result",
+        "path": "final_artifact.json",
+        "schema_version": "mn.microduck.service_result.v1"
+      }
+    ]
+  },
+  "status": {
+    "event": "blueprint_status",
+    "heartbeat": true,
+    "phases": [
+      "run_microduck_service",
+      "finalize_service"
+    ]
+  },
+  "privacy": {
+    "classification": "internal"
+  }
+}

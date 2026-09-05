@@ -1,0 +1,147 @@
+{
+  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/workflow.schema.json",
+  "workflow_id": "purchasing_manager_v1",
+  "execution": {
+    "strategy": "parallel"
+  },
+  "policy": {
+    "failure": {
+      "default": "fail_closed"
+    },
+    "human": {
+      "allowed_decisions": [
+        "approve",
+        "revise",
+        "reject"
+      ],
+      "blocked_actions": [
+        "buy_or_book",
+        "pay_or_transfer_funds",
+        "submit_application_or_offer",
+        "contact_seller_provider_or_broker",
+        "issue_purchase_order",
+        "accept_supplier_quote",
+        "sign_supplier_agreement"
+      ],
+      "decision_event": "human_decision_applied",
+      "default_action": "reject",
+      "enabled": true,
+      "events": [
+        "human_notice",
+        "human_input_requested",
+        "human_input_received",
+        "human_input_timeout",
+        "human_decision_applied"
+      ],
+      "mode": "approval_required",
+      "reason": "Human approval is required before any purchase, booking, payment, application, offer, or seller/provider contact action.",
+      "request_event": "human_input_requested",
+      "response_event": "human_input_received",
+      "timeout_event": "human_input_timeout",
+      "timeout_seconds": 3600
+    }
+  },
+  "state": {
+    "input_folder": {
+      "from": "$inputs.input_folder"
+    },
+    "output_folder": {
+      "from": "$inputs.output_folder"
+    },
+    "workflow": {},
+    "final_report": {}
+  },
+  "steps": [
+    {
+      "control": {
+        "timeout_seconds": 900
+      },
+      "goal": "Normalize the decision, constraints, landed-cost budget, analysis horizon, company economic assumptions, and evidence gaps.",
+      "id": "frame_purchase_request",
+      "kind": "source",
+      "label": "Frame Purchase Request",
+      "needs": [],
+      "run": {
+        "definition": "steps.frame_purchase_request"
+      }
+    },
+    {
+      "control": {
+        "timeout_seconds": 900
+      },
+      "goal": "Extract approved local evidence, preserve source provenance, and retrieve category-specific diligence and lifecycle-cost guidance.",
+      "id": "build_purchase_evidence",
+      "kind": "stage",
+      "label": "Build Purchase Evidence",
+      "needs": [
+        "frame_purchase_request"
+      ],
+      "run": {
+        "definition": "steps.build_purchase_evidence"
+      }
+    },
+    {
+      "control": {
+        "timeout_seconds": 1800
+      },
+      "goal": "Refresh source-backed supplier evidence, compare eligible options, model landed cost and discounted/risk-adjusted lifecycle economics, evaluate scenarios and acquisition methods, and test technical and commercial constraints.",
+      "id": "compare_purchase_options",
+      "kind": "stage",
+      "label": "Compare Supplier Options",
+      "needs": [
+        "build_purchase_evidence"
+      ],
+      "run": {
+        "definition": "steps.compare_purchase_options"
+      }
+    },
+    {
+      "control": {
+        "timeout_seconds": 900
+      },
+      "goal": "Audit the proposed recommendation against landed budget, lifecycle economics, sensitivity, hard constraints, source freshness, unresolved transaction terms, and human-approval boundaries.",
+      "id": "audit_purchase_recommendation",
+      "kind": "stage",
+      "label": "Audit Procurement Recommendation",
+      "needs": [
+        "compare_purchase_options"
+      ],
+      "run": {
+        "definition": "steps.audit_purchase_recommendation"
+      }
+    },
+    {
+      "control": {
+        "timeout_seconds": 900
+      },
+      "goal": "Write a review-ready procurement decision packet with supplier comparison, landed cost, NPV TCO, risk adjustment, EAC, unit economics, scenario sensitivity, acquisition-method status, risks, approvals, sources, and verification tasks.",
+      "id": "publish_purchase_decision_packet",
+      "kind": "sink",
+      "label": "Publish Purchase Decision Packet",
+      "needs": [
+        "audit_purchase_recommendation"
+      ],
+      "run": {
+        "definition": "steps.publish_purchase_decision_packet"
+      }
+    }
+  ],
+  "defaults": {
+    "step": {
+      "control": {
+        "failure_policy": "fail_workflow",
+        "required": true,
+        "retry": {
+          "backoff_multiplier": 2,
+          "backoff_seconds": 1,
+          "jitter": 0,
+          "max_attempts": 2
+        },
+        "uncertainty": {
+          "min_confidence": 0,
+          "on_low_confidence": "continue_with_warning"
+        }
+      }
+    }
+  }
+}

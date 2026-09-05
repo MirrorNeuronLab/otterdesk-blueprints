@@ -1,0 +1,31 @@
+{
+  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/extensions/rag.schema.json",
+  "backend": "milvus_lite",
+  "chunk_overlap": 70,
+  "chunk_size": 700,
+  "embedding_api_base": "auto",
+  "embedding_document_prefix": "Document: ",
+  "embedding_healthcheck_enabled": true,
+  "embedding_model": "rag-embedding",
+  "embedding_provider": "docker_model_runner",
+  "embedding_query_prefix": "Query: ",
+  "embedding_start_command": "",
+  "enabled": true,
+  "grounding_policy": "Use retrieved guidance as a checklist; facts must come from user documents or cited public sources.",
+  "index_on_startup": true,
+  "knowledge_dir": "knowledge",
+  "max_context_chars": 4000,
+  "namespace": "",
+  "privacy": "index checked-in guidance and approved local input files in an isolated per-run namespace; do not send private files to public research.",
+  "purpose": "Retrieve procurement guidance and approved local evidence for supplier quotes, technical fit, total cost, policy, risk, and comparison checks.",
+  "required": false,
+  "retrieval_targets": [
+    "purchase-type evidence checklists",
+    "supplier quote, configuration, availability, and delivery facts",
+    "total cost of ownership and recurring support or energy costs",
+    "warranty, return, support, security, and supplier-risk gaps",
+    "approval-ready alternative comparison criteria"
+  ],
+  "top_k": 4,
+  "vector_dim": 1024
+}

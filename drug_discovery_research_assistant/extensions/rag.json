@@ -1,0 +1,23 @@
+{
+  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/extensions/rag.schema.json",
+  "backend": "milvus_lite",
+  "chunk_overlap": 70,
+  "chunk_size": 700,
+  "enabled": true,
+  "grounding_policy": "Use retrieved local blueprint knowledge to improve actor review prompts; do not invent facts when retrieval is unavailable.",
+  "index_on_startup": true,
+  "knowledge_dir": "@/payloads/knowledge",
+  "max_context_chars": 4000,
+  "namespace": "",
+  "privacy": "index local blueprint knowledge only; do not index private run documents unless a future runtime explicitly opts in",
+  "purpose": "Retrieve local discovery-triage guidance for target evidence, generated candidate review, docking caveats, and report-only scientific risk checks.",
+  "required": false,
+  "retrieval_targets": [
+    "target evidence",
+    "candidate scoring caveats",
+    "docking and toxicity limitations",
+    "scientific review blockers"
+  ],
+  "top_k": 4,
+  "vector_dim": 1024
+}

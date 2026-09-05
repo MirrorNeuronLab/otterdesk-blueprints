@@ -1,0 +1,130 @@
+{
+  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/extensions/llm.schema.json",
+  "enabled": true,
+  "mode": "live",
+  "mock_mode": "fake",
+  "require_live": true,
+  "strict_json": true,
+  "required_capabilities": [
+    "structured_output",
+    "thinking"
+  ],
+  "provider": "docker_model_runner",
+  "backend": "llama.cpp",
+  "model": "medium",
+  "runtime_model": "medium",
+  "context_size": 32768,
+  "default_config": "analysis",
+  "configs": {
+    "analysis": {
+      "provider": "docker_model_runner",
+      "backend": "llama.cpp",
+      "model": "medium",
+      "runtime_model": "medium",
+      "api_base": "auto",
+      "context_size": 32768,
+      "timeout_seconds": 600,
+      "max_tokens": 16000,
+      "num_retries": 2,
+      "retry_backoff_seconds": 1,
+      "network": "loopback_only"
+    },
+    "writing": {
+      "provider": "docker_model_runner",
+      "backend": "llama.cpp",
+      "model": "medium",
+      "runtime_model": "medium",
+      "api_base": "auto",
+      "context_size": 32768,
+      "timeout_seconds": 600,
+      "max_tokens": 7000,
+      "num_retries": 2,
+      "retry_backoff_seconds": 1,
+      "network": "loopback_only"
+    },
+    "audit": {
+      "provider": "docker_model_runner",
+      "backend": "llama.cpp",
+      "model": "medium",
+      "runtime_model": "medium",
+      "api_base": "auto",
+      "context_size": 32768,
+      "timeout_seconds": 600,
+      "max_tokens": 5000,
+      "num_retries": 2,
+      "retry_backoff_seconds": 1,
+      "network": "loopback_only"
+    }
+  },
+  "quick_test_uses_fake": true,
+  "responsibilities": [
+    "Synthesize only supplied local evidence.",
+    "Keep unknowns and static-analysis limits explicit.",
+    "Produce safe implementation prompts without altering code."
+  ],
+  "agents": {
+    "source_intake_analyst": {
+      "llm_config": "analysis",
+      "role": "Read-only Source Intake Analyst",
+      "responsibilities": [
+        "Validate a local source folder.",
+        "Reject inaccessible source paths.",
+        "Record provenance without reading secrets."
+      ]
+    },
+    "codebase_mapper": {
+      "llm_config": "analysis",
+      "role": "Architecture Graph Mapper",
+      "responsibilities": [
+        "Build inspectable dependency evidence.",
+        "Keep dynamic behavior marked unknown.",
+        "Do not execute or modify source code."
+      ]
+    },
+    "architecture_reviewer": {
+      "llm_config": "analysis",
+      "role": "Evidence-grounded Architecture Reviewer",
+      "responsibilities": [
+        "Prioritize evidence-backed change risks.",
+        "Separate findings from hypotheses.",
+        "State static-analysis limitations clearly."
+      ]
+    },
+    "improvement_prompt_author": {
+      "llm_config": "analysis",
+      "role": "Implementation Prompt Author",
+      "responsibilities": [
+        "Create narrow, copy-ready prompts.",
+        "Include tests and acceptance criteria.",
+        "Forbid source edits by this advisory workflow."
+      ]
+    },
+    "architecture_advice_auditor": {
+      "llm_config": "analysis",
+      "role": "Architecture Advice Auditor",
+      "responsibilities": [
+        "Verify evidence references.",
+        "Reject prompts missing constraints.",
+        "Check that prompts do not authorize unsafe actions."
+      ]
+    },
+    "architecture_report_writer": {
+      "llm_config": "analysis",
+      "role": "Read-only Architecture Report Writer",
+      "responsibilities": [
+        "Draft analytical narrative.",
+        "Preserve uncertainty and review boundaries.",
+        "Write no source-code modifications."
+      ]
+    },
+    "architecture_artifact_publisher": {
+      "llm_config": "analysis",
+      "role": "Deterministic Architecture Artifact Publisher",
+      "responsibilities": [
+        "Publish only after audit approval.",
+        "Preserve exact deterministic facts and metrics.",
+        "Never invoke the model or modify source code."
+      ]
+    }
+  }
+}

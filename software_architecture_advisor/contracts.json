@@ -1,0 +1,353 @@
+{
+  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/contracts.schema.json",
+  "summary": "Read-only, air-gapped software architecture analysis with evidence-backed coding-agent improvement prompts.",
+  "input_adapters": {
+    "default": "mock",
+    "resolved_artifact": "inputs.json",
+    "supported": [
+      "mock",
+      "json",
+      "file",
+      "env_json"
+    ]
+  },
+  "inputs": {
+    "input_folder": {
+      "type": "local_path",
+      "path_kind": "directory",
+      "required": true,
+      "privacy": "confidential",
+      "description": "Required local source folder to inspect.",
+      "example": "/work/acme-service"
+    },
+    "analysis_focus": {
+      "type": "domain_value",
+      "required": false,
+      "privacy": "confidential",
+      "description": "Optional concerns to prioritize, such as modularity, reliability, or data ownership.",
+      "example": [
+        "module boundaries",
+        "testability"
+      ]
+    },
+    "output_folder": {
+      "type": "local_path",
+      "path_kind": "directory",
+      "required": false,
+      "privacy": "confidential",
+      "description": "Destination for assessment, evidence, and copy-ready improvement prompts.",
+      "example": "~/Downloads/software_architecture_advisor"
+    }
+  },
+  "events": {
+    "stream": "events.jsonl",
+    "human_stream": "human.jsonl",
+    "types": [
+      "blueprint_status",
+      "blueprint_phase_started",
+      "blueprint_phase_completed",
+      "blueprint_phase_failed",
+      "artifact_written",
+      "human_notice",
+      "source_snapshot_validated",
+      "architecture_graph_built",
+      "architecture_finding_created",
+      "improvement_prompt_authored"
+    ]
+  },
+  "privacy": {
+    "default_classification": "confidential",
+    "network": "forbidden",
+    "rules": {
+      "confidential": {
+        "log": "redacted",
+        "send_to_llm": "local_model_only",
+        "send_to_output_skills": false
+      },
+      "internal": {
+        "log": "metadata_only",
+        "send_to_llm": "local_model_only",
+        "send_to_output_skills": false
+      }
+    }
+  },
+  "outputs": {
+    "profile": "standard_run_store",
+    "primary": {
+      "id": "final_artifact",
+      "path": "final_artifact.json",
+      "type": "final_artifact",
+      "schema_version": "mn.blueprint.final_artifact_contract.v1",
+      "required_fields": [
+        "type",
+        "status",
+        "executive_summary",
+        "recommended_action",
+        "confidence",
+        "evidence",
+        "next_steps",
+        "source_refs",
+        "provenance_refs"
+      ]
+    },
+    "artifacts": [
+      {
+        "artifact_id": "run_metadata",
+        "type": "run_summary",
+        "path": "run.json",
+        "producer": "local_run_store",
+        "mime_type": "application/json",
+        "schema_version": "mn.artifact.run_summary.v1",
+        "source_refs": []
+      },
+      {
+        "artifact_id": "resolved_config",
+        "type": "config",
+        "path": "config.json",
+        "producer": "local_run_store",
+        "mime_type": "application/json",
+        "schema_version": "mn.blueprint.config.v1",
+        "source_refs": []
+      },
+      {
+        "artifact_id": "resolved_inputs",
+        "type": "inputs",
+        "path": "inputs.json",
+        "producer": "local_run_store",
+        "mime_type": "application/json",
+        "schema_version": "mn.blueprint.inputs.v1",
+        "source_refs": []
+      },
+      {
+        "artifact_id": "event_stream",
+        "type": "events",
+        "path": "events.jsonl",
+        "producer": "local_run_store",
+        "mime_type": "application/x-jsonlines",
+        "schema_version": "mn.blueprint.events.v1",
+        "source_refs": []
+      },
+      {
+        "artifact_id": "result",
+        "type": "result",
+        "path": "result.json",
+        "producer": "local_run_store",
+        "mime_type": "application/json",
+        "schema_version": "mn.blueprint.response.v1",
+        "source_refs": [
+          "inputs.json",
+          "events.jsonl"
+        ]
+      },
+      {
+        "artifact_id": "final_artifact",
+        "type": "final_artifact",
+        "path": "final_artifact.json",
+        "producer": "workflow",
+        "mime_type": "application/json",
+        "schema_version": "mn.blueprint.software_architecture_advisor.v3",
+        "source_refs": [
+          "inputs.json",
+          "events.jsonl",
+          "result.json"
+        ]
+      },
+      {
+        "artifact_id": "architecture_assessment",
+        "type": "architecture_assessment",
+        "path": "architecture_assessment.json",
+        "producer": "architecture_artifact_publisher",
+        "mime_type": "application/json",
+        "schema_version": "mn.blueprint.software_architecture_advisor.v3",
+        "source_refs": [
+          "source_inventory.json",
+          "architecture_graph.json",
+          "analysis_metrics.json",
+          "evidence/architecture_facts.json",
+          "evidence/llm_analysis.json"
+        ]
+      },
+      {
+        "artifact_id": "architecture_report",
+        "type": "architecture_report",
+        "path": "architecture_report.md",
+        "producer": "architecture_artifact_publisher",
+        "mime_type": "text/markdown",
+        "schema_version": "mn.architecture.report.v2",
+        "source_refs": [
+          "architecture_assessment.json"
+        ]
+      },
+      {
+        "artifact_id": "improvement_prompts",
+        "type": "improvement_prompts",
+        "path": "improvement_prompts.md",
+        "producer": "improvement_prompt_author",
+        "mime_type": "text/markdown",
+        "schema_version": "mn.architecture.prompts.v1",
+        "source_refs": [
+          "architecture_assessment.json"
+        ]
+      },
+      {
+        "artifact_id": "prompt_directory_index",
+        "type": "implementation_prompt_index",
+        "path": "prompts/README.md",
+        "producer": "architecture_artifact_publisher",
+        "mime_type": "text/markdown",
+        "schema_version": "mn.architecture.prompts.v1",
+        "source_refs": [
+          "architecture_assessment.json"
+        ]
+      },
+      {
+        "artifact_id": "architecture_graph",
+        "type": "architecture_graph",
+        "path": "architecture_graph.json",
+        "producer": "codebase_mapper",
+        "mime_type": "application/json",
+        "schema_version": "mn.architecture.graph.v1",
+        "source_refs": [
+          "source_inventory.json"
+        ]
+      },
+      {
+        "artifact_id": "source_inventory",
+        "type": "source_inventory",
+        "path": "source_inventory.json",
+        "producer": "source_intake_analyst",
+        "mime_type": "application/json",
+        "schema_version": "mn.architecture.inventory.v1",
+        "source_refs": [
+          "inputs.json"
+        ]
+      },
+      {
+        "artifact_id": "repository_profile",
+        "type": "repository_profile",
+        "path": "evidence/repository_profile.json",
+        "producer": "codebase_mapper",
+        "mime_type": "application/json",
+        "schema_version": "mn.architecture.repository_profile.v1",
+        "source_refs": [
+          "source_inventory.json"
+        ]
+      },
+      {
+        "artifact_id": "symbol_index",
+        "type": "symbol_index",
+        "path": "evidence/symbol_index.json",
+        "producer": "codebase_mapper",
+        "mime_type": "application/json",
+        "schema_version": "mn.architecture.symbol_index.v1",
+        "source_refs": [
+          "source_inventory.json"
+        ]
+      },
+      {
+        "artifact_id": "architecture_facts",
+        "type": "architecture_fact_database",
+        "path": "evidence/architecture_facts.json",
+        "producer": "codebase_mapper",
+        "mime_type": "application/json",
+        "schema_version": "mn.architecture.fact_database.v1",
+        "source_refs": [
+          "source_inventory.json",
+          "architecture_graph.json"
+        ]
+      },
+      {
+        "artifact_id": "state_model",
+        "type": "state_model",
+        "path": "evidence/state_model.json",
+        "producer": "codebase_mapper",
+        "mime_type": "application/json",
+        "schema_version": "mn.architecture.state_model.v1",
+        "source_refs": [
+          "evidence/architecture_facts.json"
+        ]
+      },
+      {
+        "artifact_id": "trust_boundaries",
+        "type": "trust_model",
+        "path": "evidence/trust_boundaries.json",
+        "producer": "codebase_mapper",
+        "mime_type": "application/json",
+        "schema_version": "mn.architecture.trust_model.v1",
+        "source_refs": [
+          "evidence/architecture_facts.json"
+        ]
+      },
+      {
+        "artifact_id": "test_architecture",
+        "type": "test_architecture",
+        "path": "evidence/test_architecture.json",
+        "producer": "codebase_mapper",
+        "mime_type": "application/json",
+        "schema_version": "mn.architecture.test_architecture.v1",
+        "source_refs": [
+          "architecture_graph.json"
+        ]
+      },
+      {
+        "artifact_id": "deployment_model",
+        "type": "deployment_model",
+        "path": "evidence/deployment_model.json",
+        "producer": "codebase_mapper",
+        "mime_type": "application/json",
+        "schema_version": "mn.architecture.deployment_model.v1",
+        "source_refs": [
+          "evidence/repository_profile.json"
+        ]
+      },
+      {
+        "artifact_id": "history_evidence",
+        "type": "history_evidence",
+        "path": "evidence/history_evidence.json",
+        "producer": "codebase_mapper",
+        "mime_type": "application/json",
+        "schema_version": "mn.architecture.history_evidence.v1",
+        "source_refs": [
+          "inputs.json"
+        ]
+      },
+      {
+        "artifact_id": "prioritized_findings",
+        "type": "architecture_findings",
+        "path": "evidence/prioritized_findings.json",
+        "producer": "architecture_reviewer",
+        "mime_type": "application/json",
+        "schema_version": "mn.architecture.findings.v1",
+        "source_refs": [
+          "evidence/architecture_facts.json"
+        ]
+      },
+      {
+        "artifact_id": "llm_analysis",
+        "type": "llm_analysis",
+        "path": "evidence/llm_analysis.json",
+        "producer": "architecture_artifact_publisher",
+        "mime_type": "application/json",
+        "schema_version": "mn.blueprint.software_architecture_advisor.llm_analysis.v1",
+        "source_refs": [
+          "evidence/architecture_facts.json"
+        ]
+      },
+      {
+        "artifact_id": "llm_trace",
+        "type": "llm_trace",
+        "path": "llm_trace.jsonl",
+        "producer": "architecture_artifact_publisher",
+        "mime_type": "application/x-jsonlines",
+        "schema_version": "mn.blueprint.llm_trace.metadata.v1",
+        "source_refs": []
+      }
+    ]
+  },
+  "input_validation": {
+    "required": [
+      "input_folder"
+    ],
+    "rules": []
+  }
+}

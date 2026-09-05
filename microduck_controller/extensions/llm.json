@@ -1,0 +1,53 @@
+{
+  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/extensions/llm.schema.json",
+  "enabled": true,
+  "mode": "actor_assisted",
+  "mock_mode": "deterministic",
+  "model": "default",
+  "default_config": "primary",
+  "configs": {
+    "primary": {
+      "provider": "openai_compatible",
+      "model": "default",
+      "api_base": "auto",
+      "temperature": 0,
+      "structured_output_options": {
+        "temperature": 0
+      },
+      "max_tokens": 300
+    }
+  },
+  "responsibilities": [
+    "Interpret Microduck requests by semantic intent using the indexed MCP control manual; examples are non-exhaustive and never exact-match triggers.",
+    "Ignore polite, modal, permissive, and conversational framing such as please, now, could you, let's, and you can when the underlying supported intent is clear.",
+    "Choose the exact declared tool and enum arguments for a clear paraphrase; clarify only material ambiguity, never wording variation.",
+    "Map movement, routines, locomotion, one-shot ball actions, reset, stop, state, and manual paraphrases to their declared tools.",
+    "Map find, seek, approach, and go-to-ball requests to one find_ball call; never expand them into repeated move_duck calls.",
+    "Map free play, play-with-the-ball, suggestions such as let's free play, and permission statements such as you can free play to one free_play call; never expand them into repeated find_ball or play_ball_action calls.",
+    "Use only the declared bounded MCP tools and their exact argument enums.",
+    "Report observed command receipts without inventing motion or completion."
+  ],
+  "agents": {
+    "microduck_service": {
+      "llm_config": "primary",
+      "role": "Microduck simulator service operator",
+      "responsibilities": [
+        "Keep the browser simulator and MCP surface reachable.",
+        "Use the LLM to match varied natural-language phrasing to one declared control intent without requiring canonical command text.",
+        "Run goal-directed ball approaches through the deterministic browser navigation loop.",
+        "Run continuous free play through the deterministic find-kick-reacquire controller until stop_duck.",
+        "Publish only compact simulation context and bounded command receipts.",
+        "Stop remote movement when the browser lease becomes stale."
+      ]
+    },
+    "finalize": {
+      "llm_config": "primary",
+      "role": "Microduck service finalizer",
+      "responsibilities": [
+        "Record a deliberate service shutdown.",
+        "Preserve the service artifact trail.",
+        "Never start or replay a simulator command."
+      ]
+    }
+  }
+}

@@ -1,0 +1,85 @@
+{
+  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/execution.schema.json",
+  "policies": {
+    "recovery_mode": "local_restart"
+  },
+  "required_context_engine": false,
+  "agents": {
+    "registry": {
+      "research_goal_framer": {
+        "handler": "agents.research_goal_framer",
+        "role": "Research Goal Framer"
+      },
+      "research_evidence_curator": {
+        "handler": "agents.research_evidence_curator",
+        "role": "Research Evidence Curator"
+      },
+      "autonomous_researcher": {
+        "handler": "agents.autonomous_researcher",
+        "role": "Autonomous Researcher"
+      },
+      "research_packet_auditor": {
+        "handler": "agents.research_packet_auditor",
+        "role": "Research Packet Auditor"
+      },
+      "research_report_writer": {
+        "handler": "agents.research_report_writer",
+        "role": "Research Report Writer"
+      }
+    }
+  },
+  "defaults": {
+    "worker": {
+      "with": {
+        "stereotype": "internal_write_worker",
+        "image": "mirror-neuron/research-assistant:local",
+        "upload_paths": [
+          {
+            "source": "domain",
+            "target": "domain"
+          }
+        ]
+      }
+    }
+  },
+  "requirements": {
+    "cpu": {
+      "min_cores": 1
+    },
+    "disk": {
+      "min_gb": 1
+    },
+    "gpu": {
+      "enforcement": "hard",
+      "memory_operator": ">=",
+      "min_count": 1,
+      "min_memory_mb": 49152
+    },
+    "memory": {
+      "min_gb": 2
+    }
+  },
+  "workers": {
+    "groups": [
+      {
+        "steps": [
+          "build_research_evidence",
+          "develop_and_challenge_hypotheses"
+        ],
+        "with": {
+          "stereotype": "public_browser_worker"
+        }
+      },
+      {
+        "steps": [
+          "verify_and_publish_research_packet"
+        ],
+        "with": {
+          "stereotype": "internal_write_worker"
+        }
+      }
+    ]
+  },
+  "mode": "compiled",
+  "job_name": "research-assistant"
+}

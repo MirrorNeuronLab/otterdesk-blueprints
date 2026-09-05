@@ -1,0 +1,411 @@
+{
+  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/contracts.schema.json",
+  "events": {
+    "human_stream": "human.jsonl",
+    "stream": "events.jsonl",
+    "types": [
+      "run_started",
+      "inputs_loaded",
+      "large_context_seeded",
+      "simulation_step_started",
+      "memory_context_compiled",
+      "llm_decision",
+      "benchmark_step_scored",
+      "simulation_state_updated",
+      "run_completed",
+      "blueprint_status",
+      "blueprint_phase_started",
+      "blueprint_phase_completed",
+      "blueprint_phase_failed",
+      "artifact_written",
+      "human_notice",
+      "human_input_requested",
+      "human_input_received",
+      "human_input_timeout",
+      "human_decision_applied",
+      "output_skill_started",
+      "output_skill_completed",
+      "output_skill_failed"
+    ]
+  },
+  "input_adapters": {
+    "default": "json",
+    "resolved_artifact": "inputs.json",
+    "supported": [
+      "mock",
+      "json",
+      "file",
+      "env_json"
+    ]
+  },
+  "inputs": {
+    "analysis": {
+      "description": "Company-approved numerical assumptions for landed cost, discounted lifecycle cash flow, risk-adjusted TCO, equivalent annual cost, productive-unit cost, scenarios, and cash/finance/lease comparison.",
+      "example": {
+        "horizon_years": 3,
+        "discount_rate": 0.08,
+        "tax_rate": 0.0625,
+        "electricity_rate_per_kwh": 0.2452,
+        "active_hours_per_year": 1000,
+        "idle_hours_per_year": 1000,
+        "loaded_labor_cost_per_hour": 95,
+        "downtime_cost_per_hour": 190,
+        "expected_downtime_hours_per_year": 6,
+        "annual_maintenance_reserve": 150,
+        "residual_value_percent": 0.1
+      },
+      "privacy": "confidential",
+      "required": false,
+      "type": "domain_value"
+    },
+    "budget": {
+      "description": "Optional landed-acquisition budget or price ceiling for comparison.",
+      "example": 5000,
+      "privacy": "confidential",
+      "required": false,
+      "type": "domain_value"
+    },
+    "constraints": {
+      "description": "Optional purchase constraints and must-have requirements.",
+      "example": {
+        "min_gpu_vram_gb": 16,
+        "min_system_ram_gb": 64,
+        "min_storage_tb": 2,
+        "min_warranty_years": 1,
+        "available_for_purchase_required": true
+      },
+      "privacy": "confidential",
+      "required": false,
+      "type": "domain_value"
+    },
+    "input_folder": {
+      "description": "Local folder containing a plain-text purchase request, incomplete research notes or public links, and optional supporting evidence.",
+      "example": "@/examples/sample_inputs",
+      "path_kind": "directory",
+      "privacy": "confidential",
+      "required": false,
+      "type": "local_path"
+    },
+    "item_description": {
+      "description": "Optional structured fallback for the item, supplier quote, public listing, vehicle, route, or trip to study; purchase_request.txt is primary when present.",
+      "example": "Supportable local-AI desktop for an engineering office with at least 16 GB GPU VRAM and 64 GB RAM",
+      "privacy": "confidential",
+      "required": false,
+      "type": "domain_value"
+    },
+    "location": {
+      "description": "Optional market, pickup, destination, or service location.",
+      "example": "Boston, MA",
+      "privacy": "confidential",
+      "required": false,
+      "type": "domain_value"
+    },
+    "output_folder": {
+      "description": "Default local output folder for generated artifacts and reports.",
+      "example": "~/Downloads/purchasing_manager",
+      "path_kind": "directory",
+      "privacy": "confidential",
+      "required": false,
+      "type": "local_path"
+    },
+    "priorities": {
+      "description": "Optional ranking priorities such as total cost, quality, speed, or flexibility.",
+      "example": [
+        "total cost",
+        "reliability"
+      ],
+      "privacy": "confidential",
+      "required": false,
+      "type": "domain_value"
+    },
+    "purchase_type": {
+      "description": "Optional structured fallback category; use property, rental_property, car, airline_ticket, computer, or custom. Plain-text intake may infer it.",
+      "example": "computer",
+      "privacy": "confidential",
+      "required": false,
+      "type": "domain_value"
+    },
+    "route": {
+      "description": "Optional origin and destination for airline or travel research.",
+      "example": "Boston to Lisbon",
+      "privacy": "confidential",
+      "required": false,
+      "type": "domain_value"
+    },
+    "travel_dates": {
+      "description": "Optional travel dates or purchase timing.",
+      "example": "2026-09-10 to 2026-09-18",
+      "privacy": "confidential",
+      "required": false,
+      "type": "domain_value"
+    }
+  },
+  "outputs": {
+    "artifacts": [
+      {
+        "artifact_id": "run_metadata",
+        "mime_type": "application/json",
+        "path": "run.json",
+        "producer": "local_run_store",
+        "schema_version": "mn.artifact.run_summary.v1",
+        "source_refs": [],
+        "type": "run_summary"
+      },
+      {
+        "artifact_id": "resolved_config",
+        "mime_type": "application/json",
+        "path": "config.json",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.config.v1",
+        "source_refs": [],
+        "type": "config"
+      },
+      {
+        "artifact_id": "resolved_inputs",
+        "mime_type": "application/json",
+        "path": "inputs.json",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.inputs.v1",
+        "source_refs": [],
+        "type": "inputs"
+      },
+      {
+        "artifact_id": "event_stream",
+        "mime_type": "application/x-jsonlines",
+        "path": "events.jsonl",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.events.v1",
+        "source_refs": [],
+        "type": "events"
+      },
+      {
+        "artifact_id": "result",
+        "mime_type": "application/json",
+        "path": "result.json",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.response.v1",
+        "source_refs": [
+          "inputs.json",
+          "events.jsonl"
+        ],
+        "type": "result"
+      },
+      {
+        "artifact_id": "final_artifact",
+        "mime_type": "application/json",
+        "path": "final_artifact.json",
+        "producer": "workflow",
+        "schema_version": "mn.blueprint.final_artifact.v1",
+        "source_refs": [
+          "inputs.json",
+          "events.jsonl",
+          "result.json"
+        ],
+        "type": "final_artifact"
+      },
+      {
+        "artifact_id": "logs",
+        "mime_type": "application/x-jsonlines",
+        "path": "logs.jsonl",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.logs.v1",
+        "source_refs": [
+          "events.jsonl"
+        ],
+        "type": "logs"
+      },
+      {
+        "artifact_id": "resources",
+        "mime_type": "application/x-jsonlines",
+        "path": "resources.jsonl",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.resources.v1",
+        "source_refs": [
+          "run.json"
+        ],
+        "type": "resource_samples"
+      },
+      {
+        "artifact_id": "web_ui",
+        "mime_type": "application/json",
+        "path": "web_ui.json",
+        "producer": "web_ui",
+        "schema_version": "mn.blueprint.web_ui.v1",
+        "source_refs": [
+          "run.json"
+        ],
+        "type": "web_ui"
+      },
+      {
+        "artifact_id": "human_events",
+        "mime_type": "application/x-jsonlines",
+        "path": "human.jsonl",
+        "producer": "human_control",
+        "schema_version": "mn.blueprint.human_events.v1",
+        "source_refs": [
+          "events.jsonl"
+        ],
+        "type": "human_events"
+      },
+      {
+        "artifact_id": "purchasing_manager_report",
+        "mime_type": "application/json",
+        "path": "final_artifact.json",
+        "producer": "workflow",
+        "schema_version": "mn.blueprint.generated_report.v1",
+        "source_refs": [
+          "inputs.json",
+          "events.jsonl",
+          "result.json"
+        ],
+        "type": "generated_report"
+      },
+      {
+        "artifact_id": "purchasing_manager_bundle",
+        "mime_type": "application/json",
+        "path": "purchasing_manager.json",
+        "producer": "workflow",
+        "schema_version": "mn.blueprint.purchasing_manager.v1",
+        "source_refs": [
+          "inputs.json",
+          "events.jsonl",
+          "result.json"
+        ],
+        "type": "purchasing_manager"
+      },
+      {
+        "artifact_id": "research_sources",
+        "mime_type": "application/json",
+        "path": "research_sources.json",
+        "producer": "workflow",
+        "schema_version": "mn.blueprint.research_sources.v1",
+        "source_refs": [
+          "inputs.json",
+          "events.jsonl"
+        ],
+        "type": "research_sources"
+      },
+      {
+        "artifact_id": "knowledge_rag",
+        "mime_type": "application/json",
+        "path": "knowledge_rag.json",
+        "producer": "workflow",
+        "schema_version": "mn.blueprint.knowledge_rag.v1",
+        "source_refs": [
+          "inputs.json",
+          "events.jsonl"
+        ],
+        "type": "knowledge_rag"
+      },
+      {
+        "artifact_id": "evidence",
+        "mime_type": "application/json",
+        "path": "evidence.json",
+        "producer": "workflow",
+        "schema_version": "mn.blueprint.evidence.v1",
+        "source_refs": [
+          "inputs.json",
+          "events.jsonl"
+        ],
+        "type": "evidence"
+      },
+      {
+        "artifact_id": "artifact_quality",
+        "mime_type": "application/json",
+        "path": "artifact_quality.json",
+        "producer": "workflow",
+        "schema_version": "mn.blueprint.artifact_quality.v1",
+        "source_refs": [
+          "purchasing_manager.json"
+        ],
+        "type": "artifact_quality"
+      },
+      {
+        "artifact_id": "run_health",
+        "mime_type": "application/json",
+        "path": "run_health.json",
+        "producer": "workflow",
+        "schema_version": "mn.blueprint.run_health.v1",
+        "source_refs": [
+          "purchasing_manager.json"
+        ],
+        "type": "run_health"
+      },
+      {
+        "artifact_id": "memory_benchmark",
+        "mime_type": "application/json",
+        "path": "result.json#/benchmark",
+        "producer": "workflow",
+        "schema_version": "mn.blueprint.benchmark_report.v1",
+        "source_refs": [
+          "events.jsonl"
+        ],
+        "type": "benchmark_report"
+      }
+    ],
+    "primary": {
+      "id": "final_artifact",
+      "path": "final_artifact.json",
+      "required_fields": [
+        "type",
+        "executive_summary",
+        "recommended_action",
+        "confidence",
+        "evidence",
+        "next_steps",
+        "source_refs",
+        "analysis_interpretation",
+        "risk_interpretation",
+        "decision_analysis",
+        "report_narrative",
+        "llm_generation"
+      ],
+      "schema_version": "mn.blueprint.final_artifact_contract.v1",
+      "type": "final_artifact"
+    },
+    "profile": "standard_run_store"
+  },
+  "privacy": {
+    "default_classification": "confidential",
+    "rules": {
+      "confidential": {
+        "log": "redacted",
+        "send_to_llm": "allowed_configs_only",
+        "send_to_output_skills": "approved_destinations_only"
+      },
+      "internal": {
+        "log": "metadata_only",
+        "send_to_llm": true,
+        "send_to_output_skills": true
+      },
+      "public": {
+        "log": true,
+        "send_to_llm": true,
+        "send_to_output_skills": true
+      },
+      "regulated": {
+        "log": "redacted",
+        "send_to_llm": false,
+        "send_to_output_skills": "approved_destinations_only"
+      }
+    }
+  },
+  "status": {
+    "event": "blueprint_status",
+    "heartbeat": true,
+    "phases": [
+      "loading_inputs",
+      "running_worker",
+      "waiting_for_human",
+      "writing_artifacts",
+      "completed"
+    ]
+  },
+  "summary": "Purchase review depends on older broker, lender, rent, insurance, and diligence details that are easy to lose in noisy pipelines.",
+  "users": [
+    "Consumers, travelers, vehicle buyers, property buyers, renters, and purchase analysts."
+  ],
+  "input_validation": {
+    "rules": []
+  }
+}

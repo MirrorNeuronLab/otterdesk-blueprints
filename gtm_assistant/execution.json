@@ -1,0 +1,71 @@
+{
+  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/execution.schema.json",
+  "type": "service",
+  "defaults": {
+    "worker": {
+      "with": {
+        "stereotype": "internal_write_worker",
+        "image": "mirror-neuron/gtm-assistant:local",
+        "upload_paths": [
+          {
+            "source": "domain",
+            "target": "domain"
+          }
+        ]
+      }
+    }
+  },
+  "workers": {
+    "groups": [
+      {
+        "steps": [
+          "deliver_approved_lifecycle_email",
+          "monitor_development_email_replies"
+        ],
+        "with": {
+          "side_effect": "external",
+          "pass_env": [
+            "MN_SMTP_USERNAME",
+            "MN_SMTP_PASSWORD",
+            "MN_SMTP_DEV_RECIPIENT"
+          ]
+        }
+      }
+    ]
+  },
+  "agents": {
+    "registry": {
+      "customer_lifecycle_director": {
+        "handler": "agents.customer_lifecycle_director",
+        "role": "Customer Lifecycle and Product Intelligence Director"
+      },
+      "development_reply_monitor": {
+        "handler": "agents.development_reply_monitor",
+        "role": "Read-only Development Reply Monitor"
+      }
+    }
+  },
+  "requirements": {
+    "cpu": {
+      "min_cores": 1
+    },
+    "memory": {
+      "min_gb": 1
+    },
+    "disk": {
+      "min_gb": 1
+    },
+    "gpu": {
+      "min_count": 0
+    }
+  },
+  "service": {
+    "enabled": true,
+    "manual_close": "Stop the co-worker in OtterDesk, send SIGTERM, or create the configured STOP file.",
+    "run_until": "manual_stop",
+    "state_artifact": "development_reply_monitoring_state.json",
+    "stop_file": "${MN_RUN_DIR}/STOP"
+  },
+  "mode": "compiled",
+  "job_name": "gtm-assistant"
+}

@@ -1,0 +1,216 @@
+{
+  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/execution.schema.json",
+  "type": "batch",
+  "agents": {
+    "auxiliary_entrypoints": [
+      "drug_discovery_web_ui"
+    ],
+    "extra_nodes": [
+      {
+        "agent_type": "executor",
+        "alias": "drug_discovery_web_ui",
+        "config": {
+          "command": [
+            "python3.11",
+            "services/drug_discovery_web_ui.py"
+          ],
+          "environment": {},
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "output_message_type": null,
+          "pool": "default",
+          "pool_slots": 1,
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "tty": false,
+          "upload_as": ".",
+          "upload_path": ".",
+          "workdir": "/sandbox/job"
+        },
+        "display_name": "Drug Discovery Progress",
+        "node_id": "drug_discovery_web_ui",
+        "resources": {
+          "ports": [
+            {
+              "label": "web_ui",
+              "port": 61020,
+              "protocol": "http"
+            }
+          ]
+        },
+        "services": [
+          {
+            "address": "0.0.0.0",
+            "checks": [
+              {
+                "address": "127.0.0.1",
+                "expected_status": 200,
+                "failures_before_critical": 3,
+                "interval_ms": 2000,
+                "name": "http-ready",
+                "path": "/healthz",
+                "required": true,
+                "timeout_ms": 1000,
+                "type": "http"
+              }
+            ],
+            "name": "drug-discovery-progress",
+            "port": 61020,
+            "tags": [
+              "web_ui",
+              "blueprint",
+              "drug_discovery_research_assistant",
+              "molecule-viewer"
+            ]
+          }
+        ],
+        "type": "stream"
+      }
+    ],
+    "registry": {
+      "target_biology_researcher": {
+        "handler": "agents.target_biology_researcher",
+        "role": "Target Biology Researcher"
+      },
+      "structure_modeler": {
+        "handler": "agents.structure_modeler",
+        "role": "Structure Modeler"
+      },
+      "discovery_service_operator": {
+        "handler": "agents.discovery_service_operator",
+        "role": "Candidate Discovery Specialist"
+      },
+      "binding_evidence_reviewer": {
+        "handler": "agents.binding_evidence_reviewer",
+        "role": "Binding Evidence Reviewer"
+      },
+      "discovery_packet_writer": {
+        "handler": "agents.discovery_packet_writer",
+        "role": "Discovery Packet Writer"
+      }
+    }
+  },
+  "cluster_distribution": {
+    "collaboration": {
+      "aggregation": "fan in cycle artifacts into review-only reports",
+      "drugclip": "fan out by target-candidate pair",
+      "folding": "fan out by target",
+      "mode": "cross_box_fanout_fanin",
+      "simulation": "fan out over DrugCLIP-selected candidates"
+    },
+    "dispatch_contract": "A configured dispatcher receives JSON jobs on stdin and returns JSON results or writes the declared output_path.",
+    "enabled": false,
+    "execution_backend": "native_dispatch_contract",
+    "fallback": "fail_closed",
+    "native_worker": "MirrorNeuron.Runner.HostLocal",
+    "worker_pools": {
+      "aggregation": "default",
+      "control": "default",
+      "drugclip": "science-drugclip",
+      "folding": "science-folding",
+      "generation": "science-generation",
+      "simulation": "science-simulation"
+    }
+  },
+  "defaults": {
+    "worker": {
+      "uses": "mn-agents.worker.python_host@1",
+      "with": {
+        "stereotype": [
+          "blueprint_host_worker",
+          "internal_write_worker"
+        ],
+        "upload_paths": [
+          {
+            "source": "domain",
+            "target": "domain"
+          },
+          {
+            "source": "service",
+            "target": "service"
+          },
+          {
+            "source": "biotarget",
+            "target": "biotarget"
+          }
+        ]
+      }
+    }
+  },
+  "job_name": "drug-discovery-research-assistant",
+  "requirements": {
+    "cpu": {
+      "min_cores": 1
+    },
+    "disk": {
+      "min_gb": 1
+    },
+    "gpu": {
+      "driver": "cuda",
+      "enforcement": "hard",
+      "memory_operator": ">=",
+      "min_count": 1,
+      "min_memory_mb": 49152,
+      "vendor": "nvidia"
+    },
+    "memory": {
+      "min_gb": 2
+    }
+  },
+  "service": {
+    "cycle_artifact_root": "cycles/",
+    "cycle_steps": [
+      {
+        "id": "generate_candidates",
+        "label": "Generate candidate pool"
+      },
+      {
+        "id": "fold_targets",
+        "label": "Fold target structures"
+      },
+      {
+        "id": "screen_with_drugclip",
+        "label": "Screen with DrugCLIP"
+      },
+      {
+        "id": "simulate_candidates",
+        "label": "Run GNINA and toxicity evaluation"
+      },
+      {
+        "id": "publish_cycle_report",
+        "label": "Publish cycle report"
+      }
+    ],
+    "enabled": true,
+    "run_until": "one_cycle",
+    "state_artifact": "service_state.json",
+    "stop_file": "${MN_RUN_DIR}/STOP"
+  },
+  "workers": {
+    "groups": [
+      {
+        "steps": [
+          "target_discovery",
+          "structure_generation",
+          "candidate_generation",
+          "binding_evaluation",
+          "ranking_reporting"
+        ],
+        "uses": "mn-agents.worker.python_docker@1",
+        "with": {
+          "stereotype": [
+            "blueprint_docker_worker",
+            "internal_write_worker"
+          ],
+          "docker_worker_image": "docker_worker",
+          "image": "mirror-neuron/drug-discovery-research-assistant:drugclip-gnina",
+          "gpus": "all",
+          "shared_container": true,
+          "reuse_shared_container": true,
+          "timeout_seconds": 0
+        }
+      }
+    ]
+  },
+  "mode": "compiled"
+}

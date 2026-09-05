@@ -1,0 +1,666 @@
+{
+  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/contracts.schema.json",
+  "events": {
+    "human_stream": "human.jsonl",
+    "stream": "events.jsonl",
+    "types": [
+      "run_started",
+      "inputs_loaded",
+      "simulation_step_started",
+      "llm_decision",
+      "simulation_state_updated",
+      "run_completed",
+      "cctv_operator_sample_due",
+      "cctv_operator_scene_change_detected",
+      "cctv_operator_burst_started",
+      "cctv_operator_burst_completed",
+      "cctv_operator_frame_batch_ready",
+      "cctv_operator_sample_skipped",
+      "cctv_operator_queue_lag",
+      "cctv_operator_frame_observed",
+      "cctv_operator_attention_updated",
+      "cctv_operator_detection",
+      "human_notice",
+      "cctv_operator_slack_alert_sent",
+      "cctv_operator_slack_alert_skipped",
+      "cctv_operator_slack_alert_error",
+      "cctv_operator_frame_analysis_failed",
+      "cctv_operator_report_ready",
+      "blueprint_status",
+      "blueprint_phase_started",
+      "blueprint_phase_completed",
+      "blueprint_phase_failed",
+      "artifact_written",
+      "human_input_requested",
+      "human_input_received",
+      "human_input_timeout",
+      "human_decision_applied",
+      "output_skill_started",
+      "output_skill_completed",
+      "output_skill_failed"
+    ]
+  },
+  "input_adapters": {
+    "supported": [
+      "mock",
+      "json",
+      "file",
+      "env_json"
+    ],
+    "resolved_artifact": "inputs.json",
+    "default": "mock",
+    "profiles": {
+      "connector": {
+        "adapter": "json",
+        "description": "Approved camera stream metadata supplied by a site video connector."
+      },
+      "env_json": {
+        "adapter": "env_json",
+        "description": "JSON object loaded from MN_BLUEPRINT_INPUT_JSON."
+      },
+      "file": {
+        "adapter": "file",
+        "description": "JSON object loaded from a local file path."
+      },
+      "json": {
+        "adapter": "json",
+        "description": "Inline JSON object supplied through config or runtime overrides."
+      },
+      "live_stream": {
+        "adapter": "json",
+        "description": "Runtime configuration for the bundled Docker demo or one approved external RTSP/RTMP source.",
+        "streams": [
+          "cctv_operator_stream"
+        ]
+      },
+      "mock": {
+        "adapter": "mock",
+        "description": "Deterministic model-output testing while the stream capture boundary is mocked.",
+        "payload": {}
+      }
+    },
+    "validation_rules": [
+      {
+        "command": [
+          "/usr/bin/python3",
+          "payloads/agents/validation/validate_video_source.py"
+        ],
+        "name": "video_source_validate",
+        "timeout_seconds": 12,
+        "type": "command"
+      }
+    ]
+  },
+  "live_inputs": {
+    "steer_monitoring": {
+      "description": "Update or clear the current run's monitoring instruction and optionally analyze immediately.",
+      "entrypoint": "ingress",
+      "message_type": "cctv_operator_steer",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "analyze_now": {
+            "default": true,
+            "type": "boolean"
+          },
+          "clear": {
+            "default": false,
+            "type": "boolean"
+          },
+          "instruction": {
+            "maxLength": 500,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      }
+    }
+  },
+  "inputs": {
+    "alert_policy": {
+      "description": "Cooldown, confidence, and notification policy for reviewer notices.",
+      "example": {
+        "cooldown_seconds": 120
+      },
+      "type": "domain_value",
+      "required": true,
+      "privacy": "internal"
+    },
+    "attention_instruction": {
+      "description": "Operator instruction for a detail to watch in the current stream.",
+      "example": "Pay attention to the red backpack near the left doorway.",
+      "type": "domain_value",
+      "required": false,
+      "privacy": "internal"
+    },
+    "output_folder": {
+      "description": "Default local output folder for generated artifacts and reports.",
+      "example": "~/Download/cctv_operator",
+      "path_kind": "directory",
+      "privacy": "internal",
+      "required": false,
+      "type": "local_path"
+    },
+    "slack_destination": {
+      "description": "Optional approved Slack destination for alert delivery.",
+      "example": "MN_SLACK_WEBHOOK_URL",
+      "type": "domain_value",
+      "required": false,
+      "privacy": "internal"
+    },
+    "video_source": {
+      "description": "Bundled Docker demo stream by default, or one approved external RTSP/RTMP URI.",
+      "example": "bundled_demo",
+      "type": "domain_value",
+      "required": true,
+      "privacy": "internal"
+    },
+    "visual_targets": {
+      "description": "Configured subjects, objects, or activities to detect.",
+      "example": [
+        "person",
+        "configured target activity"
+      ],
+      "type": "domain_value",
+      "required": true,
+      "privacy": "internal"
+    }
+  },
+  "outputs": {
+    "artifacts": [
+      {
+        "artifact_id": "run_metadata",
+        "mime_type": "application/json",
+        "path": "run.json",
+        "producer": "local_run_store",
+        "schema_version": "mn.artifact.run_summary.v1",
+        "source_refs": [],
+        "type": "run_summary"
+      },
+      {
+        "artifact_id": "resolved_config",
+        "mime_type": "application/json",
+        "path": "config.json",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.config.v1",
+        "source_refs": [],
+        "type": "config"
+      },
+      {
+        "artifact_id": "resolved_inputs",
+        "mime_type": "application/json",
+        "path": "inputs.json",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.inputs.v1",
+        "source_refs": [],
+        "type": "inputs"
+      },
+      {
+        "artifact_id": "event_stream",
+        "mime_type": "application/x-jsonlines",
+        "path": "events.jsonl",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.events.v1",
+        "source_refs": [],
+        "type": "events"
+      },
+      {
+        "artifact_id": "result",
+        "mime_type": "application/json",
+        "path": "result.json",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.response.v1",
+        "source_refs": [
+          "inputs.json",
+          "events.jsonl"
+        ],
+        "type": "result"
+      },
+      {
+        "artifact_id": "final_artifact",
+        "mime_type": "application/json",
+        "path": "final_artifact.json",
+        "producer": "workflow",
+        "schema_version": "mn.blueprint.final_artifact.v1",
+        "source_refs": [
+          "inputs.json",
+          "events.jsonl",
+          "result.json",
+          "cctv_report.json",
+          "cctv_report.md"
+        ],
+        "type": "final_artifact"
+      },
+      {
+        "artifact_id": "cctv_report_json",
+        "mime_type": "application/json",
+        "path": "cctv_report.json",
+        "producer": "report_writer",
+        "schema_version": "otterdesk.cctv_operator_report.v2",
+        "source_refs": [
+          "events.jsonl",
+          "inputs.json"
+        ],
+        "type": "domain_report"
+      },
+      {
+        "artifact_id": "cctv_report_markdown",
+        "mime_type": "text/markdown",
+        "path": "cctv_report.md",
+        "producer": "report_writer",
+        "schema_version": "otterdesk.cctv_operator_report.v2",
+        "source_refs": [
+          "cctv_report.json"
+        ],
+        "type": "domain_report"
+      },
+      {
+        "artifact_id": "frame_batches",
+        "mime_type": "application/json",
+        "path": "frame_batches",
+        "producer": "adaptive_frame_sampler",
+        "schema_version": "otterdesk.cctv_operator.frame_batch.v2",
+        "source_refs": [
+          "inputs.json"
+        ],
+        "type": "artifact_collection"
+      },
+      {
+        "artifact_id": "latest_analyzed_frame",
+        "mime_type": "image/jpeg",
+        "path": "latest_analyzed_frame.jpg",
+        "producer": "visual_detector",
+        "schema_version": "otterdesk.cctv_operator.latest_frame.v2",
+        "source_refs": [
+          "latest_analyzed_frame.json"
+        ],
+        "type": "image"
+      },
+      {
+        "artifact_id": "logs",
+        "mime_type": "application/x-jsonlines",
+        "path": "logs.jsonl",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.logs.v1",
+        "source_refs": [
+          "events.jsonl"
+        ],
+        "type": "logs"
+      },
+      {
+        "artifact_id": "resources",
+        "mime_type": "application/x-jsonlines",
+        "path": "resources.jsonl",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.resources.v1",
+        "source_refs": [
+          "run.json"
+        ],
+        "type": "resource_samples"
+      },
+      {
+        "artifact_id": "web_ui",
+        "mime_type": "application/json",
+        "path": "web_ui.json",
+        "producer": "web_ui",
+        "schema_version": "mn.blueprint.web_ui.v1",
+        "source_refs": [
+          "run.json"
+        ],
+        "type": "web_ui"
+      },
+      {
+        "artifact_id": "human_events",
+        "mime_type": "application/x-jsonlines",
+        "path": "human.jsonl",
+        "producer": "human_control",
+        "schema_version": "mn.blueprint.human_events.v1",
+        "source_refs": [
+          "events.jsonl"
+        ],
+        "type": "human_events"
+      },
+      {
+        "artifact_id": "video_detection_timeline",
+        "mime_type": "application/x-jsonlines",
+        "path": "events.jsonl",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.event_log.v1",
+        "source_refs": [
+          "inputs.json"
+        ],
+        "type": "event_log"
+      },
+      {
+        "artifact_id": "video_dashboard",
+        "mime_type": "application/json",
+        "path": "web_ui.json",
+        "producer": "web_ui",
+        "schema_version": "mn.blueprint.dashboard.v1",
+        "source_refs": [
+          "events.jsonl",
+          "final_artifact.json"
+        ],
+        "type": "dashboard"
+      }
+    ],
+    "primary": {
+      "id": "final_artifact",
+      "path": "final_artifact.json",
+      "required_fields": [
+        "type",
+        "executive_summary",
+        "recommended_action",
+        "confidence",
+        "evidence",
+        "next_steps",
+        "source_refs"
+      ],
+      "schema_version": "mn.blueprint.final_artifact_contract.v1",
+      "type": "final_artifact"
+    },
+    "profile": "standard_run_store"
+  },
+  "privacy": {
+    "default_classification": "internal",
+    "rules": {
+      "confidential": {
+        "log": "redacted",
+        "send_to_llm": "allowed_configs_only",
+        "send_to_output_skills": "approved_destinations_only"
+      },
+      "internal": {
+        "log": "metadata_only",
+        "send_to_llm": true,
+        "send_to_output_skills": true
+      },
+      "public": {
+        "log": true,
+        "send_to_llm": true,
+        "send_to_output_skills": true
+      },
+      "regulated": {
+        "log": "redacted",
+        "send_to_llm": false,
+        "send_to_output_skills": "approved_destinations_only"
+      }
+    },
+    "classification": "internal"
+  },
+  "status": {
+    "attempt_event": "workflow_step_attempt_started",
+    "beacon_event": "agent_beacon",
+    "beacon_interval_ms": 15000,
+    "beacon_missed_action": "fail_attempt",
+    "beacon_timeout_ms": 45000,
+    "blocked_event": "workflow_step_blocked",
+    "heartbeat_event": "agent_beacon",
+    "heartbeat_required": true,
+    "phases": [
+      {
+        "completion_event": "blueprint_phase_completed",
+        "failure_event": "blueprint_phase_failed",
+        "phase": "loading_inputs",
+        "progress_event": "blueprint_status",
+        "required": true,
+        "start_event": "blueprint_phase_started"
+      },
+      {
+        "completion_event": "blueprint_phase_completed",
+        "failure_event": "blueprint_phase_failed",
+        "phase": "running_worker",
+        "progress_event": "blueprint_status",
+        "required": true,
+        "start_event": "blueprint_phase_started"
+      },
+      {
+        "completion_event": "blueprint_phase_completed",
+        "failure_event": "blueprint_phase_failed",
+        "phase": "waiting_for_human",
+        "progress_event": "blueprint_status",
+        "required": true,
+        "start_event": "blueprint_phase_started"
+      },
+      {
+        "completion_event": "blueprint_phase_completed",
+        "failure_event": "blueprint_phase_failed",
+        "phase": "writing_artifacts",
+        "progress_event": "blueprint_status",
+        "required": true,
+        "start_event": "blueprint_phase_started"
+      },
+      {
+        "completion_event": "blueprint_phase_completed",
+        "failure_event": "blueprint_phase_failed",
+        "phase": "completed",
+        "progress_event": "blueprint_status",
+        "required": true,
+        "start_event": "blueprint_phase_started"
+      }
+    ],
+    "retry_event": "workflow_step_attempt_retry_scheduled",
+    "runtime_state_source": "workflow_state",
+    "schema_version": "mn.blueprint.status_contract.v1",
+    "source": "run_store",
+    "status_event": "blueprint_status",
+    "terminal_step_events": [
+      "workflow_step_completed",
+      "workflow_step_partial",
+      "workflow_step_skipped",
+      "workflow_step_failed"
+    ],
+    "event": "blueprint_status",
+    "heartbeat": true
+  },
+  "summary": "Monitor the bundled Docker demo stream or one approved external RTSP/RTMP stream on a qualifying NVIDIA node with sparse adaptive sampling and durable review reports.",
+  "users": [
+    "Video operators, security reviewers, safety operations teams, and site-access coordinators."
+  ],
+  "input_validation": {
+    "rules": [
+      {
+        "command": [
+          "/usr/bin/python3",
+          "payloads/agents/validation/validate_video_source.py"
+        ],
+        "name": "video_source_validate",
+        "timeout_seconds": 12,
+        "type": "command"
+      }
+    ]
+  },
+  "artifacts": {
+    "artifacts": [
+      {
+        "artifact_id": "run_metadata",
+        "mime_type": "application/json",
+        "path": "run.json",
+        "producer": "local_run_store",
+        "schema_version": "mn.artifact.run_summary.v1",
+        "source_refs": [],
+        "type": "run_summary"
+      },
+      {
+        "artifact_id": "resolved_config",
+        "mime_type": "application/json",
+        "path": "config.json",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.config.v1",
+        "source_refs": [],
+        "type": "config"
+      },
+      {
+        "artifact_id": "resolved_inputs",
+        "mime_type": "application/json",
+        "path": "inputs.json",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.inputs.v1",
+        "source_refs": [],
+        "type": "inputs"
+      },
+      {
+        "artifact_id": "event_stream",
+        "mime_type": "application/x-jsonlines",
+        "path": "events.jsonl",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.events.v1",
+        "source_refs": [],
+        "type": "events"
+      },
+      {
+        "artifact_id": "result",
+        "mime_type": "application/json",
+        "path": "result.json",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.response.v1",
+        "source_refs": [
+          "inputs.json",
+          "events.jsonl"
+        ],
+        "type": "result"
+      },
+      {
+        "artifact_id": "final_artifact",
+        "mime_type": "application/json",
+        "path": "final_artifact.json",
+        "producer": "workflow",
+        "schema_version": "mn.blueprint.final_artifact.v1",
+        "source_refs": [
+          "inputs.json",
+          "events.jsonl",
+          "result.json",
+          "cctv_report.json",
+          "cctv_report.md"
+        ],
+        "type": "final_artifact"
+      },
+      {
+        "artifact_id": "cctv_report_json",
+        "mime_type": "application/json",
+        "path": "cctv_report.json",
+        "producer": "report_writer",
+        "schema_version": "otterdesk.cctv_operator_report.v2",
+        "source_refs": [
+          "events.jsonl",
+          "inputs.json"
+        ],
+        "type": "domain_report"
+      },
+      {
+        "artifact_id": "cctv_report_markdown",
+        "mime_type": "text/markdown",
+        "path": "cctv_report.md",
+        "producer": "report_writer",
+        "schema_version": "otterdesk.cctv_operator_report.v2",
+        "source_refs": [
+          "cctv_report.json"
+        ],
+        "type": "domain_report"
+      },
+      {
+        "artifact_id": "logs",
+        "mime_type": "application/x-jsonlines",
+        "path": "logs.jsonl",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.logs.v1",
+        "source_refs": [
+          "events.jsonl"
+        ],
+        "type": "logs"
+      },
+      {
+        "artifact_id": "resources",
+        "mime_type": "application/x-jsonlines",
+        "path": "resources.jsonl",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.resources.v1",
+        "source_refs": [
+          "run.json"
+        ],
+        "type": "resource_samples"
+      },
+      {
+        "artifact_id": "web_ui",
+        "mime_type": "application/json",
+        "path": "web_ui.json",
+        "producer": "web_ui",
+        "schema_version": "mn.blueprint.web_ui.v1",
+        "source_refs": [
+          "run.json"
+        ],
+        "type": "web_ui"
+      },
+      {
+        "artifact_id": "human_events",
+        "mime_type": "application/x-jsonlines",
+        "path": "human.jsonl",
+        "producer": "human_control",
+        "schema_version": "mn.blueprint.human_events.v1",
+        "source_refs": [
+          "events.jsonl"
+        ],
+        "type": "human_events"
+      },
+      {
+        "artifact_id": "video_detection_timeline",
+        "mime_type": "application/x-jsonlines",
+        "path": "events.jsonl",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.event_log.v1",
+        "source_refs": [
+          "inputs.json"
+        ],
+        "type": "event_log"
+      },
+      {
+        "artifact_id": "video_dashboard",
+        "mime_type": "application/json",
+        "path": "web_ui.json",
+        "producer": "web_ui",
+        "schema_version": "mn.blueprint.dashboard.v1",
+        "source_refs": [
+          "events.jsonl",
+          "final_artifact.json"
+        ],
+        "type": "dashboard"
+      }
+    ],
+    "events": "typed event objects with payload",
+    "events_jsonl": "events.jsonl",
+    "final_artifact": {
+      "description": "The durable user-facing artifact should summarize the result, recommendation, confidence, evidence, next steps, and source references.",
+      "required_fields": [
+        "type",
+        "executive_summary",
+        "recommended_action",
+        "confidence",
+        "evidence",
+        "next_steps",
+        "source_refs"
+      ],
+      "schema_version": "mn.blueprint.final_artifact_contract.v1"
+    },
+    "final_artifact_json": "final_artifact.json",
+    "local_run_store": "~/.mn/runs/<run_id>/",
+    "logs_jsonl": "logs.jsonl",
+    "output_skills": [
+      {
+        "activation": "Set MN_BLUEPRINT_EVENTS_WS_URL and enable this output skill via config override to stream events.",
+        "connector": "websocket",
+        "content": "events",
+        "destination": "MN_BLUEPRINT_EVENTS_WS_URL",
+        "enabled": false,
+        "failure_policy": "skip",
+        "integration_status": "optional_mock_disabled_by_default",
+        "mock": true,
+        "name": "websocket_events",
+        "required": false,
+        "skill": "websocket_stream"
+      }
+    ],
+    "response_schema": "mn.blueprint.response.v1",
+    "result_json": "result.json",
+    "status": "JSON lines on stderr",
+    "stdout": "single JSON object, event envelope, or bundle path"
+  }
+}

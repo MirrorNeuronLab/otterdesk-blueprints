@@ -1,0 +1,126 @@
+{
+  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/workflow.schema.json",
+  "workflow_id": "gtm_assistant_v4",
+  "execution": {
+    "strategy": "serial"
+  },
+  "policy": {
+    "failure": {
+      "default": "fail_closed"
+    },
+    "human": {
+      "enabled": true,
+      "mode": "approval_required",
+      "allowed_decisions": [
+        "approve",
+        "revise",
+        "reject"
+      ],
+      "blocked_actions": [
+        "send_external_communications",
+        "publish_child_facing_content",
+        "spend_money",
+        "change_pricing",
+        "change_data_collection"
+      ],
+      "default_action": "reject",
+      "timeout_seconds": 86400
+    }
+  },
+  "steps": [
+    {
+      "id": "diagnose_customer_journey",
+      "kind": "source",
+      "label": "Diagnose Customer Journey",
+      "goal": "Identify activation, retention, support, and value-proof friction from de-identified evidence.",
+      "needs": [],
+      "run": {
+        "definition": "steps.diagnose_customer_journey"
+      },
+      "control": {
+        "timeout_seconds": 900,
+        "retry": {
+          "max_attempts": 2,
+          "backoff_seconds": 1,
+          "backoff_multiplier": 2,
+          "jitter": 0
+        }
+      }
+    },
+    {
+      "id": "publish_customer_lifecycle_packet",
+      "kind": "sink",
+      "label": "Publish Customer Lifecycle Brief",
+      "goal": "Publish aggregate product intelligence and draft interventions without contacting customers.",
+      "needs": [
+        "diagnose_customer_journey"
+      ],
+      "run": {
+        "definition": "steps.publish_customer_lifecycle_packet"
+      },
+      "control": {
+        "timeout_seconds": 900,
+        "retry": {
+          "max_attempts": 2,
+          "backoff_seconds": 1,
+          "backoff_multiplier": 2,
+          "jitter": 0
+        }
+      }
+    },
+    {
+      "id": "deliver_approved_lifecycle_email",
+      "kind": "sink",
+      "label": "Deliver Approved Development Lifecycle Email",
+      "goal": "Fail closed unless one aggregate lifecycle draft has explicit approval and a secret-injected single test recipient.",
+      "needs": [
+        "publish_customer_lifecycle_packet"
+      ],
+      "run": {
+        "definition": "steps.deliver_approved_lifecycle_email"
+      },
+      "control": {
+        "timeout_seconds": 60,
+        "retry": {
+          "max_attempts": 1,
+          "backoff_seconds": 0,
+          "backoff_multiplier": 1,
+          "jitter": 0
+        }
+      }
+    },
+    {
+      "id": "monitor_development_email_replies",
+      "kind": "sink",
+      "label": "Monitor Development Email Replies",
+      "goal": "When explicitly enabled after an approved development send, read only matching reply headers until manually stopped.",
+      "needs": [
+        "deliver_approved_lifecycle_email"
+      ],
+      "run": {
+        "definition": "steps.monitor_development_email_replies"
+      },
+      "control": {
+        "timeout_seconds": 86400,
+        "retry": {
+          "max_attempts": 1,
+          "backoff_seconds": 0,
+          "backoff_multiplier": 1,
+          "jitter": 0
+        }
+      }
+    }
+  ],
+  "defaults": {
+    "step": {
+      "control": {
+        "required": true,
+        "failure_policy": "fail_workflow",
+        "uncertainty": {
+          "min_confidence": 0,
+          "on_low_confidence": "continue_with_warning"
+        }
+      }
+    }
+  }
+}

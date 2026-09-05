@@ -1,0 +1,132 @@
+{
+  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/workflow.schema.json",
+  "workflow_id": "legal_assistant_v1",
+  "execution": {
+    "strategy": "parallel"
+  },
+  "policy": {
+    "failure": {
+      "default": "fail_closed"
+    },
+    "human": {
+      "enabled": true,
+      "mode": "approval_required",
+      "default_action": "reject",
+      "allowed_decisions": [
+        "approve",
+        "revise",
+        "reject"
+      ],
+      "blocked_actions": [
+        "send_legal_advice",
+        "approve_or_sign_contract",
+        "redline_contract_as_final",
+        "post_invoice_to_erp",
+        "submit_payment_instruction",
+        "email_vendor_or_counterparty_without_review",
+        "share_privileged_or_private_documents_externally"
+      ],
+      "reason": "Human and attorney review is required before relying on legal conclusions, approving payments, signing contracts, contacting counterparties, or sharing private/privileged documents.",
+      "events": [
+        "human_notice",
+        "human_input_requested",
+        "human_input_received",
+        "human_input_timeout",
+        "human_decision_applied"
+      ],
+      "request_event": "human_input_requested",
+      "response_event": "human_input_received",
+      "timeout_event": "human_input_timeout",
+      "decision_event": "human_decision_applied",
+      "timeout_seconds": 3600
+    }
+  },
+  "state": {
+    "input_folder": {
+      "from": "$inputs.input_folder"
+    },
+    "output_folder": {
+      "from": "$inputs.output_folder"
+    },
+    "workflow": {},
+    "final_report": {}
+  },
+  "steps": [
+    {
+      "control": {
+        "timeout_seconds": 1200
+      },
+      "goal": "Inventory the matter, extract document text, classify sources, and record OCR limitations.",
+      "id": "prepare_legal_matter",
+      "kind": "source",
+      "label": "Prepare Legal Matter",
+      "needs": [],
+      "run": {
+        "definition": "steps.prepare_legal_matter"
+      }
+    },
+    {
+      "control": {
+        "timeout_seconds": 1800
+      },
+      "goal": "Run separate payable-validation and contract-playbook review lanes, then join their durable findings.",
+      "id": "analyze_legal_documents",
+      "kind": "stage",
+      "label": "Analyze Legal Documents",
+      "needs": [
+        "prepare_legal_matter"
+      ],
+      "run": {
+        "definition": "steps.analyze_legal_documents"
+      }
+    },
+    {
+      "control": {
+        "timeout_seconds": 1200
+      },
+      "goal": "Reconcile cross-document obligations, conflicts, missing evidence, deadlines, and human-review questions.",
+      "id": "reconcile_legal_review",
+      "kind": "stage",
+      "label": "Reconcile Legal Review",
+      "needs": [
+        "analyze_legal_documents"
+      ],
+      "run": {
+        "definition": "steps.reconcile_legal_review"
+      }
+    },
+    {
+      "control": {
+        "timeout_seconds": 1200
+      },
+      "goal": "Write the source-grounded matter overview, issue register, obligation calendar, and review queue.",
+      "id": "publish_legal_review_packet",
+      "kind": "sink",
+      "label": "Publish Legal Review Packet",
+      "needs": [
+        "reconcile_legal_review"
+      ],
+      "run": {
+        "definition": "steps.publish_legal_review_packet"
+      }
+    }
+  ],
+  "defaults": {
+    "step": {
+      "control": {
+        "failure_policy": "fail_workflow",
+        "required": true,
+        "retry": {
+          "backoff_multiplier": 2,
+          "backoff_seconds": 1,
+          "jitter": 0,
+          "max_attempts": 2
+        },
+        "uncertainty": {
+          "min_confidence": 0,
+          "on_low_confidence": "continue_with_warning"
+        }
+      }
+    }
+  }
+}

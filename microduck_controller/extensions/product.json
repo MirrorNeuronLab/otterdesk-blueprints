@@ -1,0 +1,58 @@
+{
+  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/extensions/product.schema.json",
+  "runtime_features": [
+    "browser-owned MuJoCo simulation",
+    "single-tab control lease",
+    "bounded Streamable HTTP MCP tools",
+    "deterministic closed-loop ball navigation",
+    "continuous find-kick-reacquire free play",
+    "short command watchdogs",
+    "compact sensor context",
+    "blueprint-owned MCP control manual",
+    "bounded natural-language Job agent",
+    "loopback-first web service",
+    "Membrane context memory optimization"
+  ],
+  "category": "Robotics",
+  "intent": {
+    "problem": "A conversation agent needs a visible, auditable robot-simulation control surface that can complete one closed-loop goal without direct MuJoCo mutation, arbitrary browser automation, or cross-run command replay.",
+    "target_users": "Robotics demonstrators, AI-agent developers, simulation researchers, and evaluators.",
+    "safety": {
+      "enabled": true,
+      "mode": "notice_only",
+      "notice_event": "human_notice",
+      "requires_ack": false,
+      "blocked_actions": [
+        "physical_robot_control",
+        "arbitrary_velocity",
+        "arbitrary_javascript",
+        "shell_execution"
+      ]
+    }
+  },
+  "product": {
+    "agent_role": "Browser-backed Microduck simulation service operator.",
+    "benefit": "Lets an OtterDesk user move, inspect, send a visible Microduck toward an active ball, or let it repeatedly find and kick the ball in ordinary language without granting raw simulator, shell, or browser-control access.",
+    "customizable_for": "Interactive robotics demonstrations, agent-tool evaluation, browser-based simulation control, and bounded closed-loop navigation prototypes.",
+    "how_it_works": "Builds and serves the bundled Vite simulator, grants one ?control=1 browser tab a lease, indexes the same manual exposed by MCP, lets the default Job model select one validated effect per turn, and runs find-ball and free-play requests through deterministic position-feedback controllers.",
+    "input": "The bundled demo input folder, one local browser control tab, and natural-language requests in OtterDesk.",
+    "output": "A visual simulator URL, compact live service state, command receipts/history, and a final run artifact.",
+    "problem": "Conversation agents need an auditable way to act in a web robot simulator without direct MuJoCo state mutation or unbounded browser automation.",
+    "runtime_features": [
+      "browser-owned MuJoCo simulation",
+      "single-tab control lease",
+      "same-origin WebSocket bridge",
+      "bounded Streamable HTTP MCP tools",
+      "deterministic closed-loop ball navigation",
+      "continuous find-kick-reacquire free play",
+      "blueprint-owned MCP control manual",
+      "bounded natural-language Job agent",
+      "fresh compact sensor context",
+      "idempotent command receipts",
+      "loopback-first unauthenticated service"
+    ],
+    "simulation_type": "One browser-owned Microduck MuJoCo simulation controlled through bounded primitive effects, deterministic active-ball approach, and stoppable continuous free play.",
+    "target_users": "Robotics demonstrators, AI-agent developers, simulation researchers, and evaluators."
+  },
+  "overview": "Talk to a live Microduck MuJoCo simulation in OtterDesk: the Job agent interprets natural-language intent and invokes bounded MCP movement, goal-directed ball navigation, continuous free play, routine, locomotion, ball, reset, stop, and state tools."
+}

@@ -1,0 +1,73 @@
+{
+  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/extensions/product.schema.json",
+  "runtime_features": [
+    "deterministic evidence preparation",
+    "isolated autonomous research worker",
+    "adversarial hypothesis review",
+    "human review gate",
+    "Membrane context memory optimization",
+    "product input contract",
+    "transparent run status",
+    "artifact records",
+    "run-store observability dashboard",
+    "workflow-driven problem graph",
+    "step-scoped worker teams",
+    "optional knowledge_rag guidance",
+    "actor-style LLM specialists use retrieved policy context when available"
+  ],
+  "category": "Science",
+  "intent": {
+    "problem": "Research teams need to explore many possible explanations while preserving evidence, exposing counterarguments, and keeping experiments and claims under human control.",
+    "safety": {
+      "allowed_decisions": [
+        "approve",
+        "revise",
+        "reject"
+      ],
+      "blocked_actions": [
+        "execute_unapproved_experiment",
+        "claim_validated_result",
+        "publish_or_submit_manuscript",
+        "contact_external_research_participant",
+        "make_clinical_or_safety_decision"
+      ],
+      "decision_event": "human_decision_applied",
+      "default_action": "reject",
+      "enabled": true,
+      "events": [
+        "human_notice",
+        "human_input_requested",
+        "human_input_received",
+        "human_input_timeout",
+        "human_decision_applied"
+      ],
+      "mode": "approval_required",
+      "reason": "Human approval is required before experiments, public claims, manuscripts, participant contact, or consequential scientific and safety decisions.",
+      "request_event": "human_input_requested",
+      "response_event": "human_input_received",
+      "timeout_event": "human_input_timeout",
+      "timeout_seconds": 3600
+    },
+    "target_users": "Researchers, scientists, engineers, analysts, and research leads."
+  },
+  "product": {
+    "agent_role": "Multi-agent research team that finds, evaluates, critiques, and drafts evidence-grounded research directions.",
+    "benefit": "Turns a research goal and approved evidence into a traceable, adversarially reviewed research packet before any experiment or claim is made.",
+    "customizable_for": "Scientific research, engineering investigations, product discovery, policy analysis, literature synthesis, and experiment planning.",
+    "how_it_works": "Frames the goal, retrieves local and bounded public evidence, generates hypotheses, runs skeptical and novelty review, plans experiments and benchmarks, and drafts a review-only brief.",
+    "input": "Research goal, domain, question, constraints, seed hypotheses, and an approved local input folder.",
+    "output": "Research packet with evidence ledger, ranked hypotheses, critiques, experiment concepts, evidence gaps, and a Markdown brief.",
+    "problem": "Research teams need to explore competing explanations while preserving evidence and human control over experiments and public claims.",
+    "runtime_features": [
+      "local and user-document RAG",
+      "privacy-safe public research",
+      "specialized research roles",
+      "generation, reflection, ranking, evolution, proximity, and meta-review loop",
+      "adversarial hypothesis review",
+      "experiment and benchmark planning",
+      "human review gate"
+    ],
+    "simulation_type": "Bounded multi-agent research workflow with evidence evaluation and adversarial hypothesis review.",
+    "target_users": "Researchers, scientists, engineers, analysts, and research leads."
+  }
+}

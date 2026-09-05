@@ -1,0 +1,116 @@
+{
+  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/execution.schema.json",
+  "policies": {
+    "recovery_mode": "local_restart"
+  },
+  "type": "batch",
+  "job_name": "software-architecture-advisor",
+  "requirements": {
+    "cpu": {
+      "min_cores": 8
+    },
+    "memory": {
+      "min_gb": 48
+    },
+    "disk": {
+      "min_gb": 16
+    },
+    "gpu": {
+      "min_count": 0
+    },
+    "network": {
+      "egress": "forbidden",
+      "loopback_only": true
+    },
+    "local_model": {
+      "required": true,
+      "provider": "docker_model_runner",
+      "model": "medium",
+      "minimum_host_memory_gb": 48,
+      "preinstalled_only": true
+    }
+  },
+  "runtime": {
+    "models": {
+      "primary": {
+        "provider": "docker_model_runner",
+        "backend": "llama.cpp",
+        "model": "medium",
+        "runtime_model": "medium",
+        "context_size": 32768,
+        "required": true,
+        "install_mode": "workflow_node",
+        "type": "llm"
+      }
+    }
+  },
+  "defaults": {
+    "worker": {
+      "with": {
+        "stereotype": "internal_write_worker",
+        "image": "mirror-neuron/software-architecture-advisor:local",
+        "upload_paths": [
+          {
+            "source": "domain",
+            "target": "domain"
+          },
+          {
+            "source": "examples",
+            "target": "examples"
+          }
+        ]
+      }
+    }
+  },
+  "agents": {
+    "registry": {
+      "source_intake_analyst": {
+        "handler": "agents.source_intake_analyst",
+        "role": "Read-only Source Intake Analyst"
+      },
+      "codebase_mapper": {
+        "handler": "agents.codebase_mapper",
+        "role": "Architecture Graph Mapper"
+      },
+      "architecture_reviewer": {
+        "handler": "agents.architecture_reviewer",
+        "role": "Evidence-grounded Architecture Reviewer"
+      },
+      "improvement_prompt_author": {
+        "handler": "agents.improvement_prompt_author",
+        "role": "Implementation Prompt Author"
+      },
+      "architecture_advice_auditor": {
+        "handler": "agents.architecture_advice_auditor",
+        "role": "Architecture Advice Auditor"
+      },
+      "architecture_report_writer": {
+        "handler": "agents.architecture_report_writer",
+        "role": "Read-only Architecture Report Writer"
+      },
+      "architecture_artifact_publisher": {
+        "handler": "agents.architecture_artifact_publisher",
+        "role": "Deterministic Architecture Artifact Publisher"
+      }
+    }
+  },
+  "workers": {
+    "groups": [
+      {
+        "steps": [
+          "resolve_software_source",
+          "map_architecture_evidence",
+          "assess_architecture_improvements",
+          "author_implementation_prompts",
+          "draft_architecture_report",
+          "audit_architecture_advice",
+          "publish_architecture_advice"
+        ],
+        "with": {
+          "stereotype": "internal_write_worker"
+        }
+      }
+    ]
+  },
+  "mode": "compiled"
+}

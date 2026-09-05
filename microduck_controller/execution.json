@@ -1,0 +1,171 @@
+{
+  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/execution.schema.json",
+  "service": {
+    "enabled": true,
+    "run_until": "manual_stop",
+    "manual_close": "Pause or stop the Microduck Controller in OtterDesk; Core terminates the owned service worker and browser bridge."
+  },
+  "type": "service",
+  "job_name": "microduck-controller",
+  "requirements": {
+    "cpu": {
+      "min_cores": 2
+    },
+    "memory": {
+      "min_gb": 2
+    },
+    "disk": {
+      "min_gb": 2
+    },
+    "gpu": {
+      "min_count": 0
+    },
+    "network": {
+      "egress": "browser_cdn_required"
+    }
+  },
+  "agents": {
+    "registry": {
+      "microduck_service": {
+        "handler": "agents.microduck_service",
+        "role": "Browser-backed Microduck Simulation Service"
+      },
+      "finalize": {
+        "handler": "agents.finalize",
+        "role": "Microduck Service Finalizer"
+      }
+    },
+    "auxiliary_entrypoints": [
+      "microduck_web_ui_registrar"
+    ],
+    "extra_nodes": [
+      {
+        "node_id": "microduck_web_ui_registrar",
+        "type": "generic",
+        "agent_type": "executor",
+        "alias": "microduck_web_ui_registrar",
+        "display_name": "Microduck Web UI Registrar",
+        "resources": {
+          "ports": [
+            {
+              "label": "microduck_mcp",
+              "port": 62008,
+              "protocol": "http"
+            }
+          ]
+        },
+        "services": [
+          {
+            "name": "microduck-controller-mcp",
+            "address": "127.0.0.1",
+            "port": 62008,
+            "origin": "internal",
+            "tags": [
+              "mcp",
+              "robot-control",
+              "microduck-controller"
+            ],
+            "meta": {
+              "path": "/mcp",
+              "manual_uri": "microduck://manual",
+              "schema_version": "mn.microduck.mcp.v1"
+            },
+            "checks": [
+              {
+                "name": "microduck-mcp-http",
+                "type": "http",
+                "address": "127.0.0.1",
+                "port": 62008,
+                "path": "/health",
+                "expected_status": 200,
+                "interval_ms": 1000,
+                "timeout_ms": 1000,
+                "failures_before_critical": 3,
+                "required": true
+              }
+            ]
+          }
+        ],
+        "config": {
+          "command": [
+            "python3.11",
+            "microduck_web_ui_registrar.py"
+          ],
+          "environment": {},
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "output_message_type": null,
+          "pool": "default",
+          "pool_slots": 1,
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "tty": false,
+          "upload_as": ".",
+          "upload_path": "services",
+          "workdir": "/sandbox/job"
+        }
+      }
+    ]
+  },
+  "defaults": {
+    "worker": {
+      "with": {
+        "stereotype": "internal_write_worker"
+      }
+    }
+  },
+  "workers": {
+    "groups": [
+      {
+        "steps": [
+          "run_microduck_service"
+        ],
+        "uses": "mn-agents.worker.python_docker@1",
+        "with": {
+          "stereotype": [
+            "blueprint_docker_worker",
+            "internal_write_worker"
+          ],
+          "docker_worker_image": "docker_worker",
+          "image": "mirror-neuron/microduck-controller:local",
+          "dockerfile": "docker_worker/Dockerfile",
+          "build_context": ".",
+          "workdir": "/app",
+          "timeout_seconds": 86400,
+          "upload_paths": [
+            {
+              "source": "agents",
+              "target": "agents"
+            },
+            {
+              "source": "domain",
+              "target": "domain"
+            },
+            {
+              "source": "services",
+              "target": "services"
+            }
+          ]
+        }
+      },
+      {
+        "steps": [
+          "finalize_service"
+        ],
+        "uses": "mn-agents.worker.python_docker@1",
+        "with": {
+          "stereotype": [
+            "blueprint_docker_worker",
+            "internal_write_worker"
+          ],
+          "docker_worker_image": "docker_worker",
+          "image": "mirror-neuron/microduck-controller:local",
+          "dockerfile": "docker_worker/Dockerfile",
+          "build_context": ".",
+          "workdir": "/app"
+        }
+      }
+    ]
+  },
+  "mode": "compiled"
+}

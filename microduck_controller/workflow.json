@@ -1,0 +1,60 @@
+{
+  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/workflow.schema.json",
+  "workflow_id": "microduck_controller_v1",
+  "mode": "static_dag",
+  "execution": {
+    "strategy": "serial",
+    "max_parallel_steps": 1
+  },
+  "dynamic": {
+    "enabled": false
+  },
+  "steps": [
+    {
+      "id": "run_microduck_service",
+      "kind": "source",
+      "label": "Run Microduck Simulation Service",
+      "goal": "Keep the browser simulator, WebSocket bridge, and bounded MCP endpoint available until the service is deliberately stopped.",
+      "needs": [],
+      "run": {
+        "definition": "steps.run_microduck_service"
+      },
+      "control": {
+        "timeout_seconds": 86400
+      }
+    },
+    {
+      "id": "finalize_service",
+      "kind": "sink",
+      "label": "Finalize Microduck Service",
+      "goal": "Record a deliberate service stop without starting or replaying movement.",
+      "needs": [
+        "run_microduck_service"
+      ],
+      "run": {
+        "definition": "steps.finalize_service"
+      },
+      "control": {
+        "timeout_seconds": 30
+      }
+    }
+  ],
+  "defaults": {
+    "step": {
+      "control": {
+        "required": true,
+        "failure_policy": "fail_workflow",
+        "retry": {
+          "max_attempts": 1,
+          "backoff_seconds": 1,
+          "backoff_multiplier": 2,
+          "jitter": 0
+        },
+        "uncertainty": {
+          "min_confidence": 0,
+          "on_low_confidence": "continue_with_warning"
+        }
+      }
+    }
+  }
+}

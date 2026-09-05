@@ -1,0 +1,13 @@
+{
+  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/extensions/rag.schema.json",
+  "backend": "milvus_lite",
+  "enabled": true,
+  "index_on_startup": true,
+  "knowledge_dir": "knowledge",
+  "required": false,
+  "chunk_size": 700,
+  "chunk_overlap": 70,
+  "top_k": 3,
+  "max_context_chars": 1800,
+  "namespace": ""
+}

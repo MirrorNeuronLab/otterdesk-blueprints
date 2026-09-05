@@ -1,0 +1,19 @@
+{
+  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/dependencies.schema.json",
+  "skills": [
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mirrorneuron-web-ui-skill",
+      "version": "1.3.22"
+    }
+  ],
+  "agents": [
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mn-prototype-supervised-service-agent",
+      "version": "1.3.9"
+    }
+  ]
+}

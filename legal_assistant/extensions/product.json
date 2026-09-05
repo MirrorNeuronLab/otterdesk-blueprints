@@ -1,0 +1,64 @@
+{
+  "$schema": "https://mirrorneuron.dev/schemas/blueprint/v1/extensions/product.schema.json",
+  "category": "Legal",
+  "intent": {
+    "customizable_for": "Individual legal intake, small-business invoice review, vendor contract review, CLM intake, payable approval support, and attorney review preparation.",
+    "problem": "Personal and small-business legal work often mixes payable documents with contracts and obligations; users need one local review assistant that keeps invoice facts, contract clauses, evidence, and approval boundaries together.",
+    "safety": {
+      "allowed_decisions": [
+        "approve",
+        "revise",
+        "reject"
+      ],
+      "blocked_actions": [
+        "send_legal_advice",
+        "approve_or_sign_contract",
+        "redline_contract_as_final",
+        "post_invoice_to_erp",
+        "submit_payment_instruction",
+        "email_vendor_or_counterparty_without_review",
+        "share_privileged_or_private_documents_externally"
+      ],
+      "decision_event": "human_decision_applied",
+      "default_action": "reject",
+      "enabled": true,
+      "events": [
+        "human_notice",
+        "human_input_requested",
+        "human_input_received",
+        "human_input_timeout",
+        "human_decision_applied"
+      ],
+      "mode": "approval_required",
+      "reason": "Human and attorney review is required before relying on legal conclusions, approving payments, signing contracts, contacting counterparties, or sharing private/privileged documents.",
+      "request_event": "human_input_requested",
+      "response_event": "human_input_received",
+      "timeout_event": "human_input_timeout",
+      "timeout_seconds": 3600
+    },
+    "target_users": "Individuals, founders, small-business operators, legal operations teams, in-house reviewers, and attorneys preparing first-pass document packets."
+  },
+  "product": {
+    "agent_role": "Local legal document assistant that extracts invoice and contract evidence while keeping conclusions review-only.",
+    "benefit": "Combines payable extraction and contract clause review into one local, source-grounded review packet.",
+    "customizable_for": "Individual legal intake, small-business invoice review, vendor contract review, CLM intake, payable approval support, and attorney review preparation.",
+    "how_it_works": "Stages a local document folder, extracts embedded text, flags OCR-required documents, extracts invoice fields, maps contract clauses, compares playbook expectations, and writes a human-review packet.",
+    "input": "Invoices, bills, contracts, clause notes, labels, and supporting files.",
+    "output": "Review-only legal_assistant_report with invoice extraction, contract clause review, issue register, action ledger, and Markdown report output.",
+    "problem": "Personal and small-business legal work often mixes payable documents with contracts and obligations; users need one local review assistant that keeps invoice facts, contract clauses, evidence, and approval boundaries together.",
+    "runtime_features": [
+      "local document folder intake",
+      "shared llm_ocr_skill OCR fallback",
+      "invoice and bill field extraction",
+      "contract clause extraction",
+      "playbook comparison",
+      "human approval policy",
+      "product input contract",
+      "transparent run status",
+      "artifact records",
+      "run-store observability dashboard"
+    ],
+    "simulation_type": "Document automation workflow with local OCR and review-gated legal/payable extraction.",
+    "target_users": "Individuals, founders, small-business operators, legal operations teams, in-house reviewers, and attorneys preparing first-pass document packets."
+  }
+}
