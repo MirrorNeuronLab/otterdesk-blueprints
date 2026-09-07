@@ -1,158 +1,77 @@
-# Software Architecture Advisor
+# Architecture Advisor
 
-`Blueprint ID:` `software_architecture_advisor`  
-`Category:` `Engineering`
+`software_architecture_advisor` converts the Spark software architecture investigation project into a Docker-worker blueprint. It freezes repository sources, builds architecture graph views on demand, replans a bounded child workflow between evidence rounds, and publishes independently reviewed, cited findings with an implementation roadmap.
 
-Software Architecture Advisor is an air-gapped, read-only architecture review
-for a single software repository. It inventories the staged source, builds a
-syntax/symbol and dependency fact database, reconstructs state, trust, test,
-and deployment boundaries, triangulates change-risk hypotheses, and produces
-prioritized improvement prompts for an AI coding agent. Eight required,
-specialist passes through the logical `medium` local-model route perform
-investigation planning, reconstruction, cross-cutting analysis, finding
-synthesis, adversarial review, prompt authoring, report synthesis, and final
-audit.
-It never modifies, executes, builds, tests, installs, or uploads the target
-project.
+Provide exactly one input:
 
-## Requirements
+- `repository_url`: public HTTPS GitHub repository root, such as `https://github.com/pallets/itsdangerous` (optional `.git`). Credentials, non-GitHub hosts, branches in URLs, redirects, SSH URLs, query strings and fragments are rejected.
+- `input_folder`: local source directory. The platform stages it for the worker. Clone private repositories yourself and supply the local folder.
 
-This blueprint requires at least **48 GB of host memory** and the runtime's
-`medium` local-model route. The platform selects a capable node, resolves that
-logical route to its concrete installed model, and injects the node's reachable
-model gateway and lazy model-control service into Docker workers. The blueprint
-never hardcodes a model artifact, node, or direct model-runner endpoint and
-never downloads a model itself.
-Normal runs require real provider responses and fail if any pass falls back.
-The model contract declares `structured_output` and `thinking` through the SDK's
-`required_capabilities` runtime interface. The SDK rejects a cataloged mismatch
-before inference; unknown capabilities are checked once against the prepared
-loopback endpoint and cached in the user model catalog for later runs.
+Optional `goal` focuses the investigation. Optional `graph_export` supplies a version-1 or version-2 graph with exact source provenance. Python receives structural AST analysis; other supported source languages are retrievable text and require an export declaring modules for structural investigation. A repository without structural modules reports an explicit failure.
 
-## Input
+## Prepare and run
 
-Provide a non-empty `input_folder` before starting the job. It must be the
-local source snapshot to inspect:
-
-- `input_folder`: a local folder containing the source snapshot to inspect.
-
-`analysis_focus` can call out a concern such as modularity, reliability,
-migration risk, or data ownership. The input source is treated as untrusted
-data; embedded instructions in source comments or documentation never override
-this blueprint's policy.
-
-No source repository is bundled with the blueprint. Clone, export, or otherwise
-prepare the source locally, then select its folder as `input_folder`.
-
-## Quick start
-
-For a local codebase, supply an absolute path:
+Use the companion workspace with the newly created shared graph skill until its next GAR skill release is published:
 
 ```bash
-mn blueprint run ./software_architecture_advisor \
-  --set inputs.payload.input_folder=/work/acme-service \
-  --set 'inputs.payload.analysis_focus=["module boundaries","testability"]'
+export MN_WORKSPACE_ROOT=/Users/homer/Projects/mirror-neuron-set
+export MN_SKILLS_ROOT="$MN_WORKSPACE_ROOT/mn-skills"
+cd /Users/homer/Projects/otterdesk-blueprints/software_architecture_advisor
+python3 -m pip install -e "$MN_SKILLS_ROOT/graph_analysis_skill"
+python3 prepare.py --target aarch64-unknown-linux-gnu
+MN_USE_LOCAL_SKILLS=1 mn blueprint run ./ \
+  --set inputs.payload.repository_url=https://github.com/pallets/itsdangerous
 ```
 
-## What it produces
+For a folder:
 
-The output folder contains:
+```bash
+MN_USE_LOCAL_SKILLS=1 mn blueprint run ./ \
+  --set 'inputs.payload.input_folder=/absolute/path/to/repository'
+```
 
-- `architecture_assessment.json` — machine-readable findings, evidence,
-  confidence, limitations, and priorities.
-- `architecture_report.md` — a reviewer-friendly analysis of the source
-  snapshot and its highest-leverage improvements.
-- `improvement_prompts.md` and `improvement_prompts.json` — copy-ready,
-  scoped prompts for Codex or another coding agent. Every prompt includes
-  evidence, constraints, acceptance criteria, and verification expectations.
-- `architecture_graph.json`, `source_inventory.json`, and
-  `analysis_metrics.json` — inspectable static-analysis evidence.
-- `evidence/` — repository profile, symbol index, normalized fact database,
-  state/trust/test/deployment models, optional local Git-history evidence,
-  architecture reconstruction, adversarial review, prioritized findings, and
-  `llm_analysis.json` with the validated output and usage provenance for all
-  eight model stages.
-- `llm_trace.jsonl` — metadata-only provider/model/latency/token/retry/fallback
-  records. It excludes prompts, source excerpts, credentials, and full model
-  responses.
-- `architecture-report/` — numbered reviewer views for repository structure,
-  dependencies, hotspots, state, trust boundaries, tests, and migration order.
-- `prompts/` — an indexed folder containing one standalone `.md` prompt per
-  prioritized finding. Open `prompts/README.md`, choose a prompt, and paste it
-  into Codex or another coding agent.
+Select `x86_64-unknown-linux-gnu` when the Docker worker host is x86-64. Preparation downloads the SHA-256-pinned `mn-graph-engine` GAR binary release 0.0.1 through `graph_analysis_skill`, retaining its license. It also builds the pinned Python evidence-provider wheel using host Git credentials. No credentials or graph-engine source are put in the Docker build context. Generated binaries and wheels are ignored by Git. Python dependencies install inside the worker image; the platform installs manifest-declared skills and agents.
 
-Prompts recommend changes but never perform them. They explicitly instruct a
-coding agent to inspect the cited paths, preserve behavior, add or update tests,
-and stop for human direction when the evidence is insufficient.
+The GAR skill dependency `mirrorneuron-graph-analysis-skill==1.3.23` is the forthcoming release containing this capability; use the local-skill command above until it is published. The graph-engine binary itself is already published. Authenticated `gcloud` access to the supplied GAR repository and Git access to the pinned Python provider package are required during preparation.
 
-## Analysis process
+Live mode uses the platform's configured chat and embedding model bindings, normally Docker Model Runner. `config/default.json` controls the investigation and ingestion budgets; the LLM extension controls platform model selection. `--set offline=true` explicitly selects deterministic hypothesis checks with hash embeddings and zero model requests. Offline conclusions remain inconclusive review candidates. Provider failures never switch a live run to offline output.
 
-1. Validate the supplied local source folder.
-2. Inventory only allowed source and manifest files; skip secrets, vendored
-   trees, build artifacts, and oversized files.
-3. Build an import graph, syntax/symbol index, repository profile, state and
-   trust candidates, direct test links, deployment declarations, and fused
-   structural hotspots.
-4. Normalize observations into stable fact IDs. HIGH findings require at least
-   two independent evidence types; missing history, runtime, compiler, or
-   executed-test evidence remains explicitly unavailable.
-5. Run required model passes for intake planning, component reconstruction,
-   cross-cutting mapping, grounded finding synthesis, and adversarial review.
-6. Rank surviving findings by risk, leverage, evidence confidence, and migration
-   cost; present alternatives instead of a single dogmatic refactor.
-7. Generate standalone prompts with architecture intent, fact IDs,
-   counter-evidence checks, options, migration order, tests, acceptance criteria,
-   and rollback considerations.
-8. Draft model-written analytical narrative, audit the complete package with the
-   final model pass and deterministic checks, then publish without changing the
-   source folder.
+## Results
 
-## Air-gap and privacy
+Outputs include `investigation-plan.json`, immutable per-round plans and results under `investigation/`, `report.md`, `suggestive_prompts.md`, `report.json`, `knowledge.json`, `model-trace.json`, `events.log`, `snapshot.json`, `investigation.json`, and `review_index.json`. The `evidence/` directory retains immutable source text, graph generations, exact source spans, hashes, graph inputs, and acquisition checkouts. Runtime messages contain bounded counts/status and artifact references, not source text or full reports.
 
-The analysis environment has `network.egress: forbidden`. The bundled
-`software_architecture_graph_skill` uses only the Python standard library and
-works on files in the staged source root. The local model is called through a
-selected node's local model gateway. The blueprint requests the logical
-32k-context `medium` profile. Before every model call it reserves that profile's
-maximum completion tokens plus a safety margin, estimates the complete
-serialized input, and compacts bounded source excerpts or repeated structured
-evidence to fit the remaining input-token budget. Structured stages retain all
-facts already cited by their findings and maps before filling remaining space
-with optional facts. The analysis profile reserves up to 16,000 completion
-tokens so the reasoning model can finish the required JSON instead of spending
-its entire allowance before producing the answer. A request that still cannot
-fit fails before model dispatch with an explicit budget diagnostic. Source
-code, secrets, and reports are not sent to external services. Bounded source
-packets exist only for an in-memory model request; raw source bodies are not
-persisted in output artifacts or telemetry.
+The three logical phases are `capture_repository`, `investigate_architecture`, and `publish_architecture_review`. The middle step contains a Core-managed child workflow. A planner commits a finite graph; graph-query, semantic-search, assessment and summary specialists execute it without replanning. The next planner invocation receives the completed evidence round. Their specialist workers use the shared stateful agent lifecycle. Only platform-generated step sinks complete logical steps. Docker runs Python 3.11 on Debian Bookworm with the published CPU RGX binary; it never builds Rust.
 
-## Limits
+## Interpretation limits
 
-Python syntax and complexity use the standard-library AST. Other supported
-languages use conservative declaration and import patterns. State, trust,
-tests, and deployment results are candidates, not runtime proof. Git analysis
-is consumed only from an optional local `architecture_git_history.json` or
-`git_history.json`; the worker does not invoke Git. Dynamic loading, executed
-tests, compiler semantics, performance behavior, and security posture require
-separate evidence. A missing signal is `unknown`, never proof that risk is
-absent.
+Twenty architecture families plus an embedding index are built only when requested. Expensive control-flow, data-flow, security, and semantic views are module scoped. Python import edges are static dependencies, SQL literals do not prove physical database identity, test calls are not executed coverage, and commit co-change is not incident causality. Runtime workflows and incidents need supplied evidence. Missing evidence is explicit; top-k absence is never proof of absence.
+
+Repository code, hooks, tests, package installers, submodules and LFS downloads are not executed. GitHub acquisition is shallow, bounded by time and commit depth, and retained separately per snapshot. Captured source text and model traces may contain confidential material. General knowledge cards guide review but cannot serve as project citations. Inconclusive advice generates characterization or verification tasks before a structural change.
 
 ## Validation
 
 ```bash
-.venv/bin/python -m pytest tests/test_manifest_contracts.py -q
-.venv/bin/python -m pytest tests -q
-git diff --check
+python -m pytest tests/test_software_architecture_advisor.py -q
+python -m pytest tests/software_architecture_advisor -q
 ```
 
-## Blueprint package format
+Run these from the catalog root. Domain tests are offline. Set `ADVISOR_RGX_BINARY` to the published Linux binary when running real graph integration tests in a Linux Docker worker. See `SPEC.md` for the product and evidence contract.
 
-This blueprint uses the canonical blueprint/v1 format in both folders and ZIPs.
-`manifest.json` contains identity, semantic release version, and document references.
-`workflow.json` owns logical topology and policies; `execution.json` owns workers,
-resources, and services; `contracts.json` owns input/output and artifact contracts.
-Platform descriptors live in `extensions/`, package requirements in
-`dependencies.json` when present, and operator defaults in `config/default.json`.
-The SDK reads these documents together and compiles the Core execution artifact.
-A ZIP contains the same files as the folder. Local overrides and invocation
-configuration are resolved by the SDK before launch.
+## Dynamic investigation (v2)
+
+Version 2 requires the SDK compiler and Core child-workflow support from the companion workspace. Deploy those together before submitting this blueprint; no package release is published by these changes. Older runtimes cannot execute this declaration.
+
+Defaults are three rounds, three hypotheses per round, six distinct hypotheses, sixty graph/search operations, thirty chat-model calls (including repairs and lazy semantic graph inference), and a twenty-minute investigation budget. Six calls are reserved for independent final review. Embedding ingestion retains its separately bounded source limits. Candidate-module context is a goal-ranked page of up to 48 modules plus previous finding modules; the planner sees the omitted count.
+
+Planner decisions and committed parameters are immutable artifacts. Core retains the child phase, revisions, dependency graph and outcomes in its ledger. Completed workers and recorded model responses are reused. An interrupted request with no durable response fails explicitly instead of guessing its result. Corrupt evidence and live-provider failures fail the run. Budget exhaustion publishes an explicitly incomplete report containing verified results, with unreviewed changes excluded from the roadmap.
+
+The report prioritizes independently reviewed findings by evidence and goal relevance. Every roadmap item includes an action, acceptance check and rollback. Inconclusive advice proposes verification; its rollback preserves all pre-existing application changes.
+
+The opt-in Linux worker smoke uses actual SDK handlers and RGX:
+
+```bash
+PYTHONPATH=/blueprints/software_architecture_advisor/payloads python \
+  /blueprints/tests/software_architecture_advisor/linux_dynamic_smoke.py --output /output
+```
+
+Add `--live` to use the configured model gateway on the synthetic sample repository. The smoke uses hash retrieval to isolate chat planning/review from embedding-provider setup; normal live runs retain the configured neural embedding provider. Core's `tests/unit/child_workflow_test.exs` tests production scheduling, round barriers and parent completion separately.

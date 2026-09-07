@@ -1,0 +1,162 @@
+[
+  {
+    "id": "method",
+    "title": "Planning examination analysis reporting",
+    "text": "Separate collection, examination, analysis and reporting. Describe methods and limitations. A methodical examination may justify no conclusion. Preserve the distinction between data extracted and the analyst\u2019s interpretation.",
+    "source_url": "https://csrc.nist.gov/pubs/sp/800/86/final",
+    "source_section": "NIST SP 800-86, sections 3.1\u20133.4",
+    "reviewed_at": "2026-09-06",
+    "jurisdiction": "US federal background; applicability and historical edition unverified",
+    "kind": "curated paraphrase"
+  },
+  {
+    "id": "preservation",
+    "title": "Digital evidence authenticity preservation hashes",
+    "text": "Preserve original evidence and document acquisition and processing. Hashes help identify changes in collected bytes; they do not independently authenticate the original author, sender, event or truth of a statement.",
+    "source_url": "https://csrc.nist.gov/pubs/sp/800/86/final",
+    "source_section": "NIST SP 800-86, sections 3.1\u20133.2",
+    "reviewed_at": "2026-09-06",
+    "jurisdiction": "US federal background; applicability and historical edition unverified",
+    "kind": "curated paraphrase"
+  },
+  {
+    "id": "chronology",
+    "title": "Chronology timestamps conflicting dates timezone",
+    "text": "Record timestamp origin and timezone. Distinguish message date, claimed event date and file timestamps. Clock differences and copied files can affect interpretation. Preserve conflicting dates rather than choosing a convenient timeline.",
+    "source_url": "https://csrc.nist.gov/pubs/sp/800/86/final",
+    "source_section": "NIST SP 800-86, section 5.1",
+    "reviewed_at": "2026-09-06",
+    "jurisdiction": "US federal background; applicability and historical edition unverified",
+    "kind": "curated paraphrase"
+  },
+  {
+    "id": "reporting",
+    "title": "Report conclusions uncertainty reproducibility",
+    "text": "Present the examination process and analysis results clearly, including uncertainty and alternative explanations. Explain why additional examination would be useful and identify what the available data cannot establish.",
+    "source_url": "https://csrc.nist.gov/pubs/sp/800/86/final",
+    "source_section": "NIST SP 800-86, section 3.4",
+    "reviewed_at": "2026-09-06",
+    "jurisdiction": "US federal background; applicability and historical edition unverified",
+    "kind": "curated paraphrase"
+  },
+  {
+    "id": "counter",
+    "title": "Counter evidence exculpatory alternative hypothesis planning",
+    "text": "Federal prosecution guidance addresses exculpatory and impeachment information, including information inconsistent with a charged element. For this evidence-assistance workflow, actively search for material that challenges a theory instead of only accumulating support. This is an investigative review practice, not a determination of disclosure obligations.",
+    "source_url": "https://www.justice.gov/jm/jm-9-5000-issues-related-trials-and-other-court-proceedings",
+    "source_section": "Justice Manual 9-5.001",
+    "reviewed_at": "2026-09-06",
+    "jurisdiction": "US federal background; applicability and historical edition unverified",
+    "kind": "curated paraphrase"
+  },
+  {
+    "id": "credibility",
+    "title": "Witness credibility conflicting statements source reliability",
+    "text": "Information undermining evidence accuracy or forensic conclusions can matter. Preserve inconsistent statements, limitations of examinations, and reliability concerns. Attribute expert assertions to their source and distinguish those assertions from analyses actually performed by this workflow.",
+    "source_url": "https://www.justice.gov/jm/jm-9-5000-issues-related-trials-and-other-court-proceedings",
+    "source_section": "Justice Manual 9-5.001 and 9-5.003",
+    "reviewed_at": "2026-09-06",
+    "jurisdiction": "US federal background; applicability and historical edition unverified",
+    "kind": "curated paraphrase"
+  },
+  {
+    "id": "discovery",
+    "title": "Completeness electronic correspondence context",
+    "text": "Electronic communications can contain relevant substantive information. Preserve their context and provenance during review. A retrieved excerpt or a search with no matches is not a complete review of all correspondence.",
+    "source_url": "https://www.justice.gov/jm/jm-9-5000-issues-related-trials-and-other-court-proceedings",
+    "source_section": "Justice Manual 9-5.004",
+    "reviewed_at": "2026-09-06",
+    "jurisdiction": "US federal background; applicability and historical edition unverified",
+    "kind": "curated paraphrase"
+  },
+  {
+    "id": "authentication",
+    "title": "Authentication identity aliases account attribution",
+    "text": "Authentication concerns whether an item is what its proponent claims. Account labels, initials and matching aliases are leads, not conclusive proof of personal authorship. Identify what independent authentication would still be needed.",
+    "source_url": "https://www.uscourts.gov/forms-rules/current-rules-practice-procedure/federal-rules-evidence",
+    "source_section": "Federal Rules of Evidence, Rule 901; verify applicable edition",
+    "reviewed_at": "2026-09-06",
+    "jurisdiction": "US federal background; applicability and historical edition unverified",
+    "kind": "curated paraphrase"
+  },
+  {
+    "id": "context",
+    "title": "Completeness exact quotations passage context",
+    "text": "Evaluate excerpts in context. Retrieve surrounding statements when an isolated quotation could mislead. Preserve qualifiers, denials and contradictions; distinguish original wording from a translated or decoded representation.",
+    "source_url": "https://www.uscourts.gov/forms-rules/current-rules-practice-procedure/federal-rules-evidence",
+    "source_section": "Federal Rules of Evidence, Rule 106; verify applicable edition",
+    "reviewed_at": "2026-09-06",
+    "jurisdiction": "US federal background; applicability and historical edition unverified",
+    "kind": "curated paraphrase"
+  },
+  {
+    "id": "opinion",
+    "title": "Expert opinion malware technical inference limitations",
+    "text": "Separate specialized source opinions from observed facts. Describe the basis and limits of technical interpretations. Code labels and comments do not demonstrate execution, deployment, authorship or real-world consequences.",
+    "source_url": "https://www.uscourts.gov/forms-rules/current-rules-practice-procedure/federal-rules-evidence",
+    "source_section": "Federal Rules of Evidence, Rule 702; verify applicable edition",
+    "reviewed_at": "2026-09-06",
+    "jurisdiction": "US federal background; applicability and historical edition unverified",
+    "kind": "curated paraphrase"
+  },
+  {
+    "id": "privilege",
+    "title": "Privilege lawyer counsel communications handling",
+    "text": "Privilege requires applicable-law and context review. Flag potentially privileged communications for authorized human determination. Seeking legal advice must not itself be treated as evidence of guilt.",
+    "source_url": "https://www.uscourts.gov/forms-rules/current-rules-practice-procedure/federal-rules-evidence",
+    "source_section": "Federal Rules of Evidence, Rule 501; verify applicable edition",
+    "reviewed_at": "2026-09-06",
+    "jurisdiction": "US federal background; applicability and historical edition unverified",
+    "kind": "curated paraphrase"
+  },
+  {
+    "id": "finance",
+    "title": "Financial calculation money transfer motive ordinary expenses",
+    "text": "Recompute totals from complete recorded rows using decimal arithmetic. Separate budget, invoice, payment instruction, completed transfer, account ownership and confirmed proceeds. Ordinary consulting, travel and security spending can explain expenditures. Do not infer illicit money movement from a category or location.",
+    "source_url": "blueprint:litigation_analyst/policy",
+    "source_section": "Evidence assistance product policy v1",
+    "reviewed_at": "2026-09-06",
+    "jurisdiction": "Methodology only; no legal determination",
+    "kind": "blueprint policy"
+  },
+  {
+    "id": "synthesis",
+    "title": "Synthesis findings executive summary report review",
+    "text": "Each finding must link exact evidence and distinguish source statements from inferred assessment. Explain support, contradiction and an ordinary alternative. Group identical copies as one underlying record. Do not infer guilt from graph centrality or communications. Unsupported conclusions stay out of the executive summary.",
+    "source_url": "blueprint:litigation_analyst/policy",
+    "source_section": "Evidence assistance product policy v1",
+    "reviewed_at": "2026-09-06",
+    "jurisdiction": "Methodology only; no legal determination",
+    "kind": "blueprint policy"
+  },
+  {
+    "id": "scope",
+    "title": "Jurisdiction legal framework authority historical applicability",
+    "text": "No governing jurisdiction has been established by default. Guidance is background methodology, not case evidence or permission to contact people or acquire material. Do not assert legal elements, culpability, admissibility or charging recommendations without an applicable framework and qualified review. Current guidance does not establish historical law.",
+    "source_url": "blueprint:litigation_analyst/policy",
+    "source_section": "Evidence assistance product policy v1",
+    "reviewed_at": "2026-09-06",
+    "jurisdiction": "Methodology only; no legal determination",
+    "kind": "blueprint policy"
+  },
+  {
+    "id": "planning",
+    "title": "Planning enquiry execution stop sufficiency coverage",
+    "text": "Review completed plans and accumulated findings. Choose a concrete enquiry, a counter-evidence question and completion criteria. Use graph structure to locate relevant records then retrieve source passages. Stop early when material enquiries are assessed; explicitly defer unresolved issues. Never continue just to spend the available budget.",
+    "source_url": "blueprint:litigation_analyst/policy",
+    "source_section": "Evidence assistance product policy v1",
+    "reviewed_at": "2026-09-06",
+    "jurisdiction": "Methodology only; no legal determination",
+    "kind": "blueprint policy"
+  },
+  {
+    "id": "integrity",
+    "title": "Evidence integrity decoding source code incomplete retrieval",
+    "text": "Decoded text must preserve its input span and reversible transformation. Never execute source code. Placeholder functions and simulations do not establish a deployed mechanism. Flag inconsistent dates, uncertain identities, unreadable records and partial retrieval; never repair these silently.",
+    "source_url": "blueprint:litigation_analyst/policy",
+    "source_section": "Evidence assistance product policy v1",
+    "reviewed_at": "2026-09-06",
+    "jurisdiction": "Methodology only; no legal determination",
+    "kind": "blueprint policy"
+  }
+]

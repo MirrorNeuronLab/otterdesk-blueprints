@@ -32,7 +32,7 @@ def main():
         raise ValueError('prepared engine target does not match; remove the generated engine directory and prepare again')
     wheels = ROOT / 'payloads/docker_worker/python_dependencies'
     wheels.mkdir(parents=True, exist_ok=True)
-    subprocess.run([sys.executable, '-m', 'pip', 'wheel', '--no-deps', '--wheel-dir', str(wheels), '-r', str(ROOT / 'payloads/requirements.txt')], check=True, timeout=300)
+    subprocess.run([sys.executable, '-m', 'pip', 'wheel', '--no-deps', '--wheel-dir', str(wheels), '-r', str(ROOT / 'preparation-requirements.txt')], check=True, timeout=300)
     result = ROOT / 'prepared/inputs.json'
     result.parent.mkdir(exist_ok=True)
     result.write_text(json.dumps({'input_folder': str(folder)}, indent=2)+'\n')

@@ -1,35 +1,27 @@
 {
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/manifest.schema.json",
   "id": "software_architecture_advisor",
-  "name": "Software Architecture Advisor",
-  "version": "1.0.0",
-  "description": "Software Architecture Advisor is a read-only, air-gapped software-architecture co-worker. Give it a local source folder; it maps structural evidence and writes an architecture assessment plus copy-ready, implementation-safe prompts to the output folder without changing source code.",
+  "name": "Architecture Advisor",
+  "version": "2.0.0",
+  "description": "Reviews repository architecture through runtime-planned deterministic child workflows, cited counter-evidence, independent review and prioritized implementation advice.",
   "workflow": "workflow.json",
   "execution": "execution.json",
   "contracts": "contracts.json",
   "config": "config/default.json",
+  "dependencies": "dependencies.json",
   "license": "LICENSE.md",
   "terms": "TERM.md",
-  "dependencies": "dependencies.json",
   "extensions": {
-    "mn.airgap": {
-      "file": "extensions/airgap.json",
-      "required": true
-    },
-    "mn.context": {
-      "file": "extensions/context.json",
-      "required": true
-    },
-    "mn.llm": {
-      "file": "extensions/llm.json",
-      "required": true
-    },
     "mn.product": {
       "file": "extensions/product.json",
       "required": false
     },
     "mn.response": {
       "file": "extensions/response.json",
+      "required": true
+    },
+    "mn.llm": {
+      "file": "extensions/llm.json",
       "required": true
     },
     "mn.ui": {

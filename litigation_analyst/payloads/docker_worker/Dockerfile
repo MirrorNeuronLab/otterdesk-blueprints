@@ -4,8 +4,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends git ca-certific
 COPY docker_worker/python_dependencies/ /tmp/python_dependencies/
 RUN pip install --no-cache-dir /tmp/python_dependencies/*.whl
 COPY docker_worker/engine/ /opt/mn-graph-engine/
-ENV PATH="/opt/mn-graph-engine/bin:${PATH}"
-RUN rgx --version
+RUN install -m 0755 /opt/mn-graph-engine/bin/rgx /usr/local/bin/rgx && rgx --version
 COPY domain/ /app/domain/
 COPY agents/ /app/agents/
 COPY steps/ /app/steps/

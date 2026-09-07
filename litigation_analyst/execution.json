@@ -41,7 +41,6 @@
         "steps": [
           "prepare_case_sources",
           "build_case_indexes",
-          "investigate_case_evidence",
           "write_review_draft"
         ],
         "uses": "mn-agents.worker.python_docker@1",
@@ -56,6 +55,42 @@
           "build_context": ".",
           "workdir": "/app",
           "timeout_seconds": 3600,
+          "upload_paths": [
+            {
+              "source": "domain",
+              "target": "domain"
+            },
+            {
+              "source": "agents",
+              "target": "agents"
+            },
+            {
+              "source": "steps",
+              "target": "steps"
+            },
+            {
+              "source": "runtime",
+              "target": "runtime"
+            }
+          ]
+        }
+      },
+      {
+        "steps": [
+          "investigate_case_evidence"
+        ],
+        "uses": "mn-agents.worker.python_docker@1",
+        "with": {
+          "stereotype": [
+            "blueprint_docker_worker",
+            "internal_write_worker"
+          ],
+          "docker_worker_image": "docker_worker",
+          "image": "mirror-neuron/litigation-analyst:local",
+          "dockerfile": "docker_worker/Dockerfile",
+          "build_context": ".",
+          "workdir": "/app",
+          "timeout_seconds": 99999,
           "upload_paths": [
             {
               "source": "domain",

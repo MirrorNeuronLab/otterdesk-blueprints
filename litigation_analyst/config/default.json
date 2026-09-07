@@ -5,16 +5,15 @@
       "goal": "Find records relevant to disputed events, financial irregularities, chronology, and competing ordinary explanations. Preserve uncertainty and cite exact sources."
     }
   },
-  "output_folder": "~/Downloads/litigation_analyst",
   "investigation": {
     "top_k": 3,
     "access_scope": "case",
     "max_files": 5000,
     "max_file_bytes": 33554432,
     "max_total_bytes": 268435456,
-    "max_skill_invocations": 24,
-    "max_model_decisions": 40,
-    "max_investigation_seconds": 600
+    "max_skill_invocations": 5000,
+    "max_model_decisions": 5000,
+    "max_investigation_seconds": 99999
   },
   "skill_runtime": {
     "enabled": true,
@@ -22,5 +21,8 @@
     "docker_worker_image": "docker_worker",
     "image": "mirror-neuron/litigation-analyst:local",
     "install_scope": "shared_job_container"
+  },
+  "outputs": {
+    "folder_path": "~/Downloads/litigation_analyst"
   }
 }

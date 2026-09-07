@@ -48,7 +48,10 @@ On Spark use ARM64 (`--target aarch64-unknown-linux-gnu`). For Linux x64 use
 2.36 or newer, supplied by the Debian 12 worker image. Credentials are used
 only by host preparation and are never copied into the image. The preparation
 script builds the pinned platform Python wheel on the authenticated host; Docker
-installs this generated wheel without GitHub credentials. The generated binary
+installs this generated wheel without GitHub credentials. Host preparation uses
+`preparation-requirements.txt`; worker requirements use the installed wheel version
+and never repeat the source checkout. The Rust engine always comes from the
+checksummed GAR binary release, including local development mode. The generated binary
 and wheel directories are ignored by Git. The unchanged
 platform Python dependency is pinned in `payloads/requirements.txt`; its current
 package imports PyTorch even for document-only work. It supplies the original
@@ -65,12 +68,14 @@ HTML, logs, `.eml`, and `.mbox` are read locally. Text PDFs use the shared PDF
 extraction skill; supported office files use the shared AnyDoc converter.
 Image-only PDFs, images, archives, unsupported encodings and conversion failures
 are explicitly listed as unreadable. There is no OCR, archive unpacking, audio
-transcription, legal classification, exhaustive search, or financial calculation.
+transcription, legal classification, or exhaustive search.
 Extract those sources to text before relying on coverage. Source documents are
 never executed. Symlinks are rejected.
 
 The default bounds are 5,000 files, 32 MiB per file, 256 MiB total source bytes,
-24 skill invocations, 40 model decisions and 600 seconds of investigation time.
+5,000 skill attempts and 5,000 model decisions, with a 99,999-second overall investigation
+deadline (`max_investigation_seconds: 99999`). The agent can finish early; these are
+ceilings, not targets. Individual graph calls and model requests retain timeouts.
 Graph queries require LIMIT <=50. Operator tunables are in `config/default.json`.
 Retrieval uses the document skill's persistent SQLite FTS5 lexical index with
 exact text spans. It replaces the previous transient hashing retrieval in this
@@ -98,7 +103,7 @@ reports state cancellation, exhausted budgets and unresolved enquiries explicitl
 Outputs live in the platform run directory under the configured output folder
 (default `~/Downloads/litigation_analyst`). `review_index.json` locates:
 
-- `review_draft.md`: neutral hypotheses, findings, citations, limitations and coverage.
+- `final_report.md`: neutral hypotheses, findings, citations, limitations and coverage.
 - `case/source_inventory.json`: original file hashes, normalized source identities,
   sizes, and unreadable sources.
 - `case/sources.json`: frozen, exact text used by every character-span citation.
@@ -131,3 +136,73 @@ git diff --check
 
 Live model and Docker checks are opt-in; deterministic tests use synthetic
 sources and scripted models, retaining exact-span and audit assertions.
+
+Investigation prompts use a bounded preview of recent tool results so repeated
+retrieval does not exhaust the local model context window. Previews explicitly
+report incomplete coverage; exact evidence and the complete audit remain on disk.
+Requested skill manuals are sent unabridged. The image installs the published
+GAR `rgx` executable in `/usr/local/bin` so runtime login shells can resolve it.
+
+The investigation emits action-started, action-completed, and action-failed events
+for the monitor. These show bounded query previews, concise stated purposes,
+validation failures, and successful Rust graph row counts. Full actions and
+evidence remain in `case/agent_checkpoint.json`; evidence bodies and manuals are
+not copied into the event feed. Existing runs retain their original worker code;
+start a new run to use updated activity events.
+
+The default customer destination is `~/Downloads/litigation_analyst`, configured
+through `outputs.folder_path` and copied back to the submitting host by the SDK.
+`final_report.md` contains the evidence-based investigation report;
+`review_index.json` identifies the audit root, and `runs/<run-id>/` preserves each
+run's report and audit files. The report quotes validated source spans with source
+IDs, SHA-256 hashes, and offsets; graph results are explicitly derived exhibits.
+No prose is generated during final report assembly. Missing hypotheses and
+budget-limited coverage are stated explicitly.
+
+## Planning, guidance and reviewed reporting
+
+Investigation alternates persisted planning and execution phases. Each enquiry states
+its question, prior findings, evidence sought both for and against the hypothesis,
+and completion criteria. After at most six skill attempts the agent must review the
+enquiry before further tools. Exact repeated immutable operations reuse their prior
+result; the attempted action still counts against the finite budget. Four decisions
+are reserved after skill-budget exhaustion for finalization, within the decision cap.
+Older action previews are accessible through paginated `read_investigation`.
+
+Every LLM request includes locally retrieved reference guidance with source URL,
+section, review date, applicability, and content hash. The independent SDK RAG package
+owns SQLite FTS5 retrieval; `payloads/domain/knowledge/guidance.json` owns the curated
+NIST/DOJ/Federal Rules background and separately labeled blueprint policies. This is
+lexical retrieval with no embedding service, network lookup, or runtime installation.
+Guidance is not case evidence or a determination of applicable law. The jurisdiction
+and historical edition are not assumed. Missing/invalid guidance fails explicitly.
+Changes to the guidance fingerprint reject checkpoint reuse.
+
+The document skill supports paginated source discovery, exact contextual spans,
+ROT13 decoding with original offsets, and complete bounded CSV decimal totals.
+Duplicate text copies are grouped in ranked results. Potential privilege flags block
+substantive report use pending human handling review; automatic text flags are only
+an initial screen, and the investigator can flag additional sources.
+
+The LLM proposes citation-linked findings, then reviews them against complete cited
+passages in a separate model decision. Only accepted findings enter the narrative.
+This model review is not a guarantee of truth or independent source authentication.
+Final citation/derivation validation and Markdown rendering are deterministic.
+`final_report.md` contains concise findings, chronology, subject assessments,
+counter-evidence, integrity limitations and follow-up. Exact passages and full graph
+results live in `evidence_appendix.md` and `graph_appendix.md`. Incomplete reviews
+withhold proposed narrative findings. Prior runs remain under `runs/<run-id>/`.
+
+The investigation's workflow control and Docker command timeout are both 99,999 seconds. Source mode
+uses updated sibling packages; binary mode requires publishing and installing builds
+containing the new document operations, agent phases and RAG lexical index.
+
+The investigator exposes only currently allowed phase actions to the model and
+enforces the same list before dispatch. Current phase, active plan, latest error,
+and recovery instructions are retained in a separate control block. Reading skill
+manuals and updating hypotheses remain available while collecting evidence;
+starting another enquiry requires review of the active enquiry. Repeated errors
+and lack of substantive progress use the shared agent's checkpointed recovery
+guard. Exhausted recovery records `investigation_stalled` and preserves collected
+evidence for the deterministic partial review draft. Planning and log volume do
+not themselves count as investigation progress.

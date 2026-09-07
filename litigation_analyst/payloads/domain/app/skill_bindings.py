@@ -69,6 +69,10 @@ def bind_skills(case, corpus, store, investigation_id, declared):
 
     bindings = {
         (DOC, "search"): search,
+        (DOC, "sources"): index.sources,
+        (DOC, "read_source"): lambda **args: verified(index.read_source(**args)),
+        (DOC, "decode_rot13"): lambda **args: verified(index.decode_rot13(**args)),
+        (DOC, "summarize_csv"): lambda **args: verified(index.summarize_csv(**args)),
         (DOC, "passage"): passage,
         (DOC, "outline"): extract_outline,
         (GRAPH, "query"): query,

@@ -124,10 +124,10 @@ def test_catalog_preparation_stages_the_correct_dependency_mode(
         assert not local_requirements
     if blueprint_id == "software_architecture_advisor":
         if local:
-            assert "software_architecture_graph_skill" in local_requirements
-            assert "mn-software-architecture-graph-skill==" not in requirements
+            assert "graph_analysis_skill" in local_requirements
+            assert "mirrorneuron-graph-analysis-skill==" not in requirements
         else:
-            assert "mn-software-architecture-graph-skill==1.3.22" in requirements
+            assert "mirrorneuron-graph-analysis-skill==1.3.23" in requirements
             assert not any(
                 "local-requirements.txt" in value.decode()
                 for key, value in payloads.items()

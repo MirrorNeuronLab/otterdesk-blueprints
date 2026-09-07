@@ -55,3 +55,15 @@ observations are replayed; in-flight reads may repeat after an interrupted call.
 Changed snapshot, config, model, manuals or descriptors reject resume. The agent
 runs on the POSIX worker main thread. Limit/cancellation stops produce explicitly
 partial investigative drafts, never a claim that all evidence was reviewed.
+
+Planning and execution alternate through the shared PhaseCycle. Every model decision
+receives attributed offline RAG guidance and structured action contracts. Default
+limits are 5000 decisions and skill attempts with a 99,999-second elapsed deadline. Early finish
+requires report submission and evidence-grounding review. Only accepted findings
+enter the narrative; exact source and derivation checks precede deterministic export.
+Reference knowledge is excluded from the evidence ledger. Guidance hashes bind resume.
+Source handling flags exclude affected citations from substantive findings. Full
+records, unresolved enquiries, failed actions and incomplete report reviews remain
+visible. The step and worker timeouts are also 99,999 seconds, avoiding a shorter outer deadline.
+The new source-index table requires rebuilding derived document indexes; old completed
+run artifacts remain available and are never silently migrated or re-investigated.

@@ -1,17 +1,3 @@
-# Terms and operating boundary
+# Review terms
 
-Software Architecture Advisor is read-only decision support. It inspects a
-staged source snapshot, does not execute project code, does not install project
-dependencies, and does not write into the inspected source tree.
-
-The report is an evidence-backed architectural assessment, not a security
-audit, production-readiness certification, or guarantee that an improvement
-will preserve behavior. A qualified maintainer must validate every generated
-implementation prompt, code change, migration, test, and deployment plan.
-
-The isolated analysis run has no network access. Supply the source folder from
-the local host at launch. The air-gapped job never fetches, pushes, uploads, or
-contacts an external service.
-
-The required local model must be installed and licensed by the operator. This
-blueprint does not bundle model weights or fetch models at run time.
+Architecture results are evidence-backed review drafts, not proven defects, security certification, measured performance gains, or authorization to modify the analyzed project. Verify source revision, counter-evidence and runtime assumptions before implementation. The operator controls permission to analyze repository content and access to confidential source snapshots and model traces. Third-party repository and dependency licenses remain applicable. Engine distribution retains its own license.

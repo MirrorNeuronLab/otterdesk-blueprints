@@ -91,7 +91,7 @@ investigate(context, llm_client=Model())
 state = json.loads((root / "run/case/agent_checkpoint.json").read_text())
 assert state["stop_reason"] == "completed"
 assert len(state["records"]) == 6
-assert "Routine cybersecurity" in (root / "run/review_draft.md").read_text()
+assert "Routine cybersecurity" in (root / "run/final_report.md").read_text()
 print(
     "PASS: actual Linux RGX ingestion/query, wheel manuals, adaptive loop, citations, replay"
 )

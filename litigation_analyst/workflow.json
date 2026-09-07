@@ -42,7 +42,7 @@
         "definition": "steps.investigate_case_evidence"
       },
       "control": {
-        "timeout_seconds": 3600
+        "timeout_seconds": 99999
       }
     },
     {

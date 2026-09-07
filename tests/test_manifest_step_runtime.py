@@ -304,14 +304,7 @@ def test_manifest_handlers_execute_as_message_chained_workflows(
     tmp_path: Path,
 ):
     if blueprint_id == "software_architecture_advisor":
-        inputs = {
-            **inputs,
-            "input_folder": str(
-                _write_software_architecture_source(
-                    tmp_path / "software-architecture-source"
-                )
-            ),
-        }
+        pytest.skip("Child DAG scheduling requires Core; covered by child_workflow_test.exs and linux_dynamic_smoke.py with the real Linux graph engine")
     result = _run_handler_workflow(
         blueprint_id,
         tmp_path,

@@ -14,8 +14,8 @@
       "backend": "llama.cpp",
       "api_base": "auto",
       "timeout_seconds": 180,
-      "max_tokens": 2048,
-      "num_retries": 1,
+      "max_tokens": 8192,
+      "num_retries": 0,
       "required": true
     }
   }

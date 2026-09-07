@@ -1,97 +1,45 @@
-# Software Architecture Advisor specification
+# Architecture Advisor contract
 
-## Outcome
+Identity: `software_architecture_advisor`, version 2.0.0. Source: Spark `/home/homer/Sandbox/legal_case/software_architecture_advisor`.
 
-Given a required local source folder, produce a read-only architecture
-assessment and copy-ready improvement prompts. The primary artifact is
-`mn.blueprint.software_architecture_advisor.v3`; it retains the v2 fields and
-filenames while adding eight validated model-stage records, aggregate real
-token usage, a metadata-only model trace, model-authored analytical narrative,
-and explicit finding origins. It includes source provenance,
-a normalized fact database, repository/symbol/state/trust/test/deployment
-evidence, traceable findings, counter-evidence, priorities, and a prompt
-pack. It never includes changed source files.
+## Inputs and policy
 
-## Workflow
+Exactly one of `repository_url` or `input_folder` is required by domain validation. The manifest exposes the alternative fields as optional because neither alone is mandatory. The default goal asks for an actionable boundary/coupling concern and counter-evidence. `graph_export` is optional and must refer to indexed source paths with exact line spans. Versions 1 and 2 retain supplied-evidence labels. No source repository file can override the operator's knowledge library or runtime configuration.
 
-1. `resolve_software_source` validates the source and requires the local model
-   to produce a repository-specific investigation plan.
-2. `map_architecture_evidence` inventories safe source and metadata files,
-   creates a dependency/symbol graph, normalizes architecture facts, and runs
-   separate component and cross-cutting reconstruction passes.
-3. `assess_architecture_improvements` reconstructs architecture, triangulates
-   hypotheses, permits only fact-grounded new findings, then runs a separate
-   adversarial pass over every candidate.
-4. `author_implementation_prompts` creates one coding-agent prompt per
-   priority with model-authored objectives, options, tests, rollback, and stop
-   conditions inside deterministic safeguards.
-5. `draft_architecture_report` uses the model to draft the analytical narrative
-   while deterministic renderers retain ownership of facts, metrics, and tables.
-6. `audit_architecture_advice` runs the eighth model pass over the complete
-   package, followed by deterministic grounding, usage, coverage, and safety
-   checks. The machine-generated deterministic gate is the authoritative
-   publication precondition; the model supplies the evidence-grounded audit
-   rationale and must mirror that gate rather than inventing failures from
-   explicitly unavailable runtime evidence.
-7. `publish_architecture_advice` writes artifacts only after audit approval.
+Defaults: 5,000 source files, 500 KB per file, 20 MB aggregate source bytes, 650-character windows, 200 non-merge Git commits; thirty chat-model calls (six reserved for final review), three rounds, three hypotheses per round, six distinct hypotheses, sixty graph/search operations, a twenty-minute investigation budget, twenty rows and top-three retrieval. Oversized/non-UTF8 files are reported as skipped; aggregate count/byte breaches fail capture. Symlinks, hidden/build folders and output artifacts are excluded. No source code is imported or executed. Public HTTPS GitHub acquisition disables hooks, templates, redirects, global Git configuration, credential prompting and submodules, with a 180-second timeout. Each acquisition retains its own checkout and captured HEAD.
 
-The publisher creates a `prompts/` output directory with a `README.md` index
-and one complete, copy-ready Markdown prompt per prioritized finding. The
-combined `improvement_prompts.md` and machine-readable
-`improvement_prompts.json` files remain available alongside it.
+## Workflow and boundaries
 
-## Air-gapped contract
+`capture_repository` → `investigate_architecture` → `publish_architecture_review`.
 
-The worker is air-gapped. It may read the local source folder staged at launch
-and invoke a runtime-prepared local model through the selected node's model
-gateway, but it cannot reach GitHub, package indexes, telemetry endpoints, or
-arbitrary URLs. The analysis worker never runs `git clone`. Its LLM declaration
-requires the SDK-owned `structured_output` and `thinking` capabilities. Model
-catalog entries satisfy known capabilities directly; the SDK evaluates unknown
-ones through the prepared loopback endpoint before inference and caches the
-result in the runtime model catalog.
+Steps contain only SDK contracts and `StepSpec` agent graphs. Specialist roles include repository examiner, child initializer, architecture planner, graph analyst, evidence retriever, hypothesis assessor, round reviewer and architecture review editor. Thin handlers use `mn-prototype-stateful-step-agent`; it owns invocation idempotency and durable output ordering. Workers return bounded summaries plus artifact references. Domain code owns source/architecture policy, lazy architecture projections, hypotheses, evidence validation and report semantics. Runtime only creates and persists SDK context. Core owns routing, retries, joins and logical completion.
 
-## Evaluation
+The reusable `mirrorneuron-graph-analysis-skill` owns RGX subprocess execution, read-only guards, timeout/output limits and pinned binary preparation. Its GAR binary is used unchanged; `mn-graph-engine` source is read-only. The external pinned Python evidence provider supplies embedding primitives. SDK model access owns transport and provider binding. The blueprint's model adapter owns request schemas, budgets and audit contents; it never implements a generic network client.
 
-- Every finding cites valid architecture fact IDs and relevant source paths.
-- Every finding declares `deterministic` or `llm_grounded` origin.
-- HIGH/CRITICAL findings use at least two independent evidence types.
-- Every finding records counter-evidence checks and at least two options.
-- Findings label static-analysis uncertainty instead of asserting runtime facts.
-- Every improvement prompt includes a goal, evidence, allowed scope,
-  non-goals, migration sequence, tests, acceptance criteria, and rollback.
-- Final artifacts explicitly state that source changes are out of scope.
-- Normal runs complete all eight model stages with real provider responses,
-  nonzero token usage, and zero fallbacks; otherwise they fail closed.
-- Model capability verification is owned by the SDK runtime and is not
-  reimplemented in blueprint analysis code.
-- Each model stage budgets the full serialized prompt against the selected
-  profile's context window after reserving maximum completion tokens and a
-  configurable safety margin. Bounded source packets compact excerpts first
-  and facts only when necessary. Later structured packets remove duplicated
-  profile detail and preserve cited facts before adding optional facts up to
-  the same budget; unfit prompts fail before provider dispatch.
-- The analysis profile reserves up to 16,000 completion tokens because the
-  local reasoning model may consume more than 12,000 tokens before emitting its
-  strict-JSON answer.
-- Raw prompts, source excerpts, credentials, and full model responses never
-  appear in durable traces. `llm_trace.jsonl` is metadata only.
-- Source metadata records the local source-folder provenance.
+## Evidence graphs
 
-## Non-goals
+Architecture families: symbols/references, dependencies, calls, types, control flow, data flow, state, schema, API, events, workflow, deployment, tests, Git, ownership, incidents, configuration, security, semantic responsibilities, and intent. An encoder-scoped embedding index is a separate retrieval layer. All twenty families are reachable through bounded investigation tools. Lazy generations use snapshot, collector, scope, dependency and model/encoder fingerprints. File locks prevent simultaneous duplicate graph publication; atomic pointers preserve the previous graph on failure.
 
-This blueprint does not alter code, execute code, install dependencies, run
-tests, fetch a repository itself, deploy a service, remediate a security issue,
-or certify architecture/security/compliance quality.
+Sources retain exact UTF-8 text and SHA-256. Every edge retains source evidence IDs, provenance kind and collector identity. Missing spans/endpoints fail ingestion or publication. RGX query receipts preserve raw rows, parameter values, generation, result hash and the exact edge-manifest hash used to join provenance. Counts are scoped to the captured graph; sampled lists do not prove absence. Model-inferred semantic labels remain inferred. No untrained RFM predictions are presented as architecture facts.
 
-## Blueprint package format
+## Review contract
 
-This blueprint uses the canonical blueprint/v1 format in both folders and ZIPs.
-`manifest.json` contains identity, semantic release version, and document references.
-`workflow.json` owns logical topology and policies; `execution.json` owns workers,
-resources, and services; `contracts.json` owns input/output and artifact contracts.
-Platform descriptors live in `extensions/`, package requirements in
-`dependencies.json` when present, and operator defaults in `config/default.json`.
-The SDK reads these documents together and compiles the Core execution artifact.
-A ZIP contains the same files as the folder. Local overrides and invocation
-configuration are resolved by the SDK before launch.
+Planning selects only indexed modules and allowed families. Each hypothesis obtains graph observations and separate support/counter searches. Citation enums constrain structured JSON requests; application validation rejects invented citations. One malformed-output repair is allowed within the global call cap. An independent final model review covers every recommendation promoted to the roadmap. Unreviewed findings remain exploratory. Unknown architecture rules and unavailable views force inconclusive conclusions. Inconclusive final advice is limited to validation actions. Original model responses and any normalized verification rollback remain in the audit JSON for inspection.
+
+Final publication rechecks source hashes and exact evidence spans and validates assessment citations. Knowledge guidance is a bounded local library (normally at most two cards and 1,200 UTF-8 prompt bytes), never evidence of a project defect. Suggested coding tasks verify findings and current revision before recommending a reversible change. Failed investigations retain raw investigation, model and event audit files and fail the worker; they are not reported as successful completed reviews. Partial reviews identify failed findings explicitly.
+
+## Artifacts and execution
+
+Canonical artifact paths are authored in `contracts.json`. Confidential large artifacts are durably stored under the run directory before specialist output. The source snapshot identifies its evidence graph and immutable sources under `evidence/snapshots/<snapshot-id>/`; graph generations and query audit remain available for review. No new REST server or standalone lifecycle is bundled.
+
+All steps use `mn-agents.worker.python_docker@1`, sharing the run's durable data plane. The worker image includes the prepared GAR binary and pinned Python dependencies; platform-declared agents and skills are installed by the platform. Preparation needs authenticated GAR and pinned Python package access. No-input launch fails with an actionable request for a repository; the synthetic fixture is only an explicit example/test input. Offline mode is opt-in and never a live-provider fallback.
+
+## Child workflow contract
+
+`workflow.child_workflows.investigate_architecture` declares a planner, pre-admitted single-handler templates, input/output path mappings, and round/node bounds. The generated parent sink hands completion to Core; the parent remains running until the child stops. The parent exit has no direct worker route; Core triggers it only with the final mapped child output.
+
+Each round alternates planning, atomic graph commitment, deterministic execution and a completion barrier. Only the planner can choose the next round, and no executing or completed graph is rewritten. Child identity, round and phase are public progress metadata; inputs, model text and evidence remain confidential artifacts. Workers never dispatch other workers or complete the parent.
+
+Plan nodes select allowlisted graph operations and independent support/counter searches. New evidence may revise a hypothesis's module, family, statement and selected queries while retaining its ID. Repeated completed work does not justify another round. Hypothesis revisions and previous evidence remain inspectable even when the final review uses the latest revision.
+
+Publication verifies exact frozen spans, hashes and citations for all final decisions. The report includes executive summary, observed architecture relationships, prioritized findings, alternatives, a three-phase roadmap, and explicit coverage limits. Knowledge cards are guidance, never project evidence. Priority is not measured severity or ROI. Runtime state is versioned and requires the matching SDK/Core deployment; static workflows retain their previous semantics.

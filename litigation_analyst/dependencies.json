@@ -40,6 +40,12 @@
       "source": "gar",
       "name": "mn-python-sdk-job-response",
       "version": "0.1.0"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mn-python-sdk-rag",
+      "version": "0.1.0"
     }
   ]
 }

@@ -1,387 +1,94 @@
 {
-  "airgap": {
-    "model_access": "local_runtime_only",
-    "network": "forbidden",
-    "package_installation": "prepared_before_disconnection"
+  "llm": {
+    "context_tokens": 16384,
+    "output_tokens": 3000,
+    "timeout_seconds": 60,
+    "max_calls": 30,
+    "structured_output": "json_schema"
   },
-  "analysis": {
-    "architecture_gravity_min_degree": 4,
-    "excluded_directories": [
+  "embedding": {
+    "mode": "neural",
+    "provider": "docker_model_runner",
+    "model": "default",
+    "api_base": null
+  },
+  "graph": {
+    "binary": "rgx",
+    "timeout_seconds": 15,
+    "row_limit": 20
+  },
+  "investigation": {
+    "max_hypotheses": 3,
+    "top_k": 3,
+    "max_queries": 60,
+    "max_rounds": 3,
+    "max_distinct_hypotheses": 6,
+    "timeout_seconds": 1200,
+    "final_model_reserve": 6
+  },
+  "ingest": {
+    "source_roots": [
+      "src",
+      "."
+    ],
+    "max_files": 5000,
+    "max_file_bytes": 500000,
+    "max_total_bytes": 20000000,
+    "chunk_chars": 650,
+    "git_commits": 200,
+    "exclude": [
       ".git",
       ".venv",
       "venv",
       "node_modules",
-      "vendor",
+      "__pycache__",
+      "target",
       "dist",
       "build",
-      "coverage",
-      ".next",
-      "target"
+      ".advisor"
     ],
-    "excluded_file_names": [
-      ".env",
-      ".env.local",
-      "id_rsa",
-      "id_ed25519"
-    ],
-    "focus": [
-      "module boundaries",
-      "change risk"
-    ],
-    "history_evidence_files": [
-      "architecture_git_history.json",
-      "git_history.json"
-    ],
-    "hotspot_risk_threshold": 6.0,
-    "large_module_line_threshold": 500,
-    "max_call_sites": 20000,
-    "max_facts": 5000,
-    "max_file_bytes": 1048576,
-    "max_files": 12000,
-    "max_hotspots": 50,
-    "max_metadata_file_bytes": 524288,
-    "max_metadata_files": 500,
-    "max_symbols": 20000,
-    "max_total_source_mb": 250,
-    "supported_extensions": [
-      ".py",
-      ".js",
-      ".jsx",
-      ".ts",
-      ".tsx",
-      ".java",
-      ".go",
-      ".rs",
-      ".c",
-      ".h",
-      ".cpp",
-      ".hpp",
-      ".cs",
-      ".rb",
-      ".php",
-      ".swift",
-      ".kt",
-      ".kts"
-    ]
-  },
-  "backpressure": {
-    "llm": {
-      "max_concurrent_calls": 1,
-      "min_interval_seconds": 0
+    "layers": {
+      "controller": [
+        "*controller*",
+        "*routes*",
+        "*views*"
+      ],
+      "domain": [
+        "*domain*"
+      ],
+      "infrastructure": [
+        "*repository*",
+        "*infra*"
+      ]
     }
+  },
+  "lazy": {
+    "lock_timeout_seconds": 120,
+    "max_layer_nodes": 200000,
+    "max_layer_edges": 400000
+  },
+  "source": {
+    "clone_timeout_seconds": 180
+  },
+  "knowledge": {
+    "enabled": true,
+    "path": null,
+    "max_cards": 2,
+    "max_prompt_bytes": 1200
   },
   "inputs": {
-    "adapter": "mock",
+    "adapter": "json",
     "payload": {
-      "analysis_focus": [
-        "module boundaries",
-        "change risk"
-      ],
-      "input_folder": "",
-      "output_folder": "~/Downloads/software_architecture_advisor"
+      "goal": "Inspect the software architecture, identify an actionable boundary or coupling concern, and check counter-evidence before recommending a change."
     }
   },
-  "interfaces": {
-    "config": [
-      "identity",
-      "inputs",
-      "outputs",
-      "analysis",
-      "local_model",
-      "llm",
-      "resources",
-      "human_control",
-      "privacy",
-      "logging",
-      "memory_layer"
-    ],
-    "config_sections": [
-      "identity",
-      "inputs",
-      "outputs",
-      "analysis",
-      "local_model",
-      "llm",
-      "resources",
-      "human_control",
-      "privacy",
-      "logging",
-      "memory_layer"
-    ],
-    "output_adapters": [
-      "local_run_store"
-    ]
-  },
-  "llm": {
-    "agents": {
-      "architecture_advice_auditor": {
-        "responsibilities": [
-          "Check evidence references.",
-          "Check read-only posture.",
-          "Reject unsafe scope."
-        ]
-      },
-      "architecture_report_writer": {
-        "responsibilities": [
-          "Draft analytical narrative.",
-          "Preserve limits.",
-          "Write no source changes."
-        ],
-        "role": "Architecture Report Writer"
-      },
-      "architecture_reviewer": {
-        "responsibilities": [
-          "Prioritize change risk.",
-          "State limitations.",
-          "Avoid unsupported claims."
-        ],
-        "role": "Architecture Reviewer"
-      },
-      "codebase_mapper": {
-        "responsibilities": [
-          "Map static dependencies.",
-          "Record only evidence.",
-          "Keep runtime behavior unknown."
-        ]
-      },
-      "improvement_prompt_author": {
-        "responsibilities": [
-          "Draft scoped prompts.",
-          "Name acceptance criteria.",
-          "Require verification."
-        ],
-        "role": "Improvement Prompt Author"
-      },
-      "source_intake_analyst": {
-        "responsibilities": [
-          "Validate source provenance.",
-          "Reject ambiguous input.",
-          "Preserve air-gap limits."
-        ]
-      }
-    },
-    "responsibilities": [
-      "Read local evidence only.",
-      "Preserve uncertainty.",
-      "Generate advisory prompts without modifying code."
-    ]
-  },
-  "llm_analysis": {
-    "estimated_bytes_per_token": 3.0,
-    "persist_raw_prompts": false,
-    "persist_raw_source": false,
-    "persist_validated_outputs": true,
-    "required_stage_count": 8,
-    "token_safety_margin": 2048,
-    "validation_retries": 1
-  },
-  "local_inputs": {
-    "folders": [
-      {
-        "allowed_extensions": [
-          ".py",
-          ".js",
-          ".jsx",
-          ".ts",
-          ".tsx",
-          ".java",
-          ".go",
-          ".rs",
-          ".c",
-          ".h",
-          ".cpp",
-          ".hpp",
-          ".cs",
-          ".rb",
-          ".php",
-          ".swift",
-          ".kt",
-          ".kts",
-          ".md",
-          ".txt",
-          ".json",
-          ".yaml",
-          ".yml",
-          ".toml",
-          ".xml",
-          ".gradle",
-          ".properties",
-          ".lock",
-          ".sh",
-          ".sql",
-          ".tf",
-          ".hcl",
-          ".graphql"
-        ],
-        "allowed_file_names": [
-          "Dockerfile",
-          "Makefile",
-          "Procfile",
-          "Jenkinsfile",
-          "Gemfile",
-          "Rakefile",
-          "go.mod",
-          "go.sum",
-          "Cargo.toml",
-          "Cargo.lock"
-        ],
-        "config_path": "inputs.payload.input_folder",
-        "linked_config_paths": [
-          "inputs.payload.input_folder"
-        ],
-        "payload_path": "mn_local_inputs/software_architecture_advisor_source",
-        "runtime_path": "mn_local_inputs/software_architecture_advisor_source"
-      }
-    ]
-  },
-  "local_model": {
-    "api_base": "auto",
-    "minimum_context_tokens": 32768,
-    "minimum_host_memory_gb": 48,
-    "model": "medium",
-    "network": "loopback_only",
-    "preinstalled_only": true,
-    "provider": "docker_model_runner",
-    "required": true
-  },
-  "logging": {
-    "events": [
-      "blueprint_status",
-      "blueprint_phase_started",
-      "blueprint_phase_completed",
-      "blueprint_phase_failed",
-      "artifact_written",
-      "human_notice",
-      "human_input_requested",
-      "human_input_received",
-      "human_input_timeout",
-      "human_decision_applied",
-      "source_snapshot_validated",
-      "architecture_graph_built",
-      "architecture_finding_created",
-      "improvement_prompt_authored"
-    ],
-    "events_jsonl": true,
-    "level": "INFO",
-    "logs_jsonl": true,
-    "redact_env_secrets": true,
-    "redact_fields": [
-      "token",
-      "password",
-      "private_key",
-      "api_key"
-    ],
-    "resources_jsonl": true
-  },
-  "memory_layer": {
-    "collection": "mn_memory",
-    "conversation": {
-      "agent_role": "otterdesk_chat",
-      "include_human_events": true,
-      "include_runtime_events": true,
-      "include_runtime_logs": true,
-      "target_tokens": 2400,
-      "token_budget": 6000,
-      "use_model_compression": false
-    },
-    "conversation_enabled": true,
-    "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
+  "output_folder": "~/Downloads/software_architecture_advisor",
+  "offline": false,
+  "skill_runtime": {
     "enabled": true,
-    "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
-    "namespace": "software_architecture_advisor_context",
-    "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
-    "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
-    "sdk_distribution": "mirrorneuron-membrane-python-sdk",
-    "sdk_import_package": "mn_context_engine_sdk"
-  },
-  "metadata": {
-    "category": "engineering",
-    "description": "Software Architecture Advisor is a read-only, air-gapped software-architecture co-worker. Give it a local source folder; it maps structural evidence and writes an architecture assessment plus copy-ready, implementation-safe prompts to the output folder without changing source code."
-  },
-  "mode": "real",
-  "outputs": {
-    "adapter": "local_run_store",
-    "artifact_contract": "Read-only architecture assessment, evidence bundle, and copy-ready implementation prompts; no source changes.",
-    "folder_path": "~/Downloads/software_architecture_advisor",
-    "run_root": "~/.mn/runs",
-    "write_run_store": true
-  },
-  "privacy": {
-    "default_classification": "confidential",
-    "network": "forbidden"
-  },
-  "research_budget": {
-    "default_actions": 8
-  },
-  "resources": {
-    "enabled": true,
-    "gpu_enabled": "auto",
-    "sample_interval_seconds": 10
-  },
-  "schemas": {
-    "artifact_record": "mn.artifact.record.v1",
-    "config": "mn.blueprint.config.v1",
-    "events": "mn.blueprint.events.v1",
-    "final_artifact": "mn.blueprint.final_artifact.v1",
-    "human_control": "mn.blueprint.human_control.v1",
-    "inputs": "mn.blueprint.inputs.v1",
-    "logs": "mn.blueprint.logs.v1",
-    "resources": "mn.blueprint.resources.v1",
-    "status_contract": "mn.blueprint.status_contract.v1",
-    "web_ui": "mn.blueprint.web_ui.v1"
-  },
-  "source_packets": {
-    "max_chars": 72000,
-    "max_chars_per_file": 4000,
-    "max_files": 14,
-    "persist": false
-  },
-  "standard_version": "1.0",
-  "suggested_schedule": {
-    "advisory_only": true,
-    "cadence": "weekly",
-    "cron": "0 8 * * 1",
-    "note": "Suggested cadence only; runtime decides the actual schedule."
-  },
-  "triggers": {
-    "schedule": null,
-    "sources": [],
-    "type": "manual"
-  },
-  "web_ui": {
-    "dashboard": {
-      "data_source": "local_run_store",
-      "panels": [
-        "current_status",
-        "recent_events",
-        "pending_human_requests",
-        "output_artifacts",
-        "resource_usage",
-        "errors",
-        "llm_calls",
-        "token_budget",
-        "llm_retries"
-      ],
-      "reads": [
-        "events.jsonl",
-        "human.jsonl",
-        "logs.jsonl",
-        "resources.jsonl",
-        "result.json",
-        "final_artifact.json"
-      ],
-      "standard_panels": [
-        "current_status",
-        "recent_events",
-        "pending_human_requests",
-        "output_artifacts",
-        "resource_usage",
-        "errors",
-        "llm_calls",
-        "token_budget",
-        "llm_retries"
-      ]
-    },
-    "enabled": true
+    "driver": "docker_worker",
+    "docker_worker_image": "docker_worker",
+    "image": "mirror-neuron/software-architecture-advisor:local",
+    "install_scope": "shared_job_container"
   }
 }

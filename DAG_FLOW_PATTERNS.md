@@ -17,7 +17,7 @@ workflow ledger, not only displayed in the UI.
 | Legal Assistant | Fork/join: document reading fans out to invoice and contract review lanes; evidence reconciliation waits for both. |
 | Purchasing Manager | Ordered procurement pipeline: requirements framing, quote and evidence retrieval, supplier comparison and total-cost review, independent recommendation audit, and approval-ready publication. |
 | Research Assistant | Ordered evidence, autonomous-research, verification, and publication pipeline. |
-| Software Architecture Advisor | Ordered air-gapped advisory pipeline: source validation, static graph evidence, architecture review, implementation-prompt authoring, and audit/publication. |
+| Software Architecture Advisor | Fixed parent DAG with a bounded, runtime-planned child investigation: commit a round, execute deterministically, then replan from evidence. |
 | VC Assistant | Fan-out/fan-in: ordered evidence preparation leads to seven independent valuation-method scorers, then an all-success score-consistency join. Per-method state files prevent scorer artifact races, while the RAG skill brokers all Milvus Lite operations through one job-scoped connection. |
 
 ## Authoring rules
@@ -44,6 +44,6 @@ mn-manifest-converter expand manifest.json --output build/manifest.executable.js
 mn-manifest-converter check manifest.json --against build/manifest.executable.json
 ```
 
-## Architecture Advisor (`achitecture_advisor`)
+## Architecture Advisor (`software_architecture_advisor`)
 
-`capture_repository` → `investigate_architecture` → `publish_architecture_review` uses three Docker workers with durable snapshot and investigation artifacts between phases. Graph view materialization and hypothesis checks are internal domain operations, not workflow nodes.
+`capture_repository` → `investigate_architecture` → `publish_architecture_review` keeps three parent phases. `investigate_architecture` owns a Core-managed child workflow whose planner commits admitted graph-query, semantic-search, assessment and summary workers. Replanning happens only between completed rounds; the parent sink waits for the final child output.

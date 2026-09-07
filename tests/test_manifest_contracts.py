@@ -58,7 +58,7 @@ def test_source_manifests_use_current_runtime_envelope_version():
             read_blueprint(root / entry["path"] / "manifest.json")
         )
         assert manifest["apiVersion"] == "mn.workflow/v1", entry["id"]
-        assert read_blueprint(root / entry["path"]).manifest["version"] == "1.0.0"
+        assert read_blueprint(root / entry["path"]).manifest["version"] == entry["version"]
 
 
 def test_rag_blueprints_declare_job_scoped_knowledge_database_and_state_resources():

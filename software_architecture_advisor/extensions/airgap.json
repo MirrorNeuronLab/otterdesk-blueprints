@@ -1,9 +1,0 @@
-{
-  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/airgap.schema.json",
-  "enabled": true,
-  "policy": {
-    "network": "forbidden",
-    "model_access": "local_runtime_only",
-    "package_installation": "prepared_before_disconnection"
-  }
-}

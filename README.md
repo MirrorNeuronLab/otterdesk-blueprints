@@ -65,7 +65,7 @@ helpers and render shared agent templates.
 | [`gtm_assistant`](gtm_assistant/README.md) | Business | Turns de-identified customer feedback into activation, retention, product, and lifecycle decisions. |
 | [`drug_discovery_research_assistant`](drug_discovery_research_assistant/README.md) | Science | Runs one discovery cycle, evaluates five distinct molecules, writes a review packet to ~/Downloads/{job_name}, and completes. |
 | [`research_assistant`](research_assistant/README.md) | Science | A research assistant that combines deterministic evidence and verification stages with an isolated OpenShell worker for autonomous goal refinement, tool-driven exploration, hypothesis generation, and bounded generated-code experiments. |
-| [`software_architecture_advisor`](software_architecture_advisor/README.md) | Engineering | An air-gapped, read-only software architecture advisor. Give it a local source folder; it produces evidence-backed architecture analysis and copy-ready improvement prompts without changing code. |
+| [`software_architecture_advisor`](software_architecture_advisor/README.md) | Engineering | A read-only architecture advisor for local folders or public GitHub repositories, with dynamically planned child workflows, cited evidence, independent review and a prioritized roadmap. |
 | [`purchasing_manager`](purchasing_manager/README.md) | Finance | A source-grounded purchasing co-worker for heavy-asset decisions. It screens real market options, models landed cost, discounted and risk-adjusted TCO, EAC, unit economics, scenarios, and cash/finance/lease terms, then prepares an approval-ready packet without transacting. |
 | [`cctv_operator`](cctv_operator/README.md) | Security | A steerable NVIDIA CCTV co-worker with a self-contained Docker demo stream, CUDA-assisted MJPEG preview, live operator event feed, sparse baseline analysis, event-triggered frame bursts, and durable reviewed-frame artifacts. |
 | [`microduck_controller`](microduck_controller/README.md) | Robotics | Lets an OtterDesk user control the live Microduck MuJoCo simulation in ordinary language through bounded MCP actions, deterministic ball navigation, and stoppable continuous free play. |
@@ -139,7 +139,7 @@ Use `mn_sdk.blueprints.read_blueprint`, `resolve_config`, and `compile_blueprint
 `open_blueprint` adds ZIP extraction and `export_blueprint` preserves the full package.
 External dependencies remain declared; offline vendoring is optional.
 
-The `achitecture_advisor` blueprint accepts a public HTTPS GitHub repository URL or local source folder and uses the shared graph-analysis skill in Docker workers. See [Architecture Advisor](achitecture_advisor/README.md).
+The `software_architecture_advisor` blueprint accepts a public HTTPS GitHub repository URL or local source folder and uses the shared graph-analysis skill in Docker workers. See [Architecture Advisor](software_architecture_advisor/README.md).
 
 SDK workflow capabilities are declared in the `packages` array in
 `dependencies.json`; domain skills remain in `skills` and agents in `agents`.

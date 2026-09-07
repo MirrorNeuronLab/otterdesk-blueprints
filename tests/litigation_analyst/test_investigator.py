@@ -9,6 +9,7 @@ from test_litigation_analyst import (
 from test_litigation_analyst import (
     make_context,
     ScriptedModel,
+    protocol_action,
 )
 
 
@@ -32,7 +33,14 @@ class AdaptiveModel:
 
     def completion_text(self, system, user):
         ctx = json.loads(user)
-        history = ctx["history"]
+        control = protocol_action(ctx)
+        if control:
+            return json.dumps({"name": control[0], "arguments": control[1], "reason": "Review the enquiry and its evidence."})
+        history = [r for r in ctx["history"] if r["action"]["name"] not in ("plan_enquiry", "review_enquiry")]
+        if history and history[-1]["action"]["name"] == "invoke_skill" and "passages" in history[-1]["result"]:
+            passages = history[-1]["result"]["passages"]
+            if "Routine" not in " ".join(p["text"] for p in passages) and history[-1]["action"]["arguments"]["operation"] == "search":
+                return json.dumps({"name": "invoke_skill", "arguments": {"skill": "mirrorneuron.document.reading", "operation": "passage", "arguments": {"evidence_id": passages[0]["evidence_id"]}}, "reason": "Uncertain chronology requires exact passage follow-up."})
         if not history:
             name, args = "read_skill", {"skill": "mirrorneuron.document.reading"}
         elif history[-1]["action"]["name"] == "read_skill":
@@ -108,14 +116,14 @@ def test_evidence_changes_action_path_and_assessment(modules, tmp_path):
     context2 = setup_case(
         modules, second, "Cybersecurity escalation date is uncertain."
     )
-    context2["config"]["investigation"]["max_skill_invocations"] = 2
+    context2["config"]["investigation"]["max_skill_invocations"] = 20
     modules["research"].investigate(context2, llm_client=AdaptiveModel())
     state2 = json.loads(
         (context2["run_dir"] / "case/agent_checkpoint.json").read_text()
     )
     assert state2["data"]["hypotheses"]["awareness"]["status"] == "inconclusive"
-    assert state2["records"][-1]["action"]["arguments"]["operation"] == "passage"
-    assert state2["stop_reason"] == "tool_call_budget_exhausted"
+    assert any(r["action"].get("arguments", {}).get("operation") == "passage" for r in state2["records"])
+    assert state2["stop_reason"] == "completed"
 
 
 def test_ingestion_is_required_before_any_model_call(modules, tmp_path):
@@ -252,12 +260,12 @@ def test_cancellation_produces_explicit_partial_review(modules, tmp_path):
     payload, _ = modules["research"].investigate(context, llm_client=Actions([]))
     assert payload["stop_reason"] == "cancelled"
     modules["reporting"].write_review(context)
-    assert "cancelled" in (context["run_dir"] / "review_draft.md").read_text()
+    assert "cancelled" in (context["run_dir"] / "final_report.md").read_text()
 
 
 def test_hypothesis_revisions_and_invalid_actions_are_audited(modules, tmp_path):
     context = setup_case(modules, tmp_path)
-    context["config"]["investigation"]["max_model_decisions"] = 10
+    context["config"]["investigation"]["max_model_decisions"] = 12
     hypothesis = {
         "id": "lead",
         "question": "Was the notice understood?",
@@ -286,6 +294,8 @@ def test_hypothesis_revisions_and_invalid_actions_are_audited(modules, tmp_path)
             ("update_hypothesis", hypothesis),
             ("update_hypothesis", revised),
             ("invented_tool", {}),
+            ("submit_report", {"findings": [], "conclusion_ids": [], "follow_up": ["Verify identity."]}),
+            ("review_report", {"accepted_ids": [], "issues": ["Insufficient evidence."]}),
             ("finish", {"reason": "Human identity review required."}),
         ]
     )
@@ -356,3 +366,25 @@ def test_graph_directory_digest_and_interrupted_index_build(modules, tmp_path):
     # Derived indexes are recreated after a build with no committed receipt.
     modules["indexing"].build_indexes(context)
     modules["indexing"].validate_indexes(case, "case")
+
+
+def test_repeated_plan_in_execution_stalls_with_checkpointed_recovery(modules, tmp_path):
+    class RepeatingPlanner:
+        model = "repeating-script"
+        last_usage = {}
+        def completion_text(self, system, user):
+            context = json.loads(user)
+            if not hasattr(self, "first"):
+                name, args = protocol_action(context)
+                self.first = {"name":name,"arguments":args,"reason":"Explore available records"}
+            else:
+                assert "plan_enquiry" not in context["control"]["allowed_actions"]
+                assert "plan_enquiry" not in context["action_schemas"]
+            return json.dumps(self.first)
+    context = setup_case(modules, tmp_path)
+    modules["research"].investigate(context, llm_client=RepeatingPlanner())
+    state = json.loads((context["run_dir"] / "case/agent_checkpoint.json").read_text())
+    assert state["stop_reason"] == "investigation_stalled"
+    assert len(state["records"]) == 5  # Valid plan, three rejections, one recovery attempt.
+    assert state["progress_guard"]["recovery"]["remaining"] == 0
+    assert not state["data"]["hypotheses"]

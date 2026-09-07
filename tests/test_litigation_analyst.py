@@ -34,11 +34,32 @@ def modules(monkeypatch):
 
 def make_context(tmp_path, folder=None):
     config = resolve_config(read_blueprint(BLUEPRINT)).data
-    config["investigation"].update(top_k=1)
+    config["investigation"].update(top_k=1, max_model_decisions=30)
     payload = dict(config["inputs"]["payload"])
     if folder is not None:
         payload["input_folder"] = str(folder)
     return {"run_dir": tmp_path / "run", "payload": payload, "config": config}
+
+
+def protocol_action(ctx):
+    phase = ctx["phase"]
+    history = ctx["history"]
+    if phase == "report_review":
+        return "review_report", {"accepted_ids": [f["id"] for f in ctx["report_draft"]["findings"]], "issues": ["Original authenticity remains unverified."]}
+    if ctx.get("report_review") is not None:
+        return "finish", {"reason": "Relevant enquiry assessed; remaining issues require human review."}
+    if phase == "planning":
+        if ctx["hypotheses"]:
+            h = ctx["hypotheses"][0]
+            ids = h["supporting_evidence"] + h["contradictory_evidence"]
+            findings = [{"id": "f1", "section": "findings", "title": "Retrieved notice",
+                         "assessment": h["assessment"], "evidence_ids": ids,
+                         "limitations": "Identity and context remain unresolved."}] if ids else []
+            return "submit_report", {"findings": findings, "conclusion_ids": ["f1"] if findings else [], "follow_up": ["Verify identity."]}
+        return "plan_enquiry", {"question": "What does the notice establish?", "purpose": "Test awareness.", "existing_findings": "None yet.", "support_sought": "Exact notice.", "counter_evidence_sought": "Routine duties or contradictory dates.", "completion_criteria": "Assess retrieved notice and limitations."}
+    if history and history[-1]["action"]["name"] == "update_hypothesis":
+        return "review_enquiry", {"finding": "Notice assessed.", "evidence_ids": [], "counter_evidence_result": "Ordinary explanation considered.", "unresolved": ["Verify identity."]}
+    return None
 
 
 class ScriptedModel:
@@ -49,7 +70,10 @@ class ScriptedModel:
     def completion_text(self, system, user):
         self.calls += 1
         context = json.loads(user)
-        history = context["history"]
+        control = protocol_action(context)
+        if control:
+            return json.dumps({"name": control[0], "arguments": control[1], "reason": "Plan, execute, assess, and review."})
+        history = [r for r in context["history"] if r["action"]["name"] not in ("plan_enquiry", "review_enquiry")]
         ids = [
             p["evidence_id"]
             for r in history
@@ -146,7 +170,7 @@ def test_custom_folder_never_downloads_and_freezes_sources(
     modules["indexing"].build_indexes(context)
     modules["research"].investigate(context, llm_client=model)
     payload, refs = modules["reporting"].write_review(context)
-    draft = (context["run_dir"] / "review_draft.md").read_text()
+    draft = (context["run_dir"] / "final_report.md").read_text()
     assert original in draft
     assert "changed after intake" not in draft
     assert "SHA-256" in draft and "1 of 2 source records" in draft
@@ -211,7 +235,7 @@ def test_tampered_snapshot_prevents_draft(modules, tmp_path):
     (context["run_dir"] / "case/sources.json").write_text("[]")
     with pytest.raises(ValueError, match="hash mismatch"):
         modules["reporting"].write_review(context)
-    assert not (context["run_dir"] / "review_draft.md").exists()
+    assert not (context["run_dir"] / "final_report.md").exists()
 
 
 def test_shared_agent_replay_is_durable(modules, tmp_path, monkeypatch):
@@ -344,3 +368,100 @@ def test_invalid_model_json_is_audited_and_not_a_success(modules, tmp_path):
     assert len(state["data"]["model_interactions"]) == 2
     assert all("error" in r["result"] for r in state["records"])
     assert state["data"]["hypotheses"] == {}
+
+
+def test_final_report_export_is_grounded_and_uses_configured_destination(
+    modules, tmp_path
+):
+    folder = tmp_path / "input"
+    folder.mkdir()
+    quotation = (
+        "Approval was routine. No cybersecurity incident was reported in this notice."
+    )
+    (folder / "notice.txt").write_text(quotation)
+    context = make_context(tmp_path, folder)
+    context["output_folder"] = tmp_path / "Downloads/litigation_analyst"
+    assert (
+        context["config"]["outputs"]["folder_path"] == "~/Downloads/litigation_analyst"
+    )
+    modules["intake"].prepare_sources(context)
+    modules["indexing"].build_indexes(context)
+    modules["research"].investigate(context, llm_client=ScriptedModel())
+    path = context["run_dir"] / "case/investigation.json"
+    data = json.loads(path.read_text())
+    data["report"]["markdown"] = "FABRICATED ASSERTION: someone confessed."
+    path.write_text(json.dumps(data))
+    modules["reporting"].write_review(context)
+    report = (context["output_folder"] / "final_report.md").read_text()
+    assert quotation in report
+    assert "FABRICATED ASSERTION" not in report
+    assert "## Executive summary" in report
+    assert "## Recommended human follow-up" in report
+    assert "SHA-256" in report
+    assert (context["output_folder"] / "runs/run/case/sources.json").exists()
+    assert (context["output_folder"] / "runs/run/final_report.md").exists()
+
+
+def test_missing_hypotheses_are_reported_as_a_gap(modules, tmp_path):
+    from domain.app.review import build_review
+    from domain.evidence.store import EvidenceStore
+
+    store = EvidenceStore(tmp_path / "evidence.sqlite3")
+    identifier = store.create_investigation(
+        "Review available records",
+        "case",
+        llm_model="test",
+        graph_path=tmp_path / "graph.rgx",
+    )
+    summary = build_review(
+        {
+            "data": {"investigation_id": identifier, "hypotheses": {}},
+            "records": [],
+            "stop_reason": "tool_call_budget_exhausted",
+        },
+        store,
+        "Review available records",
+    )
+    text = summary["report"]["markdown"]
+    assert "No structured hypotheses were recorded" in text
+    assert "No successful graph examination was recorded" in text
+    assert "tool_call_budget_exhausted" in text
+    assert summary["report"]["evidence_ids"] == ()
+
+
+def test_default_download_destination_is_registered_for_runtime_copy(
+    tmp_path, monkeypatch
+):
+    from mn_sdk.submission import prepare_job_submission
+
+    monkeypatch.setenv("HOME", str(tmp_path))
+    config = resolve_config(read_blueprint(BLUEPRINT)).data
+    manifest = {
+        "apiVersion": "mn.workflow/v1",
+        "kind": "Workflow",
+        "id": "litigation_analyst",
+        "contract": {},
+        "runtime": {},
+        "job_name": "litigation-analyst",
+        "agents": {
+            "nodes": [
+                {
+                    "node_id": "report",
+                    "config": {
+                        "environment": {"MN_BLUEPRINT_CONFIG_JSON": json.dumps(config)}
+                    },
+                }
+            ]
+        },
+    }
+    prepared = prepare_job_submission(
+        manifest,
+        {},
+        shared_storage_root=tmp_path / "shared",
+        runtime_shared_storage_root="/remote/shared",
+    )
+    copies = json.loads(prepared.manifest_json)["metadata"]["mn_storage"]["output_copy"]
+    assert any(
+        item["target_path"] == str(tmp_path / "Downloads/litigation_analyst")
+        for item in copies
+    )

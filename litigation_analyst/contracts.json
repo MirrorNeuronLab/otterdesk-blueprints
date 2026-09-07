@@ -44,7 +44,7 @@
       },
       {
         "artifact_id": "review_draft",
-        "path": "review_draft.md",
+        "path": "final_report.md",
         "mime_type": "text/markdown",
         "type": "review_draft",
         "producer": "workflow",
@@ -127,6 +127,26 @@
         "type": "agent_checkpoint",
         "producer": "workflow",
         "schema_version": "mn.litigation.agent_checkpoint.v1",
+        "privacy": "confidential",
+        "required": true
+      },
+      {
+        "artifact_id": "evidence_appendix",
+        "path": "evidence_appendix.md",
+        "mime_type": "text/markdown",
+        "type": "evidence_appendix",
+        "producer": "workflow",
+        "schema_version": "mn.litigation.evidence_appendix.v1",
+        "privacy": "confidential",
+        "required": true
+      },
+      {
+        "artifact_id": "graph_appendix",
+        "path": "graph_appendix.md",
+        "mime_type": "text/markdown",
+        "type": "graph_appendix",
+        "producer": "workflow",
+        "schema_version": "mn.litigation.graph_appendix.v1",
         "privacy": "confidential",
         "required": true
       }

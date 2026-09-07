@@ -17,10 +17,9 @@ transitively; an installed optional provider is never enabled implicitly.
 | `legal_assistant` | common, rag[milvus], job-response, mcp | 1 |
 | `research_assistant` | common, rag[milvus], job-response, mcp | 3 |
 | `gtm_assistant` | collaboration, rag[milvus], job-response, mcp | 2 |
-| `software_architecture_advisor` | common, job-response, rag[milvus], mcp | 1 |
+| `software_architecture_advisor` | job-response | 1 |
 | `microduck_controller` | web-ui | 0 |
 | `litigation_analyst` | job-response | 3 |
-| `achitecture_advisor` | job-response | 1 |
 
 ## Installation behavior
 

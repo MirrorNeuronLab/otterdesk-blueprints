@@ -1,8 +1,0 @@
-{
-  "schema": "otterdesk.sample_dataset.v1",
-  "blueprint_id": "software_architecture_advisor",
-  "description": "No source repository is bundled with the air-gapped advisor; supply a local source folder at launch.",
-  "files": [
-    {"path": "README.md", "type": "text/markdown", "contains_pii": false, "intended_use": "Explains that the user must supply a local source folder."}
-  ]
-}
