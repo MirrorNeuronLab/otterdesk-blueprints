@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
-import importlib.util
 import json
 import os
 import sys
@@ -17,28 +16,8 @@ for ancestor in (SCRIPT_DIR, *SCRIPT_DIR.parents):
         break
 
 
-def _bootstrap_runtime() -> None:
-    for parent in Path(__file__).resolve().parents:
-        helper = parent / "otterdesk_blueprint_env.py"
-        if helper.exists():
-            spec = importlib.util.spec_from_file_location(
-                "otterdesk_blueprint_env", helper
-            )
-            if spec is None or spec.loader is None:
-                return
-            module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
-            module.bootstrap_blueprint_runtime(
-                __file__,
-                packages=(
-                    "mirrorneuron-blueprint-support-skill",
-                    "mirrorneuron-live-video-analysis-skill",
-                ),
-            )
-            return
 
 
-_bootstrap_runtime()
 
 from domain.monitoring import (
     apply_steering_command,
@@ -46,7 +25,7 @@ from domain.monitoring import (
     is_steering_command,
     write_monitoring_state,
 )
-from mn_blueprint_support import start_agent_beacon_thread
+from mn_sdk_common.beacon import start_agent_beacon_thread
 from mn_live_video_analysis_skill import (
     AdaptiveStreamSampler,
     SamplingPolicy,

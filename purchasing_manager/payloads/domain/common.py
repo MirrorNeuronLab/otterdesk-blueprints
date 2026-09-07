@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import importlib.util
 import json
 import os
 from datetime import datetime, timezone
@@ -11,30 +10,14 @@ from pathlib import Path
 from typing import Any
 
 
-RUNTIME_SKILL_PACKAGES = (
-    "mirrorneuron-blueprint-support-skill",
-    "mirrorneuron-llm-ocr-skill",
-    "mirrorneuron-rag-skill",
-    "mirrorneuron-web-browser-skill",
-)
 
 
-def _bootstrap_runtime() -> None:
-    for parent in Path(__file__).resolve().parents:
-        helper = parent / "otterdesk_blueprint_env.py"
-        if helper.exists():
-            spec = importlib.util.spec_from_file_location("otterdesk_blueprint_env", helper)
-            if spec is None or spec.loader is None:
-                return
-            module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
-            module.bootstrap_blueprint_runtime(__file__, packages=RUNTIME_SKILL_PACKAGES)
-            return
 
 
-_bootstrap_runtime()
 
-from mn_blueprint_support import DeterministicFallbackLLM, PromptLibrary, get_actor_llm_client
+from mn_sdk.blueprint_support import DeterministicFallbackLLM
+from mn_sdk_common.prompts import PromptLibrary
+from mn_prototype_actor_review_agent.actors import get_actor_llm_client
 from mn_sdk.blueprint_support import default_config_path as sdk_default_config_path, source_manifest
 
 

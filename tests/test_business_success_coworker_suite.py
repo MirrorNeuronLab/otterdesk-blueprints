@@ -95,19 +95,18 @@ def test_published_business_blueprints_share_one_goal_contract():
             assert "mn-prototype-supervised-service-agent" in {
                 dependency["name"] for dependency in manifest["agent_dependencies"]
             }
-        assert "mirrorneuron-goal-work-packet-skill" in {
-            dependency["name"] for dependency in manifest["skill_dependencies"]
+        assert "mn-python-sdk-collaboration" in {
+            dependency["name"] for dependency in manifest["packages"]
         }
         config = resolve_config(read_blueprint(blueprint_path(blueprint_id))).data
         dependency_names = {
-            dependency["name"] for dependency in manifest["skill_dependencies"]
+            dependency["name"] for dependency in manifest["packages"]
         }
         assert manifest["response_service"] == {"enabled": True}
         assert "mcp_collaboration" not in manifest
-        assert "mirrorneuron-job-response-skill" in dependency_names
-        assert "mirrorneuron-rag-skill" in dependency_names
-        assert "mirrorneuron-mcp-server-skill" not in dependency_names
-        assert "mirrorneuron-mcp-client-skill" in dependency_names
+        assert "mn-python-sdk-job-response" in dependency_names
+        assert "mn-python-sdk-rag" in dependency_names
+        assert "mn-python-sdk-mcp" in dependency_names
         assert "auxiliary_entrypoints" not in manifest["agents"]
         assert "extra_nodes" not in manifest["agents"]
         assert config["knowledge_rag"]["backend"] == "milvus_lite"

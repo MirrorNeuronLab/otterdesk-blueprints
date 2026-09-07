@@ -13,6 +13,7 @@ workflow ledger, not only displayed in the UI.
 | CCTV Operator | Event-driven service flow: monitor ingress, sample frames, detect, and report. |
 | Drug Discovery Research Assistant | Bounded discovery batch: one cycle evaluates five distinct molecules, then review and reporting complete the run. |
 | Financial Advisor | Ordered regulated-state pipeline: packet intake, household analysis, tax review, portfolio risk, public guidance, reconciliation, and publication. |
+| Litigation Analyst | Ordered source preparation, bounded evidence investigation, and verified review-draft writing on Docker workers. |
 | Legal Assistant | Fork/join: document reading fans out to invoice and contract review lanes; evidence reconciliation waits for both. |
 | Purchasing Manager | Ordered procurement pipeline: requirements framing, quote and evidence retrieval, supplier comparison and total-cost review, independent recommendation audit, and approval-ready publication. |
 | Research Assistant | Ordered evidence, autonomous-research, verification, and publication pipeline. |
@@ -42,3 +43,7 @@ Validate a source blueprint and inspect the executable DAG with:
 mn-manifest-converter expand manifest.json --output build/manifest.executable.json
 mn-manifest-converter check manifest.json --against build/manifest.executable.json
 ```
+
+## Architecture Advisor (`achitecture_advisor`)
+
+`capture_repository` → `investigate_architecture` → `publish_architecture_review` uses three Docker workers with durable snapshot and investigation artifacts between phases. Graph view materialization and hypothesis checks are internal domain operations, not workflow nodes.

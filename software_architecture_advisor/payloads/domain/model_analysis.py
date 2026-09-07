@@ -12,7 +12,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from mn_blueprint_support import get_actor_llm_client, llm_usage
+from mn_prototype_actor_review_agent.actors import get_actor_llm_client, llm_usage
 from mn_sdk.blueprint_support import (
     ActionBudget,
     BudgetedLlmClient,

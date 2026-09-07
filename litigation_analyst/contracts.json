@@ -1,0 +1,140 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/contracts.schema.json",
+  "inputs": {
+    "input_folder": {
+      "type": "local_path",
+      "path_kind": "directory",
+      "required": false,
+      "privacy": "confidential",
+      "description": "Folder of legal sources. Omit to download the pinned public EMC2 sample automatically."
+    },
+    "goal": {
+      "type": "string",
+      "required": false,
+      "privacy": "confidential",
+      "description": "Neutral investigation objective; a default review goal is supplied."
+    },
+    "output_folder": {
+      "type": "local_path",
+      "path_kind": "directory",
+      "required": false,
+      "privacy": "confidential",
+      "description": "Destination for review drafts and audit files."
+    }
+  },
+  "outputs": {
+    "artifacts": [
+      {
+        "artifact_id": "source_inventory",
+        "path": "case/source_inventory.json",
+        "mime_type": "application/json",
+        "type": "source_inventory",
+        "producer": "workflow",
+        "schema_version": "mn.litigation.source_inventory.v1",
+        "source_refs": []
+      },
+      {
+        "artifact_id": "evidence_database",
+        "path": "case/evidence.sqlite3",
+        "mime_type": "application/vnd.sqlite3",
+        "type": "evidence_database",
+        "producer": "workflow",
+        "schema_version": "mn.litigation.evidence_database.v1",
+        "source_refs": []
+      },
+      {
+        "artifact_id": "review_draft",
+        "path": "review_draft.md",
+        "mime_type": "text/markdown",
+        "type": "review_draft",
+        "producer": "workflow",
+        "schema_version": "mn.litigation.review_draft.v1",
+        "source_refs": []
+      },
+      {
+        "artifact_id": "review_index",
+        "path": "review_index.json",
+        "mime_type": "application/json",
+        "type": "review_index",
+        "producer": "workflow",
+        "schema_version": "mn.litigation.review_index.v1",
+        "source_refs": []
+      },
+      {
+        "artifact_id": "normalized_sources",
+        "path": "case/sources.json",
+        "mime_type": "application/json",
+        "type": "normalized_sources",
+        "producer": "workflow",
+        "schema_version": "mn.litigation.normalized_sources.v1",
+        "privacy": "confidential",
+        "required": true
+      },
+      {
+        "artifact_id": "investigation",
+        "path": "case/investigation.json",
+        "mime_type": "application/json",
+        "type": "investigation",
+        "producer": "workflow",
+        "schema_version": "mn.litigation.investigation.v1",
+        "privacy": "confidential",
+        "required": true
+      },
+      {
+        "artifact_id": "evidence_graph",
+        "path": "case/evidence.rgx",
+        "mime_type": "application/octet-stream",
+        "type": "evidence_graph",
+        "producer": "workflow",
+        "schema_version": "mn.litigation.evidence_graph.v1",
+        "privacy": "confidential",
+        "required": true
+      },
+      {
+        "artifact_id": "original_sources",
+        "path": "case/originals",
+        "mime_type": "application/octet-stream",
+        "type": "original_sources",
+        "producer": "workflow",
+        "schema_version": "mn.litigation.original_sources.v1",
+        "privacy": "confidential",
+        "required": true
+      },
+      {
+        "artifact_id": "document_index",
+        "path": "case/documents.sqlite3",
+        "mime_type": "application/vnd.sqlite3",
+        "type": "document_index",
+        "producer": "workflow",
+        "schema_version": "mn.litigation.document_index.v1",
+        "privacy": "confidential",
+        "required": true
+      },
+      {
+        "artifact_id": "index_receipt",
+        "path": "case/indexes.json",
+        "mime_type": "application/json",
+        "type": "index_receipt",
+        "producer": "workflow",
+        "schema_version": "mn.litigation.index_receipt.v1",
+        "privacy": "confidential",
+        "required": true
+      },
+      {
+        "artifact_id": "agent_checkpoint",
+        "path": "case/agent_checkpoint.json",
+        "mime_type": "application/json",
+        "type": "agent_checkpoint",
+        "producer": "workflow",
+        "schema_version": "mn.litigation.agent_checkpoint.v1",
+        "privacy": "confidential",
+        "required": true
+      }
+    ]
+  },
+  "privacy": {
+    "classification": "confidential",
+    "external_sharing": "disabled",
+    "notes": "The evidence database and agent checkpoint contain confidential source passages, model requests and tool results; the response service must not expose them."
+  }
+}

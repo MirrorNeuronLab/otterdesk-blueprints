@@ -1,0 +1,27 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/dependencies.schema.json",
+  "skills": [
+    {
+      "name": "mirrorneuron-graph-analysis-skill",
+      "source": "gar",
+      "type": "pip",
+      "version": "1.3.23"
+    }
+  ],
+  "agents": [
+    {
+      "name": "mn-prototype-stateful-step-agent",
+      "source": "gar",
+      "type": "pip",
+      "version": "1.3.10"
+    }
+  ],
+  "packages": [
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mn-python-sdk-job-response",
+      "version": "0.1.0"
+    }
+  ]
+}

@@ -5,9 +5,9 @@ its own manifest, configuration, payloads, README, and user-facing `SPEC.md`.
 
 VC Assistant, Financial Advisor, Legal Assistant, and Research Assistant
 use foundational `mn_sdk.llm` calls through blueprint support; they do not
-depend on the deprecated LiteLLM communication skill. Their RAG and OCR skills
+depend on the deprecated LiteLLM communication skill. Their RAG packages and OCR skills
 own model specifications and use the SDK runtime model wrapper, while each
-blueprint declares only its product-level behavior and required skills.
+blueprint declares only its product-level behavior and required skills and SDK packages.
 
 ## Quick Start
 
@@ -69,6 +69,7 @@ helpers and render shared agent templates.
 | [`purchasing_manager`](purchasing_manager/README.md) | Finance | A source-grounded purchasing co-worker for heavy-asset decisions. It screens real market options, models landed cost, discounted and risk-adjusted TCO, EAC, unit economics, scenarios, and cash/finance/lease terms, then prepares an approval-ready packet without transacting. |
 | [`cctv_operator`](cctv_operator/README.md) | Security | A steerable NVIDIA CCTV co-worker with a self-contained Docker demo stream, CUDA-assisted MJPEG preview, live operator event feed, sparse baseline analysis, event-triggered frame bursts, and durable reviewed-frame artifacts. |
 | [`microduck_controller`](microduck_controller/README.md) | Robotics | Lets an OtterDesk user control the live Microduck MuJoCo simulation in ordinary language through bounded MCP actions, deterministic ball navigation, and stoppable continuous free play. |
+| [`litigation_analyst`](litigation_analyst/README.md) | Legal | Investigates legal-document folders with exact citations, bounded hypotheses, graph tools, and a draft audit trail. Defaults to public EMC2 sample data on Docker workers. |
 | [`legal_assistant`](legal_assistant/README.md) | Legal | A review-only legal document co-worker for invoice, bill, and contract review. Put invoices, bills, contracts, clause notes, labels, or supporting files in the input folder; it extracts payable fields, maps contract clauses, compares playbook expectations, flags review issues, and writes a source-grounded review packet to the output folder. |
 
 ## Folder Contract
@@ -137,3 +138,22 @@ All folders and ZIPs use `https://mirrorneuron.io/schemas/blueprint/v1/manifest.
 Use `mn_sdk.blueprints.read_blueprint`, `resolve_config`, and `compile_blueprint`;
 `open_blueprint` adds ZIP extraction and `export_blueprint` preserves the full package.
 External dependencies remain declared; offline vendoring is optional.
+
+The `achitecture_advisor` blueprint accepts a public HTTPS GitHub repository URL or local source folder and uses the shared graph-analysis skill in Docker workers. See [Architecture Advisor](achitecture_advisor/README.md).
+
+SDK workflow capabilities are declared in the `packages` array in
+`dependencies.json`; domain skills remain in `skills` and agents in `agents`.
+Every package and skill declaration uses `type: "pip"`, `source: "gar"`, its full
+Python distribution name, and a pinned release version. For example:
+
+```json
+{"type": "pip", "source": "gar", "name": "mn-python-sdk-rag", "version": "0.1.0", "extras": ["milvus"]}
+```
+
+Local installation resolves SDK packages from `mn-python-sdk/packages` and skills
+from `mn-skills` or this blueprint's `payloads/skills` projects by distribution
+name, ignoring the declared release version. Local setup enables
+`MN_USE_LOCAL_SKILLS=1`. Binary mode retains GAR pins and does not select bundled
+skill source automatically. The same declaration works in both modes; source
+paths are prepared by the SDK rather than authored in dependency records.
+Each blueprint activates only its declared SDK capability closure.

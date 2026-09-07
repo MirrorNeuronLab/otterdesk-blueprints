@@ -249,7 +249,7 @@ def main() -> int:
         raise RuntimeError("MN_JOB_DATA_DIR must identify the direct job data directory")
 
     endpoint = await_endpoint(configured_run_dir() / WEB_UI_ENDPOINT_ARTIFACT)
-    from mn_web_ui_skill import claim_web_ui, mark_web_ui_status
+    from mn_sdk_web_ui import claim_web_ui, mark_web_ui_status
 
     register_endpoint(
         job_data_dir=job_data_dir,

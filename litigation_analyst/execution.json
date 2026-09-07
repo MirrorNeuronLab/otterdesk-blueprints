@@ -1,0 +1,81 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/execution.schema.json",
+  "mode": "compiled",
+  "job_name": "litigation-analyst",
+  "agents": {
+    "registry": {
+      "case_document_examiner": {
+        "handler": "agents.case_document_examiner",
+        "role": "Case Document Examiner"
+      },
+      "litigation_investigator": {
+        "handler": "agents.litigation_investigator",
+        "role": "Litigation Investigator"
+      },
+      "litigation_draft_editor": {
+        "handler": "agents.litigation_draft_editor",
+        "role": "Litigation Draft Editor"
+      },
+      "case_index_builder": {
+        "handler": "agents.case_index_builder"
+      }
+    }
+  },
+  "requirements": {
+    "cpu": {
+      "min_cores": 2
+    },
+    "memory": {
+      "min_gb": 4
+    },
+    "disk": {
+      "min_gb": 8
+    },
+    "network": {
+      "egress": "EMC2 GitHub download during preparation; configured local model only during analysis"
+    }
+  },
+  "workers": {
+    "groups": [
+      {
+        "steps": [
+          "prepare_case_sources",
+          "build_case_indexes",
+          "investigate_case_evidence",
+          "write_review_draft"
+        ],
+        "uses": "mn-agents.worker.python_docker@1",
+        "with": {
+          "stereotype": [
+            "blueprint_docker_worker",
+            "internal_write_worker"
+          ],
+          "docker_worker_image": "docker_worker",
+          "image": "mirror-neuron/litigation-analyst:local",
+          "dockerfile": "docker_worker/Dockerfile",
+          "build_context": ".",
+          "workdir": "/app",
+          "timeout_seconds": 3600,
+          "upload_paths": [
+            {
+              "source": "domain",
+              "target": "domain"
+            },
+            {
+              "source": "agents",
+              "target": "agents"
+            },
+            {
+              "source": "steps",
+              "target": "steps"
+            },
+            {
+              "source": "runtime",
+              "target": "runtime"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

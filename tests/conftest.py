@@ -10,9 +10,16 @@ SIBLING_SOURCES = (
     Path(__file__).resolve().parents[1],
     Path(__file__).resolve().parents[2] / "mn-blueprints",
     WORKSPACE / "mn-python-sdk",
-    WORKSPACE / "mn-skills" / "blueprint_support_skill" / "src",
+
     WORKSPACE / "mn-skills" / "live_video_analysis_skill" / "src",
-    WORKSPACE / "mn-skills" / "web_ui_skill" / "src",
+
+)
+
+SIBLING_SOURCES = (*SIBLING_SOURCES,
+    *sorted((WORKSPACE / "mn-skills").glob("*/src")),
+    *sorted((WORKSPACE / "mn-agents").glob("*/src")),
+    *sorted((WORKSPACE / "mn-python-sdk" / "packages").glob("*/src")),
+    WORKSPACE.parent / "mn-graph-engine" / "python" / "src",
 )
 
 for source in SIBLING_SOURCES:

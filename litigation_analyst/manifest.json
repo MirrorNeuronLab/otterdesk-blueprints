@@ -1,0 +1,32 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/manifest.schema.json",
+  "id": "litigation_analyst",
+  "name": "Litigation Analyst",
+  "version": "1.0.0",
+  "description": "Investigates a legal-document folder with cited document retrieval, observed email graphs, bounded hypotheses, and a durable audit trail. Defaults to the public EMC2 synthetic dataset. Produces drafts for human review.",
+  "workflow": "workflow.json",
+  "execution": "execution.json",
+  "contracts": "contracts.json",
+  "config": "config/default.json",
+  "dependencies": "dependencies.json",
+  "license": "LICENSE.md",
+  "terms": "TERM.md",
+  "extensions": {
+    "mn.product": {
+      "file": "extensions/product.json",
+      "required": false
+    },
+    "mn.response": {
+      "file": "extensions/response.json",
+      "required": true
+    },
+    "mn.llm": {
+      "file": "extensions/llm.json",
+      "required": true
+    },
+    "mn.ui": {
+      "file": "extensions/ui.json",
+      "required": false
+    }
+  }
+}

@@ -1,0 +1,176 @@
+import ast
+import importlib
+import json
+from pathlib import Path
+from types import SimpleNamespace
+import pytest
+from mn_sdk.blueprints import read_blueprint, resolve_config, compile_blueprint, blueprint_definition
+from workspace_paths import companion_workspace
+
+ROOT = Path(__file__).resolve().parents[1]
+BLUEPRINT = ROOT / 'achitecture_advisor'
+
+@pytest.fixture
+def modules(monkeypatch):
+    monkeypatch.syspath_prepend(str(BLUEPRINT/'payloads'))
+    for repo in ['mn-skills','mn-agents']:
+        for path in (companion_workspace(ROOT)/repo).glob('*/src'):
+            monkeypatch.syspath_prepend(str(path))
+    return {n: importlib.import_module('domain.'+n) for n in ['inputs','intake','model','reporting','config']}
+
+
+def test_compiled_contract_and_docker_handlers(modules):
+    package = read_blueprint(BLUEPRINT)
+    source = blueprint_definition(package)
+    compiled = compile_blueprint(package, resolve_config(package)).manifest
+    assert len(compiled['agents']['nodes']) >= 9
+    assert source['response_service'] == {'enabled': True}
+    assert source['contracts']['inputs']['input_folder']['type'] == 'local_path'
+    for name, record in source['agents']['registry'].items():
+        assert name not in {s['id'] for s in source['workflow']['steps']}
+        assert callable(importlib.import_module(record['handler']).run)
+    groups = json.loads((BLUEPRINT/'execution.json').read_text())['workers']['groups']
+    assert all(g['uses'] == 'mn-agents.worker.python_docker@1' for g in groups)
+
+
+@pytest.mark.parametrize('payload',[{}, {'input_folder':'x','repository_url':'https://github.com/a/b'},
+    {'repository_url':'http://github.com/a/b'}, {'repository_url':'https://token@github.com/a/b'},
+    {'repository_url':'https://github.com:443/a/b'}, {'repository_url':'https://github.com/a/b/tree/main'},
+    {'repository_url':'https://github.com/a/b?token=x'}, {'repository_url':'https://github.com/a/..'},
+    {'repository_url':'file:///tmp/a'}, {'input_folder':'https://github.com/a/b'}, {'input_folder':''}])
+def test_invalid_or_ambiguous_inputs_fail(modules,payload):
+    with pytest.raises(ValueError): modules['intake'].source_input(payload)
+
+
+def test_folder_with_spaces_and_canonical_url(modules,tmp_path):
+    folder=tmp_path/'source folder';folder.mkdir()
+    assert modules['intake'].source_input({'input_folder':str(folder)})==str(folder)
+    assert modules['intake'].source_input({'repository_url':'https://github.com/a/b/'})=='https://github.com/a/b.git'
+
+
+def test_clone_transport_restrictions_and_cleanup(modules,tmp_path,monkeypatch):
+    import subprocess
+    calls=[]
+    def clone(command,**options):
+        calls.append((command, options))
+        raise subprocess.TimeoutExpired('git',1)
+    monkeypatch.setattr(modules['inputs'].subprocess,'run',clone)
+    cfg={'source':{'clone_timeout_seconds':1},'ingest':{'git_commits':20}}
+    with pytest.raises(RuntimeError, match='GitHub download failed'):
+        modules['inputs'].resolve_source('https://github.com/a/b',tmp_path,cfg)
+    assert list((tmp_path/'repositories').iterdir())==[]
+    command,options=calls[0]
+    assert 'http.followRedirects=false' in command and '--no-recurse-submodules' in command
+    assert '--depth' in command and options['env']['GIT_TERMINAL_PROMPT']=='0'
+    assert options['env']['GIT_CONFIG_GLOBAL']=='/dev/null'
+
+
+def test_sdk_model_schema_budget_and_failure(modules,monkeypatch):
+    cfg=modules['config'].validate_config(json.loads((BLUEPRINT/'config/default.json').read_text()))
+    client=SimpleNamespace(model='test',provider='test',backend='auto',api_base=None,api_key='',required_capabilities=())
+    model=modules['model'].JsonModel(cfg,client)
+    calls=[]
+    def transport(*args,**kwargs):
+        calls.append((args,kwargs));return {'choices':[{'message':{'content':'{"result":"ok"}'},'finish_reason':'stop'}]}
+    monkeypatch.setattr(modules['model'],'runtime_model_json_request',transport)
+    assert model.complete('assess',{'text':'a'})=={'result':'ok'}
+    assert calls[0][0][3]['response_format']['type']=='json_schema'
+    assert calls[0][1]['num_retries']==0
+    with pytest.raises(ValueError,match='Context budget'): model.complete('assess',{'text':'长'*5000})
+    assert len(calls)==1
+    monkeypatch.setattr(modules['model'],'runtime_model_json_request',lambda *a,**k: (_ for _ in ()).throw(OSError('offline')))
+    with pytest.raises(RuntimeError,match='no synthetic'): model.complete('assess',{'text':'a'})
+    assert model.calls[-1]['status']=='error'
+
+
+def test_architecture_ownership():
+    payload=BLUEPRINT/'payloads'
+    assert not (payload/'agents/domain.py').exists()
+    assert not list(payload.glob('*_domain'))
+    for directory in ['runtime','steps']:
+        for path in (payload/directory).glob('*.py'):
+            tree=ast.parse(path.read_text())
+            assert len(path.read_text().splitlines())<500
+            assert not any(isinstance(n,ast.ImportFrom) and (n.module or '').split('.')[0] in {'domain','agents'} for n in ast.walk(tree))
+    for path in (payload/'agents').glob('*.py'):
+        assert all(s not in path.read_text() for s in ['redis','from_node','to_node','complete_step'])
+    for name in ['graph','capture','lazy']:
+        text=(payload/f'domain/{name}.py').read_text()
+        assert 'mn_graph_analysis_skill' in text
+        assert 'rgx_client' not in text
+    assert not (payload/'domain/server.py').exists()
+
+
+def graph_config():
+    import os
+    binary=Path(os.environ.get('ADVISOR_RGX_BINARY','/not-installed/rgx'))
+    if not binary.is_file(): pytest.skip('Published Linux RGX binary required')
+    cfg=resolve_config(read_blueprint(BLUEPRINT)).data
+    cfg['graph']['binary']=str(binary)
+    cfg['offline']=True
+    cfg['investigation']['max_hypotheses']=1
+    return cfg
+
+
+def test_three_workers_durable_replay_and_frozen_evidence(modules,tmp_path,monkeypatch):
+    from mn_sdk.step_runtime import StepContext
+    import shutil
+    cfg=graph_config()
+    folder=tmp_path/'source folder'
+    shutil.copytree(BLUEPRINT/'examples/sample_repository',folder)
+    marker=tmp_path/'executed'
+    (folder/'src/payments/injected.py').write_text(f'from pathlib import Path\nPath({str(marker)!r}).touch()\n')
+    run=tmp_path/'run'
+    monkeypatch.setenv('MN_RUN_DIR',str(run))
+    monkeypatch.setenv('MN_BLUEPRINT_BUNDLE_DIR',str(BLUEPRINT))
+    monkeypatch.setenv('MN_JOB_OUTPUT_DIR',str(tmp_path/'output'))
+    pairs=[('capture_repository','repository_examiner'),('investigate_architecture','architecture_investigator'),('publish_architecture_review','architecture_review_editor')]
+    inputs={'input_folder':str(folder),'goal':'Inspect payments.payment_service retry boundaries'}
+    for index,(step,role) in enumerate(pairs):
+        worker=importlib.import_module('agents.'+role)
+        invocation=StepContext(step_id=step,agent_id=role,invocation_id=step+'__'+role,
+            job_id='test-job',run_id='test-run',idempotency_key='test-job/test-run/'+step,
+            config=cfg,message={'body':inputs})
+        first=worker.run(invocation)
+        assert all((run/ref['path']).exists() for ref in first.artifacts)
+        assert len(json.dumps(first.outputs))<2000
+        if index==0:
+            (folder/'src/payments/payment_service.py').write_text('raise RuntimeError("changed after capture")\n')
+        second=worker.run(invocation)
+        assert first.outputs==second.outputs
+    assert not marker.exists()
+    report=json.loads((run/'report.json').read_text())
+    assert report['status']=='review_draft',report['errors']
+    assert report['metrics']['llm_calls']==0
+    assert 'changed after capture' not in (run/'report.md').read_text()
+    assert (run/'suggestive_prompts.md').is_file()
+    events=[json.loads(line) for line in (run/'events.log').read_text().splitlines()]
+    assert [e['sequence'] for e in events]==list(range(1,len(events)+1))
+    assert all(not e['event'].startswith('run.') for e in events)
+    snapshot=json.loads((run/'snapshot.json').read_text())
+    sources=run/'evidence/snapshots'/snapshot['id']/'sources.json'
+    value=json.loads(sources.read_text());next(iter(value.values()))['text']='tampered';sources.write_text(json.dumps(value))
+    with pytest.raises(ValueError,match='hash mismatch'):
+        modules['reporting'].verify_evidence(report,run)
+
+
+def test_https_input_retains_real_checkout_revision(modules,tmp_path,monkeypatch):
+    import subprocess,shutil
+    cfg=graph_config()
+    repo=tmp_path/'repo';shutil.copytree(BLUEPRINT/'examples/sample_repository',repo)
+    def git(*args): return subprocess.run(['git','-C',str(repo),*args],check=True,capture_output=True,text=True)
+    git('init');git('add','.');git('-c','user.name=Fixture','-c','user.email=fixture@example.test','commit','-m','fixture')
+    head=git('rev-parse','HEAD').stdout.strip()
+    actual=subprocess.run
+    def clone(command,**options):
+        if 'clone' in command:
+            return actual(['git','clone','--no-local','--',str(repo),command[-1]],**options)
+        return actual(command,**options)
+    monkeypatch.setattr(modules['inputs'].subprocess,'run',clone)
+    context={'run_dir':tmp_path/'run','payload':{'repository_url':'https://github.com/example/repo'},'config':cfg}
+    result,refs=modules['intake'].capture_input(context)
+    snapshot=json.loads((context['run_dir']/'snapshot.json').read_text())
+    assert snapshot['input']['revision']==head
+    assert snapshot['input']['location']=='https://github.com/example/repo.git'
+    assert Path(snapshot['input']['checkout'],'.git').is_dir()
+    assert all((context['run_dir']/ref['path']).exists() for ref in refs)

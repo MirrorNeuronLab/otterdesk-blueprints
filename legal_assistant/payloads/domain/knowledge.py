@@ -47,7 +47,7 @@ def prepare_legal_rag(config: dict[str, Any], blueprint_root: Path, knowledge: d
         return {
             "enabled": bool(knowledge_config.get("enabled")),
             "status": "skill_unavailable",
-            "warnings": ["mirrorneuron-rag-skill is unavailable; bundled playbook context remains available."],
+            "warnings": ["mn-python-sdk-rag is unavailable; bundled playbook context remains available."],
             "config": knowledge_config,
         }
     try:

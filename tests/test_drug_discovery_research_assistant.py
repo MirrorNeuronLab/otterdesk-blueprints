@@ -52,36 +52,37 @@ def test_drug_discovery_manifest_uses_source_format_and_shared_blocks():
     assert manifest["kind"] == "WorkflowSource"
     assert manifest["type"] == "batch"
     assert manifest["identity"]["id"] == "drug_discovery_research_assistant"
-    assert manifest["skill_dependencies"] == [
+    assert manifest["packages"] == [
         {
             "type": "pip",
             "source": "gar",
-            "name": "mirrorneuron-use-generic-model-skill",
-            "version": "1.3.22",
+            "name": "mn-python-sdk-models",
+            "version": "0.1.0",
         },
         {
             "type": "pip",
             "source": "gar",
-            "name": "mirrorneuron-job-response-skill",
-            "version": "1.3.22",
+            "name": "mn-python-sdk-job-response",
+            "version": "0.1.0",
         },
         {
             "type": "pip",
             "source": "gar",
-            "name": "mirrorneuron-mcp-client-skill",
-            "version": "1.3.22",
+            "name": "mn-python-sdk-mcp",
+            "version": "0.1.0",
         },
         {
             "type": "pip",
             "source": "gar",
-            "name": "mirrorneuron-rag-skill",
-            "version": "1.3.22",
+            "name": "mn-python-sdk-rag",
+            "extras": ["milvus"],
+            "version": "0.1.0",
         },
         {
             "type": "pip",
             "source": "gar",
-            "name": "mirrorneuron-web-ui-skill",
-            "version": "1.3.22",
+            "name": "mn-python-sdk-web-ui",
+            "version": "0.1.0",
         },
     ]
     assert (
@@ -259,7 +260,7 @@ def test_drug_discovery_uses_logical_default_llm_route():
     assert config["drugclip"]["generic_model"]["runtime"] == "native_checkpoint"
     assert (
         config["drugclip"]["generic_model"]["validator"]
-        == "mirrorneuron-use-generic-model-skill"
+        == "mn-python-sdk-models"
     )
     assert config["drugclip"]["generic_model"]["shared_model_catalog"] is False
     assert config["drugclip"]["checkpoint_filename"] == "best.ckpt"

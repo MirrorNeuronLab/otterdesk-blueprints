@@ -11,7 +11,7 @@ OtterDesk also exposes a read-only **Drug Discovery Progress** web UI. It render
 
 The web UI is an auxiliary runtime entrypoint. Manifest expansion starts it alongside the compiler-generated `target_discovery__start` workflow root, so UI supervision cannot replace or block the first scientific step.
 
-DrugClip is a problem-specific scientific checkpoint, not a shared LLM model. The adapter uses `mirrorneuron-use-generic-model-skill` to validate the explicit `https://huggingface.co/homerquan/DrugClip` reference, then downloads `best.ckpt` and runs it through the native `DrugCLIP` graph/text adapter. Docker Model Runner is deliberately not used for DrugClip: the repository is a checkpoint-only graph/text model, not a DMR-compatible generative model. No fake adapter or surrogate score is used in live mode.
+DrugClip is a problem-specific scientific checkpoint, not a shared LLM model. The adapter uses `mn-python-sdk-models` to validate the explicit `https://huggingface.co/homerquan/DrugClip` reference, then downloads `best.ckpt` and runs it through the native `DrugCLIP` graph/text adapter. Docker Model Runner is deliberately not used for DrugClip: the repository is a checkpoint-only graph/text model, not a DMR-compatible generative model. No fake adapter or surrogate score is used in live mode.
 
 The explanatory LLM actors use Docker Model Runner's logical `default` route through `api_base: auto`. The blueprint does not pin a concrete shared LLM or `runtime_model`; runtime model selection remains with the platform and the operator-selected default. This routing is independent of the native DrugClip checkpoint.
 

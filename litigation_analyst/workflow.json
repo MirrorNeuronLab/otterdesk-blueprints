@@ -1,0 +1,74 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/workflow.schema.json",
+  "workflow_id": "litigation_analyst_v1",
+  "steps": [
+    {
+      "id": "prepare_case_sources",
+      "kind": "source",
+      "label": "Prepare Case Sources",
+      "goal": "Inventory and normalize legal sources with exact provenance.",
+      "needs": [],
+      "run": {
+        "definition": "steps.prepare_case_sources"
+      },
+      "control": {
+        "timeout_seconds": 3600
+      }
+    },
+    {
+      "id": "build_case_indexes",
+      "kind": "stage",
+      "label": "Build Evidence Indexes",
+      "goal": "Build and validate the frozen document index and observed graph before investigation.",
+      "needs": [
+        "prepare_case_sources"
+      ],
+      "run": {
+        "definition": "steps.build_case_indexes"
+      },
+      "control": {
+        "timeout_seconds": 3600
+      }
+    },
+    {
+      "id": "investigate_case_evidence",
+      "kind": "stage",
+      "label": "Investigate Case Evidence",
+      "goal": "Test neutral hypotheses against bounded document and graph evidence.",
+      "needs": [
+        "build_case_indexes"
+      ],
+      "run": {
+        "definition": "steps.investigate_case_evidence"
+      },
+      "control": {
+        "timeout_seconds": 3600
+      }
+    },
+    {
+      "id": "write_review_draft",
+      "kind": "sink",
+      "label": "Write Review Draft",
+      "goal": "Verify evidence citations and write a human-review draft and audit index.",
+      "needs": [
+        "investigate_case_evidence"
+      ],
+      "run": {
+        "definition": "steps.write_review_draft"
+      },
+      "control": {
+        "timeout_seconds": 3600
+      }
+    }
+  ],
+  "defaults": {
+    "step": {
+      "control": {
+        "failure_policy": "fail_workflow",
+        "retry": {
+          "max_attempts": 1
+        }
+      }
+    }
+  }
+}

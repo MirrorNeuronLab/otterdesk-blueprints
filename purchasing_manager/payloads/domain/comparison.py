@@ -6,7 +6,7 @@ import json
 import re
 from typing import Any
 
-from mn_blueprint_support import resolve_actor_specs
+from mn_prototype_actor_review_agent.actors import resolve_actor_specs
 
 from .llm_analysis import (
     analysis_settings,

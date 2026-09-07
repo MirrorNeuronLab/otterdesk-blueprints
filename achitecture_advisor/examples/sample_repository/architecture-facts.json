@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "modules": [],
+  "relationships": [
+    {"from": "payments.payment_service", "to": "checkout", "type": "PARTICIPATES_IN", "source": "architecture.md", "line": 7},
+    {"from": "payments.checkout", "to": "checkout", "type": "PARTICIPATES_IN", "source": "architecture.md", "line": 7},
+    {"from": "payments.payment_service", "to": "DEMO-001", "type": "AFFECTED_BY", "source": "architecture.md", "line": 8}
+  ]
+}

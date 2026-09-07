@@ -69,11 +69,11 @@ def prepare_problem_specific_model(request: dict[str, Any]) -> dict[str, Any]:
     if cached is not None:
         return cached
     try:
-        from mn_use_generic_model_skill import normalize_model_reference
+        from mn_sdk_models import normalize_model_reference
 
         source_model, normalized_model = normalize_model_reference(model_ref)
     except ImportError as error:  # pragma: no cover - depends on native worker image
-        raise RuntimeError("DrugClip cannot run: mirrorneuron-use-generic-model-skill is not installed on this worker.") from error
+        raise RuntimeError("DrugClip cannot run: mn-python-sdk-models is not installed on this worker.") from error
     except Exception as error:
         raise RuntimeError(f"DrugClip cannot validate its Hugging Face model reference: {error}") from error
 

@@ -12,9 +12,9 @@ SDK compilation, and Core delivery are dependencies, not code owned here.
 
 VC Assistant, Financial Advisor, Legal Assistant, and Research Assistant
 use foundational `mn_sdk.llm` access through blueprint support and do not
-declare `mirrorneuron-litellm-communicate-skill`. Their RAG and OCR skills own
+declare `mirrorneuron-litellm-communicate-skill`. Their RAG packages and OCR skills own
 complete model specifications and pass them to the SDK's lazy runtime wrapper.
-Blueprints declare only skills and product-level behavior; first-use runtime
+Blueprints declare skills, SDK packages, and product-level behavior; first-use runtime
 selection chooses and prepares the concrete DMR model.
 
 ## Catalog Contract
@@ -131,3 +131,20 @@ python -m pytest tests -q
 Live external capabilities remain explicit opt-in checks. Contract changes in a
 sibling SDK/agent/skill/Core layer are tested in that owning repository as well
 as through the affected catalog integration.
+
+SDK workflow capabilities are declared in the `packages` array in
+`dependencies.json`; domain skills remain in `skills` and agents in `agents`.
+Every package and skill declaration uses `type: "pip"`, `source: "gar"`, its full
+Python distribution name, and a pinned release version. For example:
+
+```json
+{"type": "pip", "source": "gar", "name": "mn-python-sdk-rag", "version": "0.1.0", "extras": ["milvus"]}
+```
+
+Local installation resolves SDK packages from `mn-python-sdk/packages` and skills
+from `mn-skills` or this blueprint's `payloads/skills` projects by distribution
+name, ignoring the declared release version. Local setup enables
+`MN_USE_LOCAL_SKILLS=1`. Binary mode retains GAR pins and does not select bundled
+skill source automatically. The same declaration works in both modes; source
+paths are prepared by the SDK rather than authored in dependency records.
+Each blueprint activates only its declared SDK capability closure.

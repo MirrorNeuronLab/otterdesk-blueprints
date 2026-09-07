@@ -1,0 +1,1 @@
+relational-foundation-model-platform @ git+https://github.com/MirrorNeuronLab/mn-graph-engine.git@d24ee544982f25537ade1f70173b45182855b7a7#subdirectory=python

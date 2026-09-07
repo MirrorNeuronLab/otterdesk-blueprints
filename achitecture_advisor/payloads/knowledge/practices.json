@@ -1,0 +1,306 @@
+{
+  "version": "1.0.0",
+  "description": "Small authored review library: guidance, never repository evidence. Not an exhaustive standard or proprietary expertise.",
+  "cards": [
+    {
+      "id": "K01",
+      "title": "Quality scenarios and tradeoffs",
+      "families": [
+        "coupling",
+        "runtime",
+        "configuration"
+      ],
+      "keywords": [
+        "quality",
+        "performance",
+        "latency",
+        "availability",
+        "cost",
+        "tradeoff",
+        "scalability"
+      ],
+      "principle": "Judge a design against a concrete quality goal and its competing costs.",
+      "verify": "Define a workload or failure scenario, baseline and measurable response; compare a small change with keeping the design.",
+      "exception": "Static degree cannot establish latency, business impact or a universal severity threshold.",
+      "origin": "original review checklist inspired by source",
+      "sources": [
+        {
+          "title": "SEI: ATAM",
+          "url": "https://www.sei.cmu.edu/library/atam-method-for-architecture-evaluation/"
+        }
+      ]
+    },
+    {
+      "id": "K02",
+      "title": "Cohesion and bounded contexts",
+      "families": [
+        "coupling",
+        "responsibility",
+        "team_ownership",
+        "duplication"
+      ],
+      "keywords": [
+        "cohesion",
+        "split",
+        "service",
+        "domain",
+        "responsibility",
+        "context",
+        "payment"
+      ],
+      "principle": "Group behavior that shares vocabulary, invariants and reasons to change.",
+      "verify": "Compare call/state paths, domain terms and change reasons; test one local seam before choosing a deployment boundary.",
+      "exception": "High degree or several collaborators may be cohesive orchestration; shared atomicity may justify staying together.",
+      "origin": "original review checklist inspired by source",
+      "sources": [
+        {
+          "title": "Martin Fowler: Bounded Context",
+          "url": "https://martinfowler.com/bliki/BoundedContext.html"
+        }
+      ]
+    },
+    {
+      "id": "K03",
+      "title": "Ports, adapters and dependency direction",
+      "families": [
+        "layering",
+        "abstraction"
+      ],
+      "keywords": [
+        "layer",
+        "interface",
+        "dependency",
+        "adapter",
+        "port",
+        "controller",
+        "infrastructure"
+      ],
+      "principle": "Keep application policy testable through explicit boundaries to external technology.",
+      "verify": "Obtain the allowed dependency rule, trace one violating edge and test the policy through a local port.",
+      "exception": "A layer name is not a rule; an adapter may intentionally import infrastructure. Avoid interfaces without a useful seam.",
+      "origin": "original review checklist inspired by source",
+      "sources": [
+        {
+          "title": "Alistair Cockburn: Hexagonal Architecture",
+          "url": "https://alistair.cockburn.us/hexagonal-architecture/"
+        }
+      ]
+    },
+    {
+      "id": "K04",
+      "title": "Retries and idempotent effects",
+      "families": [
+        "resilience",
+        "workflow"
+      ],
+      "keywords": [
+        "retry",
+        "retries",
+        "idempotency",
+        "timeout",
+        "duplicate",
+        "charge",
+        "failure"
+      ],
+      "principle": "Repeated attempts for the same logical operation need an explicit effect and response contract.",
+      "verify": "Trace request identity and deduplication storage; inject timeouts before and after effects, then repeat the operation.",
+      "exception": "A retry wrapper alone proves nothing; a local rollback cannot undo an external effect.",
+      "origin": "original review checklist inspired by source",
+      "sources": [
+        {
+          "title": "AWS Builders Library: Making retries safe with idempotent APIs",
+          "url": "https://aws.amazon.com/builders-library/making-retries-safe-with-idempotent-APIs/"
+        }
+      ]
+    },
+    {
+      "id": "K05",
+      "title": "State ownership and atomicity",
+      "families": [
+        "ownership",
+        "data_flow",
+        "schema_evolution"
+      ],
+      "keywords": [
+        "state",
+        "database",
+        "table",
+        "transaction",
+        "atomicity",
+        "writer",
+        "consistency"
+      ],
+      "principle": "Assign authority for state changes around the invariants that must remain atomic.",
+      "verify": "Resolve physical stores and actual writers; trace commit boundaries and characterize competing writes before extraction.",
+      "exception": "A table name is not database identity; reads do not prove shared ownership. A local transaction may be the right boundary.",
+      "origin": "original MVP heuristic",
+      "sources": []
+    },
+    {
+      "id": "K06",
+      "title": "Characterization and architecture checks",
+      "families": [
+        "verification"
+      ],
+      "keywords": [
+        "test",
+        "testing",
+        "coverage",
+        "regression",
+        "characterization",
+        "invariant"
+      ],
+      "principle": "Protect observed behavior before changing a structural boundary.",
+      "verify": "Trace a real call to its state or external effect; test a normal and failure path, then encode the agreed dependency rule.",
+      "exception": "A test-file link is not coverage; doubles can hide integration failures. Test the contract, not private layout.",
+      "origin": "original MVP heuristic",
+      "sources": []
+    },
+    {
+      "id": "K07",
+      "title": "Architectural decisions and drift",
+      "families": [
+        "intent_verification",
+        "drift",
+        "configuration"
+      ],
+      "keywords": [
+        "adr",
+        "intent",
+        "documentation",
+        "rule",
+        "drift",
+        "decision"
+      ],
+      "principle": "Keep the context and consequences of significant decisions discoverable.",
+      "verify": "Compare a current accepted decision with cited behavior; record its owner, status, alternatives and a checkable constraint.",
+      "exception": "A superseded decision or intentional exception may explain a mismatch; document the change before declaring a violation.",
+      "origin": "original review checklist inspired by source",
+      "sources": [
+        {
+          "title": "Michael Nygard: Documenting Architecture Decisions",
+          "url": "https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions"
+        }
+      ]
+    },
+    {
+      "id": "K08",
+      "title": "Compatible interface evolution",
+      "families": [
+        "schema_evolution",
+        "abstraction",
+        "runtime"
+      ],
+      "keywords": [
+        "migration",
+        "schema",
+        "compatibility",
+        "api",
+        "rollout",
+        "version",
+        "contract"
+      ],
+      "principle": "Separate adding a compatible interface, migrating consumers and retiring the old contract.",
+      "verify": "Inventory consumers and versions; exercise old/new compatibility, stage one migration and define a rollback checkpoint.",
+      "exception": "Temporary dual support costs maintenance; an atomic in-process change may be simpler when every consumer is controlled.",
+      "origin": "original review checklist inspired by source",
+      "sources": [
+        {
+          "title": "Danilo Sato: Parallel Change",
+          "url": "https://martinfowler.com/bliki/ParallelChange.html"
+        }
+      ]
+    },
+    {
+      "id": "K09",
+      "title": "Change and incident triage",
+      "families": [
+        "history",
+        "incident_analysis",
+        "team_ownership"
+      ],
+      "keywords": [
+        "incident",
+        "history",
+        "cochange",
+        "churn",
+        "ownership",
+        "hotspot",
+        "commit"
+      ],
+      "principle": "Use change patterns to select investigations whose behavior can be checked.",
+      "verify": "Inspect the commit window, exclude mechanical changes and join explicit incident links before assigning incident impact.",
+      "exception": "Co-change is correlation; a shared feature or generated files can explain it. Commit authorship alone is not ownership.",
+      "origin": "original MVP heuristic",
+      "sources": []
+    },
+    {
+      "id": "K10",
+      "title": "Trust boundaries and sensitive flows",
+      "families": [
+        "data_flow"
+      ],
+      "keywords": [
+        "security",
+        "secret",
+        "sensitive",
+        "auth",
+        "authorization",
+        "injection",
+        "trust"
+      ],
+      "principle": "Verify protections where untrusted input crosses into sensitive state or execution.",
+      "verify": "Trace a concrete source-to-sink path, authorization and validation; reproduce a rejected unauthorized or malformed request.",
+      "exception": "A lexical source/sink match is a candidate, not an exploit; framework validation or unreachable paths may disprove it.",
+      "origin": "original MVP heuristic",
+      "sources": []
+    },
+    {
+      "id": "K11",
+      "title": "Operational budgets and observability",
+      "families": [
+        "runtime",
+        "configuration",
+        "resilience"
+      ],
+      "keywords": [
+        "runtime",
+        "deployment",
+        "config",
+        "operational",
+        "observability",
+        "timeout",
+        "queue",
+        "resource"
+      ],
+      "principle": "Make dependency failure and resource limits observable against an explicit operational budget.",
+      "verify": "Trace configured timeouts, queue or pool limits and propagation; measure one slow or failed dependency under a stated load.",
+      "exception": "Declared topology is not a runtime trace; adding retries or queues may amplify load and change delivery semantics.",
+      "origin": "original MVP heuristic",
+      "sources": []
+    },
+    {
+      "id": "K12",
+      "title": "Workflow consistency and compensation",
+      "families": [
+        "workflow",
+        "ownership"
+      ],
+      "keywords": [
+        "workflow",
+        "saga",
+        "event",
+        "compensation",
+        "state",
+        "machine",
+        "message",
+        "delivery"
+      ],
+      "principle": "Define valid state transitions and recovery for multi-step effects.",
+      "verify": "Map one workflow, durable progress and effect order; inject a crash between steps and test restart and duplicate delivery.",
+      "exception": "Compensation is a new action, not time reversal; retaining one local transaction may be safer than splitting the workflow.",
+      "origin": "original MVP heuristic",
+      "sources": []
+    }
+  ]
+}

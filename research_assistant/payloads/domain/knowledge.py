@@ -9,7 +9,7 @@ from typing import Any
 from .common import BLUEPRINT_ID, _sha256
 
 try:
-    from mn_rag_skill import build_rag_context, prepare_blueprint_knowledge_rag
+    from mn_sdk.integrations.rag import build_rag_context, prepare_blueprint_knowledge_rag
 except Exception:  # pragma: no cover - optional runtime skill
     build_rag_context = None
     prepare_blueprint_knowledge_rag = None
@@ -54,7 +54,7 @@ def prepare_research_rag(config: dict[str, Any], root: Path, knowledge: dict[str
         state["warnings"].append({"status": "skipped_quick_test", "message": "Embedding preparation is skipped in deterministic quick-test mode; local lexical retrieval remains enabled."})
         return state
     if prepare_blueprint_knowledge_rag is None:
-        state["warnings"].append({"status": "skill_unavailable", "message": "mirrorneuron-rag-skill is unavailable; lexical local retrieval remains enabled."})
+        state["warnings"].append({"status": "skill_unavailable", "message": "mn-python-sdk-rag is unavailable; lexical local retrieval remains enabled."})
         return state
     try:
         rag_state = prepare_blueprint_knowledge_rag(

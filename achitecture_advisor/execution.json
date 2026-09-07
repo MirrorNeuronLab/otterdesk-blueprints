@@ -1,0 +1,81 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/execution.schema.json",
+  "mode": "compiled",
+  "job_name": "achitecture-advisor",
+  "agents": {
+    "registry": {
+      "repository_examiner": {
+        "handler": "agents.repository_examiner",
+        "role": "Repository Examiner"
+      },
+      "architecture_investigator": {
+        "handler": "agents.architecture_investigator",
+        "role": "Architecture Investigator"
+      },
+      "architecture_review_editor": {
+        "handler": "agents.architecture_review_editor",
+        "role": "Architecture Review Editor"
+      }
+    }
+  },
+  "requirements": {
+    "cpu": {
+      "min_cores": 2
+    },
+    "memory": {
+      "min_gb": 4
+    },
+    "disk": {
+      "min_gb": 8
+    },
+    "network": {
+      "egress": "Public GitHub for URL inputs; configured model and embedding providers for live analysis"
+    }
+  },
+  "workers": {
+    "groups": [
+      {
+        "steps": [
+          "capture_repository",
+          "investigate_architecture",
+          "publish_architecture_review"
+        ],
+        "uses": "mn-agents.worker.python_docker@1",
+        "with": {
+          "stereotype": [
+            "blueprint_docker_worker",
+            "internal_write_worker"
+          ],
+          "docker_worker_image": "docker_worker",
+          "image": "mirror-neuron/achitecture-advisor:local",
+          "dockerfile": "docker_worker/Dockerfile",
+          "build_context": ".",
+          "workdir": "/app",
+          "timeout_seconds": 3600,
+          "upload_paths": [
+            {
+              "source": "domain",
+              "target": "domain"
+            },
+            {
+              "source": "agents",
+              "target": "agents"
+            },
+            {
+              "source": "steps",
+              "target": "steps"
+            },
+            {
+              "source": "runtime",
+              "target": "runtime"
+            },
+            {
+              "source": "knowledge",
+              "target": "knowledge"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

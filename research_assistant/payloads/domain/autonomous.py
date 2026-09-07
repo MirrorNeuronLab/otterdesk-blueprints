@@ -7,8 +7,10 @@ import os
 from pathlib import Path
 from typing import Any
 
-from mn_autonomous_research_skill import AutonomousResearchSession, GeneratedCodePolicy, ToolRegistry, create_research_goal
-from mn_blueprint_support import llm_usage, resolve_actor_specs, run_actor_reviews
+from mn_autonomous_research_skill import create_research_goal, create_research_prompt
+from mn_prototype_bounded_tool_loop_agent.session import ToolSession, ToolRegistry
+from mn_prototype_bounded_tool_loop_agent.execution import GeneratedCodePolicy
+from mn_prototype_actor_review_agent.actors import llm_usage, resolve_actor_specs, run_actor_reviews
 
 from .common import RESEARCH_ACTIONS, _json_safe, load_prompt, quick_test_enabled
 from .evidence import (
@@ -950,10 +952,11 @@ def run_autonomous_research(
         success_criteria=list(inputs.get("success_criteria") or []),
         constraints=inputs.get("constraints") or {},
     )
-    session = AutonomousResearchSession(
+    session = ToolSession(
         goal,
         registry,
         workspace / str(generated.get("workspace") or "generated_research"),
+        prompt_factory=create_research_prompt,
         max_tool_calls=max(0, int(autonomous_config.get("max_total_tool_calls", 12))),
         code_policy=GeneratedCodePolicy(
             timeout_seconds=max(1, int(generated.get("timeout_seconds", 15))),

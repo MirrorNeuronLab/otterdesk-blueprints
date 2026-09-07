@@ -79,6 +79,8 @@ def _payload_pythonpath(blueprint_id: str) -> str:
             if path.is_dir()
         )
     )
+    roots.append(WORKSPACE / "mn-python-sdk")
+    roots.extend(sorted((WORKSPACE / "mn-python-sdk" / "packages").glob("*/src")))
     roots.extend(sorted((WORKSPACE / "mn-skills").glob("*/src")))
     roots.extend(sorted((WORKSPACE / "mn-agents").glob("*/src")))
     existing = os.environ.get("PYTHONPATH")

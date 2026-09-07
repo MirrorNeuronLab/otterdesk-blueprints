@@ -97,7 +97,7 @@ def test_bootstrap_blueprint_runtime_uses_installed_packages_in_production(tmp_p
     for key in ("MN_ENV", "MN_USE_LOCAL_SKILLS"):
         monkeypatch.delenv(key, raising=False)
 
-    result = bootstrap_blueprint_runtime(repo, packages=["mirrorneuron-blueprint-support-skill"])
+    result = bootstrap_blueprint_runtime(repo, packages=["mn-python-sdk-common"])
 
     assert result["mode"] == "installed_packages"
     assert result["modules"] == []
@@ -127,10 +127,10 @@ def test_bootstrap_blueprint_runtime_delegates_local_skills_to_sdk(tmp_path, mon
     monkeypatch.setitem(sys.modules, "mn_sdk.runtime_modules", runtime_modules)
     monkeypatch.setattr(otterdesk_blueprint_env, "ensure_local_sdk_importable", lambda start=None: None)
 
-    result = bootstrap_blueprint_runtime(repo, packages=["mirrorneuron-blueprint-support-skill"])
+    result = bootstrap_blueprint_runtime(repo, packages=["mn-python-sdk-common"])
 
     assert result["mode"] == "local_skill_sources"
     assert result["modules"] == [{"status": "present"}]
-    assert calls[0][0] == [{"package": "mirrorneuron-blueprint-support-skill", "reasons": ["blueprint_runtime"]}]
+    assert calls[0][0] == [{"package": "mn-python-sdk-common", "reasons": ["blueprint_runtime"]}]
     assert calls[0][1]["workspace_root"] == repo.parent
     assert calls[0][1]["auto_install"] is False

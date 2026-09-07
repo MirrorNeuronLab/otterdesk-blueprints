@@ -124,7 +124,7 @@ The manifest declares a blueprint-owned DockerWorker `cctv_web_ui` service in
 the same shared host-network container as the stream and analysis workers. Its
 HTML page, MJPEG relay, SSE event feed, and state projection live in
 `payloads/services/cctv_web_ui.py`. The
-generic `mirrorneuron-web-ui-skill` claims the already-bound endpoint and its
+generic `mn-python-sdk-web-ui` claims the already-bound endpoint and its
 proxy allowlist; it knows no CCTV routes or policy. The dashboard is read-only,
 displays the current watch target, and leaves updates to an external chat AI
 calling the blueprint MCP and its declared `steer_monitoring` live input.

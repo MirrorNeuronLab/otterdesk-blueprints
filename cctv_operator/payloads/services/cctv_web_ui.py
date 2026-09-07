@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any, Callable, Iterator, Mapping, Protocol
 
 from mn_live_video_analysis_skill import redact_source_urls
-from mn_web_ui_skill import claim_web_ui, mark_web_ui_status, resolve_web_ui_binding
+from mn_sdk_web_ui import claim_web_ui, mark_web_ui_status, resolve_web_ui_binding
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent

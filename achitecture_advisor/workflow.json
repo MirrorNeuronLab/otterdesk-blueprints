@@ -1,0 +1,59 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/workflow.schema.json",
+  "workflow_id": "achitecture_advisor_v1",
+  "steps": [
+    {
+      "id": "capture_repository",
+      "kind": "source",
+      "label": "Capture Repository",
+      "goal": "Freeze source text and revision provenance.",
+      "needs": [],
+      "run": {
+        "definition": "steps.capture_repository"
+      },
+      "control": {
+        "timeout_seconds": 3600
+      }
+    },
+    {
+      "id": "investigate_architecture",
+      "kind": "stage",
+      "label": "Investigate Architecture",
+      "goal": "Test bounded hypotheses using graph and counter-evidence.",
+      "needs": [
+        "capture_repository"
+      ],
+      "run": {
+        "definition": "steps.investigate_architecture"
+      },
+      "control": {
+        "timeout_seconds": 3600
+      }
+    },
+    {
+      "id": "publish_architecture_review",
+      "kind": "sink",
+      "label": "Publish Architecture Review",
+      "goal": "Validate evidence and publish review drafts and follow-up tasks.",
+      "needs": [
+        "investigate_architecture"
+      ],
+      "run": {
+        "definition": "steps.publish_architecture_review"
+      },
+      "control": {
+        "timeout_seconds": 3600
+      }
+    }
+  ],
+  "defaults": {
+    "step": {
+      "control": {
+        "failure_policy": "fail_workflow",
+        "retry": {
+          "max_attempts": 1
+        }
+      }
+    }
+  }
+}

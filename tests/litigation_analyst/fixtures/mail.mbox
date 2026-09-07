@@ -1,0 +1,10 @@
+From sender@example.test Mon Jan  6 00:00:00 2025
+Date: Mon, 6 Jan 2025 00:00:00 +0000
+From: Sender <sender@example.test>
+To: Reviewer <reviewer@example.test>
+Subject: Follow-up notice
+Message-ID: <fixture-1@example.test>
+Content-Type: text/plain; charset="utf-8"
+
+Please review the transfer notice and supporting schedule before any decision.
+

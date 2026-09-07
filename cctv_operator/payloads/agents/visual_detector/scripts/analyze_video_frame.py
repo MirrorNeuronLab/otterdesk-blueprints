@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import base64
 import datetime as dt
-import importlib.util
 import json
 import os
 import sys
@@ -21,26 +20,10 @@ for ancestor in (SCRIPT_DIR, *SCRIPT_DIR.parents):
         sys.path.insert(0, str(ancestor))
         break
 
-RUNTIME_SKILL_PACKAGES = (
-    "mirrorneuron-blueprint-support-skill",
-    "mirrorneuron-live-video-analysis-skill",
-)
 
 
-def _bootstrap_runtime() -> None:
-    for parent in Path(__file__).resolve().parents:
-        helper = parent / "otterdesk_blueprint_env.py"
-        if helper.exists():
-            spec = importlib.util.spec_from_file_location("otterdesk_blueprint_env", helper)
-            if spec is None or spec.loader is None:
-                return
-            module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
-            module.bootstrap_blueprint_runtime(__file__, packages=RUNTIME_SKILL_PACKAGES)
-            return
 
 
-_bootstrap_runtime()
 
 from video_json_utils import (
     first_balanced_json_object,
@@ -53,7 +36,8 @@ from video_json_utils import (
 )
 
 from mn_sdk import RuntimeModelError, runtime_model_json_request
-from mn_blueprint_support import PromptLibrary, start_agent_beacon_thread
+from mn_sdk_common.prompts import PromptLibrary
+from mn_sdk_common.beacon import start_agent_beacon_thread
 from mn_live_video_analysis_skill import (
     model_user_content,
     redact_source_uri,

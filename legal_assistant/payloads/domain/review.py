@@ -112,7 +112,7 @@ def build_llm_client(config: dict[str, Any], payload: dict[str, Any], llm_client
     if get_actor_llm_client is None:
         raise RuntimeError(
             "Legal Assistant requires the shared live LLM client for normal runs. "
-            "Install/enable mirrorneuron-blueprint-support-skill or run with explicit fake/quick-test mode."
+            "Install/enable mn-python-sdk-common or run with explicit fake/quick-test mode."
         )
     selection = select_default_model(config)
     try:

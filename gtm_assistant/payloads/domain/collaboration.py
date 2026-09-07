@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from mn_goal_work_packet_skill import (
+from mn_sdk_collaboration import (
     build_goal_work_packet,
     persist_goal_work_packet,
 )

@@ -7,8 +7,8 @@ RUN npm run build
 
 FROM python:3.11-slim
 WORKDIR /app
-COPY requirements.txt /tmp/requirements.txt
-RUN pip install --no-cache-dir -r /tmp/requirements.txt
+COPY requirements.txt /tmp/mn-skill-runtime/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/mn-skill-runtime/requirements.txt
 COPY agents/ /app/agents/
 COPY domain/ /app/domain/
 COPY knowledge/ /app/knowledge/

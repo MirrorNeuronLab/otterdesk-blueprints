@@ -474,7 +474,8 @@ def test_software_architecture_advisor_includes_a_docker_worker_build_context():
 
     text = dockerfile.read_text()
     assert "COPY requirements.txt" in text
-    assert "COPY local-requirements.txt" in text
+    # SDK preparation injects local source COPY statements only in development.
+    assert "COPY local-requirements.txt" not in text
     assert "mirrorneuron: skill-dependencies" in text
     assert (payloads / "prompts" / "architecture-review-system.md").is_file()
     assert (payloads / "knowledge" / "static-analysis-limits.md").is_file()

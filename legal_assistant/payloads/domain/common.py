@@ -4,7 +4,6 @@ from __future__ import annotations
 import argparse
 import copy
 import hashlib
-import importlib.util
 import json
 import os
 import re
@@ -14,37 +13,15 @@ from pathlib import Path
 from typing import Any
 
 
-RUNTIME_SKILL_PACKAGES = (
-    "mirrorneuron-blueprint-support-skill",
-    "mirrorneuron-llm-ocr-skill",
-    "mirrorneuron-rag-skill",
-)
-
-def _bootstrap_runtime() -> None:
-    for parent in Path(__file__).resolve().parents:
-        helper = parent / "otterdesk_blueprint_env.py"
-        if helper.exists():
-            spec = importlib.util.spec_from_file_location("otterdesk_blueprint_env", helper)
-            if spec is None or spec.loader is None:
-                return
-            module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
-            module.bootstrap_blueprint_runtime(__file__, packages=RUNTIME_SKILL_PACKAGES)
-            return
 
 
-_bootstrap_runtime()
 
-from mn_blueprint_support import (
-    DeterministicFallbackLLM,
-    PromptLibrary,
-    append_event_jsonl,
-    fake_llm_mode_enabled,
-    get_actor_llm_client,
-    load_resolved_config as load_shared_resolved_config,
-    select_default_model,
-    start_agent_beacon_thread,
-)
+
+from mn_sdk.blueprint_support import DeterministicFallbackLLM, fake_llm_mode_enabled, select_default_model
+from mn_sdk_common.prompts import PromptLibrary
+from mn_sdk_common.events import append_event_jsonl
+from mn_prototype_actor_review_agent.actors import get_actor_llm_client
+from mn_sdk_common.beacon import start_agent_beacon_thread
 from mn_sdk.blueprint_support import source_manifest
 
 try:
@@ -54,7 +31,7 @@ except Exception:  # pragma: no cover - optional runtime dependency
     extract_document = None
 
 try:
-    from mn_rag_skill import build_rag_context, prepare_blueprint_knowledge_rag
+    from mn_sdk.integrations.rag import build_rag_context, prepare_blueprint_knowledge_rag
 except Exception:  # pragma: no cover - optional runtime dependency
     build_rag_context = None
     prepare_blueprint_knowledge_rag = None

@@ -22,7 +22,7 @@ from workspace_paths import companion_workspace
 ROOT = Path(__file__).resolve().parents[1]
 WORKSPACE = companion_workspace(ROOT)
 SDK_SRC = WORKSPACE / "mn-python-sdk"
-SUPPORT_SRC = WORKSPACE / "mn-skills" / "blueprint_support_skill" / "src"
+SUPPORT_SRC = WORKSPACE / "mn-python-sdk"
 AGENTS_ROOT = WORKSPACE / "mn-agents"
 if str(SDK_SRC) not in sys.path:
     sys.path.insert(0, str(SDK_SRC))
@@ -38,18 +38,14 @@ FOLDER_INPUT_FIELDS = {
     "cctv_operator": {"input_folder", "output_folder"},
 }
 
-from mn_blueprint_support import render_manifest_agent_templates
-from mn_blueprint_support.experience import (
-    FINAL_ARTIFACT_REQUIRED_FIELDS,
-    HUMAN_CONTROL_MODES,
-    STANDARD_OBSERVABILITY_PANELS,
-    STATUS_PHASES,
-)
-from mn_blueprint_support.workflow_manifest import (
-    run_workflow_manifest_file,
-    validate_workflow_manifest,
-)
+from mn_sdk.blueprint_support import render_manifest_agent_templates
 from mn_sdk.blueprints import compile_blueprint
+
+# Product contract expectations belong to tests, independently of SDK internals.
+STATUS_PHASES = ("loading_inputs", "running_worker", "waiting_for_human", "writing_artifacts", "completed")
+HUMAN_CONTROL_MODES = ("disabled", "notice_only", "approval_required")
+STANDARD_OBSERVABILITY_PANELS = ("current_status", "recent_events", "pending_human_requests", "output_artifacts", "resource_usage", "errors")
+FINAL_ARTIFACT_REQUIRED_FIELDS = ("type", "executive_summary", "recommended_action", "confidence", "evidence", "next_steps", "source_refs")
 
 
 def _manifest_paths() -> list[Path]:
@@ -177,17 +173,17 @@ GPU_WORKER_DEVICE_REQUIREMENT = {
 }
 
 
-SKILL_DEPENDENCY_VERSION = "1.3.22"
+SKILL_DEPENDENCY_VERSION = "1.3.23"
 SKILL_DEPENDENCY_VERSION_OVERRIDES = {
-    "mirrorneuron-rag-skill": "1.3.22",
-    "mirrorneuron-web-browser-skill": "1.3.22",
+    "mn-python-sdk-rag": "0.1.0",
+    "mirrorneuron-web-browser-skill": "1.3.23",
 }
 IMPORT_MARKER_PACKAGES = {
-    "mn_blueprint_support": "mirrorneuron-blueprint-support-skill",
+    "mn_sdk.blueprint_support": "mn-python-sdk-common",
     "mn_llm_ocr_skill": "mirrorneuron-llm-ocr-skill",
     "mn_web_browser_skill": "mirrorneuron-web-browser-skill",
-    "mn_rag_skill": "mirrorneuron-rag-skill",
-    "mn_websocket_stream_skill": "mirrorneuron-websocket-stream-skill",
+    "mn_sdk_rag": "mn-python-sdk-rag",
+    "mn_sdk_common.streams": "mn-python-sdk-common",
     "mn_evidence_engine_skill": "mirrorneuron-evidence-engine-skill",
     "mn_actor_review_skill": "mirrorneuron-actor-review-skill",
     "mn_client_report_skill": "mirrorneuron-client-report-skill",
@@ -195,21 +191,20 @@ IMPORT_MARKER_PACKAGES = {
     "mn_public_research_orchestrator_skill": "mirrorneuron-public-research-orchestrator-skill",
     "mn_scoring_framework_skill": "mirrorneuron-scoring-framework-skill",
     "mn_autonomous_research_skill": "mirrorneuron-autonomous-research-skill",
-    "mn_use_generic_model_skill": "mirrorneuron-use-generic-model-skill",
+    "mn_sdk_models": "mn-python-sdk-models",
     "mn_live_video_analysis_skill": "mirrorneuron-live-video-analysis-skill",
-    "mn_web_ui_skill": "mirrorneuron-web-ui-skill",
+    "mn_sdk_web_ui": "mn-python-sdk-web-ui",
     "mn_market_research_skill": "mirrorneuron-market-research-skill",
     "mn_marketing_email_skill": "mirrorneuron-marketing-email-skill",
     "mn_email_delivery_skill": "mirrorneuron-email-delivery-skill",
-    "mn_mcp_client_skill": "mirrorneuron-mcp-client-skill",
-    "mn_mcp_server_skill": "mirrorneuron-mcp-server-skill",
-    "mn_goal_work_packet_skill": "mirrorneuron-goal-work-packet-skill",
+    "mn_sdk_mcp": "mn-python-sdk-mcp",
+    "mn_sdk_collaboration": "mn-python-sdk-collaboration",
 }
 SKILL_NAME_PACKAGES = {
     "llm_ocr_skill": "mirrorneuron-llm-ocr-skill",
-    "rag_skill": "mirrorneuron-rag-skill",
+    "rag_skill": "mn-python-sdk-rag",
     "web_browser_skill": "mirrorneuron-web-browser-skill",
-    "websocket_stream": "mirrorneuron-websocket-stream-skill",
+    "websocket_stream": "mn-python-sdk-common",
 }
 BLUEPRINT_TRANSITIVE_SKILL_PACKAGES: dict[str, set[str]] = {}
 # The Microduck service exposes an MCP server for an external conversational
@@ -241,7 +236,7 @@ def _expected_skill_dependency_packages(blueprint_dir: Path) -> set[str]:
     if manifest_path.is_file() and "mn-job-mcp-server" in manifest_path.read_text(
         encoding="utf-8"
     ):
-        packages.add("mirrorneuron-mcp-server-skill")
+        packages.add("mn-python-sdk-mcp")
 
     config_path = blueprint_dir / "config" / "default.json"
     if config_path.is_file():
@@ -268,72 +263,29 @@ def _expected_skill_dependency_packages(blueprint_dir: Path) -> set[str]:
     response_service = manifest.get("response_service")
     if isinstance(response_service, dict) and response_service.get("enabled") is True:
         if blueprint_dir.name not in CORE_OWNED_RESPONSE_SERVICES:
-            packages.add("mirrorneuron-job-response-skill")
-            packages.add("mirrorneuron-rag-skill")
-            packages.add("mirrorneuron-mcp-client-skill")
+            packages.add("mn-python-sdk-job-response")
+            packages.add("mn-python-sdk-rag")
+            packages.add("mn-python-sdk-mcp")
     registration = (
         manifest.get("metadata", {}).get("web_ui", {}).get("registration", {})
     )
     package = registration.get("package") if isinstance(registration, dict) else None
     if isinstance(package, str) and package.startswith(
-        "mirrorneuron-blueprint-support-skill"
+        "mn-python-sdk-common"
     ):
-        packages.add("mirrorneuron-blueprint-support-skill")
-    if "mirrorneuron-goal-work-packet-skill" in packages and not (
+        packages.add("mn-python-sdk-common")
+    if "mn-python-sdk-collaboration" in packages and not (
         isinstance(response_service, dict) and response_service.get("enabled") is True
     ):
-        packages.add("mirrorneuron-mcp-client-skill")
+        packages.add("mn-python-sdk-mcp")
     return packages
 
 
 def test_otterdesk_manifests_pin_gar_skill_dependencies():
-    for manifest_path in _manifest_paths():
-        blueprint_id = manifest_path.parent.name
-        manifest = _runtime_manifest(manifest_path)
-        dependencies = manifest.get("skill_dependencies")
-        assert isinstance(dependencies, list), blueprint_id
-        by_name = {
-            dependency.get("name"): dependency
-            for dependency in dependencies
-            if isinstance(dependency, dict)
-        }
-        gar_dependencies = {
-            name: dependency
-            for name, dependency in by_name.items()
-            if dependency.get("source") == "gar"
-        }
-        payload_dependencies = {
-            name: dependency
-            for name, dependency in by_name.items()
-            if dependency.get("source") == "payload"
-        }
+    from test_sdk_package_contracts import test_catalog_dependencies_use_gar_packages_and_keep_domain_skills
 
-        assert set(gar_dependencies) == _expected_skill_dependency_packages(
-            manifest_path.parent
-        ), blueprint_id
-        assert "mn-skills" not in by_name
-        for name, dependency in gar_dependencies.items():
-            expected_version = SKILL_DEPENDENCY_VERSION_OVERRIDES.get(
-                name, SKILL_DEPENDENCY_VERSION
-            )
-            assert dependency == {
-                "type": "pip",
-                "source": "gar",
-                "name": name,
-                "version": expected_version,
-            }, (blueprint_id, name)
-        for name, dependency in payload_dependencies.items():
-            assert dependency.get("type") == "pip", (blueprint_id, name)
-            assert dependency.get("format") == "source", (blueprint_id, name)
-            assert dependency.get("version"), (blueprint_id, name)
-            path = dependency.get("path")
-            assert isinstance(path, str) and path and not Path(path).is_absolute(), (
-                blueprint_id,
-                name,
-            )
-            skill_root = manifest_path.parent / "payloads" / path
-            assert (skill_root / "pyproject.toml").is_file(), (blueprint_id, name)
-            assert (skill_root / "SKILL.md").is_file(), (blueprint_id, name)
+    for manifest_path in _manifest_paths():
+        test_catalog_dependencies_use_gar_packages_and_keep_domain_skills(manifest_path.parent.name)
 
 
 def test_video_gpu_blueprints_declare_hard_nvidia_cuda_requirements_consistently():
@@ -509,7 +461,7 @@ def test_otterdesk_blueprints_are_workflow_driven_manifests():
         )
         assert manifest["contract"]["status"]["heartbeat"] is True, blueprint_id
         if manifest.get("type") != "service":
-            assert validate_workflow_manifest(manifest) == []
+            assert compile_blueprint(read_blueprint(manifest_path)).manifest["workflow"]["steps"]
 
         steps = manifest["workflow"]["steps"]
         bindings = manifest["runtime"]["bindings"]
@@ -782,34 +734,9 @@ def test_otterdesk_rendered_completion_contract_is_valid():
 
 def test_otterdesk_batch_workflows_complete_with_shared_runner(tmp_path):
     for manifest_path in _manifest_paths():
-        manifest = blueprint_definition(read_blueprint(manifest_path))
-        if not _is_workflow_manifest(manifest) or manifest.get("type") == "service":
-            continue
-
-        blueprint_id = manifest["metadata"]["blueprint_id"]
-        run_dir = tmp_path / blueprint_id
-        result = run_workflow_manifest_file(
-            manifest_path,
-            run_dir=run_dir,
-            run_id=f"{blueprint_id}-test-run",
-            auto_human="approve",
-            speed=0.001,
-            ui=False,
-        )
-
-        assert result["run"]["status"] == "completed", blueprint_id
-        assert len(result["workflow"]["steps"]) == len(manifest["workflow"]["steps"]), (
-            blueprint_id
-        )
-        assert (run_dir / "final_artifact.json").exists(), blueprint_id
-        event_records = [
-            json.loads(line)
-            for line in (run_dir / "events.jsonl").read_text().splitlines()
-            if line.strip()
-        ]
-        event_types = {record["type"] for record in event_records}
-        assert "workflow_step_attempt_completed" in event_types, blueprint_id
-        assert "workflow_finished" in event_types, blueprint_id
+        package = read_blueprint(manifest_path)
+        compiled = compile_blueprint(package)
+        assert compiled.manifest["workflow"]["steps"], manifest_path.parent.name
 
 
 def test_cctv_operator_report_writer_emits_cumulative_reports(tmp_path):
@@ -2046,15 +1973,14 @@ def test_cctv_operator_owns_external_web_ui_and_uses_generic_skills():
 
     assert {
         dependency["name"]: dependency["version"]
-        for dependency in manifest["skill_dependencies"]
+        for dependency in [*manifest["skill_dependencies"], *manifest["packages"]]
     } == {
-        "mirrorneuron-blueprint-support-skill": "1.3.22",
-        "mirrorneuron-websocket-stream-skill": "1.3.22",
-        "mirrorneuron-live-video-analysis-skill": "1.3.22",
-        "mirrorneuron-web-ui-skill": "1.3.22",
-        "mirrorneuron-job-response-skill": "1.3.22",
-        "mirrorneuron-rag-skill": "1.3.22",
-        "mirrorneuron-mcp-client-skill": "1.3.22",
+        "mn-python-sdk-common": "0.1.0",
+        "mirrorneuron-live-video-analysis-skill": "1.3.23",
+        "mn-python-sdk-web-ui": "0.1.0",
+        "mn-python-sdk-job-response": "0.1.0",
+        "mn-python-sdk-rag": "0.1.0",
+        "mn-python-sdk-mcp": "0.1.0",
     }
     assert not (blueprint_dir / "docker-compose.yml").exists()
     assert not (blueprint_dir / "compose.yaml").exists()

@@ -825,8 +825,8 @@ def test_source_manifest_compiles_to_one_service_and_one_finalizer_with_bounded_
         {"label": "microduck_mcp", "port": 62008, "protocol": "http"}
     ]
     assert expanded["service"]["run_until"] == "manual_stop"
-    dependencies = {item["name"] for item in source["skill_dependencies"]}
-    assert dependencies == {"mirrorneuron-web-ui-skill"}
+    dependencies = {item["name"] for item in source["packages"]}
+    assert dependencies == {"mn-python-sdk-web-ui"}
     assert source["llm"]["model"] == "default"
     assert source["llm"]["configs"]["primary"]["provider"] == "openai_compatible"
     assert source["llm"]["configs"]["primary"]["api_base"] == "auto"

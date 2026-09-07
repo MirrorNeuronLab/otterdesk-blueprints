@@ -77,7 +77,7 @@ instead of false “no detection” records.
 ## Web UI
 
 The blueprint owns a DockerWorker `cctv_web_ui` service and its browser page.
-It claims the bound service through `mirrorneuron-web-ui-skill`, which only
+It claims the bound service through `mn-python-sdk-web-ui`, which only
 writes the durable iframe-proxy handle. It shows:
 
 - a stable multipart MJPEG preview produced by one shared FFmpeg relay using

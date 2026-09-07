@@ -1,0 +1,13 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/product.schema.json",
+  "category": "Software Engineering",
+  "product": {
+    "agent_role": "Architecture Advisor",
+    "problem": "Architects need traceable evidence before changing software boundaries.",
+    "benefit": "Tests architecture hypotheses against scoped graphs and source counter-evidence.",
+    "input": "Public HTTPS GitHub repository URL or local source folder; optional investigation goal and graph export.",
+    "output": "Cited review report, suggested follow-up tasks, and complete query/model/knowledge audit.",
+    "how_it_works": "Freezes sources, builds required graph families on demand, assesses hypotheses, and validates source citations.",
+    "target_users": "Software architects and engineering teams."
+  }
+}

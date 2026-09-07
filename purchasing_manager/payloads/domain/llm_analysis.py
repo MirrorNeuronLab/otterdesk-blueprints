@@ -7,7 +7,7 @@ import re
 from copy import deepcopy
 from typing import Any, Callable
 
-from mn_blueprint_support import llm_usage
+from mn_prototype_actor_review_agent.actors import llm_usage
 
 from .common import _sha256, load_prompt, purchase_llm, quick_test_enabled
 
