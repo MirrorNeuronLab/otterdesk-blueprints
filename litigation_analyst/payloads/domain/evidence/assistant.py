@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 from typing import Iterable, Mapping
 
-from rfm_platform.documents import DocumentIndex, EvidenceSpan
+from mn_sdk_rag import DocumentIndex, EvidenceSpan
 
 from ..models import CaseDocument, DraftReport, ProvenanceKind, StoredEvidence
 from ..ingestion.corpus import CaseCorpus

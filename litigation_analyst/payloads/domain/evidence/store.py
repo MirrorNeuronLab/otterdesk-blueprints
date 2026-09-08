@@ -8,7 +8,7 @@ from pathlib import Path
 import sqlite3
 from typing import Any, Iterable, Mapping
 
-from rfm_platform.documents import EvidenceSpan
+from mn_sdk_rag import EvidenceSpan
 
 from ..models import CaseDocument, DraftReport, ProvenanceKind, StoredEvidence
 

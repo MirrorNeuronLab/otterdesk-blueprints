@@ -13,7 +13,7 @@ import mimetypes
 from pathlib import Path
 from typing import Iterable, Iterator
 
-from rfm_platform.documents import DocumentIndex, IngestManifest
+from mn_sdk_rag import DocumentIndex, IngestManifest
 
 from ..models import CaseDocument
 
@@ -185,4 +185,3 @@ class CaseCorpus:
                 value = payload.decode(charset, errors="replace")
             bodies.append(str(value))
         return "\n".join([*headers, "", *bodies]).strip() + "\n"
-

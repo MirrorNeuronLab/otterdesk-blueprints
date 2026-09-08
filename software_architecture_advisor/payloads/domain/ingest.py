@@ -11,10 +11,8 @@ import math
 import os
 from pathlib import Path
 import sqlite3
-from mn_sdk.model_access.runtime import runtime_model_json_request
-
-from rfm_platform.documents import HashingEmbedder
-from rfm_platform.embeddings import OpenAICompatibleEmbedder
+from mn_sdk.integrations.rag import build_runtime_embedder
+from mn_sdk_rag import HashingEmbedder, RagConfig, SingleTextEmbedder
 
 
 EXTENSIONS = {".py", ".md", ".rst", ".txt", ".js", ".ts", ".tsx", ".java", ".go", ".rs", ".cs", ".sql"}
@@ -33,15 +31,17 @@ def make_embedder(config: dict):
     if cfg["mode"] == "hash":
         return HashingEmbedder(dimensions=256)
 
-    def request(payload):
-        return runtime_model_json_request(
-            'embedding', cfg['model'], '/embeddings', payload,
-            provider=cfg['provider'], api_base=cfg.get('api_base'),
-            timeout_seconds=config['llm']['timeout_seconds'], num_retries=0,
-            required_capabilities=('embeddings',),
-        )
-
-    return OpenAICompatibleEmbedder(endpoint=cfg.get("api_base") or "managed://embedding", model=cfg["model"], requester=request)
+    runtime_config = RagConfig(
+        blueprint_id="software_architecture_advisor",
+        embedding_provider=cfg["provider"],
+        embedding_model=cfg["model"],
+        embedding_api_base=cfg.get("api_base") or "auto",
+        embedding_healthcheck_enabled=False,
+    )
+    return SingleTextEmbedder(
+        build_runtime_embedder(runtime_config),
+        version=f"runtime/{cfg['provider']}/{cfg['model']}/query-document-prefix",
+    )
 
 
 class CachedEmbedder:

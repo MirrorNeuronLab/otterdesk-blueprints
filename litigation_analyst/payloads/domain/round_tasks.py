@@ -1,9 +1,9 @@
 """Bounded evidence collection and separate hypothesis/review specialists."""
 from dataclasses import asdict
 from copy import deepcopy
-import re
 import json
 from mn_sdk.blueprint_support import source_manifest
+from mn_graph_analysis_skill import ensure_bounded_readonly_rgql
 from .round_state import task_input, read, save, checkpoint
 from .round_model import complete, evidence_room
 from .graph_queries import QUERIES
@@ -17,10 +17,7 @@ from .app.prompt_context import investigation_history
 
 
 def validate_graph_query(query):
-    masked = re.sub(r"'(?:[^'\\]|\\.)*'", "''", query)
-    limits = re.findall(r"\bLIMIT\s+(\d+)\b", masked, re.I)
-    if not limits or any(not 1 <= int(n) <= 50 for n in limits) or re.search(r"\b(CREATE|DELETE|SET|DROP|INSERT|UPDATE|MERGE|REMOVE)\b", masked, re.I):
-        raise ValueError("Only read-only graph queries with LIMIT <=50 are admitted")
+    return ensure_bounded_readonly_rgql(query, max_limit=50)
 
 
 def assessment_schema(task, evidence_ids):

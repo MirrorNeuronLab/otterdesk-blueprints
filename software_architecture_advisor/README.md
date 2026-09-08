@@ -28,9 +28,9 @@ MN_USE_LOCAL_SKILLS=1 mn blueprint run ./ \
   --set 'inputs.payload.input_folder=/absolute/path/to/repository'
 ```
 
-The SDK automatically invokes the declared graph skill’s worker preparation hook using the selected node’s CPU architecture. No blueprint preparation script is needed. The skill downloads the SHA-256-pinned `mn-graph-engine` GAR binary release 0.0.1 through `graph_analysis_skill`, retaining its license. It also builds the pinned Python evidence-provider wheel using host Git credentials. No credentials or graph-engine source are put in the Docker build context. Generated binaries and wheels are ignored by Git. Python dependencies install inside the worker image; the platform installs manifest-declared skills and agents.
+The SDK automatically invokes the declared graph skill’s worker preparation hook using the selected node’s CPU architecture. No blueprint preparation script is needed. The skill copies `rgx` from the immutable multi-architecture public GAR image pinned by digest, retaining its license. It does not call gcloud, clone Git, compile source, or build a provider wheel. The SDK RAG component supplies the shared embedding adapter and the platform installs manifest-declared skills, agents, and components.
 
-The GAR skill dependency `mirrorneuron-graph-analysis-skill==1.3.23` is the forthcoming release containing this capability; use the local-skill command above until it is published. The graph-engine binary itself is already published. Authenticated `gcloud` access to the supplied GAR repository and Git access to the pinned Python provider package are required during preparation.
+The GAR skill dependency `mirrorneuron-graph-analysis-skill==1.3.24` contains this capability. The graph runtime image is public and needs no Docker or gcloud credentials for worker pulls.
 
 Live mode uses the platform's configured chat and embedding model bindings, normally Docker Model Runner. `config/default.json` controls the investigation and ingestion budgets; the LLM extension controls platform model selection. `--set offline=true` explicitly selects deterministic hypothesis checks with hash embeddings and zero model requests. Offline conclusions remain inconclusive review candidates. Provider failures never switch a live run to offline output.
 

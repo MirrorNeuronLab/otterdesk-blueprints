@@ -1,14 +1,12 @@
 """Bind installed skill APIs to this case's authorized immutable artifacts."""
 
 import json
-import re
-
 from mn_document_reading_skill import extract_outline
 from mn_document_reading_skill.search import PassageIndex
-from mn_graph_analysis_skill import GraphClient
+from mn_graph_analysis_skill import GraphClient, ensure_bounded_readonly_rgql
 from mn_pdf_extract_skill import extract_pages_from_pdf
 from mn_prototype_bounded_tool_loop_agent.skills import SkillRuntime
-from rfm_platform.documents import EvidenceSpan
+from mn_sdk_rag import EvidenceSpan
 
 from ..evidence.assistant import EvidenceAssistant
 from ..indexing import digest
@@ -41,10 +39,7 @@ def bind_skills(case, corpus, store, investigation_id, declared):
 
     def query(rgql, params=None):
         # The complete graph is case-scoped; the model cannot supply another database.
-        masked = re.sub(r"'(?:[^'\\]|\\.)*'", "''", rgql)
-        limits = re.findall(r"\bLIMIT\s+(\d+)\b", masked, re.I)
-        if not limits or any(not 1 <= int(n) <= 50 for n in limits):
-            raise ValueError("graph queries require literal LIMIT in 1..50")
+        ensure_bounded_readonly_rgql(rgql, max_limit=50)
         result = graph.query(rgql, params)
         return {
             "result": result,

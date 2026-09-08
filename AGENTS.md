@@ -183,8 +183,8 @@ mn node list
 
 Use the newly issued token after a reset; never commit or print real tokens in
 documentation. Confirm both nodes are visible before launching. Submit from mini
-through its normal local Core, where authenticated graph-package preparation is
-available. Pin a Spark verification explicitly rather than assuming automatic
+through its normal local Core. The graph skill prepares workers from its public,
+digest-pinned GAR runtime image; gcloud credentials are not required. Pin a Spark verification explicitly rather than assuming automatic
 placement will choose it:
 
 ```bash

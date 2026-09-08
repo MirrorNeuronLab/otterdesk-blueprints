@@ -1,5 +1,6 @@
 import json
 import importlib
+from pathlib import Path
 import pytest
 from jsonschema import ValidationError
 from test_litigation_analyst import modules, graph_engine_stub, make_context, BLUEPRINT
@@ -235,3 +236,13 @@ def test_assessment_schema_excludes_graph_labels_and_omitted_citations(modules):
     empty = assessment_schema(task, set())
     assert empty['properties']['hypothesis']['properties']['status'] == {'const': 'inconclusive'}
     assert empty['properties']['report']['properties']['findings']['maxItems'] == 0
+
+
+def test_rounds_use_shared_runtime_mechanics():
+    payload = Path(__file__).resolve().parents[2] / "litigation_analyst" / "payloads"
+    assert all("rfm_platform" not in path.read_text() for path in payload.rglob("*.py"))
+    model = (payload / "domain/round_model.py").read_text()
+    tasks = (payload / "domain/round_tasks.py").read_text()
+    assert "durable_json_decision" in model
+    assert "ContextSession" not in model
+    assert "ensure_bounded_readonly_rgql" in tasks

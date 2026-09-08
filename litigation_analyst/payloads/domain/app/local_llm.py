@@ -6,10 +6,17 @@ import json
 from typing import Any
 
 from mn_sdk.llm import LLMClient, LLMError, completion_json_result
-from rfm_platform.errors import BackendUnavailableError, RFMPlatformError
 
 
-class LLMResponseError(RFMPlatformError, ValueError):
+class InvestigationModelError(RuntimeError):
+    """Configured investigation model failed before returning a usable decision."""
+
+
+class BackendUnavailableError(InvestigationModelError):
+    """The configured local model backend did not produce a response."""
+
+
+class LLMResponseError(InvestigationModelError, ValueError):
     request = None
     response = None
 

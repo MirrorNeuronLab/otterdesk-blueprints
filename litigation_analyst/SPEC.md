@@ -23,6 +23,16 @@ Unchanged repeated enquiry work stops with an explicit coverage limitation.
 Model/validation/tool failures fail the workflow, not a simulated successful
 investigation. Cancellation and elapsed deadlines are checked between rounds.
 
+The SDK blueprint-support runtime owns exact structured-request replay, managed
+context turns, response validation before atomic receipt persistence, and
+context-capacity calculation. SDK RAG owns generic document indexing, evidence
+spans, and query/document embedding adaptation. The graph skill owns bounded
+read-only RGQL validation and binary preparation. `payloads/domain/round_model.py`
+therefore contains only litigation prompt/policy composition over the shared SDK
+decision helper. `payloads/domain/round_tasks.py` remains blueprint-owned because
+its enquiry schemas, evidence admission, privilege exclusions, finding identity,
+and review rules are litigation product policy rather than runtime mechanics.
+
 ## Evidence and review contract
 
 Ingestion freezes original bytes and normalized text with SHA-256 and exact span

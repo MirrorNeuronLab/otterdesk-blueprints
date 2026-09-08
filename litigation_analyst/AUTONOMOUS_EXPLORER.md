@@ -17,9 +17,8 @@ A deterministic final stage validates citations and writes a review draft. All o
 ## Prepare and run
 
 Requires MirrorNeuron with the companion SDK, agents, and skills checkout,
-Docker, Git, authenticated GitHub read access to `MirrorNeuronLab/mn-graph-engine`,
-and an authenticated `gcloud` account with read access to
-`mirrorneuron-public-packages/mn-graph-engine`. The new graph-analysis skill
+Docker and anonymous pull access to the public digest-pinned graph runtime image
+in `mirrorneuron-public-packages/mirrorneuron-runtime`. The graph-analysis skill
 must be installed from the companion checkout until its next package release:
 
 ```bash
@@ -52,12 +51,12 @@ Platform local-input staging makes it visible in Docker.
 A typo or empty custom folder never silently substitutes demonstration data.
 Do not place generated output inside the input folder.
 
-The graph skill selects ARM64 or x86-64 from the selected worker’s advertised CPU architecture. The engine is CPU-only and requires glibc 2.36 or newer (Debian 12). The skill’s preparation hook owns the pinned provider wheel, NumPy, CPU PyTorch and checksummed GAR engine. It uses host credentials before staging; credentials and Git checkout metadata never enter the image. The provider supplies content-addressed retrieval, not trained litigation weights.
+The graph skill selects ARM64 or x86-64 from the selected worker’s advertised CPU architecture. The engine is CPU-only and requires glibc 2.36 or newer (Debian 12). The skill’s preparation hook copies the checksummed engine from its immutable public GAR image. SDK RAG owns shared document-index and evidence-span mechanics; no host credentials or Git checkout metadata enter the image.
 
 
 The graph skill is new source work. `MN_USE_LOCAL_SKILLS=1` uses the companion skill and agent
 checkouts; a production non-development installation requires publishing their
-graph skill version 1.3.23 first (existing dependencies retain their published versions). Preparation does not publish packages.
+graph skill version 1.3.24 first (existing dependencies retain their published versions). Preparation does not publish packages.
 
 ## Inputs and limits
 
@@ -209,7 +208,7 @@ not themselves count as investigation progress.
 
 ## Shared runtime preparation
 
-Graph binaries, provider wheels, NumPy and CPU PyTorch are owned by the graph analysis skill. The SDK invokes its `mn.worker.prepare` hook before staging build contexts; neither this blueprint’s Dockerfile nor `prepare.py` prepares them. Use `MN_USE_LOCAL_SKILLS=1` with the companion workspace until the updated skill is published. The optional `prepare.py` only acquires/selects EMC2 input and writes its input descriptor. Worker architecture comes from the selected runtime, not the host running that script.
+The graph binary is owned by the graph analysis skill. The SDK invokes its `mn.worker.prepare` hook before staging build contexts; neither this blueprint’s Dockerfile nor `prepare.py` prepares it. The optional `prepare.py` only acquires/selects EMC2 input and writes its input descriptor. Worker architecture comes from the selected runtime, not the host running that script.
 
 ### Bounded context compatibility
 

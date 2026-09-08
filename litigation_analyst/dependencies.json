@@ -5,7 +5,7 @@
       "name": "mirrorneuron-graph-analysis-skill",
       "source": "gar",
       "type": "pip",
-      "version": "1.3.23"
+      "version": "1.3.24"
     },
     {
       "name": "mirrorneuron-document-reading-skill",
@@ -45,7 +45,7 @@
       "type": "pip",
       "source": "gar",
       "name": "mn-python-sdk-rag",
-      "version": "0.1.0"
+      "version": "0.1.1"
     }
   ]
 }

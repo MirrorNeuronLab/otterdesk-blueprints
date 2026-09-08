@@ -1,7 +1,7 @@
 from pathlib import Path
 import unittest
 
-from rfm_platform.documents import DocumentIndex
+from mn_sdk_rag import DocumentIndex
 
 
 
@@ -34,4 +34,3 @@ class CorpusTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

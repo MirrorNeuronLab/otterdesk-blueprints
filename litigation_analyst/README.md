@@ -24,9 +24,9 @@ analysis, never executed or modified. Do not put outputs inside the input folder
 
 Models use the existing `default` LiteLLM route, which selects Nemotron on Spark
 in this deployment. No Gemma override or autonomous-explorer fallback is added.
-The graph-analysis skill prepares its published Linux engine and provider packages.
+The graph-analysis skill copies its digest-pinned Linux engine from a public multi-architecture GAR image.
 Local development requires the companion SDK, agents and skills repositories,
-Docker, and authenticated package access as documented by that skill. Use
+Docker; graph preparation needs no gcloud or Git credentials. Use
 `MN_USE_LOCAL_SKILLS=1` with source installations. Preparation does not publish packages.
 
 ## Investigation rounds

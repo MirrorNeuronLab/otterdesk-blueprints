@@ -102,6 +102,7 @@ def test_architecture_ownership():
         assert 'mn_graph_analysis_skill' in text
         assert 'rgx_client' not in text
     assert not (payload/'domain/server.py').exists()
+    assert all('rfm_platform' not in path.read_text() for path in payload.rglob('*.py'))
 
 
 def test_neural_retrieval_uses_embedding_model_and_capability(modules, monkeypatch):
@@ -109,27 +110,30 @@ def test_neural_retrieval_uses_embedding_model_and_capability(modules, monkeypat
     cfg = resolve_config(read_blueprint(BLUEPRINT)).data
     calls = []
 
-    def transport(*args, **kwargs):
-        calls.append((args, kwargs))
-        return {'data': [{'embedding': [3.0, 4.0]}]}
+    class RuntimeEmbedder:
+        def encode(self, texts, input_type='document'):
+            calls.append((texts, input_type))
+            return [[3.0, 4.0]]
 
-    monkeypatch.setattr(ingest, 'runtime_model_json_request', transport)
+    configs = []
+    def build(config):
+        configs.append(config)
+        return RuntimeEmbedder()
+    monkeypatch.setattr(ingest, 'build_runtime_embedder', build)
     embedder = ingest.make_embedder(cfg)
-    assert embedder.embed_document('source text') == pytest.approx((0.6, 0.8))
-    assert embedder.embed_query('question') == pytest.approx((0.6, 0.8))
-    for args, kwargs in calls:
-        assert args[:3] == ('embedding',
-            'huggingface.co/zenmagnets/Nemotron-3-Embed-1B-Q4_K_M-GGUF:Q4_K_M', '/embeddings')
-        assert kwargs['required_capabilities'] == ('embeddings',)
-    assert calls[0][0][3]['input'] == 'passage: source text'
-    assert calls[1][0][3]['input'] == 'query: question'
+    assert embedder.embed_document('source text') == pytest.approx((3.0, 4.0))
+    assert embedder.embed_query('question') == pytest.approx((3.0, 4.0))
+    assert calls == [(['source text'], 'document'), (['question'], 'query')]
+    assert configs[0].embedding_provider == 'docker_model_runner'
+    assert configs[0].embedding_model == 'huggingface.co/zenmagnets/Nemotron-3-Embed-1B-Q4_K_M-GGUF:Q4_K_M'
 
-    def fail(*args, **kwargs):
-        raise RuntimeError('Embedding capability unavailable')
+    class FailingEmbedder:
+        def encode(self, texts, input_type='document'):
+            raise RuntimeError('Embedding capability unavailable')
 
-    monkeypatch.setattr(ingest, 'runtime_model_json_request', fail)
+    monkeypatch.setattr(ingest, 'build_runtime_embedder', lambda config: FailingEmbedder())
     with pytest.raises(RuntimeError, match='capability unavailable'):
-        embedder.embed_document('source text')
+        ingest.make_embedder(cfg).embed_document('source text')
 
 
 def graph_config():

@@ -14,7 +14,7 @@ Defaults: 5,000 source files, 500 KB per file, 20 MB aggregate source bytes, 650
 
 Steps contain only SDK contracts and `StepSpec` agent graphs. Specialist roles include repository examiner, child initializer, architecture planner, graph analyst, evidence retriever, hypothesis assessor, round reviewer and architecture review editor. Thin handlers use `mn-prototype-stateful-step-agent`; it owns invocation idempotency and durable output ordering. Workers return bounded summaries plus artifact references. Domain code owns source/architecture policy, lazy architecture projections, hypotheses, evidence validation and report semantics. Runtime only creates and persists SDK context. Core owns routing, retries, joins and logical completion.
 
-The reusable `mirrorneuron-graph-analysis-skill` owns RGX subprocess execution, read-only guards, timeout/output limits and pinned binary preparation. Its GAR binary is used unchanged; `mn-graph-engine` source is read-only. The external pinned Python evidence provider supplies embedding primitives. SDK model access owns transport and provider binding. The blueprint's model adapter owns request schemas, budgets and audit contents; it never implements a generic network client.
+The reusable `mirrorneuron-graph-analysis-skill` owns RGX subprocess execution, read-only guards, timeout/output limits and pinned binary preparation. Its digest-pinned public GAR runtime image is used unchanged; `mn-graph-engine` source is read-only. SDK RAG owns embedding adapters and the shared document/evidence mechanics. SDK model access owns transport and provider binding. The blueprint's model adapter owns request schemas, budgets and audit contents; it never implements a generic network client.
 
 ## Evidence graphs
 
@@ -32,7 +32,7 @@ Final publication rechecks source hashes and exact evidence spans and validates 
 
 Canonical artifact paths are authored in `contracts.json`. Confidential large artifacts are durably stored under the run directory before specialist output. The source snapshot identifies its evidence graph and immutable sources under `evidence/snapshots/<snapshot-id>/`; graph generations and query audit remain available for review. No new REST server or standalone lifecycle is bundled.
 
-All steps use `mn-agents.worker.python_docker@1`, sharing the run's durable data plane. The worker image includes the prepared GAR binary and pinned Python dependencies; platform-declared agents and skills are installed by the platform. Preparation needs authenticated GAR and pinned Python package access. No-input launch fails with an actionable request for a repository; the synthetic fixture is only an explicit example/test input. Offline mode is opt-in and never a live-provider fallback.
+All steps use `mn-agents.worker.python_docker@1`, sharing the run's durable data plane. The worker image includes the graph binary copied from the public digest-pinned GAR image; platform-declared agents, skills, and SDK components are installed by the platform. Blueprint launch does not require gcloud or Git credentials. No-input launch fails with an actionable request for a repository; the synthetic fixture is only an explicit example/test input. Offline mode is opt-in and never a live-provider fallback.
 
 ## Child workflow contract
 

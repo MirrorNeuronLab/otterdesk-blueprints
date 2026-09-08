@@ -49,5 +49,5 @@ Budget exhaustion and cancellation produce explicitly incomplete review drafts.
 
 Existing pip/GAR declarations and source-mode resolution are retained. Source mode
 ignores release pins; wheels carry their own manuals and descriptors. The declared
-skill 1.3.23 and agent 1.3.10 releases must include these changes before GAR consumers
+skill 1.3.24 and agent 1.3.10 releases must include these changes before GAR consumers
 can install them. No packages were published and no live-model evaluation was run.
