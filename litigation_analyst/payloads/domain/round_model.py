@@ -4,7 +4,7 @@ from dataclasses import replace
 from contextlib import nullcontext
 
 from mn_sdk.llm import LLMClient, completion_json_result
-from mn_sdk.context_session import ContextSession, ContextPolicy
+from mn_sdk.context_session import ContextSession, ContextPolicy, available_text_bytes
 from .app.guidance import InvestigationGuidance
 from .app.planning import validate
 from .round_state import save, read
@@ -19,14 +19,30 @@ No external acquisition, contact, arbitrary code or source mutation is available
 Return only the requested JSON object. Keep prose concise and state decisive limitations."""
 
 
-def complete(root, frozen, key, stage, instruction, data, schema, client=None):
-    path = root / f"case/rounds/models/{key}.json"
+def prompt(frozen, stage, instruction, data):
     guidance = InvestigationGuidance()
     try:
         request = {"stage": stage, **data, "guidance": guidance.retrieve(stage, frozen["payload"]["goal"])}
     finally:
         guidance.index.close()
     system = POLICY + "\n" + instruction
+    return system, request
+
+
+def evidence_room(frozen, stage, instruction, data, schema):
+    system, request = prompt(frozen, stage, instruction, data)
+    return available_text_bytes({
+        "model": "default", "max_tokens": 2048,
+        "messages": [{"role": "system", "content": system + "\nReturn only one valid JSON object."},
+                     {"role": "user", "content": json.dumps(request)}],
+        "response_format": {"type": "json_schema", "json_schema": {
+            "name": "litigation_stage", "strict": True, "schema": schema}},
+    }, policy=ContextPolicy(**frozen["config"]["context_memory"]["policy"]))
+
+
+def complete(root, frozen, key, stage, instruction, data, schema, client=None):
+    path = root / f"case/rounds/models/{key}.json"
+    system, request = prompt(frozen, stage, instruction, data)
     if path.exists():
         saved = read(path)
         if saved["request"] != request or saved["system"] != system or saved["schema"] != schema:

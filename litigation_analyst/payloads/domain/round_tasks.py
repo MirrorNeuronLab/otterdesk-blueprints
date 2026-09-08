@@ -2,9 +2,10 @@
 from dataclasses import asdict
 from copy import deepcopy
 import re
+import json
 from mn_sdk.blueprint_support import source_manifest
 from .round_state import task_input, read, save, checkpoint
-from .round_model import complete
+from .round_model import complete, evidence_room
 from .graph_queries import QUERIES
 from .indexing import validate_indexes
 from .evidence.store import EvidenceStore
@@ -76,16 +77,27 @@ def assess_hypothesis(context, work, *, llm_client=None):
             spans.append(asdict(e)); remaining -= len(e.text.encode())
     visible = {e["evidence_id"] for e in spans}
     schema = object_schema({"hypothesis": HYPOTHESIS, "report": REPORT})
-    value = complete(root, frozen, task["prefix"] + "-assess", "assess",
+    instruction = (
         "Assess the committed enquiry from complete visible passages. Keep its exact hypothesis ID and parent_id null. "
         "Cite only visible evidence IDs. Include ordinary alternatives and outstanding enquiries. "
         "With no visible evidence, return inconclusive and an empty findings list. "
         "Propose at most one concise report finding; use the supplied finding_id. Findings are inferred assessments. "
-        "Graph observations are navigation aids, not proof. State unexamined/omitted evidence limits.",
-        {"enquiry": task["hypothesis"], "finding_id": task["prefix"], "evidence": spans,
+        "Graph observations are navigation aids, not proof. State unexamined/omitted evidence limits.")
+    data = {"enquiry": task["hypothesis"], "finding_id": task["prefix"], "evidence": [],
          "omitted_passages": len(allowed - visible),
          "graph_observations": investigation_history([r for r in collected["records"] if r["purpose"] == "graph"], max_bytes=2000),
-         "search_coverage": [{"purpose": r["purpose"], "passage_count": len(r["result"].get("passages", [])), "evidence_ids": [p["evidence_id"] for p in r["result"].get("passages", []) if p["evidence_id"] in visible]} for r in collected["records"]]}, schema, llm_client)
+         "search_coverage": [{"purpose": r["purpose"], "passage_count": len(r["result"].get("passages", [])), "evidence_ids": [p["evidence_id"] for p in r["result"].get("passages", []) if p["evidence_id"] in visible]} for r in collected["records"]]}
+    room = evidence_room(frozen, "assess", instruction, data, schema)
+    for span in spans:
+        size = len(json.dumps(span).encode()) + 2
+        if size <= room:
+            data["evidence"].append(span)
+            room -= size
+    visible = {e["evidence_id"] for e in data["evidence"]}
+    data["omitted_passages"] = len(allowed - visible)
+    for coverage in data["search_coverage"]:
+        coverage["evidence_ids"] = [e for e in coverage["evidence_ids"] if e in visible]
+    value = complete(root, frozen, task["prefix"] + "-assess", "assess", instruction, data, schema, llm_client)
     h = value["hypothesis"]
     if h["id"] != task["hypothesis"]["id"] or h["parent_id"] is not None:
         raise ValueError("Assessment changed the committed hypothesis identity")

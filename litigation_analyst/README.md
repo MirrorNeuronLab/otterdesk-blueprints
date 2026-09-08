@@ -99,6 +99,9 @@ the existing reporting contract; its mode is `dynamic_subworkflow`.
 calls. Original bytes and normalized hashes/offsets remain under `case/`.
 Only bounded coordination data and artifact references cross worker messages.
 These artifacts are confidential; the response service does not expose them.
+Assessment packets use the SDK context-budget helper to reserve guidance,
+schema, and output capacity before admitting whole evidence records. Omitted
+passages remain in the ledger and are excluded from visible citation IDs.
 
 ## Validation
 

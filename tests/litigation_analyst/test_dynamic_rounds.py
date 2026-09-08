@@ -192,3 +192,28 @@ def test_partial_collection_preserves_completed_actions(dynamic_case,monkeypatch
     assert len(paths)==2
     assert json.loads(paths[0].read_text())['result']['passages']
     assert json.loads(paths[1].read_text())['result']['error']=='test transport failure'
+
+
+def test_context_budget_omissions_are_visible_and_cannot_be_cited(dynamic_case, monkeypatch):
+    from domain.round_planning import plan_round
+    from domain import round_tasks
+    context, ref = dynamic_case
+    plan = plan_round(context, {'context': ref, '_child': {'revision': 0}}, llm_client=RoundModel())
+    work = {'context': ref, **plan['child_plan']['steps'][0]['input']}
+    round_tasks.collect_evidence(context, work)
+    monkeypatch.setattr(round_tasks, 'evidence_room', lambda *args: 0)
+
+    class LimitedModel(RoundModel):
+        def completion_text(self, system, user):
+            data = json.loads(user)
+            assert data['evidence'] == []
+            assert data['omitted_passages'] > 0
+            assert all(not row['evidence_ids'] for row in data['search_coverage'])
+            value = json.loads(super().completion_text(system, user))
+            value['report'] = {'findings': [], 'conclusion_ids': [], 'follow_up': ['Review omitted passages.']}
+            return json.dumps(value)
+
+    result = round_tasks.assess_hypothesis(context, work, llm_client=LimitedModel())
+    saved = json.loads((context['run_dir'] / result['assessment']['path']).read_text())
+    assert saved['hypothesis']['supporting_evidence'] == []
+    assert saved['report']['findings'] == []
