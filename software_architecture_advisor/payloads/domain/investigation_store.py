@@ -1,6 +1,7 @@
 """Durable architecture evidence records and run-wide investigation budgets."""
 import hashlib
 import json
+import os
 import sqlite3
 import time
 from contextlib import contextmanager
@@ -110,22 +111,36 @@ class RecordedModel:
         self.model = JsonModel(store.config, client=client)
         self.calls = self.model.calls
         self.ordinal = 0
+        self.model.context_root = store.root / "context-memory"
+        self.model.context_scope = {
+            "job_id": store.context.get("job_id") or os.environ.get("MN_JOB_ID", "standalone-architecture"),
+            "run_id": store.context.get("run_id") or os.environ.get("MN_RUN_ID") or store.root.name,
+        }
+        self.model.final = final
+        self.model.final_call_reserve = store.config["investigation"]["final_model_reserve"]
+        self.model.deadline = store.context["deadline"]
 
     def complete(self, instruction, data):
         key = f"investigation/models/{self.node_id}-{self.ordinal:03d}.json"
         self.ordinal += 1
+        self.model.invocation_id = f"{self.node_id}-{self.ordinal:03d}"
         digest = hashlib.sha256(json.dumps([instruction, data], sort_keys=True).encode()).hexdigest()
         path = self.store.path(key)
         if path.exists():
             prior = read_json(path)
             if prior["request_hash"] != digest:
                 raise ValueError("Model replay context changed")
-            if prior["status"] != "completed":
+            if prior["status"] == "completed":
+                self.calls.append(prior["trace"])
+                return deepcopy(prior["value"])
+            memory = self.model.memory_session()
+            if memory is None or not memory.has_durable_response(self.model.invocation_id):
                 raise RuntimeError("Prior model request has no durable response; explicit retry review required")
-            self.calls.append(prior["trace"])
-            return deepcopy(prior["value"])
-        self.store.reserve("models", final=self.final)
-        self.store.write(key, {"request_hash": digest, "status": "started"})
+            # Resume SDK writeback and validate its saved response. The original
+            # dispatch already consumed the run-wide reservation.
+        else:
+            self.store.reserve("models", final=self.final)
+            self.store.write(key, {"request_hash": digest, "status": "started"})
         self.model.config = {**self.model.config, "timeout_seconds": min(self.model.config["timeout_seconds"], max(1, self.store.context["deadline"] - time.time()))}
         try:
             value = self.model.complete(instruction, data)

@@ -1,6 +1,6 @@
 # Architecture Advisor contract
 
-Identity: `software_architecture_advisor`, version 2.0.0. Source: Spark `/home/homer/Sandbox/legal_case/software_architecture_advisor`.
+Identity: `software_architecture_advisor`, version 2.1.0. Source: Spark `/home/homer/Sandbox/legal_case/software_architecture_advisor`.
 
 ## Inputs and policy
 
@@ -43,3 +43,11 @@ Each round alternates planning, atomic graph commitment, deterministic execution
 Plan nodes select allowlisted graph operations and independent support/counter searches. New evidence may revise a hypothesis's module, family, statement and selected queries while retaining its ID. Repeated completed work does not justify another round. Hypothesis revisions and previous evidence remain inspectable even when the final review uses the latest revision.
 
 Publication verifies exact frozen spans, hashes and citations for all final decisions. The report includes executive summary, observed architecture relationships, prioritized findings, alternatives, a three-phase roadmap, and explicit coverage limits. Knowledge cards are guidance, never project evidence. Priority is not measured severity or ROI. Runtime state is versioned and requires the matching SDK/Core deployment; static workflows retain their previous semantics.
+
+## Bounded working context
+
+Live model calls use the shared SDK `ContextSession` and Membrane `mn.context.working.v1` contract. Deploy the matching SDK and Rust context service together. Observations are recorded before selection; only a bounded working view enters each model request. Raw observations, packet manifests and response receipts remain under `context-memory/` (under `case/` for Litigation Analyst). Redis owns the durable paginated recall index; no complete job snapshot is restored into process memory.
+
+The SDK accounts for fixed instructions, schemas, output reserve and safety margin, and the gateway enforces its confirmed serving window. Current decision constraints and exact final-review evidence cannot be silently dropped; impossible required sets return an explicit partition requirement. Unselected evidence remains available by exact reference and query. A missing item in the working view never proves absence. Source hashes and citations are verified independently before publication. Cache loss cannot repeat a successfully journaled model response. Offline/scripted execution remains deterministic and does not call Membrane.
+
+Semantic retrieval binds explicitly to `huggingface.co/zenmagnets/Nemotron-3-Embed-1B-Q4_K_M-GGUF:Q4_K_M` by default, independently of the chat model. The SDK verifies embedding capability before requests. `embedding.model` remains operator-tunable; `default` is the chat route and must not be used for embeddings. Graph views and text embeddings are built lazily when an admitted child task needs them. A failed embedding build cannot publish a completed generation or a successful review.

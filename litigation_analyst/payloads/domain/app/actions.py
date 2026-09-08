@@ -16,6 +16,7 @@ class InvestigationActions:
     data: dict
     store: object
     investigation_id: str
+    memory: object = None
 
     def allowed_actions(self, state):
         execution = ["review_enquiry"]
@@ -28,7 +29,7 @@ class InvestigationActions:
             planning.remove("plan_enquiry")
             execution = ["review_enquiry"]
         return self.cycle.allowed_actions(planning=planning, execution=execution,
-            common=("list_skills", "read_skill", "read_investigation", "flag_source", "update_hypothesis"),
+            common=("list_skills", "read_skill", "read_investigation", "flag_source", "update_hypothesis") + (("recall_memory", "read_memory") if self.memory else ()),
             pending_review=("review_report",) if "pending_review_ids" in self.data else None)
 
     def __call__(self, action, state):
@@ -42,6 +43,8 @@ class InvestigationActions:
         name, args = action["name"], action["arguments"]
         if "pending_review_ids" in data and name != "review_report":
             raise ValueError("review the pending finding before any further action")
+        if name in {"recall_memory", "read_memory"} and self.memory:
+            return self.memory.memory_action(name, args)
         if name == "plan_enquiry":
             validate(PLAN, args)
             if policy["max_model_decisions"] - len(state["records"]) < 4:

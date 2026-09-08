@@ -273,3 +273,9 @@ Platform descriptors live in `extensions/`, package requirements in
 The SDK reads these documents together and compiles the Core execution artifact.
 A ZIP contains the same files as the folder. Local overrides and invocation
 configuration are resolved by the SDK before launch.
+
+In OtterDesk setup, choose **Start with sample data** to use the bundled stream
+and default monitoring settings. Choose **Use my data** to enter an external
+stream URL in the secure answer control, then confirm required settings one at
+a time. The stream URL stays in encrypted desktop credential storage and is supplied
+only when launching the external source.

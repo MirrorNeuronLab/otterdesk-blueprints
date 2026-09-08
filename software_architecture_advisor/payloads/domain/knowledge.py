@@ -7,7 +7,8 @@ from pathlib import Path
 import re
 
 from .config import bundled_path
-from .model import SYSTEM
+from .model import SYSTEM, model_request
+from mn_sdk.context_session import ContextPolicy, available_text_bytes
 from .events import emit
 
 DEFAULTS = {"enabled": True, "path": None, "max_cards": 2, "max_prompt_bytes": 1200}
@@ -97,6 +98,8 @@ def with_guidance(knowledge, config, instruction, data, goal, family=None, reser
     return base
 
 
-def evidence_room(config, instruction, data):
-    overhead = len((SYSTEM + "\n" + instruction).encode()) + 256 + json_bytes(data)
-    return config["llm"]["context_tokens"] - config["llm"]["output_tokens"] - overhead - 200
+def evidence_room(config, instruction, data, *, replacing_bytes=0):
+    cfg = config["llm"]
+    return available_text_bytes(model_request(instruction, data, cfg),
+        policy=ContextPolicy(window_tokens=cfg["context_tokens"], output_tokens=cfg["output_tokens"]),
+        replacing_bytes=replacing_bytes)

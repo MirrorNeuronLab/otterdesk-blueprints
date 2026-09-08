@@ -102,5 +102,6 @@
         }
       }
     ]
-  }
+  },
+  "required_context_engine": true
 }

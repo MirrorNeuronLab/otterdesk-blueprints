@@ -73,6 +73,7 @@ resources.jsonl
 job.json
 web_ui.json
 ui.json
+!/cctv_operator/extensions/ui.json
 crm.csv
 market_insights.csv
 .mn-rag-state.json

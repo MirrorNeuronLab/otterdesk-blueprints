@@ -38,6 +38,7 @@ def make_embedder(config: dict):
             'embedding', cfg['model'], '/embeddings', payload,
             provider=cfg['provider'], api_base=cfg.get('api_base'),
             timeout_seconds=config['llm']['timeout_seconds'], num_retries=0,
+            required_capabilities=('embeddings',),
         )
 
     return OpenAICompatibleEmbedder(endpoint=cfg.get("api_base") or "managed://embedding", model=cfg["model"], requester=request)

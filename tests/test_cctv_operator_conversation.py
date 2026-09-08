@@ -380,3 +380,19 @@ def test_cctv_operator_batch_revision_can_clear_attention_state():
     assert state["attention_targets"] == []
     assert state["instruction_revision"] == 2
     assert event["payload"]["cleared"] is True
+
+
+def test_cctv_setup_offers_sample_and_secure_external_source():
+    ui = json.loads((ROOT / "cctv_operator/extensions/ui.json").read_text())
+    guide = ui["setup_guide"]
+    assert guide["sample"]["available"] is True
+    assert guide["sample"]["values"]["video_source.profile"] == "bundled_demo"
+    assert guide["real"]["values"]["video_source.profile"] == "external"
+    fields = {field["path"]: field for field in guide["fields"]}
+    stream = fields["video_source.uri"]
+    assert stream["secret"] is True
+    assert stream["required"] is True
+    assert stream["active_when_any"] == [{"key": "video_source.profile", "equals": "external"}]
+    assert set(stream["protocols"]) == {"rtsp:", "rtsps:", "rtmp:", "rtmps:"}
+    assert all(not field["required"] for key, field in fields.items()
+               if key not in {"video_source.profile", "video_source.uri"})

@@ -9,7 +9,7 @@
   "embedding": {
     "mode": "neural",
     "provider": "docker_model_runner",
-    "model": "default",
+    "model": "huggingface.co/zenmagnets/Nemotron-3-Embed-1B-Q4_K_M-GGUF:Q4_K_M",
     "api_base": null
   },
   "graph": {
@@ -90,5 +90,21 @@
     "docker_worker_image": "docker_worker",
     "image": "mirror-neuron/software-architecture-advisor:local",
     "install_scope": "shared_job_container"
+  },
+  "local_inputs": {
+    "folders": [
+      {
+        "config_path": "inputs.payload.input_folder",
+        "payload_path": "mn_local_inputs/repository",
+        "runtime_path": "mn_local_inputs/repository",
+        "allowed_extensions": [
+          "*"
+        ]
+      }
+    ]
+  },
+  "context_memory": {
+    "enabled": true,
+    "contract": "mn.context.working.v1"
   }
 }

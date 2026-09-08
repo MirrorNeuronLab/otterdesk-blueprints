@@ -23,6 +23,9 @@ def test_compiled_contract_and_docker_handlers(modules):
     package = read_blueprint(BLUEPRINT)
     source = blueprint_definition(package)
     compiled = compile_blueprint(package, resolve_config(package)).manifest
+    from mn_sdk.submission_preparation import lower_manifest_topology_for_runtime_submission
+    lower_manifest_topology_for_runtime_submission(compiled)
+    assert 'investigate_architecture' in compiled['flow']['child_workflows']
     assert len(compiled['agents']['nodes']) >= 9
     assert source['response_service'] == {'enabled': True}
     assert source['contracts']['inputs']['input_folder']['type'] == 'local_path'
@@ -99,6 +102,34 @@ def test_architecture_ownership():
         assert 'mn_graph_analysis_skill' in text
         assert 'rgx_client' not in text
     assert not (payload/'domain/server.py').exists()
+
+
+def test_neural_retrieval_uses_embedding_model_and_capability(modules, monkeypatch):
+    from domain import ingest
+    cfg = resolve_config(read_blueprint(BLUEPRINT)).data
+    calls = []
+
+    def transport(*args, **kwargs):
+        calls.append((args, kwargs))
+        return {'data': [{'embedding': [3.0, 4.0]}]}
+
+    monkeypatch.setattr(ingest, 'runtime_model_json_request', transport)
+    embedder = ingest.make_embedder(cfg)
+    assert embedder.embed_document('source text') == pytest.approx((0.6, 0.8))
+    assert embedder.embed_query('question') == pytest.approx((0.6, 0.8))
+    for args, kwargs in calls:
+        assert args[:3] == ('embedding',
+            'huggingface.co/zenmagnets/Nemotron-3-Embed-1B-Q4_K_M-GGUF:Q4_K_M', '/embeddings')
+        assert kwargs['required_capabilities'] == ('embeddings',)
+    assert calls[0][0][3]['input'] == 'passage: source text'
+    assert calls[1][0][3]['input'] == 'query: question'
+
+    def fail(*args, **kwargs):
+        raise RuntimeError('Embedding capability unavailable')
+
+    monkeypatch.setattr(ingest, 'runtime_model_json_request', fail)
+    with pytest.raises(RuntimeError, match='capability unavailable'):
+        embedder.embed_document('source text')
 
 
 def graph_config():
@@ -197,3 +228,17 @@ def test_https_input_retains_real_checkout_revision(modules,tmp_path,monkeypatch
     assert snapshot['input']['location']=='https://github.com/example/repo.git'
     assert Path(snapshot['input']['checkout'],'.git').is_dir()
     assert all((context['run_dir']/ref['path']).exists() for ref in refs)
+
+
+def test_local_repository_input_uses_sdk_staging(tmp_path):
+    from mn_sdk.blueprint_support.local_inputs import stage_local_input_payloads
+    config = json.loads((BLUEPRINT / 'config/default.json').read_text())
+    source = tmp_path / 'repository with spaces'
+    source.mkdir()
+    (source / 'module.py').write_text('def example(): pass\n')
+    config['inputs']['payload']['input_folder'] = str(source)
+    payloads = {}
+    result = stage_local_input_payloads(config, payloads, bundle_dir=BLUEPRINT)
+    assert result['folders'][0]['file_count'] == 1
+    assert config['inputs']['payload']['input_folder'] == 'mn_local_inputs/repository'
+    assert payloads['mn_local_inputs/repository/module.py'] == b'def example(): pass\n'

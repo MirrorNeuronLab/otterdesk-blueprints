@@ -188,3 +188,47 @@ def test_unavailable_evidence_cannot_be_promoted_by_review(setup_run, monkeypatc
     monkeypatch.setattr("domain.evidence_tasks.validate_assessment", lambda value, packet: value)
     with pytest.raises(ValueError, match="inconclusive"):
         validate_advice({"verdict": "supported"}, {}, ["state graph unavailable"])
+
+
+@pytest.mark.parametrize("saved_response", [True, False])
+def test_partial_model_replay_rehydrates_sdk_receipt_without_reserving_again(setup_run, monkeypatch, saved_response):
+    from domain.investigation_store import InvestigationStore, RecordedModel
+    from domain.model import JsonModel
+    context, _ = setup_run
+    store = InvestigationStore(context["run_dir"])
+    instruction, data = "review", {"goal":"payments"}
+    digest = hashlib.sha256(json.dumps([instruction, data], sort_keys=True).encode()).hexdigest()
+    store.reserve("models")
+    store.write("investigation/models/recovery-000.json", {"request_hash":digest,"status":"started"})
+    checked = []
+    memory = SimpleNamespace(has_durable_response=lambda invocation: checked.append(invocation) or saved_response)
+    monkeypatch.setattr(JsonModel, "memory_session", lambda self: memory)
+    def rehydrate(self, instruction, data):
+        self.calls.append({"status":"ok", "replayed":True})
+        return {"result":"saved verified answer"}
+    monkeypatch.setattr(JsonModel, "complete", rehydrate)
+    if saved_response:
+        assert RecordedModel(store, "recovery").complete(instruction, data) == {"result":"saved verified answer"}
+        assert store.read("investigation/models/recovery-000.json")["status"] == "completed"
+    else:
+        with pytest.raises(RuntimeError, match="no durable response"):
+            RecordedModel(store, "recovery").complete(instruction, data)
+    assert checked == ["recovery-001"]
+    assert store.usage()["models"] == 1
+
+
+def test_planner_registry_constrains_revisions_and_preserves_verified_actions(architecture_paths):
+    from domain.model import response_schema
+    from domain.evidence_tasks import verification_policy
+    data = {"round_planner":True, "candidates":["payments"], "families":{"resilience":[]}, "tools":["calls"], "max_hypotheses":3, "hypothesis_registry":[]}
+    schema = response_schema(data)
+    assert schema["properties"]["retirements"]["maxItems"] == 0
+    assert schema["properties"]["hypotheses"]["items"]["properties"]["evidence_ids"]["maxItems"] == 0
+    data["hypothesis_registry"] = [{"id":"H01", "query_ids":["r02-Q1"], "evidence_ids":["E1"]}]
+    schema = response_schema(data)
+    retirement = schema["properties"]["retirements"]["items"]["properties"]
+    assert retirement["id"]["enum"] == ["H01"]
+    assert retirement["evidence_ids"]["items"]["enum"] == ["E1", "r02-Q1"]
+    advice = verification_policy({"action_kind":"verify", "recommendation":"Characterize retry_payment.", "next_action":"Inject a gateway timeout after charge and retry the identical order.", "acceptance_test":"Assert one gateway charge and one ledger row for the order.", "rollback":"Remove temporary fault injection.", "missing_evidence":["Gateway deduplication contract"]})
+    assert "Inject a gateway timeout after charge" in advice["next_action"]
+    assert "one gateway charge and one ledger row" in advice["acceptance_test"]

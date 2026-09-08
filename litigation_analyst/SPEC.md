@@ -1,6 +1,6 @@
 # Litigation Analyst specification
 
-Version 1.0.0. A bounded evidence-assistance workflow, not autonomous legal advice.
+Version 1.1.0. A bounded evidence-assistance workflow, not autonomous legal advice.
 
 The product accepts an optional legal-document folder and neutral investigation
 goal. With no folder, a preparation script downloads EMC2 from the pinned
@@ -67,3 +67,11 @@ records, unresolved enquiries, failed actions and incomplete report reviews rema
 visible. The step and worker timeouts are also 99,999 seconds, avoiding a shorter outer deadline.
 The new source-index table requires rebuilding derived document indexes; old completed
 run artifacts remain available and are never silently migrated or re-investigated.
+
+## Bounded working context
+
+Live model calls use the shared SDK `ContextSession` and Membrane `mn.context.working.v1` contract. Deploy the matching SDK and Rust context service together. Observations are recorded before selection; only a bounded working view enters each model request. Raw observations, packet manifests and response receipts remain under `context-memory/` (under `case/` for Litigation Analyst). Redis owns the durable paginated recall index; no complete job snapshot is restored into process memory.
+
+The SDK accounts for fixed instructions, schemas, output reserve and safety margin, and the gateway enforces its confirmed serving window. Current decision constraints and exact final-review evidence cannot be silently dropped; impossible required sets return an explicit partition requirement. Unselected evidence remains available by exact reference and query. A missing item in the working view never proves absence. Source hashes and citations are verified independently before publication. Cache loss cannot repeat a successfully journaled model response. Offline/scripted execution remains deterministic and does not call Membrane.
+
+The investigation adapter caps each model response at the context policy’s `output_tokens` (or a smaller provider limit). This keeps the reserved response space aligned with the working-memory budget; an inherited larger chat limit must not crowd out the first investigation request.

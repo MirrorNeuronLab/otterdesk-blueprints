@@ -198,3 +198,7 @@ Platform descriptors live in `extensions/`, package requirements in
 The SDK reads these documents together and compiles the Core execution artifact.
 A ZIP contains the same files as the folder. Local overrides and invocation
 configuration are resolved by the SDK before launch.
+
+OtterDesk initial setup offers an explicit sample start with all bundled defaults.
+Personal-stream setup requires a secure stream URL; the sampling, target, notice,
+and output defaults remain optional to edit. Appearance is not a launch requirement.

@@ -1,5 +1,6 @@
 """Independent review and deterministic synthesis of prioritized architecture advice."""
-from .evidence_tasks import packet_for, validate_advice, verification_policy
+from mn_sdk.context_session import NeedsPartition, ContextBudgetExceeded
+from .evidence_tasks import decision_packet, validate_advice, verification_policy, assessment_hypothesis
 from .investigation_store import BudgetExhausted, RecordedModel
 from .investigator import ASSESS, validated_completion
 from .knowledge import KnowledgeBase, evidence_room
@@ -24,10 +25,10 @@ def finalize_investigation(store, reason, *, incomplete, llm_client=None):
         instruction = ASSESS + "\nIndependently review this candidate, including its counter-evidence. Prior advice is unverified. Re-check technical correctness, especially transaction participants and external effects. Moving a network call inside a database transaction does not make it atomic or reversible. Do not prescribe distributed transactions without an evidenced need and participant support. Distinguish a demonstrated static risk from an observed production incident. Explicitly weigh visible intentional orchestration and existing local atomicity as counter-evidence. If missing_evidence has decisive gaps, action_kind must be verify or preserve; recommend targeted experiments before changes. Return action_kind verify, preserve or change. Inconclusive advice must be a project-specific verification task. Its rollback removes only newly added instrumentation or harnesses; never revert existing repository changes."
         if finding["unavailable_evidence"]:
             instruction += "\nRequired views or architecture rules are unavailable; verdict must be inconclusive."
-        data = {"review_policy": True, "goal": store.context["payload"]["goal"], "hypothesis": finding["hypothesis"],
-                "prior_proposal": prior, "packet": {}, "unavailable_evidence": finding["unavailable_evidence"]}
+        data = {"review_policy": True, "goal": store.context["payload"]["goal"], "hypothesis": assessment_hypothesis(finding["hypothesis"]),
+                "prior_proposal": {"recommendation": prior.get("model_recommendation", prior["recommendation"]), "action_kind": prior["action_kind"], "missing_evidence": prior["missing_evidence"]}, "packet": {}, "unavailable_evidence": finding["unavailable_evidence"]}
         records = [r for r in store.results() if r["hypothesis_id"] == finding["id"] and r["revision"] == finding["revision"]]
-        packet = packet_for(records, min(9000, evidence_room(store.config, instruction, data)))
+        packet = decision_packet(records, store.config, instruction, data)
         data["packet"] = packet
         try:
             model = RecordedModel(store, f"review-{finding['id']}-r{finding['revision']}", llm_client, final=True)
@@ -38,7 +39,7 @@ def finalize_investigation(store, reason, *, incomplete, llm_client=None):
             value.update(finding_id=finding["id"], focus=finding["hypothesis"]["module"], packet=packet)
             finding.update(review_status="reviewed", review=value)
             decisions.append(value)
-        except BudgetExhausted as exc:
+        except (BudgetExhausted, NeedsPartition, ContextBudgetExceeded) as exc:
             finding.update(review_status="budget_exhausted", review_error=str(exc))
             incomplete = True
     # Evidence strength and goal relevance are defensible; degree is not severity or ROI.

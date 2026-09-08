@@ -1,4 +1,5 @@
 """Bounded specialist operations for a committed architecture round."""
+from mn_sdk.context_session import NeedsPartition, ContextBudgetExceeded
 from .catalog import LayerUnavailable
 from .events import audit_scope
 from .graph import QuerySession
@@ -39,6 +40,13 @@ def packet_for(records, byte_limit=4400):
     return packet
 
 
+def decision_packet(records, config, instruction, data):
+    from mn_sdk.context_session.contracts import encoded
+    candidate = packet_for(records, 9000)
+    capacity = evidence_room(config, instruction, {**data, "packet": candidate}, replacing_bytes=len(encoded(candidate)))
+    return packet_for(records, min(9000, capacity))
+
+
 def collect(context, work, *, semantic=False, llm_client=None):
     store = InvestigationStore(context["run_dir"])
     work = task_input(store, work)
@@ -66,9 +74,9 @@ def collect(context, work, *, semantic=False, llm_client=None):
                 tool = work["tool"]
                 scope = "" if tool in {"schema", "deployment", "configuration", "workflow_states", "hotspots"} else h["module"]
                 session.query(tool, scope)
-    except (LayerUnavailable, BudgetExhausted) as exc:
+    except (LayerUnavailable, BudgetExhausted, NeedsPartition, ContextBudgetExceeded) as exc:
         record["unavailable"].append(str(exc))
-        if isinstance(exc, BudgetExhausted):
+        if isinstance(exc, (BudgetExhausted, NeedsPartition, ContextBudgetExceeded)):
             record["budget_stop"] = str(exc)
     if session:
         for q in session.receipts:
@@ -105,14 +113,21 @@ def validate_advice(value, packet, unavailable=(), *, final_review=False):
     return value
 
 
+def assessment_hypothesis(hypothesis):
+    """The exact question for this worker; tool/search plans remain in artifacts."""
+    return {key: hypothesis[key] for key in ("id", "module", "family", "statement") if key in hypothesis}
+
+
 def verification_policy(value):
     if value.get("action_kind") == "verify":
         for field in ("recommendation", "next_action", "acceptance_test"):
             value["model_" + field] = value[field]
         unknowns = value.get("missing_evidence") or [value["next_action"]]
-        value["recommendation"] = "Verify the decisive unknowns before implementing this conditional proposal: " + value["recommendation"]
-        value["next_action"] = "Resolve the following questions using the cited source, provider contracts, and an isolated characterization harness; do not modify application behavior in this phase: " + " ".join(unknowns)
-        value["acceptance_test"] = "For each listed question, retain the exact source or contract citation and a reproducible pass/fail observation from the characterization harness. Record preconditions and observed effects. Any unresolved question keeps the implementation proposal deferred."
+        prefix = "Verify the decisive unknowns before implementing this conditional proposal: "
+        if not value["recommendation"].startswith(prefix):
+            value["recommendation"] = prefix + value["recommendation"]
+        value["next_action"] += " Verification scope: use an isolated characterization harness and preserve application behavior. Resolve: " + " ".join(unknowns)
+        value["acceptance_test"] += " Retain exact source or contract citations and reproducible pass/fail observations, including preconditions and effects. Unresolved questions defer implementation."
         value["model_rollback"] = value["rollback"]
         value["rollback"] = "Remove only instrumentation or tests added for this verification task; preserve existing application code and all pre-existing changes."
     return value
@@ -139,9 +154,9 @@ def assess_hypothesis(context, work, *, llm_client=None):
         knowledge = KnowledgeBase(store.config)
         instruction = ASSESS + "\nInclude action_kind: verify, preserve, or change. Inconclusive advice must be a specific verification task. For verification-only work, rollback removes only newly added instrumentation or harnesses; never revert existing repository changes."
         data = with_guidance(knowledge, store.config, instruction,
-            {"goal": store.context["payload"]["goal"], "hypothesis": h, "packet": {}, "review_policy": True},
+            {"goal": store.context["payload"]["goal"], "hypothesis": assessment_hypothesis(h), "packet": {}, "review_policy": True},
             store.context["payload"]["goal"], h["family"], reserve=2400)
-        packet = packet_for(records, min(9000, evidence_room(store.config, instruction, data)))
+        packet = decision_packet(records, store.config, instruction, data)
         finding["packet"] = packet
         finding["knowledge_ids"] = knowledge.record(h["id"], data["architecture_guidance"], model_requested=not store.config["offline"])
         data["packet"] = packet
@@ -161,7 +176,7 @@ def assess_hypothesis(context, work, *, llm_client=None):
             if unavailable and value["verdict"] != "inconclusive":
                 raise ValueError("Unavailable evidence cannot support a conclusive assessment")
             finding.update(status="assessed", assessment=verification_policy(validate_advice(value, packet)), knowledge=knowledge.audit)
-        except BudgetExhausted as exc:
+        except (BudgetExhausted, NeedsPartition, ContextBudgetExceeded) as exc:
             finding["error"] = str(exc)
     return {"finding": store.write(path, finding)}
 

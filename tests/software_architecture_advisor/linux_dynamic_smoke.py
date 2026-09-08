@@ -7,6 +7,7 @@ scheduling is separately exercised by Core's child_workflow_test.exs.
 import argparse
 import importlib
 import json
+import uuid
 from pathlib import Path
 
 from mn_sdk.step_runtime import StepContext
@@ -23,6 +24,7 @@ def main():
     parser.add_argument("--output", required=True)
     parser.add_argument("--live", action="store_true")
     args = parser.parse_args()
+    run_id = "dynamic-smoke-" + uuid.uuid4().hex[:10]
     blueprint = Path(__file__).resolve().parents[2] / "software_architecture_advisor"
     cfg = json.loads((blueprint / "config/default.json").read_text())
     cfg["graph"]["binary"] = "/opt/mn-graph-engine/bin/rgx"
@@ -53,14 +55,14 @@ def main():
                          next_action="Fail after the gateway effect, retry the same payment, and record gateway and ledger effects.")
             return value
         JsonModel.complete = scripted
-    context = runtime_context_for_step(inputs=inputs, config=cfg, runs_root=args.output, run_id="dynamic-smoke")
+    context = runtime_context_for_step(inputs=inputs, config=cfg, runs_root=args.output, run_id=run_id)
     capture_input(context)
     initialized, _ = initialize_investigation(context)
     context_ref = initialized["context"]
     templates = json.loads((blueprint / "workflow.json").read_text())["child_workflows"]["investigate_architecture"]["templates"]
     def invoke(template, step_id, work):
         handler = importlib.import_module(templates[template]["run"]["handler"]).run
-        step = StepContext(step_id=step_id, run_id="dynamic-smoke", config=cfg,
+        step = StepContext(step_id=step_id, run_id=run_id, config=cfg,
                            idempotency_key=step_id, message={"_mn_step": {"step_input": work}})
         return handler(step, runs_root=args.output).outputs
     graphs = []

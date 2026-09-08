@@ -17,8 +17,6 @@ Use the companion workspace with the newly created shared graph skill until its 
 export MN_WORKSPACE_ROOT=/Users/homer/Projects/mirror-neuron-set
 export MN_SKILLS_ROOT="$MN_WORKSPACE_ROOT/mn-skills"
 cd /Users/homer/Projects/otterdesk-blueprints/software_architecture_advisor
-python3 -m pip install -e "$MN_SKILLS_ROOT/graph_analysis_skill"
-python3 prepare.py --target aarch64-unknown-linux-gnu
 MN_USE_LOCAL_SKILLS=1 mn blueprint run ./ \
   --set inputs.payload.repository_url=https://github.com/pallets/itsdangerous
 ```
@@ -30,7 +28,7 @@ MN_USE_LOCAL_SKILLS=1 mn blueprint run ./ \
   --set 'inputs.payload.input_folder=/absolute/path/to/repository'
 ```
 
-Select `x86_64-unknown-linux-gnu` when the Docker worker host is x86-64. Preparation downloads the SHA-256-pinned `mn-graph-engine` GAR binary release 0.0.1 through `graph_analysis_skill`, retaining its license. It also builds the pinned Python evidence-provider wheel using host Git credentials. No credentials or graph-engine source are put in the Docker build context. Generated binaries and wheels are ignored by Git. Python dependencies install inside the worker image; the platform installs manifest-declared skills and agents.
+The SDK automatically invokes the declared graph skill’s worker preparation hook using the selected node’s CPU architecture. No blueprint preparation script is needed. The skill downloads the SHA-256-pinned `mn-graph-engine` GAR binary release 0.0.1 through `graph_analysis_skill`, retaining its license. It also builds the pinned Python evidence-provider wheel using host Git credentials. No credentials or graph-engine source are put in the Docker build context. Generated binaries and wheels are ignored by Git. Python dependencies install inside the worker image; the platform installs manifest-declared skills and agents.
 
 The GAR skill dependency `mirrorneuron-graph-analysis-skill==1.3.23` is the forthcoming release containing this capability; use the local-skill command above until it is published. The graph-engine binary itself is already published. Authenticated `gcloud` access to the supplied GAR repository and Git access to the pinned Python provider package are required during preparation.
 
@@ -75,3 +73,13 @@ PYTHONPATH=/blueprints/software_architecture_advisor/payloads python \
 ```
 
 Add `--live` to use the configured model gateway on the synthetic sample repository. The smoke uses hash retrieval to isolate chat planning/review from embedding-provider setup; normal live runs retain the configured neural embedding provider. Core's `tests/unit/child_workflow_test.exs` tests production scheduling, round barriers and parent completion separately.
+
+Local `inputs.payload.input_folder` directories are staged by the SDK before submission. Remote workers receive the staged repository path; the submitting host path is never used as a worker filesystem path.
+
+### Bounded context compatibility
+
+Version 2.1 requires the SDK `ContextSession` and Membrane `WorkingMemory` RPC from the companion workspace. Update SDK, Membrane and Core together before launching a new live run; existing run bundles retain their original behavior. Redis is required for durable recall. Context is an evictable cache over immutable evidence, with run-wide storage/call quotas and explicit incomplete coverage. The operator may increase the window within confirmed model and hardware capacity. No package publication is performed by this change.
+
+Planning pins a bounded current hypothesis/revision/citation registry; recalled historical findings cannot override it. Workers receive the exact hypothesis question and artifact-backed evidence. Assessment and independent review use the shared SDK schema-aware request budget before selecting their evidence packet. Verified next actions and acceptance checks retain project-specific model reasoning.
+
+Semantic retrieval binds explicitly to `huggingface.co/zenmagnets/Nemotron-3-Embed-1B-Q4_K_M-GGUF:Q4_K_M` by default, independently of the chat model. The SDK verifies embedding capability before requests. `embedding.model` remains operator-tunable; `default` is the chat route and must not be used for embeddings. Graph views and text embeddings are built lazily when an admitted child task needs them. A failed embedding build cannot publish a completed generation or a successful review.

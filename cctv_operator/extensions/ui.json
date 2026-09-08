@@ -1,0 +1,237 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/ui.schema.json",
+  "configuration_contract": {
+    "optional_files": [
+      "scenario.json",
+      "config/overwrite.json",
+      "payloads/prompts/",
+      "knowledge/"
+    ],
+    "required_files": [
+      "manifest.json",
+      "README.md",
+      "SPEC.md",
+      "config/default.json",
+      "payloads/",
+      "LICENSE.md",
+      "TERM.md"
+    ]
+  },
+  "observability_dashboard": {
+    "panels": [
+      "current_status",
+      "recent_events",
+      "pending_human_requests",
+      "output_artifacts",
+      "resource_usage",
+      "errors",
+      "input_lag",
+      "backpressure",
+      "llm_calls",
+      "token_budget",
+      "llm_retries",
+      "output_skill_attempts",
+      "output_skill_failures"
+    ],
+    "reads": [
+      "events.jsonl",
+      "human.jsonl",
+      "logs.jsonl",
+      "resources.jsonl",
+      "result.json",
+      "final_artifact.json",
+      "cctv_report.json",
+      "cctv_report.md",
+      "web_ui.json"
+    ],
+    "schema_version": "mn.blueprint.observability_dashboard.v1",
+    "source": "local_run_store"
+  },
+  "init_config_review": {
+    "fields": [
+      {
+        "default": "bundled_demo",
+        "description": "Use the bundled Docker demo by default. Choose external only when supplying an approved RTSP/RTMP URI.",
+        "label": "Video source profile",
+        "path": "video_source.profile",
+        "type": "domain_value"
+      },
+      {
+        "default": 20,
+        "description": "Seconds between baseline multimodal analyses; local scene scoring can trigger bounded bursts sooner.",
+        "label": "Baseline analysis interval",
+        "path": "sampling.baseline_interval_seconds",
+        "type": "domain_value"
+      },
+      {
+        "default": [
+          "person",
+          "unattended package",
+          "restricted-area entry"
+        ],
+        "description": "Subjects, objects, or activities to detect in recordings or the approved stream.",
+        "label": "Visual targets",
+        "path": "inputs.payload.visual_targets",
+        "type": "domain_value"
+      },
+      {
+        "default": {
+          "cooldown_seconds": 120,
+          "min_confidence": 0.55,
+          "mode": "human_notice_only",
+          "notify_on": [
+            "person",
+            "unattended package",
+            "restricted-area entry"
+          ]
+        },
+        "description": "Confidence, cooldown, and notification policy for reviewer notices.",
+        "label": "Alert policy",
+        "path": "inputs.payload.alert_policy",
+        "type": "domain_value"
+      },
+      {
+        "default": "~/Download/cctv_operator",
+        "description": "Default local output folder for generated artifacts and reports.",
+        "label": "Output folder",
+        "path": "outputs.folder_path",
+        "path_kind": "directory",
+        "type": "local_path"
+      }
+    ],
+    "instruction": "When running in OtterDesk, show these overwriteable fields during init config and ask the user to change them or keep the defaults before launch.",
+    "required": true
+  },
+  "web_ui": {
+    "adapter": "external-url",
+    "description": "Read-only CCTV operations console with a CUDA-assisted MJPEG preview and server-sent operator events, claimed through the generic Web UI skill.",
+    "enabled": true,
+    "kind": "service",
+    "node_id": "cctv_web_ui",
+    "service_name": "cctv-operator-web-ui",
+    "registration": {
+      "module": "cctv_web_ui",
+      "package": "mn-python-sdk-web-ui",
+      "writes": "external-url ui.json and web_ui.json after the service binds"
+    },
+    "reads": [
+      "events.jsonl",
+      "latest_analyzed_frame.jpg",
+      "latest_analyzed_frame.json",
+      "web_ui.json"
+    ],
+    "mjpeg_stream": "/streams/live.mjpg",
+    "operator_event_stream": "/streams/operator-events",
+    "preview_config": "web_ui.preview",
+    "steering": "external_chat_mcp_via_declared_live_input"
+  },
+  "starter_questions": [
+    "What is this CCTV job configured to monitor?",
+    "What happened in the latest monitoring run?",
+    "What warnings or review items need my attention?"
+  ],
+  "setup_guide": {
+    "schema": "otterdesk.setup_guide.v1",
+    "introduction": "Would you like to start with the sample video stream or use your own? The sample uses the bundled video and default monitoring settings.",
+    "sample": {
+      "available": true,
+      "title": "Bundled CCTV sample",
+      "description": "Monitor the bundled looping video with the default targets and reviewer notices. No camera URL is needed.",
+      "expected_output": "A live video preview, visual observations, and review reports.",
+      "values": {
+        "video_source.profile": "bundled_demo"
+      }
+    },
+    "real": {
+      "introduction": "What is your video stream URL? I\u2019ll use the default monitoring targets, sampling interval, and reviewer notices.",
+      "values": {
+        "video_source.profile": "external"
+      }
+    },
+    "fields": [
+      {
+        "path": "video_source.profile",
+        "label": "Video source",
+        "type": "text",
+        "required": true,
+        "choices": [
+          {
+            "label": "Sample video",
+            "value": "bundled_demo"
+          },
+          {
+            "label": "My stream",
+            "value": "external"
+          }
+        ]
+      },
+      {
+        "path": "video_source.uri",
+        "label": "What is your video stream URL?",
+        "type": "password",
+        "secret": true,
+        "role": "input",
+        "required": true,
+        "protocols": [
+          "rtsp:",
+          "rtsps:",
+          "rtmp:",
+          "rtmps:"
+        ],
+        "active_when_any": [
+          {
+            "key": "video_source.profile",
+            "equals": "external"
+          }
+        ],
+        "description": "Use an RTSP or RTMP stream you have permission to monitor. The URL is stored securely."
+      },
+      {
+        "default": 20,
+        "description": "Seconds between baseline multimodal analyses; local scene scoring can trigger bounded bursts sooner.",
+        "label": "Baseline analysis interval",
+        "path": "sampling.baseline_interval_seconds",
+        "type": "domain_value",
+        "required": false
+      },
+      {
+        "default": [
+          "person",
+          "unattended package",
+          "restricted-area entry"
+        ],
+        "description": "Subjects, objects, or activities to detect in recordings or the approved stream.",
+        "label": "Visual targets",
+        "path": "inputs.payload.visual_targets",
+        "type": "domain_value",
+        "required": false
+      },
+      {
+        "default": {
+          "cooldown_seconds": 120,
+          "min_confidence": 0.55,
+          "mode": "human_notice_only",
+          "notify_on": [
+            "person",
+            "unattended package",
+            "restricted-area entry"
+          ]
+        },
+        "description": "Confidence, cooldown, and notification policy for reviewer notices.",
+        "label": "Alert policy",
+        "path": "inputs.payload.alert_policy",
+        "type": "domain_value",
+        "required": false
+      },
+      {
+        "default": "~/Download/cctv_operator",
+        "description": "Default local output folder for generated artifacts and reports.",
+        "label": "Output folder",
+        "path": "outputs.folder_path",
+        "path_kind": "directory",
+        "type": "local_path",
+        "required": false
+      }
+    ]
+  }
+}

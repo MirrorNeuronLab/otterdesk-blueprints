@@ -2,7 +2,7 @@
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/manifest.schema.json",
   "id": "software_architecture_advisor",
   "name": "Architecture Advisor",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Reviews repository architecture through runtime-planned deterministic child workflows, cited counter-evidence, independent review and prioritized implementation advice.",
   "workflow": "workflow.json",
   "execution": "execution.json",

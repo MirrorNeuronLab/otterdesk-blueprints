@@ -149,6 +149,16 @@
         "schema_version": "mn.litigation.graph_appendix.v1",
         "privacy": "confidential",
         "required": true
+      },
+      {
+        "artifact_id": "context_memory",
+        "path": "case/context-memory",
+        "mime_type": "application/octet-stream",
+        "type": "context_memory",
+        "producer": "workflow",
+        "schema_version": "mn.context.working.v1",
+        "privacy": "confidential",
+        "required": false
       }
     ]
   },

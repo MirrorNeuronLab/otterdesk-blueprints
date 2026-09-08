@@ -24,5 +24,15 @@
   },
   "outputs": {
     "folder_path": "~/Downloads/litigation_analyst"
+  },
+  "context_memory": {
+    "enabled": true,
+    "contract": "mn.context.working.v1",
+    "policy": {
+      "window_tokens": 16384,
+      "output_tokens": 2048,
+      "max_calls": 5000,
+      "final_call_reserve": 4
+    }
   }
 }

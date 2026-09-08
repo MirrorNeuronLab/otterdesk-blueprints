@@ -1,5 +1,7 @@
 """Bounded OpenAI-compatible JSON generation with explicit provider failures."""
 import json
+from contextlib import nullcontext
+from mn_sdk.context_session import ContextSession, ContextPolicy, NeedsPartition, ContextBudgetExceeded
 import time
 from .events import emit
 from mn_sdk.llm import LLMClient
@@ -27,15 +29,18 @@ def response_schema(data):
                            "items": {"type": "string", "enum": [p["id"] for p in data["passages"]]}}})
         return obj({"concepts": {"type": "array", "items": concept, "maxItems": 4}})
     if data.get("round_planner"):
+        registry = data.get("hypothesis_registry", [])
+        evidence = sorted({eid for h in registry for eid in h.get("query_ids", []) + h.get("evidence_ids", [])})
+        citations = {"type": "array", "items": {"type": "string", **({"enum": evidence} if evidence else {})}, "maxItems": 6 if evidence else 0}
         hypothesis = obj({"id": {"type": "string", "pattern": "^H[0-9]{2}$"},
             "module": {"type": "string", "enum": data["candidates"]},
             "family": {"type": "string", "enum": list(data["families"])},
             "statement": short, "semantic_query": short, "counter_query": short,
             "graph_tools": {"type": "array", "minItems": 1, "maxItems": 4, "items": {"type": "string", "enum": data["tools"]}},
-            "evidence_ids": {"type": "array", "items": {"type": "string"}, "maxItems": 6},
+            "evidence_ids": citations,
             "expected_information": short})
         return obj({"decision": {"type": "string", "enum": ["execute", "stop"]}, "rationale": short,
-                    "retirements": {"type": "array", "maxItems": 6, "items": obj({"id": short, "reason": short, "evidence_ids": {"type": "array", "items": short, "minItems": 1, "maxItems": 6}})},
+                    "retirements": {"type": "array", "maxItems": min(6, len(registry)) if evidence else 0, "items": obj({"id": {"type": "string", **({"enum": [h["id"] for h in registry]} if registry else {})}, "reason": short, "evidence_ids": {**citations, "minItems": 1, "maxItems": 6}})},
                     "hypotheses": {"type": "array", "maxItems": data["max_hypotheses"], "items": hypothesis}})
     if "candidates" in data:
         h = obj({"module": {"type": "string", "enum": data["candidates"]},
@@ -72,11 +77,37 @@ def response_schema(data):
     return result
 
 
+def model_request(instruction, data, cfg):
+    return {"messages": [{"role":"system", "content":SYSTEM + "\n" + instruction},
+                {"role":"user", "content":json.dumps(data, ensure_ascii=False, separators=(",", ":"))}], "max_tokens": cfg["output_tokens"],
+                        "temperature": 0.1, "response_format": ({"type": "json_schema", "json_schema": {"name": "architecture_result", "strict": True, "schema": response_schema(data)}}
+                            if cfg.get("structured_output", "json_schema") == "json_schema" else {"type": "json_object"}),
+                        "chat_template_kwargs": {"enable_thinking": cfg.get("enable_thinking", False)}}
+
+
 class JsonModel:
     def __init__(self, config, client=None):
         self.config = config["llm"]
         self.calls = []
         self.client = client
+        self.context_root = None
+        self.context_scope = None
+        self.context_session = None
+        self.invocation_id = None
+        self.final = False
+        self.final_call_reserve = 0
+        self.deadline = None
+
+    def memory_session(self):
+        if self.context_root is not None and self.context_session is None:
+            cfg = self.config
+            self.context_session = ContextSession(
+                self.context_root, **self.context_scope, principal="architecture",
+                policy=ContextPolicy(window_tokens=cfg["context_tokens"], output_tokens=cfg["output_tokens"],
+                                     max_calls=cfg["max_calls"], final_call_reserve=self.final_call_reserve),
+                deadline=self.deadline,
+            )
+        return self.context_session
 
     def complete(self, instruction: str, data: dict):
         cfg = self.config
@@ -88,14 +119,11 @@ class JsonModel:
         # UTF-8 bytes are a deliberately conservative bound for byte-based tokenizers.
         # Reserve extra framing tokens; do not depend on optimistic chars/4 estimates.
         upper_bound = sum(len(m["content"].encode()) for m in messages) + 256
-        if upper_bound + cfg["output_tokens"] > cfg["context_tokens"]:
+        if self.context_root is None and upper_bound + cfg["output_tokens"] > cfg["context_tokens"]:
             emit("model.rejected", reason="context budget exceeded", input_token_upper_bound=upper_bound,
                  output_token_reserve=cfg["output_tokens"], model=cfg["model"])
             raise ValueError(f"Context budget exceeded: input upper bound {upper_bound} + output {cfg['output_tokens']}")
-        request_body = {"messages": messages, "max_tokens": cfg["output_tokens"],
-                        "temperature": 0.1, "response_format": ({"type": "json_schema", "json_schema": {"name": "architecture_result", "strict": True, "schema": response_schema(data)}}
-                            if cfg.get("structured_output", "json_schema") == "json_schema" else {"type": "json_object"}),
-                        "chat_template_kwargs": {"enable_thinking": cfg.get("enable_thinking", False)}}
+        request_body = model_request(instruction, data, cfg)
         record = {"model": cfg["model"], "input_token_upper_bound": upper_bound,
                   "output_token_reserve": cfg["output_tokens"], "request": request_body}
         self.calls.append(record)
@@ -109,13 +137,23 @@ class JsonModel:
             client = self.client or LLMClient.from_env(strict=True)
             self.client = client
             record["model"] = client.model
-            raw = runtime_model_json_request(
-                "llm", client.model, "/chat/completions", request_body,
-                provider=client.provider, backend=client.backend, api_base=client.api_base,
-                api_key=client.api_key, timeout_seconds=cfg["timeout_seconds"],
-                num_retries=0, context_size=cfg["context_tokens"], structured_output=True,
-                required_capabilities=client.required_capabilities,
-            )
+            self.memory_session()
+            # Domain-required inputs remain exact. Optional prior observations are
+            # durable and recalled by Membrane before each bounded decision.
+            required = ("goal", "hypothesis_registry", "consumed", "round_planner", "candidates", "families", "tools", "max_hypotheses", "revision", "remaining",
+                        "hypothesis", "prior_proposal", "review_policy", "unavailable_evidence", "semantic_layer", "passages")
+            if data.get("review_policy"):
+                required += ("packet",)
+            scope = self.context_session.turn(self.invocation_id or call_id, focus=instruction,
+                required_fields=required, final=self.final) if self.context_session else nullcontext()
+            with scope:
+                raw = runtime_model_json_request(
+                    "llm", client.model, "/chat/completions", request_body,
+                    provider=client.provider, backend=client.backend, api_base=client.api_base,
+                    api_key=client.api_key, timeout_seconds=cfg["timeout_seconds"],
+                    num_retries=0, context_size=cfg["context_tokens"], structured_output=True,
+                    required_capabilities=client.required_capabilities,
+                )
             record["response"] = raw
             choice = raw["choices"][0]
             if choice.get("finish_reason") not in {None, "stop"}:
@@ -127,6 +165,8 @@ class JsonModel:
             emit("model.completed", model_call_id=call_id, model=cfg["model"], stage=stage,
                  duration_ms=round((time.perf_counter()-began)*1000, 3), usage=raw.get("usage"))
             return value
+        except (NeedsPartition, ContextBudgetExceeded):
+            raise
         except Exception as exc:
             record.update(status="error", error=f"{type(exc).__name__}: {exc}")
             emit("model.failed", model_call_id=call_id, model=cfg["model"], stage=stage,
