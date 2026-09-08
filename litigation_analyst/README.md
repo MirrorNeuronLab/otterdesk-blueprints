@@ -89,8 +89,9 @@ reports state cancellation, exhausted budgets and unresolved enquiries explicitl
 
 ## Inspect outputs
 
-Outputs live in the platform run directory under the configured output folder
-(default `~/Downloads/litigation_analyst`). `review_index.json` locates:
+Outputs live in the SDK-provided platform run directory on shared storage.
+The configured output folder (default `~/Downloads/litigation_analyst`) receives
+an additional host copy. `review_index.json` locates:
 
 - `final_report.md`: neutral hypotheses, findings, citations, limitations and coverage.
 - `case/source_inventory.json`: original file hashes, normalized source identities,
