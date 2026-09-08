@@ -206,3 +206,12 @@ Graph binaries, provider wheels, NumPy and CPU PyTorch are owned by the graph an
 Version 1.1 requires the SDK `ContextSession` and Membrane `WorkingMemory` RPC from the companion workspace. Update SDK, Membrane and Core together before launching a new live run; existing run bundles retain their original behavior. Redis is required for durable recall. Context is an evictable cache over immutable evidence, with run-wide storage/call quotas and explicit incomplete coverage. The operator may increase the window within confirmed model and hardware capacity. No package publication is performed by this change.
 
 The investigation adapter caps each model response at the context policy’s `output_tokens` (or a smaller provider limit). This keeps the reserved response space aligned with the working-memory budget; an inherited larger chat limit must not crowd out the first investigation request.
+
+Available skill identifiers and the current manual-read registry are required working context, alongside action schemas and approved operations. Context selection cannot evict the identifiers needed to discover and invoke a skill.
+
+For a two-node deployment, the authoritative report and evidence files stay in
+`$MN_HOME/shared/submissions/<submission-id>/outputs/runs/<run-id>/` on the
+Syncthing shared filesystem. The SDK supplies that run directory to workers;
+blueprints must not replace it with a node-local Downloads path. Syncthing
+replicates the shared tree to the other node. The configured `output_folder`
+provides an additional convenience copy on the submitting host.

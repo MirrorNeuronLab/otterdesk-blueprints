@@ -246,7 +246,7 @@ def _run_investigation(
             response = model.complete_json(
                 messages, invocation_id=f"decision-{len(state['records'])}",
                 focus=f"{phase}: {active.get('question', context['payload']['goal'])}", final=(phase == "report_review" or synthesis),
-                required_fields=("control", "goal", "phase", "synthesis_only", "actions_before_review", "action_schemas", "approved_operations", "decisions_remaining", "review_evidence", "report_draft", "memory_tools", "memory_note"),
+                required_fields=("control", "goal", "phase", "synthesis_only", "actions_before_review", "action_schemas", "skills", "read_manual_hashes", "approved_operations", "decisions_remaining", "review_evidence", "report_draft", "memory_tools", "memory_note"),
             )
         except Exception as exc:
             data["model_interactions"].append(

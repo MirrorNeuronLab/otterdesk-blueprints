@@ -75,3 +75,28 @@ def test_context_output_budget_caps_provider_reserve(modules, monkeypatch):
         )
         assert client.max_tokens == limit
     assert captured == [2048, 1024]
+
+
+def test_skill_discovery_survives_working_memory_selection(modules, monkeypatch, tmp_path):
+    import pytest
+    from test_litigation_analyst import make_context, ScriptedModel
+    from domain.app import local_llm
+    folder = tmp_path / 'input'
+    folder.mkdir()
+    (folder / 'notice.txt').write_text('Approval notice for routine review.')
+    context = make_context(tmp_path, folder)
+    modules['intake'].prepare_sources(context)
+    modules['indexing'].build_indexes(context)
+
+    def select_current(self, messages, *, required_fields, **kwargs):
+        request = json.loads(messages[1]['content'])
+        selected = {key: request[key] for key in required_fields if key in request}
+        # With no manual read yet, a model must still see exact usable skill IDs.
+        assert selected['approved_operations'] == {}
+        assert selected['read_manual_hashes'] == {}
+        assert any(s['id'] == 'mirrorneuron.document.reading' for s in selected['skills'])
+        raise RuntimeError('selection verified')
+
+    monkeypatch.setattr(local_llm.SDKInvestigationModel, 'complete_json', select_current)
+    with pytest.raises(RuntimeError, match='selection verified'):
+        modules['research'].investigate(context, llm_client=ScriptedModel())

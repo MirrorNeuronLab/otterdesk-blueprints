@@ -163,6 +163,53 @@ Architecture tests should reject agent/step naming confusion, missing registry h
 
 ## Verification Workflow
 
+### Two-node live verification (mini and Spark)
+
+After an explicitly requested local-mode reinstall/reset, run the installer on
+both machines from their deployment checkout:
+
+```bash
+./install.sh --mode local -y --reset --build-membrane
+```
+
+`--reset` is an operator-requested reset, not a routine test prerequisite. Never
+run it automatically to repair a failed blueprint. Once both runtimes have
+started, reconnect Spark from mini using the token printed by Spark's runtime:
+
+```bash
+mn node add 10.0.4.26 --token <new-spark-runtime-token>
+mn node list
+```
+
+Use the newly issued token after a reset; never commit or print real tokens in
+documentation. Confirm both nodes are visible before launching. Submit from mini
+through its normal local Core, where authenticated graph-package preparation is
+available. Pin a Spark verification explicitly rather than assuming automatic
+placement will choose it:
+
+```bash
+mn blueprint run ./software_architecture_advisor --node mirror_neuron@10.0.4.26 \
+  --set inputs.payload.input_folder=/absolute/path/on/mini/to/repository
+mn blueprint run ./litigation_analyst --node mirror_neuron@10.0.4.26
+```
+
+Local inputs are staged by the platform; do not substitute a worker-host path.
+Do not change `MN_GRPC_TARGET` to bypass a missing cluster connection. Inspect
+the run events and durable artifacts through investigation and report completion;
+a quick initializer completion does not prove the child workflow ran. Check graph
+receipts, retrieval results, model decisions, and terminal coverage limitations.
+Architecture Advisor uses the configured neural embedding model; Litigation
+Analyst currently uses its declared lexical passage index, not neural embeddings.
+Authoritative reports and evidence must remain under the SDK-provided run path
+in `$MN_HOME/shared/submissions/<submission-id>/outputs/runs/<run-id>/`, which
+Syncthing replicates between nodes. Configured Downloads outputs are additional
+host copies. Verify matching report hashes in both shared trees after replication.
+Keep final code on `main` and sync deployment checkouts using Git; compare commit
+IDs on mini and Spark before the final live gate. Never overwrite unrelated
+changes to force synchronization.
+Run these live checks sequentially: model preparation can restart the shared
+gateway, interrupting another workflow's active model request.
+
 Install only the test dependencies and declared sibling packages required by
 the target suite, then run:
 
