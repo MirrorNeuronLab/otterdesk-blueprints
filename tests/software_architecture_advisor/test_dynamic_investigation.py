@@ -139,6 +139,19 @@ def test_changed_artifact_or_invented_citation_is_rejected(setup_run):
         validate_round({"decision": "execute", "rationale": "inspect", "hypotheses": [{"id": "H01", "module": "invented"}]}, {"modules": ["payments"]}, [], context["config"]["investigation"])
 
 
+def test_planner_deduplicates_repeated_module_family_pair(architecture_paths):
+    from domain.adaptive_planning import validate_round
+    hypothesis = {"id": "H01", "module": "payments", "family": "resilience",
+        "statement": "Retries may repeat a charge", "semantic_query": "retry external charge",
+        "counter_query": "idempotency safeguard", "graph_tools": ["calls"],
+        "evidence_ids": [], "expected_information": "Establish whether retries repeat effects"}
+    value = {"decision": "execute", "rationale": "Inspect retry behavior",
+        "retirements": [], "hypotheses": [hypothesis, {**hypothesis, "id": "H02"}]}
+    assert validate_round(value, {"modules": ["payments"]}, [], {
+        "max_hypotheses": 3, "max_distinct_hypotheses": 6,
+    })["hypotheses"] == [hypothesis]
+
+
 def test_model_response_replay_does_not_spend_budget_twice(setup_run, monkeypatch):
     from domain.investigation_store import InvestigationStore, RecordedModel
     from domain.model import JsonModel

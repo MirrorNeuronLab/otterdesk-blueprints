@@ -75,17 +75,23 @@ def validate_plan(value, candidates, count):
     if not isinstance(hypotheses, list) or not 1 <= len(hypotheses) <= count:
         raise ValueError("Invalid hypothesis count")
     seen = set()
+    distinct = []
     for h in hypotheses:
         if not isinstance(h, dict) or h.get("module") not in candidates or h.get("family") not in FAMILIES:
             raise ValueError("Model selected an unknown module or tool family")
         pair = h["module"], h["family"]
         if pair in seen:
-            raise ValueError("Duplicate hypothesis")
+            # Small models occasionally repeat an otherwise valid module/family
+            # proposal. Keeping the first occurrence is deterministic and still
+            # enforces the product contract that every executed pair is unique.
+            continue
         seen.add(pair)
         for field in ("statement", "semantic_query", "counter_query"):
             h[field] = bounded_text(h.get(field), field, 500)
             if field.endswith("query") and re.search(r"\b(SELECT|MATCH)\s", h[field], re.I):
                 raise ValueError("Semantic searches must use natural language, not invented query syntax")
+        distinct.append(h)
+    hypotheses[:] = distinct
     return hypotheses
 
 
@@ -405,4 +411,3 @@ def investigate(workspace: Path, config: dict, goal: str, offline=False, model=N
     if progress:
         progress(f"Report saved ({report['status']}): {directory.resolve() / 'report.md'}")
     return report
-
