@@ -2,7 +2,7 @@
   "inputs": {
     "adapter": "json",
     "payload": {
-      "goal": "Find records relevant to disputed events, financial irregularities, chronology, and competing ordinary explanations. Preserve uncertainty and cite exact sources."
+      "goal": "Give me a financial criminal investigation report on those data"
     }
   },
   "investigation": {
