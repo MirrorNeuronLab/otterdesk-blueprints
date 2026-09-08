@@ -1,0 +1,69 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/product.schema.json",
+  "category": "Finance",
+  "intent": {
+    "problem": "Personal finance work is split across statement review, tax preparation, household planning, and portfolio risk checks; users need one review-only local assistant that keeps evidence, calculations, and next steps together.",
+    "safety": {
+      "allowed_decisions": [
+        "approve",
+        "revise",
+        "reject"
+      ],
+      "blocked_actions": [
+        "file_tax_return",
+        "submit_tax_form",
+        "treat_ocr_capture_as_filing_ready",
+        "make_trade",
+        "move_money",
+        "pay_bill",
+        "open_or_close_account",
+        "submit_financial_recommendation_as_final",
+        "share_regulated_financial_data",
+        "contact_financial_institution_without_review"
+      ],
+      "decision_event": "human_decision_applied",
+      "default_action": "reject",
+      "enabled": true,
+      "events": [
+        "human_notice",
+        "human_input_requested",
+        "human_input_received",
+        "human_input_timeout",
+        "human_decision_applied"
+      ],
+      "mode": "approval_required",
+      "reason": "Human approval is required before filing, trading, moving money, bill payment, external sharing, or downstream financial decisions.",
+      "request_event": "human_input_requested",
+      "response_event": "human_input_received",
+      "timeout_event": "human_input_timeout",
+      "timeout_seconds": 3600
+    },
+    "target_users": "Individuals, households, freelancers, financial coaches, tax preparers, and advisors reviewing personal finance folders."
+  },
+  "product": {
+    "agent_role": "Integrated financial advisor team for bank statement extraction, tax-form OCR capture, household cash-flow review, draft tax workpapers, portfolio risk analysis, and review-only report writing.",
+    "benefit": "Turns one local finance folder into a source-grounded advisor packet that combines statement, tax-form OCR, tax, cash-flow, and portfolio evidence before any human-approved downstream action.",
+    "customizable_for": "Household finance review, bank statement extraction, tax-form OCR capture, tax document intake, freelancer finance organization, portfolio risk review, and advisor workbenches.",
+    "how_it_works": "Reads a local folder, extracts statement and document evidence, captures tax-form image/answer-file fields, normalizes cash flow, routes tax documents into draft workpapers, loads portfolio context, computes deterministic risk metrics, uses privacy-safe public guidance, audits review boundaries, and writes an integrated report.",
+    "input": "Local folder with bank statements, receipts, bills, income records, W-2s, 1099s, tax-form images with answer files, brokerage statements, optional portfolio JSON, and related finance documents.",
+    "output": "Review-only financial_advisor_report with bank statement extraction, tax-form OCR capture, household finance summary, draft tax review packet, portfolio risk review, public guidance sources, and Markdown report output.",
+    "problem": "Personal finance work is fragmented across statement review, tax preparation, household advice, and portfolio risk checks; users need one local assistant that keeps evidence and review boundaries together.",
+    "runtime_features": [
+      "source-format WorkflowSource manifest",
+      "bank statement extraction",
+      "household cash-flow normalization",
+      "tax-form OCR capture",
+      "draft tax workpaper preparation",
+      "portfolio risk review",
+      "privacy-safe public finance research",
+      "small default model profile",
+      "optional medium review profile",
+      "shared mn-agents DockerWorker stereotypes",
+      "human approval policy",
+      "artifact records",
+      "run-store observability dashboard"
+    ],
+    "simulation_type": "Unified local financial-advisor document workflow with deterministic finance math and review-only reporting.",
+    "target_users": "Individuals, households, freelancers, financial coaches, tax preparers, and advisors reviewing personal finance folders."
+  }
+}

@@ -1,0 +1,185 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/llm.schema.json",
+  "enabled": true,
+  "mode": "live",
+  "mock_mode": "fake",
+  "model": "default",
+  "backend": "llama.cpp",
+  "default_config": "primary",
+  "quick_test_uses_fake": true,
+  "strict_json": true,
+  "require_live": true,
+  "configs": {
+    "primary": {
+      "provider": "docker_model_runner",
+      "backend": "llama.cpp",
+      "api_base": "auto",
+      "timeout_seconds": 60,
+      "max_tokens": 10000,
+      "num_retries": 2,
+      "retry_backoff_seconds": 1.0,
+      "mock_mode": "fake",
+      "mode": "live"
+    }
+  },
+  "agents": {
+    "financial_folder_watcher": {
+      "llm_config": "primary",
+      "role": "Financial Folder Watcher",
+      "responsibilities": [
+        "Resolve the local finance packet.",
+        "Fingerprint changed documents.",
+        "Preserve folder and output paths."
+      ]
+    },
+    "financial_document_reader": {
+      "llm_config": "primary",
+      "role": "Financial Document Reader",
+      "responsibilities": [
+        "Read local finance documents.",
+        "Classify statements, receipts, bills, tax forms, and portfolio files.",
+        "Mark unreadable files without exposing private content externally."
+      ]
+    },
+    "bank_statement_extractor": {
+      "llm_config": "primary",
+      "role": "Bank Statement Extractor",
+      "responsibilities": [
+        "Extract bank statement balances and transactions.",
+        "Separate deposits, withdrawals, fees, and balance evidence.",
+        "Preserve source references for review."
+      ]
+    },
+    "cash_flow_normalizer": {
+      "llm_config": "primary",
+      "role": "Cash Flow Normalizer",
+      "responsibilities": [
+        "Normalize household income and expense evidence.",
+        "Compute review-only cash-flow summaries.",
+        "Flag gaps and risky recurring items."
+      ]
+    },
+    "cash_flow_llm_analyst": {
+      "llm_config": "primary",
+      "role": "Cash Flow LLM Analyst",
+      "responsibilities": [
+        "Review deterministic cash-flow totals for recurring-risk signals.",
+        "Identify cash-flow evidence gaps and human-check questions.",
+        "Keep income, expense, fee, and net-cash-flow totals unchanged."
+      ]
+    },
+    "tax_document_router": {
+      "llm_config": "primary",
+      "role": "Tax Document Router",
+      "responsibilities": [
+        "Route W-2, 1099, brokerage, and receipt evidence.",
+        "Separate tax-source fields from household cash-flow fields.",
+        "Flag missing or ambiguous tax documents."
+      ]
+    },
+    "tax_form_ocr_capturer": {
+      "llm_config": "primary",
+      "role": "Tax Form OCR Capturer",
+      "responsibilities": [
+        "Classify tax-form images and companion answer files.",
+        "Preserve OCR-required status, field-location evidence, and validation warnings.",
+        "Keep captured tax fields review-only before any tax use."
+      ]
+    },
+    "tax_workpaper_preparer": {
+      "llm_config": "primary",
+      "role": "Tax Workpaper Preparer",
+      "responsibilities": [
+        "Prepare draft review-only tax workpapers.",
+        "Run manager-style completeness checks.",
+        "Avoid filing-ready conclusions or legal tax advice."
+      ]
+    },
+    "tax_llm_reviewer": {
+      "llm_config": "primary",
+      "role": "Tax LLM Reviewer",
+      "responsibilities": [
+        "Review draft tax workpapers and OCR capture for evidence gaps.",
+        "Raise manager-review questions for missing forms and field validation.",
+        "Keep draft tax math and filing boundaries unchanged."
+      ]
+    },
+    "portfolio_context_loader": {
+      "llm_config": "primary",
+      "role": "Portfolio Context Loader",
+      "responsibilities": [
+        "Load portfolio holdings and risk policy.",
+        "Normalize benchmark and decision constraints.",
+        "Keep portfolio data source-grounded."
+      ]
+    },
+    "portfolio_market_data_loader": {
+      "llm_config": "primary",
+      "role": "Portfolio Market Data Loader",
+      "responsibilities": [
+        "Load bounded public or deterministic market context.",
+        "Record freshness and source references.",
+        "Avoid trade execution or account access."
+      ]
+    },
+    "portfolio_risk_engine": {
+      "llm_config": "primary",
+      "role": "Portfolio Risk Engine",
+      "responsibilities": [
+        "Compute review-only portfolio risk metrics.",
+        "Interpret concentration and policy issues.",
+        "Keep rebalancing ideas as human-reviewed candidates."
+      ]
+    },
+    "portfolio_llm_reviewer": {
+      "llm_config": "primary",
+      "role": "Portfolio LLM Reviewer",
+      "responsibilities": [
+        "Review deterministic risk metrics and source freshness.",
+        "Identify risk-policy questions and evidence gaps.",
+        "Keep portfolio values, weights, VaR-style metrics, and trade boundaries unchanged."
+      ]
+    },
+    "public_finance_researcher": {
+      "llm_config": "primary",
+      "role": "Public Finance Researcher",
+      "responsibilities": [
+        "Use privacy-safe public guidance topics.",
+        "Cite official consumer, IRS, SEC, or investor education sources.",
+        "Never search private document text."
+      ]
+    },
+    "advisor_evidence_reconciler": {
+      "llm_config": "primary",
+      "role": "Advisor Evidence Reconciler",
+      "responsibilities": [
+        "Merge household, tax, portfolio, and public guidance evidence.",
+        "Flag contradictions and missing evidence.",
+        "Preserve domain-specific source references."
+      ]
+    },
+    "advisor_review_auditor": {
+      "llm_config": "primary",
+      "role": "Advisor Review Auditor",
+      "responsibilities": [
+        "Audit calculations and review boundaries.",
+        "Confirm blocked actions remain blocked.",
+        "Prepare human-review blockers and caveats."
+      ]
+    },
+    "financial_advice_reporter": {
+      "llm_config": "primary",
+      "role": "Financial Advice Reporter",
+      "responsibilities": [
+        "Write the integrated review-only advisor report.",
+        "Summarize bank, tax, cash-flow, and portfolio sections.",
+        "Keep next steps human-approved and source-grounded."
+      ]
+    }
+  },
+  "responsibilities": [
+    "Keep private financial data out of public searches.",
+    "Ground every report in local evidence, deterministic calculations, or cited public sources.",
+    "Keep outputs review-only and require human approval before filing, trading, moving money, or external sharing."
+  ]
+}

@@ -1,0 +1,124 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/execution.schema.json",
+  "agents": {
+    "registry": {
+      "financial_folder_watcher": {
+        "handler": "agents.financial_folder_watcher",
+        "role": "Financial Folder Watcher"
+      },
+      "financial_document_reader": {
+        "handler": "agents.financial_document_reader",
+        "role": "Financial Document Reader"
+      },
+      "bank_statement_extractor": {
+        "handler": "agents.bank_statement_extractor",
+        "role": "Bank Statement Extractor"
+      },
+      "cash_flow_normalizer": {
+        "handler": "agents.cash_flow_normalizer",
+        "role": "Cash Flow Normalizer"
+      },
+      "cash_flow_llm_analyst": {
+        "handler": "agents.cash_flow_llm_analyst",
+        "role": "Cash Flow LLM Analyst"
+      },
+      "tax_document_router": {
+        "handler": "agents.tax_document_router",
+        "role": "Tax Document Router"
+      },
+      "tax_form_ocr_capturer": {
+        "handler": "agents.tax_form_ocr_capturer",
+        "role": "Tax Form OCR Capturer"
+      },
+      "tax_workpaper_preparer": {
+        "handler": "agents.tax_workpaper_preparer",
+        "role": "Tax Workpaper Preparer"
+      },
+      "tax_llm_reviewer": {
+        "handler": "agents.tax_llm_reviewer",
+        "role": "Tax LLM Reviewer"
+      },
+      "portfolio_context_loader": {
+        "handler": "agents.portfolio_context_loader",
+        "role": "Portfolio Context Loader"
+      },
+      "portfolio_market_data_loader": {
+        "handler": "agents.portfolio_market_data_loader",
+        "role": "Portfolio Market Data Loader"
+      },
+      "portfolio_risk_engine": {
+        "handler": "agents.portfolio_risk_engine",
+        "role": "Portfolio Risk Engine"
+      },
+      "portfolio_llm_reviewer": {
+        "handler": "agents.portfolio_llm_reviewer",
+        "role": "Portfolio LLM Reviewer"
+      },
+      "public_finance_researcher": {
+        "handler": "agents.public_finance_researcher",
+        "role": "Public Finance Researcher"
+      },
+      "advisor_evidence_reconciler": {
+        "handler": "agents.advisor_evidence_reconciler",
+        "role": "Advisor Evidence Reconciler"
+      },
+      "advisor_review_auditor": {
+        "handler": "agents.advisor_review_auditor",
+        "role": "Advisor Review Auditor"
+      },
+      "financial_advice_reporter": {
+        "handler": "agents.financial_advice_reporter",
+        "role": "Financial Advice Reporter"
+      }
+    }
+  },
+  "defaults": {
+    "worker": {
+      "with": {
+        "image": "mirror-neuron/financial-advisor:local",
+        "upload_paths": [
+          {
+            "source": "domain",
+            "target": "domain"
+          }
+        ]
+      }
+    }
+  },
+  "requirements": {
+    "cpu": {
+      "min_cores": 1
+    },
+    "disk": {
+      "min_gb": 1
+    },
+    "gpu": {
+      "min_count": 0
+    },
+    "memory": {
+      "min_gb": 2
+    }
+  },
+  "workers": {
+    "groups": [
+      {
+        "steps": [
+          "collect_public_finance_guidance"
+        ],
+        "with": {
+          "stereotype": "public_browser_worker"
+        }
+      },
+      {
+        "steps": [
+          "publish_financial_review_packet"
+        ],
+        "with": {
+          "stereotype": "internal_write_worker"
+        }
+      }
+    ]
+  },
+  "mode": "compiled",
+  "job_name": "financial-advisor"
+}

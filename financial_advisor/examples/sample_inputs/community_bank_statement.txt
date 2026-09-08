@@ -1,0 +1,12 @@
+Community Bank Statement
+Account: Everyday Checking
+Statement period: 2025-01-01 to 2025-01-31
+Opening balance: 4200.00
+Deposit Payroll ACME Corp 5200.00
+Deposit Interest 12.44
+Withdrawal Rent 1850.00
+Withdrawal Fresh Market 145.22
+Withdrawal Utility Bill 210.36
+Withdrawal Card Payment 600.00
+Fee Monthly service fee 12.00
+Closing balance: 6594.86

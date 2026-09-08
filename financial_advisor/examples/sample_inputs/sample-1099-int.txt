@@ -1,0 +1,5 @@
+Form 1099-INT Interest Income
+Tax year 2025
+Payer: Community Bank
+Box 1 interest income 128.44
+Box 4 federal income tax withheld 0.00

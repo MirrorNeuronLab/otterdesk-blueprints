@@ -1,0 +1,6 @@
+Form W-2 Wage and Tax Statement
+Tax year 2025
+Employer: ACME Corp
+Box 1 wages 86000.00
+Box 2 federal income tax withheld 11200.00
+Box 12 401(k) deferral 6400.00

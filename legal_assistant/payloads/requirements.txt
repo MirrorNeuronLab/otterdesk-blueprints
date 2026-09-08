@@ -1,1 +1,0 @@
-mirrorneuron-llm-ocr-skill==1.2.31

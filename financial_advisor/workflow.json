@@ -1,0 +1,180 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/workflow.schema.json",
+  "workflow_id": "financial_advisor_v1",
+  "execution": {
+    "strategy": "parallel"
+  },
+  "policy": {
+    "failure": {
+      "default": "fail_closed"
+    },
+    "human": {
+      "enabled": true,
+      "mode": "approval_required",
+      "default_action": "reject",
+      "allowed_decisions": [
+        "approve",
+        "revise",
+        "reject"
+      ],
+      "blocked_actions": [
+        "file_tax_return",
+        "submit_tax_form",
+        "treat_ocr_capture_as_filing_ready",
+        "make_trade",
+        "move_money",
+        "pay_bill",
+        "open_or_close_account",
+        "submit_financial_recommendation_as_final",
+        "share_regulated_financial_data",
+        "contact_financial_institution_without_review"
+      ],
+      "reason": "Human approval is required before filing, trading, moving money, bill payment, external sharing, or downstream financial decisions.",
+      "events": [
+        "human_notice",
+        "human_input_requested",
+        "human_input_received",
+        "human_input_timeout",
+        "human_decision_applied"
+      ],
+      "request_event": "human_input_requested",
+      "response_event": "human_input_received",
+      "timeout_event": "human_input_timeout",
+      "decision_event": "human_decision_applied",
+      "timeout_seconds": 3600
+    }
+  },
+  "state": {
+    "input_folder": {
+      "from": "$inputs.input_folder"
+    },
+    "output_folder": {
+      "from": "$inputs.output_folder"
+    },
+    "workflow": {},
+    "final_report": {}
+  },
+  "steps": [
+    {
+      "control": {
+        "timeout_seconds": 1800
+      },
+      "goal": "Inventory and extract household, tax, and portfolio documents with OCR provenance.",
+      "id": "prepare_financial_packet",
+      "kind": "source",
+      "label": "Prepare Financial Packet",
+      "needs": [],
+      "run": {
+        "definition": "steps.prepare_financial_packet"
+      }
+    },
+    {
+      "control": {
+        "timeout_seconds": 1800
+      },
+      "goal": "Extract statement transactions, normalize recurring cash flow, and review liquidity and spending evidence.",
+      "id": "analyze_household_finances",
+      "kind": "stage",
+      "label": "Analyze Household Finances",
+      "needs": [
+        "prepare_financial_packet"
+      ],
+      "run": {
+        "definition": "steps.analyze_household_finances"
+      }
+    },
+    {
+      "control": {
+        "timeout_seconds": 2400
+      },
+      "goal": "Route tax documents, capture form fields, build reconciled workpapers, and identify filing-review gaps.",
+      "id": "prepare_tax_review",
+      "kind": "stage",
+      "label": "Prepare Tax Review",
+      "needs": [
+        "analyze_household_finances"
+      ],
+      "run": {
+        "definition": "steps.prepare_tax_review"
+      }
+    },
+    {
+      "control": {
+        "timeout_seconds": 1800
+      },
+      "goal": "Load holdings, attach timestamped market assumptions, compute deterministic risk metrics, and review policy breaches.",
+      "id": "analyze_portfolio_risk",
+      "kind": "stage",
+      "label": "Analyze Portfolio Risk",
+      "needs": [
+        "prepare_tax_review"
+      ],
+      "run": {
+        "definition": "steps.analyze_portfolio_risk"
+      }
+    },
+    {
+      "control": {
+        "timeout_seconds": 1200
+      },
+      "goal": "Collect privacy-safe official guidance relevant to identified household, tax, and investor-education questions.",
+      "id": "collect_public_finance_guidance",
+      "kind": "stage",
+      "label": "Collect Public Finance Guidance",
+      "needs": [
+        "analyze_portfolio_risk"
+      ],
+      "run": {
+        "definition": "steps.collect_public_finance_guidance"
+      }
+    },
+    {
+      "control": {
+        "timeout_seconds": 1800
+      },
+      "goal": "Join household, tax, portfolio, and public-guidance findings; audit contradictions and calculation boundaries.",
+      "id": "reconcile_advisor_evidence",
+      "kind": "stage",
+      "label": "Reconcile Advisor Evidence",
+      "needs": [
+        "collect_public_finance_guidance"
+      ],
+      "run": {
+        "definition": "steps.reconcile_advisor_evidence"
+      }
+    },
+    {
+      "control": {
+        "timeout_seconds": 1200
+      },
+      "goal": "Write a prioritized customer review queue with evidence status, dates, owners, and blocked actions.",
+      "id": "publish_financial_review_packet",
+      "kind": "sink",
+      "label": "Publish Financial Review Packet",
+      "needs": [
+        "reconcile_advisor_evidence"
+      ],
+      "run": {
+        "definition": "steps.publish_financial_review_packet"
+      }
+    }
+  ],
+  "defaults": {
+    "step": {
+      "control": {
+        "failure_policy": "fail_workflow",
+        "required": true,
+        "retry": {
+          "backoff_multiplier": 2,
+          "backoff_seconds": 1,
+          "jitter": 0,
+          "max_attempts": 2
+        },
+        "uncertainty": {
+          "min_confidence": 0,
+          "on_low_confidence": "continue_with_warning"
+        }
+      }
+    }
+  }
+}

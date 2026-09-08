@@ -1,0 +1,8 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/ui.schema.json",
+  "starter_questions": [
+    "What can you help me review?",
+    "What did you find in your latest run?",
+    "Which financial items still need human review?"
+  ]
+}

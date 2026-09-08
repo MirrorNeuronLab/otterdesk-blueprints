@@ -1,0 +1,330 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/contracts.schema.json",
+  "events": {
+    "human_stream": "human.jsonl",
+    "stream": "events.jsonl",
+    "types": [
+      "blueprint_status",
+      "blueprint_phase_started",
+      "blueprint_phase_completed",
+      "blueprint_phase_failed",
+      "artifact_written",
+      "human_notice",
+      "human_input_requested",
+      "human_input_received",
+      "human_input_timeout",
+      "human_decision_applied",
+      "output_skill_started",
+      "output_skill_completed",
+      "output_skill_failed",
+      "tool_call_started",
+      "tool_call_completed",
+      "tool_call_failed",
+      "financial_folder_watcher_completed",
+      "financial_document_reader_completed",
+      "bank_statement_extractor_completed",
+      "cash_flow_normalizer_completed",
+      "cash_flow_llm_analyst_completed",
+      "tax_document_router_completed",
+      "tax_form_ocr_capturer_completed",
+      "tax_workpaper_preparer_completed",
+      "tax_llm_reviewer_completed",
+      "portfolio_context_loader_completed",
+      "portfolio_market_data_loader_completed",
+      "portfolio_risk_engine_completed",
+      "portfolio_llm_reviewer_completed",
+      "public_finance_researcher_completed",
+      "advisor_evidence_reconciler_completed",
+      "advisor_review_auditor_completed",
+      "financial_advice_reporter_completed",
+      "watch_cycle_started",
+      "watch_cycle_completed"
+    ]
+  },
+  "input_adapters": {
+    "default": "mock",
+    "resolved_artifact": "inputs.json",
+    "supported": [
+      "mock",
+      "json",
+      "file",
+      "env_json"
+    ]
+  },
+  "inputs": {
+    "document_folder": {
+      "description": "Local folder monitored for personal finance, bank statement, tax, and portfolio documents.",
+      "example": "financial_advisor/examples/sample_inputs",
+      "path_kind": "directory",
+      "privacy": "regulated",
+      "required": true,
+      "type": "local_path"
+    },
+    "field_profile": {
+      "description": "Financial fields and review areas captured by the advisor.",
+      "example": [
+        "document_kind",
+        "income_amounts",
+        "tax_forms",
+        "form_type",
+        "field_locations",
+        "portfolio_holdings",
+        "risk_flags"
+      ],
+      "privacy": "internal",
+      "required": false,
+      "type": "domain_value"
+    },
+    "filing_status": {
+      "description": "Draft filing-status label for review-only tax packet.",
+      "example": "single",
+      "privacy": "regulated",
+      "required": false,
+      "type": "domain_value"
+    },
+    "input_folder": {
+      "description": "Default local input folder for sample files or user-provided files.",
+      "example": "financial_advisor/examples/sample_inputs",
+      "path_kind": "directory",
+      "privacy": "regulated",
+      "required": false,
+      "type": "local_path"
+    },
+    "monitoring": {
+      "description": "Folder monitoring configuration for one-shot or continuous polling runs.",
+      "example": {
+        "enabled": true,
+        "max_cycles": 1,
+        "poll_interval_seconds": 60
+      },
+      "privacy": "internal",
+      "required": false,
+      "type": "domain_value"
+    },
+    "output_folder": {
+      "description": "Local folder where JSON and Markdown advisor reports should be written.",
+      "example": "~/Downloads/financial_advisor",
+      "path_kind": "directory",
+      "privacy": "regulated",
+      "required": true,
+      "type": "local_path"
+    },
+    "portfolio": {
+      "description": "Optional portfolio holdings for review-only risk analysis.",
+      "example": {
+        "base_currency": "USD",
+        "cash": 50000,
+        "holdings": [
+          {
+            "asset_class": "equity",
+            "quantity": 180,
+            "symbol": "SPY"
+          }
+        ]
+      },
+      "privacy": "regulated",
+      "required": false,
+      "type": "domain_value"
+    },
+    "tax_year": {
+      "description": "Tax year used for draft workpaper labels.",
+      "example": 2025,
+      "privacy": "internal",
+      "required": false,
+      "type": "domain_value"
+    }
+  },
+  "outputs": {
+    "artifacts": [
+      {
+        "artifact_id": "run_metadata",
+        "mime_type": "application/json",
+        "path": "run.json",
+        "producer": "local_run_store",
+        "schema_version": "mn.artifact.run_summary.v1",
+        "source_refs": [],
+        "type": "run_summary"
+      },
+      {
+        "artifact_id": "resolved_config",
+        "mime_type": "application/json",
+        "path": "config.json",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.config.v1",
+        "source_refs": [],
+        "type": "config"
+      },
+      {
+        "artifact_id": "resolved_inputs",
+        "mime_type": "application/json",
+        "path": "inputs.json",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.inputs.v1",
+        "source_refs": [],
+        "type": "inputs"
+      },
+      {
+        "artifact_id": "event_stream",
+        "mime_type": "application/x-jsonlines",
+        "path": "events.jsonl",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.events.v1",
+        "source_refs": [],
+        "type": "events"
+      },
+      {
+        "artifact_id": "result",
+        "mime_type": "application/json",
+        "path": "result.json",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.response.v1",
+        "source_refs": [
+          "inputs.json",
+          "events.jsonl"
+        ],
+        "type": "result"
+      },
+      {
+        "artifact_id": "final_artifact",
+        "mime_type": "application/json",
+        "path": "final_artifact.json",
+        "producer": "workflow",
+        "schema_version": "mn.blueprint.final_artifact.v1",
+        "source_refs": [
+          "inputs.json",
+          "events.jsonl",
+          "result.json"
+        ],
+        "type": "final_artifact"
+      },
+      {
+        "artifact_id": "action_ledger",
+        "mime_type": "application/json",
+        "path": "action_ledger.json",
+        "producer": "workflow",
+        "schema_version": "mn.blueprint.action_ledger.v1",
+        "source_refs": [
+          "final_artifact.json"
+        ],
+        "type": "action_ledger"
+      },
+      {
+        "artifact_id": "artifact_quality",
+        "mime_type": "application/json",
+        "path": "artifact_quality.json",
+        "producer": "workflow",
+        "schema_version": "mn.blueprint.artifact_quality.v1",
+        "source_refs": [
+          "final_artifact.json"
+        ],
+        "type": "artifact_quality"
+      },
+      {
+        "artifact_id": "run_health",
+        "mime_type": "application/json",
+        "path": "run_health.json",
+        "producer": "workflow",
+        "schema_version": "mn.blueprint.run_health.v1",
+        "source_refs": [
+          "final_artifact.json",
+          "action_ledger.json",
+          "artifact_quality.json"
+        ],
+        "type": "run_health"
+      },
+      {
+        "artifact_id": "review_packet_markdown",
+        "mime_type": "text/markdown",
+        "path": "<outputs.folder_path>/financial_advisor_report.md",
+        "producer": "workflow",
+        "schema_version": "mn.blueprint.generated_report.v1",
+        "source_refs": [
+          "final_artifact.json"
+        ],
+        "type": "generated_report"
+      },
+      {
+        "artifact_id": "customer_report",
+        "mime_type": "application/json",
+        "path": "<outputs.folder_path>/customer_report.json",
+        "producer": "workflow",
+        "schema_version": "mn.blueprint.financial_advisor.customer_report.v1",
+        "source_refs": [
+          "final_artifact.json"
+        ],
+        "type": "customer_report"
+      },
+      {
+        "artifact_id": "cash_flow_llm_review",
+        "mime_type": "application/json",
+        "path": "<outputs.folder_path>/cash_flow_llm_review.json",
+        "producer": "workflow",
+        "schema_version": "mn.blueprint.financial_advisor.llm_review.v1",
+        "source_refs": [
+          "household_finance_summary.json",
+          "final_artifact.json"
+        ],
+        "type": "llm_review"
+      },
+      {
+        "artifact_id": "tax_form_ocr_capture",
+        "mime_type": "application/json",
+        "path": "<outputs.folder_path>/tax_form_ocr_capture.json",
+        "producer": "workflow",
+        "schema_version": "mn.blueprint.tax_form_capture.v1",
+        "source_refs": [
+          "final_artifact.json"
+        ],
+        "type": "tax_form_capture"
+      },
+      {
+        "artifact_id": "tax_llm_review",
+        "mime_type": "application/json",
+        "path": "<outputs.folder_path>/tax_llm_review.json",
+        "producer": "workflow",
+        "schema_version": "mn.blueprint.financial_advisor.llm_review.v1",
+        "source_refs": [
+          "tax_review_packet.json",
+          "tax_form_ocr_capture.json",
+          "final_artifact.json"
+        ],
+        "type": "llm_review"
+      },
+      {
+        "artifact_id": "portfolio_llm_review",
+        "mime_type": "application/json",
+        "path": "<outputs.folder_path>/portfolio_llm_review.json",
+        "producer": "workflow",
+        "schema_version": "mn.blueprint.financial_advisor.llm_review.v1",
+        "source_refs": [
+          "portfolio_risk_review.json",
+          "final_artifact.json"
+        ],
+        "type": "llm_review"
+      }
+    ],
+    "primary": {
+      "id": "final_artifact",
+      "path": "final_artifact.json",
+      "required_fields": [
+        "type",
+        "executive_summary",
+        "recommended_action",
+        "confidence",
+        "evidence",
+        "next_steps",
+        "source_refs",
+        "research_summary",
+        "research_sources",
+        "research_warnings",
+        "llm_analysis"
+      ],
+      "schema_version": "mn.blueprint.final_artifact_contract.v1",
+      "type": "final_artifact"
+    },
+    "profile": "standard_run_store"
+  },
+  "status": {
+    "heartbeat": true
+  }
+}
