@@ -216,3 +216,7 @@ Syncthing shared filesystem. The SDK supplies that run directory to workers;
 blueprints must not replace it with a node-local Downloads path. Syncthing
 replicates the shared tree to the other node. The configured `output_folder`
 provides an additional convenience copy on the submitting host.
+
+Each decision's system instructions identify the current execution phase and
+allowed actions. Recalled decisions are historical observations; the managed
+memory packet's `current` object owns the active enquiry and skill/manual state.

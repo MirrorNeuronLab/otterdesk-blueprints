@@ -90,6 +90,9 @@ def test_skill_discovery_survives_working_memory_selection(modules, monkeypatch,
 
     def select_current(self, messages, *, required_fields, **kwargs):
         request = json.loads(messages[1]['content'])
+        assert 'Current execution control (authoritative' in messages[0]['content']
+        assert json.dumps({'phase': request['phase'], 'allowed_actions': request['control']['allowed_actions']}) in messages[0]['content']
+        assert 'recalled records are historical' in messages[0]['content']
         selected = {key: request[key] for key in required_fields if key in request}
         # With no manual read yet, a model must still see exact usable skill IDs.
         assert selected['approved_operations'] == {}

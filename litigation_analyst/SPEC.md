@@ -77,3 +77,7 @@ The SDK accounts for fixed instructions, schemas, output reserve and safety marg
 The investigation adapter caps each model response at the context policy’s `output_tokens` (or a smaller provider limit). This keeps the reserved response space aligned with the working-memory budget; an inherited larger chat limit must not crowd out the first investigation request.
 
 Available skill identifiers and the current manual-read registry are required working context, alongside action schemas and approved operations. Context selection cannot evict the identifiers needed to discover and invoke a skill.
+
+Each decision's system instructions identify the current execution phase and
+allowed actions. Recalled decisions are historical observations; the managed
+memory packet's `current` object owns the active enquiry and skill/manual state.
