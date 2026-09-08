@@ -155,8 +155,9 @@ def publish_review(context, *, llm_client=None):
                                   'prompts': 'improvement_prompts.md',
                                   'prompt_index': 'prompts/README.md'}}
         (run_dir / 'review_index.json').write_text(json.dumps(index, indent=2), encoding='utf-8')
-        output_folder = Path(context['output_folder'])
-        if output_folder.resolve() != run_dir.resolve():
+        output_folder = context.get('output_folder')
+        if output_folder and Path(output_folder).resolve() != run_dir.resolve():
+            output_folder = Path(output_folder)
             _write_publication_bundle(output_folder, outputs, prompt_documents)
             (output_folder / 'review_index.json').write_text(
                 json.dumps(index, indent=2), encoding='utf-8'

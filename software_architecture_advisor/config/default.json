@@ -8,7 +8,7 @@
   },
   "embedding": {
     "mode": "neural",
-    "provider": "docker_model_runner",
+    "provider": "litellm_proxy",
     "model": "huggingface.co/zenmagnets/Nemotron-3-Embed-1B-Q4_K_M-GGUF:Q4_K_M",
     "api_base": null
   },

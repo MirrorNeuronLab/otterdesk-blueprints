@@ -149,7 +149,7 @@ def test_neural_retrieval_uses_embedding_model_and_capability(modules, monkeypat
     assert embedder.embed_document('source text') == pytest.approx((3.0, 4.0))
     assert embedder.embed_query('question') == pytest.approx((3.0, 4.0))
     assert calls == [(['source text'], 'document'), (['question'], 'query')]
-    assert configs[0].embedding_provider == 'docker_model_runner'
+    assert configs[0].embedding_provider == 'litellm_proxy'
     assert configs[0].embedding_model == 'huggingface.co/zenmagnets/Nemotron-3-Embed-1B-Q4_K_M-GGUF:Q4_K_M'
 
     class FailingEmbedder:
