@@ -76,10 +76,13 @@ def initialize(context, *, llm_client=None):
 
 def checkpoint(root, frozen):
     records, hypotheses, findings, accepted, issues, follow = [], {}, {}, set(), [], []
+    latest = {}
     for path in sorted((root / "case/rounds").glob("r*-evidence.json")):
         records.extend(read(path)["records"])
     for path in sorted((root / "case/rounds").glob("r*-assessment.json")):
         value = read(path)
+        latest[value["hypothesis"]["id"]] = value
+    for value in latest.values():
         hypotheses[value["hypothesis"]["id"]] = value["hypothesis"]
         for f in value["report"]["findings"]:
             findings[f["id"]] = f
@@ -88,6 +91,7 @@ def checkpoint(root, frozen):
         value = read(path)
         accepted.update(value["accepted_ids"])
         issues.extend(value["issues"])
+    accepted.intersection_update(findings)
     return {"mode": "dynamic_subworkflow", "records": records, "stop_reason": "round_completed", "data": {
         "investigation_id": frozen["investigation_id"], "hypotheses": hypotheses,
         "source_review_flags": frozen["source_review_flags"], "derivations": [],

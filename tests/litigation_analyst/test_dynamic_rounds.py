@@ -81,7 +81,8 @@ def test_default_child_workflow_replans_and_publishes_reviewed_evidence(dynamic_
     assert state['mode']=='dynamic_subworkflow'
     assert len(state['records'])==4
     assert state['data']['hypotheses']['H01']['status']=='inconclusive'
-    assert len(state['data']['report_review']['accepted_ids'])==2
+    assert state['data']['report_review']['accepted_ids']==['r02-H01']
+    assert (context['run_dir']/'case/rounds/r01-H01-assessment.json').exists()
 
 
 def test_cancel_before_planning_writes_explicit_partial_draft(dynamic_case, modules):
