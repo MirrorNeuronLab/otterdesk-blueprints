@@ -4,13 +4,14 @@ from mn_sdk.child_workflow import round_plan, stop_plan
 from .app.planning import object_schema, validate
 from .round_state import open_round, read, save, checkpoint, finish
 from .round_model import complete
+from .graph_queries import QUERIES
 
 TEXT = {"type": "string", "minLength": 1, "maxLength": 500}
 ENQUIRY = object_schema({
     "id": {"type": "string", "pattern": "^H[0-9]{2}$"},
     "question": TEXT, "support_query": TEXT, "counter_query": TEXT,
     "expected_information": TEXT,
-    "graph_queries": {"type": "array", "maxItems": 2, "items": TEXT},
+    "graph_tools": {"type": "array", "maxItems": 2, "uniqueItems": True, "items": {"enum": sorted(QUERIES)}},
 })
 
 
@@ -31,17 +32,16 @@ def plan_round(context, work, *, llm_client=None):
     if reason:
         value = {"decision": "stop", "rationale": reason, "hypotheses": []}
     else:
-        from .app.instructions import GRAPH_SCHEMA
         schema = object_schema({"decision": {"enum": ["execute", "stop"]}, "rationale": TEXT,
             "hypotheses": {"type": "array", "maxItems": cfg["hypotheses_per_round"], "items": ENQUIRY}})
         previous = [] if not revision else read(root / f"case/rounds/summary-{revision:02d}.json")["findings"]
         value = complete(root, frozen, f"plan-{revision:02d}", "plan", 
             "Choose execute or stop. Execute selects concrete falsifiable enquiries with distinct support and counter searches. "
-            "Select zero to two bounded read-only RGQL queries per enquiry only when they reduce uncertainty; literal LIMIT <=50 is required. "
+            "Select zero to two named graph_tools from the admitted views only when they reduce uncertainty. Never write RGQL. "
             "Use stable Hnn IDs when revising earlier enquiries. Change searches based on prior evidence and unresolved issues. "
-            "Stop requires a concrete reason and an empty hypotheses list. Do not stop before examining evidence. " + GRAPH_SCHEMA,
+            "Stop requires a concrete reason and an empty hypotheses list. Do not stop before examining evidence. ",
             {"goal": frozen["payload"]["goal"], "revision": revision, "prior_findings": previous,
-             "remaining_rounds": cfg["max_rounds"] - revision}, schema, llm_client)
+             "remaining_rounds": cfg["max_rounds"] - revision, "graph_views": QUERIES}, schema, llm_client)
         if value["decision"] == "execute":
             if not value["hypotheses"] or len({h["id"] for h in value["hypotheses"]}) != len(value["hypotheses"]):
                 raise ValueError("Execute requires distinct enquiries")
@@ -49,11 +49,11 @@ def plan_round(context, work, *, llm_client=None):
             for h in value["hypotheses"]:
                 if h["support_query"].strip().casefold() == h["counter_query"].strip().casefold():
                     raise ValueError("Support and counter-evidence searches must differ")
-                for query in h["graph_queries"]:
-                    validate_graph_query(query)
+                for query in h["graph_tools"]:
+                    validate_graph_query(QUERIES[query])
             earlier = [read(p)["proposal"] for p in sorted((root / "case/rounds").glob("proposal-*.json"))]
-            signatures = {(h["question"], h["support_query"], h["counter_query"], tuple(h["graph_queries"])) for p in earlier for h in p["hypotheses"]}
-            if all((h["question"], h["support_query"], h["counter_query"], tuple(h["graph_queries"])) in signatures for h in value["hypotheses"]):
+            signatures = {(h["question"], h["support_query"], h["counter_query"], tuple(h["graph_tools"])) for p in earlier for h in p["hypotheses"]}
+            if all((h["question"], h["support_query"], h["counter_query"], tuple(h["graph_tools"])) in signatures for h in value["hypotheses"]):
                 value = {"decision": "stop", "rationale": "no_new_evidence_work_proposed", "hypotheses": []}
         elif value["hypotheses"] or not revision:
             raise ValueError("Planner cannot skip initial evidence collection or execute work while stopping")

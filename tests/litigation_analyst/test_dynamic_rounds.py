@@ -20,7 +20,7 @@ class RoundModel:
             return json.dumps({'decision':'execute','rationale':'Test the notice and ordinary explanations.','hypotheses':[{
                 'id':'H01','question':'Does the notice establish approval?',
                 'support_query':'approval' if not r else 'notice', 'counter_query':'routine',
-                'graph_queries':[], 'expected_information':'Distinguish approval from routine correspondence.'}]})
+                'graph_tools':[], 'expected_information':'Distinguish approval from routine correspondence.'}]})
         if data['stage'] == 'assess':
             ids = [e['evidence_id'] for e in data['evidence']]
             return json.dumps({'hypothesis':{'id':'H01','question':'Does the notice establish approval?',

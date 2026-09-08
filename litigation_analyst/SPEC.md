@@ -14,7 +14,7 @@ and publish a draft. The investigation parent initializes context; its child
 planner commits enquiries using only declared templates. Core alone admits and
 executes the graph and releases the parent output after the final stop plan.
 
-The LLM selects enquiries, evidence searches, optional graph queries, assessments
+The LLM selects enquiries, evidence searches, optional admitted graph views, assessments
 and acceptance decisions. Workers execute committed tasks deterministically;
 replanning occurs between completed rounds. Up to two enquiries per round and
 three rounds produce at most seven steps per round. Evidence, assessment and
@@ -70,3 +70,6 @@ Outputs are drafts for human review. Legal advice, source authentication, exhaus
 search, OCR, external acquisition/contact, legal filing and autonomous publication
 are non-goals. Failed and incomplete investigations are never presented as verified
 legal conclusions.
+
+The graph planner selects named chronology, sender, recipient or document views.
+Their RGQL is authored and validated by the blueprint; the LLM cannot submit arbitrary graph syntax.

@@ -4,6 +4,7 @@ import re
 from mn_sdk.blueprint_support import source_manifest
 from .round_state import task_input, read, save, checkpoint
 from .round_model import complete
+from .graph_queries import QUERIES
 from .indexing import validate_indexes
 from .evidence.store import EvidenceStore
 from .app.skill_bindings import bind_skills, DOC, GRAPH
@@ -33,7 +34,7 @@ def collect_evidence(context, work, *, llm_client=None):
     records = []
     h = task["hypothesis"]
     operations = [(DOC, "search", {"query": h[p + "_query"], "top_k": min(3, frozen["config"]["investigation"]["top_k"])}, p) for p in ("support", "counter")]
-    operations += [(GRAPH, "query", {"rgql": q}, "graph") for q in h["graph_queries"]]
+    operations += [(GRAPH, "query", {"rgql": QUERIES[q]}, "graph") for q in h["graph_tools"]]
     for skill, operation, arguments, purpose in operations:
         if skill == GRAPH:
             validate_graph_query(arguments["rgql"])

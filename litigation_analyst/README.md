@@ -35,7 +35,7 @@ The four parent phases remain source preparation → index building → investig
 → reviewed draft publication. Investigation initializes a Core-managed child workflow:
 
 1. The LLM planner chooses up to two falsifiable enquiries, distinct support and
-   counter-evidence searches, and zero to two read-only graph queries per enquiry.
+   counter-evidence searches, and zero to two admitted read-only graph views per enquiry.
 2. Core commits the round. An evidence collector executes each enquiry's bounded
    searches and graph queries, preserving exact source spans and audit records.
 3. An assessor proposes a structured hypothesis and at most one cited finding.
@@ -112,3 +112,6 @@ git diff --check
 Deterministic tests exercise changed second-round plans, specialist ordering,
 replay, cancellation, citation checks and preserved autonomous behavior. Live
 runs additionally verify child completion and report replication between nodes.
+
+The graph planner selects named chronology, sender, recipient or document views.
+Their RGQL is authored and validated by the blueprint; the LLM cannot submit arbitrary graph syntax.
