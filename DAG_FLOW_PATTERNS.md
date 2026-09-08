@@ -13,7 +13,7 @@ workflow ledger, not only displayed in the UI.
 | CCTV Operator | Event-driven service flow: monitor ingress, sample frames, detect, and report. |
 | Drug Discovery Research Assistant | Bounded discovery batch: one cycle evaluates five distinct molecules, then review and reporting complete the run. |
 | Financial Advisor | Ordered regulated-state pipeline: packet intake, household analysis, tax review, portfolio risk, public guidance, reconciliation, and publication. |
-| Litigation Analyst | Ordered source preparation, bounded evidence investigation, and verified review-draft writing on Docker workers. |
+| Litigation Analyst | Fixed parent DAG with LLM-planned child rounds for evidence collection, hypothesis assessment and independent finding review. |
 | Legal Assistant | Fork/join: document reading fans out to invoice and contract review lanes; evidence reconciliation waits for both. |
 | Purchasing Manager | Ordered procurement pipeline: requirements framing, quote and evidence retrieval, supplier comparison and total-cost review, independent recommendation audit, and approval-ready publication. |
 | Research Assistant | Ordered evidence, autonomous-research, verification, and publication pipeline. |
@@ -47,3 +47,7 @@ mn-manifest-converter check manifest.json --against build/manifest.executable.js
 ## Architecture Advisor (`software_architecture_advisor`)
 
 `capture_repository` → `investigate_architecture` → `publish_architecture_review` keeps three parent phases. `investigate_architecture` owns a Core-managed child workflow whose planner commits admitted graph-query, semantic-search, assessment and summary workers. Replanning happens only between completed rounds; the parent sink waits for the final child output.
+
+## Litigation Analyst (`litigation_analyst`)
+
+`prepare_case_sources` → `build_case_indexes` → `investigate_case_evidence` → `write_review_draft`. The investigation parent owns bounded child rounds: plan, collect evidence, assess, independently review, summarize, then replan or stop. The autonomous explorer remains preserved but is not the default DAG.

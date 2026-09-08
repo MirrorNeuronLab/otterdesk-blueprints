@@ -18,6 +18,26 @@
       },
       "case_index_builder": {
         "handler": "agents.case_index_builder"
+      },
+      "litigation_round_planner": {
+        "handler": "agents.litigation_round_planner",
+        "role": "Litigation Round Planner"
+      },
+      "litigation_evidence_collector": {
+        "handler": "agents.litigation_evidence_collector",
+        "role": "Litigation Evidence Collector"
+      },
+      "litigation_hypothesis_assessor": {
+        "handler": "agents.litigation_hypothesis_assessor",
+        "role": "Litigation Hypothesis Assessor"
+      },
+      "litigation_finding_reviewer": {
+        "handler": "agents.litigation_finding_reviewer",
+        "role": "Litigation Finding Reviewer"
+      },
+      "litigation_round_summarizer": {
+        "handler": "agents.litigation_round_summarizer",
+        "role": "Litigation Round Summarizer"
       }
     }
   },
@@ -41,7 +61,12 @@
         "steps": [
           "prepare_case_sources",
           "build_case_indexes",
-          "write_review_draft"
+          "write_review_draft",
+          "plan_litigation_round",
+          "collect_litigation_evidence",
+          "assess_litigation_hypothesis",
+          "review_litigation_finding",
+          "summarize_litigation_round"
         ],
         "uses": "mn-agents.worker.python_docker@1",
         "with": {

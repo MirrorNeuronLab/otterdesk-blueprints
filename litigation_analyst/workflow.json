@@ -1,6 +1,6 @@
 {
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/workflow.schema.json",
-  "workflow_id": "litigation_analyst_v1",
+  "workflow_id": "litigation_analyst_v2",
   "steps": [
     {
       "id": "prepare_case_sources",
@@ -69,6 +69,108 @@
           "max_attempts": 1
         }
       }
+    }
+  },
+  "child_workflows": {
+    "investigate_case_evidence": {
+      "planner": "plan_litigation_round",
+      "templates": {
+        "plan_litigation_round": {
+          "run": {
+            "handler": "agents.litigation_round_planner"
+          },
+          "control": {
+            "timeout_seconds": 600,
+            "retry": {
+              "max_attempts": 1
+            }
+          },
+          "input_schema": {
+            "type": "object",
+            "required": []
+          }
+        },
+        "collect_litigation_evidence": {
+          "run": {
+            "handler": "agents.litigation_evidence_collector"
+          },
+          "control": {
+            "timeout_seconds": 600,
+            "retry": {
+              "max_attempts": 1
+            }
+          },
+          "input_schema": {
+            "type": "object",
+            "required": [
+              "task"
+            ]
+          }
+        },
+        "assess_litigation_hypothesis": {
+          "run": {
+            "handler": "agents.litigation_hypothesis_assessor"
+          },
+          "control": {
+            "timeout_seconds": 600,
+            "retry": {
+              "max_attempts": 1
+            }
+          },
+          "input_schema": {
+            "type": "object",
+            "required": [
+              "task"
+            ]
+          }
+        },
+        "review_litigation_finding": {
+          "run": {
+            "handler": "agents.litigation_finding_reviewer"
+          },
+          "control": {
+            "timeout_seconds": 600,
+            "retry": {
+              "max_attempts": 1
+            }
+          },
+          "input_schema": {
+            "type": "object",
+            "required": [
+              "task"
+            ]
+          }
+        },
+        "summarize_litigation_round": {
+          "run": {
+            "handler": "agents.litigation_round_summarizer"
+          },
+          "control": {
+            "timeout_seconds": 600,
+            "retry": {
+              "max_attempts": 1
+            }
+          },
+          "input_schema": {
+            "type": "object",
+            "required": [
+              "task"
+            ]
+          }
+        }
+      },
+      "inputs": {
+        "context": [
+          "outputs",
+          "result",
+          "context"
+        ]
+      },
+      "outputs": {
+        "result": []
+      },
+      "max_rounds": 3,
+      "max_steps_per_round": 7
     }
   }
 }

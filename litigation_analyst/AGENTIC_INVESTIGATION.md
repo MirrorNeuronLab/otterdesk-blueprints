@@ -1,3 +1,5 @@
+> Historical autonomous-explorer design. Version 2.0 defaults to dynamic child workflows; see README.md. This implementation is retained for future model evaluation.
+
 # Agentic investigation implementation
 
 The workflow now prepares immutable original/normalized sources, builds and validates

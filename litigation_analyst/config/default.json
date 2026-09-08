@@ -34,5 +34,9 @@
       "max_calls": 5000,
       "final_call_reserve": 4
     }
+  },
+  "dynamic_investigation": {
+    "max_rounds": 3,
+    "hypotheses_per_round": 2
   }
 }

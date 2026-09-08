@@ -1,4 +1,4 @@
-from domain.research import investigate
+from domain.round_state import initialize
 from ._binding import bind
 
-run = bind(investigate)
+run = bind(initialize)

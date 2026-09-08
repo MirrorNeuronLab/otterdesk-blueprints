@@ -7,7 +7,7 @@
     "benefit": "Produces exact-span citations, neutral hypotheses, and an inspectable SQLite audit history.",
     "input": "Optional legal-document folder and investigation goal; public EMC2 sample by default.",
     "output": "Human-review draft, source inventory, evidence database, and review index.",
-    "how_it_works": "Prepares sources, tests bounded hypotheses with document retrieval and graph queries, then verifies and writes a draft.",
+    "how_it_works": "Freezes and indexes sources, commits LLM-planned child investigation rounds, independently reviews cited findings, and writes a draft.",
     "target_users": "Legal and investigation teams."
   }
 }

@@ -20,3 +20,16 @@ def bind(operation):
         stateful=spec,
         input_resolver=lambda value: find_message_payload(value.payload, required_keys=keys),
     ), invoke)
+
+
+def bind_child(operation):
+    spec = StatefulStepSpec(context_factory=runtime_context_for_step,
+        hooks=StepLifecycleHooks(runtime_step_mode="agent_invocation"))
+
+    def invoke(context, *, agent_input, llm_client=None, **options):
+        work = agent_input.payload.get("step_input")
+        if not isinstance(work, dict) or "_child" not in work:
+            raise ValueError("A litigation child specialist requires committed runtime input")
+        return AgentHandlerOutput(payload=operation(context.to_mapping(), work, llm_client=llm_client))
+
+    return create_message_agent(MessageAgentSpec(stateful=spec, input_resolver=lambda value: {}), invoke)

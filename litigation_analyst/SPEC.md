@@ -1,92 +1,72 @@
 # Litigation Analyst specification
 
-Version 1.1.0. A bounded evidence-assistance workflow, not autonomous legal advice.
+Version 2.0.0 changes the default investigation topology from one autonomous tool
+loop to an LLM-planned, Core-managed child workflow. Input and final report paths
+remain compatible. Existing runs retain their staged implementation; no old audit
+is migrated or silently re-investigated.
 
-The product accepts an optional legal-document folder and neutral investigation
-goal. With no folder, a preparation script downloads EMC2 from the pinned
-upstream GitHub revision. Custom invalid inputs fail. The default workflow runs
-four logical steps on the declared Docker worker: prepare sources, build document/graph indexes, investigate
-evidence, and write a review draft. Shared agents own replay and message APIs;
-Core owns routes and logical completion. The graph_analysis_skill owns engine
-invocation and published binary preparation. The original platform document
-index remains a pinned dependency; the engine source is not modified or vendored.
+## Product and ownership
 
-Acceptance requires exact normalized-text SHA-256 and span provenance, durable
-source snapshots, explicit unreadable coverage, read-only bounded graph queries,
-CPU release telemetry, model/query/error audit records, bounded model-selected
-enquiries, and a verified draft whose citations resolve to the frozen corpus.
-Inputs must not be modified or uploaded. Reports, databases, model prompts and
-source snapshots are confidential run artifacts. Only references and bounded
-counts cross agent-message boundaries. Human review is required before reliance
-or any legal/external action; the blueprint exposes no such action.
+The product accepts an optional legal-document folder and neutral goal. Omission
+selects the pinned public EMC2 synthetic sample; invalid custom inputs fail.
+Four fixed phases prepare sources, verify document/graph indexes, investigate,
+and publish a draft. The investigation parent initializes context; its child
+planner commits enquiries using only declared templates. Core alone admits and
+executes the graph and releases the parent output after the final stop plan.
 
-The source inventory includes original byte hashes as well as normalized record
-hashes. Supported sources are UTF-8 text-like formats, mbox, EML, extractable PDF,
-and office formats supported by the declared local converter. Unreadable files
-remain visible in coverage; no OCR, archive execution, or silent simulated
-success exists. Empty/no-readable-text custom inputs fail before model use.
-The document skill's persistent SQLite FTS5 index supplies ranked lexical retrieval
-and exact spans; it does not promise exhaustive or neural semantic retrieval.
+The LLM selects enquiries, evidence searches, optional graph queries, assessments
+and acceptance decisions. Workers execute committed tasks deterministically;
+replanning occurs between completed rounds. Up to two enquiries per round and
+three rounds produce at most seven steps per round. Evidence, assessment and
+independent review workers run serially to avoid competing SQLite mutations.
+Unchanged repeated enquiry work stops with an explicit coverage limitation.
+Model/validation/tool failures fail the workflow, not a simulated successful
+investigation. Cancellation and elapsed deadlines are checked between rounds.
 
-Graph projection creates SourceArtifact, Email, Document, Mailbox, and extracted
-Correspondent nodes with observed SENT/TO/CC/CONTAINED_IN edges. Centrality is
-optional; heterogeneous PageRank is not a ranking of culpability or importance.
-All model assessments remain inferred; unknown or invalid citations cannot enter
-the final draft. Missing dependencies fail explicitly. Engine release 0.0.1 is
-CPU-only; future CUDA use requires a separately verified release and truthful
-profile reporting. Training a predictive RFM, legal conclusions, and autonomous
-publication are non-goals.
+## Evidence and review contract
 
-Default bounds, storage layout, preparation prerequisites, and known format
-limits are specified in README.md and configuration. Deterministic tests cover
-input selection, source freezing, exact citation verification, graph safety,
-follow-up lineage, worker replay, contract compilation and layer boundaries.
+Ingestion freezes original bytes and normalized text with SHA-256 and exact span
+provenance, reports unreadable formats, and rejects symlinks and empty custom
+corpora. The graph skill owns graph execution and binary preparation; the document
+skill owns persistent FTS5 lexical retrieval. No neural embedding feature is added.
+Graph queries are read-only with literal LIMIT <=50 and case-scoped execution.
 
-The LLM selects one action at a time: discover/read/invoke installed skills,
-update a structured hypothesis, or finish. The blueprint owns prompts, authorized
-bindings, hypothesis validation and final citation checks. The shared agent owns
-manual discovery, argument validation, durable bounded execution and deadlines.
-Graph mutations are unavailable to the agent. Original PDFs are re-extracted only
-by observed source ID resolved to frozen bytes; page observations need normalized
-passage IDs for report citations. Unknown evidence IDs cannot support hypotheses.
-The JSON checkpoint is the authoritative decision/revision/tool/model audit;
-SQLite is the evidence store and final hypothesis/report projection. Completed
-observations are replayed; in-flight reads may repeat after an interrupted call.
-Changed snapshot, config, model, manuals or descriptors reject resume. The agent
-runs on the POSIX worker main thread. Limit/cancellation stops produce explicitly
-partial investigative drafts, never a claim that all evidence was reviewed.
+Every enquiry collects distinct support and counter searches. The assessor receives
+complete, bounded passages and explicit omitted counts; no match is not evidence
+of absence. Potential privilege flags exclude source passages from findings.
+Assessments preserve uncertainty and ordinary explanations. Each finding cites
+only visible verified evidence, at most 2,000 UTF-8 bytes, and a separate reviewer
+must accept it before it enters narrative output. Final rendering revalidates
+all retained source hashes and exact offsets. Graph results remain derived exhibits,
+not allegations or independent corroboration. Attributed background guidance is
+methodology, never evidence or an assumption of applicable jurisdiction.
 
-Planning and execution alternate through the shared PhaseCycle. Every model decision
-receives attributed offline RAG guidance and structured action contracts. Default
-limits are 5000 decisions and skill attempts with a 99,999-second elapsed deadline. Early finish
-requires report submission and evidence-grounding review. Only accepted findings
-enter the narrative; exact source and derivation checks precede deterministic export.
-Reference knowledge is excluded from the evidence ledger. Guidance hashes bind resume.
-Source handling flags exclude affected citations from substantive findings. Full
-records, unresolved enquiries, failed actions and incomplete report reviews remain
-visible. The step and worker timeouts are also 99,999 seconds, avoiding a shorter outer deadline.
-The new source-index table requires rebuilding derived document indexes; old completed
-run artifacts remain available and are never silently migrated or re-investigated.
+## Artifacts and compatibility
 
-## Bounded working context
+Immutable proposals, task inputs, evidence, assessments, reviews, round summaries
+and model receipts live in `case/rounds/`. A final checkpoint projection preserves
+the existing citation-checking and rendering interfaces. Evidence SQLite, source
+inventory, original bytes and normalized sources retain their existing contracts.
+Authoritative reports remain on SDK-provided Syncthing shared run storage; Downloads
+is an additional host export. Messages carry artifact references and bounded counts.
+Core and shared agent lifecycle own replay and task completion; SDK working context
+owns durable provider receipts. Raw evidence never enters the response service.
 
-Live model calls use the shared SDK `ContextSession` and Membrane `mn.context.working.v1` contract. Deploy the matching SDK and Rust context service together. Observations are recorded before selection; only a bounded working view enters each model request. Raw observations, packet manifests and response receipts remain under `context-memory/` (under `case/` for Litigation Analyst). Redis owns the durable paginated recall index; no complete job snapshot is restored into process memory.
+The previous autonomous explorer remains in `domain.app.agentic` and
+`domain.research.investigate`, including its tests and historical documentation.
+It is not an automatic fallback and has no default workflow binding.
 
-The SDK accounts for fixed instructions, schemas, output reserve and safety margin, and the gateway enforces its confirmed serving window. Current decision constraints and exact final-review evidence cannot be silently dropped; impossible required sets return an explicit partition requirement. Unselected evidence remains available by exact reference and query. A missing item in the working view never proves absence. Source hashes and citations are verified independently before publication. Cache loss cannot repeat a successfully journaled model response. Offline/scripted execution remains deterministic and does not call Membrane.
+## Acceptance and limits
 
-The investigation adapter caps each model response at the context policy’s `output_tokens` (or a smaller provider limit). This keeps the reserved response space aligned with the working-memory budget; an inherited larger chat limit must not crowd out the first investigation request.
+Tests must compile admitted child templates with Docker workers; demonstrate an
+LLM-directed second round informed by earlier observations; preserve stable
+hypothesis identity; reject tampered task references, unsafe queries and invented
+citations; withhold rejected findings; prove completed work replay does not invoke
+models again; and retain the autonomous explorer's existing regression suite.
+Live acceptance observes actual child tasks through report completion and matching
+shared-file hashes on both nodes, using `default` → Nemotron on Spark.
 
-Available skill identifiers and the current manual-read registry are required working context, alongside action schemas and approved operations. Context selection cannot evict the identifiers needed to discover and invoke a skill.
-
-Each decision's system instructions identify the current execution phase and
-allowed actions. Recalled decisions are historical observations; the managed
-memory packet's `current` object owns the active enquiry and skill/manual state.
-
-The latest two successful skill observations remain in required current context
-through the existing bounded evidence-preview contract (8,000 bytes). Older
-observations stay in memory and the durable audit. Preview text is explicitly
-incomplete and requires exact-passage retrieval before citation.
-
-Live decisions use a JSON response schema whose action-name enum is derived
-from the current allowed actions. Argument validation and evidence policy remain
-in the action handlers; the model still chooses the investigation sequence.
+Outputs are drafts for human review. Legal advice, source authentication, exhaustive
+search, OCR, external acquisition/contact, legal filing and autonomous publication
+are non-goals. Failed and incomplete investigations are never presented as verified
+legal conclusions.

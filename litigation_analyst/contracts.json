@@ -159,6 +159,16 @@
         "schema_version": "mn.context.working.v1",
         "privacy": "confidential",
         "required": false
+      },
+      {
+        "artifact_id": "investigation_rounds",
+        "path": "case/rounds",
+        "mime_type": "application/octet-stream",
+        "type": "investigation_rounds",
+        "producer": "workflow",
+        "schema_version": "mn.litigation.rounds.v1",
+        "privacy": "confidential",
+        "required": true
       }
     ]
   },
