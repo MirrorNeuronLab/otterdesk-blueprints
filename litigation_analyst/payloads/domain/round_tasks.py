@@ -1,5 +1,6 @@
 """Bounded evidence collection and separate hypothesis/review specialists."""
 from dataclasses import asdict
+from copy import deepcopy
 import re
 from mn_sdk.blueprint_support import source_manifest
 from .round_state import task_input, read, save, checkpoint
@@ -35,13 +36,25 @@ def collect_evidence(context, work, *, llm_client=None):
     h = task["hypothesis"]
     operations = [(DOC, "search", {"query": h[p + "_query"], "top_k": min(3, frozen["config"]["investigation"]["top_k"])}, p) for p in ("support", "counter")]
     operations += [(GRAPH, "query", {"rgql": QUERIES[q]}, "graph") for q in h["graph_tools"]]
-    for skill, operation, arguments, purpose in operations:
+    for index, (skill, operation, arguments, purpose) in enumerate(operations):
         if skill == GRAPH:
             validate_graph_query(arguments["rgql"])
         runtime.read_skill(skill)
         action = {"name": "invoke_skill", "arguments": {"skill": skill, "operation": operation, "arguments": arguments}, "reason": h["expected_information"]}
-        result = observe_action(action, {"records": records + [{}]}, lambda *_: runtime.invoke_skill(skill, operation, arguments))
-        records.append({"action": action, "result": result, "purpose": purpose})
+        action_path = f"case/rounds/actions/{task['prefix']}-{index:02d}.json"
+        if (root / action_path).exists():
+            record = read(root / action_path)
+            if record["action"] != action or "error" in record["result"]:
+                raise ValueError("Committed evidence action changed or previously failed")
+        else:
+            try:
+                result = observe_action(action, {"records": records + [{}]}, lambda *_: runtime.invoke_skill(skill, operation, arguments))
+            except Exception as exc:
+                save(root, action_path, {"action": action, "result": {"error": str(exc)}, "purpose": purpose})
+                raise
+            record = {"action": action, "result": result, "purpose": purpose}
+            save(root, action_path, record)
+        records.append(record)
     # Exact spans are already verified by the shared skill binding and in the ledger.
     ids = list(dict.fromkeys(p["evidence_id"] for r in records for p in r["result"].get("passages", [])))
     ref = save(root, name, {"hypothesis": h, "records": records, "evidence_ids": ids})
@@ -97,13 +110,17 @@ def review_finding(context, work, *, llm_client=None):
     data = {"source_review_flags": frozen["source_review_flags"]}
     submit_report(data, assessment["report"], store, frozen["investigation_id"])
     cited = {i for f in assessment["report"]["findings"] for i in f["evidence_ids"]}
+    schema = deepcopy(REVIEW)
+    finding_ids = [f["id"] for f in assessment["report"]["findings"]]
+    schema["properties"]["accepted_ids"] = {"type": "array", "uniqueItems": True,
+        "maxItems": len(finding_ids), "items": {"enum": finding_ids} if finding_ids else {"type": "string"}}
     value = complete(root, frozen, task["prefix"] + "-review", "review",
         "Independently review the proposed finding against every complete cited passage. Accept only wording "
         "supported by these sources, preserving identity uncertainty, competing explanations and incomplete coverage. "
         "Reject overstatement, missing context, unsupported dates or allegations; explain issues concisely. "
-        "Accept only supplied finding IDs. You cannot add evidence or rewrite the finding.",
+        "accepted_ids must contain report finding IDs, NEVER evidence or source IDs. Return [] to reject all. You cannot add evidence or rewrite the finding.",
         {"report": assessment["report"], "hypothesis": assessment["hypothesis"],
-         "evidence": [asdict(e) for e in store.evidence_for(frozen["investigation_id"]) if e.evidence_id in cited]}, REVIEW, llm_client)
+         "evidence": [asdict(e) for e in store.evidence_for(frozen["investigation_id"]) if e.evidence_id in cited]}, schema, llm_client)
     review_report(data, value)
     return {"review": save(root, name, value)}
 

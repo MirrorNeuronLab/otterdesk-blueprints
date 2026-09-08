@@ -156,3 +156,39 @@ def test_dynamic_assessment_rejects_invented_evidence(dynamic_case):
     collect_evidence(context,work)
     with pytest.raises(ValueError,match='unavailable evidence'):
         assess_hypothesis(context,work,llm_client=model)
+
+
+def test_review_schema_accepts_finding_ids_only(dynamic_case, monkeypatch):
+    from domain.round_planning import plan_round
+    from domain import round_tasks
+    context,ref=dynamic_case; model=RoundModel()
+    result=plan_round(context,{'context':ref,'_child':{'revision':0}},llm_client=model)
+    work={'context':ref,**result['child_plan']['steps'][0]['input']}
+    round_tasks.collect_evidence(context,work)
+    round_tasks.assess_hypothesis(context,work,llm_client=model)
+    def review(root,frozen,key,stage,instruction,data,schema,client):
+        assert schema['properties']['accepted_ids']['items']=={'enum':['r01-H01']}
+        assert 'NEVER evidence or source IDs' in instruction
+        return {'accepted_ids':['r01-H01'],'issues':[]}
+    monkeypatch.setattr(round_tasks,'complete',review)
+    round_tasks.review_finding(context,work,llm_client=model)
+
+
+def test_partial_collection_preserves_completed_actions(dynamic_case,monkeypatch):
+    from domain.round_planning import plan_round
+    from domain import round_tasks
+    context,ref=dynamic_case
+    result=plan_round(context,{'context':ref,'_child':{'revision':0}},llm_client=RoundModel())
+    work={'context':ref,**result['child_plan']['steps'][0]['input']}
+    original=round_tasks.observe_action; calls=[]
+    def fail_second(action,state,execute):
+        calls.append(action)
+        if len(calls)==2: raise RuntimeError('test transport failure')
+        return original(action,state,execute)
+    monkeypatch.setattr(round_tasks,'observe_action',fail_second)
+    with pytest.raises(RuntimeError,match='test transport failure'):
+        round_tasks.collect_evidence(context,work)
+    paths=sorted((context['run_dir']/'case/rounds/actions').glob('*.json'))
+    assert len(paths)==2
+    assert json.loads(paths[0].read_text())['result']['passages']
+    assert json.loads(paths[1].read_text())['result']['error']=='test transport failure'
