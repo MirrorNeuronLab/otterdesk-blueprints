@@ -34,7 +34,10 @@ Graph queries are read-only with literal LIMIT <=50 and case-scoped execution.
 Every enquiry collects distinct support and counter searches. The assessor receives
 complete, bounded passages and explicit omitted counts. SDK context admission
 budgets the full schema and guidance before selecting whole evidence records;
-omitted records cannot be cited by the assessment. No match is not evidence
+omitted records cannot be cited by the assessment. The model's structured output
+restricts citations to visible evidence IDs and preserves committed task IDs;
+an empty evidence packet permits only an inconclusive assessment without findings.
+No match is not evidence
 of absence. Potential privilege flags exclude source passages from findings.
 Assessments preserve uncertainty and ordinary explanations. Each finding cites
 only visible verified evidence, at most 2,000 UTF-8 bytes, and a separate reviewer

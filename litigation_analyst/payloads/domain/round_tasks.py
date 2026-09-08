@@ -23,6 +23,27 @@ def validate_graph_query(query):
         raise ValueError("Only read-only graph queries with LIMIT <=50 are admitted")
 
 
+def assessment_schema(task, evidence_ids):
+    schema = deepcopy(object_schema({"hypothesis": HYPOTHESIS, "report": REPORT}))
+    hypothesis = schema["properties"]["hypothesis"]["properties"]
+    report = schema["properties"]["report"]["properties"]
+    hypothesis["id"] = {"const": task["hypothesis"]["id"]}
+    hypothesis["parent_id"] = {"type": "null"}
+    finding = report["findings"]["items"]["properties"]
+    finding["id"] = {"const": task["prefix"]}
+    for parent, name in ((hypothesis, "supporting_evidence"), (hypothesis, "contradictory_evidence"), (finding, "evidence_ids")):
+        field = dict(parent[name])
+        if evidence_ids:
+            field["items"] = {"enum": sorted(evidence_ids)}
+        else:
+            field["maxItems"] = 0
+        parent[name] = field
+    if not evidence_ids:
+        hypothesis["status"] = {"const": "inconclusive"}
+        report["findings"]["maxItems"] = 0
+    return schema
+
+
 def collect_evidence(context, work, *, llm_client=None):
     root, frozen, task = task_input(context, work)
     name = f"case/rounds/{task['prefix']}-evidence.json"
@@ -76,7 +97,7 @@ def assess_hypothesis(context, work, *, llm_client=None):
         if e.evidence_id in allowed and e.source_id not in frozen["source_review_flags"] and len(e.text.encode()) <= remaining:
             spans.append(asdict(e)); remaining -= len(e.text.encode())
     visible = {e["evidence_id"] for e in spans}
-    schema = object_schema({"hypothesis": HYPOTHESIS, "report": REPORT})
+    schema = assessment_schema(task, visible)
     instruction = (
         "Assess the committed enquiry from complete visible passages. Keep its exact hypothesis ID and parent_id null. "
         "Cite only visible evidence IDs. Include ordinary alternatives and outstanding enquiries. "
@@ -97,6 +118,7 @@ def assess_hypothesis(context, work, *, llm_client=None):
     data["omitted_passages"] = len(allowed - visible)
     for coverage in data["search_coverage"]:
         coverage["evidence_ids"] = [e for e in coverage["evidence_ids"] if e in visible]
+    schema = assessment_schema(task, visible)
     value = complete(root, frozen, task["prefix"] + "-assess", "assess", instruction, data, schema, llm_client)
     h = value["hypothesis"]
     if h["id"] != task["hypothesis"]["id"] or h["parent_id"] is not None:

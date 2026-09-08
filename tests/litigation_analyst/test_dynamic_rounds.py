@@ -1,6 +1,7 @@
 import json
 import importlib
 import pytest
+from jsonschema import ValidationError
 from test_litigation_analyst import modules, graph_engine_stub, make_context, BLUEPRINT
 
 
@@ -154,7 +155,7 @@ def test_dynamic_assessment_rejects_invented_evidence(dynamic_case):
     first=plan_round(context,{'context':ref,'_child':{'revision':0}},llm_client=model)
     work={'context':ref,**first['child_plan']['steps'][0]['input']}
     collect_evidence(context,work)
-    with pytest.raises(ValueError,match='unavailable evidence'):
+    with pytest.raises(ValidationError, match='not one of'):
         assess_hypothesis(context,work,llm_client=model)
 
 
@@ -217,3 +218,20 @@ def test_context_budget_omissions_are_visible_and_cannot_be_cited(dynamic_case, 
     saved = json.loads((context['run_dir'] / result['assessment']['path']).read_text())
     assert saved['hypothesis']['supporting_evidence'] == []
     assert saved['report']['findings'] == []
+
+
+def test_assessment_schema_excludes_graph_labels_and_omitted_citations(modules):
+    from domain.round_tasks import assessment_schema
+    from domain.app.planning import validate
+    task = {'hypothesis': {'id': 'H01'}, 'prefix': 'r01-H01'}
+    model = RoundModel()
+    data = {'stage': 'assess', 'finding_id': 'r01-H01', 'evidence': [{'evidence_id': 'visible-span'}]}
+    value = json.loads(model.completion_text('', json.dumps(data)))
+    schema = assessment_schema(task, {'visible-span'})
+    validate(schema, value)
+    value['hypothesis']['supporting_evidence'] = ['graph_observation_rows']
+    with pytest.raises(ValidationError, match='not one of'):
+        validate(schema, value)
+    empty = assessment_schema(task, set())
+    assert empty['properties']['hypothesis']['properties']['status'] == {'const': 'inconclusive'}
+    assert empty['properties']['report']['properties']['findings']['maxItems'] == 0
