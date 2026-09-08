@@ -132,3 +132,24 @@ def test_latest_retrieval_remains_in_required_current_context(modules, monkeypat
     monkeypatch.setattr(local_llm.SDKInvestigationModel, 'complete_json', verify)
     with pytest.raises(RuntimeError, match='latest evidence preserved'):
         modules['research'].investigate(context, llm_client=ScriptedModel())
+
+
+def test_live_response_schema_uses_current_allowed_actions(modules, monkeypatch):
+    from domain.app import local_llm
+    from mn_sdk.llm import LLMClient
+    captured = []
+    def complete(system, user, *, config):
+        captured.append(config.structured_output_options['response_format'])
+        return SimpleNamespace(content='{"name":"read_skill","arguments":{},"reason":"inspect"}', usage={})
+    monkeypatch.setattr(local_llm, 'completion_json_result', complete)
+    client = LLMClient(model='test')
+    model = local_llm.SDKInvestigationModel(client)
+    for allowed in (['read_skill', 'invoke_skill'], ['review_report']):
+        model.complete_json([
+            {'role':'system','content':'investigate'},
+            {'role':'user','content':json.dumps({'control':{'allowed_actions':allowed}})},
+        ])
+        schema = captured[-1]['json_schema']['schema']
+        assert schema['properties']['name']['enum'] == allowed
+        assert schema['required'] == ['name', 'arguments', 'reason']
+    assert client.structured_output_options == {}

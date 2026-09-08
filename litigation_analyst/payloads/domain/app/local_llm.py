@@ -42,6 +42,25 @@ class SDKInvestigationModel:
                     final=final,
                 ) if self.context_session else nullcontext()
                 config = replace(self.client.config, num_retries=0)
+                current = json.loads(messages[1]["content"])
+                allowed = current.get("control", {}).get("allowed_actions", [])
+                if allowed:
+                    options = dict(config.structured_output_options)
+                    options["response_format"] = {
+                        "type": "json_schema", "json_schema": {
+                            "name": "investigation_action", "strict": True,
+                            "schema": {
+                                "type": "object", "additionalProperties": False,
+                                "required": ["name", "arguments", "reason"],
+                                "properties": {
+                                    "name": {"type": "string", "enum": list(allowed)},
+                                    "arguments": {"type": "object"},
+                                    "reason": {"type": "string"},
+                                },
+                            },
+                        },
+                    }
+                    config = replace(config, structured_output_options=options)
                 if self.context_session:
                     config = replace(config, max_tokens=min(
                         config.max_tokens, self.context_session.policy.output_tokens,

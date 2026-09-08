@@ -225,3 +225,7 @@ The latest two successful skill observations remain in required current context
 through the existing bounded evidence-preview contract (8,000 bytes). Older
 observations stay in memory and the durable audit. Preview text is explicitly
 incomplete and requires exact-passage retrieval before citation.
+
+Live decisions use a JSON response schema whose action-name enum is derived
+from the current allowed actions. Argument validation and evidence policy remain
+in the action handlers; the model still chooses the investigation sequence.
