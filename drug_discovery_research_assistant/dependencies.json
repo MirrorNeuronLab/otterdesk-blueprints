@@ -48,12 +48,6 @@
       "extras": [
         "milvus"
       ]
-    },
-    {
-      "type": "pip",
-      "source": "gar",
-      "name": "mn-python-sdk-web-ui",
-      "version": "0.1.0"
     }
   ]
 }

@@ -101,9 +101,9 @@
         "web_ui": {
           "artifacts": [
             "web_ui.json",
-            "ui.json"
+            "web/index.html"
           ],
-          "description": "Job-scoped progress dashboard with a leading-candidate molecule preview."
+          "description": "Optional run-scoped static result dashboard with a leading-candidate molecule preview."
         }
       },
       "config_sections": [

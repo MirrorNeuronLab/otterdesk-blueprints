@@ -7,9 +7,9 @@
 
 This blueprint runs one review-only discovery cycle and then completes all five workflow steps. It returns five distinct molecules, retaining each molecule's best screened target for evaluation. The cycle uses the local BioTarget Stage C path to generate a molecular candidate pool and rank it against therapeutic text with DrugClip, folds targets, runs BioTarget evaluation, and writes traceable cycle artifacts for human scientific review.
 
-OtterDesk also exposes a read-only **Drug Discovery Progress** web UI. It renders the leading simulation-ranked candidate as a local 2D molecule diagram with its SMILES string and bounded DrugCLIP, stability, GNINA-affinity, and toxicity scores. The same view shows the five logical workflow steps separately from the five phases inside the current discovery cycle, along with bounded target, candidate, screen, simulation, and completed-cycle counts. The UI reads durable artifacts and workflow events; it cannot start a run, stop the service, approve a candidate, or invoke a scientific adapter.
+OtterDesk can expose a read-only **Drug Discovery Results** page after ranking. The blueprint renders `web/index.html` from bounded durable state, including the leading simulation-ranked candidate, its SMILES string, computational scores, workflow status, and recent progress. The runtime web UI only proxies this static artifact; it cannot start a run, stop the service, approve a candidate, or invoke a scientific adapter.
 
-The web UI is an auxiliary runtime entrypoint. Manifest expansion starts it alongside the compiler-generated `target_discovery__start` workflow root, so UI supervision cannot replace or block the first scientific step.
+The page is an optional output, not an agent, entrypoint, service, or workflow step. It has no HostLocal environment and no startup or health gate. Rendering is best-effort after the authoritative report is written, so a missing or failed page never blocks submission, scientific execution, reporting, or run completion.
 
 DrugClip is a problem-specific scientific checkpoint, not a shared LLM model. The adapter uses `mn-python-sdk-models` to validate the explicit `https://huggingface.co/homerquan/DrugClip` reference, then downloads `best.ckpt` and runs it through the native `DrugCLIP` graph/text adapter. Docker Model Runner is deliberately not used for DrugClip: the repository is a checkpoint-only graph/text model, not a DMR-compatible generative model. No fake adapter or surrogate score is used in live mode.
 
@@ -28,7 +28,7 @@ mn blueprint run .
 
 The discovery stage runs exactly once, including when an older override contains `service.max_cycles: null`. It then returns five evaluated molecules to Cycle Results Review and Ranking And Reporting. The generated workflow terminal completes the batch after the final report is written. If fewer than five distinct valid molecules are available, the run fails explicitly.
 
-Open the **Drug Discovery Progress** output in OtterDesk to follow:
+Open the **Drug Discovery Results** output in OtterDesk after the run to review:
 
 1. Target Discovery
 2. Structure Generation
@@ -36,7 +36,7 @@ Open the **Drug Discovery Progress** output in OtterDesk to follow:
 4. Cycle Results Review
 5. Ranking And Reporting
 
-During step 3, the same UI shows candidate generation, target folding, DrugCLIP screening, GNINA/toxicity evaluation, and cycle-report publication as distinct live phases. After ranking, the Docker worker uses its declared RDKit dependency to generate `leading_candidate.svg`; the job-scoped web service serves that artifact directly without an external chemistry or rendering service. `cycle_progress.json` is updated atomically in both the run store and configured output folder, so a refresh never needs to parse a partially written progress document.
+The result page shows candidate generation, target folding, DrugCLIP screening, GNINA/toxicity evaluation, and cycle-report publication as distinct phases. After ranking, the Docker worker uses its declared RDKit dependency to generate `leading_candidate.svg`, and blueprint domain code writes the static page plus `web_ui.json` proxy handle. `cycle_progress.json` remains available in both the run store and configured output folder while the run is active.
 
 The committed `config/overwrite.json` selects live native adapter mode. On the first model-dependent adapter call, the generic-model skill validates the configured `https://huggingface.co/homerquan/DrugClip` reference without adding it to the shared model catalog; the native adapter then loads `best.ckpt` from the same repository when it is not cached. The BioTarget source is bundled under `payloads/biotarget/`, and its native dependencies are declared in `payloads/requirements.txt`; no external BioTarget checkout is required. The DockerWorker builds its native GNINA executable from the pinned `v1.3.2` source release, and the Open Targets/AlphaFold network APIs remain external live-run requirements. The batch always runs one cycle; `service.max_cycles` cannot enable continuous execution. Fake adapters are limited to explicit mock/smoke-test overrides.
 
@@ -56,7 +56,7 @@ The dispatcher must accept the job JSON on stdin and return a JSON result or wri
 
 ## Output and safety
 
-The default user-facing output folder is `~/Downloads/{job_name}`. While the service runs, it publishes `service_status.json`, `cycle_progress.json`, the latest generated candidate pool in `candidates.json`, the latest completed cycle in `latest_cycle_report.json`, and the leading-candidate view in `leading_candidate.json` plus `leading_candidate.svg`; detailed per-cycle artifacts remain under the run directory. Only that single leading candidate is projected into the web UI—the full candidate pool and private input text remain outside its state response. Service reports are computational hypotheses only. The blueprint does not authorize wet-lab work, clinical claims, regulatory submissions, or external candidate publication without human approval.
+The default user-facing output folder is `~/Downloads/{job_name}`. While the service runs, it publishes `service_status.json`, `cycle_progress.json`, the latest generated candidate pool in `candidates.json`, the latest completed cycle in `latest_cycle_report.json`, and the leading-candidate view in `leading_candidate.json` plus `leading_candidate.svg`; detailed per-cycle artifacts remain under the run directory. After ranking it also writes the optional `web/index.html` and `web_ui.json` outputs. Only the single leading candidate is projected into that page—the full candidate pool and private input text remain excluded. Service reports are computational hypotheses only. The blueprint does not authorize wet-lab work, clinical claims, regulatory submissions, or external candidate publication without human approval.
 
 ## Shared job data
 

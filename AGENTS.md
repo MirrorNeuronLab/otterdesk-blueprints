@@ -116,6 +116,32 @@ MirrorNeuron core owns execution topology and delivery semantics: generated sour
 
 Do not place document processing, evidence modeling, research policy, valuation formulas, auditing, review prompts, rendering, or artifact composition in `runtime.py`. Runtime code must not import executable agent behavior. Add architecture tests that enforce this boundary; for large blueprints, keep `runtime.py` comfortably below 500 lines.
 
+## Web UI and Presentation Boundary
+
+The platform/runtime web UI is a proxy and presentation transport. It must not
+own blueprint-specific page composition, result projection, molecule or graph
+rendering, domain labels, safety language, or decisions about which data may be
+shown. Put that behavior in a focused `payloads/domain/` module and publish a
+bounded run artifact such as `web/index.html`, together with the declared
+`web_ui.json` handle when the selected adapter requires it.
+
+For batch blueprints, a read-only result UI is optional unless the product
+contract explicitly makes it authoritative. An optional UI must not be an
+auxiliary workflow entrypoint, HostLocal worker, required service, health gate,
+or separate environment-preparation target. Do not add SDK/skill dependencies
+solely to start a blueprint-owned proxy process. Write the authoritative result
+first, then render the UI best-effort; contain rendering and handle-publication
+failures so they cannot block submission, scientific/domain work, final report
+publication, or logical run completion. Mark optional UI artifacts as optional
+in the output contract and keep the runtime proxy limited to serving them.
+
+Use a long-running blueprint web service only when the product truly requires
+live interaction that static artifacts cannot provide. In that case, define its
+lifecycle and failure semantics explicitly in the owning runtime/Core contract;
+do not simulate optionality with an always-alive wrapper or silently swallow a
+required service failure. In all modes, project only bounded non-secret state
+and test both successful rendering and UI failure isolation.
+
 ## Single Sources of Truth
 
 Do not repeat descriptive manifest information in payload Python or `config/default.json`.

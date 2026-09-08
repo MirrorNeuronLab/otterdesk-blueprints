@@ -2,7 +2,7 @@
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/manifest.schema.json",
   "id": "drug_discovery_research_assistant",
   "name": "Drug Discovery Research Assistant",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Runs one drug-discovery cycle to produce five distinct computational candidates, screens and evaluates them, writes a review packet and molecule preview to ~/Downloads/{job_name}, then completes.",
   "workflow": "workflow.json",
   "execution": "execution.json",

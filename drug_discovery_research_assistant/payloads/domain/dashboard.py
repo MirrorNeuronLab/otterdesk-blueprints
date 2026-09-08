@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import html
+import json
 from collections.abc import Mapping
+from pathlib import Path
 from typing import Any
 
 
@@ -371,3 +374,119 @@ def discovery_dashboard_state(
         "warning": warning,
         "events": public_events[-50:],
     }
+
+
+def _read_json_object(path: Path) -> dict[str, Any]:
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
+def _read_event_tail(path: Path, *, limit: int = 100) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    try:
+        for line in path.read_text(encoding="utf-8").splitlines()[-limit:]:
+            try:
+                value = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(value, dict):
+                rows.append(value)
+    except OSError:
+        return []
+    return rows
+
+
+def render_static_dashboard(state: Mapping[str, Any]) -> str:
+    """Render a self-contained, script-free result page for the runtime proxy."""
+
+    metrics = _mapping(state.get("metrics"))
+    molecule = _mapping(state.get("molecule"))
+    events = _items(state.get("events"))
+    metric_rows = "".join(
+        "<tr><th>" + html.escape(str(key)) + "</th><td>"
+        + html.escape(str(value)) + "</td></tr>"
+        for key, value in metrics.items()
+    )
+    score_rows = "".join(
+        "<tr><th>" + html.escape(label) + "</th><td>"
+        + html.escape(str(molecule.get(key, "—"))) + "</td></tr>"
+        for key, label in (
+            ("drugclip_score", "DrugCLIP"),
+            ("simulation_stability", "Stability"),
+            ("gnina_affinity", "GNINA affinity"),
+            ("toxicity_penalty", "Toxicity penalty"),
+        )
+    )
+    event_rows = "".join(
+        "<li><strong>" + html.escape(str(event.get("type") or "Event"))
+        + "</strong> — " + html.escape(str(event.get("summary") or ""))
+        + " <time>" + html.escape(str(event.get("timestamp") or ""))
+        + "</time></li>"
+        for event in events[-50:]
+    )
+    molecule_markup = (
+        '<img src="leading_candidate.svg" alt="Two-dimensional structure of the leading computational candidate">'
+        if molecule.get("status") == "ready"
+        else "<p>The leading molecule preview is unavailable.</p>"
+    )
+    warning = html.escape(str(state.get("warning") or ""))
+    candidate_id = html.escape(str(molecule.get("candidate_id") or "Awaiting ranking"))
+    smiles = html.escape(str(molecule.get("smiles") or "—"))
+    return f"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Drug Discovery Research Assistant</title><style>
+body{{margin:0;background:#eef2ec;color:#15241f;font:14px/1.5 system-ui,sans-serif}}main{{max-width:1180px;margin:auto;padding:28px 20px}}h1{{font-size:32px}}section{{background:#fff;border:1px solid #d9e1dc;border-radius:16px;padding:20px;margin:16px 0}}.grid{{display:grid;grid-template-columns:1fr 1fr;gap:16px}}table{{width:100%;border-collapse:collapse}}th,td{{padding:9px;border-bottom:1px solid #edf1ee;text-align:left;vertical-align:top}}th{{color:#64746e}}img{{display:block;width:100%;height:360px;object-fit:contain;background:#f8faf6}}code{{overflow-wrap:anywhere}}.warning{{background:#fff0d7;border-color:#ead0a5}}time{{color:#64746e}}@media(max-width:760px){{.grid{{grid-template-columns:1fr}}}}
+</style></head><body><main><h1>Drug Discovery Research Assistant</h1>
+<section class="warning"><strong>Scientific review boundary</strong><p>{warning}</p></section>
+<div class="grid"><section><h2>Leading candidate</h2>{molecule_markup}<h3>{candidate_id}</h3><code>{smiles}</code><table>{score_rows}</table></section>
+<section><h2>Run and workflow</h2><table>{metric_rows}</table></section></div>
+<section><h2>Recent progress</h2><ol>{event_rows or '<li>No recorded events.</li>'}</ol></section>
+</main></body></html>\n"""
+
+
+def publish_static_dashboard(ctx: Mapping[str, Any]) -> dict[str, Any]:
+    """Write the optional result UI; callers decide whether failures are fatal."""
+
+    run_dir = Path(str(ctx["run_dir"]))
+    output_dir = Path(str(ctx["output_folder"]))
+    config = _mapping(ctx.get("config"))
+    state = discovery_dashboard_state(
+        run_id=str(ctx.get("run_id") or run_dir.name),
+        config=config,
+        workflow_state=_read_json_object(
+            run_dir / "workflow_state" / "drug_discovery_state.json"
+        ),
+        service_state=_read_json_object(run_dir / "service_state.json"),
+        cycle_progress=_read_json_object(run_dir / "cycle_progress.json"),
+        molecule_preview=_read_json_object(run_dir / "leading_candidate.json"),
+        final_artifact=_read_json_object(run_dir / "final_artifact.json"),
+        events=_read_event_tail(run_dir / "events.jsonl"),
+    )
+    rendered = render_static_dashboard(state)
+    handle: dict[str, Any] = {}
+    for root in (run_dir, output_dir):
+        web_dir = root / "web"
+        web_dir.mkdir(parents=True, exist_ok=True)
+        page = web_dir / "index.html"
+        page.write_text(rendered, encoding="utf-8")
+        source_svg = run_dir / "leading_candidate.svg"
+        if source_svg.is_file():
+            (web_dir / "leading_candidate.svg").write_bytes(source_svg.read_bytes())
+        current = {
+            "kind": "output",
+            "adapter": "static_html",
+            "url": page.resolve().as_uri(),
+            "title": "Drug Discovery Research Assistant",
+            "path": str(page),
+            "metadata": {"renderer": "static_html", "optional": True},
+        }
+        (root / "web_ui.json").write_text(
+            json.dumps(current, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        if root == run_dir:
+            handle = current
+    return handle

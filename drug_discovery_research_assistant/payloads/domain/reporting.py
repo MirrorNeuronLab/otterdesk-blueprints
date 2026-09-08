@@ -13,6 +13,13 @@ from .native_stages import (
 )
 
 
+def _publish_static_dashboard(ctx: dict[str, Any]) -> dict[str, Any]:
+    # Keep the optional renderer out of the authoritative reporting import path.
+    from .dashboard import publish_static_dashboard
+
+    return publish_static_dashboard(ctx)
+
+
 def publish_ranking(ctx: dict[str, Any], **_options: Any) -> dict[str, Any]:
     state = read_discovery_state(ctx)
     result = run_stage_script(
@@ -70,7 +77,17 @@ def publish_ranking(ctx: dict[str, Any], **_options: Any) -> dict[str, Any]:
     )
     state["final_report"] = artifact
     write_discovery_state(ctx, state)
+    web_ui: dict[str, Any] = {}
+    web_ui_error = ""
+    try:
+        web_ui = _publish_static_dashboard(ctx)
+    except Exception as exc:
+        # The result UI is explicitly optional. Rendering or proxy metadata must
+        # never turn a completed scientific report into a failed workflow.
+        web_ui_error = f"Optional result dashboard was not rendered: {type(exc).__name__}"
     return {
         "final_artifact": artifact,
+        "web_ui": web_ui,
+        "web_ui_error": web_ui_error,
         "output_files": [str(output / "final_artifact.json")],
     }

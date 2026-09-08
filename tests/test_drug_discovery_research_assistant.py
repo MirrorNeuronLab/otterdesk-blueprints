@@ -5,9 +5,7 @@ import json
 import os
 import subprocess
 import sys
-import threading
 import types
-import urllib.request
 from pathlib import Path
 
 import pytest
@@ -15,9 +13,9 @@ from blueprint_modernization_support import (
     assert_modular_payload,
     assert_registry_handlers_import,
 )
-from mn_sdk import apply_manifest_config_bindings
 from mn_sdk.blueprint_runtime import load_blueprint_config
 from mn_sdk.blueprints import blueprint_definition, read_blueprint
+from mn_sdk.submission_preparation import prepare_manifest_for_submission
 from workspace_paths import companion_workspace
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -78,12 +76,6 @@ def test_drug_discovery_manifest_uses_source_format_and_shared_blocks():
             "extras": ["milvus"],
             "version": "0.1.0",
         },
-        {
-            "type": "pip",
-            "source": "gar",
-            "name": "mn-python-sdk-web-ui",
-            "version": "0.1.0",
-        },
     ]
     assert (
         manifest["config"]["data"]["interfaces"]["input_contract"]
@@ -91,24 +83,15 @@ def test_drug_discovery_manifest_uses_source_format_and_shared_blocks():
     )
     assert "nodes" not in manifest.get("agents", {})
     assert "edges" not in manifest.get("agents", {})
-    assert read_blueprint(BLUEPRINT_DIR).manifest["version"] == "1.0.0"
+    assert read_blueprint(BLUEPRINT_DIR).manifest["version"] == "1.0.1"
     assert "entrypoints" not in manifest["agents"]
-    assert manifest["agents"]["auxiliary_entrypoints"] == ["drug_discovery_web_ui"]
-    [web_ui_node] = manifest["agents"]["extra_nodes"]
-    assert web_ui_node["node_id"] == "drug_discovery_web_ui"
-    assert web_ui_node["type"] == "stream"
-    assert web_ui_node["config"]["runner_module"] == "MirrorNeuron.Runner.HostLocal"
-    assert web_ui_node["config"]["command"] == [
-        "python3.11",
-        "services/drug_discovery_web_ui.py",
-    ]
-    assert web_ui_node["services"][0]["name"] == "drug-discovery-progress"
-    assert web_ui_node["services"][0]["checks"][0]["path"] == "/healthz"
+    assert "auxiliary_entrypoints" not in manifest["agents"]
+    assert "extra_nodes" not in manifest["agents"]
     assert manifest["metadata"]["web_ui"]["source_of_truth"] == "workflow.steps"
-    assert manifest["metadata"]["web_ui"]["registration"]["scope"] == "job"
-    assert manifest["metadata"]["web_ui"]["adapter"] == "external-url"
-    assert manifest["metadata"]["web_ui"]["kind"] == "service"
-    assert "external_url" in manifest["metadata"]["interfaces"]["web_ui_adapters"]
+    assert manifest["metadata"]["web_ui"]["registration"]["scope"] == "run"
+    assert manifest["metadata"]["web_ui"]["adapter"] == "static_html"
+    assert manifest["metadata"]["web_ui"]["kind"] == "output"
+    assert "static_html" in manifest["metadata"]["interfaces"]["web_ui_adapters"]
     assert manifest["metadata"]["web_ui"]["molecule_artifacts"] == [
         "leading_candidate.json",
         "leading_candidate.svg",
@@ -216,13 +199,13 @@ def test_drug_discovery_uses_logical_default_llm_route():
         "simulate_candidates",
         "publish_cycle_report",
     ]
-    assert default_config["web_ui"]["renderer"] == "external-url"
+    assert default_config["web_ui"]["renderer"] == "static_html"
     assert default_config["web_ui"]["molecule_preview"] == {
         "enabled": True,
         "width": 720,
         "height": 420,
     }
-    assert default_config["web_ui"]["service"]["port"] == 61020
+    assert "service" not in default_config["web_ui"]
     assert config["resources"]["gpu"] == {
         "min_count": 1,
         "vendor": "nvidia",
@@ -290,10 +273,7 @@ def test_drug_discovery_source_manifest_expands_with_native_service_script():
 
     assert expanded["type"] == "batch"
     assert expanded["job_name"] == "drug-discovery-research-assistant"
-    assert expanded["agents"]["entrypoints"] == [
-        "drug_discovery_web_ui",
-        "target_discovery__start",
-    ]
+    assert expanded["agents"]["entrypoints"] == ["target_discovery__start"]
     node_by_id = {node["node_id"]: node for node in expanded["agents"]["nodes"]}
     step_nodes = {
         node_id: node
@@ -314,9 +294,7 @@ def test_drug_discovery_source_manifest_expands_with_native_service_script():
         )
     assert node_by_id["workflow__terminal"]["config"]["complete_run"] is True
     assert expanded["workflow"]["steps"]
-    ui_node = node_by_id["drug_discovery_web_ui"]
-    assert ui_node["config"]["runner_module"] == "MirrorNeuron.Runner.HostLocal"
-    assert ui_node["services"][0]["name"] == "drug-discovery-progress"
+    assert "drug_discovery_web_ui" not in node_by_id
     assert expanded["runtime"]["resources"]["gpu"] == {
         "driver": "cuda",
         "enforcement": "hard",
@@ -325,6 +303,26 @@ def test_drug_discovery_source_manifest_expands_with_native_service_script():
         "min_memory_mb": 49152,
         "vendor": "nvidia",
     }
+
+
+def test_drug_discovery_submission_has_no_hostlocal_ui_environment(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("MN_ENV", "dev")
+    monkeypatch.setenv("MN_HOME", str(tmp_path / ".mn"))
+    monkeypatch.setenv("MN_WORKSPACE_ROOT", str(WORKSPACE))
+    monkeypatch.setenv("MN_SKILLS_ROOT", str(WORKSPACE / "mn-skills"))
+    monkeypatch.setenv("MN_AGENTS_ROOT", str(WORKSPACE / "mn-agents"))
+    source = blueprint_definition(read_blueprint(BLUEPRINT_DIR / "manifest.json"))
+
+    prepared = prepare_manifest_for_submission(BLUEPRINT_DIR, source)
+
+    assert prepared["agents"]["entrypoints"] == ["target_discovery__start"]
+    assert all(
+        node.get("config", {}).get("runner_module")
+        != "MirrorNeuron.Runner.HostLocal"
+        for node in prepared["agents"]["nodes"]
+    )
 
 
 def test_drug_discovery_stage_environment_propagates_biotarget_source():
@@ -571,18 +569,6 @@ def test_continuous_service_publishes_user_facing_candidates(tmp_path):
     assert (output_folder / "leading_candidate.svg").exists()
 
 
-def _load_drug_discovery_web_ui():
-    module_path = BLUEPRINT_DIR / "payloads" / "services" / "drug_discovery_web_ui.py"
-    spec = importlib.util.spec_from_file_location(
-        "drug_discovery_web_ui_test", module_path
-    )
-    module = importlib.util.module_from_spec(spec)
-    assert spec and spec.loader
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
 def _load_drug_discovery_domain_module(name: str):
     package_name = "drug_discovery_domain_test"
     domain_dir = BLUEPRINT_DIR / "payloads" / "domain"
@@ -600,23 +586,33 @@ def _load_drug_discovery_domain_module(name: str):
     return module
 
 
-def test_drug_discovery_web_ui_shows_workflow_and_cycle_steps_clearly():
-    module = _load_drug_discovery_web_ui()
-    html = module.dashboard_html()
+def test_drug_discovery_domain_renders_static_result_dashboard():
+    module = _load_drug_discovery_domain_module("dashboard")
+    rendered = module.render_static_dashboard(
+        {
+            "metrics": {"Overall status": "Review packet ready"},
+            "molecule": {
+                "status": "ready",
+                "candidate_id": "candidate-17",
+                "smiles": "CCO",
+                "drugclip_score": 0.92,
+            },
+            "warning": "Computational hypotheses only.",
+            "events": [{"type": "Complete", "summary": "Ranking finished"}],
+        }
+    )
 
-    assert 'id="molecule-image"' in html
-    assert "Leading candidate" in html
-    assert "Workflow steps" in html
-    assert "Current discovery cycle" in html
-    assert "DrugCLIP screens" in html
-    assert "Scientific review boundary" in html
-    assert "fetch('/ui/state'" in html
+    assert "Leading candidate" in rendered
+    assert "candidate-17" in rendered
+    assert "DrugCLIP" in rendered
+    assert "Scientific review boundary" in rendered
+    assert "<script" not in rendered
 
 
 def test_drug_discovery_web_ui_projects_durable_progress_without_candidates(
     tmp_path,
 ):
-    module = _load_drug_discovery_web_ui()
+    module = _load_drug_discovery_domain_module("dashboard")
     config = load_blueprint_config(BLUEPRINT_DIR)
     workflow_state = tmp_path / "workflow_state"
     workflow_state.mkdir()
@@ -685,10 +681,18 @@ def test_drug_discovery_web_ui_projects_durable_progress_without_candidates(
         encoding="utf-8",
     )
 
-    service = module.DrugDiscoveryWebUIService(
-        run_id="run-3", run_dir=tmp_path, config=config
+    state = module.discovery_dashboard_state(
+        run_id="run-3",
+        config=config,
+        workflow_state=json.loads(
+            (workflow_state / "drug_discovery_state.json").read_text()
+        ),
+        service_state=json.loads((tmp_path / "service_state.json").read_text()),
+        cycle_progress=json.loads((tmp_path / "cycle_progress.json").read_text()),
+        molecule_preview={},
+        final_artifact={},
+        events=[json.loads((tmp_path / "events.jsonl").read_text())],
     )
-    state = service.ui_state()
 
     assert state["metrics"]["Step 1 — Target Discovery"] == "Complete"
     assert state["metrics"]["Step 2 — Structure Generation"] == "Complete"
@@ -703,7 +707,7 @@ def test_drug_discovery_web_ui_projects_durable_progress_without_candidates(
 
 
 def test_drug_discovery_web_ui_projects_only_the_leading_molecule(tmp_path):
-    module = _load_drug_discovery_web_ui()
+    module = _load_drug_discovery_domain_module("dashboard")
     config = load_blueprint_config(BLUEPRINT_DIR)
     (tmp_path / "leading_candidate.json").write_text(
         json.dumps(
@@ -723,11 +727,16 @@ def test_drug_discovery_web_ui_projects_only_the_leading_molecule(tmp_path):
         ),
         encoding="utf-8",
     )
-    service = module.DrugDiscoveryWebUIService(
-        run_id="run-molecule", run_dir=tmp_path, config=config
+    state = module.discovery_dashboard_state(
+        run_id="run-molecule",
+        config=config,
+        workflow_state={},
+        service_state={},
+        cycle_progress={},
+        molecule_preview=json.loads((tmp_path / "leading_candidate.json").read_text()),
+        final_artifact={},
+        events=[],
     )
-
-    state = service.ui_state()
 
     assert state["molecule"] == {
         "status": "ready",
@@ -745,75 +754,35 @@ def test_drug_discovery_web_ui_projects_only_the_leading_molecule(tmp_path):
     assert "do-not-project" not in json.dumps(state)
 
 
-def test_drug_discovery_web_ui_serves_dashboard_state_and_svg(tmp_path):
-    module = _load_drug_discovery_web_ui()
+def test_drug_discovery_publishes_static_dashboard_and_proxy_handle(tmp_path):
+    module = _load_drug_discovery_domain_module("dashboard")
     config = load_blueprint_config(BLUEPRINT_DIR)
-    (tmp_path / "leading_candidate.svg").write_text(
+    run_dir = tmp_path / "run"
+    output_dir = tmp_path / "output"
+    run_dir.mkdir()
+    (run_dir / "leading_candidate.svg").write_text(
         '<svg xmlns="http://www.w3.org/2000/svg"><title>Candidate</title></svg>',
         encoding="utf-8",
     )
-    service = module.DrugDiscoveryWebUIService(
-        run_id="run-http", run_dir=tmp_path, config=config
+    (run_dir / "leading_candidate.json").write_text(
+        json.dumps({"status": "ready", "candidate_id": "candidate-1"}),
+        encoding="utf-8",
     )
-    server = module.DrugDiscoveryWebUIServer(service, host="127.0.0.1", port=0)
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
-    thread.start()
-    _host, port = server.address
-
-    try:
-        with urllib.request.urlopen(f"http://127.0.0.1:{port}/", timeout=2) as response:
-            assert response.status == 200
-            assert b"Leading candidate" in response.read()
-        with urllib.request.urlopen(
-            f"http://127.0.0.1:{port}/ui/state", timeout=2
-        ) as response:
-            state = json.loads(response.read())
-            assert state["metrics"]["Run"] == "run-http"
-        with urllib.request.urlopen(
-            f"http://127.0.0.1:{port}/artifacts/leading_candidate.svg",
-            timeout=2,
-        ) as response:
-            assert response.headers.get_content_type() == "image/svg+xml"
-            assert b"<title>Candidate</title>" in response.read()
-        with urllib.request.urlopen(
-            f"http://127.0.0.1:{port}/healthz", timeout=2
-        ) as response:
-            assert json.loads(response.read())["status"] == "ok"
-    finally:
-        server.stop()
-        thread.join(timeout=2)
-
-
-def test_drug_discovery_web_ui_requires_direct_job_data_directory(
-    tmp_path, monkeypatch
-):
-    module = _load_drug_discovery_web_ui()
-    job_dir = tmp_path / "job-1"
-    monkeypatch.setenv("MN_JOB_DATA_DIR", str(job_dir))
-    assert module.configured_job_data_dir("job-1") == job_dir.resolve()
-    try:
-        module.configured_job_data_dir("job-2")
-    except RuntimeError as error:
-        assert "direct directory" in str(error)
-    else:  # pragma: no cover - guards job isolation
-        raise AssertionError("web UI accepted another job's data directory")
-
-
-def test_drug_discovery_web_ui_config_updates_expanded_service_contract():
-    source = blueprint_definition(read_blueprint(BLUEPRINT_DIR / "manifest.json"))
-    manifest = _expand_source_manifest(source)
-    config = load_blueprint_config(BLUEPRINT_DIR)
-    config["web_ui"]["service"]["port"] = 61027
-
-    apply_manifest_config_bindings(manifest, config)
-
-    node = next(
-        item
-        for item in manifest["agents"]["nodes"]
-        if item["node_id"] == "drug_discovery_web_ui"
+    handle = module.publish_static_dashboard(
+        {
+            "run_id": "run-static",
+            "run_dir": str(run_dir),
+            "output_folder": str(output_dir),
+            "config": config,
+        }
     )
-    assert node["resources"]["ports"][0]["port"] == 61027
-    assert node["services"][0]["port"] == 61027
+
+    assert handle["adapter"] == "static_html"
+    assert handle["metadata"]["optional"] is True
+    assert (run_dir / "web" / "index.html").is_file()
+    assert (run_dir / "web" / "leading_candidate.svg").is_file()
+    assert (output_dir / "web" / "index.html").is_file()
+    assert json.loads((run_dir / "web_ui.json").read_text()) == handle
 
 
 def test_drug_discovery_reporting_writes_the_declared_final_contract(
@@ -862,6 +831,41 @@ def test_drug_discovery_reporting_writes_the_declared_final_contract(
     assert json.loads((run_dir / "final_artifact.json").read_text()) == artifact
     assert json.loads((output_dir / "final_artifact.json").read_text()) == artifact
     assert stored_state["final_report"] == artifact
+    assert result["web_ui"]["adapter"] == "static_html"
+    assert result["web_ui_error"] == ""
+
+
+def test_drug_discovery_optional_dashboard_failure_does_not_fail_reporting(
+    tmp_path, monkeypatch
+):
+    module = _load_drug_discovery_domain_module("reporting")
+    monkeypatch.setattr(module, "read_discovery_state", lambda _ctx: {})
+    monkeypatch.setattr(
+        module,
+        "run_stage_script",
+        lambda *_args, **_kwargs: {"review_report": {"candidate_count": 1}},
+    )
+    monkeypatch.setattr(module, "write_discovery_state", lambda *_args: None)
+    monkeypatch.setattr(
+        module,
+        "_publish_static_dashboard",
+        lambda _ctx: (_ for _ in ()).throw(OSError("optional UI unavailable")),
+    )
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+
+    result = module.publish_ranking(
+        {
+            "run_dir": str(run_dir),
+            "output_folder": str(tmp_path / "output"),
+            "config": {},
+        }
+    )
+
+    assert result["final_artifact"]["candidate_count"] == 1
+    assert result["web_ui"] == {}
+    assert result["web_ui_error"] == "Optional result dashboard was not rendered: OSError"
+    assert (run_dir / "final_artifact.json").is_file()
 
 
 def test_discovery_runs_once_even_with_legacy_unlimited_config(tmp_path):

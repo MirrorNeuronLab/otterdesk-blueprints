@@ -5,5 +5,78 @@
     "Which real market options pass the landed-cost and technical gates?",
     "What are the financial NPV TCO, risk-adjusted TCO, EAC, and scenario range?",
     "Which assumptions, transaction terms, approvals, or evidence gaps remain before a purchase order?"
-  ]
+  ],
+  "setup_guide": {
+    "schema": "otterdesk.setup_guide.v1",
+    "introduction": "Start quickly with the bundled purchasing example, or use your own purchase request and supporting data.",
+    "sample": {
+      "available": true,
+      "title": "Sample purchasing request",
+      "description": "Compare supportable local-AI workstations for a Boston engineering office using the bundled request and market observations.",
+      "expected_output": "An approval-ready supplier comparison with landed cost, lifecycle cost, risks, evidence gaps, and a recommendation.",
+      "values": {}
+    },
+    "real": {
+      "introduction": "Describe what you want to purchase, then add any supporting documents and adjust the assumptions that matter to you.",
+      "values": {
+        "inputs.payload.input_folder": "",
+        "inputs.payload.item_description": ""
+      }
+    },
+    "fields": [
+      {
+        "path": "inputs.payload.item_description",
+        "label": "What do you want to purchase?",
+        "description": "Describe the item or service, who it is for, and the outcome you need.",
+        "type": "textarea",
+        "role": "input",
+        "required": true
+      },
+      {
+        "path": "inputs.payload.input_folder",
+        "label": "Supporting documents folder",
+        "description": "Optional quotes, requirements, research links, spreadsheets, PDFs, or images for this purchase.",
+        "type": "local_path",
+        "path_kind": "directory"
+      },
+      {
+        "path": "inputs.payload.budget",
+        "label": "Budget",
+        "description": "Your maximum purchase or landed-cost budget.",
+        "type": "number",
+        "minimum": 0
+      },
+      {
+        "path": "inputs.payload.location",
+        "label": "Location",
+        "description": "The delivery, use, property, or travel location that affects availability and cost.",
+        "type": "text"
+      },
+      {
+        "path": "inputs.payload.priorities",
+        "label": "Priorities",
+        "description": "List the factors the comparison should favor, one per line.",
+        "type": "textarea"
+      },
+      {
+        "path": "inputs.payload.constraints",
+        "label": "Constraints",
+        "description": "Review the must-have requirements and change any values that do not apply.",
+        "type": "domain_value"
+      },
+      {
+        "path": "inputs.payload.analysis",
+        "label": "Cost assumptions",
+        "description": "Review the lifecycle-cost, utilization, labor, downtime, tax, and residual-value assumptions.",
+        "type": "domain_value"
+      },
+      {
+        "path": "inputs.payload.output_folder",
+        "label": "Output folder",
+        "description": "Where the completed purchasing packet should be copied.",
+        "type": "local_path",
+        "path_kind": "directory"
+      }
+    ]
+  }
 }

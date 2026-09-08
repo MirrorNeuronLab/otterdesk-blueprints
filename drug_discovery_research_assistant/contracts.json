@@ -216,12 +216,27 @@
         "artifact_id": "web_ui",
         "mime_type": "application/json",
         "path": "web_ui.json",
-        "producer": "web_ui",
+        "producer": "ranking_reporting",
+        "required": false,
         "schema_version": "mn.blueprint.web_ui.v1",
         "source_refs": [
-          "run.json"
+          "web/index.html"
         ],
         "type": "web_ui"
+      },
+      {
+        "artifact_id": "web_ui_document",
+        "mime_type": "text/html",
+        "path": "web/index.html",
+        "producer": "ranking_reporting",
+        "required": false,
+        "schema_version": "mn.blueprint.static_html.v1",
+        "source_refs": [
+          "final_artifact.json",
+          "cycle_progress.json",
+          "leading_candidate.json"
+        ],
+        "type": "report"
       },
       {
         "artifact_id": "human_events",
@@ -492,12 +507,27 @@
         "artifact_id": "web_ui",
         "mime_type": "application/json",
         "path": "web_ui.json",
-        "producer": "web_ui",
+        "producer": "ranking_reporting",
+        "required": false,
         "schema_version": "mn.blueprint.web_ui.v1",
         "source_refs": [
-          "run.json"
+          "web/index.html"
         ],
         "type": "web_ui"
+      },
+      {
+        "artifact_id": "web_ui_document",
+        "mime_type": "text/html",
+        "path": "web/index.html",
+        "producer": "ranking_reporting",
+        "required": false,
+        "schema_version": "mn.blueprint.static_html.v1",
+        "source_refs": [
+          "final_artifact.json",
+          "cycle_progress.json",
+          "leading_candidate.json"
+        ],
+        "type": "report"
       },
       {
         "artifact_id": "human_events",

@@ -110,17 +110,14 @@
       "token_budget",
       "llm_retries"
     ],
-    "adapter": "external-url",
-    "description": "Read-only job dashboard showing the leading candidate as a local 2D molecule rendering, its bounded scores, all five workflow steps, and the five phases inside the active discovery cycle.",
+    "adapter": "static_html",
+    "description": "Optional read-only result dashboard rendered by the blueprint after ranking. The runtime only proxies the generated web/index.html artifact.",
     "enabled": true,
-    "kind": "service",
-    "node_id": "drug_discovery_web_ui",
-    "service_name": "drug-discovery-progress",
+    "kind": "output",
     "registration": {
-      "module": "drug_discovery_web_ui",
-      "package": "mn-python-sdk-web-ui",
-      "scope": "job",
-      "writes": "external-url ui.json and web_ui.json handles under MN_JOB_DATA_DIR"
+      "artifact": "web/index.html",
+      "scope": "run",
+      "writes": "static-html web_ui.json handles in the run and configured output folders"
     },
     "molecule_artifacts": [
       "leading_candidate.json",
