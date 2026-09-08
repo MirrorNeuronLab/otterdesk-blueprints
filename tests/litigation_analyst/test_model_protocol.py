@@ -95,6 +95,7 @@ def test_skill_discovery_survives_working_memory_selection(modules, monkeypatch,
         assert 'recalled records are historical' in messages[0]['content']
         selected = {key: request[key] for key in required_fields if key in request}
         # With no manual read yet, a model must still see exact usable skill IDs.
+        assert selected['latest_observations'] == []
         assert selected['approved_operations'] == {}
         assert selected['read_manual_hashes'] == {}
         assert any(s['id'] == 'mirrorneuron.document.reading' for s in selected['skills'])
@@ -102,4 +103,32 @@ def test_skill_discovery_survives_working_memory_selection(modules, monkeypatch,
 
     monkeypatch.setattr(local_llm.SDKInvestigationModel, 'complete_json', select_current)
     with pytest.raises(RuntimeError, match='selection verified'):
+        modules['research'].investigate(context, llm_client=ScriptedModel())
+
+
+def test_latest_retrieval_remains_in_required_current_context(modules, monkeypatch, tmp_path):
+    import pytest
+    from test_litigation_analyst import make_context, ScriptedModel
+    from domain.app import local_llm
+    folder = tmp_path / 'input'
+    folder.mkdir()
+    (folder / 'notice.txt').write_text('The approval notice records a routine payment.')
+    context = make_context(tmp_path, folder)
+    modules['intake'].prepare_sources(context)
+    modules['indexing'].build_indexes(context)
+    original = local_llm.SDKInvestigationModel.complete_json
+
+    def verify(self, messages, *, required_fields, **kwargs):
+        request = json.loads(messages[1]['content'])
+        if request['latest_observations']:
+            assert 'latest_observations' in required_fields
+            observation = request['latest_observations'][-1]
+            assert observation['action']['name'] == 'invoke_skill'
+            assert observation['result']['passages']
+            assert observation['result']['passages'][0]['evidence_id']
+            raise RuntimeError('latest evidence preserved')
+        return original(self, messages, required_fields=required_fields, **kwargs)
+
+    monkeypatch.setattr(local_llm.SDKInvestigationModel, 'complete_json', verify)
+    with pytest.raises(RuntimeError, match='latest evidence preserved'):
         modules['research'].investigate(context, llm_client=ScriptedModel())

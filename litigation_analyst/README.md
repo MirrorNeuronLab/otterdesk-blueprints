@@ -220,3 +220,8 @@ provides an additional convenience copy on the submitting host.
 Each decision's system instructions identify the current execution phase and
 allowed actions. Recalled decisions are historical observations; the managed
 memory packet's `current` object owns the active enquiry and skill/manual state.
+
+The latest two successful skill observations remain in required current context
+through the existing bounded evidence-preview contract (8,000 bytes). Older
+observations stay in memory and the durable audit. Preview text is explicitly
+incomplete and requires exact-passage retrieval before citation.
