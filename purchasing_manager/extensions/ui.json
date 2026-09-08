@@ -1,0 +1,9 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/ui.schema.json",
+  "starter_questions": [
+    "What supplier requirements can you help me compare?",
+    "Which real market options pass the landed-cost and technical gates?",
+    "What are the financial NPV TCO, risk-adjusted TCO, EAC, and scenario range?",
+    "Which assumptions, transaction terms, approvals, or evidence gaps remain before a purchase order?"
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/ui.schema.json",
+  "starter_questions": [
+    "What research questions can you investigate?",
+    "What did the latest research run conclude?",
+    "Which hypotheses, evidence gaps, or experiments come next?"
+  ]
+}

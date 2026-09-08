@@ -1,0 +1,12 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/ui.schema.json",
+  "init_config_review": {
+    "required": false,
+    "fields": []
+  },
+  "starter_questions": [
+    "What inputs can you analyze?",
+    "Where are my draft and audit records?",
+    "What does a graph relationship establish?"
+  ]
+}

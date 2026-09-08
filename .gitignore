@@ -53,31 +53,6 @@ deps/
 *.beam
 .elixir_ls/
 
-# Blueprint/runtime generated output
-previews/
-output/
-outputs/
-artifacts/
-run_store/
-runs/
-.mn/
-events.jsonl
-result.json
-final_artifact.json
-run.json
-inputs.json
-logs.jsonl
-logs.index.json
-human.jsonl
-resources.jsonl
-job.json
-web_ui.json
-ui.json
-!/cctv_operator/extensions/ui.json
-crm.csv
-market_insights.csv
-.mn-rag-state.json
-
 # Generated SDK/client output
 generated/
 generated-sources/

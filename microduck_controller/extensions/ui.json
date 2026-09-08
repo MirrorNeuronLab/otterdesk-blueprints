@@ -1,0 +1,50 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/ui.schema.json",
+  "starter_questions": [
+    "Move forward for a medium step.",
+    "Could you locate the ball for me?",
+    "Let's free play now—keep chasing and kicking it.",
+    "Run the showcase routine.",
+    "What can you do, and what are your safety limits?"
+  ],
+  "init_config_review": {
+    "required": false,
+    "instruction": "No configuration confirmation is needed. These optional advanced settings remain available later; keep the public MCP URL loopback-only unless a trusted-LAN boundary protects the unauthenticated simulator controls.",
+    "fields": [
+      {
+        "path": "inputs.payload.input_folder",
+        "label": "Demo instructions folder",
+        "default": "microduck_controller/examples/sample_inputs",
+        "type": "local_path",
+        "path_kind": "directory",
+        "description": "The bundled service-only demo instructions."
+      },
+      {
+        "path": "web_ui.service.public_url",
+        "label": "Loopback service origin",
+        "default": "http://127.0.0.1:0",
+        "description": "The runtime replaces port 0 with a collision-free private port and registers it through OtterDesk's job-scoped proxy."
+      },
+      {
+        "path": "web_ui.service.trusted_lan_enabled",
+        "label": "Trusted LAN publication",
+        "default": false,
+        "description": "Keep false for localhost-only publication. Set true only after configuring an explicitly trusted LAN and firewall for the unauthenticated endpoint."
+      },
+      {
+        "path": "outputs.folder_path",
+        "label": "Output folder",
+        "default": "~/Download/microduck_controller",
+        "type": "local_path",
+        "path_kind": "directory",
+        "description": "Where service artifacts are written."
+      }
+    ]
+  },
+  "web_ui": {
+    "enabled": true,
+    "title": "Microduck Controller",
+    "node_id": "run_microduck_service__microduck_service",
+    "service_name": "microduck-controller-web-ui"
+  }
+}

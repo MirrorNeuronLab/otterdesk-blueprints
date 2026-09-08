@@ -1,0 +1,137 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/ui.schema.json",
+  "configuration_contract": {
+    "optional_files": [
+      "scenario.json",
+      "config/overwrite.json",
+      "knowledge/"
+    ],
+    "required_files": [
+      "manifest.json",
+      "README.md",
+      "SPEC.md",
+      "config/default.json",
+      "payloads/",
+      "LICENSE.md",
+      "TERM.md"
+    ]
+  },
+  "observability_dashboard": {
+    "panels": [
+      "current_status",
+      "recent_events",
+      "pending_human_requests",
+      "output_artifacts",
+      "resource_usage",
+      "errors",
+      "llm_calls",
+      "token_budget",
+      "llm_retries"
+    ],
+    "reads": [
+      "events.jsonl",
+      "cycle_progress.json",
+      "leading_candidate.json",
+      "human.jsonl",
+      "logs.jsonl",
+      "resources.jsonl",
+      "result.json",
+      "final_artifact.json",
+      "web_ui.json"
+    ],
+    "schema_version": "mn.blueprint.observability_dashboard.v1",
+    "source": "local_run_store"
+  },
+  "init_config_review": {
+    "checks": [
+      "identity",
+      "mode",
+      "inputs",
+      "streams",
+      "input_skills",
+      "outputs",
+      "privacy",
+      "budgets"
+    ],
+    "fields": [
+      {
+        "default": "Alzheimer disease with BACE1 modulation as the primary target hypothesis.",
+        "description": "Confirm the disease, phenotype, or target family to investigate.",
+        "label": "Disease or target",
+        "path": "inputs.payload.disease_or_target_profile"
+      },
+      {
+        "default": 600,
+        "description": "Maximum runtime for the staged discovery loop.",
+        "label": "Runtime limit",
+        "path": "budgets.max_runtime_seconds"
+      },
+      {
+        "default": "@/examples/sample_inputs",
+        "description": "Default local input folder for sample files or user-provided files.",
+        "label": "Input folder",
+        "path": "inputs.payload.input_folder",
+        "path_kind": "directory",
+        "type": "local_path"
+      },
+      {
+        "default": "~/Downloads/{job_id}",
+        "description": "Default local output folder for generated artifacts and reports.",
+        "label": "Output folder",
+        "path": "outputs.folder_path",
+        "path_kind": "directory",
+        "type": "local_path"
+      }
+    ],
+    "instruction": "When running in OtterDesk, show these overwriteable fields during init config and ask the user to change them or keep the defaults before launch.",
+    "required": true
+  },
+  "web_ui": {
+    "data_source": "run_store_and_job_data",
+    "reads": [
+      "events.jsonl",
+      "cycle_progress.json",
+      "leading_candidate.json",
+      "human.jsonl",
+      "logs.jsonl",
+      "resources.jsonl",
+      "result.json",
+      "final_artifact.json",
+      "web_ui.json"
+    ],
+    "standard_panels": [
+      "current_status",
+      "recent_events",
+      "pending_human_requests",
+      "output_artifacts",
+      "resource_usage",
+      "errors",
+      "llm_calls",
+      "token_budget",
+      "llm_retries"
+    ],
+    "adapter": "external-url",
+    "description": "Read-only job dashboard showing the leading candidate as a local 2D molecule rendering, its bounded scores, all five workflow steps, and the five phases inside the active discovery cycle.",
+    "enabled": true,
+    "kind": "service",
+    "node_id": "drug_discovery_web_ui",
+    "service_name": "drug-discovery-progress",
+    "registration": {
+      "module": "drug_discovery_web_ui",
+      "package": "mn-python-sdk-web-ui",
+      "scope": "job",
+      "writes": "external-url ui.json and web_ui.json handles under MN_JOB_DATA_DIR"
+    },
+    "molecule_artifacts": [
+      "leading_candidate.json",
+      "leading_candidate.svg"
+    ],
+    "progress_artifact": "cycle_progress.json",
+    "source_of_truth": "workflow.steps"
+  },
+  "starter_questions": [
+    "What discovery work is this job configured to perform?",
+    "What candidates or evidence emerged from the latest cycle?",
+    "Which scientific risks or review gates remain?"
+  ]
+}

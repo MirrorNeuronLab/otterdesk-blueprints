@@ -1,0 +1,12 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/ui.schema.json",
+  "init_config_review": {
+    "required": false,
+    "fields": []
+  },
+  "starter_questions": [
+    "Review the architecture of this GitHub repository.",
+    "Investigate coupling and counter-evidence in my local source folder.",
+    "Which characterization tests should precede a service boundary change?"
+  ]
+}
