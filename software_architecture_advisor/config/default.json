@@ -82,7 +82,13 @@
       "goal": "Inspect the software architecture, identify an actionable boundary or coupling concern, and check counter-evidence before recommending a change."
     }
   },
-  "output_folder": "~/Downloads/software_architecture_advisor",
+  "outputs": {
+    "adapter": "local_run_store",
+    "artifact_contract": "Read-only architecture review, evidence audit, and copy-ready implementation prompts; no source changes.",
+    "folder_path": "~/Downloads/{job_name}",
+    "run_root": "~/.mn/runs",
+    "write_run_store": true
+  },
   "offline": false,
   "skill_runtime": {
     "enabled": true,

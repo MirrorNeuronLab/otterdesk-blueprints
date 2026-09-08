@@ -1,6 +1,6 @@
 # Architecture Advisor contract
 
-Identity: `software_architecture_advisor`, version 2.1.0. Source: Spark `/home/homer/Sandbox/legal_case/software_architecture_advisor`.
+Identity: `software_architecture_advisor`, version 2.1.1. Source: Spark `/home/homer/Sandbox/legal_case/software_architecture_advisor`.
 
 ## Inputs and policy
 
@@ -30,7 +30,7 @@ Final publication rechecks source hashes and exact evidence spans and validates 
 
 ## Artifacts and execution
 
-Canonical artifact paths are authored in `contracts.json`. Confidential large artifacts are durably stored under the run directory before specialist output. The source snapshot identifies its evidence graph and immutable sources under `evidence/snapshots/<snapshot-id>/`; graph generations and query audit remain available for review. No new REST server or standalone lifecycle is bundled.
+Canonical artifact paths are authored in `contracts.json`. Confidential large artifacts are durably stored under the run directory before specialist output. The source snapshot identifies its evidence graph and immutable sources under `evidence/snapshots/<snapshot-id>/`; graph generations and query audit remain available for review. The standard `outputs.folder_path` contract stages the completed presentation bundle in shared storage and lets the SDK copy it to `~/Downloads/{job_name}` on the submitting host. That bundle includes canonical report and prompt files, familiar `architecture_*` and `improvement_prompts.*` presentation names, a prompt index, and one copy-ready task per finding. No new REST server or standalone lifecycle is bundled.
 
 All steps use `mn-agents.worker.python_docker@1`, sharing the run's durable data plane. The worker image includes the graph binary copied from the public digest-pinned GAR image; platform-declared agents, skills, and SDK components are installed by the platform. Blueprint launch does not require gcloud or Git credentials. No-input launch fails with an actionable request for a repository; the synthetic fixture is only an explicit example/test input. Offline mode is opt-in and never a live-provider fallback.
 

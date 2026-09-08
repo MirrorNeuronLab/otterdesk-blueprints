@@ -11,20 +11,18 @@ Optional `goal` focuses the investigation. Optional `graph_export` supplies a ve
 
 ## Prepare and run
 
-Use the companion workspace with the newly created shared graph skill until its next GAR skill release is published:
+Run the checked-in blueprint with its published GAR dependencies:
 
 ```bash
-export MN_WORKSPACE_ROOT=/Users/homer/Projects/mirror-neuron-set
-export MN_SKILLS_ROOT="$MN_WORKSPACE_ROOT/mn-skills"
 cd /Users/homer/Projects/otterdesk-blueprints/software_architecture_advisor
-MN_USE_LOCAL_SKILLS=1 mn blueprint run ./ \
+mn blueprint run ./ \
   --set inputs.payload.repository_url=https://github.com/pallets/itsdangerous
 ```
 
 For a folder:
 
 ```bash
-MN_USE_LOCAL_SKILLS=1 mn blueprint run ./ \
+mn blueprint run ./ \
   --set 'inputs.payload.input_folder=/absolute/path/to/repository'
 ```
 
@@ -36,7 +34,9 @@ Live mode uses the platform's configured chat and embedding model bindings, norm
 
 ## Results
 
-Outputs include `investigation-plan.json`, immutable per-round plans and results under `investigation/`, `report.md`, `suggestive_prompts.md`, `report.json`, `knowledge.json`, `model-trace.json`, `events.log`, `snapshot.json`, `investigation.json`, and `review_index.json`. The `evidence/` directory retains immutable source text, graph generations, exact source spans, hashes, graph inputs, and acquisition checkouts. Runtime messages contain bounded counts/status and artifact references, not source text or full reports.
+The authoritative run directory includes `investigation-plan.json`, immutable per-round plans and results under `investigation/`, `report.md`, `suggestive_prompts.md`, `report.json`, `knowledge.json`, `model-trace.json`, `events.log`, `snapshot.json`, `investigation.json`, and `review_index.json`. The `evidence/` directory retains immutable source text, graph generations, exact source spans, hashes, graph inputs, and acquisition checkouts. Runtime messages contain bounded counts/status and artifact references, not source text or full reports.
+
+After completion, the SDK also copies a presentation bundle to `~/Downloads/{job_name}` on the submitting host. It retains the current canonical files and provides familiar names from the earlier advisor: `architecture_report.md`, `architecture_assessment.json`, `improvement_prompts.md`, `improvement_prompts.json`, and one copy-ready task per finding under `prompts/`, with `prompts/README.md` as the index.
 
 The three logical phases are `capture_repository`, `investigate_architecture`, and `publish_architecture_review`. The middle step contains a Core-managed child workflow. A planner commits a finite graph; graph-query, semantic-search, assessment and summary specialists execute it without replanning. The next planner invocation receives the completed evidence round. Their specialist workers use the shared stateful agent lifecycle. Only platform-generated step sinks complete logical steps. Docker runs Python 3.11 on Debian Bookworm with the published CPU RGX binary; it never builds Rust.
 
@@ -88,5 +88,6 @@ For a two-node deployment, the authoritative report and evidence files stay in
 `$MN_HOME/shared/submissions/<submission-id>/outputs/runs/<run-id>/` on the
 Syncthing shared filesystem. The SDK supplies that run directory to workers;
 blueprints must not replace it with a node-local Downloads path. Syncthing
-replicates the shared tree to the other node. The configured `output_folder`
-provides an additional convenience copy on the submitting host.
+replicates the shared tree to the other node. The configured
+`outputs.folder_path` provides an additional convenience copy on the submitting
+host after the publication bundle has arrived in shared storage.

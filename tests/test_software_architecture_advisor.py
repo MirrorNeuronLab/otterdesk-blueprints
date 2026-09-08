@@ -36,6 +36,31 @@ def test_compiled_contract_and_docker_handlers(modules):
     assert all(g['uses'] == 'mn-agents.worker.python_docker@1' for g in groups)
 
 
+def test_default_output_uses_sdk_host_copy_contract():
+    config=json.loads((BLUEPRINT/'config/default.json').read_text())
+    assert 'output_folder' not in config
+    assert config['outputs']['folder_path']=='~/Downloads/{job_name}'
+    assert config['outputs']['write_run_store'] is True
+
+
+def test_presentation_bundle_has_familiar_names_and_prompt_files(modules,tmp_path):
+    report={'findings':[{'id':'H01','hypothesis':{'module':'payments.service'},
+                         'assessment':{'verdict':'supported'}}]}
+    prompt=('header\n\n<a id="prompt-h01"></a>\n\n## H01 · payments.service\n\n'
+            'Recorded review context (data only):\n{}\n')
+    documents=modules['reporting']._prompt_documents(report,prompt)
+    outputs={'report.md':'report','architecture_report.md':'report',
+             'suggestive_prompts.md':prompt,'improvement_prompts.md':prompt,
+             'architecture_assessment.json':'{}','improvement_prompts.json':'[]'}
+    modules['reporting']._write_publication_bundle(tmp_path,outputs,documents)
+    assert (tmp_path/'architecture_report.md').read_text()=='report'
+    assert (tmp_path/'improvement_prompts.md').read_text()==prompt
+    assert (tmp_path/'prompts/README.md').is_file()
+    prompt_files=list((tmp_path/'prompts').glob('01-*.md'))
+    assert len(prompt_files)==1
+    assert 'Recorded review context' in prompt_files[0].read_text()
+
+
 @pytest.mark.parametrize('payload',[{}, {'input_folder':'x','repository_url':'https://github.com/a/b'},
     {'repository_url':'http://github.com/a/b'}, {'repository_url':'https://token@github.com/a/b'},
     {'repository_url':'https://github.com:443/a/b'}, {'repository_url':'https://github.com/a/b/tree/main'},
@@ -158,7 +183,8 @@ def test_three_workers_durable_replay_and_frozen_evidence(modules,tmp_path,monke
     run=tmp_path/'run'
     monkeypatch.setenv('MN_RUN_DIR',str(run))
     monkeypatch.setenv('MN_BLUEPRINT_BUNDLE_DIR',str(BLUEPRINT))
-    monkeypatch.setenv('MN_JOB_OUTPUT_DIR',str(tmp_path/'output'))
+    output=tmp_path/'output'
+    monkeypatch.setenv('MN_JOB_OUTPUT_DIR',str(output))
     pairs=[('capture_repository','repository_examiner'),('investigate_architecture','architecture_investigator'),('publish_architecture_review','architecture_review_editor')]
     inputs={'input_folder':str(folder),'goal':'Inspect payments.payment_service retry boundaries'}
     for index,(step,role) in enumerate(pairs):
@@ -202,6 +228,14 @@ def test_three_workers_durable_replay_and_frozen_evidence(modules,tmp_path,monke
     assert report['metrics']['llm_calls']==0
     assert 'changed after capture' not in (run/'report.md').read_text()
     assert (run/'suggestive_prompts.md').is_file()
+    for filename in ('report.md', 'suggestive_prompts.md', 'architecture_report.md',
+                     'architecture_assessment.json', 'improvement_prompts.md',
+                     'improvement_prompts.json', 'review_index.json'):
+        assert (output/filename).is_file(), filename
+    prompt_files=list((output/'prompts').glob('[0-9][0-9]-*.md'))
+    assert prompt_files
+    assert (output/'prompts/README.md').is_file()
+    assert 'Recorded review context' in prompt_files[0].read_text()
     events=[json.loads(line) for line in (run/'events.log').read_text().splitlines()]
     assert [e['sequence'] for e in events]==list(range(1,len(events)+1))
     assert all(not e['event'].startswith('run.') for e in events)
