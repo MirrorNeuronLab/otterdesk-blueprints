@@ -15,6 +15,8 @@ from pathlib import Path
 from typing import Any, Literal
 from urllib.parse import urlparse, urlunparse
 
+from mn_sdk.blueprint_support import load_runtime_config
+
 SERVICE_ROOT = Path(__file__).resolve().parents[1]
 if str(SERVICE_ROOT) not in sys.path:
     sys.path.insert(0, str(SERVICE_ROOT))
@@ -65,11 +67,7 @@ _DNS_HOST_RE = re.compile(r"(?=.{1,253}\Z)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?
 
 
 def load_config() -> dict[str, Any]:
-    try:
-        decoded = json.loads(os.environ.get("MN_BLUEPRINT_CONFIG_JSON", "{}"))
-    except json.JSONDecodeError:
-        return {}
-    return decoded if isinstance(decoded, dict) else {}
+    return load_runtime_config(__file__)
 
 
 def configured_run_dir() -> Path:

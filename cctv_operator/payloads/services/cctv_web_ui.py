@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any, Callable, Iterator, Mapping, Protocol
 
 from mn_live_video_analysis_skill import redact_source_urls
+from mn_sdk.blueprint_support import load_runtime_config
 from mn_sdk_web_ui import claim_web_ui, mark_web_ui_status, resolve_web_ui_binding
 
 
@@ -318,11 +319,7 @@ operator_state = _load_dashboard_projection()
 
 
 def load_config() -> dict[str, Any]:
-    try:
-        decoded = json.loads(os.environ.get("MN_BLUEPRINT_CONFIG_JSON", "{}"))
-    except json.JSONDecodeError:
-        return {}
-    return decoded if isinstance(decoded, dict) else {}
+    return load_runtime_config(__file__)
 
 
 def configured_run_id() -> str:

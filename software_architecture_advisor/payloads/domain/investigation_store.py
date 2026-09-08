@@ -8,6 +8,14 @@ from contextlib import contextmanager
 from copy import deepcopy
 from pathlib import Path
 
+from mn_sdk.committed_artifacts import (
+    COMMITTED_JSON_VERSION,
+    CommittedArtifactConflict,
+    CommittedArtifactIntegrityError,
+    CommittedArtifactRef,
+    CommittedJsonStore,
+)
+
 
 class BudgetExhausted(Exception):
     pass
@@ -43,18 +51,31 @@ class InvestigationStore:
     def write(self, name, value):
         path = self.path(name)
         immutable = name.startswith(("investigation/plans/", "investigation/parameters/", "investigation/findings/", "investigation/observations/", "investigation/rounds/"))
-        if immutable and path.exists():
-            if read_json(path) != value:
-                raise ValueError("Immutable investigation artifact already exists with different contents")
-        else:
-            write_json(path, value)
+        if immutable:
+            try:
+                committed = CommittedJsonStore(self.root).commit(name, value)
+            except CommittedArtifactConflict as error:
+                raise ValueError(
+                    "Immutable investigation artifact already exists with different contents"
+                ) from error
+            return {"path": committed.path, "sha256": committed.sha256}
+        write_json(path, value)
         return {"path": name, "sha256": hashlib.sha256(self.path(name).read_bytes()).hexdigest()}
 
     def load_ref(self, ref):
         path = self.path(ref["path"])
-        if hashlib.sha256(path.read_bytes()).hexdigest() != ref["sha256"]:
-            raise ValueError("Investigation artifact hash mismatch")
-        return read_json(path)
+        committed = CommittedArtifactRef(
+            type="artifact_ref",
+            version=COMMITTED_JSON_VERSION,
+            kind="json",
+            path=ref["path"],
+            sha256=ref["sha256"],
+            size_bytes=path.stat().st_size,
+        )
+        try:
+            return CommittedJsonStore(self.root).read(committed)
+        except CommittedArtifactIntegrityError as error:
+            raise ValueError("Investigation artifact hash mismatch") from error
 
     @contextmanager
     def ledger(self):

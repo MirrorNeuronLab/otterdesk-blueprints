@@ -4,53 +4,27 @@ from __future__ import annotations
 import argparse
 import copy
 import hashlib
-import importlib.util
 import json
 import os
 import re
-import sys
 import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-
-RUNTIME_SKILL_PACKAGES = (
-    "mirrorneuron-blueprint-support-skill",
-    "mirrorneuron-llm-ocr-skill",
-)
-
-
-def _bootstrap_runtime() -> None:
-    for parent in Path(__file__).resolve().parents:
-        helper = parent / "otterdesk_blueprint_env.py"
-        if helper.exists():
-            spec = importlib.util.spec_from_file_location("otterdesk_blueprint_env", helper)
-            if spec is None or spec.loader is None:
-                return
-            module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
-            module.bootstrap_blueprint_runtime(__file__, packages=RUNTIME_SKILL_PACKAGES)
-            return
-
-
-_bootstrap_runtime()
-
-from mn_blueprint_support import (
-    DeterministicFallbackLLM,
-    PromptLibrary,
-    append_event_jsonl,
-    fake_llm_mode_enabled,
-    get_actor_llm_client,
-    start_agent_beacon_thread,
-)
+from mn_prototype_actor_review_agent.actors import get_actor_llm_client
 from mn_sdk.blueprint_support import (
+    DeterministicFallbackLLM,
+    fake_llm_mode_enabled,
     create_blueprint_run_context,
     persist_blueprint_run_context,
     resolve_existing_path,
     source_manifest,
 )
+from mn_sdk_common.beacon import start_agent_beacon_thread
+from mn_sdk_common.events import append_event_jsonl
+from mn_sdk_common.prompts import PromptLibrary
 
 try:
     from mn_llm_ocr_skill import docker_ocr_client_factory_from_config, extract_document

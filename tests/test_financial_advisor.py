@@ -224,11 +224,7 @@ print(json.dumps({{
     assert result["run_dir"] == str(tmp_path / "runs" / "financial-runtime-run")
     assert result["output_folder"] == str(tmp_path / "job-output")
     assert result["document_folder"] == str(
-        ROOT.parent
-        / "mn-blueprints"
-        / "financial_advisor"
-        / "examples"
-        / "sample_inputs"
+        blueprint_path("financial_advisor") / "examples" / "sample_inputs"
     )
     assert result["stored_document_folder"] == result["document_folder"]
     assert result["stored_payload_folder"] == result["document_folder"]

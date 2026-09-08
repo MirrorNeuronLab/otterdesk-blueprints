@@ -7,6 +7,8 @@ import json
 import re
 from typing import Any
 
+from mn_public_research_orchestrator_skill import source_records_from_browser_result
+
 from .common import _compact, _now, _sha256, load_prompt
 from .inputs import _call_optional
 
@@ -142,41 +144,26 @@ def _source_record(*, url: str, title: str, snippet: str, status: str, skill: st
 
 
 def _normalize_browser_result(result: Any, query: str, skill: str) -> list[dict[str, Any]]:
-    if isinstance(result, dict):
-        candidates = [result]
-        for collection_key in ("sources", "results", "items"):
-            if collection_key in result:
-                collection = result.get(collection_key)
-                candidates = collection if isinstance(collection, list) else []
-                break
-    elif isinstance(result, list):
-        candidates = result
-    else:
-        candidates = [{"text": str(result or "")}] if result else []
-    records = []
-    for item in candidates:
-        if isinstance(item, str):
-            item = {"text": item}
-        item_warnings = item.get("warnings") or []
-        if isinstance(item_warnings, str):
-            item_warnings = [item_warnings]
-        warning = str(
-            item.get("warning")
-            or item.get("error")
-            or item.get("block_reason")
-            or "; ".join(str(value) for value in item_warnings if value)
-            or ""
-        )
-        records.append(_source_record(
-            url=str(item.get("final_url") or item.get("url") or item.get("link") or ""),
-            title=str(item.get("title") or item.get("name") or ""),
-            snippet=str(item.get("snippet") or item.get("text") or item.get("content") or ""),
+    normalized = source_records_from_browser_result(
+        result,
+        entity="purchase",
+        query=query,
+        skill=skill,
+        verification_target="purchase_source",
+        snippet_limit=1800,
+    )
+    return [
+        _source_record(
+            url=str(item.get("url") or ""),
+            title=str(item.get("title") or ""),
+            snippet=str(item.get("snippet") or ""),
             status=str(item.get("status") or "observed"),
             skill=skill,
             query=query,
-            warning=warning,
-        ))
-    return records
+            warning=str(item.get("warning") or ""),
+        )
+        for item in normalized
+    ]
 
 
 def research_public_sources(

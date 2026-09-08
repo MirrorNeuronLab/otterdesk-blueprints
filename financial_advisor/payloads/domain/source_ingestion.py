@@ -3,19 +3,19 @@
 from .common import *
 from .review_services import fake_llm_requested
 
+from mn_document_reading_skill import document_paths, file_sha256
+
 def fingerprint_file(path: Path) -> dict[str, Any]:
-    digest = hashlib.sha256()
     try:
-        with path.open("rb") as handle:
-            for chunk in iter(lambda: handle.read(65536), b""):
-                digest.update(chunk)
+        digest = file_sha256(path)
         size = path.stat().st_size
     except OSError:
+        digest = hashlib.sha256(b"").hexdigest()
         size = 0
     return {
         "path": str(path),
         "name": path.name,
-        "sha256": digest.hexdigest(),
+        "sha256": digest,
         "size_bytes": size,
         "suffix": path.suffix.lower(),
     }
@@ -23,11 +23,7 @@ def fingerprint_file(path: Path) -> dict[str, Any]:
 def iter_input_files(document_folder: Path) -> list[Path]:
     if not document_folder.exists():
         return []
-    return sorted(
-        path
-        for path in document_folder.rglob("*")
-        if path.is_file() and path.suffix.lower() in SUPPORTED_SUFFIXES
-    )
+    return document_paths(document_folder, supported_suffixes=SUPPORTED_SUFFIXES)
 
 def _ocr_skill_config(config: dict[str, Any]) -> dict[str, Any]:
     input_skills = config.get("input_skills") if isinstance(config.get("input_skills"), dict) else {}

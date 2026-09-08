@@ -8,6 +8,8 @@ import os
 from pathlib import Path
 from typing import Any, Callable
 
+from mn_document_reading_skill import DocumentIntakeOptions, scan_document_packet
+
 from .common import DEFAULT_OUTPUT_FOLDER, SUPPORTED_SUFFIXES, TEXT_SUFFIXES, _sha256, runtime_asset_root
 
 try:
@@ -154,45 +156,50 @@ def expand_runtime_path(value: str | Path) -> Path:
 def load_input_documents(folder: Path | None, config: dict[str, Any]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     if folder is None or not folder.exists():
         return [], [] if folder is None else [{"status": "missing", "path": str(folder), "warning": "input_folder does not exist"}]
+    def extract(path: Path) -> dict[str, Any]:
+        suffix = path.suffix.lower()
+        if suffix in TEXT_SUFFIXES:
+            return {
+                "text": path.read_text(encoding="utf-8", errors="replace"),
+                "extraction_method": "direct_text",
+            }
+        if extract_document is None:
+            return {"text": "", "extraction_method": "ocr_unavailable"}
+        extracted = _call_optional(
+            extract_document, path=str(path), file_path=str(path), config=config
+        )
+        text, method, extraction_warnings = _document_extraction(extracted)
+        return {"text": text, "extraction_method": method, "warnings": extraction_warnings}
+
+    packet = scan_document_packet(
+        folder,
+        options=DocumentIntakeOptions(
+            supported_suffixes=frozenset(SUPPORTED_SUFFIXES),
+            text_suffixes=frozenset(TEXT_SUFFIXES),
+            max_chars_per_file=20_000,
+        ),
+        extractor=extract,
+    )
     records: list[dict[str, Any]] = []
     warnings: list[dict[str, Any]] = []
-    for path in sorted(item for item in folder.rglob("*") if item.is_file() and item.suffix.lower() in SUPPORTED_SUFFIXES):
-        suffix = path.suffix.lower()
-        try:
-            if suffix in TEXT_SUFFIXES:
-                text = path.read_text(encoding="utf-8", errors="replace")
-                method = "direct_text"
-                extraction_warnings: list[str] = []
-            elif extract_document is not None:
-                extracted = _call_optional(
-                    extract_document,
-                    path=str(path),
-                    file_path=str(path),
-                    config=config,
-                )
-                text, method, extraction_warnings = _document_extraction(extracted)
-            else:
-                text = ""
-                method = "ocr_unavailable"
-                extraction_warnings = []
-            record = {
-                "path": str(path),
-                "name": path.name,
-                "suffix": suffix,
-                "bytes": path.stat().st_size,
-                "sha256": _sha256(path.read_bytes()),
-                "extraction_method": method,
-                "status": "extracted" if text else "review_required",
-                "text": text[:20000],
-                "source_ref": f"local:{path.name}",
-            }
-            if extraction_warnings:
-                record["warnings"] = extraction_warnings
-            records.append(record)
-            if not text:
-                warnings.append({"path": str(path), "status": "review_required", "message": f"No usable text extracted from {path.name}."})
-        except Exception as exc:  # Keep one bad document from hiding the rest.
-            warnings.append({"path": str(path), "status": "failed", "message": str(exc)})
+    for item in packet.records:
+        path = folder / item["path"]
+        if item["status"] == "failed":
+            warnings.append({"path": str(path), "status": "failed", "message": "; ".join(item["warnings"])})
+            continue
+        record = {
+            "path": str(path), "name": item["filename"], "suffix": item["suffix"],
+            "bytes": path.stat().st_size, "sha256": item["sha256"],
+            "extraction_method": item["extraction_method"],
+            "status": "extracted" if item["text"] else "review_required",
+            "text": item["text"], "source_ref": f"local:{item['filename']}",
+        }
+        if item["warnings"]:
+            record["warnings"] = item["warnings"]
+        records.append(record)
+        if not item["text"]:
+            warnings.append({"path": str(path), "status": "review_required", "message": f"No usable text extracted from {item['filename']}."})
+    warnings.extend(dict(item) for item in packet.warnings if item.get("status") != "document_failed")
     return records, warnings
 
 

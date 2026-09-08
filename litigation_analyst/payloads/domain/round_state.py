@@ -1,11 +1,17 @@
 """Immutable litigation round artifacts and the existing review projection."""
-import hashlib
 import json
 import time
 from pathlib import Path
 
 from mn_prototype_bounded_tool_loop_agent.checkpoint import atomic_json
 from mn_sdk.blueprint_support import source_manifest
+from mn_sdk.committed_artifacts import (
+    COMMITTED_JSON_VERSION,
+    CommittedArtifactConflict,
+    CommittedArtifactError,
+    CommittedArtifactRef,
+    CommittedJsonStore,
+)
 from mn_sdk.step_runtime import artifact_reference
 from .indexing import validate_indexes
 from .evidence.store import EvidenceStore
@@ -16,21 +22,28 @@ def read(path):
 
 
 def save(root, name, value):
-    path = Path(root) / name
-    if path.exists() and read(path) != value:
-        raise ValueError("Committed litigation artifact changed: " + name)
-    if not path.exists():
-        path.parent.mkdir(parents=True, exist_ok=True)
-        atomic_json(path, value)
-    return {"path": name, "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
+    try:
+        committed = CommittedJsonStore(root).commit(name, value)
+    except CommittedArtifactConflict as error:
+        raise ValueError("Committed litigation artifact changed: " + name) from error
+    return {"path": committed.path, "sha256": committed.sha256}
 
 
 def load(root, ref):
-    root = Path(root).resolve()
-    path = (root / ref["path"]).resolve()
-    if not path.is_relative_to(root) or hashlib.sha256(path.read_bytes()).hexdigest() != ref["sha256"]:
-        raise ValueError("Committed litigation artifact path or hash mismatch")
-    return read(path)
+    store = CommittedJsonStore(root)
+    path = store.path(ref["path"])
+    committed = CommittedArtifactRef(
+        type="artifact_ref",
+        version=COMMITTED_JSON_VERSION,
+        kind="json",
+        path=ref["path"],
+        sha256=ref["sha256"],
+        size_bytes=path.stat().st_size,
+    )
+    try:
+        return store.read(committed)
+    except (CommittedArtifactError, OSError) as error:
+        raise ValueError("Committed litigation artifact path or hash mismatch") from error
 
 
 def open_round(context, work):

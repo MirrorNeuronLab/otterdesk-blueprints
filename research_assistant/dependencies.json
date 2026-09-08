@@ -2,6 +2,12 @@
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/dependencies.schema.json",
   "skills": [
     {
+      "name": "mirrorneuron-document-reading-skill",
+      "source": "gar",
+      "type": "pip",
+      "version": "1.3.23"
+    },
+    {
       "name": "mirrorneuron-llm-ocr-skill",
       "source": "gar",
       "type": "pip",
@@ -15,6 +21,12 @@
     },
     {
       "name": "mirrorneuron-autonomous-research-skill",
+      "source": "gar",
+      "type": "pip",
+      "version": "1.3.23"
+    },
+    {
+      "name": "mirrorneuron-public-research-orchestrator-skill",
       "source": "gar",
       "type": "pip",
       "version": "1.3.23"
