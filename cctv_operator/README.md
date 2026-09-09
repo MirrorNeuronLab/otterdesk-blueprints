@@ -82,9 +82,11 @@ writes the durable iframe-proxy handle. It shows:
 
 - a stable multipart MJPEG preview produced by one shared FFmpeg relay using
   CUDA decode and `scale_cuda` inside the NVIDIA DockerWorker;
-- `latest_analyzed_frame.jpg`, labelled by its batch metadata;
-- an auto-updating, newest-first operator event stream over SSE; and
-- live sampling, backpressure, observation, report, and review telemetry.
+- `latest_analyzed_frame.jpg`, refreshed when a new analysis completes.
+
+The embedded page contains only these two media panels. Observations, monitoring
+focus, confidence, risk, and other supporting details appear in the conversation.
+SSE updates the snapshot without duplicating the activity feed in the page.
 
 The UI exposes no steering form or browser action. External chat/MCP clients use
 the manifest-declared `steer_monitoring` live input; callers still cannot name
@@ -93,12 +95,11 @@ fans its MJPEG frames out to connected browsers. FFmpeg uses CUDA hardware
 decode and resize; because NVIDIA FFmpeg does not provide an MJPEG NVENC codec,
 the final JPEG entropy encoding uses FFmpeg's MJPEG encoder. There is no CPU
 decode fallback. Camera credentials remain server-side and are redacted from
-browser URLs, events, and errors. The dashboard derives operator
-status, latest finding, confidence, risk, notices, errors, frame counts,
-sampling trigger, skipped samples, and model latency from the durable report
-and latest-frame artifacts.
-It does not depend on a per-service `events.jsonl` mirror. The dashboard also
-shows the active watch target supplied through chat. The default
+browser URLs, events, and errors. The service derives conversation observations
+and their supporting measurements from the durable report and latest-frame
+artifacts. Each observation carries its own confidence and risk, rather than
+borrowing values from the newest frame. It does not depend on a per-service
+`events.jsonl` mirror. The default
 `web_ui.service.port` value is `0`.
 The generic Web UI skill resolves a runtime-reserved port when one exists;
 otherwise CCTV binds port `0` and claims the actual OS-selected port. CCTV does
@@ -297,3 +298,22 @@ and default monitoring settings. Choose **Use my data** to enter an external
 stream URL in the secure answer control, then confirm required settings one at
 a time. The stream URL stays in encrypted desktop credential storage and is supplied
 only when launching the external source.
+
+## Conversation knowledge
+
+The root `knowledge/` folder contains role guidance and clearly labeled synthetic
+CCTV site and observation examples. The shared runtime seeds these documents into
+new Job storage and indexes them through RAG. “What can you do?” uses reference
+knowledge and the declared capabilities. “What did you find?” uses current operator
+activity; the synthetic examples never count as observations. Existing Job storage
+is preserved and requires a knowledge update to receive newly added documents.
+
+Monitoring updates carry their conversation command ID in both the declared live
+input and its idempotency key. The sampler preserves that ID through durable
+instruction state and the next analysis batch. The latest instruction becomes
+the vision model's primary analysis goal; clearing it restores configured targets.
+Control readiness does not wait for the first frame to finish analysis.
+
+The host MCP sidecar requests an automatic scheduler port. Its listener, service
+registration, and health check use that same allocation; no run binds a fixed
+MCP port. A missing allocation fails before the sidecar starts.

@@ -48,8 +48,12 @@ human notice without attempting an external delivery.
 The manifest declares `contracts.live_inputs.steer_monitoring`. Core resolves
 that identifier to `ingress` and `cctv_operator_steer`; callers cannot name a
 physical agent or stream. The payload accepts `instruction` (500 characters
-maximum), `clear`, and `analyze_now`. Core assigns the command ID from the
-required idempotency key and preserves it in live-input metadata.
+maximum), `clear`, `analyze_now`, and an optional bounded `command_id`.
+The conversation tool supplies the same command ID in the payload and idempotency
+key. The sampler preserves the explicit ID, using runtime metadata for callers
+that omit it. The active instruction becomes the vision prompt's primary goal;
+clearing it restores the default targets. Readiness to accept a goal is independent
+of whether the first frame has already been analyzed.
 
 Steering state is stored in the adaptive sampler’s agent state with a monotonically increasing revision and never crosses run boundaries.
 
@@ -128,17 +132,18 @@ federation projection.
 
 The manifest declares a blueprint-owned DockerWorker `cctv_web_ui` service in
 the same shared host-network container as the stream and analysis workers. Its
-HTML page, MJPEG relay, SSE event feed, and state projection live in
-`payloads/services/cctv_web_ui.py`. The
+MJPEG relay and SSE transport live in `payloads/services/cctv_web_ui.py`;
+`payloads/domain/media.py` owns the media page and `payloads/domain/dashboard.py`
+owns the observation projection. The
 generic `mn-python-sdk-web-ui` claims the already-bound endpoint and its
-proxy allowlist; it knows no CCTV routes or policy. The dashboard is read-only,
-displays the current watch target, and leaves updates to an external chat AI
+proxy allowlist; it knows no CCTV routes or policy. The page is read-only and
+shows only live video and the latest analyzed snapshot, leaving updates to chat
 calling the blueprint MCP and its declared `steer_monitoring` live input.
 The adaptive sampler durably writes the current run-scoped instruction to
-`monitoring_state.json`. The Web UI uses that artifact as the authoritative
+`monitoring_state.json`. The service uses that artifact as the authoritative
 watch-target state. It projects operational status and review history from
 `cctv_report.json` and `latest_analyzed_frame.json`, treating event records as
-supplemental activity history. This keeps the UI meaningful without depending
+supplemental activity history. Conversation observations therefore do not depend
 on transient relay files.
 
 The Web UI process opens the configured RTSP/RTMP source once and fans a
@@ -147,9 +152,11 @@ requires CUDA decode and `scale_cuda`; it does not silently fall back to CPU
 decode. NVIDIA FFmpeg has no MJPEG NVENC codec, so the final JPEG entropy encode
 uses FFmpeg's MJPEG encoder after GPU download. The source URI and credentials
 never appear in the browser route or public service metadata. The operator
-event projection is delivered over server-sent events, sorted newest first, and
-the browser returns the feed to the top when a new event arrives. The UI
-separately renders `latest_analyzed_frame.jpg` as model evidence. There is no
+event projection is delivered over server-sent events to refresh media. The browser
+does not render event text or telemetry. Conversation events carry optional
+bounded display details derived from that individual observation, including
+confidence, risk, analyzed frame count, and model latency when present. The UI
+renders `latest_analyzed_frame.jpg` as model evidence. There is no
 Gradio path, browser steering action, or `mn-api` live-input REST route.
 `web_ui.service.port` defaults to `0`; the
 generic Web UI skill resolves a runtime-reserved port or allows an
@@ -170,8 +177,9 @@ to the loopback MCP server; it is never part of public UI metadata.
 
 Knowledge, RAG, and durable application state are isolated by stable `job_id`
 and survive multiple runs. Run media inputs and review outputs remain
-run-scoped. This blueprint has no bundle seed for runtime-generated CCTV
-knowledge and never clears job data during run cleanup.
+run-scoped. The root `knowledge/` folder seeds reference guidance and clearly labeled
+synthetic CCTV examples through the shared runtime convention; these are never
+live findings. Run cleanup never clears job data.
 
 The stable job exposes the API-owned top-level Job response service while `mn-api`
 is reachable. During an active run, the CCTV DockerWorker hosts the private SDK
@@ -223,3 +231,7 @@ configuration are resolved by the SDK before launch.
 OtterDesk initial setup offers an explicit sample start with all bundled defaults.
 Personal-stream setup requires a secure stream URL; the sampling, target, notice,
 and output defaults remain optional to edit. Appearance is not a launch requirement.
+
+The host MCP sidecar requests an automatic scheduler port. Its listener, service
+registration, and health check use that same allocation; no run binds a fixed
+MCP port. A missing allocation fails before the sidecar starts.

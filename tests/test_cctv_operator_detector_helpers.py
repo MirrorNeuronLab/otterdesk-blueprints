@@ -312,3 +312,13 @@ def test_normalize_detection_accepts_visible_color():
     )
 
     assert result["detections"][0]["color"] == "dark clothing"
+
+
+
+def test_detection_report_list_becomes_readable_conversation_text():
+    detector = _load_detector()
+    result = detector.normalize_detection({
+        "detected": True,
+        "detection_report": ["A person is near the entrance.", {"raw": "ignored"}, "An object is on the floor."],
+    })
+    assert result["detection_report"] == "A person is near the entrance. An object is on the floor."

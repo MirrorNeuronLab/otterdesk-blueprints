@@ -336,3 +336,48 @@ def test_sampler_maps_skill_batch_to_cctv_message_without_image_blob(
     assert persisted_state["previous_proxy"] == Result.state["previous_proxy"]
     assert persisted_state["recent_frames"] == Result.state["recent_frames"]
     assert len(raw_output.encode()) < 64 * 1024
+
+
+def test_sampler_carries_conversation_command_into_the_vision_batch(monkeypatch, tmp_path, capsys):
+    from types import SimpleNamespace
+    sampler = _load(PAYLOADS / "agents/adaptive_frame_sampler/scripts/sample_video.py", "cctv_sampler_goal")
+    instruction = "Look for objects blocking the exit."
+    files = {
+        "MN_INPUT_FILE": {"command_id": "conversation-command", "instruction": instruction, "analyze_now": True},
+        "MN_MESSAGE_FILE": {"message_id": "transport-message"},
+        "MN_CONTEXT_FILE": {"agent_state": sampler.initial_state()},
+    }
+    for name, value in files.items():
+        path = tmp_path / f"{name}.json"
+        path.write_text(json.dumps(value))
+        monkeypatch.setenv(name, str(path))
+    monkeypatch.setenv("MN_RUN_DIR", str(tmp_path / "run"))
+    monkeypatch.setenv("MN_BLUEPRINT_CONFIG_JSON", "{}")
+    monkeypatch.setattr(sampler, "start_agent_beacon_thread", lambda *_a, **_kw: None)
+    monkeypatch.setattr(sampler.time, "sleep", lambda *_a: None)
+
+    class Engine:
+        def __init__(self, **kwargs):
+            pass
+
+        def sample(self, config, state, **kwargs):
+            assert kwargs["force_analysis"] is True
+            assert kwargs["command_id"] == "conversation-command"
+            assert kwargs["instruction"] == instruction
+            assert kwargs["instruction_revision"] == 1
+            return SimpleNamespace(state=state, events=[], batch={
+                "frame_batch_ref": "frame_batches/test/batch.json",
+                "instruction": kwargs["instruction"],
+                "instruction_revision": kwargs["instruction_revision"],
+                "command_id": kwargs["command_id"],
+            })
+
+    monkeypatch.setattr(sampler, "AdaptiveStreamSampler", Engine)
+    assert sampler.main() == 0
+    result = json.loads(capsys.readouterr().out)
+    batch = result["emit_messages"][0]["body"]
+    assert batch["instruction"] == instruction
+    assert batch["command_id"] == "conversation-command"
+    persisted = json.loads((tmp_path / "run/monitoring_state.json").read_text())
+    assert persisted["last_command_id"] == batch["command_id"]
+    assert persisted["instruction_revision"] == batch["instruction_revision"]

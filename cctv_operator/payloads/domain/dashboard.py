@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import math
 import time
 from typing import Any, Mapping
 
@@ -40,12 +41,44 @@ def _event(
     summary: str,
     *,
     timestamp: Any = "",
-) -> dict[str, str]:
+    observation: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
     return {
         "type": event_type,
         "timestamp": _display_time(timestamp) if timestamp else "",
         "summary": " ".join(str(summary or "").split())[:500],
+        **({"details": observation_details(observation)} if observation else {}),
     }
+
+
+def observation_details(value: Mapping[str, Any]) -> list[dict[str, str]]:
+    """Attach only this observation's bounded supporting measurements."""
+    details = []
+    confidence = value.get("confidence")
+    if (
+        isinstance(confidence, (int, float))
+        and not isinstance(confidence, bool)
+        and math.isfinite(confidence)
+        and 0 <= confidence <= 1
+    ):
+        details.append({"label": "Confidence", "value": f"{confidence:.0%}"})
+    risk = value.get("risk_level")
+    if risk in ("low", "medium", "high"):
+        details.append({"label": "Risk", "value": risk})
+    for key, label in (
+        ("model_latency_ms", "Analysis time"),
+        ("selected_count", "Frames"),
+    ):
+        number = value.get(key)
+        if (
+            isinstance(number, (int, float))
+            and not isinstance(number, bool)
+            and math.isfinite(number)
+            and number >= 0
+        ):
+            suffix = " ms" if key == "model_latency_ms" else ""
+            details.append({"label": label, "value": f"{int(number)}{suffix}"})
+    return details
 
 
 def _runtime_event_summary(event_type: str, payload: Mapping[str, Any]) -> str:
@@ -173,7 +206,7 @@ def operator_state(
         status = "Starting"
         warning = preview_warning or "Waiting for the first selected frame to be analyzed."
 
-    recent_events: list[dict[str, str]] = []
+    recent_events: list[dict[str, Any]] = []
     for error in errors[-10:]:
         recent_events.append(
             _event(
@@ -193,6 +226,7 @@ def operator_state(
                     or "A configured target needs review."
                 ),
                 timestamp=alert.get("observed_at"),
+                observation=alert,
             )
         )
     for detection in detections[-20:]:
@@ -205,6 +239,7 @@ def operator_state(
                     or "A configured target was observed."
                 ),
                 timestamp=detection.get("observed_at"),
+                observation=detection,
             )
         )
     for event in supplemental_events[-20:]:
@@ -217,6 +252,7 @@ def operator_state(
                 _runtime_event_label(event_type),
                 _runtime_event_summary(event_type, payload_value),
                 timestamp=event.get("timestamp") or event.get("ts"),
+                observation=payload_value,
             )
         )
     indexed_events = [
@@ -282,6 +318,7 @@ def operator_state(
                 monitoring.get("instruction_revision") or 0
             ),
         },
+        "finding_details": observation_details(latest_detection or latest),
         "warning": warning,
         "events": recent_events,
     }

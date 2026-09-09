@@ -403,7 +403,14 @@ def normalize_detection(result: dict[str, Any]) -> dict[str, Any]:
     if not summary:
         summary = f"{detection_count} configured target(s) were observed in the monitored scene." if detected else "No configured targets were observed in the monitored scene."
 
-    detection_report = str(result.get("detection_report", result.get("description", ""))).strip()
+    raw_report = result.get("detection_report", result.get("description", ""))
+    if isinstance(raw_report, list):
+        detection_report = " ".join(
+            item.strip() for item in raw_report[:20]
+            if isinstance(item, str) and item.strip()
+        )
+    else:
+        detection_report = raw_report.strip() if isinstance(raw_report, str) else ""
     if not detection_report and detected:
         details = []
         for detection in normalized_detections:
@@ -912,6 +919,11 @@ def maybe_build_big_change_notice(
         "channel": "human",
         "payload": {
             "notice_id": notice_id,
+            "observed_at": detection_payload.get("observed_at"),
+            "confidence": detection_payload.get("confidence"),
+            "risk_level": detection_payload.get("risk_level"),
+            "model_latency_ms": detection_payload.get("model_latency_ms"),
+            "selected_count": detection_payload.get("selected_count"),
             "kind": "video_big_change",
             "level": "attention",
             "title": "Big change in video",

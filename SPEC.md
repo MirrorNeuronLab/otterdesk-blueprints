@@ -93,6 +93,13 @@ key. Seeds apply only on initialization and explicit data reset. Knowledge,
 Milvus Lite databases, and durable application state remain job-scoped; run
 inputs, outputs, logs, and ordinary artifacts remain run-scoped.
 
+Root `knowledge/` is the shared reference-document convention for every blueprint.
+The runtime compiler declares its isolated knowledge and RAG resources, stages the
+seed through standard payload transport, and enables retrieval unless explicitly
+disabled. Response questions about capabilities, findings, and explanations retrieve
+these documents alongside current evidence. Reference documents do not authorize
+actions or establish live findings; fictional examples are labeled synthetic.
+
 Blueprints must not derive host storage paths, treat replication as a
 transactional filesystem, or clear job data during run cleanup. Mutable
 file-backed resources require Core owner-node placement and the declared access

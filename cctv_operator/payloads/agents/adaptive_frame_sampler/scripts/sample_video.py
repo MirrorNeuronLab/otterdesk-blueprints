@@ -223,7 +223,7 @@ def main() -> int:
     analyze_now = False
 
     if steering_message:
-        command_id = invocation_id
+        command_id = str(payload.get("command_id") or invocation_id).strip()
         if command_id:
             payload = {**payload, "command_id": command_id}
         try:

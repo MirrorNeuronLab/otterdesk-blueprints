@@ -209,7 +209,10 @@ def serve_mcp_proxy(endpoint: Mapping[str, Any], **kwargs: Any) -> None:
 
 def main() -> int:
     endpoint = await_endpoint(configured_run_dir() / CCTV_MCP_ENDPOINT_ARTIFACT)
-    proxy_port = int(os.environ.get("MN_PORT_CCTV_OPERATOR_MCP") or CCTV_MCP_PORT)
+    allocated_port = str(os.environ.get("MN_PORT_CCTV_OPERATOR_MCP") or "").strip()
+    if not allocated_port.isdecimal() or not 1 <= int(allocated_port) <= 65_535:
+        raise RuntimeError("CCTV Operator MCP requires its runtime-assigned port")
+    proxy_port = int(allocated_port)
 
     def stop(_signum: int, _frame: Any) -> None:
         raise SystemExit(0)

@@ -204,7 +204,10 @@ def test_cctv_ui_server_serves_mjpeg_sse_and_no_browser_action(tmp_path: Path):
         assert "CCTV Operator" in page
         assert "streams/live.mjpg" in page
         assert "streams/operator-events" in page
-        assert "Operator event stream" in page
+        assert "Latest analyzed snapshot" in page
+        assert "Operator event stream" not in page
+        assert "Latest finding" not in page
+        assert "Confidence" not in page
         assert "Change the watch" not in page
         assert "setInterval" not in page
         assert json.loads(
@@ -318,6 +321,8 @@ def test_cctv_operator_owns_an_sdk_mcp_activity_exchange(tmp_path: Path):
                     {
                         "detection_report": "A person is visible near the center of the frame.",
                         "observed_at": "2026-09-08T22:23:39Z",
+                        "confidence": 0.92,
+                        "risk_level": "low",
                     }
                 ]
             }
@@ -334,6 +339,7 @@ def test_cctv_operator_owns_an_sdk_mcp_activity_exchange(tmp_path: Path):
         def send_run_input(self, run_id, input_id, payload, *, idempotency_key):
             assert (run_id, input_id) == ("run-1", "steer_monitoring")
             assert payload == {
+                "command_id": idempotency_key,
                 "instruction": "Find foreign objects on the floor.",
                 "clear": False,
                 "analyze_now": True,
@@ -358,6 +364,14 @@ def test_cctv_operator_owns_an_sdk_mcp_activity_exchange(tmp_path: Path):
             },
         )(),
     )
+
+    status = server.tools["get_operator_status"]()
+    assert status["status"] == service.ui_state()["metrics"]["status"]
+    assert status["finding"] == "A person is visible near the center of the frame."
+    assert status["ready"] is True
+    assert status["details"] == [{"label": "Confidence", "value": "92%"}, {"label": "Risk", "value": "low"}]
+    assert status["finding"] in status["summary"]
+    assert status["observed_at"] in status["summary"]
 
     activity = server.tools["get_operator_activity"]("0")
 
@@ -399,6 +413,7 @@ def test_cctv_operator_owns_an_sdk_mcp_activity_exchange(tmp_path: Path):
         "occurred_at": "2026-09-08T22:23:39Z",
         "source": "cctv_operator",
         "requires_review": True,
+        "details": [{"label": "Confidence", "value": "92%"}, {"label": "Risk", "value": "low"}],
     }
 
 
@@ -420,3 +435,34 @@ def test_cctv_ui_advertises_the_owner_node_for_host_network_workers(monkeypatch)
     monkeypatch.setenv("MN_DOCKER_WORKER_CONTAINER_NAME", "mn-dw-job-example-shared")
 
     assert cctv_web_ui.public_service_url("0.0.0.0", 45767) == "http://10.0.4.26:45767"
+
+
+def test_observation_details_belong_to_each_event_not_the_latest_frame():
+    from cctv_operator.payloads.domain.dashboard import operator_state
+    state = operator_state(run_id="run-1", config={}, report={
+        "detections": [
+            {"summary": "Earlier observation", "confidence": 0.62, "risk_level": "low", "observed_at": 1},
+            {"summary": "Later observation", "confidence": 0.94, "risk_level": "medium", "observed_at": 2},
+        ]}, latest_frame={}, monitoring={}, supplemental_events=[], preview_status="live", preview_warning="")
+    events = state["events"]
+    assert events[0]["details"][0] == {"label": "Confidence", "value": "94%"}
+    assert events[1]["details"][0] == {"label": "Confidence", "value": "62%"}
+
+
+def test_mcp_service_uses_one_runtime_allocated_port(monkeypatch, tmp_path):
+    execution = json.loads((ROOT / "cctv_operator/execution.json").read_text())
+    node = next(node for node in execution["agents"]["extra_nodes"] if node["node_id"] == "cctv_operator_mcp")
+    assert node["resources"]["ports"][0]["port"] == "auto"
+    assert node["services"][0]["port"] == "${env.MN_PORT_CCTV_OPERATOR_MCP}"
+    assert node["services"][0]["checks"][0]["port"] == "${service.port}"
+    monkeypatch.setattr(cctv_operator_mcp, "await_endpoint", lambda *a: {"url": "http://127.0.0.1:49100"})
+    seen = []
+    monkeypatch.setattr(cctv_operator_mcp, "serve_mcp_proxy", lambda endpoint, **kw: seen.append(kw["port"]))
+    monkeypatch.setattr(cctv_operator_mcp.signal, "signal", lambda *a: None)
+    for port in (49101, 49102):
+        monkeypatch.setenv("MN_PORT_CCTV_OPERATOR_MCP", str(port))
+        assert cctv_operator_mcp.main() == 0
+    assert seen == [49101, 49102]
+    monkeypatch.delenv("MN_PORT_CCTV_OPERATOR_MCP")
+    with pytest.raises(RuntimeError, match="runtime-assigned port"):
+        cctv_operator_mcp.main()

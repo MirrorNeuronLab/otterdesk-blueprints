@@ -107,6 +107,12 @@
             "default": false,
             "type": "boolean"
           },
+          "command_id": {
+            "description": "Correlation ID supplied by the validated conversation control.",
+            "maxLength": 128,
+            "minLength": 1,
+            "type": "string"
+          },
           "instruction": {
             "maxLength": 500,
             "type": "string"

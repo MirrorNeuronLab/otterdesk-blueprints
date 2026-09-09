@@ -88,6 +88,7 @@ Most blueprint folders contain:
 | `extensions/` | Versioned platform and product descriptors. |
 | `config/default.json` | Default launch configuration and mock/sample inputs. |
 | `config/overwrite.json` | Optional local overrides. Do not commit customer secrets. |
+| `knowledge/` | Optional reference documents, seeded and indexed by the runtime for conversation RAG. |
 | `payloads/` | Worker code, prompts, policies, fixtures, and support files. |
 
 Blueprints that retain knowledge, RAG, or application state across executions
@@ -157,3 +158,18 @@ name, ignoring the declared release version. Local setup enables
 skill source automatically. The same declaration works in both modes; source
 paths are prepared by the SDK rather than authored in dependency records.
 Each blueprint activates only its declared SDK capability closure.
+
+## Shared conversation knowledge
+
+Every blueprint may include a root `knowledge/` directory of reference documents.
+The SDK stages it as a Core-owned seed for the isolated Job `knowledge/` resource
+and enables RAG by default when documents are present. An explicit `mn.rag.enabled:
+false` opts out of retrieval. Existing explicit knowledge seeds must be migrated
+rather than combined silently with a second root seed.
+
+The response service prepares the index and retrieves relevant knowledge for
+capability, findings, and explanation questions, alongside current Job evidence.
+Documents are reference data, not executable instructions or live observations.
+Mark fictional fixtures as synthetic in each document. Actual findings come from
+current evidence or declared read tools. Adding a seed does not overwrite an
+existing Job's documents; existing Jobs need an explicit knowledge import or update.

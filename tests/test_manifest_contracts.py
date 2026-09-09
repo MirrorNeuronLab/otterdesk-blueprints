@@ -35,7 +35,7 @@ def test_catalog_blueprints_declare_job_response_service():
         )
         assert entry["response_service"] == manifest["response_service"], blueprint_id
         assert manifest["response_service"]["enabled"] is True, blueprint_id
-        if blueprint_id in {"microduck_controller", "ros_amr_controller"}:
+        if blueprint_id in {"microduck_controller", "ros_amr_controller", "cctv_operator"}:
             assert manifest["response_service"]["agent"]["kind"] == "bounded_mcp"
         else:
             assert manifest["response_service"] == {"enabled": True}, blueprint_id
@@ -81,6 +81,17 @@ def test_rag_blueprints_declare_job_scoped_knowledge_database_and_state_resource
         seed = by_name["knowledge"].get("seed")
         if seed:
             assert seed.startswith("@/payloads/"), blueprint_id
-            assert (blueprint_path(blueprint_id) / seed.removeprefix("@/")).is_dir(), (
-                blueprint_id
-            )
+            source = "knowledge" if seed == "@/payloads/runtime/blueprint_knowledge" else seed.removeprefix("@/")
+            assert (blueprint_path(blueprint_id) / source).is_dir(), blueprint_id
+
+
+def test_cctv_synthetic_knowledge_uses_runtime_rag_seed():
+    package = read_blueprint(blueprint_path("cctv_operator"))
+    definition = blueprint_definition(package)
+    assert definition["knowledge_rag"]["enabled"] is True
+    assert definition["knowledge_rag"]["index_on_startup"] is True
+    documents = sorted((package.root / "knowledge").glob("*.md"))
+    assert len(documents) >= 3
+    for document in documents:
+        if document.name.startswith("synthetic-"):
+            assert "SYNTHETIC EXAMPLE ONLY" in document.read_text()
