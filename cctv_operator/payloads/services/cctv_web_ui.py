@@ -1,30 +1,34 @@
-#!/usr/bin/env python3.11
 """Serve the CCTV operator page and claim its job-scoped iframe handle."""
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 import mimetypes
 import os
 import signal
+import secrets
+import socket
 import subprocess
 import threading
 import time
 import urllib.parse
 from collections import deque
+from collections.abc import Callable, Iterator, Mapping
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any, Callable, Iterator, Mapping, Protocol
+from typing import Any, Literal, Protocol
 
 from mn_live_video_analysis_skill import redact_source_urls
 from mn_sdk.blueprint_support import load_runtime_config
 from mn_sdk_web_ui import claim_web_ui, mark_web_ui_status, resolve_web_ui_binding
 
-
 SCRIPT_DIR = Path(__file__).resolve().parent
 WEB_UI_NODE_ID = "cctv_web_ui"
 WEB_UI_SERVICE_NAME = "cctv-operator-web-ui"
+CCTV_MCP_PORT = 62009
+CCTV_MCP_ENDPOINT_ARTIFACT = "cctv_operator_mcp_endpoint.json"
 MJPEG_BOUNDARY = "cctv-frame"
 MJPEG_CONTENT_TYPE = f"multipart/x-mixed-replace; boundary={MJPEG_BOUNDARY}"
 
@@ -191,7 +195,7 @@ class CUDAMJPEGPreview:
         while not self._stop_event.is_set():
             with self._condition:
                 self._condition.wait_for(
-                    lambda: self._revision != revision
+                    lambda current_revision=revision: self._revision != current_revision
                     or self._stop_event.is_set(),
                     timeout=10.0,
                 )
@@ -360,6 +364,47 @@ class CCTVWebUIService:
             mjpeg_preview_settings(config)
         )
         self._stop_event = threading.Event()
+        self._activity_store = None
+
+    def attach_activity_store(self, store: Any) -> None:
+        self._activity_store = store
+
+    def sync_mcp_activity(self, state: Mapping[str, Any] | None = None) -> list[dict[str, Any]]:
+        if self._activity_store is None:
+            return []
+        projected = dict(state or self.ui_state())
+        events = projected.get("events") if isinstance(projected.get("events"), list) else []
+        published = []
+        for event in reversed(events):
+            if not isinstance(event, Mapping):
+                continue
+            title = " ".join(str(event.get("type") or "Activity observed").split())[:240]
+            message = " ".join(str(event.get("summary") or "").split())[:8_000]
+            occurred_at = " ".join(str(event.get("timestamp") or "").split())[:80]
+            if not message:
+                continue
+            digest = hashlib.sha256(
+                f"{self.run_id}\0{title}\0{occurred_at}\0{message}".encode()
+            ).hexdigest()[:32]
+            activity = {
+                "schema_version": "mn.mcp.job_activity.v1",
+                "event_id": digest,
+                "title": title,
+                "message": message,
+                "occurred_at": occurred_at,
+                "source": "cctv_operator",
+                "requires_review": title in {"Operator notice", "Target observed"},
+            }
+            published.append(
+                self._activity_store.publish_result(
+                    digest,
+                    activity,
+                    stage="live_activity",
+                    summary=f"{title}: {message}"[:2_000],
+                    idempotency_key=f"cctv-activity:{digest}",
+                )
+            )
+        return published
 
     def ui_state(self) -> dict[str, Any]:
         events = read_event_tail(self.run_dir / "events.jsonl", limit=80)
@@ -382,7 +427,10 @@ class CCTVWebUIService:
             preview_status=str(preview.get("status") or "unavailable"),
             preview_warning=str(preview.get("warning") or ""),
         )
-        return json.loads(redact_source_urls(json.dumps(state)))
+        safe_state = json.loads(redact_source_urls(json.dumps(state)))
+        if self._activity_store is not None:
+            self.sync_mcp_activity(safe_state)
+        return safe_state
 
     def state_events(self) -> Iterator[tuple[int, dict[str, Any]]]:
         sequence = 0
@@ -430,7 +478,7 @@ def _handler_for(service: CCTVWebUIService) -> type[BaseHTTPRequestHandler]:
     class Handler(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
 
-        def do_GET(self) -> None:  # noqa: N802
+        def do_GET(self) -> None:
             path = urllib.parse.urlsplit(self.path).path
             if path == "/":
                 self._send(_dashboard_html().encode(), "text/html; charset=utf-8")
@@ -452,7 +500,7 @@ def _handler_for(service: CCTVWebUIService) -> type[BaseHTTPRequestHandler]:
                 return
             self._json({"error": "not found"}, status=404)
 
-        def do_POST(self) -> None:  # noqa: N802
+        def do_POST(self) -> None:
             self._json({"error": "not found"}, status=404)
 
         def _artifact(self, name: str) -> None:
@@ -596,6 +644,312 @@ def public_service_url(host: str, port: int) -> str:
     return f"http://{host}:{port}"
 
 
+def create_operator_mcp_server(
+    service: CCTVWebUIService,
+    *,
+    job_id: str,
+    run_id: str,
+    run_dir: Path,
+    host: str = "127.0.0.1",
+    port: int = CCTV_MCP_PORT,
+    server_factory: Callable[..., Any] | None = None,
+    runtime_service: Any | None = None,
+):
+    """Create CCTV's own job agent MCP using the shared SDK MRTR package."""
+
+    from mcp.server.mcpserver import Context
+    from mcp.types import InputRequiredResult
+    from mn_sdk.blueprint_support import acknowledge_human_notice
+    from mn_sdk_mcp import (
+        JobExchangeStore,
+        create_mrtr_mcp_server,
+        job_activity_input_required,
+        resolve_job_activity_receipt,
+    )
+    # MCP evaluates postponed annotations against module globals when tools are
+    # registered. Keep imports lazy for blueprint inspection environments while
+    # making the exact MRTR control-flow types available to that evaluator.
+    globals()["Context"] = Context
+    globals()["InputRequiredResult"] = InputRequiredResult
+
+    store = JobExchangeStore(
+        run_dir / "cctv_operator_mcp.sqlite3",
+        allowed_root=run_dir,
+        job_id=job_id,
+        blueprint_id="cctv_operator",
+        run_id=run_id,
+    )
+    service.attach_activity_store(store)
+    server = create_mrtr_mcp_server(
+        "CCTV Operator agent",
+        instructions=(
+            "Inspect the current operator status and activity before answering. "
+            "Use set_monitoring_instruction to change what the current run analyzes. "
+            "Use watch_operator_activity for a bounded live wait. A transport receipt "
+            "does not acknowledge an operator notice."
+        ),
+        host=host,
+        port=port,
+        server_factory=server_factory,
+    )
+
+    @server.tool(name="get_operator_status", structured_output=True)
+    def get_operator_status() -> dict[str, Any]:
+        state = service.ui_state()
+        return {
+            "schema_version": "mn.cctv.operator_status.v1",
+            "ready": str(state.get("status") or "").lower() not in {"", "starting", "error"},
+            "status": state.get("status"),
+            "finding": state.get("finding"),
+            "metrics": state.get("metrics"),
+            "warning": state.get("warning"),
+        }
+
+    @server.tool(name="get_operator_activity", structured_output=True)
+    def get_operator_activity(after_revision: str = "0") -> dict[str, Any]:
+        service.ui_state()
+        try:
+            cursor = max(int(after_revision or 0), 0)
+        except (TypeError, ValueError) as error:
+            raise ValueError("after_revision must be a non-negative integer string") from error
+        return store.updates(after_revision=cursor, kinds=["result"], limit=100)
+
+    @server.tool(name="watch_operator_activity", structured_output=True)
+    async def watch_operator_activity(
+        after_event_id: str = "",
+        wait_seconds: str = "20",
+        ctx: Context = None,
+    ) -> dict[str, Any] | InputRequiredResult:
+        if ctx is not None:
+            receipt = resolve_job_activity_receipt(ctx)
+            if receipt is not None:
+                return receipt
+        try:
+            wait = min(max(float(wait_seconds or 0), 0.0), 25.0)
+        except (TypeError, ValueError) as error:
+            raise ValueError("wait_seconds must be numeric") from error
+        deadline = time.monotonic() + wait
+        cursor = str(after_event_id or "")[:256]
+        while True:
+            service.ui_state()
+            updates = store.updates(after_revision=0, kinds=["result"], limit=200)["updates"]
+            activities = [
+                item.get("payload")
+                for item in updates
+                if isinstance(item.get("payload"), Mapping)
+            ]
+            activity = None
+            if not cursor and activities:
+                activity = activities[-1]
+            elif cursor:
+                for index, candidate in enumerate(activities):
+                    if candidate.get("event_id") == cursor:
+                        activity = activities[index + 1] if index + 1 < len(activities) else None
+                        break
+                if activity is None and activities and activities[-1].get("event_id") != cursor:
+                    activity = activities[-1]
+            if activity is not None:
+                return job_activity_input_required(activity, after_event_id=cursor)
+            if time.monotonic() >= deadline:
+                return {
+                    "schema_version": "mn.mcp.job_activity_watch.v1",
+                    "delivered": False,
+                    "cursor": cursor,
+                    "activity": None,
+                }
+            await __import__("asyncio").sleep(min(0.5, max(0.0, deadline - time.monotonic())))
+
+    @server.tool(name="acknowledge_operator_notice", structured_output=True)
+    def acknowledge_operator_notice(command_id: str, notice_id: str) -> dict[str, Any]:
+        resolved_command_id = str(command_id or "").strip()[:128]
+        resolved_notice_id = str(notice_id or "").strip()[:256]
+        if not resolved_command_id or not resolved_notice_id:
+            raise ValueError("command_id and notice_id are required")
+        acknowledge_human_notice(
+            run_id,
+            resolved_notice_id,
+            {"reviewer": "cctv_operator_mcp"},
+            runs_root=run_dir.parent,
+        )
+        return store.publish_status(
+            "completed",
+            stage="acknowledge_operator_notice",
+            summary="Operator notice acknowledged.",
+            metadata={"notice_id": resolved_notice_id},
+            publication_state="final",
+            idempotency_key=f"cctv-command:{resolved_command_id}",
+            record_id=resolved_command_id,
+        )["payload"] | {
+            "schema_version": "mn.cctv.command_receipt.v1",
+            "command_id": resolved_command_id,
+            "notice_id": resolved_notice_id,
+            "state": "completed",
+        }
+
+    @server.tool(name="set_monitoring_instruction", structured_output=True)
+    def set_monitoring_instruction(
+        command_id: str,
+        instruction: str = "",
+        clear: Literal["true", "false"] = "false",
+        analyze_now: Literal["true", "false"] = "true",
+    ) -> dict[str, Any]:
+        resolved_command_id = str(command_id or "").strip()
+        resolved_instruction = " ".join(str(instruction or "").split())[:500]
+        resolved_clear = str(clear or "false").strip().lower()
+        resolved_analyze_now = str(analyze_now or "true").strip().lower()
+        if resolved_clear not in {"true", "false"} or resolved_analyze_now not in {
+            "true",
+            "false",
+        }:
+            raise ValueError("clear and analyze_now must be true or false")
+        clear_enabled = resolved_clear == "true"
+        analyze_now_enabled = resolved_analyze_now == "true"
+        if not resolved_command_id:
+            raise ValueError("command_id is required")
+        if not clear_enabled and not resolved_instruction:
+            raise ValueError("instruction is required unless clear=true")
+        sender = runtime_service
+        if sender is None:
+            from mn_sdk import RuntimeConfig, RuntimeService, build_runtime_client
+
+            sender = RuntimeService(build_runtime_client(RuntimeConfig.from_env()))
+        accepted = sender.send_run_input(
+            run_id,
+            "steer_monitoring",
+            {
+                "instruction": resolved_instruction,
+                "clear": clear_enabled,
+                "analyze_now": analyze_now_enabled,
+            },
+            idempotency_key=resolved_command_id,
+        )
+        store.publish_status(
+            "accepted",
+            stage="set_monitoring_instruction",
+            summary=(
+                "Monitoring instruction clear was accepted."
+                if clear_enabled
+                else f"Monitoring instruction was accepted: {resolved_instruction}"
+            ),
+            metadata={
+                "instruction": resolved_instruction,
+                "clear": clear_enabled,
+                "analyze_now": analyze_now_enabled,
+            },
+            publication_state="final",
+            idempotency_key=f"cctv-command:{resolved_command_id}",
+            record_id=resolved_command_id,
+        )
+        return {
+            "schema_version": "mn.cctv.command_receipt.v1",
+            "command_id": resolved_command_id,
+            "state": str(accepted.get("status") or "accepted"),
+            "input_id": "steer_monitoring",
+        }
+
+    @server.tool(name="get_command_status", structured_output=True)
+    def get_command_status(command_id: str) -> dict[str, Any]:
+        resolved_command_id = str(command_id or "").strip()[:128]
+        record = store.get_record("status", resolved_command_id, include_staged=True)
+        monitoring = read_monitoring_state(run_dir / "monitoring_state.json")
+        state = str((record or {}).get("payload", {}).get("status") or "unknown")
+        if monitoring.get("command_id") == resolved_command_id:
+            state = "completed"
+        return {
+            "schema_version": "mn.cctv.command_receipt.v1",
+            "command_id": resolved_command_id,
+            "state": state,
+            "instruction": monitoring.get("instruction") if state == "completed" else None,
+            "instruction_revision": (
+                monitoring.get("instruction_revision") if state == "completed" else None
+            ),
+            "record": record,
+        }
+
+    return server
+
+
+def _open_listener(host: str, port: int = 0) -> tuple[socket.socket, int]:
+    listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    try:
+        listener.bind((host, port))
+        listener.listen(socket.SOMAXCONN)
+    except Exception:
+        listener.close()
+        raise
+    return listener, int(listener.getsockname()[1])
+
+
+def _run_operator_mcp(server: Any, listener: socket.socket) -> None:
+    import uvicorn
+
+    options = dict(getattr(server, "_mn_http_options", {}))
+    options.pop("port", None)
+    app = server.streamable_http_app(**options)
+    try:
+        uvicorn.Server(uvicorn.Config(app, log_level="info")).run(sockets=[listener])
+    finally:
+        listener.close()
+
+
+def start_operator_mcp_server(
+    service: CCTVWebUIService,
+    *,
+    job_id: str,
+    run_id: str,
+    run_dir: Path,
+) -> tuple[threading.Thread, int]:
+    """Start the SDK MRTR server on a private, OS-selected owner-node port."""
+
+    from cctv_operator_mcp import create_mcp_proxy
+
+    listener, port = _open_listener("127.0.0.1")
+    try:
+        server = create_operator_mcp_server(
+            service,
+            job_id=job_id,
+            run_id=run_id,
+            run_dir=run_dir,
+            host="127.0.0.1",
+            port=port,
+        )
+        # Core's HostLocal sidecar is in a different network namespace. Only
+        # this authenticated relay crosses that boundary; MCP stays loopback.
+        token = secrets.token_urlsafe(32)
+        proxy = create_mcp_proxy(
+            {"url": f"http://127.0.0.1:{port}"}, port=0, access_token=token
+        )
+    except Exception:
+        listener.close()
+        raise
+    thread = threading.Thread(
+        target=_run_operator_mcp,
+        args=(server, listener),
+        name="cctv-operator-private-mcp",
+        daemon=True,
+    )
+    thread.start()
+    threading.Thread(
+        target=proxy.serve_forever, name="cctv-operator-mcp-relay", daemon=True
+    ).start()
+    relay_port = int(proxy.server_address[1])
+    endpoint = {
+        "schema_version": "mn.cctv.operator_mcp_endpoint.v1",
+        "url": f"http://host.docker.internal:{relay_port}",
+        "port": relay_port,
+        "token": token,
+        "run_id": run_id,
+    }
+    target = run_dir / CCTV_MCP_ENDPOINT_ARTIFACT
+    temporary = target.with_name(f".{target.name}.{os.getpid()}.tmp")
+    with temporary.open("x", encoding="utf-8") as handle:
+        os.chmod(temporary, 0o600)
+        handle.write(json.dumps(endpoint, sort_keys=True) + "\n")
+    os.replace(temporary, target)
+    return thread, port
+
+
 def main() -> int:
     config = load_config()
     run_id = configured_run_id()
@@ -605,6 +959,14 @@ def main() -> int:
     run_dir.mkdir(parents=True, exist_ok=True)
     binding = resolve_web_ui_binding(config)
     service = CCTVWebUIService(run_id=run_id, run_dir=run_dir, config=config)
+    mcp_thread, _mcp_port = start_operator_mcp_server(
+        service,
+        job_id=job_id,
+        run_id=run_id,
+        run_dir=run_dir,
+    )
+    if not mcp_thread.is_alive():
+        raise RuntimeError("CCTV Operator MCP failed to start")
     server = CCTVWebUIServer(service, host=binding.host, port=binding.port)
     _bound_host, port = server.address
     claim_web_ui(

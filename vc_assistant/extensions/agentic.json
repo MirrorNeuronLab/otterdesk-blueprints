@@ -1,0 +1,23 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/agentic.schema.json",
+  "agent_ids": [
+    "research_planner",
+    "company_identity_researcher",
+    "funding_researcher",
+    "market_comp_researcher",
+    "traction_verifier",
+    "rendered_page_researcher"
+  ],
+  "allowed_tools": [
+    "browser_search",
+    "browser_page",
+    "rendered_browser_page",
+    "finish"
+  ],
+  "default_mode": "bounded_llm_guided_public_tool_research",
+  "enabled": true,
+  "max_iterations_per_agent": 1,
+  "max_tool_calls_per_agent": 2,
+  "note": "Default batch research uses bounded LLM tool-decision loops for public-safe evidence collection; browser failures remain warnings and are recorded.",
+  "quick_test_behavior": "disabled_for_default_smoke_run"
+}

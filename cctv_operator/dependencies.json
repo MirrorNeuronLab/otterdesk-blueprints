@@ -45,13 +45,13 @@
       "type": "pip",
       "source": "gar",
       "name": "mn-python-sdk-job-response",
-      "version": "0.1.0"
+      "version": "0.1.1"
     },
     {
       "type": "pip",
       "source": "gar",
       "name": "mn-python-sdk-mcp",
-      "version": "0.1.0"
+      "version": "0.1.1"
     },
     {
       "type": "pip",

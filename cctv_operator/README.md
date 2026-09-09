@@ -240,17 +240,35 @@ cleanup never deletes shared resources; reset or deletion is explicit.
 
 ## Persistent conversation
 
+The private MCP server binds only to `127.0.0.1`. A run-specific authenticated
+relay connects the Core-container sidecar to that host-network listener. The
+relay credential stays in the private endpoint artifact with owner-only access;
+the browser Web UI keeps its separate configured listener.
+
 OtterDesk can ask this hired co-worker about its monitoring role, safe
 configuration, schedule, and latest run through the stable Job response service,
 even when no CCTV run is active. A question never starts the stream service.
-The job-facing agent is limited to interpreting analysis artifacts and serving
-responses through the API-owned response MCP; it does not host sample media,
-the sample stream, the dashboard, or workflow helper processes.
+While a run is active, the CCTV DockerWorker starts its own private SDK MRTR
+server beside the Web UI. It reads the same durable run artifacts and publishes
+the same bounded activity projection. A dependency-free HostLocal sidecar only
+proxies that private endpoint onto the scheduler-assigned port, so the
+host-network video worker cannot collide with the runtime port broker and no
+HostLocal Python environment is prepared. The MCP server exposes read, watch,
+monitoring-instruction, and acknowledgement tools to the Job response agent.
+Natural-language requests such as “find foreign objects on the floor” select
+`set_monitoring_instruction`, which sends Core's declared `steer_monitoring`
+live input and requests an immediate analysis. The chat-facing Job MCP keeps a bounded
+`watch_operator_activity` request active and relays a finding through protocol
+`2026-07-28` Multi Round-Trip Requests (MRTR); OtterDesk then persists the
+finding as a co-worker conversation message. Transport receipt is automatic,
+but it never acknowledges a review notice. Durable `human_notice` records remain
+the audit and review boundary.
 
 ## Repository validation
 
 ```bash
 python3 -m py_compile \
+  payloads/services/cctv_operator_mcp.py \
   payloads/services/cctv_web_ui.py \
   payloads/agents/visual_detector/scripts/analyze_video_frame.py
 jq empty manifest.json

@@ -1,0 +1,12 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/ui.schema.json",
+  "init_config_review": {
+    "required": false,
+    "fields": []
+  },
+  "starter_questions": [
+    "What startup screening work can you do?",
+    "What did the latest company analysis show?",
+    "Which claims or valuation inputs still need diligence?"
+  ]
+}

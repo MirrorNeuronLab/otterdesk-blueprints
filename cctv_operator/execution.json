@@ -9,7 +9,8 @@
   "agents": {
     "entrypoints": [
       "ingress",
-      "cctv_web_ui"
+      "cctv_web_ui",
+      "cctv_operator_mcp"
     ],
     "extra_edges": [
       {
@@ -347,6 +348,64 @@
         "display_name": "CCTV Web UI",
         "node_id": "cctv_web_ui",
         "type": "stream"
+      },
+      {
+        "agent_type": "executor",
+        "alias": "cctv_operator_mcp",
+        "config": {
+          "command": ["sh", "-lc", "exec python3.11 cctv_operator_mcp.py"],
+          "environment": {},
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "output_message_type": null,
+          "pool": "default",
+          "pool_slots": 1,
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "tty": false,
+          "upload_as": ".",
+          "upload_path": "services",
+          "workdir": "/sandbox/job"
+        },
+        "constraints": [
+          {
+            "attribute": "capabilities",
+            "operator": "contains_all",
+            "value": ["nvidia", "cuda"]
+          }
+        ],
+        "display_name": "CCTV Operator MCP",
+        "node_id": "cctv_operator_mcp",
+        "resources": {
+          "ports": [
+            {"label": "cctv_operator_mcp", "port": 62009, "protocol": "http"}
+          ]
+        },
+        "services": [
+          {
+            "name": "cctv-operator-mcp",
+            "address": "127.0.0.1",
+            "port": 62009,
+            "origin": "internal",
+            "tags": ["mcp", "video-analysis", "cctv-operator"],
+            "meta": {"path": "/mcp", "schema_version": "mn.cctv.operator_mcp.v1"},
+            "checks": [
+              {
+                "name": "cctv-operator-mcp-http",
+                "type": "http",
+                "address": "127.0.0.1",
+                "port": 62009,
+                "path": "/health",
+                "expected_status": 200,
+                "interval_ms": 1000,
+                "timeout_ms": 1000,
+                "failures_before_critical": 3,
+                "required": true
+              }
+            ]
+          }
+        ],
+        "type": "generic"
       }
     ]
   },

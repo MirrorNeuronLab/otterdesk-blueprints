@@ -1762,10 +1762,12 @@ def test_cctv_operator_uses_dockerworker_nvidia_media_worker():
         "visual_detector",
         "report_writer",
         "cctv_web_ui",
+        "cctv_operator_mcp",
     }
     sampler_node = nodes["adaptive_frame_sampler"]
     visual_node = nodes["visual_detector"]
-    for node in nodes.values():
+    media_nodes = {key: node for key, node in nodes.items() if key != "cctv_operator_mcp"}
+    for node in media_nodes.values():
         assert node["config"]["runner_module"] == "MirrorNeuron.Runner.DockerWorker"
         assert node["config"]["docker_worker_image"] == "docker_worker"
         assert node["config"]["image"] == "mirror-neuron/cctv-operator:local"
@@ -1783,6 +1785,22 @@ def test_cctv_operator_uses_dockerworker_nvidia_media_worker():
         ]
         assert "upload_path" not in node["config"]
         assert "upload_as" not in node["config"]
+    mcp_node = nodes["cctv_operator_mcp"]
+    assert mcp_node["config"]["runner_module"] == "MirrorNeuron.Runner.HostLocal"
+    assert mcp_node["config"]["command"] == [
+        "sh",
+        "-lc",
+        "exec python3.11 cctv_operator_mcp.py",
+    ]
+    assert mcp_node["config"]["upload_path"] == "services"
+    assert "python_environment" not in mcp_node["config"]
+    assert mcp_node["constraints"] == [
+        {
+            "attribute": "capabilities",
+            "operator": "contains_all",
+            "value": ["nvidia", "cuda"],
+        }
+    ]
     _assert_hard_gpu_worker_requirements(sampler_node)
     assert not visual_node.get("resources")
     assert not nodes["ingress"].get("resources")
@@ -1949,6 +1967,17 @@ def test_cctv_operator_declares_only_routed_schema_validated_live_input():
         edge["from_node"] == "ingress" and edge["message_type"] == "cctv_operator_steer"
         for edge in _flow_edges(runtime)
     )
+    response = source["response_service"]["agent"]
+    steering_tool = response["tools"]["user"]["set_monitoring_instruction"]
+    assert steering_tool["effect"] == "monitoring"
+    assert steering_tool["arguments"]["instruction"] == {"type": "string"}
+    assert response["operations"]["set_monitoring_instruction"] == {
+        "id_field": "command_id",
+        "poll_tool": "get_command_status",
+        "poll_argument": "command_id",
+        "poll_interval_ms": 500,
+        "timeout_seconds": 30,
+    }
 
 
 def test_cctv_operator_detector_script_compiles_with_shared_helper_import():
@@ -1978,9 +2007,9 @@ def test_cctv_operator_owns_external_web_ui_and_uses_generic_skills():
         "mn-python-sdk-common": "0.1.0",
         "mirrorneuron-live-video-analysis-skill": "1.3.23",
         "mn-python-sdk-web-ui": "0.1.0",
-        "mn-python-sdk-job-response": "0.1.0",
+        "mn-python-sdk-job-response": "0.1.1",
         "mn-python-sdk-rag": "0.1.0",
-        "mn-python-sdk-mcp": "0.1.0",
+        "mn-python-sdk-mcp": "0.1.1",
     }
     assert not (blueprint_dir / "docker-compose.yml").exists()
     assert not (blueprint_dir / "compose.yaml").exists()
@@ -2035,6 +2064,27 @@ def test_cctv_operator_owns_external_web_ui_and_uses_generic_skills():
     ]
     assert "resources" not in web_ui_node
     assert "services" not in web_ui_node
+    mcp_node = next(
+        node
+        for node in manifest["agents"]["extra_nodes"]
+        if node["node_id"] == "cctv_operator_mcp"
+    )
+    assert mcp_node["resources"]["ports"] == [
+        {"label": "cctv_operator_mcp", "port": 62009, "protocol": "http"}
+    ]
+    assert mcp_node["services"][0]["name"] == "cctv-operator-mcp"
+    assert mcp_node["services"][0]["checks"][0] == {
+        "name": "cctv-operator-mcp-http",
+        "type": "http",
+        "address": "127.0.0.1",
+        "port": 62009,
+        "path": "/health",
+        "expected_status": 200,
+        "interval_ms": 1000,
+        "timeout_ms": 1000,
+        "failures_before_critical": 3,
+        "required": True,
+    }
     bindings = {
         (binding["config_path"], binding["manifest_path"])
         for binding in config["manifest_config_bindings"]
@@ -2048,6 +2098,7 @@ def test_cctv_operator_owns_external_web_ui_and_uses_generic_skills():
         "agents.nodes.cctv_web_ui.resources.ports.0.port",
     ) not in bindings
     assert "cctv_web_ui" in manifest["agents"]["entrypoints"]
+    assert "cctv_operator_mcp" in manifest["agents"]["entrypoints"]
 
 
 def _load_cctv_operator_validator():

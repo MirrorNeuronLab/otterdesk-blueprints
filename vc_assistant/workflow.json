@@ -1,0 +1,202 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/workflow.schema.json",
+  "dynamic": {
+    "apply_at": "between_steps",
+    "enabled": false,
+    "patch_events": []
+  },
+  "execution": {
+    "strategy": "parallel"
+  },
+  "policy": {
+    "failure": {
+      "default": "fail_closed"
+    },
+    "human": {
+      "allowed_decisions": [
+        "approve",
+        "revise",
+        "reject"
+      ],
+      "blocked_actions": [
+        "make_investment_decision",
+        "send_investment_recommendation",
+        "share_confidential_documents",
+        "submit_term_sheet",
+        "contact_founder_without_review",
+        "mark_scores_as_final_valuation"
+      ],
+      "decision_event": "human_decision_applied",
+      "default_action": "reject",
+      "enabled": true,
+      "events": [
+        "human_notice",
+        "human_input_requested",
+        "human_input_received",
+        "human_input_timeout",
+        "human_decision_applied"
+      ],
+      "mode": "approval_required",
+      "reason": "Human approval is required before any external sharing, investment action, founder contact, valuation use, or downstream decision.",
+      "request_event": "human_input_requested",
+      "response_event": "human_input_received",
+      "timeout_event": "human_input_timeout",
+      "timeout_seconds": 3600
+    }
+  },
+  "state": {
+    "document_folder": {
+      "from": "$inputs.document_folder"
+    },
+    "final_report": {},
+    "output_folder": {
+      "from": "$inputs.output_folder"
+    },
+    "workflow": {}
+  },
+  "steps": [
+    {
+      "goal": "Detect startup document changes and persist the input-file inventory for this run.",
+      "id": "detect_packet_changes",
+      "kind": "source",
+      "label": "Detect Packet Changes",
+      "needs": [],
+      "run": {
+        "definition": "steps.detect_packet_changes"
+      }
+    },
+    {
+      "goal": "Group startup documents by company, resolve aliases, and create stable company ids and slugs.",
+      "id": "assemble_company_packets",
+      "kind": "stage",
+      "label": "Assemble Company Packets",
+      "needs": [
+        "detect_packet_changes"
+      ],
+      "run": {
+        "definition": "steps.assemble_company_packets"
+      }
+    },
+    {
+      "control": {
+        "timeout_seconds": 1200
+      },
+      "goal": "Extract local evidence and normalize claims into deterministic company fact inputs.",
+      "id": "prepare_company_evidence",
+      "kind": "stage",
+      "label": "Prepare Company Evidence",
+      "needs": [
+        "assemble_company_packets"
+      ],
+      "run": {
+        "definition": "steps.prepare_company_evidence"
+      }
+    },
+    {
+      "control": {
+        "timeout_seconds": 1200
+      },
+      "goal": "Create privacy-safe public research queries from company name, domain, category, and non-confidential claims.",
+      "id": "plan_public_research",
+      "kind": "stage",
+      "label": "Plan Public Research",
+      "needs": [
+        "prepare_company_evidence"
+      ],
+      "run": {
+        "definition": "steps.plan_public_research"
+      }
+    },
+    {
+      "control": {
+        "timeout_seconds": 3600
+      },
+      "goal": "Collect public identity, funding, market, comparable, traction, and rendered-page evidence with a specialist research crew.",
+      "id": "collect_public_research",
+      "kind": "stage",
+      "label": "Collect Public Research",
+      "needs": [
+        "plan_public_research"
+      ],
+      "run": {
+        "definition": "steps.collect_public_research"
+      }
+    },
+    {
+      "control": {
+        "timeout_seconds": 900
+      },
+      "goal": "Merge public findings with local claims and flag confirmations, contradictions, missing evidence, and source-quality warnings.",
+      "id": "reconcile_research_evidence",
+      "kind": "stage",
+      "label": "Reconcile Research Evidence",
+      "needs": [
+        "collect_public_research"
+      ],
+      "run": {
+        "definition": "steps.reconcile_research_evidence"
+      }
+    },
+    {
+      "control": {
+        "timeout_seconds": 1800
+      },
+      "goal": "Calculate all seven deterministic valuation heuristics with a parallel specialist scoring crew.",
+      "id": "calculate_valuation_scores",
+      "kind": "stage",
+      "label": "Calculate Valuation Scores",
+      "needs": [
+        "reconcile_research_evidence"
+      ],
+      "run": {
+        "definition": "steps.calculate_valuation_scores"
+      }
+    },
+    {
+      "control": {
+        "timeout_seconds": 900
+      },
+      "goal": "Check math, missing evidence handling, contradictory assumptions, unsupported valuation claims, and formula completeness.",
+      "id": "audit_valuation_analysis",
+      "kind": "stage",
+      "label": "Audit Valuation Analysis",
+      "needs": [
+        "calculate_valuation_scores"
+      ],
+      "run": {
+        "definition": "steps.audit_valuation_analysis"
+      }
+    },
+    {
+      "control": {
+        "timeout_seconds": 900
+      },
+      "goal": "Write per-company reports: analysis, method scores, research sources, evidence, and warnings.",
+      "id": "write_company_reports",
+      "kind": "stage",
+      "label": "Write Company Reports",
+      "needs": [
+        "audit_valuation_analysis"
+      ],
+      "run": {
+        "definition": "steps.write_company_reports"
+      }
+    },
+    {
+      "control": {
+        "timeout_seconds": 900
+      },
+      "goal": "Write root-level company index, research coverage, method coverage, queue, and run summary artifacts.",
+      "id": "publish_batch_summary",
+      "kind": "sink",
+      "label": "Publish Batch Summary",
+      "needs": [
+        "write_company_reports"
+      ],
+      "run": {
+        "definition": "steps.publish_batch_summary"
+      }
+    }
+  ],
+  "workflow_id": "vc_assistant_v1"
+}

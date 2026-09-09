@@ -1,0 +1,203 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/llm.schema.json",
+  "agents": {
+    "batch_index_writer": {
+      "llm_config": "primary",
+      "responsibilities": [
+        "Write batch indexes.",
+        "Write coverage summaries.",
+        "Keep output report-only."
+      ]
+    },
+    "berkus_scorer": {
+      "llm_config": "primary",
+      "responsibilities": [
+        "Score five Berkus buckets.",
+        "Use deterministic formulas.",
+        "Record assumptions."
+      ]
+    },
+    "claim_normalizer": {
+      "llm_config": "primary",
+      "responsibilities": [
+        "Build fact tables.",
+        "Normalize numeric evidence.",
+        "Separate local and public facts."
+      ]
+    },
+    "company_identity_researcher": {
+      "llm_config": "primary",
+      "responsibilities": [
+        "Research company identity.",
+        "Check Crunchbase/profile targets.",
+        "Record blocked outcomes."
+      ]
+    },
+    "company_packet_grouper": {
+      "llm_config": "primary",
+      "responsibilities": [
+        "Group files by company.",
+        "Resolve stable company ids.",
+        "Preserve source refs."
+      ]
+    },
+    "company_report_writer": {
+      "llm_config": "primary",
+      "responsibilities": [
+        "Write per-company folders.",
+        "Preserve method sections.",
+        "Write warnings and evidence files."
+      ]
+    },
+    "comparables_market_multiple_scorer": {
+      "llm_config": "primary",
+      "responsibilities": [
+        "Use comparable evidence.",
+        "Record market multiple assumptions.",
+        "Mark insufficient evidence."
+      ]
+    },
+    "cost_to_duplicate_scorer": {
+      "llm_config": "primary",
+      "responsibilities": [
+        "Estimate rebuild-cost floor.",
+        "Use asset evidence.",
+        "Flag missing asset details."
+      ]
+    },
+    "document_evidence_extractor": {
+      "llm_config": "primary",
+      "responsibilities": [
+        "Extract local evidence.",
+        "Capture structured claims.",
+        "Mark unreadable files."
+      ]
+    },
+    "first_chicago_scorer": {
+      "llm_config": "primary",
+      "responsibilities": [
+        "Build bear/base/bull cases.",
+        "Apply probabilities.",
+        "Record scenario warnings."
+      ]
+    },
+    "funding_researcher": {
+      "llm_config": "primary",
+      "responsibilities": [
+        "Research funding mentions.",
+        "Check investor and accelerator signals.",
+        "Record source quality."
+      ]
+    },
+    "market_comp_researcher": {
+      "llm_config": "primary",
+      "responsibilities": [
+        "Research market context.",
+        "Find comparable candidates.",
+        "Capture source references."
+      ]
+    },
+    "rendered_page_researcher": {
+      "llm_config": "primary",
+      "responsibilities": [
+        "Use rendered browser when enabled.",
+        "Respect robots and blocked pages.",
+        "Record JS-heavy page status."
+      ]
+    },
+    "research_planner": {
+      "llm_config": "primary",
+      "responsibilities": [
+        "Create safe queries.",
+        "Avoid confidential excerpts.",
+        "Plan profile and market lookups."
+      ]
+    },
+    "research_reconciler": {
+      "llm_config": "primary",
+      "responsibilities": [
+        "Merge local and public evidence.",
+        "Flag confirmations.",
+        "Flag conflicts and missing evidence."
+      ]
+    },
+    "risk_factor_summation_scorer": {
+      "llm_config": "primary",
+      "responsibilities": [
+        "Run 12-risk checklist.",
+        "Record adjustments.",
+        "Mark missing risk evidence."
+      ]
+    },
+    "score_consistency_auditor": {
+      "llm_config": "primary",
+      "responsibilities": [
+        "Check score math.",
+        "Check missing-evidence handling.",
+        "Flag unsupported assumptions."
+      ]
+    },
+    "scorecard_bill_payne_scorer": {
+      "llm_config": "primary",
+      "responsibilities": [
+        "Apply weighted factors.",
+        "Record inputs used.",
+        "Keep scores report-only."
+      ]
+    },
+    "startup_folder_watcher": {
+      "llm_config": "primary",
+      "responsibilities": [
+        "Detect changed files.",
+        "Build company fingerprints.",
+        "Identify unchanged company packets."
+      ]
+    },
+    "traction_verifier": {
+      "llm_config": "primary",
+      "responsibilities": [
+        "Verify customer and launch claims.",
+        "Check public traction signals.",
+        "Flag missing evidence."
+      ]
+    },
+    "venture_capital_method_scorer": {
+      "llm_config": "primary",
+      "responsibilities": [
+        "Run exit-back math.",
+        "Record assumptions.",
+        "Avoid valuation recommendations."
+      ]
+    }
+  },
+  "backend": "llama.cpp",
+  "configs": {
+    "primary": {
+      "api_base": "auto",
+      "backend": "llama.cpp",
+      "max_tokens": 1200,
+      "mock_mode": "fake",
+      "mode": "live",
+      "num_retries": 1,
+      "provider": "docker_model_runner",
+      "timeout_seconds": 60
+    }
+  },
+  "context_size": 8192,
+  "default_config": "primary",
+  "enabled": true,
+  "mock_mode": "fake",
+  "mode": "live",
+  "model": "default",
+  "parameter_count_b": 31.58,
+  "provider": "docker_model_runner",
+  "quantization": "MOSTLY_Q4_K_M",
+  "quick_test_uses_fake": true,
+  "require_live": true,
+  "responsibilities": [
+    "Keep VC outputs report-only and source-grounded.",
+    "Use specialist agents for research, scoring, audit, and report writing.",
+    "Avoid automated investment decisions or confidential-data web disclosure."
+  ],
+  "strict_json": false
+}

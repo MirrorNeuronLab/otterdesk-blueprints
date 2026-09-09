@@ -1,0 +1,79 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/product.schema.json",
+  "category": "Finance",
+  "intent": {
+    "problem": "Early startup packets are noisy and inconsistent; analysts need quick heuristic reports with evidence, assumptions, and missing-information flags while retaining the final decision.",
+    "safety": {
+      "allowed_decisions": [
+        "approve",
+        "revise",
+        "reject"
+      ],
+      "blocked_actions": [
+        "make_investment_decision",
+        "send_investment_recommendation",
+        "share_confidential_documents",
+        "submit_term_sheet",
+        "contact_founder_without_review",
+        "mark_scores_as_final_valuation"
+      ],
+      "decision_event": "human_decision_applied",
+      "default_action": "reject",
+      "enabled": true,
+      "events": [
+        "human_notice",
+        "human_input_requested",
+        "human_input_received",
+        "human_input_timeout",
+        "human_decision_applied"
+      ],
+      "mode": "approval_required",
+      "reason": "Human approval is required before any external sharing, investment action, founder contact, valuation use, or downstream decision.",
+      "request_event": "human_input_requested",
+      "response_event": "human_input_received",
+      "timeout_event": "human_input_timeout",
+      "timeout_seconds": 3600
+    },
+    "target_users": "VC analysts, angel investors, accelerator reviewers, startup scouts, and founder-led investment teams."
+  },
+  "product": {
+    "agent_role": "VC analysis coworker that prepares source-grounded score reports without issuing investment decisions.",
+    "benefit": "Turns mixed startup document packets into organized per-company heuristic reports, method-score files, research ledgers, and batch coverage summaries so the user can decide what deserves deeper diligence.",
+    "customizable_for": "Pre-seed screening, accelerator batches, angel deal flow, founder note review, and early diligence packet triage.",
+    "how_it_works": "On each scheduled batch run, checks a local folder, groups documents by company, extracts source evidence, normalizes deterministic fact tables, runs staged browser research, applies seven specialist numerical scorers in parallel, audits score consistency, and writes per-company and batch-level reports.",
+    "input": "Local folder with one or more startup document packets, preferably grouped by first-level company folders.",
+    "output": "Per-company analysis folders with scores, evidence, assumptions, public source refs, and missing-evidence flags.",
+    "problem": "Early startup review is noisy; analysts need a quick score-only report across common VC heuristics without fake precision or automated decisions.",
+    "runtime_features": [
+      "daily scheduled folder scan",
+      "folder-first startup company grouping",
+      "company work queue generation",
+      "deterministic fact table normalization",
+      "privacy-safe public web research",
+      "Adaptive default-model route through LiteLLM proxy",
+      "parallel specialist web research",
+      "web_browser_skill unified lightweight and rendered source research",
+      "Crunchbase and public profile verification planning",
+      "parallel numerical method scoring",
+      "Berkus Method scoring",
+      "Scorecard Bill Payne Method scoring",
+      "Risk Factor Summation Method scoring",
+      "Venture Capital Method scoring",
+      "First Chicago Method scoring",
+      "Comparables Market Multiple Method scoring",
+      "Cost-to-Duplicate Method scoring",
+      "score consistency auditing",
+      "per-company Markdown and JSON reports",
+      "research coverage reports",
+      "method coverage reports",
+      "product input contract",
+      "transparent run status",
+      "human control policy",
+      "artifact records",
+      "run-store observability dashboard",
+      "Membrane context memory optimization"
+    ],
+    "simulation_type": "Scheduled batch startup packet review with score-only VC heuristic reports.",
+    "target_users": "VC analysts, angel investors, accelerator reviewers, startup scouts, and founder-led investment teams."
+  }
+}

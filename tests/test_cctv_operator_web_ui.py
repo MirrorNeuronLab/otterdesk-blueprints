@@ -4,6 +4,7 @@ import importlib.util
 import io
 import json
 import sys
+import threading
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -18,15 +19,25 @@ for source in (
     WORKSPACE / "mn-skills" / "live_video_analysis_skill" / "src",
     WORKSPACE / "mn-skills" / "web_ui_skill" / "src",
     WORKSPACE / "mn-python-sdk",
+    WORKSPACE / "mn-python-sdk" / "packages" / "mcp" / "src",
 ):
     if str(source) not in sys.path:
         sys.path.insert(0, str(source))
 
 MODULE_PATH = ROOT / "cctv_operator" / "payloads" / "services" / "cctv_web_ui.py"
+SERVICES_DIR = MODULE_PATH.parent
+if str(SERVICES_DIR) not in sys.path:
+    sys.path.insert(0, str(SERVICES_DIR))
 SPEC = importlib.util.spec_from_file_location("cctv_web_ui", MODULE_PATH)
 assert SPEC and SPEC.loader
 cctv_web_ui = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(cctv_web_ui)
+MCP_SPEC = importlib.util.spec_from_file_location(
+    "cctv_operator_mcp", SERVICES_DIR / "cctv_operator_mcp.py"
+)
+assert MCP_SPEC and MCP_SPEC.loader
+cctv_operator_mcp = importlib.util.module_from_spec(MCP_SPEC)
+MCP_SPEC.loader.exec_module(cctv_operator_mcp)
 
 
 class StubPreview:
@@ -43,6 +54,104 @@ class StubPreview:
 
     def stop(self):
         self.stopped = True
+
+
+def test_private_mcp_starts_on_loopback_with_authenticated_relay(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+    import cctv_operator_mcp as proxy_module
+
+    bindings = []
+    listener = SimpleNamespace(close=lambda: None)
+    def open_listener(host):
+        bindings.append(host)
+        return listener, 45670
+
+    def create_server(_service, **kwargs):
+        # Exercise the real SDK bind restriction that rejected production startup.
+        from mn_sdk_mcp import create_mrtr_mcp_server
+        return create_mrtr_mcp_server("test", host=kwargs["host"], port=kwargs["port"])
+
+    def create_proxy(endpoint, **kwargs):
+        assert endpoint["url"] == "http://127.0.0.1:45670"
+        assert kwargs["access_token"]
+        return SimpleNamespace(server_address=("0.0.0.0", 45671), serve_forever=lambda: None)
+
+    monkeypatch.setattr(cctv_web_ui, "_open_listener", open_listener)
+    monkeypatch.setattr(cctv_web_ui, "create_operator_mcp_server", create_server)
+    monkeypatch.setattr(proxy_module, "create_mcp_proxy", create_proxy)
+    monkeypatch.setattr(cctv_web_ui.threading, "Thread", lambda **kwargs: SimpleNamespace(start=lambda: None))
+    cctv_web_ui.start_operator_mcp_server(object(), job_id="job-1", run_id="run-1", run_dir=tmp_path)
+    assert bindings == ["127.0.0.1"]
+    artifact = tmp_path / cctv_web_ui.CCTV_MCP_ENDPOINT_ARTIFACT
+    endpoint = cctv_operator_mcp.read_endpoint(artifact)
+    assert endpoint["url"] == "http://host.docker.internal:45671"
+    assert endpoint["token"]
+    assert artifact.stat().st_mode & 0o777 == 0o600
+
+
+@pytest.mark.parametrize("upstream_token", ["", "private-upstream-secret"])
+def test_mcp_relay_requires_token_and_forwards_to_loopback(monkeypatch, upstream_token):
+    from types import SimpleNamespace
+
+    requests = []
+    class Connection:
+        def __init__(self, host, port, **kwargs):
+            assert (host, port) == ("127.0.0.1", 45670)
+        def request(self, method, path, body=None, headers=None):
+            requests.append(headers)
+        def getresponse(self):
+            return SimpleNamespace(status=200, read=lambda n: b'{}', getheaders=lambda: [("Content-Type", "application/json")])
+        def close(self):
+            pass
+
+    monkeypatch.setattr(cctv_operator_mcp, "HTTPConnection", Connection)
+    server = cctv_operator_mcp.create_mcp_proxy(
+        {"url": "http://127.0.0.1:45670", "token": upstream_token}, host="127.0.0.1", port=0, access_token="test-secret"
+    )
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    url = f"http://127.0.0.1:{server.server_address[1]}/mcp"
+    try:
+        with pytest.raises(urllib.error.HTTPError) as error:
+            opener.open(url)
+        assert error.value.code == 403
+        assert not requests
+        request = urllib.request.Request(url, data=b'{}', headers={"X-CCTV-MCP-Token": "test-secret"})
+        with opener.open(request) as response:
+            assert response.status == 200
+        assert requests[0]["Host"] == "127.0.0.1:45670"
+        assert requests[0].get("X-CCTV-MCP-Token", "") == upstream_token
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
+def test_cctv_mcp_sidecar_accepts_only_private_endpoint_and_proxy_clients(
+    tmp_path: Path,
+):
+    route = tmp_path / "route"
+    route.write_text(
+        "Iface Destination Gateway Flags RefCnt Use Metric Mask MTU Window IRTT\n"
+        "eth0 00000000 010011AC 0003 0 0 0 00000000 0 0 0\n",
+        encoding="utf-8",
+    )
+
+    endpoint = tmp_path / cctv_operator_mcp.CCTV_MCP_ENDPOINT_ARTIFACT
+    endpoint.write_text(
+        json.dumps({"url": "http://host.docker.internal:45678"}),
+        encoding="utf-8",
+    )
+    assert cctv_operator_mcp.read_endpoint(endpoint) == {
+        "url": "http://host.docker.internal:45678",
+        "port": 45678,
+    }
+    endpoint.write_text(json.dumps({"url": "https://example.com:45678"}), encoding="utf-8")
+    assert cctv_operator_mcp.read_endpoint(endpoint) is None
+    assert cctv_operator_mcp.allowed_proxy_clients(route) == frozenset(
+        {"127.0.0.1", "::1", "172.17.0.1"}
+    )
 
 
 def test_cctv_ui_state_redacts_stream_credentials_and_uses_durable_monitoring_state(
@@ -199,6 +308,98 @@ def test_cctv_ui_operator_events_are_newest_first(tmp_path: Path):
         "Report updated",
         "Monitor online",
     ]
+
+
+def test_cctv_operator_owns_an_sdk_mcp_activity_exchange(tmp_path: Path):
+    (tmp_path / "cctv_report.json").write_text(
+        json.dumps(
+            {
+                "detections": [
+                    {
+                        "detection_report": "A person is visible near the center of the frame.",
+                        "observed_at": "2026-09-08T22:23:39Z",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    service = cctv_web_ui.CCTVWebUIService(
+        run_id="run-1",
+        run_dir=tmp_path,
+        config={},
+        preview_stream=StubPreview(),
+    )
+    class FakeRuntime:
+        def send_run_input(self, run_id, input_id, payload, *, idempotency_key):
+            assert (run_id, input_id) == ("run-1", "steer_monitoring")
+            assert payload == {
+                "instruction": "Find foreign objects on the floor.",
+                "clear": False,
+                "analyze_now": True,
+            }
+            assert idempotency_key == "11111111-1111-4111-8111-111111111111"
+            return {"status": "accepted"}
+
+    server = cctv_web_ui.create_operator_mcp_server(
+        service,
+        job_id="job-1",
+        run_id="run-1",
+        run_dir=tmp_path,
+        runtime_service=FakeRuntime(),
+        server_factory=lambda *args, **kwargs: type(
+            "FakeServer",
+            (),
+            {
+                "tools": {},
+                "resources": {},
+                "tool": lambda self, name=None, **_kw: lambda fn: self.tools.setdefault(name or fn.__name__, fn) or fn,
+                "resource": lambda self, uri, **_kw: lambda fn: self.resources.setdefault(uri, fn) or fn,
+            },
+        )(),
+    )
+
+    activity = server.tools["get_operator_activity"]("0")
+
+    assert set(server.tools) == {
+        "acknowledge_operator_notice",
+        "get_command_status",
+        "get_operator_activity",
+        "get_operator_status",
+        "set_monitoring_instruction",
+        "watch_operator_activity",
+    }
+    receipt = server.tools["set_monitoring_instruction"](
+        "11111111-1111-4111-8111-111111111111",
+        "Find foreign objects on the floor.",
+        "false",
+        "true",
+    )
+    assert receipt["state"] == "accepted"
+    (tmp_path / "monitoring_state.json").write_text(
+        json.dumps(
+            {
+                "instruction": "Find foreign objects on the floor.",
+                "instruction_revision": 2,
+                "last_command_id": "11111111-1111-4111-8111-111111111111",
+            }
+        ),
+        encoding="utf-8",
+    )
+    command_status = server.tools["get_command_status"](
+        "11111111-1111-4111-8111-111111111111"
+    )
+    assert command_status["state"] == "completed"
+    assert command_status["instruction_revision"] == 2
+    assert activity["updates"][-1]["payload"] == {
+        "schema_version": "mn.mcp.job_activity.v1",
+        "event_id": activity["updates"][-1]["record_id"],
+        "title": "Target observed",
+        "message": "A person is visible near the center of the frame.",
+        "occurred_at": "2026-09-08T22:23:39Z",
+        "source": "cctv_operator",
+        "requires_review": True,
+    }
 
 
 def test_cctv_ui_uses_the_shared_dynamic_port_and_external_handle_contract():

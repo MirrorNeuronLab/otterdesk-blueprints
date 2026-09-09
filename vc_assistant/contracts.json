@@ -1,0 +1,283 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/contracts.schema.json",
+  "events": {
+    "human_stream": "human.jsonl",
+    "stream": "events.jsonl",
+    "types": [
+      "blueprint_status",
+      "blueprint_phase_started",
+      "blueprint_phase_completed",
+      "blueprint_phase_failed",
+      "artifact_written",
+      "human_notice",
+      "human_input_requested",
+      "human_input_received",
+      "human_input_timeout",
+      "human_decision_applied",
+      "output_skill_started",
+      "output_skill_completed",
+      "output_skill_failed",
+      "tool_call_started",
+      "tool_call_completed",
+      "tool_call_failed",
+      "detect_packet_changes_completed",
+      "assemble_company_packets_completed",
+      "prepare_company_evidence_completed",
+      "plan_public_research_completed",
+      "collect_public_research_completed",
+      "reconcile_research_evidence_completed",
+      "calculate_valuation_scores_completed",
+      "audit_valuation_analysis_completed",
+      "write_company_reports_completed",
+      "publish_batch_summary_completed",
+      "watch_cycle_started",
+      "watch_cycle_completed"
+    ]
+  },
+  "input_adapters": {
+    "default": "mock",
+    "resolved_artifact": "inputs.json",
+    "supported": [
+      "mock",
+      "json",
+      "file",
+      "env_json"
+    ]
+  },
+  "inputs": {
+    "document_folder": {
+      "description": "Local folder monitored for startup documents; first-level folders are treated as companies.",
+      "example": "@/examples/sample_inputs",
+      "path_kind": "directory",
+      "privacy": "confidential",
+      "required": true,
+      "type": "local_path"
+    },
+    "field_profile": {
+      "description": "Startup evidence fields captured by the analyzer.",
+      "example": [
+        "company_name",
+        "founder_team",
+        "market",
+        "product",
+        "traction",
+        "strategic_relationships",
+        "risks"
+      ],
+      "privacy": "internal",
+      "required": false,
+      "type": "domain_value"
+    },
+    "force_reprocess": {
+      "description": "Reprocess unchanged company packets instead of reusing durable cached reports.",
+      "example": false,
+      "privacy": "internal",
+      "required": false,
+      "type": "boolean"
+    },
+    "input_folder": {
+      "description": "Default local input folder for sample files or user-provided files.",
+      "example": "@/examples/sample_inputs",
+      "path_kind": "directory",
+      "privacy": "confidential",
+      "required": false,
+      "type": "local_path"
+    },
+    "monitoring": {
+      "description": "Folder monitoring configuration for one-shot or continuous polling runs.",
+      "example": {
+        "enabled": true,
+        "max_cycles": 1,
+        "poll_interval_seconds": 60
+      },
+      "privacy": "internal",
+      "required": false,
+      "type": "domain_value"
+    },
+    "output_folder": {
+      "description": "Local folder where per-company reports and the company index should be written.",
+      "example": "~/Downloads/vc_assistant",
+      "path_kind": "directory",
+      "privacy": "confidential",
+      "required": true,
+      "type": "local_path"
+    }
+  },
+  "outputs": {
+    "artifacts": [
+      {
+        "artifact_id": "run_metadata",
+        "mime_type": "application/json",
+        "path": "run.json",
+        "producer": "local_run_store",
+        "schema_version": "mn.artifact.run_summary.v1",
+        "source_refs": [],
+        "type": "run_summary"
+      },
+      {
+        "artifact_id": "resolved_config",
+        "mime_type": "application/json",
+        "path": "config.json",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.config.v1",
+        "source_refs": [],
+        "type": "config"
+      },
+      {
+        "artifact_id": "resolved_inputs",
+        "mime_type": "application/json",
+        "path": "inputs.json",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.inputs.v1",
+        "source_refs": [],
+        "type": "inputs"
+      },
+      {
+        "artifact_id": "event_stream",
+        "mime_type": "application/x-jsonlines",
+        "path": "events.jsonl",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.events.v1",
+        "source_refs": [],
+        "type": "events"
+      },
+      {
+        "artifact_id": "result",
+        "mime_type": "application/json",
+        "path": "result.json",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.response.v1",
+        "source_refs": [
+          "inputs.json",
+          "events.jsonl"
+        ],
+        "type": "result"
+      },
+      {
+        "artifact_id": "final_artifact",
+        "mime_type": "application/json",
+        "path": "final_artifact.json",
+        "producer": "workflow",
+        "schema_version": "mn.blueprint.final_artifact.v1",
+        "source_refs": [
+          "inputs.json",
+          "events.jsonl",
+          "result.json"
+        ],
+        "type": "final_artifact"
+      },
+      {
+        "artifact_id": "action_ledger",
+        "mime_type": "application/json",
+        "path": "action_ledger.json",
+        "producer": "workflow",
+        "schema_version": "mn.blueprint.action_ledger.v1",
+        "source_refs": [
+          "final_artifact.json"
+        ],
+        "type": "action_ledger"
+      },
+      {
+        "artifact_id": "artifact_quality",
+        "mime_type": "application/json",
+        "path": "artifact_quality.json",
+        "producer": "workflow",
+        "schema_version": "mn.blueprint.artifact_quality.v1",
+        "source_refs": [
+          "final_artifact.json"
+        ],
+        "type": "artifact_quality"
+      },
+      {
+        "artifact_id": "run_health",
+        "mime_type": "application/json",
+        "path": "run_health.json",
+        "producer": "workflow",
+        "schema_version": "mn.blueprint.run_health.v1",
+        "source_refs": [
+          "final_artifact.json",
+          "action_ledger.json",
+          "artifact_quality.json"
+        ],
+        "type": "run_health"
+      },
+      {
+        "artifact_id": "logs",
+        "mime_type": "application/x-jsonlines",
+        "path": "logs.jsonl",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.logs.v1",
+        "source_refs": [
+          "events.jsonl"
+        ],
+        "type": "logs"
+      },
+      {
+        "artifact_id": "resources",
+        "mime_type": "application/x-jsonlines",
+        "path": "resources.jsonl",
+        "producer": "local_run_store",
+        "schema_version": "mn.blueprint.resources.v1",
+        "source_refs": [
+          "run.json"
+        ],
+        "type": "resource_samples"
+      },
+      {
+        "artifact_id": "web_ui",
+        "mime_type": "application/json",
+        "path": "web_ui.json",
+        "producer": "web_ui",
+        "schema_version": "mn.blueprint.web_ui.v1",
+        "source_refs": [
+          "run.json"
+        ],
+        "type": "web_ui"
+      },
+      {
+        "artifact_id": "human_events",
+        "mime_type": "application/x-jsonlines",
+        "path": "human.jsonl",
+        "producer": "human_control",
+        "schema_version": "mn.blueprint.human_events.v1",
+        "source_refs": [
+          "events.jsonl"
+        ],
+        "type": "human_events"
+      },
+      {
+        "artifact_id": "company_index",
+        "mime_type": "application/json",
+        "path": "<outputs.folder_path>/company_index.json",
+        "producer": "workflow",
+        "schema_version": "mn.blueprint.generated_report.v1",
+        "source_refs": [
+          "final_artifact.json"
+        ],
+        "type": "generated_report"
+      }
+    ],
+    "primary": {
+      "id": "final_artifact",
+      "path": "final_artifact.json",
+      "required_fields": [
+        "type",
+        "executive_summary",
+        "recommended_action",
+        "confidence",
+        "evidence",
+        "next_steps",
+        "source_refs",
+        "research_summary",
+        "research_sources",
+        "research_warnings"
+      ],
+      "schema_version": "mn.blueprint.final_artifact_contract.v1",
+      "type": "final_artifact"
+    },
+    "profile": "standard_run_store"
+  },
+  "status": {
+    "heartbeat": true
+  }
+}

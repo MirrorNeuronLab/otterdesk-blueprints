@@ -68,6 +68,12 @@ Every selected batch is durably written before its reference is emitted. Message
 Significant detections can emit `human_notice` and optional alert-delivery
 events. The workflow never performs physical security actions.
 
+`human_notice` is the unsolicited conversation event for video-analysis
+findings. A pending `human_input_requested` event is exposed by the API-owned
+Job MCP as a protocol `2026-07-28` Multi Round-Trip Request: the client answers
+the elicitation and the suspended Job request resumes. MRTR is not used as an
+unsolicited push channel.
+
 ## NVIDIA requirement and media path
 
 The manifest hard-requires `nvidia`, `cuda`, one NVIDIA GPU, and 49,152 MB or more of GPU/unified IGP memory. `mn-python-sdk` owns cluster resource validation, including DGX Spark unified-memory accounting. The blueprint only declares the requirement and does not implement another hardware probe.
@@ -156,17 +162,32 @@ required for the host-network DockerWorker.
 
 ## Persistent job data
 
+The SDK MRTR listener is loopback-only. Because the Core-container sidecar has
+a separate network namespace, a blueprint relay forwards only MCP and health
+requests and requires a random per-run token. The private endpoint artifact is
+owner-readable/writable only. The relay strips its credential before forwarding
+to the loopback MCP server; it is never part of public UI metadata.
+
 Knowledge, RAG, and durable application state are isolated by stable `job_id`
 and survive multiple runs. Run media inputs and review outputs remain
 run-scoped. This blueprint has no bundle seed for runtime-generated CCTV
 knowledge and never clears job data during run cleanup.
 
 The stable job exposes the API-owned top-level Job response service while `mn-api`
-is reachable. Its job-facing agent is limited to interpreting the analysis
-artifacts and responding through the response MCP. It reports bounded role,
-configuration, lifecycle, schedule, and latest-run context without hosting the
-sample data, stream, Web UI, or helper processes and without exposing camera
-credentials, raw logs, host paths, or unrestricted artifacts.
+is reachable. During an active run, the CCTV DockerWorker hosts the private SDK
+MRTR server that owns the run-scoped `cctv-operator-mcp` tools and reads the
+same durable run artifacts as the Web UI. A dependency-free HostLocal sidecar
+only proxies that listener onto the guarded scheduler port, so the host-network
+video worker does not compete with the runtime port broker and the sidecar does
+not require a prepared Python environment. The MCP agent owns the bounded
+status, activity watch, monitoring-instruction, and notice-acknowledgement tools;
+the Job response agent resolves exactly one passing service for the active run.
+It uses `watch_operator_activity` to receive the same sanitized event projection
+shown in the Web UI through protocol `2026-07-28` MRTR, then relays that activity
+through the chat-facing Job MCP. An MRTR delivery receipt is transport-only and
+must not acknowledge a durable operator notice. The response path never exposes
+camera credentials, raw logs, host paths, unrestricted artifacts, or the private
+MCP endpoint to the desktop renderer.
 
 ## Outputs and review boundary
 

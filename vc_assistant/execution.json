@@ -1,0 +1,169 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/execution.schema.json",
+  "policies": {
+    "recovery_mode": "manual_recover"
+  },
+  "agents": {
+    "registry": {
+      "startup_folder_watcher": {
+        "handler": "agents.startup_folder_watcher",
+        "role": "Startup Folder Watcher"
+      },
+      "company_packet_grouper": {
+        "handler": "agents.company_packet_grouper",
+        "role": "Company Packet Grouper"
+      },
+      "document_evidence_extractor": {
+        "handler": "agents.document_evidence_extractor",
+        "role": "Document Evidence Extractor"
+      },
+      "claim_normalizer": {
+        "handler": "agents.claim_normalizer",
+        "role": "Claim Normalizer"
+      },
+      "research_planner": {
+        "handler": "agents.research_planner",
+        "role": "Research Planner"
+      },
+      "company_identity_researcher": {
+        "handler": "agents.public_researcher",
+        "role": "Company Identity Researcher"
+      },
+      "funding_researcher": {
+        "handler": "agents.public_researcher",
+        "role": "Funding Researcher"
+      },
+      "market_comp_researcher": {
+        "handler": "agents.public_researcher",
+        "role": "Market And Comparable Researcher"
+      },
+      "traction_verifier": {
+        "handler": "agents.public_researcher",
+        "role": "Traction Verifier"
+      },
+      "rendered_page_researcher": {
+        "handler": "agents.public_researcher",
+        "role": "Rendered Page Researcher"
+      },
+      "research_reconciler": {
+        "handler": "agents.research_reconciler",
+        "role": "Research Reconciler"
+      },
+      "berkus_scorer": {
+        "handler": "agents.berkus_scorer",
+        "role": "Berkus Scorer",
+        "with": {
+          "method": "berkus_method"
+        }
+      },
+      "scorecard_bill_payne_scorer": {
+        "handler": "agents.scorecard_bill_payne_scorer",
+        "role": "Scorecard Bill Payne Scorer",
+        "with": {
+          "method": "scorecard_bill_payne_method"
+        }
+      },
+      "risk_factor_summation_scorer": {
+        "handler": "agents.risk_factor_summation_scorer",
+        "role": "Risk Factor Summation Scorer",
+        "with": {
+          "method": "risk_factor_summation_method"
+        }
+      },
+      "venture_capital_method_scorer": {
+        "handler": "agents.venture_capital_method_scorer",
+        "role": "Venture Capital Method Scorer",
+        "with": {
+          "method": "venture_capital_method"
+        }
+      },
+      "first_chicago_scorer": {
+        "handler": "agents.first_chicago_scorer",
+        "role": "First Chicago Scorer",
+        "with": {
+          "method": "first_chicago_method"
+        }
+      },
+      "comparables_market_multiple_scorer": {
+        "handler": "agents.comparables_market_multiple_scorer",
+        "role": "Comparables Market Multiple Scorer",
+        "with": {
+          "method": "comparables_market_multiple_method"
+        }
+      },
+      "cost_to_duplicate_scorer": {
+        "handler": "agents.cost_to_duplicate_scorer",
+        "role": "Cost To Duplicate Scorer",
+        "with": {
+          "method": "cost_to_duplicate_method"
+        }
+      },
+      "score_consistency_auditor": {
+        "handler": "agents.score_consistency_auditor",
+        "role": "Score Consistency Auditor"
+      },
+      "company_report_writer": {
+        "handler": "agents.company_report_writer",
+        "role": "Company Report Writer"
+      },
+      "batch_index_writer": {
+        "handler": "agents.batch_index_writer",
+        "lifecycle": {
+          "rag_stage": "batch_indexing",
+          "review_after_run": false
+        },
+        "role": "Batch Index Writer"
+      }
+    }
+  },
+  "defaults": {
+    "worker": {
+      "with": {
+        "image": "mirror-neuron/vc-assistant:local",
+        "upload_paths": [
+          {
+            "source": "domain",
+            "target": "domain"
+          }
+        ]
+      }
+    }
+  },
+  "requirements": {
+    "cpu": {
+      "min_cores": 1
+    },
+    "disk": {
+      "min_gb": 1
+    },
+    "gpu": {
+      "min_count": 0
+    },
+    "memory": {
+      "min_gb": 2
+    }
+  },
+  "workers": {
+    "groups": [
+      {
+        "steps": [
+          "collect_public_research"
+        ],
+        "with": {
+          "stereotype": "public_browser_worker"
+        }
+      },
+      {
+        "steps": [
+          "write_company_reports",
+          "publish_batch_summary"
+        ],
+        "with": {
+          "stereotype": "internal_write_worker"
+        }
+      }
+    ]
+  },
+  "mode": "compiled",
+  "job_name": "vc-assistant"
+}

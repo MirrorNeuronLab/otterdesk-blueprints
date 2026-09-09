@@ -1,4 +1,78 @@
 {
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/response.schema.json",
-  "enabled": true
+  "enabled": true,
+  "agent": {
+    "kind": "bounded_mcp",
+    "service": {
+      "name": "cctv-operator-mcp",
+      "path": "/mcp",
+      "required_tags": ["mcp", "video-analysis", "cctv-operator"]
+    },
+    "preflight": {
+      "required_for_effects": ["acknowledgement", "monitoring"],
+      "tool": "get_operator_status",
+      "arguments": {},
+      "required_result": {"ready": true}
+    },
+    "tools": {
+      "user": {
+        "get_operator_status": {"effect": "read", "arguments": {}},
+        "get_operator_activity": {
+          "effect": "read",
+          "arguments": {"after_revision": {"type": "string"}}
+        },
+        "watch_operator_activity": {
+          "effect": "read",
+          "arguments": {
+            "after_event_id": {"type": "string"},
+            "wait_seconds": {"type": "string"}
+          }
+        },
+        "set_monitoring_instruction": {
+          "effect": "monitoring",
+          "arguments": {
+            "command_id": {"type": "string"},
+            "instruction": {"type": "string"},
+            "clear": {"type": "string", "enum": ["true", "false"]},
+            "analyze_now": {"type": "string", "enum": ["true", "false"]}
+          }
+        },
+        "acknowledge_operator_notice": {
+          "effect": "acknowledgement",
+          "arguments": {
+            "command_id": {"type": "string"},
+            "notice_id": {"type": "string"}
+          }
+        }
+      },
+      "internal": {
+        "get_command_status": {
+          "arguments": {"command_id": {"type": "string"}}
+        }
+      }
+    },
+    "operations": {
+      "set_monitoring_instruction": {
+        "id_field": "command_id",
+        "poll_tool": "get_command_status",
+        "poll_argument": "command_id",
+        "poll_interval_ms": 500,
+        "timeout_seconds": 30
+      },
+      "acknowledge_operator_notice": {
+        "id_field": "command_id",
+        "poll_tool": "get_command_status",
+        "poll_argument": "command_id",
+        "poll_interval_ms": 500,
+        "timeout_seconds": 10
+      }
+    },
+    "memory": {
+      "enabled": true,
+      "mode": "explicit",
+      "path": "knowledge/learned",
+      "types": ["monitoring_focus", "review_note", "capability_note"],
+      "max_active_records": 100
+    }
+  }
 }
