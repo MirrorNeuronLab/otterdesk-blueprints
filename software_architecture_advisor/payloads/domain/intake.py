@@ -4,23 +4,8 @@ from pathlib import Path
 from mn_sdk.step_runtime import artifact_reference
 from .config import validate_config, offline_config
 from .events import audit_scope
-from .inputs import github_url, ingest_source
-
-
-def source_input(payload):
-    folder, url = payload.get('input_folder'), payload.get('repository_url')
-    if (folder is None) == (url is None):
-        raise ValueError('Specify exactly one of input_folder or repository_url')
-    if url is not None:
-        if not isinstance(url, str) or len(url) > 2000:
-            raise ValueError('repository_url must be an HTTPS GitHub repository URL')
-        return github_url(url)
-    if not isinstance(folder, str) or not folder.strip() or '://' in folder or folder.startswith('git@'):
-        raise ValueError('input_folder must be a local directory path')
-    path = Path(folder).expanduser().resolve(strict=True)
-    if not path.is_dir():
-        raise ValueError('input_folder must be a directory')
-    return str(path)
+from .inputs import ingest_source
+from .source_input import source_input
 
 
 def policy(context):

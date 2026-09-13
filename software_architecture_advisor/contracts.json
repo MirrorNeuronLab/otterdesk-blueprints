@@ -35,6 +35,19 @@
       "description": "Destination for reports and audit files."
     }
   },
+  "input_validation": {
+    "rules": [
+      {
+        "command": [
+          "/usr/bin/python3",
+          "payloads/agents/validation/validate_source_input.py"
+        ],
+        "name": "source_input_validate",
+        "timeout_seconds": 5,
+        "type": "command"
+      }
+    ]
+  },
   "outputs": {
     "artifacts": [
       {

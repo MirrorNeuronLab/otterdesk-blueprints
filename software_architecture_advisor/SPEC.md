@@ -1,6 +1,6 @@
 # Architecture Advisor contract
 
-Identity: `software_architecture_advisor`, version 2.1.2. Source: Spark `/home/homer/Sandbox/legal_case/software_architecture_advisor`.
+Identity: `software_architecture_advisor`, version 2.1.3. Source: Spark `/home/homer/Sandbox/legal_case/software_architecture_advisor`.
 
 ## Inputs and policy
 

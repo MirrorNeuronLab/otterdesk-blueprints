@@ -1,30 +1,16 @@
 """Resolve local folders or public HTTPS GitHub repositories into frozen inputs."""
 import os
 from pathlib import Path
-import re
 import shutil
 import subprocess
 import tempfile
 import time
-from urllib.parse import urlsplit
 
 from .ingest import snapshot_repository
 from .events import emit
+from .source_input import github_url
 
 DEFAULT_GOAL = "Inspect the software architecture, identify the most actionable boundary or coupling problem, and check counter-evidence before recommending a change."
-
-
-def github_url(source):
-    """Canonical repository-root URLs only; no credentials, ports, refs or redirects."""
-    value = urlsplit(source)
-    if (value.scheme != "https" or value.netloc.lower() != "github.com" or value.query or value.fragment
-            or not re.fullmatch(r"/[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9_.-]+/?", value.path)):
-        raise ValueError("Use a repository URL such as https://github.com/owner/repository (no credentials, query, fragment, or /tree path)")
-    owner, repository = value.path.strip("/").split("/")
-    repository = repository.removesuffix(".git")
-    if repository in {"", ".", ".."}:
-        raise ValueError("A GitHub repository name is required")
-    return f"https://github.com/{owner}/{repository}.git"
 
 
 def validate_source(source):
