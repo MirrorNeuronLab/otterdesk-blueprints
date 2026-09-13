@@ -142,16 +142,16 @@ as through the affected catalog integration.
 SDK workflow capabilities are declared in the `packages` array in
 `dependencies.json`; domain skills remain in `skills` and agents in `agents`.
 Every package and skill declaration uses `type: "pip"`, `source: "gar"`, its full
-Python distribution name, and a pinned release version. For example:
+Python distribution name, and the PEP 440 release range `>=1.3.47`. For example:
 
 ```json
-{"type": "pip", "source": "gar", "name": "mn-python-sdk-rag", "version": "0.1.0", "extras": ["milvus"]}
+{"type": "pip", "source": "gar", "name": "mn-python-sdk-rag", "version": ">=1.3.47", "extras": ["milvus"]}
 ```
 
 Local installation resolves SDK packages from `mn-python-sdk/packages` and skills
 from `mn-skills` or this blueprint's `payloads/skills` projects by distribution
 name, ignoring the declared release version. Local setup enables
-`MN_USE_LOCAL_SKILLS=1`. Binary mode retains GAR pins and does not select bundled
+`MN_USE_LOCAL_SKILLS=1`. Binary mode retains GAR version constraints and does not select bundled
 skill source automatically. The same declaration works in both modes; source
 paths are prepared by the SDK rather than authored in dependency records.
 Each blueprint activates only its declared SDK capability closure.

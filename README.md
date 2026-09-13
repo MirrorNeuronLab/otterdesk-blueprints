@@ -173,3 +173,11 @@ Documents are reference data, not executable instructions or live observations.
 Mark fictional fixtures as synthetic in each document. Actual findings come from
 current evidence or declared read tools. Adding a seed does not overwrite an
 existing Job's documents; existing Jobs need an explicit knowledge import or update.
+
+## Dependency ranges
+
+MirrorNeuron Python dependencies in `dependencies.json`, execution configuration,
+and worker requirements use `>=1.3.47`. Bundled demo distributions are versioned
+`1.3.47` and their declarations use the same minimum. Third-party libraries retain
+their own version families (for example `numpy>=2.3.5,<3.0`). Package identity
+versions and container image digests remain concrete artifact identities.
