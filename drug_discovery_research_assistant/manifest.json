@@ -3,7 +3,7 @@
   "id": "drug_discovery_research_assistant",
   "name": "Drug Discovery Research Assistant",
   "version": "1.0.1",
-  "description": "Runs one drug-discovery cycle to produce five distinct computational candidates, screens and evaluates them, writes a review packet and molecule preview to ~/Downloads/{job_name}, then completes.",
+  "description": "Generates and evaluates five computational molecule candidates in one research run. Review screening results, simulations, molecule previews, and supporting evidence before deciding on further research.",
   "workflow": "workflow.json",
   "execution": "execution.json",
   "contracts": "contracts.json",

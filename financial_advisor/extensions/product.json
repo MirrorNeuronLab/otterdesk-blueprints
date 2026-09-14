@@ -41,29 +41,24 @@
     "target_users": "Individuals, households, freelancers, financial coaches, tax preparers, and advisors reviewing personal finance folders."
   },
   "product": {
-    "agent_role": "Integrated financial advisor team for bank statement extraction, tax-form OCR capture, household cash-flow review, draft tax workpapers, portfolio risk analysis, and review-only report writing.",
-    "benefit": "Turns one local finance folder into a source-grounded advisor packet that combines statement, tax-form OCR, tax, cash-flow, and portfolio evidence before any human-approved downstream action.",
-    "customizable_for": "Household finance review, bank statement extraction, tax-form OCR capture, tax document intake, freelancer finance organization, portfolio risk review, and advisor workbenches.",
-    "how_it_works": "Reads a local folder, extracts statement and document evidence, captures tax-form image/answer-file fields, normalizes cash flow, routes tax documents into draft workpapers, loads portfolio context, computes deterministic risk metrics, uses privacy-safe public guidance, audits review boundaries, and writes an integrated report.",
-    "input": "Local folder with bank statements, receipts, bills, income records, W-2s, 1099s, tax-form images with answer files, brokerage statements, optional portfolio JSON, and related finance documents.",
-    "output": "Review-only financial_advisor_report with bank statement extraction, tax-form OCR capture, household finance summary, draft tax review packet, portfolio risk review, public guidance sources, and Markdown report output.",
-    "problem": "Personal finance work is fragmented across statement review, tax preparation, household advice, and portfolio risk checks; users need one local assistant that keeps evidence and review boundaries together.",
+    "agent_role": "Co-worker for reviewing personal finance documents, tax records, and portfolio risk.",
+    "benefit": "Bring income, spending, tax records, and investments together in one report for review.",
+    "customizable_for": "Household budgeting reviews, tax document organization, freelance finances, portfolio risk checks, and advisor preparation.",
+    "how_it_works": "Reads your local finance folder, extracts statement and tax-form details, summarizes cash flow, checks portfolio risk, and prepares a draft report with sources.",
+    "input": "A local folder of bank statements, receipts, bills, income records, tax documents, and investment records. Tax-form images can include answer files; portfolio data can be supplied as JSON.",
+    "output": "A household finance summary, extracted statement and tax-form details, draft tax review notes, and portfolio risk findings with sources.",
+    "problem": "Financial records are spread across statements, tax forms, and investment accounts, making a complete review difficult.",
     "runtime_features": [
-      "source-format WorkflowSource manifest",
-      "bank statement extraction",
-      "household cash-flow normalization",
-      "tax-form OCR capture",
-      "draft tax workpaper preparation",
-      "portfolio risk review",
-      "privacy-safe public finance research",
-      "small default model profile",
-      "optional medium review profile",
-      "shared mn-agents DockerWorker stereotypes",
-      "human approval policy",
-      "artifact records",
-      "run-store observability dashboard"
+      "Bank statement review",
+      "Income and spending summary",
+      "Tax-form text extraction",
+      "Draft tax review notes",
+      "Portfolio risk review",
+      "Public guidance with sources",
+      "Human review",
+      "Saved reports"
     ],
-    "simulation_type": "Unified local financial-advisor document workflow with deterministic finance math and review-only reporting.",
+    "simulation_type": "Local financial document analysis with draft reports for human review.",
     "target_users": "Individuals, households, freelancers, financial coaches, tax preparers, and advisors reviewing personal finance folders."
   }
 }

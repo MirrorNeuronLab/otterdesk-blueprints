@@ -3,7 +3,7 @@
   "id": "purchasing_manager",
   "name": "Purchasing Manager",
   "version": "1.0.0",
-  "description": "A source-grounded purchasing co-worker that turns real market evidence and company planning assumptions into an approval-ready heavy-asset comparison using landed cost, discounted and risk-adjusted TCO, equivalent annual cost, unit economics, scenario sensitivity, and acquisition-method analysis.",
+  "description": "Compares suppliers, purchase options, and long-term costs using your requirements and supporting sources. Review trade-offs, risks, and cash, financing, or lease options before deciding.",
   "workflow": "workflow.json",
   "execution": "execution.json",
   "contracts": "contracts.json",

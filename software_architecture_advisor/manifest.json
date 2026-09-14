@@ -3,7 +3,7 @@
   "id": "software_architecture_advisor",
   "name": "Architecture Advisor",
   "version": "2.1.3",
-  "description": "Reviews repository architecture through runtime-planned deterministic child workflows, cited counter-evidence, independent review and prioritized implementation advice.",
+  "description": "Reviews your codebase to explain its architecture and identify improvements. Produces prioritized suggestions with source citations, alternative explanations, and follow-up tasks.",
   "workflow": "workflow.json",
   "execution": "execution.json",
   "contracts": "contracts.json",

@@ -3,7 +3,7 @@
   "id": "microduck_controller",
   "name": "Microduck Controller",
   "version": "1.0.0",
-  "description": "Talk to a live Microduck MuJoCo simulation in OtterDesk: the Job agent invokes bounded MCP movement, deterministic ball navigation, and stoppable continuous free play.",
+  "description": "Control a simulated Microduck robot through Chat. Ask it to move, approach a ball, or keep finding and kicking the ball while you watch. You can stop play at any time.",
   "workflow": "workflow.json",
   "execution": "execution.json",
   "contracts": "contracts.json",

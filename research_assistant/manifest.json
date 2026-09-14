@@ -3,7 +3,7 @@
   "id": "research_assistant",
   "name": "Research Assistant",
   "version": "1.0.0",
-  "description": "A research assistant. Give it a research goal, constraints, and an approved input folder of papers, notes, datasets, or evidence; it prepares a source-grounded research packet, evidence ledger, ranked hypotheses, and a review-only brief in the output folder.",
+  "description": "Turns your research question and source material into a brief with competing explanations, supporting evidence, and ideas for further investigation. Review the findings before planning experiments or making claims.",
   "workflow": "workflow.json",
   "execution": "execution.json",
   "contracts": "contracts.json",

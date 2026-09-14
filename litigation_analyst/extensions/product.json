@@ -2,12 +2,12 @@
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/product.schema.json",
   "category": "Legal",
   "product": {
-    "agent_role": "Litigation Analyst",
-    "problem": "Legal reviewers need traceable investigation leads across document and email evidence.",
-    "benefit": "Produces exact-span citations, neutral hypotheses, and an inspectable SQLite audit history.",
-    "input": "Optional legal-document folder and investigation goal; public EMC2 sample by default.",
-    "output": "Human-review draft, source inventory, evidence database, and review index.",
-    "how_it_works": "Freezes and indexes sources, commits LLM-planned child investigation rounds, independently reviews cited findings, and writes a draft.",
+    "agent_role": "Co-worker for legal evidence review and investigation.",
+    "problem": "Legal teams need to connect findings across documents and emails while keeping every claim traceable.",
+    "benefit": "Trace each finding back to the exact source passage and review the investigation history.",
+    "input": "An optional folder of legal documents and an investigation goal. Uses the public EMC2 sample when no folder is provided.",
+    "output": "A draft for human review, source inventory, searchable evidence records, and an index of findings.",
+    "how_it_works": "Preserves a copy of the sources, searches for relevant evidence, investigates possible explanations, checks cited findings independently, and prepares a draft.",
     "target_users": "Legal and investigation teams."
   }
 }

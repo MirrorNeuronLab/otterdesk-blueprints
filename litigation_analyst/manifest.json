@@ -3,7 +3,7 @@
   "id": "litigation_analyst",
   "name": "Litigation Analyst",
   "version": "2.0.0",
-  "description": "Investigates legal sources through LLM-planned dynamic child workflows, bounded evidence collection, and independent finding review. Preserves exact citations and a durable audit trail; drafts require human review.",
+  "description": "Reviews legal documents and emails to find investigation leads, compare explanations, and draft findings with precise source citations. Every draft requires human review.",
   "workflow": "workflow.json",
   "execution": "execution.json",
   "contracts": "contracts.json",

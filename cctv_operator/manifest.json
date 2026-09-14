@@ -3,7 +3,7 @@
   "id": "cctv_operator",
   "name": "CCTV Operator",
   "version": "1.0.0",
-  "description": "An NVIDIA-only, stream-only CCTV co-worker with a self-contained Docker demo source, optional approved external RTSP/RTMP input, a professional read-only operations console, CUDA-assisted MJPEG preview, sparse baseline analysis, and event-triggered frame bursts.",
+  "description": "Reviews a live camera stream, highlights notable activity, and prepares observations for your review. Start with the included demo or connect an approved camera stream. Requires an NVIDIA GPU.",
   "workflow": "workflow.json",
   "execution": "execution.json",
   "contracts": "contracts.json",

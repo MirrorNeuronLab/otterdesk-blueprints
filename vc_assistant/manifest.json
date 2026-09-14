@@ -3,7 +3,7 @@
   "id": "vc_assistant",
   "name": "VC Assistant",
   "version": "1.1.0",
-  "description": "A VC analysis co-worker for early startup screening reports. Put pitch decks, memos, financial snippets, company folders, or other startup documents in the input folder; it groups documents by company, performs privacy-safe public research, applies seven VC heuristic scoring methods, audits the math and evidence, and writes score-only per-company reports and batch indexes to the output folder.",
+  "description": "Reviews startup documents and public sources to prepare company screening reports. Compare scores from seven early-stage investment methods, check assumptions, and see where evidence is missing. Scores are not valuations or investment recommendations.",
   "workflow": "workflow.json",
   "execution": "execution.json",
   "contracts": "contracts.json",
