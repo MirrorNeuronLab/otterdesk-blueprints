@@ -396,3 +396,54 @@ def test_cctv_setup_offers_sample_and_secure_external_source():
     assert set(stream["protocols"]) == {"rtsp:", "rtsps:", "rtmp:", "rtmps:"}
     assert all(not field["required"] for key, field in fields.items()
                if key not in {"video_source.profile", "video_source.uri"})
+
+
+def test_floor_focus_replaces_default_targets_in_model_request(monkeypatch, tmp_path, capsys):
+    detector = _load_detector()
+    instruction = "can you focus on find foreign object on the floor?"
+    monkeypatch.setenv("VISUAL_DETECTION_TARGETS", "person, vehicle")
+    output, prompts = _run_detector(
+        detector, monkeypatch, tmp_path, capsys,
+        payload={"instruction": instruction, "instruction_revision": 2,
+                 "command_id": "floor-focus"},
+        detection={"detected": False, "detected_target": False,
+                   "detections": [], "detection_count": 0, "confidence": 0.8,
+                   "summary": "No foreign object is visible on the floor.",
+                   "risk_level": "low"},
+    )
+    targets = prompts[0].split("## Targets\n", 1)[1].split("## Current analysis goal", 1)[0]
+    assert targets.strip() == instruction
+    assert "person, vehicle" not in prompts[0]
+    assert output["next_state"]["attention_instruction"] == instruction
+    assert output["next_state"]["instruction_revision"] == 2
+    restored = detector.detection_prompt("camera", "", ["person"])
+    assert "person, vehicle" in restored
+    assert instruction not in restored
+
+
+def test_chat_planner_receives_steering_semantics_from_normalized_contract(tmp_path):
+    from mn_sdk_common.response_service import normalize_response_service
+    from mn_sdk_job_response.agent_planner import AgentPlanner
+    from mn_sdk_job_response.agent_memory import AgentMemory
+    from mn_sdk_job_response.agent_store import AgentStore
+
+    source = json.loads((ROOT / "cctv_operator/extensions/response.json").read_text())
+    source.pop("$schema")
+    declaration = normalize_response_service({"response_service": source})["agent"]
+    store = AgentStore(tmp_path / "conversation.sqlite3", "cctv-test")
+    memory = AgentMemory(declaration=declaration, store=store,
+                         job_data_dir=tmp_path, rag_refresh=lambda: None)
+    planner = AgentPlanner(declaration=declaration, store=store, memory=memory)
+    question = "can you focus on find foreign object on the floor?"
+    prompt = json.loads(planner.user_prompt(question, {}, [], ""))
+    tools = prompt["allowed_user_tools"]
+    assert question in tools["set_monitoring_instruction"]["description"]
+    assert 'Never use "latest"' in tools["get_operator_activity"]["description"]
+    assert "command_id" not in tools["set_monitoring_instruction"]["arguments"]
+    assert "action" in prompt["turn_contract"]["allowed_intents"]
+    plan = planner.validate_plan({
+        "intent": "action", "tool": "set_monitoring_instruction",
+        "arguments": {"instruction": question, "clear": "false", "analyze_now": "true"},
+    }, question)
+    assert plan["arguments"]["instruction"] == question
+    assert plan["arguments"]["command_id"]

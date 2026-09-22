@@ -18,7 +18,8 @@
       "min_gb": 2
     },
     "gpu": {
-      "min_count": 0
+      "min_count": 1,
+      "min_memory_mb": 16384
     },
     "network": {
       "egress": "browser_cdn_required"

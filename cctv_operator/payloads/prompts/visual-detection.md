@@ -1,7 +1,7 @@
 # Visual Detection Prompt
 
 ## Goal
-Inspect the image from camera `{camera_id}` and decide whether configured visual targets are present or active.
+Inspect the image from camera `{camera_id}` and decide whether the active visual targets are present or active.
 
 ## Targets
 {target_description}
@@ -17,7 +17,8 @@ When an operator attention request is present, use it as the primary analysis go
 - Keep uncertainty explicit and grounded in visible evidence.
 
 ## Restrictions
-- Ignore shadows, reflections, signage text, static background clutter, and uncertain guesses unless directly relevant to the configured targets.
+- Ignore shadows, reflections, signage text, and static background clutter unless directly relevant to the active analysis goal. Stationary objects on the floor are relevant when the operator asks to find foreign objects, debris, or obstructions.
+- Set detected_target and detection_count from evidence matching the active goal. Unrelated people or routine activity do not count as matches. If the requested object is absent or unclear, say so without inventing a finding.
 - Do not infer identity, intent, or off-camera facts.
 
 ## Return Format

@@ -55,6 +55,14 @@ that omit it. The active instruction becomes the vision prompt's primary goal;
 clearing it restores the default targets. Readiness to accept a goal is independent
 of whether the first frame has already been analyzed.
 
+The response tool descriptions distinguish monitoring actions from activity
+queries and specify valid cursor and boolean-string arguments. Polite requests
+such as “can you focus on find foreign object on the floor?” are actions. The
+active instruction replaces the default target list in the actual vision prompt;
+stationary floor objects remain eligible evidence for that goal. Clearing the
+instruction restores the configured list. Command completion confirms the sampler
+applied the instruction, not that a new model observation has already completed.
+
 Steering state is stored in the adaptive sampler’s agent state with a monotonically increasing revision and never crosses run boundaries.
 
 ## Adaptive sampling contract

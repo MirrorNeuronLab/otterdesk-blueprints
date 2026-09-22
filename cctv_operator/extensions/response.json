@@ -6,48 +6,97 @@
     "service": {
       "name": "cctv-operator-mcp",
       "path": "/mcp",
-      "required_tags": ["mcp", "video-analysis", "cctv-operator"]
+      "required_tags": [
+        "mcp",
+        "video-analysis",
+        "cctv-operator"
+      ]
     },
     "preflight": {
-      "required_for_effects": ["acknowledgement", "monitoring"],
+      "required_for_effects": [
+        "acknowledgement",
+        "monitoring"
+      ],
       "tool": "get_operator_status",
       "arguments": {},
-      "required_result": {"ready": true}
+      "required_result": {
+        "ready": true
+      }
     },
     "tools": {
       "user": {
-        "get_operator_status": {"effect": "read", "arguments": {}},
+        "get_operator_status": {
+          "effect": "read",
+          "arguments": {},
+          "description": "Read current findings and control readiness. This read does not change the monitoring goal."
+        },
         "get_operator_activity": {
           "effect": "read",
-          "arguments": {"after_revision": {"type": "string"}}
+          "arguments": {
+            "after_revision": {
+              "type": "string"
+            }
+          },
+          "description": "Read existing observations only; this does not change what the vision model looks for. after_revision must be a non-negative integer written as a string: use \"0\" for available history or a returned revision for subsequent updates. Never use \"latest\"."
         },
         "watch_operator_activity": {
           "effect": "read",
           "arguments": {
-            "after_event_id": {"type": "string"},
-            "wait_seconds": {"type": "string"}
-          }
+            "after_event_id": {
+              "type": "string"
+            },
+            "wait_seconds": {
+              "type": "string"
+            }
+          },
+          "description": "Wait for a new observation without changing the monitoring goal. Use an empty after_event_id for the newest available observation or the previously returned event ID; wait_seconds is a numeric string from \"0\" to \"25\"."
         },
         "set_monitoring_instruction": {
           "effect": "monitoring",
           "arguments": {
-            "command_id": {"type": "string"},
-            "instruction": {"type": "string"},
-            "clear": {"type": "string", "enum": ["true", "false"]},
-            "analyze_now": {"type": "string", "enum": ["true", "false"]}
-          }
+            "command_id": {
+              "type": "string"
+            },
+            "instruction": {
+              "type": "string"
+            },
+            "clear": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            },
+            "analyze_now": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            }
+          },
+          "description": "Change the active run's vision-model prompt and what it looks for. Requests to focus on, find, look for, watch, or detect a subject are monitoring actions, including \"can you focus on find foreign object on the floor?\". Put the requested visual goal in instruction, clear=\"false\", analyze_now=\"true\". This replaces the default target focus for subsequent batches and requests an immediate analysis. To restore configured targets use instruction=\"\", clear=\"true\", analyze_now=\"true\". Report the goal applied only when command status is completed; acceptance alone means it is queued."
         },
         "acknowledge_operator_notice": {
           "effect": "acknowledgement",
           "arguments": {
-            "command_id": {"type": "string"},
-            "notice_id": {"type": "string"}
-          }
+            "command_id": {
+              "type": "string"
+            },
+            "notice_id": {
+              "type": "string"
+            }
+          },
+          "description": "Mark a specific notice reviewed only when the operator requests acknowledgement. This does not change monitoring focus."
         }
       },
       "internal": {
         "get_command_status": {
-          "arguments": {"command_id": {"type": "string"}}
+          "arguments": {
+            "command_id": {
+              "type": "string"
+            }
+          }
         }
       }
     },
@@ -71,7 +120,11 @@
       "enabled": true,
       "mode": "explicit",
       "path": "knowledge/learned",
-      "types": ["monitoring_focus", "review_note", "capability_note"],
+      "types": [
+        "monitoring_focus",
+        "review_note",
+        "capability_note"
+      ],
       "max_active_records": 100
     }
   }

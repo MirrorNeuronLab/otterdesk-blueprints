@@ -1,0 +1,49 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/contracts.schema.json",
+  "summary": "Control and monitor a simulated warehouse robot through chat and live video.",
+  "inputs": {
+    "scenario": {
+      "type": "string",
+      "required": false,
+      "description": "Service scenario label; the executable currently supports warehouse."
+    }
+  },
+  "outputs": {
+    "profile": "standard_run_store",
+    "artifacts": [
+      {
+        "artifact_id": "events_jsonl",
+        "path": "events.jsonl"
+      }
+    ],
+    "primary": {
+      "id": "service_result",
+      "path": "final_artifact.json",
+      "schema_version": "mn.turtlebot.service_result.v1",
+      "type": "service_result"
+    }
+  },
+  "status": {
+    "runtime_state_source": "workflow_state",
+    "attempt_event": "workflow_step_attempt_started",
+    "retry_event": "workflow_step_attempt_retry_scheduled",
+    "blocked_event": "workflow_step_blocked",
+    "terminal_step_events": [
+      "workflow_step_completed",
+      "workflow_step_partial",
+      "workflow_step_skipped",
+      "workflow_step_failed"
+    ],
+    "event": "blueprint_status",
+    "heartbeat": true,
+    "phases": [
+      "running_worker"
+    ]
+  },
+  "privacy": {
+    "classification": "internal"
+  },
+  "input_validation": {
+    "rules": []
+  }
+}

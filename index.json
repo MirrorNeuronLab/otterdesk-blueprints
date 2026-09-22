@@ -7,5 +7,6 @@
   "financial_advisor",
   "research_assistant",
   "purchasing_manager",
-  "microduck_controller"
+  "microduck_controller",
+  "ros_amr_controller"
 ]

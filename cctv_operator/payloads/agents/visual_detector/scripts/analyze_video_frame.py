@@ -660,6 +660,8 @@ def detection_prompt(
             visual_targets or list(configured_visual_targets({}))
         )
     attention_text = normalize_attention_instruction(attention_instruction)
+    if attention_text:
+        target_description = attention_text
     attention_instruction_text = (
         f"Operator attention request: {attention_text}"
         if attention_text

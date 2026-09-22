@@ -47,6 +47,18 @@ chat AI sends the declared `steer_monitoring` live input over the blueprint MCP;
 the dashboard is intentionally read-only. Each update receives a command ID and
 instruction revision so reports identify the instruction used for a batch.
 
+For example, send **“can you focus on find foreign object on the floor?”** in
+Chat. The monitoring action applies that goal and requests a fresh analysis.
+Subsequent vision prompts use that goal in place of the default people/activity
+targets. Ask to clear the monitoring instruction to restore configured targets.
+A queued command is not yet an applied goal; an already-running analysis can
+still finish with its earlier instruction revision.
+
+The response declaration includes tool descriptions for chat intent selection.
+Deploy the updated SDK common and job-response packages together with this
+blueprint, then reload the Job definition and start a new run to use the updated
+worker prompt. Updating source files alone does not change an installed run.
+
 ## Runtime requirements
 
 The manifest declares a hard NVIDIA CUDA requirement with one GPU and at least 49,152 MB of GPU or unified IGP memory. Eligibility, including DGX Spark unified-memory accounting, is enforced by `mn-python-sdk`; the blueprint does not duplicate that detection logic. There is no CPU or Mac-only execution path.

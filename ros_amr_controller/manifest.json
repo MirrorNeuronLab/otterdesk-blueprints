@@ -1,0 +1,46 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/manifest.schema.json",
+  "id": "ros_amr_controller",
+  "name": "ROS AMR Controller",
+  "version": "1.1.0",
+  "description": "Control a simulated warehouse robot through chat. Send it to designated zones, stop movement, and monitor live video and navigation progress.",
+  "workflow": "workflow.json",
+  "execution": "execution.json",
+  "contracts": "contracts.json",
+  "config": "config/default.json",
+  "dependencies": "dependencies.json",
+  "extensions": {
+    "mn.airgap": {
+      "file": "extensions/airgap.json",
+      "required": true
+    },
+    "mn.context": {
+      "file": "extensions/context.json",
+      "required": true
+    },
+    "mn.llm": {
+      "file": "extensions/llm.json",
+      "required": true
+    },
+    "mn.product": {
+      "file": "extensions/product.json",
+      "required": false
+    },
+    "mn.rag": {
+      "file": "extensions/rag.json",
+      "required": true
+    },
+    "mn.response": {
+      "file": "extensions/response.json",
+      "required": true
+    },
+    "mn.storage": {
+      "file": "extensions/storage.json",
+      "required": true
+    },
+    "mn.ui": {
+      "file": "extensions/ui.json",
+      "required": false
+    }
+  }
+}

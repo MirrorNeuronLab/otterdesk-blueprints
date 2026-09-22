@@ -207,6 +207,15 @@ def operator_state(
         warning = preview_warning or "Waiting for the first selected frame to be analyzed."
 
     recent_events: list[dict[str, Any]] = []
+    for observation in observations[-20:]:
+        recent_events.append(
+            _event(
+                "Frame analyzed",
+                str(observation.get("summary") or observation.get("detection_report") or ""),
+                timestamp=observation.get("observed_at"),
+                observation=observation,
+            )
+        )
     for error in errors[-10:]:
         recent_events.append(
             _event(
@@ -275,13 +284,13 @@ def operator_state(
         if len(recent_events) >= 50:
             break
 
+    current_finding = latest or latest_detection
     finding = (
-        latest_detection.get("detection_report")
-        or latest_detection.get("summary")
-        or latest.get("summary")
+        current_finding.get("detection_report")
+        or current_finding.get("summary")
         or "Waiting for the first analyzed frame."
     )
-    confidence = latest_detection.get("confidence", latest.get("confidence"))
+    confidence = current_finding.get("confidence")
     confidence_text = (
         f"{float(confidence):.0%}" if confidence is not None else "waiting"
     )
@@ -293,8 +302,7 @@ def operator_state(
             "latest finding": str(finding)[:300],
             "confidence": confidence_text,
             "risk": str(
-                latest_detection.get("risk_level")
-                or latest.get("risk_level")
+                current_finding.get("risk_level")
                 or "waiting"
             ),
             "frames analyzed": int(report.get("frames_analyzed") or len(observations)),
@@ -318,7 +326,7 @@ def operator_state(
                 monitoring.get("instruction_revision") or 0
             ),
         },
-        "finding_details": observation_details(latest_detection or latest),
+        "finding_details": observation_details(current_finding),
         "warning": warning,
         "events": recent_events,
     }

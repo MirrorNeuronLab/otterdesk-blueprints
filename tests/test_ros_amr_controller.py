@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import ast
+import json
 import subprocess
 from pathlib import Path
 
 from mn_sdk.blueprints import blueprint_definition, read_blueprint
 
 ROOT = Path(__file__).resolve().parents[1]
-BLUEPRINT = ROOT.parent / "mn-blueprints" / "ros_amr_controller"
+BLUEPRINT = ROOT / "ros_amr_controller"
 SOURCE = BLUEPRINT / "payloads" / "docker_compose" / "turtlebot-maze"
 
 
@@ -158,10 +159,10 @@ def test_ros_amr_declares_job_scoped_bounded_response_agent():
     assert manifest["knowledge_rag"]["top_k"] == 2
     assert manifest["knowledge_rag"]["max_context_chars"] == 1_000
     assert "mcp_control" not in manifest["metadata"]
-    assert {item["name"] for item in manifest["skill_dependencies"]} >= {
-        "mirrorneuron-job-response-skill",
-        "mirrorneuron-rag-skill",
-        "mirrorneuron-mcp-client-skill",
+    assert {item["name"] for item in json.loads((BLUEPRINT / "dependencies.json").read_text())["packages"]} >= {
+        "mn-python-sdk-job-response",
+        "mn-python-sdk-rag",
+        "mn-python-sdk-mcp",
     }
 
 
@@ -226,3 +227,117 @@ def test_ros_amr_command_receipts_declare_compact_confirmation_metadata():
     assert '"label": "ADJUSTMENT COMMAND"' in source
     assert "Do not enter Zone C" in specification
     assert "knowledge/learned/active.md" in specification
+
+
+def test_chat_commands_use_current_response_engine(tmp_path):
+    """Exercise this blueprint's declaration through the real shared chat engine."""
+    import time
+    from mn_sdk_common.response_service import response_agent
+    from mn_sdk_job_response import JobResponseEngine
+
+    manifest = blueprint_definition(read_blueprint(BLUEPRINT / "manifest.json"))
+    declaration = manifest["response_service"]["agent"]
+
+    class Planner:
+        provider = "fake"
+        model = "default"
+
+        def completion_json(self, system, user, *, validator=None, **kwargs):
+            assert "move to zone A" in user or "stop" in user
+            return validator(self.plan)
+
+    class Adapter:
+        connected = True
+
+        def __init__(self):
+            self.calls = []
+
+        def resolve(self, run_id, service):
+            assert service == declaration["service"]
+            return {"run_id": run_id}
+
+        def list_tools(self, config):
+            return {"status": "ok", "tools": [
+                {"name": name, "inputSchema": {"type": "object", "properties": spec["arguments"]}}
+                for group in declaration["tools"].values() for name, spec in group.items()
+            ]}
+
+        def call(self, config, tool, arguments):
+            self.calls.append((tool, arguments))
+            result = {"accepted": True}
+            if tool == "get_robot_status":
+                result = {"connected": self.connected}
+            elif tool == "navigate_to_zone":
+                result["operation_id"] = "ba72a876-3b23-4206-91d4-f8286b885999"
+            elif tool == "get_navigation_operation":
+                result = {"state": "completed", **arguments}
+            return {"status": "ok", "result": {"structuredContent": result}}
+
+    planner, adapter = Planner(), Adapter()
+    engine = JobResponseEngine(
+        job_id="ros-chat-test", blueprint_id="ros_amr_controller", job_data_dir=tmp_path / "ros-chat-test",
+        manifest=manifest, agent_declaration=response_agent(manifest),
+        llm_client=planner, mcp_adapter=adapter,
+    )
+    engine.warm()
+    context = {"identity": {"job_id": engine.job_id}, "state": "running",
+               "latest_run": {"run_id": "ros-run", "status": "running"},
+               "_active_service_run_id": "ros-run"}
+    planner.plan = {"intent": "action", "tool": "navigate_to_zone", "arguments": {"zone": "zone_a"}}
+    answer = engine.ask(question="move to zone A", context=context)
+    assert adapter.calls[:2] == [("get_robot_status", {}), ("navigate_to_zone", {"zone": "zone_a"})]
+    deadline = time.monotonic() + 3
+    while time.monotonic() < deadline:
+        result = engine.get_turn(answer["turn"]["turn_id"])
+        if result["turn"]["state"] == "completed":
+            break
+        time.sleep(0.02)
+    assert result["turn"]["state"] == "completed"
+
+    adapter.connected = False
+    adapter.calls.clear()
+    blocked = engine.ask(question="move to zone A", context=context)
+    assert blocked["effects"][0]["state"] == "blocked"
+    assert adapter.calls == [("get_robot_status", {})]
+
+    adapter.calls.clear()
+    planner.plan = {"intent": "action", "tool": "cancel_navigation", "arguments": {}}
+    stopped = engine.ask(question="stop", context=context)
+    assert stopped["turn"]["state"] == "completed"
+    assert adapter.calls == [("cancel_navigation", {})]
+    assert stopped["effects"][0]["effect"] == "stop"
+
+
+def test_chat_uses_resolved_model_and_declared_command_descriptions():
+
+    llm = json.loads((BLUEPRINT / "extensions/llm.json").read_text())
+    config = json.loads((BLUEPRINT / "config/default.json").read_text())
+    response = json.loads((BLUEPRINT / "extensions/response.json").read_text())
+    assert llm["configs"]["primary"]["provider"] == "openai_compatible"
+    assert llm["configs"]["primary"]["api_base"] == "auto"
+    assert "llm" not in config
+    tools = response["agent"]["tools"]["user"]
+    assert "move to zone A" in tools["navigate_to_zone"]["description"]
+    assert tools["cancel_navigation"]["effect"] == "stop"
+
+
+def test_mcp_server_schemas_match_chat_declaration(monkeypatch):
+    import asyncio
+    import importlib.util
+    import sys
+
+    spec = importlib.util.spec_from_file_location("ros_amr_mcp_test", SOURCE / "mcp/robot_control_server.py")
+    module = importlib.util.module_from_spec(spec)
+    monkeypatch.setitem(sys.modules, spec.name, module)
+    spec.loader.exec_module(module)
+    published = {tool.name: tool for tool in asyncio.run(module.mcp.list_tools())}
+    declaration = json.loads((BLUEPRINT / "extensions/response.json").read_text())["agent"]
+    expected = {name: tool for group in declaration["tools"].values() for name, tool in group.items()}
+    assert published.keys() == expected.keys()
+    for name, tool in published.items():
+        schema = tool.input_schema
+        properties = schema["properties"]
+        assert properties.keys() == expected[name]["arguments"].keys()
+        for argument, contract in expected[name]["arguments"].items():
+            assert all(properties[argument][key] == value for key, value in contract.items())
+        assert tool.output_schema is not None

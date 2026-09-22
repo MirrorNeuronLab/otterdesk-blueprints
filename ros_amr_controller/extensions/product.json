@@ -1,0 +1,33 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/product.schema.json",
+  "runtime_features": [
+    "Chat-based robot control",
+    "Navigation to Zones A, B, and C",
+    "Stop and short movement adjustments",
+    "Live video and robot status",
+    "Navigation progress tracking"
+  ],
+  "category": "Robotics",
+  "product": {
+    "agent_role": "Warehouse robot simulation assistant.",
+    "benefit": "Practice robot operation and demonstrate warehouse navigation from one workspace.",
+    "customizable_for": "Warehouse demonstrations, operator training, and navigation testing.",
+    "how_it_works": "Start the simulation, then type commands such as \u201cmove to zone A\u201d or \u201cstop.\u201d Follow the robot through live video and status updates.",
+    "input": "Chat commands and a warehouse simulation scenario.",
+    "output": "Live video, robot status, and navigation progress.",
+    "problem": "Robot simulations can require separate tools for control, video, and navigation monitoring.",
+    "runtime_features": [
+      "Chat-based robot control",
+      "Navigation to Zones A, B, and C",
+      "Stop and short movement adjustments",
+      "Live video and robot status",
+      "Navigation progress tracking"
+    ],
+    "simulation_type": "TurtleBot warehouse simulation.",
+    "target_users": "Robotics developers, warehouse automation teams, and trainees.",
+    "web_ui": {
+      "enabled": true,
+      "title": "Warehouse AMR Monitor"
+    }
+  }
+}

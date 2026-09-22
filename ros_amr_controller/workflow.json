@@ -1,0 +1,86 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/workflow.schema.json",
+  "workflow_id": "ros_amr_controller_v1",
+  "mode": "static_dag",
+  "source": "warehouse_service",
+  "sink": "finalize",
+  "entrypoint": "warehouse_service",
+  "dynamic": {
+    "enabled": false
+  },
+  "execution": {
+    "strategy": "serial",
+    "max_parallel_steps": 1
+  },
+  "edges": [
+    {
+      "id": "warehouse_service_to_finalize",
+      "from": "warehouse_service",
+      "to": "finalize",
+      "accepts": [
+        "done"
+      ],
+      "required": true
+    }
+  ],
+  "steps": [
+    {
+      "id": "warehouse_service",
+      "kind": "task",
+      "label": "TurtleBot Warehouse Service",
+      "goal": "Keep the ROS 2 warehouse simulation and browser dashboard running.",
+      "action": "run_worker",
+      "run": {
+        "agent": "warehouse_service",
+        "binding": "warehouse_service"
+      },
+      "worker": {
+        "enabled": false
+      },
+      "emits": [
+        "service_heartbeat"
+      ],
+      "on": {},
+      "control": {
+        "timeout_seconds": 86400
+      }
+    },
+    {
+      "id": "finalize",
+      "kind": "task",
+      "label": "Finalize Service Run",
+      "goal": "Close the run after the long-running service deliberately stops.",
+      "action": "run_worker",
+      "run": {
+        "agent": "finalize",
+        "binding": "finalize"
+      },
+      "worker": {
+        "enabled": false
+      },
+      "emits": [
+        "final_result"
+      ],
+      "on": {},
+      "control": {
+        "timeout_seconds": 30
+      }
+    }
+  ],
+  "defaults": {
+    "step": {
+      "control": {
+        "required": true,
+        "failure_policy": "fail_workflow",
+        "retry": {
+          "max_attempts": 1,
+          "backoff_seconds": 1
+        },
+        "uncertainty": {
+          "min_confidence": 0,
+          "on_low_confidence": "continue_with_warning"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/llm.schema.json",
+  "enabled": true,
+  "mode": "actor_assisted",
+  "mock_mode": "deterministic",
+  "model": "default",
+  "default_config": "primary",
+  "configs": {
+    "primary": {
+      "provider": "openai_compatible",
+      "model": "default",
+      "api_base": "auto",
+      "temperature": 0,
+      "structured_output_options": {
+        "temperature": 0
+      },
+      "max_tokens": 600
+    }
+  },
+  "responsibilities": [
+    "Interpret typed robot commands by semantic intent, including polite paraphrases, using declared MCP tool descriptions and exact argument enums.",
+    "Map move to zone A/B/C to navigate_to_zone with zone_a/zone_b/zone_c. Map stop, halt, and cancel navigation to cancel_navigation without stopping the simulation service.",
+    "Ask for clarification when the destination is missing or unsupported; never invent coordinates or tools.",
+    "Report acceptance and observed navigation progress separately; claim arrival only after the operation completes."
+  ],
+  "agents": {
+    "warehouse_service": {
+      "llm_config": "primary",
+      "role": "ROS AMR service controller",
+      "responsibilities": [
+        "Keep the ROS 2 simulation, Nav2, dashboard, and MCP endpoint healthy.",
+        "Expose only named-zone navigation and bounded fine-adjustment controls.",
+        "Stop child processes when the service lease ends."
+      ]
+    },
+    "finalize": {
+      "llm_config": "primary",
+      "role": "ROS AMR service finalizer",
+      "responsibilities": [
+        "Record deliberate service shutdown.",
+        "Preserve the run event trail.",
+        "Avoid issuing any robot command during finalization."
+      ]
+    }
+  }
+}

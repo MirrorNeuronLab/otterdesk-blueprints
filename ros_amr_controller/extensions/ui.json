@@ -1,0 +1,15 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/ui.schema.json",
+  "starter_questions": [
+    "Move the simulated robot to Zone A.",
+    "Stop",
+    "What is the robot's current status?",
+    "Do not enter Zone C.",
+    "What can this robot do and what can it not do?",
+    "Remember that loading dock means Zone A."
+  ],
+  "web_ui": {
+    "enabled": true,
+    "title": "Warehouse AMR Monitor"
+  }
+}

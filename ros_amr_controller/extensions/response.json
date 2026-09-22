@@ -1,0 +1,97 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/response.schema.json",
+  "enabled": true,
+  "agent": {
+    "kind": "bounded_mcp",
+    "service": {
+      "name": "ros-amr-controller-mcp",
+      "path": "/mcp",
+      "required_tags": [
+        "mcp",
+        "robot-control",
+        "ros-amr-controller"
+      ]
+    },
+    "preflight": {
+      "required_for_effects": [
+        "motion"
+      ],
+      "tool": "get_robot_status",
+      "arguments": {},
+      "required_result": {
+        "connected": true
+      }
+    },
+    "tools": {
+      "user": {
+        "get_robot_status": {
+          "effect": "read",
+          "arguments": {},
+          "description": "Read current simulated robot status and pose without changing motion."
+        },
+        "navigate_to_zone": {
+          "effect": "motion",
+          "arguments": {
+            "zone": {
+              "type": "string",
+              "enum": [
+                "zone_a",
+                "zone_b",
+                "zone_c"
+              ]
+            }
+          },
+          "description": "Move the simulated robot to a named zone. Interpret move to zone A, go to A, or please navigate to Zone A as zone=zone_a; likewise B and C. Use only the declared zones. Acceptance means navigation was requested; report arrival only from the correlated operation."
+        },
+        "cancel_navigation": {
+          "effect": "stop",
+          "arguments": {},
+          "description": "Stop the simulated robot: interpret stop, halt, cancel navigation, or stop the robot as this tool with no arguments. Cancel navigation and send a bounded zero-velocity burst. Keep the simulation service running. This stop effect does not require a motion status preflight."
+        },
+        "adjust_robot": {
+          "effect": "motion",
+          "arguments": {
+            "direction": {
+              "type": "string",
+              "enum": [
+                "forward",
+                "left",
+                "right"
+              ]
+            }
+          },
+          "description": "Apply one short forward, left, or right fine-adjustment pulse only when requested. Never expand zone navigation into repeated adjustments."
+        }
+      },
+      "internal": {
+        "get_navigation_operation": {
+          "arguments": {
+            "operation_id": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "operations": {
+      "navigate_to_zone": {
+        "id_field": "operation_id",
+        "poll_tool": "get_navigation_operation",
+        "poll_argument": "operation_id",
+        "poll_interval_ms": 1000,
+        "timeout_seconds": 180
+      }
+    },
+    "memory": {
+      "enabled": true,
+      "mode": "explicit",
+      "path": "knowledge/learned",
+      "types": [
+        "zone_alias",
+        "control_constraint",
+        "capability_note"
+      ],
+      "max_active_records": 500
+    }
+  }
+}
