@@ -10,6 +10,7 @@ from uuid import UUID
 
 MOTION_DIRECTIONS = frozenset({"forward", "backward", "turn_left", "turn_right"})
 LOCOMOTION_MODES = frozenset({"legs", "rollers"})
+POSTURES = frozenset({"sit", "stand"})
 BALL_ACTIONS = frozenset({"spawn_ball", "kick_left", "kick_right"})
 NAVIGATION_PROGRESS = frozenset({"turning", "approaching", "settling"})
 NAVIGATION_OUTCOMES = frozenset(
@@ -84,6 +85,12 @@ def validate_locomotion(value: Any) -> str:
     return str(value)
 
 
+def validate_posture(value: Any) -> str:
+    if value not in POSTURES:
+        raise ProtocolError("posture must be either sit or stand")
+    return str(value)
+
+
 def validate_ball_action(value: Any) -> str:
     if value not in BALL_ACTIONS:
         raise ProtocolError(
@@ -117,6 +124,9 @@ def compact_sensor_state(value: Any) -> dict[str, Any]:
             "yaw": _number(duck.get("yaw")),
             "speed": _number(duck.get("speed")),
             "mode": _text(duck.get("mode"), limit=32),
+            "posture": _text(duck.get("posture"), limit=16)
+            if duck.get("posture") in {"sitting", "standing", "transitioning"}
+            else "unknown",
             "locomotion": _text(duck.get("locomotion"), limit=16),
         },
         "ball": {

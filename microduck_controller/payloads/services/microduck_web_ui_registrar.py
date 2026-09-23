@@ -24,7 +24,7 @@ REGISTRATION_TIMEOUT_SECONDS = 60.0
 # Docker's host-loopback port publication can reach it; the manifest still
 # advertises and health-checks only 127.0.0.1.
 MCP_PROXY_HOST = "0.0.0.0"
-MCP_PROXY_PORT = 62008
+MCP_PROXY_PORT = int(os.environ.get("MN_PORT_MICRODUCK_MCP", "62008"))
 MCP_PROXY_REQUEST_LIMIT = 1_048_576
 MCP_PROXY_RESPONSE_LIMIT = 2_097_152
 _DOCKER_WORKER_HOST_PREFIX = "mn-dw-"
@@ -162,6 +162,7 @@ def serve_mcp_proxy(
     host: str = MCP_PROXY_HOST,
     port: int = MCP_PROXY_PORT,
     server_factory=ThreadingHTTPServer,
+    on_ready: Callable[[], None] | None = None,
 ) -> None:
     """Expose the run's private MCP endpoint to the Job response agent only."""
 
@@ -236,7 +237,10 @@ def serve_mcp_proxy(
         def log_message(self, _format: str, *_args: Any) -> None:
             return
 
-    server_factory((host, port), Handler).serve_forever(poll_interval=0.5)
+    server = server_factory((host, port), Handler)
+    if on_ready is not None:
+        on_ready()
+    server.serve_forever(poll_interval=0.5)
 
 
 def main() -> int:
@@ -251,12 +255,6 @@ def main() -> int:
     endpoint = await_endpoint(configured_run_dir() / WEB_UI_ENDPOINT_ARTIFACT)
     from mn_sdk_web_ui import claim_web_ui, mark_web_ui_status
 
-    register_endpoint(
-        job_data_dir=job_data_dir,
-        job_id=job_id,
-        endpoint=endpoint,
-        claimer=claim_web_ui,
-    )
 
     def stop(_signum: int, _frame: Any) -> None:
         mark_web_ui_status(
@@ -273,7 +271,12 @@ def main() -> int:
     # This HostLocal sidecar gives the stable Job response agent one declared,
     # health-checked service endpoint while the DockerWorker keeps its random
     # private listener. It forwards only MCP and health paths.
-    serve_mcp_proxy(endpoint)
+    serve_mcp_proxy(endpoint, on_ready=lambda: register_endpoint(
+        job_data_dir=job_data_dir,
+        job_id=job_id,
+        endpoint=endpoint,
+        claimer=claim_web_ui,
+    ))
     return 0
 
 

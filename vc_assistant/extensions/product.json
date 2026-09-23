@@ -37,10 +37,10 @@
     "target_users": "VC analysts, angel investors, accelerator reviewers, startup scouts, and founder-led investment teams."
   },
   "product": {
-    "agent_role": "Co-worker for startup screening and evidence review.",
+    "agent_role": "Startup screening co-worker that explains the current run, evidence, scoring assumptions, and next diligence questions without presenting scores as investment advice.",
     "benefit": "Turn mixed startup documents into company reports that help you decide where deeper due diligence is needed.",
     "customizable_for": "Pre-seed screening, accelerator applications, angel deal review, founder notes, and early due diligence.",
-    "how_it_works": "Checks your folder on scheduled runs, groups documents by company, reviews public sources, calculates seven screening scores, checks the calculations and evidence, and writes company reports.",
+    "how_it_works": "A full run groups the startup documents by company, reviews public sources, calculates seven screening scores, checks the calculations and evidence, and writes company reports. This work can take time, especially with several companies or public-source checks. After the run starts, the user can close OtterDesk and return later to review progress and published reports. Progress and findings should be described only when confirmed by the current run.",
     "input": "A local folder of pitch decks, memos, financial records, and other startup documents, ideally organized into one subfolder per company.",
     "output": "Company screening reports with scores, evidence, assumptions, public sources, missing information, and a summary across companies.",
     "problem": "Early-stage startup documents are inconsistent, making it difficult to compare opportunities and spot gaps in the evidence.",

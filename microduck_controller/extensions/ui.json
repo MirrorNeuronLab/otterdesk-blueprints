@@ -1,9 +1,9 @@
 {
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/ui.schema.json",
   "starter_questions": [
-    "Move forward for a medium step.",
-    "Could you locate the ball for me?",
-    "Let's free play now—keep chasing and kicking it.",
+    "Move forward a short step.",
+    "Find the ball and stop beside it.",
+    "Let's free play with the ball until I say stop.",
     "Run the showcase routine.",
     "What can you do, and what are your safety limits?"
   ],

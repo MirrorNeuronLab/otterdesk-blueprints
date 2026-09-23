@@ -16,9 +16,11 @@ The browser owns all physics and policy execution. The service never runs MuJoCo
 
 ## MCP contract
 
-The exact MCP tools are `get_user_manual`, `get_duck_state`, `move_duck`, `perform_routine`, `find_ball`, `free_play`, `get_command_status`, `stop_duck`, `set_locomotion`, `play_ball_action`, and `reset_simulation`. Every effect takes a caller-supplied UUID `command_id`. Retrying an identical command returns its original receipt; reusing an ID for a different effect is rejected.
+The exact MCP tools are `get_user_manual`, `get_duck_state`, `move_duck`, `perform_routine`, `find_ball`, `free_play`, `get_command_status`, `stop_duck`, `set_locomotion`, `set_posture`, `play_ball_action`, and `reset_simulation`. Every effect takes a caller-supplied UUID `command_id`. Retrying an identical command returns its original receipt; reusing an ID for a different effect is rejected.
 
 `move_duck` accepts one `forward`, `backward`, `turn_left`, or `turn_right` direction and one `short`, `medium`, or `long` duration. These map to 250, 500, or 1,000 ms. `perform_routine` accepts only `showcase`, `spin_left`, `spin_right`, or `zigzag`; every predefined plan remains below five seconds. The browser maps those directions to the existing policy limits for the active legs or rollers mode. No raw velocity or joint command is available. Stop has priority and clears active remote movement, continuous free play, and an in-progress remote kick.
+
+`set_posture` is a bounded sit/stand effect through the browser simulator; sitting requires legged locomotion and completion is confirmed by observed posture. A request to move the duck to the ball uses `find_ball`, not a single `move_duck` step.
 
 `find_ball` is one `navigation` effect. The Job LLM maps find/seek/approach/go-to-ball intent to that tool and must not synthesize repeated `move_duck` calls. At the 50 Hz control loop, deterministic browser code recalculates bearing from simulator-local duck and active-ball x/y positions. It turns while angular error exceeds 0.30 radians, begins forward motion after alignment within 0.15 radians, returns to turning outside the wider threshold, and enters a zero-command settling phase within 0.22 m. Completion requires speed at or below 0.05 m/s for 250 ms. Legs and rollers use their existing velocity limits. Normal walk/drive mode and an active ball are required. Each attempt is bounded to 30 seconds and 5 m of observed travel, and stop, bridge disconnect, or stale state cancels it and zeros remote input.
 

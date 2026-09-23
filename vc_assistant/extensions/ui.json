@@ -5,8 +5,8 @@
     "fields": []
   },
   "starter_questions": [
-    "What startup screening work can you do?",
-    "What did the latest company analysis show?",
-    "Which claims or valuation inputs still need diligence?"
+    "What will you review in a full startup screening run, and when can I check back?",
+    "What is the latest run working on, and what has been published so far?",
+    "Which company claims, scoring assumptions, or missing sources need my review?"
   ]
 }

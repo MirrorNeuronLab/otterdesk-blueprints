@@ -17,10 +17,6 @@
     "disk": {
       "min_gb": 2
     },
-    "gpu": {
-      "min_count": 1,
-      "min_memory_mb": 16384
-    },
     "network": {
       "egress": "browser_cdn_required"
     }
@@ -50,7 +46,7 @@
           "ports": [
             {
               "label": "microduck_mcp",
-              "port": 62008,
+              "port": "auto",
               "protocol": "http"
             }
           ]
@@ -59,7 +55,7 @@
           {
             "name": "microduck-controller-mcp",
             "address": "127.0.0.1",
-            "port": 62008,
+            "port": "${env.MN_PORT_MICRODUCK_MCP}",
             "origin": "internal",
             "tags": [
               "mcp",
@@ -76,7 +72,7 @@
                 "name": "microduck-mcp-http",
                 "type": "http",
                 "address": "127.0.0.1",
-                "port": 62008,
+                "port": "${env.MN_PORT_MICRODUCK_MCP}",
                 "path": "/health",
                 "expected_status": 200,
                 "interval_ms": 1000,

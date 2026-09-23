@@ -1758,6 +1758,30 @@ async function boot({ scene, camera, renderer }) {
       : { accepted: false, reason: "kick_not_available" };
   }
 
+  function requestRemotePosture(posture) {
+    if (inputLocked || locoSwitching || recovery || remoteSource.isActive() ||
+        rollRun || crouchRun || pickRun || kickRun || postKickLock > 0 ||
+        sitTimer || standTimer) {
+      return { accepted: false, reason: "simulator_not_ready" };
+    }
+    if (posture === "sit") {
+      if (loco !== "legs") return { accepted: false, reason: "sit_requires_legs" };
+      if (mode === "sitstand" && sitFlag === 1) return { accepted: true };
+      if (mode !== "walk") return { accepted: false, reason: "posture_mode_unavailable" };
+      setMode("sit");
+      return { accepted: true };
+    }
+    if (posture === "stand") {
+      if (mode === "walk") return { accepted: true };
+      if (mode !== "sitstand" || sitFlag !== 1) {
+        return { accepted: false, reason: "posture_mode_unavailable" };
+      }
+      setMode("walk");
+      return { accepted: true };
+    }
+    return { accepted: false, reason: "unsupported_posture" };
+  }
+
   function stopRemoteActions(reason = "stopped_by_operator") {
     remoteSource.stop(reason);
     if (isKick() && kickRun) {
@@ -1789,6 +1813,8 @@ async function boot({ scene, camera, renderer }) {
         yaw,
         speed: Math.hypot(qvel[0], qvel[1]),
         mode,
+        posture: mode === "sitstand" && sitFlag === 1 ? "sitting"
+          : mode === "walk" ? "standing" : "transitioning",
         locomotion: loco,
         busy,
       },
@@ -1831,6 +1857,7 @@ async function boot({ scene, camera, renderer }) {
       remote: remoteSource,
       snapshot: compactMcpSnapshot,
       requestLoco: (name) => gameApi.requestLoco(name),
+      requestPosture: requestRemotePosture,
       reset: resetSim,
       ballAction: remoteBallAction,
       stopAll: stopRemoteActions,

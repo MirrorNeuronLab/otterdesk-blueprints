@@ -13,6 +13,7 @@ export class McpBridge {
   #remote;
   #snapshot;
   #requestLoco;
+  #requestPosture;
   #reset;
   #ballAction;
   #stopAll;
@@ -23,10 +24,11 @@ export class McpBridge {
   #pending = null;
   #stopped = false;
 
-  constructor({ remote, snapshot, requestLoco, reset, ballAction, stopAll }) {
+  constructor({ remote, snapshot, requestLoco, requestPosture, reset, ballAction, stopAll }) {
     this.#remote = remote;
     this.#snapshot = snapshot;
     this.#requestLoco = requestLoco;
+    this.#requestPosture = requestPosture;
     this.#reset = reset;
     this.#ballAction = ballAction;
     this.#stopAll = typeof stopAll === "function"
@@ -138,6 +140,21 @@ export class McpBridge {
       this.#requestLoco(payload.locomotion);
       this.#watch(commandId, kind, (state) =>
         state.duck.locomotion === payload.locomotion && !state.duck.busy && state.ready,
+      );
+      return;
+    }
+    if (kind === "set_posture") {
+      if (this.#pending) {
+        this.sendCommandUpdate({ command_id: commandId, status: "rejected", reason: "browser_busy" });
+        return;
+      }
+      const result = this.#requestPosture(payload.posture);
+      if (!result?.accepted) {
+        this.sendCommandUpdate({ command_id: commandId, status: "rejected", reason: result?.reason || "posture_unavailable" });
+        return;
+      }
+      this.#watch(commandId, kind, (state) =>
+        state.ready && state.duck.posture === (payload.posture === "sit" ? "sitting" : "standing"),
       );
       return;
     }

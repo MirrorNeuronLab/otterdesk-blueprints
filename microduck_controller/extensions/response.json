@@ -18,6 +18,7 @@
         "navigation",
         "play",
         "locomotion",
+        "posture",
         "ball",
         "simulation"
       ],
@@ -40,6 +41,7 @@
         },
         "move_duck": {
           "effect": "motion",
+          "description": "Move briefly in one fixed direction for 250, 500, or 1000 ms. Use only for an untargeted step or turn. Never use this for a destination such as the ball; use find_ball for that goal.",
           "arguments": {
             "command_id": {
               "type": "string"
@@ -82,6 +84,7 @@
         },
         "find_ball": {
           "effect": "navigation",
+          "description": "Navigate continuously to the active ball using closed-loop position feedback, turning and advancing until the duck reaches it and stops. Use for 'move the duck to the ball', 'go to the ball', 'approach the ball', or 'find the ball'. A single move_duck step does not fulfill this goal.",
           "arguments": {
             "command_id": {
               "type": "string"
@@ -117,6 +120,14 @@
                 "rollers"
               ]
             }
+          }
+        },
+        "set_posture": {
+          "effect": "posture",
+          "description": "Sit down or stand up using the simulator's legged posture policy. Use sit for sit down, sit, take a seat, or seat down; use stand to get up or stand up.",
+          "arguments": {
+            "command_id": { "type": "string" },
+            "posture": { "type": "string", "enum": ["sit", "stand"] }
           }
         },
         "play_ball_action": {
@@ -191,6 +202,13 @@
         "timeout_seconds": 10
       },
       "set_locomotion": {
+        "id_field": "command_id",
+        "poll_tool": "get_command_status",
+        "poll_argument": "command_id",
+        "poll_interval_ms": 500,
+        "timeout_seconds": 20
+      },
+      "set_posture": {
         "id_field": "command_id",
         "poll_tool": "get_command_status",
         "poll_argument": "command_id",

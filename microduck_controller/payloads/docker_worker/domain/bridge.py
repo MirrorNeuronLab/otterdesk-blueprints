@@ -382,6 +382,12 @@ def _command_confirmation(kind: str, payload: Mapping[str, Any]) -> dict[str, st
             "label": "LOCOMOTION COMMAND",
             "target": str(payload.get("locomotion") or "requested mode"),
         }
+    if kind == "set_posture":
+        return {
+            "kind": "posture",
+            "label": "POSTURE COMMAND",
+            "target": str(payload.get("posture") or "requested posture"),
+        }
     if kind == "ball_action":
         return {
             "kind": "ball",
@@ -467,6 +473,7 @@ def _command_message(
     action = {
         "motion_plan": "Motion",
         "set_locomotion": "Locomotion change",
+        "set_posture": "Posture change",
         "ball_action": "Ball action",
         "reset": "Simulation reset",
         "stop": "Stop",

@@ -28,6 +28,7 @@ from domain.protocol import (
     validate_command_id,
     validate_locomotion,
     validate_motion_plan,
+    validate_posture,
 )
 
 
@@ -332,10 +333,11 @@ def create_mcp_server(hub: BridgeHub):
             "non-exhaustive, ignore polite or conversational framing when intent is clear, "
             "and clarify only material ambiguity. Map paraphrases for movement, routines, "
             "locomotion, ball actions, reset, stop, state, and the manual to their declared tools. "
-            "Map requests to find, seek, approach, or go to the ball to find_ball, and never "
+            "Map requests to move the duck to the ball, find, seek, approach, or go to the ball to find_ball, and never "
             "expand that goal into repeated move_duck calls. Map free-play requests, including "
             "'free play now', 'let's free play', and 'you can free play', to one free_play call; "
-            "it keeps finding and kicking until stop_duck is called."
+            "it keeps finding and kicking until stop_duck is called. Map sit or seat down "
+            "to set_posture(sit), and get up or stand up to set_posture(stand)."
         ),
         stateless_http=True,
         json_response=True,
@@ -374,7 +376,7 @@ def create_mcp_server(hub: BridgeHub):
         direction: Literal["forward", "backward", "turn_left", "turn_right"],
         duration: Literal["short", "medium", "long"],
     ) -> dict[str, Any]:
-        """Move once in a bounded direction for 250, 500, or 1000 milliseconds."""
+        """Move once in a fixed direction for 250, 500, or 1000 ms; never navigate to a target."""
 
         return await _enqueue(
             hub,
@@ -409,7 +411,7 @@ def create_mcp_server(hub: BridgeHub):
 
     @mcp.tool()
     async def find_ball(command_id: str) -> dict[str, Any]:
-        """Approach the active ball with bounded closed-loop simulator navigation."""
+        """Move the duck continuously to the active ball with bounded closed-loop navigation."""
 
         return await _enqueue(
             hub,
@@ -464,6 +466,20 @@ def create_mcp_server(hub: BridgeHub):
             kind="set_locomotion",
             payload={"locomotion": locomotion},
             validate=lambda: {"locomotion": validate_locomotion(locomotion)},
+        )
+
+    @mcp.tool()
+    async def set_posture(
+        command_id: str, posture: Literal["sit", "stand"]
+    ) -> dict[str, Any]:
+        """Sit down or stand up through the simulator's legged posture policy."""
+
+        return await _enqueue(
+            hub,
+            command_id=command_id,
+            kind="set_posture",
+            payload={"posture": posture},
+            validate=lambda: {"posture": validate_posture(posture)},
         )
 
     @mcp.tool()

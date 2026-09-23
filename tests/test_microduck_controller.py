@@ -22,6 +22,7 @@ from domain.protocol import (
     compact_sensor_state,
     validate_command_id,
     validate_motion_plan,
+    validate_posture,
 )
 from services.duck_control_service import (
     MOTION_ROUTINES,
@@ -119,6 +120,7 @@ def test_protocol_rejects_raw_or_unbounded_motion_and_projects_compact_state():
             "yaw": 0.25,
             "speed": 0.8,
             "mode": "walk",
+            "posture": "unknown",
             "locomotion": "legs",
         },
         "ball": {"active": True, "x": 2.0, "y": 3.0, "distance": 4.0},
@@ -181,8 +183,32 @@ def test_bridge_enforces_one_lease_idempotency_busy_gate_and_stop_precedence():
             "state_age_ms": 0,
         }
         assert state["ready"] is True
-        assert set(state["duck"]) == {"x", "y", "yaw", "speed", "mode", "locomotion"}
+        assert set(state["duck"]) == {"x", "y", "yaw", "speed", "mode", "posture", "locomotion"}
         assert set(state["ball"]) == {"active", "x", "y", "distance"}
+
+    asyncio.run(scenario())
+
+
+def test_posture_command_is_delivered_and_reports_observed_completion():
+    async def scenario() -> None:
+        messages: list[dict] = []
+
+        async def send(message: dict) -> None:
+            messages.append(message)
+
+        hub = BridgeHub(clock=Clock())
+        assert await hub.claim("control-tab", send)
+        assert await hub.update_state("control-tab", raw_state())
+        receipt = await hub.enqueue(
+            command_id=UUID_A, kind="set_posture", payload={"posture": "sit"}
+        )
+        assert receipt["status"] == "queued"
+        assert receipt["confirmation"]["target"] == "sit"
+        assert messages[-1]["command"]["kind"] == "set_posture"
+        assert messages[-1]["command"]["payload"] == {"posture": "sit"}
+        assert (await hub.command_status(UUID_A))["status"] == "queued"
+        assert await hub.update_command("control-tab", {"command_id": UUID_A, "status": "completed"})
+        assert (await hub.command_status(UUID_A))["status"] == "completed"
 
     asyncio.run(scenario())
 
@@ -425,6 +451,7 @@ def test_service_contract_has_exact_mcp_tools_and_private_proxy_defaults(monkeyp
         "get_command_status",
         "stop_duck",
         "set_locomotion",
+        "set_posture",
         "play_ball_action",
         "reset_simulation",
     }
@@ -489,6 +516,12 @@ def test_mcp_manual_and_named_routines_share_the_bounded_control_contract():
     assert "`perform_routine`" in manual
     assert "`find_ball`" in manual
     assert "`free_play`" in manual
+    assert "move the duck to the ball" in manual
+    assert "seat down" in manual
+    assert validate_posture("sit") == "sit"
+    assert validate_posture("stand") == "stand"
+    with pytest.raises(ProtocolError):
+        validate_posture("roll")
     assert "Never expand this goal into repeated `move_duck` calls" in manual
     assert '`{"intent":"action","tool":"find_ball","arguments":{}}`' in manual
     assert '`{"intent":"action","tool":"free_play","arguments":{}}`' in manual
@@ -518,6 +551,7 @@ def test_mcp_manual_and_named_routines_share_the_bounded_control_contract():
         "free_play",
         "stop_duck",
         "set_locomotion",
+        "set_posture",
         "play_ball_action",
         "reset_simulation",
     ):
@@ -590,6 +624,24 @@ def test_mcp_sidecar_accepts_the_host_loopback_port_forward():
 
     assert MCP_PROXY_HOST == "0.0.0.0"
     assert bound == {"address": ("0.0.0.0", 62008), "poll_interval": 0.5}
+
+
+def test_mcp_sidecar_registers_only_after_successful_bind():
+    calls = []
+
+    class FakeServer:
+        def __init__(self, _address, _handler):
+            calls.append("bound")
+
+        def serve_forever(self, *, poll_interval):
+            calls.append("serving")
+
+    serve_mcp_proxy(
+        {"url": "http://127.0.0.1:8080"},
+        server_factory=FakeServer,
+        on_ready=lambda: calls.append("registered"),
+    )
+    assert calls == ["bound", "registered", "serving"]
 
 
 def test_mcp_sidecar_allows_only_loopback_and_the_discovered_docker_gateway(tmp_path):
@@ -689,12 +741,13 @@ def test_source_manifest_compiles_to_one_service_and_one_finalizer_with_bounded_
 
     blueprint = ROOT / "microduck_controller"
     source = blueprint_definition(read_blueprint(blueprint / "manifest.json"))
+    assert "gpu" not in source["requirements"]
     config = resolve_config(read_blueprint(blueprint)).data
     expanded = expand_manifest_source(source, root_dir=blueprint)
     node_ids = {node["node_id"] for node in expanded["agents"]["nodes"]}
 
     agent = source["response_service"]["agent"]
-    assert read_blueprint(blueprint).manifest["version"] == "1.0.0"
+    assert read_blueprint(blueprint).manifest["version"] == "1.1.0"
     assert source["llm"]["configs"]["primary"]["structured_output_options"] == {
         "temperature": 0
     }
@@ -705,9 +758,9 @@ def test_source_manifest_compiles_to_one_service_and_one_finalizer_with_bounded_
     assert "let's free play" in responsibilities
     assert "you can free play" in responsibilities
     assert source["metadata"]["starter_questions"][:3] == [
-        "Move forward for a medium step.",
-        "Could you locate the ball for me?",
-        "Let's free play now—keep chasing and kicking it.",
+        "Move forward a short step.",
+        "Find the ball and stop beside it.",
+        "Let's free play with the ball until I say stop.",
     ]
     init_review = source["metadata"]["init_config_review"]
     assert init_review["required"] is False
@@ -730,6 +783,7 @@ def test_source_manifest_compiles_to_one_service_and_one_finalizer_with_bounded_
             "navigation",
             "play",
             "locomotion",
+            "posture",
             "ball",
             "simulation",
         ],
@@ -746,6 +800,7 @@ def test_source_manifest_compiles_to_one_service_and_one_finalizer_with_bounded_
         "free_play",
         "stop_duck",
         "set_locomotion",
+        "set_posture",
         "play_ball_action",
         "reset_simulation",
     }
@@ -757,11 +812,13 @@ def test_source_manifest_compiles_to_one_service_and_one_finalizer_with_bounded_
         "free_play",
         "stop_duck",
         "set_locomotion",
+        "set_posture",
         "play_ball_action",
         "reset_simulation",
     }
     assert agent["tools"]["user"]["find_ball"] == {
         "effect": "navigation",
+        "description": "Navigate continuously to the active ball using closed-loop position feedback, turning and advancing until the duck reaches it and stops. Use for 'move the duck to the ball', 'go to the ball', 'approach the ball', or 'find the ball'. A single move_duck step does not fulfill this goal.",
         "arguments": {"command_id": {"type": "string"}},
     }
     assert agent["operations"]["find_ball"] == {
@@ -822,8 +879,10 @@ def test_source_manifest_compiles_to_one_service_and_one_finalizer_with_bounded_
     ]
     assert registrar["services"][0]["meta"]["manual_uri"] == "microduck://manual"
     assert registrar["resources"]["ports"] == [
-        {"label": "microduck_mcp", "port": 62008, "protocol": "http"}
+        {"label": "microduck_mcp", "port": "auto", "protocol": "http"}
     ]
+    assert registrar["services"][0]["port"] == "${env.MN_PORT_MICRODUCK_MCP}"
+    assert registrar["services"][0]["checks"][0]["port"] == "${env.MN_PORT_MICRODUCK_MCP}"
     assert expanded["service"]["run_until"] == "manual_stop"
     dependencies = {item["name"] for item in source["packages"]}
     assert dependencies == {"mn-python-sdk-web-ui"}

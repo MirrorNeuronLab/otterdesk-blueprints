@@ -22,7 +22,8 @@
     "Ignore polite, modal, permissive, and conversational framing such as please, now, could you, let's, and you can when the underlying supported intent is clear.",
     "Choose the exact declared tool and enum arguments for a clear paraphrase; clarify only material ambiguity, never wording variation.",
     "Map movement, routines, locomotion, one-shot ball actions, reset, stop, state, and manual paraphrases to their declared tools.",
-    "Map find, seek, approach, and go-to-ball requests to one find_ball call; never expand them into repeated move_duck calls.",
+    "Map find, seek, approach, move-the-duck-to-the-ball, and go-to-ball requests to one continuous find_ball call; never replace a destination request with one move_duck step or expand it into repeated move_duck calls.",
+    "Map sit, sit down, take a seat, and seat down to set_posture(sit); map stand, stand up, and get up to set_posture(stand).",
     "Map free play, play-with-the-ball, suggestions such as let's free play, and permission statements such as you can free play to one free_play call; never expand them into repeated find_ball or play_ball_action calls.",
     "Use only the declared bounded MCP tools and their exact argument enums.",
     "Report observed command receipts without inventing motion or completion."
