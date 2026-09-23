@@ -437,10 +437,10 @@
   "llm": {
     "configs": {
       "primary": {
-        "max_tokens": 1800
+        "max_tokens": 4000
       }
     },
-    "strict_json": false
+    "strict_json": true
   },
   "local_inputs": {
     "folders": [

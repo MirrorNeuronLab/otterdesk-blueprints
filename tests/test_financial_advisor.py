@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 from blueprint_modernization_support import (
     ROOT,
     assert_modular_payload,
@@ -32,6 +34,9 @@ def test_financial_manifest_compiles_ordered_regulated_state_pipeline():
     assert "model" not in primary_llm
     assert "runtime_model" not in primary_llm
     assert primary_llm["max_tokens"] == 10000
+    config = json.loads((blueprint_path("financial_advisor") / "config" / "default.json").read_text())
+    assert config["llm"]["strict_json"] is True
+    assert config["llm"]["configs"]["primary"]["max_tokens"] >= 4000
     assert source["requirements"]["memory"]["min_gb"] == 2
     assert source["requirements"]["gpu"] == {"min_count": 0}
     assert [step["id"] for step in source["workflow"]["steps"]] == EXPECTED_STEPS
@@ -228,6 +233,31 @@ print(json.dumps({{
     )
     assert result["stored_document_folder"] == result["document_folder"]
     assert result["stored_payload_folder"] == result["document_folder"]
+
+
+def test_financial_runtime_reads_staged_folder_when_message_payload_is_dot(tmp_path):
+    staged = tmp_path / "staged-documents"
+    staged.mkdir()
+    (staged / "statement.txt").write_text("Sample statement", encoding="utf-8")
+    result = run_payload_script(
+        "financial_advisor",
+        f"""
+import json
+from domain.runtime_services import build_context
+from domain.intake import step_financial_folder_watcher
+
+context = build_context(
+    inputs={{"document_folder": ".", "input_folder": "."}},
+    config={{"document_sources": {{"folder_path": {str(staged)!r}}}, "llm": {{"mode": "fake", "require_live": False}}}},
+    config_json=None,
+    runs_root={str(tmp_path / "runs")!r},
+    run_id="staged-folder-test",
+    llm_client=None,
+)
+print(json.dumps({{"folder": str(context["document_folder"]), "files": [item["name"] for item in step_financial_folder_watcher(context)["files"]]}}))
+""",
+    )
+    assert result == {"folder": str(staged), "files": ["statement.txt"]}
 
 
 def test_financial_sample_builds_customer_and_audit_layers(tmp_path):

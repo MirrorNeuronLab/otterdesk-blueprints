@@ -67,6 +67,9 @@ isolated by `run_id`; ordinary run cleanup never deletes job data.
 The top-level Job response service exposes only bounded, non-secret profile,
 schedule, lifecycle, and latest-run context. It remains readable without an
 active run and cannot file, trade, transfer, configure, or start the job.
+Customer-facing review language should lead with the supported answer, state
+material uncertainty plainly, and ask one focused follow-up question when
+evidence is incomplete.
 
 ## Non-Goals
 

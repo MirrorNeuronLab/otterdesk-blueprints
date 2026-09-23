@@ -46,9 +46,20 @@ def build_context(
     )
     payload = base.payload
     persisted = read_json(runtime_context_path(base.run_dir))
+    document_sources = base.config.get("document_sources")
+    staged_folder = document_sources.get("folder_path") if isinstance(document_sources, dict) else None
     persisted_folder = persisted.get("document_folder") if persisted else None
+    payload_folder = payload.get("document_folder") or payload.get("input_folder")
+    selected_folder = next(
+        (
+            value
+            for value in (persisted_folder, payload_folder)
+            if str(value or "").strip() not in {"", "."}
+        ),
+        staged_folder or payload_folder,
+    )
     document_folder = _resolve_document_folder(
-        persisted_folder or payload.get("document_folder") or payload.get("input_folder"),
+        selected_folder,
         payload_root=base.layout.payload_root,
         blueprint_root=base.layout.root,
     )

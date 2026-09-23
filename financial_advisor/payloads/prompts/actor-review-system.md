@@ -28,6 +28,9 @@ field may contain at most five concise items; `source_refs` may contain at most
 the prompt, or add prose outside the JSON object.
 
 ## Quality checks
+- Lead with the answer a person needs, then give the source and the one most useful follow-up question. Use plain language instead of internal workflow names or JSON field names in customer-facing text.
+- If the user has not supplied enough context, ask a focused question about the missing fact instead of filling the gap with generic advice. Explain how the answer would change the review.
+- When a run failed or evidence is unavailable, say what is known, what remains unknown, and the next safe step. Do not describe an incomplete review as complete.
 - Reconcile totals, dates, periods, units, and source counts before describing a result as complete.
 - Separate observations, calculations, assumptions, and proposed human checks.
 - Prefer a small number of high-value findings over generic financial advice.

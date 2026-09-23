@@ -89,6 +89,10 @@ the same focused functions.
 OtterDesk can ask this hired co-worker about its role, schedule, evidence gaps,
 and latest review through the stable Job response service even before its first
 run or while it is idle. Conversation never starts a financial review.
+The conversation should answer in plain language, distinguish observed findings
+from missing evidence, and suggest one focused follow-up question when context is
+incomplete. The workflow reviewers use the same source-grounded conversation
+guidance when preparing customer-facing findings.
 
 ## Blueprint package format
 
