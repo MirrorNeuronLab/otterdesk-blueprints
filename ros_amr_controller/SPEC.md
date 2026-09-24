@@ -18,7 +18,9 @@
   generated worker Compose file.
 - The root project starts the warehouse simulation, video server/UI, rosbridge,
   control relay, navigation gateway, and bounded MCP service. Readiness requires
-  all services running plus dashboard, MCP, video, and rosbridge checks.
+  all services running plus dashboard, MCP, video, and rosbridge checks. These
+  checks target the selected node's advertised address because the native SDK
+  evaluates them from its own container network.
 - GUI mounts are opt-in. Spark runs with the headless settings in
   `mirrorneuron/warehouse.env`; local GUI development can provide explicit
   `TURTLEBOT_X11_SOCKET` and `TURTLEBOT_XAUTHORITY` values.

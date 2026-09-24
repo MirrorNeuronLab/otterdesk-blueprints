@@ -40,6 +40,12 @@ def test_ros_amr_uses_the_isolated_compose_runner_and_bundled_source():
         "warehouse-navigation-gateway",
         "warehouse-mcp",
     }
+    assert compose["health"] == [
+        {"url": "http://@runtime_node_host:8088/"},
+        {"url": "http://@runtime_node_host:8090/health"},
+        {"tcp_port": 8080, "host": "@runtime_node_host"},
+        {"tcp_port": 9090, "host": "@runtime_node_host"},
+    ]
     assert (
         "image" not in config
         and "upload_path" not in config

@@ -127,16 +127,18 @@
             ],
             "health": [
               {
-                "url": "http://127.0.0.1:8088/"
+                "url": "http://@runtime_node_host:8088/"
               },
               {
-                "url": "http://127.0.0.1:8090/health"
+                "url": "http://@runtime_node_host:8090/health"
               },
               {
-                "tcp_port": 8080
+                "tcp_port": 8080,
+                "host": "@runtime_node_host"
               },
               {
-                "tcp_port": 9090
+                "tcp_port": 9090,
+                "host": "@runtime_node_host"
               }
             ],
             "startup_timeout_seconds": 900

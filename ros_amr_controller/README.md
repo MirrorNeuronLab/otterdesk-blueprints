@@ -34,7 +34,9 @@ dashboard, video streams, and rosbridge through the local Web UI service rather
 than navigating the browser directly to the runtime node. The service registry
 and Web UI handle use the selected node's advertised runtime address. Startup requires all seven
 declared Compose services plus the dashboard, MCP health endpoint, video TCP
-port, and rosbridge TCP port.
+port, and rosbridge TCP port. Compose health probes use the selected node's
+advertised address so the native SDK container can reach the host-network
+services.
 
 Pausing or stopping the service runs Compose `down --remove-orphans --volumes`
 only for this service project. Resuming recreates that same owned project from
