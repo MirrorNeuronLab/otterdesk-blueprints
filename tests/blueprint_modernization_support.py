@@ -17,6 +17,8 @@ WORKSPACE = companion_workspace(ROOT)
 
 
 def blueprint_path(blueprint_id: str) -> Path:
+    if blueprint_id == "purchasing_manager":
+        return ROOT / "procurement_manager"
     return (
         ROOT / blueprint_id
         if (ROOT / blueprint_id).is_dir()

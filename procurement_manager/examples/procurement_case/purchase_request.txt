@@ -1,0 +1,5 @@
+Purchase type: computer
+Item description: Five GPU workstations for sensitive internal datasets.
+Budget: $40,000 cash due at order.
+Hard constraints: 24 GB GPU memory, 64 GB system RAM, 2 TB SSD, 36 months warranty.
+Purchase timing: Delivery by 2026-11-15.

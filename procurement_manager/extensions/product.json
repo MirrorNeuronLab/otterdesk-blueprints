@@ -1,0 +1,65 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/product.schema.json",
+  "category": "Finance",
+  "intent": {
+    "problem": "Purchase review depends on older broker, lender, rent, insurance, and diligence details that are easy to lose in noisy pipelines.",
+    "safety": {
+      "allowed_decisions": [
+        "approve",
+        "revise",
+        "reject"
+      ],
+      "blocked_actions": [
+        "buy_or_book",
+        "pay_or_transfer_funds",
+        "submit_application_or_offer",
+        "contact_seller_provider_or_broker",
+        "issue_purchase_order",
+        "accept_supplier_quote",
+        "sign_supplier_agreement"
+      ],
+      "decision_event": "human_decision_applied",
+      "default_action": "reject",
+      "enabled": true,
+      "events": [
+        "human_notice",
+        "human_input_requested",
+        "human_input_received",
+        "human_input_timeout",
+        "human_decision_applied"
+      ],
+      "mode": "approval_required",
+      "reason": "Human approval is required before any purchase, booking, payment, application, offer, or seller/provider contact action.",
+      "request_event": "human_input_requested",
+      "response_event": "human_input_received",
+      "timeout_event": "human_input_timeout",
+      "timeout_seconds": 3600
+    },
+    "target_users": "Consumers, travelers, vehicle buyers, property buyers, renters, and purchase analysts."
+  },
+  "product": {
+    "agent_role": "Co-worker for comparing suppliers and purchase options without placing orders.",
+    "benefit": "See the full cost of a purchase, key risks, and the evidence behind each recommendation in one review packet.",
+    "customizable_for": "Office equipment, AI workstations, machinery, vehicles, software, services, supplier sourcing, property, travel, and custom purchase research.",
+    "how_it_works": "Reviews requirements and quotes, researches available options, checks constraints, calculates purchase and ongoing costs, compares scenarios, and independently reviews its recommendation.",
+    "input": "Your purchase request, supplier quotes, research links, and supporting documents, plus planning assumptions such as expected use, energy costs, maintenance, and resale value.",
+    "output": "Supplier comparisons, purchase and lifetime costs, financing and lease comparisons, scenario results, risks, evidence gaps, and an approval checklist.",
+    "problem": "The lowest purchase price can hide higher operating costs, downtime, poor fit, or unfavorable terms.",
+    "runtime_features": [
+      "Local document search",
+      "Public market research",
+      "Requirements and budget checks",
+      "Total cost of ownership",
+      "Annual and per-use costs",
+      "Best, expected, and stress scenarios",
+      "Cash, financing, and lease comparisons",
+      "Independent recommendation review",
+      "Supplier comparison reports",
+      "Source citations",
+      "Approval checklist"
+    ],
+    "simulation_type": "Purchase research and cost comparison for human review and approval.",
+    "target_users": "Engineering operations, IT buyers, finance operations, procurement teams, office managers, purchase analysts, and other business request owners."
+  },
+  "overview": "Turns a purchase request into a review-ready comparison. Checks supplier quotes, known costs, requirements, and evidence; flags required reviews without contacting suppliers or placing orders."
+}

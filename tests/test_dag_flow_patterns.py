@@ -136,7 +136,7 @@ def test_default_llm_blueprints_keep_model_routing_logical():
 
 
 def test_purchasing_manager_uses_manifest_owned_logical_default_model():
-    blueprint = ROOT / "purchasing_manager"
+    blueprint = ROOT / "procurement_manager"
     manifest = blueprint_definition(read_blueprint(blueprint / "manifest.json"))
     config = resolve_config(read_blueprint(blueprint)).data
 

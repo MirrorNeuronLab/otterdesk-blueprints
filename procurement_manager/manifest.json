@@ -1,9 +1,9 @@
 {
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/manifest.schema.json",
-  "id": "cctv_operator",
-  "name": "CCTV Operator",
+  "id": "purchasing_manager",
+  "name": "Procurement Manager",
   "version": "1.1.0",
-  "description": "Reviews a live camera stream, highlights notable activity, and prepares observations for your review. Start with the included demo or connect an approved camera stream. Requires an NVIDIA GPU.",
+  "description": "Turns a purchase request into a review-ready comparison. Checks supplier quotes, known costs, requirements, and evidence; flags required reviews without contacting suppliers or placing orders.",
   "workflow": "workflow.json",
   "execution": "execution.json",
   "contracts": "contracts.json",
@@ -20,12 +20,8 @@
       "file": "extensions/airgap.json",
       "required": true
     },
-    "mn.context": {
-      "file": "extensions/context.json",
-      "required": true
-    },
-    "mn.domain": {
-      "file": "extensions/domain.json",
+    "mn.llm": {
+      "file": "extensions/llm.json",
       "required": true
     },
     "mn.product": {
@@ -43,10 +39,6 @@
     "mn.storage": {
       "file": "extensions/storage.json",
       "required": true
-    },
-    "mn.testing": {
-      "file": "extensions/testing.json",
-      "required": false
     },
     "mn.ui": {
       "file": "extensions/ui.json",

@@ -18,7 +18,9 @@
         "monitoring"
       ],
       "tool": "get_operator_status",
-      "arguments": {},
+      "arguments": {
+        "question": "Check operator readiness."
+      },
       "required_result": {
         "ready": true
       }
@@ -27,8 +29,12 @@
       "user": {
         "get_operator_status": {
           "effect": "read",
-          "arguments": {},
-          "description": "Read current findings and control readiness. This read does not change the monitoring goal."
+          "arguments": {
+            "question": {
+              "type": "string"
+            }
+          },
+          "description": "Answer a question about what the latest analyzed frame shows. Pass the operator's exact question in question; this tool answers from current visual findings without RAG. A question such as 'do you see any person?' is a read, not a monitoring change. This read does not change the monitoring goal."
         },
         "get_operator_activity": {
           "effect": "read",
@@ -49,7 +55,7 @@
               "type": "string"
             }
           },
-          "description": "Wait for a new observation without changing the monitoring goal. Use an empty after_event_id for the newest available observation or the previously returned event ID; wait_seconds is a numeric string from \"0\" to \"25\"."
+          "description": "Wait for a new reviewable operator notice without changing the monitoring goal. Routine frame analyses remain available through status and durable reports and do not create chat activity. Use an empty after_event_id for the newest available notice or the previously returned event ID; wait_seconds is a numeric string from \"0\" to \"25\"."
         },
         "set_monitoring_instruction": {
           "effect": "monitoring",

@@ -32,6 +32,10 @@ merely to submit a single-node run owned by the qualifying NVIDIA runtime.
 
 ## Runtime graph and live input
 
+Conversation monitoring controls use the authenticated HostLocal MCP sidecar
+to submit Core live inputs. The Docker video worker holds only a run-scoped
+control credential and does not receive a Core gRPC client identity.
+
 The logical processing path is `ingress → adaptive_frame_sampler →
 visual_detector → report_writer`. The sampler self-schedules at the configured
 proxy cadence; there is no runtime timer or video-specific Core module. The
@@ -41,7 +45,7 @@ owns CCTV cadence, event names, steering priority, and product metadata; the
 detector owns prompt, observation, alert, and report semantics. The configured
 `inputs.payload.visual_targets` are rendered into every detector prompt. The
 blueprint-owned detection policy matches observations against
-`alert_policy.notify_on`, then applies `min_confidence` and
+`alert_policy.notify_on`, or the active chat-set visual goal when present, then applies `min_confidence` and
 `cooldown_seconds`. The default `human_notice_only` mode creates a reviewable
 human notice without attempting an external delivery.
 
@@ -62,6 +66,13 @@ active instruction replaces the default target list in the actual vision prompt;
 stationary floor objects remain eligible evidence for that goal. Clearing the
 instruction restores the configured list. Command completion confirms the sampler
 applied the instruction, not that a new model observation has already completed.
+
+The bundled demo's initial target and notice condition is `person`. A question
+about the current view is answered from the latest analyzed status and does not
+require reference-document retrieval. A request to report whether the corridor
+is blocked is a sufficiently specific goal: the model checks visible
+obstructions of the travel path and reports uncertainty when the view is
+insufficient. A single frame cannot certify safe passage.
 The command status separately exposes `analysis_ready` and the first finding at
 the applied instruction revision. The sampler restores the latest durable
 instruction if a later agent-state snapshot is stale.

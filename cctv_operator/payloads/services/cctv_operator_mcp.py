@@ -9,6 +9,7 @@ import secrets
 import socket
 import struct
 import time
+import uuid
 from collections.abc import Mapping
 from http.client import HTTPConnection
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -17,6 +18,7 @@ from typing import Any
 from urllib.parse import urlparse, urlsplit
 
 CCTV_MCP_ENDPOINT_ARTIFACT = "cctv_operator_mcp_endpoint.json"
+CCTV_CONTROL_ARTIFACT = "cctv_operator_control.json"
 CCTV_MCP_PORT = 62009
 MCP_REQUEST_LIMIT = 1_048_576
 MCP_RESPONSE_LIMIT = 2_097_152
@@ -61,6 +63,8 @@ def read_endpoint(path: Path) -> dict[str, Any] | None:
     endpoint = {"url": url.rstrip("/"), "port": port}
     if value.get("token"):
         endpoint["token"] = str(value["token"])
+    if value.get("run_id"):
+        endpoint["run_id"] = str(value["run_id"])
     return endpoint
 
 
@@ -72,6 +76,45 @@ def await_endpoint(path: Path, *, timeout_seconds: float = REGISTRATION_TIMEOUT_
             return endpoint
         time.sleep(0.1)
     raise RuntimeError("CCTV Operator MCP did not publish its private endpoint")
+
+
+def send_monitoring_input(run_dir: Path, command: Mapping[str, Any]) -> dict[str, Any]:
+    endpoint = read_endpoint(run_dir / CCTV_MCP_ENDPOINT_ARTIFACT)
+    if endpoint is None or not endpoint.get("token"):
+        raise RuntimeError("CCTV control identity is unavailable")
+    try:
+        control = json.loads((run_dir / CCTV_CONTROL_ARTIFACT).read_text(encoding="utf-8"))
+        parsed = urlparse(str(control["url"]))
+        if (
+            parsed.scheme != "http"
+            or parsed.hostname != "host.docker.internal"
+            or parsed.path != "/control/steer"
+            or parsed.query or parsed.fragment
+            or parsed.username or parsed.password
+            or parsed.port is None
+        ):
+            raise ValueError("invalid control endpoint")
+        connection = HTTPConnection(parsed.hostname, parsed.port, timeout=10)
+        try:
+            connection.request(
+                "POST", parsed.path, body=json.dumps(dict(command)).encode(),
+                headers={
+                    "Content-Type": "application/json",
+                    "X-CCTV-MCP-Token": str(endpoint["token"]),
+                },
+            )
+            response = connection.getresponse()
+            body = response.read(4096)
+            if response.status != 200:
+                raise RuntimeError("CCTV control sidecar rejected the monitoring command")
+            accepted = json.loads(body)
+            if not isinstance(accepted, dict):
+                raise ValueError("invalid Core receipt")
+            return accepted
+        finally:
+            connection.close()
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        raise RuntimeError("CCTV control sidecar is unavailable") from error
 
 
 def _default_gateway_ipv4(route_path: Path = Path("/proc/net/route")) -> str:
@@ -108,6 +151,7 @@ def create_mcp_proxy(
     port: int = CCTV_MCP_PORT,
     server_factory: Any = ThreadingHTTPServer,
     access_token: str = "",
+    run_input_sender: Any = None,
 ) -> Any:
     upstream = urlparse(str(endpoint.get("url") or ""))
     if upstream.scheme != "http" or str(upstream.hostname or "").lower() not in _PRIVATE_UPSTREAM_HOSTS:
@@ -116,6 +160,18 @@ def create_mcp_proxy(
     if upstream_port is None:
         raise RuntimeError("CCTV Operator MCP proxy upstream requires a port")
     permitted_clients = allowed_proxy_clients()
+    control_token = str(endpoint.get("token") or "")
+
+    def send_run_input(command: dict[str, Any]) -> dict[str, Any]:
+        if run_input_sender is not None:
+            return run_input_sender(str(endpoint.get("run_id") or ""), command)
+        from mn_sdk import RuntimeConfig, RuntimeService, build_runtime_client
+
+        sender = RuntimeService(build_runtime_client(RuntimeConfig.from_env()))
+        return sender.send_run_input(
+            str(endpoint["run_id"]), "steer_monitoring", command,
+            idempotency_key=command["command_id"],
+        )
 
     class Handler(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
@@ -130,6 +186,10 @@ def create_mcp_proxy(
             self._forward()
 
         def _forward(self) -> None:
+            request_path = urlsplit(self.path).path
+            if request_path == "/control/steer":
+                self._steer()
+                return
             authorized = (
                 secrets.compare_digest(str(self.headers.get("X-CCTV-MCP-Token") or ""), access_token)
                 if access_token
@@ -138,7 +198,6 @@ def create_mcp_proxy(
             if not authorized:
                 self._send_json(403, {"error": "forbidden"})
                 return
-            request_path = urlsplit(self.path).path
             if request_path == "/health" and self.command == "GET":
                 try:
                     with socket.create_connection(
@@ -189,6 +248,42 @@ def create_mcp_proxy(
             finally:
                 connection.close()
 
+        def _steer(self) -> None:
+            if self.command != "POST" or not control_token or not secrets.compare_digest(
+                str(self.headers.get("X-CCTV-MCP-Token") or ""), control_token
+            ):
+                self._send_json(403, {"error": "forbidden"})
+                return
+            try:
+                length = int(str(self.headers.get("Content-Length") or "0"))
+                if not 0 < length <= 2048:
+                    raise ValueError("invalid request size")
+                command = json.loads(self.rfile.read(length))
+                if not isinstance(command, dict) or set(command) != {
+                    "command_id", "instruction", "clear", "analyze_now"
+                }:
+                    raise ValueError("invalid monitoring command")
+                command_id = str(uuid.UUID(command["command_id"]))
+                if (
+                    command_id != command["command_id"]
+                    or not isinstance(command["instruction"], str)
+                    or len(command["instruction"]) > 500
+                ):
+                    raise ValueError("invalid monitoring command")
+                if type(command["clear"]) is not bool or type(command["analyze_now"]) is not bool:
+                    raise ValueError("invalid monitoring command")
+                if not command["clear"] and not command["instruction"].strip():
+                    raise ValueError("instruction is required")
+            except (ValueError, TypeError, KeyError):
+                self._send_json(400, {"error": "invalid monitoring command"})
+                return
+            try:
+                accepted = send_run_input(command)
+            except Exception:
+                self._send_json(502, {"error": "Core rejected the monitoring command"})
+                return
+            self._send_json(200, accepted)
+
         def _send_json(self, status: int, value: Mapping[str, Any]) -> None:
             payload = json.dumps(dict(value), separators=(",", ":")).encode()
             self.send_response(status)
@@ -209,10 +304,20 @@ def serve_mcp_proxy(endpoint: Mapping[str, Any], **kwargs: Any) -> None:
 
 def main() -> int:
     endpoint = await_endpoint(configured_run_dir() / CCTV_MCP_ENDPOINT_ARTIFACT)
+    expected_run_id = str(os.environ.get("MN_RUN_ID") or "").strip()
+    if not expected_run_id or endpoint.get("run_id") != expected_run_id or not endpoint.get("token"):
+        raise RuntimeError("CCTV control endpoint is not bound to this run")
     allocated_port = str(os.environ.get("MN_PORT_CCTV_OPERATOR_MCP") or "").strip()
     if not allocated_port.isdecimal() or not 1 <= int(allocated_port) <= 65_535:
         raise RuntimeError("CCTV Operator MCP requires its runtime-assigned port")
     proxy_port = int(allocated_port)
+    control_path = configured_run_dir() / CCTV_CONTROL_ARTIFACT
+    control_path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = control_path.with_name(f".{control_path.name}.{os.getpid()}.tmp")
+    with temporary.open("x", encoding="utf-8") as handle:
+        os.chmod(temporary, 0o600)
+        json.dump({"url": f"http://host.docker.internal:{proxy_port}/control/steer"}, handle)
+    os.replace(temporary, control_path)
 
     def stop(_signum: int, _frame: Any) -> None:
         raise SystemExit(0)

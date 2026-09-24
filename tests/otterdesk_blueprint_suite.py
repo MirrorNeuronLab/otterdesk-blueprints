@@ -1442,7 +1442,7 @@ import json
 from pathlib import Path
 from domain.composition import run_blueprint
 
-root = Path({str((ROOT / "purchasing_manager").resolve())!r})
+root = Path({str((ROOT / "procurement_manager").resolve())!r})
 output = Path({str(tmp_path.resolve())!r}) / "output"
 result = run_blueprint(
     inputs={{

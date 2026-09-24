@@ -128,6 +128,48 @@ def test_mcp_relay_requires_token_and_forwards_to_loopback(monkeypatch, upstream
         thread.join(timeout=2)
 
 
+def test_monitoring_command_uses_authenticated_host_control_bridge(tmp_path: Path):
+    command_id = "11111111-1111-4111-8111-111111111111"
+    command = {"command_id": command_id, "instruction": "Find road obstructions.",
+               "clear": False, "analyze_now": True}
+    calls = []
+    server = cctv_operator_mcp.create_mcp_proxy(
+        {"url": "http://127.0.0.1:45670", "token": "private-token", "run_id": "run-1"},
+        host="127.0.0.1", port=0,
+        run_input_sender=lambda run_id, payload: calls.append((run_id, payload)) or {"status": "accepted"},
+    )
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    (tmp_path / cctv_operator_mcp.CCTV_MCP_ENDPOINT_ARTIFACT).write_text(json.dumps({
+        "url": "http://host.docker.internal:45670", "token": "private-token",
+    }), encoding="utf-8")
+    (tmp_path / cctv_operator_mcp.CCTV_CONTROL_ARTIFACT).write_text(json.dumps({
+        "url": f"http://host.docker.internal:{server.server_address[1]}/control/steer",
+    }), encoding="utf-8")
+    original_connection = cctv_operator_mcp.HTTPConnection
+    class LocalConnection(original_connection):
+        def __init__(self, host, port, **kwargs):
+            assert host == "host.docker.internal"
+            super().__init__("127.0.0.1", port, **kwargs)
+    try:
+        with pytest.raises(urllib.error.HTTPError) as error:
+            urllib.request.build_opener(urllib.request.ProxyHandler({})).open(
+                urllib.request.Request(
+                    f"http://127.0.0.1:{server.server_address[1]}/control/steer",
+                    data=json.dumps(command).encode(),
+                )
+            )
+        assert error.value.code == 403
+        cctv_operator_mcp.HTTPConnection = LocalConnection
+        assert cctv_operator_mcp.send_monitoring_input(tmp_path, command) == {"status": "accepted"}
+        assert calls == [("run-1", command)]
+    finally:
+        cctv_operator_mcp.HTTPConnection = original_connection
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+
 def test_cctv_mcp_sidecar_accepts_only_private_endpoint_and_proxy_clients(
     tmp_path: Path,
 ):
@@ -313,6 +355,24 @@ def test_cctv_ui_operator_events_are_newest_first(tmp_path: Path):
     ]
 
 
+def test_routine_frame_analysis_does_not_publish_chat_activity(tmp_path: Path):
+    (tmp_path / "cctv_report.json").write_text(json.dumps({
+        "observations": [{"summary": "No target is visible.",
+                          "observed_at": "2026-09-08T22:23:39Z"}],
+        "detections": [], "alerts": [],
+    }), encoding="utf-8")
+    service = cctv_web_ui.CCTVWebUIService(
+        run_id="run-1", run_dir=tmp_path, config={}, preview_stream=StubPreview()
+    )
+
+    class ActivityStore:
+        def publish_result(self, *_args, **_kwargs):
+            raise AssertionError("routine analysis must not be published to chat")
+
+    service.attach_activity_store(ActivityStore())
+    assert service.sync_mcp_activity() == []
+
+
 def test_cctv_operator_owns_an_sdk_mcp_activity_exchange(tmp_path: Path):
     (tmp_path / "cctv_report.json").write_text(
         json.dumps(
@@ -324,7 +384,13 @@ def test_cctv_operator_owns_an_sdk_mcp_activity_exchange(tmp_path: Path):
                         "confidence": 0.92,
                         "risk_level": "low",
                     }
-                ]
+                ],
+                "alerts": [{
+                    "message": "A person is visible near the center of the frame.",
+                    "observed_at": "2026-09-08T22:23:39Z",
+                    "confidence": 0.92,
+                    "risk_level": "low",
+                }],
             }
         ),
         encoding="utf-8",
@@ -372,6 +438,8 @@ def test_cctv_operator_owns_an_sdk_mcp_activity_exchange(tmp_path: Path):
     assert status["details"] == [{"label": "Confidence", "value": "92%"}, {"label": "Risk", "value": "low"}]
     assert status["finding"] in status["summary"]
     assert status["observed_at"] in status["summary"]
+    person_answer = server.tools["get_operator_status"]("Do you see any person?")
+    assert person_answer["summary"].startswith("Yes, a person is visible")
 
     activity = server.tools["get_operator_activity"]("0")
 
@@ -390,6 +458,7 @@ def test_cctv_operator_owns_an_sdk_mcp_activity_exchange(tmp_path: Path):
         "true",
     )
     assert receipt["state"] == "accepted"
+    assert receipt["command_id"] == "11111111-1111-4111-8111-111111111111"
     (tmp_path / "monitoring_state.json").write_text(
         json.dumps(
             {
@@ -418,7 +487,7 @@ def test_cctv_operator_owns_an_sdk_mcp_activity_exchange(tmp_path: Path):
     assert activity["updates"][-1]["payload"] == {
         "schema_version": "mn.mcp.job_activity.v1",
         "event_id": activity["updates"][-1]["record_id"],
-        "title": "Target observed",
+        "title": "Operator notice",
         "message": "A person is visible near the center of the frame.",
         "occurred_at": "2026-09-08T22:23:39Z",
         "source": "cctv_operator",
@@ -465,7 +534,11 @@ def test_mcp_service_uses_one_runtime_allocated_port(monkeypatch, tmp_path):
     assert node["resources"]["ports"][0]["port"] == "auto"
     assert node["services"][0]["port"] == "${env.MN_PORT_CCTV_OPERATOR_MCP}"
     assert node["services"][0]["checks"][0]["port"] == "${service.port}"
-    monkeypatch.setattr(cctv_operator_mcp, "await_endpoint", lambda *a: {"url": "http://127.0.0.1:49100"})
+    monkeypatch.setattr(cctv_operator_mcp, "await_endpoint", lambda *a: {
+        "url": "http://127.0.0.1:49100", "run_id": "run-1", "token": "private-token",
+    })
+    monkeypatch.setattr(cctv_operator_mcp, "configured_run_dir", lambda: tmp_path)
+    monkeypatch.setenv("MN_RUN_ID", "run-1")
     seen = []
     monkeypatch.setattr(cctv_operator_mcp, "serve_mcp_proxy", lambda endpoint, **kw: seen.append(kw["port"]))
     monkeypatch.setattr(cctv_operator_mcp.signal, "signal", lambda *a: None)

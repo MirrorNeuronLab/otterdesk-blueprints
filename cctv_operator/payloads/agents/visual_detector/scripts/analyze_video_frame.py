@@ -1126,6 +1126,7 @@ def main() -> None:
             detection_payload,
             alert_policy,
             state,
+            active_goal=attention_instruction,
         )
         detection_payload["matched_alert_targets"] = list(
             alert_decision["matched_targets"]

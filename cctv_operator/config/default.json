@@ -89,18 +89,14 @@
         "min_confidence": 0.55,
         "mode": "human_notice_only",
         "notify_on": [
-          "person",
-          "unattended package",
-          "restricted-area entry"
+          "person"
         ]
       },
       "output_folder": "~/Download/cctv_operator",
       "source_mode": "stream",
       "video_source": "bundled_demo",
       "visual_targets": [
-        "person",
-        "unattended package",
-        "restricted-area entry"
+        "person"
       ]
     }
   },

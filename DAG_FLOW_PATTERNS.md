@@ -15,7 +15,7 @@ workflow ledger, not only displayed in the UI.
 | Financial Advisor | Ordered regulated-state pipeline: packet intake, household analysis, tax review, portfolio risk, public guidance, reconciliation, and publication. |
 | Litigation Analyst | Fixed parent DAG with LLM-planned child rounds for evidence collection, hypothesis assessment and independent finding review. |
 | Legal Assistant | Fork/join: document reading fans out to invoice and contract review lanes; evidence reconciliation waits for both. |
-| Purchasing Manager | Ordered procurement pipeline: requirements framing, quote and evidence retrieval, supplier comparison and total-cost review, independent recommendation audit, and approval-ready publication. |
+| Procurement Manager | Evidence preparation forks to a structured case assessment and the existing market, cost, risk, and recommendation path; publication joins both branches into a review-only packet. |
 | Research Assistant | Ordered evidence, autonomous-research, verification, and publication pipeline. |
 | Software Architecture Advisor | Fixed parent DAG with a bounded, runtime-planned child investigation: commit a round, execute deterministically, then replan from evidence. |
 | VC Assistant | Fan-out/fan-in: ordered evidence preparation leads to seven independent valuation-method scorers, then an all-success score-consistency join. Per-method state files prevent scorer artifact races, while the RAG skill brokers all Milvus Lite operations through one job-scoped connection. |

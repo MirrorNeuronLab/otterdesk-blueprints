@@ -65,9 +65,7 @@
       },
       {
         "default": [
-          "person",
-          "unattended package",
-          "restricted-area entry"
+          "person"
         ],
         "description": "Subjects, objects, or activities to detect in recordings or the approved stream.",
         "label": "Visual targets",
@@ -80,9 +78,7 @@
           "min_confidence": 0.55,
           "mode": "human_notice_only",
           "notify_on": [
-            "person",
-            "unattended package",
-            "restricted-area entry"
+            "person"
           ]
         },
         "description": "Confidence, cooldown, and notification policy for reviewer notices.",
@@ -126,7 +122,7 @@
     "steering": "external_chat_mcp_via_declared_live_input"
   },
   "starter_questions": [
-    "What is this CCTV job configured to monitor?",
+    "Do you see any person in the latest analyzed frame?",
     "What happened in the latest monitoring run?",
     "What warnings or review items need my attention?"
   ],
@@ -196,9 +192,7 @@
       },
       {
         "default": [
-          "person",
-          "unattended package",
-          "restricted-area entry"
+          "person"
         ],
         "description": "Subjects, objects, or activities to detect in recordings or the approved stream.",
         "label": "Visual targets",
@@ -212,9 +206,7 @@
           "min_confidence": 0.55,
           "mode": "human_notice_only",
           "notify_on": [
-            "person",
-            "unattended package",
-            "restricted-area entry"
+            "person"
           ]
         },
         "description": "Confidence, cooldown, and notification policy for reviewer notices.",

@@ -1,0 +1,106 @@
+{
+  "started_at": "2026-10-01T09:00:00-04:00",
+  "clock": "2026-10-06T09:00:00-04:00",
+  "mode": "MOCK",
+  "case_id": "SIM-GPU-2026-01",
+  "revision": 1,
+  "request": {
+    "title": "Five GPU workstations",
+    "quantity": 5,
+    "mandatory": {
+      "gpu_memory_gb": 24,
+      "system_ram_gb": 64,
+      "ssd_tb": 2,
+      "warranty_months": 36
+    },
+    "cash_cap": "40000.00",
+    "currency": "USD",
+    "horizon_months": 36,
+    "sensitive_data": true,
+    "delivery_required_by": "2026-11-15"
+  },
+  "policy": {
+    "source": "Synthetic demo policy",
+    "confirmed": true,
+    "min_comparable_quotes": 2,
+    "finance_threshold": "10000.00",
+    "owner_review": true,
+    "new_vendor_review": true,
+    "sensitive_data_review": true
+  },
+  "suppliers": [
+    {
+      "id": "atlas",
+      "name": "Atlas Supply",
+      "approved_vendor": true,
+      "reply": "IMMEDIATE",
+      "quote": {
+        "version": 1,
+        "currency": "USD",
+        "quantity": 5,
+        "unit_price": "5800.00",
+        "shipping": "500.00",
+        "tax": "2000.00",
+        "required_support": {
+          "included": false,
+          "payments": [
+            {
+              "month": 0,
+              "amount": "3000.00"
+            },
+            {
+              "month": 12,
+              "amount": "3000.00"
+            },
+            {
+              "month": 24,
+              "amount": "3000.00"
+            }
+          ]
+        },
+        "specifications": {
+          "gpu_memory_gb": 24,
+          "system_ram_gb": 64,
+          "ssd_tb": 2,
+          "warranty_months": 36
+        },
+        "expires": "2026-10-31",
+        "evidence_ref": "synthetic:atlas-quote-v1"
+      },
+      "available_at": "2026-10-01T09:00:00-04:00"
+    },
+    {
+      "id": "cedar",
+      "name": "Cedar Compute",
+      "approved_vendor": false,
+      "reply": "DELAYED",
+      "quote": {
+        "version": 1,
+        "currency": "USD",
+        "quantity": 5,
+        "unit_price": "6400.00",
+        "shipping": "400.00",
+        "tax": "2400.00",
+        "required_support": {
+          "included": true
+        },
+        "specifications": {
+          "gpu_memory_gb": 24,
+          "system_ram_gb": 64,
+          "ssd_tb": 2,
+          "warranty_months": 36
+        },
+        "expires": "2026-10-31",
+        "evidence_ref": "synthetic:cedar-quote-v1"
+      },
+      "available_at": "2026-10-03T09:00:00-04:00"
+    },
+    {
+      "id": "delta",
+      "name": "Delta Workstations",
+      "approved_vendor": null,
+      "reply": "NONE",
+      "deadline": "2026-10-05T09:00:00-04:00"
+    }
+  ]
+}

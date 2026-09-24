@@ -380,6 +380,8 @@ class CCTVWebUIService:
             if not isinstance(event, Mapping):
                 continue
             title = " ".join(str(event.get("type") or "Activity observed").split())[:240]
+            if title != "Operator notice":
+                continue
             message = " ".join(str(event.get("summary") or "").split())[:8_000]
             occurred_at = " ".join(str(event.get("timestamp") or "").split())[:80]
             if not message:
@@ -696,18 +698,27 @@ def create_operator_mcp_server(
     )
 
     @server.tool(name="get_operator_status", structured_output=True)
-    def get_operator_status() -> dict[str, Any]:
+    def get_operator_status(question: str = "") -> dict[str, Any]:
         state = service.ui_state()
         metrics = state["metrics"]
         finding = metrics["latest finding"]
         observed_at = metrics["last analyzed"]
+        summary = f"{finding} Last analyzed: {observed_at}."
+        normalized_question = " ".join(str(question or "").casefold().split())[:500]
+        if any(word in normalized_question for word in ("person", "people", "anyone", "somebody")):
+            finding_text = str(finding).casefold()
+            if any(phrase in finding_text for phrase in (
+                "a person is visible", "a worker", "another person", "people are visible",
+                "person standing", "person walking", "people standing", "people walking",
+            )):
+                summary = f"Yes, a person is visible in the latest analyzed frame. {summary}"
         return {
             "schema_version": "mn.cctv.operator_status.v1",
             "ready": True,  # Control availability does not depend on a first detection.
             "status": metrics["status"],
             "finding": finding,
             "observed_at": observed_at,
-            "summary": f"{finding} Last analyzed: {observed_at}.",
+            "summary": summary,
             "metrics": metrics,
             "details": state.get("finding_details", []),
             "warning": state.get("warning"),
@@ -818,20 +829,29 @@ def create_operator_mcp_server(
             raise ValueError("instruction is required unless clear=true")
         sender = runtime_service
         if sender is None:
-            from mn_sdk import RuntimeConfig, RuntimeService, build_runtime_client
+            from cctv_operator_mcp import send_monitoring_input
 
-            sender = RuntimeService(build_runtime_client(RuntimeConfig.from_env()))
-        accepted = sender.send_run_input(
-            run_id,
-            "steer_monitoring",
-            {
-                "command_id": resolved_command_id,
-                "instruction": resolved_instruction,
-                "clear": clear_enabled,
-                "analyze_now": analyze_now_enabled,
-            },
-            idempotency_key=resolved_command_id,
-        )
+            try:
+                accepted = send_monitoring_input(run_dir, {
+                    "command_id": resolved_command_id,
+                    "instruction": resolved_instruction,
+                    "clear": clear_enabled,
+                    "analyze_now": analyze_now_enabled,
+                })
+            except RuntimeError:
+                return {"ok": False, "state": "failed", "error": "monitoring control unavailable"}
+        else:
+            accepted = sender.send_run_input(
+                run_id,
+                "steer_monitoring",
+                {
+                    "command_id": resolved_command_id,
+                    "instruction": resolved_instruction,
+                    "clear": clear_enabled,
+                    "analyze_now": analyze_now_enabled,
+                },
+                idempotency_key=resolved_command_id,
+            )
         store.publish_status(
             "accepted",
             stage="set_monitoring_instruction",

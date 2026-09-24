@@ -6,7 +6,7 @@
   "vc_assistant",
   "financial_advisor",
   "research_assistant",
-  "purchasing_manager",
+  "procurement_manager",
   "microduck_controller",
   "ros_amr_controller"
 ]

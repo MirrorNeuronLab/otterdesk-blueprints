@@ -203,7 +203,7 @@ def _run_handler_workflow(
             "purchasing_manager",
             {
                 "input_folder": str(
-                    ROOT / "purchasing_manager" / "examples" / "sample_inputs"
+                    ROOT / "procurement_manager" / "examples" / "sample_inputs"
                 )
             },
             {

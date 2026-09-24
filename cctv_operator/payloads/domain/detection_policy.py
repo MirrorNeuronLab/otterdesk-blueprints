@@ -7,8 +7,6 @@ from typing import Any, Mapping
 
 DEFAULT_VISUAL_TARGETS = (
     "person",
-    "unattended package",
-    "restricted-area entry",
 )
 DEFAULT_ALERT_POLICY = {
     "mode": "human_notice_only",
@@ -133,6 +131,7 @@ def evaluate_alert(
     state: Mapping[str, Any],
     *,
     now: float | None = None,
+    active_goal: str = "",
 ) -> dict[str, Any]:
     evaluated_at = float(time.time() if now is None else now)
     detected = bool(detection.get("detected_target"))
@@ -143,7 +142,10 @@ def evaluate_alert(
     threshold = float(policy.get("min_confidence", 0.55))
     cooldown = float(policy.get("cooldown_seconds", 120.0))
     notify_on = list(policy.get("notify_on") or [])
-    matched = matched_notification_targets(detection, notify_on)
+    # A live instruction replaces the configured visual targets. The model's
+    # detected_target result is already scoped to that instruction.
+    goal = " ".join(active_goal.split())[:500]
+    matched = [goal] if goal and detected else matched_notification_targets(detection, notify_on)
     elapsed = evaluated_at - float(state.get("last_alert_wall_ts", 0.0) or 0.0)
 
     if not detected:

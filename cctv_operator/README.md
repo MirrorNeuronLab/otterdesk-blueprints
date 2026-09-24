@@ -96,8 +96,10 @@ writes the durable iframe-proxy handle. It shows:
   CUDA decode and `scale_cuda` inside the NVIDIA DockerWorker;
 - `latest_analyzed_frame.jpg`, refreshed when a new analysis completes.
 
-The embedded page contains only these two media panels. Observations, monitoring
-focus, confidence, risk, and other supporting details appear in the conversation.
+The embedded page contains only these two media panels. The conversation receives
+operator notices when the active goal is detected and meets the configured
+confidence and cooldown policy. Routine frame analyses remain in the durable
+report and status tools without creating chat messages.
 SSE updates the snapshot without duplicating the activity feed in the page.
 
 The UI exposes no steering form or browser action. External chat/MCP clients use
@@ -236,7 +238,8 @@ Primary run artifacts under `~/.mn/runs/<run_id>/` are:
 - `latest_analyzed_frame.json`
 - `frame_batches/<batch_id>/batch.json` and selected JPEGs
 
-The alert policy is applied to configured target names, model confidence, and
+The alert policy is applied to configured target names (or the current chat-set
+visual goal), model confidence, and
 cooldown before creating an operator notice. The default mode is
 `human_notice_only`; Slack is attempted only when explicitly enabled and
 configured with credentials and a destination.
@@ -257,16 +260,19 @@ The private MCP server binds only to `127.0.0.1`. A run-specific authenticated
 relay connects the Core-container sidecar to that host-network listener. The
 relay credential stays in the private endpoint artifact with owner-only access;
 the browser Web UI keeps its separate configured listener.
+Monitoring commands cross an authenticated control endpoint on the HostLocal
+sidecar. The sidecar submits the declared live input using its Core client
+identity; the Docker video worker never receives that identity.
 
 OtterDesk can ask this hired co-worker about its monitoring role, safe
 configuration, schedule, and latest run through the stable Job response service,
 even when no CCTV run is active. A question never starts the stream service.
 While a run is active, the CCTV DockerWorker starts its own private SDK MRTR
 server beside the Web UI. It reads the same durable run artifacts and publishes
-the same bounded activity projection. A dependency-free HostLocal sidecar only
-proxies that private endpoint onto the scheduler-assigned port, so the
-host-network video worker cannot collide with the runtime port broker and no
-HostLocal Python environment is prepared. The MCP server exposes read, watch,
+the same bounded activity projection. A HostLocal sidecar proxies that private
+endpoint onto the scheduler-assigned port and submits authenticated monitoring
+inputs to Core. The host-network video worker cannot collide with the runtime
+port broker. The MCP server exposes read, watch,
 monitoring-instruction, and acknowledgement tools to the Job response agent.
 Natural-language requests such as “find foreign objects on the floor” select
 `set_monitoring_instruction`, which sends Core's declared `steer_monitoring`
@@ -317,6 +323,13 @@ a time. The stream URL stays in encrypted desktop credential storage and is supp
 only when launching the external source.
 
 ## Conversation knowledge
+
+The bundled demo starts with one broad visual target, `person`, so a visible
+person can produce a prompt review notice. Ask “Do you see any person?” to get a
+direct answer from the latest analyzed frame; this does not change the watch.
+“Tell me if the corridor is blocked” changes the watch goal to visible
+obstructions in the corridor or walkway and requests a fresh analysis. The
+result reports visible obstruction and uncertainty, not a safety clearance.
 
 The root `knowledge/` folder contains role guidance and clearly labeled synthetic
 CCTV site and observation examples. The shared runtime seeds these documents into

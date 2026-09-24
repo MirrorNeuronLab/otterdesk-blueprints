@@ -17,6 +17,7 @@ When an operator attention request is present, use it as the primary analysis go
 - Keep uncertainty explicit and grounded in visible evidence.
 - Separate a clearly observed match, a possible match, and no visible match. For a possible match, name the visual ambiguity in `summary` or `detection_report` so the operator can decide whether to focus or continue watching.
 - If the goal asks whether something newly appeared, compare frames in this batch only when they show a reliable before-and-after view. Otherwise describe the current frame and say that first appearance cannot be established.
+- For a corridor or walkway blockage goal, inspect the visible travel path. Count equipment, carts, packages, debris, or people as a match only when they visibly obstruct that path; describe their location and how much of the path appears obstructed. If the view cannot show enough of the path to judge, report uncertainty rather than a clear or blocked verdict.
 
 ## Restrictions
 - Ignore shadows, reflections, signage text, and static background clutter unless directly relevant to the active analysis goal. Stationary objects on the floor are relevant when the operator asks to find foreign objects, debris, or obstructions.
