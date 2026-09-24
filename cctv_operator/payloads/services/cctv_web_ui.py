@@ -864,6 +864,11 @@ def create_operator_mcp_server(
         state = str((record or {}).get("payload", {}).get("status") or "unknown")
         if monitoring.get("command_id") == resolved_command_id:
             state = "completed"
+        detections = read_event_tail(run_dir / "events.jsonl", limit=100)
+        latest_detection = _event_payload(_latest_event(detections, "cctv_operator_detection"))
+        analyzed_revision = int(latest_detection.get("instruction_revision") or 0)
+        applied_revision = int(monitoring.get("instruction_revision") or 0)
+        analysis_ready = state == "completed" and analyzed_revision >= applied_revision and applied_revision > 0
         return {
             "schema_version": "mn.cctv.command_receipt.v1",
             "command_id": resolved_command_id,
@@ -872,6 +877,8 @@ def create_operator_mcp_server(
             "instruction_revision": (
                 monitoring.get("instruction_revision") if state == "completed" else None
             ),
+            "analysis_ready": analysis_ready,
+            "latest_finding": latest_detection.get("summary") if analysis_ready else None,
             "record": record,
         }
 
@@ -978,6 +985,25 @@ def main() -> int:
         raise RuntimeError("CCTV Operator MCP failed to start")
     server = CCTVWebUIServer(service, host=binding.host, port=binding.port)
     _bound_host, port = server.address
+    web_thread = threading.Thread(target=server.serve_forever, name="cctv-web-ui", daemon=True)
+    web_thread.start()
+    # The claim becomes visible to users immediately. Publish it only after
+    # the bound server has answered its own health endpoint.
+    from http.client import HTTPConnection
+    deadline = time.monotonic() + 10
+    while True:
+        connection = HTTPConnection("127.0.0.1", port, timeout=1)
+        try:
+            connection.request("GET", "/health")
+            if connection.getresponse().status == 200:
+                break
+        except OSError:
+            pass
+        finally:
+            connection.close()
+        if time.monotonic() >= deadline or not web_thread.is_alive():
+            raise RuntimeError("CCTV Web UI did not become ready")
+        time.sleep(0.1)
     claim_web_ui(
         job_data_dir,
         job_id=job_id,
@@ -995,7 +1021,7 @@ def main() -> int:
 
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGINT, stop)
-    server.serve_forever()
+    web_thread.join()
     return 0
 
 

@@ -405,6 +405,16 @@ def test_cctv_operator_owns_an_sdk_mcp_activity_exchange(tmp_path: Path):
     )
     assert command_status["state"] == "completed"
     assert command_status["instruction_revision"] == 2
+    assert command_status["analysis_ready"] is False
+    with (tmp_path / "events.jsonl").open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps({"type": "cctv_operator_detection", "payload": {
+            "instruction_revision": 2, "summary": "A foreign object is visible on the floor."
+        }}) + "\n")
+    updated_status = server.tools["get_command_status"](
+        "11111111-1111-4111-8111-111111111111"
+    )
+    assert updated_status["analysis_ready"] is True
+    assert updated_status["latest_finding"] == "A foreign object is visible on the floor."
     assert activity["updates"][-1]["payload"] == {
         "schema_version": "mn.mcp.job_activity.v1",
         "event_id": activity["updates"][-1]["record_id"],

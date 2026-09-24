@@ -91,3 +91,13 @@ def write_monitoring_state(
     )
     os.replace(temporary, target)
     return target
+
+
+def load_monitoring_state(run_dir: str | Path) -> dict[str, Any]:
+    try:
+        value = json.loads((Path(run_dir) / MONITORING_STATE_FILENAME).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return initial_monitoring_state()
+    if not isinstance(value, dict):
+        return initial_monitoring_state()
+    return {**initial_monitoring_state(), **value}

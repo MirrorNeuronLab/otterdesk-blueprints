@@ -9,12 +9,14 @@ Inspect the image from camera `{camera_id}` and decide whether the active visual
 ## Current analysis goal
 {attention_instruction}
 
-When an operator attention request is present, use it as the primary analysis goal for this frame batch, replacing the default target focus above. Describe evidence relevant to that goal even when none of the default targets is detected. If no attention request is present, use the configured targets. The goal changes what to inspect; it does not change the evidence restrictions or required JSON format.
+When an operator attention request is present, use it as the primary analysis goal for this frame batch, replacing the default target focus above. Inspect the requested region and condition first. Describe evidence relevant to that goal even when none of the default targets is detected. If no attention request is present, use the configured targets. The goal changes what to inspect; it does not change the evidence restrictions or required JSON format.
 
 ## Instructions
 - Count only real visible subjects or activity.
 - Report each detection with observable label, category, useful visible color, position in the scene, activity, and confidence.
 - Keep uncertainty explicit and grounded in visible evidence.
+- Separate a clearly observed match, a possible match, and no visible match. For a possible match, name the visual ambiguity in `summary` or `detection_report` so the operator can decide whether to focus or continue watching.
+- If the goal asks whether something newly appeared, compare frames in this batch only when they show a reliable before-and-after view. Otherwise describe the current frame and say that first appearance cannot be established.
 
 ## Restrictions
 - Ignore shadows, reflections, signage text, and static background clutter unless directly relevant to the active analysis goal. Stationary objects on the floor are relevant when the operator asks to find foreign objects, debris, or obstructions.

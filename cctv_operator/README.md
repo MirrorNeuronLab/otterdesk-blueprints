@@ -276,6 +276,11 @@ live input and requests an immediate analysis. The chat-facing Job MCP keeps a b
 finding as a co-worker conversation message. Transport receipt is automatic,
 but it never acknowledges a review notice. Durable `human_notice` records remain
 the audit and review boundary.
+For vague monitoring requests, the co-worker asks for a concrete visual goal
+and offers choices before changing the instruction. It also asks for operator
+direction when a finding is ambiguous. A completed steering command confirms
+the goal was applied; `analysis_ready` identifies when a detection at that
+revision is available.
 
 ## Repository validation
 

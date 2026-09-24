@@ -62,6 +62,9 @@ active instruction replaces the default target list in the actual vision prompt;
 stationary floor objects remain eligible evidence for that goal. Clearing the
 instruction restores the configured list. Command completion confirms the sampler
 applied the instruction, not that a new model observation has already completed.
+The command status separately exposes `analysis_ready` and the first finding at
+the applied instruction revision. The sampler restores the latest durable
+instruction if a later agent-state snapshot is stale.
 
 Steering state is stored in the adaptive sampler’s agent state with a monotonically increasing revision and never crosses run boundaries.
 

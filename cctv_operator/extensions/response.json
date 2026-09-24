@@ -75,7 +75,7 @@
               ]
             }
           },
-          "description": "Change the active run's vision-model prompt and what it looks for. Requests to focus on, find, look for, watch, or detect a subject are monitoring actions, including \"can you focus on find foreign object on the floor?\". Put the requested visual goal in instruction, clear=\"false\", analyze_now=\"true\". This replaces the default target focus for subsequent batches and requests an immediate analysis. To restore configured targets use instruction=\"\", clear=\"true\", analyze_now=\"true\". Report the goal applied only when command status is completed; acceptance alone means it is queued."
+          "description": "Change the active run's vision-model prompt and what it looks for. Requests to focus on, find, look for, watch, or detect a subject are monitoring actions, including \"can you focus on find foreign object on the floor?\". Put the requested visual goal in instruction, clear=\"false\", analyze_now=\"true\". This replaces the default target focus for subsequent batches and requests an immediate analysis. To restore configured targets use instruction=\"\", clear=\"true\", analyze_now=\"true\". Ask the operator to choose a specific visual goal when the request is vague. Report the goal applied only when command status is completed; acceptance alone means it is queued. Check analysis_ready before presenting a new finding."
         },
         "acknowledge_operator_notice": {
           "effect": "acknowledgement",

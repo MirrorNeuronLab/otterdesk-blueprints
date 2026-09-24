@@ -23,6 +23,7 @@ from domain.monitoring import (
     apply_steering_command,
     initial_monitoring_state,
     is_steering_command,
+    load_monitoring_state,
     write_monitoring_state,
 )
 from mn_sdk_common.beacon import start_agent_beacon_thread
@@ -216,6 +217,13 @@ def main() -> int:
         **initial_monitoring_state(),
         **(monitoring if isinstance(monitoring, dict) else {}),
     }
+    # Agent context may lag a live-input invocation. The run artifact is the
+    # authoritative instruction shared with the UI and conversation service.
+    durable_monitoring = load_monitoring_state(artifact_dir)
+    if int(durable_monitoring.get("instruction_revision") or 0) > int(
+        monitoring.get("instruction_revision") or 0
+    ):
+        monitoring = durable_monitoring
     events: list[dict[str, Any]] = []
     emit_messages: list[dict[str, Any]] = []
     steering_message = is_steering_command(payload)
