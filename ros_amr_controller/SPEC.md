@@ -9,7 +9,8 @@
   shared storage with a verified digest before Spark builds them.
 - Placement is capability based: one NVIDIA CUDA GPU and native capability
   `docker_compose_prepare_v1` are required, with no node name embedded in the
-  scheduling constraints.
+  scheduling constraints. Service addresses and the Web UI handle resolve from
+  the selected node's advertised runtime address.
 - The native host owns one exclusive Docker Compose project for this service.
   Starting a new service run first tears down the previous project, including
   its orphans and volumes, then starts the new project. It does not use or

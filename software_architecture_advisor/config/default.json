@@ -9,7 +9,7 @@
   "embedding": {
     "mode": "neural",
     "provider": "litellm_proxy",
-    "model": "huggingface.co/zenmagnets/Nemotron-3-Embed-1B-Q4_K_M-GGUF:Q4_K_M",
+    "model": "docker.io/ai/embeddinggemma:latest",
     "api_base": null
   },
   "graph": {
@@ -79,6 +79,7 @@
   "inputs": {
     "adapter": "json",
     "payload": {
+      "repository_url": "https://github.com/homerquan/Archmind",
       "goal": "Inspect the software architecture, identify an actionable boundary or coupling concern, and check counter-evidence before recommending a change."
     }
   },

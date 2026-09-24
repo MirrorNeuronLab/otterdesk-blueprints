@@ -2,7 +2,7 @@
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/manifest.schema.json",
   "id": "ros_amr_controller",
   "name": "ROS AMR Controller",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Control a simulated warehouse robot through chat. Send it to designated zones, stop movement, and monitor live video and navigation progress.",
   "workflow": "workflow.json",
   "execution": "execution.json",

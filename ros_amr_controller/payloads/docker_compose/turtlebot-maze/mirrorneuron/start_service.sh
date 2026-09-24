@@ -113,7 +113,7 @@ for _attempt in $(seq 1 60); do
 done
 curl -fsS http://127.0.0.1:8088/ >/dev/null
 
-printf '__MN_EVENT__%s\n' '{"type":"turtlebot_service_ready","payload":{"category":"service","message":"TurtleBot warehouse dashboard is ready","url":"http://10.0.4.26:8088"}}'
+printf '__MN_EVENT__%s\n' '{"type":"turtlebot_service_ready","payload":{"category":"service","message":"TurtleBot warehouse dashboard is ready"}}'
 
 while true; do
   if [[ ! -d "$service_root" ]]; then

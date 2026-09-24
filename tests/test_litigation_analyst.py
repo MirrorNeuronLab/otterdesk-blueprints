@@ -10,6 +10,7 @@ from mn_sdk.blueprints import (
     blueprint_definition,
     compile_blueprint,
     read_blueprint,
+    read_catalog,
     resolve_config,
 )
 from mn_sdk.step_runtime import StepContext
@@ -18,6 +19,14 @@ from workspace_paths import companion_workspace
 ROOT = Path(__file__).resolve().parents[1]
 BLUEPRINT = ROOT / "litigation_analyst"
 WORKSPACE = companion_workspace(ROOT)
+
+
+def test_catalog_offers_downloadable_emc2_sample():
+    entry = next(item for item in read_catalog(ROOT / "index.json") if item["id"] == "litigation_analyst")
+    guide = entry["setup_guide"]
+    assert guide["sample"]["available"] is True
+    assert guide["sample"]["values"]["inputs.payload.input_folder"] == ""
+    assert any(field["path"] == "inputs.payload.input_folder" and field["role"] == "input" for field in guide["fields"])
 
 
 @pytest.fixture
@@ -190,7 +199,8 @@ def test_custom_folder_never_downloads_and_freezes_sources(
     assert len(store.query_readonly("SELECT id FROM investigations")) == 1
 
 
-def test_no_input_prepares_sample_automatically(modules, tmp_path, monkeypatch):
+@pytest.mark.parametrize("input_folder", [None, "", "   "])
+def test_no_input_prepares_sample_automatically(modules, tmp_path, monkeypatch, input_folder):
     calls = []
 
     def prepare(destination):
@@ -201,6 +211,8 @@ def test_no_input_prepares_sample_automatically(modules, tmp_path, monkeypatch):
 
     monkeypatch.setattr(modules["intake"], "prepare_emc2", prepare)
     context = make_context(tmp_path)
+    if input_folder is not None:
+        context["payload"]["input_folder"] = input_folder
     modules["intake"].prepare_sources(context)
     assert calls == [context["run_dir"] / "sample/emc2"]
     assert json.loads((context["run_dir"] / "case/source_inventory.json").read_text())[

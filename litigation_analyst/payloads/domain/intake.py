@@ -14,13 +14,15 @@ def prepare_sources(context, *, llm_client=None):
     run_dir = Path(context["run_dir"])
     payload = context["payload"]
     folder = payload.get("input_folder")
+    # The desktop setup form submits an empty optional path as an empty string.
+    # It has the same meaning as omitting the field: use the public sample.
+    if isinstance(folder, str) and not folder.strip():
+        folder = None
     source = (
         Path(folder).expanduser().resolve()
         if folder is not None
         else prepare_emc2(run_dir / "sample/emc2")
     )
-    if folder is not None and not str(folder).strip():
-        raise ValueError("input_folder must not be blank when supplied")
     if not source.is_dir():
         raise ValueError(f"input_folder is not an existing directory: {source}")
     if source == run_dir or source in run_dir.parents:

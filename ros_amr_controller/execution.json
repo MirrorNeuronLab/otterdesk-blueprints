@@ -151,7 +151,7 @@
         "services": [
           {
             "name": "ros-amr-controller-web-ui",
-            "address": "${config.web_ui.service.advertise_host}",
+            "address": "@runtime_node_host",
             "port": "${config.web_ui.service.port}",
             "origin": "internal",
             "tags": [
@@ -164,14 +164,14 @@
             "meta": {
               "blueprint_id": "ros_amr_controller",
               "title": "Warehouse AMR Monitor",
-              "url": "http://${config.web_ui.service.advertise_host}:${config.web_ui.service.port}",
+              "url": "http://@runtime_node_host:${config.web_ui.service.port}",
               "schema_version": "mn.turtlebot.web_ui.v1"
             },
             "checks": [
               {
                 "name": "dashboard-http",
                 "type": "http",
-                "address": "${config.web_ui.service.advertise_host}",
+                "address": "@runtime_node_host",
                 "port": "${config.web_ui.service.port}",
                 "path": "/",
                 "expected_status": 200,
@@ -184,7 +184,7 @@
           },
           {
             "name": "ros-amr-controller-mcp",
-            "address": "${config.web_ui.service.advertise_host}",
+            "address": "@runtime_node_host",
             "port": "${config.mcp_control.service.port}",
             "origin": "internal",
             "tags": [
@@ -193,7 +193,7 @@
               "ros-amr-controller"
             ],
             "meta": {
-              "url": "http://${config.web_ui.service.advertise_host}:${config.mcp_control.service.port}/mcp",
+              "url": "http://@runtime_node_host:${config.mcp_control.service.port}/mcp",
               "path": "/mcp",
               "schema_version": "mn.ros_amr_controller.mcp.v1"
             },
@@ -201,7 +201,7 @@
               {
                 "name": "robot-mcp-http",
                 "type": "http",
-                "address": "${config.web_ui.service.advertise_host}",
+                "address": "@runtime_node_host",
                 "port": "${config.mcp_control.service.port}",
                 "path": "/health",
                 "expected_status": 200,
@@ -214,7 +214,7 @@
           },
           {
             "name": "turtlebot-video",
-            "address": "${config.web_ui.service.advertise_host}",
+            "address": "@runtime_node_host",
             "port": 8080,
             "origin": "internal",
             "tags": [
@@ -225,7 +225,7 @@
           },
           {
             "name": "turtlebot-rosbridge",
-            "address": "${config.web_ui.service.advertise_host}",
+            "address": "@runtime_node_host",
             "port": 9090,
             "origin": "internal",
             "tags": [

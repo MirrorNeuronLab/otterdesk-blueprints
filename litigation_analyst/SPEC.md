@@ -1,14 +1,17 @@
 # Litigation Analyst specification
 
-Version 2.0.0 changes the default investigation topology from one autonomous tool
-loop to an LLM-planned, Core-managed child workflow. Input and final report paths
+Version 2.0.1 makes the downloadable EMC-2 sample available from the setup UI and
+treats a blank optional folder as sample selection. Version 2.0.0 changed the
+default investigation topology from one autonomous tool loop to an LLM-planned,
+Core-managed child workflow. Input and final report paths
 remain compatible. Existing runs retain their staged implementation; no old audit
 is migrated or silently re-investigated.
 
 ## Product and ownership
 
 The product accepts an optional legal-document folder and neutral goal. Omission
-selects the pinned public EMC2 synthetic sample; invalid custom inputs fail.
+or a blank setup value selects the pinned public EMC-2 synthetic sample; invalid
+custom inputs fail.
 Four fixed phases prepare sources, verify document/graph indexes, investigate,
 and publish a draft. The investigation parent initializes context; its child
 planner commits enquiries using only declared templates. Core alone admits and

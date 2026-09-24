@@ -14,7 +14,6 @@
     "enabled": true,
     "kind": "streamable_http",
     "service": {
-      "advertise_host": "10.0.4.26",
       "host": "0.0.0.0",
       "path": "/mcp",
       "port": 8090
@@ -74,7 +73,6 @@
       "adapter": "live_http"
     },
     "service": {
-      "advertise_host": "10.0.4.26",
       "host": "0.0.0.0",
       "port": 8088
     }

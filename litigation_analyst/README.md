@@ -17,7 +17,9 @@ mn blueprint run ./litigation_analyst --node mirror_neuron@10.0.4.26 \
   --set inputs.payload.input_folder=/absolute/path/on/mini/to/case
 ```
 
-Omitting the folder downloads the pinned public EMC2 synthetic sample. Invalid
+Omitting the folder or leaving it blank in the setup form downloads the pinned
+public [EMC-2 synthetic sample](https://github.com/jur1st/EMC-2/). The sample
+action starts the full analysis with a neutral, source-cited investigation goal. Invalid
 custom folders fail explicitly. The platform stages local inputs to the worker;
 never replace the local path with a guessed Spark path. Inputs are frozen before
 analysis, never executed or modified. Do not put outputs inside the input folder.

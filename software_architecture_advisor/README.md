@@ -2,7 +2,7 @@
 
 `software_architecture_advisor` converts the Spark software architecture investigation project into a Docker-worker blueprint. It freezes repository sources, builds architecture graph views on demand, replans a bounded child workflow between evidence rounds, and publishes independently reviewed, cited findings with an implementation roadmap.
 
-Provide exactly one input:
+By default, a run reviews the public `https://github.com/homerquan/Archmind` repository. To review another source, select exactly one input:
 
 - `repository_url`: public HTTPS GitHub repository root, such as `https://github.com/pallets/itsdangerous` (optional `.git`). Credentials, non-GitHub hosts, branches in URLs, redirects, SSH URLs, query strings and fragments are rejected.
 - `input_folder`: local source directory. The platform stages it for the worker. Clone private repositories yourself and supply the local folder.
@@ -15,14 +15,20 @@ Run the checked-in blueprint with its published GAR dependencies:
 
 ```bash
 cd /Users/homer/Projects/otterdesk-blueprints/software_architecture_advisor
-mn blueprint run ./ \
-  --set inputs.payload.repository_url=https://github.com/pallets/itsdangerous
+mn blueprint run ./ --detached
 ```
 
-For a folder:
+For another public GitHub repository:
+
+```bash
+mn blueprint run ./ --set inputs.payload.repository_url=https://github.com/pallets/itsdangerous
+```
+
+For a local folder, clear the default URL:
 
 ```bash
 mn blueprint run ./ \
+  --set inputs.payload.repository_url=null \
   --set 'inputs.payload.input_folder=/absolute/path/to/repository'
 ```
 
@@ -82,7 +88,7 @@ Version 2.1 requires the SDK `ContextSession` and Membrane `WorkingMemory` RPC f
 
 Planning pins a bounded current hypothesis/revision/citation registry; recalled historical findings cannot override it. Workers receive the exact hypothesis question and artifact-backed evidence. Assessment and independent review use the shared SDK schema-aware request budget before selecting their evidence packet. Verified next actions and acceptance checks retain project-specific model reasoning.
 
-Semantic retrieval binds explicitly to `huggingface.co/zenmagnets/Nemotron-3-Embed-1B-Q4_K_M-GGUF:Q4_K_M` by default, independently of the chat model. Its default `litellm_proxy` provider prepares the Docker Model Runner model and queues embedding inference through the SDK's bounded FIFO lane. The SDK verifies embedding capability before requests. `embedding.provider` and `embedding.model` remain operator-tunable; `default` is the chat route and must not be used for embeddings. Graph views and text embeddings are built lazily when an admitted child task needs them. A failed embedding build cannot publish a completed generation or a successful review.
+Semantic retrieval binds explicitly to `docker.io/ai/embeddinggemma:latest` by default, independently of the chat model. Its default `litellm_proxy` provider prepares the Docker Model Runner model and queues embedding inference through the SDK's bounded FIFO lane. The SDK verifies embedding capability before requests. `embedding.provider` and `embedding.model` remain operator-tunable; `default` is the chat route and must not be used for embeddings. Graph views and text embeddings are built lazily when an admitted child task needs them. A failed embedding build cannot publish a completed generation or a successful review.
 
 For a two-node deployment, the authoritative report and evidence files stay in
 `$MN_HOME/shared/submissions/<submission-id>/outputs/runs/<run-id>/` on the

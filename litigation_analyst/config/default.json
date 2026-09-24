@@ -2,7 +2,7 @@
   "inputs": {
     "adapter": "json",
     "payload": {
-      "goal": "Give me a financial criminal investigation report on those data"
+      "goal": "Investigate financially relevant events and competing explanations in the supplied materials. Cite the evidence and state limitations."
     }
   },
   "investigation": {

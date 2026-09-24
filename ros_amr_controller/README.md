@@ -27,11 +27,12 @@ The service uses the exclusive Compose project name
 clears that previous project before starting, preventing stale services from
 holding the dashboard, video, rosbridge, or MCP ports.
 
-The selected Spark node hosts the dashboard on `8088`, the bounded MCP endpoint
+The runtime-selected node hosts the dashboard on `8088`, the bounded MCP endpoint
 on `8090`, video on `8080`, and rosbridge on `9090`. With `--web-ui`, open the
 local MirrorNeuron URL printed by the CLI (`/jobs/<job_id>/ui`): it proxies the
 dashboard, video streams, and rosbridge through the local Web UI service rather
-than navigating the browser directly to Spark. Startup requires all seven
+than navigating the browser directly to the runtime node. The service registry
+and Web UI handle use the selected node's advertised runtime address. Startup requires all seven
 declared Compose services plus the dashboard, MCP health endpoint, video TCP
 port, and rosbridge TCP port.
 

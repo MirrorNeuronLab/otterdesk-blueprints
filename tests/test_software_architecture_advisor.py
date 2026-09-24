@@ -43,6 +43,7 @@ def test_compiled_contract_and_docker_handlers(modules):
 def test_default_output_uses_sdk_host_copy_contract():
     config=json.loads((BLUEPRINT/'config/default.json').read_text())
     assert 'output_folder' not in config
+    assert config['inputs']['payload']['repository_url']=='https://github.com/homerquan/Archmind'
     assert config['outputs']['folder_path']=='~/Downloads/{job_name}'
     assert config['outputs']['write_run_store'] is True
 
@@ -80,14 +81,17 @@ def test_folder_with_spaces_and_canonical_url(modules,tmp_path):
     assert modules['intake'].source_input({'repository_url':'https://github.com/a/b/'})=='https://github.com/a/b.git'
 
 
-def test_shared_input_validation_rejects_missing_source_before_launch(tmp_path):
+def test_shared_input_validation_accepts_default_and_rejects_missing_source(tmp_path):
     from mn_sdk import run_input_validation
 
     package = read_blueprint(BLUEPRINT)
     manifest = blueprint_definition(package)
     config = resolve_config(package).data
 
-    missing = run_input_validation(BLUEPRINT, manifest, config=config)
+    assert run_input_validation(BLUEPRINT, manifest, config=config)['ok'] is True
+    missing_config = json.loads(json.dumps(config))
+    missing_config['inputs']['payload'].pop('repository_url')
+    missing = run_input_validation(BLUEPRINT, manifest, config=missing_config)
 
     assert missing['ok'] is False
     issue = missing['issues'][0]
@@ -97,6 +101,7 @@ def test_shared_input_validation_rejects_missing_source_before_launch(tmp_path):
     source = tmp_path / 'source folder'
     source.mkdir()
     valid_config = json.loads(json.dumps(config))
+    valid_config['inputs']['payload']['repository_url'] = None
     valid_config.setdefault('inputs', {}).setdefault('payload', {})['input_folder'] = str(source)
 
     assert run_input_validation(BLUEPRINT, manifest, config=valid_config)['ok'] is True
@@ -176,7 +181,7 @@ def test_neural_retrieval_uses_embedding_model_and_capability(modules, monkeypat
     assert embedder.embed_query('question') == pytest.approx((3.0, 4.0))
     assert calls == [(['source text'], 'document'), (['question'], 'query')]
     assert configs[0].embedding_provider == 'litellm_proxy'
-    assert configs[0].embedding_model == 'huggingface.co/zenmagnets/Nemotron-3-Embed-1B-Q4_K_M-GGUF:Q4_K_M'
+    assert configs[0].embedding_model == 'docker.io/ai/embeddinggemma:latest'
 
     class FailingEmbedder:
         def encode(self, texts, input_type='document'):
@@ -301,6 +306,7 @@ def test_local_repository_input_uses_sdk_staging(tmp_path):
     source.mkdir()
     (source / 'module.py').write_text('def example(): pass\n')
     config['inputs']['payload']['input_folder'] = str(source)
+    config['inputs']['payload']['repository_url'] = None
     payloads = {}
     result = stage_local_input_payloads(config, payloads, bundle_dir=BLUEPRINT)
     assert result['folders'][0]['file_count'] == 1

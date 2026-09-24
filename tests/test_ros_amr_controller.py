@@ -50,6 +50,13 @@ def test_ros_amr_uses_the_isolated_compose_runner_and_bundled_source():
     assert SOURCE.joinpath("mcp/robot_control_server.py").is_file()
     assert not BLUEPRINT.joinpath("turtlebot-maze").exists()
     assert not BLUEPRINT.joinpath("payloads/worker/start_service.sh").exists()
+    assert all(
+        service["address"] == "@runtime_node_host"
+        for service in node["services"]
+    )
+    defaults = json.loads((BLUEPRINT / "config/default.json").read_text())
+    assert "advertise_host" not in defaults["web_ui"]["service"]
+    assert "advertise_host" not in defaults["mcp_control"]["service"]
 
 
 def test_ros_amr_compose_configuration_resolves_with_headless_environment():

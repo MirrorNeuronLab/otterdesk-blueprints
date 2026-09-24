@@ -4,9 +4,12 @@
 from __future__ import annotations
 
 import argparse
+import fcntl
 import json
 import logging
 import os
+import socket
+import struct
 import threading
 import time
 import uuid
@@ -329,11 +332,22 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Serve bounded TurtleBot MCP tools over Streamable HTTP.")
     parser.add_argument("--host", default=os.environ.get("MN_ROBOT_MCP_HOST", "0.0.0.0"))
     parser.add_argument("--port", type=int, default=int(os.environ.get("MN_ROBOT_MCP_PORT", "8090")))
-    parser.add_argument(
-        "--advertise-host",
-        default=os.environ.get("MN_ROBOT_MCP_ADVERTISE_HOST", "10.0.4.26"),
-    )
     return parser.parse_args()
+
+
+def local_interface_hosts() -> set[str]:
+    """Read host-network IPv4 addresses for the MCP Host allowlist."""
+    hosts = {"127.0.0.1", "localhost"}
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
+        for _, interface in socket.if_nameindex():
+            try:
+                address = fcntl.ioctl(
+                    probe.fileno(), 0x8915, struct.pack("256s", interface[:15].encode())
+                )[20:24]
+            except OSError:
+                continue
+            hosts.add(socket.inet_ntoa(address))
+    return hosts
 
 
 def main() -> None:
@@ -341,11 +355,7 @@ def main() -> None:
     args = parse_args()
     logging.basicConfig(level=logging.INFO)
     _control = RosControlBridge()
-    allowed_hosts = [
-        f"{args.advertise_host}:{args.port}",
-        f"127.0.0.1:{args.port}",
-        f"localhost:{args.port}",
-    ]
+    allowed_hosts = [f"{host}:{args.port}" for host in sorted(local_interface_hosts())]
     security = TransportSecuritySettings(
         enable_dns_rebinding_protection=True,
         allowed_hosts=allowed_hosts,
