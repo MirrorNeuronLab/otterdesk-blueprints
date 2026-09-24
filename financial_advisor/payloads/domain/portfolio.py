@@ -302,9 +302,13 @@ def step_portfolio_llm_reviewer(ctx: dict[str, Any]) -> dict[str, Any]:
     # The final reviewer needs the deterministic risk result, not another
     # reviewer's narrative.
     risk_review_context = {
-        key: copy.deepcopy(value)
-        for key, value in risk.items()
-        if key != "actor_finding"
+        key: copy.deepcopy(risk.get(key))
+        for key in (
+            "total_value", "cash_weight_pct", "largest_position_weight_pct",
+            "largest_position", "annualized_volatility_pct", "var_pct", "cvar_pct",
+            "policy_violations", "screening_threshold_flags", "warnings",
+        )
+        if key in risk
     }
     source_refs = sorted(
         {str(item) for item in market.get("source_refs", []) if item}
@@ -337,8 +341,18 @@ def step_portfolio_llm_reviewer(ctx: dict[str, Any]) -> dict[str, Any]:
         step_id="portfolio_llm_reviewer",
         summary="Portfolio LLM reviewer interpreted deterministic risk metrics, policy thresholds, source gaps, and human review questions.",
         context={
-            "portfolio_context_loader": context,
-            "portfolio_market_data_loader": market,
+            "portfolio_context_loader": {
+                "holding_count": context.get("holding_count"),
+                "portfolio_source_refs": context.get("portfolio_source_refs", []),
+                "customer_profile_status": context.get("customer_profile_status", {}),
+                "risk_policy": context.get("risk_policy", {}),
+                "risk_policy_provenance": context.get("risk_policy_provenance", {}),
+            },
+            "portfolio_market_data_loader": {
+                "provider": market.get("provider"),
+                "source_refs": market.get("source_refs", []),
+                "warnings": market.get("warnings", []),
+            },
             "portfolio_risk_engine": risk_review_context,
             "review_constraints": [
                 "Do not change portfolio values, weights, volatility, VaR, CVaR, or policy-violation math.",

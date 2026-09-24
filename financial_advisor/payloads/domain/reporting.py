@@ -361,19 +361,34 @@ def markdown_report(final_artifact: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 def step_financial_advice_reporter(ctx: dict[str, Any]) -> dict[str, Any]:
+    workflow = ctx["state"]["workflow"]
+    review_briefs = {
+        lane: {
+            "summary": str((workflow.get(agent_id) or {}).get("summary") or "")[:180],
+            "evidence_gaps": ((workflow.get(agent_id) or {}).get("evidence_gaps") or [])[:2],
+            "risk_flags": ((workflow.get(agent_id) or {}).get("risk_flags") or [])[:2],
+            "source_refs": ((workflow.get(agent_id) or {}).get("source_refs") or [])[:2],
+        }
+        for lane, agent_id in (
+            ("cash_flow", "cash_flow_llm_analyst"),
+            ("tax", "tax_llm_reviewer"),
+            ("portfolio", "portfolio_llm_reviewer"),
+        )
+    }
+    audit = workflow.get("advisor_review_auditor") or {}
     finding = actor_review(
         ctx["config"],
         ctx["llm"],
         "financial_advice_reporter",
         "Integrated financial advisor report written for human review.",
         {
-            "workflow_keys": sorted(ctx["state"]["workflow"]),
-            "llm_reviews": {
-                "cash_flow": ctx["state"]["workflow"].get("cash_flow_llm_analyst"),
-                "tax": ctx["state"]["workflow"].get("tax_llm_reviewer"),
-                "portfolio": ctx["state"]["workflow"].get("portfolio_llm_reviewer"),
+            "completed_review_lanes": sorted(review_briefs),
+            "llm_reviews": review_briefs,
+            "auditor_review": {
+                "issues": (audit.get("issues") or [])[:4],
+                "review_required": audit.get("review_required"),
+                "summary": str((audit.get("actor_finding") or {}).get("summary") or "")[:180],
             },
-            "auditor_review": ctx["state"]["workflow"].get("advisor_review_auditor"),
             "review_constraints": [
                 "Do not change deterministic extraction or calculation fields.",
                 "Include LLM analysis as review notes only.",

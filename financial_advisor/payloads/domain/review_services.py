@@ -164,11 +164,9 @@ def actor_review(
                     {
                         "actor_id": step_id,
                         "role": role,
-                        "responsibilities": responsibilities,
-                        "model_profile": profile,
                         "task": summary,
                         "context": redact_value(context),
-                        "knowledge_context": knowledge_context_for_step(active_knowledge, step_id),
+                        "knowledge_context": knowledge_context_for_step(active_knowledge, step_id, max_chars=1200),
                         "output_contract": {
                             "required_fields": [
                                 "summary",
@@ -185,7 +183,6 @@ def actor_review(
                             "unknown_rule": "If evidence is absent, say unknown or review-required; never infer a financial fact.",
                             "size_rule": "Keep summary under 600 characters. Return at most 5 concise items in each list field and at most 12 source_refs. Do not repeat a finding across fields.",
                         },
-                        "fallback_shape": fallback,
                     },
                     sort_keys=True,
                     default=str,

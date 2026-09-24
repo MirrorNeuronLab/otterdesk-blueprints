@@ -203,8 +203,34 @@ def step_tax_workpaper_preparer(ctx: dict[str, Any]) -> dict[str, Any]:
                 "draft_income_total": draft_income,
                 "federal_withholding": withholding,
             },
-            "routed_tax_documents": router,
-            "tax_form_ocr_capture": tax_capture,
+            "routed_tax_documents": {
+                "tax_year": router.get("tax_year"),
+                "filing_status": router.get("filing_status"),
+                "tax_document_count": router.get("tax_document_count"),
+                "groups": {
+                    kind: [item.get("source_ref") for item in items if isinstance(item, dict)]
+                    for kind, items in (router.get("groups") or {}).items()
+                    if isinstance(items, list)
+                },
+                "missing_recommended_forms": router.get("missing_recommended_forms", []),
+            },
+            "tax_form_ocr_capture": {
+                "tax_form_count": tax_capture.get("tax_form_count"),
+                "substantive_field_count": tax_capture.get("substantive_field_count"),
+                "readiness_status": tax_capture.get("readiness_status"),
+                "review_required_sources": tax_capture.get("review_required_sources", []),
+                "incomplete_sources": tax_capture.get("incomplete_sources", []),
+                "forms": [
+                    {
+                        "source_ref": form.get("source_ref"),
+                        "form_type": form.get("form_type"),
+                        "substantive_field_count": form.get("substantive_field_count"),
+                        "readiness_status": form.get("readiness_status"),
+                    }
+                    for form in tax_capture.get("forms", [])
+                    if isinstance(form, dict)
+                ],
+            },
             "review_constraints": [
                 "Do not change draft tax totals.",
                 "Do not mark anything filing-ready.",
@@ -296,9 +322,28 @@ def step_tax_llm_reviewer(ctx: dict[str, Any]) -> dict[str, Any]:
         step_id="tax_llm_reviewer",
         summary="Tax LLM reviewer checked draft workpapers, OCR capture, missing-form blockers, and filing-boundary constraints.",
         context={
-            "tax_document_router": router,
-            "tax_form_ocr_capturer": tax_capture,
-            "tax_workpaper_preparer": workpaper,
+            "tax_document_router": {
+                "tax_year": router.get("tax_year"),
+                "filing_status": router.get("filing_status"),
+                "missing_recommended_forms": router.get("missing_recommended_forms", []),
+                "source_refs_by_form": {
+                    kind: [item.get("source_ref") for item in items if isinstance(item, dict)]
+                    for kind, items in (router.get("groups") or {}).items()
+                    if isinstance(items, list)
+                },
+            },
+            "tax_form_ocr_capturer": {
+                "tax_form_count": tax_capture.get("tax_form_count"),
+                "substantive_field_count": tax_capture.get("substantive_field_count"),
+                "review_required_sources": tax_capture.get("review_required_sources", []),
+                "incomplete_sources": tax_capture.get("incomplete_sources", []),
+                "readiness_status": tax_capture.get("readiness_status"),
+            },
+            "tax_workpaper_preparer": {
+                "workpapers": workpaper.get("workpapers", {}),
+                "manager_review": workpaper.get("manager_review", {}),
+                "readiness_status": workpaper.get("readiness_status"),
+            },
             "review_constraints": [
                 "Do not change wages, interest, distributions, withholding, or draft-income totals.",
                 "Do not give legal/tax filing advice.",

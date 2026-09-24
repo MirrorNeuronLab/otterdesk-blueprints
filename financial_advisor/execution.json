@@ -93,8 +93,7 @@
       "min_gb": 1
     },
     "gpu": {
-      "min_count": 1,
-      "min_memory_mb": 16384
+      "min_count": 0
     },
     "memory": {
       "min_gb": 2

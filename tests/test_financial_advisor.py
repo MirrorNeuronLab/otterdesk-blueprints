@@ -36,7 +36,7 @@ def test_financial_manifest_compiles_ordered_regulated_state_pipeline():
     assert primary_llm["max_tokens"] == 10000
     config = json.loads((blueprint_path("financial_advisor") / "config" / "default.json").read_text())
     assert config["llm"]["strict_json"] is True
-    assert config["llm"]["configs"]["primary"]["max_tokens"] >= 4000
+    assert config["llm"]["configs"]["primary"]["max_tokens"] == 1200
     assert source["requirements"]["memory"]["min_gb"] == 2
     assert source["requirements"]["gpu"] == {"min_count": 0}
     assert [step["id"] for step in source["workflow"]["steps"]] == EXPECTED_STEPS
