@@ -247,8 +247,8 @@ def test_purchasing_manager_config_uses_bundle_paths_and_manifest_owned_descript
     manifest = blueprint_definition(
         read_blueprint(ROOT / "purchasing_manager" / "manifest.json")
     )
-    assert config["inputs"]["payload"]["input_folder"] == "@/examples/sample_inputs"
-    assert config["inputs"]["adapter"] == "json"
+    assert config["inputs"]["payload"]["input_folder"] == "@/examples/edge_ai_workstation"
+    assert config["inputs"]["adapter"] == "mock"
     assert config["mode"] == "live"
     assert config["inputs"]["payload"]["analysis"]["discount_rate"] == 0.08
     assert len(config["inputs"]["payload"]["analysis"]["scenarios"]) == 3
@@ -317,11 +317,31 @@ def test_purchasing_manager_sample_market_observations_are_source_backed():
     assert "sample_ai_workstation_quotes" not in combined
 
 
+def test_purchasing_manager_default_edge_ai_sample_names_three_real_options():
+    sample_root = ROOT / "purchasing_manager" / "examples" / "edge_ai_workstation"
+    config = json.loads((ROOT / "purchasing_manager" / "config" / "default.json").read_text())
+    guide = json.loads((ROOT / "purchasing_manager" / "extensions" / "ui.json").read_text())["setup_guide"]
+    request = (sample_root / "purchase_request.txt").read_text()
+    observations = json.loads((sample_root / "observed_workstations.json").read_text())
+    assert guide["sample"]["available"] is True
+    assert guide["sample"]["values"]["inputs.payload.item_description"] == config["inputs"]["payload"]["item_description"]
+    assert guide["sample"]["values"]["inputs.payload.input_folder"] == config["inputs"]["payload"]["input_folder"]
+    assert {item["candidate_id"] for item in observations["candidates"]} == {
+        "apple-mac-studio-m5-max",
+        "nvidia-dgx-spark",
+        "hp-z2-mini-g1a-amd",
+    }
+    assert all(item["source_url"].startswith("https://") for item in observations["candidates"])
+    assert all(item.get("quote_subtotal") is None for item in observations["candidates"])
+    assert all(item["available_for_purchase"] is False for item in observations["candidates"])
+    assert "Mac Studio" in request and "DGX Spark" in request and "AMD" in request
+
+
 def test_purchasing_manager_merged_config_stages_the_bundled_plain_text_request():
     blueprint = ROOT / "purchasing_manager"
     config = load_blueprint_config(blueprint)
     assert config is not None
-    assert config["inputs"]["payload"]["input_folder"] == "@/examples/sample_inputs"
+    assert config["inputs"]["payload"]["input_folder"] == "@/examples/edge_ai_workstation"
 
     payloads: dict[str, bytes] = {}
     summary = stage_local_input_payloads(config, payloads, bundle_dir=blueprint)

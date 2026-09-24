@@ -108,8 +108,8 @@
     }
   },
   "inputs": {
-    "adapter": "json",
-    "description": "Default business request backed by time-stamped public market observations, official technical specifications, and public economic data. Supplier facts must be refreshed before approval.",
+    "adapter": "mock",
+    "description": "Default edge AI workstation comparison using manufacturer research leads; refresh exact configurations, prices, and stock before approval.",
     "payload": {
       "analysis": {
         "active_hours_per_year": 1000,
@@ -154,23 +154,20 @@
         ],
         "tax_rate": 0.0625
       },
-      "budget": 5000,
+      "budget": null,
       "constraints": {
-        "available_for_purchase_required": true,
-        "min_gpu_vram_gb": 16,
-        "min_storage_tb": 2,
         "min_system_ram_gb": 64,
+        "min_storage_tb": 1,
         "min_warranty_years": 1
       },
-      "input_folder": "@/examples/sample_inputs",
-      "item_description": "Source one supportable local-AI desktop system for a Boston engineering office within a $5,000 landed-acquisition budget.",
+      "input_folder": "@/examples/edge_ai_workstation",
+      "item_description": "Compare Apple Mac Studio M5 Max, NVIDIA DGX Spark, and an AMD-powered HP Z2 Mini G1a for local AI workloads.",
       "location": "Boston, MA",
       "output_folder": "~/Downloads/purchasing_manager",
       "priorities": [
-        "technical fit for local model development",
-        "landed acquisition cost under budget",
-        "risk-adjusted three-year total ownership cost",
-        "current purchase availability",
+        "local AI workload compatibility",
+        "usable accelerator memory",
+        "landed acquisition and three-year ownership cost",
         "supportability and deployment readiness"
       ],
       "purchase_type": "computer",
@@ -649,7 +646,7 @@
       "source_ref",
       "event_id"
     ],
-    "input_folder": "@/examples/sample_inputs",
+    "input_folder": "@/examples/edge_ai_workstation",
     "output_folder": "~/Downloads/purchasing_manager",
     "resume_mode": "none"
   },

@@ -1,0 +1,47 @@
+{
+  "schema": "mn.sample.public_market_observations.v1",
+  "currency": "USD",
+  "observed_at": "2026-09-23",
+  "provenance": {
+    "data_policy": "Manufacturer and seller pages establish product identities and configuration leads only. No cart-ready prices, stock, or quotes are asserted.",
+    "refresh_policy": "Verify exact memory, storage, warranty, availability, tax, delivery, and price for each configuration before ranking."
+  },
+  "candidates": [
+    {
+      "candidate_id": "apple-mac-studio-m5-max",
+      "name": "Mac Studio M5 Max",
+      "vendor": "Apple",
+      "source_type": "manufacturer_product_page",
+      "source_url": "https://www.apple.com/mac-studio/specs/",
+      "observed_at": "2026-09-23",
+      "available_for_purchase": false,
+      "availability_status": "Exact 64 GB or larger memory and 1 TB or larger storage configuration requires current cart verification",
+      "specifications": {"accelerator": "Apple integrated GPU; unified memory", "min_system_ram_gb": 64, "min_storage_tb": 1},
+      "disclosures": ["Memory and storage fields are target configurations, not a verified cart or quote."]
+    },
+    {
+      "candidate_id": "nvidia-dgx-spark",
+      "name": "DGX Spark",
+      "vendor": "NVIDIA",
+      "source_type": "manufacturer_product_page",
+      "source_url": "https://www.nvidia.com/en-us/products/workstations/dgx-spark/",
+      "observed_at": "2026-09-23",
+      "available_for_purchase": false,
+      "availability_status": "Current seller, exact configuration, and stock require verification",
+      "specifications": {"accelerator": "NVIDIA Blackwell integrated GPU; CUDA software stack", "min_system_ram_gb": 128, "min_storage_tb": 4},
+      "disclosures": ["Manufacturer specifications are not a business quote or stock commitment."]
+    },
+    {
+      "candidate_id": "hp-z2-mini-g1a-amd",
+      "name": "HP Z2 Mini G1a with AMD Ryzen AI Max+ PRO 395",
+      "vendor": "HP / AMD",
+      "source_type": "manufacturer_store_listing",
+      "source_url": "https://www.hp.com/us-en/shop/custom/hp-z2-mini-g1a-workstation-desktop-pc-customizable-amd-ryzen-ai-128gb-ram-1tb-ssd-A74X0AV_165451",
+      "observed_at": "2026-09-23",
+      "available_for_purchase": false,
+      "availability_status": "Exact configured price and stock require current cart verification",
+      "specifications": {"accelerator": "AMD Radeon 8060S integrated GPU; validate framework support", "min_system_ram_gb": 128, "min_storage_tb": 1},
+      "disclosures": ["Configurable seller page is a research lead, not an approved quote."]
+    }
+  ]
+}

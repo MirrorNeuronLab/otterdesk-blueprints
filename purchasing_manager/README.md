@@ -12,12 +12,10 @@ retrieves approved local evidence, performs bounded public research, tests hard
 constraints, and writes an approval-ready numerical comparison without
 transacting.
 
-The bundled business case sources one supportable local-AI desktop for a Boston
-engineering office, with at least 16 GB GPU VRAM, 64 GB RAM, 2 TB storage, a
-one-year warranty, current purchase availability, and a $5,000 landed-
-acquisition ceiling. Its three time-stamped public supplier observations use
-real source URLs and demonstrate source refresh, technical and availability
-gates, tax and deployment cost, support exceptions, and approval checks.
+The default business case compares three on-edge AI workstations for a Boston
+engineering office: Apple Mac Studio M5 Max, NVIDIA DGX Spark, and the
+AMD-powered HP Z2 Mini G1a. It uses bundled sample inputs with public research
+links. Exact prices, stock, and business terms must be verified before approval.
 
 ## Process and agents
 
@@ -40,14 +38,17 @@ RAG-driven. Model output is validated structured JSON; code renders the final
 Markdown and visibly falls back to deterministic narrative if a call fails or
 returns unsupported candidate, metric, source, or numerical claims.
 
-The bundled `examples/sample_inputs/purchase_request.txt` is the primary sample
-request. It contains the business goal, decision owners, technical and
-commercial hard constraints, company planning assumptions, and official public
-research leads. `observed_ai_systems.json` records three real, URL-backed market
-observations. The workflow ranks eligible options on risk-adjusted discounted
-TCO after screening landed acquisition cost, availability, specifications, and
-warranty. Public listings remain explicitly subject to refresh, written quote,
-technical sign-off, and human approval.
+The default `examples/edge_ai_workstation/purchase_request.txt` compares Apple
+Mac Studio M5 Max, NVIDIA DGX Spark, and the AMD-powered HP Z2 Mini G1a.
+It supplies manufacturer research leads and structured candidate records, while
+leaving current prices and stock for verification. A fresh run can inspect all
+three options and should flag missing commercial evidence before ranking them.
+The earlier `examples/sample_inputs/` folder remains an additional desktop
+procurement example with historical public listings and a $5,000 budget.
+For any purchase, the workflow ranks eligible options on risk-adjusted discounted
+TCO only after screening landed acquisition cost, availability, specifications,
+and warranty. Public listings require refresh, written quote, technical sign-off,
+and human approval.
 
 ## Quick Start
 

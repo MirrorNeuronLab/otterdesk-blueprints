@@ -1,0 +1,31 @@
+What I want to buy: One on-edge AI workstation for a Boston engineering team. Compare Apple Mac Studio with M5 Max, NVIDIA DGX Spark, and an AMD-based HP Z2 Mini G1a with Ryzen AI Max+ PRO 395. The system will run private local inference, retrieval experiments, and small fine-tuning trials. Compare complete, supportable configurations rather than processor-only specifications.
+Purchase type: computer
+Location: Boston, MA
+Purchase timing: Refresh exact configurations, price, stock, delivery, and warranty before approval.
+
+Business context:
+- Request owner: Engineering Operations
+- Technical approver: Director of Machine Learning
+- Procurement approver: Finance Operations
+- Intended life: Three years before reassessment
+
+Priorities:
+- local AI workload compatibility and usable accelerator memory
+- at least 64 GB unified or system memory and 1 TB internal storage
+- source-backed landed acquisition cost and three-year ownership cost
+- power, noise, support, security controls, and deployment effort
+- reproducible benchmarks on our actual models and toolchain
+
+Hard constraints:
+- Minimum system RAM: 64 GB
+- Minimum storage: 1 TB
+- Minimum warranty years: 1
+
+Public research sources to refresh:
+- Apple Mac Studio M5 Max specifications: https://www.apple.com/mac-studio/specs/
+- Apple Mac Studio purchasing options: https://www.apple.com/shop/buy-mac/mac-studio
+- NVIDIA DGX Spark specifications: https://www.nvidia.com/en-us/products/workstations/dgx-spark/
+- HP Z2 Mini G1a AMD configuration: https://www.hp.com/us-en/shop/custom/hp-z2-mini-g1a-workstation-desktop-pc-customizable-amd-ryzen-ai-128gb-ram-1tb-ssd-A74X0AV_165451
+- Massachusetts sales tax guidance: https://www.mass.gov/guides/sales-and-use-tax
+
+Do not assume CUDA, Metal, and ROCm workloads are interchangeable. Treat GPU VRAM and unified memory as different architectures; verify usable accelerator allocation with a workload test. Obtain current cart-ready prices and written business quotes before ranking or approving a purchase. Internal utilization, labor, downtime, maintenance, electricity, and residual-value values in the default configuration are planning assumptions, not supplier claims. Do not issue a purchase order.

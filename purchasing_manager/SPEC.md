@@ -20,7 +20,9 @@ Structured input fields remain optional fallbacks for API-driven runs.
 the horizon, discount and tax rates, utilization, energy/fuel, loaded labor,
 downtime, maintenance, residual value, and scenario values.
 
-The default bundle-relative input is `@/examples/sample_inputs`; checked-in
+The default bundle-relative input is `@/examples/edge_ai_workstation`, an
+on-edge AI workstation comparison of Apple, NVIDIA, and AMD systems. The
+earlier `@/examples/sample_inputs` is an additional procurement example. Checked-in
 overwrite configuration must not replace it with a repository-relative path.
 The launcher stages that folder and rewrites the linked runtime input paths.
 
