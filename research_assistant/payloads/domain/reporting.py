@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import json
+import hashlib
 from pathlib import Path
 from typing import Any
+
+from mn_sdk.blueprint_support import append_human_event, read_human_events
 
 from .autonomous import _experiment_concepts
 from .common import BLOCKED_ACTIONS, BLUEPRINT_ID, BLUEPRINT_NAME, OUTPUT_TYPE, RESEARCH_ACTIONS
@@ -305,6 +308,17 @@ def render_research_markdown(packet: dict[str, Any]) -> str:
         f"- Usable evidence present: {'Yes' if deterministic.get('usable_evidence_present') else 'No'}",
         "- Evidence links below identify relevant context; they do not validate a candidate hypothesis.",
     ])
+    preflight = packet.get("preflight") or {}
+    if preflight:
+        coverage = preflight.get("evidence_coverage") or {}
+        readiness = preflight.get("experiment_readiness") or {}
+        lines.extend([
+            "",
+            "## Parallel Preflight Assessments",
+            f"- Evidence coverage: {coverage.get('status') or 'unknown'}; {len(coverage.get('source_refs') or [])} source references; {len(coverage.get('gaps') or [])} gaps.",
+            f"- Experiment readiness: {readiness.get('status') or 'unknown'}; {readiness.get('local_csv_count', 0)} local CSV files; {readiness.get('seed_hypothesis_count', 0)} seed hypotheses.",
+            "- Execution requires a separately approved, exact experiment batch.",
+        ])
     for document in (packet.get("evidence") or {}).get("documents") or []:
         lines.append(
             f"- `{document.get('source_ref')}` — {document.get('name')} ({document.get('status')}; {document.get('extraction_method')})"
@@ -574,6 +588,7 @@ def publish_packet(ctx: dict[str, Any], **_options: Any) -> dict[str, Any]:
         state.get("llm_usage") or {},
     )
     final["packet_audit"] = audit
+    final["preflight"] = state.get("preflight") or {}
     result = {"identity": {"blueprint_id": BLUEPRINT_ID, "name": BLUEPRINT_NAME, "run_id": ctx["run_id"]}, "blueprint": BLUEPRINT_ID, "name": BLUEPRINT_NAME, "run": {"run_id": ctx["run_id"], "status": "completed"}, "inputs": inputs, "evidence": state.get("evidence") or {}, "autonomous_research": autonomous, "final_artifact": final, "llm": state.get("llm_usage") or {}}
     final["llm_usage"] = result["llm"]
     output_files = write_research_outputs(final, result, ctx["config"], inputs)
@@ -589,7 +604,43 @@ def publish_packet(ctx: dict[str, Any], **_options: Any) -> dict[str, Any]:
         encoding="utf-8",
     )
     _save(ctx, state)
+    request_packet_review(ctx, final)
     return {"final_artifact": final, "output_files": output_files, "artifact_quality": research_artifact_quality(final)}
+
+
+def request_packet_review(ctx: dict[str, Any], packet: dict[str, Any]) -> str:
+    """Request a review of the durable draft without authorizing experiments."""
+    run_dir = Path(ctx["run_dir"])
+    digest = hashlib.sha256((run_dir / "final_artifact.json").read_bytes()).hexdigest()
+    request_id = f"research-packet:{ctx['run_id']}:{digest[:16]}"
+    existing = read_human_events(ctx["run_id"], runs_root=run_dir.parent)
+    if any(
+        event.get("type") == "human_input_requested"
+        and (event.get("payload") or {}).get("request_id") == request_id
+        for event in existing
+    ):
+        return request_id
+    append_human_event(
+        ctx["run_id"],
+        "human_input_requested",
+        {
+            "request_id": request_id,
+            "decision_type": "research_packet_review",
+            "packet_digest": digest,
+            "prompt": (
+                "Review the draft Research Assistant packet and its evidence and hypothesis ledgers. "
+                "Approve the packet for internal review, request revisions, or reject it. "
+                "This decision does not authorize experiments, publication, participant contact, "
+                "or other consequential action."
+            ),
+            "options": ["Approve", "Request changes", "Reject"],
+            "artifact_path": "final_artifact.json",
+            "hypothesis_count": len(packet.get("hypothesis_ledger") or []),
+        },
+        runs_root=run_dir.parent,
+        blueprint_id=BLUEPRINT_ID,
+    )
+    return request_id
 
 
 __all__ = [

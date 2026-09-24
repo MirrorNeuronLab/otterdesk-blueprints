@@ -2,6 +2,10 @@
 
 This long-lived service runs the ROS 2 Jazzy TurtleBot warehouse simulation as
 an isolated Docker Compose project on the selected CUDA/NVIDIA runtime node.
+In OtterDesk, **Try a sample** starts the bundled warehouse scenario with the
+defaults in `config/default.json`. Once the service is healthy, use chat to
+move to Zones A, B, or C, check status, or stop the robot through the bounded
+MCP response agent.
 The blueprint source includes the complete Compose context at
 `payloads/docker_compose/turtlebot-maze`; it does not require a prebuilt image
 or a checkout at `/home/homer/Sandbox`.

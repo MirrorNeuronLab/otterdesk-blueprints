@@ -399,6 +399,35 @@ def _read_event_tail(path: Path, *, limit: int = 100) -> list[dict[str, Any]]:
     return rows
 
 
+def _ranked_candidates(final_artifact: Mapping[str, Any]) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    for index, evaluation in enumerate(_items(final_artifact.get("ranked_candidates"))[:5]):
+        candidate = _mapping(evaluation.get("candidate"))
+        smiles = str(candidate.get("smiles") or evaluation.get("smiles") or "").strip()
+        if not smiles or len(smiles) > 2048:
+            continue
+        rows.append({
+            "id": str(candidate.get("candidate_id") or f"Candidate {index + 1}")[:160],
+            "smiles": smiles,
+            "image": f"candidate-{index + 1}.svg",
+        })
+    return rows
+
+
+def _draw_candidate_svg(smiles: str) -> str:
+    from rdkit import Chem
+    from rdkit.Chem.Draw import rdMolDraw2D
+
+    molecule = Chem.MolFromSmiles(smiles)
+    if molecule is None:
+        raise ValueError("Invalid candidate SMILES")
+    drawer = rdMolDraw2D.MolDraw2DSVG(480, 280)
+    drawer.drawOptions().padding = 0.08
+    rdMolDraw2D.PrepareAndDrawMolecule(drawer, molecule)
+    drawer.FinishDrawing()
+    return drawer.GetDrawingText().replace("svg:", "")
+
+
 def render_static_dashboard(state: Mapping[str, Any]) -> str:
     """Render a self-contained, script-free result page for the runtime proxy."""
 
@@ -435,15 +464,26 @@ def render_static_dashboard(state: Mapping[str, Any]) -> str:
     warning = html.escape(str(state.get("warning") or ""))
     candidate_id = html.escape(str(molecule.get("candidate_id") or "Awaiting ranking"))
     smiles = html.escape(str(molecule.get("smiles") or "—"))
+    candidate_cards = "".join(
+        '<article>' + (
+            '<img src="' + html.escape(str(row["image"]), quote=True)
+            + '" alt="Two-dimensional structure of ' + html.escape(str(row["id"]), quote=True)
+            + '">'
+            if row.get("image") else '<p>Structure drawing unavailable.</p>'
+        ) + '<h3>' + html.escape(str(row["id"])) + '</h3><code>'
+        + html.escape(str(row["smiles"])) + '</code></article>'
+        for row in _items(state.get("ranked_candidates"))
+    )
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Drug Discovery Research Assistant</title><style>
-body{{margin:0;background:#eef2ec;color:#15241f;font:14px/1.5 system-ui,sans-serif}}main{{max-width:1180px;margin:auto;padding:28px 20px}}h1{{font-size:32px}}section{{background:#fff;border:1px solid #d9e1dc;border-radius:16px;padding:20px;margin:16px 0}}.grid{{display:grid;grid-template-columns:1fr 1fr;gap:16px}}table{{width:100%;border-collapse:collapse}}th,td{{padding:9px;border-bottom:1px solid #edf1ee;text-align:left;vertical-align:top}}th{{color:#64746e}}img{{display:block;width:100%;height:360px;object-fit:contain;background:#f8faf6}}code{{overflow-wrap:anywhere}}.warning{{background:#fff0d7;border-color:#ead0a5}}time{{color:#64746e}}@media(max-width:760px){{.grid{{grid-template-columns:1fr}}}}
+body{{margin:0;background:#eef2ec;color:#15241f;font:14px/1.5 system-ui,sans-serif}}main{{max-width:1180px;margin:auto;padding:28px 20px}}h1{{font-size:32px}}section{{background:#fff;border:1px solid #d9e1dc;border-radius:16px;padding:20px;margin:16px 0}}.grid{{display:grid;grid-template-columns:1fr 1fr;gap:16px}}.candidate-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}}article{{border:1px solid #d9e1dc;border-radius:12px;padding:12px}}article img{{height:220px}}table{{width:100%;border-collapse:collapse}}th,td{{padding:9px;border-bottom:1px solid #edf1ee;text-align:left;vertical-align:top}}th{{color:#64746e}}img{{display:block;width:100%;height:360px;object-fit:contain;background:#f8faf6}}code{{overflow-wrap:anywhere}}.warning{{background:#fff0d7;border-color:#ead0a5}}time{{color:#64746e}}@media(max-width:760px){{.grid{{grid-template-columns:1fr}}}}
 </style></head><body><main><h1>Drug Discovery Research Assistant</h1>
 <section class="warning"><strong>Scientific review boundary</strong><p>{warning}</p></section>
 <div class="grid"><section><h2>Leading candidate</h2>{molecule_markup}<h3>{candidate_id}</h3><code>{smiles}</code><table>{score_rows}</table></section>
 <section><h2>Run and workflow</h2><table>{metric_rows}</table></section></div>
 <section><h2>Recent progress</h2><ol>{event_rows or '<li>No recorded events.</li>'}</ol></section>
+<section><h2>Ranked candidate structures</h2><p>Computational structures for review; SMILES strings are shown below each drawing.</p><div class="candidate-grid">{candidate_cards or '<p>No ranked candidates are available yet.</p>'}</div></section>
 </main></body></html>\n"""
 
 
@@ -465,6 +505,14 @@ def publish_static_dashboard(ctx: Mapping[str, Any]) -> dict[str, Any]:
         final_artifact=_read_json_object(run_dir / "final_artifact.json"),
         events=_read_event_tail(run_dir / "events.jsonl"),
     )
+    candidates = _ranked_candidates(_read_json_object(run_dir / "final_artifact.json"))
+    drawings: dict[str, str] = {}
+    for row in candidates:
+        try:
+            drawings[row["image"]] = _draw_candidate_svg(row["smiles"])
+        except (ImportError, ValueError):
+            row["image"] = ""
+    state["ranked_candidates"] = candidates
     rendered = render_static_dashboard(state)
     handle: dict[str, Any] = {}
     for root in (run_dir, output_dir):
@@ -472,6 +520,8 @@ def publish_static_dashboard(ctx: Mapping[str, Any]) -> dict[str, Any]:
         web_dir.mkdir(parents=True, exist_ok=True)
         page = web_dir / "index.html"
         page.write_text(rendered, encoding="utf-8")
+        for name, svg in drawings.items():
+            (web_dir / name).write_text(svg, encoding="utf-8")
         source_svg = run_dir / "leading_candidate.svg"
         if source_svg.is_file():
             (web_dir / "leading_candidate.svg").write_bytes(source_svg.read_bytes())

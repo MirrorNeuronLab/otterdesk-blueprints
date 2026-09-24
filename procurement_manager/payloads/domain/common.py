@@ -33,7 +33,7 @@ CATEGORY = "Finance"
 OUTPUT_TYPE = "purchasing_manager_report"
 
 
-DEFAULT_OUTPUT_FOLDER = "~/Downloads/purchasing_manager"
+DEFAULT_OUTPUT_FOLDER = "~/Downloads/procurement_manager"
 
 
 SUPPORTED_SUFFIXES = {".pdf", ".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".webp", ".txt", ".md", ".json", ".csv"}

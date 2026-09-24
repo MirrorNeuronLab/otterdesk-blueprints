@@ -599,6 +599,10 @@ def apply_attention_request(
         state["attention_instruction"] = instruction
         state["attention_targets"] = [instruction] if instruction else []
         state["instruction_revision"] = revision
+        if previous != instruction:
+            # A new watch target deserves its first notice even when the old
+            # target produced an alert moments ago.
+            state["last_alert_wall_ts"] = 0.0
         state["last_attention_update"] = {
             "camera_id": camera_id,
             "instruction": instruction,

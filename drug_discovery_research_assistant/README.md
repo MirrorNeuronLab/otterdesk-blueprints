@@ -36,13 +36,13 @@ Open the **Drug Discovery Results** output in OtterDesk after the run to review:
 4. Cycle Results Review
 5. Ranking And Reporting
 
-The result page shows candidate generation, target folding, DrugCLIP screening, GNINA/toxicity evaluation, and cycle-report publication as distinct phases. After ranking, the Docker worker uses its declared RDKit dependency to generate `leading_candidate.svg`, and blueprint domain code writes the static page plus `web_ui.json` proxy handle. `cycle_progress.json` remains available in both the run store and configured output folder while the run is active.
+The result page shows candidate generation, target folding, DrugCLIP screening, GNINA/toxicity evaluation, and cycle-report publication as distinct phases. After ranking, the Docker worker uses its declared RDKit dependency to generate `leading_candidate.svg`, and blueprint domain code writes the static page plus `web_ui.json` proxy handle. The page also draws up to five ranked candidate structures from their SMILES strings into local SVG files and shows each SMILES below its drawing. `cycle_progress.json` remains available in both the run store and configured output folder while the run is active.
 
 The committed `config/overwrite.json` selects live native adapter mode. On the first model-dependent adapter call, the generic-model skill validates the configured `https://huggingface.co/homerquan/DrugClip` reference without adding it to the shared model catalog; the native adapter then loads `best.ckpt` from the same repository when it is not cached. The BioTarget source is bundled under `payloads/biotarget/`, and its native dependencies are declared in `payloads/requirements.txt`; no external BioTarget checkout is required. The DockerWorker builds its native GNINA executable from the pinned `v1.3.2` source release, and the Open Targets/AlphaFold network APIs remain external live-run requirements. The batch always runs one cycle; `service.max_cycles` cannot enable continuous execution. Fake adapters are limited to explicit mock/smoke-test overrides.
 
 ## Distributed native execution
 
-The target, structure, candidate-generation, binding-review, and report specialists use one shared `MirrorNeuron.Runner.DockerWorker` on the NVIDIA CUDA node. Its full `payloads/requirements.txt` DrugClip/GNINA stack and the declared SDK/agent dependencies execute in the prepared GPU container rather than an isolated HostLocal environment. This single-worker mode is the live default, so it needs no cross-box dispatcher. The native adapter commands intentionally use the active `python` executable (not `/usr/bin/python3`) so they use the Docker worker's `/opt/mn-venv`, where DrugClip and CUDA PyTorch are installed.
+The target, structure, candidate-generation, binding-review, and report specialists use one shared `MirrorNeuron.Runner.DockerWorker` on the NVIDIA CUDA node. Its full `payloads/requirements.txt` DrugClip/GNINA stack and the declared SDK/agent dependencies execute in the prepared GPU container rather than an isolated HostLocal environment. This single-worker mode is the live default, so it needs no cross-box dispatcher. The worker command explicitly runs `/opt/mn-venv/bin/python3 -m mn_sdk.step_runtime`, where the image installs the SDK. Local native adapter commands declared with `python` or `python3` run through the worker's active interpreter, even when the host's `PATH` is passed into the container.
 
 Cross-box dispatch is an optional advanced configuration. When `cluster_distribution.enabled` is explicitly set to `true`, the discovery worker sends JSON job specifications to a configured native dispatcher that places work in these pools:
 
@@ -56,7 +56,7 @@ The dispatcher must accept the job JSON on stdin and return a JSON result or wri
 
 ## Output and safety
 
-The default user-facing output folder is `~/Downloads/{job_name}`. While the service runs, it publishes `service_status.json`, `cycle_progress.json`, the latest generated candidate pool in `candidates.json`, the latest completed cycle in `latest_cycle_report.json`, and the leading-candidate view in `leading_candidate.json` plus `leading_candidate.svg`; detailed per-cycle artifacts remain under the run directory. After ranking it also writes the optional `web/index.html` and `web_ui.json` outputs. Only the single leading candidate is projected into that page—the full candidate pool and private input text remain excluded. Service reports are computational hypotheses only. The blueprint does not authorize wet-lab work, clinical claims, regulatory submissions, or external candidate publication without human approval.
+The default user-facing output folder is `~/Downloads/drug_discovery`. While the service runs, it publishes `service_status.json`, `cycle_progress.json`, the latest generated candidate pool in `candidates.json`, the latest completed cycle in `latest_cycle_report.json`, and the leading-candidate view in `leading_candidate.json` plus `leading_candidate.svg`; detailed per-cycle artifacts remain under the run directory. After ranking it also writes the optional `web/index.html` and `web_ui.json` outputs. The page shows the leading candidate scores and up to five ranked candidate structures and SMILES strings. Private structure paths and input text remain excluded. Service reports are computational hypotheses only. The blueprint does not authorize wet-lab work, clinical claims, regulatory submissions, or external candidate publication without human approval.
 
 ## Shared job data
 
@@ -78,7 +78,7 @@ cycle.
 python3 -m pytest -q tests/test_drug_discovery_research_assistant.py
 ```
 
-Output folder `{job_name}` is resolved by the submission SDK to the configured job name, for example `~/Downloads/drug-discovery-research-assistant`. The SDK copies remote outputs back to this directory on the submitting host. `candidates.json` contains five unique molecules; `final_artifact.json` contains their ranked evaluations. The existing live run retains its submitted configuration; these settings apply to new runs.
+The default output folder is configured as `~/Downloads/drug_discovery`. The SDK copies remote outputs back to this directory on the submitting host. `candidates.json` contains five unique molecules; `final_artifact.json` contains their ranked evaluations. The existing live run retains its submitted configuration; these settings apply to new runs.
 
 ## Blueprint package format
 

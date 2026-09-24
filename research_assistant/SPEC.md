@@ -8,8 +8,9 @@ Provide a source-grounded, adversarial research workflow for scientists, enginee
 
 1. `frame_research_problem`: `research_goal_framer` turns the goal into answerable questions, scope, criteria, assumptions, and unknowns.
 2. `build_research_evidence`: `research_evidence_curator` reads approved local sources, retrieves checked-in guidance, and records bounded public evidence with timestamps and access status.
-3. `develop_and_challenge_hypotheses`: the isolated `autonomous_researcher` reads and assesses each bounded source excerpt, decomposes the question, generates genuinely competing candidates, runs a separate adversarial review for each candidate, plans gap-directed probes, revises against observations, designs complete tests, independently ranks the surviving hypotheses, and writes a final decision-oriented synthesis without introducing new evidence.
-4. `verify_and_publish_research_packet`: `research_packet_auditor` enforces deterministic release checks before `research_report_writer` publishes the packet.
+3. `assess_evidence_coverage` and `assess_experiment_readiness`: two independent deterministic workers inspect the prepared evidence in parallel and durably record separate coverage and planning assessments.
+4. `develop_and_challenge_hypotheses`: the isolated `autonomous_researcher` waits for both assessments, then reads and assesses each bounded source excerpt, decomposes the question, generates competing candidates, challenges each candidate, plans probes, revises against observations, designs tests, ranks hypotheses, and synthesizes findings.
+5. `verify_and_publish_research_packet`: `research_packet_auditor` enforces deterministic release checks before `research_report_writer` publishes the packet.
 
 The roles are inspired by the generation, reflection, ranking, evolution, proximity, and meta-review pattern described for Google's AI co-scientist. This blueprint uses those ideas as a workflow pattern; it does not claim to replicate Google's models, data, or results.
 
@@ -27,7 +28,7 @@ not replace them with machine-specific choices.
 
 The primary artifact is `mn.blueprint.research_assistant.v2`. It contains a research goal, executive summary, `recommended_action` (`review_research_packet` or `gather_more_evidence`), confidence, source-grounded evidence, source analysis, question decomposition, an autonomous phase trace, tool/generated-code observations, a hypothesis ledger, per-hypothesis critique ledger, independent ranking, experiment concepts, evidence gaps, next steps, and source references. Generation provenance reports the provider, selected model, model-call count, fallback-call count, and completed research-phase count. Its `status` is `review_ready` only when at least one extracted local document or observed public source is present; otherwise it is `needs_evidence` and preserves diagnostics without presenting the packet as review-ready.
 
-The workflow has four logical steps executed through the same Docker-worker contract as VC Assistant: deterministic context preparation, one isolated autonomous Docker worker, and deterministic verification/publication. The autonomous worker may set or refine goals, create prompts, request allowlisted `mn-skills` tools, and execute validated generated Python. All such actions must appear in the autonomous session ledger. The final deterministic step rejects untraceable claims or missing review boundaries.
+The workflow has six logical steps executed through the same Docker-worker contract as VC Assistant: deterministic context preparation, parallel preflight assessments with an explicit join, one isolated autonomous Docker worker, and deterministic verification/publication. The autonomous worker may set or refine goals, create prompts, and request allowlisted `mn-skills` tools. Generated Python remains a proposal because the workflow lacks an enforceable experiment-batch approval grant. The final deterministic step rejects untraceable claims or missing review boundaries.
 
 Each hypothesis must identify its mechanism, predicted observation, evidence support, counterarguments, and what would disconfirm it. Novelty and causal claims are always bounded assessments, never guarantees. The generated brief is a draft, not a paper or validated scientific result.
 
@@ -59,6 +60,9 @@ reset or confirmed job deletion clears them.
 - Missing, stale, blocked, and conflicting evidence is explicit.
 - Fake/offline runs are deterministic and write the full output bundle.
 - Consequential actions remain blocked pending human review.
+- Publication of the draft packet creates a digest-bound human review request in
+  the run's human event stream. Its decision concerns internal packet review only;
+  it cannot authorize an experiment or external action.
 
 ## Persistent Job response service
 

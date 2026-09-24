@@ -55,7 +55,7 @@
               "type": "string"
             }
           },
-          "description": "Wait for a new reviewable operator notice without changing the monitoring goal. Routine frame analyses remain available through status and durable reports and do not create chat activity. Use an empty after_event_id for the newest available notice or the previously returned event ID; wait_seconds is a numeric string from \"0\" to \"25\"."
+          "description": "Wait for the next operator notice or 30-second monitoring update without changing the monitoring goal. Updates continue when no target is found or no new frame is analyzed, and do not require review. Use an empty after_event_id for the newest available update or the previously returned event ID; wait_seconds is a numeric string from \"0\" to \"25\"."
         },
         "set_monitoring_instruction": {
           "effect": "monitoring",
@@ -81,7 +81,7 @@
               ]
             }
           },
-          "description": "Change the active run's vision-model prompt and what it looks for. Requests to focus on, find, look for, watch, or detect a subject are monitoring actions, including \"can you focus on find foreign object on the floor?\". Put the requested visual goal in instruction, clear=\"false\", analyze_now=\"true\". This replaces the default target focus for subsequent batches and requests an immediate analysis. To restore configured targets use instruction=\"\", clear=\"true\", analyze_now=\"true\". Ask the operator to choose a specific visual goal when the request is vague. Report the goal applied only when command status is completed; acceptance alone means it is queued. Check analysis_ready before presenting a new finding."
+          "description": "Change the active run's vision-model prompt and what it looks for. Direct requests such as \"change the goal to watch the corridor for obstructions\" and requests to focus on, find, look for, watch, or detect a visible condition are monitoring actions, including \"can you focus on find foreign object on the floor?\". Put the requested visual goal in instruction, clear=\"false\", analyze_now=\"true\". This replaces the default target focus for subsequent batches and requests an immediate analysis. The operator also receives a monitoring update every 30 seconds, even when no target is found. To restore configured targets use instruction=\"\", clear=\"true\", analyze_now=\"true\". Ask the operator to choose a specific visual goal when the request is vague. Report the goal applied only when command status is completed; acceptance alone means it is queued. Check analysis_ready before presenting a new finding."
         },
         "acknowledge_operator_notice": {
           "effect": "acknowledgement",

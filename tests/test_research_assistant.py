@@ -16,6 +16,8 @@ from mn_sdk.bundle_io import load_bundle_payloads
 EXPECTED_STEPS = [
     "frame_research_problem",
     "build_research_evidence",
+    "assess_evidence_coverage",
+    "assess_experiment_readiness",
     "develop_and_challenge_hypotheses",
     "verify_and_publish_research_packet",
 ]
@@ -83,11 +85,15 @@ def test_research_manifest_has_one_isolated_autonomous_specialist():
     source = source_manifest("research_assistant")
     expanded = expanded_manifest("research_assistant")
     assert source["llm"]["require_live"] is True
-    assert source["llm"]["context_size"] == 8192
+    assert source["llm"]["context_size"] == 16384
     assert source["llm"]["parameter_count_b"] == 31.58
     assert source["llm"]["quantization"] == "MOSTLY_Q4_K_M"
     assert source["llm"]["model"] == "default"
     assert source["llm"]["provider"] == "docker_model_runner"
+    assert source["agentic_research"]["allow_generated_code"] is False
+    assert "generated_python" not in source["agentic_research"]["allowed_tools"]
+    autonomous_source = (ROOT / "research_assistant" / "payloads" / "domain" / "autonomous.py").read_text()
+    assert ".execute_python(" not in autonomous_source
     assert source["llm"]["configs"]["primary"]["timeout_seconds"] == 180
     assert source["llm"]["configs"]["primary"]["max_tokens"] == 4096
     assert source["llm"]["structured_output_options"] == {
@@ -102,6 +108,12 @@ def test_research_manifest_has_one_isolated_autonomous_specialist():
     }
     assert "vendor" not in source["requirements"]["gpu"]
     assert [step["id"] for step in source["workflow"]["steps"]] == EXPECTED_STEPS
+    steps = {step["id"]: step for step in source["workflow"]["steps"]}
+    assert steps["assess_evidence_coverage"]["needs"] == ["build_research_evidence"]
+    assert steps["assess_experiment_readiness"]["needs"] == ["build_research_evidence"]
+    assert set(steps["develop_and_challenge_hypotheses"]["needs"]) == {
+        "assess_evidence_coverage", "assess_experiment_readiness"
+    }
     autonomous_workers = [
         node
         for node in expanded["agents"]["nodes"]
@@ -128,6 +140,74 @@ def test_research_manifest_has_one_isolated_autonomous_specialist():
         if node["node_id"] == "frame_research_problem__start"
     )
     assert set(source_node["config"]["fields"]) == set(source["contracts"]["inputs"])
+
+
+def test_research_preflight_branches_write_independent_artifacts(tmp_path):
+    import importlib.util
+    import sys
+    import types
+
+    package = types.ModuleType("research_preflight_test")
+    package.__path__ = []
+    state_module = types.ModuleType("research_preflight_test.state")
+    state_module._state = lambda _ctx: {
+        "inputs": {"seed_hypotheses": [{"statement": "A"}]},
+        "documents": [{"name": "observations.csv"}],
+        "evidence": {
+            "usable_evidence_present": True,
+            "source_refs": ["local:observations.csv"],
+            "evidence_gaps": ["No external validation"],
+            "usable_local_document_count": 1,
+        },
+    }
+    sys.modules[package.__name__] = package
+    sys.modules[state_module.__name__] = state_module
+    path = ROOT / "research_assistant" / "payloads" / "domain" / "preflight.py"
+    spec = importlib.util.spec_from_file_location("research_preflight_test.preflight", path)
+    module = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(module)
+        context = {"run_dir": str(tmp_path)}
+        coverage = module.assess_evidence_coverage(context)
+        readiness = module.assess_experiment_readiness(context)
+        loaded = module.load_preflight(tmp_path)
+        assert coverage["status"] == "ready_for_hypothesis_review"
+        assert readiness["status"] == "planning_only"
+        assert loaded["evidence_coverage"]["source_refs"] == ["local:observations.csv"]
+        assert loaded["experiment_readiness"]["local_csv_count"] == 1
+        assert loaded["experiment_readiness"]["missing_for_execution"]
+    finally:
+        sys.modules.pop(package.__name__, None)
+        sys.modules.pop(state_module.__name__, None)
+
+
+def test_research_packet_review_request_is_bound_to_durable_packet(tmp_path):
+    # The request must be stable across a worker retry and change with the packet.
+    result = run_payload_script(
+        "research_assistant",
+        """
+import json
+from pathlib import Path
+from domain.reporting import request_packet_review
+from mn_sdk.blueprint_support import read_human_events
+root = Path({root!r})
+run_dir = root / 'review-run'
+run_dir.mkdir()
+ctx = {{'run_dir': str(run_dir), 'run_id': 'review-run'}}
+packet = {{'hypothesis_ledger': [{{'hypothesis_id': 'H1'}}]}}
+path = run_dir / 'final_artifact.json'
+path.write_text(json.dumps(packet))
+first = request_packet_review(ctx, packet)
+second = request_packet_review(ctx, packet)
+events = read_human_events('review-run', runs_root=root)
+print(json.dumps({{'same': first == second, 'count': len(events), 'digest': events[0]['payload']['packet_digest'], 'text': events[0]['payload']['prompt']}}))
+""".format(root=str(tmp_path)),
+    )
+    data = result
+    assert data["same"] is True
+    assert data["count"] == 1
+    assert len(data["digest"]) == 64
+    assert "does not authorize experiments" in data["text"]
 
 
 def test_research_workers_ship_build_contexts_and_domain_handlers():

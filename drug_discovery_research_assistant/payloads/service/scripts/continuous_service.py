@@ -439,7 +439,10 @@ def run_native_adapter(
         if output_path.exists():
             return json.loads(output_path.read_text(encoding="utf-8"))
         raise RuntimeError(f"cluster dispatch for {adapter_name} returned no result")
-    process = subprocess.run(_expand_command(command, values), text=True, capture_output=True, check=False, cwd=service_root, env=adapter_environment, timeout=int((config.get(adapter_name) or {}).get("timeout_seconds", 1800)))
+    local_command = _expand_command(command, values)
+    if local_command[0] in {"python", "python3"}:
+        local_command[0] = sys.executable
+    process = subprocess.run(local_command, text=True, capture_output=True, check=False, cwd=service_root, env=adapter_environment, timeout=int((config.get(adapter_name) or {}).get("timeout_seconds", 1800)))
     if process.returncode:
         stderr = process.stderr.strip()
         stdout = process.stdout.strip()

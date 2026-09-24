@@ -32,10 +32,15 @@ def create_domain_agent(agent_id: str, operation: Callable[..., dict[str, Any]])
             "result": {
                 key: value
                 for key, value in result.items()
-                if key not in {"final_artifact", "output_files"}
+                if key not in {"final_artifact", "output_files", "branch_artifact"}
             },
             "state_artifact": ref,
         }
+        branch = result.get("branch_artifact")
+        if isinstance(branch, dict):
+            branch_ref = artifact_reference(str(branch["name"]), str(branch["path"]))
+            artifacts.append(branch_ref)
+            payload["branch_artifact"] = branch_ref
         if isinstance(result.get("final_artifact"), dict):
             final_ref = artifact_reference("final_artifact", "final_artifact.json")
             artifacts.append(final_ref)

@@ -1,6 +1,6 @@
 {
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/workflow.schema.json",
-  "workflow_id": "research_assistant_v1",
+  "workflow_id": "research_assistant_v2",
   "execution": {
     "strategy": "parallel"
   },
@@ -79,15 +79,34 @@
       }
     },
     {
+      "control": {"timeout_seconds": 900},
+      "goal": "Independently assess source coverage, unresolved gaps, and limits of the evidence before hypothesis review.",
+      "id": "assess_evidence_coverage",
+      "kind": "stage",
+      "label": "Assess Evidence Coverage",
+      "needs": ["build_research_evidence"],
+      "run": {"definition": "steps.assess_evidence_coverage"}
+    },
+    {
+      "control": {"timeout_seconds": 900},
+      "goal": "Independently assess local data and exact approval requirements for a proposed experiment batch.",
+      "id": "assess_experiment_readiness",
+      "kind": "stage",
+      "label": "Assess Experiment Readiness",
+      "needs": ["build_research_evidence"],
+      "run": {"definition": "steps.assess_experiment_readiness"}
+    },
+    {
       "control": {
         "timeout_seconds": 2400
       },
-      "goal": "Use one isolated Docker worker to read sources, decompose the question, generate competing hypotheses, critique each one, run gap-directed probes, revise, design tests, rank the results, and synthesize decision implications.",
+      "goal": "Join evidence coverage and experiment readiness, then use an isolated Docker worker to develop, challenge, and rank competing hypotheses.",
       "id": "develop_and_challenge_hypotheses",
       "kind": "stage",
       "label": "Develop And Challenge Hypotheses",
       "needs": [
-        "build_research_evidence"
+        "assess_evidence_coverage",
+        "assess_experiment_readiness"
       ],
       "run": {
         "definition": "steps.develop_and_challenge_hypotheses"

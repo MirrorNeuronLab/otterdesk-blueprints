@@ -2,7 +2,7 @@
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/manifest.schema.json",
   "id": "cctv_operator",
   "name": "CCTV Operator",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Reviews a live camera stream, highlights notable activity, and prepares observations for your review. Start with the included demo or connect an approved camera stream. Requires an NVIDIA GPU.",
   "workflow": "workflow.json",
   "execution": "execution.json",

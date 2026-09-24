@@ -22,6 +22,7 @@ from .evidence import (
 from .state import _inputs, _save, _state
 from .synthesis import evidence_digest, evidence_links_for_hypothesis, normalize_source_refs
 from .runtime_services import init_research_llm
+from .preflight import load_preflight
 
 
 def _normalize_experiment(value: Any, hypothesis: dict[str, Any]) -> dict[str, Any]:
@@ -979,7 +980,7 @@ def run_autonomous_research(
     )
     session.create_prompt(
         phase="computational_probe_and_synthesis",
-        instructions=["Use generated Python only for bounded ranking, sensitivity, or consistency analysis.", "Treat code output as an internal probe, never as empirical validation.", "Produce at most three falsifiable candidates for deterministic verification."],
+        instructions=["Propose bounded ranking, sensitivity, or consistency code for researcher review; do not execute it.", "Treat proposed code as a plan, never as empirical validation.", "Produce at most three falsifiable candidates for deterministic verification."],
         context_refs=context_refs,
         allowed_tools=["hypothesis_rank"] if "hypothesis_rank" in allowed_tools else [],
     )
@@ -1000,22 +1001,10 @@ def run_autonomous_research(
             observations.append({"request_index": index, "tool": tool, "status": "failed", "error": str(exc)[:1000]})
             warnings.append({"status": "autonomous_tool_failed", "tool": tool, "message": str(exc)[:1000]})
 
-    generated_python = recommendation.pop("generated_python", "")
+    generated_python = str(recommendation.pop("generated_python", "") or "")[:20000]
     code_result: dict[str, Any] | None = None
-    if generated_python and autonomous_config.get("allow_generated_code", True):
-        try:
-            code_result = session.execute_python(
-                generated_python,
-                input_payload={
-                    "evidence": evidence,
-                    "candidate_hypotheses": recommendation.get("candidate_hypotheses") or [],
-                    "tool_observations": observations,
-                },
-            )
-            if code_result.get("status") != "completed":
-                warnings.append({"status": "generated_code_failed", "message": str(code_result.get("stderr") or code_result.get("status"))[:1000]})
-        except Exception as exc:
-            warnings.append({"status": "generated_code_rejected", "message": str(exc)[:1000]})
+    if generated_python:
+        warnings.append({"status": "generated_code_requires_batch_approval", "message": "Generated code was proposed but not executed; this workflow has no enforceable experiment-batch grant."})
 
     recommendation = _finalize_deep_research(
         llm,
@@ -1042,6 +1031,8 @@ def run_autonomous_research(
         "session": session.snapshot(),
         "tool_observations": observations,
         "generated_code_result": code_result,
+        "generated_code_proposal": generated_python or None,
+        "generated_code_status": "proposal_only" if generated_python else "not_proposed",
         "research_phase_trace": phase_trace,
         "source_analysis": recommendation.get("source_analysis") or {},
         "question_decomposition": recommendation.get("question_decomposition") or {},
@@ -1075,11 +1066,12 @@ def autonomous_research(
 ) -> dict[str, Any]:
     state = _state(ctx)
     inputs = _inputs(ctx)
+    preflight = load_preflight(ctx["run_dir"])
     llm, action_budget = init_research_llm(ctx, llm_client)
     documents = state.get("documents") or []
     sources = state.get("sources") or []
     evidence = state.get("evidence") or research_evidence(inputs, documents, sources)
-    posture = state.get("posture") or deterministic_research_posture(evidence)
+    posture = {**(state.get("posture") or deterministic_research_posture(evidence)), "preflight": preflight}
     recommendation, autonomous, autonomous_warnings = run_autonomous_research(
         llm, inputs, evidence, state.get("rag") or {}, posture, ctx["config"], documents, sources,
         workspace=Path(os.environ.get("MN_WORKDIR") or Path(ctx["run_dir"]) / "workspace"),
@@ -1106,7 +1098,7 @@ def autonomous_research(
         raise RuntimeError(
             "Research Assistant requires live model-backed synthesis; one or more research phases used fallback output."
         )
-    state.update({"inputs": inputs, "evidence": verified_evidence, "posture": deterministic_research_posture(verified_evidence), "recommendation": recommendation, "autonomous": autonomous, "actor_findings": actor_findings, "warnings": [*(state.get("warnings") or []), *autonomous_warnings], "llm_usage": usage, "llm_action_budget": action_budget.summary(include_actions=True)})
+    state.update({"inputs": inputs, "evidence": verified_evidence, "posture": deterministic_research_posture(verified_evidence), "preflight": preflight, "recommendation": recommendation, "autonomous": autonomous, "actor_findings": actor_findings, "warnings": [*(state.get("warnings") or []), *autonomous_warnings], "llm_usage": usage, "llm_action_budget": action_budget.summary(include_actions=True)})
     _save(ctx, state)
     return {"tool_calls": (autonomous.get("session") or {}).get("tool_calls_used", 0)}
 

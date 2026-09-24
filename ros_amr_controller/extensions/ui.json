@@ -8,6 +8,37 @@
     "What can this robot do and what can it not do?",
     "Remember that loading dock means Zone A."
   ],
+  "setup_guide": {
+    "schema": "otterdesk.setup_guide.v1",
+    "introduction": "Start the bundled warehouse simulation, then control the robot from chat.",
+    "sample": {
+      "available": true,
+      "title": "Warehouse robot simulation",
+      "description": "Start the included TurtleBot warehouse world with its default headless settings. A compatible NVIDIA Docker Compose node is required.",
+      "expected_output": "A live warehouse dashboard and chat controls for Zones A, B, and C, robot status, and stop.",
+      "values": {
+        "inputs.payload.scenario": "warehouse"
+      }
+    },
+    "real": {
+      "available": false
+    },
+    "fields": [
+      {
+        "path": "inputs.payload.scenario",
+        "label": "Simulation scenario",
+        "description": "The bundled warehouse world is the supported scenario.",
+        "type": "text",
+        "required": true,
+        "choices": [
+          {
+            "label": "Warehouse",
+            "value": "warehouse"
+          }
+        ]
+      }
+    ]
+  },
   "web_ui": {
     "enabled": true,
     "title": "Warehouse AMR Monitor"

@@ -3,9 +3,9 @@
 `Blueprint ID:` `research_assistant`  
 `Category:` `Science`
 
-Research Assistant turns a research goal and an approved evidence folder into a source-grounded research packet. Deterministic stages normalize inputs, build the evidence ledger, and verify the final packet. A single shared Docker worker owns every autonomous phase: it may refine the goal, create phase prompts, call allowlisted `mn-skills` tools on demand, generate and execute bounded analysis code, challenge hypotheses, and draft the candidate packet.
+Research Assistant turns a research goal and an approved evidence folder into a source-grounded research packet. After evidence collection, independent evidence-coverage and experiment-readiness assessments run in parallel. The hypothesis worker waits for both artifacts before synthesizing the packet. This is a workflow fork and join; hypothesis development still runs within one isolated specialist.
 
-The autonomous specialist receives its configured LLM through the same SDK-backed blueprint support client used by VC Assistant. The blueprint requests the logical `default` model and the runtime selects the concrete model automatically. Normal runs require live model-backed analysis and fail instead of silently publishing a deterministic fallback; quick tests remain deterministic.
+The autonomous specialist receives its configured LLM through the same SDK-backed blueprint support client used by VC Assistant. The blueprint requests the logical `default` model and the runtime selects the concrete model automatically. Normal runs require live model-backed analysis and fail instead of silently publishing a deterministic fallback; quick tests remain deterministic. Generated experiment code is proposal material only; this workflow does not yet have the exact batch-approval grant required to execute it.
 
 Like VC Assistant, the blueprint declares `llm.model` as logical `default` and
 does not declare a machine-specific model, endpoint, or placement. MirrorNeuron
@@ -24,18 +24,20 @@ The default output folder is `~/Downloads/research_assistant`. Run-store artifac
 
 Like VC Assistant, every executable specialist runs through the runtime's
 shared Docker-worker path. `frame_research_problem` and
-`build_research_evidence` prepare deterministic context;
+`build_research_evidence` prepares deterministic context;
+`assess_evidence_coverage` and `assess_experiment_readiness` run in parallel;
 `develop_and_challenge_hypotheses` runs the isolated autonomous specialist; and
 `verify_and_publish_research_packet` performs deterministic audit and report
 publication. The autonomous phases stay inside one job-scoped worker invocation.
-Generated code never runs in a deterministic specialist.
+Generated code is not executed by this workflow.
 
 ## Process and agents
 
 1. `research_goal_framer` normalizes the question, constraints, success criteria, and explicit unknowns.
 2. `research_evidence_curator` creates the local/public evidence ledger and keeps run metadata separate from evidence.
-3. `autonomous_researcher` performs a bounded, multi-pass research procedure inside the isolated Docker worker: source-by-source analysis; question decomposition; competing-hypothesis generation; a separate adversarial review for each hypothesis; gap-directed tool/code planning; evidence-based revision; experiment design; independent meta-review and ranking; and a final executive synthesis. It then sends the resulting packet through the configured specialist-role reviews.
-4. `research_packet_auditor` verifies isolation trace, source refs, falsifiability, counterarguments, and review boundaries; `research_report_writer` then durably publishes the packet.
+3. `research_evidence_reviewer` records source coverage and gaps while `research_experiment_planner` records data availability and missing execution approvals. Each writes a separate branch artifact under the run's workflow state.
+4. `autonomous_researcher` joins both assessments, then performs a bounded, multi-pass research procedure inside the isolated Docker worker: source-by-source analysis; question decomposition; competing-hypothesis generation; a separate adversarial review for each hypothesis; gap-directed tool/code planning; evidence-based revision; experiment design; independent meta-review and ranking; and a final executive synthesis.
+5. `research_packet_auditor` verifies isolation trace, source refs, falsifiability, counterarguments, and review boundaries; `research_report_writer` then durably publishes the packet.
 
 The bundled baseline CSV contains 12 synthetic robotics-simulation runs across
 Isaac Sim, Gazebo, and MuJoCo so the sample can form measurable hypotheses
@@ -75,6 +77,13 @@ The output folder contains:
 - `evidence_ledger.json` — local and public source records, status, and retrieval time.
 - `hypothesis_ledger.json` — candidate hypotheses, predictions, counterarguments, and ranking posture.
 - `review_ledger.json` — human-review and blocked-action status.
+
+After the draft packet is written, the run creates an OtterDesk human review request
+for that exact packet digest. A reviewer can approve the draft for internal review,
+request changes, or reject it. The request does not grant permission to execute an
+experiment, publish findings, contact participants, or take another consequential
+action. A revised packet gets a new request.
+- `workflow_state/evidence_coverage.json` and `workflow_state/experiment_readiness.json` in the run store — parallel preflight results, also included in `research_packet.json`.
 - `artifact_quality.json` and `run_health.json` — artifact and run checks.
 
 Packets with at least one extracted local document or observed public source are `review_ready`. If neither is available, the full diagnostic bundle is still written, but the packet and quality report are marked `needs_evidence`; its next steps tell the customer whether to supply local material or retry retrieval. Run metadata is tracked separately from evidence references and never qualifies a packet as source-grounded.
@@ -89,6 +98,8 @@ observation; they never validate a hypothesis.
 
 The blueprint does not run unapproved experiments, make a validated scientific or clinical claim, publish or submit a manuscript, contact research participants, or make consequential safety decisions. A person must review and approve any such action.
 
+This release does not yet implement persistent research epochs, G0/G1/G2 decision gates, or a numerical simulator. The two preflight branches make planning and evidence limits explicit, but they do not turn the current research packet into an approved experiment.
+
 ## Shared job data
 
 The stable research job seeds bundled knowledge once and reuses its
@@ -98,8 +109,8 @@ store.
 
 ## Payload layout
 
-The four `payloads/steps/` modules declare only logical contracts and internal
-agent graphs. Five same-named modules under `payloads/agents/` bind focused
+The six `payloads/steps/` modules declare only logical contracts and internal
+agent graphs. Seven same-named modules under `payloads/agents/` bind focused
 implementations from `payloads/domain/inputs.py`, `evidence.py`,
 `autonomous.py`, `verification.py`, and `reporting.py`. Runtime preparation is
 isolated in `runtime_services.py`; local sample composition lives in

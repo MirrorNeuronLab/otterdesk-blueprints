@@ -150,7 +150,7 @@
     "payload": {
       "disease_or_target_profile": "Alzheimer disease BACE1 modulation",
       "input_folder": "@/examples/sample_inputs",
-      "output_folder": "~/Downloads/{job_name}",
+      "output_folder": "~/Downloads/drug_discovery",
       "targets": [
         {
           "gene": "BACE1",
@@ -258,7 +258,7 @@
   "outputs": {
     "adapter": "local_run_store",
     "artifact_contract": "Continuous-cycle candidate, folding, DrugCLIP, simulation, state, leading-molecule visualization, and review-only scientific evidence artifacts.",
-    "folder_path": "~/Downloads/{job_name}",
+    "folder_path": "~/Downloads/drug_discovery",
     "run_root": "~/.mn/runs",
     "write_run_store": true
   },
@@ -338,7 +338,7 @@
       "event_id"
     ],
     "input_folder": "@/examples/sample_inputs",
-    "output_folder": "~/Downloads/{job_name}",
+    "output_folder": "~/Downloads/drug_discovery",
     "resume_mode": "none"
   },
   "suggested_schedule": {

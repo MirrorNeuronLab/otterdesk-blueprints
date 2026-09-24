@@ -7,8 +7,8 @@
 `Runtime:` `NVIDIA worker; constraint-routed to Spark in a Mac + Spark cluster`
 
 CCTV Operator is a stream-only live monitoring service with a self-contained
-demo stream and support for one approved external RTSP/RTMP source. Version
-3.1 puts the looping test video, MediaMTX server, FFmpeg publisher, workflow
+demo stream and support for one approved external RTSP/RTMP source. This release
+puts the looping test video, MediaMTX server, FFmpeg publisher, workflow
 executors, report writer, and Web UI inside DockerWorkers, so
 the default demo needs no camera URL or host-side media tools. Its read-only
 operations console serves a CUDA-assisted MJPEG preview and server-sent operator
@@ -97,9 +97,12 @@ writes the durable iframe-proxy handle. It shows:
 - `latest_analyzed_frame.jpg`, refreshed when a new analysis completes.
 
 The embedded page contains only these two media panels. The conversation receives
-operator notices when the active goal is detected and meets the configured
-confidence and cooldown policy. Routine frame analyses remain in the durable
-report and status tools without creating chat messages.
+an informational observation update every 30 seconds, including when no target
+is found or no new frame was analyzed. It also receives reviewable operator
+notices when the active goal is detected and meets the configured confidence and
+cooldown policy. Changing the active goal resets the prior goal's notice cooldown, so
+the first qualifying finding for the new goal can appear promptly in chat. The
+web UI link is published after its preview has produced a video frame.
 SSE updates the snapshot without duplicating the activity feed in the page.
 
 The UI exposes no steering form or browser action. External chat/MCP clients use
@@ -261,8 +264,9 @@ relay connects the Core-container sidecar to that host-network listener. The
 relay credential stays in the private endpoint artifact with owner-only access;
 the browser Web UI keeps its separate configured listener.
 Monitoring commands cross an authenticated control endpoint on the HostLocal
-sidecar. The sidecar submits the declared live input using its Core client
-identity; the Docker video worker never receives that identity.
+sidecar over host-network loopback. The sidecar submits the declared live input
+using its Core client identity; the Docker video worker never receives that
+identity.
 
 OtterDesk can ask this hired co-worker about its monitoring role, safe
 configuration, schedule, and latest run through the stable Job response service,
@@ -277,9 +281,9 @@ monitoring-instruction, and acknowledgement tools to the Job response agent.
 Natural-language requests such as “find foreign objects on the floor” select
 `set_monitoring_instruction`, which sends Core's declared `steer_monitoring`
 live input and requests an immediate analysis. The chat-facing Job MCP keeps a bounded
-`watch_operator_activity` request active and relays a finding through protocol
-`2026-07-28` Multi Round-Trip Requests (MRTR); OtterDesk then persists the
-finding as a co-worker conversation message. Transport receipt is automatic,
+`watch_operator_activity` request active and relays observations and findings
+through protocol `2026-07-28` Multi Round-Trip Requests (MRTR); OtterDesk then
+persists each update as a co-worker conversation message. Transport receipt is automatic,
 but it never acknowledges a review notice. Durable `human_notice` records remain
 the audit and review boundary.
 For vague monitoring requests, the co-worker asks for a concrete visual goal

@@ -36,6 +36,24 @@ def _epoch(value: Any) -> float | None:
         return None
 
 
+def routine_update_message(metrics: Mapping[str, Any], *, new_analysis: bool) -> str:
+    target = str(metrics.get("watch target") or "the configured targets")[:300]
+    observed_at = str(metrics.get("last analyzed") or "waiting")[:80]
+    finding = str(metrics.get("latest finding") or "")[:300]
+    active_revision = int(metrics.get("instruction revision") or 0)
+    analyzed_revision = int(metrics.get("latest analyzed revision") or 0)
+    if active_revision > analyzed_revision:
+        return f"Monitoring {target}. Waiting for the first analyzed frame under this goal."
+    if observed_at == "waiting":
+        return f"Monitoring {target}. No analyzed frame is available yet."
+    if not new_analysis:
+        return (
+            f"Monitoring {target}. No new analyzed frame in the last 30 seconds. "
+            f"Latest finding from {observed_at}: {finding}"
+        )
+    return f"Monitoring {target}. Latest analyzed frame at {observed_at}: {finding}"
+
+
 def _event(
     event_type: str,
     summary: str,
@@ -325,6 +343,7 @@ def operator_state(
             "instruction revision": int(
                 monitoring.get("instruction_revision") or 0
             ),
+            "latest analyzed revision": int(latest.get("instruction_revision") or 0),
         },
         "finding_details": observation_details(current_finding),
         "warning": warning,

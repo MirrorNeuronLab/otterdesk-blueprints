@@ -14,6 +14,14 @@
         "handler": "agents.research_evidence_curator",
         "role": "Research Evidence Curator"
       },
+      "research_evidence_reviewer": {
+        "handler": "agents.research_evidence_reviewer",
+        "role": "Research Evidence Reviewer"
+      },
+      "research_experiment_planner": {
+        "handler": "agents.research_experiment_planner",
+        "role": "Research Experiment Planner"
+      },
       "autonomous_researcher": {
         "handler": "agents.autonomous_researcher",
         "role": "Autonomous Researcher"
@@ -68,6 +76,15 @@
         ],
         "with": {
           "stereotype": "public_browser_worker"
+        }
+      },
+      {
+        "steps": [
+          "assess_evidence_coverage",
+          "assess_experiment_readiness"
+        ],
+        "with": {
+          "stereotype": "internal_write_worker"
         }
       },
       {

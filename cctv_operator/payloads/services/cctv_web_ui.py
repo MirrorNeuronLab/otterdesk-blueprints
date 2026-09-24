@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import datetime as dt
 import importlib.util
 import json
 import mimetypes
@@ -214,6 +215,14 @@ class CUDAMJPEGPreview:
         with self._condition:
             return {"status": self._status, "warning": self._warning}
 
+    def wait_for_first_frame(self, timeout_seconds: float = 30.0) -> bool:
+        self.ensure_started()
+        with self._condition:
+            return self._condition.wait_for(
+                lambda: bool(self._latest_frame) or self._stop_event.is_set(),
+                timeout=timeout_seconds,
+            ) and bool(self._latest_frame)
+
     def stop(self) -> None:
         self._stop_event.set()
         with self._condition:
@@ -320,6 +329,7 @@ def _load_domain_function(module_name: str, function_name: str) -> Callable:
 
 
 operator_state = _load_domain_function("dashboard", "operator_state")
+routine_update_message = _load_domain_function("dashboard", "routine_update_message")
 _dashboard_html = _load_domain_function("media", "dashboard_html")
 
 
@@ -366,16 +376,53 @@ class CCTVWebUIService:
         )
         self._stop_event = threading.Event()
         self._activity_store = None
+        self._last_routine_update_at = time.monotonic()
+        self._last_routine_observed_at = "waiting"
+        self._routine_update_lock = threading.Lock()
+        self._routine_session_id = secrets.token_hex(8)
+        self._routine_update_sequence = 0
 
     def attach_activity_store(self, store: Any) -> None:
         self._activity_store = store
 
-    def sync_mcp_activity(self, state: Mapping[str, Any] | None = None) -> list[dict[str, Any]]:
+    def sync_mcp_activity(
+        self, state: Mapping[str, Any] | None = None, *, now: float | None = None
+    ) -> list[dict[str, Any]]:
         if self._activity_store is None:
             return []
         projected = dict(state or self.ui_state())
         events = projected.get("events") if isinstance(projected.get("events"), list) else []
         published = []
+        current = time.monotonic() if now is None else now
+        if current - self._last_routine_update_at >= 30.0:
+            with self._routine_update_lock:
+                if current - self._last_routine_update_at >= 30.0:
+                    metrics = projected.get("metrics") if isinstance(projected.get("metrics"), Mapping) else {}
+                    observed_at = str(metrics.get("last analyzed") or "waiting")
+                    occurred_at = dt.datetime.now(dt.timezone.utc)
+                    self._routine_update_sequence += 1
+                    digest = hashlib.sha256(
+                        f"{self.run_id}\0monitoring-update\0{self._routine_session_id}\0{self._routine_update_sequence}".encode()
+                    ).hexdigest()[:32]
+                    message = routine_update_message(
+                        metrics, new_analysis=observed_at != self._last_routine_observed_at
+                    )
+                    activity = {
+                        "schema_version": "mn.mcp.job_activity.v1",
+                        "event_id": digest,
+                        "title": "Monitoring update",
+                        "message": message,
+                        "occurred_at": occurred_at.isoformat().replace("+00:00", "Z"),
+                        "source": "cctv_operator",
+                        "requires_review": False,
+                    }
+                    published.append(self._activity_store.publish_result(
+                        digest, activity, stage="live_activity",
+                        summary=f"Monitoring update: {message}"[:2_000],
+                        idempotency_key=f"cctv-activity:{digest}",
+                    ))
+                    self._last_routine_update_at = current
+                    self._last_routine_observed_at = observed_at
         for event in reversed(events):
             if not isinstance(event, Mapping):
                 continue
@@ -457,6 +504,10 @@ class CCTVWebUIService:
     def stop(self) -> None:
         self._stop_event.set()
         self.preview_stream.stop()
+
+    def publish_activity_until_stopped(self) -> None:
+        while not self._stop_event.wait(1.0):
+            self.ui_state()
 
 
 class CCTVWebUIServer:
@@ -967,6 +1018,11 @@ def start_operator_mcp_server(
     )
     thread.start()
     threading.Thread(
+        target=service.publish_activity_until_stopped,
+        name="cctv-operator-activity",
+        daemon=True,
+    ).start()
+    threading.Thread(
         target=proxy.serve_forever, name="cctv-operator-mcp-relay", daemon=True
     ).start()
     relay_port = int(proxy.server_address[1])
@@ -1024,6 +1080,8 @@ def main() -> int:
         if time.monotonic() >= deadline or not web_thread.is_alive():
             raise RuntimeError("CCTV Web UI did not become ready")
         time.sleep(0.1)
+    if service.preview_stream.enabled and not service.preview_stream.wait_for_first_frame():
+        raise RuntimeError("CCTV Web UI preview did not produce a video frame")
     claim_web_ui(
         job_data_dir,
         job_id=job_id,

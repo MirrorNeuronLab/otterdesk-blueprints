@@ -21,7 +21,9 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-ins
       && rm -rf /var/lib/apt/lists/*
 
 # Install additional Python modules
-RUN pip3 install --break-system-packages matplotlib transforms3d eclipse-zenoh
+# ROS/Ubuntu owns the system NumPy package. Keep the Python additions compatible
+# with that package so pip does not try to uninstall a dpkg-owned installation.
+RUN pip3 install --break-system-packages 'numpy<2' matplotlib transforms3d eclipse-zenoh
 
 # Use Cyclone DDS as middleware
 RUN apt-get update && apt-get install -y --no-install-recommends \

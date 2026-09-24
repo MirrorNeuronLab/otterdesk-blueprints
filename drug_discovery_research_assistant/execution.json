@@ -133,6 +133,11 @@
         ],
         "uses": "mn-agents.worker.python_docker@1",
         "with": {
+          "command": [
+            "/opt/mn-venv/bin/python3",
+            "-m",
+            "mn_sdk.step_runtime"
+          ],
           "stereotype": [
             "blueprint_docker_worker",
             "internal_write_worker"

@@ -166,6 +166,18 @@ def test_ros_amr_declares_job_scoped_bounded_response_agent():
     }
 
 
+def test_ros_amr_sample_profile_and_chat_commands():
+    config = json.loads((BLUEPRINT / "config/default.json").read_text())
+    ui = json.loads((BLUEPRINT / "extensions/ui.json").read_text())
+    guide = ui["setup_guide"]
+    assert guide["schema"] == "otterdesk.setup_guide.v1"
+    assert guide["sample"]["available"] is True
+    assert guide["sample"]["values"]["inputs.payload.scenario"] == config["inputs"]["payload"]["scenario"]
+    assert guide["fields"][0]["path"] == "inputs.payload.scenario"
+    assert guide["real"]["available"] is False
+    assert {"Move the simulated robot to Zone A.", "Stop", "What is the robot's current status?"} <= set(ui["starter_questions"])
+
+
 def test_ros_amr_navigation_is_correlated_without_breaking_dashboard_commands():
     gateway = SOURCE.joinpath("web_control/navigation_gateway.py").read_text(
         encoding="utf-8"

@@ -56,7 +56,7 @@
   "provider": "docker_model_runner",
   "model": "default",
   "backend": "llama.cpp",
-  "context_size": 8192,
+  "context_size": 16384,
   "parameter_count_b": 31.58,
   "quantization": "MOSTLY_Q4_K_M",
   "mode": "live",

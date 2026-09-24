@@ -163,7 +163,7 @@
       "input_folder": "@/examples/edge_ai_workstation",
       "item_description": "Compare Apple Mac Studio M5 Max, NVIDIA DGX Spark, and an AMD-powered HP Z2 Mini G1a for local AI workloads.",
       "location": "Boston, MA",
-      "output_folder": "~/Downloads/purchasing_manager",
+      "output_folder": "~/Downloads/procurement_manager",
       "priorities": [
         "local AI workload compatibility",
         "usable accelerator memory",
@@ -561,7 +561,7 @@
   "outputs": {
     "adapter": "local_run_store",
     "artifact_contract": "Source-grounded procurement decision packet with supplier comparison, landed acquisition cost, discounted and risk-adjusted TCO, equivalent annual cost, productive-hour economics, scenario sensitivity, cash/finance/lease analysis when real terms exist, risk flags, evidence gaps, approval checklist, and review-only recommendation.",
-    "folder_path": "~/Downloads/purchasing_manager",
+    "folder_path": "~/Downloads/procurement_manager",
     "run_root": "~/.mn/runs",
     "skills": {},
     "tcp": {
@@ -647,7 +647,7 @@
       "event_id"
     ],
     "input_folder": "@/examples/edge_ai_workstation",
-    "output_folder": "~/Downloads/purchasing_manager",
+    "output_folder": "~/Downloads/procurement_manager",
     "resume_mode": "none"
   },
   "streams": {},

@@ -2,6 +2,8 @@
 
 - The executable authority is `type: service` with one root
   `MirrorNeuron.Runner.DockerCompose` worker.
+- The desktop sample profile launches the bundled `warehouse` scenario from
+  the checked-in default configuration; no external input data is required.
 - The full TurtleBot Compose source is a blueprint payload at
   `payloads/docker_compose/turtlebot-maze`; large contexts are staged through
   shared storage with a verified digest before Spark builds them.

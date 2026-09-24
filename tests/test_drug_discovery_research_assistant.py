@@ -55,26 +55,26 @@ def test_drug_discovery_manifest_uses_source_format_and_shared_blocks():
             "type": "pip",
             "source": "gar",
             "name": "mn-python-sdk-models",
-            "version": "0.1.0",
+            "version": ">=1.3.47",
         },
         {
             "type": "pip",
             "source": "gar",
             "name": "mn-python-sdk-job-response",
-            "version": "0.1.0",
+            "version": ">=1.3.47",
         },
         {
             "type": "pip",
             "source": "gar",
             "name": "mn-python-sdk-mcp",
-            "version": "0.1.0",
+            "version": ">=1.3.47",
         },
         {
             "type": "pip",
             "source": "gar",
             "name": "mn-python-sdk-rag",
             "extras": ["milvus"],
-            "version": "0.1.0",
+            "version": ">=1.3.47",
         },
     ]
     assert (
@@ -83,7 +83,7 @@ def test_drug_discovery_manifest_uses_source_format_and_shared_blocks():
     )
     assert "nodes" not in manifest.get("agents", {})
     assert "edges" not in manifest.get("agents", {})
-    assert read_blueprint(BLUEPRINT_DIR).manifest["version"] == "1.0.1"
+    assert read_blueprint(BLUEPRINT_DIR).manifest["version"] == "1.0.3"
     assert "entrypoints" not in manifest["agents"]
     assert "auxiliary_entrypoints" not in manifest["agents"]
     assert "extra_nodes" not in manifest["agents"]
@@ -143,6 +143,11 @@ def test_drug_discovery_manifest_uses_source_format_and_shared_blocks():
     }
     assert gpu_worker["uses"] == "mn-agents.worker.python_docker@1"
     assert gpu_worker["with"]["gpus"] == "all"
+    assert gpu_worker["with"]["command"] == [
+        "/opt/mn-venv/bin/python3",
+        "-m",
+        "mn_sdk.step_runtime",
+    ]
     assert gpu_worker["with"]["docker_worker_image"] == "docker_worker"
     assert (
         gpu_worker["with"]["image"]
@@ -214,7 +219,9 @@ def test_drug_discovery_uses_logical_default_llm_route():
         "memory_operator": ">=",
         "enforcement": "hard",
     }
-    assert config["outputs"]["folder_path"] == "~/Downloads/{job_name}"
+    assert config["outputs"]["folder_path"] == "~/Downloads/drug_discovery"
+    assert config["inputs"]["payload"]["output_folder"] == config["outputs"]["folder_path"]
+    assert config["state"]["output_folder"] == config["outputs"]["folder_path"]
     assert config["llm"]["provider"] == "docker_model_runner"
     assert config["llm"]["model"] == "default"
     assert "runtime_model" not in config["llm"]
@@ -283,7 +290,11 @@ def test_drug_discovery_source_manifest_expands_with_native_service_script():
     assert {node_id.split("__", 1)[0] for node_id in step_nodes} == set(STEP_SCRIPTS)
     for step in STEP_SCRIPTS:
         config = step_nodes[f"{step}__{STEP_AGENTS[step]}"]["config"]
-        assert config["command"] == ["python3", "-m", "mn_sdk.step_runtime"]
+        assert config["command"] == [
+            "/opt/mn-venv/bin/python3",
+            "-m",
+            "mn_sdk.step_runtime",
+        ]
         assert config["runner_module"] == "MirrorNeuron.Runner.DockerWorker"
         assert "python_environment" not in config
         assert config["gpus"] == "all"
@@ -609,6 +620,30 @@ def test_drug_discovery_domain_renders_static_result_dashboard():
     assert "<script" not in rendered
 
 
+def test_drug_discovery_dashboard_shows_ranked_smiles_and_drawings(tmp_path, monkeypatch):
+    module = _load_drug_discovery_domain_module("dashboard")
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    (run_dir / "final_artifact.json").write_text(json.dumps({
+        "ranked_candidates": [
+            {"candidate": {"candidate_id": "candidate-a", "smiles": "CCO"}},
+            {"candidate": {"candidate_id": "candidate-b", "smiles": "CCN"}},
+        ]
+    }), encoding="utf-8")
+    monkeypatch.setattr(module, "_draw_candidate_svg", lambda smiles: f"<svg><title>{smiles}</title></svg>")
+    module.publish_static_dashboard({
+        "run_id": "demo", "run_dir": str(run_dir),
+        "output_folder": str(tmp_path / "output"), "config": {},
+    })
+    page = (tmp_path / "output" / "web" / "index.html").read_text()
+    assert "Ranked candidate structures" in page
+    assert "candidate-a" in page and "CCO" in page
+    assert "candidate-b" in page and "CCN" in page
+    assert (tmp_path / "output" / "web" / "candidate-1.svg").exists()
+    assert (tmp_path / "output" / "web" / "candidate-2.svg").exists()
+    assert "<script" not in page
+
+
 def test_drug_discovery_web_ui_projects_durable_progress_without_candidates(
     tmp_path,
 ):
@@ -927,6 +962,38 @@ def test_continuous_service_uses_unique_work_directories_for_parallel_jobs(tmp_p
     second = module.job_artifact_dir(tmp_path, "drugclip", "P67890", "candidate-1")
     assert first != second
     assert first.parent == second.parent == tmp_path / "drugclip"
+
+
+def test_native_adapter_uses_active_python_when_path_has_no_python(tmp_path, monkeypatch):
+    service_path = (
+        BLUEPRINT_DIR / "payloads" / "service" / "scripts" / "continuous_service.py"
+    )
+    spec = importlib.util.spec_from_file_location(
+        "drug_discovery_native_adapter_python_test", service_path
+    )
+    module = importlib.util.module_from_spec(spec)
+    assert spec and spec.loader
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+
+    commands = []
+
+    def fake_run(command, **_kwargs):
+        commands.append(command)
+        return subprocess.CompletedProcess(command, 0, stdout="{}", stderr="")
+
+    monkeypatch.setattr(module.subprocess, "run", fake_run)
+    monkeypatch.setenv("PATH", "/usr/bin:/bin")
+    result = module.run_native_adapter(
+        "candidate_generator",
+        {"candidate_generator": {"command": ["python", "scripts/biotarget_adapter.py", "--input", "{input_path}", "--output", "{output_path}"]}},
+        {"cycle_id": 0},
+        tmp_path / "generation",
+        "science-generation",
+    )
+
+    assert result == {}
+    assert commands[0][0] == sys.executable
 
 
 def test_biotarget_adapter_makes_folded_structure_path_absolute(tmp_path):

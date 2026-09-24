@@ -144,13 +144,8 @@ def test_monitoring_command_uses_authenticated_host_control_bridge(tmp_path: Pat
         "url": "http://host.docker.internal:45670", "token": "private-token",
     }), encoding="utf-8")
     (tmp_path / cctv_operator_mcp.CCTV_CONTROL_ARTIFACT).write_text(json.dumps({
-        "url": f"http://host.docker.internal:{server.server_address[1]}/control/steer",
+        "url": f"http://127.0.0.1:{server.server_address[1]}/control/steer",
     }), encoding="utf-8")
-    original_connection = cctv_operator_mcp.HTTPConnection
-    class LocalConnection(original_connection):
-        def __init__(self, host, port, **kwargs):
-            assert host == "host.docker.internal"
-            super().__init__("127.0.0.1", port, **kwargs)
     try:
         with pytest.raises(urllib.error.HTTPError) as error:
             urllib.request.build_opener(urllib.request.ProxyHandler({})).open(
@@ -160,14 +155,23 @@ def test_monitoring_command_uses_authenticated_host_control_bridge(tmp_path: Pat
                 )
             )
         assert error.value.code == 403
-        cctv_operator_mcp.HTTPConnection = LocalConnection
         assert cctv_operator_mcp.send_monitoring_input(tmp_path, command) == {"status": "accepted"}
         assert calls == [("run-1", command)]
     finally:
-        cctv_operator_mcp.HTTPConnection = original_connection
         server.shutdown()
         server.server_close()
         thread.join(timeout=2)
+
+
+def test_monitoring_command_rejects_non_loopback_control_endpoint(tmp_path: Path):
+    (tmp_path / cctv_operator_mcp.CCTV_MCP_ENDPOINT_ARTIFACT).write_text(json.dumps({
+        "url": "http://host.docker.internal:45670", "token": "private-token",
+    }), encoding="utf-8")
+    (tmp_path / cctv_operator_mcp.CCTV_CONTROL_ARTIFACT).write_text(json.dumps({
+        "url": "http://host.docker.internal:45671/control/steer",
+    }), encoding="utf-8")
+    with pytest.raises(RuntimeError, match="sidecar is unavailable"):
+        cctv_operator_mcp.send_monitoring_input(tmp_path, {})
 
 
 def test_cctv_mcp_sidecar_accepts_only_private_endpoint_and_proxy_clients(
@@ -355,7 +359,7 @@ def test_cctv_ui_operator_events_are_newest_first(tmp_path: Path):
     ]
 
 
-def test_routine_frame_analysis_does_not_publish_chat_activity(tmp_path: Path):
+def test_routine_frame_analysis_publishes_conversation_update_every_30_seconds(tmp_path: Path):
     (tmp_path / "cctv_report.json").write_text(json.dumps({
         "observations": [{"summary": "No target is visible.",
                           "observed_at": "2026-09-08T22:23:39Z"}],
@@ -365,12 +369,54 @@ def test_routine_frame_analysis_does_not_publish_chat_activity(tmp_path: Path):
         run_id="run-1", run_dir=tmp_path, config={}, preview_stream=StubPreview()
     )
 
+    published = []
     class ActivityStore:
-        def publish_result(self, *_args, **_kwargs):
-            raise AssertionError("routine analysis must not be published to chat")
+        def publish_result(self, _record_id, activity, **_kwargs):
+            published.append(activity)
+            return activity
 
     service.attach_activity_store(ActivityStore())
-    assert service.sync_mcp_activity() == []
+    state = service.ui_state()
+    started = service._last_routine_update_at
+    assert service.sync_mcp_activity(state, now=started + 29) == []
+    first = service.sync_mcp_activity(state, now=started + 30)
+    assert len(first) == 1
+    assert first[0]["title"] == "Monitoring update"
+    assert first[0]["requires_review"] is False
+    assert "No target is visible" in first[0]["message"]
+    assert service.sync_mcp_activity(state, now=started + 59) == []
+    second = service.sync_mcp_activity(state, now=started + 60)
+    assert "No new analyzed frame in the last 30 seconds" in second[0]["message"]
+    assert first[0]["event_id"] != second[0]["event_id"]
+    assert len(published) == 2
+
+
+def test_routine_conversation_update_reports_when_no_frame_exists(tmp_path: Path):
+    service = cctv_web_ui.CCTVWebUIService(
+        run_id="run-1", run_dir=tmp_path, config={}, preview_stream=StubPreview()
+    )
+    published = []
+    class ActivityStore:
+        def publish_result(self, _record_id, activity, **_kwargs):
+            published.append(activity)
+            return activity
+
+    service.attach_activity_store(ActivityStore())
+    service.sync_mcp_activity(now=service._last_routine_update_at + 30)
+    assert len(published) == 1
+    assert "No analyzed frame is available yet" in published[0]["message"]
+
+
+def test_routine_update_does_not_apply_old_finding_to_new_goal():
+    message = cctv_web_ui.routine_update_message({
+        "watch target": "Check whether the corridor is blocked",
+        "instruction revision": 2,
+        "latest analyzed revision": 1,
+        "last analyzed": "2026-09-24T15:30:00Z",
+        "latest finding": "A person is visible at the entrance.",
+    }, new_analysis=True)
+    assert "Waiting for the first analyzed frame under this goal" in message
+    assert "A person is visible" not in message
 
 
 def test_cctv_operator_owns_an_sdk_mcp_activity_exchange(tmp_path: Path):
@@ -507,6 +553,15 @@ def test_cctv_ui_uses_the_shared_dynamic_port_and_external_handle_contract():
     assert "claim_web_ui" in source
     assert "json-render" not in source
     assert config["web_ui"]["service"]["port"] == 0
+
+
+def test_preview_readiness_requires_first_frame(monkeypatch):
+    settings = cctv_web_ui.mjpeg_preview_settings({})
+    preview = cctv_web_ui.CUDAMJPEGPreview(settings)
+    monkeypatch.setattr(preview, "ensure_started", lambda: None)
+    assert preview.wait_for_first_frame(timeout_seconds=0.01) is False
+    preview._publish(b"\xff\xd8frame\xff\xd9")
+    assert preview.wait_for_first_frame(timeout_seconds=0.01) is True
 
 
 def test_cctv_ui_advertises_the_owner_node_for_host_network_workers(monkeypatch):

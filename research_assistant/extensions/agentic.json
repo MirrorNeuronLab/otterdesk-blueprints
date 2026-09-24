@@ -3,11 +3,13 @@
   "agent_ids": [
     "research_goal_framer",
     "research_evidence_curator",
+    "research_evidence_reviewer",
+    "research_experiment_planner",
     "autonomous_researcher",
     "research_packet_auditor",
     "research_report_writer"
   ],
-  "allow_generated_code": true,
+  "allow_generated_code": false,
   "allow_goal_refinement": true,
   "allow_prompt_creation": true,
   "allowed_tools": [
@@ -16,7 +18,6 @@
     "browser_page",
     "knowledge_retrieve",
     "hypothesis_rank",
-    "generated_python",
     "finish"
   ],
   "default_mode": "isolated_autonomous_research",

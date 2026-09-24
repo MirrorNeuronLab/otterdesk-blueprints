@@ -232,6 +232,24 @@
         "type": "human_events"
       },
       {
+        "artifact_id": "evidence_coverage",
+        "mime_type": "application/json",
+        "path": "workflow_state/evidence_coverage.json",
+        "producer": "research_evidence_reviewer",
+        "schema_version": "mn.blueprint.research_preflight.v1",
+        "source_refs": ["inputs.json"],
+        "type": "research_preflight"
+      },
+      {
+        "artifact_id": "experiment_readiness",
+        "mime_type": "application/json",
+        "path": "workflow_state/experiment_readiness.json",
+        "producer": "research_experiment_planner",
+        "schema_version": "mn.blueprint.research_preflight.v1",
+        "source_refs": ["inputs.json"],
+        "type": "research_preflight"
+      },
+      {
         "artifact_id": "research_packet",
         "mime_type": "application/json",
         "path": "research_packet.json",

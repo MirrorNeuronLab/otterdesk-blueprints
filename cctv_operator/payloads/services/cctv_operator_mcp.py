@@ -87,7 +87,7 @@ def send_monitoring_input(run_dir: Path, command: Mapping[str, Any]) -> dict[str
         parsed = urlparse(str(control["url"]))
         if (
             parsed.scheme != "http"
-            or parsed.hostname != "host.docker.internal"
+            or parsed.hostname != "127.0.0.1"
             or parsed.path != "/control/steer"
             or parsed.query or parsed.fragment
             or parsed.username or parsed.password
@@ -316,7 +316,9 @@ def main() -> int:
     temporary = control_path.with_name(f".{control_path.name}.{os.getpid()}.tmp")
     with temporary.open("x", encoding="utf-8") as handle:
         os.chmod(temporary, 0o600)
-        json.dump({"url": f"http://host.docker.internal:{proxy_port}/control/steer"}, handle)
+        # The video worker uses host networking, so loopback reaches this
+        # HostLocal control listener without relying on Docker DNS.
+        json.dump({"url": f"http://127.0.0.1:{proxy_port}/control/steer"}, handle)
     os.replace(temporary, control_path)
 
     def stop(_signum: int, _frame: Any) -> None:

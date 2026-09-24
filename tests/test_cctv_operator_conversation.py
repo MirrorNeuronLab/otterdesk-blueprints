@@ -290,6 +290,27 @@ def test_cctv_operator_user_attention_request_changes_prompt_and_state(monkeypat
     assert output["events"][-1]["type"] == "cctv_operator_frame_observed"
 
 
+def test_new_person_goal_not_blocked_by_previous_alert_cooldown(monkeypatch, tmp_path, capsys):
+    detector = _load_detector()
+    state = detector.initial_state()
+    state["last_alert_wall_ts"] = __import__("time").time()
+    output, _ = _run_detector(
+        detector, monkeypatch, tmp_path, capsys,
+        payload={"tick_seq": 3, "camera_id": "entrance", "instruction": "Find a person", "instruction_revision": 1},
+        state=state,
+        detection={
+            "detected": True, "detected_target": True, "detection_count": 1,
+            "detections": [{"label": "person", "category": "person", "confidence": 0.93}],
+            "confidence": 0.93, "summary": "A person is visible.",
+            "detection_report": "A person is visible at the entrance.",
+            "visible_subjects": ["person"], "risk_level": "low",
+        },
+    )
+    notices = [event for event in output["events"] if event["type"] == "human_notice"]
+    assert len(notices) == 1
+    assert "person" in notices[0]["payload"]["message"].lower()
+
+
 def test_cctv_operator_uses_configured_targets_and_notice_policy(
     monkeypatch, tmp_path, capsys
 ):
@@ -438,6 +459,8 @@ def test_chat_planner_receives_steering_semantics_from_normalized_contract(tmp_p
     prompt = json.loads(planner.user_prompt(question, {}, [], ""))
     tools = prompt["allowed_user_tools"]
     assert question in tools["set_monitoring_instruction"]["description"]
+    assert "change the goal to watch the corridor" in tools["set_monitoring_instruction"]["description"]
+    assert "30-second monitoring update" in tools["watch_operator_activity"]["description"]
     assert 'Never use "latest"' in tools["get_operator_activity"]["description"]
     assert "command_id" not in tools["set_monitoring_instruction"]["arguments"]
     assert "action" in prompt["turn_contract"]["allowed_intents"]

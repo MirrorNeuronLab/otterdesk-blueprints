@@ -33,8 +33,9 @@ merely to submit a single-node run owned by the qualifying NVIDIA runtime.
 ## Runtime graph and live input
 
 Conversation monitoring controls use the authenticated HostLocal MCP sidecar
-to submit Core live inputs. The Docker video worker holds only a run-scoped
-control credential and does not receive a Core gRPC client identity.
+over host-network loopback to submit Core live inputs. The Docker video worker
+holds only a run-scoped control credential and does not receive a Core gRPC
+client identity.
 
 The logical processing path is `ingress → adaptive_frame_sampler →
 visual_detector → report_writer`. The sampler self-schedules at the configured
@@ -92,10 +93,14 @@ Steering state is stored in the adaptive sampler’s agent state with a monotoni
 Every selected batch is durably written before its reference is emitted. Messages contain only bounded coordination fields and artifact references.
 
 Significant detections can emit `human_notice` and optional alert-delivery
-events. The workflow never performs physical security actions.
+events. An informational observation update is also delivered as a conversation
+message every 30 seconds, whether or not a target is found. If no new frame was
+analyzed, the update identifies the previous observation as old. The workflow
+never performs physical security actions.
 
-`human_notice` is the unsolicited conversation event for video-analysis
-findings. A pending `human_input_requested` event is exposed by the API-owned
+`human_notice` is the reviewable conversation event for video-analysis
+findings; routine updates are informational MCP activity. A pending
+`human_input_requested` event is exposed by the API-owned
 Job MCP as a protocol `2026-07-28` Multi Round-Trip Request: the client answers
 the elicitation and the suspended Job request resumes. MRTR is not used as an
 unsolicited push channel.
