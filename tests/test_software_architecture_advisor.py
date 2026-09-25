@@ -95,6 +95,9 @@ def test_desktop_sample_selects_public_repository_without_graph_export(modules):
     fields={field['path']: field for field in guide['fields']}
     assert guide['sample']['available'] is True
     assert fields['inputs.payload.goal']['type']=='textarea'
+    assert fields['inputs.payload.goal']['required'] is True
+    assert sample['inputs.payload.goal'].strip()
+    assert len(sample['inputs.payload.goal']) <= 1000
     assert fields['inputs.payload.graph_export']['path_kind']=='file'
     assert fields['inputs.payload.input_folder']['activeWhenAny']==[
         {'key': 'inputs.payload.repository_url', 'equals': ''}

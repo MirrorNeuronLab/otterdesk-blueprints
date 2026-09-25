@@ -13,6 +13,7 @@
       "description": "Review the public Archmind repository with the default goal.",
       "expected_output": "An architecture report and cited follow-up tasks.",
       "values": {
+        "inputs.payload.goal": "Review Archmind's module boundaries and coupling, check counter-evidence, and recommend the most useful next change.",
         "inputs.payload.repository_url": "https://github.com/homerquan/Archmind",
         "inputs.payload.input_folder": "",
         "inputs.payload.graph_export": ""
@@ -31,6 +32,7 @@
         "path": "inputs.payload.goal",
         "label": "Decision to support",
         "type": "textarea",
+        "required": true,
         "description": "Describe the architecture decision, important journey or failure scenario, and any constraints the review should prioritize."
       },
       {
