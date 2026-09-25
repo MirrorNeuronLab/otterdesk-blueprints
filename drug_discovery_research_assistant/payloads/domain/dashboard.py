@@ -428,6 +428,20 @@ def _draw_candidate_svg(smiles: str) -> str:
     return drawer.GetDrawingText().replace("svg:", "")
 
 
+def _draw_candidate_png(smiles: str) -> bytes:
+    from rdkit import Chem
+    from rdkit.Chem.Draw import rdMolDraw2D
+
+    molecule = Chem.MolFromSmiles(smiles)
+    if molecule is None:
+        raise ValueError("Invalid candidate SMILES")
+    drawer = rdMolDraw2D.MolDraw2DCairo(480, 280)
+    drawer.drawOptions().padding = 0.08
+    rdMolDraw2D.PrepareAndDrawMolecule(drawer, molecule)
+    drawer.FinishDrawing()
+    return drawer.GetDrawingText()
+
+
 def render_static_dashboard(state: Mapping[str, Any]) -> str:
     """Render a self-contained, script-free result page for the runtime proxy."""
 
@@ -507,13 +521,39 @@ def publish_static_dashboard(ctx: Mapping[str, Any]) -> dict[str, Any]:
     )
     candidates = _ranked_candidates(_read_json_object(run_dir / "final_artifact.json"))
     drawings: dict[str, str] = {}
-    for row in candidates:
+    previews: dict[str, bytes] = {}
+    for index, row in enumerate(candidates, start=1):
         try:
             drawings[row["image"]] = _draw_candidate_svg(row["smiles"])
         except (ImportError, ValueError):
             row["image"] = ""
+        try:
+            preview_name = f"candidate-{index}.png"
+            previews[preview_name] = _draw_candidate_png(row["smiles"])
+            row["preview"] = preview_name
+        except Exception:
+            # Conversation previews are optional; the report and result page remain usable.
+            row["preview"] = ""
     state["ranked_candidates"] = candidates
     rendered = render_static_dashboard(state)
+    media = {
+        "schema": "otterdesk.conversation_media.v1",
+        "run_id": str(ctx.get("run_id") or run_dir.name),
+        "title": "Ranked candidate structures",
+        "description": "Computational structures for scientific review."
+        + (" Synthetic smoke test." if state.get("metrics", {}).get("Mode") == "Synthetic smoke test" else ""),
+        "items": [
+            {
+                "type": "image",
+                "mime_type": "image/png",
+                "title": f"#{index} {row['id']}",
+                "alt": f"Two-dimensional structure of {row['id']}",
+                "caption": row["smiles"],
+                "filename": row.get("preview", ""),
+            }
+            for index, row in enumerate(candidates, start=1)
+        ],
+    }
     handle: dict[str, Any] = {}
     for root in (run_dir, output_dir):
         web_dir = root / "web"
@@ -522,6 +562,8 @@ def publish_static_dashboard(ctx: Mapping[str, Any]) -> dict[str, Any]:
         page.write_text(rendered, encoding="utf-8")
         for name, svg in drawings.items():
             (web_dir / name).write_text(svg, encoding="utf-8")
+        for name, png in previews.items():
+            (web_dir / name).write_bytes(png)
         source_svg = run_dir / "leading_candidate.svg"
         if source_svg.is_file():
             (web_dir / "leading_candidate.svg").write_bytes(source_svg.read_bytes())
@@ -537,6 +579,10 @@ def publish_static_dashboard(ctx: Mapping[str, Any]) -> dict[str, Any]:
             json.dumps(current, indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
         )
+        media_path = web_dir / "conversation_media.json"
+        pending_media_path = web_dir / "conversation_media.json.tmp"
+        pending_media_path.write_text(json.dumps(media, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        pending_media_path.replace(media_path)
         if root == run_dir:
             handle = current
     return handle

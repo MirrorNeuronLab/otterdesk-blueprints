@@ -139,7 +139,7 @@
       }
     },
     "real": {
-      "introduction": "What is your video stream URL? I\u2019ll use the default monitoring targets, sampling interval, and reviewer notices.",
+      "introduction": "What is your video stream URL? The NVIDIA video worker must be able to reach it. If the stream runs on this Mac, bind the server to its network interface and use the Mac's LAN address, not 127.0.0.1 or localhost.",
       "values": {
         "video_source.profile": "external"
       }
@@ -180,7 +180,7 @@
             "equals": "external"
           }
         ],
-        "description": "Use an RTSP or RTMP stream you have permission to monitor. The URL is stored securely."
+        "description": "Use an approved RTSP or RTMP URL reachable from the NVIDIA node. For a stream hosted on this Mac, use its LAN address; 127.0.0.1 and localhost refer to the worker's own machine. The URL is stored securely."
       },
       {
         "default": 20,

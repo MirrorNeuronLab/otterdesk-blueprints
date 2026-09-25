@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import importlib.util
 import json
 import os
@@ -83,7 +84,7 @@ def test_drug_discovery_manifest_uses_source_format_and_shared_blocks():
     )
     assert "nodes" not in manifest.get("agents", {})
     assert "edges" not in manifest.get("agents", {})
-    assert read_blueprint(BLUEPRINT_DIR).manifest["version"] == "1.0.3"
+    assert read_blueprint(BLUEPRINT_DIR).manifest["version"] == "1.0.4"
     assert "entrypoints" not in manifest["agents"]
     assert "auxiliary_entrypoints" not in manifest["agents"]
     assert "extra_nodes" not in manifest["agents"]
@@ -628,9 +629,16 @@ def test_drug_discovery_dashboard_shows_ranked_smiles_and_drawings(tmp_path, mon
         "ranked_candidates": [
             {"candidate": {"candidate_id": "candidate-a", "smiles": "CCO"}},
             {"candidate": {"candidate_id": "candidate-b", "smiles": "CCN"}},
+            {"candidate": {"candidate_id": "candidate-c", "smiles": "CCC"}},
+            {"candidate": {"candidate_id": "candidate-d", "smiles": "CCCl"}},
+            {"candidate": {"candidate_id": "candidate-e", "smiles": "CCBr"}},
         ]
     }), encoding="utf-8")
     monkeypatch.setattr(module, "_draw_candidate_svg", lambda smiles: f"<svg><title>{smiles}</title></svg>")
+    preview_png = base64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL/nwAAAABJRU5ErkJggg=="
+    )
+    monkeypatch.setattr(module, "_draw_candidate_png", lambda _smiles: preview_png)
     module.publish_static_dashboard({
         "run_id": "demo", "run_dir": str(run_dir),
         "output_folder": str(tmp_path / "output"), "config": {},
@@ -641,6 +649,14 @@ def test_drug_discovery_dashboard_shows_ranked_smiles_and_drawings(tmp_path, mon
     assert "candidate-b" in page and "CCN" in page
     assert (tmp_path / "output" / "web" / "candidate-1.svg").exists()
     assert (tmp_path / "output" / "web" / "candidate-2.svg").exists()
+    media = json.loads((tmp_path / "output" / "web" / "conversation_media.json").read_text())
+    assert media["schema"] == "otterdesk.conversation_media.v1"
+    assert media["run_id"] == "demo"
+    assert [item["caption"] for item in media["items"]] == [
+        "CCO", "CCN", "CCC", "CCCl", "CCBr"
+    ]
+    assert (tmp_path / "output" / "web" / "candidate-1.png").exists()
+    assert (tmp_path / "output" / "web" / "candidate-5.png").exists()
     assert "<script" not in page
 
 

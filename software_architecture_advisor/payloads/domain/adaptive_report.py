@@ -41,6 +41,22 @@ def render_adaptive_report(report):
                     lines.append(f"- `{pair[0]}` {relation} `{pair[1]}`. " + cite([q["id"]]))
     if not seen:
         lines.append("No dependency relationships were established by the executed queries; the architecture overview is incomplete.")
+    structural = report.get("structural_analysis")
+    if structural:
+        lines += ["", "## Structural dependency baseline", "",
+                  f"The frozen source graph contains {structural['module_count']} indexed modules and {structural['dependency_edges']} direct dependency pairs.", "",
+                  f"Static strongly connected cycles: {len(structural['cycles'])}. The [evidence-linked dependency data]({structural['path']}) records exact source locations.", ""]
+        if structural["dsm"]["status"] == "ready":
+            lines += [f"[Download the dependency DSM]({structural['dsm']['path']}). Rows import columns; 1 means a direct dependency.", ""]
+        else:
+            lines += [f"The dense DSM was omitted because the module count exceeds the {structural['dsm']['max_modules']}-module size limit. The JSON dependency list remains complete.", ""]
+        if structural["cycles"]:
+            lines += ["Cycles (static source relationships, not demonstrated failures):", ""]
+            lines += ["- " + " → ".join(group) for group in structural["cycles"][:10]]
+            lines += [""]
+        if structural["bridge_modules"]:
+            lines += ["Bridge modules in the undirected dependency projection: " + ", ".join(f"`{name}`" for name in structural["bridge_modules"][:10]) + ".", ""]
+        lines += ["Degree and cycles are investigation signals, not severity, measured change impact, or production incidents.", ""]
     lines += ["", "## Prioritized findings", "", report["priority_method"], ""]
     for index, f in enumerate(report["findings"], 1):
         h = f["hypothesis"]

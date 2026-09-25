@@ -69,8 +69,11 @@
       }
     },
     {
-      "goal": "Analyze sampled frames for configured targets and alert status.",
+      "goal": "Check the monitoring condition once, branch to detailed analysis for a confident match, and request human approval for uncertain frames.",
       "id": "detect_visual_targets",
+      "control": {
+        "timeout_seconds": 600
+      },
       "in": {
         "frame_batches": "$state.frame_batches",
         "policy": "$state.alert_policy",
@@ -133,9 +136,16 @@
         "human_input_timeout",
         "human_decision_applied"
       ],
-      "mode": "notice_only",
+      "mode": "approval_required",
+      "blocked_actions": ["deep_analysis_after_uncertain_screening"],
+      "default_action": "reject",
+      "decision_event": "human_decision_applied",
+      "request_event": "human_input_requested",
+      "response_event": "human_input_received",
+      "timeout_event": "human_input_timeout",
+      "timeout_seconds": 180,
       "notice_event": "human_notice",
-      "reason": "The workflow surfaces notable visual changes to reviewers but does not execute physical security actions by itself.",
+      "reason": "An uncertain frame requires operator approval before detailed analysis; notable confirmed findings still surface as notices.",
       "requires_ack": false
     },
     "on_step_failure": "fail_workflow"

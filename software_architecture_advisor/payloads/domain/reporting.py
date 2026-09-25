@@ -8,6 +8,7 @@ from .events import audit_scope, emit
 from .investigator import validate_assessment
 from .prompts import render_prompts
 from .rendering import render_markdown
+from .review_direction import publish_review_direction
 
 
 def _slug(value):
@@ -84,6 +85,17 @@ def verify_evidence(report, run_dir):
     snapshot = json.loads((run_dir / 'snapshot.json').read_text())
     if report['snapshot'] != snapshot['id']:
         raise ValueError('Report snapshot differs from captured input')
+    if report.get('structural_analysis'):
+        structural_bytes = (run_dir / report['structural_analysis']['path']).read_bytes()
+        if hashlib.sha256(structural_bytes).hexdigest() != report['structural_analysis']['sha256']:
+            raise ValueError('Structural baseline hash mismatch')
+        structural = json.loads(structural_bytes)
+        if structural['snapshot'] != snapshot['id'] or structural['coverage']['dependency_edges'] != report['structural_analysis']['dependency_edges']:
+            raise ValueError('Structural baseline differs from captured input')
+        if structural['dsm']['status'] == 'ready':
+            dsm_path = run_dir / structural['dsm']['path']
+            if hashlib.sha256(dsm_path.read_bytes()).hexdigest() != report['structural_analysis']['dsm_sha256']:
+                raise ValueError('Dependency DSM hash mismatch')
     directory = run_dir / 'evidence/snapshots' / snapshot['id']
     sources = json.loads((directory / 'sources.json').read_text())
     if set(sources) != set(snapshot['sources']):
@@ -148,9 +160,13 @@ def publish_review(context, *, llm_client=None):
             emit('artifact.write.completed', path=name, bytes=(run_dir/name).stat().st_size)
         for document in prompt_documents:
             emit('artifact.write.completed', path=document['path'], bytes=(run_dir/document['path']).stat().st_size)
+        review_direction = publish_review_direction(context, report)
         index = {'status': report['status'], 'snapshot': report['snapshot'],
                  'report': 'report.md', 'prompts': 'suggestive_prompts.md',
                  'data': 'report.json', 'evidence': 'evidence/', 'events': 'events.log',
+                 'structural_analysis': report.get('structural_analysis', {}).get('path'),
+                 'dependency_dsm': report.get('structural_analysis', {}).get('dsm', {}).get('path'),
+                 'review_direction': review_direction,
                  'presentation': {'report': 'architecture_report.md',
                                   'prompts': 'improvement_prompts.md',
                                   'prompt_index': 'prompts/README.md'}}

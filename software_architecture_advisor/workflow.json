@@ -1,6 +1,6 @@
 {
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/workflow.schema.json",
-  "workflow_id": "software_architecture_advisor_v2",
+  "workflow_id": "software_architecture_advisor_v2_2",
   "steps": [
     {
       "id": "capture_repository",
@@ -16,12 +16,27 @@
       }
     },
     {
+      "id": "analyze_dependency_structure",
+      "kind": "stage",
+      "label": "Analyze Dependency Structure",
+      "goal": "Publish an evidence-linked dependency matrix, coupling measures, and static cycles.",
+      "needs": [
+        "capture_repository"
+      ],
+      "run": {
+        "definition": "steps.analyze_dependency_structure"
+      },
+      "control": {
+        "timeout_seconds": 3600
+      }
+    },
+    {
       "id": "investigate_architecture",
       "kind": "stage",
       "label": "Investigate Architecture",
       "goal": "Test bounded hypotheses using graph and counter-evidence.",
       "needs": [
-        "capture_repository"
+        "analyze_dependency_structure"
       ],
       "run": {
         "definition": "steps.investigate_architecture"

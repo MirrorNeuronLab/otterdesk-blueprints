@@ -92,7 +92,7 @@ def test_cctv_operator_uses_the_cataloged_lazy_special_vlm_route():
         for step in manifest["workflow"]["steps"]
         if step.get("id") == "detect_visual_targets"
     )
-    assert detect_step["control"]["timeout_seconds"] == 300
+    assert detect_step["control"]["timeout_seconds"] == 600
 
     deferred = build_deferred_runtime_model_plan(
         required_blueprint_models(manifest, config)

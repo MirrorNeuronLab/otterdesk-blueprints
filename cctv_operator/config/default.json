@@ -1,5 +1,8 @@
 {
   "agent_handoffs": {},
+  "condition_screening": {
+    "min_confidence": 0.8
+  },
   "backpressure": {
     "drop_policy": "skip_with_error",
     "llm": {

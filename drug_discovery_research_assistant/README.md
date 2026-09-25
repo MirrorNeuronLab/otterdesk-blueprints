@@ -9,6 +9,8 @@ This blueprint runs one review-only discovery cycle and then completes all five 
 
 OtterDesk can expose a read-only **Drug Discovery Results** page after ranking. The blueprint renders `web/index.html` from bounded durable state, including the leading simulation-ranked candidate, its SMILES string, computational scores, workflow status, and recent progress. The runtime web UI only proxies this static artifact; it cannot start a run, stop the service, approve a candidate, or invoke a scientific adapter.
 
+After ranking, the optional renderer also writes `web/conversation_media.json` and up to five small PNG structure previews. OtterDesk can show these ranked, run-specific images with their SMILES strings directly in Chat when the output becomes available. The manifest uses the generic conversation-media contract, so Chat does not need a drug-discovery-specific widget. If previews fail, the scientific report and full output remain available.
+
 The page is an optional output, not an agent, entrypoint, service, or workflow step. It has no HostLocal environment and no startup or health gate. Rendering is best-effort after the authoritative report is written, so a missing or failed page never blocks submission, scientific execution, reporting, or run completion.
 
 DrugClip is a problem-specific scientific checkpoint, not a shared LLM model. The adapter uses `mn-python-sdk-models` to validate the explicit `https://huggingface.co/homerquan/DrugClip` reference, then downloads `best.ckpt` and runs it through the native `DrugCLIP` graph/text adapter. Docker Model Runner is deliberately not used for DrugClip: the repository is a checkpoint-only graph/text model, not a DMR-compatible generative model. No fake adapter or surrogate score is used in live mode.

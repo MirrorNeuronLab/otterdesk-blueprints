@@ -2226,6 +2226,41 @@ def test_cctv_operator_stream_validator_defers_probe_without_local_ffprobe(
     assert "scheduled NVIDIA worker" in capsys.readouterr().out
 
 
+@pytest.mark.parametrize(
+    "host",
+    ["127.0.0.1", "localhost", "0.0.0.0", "[::1]", "[::ffff:127.0.0.1]"],
+)
+def test_cctv_operator_rejects_mac_local_external_stream_before_launch(
+    monkeypatch, capsys, host
+):
+    validator = _load_cctv_operator_validator()
+    monkeypatch.setattr(validator.sys, "platform", "darwin")
+    monkeypatch.setenv(
+        "MN_BLUEPRINT_CONFIG_JSON",
+        json.dumps({
+            "video_source": {
+                "mode": "stream",
+                "profile": "external",
+                "uri": f"rtsp://user:private@{host}:8554/live?token=hidden",
+            }
+        }),
+    )
+    monkeypatch.setattr(
+        validator,
+        "probe_stream",
+        lambda *_args, **_kwargs: pytest.fail("local-only source must fail before probe"),
+    )
+
+    assert validator.main() == 2
+    output = capsys.readouterr().out
+    report = json.loads(output)
+    assert report["issues"][0]["code"] == "config.stream_host_is_local_to_submitter"
+    assert report["issues"][0]["location"]["path"] == "video_source.uri"
+    assert "NVIDIA" in report["issues"][0]["message"]
+    assert "private" not in output
+    assert "hidden" not in output
+
+
 def test_cctv_operator_stream_validator_rejects_non_stream_uri(monkeypatch, capsys):
     validator = _load_cctv_operator_validator()
     monkeypatch.setenv(

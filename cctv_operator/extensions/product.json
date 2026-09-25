@@ -2,7 +2,8 @@
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/product.schema.json",
   "features": [
     "Optional local reference documents",
-    "Guided analysis tools"
+    "Guided analysis tools",
+    "Condition screening with human approval for uncertain frames"
   ],
   "target_user": "Video operators, security reviewers, safety operations teams, and site-access coordinators.",
   "output": "Live video preview, analyzed frames, activity observations, alerts, and reports for review.",
@@ -20,6 +21,7 @@
   "simulation_type": "Live camera review with extra analysis when the scene changes.",
   "runtime_features": [
     "Live camera review",
+    "Condition screening and operator approval",
     "Monitoring instructions in Chat",
     "Scene change analysis",
     "Video preview",
@@ -46,9 +48,16 @@
         "human_input_timeout",
         "human_decision_applied"
       ],
-      "mode": "notice_only",
+      "mode": "approval_required",
+      "blocked_actions": ["deep_analysis_after_uncertain_screening"],
+      "default_action": "reject",
+      "decision_event": "human_decision_applied",
+      "request_event": "human_input_requested",
+      "response_event": "human_input_received",
+      "timeout_event": "human_input_timeout",
+      "timeout_seconds": 180,
       "notice_event": "human_notice",
-      "reason": "The workflow surfaces notable visual changes to reviewers but does not execute physical security actions by itself.",
+      "reason": "An uncertain frame requires operator approval before detailed analysis; notable confirmed findings still surface as notices.",
       "requires_ack": false
     },
     "target_users": "Video operators, security reviewers, safety operations teams, and site-access coordinators."
@@ -70,6 +79,7 @@
     "problem": "Watching a continuous camera feed makes it easy to miss activity that needs review.",
     "runtime_features": [
       "Live camera review",
+      "Condition screening and operator approval",
       "Monitoring instructions in Chat",
       "Scene change analysis",
       "Video preview",

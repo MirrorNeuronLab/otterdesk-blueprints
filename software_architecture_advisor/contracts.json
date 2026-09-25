@@ -61,6 +61,26 @@
         "required": true
       },
       {
+        "artifact_id": "structural_analysis",
+        "path": "analysis/dependencies.json",
+        "mime_type": "application/json",
+        "type": "structural_analysis",
+        "producer": "workflow",
+        "schema_version": "mn.architecture.structural_analysis.v1",
+        "privacy": "confidential",
+        "required": true
+      },
+      {
+        "artifact_id": "dependency_dsm",
+        "path": "analysis/dependency-dsm.csv",
+        "mime_type": "text/csv",
+        "type": "dependency_dsm",
+        "producer": "workflow",
+        "schema_version": "mn.architecture.dependency_dsm.v1",
+        "privacy": "confidential",
+        "required": false
+      },
+      {
         "artifact_id": "investigation",
         "path": "investigation.json",
         "mime_type": "application/json",
@@ -137,6 +157,16 @@
         "type": "review_index",
         "producer": "workflow",
         "schema_version": "mn.architecture.review_index.v2",
+        "privacy": "confidential",
+        "required": true
+      },
+      {
+        "artifact_id": "human_events",
+        "path": "human.jsonl",
+        "mime_type": "application/x-jsonlines",
+        "type": "human_events",
+        "producer": "human_control",
+        "schema_version": "mn.blueprint.human_events.v1",
         "privacy": "confidential",
         "required": true
       },

@@ -20,6 +20,8 @@
       "cctv_operator_frame_observed",
       "cctv_operator_attention_updated",
       "cctv_operator_detection",
+      "cctv_operator_condition_screened",
+      "cctv_operator_deep_analysis_completed",
       "human_notice",
       "cctv_operator_slack_alert_sent",
       "cctv_operator_slack_alert_skipped",
@@ -316,6 +318,18 @@
         "type": "web_ui"
       },
       {
+        "artifact_id": "conversation_media",
+        "mime_type": "application/json",
+        "path": "web/conversation_media.json",
+        "producer": "visual_detector",
+        "required": false,
+        "schema_version": "otterdesk.conversation_media.v1",
+        "source_refs": [
+          "latest_analyzed_frame.jpg"
+        ],
+        "type": "conversation_media"
+      },
+      {
         "artifact_id": "human_events",
         "mime_type": "application/x-jsonlines",
         "path": "human.jsonl",
@@ -595,6 +609,18 @@
           "run.json"
         ],
         "type": "web_ui"
+      },
+      {
+        "artifact_id": "conversation_media",
+        "mime_type": "application/json",
+        "path": "web/conversation_media.json",
+        "producer": "visual_detector",
+        "required": false,
+        "schema_version": "otterdesk.conversation_media.v1",
+        "source_refs": [
+          "latest_analyzed_frame.jpg"
+        ],
+        "type": "conversation_media"
       },
       {
         "artifact_id": "human_events",

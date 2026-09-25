@@ -13,6 +13,7 @@ def validate_config(value):
         raise ValueError("offline must be a boolean")
     config["llm"].setdefault("model", "default")
     for section, keys in {
+        "analysis": ["max_dsm_modules"],
         "source": ["clone_timeout_seconds"],
         "knowledge": ["max_cards", "max_prompt_bytes"],
         "llm": ["context_tokens", "output_tokens", "timeout_seconds", "max_calls"],
@@ -24,6 +25,8 @@ def validate_config(value):
             v = config[section].get(key)
             if isinstance(v, bool) or not isinstance(v, int) or v <= 0:
                 raise ValueError(f"{section}.{key} must be a positive integer")
+    if config["analysis"]["max_dsm_modules"] > 1000:
+        raise ValueError("analysis.max_dsm_modules must be at most 1000")
     knowledge = config["knowledge"]
     if not isinstance(knowledge["enabled"], bool) or knowledge["max_cards"] > 4 or knowledge["max_prompt_bytes"] > 2400:
         raise ValueError("knowledge requires boolean enabled, at most 4 cards and 2400 prompt bytes")

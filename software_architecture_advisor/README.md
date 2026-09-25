@@ -9,7 +9,7 @@ By default, a run reviews the public `https://github.com/homerquan/Archmind` rep
 
 In OtterDesk, **Try a sample** runs that public Archmind review. It leaves the optional graph export empty. **Setup** accepts another public GitHub URL or a local source folder, plus an optional graph export file.
 
-Optional `goal` focuses the investigation. Optional `graph_export` supplies a version-1 or version-2 graph with exact source provenance. Python receives structural AST analysis; other supported source languages are retrievable text and require an export declaring modules for structural investigation. A repository without structural modules reports an explicit failure.
+Setup asks for a decision to support. Its `goal` can name an important journey, change or failure scenario, and constraints; leaving it unchanged uses the default architecture goal. Optional `graph_export` supplies a version-1 or version-2 graph with exact source provenance. Python receives structural AST analysis; other supported source languages are retrievable text and require an export declaring modules for structural investigation. A repository without structural modules reports an explicit failure.
 
 ## Prepare and run
 
@@ -42,11 +42,13 @@ Live mode uses the platform's configured chat and embedding model bindings, norm
 
 ## Results
 
-The authoritative run directory includes `investigation-plan.json`, immutable per-round plans and results under `investigation/`, `report.md`, `suggestive_prompts.md`, `report.json`, `knowledge.json`, `model-trace.json`, `events.log`, `snapshot.json`, `investigation.json`, and `review_index.json`. The `evidence/` directory retains immutable source text, graph generations, exact source spans, hashes, graph inputs, and acquisition checkouts. Runtime messages contain bounded counts/status and artifact references, not source text or full reports.
+The authoritative run directory includes `analysis/dependencies.json`, `investigation-plan.json`, immutable per-round plans and results under `investigation/`, `report.md`, `suggestive_prompts.md`, `report.json`, `knowledge.json`, `model-trace.json`, `events.log`, `snapshot.json`, `investigation.json`, and `review_index.json`. A dense `analysis/dependency-dsm.csv` is also written when the module count is at most `analysis.max_dsm_modules` (default 300). DSM rows import columns; a 1 denotes a direct static dependency. Above the limit, the JSON edge list stays complete and records why the dense matrix was omitted. The `evidence/` directory retains immutable source text, graph generations, exact source spans, hashes, graph inputs, and acquisition checkouts. Runtime messages contain bounded counts/status and artifact references, not source text or full reports.
+
+When the report is published, Architecture Advisor adds a nonblocking choice to the OtterDesk conversation. The card summarizes review status, assessed findings and static dependency edges, and offers directions to prioritize a change, challenge a finding, investigate further or defer. A response is recorded in the run's `human.jsonl` ledger against the exact `report.json` digest. The choice does not start another run or change source code. Use Chat or Setup to refine the next goal before starting follow-up work.
 
 After completion, the SDK also copies a presentation bundle to `~/Downloads/{job_name}` on the submitting host. It retains the current canonical files and provides familiar names from the earlier advisor: `architecture_report.md`, `architecture_assessment.json`, `improvement_prompts.md`, `improvement_prompts.json`, and one copy-ready task per finding under `prompts/`, with `prompts/README.md` as the index.
 
-The three logical phases are `capture_repository`, `investigate_architecture`, and `publish_architecture_review`. The middle step contains a Core-managed child workflow. A planner commits a finite graph; graph-query, semantic-search, assessment and summary specialists execute it without replanning. The next planner invocation receives the completed evidence round. Their specialist workers use the shared stateful agent lifecycle. Only platform-generated step sinks complete logical steps. Docker runs Python 3.11 on Debian Bookworm with the published CPU RGX binary; it never builds Rust.
+The four logical phases are `capture_repository`, `analyze_dependency_structure`, `investigate_architecture`, and `publish_architecture_review`. The investigation step contains a Core-managed child workflow. A planner commits a finite graph; graph-query, semantic-search, assessment and summary specialists execute it without replanning. The next planner invocation receives the completed evidence round. Their specialist workers use the shared stateful agent lifecycle. Only platform-generated step sinks complete logical steps. Docker runs Python 3.11 on Debian Bookworm with the published CPU RGX binary; it never builds Rust.
 
 ## Interpretation limits
 

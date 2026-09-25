@@ -17,6 +17,9 @@
     "timeout_seconds": 15,
     "row_limit": 20
   },
+  "analysis": {
+    "max_dsm_modules": 300
+  },
   "investigation": {
     "max_hypotheses": 3,
     "top_k": 3,

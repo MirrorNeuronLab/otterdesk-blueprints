@@ -6,6 +6,8 @@ import os
 from pathlib import Path
 import shutil
 import sys
+import ipaddress
+import urllib.parse
 
 
 def _load_repo_env() -> None:
@@ -82,6 +84,24 @@ def main() -> int:
             "DockerWorker will start and probe it before sampling."
         )
         return 0
+
+    host = urllib.parse.urlsplit(uri).hostname or ""
+    try:
+        address = ipaddress.ip_address(host)
+    except ValueError:
+        local_only = host.lower() == "localhost"
+    else:
+        local_only = address.is_loopback or address.is_unspecified
+        if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped:
+            local_only = local_only or address.ipv4_mapped.is_loopback
+    if sys.platform == "darwin" and local_only:
+        return fail(
+            "config.stream_host_is_local_to_submitter",
+            "This stream URL points only to this Mac; the NVIDIA video worker runs on another node.",
+            "Bind the stream server to a network interface and enter this Mac's address reachable from the NVIDIA node, then check the stream from that node.",
+            actual=uri,
+            status=2,
+        )
 
     ffprobe_binary = str(
         os.environ.get("FFPROBE_BINARY") or shutil.which("ffprobe") or ""

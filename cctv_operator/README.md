@@ -29,6 +29,15 @@ For a real camera, set `video_source.profile=external` and set
 server-side source as MJPEG, so browsers never receive the RTSP/RTMP URI or its
 credentials.
 
+If the stream server runs on the Mac that submits the job, do not enter
+`rtsp://127.0.0.1:8554/live`: the NVIDIA worker would look for that address
+on its own machine. Bind the stream server to a network interface and use the
+Mac's LAN address in setup, for example `rtsp://<mac-lan-ip>:8554/live`.
+The server must accept connections from the NVIDIA node. The `rtsp-server`
+used for local testing supports `-H 0.0.0.0`; verify the resulting LAN URL
+from the NVIDIA node before starting CCTV Operator. Mac-side launch validation
+rejects local-only external stream addresses before a workflow is submitted.
+
 ## Adaptive monitoring
 
 The source can remain at its native frame rate for operator preview, but the model never receives that full stream. The default policy:
@@ -40,7 +49,26 @@ The source can remain at its native frame rate for operator preview, but the mod
 - requires two consecutive proxy changes above the configured threshold;
 - collects three seconds of pre-roll and five seconds of post-roll at 5 candidate FPS;
 - selects at most ten non-duplicate, temporally diverse frames for one model request; and
-- permits one active model request and at most six calls per minute.
+- permits one active frame analysis at a time. Each batch uses one small
+  condition check and, only when warranted, one detailed model call.
+
+## Condition check and operator approval
+
+For each selected batch, the vision model first answers only
+`condition_met` and `confidence` under a strict JSON schema. The current chat
+monitoring instruction replaces the default target for this check. With the
+default `condition_screening.min_confidence=0.8`, a confident absence ends the
+batch without detailed analysis. A confident match starts a second call that
+describes visible evidence and writes the ordinary detection and report.
+
+When the first answer is less confident, the detector saves a bounded snapshot
+and requests approval in Chat. **Approve** runs the detailed analysis of that
+same batch; **Reject** or a 180-second timeout skips it and keeps monitoring.
+The request, response, and applied decision are recorded in `human.jsonl`.
+The request includes the selected frame in the reusable conversation image
+widget when the local run artifact is available. A confirmed finding can still
+create a reviewable notice under the separate alert policy. No branch makes a
+physical security decision.
 
 Monitoring steering persists only for the current run. The external OtterDesk
 chat AI sends the declared `steer_monitoring` live input over the blueprint MCP;
@@ -239,6 +267,7 @@ Primary run artifacts under `~/.mn/runs/<run_id>/` are:
 - `web_ui.json`
 - `latest_analyzed_frame.jpg`
 - `latest_analyzed_frame.json`
+- `web/conversation_media.json` and `web/cctv_snapshot.jpg` (bounded Chat preview)
 - `frame_batches/<batch_id>/batch.json` and selected JPEGs
 
 The alert policy is applied to configured target names (or the current chat-set

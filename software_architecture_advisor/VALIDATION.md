@@ -1,5 +1,23 @@
 # Dynamic child-workflow validation
 
+## Structural baseline update (2026-09-24)
+
+Blueprint 2.2.0 adds `analyze_dependency_structure` between capture and investigation. The step reuses the existing frozen dependency layer and publishes a bounded DSM plus source-linked JSON measures. The planner sees only a compact summary; findings still require support and counter-evidence review. The analyzed repository is not executed.
+
+The setup guide now exposes the goal, and publication emits a report-digest-bound review choice into the standard human-event ledger. The desktop conversation renders reusable approval, judgment and missing-information cards with structured options and records the selected direction. This post-report choice does not branch the active workflow.
+
+On this macOS checkout, using the local MirrorNeuron virtual environment on `PYTHONPATH` with Python 3.11:
+
+- `tests/test_manifest_contracts.py`: 5 passed.
+- `tests/test_software_architecture_advisor.py` and `tests/software_architecture_advisor`: 49 passed, 34 skipped. The skipped cases require the Linux RGX binary.
+- `git diff --check`: passed.
+- Desktop app: production build, TypeScript typecheck, lint and architecture checks passed; four affected component/unit files passed (146 tests).
+- MirrorNeuron API: human-ledger and canonical route suites passed (41 tests). Shared-run responses were verified against the mapped submission ledger.
+- The desktop full suite is not green: 976 passed and 90 failed across four files. A reproduced failure in `worker-blueprints.test.js` stops at the existing setup launch gate before reaching its human-response assertion; the focused conversation tests above pass.
+- Full `tests` catalog gate: 344 passed, 37 skipped, 44 failed, 55 errors. The errors include missing `pypdf`/`PyPDF2` for Litigation Analyst; remaining failures occur in other blueprints. The focused advisor tests pass. This is not a clean catalog gate.
+
+This update does not add multi-repository snapshot selection, G0/G1 mid-run interactive gates, an executable G2 branch, or isolated target-code probes from the supplied DAG design. The blueprint remains a static/read-only investigation with proposed verification tasks; no probe outcome is represented as measured.
+
 Validated on 2026-09-07 against the companion SDK/Core source and the published ARM64 Linux RGX binary in Docker. No analyzed repository code was executed.
 
 - SDK compiler, child declaration, static/dynamic workflow and public progress suites: **81 passed**.

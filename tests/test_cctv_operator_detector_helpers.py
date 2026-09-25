@@ -224,6 +224,60 @@ def test_managed_dmr_vlm_uses_lazy_runtime_model_access(monkeypatch):
     assert result["confidence"] == 0.88
 
 
+def test_gate_call_uses_only_the_strict_boolean_confidence_schema(monkeypatch):
+    detector = _load_detector()
+    captured = {}
+    monkeypatch.setenv("MN_VLM_PROVIDER", "docker_model_runner")
+    monkeypatch.setenv("MN_VLM_API_BASE", "auto")
+    monkeypatch.setattr(detector, "runtime_model_json_request", lambda *_args, **kwargs: (
+        captured.update({"payload": _args[3], **kwargs}),
+        {"choices": [{"message": {"content": '{"condition_met": true, "confidence": 0.93}'}}]},
+    )[1])
+
+    result = detector.call_ollama(
+        b"jpeg", "check for a person", response_schema=detector.GATE_SCHEMA,
+    )
+
+    assert result == {"condition_met": True, "confidence": 0.93}
+    response_format = captured["payload"]["response_format"]
+    assert captured["payload"]["max_tokens"] == 80
+    assert response_format["type"] == "json_schema"
+    assert response_format["json_schema"]["strict"] is True
+    assert set(response_format["json_schema"]["schema"]["properties"]) == {
+        "condition_met", "confidence"
+    }
+
+
+def test_uncertain_gate_waits_for_a_recorded_human_response(monkeypatch, tmp_path):
+    detector = _load_detector()
+    recorded = []
+    monkeypatch.setenv("MN_RUN_ID", "run-1")
+    monkeypatch.setenv("MN_RUN_DIR", str(tmp_path / "run-1"))
+
+    def append(_run_id, event_type, payload, **_kwargs):
+        recorded.append({"type": event_type, "payload": payload})
+
+    def read(_run_id, **_kwargs):
+        if not recorded:
+            return []
+        request_id = recorded[0]["payload"]["request_id"]
+        return [*recorded, {"type": "human_input_received", "payload": {
+            "request_id": request_id, "response": {"decision": "approve"}
+        }}]
+
+    monkeypatch.setattr(detector, "append_human_event", append)
+    monkeypatch.setattr(detector, "read_human_events", read)
+    assert detector.await_operator_review(
+        batch_ref="frame_batches/batch-1/batch.json", instruction_revision=2,
+        goal="person", camera_id="entrance", frame_seq=3, confidence=0.6,
+    ) is True
+    assert [event["type"] for event in recorded] == [
+        "human_input_requested", "human_decision_applied"
+    ]
+    assert recorded[0]["payload"]["frame_seq"] == 3
+    assert recorded[1]["payload"]["approved"] is True
+
+
 def test_litellm_vlm_preserves_v1_openai_endpoint(monkeypatch):
     detector = _load_detector()
     captured = {}

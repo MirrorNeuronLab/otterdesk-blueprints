@@ -1,6 +1,6 @@
 # Architecture Advisor contract
 
-Identity: `software_architecture_advisor`, version 2.1.5. Source: Spark `/home/homer/Sandbox/legal_case/software_architecture_advisor`.
+Identity: `software_architecture_advisor`, version 2.2.0. This workflow adds a structural baseline before adaptive investigation; existing runs retain their previous workflow version.
 
 ## Inputs and policy
 
@@ -12,7 +12,9 @@ Defaults: 5,000 source files, 500 KB per file, 20 MB aggregate source bytes, 650
 
 ## Workflow and boundaries
 
-`capture_repository` → `investigate_architecture` → `publish_architecture_review`.
+`capture_repository` → `analyze_dependency_structure` → `investigate_architecture` → `publish_architecture_review`.
+
+The structural step materializes the frozen dependency graph, writes `analysis/dependencies.json` with direct edges, exact source locations, fan-in/fan-out, degree centrality, strongly connected cycles and articulation modules in the undirected projection, and writes a dense `analysis/dependency-dsm.csv` when the indexed module count is within `analysis.max_dsm_modules` (default 300). Rows import columns. Over the limit, the full edge list remains available and the dense DSM is explicitly omitted. These measures are investigation signals, not measured severity, runtime behavior or business impact. Archmind's DSM and coupling method informed this stage; its uncited severity scores and source-target execution model were not imported.
 
 Steps contain only SDK contracts and `StepSpec` agent graphs. Specialist roles include repository examiner, child initializer, architecture planner, graph analyst, evidence retriever, hypothesis assessor, round reviewer and architecture review editor. Thin handlers use `mn-prototype-stateful-step-agent`; it owns invocation idempotency and durable output ordering. Workers return bounded summaries plus artifact references. Domain code owns source/architecture policy, lazy architecture projections, hypotheses, evidence validation and report semantics. Runtime only creates and persists SDK context. Core owns routing, retries, joins and logical completion.
 
@@ -29,6 +31,8 @@ Sources retain exact UTF-8 text and SHA-256. Every edge retains source evidence 
 Planning selects only indexed modules and allowed families. Each hypothesis obtains graph observations and separate support/counter searches. Citation enums constrain structured JSON requests; application validation rejects invented citations. One malformed-output repair is allowed within the global call cap. An independent final model review covers every recommendation promoted to the roadmap. Unreviewed findings remain exploratory. Unknown architecture rules and unavailable views force inconclusive conclusions. Inconclusive final advice is limited to validation actions. Original model responses and any normalized verification rollback remain in the audit JSON for inspection.
 
 Final publication rechecks source hashes and exact evidence spans and validates assessment citations. Knowledge guidance is a bounded local library (normally at most two cards and 1,200 UTF-8 prompt bytes), never evidence of a project defect. Suggested coding tasks verify findings and current revision before recommending a reversible change. Failed investigations retain raw investigation, model and event audit files and fail the worker; they are not reported as successful completed reviews. Partial reviews identify failed findings explicitly.
+
+The setup guide exposes the investigation goal so the human can steer the decision, scenario and constraints before launch. Publication emits one nonblocking `architecture_review_direction` human request per `report.json` SHA-256 digest. A changed report closes unanswered requests bound to older digests. A response records a review-wide next direction and optional human notes in the runtime human-event ledger. The request is idempotent across publication retries, remains separate from immutable evidence, and does not authorize or automatically execute follow-up work. This is a G2-style review annotation, not a mid-run DAG gate or an approval to run repository code.
 
 ## Artifacts and execution
 

@@ -1,4 +1,5 @@
 """Independent review and deterministic synthesis of prioritized architecture advice."""
+import hashlib
 from mn_sdk.context_session import NeedsPartition, ContextBudgetExceeded
 from .evidence_tasks import decision_packet, validate_advice, verification_policy, assessment_hypothesis
 from .investigation_store import BudgetExhausted, RecordedModel
@@ -67,6 +68,24 @@ def finalize_investigation(store, reason, *, incomplete, llm_client=None):
         "metrics": {"queries": store.usage().get("queries", 0), "llm_calls": store.usage().get("models", 0)},
         "priority_method": "Independent review, supported evidence, then explicit goal relevance; no measured severity or ROI is inferred.",
         "report_directory": str(store.root), "plan_index": "investigation-plan.json"}
+    structural_path = store.root / "analysis/dependencies.json"
+    if structural_path.exists():
+        structural = store.read("analysis/dependencies.json")
+        if structural["snapshot"] != snapshot["id"]:
+            raise ValueError("Structural baseline belongs to another snapshot")
+        report["structural_analysis"] = {
+            "path": "analysis/dependencies.json",
+            "sha256": hashlib.sha256(structural_path.read_bytes()).hexdigest(),
+            "dependency_edges": structural["coverage"]["dependency_edges"],
+            "module_count": structural["coverage"]["indexed_modules"],
+            "cycles": structural["strongly_connected_cycles"],
+            "bridge_modules": structural["bridge_modules"],
+            "top_coupled_modules": structural["top_coupled_modules"],
+            "dsm": structural["dsm"],
+        }
+        if structural["dsm"]["status"] == "ready":
+            dsm_path = store.root / structural["dsm"]["path"]
+            report["structural_analysis"]["dsm_sha256"] = hashlib.sha256(dsm_path.read_bytes()).hexdigest()
     for finding in findings:
         if finding.get("knowledge"):
             report["knowledge"] = finding["knowledge"]

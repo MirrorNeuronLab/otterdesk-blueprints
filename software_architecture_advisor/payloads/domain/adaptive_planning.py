@@ -166,6 +166,21 @@ def plan_architecture(context, work, *, llm_client=None):
                 "remaining": {"models": max(0, store.config["llm"]["max_calls"] - cfg["final_model_reserve"] - usage.get("models", 0)),
                               "queries": max(0, cfg["max_queries"] - usage.get("queries", 0)),
                               "rounds": max(0, cfg["max_rounds"] - revision)}, "revision": revision}
+        structural_path = store.root / "analysis/dependencies.json"
+        if structural_path.exists():
+            structural = store.read("analysis/dependencies.json")
+            if structural["snapshot"] != snapshot["id"]:
+                raise ValueError("Structural baseline belongs to another snapshot")
+            data["structural_baseline"] = {
+                "artifact": "analysis/dependencies.json",
+                "top_coupled_modules": structural["top_coupled_modules"][:8],
+                "cycles": structural["strongly_connected_cycles"][:8],
+                "cycle_count": len(structural["strongly_connected_cycles"]),
+                "bridge_modules": structural["bridge_modules"][:8],
+                "dependency_edges": structural["coverage"]["dependency_edges"],
+                "dsm_status": structural["dsm"]["status"],
+                "interpretation_limit": "Static graph signals only; prioritize the user goal and seek counter-evidence.",
+            }
         model = RecordedModel(store, f"plan-{revision}", llm_client)
         try:
             value = validated_completion(model, PLANNER, data, lambda v: validate_round(v, snapshot, prior, cfg))

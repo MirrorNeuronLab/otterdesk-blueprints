@@ -26,6 +26,10 @@ def test_compiled_contract_and_docker_handlers(modules):
     from mn_sdk.submission_preparation import lower_manifest_topology_for_runtime_submission
     lower_manifest_topology_for_runtime_submission(compiled)
     assert 'investigate_architecture' in compiled['flow']['child_workflows']
+    steps = {item['id']: item for item in source['workflow']['steps']}
+    assert steps['analyze_dependency_structure']['needs'] == ['capture_repository']
+    assert steps['investigate_architecture']['needs'] == ['analyze_dependency_structure']
+    assert steps['publish_architecture_review']['needs'] == ['investigate_architecture']
     assert len(compiled['agents']['nodes']) >= 9
     assert source['response_service'] == {'enabled': True}
     assert source['contracts']['inputs']['input_folder']['type'] == 'local_path'
@@ -48,12 +52,49 @@ def test_default_output_uses_sdk_host_copy_contract():
     assert config['outputs']['write_run_store'] is True
 
 
+def test_structural_baseline_has_source_linked_edges_cycles_and_bounded_dsm(modules, tmp_path):
+    import csv
+    from domain.structural_analysis import analyze_dependencies, _write_dsm
+
+    snapshot = {'id': 'frozen', 'modules': {name: {'path': f'{name}.py'} for name in ('a', 'b', 'c')},
+                'coverage': {'source_files': 3, 'skipped': {}}}
+    nodes = [{'id': index, 'properties': {'key': f'module:{name}'}}
+             for index, name in enumerate(('a', 'b', 'c'), 1)]
+    pairs = [(1, 2), (2, 1), (3, 2)]
+    edges = [{'src': source, 'dst': target, 'rel_type': 'DEPENDS_ON',
+              'properties': {'evidence_ids': [f'E{index}']}}
+             for index, (source, target) in enumerate(pairs, 1)]
+    evidence = {f'E{index}': {'path': f'{"abc"[source-1]}.py', 'sha256': 'frozen-hash',
+                              'line_start': index, 'line_end': index}
+                for index, (source, _) in enumerate(pairs, 1)}
+
+    result, adjacency = analyze_dependencies(snapshot, nodes, edges, evidence, max_dsm_modules=3)
+    assert result['strongly_connected_cycles'] == [['a', 'b']]
+    assert result['bridge_modules'] == ['b']
+    assert result['fan_in'] == {'a': 1, 'b': 2, 'c': 0}
+    assert result['dependencies'][0]['source_locations'][0]['path'] == 'a.py'
+    assert result['dsm']['status'] == 'ready'
+    path = tmp_path / 'dsm.csv'
+    _write_dsm(path, result['modules'], adjacency)
+    with path.open(newline='') as file:
+        assert list(csv.reader(file)) == [
+            ['module', 'a', 'b', 'c'], ['a', '0', '1', '0'],
+            ['b', '1', '0', '0'], ['c', '0', '1', '0']]
+
+    limited, _ = analyze_dependencies(snapshot, nodes, edges, evidence, max_dsm_modules=2)
+    assert limited['dsm']['status'] == 'omitted_size_limit'
+    assert len(limited['dependencies']) == 3
+    with pytest.raises(ValueError, match='evidence'):
+        analyze_dependencies(snapshot, nodes, edges, {}, max_dsm_modules=3)
+
+
 def test_desktop_sample_selects_public_repository_without_graph_export(modules):
     ui=json.loads((BLUEPRINT/'extensions/ui.json').read_text())
     guide=ui['setup_guide']
     sample=guide['sample']['values']
     fields={field['path']: field for field in guide['fields']}
     assert guide['sample']['available'] is True
+    assert fields['inputs.payload.goal']['type']=='textarea'
     assert fields['inputs.payload.graph_export']['path_kind']=='file'
     assert fields['inputs.payload.input_folder']['activeWhenAny']==[
         {'key': 'inputs.payload.repository_url', 'equals': ''}
@@ -238,7 +279,7 @@ def test_three_workers_durable_replay_and_frozen_evidence(modules,tmp_path,monke
     monkeypatch.setenv('MN_BLUEPRINT_BUNDLE_DIR',str(BLUEPRINT))
     output=tmp_path/'output'
     monkeypatch.setenv('MN_JOB_OUTPUT_DIR',str(output))
-    pairs=[('capture_repository','repository_examiner'),('investigate_architecture','architecture_investigator'),('publish_architecture_review','architecture_review_editor')]
+    pairs=[('capture_repository','repository_examiner'),('analyze_dependency_structure','architecture_structure_analyst'),('investigate_architecture','architecture_investigator'),('publish_architecture_review','architecture_review_editor')]
     inputs={'input_folder':str(folder),'goal':'Inspect payments.payment_service retry boundaries'}
     for index,(step,role) in enumerate(pairs):
         worker=importlib.import_module('agents.'+role)

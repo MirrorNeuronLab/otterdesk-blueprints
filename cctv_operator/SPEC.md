@@ -20,6 +20,12 @@ publisher, and starts them before the sampler opens the stream. This is an
 explicit source profile, not an error fallback.
 
 `video_source.profile=external` requires one RTSP, RTSPS, RTMP, or RTMPS URI.
+When submitted from a Mac, an external loopback or wildcard URI is invalid:
+the NVIDIA worker runs on a different node and cannot reach a stream bound only
+to the Mac's loopback address. The stream server must listen on a network
+interface and the configured URI must resolve to an address reachable from the
+selected NVIDIA node. A stream local to that NVIDIA node may use loopback when
+submitted from that node.
 Stream credentials are redacted from logs, events, browser URLs, and public
 service artifacts. A file URI, unsupported scheme, unreachable stream, decode
 failure, or model failure is explicit; an external source never falls back to
@@ -81,6 +87,16 @@ instruction if a later agent-state snapshot is stale.
 Steering state is stored in the adaptive sampler’s agent state with a monotonically increasing revision and never crosses run boundaries.
 
 ## Adaptive sampling contract
+
+The detector screens each selected frame batch with one schema-constrained
+vision call returning only a boolean condition result and confidence. A result
+at or above `condition_screening.min_confidence` branches to detailed analysis
+only when the condition is met. A lower-confidence result creates a blocking
+human approval request with a bounded snapshot; approval permits the detailed
+call on that same batch, while rejection or a 180-second timeout skips it.
+Human decisions are recorded in the authoritative run ledger. Detailed analysis
+still reports uncertainty and observable evidence, and does not infer identity
+or intent.
 
 - Proxy inspection: 1 FPS at 320 pixels.
 - Baseline model analysis: every 20 seconds.

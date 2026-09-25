@@ -58,6 +58,8 @@ def _run_detector(
     state=None,
     message=None,
     config=None,
+    gate=None,
+    review_approved=None,
 ):
     run_dir = tmp_path / "run"
     batch_dir = run_dir / "frame_batches" / "batch-test"
@@ -127,15 +129,58 @@ def _run_detector(
     monkeypatch.setenv("SLACK_ALERT_ENABLED", "false")
     monkeypatch.delenv("MOCK_VLM_DETECTION", raising=False)
     monkeypatch.delenv("VISUAL_DETECTION_PROMPT", raising=False)
-    def fake_call_ollama(_frame, prompt):
+    def fake_call_ollama(_frame, prompt, *, response_schema=None):
+        if response_schema:
+            return gate or {"condition_met": True, "confidence": 0.95}
         prompts.append(prompt)
         return module.normalize_detection(detection)
 
     monkeypatch.setattr(module, "call_ollama", fake_call_ollama)
+    if review_approved is not None:
+        monkeypatch.setattr(module, "await_operator_review", lambda **_kwargs: review_approved)
 
     module.main()
     output = json.loads(capsys.readouterr().out)
     return output, prompts
+
+
+def test_confident_absence_skips_detailed_model_call(monkeypatch, tmp_path, capsys):
+    detector = _load_detector()
+    output, deep_prompts = _run_detector(
+        detector, monkeypatch, tmp_path, capsys,
+        payload={"tick_seq": 1, "camera_id": "entrance"},
+        detection={"detected": True, "confidence": 0.99},
+        gate={"condition_met": False, "confidence": 0.94},
+    )
+    assert deep_prompts == []
+    assert output["next_state"]["last_observation"]["detected_target"] is False
+    assert output["next_state"]["last_observation"]["condition_screening"]["route"] == "no_match"
+
+
+def test_uncertain_gate_only_runs_detail_after_operator_approval(monkeypatch, tmp_path, capsys):
+    detector = _load_detector()
+    output, deep_prompts = _run_detector(
+        detector, monkeypatch, tmp_path, capsys,
+        payload={"tick_seq": 2, "camera_id": "entrance"},
+        detection={"detected": True, "detected_target": True, "confidence": 0.9,
+                   "summary": "A person is visible."},
+        gate={"condition_met": True, "confidence": 0.56}, review_approved=False,
+    )
+    assert deep_prompts == []
+    assert output["next_state"]["last_observation"]["detected_target"] is False
+    assert output["next_state"]["last_observation"]["condition_screening"]["route"] == "review_declined"
+
+    approved_dir = tmp_path / "approved"
+    approved_dir.mkdir()
+    output, deep_prompts = _run_detector(
+        detector, monkeypatch, approved_dir, capsys,
+        payload={"tick_seq": 2, "camera_id": "entrance"},
+        detection={"detected": True, "detected_target": True, "confidence": 0.9,
+                   "summary": "A person is visible."},
+        gate={"condition_met": True, "confidence": 0.56}, review_approved=True,
+    )
+    assert len(deep_prompts) == 1
+    assert output["next_state"]["last_observation"]["detected_target"] is True
 
 
 def test_cctv_operator_chat_context_answers_what_happened(monkeypatch, tmp_path, capsys):

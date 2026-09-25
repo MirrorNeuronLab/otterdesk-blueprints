@@ -8,6 +8,10 @@
         "handler": "agents.repository_examiner",
         "role": "Repository Examiner"
       },
+      "architecture_structure_analyst": {
+        "handler": "agents.architecture_structure_analyst",
+        "role": "Architecture Structure Analyst"
+      },
       "architecture_investigator": {
         "handler": "agents.architecture_investigator",
         "role": "Architecture Investigator"
@@ -57,6 +61,7 @@
       {
         "steps": [
           "capture_repository",
+          "analyze_dependency_structure",
           "investigate_architecture",
           "publish_architecture_review",
           "plan_architecture_round",

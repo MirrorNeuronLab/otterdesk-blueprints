@@ -638,7 +638,9 @@
         "result.json",
         "final_artifact.json",
         "cctv_report.json",
-        "cctv_report.md"
+        "cctv_report.md",
+        "web/conversation_media.json",
+        "web/cctv_snapshot.jpg"
       ],
       "path": "./runs/${run_id}",
       "type": "local_run_store"

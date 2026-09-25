@@ -1,6 +1,11 @@
 {
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/product.schema.json",
   "category": "Software Engineering",
+  "pricing": {
+    "model": "subscription",
+    "rate": 100,
+    "unit": "month"
+  },
   "product": {
     "agent_role": "Co-worker for reviewing software architecture.",
     "problem": "Teams need evidence from their codebase before deciding where to change software boundaries.",

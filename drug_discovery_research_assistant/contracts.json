@@ -239,6 +239,18 @@
         "type": "report"
       },
       {
+        "artifact_id": "conversation_media",
+        "mime_type": "application/json",
+        "path": "web/conversation_media.json",
+        "producer": "ranking_reporting",
+        "required": false,
+        "schema_version": "otterdesk.conversation_media.v1",
+        "source_refs": [
+          "final_artifact.json"
+        ],
+        "type": "conversation_media"
+      },
+      {
         "artifact_id": "human_events",
         "mime_type": "application/x-jsonlines",
         "path": "human.jsonl",
@@ -528,6 +540,18 @@
           "leading_candidate.json"
         ],
         "type": "report"
+      },
+      {
+        "artifact_id": "conversation_media",
+        "mime_type": "application/json",
+        "path": "web/conversation_media.json",
+        "producer": "ranking_reporting",
+        "required": false,
+        "schema_version": "otterdesk.conversation_media.v1",
+        "source_refs": [
+          "final_artifact.json"
+        ],
+        "type": "conversation_media"
       },
       {
         "artifact_id": "human_events",

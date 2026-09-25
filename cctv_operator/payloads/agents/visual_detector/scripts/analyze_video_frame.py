@@ -3,8 +3,10 @@ from __future__ import annotations
 
 import base64
 import datetime as dt
+import hashlib
 import json
 import os
+import subprocess
 import sys
 import time
 import urllib.error
@@ -38,6 +40,7 @@ from video_json_utils import (
 from mn_sdk import RuntimeModelError, runtime_model_json_request
 from mn_sdk_common.prompts import PromptLibrary
 from mn_sdk_common.beacon import start_agent_beacon_thread
+from mn_sdk.blueprint_support import append_human_event, read_human_events
 from mn_live_video_analysis_skill import (
     model_user_content,
     redact_source_uri,
@@ -50,6 +53,8 @@ from domain.detection_policy import (
     evaluate_alert,
     target_prompt_text,
 )
+from domain.screening import GATE_SCHEMA, approved, branch, normalize_gate, review_request
+from domain.conversation_snapshot import publish_snapshot
 
 
 PROMPTS = PromptLibrary.from_script(__file__, parents_up=3)
@@ -142,7 +147,8 @@ def mock_detection(frame_seq: int) -> dict[str, Any]:
     }
 
 
-def call_ollama(frame: bytes | list[bytes], prompt: str) -> dict[str, Any]:
+def call_ollama(frame: bytes | list[bytes], prompt: str, *,
+                response_schema: dict[str, Any] | None = None) -> dict[str, Any]:
     provider = (
         os.environ.get("MN_VLM_PROVIDER")
         or os.environ.get("MN_LLM_PROVIDER")
@@ -182,9 +188,13 @@ def call_ollama(frame: bytes | list[bytes], prompt: str) -> dict[str, Any]:
                     "content": model_user_content(model_prompt, frame),
                 }
             ],
-            "max_tokens": int(os.environ.get("MN_VLM_MAX_TOKENS") or os.environ.get("MN_LLM_MAX_TOKENS") or os.environ.get("OLLAMA_NUM_PREDICT", "900")),
+            "max_tokens": 80 if response_schema else int(os.environ.get("MN_VLM_MAX_TOKENS") or os.environ.get("MN_LLM_MAX_TOKENS") or os.environ.get("OLLAMA_NUM_PREDICT", "900")),
             "temperature": float(os.environ.get("MN_VLM_TEMPERATURE") or os.environ.get("OLLAMA_TEMPERATURE", "0.0")),
-            "response_format": {"type": "json_object"},
+            "response_format": (
+                {"type": "json_schema", "json_schema": {
+                    "name": "cctv_condition_gate", "strict": True, "schema": response_schema,
+                }} if response_schema else {"type": "json_object"}
+            ),
         }
         if uses_dmr:
             payload["chat_template_kwargs"] = {"enable_thinking": False}
@@ -238,13 +248,13 @@ def call_ollama(frame: bytes | list[bytes], prompt: str) -> dict[str, Any]:
                 f"reasoning_only={str(reasoning_only).lower()}, "
                 f"parse_error={parse_error})"
             )
-        return normalize_detection(result)
+        return normalize_gate(result) if response_schema else normalize_detection(result)
 
     payload = {
         "model": model.removeprefix("ollama/"),
         "prompt": prompt,
         "stream": False,
-        "format": "json",
+        "format": response_schema or "json",
         "think": os.environ.get("OLLAMA_THINK", "false").strip().lower() in {"1", "true", "yes", "on"},
         "images": [
             base64.b64encode(item).decode("ascii")
@@ -252,7 +262,7 @@ def call_ollama(frame: bytes | list[bytes], prompt: str) -> dict[str, Any]:
         ],
         "options": {
             "temperature": float(os.environ.get("OLLAMA_TEMPERATURE", "0.0")),
-            "num_predict": int(os.environ.get("OLLAMA_NUM_PREDICT", "300")),
+            "num_predict": 80 if response_schema else int(os.environ.get("OLLAMA_NUM_PREDICT", "300")),
         },
     }
     request = urllib.request.Request(
@@ -278,7 +288,7 @@ def call_ollama(frame: bytes | list[bytes], prompt: str) -> dict[str, Any]:
             "legacy Ollama returned no valid structured detection "
             f"(parse_error={parse_error})"
         )
-    return normalize_detection(result)
+    return normalize_gate(result) if response_schema else normalize_detection(result)
 
 
 def _normalize_vlm_model(model: str) -> str:
@@ -658,14 +668,8 @@ def detection_prompt(
     attention_instruction: str | None = None,
     visual_targets: list[str] | None = None,
 ) -> str:
-    target_description = os.environ.get("VISUAL_DETECTION_TARGETS", "").strip()
-    if not target_description:
-        target_description = target_prompt_text(
-            visual_targets or list(configured_visual_targets({}))
-        )
     attention_text = normalize_attention_instruction(attention_instruction)
-    if attention_text:
-        target_description = attention_text
+    target_description = active_visual_goal(attention_text, visual_targets)
     attention_instruction_text = (
         f"Operator attention request: {attention_text}"
         if attention_text
@@ -677,6 +681,76 @@ def detection_prompt(
         attention_instruction=attention_instruction_text,
         camera_id=camera_id,
     )
+
+
+def active_visual_goal(attention_instruction: str | None,
+                       visual_targets: list[str] | None) -> str:
+    attention_text = normalize_attention_instruction(attention_instruction)
+    if attention_text:
+        return attention_text
+    return (os.environ.get("VISUAL_DETECTION_TARGETS", "").strip()
+            or target_prompt_text(visual_targets or list(configured_visual_targets({}))))
+
+
+def condition_prompt(camera_id: str, goal: str) -> str:
+    return render_prompt(
+        "monitoring-condition.md", camera_id=camera_id,
+        target_description=goal,
+    )
+
+
+def await_operator_review(*, batch_ref: str, instruction_revision: int,
+                          goal: str, camera_id: str, frame_seq: int,
+                          confidence: float) -> bool:
+    run_id = str(os.environ.get("MN_RUN_ID") or "").strip()
+    if not run_id:
+        raise RuntimeError("MN_RUN_ID is required for a CCTV review request")
+    run_dir = configured_run_dir()
+    request_id = "cctv-review-" + hashlib.sha256(
+        f"{run_id}:{batch_ref}:{instruction_revision}".encode()
+    ).hexdigest()[:24]
+    runs_root = run_dir.parent
+    prior = read_human_events(run_id, runs_root=runs_root)
+    for event in reversed(prior):
+        if (event.get("payload") or {}).get("request_id") == request_id and event.get("type") == "human_decision_applied":
+            return approved(event.get("payload") or {})
+    if not any(event.get("type") == "human_input_requested" and
+               (event.get("payload") or {}).get("request_id") == request_id
+               for event in prior):
+        append_human_event(
+            run_id, "human_input_requested",
+            review_request(request_id=request_id, goal=goal, camera_id=camera_id,
+                           frame_seq=frame_seq, confidence=confidence),
+            runs_root=runs_root,
+        )
+    deadline = time.monotonic() + 180
+    while time.monotonic() < deadline:
+        for event in reversed(read_human_events(run_id, runs_root=runs_root)):
+            if (event.get("payload") or {}).get("request_id") != request_id:
+                continue
+            if event.get("type") == "human_input_received":
+                allowed = approved(event.get("payload") or {})
+                append_human_event(
+                    run_id, "human_decision_applied",
+                    {"request_id": request_id, "decision": "approve" if allowed else "reject",
+                     "approved": allowed, "frame_seq": frame_seq},
+                    runs_root=runs_root,
+                )
+                return allowed
+            if event.get("type") == "human_input_timeout":
+                return False
+        time.sleep(0.5)
+    append_human_event(run_id, "human_input_timeout",
+                       {"request_id": request_id, "status": "timed_out"},
+                       runs_root=runs_root)
+    return False
+
+
+def skipped_detection(gate: dict[str, Any], *, uncertain: bool = False) -> dict[str, Any]:
+    summary = ("The monitoring condition could not be confirmed from this frame."
+               if uncertain else "The monitoring condition was not observed in this frame.")
+    return normalize_detection({"detected_target": False, "confidence": gate["confidence"],
+                                "summary": summary, "risk_level": "low"})
 
 
 PERSON_TERMS = ("person", "people", "human", "worker", "visitor", "operator", "pedestrian")
@@ -746,6 +820,8 @@ def observation_from_detection(detection_payload: dict[str, Any]) -> dict[str, A
         "selected_count": detection_payload.get("selected_count"),
         "command_id": detection_payload.get("command_id"),
         "model_latency_ms": detection_payload.get("model_latency_ms"),
+        "condition_screening": detection_payload.get("condition_screening")
+        if isinstance(detection_payload.get("condition_screening"), dict) else {},
         "sampling_metrics": detection_payload.get("sampling_metrics")
         if isinstance(detection_payload.get("sampling_metrics"), dict)
         else {},
@@ -788,10 +864,7 @@ def what_happened_summary(observations: list[dict[str, Any]]) -> str:
             f"The last notable observation was frame {previous_notable.get('frame_seq')}: {notable_report}"
         ).strip()
 
-    return (
-        f"Most recently on frame {frame} from {camera_id}, no configured targets were observed. "
-        f"{compact_string(last.get('summary'), limit=300)}"
-    ).strip()
+    return f"Most recently on frame {frame} from {camera_id}, {compact_string(last.get('summary'), limit=300)}".strip()
 
 
 def update_conversation_context(state: dict[str, Any], detection_payload: dict[str, Any]) -> dict[str, Any]:
@@ -1069,29 +1142,63 @@ def main() -> None:
         source_uri = str(source["uri"])
         safe_source_uri = redact_source_uri(source_uri)
         position = float(source["position_seconds"])
-        model_started = time.monotonic()
-        if os.environ.get("MOCK_VLM_DETECTION", "false").strip().lower() in {"1", "true", "yes", "on"}:
-            detection = mock_detection(frame_seq)
-        else:
-            detection = call_ollama(
-                batch_frames,
-                detection_prompt(
-                    camera_id,
-                    attention_instruction,
-                    visual_targets,
-                ),
+        goal = active_visual_goal(attention_instruction, visual_targets)
+        screening_config = config.get("condition_screening") if isinstance(config.get("condition_screening"), dict) else {}
+        min_confidence = safe_confidence(screening_config.get("min_confidence", 0.8))
+        mock_mode = os.environ.get("MOCK_VLM_DETECTION", "false").strip().lower() in {"1", "true", "yes", "on"}
+        gate_started = time.monotonic()
+        gate = (
+            {"condition_met": mock_detection(frame_seq)["detected_target"], "confidence": 0.95}
+            if mock_mode else call_ollama(
+                batch_frames, condition_prompt(camera_id, goal), response_schema=GATE_SCHEMA,
             )
-        model_latency_ms = max(
-            0, int((time.monotonic() - model_started) * 1000)
         )
+        gate_latency_ms = max(0, int((time.monotonic() - gate_started) * 1000))
+        route = branch(gate, min_confidence=min_confidence)
         latest_frame_metadata: dict[str, Any] = {}
         if batch is not None:
             _latest_path, latest_frame_metadata = write_latest_analyzed_frame(
                 configured_run_dir(),
                 batch,
-                model_latency_ms=model_latency_ms,
+                model_latency_ms=gate_latency_ms,
                 schema="otterdesk.cctv_operator.latest_frame.v2",
             )
+            try:
+                publish_snapshot(
+                    configured_run_dir(), _latest_path,
+                    run_id=str(os.environ.get("MN_RUN_ID") or ""),
+                    camera_id=camera_id, frame_seq=frame_seq,
+                )
+            except (OSError, subprocess.SubprocessError):
+                pass  # The original frame remains authoritative if the chat preview fails.
+        events.append({"type": "cctv_operator_condition_screened", "payload": {
+            "camera_id": camera_id, "frame_seq": frame_seq, "condition_met": gate["condition_met"],
+            "confidence": gate["confidence"], "route": route, "frame_batch_ref": batch_ref,
+        }})
+        if route == "human_review":
+            if await_operator_review(
+                batch_ref=batch_ref,
+                instruction_revision=int(payload.get("instruction_revision") or batch.get("instruction_revision") or 0),
+                goal=goal, camera_id=camera_id, frame_seq=frame_seq,
+                confidence=gate["confidence"],
+            ):
+                route = "deep_analysis"
+            else:
+                route = "review_declined"
+        model_latency_ms = gate_latency_ms
+        if route == "deep_analysis":
+            deep_started = time.monotonic()
+            detection = mock_detection(frame_seq) if mock_mode else call_ollama(
+                batch_frames,
+                detection_prompt(camera_id, attention_instruction, visual_targets),
+            )
+            model_latency_ms += max(0, int((time.monotonic() - deep_started) * 1000))
+            events.append({"type": "cctv_operator_deep_analysis_completed", "payload": {
+                "camera_id": camera_id, "frame_seq": frame_seq, "frame_batch_ref": batch_ref,
+                "detected_target": detection["detected_target"],
+            }})
+        else:
+            detection = skipped_detection(gate, uncertain=route == "review_declined")
 
         detection_payload = {
             **detection,
@@ -1124,6 +1231,7 @@ def main() -> None:
             "model_latency_ms": model_latency_ms,
             "sampling_metrics": dict((batch or {}).get("metrics") or {}),
             "latest_analyzed_frame": latest_frame_metadata or None,
+            "condition_screening": {**gate, "route": route, "min_confidence": min_confidence},
             "configured_targets": visual_targets,
         }
         alert_decision = evaluate_alert(

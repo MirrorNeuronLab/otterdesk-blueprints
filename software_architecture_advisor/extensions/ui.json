@@ -28,6 +28,12 @@
     },
     "fields": [
       {
+        "path": "inputs.payload.goal",
+        "label": "Decision to support",
+        "type": "textarea",
+        "description": "Describe the architecture decision, important journey or failure scenario, and any constraints the review should prioritize."
+      },
+      {
         "path": "inputs.payload.repository_url",
         "label": "Repository URL",
         "type": "url",
