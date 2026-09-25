@@ -60,6 +60,10 @@ The prototype accepts local startup documents in PDF, TXT, Markdown, JSON, and C
 
 ## Output: Expected Customer Outcome
 
+Version 1.1.1 sets the default host output folder to
+`~/Downloads/vc-assistant`, matching the declared job name. Previously
+submitted jobs retain their configured destination.
+
 Each company gets a dedicated output folder with structured JSON, Markdown, source records, and local evidence records. The report covers:
 
 - Berkus Method

@@ -98,7 +98,7 @@ reports state cancellation, exhausted budgets and unresolved enquiries explicitl
 ## Inspect outputs
 
 Outputs live in the SDK-provided platform run directory on shared storage.
-The configured output folder (default `~/Downloads/litigation_analyst`) receives
+The configured output folder (default `~/Downloads/litigation-analyst`) receives
 an additional host copy. `review_index.json` locates:
 
 - `final_report.md`: neutral hypotheses, findings, citations, limitations and coverage.
@@ -149,7 +149,7 @@ evidence remain in `case/agent_checkpoint.json`; evidence bodies and manuals are
 not copied into the event feed. Existing runs retain their original worker code;
 start a new run to use updated activity events.
 
-The default customer destination is `~/Downloads/litigation_analyst`, configured
+The default customer destination is `~/Downloads/litigation-analyst`, configured
 through `outputs.folder_path` and copied back to the submitting host by the SDK.
 `final_report.md` contains the evidence-based investigation report;
 `review_index.json` identifies the audit root, and `runs/<run-id>/` preserves each

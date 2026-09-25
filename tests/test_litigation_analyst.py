@@ -392,9 +392,9 @@ def test_final_report_export_is_grounded_and_uses_configured_destination(
     )
     (folder / "notice.txt").write_text(quotation)
     context = make_context(tmp_path, folder)
-    context["output_folder"] = tmp_path / "Downloads/litigation_analyst"
+    context["output_folder"] = tmp_path / "Downloads/litigation-analyst"
     assert (
-        context["config"]["outputs"]["folder_path"] == "~/Downloads/litigation_analyst"
+        context["config"]["outputs"]["folder_path"] == "~/Downloads/litigation-analyst"
     )
     modules["intake"].prepare_sources(context)
     modules["indexing"].build_indexes(context)
@@ -474,6 +474,6 @@ def test_default_download_destination_is_registered_for_runtime_copy(
     )
     copies = json.loads(prepared.manifest_json)["metadata"]["mn_storage"]["output_copy"]
     assert any(
-        item["target_path"] == str(tmp_path / "Downloads/litigation_analyst")
+        item["target_path"] == str(tmp_path / "Downloads/litigation-analyst")
         for item in copies
     )

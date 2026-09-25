@@ -23,7 +23,7 @@
     "install_scope": "shared_job_container"
   },
   "outputs": {
-    "folder_path": "~/Downloads/litigation_analyst"
+    "folder_path": "~/Downloads/litigation-analyst"
   },
   "context_memory": {
     "enabled": true,

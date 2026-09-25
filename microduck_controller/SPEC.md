@@ -38,6 +38,10 @@ Every motion, navigation, play, locomotion, ball, and reset effect performs a fr
 
 ## Limits and artifacts
 
+Version 1.1.1 sets the default host output folder to
+`~/Downloads/microduck-controller`, matching the declared job name. Previously
+submitted jobs retain their configured destination.
+
 This is a software demonstration, not a physical-robot controller. It has no ROS, no server-side simulator backend, no general autonomous navigation, no camera-based perception, and no cross-Run command replay. Its goal-directed behaviors are the bounded deterministic approach to an already-active ball and the stoppable find-kick-reacquire loop built from that approach. Conversation planning belongs to the stable Job response service and uses only the same-node LiteLLM proxy's default route plus the blueprint's MCP contract and job-scoped RAG.
 
 The service writes `web_ui.json`, `duck_service_state.json`, `duck_command_history.json`, and the normal final service artifact under the Run output. These artifacts contain no credentials or browser address details.

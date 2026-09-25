@@ -2,7 +2,7 @@
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/manifest.schema.json",
   "id": "purchasing_manager",
   "name": "Procurement Manager",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Turns a purchase request into a review-ready comparison. Checks supplier quotes, known costs, requirements, and evidence; flags required reviews without contacting suppliers or placing orders.",
   "workflow": "workflow.json",
   "execution": "execution.json",

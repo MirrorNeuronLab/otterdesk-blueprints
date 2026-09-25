@@ -16,6 +16,9 @@ events without exposing the camera URI to the browser. Visual analysis
 uses the cataloged `nemotron3:q4_K_M` Docker Model Runner artifact through the
 node-local LiteLLM proxy.
 
+The default host output folder is `~/Downloads/cctv-operator`. New runs copy
+their review artifacts there and OtterDesk opens that same folder.
+
 ## Source contract
 
 The default `video_source.profile=bundled_demo` starts MediaMTX and a looping

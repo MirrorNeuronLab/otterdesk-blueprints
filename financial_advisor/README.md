@@ -24,7 +24,7 @@ Or from this blueprint folder:
 mn blueprint run .
 ```
 
-The default sample input folder is `financial_advisor/examples/sample_inputs`; the default output folder is `~/Downloads/financial_advisor`. The sample folder includes synthetic bank/tax/portfolio text fixtures plus tax-form image/label pairs for local OCR-capture validation.
+The default sample input folder is `financial_advisor/examples/sample_inputs`; the default output folder is `~/Downloads/financial-advisor`. The sample folder includes synthetic bank/tax/portfolio text fixtures plus tax-form image/label pairs for local OCR-capture validation.
 
 ## Process and agents
 

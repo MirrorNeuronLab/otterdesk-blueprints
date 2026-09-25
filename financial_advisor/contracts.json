@@ -103,7 +103,7 @@
     },
     "output_folder": {
       "description": "Local folder where JSON and Markdown advisor reports should be written.",
-      "example": "~/Downloads/financial_advisor",
+      "example": "~/Downloads/financial-advisor",
       "path_kind": "directory",
       "privacy": "regulated",
       "required": true,

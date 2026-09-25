@@ -26,6 +26,10 @@ not replace them with machine-specific choices.
 
 ## Output Contract
 
+Version 1.1.1 sets the default host output folder to
+`~/Downloads/research-assistant`, matching the declared job name. Previously
+submitted jobs retain their configured destination.
+
 The primary artifact is `mn.blueprint.research_assistant.v2`. It contains a research goal, executive summary, `recommended_action` (`review_research_packet` or `gather_more_evidence`), confidence, source-grounded evidence, source analysis, question decomposition, an autonomous phase trace, tool/generated-code observations, a hypothesis ledger, per-hypothesis critique ledger, independent ranking, experiment concepts, evidence gaps, next steps, and source references. Generation provenance reports the provider, selected model, model-call count, fallback-call count, and completed research-phase count. Its `status` is `review_ready` only when at least one extracted local document or observed public source is present; otherwise it is `needs_evidence` and preserves diagnostics without presenting the packet as review-ready.
 
 The workflow has six logical steps executed through the same Docker-worker contract as VC Assistant: deterministic context preparation, parallel preflight assessments with an explicit join, one isolated autonomous Docker worker, and deterministic verification/publication. The autonomous worker may set or refine goals, create prompts, and request allowlisted `mn-skills` tools. Generated Python remains a proposal because the workflow lacks an enforceable experiment-batch approval grant. The final deterministic step rejects untraceable claims or missing review boundaries.

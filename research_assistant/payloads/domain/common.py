@@ -30,7 +30,7 @@ CATEGORY = "Science"
 OUTPUT_TYPE = "research_assistant_packet"
 
 
-DEFAULT_OUTPUT_FOLDER = "~/Downloads/research_assistant"
+DEFAULT_OUTPUT_FOLDER = "~/Downloads/research-assistant"
 
 
 SUPPORTED_SUFFIXES = {".pdf", ".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".webp", ".txt", ".md", ".json", ".csv"}

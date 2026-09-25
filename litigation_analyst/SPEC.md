@@ -62,6 +62,10 @@ methodology, never evidence or an assumption of applicable jurisdiction.
 
 ## Artifacts and compatibility
 
+Version 2.0.2 sets the default host export to
+`~/Downloads/litigation-analyst`, matching the declared job name. Previously
+submitted jobs retain their configured destination.
+
 Immutable proposals, task inputs, evidence, assessments, reviews, round summaries
 and model receipts live in `case/rounds/`. A final checkpoint projection preserves
 the existing citation-checking and rendering interfaces. Evidence SQLite, source

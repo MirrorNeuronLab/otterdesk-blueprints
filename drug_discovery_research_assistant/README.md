@@ -58,7 +58,7 @@ The dispatcher must accept the job JSON on stdin and return a JSON result or wri
 
 ## Output and safety
 
-The default user-facing output folder is `~/Downloads/drug_discovery`. While the service runs, it publishes `service_status.json`, `cycle_progress.json`, the latest generated candidate pool in `candidates.json`, the latest completed cycle in `latest_cycle_report.json`, and the leading-candidate view in `leading_candidate.json` plus `leading_candidate.svg`; detailed per-cycle artifacts remain under the run directory. After ranking it also writes the optional `web/index.html` and `web_ui.json` outputs. The page shows the leading candidate scores and up to five ranked candidate structures and SMILES strings. Private structure paths and input text remain excluded. Service reports are computational hypotheses only. The blueprint does not authorize wet-lab work, clinical claims, regulatory submissions, or external candidate publication without human approval.
+The default user-facing output folder is `~/Downloads/drug-discovery-research-assistant`. While the service runs, it publishes `service_status.json`, `cycle_progress.json`, the latest generated candidate pool in `candidates.json`, the latest completed cycle in `latest_cycle_report.json`, and the leading-candidate view in `leading_candidate.json` plus `leading_candidate.svg`; detailed per-cycle artifacts remain under the run directory. After ranking it also writes the optional `web/index.html` and `web_ui.json` outputs. The page shows the leading candidate scores and up to five ranked candidate structures and SMILES strings. Private structure paths and input text remain excluded. Service reports are computational hypotheses only. The blueprint does not authorize wet-lab work, clinical claims, regulatory submissions, or external candidate publication without human approval.
 
 ## Shared job data
 
@@ -80,7 +80,7 @@ cycle.
 python3 -m pytest -q tests/test_drug_discovery_research_assistant.py
 ```
 
-The default output folder is configured as `~/Downloads/drug_discovery`. The SDK copies remote outputs back to this directory on the submitting host. `candidates.json` contains five unique molecules; `final_artifact.json` contains their ranked evaluations. The existing live run retains its submitted configuration; these settings apply to new runs.
+The default output folder is configured as `~/Downloads/drug-discovery-research-assistant`. The SDK copies remote outputs back to this directory on the submitting host. `candidates.json` contains five unique molecules; `final_artifact.json` contains their ranked evaluations. The existing live run retains its submitted configuration; these settings apply to new runs.
 
 ## Blueprint package format
 

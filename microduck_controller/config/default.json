@@ -15,7 +15,7 @@
     "adapter": "mock",
     "payload": {
       "input_folder": "microduck_controller/examples/sample_inputs",
-      "output_folder": "~/Download/microduck_controller"
+      "output_folder": "~/Downloads/microduck-controller"
     }
   },
   "mcp_control": {
@@ -54,7 +54,7 @@
   },
   "outputs": {
     "adapter": "local_run_store",
-    "folder_path": "~/Download/microduck_controller",
+    "folder_path": "~/Downloads/microduck-controller",
     "run_root": "~/.mn/runs",
     "write_run_store": true
   },

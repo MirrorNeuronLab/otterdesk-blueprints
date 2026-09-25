@@ -14,7 +14,7 @@
       "path_kind": "directory",
       "required": false,
       "description": "Run-scoped service artifacts are materialized here.",
-      "example": "~/Download/microduck_controller"
+      "example": "~/Downloads/microduck-controller"
     }
   },
   "outputs": {

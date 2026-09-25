@@ -95,7 +95,7 @@
           "person"
         ]
       },
-      "output_folder": "~/Download/cctv_operator",
+      "output_folder": "~/Downloads/cctv-operator",
       "source_mode": "stream",
       "video_source": "bundled_demo",
       "visual_targets": [
@@ -580,7 +580,7 @@
   "outputs": {
     "adapter": "local_run_store",
     "artifact_contract": "Visual detection observations with count, label, category, color, position, activity, confidence, and alert status.",
-    "folder_path": "~/Download/cctv_operator",
+    "folder_path": "~/Downloads/cctv-operator",
     "run_root": "~/.mn/runs",
     "skills": {
       "websocket_events": {
@@ -699,7 +699,7 @@
       "source_ref",
       "event_id"
     ],
-    "output_folder": "~/Download/cctv_operator",
+    "output_folder": "~/Downloads/cctv-operator",
     "resume_mode": "checkpoint"
   },
   "streams": {

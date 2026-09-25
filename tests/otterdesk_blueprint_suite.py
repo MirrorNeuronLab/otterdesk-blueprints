@@ -107,9 +107,8 @@ def _default_input_folder(blueprint_id: str) -> str:
 
 
 def _default_output_folder(blueprint_id: str) -> str:
-    if blueprint_id == "vc_assistant":
-        return f"~/Downloads/{blueprint_id}"
-    return f"~/Download/{blueprint_id}"
+    execution = json.loads((ROOT / blueprint_id / "execution.json").read_text(encoding="utf-8"))
+    return f"~/Downloads/{execution['job_name']}"
 
 
 def _flow_nodes(manifest: dict) -> list[dict]:

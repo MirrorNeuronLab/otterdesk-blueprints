@@ -92,7 +92,7 @@ Authoritative files remain in the SDK-provided Syncthing shared run directory:
 $MN_HOME/shared/submissions/<submission-id>/outputs/runs/<run-id>/
 ```
 
-`output_folder` (default `~/Downloads/litigation_analyst`) receives an additional
+`output_folder` (default `~/Downloads/litigation-analyst`) receives an additional
 host copy. `review_index.json` identifies `final_report.md`, `evidence_appendix.md`,
 `graph_appendix.md`, source/index receipts and the evidence database.
 

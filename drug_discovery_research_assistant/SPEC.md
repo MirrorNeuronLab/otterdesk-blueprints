@@ -47,7 +47,7 @@ latest-cycle context and cannot launch computation or advance a candidate.
 
 All results are computational hypotheses. The blueprint does not synthesize compounds, run assays, make clinical claims, submit regulatory material, or send candidates to external systems. Fake adapters are limited to explicit mock/smoke-test configuration and are labeled synthetic in every artifact. BioTarget Stage D invokes the native GNINA executable in the selected NVIDIA DockerWorker; no nested Docker socket or CPU-emulation path is part of the live contract.
 
-The default output folder is configured as `~/Downloads/drug_discovery`. The SDK copies remote outputs back to this directory on the submitting host. `candidates.json` contains five unique molecules; `final_artifact.json` contains their ranked evaluations. The existing live run retains its submitted configuration; these settings apply to new runs.
+Version 1.0.5 sets the default output folder to `~/Downloads/drug-discovery-research-assistant`, matching the declared job name. The SDK copies remote outputs back to this directory on the submitting host. `candidates.json` contains five unique molecules; `final_artifact.json` contains their ranked evaluations. The existing live run retains its submitted configuration; these settings apply to new runs.
 
 ## Blueprint package format
 

@@ -64,7 +64,7 @@
     },
     "output_folder": {
       "description": "Folder for the research packet and supporting ledgers.",
-      "example": "~/Downloads/research_assistant",
+      "example": "~/Downloads/research-assistant",
       "path_kind": "directory",
       "privacy": "confidential",
       "required": false,

@@ -58,7 +58,7 @@ and human approval.
 mn blueprint run --folder procurement_manager
 ```
 
-The default user-facing output folder is `~/Downloads/procurement_manager`. Run artifacts also appear under `~/.mn/runs/<run_id>/`.
+The default user-facing output folder is `~/Downloads/purchasing-manager`. Run artifacts also appear under `~/.mn/runs/<run_id>/`.
 
 OtterDesk's **Try a sample** action selects `examples/procurement_case`, a
 fictional offline quote set. The case section in the report shows cash due at
@@ -83,7 +83,7 @@ orders, and delivery are not executed by this version.
 - `priorities` and `constraints`: optional ranking preferences and must-have requirements.
 - `analysis`: horizon, discount rate, tax, utilization, energy/fuel, loaded
   labor, downtime, maintenance, residual value, and low/base/stress assumptions.
-- `output_folder`: defaults to `~/Downloads/procurement_manager`.
+- `output_folder`: defaults to `~/Downloads/purchasing-manager`.
 
 ## Research and RAG
 

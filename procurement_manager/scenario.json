@@ -42,7 +42,7 @@
     "constraints": {"min_system_ram_gb": 64, "min_storage_tb": 1, "min_warranty_years": 1},
     "analysis": {"horizon_years": 3, "discount_rate": 0.08, "tax_rate": 0.0625, "electricity_rate_per_kwh": 0.2452, "active_hours_per_year": 1000, "idle_hours_per_year": 1000, "loaded_labor_cost_per_hour": 95, "downtime_cost_per_hour": 190, "expected_downtime_hours_per_year": 6, "annual_maintenance_reserve": 150, "residual_value_percent": 0.1},
     "input_folder": "@/examples/edge_ai_workstation",
-    "output_folder": "~/Downloads/procurement_manager"
+    "output_folder": "~/Downloads/purchasing-manager"
   },
   "workflow_stages": [
     "procurement_intake_and_requirements",

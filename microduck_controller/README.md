@@ -34,6 +34,8 @@ The original application loads MuJoCo and ONNX runtime WASM from jsDelivr, so th
 
 The service produces `web_ui.json`, `duck_service_state.json`, and `duck_command_history.json` in its run directory. The HostLocal sidecar uses `mn-python-sdk-web-ui` to publish the actual endpoint to the durable Job UI handle and forwards only `/health` and `/mcp` to the registered control service. See [SPEC.md](SPEC.md) and [TERM.md](TERM.md) for the exact control and safety contract.
 
+The default host output folder is `~/Downloads/microduck-controller`.
+
 ## Validation
 
 ```bash

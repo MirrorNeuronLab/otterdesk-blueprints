@@ -116,6 +116,8 @@ independent by `run_id`.
 
 ## Outputs
 
+The default host output folder is `~/Downloads/vc-assistant`.
+
 Each company receives a subfolder containing:
 
 - `analysis.json`

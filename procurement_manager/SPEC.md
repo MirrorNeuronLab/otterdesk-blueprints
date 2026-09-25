@@ -78,6 +78,10 @@ and deletion do not clear job data.
 
 ## Output Contract
 
+Version 1.1.1 sets the default host output folder to
+`~/Downloads/purchasing-manager`, matching the declared job name. Previously
+submitted jobs retain their configured destination.
+
 The primary artifact is a `mn.blueprint.purchasing_manager.v1` packet containing the purchase type, item description, recommendation label, confidence, rationale, deterministic evidence, public-source records, RAG citations, supplier or candidate comparisons, landed acquisition cost, financial NPV TCO, risk-adjusted NPV TCO, equivalent annual cost, productive-unit economics, scenario sensitivity, cash/finance/lease status, procurement decision summary, approval checklist, risks, evidence gaps, next steps, and blocked actions. Additive structured fields carry TCO interpretation, risk interpretation, decision analysis, report narrative, and per-phase LLM generation provenance. The Markdown report is a code-rendered, human-readable view of the same evidence and validated narrative.
 
 At most five LLM calls may run per workflow execution, one for each selected

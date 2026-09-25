@@ -43,7 +43,7 @@
     "scope": "Desk research and offline simulation planning only; no live robot or production simulator changes.",
     "constraints": {"no_live_system_changes": true, "require_human_review": true, "max_hypotheses": 3},
     "input_folder": "@/examples/sample_inputs",
-    "output_folder": "~/Downloads/research_assistant"
+    "output_folder": "~/Downloads/research-assistant"
   },
   "workflow_stages": [
     "research_goal_framing",

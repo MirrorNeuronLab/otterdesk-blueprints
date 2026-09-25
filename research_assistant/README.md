@@ -20,7 +20,7 @@ It is inspired by the role separation in Google's AI co-scientist—not a reprod
 mn run research_assistant
 ```
 
-The default output folder is `~/Downloads/research_assistant`. Run-store artifacts are also written under `~/.mn/runs/<run_id>/`.
+The default output folder is `~/Downloads/research-assistant`. Run-store artifacts are also written under `~/.mn/runs/<run_id>/`.
 
 Like VC Assistant, every executable specialist runs through the runtime's
 shared Docker-worker path. `frame_research_problem` and

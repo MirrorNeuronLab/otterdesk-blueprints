@@ -238,7 +238,7 @@
         "mode": "folder_first"
       },
       "input_folder": "@/examples/sample_inputs",
-      "output_folder": "~/Downloads/vc_assistant",
+      "output_folder": "~/Downloads/vc-assistant",
       "public_dataset": {
         "availability_note": "Bundled sample startup documents are synthetic and intended only for local blueprint validation.",
         "expected_files": [
@@ -740,7 +740,7 @@
   },
   "output_skills": {},
   "outputs": {
-    "folder_path": "~/Downloads/vc_assistant",
+    "folder_path": "~/Downloads/vc-assistant",
     "per_company_subfolders": true,
     "write_markdown_report": true,
     "write_run_store": true
@@ -834,7 +834,7 @@
     "final_report": {},
     "input_folder": "@/examples/sample_inputs",
     "monitor_state": {},
-    "output_folder": "~/Downloads/vc_assistant"
+    "output_folder": "~/Downloads/vc-assistant"
   },
   "streams": {
     "enabled": false

@@ -75,7 +75,7 @@
         "type": "local_path"
       },
       {
-        "default": "~/Downloads/drug_discovery",
+        "default": "~/Downloads/drug-discovery-research-assistant",
         "description": "Default local output folder for generated artifacts and reports.",
         "label": "Output folder",
         "path": "outputs.folder_path",

@@ -747,7 +747,7 @@ def test_source_manifest_compiles_to_one_service_and_one_finalizer_with_bounded_
     node_ids = {node["node_id"] for node in expanded["agents"]["nodes"]}
 
     agent = source["response_service"]["agent"]
-    assert read_blueprint(blueprint).manifest["version"] == "1.1.0"
+    assert read_blueprint(blueprint).manifest["version"] == "1.1.1"
     assert source["llm"]["configs"]["primary"]["structured_output_options"] == {
         "temperature": 0
     }

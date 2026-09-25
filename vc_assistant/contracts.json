@@ -96,7 +96,7 @@
     },
     "output_folder": {
       "description": "Local folder where per-company reports and the company index should be written.",
-      "example": "~/Downloads/vc_assistant",
+      "example": "~/Downloads/vc-assistant",
       "path_kind": "directory",
       "privacy": "confidential",
       "required": true,

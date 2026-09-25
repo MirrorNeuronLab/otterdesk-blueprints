@@ -242,6 +242,10 @@ MCP endpoint to the desktop renderer.
 
 ## Outputs and review boundary
 
+Version 1.3.1 sets the default host output folder to
+`~/Downloads/cctv-operator`, matching the declared job name. Previously
+submitted jobs retain their configured destination.
+
 Every report preserves source name, stream observation time, detections,
 confidence, alert records, errors, sampling trigger, instruction revision, and
 batch reference. The durable outputs are:

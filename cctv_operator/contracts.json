@@ -143,7 +143,7 @@
     },
     "output_folder": {
       "description": "Default local output folder for generated artifacts and reports.",
-      "example": "~/Download/cctv_operator",
+      "example": "~/Downloads/cctv-operator",
       "path_kind": "directory",
       "privacy": "internal",
       "required": false,

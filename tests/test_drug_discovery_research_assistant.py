@@ -84,7 +84,7 @@ def test_drug_discovery_manifest_uses_source_format_and_shared_blocks():
     )
     assert "nodes" not in manifest.get("agents", {})
     assert "edges" not in manifest.get("agents", {})
-    assert read_blueprint(BLUEPRINT_DIR).manifest["version"] == "1.0.4"
+    assert read_blueprint(BLUEPRINT_DIR).manifest["version"] == "1.0.5"
     assert "entrypoints" not in manifest["agents"]
     assert "auxiliary_entrypoints" not in manifest["agents"]
     assert "extra_nodes" not in manifest["agents"]
@@ -220,7 +220,7 @@ def test_drug_discovery_uses_logical_default_llm_route():
         "memory_operator": ">=",
         "enforcement": "hard",
     }
-    assert config["outputs"]["folder_path"] == "~/Downloads/drug_discovery"
+    assert config["outputs"]["folder_path"] == "~/Downloads/drug-discovery-research-assistant"
     assert config["inputs"]["payload"]["output_folder"] == config["outputs"]["folder_path"]
     assert config["state"]["output_folder"] == config["outputs"]["folder_path"]
     assert config["llm"]["provider"] == "docker_model_runner"

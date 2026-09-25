@@ -38,6 +38,10 @@ the selected model.
 
 ## Outputs
 
+Version 1.0.2 sets the default host output folder to
+`~/Downloads/financial-advisor`, matching the declared job name. Previously
+submitted jobs retain their configured destination.
+
 - `final_artifact.json`
 - `bank_statement_extraction.json`
 - `household_finance_summary.json`

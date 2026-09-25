@@ -116,7 +116,7 @@
         "require_human_review": true
       },
       "input_folder": "@/examples/sample_inputs",
-      "output_folder": "~/Downloads/research_assistant",
+      "output_folder": "~/Downloads/research-assistant",
       "research_domain": "robotics",
       "research_goal": "Evaluate a shared robotics simulation infrastructure for a review-only pilot across manipulation, navigation, and multi-robot coordination teams.",
       "research_question": "Which simulation infrastructure choices should be tested first to reduce onboarding time and improve experiment comparability, reproducibility, and provenance?",
@@ -624,7 +624,7 @@
   "outputs": {
     "adapter": "local_run_store",
     "artifact_contract": "Source-grounded research brief with ranked hypotheses, adversarial critiques, experiment plans, evidence gaps, and a human-review gate.",
-    "folder_path": "~/Downloads/research_assistant",
+    "folder_path": "~/Downloads/research-assistant",
     "run_root": "~/.mn/runs",
     "skills": {},
     "tcp": {
@@ -710,7 +710,7 @@
       "event_id"
     ],
     "input_folder": "@/examples/sample_inputs",
-    "output_folder": "~/Downloads/research_assistant",
+    "output_folder": "~/Downloads/research-assistant",
     "resume_mode": "none"
   },
   "streams": {},

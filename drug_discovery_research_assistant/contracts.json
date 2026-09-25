@@ -110,7 +110,7 @@
     },
     "output_folder": {
       "description": "Default local output folder for generated artifacts and reports.",
-      "example": "~/Downloads/drug_discovery",
+      "example": "~/Downloads/drug-discovery-research-assistant",
       "path_kind": "directory",
       "privacy": "confidential",
       "required": false,
@@ -426,7 +426,7 @@
     "event": "blueprint_status",
     "heartbeat": true
   },
-  "summary": "Runs one drug-discovery cycle to produce five distinct computational candidates, screens and evaluates them, writes a review packet and molecule preview to ~/Downloads/drug_discovery, then completes.",
+  "summary": "Runs one drug-discovery cycle to produce five distinct computational candidates, screens and evaluates them, writes a review packet and molecule preview to ~/Downloads/drug-discovery-research-assistant, then completes.",
   "users": [
     "Computational biology researchers, scientific AI platform teams, and research operations groups."
   ],

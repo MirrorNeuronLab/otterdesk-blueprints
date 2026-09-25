@@ -33,9 +33,24 @@ def test_indexed_blueprints_leave_host_output_copy_to_runtime():
             assert "output_copy" not in json.dumps(source), (name, document)
         config = json.loads((package / "config/default.json").read_text(encoding="utf-8"))
         if name != "ros_amr_controller":
+            execution = json.loads((package / "execution.json").read_text(encoding="utf-8"))
             folder_path = config["outputs"]["folder_path"]
-            assert folder_path, name
-            assert "{" not in folder_path and "}" not in folder_path, name
+            assert folder_path == f"~/Downloads/{execution['job_name']}", name
+            payload_folder = config.get("inputs", {}).get("payload", {}).get("output_folder")
+            if payload_folder:
+                assert payload_folder == folder_path, name
+            contract = json.loads((package / "contracts.json").read_text(encoding="utf-8"))
+            example = contract.get("inputs", {}).get("output_folder", {}).get("example")
+            if example:
+                assert example == folder_path, name
+            ui_path = package / "extensions/ui.json"
+            if ui_path.is_file():
+                ui = json.loads(ui_path.read_text(encoding="utf-8"))
+                guides = [ui.get("init_config_review", {}), ui.get("setup_guide", {})]
+                for guide in guides:
+                    for field in guide.get("fields", []):
+                        if field.get("path") == "outputs.folder_path" and field.get("default"):
+                            assert field["default"] == folder_path, name
 
 
 def test_catalog_blueprints_declare_job_response_service():

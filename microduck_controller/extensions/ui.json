@@ -34,7 +34,7 @@
       {
         "path": "outputs.folder_path",
         "label": "Output folder",
-        "default": "~/Download/microduck_controller",
+        "default": "~/Downloads/microduck-controller",
         "type": "local_path",
         "path_kind": "directory",
         "description": "Where service artifacts are written."

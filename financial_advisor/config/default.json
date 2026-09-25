@@ -212,7 +212,7 @@
         "max_cycles": 1,
         "poll_interval_seconds": 60
       },
-      "output_folder": "~/Downloads/financial_advisor",
+      "output_folder": "~/Downloads/financial-advisor",
       "portfolio": {
         "base_currency": "USD",
         "cash": 50000,
@@ -526,7 +526,7 @@
       "artifact_quality.json",
       "run_health.json"
     ],
-    "folder_path": "~/Downloads/financial_advisor",
+    "folder_path": "~/Downloads/financial-advisor",
     "write_markdown_report": true,
     "write_run_store": true
   },
