@@ -33,7 +33,9 @@ def test_indexed_blueprints_leave_host_output_copy_to_runtime():
             assert "output_copy" not in json.dumps(source), (name, document)
         config = json.loads((package / "config/default.json").read_text(encoding="utf-8"))
         if name != "ros_amr_controller":
-            assert config["outputs"]["folder_path"], name
+            folder_path = config["outputs"]["folder_path"]
+            assert folder_path, name
+            assert "{" not in folder_path and "}" not in folder_path, name
 
 
 def test_catalog_blueprints_declare_job_response_service():

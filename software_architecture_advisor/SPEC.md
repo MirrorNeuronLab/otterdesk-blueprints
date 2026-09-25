@@ -1,6 +1,6 @@
 # Architecture Advisor contract
 
-Identity: `software_architecture_advisor`, version 2.2.0. This workflow adds a structural baseline before adaptive investigation; existing runs retain their previous workflow version.
+Identity: `software_architecture_advisor`, version 2.2.1. This workflow adds a structural baseline before adaptive investigation; version 2.2.1 aligns the default output folder and OtterDesk link with the `architecture-advisor` job name. Existing runs retain their previous workflow version.
 
 ## Inputs and policy
 
@@ -36,7 +36,7 @@ The setup guide exposes the investigation goal so the human can steer the decisi
 
 ## Artifacts and execution
 
-Canonical artifact paths are authored in `contracts.json`. Confidential large artifacts are durably stored under the run directory before specialist output. The source snapshot identifies its evidence graph and immutable sources under `evidence/snapshots/<snapshot-id>/`; graph generations and query audit remain available for review. The standard `outputs.folder_path` contract stages the completed presentation bundle in shared storage and lets the SDK copy it to `~/Downloads/{job_name}` on the submitting host. That bundle includes canonical report and prompt files, familiar `architecture_*` and `improvement_prompts.*` presentation names, a prompt index, and one copy-ready task per finding. No new REST server or standalone lifecycle is bundled.
+Canonical artifact paths are authored in `contracts.json`. Confidential large artifacts are durably stored under the run directory before specialist output. The source snapshot identifies its evidence graph and immutable sources under `evidence/snapshots/<snapshot-id>/`; graph generations and query audit remain available for review. The standard `outputs.folder_path` contract stages the completed presentation bundle in shared storage and lets the SDK copy it to `~/Downloads/architecture-advisor` on the submitting host. That concrete path is also the OtterDesk output-folder link target. The bundle includes canonical report and prompt files, familiar `architecture_*` and `improvement_prompts.*` presentation names, a prompt index, and one copy-ready task per finding. No new REST server or standalone lifecycle is bundled.
 
 All steps use `mn-agents.worker.python_docker@1`, sharing the run's durable data plane. The worker image includes the graph binary copied from the public digest-pinned GAR image; platform-declared agents, skills, and SDK components are installed by the platform. Blueprint launch does not require gcloud or Git credentials. An unmodified launch reviews Archmind; the synthetic fixture is only an explicit example/test input. Offline mode is opt-in and never a live-provider fallback.
 

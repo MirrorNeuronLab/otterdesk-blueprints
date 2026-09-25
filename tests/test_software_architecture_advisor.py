@@ -44,12 +44,30 @@ def test_compiled_contract_and_docker_handlers(modules):
     assert all(g['uses'] == 'mn-agents.worker.python_docker@1' for g in groups)
 
 
-def test_default_output_uses_sdk_host_copy_contract():
+def test_default_output_uses_sdk_host_copy_contract(tmp_path, monkeypatch):
+    from mn_sdk.submission import prepare_job_submission
+
     config=json.loads((BLUEPRINT/'config/default.json').read_text())
+    execution=json.loads((BLUEPRINT/'execution.json').read_text())
     assert 'output_folder' not in config
     assert config['inputs']['payload']['repository_url']=='https://github.com/homerquan/Archmind'
-    assert config['outputs']['folder_path']=='~/Downloads/{job_name}'
+    assert execution['job_name']=='architecture-advisor'
+    assert config['outputs']['folder_path']==f"~/Downloads/{execution['job_name']}"
     assert config['outputs']['write_run_store'] is True
+
+    monkeypatch.setenv('HOME',str(tmp_path))
+    manifest={
+        'apiVersion':'mn.workflow/v1', 'kind':'Workflow', 'id':'software_architecture_advisor',
+        'job_name':execution['job_name'], 'contract':{}, 'runtime':{},
+        'agents':{'nodes':[{'node_id':'report', 'config':{'environment':{
+            'MN_BLUEPRINT_CONFIG_JSON':json.dumps(config),
+        }}}]},
+    }
+    prepared=prepare_job_submission(manifest, {}, shared_storage_root=tmp_path/'shared',
+                                    runtime_shared_storage_root='/remote/shared')
+    copies=json.loads(prepared.manifest_json)['metadata']['mn_storage']['output_copy']
+    assert any(item['target_path']==str(tmp_path/'Downloads/architecture-advisor')
+               for item in copies)
 
 
 def test_structural_baseline_has_source_linked_edges_cycles_and_bounded_dsm(modules, tmp_path):

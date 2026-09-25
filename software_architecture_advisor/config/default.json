@@ -89,7 +89,7 @@
   "outputs": {
     "adapter": "local_run_store",
     "artifact_contract": "Read-only architecture review, evidence audit, and copy-ready implementation prompts; no source changes.",
-    "folder_path": "~/Downloads/{job_name}",
+    "folder_path": "~/Downloads/architecture-advisor",
     "run_root": "~/.mn/runs",
     "write_run_store": true
   },

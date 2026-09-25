@@ -2,7 +2,7 @@
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/manifest.schema.json",
   "id": "software_architecture_advisor",
   "name": "Architecture Advisor",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "description": "Reviews your codebase to explain its architecture and identify improvements. Produces prioritized suggestions with source citations, alternative explanations, and follow-up tasks.",
   "workflow": "workflow.json",
   "execution": "execution.json",
