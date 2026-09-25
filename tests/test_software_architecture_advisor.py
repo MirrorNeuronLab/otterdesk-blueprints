@@ -48,6 +48,28 @@ def test_default_output_uses_sdk_host_copy_contract():
     assert config['outputs']['write_run_store'] is True
 
 
+def test_desktop_sample_selects_public_repository_without_graph_export(modules):
+    ui=json.loads((BLUEPRINT/'extensions/ui.json').read_text())
+    guide=ui['setup_guide']
+    sample=guide['sample']['values']
+    fields={field['path']: field for field in guide['fields']}
+    assert guide['sample']['available'] is True
+    assert fields['inputs.payload.graph_export']['path_kind']=='file'
+    assert fields['inputs.payload.input_folder']['activeWhenAny']==[
+        {'key': 'inputs.payload.repository_url', 'equals': ''}
+    ]
+    assert sample['inputs.payload.graph_export']==''
+    assert sample['inputs.payload.input_folder']==''
+    assert modules['intake'].source_input({
+        'repository_url': sample['inputs.payload.repository_url'],
+        'input_folder': sample['inputs.payload.input_folder'],
+    })=='https://github.com/homerquan/Archmind.git'
+    assert modules['intake'].source_input({
+        'repository_url': '',
+        'input_folder': str(BLUEPRINT/'examples/sample_repository'),
+    })==str(BLUEPRINT/'examples/sample_repository')
+
+
 def test_presentation_bundle_has_familiar_names_and_prompt_files(modules,tmp_path):
     report={'findings':[{'id':'H01','hypothesis':{'module':'payments.service'},
                          'assessment':{'verdict':'supported'}}]}

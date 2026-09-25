@@ -4,6 +4,56 @@
     "required": false,
     "fields": []
   },
+  "setup_guide": {
+    "schema": "otterdesk.setup_guide.v1",
+    "introduction": "Try the public example repository or choose a local source folder.",
+    "sample": {
+      "available": true,
+      "title": "Archmind example",
+      "description": "Review the public Archmind repository with the default goal.",
+      "expected_output": "An architecture report and cited follow-up tasks.",
+      "values": {
+        "inputs.payload.repository_url": "https://github.com/homerquan/Archmind",
+        "inputs.payload.input_folder": "",
+        "inputs.payload.graph_export": ""
+      }
+    },
+    "real": {
+      "introduction": "Enter a public GitHub repository URL or choose a local source folder.",
+      "values": {
+        "inputs.payload.repository_url": "",
+        "inputs.payload.input_folder": "",
+        "inputs.payload.graph_export": ""
+      }
+    },
+    "fields": [
+      {
+        "path": "inputs.payload.repository_url",
+        "label": "Repository URL",
+        "type": "url",
+        "default": "https://github.com/homerquan/Archmind",
+        "description": "Public GitHub repository root. Leave empty when using a local folder."
+      },
+      {
+        "path": "inputs.payload.input_folder",
+        "label": "Source folder",
+        "type": "local_path",
+        "path_kind": "directory",
+        "role": "input",
+        "requiredModes": ["real"],
+        "activeWhenAny": [{ "key": "inputs.payload.repository_url", "equals": "" }],
+        "description": "Local source folder, staged for the worker."
+      },
+      {
+        "path": "inputs.payload.graph_export",
+        "label": "Graph export",
+        "type": "local_path",
+        "path_kind": "file",
+        "role": "input",
+        "description": "Optional evidence graph export file."
+      }
+    ]
+  },
   "starter_questions": [
     "Review the architecture of this GitHub repository.",
     "Investigate coupling and counter-evidence in my local source folder.",

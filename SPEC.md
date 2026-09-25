@@ -80,6 +80,9 @@ Live coordination messages contain bounded data and artifact references. Large,
 sensitive, or authoritative results are durably written before a handler
 returns. Duplicate delivery is safe through invocation idempotency and
 deterministic artifact paths.
+Blueprints publish run artifacts into the SDK-provided shared output paths.
+The SDK and runtime derive and deliver any configured host output-folder copy;
+source manifests and payloads must not implement a separate host copy.
 
 Bundle-local config paths use SDK `@/` references and are resolved by the shared
 staging/runtime contract. Blueprint code consumes resolved paths and does not

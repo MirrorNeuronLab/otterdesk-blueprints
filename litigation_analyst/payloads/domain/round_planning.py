@@ -42,8 +42,12 @@ def plan_round(context, work, *, llm_client=None):
             "Stop requires a concrete reason and an empty hypotheses list. Do not stop before examining evidence. ",
             {"goal": frozen["payload"]["goal"], "revision": revision, "prior_findings": previous,
              "remaining_rounds": cfg["max_rounds"] - revision, "graph_views": QUERIES}, schema, llm_client)
+        if value["decision"] == "execute" and not value["hypotheses"]:
+            if not revision:
+                raise ValueError("Execute requires distinct enquiries")
+            value = {"decision": "stop", "rationale": "no_distinct_enquiries_proposed", "hypotheses": []}
         if value["decision"] == "execute":
-            if not value["hypotheses"] or len({h["id"] for h in value["hypotheses"]}) != len(value["hypotheses"]):
+            if len({h["id"] for h in value["hypotheses"]}) != len(value["hypotheses"]):
                 raise ValueError("Execute requires distinct enquiries")
             from .round_tasks import validate_graph_query
             for h in value["hypotheses"]:

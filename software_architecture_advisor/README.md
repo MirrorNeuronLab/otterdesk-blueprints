@@ -7,6 +7,8 @@ By default, a run reviews the public `https://github.com/homerquan/Archmind` rep
 - `repository_url`: public HTTPS GitHub repository root, such as `https://github.com/pallets/itsdangerous` (optional `.git`). Credentials, non-GitHub hosts, branches in URLs, redirects, SSH URLs, query strings and fragments are rejected.
 - `input_folder`: local source directory. The platform stages it for the worker. Clone private repositories yourself and supply the local folder.
 
+In OtterDesk, **Try a sample** runs that public Archmind review. It leaves the optional graph export empty. **Setup** accepts another public GitHub URL or a local source folder, plus an optional graph export file.
+
 Optional `goal` focuses the investigation. Optional `graph_export` supplies a version-1 or version-2 graph with exact source provenance. Python receives structural AST analysis; other supported source languages are retrievable text and require an export declaring modules for structural investigation. A repository without structural modules reports an explicit failure.
 
 ## Prepare and run

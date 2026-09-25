@@ -46,6 +46,9 @@ The four parent phases remain source preparation → index building → investig
 5. The planner revises enquiries or stops. Replanning occurs only after all
    committed tasks complete; the parent cannot publish while children are running.
 
+If a later plan selects execute but proposes no enquiries, the investigation
+finishes with a recorded coverage limitation and publishes the reviewed draft.
+
 Tasks execute serially to protect the case evidence database. Core owns admission,
 routing, retries, and completion; the blueprint only proposes admitted task templates.
 The default is at most three rounds, two enquiries per round, and seven child steps

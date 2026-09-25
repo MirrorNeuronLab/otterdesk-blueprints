@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from blueprint_modernization_support import blueprint_path
@@ -21,6 +22,18 @@ RAG_BLUEPRINTS = {
     "ros_amr_controller",
     "vc_assistant",
 }
+
+
+def test_indexed_blueprints_leave_host_output_copy_to_runtime():
+    root = Path(__file__).resolve().parents[1]
+    for name in json.loads((root / "index.json").read_text(encoding="utf-8")):
+        package = root / name
+        for document in ("manifest.json", "workflow.json", "execution.json", "contracts.json", "config/default.json"):
+            source = json.loads((package / document).read_text(encoding="utf-8"))
+            assert "output_copy" not in json.dumps(source), (name, document)
+        config = json.loads((package / "config/default.json").read_text(encoding="utf-8"))
+        if name != "ros_amr_controller":
+            assert config["outputs"]["folder_path"], name
 
 
 def test_catalog_blueprints_declare_job_response_service():

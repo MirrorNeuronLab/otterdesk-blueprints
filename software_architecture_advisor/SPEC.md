@@ -1,10 +1,12 @@
 # Architecture Advisor contract
 
-Identity: `software_architecture_advisor`, version 2.1.4. Source: Spark `/home/homer/Sandbox/legal_case/software_architecture_advisor`.
+Identity: `software_architecture_advisor`, version 2.1.5. Source: Spark `/home/homer/Sandbox/legal_case/software_architecture_advisor`.
 
 ## Inputs and policy
 
 Exactly one of `repository_url` or `input_folder` is required by domain validation. The default input is the public `https://github.com/homerquan/Archmind` repository. The manifest exposes the alternative fields as optional because either source can be selected; local-folder runs clear the default URL. The default goal asks for an actionable boundary/coupling concern and counter-evidence. `graph_export` is optional and must refer to indexed source paths with exact line spans. Versions 1 and 2 retain supplied-evidence labels. No source repository file can override the operator's knowledge library or runtime configuration.
+
+OtterDesk's sample profile uses the default public repository URL and no graph export. Setup accepts another public URL or a local source; the local source is required when the URL is empty. Empty optional source fields are treated as unselected.
 
 Defaults: 5,000 source files, 500 KB per file, 20 MB aggregate source bytes, 650-character windows, 200 non-merge Git commits; thirty chat-model calls (six reserved for final review), three rounds, three hypotheses per round, six distinct hypotheses, sixty graph/search operations, a twenty-minute investigation budget, twenty rows and top-three retrieval. Oversized/non-UTF8 files are reported as skipped; aggregate count/byte breaches fail capture. Symlinks, hidden/build folders and output artifacts are excluded. No source code is imported or executed. Public HTTPS GitHub acquisition disables hooks, templates, redirects, global Git configuration, credential prompting and submodules, with a 180-second timeout. Each acquisition retains its own checkout and captured HEAD.
 

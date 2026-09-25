@@ -22,7 +22,8 @@ and acceptance decisions. Workers execute committed tasks deterministically;
 replanning occurs between completed rounds. Up to two enquiries per round and
 three rounds produce at most seven steps per round. Evidence, assessment and
 independent review workers run serially to avoid competing SQLite mutations.
-Unchanged repeated enquiry work stops with an explicit coverage limitation.
+Unchanged repeated enquiry work, or an empty execute proposal after a completed
+round, stops with an explicit coverage limitation.
 Model/validation/tool failures fail the workflow, not a simulated successful
 investigation. Cancellation and elapsed deadlines are checked between rounds.
 

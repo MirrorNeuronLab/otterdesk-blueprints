@@ -99,6 +99,37 @@ def test_cancel_before_planning_writes_explicit_partial_draft(dynamic_case, modu
     assert 'cancelled' in (context['run_dir']/'final_report.md').read_text()
 
 
+def test_replanning_stops_when_no_enquiries_are_proposed(dynamic_case):
+    from domain.round_planning import plan_round
+    context, ref = dynamic_case
+    model = RoundModel()
+    first = plan_round(context, {'context': ref, '_child': {'revision': 0}}, llm_client=model)
+    execute_round(context, ref, first, model)
+
+    class InvalidReplan(RoundModel):
+        def completion_text(self, system, user):
+            if json.loads(user)['stage'] == 'plan':
+                return json.dumps({'decision': 'execute', 'rationale': 'Keep looking.',
+                                   'hypotheses': []})
+            return super().completion_text(system, user)
+
+    stopped = plan_round(context, {'context': ref, '_child': {'revision': 1}}, llm_client=InvalidReplan())
+    assert stopped['child_plan']['decision'] == 'stop'
+    assert stopped['child_plan']['reason'] == 'no_distinct_enquiries_proposed'
+
+
+def test_first_round_still_requires_an_enquiry(dynamic_case):
+    from domain.round_planning import plan_round
+    context, ref = dynamic_case
+
+    class EmptyPlan(RoundModel):
+        def completion_text(self, system, user):
+            return json.dumps({'decision': 'execute', 'rationale': 'Keep looking.', 'hypotheses': []})
+
+    with pytest.raises(ValueError, match='distinct enquiries'):
+        plan_round(context, {'context': ref, '_child': {'revision': 0}}, llm_client=EmptyPlan())
+
+
 def test_task_hash_and_graph_mutations_are_rejected(dynamic_case):
     from domain.round_planning import plan_round
     from domain.round_tasks import collect_evidence, validate_graph_query

@@ -30,6 +30,9 @@ def github_url(source):
 
 def source_input(payload):
     folder, url = payload.get("input_folder"), payload.get("repository_url")
+    # Setup forms represent an unselected optional source as an empty string.
+    folder = None if folder == "" else folder
+    url = None if url == "" else url
     if (folder is None) == (url is None):
         raise ValueError("Specify exactly one of input_folder or repository_url")
     if url is not None:
