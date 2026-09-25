@@ -26,7 +26,6 @@ from domain.analysis import build_company_evidence_summaries
 from domain.common import (
     BLUEPRINT_ID,
     BLUEPRINT_NAME,
-    KNOWLEDGE_PLAYBOOK_RELATIVE_PATH,
     METHOD_IDS,
     OUTPUT_TYPE,
     RECOMMENDED_ACTION,
@@ -170,7 +169,7 @@ def run_batch_index_writer(
             "artifact_quality.json",
             "run_health.json",
             "company_index.json",
-            KNOWLEDGE_PLAYBOOK_RELATIVE_PATH,
+            *(item["path"] for item in active_knowledge.get("documents") or []),
         ],
         "active_knowledge": active_knowledge_reference(active_knowledge),
         "knowledge_rag": public_knowledge_rag_state(knowledge_rag),

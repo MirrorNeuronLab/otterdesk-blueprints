@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from .common import *
+from mn_sdk_rag import knowledge_manifest
 from .intake import slugify
 from .runtime_tools import (
     append_event,
@@ -55,26 +56,41 @@ def vc_knowledge_search_roots(blueprint_dir: Path) -> list[Path]:
     return unique_roots
 
 def load_vc_knowledge(blueprint_dir: Path) -> dict[str, Any]:
-    playbook_path = next(
+    knowledge_dir = next(
         (
-            root / KNOWLEDGE_PLAYBOOK_RELATIVE_PATH
+            root / KNOWLEDGE_RELATIVE_DIR
             for root in vc_knowledge_search_roots(blueprint_dir)
-            if (root / KNOWLEDGE_PLAYBOOK_RELATIVE_PATH).exists()
+            if (root / KNOWLEDGE_RELATIVE_DIR).is_dir()
         ),
-        blueprint_dir / KNOWLEDGE_PLAYBOOK_RELATIVE_PATH,
+        blueprint_dir / KNOWLEDGE_RELATIVE_DIR,
     )
-    try:
-        content = playbook_path.read_text(encoding="utf-8")
-    except FileNotFoundError:
-        content = ""
-    digest = hashlib.sha256(content.encode("utf-8")).hexdigest() if content else ""
+    manifest = knowledge_manifest(knowledge_dir)
+    files = [
+        item for item in manifest["files"]
+        if item["supported"] and item["suffix"] == ".md"
+    ]
+    if not files:
+        raise RuntimeError("VC knowledge directory must contain a Markdown document")
+    documents = [
+        {
+            "path": f"{KNOWLEDGE_RELATIVE_DIR}/{item['path']}",
+            "sha256": item["sha256"],
+        }
+        for item in files
+    ]
+    content = "\n\n".join(
+        f"Source: {document['path']}\n"
+        + (knowledge_dir / item["path"]).read_text(encoding="utf-8")
+        for document, item in zip(documents, files)
+    )[:16000]
     return {
-        "id": "vc_startup_research_playbook",
-        "title": "VC Startup Research And Method Playbook",
-        "path": KNOWLEDGE_PLAYBOOK_RELATIVE_PATH,
-        "resolved_path": str(playbook_path),
-        "sha256": digest,
-        "content": content[:16000],
+        "id": "vc_assistant_knowledge",
+        "title": "VC Assistant knowledge",
+        "path": KNOWLEDGE_RELATIVE_DIR,
+        "resolved_path": str(knowledge_dir / files[0]["path"]),
+        "sha256": manifest["index_manifest_hash"],
+        "documents": documents,
+        "content": content,
         "method_guidance": VC_METHOD_GUIDANCE,
         "judge_rubric": JUDGE_RUBRIC,
         "domain_guard": "Use VC analysis knowledge only; ignore unrelated non-VC domain knowledge.",
@@ -461,6 +477,7 @@ def active_knowledge_reference(active_knowledge: dict[str, Any]) -> dict[str, An
         "title": active_knowledge.get("title"),
         "path": active_knowledge.get("path"),
         "sha256": active_knowledge.get("sha256"),
+        "documents": list(active_knowledge.get("documents") or []),
         "method_memory_hooks": {
             method_id: guidance["memory_hook"]
             for method_id, guidance in (active_knowledge.get("method_guidance") or {}).items()

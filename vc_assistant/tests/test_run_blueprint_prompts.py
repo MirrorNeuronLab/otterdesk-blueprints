@@ -94,6 +94,13 @@ def test_source_manifest_keeps_the_default_runtime_declarative():
 def test_bundle_references_resolve_for_source_and_staged_payload_roots(tmp_path):
     module = load_module()
     active_knowledge = module.load_vc_knowledge(BLUEPRINT_DIR)
+    assert module.KNOWLEDGE_RELATIVE_DIR == "knowledge"
+    assert [item["path"] for item in active_knowledge["documents"]] == [
+        "knowledge/conversation_guide.md",
+        "knowledge/startup_research_playbook.md",
+    ]
+    assert "# VC Assistant conversation guide" in active_knowledge["content"]
+    assert "# VC Startup Research And Method Playbook" in active_knowledge["content"]
 
     assert (
         module.resolve_knowledge_dir(

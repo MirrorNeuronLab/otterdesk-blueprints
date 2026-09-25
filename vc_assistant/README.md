@@ -107,7 +107,9 @@ startup materials.
 
 Each configured VC Assistant job owns persistent `knowledge/`,
 `databases/rag/`, and `state/`. Bundled diligence knowledge seeds once; later
-runs preserve edits and reuse one Milvus Lite database. The SDK RAG package
+runs preserve edits and reuse one Milvus Lite database. The RAG index includes
+the bundled research playbook and conversation guide. The VC knowledge
+reference lists both documents, and the SDK RAG package
 single-flights startup indexing and serves parallel agent retrieval through one
 connection. Pitch inputs, reports, logs, and ordinary artifacts remain
 independent by `run_id`.

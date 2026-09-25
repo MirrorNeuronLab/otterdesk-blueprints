@@ -358,15 +358,9 @@ _KNOWLEDGE_DIRECTORY = resolve_bundle_path(
     bundle_root=_KNOWLEDGE_LAYOUT.root,
     payload_root=_KNOWLEDGE_LAYOUT.payload_root,
 )
-_KNOWLEDGE_DOCUMENTS = sorted(
-    _KNOWLEDGE_DIRECTORY.glob("*.md")
-)
-if len(_KNOWLEDGE_DOCUMENTS) != 1:
-    raise RuntimeError("VC knowledge_rag.knowledge_dir must contain one Markdown playbook")
-KNOWLEDGE_PLAYBOOK_RELATIVE_PATH = str(
-    _KNOWLEDGE_DIRECTORY.relative_to(_KNOWLEDGE_LAYOUT.payload_root)
-    / _KNOWLEDGE_DOCUMENTS[0].name
-)
+KNOWLEDGE_RELATIVE_DIR = _KNOWLEDGE_DIRECTORY.relative_to(
+    _KNOWLEDGE_LAYOUT.payload_root
+).as_posix()
 
 _AGENTIC_RESEARCH_DEFAULTS = (
     _SOURCE_MANIFEST.get("agentic_research")

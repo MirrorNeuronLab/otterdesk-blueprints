@@ -1669,10 +1669,14 @@ def test_vc_knowledge_excludes_stale_non_domain_terms():
     knowledge = runner.load_vc_knowledge(ROOT.parent / "mn-blueprints" / "vc_assistant")
     serialized = json.dumps(knowledge).lower()
 
-    assert knowledge["path"] == "knowledge/startup_research_playbook.md"
-    assert knowledge["resolved_path"].endswith(
-        "vc_assistant/payloads/knowledge/startup_research_playbook.md"
+    assert knowledge["path"] == "knowledge"
+    assert Path(knowledge["resolved_path"]).parent == (
+        BLUEPRINT_DIR / "payloads" / "knowledge"
     )
+    assert [item["path"] for item in knowledge["documents"]] == [
+        "knowledge/conversation_guide.md",
+        "knowledge/startup_research_playbook.md",
+    ]
     assert "Berkus Method" in playbook
     assert "Scorecard / Bill Payne Method" in playbook
     assert "VC Method" in playbook
@@ -2761,7 +2765,7 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(
     )
     assert (
         run_artifact["active_knowledge"]["path"]
-        == "knowledge/startup_research_playbook.md"
+        == "knowledge"
     )
     assert run_artifact["active_knowledge"]["sha256"]
     assert set(run_artifact["active_knowledge"]["method_memory_hooks"]) == METHOD_IDS
